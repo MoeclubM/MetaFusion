@@ -1,0 +1,26 @@
+<svg width="280" height="48" viewBox="0 0 280 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="mfLogoTitle"><title id="mfLogoTitle">MetaFusion — FRBR Archive</title><style>:root{color-scheme:light dark}svg{color:#f8fafc}@media(prefers-color-scheme:light){svg{color:#0f172a}}</style>
+<g transform="translate(4 8)">
+<path d="M9 2H23L30 9V23L23 30H9L2 23V9L9 2Z" fill="none" stroke="currentColor" stroke-opacity="0.14" stroke-width="1.05"/>
+<path d="M10.2 3.6H21.8L28.4 10.2V21.8L21.8 28.4H10.2L3.6 21.8V10.2L10.2 3.6Z" fill="none" stroke="currentColor" stroke-opacity="0.05" stroke-width="0.65"/>
+<path d="M7.2 7.6V4.6H10.2" stroke="currentColor" stroke-opacity="0.18" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M21.8 4.6H24.8V7.6" stroke="currentColor" stroke-opacity="0.18" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M24.8 24.4V27.4H21.8" stroke="currentColor" stroke-opacity="0.18" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M10.2 27.4H7.2V24.4" stroke="currentColor" stroke-opacity="0.18" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>
+<ellipse cx="16" cy="16" rx="10.4" ry="6.15" fill="none" stroke="currentColor" stroke-opacity="0.10" stroke-width="0.65" stroke-dasharray="1.15 1.7" stroke-linecap="round"/>
+<path d="M10.85 21.55L13.28 9.85L16 16.35L18.72 9.85L21.15 21.55" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M12.95 17.55L14.05 12.55" stroke="currentColor" stroke-opacity="0.38" stroke-width="0.75" stroke-linecap="round"/>
+<path d="M19.05 17.55L17.95 12.55" stroke="currentColor" stroke-opacity="0.38" stroke-width="0.75" stroke-linecap="round"/>
+<line x1="11.2" y1="15.42" x2="20.8" y2="15.42" stroke="#3b82f6" stroke-width="1.05" stroke-linecap="round"/>
+<circle cx="11.2" cy="15.42" r="0.95" fill="#3b82f6"/>
+<circle cx="20.8" cy="15.42" r="0.95" fill="#3b82f6"/>
+<rect x="14.78" y="14.2" width="2.44" height="2.44" transform="rotate(45 16 15.42)" fill="#3b82f6" stroke="white" stroke-opacity="0.88" stroke-width="0.45"/>
+<rect x="15.42" y="14.84" width="1.16" height="1.16" transform="rotate(45 16 15.42)" fill="white" opacity="0.96"/>
+<g opacity="0.32">
+<rect x="10.1" y="23.2" width="1.15" height="1.15" rx="0.2" fill="currentColor" fill-opacity="0.45"/>
+<rect x="15.02" y="23.2" width="1.96" height="1.15" rx="0.2" fill="currentColor" fill-opacity="0.20"/>
+<rect x="20.75" y="23.2" width="1.15" height="1.15" rx="0.2" fill="#3b82f6"/>
+</g>
+</g>
+<text x="46" y="24" font-family="Instrument Serif, Georgia, serif" font-size="22" font-weight="400" letter-spacing="-0.6" fill="currentColor">MetaFusion</text>
+<text x="46" y="36" font-family="JetBrains Mono, monospace" font-size="8.6" letter-spacing="1.45" fill="currentColor" opacity="0.38">FRBR ARCHIVE — SINCE 2026</text>
+</svg>

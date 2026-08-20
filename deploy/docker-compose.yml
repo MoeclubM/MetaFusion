@@ -1,0 +1,222 @@
+services:
+  # --------------------------------------------------------------------------
+  # 0. 边缘网关与反向代理 (Nginx) — 统一入口 /api/* -> backend, /* -> frontend
+  # --------------------------------------------------------------------------
+  gateway:
+    image: nginx:1.25-alpine
+    container_name: metafusion-gateway
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+      - minio
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 1. 前端应用 (Next.js 15 — 含 /admin 管理后台)
+  # --------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: metafusion-frontend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://backend:8080/api/v1
+    depends_on:
+      - backend
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 2. 后端业务核心 API (Go 模块化单体)
+  # --------------------------------------------------------------------------
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: server
+    container_name: metafusion-backend
+    restart: unless-stopped
+    environment:
+      - PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-metafusion}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      - DB_NAME=${DB_NAME:-metafusion_db}
+      - REDIS_ADDR=redis:6379
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - S3_ENDPOINT=http://minio:9000
+      - S3_PUBLIC_ENDPOINT=${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
+      - S3_BUCKET_MASTER=metafusion-master
+      - S3_BUCKET_PREVIEW=metafusion-preview
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 3. 异步转码与质检流水线 Worker (Go Asynq + FFmpeg + libvips)
+  # --------------------------------------------------------------------------
+  transcoder-worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: worker
+    container_name: metafusion-worker
+    restart: unless-stopped
+    environment:
+      - REDIS_ADDR=redis:6379
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-metafusion}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      - DB_NAME=${DB_NAME:-metafusion_db}
+      - S3_ENDPOINT=http://minio:9000
+      - S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
+      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
+      - S3_BUCKET_MASTER=metafusion-master
+      - S3_BUCKET_PREVIEW=metafusion-preview
+      - MAX_CONCURRENT_VIDEO_TASKS=2
+    # 若宿主机具备 NVIDIA GPU，可解开以下注释启用硬件加速
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    depends_on:
+      - redis
+      - postgres
+      - minio
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 4. 主关系数据库 (PostgreSQL 16)
+  # --------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: metafusion-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${DB_USER:-metafusion}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      - POSTGRES_DB=${DB_NAME:-metafusion_db}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init_db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-metafusion} -d ${DB_NAME:-metafusion_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 5. 分布式缓存与任务队列 (Redis 7)
+  # --------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: metafusion-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 6. 全文与多维聚合搜索引擎 (Elasticsearch 8)
+  # --------------------------------------------------------------------------
+  elasticsearch:
+    image: elasticsearch:8.13.4
+    container_name: metafusion-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q 'status'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 7. S3 兼容对象存储 (MinIO)
+  # --------------------------------------------------------------------------
+  minio:
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    container_name: metafusion-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 8. MinIO 初始化辅助容器 (自动创建桶与 CORS 策略)
+  # --------------------------------------------------------------------------
+  minio-init:
+    image: minio/mc:latest
+    container_name: metafusion-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 3;
+      /usr/bin/mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      /usr/bin/mc mb local/metafusion-master --ignore-existing;
+      /usr/bin/mc mb local/metafusion-preview --ignore-existing;
+      /usr/bin/mc anonymous set download local/metafusion-preview;
+      echo 'MinIO buckets initialized successfully.';
+      exit 0;
+      "
+    networks:
+      - metafusion-net
+
+networks:
+  metafusion-net:
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
+  es_data:
+  minio_data:
+  nginx_logs:

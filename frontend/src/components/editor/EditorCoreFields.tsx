@@ -1,0 +1,354 @@
+"use client";
+
+import React, { useState } from "react";
+import { Plus, X, Globe2, Tag as TagIcon, Sparkles } from "lucide-react";
+import { useI18n } from "@/i18n/I18nProvider";
+
+interface Props {
+  targetType: "work" | "artist" | "release";
+  formData: Record<string, any>;
+  updateField: (key: string, val: any) => void;
+  aliasesStr: string;
+  setAliasesStr: (val: string) => void;
+  taxonomy?: any;
+}
+
+const COMMON_TAG_SUGGESTIONS = [
+  "原声带", "OST", "J-POP", "动画", "剧场版", "交响乐", "视觉小说", "同人音乐",
+  "角色歌", "电子", "摇滚", "器乐", "科幻", "治愈", "轻小说", "漫画", "插画"
+];
+
+const LANGUAGE_OPTIONS = [
+  { code: "zh-Hans", label: "简体中文 (Simplified Chinese)" },
+  { code: "zh-Hant", label: "繁體中文 (Traditional Chinese)" },
+  { code: "ja", label: "日本語 (Japanese)" },
+  { code: "en", label: "English (英语)" },
+  { code: "ko", label: "한국어 (Korean)" },
+  { code: "other", label: "其他语言 (Other)" },
+];
+
+export function EditorCoreFields({
+  targetType,
+  formData,
+  updateField,
+  aliasesStr,
+  setAliasesStr,
+}: Props) {
+  const { t } = useI18n();
+  const [newTagInput, setNewTagInput] = useState("");
+
+  const tags: string[] = Array.isArray(formData.tags)
+    ? formData.tags.map((t: any) => (typeof t === "string" ? t : t.name))
+    : [];
+
+  const names: Record<string, string> = formData.names || {};
+
+  const handleUpdateName = (langKey: string, val: string) => {
+    const updated = { ...names, [langKey]: val };
+    updateField("names", updated);
+  };
+
+  const handleAddTag = (tagToAdd: string) => {
+    const clean = tagToAdd.replace(/^#/, "").trim();
+    if (!clean || tags.includes(clean)) return;
+    updateField("tags", [...tags, clean]);
+    setNewTagInput("");
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    updateField(
+      "tags",
+      tags.filter((t) => t !== tagToRemove)
+    );
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* ── 1. 多语言基础标识 (Multilingual Identification) ── */}
+      <div className="p-4 rounded-card bg-white/[0.02] border border-white/[0.06] space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Globe2 className="w-4 h-4 text-amber-400" />
+            <h3 className="text-xs font-semibold text-white">{t("editor.core.multilingualTitle")}</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] font-mono text-gray-400">{t("editor.core.primaryLangLabel")}</label>
+            <select
+              value={formData.primary_language || "zh-Hans"}
+              onChange={(e) => updateField("primary_language", e.target.value)}
+              className="px-2.5 py-1 rounded bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+            >
+              {LANGUAGE_OPTIONS.map((opt) => (
+                <option key={opt.code} value={opt.code}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Primary Title / Name */}
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="block text-xs font-mono text-gray-300">
+              {t("editor.core.primaryTitleLabel")} <span className="text-amber-400">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.title || formData.name || formData.edition_name || ""}
+              onChange={(e) => {
+                if (targetType === "work") updateField("title", e.target.value);
+                else if (targetType === "artist") updateField("name", e.target.value);
+                else updateField("edition_name", e.target.value);
+              }}
+              placeholder={t("editor.core.primaryTitlePlaceholder")}
+              className="w-full px-3.5 py-2.5 rounded-card bg-background border border-white/10 text-white text-xs font-medium focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
+          {/* Chinese Name */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-mono text-gray-400">{t("editor.core.chineseName")}</label>
+            <input
+              type="text"
+              value={names["zh-CN"] || ""}
+              onChange={(e) => handleUpdateName("zh-CN", e.target.value)}
+              placeholder={t("editor.core.chinesePlaceholder")}
+              className="w-full px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
+          {/* Japanese Native Name */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-mono text-gray-400">{t("editor.core.japaneseNative")}</label>
+            <input
+              type="text"
+              value={formData.original_title || formData.original_name || names["ja-JP"] || ""}
+              onChange={(e) => {
+                if (targetType === "work") updateField("original_title", e.target.value);
+                else updateField("original_name", e.target.value);
+                handleUpdateName("ja-JP", e.target.value);
+              }}
+              placeholder={t("editor.core.japanesePlaceholder")}
+              className="w-full px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
+          {/* Romaji / Latin Transliteration */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-mono text-gray-400">{t("editor.core.romaji")}</label>
+            <input
+              type="text"
+              value={names["ja-Latn"] || ""}
+              onChange={(e) => handleUpdateName("ja-Latn", e.target.value)}
+              placeholder={t("editor.core.romajiPlaceholder")}
+              className="w-full px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+            />
+          </div>
+
+          {/* English International Name */}
+          <div className="space-y-1.5">
+            <label className="block text-xs font-mono text-gray-400">{t("editor.core.englishName")}</label>
+            <input
+              type="text"
+              value={names["en-US"] || ""}
+              onChange={(e) => handleUpdateName("en-US", e.target.value)}
+              placeholder={t("editor.core.englishPlaceholder")}
+              className="w-full px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+            />
+          </div>
+        </div>
+
+        {/* Aliases */}
+        <div className="space-y-1.5 pt-2 border-t border-white/[0.04]">
+          <label className="block text-xs font-mono text-gray-300">
+            {t("editor.core.aliasesLabel")}
+          </label>
+          <input
+            type="text"
+            value={aliasesStr}
+            onChange={(e) => setAliasesStr(e.target.value)}
+            placeholder={t("editor.core.aliasesPlaceholder")}
+            className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+          />
+        </div>
+      </div>
+
+      {/* ── 2. 主体性质 / 分发参数 ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {targetType === "artist" && (
+          <>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-mono text-gray-300">{t("editor.core.entityTypeLabel")}</label>
+              <select
+                value={formData.entity_type || "person"}
+                onChange={(e) => updateField("entity_type", e.target.value)}
+                className="w-full px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+              >
+                <option value="person">{t("editor.core.entityTypePerson")}</option>
+                <option value="studio">{t("editor.core.entityTypeStudio")}</option>
+                <option value="publisher">{t("editor.core.entityTypePublisher")}</option>
+                <option value="label">{t("editor.core.entityTypeLabelOrg")}</option>
+                <option value="group">{t("editor.core.entityTypeGroup")}</option>
+                <option value="circle">{t("editor.core.entityTypeCircle")}</option>
+                <option value="orchestra">{t("editor.core.entityTypeOrchestra")}</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-mono text-gray-300">{t("editor.core.disambiguationLabel")}</label>
+              <input
+                type="text"
+                value={formData.disambiguation || ""}
+                onChange={(e) => updateField("disambiguation", e.target.value)}
+                placeholder={t("editor.core.disambiguationPlaceholder")}
+                className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+              />
+            </div>
+          </>
+        )}
+
+        {targetType === "release" && (
+          <>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-mono text-gray-300">{t("editor.core.catalogNumberLabel")}</label>
+              <input
+                type="text"
+                value={formData.catalog_number || ""}
+                onChange={(e) => updateField("catalog_number", e.target.value)}
+                placeholder={t("editor.core.catalogNumberPlaceholder")}
+                className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-mono text-gray-300">{t("editor.core.barcodeLabel")}</label>
+              <input
+                type="text"
+                value={formData.barcode || ""}
+                onChange={(e) => updateField("barcode", e.target.value)}
+                placeholder={t("editor.core.barcodePlaceholder")}
+                className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+              />
+            </div>
+          </>
+        )}
+
+        <div className="space-y-1.5">
+          <label className="block text-xs font-mono text-gray-300">{t("editor.core.countryLabel")}</label>
+          <input
+            type="text"
+            value={formData.country || ""}
+            onChange={(e) => updateField("country", e.target.value)}
+            placeholder={t("editor.core.countryPlaceholder")}
+            className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+          />
+        </div>
+      </div>
+
+      {/* ── 3. 全动态标签与体裁系统 (Dynamic Tagging & Themes) ── */}
+      <div className="p-4 rounded-card bg-white/[0.02] border border-white/[0.06] space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TagIcon className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-xs font-semibold text-white">{t("editor.core.tagsTitle")}</h3>
+          </div>
+          <span className="font-mono text-[10px] text-gray-500">
+            {t("editor.core.tagsSub")}
+          </span>
+        </div>
+
+        {/* Selected Tags Chips */}
+        <div className="flex flex-wrap items-center gap-2 min-h-[32px]">
+          {tags.length === 0 ? (
+            <span className="text-xs text-gray-500 font-mono">{t("editor.core.noTags")}</span>
+          ) : (
+            tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-mono transition-colors"
+              >
+                #{tag}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveTag(tag)}
+                  className="p-0.5 hover:bg-emerald-500/20 rounded-full text-emerald-400 hover:text-rose-300"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))
+          )}
+        </div>
+
+        {/* Add Tag Input */}
+        <div className="flex items-center gap-2 pt-1">
+          <input
+            type="text"
+            value={newTagInput}
+            onChange={(e) => setNewTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleAddTag(newTagInput);
+              }
+            }}
+            placeholder={t("editor.core.addTagPlaceholder")}
+            className="flex-1 px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+          />
+          <button
+            type="button"
+            onClick={() => handleAddTag(newTagInput)}
+            className="px-3.5 py-2 rounded-card bg-white/[0.06] border border-white/10 hover:bg-white/10 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            {t("editor.core.addBtn")}
+          </button>
+        </div>
+
+        {/* Quick Tag Suggestions */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/[0.04]">
+          <span className="font-mono text-[10px] text-gray-500 mr-1 flex items-center gap-1">
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            {t("editor.core.quickSuggestions")}
+          </span>
+          {COMMON_TAG_SUGGESTIONS.map((sug) => {
+            const isSelected = tags.includes(sug);
+            return (
+              <button
+                key={sug}
+                type="button"
+                onClick={() => (isSelected ? handleRemoveTag(sug) : handleAddTag(sug))}
+                className={`px-2 py-0.5 rounded-full font-mono text-[11px] border transition-all ${
+                  isSelected
+                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-200"
+                    : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white hover:bg-white/[0.08]"
+                }`}
+              >
+                +{sug}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── 4. 简介 / 传记 ── */}
+      <div className="space-y-1.5">
+        <label className="block text-xs font-mono text-gray-300">
+          {t("editor.core.summaryLabel")}
+        </label>
+        <textarea
+          rows={4}
+          value={formData.summary || formData.biography || formData.notes || ""}
+          onChange={(e) => {
+            if (targetType === "artist") updateField("biography", e.target.value);
+            else if (targetType === "work") updateField("summary", e.target.value);
+            else updateField("notes", e.target.value);
+          }}
+          placeholder={t("editor.core.summaryPlaceholder")}
+          className="w-full p-3 rounded-card bg-background border border-white/10 text-white text-xs leading-relaxed resize-none focus:outline-none focus:border-amber-400"
+        />
+      </div>
+    </div>
+  );
+}

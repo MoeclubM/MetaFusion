@@ -1,0 +1,125 @@
+# ==============================================================================
+# MetaFusion .gitignore — 生产级忽略规则
+# ==============================================================================
+
+# --- 依赖 ---
+node_modules/
+.pnp/
+.pnp.js
+.pnpm-store/
+yarn.lock
+package-lock.json
+# 保留 lock 文件用于可复现构建，如需忽略请取消注释下一行
+# package-lock.json
+# pnpm-lock.yaml
+# yarn.lock
+
+# --- 构建产物 ---
+.next/
+out/
+dist/
+build/
+.turbo/
+.vercel/
+.turbo
+# Next.js 缓存
+.next/cache/
+# TypeScript 增量构建
+*.tsbuildinfo
+**/*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Next 自动生成（可按需提交，此处默认忽略以保持干净）
+next-env.d.ts
+**/next-env.d.ts
+
+# --- 环境变量与敏感信息 ---
+# 忽略所有真实环境配置，仅保留 .env.example 作为模板
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test.local
+.env.production
+.env.production.local
+.env.*.local
+!.env.example
+
+# --- 日志 ---
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- 测试与覆盖率 ---
+coverage/
+.nyc_output/
+.coverage/
+junit.xml
+
+# --- 系统与编辑器 ---
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+
+# --- AI / 协作工具产物（不入库）---
+.mimosa/
+**/.mimosa/
+.zcode/
+.muse/
+.claude/
+.cursor/
+.trae/
+
+# --- 缓存 ---
+.eslintcache
+.stylelintcache
+.cache/
+.parcel-cache/
+
+# --- Go ---
+# 二进制与本地构建
+backend/bin/
+backend/vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+
+# --- Docker ---
+# 本地卷数据（若误放于仓库）
+pg_data/
+redis_data/
+es_data/
+minio_data/
+
+# --- 临时与本地脚本产物 ---
+tmp/
+temp/
+.tmp/
+*.tmp
+*.temp
+
+# --- 文档站点构建产物 ---
+docs-site/
+.docs-site/
+
+# --- 前端本地静态资源（按需）---
+# frontend/public/covers/ 为种子数据，保持入库；如需本地生成大图请用 /tmp

@@ -1,0 +1,737 @@
+package admin
+
+import (
+	"fmt"
+	"net/url"
+	"strings"
+
+	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
+	"github.com/metafusion/metafusion-app/internal/security"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/metafusion/metafusion-app/internal/models"
+)
+
+func validateCoverURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil
+	}
+	if trimmed[0] == '/' {
+		return nil
+	}
+	u, err := url.Parse(trimmed)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("cover_image_url must be http/https or absolute path")
+	}
+	if u.Host == "" {
+		return fmt.Errorf("cover_image_url missing host")
+	}
+	if err := security.ValidateExternalURL(trimmed); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *AdminService) CreateWork(c *gin.Context) {
+	userIDVal, _ := c.Get("userID")
+	uid, _ := userIDVal.(uuid.UUID)
+	var input struct {
+		CategoryCode  string                 `json:"category_code" binding:"required"`
+		MediaType     string                 `json:"media_type" binding:"required"`
+		Title         string                 `json:"title" binding:"required"`
+		OriginalTitle string                 `json:"original_title"`
+		Summary       string                 `json:"summary"`
+		CoverImageURL string                 `json:"cover_image_url"`
+		CatalogMetadata map[string]interface{} `json:"catalog_metadata"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	work := models.Work{
+		CategoryCode:    input.CategoryCode,
+		MediaType:       input.MediaType,
+		Title:           strings.TrimSpace(input.Title),
+		OriginalTitle:   input.OriginalTitle,
+		Summary:         input.Summary,
+		CoverImageURL:   input.CoverImageURL,
+		Status:          models.WorkStatusPendingReview,
+		CatalogMetadata: models.JSONB(input.CatalogMetadata),
+		CreatedBy:       &uid,
+	}
+	if err := validateCoverURL(work.CoverImageURL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := s.db.Create(&work).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "work.create", "work", work.ID.String(), map[string]interface{}{"title": work.Title})
+	c.JSON(http.StatusCreated, work)
+}
+
+func (s *AdminService) UpdateWork(c *gin.Context) {
+	workID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid work ID"})
+		return
+	}
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	allowed := map[string]bool{"title": true, "original_title": true, "summary": true, "cover_image_url": true, "category_code": true, "media_type": true, "catalog_metadata": true, "status": true, "content_rating": true}
+	updates := map[string]interface{}{}
+	for k, v := range input {
+		if allowed[k] {
+			updates[k] = v
+		}
+	}
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No valid fields"})
+		return
+	}
+	if v, ok := updates["cover_image_url"]; ok {
+		if s, ok := v.(string); ok {
+			if err := validateCoverURL(s); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+		}
+	}
+	if err := s.db.Model(&models.Work{}).Where("id = ?", workID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "work.update", "work", workID.String(), updates)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) DeleteWork(c *gin.Context) {
+	workID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid work ID"})
+		return
+	}
+	if err := s.db.Where("id = ?", workID).Delete(&models.Work{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "work.delete", "work", workID.String(), nil)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) ListArtistsAdmin(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
+	entityType := c.Query("entity_type")
+	searchQuery := c.Query("q")
+	offset := (page - 1) * pageSize
+
+	query := s.db.Model(&models.Artist{})
+	if entityType != "" {
+		query = query.Where("entity_type = ?", entityType)
+	}
+	if searchQuery != "" {
+		like := "%" + searchQuery + "%"
+		query = query.Where("name ILIKE ? OR original_name ILIKE ? OR disambiguation ILIKE ?", like, like, like)
+	}
+
+	var total int64
+	query.Count(&total)
+
+	var artists []models.Artist
+	if err := query.Order("created_at desc").Offset(offset).Limit(pageSize).Find(&artists).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"items":     artists,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
+}
+
+func (s *AdminService) CreateArtist(c *gin.Context) {
+	var input struct {
+		Name           string                 `json:"name" binding:"required"`
+		OriginalName   string                 `json:"original_name"`
+		Disambiguation string                 `json:"disambiguation"`
+		EntityType     string                 `json:"entity_type"`
+		Country        string                 `json:"country"`
+		Biography      string                 `json:"biography"`
+		ExternalIDs    map[string]interface{} `json:"external_ids"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if input.EntityType == "" {
+		input.EntityType = models.EntityTypePerson
+	} else if !models.ValidEntityTypes[input.EntityType] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_entity_type")})
+		return
+	}
+
+	extIDs := models.JSONB{}
+	if input.ExternalIDs != nil {
+		extIDs = models.JSONB(input.ExternalIDs)
+	}
+
+	artist := models.Artist{
+		Name:           input.Name,
+		OriginalName:   input.OriginalName,
+		Disambiguation: input.Disambiguation,
+		EntityType:     input.EntityType,
+		Country:        input.Country,
+		Biography:      input.Biography,
+		ExternalIDs:    extIDs,
+	}
+	if err := s.db.Create(&artist).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "artist.create", "artist", artist.ID.String(), map[string]interface{}{"name": artist.Name, "entity_type": artist.EntityType})
+	c.JSON(http.StatusCreated, artist)
+}
+
+func (s *AdminService) UpdateArtist(c *gin.Context) {
+	artistID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid artist ID"})
+		return
+	}
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if et, ok := input["entity_type"].(string); ok && et != "" {
+		if !models.ValidEntityTypes[et] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_entity_type")})
+			return
+		}
+	}
+
+	allowed := map[string]bool{
+		"name": true, "original_name": true, "entity_type": true,
+		"country": true, "biography": true, "disambiguation": true, "external_ids": true,
+	}
+	updates := map[string]interface{}{}
+	for k, v := range input {
+		if allowed[k] {
+			updates[k] = v
+		}
+	}
+	if err := s.db.Model(&models.Artist{}).Where("id = ?", artistID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "artist.update", "artist", artistID.String(), updates)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) DeleteArtist(c *gin.Context) {
+	artistID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid artist ID"})
+		return
+	}
+	if err := s.db.Where("id = ?", artistID).Delete(&models.Artist{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "artist.delete", "artist", artistID.String(), nil)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) CreateRelease(c *gin.Context) {
+	userIDVal, _ := c.Get("userID")
+	uid, _ := userIDVal.(uuid.UUID)
+	var input struct {
+		WorkID        uuid.UUID  `json:"work_id" binding:"required"`
+		PublisherID   *uuid.UUID `json:"publisher_id"`
+		EditionName   string     `json:"edition_name" binding:"required"`
+		CatalogNumber string     `json:"catalog_number"`
+		Barcode       string     `json:"barcode"`
+		Publisher     string     `json:"publisher"`
+		Packaging     string     `json:"packaging"`
+		Notes         string     `json:"notes"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	publisherName := input.Publisher
+	if input.PublisherID != nil && publisherName == "" {
+		var pubArtist models.Artist
+		if err := s.db.Where("id = ?", *input.PublisherID).First(&pubArtist).Error; err == nil {
+			publisherName = pubArtist.Name
+		}
+	}
+
+	release := models.Release{
+		WorkID:           input.WorkID,
+		PublisherID:      input.PublisherID,
+		EditionName:      input.EditionName,
+		CatalogNumber:    input.CatalogNumber,
+		Barcode:          input.Barcode,
+		Publisher:        publisherName,
+		Packaging:        input.Packaging,
+		Notes:            input.Notes,
+		UploaderID:       &uid,
+		IsMasterVerified: false,
+	}
+	if release.Packaging == "" {
+		release.Packaging = "box_set"
+	}
+	if err := s.db.Create(&release).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "release.create", "release", release.ID.String(), map[string]interface{}{"edition_name": release.EditionName})
+	c.JSON(http.StatusCreated, release)
+}
+
+func (s *AdminService) UpdateRelease(c *gin.Context) {
+	releaseID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid release ID"})
+		return
+	}
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	allowed := map[string]bool{
+		"edition_name": true, "catalog_number": true, "barcode": true,
+		"publisher": true, "publisher_id": true, "packaging": true, "notes": true,
+	}
+	updates := map[string]interface{}{}
+	for k, v := range input {
+		if allowed[k] {
+			updates[k] = v
+		}
+	}
+	if err := s.db.Model(&models.Release{}).Where("id = ?", releaseID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "release.update", "release", releaseID.String(), updates)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) DeleteRelease(c *gin.Context) {
+	releaseID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid release ID"})
+		return
+	}
+	if err := s.db.Where("id = ?", releaseID).Delete(&models.Release{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "release.delete", "release", releaseID.String(), nil)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) ListReleasesAdmin(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 50
+	}
+	workIDStr := c.Query("work_id")
+	q := c.Query("q")
+	query := s.db.Model(&models.Release{}).
+		Preload("Work").
+		Preload("PublisherEntity").
+		Preload("Mediums.Tracks").
+		Preload("AssetFiles").
+		Preload("Uploader")
+	if workIDStr != "" {
+		if wid, err := uuid.Parse(workIDStr); err == nil {
+			query = query.Where("work_id = ?", wid)
+		}
+	}
+	if q != "" {
+		like := "%" + q + "%"
+		query = query.Where("edition_name ILIKE ? OR catalog_number ILIKE ? OR barcode ILIKE ? OR publisher ILIKE ?", like, like, like, like)
+	}
+	var total int64
+	query.Count(&total)
+	var releases []models.Release
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at desc").Offset(offset).Limit(pageSize).Find(&releases).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": releases, "total": total, "page": page, "page_size": pageSize})
+}
+
+func (s *AdminService) CreateMedium(c *gin.Context) {
+	var input struct {
+		ReleaseID     uuid.UUID `json:"release_id" binding:"required"`
+		Position      int       `json:"position" binding:"required"`
+		Name          string    `json:"name" binding:"required"`
+		Format        string    `json:"format" binding:"required"`
+		MediaCategory string    `json:"media_category" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	medium := models.Medium{ReleaseID: input.ReleaseID, Position: input.Position, Name: input.Name, Format: input.Format, MediaCategory: input.MediaCategory}
+	if err := s.db.Create(&medium).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "medium.create", "medium", medium.ID.String(), nil)
+	c.JSON(http.StatusCreated, medium)
+}
+
+func (s *AdminService) DeleteMedium(c *gin.Context) {
+	mediumID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid medium ID"})
+		return
+	}
+	if err := s.db.Where("id = ?", mediumID).Delete(&models.Medium{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "medium.delete", "medium", mediumID.String(), nil)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) CreateTrack(c *gin.Context) {
+	var input struct {
+		MediumID uuid.UUID `json:"medium_id" binding:"required"`
+		Position int       `json:"position" binding:"required"`
+		Title    string    `json:"title"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	track := models.Track{MediumID: input.MediumID, Position: input.Position, Title: input.Title}
+	if err := s.db.Create(&track).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "track.create", "track", track.ID.String(), nil)
+	c.JSON(http.StatusCreated, track)
+}
+
+func (s *AdminService) DeleteTrack(c *gin.Context) {
+	trackID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid track ID"})
+		return
+	}
+	if err := s.db.Where("id = ?", trackID).Delete(&models.Track{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "track.delete", "track", trackID.String(), nil)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) ListCategoriesAdmin(c *gin.Context) {
+	var cats []models.Category
+	if err := s.db.Order("sort_order asc").Find(&cats).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, cats)
+}
+
+func (s *AdminService) UpsertCategory(c *gin.Context) {
+	var input models.Category
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := s.db.Save(&input).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "category.upsert", "category", input.Code, nil)
+	c.JSON(http.StatusOK, input)
+}
+
+func (s *AdminService) DeleteCategory(c *gin.Context) {
+	code := c.Param("code")
+	if err := s.db.Where("code = ?", code).Delete(&models.Category{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "category.delete", "category", code, nil)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) ListTagsAdmin(c *gin.Context) {
+	q := strings.TrimSpace(c.Query("q"))
+	groupType := strings.TrimSpace(c.Query("group_type"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "100"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 200 {
+		pageSize = 100
+	}
+	query := s.db.Model(&models.Tag{})
+	if q != "" {
+		like := "%" + q + "%"
+		query = query.Where("name ILIKE ?", like)
+	}
+	if groupType != "" {
+		query = query.Where("group_type = ?", groupType)
+	}
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	var tags []models.Tag
+	if err := query.Order("group_type asc, name asc").Offset((page - 1) * pageSize).Limit(pageSize).Find(&tags).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	// 兼容旧前端直接期望数组的调用：无筛选且未显式分页时保持裸数组返回以免静默 Break
+	hasFilter := q != "" || groupType != "" || c.Query("page") != "" || c.Query("page_size") != ""
+	if !hasFilter {
+		// 返回裸数组以兼容历史 loadFallback，同时也提供分页包装的兼容分支
+		// 前端已同时兼容两种形态，这里优先返回包装以便新 UI 获取 total
+		c.JSON(http.StatusOK, gin.H{"items": tags, "total": total, "page": page, "page_size": pageSize})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": tags, "total": total, "page": page, "page_size": pageSize})
+}
+
+func (s *AdminService) CreateTag(c *gin.Context) {
+	var input struct {
+		Name          string   `json:"name" binding:"required"`
+		GroupType     string   `json:"group_type" binding:"required"`
+		CategoryScope []string `json:"category_scope"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	tag := models.Tag{Name: strings.TrimSpace(input.Name), GroupType: strings.TrimSpace(input.GroupType), CategoryScope: input.CategoryScope}
+	if tag.CategoryScope == nil {
+		tag.CategoryScope = []string{}
+	}
+	if err := s.db.Create(&tag).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "tag.create", "tag", strings.TrimSpace(input.Name), nil)
+	c.JSON(http.StatusCreated, tag)
+}
+
+func (s *AdminService) DeleteTag(c *gin.Context) {
+	idStr := c.Param("id")
+	if err := s.db.Where("id = ?", idStr).Delete(&models.Tag{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "tag.delete", "tag", idStr, nil)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) ListCanonicalEntries(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 50
+	}
+	workIDStr := c.Query("work_id")
+	q := c.Query("q")
+	query := s.db.Model(&models.CanonicalEntry{}).Preload("Work")
+	if workIDStr != "" {
+		if wid, err := uuid.Parse(workIDStr); err == nil {
+			query = query.Where("work_id = ?", wid)
+		}
+	}
+	if q != "" {
+		like := "%" + q + "%"
+		query = query.Where("title ILIKE ? OR isrc ILIKE ? OR isbn ILIKE ? OR artist_credit ILIKE ?", like, like, like, like)
+	}
+	var total int64
+	query.Count(&total)
+	var entries []models.CanonicalEntry
+	offset := (page - 1) * pageSize
+	if err := query.Order("created_at desc").Offset(offset).Limit(pageSize).Find(&entries).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"items": entries, "total": total, "page": page, "page_size": pageSize})
+}
+
+func (s *AdminService) CreateCanonicalEntry(c *gin.Context) {
+	var input struct {
+		Title        string                 `json:"title" binding:"required"`
+		SortTitle    string                 `json:"sort_title"`
+		Duration     int                    `json:"duration_seconds"`
+		ISRC         string                 `json:"isrc"`
+		ISBN         string                 `json:"isbn"`
+		ArtistCredit string                 `json:"artist_credit"`
+		WorkID       *uuid.UUID             `json:"work_id"`
+		ExternalIDs  map[string]interface{} `json:"external_ids"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ext := models.JSONB{}
+	if input.ExternalIDs != nil {
+		ext = models.JSONB(input.ExternalIDs)
+	}
+	entry := models.CanonicalEntry{
+		Title:        strings.TrimSpace(input.Title),
+		SortTitle:    strings.TrimSpace(input.SortTitle),
+		Duration:     input.Duration,
+		ISRC:         strings.TrimSpace(input.ISRC),
+		ISBN:         strings.TrimSpace(input.ISBN),
+		ArtistCredit: strings.TrimSpace(input.ArtistCredit),
+		WorkID:       input.WorkID,
+		ExternalIDs:  ext,
+	}
+	if err := s.db.Create(&entry).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "canonical_entry.create", "canonical_entry", entry.ID.String(), map[string]interface{}{"title": entry.Title})
+	c.JSON(http.StatusCreated, entry)
+}
+
+func (s *AdminService) UpdateCanonicalEntry(c *gin.Context) {
+	entryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid canonical entry ID"})
+		return
+	}
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	allowed := map[string]bool{"title": true, "sort_title": true, "duration_seconds": true, "isrc": true, "isbn": true, "artist_credit": true, "work_id": true, "external_ids": true}
+	updates := map[string]interface{}{}
+	for k, v := range input {
+		if allowed[k] {
+			updates[k] = v
+		}
+	}
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No valid fields"})
+		return
+	}
+	if err := s.db.Model(&models.CanonicalEntry{}).Where("id = ?", entryID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "canonical_entry.update", "canonical_entry", entryID.String(), updates)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) DeleteCanonicalEntry(c *gin.Context) {
+	entryID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid canonical entry ID"})
+		return
+	}
+	if err := s.db.Where("id = ?", entryID).Delete(&models.CanonicalEntry{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "canonical_entry.delete", "canonical_entry", entryID.String(), nil)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) ListInvitations(c *gin.Context) {
+	var invites []models.Invitation
+	if err := s.db.Preload("Inviter").Order("created_at desc").Limit(100).Find(&invites).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, invites)
+}
+
+// 虚拟货架管理 (Virtual Shelf Taxonomy)
+func (s *AdminService) ListVirtualShelves(c *gin.Context) {
+	var shelves []models.VirtualShelf
+	if err := s.db.Order("sort_order asc").Find(&shelves).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, shelves)
+}
+
+func (s *AdminService) CreateVirtualShelf(c *gin.Context) {
+	var shelf models.VirtualShelf
+	if err := c.ShouldBindJSON(&shelf); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := s.db.Create(&shelf).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "virtual_shelf.create", "virtual_shelf", shelf.Slug, map[string]interface{}{"name": shelf.NameZh})
+	c.JSON(http.StatusCreated, shelf)
+}
+
+func (s *AdminService) UpdateVirtualShelf(c *gin.Context) {
+	slug := c.Param("slug")
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := s.db.Model(&models.VirtualShelf{}).Where("slug = ?", slug).Updates(input).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "virtual_shelf.update", "virtual_shelf", slug, input)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) DeleteVirtualShelf(c *gin.Context) {
+	slug := c.Param("slug")
+	if err := s.db.Where("slug = ?", slug).Delete(&models.VirtualShelf{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "virtual_shelf.delete", "virtual_shelf", slug, nil)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+var _ = time.Now

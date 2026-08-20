@@ -1,0 +1,209 @@
+package storage
+
+import (
+	"context"
+	"fmt"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
+	"github.com/metafusion/metafusion-app/internal/config"
+	"github.com/metafusion/metafusion-app/internal/models"
+	"github.com/metafusion/metafusion-app/internal/transcoder"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
+	"gorm.io/gorm"
+)
+
+type StorageService struct {
+	client      *minio.Client
+	coreClient  *minio.Core
+	cfg         *config.Config
+	db          *gorm.DB
+	asynqClient *asynq.Client
+}
+
+func NewStorageService(cfg *config.Config, db *gorm.DB, asynqClient *asynq.Client) (*StorageService, error) {
+	endpoint := cfg.S3Endpoint
+	// 去除可能携带的 http:// 前缀
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+
+	client, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(cfg.S3AccessKey, cfg.S3SecretKey, ""),
+		Secure: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	coreClient, err := minio.NewCore(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(cfg.S3AccessKey, cfg.S3SecretKey, ""),
+		Secure: false,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &StorageService{
+		client:      client,
+		coreClient:  coreClient,
+		cfg:         cfg,
+		db:          db,
+		asynqClient: asynqClient,
+	}, nil
+}
+
+type InitiateUploadRequest struct {
+	ReleaseID  uuid.UUID `json:"release_id" binding:"required"`
+	FileName   string    `json:"file_name" binding:"required"`
+	FileSize   int64     `json:"file_size" binding:"required"`
+	Sha256Hash string    `json:"sha256_hash" binding:"required"`
+	MimeType   string    `json:"mime_type" binding:"required"`
+	PartCount  int       `json:"part_count" binding:"required,min=1"`
+}
+
+type InitiateUploadResponse struct {
+	IsInstantUpload bool      `json:"is_instant_upload"`
+	AssetID         uuid.UUID `json:"asset_id"`
+	UploadID        string    `json:"upload_id,omitempty"`
+	S3Key           string    `json:"s3_key,omitempty"`
+	PresignedURLs   []string  `json:"presigned_urls,omitempty"`
+}
+
+// InitiateUpload 初始化大文件上传 (优先检查秒传)
+func (s *StorageService) InitiateUpload(ctx context.Context, req *InitiateUploadRequest) (*InitiateUploadResponse, error) {
+	// 1. 检查秒传 (Instant Upload / Deduplication)
+	var existingAsset models.AssetFile
+	err := s.db.Where("sha256_hash = ? AND transcode_status = 'completed'", req.Sha256Hash).First(&existingAsset).Error
+	if err == nil {
+		// 命中秒传：直接复用已有资产文件的技术规格与 S3 路径
+		newAsset := models.AssetFile{
+			ReleaseID:       req.ReleaseID,
+			FileRole:        "master_archive",
+			FileName:        req.FileName,
+			S3Bucket:        existingAsset.S3Bucket,
+			S3Key:           existingAsset.S3Key,
+			FileSize:        existingAsset.FileSize,
+			Sha256Hash:      req.Sha256Hash,
+			MimeType:        req.MimeType,
+			TechnicalSpecs:  existingAsset.TechnicalSpecs,
+			TranscodeStatus: "completed",
+		}
+		if err := s.db.Create(&newAsset).Error; err != nil {
+			return nil, err
+		}
+		return &InitiateUploadResponse{
+			IsInstantUpload: true,
+			AssetID:         newAsset.ID,
+		}, nil
+	}
+
+	// 2. 未命中秒传：生成 S3 Key 并开启 S3 Multipart Upload
+	now := time.Now()
+	s3Key := fmt.Sprintf("masters/%d/%02d/%s/%s", now.Year(), now.Month(), uuid.New().String(), req.FileName)
+
+	uploadID, err := s.coreClient.NewMultipartUpload(ctx, s.cfg.S3BucketMaster, s3Key, minio.PutObjectOptions{
+		ContentType: req.MimeType,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to initiate multipart upload: %w", err)
+	}
+
+	// 3. 生成每个分片的预签名上传 URL
+	presignedURLs := make([]string, req.PartCount)
+	for i := 1; i <= req.PartCount; i++ {
+		urlValues := make(url.Values)
+		urlValues.Set("uploadId", uploadID)
+		urlValues.Set("partNumber", fmt.Sprintf("%d", i))
+
+		partURL, err := s.client.Presign(ctx, "PUT", s.cfg.S3BucketMaster, s3Key, 6*time.Hour, urlValues)
+		if err != nil {
+			return nil, fmt.Errorf("failed to presign part %d: %w", i, err)
+		}
+		// 替换公网端点 (用于解决 Docker 内部网络名与外部浏览器访问域名差异)
+		presignedURLs[i-1] = s.formatPublicURL(partURL.String())
+	}
+
+	// 4. 登记初始待转码资产记录
+	asset := models.AssetFile{
+		ReleaseID:       req.ReleaseID,
+		FileRole:        "master_archive",
+		FileName:        req.FileName,
+		S3Bucket:        s.cfg.S3BucketMaster,
+		S3Key:           s3Key,
+		FileSize:        req.FileSize,
+		Sha256Hash:      req.Sha256Hash,
+		MimeType:        req.MimeType,
+		TranscodeStatus: "pending",
+	}
+	if err := s.db.Create(&asset).Error; err != nil {
+		return nil, err
+	}
+
+	return &InitiateUploadResponse{
+		IsInstantUpload: false,
+		AssetID:         asset.ID,
+		UploadID:        uploadID,
+		S3Key:           s3Key,
+		PresignedURLs:   presignedURLs,
+	}, nil
+}
+
+type CompleteUploadRequest struct {
+	AssetID  uuid.UUID          `json:"asset_id" binding:"required"`
+	UploadID string             `json:"upload_id" binding:"required"`
+	S3Key    string             `json:"s3_key" binding:"required"`
+	Parts    []minio.CompletePart `json:"parts" binding:"required"`
+}
+
+// CompleteUpload 完成分片合并并触发异步转码质检
+func (s *StorageService) CompleteUpload(ctx context.Context, req *CompleteUploadRequest) error {
+	_, err := s.coreClient.CompleteMultipartUpload(ctx, s.cfg.S3BucketMaster, req.S3Key, req.UploadID, req.Parts, minio.PutObjectOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to complete multipart upload: %w", err)
+	}
+
+	// 投递 Asynq 异步转码质检任务
+	task, err := transcoder.NewTranscodeTask(req.AssetID)
+	if err != nil {
+		return err
+	}
+	_, err = s.asynqClient.Enqueue(task, asynq.Queue("transcode"), asynq.MaxRetry(3))
+	return err
+}
+
+// GetDownloadURL 生成原档下载链接
+func (s *StorageService) GetDownloadURL(ctx context.Context, assetID uuid.UUID) (string, error) {
+	var asset models.AssetFile
+	if err := s.db.First(&asset, assetID).Error; err != nil {
+		return "", err
+	}
+	reqParams := make(url.Values)
+	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=\"%s\"", asset.FileName))
+
+	u, err := s.client.PresignedGetObject(ctx, asset.S3Bucket, asset.S3Key, 2*time.Hour, reqParams)
+	if err != nil {
+		return "", err
+	}
+	return s.formatPublicURL(u.String()), nil
+}
+
+func (s *StorageService) formatPublicURL(rawURL string) string {
+	if s.cfg.S3PublicURL == "" {
+		return rawURL
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	publicParsed, err := url.Parse(s.cfg.S3PublicURL)
+	if err != nil {
+		return rawURL
+	}
+	parsed.Scheme = publicParsed.Scheme
+	parsed.Host = publicParsed.Host
+	return parsed.String()
+}

@@ -1,0 +1,691 @@
+package catalog
+
+import (
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"github.com/metafusion/metafusion-app/internal/models"
+	"gorm.io/gorm"
+)
+
+var validMediaTypes = map[string]bool{
+	"all": true, "video": true, "audio": true, "text": true, "graphic": true,
+	"movie": true, "tv_series": true, "anime": true, "music": true, "audiobook": true,
+	"novel": true, "comic": true, "gallery": true,
+}
+
+var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-_]{1,63}$`)
+
+func validateCustomShelfInput(slug, mediaType string, queryTags, excludeTags []string, db *gorm.DB) error {
+	if slug != "" && !slugRe.MatchString(slug) {
+		return &fieldError{"slug", "slug must be 2-64 chars, lowercase letters/digits/_/-"}
+	}
+	if mediaType != "" && !validMediaTypes[mediaType] {
+		return &fieldError{"media_type", "invalid media_type"}
+	}
+	for _, t := range queryTags {
+		if strings.TrimSpace(t) == "" {
+			continue
+		}
+		var cnt int64
+		db.Model(&models.Tag{}).Where("name = ?", strings.TrimSpace(t)).Count(&cnt)
+		if cnt == 0 {
+			return &fieldError{"query_tags", "tag not found: " + t}
+		}
+	}
+	for _, t := range excludeTags {
+		if strings.TrimSpace(t) == "" {
+			continue
+		}
+		var cnt int64
+		db.Model(&models.Tag{}).Where("name = ?", strings.TrimSpace(t)).Count(&cnt)
+		if cnt == 0 {
+			return &fieldError{"exclude_tags", "tag not found: " + t}
+		}
+	}
+	return nil
+}
+
+type fieldError struct {
+	Field string
+	Msg   string
+}
+
+func (e *fieldError) Error() string { return e.Msg }
+
+// ListCustomShelves GET /shelves/custom?scope=own|public|all&q=&page=&page_size=
+func (s *CatalogService) ListCustomShelves(c *gin.Context) {
+	scope := c.DefaultQuery("scope", "own")
+	q := strings.TrimSpace(c.Query("q"))
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "50"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 50
+	}
+	offset := (page - 1) * pageSize
+	uid := currentUserID(c)
+
+	switch scope {
+	case "own":
+		if uid == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+			return
+		}
+		query := s.db.Where("owner_id = ?", *uid)
+		if q != "" {
+			like := "%" + q + "%"
+			query = query.Where("name_zh ILIKE ? OR name_en ILIKE ? OR slug ILIKE ?", like, like, like)
+		}
+		var total int64
+		query.Model(&models.UserCustomShelf{}).Count(&total)
+		var items []models.UserCustomShelf
+		query.Order("sort_order asc, created_at desc").Offset(offset).Limit(pageSize).Find(&items)
+		c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "page": page, "page_size": pageSize})
+		return
+	case "public":
+		query := s.db.Where("is_public = ?", true)
+		if q != "" {
+			like := "%" + q + "%"
+			query = query.Where("name_zh ILIKE ? OR name_en ILIKE ? OR slug ILIKE ?", like, like, like)
+		}
+		var total int64
+		query.Model(&models.UserCustomShelf{}).Count(&total)
+		var items []models.UserCustomShelf
+		query.Order("view_count desc, created_at desc").Offset(offset).Limit(pageSize).Find(&items)
+		c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "page": page, "page_size": pageSize})
+		return
+	case "all":
+		// own + public (dedup)
+		var items []models.UserCustomShelf
+		var total int64
+		if uid != nil {
+			query := s.db.Where("is_public = ? OR owner_id = ?", true, *uid)
+			if q != "" {
+				like := "%" + q + "%"
+				query = query.Where("(name_zh ILIKE ? OR name_en ILIKE ? OR slug ILIKE ?)", like, like, like)
+			}
+			query.Model(&models.UserCustomShelf{}).Count(&total)
+			query.Order("is_public asc, sort_order asc, created_at desc").Offset(offset).Limit(pageSize).Find(&items)
+		} else {
+			query := s.db.Where("is_public = ?", true)
+			if q != "" {
+				like := "%" + q + "%"
+				query = query.Where("name_zh ILIKE ? OR name_en ILIKE ? OR slug ILIKE ?", like, like, like)
+			}
+			query.Model(&models.UserCustomShelf{}).Count(&total)
+			query.Order("view_count desc, created_at desc").Offset(offset).Limit(pageSize).Find(&items)
+		}
+		c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "page": page, "page_size": pageSize})
+		return
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid scope, use own|public|all"})
+		return
+	}
+}
+
+// CreateCustomShelf POST /shelves/custom
+func (s *CatalogService) CreateCustomShelf(c *gin.Context) {
+	uid := currentUserID(c)
+	if uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		return
+	}
+	var input struct {
+		Slug           string   `json:"slug" binding:"required"`
+		NameZh         string   `json:"name_zh" binding:"required"`
+		NameEn         string   `json:"name_en"`
+		Description    string   `json:"description"`
+		Icon           string   `json:"icon"`
+		MediaType      string   `json:"media_type"`
+		QueryTags      []string `json:"query_tags"`
+		RequireAllTags bool     `json:"require_all_tags"`
+		ExcludeTags    []string `json:"exclude_tags"`
+		IsPublic       bool     `json:"is_public"`
+		SortOrder      *int     `json:"sort_order"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	input.Slug = strings.ToLower(strings.TrimSpace(input.Slug))
+	input.NameZh = strings.TrimSpace(input.NameZh)
+	input.NameEn = strings.TrimSpace(input.NameEn)
+	if input.MediaType == "" {
+		input.MediaType = "all"
+	}
+	if input.Icon == "" {
+		input.Icon = "Sparkles"
+	}
+	// normalize tags
+	var qTags []string
+	for _, t := range input.QueryTags {
+		trimmed := strings.TrimSpace(t)
+		if trimmed != "" {
+			qTags = append(qTags, trimmed)
+		}
+	}
+	var exTags []string
+	for _, t := range input.ExcludeTags {
+		trimmed := strings.TrimSpace(t)
+		if trimmed != "" {
+			exTags = append(exTags, trimmed)
+		}
+	}
+	if err := validateCustomShelfInput(input.Slug, input.MediaType, qTags, exTags, s.db); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// uniqueness per owner
+	var cnt int64
+	s.db.Model(&models.UserCustomShelf{}).Where("owner_id = ? AND slug = ?", *uid, input.Slug).Count(&cnt)
+	if cnt > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "slug already exists for this user"})
+		return
+	}
+	sortOrder := 0
+	if input.SortOrder != nil {
+		sortOrder = *input.SortOrder
+	} else {
+		var maxOrder *int
+		s.db.Model(&models.UserCustomShelf{}).Where("owner_id = ?", *uid).Select("MAX(sort_order)").Row().Scan(&maxOrder)
+		if maxOrder != nil {
+			sortOrder = *maxOrder + 10
+		} else {
+			sortOrder = 10
+		}
+	}
+	shelf := models.UserCustomShelf{
+		OwnerID:        *uid,
+		Slug:           input.Slug,
+		NameZh:         input.NameZh,
+		NameEn:         input.NameEn,
+		Description:    input.Description,
+		Icon:           input.Icon,
+		SortOrder:      sortOrder,
+		MediaType:      input.MediaType,
+		QueryTags:      pq.StringArray(qTags),
+		RequireAllTags: input.RequireAllTags,
+		ExcludeTags:    pq.StringArray(exTags),
+		IsPublic:       input.IsPublic,
+	}
+	if err := s.db.Create(&shelf).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusCreated, shelf)
+}
+
+// GetCustomShelf GET /shelves/custom/:id
+func (s *CatalogService) GetCustomShelf(c *gin.Context) {
+	idStr := c.Param("id")
+	shelfID, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	var shelf models.UserCustomShelf
+	if err := s.db.Where("id = ?", shelfID).First(&shelf).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "custom shelf not found"})
+		return
+	}
+	uid := currentUserID(c)
+	role, _ := c.Get("role")
+	isAdmin := role == "admin" || role == "archivist"
+	isOwner := uid != nil && shelf.OwnerID == *uid
+	if !shelf.IsPublic && !isOwner && !isAdmin {
+		c.JSON(http.StatusNotFound, gin.H{"error": "custom shelf not found"})
+		return
+	}
+	if shelf.IsPublic {
+		_ = s.db.Model(&shelf).UpdateColumn("view_count", gorm.Expr("view_count + 1")).Error
+		shelf.ViewCount++
+	}
+	c.JSON(http.StatusOK, shelf)
+}
+
+// UpdateCustomShelf PUT /shelves/custom/:id
+func (s *CatalogService) UpdateCustomShelf(c *gin.Context) {
+	uid := currentUserID(c)
+	if uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		return
+	}
+	idStr := c.Param("id")
+	shelfID, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	var shelf models.UserCustomShelf
+	if err := s.db.Where("id = ?", shelfID).First(&shelf).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "custom shelf not found"})
+		return
+	}
+	if shelf.OwnerID != *uid {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only owner can update"})
+		return
+	}
+	var input map[string]interface{}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// handle is_public rate limit
+	if v, ok := input["is_public"]; ok {
+		if b, ok := v.(bool); ok && b != shelf.IsPublic {
+			if time.Since(shelf.UpdatedAt) < time.Minute {
+				c.JSON(http.StatusTooManyRequests, gin.H{"error": "please wait a minute before toggling visibility"})
+				return
+			}
+		}
+	}
+	// prepare updates with validation
+	updates := map[string]interface{}{}
+	if v, ok := input["slug"]; ok {
+		if slugStr, ok := v.(string); ok {
+			slug := strings.ToLower(strings.TrimSpace(slugStr))
+			if !slugRe.MatchString(slug) {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid slug"})
+				return
+			}
+			if slug != shelf.Slug {
+				var cnt int64
+				s.db.Model(&models.UserCustomShelf{}).Where("owner_id = ? AND slug = ? AND id != ?", *uid, slug, shelfID).Count(&cnt)
+				if cnt > 0 {
+					c.JSON(http.StatusConflict, gin.H{"error": "slug already exists"})
+					return
+				}
+				updates["slug"] = slug
+			}
+		}
+	}
+	if v, ok := input["name_zh"]; ok {
+		if nameZhStr, ok := v.(string); ok {
+			trimmed := strings.TrimSpace(nameZhStr)
+			if trimmed == "" {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "name_zh required"})
+				return
+			}
+			updates["name_zh"] = trimmed
+		}
+	}
+	if v, ok := input["name_en"]; ok {
+		if nameEnStr, ok := v.(string); ok {
+			updates["name_en"] = strings.TrimSpace(nameEnStr)
+		}
+	}
+	if v, ok := input["description"]; ok {
+		if descStr, ok := v.(string); ok {
+			updates["description"] = descStr
+		}
+	}
+	if v, ok := input["icon"]; ok {
+		if iconStr, ok := v.(string); ok && strings.TrimSpace(iconStr) != "" {
+			updates["icon"] = strings.TrimSpace(iconStr)
+		}
+	}
+	if v, ok := input["media_type"]; ok {
+		if mtStr, ok := v.(string); ok {
+			mt := strings.TrimSpace(mtStr)
+			if mt == "" {
+				mt = "all"
+			}
+			if !validMediaTypes[mt] {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid media_type"})
+				return
+			}
+			updates["media_type"] = mt
+		}
+	}
+	// tags need existence check
+	if v, ok := input["query_tags"]; ok {
+		var tags []string
+		switch arr := v.(type) {
+		case []interface{}:
+			for _, e := range arr {
+				if tagStr, ok := e.(string); ok && strings.TrimSpace(tagStr) != "" {
+					tags = append(tags, strings.TrimSpace(tagStr))
+				}
+			}
+		case []string:
+			for _, tagVal := range arr {
+				if strings.TrimSpace(tagVal) != "" {
+					tags = append(tags, strings.TrimSpace(tagVal))
+				}
+			}
+		}
+		if err := validateCustomShelfInput("", "", tags, nil, s.db); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		updates["query_tags"] = pq.Array(tags)
+	}
+	if v, ok := input["exclude_tags"]; ok {
+		var tags []string
+		switch arr := v.(type) {
+		case []interface{}:
+			for _, e := range arr {
+				if tagStr, ok := e.(string); ok && strings.TrimSpace(tagStr) != "" {
+					tags = append(tags, strings.TrimSpace(tagStr))
+				}
+			}
+		case []string:
+			for _, tagVal := range arr {
+				if strings.TrimSpace(tagVal) != "" {
+					tags = append(tags, strings.TrimSpace(tagVal))
+				}
+			}
+		}
+		if err := validateCustomShelfInput("", "", nil, tags, s.db); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		updates["exclude_tags"] = pq.Array(tags)
+	}
+	if v, ok := input["require_all_tags"]; ok {
+		if b, ok := v.(bool); ok {
+			updates["require_all_tags"] = b
+		}
+	}
+	if v, ok := input["is_public"]; ok {
+		if b, ok := v.(bool); ok {
+			updates["is_public"] = b
+		}
+	}
+	if v, ok := input["sort_order"]; ok {
+		switch n := v.(type) {
+		case float64:
+			updates["sort_order"] = int(n)
+		case int:
+			updates["sort_order"] = n
+		}
+	}
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no valid fields"})
+		return
+	}
+	if err := s.db.Model(&models.UserCustomShelf{}).Where("id = ?", shelfID).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	var updated models.UserCustomShelf
+	s.db.Where("id = ?", shelfID).First(&updated)
+	c.JSON(http.StatusOK, updated)
+}
+
+// DeleteCustomShelf DELETE /shelves/custom/:id
+func (s *CatalogService) DeleteCustomShelf(c *gin.Context) {
+	uid := currentUserID(c)
+	if uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		return
+	}
+	idStr := c.Param("id")
+	shelfID, err := uuid.Parse(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	var shelf models.UserCustomShelf
+	if err := s.db.Where("id = ?", shelfID).First(&shelf).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "custom shelf not found"})
+		return
+	}
+	if shelf.OwnerID != *uid {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only owner can delete"})
+		return
+	}
+	if err := s.db.Where("id = ?", shelfID).Delete(&models.UserCustomShelf{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	// clean order_json for all layouts that reference this custom shelf
+	customKey := "custom:" + shelfID.String()
+	var layouts []models.UserHomeLayout
+	s.db.Find(&layouts)
+	for _, l := range layouts {
+		needsUpdate := false
+		// OrderJSON is stored as JSONB array; handle both []string via map conversion
+		var arr []string
+		if l.OrderJSON != nil {
+			// JSONB is map[string]interface{} in current model, but may hold array as []interface{}
+			// try to extract array via type assertion through JSON marshal roundtrip
+			// simplest: try to parse as []string from raw DB value via query
+			var raw string
+			s.db.Raw("SELECT order_json::text FROM user_home_layouts WHERE user_id = ?", l.UserID).Row().Scan(&raw)
+			// raw like '["movies","custom:xxx"]' or '[]'
+			if raw != "" && raw != "[]" {
+				// parse via helper
+				arr = parseOrderJSONRaw(raw)
+				filtered := make([]string, 0, len(arr))
+				for _, v := range arr {
+					if v != customKey {
+						filtered = append(filtered, v)
+					} else {
+						needsUpdate = true
+					}
+				}
+				if needsUpdate {
+					// update via raw JSON
+					_ = s.db.Model(&models.UserHomeLayout{}).Where("user_id = ?", l.UserID).Update("order_json", pq.Array(filtered)).Error
+					// fallback: if above fails due to type, try JSON marshal
+					// ensure correct JSONB: use gorm update with string
+					// we already attempted; if not updated, try alternative
+					var check int64
+					s.db.Raw("SELECT 1 FROM user_home_layouts WHERE user_id = ? AND order_json::text LIKE ?", l.UserID, "%"+shelfID.String()+"%").Count(&check)
+					if check > 0 {
+						// rewrite via raw SQL filtering
+						s.db.Exec("UPDATE user_home_layouts SET order_json = (SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb) FROM jsonb_array_elements_text(order_json) AS elem WHERE elem <> ?) WHERE user_id = ?", customKey, l.UserID)
+					}
+				}
+			}
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "deleted"})
+}
+
+func parseOrderJSONRaw(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" {
+		return nil
+	}
+	// remove brackets and split
+	// fallback simple parser for '["a","b"]'
+	var out []string
+	// use strings to extract quoted values
+	inQuote := false
+	var cur strings.Builder
+	for _, ch := range raw {
+		if ch == '"' {
+			if inQuote {
+				out = append(out, cur.String())
+				cur.Reset()
+				inQuote = false
+			} else {
+				inQuote = true
+			}
+			continue
+		}
+		if inQuote {
+			cur.WriteRune(ch)
+		}
+	}
+	return out
+}
+
+// GetHomeLayout GET /home/layout
+func (s *CatalogService) GetHomeLayout(c *gin.Context) {
+	uid := currentUserID(c)
+	if uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		return
+	}
+	var layout models.UserHomeLayout
+	if err := s.db.Where("user_id = ?", *uid).First(&layout).Error; err != nil {
+		// return default empty
+		c.JSON(http.StatusOK, gin.H{"hidden_system_slugs": []string{}, "order_json": []string{}})
+		return
+	}
+	hidden := []string(layout.HiddenSystemSlugs)
+	if hidden == nil {
+		hidden = []string{}
+	}
+	// parse order_json robustly
+	var order []string
+	// try raw text
+	var raw string
+	s.db.Raw("SELECT order_json::text FROM user_home_layouts WHERE user_id = ?", *uid).Row().Scan(&raw)
+	order = parseOrderJSONRaw(raw)
+	if order == nil {
+		order = []string{}
+	}
+	c.JSON(http.StatusOK, gin.H{"hidden_system_slugs": hidden, "order_json": order})
+}
+
+// PutHomeLayout PUT /home/layout
+func (s *CatalogService) PutHomeLayout(c *gin.Context) {
+	uid := currentUserID(c)
+	if uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		return
+	}
+	var input struct {
+		HiddenSystemSlugs []string `json:"hidden_system_slugs"`
+		OrderJSON         []string `json:"order_json"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// validate hidden slugs exist in virtual_shelves
+	if len(input.HiddenSystemSlugs) > 0 {
+		for _, slug := range input.HiddenSystemSlugs {
+			var cnt int64
+			s.db.Model(&models.VirtualShelf{}).Where("slug = ?", slug).Count(&cnt)
+			if cnt == 0 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "unknown system shelf: " + slug})
+				return
+			}
+		}
+	}
+	// validate order_json entries: either system slug or custom:<uuid>
+	seen := map[string]bool{}
+	deduped := []string{}
+	for _, entry := range input.OrderJSON {
+		trimmed := strings.TrimSpace(entry)
+		if trimmed == "" || seen[trimmed] {
+			continue
+		}
+		seen[trimmed] = true
+		if strings.HasPrefix(trimmed, "custom:") {
+			idStr := strings.TrimPrefix(trimmed, "custom:")
+			cid, err := uuid.Parse(idStr)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid custom shelf id: " + trimmed})
+				return
+			}
+			var cs models.UserCustomShelf
+			if err := s.db.Where("id = ?", cid).First(&cs).Error; err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "custom shelf not found: " + trimmed})
+				return
+			}
+			isOwner := cs.OwnerID == *uid
+			if !cs.IsPublic && !isOwner {
+				// check admin
+				role, _ := c.Get("role")
+				if role != "admin" && role != "archivist" {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "custom shelf not accessible: " + trimmed})
+					return
+				}
+			}
+		} else {
+			var cnt int64
+			s.db.Model(&models.VirtualShelf{}).Where("slug = ?", trimmed).Count(&cnt)
+			if cnt == 0 {
+				// also allow custom shelf id without prefix? be lenient but reject
+				c.JSON(http.StatusBadRequest, gin.H{"error": "unknown shelf: " + trimmed})
+				return
+			}
+		}
+		deduped = append(deduped, trimmed)
+	}
+	// dedup hidden
+	hiddenSeen := map[string]bool{}
+	hiddenDeduped := []string{}
+	for _, h := range input.HiddenSystemSlugs {
+		trimmed := strings.TrimSpace(h)
+		if trimmed == "" || hiddenSeen[trimmed] {
+			continue
+		}
+		hiddenSeen[trimmed] = true
+		hiddenDeduped = append(hiddenDeduped, trimmed)
+	}
+	// upsert
+	var layout models.UserHomeLayout
+	err := s.db.Where("user_id = ?", *uid).First(&layout).Error
+	if err != nil {
+		// create
+		layout = models.UserHomeLayout{
+			UserID:            *uid,
+			HiddenSystemSlugs: pq.StringArray(hiddenDeduped),
+			UpdatedAt:         time.Now(),
+		}
+		// store order_json as JSONB array via raw SQL to avoid GORM map type issue
+		// create row first with empty, then update via Exec
+		if err := s.db.Create(&layout).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		// update order_json
+		orderJSONStr := toJSONArray(deduped)
+		s.db.Exec("UPDATE user_home_layouts SET order_json = ?::jsonb, updated_at = NOW() WHERE user_id = ?", orderJSONStr, *uid)
+	} else {
+		orderJSONStr := toJSONArray(deduped)
+		if err := s.db.Exec("UPDATE user_home_layouts SET hidden_system_slugs = ?, order_json = ?::jsonb, updated_at = NOW() WHERE user_id = ?", pq.Array(hiddenDeduped), orderJSONStr, *uid).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+	// return updated
+	var raw string
+	s.db.Raw("SELECT order_json::text FROM user_home_layouts WHERE user_id = ?", *uid).Row().Scan(&raw)
+	order := parseOrderJSONRaw(raw)
+	var hidden []string
+	s.db.Raw("SELECT hidden_system_slugs FROM user_home_layouts WHERE user_id = ?", *uid).Row().Scan(pq.Array(&hidden))
+	if hidden == nil {
+		hidden = []string{}
+	}
+	if order == nil {
+		order = []string{}
+	}
+	c.JSON(http.StatusOK, gin.H{"hidden_system_slugs": hidden, "order_json": order})
+}
+
+func toJSONArray(arr []string) string {
+	if len(arr) == 0 {
+		return "[]"
+	}
+	var b strings.Builder
+	b.WriteString("[")
+	for i, v := range arr {
+		if i > 0 {
+			b.WriteString(",")
+		}
+		// escape quotes
+		escaped := strings.ReplaceAll(v, "\"", "\\\"")
+		b.WriteString("\"")
+		b.WriteString(escaped)
+		b.WriteString("\"")
+	}
+	b.WriteString("]")
+	return b.String()
+}
