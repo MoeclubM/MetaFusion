@@ -23,14 +23,14 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
-INSERT INTO forum_boards (code, name_zh, name_en, description, color, icon, sort_order, is_enabled, show_in_feed) VALUES
-('announcement', '站点公告', 'Announcements', '站点公告与运营通知', 'amber', 'Megaphone', 10, TRUE, TRUE),
-('reviews',      '考据评注', 'Archive Reviews', '版本考证、原盘评析与文献释读', 'emerald', 'BookOpen', 20, TRUE, TRUE),
-('technology',   '技术研讨', 'Tech & Rip',    '无损抓轨日志、UHD 压制参数与音频转码', 'amber', 'Cpu', 30, TRUE, TRUE),
-('archival',     '馆务倡议', 'Archival Affairs', '编目规范、入库建议与站点运营', 'sky', 'Archive', 40, TRUE, TRUE),
-('general',      '综合讨论', 'General Lounge', '综合交流、资源分享与自由杂谈', 'purple', 'MessageSquare', 50, TRUE, TRUE),
-('bug_report',   'Bug反馈',  'Bug Reports',   '缺陷反馈与复现信息', 'rose', 'Bug', 60, TRUE, TRUE),
-('comment',      '评论专用', 'Comments',      '作品与讨论的评论承载区，不进入信息流与全站聚合', 'sky', 'MessageCircle', 70, TRUE, FALSE)
+INSERT INTO forum_boards (code, name_zh, name_en, description, color, icon, sort_order, is_enabled, show_in_feed, names) VALUES
+('announcement', '站点公告', 'Announcements', '站点公告与运营通知', 'amber', 'Megaphone', 10, TRUE, TRUE, '{"zh-CN":"站点公告","en-US":"Announcements"}'),
+('reviews',      '考据评注', 'Archive Reviews', '版本考证、原盘评析与文献释读', 'emerald', 'BookOpen', 20, TRUE, TRUE, '{"zh-CN":"考据评注","en-US":"Archive Reviews"}'),
+('technology',   '技术研讨', 'Tech & Rip',    '无损抓轨日志、UHD 压制参数与音频转码', 'amber', 'Cpu', 30, TRUE, TRUE, '{"zh-CN":"技术研讨","en-US":"Tech & Rip"}'),
+('archival',     '馆务倡议', 'Archival Affairs', '编目规范、入库建议与站点运营', 'sky', 'Archive', 40, TRUE, TRUE, '{"zh-CN":"馆务倡议","en-US":"Archival Affairs"}'),
+('general',      '综合讨论', 'General Lounge', '综合交流、资源分享与自由杂谈', 'purple', 'MessageSquare', 50, TRUE, TRUE, '{"zh-CN":"综合讨论","en-US":"General Lounge"}'),
+('bug_report',   'Bug反馈',  'Bug Reports',   '缺陷反馈与复现信息', 'rose', 'Bug', 60, TRUE, TRUE, '{"zh-CN":"Bug反馈","en-US":"Bug Reports"}'),
+('comment',      '评论专用', 'Comments',      '作品与讨论的评论承载区，不进入信息流与全站聚合', 'sky', 'MessageCircle', 70, TRUE, FALSE, '{"zh-CN":"评论专用","en-US":"Comments"}')
 ON CONFLICT (code) DO UPDATE SET
     name_zh = EXCLUDED.name_zh,
     name_en = EXCLUDED.name_en,
@@ -38,7 +38,8 @@ ON CONFLICT (code) DO UPDATE SET
     color = EXCLUDED.color,
     icon = EXCLUDED.icon,
     sort_order = EXCLUDED.sort_order,
-    show_in_feed = EXCLUDED.show_in_feed;
+    show_in_feed = EXCLUDED.show_in_feed,
+    names = EXCLUDED.names;
 
 CREATE TABLE IF NOT EXISTS user_groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
