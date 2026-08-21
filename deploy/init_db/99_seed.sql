@@ -5,8 +5,9 @@
 -- ==============================================================================
 
 -- 1. 预置管理员与初始用户 (开发环境种子账号，首次登录后请立即修改密码)
+-- admin 初始密码: AdminPassword2026! ；archivist_prime 与 admin 同哈希（开发占位）
 INSERT INTO users (id, username, email, password_hash, role, invites_remaining) VALUES
-('00000000-0000-0000-0000-000000000001', 'admin', 'admin@metafusion.internal', '$2a$10$BSREI5h6HDVBhV5K.Hi2u..T2uOZLYy2Q2nn7s8shJ9asLji8DVt6', 'admin', 999),
+('00000000-0000-0000-0000-000000000001', 'admin', 'admin@metafusion.internal', '$2b$10$tEvp/mxeztlHPVxKErHLle30.Ya94POXXC.y2oLuiQ8YwkFYzwPxq', 'admin', 999),
 ('00000000-0000-0000-0000-000000000002', 'archivist_prime', 'archivist@metafusion.internal', '$2a$10$BSREI5h6HDVBhV5K.Hi2u..T2uOZLYy2Q2nn7s8shJ9asLji8DVt6', 'archivist', 10);
 
 -- 2. 预置创世邀请码
