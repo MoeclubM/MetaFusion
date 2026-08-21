@@ -233,7 +233,9 @@ type Work struct {
 	Ended           bool           `gorm:"default:false;not null" json:"ended"`
 	Country         string         `json:"country"`
 	Language        string         `gorm:"default:'zh-CN'" json:"language"`
-	Summary         string         `json:"summary"`
+	// OriginalLanguage 作品原始语言（ISO 639-1，如 zh/ja/en/ko），与 Language（元数据主语言，BCP-47）区分
+	OriginalLanguage string `gorm:"type:varchar(16);default:''" json:"original_language"`
+	Summary          string `json:"summary"`
 	CoverImageURL   string         `json:"cover_image_url"`
 	ContentRating   string         `gorm:"default:'General'" json:"content_rating"`
 	Status          string         `gorm:"default:'completed'" json:"status"`

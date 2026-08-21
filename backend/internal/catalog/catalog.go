@@ -899,20 +899,21 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 	workStatus := models.WorkStatusPendingReview
 
 	work := models.Work{
-		CategoryCode:    input.CategoryCode,
-		MediaType:       input.MediaType,
-		Title:           strings.TrimSpace(input.Title),
-		OriginalTitle:   strings.TrimSpace(input.OriginalTitle),
-		Aliases:         input.Aliases,
-		ReleaseDate:     releaseDate,
-		Country:         strings.TrimSpace(input.Country),
-		Language:        input.Language,
-		Summary:         input.Summary,
-		CoverImageURL:   input.CoverImageURL,
-		ContentRating:   input.ContentRating,
-		Status:          workStatus,
-		CatalogMetadata: models.JSONB(input.CatalogMetadata),
-		CreatedBy:       uid,
+		CategoryCode:     input.CategoryCode,
+		MediaType:        input.MediaType,
+		Title:            strings.TrimSpace(input.Title),
+		OriginalTitle:    strings.TrimSpace(input.OriginalTitle),
+		Aliases:          input.Aliases,
+		ReleaseDate:      releaseDate,
+		Country:          strings.TrimSpace(input.Country),
+		Language:         input.Language,
+		OriginalLanguage: input.OriginalLanguage,
+		Summary:          input.Summary,
+		CoverImageURL:    input.CoverImageURL,
+		ContentRating:    input.ContentRating,
+		Status:           workStatus,
+		CatalogMetadata:  models.JSONB(input.CatalogMetadata),
+		CreatedBy:        uid,
 	}
 	if err := validateCoverURL(work.CoverImageURL); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -1534,15 +1535,16 @@ func (s *CatalogService) ListRelationTypes(c *gin.Context) {
 }
 
 type CreateWorkInput struct {
-	CategoryCode    string                 `json:"category_code"`
-	MediaType       string                 `json:"media_type" binding:"required"`
-	Title           string                 `json:"title" binding:"required"`
-	OriginalTitle   string                 `json:"original_title"`
-	Aliases         []string               `json:"aliases"`
-	ReleaseDate     *string                `json:"release_date"`
-	Country         string                 `json:"country"`
-	Language        string                 `json:"language"`
-	Summary         string                 `json:"summary"`
+	CategoryCode     string                 `json:"category_code"`
+	MediaType        string                 `json:"media_type" binding:"required"`
+	Title            string                 `json:"title" binding:"required"`
+	OriginalTitle    string                 `json:"original_title"`
+	Aliases          []string               `json:"aliases"`
+	ReleaseDate      *string                `json:"release_date"`
+	Country          string                 `json:"country"`
+	Language         string                 `json:"language"`
+	OriginalLanguage string                 `json:"original_language"`
+	Summary          string                 `json:"summary"`
 	CoverImageURL   string                 `json:"cover_image_url"`
 	ContentRating   string                 `json:"content_rating"`
 	CatalogMetadata map[string]interface{} `json:"catalog_metadata"`
@@ -1704,6 +1706,7 @@ type ComprehensiveSubmissionInput struct {
 	ReleaseDate     *string                            `json:"release_date"`
 	Country         string                             `json:"country"`
 	Language        string                             `json:"language"`
+	OriginalLanguage string                            `json:"original_language"`
 	Summary         string                             `json:"summary"`
 	CoverImageURL   string                             `json:"cover_image_url"`
 	Tags            []string                           `json:"tags"`
@@ -1759,19 +1762,20 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 	}
 
 	work := models.Work{
-		CategoryCode:    catCode,
-		MediaType:       input.MediaType,
-		Title:           strings.TrimSpace(input.Title),
-		OriginalTitle:   strings.TrimSpace(input.OriginalTitle),
-		Aliases:         input.Aliases,
-		ReleaseDate:     releaseDate,
-		Country:         input.Country,
-		Language:        input.Language,
-		Summary:         input.Summary,
-		CoverImageURL:   input.CoverImageURL,
-		Status:          models.WorkStatusPendingReview,
-		CatalogMetadata: models.JSONB(mergedMetadata),
-		CreatedBy:       &userID,
+		CategoryCode:     catCode,
+		MediaType:        input.MediaType,
+		Title:            strings.TrimSpace(input.Title),
+		OriginalTitle:    strings.TrimSpace(input.OriginalTitle),
+		Aliases:          input.Aliases,
+		ReleaseDate:      releaseDate,
+		Country:          input.Country,
+		Language:         input.Language,
+		OriginalLanguage: input.OriginalLanguage,
+		Summary:          input.Summary,
+		CoverImageURL:    input.CoverImageURL,
+		Status:           models.WorkStatusPendingReview,
+		CatalogMetadata:  models.JSONB(mergedMetadata),
+		CreatedBy:        &userID,
 	}
 	if work.Language == "" {
 		work.Language = "zh-CN"
@@ -2022,6 +2026,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		Ended           bool                   `json:"ended"`
 		Country         string                 `json:"country"`
 		Language        string                 `json:"language"`
+		OriginalLanguage string                `json:"original_language"`
 		Summary         string                 `json:"summary"`
 		CoverImageURL   string                 `json:"cover_image_url"`
 		ContentRating   string                 `json:"content_rating"`
@@ -2036,19 +2041,20 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	}
 
 	beforeState := map[string]interface{}{
-		"title":            work.Title,
-		"original_title":   work.OriginalTitle,
-		"category_code":    work.CategoryCode,
-		"media_type":       work.MediaType,
-		"aliases":          work.Aliases,
-		"begin_date":       work.BeginDate,
-		"end_date":         work.EndDate,
-		"ended":            work.Ended,
-		"country":          work.Country,
-		"language":         work.Language,
-		"summary":          work.Summary,
-		"cover_image_url":  work.CoverImageURL,
-		"catalog_metadata": work.CatalogMetadata,
+		"title":             work.Title,
+		"original_title":    work.OriginalTitle,
+		"category_code":     work.CategoryCode,
+		"media_type":        work.MediaType,
+		"aliases":           work.Aliases,
+		"begin_date":        work.BeginDate,
+		"end_date":          work.EndDate,
+		"ended":             work.Ended,
+		"country":           work.Country,
+		"language":          work.Language,
+		"original_language": work.OriginalLanguage,
+		"summary":           work.Summary,
+		"cover_image_url":   work.CoverImageURL,
+		"catalog_metadata":  work.CatalogMetadata,
 	}
 
 	work.Title = strings.TrimSpace(input.Title)
@@ -2074,6 +2080,9 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	if input.Language != "" {
 		work.Language = input.Language
 	}
+	if input.OriginalLanguage != "" {
+		work.OriginalLanguage = input.OriginalLanguage
+	}
 	work.Summary = input.Summary
 	work.CoverImageURL = input.CoverImageURL
 	if input.ContentRating != "" {
@@ -2092,19 +2101,20 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	}
 
 	afterState := map[string]interface{}{
-		"title":            work.Title,
-		"original_title":   work.OriginalTitle,
-		"category_code":    work.CategoryCode,
-		"media_type":       work.MediaType,
-		"aliases":          work.Aliases,
-		"begin_date":       work.BeginDate,
-		"end_date":         work.EndDate,
-		"ended":            work.Ended,
-		"country":          work.Country,
-		"language":         work.Language,
-		"summary":          work.Summary,
-		"cover_image_url":  work.CoverImageURL,
-		"catalog_metadata": work.CatalogMetadata,
+		"title":             work.Title,
+		"original_title":    work.OriginalTitle,
+		"category_code":     work.CategoryCode,
+		"media_type":        work.MediaType,
+		"aliases":           work.Aliases,
+		"begin_date":        work.BeginDate,
+		"end_date":          work.EndDate,
+		"ended":             work.Ended,
+		"country":           work.Country,
+		"language":          work.Language,
+		"original_language": work.OriginalLanguage,
+		"summary":           work.Summary,
+		"cover_image_url":   work.CoverImageURL,
+		"catalog_metadata":  work.CatalogMetadata,
 	}
 
 	s.recordRevision("work", work.ID, &userID, "update", "更新作品元数据", input.EditNote, input.SourceURLs, beforeState, afterState)

@@ -425,6 +425,7 @@ export interface Work {
   ended?: boolean;
   country?: string;
   language?: string;
+  original_language?: string;
   summary?: string;
   cover_image_url?: string;
   content_rating?: string;

@@ -14,13 +14,23 @@ interface Props {
   taxonomy?: any;
 }
 
-const LANGUAGE_OPTIONS = [
-  { code: "zh-Hans", labelKey: "editor.core.langZhHans" },
-  { code: "zh-Hant", labelKey: "editor.core.langZhHant" },
+// 元数据主语言（BCP-47）：词条文本以何种语言书写
+const METADATA_LANGUAGE_OPTIONS = [
+  { code: "zh-CN", labelKey: "editor.core.langZhHans" },
+  { code: "zh-TW", labelKey: "editor.core.langZhHant" },
+  { code: "en-US", labelKey: "editor.core.langEn" },
+  { code: "ja-JP", labelKey: "editor.core.langJa" },
+  { code: "ko-KR", labelKey: "editor.core.langKo" },
+];
+
+// 原始语言（ISO 639-1）：作品内容本身的语言
+const ORIGINAL_LANGUAGE_OPTIONS = [
+  { code: "zh", labelKey: "editor.core.origLangZh" },
   { code: "ja", labelKey: "editor.core.langJa" },
   { code: "en", labelKey: "editor.core.langEn" },
   { code: "ko", labelKey: "editor.core.langKo" },
-  { code: "other", labelKey: "editor.core.langOther" },
+  { code: "fr", labelKey: "editor.core.origLangFr" },
+  { code: "de", labelKey: "editor.core.origLangDe" },
 ];
 
 export function EditorCoreFields({
@@ -84,20 +94,23 @@ export function EditorCoreFields({
             <Globe2 className="w-4 h-4 text-amber-400" />
             <h3 className="text-xs font-semibold text-white">{t("editor.core.multilingualTitle")}</h3>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-[11px] font-mono text-gray-400">{t("editor.core.primaryLangLabel")}</label>
-            <select
-              value={formData.primary_language || "zh-Hans"}
-              onChange={(e) => updateField("primary_language", e.target.value)}
-              className="px-3 h-9 rounded-lg bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
-            >
-              {LANGUAGE_OPTIONS.map((opt) => (
-                <option key={opt.code} value={opt.code}>
-                  {t(opt.labelKey)}
-                </option>
-              ))}
-            </select>
-          </div>
+          {targetType === "work" && (
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] font-mono text-gray-400">{t("editor.core.metadataLangLabel")}</label>
+              <select
+                value={formData.language || "zh-CN"}
+                onChange={(e) => updateField("language", e.target.value)}
+                title={t("editor.core.metadataLangHint")}
+                className="px-3 h-9 rounded-lg bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+              >
+                {METADATA_LANGUAGE_OPTIONS.map((opt) => (
+                  <option key={opt.code} value={opt.code}>
+                    {t(opt.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -191,25 +204,44 @@ export function EditorCoreFields({
       {/* ── 2. 主体性质 / 分发参数 ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {targetType === "work" && (
-          <div className="space-y-1.5 md:col-span-2">
-            <label className="block text-xs sm:text-sm font-mono text-gray-300">
-              {t("editor.temporal.mediaTypeLabel")} <span className="text-amber-400">*</span>
-            </label>
-            <select
-              value={formData.media_type || "movie"}
-              onChange={(e) => updateField("media_type", e.target.value)}
-              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
-            >
-              <option value="movie">{t("mediaType.movie")}</option>
-              <option value="tv_series">{t("mediaType.tv_series")}</option>
-              <option value="anime">{t("mediaType.anime")}</option>
-              <option value="music">{t("mediaType.music")}</option>
-              <option value="audiobook">{t("mediaType.audiobook")}</option>
-              <option value="novel">{t("mediaType.novel")}</option>
-              <option value="comic">{t("mediaType.comic")}</option>
-              <option value="gallery">{t("mediaType.gallery")}</option>
-            </select>
-          </div>
+          <>
+            <div className="space-y-1.5">
+              <label className="block text-xs sm:text-sm font-mono text-gray-300">
+                {t("editor.temporal.mediaTypeLabel")} <span className="text-amber-400">*</span>
+              </label>
+              <select
+                value={formData.media_type || "movie"}
+                onChange={(e) => updateField("media_type", e.target.value)}
+                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
+              >
+                <option value="movie">{t("mediaType.movie")}</option>
+                <option value="tv_series">{t("mediaType.tv_series")}</option>
+                <option value="anime">{t("mediaType.anime")}</option>
+                <option value="music">{t("mediaType.music")}</option>
+                <option value="audiobook">{t("mediaType.audiobook")}</option>
+                <option value="novel">{t("mediaType.novel")}</option>
+                <option value="comic">{t("mediaType.comic")}</option>
+                <option value="gallery">{t("mediaType.gallery")}</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-xs sm:text-sm font-mono text-gray-300" title={t("editor.core.originalLangHint")}>
+                {t("editor.core.originalLangLabel")}
+              </label>
+              <select
+                value={formData.original_language || ""}
+                onChange={(e) => updateField("original_language", e.target.value)}
+                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
+              >
+                <option value="">{t("editor.core.originalLangUnknown")}</option>
+                {ORIGINAL_LANGUAGE_OPTIONS.map((opt) => (
+                  <option key={opt.code} value={opt.code}>
+                    {t(opt.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
         )}
 
         {targetType === "artist" && (
