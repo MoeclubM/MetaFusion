@@ -46,14 +46,14 @@ export default function InvitesPage() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => copy("code")}
-              className="h-7.5 px-3 rounded-md bg-primary text-white keep-white hover:opacity-90 font-medium inline-flex items-center gap-1.5 text-xs transition-opacity shadow-xs"
+              className="h-7 px-3 rounded-md bg-primary text-white keep-white hover:opacity-90 font-medium inline-flex items-center gap-1.5 text-xs transition-opacity shadow-xs"
             >
               {copiedField === "code" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedField === "code" ? t("common.copied") : t("common.copy")}</span>
             </button>
             <button
               onClick={() => copy("link")}
-              className="h-7.5 px-3 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-200 hover:text-primary inline-flex items-center gap-1.5 text-xs transition-colors"
+              className="h-7 px-3 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-200 hover:text-primary inline-flex items-center gap-1.5 text-xs transition-colors"
             >
               {copiedField === "link" ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
               <span>{copiedField === "link" ? t("common.copied") : t("common.copyLink")}</span>

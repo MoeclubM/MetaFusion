@@ -52,7 +52,7 @@ export default function ContributeHubPage() {
         {!user && (
           <div className="p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
             <div className="flex items-center gap-2.5">
-              <div className="w-7.5 h-7.5 rounded-md bg-amber-400/20 grid place-items-center shrink-0">
+              <div className="w-7.5 h-7 rounded-md bg-amber-400/20 grid place-items-center shrink-0">
                 <Lock className="w-4 h-4 text-amber-500" />
               </div>
               <div>
@@ -62,7 +62,7 @@ export default function ContributeHubPage() {
             </div>
             <Link
               href="/login?redirect=/contribute"
-              className="px-3.5 h-7.5 rounded-md bg-primary text-white font-semibold text-xs font-mono inline-flex items-center justify-center gap-1.5 shrink-0 transition-opacity hover:opacity-90 shadow-xs"
+              className="px-3.5 h-7 rounded-md bg-primary text-white font-semibold text-xs font-mono inline-flex items-center justify-center gap-1.5 shrink-0 transition-opacity hover:opacity-90 shadow-xs"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>{t("contribute.loginNow")}</span>

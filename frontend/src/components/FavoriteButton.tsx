@@ -51,7 +51,8 @@ export default function FavoriteButton({
     }
   };
 
-  const h = size === "sm" ? "h-7 px-2.5 text-xs" : "h-8 px-3 text-sm";
+  // 与 EntityActionToolbar 按钮保持同一档高度与字号
+  const h = size === "sm" ? "h-7 px-3 text-xs" : "h-8 px-3 text-sm";
   return (
     <button
       type="button"

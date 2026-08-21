@@ -75,7 +75,7 @@ export function AdminHeader({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t("admin.header.searchPlaceholder")}
-            className="w-full pl-9 pr-8 h-9.5 sm:h-10 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/50 transition-colors"
+            className="w-full pl-9 pr-8 h-9 sm:h-10 rounded-lg bg-white/[0.04] border border-white/[0.08] text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-400/50 transition-colors"
           />
           {searchQuery && (
             <button

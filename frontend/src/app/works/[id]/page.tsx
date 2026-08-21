@@ -8,7 +8,7 @@ import { MultipartUploader } from "@/components/MultipartUploader";
 import { fetchApi, Work, Release, DiscussionTopic, Category, categoryDisplayName, getRoleName, getMediaTypeName } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { Layers, MessageSquare, User, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Star, ArrowUpRight, Edit3, History, GitMerge } from "lucide-react";
+import { Layers, MessageSquare, User, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Eye, ArrowUpRight, Edit3, History, GitMerge } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
@@ -147,7 +147,7 @@ export default function WorkDirectoryPage() {
  />
  </div>
  <div className="mt-2 flex items-center gap-2 font-mono text-xs text-gray-500">
- <Star className="w-4 h-4 text-amber-500" strokeWidth={1.5} /> {t("work.detail.viewCount", { count: work.view_count })}
+ <Eye className="w-4 h-4 text-gray-400" strokeWidth={1.5} /> {t("work.detail.viewCount", { count: work.view_count })}
  {meta.clc_code && <span>· {t("work.detail.clc", { code: meta.clc_code })}</span>}
  </div>
  </div>

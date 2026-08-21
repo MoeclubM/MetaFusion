@@ -237,10 +237,10 @@ export const MultipartUploader: React.FC<MultipartUploaderProps> = ({ isOpen, on
           )}
 
           <div className="flex justify-end gap-1.5 pt-1">
-            <button type="button" onClick={onClose} disabled={isUploading} className="px-3 h-7.5 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white text-xs transition-colors">
+            <button type="button" onClick={onClose} disabled={isUploading} className="px-3 h-7 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white text-xs transition-colors">
               {t("uploader.cancel")}
             </button>
-            <button type="submit" disabled={!file || isUploading} className="px-3.5 h-7.5 rounded-md bg-primary text-white keep-white font-semibold hover:opacity-90 disabled:opacity-50 text-xs inline-flex items-center gap-1 transition-opacity shadow-xs">
+            <button type="submit" disabled={!file || isUploading} className="px-3.5 h-7 rounded-md bg-primary text-white keep-white font-semibold hover:opacity-90 disabled:opacity-50 text-xs inline-flex items-center gap-1 transition-opacity shadow-xs">
               <ShieldCheck className="w-3.5 h-3.5" strokeWidth={1.6} /> <span>{isUploading ? t("common.uploading") : t("uploader.start")}</span>
             </button>
           </div>

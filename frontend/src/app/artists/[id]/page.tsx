@@ -146,7 +146,7 @@ export default function ArtistDetailPage() {
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 onClick={() => setActiveTab("works")}
-                className={`px-3 h-7.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors ${activeTab === "works" ? "bg-primary text-white keep-white border-primary shadow-xs" : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"}`}
+                className={`px-3 h-7 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors ${activeTab === "works" ? "bg-primary text-white keep-white border-primary shadow-xs" : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"}`}
               >
                 <Film className="w-3.5 h-3.5" strokeWidth={1.5} />
                 <span>{t("artist.detail.worksAndCreation", { count: works.length })}</span>
@@ -154,7 +154,7 @@ export default function ArtistDetailPage() {
               {releases.length > 0 && (
                 <button
                   onClick={() => setActiveTab("releases")}
-                  className={`px-3 h-7.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors ${activeTab === "releases" ? "bg-primary text-white keep-white border-primary shadow-xs" : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"}`}
+                  className={`px-3 h-7 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors ${activeTab === "releases" ? "bg-primary text-white keep-white border-primary shadow-xs" : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"}`}
                 >
                   <Layers className="w-3.5 h-3.5" strokeWidth={1.5} />
                   <span>{t("artist.detail.published", { count: releases.length })}</span>
@@ -163,7 +163,7 @@ export default function ArtistDetailPage() {
               {connectedEntities.length > 0 && (
                 <button
                   onClick={() => setActiveTab("affiliations")}
-                  className={`px-3 h-7.5 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors ${activeTab === "affiliations" ? "bg-primary text-white keep-white border-primary shadow-xs" : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"}`}
+                  className={`px-3 h-7 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors ${activeTab === "affiliations" ? "bg-primary text-white keep-white border-primary shadow-xs" : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"}`}
                 >
                   <Handshake className="w-3.5 h-3.5" strokeWidth={1.5} />
                   <span>{t("artist.detail.affiliations", { count: connectedEntities.length })}</span>

@@ -51,11 +51,11 @@ function RootLandingInner() {
         <LocaleSwitcher compact />
       </aside>
 
-      {/* Hero Core: Enlarged Logo on Left, Center of Gravity Shifted Rightwards */}
+      {/* Hero Core: Enlarged Logo Left, Copy Right, Centered as a Whole */}
       <main className="relative z-10 w-full max-w-6xl mx-auto px-6 py-8 sm:py-12 flex-1 flex flex-col justify-center">
-        <div className="w-full flex flex-col md:flex-row items-center md:items-start justify-center md:translate-x-20 lg:translate-x-32 gap-8 md:gap-14">
+        <div className="w-full flex flex-col md:flex-row items-center justify-center gap-8 md:gap-14">
           {/* Enlarged BrandMark Logo */}
-          <div className="shrink-0 pt-2">
+          <div className="shrink-0">
             <BrandMark size={140} withGlow={true} idSuffix="landing-hero" />
           </div>
 

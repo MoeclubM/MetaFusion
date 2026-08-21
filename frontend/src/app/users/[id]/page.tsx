@@ -109,7 +109,7 @@ export default function UserDetailPage() {
                   }
                   setIsChatOpen(true);
                 }}
-                className="px-3.5 h-7.5 rounded-md bg-primary hover:opacity-90 text-white keep-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-opacity"
+                className="px-3.5 h-7 rounded-md bg-primary hover:opacity-90 text-white keep-white text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-opacity"
               >
                 <MessageCircle className="w-3.5 h-3.5 stroke-[2]" />
                 <span>{t("users.profile.sendMessage")}</span>
