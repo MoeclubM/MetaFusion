@@ -1,7 +1,6 @@
 "use client";
 
 import { useI18n } from "@/i18n/I18nProvider";
-import { Activity, CheckCircle2 } from "lucide-react";
 import type { Tab } from "./types";
 import { sidebarGroups } from "./types";
 
@@ -9,19 +8,11 @@ export function AdminSidebar({
   activeTab,
   setActiveTab,
   setSearchQuery,
-  worksListLength,
-  expressionsListLength,
-  releasesListLength,
-  assetsListLength,
   pendingReviewsCount,
 }: {
   activeTab: Tab;
   setActiveTab: (t: Tab) => void;
   setSearchQuery: (v: string) => void;
-  worksListLength: number;
-  expressionsListLength: number;
-  releasesListLength: number;
-  assetsListLength: number;
   pendingReviewsCount: number;
 }) {
   const { t } = useI18n();
@@ -89,28 +80,6 @@ export function AdminSidebar({
           </div>
         ))}
       </nav>
-
-      {/* Clean System Status Widget at Bottom */}
-      <div className="mt-auto p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="font-mono text-[11px] text-gray-400 flex items-center gap-1.5">
-            <Activity className="w-3.5 h-3.5 text-emerald-400" />
-            {t("admin.sidebar.frbrStatus")}
-          </span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-mono text-emerald-400 font-medium">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            ONLINE
-          </span>
-        </div>
-        <div className="text-[10px] font-mono text-gray-500 leading-relaxed border-t border-white/[0.04] pt-1.5">
-          {t("admin.sidebar.statusCounts", {
-            w: worksListLength,
-            e: expressionsListLength,
-            m: releasesListLength,
-            i: assetsListLength,
-          })}
-        </div>
-      </div>
     </aside>
   );
 }

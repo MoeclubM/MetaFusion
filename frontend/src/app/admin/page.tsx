@@ -37,7 +37,7 @@ function AdminContent() {
     <div className="min-h-screen bg-[#0a0a0c] text-gray-100 flex flex-col font-sans selection:bg-amber-500/20 selection:text-amber-200">
       <AdminHeader activeTab={d.activeTab} searchQuery={d.searchQuery} setSearchQuery={d.setSearchQuery} loading={d.loading} loadData={d.loadData} user={d.user} logout={d.logout} />
       <div className="flex-1 flex overflow-hidden">
-        <AdminSidebar activeTab={d.activeTab} setActiveTab={d.setActiveTab} setSearchQuery={d.setSearchQuery} worksListLength={d.worksList.length} expressionsListLength={d.expressionsList.length} releasesListLength={d.releasesList.length} assetsListLength={d.assetsList.length} pendingReviewsCount={d.pendingReviewsCount} />
+        <AdminSidebar activeTab={d.activeTab} setActiveTab={d.setActiveTab} setSearchQuery={d.setSearchQuery} pendingReviewsCount={d.pendingReviewsCount} />
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           {d.activeTab === "overview" && <OverviewTab stats={d.stats} worksList={d.worksList} expressionsList={d.expressionsList} releasesList={d.releasesList} assetsList={d.assetsList} artistsList={d.artistsList} usersList={d.usersList} topicsList={d.topicsList} auditLogs={d.auditLogs} setActiveTab={d.setActiveTab} />}
           {d.activeTab === "reviews" && <ReviewsTab loading={d.loading} filteredReviewWorks={d.filteredReviewWorks} pendingReviewsCount={d.pendingReviewsCount} reviewFilter={d.reviewFilter} setReviewFilter={d.setReviewFilter} reviewingId={d.reviewingId} handleApproveWork={d.handleApproveWork} handleRejectWork={d.handleRejectWork} />}
