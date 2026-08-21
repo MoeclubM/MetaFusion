@@ -495,7 +495,7 @@ export interface Invitation {
  * i18n: 板块名称/描述以 translation key 为权威来源（board.<code> / board.<code>Desc）。
  * name/desc / name_zh / description 为 legacy offline fallback（英文），展示层应优先用:
  *   - getBoardName(code, t) / getBoardDesc(code, t) 或
- *   - getLocalizedBoardOptions(t) / boardDisplayName(board, locale, t) / normalizeBoard 增强
+ *   - getBoardName(code, t) / getBoardDesc(code, t) / boardDisplayName(board, locale, t) / normalizeBoard 增强
  * 后端已下发的 name_en / name_zh 若存在仍可作为次级回退，但不应直接渲染硬编码中文。
  */
 export interface ForumBoard {
@@ -579,11 +579,6 @@ export function boardDisplayName(board: ForumBoard, locale?: string, t?: (k: str
   return board.name_zh || board.code;
 }
 
-// 兼容：部分历史调用以 board.name 渲染，保留但标注为 legacy；新代码请用 getBoardName(code, t) 或 boardDisplayName(_, locale, t)
-export function getLocalizedBoardOptions(t: (k: string) => string): ForumBoard[] {
-  return FALLBACK_BOARDS.map((b) => ({ ...b, name: t(b.nameKey), name_en: t(b.nameKey), name_zh: t(b.nameKey), description: t(b.descKey), desc: t(b.descKey) }));
-}
-
 const VIRTUAL_ALL_BOARD: ForumBoard = {
   code: "all",
   nameKey: "board.all",
@@ -650,10 +645,6 @@ export async function fetchBoards(opts?: { force?: boolean }): Promise<ForumBoar
 export function getBoardSync(code: string, boards?: ForumBoard[]): ForumBoard {
   const list = boards || boardsCache || FALLBACK_BOARDS;
   return list.find((b) => b.code === code) || list.find((b) => b.code === "announcement") || VIRTUAL_ALL_BOARD;
-}
-
-export function isFeedBoard(b: ForumBoard): boolean {
-  return b.code === "all" ? true : (b.show_in_feed ?? true) && (b.is_enabled ?? true);
 }
 
 /**
@@ -734,9 +725,13 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
   const token = typeof window !== "undefined" ? localStorage.getItem("metafusion_token") : null;
   const locale = typeof window !== "undefined" ? readLocaleCookie() : null;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(!(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
     ...(options.headers as Record<string, string>),
   };
+  if (options.body instanceof FormData) {
+    delete headers["Content-Type"];
+    delete headers["content-type"];
+  }
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
   }
@@ -757,6 +752,22 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
 
   return res.json();
 }
+
+export async function uploadAvatar(file: File): Promise<{ avatar_url: string; user: User; message: string }> {
+  const formData = new FormData();
+  formData.append("avatar", file);
+  return fetchApi<{ avatar_url: string; user: User; message: string }>("/auth/avatar", {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function deleteAvatar(): Promise<{ avatar_url: string; user: User; message: string }> {
+  return fetchApi<{ avatar_url: string; user: User; message: string }>("/auth/avatar", {
+    method: "DELETE",
+  });
+}
+
 
 export interface UserCustomShelf {
   id: string;
@@ -782,69 +793,29 @@ export interface UserHomeLayout {
   order_json: string[];
 }
 
-export function getShelves(): Promise<VirtualShelf[]> {
-  return fetchApi<VirtualShelf[]>("/catalog/shelves");
+export function syncPresetShelves(overwrite: boolean = false): Promise<{ items: UserCustomShelf[]; order: string[] }> {
+  return fetchApi<{ items: UserCustomShelf[]; order: string[] }>("/catalog/shelves/custom/sync-presets", {
+    method: "POST",
+    body: JSON.stringify({ overwrite }),
+  });
 }
 
-export function listCustomShelves(scope: "own"|"public"|"all" = "own", q?: string, page?: number): Promise<{ items: UserCustomShelf[]; total: number; page: number; page_size: number }> {
-  const params = new URLSearchParams({ scope });
-  if (q) params.set("q", q);
-  if (page) params.set("page", String(page));
-  return fetchApi(`/catalog/shelves/custom?${params.toString()}`);
+export function forkPresetShelf(slug: string): Promise<{ shelf: UserCustomShelf; order: string[] }> {
+  return fetchApi<{ shelf: UserCustomShelf; order: string[] }>(`/catalog/shelves/custom/fork/${slug}`, {
+    method: "POST",
+  });
 }
 
-export function createCustomShelf(payload: Partial<UserCustomShelf> & { slug: string; name_zh: string }): Promise<UserCustomShelf> {
-  return fetchApi<UserCustomShelf>("/catalog/shelves/custom", { method: "POST", body: JSON.stringify(payload) });
-}
-
-export function getCustomShelf(id: string): Promise<UserCustomShelf> {
-  return fetchApi<UserCustomShelf>(`/catalog/shelves/custom/${id}`);
-}
-
-export function updateCustomShelf(id: string, payload: Partial<UserCustomShelf>): Promise<UserCustomShelf> {
-  return fetchApi<UserCustomShelf>(`/catalog/shelves/custom/${id}`, { method: "PUT", body: JSON.stringify(payload) });
-}
-
-export function deleteCustomShelf(id: string): Promise<{ status: string }> {
-  return fetchApi<{ status: string }>(`/catalog/shelves/custom/${id}`, { method: "DELETE" });
-}
-
-export function getHomeLayout(): Promise<UserHomeLayout> {
-  return fetchApi<UserHomeLayout>("/catalog/home/layout");
-}
-
-export function putHomeLayout(layout: UserHomeLayout): Promise<UserHomeLayout> {
-  return fetchApi<UserHomeLayout>("/catalog/home/layout", { method: "PUT", body: JSON.stringify(layout) });
+export function resetDefaultShelves(): Promise<{ items: UserCustomShelf[]; order: string[] }> {
+  return fetchApi<{ items: UserCustomShelf[]; order: string[] }>("/catalog/shelves/custom/reset-defaults", {
+    method: "POST",
+  });
 }
 
 export function updateWorkStatus(id: string, status: string): Promise<{ status: string; work_status: string }> {
   return fetchApi<{ status: string; work_status: string }>(`/admin/works/${id}/status`, {
     method: "PUT",
     body: JSON.stringify({ status }),
-  });
-}
-
-export function listVirtualShelves(): Promise<VirtualShelf[]> {
-  return fetchApi<VirtualShelf[]>("/admin/shelves");
-}
-
-export function createVirtualShelf(shelf: Partial<VirtualShelf>): Promise<VirtualShelf> {
-  return fetchApi<VirtualShelf>("/admin/shelves", {
-    method: "POST",
-    body: JSON.stringify(shelf),
-  });
-}
-
-export function updateVirtualShelf(slug: string, shelf: Partial<VirtualShelf>): Promise<{ status: string }> {
-  return fetchApi<{ status: string }>(`/admin/shelves/${slug}`, {
-    method: "PUT",
-    body: JSON.stringify(shelf),
-  });
-}
-
-export function deleteVirtualShelf(slug: string): Promise<{ status: string }> {
-  return fetchApi<{ status: string }>(`/admin/shelves/${slug}`, {
-    method: "DELETE",
   });
 }
 
@@ -861,14 +832,6 @@ export async function sendDirectMessage(userId: string, content: string): Promis
     method: "POST",
     body: JSON.stringify({ content }),
   });
-}
-
-export async function fetchConversations(): Promise<ConversationItem[]> {
-  return fetchApi<ConversationItem[]>("/messages/conversations");
-}
-
-export async function fetchUnreadMessageCount(): Promise<{ unread_count: number }> {
-  return fetchApi<{ unread_count: number }>("/messages/unread-count");
 }
 
 export async function fetchEntityRevisions(targetType: string, targetId: string): Promise<{ items: EntityRevision[]; total: number }> {

@@ -20,28 +20,28 @@ export function EditorTemporalFields({ formData, updateField, targetType }: Prop
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1.5">
-          <label className="block text-xs font-mono text-gray-300">
+          <label className="block text-xs sm:text-sm font-mono text-gray-300">
             {targetType === "artist" ? t("editor.temporal.beginArtist") : t("editor.temporal.beginWork")}
           </label>
           <input
             type="text"
             value={formData.begin_date || ""}
             onChange={(e) => updateField("begin_date", e.target.value)}
-            placeholder="如: 1979 或 1979-01-18"
-            className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+            placeholder={t("editor.temporal.beginPlaceholder")}
+            className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
           />
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-xs font-mono text-gray-300">
+          <label className="block text-xs sm:text-sm font-mono text-gray-300">
             {targetType === "artist" ? t("editor.temporal.endArtist") : t("editor.temporal.endWork")}
           </label>
           <input
             type="text"
             value={formData.end_date || ""}
             onChange={(e) => updateField("end_date", e.target.value)}
-            placeholder="如: 2011 或 2011-12-31"
-            className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+            placeholder={t("editor.temporal.endPlaceholder")}
+            className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
           />
         </div>
 
@@ -51,9 +51,9 @@ export function EditorTemporalFields({ formData, updateField, targetType }: Prop
             id="editor_entity_ended"
             checked={formData.ended || false}
             onChange={(e) => updateField("ended", e.target.checked)}
-            className="rounded bg-background border-white/10 text-amber-500 focus:ring-0"
+            className="w-4 h-4 rounded bg-background border-white/10 text-amber-500 focus:ring-0 cursor-pointer"
           />
-          <label htmlFor="editor_entity_ended" className="text-xs text-gray-300 font-mono cursor-pointer">
+          <label htmlFor="editor_entity_ended" className="text-xs sm:text-sm text-gray-300 font-mono cursor-pointer">
             {t("editor.temporal.endedFlag")}
           </label>
         </div>

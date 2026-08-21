@@ -186,10 +186,6 @@ body::before {
   background-size: 256px 256px;
 }
 
-html.no-noise body::before {
-  display: none !important;
-}
-
 body::after {
   content: "";
   position: fixed;
@@ -205,21 +201,23 @@ body::after {
   -webkit-mask-image: radial-gradient(ellipse 85% 70% at 50% 0%, black 60%, transparent 100%);
 }
 
-html.no-grid body::after {
-  display: none !important;
-}
-
 /* Ensure app content above texture */
 body > * {
   position: relative;
   z-index: 1;
 }
 
-/* --- Transitions --- */
+/* --- Form controls & Button baseline --- */
 a, button, input, select, textarea {
   transition-property: color, background-color, border-color, box-shadow, opacity, transform;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Ensure inputs have comfortable vertical breathing room by default */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+select {
+  line-height: 1.5;
 }
 
 /* Focus ring — cobalt */
@@ -266,34 +264,8 @@ select option:checked, select option:hover { background-color: #1e2535; color: #
 
 /* ——— Typography utilities ——— */
 .font-display { font-family: var(--font-display); }
-.text-display {
-  font-family: var(--font-display);
-  font-weight: 400;
-  line-height: 0.92;
-  letter-spacing: -0.03em;
-  text-wrap: balance;
-}
-.text-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  font-weight: 500;
-}
-.text-mono-meta {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: #8b95a5;
-  letter-spacing: 0.02em;
-}
 
 /* ——— Glass / elevation ——— */
-.glass {
-  background: rgba(18, 22, 31, 0.72);
-  backdrop-filter: blur(16px) saturate(1.15);
-  -webkit-backdrop-filter: blur(16px) saturate(1.15);
-  border: 1px solid rgba(255,255,255,0.06);
-}
 .glass-strong {
   background: rgba(18, 22, 31, 0.88);
   backdrop-filter: blur(20px) saturate(1.2);
@@ -301,57 +273,7 @@ select option:checked, select option:hover { background-color: #1e2535; color: #
   border: 1px solid rgba(255,255,255,0.08);
 }
 
-/* ——— Tech Terminal utilities ——— */
-.tech-panel {
-  border-radius: 8px;
-  border: 1px solid var(--surface-border-color);
-  background-color: var(--surface-color);
-}
-.tech-chip {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  line-height: 1.2;
-}
-
-/* Card hover — lift + glow */
-.card-hover {
-  transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), box-shadow 0.35s cubic-bezier(0.16,1,0.3,1), border-color 0.3s ease;
-}
-.card-hover:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 16px 40px -12px rgba(0,0,0,0.55), 0 2px 12px rgba(59,130,246,0.08);
-  border-color: rgba(255,255,255,0.1);
-}
-.card-sheen {
-  position: relative;
-  overflow: hidden;
-}
-.card-sheen::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.07) 50%, transparent 60%);
-  transform: translateX(-100%);
-  transition: transform 0.7s cubic-bezier(0.16,1,0.3,1);
-  pointer-events: none;
-}
-.card-sheen:hover::after { transform: translateX(100%); }
-
-/* Orbs — CSS-only ambient */
-.orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(56px);
-  pointer-events: none;
-  opacity: 0.5;
-}
-.orb-amber { background: radial-gradient(circle at 30% 30%, rgba(245,158,11,0.9), rgba(245,158,11,0.18) 55%, transparent 72%); }
-.orb-cobalt { background: radial-gradient(circle at 30% 30%, rgba(59,130,246,0.85), rgba(59,130,246,0.16) 58%, transparent 74%); }
-.orb-emerald { background: radial-gradient(circle at 30% 30%, rgba(16,185,129,0.7), transparent 70%); }
-
-/* Radial vignette — Archive Cosmos hero wash (used by landing) */
+/* Radial vignette — Archive Cosmos hero wash */
 .bg-radial-vignette {
   background:
     radial-gradient(ellipse 92% 68% at 50% -8%, rgba(59,130,246,0.10) 0%, transparent 62%),
@@ -365,32 +287,12 @@ html.light .bg-radial-vignette {
     radial-gradient(ellipse 64% 52% at 8% 92%, rgba(59,130,246,0.03) 0%, transparent 55%);
 }
 
-/* Shimmer skeleton */
-.shimmer {
-  background: linear-gradient(90deg, #12161f 25%, #1a2030 37%, #12161f 63%);
-  background-size: 400% 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
-}
-@keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
-
-/* View-timeline reveal (with IO fallback) */
-.reveal {
-  opacity: 0;
-  transform: translateY(14px);
-  animation: revealIn 0.6s cubic-bezier(0.16,1,0.3,1) forwards;
-  animation-timeline: view();
-  animation-range: entry 0% cover 18%;
-}
-.reveal.is-in-view { opacity: 1; transform: translateY(0); }
-@keyframes revealIn { to { opacity: 1; transform: translateY(0); } }
-
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
-  .reveal { opacity: 1; transform: none; animation: none; }
   body::before, body::after { display: none; }
 }
 
@@ -402,13 +304,7 @@ body { overscroll-behavior-y: contain; }
 /* iOS: prevent input zoom — keep 16px on small screens */
 @media (max-width: 640px) {
   input, select, textarea { font-size: 16px !important; }
-  /* placeholder can stay smaller visually but input itself must be 16px */
 }
-
-/* Safe-area helpers (iPhone notch / home indicator) */
-.pb-safe { padding-bottom: max(0.5rem, env(safe-area-inset-bottom)); }
-.pt-safe { padding-top: env(safe-area-inset-top); }
-.bottom-safe { bottom: env(safe-area-inset-bottom); }
 
 /* Tables: momentum scroll on iOS */
 .overflow-x-auto { -webkit-overflow-scrolling: touch; }
@@ -416,15 +312,8 @@ body { overscroll-behavior-y: contain; }
 /* Ensure media never overflows horizontally */
 img, video { max-width: 100%; }
 
-/* Minimum touch target helper */
-.tap-44 { min-height: 44px; min-width: 44px; }
-
 /* Fixed bottom bars should respect safe area */
 .fixed.bottom-0 { padding-bottom: env(safe-area-inset-bottom); }
-
-/* Improve word break on narrow screens */
-.break-safe { overflow-wrap: anywhere; word-break: break-word; }
-
 
 /* Player offset — when GlobalAudioPlayer is mounted, main content needs bottom padding */
 body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }

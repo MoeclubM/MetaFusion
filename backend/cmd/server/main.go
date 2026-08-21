@@ -1,8 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -95,6 +100,10 @@ func main() {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "metafusion-backend"})
 	})
+
+	// 静态本地上传目录路由（支持离线开发与回退）
+	_ = os.MkdirAll("./uploads/avatars", 0755)
+	r.Static("/uploads", "./uploads")
 
 	// OpenAPI 3.1 规范 — 类似 MusicBrainz 的文档化可发现性
 	r.GET("/api/v1/openapi.json", openapi.Handler())
@@ -218,6 +227,115 @@ func main() {
 				c.JSON(http.StatusOK, updated)
 			})
 
+			// 用户头像上传
+			authGroup.POST("/avatar", auth.UnifiedAuthMiddleware(cfg, db), func(c *gin.Context) {
+				userID := c.MustGet("userID").(uuid.UUID)
+				file, header, err := c.Request.FormFile("avatar")
+				if err != nil {
+					file, header, err = c.Request.FormFile("file")
+				}
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "请选择要上传的头像图片"})
+					return
+				}
+				defer file.Close()
+
+				// 限制单张头像 5MB
+				if header.Size > 5*1024*1024 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "头像图片大小不能超过 5MB"})
+					return
+				}
+
+				mimeType := header.Header.Get("Content-Type")
+				ext := strings.ToLower(filepath.Ext(header.Filename))
+				allowedMimes := map[string]bool{
+					"image/jpeg":    true,
+					"image/png":     true,
+					"image/webp":    true,
+					"image/gif":     true,
+					"image/svg+xml": true,
+					"image/avif":    true,
+				}
+				allowedExts := map[string]bool{
+					".jpg": true, ".jpeg": true, ".png": true, ".webp": true, ".gif": true, ".svg": true, ".avif": true,
+				}
+
+				if (!allowedMimes[mimeType] && mimeType != "application/octet-stream") || (!allowedExts[ext] && ext != "") {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "仅支持 JPG, PNG, WebP, GIF, SVG 格式的图片"})
+					return
+				}
+				if mimeType == "application/octet-stream" || mimeType == "" {
+					switch ext {
+					case ".png":
+						mimeType = "image/png"
+					case ".webp":
+						mimeType = "image/webp"
+					case ".gif":
+						mimeType = "image/gif"
+					case ".svg":
+						mimeType = "image/svg+xml"
+					default:
+						mimeType = "image/jpeg"
+					}
+				}
+
+				var avatarURL string
+				if storageSvc != nil {
+					avatarURL, err = storageSvc.UploadAvatar(c.Request.Context(), file, header.Size, mimeType, ext)
+				} else {
+					uploadDir := filepath.Join(".", "uploads", "avatars")
+					_ = os.MkdirAll(uploadDir, 0755)
+					fileName := fmt.Sprintf("%s%s", uuid.New().String(), ext)
+					destPath := filepath.Join(uploadDir, fileName)
+					destFile, errCreate := os.Create(destPath)
+					if errCreate != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "保存本地头像失败"})
+						return
+					}
+					defer destFile.Close()
+					if _, errCopy := io.Copy(destFile, file); errCopy != nil {
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "写入本地头像失败"})
+						return
+					}
+					avatarURL = fmt.Sprintf("/uploads/avatars/%s", fileName)
+				}
+
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "头像上传失败: " + err.Error()})
+					return
+				}
+
+				// 更新数据库中的用户头像
+				if err := db.Model(&models.User{}).Where("id = ?", userID).Update("avatar_url", avatarURL).Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "更新头像信息失败"})
+					return
+				}
+
+				var user models.User
+				_ = db.First(&user, userID)
+				c.JSON(http.StatusOK, gin.H{
+					"avatar_url": avatarURL,
+					"user":       user,
+					"message":    "头像上传成功",
+				})
+			})
+
+			// 移除用户头像（恢复默认）
+			authGroup.DELETE("/avatar", auth.UnifiedAuthMiddleware(cfg, db), func(c *gin.Context) {
+				userID := c.MustGet("userID").(uuid.UUID)
+				if err := db.Model(&models.User{}).Where("id = ?", userID).Update("avatar_url", "").Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "重置头像失败"})
+					return
+				}
+				var user models.User
+				_ = db.First(&user, userID)
+				c.JSON(http.StatusOK, gin.H{
+					"avatar_url": "",
+					"user":       user,
+					"message":    "已重置为默认头像",
+				})
+			})
+
 			// ── MusicBrainz 风格 PAT 管理（外部应用 / Agent 接入） ──
 			// 需 JWT 登录态创建，PAT 自身不允许再创建 PAT，避免无限派生
 			authGroup.GET("/tokens", auth.AuthMiddleware(cfg), apiKeySvc.List)
@@ -225,8 +343,8 @@ func main() {
 			authGroup.DELETE("/tokens/:id", auth.AuthMiddleware(cfg), apiKeySvc.Delete)
 		}
 
-		// 图书馆级编目与分类
-		catGroup := api.Group("/catalog")
+		// 图书馆级编目与分类（统一鉴权）
+		catGroup := api.Group("/catalog", auth.UnifiedAuthMiddleware(cfg, db))
 		{
 			catGroup.GET("/taxonomy", catalogSvc.GetTaxonomy)
 			catGroup.GET("/relation-types", catalogSvc.ListRelationTypes)
@@ -236,45 +354,48 @@ func main() {
 			catGroup.GET("/artists", catalogSvc.ListArtists)
 			catGroup.GET("/artists/:id", catalogSvc.GetArtistDetail)
 			catGroup.GET("/artists/:id/graph", catalogSvc.GetArtistGraph)
-			catGroup.GET("/works", auth.OptionalUnifiedAuthMiddleware(cfg, db), catalogSvc.ListWorks)
-			catGroup.GET("/works/:id", auth.OptionalUnifiedAuthMiddleware(cfg, db), catalogSvc.GetWorkDetail)
+			catGroup.GET("/works", catalogSvc.ListWorks)
+			catGroup.GET("/works/:id", catalogSvc.GetWorkDetail)
 			catGroup.GET("/works/:id/graph", catalogSvc.GetWorkGraph)
 			catGroup.GET("/works/:id/comments", communitySvc.ListWorkComments)
-			catGroup.POST("/works/:id/comments", auth.UnifiedAuthMiddleware(cfg, db), communitySvc.CreateWorkComment)
-			catGroup.GET("/releases", auth.OptionalUnifiedAuthMiddleware(cfg, db), catalogSvc.ListReleases)
-			catGroup.GET("/releases/:id", auth.OptionalUnifiedAuthMiddleware(cfg, db), catalogSvc.GetReleaseDetail)
+			catGroup.POST("/works/:id/comments", communitySvc.CreateWorkComment)
+			catGroup.GET("/releases", catalogSvc.ListReleases)
+			catGroup.GET("/releases/:id", catalogSvc.GetReleaseDetail)
 			catGroup.GET("/mediums/:id", catalogSvc.GetMediumDetail)
-			catGroup.POST("/artists", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateArtistForMember)
-			catGroup.PUT("/artists/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateArtistForMember)
-			catGroup.POST("/works", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateWorkForMember)
-			catGroup.PUT("/works/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateWorkForMember)
-			catGroup.POST("/releases", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateReleaseForMember)
-			catGroup.PUT("/releases/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateReleaseForMember)
-			catGroup.POST("/mediums", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateMediumForMember)
-			catGroup.POST("/tracks", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateTrackForMember)
-			catGroup.PUT("/works/:id/relations", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpsertWorkRelationsForMember)
+			catGroup.POST("/artists", catalogSvc.CreateArtistForMember)
+			catGroup.PUT("/artists/:id", catalogSvc.UpdateArtistForMember)
+			catGroup.POST("/works", catalogSvc.CreateWorkForMember)
+			catGroup.PUT("/works/:id", catalogSvc.UpdateWorkForMember)
+			catGroup.POST("/releases", catalogSvc.CreateReleaseForMember)
+			catGroup.PUT("/releases/:id", catalogSvc.UpdateReleaseForMember)
+			catGroup.POST("/mediums", catalogSvc.CreateMediumForMember)
+			catGroup.POST("/tracks", catalogSvc.CreateTrackForMember)
+			catGroup.PUT("/works/:id/relations", catalogSvc.UpsertWorkRelationsForMember)
 			catGroup.GET("/revisions", catalogSvc.ListEntityRevisions)
-			catGroup.POST("/merge", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.MergeEntities)
-			catGroup.POST("/submit", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.SubmitComprehensiveArchive)
+			catGroup.POST("/merge", catalogSvc.MergeEntities)
+			catGroup.POST("/submit", catalogSvc.SubmitComprehensiveArchive)
 			// 用户自建推荐分组（私有默认，可设公开）
-			catGroup.GET("/shelves/custom", auth.OptionalUnifiedAuthMiddleware(cfg, db), catalogSvc.ListCustomShelves)
-			catGroup.POST("/shelves/custom", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateCustomShelf)
-			catGroup.GET("/shelves/custom/:id", auth.OptionalUnifiedAuthMiddleware(cfg, db), catalogSvc.GetCustomShelf)
-			catGroup.PUT("/shelves/custom/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateCustomShelf)
-			catGroup.DELETE("/shelves/custom/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.DeleteCustomShelf)
+			catGroup.GET("/shelves/custom", catalogSvc.ListCustomShelves)
+			catGroup.POST("/shelves/custom", catalogSvc.CreateCustomShelf)
+			catGroup.POST("/shelves/custom/sync-presets", catalogSvc.SyncPresetShelves)
+			catGroup.POST("/shelves/custom/reset-defaults", catalogSvc.ResetDefaultShelves)
+			catGroup.POST("/shelves/custom/fork/:slug", catalogSvc.ForkPresetShelf)
+			catGroup.GET("/shelves/custom/:id", catalogSvc.GetCustomShelf)
+			catGroup.PUT("/shelves/custom/:id", catalogSvc.UpdateCustomShelf)
+			catGroup.DELETE("/shelves/custom/:id", catalogSvc.DeleteCustomShelf)
 			// 个人首页布局
-			catGroup.GET("/home/layout", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.GetHomeLayout)
-			catGroup.PUT("/home/layout", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.PutHomeLayout)
+			catGroup.GET("/home/layout", catalogSvc.GetHomeLayout)
+			catGroup.PUT("/home/layout", catalogSvc.PutHomeLayout)
 		}
 
-		// ── MusicBrainz WS/2 兼容浏览层 ──
-		browse := api.Group("/browse")
+		// ── MusicBrainz WS/2 兼容浏览层（统一鉴权） ──
+		browse := api.Group("/browse", auth.UnifiedAuthMiddleware(cfg, db))
 		{
 			browse.GET("/works", catalogSvc.BrowseWorks)
 			browse.GET("/releases", catalogSvc.BrowseReleases)
 			browse.GET("/artists", catalogSvc.BrowseArtists)
 		}
-		ws2 := api.Group("/ws/2")
+		ws2 := api.Group("/ws/2", auth.UnifiedAuthMiddleware(cfg, db))
 		{
 			ws2.GET("/work/:id", catalogSvc.GetWorkDetail)
 			ws2.GET("/release/:id", catalogSvc.GetReleaseDetail)
@@ -284,11 +405,11 @@ func main() {
 			ws2.GET("/artist", catalogSvc.ListArtists)
 		}
 
-		// 分片直传与对象存储
+		// 分片直传与对象存储（统一鉴权）
 		if storageSvc != nil {
-			storageGroup := api.Group("/storage")
+			storageGroup := api.Group("/storage", auth.UnifiedAuthMiddleware(cfg, db))
 			{
-				storageGroup.POST("/upload/initiate", auth.UnifiedAuthMiddleware(cfg, db), func(c *gin.Context) {
+				storageGroup.POST("/upload/initiate", func(c *gin.Context) {
 					var req storage.InitiateUploadRequest
 					if err := c.ShouldBindJSON(&req); err != nil {
 						c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -302,7 +423,7 @@ func main() {
 					c.JSON(http.StatusOK, resp)
 				})
 
-				storageGroup.POST("/upload/complete", auth.UnifiedAuthMiddleware(cfg, db), func(c *gin.Context) {
+				storageGroup.POST("/upload/complete", func(c *gin.Context) {
 					var req storage.CompleteUploadRequest
 					if err := c.ShouldBindJSON(&req); err != nil {
 						c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -315,7 +436,7 @@ func main() {
 					c.JSON(http.StatusOK, gin.H{"message": "Upload completed, transcoding started"})
 				})
 
-				storageGroup.GET("/download/:asset_id", auth.UnifiedAuthMiddleware(cfg, db), func(c *gin.Context) {
+				storageGroup.GET("/download/:asset_id", func(c *gin.Context) {
 					assetID, err := uuid.Parse(c.Param("asset_id"))
 					if err != nil {
 						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid asset ID"})
@@ -331,9 +452,9 @@ func main() {
 			}
 		}
 
-		// 用户公开资料与贡献历史
-		api.GET("/users/:id", community.GetUserProfile(db))
-		api.GET("/users/:id/contributions", community.GetUserContributions(db))
+		// 用户公开资料与贡献历史（统一鉴权）
+		api.GET("/users/:id", auth.UnifiedAuthMiddleware(cfg, db), community.GetUserProfile(db))
+		api.GET("/users/:id/contributions", auth.UnifiedAuthMiddleware(cfg, db), community.GetUserContributions(db))
 
 		// 用户私聊消息 (Direct Messaging)
 		messagesGroup := api.Group("/messages", auth.UnifiedAuthMiddleware(cfg, db))
@@ -344,21 +465,21 @@ func main() {
 			messagesGroup.GET("/unread-count", messageSvc.GetUnreadCount)
 		}
 
-		// 社区讨论与文献评注 (Discourse 论坛)
-		communityGroup := api.Group("/community")
+		// 社区讨论与文献评注 (Discourse 论坛 - 统一鉴权)
+		communityGroup := api.Group("/community", auth.UnifiedAuthMiddleware(cfg, db))
 		{
 			communityGroup.GET("/boards", communitySvc.ListBoards)
 			communityGroup.GET("/topic-tags", communitySvc.ListTopicTags)
 			communityGroup.GET("/topics", communitySvc.ListTopics)
 			communityGroup.GET("/topics/:id", communitySvc.GetTopic)
-			communityGroup.POST("/topics", auth.UnifiedAuthMiddleware(cfg, db), communitySvc.CreateTopic)
-			communityGroup.POST("/topics/:id/posts", auth.UnifiedAuthMiddleware(cfg, db), communitySvc.CreatePost)
+			communityGroup.POST("/topics", communitySvc.CreateTopic)
+			communityGroup.POST("/topics/:id/posts", communitySvc.CreatePost)
 		}
 
-		// 全文与多维检索 — MusicBrainz 搜索对等，支持 inc 与多类型
+		// 全文与多维检索 — MusicBrainz 搜索对等，支持 inc 与多类型（统一鉴权）
 		if searchSvc != nil {
-			api.GET("/search", searchSvc.SearchWorks)
-			api.GET("/ws/2/search", searchSvc.SearchWorks)
+			api.GET("/search", auth.UnifiedAuthMiddleware(cfg, db), searchSvc.SearchWorks)
+			api.GET("/ws/2/search", auth.UnifiedAuthMiddleware(cfg, db), searchSvc.SearchWorks)
 		}
 
 		// 管理后台专用 API (限 admin / archivist 权限)
@@ -399,6 +520,7 @@ func main() {
 			adminGroup.GET("/artists", adminSvc.ListArtistsAdmin)
 			adminGroup.POST("/artists", adminSvc.CreateArtist)
 			adminGroup.PUT("/artists/:id", adminSvc.UpdateArtist)
+			adminGroup.DELETE("/artists/:id", adminSvc.DeleteArtist)
 			adminGroup.GET("/canonical-entries", adminSvc.ListCanonicalEntries)
 			adminGroup.POST("/canonical-entries", adminSvc.CreateCanonicalEntry)
 			adminGroup.PUT("/canonical-entries/:id", adminSvc.UpdateCanonicalEntry)
@@ -417,6 +539,8 @@ func main() {
 			// 板块
 			adminGroup.GET("/boards", adminSvc.ListBoardsAdmin)
 			adminGroup.PUT("/boards", adminSvc.UpsertBoard)
+			adminGroup.PUT("/boards/:code", adminSvc.UpdateBoard)
+			adminGroup.PATCH("/boards/:code", adminSvc.PatchBoard)
 			adminGroup.DELETE("/boards/:code", adminSvc.DeleteBoard)
 			// 标签编辑
 			adminGroup.PUT("/tags/:id", adminSvc.UpdateTag)

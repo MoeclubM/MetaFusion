@@ -30,23 +30,31 @@ func validateCustomShelfInput(slug, mediaType string, queryTags, excludeTags []s
 		return &fieldError{"media_type", "invalid media_type"}
 	}
 	for _, t := range queryTags {
-		if strings.TrimSpace(t) == "" {
+		trimmed := strings.TrimSpace(t)
+		if trimmed == "" {
 			continue
 		}
+		if len(trimmed) > 64 {
+			return &fieldError{"query_tags", "tag too long (max 64 chars): " + t}
+		}
 		var cnt int64
-		db.Model(&models.Tag{}).Where("name = ?", strings.TrimSpace(t)).Count(&cnt)
+		db.Model(&models.Tag{}).Where("name = ?", trimmed).Count(&cnt)
 		if cnt == 0 {
-			return &fieldError{"query_tags", "tag not found: " + t}
+			_ = db.Create(&models.Tag{Name: trimmed, GroupType: "general"}).Error
 		}
 	}
 	for _, t := range excludeTags {
-		if strings.TrimSpace(t) == "" {
+		trimmed := strings.TrimSpace(t)
+		if trimmed == "" {
 			continue
 		}
+		if len(trimmed) > 64 {
+			return &fieldError{"exclude_tags", "tag too long (max 64 chars): " + t}
+		}
 		var cnt int64
-		db.Model(&models.Tag{}).Where("name = ?", strings.TrimSpace(t)).Count(&cnt)
+		db.Model(&models.Tag{}).Where("name = ?", trimmed).Count(&cnt)
 		if cnt == 0 {
-			return &fieldError{"exclude_tags", "tag not found: " + t}
+			_ = db.Create(&models.Tag{Name: trimmed, GroupType: "general"}).Error
 		}
 	}
 	return nil
@@ -80,13 +88,18 @@ func (s *CatalogService) ListCustomShelves(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
 			return
 		}
+		var total int64
+		s.db.Model(&models.UserCustomShelf{}).Where("owner_id = ?", *uid).Count(&total)
+		if total == 0 && q == "" {
+			items, _, _ := InitUserDefaultShelves(s.db, *uid)
+			c.JSON(http.StatusOK, gin.H{"items": items, "total": len(items), "page": 1, "page_size": pageSize})
+			return
+		}
 		query := s.db.Where("owner_id = ?", *uid)
 		if q != "" {
 			like := "%" + q + "%"
 			query = query.Where("name_zh ILIKE ? OR name_en ILIKE ? OR slug ILIKE ?", like, like, like)
 		}
-		var total int64
-		query.Model(&models.UserCustomShelf{}).Count(&total)
 		var items []models.UserCustomShelf
 		query.Order("sort_order asc, created_at desc").Offset(offset).Limit(pageSize).Find(&items)
 		c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "page": page, "page_size": pageSize})
@@ -531,8 +544,12 @@ func (s *CatalogService) GetHomeLayout(c *gin.Context) {
 	}
 	var layout models.UserHomeLayout
 	if err := s.db.Where("user_id = ?", *uid).First(&layout).Error; err != nil {
-		// return default empty
-		c.JSON(http.StatusOK, gin.H{"hidden_system_slugs": []string{}, "order_json": []string{}})
+		// Auto initialize default shelves
+		_, order, _ := InitUserDefaultShelves(s.db, *uid)
+		if order == nil {
+			order = []string{}
+		}
+		c.JSON(http.StatusOK, gin.H{"hidden_system_slugs": []string{}, "order_json": order})
 		return
 	}
 	hidden := []string(layout.HiddenSystemSlugs)
@@ -541,12 +558,14 @@ func (s *CatalogService) GetHomeLayout(c *gin.Context) {
 	}
 	// parse order_json robustly
 	var order []string
-	// try raw text
 	var raw string
 	s.db.Raw("SELECT order_json::text FROM user_home_layouts WHERE user_id = ?", *uid).Row().Scan(&raw)
 	order = parseOrderJSONRaw(raw)
-	if order == nil {
-		order = []string{}
+	if order == nil || len(order) == 0 {
+		_, order, _ = InitUserDefaultShelves(s.db, *uid)
+		if order == nil {
+			order = []string{}
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{"hidden_system_slugs": hidden, "order_json": order})
 }
@@ -689,3 +708,264 @@ func toJSONArray(arr []string) string {
 	b.WriteString("]")
 	return b.String()
 }
+
+// SyncPresetShelves POST /shelves/custom/sync-presets
+func (s *CatalogService) SyncPresetShelves(c *gin.Context) {
+	uid := currentUserID(c)
+	if uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		return
+	}
+
+	var input struct {
+		Overwrite bool `json:"overwrite"`
+	}
+	_ = c.ShouldBindJSON(&input)
+
+	// Fetch all system virtual shelves
+	var systemShelves []models.VirtualShelf
+	if err := s.db.Order("sort_order asc").Find(&systemShelves).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load system shelves"})
+		return
+	}
+
+	// Fetch existing user custom shelves
+	var userShelves []models.UserCustomShelf
+	s.db.Where("owner_id = ?", *uid).Order("sort_order asc, created_at desc").Find(&userShelves)
+	userSlugMap := make(map[string]*models.UserCustomShelf)
+	for i := range userShelves {
+		userSlugMap[userShelves[i].Slug] = &userShelves[i]
+	}
+
+	var resultOrder []string
+
+	for _, sys := range systemShelves {
+		existing, found := userSlugMap[sys.Slug]
+		if found && !input.Overwrite {
+			resultOrder = append(resultOrder, "custom:"+existing.ID.String())
+			continue
+		}
+
+		if found && input.Overwrite {
+			// update existing
+			existing.NameZh = sys.NameZh
+			existing.NameEn = sys.NameEn
+			existing.Description = sys.Description
+			existing.Icon = sys.Icon
+			existing.SortOrder = sys.SortOrder
+			existing.MediaType = sys.MediaType
+			existing.QueryTags = sys.QueryTags
+			existing.RequireAllTags = sys.RequireAllTags
+			existing.ExcludeTags = sys.ExcludeTags
+			existing.UpdatedAt = time.Now()
+			s.db.Save(existing)
+			resultOrder = append(resultOrder, "custom:"+existing.ID.String())
+		} else {
+			// create new custom shelf cloned from preset
+			newShelf := models.UserCustomShelf{
+				ID:             uuid.New(),
+				OwnerID:        *uid,
+				Slug:           sys.Slug,
+				NameZh:         sys.NameZh,
+				NameEn:         sys.NameEn,
+				Description:    sys.Description,
+				Icon:           sys.Icon,
+				SortOrder:      sys.SortOrder,
+				MediaType:      sys.MediaType,
+				QueryTags:      sys.QueryTags,
+				RequireAllTags: sys.RequireAllTags,
+				ExcludeTags:    sys.ExcludeTags,
+				IsPublic:       false,
+				CreatedAt:      time.Now(),
+				UpdatedAt:      time.Now(),
+			}
+			if err := s.db.Create(&newShelf).Error; err == nil {
+				userSlugMap[newShelf.Slug] = &newShelf
+				resultOrder = append(resultOrder, "custom:"+newShelf.ID.String())
+			}
+		}
+	}
+
+	// Append any custom shelves that weren't system presets
+	for _, cs := range userShelves {
+		key := "custom:" + cs.ID.String()
+		contains := false
+		for _, k := range resultOrder {
+			if k == key {
+				contains = true
+				break
+			}
+		}
+		if !contains {
+			resultOrder = append(resultOrder, key)
+		}
+	}
+
+	// Update user's home layout order
+	orderJSONStr := toJSONArray(resultOrder)
+	var layout models.UserHomeLayout
+	if err := s.db.Where("user_id = ?", *uid).First(&layout).Error; err != nil {
+		layout = models.UserHomeLayout{
+			UserID:            *uid,
+			HiddenSystemSlugs: pq.StringArray{},
+			UpdatedAt:         time.Now(),
+		}
+		s.db.Create(&layout)
+	}
+	s.db.Exec("UPDATE user_home_layouts SET hidden_system_slugs = '{}', order_json = ?::jsonb, updated_at = NOW() WHERE user_id = ?", orderJSONStr, *uid)
+
+	// Fetch refreshed user shelves
+	var finalShelves []models.UserCustomShelf
+	s.db.Where("owner_id = ?", *uid).Order("sort_order asc, created_at desc").Find(&finalShelves)
+
+	c.JSON(http.StatusOK, gin.H{
+		"items": finalShelves,
+		"order": resultOrder,
+	})
+}
+
+// ForkPresetShelf POST /shelves/custom/fork/:slug
+func (s *CatalogService) ForkPresetShelf(c *gin.Context) {
+	uid := currentUserID(c)
+	if uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		return
+	}
+	slug := strings.TrimSpace(c.Param("slug"))
+	var sys models.VirtualShelf
+	if err := s.db.Where("slug = ?", slug).First(&sys).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "preset shelf not found"})
+		return
+	}
+
+	// Ensure unique slug for user
+	targetSlug := sys.Slug
+	var count int64
+	s.db.Model(&models.UserCustomShelf{}).Where("owner_id = ? AND slug = ?", *uid, targetSlug).Count(&count)
+	if count > 0 {
+		targetSlug = targetSlug + "-custom"
+	}
+
+	newShelf := models.UserCustomShelf{
+		ID:             uuid.New(),
+		OwnerID:        *uid,
+		Slug:           targetSlug,
+		NameZh:         sys.NameZh,
+		NameEn:         sys.NameEn,
+		Description:    sys.Description,
+		Icon:           sys.Icon,
+		SortOrder:      sys.SortOrder,
+		MediaType:      sys.MediaType,
+		QueryTags:      sys.QueryTags,
+		RequireAllTags: sys.RequireAllTags,
+		ExcludeTags:    sys.ExcludeTags,
+		IsPublic:       false,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	if err := s.db.Create(&newShelf).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fork shelf: " + err.Error()})
+		return
+	}
+
+	// Replace sys.Slug in layout order with custom:<id>
+	var raw string
+	s.db.Raw("SELECT order_json::text FROM user_home_layouts WHERE user_id = ?", *uid).Row().Scan(&raw)
+	currentOrder := parseOrderJSONRaw(raw)
+	customKey := "custom:" + newShelf.ID.String()
+	var newOrder []string
+	replaced := false
+	for _, k := range currentOrder {
+		if k == sys.Slug {
+			newOrder = append(newOrder, customKey)
+			replaced = true
+		} else {
+			newOrder = append(newOrder, k)
+		}
+	}
+	if !replaced {
+		newOrder = append(newOrder, customKey)
+	}
+	orderJSONStr := toJSONArray(newOrder)
+	s.db.Exec("UPDATE user_home_layouts SET order_json = ?::jsonb, updated_at = NOW() WHERE user_id = ?", orderJSONStr, *uid)
+
+	c.JSON(http.StatusOK, gin.H{
+		"shelf": newShelf,
+		"order": newOrder,
+	})
+}
+
+// InitUserDefaultShelves initializes user's custom shelves from system presets
+func InitUserDefaultShelves(db *gorm.DB, userID uuid.UUID) ([]models.UserCustomShelf, []string, error) {
+	var systemShelves []models.VirtualShelf
+	if err := db.Order("sort_order asc").Find(&systemShelves).Error; err != nil {
+		return nil, nil, err
+	}
+
+	var resultShelves []models.UserCustomShelf
+	var resultOrder []string
+
+	for _, sys := range systemShelves {
+		newShelf := models.UserCustomShelf{
+			ID:             uuid.New(),
+			OwnerID:        userID,
+			Slug:           sys.Slug,
+			NameZh:         sys.NameZh,
+			NameEn:         sys.NameEn,
+			Description:    sys.Description,
+			Icon:           sys.Icon,
+			SortOrder:      sys.SortOrder,
+			MediaType:      sys.MediaType,
+			QueryTags:      sys.QueryTags,
+			RequireAllTags: sys.RequireAllTags,
+			ExcludeTags:    sys.ExcludeTags,
+			IsPublic:       false,
+			CreatedAt:      time.Now(),
+			UpdatedAt:      time.Now(),
+		}
+		if err := db.Create(&newShelf).Error; err == nil {
+			resultShelves = append(resultShelves, newShelf)
+			resultOrder = append(resultOrder, "custom:"+newShelf.ID.String())
+		}
+	}
+
+	orderJSONStr := toJSONArray(resultOrder)
+	var layout models.UserHomeLayout
+	if err := db.Where("user_id = ?", userID).First(&layout).Error; err != nil {
+		layout = models.UserHomeLayout{
+			UserID:            userID,
+			HiddenSystemSlugs: pq.StringArray{},
+			UpdatedAt:         time.Now(),
+		}
+		_ = db.Create(&layout).Error
+	}
+	db.Exec("UPDATE user_home_layouts SET hidden_system_slugs = '{}', order_json = ?::jsonb, updated_at = NOW() WHERE user_id = ?", orderJSONStr, userID)
+
+	return resultShelves, resultOrder, nil
+}
+
+// ResetDefaultShelves POST /shelves/custom/reset-defaults
+func (s *CatalogService) ResetDefaultShelves(c *gin.Context) {
+	uid := currentUserID(c)
+	if uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		return
+	}
+
+	// Remove existing custom shelves for this user
+	s.db.Where("owner_id = ?", *uid).Delete(&models.UserCustomShelf{})
+
+	// Re-initialize from presets
+	shelves, order, err := InitUserDefaultShelves(s.db, *uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reset shelves: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"items": shelves,
+		"order": order,
+	})
+}
+
+

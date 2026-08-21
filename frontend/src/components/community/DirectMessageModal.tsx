@@ -7,6 +7,7 @@ import {
   DirectMessage,
   User,
 } from "@/lib/api";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
@@ -128,9 +129,7 @@ export default function DirectMessageModal({
         {/* Header */}
         <div className="px-4 py-3 bg-surface/90 border-b border-white/10 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-primary text-white grid place-items-center font-bold text-sm shrink-0 ring-2 ring-white/10">
-              {peerUser.username.slice(0, 2).toUpperCase()}
-            </div>
+            <UserAvatar user={peerUser} size="md" shape="circle" ring />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-white text-sm truncate">
@@ -224,7 +223,7 @@ export default function DirectMessageModal({
         {/* Input area */}
         <form
           onSubmit={handleSend}
-          className="p-3 bg-surface border-t border-white/10 flex items-end gap-2 shrink-0"
+          className="p-3.5 bg-surface border-t border-white/10 flex items-end gap-2.5 shrink-0"
         >
           <textarea
             ref={inputRef}
@@ -233,12 +232,12 @@ export default function DirectMessageModal({
             onChange={(e) => setInputContent(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={t("users.profile.typeMessage")}
-            className="flex-1 px-3 py-2 bg-background border border-white/10 rounded-xl text-white text-xs placeholder-gray-500 focus:outline-none focus:border-primary resize-none font-sans leading-relaxed"
+            className="flex-1 px-3.5 py-2.5 bg-background border border-white/10 rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-primary resize-none font-sans leading-relaxed"
           />
           <button
             type="submit"
             disabled={!inputContent.trim() || sending}
-            className="h-10 px-4 rounded-xl bg-primary hover:opacity-90 disabled:opacity-40 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-soft"
+            className="h-11 px-4.5 rounded-xl bg-primary hover:opacity-90 disabled:opacity-40 text-white text-sm font-bold flex items-center justify-center gap-1.5 transition-all shrink-0 shadow-soft cursor-pointer"
           >
             {sending ? (
               <Loader2 className="w-4 h-4 animate-spin" />

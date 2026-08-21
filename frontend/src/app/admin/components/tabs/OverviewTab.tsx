@@ -276,7 +276,7 @@ export function OverviewTab({
                 <Activity className="w-4 h-4 text-emerald-400" />
                 {t("admin.sidebar.itemHealth")}
               </div>
-              <div className="text-[11px] text-gray-500 mt-1">诊断 Postgres、Redis 与 Meilisearch 状态</div>
+              <div className="text-[11px] text-gray-500 mt-1">{t("admin.overview.healthDiagnosis")}</div>
             </button>
           </div>
         </div>

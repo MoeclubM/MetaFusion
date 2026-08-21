@@ -3,7 +3,10 @@ package storage
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -206,4 +209,45 @@ func (s *StorageService) formatPublicURL(rawURL string) string {
 	parsed.Scheme = publicParsed.Scheme
 	parsed.Host = publicParsed.Host
 	return parsed.String()
+}
+
+// UploadAvatar 将头像上传至 S3 预览桶 (metafusion-preview) 或本地持久化存储
+func (s *StorageService) UploadAvatar(ctx context.Context, file io.Reader, size int64, mimeType string, ext string) (string, error) {
+	if ext == "" {
+		ext = ".jpg"
+	}
+	if !strings.HasPrefix(ext, ".") {
+		ext = "." + ext
+	}
+	fileName := fmt.Sprintf("%s%s", uuid.New().String(), ext)
+	s3Key := fmt.Sprintf("avatars/%s", fileName)
+
+	// 1. 如果 MinIO 客户端已就绪，优先上传到 S3 预览桶
+	if s.client != nil && s.cfg.S3BucketPreview != "" {
+		_, err := s.client.PutObject(ctx, s.cfg.S3BucketPreview, s3Key, file, size, minio.PutObjectOptions{
+			ContentType: mimeType,
+		})
+		if err == nil {
+			// 经由 Nginx /storage/preview/ 代理路由
+			return fmt.Sprintf("/storage/preview/%s", s3Key), nil
+		}
+	}
+
+	// 2. 本地回退存储 (支持离线开发与本地调试)
+	uploadDir := filepath.Join(".", "uploads", "avatars")
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create upload directory: %w", err)
+	}
+	destPath := filepath.Join(uploadDir, fileName)
+	destFile, err := os.Create(destPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create local file: %w", err)
+	}
+	defer destFile.Close()
+
+	if _, err := io.Copy(destFile, file); err != nil {
+		return "", fmt.Errorf("failed to write local file: %w", err)
+	}
+
+	return fmt.Sprintf("/uploads/avatars/%s", fileName), nil
 }

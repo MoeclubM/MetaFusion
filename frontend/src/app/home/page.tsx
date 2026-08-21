@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense, useCallback } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, Work, VirtualShelf, UserCustomShelf, UserHomeLayout } from "@/lib/api";
+import { fetchApi, Work, VirtualShelf, UserCustomShelf, UserHomeLayout, syncPresetShelves, forkPresetShelf, resetDefaultShelves } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { HomeShelvesConfigModal } from "@/components/home/HomeShelvesConfigModal";
@@ -255,13 +255,62 @@ function HomeShowcaseContent() {
  await fetchApi(`/catalog/shelves/custom/${id}`, { method: "PUT", body: JSON.stringify(payload) });
  };
 
- const handleDeleteCustom = async (id: string) => {
- await fetchApi(`/catalog/shelves/custom/${id}`, { method: "DELETE" });
- const key = `custom:${id}`;
- const nextOrder = orderKeys.filter((k) => k !== key);
- setOrderKeys(nextOrder);
- try { localStorage.setItem(storageKey, JSON.stringify({ hidden: hiddenSlugs, order: nextOrder })); } catch {}
- };
+  const handleDeleteCustom = async (id: string) => {
+    await fetchApi(`/catalog/shelves/custom/${id}`, { method: "DELETE" });
+    const key = `custom:${id}`;
+    const nextOrder = orderKeys.filter((k) => k !== key);
+    setOrderKeys(nextOrder);
+    try { localStorage.setItem(storageKey, JSON.stringify({ hidden: hiddenSlugs, order: nextOrder })); } catch {}
+  };
+
+  const handleSyncPresets = async (overwrite: boolean = true) => {
+    try {
+      const res = await syncPresetShelves(overwrite);
+      if (res && res.items) {
+        setCustomShelves(res.items);
+        if (res.order) {
+          setOrderKeys(res.order);
+          setHiddenSlugs([]);
+          try { localStorage.setItem(storageKey, JSON.stringify({ hidden: [], order: res.order })); } catch {}
+        }
+      }
+      await refreshCustom();
+    } catch (e) {
+      console.error("handleSyncPresets failed", e);
+    }
+  };
+
+  const handleForkPreset = async (slug: string) => {
+    try {
+      const res = await forkPresetShelf(slug);
+      if (res && res.shelf) {
+        if (res.order) {
+          setOrderKeys(res.order);
+          try { localStorage.setItem(storageKey, JSON.stringify({ hidden: hiddenSlugs, order: res.order })); } catch {}
+        }
+        await refreshCustom();
+      }
+    } catch (e) {
+      console.error("handleForkPreset failed", e);
+    }
+  };
+
+  const handleResetDefaults = async () => {
+    try {
+      const res = await resetDefaultShelves();
+      if (res && res.items) {
+        setCustomShelves(res.items);
+        if (res.order) {
+          setOrderKeys(res.order);
+          setHiddenSlugs([]);
+          try { localStorage.setItem(storageKey, JSON.stringify({ hidden: [], order: res.order })); } catch {}
+        }
+      }
+      await refreshCustom();
+    } catch (e) {
+      console.error("handleResetDefaults failed", e);
+    }
+  };
 
  // build ordered display list — public for guests
  const allKeysOrdered = (() => {
@@ -412,7 +461,7 @@ function HomeShowcaseContent() {
  <div>
  <h2 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm flex items-center gap-2">
  {shelfTitle}
- {isCustom && <span className="px-2.5 py-1 rounded-sm bg-primary/10 text-primary border border-primary/20 font-mono text-xs">自建</span>}
+ {isCustom && <span className="px-2.5 py-1 rounded-sm bg-primary/10 text-primary border border-primary/20 font-mono text-xs">{t("home.shelves.customBadge")}</span>}
  </h2>
  <p className="font-mono text-sm text-gray-500">
  {t("home.channelWorksCount", { count: shelfWorks.length })}
@@ -553,6 +602,9 @@ function HomeShowcaseContent() {
  onUpdateCustom={handleUpdateCustom}
  onDeleteCustom={handleDeleteCustom}
  onRefreshCustom={refreshCustom}
+ onResetDefaults={handleResetDefaults}
+ onSyncPresets={handleSyncPresets}
+ onForkPreset={handleForkPreset}
  />
  </div>
  );

@@ -25,7 +25,7 @@ export function WorksTab({
             {t("admin.works.subtitle")}
           </p>
         </div>
-        <span className="text-[11px] font-mono text-gray-500 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/10">只读审核</span>
+        <span className="text-[11px] font-mono text-gray-500 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/10">{t("admin.works.readOnlyAudit")}</span>
       </div>
 
       <div className="rounded-xl border border-surfaceBorder bg-surface overflow-hidden">

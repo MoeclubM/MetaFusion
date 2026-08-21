@@ -149,7 +149,7 @@ export function UniversalEntityEditor({
       const payload: Record<string, any> = {
         ...formData,
         aliases: aliases.length > 0 ? aliases : undefined,
-        edit_note: editNote || (mode === "edit" ? "更新词条元数据" : "初始词条创建"),
+        edit_note: editNote || (mode === "edit" ? t("editor.universal.defaultEditNote") : t("editor.universal.defaultCreateNote")),
         source_urls: sourceUrls,
       };
 
@@ -203,7 +203,7 @@ export function UniversalEntityEditor({
       if (onSuccess) onSuccess(result);
       else window.location.reload();
     } catch (err: any) {
-      setError(err.message || "提交失败，请检查输入参数");
+      setError(err.message || t("editor.universal.submitFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -261,65 +261,65 @@ export function UniversalEntityEditor({
         )}
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 px-6 pt-3 border-b border-white/[0.06] bg-background/30 font-mono text-xs overflow-x-auto">
+        <div className="flex items-center gap-1.5 px-6 pt-3 border-b border-white/[0.06] bg-background/30 font-mono text-xs sm:text-sm overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab("core")}
-            className={`px-3.5 py-2 rounded-t-card border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2.5 rounded-t-lg border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "core"
                 ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
                 : "border-transparent text-gray-400 hover:text-gray-200"
             }`}
           >
-            <FileText className="w-3.5 h-3.5" />
+            <FileText className="w-4 h-4" />
             {t("editor.universal.tabCore")}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("temporal")}
-            className={`px-3.5 py-2 rounded-t-card border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2.5 rounded-t-lg border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "temporal"
                 ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
                 : "border-transparent text-gray-400 hover:text-gray-200"
             }`}
           >
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-4 h-4" />
             {t("editor.universal.tabTemporal")}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("relations")}
-            className={`px-3.5 py-2 rounded-t-card border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2.5 rounded-t-lg border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "relations"
                 ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
                 : "border-transparent text-gray-400 hover:text-gray-200"
             }`}
           >
-            <LinkIcon className="w-3.5 h-3.5" />
+            <LinkIcon className="w-4 h-4" />
             {t("editor.universal.tabRelations")}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("external")}
-            className={`px-3.5 py-2 rounded-t-card border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2.5 rounded-t-lg border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "external"
                 ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
                 : "border-transparent text-gray-400 hover:text-gray-200"
             }`}
           >
-            <Globe className="w-3.5 h-3.5" />
+            <Globe className="w-4 h-4" />
             {t("editor.universal.tabExternal")}
           </button>
           <button
             type="button"
             onClick={() => setActiveTab("note")}
-            className={`px-3.5 py-2 rounded-t-card border-b-2 transition-all flex items-center gap-1.5 ${
+            className={`px-4 py-2.5 rounded-t-lg border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "note"
                 ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
                 : "border-transparent text-gray-400 hover:text-gray-200"
             }`}
           >
-            <ShieldCheck className="w-3.5 h-3.5" />
+            <ShieldCheck className="w-4 h-4" />
             {t("editor.universal.tabNote")}
           </button>
         </div>
@@ -378,26 +378,26 @@ export function UniversalEntityEditor({
           )}
 
           {/* Footer Action Buttons */}
-          <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">
-            <span className="font-mono text-[10px] text-gray-500 flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+          <div className="flex items-center justify-between pt-4 border-t border-white/[0.08]">
+            <span className="font-mono text-xs text-gray-500 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               <span>{t("editor.universal.footerNote")}</span>
             </span>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 h-7.5 rounded-md border border-white/10 text-xs text-gray-300 hover:bg-white/10 transition-colors"
+                className="px-4 h-10 rounded-lg border border-white/10 text-sm text-gray-300 hover:bg-white/10 transition-colors cursor-pointer"
               >
                 {t("editor.universal.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={submitting || !user}
-                className="px-4 h-7.5 rounded-md bg-amber-400 hover:bg-amber-300 text-black text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                className="px-5 h-10 rounded-lg bg-amber-400 hover:bg-amber-300 text-black text-sm font-semibold flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs cursor-pointer"
               >
-                <Save className="w-3.5 h-3.5" />
+                <Save className="w-4 h-4" />
                 <span>
                   {submitting
                     ? t("editor.universal.saving")

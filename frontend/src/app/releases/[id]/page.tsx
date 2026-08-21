@@ -154,7 +154,7 @@ export default function ReleaseDetailPage() {
             <EntityActionToolbar
               onEdit={() => setIsEditorOpen(true)}
               onHistory={() => setIsHistoryOpen(true)}
-              entityTypeLabel="版本"
+              entityTypeLabel={t("entity.toolbar.release")}
             />
           </div>
         </section>

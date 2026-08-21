@@ -4,11 +4,11 @@ import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 
-const PROTECTED_PREFIXES = ["/admin", "/invites", "/settings", "/works/new", "/artists/new", "/releases/new"];
+const PUBLIC_PREFIXES = ["/login", "/register", "/docs", "/developers"];
 
 function isProtectedPath(pathname: string | null): boolean {
-  if (!pathname) return false;
-  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  if (!pathname || pathname === "/") return false;
+  return !PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
 export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -20,9 +20,10 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   useEffect(() => {
     if (!loading && !user && isProtected) {
-      router.replace("/login");
+      const redirectUrl = pathname ? `/login?redirect=${encodeURIComponent(pathname)}` : "/login";
+      router.replace(redirectUrl);
     }
-  }, [loading, user, isProtected, router]);
+  }, [loading, user, isProtected, pathname, router]);
 
   if (loading) {
     return (
@@ -35,7 +36,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
     );
   }
 
-  // Only block protected routes while redirecting; metadata pages stay public
+  // Block protected routes while redirecting
   if (!user && isProtected) {
     return null;
   }

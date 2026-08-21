@@ -1,0 +1,9 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><style>:root{color-scheme:light dark}@media(prefers-color-scheme:light){.bg{fill:#ffffff}.fg{stroke:#0f172a}}@media(prefers-color-scheme:dark){.bg{fill:#0a0c10}.fg{stroke:#f8fafc}}</style>
+<rect class="bg" width="32" height="32" rx="7"/>
+<path d="M9 3H23L29 9V23L23 29H9L3 23V9L9 3Z" fill="none" stroke="currentColor" class="fg" stroke-opacity="0.14" stroke-width="1"/>
+<ellipse cx="16" cy="16" rx="10.4" ry="6.2" fill="none" stroke="currentColor" class="fg" stroke-opacity="0.08" stroke-width="0.6" stroke-dasharray="1.2 1.6"/>
+<path d="M11.1 21.2L13.4 10.4L16 16.4L18.6 10.4L20.9 21.2" stroke="currentColor" class="fg" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+<line x1="11.5" y1="15.4" x2="20.5" y2="15.4" stroke="#3b82f6" stroke-width="1.05" stroke-linecap="round"/>
+<circle cx="11.5" cy="15.4" r="0.9" fill="#3b82f6"/><circle cx="20.5" cy="15.4" r="0.9" fill="#3b82f6"/>
+<rect x="14.9" y="14.3" width="2.2" height="2.2" transform="rotate(45 16 15.4)" fill="#3b82f6" stroke="white" stroke-width="0.45"/>
+</svg>

@@ -248,7 +248,7 @@ function ExploreContent() {
  placeholder={placeholderByType}
  value={searchInput}
  onChange={(e) => setSearchInput(e.target.value)}
- className="w-full pl-11 pr-10 h-10 max-sm:min-h-[44px] rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 font-mono transition-all"
+ className="w-full pl-11 pr-10 h-11 max-sm:min-h-[44px] rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 font-mono transition-all"
  />
  {searchInput && (
  <button
@@ -257,7 +257,7 @@ function ExploreContent() {
  setSearchInput("");
  updateUrl({ q: "" });
  }}
- className="absolute right-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-white"
+ className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
  >
  <X className="w-4 h-4" />
  </button>
@@ -267,10 +267,10 @@ function ExploreContent() {
  </div>
 
  {/* Type Tabs */}
- <div className="flex items-center gap-2 pt-2 border-t border-black/[0.06] dark:border-white/[0.06] overflow-x-auto no-scrollbar">
+ <div className="flex items-center gap-2 pt-2.5 border-t border-black/[0.06] dark:border-white/[0.06] overflow-x-auto no-scrollbar">
  <button
  onClick={() => handleSwitchType("works")}
- className={`inline-flex items-center gap-2 px-3 h-9 max-sm:min-h-[44px] rounded-md text-sm font-semibold whitespace-nowrap border transition-all ${
+ className={`inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-lg text-sm font-semibold whitespace-nowrap border transition-all ${
  activeType === "works"
  ? "bg-primary text-white keep-white border-primary shadow-xs"
  : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -281,7 +281,7 @@ function ExploreContent() {
  </button>
  <button
  onClick={() => handleSwitchType("artists")}
- className={`inline-flex items-center gap-2 px-3 h-9 max-sm:min-h-[44px] rounded-md text-sm font-semibold whitespace-nowrap border transition-all ${
+ className={`inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-lg text-sm font-semibold whitespace-nowrap border transition-all ${
  activeType === "artists"
  ? "bg-primary text-white keep-white border-primary shadow-xs"
  : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -292,7 +292,7 @@ function ExploreContent() {
  </button>
  <button
  onClick={() => handleSwitchType("releases")}
- className={`inline-flex items-center gap-2 px-3 h-9 max-sm:min-h-[44px] rounded-md text-sm font-semibold whitespace-nowrap border transition-all ${
+ className={`inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-lg text-sm font-semibold whitespace-nowrap border transition-all ${
  activeType === "releases"
  ? "bg-primary text-white keep-white border-primary shadow-xs"
  : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -307,7 +307,7 @@ function ExploreContent() {
  <>
  <button
  onClick={() => setShowTagFilterPanel(!showTagFilterPanel)}
- className={`h-9 max-sm:min-h-[44px] px-3.5 rounded-md border text-sm font-mono flex items-center gap-2 transition-colors ${
+ className={`h-10 max-sm:min-h-[44px] px-3.5 rounded-lg border text-sm font-mono flex items-center gap-2 transition-colors ${
  showTagFilterPanel || selectedTags.length > 0
  ? "bg-primary/10 text-primary border-primary/30 font-semibold"
  : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300"
@@ -324,16 +324,16 @@ function ExploreContent() {
  <select
  value={sortBy}
  onChange={(e) => setSortBy(e.target.value as any)}
- className="h-9 max-sm:min-h-[44px] px-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm text-gray-700 dark:text-gray-300 font-mono focus:outline-none"
+ className="h-10 max-sm:min-h-[44px] px-3 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm text-gray-700 dark:text-gray-300 font-mono focus:outline-none"
  >
  <option value="created_at">{t("explore.latestAdded")}</option>
  <option value="release_date">{t("explore.byYear")}</option>
  <option value="title">{t("explore.byName")}</option>
  </select>
- <div className="flex items-center gap-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] p-0.5">
+ <div className="flex items-center gap-0.5 rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] p-0.5">
  <button
  onClick={() => setViewMode("grid")}
- className={`w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded transition-colors ${
+ className={`w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-md transition-colors ${
  viewMode === "grid" ? "bg-surface text-primary shadow-xs" : "text-gray-400 hover:text-gray-700 dark:hover:text-white"
  }`}
  title={t("explore.gridView")}
@@ -342,7 +342,7 @@ function ExploreContent() {
  </button>
  <button
  onClick={() => setViewMode("list")}
- className={`w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded transition-colors ${
+ className={`w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-md transition-colors ${
  viewMode === "list" ? "bg-surface text-primary shadow-xs" : "text-gray-400 hover:text-gray-700 dark:hover:text-white"
  }`}
  title={t("explore.listView")}

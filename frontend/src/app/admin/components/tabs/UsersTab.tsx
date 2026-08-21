@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { displayNameOf } from "@/lib/api";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Users, Copy, Check, Pencil, X, AlertCircle } from "lucide-react";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
@@ -61,13 +62,13 @@ export function UsersTab({
     if (nextRole !== editing.role) payload.role = nextRole;
     if (nextPw !== "") {
       if (nextPw.length < 8) {
-        setEditErr(t("admin.users.passwordTooShort") || "密码至少 8 位");
+        setEditErr(t("admin.users.passwordTooShort"));
         return;
       }
       payload.password = nextPw;
     }
     if (Object.keys(payload).length === 0) {
-      setEditErr(t("admin.users.noChanges") || "未做任何修改");
+      setEditErr(t("admin.users.noChanges"));
       return;
     }
     setEditSaving(true);
@@ -94,14 +95,13 @@ export function UsersTab({
         </div>
         {!loading && filteredUsers.length > 0 && (
           <span className="text-[11px] font-mono text-gray-500 border border-white/10 rounded-full px-2.5 py-1 bg-white/[0.03]">
-            {t("admin.users.total", { count: String(filteredUsers.length) }) || `${filteredUsers.length} members`}
+            {t("admin.users.total", { count: String(filteredUsers.length) })}
           </span>
         )}
       </div>
 
       <p className="text-[11px] font-mono text-amber-300/80 bg-amber-500/10 border border-amber-500/20 rounded-md px-2.5 py-1.5">
-        {t("admin.users.selfProtectHint") ||
-          "提示：不可封禁/降权自己；系统会保留至少一名管理员。昵称留空则回退显示用户名。"}
+        {t("admin.users.selfProtectHint")}
       </p>
 
       <div className="rounded-xl border border-surfaceBorder bg-surface overflow-hidden">
@@ -109,10 +109,10 @@ export function UsersTab({
           <table className="w-full text-left text-xs min-w-[760px]">
             <thead className="bg-background/80 text-gray-400 border-b border-surfaceBorder text-[11px] font-mono">
               <tr>
-                <th className="py-3 px-3">{t("admin.users.colId") || "ID"}</th>
+                <th className="py-3 px-3">{t("admin.users.colId")}</th>
                 <th className="py-3 px-3">{t("admin.users.colUser")}</th>
-                <th className="py-3 px-3">{t("admin.users.colNickname") || "昵称"}</th>
-                <th className="py-3 px-3">{t("admin.users.colEmail") || "邮箱"}</th>
+                <th className="py-3 px-3">{t("admin.users.colNickname")}</th>
+                <th className="py-3 px-3">{t("admin.users.colEmail")}</th>
                 <th className="py-3 px-3">{t("admin.users.colRole")}</th>
                 <th className="py-3 px-3">{t("admin.users.colTime")}</th>
                 <th className="py-3 px-3 text-right">{t("common.edit")}</th>
@@ -149,7 +149,8 @@ export function UsersTab({
                         </button>
                       </td>
                       <td className="py-3 px-3">
-                        <div className="font-semibold text-white flex items-center gap-1.5">
+                        <div className="font-semibold text-white flex items-center gap-2">
+                          <UserAvatar user={u} size="xs" shape="rounded" />
                           <span className="truncate max-w-[120px]">{u.username}</span>
                           {u.role === "admin" && (
                             <span className="px-1 py-0.2 rounded text-[9px] font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0">ADMIN</span>
@@ -158,7 +159,7 @@ export function UsersTab({
                             <span className="px-1 py-0.2 rounded text-[9px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">ARCHIVIST</span>
                           )}
                         </div>
-                        <div className="text-[10px] text-gray-500 font-mono">{u.invite_code || "—"}</div>
+                        <div className="text-[10px] text-gray-500 font-mono pl-7">{u.invite_code || "—"}</div>
                       </td>
                       <td className="py-3 px-3">
                         <span className={dn !== u.username ? "text-white font-medium" : "text-gray-400"}>{dn}</span>
@@ -217,7 +218,7 @@ export function UsersTab({
           <button type="button" aria-label="close" onClick={() => setEditing(null)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div className="relative w-full max-w-md rounded-xl border border-white/10 bg-[#141418] shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-              <h3 className="text-sm font-semibold text-white">{t("admin.users.editTitle") || "编辑成员"}</h3>
+              <h3 className="text-sm font-semibold text-white">{t("admin.users.editTitle")}</h3>
               <button type="button" onClick={() => setEditing(null)} className="w-7 h-7 grid place-items-center rounded-md bg-white/[0.06] hover:bg-white/[0.10] text-gray-400">
                 <X className="w-4 h-4" />
               </button>
@@ -242,45 +243,45 @@ export function UsersTab({
               )}
 
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-gray-300">{t("admin.users.fieldEmail") || "邮箱"}</span>
+                <span className="text-xs font-medium text-gray-300">{t("admin.users.fieldEmail")}</span>
                 <input
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
                   placeholder="user@example.com"
-                  className="w-full h-8.5 px-3 rounded-md bg-white/[0.06] border border-white/15 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
+                  className="w-full h-10 px-3 rounded-md bg-white/[0.06] border border-white/15 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
                 />
               </label>
 
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-gray-300">{t("admin.users.fieldNickname") || "昵称"}</span>
+                <span className="text-xs font-medium text-gray-300">{t("admin.users.fieldNickname")}</span>
                 <input
                   value={editDisplayName}
                   onChange={(e) => setEditDisplayName(e.target.value)}
-                  placeholder={t("settings.displayNamePlaceholder") || "留空则显示用户名"}
+                  placeholder={t("settings.displayNamePlaceholder")}
                   maxLength={64}
-                  className="w-full h-8.5 px-3 rounded-md bg-white/[0.06] border border-white/15 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
+                  className="w-full h-10 px-3 rounded-md bg-white/[0.06] border border-white/15 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
                 />
-                <span className="text-[11px] text-gray-500 font-mono">{t("admin.users.fieldNicknameHint") || "昵称独立于用户名，留空回退到用户名"}</span>
+                <span className="text-[11px] text-gray-500 font-mono">{t("admin.users.fieldNicknameHint")}</span>
               </label>
 
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-gray-300">{t("admin.users.fieldPassword") || "新密码（留空不改）"}</span>
+                <span className="text-xs font-medium text-gray-300">{t("admin.users.fieldPassword")}</span>
                 <input
                   type="password"
                   value={editPassword}
                   onChange={(e) => setEditPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full h-8.5 px-3 rounded-md bg-white/[0.06] border border-white/15 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
+                  className="w-full h-10 px-3 rounded-md bg-white/[0.06] border border-white/15 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
                 />
               </label>
 
               <label className="block space-y-1">
-                <span className="text-xs font-medium text-gray-300">{t("admin.users.fieldRole") || "角色"}</span>
+                <span className="text-xs font-medium text-gray-300">{t("admin.users.fieldRole")}</span>
                 <select
                   value={editRole}
                   onChange={(e) => setEditRole(e.target.value)}
                   disabled={editing.id === user?.id}
-                  className="w-full h-8.5 px-2 rounded-md bg-white/[0.06] border border-white/15 text-sm text-white focus:outline-none focus:border-amber-400 disabled:opacity-40"
+                  className="w-full h-10 px-2 rounded-md bg-white/[0.06] border border-white/15 text-sm text-white focus:outline-none focus:border-amber-400 disabled:opacity-40"
                 >
                   <option value="member">{t("admin.users.roleUser")}</option>
                   <option value="archivist">{t("admin.users.roleArchivist")}</option>
@@ -290,14 +291,14 @@ export function UsersTab({
               </label>
 
               <div className="flex gap-2 pt-1">
-                <button type="button" onClick={() => setEditing(null)} className="flex-1 h-8.5 rounded-md bg-white/[0.06] border border-white/10 text-sm text-gray-300 hover:bg-white/[0.10]">
+                <button type="button" onClick={() => setEditing(null)} className="flex-1 h-10 rounded-md bg-white/[0.06] border border-white/10 text-sm text-gray-300 hover:bg-white/[0.10]">
                   {t("common.cancel")}
                 </button>
                 <button
                   type="button"
                   onClick={submitEdit}
                   disabled={editSaving}
-                  className="flex-1 h-8.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  className="flex-1 h-10 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
                   {editSaving && <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
                   {t("common.save")}

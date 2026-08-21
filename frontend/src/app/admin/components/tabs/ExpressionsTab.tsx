@@ -28,7 +28,7 @@ export function ExpressionsTab({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <span className="font-mono text-xs text-gray-400 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10">
-            共 {filteredExpressions.length} 首母带/曲目
+            {t("admin.expressions.count", { count: filteredExpressions.length })}
           </span>
         </div>
       </div>

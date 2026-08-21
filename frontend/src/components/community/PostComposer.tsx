@@ -442,7 +442,7 @@ export default function PostComposer({
 
       {/* Body */}
       {mode === "createTopic" ? (
-        <form onSubmit={handleCreateTopic} className="flex-1 flex flex-col p-4 gap-3 overflow-hidden">
+        <form onSubmit={handleCreateTopic} className="flex-1 flex flex-col p-4 gap-3.5 overflow-hidden">
           {/* Title + Board + Work */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 shrink-0">
             <div className="md:col-span-5">
@@ -452,7 +452,7 @@ export default function PostComposer({
                 placeholder={t("community.topicTitlePlaceholder")}
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-surfaceBorder rounded-md text-white text-xs focus:outline-none focus:border-gray-600 font-medium"
+                className="w-full px-3.5 h-10 bg-background border border-surfaceBorder rounded-lg text-white text-sm focus:outline-none focus:border-gray-600 font-medium"
               />
             </div>
 
@@ -461,19 +461,19 @@ export default function PostComposer({
               <button
                 type="button"
                 onClick={() => setBoardDropdownOpen((v) => !v)}
-                className="w-full px-3 py-2 bg-background border border-surfaceBorder rounded-md text-white text-xs flex items-center justify-between gap-2 hover:border-gray-600 transition-colors"
+                className="w-full px-3.5 h-10 bg-background border border-surfaceBorder rounded-lg text-white text-sm flex items-center justify-between gap-2 hover:border-gray-600 transition-colors cursor-pointer"
               >
                 <span className="flex items-center gap-2 truncate">
                   {selectedBoardObj ? (
                     <>
-                      <span className={`w-2 h-2 rounded-full ${selectedBoardObj.bgColor} ${selectedBoardObj.borderColor} border`} />
-                      <span className="truncate">{boardDisplayName(selectedBoardObj, locale)}</span>
+                      <span className={`w-2.5 h-2.5 rounded-full ${selectedBoardObj.bgColor} ${selectedBoardObj.borderColor} border`} />
+                      <span className="truncate font-medium">{boardDisplayName(selectedBoardObj, locale)}</span>
                     </>
                   ) : (
                     <span className="truncate">{t("community.board")}</span>
                   )}
                 </span>
-                <ChevronDown className={`w-3.5 h-3.5 text-gray-500 shrink-0 transition-transform ${boardDropdownOpen ? "rotate-180" : ""}`} />
+                <ChevronDown className={`w-4 h-4 text-gray-500 shrink-0 transition-transform ${boardDropdownOpen ? "rotate-180" : ""}`} />
               </button>
               {boardDropdownOpen && (
                 <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-card shadow-elevated z-50 isolate animate-slide-up overflow-hidden flex flex-col">
@@ -531,13 +531,13 @@ export default function PostComposer({
             {/* Work link */}
             <div className="md:col-span-4 relative">
               {selectedWork ? (
-                <div className="flex items-center justify-between px-2.5 py-2 rounded-md bg-background border border-emerald-500/40 text-emerald-300">
-                  <span className="flex items-center gap-1.5 truncate text-[11px] font-semibold">
-                    <BookOpen className="w-3 h-3 text-emerald-400" />
+                <div className="flex items-center justify-between px-3.5 h-10 rounded-lg bg-background border border-emerald-500/40 text-emerald-300">
+                  <span className="flex items-center gap-2 truncate text-sm font-semibold">
+                    <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span className="truncate">{selectedWork.title}</span>
                   </span>
-                  <button type="button" onClick={() => setSelectedWork(null)} className="text-gray-400 hover:text-white ml-1">
-                    <X className="w-3 h-3" />
+                  <button type="button" onClick={() => setSelectedWork(null)} className="text-gray-400 hover:text-white ml-1.5 cursor-pointer">
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
               ) : (
@@ -547,10 +547,10 @@ export default function PostComposer({
                     placeholder={t("community.workSearchPlaceholder")}
                     value={workSearchQuery}
                     onChange={(e) => setWorkSearchQuery(e.target.value)}
-                    className="w-full px-3 py-2 bg-background border border-surfaceBorder rounded-md text-white text-xs focus:outline-none focus:border-gray-600"
+                    className="w-full px-3.5 h-10 bg-background border border-surfaceBorder rounded-lg text-white text-sm focus:outline-none focus:border-gray-600"
                   />
                   {searchedWorks.length > 0 && (
-                    <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-card shadow-elevated max-h-36 overflow-y-auto z-50 isolate animate-slide-up divide-y divide-white/[0.06]">
+                    <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-elevated max-h-48 overflow-y-auto z-50 isolate animate-slide-up divide-y divide-white/[0.06]">
                       {searchedWorks.map((w) => (
                         <div
                           key={w.id}
@@ -560,10 +560,10 @@ export default function PostComposer({
                             setSearchedWorks([]);
                             setNewBoardCode("comment");
                           }}
-                          className="p-2 hover:bg-surfaceBorder/50 cursor-pointer flex items-center justify-between text-gray-300 hover:text-white text-xs"
+                          className="p-2.5 hover:bg-surfaceBorder/50 cursor-pointer flex items-center justify-between text-gray-300 hover:text-white text-sm"
                         >
                           <span className="font-medium truncate">{w.title}</span>
-                          <span className="text-[10px] text-gray-500 font-mono">{w.media_type}</span>
+                          <span className="text-xs text-gray-500 font-mono">{w.media_type}</span>
                         </div>
                       ))}
                     </div>
@@ -575,32 +575,32 @@ export default function PostComposer({
 
           {/* Tags & Language */}
           <div className="shrink-0 space-y-2">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <div className="flex items-center gap-1 bg-background border border-surfaceBorder rounded-full px-2 py-0.5 text-[11px] font-mono shrink-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1 bg-background border border-surfaceBorder rounded-full px-2.5 py-1 text-xs font-mono shrink-0">
                 <span className="text-gray-500">{t("locale.languageChoice")}:</span>
                 <button
                   type="button"
                   onClick={() => setTopicLanguage("zh-CN")}
-                  className={`px-1.5 py-0.5 rounded-full transition-colors ${topicLanguage === "zh-CN" ? "bg-white text-black font-semibold" : "text-gray-400 hover:text-white"}`}
+                  className={`px-2 py-0.5 rounded-full transition-colors ${topicLanguage === "zh-CN" ? "bg-white text-black font-semibold" : "text-gray-400 hover:text-white"}`}
                 >
-                  中文
+                  {t("community.languageZh")}
                 </button>
                 <button
                   type="button"
                   onClick={() => setTopicLanguage("en-US")}
-                  className={`px-1.5 py-0.5 rounded-full transition-colors ${topicLanguage === "en-US" ? "bg-white text-black font-semibold" : "text-gray-400 hover:text-white"}`}
+                  className={`px-2 py-0.5 rounded-full transition-colors ${topicLanguage === "en-US" ? "bg-white text-black font-semibold" : "text-gray-400 hover:text-white"}`}
                 >
-                  EN
+                  {t("community.languageEn")}
                 </button>
               </div>
-              <span className="text-[11px] font-mono text-gray-500 flex items-center gap-1 shrink-0 ml-1">
-                <TagIcon className="w-3 h-3" />
+              <span className="text-xs font-mono text-gray-500 flex items-center gap-1 shrink-0 ml-1">
+                <TagIcon className="w-3.5 h-3.5" />
                 {t("community.tags")}
               </span>
               {selectedTagsForDisplay.map((entry) => (
                 <span
                   key={`${entry.id ?? entry.name}-${entry.name}`}
-                  className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-medium"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-medium"
                 >
                   #{entry.name}
                   <button
@@ -611,7 +611,7 @@ export default function PostComposer({
                     }}
                     className="ml-0.5 p-0.5 hover:bg-emerald-500/20 rounded-full"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3.5 h-3.5" />
                   </button>
                 </span>
               ))}
@@ -638,7 +638,7 @@ export default function PostComposer({
                       setTagDropdownOpen(false);
                     }
                   }}
-                  className="w-full pl-2.5 pr-2 py-1.5 bg-background border border-surfaceBorder rounded-full text-white text-xs placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
+                  className="w-full pl-3.5 pr-2.5 h-9 bg-background border border-surfaceBorder rounded-full text-white text-xs placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
                 />
                 {tagDropdownOpen && tagInput.trim() && (
                   <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-card shadow-elevated z-50 isolate animate-slide-up max-h-40 overflow-y-auto divide-y divide-white/[0.06]">
@@ -670,7 +670,7 @@ export default function PostComposer({
                 )}
               </div>
             </div>
-            <p className="text-[10px] text-gray-600 font-mono">{t("community.tagMultiHint")}</p>
+            <p className="text-[11px] text-gray-600 font-mono">{t("community.tagMultiHint")}</p>
           </div>
 
           <MarkdownToolbar textareaRef={contentRef} onInsert={setContentFromToolbar} t={t} />
@@ -682,44 +682,44 @@ export default function PostComposer({
               placeholder={t("community.contentPlaceholder")}
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
-              className="w-full h-full p-3 bg-background border border-surfaceBorder rounded-md text-white text-xs focus:outline-none focus:border-gray-600 resize-none font-mono leading-relaxed overflow-y-auto"
+              className="w-full h-full p-3.5 bg-background border border-surfaceBorder rounded-lg text-white text-sm focus:outline-none focus:border-gray-600 resize-none font-mono leading-relaxed overflow-y-auto"
             />
-            <div className="hidden md:block h-full p-3 bg-background/50 border border-surfaceBorder rounded-md overflow-y-auto text-gray-300 text-xs leading-relaxed whitespace-pre-wrap">
+            <div className="hidden md:block h-full p-3.5 bg-background/50 border border-surfaceBorder rounded-lg overflow-y-auto text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
               {newContent ? newContent : <span className="text-gray-600 font-mono">{t("community.livePreview")}</span>}
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-surfaceBorder shrink-0">
-            <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">{t("community.markdownReady")}</span>
-            <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center justify-between pt-2.5 border-t border-surfaceBorder shrink-0">
+            <span className="text-xs text-gray-500 font-mono hidden sm:inline">{t("community.markdownReady")}</span>
+            <div className="flex items-center gap-2.5 ml-auto">
               <button
                 type="button"
                 onClick={() => {
                   clearDraft();
                   onClose();
                 }}
-                className="px-3 py-1.5 rounded bg-surface hover:bg-surfaceBorder text-gray-400 hover:text-white text-xs"
+                className="px-4 h-10 rounded-lg bg-surface hover:bg-surfaceBorder text-gray-400 hover:text-white text-sm transition-colors cursor-pointer"
               >
                 {t("community.discard")}
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-1.5 rounded bg-white hover:bg-gray-200 text-black font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 text-xs"
+                className="px-5 h-10 rounded-lg bg-white hover:bg-gray-200 text-black font-semibold flex items-center gap-2 transition-colors disabled:opacity-50 text-sm shadow-xs cursor-pointer"
               >
-                <Send className="w-3.5 h-3.5" />
+                <Send className="w-4 h-4" />
                 <span>{submitting ? t("community.creating") : t("community.createTopic")}</span>
               </button>
             </div>
           </div>
         </form>
       ) : (
-        <form onSubmit={handleReply} className="flex-1 flex flex-col p-4 gap-3 overflow-hidden">
+        <form onSubmit={handleReply} className="flex-1 flex flex-col p-4 gap-3.5 overflow-hidden">
           {/* Quoted banner */}
           {activeQuotedPost && (
-            <div className="flex items-center justify-between px-3 py-2 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs shrink-0">
-              <span className="flex items-center gap-1.5">
-                <Quote className="w-3.5 h-3.5" />
+            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs sm:text-sm shrink-0">
+              <span className="flex items-center gap-2">
+                <Quote className="w-4 h-4" />
                 <span>
                   {t("community.replyingTo", { n: activeQuotedPost.post_number })}
                   {activeQuotedPost.username ? ` · @${activeQuotedPost.username}` : ""}
@@ -728,7 +728,7 @@ export default function PostComposer({
               <button
                 type="button"
                 onClick={() => setActiveQuotedPost(null)}
-                className="px-2 py-0.5 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-mono"
+                className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-mono cursor-pointer"
               >
                 {t("community.cancelReply")}
               </button>
@@ -744,33 +744,33 @@ export default function PostComposer({
               placeholder={t("community.replyPlaceholder")}
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
-              className="w-full h-full p-3 bg-background border border-surfaceBorder rounded-md text-white text-xs focus:outline-none focus:border-gray-600 resize-none font-mono leading-relaxed overflow-y-auto"
+              className="w-full h-full p-3.5 bg-background border border-surfaceBorder rounded-lg text-white text-sm focus:outline-none focus:border-gray-600 resize-none font-mono leading-relaxed overflow-y-auto"
             />
-            <div className="hidden md:block h-full p-3 bg-background/50 border border-surfaceBorder rounded-md overflow-y-auto text-gray-300 text-xs leading-relaxed whitespace-pre-wrap">
+            <div className="hidden md:block h-full p-3.5 bg-background/50 border border-surfaceBorder rounded-lg overflow-y-auto text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
               {newContent ? newContent : <span className="text-gray-600 font-mono">{t("community.livePreview")}</span>}
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-surfaceBorder shrink-0">
-            <span className="text-[10px] text-gray-500 font-mono hidden sm:inline">{t("community.markdownReady")}</span>
-            <div className="flex items-center gap-2 ml-auto">
+          <div className="flex items-center justify-between pt-2.5 border-t border-surfaceBorder shrink-0">
+            <span className="text-xs text-gray-500 font-mono hidden sm:inline">{t("community.markdownReady")}</span>
+            <div className="flex items-center gap-2.5 ml-auto">
               <button
                 type="button"
                 onClick={() => {
                   clearDraft();
                   onClose();
                 }}
-                className="px-3 py-1.5 rounded bg-surface hover:bg-surfaceBorder text-gray-400 hover:text-white text-xs"
+                className="px-4 h-10 rounded-lg bg-surface hover:bg-surfaceBorder text-gray-400 hover:text-white text-sm transition-colors cursor-pointer"
               >
                 {t("community.discard")}
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-1.5 rounded bg-white hover:bg-gray-200 text-black font-bold flex items-center gap-1.5 transition-colors disabled:opacity-50 text-xs"
+                className="px-5 h-10 rounded-lg bg-white hover:bg-gray-200 text-black font-semibold flex items-center gap-2 transition-colors disabled:opacity-50 text-sm shadow-xs cursor-pointer"
               >
-                <Send className="w-3.5 h-3.5" />
-                <span>{submitting ? t("community.creating") : t("community.sendReply")}</span>
+                <Send className="w-4 h-4" />
+                <span>{submitting ? t("community.creating") : t("community.reply")}</span>
               </button>
             </div>
           </div>

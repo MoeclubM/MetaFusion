@@ -112,8 +112,8 @@ export default function ArtistDetailPage() {
                   beginDate={artist.begin_date}
                   endDate={artist.end_date}
                   ended={artist.ended}
-                  endedLabel="(已故/已解散)"
-                  activeLabel="至今"
+                  endedLabel={t("entity.temporal.endedArtist")}
+                  activeLabel={t("entity.temporal.activeArtist")}
                 />
 
                 {/* Quick affiliation pills */}
@@ -174,7 +174,7 @@ export default function ArtistDetailPage() {
               onEdit={() => setIsEditorOpen(true)}
               onHistory={() => setIsHistoryOpen(true)}
               onMerge={() => setIsMergeOpen(true)}
-              entityTypeLabel="主体"
+              entityTypeLabel={t("entity.toolbar.artist")}
             />
           </div>
         </div>
@@ -271,7 +271,7 @@ export default function ArtistDetailPage() {
                     <div className="flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       <h3 className="font-mono text-[11px] font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                        当前签约与所属机构 ({connectedEntities.filter((e) => e.is_current !== false).length})
+                        {t("artist.detail.affiliationsCurrent", { count: connectedEntities.filter((e) => e.is_current !== false).length })}
                       </h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -311,19 +311,19 @@ export default function ArtistDetailPage() {
                             <div className="pt-2 border-t border-black/5 dark:border-white/[0.06] font-mono text-[10px] text-gray-500 flex flex-wrap gap-x-3 gap-y-1">
                               {ent.date_span && (
                                 <div className="text-emerald-600 dark:text-emerald-300 font-medium">
-                                  <span className="text-gray-400">时段: </span>
+                                  <span className="text-gray-400">{t("artist.detail.period")} </span>
                                   {ent.date_span}
                                 </div>
                               )}
                               {ent.attributes?.contract_type && (
                                 <div>
-                                  <span className="text-gray-400">合约: </span>
+                                  <span className="text-gray-400">{t("artist.detail.contract")} </span>
                                   <span>{ent.attributes.contract_type}</span>
                                 </div>
                               )}
                               {ent.attributes?.position && (
                                 <div>
-                                  <span className="text-gray-400">职务: </span>
+                                  <span className="text-gray-400">{t("artist.detail.role")} </span>
                                   <span>{ent.attributes.position}</span>
                                 </div>
                               )}
@@ -340,7 +340,7 @@ export default function ArtistDetailPage() {
                     <div className="flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
                       <h3 className="font-mono text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
-                        历史履历与过往合作 ({connectedEntities.filter((e) => e.is_current === false).length})
+                        {t("artist.detail.affiliationsHistory", { count: connectedEntities.filter((e) => e.is_current === false).length })}
                       </h3>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 opacity-80 hover:opacity-100 transition-opacity">
@@ -373,20 +373,20 @@ export default function ArtistDetailPage() {
                               </div>
 
                               <span className="px-1.5 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] text-gray-500 border border-black/10 dark:border-white/10 text-[10px] font-mono shrink-0">
-                                {ent.label} (历史)
+                                {ent.label} {t("entity.temporal.historicalTag")}
                               </span>
                             </div>
 
                             <div className="pt-2 border-t border-black/5 dark:border-white/[0.06] font-mono text-[10px] text-gray-500 flex flex-wrap gap-x-3 gap-y-1">
                               {ent.date_span && (
                                 <div>
-                                  <span className="text-gray-400">时段: </span>
+                                  <span className="text-gray-400">{t("artist.detail.period")} </span>
                                   <span>{ent.date_span}</span>
                                 </div>
                               )}
                               {ent.attributes?.contract_type && (
                                 <div>
-                                  <span className="text-gray-400">合约: </span>
+                                  <span className="text-gray-400">{t("artist.detail.contract")} </span>
                                   <span>{ent.attributes.contract_type}</span>
                                 </div>
                               )}

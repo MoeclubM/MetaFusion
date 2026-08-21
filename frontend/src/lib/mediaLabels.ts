@@ -42,10 +42,6 @@ export function entryLabel(mediaType: MediaType, t?: (k: string) => string): str
   }
 }
 
-export function releaseLabel(t?: (k: string) => string): string {
-  return t ? t("media.release") : "发行版";
-}
-
 export function carrierLabel(t?: (k: string, v?: Record<string, string|number>) => string): string {
   return t ? t("media.carrierLabel") : "载体";
 }

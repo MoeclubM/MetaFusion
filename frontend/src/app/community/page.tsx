@@ -4,6 +4,7 @@ import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, boardDisplayName } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -490,7 +491,7 @@ function CommunityContent() {
  {/* main col */}
  <div className="flex-1 min-w-0 py-3 px-4 space-y-1.5">
  <Link href={`/community/${topic.id}`} className="block text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors leading-snug line-clamp-2 sm:line-clamp-1">
- {topic.is_pinned && <span className="mr-1 inline-flex items-center px-2.5 py-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono">📌 置顶</span>}{topic.title}
+ {topic.is_pinned && <span className="mr-1 inline-flex items-center px-2.5 py-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono">📌 {t("community.pinned")}</span>}{topic.title}
  </Link>
  <div className="flex items-center gap-2 flex-wrap">
  <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded border text-xs font-mono ${board.bgColor} ${board.borderColor} ${board.color}`}>
@@ -556,18 +557,18 @@ function CommunityContent() {
  <Link
  href={`/users/${authorId}`}
  title={`${t("community.authorPrefix")}${topic.user?.username || t("community.anonymous")}`}
- className="w-8 h-8 rounded-full bg-surface border-2 border-background flex items-center justify-center text-xs font-bold text-white uppercase ring-1 ring-surfaceBorder hover:ring-primary hover:opacity-90 transition-all z-10"
+ className="hover:opacity-90 transition-all z-10 block shrink-0"
  onClick={(e) => e.stopPropagation()}
  >
- {topic.user?.username ? topic.user.username.slice(0, 2) : "U"}
+ <UserAvatar user={topic.user} size="sm" shape="circle" className="border-2 border-background ring-1 ring-surfaceBorder hover:ring-primary" />
  </Link>
  ) : (
- <div title={`${t("community.authorPrefix")}${topic.user?.username || t("community.anonymous")}`} className="w-8 h-8 rounded-full bg-surface border-2 border-background flex items-center justify-center text-xs font-bold text-white uppercase ring-1 ring-surfaceBorder">
- {topic.user?.username ? topic.user.username.slice(0, 2) : "U"}
+ <div title={`${t("community.authorPrefix")}${topic.user?.username || t("community.anonymous")}`} className="block shrink-0">
+ <UserAvatar user={topic.user} size="sm" shape="circle" className="border-2 border-background ring-1 ring-surfaceBorder" />
  </div>
  )}
  {topic.reply_count > 0 && (
- <div title={t("community.activeReplier")} className="w-8 h-8 rounded-full bg-emerald-500/20 border-2 border-background flex items-center justify-center text-xs font-bold text-emerald-400 ring-1 ring-emerald-500/40">
+ <div title={t("community.activeReplier")} className="w-7 h-7 rounded-full bg-emerald-500/20 border-2 border-background flex items-center justify-center text-[10px] font-bold text-emerald-400 ring-1 ring-emerald-500/40 shrink-0">
  +{topic.reply_count}
  </div>
  )}

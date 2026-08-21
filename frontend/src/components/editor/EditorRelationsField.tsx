@@ -40,41 +40,41 @@ export function EditorRelationsField({
         <button
           type="button"
           onClick={addRelationRow}
-          className="px-3 py-1.5 rounded-full bg-white text-black text-xs font-semibold flex items-center gap-1 hover:bg-gray-200 transition-colors"
+          className="px-3.5 h-9 rounded-lg bg-white text-black text-xs sm:text-sm font-semibold flex items-center gap-1.5 hover:bg-gray-200 transition-colors shadow-xs cursor-pointer"
         >
-          <Plus className="w-3.5 h-3.5" />
+          <Plus className="w-4 h-4" />
           {t("editor.relations.addRow")}
         </button>
       </div>
 
       {relations.length === 0 && (
-        <div className="p-8 rounded-card border border-white/[0.06] bg-background/30 text-center font-mono text-xs text-gray-500">
+        <div className="p-8 rounded-card border border-white/[0.06] bg-background/30 text-center font-mono text-xs sm:text-sm text-gray-500">
           {t("editor.relations.noRelations")}
         </div>
       )}
 
       <div className="space-y-3">
         {relations.map((rel, idx) => (
-          <div key={idx} className="p-3.5 rounded-card bg-background/70 border border-white/10 space-y-3">
+          <div key={idx} className="p-4 rounded-xl bg-background/70 border border-white/10 space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
               <div className="md:col-span-5 space-y-1">
-                <label className="text-[10px] font-mono text-gray-500">目标实体 UUID (Target ID)</label>
+                <label className="text-xs font-mono text-gray-400">{t("editor.relations.targetIdLabel")}</label>
                 <input
                   type="text"
                   required
                   value={rel.target_id}
                   onChange={(e) => updateRelationRow(idx, { target_id: e.target.value })}
                   placeholder={t("editor.relations.targetIdPlaceholder")}
-                  className="w-full px-3 py-1.5 rounded bg-surface border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                  className="w-full px-3.5 h-10 rounded-lg bg-surface border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
                 />
               </div>
 
               <div className="md:col-span-6 space-y-1">
-                <label className="text-[10px] font-mono text-gray-500">关系类型 (Relationship Role)</label>
+                <label className="text-xs font-mono text-gray-400">{t("editor.relations.roleLabel")}</label>
                 <select
                   value={rel.relationship_type}
                   onChange={(e) => updateRelationRow(idx, { relationship_type: e.target.value })}
-                  className="w-full px-3 py-1.5 rounded bg-surface border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                  className="w-full px-3.5 h-10 rounded-lg bg-surface border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
                 >
                   {relationTypes.map((rt) => {
                     const label = locale.startsWith("zh")
@@ -89,11 +89,11 @@ export function EditorRelationsField({
                 </select>
               </div>
 
-              <div className="md:col-span-1 flex justify-end md:pt-4">
+              <div className="md:col-span-1 flex justify-end md:pt-5">
                 <button
                   type="button"
                   onClick={() => removeRelationRow(idx)}
-                  className="p-1.5 rounded hover:bg-rose-500/20 text-gray-500 hover:text-rose-400 transition-colors"
+                  className="p-2 rounded-lg hover:bg-rose-500/20 text-gray-500 hover:text-rose-400 transition-colors cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -101,14 +101,14 @@ export function EditorRelationsField({
             </div>
 
             {/* Relation Temporal Interval */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2 border-t border-white/[0.04]">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2.5 border-t border-white/[0.04] items-center">
               <div>
                 <input
                   type="text"
                   value={rel.begin_date || ""}
                   onChange={(e) => updateRelationRow(idx, { begin_date: e.target.value })}
                   placeholder={t("editor.relations.beginPlaceholder")}
-                  className="w-full px-2.5 py-1 rounded bg-surface/50 border border-white/10 text-white font-mono text-[11px]"
+                  className="w-full px-3 h-9 rounded-lg bg-surface/50 border border-white/10 text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-amber-400"
                 />
               </div>
               <div>
@@ -117,7 +117,7 @@ export function EditorRelationsField({
                   value={rel.end_date || ""}
                   onChange={(e) => updateRelationRow(idx, { end_date: e.target.value })}
                   placeholder={t("editor.relations.endPlaceholder")}
-                  className="w-full px-2.5 py-1 rounded bg-surface/50 border border-white/10 text-white font-mono text-[11px]"
+                  className="w-full px-3 h-9 rounded-lg bg-surface/50 border border-white/10 text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-amber-400"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -126,9 +126,9 @@ export function EditorRelationsField({
                   id={`rel_ended_${idx}`}
                   checked={rel.ended || false}
                   onChange={(e) => updateRelationRow(idx, { ended: e.target.checked })}
-                  className="rounded bg-background border-white/10 text-amber-500 focus:ring-0"
+                  className="w-4 h-4 rounded bg-background border-white/10 text-amber-500 focus:ring-0 cursor-pointer"
                 />
-                <label htmlFor={`rel_ended_${idx}`} className="text-[11px] text-gray-400 font-mono cursor-pointer">
+                <label htmlFor={`rel_ended_${idx}`} className="text-xs text-gray-400 font-mono cursor-pointer">
                   {t("editor.relations.endedCheckbox")}
                 </label>
               </div>

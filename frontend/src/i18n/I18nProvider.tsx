@@ -71,10 +71,3 @@ export function useI18n() {
   return useContext(I18nContext);
 }
 
-export function useLocale() {
-  return useContext(I18nContext).locale;
-}
-
-export function useTranslations() {
-  return useContext(I18nContext).t;
-}

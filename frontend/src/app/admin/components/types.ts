@@ -82,5 +82,3 @@ export const sidebarGroups: SidebarGroup[] = [
   },
 ];
 
-// Legacy compat for any existing code referencing .label or .badge
-export const legacySidebarGroups = sidebarGroups;

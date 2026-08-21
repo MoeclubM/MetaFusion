@@ -82,8 +82,8 @@ export function BoardsTab() {
           <h2 className="text-sm font-semibold flex items-center gap-2 text-white"><LayoutGrid className="w-4 h-4 text-sky-400" />{t("admin.boards.title")}</h2>
           <p className="text-[11px] text-gray-400 font-mono mt-0.5">{t("admin.boards.subtitle")}</p>
           <div className="mt-2 text-[11px] leading-relaxed text-amber-200/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 max-w-[720px]">
-            <span className="font-semibold">三默认分区：</span>
-            <span className="font-mono">announcement</span>（站点公告，受保护）· <span className="font-mono">bug_report</span>（缺陷反馈）· <span className="font-mono">comment</span>（评论专用，<span className="font-semibold">不进 feed</span>、受保护）。删除其余分区会自动把话题迁移至 <span className="font-mono">announcement</span>。
+            <span className="font-semibold">{t("admin.boards.defaultBoardsTitle")} </span>
+            <span>{t("admin.boards.defaultBoardsDesc")}</span>
           </div>
         </div>
         <button onClick={startCreate} className="shrink-0 px-3 py-1.5 rounded-lg bg-white text-black text-xs font-semibold inline-flex items-center gap-1.5 hover:bg-gray-100 transition-colors"><Plus className="w-3.5 h-3.5" />{t("admin.boards.new")}</button>
@@ -166,7 +166,7 @@ export function BoardsTab() {
               const isSystem = b.code==="announcement" || b.code==="comment";
               return (
                 <tr key={b.code} className="hover:bg-white/[0.03]">
-                  <td className="p-2.5 font-mono flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${colorDot(b.color)}`} /><Icon className="w-3.5 h-3.5 text-gray-500" />{b.code}{isSystem && <span className="px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/20 text-amber-300 text-[10px] font-mono">系统</span>}</td>
+                  <td className="p-2.5 font-mono flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${colorDot(b.color)}`} /><Icon className="w-3.5 h-3.5 text-gray-500" />{b.code}{isSystem && <span className="px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/20 text-amber-300 text-[10px] font-mono">{t("admin.boards.systemBadge")}</span>}</td>
                   <td className="p-2.5"><div className="font-medium text-white">{b.name_zh}</div><div className="text-[11px] text-gray-500">{b.name_en}</div></td>
                   <td className="p-2.5 text-gray-400 max-w-[220px] truncate" title={b.description}>{b.description}</td>
                   <td className="p-2.5 font-mono">{b.sort_order}</td>

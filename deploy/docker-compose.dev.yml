@@ -26,3 +26,21 @@ services:
   backend:
     volumes:
       - ../backend:/app:ro
+
+  docs-site:
+    build:
+      context: ../docs-site
+      dockerfile: Dockerfile
+      target: deps
+    container_name: metafusion-docs-dev
+    command: npm run dev
+    volumes:
+      - ../docs-site/src:/app/src:ro
+      - ../docs-site/content:/app/content:ro
+      - ../docs-site/public:/app/public:ro
+      - ../docs-site/package.json:/app/package.json:ro
+      - ../docs-site/next.config.mjs:/app/next.config.mjs:ro
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - WATCHPACK_POLLING=true

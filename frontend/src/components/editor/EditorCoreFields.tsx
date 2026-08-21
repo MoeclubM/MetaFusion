@@ -19,12 +19,12 @@ const COMMON_TAG_SUGGESTIONS = [
 ];
 
 const LANGUAGE_OPTIONS = [
-  { code: "zh-Hans", label: "简体中文 (Simplified Chinese)" },
-  { code: "zh-Hant", label: "繁體中文 (Traditional Chinese)" },
-  { code: "ja", label: "日本語 (Japanese)" },
-  { code: "en", label: "English (英语)" },
-  { code: "ko", label: "한국어 (Korean)" },
-  { code: "other", label: "其他语言 (Other)" },
+  { code: "zh-Hans", labelKey: "editor.core.langZhHans" },
+  { code: "zh-Hant", labelKey: "editor.core.langZhHant" },
+  { code: "ja", labelKey: "editor.core.langJa" },
+  { code: "en", labelKey: "editor.core.langEn" },
+  { code: "ko", labelKey: "editor.core.langKo" },
+  { code: "other", labelKey: "editor.core.langOther" },
 ];
 
 export function EditorCoreFields({
@@ -76,11 +76,11 @@ export function EditorCoreFields({
             <select
               value={formData.primary_language || "zh-Hans"}
               onChange={(e) => updateField("primary_language", e.target.value)}
-              className="px-2.5 py-1 rounded bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+              className="px-3 h-9 rounded-lg bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
             >
               {LANGUAGE_OPTIONS.map((opt) => (
                 <option key={opt.code} value={opt.code}>
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </option>
               ))}
             </select>
@@ -90,7 +90,7 @@ export function EditorCoreFields({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Primary Title / Name */}
           <div className="space-y-1.5 md:col-span-2">
-            <label className="block text-xs font-mono text-gray-300">
+            <label className="block text-xs sm:text-sm font-mono text-gray-300">
               {t("editor.core.primaryTitleLabel")} <span className="text-amber-400">*</span>
             </label>
             <input
@@ -103,25 +103,25 @@ export function EditorCoreFields({
                 else updateField("edition_name", e.target.value);
               }}
               placeholder={t("editor.core.primaryTitlePlaceholder")}
-              className="w-full px-3.5 py-2.5 rounded-card bg-background border border-white/10 text-white text-xs font-medium focus:outline-none focus:border-amber-400"
+              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm font-medium focus:outline-none focus:border-amber-400"
             />
           </div>
 
           {/* Chinese Name */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-mono text-gray-400">{t("editor.core.chineseName")}</label>
+            <label className="block text-xs sm:text-sm font-mono text-gray-400">{t("editor.core.chineseName")}</label>
             <input
               type="text"
               value={names["zh-CN"] || ""}
               onChange={(e) => handleUpdateName("zh-CN", e.target.value)}
               placeholder={t("editor.core.chinesePlaceholder")}
-              className="w-full px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
             />
           </div>
 
           {/* Japanese Native Name */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-mono text-gray-400">{t("editor.core.japaneseNative")}</label>
+            <label className="block text-xs sm:text-sm font-mono text-gray-400">{t("editor.core.japaneseNative")}</label>
             <input
               type="text"
               value={formData.original_title || formData.original_name || names["ja-JP"] || ""}
@@ -131,38 +131,38 @@ export function EditorCoreFields({
                 handleUpdateName("ja-JP", e.target.value);
               }}
               placeholder={t("editor.core.japanesePlaceholder")}
-              className="w-full px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
             />
           </div>
 
           {/* Romaji / Latin Transliteration */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-mono text-gray-400">{t("editor.core.romaji")}</label>
+            <label className="block text-xs sm:text-sm font-mono text-gray-400">{t("editor.core.romaji")}</label>
             <input
               type="text"
               value={names["ja-Latn"] || ""}
               onChange={(e) => handleUpdateName("ja-Latn", e.target.value)}
               placeholder={t("editor.core.romajiPlaceholder")}
-              className="w-full px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
             />
           </div>
 
           {/* English International Name */}
           <div className="space-y-1.5">
-            <label className="block text-xs font-mono text-gray-400">{t("editor.core.englishName")}</label>
+            <label className="block text-xs sm:text-sm font-mono text-gray-400">{t("editor.core.englishName")}</label>
             <input
               type="text"
               value={names["en-US"] || ""}
               onChange={(e) => handleUpdateName("en-US", e.target.value)}
               placeholder={t("editor.core.englishPlaceholder")}
-              className="w-full px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
             />
           </div>
         </div>
 
         {/* Aliases */}
         <div className="space-y-1.5 pt-2 border-t border-white/[0.04]">
-          <label className="block text-xs font-mono text-gray-300">
+          <label className="block text-xs sm:text-sm font-mono text-gray-300">
             {t("editor.core.aliasesLabel")}
           </label>
           <input
@@ -170,7 +170,7 @@ export function EditorCoreFields({
             value={aliasesStr}
             onChange={(e) => setAliasesStr(e.target.value)}
             placeholder={t("editor.core.aliasesPlaceholder")}
-            className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+            className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
           />
         </div>
       </div>
@@ -180,11 +180,11 @@ export function EditorCoreFields({
         {targetType === "artist" && (
           <>
             <div className="space-y-1.5">
-              <label className="block text-xs font-mono text-gray-300">{t("editor.core.entityTypeLabel")}</label>
+              <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.entityTypeLabel")}</label>
               <select
                 value={formData.entity_type || "person"}
                 onChange={(e) => updateField("entity_type", e.target.value)}
-                className="w-full px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
               >
                 <option value="person">{t("editor.core.entityTypePerson")}</option>
                 <option value="studio">{t("editor.core.entityTypeStudio")}</option>
@@ -197,13 +197,13 @@ export function EditorCoreFields({
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-mono text-gray-300">{t("editor.core.disambiguationLabel")}</label>
+              <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.disambiguationLabel")}</label>
               <input
                 type="text"
                 value={formData.disambiguation || ""}
                 onChange={(e) => updateField("disambiguation", e.target.value)}
                 placeholder={t("editor.core.disambiguationPlaceholder")}
-                className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
               />
             </div>
           </>
@@ -212,48 +212,48 @@ export function EditorCoreFields({
         {targetType === "release" && (
           <>
             <div className="space-y-1.5">
-              <label className="block text-xs font-mono text-gray-300">{t("editor.core.catalogNumberLabel")}</label>
+              <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.catalogNumberLabel")}</label>
               <input
                 type="text"
                 value={formData.catalog_number || ""}
                 onChange={(e) => updateField("catalog_number", e.target.value)}
                 placeholder={t("editor.core.catalogNumberPlaceholder")}
-                className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs font-mono text-gray-300">{t("editor.core.barcodeLabel")}</label>
+              <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.barcodeLabel")}</label>
               <input
                 type="text"
                 value={formData.barcode || ""}
                 onChange={(e) => updateField("barcode", e.target.value)}
                 placeholder={t("editor.core.barcodePlaceholder")}
-                className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
               />
             </div>
           </>
         )}
 
         <div className="space-y-1.5">
-          <label className="block text-xs font-mono text-gray-300">{t("editor.core.countryLabel")}</label>
+          <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.countryLabel")}</label>
           <input
             type="text"
             value={formData.country || ""}
             onChange={(e) => updateField("country", e.target.value)}
             placeholder={t("editor.core.countryPlaceholder")}
-            className="w-full px-3.5 py-2 rounded-card bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
+            className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
           />
         </div>
       </div>
 
       {/* ── 3. 全动态标签与体裁系统 (Dynamic Tagging & Themes) ── */}
-      <div className="p-4 rounded-card bg-white/[0.02] border border-white/[0.06] space-y-3">
+      <div className="p-4 rounded-card bg-white/[0.02] border border-white/[0.06] space-y-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TagIcon className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-xs font-semibold text-white">{t("editor.core.tagsTitle")}</h3>
+            <h3 className="text-xs sm:text-sm font-semibold text-white">{t("editor.core.tagsTitle")}</h3>
           </div>
-          <span className="font-mono text-[10px] text-gray-500">
+          <span className="font-mono text-xs text-gray-500">
             {t("editor.core.tagsSub")}
           </span>
         </div>
@@ -261,20 +261,20 @@ export function EditorCoreFields({
         {/* Selected Tags Chips */}
         <div className="flex flex-wrap items-center gap-2 min-h-[32px]">
           {tags.length === 0 ? (
-            <span className="text-xs text-gray-500 font-mono">{t("editor.core.noTags")}</span>
+            <span className="text-xs sm:text-sm text-gray-500 font-mono">{t("editor.core.noTags")}</span>
           ) : (
             tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-mono transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs sm:text-sm font-mono transition-colors"
               >
                 #{tag}
                 <button
                   type="button"
                   onClick={() => handleRemoveTag(tag)}
-                  className="p-0.5 hover:bg-emerald-500/20 rounded-full text-emerald-400 hover:text-rose-300"
+                  className="p-0.5 hover:bg-emerald-500/20 rounded-full text-emerald-400 hover:text-rose-300 cursor-pointer"
                 >
-                  <X className="w-3 h-3" />
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </span>
             ))
@@ -294,22 +294,22 @@ export function EditorCoreFields({
               }
             }}
             placeholder={t("editor.core.addTagPlaceholder")}
-            className="flex-1 px-3 py-2 rounded-card bg-background border border-white/10 text-white text-xs focus:outline-none focus:border-amber-400"
+            className="flex-1 px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
           />
           <button
             type="button"
             onClick={() => handleAddTag(newTagInput)}
-            className="px-3.5 py-2 rounded-card bg-white/[0.06] border border-white/10 hover:bg-white/10 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
+            className="px-4 h-10 rounded-lg bg-white/[0.06] border border-white/10 hover:bg-white/10 text-white text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
             {t("editor.core.addBtn")}
           </button>
         </div>
 
         {/* Quick Tag Suggestions */}
         <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/[0.04]">
-          <span className="font-mono text-[10px] text-gray-500 mr-1 flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-amber-400" />
+          <span className="font-mono text-xs text-gray-500 mr-1 flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             {t("editor.core.quickSuggestions")}
           </span>
           {COMMON_TAG_SUGGESTIONS.map((sug) => {
@@ -319,7 +319,7 @@ export function EditorCoreFields({
                 key={sug}
                 type="button"
                 onClick={() => (isSelected ? handleRemoveTag(sug) : handleAddTag(sug))}
-                className={`px-2 py-0.5 rounded-full font-mono text-[11px] border transition-all ${
+                className={`px-2.5 py-1 rounded-full font-mono text-xs border transition-all cursor-pointer ${
                   isSelected
                     ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-200"
                     : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white hover:bg-white/[0.08]"
@@ -334,7 +334,7 @@ export function EditorCoreFields({
 
       {/* ── 4. 简介 / 传记 ── */}
       <div className="space-y-1.5">
-        <label className="block text-xs font-mono text-gray-300">
+        <label className="block text-xs sm:text-sm font-mono text-gray-300">
           {t("editor.core.summaryLabel")}
         </label>
         <textarea
@@ -346,7 +346,7 @@ export function EditorCoreFields({
             else updateField("notes", e.target.value);
           }}
           placeholder={t("editor.core.summaryPlaceholder")}
-          className="w-full p-3 rounded-card bg-background border border-white/10 text-white text-xs leading-relaxed resize-none focus:outline-none focus:border-amber-400"
+          className="w-full p-3.5 rounded-lg bg-background border border-white/10 text-white text-sm leading-relaxed resize-none focus:outline-none focus:border-amber-400"
         />
       </div>
     </div>

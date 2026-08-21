@@ -22,7 +22,7 @@ export function DiffViewer({ diff, editType = "update", className = "" }: Props)
   if (!diff || Object.keys(diff).length === 0) {
     return (
       <div className={`p-6 rounded-card border border-white/[0.06] bg-background/30 text-center font-mono text-xs text-gray-500 ${className}`}>
-        {editType === "create" ? "Initial snapshot" : t("editor.diff.noChanges")}
+        {editType === "create" ? t("editor.diff.initialSnapshot") : t("editor.diff.noChanges")}
       </div>
     );
   }
@@ -33,7 +33,7 @@ export function DiffViewer({ diff, editType = "update", className = "" }: Props)
         <div key={key} className="rounded-card border border-white/[0.08] bg-background/80 overflow-hidden shadow-soft">
           <div className="px-3 py-1.5 bg-white/[0.04] border-b border-white/[0.06] text-gray-400 font-bold text-[11px] flex items-center justify-between">
             <span>{key}</span>
-            <span className="text-[10px] text-gray-500 font-normal">Field Diff</span>
+            <span className="text-[10px] text-gray-500 font-normal">{t("editor.diff.fieldDiffBadge")}</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/[0.06] p-3 gap-2">
             <div className="space-y-1">

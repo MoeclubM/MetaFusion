@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
 import { useAuth } from "@/lib/authContext";
@@ -223,13 +224,13 @@ export default function TopicDetailPage() {
  {(opPost?.user_id || topic.user_id || opPost?.user?.id || topic.user?.id) ? (
  <Link
  href={`/users/${opPost?.user_id || topic.user_id || opPost?.user?.id || topic.user?.id}`}
- className="w-8 h-8 rounded-md bg-background border border-surfaceBorder flex items-center justify-center font-bold text-gray-900 dark:text-white text-sm hover:border-primary transition-all"
+ className="shrink-0 hover:opacity-90 transition-all"
  >
- {(opPost?.user?.username || topic.user?.username) ? (opPost?.user?.username || topic.user!.username!).slice(0, 2).toUpperCase() : "OP"}
+ <UserAvatar user={opPost?.user || topic.user} size="sm" shape="rounded" />
  </Link>
  ) : (
- <div className="w-8 h-8 rounded-md bg-background border border-surfaceBorder flex items-center justify-center font-bold text-gray-900 dark:text-white text-sm">
- {(opPost?.user?.username || topic.user?.username) ? (opPost?.user?.username || topic.user!.username!).slice(0, 2).toUpperCase() : "OP"}
+ <div className="shrink-0">
+ <UserAvatar user={opPost?.user || topic.user} size="sm" shape="rounded" />
  </div>
  )}
  <div>
@@ -319,13 +320,13 @@ export default function TopicDetailPage() {
  {replyUserId ? (
  <Link
  href={`/users/${replyUserId}`}
- className="w-9 h-9 max-sm:min-h-[44px] rounded-md bg-background border border-surfaceBorder flex items-center justify-center font-bold text-gray-900 dark:text-white text-sm hover:border-primary transition-all"
+ className="shrink-0 hover:opacity-90 transition-all"
  >
- {post.user?.username ? post.user.username.slice(0, 2).toUpperCase() : "U"}
+ <UserAvatar user={post.user} size="sm" shape="rounded" />
  </Link>
  ) : (
- <div className="w-9 h-9 max-sm:min-h-[44px] rounded-md bg-background border border-surfaceBorder flex items-center justify-center font-bold text-gray-900 dark:text-white text-sm">
- {post.user?.username ? post.user.username.slice(0, 2).toUpperCase() : "U"}
+ <div className="shrink-0">
+ <UserAvatar user={post.user} size="sm" shape="rounded" />
  </div>
  )}
  <div>

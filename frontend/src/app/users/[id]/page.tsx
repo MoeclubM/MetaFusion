@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { fetchApi, displayNameOf } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
@@ -62,7 +63,7 @@ export default function UserDetailPage() {
       <main className="max-w-5xl mx-auto w-full px-4 py-5 flex-1 space-y-4 sm:space-y-5">
         <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface p-4 sm:p-5 flex flex-col sm:flex-row gap-3.5 sm:items-center justify-between shadow-soft">
           <div className="flex gap-3.5 items-start min-w-0">
-            <div className="w-14 h-14 rounded-md bg-primary text-white keep-white grid place-items-center text-lg font-bold shrink-0 shadow-2xs">{displayNameOf(u as any).slice(0, 1).toUpperCase()}</div>
+            <UserAvatar user={u} size="xl" shape="rounded" ring className="shadow-md" />
             <div className="min-w-0 flex-1 space-y-1">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h1 className="text-lg font-bold text-gray-900 dark:text-white">{displayNameOf(u as any)}</h1>

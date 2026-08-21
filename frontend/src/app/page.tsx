@@ -61,6 +61,14 @@ function RootLandingInner() {
 
  <div className="flex items-center gap-2 sm:gap-2">
  <a
+ href="/docs/overview"
+ className="inline-flex items-center gap-1.5 px-3 h-9 max-sm:min-h-[44px] rounded-md bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-sm font-mono font-medium transition-colors"
+ title="MetaFusion 完整文档"
+ >
+ <BookOpen className="w-4 h-4 text-primary" strokeWidth={1.8} />
+ <span className="hidden sm:inline">DOCS</span>
+ </a>
+ <a
  href="https://github.com/MoeclubM/MetaFusion"
  target="_blank"
  rel="noopener noreferrer"
@@ -115,23 +123,23 @@ function RootLandingInner() {
 
  {/* Quick Search Terminal Input */}
  <form onSubmit={handleSearch} className="relative w-full">
- <div className="relative flex items-center">
- <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
- <input
- type="text"
- placeholder={t("explore.searchPlaceholder")}
- value={quickQuery}
- onChange={(e) => setQuickQuery(e.target.value)}
- className="w-full pl-11 pr-24 h-10 max-sm:min-h-[44px] rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 font-mono transition-all"
- />
- <button
- type="submit"
- className="absolute right-1.5 px-3 h-9 max-sm:min-h-[44px] rounded bg-primary text-white keep-white hover:opacity-90 font-mono text-sm font-semibold flex items-center gap-2 transition-all"
- >
- <span>EXECUTE</span>
- <ArrowRight className="w-4 h-4" />
- </button>
- </div>
+   <div className="relative flex items-center">
+     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+     <input
+       type="text"
+       placeholder={t("explore.searchPlaceholder")}
+       value={quickQuery}
+       onChange={(e) => setQuickQuery(e.target.value)}
+       className="w-full pl-12 pr-32 h-12 sm:h-13 max-sm:min-h-[48px] rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm sm:text-base text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 font-mono transition-all"
+     />
+     <button
+       type="submit"
+       className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 h-9.5 sm:h-10 max-sm:min-h-[40px] rounded-lg bg-primary text-white keep-white hover:opacity-90 font-mono text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer"
+     >
+       <span>EXECUTE</span>
+       <ArrowRight className="w-4 h-4" />
+     </button>
+   </div>
  </form>
 
  {/* Action Row */}
@@ -169,7 +177,7 @@ function RootLandingInner() {
  <span>{t("landing.quickExplore")}</span>
  </span>
  <Link href="/explore" className="font-mono text-sm text-primary hover:underline flex items-center gap-2">
- <span>全量档案检索</span>
+ <span>{t("landing.allArchives")}</span>
  <ArrowRight className="w-4 h-4" />
  </Link>
  </div>
@@ -183,7 +191,7 @@ function RootLandingInner() {
  <Disc className="w-4 h-4 text-amber-400" />
  </div>
  <div>
- <div className="text-sm font-semibold text-gray-900 dark:text-white">音乐 & 原声</div>
+ <div className="text-sm font-semibold text-gray-900 dark:text-white">{t("landing.catMusic")}</div>
  <div className="font-mono text-xs text-gray-500">Music / OST</div>
  </div>
  </Link>
@@ -196,7 +204,7 @@ function RootLandingInner() {
  <Film className="w-4 h-4 text-sky-400" />
  </div>
  <div>
- <div className="text-sm font-semibold text-gray-900 dark:text-white">动画 & 影视</div>
+ <div className="text-sm font-semibold text-gray-900 dark:text-white">{t("landing.catAnime")}</div>
  <div className="font-mono text-xs text-gray-500">Anime / Cinema</div>
  </div>
  </Link>
@@ -209,7 +217,7 @@ function RootLandingInner() {
  <Gamepad2 className="w-4 h-4 text-purple-400" />
  </div>
  <div>
- <div className="text-sm font-semibold text-gray-900 dark:text-white">游戏 & 交互</div>
+ <div className="text-sm font-semibold text-gray-900 dark:text-white">{t("landing.catGame")}</div>
  <div className="font-mono text-xs text-gray-500">Game / VN</div>
  </div>
  </Link>
@@ -222,7 +230,7 @@ function RootLandingInner() {
  <BookOpen className="w-4 h-4 text-rose-400" />
  </div>
  <div>
- <div className="text-sm font-semibold text-gray-900 dark:text-white">文学 & 画集</div>
+ <div className="text-sm font-semibold text-gray-900 dark:text-white">{t("landing.catLiterature")}</div>
  <div className="font-mono text-xs text-gray-500">Literature / Art</div>
  </div>
  </Link>
@@ -235,7 +243,7 @@ function RootLandingInner() {
  <Users className="w-4 h-4 text-emerald-400" />
  </div>
  <div>
- <div className="text-sm font-semibold text-gray-900 dark:text-white">创作者图谱</div>
+ <div className="text-sm font-semibold text-gray-900 dark:text-white">{t("landing.catArtists")}</div>
  <div className="font-mono text-xs text-gray-500">Entities / Graph</div>
  </div>
  </Link>
@@ -244,18 +252,27 @@ function RootLandingInner() {
  </main>
 
  {/* Docked Minimal Footer */}
- <footer className="relative z-10 w-full max-w-5xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-black/5 dark:border-white/[0.06] font-mono text-sm text-gray-500 dark:text-white/35">
- <span>© 2026 MoeClub Ltd · Open Archival Engine</span>
- <a
- href="https://github.com/MoeclubM/MetaFusion"
- target="_blank"
- rel="noopener noreferrer"
- className="inline-flex items-center gap-2 hover:text-gray-900 dark:hover:text-white transition-colors"
- >
- <Github className="w-4 h-4" strokeWidth={1.6} />
- <span>github.com/MoeclubM/MetaFusion</span>
- </a>
- </footer>
+ <footer className="relative z-10 w-full max-w-5xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-black/5 dark:border-white/[0.06] font-mono text-sm text-gray-500 dark:text-white/35">
+  <div className="flex items-center gap-4 flex-wrap">
+    <span>© 2026 MoeClub Ltd · Open Archival Engine</span>
+    <span className="hidden sm:inline text-black/20 dark:text-white/20">|</span>
+    <a href="/docs/overview" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors">
+      {t("landing.docsCenter")}
+    </a>
+    <a href="/docs/api-overview" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors">
+      Open API
+    </a>
+  </div>
+  <a
+  href="https://github.com/MoeclubM/MetaFusion"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="inline-flex items-center gap-2 hover:text-gray-900 dark:hover:text-white transition-colors"
+  >
+  <Github className="w-4 h-4" strokeWidth={1.6} />
+  <span>github.com/MoeclubM/MetaFusion</span>
+  </a>
+  </footer>
  </div>
  );
 }

@@ -120,14 +120,14 @@ function LoginInner() {
  </div>
  </div>
 
- <div className="flex gap-2 mt-3 bg-black/[0.04] dark:bg-white/[0.04] p-0.5 rounded-md border border-black/[0.06] dark:border-white/[0.06]">
+ <div className="flex gap-2 mt-3.5 bg-black/[0.04] dark:bg-white/[0.04] p-1 rounded-lg border border-black/[0.06] dark:border-white/[0.06]">
  <button
  type="button"
  onClick={() => {
  setIsRegister(false);
  setError(null);
  }}
- className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
+ className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
  !isRegister
  ? "bg-surface text-gray-900 dark:text-white shadow-xs font-semibold"
  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -141,7 +141,7 @@ function LoginInner() {
  setIsRegister(true);
  setError(null);
  }}
- className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
+ className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
  isRegister
  ? "bg-surface text-gray-900 dark:text-white shadow-xs font-semibold"
  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -153,80 +153,80 @@ function LoginInner() {
  </div>
 
  {error && (
- <div className="mx-4 sm:mx-5 mt-3 p-4 rounded-md bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-300 font-mono text-sm flex items-center gap-2">
+ <div className="mx-4 sm:mx-5 mt-3.5 p-3.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-300 font-mono text-sm flex items-center gap-2">
  <AlertCircle className="w-4 h-4 shrink-0" />
  <span>{error}</span>
  </div>
  )}
 
- <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3">
- <div className="space-y-1">
- <label className="font-mono text-sm text-gray-600 dark:text-gray-400">
+ <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
+ <div className="space-y-1.5">
+ <label className="font-mono text-xs sm:text-sm text-gray-600 dark:text-gray-400">
  {isRegister ? t("auth.username") : t("auth.gate.emailOrUsername")}
  </label>
  <div className="relative">
- <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+ <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
  <input
  type="text"
  required
  placeholder={isRegister ? t("auth.gate.usernamePlaceholderRegister") : t("auth.gate.usernamePlaceholderLogin")}
  value={username}
  onChange={(e) => setUsername(e.target.value)}
- className="w-full pl-11 pr-3 h-10 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
+ className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
  />
  </div>
  </div>
 
  {isRegister && (
- <div className="space-y-1 animate-fade-in">
- <label className="font-mono text-sm text-gray-600 dark:text-gray-400">
+ <div className="space-y-1.5 animate-fade-in">
+ <label className="font-mono text-xs sm:text-sm text-gray-600 dark:text-gray-400">
  {t("auth.emailOptional")}
  </label>
  <div className="relative">
- <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+ <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
  <input
  type="email"
  placeholder="user@example.com"
  value={email}
  onChange={(e) => setEmail(e.target.value)}
- className="w-full pl-11 pr-3 h-10 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
+ className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
  />
  </div>
  </div>
  )}
 
- <div className="space-y-1">
- <label className="font-mono text-sm text-gray-600 dark:text-gray-400">
+ <div className="space-y-1.5">
+ <label className="font-mono text-xs sm:text-sm text-gray-600 dark:text-gray-400">
  {t("auth.password")}
  </label>
  <div className="relative">
- <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+ <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
  <input
  type="password"
  required
  placeholder="••••••••"
  value={password}
  onChange={(e) => setPassword(e.target.value)}
- className="w-full pl-11 pr-3 h-10 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
+ className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
  />
  </div>
  </div>
 
  {isRegister && (
- <div className="space-y-1 animate-fade-in">
- <label className="font-mono text-sm text-amber-600 dark:text-amber-300 flex items-center justify-between">
+ <div className="space-y-1.5 animate-fade-in">
+ <label className="font-mono text-xs sm:text-sm text-amber-600 dark:text-amber-300 flex items-center justify-between">
  <span>{t("auth.inviteCode")}</span>
  <span className="text-xs text-gray-500 font-normal">{t("auth.required")}</span>
  </label>
  <div className="relative">
- <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" strokeWidth={1.5} />
+ <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" strokeWidth={1.5} />
  <input
  type="text"
  required
  placeholder={t("auth.inviteCodePlaceholder")}
  value={inviteCode}
  onChange={(e) => setInviteCode(e.target.value)}
- className="w-full pl-11 pr-3 h-10 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-amber-500/30 rounded-md text-amber-600 dark:text-amber-300 font-mono text-sm placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
+ className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-amber-500/30 rounded-lg text-amber-600 dark:text-amber-300 font-mono text-sm placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
  />
  </div>
  </div>
@@ -235,7 +235,7 @@ function LoginInner() {
  <button
  type="submit"
  disabled={submitting}
- className="w-full h-10 max-sm:min-h-[44px] rounded-md bg-primary text-white keep-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shadow-xs disabled:opacity-50 mt-1"
+ className="w-full h-11 max-sm:min-h-[44px] rounded-lg bg-primary text-white keep-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shadow-xs disabled:opacity-50 mt-2"
  >
  {submitting ? (
  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />

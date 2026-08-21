@@ -182,11 +182,11 @@ export const MultipartUploader: React.FC<MultipartUploaderProps> = ({ isOpen, on
           <div className="grid grid-cols-2 gap-2.5">
             <div className="space-y-1">
               <label className="font-mono text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("uploader.editionName")}</label>
-              <input type="text" required disabled={isUploading} value={editionName} onChange={(e) => setEditionName(e.target.value)} className="w-full px-2.5 h-8.5 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary" />
+              <input type="text" required disabled={isUploading} value={editionName} onChange={(e) => setEditionName(e.target.value)} className="w-full px-2.5 h-10 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary" />
             </div>
             <div className="space-y-1">
               <label className="font-mono text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400">{t("uploader.catalogNo")}</label>
-              <input type="text" disabled={isUploading} placeholder={t("uploader.catalogPlaceholder")} value={catalogNumber} onChange={(e) => setCatalogNumber(e.target.value)} className="w-full px-2.5 h-8.5 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary" />
+              <input type="text" disabled={isUploading} placeholder={t("uploader.catalogPlaceholder")} value={catalogNumber} onChange={(e) => setCatalogNumber(e.target.value)} className="w-full px-2.5 h-10 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary" />
             </div>
           </div>
 
@@ -196,7 +196,7 @@ export const MultipartUploader: React.FC<MultipartUploaderProps> = ({ isOpen, on
               {publishersList.length > 0 && <span className="font-mono text-[10px] text-gray-500">{t("uploader.publisherHint")}</span>}
             </div>
             {publishersList.length > 0 && (
-              <select disabled={isUploading} value={publisherId || ""} onChange={(e) => { const val = e.target.value; if (val === "") setPublisherId(null); else { setPublisherId(val); const found = publishersList.find((p) => p.id === val); if (found) setPublisher(found.name); }}} className="w-full px-2.5 h-8.5 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs focus:outline-none focus:border-primary">
+              <select disabled={isUploading} value={publisherId || ""} onChange={(e) => { const val = e.target.value; if (val === "") setPublisherId(null); else { setPublisherId(val); const found = publishersList.find((p) => p.id === val); if (found) setPublisher(found.name); }}} className="w-full px-2.5 h-10 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs focus:outline-none focus:border-primary">
                 <option value="">{t("uploader.publisherSelectPlaceholder")}</option>
                 {publishersList.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -205,7 +205,7 @@ export const MultipartUploader: React.FC<MultipartUploaderProps> = ({ isOpen, on
                 ))}
               </select>
             )}
-            <input type="text" disabled={isUploading} placeholder={t("uploader.publisherManualPlaceholder")} value={publisher} onChange={(e) => { setPublisher(e.target.value); const found = publishersList.find((p) => p.name === e.target.value.trim()); setPublisherId(found ? found.id : null); }} className="w-full px-2.5 h-8.5 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary" />
+            <input type="text" disabled={isUploading} placeholder={t("uploader.publisherManualPlaceholder")} value={publisher} onChange={(e) => { setPublisher(e.target.value); const found = publishersList.find((p) => p.name === e.target.value.trim()); setPublisherId(found ? found.id : null); }} className="w-full px-2.5 h-10 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary" />
           </div>
 
           <div className="space-y-1">

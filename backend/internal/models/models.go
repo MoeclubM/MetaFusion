@@ -51,13 +51,6 @@ type User struct {
 	Inviter *User `gorm:"foreignKey:InvitedBy" json:"inviter,omitempty"`
 }
 
-// DisplayNameOrUsername 返回昵称，空时回退到 username
-func (u User) DisplayNameOrUsername() string {
-	if u.DisplayName != nil && *u.DisplayName != "" {
-		return *u.DisplayName
-	}
-	return u.Username
-}
 
 // Invitation represents an invite code
 type Invitation struct {

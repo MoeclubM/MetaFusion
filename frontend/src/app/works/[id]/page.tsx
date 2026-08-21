@@ -148,8 +148,8 @@ export default function WorkDirectoryPage() {
  beginDate={work.begin_date}
  endDate={work.end_date}
  ended={work.ended}
- activeLabel="连载中/放送中"
- endedLabel="(已完结)"
+ activeLabel={t("entity.temporal.activeWork")}
+ endedLabel={t("entity.temporal.endedWork")}
  />
  {meta.isbn_13 && <span className="text-gray-500">ISBN {meta.isbn_13}</span>}
  </div>
@@ -190,7 +190,7 @@ export default function WorkDirectoryPage() {
  onEdit={() => setIsEditorOpen(true)}
  onHistory={() => setIsHistoryOpen(true)}
  onMerge={() => setIsMergeOpen(true)}
- entityTypeLabel="作品"
+ entityTypeLabel={t("entity.toolbar.work")}
  />
  </div>
  </div>

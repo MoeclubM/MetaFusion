@@ -23,7 +23,7 @@ export function EditorNotesField({
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <label className="block text-xs font-mono text-gray-300">
+        <label className="block text-xs sm:text-sm font-mono text-gray-300">
           {t("editor.notes.editNoteLabel")} <span className="text-amber-400">*</span>
         </label>
         <textarea
@@ -32,12 +32,12 @@ export function EditorNotesField({
           value={editNote}
           onChange={(e) => setEditNote(e.target.value)}
           placeholder={t("editor.notes.editNotePlaceholder")}
-          className="w-full p-3 rounded-card bg-background border border-white/10 text-white text-xs leading-relaxed resize-none focus:outline-none focus:border-amber-400"
+          className="w-full p-3.5 rounded-lg bg-background border border-white/10 text-white text-sm leading-relaxed resize-none focus:outline-none focus:border-amber-400"
         />
       </div>
 
       <div className="space-y-1.5">
-        <label className="block text-xs font-mono text-gray-300">
+        <label className="block text-xs sm:text-sm font-mono text-gray-300">
           {t("editor.notes.sourcesLabel")}
         </label>
         <textarea
@@ -45,7 +45,7 @@ export function EditorNotesField({
           value={sourceUrlsStr}
           onChange={(e) => setSourceUrlsStr(e.target.value)}
           placeholder={t("editor.notes.sourcesPlaceholder")}
-          className="w-full p-3 rounded-card bg-background border border-white/10 text-white font-mono text-xs leading-relaxed resize-none focus:outline-none focus:border-amber-400"
+          className="w-full p-3.5 rounded-lg bg-background border border-white/10 text-white font-mono text-sm leading-relaxed resize-none focus:outline-none focus:border-amber-400"
         />
       </div>
     </div>

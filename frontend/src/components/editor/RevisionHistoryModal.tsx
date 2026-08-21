@@ -110,7 +110,7 @@ export function RevisionHistoryModal({ isOpen, onClose, targetType, targetId, en
                     </div>
 
                     <div className="text-[11px] text-gray-300 line-clamp-1">
-                      {rev.edit_note || "元数据修订"}
+                      {rev.edit_note || t("editor.history.defaultNote")}
                     </div>
 
                     <div className="flex items-center justify-between text-[10px] text-gray-500 pt-1 border-t border-white/[0.04]">
@@ -145,12 +145,12 @@ export function RevisionHistoryModal({ isOpen, onClose, targetType, targetId, en
                   </div>
 
                   <div className="text-sm font-medium text-white">
-                    {selectedRev.edit_note || "元数据修订"}
+                    {selectedRev.edit_note || t("editor.history.defaultNote")}
                   </div>
 
                   {selectedRev.source_urls && selectedRev.source_urls.length > 0 && (
                     <div className="space-y-1 pt-2 border-t border-white/[0.04]">
-                      <div className="text-[10px] font-mono text-gray-500">参考考据链接 (Sources):</div>
+                      <div className="text-[10px] font-mono text-gray-500">{t("editor.history.sourcesLabel")}</div>
                       <div className="flex flex-wrap gap-2">
                         {selectedRev.source_urls.map((url, i) => (
                           <a
@@ -181,7 +181,7 @@ export function RevisionHistoryModal({ isOpen, onClose, targetType, targetId, en
               </div>
             ) : (
               <div className="p-12 text-center font-mono text-xs text-gray-500">
-                请在左侧选择一次修订历史以查看字段差异
+                {t("editor.history.selectHint")}
               </div>
             )}
           </div>

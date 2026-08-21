@@ -56,8 +56,8 @@ export default function ContributeHubPage() {
                 <Lock className="w-4 h-4 text-amber-500" />
               </div>
               <div>
-                <div className="font-semibold text-xs text-amber-600 dark:text-amber-200">未登录状态提示</div>
-                <div className="font-mono text-[11px] text-amber-700/80 dark:text-amber-300/80">浏览词条完全公开免费，参与词条创建与提交修订需登录账号。</div>
+                <div className="font-semibold text-xs text-amber-600 dark:text-amber-200">{t("contribute.unauthTitle")}</div>
+                <div className="font-mono text-[11px] text-amber-700/80 dark:text-amber-300/80">{t("contribute.unauthDesc")}</div>
               </div>
             </div>
             <Link
@@ -65,7 +65,7 @@ export default function ContributeHubPage() {
               className="px-3.5 h-7.5 rounded-md bg-primary text-white font-semibold text-xs font-mono inline-flex items-center justify-center gap-1.5 shrink-0 transition-opacity hover:opacity-90 shadow-xs"
             >
               <LogIn className="w-3.5 h-3.5" />
-              <span>立即登录</span>
+              <span>{t("contribute.loginNow")}</span>
             </Link>
           </div>
         )}

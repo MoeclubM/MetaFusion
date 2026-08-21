@@ -55,7 +55,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
         merge_note: mergeNote.trim(),
         source_urls: sourceUrl.trim() ? [sourceUrl.trim()] : [],
       });
-      alert(res.message || "实体合并成功！所有关系已无损重定向。");
+      alert(res.message || t("editor.merge.successAlert"));
       onClose();
       if (onMergeSuccess) {
         onMergeSuccess(res.target_id);
@@ -63,7 +63,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
         window.location.href = `/${targetType === "artist" ? "artists" : targetType === "work" ? "works" : "releases"}/${res.target_id}`;
       }
     } catch (err: any) {
-      setError(err.message || "合并失败，请检查目标实体是否存在");
+      setError(err.message || t("editor.merge.failedMsg"));
     } finally {
       setSubmitting(false);
     }
@@ -99,7 +99,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
         <div className="mx-5 mt-3.5 p-3 rounded-md bg-amber-500/10 border border-amber-500/20 space-y-1">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-300">
             <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
-            <span>重要说明 (Caution)</span>
+            <span>{t("editor.merge.cautionLabel")}</span>
           </div>
           <p className="text-[11px] text-amber-200/90 leading-relaxed font-mono">
             {t("editor.merge.warning")}
@@ -148,7 +148,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
               placeholder={t("editor.merge.targetUuidPlaceholder")}
-              className="w-full px-3 h-8.5 rounded-md bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-purple-400"
+              className="w-full px-3 h-10 rounded-md bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-purple-400"
             />
           </div>
 
@@ -177,7 +177,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
               value={sourceUrl}
               onChange={(e) => setSourceUrl(e.target.value)}
               placeholder="https://musicbrainz.org/artist/..."
-              className="w-full px-3 h-8.5 rounded-md bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-purple-400"
+              className="w-full px-3 h-10 rounded-md bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-purple-400"
             />
           </div>
 
@@ -191,7 +191,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
           <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">
             <span className="text-gray-500 text-[10px] flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
-              合并记录将写入修订版本快照
+              <span>{t("editor.merge.footerSnapshot")}</span>
             </span>
 
             <div className="flex items-center gap-2">

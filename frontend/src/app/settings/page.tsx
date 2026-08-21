@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Navbar } from "@/components/Navbar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/lib/themeContext";
-import { fetchApi, displayNameOf, ApiToken, listApiTokens, createApiToken, deleteApiToken } from "@/lib/api";
+import { fetchApi, displayNameOf, ApiToken, listApiTokens, createApiToken, deleteApiToken, uploadAvatar, deleteAvatar } from "@/lib/api";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -25,6 +26,10 @@ import {
   Terminal,
   Code2,
   ExternalLink,
+  Upload,
+  Camera,
+  Link as LinkIcon,
+  Loader2,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -44,7 +49,11 @@ export default function SettingsPage() {
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarRemoving, setAvatarRemoving] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // PAT state
   const [tokens, setTokens] = useState<ApiToken[]>([]);
@@ -69,8 +78,9 @@ export default function SettingsPage() {
       const u = user as unknown as Record<string, unknown>;
       setDisplayName((u["display_name"] as string) || "");
       setBio((u["bio"] as string) || "");
+      setAvatarUrl((u["avatar_url"] as string) || "");
     }
-  }, [user?.id]);
+  }, [user?.id, (user as any)?.avatar_url, (user as any)?.display_name, (user as any)?.bio]);
 
   const loadTokens = async () => {
     setTokensLoading(true);
@@ -92,6 +102,56 @@ export default function SettingsPage() {
     }
   }, [activeTab, user?.id]);
 
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError(t("settings.avatarTooLarge"));
+      e.target.value = "";
+      return;
+    }
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml", "image/avif"];
+    if (!validTypes.includes(file.type) && !file.name.match(/\.(jpg|jpeg|png|webp|gif|svg|avif)$/i)) {
+      setError(t("settings.avatarInvalidType"));
+      e.target.value = "";
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+    setAvatarUploading(true);
+    try {
+      const res = await uploadAvatar(file);
+      setAvatarUrl(res.avatar_url);
+      await refreshProfile();
+      setSuccess(t("settings.avatarUploadSuccess"));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || t("settings.avatarUploadFail"));
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    setError(null);
+    setSuccess(null);
+    setAvatarRemoving(true);
+    try {
+      await deleteAvatar();
+      setAvatarUrl("");
+      await refreshProfile();
+      setSuccess(t("settings.avatarRemoveSuccess"));
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || t("settings.avatarRemoveFail"));
+    } finally {
+      setAvatarRemoving(false);
+    }
+  };
+
   const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -105,7 +165,7 @@ export default function SettingsPage() {
     try {
       await fetchApi("/auth/profile", {
         method: "PUT",
-        body: JSON.stringify({ display_name: displayName, bio }),
+        body: JSON.stringify({ display_name: displayName, bio, avatar_url: avatarUrl.trim() }),
       });
       await refreshProfile();
       setSuccess(t("settings.profileSuccess"));
@@ -155,7 +215,7 @@ export default function SettingsPage() {
   const handleCreateToken = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTokenName.trim()) {
-      setTokenError("名称不能为空");
+      setTokenError(t("settings.patNameRequired"));
       return;
     }
     setCreatingToken(true);
@@ -176,7 +236,7 @@ export default function SettingsPage() {
   };
 
   const handleDeleteToken = async (id: string) => {
-    if (!confirm("确定撤销该令牌？撤销后使用该令牌的应用将立即失效。")) return;
+    if (!confirm(t("settings.patRevokeConfirm"))) return;
     try {
       await deleteApiToken(id);
       await loadTokens();
@@ -237,7 +297,7 @@ export default function SettingsPage() {
               setError(null);
               setSuccess(null);
             }}
-            className={`px-3 h-7 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+            className={`px-3.5 h-9 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === "profile" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
@@ -249,12 +309,12 @@ export default function SettingsPage() {
               setError(null);
               setSuccess(null);
             }}
-            className={`px-3 h-7 rounded-md text-xs font-medium transition-colors flex items-center gap-1 whitespace-nowrap ${
+            className={`px-3.5 h-9 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
               activeTab === "tokens" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
-            <KeyRound className="w-3 h-3" />
-            <span>API 令牌</span>
+            <KeyRound className="w-3.5 h-3.5" />
+            <span>{t("settings.tabTokens")}</span>
           </button>
           <button
             onClick={() => {
@@ -262,7 +322,7 @@ export default function SettingsPage() {
               setError(null);
               setSuccess(null);
             }}
-            className={`px-3 h-7 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+            className={`px-3.5 h-9 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === "appearance" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
@@ -274,7 +334,7 @@ export default function SettingsPage() {
               setError(null);
               setSuccess(null);
             }}
-            className={`px-3 h-7 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+            className={`px-3.5 h-9 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
               activeTab === "password" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
@@ -282,34 +342,41 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
+        <div className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
           {activeTab === "profile" && (
-            <div className="p-4 sm:p-5 space-y-3.5">
+            <div className="p-4 sm:p-6 space-y-4">
               {error && (
-                <div className="p-2.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 font-mono text-xs flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 font-mono text-xs sm:text-sm flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                   <span>{error}</span>
                 </div>
               )}
               {success && (
-                <div className="p-2.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs sm:text-sm flex items-center gap-2">
                   <Check className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                   <span>{success}</span>
                 </div>
               )}
 
-              <div className="flex items-center gap-3 p-3 rounded-md bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/[0.06]">
-                <div className="w-10 h-10 rounded-md bg-primary text-white keep-white font-display font-bold text-base grid place-items-center shrink-0 shadow-2xs">
-                  {displayNameOf(user as unknown as { username: string; display_name?: string }).slice(0, 1).toUpperCase()}
-                </div>
-                <div className="space-y-0.5 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-semibold text-gray-900 dark:text-white text-sm truncate">{displayNameOf(user as unknown as { username: string; display_name?: string })}</span>
-                    <span className="px-1.5 py-0.2 rounded-sm bg-black/5 dark:bg-white/[0.08] border border-black/10 dark:border-white/10 font-mono text-[10px] text-gray-600 dark:text-gray-300 capitalize">
+              <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/[0.06]">
+                <UserAvatar
+                  user={{
+                    username: user.username,
+                    display_name: displayName || (user as any).display_name,
+                    avatar_url: avatarUrl,
+                  }}
+                  size="xl"
+                  shape="rounded"
+                  ring
+                />
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">{displayNameOf(user as unknown as { username: string; display_name?: string })}</span>
+                    <span className="px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/[0.08] border border-black/10 dark:border-white/10 font-mono text-[11px] text-gray-600 dark:text-gray-300 capitalize">
                       {user.role}
                     </span>
                     {displayNameOf(user as unknown as { username: string; display_name?: string }) !== user.username && (
-                      <span className="font-mono text-[10px] text-gray-500">@{user.username}</span>
+                      <span className="font-mono text-xs text-gray-500">@{user.username}</span>
                     )}
                   </div>
                   <div className="font-mono text-xs text-gray-500 truncate">{user.email || t("settings.unboundEmail")}</div>
@@ -317,34 +384,115 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <form onSubmit={handleProfileSave} className="space-y-3">
+              {/* 头像设置卡片 */}
+              <div className="p-4 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/[0.06] space-y-3">
+                <div className="space-y-0.5">
+                  <div className="font-mono text-xs font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+                    <Camera className="w-4 h-4 text-primary" />
+                    <span>{t("settings.avatarTitle")}</span>
+                  </div>
+                  <p className="font-mono text-xs text-gray-500">{t("settings.avatarSubtitle")}</p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-1">
+                  <UserAvatar
+                    user={{
+                      username: user.username,
+                      display_name: displayName,
+                      avatar_url: avatarUrl,
+                    }}
+                    size="2xl"
+                    shape="rounded"
+                    ring
+                    className="shadow-md"
+                  />
+
+                  <div className="flex-1 space-y-2.5 w-full">
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleAvatarFileChange}
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/avif"
+                      className="hidden"
+                    />
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={avatarUploading || avatarRemoving}
+                        className="px-3.5 h-9 rounded-lg bg-primary text-white keep-white font-semibold text-xs sm:text-sm inline-flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-50 shadow-xs cursor-pointer"
+                      >
+                        {avatarUploading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Upload className="w-4 h-4" />
+                        )}
+                        <span>{avatarUploading ? t("settings.avatarUploading") : t("settings.avatarUpload")}</span>
+                      </button>
+
+                      {!!avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveAvatar}
+                          disabled={avatarUploading || avatarRemoving}
+                          className="px-3.5 h-9 rounded-lg bg-red-500/10 text-red-600 dark:text-red-300 border border-red-500/20 hover:bg-red-500/15 font-semibold text-xs sm:text-sm inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                        >
+                          {avatarRemoving ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                          <span>{avatarRemoving ? t("settings.avatarRemoving") : t("settings.avatarRemove")}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-1 pt-1">
+                      <div className="relative">
+                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="url"
+                          value={avatarUrl}
+                          onChange={(e) => setAvatarUrl(e.target.value)}
+                          placeholder={t("settings.avatarUrlPlaceholder")}
+                          className="w-full pl-9 pr-3 h-9.5 sm:h-10 bg-background border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-xs sm:text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50 font-mono"
+                        />
+                      </div>
+                      <p className="font-mono text-[11px] text-gray-500">{t("settings.avatarHint")}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleProfileSave} className="space-y-3.5">
                 <div className="space-y-1">
-                  <label className="font-mono text-xs text-gray-500 dark:text-gray-400">{t("settings.displayName")}</label>
+                  <label className="font-mono text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t("settings.displayName")}</label>
                   <input
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder={t("settings.displayNamePlaceholder")}
                     maxLength={64}
-                    className="w-full h-8.5 px-3 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
+                    className="w-full h-10 px-3.5 bg-background border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
                   />
-                  <p className="font-mono text-[11px] text-gray-500">{t("settings.displayNameHint")}</p>
+                  <p className="font-mono text-xs text-gray-500">{t("settings.displayNameHint")}</p>
                 </div>
                 <div className="space-y-1">
-                  <label className="font-mono text-xs text-gray-500 dark:text-gray-400">{t("settings.bioLabel")}</label>
+                  <label className="font-mono text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t("settings.bioLabel")}</label>
                   <textarea
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
                     placeholder={t("settings.bioPlaceholder")}
                     rows={3}
-                    className="w-full px-3 py-2 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs placeholder:text-gray-400 focus:outline-none focus:border-primary/50 resize-none"
+                    className="w-full p-3.5 bg-background border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50 resize-none"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={profileSaving}
-                  className="w-full h-8.5 rounded-md bg-primary text-white keep-white font-semibold text-xs flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-50 shadow-xs"
+                  className="w-full h-10 rounded-lg bg-primary text-white keep-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 shadow-xs"
                 >
-                  {profileSaving ? <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : null}
+                  {profileSaving ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : null}
                   <span>{profileSaving ? t("settings.profileSaving") : t("settings.profileSave")}</span>
                 </button>
               </form>
@@ -391,38 +539,38 @@ export default function SettingsPage() {
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <KeyRound className="w-4 h-4 text-amber-500" />
-                  <span>个人访问令牌（PAT）</span>
-                  <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20 font-mono text-[10px]">MusicBrainz 风格</span>
+                  <span>{t("settings.patTitle")}</span>
+                  <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20 font-mono text-[10px]">{t("settings.patStyle")}</span>
                 </h3>
                 <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                  用于外部应用与 Agent 的长期机器接入，格式 <span className="font-mono bg-black/5 dark:bg-white/10 px-1 rounded">mfp_</span>。明文仅在创建时展示一次，请妥善保存。支持 <span className="font-mono">Authorization: Bearer mfp_...</span> 或 <span className="font-mono">X-API-Key</span>。网页端全部功能均可经此令牌复现。
+                  {t("settings.patDesc")}
                 </p>
-                <Link href="/developers" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                <a href="/docs/api-auth" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                   <Code2 className="w-3 h-3" />
-                  <span>查看开发者文档</span>
+                  <span>{t("settings.patViewDevDocs")}</span>
                   <ExternalLink className="w-3 h-3" />
-                </Link>
+                </a>
               </div>
 
               {createdToken && (
                 <div className="p-3 rounded-md bg-emerald-500/10 border border-emerald-500/20 space-y-2">
                   <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 dark:text-emerald-200">
                     <Check className="w-4 h-4" />
-                    <span>令牌已创建 — 请立即复制，关闭后将无法再次查看明文</span>
+                    <span>{t("settings.patCreatedBanner")}</span>
                   </div>
                   <div className="flex items-center gap-2 p-2 rounded bg-black/90 border border-white/10">
                     <Terminal className="w-3.5 h-3.5 text-white/60 shrink-0" />
                     <code className="flex-1 font-mono text-xs text-emerald-300 break-all">{createdToken}</code>
                     <button onClick={() => copyToken(createdToken)} className="shrink-0 inline-flex items-center gap-1 px-2.5 h-7 rounded bg-white text-black text-xs font-semibold hover:bg-gray-100">
                       {copied ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                      <span>{copied ? "已复制" : "复制"}</span>
+                      <span>{copied ? t("common.copied") : t("common.copy")}</span>
                     </button>
                   </div>
                   <div className="flex flex-wrap gap-1.5 text-[11px] font-mono">
-                    <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">前缀: {createdTokenMeta?.prefix}</span>
+                    <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">{t("settings.patPrefix", { prefix: createdTokenMeta?.prefix || "" })}</span>
                     <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">scopes: {(createdTokenMeta?.scopes || []).join(", ")}</span>
                   </div>
-                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80">提示：请将此令牌存入环境变量 MF_PAT，切勿提交到仓库。</p>
+                  <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80">{t("settings.patEnvHint")}</p>
                 </div>
               )}
 
@@ -433,47 +581,47 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              <form onSubmit={handleCreateToken} className="p-3 rounded-md bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/[0.06] space-y-3">
+              <form onSubmit={handleCreateToken} className="p-4 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/[0.06] space-y-3.5">
                 <div className="space-y-1">
-                  <label className="font-mono text-xs text-gray-500">令牌名称</label>
-                  <input value={newTokenName} onChange={(e) => setNewTokenName(e.target.value)} placeholder="例如：my-agent / obsidian-sync" maxLength={64} className="w-full h-8.5 px-3 bg-background border border-black/10 dark:border-white/10 rounded-md text-xs focus:outline-none focus:border-primary/50" />
+                  <label className="font-mono text-xs sm:text-sm text-gray-500">{t("settings.patTokenName")}</label>
+                  <input value={newTokenName} onChange={(e) => setNewTokenName(e.target.value)} placeholder={t("settings.patNamePlaceholder")} maxLength={64} className="w-full h-10 px-3.5 bg-background border border-black/10 dark:border-white/10 rounded-lg text-sm focus:outline-none focus:border-primary/50" />
                 </div>
-                <div className="space-y-1">
-                  <label className="font-mono text-xs text-gray-500">权限范围（scopes）</label>
-                  <div className="flex flex-wrap gap-1.5">
+                <div className="space-y-1.5">
+                  <label className="font-mono text-xs sm:text-sm text-gray-500">{t("settings.patScopes")}</label>
+                  <div className="flex flex-wrap gap-2">
                     {["read", "write", "edit", "upload", "community"].map((sc) => {
                       const active = newTokenScopes.includes(sc);
                       return (
-                        <button key={sc} type="button" onClick={() => setNewTokenScopes((prev) => (active ? prev.filter((x) => x !== sc) : [...prev, sc]))} className={`px-2.5 h-7 rounded-md text-xs font-mono border transition-colors ${active ? "bg-primary text-white border-primary" : "bg-white dark:bg-white/5 border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:border-primary/30"}`}>
+                        <button key={sc} type="button" onClick={() => setNewTokenScopes((prev) => (active ? prev.filter((x) => x !== sc) : [...prev, sc]))} className={`px-3 h-8 rounded-lg text-xs sm:text-sm font-mono border transition-colors ${active ? "bg-primary text-white border-primary" : "bg-white dark:bg-white/5 border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:border-primary/30"}`}>
                           {sc}
                         </button>
                       );
                     })}
                   </div>
-                  <p className="font-mono text-[11px] text-gray-500">read 默认必选；write 隐含 edit/upload/community。Agent 建议 read+write。</p>
+                  <p className="font-mono text-xs text-gray-500">{t("settings.patScopesHint")}</p>
                 </div>
-                <button type="submit" disabled={creatingToken || !newTokenName.trim()} className="w-full h-8.5 rounded-md bg-primary text-white keep-white font-semibold text-xs flex items-center justify-center gap-1.5 hover:opacity-90 disabled:opacity-50 shadow-xs">
-                  {creatingToken ? <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <KeyRound className="w-3.5 h-3.5" />}
-                  <span>{creatingToken ? "创建中…" : "创建令牌"}</span>
+                <button type="submit" disabled={creatingToken || !newTokenName.trim()} className="w-full h-10 rounded-lg bg-primary text-white keep-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 shadow-xs">
+                  {creatingToken ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                  <span>{creatingToken ? t("settings.patCreating") : t("settings.patCreateBtn")}</span>
                 </button>
-                <p className="font-mono text-[11px] text-gray-500 text-center">每用户最多 10 个令牌，创建需 JWT 登录态（PAT 不可再创建 PAT）。</p>
+                <p className="font-mono text-xs text-gray-500 text-center">{t("settings.patLimitHint")}</p>
               </form>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">已颁发令牌</h4>
-                  <button onClick={loadTokens} className="text-xs text-primary hover:underline">刷新</button>
+                  <h4 className="font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">{t("settings.patIssuedTitle")}</h4>
+                  <button onClick={loadTokens} className="text-xs text-primary hover:underline">{t("settings.patRefresh")}</button>
                 </div>
                 {tokensLoading ? (
-                  <div className="p-4 text-center font-mono text-xs text-gray-500">加载中…</div>
+                  <div className="p-4 text-center font-mono text-xs text-gray-500">{t("settings.patLoading")}</div>
                 ) : tokens.length === 0 ? (
                   <div className="p-4 rounded-md bg-black/[0.02] dark:bg-white/[0.03] border border-dashed border-black/10 dark:border-white/10 text-center font-mono text-xs text-gray-500">
-                    暂无令牌。创建后可用于 curl / SDK / Agent 接入。
+                    {t("settings.patEmpty")}
                     <div className="mt-2">
-                      <Link href="/developers" className="text-primary hover:underline inline-flex items-center gap-1">
+                      <a href="/docs/api-overview" className="text-primary hover:underline inline-flex items-center gap-1">
                         <Terminal className="w-3 h-3" />
-                        <span>查看接入示例</span>
-                      </Link>
+                        <span>{t("settings.patViewExamples")}</span>
+                      </a>
                     </div>
                   </div>
                 ) : (
@@ -487,14 +635,14 @@ export default function SettingsPage() {
                             <span className="font-mono text-[10px] text-gray-500">scopes: {tk.scopes.join(", ")}</span>
                           </div>
                           <div className="font-mono text-[11px] text-gray-500 flex flex-wrap gap-2">
-                            <span>创建: {new Date(tk.created_at).toLocaleString()}</span>
-                            {tk.last_used_at && <span>最近使用: {new Date(tk.last_used_at).toLocaleString()}</span>}
-                            {!tk.last_used_at && <span className="text-amber-600 dark:text-amber-400">未使用</span>}
+                            <span>{t("settings.patCreatedAt", { time: new Date(tk.created_at).toLocaleString() })}</span>
+                            {tk.last_used_at && <span>{t("settings.patLastUsedAt", { time: new Date(tk.last_used_at).toLocaleString() })}</span>}
+                            {!tk.last_used_at && <span className="text-amber-600 dark:text-amber-400">{t("settings.patNeverUsed")}</span>}
                           </div>
                         </div>
                         <button onClick={() => handleDeleteToken(tk.id)} className="shrink-0 inline-flex items-center gap-1 px-2.5 h-7 rounded-md bg-red-500/10 text-red-600 dark:text-red-300 border border-red-500/20 hover:bg-red-500/15 text-xs font-medium self-start sm:self-auto">
                           <Trash2 className="w-3.5 h-3.5" />
-                          <span>撤销</span>
+                          <span>{t("settings.patRevoke")}</span>
                         </button>
                       </div>
                     ))}
@@ -505,12 +653,12 @@ export default function SettingsPage() {
               <div className="p-3 rounded-md bg-sky-500/10 border border-sky-500/20 space-y-1.5">
                 <div className="font-mono text-xs font-semibold text-sky-900 dark:text-sky-100 flex items-center gap-1.5">
                   <Terminal className="w-3.5 h-3.5" />
-                  <span>快速校验</span>
+                  <span>{t("settings.patQuickValidate")}</span>
                 </div>
                 <code className="block p-2 rounded bg-black/90 text-emerald-300 font-mono text-xs break-all">
                   curl /api/v1/catalog/works?inc=artists -H &quot;Authorization: Bearer mfp_...&quot; -H &quot;User-Agent: MyApp/1.0 (you@example.com)&quot;
                 </code>
-                <p className="text-[11px] text-sky-800 dark:text-sky-200/80">限流信息见响应头 X-RateLimit-*，超限返回 429。</p>
+                <p className="text-[11px] text-sky-800 dark:text-sky-200/80">{t("settings.patRateLimitHint")}</p>
               </div>
             </div>
           )}
@@ -588,39 +736,39 @@ export default function SettingsPage() {
           )}
 
           {activeTab === "password" && (
-            <form onSubmit={handlePasswordChange} className="p-4 sm:p-5 space-y-3.5">
+            <form onSubmit={handlePasswordChange} className="p-4 sm:p-6 space-y-4">
               {error && (
-                <div className="p-2.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 font-mono text-xs flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 font-mono text-xs sm:text-sm flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                   <span>{error}</span>
                 </div>
               )}
               {success && (
-                <div className="p-2.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs sm:text-sm flex items-center gap-2">
                   <Check className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                   <span>{success}</span>
                 </div>
               )}
 
               <div className="space-y-1">
-                <label className="font-mono text-xs text-gray-500 dark:text-gray-400">{t("settings.oldPassword")}</label>
+                <label className="font-mono text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t("settings.oldPassword")}</label>
                 <div className="relative">
-                  <Lock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
                   <input
                     type="password"
                     required
                     placeholder={t("settings.oldPasswordPlaceholder")}
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
-                    className="w-full pl-8 pr-3 h-8.5 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
+                    className="w-full pl-9 pr-3.5 h-10 bg-background border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-mono text-xs text-gray-500 dark:text-gray-400">{t("settings.newPassword")}</label>
+                <label className="font-mono text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t("settings.newPassword")}</label>
                 <div className="relative">
-                  <Lock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
                   <input
                     type="password"
                     required
@@ -628,15 +776,15 @@ export default function SettingsPage() {
                     placeholder={t("settings.newPasswordPlaceholder")}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full pl-8 pr-3 h-8.5 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
+                    className="w-full pl-9 pr-3.5 h-10 bg-background border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
                   />
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="font-mono text-xs text-gray-500 dark:text-gray-400">{t("settings.confirmPassword")}</label>
+                <label className="font-mono text-xs sm:text-sm text-gray-500 dark:text-gray-400">{t("settings.confirmPassword")}</label>
                 <div className="relative">
-                  <Lock className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
                   <input
                     type="password"
                     required
@@ -644,7 +792,7 @@ export default function SettingsPage() {
                     placeholder={t("settings.confirmPasswordPlaceholder")}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-8 pr-3 h-8.5 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
+                    className="w-full pl-9 pr-3.5 h-10 bg-background border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
                   />
                 </div>
               </div>
@@ -652,9 +800,9 @@ export default function SettingsPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full h-8.5 rounded-md bg-primary text-white keep-white font-semibold text-xs flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-50 mt-1 shadow-xs"
+                className="w-full h-10 rounded-lg bg-primary text-white keep-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 mt-1 shadow-xs"
               >
-                {submitting ? <div className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : t("settings.confirmChange")}
+                {submitting ? <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : t("settings.confirmChange")}
               </button>
             </form>
           )}

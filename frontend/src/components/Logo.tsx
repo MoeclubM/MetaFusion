@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { useI18n } from "@/i18n/I18nProvider";
 
 type BrandMarkProps = {
   size?: number;
@@ -36,14 +35,12 @@ export function BrandMark({ size = 28, className, withGlow = false, idSuffix = "
           </linearGradient>
         </defs>
 
-        {/* chamfered vault frame — adapts via currentColor */}
         <path
           d="M9 2H23L30 9V23L23 30H9L2 23V9L9 2Z"
           fill="none"
           stroke={`url(#mf-frame-${idSuffix})`}
           strokeWidth="1.05"
         />
-        {/* inner hairline */}
         <path
           d="M10.2 3.6H21.8L28.4 10.2V21.8L21.8 28.4H10.2L3.6 21.8V10.2L10.2 3.6Z"
           fill="none"
@@ -52,17 +49,14 @@ export function BrandMark({ size = 28, className, withGlow = false, idSuffix = "
           strokeWidth="0.65"
         />
 
-        {/* viewfinder ticks */}
         <path d="M7.2 7.6V4.6H10.2" stroke="currentColor" strokeOpacity="0.18" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M21.8 4.6H24.8V7.6" stroke="currentColor" strokeOpacity="0.18" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M24.8 24.4V27.4H21.8" stroke="currentColor" strokeOpacity="0.18" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M10.2 27.4H7.2V24.4" stroke="currentColor" strokeOpacity="0.18" strokeWidth="0.9" strokeLinecap="round" strokeLinejoin="round" />
 
-        {/* orbital — fusion ring */}
         <ellipse cx="16" cy="16" rx="10.4" ry="6.15" fill="none" stroke="currentColor" strokeOpacity="0.10" strokeWidth="0.65" strokeDasharray="1.15 1.7" strokeLinecap="round" />
         <ellipse cx="16" cy="16" rx="10.4" ry="6.15" fill="none" stroke="currentColor" strokeOpacity="0.04" strokeWidth="1.6" />
 
-        {/* M — double strut, archival vault pillars */}
         <path
           d="M10.85 21.55L13.28 9.85L16 16.35L18.72 9.85L21.15 21.55"
           stroke="currentColor"
@@ -70,7 +64,6 @@ export function BrandMark({ size = 28, className, withGlow = false, idSuffix = "
           strokeLinecap="round"
           strokeLinejoin="round"
         />
-        {/* inner counter struts */}
         <path
           d="M12.95 17.55L14.05 12.55"
           stroke="currentColor"
@@ -86,7 +79,6 @@ export function BrandMark({ size = 28, className, withGlow = false, idSuffix = "
           strokeLinecap="round"
         />
 
-        {/* fusion bridge — accent color, theme-independent */}
         <g opacity={withGlow ? 1 : 0.98}>
           {withGlow && (
             <line
@@ -114,7 +106,6 @@ export function BrandMark({ size = 28, className, withGlow = false, idSuffix = "
           <circle cx="20.8" cy="15.42" r="0.95" fill="var(--primary-color, #3b82f6)" opacity="0.95" />
         </g>
 
-        {/* central node — diamond */}
         <g>
           {withGlow && (
             <rect
@@ -150,7 +141,6 @@ export function BrandMark({ size = 28, className, withGlow = false, idSuffix = "
           />
         </g>
 
-        {/* baseline register marks */}
         <g opacity="0.32">
           <rect x="10.1" y="23.2" width="1.15" height="1.15" rx="0.2" fill="currentColor" fillOpacity="0.45" />
           <rect x="15.02" y="23.2" width="1.96" height="1.15" rx="0.2" fill="currentColor" fillOpacity="0.20" />
@@ -160,55 +150,3 @@ export function BrandMark({ size = 28, className, withGlow = false, idSuffix = "
     </span>
   );
 }
-
-type LogoProps = {
-  size?: number;
-  collapsed?: boolean;
-  withGlow?: boolean;
-  className?: string;
-  showBadge?: boolean;
-  href?: string;
-};
-
-export function Logo({ size = 28, collapsed = false, withGlow = false, className, showBadge = true, href }: LogoProps) {
-  const { t } = useI18n();
-  const content = (
-    <span className={`inline-flex items-center gap-2.5 ${className ?? ""}`}>
-      <BrandMark size={size} withGlow={withGlow} idSuffix={href ? "nav" : "logo"} />
-      {!collapsed && (
-        <span className="flex flex-col items-start leading-none">
-          <span className="font-display text-[22px] tracking-[-0.03em] text-slate-900 dark:text-white leading-none">MetaFusion</span>
-          {showBadge && (
-            <span className="mt-[3px] font-mono text-[8.5px] tracking-[0.16em] text-slate-500 dark:text-white/38 leading-none">SINCE 2026</span>
-          )}
-        </span>
-      )}
-    </span>
-  );
-
-  if (href) {
-    return (
-      <a href={href} className="group flex items-center gap-2.5 shrink-0" aria-label={t("common.backToHome")}>
-        <span className="transition-opacity group-hover:opacity-90">
-          <BrandMark size={size} withGlow={withGlow} idSuffix="navlink" />
-        </span>
-        {!collapsed && (
-          <span className="flex flex-col items-start leading-none">
-            <span className="font-display text-[22px] tracking-[-0.03em] text-slate-900 dark:text-white group-hover:text-slate-700 dark:group-hover:text-white/90 transition-colors leading-none">
-              MetaFusion
-            </span>
-            {showBadge && (
-              <span className="mt-[3px] font-mono text-[8.5px] tracking-[0.16em] text-slate-500 dark:text-white/38 group-hover:text-slate-600 dark:group-hover:text-white/50 transition-colors leading-none">
-                SINCE 2026
-              </span>
-            )}
-          </span>
-        )}
-      </a>
-    );
-  }
-
-  return content;
-}
-
-export default Logo;

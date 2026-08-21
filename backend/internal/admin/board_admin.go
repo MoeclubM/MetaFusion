@@ -322,17 +322,3 @@ func (s *AdminService) DeleteBoard(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success", "migrated_to": "announcement", "migrated_count": migrated})
 }
 
-// ListBoards is the public variant (kept in admin package for reuse by communitySvc if needed)
-func (s *AdminService) ListBoards(c *gin.Context) {
-	includeDisabled := c.Query("include_disabled") == "true" || c.Query("include_disabled") == "1"
-	query := s.db.Model(&models.ForumBoard{})
-	if !includeDisabled {
-		query = query.Where("is_enabled = true")
-	}
-	var boards []models.ForumBoard
-	if err := query.Order("sort_order asc, code asc").Find(&boards).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, boards)
-}
