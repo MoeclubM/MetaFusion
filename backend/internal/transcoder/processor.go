@@ -20,9 +20,9 @@ import (
 )
 
 type Processor struct {
-	db        *gorm.DB
-	cfg       *config.Config
-	s3Client  *minio.Client
+	db       *gorm.DB
+	cfg      *config.Config
+	s3Client *minio.Client
 }
 
 func NewProcessor(db *gorm.DB, cfg *config.Config) (*Processor, error) {
