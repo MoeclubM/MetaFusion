@@ -423,6 +423,7 @@
   "admin.sidebar.itemShelves": "推荐陈列配置",
   "admin.sidebar.itemUsers": "成员与权限管理",
   "admin.sidebar.itemTopics": "社区讨论治理",
+  "admin.sidebar.itemBoards": "板块管理",
   "admin.sidebar.itemAudit": "操作审计日志",
   "admin.sidebar.frbrStatus": "系统运行状态",
   "admin.sidebar.statusCounts": "作品: {w} · 发行: {m} · 创作者: {e} · 文件: {i}",

@@ -22,7 +22,7 @@ import {
 function LoginInner() {
  const router = useRouter();
  const searchParams = useSearchParams();
- const { user, login } = useAuth();
+ const { user, loading, login } = useAuth();
  const { t } = useI18n();
 
  const tabParam = searchParams.get("tab");
@@ -35,11 +35,13 @@ function LoginInner() {
  const [submitting, setSubmitting] = useState(false);
  const [authSettings, setAuthSettings] = useState<{ registration_enabled: boolean; invite_required: boolean } | null>(null);
 
+ // 等鉴权状态初始化完成再判断，避免 /auth/me 未返回时误判为未登录而闪跳
  useEffect(() => {
- if (user) {
- router.replace("/");
+ if (!loading && user) {
+ const redirectUrl = searchParams.get("redirect") || "/";
+ router.replace(redirectUrl);
  }
- }, [user, router]);
+ }, [loading, user, router, searchParams]);
 
  useEffect(() => {
  fetchApi<{ registration_enabled: boolean; invite_required: boolean }>("/auth/settings")
