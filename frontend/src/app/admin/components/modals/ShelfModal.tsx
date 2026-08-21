@@ -8,13 +8,12 @@ import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 export function ShelfModal({
   open,
   onClose,
-  editingShelf,
   shelfForm,
   setShelfForm,
   shelfTagInput,
   setShelfTagInput,
   handleSaveShelf,
-}: Pick<AdminDashboard, "editingShelf" | "shelfForm" | "setShelfForm" | "shelfTagInput" | "setShelfTagInput" | "handleSaveShelf"> & {
+}: Pick<AdminDashboard, "shelfForm" | "setShelfForm" | "shelfTagInput" | "setShelfTagInput" | "handleSaveShelf"> & {
   open: boolean;
   onClose: () => void;
 }) {
@@ -23,7 +22,7 @@ export function ShelfModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={editingShelf ? t("admin.shelfModal.editTitle") : t("admin.shelfModal.createTitle")}
+      title={shelfForm.slug ? t("admin.shelfModal.editTitle") : t("admin.shelfModal.createTitle")}
       icon={<Layers className="w-4 h-4 text-emerald-400" />}
     >
       <form onSubmit={handleSaveShelf} className="space-y-3 text-xs">
@@ -32,15 +31,10 @@ export function ShelfModal({
             <label className="block text-gray-300 font-medium mb-1">{t("admin.shelfModal.fieldSlug")}</label>
             <input
               required
-              disabled={!!editingShelf}
               value={shelfForm.slug || ""}
               onChange={(e) => setShelfForm({ ...shelfForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, "") })}
               placeholder={t("admin.shelfModal.fieldSlugPlaceholder")}
-              className={`w-full px-3 py-2 rounded-lg border font-mono text-white focus:outline-none ${
-                editingShelf
-                  ? "bg-white/[0.02] border-white/5 text-gray-500 cursor-not-allowed"
-                  : "bg-white/[0.04] border-white/10 focus:border-emerald-400"
-              }`}
+              className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white font-mono focus:outline-none focus:border-emerald-400"
             />
           </div>
           <div>
