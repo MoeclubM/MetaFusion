@@ -104,6 +104,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
 
  {/* Right Controls */}
  <div className="flex items-center gap-2 sm:gap-2.5">
+ {/* 项目仓库入口仅落地页展示，进入站内后不再显示 */}
+ {pathname === "/" && (
  <a
  href="https://github.com/MoeclubM/MetaFusion"
  target="_blank"
@@ -114,6 +116,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
  <Github className="w-4 h-4" strokeWidth={1.8} />
  <span>REPO</span>
  </a>
+ )}
  {/* Create dropdown — only logged in */}
  {user && (
  <div className="hidden sm:block relative group/create">

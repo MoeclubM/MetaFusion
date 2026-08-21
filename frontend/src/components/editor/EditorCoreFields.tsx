@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Plus, X, Globe2, Tag as TagIcon, Sparkles } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
+import { fetchApi } from "@/lib/api";
 
 interface Props {
   targetType: "work" | "artist" | "release";
@@ -12,11 +13,6 @@ interface Props {
   setAliasesStr: (val: string) => void;
   taxonomy?: any;
 }
-
-const COMMON_TAG_SUGGESTIONS = [
-  "原声带", "OST", "J-POP", "动画", "剧场版", "交响乐", "视觉小说", "同人音乐",
-  "角色歌", "电子", "摇滚", "器乐", "科幻", "治愈", "轻小说", "漫画", "插画"
-];
 
 const LANGUAGE_OPTIONS = [
   { code: "zh-Hans", labelKey: "editor.core.langZhHans" },
@@ -33,9 +29,26 @@ export function EditorCoreFields({
   updateField,
   aliasesStr,
   setAliasesStr,
+  taxonomy,
 }: Props) {
   const { t } = useI18n();
   const [newTagInput, setNewTagInput] = useState("");
+  const [dynamicTagSuggestions, setDynamicTagSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (taxonomy?.tags && Array.isArray(taxonomy.tags) && taxonomy.tags.length > 0) {
+      const tagNames = taxonomy.tags.map((t: any) => (typeof t === "string" ? t : t.name)).filter(Boolean);
+      setDynamicTagSuggestions(tagNames.slice(0, 24));
+    } else {
+      fetchApi<{ id: number; name: string }[]>("/catalog/tags")
+        .then((data) => {
+          if (Array.isArray(data)) {
+            setDynamicTagSuggestions(data.map((t) => t.name).filter(Boolean).slice(0, 24));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [taxonomy]);
 
   const tags: string[] = Array.isArray(formData.tags)
     ? formData.tags.map((t: any) => (typeof t === "string" ? t : t.name))
@@ -177,6 +190,28 @@ export function EditorCoreFields({
 
       {/* ── 2. 主体性质 / 分发参数 ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {targetType === "work" && (
+          <div className="space-y-1.5 md:col-span-2">
+            <label className="block text-xs sm:text-sm font-mono text-gray-300">
+              {t("editor.temporal.mediaTypeLabel")} <span className="text-amber-400">*</span>
+            </label>
+            <select
+              value={formData.media_type || "movie"}
+              onChange={(e) => updateField("media_type", e.target.value)}
+              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
+            >
+              <option value="movie">{t("mediaType.movie")}</option>
+              <option value="tv_series">{t("mediaType.tv_series")}</option>
+              <option value="anime">{t("mediaType.anime")}</option>
+              <option value="music">{t("mediaType.music")}</option>
+              <option value="audiobook">{t("mediaType.audiobook")}</option>
+              <option value="novel">{t("mediaType.novel")}</option>
+              <option value="comic">{t("mediaType.comic")}</option>
+              <option value="gallery">{t("mediaType.gallery")}</option>
+            </select>
+          </div>
+        )}
+
         {targetType === "artist" && (
           <>
             <div className="space-y-1.5">
@@ -211,6 +246,19 @@ export function EditorCoreFields({
 
         {targetType === "release" && (
           <>
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="block text-xs sm:text-sm font-mono text-gray-300">
+                {t("editor.core.workIdLabel")} <span className="text-amber-400">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.work_id || ""}
+                onChange={(e) => updateField("work_id", e.target.value)}
+                placeholder={t("editor.core.workIdPlaceholder")}
+                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
+              />
+            </div>
             <div className="space-y-1.5">
               <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.catalogNumberLabel")}</label>
               <input
@@ -306,30 +354,32 @@ export function EditorCoreFields({
           </button>
         </div>
 
-        {/* Quick Tag Suggestions */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/[0.04]">
-          <span className="font-mono text-xs text-gray-500 mr-1 flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            {t("editor.core.quickSuggestions")}
-          </span>
-          {COMMON_TAG_SUGGESTIONS.map((sug) => {
-            const isSelected = tags.includes(sug);
-            return (
-              <button
-                key={sug}
-                type="button"
-                onClick={() => (isSelected ? handleRemoveTag(sug) : handleAddTag(sug))}
-                className={`px-2.5 py-1 rounded-full font-mono text-xs border transition-all cursor-pointer ${
-                  isSelected
-                    ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-200"
-                    : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white hover:bg-white/[0.08]"
-                }`}
-              >
-                +{sug}
-              </button>
-            );
-          })}
-        </div>
+        {/* Quick Tag Suggestions (Dynamically loaded from Database Tags) */}
+        {dynamicTagSuggestions.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/[0.04]">
+            <span className="font-mono text-xs text-gray-500 mr-1 flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              {t("editor.core.quickSuggestions")}
+            </span>
+            {dynamicTagSuggestions.map((sug) => {
+              const isSelected = tags.includes(sug);
+              return (
+                <button
+                  key={sug}
+                  type="button"
+                  onClick={() => (isSelected ? handleRemoveTag(sug) : handleAddTag(sug))}
+                  className={`px-2.5 py-1 rounded-full font-mono text-xs border transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-200"
+                      : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white hover:bg-white/[0.08]"
+                  }`}
+                >
+                  +{sug}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── 4. 简介 / 传记 ── */}

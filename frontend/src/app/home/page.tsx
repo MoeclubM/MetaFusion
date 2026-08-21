@@ -3,10 +3,12 @@
 import React, { useEffect, useState, Suspense, useCallback } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, Work, VirtualShelf, UserCustomShelf, UserHomeLayout, syncPresetShelves, forkPresetShelf, resetDefaultShelves } from "@/lib/api";
+import { fetchApi, Work, VirtualShelf, UserCustomShelf, UserHomeLayout, resetDefaultShelves } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { HomeShelvesConfigModal } from "@/components/home/HomeShelvesConfigModal";
+import { EntityCover } from "@/components/common/EntityCover";
+import { shelfRuleToExploreHref } from "@/lib/shelfQuery";
 import {
  Compass,
  ArrowRight,
@@ -23,7 +25,7 @@ import {
  ChevronRight,
  MessageCircle,
  Settings2,
- Database,
+ Pencil,
 } from "lucide-react";
 
 const SHELF_ICONS: Record<string, React.ElementType> = {
@@ -69,29 +71,31 @@ function getShelfColor(key: string, mediaType?: string): string {
  return "bg-primary/10 border-primary/20 text-primary";
 }
 
-function matchesShelfTags(work: Work, queryTags: string[], requireAll: boolean, excludeTags: string[]): boolean {
- const wTags = (work.tags || []).map((t) => t.name);
- if (excludeTags && excludeTags.some((ex) => wTags.includes(ex))) return false;
- if (!queryTags || queryTags.length === 0) return true;
- if (requireAll) return queryTags.every((qt) => wTags.includes(qt));
- return queryTags.some((qt) => wTags.includes(qt));
+function matchesShelfCriteria(work: Work, mediaType: string, queryTags: string[], requireAll: boolean, excludeTags: string[]): boolean {
+  const wTags = (work.tags || []).map((t: any) => (t?.name ? t.name : typeof t === "string" ? t : ""));
+  if (excludeTags && excludeTags.some((ex) => wTags.includes(ex))) return false;
+  const mtMatch = matchesMediaType(work, mediaType);
+  if (!queryTags || queryTags.length === 0) return mtMatch;
+  const tagMatch = requireAll ? queryTags.every((qt) => wTags.includes(qt)) : queryTags.some((qt) => wTags.includes(qt));
+  if (!mediaType || mediaType === "all") return tagMatch;
+  return mtMatch || tagMatch;
 }
 
 function matchesMediaType(work: Work, mediaType: string): boolean {
- if (!mediaType || mediaType === "all") return true;
- const mt = work.media_type || "";
- switch (mediaType) {
- case "video":
- return ["movie", "tv_series", "anime"].includes(mt);
- case "audio":
- return ["music", "audiobook"].includes(mt);
- case "text":
- return mt === "novel";
- case "graphic":
- return ["comic", "gallery"].includes(mt);
- default:
- return mt === mediaType;
- }
+  if (!mediaType || mediaType === "all") return true;
+  const mt = work.media_type || "";
+  switch (mediaType) {
+    case "video":
+      return ["movie", "tv_series", "anime"].includes(mt);
+    case "audio":
+      return ["music", "audiobook"].includes(mt);
+    case "text":
+      return ["novel", "book", "literature"].includes(mt);
+    case "graphic":
+      return ["comic", "gallery", "artbook"].includes(mt);
+    default:
+      return mt === mediaType;
+  }
 }
 
 function HomeShowcaseContent() {
@@ -106,6 +110,7 @@ function HomeShowcaseContent() {
  const [topics, setTopics] = useState<any[]>([]);
  const [loading, setLoading] = useState(true);
  const [configOpen, setConfigOpen] = useState(false);
+ const [editingShelfId, setEditingShelfId] = useState<string | null>(null);
  const [publicCache, setPublicCache] = useState<Map<string, UserCustomShelf>>(new Map<string, UserCustomShelf>());
 
  const storageKey = user ? `mf_home_layout:${user.id}` : "mf_home_layout:guest";
@@ -175,13 +180,13 @@ function HomeShowcaseContent() {
  const allWorks: Work[] = worksRes?.items || [];
  // build map for all keys (system + custom) for quick pill counts; actual ordered rendering will recompute
  const grouped: Record<string, Work[]> = {};
- allShelves.forEach((shelf) => {
- grouped[shelf.slug] = allWorks.filter((w) => matchesMediaType(w, shelf.media_type) && matchesShelfTags(w, shelf.query_tags || [], !!shelf.require_all_tags, shelf.exclude_tags || []));
- });
- ownCustoms.forEach((cs) => {
- const key = `custom:${cs.id}`;
- grouped[key] = allWorks.filter((w) => matchesMediaType(w, cs.media_type) && matchesShelfTags(w, cs.query_tags || [], !!cs.require_all_tags, cs.exclude_tags || []));
- });
+  allShelves.forEach((shelf) => {
+    grouped[shelf.slug] = allWorks.filter((w) => matchesShelfCriteria(w, shelf.media_type, shelf.query_tags || [], !!shelf.require_all_tags, shelf.exclude_tags || []));
+  });
+  ownCustoms.forEach((cs) => {
+    const key = `custom:${cs.id}`;
+    grouped[key] = allWorks.filter((w) => matchesShelfCriteria(w, cs.media_type, cs.query_tags || [], !!cs.require_all_tags, cs.exclude_tags || []));
+  });
  // also for any public cached (if order had them, they were fetched above — but we already have grouped for them via second pass)
  // if we fetched publicCache, add them too
  setWorksByKey(grouped);
@@ -231,7 +236,7 @@ function HomeShowcaseContent() {
  const grouped: Record<string, Work[]> = { ...worksByKey };
  (res.items || []).forEach((cs) => {
  const key = `custom:${cs.id}`;
- grouped[key] = allWorks.filter((w) => matchesMediaType(w, cs.media_type) && matchesShelfTags(w, cs.query_tags || [], !!cs.require_all_tags, cs.exclude_tags || []));
+    grouped[key] = allWorks.filter((w) => matchesShelfCriteria(w, cs.media_type, cs.query_tags || [], !!cs.require_all_tags, cs.exclude_tags || []));
  });
  setWorksByKey(grouped);
  // if orderKeys doesn't contain new custom, append
@@ -263,38 +268,6 @@ function HomeShowcaseContent() {
     try { localStorage.setItem(storageKey, JSON.stringify({ hidden: hiddenSlugs, order: nextOrder })); } catch {}
   };
 
-  const handleSyncPresets = async (overwrite: boolean = true) => {
-    try {
-      const res = await syncPresetShelves(overwrite);
-      if (res && res.items) {
-        setCustomShelves(res.items);
-        if (res.order) {
-          setOrderKeys(res.order);
-          setHiddenSlugs([]);
-          try { localStorage.setItem(storageKey, JSON.stringify({ hidden: [], order: res.order })); } catch {}
-        }
-      }
-      await refreshCustom();
-    } catch (e) {
-      console.error("handleSyncPresets failed", e);
-    }
-  };
-
-  const handleForkPreset = async (slug: string) => {
-    try {
-      const res = await forkPresetShelf(slug);
-      if (res && res.shelf) {
-        if (res.order) {
-          setOrderKeys(res.order);
-          try { localStorage.setItem(storageKey, JSON.stringify({ hidden: hiddenSlugs, order: res.order })); } catch {}
-        }
-        await refreshCustom();
-      }
-    } catch (e) {
-      console.error("handleForkPreset failed", e);
-    }
-  };
-
   const handleResetDefaults = async () => {
     try {
       const res = await resetDefaultShelves();
@@ -310,6 +283,21 @@ function HomeShowcaseContent() {
     } catch (e) {
       console.error("handleResetDefaults failed", e);
     }
+  };
+
+  // 频道 → explore 检索条件：传 tag/media_type 规则而非 shelf 标识，
+  // 链接成为通用检索器参数，任何用户打开结果一致且可继续叠加筛选
+  const shelfQueryHref = (key: string): string => {
+    const isCustom = key.startsWith("custom:");
+    const source = isCustom ? customMap.get(key) : systemMap.get(key);
+    if (!source) return "/explore";
+    return shelfRuleToExploreHref(source);
+  };
+
+  const openEditFor = (key: string) => {
+    if (!key.startsWith("custom:")) return;
+    setEditingShelfId(key.slice(7));
+    setConfigOpen(true);
   };
 
  // build ordered display list — public for guests
@@ -366,13 +354,12 @@ function HomeShowcaseContent() {
  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
  <div className="space-y-0.5">
  <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-primary">
- <Database className="w-4 h-4" />
- <span>HOME SHELVES · FRBR ARCHIVE</span>
+ <span>HOME SHELVES</span>
  </div>
- <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Home Showcase</h1>
+ <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t("home.showcaseTitle")}</h1>
  </div>
  <div className="font-mono text-sm text-gray-500 flex items-center gap-2">
- <span className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/10 dark:border-white/10">{t("home.channelWorksCount", { count: allKeysOrdered.length })} Channels</span>
+ <span className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/10 dark:border-white/10">{t("home.channelCount", { count: allKeysOrdered.length })}</span>
  </div>
  </div>
  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
@@ -447,9 +434,7 @@ function HomeShowcaseContent() {
  ? (locale === "en-US" && cs?.name_en ? cs!.name_en : cs?.name_zh || "")
  : (locale === "en-US" && sys?.name_en ? sys!.name_en : sys?.name_zh || "");
 
- const viewAllHref = isCustom
- ? `/explore?custom_shelf=${cs!.id}`
- : `/explore?shelf=${key}`;
+ const viewAllHref = shelfQueryHref(key);
 
  return (
  <section key={key} id={`shelf-${key}`} className="space-y-3 scroll-mt-16">
@@ -461,7 +446,16 @@ function HomeShowcaseContent() {
  <div>
  <h2 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm flex items-center gap-2">
  {shelfTitle}
- {isCustom && <span className="px-2.5 py-1 rounded-sm bg-primary/10 text-primary border border-primary/20 font-mono text-xs">{t("home.shelves.customBadge")}</span>}
+ {isCustom && user && (
+ <button
+ type="button"
+ onClick={() => openEditFor(key)}
+ className="p-1.5 rounded-sm text-gray-400 hover:text-primary hover:bg-primary/10 transition-colors max-sm:min-h-[44px] max-sm:min-w-[44px] grid place-items-center"
+ title={t("home.shelves.editShelf")}
+ >
+ <Pencil className="w-3.5 h-3.5" />
+ </button>
+ )}
  </h2>
  <p className="font-mono text-sm text-gray-500">
  {t("home.channelWorksCount", { count: shelfWorks.length })}
@@ -498,17 +492,15 @@ function HomeShowcaseContent() {
  className="group relative rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs hover:shadow-elevated hover:border-primary/50 transition-all flex flex-col"
  >
  <div className="aspect-[3/4] w-full bg-black/5 dark:bg-black/40 relative overflow-hidden">
- {w.cover_image_url ? (
- <img
- src={w.cover_image_url}
- alt={w.title}
- className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+ <EntityCover
+   src={w.cover_image_url}
+   alt={w.title}
+   title={w.title}
+   originalTitle={w.original_title}
+   mediaType={w.media_type}
+   id={w.id}
+   imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
  />
- ) : (
- <div className="w-full h-full grid place-items-center text-gray-400">
- <Disc3 className="w-8 h-8 opacity-30" />
- </div>
- )}
  <div className="absolute top-1.5 left-1.5 px-2.5 py-1 rounded-sm bg-black/70 backdrop-blur-md text-xs font-mono text-white keep-white">
  {w.release_date ? String(w.release_date).slice(0, 4) : t("home.archived")}
  </div>
@@ -592,10 +584,9 @@ function HomeShowcaseContent() {
 
  <HomeShelvesConfigModal
  open={configOpen}
- onClose={() => setConfigOpen(false)}
- systemShelves={shelves}
+ onClose={() => { setConfigOpen(false); setEditingShelfId(null); }}
+ editShelfId={editingShelfId}
  customShelves={customShelves}
- hiddenSlugs={hiddenSlugs}
  orderKeys={orderKeys.length > 0 ? orderKeys : [...shelves.map((s) => s.slug), ...customShelves.map((c) => `custom:${c.id}`)]}
  onSaveLayout={handleSaveLayout}
  onCreateCustom={handleCreateCustom}
@@ -603,8 +594,6 @@ function HomeShowcaseContent() {
  onDeleteCustom={handleDeleteCustom}
  onRefreshCustom={refreshCustom}
  onResetDefaults={handleResetDefaults}
- onSyncPresets={handleSyncPresets}
- onForkPreset={handleForkPreset}
  />
  </div>
  );
