@@ -17,6 +17,7 @@ import { TopicsTab } from "./components/tabs/TopicsTab";
 import { BoardsTab } from "./components/tabs/BoardsTab";
 import { AuditTab } from "./components/tabs/AuditTab";
 import { HealthTab } from "./components/tabs/HealthTab";
+import { SettingsTab } from "./components/tabs/SettingsTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { CategoriesTab } from "./components/tabs/CategoriesTab";
 import { ArtistModal } from "./components/modals/ArtistModal";
@@ -50,6 +51,7 @@ function AdminContent() {
           {d.activeTab === "boards" && <BoardsTab />}
           {d.activeTab === "audit" && <AuditTab auditLogs={d.auditLogs} />}
           {d.activeTab === "health" && <HealthTab />}
+          {d.activeTab === "settings" && <SettingsTab />}
           {d.activeTab === "shelves" && <ShelvesTab loading={d.loading} filteredShelves={d.filteredShelves} handleOpenCreateShelf={d.handleOpenCreateShelf} handleOpenEditShelf={d.handleOpenEditShelf} handleDeleteShelf={d.handleDeleteShelf} />}
           {d.activeTab === "relationships" && <CategoriesTab />}
         </main>
