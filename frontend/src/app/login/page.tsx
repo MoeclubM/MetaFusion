@@ -104,7 +104,7 @@ function LoginInner() {
 
       <main className="relative z-10 flex-1 min-h-0 grid place-items-center py-3">
         <div className="w-full max-w-md max-h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface shadow-elevated overflow-hidden animate-scale-in">
+          <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden animate-scale-in">
             <div className="p-4 sm:p-5 pb-3 border-b border-black/[0.06] dark:border-white/[0.06]">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">

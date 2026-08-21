@@ -9,7 +9,7 @@ import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
 import { useAuth } from "@/lib/authContext";
 import { usePlayer } from "@/lib/playerContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Edit3, History } from "lucide-react";
+import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Edit3, History, Database } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
@@ -62,12 +62,15 @@ export default function ReleaseDetailPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-background grid place-items-center font-mono text-xs text-gray-500">{t("release.detail.loading")}</div>;
+  if (loading) return <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center font-mono text-xs text-gray-500">{t("release.detail.loading")}</div></div>;
   if (!release) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
+        <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
         <Navbar />
-        <div className="max-w-7xl mx-auto px-4 py-20 text-center font-mono text-xs text-gray-500">{t("common.notFoundRelease")}</div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 py-20 text-center font-mono text-xs text-gray-500">{t("common.notFoundRelease")}</div>
       </div>
     );
   }
@@ -78,9 +81,12 @@ export default function ReleaseDetailPage() {
   const mLabel = mediumLabel(mediaType, t);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
+      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar />
-      <main className="max-w-7xl mx-auto px-4 py-5 w-full space-y-4 sm:space-y-5 flex-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full space-y-5 flex-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
           {work && (
             <>
@@ -94,7 +100,11 @@ export default function ReleaseDetailPage() {
           <span className="text-gray-900 dark:text-white truncate">{release.edition_name}</span>
         </div>
 
-        <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface p-4 sm:p-5 space-y-3 shadow-soft">
+        <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary border-b border-black/5 dark:border-white/[0.06] pb-3">
+            <Database className="w-3.5 h-3.5" />
+            <span>RELEASE EDITION · FRBR MANIFESTATION</span>
+          </div>
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">

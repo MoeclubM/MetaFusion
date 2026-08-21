@@ -25,6 +25,7 @@ import {
   Disc,
   Sparkles,
   Code2,
+  Github,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -57,10 +58,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full border-b border-black/10 dark:border-white/[0.06] bg-surface/90 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/80">
+      <header className="sticky top-0 z-40 w-full border-b border-black/5 dark:border-white/[0.06] bg-surface/80 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/80">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 h-12 flex items-center justify-between gap-3">
-          {/* Left Brand & Nav Links */}
-          <div className="flex items-center gap-4 sm:gap-5">
+          {/* Left Brand + Telemetry */}
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link href="/" title={t("common.back")} className="flex items-center gap-2 shrink-0 group">
               <BrandMark size={24} withGlow={false} idSuffix="nav" />
               <span className="flex flex-col leading-none">
@@ -72,8 +73,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
                 </span>
               </span>
             </Link>
-
-            <nav className="hidden sm:flex items-center gap-1">
+            <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 font-mono text-[10px] text-gray-500 dark:text-gray-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>NODE: ONLINE</span>
+              <span className="text-gray-400 dark:text-gray-600">|</span>
+              <span>FRBR CORE</span>
+            </div>
+            <nav className="hidden lg:flex items-center gap-1 ml-1">
               {navLinks.map((tab) => {
                 const Icon = tab.icon;
                 const active = tab.href === "/" ? pathname === "/" || pathname === "/explore" : pathname.startsWith(tab.href);
@@ -97,7 +103,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
 
           {/* Right Controls */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Create dropdown — independent Work / Artist / Release (仅登录用户显示) */}
+            <a
+              href="https://github.com/MoeclubM/MetaFusion"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="GitHub — MoeclubM/MetaFusion"
+              className="hidden sm:inline-flex items-center gap-1 px-2.5 h-7.5 rounded-md bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors"
+            >
+              <Github className="w-3.5 h-3.5" strokeWidth={1.8} />
+              <span>REPO</span>
+            </a>
+            {/* Create dropdown — only logged in */}
             {user && (
               <div className="hidden sm:block relative group/create">
                 <button
@@ -142,9 +158,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
                     className="flex items-center gap-1.5 pl-1.5 pr-2 h-7.5 rounded-md bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-black/10 dark:border-white/10 text-xs text-gray-800 dark:text-gray-200 transition-colors"
                   >
                     <div className="w-4.5 h-4.5 rounded-sm bg-primary text-white keep-white font-mono font-bold text-[10px] grid place-items-center">
-                      {displayNameOf(user as any).slice(0, 1).toUpperCase()}
+                      {displayNameOf(user as unknown as { username: string; display_name?: string }).slice(0, 1).toUpperCase()}
                     </div>
-                    <span className="font-medium max-w-[80px] truncate hidden sm:inline">{displayNameOf(user as any)}</span>
+                    <span className="font-medium max-w-[80px] truncate hidden sm:inline">{displayNameOf(user as unknown as { username: string; display_name?: string })}</span>
                     <ChevronDown className={`w-3 h-3 text-gray-500 dark:text-gray-400 transition-transform duration-200 ${isUserMenuOpen ? "rotate-180" : ""}`} strokeWidth={1.5} />
                   </button>
 
@@ -154,8 +170,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
                       className="absolute right-0 mt-1.5 w-52 rounded-lg border border-black/10 dark:border-white/10 bg-surface shadow-elevated py-1 z-50 isolate animate-slide-up text-xs"
                     >
                       <div className="px-3 py-2 border-b border-black/[0.06] dark:border-white/[0.06] space-y-0.5">
-                        <div className="font-semibold text-gray-900 dark:text-white truncate">{displayNameOf(user as any)}</div>
-                        {displayNameOf(user as any) !== user.username && <div className="text-[10px] text-gray-500 font-mono">@{user.username}</div>}
+                        <div className="font-semibold text-gray-900 dark:text-white truncate">{displayNameOf(user as unknown as { username: string; display_name?: string })}</div>
+                        {displayNameOf(user as unknown as { username: string; display_name?: string }) !== user.username && <div className="text-[10px] text-gray-500 font-mono">@{user.username}</div>}
                         <span className="px-1.5 py-0.2 rounded-sm bg-black/5 dark:bg-white/[0.08] border border-black/10 dark:border-white/10 font-mono text-[9px] text-gray-600 dark:text-gray-300 capitalize">
                           {user.role}
                         </span>
@@ -232,8 +248,27 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
             <LocaleSwitcher compact />
           </div>
         </div>
+        {/* mobile navLinks row when lg hidden */}
+        <div className="lg:hidden border-t border-black/5 dark:border-white/[0.06] bg-surface/60 backdrop-blur">
+          <nav className="max-w-7xl mx-auto px-3 py-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar">
+            {navLinks.map((tab) => {
+              const Icon = tab.icon;
+              const active = pathname.startsWith(tab.href);
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap transition-all ${active ? "bg-primary text-white keep-white border border-primary shadow-xs font-semibold" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.04] border border-transparent"}`}
+                >
+                  <Icon className="w-3.5 h-3.5" strokeWidth={1.6} />
+                  <span>{tab.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
       </header>
-
     </>
   );
 };
+

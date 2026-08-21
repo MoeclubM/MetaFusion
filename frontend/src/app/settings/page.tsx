@@ -210,17 +210,24 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
+      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar />
-      <main className="max-w-3xl mx-auto px-4 py-5 w-full flex-1 space-y-4 sm:space-y-5">
-        <div className="space-y-1">
+      <main className="relative z-10 max-w-3xl mx-auto px-4 py-5 w-full flex-1 space-y-5">
+        <div className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary">
+            <Settings className="w-3.5 h-3.5" />
+            <span>ACCOUNT SETTINGS · ARCHIVE IDENTITY</span>
+          </div>
           <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
-            <span className="w-7.5 h-7.5 rounded-md bg-primary/10 text-primary grid place-items-center">
+            <span className="w-7 h-7 rounded-sm bg-primary/10 border border-primary/20 text-primary grid place-items-center">
               <Settings className="w-4 h-4" strokeWidth={1.7} />
             </span>
             <span>{t("settings.title")}</span>
           </h1>
-          <p className="font-mono text-xs text-gray-500">{t("settings.subtitle")}</p>
+          <p className="font-mono text-[11px] text-gray-500">{t("settings.subtitle")}</p>
         </div>
 
         <div className="flex gap-1 p-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] w-fit overflow-x-auto">
@@ -275,7 +282,7 @@ export default function SettingsPage() {
           </button>
         </div>
 
-        <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface shadow-soft overflow-hidden">
+        <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
           {activeTab === "profile" && (
             <div className="p-4 sm:p-5 space-y-3.5">
               {error && (

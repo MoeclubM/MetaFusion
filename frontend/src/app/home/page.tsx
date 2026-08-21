@@ -20,14 +20,13 @@ import {
   BookOpen,
   Image as ImageIcon,
   Gamepad2,
-  Cpu,
   ChevronRight,
   MessageCircle,
-  Tag as TagIcon,
   Settings2,
+  Database,
 } from "lucide-react";
 
-const SHELF_ICONS: Record<string, any> = {
+const SHELF_ICONS: Record<string, React.ElementType> = {
   video: Film,
   movies: Film,
   "anime-movies": Film,
@@ -45,6 +44,30 @@ const SHELF_ICONS: Record<string, any> = {
   comics: ImageIcon,
   special: Sparkles,
 };
+
+const SHELF_COLORS: Record<string, string> = {
+  music: "bg-amber-500/10 border-amber-500/20 text-amber-500",
+  soundtracks: "bg-amber-500/10 border-amber-500/20 text-amber-500",
+  classical: "bg-amber-500/10 border-amber-500/20 text-amber-500",
+  video: "bg-sky-500/10 border-sky-500/20 text-sky-500",
+  movies: "bg-sky-500/10 border-sky-500/20 text-sky-500",
+  "anime-movies": "bg-sky-500/10 border-sky-500/20 text-sky-500",
+  series: "bg-sky-500/10 border-sky-500/20 text-sky-500",
+  "anime-series": "bg-sky-500/10 border-sky-500/20 text-sky-500",
+  "anime-hub": "bg-sky-500/10 border-sky-500/20 text-sky-500",
+  special: "bg-purple-500/10 border-purple-500/20 text-purple-500",
+  book: "bg-rose-500/10 border-rose-500/20 text-rose-500",
+  books: "bg-rose-500/10 border-rose-500/20 text-rose-500",
+  comic: "bg-rose-500/10 border-rose-500/20 text-rose-500",
+  comics: "bg-rose-500/10 border-rose-500/20 text-rose-500",
+  audiobooks: "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
+};
+
+function getShelfColor(key: string, mediaType?: string): string {
+  if (SHELF_COLORS[key]) return SHELF_COLORS[key];
+  if (mediaType && SHELF_COLORS[mediaType]) return SHELF_COLORS[mediaType];
+  return "bg-primary/10 border-primary/20 text-primary";
+}
 
 function matchesShelfTags(work: Work, queryTags: string[], requireAll: boolean, excludeTags: string[]): boolean {
   const wTags = (work.tags || []).map((t) => t.name);
@@ -282,12 +305,28 @@ function HomeShowcaseContent() {
   publicCache.forEach((v, k) => { if (!customMap.has(k)) customMap.set(k, v); });
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
+      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 py-5 w-full flex-1 space-y-6">
-        {/* Channels Quick Navigation + Configure */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full flex-1 space-y-5">
+        {/* Terminal Header */}
+        <div className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary">
+                <Database className="w-3.5 h-3.5" />
+                <span>HOME SHELVES · FRBR ARCHIVE</span>
+              </div>
+              <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">Home Showcase</h1>
+            </div>
+            <div className="font-mono text-[11px] text-gray-500 flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/10 dark:border-white/10">{t("home.channelWorksCount", { count: allKeysOrdered.length })} Channels</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
           {allKeysOrdered.map((key) => {
             const isCustom = key.startsWith("custom:");
             const sys = !isCustom ? systemMap.get(key) : null;
@@ -319,6 +358,7 @@ function HomeShowcaseContent() {
             <Settings2 className="w-3.5 h-3.5" />
             <span>{t("shelf.customize")}</span>
           </button>
+        </div>
         </div>
 
         {/* Channel Showcases */}
@@ -366,15 +406,15 @@ function HomeShowcaseContent() {
                 <section key={key} id={`shelf-${key}`} className="space-y-3 scroll-mt-16">
                   <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/[0.06] pb-2">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-md bg-primary/10 text-primary grid place-items-center">
+                      <div className={`w-7 h-7 rounded-sm grid place-items-center border ${getShelfColor(key, isCustom ? cs?.media_type : sys?.media_type)}`}>
                         <Icon className="w-3.5 h-3.5" strokeWidth={1.8} />
                       </div>
                       <div>
-                        <h2 className="text-sm font-semibold text-gray-900 dark:text-white tracking-tight flex items-center gap-1.5">
+                        <h2 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm flex items-center gap-1.5">
                           {shelfTitle}
                           {isCustom && <span className="px-1.5 py-0.2 rounded-sm bg-primary/10 text-primary border border-primary/20 font-mono text-[9px]">自建</span>}
                         </h2>
-                        <p className="font-mono text-[10px] text-gray-500">
+                        <p className="font-mono text-[11px] text-gray-500">
                           {t("home.channelWorksCount", { count: shelfWorks.length })}
                           {isCustom && cs?.query_tags?.length ? ` · ${(cs.query_tags || []).join(", ")}` : ""}
                         </p>
@@ -391,7 +431,7 @@ function HomeShowcaseContent() {
                   </div>
 
                   {shelfWorks.length === 0 ? (
-                    <div className="p-6 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 text-center space-y-1.5">
+                    <div className="p-6 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-1.5">
                       <p className="font-mono text-xs text-gray-500">{t("home.channelEmpty")}</p>
                       <Link
                         href="/works/new"
@@ -406,7 +446,7 @@ function HomeShowcaseContent() {
                         <Link
                           key={w.id}
                           href={`/works/${w.id}`}
-                          className="group relative rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-2xs hover:shadow-elevated hover:border-primary/50 transition-all flex flex-col"
+                          className="group relative rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs hover:shadow-elevated hover:border-primary/50 transition-all flex flex-col"
                         >
                           <div className="aspect-[3/4] w-full bg-black/5 dark:bg-black/40 relative overflow-hidden">
                             {w.cover_image_url ? (
@@ -465,30 +505,32 @@ function HomeShowcaseContent() {
         )}
 
         {topics.length > 0 && (
-          <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface p-4 sm:p-5 space-y-3 shadow-soft">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <MessageCircle className="w-4 h-4 text-purple-500" />
-                <h2 className="font-semibold text-gray-900 dark:text-white text-sm">
-                  {t("home.communityTitle")}
-                </h2>
+          <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
+            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2">
+              <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary">
+                <MessageCircle className="w-3.5 h-3.5" />
+                <span>COMMUNITY FORUM</span>
               </div>
-              <Link href="/community" className="font-mono text-xs text-primary hover:underline flex items-center gap-1">
+              <Link href="/community" className="font-mono text-xs text-primary hover:underline flex items-center gap-1 font-medium">
                 <span>{t("home.enterForum")}</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </Link>
+            </div>
+            <div className="flex items-center gap-2">
+              <h2 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("home.communityTitle")}</h2>
+              <span className="font-mono text-[11px] text-gray-500">— {t("home.boardFallback")}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
               {topics.map((tp) => (
                 <Link
                   key={tp.id}
                   href={`/community/${tp.id}`}
-                  className="p-2.5 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 hover:border-primary/40 transition-colors space-y-1 block"
+                  className="p-3 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/[0.06] hover:border-primary/40 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition-all space-y-1 block group"
                 >
-                  <h4 className="font-medium text-xs text-gray-900 dark:text-white line-clamp-1 hover:text-primary">
+                  <h4 className="font-semibold text-xs text-gray-900 dark:text-white line-clamp-1 group-hover:text-primary transition-colors">
                     {tp.title}
                   </h4>
-                  <div className="flex items-center justify-between font-mono text-[10px] text-gray-500">
+                  <div className="flex items-center justify-between font-mono text-[11px] text-gray-500">
                     <span>{tp.board_code || t("home.boardFallback")}</span>
                     <span>{String(tp.created_at || "").slice(0, 10)}</span>
                   </div>

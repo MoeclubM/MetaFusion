@@ -8,13 +8,12 @@ import { MultipartUploader } from "@/components/MultipartUploader";
 import { fetchApi, Work, Release, DiscussionTopic, Category, categoryDisplayName, getRoleName } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { Layers, MessageSquare, User, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Star, ArrowUpRight, Edit3, History, GitMerge } from "lucide-react";
+import { Layers, MessageSquare, User, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Star, ArrowUpRight, Edit3, History, GitMerge, Database } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { TemporalBadge } from "@/components/entity/TemporalBadge";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
-
 export default function WorkDirectoryPage() {
   const params = useParams();
   const workId = params.id as string;
@@ -90,14 +89,17 @@ export default function WorkDirectoryPage() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   if (loadingWork) {
-    return <div className="min-h-screen bg-background text-gray-500 grid place-items-center font-mono text-xs">{t("work.detail.loading")}</div>;
+    return <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center font-mono text-xs text-gray-500">{t("work.detail.loading")}</div></div>;
   }
 
   if (!work) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
+        <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
         <Navbar />
-        <div className="max-w-7xl mx-auto px-4 py-20 text-center font-mono text-xs text-gray-500">{t("common.notFoundWork")}</div>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 py-20 text-center font-mono text-xs text-gray-500">{t("common.notFoundWork")}</div>
       </div>
     );
   }
@@ -105,9 +107,12 @@ export default function WorkDirectoryPage() {
   const meta = work.catalog_metadata || {};
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
+      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar onOpenUpload={() => setIsUploaderOpen(true)} />
-      <main className="max-w-7xl mx-auto px-4 py-5 w-full space-y-4 sm:space-y-5 flex-1">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full space-y-5 flex-1">
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
           <Link href="/explore" className="hover:text-primary transition-colors">{t("work.detail.explore")}</Link>
           <span className="text-gray-400 dark:text-white/20">/</span>
@@ -116,8 +121,12 @@ export default function WorkDirectoryPage() {
           <span className="text-gray-900 dark:text-white truncate max-w-[40ch]">{work.title}</span>
         </div>
 
-        <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 p-4 sm:p-5">
+        <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden space-y-3">
+          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary border-b border-black/5 dark:border-white/[0.06] pb-3">
+            <Database className="w-3.5 h-3.5" />
+            <span>WORK ARCHIVE · FRBR ENTITY</span>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
             <div className="w-32 sm:w-40 shrink-0">
               <div className="aspect-[3/4] rounded-md overflow-hidden border border-black/10 dark:border-white/10 bg-background shadow-xs">
                 {work.cover_image_url ? (
@@ -188,7 +197,7 @@ export default function WorkDirectoryPage() {
           </div>
         </section>
 
-        <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
+        <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
           <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-2">
               <span className="w-7 h-7 grid place-items-center rounded-md bg-sky-500/10 border border-sky-500/20">
@@ -219,7 +228,7 @@ export default function WorkDirectoryPage() {
           {loadingReleases ? (
             <div className="p-8 text-center font-mono text-xs text-gray-500">{t("work.detail.loadingReleases")}</div>
           ) : releases.length === 0 ? (
-            <div className="p-8 text-center font-mono text-xs text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : user ? t("work.detail.beFirstUploader") : ""}</div>
+            <div className="p-8 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center font-mono text-xs text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : user ? t("work.detail.beFirstUploader") : ""}</div>
           ) : (
             <>
               <div className="hidden sm:block overflow-x-auto">
@@ -299,8 +308,8 @@ export default function WorkDirectoryPage() {
           )}
         </section>
 
-        <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface p-4 shadow-soft">
-          <div className="flex items-center justify-between">
+        <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft">
+          <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2">
             <h3 className="font-display text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
               <MessageSquare className="w-3.5 h-3.5 text-emerald-500" strokeWidth={1.5} />
               <span>{t("work.detail.relatedTopics")}</span>

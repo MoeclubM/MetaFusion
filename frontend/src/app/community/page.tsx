@@ -150,11 +150,14 @@ function CommunityContent() {
   const currentBoard = getBoard(selectedBoard);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-xs">
+    <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white text-xs">
+      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar />
 
       {/* Forum layout: sidebar + topic stream */}
-      <div className="flex-1 w-full max-w-[1440px] mx-auto flex items-stretch">
+      <div className="relative z-10 flex-1 w-full max-w-[1440px] mx-auto flex items-stretch">
         {/* ===================== Left board sidebar ===================== */}
         {/* Desktop */}
         <aside className="hidden lg:flex w-[280px] shrink-0 flex-col border-r border-surfaceBorder bg-background sticky top-12 h-[calc(100vh-3rem)] overflow-hidden">

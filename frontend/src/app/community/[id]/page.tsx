@@ -135,15 +135,18 @@ export default function TopicDetailPage() {
   const opPost: ForumPost | null = firstPost;
 
   return (
-    <div className="min-h-screen flex flex-col pb-24 bg-background text-xs">
+    <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white pb-24 text-xs">
+      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 py-6 w-full flex-1">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 py-6 w-full flex-1">
         <div className="flex flex-col lg:flex-row gap-6 items-start">
           {/* Left / Main Post Stream */}
           <div className="flex-1 space-y-6 w-full min-w-0">
             {/* Topic Header */}
-            <div className="space-y-3 border-b border-surfaceBorder pb-4">
+            <div className="space-y-3 border-b border-black/5 dark:border-white/[0.06] pb-4">
               <div className="flex items-center space-x-2 flex-wrap gap-1">
                 <Link
                   href="/community"

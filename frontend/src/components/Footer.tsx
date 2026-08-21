@@ -3,9 +3,9 @@ import { Github } from "lucide-react";
 
 export function Footer() {
   return (
-    <footer className="border-t border-black/5 dark:border-white/[0.06] py-3.5 mt-auto pb-[max(1rem,env(safe-area-inset-bottom))]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-[11px] font-mono text-gray-500 dark:text-white/35">
-        <span>© 2026 MoeClub Ltd · All Rights Reserved</span>
+    <footer className="relative z-10 w-full border-t border-black/5 dark:border-white/[0.06] py-3 mt-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-2 font-mono text-[11px] text-gray-500 dark:text-white/35">
+        <span>© 2026 MoeClub Ltd · Open Archival Engine</span>
         <a
           href="https://github.com/MoeclubM/MetaFusion"
           target="_blank"

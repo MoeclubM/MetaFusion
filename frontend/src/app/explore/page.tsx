@@ -224,30 +224,36 @@ function ExploreContent() {
       : t("explore.searchPlaceholder");
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
+      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 py-5 w-full flex-1 space-y-4 sm:space-y-5">
-        {/* Header + Search */}
-        <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface p-3.5 sm:p-4 space-y-3 shadow-soft">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div>
-              <h1 className="font-display text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <SlidersHorizontal className="w-4 h-4 text-primary" />
+      <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full flex-1 space-y-5">
+        {/* Header + Search — Terminal Card */}
+        <div className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-black/5 dark:border-white/[0.06] pb-3">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary">
+                <Layers className="w-3.5 h-3.5" />
+                <span>ARCHIVE EXPLORER · FRBR CATALOG</span>
+              </div>
+              <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
                 <span>{t("explore.title")}</span>
               </h1>
-              <p className="font-mono text-[11px] text-gray-500 mt-0.5">{t("explore.subtitle")}</p>
+              <p className="font-mono text-[11px] text-gray-500">{t("explore.subtitle")}</p>
             </div>
 
             <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md">
               <div className="relative flex items-center">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
                   placeholder={placeholderByType}
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
-                  className="w-full pl-9 pr-8 h-8.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary/60 font-mono transition-all"
+                  className="w-full pl-10 pr-10 h-10 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 font-mono transition-all"
                 />
                 {searchInput && (
                   <button
@@ -511,12 +517,12 @@ function ExploreContent() {
               ))}
             </div>
           ) : works.length === 0 ? (
-            <div className="p-8 sm:p-10 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-center space-y-3 shadow-soft">
-              <div className="w-10 h-10 rounded-md bg-primary/10 text-primary grid place-items-center mx-auto">
+            <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
+              <div className="w-10 h-10 rounded-sm bg-primary/10 border border-primary/20 text-primary grid place-items-center mx-auto">
                 <Disc3 className="w-5 h-5 animate-spin-slow" />
               </div>
               <div className="space-y-0.5">
-                <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{t("explore.noMatchTitle")}</h3>
+                <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noMatchTitle")}</h3>
                 <p className="font-mono text-xs text-gray-500 max-w-sm mx-auto">{t("explore.noMatchHint")}</p>
               </div>
               <Link
@@ -533,7 +539,7 @@ function ExploreContent() {
                 <Link
                   key={w.id}
                   href={`/works/${w.id}`}
-                  className="group relative rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-2xs hover:shadow-elevated hover:border-primary/50 transition-all flex flex-col"
+                  className="group relative rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs hover:shadow-elevated hover:border-primary/50 transition-all flex flex-col"
                 >
                   <div className="aspect-[3/4] w-full bg-black/5 dark:bg-black/40 relative overflow-hidden">
                     {w.cover_image_url ? (
@@ -628,12 +634,12 @@ function ExploreContent() {
               ))}
             </div>
           ) : artists.length === 0 ? (
-            <div className="p-8 sm:p-10 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-center space-y-3 shadow-soft">
-              <div className="w-10 h-10 rounded-md bg-sky-500/10 text-sky-500 grid place-items-center mx-auto">
+            <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
+              <div className="w-10 h-10 rounded-sm bg-sky-500/10 border border-sky-500/20 text-sky-500 grid place-items-center mx-auto">
                 <Users className="w-5 h-5" />
               </div>
               <div className="space-y-0.5">
-                <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{t("explore.noArtistMatchTitle")}</h3>
+                <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noArtistMatchTitle")}</h3>
                 <p className="font-mono text-xs text-gray-500 max-w-sm mx-auto">{t("explore.noArtistMatchHint")}</p>
               </div>
               <Link
@@ -650,7 +656,7 @@ function ExploreContent() {
                 <Link
                   key={a.id}
                   href={`/artists/${a.id}`}
-                  className="group p-3 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface hover:border-primary/40 hover:shadow-elevated transition-all space-y-1.5"
+                  className="group p-3 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm hover:border-primary/40 hover:shadow-elevated transition-all space-y-1.5"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
@@ -682,12 +688,12 @@ function ExploreContent() {
             ))}
           </div>
         ) : releases.length === 0 ? (
-          <div className="p-8 sm:p-10 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-center space-y-3 shadow-soft">
-            <div className="w-10 h-10 rounded-md bg-emerald-500/10 text-emerald-500 grid place-items-center mx-auto">
+          <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
+            <div className="w-10 h-10 rounded-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 grid place-items-center mx-auto">
               <Disc className="w-5 h-5" />
             </div>
             <div className="space-y-0.5">
-              <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{t("explore.noReleaseMatchTitle")}</h3>
+              <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noReleaseMatchTitle")}</h3>
               <p className="font-mono text-xs text-gray-500 max-w-sm mx-auto">{t("explore.noReleaseMatchHint")}</p>
             </div>
             <Link
@@ -699,7 +705,7 @@ function ExploreContent() {
             </Link>
           </div>
         ) : (
-          <div className="rounded-lg border border-black/10 dark:border-white/10 bg-surface overflow-hidden shadow-2xs divide-y divide-black/[0.06] dark:divide-white/[0.06]">
+          <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs divide-y divide-black/[0.06] dark:divide-white/[0.06]">
             {releases.map((r) => (
               <Link
                 key={r.id}
