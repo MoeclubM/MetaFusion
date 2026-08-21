@@ -37,7 +37,7 @@ export const ThemePicker: React.FC = () => {
  type="button"
  onClick={() => setIsOpen(!isOpen)}
  title={t("settings.appearanceTitle")}
- className="w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-md bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 transition-colors"
+ className="w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-full bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 transition-colors"
  >
  {resolvedMode === "dark" ? (
  <Moon className="w-4 h-4 text-sky-400" strokeWidth={1.7} />

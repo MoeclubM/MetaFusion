@@ -83,6 +83,12 @@ export function UniversalEntityEditor({
 
   const initializeForm = () => {
     const d = { ...initialData };
+    if (targetType === "work" && !d.media_type) {
+      d.media_type = "movie";
+    }
+    if (targetType === "artist" && !d.entity_type) {
+      d.entity_type = "person";
+    }
     setFormData(d);
     if (Array.isArray(d.aliases)) {
       setAliasesStr(d.aliases.join(", "));
@@ -198,7 +204,6 @@ export function UniversalEntityEditor({
         }
       }
 
-      alert(mode === "edit" ? t("editor.universal.saveSuccess") : t("editor.universal.createSuccess"));
       onClose();
       if (onSuccess) onSuccess(result);
       else window.location.reload();
@@ -265,7 +270,7 @@ export function UniversalEntityEditor({
           <button
             type="button"
             onClick={() => setActiveTab("core")}
-            className={`px-4 py-2.5 rounded-t-lg border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "core"
                 ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
                 : "border-transparent text-gray-400 hover:text-gray-200"
@@ -277,7 +282,7 @@ export function UniversalEntityEditor({
           <button
             type="button"
             onClick={() => setActiveTab("temporal")}
-            className={`px-4 py-2.5 rounded-t-lg border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "temporal"
                 ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
                 : "border-transparent text-gray-400 hover:text-gray-200"
@@ -289,7 +294,7 @@ export function UniversalEntityEditor({
           <button
             type="button"
             onClick={() => setActiveTab("relations")}
-            className={`px-4 py-2.5 rounded-t-lg border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "relations"
                 ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
                 : "border-transparent text-gray-400 hover:text-gray-200"
@@ -301,7 +306,7 @@ export function UniversalEntityEditor({
           <button
             type="button"
             onClick={() => setActiveTab("external")}
-            className={`px-4 py-2.5 rounded-t-lg border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "external"
                 ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
                 : "border-transparent text-gray-400 hover:text-gray-200"
@@ -313,7 +318,7 @@ export function UniversalEntityEditor({
           <button
             type="button"
             onClick={() => setActiveTab("note")}
-            className={`px-4 py-2.5 rounded-t-lg border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "note"
                 ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
                 : "border-transparent text-gray-400 hover:text-gray-200"

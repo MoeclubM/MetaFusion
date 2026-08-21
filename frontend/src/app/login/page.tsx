@@ -52,6 +52,7 @@ function LoginInner() {
  setError(null);
  setSubmitting(true);
  try {
+ const redirectUrl = searchParams.get("redirect") || "/";
  if (isRegister) {
  const res = await fetchApi<{ user: any; token: string }>("/auth/register", {
  method: "POST",
@@ -63,7 +64,7 @@ function LoginInner() {
  }),
  });
  login(res.token, res.user);
- router.replace("/");
+ router.replace(redirectUrl);
  } else {
  const res = await fetchApi<{ user: any; token: string }>("/auth/login", {
  method: "POST",
@@ -73,7 +74,7 @@ function LoginInner() {
  }),
  });
  login(res.token, res.user);
- router.replace("/");
+ router.replace(redirectUrl);
  }
  } catch (err: any) {
  setError(err.message || t("auth.requestFailed"));

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { fetchApi, VirtualShelf, UserCustomShelf } from "@/lib/api";
+import { fetchApi, UserCustomShelf } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
 import {
   GripVertical,
@@ -15,13 +15,11 @@ import {
   RotateCcw,
   Sparkles,
   Pencil,
-  Layers,
   Film,
   Tv,
   Music,
   BookOpen,
   Image as ImageIcon,
-  Check,
 } from "lucide-react";
 
 const SHELF_ICONS: Record<string, React.ElementType> = {
@@ -53,9 +51,7 @@ function arrayMove<T>(arr: T[], from: number, to: number): T[] {
 export function HomeShelvesConfigModal({
   open,
   onClose,
-  systemShelves = [],
   customShelves,
-  hiddenSlugs = [],
   orderKeys,
   onSaveLayout,
   onCreateCustom,
@@ -63,14 +59,11 @@ export function HomeShelvesConfigModal({
   onDeleteCustom,
   onRefreshCustom,
   onResetDefaults,
-  onSyncPresets,
-  onForkPreset,
+  editShelfId,
 }: {
   open: boolean;
   onClose: () => void;
-  systemShelves?: VirtualShelf[];
   customShelves: UserCustomShelf[];
-  hiddenSlugs?: string[];
   orderKeys: string[];
   onSaveLayout: (hidden: string[], order: string[]) => Promise<void>;
   onCreateCustom: (payload: Partial<UserCustomShelf> & { slug: string; name_zh: string }) => Promise<void>;
@@ -78,8 +71,7 @@ export function HomeShelvesConfigModal({
   onDeleteCustom: (id: string) => Promise<void>;
   onRefreshCustom: () => Promise<void>;
   onResetDefaults?: () => Promise<void>;
-  onSyncPresets?: (overwrite?: boolean) => Promise<void>;
-  onForkPreset?: (slug: string) => Promise<void>;
+  editShelfId?: string | null;
 }) {
   const { t, locale } = useI18n();
 
@@ -106,6 +98,14 @@ export function HomeShelvesConfigModal({
   useEffect(() => {
     setLocalOrder(orderKeys);
   }, [orderKeys]);
+
+  // 外部指定要编辑的频道（如首页频道标题旁的铅笔入口），打开时直接进入编辑表单
+  useEffect(() => {
+    if (!open || !editShelfId) return;
+    const target = customShelves.find((c) => c.id === editShelfId);
+    if (target) openEditForm(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editShelfId]);
 
   useEffect(() => {
     if (!open) return;
@@ -220,8 +220,6 @@ export function HomeShelvesConfigModal({
     try {
       if (onResetDefaults) {
         await onResetDefaults();
-      } else if (onSyncPresets) {
-        await onSyncPresets(true);
       } else {
         await fetchApi("/catalog/shelves/custom/reset-defaults", { method: "POST" });
         await onRefreshCustom();

@@ -4,11 +4,19 @@ import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 
-const PUBLIC_PREFIXES = ["/login", "/register", "/docs", "/developers"];
+const PROTECTED_PREFIXES = [
+  "/admin",
+  "/settings",
+  "/invites",
+  "/contribute",
+  "/works/new",
+  "/releases/new",
+  "/artists/new",
+];
 
 function isProtectedPath(pathname: string | null): boolean {
   if (!pathname || pathname === "/") return false;
-  return !PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+  return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
 export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {

@@ -50,12 +50,25 @@ const config: Config = {
           "serif",
         ],
       },
+      // Landing-page-grade radii: inner pages share the hero's soft pill curvature.
+      // Small elements (chips, badges) clamp visually to near-pill since the radius
+      // dominates their height — matching the rounded-full signature of the landing page.
       borderRadius: {
-        card: "8px",
-        hero: "10px",
-        chip: "4px",
-        tech: "6px",
+        none: "0px",
+        xs: "8px",
+        sm: "12px",
+        DEFAULT: "16px",
+        md: "16px",
+        lg: "20px",
+        xl: "24px",
+        "2xl": "28px",
+        "3xl": "32px",
+        card: "20px",
+        hero: "24px",
+        chip: "10px",
+        tech: "12px",
         pill: "9999px",
+        full: "9999px",
       },
       boxShadow: {
         soft: "0 8px 24px -8px rgba(0,0,0,0.4)",

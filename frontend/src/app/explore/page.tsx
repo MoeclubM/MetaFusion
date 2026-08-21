@@ -14,6 +14,7 @@ import {
  ENTITY_TYPE_OPTIONS,
 } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { EntityCover } from "@/components/common/EntityCover";
 import {
  SlidersHorizontal,
  LayoutGrid,
@@ -42,10 +43,9 @@ function ExploreContent() {
  typeParam === "artists" || typeParam === "releases" ? typeParam : "works";
  const queryParam = searchParams.get("q") || "";
  const tagsParam = searchParams.get("tags") || "";
+ const tagMatchParam = searchParams.get("tag_match") === "all" ? "all" : "any";
+ const mediaTypeParam = searchParams.get("media_type") || "";
  const entityTypeParam = searchParams.get("entity_type") || "";
- const shelfParam = searchParams.get("shelf") || "";
- const customShelfParam = searchParams.get("custom_shelf") || "";
-
  const [works, setWorks] = useState<Work[]>([]);
  const [artists, setArtists] = useState<Artist[]>([]);
  const [releases, setReleases] = useState<Release[]>([]);
@@ -94,6 +94,11 @@ function ExploreContent() {
  if (nq) params.set("q", nq);
  const nTags = next.tags !== undefined ? next.tags : selectedTags;
  if (nt === "works" && nTags.length > 0) params.set("tags", nTags.join(","));
+ // 保留来自入口链接的媒体类型基础条件
+ if (nt === "works" && mediaTypeParam && mediaTypeParam !== "all") {
+ params.set("media_type", mediaTypeParam);
+ if (tagMatchParam === "all") params.set("tag_match", "all");
+ }
  const nEntity = next.entity_type !== undefined ? next.entity_type : selectedEntityType;
  if (nt === "artists" && nEntity) params.set("entity_type", nEntity);
  const qs = params.toString();
@@ -107,6 +112,10 @@ function ExploreContent() {
  if (nt !== "works") p.set("type", nt);
  if (queryParam) p.set("q", queryParam);
  if (nt === "works" && selectedTags.length > 0) p.set("tags", selectedTags.join(","));
+ if (nt === "works" && mediaTypeParam && mediaTypeParam !== "all") {
+ p.set("media_type", mediaTypeParam);
+ if (tagMatchParam === "all") p.set("tag_match", "all");
+ }
  if (nt === "artists" && selectedEntityType) p.set("entity_type", selectedEntityType);
  const qs = p.toString();
  return qs ? `/explore?${qs}` : "/explore";
@@ -118,9 +127,11 @@ function ExploreContent() {
  setLoading(true);
  try {
  const params = new URLSearchParams();
- if (shelfParam) params.append("shelf", shelfParam);
- if (customShelfParam) params.append("custom_shelf", customShelfParam);
- if (selectedTags.length > 0) params.append("tags", selectedTags.join(","));
+ // URL 基础条件（来自首页频道等入口）与用户手动勾选的 tags 合并去重
+ const mergedTags = Array.from(new Set([...(tagsParam ? tagsParam.split(",").filter(Boolean) : []), ...selectedTags]));
+ if (mergedTags.length > 0) params.append("tags", mergedTags.join(","));
+ if (mergedTags.length > 0 && tagMatchParam === "all") params.append("tag_match", "all");
+ if (mediaTypeParam) params.append("media_type", mediaTypeParam);
  if (queryParam) params.append("q", queryParam);
  const res = await fetchApi<{ items: Work[]; total: number }>(`/catalog/works?${params.toString()}`);
  let items = res.items || [];
@@ -179,7 +190,7 @@ function ExploreContent() {
  else if (activeType === "artists") loadArtists();
  else loadReleases();
  // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [activeType, selectedTags, queryParam, selectedEntityType, sortBy, shelfParam, customShelfParam]);
+ }, [activeType, selectedTags, queryParam, selectedEntityType, sortBy, tagsParam, tagMatchParam, mediaTypeParam]);
 
  const handleToggleTag = (tagName: string) => {
  const nextTags = selectedTags.includes(tagName)
@@ -204,7 +215,14 @@ function ExploreContent() {
  setSearchInput("");
  setSelectedTags([]);
  setSelectedEntityType("");
- router.push(activeType === "works" ? "/explore" : `/explore?type=${activeType}`);
+ // 保留入口链接带来的基础检索条件（媒体类型/标签规则），只清用户手动筛选
+ const p = new URLSearchParams();
+ if (mediaTypeParam && mediaTypeParam !== "all") {
+ p.set("media_type", mediaTypeParam);
+ if (tagMatchParam === "all") p.set("tag_match", "all");
+ }
+ const qs = p.toString();
+ router.push(qs ? `/explore?${qs}` : activeType === "works" ? "/explore" : `/explore?type=${activeType}`);
  };
 
  const tagGroupLabels: Record<string, string> = {
@@ -454,7 +472,7 @@ function ExploreContent() {
  </div>
 
  {/* Filter State Bar */}
- {(queryParam || selectedTags.length > 0 || selectedEntityType) && (
+ {(queryParam || selectedTags.length > 0 || selectedEntityType || mediaTypeParam) && (
  <div className="flex items-center justify-between font-mono text-sm text-gray-500 px-1 flex-wrap gap-2">
  <div className="flex items-center gap-2 flex-wrap">
  <span>
@@ -464,6 +482,16 @@ function ExploreContent() {
  ? t("explore.filterResultArtists", { count: total })
  : t("explore.filterResultReleases", { count: total })}
  </span>
+ {mediaTypeParam && mediaTypeParam !== "all" && (
+ <span className="px-2.5 py-1 rounded-md bg-sky-500/10 text-sky-500 border border-sky-500/20 flex items-center gap-2 font-mono text-sm">
+ <span>{t(`home.shelves.media${mediaTypeParam.charAt(0).toUpperCase()}${mediaTypeParam.slice(1)}`)}</span>
+ </span>
+ )}
+ {tagsParam && (
+ <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-2 font-mono text-sm">
+ <span>{tagsParam.split(",").filter(Boolean).map((tg) => `#${tg}`).join(tagMatchParam === "all" ? " & " : " / ")}</span>
+ </span>
+ )}
  {selectedTags.map((tagName) => (
  <span
  key={tagName}
@@ -537,13 +565,15 @@ function ExploreContent() {
  className="group relative rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs hover:shadow-elevated hover:border-primary/50 transition-all flex flex-col"
  >
  <div className="aspect-[3/4] w-full bg-black/5 dark:bg-black/40 relative overflow-hidden">
- {w.cover_image_url ? (
- <img src={w.cover_image_url} alt={w.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
- ) : (
- <div className="w-full h-full grid place-items-center text-gray-400">
- <Disc3 className="w-8 h-8 opacity-30" />
- </div>
- )}
+ <EntityCover
+ src={w.cover_image_url}
+ alt={w.title}
+ title={w.title}
+ originalTitle={w.original_title}
+ mediaType={w.media_type}
+ id={w.id}
+ imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+ />
  <div className="absolute top-1.5 left-1.5 px-2.5 py-1 rounded-sm bg-black/70 backdrop-blur-md text-xs font-mono text-white keep-white">
  {w.media_type || t("home.workFallback")}
  </div>
@@ -585,13 +615,15 @@ function ExploreContent() {
  >
  <div className="flex items-center gap-3 min-w-0">
  <div className="w-9 h-12 rounded-sm bg-black/5 dark:bg-black/40 overflow-hidden shrink-0">
- {w.cover_image_url ? (
- <img src={w.cover_image_url} alt={w.title} className="w-full h-full object-cover" />
- ) : (
- <div className="w-full h-full grid place-items-center text-gray-400">
- <Disc3 className="w-4 h-4 opacity-30" />
- </div>
- )}
+ <EntityCover
+ src={w.cover_image_url}
+ alt={w.title}
+ title={w.title}
+ originalTitle={w.original_title}
+ mediaType={w.media_type}
+ id={w.id}
+ imgClassName="w-full h-full object-cover"
+ />
  </div>
  <div className="space-y-0.5 min-w-0">
  <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate group-hover:text-primary transition-colors">
