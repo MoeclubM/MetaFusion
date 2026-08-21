@@ -10,254 +10,254 @@ import { BrandMark } from "@/components/Logo";
 import { ThemePicker } from "@/components/ThemePicker";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import {
-  User,
-  Mail,
-  Lock,
-  KeyRound,
-  ShieldCheck,
-  ArrowRight,
-  AlertCircle,
+ User,
+ Mail,
+ Lock,
+ KeyRound,
+ ShieldCheck,
+ ArrowRight,
+ AlertCircle,
 } from "lucide-react";
 
 function LoginInner() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { user, login } = useAuth();
-  const { t } = useI18n();
+ const router = useRouter();
+ const searchParams = useSearchParams();
+ const { user, login } = useAuth();
+ const { t } = useI18n();
 
-  const tabParam = searchParams.get("tab");
-  const [isRegister, setIsRegister] = useState(tabParam === "register");
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [inviteCode, setInviteCode] = useState(searchParams.get("invite") || "");
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [authSettings, setAuthSettings] = useState<{ registration_enabled: boolean; invite_required: boolean } | null>(null);
+ const tabParam = searchParams.get("tab");
+ const [isRegister, setIsRegister] = useState(tabParam === "register");
+ const [username, setUsername] = useState("");
+ const [email, setEmail] = useState("");
+ const [password, setPassword] = useState("");
+ const [inviteCode, setInviteCode] = useState(searchParams.get("invite") || "");
+ const [error, setError] = useState<string | null>(null);
+ const [submitting, setSubmitting] = useState(false);
+ const [authSettings, setAuthSettings] = useState<{ registration_enabled: boolean; invite_required: boolean } | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      router.replace("/");
-    }
-  }, [user, router]);
+ useEffect(() => {
+ if (user) {
+ router.replace("/");
+ }
+ }, [user, router]);
 
-  useEffect(() => {
-    fetchApi<{ registration_enabled: boolean; invite_required: boolean }>("/auth/settings")
-      .then((s) => setAuthSettings(s))
-      .catch(() => setAuthSettings({ registration_enabled: true, invite_required: true }));
-  }, []);
+ useEffect(() => {
+ fetchApi<{ registration_enabled: boolean; invite_required: boolean }>("/auth/settings")
+ .then((s) => setAuthSettings(s))
+ .catch(() => setAuthSettings({ registration_enabled: true, invite_required: true }));
+ }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-    try {
-      if (isRegister) {
-        const res = await fetchApi<{ user: any; token: string }>("/auth/register", {
-          method: "POST",
-          body: JSON.stringify({
-            username: username.trim(),
-            email: email.trim(),
-            password,
-            invite_code: inviteCode.trim() || undefined,
-          }),
-        });
-        login(res.token, res.user);
-        router.replace("/");
-      } else {
-        const res = await fetchApi<{ user: any; token: string }>("/auth/login", {
-          method: "POST",
-          body: JSON.stringify({
-            email_or_username: username.trim() || email.trim(),
-            password,
-          }),
-        });
-        login(res.token, res.user);
-        router.replace("/");
-      }
-    } catch (err: any) {
-      setError(err.message || t("auth.requestFailed"));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+ const handleSubmit = async (e: React.FormEvent) => {
+ e.preventDefault();
+ setError(null);
+ setSubmitting(true);
+ try {
+ if (isRegister) {
+ const res = await fetchApi<{ user: any; token: string }>("/auth/register", {
+ method: "POST",
+ body: JSON.stringify({
+ username: username.trim(),
+ email: email.trim(),
+ password,
+ invite_code: inviteCode.trim() || undefined,
+ }),
+ });
+ login(res.token, res.user);
+ router.replace("/");
+ } else {
+ const res = await fetchApi<{ user: any; token: string }>("/auth/login", {
+ method: "POST",
+ body: JSON.stringify({
+ email_or_username: username.trim() || email.trim(),
+ password,
+ }),
+ });
+ login(res.token, res.user);
+ router.replace("/");
+ }
+ } catch (err: any) {
+ setError(err.message || t("auth.requestFailed"));
+ } finally {
+ setSubmitting(false);
+ }
+ };
 
-  return (
-    <div className="h-[100dvh] max-h-[100dvh] overflow-hidden bg-background relative flex flex-col p-4 sm:p-5">
-      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" />
-      <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
+ return (
+ <div className="h-[100dvh] max-h-[100dvh] overflow-hidden bg-background relative flex flex-col p-4 sm:p-5">
+ <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" />
+ <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+ <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
 
-      <header className="relative z-10 w-full max-w-5xl mx-auto flex items-center justify-between shrink-0">
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <BrandMark size={28} withGlow idSuffix="login" />
-          <span className="flex flex-col leading-none">
-            <span className="font-display text-xl tracking-[-0.03em] text-gray-900 dark:text-white">MetaFusion</span>
-            <span className="font-mono text-[8px] tracking-[0.16em] text-gray-500 dark:text-white/35 mt-[2px]">SINCE 2026</span>
-          </span>
-        </Link>
-        <div className="flex items-center gap-2">
-          <ThemePicker />
-          <LocaleSwitcher compact />
-        </div>
-      </header>
+ <header className="relative z-10 w-full max-w-5xl mx-auto flex items-center justify-between shrink-0">
+ <Link href="/" className="flex items-center gap-2.5 group">
+ <BrandMark size={28} withGlow idSuffix="login" />
+ <span className="flex flex-col leading-none">
+ <span className="font-display text-xl tracking-[-0.03em] text-gray-900 dark:text-white">MetaFusion</span>
+ <span className="font-mono text-[8px] tracking-[0.16em] text-gray-500 dark:text-white/35 mt-[2px]">SINCE 2026</span>
+ </span>
+ </Link>
+ <div className="flex items-center gap-2">
+ <ThemePicker />
+ <LocaleSwitcher compact />
+ </div>
+ </header>
 
-      <main className="relative z-10 flex-1 min-h-0 grid place-items-center py-3">
-        <div className="w-full max-w-md max-h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden animate-scale-in">
-            <div className="p-4 sm:p-5 pb-3 border-b border-black/[0.06] dark:border-white/[0.06]">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-                    {isRegister ? t("auth.joinTitle") : t("auth.welcomeBack")}
-                  </h1>
-                  <p className="font-mono text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    {isRegister ? t("auth.joinSubtitle") : t("auth.loginSubtitle")}
-                  </p>
-                </div>
-                <div className="w-8 h-8 rounded-md bg-black/5 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 grid place-items-center text-primary shrink-0">
-                  <ShieldCheck className="w-4 h-4" strokeWidth={1.6} />
-                </div>
-              </div>
+ <main className="relative z-10 flex-1 min-h-0 grid place-items-center py-3">
+ <div className="w-full max-w-md max-h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+ <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden animate-scale-in">
+ <div className="p-4 sm:p-5 pb-3 border-b border-black/[0.06] dark:border-white/[0.06]">
+ <div className="flex items-center justify-between gap-3">
+ <div className="min-w-0">
+ <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+ {isRegister ? t("auth.joinTitle") : t("auth.welcomeBack")}
+ </h1>
+ <p className="font-mono text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+ {isRegister ? t("auth.joinSubtitle") : t("auth.loginSubtitle")}
+ </p>
+ </div>
+ <div className="w-8 h-8 rounded-md bg-black/5 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 grid place-items-center text-primary shrink-0">
+ <ShieldCheck className="w-4 h-4" strokeWidth={1.6} />
+ </div>
+ </div>
 
-              <div className="flex gap-1 mt-3 bg-black/[0.04] dark:bg-white/[0.04] p-0.5 rounded-md border border-black/[0.06] dark:border-white/[0.06]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsRegister(false);
-                    setError(null);
-                  }}
-                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    !isRegister
-                      ? "bg-surface text-gray-900 dark:text-white shadow-xs font-semibold"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                  }`}
-                >
-                  {t("nav.login")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsRegister(true);
-                    setError(null);
-                  }}
-                  className={`flex-1 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    isRegister
-                      ? "bg-surface text-gray-900 dark:text-white shadow-xs font-semibold"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                  }`}
-                >
-                  {t("auth.gate.genesisRegister")}
-                </button>
-              </div>
-            </div>
+ <div className="flex gap-2 mt-3 bg-black/[0.04] dark:bg-white/[0.04] p-0.5 rounded-md border border-black/[0.06] dark:border-white/[0.06]">
+ <button
+ type="button"
+ onClick={() => {
+ setIsRegister(false);
+ setError(null);
+ }}
+ className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
+ !isRegister
+ ? "bg-surface text-gray-900 dark:text-white shadow-xs font-semibold"
+ : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+ }`}
+ >
+ {t("nav.login")}
+ </button>
+ <button
+ type="button"
+ onClick={() => {
+ setIsRegister(true);
+ setError(null);
+ }}
+ className={`flex-1 py-1.5 rounded-md text-sm font-medium transition-all ${
+ isRegister
+ ? "bg-surface text-gray-900 dark:text-white shadow-xs font-semibold"
+ : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+ }`}
+ >
+ {t("auth.gate.genesisRegister")}
+ </button>
+ </div>
+ </div>
 
-            {error && (
-              <div className="mx-4 sm:mx-5 mt-3 p-2.5 rounded-md bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-300 font-mono text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+ {error && (
+ <div className="mx-4 sm:mx-5 mt-3 p-4 rounded-md bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-300 font-mono text-sm flex items-center gap-2">
+ <AlertCircle className="w-4 h-4 shrink-0" />
+ <span>{error}</span>
+ </div>
+ )}
 
-            <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3">
-              <div className="space-y-1">
-                <label className="font-mono text-[11px] text-gray-600 dark:text-gray-400">
-                  {isRegister ? t("auth.username") : t("auth.gate.emailOrUsername")}
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
-                  <input
-                    type="text"
-                    required
-                    placeholder={isRegister ? t("auth.gate.usernamePlaceholderRegister") : t("auth.gate.usernamePlaceholderLogin")}
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="w-full pl-9 pr-3 h-8.5 bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs placeholder:text-gray-400 focus:outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
+ <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-3">
+ <div className="space-y-1">
+ <label className="font-mono text-sm text-gray-600 dark:text-gray-400">
+ {isRegister ? t("auth.username") : t("auth.gate.emailOrUsername")}
+ </label>
+ <div className="relative">
+ <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+ <input
+ type="text"
+ required
+ placeholder={isRegister ? t("auth.gate.usernamePlaceholderRegister") : t("auth.gate.usernamePlaceholderLogin")}
+ value={username}
+ onChange={(e) => setUsername(e.target.value)}
+ className="w-full pl-11 pr-3 h-10 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
+ />
+ </div>
+ </div>
 
-              {isRegister && (
-                <div className="space-y-1 animate-fade-in">
-                  <label className="font-mono text-[11px] text-gray-600 dark:text-gray-400">
-                    {t("auth.emailOptional")}
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
-                    <input
-                      type="email"
-                      placeholder="user@example.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-9 pr-3 h-8.5 bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs placeholder:text-gray-400 focus:outline-none focus:border-primary"
-                    />
-                  </div>
-                </div>
-              )}
+ {isRegister && (
+ <div className="space-y-1 animate-fade-in">
+ <label className="font-mono text-sm text-gray-600 dark:text-gray-400">
+ {t("auth.emailOptional")}
+ </label>
+ <div className="relative">
+ <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+ <input
+ type="email"
+ placeholder="user@example.com"
+ value={email}
+ onChange={(e) => setEmail(e.target.value)}
+ className="w-full pl-11 pr-3 h-10 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
+ />
+ </div>
+ </div>
+ )}
 
-              <div className="space-y-1">
-                <label className="font-mono text-[11px] text-gray-600 dark:text-gray-400">
-                  {t("auth.password")}
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
-                  <input
-                    type="password"
-                    required
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 h-8.5 bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs placeholder:text-gray-400 focus:outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
+ <div className="space-y-1">
+ <label className="font-mono text-sm text-gray-600 dark:text-gray-400">
+ {t("auth.password")}
+ </label>
+ <div className="relative">
+ <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+ <input
+ type="password"
+ required
+ placeholder="••••••••"
+ value={password}
+ onChange={(e) => setPassword(e.target.value)}
+ className="w-full pl-11 pr-3 h-10 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
+ />
+ </div>
+ </div>
 
-              {isRegister && (
-                <div className="space-y-1 animate-fade-in">
-                  <label className="font-mono text-[11px] text-amber-600 dark:text-amber-300 flex items-center justify-between">
-                    <span>{t("auth.inviteCode")}</span>
-                    <span className="text-[10px] text-gray-500 font-normal">{t("auth.required")}</span>
-                  </label>
-                  <div className="relative">
-                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
-                    <input
-                      type="text"
-                      required
-                      placeholder={t("auth.inviteCodePlaceholder")}
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value)}
-                      className="w-full pl-9 pr-3 h-8.5 bg-black/[0.03] dark:bg-black/20 border border-amber-500/30 rounded-md text-amber-600 dark:text-amber-300 font-mono text-xs placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-                </div>
-              )}
+ {isRegister && (
+ <div className="space-y-1 animate-fade-in">
+ <label className="font-mono text-sm text-amber-600 dark:text-amber-300 flex items-center justify-between">
+ <span>{t("auth.inviteCode")}</span>
+ <span className="text-xs text-gray-500 font-normal">{t("auth.required")}</span>
+ </label>
+ <div className="relative">
+ <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" strokeWidth={1.5} />
+ <input
+ type="text"
+ required
+ placeholder={t("auth.inviteCodePlaceholder")}
+ value={inviteCode}
+ onChange={(e) => setInviteCode(e.target.value)}
+ className="w-full pl-11 pr-3 h-10 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-amber-500/30 rounded-md text-amber-600 dark:text-amber-300 font-mono text-sm placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
+ />
+ </div>
+ </div>
+ )}
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full h-8.5 rounded-md bg-primary text-white keep-white font-semibold text-xs flex items-center justify-center gap-1.5 hover:opacity-90 transition-opacity shadow-xs disabled:opacity-50 mt-1"
-              >
-                {submitting ? (
-                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>{isRegister ? t("auth.gate.activateAccount") : t("auth.gate.secureLogin")}</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-        </div>
-      </main>
-    </div>
-  );
+ <button
+ type="submit"
+ disabled={submitting}
+ className="w-full h-10 max-sm:min-h-[44px] rounded-md bg-primary text-white keep-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity shadow-xs disabled:opacity-50 mt-1"
+ >
+ {submitting ? (
+ <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+ ) : (
+ <>
+ <span>{isRegister ? t("auth.gate.activateAccount") : t("auth.gate.secureLogin")}</span>
+ <ArrowRight className="w-4 h-4" />
+ </>
+ )}
+ </button>
+ </form>
+ </div>
+ </div>
+ </main>
+ </div>
+ );
 }
 
 export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="h-[100dvh] bg-background grid place-items-center font-mono text-xs text-gray-500">Loading…</div>}>
-      <LoginInner />
-    </Suspense>
-  );
+ return (
+ <Suspense fallback={<div className="h-[100dvh] bg-background grid place-items-center font-mono text-sm text-gray-500">Loading…</div>}>
+ <LoginInner />
+ </Suspense>
+ );
 }
