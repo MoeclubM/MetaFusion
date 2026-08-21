@@ -2,6 +2,7 @@
 # MetaFusion - 本地极速热重载开发配置 (Zero-Rebuild Development Override)
 # 使用方法: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 # 特点: 源码直接挂载，前端/后台秒级 Fast Refresh 热重载，完全无需每次重新构建 Docker 镜像！
+# 前端已切换至 Bun 1.4 运行时（oven/bun:1.4-alpine），比 Node 快 3-5 倍
 # ==============================================================================
 services:
   frontend:
@@ -10,7 +11,7 @@ services:
       dockerfile: Dockerfile
       target: deps
     container_name: metafusion-frontend-dev
-    command: npm run dev -- -p 3000
+    command: bun run dev -- -p 3000
     volumes:
       - ../frontend/src:/app/src:ro
       - ../frontend/public:/app/public:ro
