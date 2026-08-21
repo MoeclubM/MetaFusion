@@ -1222,6 +1222,10 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 		return
 	}
 	artistID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_artist_id")})
+		return
+	}
 
 	var artist models.Artist
 	if err := s.db.Where("id = ?", artistID).First(&artist).Error; err != nil {
