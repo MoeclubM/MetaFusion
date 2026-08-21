@@ -17,6 +17,8 @@ import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { TemporalBadge } from "@/components/entity/TemporalBadge";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
+import FavoriteButton from "@/components/FavoriteButton";
+import { EntityCover } from "@/components/common/EntityCover";
 
 export default function ArtistDetailPage() {
   const params = useParams();
@@ -175,7 +177,9 @@ export default function ArtistDetailPage() {
               onHistory={() => setIsHistoryOpen(true)}
               onMerge={() => setIsMergeOpen(true)}
               entityTypeLabel={t("entity.toolbar.artist")}
-            />
+            >
+              <FavoriteButton targetType="artist" targetId={artist.id} />
+            </EntityActionToolbar>
           </div>
         </div>
 
@@ -185,28 +189,41 @@ export default function ArtistDetailPage() {
               <div className="rounded-lg border border-black/10 dark:border-white/10 bg-surface p-8 text-center font-mono text-xs text-gray-500">{t("artist.detail.noWorks")}</div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {works.map(({ work, role }) => (
-                  <Link key={work.id} href={`/works/${work.id}`} className="group relative overflow-hidden rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface flex flex-col shadow-2xs hover:shadow-elevated hover:border-primary/40 transition-all">
-                    <div className="relative aspect-[3/4] bg-black/40 overflow-hidden">
-                      {work.cover_image_url ? <img src={work.cover_image_url} alt={work.title} className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300" loading="lazy" /> : <div className="w-full h-full grid place-items-center font-display text-gray-400 p-3 text-center text-xs">{work.title}</div>}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60" />
-                      <span className="absolute top-1.5 left-1.5 px-1.5 py-0.2 rounded-sm bg-black/70 backdrop-blur border border-white/10 font-mono text-[9px] text-white keep-white">{work.category ? categoryDisplayName(work.category as Category, locale) : work.media_type}</span>
-                      <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.2 rounded-sm bg-primary text-white font-mono text-[9px] font-bold">{role}</span>
-                    </div>
-                    <div className="p-2.5 flex-1 flex flex-col justify-between gap-1">
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white text-xs leading-tight line-clamp-1 group-hover:text-primary transition-colors">{work.title}</h3>
-                        {work.original_title && <p className="font-mono text-[10px] text-gray-500 truncate">{work.original_title}</p>}
+                {works.map((item: any) => {
+                  const w = item.work || item;
+                  const role = item.role || w.role;
+                  if (!w || !w.id) return null;
+                  return (
+                    <Link key={w.id} href={`/works/${w.id}`} className="group relative overflow-hidden rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface flex flex-col shadow-2xs hover:shadow-elevated hover:border-primary/40 transition-all">
+                      <div className="relative aspect-[3/4] bg-black/40 overflow-hidden">
+                        <EntityCover
+                          src={w.cover_image_url}
+                          alt={w.title}
+                          title={w.title}
+                          originalTitle={w.original_title}
+                          mediaType={w.media_type}
+                          id={w.id}
+                          imgClassName="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60 pointer-events-none" />
+                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.2 rounded-sm bg-black/70 backdrop-blur border border-white/10 font-mono text-[9px] text-white keep-white">{w.category ? categoryDisplayName(w.category as Category, locale) : w.media_type}</span>
+                        {role && <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.2 rounded-sm bg-primary text-white font-mono text-[9px] font-bold">{role}</span>}
                       </div>
-                      <div className="pt-1.5 border-t border-black/5 dark:border-white/[0.06] flex items-center justify-between font-mono text-[10px] text-gray-500">
-                        <span>{work.release_date ? new Date(work.release_date).getFullYear() : "—"}</span>
-                        <span className="inline-flex items-center gap-0.5 tabular-nums">
-                          <Eye className="w-3 h-3 text-gray-400" strokeWidth={1.5} /> {work.view_count}
-                        </span>
+                      <div className="p-2.5 flex-1 flex flex-col justify-between gap-1">
+                        <div>
+                          <h3 className="font-semibold text-gray-900 dark:text-white text-xs leading-tight line-clamp-1 group-hover:text-primary transition-colors">{w.title}</h3>
+                          {w.original_title && <p className="font-mono text-[10px] text-gray-500 truncate">{w.original_title}</p>}
+                        </div>
+                        <div className="pt-1.5 border-t border-black/5 dark:border-white/[0.06] flex items-center justify-between font-mono text-[10px] text-gray-500">
+                          <span>{w.release_date ? new Date(w.release_date).getFullYear() : "—"}</span>
+                          <span className="inline-flex items-center gap-0.5 tabular-nums">
+                            <Eye className="w-3 h-3 text-gray-400" strokeWidth={1.5} /> {w.view_count || 0}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>

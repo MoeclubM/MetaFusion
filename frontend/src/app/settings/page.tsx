@@ -30,6 +30,9 @@ import {
   Camera,
   Link as LinkIcon,
   Loader2,
+  Eye,
+  Heart,
+  Mail,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -55,11 +58,16 @@ export default function SettingsPage() {
   const [profileSaving, setProfileSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // 隐私开关状态
+  const [favoritesPublic, setFavoritesPublic] = useState(true);
+  const [emailPublic, setEmailPublic] = useState(false);
+  const [privacySaving, setPrivacySaving] = useState<string | null>(null);
+
   // PAT state
   const [tokens, setTokens] = useState<ApiToken[]>([]);
   const [tokensLoading, setTokensLoading] = useState(false);
   const [newTokenName, setNewTokenName] = useState("");
-  const [newTokenScopes, setNewTokenScopes] = useState<string[]>(["read", "write"]);
+  const [isReadOnly, setIsReadOnly] = useState(false);
   const [creatingToken, setCreatingToken] = useState(false);
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [createdTokenMeta, setCreatedTokenMeta] = useState<ApiToken | null>(null);
@@ -79,8 +87,35 @@ export default function SettingsPage() {
       setDisplayName((u["display_name"] as string) || "");
       setBio((u["bio"] as string) || "");
       setAvatarUrl((u["avatar_url"] as string) || "");
+      setFavoritesPublic(u["favorites_public"] !== false);
+      setEmailPublic(u["email_public"] === true);
     }
   }, [user?.id, (user as any)?.avatar_url, (user as any)?.display_name, (user as any)?.bio]);
+
+  const handlePrivacyChange = async (field: "favorites_public" | "email_public", value: boolean) => {
+    setError(null);
+    setSuccess(null);
+    const prev = field === "favorites_public" ? favoritesPublic : emailPublic;
+    // 乐观更新，失败回滚
+    if (field === "favorites_public") setFavoritesPublic(value);
+    else setEmailPublic(value);
+    setPrivacySaving(field);
+    try {
+      await fetchApi("/auth/profile", {
+        method: "PUT",
+        body: JSON.stringify({ [field]: value }),
+      });
+      await refreshProfile();
+      setSuccess(t(field === "favorites_public" ? "settings.privacyFavoritesSaved" : "settings.privacyEmailSaved"));
+    } catch (err: unknown) {
+      if (field === "favorites_public") setFavoritesPublic(prev);
+      else setEmailPublic(prev);
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(msg || t("settings.privacySaveFail"));
+    } finally {
+      setPrivacySaving(null);
+    }
+  };
 
   const loadTokens = async () => {
     setTokensLoading(true);
@@ -222,10 +257,12 @@ export default function SettingsPage() {
     setTokenError(null);
     setCreatedToken(null);
     try {
-      const res = await createApiToken({ name: newTokenName.trim(), scopes: newTokenScopes });
+      const scopes = isReadOnly ? ["read"] : ["read", "write"];
+      const res = await createApiToken({ name: newTokenName.trim(), scopes });
       setCreatedToken(res.token);
       setCreatedTokenMeta({ id: res.id, name: res.name, prefix: res.prefix, scopes: res.scopes, created_at: res.created_at, updated_at: res.created_at, last_used_at: null, expires_at: res.expires_at });
       setNewTokenName("");
+      setIsReadOnly(false);
       await loadTokens();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -275,71 +312,71 @@ export default function SettingsPage() {
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar />
-      <main className="relative z-10 max-w-3xl mx-auto px-4 py-5 w-full flex-1 space-y-5">
-        <div className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
-          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary">
-            <Settings className="w-3.5 h-3.5" />
-            <span>ACCOUNT SETTINGS · ARCHIVE IDENTITY</span>
+      <main className="relative z-10 max-w-3xl mx-auto px-4 py-5 w-full flex-1 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-black/5 dark:border-white/5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 text-primary grid place-items-center shrink-0">
+              <Settings className="w-4 h-4" strokeWidth={1.8} />
+            </div>
+            <div>
+              <h1 className="font-display text-lg font-bold tracking-tight text-gray-900 dark:text-white leading-none">
+                {t("settings.title")}
+              </h1>
+              <p className="text-xs text-gray-500 mt-1">{t("settings.subtitle")}</p>
+            </div>
           </div>
-          <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
-            <span className="w-7 h-7 rounded-sm bg-primary/10 border border-primary/20 text-primary grid place-items-center">
-              <Settings className="w-4 h-4" strokeWidth={1.7} />
-            </span>
-            <span>{t("settings.title")}</span>
-          </h1>
-          <p className="font-mono text-[11px] text-gray-500">{t("settings.subtitle")}</p>
-        </div>
 
-        <div className="flex gap-1 p-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] w-fit overflow-x-auto">
-          <button
-            onClick={() => {
-              setActiveTab("profile");
-              setError(null);
-              setSuccess(null);
-            }}
-            className={`px-3.5 h-9 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-              activeTab === "profile" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            {t("settings.tabProfile")}
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab("tokens");
-              setError(null);
-              setSuccess(null);
-            }}
-            className={`px-3.5 h-9 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-              activeTab === "tokens" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            <KeyRound className="w-3.5 h-3.5" />
-            <span>{t("settings.tabTokens")}</span>
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab("appearance");
-              setError(null);
-              setSuccess(null);
-            }}
-            className={`px-3.5 h-9 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-              activeTab === "appearance" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            {t("settings.appearanceTitle")}
-          </button>
-          <button
-            onClick={() => {
-              setActiveTab("password");
-              setError(null);
-              setSuccess(null);
-            }}
-            className={`px-3.5 h-9 rounded-lg text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-              activeTab === "password" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            {t("settings.tabPassword")}
-          </button>
+          <div className="flex gap-1 p-0.5 rounded-lg bg-black/[0.04] dark:bg-white/[0.04] border border-black/[0.06] dark:border-white/[0.06] w-fit overflow-x-auto">
+            <button
+              onClick={() => {
+                setActiveTab("profile");
+                setError(null);
+                setSuccess(null);
+              }}
+              className={`px-3 h-8 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                activeTab === "profile" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              {t("settings.tabProfile")}
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("tokens");
+                setError(null);
+                setSuccess(null);
+              }}
+              className={`px-3 h-8 rounded-md text-xs font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === "tokens" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>{t("settings.tabTokens")}</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("appearance");
+                setError(null);
+                setSuccess(null);
+              }}
+              className={`px-3 h-8 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                activeTab === "appearance" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              {t("settings.appearanceTitle")}
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("password");
+                setError(null);
+                setSuccess(null);
+              }}
+              className={`px-3 h-8 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
+                activeTab === "password" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              {t("settings.tabPassword")}
+            </button>
+          </div>
         </div>
 
         <div className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
@@ -358,21 +395,45 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3.5 p-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/[0.06]">
-                <UserAvatar
-                  user={{
-                    username: user.username,
-                    display_name: displayName || (user as any).display_name,
-                    avatar_url: avatarUrl,
-                  }}
-                  size="xl"
-                  shape="rounded"
-                  ring
-                />
-                <div className="space-y-1 min-w-0">
+              <div className="flex items-center gap-4 p-4 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/[0.06]">
+                {/* Clickable Avatar with Camera Overlay & File Input */}
+                <div
+                  className="relative group cursor-pointer shrink-0"
+                  onClick={() => fileInputRef.current?.click()}
+                  title={t("settings.avatarUpload") || "点击更换头像"}
+                >
+                  <UserAvatar
+                    user={{
+                      username: user.username,
+                      display_name: displayName || (user as any).display_name,
+                      avatar_url: avatarUrl,
+                    }}
+                    size="xl"
+                    shape="rounded"
+                    ring
+                  />
+                  <div className="absolute inset-0 rounded-md bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center text-white">
+                    {avatarUploading ? (
+                      <Loader2 className="w-5 h-5 animate-spin text-white" />
+                    ) : (
+                      <Camera className="w-5 h-5 text-white" />
+                    )}
+                  </div>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleAvatarFileChange}
+                    accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/avif"
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="space-y-1 min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">{displayNameOf(user as unknown as { username: string; display_name?: string })}</span>
-                    <span className="px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/[0.08] border border-black/10 dark:border-white/10 font-mono text-[11px] text-gray-600 dark:text-gray-300 capitalize">
+                    <span className="font-semibold text-gray-900 dark:text-white text-base truncate">
+                      {displayNameOf(user as unknown as { username: string; display_name?: string })}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-primary/10 border border-primary/20 font-mono text-[11px] text-primary capitalize font-medium">
                       {user.role}
                     </span>
                     {displayNameOf(user as unknown as { username: string; display_name?: string }) !== user.username && (
@@ -380,87 +441,18 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <div className="font-mono text-xs text-gray-500 truncate">{user.email || t("settings.unboundEmail")}</div>
-                  <div className="font-mono text-[11px] text-gray-400 break-all">ID: {user.id}</div>
-                </div>
-              </div>
-
-              {/* 头像设置卡片 */}
-              <div className="p-4 rounded-xl bg-black/[0.02] dark:bg-white/[0.03] border border-black/5 dark:border-white/[0.06] space-y-3">
-                <div className="space-y-0.5">
-                  <div className="font-mono text-xs font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
-                    <Camera className="w-4 h-4 text-primary" />
-                    <span>{t("settings.avatarTitle")}</span>
-                  </div>
-                  <p className="font-mono text-xs text-gray-500">{t("settings.avatarSubtitle")}</p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 pt-1">
-                  <UserAvatar
-                    user={{
-                      username: user.username,
-                      display_name: displayName,
-                      avatar_url: avatarUrl,
-                    }}
-                    size="2xl"
-                    shape="rounded"
-                    ring
-                    className="shadow-md"
-                  />
-
-                  <div className="flex-1 space-y-2.5 w-full">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleAvatarFileChange}
-                      accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,image/avif"
-                      className="hidden"
-                    />
-
-                    <div className="flex items-center gap-2 flex-wrap">
+                  <div className="font-mono text-[11px] text-gray-400 break-all flex items-center gap-2">
+                    <span>UUID: {user.id}</span>
+                    {!!avatarUrl && (
                       <button
                         type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={avatarUploading || avatarRemoving}
-                        className="px-3.5 h-9 rounded-lg bg-primary text-white keep-white font-semibold text-xs sm:text-sm inline-flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-50 shadow-xs cursor-pointer"
+                        onClick={handleRemoveAvatar}
+                        disabled={avatarRemoving || avatarUploading}
+                        className="text-red-500 hover:underline text-[11px] font-mono cursor-pointer ml-2"
                       >
-                        {avatarUploading ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Upload className="w-4 h-4" />
-                        )}
-                        <span>{avatarUploading ? t("settings.avatarUploading") : t("settings.avatarUpload")}</span>
+                        {avatarRemoving ? t("settings.avatarRemoving") : t("settings.avatarRemove")}
                       </button>
-
-                      {!!avatarUrl && (
-                        <button
-                          type="button"
-                          onClick={handleRemoveAvatar}
-                          disabled={avatarUploading || avatarRemoving}
-                          className="px-3.5 h-9 rounded-lg bg-red-500/10 text-red-600 dark:text-red-300 border border-red-500/20 hover:bg-red-500/15 font-semibold text-xs sm:text-sm inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
-                        >
-                          {avatarRemoving ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                          <span>{avatarRemoving ? t("settings.avatarRemoving") : t("settings.avatarRemove")}</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-1 pt-1">
-                      <div className="relative">
-                        <LinkIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        <input
-                          type="url"
-                          value={avatarUrl}
-                          onChange={(e) => setAvatarUrl(e.target.value)}
-                          placeholder={t("settings.avatarUrlPlaceholder")}
-                          className="w-full pl-9 pr-3 h-9.5 sm:h-10 bg-background border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-xs sm:text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50 font-mono"
-                        />
-                      </div>
-                      <p className="font-mono text-[11px] text-gray-500">{t("settings.avatarHint")}</p>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -531,6 +523,54 @@ export default function SettingsPage() {
                   </select>
                 </div>
               </div>
+
+              {/* 隐私设置：收藏列表与邮箱的公开范围 */}
+              <div className="space-y-1.5 pt-2 border-t border-black/5 dark:border-white/[0.06]">
+                <div className="flex items-center gap-1.5 pb-1">
+                  <Eye className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
+                  <span className="font-mono text-xs font-semibold text-gray-700 dark:text-gray-300">{t("settings.privacyTitle")}</span>
+                </div>
+
+                <div className="p-3 rounded-md bg-background border border-black/5 dark:border-white/[0.06] flex items-center justify-between gap-3">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
+                      <Heart className="w-3.5 h-3.5 text-rose-500" strokeWidth={1.8} />
+                      <span>{t("settings.privacyFavorites")}</span>
+                    </div>
+                    <div className="text-[11px] text-gray-500 leading-relaxed">{t("settings.privacyFavoritesDesc")}</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={favoritesPublic}
+                      disabled={privacySaving === "favorites_public"}
+                      onChange={(e) => handlePrivacyChange("favorites_public", e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-9 h-5 bg-gray-300 dark:bg-white/20 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:bg-primary ${privacySaving === "favorites_public" ? "opacity-60" : ""}`}></div>
+                  </label>
+                </div>
+
+                <div className="p-3 rounded-md bg-background border border-black/5 dark:border-white/[0.06] flex items-center justify-between gap-3">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.8} />
+                      <span>{t("settings.privacyEmail")}</span>
+                    </div>
+                    <div className="text-[11px] text-gray-500 leading-relaxed">{t("settings.privacyEmailDesc")}</div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={emailPublic}
+                      disabled={privacySaving === "email_public"}
+                      onChange={(e) => handlePrivacyChange("email_public", e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-9 h-5 bg-gray-300 dark:bg-white/20 rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-full peer-checked:after:border-white peer-checked:bg-primary ${privacySaving === "email_public" ? "opacity-60" : ""}`}></div>
+                  </label>
+                </div>
+              </div>
             </div>
           )}
 
@@ -540,7 +580,6 @@ export default function SettingsPage() {
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <KeyRound className="w-4 h-4 text-amber-500" />
                   <span>{t("settings.patTitle")}</span>
-                  <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/20 font-mono text-[10px]">{t("settings.patStyle")}</span>
                 </h3>
                 <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
                   {t("settings.patDesc")}
@@ -568,7 +607,9 @@ export default function SettingsPage() {
                   </div>
                   <div className="flex flex-wrap gap-1.5 text-[11px] font-mono">
                     <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">{t("settings.patPrefix", { prefix: createdTokenMeta?.prefix || "" })}</span>
-                    <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">scopes: {(createdTokenMeta?.scopes || []).join(", ")}</span>
+                    <span className="px-2 py-0.5 rounded bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10">
+                      {createdTokenMeta?.scopes.includes("write") ? t("settings.scopeReadWrite") : t("settings.scopeReadOnly")}
+                    </span>
                   </div>
                   <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80">{t("settings.patEnvHint")}</p>
                 </div>
@@ -586,20 +627,27 @@ export default function SettingsPage() {
                   <label className="font-mono text-xs sm:text-sm text-gray-500">{t("settings.patTokenName")}</label>
                   <input value={newTokenName} onChange={(e) => setNewTokenName(e.target.value)} placeholder={t("settings.patNamePlaceholder")} maxLength={64} className="w-full h-10 px-3.5 bg-background border border-black/10 dark:border-white/10 rounded-lg text-sm focus:outline-none focus:border-primary/50" />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="font-mono text-xs sm:text-sm text-gray-500">{t("settings.patScopes")}</label>
-                  <div className="flex flex-wrap gap-2">
-                    {["read", "write", "edit", "upload", "community"].map((sc) => {
-                      const active = newTokenScopes.includes(sc);
-                      return (
-                        <button key={sc} type="button" onClick={() => setNewTokenScopes((prev) => (active ? prev.filter((x) => x !== sc) : [...prev, sc]))} className={`px-3 h-8 rounded-lg text-xs sm:text-sm font-mono border transition-colors ${active ? "bg-primary text-white border-primary" : "bg-white dark:bg-white/5 border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:border-primary/30"}`}>
-                          {sc}
-                        </button>
-                      );
-                    })}
+                
+                <div className="flex items-center justify-between p-3 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/[0.06]">
+                  <div className="space-y-0.5">
+                    <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">
+                      {t("settings.apiKeyReadOnlyTitle")}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {t("settings.apiKeyReadOnlyDesc")}
+                    </div>
                   </div>
-                  <p className="font-mono text-xs text-gray-500">{t("settings.patScopesHint")}</p>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isReadOnly}
+                      onChange={(e) => setIsReadOnly(e.target.checked)}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-gray-300 dark:bg-white/20 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
                 </div>
+
                 <button type="submit" disabled={creatingToken || !newTokenName.trim()} className="w-full h-10 rounded-lg bg-primary text-white keep-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50 shadow-xs">
                   {creatingToken ? <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : <KeyRound className="w-4 h-4" />}
                   <span>{creatingToken ? t("settings.patCreating") : t("settings.patCreateBtn")}</span>
@@ -632,7 +680,9 @@ export default function SettingsPage() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-semibold text-sm text-gray-900 dark:text-white truncate">{tk.name}</span>
                             <span className="px-1.5 py-0.5 rounded-sm bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/10 font-mono text-[10px] text-gray-600 dark:text-gray-300">{tk.prefix}••••</span>
-                            <span className="font-mono text-[10px] text-gray-500">scopes: {tk.scopes.join(", ")}</span>
+                            <span className={`px-1.5 py-0.5 rounded-sm font-mono text-[10px] border ${tk.scopes.includes("write") ? "bg-primary/10 text-primary border-primary/20" : "bg-black/5 dark:bg-white/10 text-gray-500 border-black/10 dark:border-white/10"}`}>
+                              {tk.scopes.includes("write") ? t("settings.scopeReadWrite") : t("settings.scopeReadOnly")}
+                            </span>
                           </div>
                           <div className="font-mono text-[11px] text-gray-500 flex flex-wrap gap-2">
                             <span>{t("settings.patCreatedAt", { time: new Date(tk.created_at).toLocaleString() })}</span>
@@ -648,17 +698,6 @@ export default function SettingsPage() {
                     ))}
                   </div>
                 )}
-              </div>
-
-              <div className="p-3 rounded-md bg-sky-500/10 border border-sky-500/20 space-y-1.5">
-                <div className="font-mono text-xs font-semibold text-sky-900 dark:text-sky-100 flex items-center gap-1.5">
-                  <Terminal className="w-3.5 h-3.5" />
-                  <span>{t("settings.patQuickValidate")}</span>
-                </div>
-                <code className="block p-2 rounded bg-black/90 text-emerald-300 font-mono text-xs break-all">
-                  curl /api/v1/catalog/works?inc=artists -H &quot;Authorization: Bearer mfp_...&quot; -H &quot;User-Agent: MyApp/1.0 (you@example.com)&quot;
-                </code>
-                <p className="text-[11px] text-sky-800 dark:text-sky-200/80">{t("settings.patRateLimitHint")}</p>
               </div>
             </div>
           )}

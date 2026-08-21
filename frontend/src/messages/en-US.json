@@ -947,4 +947,31 @@
   "community.bottomJump": "Jump to bottom",
   "community.reply": "Reply",
   "community.topJump": "Back to top"
+,
+  "favorite.add": "Favorite",
+  "favorite.favorited": "Favorited",
+  "favorite.remove": "Remove from favorites",
+  "users.profile.tabs.favorites": "Favorites",
+  "users.profile.stats.favorites": "Favorites",
+  "users.profile.noFavorites": "No favorites yet",
+  "users.profile.favoritesPrivate": "This member's favorites are private",
+  "users.profile.favoritesPrivateHint": "They chose not to share their favorites with others",
+  "settings.privacyTitle": "Privacy",
+  "settings.privacyFavorites": "Show my favorites publicly",
+  "settings.privacyFavoritesDesc": "When on, other members can view your favorited works, releases and artists on your profile; when off, only you can see them.",
+  "settings.privacyEmail": "Show my email publicly",
+  "settings.privacyEmailDesc": "When on, other members can see your email address on your profile; off by default to protect your privacy.",
+  "settings.privacyFavoritesSaved": "Favorites visibility updated",
+  "settings.privacyEmailSaved": "Email visibility updated",
+  "settings.privacySaveFail": "Failed to save privacy settings"
+,
+  "home.showcaseTitle": "Home Showcase",
+  "home.channelCount": "{count} channels",
+  "landing.docsTitle": "MetaFusion Documentation",
+  "editor.core.workIdLabel": "Parent Work UUID (Work ID)",
+  "editor.core.workIdPlaceholder": "Work UUID (auto-filled when creating a release from a work detail page)"
+,
+  "landing.heroSubtitle": "Open cataloging · Curated archive · Community-built multimedia metadata platform",
+  "landing.enter": "Enter Home",
+  "landing.join": "Join MetaFusion"
 }

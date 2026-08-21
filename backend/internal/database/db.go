@@ -73,6 +73,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		&models.DirectMessage{},
 		&models.EntityRevision{},
 		&models.ApiToken{},
+		&models.Favorite{},
 	)
 	log.Println("Database connection pool initialized successfully.")
 	return db, nil

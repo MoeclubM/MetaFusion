@@ -947,4 +947,31 @@
   "community.bottomJump": "跳至最底部",
   "community.reply": "回复",
   "community.topJump": "回到顶部"
+,
+  "favorite.add": "收藏",
+  "favorite.favorited": "已收藏",
+  "favorite.remove": "取消收藏",
+  "users.profile.tabs.favorites": "收藏",
+  "users.profile.stats.favorites": "收藏",
+  "users.profile.noFavorites": "还没有收藏",
+  "users.profile.favoritesPrivate": "该用户的收藏列表未公开",
+  "users.profile.favoritesPrivateHint": "对方选择不向他人展示收藏",
+  "settings.privacyTitle": "隐私设置",
+  "settings.privacyFavorites": "公开我的收藏列表",
+  "settings.privacyFavoritesDesc": "开启后，其他成员可以在你的主页查看你收藏的作品、发行版与艺术家；关闭后仅自己可见。",
+  "settings.privacyEmail": "公开我的邮箱",
+  "settings.privacyEmailDesc": "开启后，其他成员可以在你的主页看到邮箱地址；默认关闭以保护隐私。",
+  "settings.privacyFavoritesSaved": "收藏列表可见性已更新",
+  "settings.privacyEmailSaved": "邮箱可见性已更新",
+  "settings.privacySaveFail": "隐私设置保存失败"
+,
+  "home.showcaseTitle": "我的首页陈列",
+  "home.channelCount": "{count} 个频道",
+  "landing.docsTitle": "MetaFusion 完整文档",
+  "editor.core.workIdLabel": "所属作品 UUID (Work ID)",
+  "editor.core.workIdPlaceholder": "作品 UUID（如通过作品详情页点击新建发行则自动填充）"
+,
+  "landing.heroSubtitle": "开放编目 · 严选典藏 · 社区共建的多媒体元数据平台",
+  "landing.enter": "进入首页",
+  "landing.join": "加入 MetaFusion"
 }

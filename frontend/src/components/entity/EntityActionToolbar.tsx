@@ -11,6 +11,7 @@ interface Props {
   onMerge?: () => void;
   entityTypeLabel?: string;
   className?: string;
+  children?: React.ReactNode;
 }
 
 export function EntityActionToolbar({
@@ -19,6 +20,7 @@ export function EntityActionToolbar({
   onMerge,
   entityTypeLabel,
   className = "",
+  children,
 }: Props) {
   const { user } = useAuth();
   const { t } = useI18n();
@@ -61,6 +63,8 @@ export function EntityActionToolbar({
         <History className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
         {t("entity.toolbar.history")}
       </button>
+
+      {children}
     </div>
   );
 }

@@ -4,15 +4,16 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, Release, Work, Category, categoryDisplayName, getRoleName } from "@/lib/api";
+import { fetchApi, Release, Work, Category, categoryDisplayName, getRoleName, getMediaTypeName } from "@/lib/api";
 import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
 import { useAuth } from "@/lib/authContext";
 import { usePlayer } from "@/lib/playerContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Edit3, History, Database } from "lucide-react";
+import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Edit3, History } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
+import FavoriteButton from "@/components/FavoriteButton";
 
 type ReleaseWithWork = Release & { work?: Work };
 
@@ -101,15 +102,19 @@ export default function ReleaseDetailPage() {
         </div>
 
         <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
-          <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary border-b border-black/5 dark:border-white/[0.06] pb-3">
-            <Database className="w-3.5 h-3.5" />
-            <span>RELEASE EDITION · FRBR MANIFESTATION</span>
-          </div>
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">
                 <span className="px-2 py-0.5 rounded-sm bg-primary text-white font-semibold">{t("release.detail.badge")}</span>
-                {work && <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">{work.category ? categoryDisplayName(work.category as Category, locale) : mediaType}</span>}
+                {work?.category ? (
+                  <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                    {categoryDisplayName(work.category as Category, locale)}
+                  </span>
+                ) : work?.media_type ? (
+                  <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                    {getMediaTypeName(work.media_type, t)}
+                  </span>
+                ) : null}
                 {release.catalog_number && <span className="text-gray-500">{release.catalog_number}</span>}
                 {release.barcode && <span className="text-gray-500">{t("release.detail.barcode", { code: release.barcode })}</span>}
               </div>
@@ -134,10 +139,18 @@ export default function ReleaseDetailPage() {
                 </div>
               )}
               {release.edition_date && <div>{t("release.detail.dateLabel")}{new Date(release.edition_date).toLocaleDateString()}</div>}
-              {release.uploader && <div>{t("release.detail.uploaderLabel")}{release.uploader.username}</div>}
             </div>
           </div>
           {release.notes && <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400 border-t border-black/5 dark:border-white/[0.06] pt-3">{release.notes}</p>}
+          {work?.tags && work.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
+              {work.tags.map((tag) => (
+                <span key={tag.id} className="px-2 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/10 font-mono text-[10px] text-gray-600 dark:text-gray-400">
+                  #{tag.name}
+                </span>
+              ))}
+            </div>
+          )}
           {work?.artist_relations && work.artist_relations.length > 0 && (
             <div className="flex flex-wrap gap-1 pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
               {work.artist_relations.map((rel) => (
@@ -155,7 +168,9 @@ export default function ReleaseDetailPage() {
               onEdit={() => setIsEditorOpen(true)}
               onHistory={() => setIsHistoryOpen(true)}
               entityTypeLabel={t("entity.toolbar.release")}
-            />
+            >
+              <FavoriteButton targetType="release" targetId={release.id} />
+            </EntityActionToolbar>
           </div>
         </section>
 

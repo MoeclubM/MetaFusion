@@ -9,11 +9,12 @@ import { fetchApi, displayNameOf } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import DirectMessageModal from "@/components/community/DirectMessageModal";
-import { Clock, Shield, FileText, Disc, Users, MessageSquare, History, Mail, MessageCircle, Calendar } from "lucide-react";
+import { Clock, Shield, FileText, Disc, Users, MessageSquare, History, Mail, MessageCircle, Calendar, Heart, Lock } from "lucide-react";
+import { fetchFavorites, FavoriteItem } from "@/lib/api";
 
 type Profile = {
-  user: { id: string; username: string; display_name?: string | null; email?: string; role: string; avatar_url?: string; bio?: string; created_at: string; invite_code?: string };
-  stats: { works_created: number; releases_created: number; artists_created: number; topics_created: number; comments_created: number; audit_actions: number; invited_count: number };
+  user: { id: string; username: string; display_name?: string | null; email?: string; favorites_public?: boolean; role: string; avatar_url?: string; bio?: string; created_at: string; invite_code?: string };
+  stats: { works_created: number; releases_created: number; artists_created: number; topics_created: number; comments_created: number; audit_actions: number; invited_count: number; favorites_count: number };
 };
 
 export default function UserDetailPage() {
@@ -28,6 +29,7 @@ export default function UserDetailPage() {
     { id: "artists", label: t("users.profile.tabs.artists") },
     { id: "topics", label: t("users.profile.tabs.topics") },
     { id: "comments", label: t("users.profile.tabs.comments") },
+    { id: "favorites", label: t("users.profile.tabs.favorites") },
     { id: "audits", label: t("users.profile.tabs.audits") },
   ] as const;
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -38,12 +40,28 @@ export default function UserDetailPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [favVisible, setFavVisible] = useState(true);
 
   useEffect(() => {
     fetchApi<Profile>(`/users/${id}`).then(setProfile).catch((e) => setErr(e.message));
   }, [id]);
 
   useEffect(() => {
+    if (tab !== "favorites") return;
+    setLoading(true);
+    fetchFavorites(id, { page, pageSize: 20 })
+      .then((r) => {
+        setFavVisible(r.visible);
+        setItems(r.items || []);
+        setTotal(r.total || 0);
+      })
+      .catch((e) => setErr(e.message))
+      .finally(() => setLoading(false));
+    return;
+  }, [id, tab, page]);
+
+  useEffect(() => {
+    if (tab === "favorites") return;
     setLoading(true);
     fetchApi<{ items: any[]; total: number }>(`/users/${id}/contributions?tab=${tab}&page=${page}&page_size=20`)
       .then((r) => { setItems(r.items || []); setTotal(r.total || 0); })
@@ -104,11 +122,12 @@ export default function UserDetailPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-7 gap-2">
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
           {[
             { id: "works", label: t("users.profile.stats.works"), v: s.works_created, icon: FileText },
             { id: "releases", label: t("users.profile.stats.releases"), v: s.releases_created, icon: Disc },
             { id: "artists", label: t("users.profile.stats.artists"), v: s.artists_created, icon: Users },
+            { id: "favorites", label: t("users.profile.stats.favorites"), v: s.favorites_count, icon: Heart },
             { id: "topics", label: t("users.profile.stats.topics"), v: s.topics_created, icon: MessageSquare },
             { id: "comments", label: t("users.profile.stats.comments"), v: s.comments_created, icon: MessageSquare },
             { id: "audits", label: t("users.profile.stats.audits"), v: s.audit_actions, icon: Shield },
@@ -128,7 +147,38 @@ export default function UserDetailPage() {
         </div>
 
         <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
-          {loading ? <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("common.loading")}</div> : items.length === 0 ? <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("users.profile.noData")}</div> : (
+          {loading ? <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("common.loading")}</div>
+          : tab === "favorites" && !favVisible ? (
+            <div className="p-10 text-center space-y-2">
+              <Lock className="w-6 h-6 text-gray-400 mx-auto" strokeWidth={1.5} />
+              <div className="text-sm text-gray-600 dark:text-gray-300 font-medium">{t("users.profile.favoritesPrivate")}</div>
+              <div className="text-xs text-gray-500 font-mono">{t("users.profile.favoritesPrivateHint")}</div>
+            </div>
+          )
+          : tab === "favorites" && items.length === 0 ? (
+            <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("users.profile.noFavorites")}</div>
+          )
+          : tab === "favorites" ? (
+            <ul className="divide-y divide-black/5 dark:divide-white/[0.06]">
+              {items.map((it: FavoriteItem) => {
+                const href = it.target_type === "work" ? `/works/${it.target_id}` : it.target_type === "release" ? `/releases/${it.target_id}` : `/artists/${it.target_id}`;
+                const title = it.work?.title || it.release?.edition_name || it.artist?.name || it.target_id;
+                const typeLabel = it.target_type === "work" ? t("users.profile.tabs.works") : it.target_type === "release" ? t("users.profile.tabs.releases") : t("users.profile.tabs.artists");
+                return (
+                  <li key={it.id}>
+                    <Link href={href} className="p-3 flex items-center gap-2.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors group">
+                      <Heart className="w-3.5 h-3.5 shrink-0 text-rose-500" fill="currentColor" strokeWidth={0} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs text-gray-900 dark:text-white font-medium truncate group-hover:text-primary transition-colors">{title}</div>
+                        <div className="text-[10px] text-gray-500 font-mono mt-0.5">{typeLabel}{it.created_at ? ` · ${new Date(it.created_at).toLocaleDateString()}` : ""}</div>
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+          : items.length === 0 ? <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("users.profile.noData")}</div> : (
             <ul className="divide-y divide-black/5 dark:divide-white/[0.06]">
               {items.map((it: any, idx: number) => (
                 <li key={idx} className="p-3 flex items-start gap-2.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">

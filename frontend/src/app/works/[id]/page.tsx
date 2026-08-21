@@ -5,15 +5,17 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { MultipartUploader } from "@/components/MultipartUploader";
-import { fetchApi, Work, Release, DiscussionTopic, Category, categoryDisplayName, getRoleName } from "@/lib/api";
+import { fetchApi, Work, Release, DiscussionTopic, Category, categoryDisplayName, getRoleName, getMediaTypeName } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { Layers, MessageSquare, User, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Star, ArrowUpRight, Edit3, History, GitMerge, Database } from "lucide-react";
+import { Layers, MessageSquare, User, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Star, ArrowUpRight, Edit3, History, GitMerge } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { TemporalBadge } from "@/components/entity/TemporalBadge";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
+import FavoriteButton from "@/components/FavoriteButton";
+import { EntityCover } from "@/components/common/EntityCover";
 export default function WorkDirectoryPage() {
  const params = useParams();
  const workId = params.id as string;
@@ -116,24 +118,33 @@ export default function WorkDirectoryPage() {
  <div className="flex items-center gap-2 font-mono text-sm text-gray-500">
  <Link href="/explore" className="hover:text-primary transition-colors">{t("work.detail.explore")}</Link>
  <span className="text-gray-400 dark:text-white/20">/</span>
- <span className="text-gray-600 dark:text-gray-400">{work.category ? categoryDisplayName(work.category as Category, locale) : work.media_type}</span>
+ {work.category ? (
+ <>
+ <span className="text-gray-600 dark:text-gray-400">{categoryDisplayName(work.category as Category, locale)}</span>
  <span className="text-gray-400 dark:text-white/20">/</span>
+ </>
+ ) : work.media_type ? (
+ <>
+ <span className="text-gray-600 dark:text-gray-400">{getMediaTypeName(work.media_type, t)}</span>
+ <span className="text-gray-400 dark:text-white/20">/</span>
+ </>
+ ) : null}
  <span className="text-gray-900 dark:text-white truncate max-w-[40ch]">{work.title}</span>
  </div>
 
  <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden space-y-3">
- <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-primary border-b border-black/5 dark:border-white/[0.06] pb-3">
- <Database className="w-4 h-4" />
- <span>WORK ARCHIVE · FRBR ENTITY</span>
- </div>
  <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
  <div className="w-32 sm:w-40 shrink-0">
  <div className="aspect-[3/4] rounded-md overflow-hidden border border-black/10 dark:border-white/10 bg-background shadow-xs">
- {work.cover_image_url ? (
- <img src={work.cover_image_url} alt={work.title} className="w-full h-full object-cover" />
- ) : (
- <div className="w-full h-full grid place-items-center font-display text-gray-400 p-4 text-center text-sm">{work.title}</div>
- )}
+ <EntityCover
+ src={work.cover_image_url}
+ alt={work.title}
+ title={work.title}
+ originalTitle={work.original_title}
+ mediaType={work.media_type}
+ id={work.id}
+ imgClassName="w-full h-full object-cover"
+ />
  </div>
  <div className="mt-2 flex items-center gap-2 font-mono text-xs text-gray-500">
  <Star className="w-4 h-4 text-amber-500" strokeWidth={1.5} /> {t("work.detail.viewCount", { count: work.view_count })}
@@ -143,7 +154,15 @@ export default function WorkDirectoryPage() {
  <div className="flex-1 space-y-3 min-w-0">
  <div className="flex flex-wrap items-center gap-2 font-mono text-xs tracking-wide">
  <span className="px-2.5 py-1 rounded-sm bg-primary text-white font-semibold">{t("work.detail.workBadge")}</span>
- <span className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">{work.category ? categoryDisplayName(work.category as Category, locale) : work.media_type}</span>
+ {work.category ? (
+ <span className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
+ {categoryDisplayName(work.category as Category, locale)}
+ </span>
+ ) : work.media_type ? (
+ <span className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
+ {getMediaTypeName(work.media_type, t)}
+ </span>
+ ) : null}
  <TemporalBadge
  beginDate={work.begin_date}
  endDate={work.end_date}
@@ -191,7 +210,9 @@ export default function WorkDirectoryPage() {
  onHistory={() => setIsHistoryOpen(true)}
  onMerge={() => setIsMergeOpen(true)}
  entityTypeLabel={t("entity.toolbar.work")}
- />
+ >
+ <FavoriteButton targetType="work" targetId={work.id} />
+ </EntityActionToolbar>
  </div>
  </div>
  </div>
@@ -248,7 +269,6 @@ export default function WorkDirectoryPage() {
  <Link href={`/releases/${rel.id}`} className="font-semibold text-gray-900 dark:text-white hover:text-primary inline-flex items-center gap-2">
  {rel.edition_name} <ArrowUpRight className="w-4 h-4 text-gray-400" strokeWidth={1.6} />
  </Link>
- {rel.uploader && <span className="ml-2 font-mono text-xs text-gray-500">by {rel.uploader.username}</span>}
  </td>
  <td className="py-2.5 px-3.5 text-gray-600 dark:text-gray-400">
  {rel.publisher_entity ? (
@@ -273,7 +293,7 @@ export default function WorkDirectoryPage() {
  <div className="min-w-0 space-y-0.5">
  <div className="font-semibold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2 inline-flex items-center gap-2">{rel.edition_name} <ArrowUpRight className="w-4 h-4 text-gray-400 shrink-0" strokeWidth={1.6} /></div>
  <div className="font-mono text-xs text-gray-500 truncate">{rel.publisher_entity ? rel.publisher_entity.name : rel.publisher || "—"} {rel.catalog_number ? "· " + rel.catalog_number : ""}</div>
- <div className="font-mono text-xs text-gray-400">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}{rel.uploader ? " · by " + rel.uploader.username : ""}</div>
+ <div className="font-mono text-xs text-gray-400">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</div>
  </div>
  <span className={`shrink-0 px-2.5 py-1 rounded-sm text-xs font-mono border ${rel.is_master_verified ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-300" : "bg-black/[0.04] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-500"}`}>{rel.is_master_verified ? t("work.detail.verified") : t("work.detail.pending")}</span>
  </div>

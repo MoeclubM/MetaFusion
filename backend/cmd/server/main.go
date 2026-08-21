@@ -20,6 +20,7 @@ import (
 	"github.com/metafusion/metafusion-app/internal/community"
 	"github.com/metafusion/metafusion-app/internal/config"
 	"github.com/metafusion/metafusion-app/internal/database"
+	"github.com/metafusion/metafusion-app/internal/favorite"
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/openapi"
@@ -28,23 +29,22 @@ import (
 	"github.com/metafusion/metafusion-app/internal/storage"
 )
 
-
 func translateAuthError(c *gin.Context, msg string) string {
-    m := map[string]string{
-        "用户名与邮箱不能为空": backendi18n.T(c, "auth.empty_username_email"),
-        "用户名或邮箱已被占用": backendi18n.T(c, "auth.username_email_taken"),
-        "用户名或密码错误": backendi18n.T(c, "auth.wrong_password"),
-        "账号已被封禁，请联系管理员": backendi18n.T(c, "auth.account_banned"),
-        "原密码错误": backendi18n.T(c, "auth.old_password_wrong"),
-        "注册功能已关闭，请联系管理员": backendi18n.T(c, "auth.registration_closed"),
-        "需要邀请码才能注册": backendi18n.T(c, "auth.invite_required"),
-        "邀请码不能为空": backendi18n.T(c, "auth.invite_empty"),
-        "无效的邀请码，请向已有成员索取邀请码": backendi18n.T(c, "auth.invite_invalid"),
-    }
-    if v, ok := m[msg]; ok {
-        return v
-    }
-    return msg
+	m := map[string]string{
+		"用户名与邮箱不能为空":         backendi18n.T(c, "auth.empty_username_email"),
+		"用户名或邮箱已被占用":         backendi18n.T(c, "auth.username_email_taken"),
+		"用户名或密码错误":           backendi18n.T(c, "auth.wrong_password"),
+		"账号已被封禁，请联系管理员":      backendi18n.T(c, "auth.account_banned"),
+		"原密码错误":              backendi18n.T(c, "auth.old_password_wrong"),
+		"注册功能已关闭，请联系管理员":     backendi18n.T(c, "auth.registration_closed"),
+		"需要邀请码才能注册":          backendi18n.T(c, "auth.invite_required"),
+		"邀请码不能为空":            backendi18n.T(c, "auth.invite_empty"),
+		"无效的邀请码，请向已有成员索取邀请码": backendi18n.T(c, "auth.invite_invalid"),
+	}
+	if v, ok := m[msg]; ok {
+		return v
+	}
+	return msg
 }
 
 func main() {
@@ -343,8 +343,8 @@ func main() {
 			authGroup.DELETE("/tokens/:id", auth.AuthMiddleware(cfg), apiKeySvc.Delete)
 		}
 
-		// 图书馆级编目与分类（统一鉴权）
-		catGroup := api.Group("/catalog", auth.UnifiedAuthMiddleware(cfg, db))
+		// 图书馆级编目与分类（读操作公开/可选鉴权，写操作强制统一鉴权）
+		catGroup := api.Group("/catalog")
 		{
 			catGroup.GET("/taxonomy", catalogSvc.GetTaxonomy)
 			catGroup.GET("/relation-types", catalogSvc.ListRelationTypes)
@@ -358,22 +358,22 @@ func main() {
 			catGroup.GET("/works/:id", catalogSvc.GetWorkDetail)
 			catGroup.GET("/works/:id/graph", catalogSvc.GetWorkGraph)
 			catGroup.GET("/works/:id/comments", communitySvc.ListWorkComments)
-			catGroup.POST("/works/:id/comments", communitySvc.CreateWorkComment)
+			catGroup.POST("/works/:id/comments", auth.UnifiedAuthMiddleware(cfg, db), communitySvc.CreateWorkComment)
 			catGroup.GET("/releases", catalogSvc.ListReleases)
 			catGroup.GET("/releases/:id", catalogSvc.GetReleaseDetail)
 			catGroup.GET("/mediums/:id", catalogSvc.GetMediumDetail)
-			catGroup.POST("/artists", catalogSvc.CreateArtistForMember)
-			catGroup.PUT("/artists/:id", catalogSvc.UpdateArtistForMember)
-			catGroup.POST("/works", catalogSvc.CreateWorkForMember)
-			catGroup.PUT("/works/:id", catalogSvc.UpdateWorkForMember)
-			catGroup.POST("/releases", catalogSvc.CreateReleaseForMember)
-			catGroup.PUT("/releases/:id", catalogSvc.UpdateReleaseForMember)
-			catGroup.POST("/mediums", catalogSvc.CreateMediumForMember)
-			catGroup.POST("/tracks", catalogSvc.CreateTrackForMember)
-			catGroup.PUT("/works/:id/relations", catalogSvc.UpsertWorkRelationsForMember)
+			catGroup.POST("/artists", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateArtistForMember)
+			catGroup.PUT("/artists/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateArtistForMember)
+			catGroup.POST("/works", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateWorkForMember)
+			catGroup.PUT("/works/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateWorkForMember)
+			catGroup.POST("/releases", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateReleaseForMember)
+			catGroup.PUT("/releases/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateReleaseForMember)
+			catGroup.POST("/mediums", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateMediumForMember)
+			catGroup.POST("/tracks", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateTrackForMember)
+			catGroup.PUT("/works/:id/relations", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpsertWorkRelationsForMember)
 			catGroup.GET("/revisions", catalogSvc.ListEntityRevisions)
-			catGroup.POST("/merge", catalogSvc.MergeEntities)
-			catGroup.POST("/submit", catalogSvc.SubmitComprehensiveArchive)
+			catGroup.POST("/merge", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.MergeEntities)
+			catGroup.POST("/submit", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.SubmitComprehensiveArchive)
 			// 用户自建推荐分组（私有默认，可设公开）
 			catGroup.GET("/shelves/custom", catalogSvc.ListCustomShelves)
 			catGroup.POST("/shelves/custom", catalogSvc.CreateCustomShelf)
@@ -388,14 +388,14 @@ func main() {
 			catGroup.PUT("/home/layout", catalogSvc.PutHomeLayout)
 		}
 
-		// ── MusicBrainz WS/2 兼容浏览层（统一鉴权） ──
-		browse := api.Group("/browse", auth.UnifiedAuthMiddleware(cfg, db))
+		// ── MusicBrainz WS/2 兼容浏览层（开放读取） ──
+		browse := api.Group("/browse", auth.OptionalUnifiedAuthMiddleware(cfg, db))
 		{
 			browse.GET("/works", catalogSvc.BrowseWorks)
 			browse.GET("/releases", catalogSvc.BrowseReleases)
 			browse.GET("/artists", catalogSvc.BrowseArtists)
 		}
-		ws2 := api.Group("/ws/2", auth.UnifiedAuthMiddleware(cfg, db))
+		ws2 := api.Group("/ws/2", auth.OptionalUnifiedAuthMiddleware(cfg, db))
 		{
 			ws2.GET("/work/:id", catalogSvc.GetWorkDetail)
 			ws2.GET("/release/:id", catalogSvc.GetReleaseDetail)
@@ -452,9 +452,18 @@ func main() {
 			}
 		}
 
-		// 用户公开资料与贡献历史（统一鉴权）
-		api.GET("/users/:id", auth.UnifiedAuthMiddleware(cfg, db), community.GetUserProfile(db))
-		api.GET("/users/:id/contributions", auth.UnifiedAuthMiddleware(cfg, db), community.GetUserContributions(db))
+		// 用户公开资料与贡献历史（开放浏览；处理器内部按隐私开关过滤邮箱/收藏）
+		api.GET("/users/:id", auth.OptionalUnifiedAuthMiddleware(cfg, db), community.GetUserProfile(db))
+		api.GET("/users/:id/contributions", auth.OptionalUnifiedAuthMiddleware(cfg, db), community.GetUserContributions(db))
+
+		// 用户收藏：切换 / 批量状态 / 本人列表 / 他人列表（尊重隐私开关）
+		favGroup := api.Group("/favorites")
+		{
+			favGroup.POST("/toggle", auth.UnifiedAuthMiddleware(cfg, db), favorite.Toggle(db))
+			favGroup.GET("/status", auth.UnifiedAuthMiddleware(cfg, db), favorite.Status(db))
+			favGroup.GET("/mine", auth.UnifiedAuthMiddleware(cfg, db), favorite.ListMy(db))
+		}
+		api.GET("/users/:id/favorites", auth.UnifiedAuthMiddleware(cfg, db), favorite.ListByUser(db))
 
 		// 用户私聊消息 (Direct Messaging)
 		messagesGroup := api.Group("/messages", auth.UnifiedAuthMiddleware(cfg, db))
@@ -476,10 +485,10 @@ func main() {
 			communityGroup.POST("/topics/:id/posts", communitySvc.CreatePost)
 		}
 
-		// 全文与多维检索 — MusicBrainz 搜索对等，支持 inc 与多类型（统一鉴权）
+		// 全文与多维检索 — MusicBrainz 搜索对等，支持 inc 与多类型（开放检索）
 		if searchSvc != nil {
-			api.GET("/search", auth.UnifiedAuthMiddleware(cfg, db), searchSvc.SearchWorks)
-			api.GET("/ws/2/search", auth.UnifiedAuthMiddleware(cfg, db), searchSvc.SearchWorks)
+			api.GET("/search", auth.OptionalUnifiedAuthMiddleware(cfg, db), searchSvc.SearchWorks)
+			api.GET("/ws/2/search", auth.OptionalUnifiedAuthMiddleware(cfg, db), searchSvc.SearchWorks)
 		}
 
 		// 管理后台专用 API (限 admin / archivist 权限)

@@ -18,9 +18,56 @@ export interface User {
   invited_by?: string;
   avatar_url?: string;
   bio?: string;
+  favorites_public?: boolean;
+  email_public?: boolean;
   created_at?: string;
   updated_at?: string;
   inviter?: User;
+}
+
+// ── 收藏 ──
+export type FavoriteTargetType = "work" | "release" | "artist";
+
+export interface FavoriteItem {
+  id: string;
+  target_type: FavoriteTargetType;
+  target_id: string;
+  created_at: string;
+  work?: { id: string; title: string; media_type: string; cover_image_url?: string };
+  release?: { id: string; work_id: string; edition_name: string };
+  artist?: { id: string; name: string; original_name?: string; entity_type?: string };
+}
+
+/** 切换收藏状态，返回切换后是否已收藏 */
+export async function toggleFavorite(targetType: FavoriteTargetType, targetId: string): Promise<boolean> {
+  const res = await fetchApi<{ favorited: boolean }>("/favorites/toggle", {
+    method: "POST",
+    body: JSON.stringify({ target_type: targetType, target_id: targetId }),
+  });
+  return res.favorited;
+}
+
+/** 批量查询当前用户对若干目标是否已收藏 */
+export async function fetchFavoriteStatus(targetType: FavoriteTargetType, targetIds: string[]): Promise<Set<string>> {
+  if (targetIds.length === 0) return new Set();
+  const res = await fetchApi<{ favorited: string[] }>(
+    `/favorites/status?target_type=${encodeURIComponent(targetType)}&target_ids=${encodeURIComponent(targetIds.join(","))}`
+  );
+  return new Set(res.favorited || []);
+}
+
+/** 拉取收藏列表（本人或公开用户），visible=false 表示对方未公开 */
+export async function fetchFavorites(
+  userIdOrMine: string,
+  opts: { targetType?: FavoriteTargetType; page?: number; pageSize?: number } = {}
+): Promise<{ items: FavoriteItem[]; total: number; visible: boolean }> {
+  const endpoint = userIdOrMine === "mine" ? "/favorites/mine" : `/users/${userIdOrMine}/favorites`;
+  const params = new URLSearchParams();
+  if (opts.targetType) params.set("target_type", opts.targetType);
+  if (opts.page) params.set("page", String(opts.page));
+  if (opts.pageSize) params.set("page_size", String(opts.pageSize));
+  const qs = params.toString();
+  return fetchApi(`${endpoint}${qs ? `?${qs}` : ""}`);
 }
 
 export function displayNameOf(u: Pick<User, "username" | "display_name">): string {
@@ -132,6 +179,12 @@ export function getEntityDesc(code: string, t: (k: string) => string): string {
 }
 export function getRoleName(code: string, t: (k: string) => string): string {
   const key = `role.${code}`;
+  const translated = t(key);
+  if (translated && translated !== key) return translated;
+  return code;
+}
+export function getMediaTypeName(code: string, t: (k: string) => string): string {
+  const key = `media_type.${code}`;
   const translated = t(key);
   if (translated && translated !== key) return translated;
   return code;

@@ -20,6 +20,7 @@ type userProfileResponse struct {
 		CommentsCreated int64 `json:"comments_created"`
 		AuditActions    int64 `json:"audit_actions"`
 		InvitedCount    int64 `json:"invited_count"`
+		FavoritesCount  int64 `json:"favorites_count"`
 	} `json:"stats"`
 }
 
@@ -32,7 +33,7 @@ func GetUserProfile(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		var user models.User
-		if err := db.Select("id", "username", "display_name", "email", "role", "avatar_url", "bio", "created_at", "invited_by", "invite_code").First(&user, "id = ?", uid).Error; err != nil {
+		if err := db.Select("id", "username", "display_name", "email", "email_public", "favorites_public", "role", "avatar_url", "bio", "created_at", "invited_by", "invite_code").First(&user, "id = ?", uid).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 			return
 		}
@@ -45,6 +46,17 @@ func GetUserProfile(db *gorm.DB) gin.HandlerFunc {
 		db.Model(&models.ForumPost{}).Where("user_id = ? AND post_number > 1", uid).Count(&resp.Stats.CommentsCreated)
 		db.Model(&models.AdminAuditLog{}).Where("actor_id = ?", uid).Count(&resp.Stats.AuditActions)
 		db.Model(&models.User{}).Where("invited_by = ?", uid).Count(&resp.Stats.InvitedCount)
+		db.Model(&models.Favorite{}).Where("user_id = ?", uid).Count(&resp.Stats.FavoritesCount)
+
+		// 隐私控制：非本人时抹除未公开的邮箱与专属邀请码；本人始终可见
+		viewerID, hasViewer := c.Get("userID")
+		isSelf := hasViewer && viewerID.(uuid.UUID) == uid
+		if !isSelf {
+			if !user.EmailPublic {
+				resp.User.Email = ""
+			}
+			resp.User.InviteCode = ""
+		}
 		c.JSON(http.StatusOK, resp)
 	}
 }

@@ -45,11 +45,26 @@ type User struct {
 	InvitedBy        *uuid.UUID `gorm:"type:uuid" json:"invited_by,omitempty"`
 	AvatarURL        string     `json:"avatar_url"`
 	Bio              string     `json:"bio"`
+	FavoritesPublic  bool       `gorm:"default:true;not null" json:"favorites_public"`
+	EmailPublic      bool       `gorm:"default:false;not null" json:"email_public"`
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 
 	Inviter *User `gorm:"foreignKey:InvitedBy" json:"inviter,omitempty"`
 }
+
+// Favorite 用户收藏（作品 / 发行版 / 艺术家），user_id + target 唯一
+type Favorite struct {
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID     uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_fav_user_target,priority:1" json:"user_id"`
+	TargetType string    `gorm:"type:varchar(16);not null;uniqueIndex:idx_fav_user_target,priority:2" json:"target_type"` // 'work', 'release', 'artist'
+	TargetID   uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_fav_user_target,priority:3" json:"target_id"`
+	CreatedAt  time.Time `gorm:"index" json:"created_at"`
+
+	User *User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+func (Favorite) TableName() string { return "favorites" }
 
 
 // Invitation represents an invite code

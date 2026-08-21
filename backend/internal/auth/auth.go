@@ -120,11 +120,13 @@ type RegisterInput struct {
 	InviteCode  string  `json:"invite_code"`
 }
 
-// UpdateProfileInput 个人资料自助更新 (昵称/简介/头像)
+// UpdateProfileInput 个人资料自助更新 (昵称/简介/头像/隐私开关)
 type UpdateProfileInput struct {
-	DisplayName *string `json:"display_name"`
-	Bio         *string `json:"bio"`
-	AvatarURL   *string `json:"avatar_url"`
+	DisplayName     *string `json:"display_name"`
+	Bio             *string `json:"bio"`
+	AvatarURL       *string `json:"avatar_url"`
+	FavoritesPublic *bool   `json:"favorites_public"`
+	EmailPublic     *bool   `json:"email_public"`
 }
 
 type LoginInput struct {
@@ -301,6 +303,12 @@ func (s *AuthService) UpdateProfile(userID uuid.UUID, input UpdateProfileInput) 
 	}
 	if input.AvatarURL != nil {
 		updates["avatar_url"] = strings.TrimSpace(*input.AvatarURL)
+	}
+	if input.FavoritesPublic != nil {
+		updates["favorites_public"] = *input.FavoritesPublic
+	}
+	if input.EmailPublic != nil {
+		updates["email_public"] = *input.EmailPublic
 	}
 	if len(updates) == 0 {
 		return &user, nil
