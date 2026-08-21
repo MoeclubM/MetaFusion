@@ -14,7 +14,6 @@ import {
  Mail,
  Lock,
  KeyRound,
- ShieldCheck,
  ArrowRight,
  AlertCircle,
 } from "lucide-react";
@@ -108,20 +107,15 @@ function LoginInner() {
  <main className="relative z-10 flex-1 min-h-0 grid place-items-center py-3">
  <div className="w-full max-w-md max-h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
  <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden animate-scale-in">
- <div className="p-4 sm:p-5 pb-3 border-b border-black/[0.06] dark:border-white/[0.06]">
- <div className="flex items-center justify-between gap-3">
- <div className="min-w-0">
- <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
- {isRegister ? t("auth.joinTitle") : t("auth.welcomeBack")}
- </h1>
- <p className="font-mono text-sm text-gray-500 dark:text-gray-400 mt-0.5">
- {isRegister ? t("auth.joinSubtitle") : t("auth.loginSubtitle")}
- </p>
- </div>
- <div className="w-8 h-8 rounded-md bg-black/5 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 grid place-items-center text-primary shrink-0">
- <ShieldCheck className="w-4 h-4" strokeWidth={1.6} />
- </div>
- </div>
+	 <div className="p-4 sm:p-5 pb-3 border-b border-black/[0.06] dark:border-white/[0.06]">
+	 <div className="min-w-0">
+	 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+	 {isRegister ? t("auth.joinTitle") : t("auth.welcomeBack")}
+	 </h1>
+	 <p className="font-mono text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+	 {isRegister ? t("auth.joinSubtitle") : t("auth.loginSubtitle")}
+	 </p>
+	 </div>
 
  <div className="flex gap-2 mt-3.5 bg-black/[0.04] dark:bg-white/[0.04] p-1 rounded-lg border border-black/[0.06] dark:border-white/[0.06]">
  <button
