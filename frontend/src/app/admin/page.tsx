@@ -45,7 +45,7 @@ function AdminContent() {
           {d.activeTab === "releases" && <ReleasesTab loading={d.loading} filteredReleases={d.filteredReleases} expandedReleaseId={d.expandedReleaseId} setExpandedReleaseId={d.setExpandedReleaseId} verifyingReleaseId={d.verifyingReleaseId} handleToggleVerification={d.handleToggleVerification} />}
           {d.activeTab === "assets" && <AssetsTab loading={d.loading} filteredAssets={d.filteredAssets} handleRetryAsset={d.handleRetryAsset} />}
           {d.activeTab === "artists" && <AgentsTab loading={d.loading} filteredArtists={d.filteredArtists} artistsList={d.artistsList} selectedEntityType={d.selectedEntityType} setSelectedEntityType={d.setSelectedEntityType} handleOpenCreateArtist={d.handleOpenCreateArtist} handleOpenEditArtist={d.handleOpenEditArtist} handleDeleteArtist={d.handleDeleteArtist} />}
-          {d.activeTab === "users" && <UsersTab loading={d.loading} filteredUsers={d.filteredUsers} roleUpdatingId={d.roleUpdatingId} user={d.user} handleUpdateRole={d.handleUpdateRole} />}
+          {d.activeTab === "users" && <UsersTab loading={d.loading} filteredUsers={d.filteredUsers} roleUpdatingId={d.roleUpdatingId} user={d.user} handleUpdateRole={d.handleUpdateRole} handleUpdateUser={d.handleUpdateUser} />}
           {d.activeTab === "topics" && <TopicsTab loading={d.loading} topicsList={d.topicsList} handleDeleteTopic={d.handleDeleteTopic} />}
           {d.activeTab === "boards" && <BoardsTab />}
           {d.activeTab === "audit" && <AuditTab auditLogs={d.auditLogs} />}

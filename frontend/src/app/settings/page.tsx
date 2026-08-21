@@ -301,7 +301,7 @@ export default function SettingsPage() {
                     <span className="px-1.5 py-0.2 rounded-sm bg-black/5 dark:bg-white/[0.08] border border-black/10 dark:border-white/10 font-mono text-[10px] text-gray-600 dark:text-gray-300 capitalize">
                       {user.role}
                     </span>
-                    {(user as unknown as Record<string, unknown>)["display_name"] && String((user as unknown as Record<string, unknown>)["display_name"]).trim() !== "" && (
+                    {displayNameOf(user as unknown as { username: string; display_name?: string }) !== user.username && (
                       <span className="font-mono text-[10px] text-gray-500">@{user.username}</span>
                     )}
                   </div>
@@ -351,13 +351,13 @@ export default function SettingsPage() {
                   <span className="text-gray-900 dark:text-white font-medium capitalize">{user.role}</span>
                 </div>
 
-                {(user as unknown as Record<string, unknown>)["invite_code"] && (
+                {!!(user as unknown as { invite_code?: string }).invite_code && (
                   <div className="p-2.5 rounded-md bg-background border border-black/5 dark:border-white/[0.06] flex items-center justify-between text-xs font-mono">
                     <span className="text-gray-500 flex items-center gap-1.5">
                       <KeyRound className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
                       <span>{t("settings.inviteCodeLabel")}</span>
                     </span>
-                    <span className="text-gray-900 dark:text-white font-semibold tracking-widest">{String((user as unknown as Record<string, unknown>)["invite_code"])}</span>
+                    <span className="text-gray-900 dark:text-white font-semibold tracking-widest">{(user as unknown as { invite_code: string }).invite_code}</span>
                   </div>
                 )}
 
