@@ -235,14 +235,9 @@ function ExploreContent() {
         <div className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-black/5 dark:border-white/[0.06] pb-3">
             <div className="space-y-0.5">
-              <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-primary">
-                <Layers className="w-3.5 h-3.5" />
-                <span>ARCHIVE EXPLORER · FRBR CATALOG</span>
-              </div>
               <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
                 <span>{t("explore.title")}</span>
               </h1>
-              <p className="font-mono text-[11px] text-gray-500">{t("explore.subtitle")}</p>
             </div>
 
             <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md">

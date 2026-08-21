@@ -73,12 +73,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
                 </span>
               </span>
             </Link>
-            <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 font-mono text-[10px] text-gray-500 dark:text-gray-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>NODE: ONLINE</span>
-              <span className="text-gray-400 dark:text-gray-600">|</span>
-              <span>FRBR CORE</span>
-            </div>
             <nav className="hidden lg:flex items-center gap-1 ml-1">
               {navLinks.map((tab) => {
                 const Icon = tab.icon;
