@@ -977,8 +977,6 @@
   "settings.privacyEmailSaved": "邮箱可见性已更新",
   "settings.privacySaveFail": "隐私设置保存失败"
 ,
-  "home.showcaseTitle": "我的首页陈列",
-  "home.channelCount": "{count} 个频道",
   "landing.docsTitle": "MetaFusion 完整文档",
   "editor.core.workIdLabel": "所属作品 UUID (Work ID)",
   "editor.core.workIdPlaceholder": "作品 UUID（如通过作品详情页点击新建发行则自动填充）"

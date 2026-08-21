@@ -349,19 +349,7 @@ function HomeShowcaseContent() {
  <Navbar />
 
  <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full flex-1 space-y-5">
- {/* Terminal Header */}
- <div className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
- <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
- <div className="space-y-0.5">
- <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-primary">
- <span>HOME SHELVES</span>
- </div>
- <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t("home.showcaseTitle")}</h1>
- </div>
- <div className="font-mono text-sm text-gray-500 flex items-center gap-2">
- <span className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/10 dark:border-white/10">{t("home.channelCount", { count: allKeysOrdered.length })}</span>
- </div>
- </div>
+ {/* Channel quick nav */}
  <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
  {allKeysOrdered.map((key) => {
  const isCustom = key.startsWith("custom:");
@@ -394,7 +382,6 @@ function HomeShowcaseContent() {
  <Settings2 className="w-4 h-4" />
  <span>{t("shelf.customize")}</span>
  </button>
- </div>
  </div>
 
  {/* Channel Showcases */}

@@ -977,8 +977,6 @@
   "settings.privacyEmailSaved": "Email visibility updated",
   "settings.privacySaveFail": "Failed to save privacy settings"
 ,
-  "home.showcaseTitle": "Home Showcase",
-  "home.channelCount": "{count} channels",
   "landing.docsTitle": "MetaFusion Documentation",
   "editor.core.workIdLabel": "Parent Work UUID (Work ID)",
   "editor.core.workIdPlaceholder": "Work UUID (auto-filled when creating a release from a work detail page)"
