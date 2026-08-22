@@ -51,7 +51,6 @@ export function useAdminDashboard() {
     slug: "",
     name_zh: "",
     name_en: "",
-    media_type: "all",
     query_tags: [],
     require_all_tags: false,
     sort_order: 0,
@@ -89,8 +88,6 @@ export function useAdminDashboard() {
   const [workForm, setWorkForm] = useState({
     title: "",
     original_title: "",
-    media_type: "music",
-    category_code: "music.soundtrack",
     summary: "",
     cover_image_url: "",
   });
@@ -224,7 +221,6 @@ export function useAdminDashboard() {
       slug: "",
       name_zh: "",
       name_en: "",
-      media_type: "all",
       query_tags: [],
       require_all_tags: false,
       sort_order: (shelvesList.length + 1) * 10,
@@ -388,7 +384,7 @@ export function useAdminDashboard() {
     try {
       await fetchApi("/admin/works", { method: "POST", body: JSON.stringify(workForm) });
       setIsWorkModalOpen(false);
-      setWorkForm({ title: "", original_title: "", media_type: "music", category_code: "music.soundtrack", summary: "", cover_image_url: "" });
+      setWorkForm({ title: "", original_title: "", summary: "", cover_image_url: "" });
       loadData();
     } catch (e: any) {
       alert(e.message || t("admin.alert.createWorkFailed"));
@@ -423,7 +419,7 @@ export function useAdminDashboard() {
   const filteredWorks = worksList.filter((w) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
-    return w.title.toLowerCase().includes(q) || (w.original_title && w.original_title.toLowerCase().includes(q)) || w.category_code.toLowerCase().includes(q);
+    return w.title.toLowerCase().includes(q) || (w.original_title && w.original_title.toLowerCase().includes(q)) || (w.tags || []).some((tag) => tag.name.toLowerCase().includes(q));
   });
 
   const filteredExpressions = expressionsList.filter((x) => {

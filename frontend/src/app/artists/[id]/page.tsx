@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, ArtistDetailResponse, Category, categoryDisplayName, ConnectedEntityItem, catalogEntityHref, pickLocalized } from "@/lib/api";
+import { fetchApi, ArtistDetailResponse, ConnectedEntityItem, catalogEntityHref, pickLocalized } from "@/lib/api";
 import {
   User, Building, Film, Globe, ExternalLink, Layers, Eye, ArrowUpRight,
   Handshake, FileSignature, Briefcase, Network, Sparkles, Building2, CheckCircle2,
@@ -185,12 +185,10 @@ export default function ArtistDetailPage() {
                           alt={w.title}
                           title={w.title}
                           originalTitle={w.original_title}
-                          mediaType={w.media_type}
                           id={w.id}
                           imgClassName="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60 pointer-events-none" />
-                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.2 rounded-sm bg-black/70 backdrop-blur border border-white/10 font-mono text-[9px] text-white keep-white">{w.category ? categoryDisplayName(w.category as Category, locale) : w.media_type}</span>
                         {role && <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.2 rounded-sm bg-primary text-white font-mono text-[9px] font-bold">{role}</span>}
                       </div>
                       <div className="p-2.5 flex-1 flex flex-col justify-between gap-1">

@@ -94,7 +94,6 @@ export function ReviewsTab({
           <thead className="bg-background/80 text-gray-400 border-b border-surfaceBorder text-[11px] font-mono">
             <tr>
               <th className="py-3 px-4">{t("admin.reviews.colTitle")}</th>
-              <th className="py-3 px-3">{t("admin.reviews.colMedia")}</th>
               <th className="py-3 px-3">{t("admin.reviews.colCreator")}</th>
               <th className="py-3 px-3">{t("admin.reviews.colTags")}</th>
               <th className="py-3 px-3">{t("admin.reviews.colDate")}</th>
@@ -105,13 +104,13 @@ export function ReviewsTab({
           <tbody className="divide-y divide-surfaceBorder/60">
             {loading ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-gray-500 font-mono">
+                <td colSpan={6} className="py-12 text-center text-gray-500 font-mono">
                   {t("common.loadingGeneric")}
                 </td>
               </tr>
             ) : filteredReviewWorks.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-gray-500 font-mono">
+                <td colSpan={6} className="py-12 text-center text-gray-500 font-mono">
                   {t("admin.reviews.noEntries")}
                 </td>
               </tr>
@@ -125,11 +124,6 @@ export function ReviewsTab({
                     <td className="py-3 px-4">
                       <div className="font-semibold text-white">{work.title}</div>
                       {work.original_title && <div className="text-[11px] text-gray-400 mt-0.5">{work.original_title}</div>}
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-white/[0.06] border border-white/10 text-gray-300 uppercase">
-                        {work.media_type}
-                      </span>
                     </td>
                     <td className="py-3 px-3 font-mono text-gray-300">{work.creator?.username || "—"}</td>
                     <td className="py-3 px-3">

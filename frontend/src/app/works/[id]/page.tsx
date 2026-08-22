@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { MultipartUploader } from "@/components/MultipartUploader";
-import { fetchApi, Work, Release, DiscussionTopic, Category, categoryDisplayName, ConnectedEntityItem, pickLocalized } from "@/lib/api";
+import { fetchApi, Work, Release, DiscussionTopic, ConnectedEntityItem, pickLocalized } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
@@ -23,7 +23,7 @@ export default function WorkDirectoryPage() {
  const workId = params.id as string;
  const { user } = useAuth();
  const { t, locale } = useI18n();
- const { mediaTypeLabel, roleLabel } = useTaxonomy();
+ const { roleLabel } = useTaxonomy();
 
  const [work, setWork] = useState<Work | null>(null);
  const [connected, setConnected] = useState<ConnectedEntityItem[]>([]);
@@ -124,17 +124,6 @@ export default function WorkDirectoryPage() {
  <div className="flex items-center gap-2 font-mono text-sm text-gray-500">
  <Link href="/explore" className="hover:text-primary transition-colors">{t("work.detail.explore")}</Link>
  <span className="text-gray-400 dark:text-white/20">/</span>
- {work.category ? (
- <>
- <span className="text-gray-600 dark:text-gray-400">{categoryDisplayName(work.category as Category, locale)}</span>
- <span className="text-gray-400 dark:text-white/20">/</span>
- </>
- ) : work.media_type ? (
- <>
- <span className="text-gray-600 dark:text-gray-400">{mediaTypeLabel(work.media_type)}</span>
- <span className="text-gray-400 dark:text-white/20">/</span>
- </>
- ) : null}
  <span className="text-gray-900 dark:text-white truncate max-w-[40ch]">{localized.title}</span>
  </div>
 
@@ -147,7 +136,6 @@ export default function WorkDirectoryPage() {
 	 alt={localized.title}
 	 title={localized.title}
 	 originalTitle={work.original_title}
-	 mediaType={work.media_type}
 	 id={work.id}
 	 imgClassName="w-full h-full object-cover"
 	 />
@@ -157,15 +145,6 @@ export default function WorkDirectoryPage() {
 	 <div className="flex flex-wrap items-center justify-between gap-2">
 	 <div className="flex flex-wrap items-center gap-2 font-mono text-xs tracking-wide">
 	 <span className="px-2.5 py-1 rounded-sm bg-primary text-white font-semibold">{t("work.detail.workBadge")}</span>
-	 {work.category ? (
-	 <span className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
-	 {categoryDisplayName(work.category as Category, locale)}
-	 </span>
-	 ) : work.media_type ? (
-	 <span className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
-	 {mediaTypeLabel(work.media_type)}
-	 </span>
-	 ) : null}
 	 <TemporalBadge
 	 beginDate={work.begin_date}
 	 endDate={work.end_date}

@@ -4,14 +4,12 @@ import { useI18n } from "@/i18n/I18nProvider";
 
 import Link from "next/link";
 import { Library, Eye } from "lucide-react";
-import { categoryDisplayName } from "@/lib/api";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
 export function WorksTab({
   loading,
   filteredWorks,
-  locale,
-}: Pick<AdminDashboard, "loading" | "filteredWorks" | "locale">) {
+}: Pick<AdminDashboard, "loading" | "filteredWorks">) {
   const { t } = useI18n();
   return (
     <div className="space-y-4">
@@ -33,8 +31,7 @@ export function WorksTab({
           <thead className="bg-background/80 text-gray-400 border-b border-surfaceBorder text-[11px] font-mono">
             <tr>
               <th className="py-3 px-4">{t("admin.works.colTitle")}</th>
-              <th className="py-3 px-3">{t("admin.works.colMedia")}</th>
-              <th className="py-3 px-3">{t("admin.works.colCategory")}</th>
+              <th className="py-3 px-3">{t("admin.reviews.colTags")}</th>
               <th className="py-3 px-3">{t("admin.works.colReleases")}</th>
               <th className="py-3 px-3">{t("admin.works.colMetadata")}</th>
               <th className="py-3 px-4 text-right">{t("admin.works.colAction")}</th>
@@ -43,13 +40,13 @@ export function WorksTab({
           <tbody className="divide-y divide-surfaceBorder/60">
             {loading ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-gray-500 font-mono">
+                <td colSpan={5} className="py-12 text-center text-gray-500 font-mono">
                   {t("common.loadingGeneric")}
                 </td>
               </tr>
             ) : filteredWorks.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-gray-500 font-mono">
+                <td colSpan={5} className="py-12 text-center text-gray-500 font-mono">
                   {t("admin.works.noData")}
                 </td>
               </tr>
@@ -61,12 +58,20 @@ export function WorksTab({
                     {work.original_title && <div className="text-[11px] text-gray-400 mt-0.5">{work.original_title}</div>}
                   </td>
                   <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-white/[0.06] border border-white/10 text-gray-300 uppercase">
-                      {work.media_type}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 font-mono text-gray-400 text-[11px]">
-                    {work.category ? categoryDisplayName(work.category, locale) : work.category_code}
+                    <div className="flex flex-wrap gap-1 max-w-xs">
+                      {work.tags && work.tags.length > 0 ? (
+                        work.tags.map((tag) => (
+                          <span
+                            key={tag.id}
+                            className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono"
+                          >
+                            #{tag.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-gray-500 font-mono text-[10px]">{t("admin.reviews.noTags")}</span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-3 px-3 font-mono text-amber-400">{t("admin.works.versions", { count: work.releases?.length ?? 0 })}</td>
                   <td className="py-3 px-3 font-mono text-gray-400 text-[11px] max-w-xs truncate">

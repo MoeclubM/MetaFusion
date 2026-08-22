@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, Release, Work, Category, categoryDisplayName } from "@/lib/api";
+import { fetchApi, Release, Work } from "@/lib/api";
 import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
 import { useAuth } from "@/lib/authContext";
 import { usePlayer } from "@/lib/playerContext";
@@ -24,8 +24,8 @@ export default function ReleaseDetailPage() {
   const releaseId = params.id as string;
   const { user } = useAuth();
   const { playTrack } = usePlayer();
-  const { t, locale } = useI18n();
-  const { mediaTypeLabel, roleLabel } = useTaxonomy();
+  const { t } = useI18n();
+  const { roleLabel } = useTaxonomy();
   const [release, setRelease] = useState<ReleaseWithWork | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
@@ -84,9 +84,8 @@ export default function ReleaseDetailPage() {
   }
 
   const work = release.work;
-  const mediaType = work?.media_type || "music";
-  const eLabel = entryLabel(mediaType, t);
-  const mLabel = mediumLabel(mediaType, t);
+  const eLabel = entryLabel("", t);
+  const mLabel = mediumLabel("", t);
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
@@ -113,15 +112,6 @@ export default function ReleaseDetailPage() {
             <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">
                 <span className="px-2 py-0.5 rounded-sm bg-primary text-white font-semibold">{t("release.detail.badge")}</span>
-                {work?.category ? (
-                  <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
-                    {categoryDisplayName(work.category as Category, locale)}
-                  </span>
-                ) : work?.media_type ? (
-                  <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
-                    {mediaTypeLabel(work.media_type)}
-                  </span>
-                ) : null}
                 {release.catalog_number && <span className="text-gray-500">{release.catalog_number}</span>}
                 {release.barcode && <span className="text-gray-500">{t("release.detail.barcode", { code: release.barcode })}</span>}
               </div>
@@ -226,7 +216,7 @@ export default function ReleaseDetailPage() {
 
                     {tracks.length > 0 && (
                       <div className="overflow-x-auto">
-                        <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-gray-500">{entryRowHeader(mediaType, t)}</div>
+                        <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-gray-500">{entryRowHeader("", t)}</div>
                         <table className="w-full text-left text-xs">
                           <thead className="bg-black/[0.02] dark:bg-white/[0.02] border-y border-black/5 dark:border-white/[0.06] font-mono text-[10px] uppercase tracking-wider text-gray-500">
                             <tr>

@@ -42,7 +42,6 @@ export function ShelvesTab({
               <th className="py-3 px-4">{t("admin.shelves.colSlug")}</th>
               <th className="py-3 px-3">{t("admin.shelves.colNameZh")}</th>
               <th className="py-3 px-3">{t("admin.shelves.colNameEn")}</th>
-              <th className="py-3 px-3">{t("admin.shelves.colMedia")}</th>
               <th className="py-3 px-3">{t("admin.shelves.colQuery")}</th>
               <th className="py-3 px-3">{t("admin.shelves.colMatch")}</th>
               <th className="py-3 px-3">{t("admin.shelves.colOrder")}</th>
@@ -52,13 +51,13 @@ export function ShelvesTab({
           <tbody className="divide-y divide-surfaceBorder/60">
             {loading ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-gray-500 font-mono">
+                <td colSpan={7} className="py-12 text-center text-gray-500 font-mono">
                   {t("common.loadingGeneric")}
                 </td>
               </tr>
             ) : filteredShelves.length === 0 ? (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-gray-500 font-mono">
+                <td colSpan={7} className="py-12 text-center text-gray-500 font-mono">
                   {t("admin.shelves.noData")}
                 </td>
               </tr>
@@ -68,7 +67,6 @@ export function ShelvesTab({
                   <td className="py-3 px-4 font-mono text-emerald-300 font-bold">{shelf.slug}</td>
                   <td className="py-3 px-3 font-semibold text-white">{shelf.name_zh}</td>
                   <td className="py-3 px-3 font-mono text-gray-400 text-[11px]">{shelf.name_en || "—"}</td>
-                  <td className="py-3 px-3 font-mono text-[10px] uppercase text-gray-300">{shelf.media_type || "all"}</td>
                   <td className="py-3 px-3">
                     <div className="flex flex-wrap gap-1 max-w-sm">
                       {shelf.query_tags && shelf.query_tags.length > 0 ? (

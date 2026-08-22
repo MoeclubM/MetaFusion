@@ -47,7 +47,7 @@ function ExploreContent() {
  const queryParam = searchParams.get("q") || "";
  const tagsParam = searchParams.get("tags") || "";
  const tagMatchParam = searchParams.get("tag_match") === "all" ? "all" : "any";
- const mediaTypeParam = searchParams.get("media_type") || "";
+ const shelfParam = searchParams.get("shelf") || "";
  const entityTypeParam = searchParams.get("entity_type") || "";
   const [works, setWorks] = useState<Work[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
@@ -90,11 +90,11 @@ function ExploreContent() {
  const nq = next.q !== undefined ? next.q : queryParam;
  if (nq) params.set("q", nq);
  const nTags = next.tags !== undefined ? next.tags : selectedTags;
- if (nt === "works" && nTags.length > 0) params.set("tags", nTags.join(","));
- // 保留来自入口链接的媒体类型基础条件
- if (nt === "works" && mediaTypeParam && mediaTypeParam !== "all") {
- params.set("media_type", mediaTypeParam);
+ if (nt === "works" && shelfParam) params.set("shelf", shelfParam);
+ if (nt === "works" && nTags.length > 0) {
+ params.set("tags", nTags.join(","));
  if (tagMatchParam === "all") params.set("tag_match", "all");
+ else if (tagMatchParam === "any") params.set("tag_match", "any");
  }
  const nEntity = next.entity_type !== undefined ? next.entity_type : selectedEntityType;
  if (nt === "artists" && nEntity) params.set("entity_type", nEntity);
@@ -108,10 +108,11 @@ function ExploreContent() {
  const p = new URLSearchParams();
  if (nt !== "works") p.set("type", nt);
  if (queryParam) p.set("q", queryParam);
- if (nt === "works" && selectedTags.length > 0) p.set("tags", selectedTags.join(","));
- if (nt === "works" && mediaTypeParam && mediaTypeParam !== "all") {
- p.set("media_type", mediaTypeParam);
+ if (nt === "works" && shelfParam) p.set("shelf", shelfParam);
+ if (nt === "works" && selectedTags.length > 0) {
+ p.set("tags", selectedTags.join(","));
  if (tagMatchParam === "all") p.set("tag_match", "all");
+ else if (tagMatchParam === "any") p.set("tag_match", "any");
  }
  if (nt === "artists" && selectedEntityType) p.set("entity_type", selectedEntityType);
  const qs = p.toString();
@@ -126,9 +127,9 @@ function ExploreContent() {
  const params = new URLSearchParams();
  // URL 基础条件（来自首页频道等入口）与用户手动勾选的 tags 合并去重
  const mergedTags = Array.from(new Set([...(tagsParam ? tagsParam.split(",").filter(Boolean) : []), ...selectedTags]));
+ if (shelfParam) params.append("shelf", shelfParam);
  if (mergedTags.length > 0) params.append("tags", mergedTags.join(","));
- if (mergedTags.length > 0 && tagMatchParam === "all") params.append("tag_match", "all");
- if (mediaTypeParam) params.append("media_type", mediaTypeParam);
+ if (mergedTags.length > 0) params.append("tag_match", tagMatchParam);
  if (queryParam) params.append("q", queryParam);
  const res = await fetchApi<{ items: Work[]; total: number }>(`/catalog/works?${params.toString()}`);
  let items = res.items || [];
@@ -205,7 +206,7 @@ function ExploreContent() {
  else if (activeType === "franchises") loadFranchises();
  else loadReleases();
  // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [activeType, selectedTags, queryParam, selectedEntityType, sortBy, tagsParam, tagMatchParam, mediaTypeParam]);
+ }, [activeType, selectedTags, queryParam, selectedEntityType, sortBy, tagsParam, tagMatchParam, shelfParam]);
 
  const handleToggleTag = (tagName: string) => {
  const nextTags = selectedTags.includes(tagName)
@@ -230,14 +231,7 @@ function ExploreContent() {
  setSearchInput("");
  setSelectedTags([]);
  setSelectedEntityType("");
- // 保留入口链接带来的基础检索条件（媒体类型/标签规则），只清用户手动筛选
- const p = new URLSearchParams();
- if (mediaTypeParam && mediaTypeParam !== "all") {
- p.set("media_type", mediaTypeParam);
- if (tagMatchParam === "all") p.set("tag_match", "all");
- }
- const qs = p.toString();
- router.push(qs ? `/explore?${qs}` : activeType === "works" ? "/explore" : `/explore?type=${activeType}`);
+ router.push(activeType === "works" ? "/explore" : `/explore?type=${activeType}`);
  };
 
  const tagGroupLabels: Record<string, string> = {
@@ -518,7 +512,7 @@ function ExploreContent() {
             </div>
 
             {/* Active Filters Summary */}
-            {(queryParam || selectedTags.length > 0 || selectedEntityType || mediaTypeParam) && (
+            {(queryParam || selectedTags.length > 0 || selectedEntityType || shelfParam) && (
               <div className="flex items-center justify-between font-mono text-xs text-gray-500 px-1 flex-wrap gap-2">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="font-semibold text-gray-700 dark:text-gray-300">
@@ -530,9 +524,9 @@ function ExploreContent() {
                       ? t("explore.filterResultFranchises", { count: total })
                       : t("explore.filterResultReleases", { count: total })}
                   </span>
-                  {mediaTypeParam && mediaTypeParam !== "all" && (
+                  {shelfParam && (
                     <span className="px-2 py-0.5 rounded bg-sky-500/10 text-sky-500 border border-sky-500/20 font-mono text-xs">
-                      {t(`home.shelves.media${mediaTypeParam.charAt(0).toUpperCase()}${mediaTypeParam.slice(1)}`)}
+                      /{shelfParam}
                     </span>
                   )}
                   {tagsParam && (
@@ -620,12 +614,11 @@ function ExploreContent() {
                           alt={w.title}
                           title={w.title}
                           originalTitle={w.original_title}
-                          mediaType={w.media_type}
                           id={w.id}
                           imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <div className="absolute top-1.5 left-1.5 px-2.5 py-1 rounded-sm bg-black/70 backdrop-blur-md text-xs font-mono text-white">
-                          {w.media_type || t("home.workFallback")}
+                          {w.release_date ? String(w.release_date).slice(0, 4) : t("home.archived")}
                         </div>
                       </div>
                       <div className="p-3 space-y-1 flex-1 flex flex-col justify-between">
@@ -670,7 +663,6 @@ function ExploreContent() {
                             alt={w.title}
                             title={w.title}
                             originalTitle={w.original_title}
-                            mediaType={w.media_type}
                             id={w.id}
                             imgClassName="w-full h-full object-cover"
                           />
@@ -680,9 +672,8 @@ function ExploreContent() {
                             {w.title}
                           </h3>
                           <p className="font-mono text-xs text-gray-500 truncate">
-                            {w.original_title ? `${w.original_title} · ` : ""}
-                            {w.media_type || ""}
-                            {w.release_date ? ` · ${String(w.release_date).slice(0, 10)}` : ""}
+                            {w.original_title ? `${w.original_title}` : ""}
+                            {w.release_date ? `${w.original_title ? " · " : ""}${String(w.release_date).slice(0, 10)}` : ""}
                           </p>
                           {w.tags && w.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 pt-0.5">

@@ -42,7 +42,7 @@ function AdminContent() {
         <main className="flex-1 overflow-y-auto p-6 space-y-6">
           {d.activeTab === "overview" && <OverviewTab stats={d.stats} worksList={d.worksList} expressionsList={d.expressionsList} releasesList={d.releasesList} assetsList={d.assetsList} artistsList={d.artistsList} usersList={d.usersList} topicsList={d.topicsList} auditLogs={d.auditLogs} setActiveTab={d.setActiveTab} />}
           {d.activeTab === "reviews" && <ReviewsTab loading={d.loading} filteredReviewWorks={d.filteredReviewWorks} pendingReviewsCount={d.pendingReviewsCount} reviewFilter={d.reviewFilter} setReviewFilter={d.setReviewFilter} reviewingId={d.reviewingId} handleApproveWork={d.handleApproveWork} handleRejectWork={d.handleRejectWork} />}
-          {d.activeTab === "works" && <WorksTab loading={d.loading} filteredWorks={d.filteredWorks} locale={d.locale} />}
+          {d.activeTab === "works" && <WorksTab loading={d.loading} filteredWorks={d.filteredWorks} />}
           {d.activeTab === "expressions" && <ExpressionsTab loading={d.loading} filteredExpressions={d.filteredExpressions} worksList={d.worksList} handleDeleteExpression={d.handleDeleteExpression} />}
           {d.activeTab === "releases" && <ReleasesTab loading={d.loading} filteredReleases={d.filteredReleases} expandedReleaseId={d.expandedReleaseId} setExpandedReleaseId={d.setExpandedReleaseId} verifyingReleaseId={d.verifyingReleaseId} handleToggleVerification={d.handleToggleVerification} />}
           {d.activeTab === "assets" && <AssetsTab loading={d.loading} filteredAssets={d.filteredAssets} handleRetryAsset={d.handleRetryAsset} />}

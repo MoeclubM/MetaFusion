@@ -563,7 +563,6 @@ export default function PostComposer({
                           className="p-2.5 hover:bg-surfaceBorder/50 cursor-pointer flex items-center justify-between text-gray-300 hover:text-white text-sm"
                         >
                           <span className="font-medium truncate">{w.title}</span>
-                          <span className="text-xs text-gray-500 font-mono">{w.media_type}</span>
                         </div>
                       ))}
                     </div>

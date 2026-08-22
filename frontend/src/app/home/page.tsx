@@ -73,49 +73,26 @@ type ChannelShelf = {
   slug: string;
   name_zh: string;
   name_en?: string;
-  media_type: string;
   query_tags?: string[] | null;
   require_all_tags?: boolean;
   exclude_tags?: string[] | null;
 };
 
-function getShelfColor(key: string, mediaType?: string): string {
+function getShelfColor(key: string): string {
   if (SHELF_COLORS[key]) return SHELF_COLORS[key];
-  if (mediaType && SHELF_COLORS[mediaType]) return SHELF_COLORS[mediaType];
   return "bg-primary/10 border-primary/20 text-primary";
 }
 
 function matchesShelfCriteria(
   work: Work,
-  mediaType: string,
   queryTags: string[],
   requireAll: boolean,
   excludeTags: string[]
 ): boolean {
   const wTags = (work.tags || []).map((t: any) => (t?.name ? t.name : typeof t === "string" ? t : ""));
   if (excludeTags && excludeTags.some((ex) => wTags.includes(ex))) return false;
-  const mtMatch = matchesMediaType(work, mediaType);
-  if (!queryTags || queryTags.length === 0) return mtMatch;
-  const tagMatch = requireAll ? queryTags.every((qt) => wTags.includes(qt)) : queryTags.some((qt) => wTags.includes(qt));
-  if (!mediaType || mediaType === "all") return tagMatch;
-  return mtMatch || tagMatch;
-}
-
-function matchesMediaType(work: Work, mediaType: string): boolean {
-  if (!mediaType || mediaType === "all") return true;
-  const mt = work.media_type || "";
-  switch (mediaType) {
-    case "video":
-      return ["movie", "tv_series", "anime"].includes(mt);
-    case "audio":
-      return ["music", "audiobook"].includes(mt);
-    case "text":
-      return ["novel", "book", "literature"].includes(mt);
-    case "graphic":
-      return ["comic", "gallery", "artbook"].includes(mt);
-    default:
-      return mt === mediaType;
-  }
+  if (!queryTags || queryTags.length === 0) return true;
+  return requireAll ? queryTags.every((qt) => wTags.includes(qt)) : queryTags.some((qt) => wTags.includes(qt));
 }
 
 function flattenSystemShelves(nodes: VirtualShelf[]): VirtualShelf[] {
@@ -134,7 +111,7 @@ function groupWorksForChannels(channels: ChannelShelf[], allWorks: Work[]): Reco
   const grouped: Record<string, Work[]> = {};
   channels.forEach((ch) => {
     grouped[ch.key] = allWorks.filter((w) =>
-      matchesShelfCriteria(w, ch.media_type, ch.query_tags || [], !!ch.require_all_tags, ch.exclude_tags || [])
+      matchesShelfCriteria(w, ch.query_tags || [], !!ch.require_all_tags, ch.exclude_tags || [])
     );
   });
   return grouped;
@@ -197,7 +174,6 @@ function HomeShowcaseContent() {
           slug: c.slug,
           name_zh: c.name_zh,
           name_en: c.name_en,
-          media_type: c.media_type,
           query_tags: c.query_tags,
           require_all_tags: c.require_all_tags,
           exclude_tags: c.exclude_tags,
@@ -211,7 +187,6 @@ function HomeShowcaseContent() {
           slug: s.slug,
           name_zh: s.name_zh,
           name_en: s.name_en,
-          media_type: s.media_type,
           query_tags: s.query_tags,
           require_all_tags: s.require_all_tags,
           exclude_tags: s.exclude_tags,
@@ -266,7 +241,6 @@ function HomeShowcaseContent() {
         slug: c.slug,
         name_zh: c.name_zh,
         name_en: c.name_en,
-        media_type: c.media_type,
         query_tags: c.query_tags,
         require_all_tags: c.require_all_tags,
         exclude_tags: c.exclude_tags,
@@ -319,7 +293,6 @@ function HomeShowcaseContent() {
         slug: c.slug,
         name_zh: c.name_zh,
         name_en: c.name_en,
-        media_type: c.media_type,
         query_tags: c.query_tags,
         require_all_tags: c.require_all_tags,
         exclude_tags: c.exclude_tags,
@@ -346,7 +319,6 @@ function HomeShowcaseContent() {
         slug: c.slug,
         name_zh: c.name_zh,
         name_en: c.name_en,
-        media_type: c.media_type,
         query_tags: c.query_tags,
         require_all_tags: c.require_all_tags,
         exclude_tags: c.exclude_tags,
@@ -360,7 +332,6 @@ function HomeShowcaseContent() {
         slug: s.slug,
         name_zh: s.name_zh,
         name_en: s.name_en,
-        media_type: s.media_type,
         query_tags: s.query_tags,
         require_all_tags: s.require_all_tags,
         exclude_tags: s.exclude_tags,
@@ -463,7 +434,7 @@ function HomeShowcaseContent() {
           <div className="space-y-8">
             {displayChannels.map((ch) => {
               const shelfWorks = worksByKey[ch.key] || [];
-              const Icon = SHELF_ICONS[ch.slug] || SHELF_ICONS[ch.media_type || ""] || Layers;
+              const Icon = SHELF_ICONS[ch.slug] || Layers;
               const shelfTitle = locale === "en-US" && ch.name_en ? ch.name_en : ch.name_zh || "";
               const viewAllHref = shelfRuleToExploreHref(ch);
 
@@ -471,7 +442,7 @@ function HomeShowcaseContent() {
                 <section key={ch.key} id={`shelf-${ch.key}`} className="space-y-3 scroll-mt-16">
                   <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/[0.06] pb-2">
                     <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-sm grid place-items-center border ${getShelfColor(ch.slug, ch.media_type)}`}>
+                      <div className={`w-8 h-8 rounded-sm grid place-items-center border ${getShelfColor(ch.slug)}`}>
                         <Icon className="w-4 h-4" strokeWidth={1.8} />
                       </div>
                       <div>
@@ -518,7 +489,6 @@ function HomeShowcaseContent() {
                               alt={w.title}
                               title={w.title}
                               originalTitle={w.original_title}
-                              mediaType={w.media_type}
                               id={w.id}
                               imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
@@ -548,7 +518,7 @@ function HomeShowcaseContent() {
                               </div>
                             )}
                             <div className="pt-1.5 flex items-center justify-between font-mono text-xs text-gray-500 border-t border-black/[0.04] dark:border-white/[0.04]">
-                              <span className="truncate">{w.media_type || t("home.workFallback")}</span>
+                              <span className="truncate">{w.release_date ? String(w.release_date).slice(0, 10) : t("home.workFallback")}</span>
                               <span className="flex items-center gap-0.5 group-hover:text-primary transition-colors">
                                 {t("home.detail")} <ChevronRight className="w-4 h-4" />
                               </span>

@@ -33,7 +33,7 @@ export interface FavoriteItem {
   target_type: FavoriteTargetType;
   target_id: string;
   created_at: string;
-  work?: { id: string; title: string; media_type: string; cover_image_url?: string };
+  work?: { id: string; title: string; cover_image_url?: string };
   release?: { id: string; work_id: string; edition_name: string };
   artist?: { id: string; name: string; original_name?: string; entity_type?: string };
   franchise?: { id: string; title: string; original_title?: string; cover_image_url?: string };
@@ -117,7 +117,6 @@ export interface VirtualShelf {
   description?: string;
   icon?: string;
   sort_order: number;
-  media_type: string;
   query_tags: string[];
   require_all_tags: boolean;
   exclude_tags: string[];
@@ -435,8 +434,7 @@ export interface Release {
 
 export interface Work {
   id: string;
-  category_code: string;
-  media_type: string;
+  category_code?: string;
   title: string;
   original_title?: string;
   aliases?: string[];
@@ -904,7 +902,6 @@ export interface UserCustomShelf {
   description?: string;
   icon?: string;
   sort_order: number;
-  media_type: string;
   query_tags: string[];
   require_all_tags: boolean;
   exclude_tags: string[];

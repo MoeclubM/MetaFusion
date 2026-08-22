@@ -3,9 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fetchApi, UserCustomShelf } from "@/lib/api";
-import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Modal } from "@/components/ui/Modal";
-import { Select } from "@/components/ui/Select";
 import {
   GripVertical,
   Trash2,
@@ -74,7 +72,6 @@ export function HomeShelvesConfigModal({
   onResetDefaults?: () => Promise<void>;
 }) {
   const { t, locale } = useI18n();
-  const { taxonomy } = useTaxonomy();
 
   const [localOrder, setLocalOrder] = useState<string[]>(orderKeys);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
@@ -87,7 +84,6 @@ export function HomeShelvesConfigModal({
   const [formSlug, setFormSlug] = useState("");
   const [formZh, setFormZh] = useState("");
   const [formEn, setFormEn] = useState("");
-  const [formMedia, setFormMedia] = useState("all");
   const [formTags, setFormTags] = useState<string[]>([]);
   const [formTagInput, setFormTagInput] = useState("");
   const [formRequireAll, setFormRequireAll] = useState(false);
@@ -147,7 +143,6 @@ export function HomeShelvesConfigModal({
     setFormSlug("");
     setFormZh("");
     setFormEn("");
-    setFormMedia("all");
     setFormTags([]);
     setFormTagInput("");
     setFormRequireAll(false);
@@ -160,7 +155,6 @@ export function HomeShelvesConfigModal({
     setFormSlug(item.slug || "");
     setFormZh(item.name_zh || "");
     setFormEn(item.name_en || "");
-    setFormMedia(item.media_type || "all");
     setFormTags(item.query_tags || []);
     setFormTagInput("");
     setFormRequireAll(!!item.require_all_tags);
@@ -181,7 +175,6 @@ export function HomeShelvesConfigModal({
           slug,
           name_zh: formZh.trim(),
           name_en: formEn.trim(),
-          media_type: formMedia,
           query_tags: formTags,
           require_all_tags: formRequireAll,
           is_public: formPublic,
@@ -192,7 +185,6 @@ export function HomeShelvesConfigModal({
           slug,
           name_zh: formZh.trim(),
           name_en: formEn.trim(),
-          media_type: formMedia,
           query_tags: formTags,
           require_all_tags: formRequireAll,
           is_public: formPublic,
@@ -305,36 +297,15 @@ export function HomeShelvesConfigModal({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label className="block text-gray-600 dark:text-gray-400 text-[11px] mb-1">{t("home.shelves.slugLabel")}</label>
-                <input
-                  value={formSlug}
-                  onChange={(e) => setFormSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ""))}
-                  placeholder={t("home.shelves.slugPlaceholder")}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white font-mono text-xs focus:outline-none focus:border-primary/50"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-gray-600 dark:text-gray-400 text-[11px] mb-1">{t("home.shelves.mediaTypeLabel")}</label>
-                <Select
-                  value={formMedia}
-                  onChange={setFormMedia}
-                  className="font-mono text-xs"
-                  options={[
-                    { value: "all", label: t("home.shelves.mediaAll") },
-                    ...(taxonomy?.media_types && taxonomy.media_types.length > 0
-                      ? taxonomy.media_types.map((mt: any) => {
-                          const label = mt.name || (locale === "en-US" ? mt.name_en : mt.name_zh) || mt.id;
-                          return { value: mt.id, label: `${label} (${mt.id})` };
-                        })
-                      : formMedia && formMedia !== "all"
-                        ? [{ value: formMedia, label: formMedia }]
-                        : []),
-                  ]}
-                />
-              </div>
+            <div>
+              <label className="block text-gray-600 dark:text-gray-400 text-[11px] mb-1">{t("home.shelves.slugLabel")}</label>
+              <input
+                value={formSlug}
+                onChange={(e) => setFormSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ""))}
+                placeholder={t("home.shelves.slugPlaceholder")}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white font-mono text-xs focus:outline-none focus:border-primary/50"
+                required
+              />
             </div>
 
             <div>
@@ -429,7 +400,7 @@ export function HomeShelvesConfigModal({
             ) : (
               currentOrderedShelves.map((shelf, idx) => {
                 const label = locale === "en-US" && shelf.name_en ? shelf.name_en : shelf.name_zh;
-                const Icon = SHELF_ICONS[shelf.slug] || SHELF_ICONS[shelf.media_type] || Sparkles;
+                const Icon = SHELF_ICONS[shelf.slug] || Sparkles;
 
                 return (
                   <div
@@ -457,11 +428,6 @@ export function HomeShelvesConfigModal({
                       <div className="flex items-center gap-2">
                         <span className="truncate text-gray-900 dark:text-white font-medium text-xs">{label}</span>
                         <span className="font-mono text-[10px] text-gray-400 dark:text-gray-500">/{shelf.slug}</span>
-                        {shelf.media_type && shelf.media_type !== "all" && (
-                          <span className="px-1.5 py-0.2 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-gray-500">
-                            {shelf.media_type}
-                          </span>
-                        )}
                       </div>
                       <div className="font-mono text-[10px] text-gray-400 dark:text-gray-500 truncate pt-0.5">
                         {shelf.query_tags && shelf.query_tags.length > 0

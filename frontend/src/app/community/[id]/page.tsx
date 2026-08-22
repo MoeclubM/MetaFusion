@@ -199,9 +199,11 @@ export default function TopicDetailPage() {
  {t("community.linkedWork")}
  </span>
  <strong className="text-white text-sm block truncate">{topic.work.title}</strong>
+ {topic.work.tags && topic.work.tags.length > 0 && (
  <span className="text-xs text-gray-500 font-mono">
- {(topic.work.category ? topic.work.category.name || (locale==="en-US"? topic.work.category.name_en : topic.work.category.name_zh) : topic.work.media_type)}
+ {topic.work.tags.slice(0, 3).map((tg: { name: string }) => `#${tg.name}`).join(" ")}
  </span>
+ )}
  </div>
  </div>
 

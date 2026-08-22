@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
@@ -8,13 +8,11 @@ import {
   fetchApi,
   Franchise,
   FranchiseDetailResponse,
-  Work,
   Artist,
   ConnectedEntityItem,
   pickLocalized,
 } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Layers, Network, Users, ArrowRight } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
@@ -29,8 +27,6 @@ export default function FranchiseDetailPage() {
   const params = useParams();
   const franchiseId = params.id as string;
   const { t, locale } = useI18n();
-  const { mediaTypeLabel } = useTaxonomy();
-
   const [data, setData] = useState<FranchiseDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -51,16 +47,7 @@ export default function FranchiseDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [franchiseId]);
 
-  const worksByType = useMemo(() => {
-    const map = new Map<string, Work[]>();
-    for (const w of data?.works || []) {
-      const k = w.media_type || "other";
-      const arr = map.get(k) || [];
-      arr.push(w);
-      map.set(k, arr);
-    }
-    return map;
-  }, [data?.works]);
+  const franchiseWorks = data?.works || [];
 
   if (loading) {
     return (
@@ -188,31 +175,24 @@ export default function FranchiseDetailPage() {
           </section>
         )}
 
-        {worksByType.size > 0 && (
+        {franchiseWorks.length > 0 && (
           <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 p-4 space-y-4">
             <h2 className="font-display text-base font-bold flex items-center gap-2">
               <Layers className="w-4 h-4 text-sky-500" />
               {t("franchise.detail.works")}
             </h2>
-            {Array.from(worksByType.entries()).map(([mt, list]) => (
-              <div key={mt} className="space-y-2">
-                <h3 className="font-mono text-[11px] uppercase tracking-wider text-gray-500">
-                  {mediaTypeLabel(mt)}
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {list.map((w) => (
-                    <Link
-                      key={w.id}
-                      href={`/works/${w.id}`}
-                      className="p-2.5 rounded-md border border-black/5 dark:border-white/10 hover:border-primary/40 text-sm flex items-center justify-between"
-                    >
-                      <span className="truncate">{w.title}</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {franchiseWorks.map((w) => (
+                <Link
+                  key={w.id}
+                  href={`/works/${w.id}`}
+                  className="p-2.5 rounded-md border border-black/5 dark:border-white/10 hover:border-primary/40 text-sm flex items-center justify-between"
+                >
+                  <span className="truncate">{w.title}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                </Link>
+              ))}
+            </div>
           </section>
         )}
 
