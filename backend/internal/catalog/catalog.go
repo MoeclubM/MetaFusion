@@ -100,7 +100,8 @@ func (s *CatalogService) ListShelves(c *gin.Context) {
 	c.JSON(http.StatusOK, rootShelves)
 }
 
-// GetTaxonomy 获取全量分类层级、虚拟货架、多维标签、媒介大类、演职角色与物理规格
+// GetTaxonomy 获取全量分类层级、虚拟货架、多维标签、媒介大类、演职角色与物理规格词表。
+// tag_groups / tags 只含 Work 侧面相（形态/手法/流派/专题/通用）；规格不是标签，见 formats/packagings。
 func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 	var categories []models.Category
 	if err := s.db.Order("sort_order asc").Find(&categories).Error; err != nil {
@@ -112,11 +113,16 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 	_ = s.db.Order("sort_order asc").Find(&shelves).Error
 
 	var allTags []models.Tag
-	_ = s.db.Where("group_type != ?", "topic").Order("id asc").Find(&allTags).Error
+	_ = s.db.Where("group_type != ?", models.TagGroupTopic).Order("id asc").Find(&allTags).Error
 
 	tagGroups := make(map[string][]models.Tag)
+	workTags := make([]models.Tag, 0, len(allTags))
 	for _, t := range allTags {
+		if models.TagGroupIsCarrier(t.GroupType) || !models.TagGroupIsWorkFacet(t.GroupType) {
+			continue
+		}
 		tagGroups[t.GroupType] = append(tagGroups[t.GroupType], t)
+		workTags = append(workTags, t)
 	}
 
 	locale := backendi18n.LocaleFromContext(c)
@@ -236,10 +242,10 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"categories":  outCats,
-		"shelves":     rootShelves,
-		"tag_groups":  tagGroups,
-		"tags":        allTags,
+		"categories":   outCats,
+		"shelves":      rootShelves,
+		"tag_groups":   tagGroups,
+		"tags":         workTags,
 		"media_types":  mediaTypes,
 		"entity_types": entityTypes,
 		"roles":        roles,
@@ -257,6 +263,8 @@ func (s *CatalogService) ListTags(c *gin.Context) {
 	query := s.db.Model(&models.Tag{})
 	if groupType != "" {
 		query = query.Where("group_type = ?", groupType)
+	} else {
+		query = query.Where("group_type NOT IN ?", []string{models.TagGroupTopic, models.TagGroupSpec})
 	}
 	if mediaType != "" {
 		query = query.Where("? = ANY(category_scope) OR category_scope = '{}'", mediaType)
@@ -1738,25 +1746,7 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 		return
 	}
 	s.upsertWorkTranslations(work.ID, localeItems)
-
-	// 关联并注入多维标签
-	for _, tName := range input.Tags {
-		trimmed := strings.TrimSpace(tName)
-		if trimmed == "" {
-			continue
-		}
-		var tag models.Tag
-		if err := s.db.Where("name = ?", trimmed).First(&tag).Error; err != nil {
-			tag = models.Tag{
-				Name:      trimmed,
-				GroupType: "general",
-			}
-			_ = s.db.Create(&tag).Error
-		}
-		if tag.ID > 0 {
-			_ = s.db.Exec("INSERT INTO work_tag_relations (work_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING", work.ID, tag.ID).Error
-		}
-	}
+	s.replaceWorkTagsByName(&work, input.Tags)
 
 	// 演职人员与关联实体关系录入 — 仅允许关联现有 artist_id，禁止直接填写名称自动创建
 	for _, relInput := range input.ArtistRelations {

@@ -208,6 +208,31 @@ const (
 	WorkStatusDraft         = "draft"
 )
 
+// Tag group_type values. format/medium/genre/theme/general apply to Work.
+// spec is leftover ontology only — 规格 is Release/Medium/AssetFile metadata, not a tag facet.
+const (
+	TagGroupFormat  = "format"
+	TagGroupMedium  = "medium"
+	TagGroupGenre   = "genre"
+	TagGroupTheme   = "theme"
+	TagGroupSpec    = "spec"
+	TagGroupGeneral = "general"
+	TagGroupTopic   = "topic"
+)
+
+func TagGroupIsCarrier(groupType string) bool {
+	return groupType == TagGroupSpec
+}
+
+func TagGroupIsWorkFacet(groupType string) bool {
+	switch groupType {
+	case TagGroupFormat, TagGroupMedium, TagGroupGenre, TagGroupTheme, TagGroupGeneral:
+		return true
+	default:
+		return false
+	}
+}
+
 // Tag represents taxonomy tags
 type Tag struct {
 	ID            uint           `gorm:"primaryKey" json:"id"`

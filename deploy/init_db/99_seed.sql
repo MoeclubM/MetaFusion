@@ -70,13 +70,12 @@ INSERT INTO virtual_shelves (slug, parent_slug, name_zh, name_en, description, i
 ('manga', 'comics', '连载漫画', 'Manga & Comics', '高分辨率完全版与典藏版连载漫画', 'Layers', 61, ARRAY['漫画'], FALSE, '{}'),
 ('artbooks', 'comics', '原画与美术设定集', 'Artbooks & Gallery', '官方美术设定集、分镜稿与概念画册', 'Image', 62, ARRAY['画集', '设定集'], FALSE, '{}'),
 
--- 特色专题货架
-('special-ghibli', NULL, '吉卜力工作室专题', 'Studio Ghibli Archive', '宫崎骏、高畑勋执导动画与久石让配乐全集', 'Heart', 70, ARRAY['吉卜力'], FALSE, '{}'),
-('special-hires', NULL, 'Hi-Res 24/192 发烧母带', 'Hi-Res Masters', '24bit/96kHz 及以上录音室无损模拟转录母带', 'Sparkles', 71, ARRAY['Hi-Res'], FALSE, '{}');
+-- 特色专题货架（内容标签，不是碟片规格）
+('special-ghibli', NULL, '吉卜力工作室专题', 'Studio Ghibli Archive', '宫崎骏、高畑勋执导动画与久石让配乐全集', 'Heart', 70, ARRAY['吉卜力'], FALSE, '{}');
 
 -- 3.2 预置多维正交标签本体库 (Multi-Dimensional Tag Ontology)
 INSERT INTO tags (name, group_type, category_scope) VALUES
--- 形态 (Format)
+-- 形态 (Work form: 电影/游戏/专辑… 不是碟片规格)
 ('电影', 'format', '{}'),
 ('剧集', 'format', '{}'),
 ('短片', 'format', '{}'),
@@ -122,13 +121,7 @@ INSERT INTO tags (name, group_type, category_scope) VALUES
 ('庵野秀明', 'theme', '{}'),
 ('诺兰', 'theme', '{}'),
 ('刘慈欣', 'theme', '{}'),
-('奥斯卡', 'theme', '{}'),
-
--- 规格与特征 (Spec)
-('4K_UHD', 'spec', '{}'),
-('Dolby_Vision', 'spec', '{}'),
-('Hi-Res', 'spec', '{}'),
-('无损母带', 'spec', '{}')
+('奥斯卡', 'theme', '{}')
 ON CONFLICT (name) DO NOTHING;
 
 -- 4. 作品 / 主体 / 发行版编目改由 99_z_cross_media_catalog_samples.sql 提供（真实跨媒介样例）。

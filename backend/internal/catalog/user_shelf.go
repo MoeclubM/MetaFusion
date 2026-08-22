@@ -16,6 +16,17 @@ import (
 
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-_]{1,63}$`)
 
+func ensureWorkShelfTag(db *gorm.DB, name string) error {
+	var tag models.Tag
+	if err := db.Where("name = ?", name).First(&tag).Error; err != nil {
+		return db.Create(&models.Tag{Name: name, GroupType: models.TagGroupGeneral}).Error
+	}
+	if models.TagGroupIsCarrier(tag.GroupType) {
+		return &fieldError{"query_tags", "规格标签不能用于作品货架: " + name}
+	}
+	return nil
+}
+
 func validateCustomShelfInput(slug string, queryTags, excludeTags []string, db *gorm.DB) error {
 	if slug != "" && !slugRe.MatchString(slug) {
 		return &fieldError{"slug", "slug must be 2-64 chars, lowercase letters/digits/_/-"}
@@ -28,10 +39,8 @@ func validateCustomShelfInput(slug string, queryTags, excludeTags []string, db *
 		if len(trimmed) > 64 {
 			return &fieldError{"query_tags", "tag too long (max 64 chars): " + t}
 		}
-		var cnt int64
-		db.Model(&models.Tag{}).Where("name = ?", trimmed).Count(&cnt)
-		if cnt == 0 {
-			_ = db.Create(&models.Tag{Name: trimmed, GroupType: "general"}).Error
+		if err := ensureWorkShelfTag(db, trimmed); err != nil {
+			return &fieldError{"query_tags", err.Error()}
 		}
 	}
 	for _, t := range excludeTags {
@@ -42,10 +51,8 @@ func validateCustomShelfInput(slug string, queryTags, excludeTags []string, db *
 		if len(trimmed) > 64 {
 			return &fieldError{"exclude_tags", "tag too long (max 64 chars): " + t}
 		}
-		var cnt int64
-		db.Model(&models.Tag{}).Where("name = ?", trimmed).Count(&cnt)
-		if cnt == 0 {
-			_ = db.Create(&models.Tag{Name: trimmed, GroupType: "general"}).Error
+		if err := ensureWorkShelfTag(db, trimmed); err != nil {
+			return &fieldError{"exclude_tags", err.Error()}
 		}
 	}
 	return nil

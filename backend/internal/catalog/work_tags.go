@@ -33,10 +33,13 @@ func (s *CatalogService) ensureTagsByName(names []string) []models.Tag {
 		seen[n] = true
 		var tag models.Tag
 		if err := s.db.Where("name = ?", n).First(&tag).Error; err != nil {
-			tag = models.Tag{Name: n, GroupType: "general"}
+			tag = models.Tag{Name: n, GroupType: models.TagGroupGeneral}
 			if err := s.db.Create(&tag).Error; err != nil {
 				continue
 			}
+		}
+		if models.TagGroupIsCarrier(tag.GroupType) {
+			continue
 		}
 		tags = append(tags, tag)
 	}

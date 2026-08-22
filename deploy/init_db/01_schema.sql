@@ -76,7 +76,7 @@ CREATE TABLE virtual_shelves (
 CREATE TABLE tags (
     id SERIAL PRIMARY KEY,
     name VARCHAR(64) UNIQUE NOT NULL,
-    group_type VARCHAR(32) NOT NULL,               -- 'format', 'medium', 'genre', 'theme', 'spec', 'general'
+    group_type VARCHAR(32) NOT NULL,               -- Work: format/medium/genre/theme/general; leftover spec is unused; forum: topic
     category_scope media_category[] DEFAULT '{}'   -- 适用媒介范围 (空数组表示全媒介通用)
 );
 

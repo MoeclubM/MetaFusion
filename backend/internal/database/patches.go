@@ -14,6 +14,7 @@ import (
 func applySchemaPatches(db *gorm.DB) {
 	migrateHardClassificationToTags(db)
 	restoreSeedShelfQueryTagsIfClobbered(db)
+	migrateCarrierTagsOffWorks(db)
 
 	stmts := []string{
 		`ALTER TABLE entity_relationships ADD COLUMN IF NOT EXISTS qualifier VARCHAR(64) NOT NULL DEFAULT ''`,
@@ -352,4 +353,48 @@ func restoreSeedShelfQueryTagsIfClobbered(db *gorm.DB) {
 	if restored > 0 {
 		log.Printf("restored %d clobbered shelf query_tags from seed", restored)
 	}
+}
+
+func stripCarrierNamesFromTextArray(db *gorm.DB, table, column string) {
+	_ = db.Exec(`
+UPDATE `+table+` AS s
+SET `+column+` = COALESCE((
+	SELECT ARRAY_AGG(x)
+	FROM unnest(s.`+column+`) AS x
+	WHERE x NOT IN (SELECT name FROM tags WHERE group_type = 'spec')
+), '{}')
+WHERE EXISTS (
+	SELECT 1 FROM unnest(s.`+column+`) AS x
+	JOIN tags t ON t.name = x AND t.group_type = 'spec'
+)`).Error
+}
+
+// migrateCarrierTagsOffWorks strips group_type=spec tags from works/franchises/shelves.
+// 规格 is Release/Medium/AssetFile metadata, not a tag; leftover spec rows stay unused.
+func migrateCarrierTagsOffWorks(db *gorm.DB) {
+	_ = db.Exec(`DELETE FROM work_tag_relations WHERE tag_id IN (SELECT id FROM tags WHERE group_type = 'spec')`).Error
+	_ = db.Exec(`DELETE FROM franchise_tag_relations WHERE tag_id IN (SELECT id FROM tags WHERE group_type = 'spec')`).Error
+	_ = db.Exec(`DROP TABLE IF EXISTS release_tag_relations`).Error
+
+	if columnExists(db, "virtual_shelves", "query_tags") {
+		stripCarrierNamesFromTextArray(db, "virtual_shelves", "query_tags")
+		stripCarrierNamesFromTextArray(db, "virtual_shelves", "exclude_tags")
+	}
+	if columnExists(db, "user_custom_shelves", "query_tags") {
+		stripCarrierNamesFromTextArray(db, "user_custom_shelves", "query_tags")
+		stripCarrierNamesFromTextArray(db, "user_custom_shelves", "exclude_tags")
+	}
+
+	_ = db.Exec(`DELETE FROM virtual_shelves WHERE slug = 'special-hires'`).Error
+	_ = db.Exec(`DELETE FROM user_custom_shelves WHERE slug = 'special-hires'`).Error
+	_ = db.Exec(`DELETE FROM tag_translations WHERE tag_id IN (SELECT id FROM tags WHERE group_type = 'spec')`).Error
+	_ = db.Exec(`DELETE FROM tags WHERE group_type = 'spec'`).Error
+	_ = db.Exec(`
+UPDATE user_home_layouts
+SET order_json = COALESCE((
+	SELECT jsonb_agg(elem)
+	FROM jsonb_array_elements_text(order_json) AS elem
+	WHERE elem <> 'special-hires'
+), '[]'::jsonb)
+WHERE order_json @> '["special-hires"]'::jsonb`).Error
 }

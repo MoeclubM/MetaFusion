@@ -687,9 +687,52 @@ func (s *AdminService) ListVirtualShelves(c *gin.Context) {
 	c.JSON(http.StatusOK, shelves)
 }
 
+func coerceStringSlice(v interface{}) []string {
+	var out []string
+	switch arr := v.(type) {
+	case []string:
+		for _, s := range arr {
+			s = strings.TrimSpace(s)
+			if s != "" {
+				out = append(out, s)
+			}
+		}
+	case []interface{}:
+		for _, e := range arr {
+			if s, ok := e.(string); ok {
+				s = strings.TrimSpace(s)
+				if s != "" {
+					out = append(out, s)
+				}
+			}
+		}
+	}
+	return out
+}
+
+func (s *AdminService) rejectCarrierShelfTags(names []string) error {
+	if len(names) == 0 {
+		return nil
+	}
+	var tags []models.Tag
+	if err := s.db.Where("name IN ? AND group_type = ?", names, models.TagGroupSpec).Find(&tags).Error; err != nil {
+		return err
+	}
+	if len(tags) > 0 {
+		return fmt.Errorf("规格标签不能用于作品货架: %s", tags[0].Name)
+	}
+	return nil
+}
+
 func (s *AdminService) CreateVirtualShelf(c *gin.Context) {
 	var shelf models.VirtualShelf
 	if err := c.ShouldBindJSON(&shelf); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	names := append([]string{}, shelf.QueryTags...)
+	names = append(names, shelf.ExcludeTags...)
+	if err := s.rejectCarrierShelfTags(names); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -705,6 +748,17 @@ func (s *AdminService) UpdateVirtualShelf(c *gin.Context) {
 	slug := c.Param("slug")
 	var input map[string]interface{}
 	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	var check []string
+	if v, ok := input["query_tags"]; ok {
+		check = append(check, coerceStringSlice(v)...)
+	}
+	if v, ok := input["exclude_tags"]; ok {
+		check = append(check, coerceStringSlice(v)...)
+	}
+	if err := s.rejectCarrierShelfTags(check); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
