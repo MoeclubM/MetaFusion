@@ -796,11 +796,15 @@ func applyReleaseVisibility(q *gorm.DB, uid *uuid.UUID) *gorm.DB {
 	return q.Where("is_master_verified = true")
 }
 
+// 与 ListWorks/BrowseWorks 的状态口径一致：published/completed 公开，
+// 未设置状态的视为可见；登录用户额外可见自己创建的（pending_review/draft 等）
 func applyWorkVisibility(q *gorm.DB, uid *uuid.UUID) *gorm.DB {
 	if uid != nil {
-		return q.Where("(status = 'active' OR status IS NULL OR user_id = ?)", *uid)
+		return q.Where("(status IN (?, ?) OR status IS NULL OR status = '' OR created_by = ?)",
+			models.WorkStatusPublished, models.WorkStatusCompleted, uid)
 	}
-	return q.Where("status = 'active' OR status IS NULL")
+	return q.Where("status IN (?, ?) OR status IS NULL OR status = ''",
+		models.WorkStatusPublished, models.WorkStatusCompleted)
 }
 
 func getUserID(c *gin.Context) (uuid.UUID, error) {
