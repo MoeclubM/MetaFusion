@@ -26,9 +26,12 @@ type favoriteItem struct {
 }
 
 type workBrief struct {
-	ID            uuid.UUID `json:"id"`
-	Title         string    `json:"title"`
-	CoverImageURL string    `json:"cover_image_url"`
+	ID               uuid.UUID                 `json:"id"`
+	Title            string                    `json:"title"`
+	OriginalTitle    string                    `json:"original_title,omitempty"`
+	OriginalLanguage string                    `json:"original_language,omitempty"`
+	CoverImageURL    string                    `json:"cover_image_url"`
+	Translations     []models.WorkTranslation  `json:"translations,omitempty"`
 }
 
 type releaseBrief struct {
@@ -38,17 +41,19 @@ type releaseBrief struct {
 }
 
 type artistBrief struct {
-	ID           uuid.UUID `json:"id"`
-	Name         string    `json:"name"`
-	OriginalName string    `json:"original_name"`
-	EntityType   string    `json:"entity_type"`
+	ID           uuid.UUID                   `json:"id"`
+	Name         string                      `json:"name"`
+	OriginalName string                      `json:"original_name"`
+	EntityType   string                      `json:"entity_type"`
+	Translations []models.ArtistTranslation  `json:"translations,omitempty"`
 }
 
 type franchiseBrief struct {
-	ID            uuid.UUID `json:"id"`
-	Title         string    `json:"title"`
-	OriginalTitle string    `json:"original_title"`
-	CoverImageURL string    `json:"cover_image_url"`
+	ID            uuid.UUID                      `json:"id"`
+	Title         string                         `json:"title"`
+	OriginalTitle string                         `json:"original_title"`
+	CoverImageURL string                         `json:"cover_image_url"`
+	Translations  []models.FranchiseTranslation  `json:"translations,omitempty"`
 }
 
 // Toggle 收藏 / 取消收藏（幂等切换）
@@ -209,8 +214,8 @@ func listFavorites(c *gin.Context, db *gorm.DB, userID uuid.UUID) {
 		switch r.TargetType {
 		case "work":
 			var w models.Work
-			if err := db.Select("id", "title", "cover_image_url").First(&w, "id = ?", r.TargetID).Error; err == nil {
-				it.Work = &workBrief{ID: w.ID, Title: w.Title, CoverImageURL: w.CoverImageURL}
+			if err := db.Preload("Translations").First(&w, "id = ?", r.TargetID).Error; err == nil {
+				it.Work = &workBrief{ID: w.ID, Title: w.Title, OriginalTitle: w.OriginalTitle, OriginalLanguage: w.OriginalLanguage, CoverImageURL: w.CoverImageURL, Translations: w.Translations}
 			}
 		case "release":
 			var rel models.Release
@@ -219,13 +224,13 @@ func listFavorites(c *gin.Context, db *gorm.DB, userID uuid.UUID) {
 			}
 		case "artist":
 			var a models.Artist
-			if err := db.Select("id", "name", "original_name", "entity_type").First(&a, "id = ?", r.TargetID).Error; err == nil {
-				it.Artist = &artistBrief{ID: a.ID, Name: a.Name, OriginalName: a.OriginalName, EntityType: a.EntityType}
+			if err := db.Preload("Translations").First(&a, "id = ?", r.TargetID).Error; err == nil {
+				it.Artist = &artistBrief{ID: a.ID, Name: a.Name, OriginalName: a.OriginalName, EntityType: a.EntityType, Translations: a.Translations}
 			}
 		case "franchise":
 			var f models.Franchise
-			if err := db.Select("id", "title", "original_title", "cover_image_url").First(&f, "id = ?", r.TargetID).Error; err == nil {
-				it.Franchise = &franchiseBrief{ID: f.ID, Title: f.Title, OriginalTitle: f.OriginalTitle, CoverImageURL: f.CoverImageURL}
+			if err := db.Preload("Translations").First(&f, "id = ?", r.TargetID).Error; err == nil {
+				it.Franchise = &franchiseBrief{ID: f.ID, Title: f.Title, OriginalTitle: f.OriginalTitle, CoverImageURL: f.CoverImageURL, Translations: f.Translations}
 			}
 		}
 		items = append(items, it)

@@ -17,6 +17,7 @@ import { TemporalBadge } from "@/components/entity/TemporalBadge";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { EntityCover } from "@/components/common/EntityCover";
+import { isDistinctOriginalTitle } from "@/lib/titles";
 import { GroupedRelations } from "@/components/entity/RelationsList";
 export default function WorkDirectoryPage() {
  const params = useParams();
@@ -168,7 +169,7 @@ export default function WorkDirectoryPage() {
 	 </div>
 	 <div>
 	 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{localized.title}</h1>
-	 {work.original_title && work.original_title !== localized.title && <p className="font-mono text-sm text-gray-500 dark:text-gray-400 mt-0.5">{work.original_title}</p>}
+	 {isDistinctOriginalTitle(work.original_title, localized.title) && <p className="font-mono text-sm text-gray-500 dark:text-gray-400 mt-0.5">{work.original_title}</p>}
 	 {work.original_language && <p className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t("work.detail.originalLanguage", { value: t(`origLang.${work.original_language}`) })}</p>}
 	 {work.aliases && work.aliases.length > 0 && <p className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t("work.detail.alias", { value: work.aliases.join(" / ") })}</p>}
 	 </div>

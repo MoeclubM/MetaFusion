@@ -213,6 +213,23 @@ func wouldCycle(db *gorm.DB, spec EdgeSpec) bool {
 	return false
 }
 
+// LocaleText is a catalog translation row without parent FKs, for list/relation payloads.
+type LocaleText struct {
+	Locale    string `json:"locale"`
+	Title     string `json:"title,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Summary   string `json:"summary,omitempty"`
+	Biography string `json:"biography,omitempty"`
+}
+
+// EntityLabel is the default display name plus original + translation packs.
+type EntityLabel struct {
+	Name             string
+	OriginalName     string
+	OriginalLanguage string
+	Translations     []LocaleText
+}
+
 func LookupName(db *gorm.DB, typ string, id uuid.UUID) (name string, ok bool) {
 	switch typ {
 	case "work":
@@ -242,6 +259,54 @@ func LookupName(db *gorm.DB, typ string, id uuid.UUID) (name string, ok bool) {
 		}
 	}
 	return "", false
+}
+
+func LookupDisplay(db *gorm.DB, typ string, id uuid.UUID) (EntityLabel, bool) {
+	switch typ {
+	case "work":
+		var w models.Work
+		if err := db.Preload("Translations").Where("id = ?", id).First(&w).Error; err != nil {
+			return EntityLabel{}, false
+		}
+		texts := make([]LocaleText, 0, len(w.Translations))
+		for _, t := range w.Translations {
+			texts = append(texts, LocaleText{Locale: t.Locale, Title: t.Title, Summary: t.Summary})
+		}
+		return EntityLabel{Name: w.Title, OriginalName: w.OriginalTitle, OriginalLanguage: w.OriginalLanguage, Translations: texts}, true
+	case "artist":
+		var a models.Artist
+		if err := db.Preload("Translations").Where("id = ?", id).First(&a).Error; err != nil {
+			return EntityLabel{}, false
+		}
+		texts := make([]LocaleText, 0, len(a.Translations))
+		for _, t := range a.Translations {
+			texts = append(texts, LocaleText{Locale: t.Locale, Name: t.Name, Title: t.Name, Biography: t.Biography, Summary: t.Biography})
+		}
+		return EntityLabel{Name: a.Name, OriginalName: a.OriginalName, Translations: texts}, true
+	case "release":
+		var r models.Release
+		if err := db.Select("edition_name").Where("id = ?", id).First(&r).Error; err != nil {
+			return EntityLabel{}, false
+		}
+		return EntityLabel{Name: r.EditionName}, true
+	case "franchise":
+		var f models.Franchise
+		if err := db.Preload("Translations").Where("id = ?", id).First(&f).Error; err != nil {
+			return EntityLabel{}, false
+		}
+		texts := make([]LocaleText, 0, len(f.Translations))
+		for _, t := range f.Translations {
+			texts = append(texts, LocaleText{Locale: t.Locale, Title: t.Title, Summary: t.Summary})
+		}
+		return EntityLabel{Name: f.Title, OriginalName: f.OriginalTitle, Translations: texts}, true
+	case "canonical_entry":
+		var e models.CanonicalEntry
+		if err := db.Select("title").Where("id = ?", id).First(&e).Error; err != nil {
+			return EntityLabel{}, false
+		}
+		return EntityLabel{Name: e.Title}, true
+	}
+	return EntityLabel{}, false
 }
 
 func HubTypes() map[string]bool { return hubTypes }

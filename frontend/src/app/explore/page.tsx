@@ -16,6 +16,7 @@ import {
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { useI18n } from "@/i18n/I18nProvider";
 import { EntityCover } from "@/components/common/EntityCover";
+import { isDistinctOriginalTitle } from "@/lib/titles";
 import { Select } from "@/components/ui/Select";
 import {
  SlidersHorizontal,
@@ -617,7 +618,9 @@ function ExploreContent() {
                           <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-1 group-hover:text-primary transition-colors">
                             {w.title}
                           </h3>
-                          {w.original_title && <p className="font-mono text-xs text-gray-500 line-clamp-1">{w.original_title}</p>}
+                          {isDistinctOriginalTitle(w.original_title, w.title) && (
+                            <p className="font-mono text-xs text-gray-500 line-clamp-1">{w.original_title}</p>
+                          )}
                         </div>
                         {w.tags && w.tags.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 pt-0.5">
@@ -641,7 +644,10 @@ function ExploreContent() {
                 </div>
               ) : (
                 <div className="rounded-lg border border-black/10 dark:border-white/10 bg-surface overflow-hidden shadow-2xs divide-y divide-black/[0.06] dark:divide-white/[0.06]">
-                  {works.map((w) => (
+                  {works.map((w) => {
+                    const showOriginal = isDistinctOriginalTitle(w.original_title, w.title);
+                    const dateLabel = w.release_date ? String(w.release_date).slice(0, 10) : "";
+                    return (
                     <Link
                       key={w.id}
                       href={`/works/${w.id}`}
@@ -662,10 +668,12 @@ function ExploreContent() {
                           <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate group-hover:text-primary transition-colors">
                             {w.title}
                           </h3>
-                          <p className="font-mono text-xs text-gray-500 truncate">
-                            {w.original_title ? `${w.original_title}` : ""}
-                            {w.release_date ? `${w.original_title ? " · " : ""}${String(w.release_date).slice(0, 10)}` : ""}
-                          </p>
+                          {(showOriginal || dateLabel) && (
+                            <p className="font-mono text-xs text-gray-500 truncate">
+                              {showOriginal ? w.original_title : ""}
+                              {dateLabel ? `${showOriginal ? " · " : ""}${dateLabel}` : ""}
+                            </p>
+                          )}
                           {w.tags && w.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 pt-0.5">
                               {w.tags.map((tg) => (
@@ -682,7 +690,8 @@ function ExploreContent() {
                         <ArrowRight className="w-4 h-4" />
                       </div>
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               )
             ) : activeType === "artists" ? (
@@ -775,7 +784,9 @@ function ExploreContent() {
                       <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
                         {f.title}
                       </h3>
-                      {f.original_title && <p className="font-mono text-xs text-gray-500 truncate">{f.original_title}</p>}
+                      {isDistinctOriginalTitle(f.original_title, f.title) && (
+                        <p className="font-mono text-xs text-gray-500 truncate">{f.original_title}</p>
+                      )}
                       {f.disambiguation && <p className="text-xs text-gray-500 line-clamp-2">{f.disambiguation}</p>}
                       <span className="ml-auto flex items-center gap-0.5 text-primary font-mono text-xs">
                         {t("explore.detail")} <ArrowRight className="w-2.5 h-2.5" />

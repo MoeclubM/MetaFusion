@@ -21,6 +21,7 @@ import { TemporalBadge } from "@/components/entity/TemporalBadge";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { EntityCover } from "@/components/common/EntityCover";
+import { isDistinctOriginalTitle } from "@/lib/titles";
 import { GroupedRelations } from "@/components/entity/RelationsList";
 
 export default function FranchiseDetailPage() {
@@ -124,7 +125,9 @@ export default function FranchiseDetailPage() {
                 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
                   {localized.title}
                 </h1>
-                {fr.original_title && fr.original_title !== localized.title && <p className="font-mono text-sm text-gray-500 mt-0.5">{fr.original_title}</p>}
+                {isDistinctOriginalTitle(fr.original_title, localized.title) && (
+                  <p className="font-mono text-sm text-gray-500 mt-0.5">{fr.original_title}</p>
+                )}
                 {fr.disambiguation && <p className="font-mono text-xs text-gray-400 mt-0.5">{fr.disambiguation}</p>}
               </div>
               {localized.body && <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl">{localized.body}</p>}
@@ -167,7 +170,9 @@ export default function FranchiseDetailPage() {
                   className="p-3 rounded-lg border border-black/10 dark:border-white/10 hover:border-primary/40 transition-colors"
                 >
                   <div className="font-semibold text-sm text-gray-900 dark:text-white">{ch.title}</div>
-                  {ch.original_title && <p className="font-mono text-xs text-gray-500">{ch.original_title}</p>}
+                  {isDistinctOriginalTitle(ch.original_title, ch.title) && (
+                    <p className="font-mono text-xs text-gray-500">{ch.original_title}</p>
+                  )}
                 </Link>
               ))}
             </div>

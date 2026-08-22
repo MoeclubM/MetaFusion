@@ -66,7 +66,7 @@ func (s *CatalogService) ListFranchises(c *gin.Context) {
 	var total int64
 	query.Count(&total)
 	var items []models.Franchise
-	if err := query.Preload("Tags").Order("created_at desc").Offset((page - 1) * pageSize).Limit(pageSize).Find(&items).Error; err != nil {
+	if err := query.Preload("Tags").Preload("Translations").Order("created_at desc").Offset((page - 1) * pageSize).Limit(pageSize).Find(&items).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -105,20 +105,20 @@ func (s *CatalogService) GetFranchiseDetail(c *gin.Context) {
 		if r.RelationshipType == "part_of_franchise" {
 			if r.SourceType == "franchise" && r.TargetID == id {
 				var ch models.Franchise
-				if err := s.db.Where("id = ?", r.SourceID).First(&ch).Error; err == nil {
+				if err := s.db.Preload("Translations").Where("id = ?", r.SourceID).First(&ch).Error; err == nil {
 					children = append(children, ch)
 				}
 			}
 			if r.SourceType == "work" && r.TargetID == id && !workSeen[r.SourceID] {
 				var w models.Work
-				if err := s.db.Where("id = ?", r.SourceID).First(&w).Error; err == nil {
+				if err := s.db.Preload("Translations").Where("id = ?", r.SourceID).First(&w).Error; err == nil {
 					works = append(works, w)
 					workSeen[w.ID] = true
 				}
 			}
 			if r.SourceType == "artist" && r.TargetID == id && !agentSeen[r.SourceID] {
 				var a models.Artist
-				if err := s.db.Where("id = ?", r.SourceID).First(&a).Error; err == nil {
+				if err := s.db.Preload("Translations").Where("id = ?", r.SourceID).First(&a).Error; err == nil {
 					agents = append(agents, a)
 					agentSeen[a.ID] = true
 				}
@@ -126,14 +126,14 @@ func (s *CatalogService) GetFranchiseDetail(c *gin.Context) {
 		}
 		if r.RelationshipType == "character_in" && r.SourceType == "artist" && r.TargetID == id && !agentSeen[r.SourceID] {
 			var a models.Artist
-			if err := s.db.Where("id = ?", r.SourceID).First(&a).Error; err == nil {
+			if err := s.db.Preload("Translations").Where("id = ?", r.SourceID).First(&a).Error; err == nil {
 				agents = append(agents, a)
 				agentSeen[a.ID] = true
 			}
 		}
 		if (r.RelationshipType == "imprint_of" || r.RelationshipType == "creator_of") && r.TargetID == id && r.SourceType == "artist" && !agentSeen[r.SourceID] {
 			var a models.Artist
-			if err := s.db.Where("id = ?", r.SourceID).First(&a).Error; err == nil {
+			if err := s.db.Preload("Translations").Where("id = ?", r.SourceID).First(&a).Error; err == nil {
 				agents = append(agents, a)
 				agentSeen[a.ID] = true
 			}
@@ -372,7 +372,7 @@ func (s *CatalogService) connectedFromRels(locale string, rels []models.EntityRe
 		if er.TargetType == selfType && er.TargetID == selfID {
 			otherType, otherID, dir = er.SourceType, er.SourceID, "reverse"
 		}
-		name, ok := ontology.LookupName(s.db, otherType, otherID)
+		pack, ok := ontology.LookupDisplay(s.db, otherType, otherID)
 		if !ok {
 			continue
 		}
@@ -392,7 +392,10 @@ func (s *CatalogService) connectedFromRels(locale string, rels []models.EntityRe
 		}
 		out = append(out, ConnectedEntityItem{
 			EntityID:         otherID.String(),
-			EntityName:       name,
+			EntityName:       pack.Name,
+			OriginalName:     pack.OriginalName,
+			OriginalLanguage: pack.OriginalLanguage,
+			Translations:     pack.Translations,
 			EntityType:       otherType,
 			RelationshipType: er.RelationshipType,
 			Qualifier:        er.Qualifier,
@@ -428,7 +431,7 @@ func (s *CatalogService) franchiseAncestors(id uuid.UUID) []models.Franchise {
 			break
 		}
 		var p models.Franchise
-		if err := s.db.Where("id = ?", rel.TargetID).First(&p).Error; err != nil {
+		if err := s.db.Preload("Translations").Where("id = ?", rel.TargetID).First(&p).Error; err != nil {
 			break
 		}
 		chain = append([]models.Franchise{p}, chain...)

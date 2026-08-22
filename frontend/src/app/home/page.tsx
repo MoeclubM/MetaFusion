@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { HomeShelvesConfigModal } from "@/components/home/HomeShelvesConfigModal";
 import { EntityCover } from "@/components/common/EntityCover";
+import { isDistinctOriginalTitle } from "@/lib/titles";
 import { shelfRuleToExploreHref } from "@/lib/shelfQuery";
 import {
   Plus,
@@ -498,7 +499,7 @@ function HomeShowcaseContent() {
                               <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-1 group-hover:text-primary transition-colors">
                                 {w.title}
                               </h3>
-                              {w.original_title && (
+                              {isDistinctOriginalTitle(w.original_title, w.title) && (
                                 <p className="font-mono text-xs text-gray-500 line-clamp-1">{w.original_title}</p>
                               )}
                             </div>

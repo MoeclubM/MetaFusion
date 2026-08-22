@@ -86,21 +86,21 @@ func GetUserContributions(db *gorm.DB) gin.HandlerFunc {
 			q := db.Model(&models.Work{}).Where("created_by = ?", uid)
 			q.Count(&total)
 			var items []models.Work
-			q.Preload("Category").Order("created_at desc").Offset(offset).Limit(pageSize).Find(&items)
+			q.Preload("Category").Preload("Translations").Order("created_at desc").Offset(offset).Limit(pageSize).Find(&items)
 			c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "page": page, "page_size": pageSize})
 		case "releases":
 			var total int64
 			q := db.Model(&models.Release{}).Where("uploader_id = ?", uid)
 			q.Count(&total)
 			var items []models.Release
-			q.Preload("Work").Preload("PublisherEntity").Order("created_at desc").Offset(offset).Limit(pageSize).Find(&items)
+			q.Preload("Work").Preload("Work.Translations").Preload("PublisherEntity").Order("created_at desc").Offset(offset).Limit(pageSize).Find(&items)
 			c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "page": page, "page_size": pageSize})
 		case "artists":
 			var total int64
 			q := db.Model(&models.Artist{}).Where("created_by = ?", uid)
 			q.Count(&total)
 			var items []models.Artist
-			q.Order("created_at desc").Offset(offset).Limit(pageSize).Find(&items)
+			q.Preload("Translations").Order("created_at desc").Offset(offset).Limit(pageSize).Find(&items)
 			c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "page": page, "page_size": pageSize})
 		case "topics":
 			var total int64

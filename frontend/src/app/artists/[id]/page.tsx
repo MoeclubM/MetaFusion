@@ -20,6 +20,7 @@ import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLin
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { EntityCover } from "@/components/common/EntityCover";
+import { isDistinctOriginalTitle } from "@/lib/titles";
 
 export default function ArtistDetailPage() {
   const params = useParams();
@@ -194,7 +195,9 @@ export default function ArtistDetailPage() {
                       <div className="p-2.5 flex-1 flex flex-col justify-between gap-1">
                         <div>
                           <h3 className="font-semibold text-gray-900 dark:text-white text-xs leading-tight line-clamp-1 group-hover:text-primary transition-colors">{w.title}</h3>
-                          {w.original_title && <p className="font-mono text-[10px] text-gray-500 truncate">{w.original_title}</p>}
+                          {isDistinctOriginalTitle(w.original_title, w.title) && (
+                            <p className="font-mono text-[10px] text-gray-500 truncate">{w.original_title}</p>
+                          )}
                         </div>
                         <div className="pt-1.5 border-t border-black/5 dark:border-white/[0.06] flex items-center justify-between font-mono text-[10px] text-gray-500">
                           <span>{w.release_date ? new Date(w.release_date).getFullYear() : "—"}</span>

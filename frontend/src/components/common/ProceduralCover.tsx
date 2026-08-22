@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { isDistinctOriginalTitle } from "@/lib/titles";
 
 interface ProceduralCoverProps {
   title?: string;
@@ -67,19 +68,12 @@ export function ProceduralCover({ title = "Untitled", originalTitle, id = "", cl
       {/* Content Container */}
       <div className="relative z-10 w-full h-full p-4 sm:p-5 flex flex-col justify-between text-left">
         {/* Top Header */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between font-mono text-[9px] sm:text-[10px] tracking-wider">
-            <span className="flex items-center gap-1.5 font-bold" style={{ color: p.accent }}>
-              <span className="w-1.5 h-1.5 rounded-xs inline-block" style={{ backgroundColor: p.accent }} />
-              METAFUSION
-            </span>
-            <span className="text-white/40">{refCode}</span>
-          </div>
-
-          <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-xs bg-white/[0.06] border border-white/10 font-mono text-[9px] text-gray-200">
-            <span className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: p.accent }} />
-            <span>ARCHIVE MASTER</span>
-          </div>
+        <div className="flex items-center justify-between font-mono text-[9px] sm:text-[10px] tracking-wider">
+          <span className="flex items-center gap-1.5 font-bold" style={{ color: p.accent }}>
+            <span className="w-1.5 h-1.5 rounded-xs inline-block" style={{ backgroundColor: p.accent }} />
+            METAFUSION
+          </span>
+          <span className="text-white/40">{refCode}</span>
         </div>
 
         {/* Central Geometric Totem */}
@@ -125,7 +119,7 @@ export function ProceduralCover({ title = "Untitled", originalTitle, id = "", cl
             <h4 className="font-serif font-bold text-white leading-tight line-clamp-2 text-sm sm:text-base tracking-tight drop-shadow-sm">
               {title}
             </h4>
-            {originalTitle && originalTitle !== title && (
+            {isDistinctOriginalTitle(originalTitle, title) && (
               <p className="font-mono text-[10px] text-white/50 truncate mt-0.5">
                 {originalTitle}
               </p>

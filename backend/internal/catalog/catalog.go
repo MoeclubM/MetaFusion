@@ -296,7 +296,7 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 	}
 
 	offset := (page - 1) * pageSize
-	query := s.db.Model(&models.Work{}).Preload("Category").Preload("Tags").Preload("ArtistRelations.Artist")
+	query := s.db.Model(&models.Work{}).Preload("Category").Preload("Tags").Preload("ArtistRelations.Artist").Preload("Translations")
 
 	// 状态过滤：未登录/普通用户默认只能查 published/completed 作品
 	userRole, _ := c.Get("role")
@@ -514,7 +514,7 @@ func (s *CatalogService) ListReleases(c *gin.Context) {
 	query.Count(&total)
 
 	var releases []models.Release
-	if err := query.Preload("PublisherEntity").Preload("Work").Offset(offset).Limit(pageSize).Find(&releases).Error; err != nil {
+	if err := query.Preload("PublisherEntity").Preload("PublisherEntity.Translations").Preload("Work").Preload("Work.Translations").Offset(offset).Limit(pageSize).Find(&releases).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -539,7 +539,9 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 	var release models.Release
 	if err := s.db.
 		Preload("Work.Category").
+		Preload("Work.Translations").
 		Preload("PublisherEntity").
+		Preload("PublisherEntity.Translations").
 		Preload("Uploader").
 		Preload("Mediums", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") }).
 		Preload("Mediums.Tracks.CanonicalEntry").
@@ -1177,7 +1179,7 @@ func (s *CatalogService) ListArtists(c *gin.Context) {
 	query.Count(&total)
 
 	var artists []models.Artist
-	if err := query.Order("name asc").Offset(offset).Limit(pageSize).Find(&artists).Error; err != nil {
+	if err := query.Preload("Translations").Order("name asc").Offset(offset).Limit(pageSize).Find(&artists).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -1190,23 +1192,26 @@ func (s *CatalogService) ListArtists(c *gin.Context) {
 }
 
 type ConnectedEntityItem struct {
-	EntityID         string       `json:"entity_id"`
-	EntityName       string       `json:"entity_name"`
-	EntityType       string       `json:"entity_type"`
-	Country          string       `json:"country,omitempty"`
-	RelationshipType string       `json:"relationship_type"`
-	Qualifier        string       `json:"qualifier,omitempty"`
-	RelationshipName string       `json:"relationship_name"`
-	Direction        string       `json:"direction"` // 'forward' | 'reverse'
-	Label            string       `json:"label"`
-	BeginDate        string       `json:"begin_date,omitempty"`
-	EndDate          string       `json:"end_date,omitempty"`
-	Ended            bool         `json:"ended"`
-	IsCurrent        bool         `json:"is_current"`
-	DateSpan         string       `json:"date_span,omitempty"`
-	Attributes       models.JSONB `json:"attributes"`
-	Color            string       `json:"color"`
-	Icon             string       `json:"icon"`
+	EntityID         string                `json:"entity_id"`
+	EntityName       string                `json:"entity_name"`
+	OriginalName     string                `json:"original_name,omitempty"`
+	OriginalLanguage string                `json:"original_language,omitempty"`
+	Translations     []ontology.LocaleText `json:"translations,omitempty"`
+	EntityType       string                `json:"entity_type"`
+	Country          string                `json:"country,omitempty"`
+	RelationshipType string                `json:"relationship_type"`
+	Qualifier        string                `json:"qualifier,omitempty"`
+	RelationshipName string                `json:"relationship_name"`
+	Direction        string                `json:"direction"` // 'forward' | 'reverse'
+	Label            string                `json:"label"`
+	BeginDate        string                `json:"begin_date,omitempty"`
+	EndDate          string                `json:"end_date,omitempty"`
+	Ended            bool                  `json:"ended"`
+	IsCurrent        bool                  `json:"is_current"`
+	DateSpan         string                `json:"date_span,omitempty"`
+	Attributes       models.JSONB          `json:"attributes"`
+	Color            string                `json:"color"`
+	Icon             string                `json:"icon"`
 }
 
 type ArtistWorkItem struct {
@@ -1249,7 +1254,7 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 
 	works := make([]models.Work, 0)
 	if len(workIDs) > 0 {
-		wQ := s.db.Preload("Category").Preload("Tags").Where("id IN ?", workIDs)
+		wQ := s.db.Preload("Category").Preload("Tags").Preload("Translations").Where("id IN ?", workIDs)
 		wQ = applyWorkVisibility(wQ, currentUserID(c))
 		if err := wQ.Find(&works).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1276,7 +1281,7 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 			continue
 		}
 		var w models.Work
-		wQ := applyWorkVisibility(s.db.Preload("Category").Preload("Tags"), currentUserID(c)).Where("id = ?", wid)
+		wQ := applyWorkVisibility(s.db.Preload("Category").Preload("Tags").Preload("Translations"), currentUserID(c)).Where("id = ?", wid)
 		if err := wQ.First(&w).Error; err == nil {
 			works = append(works, w)
 			seenWorks[w.ID] = true
@@ -1294,7 +1299,7 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 
 	releases := make([]models.Release, 0)
 	uidPub := currentUserID(c)
-	pubQ := s.db.Preload("Work").Where("(publisher_id = ? OR (publisher_id IS NULL AND publisher ILIKE ?))", artist.ID, "%"+artist.Name+"%")
+	pubQ := s.db.Preload("Work").Preload("Work.Translations").Where("(publisher_id = ? OR (publisher_id IS NULL AND publisher ILIKE ?))", artist.ID, "%"+artist.Name+"%")
 	pubQ = applyReleaseVisibility(pubQ, uidPub)
 	pubQ.Order("edition_date desc, created_at desc").Find(&releases)
 
@@ -1319,7 +1324,7 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 		} else {
 			otherType, otherID, dir = er.SourceType, er.SourceID, "reverse"
 		}
-		name, ok := ontology.LookupName(s.db, otherType, otherID)
+		pack, ok := ontology.LookupDisplay(s.db, otherType, otherID)
 		if !ok {
 			continue
 		}
@@ -1339,7 +1344,10 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 		}
 		connectedEntities = append(connectedEntities, ConnectedEntityItem{
 			EntityID:         otherID.String(),
-			EntityName:       name,
+			EntityName:       pack.Name,
+			OriginalName:     pack.OriginalName,
+			OriginalLanguage: pack.OriginalLanguage,
+			Translations:     pack.Translations,
 			EntityType:       otherType,
 			RelationshipType: er.RelationshipType,
 			Qualifier:        er.Qualifier,

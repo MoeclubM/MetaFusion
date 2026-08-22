@@ -75,6 +75,7 @@ func (s *CommunityService) ListTopics(c *gin.Context) {
 	query := s.db.Model(&models.DiscussionTopic{}).
 		Preload("User").
 		Preload("Work").
+		Preload("Work.Translations").
 		Preload("Tags")
 
 	if boardCode != "" && boardCode != "all" {
@@ -133,6 +134,7 @@ func (s *CommunityService) GetTopic(c *gin.Context) {
 	var topic models.DiscussionTopic
 	if err := s.db.Preload("User").
 		Preload("Work").
+		Preload("Work.Translations").
 		Preload("Tags").
 		Preload("Posts", func(db *gorm.DB) *gorm.DB { return db.Order("post_number asc") }).
 		Preload("Posts.User").
@@ -276,7 +278,7 @@ func (s *CommunityService) CreateTopic(c *gin.Context) {
 		return
 	}
 
-	s.db.Preload("User").Preload("Work").Preload("Tags").
+	s.db.Preload("User").Preload("Work").Preload("Work.Translations").Preload("Tags").
 		Preload("Posts", func(db *gorm.DB) *gorm.DB { return db.Order("post_number asc") }).Preload("Posts.User").
 		Where("id = ?", topic.ID).First(&topic)
 	c.JSON(http.StatusCreated, topic)

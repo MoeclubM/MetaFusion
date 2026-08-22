@@ -84,6 +84,8 @@ func (s *CatalogService) BrowseWorks(c *gin.Context) {
 		query = query.Preload("Category")
 	}
 
+	query = query.Preload("Translations")
+
 	var works []models.Work
 	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&works).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -146,7 +148,7 @@ func (s *CatalogService) BrowseReleases(c *gin.Context) {
 
 	// inc 控制预加载
 	if inc["work"] || inc["works"] {
-		query = query.Preload("Work")
+		query = query.Preload("Work").Preload("Work.Translations")
 	}
 	if inc["artist"] || inc["artists"] || inc["publisher"] {
 		query = query.Preload("PublisherEntity")
@@ -216,7 +218,7 @@ func (s *CatalogService) BrowseArtists(c *gin.Context) {
 	query.Count(&total)
 
 	var artists []models.Artist
-	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&artists).Error; err != nil {
+	if err := query.Preload("Translations").Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&artists).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

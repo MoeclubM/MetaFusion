@@ -149,7 +149,7 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		dbq := s.db.Model(&models.Franchise{}).Where("title ILIKE ? OR original_title ILIKE ? OR disambiguation ILIKE ? OR array_to_string(aliases, ' ') ILIKE ?", like, like, like, like)
 		var total int64
 		dbq.Count(&total)
-		dbq.Offset(offset).Limit(limit).Find(&franchises)
+		dbq.Preload("Translations").Offset(offset).Limit(limit).Find(&franchises)
 		c.JSON(http.StatusOK, gin.H{"type": "franchise", "items": franchises, "total": total, "limit": limit, "offset": offset, "query": q})
 		return
 	}
@@ -159,7 +159,7 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		dbq := s.db.Model(&models.Artist{}).Where("name ILIKE ? OR original_name ILIKE ? OR disambiguation ILIKE ?", like, like, like)
 		var total int64
 		dbq.Count(&total)
-		dbq.Offset(offset).Limit(limit).Find(&artists)
+		dbq.Preload("Translations").Offset(offset).Limit(limit).Find(&artists)
 		c.JSON(http.StatusOK, gin.H{"type": "artist", "items": artists, "total": total, "limit": limit, "offset": offset, "query": q})
 		return
 	}
@@ -169,7 +169,7 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		dbq := s.db.Model(&models.Release{}).Where("edition_name ILIKE ? OR publisher ILIKE ? OR catalog_number ILIKE ?", like, like, like)
 		var total int64
 		dbq.Count(&total)
-		dbq.Preload("Work").Offset(offset).Limit(limit).Find(&releases)
+		dbq.Preload("Work").Preload("Work.Translations").Offset(offset).Limit(limit).Find(&releases)
 		c.JSON(http.StatusOK, gin.H{"type": "release", "items": releases, "total": total, "limit": limit, "offset": offset, "query": q})
 		return
 	}
@@ -179,10 +179,10 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		var artists []models.Artist
 		var releases []models.Release
 		var franchises []models.Franchise
-		s.db.Where("title ILIKE ? OR original_title ILIKE ?", like, like).Limit(limit).Find(&works)
-		s.db.Where("name ILIKE ? OR original_name ILIKE ?", like, like).Limit(limit).Find(&artists)
-		s.db.Where("edition_name ILIKE ? OR publisher ILIKE ?", like, like).Preload("Work").Limit(limit).Find(&releases)
-		s.db.Where("title ILIKE ? OR original_title ILIKE ? OR array_to_string(aliases, ' ') ILIKE ?", like, like, like).Limit(limit).Find(&franchises)
+		s.db.Preload("Translations").Where("title ILIKE ? OR original_title ILIKE ?", like, like).Limit(limit).Find(&works)
+		s.db.Preload("Translations").Where("name ILIKE ? OR original_name ILIKE ?", like, like).Limit(limit).Find(&artists)
+		s.db.Where("edition_name ILIKE ? OR publisher ILIKE ?", like, like).Preload("Work").Preload("Work.Translations").Limit(limit).Find(&releases)
+		s.db.Preload("Translations").Where("title ILIKE ? OR original_title ILIKE ? OR array_to_string(aliases, ' ') ILIKE ?", like, like, like).Limit(limit).Find(&franchises)
 		c.JSON(http.StatusOK, gin.H{"type": "all", "works": works, "artists": artists, "releases": releases, "franchises": franchises, "query": q})
 		return
 	}
@@ -235,7 +235,7 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		dbq := s.db.Model(&models.Work{}).Where("title ILIKE ? OR original_title ILIKE ? OR ? = ANY(aliases)", like, like, q)
 		var total int64
 		dbq.Count(&total)
-		dbq.Offset(offset).Limit(limit).Find(&works)
+		dbq.Preload("Translations").Offset(offset).Limit(limit).Find(&works)
 		c.JSON(http.StatusOK, gin.H{"type": "work", "items": works, "total": total, "limit": limit, "offset": offset, "query": q, "degraded": true})
 		return
 	}
@@ -247,5 +247,71 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, result)
+	ids, total := parseESHitIDs(result)
+	works := s.loadWorksByIDs(ids)
+	c.JSON(http.StatusOK, gin.H{
+		"type":          "work",
+		"items":         works,
+		"total":         total,
+		"limit":         limit,
+		"offset":        offset,
+		"query":         q,
+		"aggregations":  result["aggregations"],
+	})
+}
+
+func parseESHitIDs(result map[string]interface{}) (ids []string, total int64) {
+	hitsWrap, _ := result["hits"].(map[string]interface{})
+	if hitsWrap == nil {
+		return nil, 0
+	}
+	switch tv := hitsWrap["total"].(type) {
+	case float64:
+		total = int64(tv)
+	case map[string]interface{}:
+		if v, ok := tv["value"].(float64); ok {
+			total = int64(v)
+		}
+	}
+	arr, _ := hitsWrap["hits"].([]interface{})
+	for _, raw := range arr {
+		h, _ := raw.(map[string]interface{})
+		if h == nil {
+			continue
+		}
+		id := ""
+		if src, ok := h["_source"].(map[string]interface{}); ok {
+			if s, ok := src["id"].(string); ok {
+				id = s
+			}
+		}
+		if id == "" {
+			if s, ok := h["_id"].(string); ok {
+				id = s
+			}
+		}
+		if id != "" {
+			ids = append(ids, id)
+		}
+	}
+	return ids, total
+}
+
+func (s *SearchService) loadWorksByIDs(ids []string) []models.Work {
+	if len(ids) == 0 {
+		return []models.Work{}
+	}
+	var works []models.Work
+	s.db.Preload("Translations").Preload("Tags").Where("id IN ?", ids).Find(&works)
+	byID := make(map[string]models.Work, len(works))
+	for _, w := range works {
+		byID[w.ID.String()] = w
+	}
+	out := make([]models.Work, 0, len(ids))
+	for _, id := range ids {
+		if w, ok := byID[id]; ok {
+			out = append(out, w)
+		}
+	}
+	return out
 }

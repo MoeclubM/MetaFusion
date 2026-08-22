@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/i18n/I18nProvider";
+import { isDistinctOriginalTitle } from "@/lib/titles";
 
 import Link from "next/link";
 import { ShieldCheck, Check, X, Eye } from "lucide-react";
@@ -123,7 +124,9 @@ export function ReviewsTab({
                   <tr key={work.id} className="hover:bg-white/[0.02]">
                     <td className="py-3 px-4">
                       <div className="font-semibold text-white">{work.title}</div>
-                      {work.original_title && <div className="text-[11px] text-gray-400 mt-0.5">{work.original_title}</div>}
+                      {isDistinctOriginalTitle(work.original_title, work.title) && (
+                        <div className="text-[11px] text-gray-400 mt-0.5">{work.original_title}</div>
+                      )}
                     </td>
                     <td className="py-3 px-3 font-mono text-gray-300">{work.creator?.username || "—"}</td>
                     <td className="py-3 px-3">
