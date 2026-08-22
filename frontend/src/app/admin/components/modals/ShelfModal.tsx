@@ -3,6 +3,7 @@
 import { useI18n } from "@/i18n/I18nProvider";
 import { Layers, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { Select } from "@/components/ui/Select";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
@@ -63,27 +64,22 @@ export function ShelfModal({
           </div>
           <div>
             <label className="block text-gray-300 font-medium mb-1">{t("admin.shelfModal.fieldMediaType")}</label>
-            <select
+            <Select
               value={shelfForm.media_type || "all"}
-              onChange={(e) => setShelfForm({ ...shelfForm, media_type: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white focus:outline-none focus:border-emerald-400 font-mono"
-            >
-              <option value="all">{t("admin.shelfModal.mediaAll")}</option>
-              {taxonomy?.media_types && taxonomy.media_types.length > 0
-                ? taxonomy.media_types.map((mt: any) => {
-                    const label = mt.name || (locale === "en-US" ? mt.name_en : mt.name_zh) || mt.id;
-                    return (
-                      <option key={mt.id} value={mt.id}>
-                        {label} ({mt.id})
-                      </option>
-                    );
-                  })
-                : (
-                  shelfForm.media_type && shelfForm.media_type !== "all" && (
-                    <option value={shelfForm.media_type}>{shelfForm.media_type}</option>
-                  )
-                )}
-            </select>
+              onChange={(val) => setShelfForm({ ...shelfForm, media_type: val })}
+              className="font-mono"
+              options={[
+                { value: "all", label: t("admin.shelfModal.mediaAll") },
+                ...(taxonomy?.media_types && taxonomy.media_types.length > 0
+                  ? taxonomy.media_types.map((mt: any) => {
+                      const label = mt.name || (locale === "en-US" ? mt.name_en : mt.name_zh) || mt.id;
+                      return { value: mt.id, label: `${label} (${mt.id})` };
+                    })
+                  : shelfForm.media_type && shelfForm.media_type !== "all"
+                    ? [{ value: shelfForm.media_type, label: shelfForm.media_type }]
+                    : []),
+              ]}
+            />
           </div>
         </div>
 

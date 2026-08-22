@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { fetchApi, UserCustomShelf } from "@/lib/api";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Modal } from "@/components/ui/Modal";
+import { Select } from "@/components/ui/Select";
 import {
   GripVertical,
   Trash2,
@@ -336,27 +337,22 @@ export function HomeShelvesConfigModal({
               </div>
               <div>
                 <label className="block text-gray-600 dark:text-gray-400 text-[11px] mb-1">{t("home.shelves.mediaTypeLabel")}</label>
-                <select
+                <Select
                   value={formMedia}
-                  onChange={(e) => setFormMedia(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white text-xs focus:outline-none focus:border-primary/50 font-mono"
-                >
-                  <option value="all">{t("home.shelves.mediaAll")}</option>
-                  {taxonomy?.media_types && taxonomy.media_types.length > 0
-                    ? taxonomy.media_types.map((mt: any) => {
-                        const label = mt.name || (locale === "en-US" ? mt.name_en : mt.name_zh) || mt.id;
-                        return (
-                          <option key={mt.id} value={mt.id}>
-                            {label} ({mt.id})
-                          </option>
-                        );
-                      })
-                    : (
-                      formMedia && formMedia !== "all" && (
-                        <option value={formMedia}>{formMedia}</option>
-                      )
-                    )}
-                </select>
+                  onChange={setFormMedia}
+                  className="font-mono text-xs"
+                  options={[
+                    { value: "all", label: t("home.shelves.mediaAll") },
+                    ...(taxonomy?.media_types && taxonomy.media_types.length > 0
+                      ? taxonomy.media_types.map((mt: any) => {
+                          const label = mt.name || (locale === "en-US" ? mt.name_en : mt.name_zh) || mt.id;
+                          return { value: mt.id, label: `${label} (${mt.id})` };
+                        })
+                      : formMedia && formMedia !== "all"
+                        ? [{ value: formMedia, label: formMedia }]
+                        : []),
+                  ]}
+                />
               </div>
             </div>
 

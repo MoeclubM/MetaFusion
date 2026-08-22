@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Users } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { Select } from "@/components/ui/Select";
 import { dictTermLabel } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
@@ -58,17 +59,14 @@ export function ArtistModal({
           </div>
           <div>
             <label className="block text-gray-300 font-medium mb-1">{t("admin.artistModal.fieldType")}</label>
-            <select
+            <Select
               value={artistForm.entity_type}
-              onChange={(e) => setArtistForm({ ...artistForm, entity_type: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white focus:outline-none focus:border-sky-400"
-            >
-              {entityOpts.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {dictTermLabel(opt.id, entityOpts)}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setArtistForm({ ...artistForm, entity_type: val })}
+              options={entityOpts.map((opt) => ({
+                value: opt.id,
+                label: dictTermLabel(opt.id, entityOpts),
+              }))}
+            />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">

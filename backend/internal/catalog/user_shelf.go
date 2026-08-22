@@ -86,7 +86,10 @@ func (s *CatalogService) ListCustomShelves(c *gin.Context) {
 		var total int64
 		s.db.Model(&models.UserCustomShelf{}).Where("owner_id = ?", *uid).Count(&total)
 		if total == 0 && q == "" {
-			items, _, _ := InitUserDefaultShelves(s.db, *uid)
+			items, _, err := InitUserDefaultShelves(s.db, *uid)
+			if err != nil || items == nil {
+				items = []models.UserCustomShelf{}
+			}
 			c.JSON(http.StatusOK, gin.H{"items": items, "total": len(items), "page": 1, "page_size": pageSize})
 			return
 		}
@@ -537,32 +540,26 @@ func (s *CatalogService) GetHomeLayout(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
 		return
 	}
-	var layout models.UserHomeLayout
-	if err := s.db.Where("user_id = ?", *uid).First(&layout).Error; err != nil {
-		// Auto initialize default shelves
-		_, order, _ := InitUserDefaultShelves(s.db, *uid)
-		if order == nil {
-			order = []string{}
-		}
-		c.JSON(http.StatusOK, gin.H{"hidden_system_slugs": []string{}, "order_json": order})
+	items, order, err := InitUserDefaultShelves(s.db, *uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	hidden := []string(layout.HiddenSystemSlugs)
-	if hidden == nil {
-		hidden = []string{}
+	if items == nil {
+		items = []models.UserCustomShelf{}
 	}
-	// parse order_json robustly
-	var order []string
-	var raw string
-	s.db.Raw("SELECT order_json::text FROM user_home_layouts WHERE user_id = ?", *uid).Row().Scan(&raw)
-	order = parseOrderJSONRaw(raw)
-	if order == nil || len(order) == 0 {
-		_, order, _ = InitUserDefaultShelves(s.db, *uid)
-		if order == nil {
-			order = []string{}
+	if order == nil {
+		order = []string{}
+	}
+	hidden := []string{}
+	var layout models.UserHomeLayout
+	if err := s.db.Where("user_id = ?", *uid).First(&layout).Error; err == nil {
+		hidden = []string(layout.HiddenSystemSlugs)
+		if hidden == nil {
+			hidden = []string{}
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"hidden_system_slugs": hidden, "order_json": order})
+	c.JSON(http.StatusOK, gin.H{"hidden_system_slugs": hidden, "order_json": order, "items": items})
 }
 
 // PutHomeLayout PUT /home/layout
@@ -591,15 +588,15 @@ func (s *CatalogService) PutHomeLayout(c *gin.Context) {
 			}
 		}
 	}
-	// validate order_json entries: either system slug or custom:<uuid>
+	// validate order_json: user shelves only (custom:<uuid>, or legacy system slug mapped by user's copy)
 	seen := map[string]bool{}
 	deduped := []string{}
 	for _, entry := range input.OrderJSON {
 		trimmed := strings.TrimSpace(entry)
-		if trimmed == "" || seen[trimmed] {
+		if trimmed == "" {
 			continue
 		}
-		seen[trimmed] = true
+		var key string
 		if strings.HasPrefix(trimmed, "custom:") {
 			idStr := strings.TrimPrefix(trimmed, "custom:")
 			cid, err := uuid.Parse(idStr)
@@ -614,23 +611,25 @@ func (s *CatalogService) PutHomeLayout(c *gin.Context) {
 			}
 			isOwner := cs.OwnerID == *uid
 			if !cs.IsPublic && !isOwner {
-				// check admin
 				role, _ := c.Get("role")
 				if role != "admin" && role != "archivist" {
 					c.JSON(http.StatusBadRequest, gin.H{"error": "custom shelf not accessible: " + trimmed})
 					return
 				}
 			}
+			key = "custom:" + cs.ID.String()
 		} else {
-			var cnt int64
-			s.db.Model(&models.VirtualShelf{}).Where("slug = ?", trimmed).Count(&cnt)
-			if cnt == 0 {
-				// also allow custom shelf id without prefix? be lenient but reject
-				c.JSON(http.StatusBadRequest, gin.H{"error": "unknown shelf: " + trimmed})
-				return
+			var cs models.UserCustomShelf
+			if err := s.db.Where("owner_id = ? AND slug = ?", *uid, trimmed).First(&cs).Error; err != nil {
+				continue
 			}
+			key = "custom:" + cs.ID.String()
 		}
-		deduped = append(deduped, trimmed)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		deduped = append(deduped, key)
 	}
 	// dedup hidden
 	hiddenSeen := map[string]bool{}
