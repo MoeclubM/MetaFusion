@@ -76,11 +76,15 @@ function CommunityContent() {
  const [topics, setTopics] = useState<DiscussionTopic[]>([]);
  const [loading, setLoading] = useState(true);
  const [searchFilter, setSearchFilter] = useState("");
- const [sidebarOpen, setSidebarOpen] = useState(false);
- const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
- const [tagQuery, setTagQuery] = useState("");
- const tagDropdownRef = useRef<HTMLDivElement>(null);
- const tagSearchInputRef = useRef<HTMLInputElement>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [boardDropdownOpen, setBoardDropdownOpen] = useState(false);
+  const [boardQuery, setBoardQuery] = useState("");
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const [tagQuery, setTagQuery] = useState("");
+  const boardDropdownRef = useRef<HTMLDivElement>(null);
+  const boardSearchInputRef = useRef<HTMLInputElement>(null);
+  const tagDropdownRef = useRef<HTMLDivElement>(null);
+  const tagSearchInputRef = useRef<HTMLInputElement>(null);
 
  // tag filter for list
  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
@@ -112,23 +116,42 @@ function CommunityContent() {
  fetchTags();
  }, []);
 
- useEffect(() => {
-   const handler = (e: MouseEvent) => {
-     if (tagDropdownRef.current && !tagDropdownRef.current.contains(e.target as Node)) {
-       setTagDropdownOpen(false);
-     }
-   };
-   if (tagDropdownOpen) {
-     document.addEventListener("mousedown", handler);
-     setTimeout(() => tagSearchInputRef.current?.focus(), 50);
-   }
-   return () => document.removeEventListener("mousedown", handler);
- }, [tagDropdownOpen]);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(e.target as Node)) {
+        setTagDropdownOpen(false);
+      }
+      if (boardDropdownRef.current && !boardDropdownRef.current.contains(e.target as Node)) {
+        setBoardDropdownOpen(false);
+      }
+    };
+    if (tagDropdownOpen || boardDropdownOpen) {
+      document.addEventListener("mousedown", handler);
+      if (tagDropdownOpen) {
+        setTimeout(() => tagSearchInputRef.current?.focus(), 50);
+      }
+      if (boardDropdownOpen) {
+        setTimeout(() => boardSearchInputRef.current?.focus(), 50);
+      }
+    }
+    return () => document.removeEventListener("mousedown", handler);
+  }, [tagDropdownOpen, boardDropdownOpen]);
 
- const filteredTags = availableTags.filter((t) => {
-   if (!tagQuery.trim()) return true;
-   return t.name.toLowerCase().includes(tagQuery.trim().toLowerCase());
- });
+  const filteredBoards = boards.filter((b) => {
+    if (!boardQuery.trim()) return true;
+    const q = boardQuery.trim().toLowerCase();
+    return (
+      b.name.toLowerCase().includes(q) ||
+      (b.name_en && b.name_en.toLowerCase().includes(q)) ||
+      (b.desc && b.desc.toLowerCase().includes(q)) ||
+      b.code.toLowerCase().includes(q)
+    );
+  });
+
+  const filteredTags = availableTags.filter((t) => {
+    if (!tagQuery.trim()) return true;
+    return t.name.toLowerCase().includes(tagQuery.trim().toLowerCase());
+  });
 
  const currentSelectedTagObj = filterTagId
    ? availableTags.find((t) => t.id === filterTagId)
@@ -329,206 +352,324 @@ function CommunityContent() {
 	 </div>
 	 )}
 
- {/* ===================== Main Topic List ===================== */}
- <main className="flex-1 min-w-0 flex flex-col pb-28 bg-background">
- {/* Top bar inside main */}
- <div className="sticky top-12 z-20 bg-background/95 backdrop-blur border-b border-surfaceBorder">
- <div className="px-4 py-2.5 space-y-2.5">
- {/* Row 1: Breadcrumb + active board indicator + actions */}
- <div className="flex items-center justify-between gap-3">
- <div className="flex items-center gap-2 min-w-0">
- <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-1.5 -ml-1 text-gray-400 hover:text-white">
- <Menu className="w-4 h-4" />
- </button>
- <Link href="/community" className="hidden sm:flex items-center gap-2 text-sm font-mono text-gray-500 hover:text-primary transition-colors">
- <span>{t("nav.community")}</span>
- <span>/</span>
- </Link>
- <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-sm font-semibold ${currentBoard.bgColor} ${currentBoard.borderColor} ${currentBoard.color}`}>
- <span className={`w-1.5 h-1.5 rounded-full ${currentBoard.color.replace("text-", "bg-")}`} />
- <span className="truncate max-w-[160px] sm:max-w-none">{boardDisplayName(currentBoard, locale)}</span>
- </span>
- <span className="hidden sm:inline text-sm text-gray-500 font-mono truncate max-w-[220px]">{currentBoard.desc}</span>
- </div>
- <div className="flex items-center gap-2 shrink-0">
- <span className="hidden md:inline text-sm font-mono text-gray-500">{loading ? t("common.loading") : t("community.topicCount", {count: topics.length})}</span>
- {user ? (
-                  <button onClick={() => setIsComposerOpen(true)} className="hidden sm:inline-flex px-3.5 h-9 max-sm:min-h-[44px] rounded-md bg-primary text-white text-sm font-bold items-center gap-2 shadow-xs hover:opacity-90 transition-opacity">
- <Plus className="w-4 h-4 stroke-[2.5]" />
- <span>{t("community.newTopic")}</span>
- </button>
- ) : null}
- </div>
- </div>
+	{/* ===================== Main Topic List ===================== */}
+	<main className="flex-1 min-w-0 flex flex-col pb-28 bg-background">
+	  {/* Discourse-style Hero Search & Filter Header */}
+	  <div className="sticky top-12 z-20 bg-background/95 backdrop-blur border-b border-surfaceBorder">
+	    <div className="px-4 sm:px-6 py-4 space-y-3.5 max-w-[1100px] mx-auto w-full">
+	      {/* Row 1: Discourse-style Prominent Centered Search Bar */}
+	      <div className="flex items-center gap-2.5">
+	        <button
+	          onClick={() => setSidebarOpen(true)}
+	          className="lg:hidden p-2 rounded-md border border-surfaceBorder bg-surface text-gray-400 hover:text-white"
+	        >
+	          <Menu className="w-4 h-4" />
+	        </button>
 
- {/* Top filters & search */}
- <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
- <div className="flex items-center gap-2 overflow-x-auto">
- <div className="flex items-center gap-0.5 bg-surface border border-surfaceBorder rounded-md p-0.5 shrink-0">
- <button
- onClick={() => setActiveTab("latest")}
- className={`px-3.5 h-9 max-sm:min-h-[44px] rounded text-sm font-semibold flex items-center gap-2 transition-colors ${activeTab === "latest" ? "bg-white text-black shadow-xs" : "text-gray-400 hover:text-white"}`}
- >
- <Sparkles className="w-4 h-4" />
- <span>{t("community.latest")}</span>
- </button>
- <button
- onClick={() => setActiveTab("top")}
- className={`px-3.5 h-9 max-sm:min-h-[44px] rounded text-sm font-semibold flex items-center gap-2 transition-colors ${activeTab === "top" ? "bg-white text-black shadow-xs" : "text-gray-400 hover:text-white"}`}
- >
- <Flame className="w-4 h-4" />
- <span>{t("community.top")}</span>
- </button>
- </div>
- <div className="flex items-center gap-0.5 bg-surface border border-surfaceBorder rounded-md p-0.5 shrink-0">
- <span className="px-2.5 text-xs text-gray-500 font-mono hidden md:inline">{t("locale.languageChoice")}:</span>
- <button onClick={() => setFilterLanguage("all")} className={`px-2.5 h-9 max-sm:min-h-[44px] rounded text-sm font-medium transition-colors ${filterLanguage==="all" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"}`}>{t("community.languageAll")}</button>
- <button onClick={() => setFilterLanguage("zh-CN")} className={`px-2.5 h-9 max-sm:min-h-[44px] rounded text-sm font-medium transition-colors ${filterLanguage==="zh-CN" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"}`}>{t("community.languageZh")}</button>
- <button onClick={() => setFilterLanguage("en-US")} className={`px-2.5 h-9 max-sm:min-h-[44px] rounded text-sm font-medium transition-colors ${filterLanguage==="en-US" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"}`}>{t("community.languageEn")}</button>
- </div>
- </div>
+	        <div className="relative flex-1">
+	          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+	          <input
+	            type="text"
+	            placeholder={t("community.boardSearchPlaceholder")}
+	            value={searchFilter}
+	            onChange={(e) => setSearchFilter(e.target.value)}
+	            onKeyDown={(e) => e.key === "Enter" && loadTopics()}
+	            className="w-full pl-10 pr-24 h-11 rounded-lg bg-surface border border-surfaceBorder text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors shadow-inner"
+	          />
+	          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+	            {searchFilter && (
+	              <button
+	                onClick={() => {
+	                  setSearchFilter("");
+	                }}
+	                className="p-1 text-gray-500 hover:text-gray-300 transition-colors rounded"
+	                title={t("community.clear")}
+	              >
+	                <X className="w-3.5 h-3.5" />
+	              </button>
+	            )}
+	            <button
+	              onClick={loadTopics}
+	              className="px-3 py-1 rounded bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-xs font-mono text-gray-200 transition-colors"
+	            >
+	              {t("common.search")}
+	            </button>
+	          </div>
+	        </div>
 
-		 <div className="flex items-center gap-2">
-		 <div className="relative flex-1 sm:flex-none">
-		 <Search className="w-4 h-4 text-gray-500 absolute left-2.5 top-2.5" />
-		 <input
-		 type="text"
-		 placeholder={t("community.searchInBoard")}
-		 value={searchFilter}
-		 onChange={(e) => setSearchFilter(e.target.value)}
-		 onKeyDown={(e) => e.key === "Enter" && loadTopics()}
-		                className="w-full sm:w-52 pl-11 pr-3 h-10 max-sm:min-h-[44px] rounded-md bg-surface border border-surfaceBorder text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-600"
-		 />
-		 </div>
+	        {user && (
+	          <button
+	            onClick={() => setIsComposerOpen(true)}
+	            className="px-4 h-11 rounded-lg bg-primary text-white text-sm font-bold inline-flex items-center gap-2 shadow-xs hover:opacity-90 transition-opacity shrink-0"
+	          >
+	            <Plus className="w-4 h-4 stroke-[2.5]" />
+	            <span className="hidden sm:inline">{t("community.newTopic")}</span>
+	          </button>
+	        )}
+	      </div>
 
-		 {/* Discourse-style Tag Filter Popover */}
-		 <div className="relative" ref={tagDropdownRef}>
-		   <button
-		     type="button"
-		     onClick={() => {
-		       setTagDropdownOpen(!tagDropdownOpen);
-		       setTagQuery("");
-		     }}
-		     className={`h-10 max-sm:min-h-[44px] px-3 rounded-md border text-sm inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
-		       currentSelectedTagObj
-		         ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-semibold"
-		         : "bg-surface hover:bg-surfaceBorder border-surfaceBorder text-gray-300"
-		     }`}
-		     title={t("community.searchTagFilter")}
-		   >
-		     <TagIcon className="w-3.5 h-3.5" />
-		     <span className="max-w-[120px] truncate">
-		       {currentSelectedTagObj ? `#${currentSelectedTagObj.name}` : t("community.searchTagFilter")}
-		     </span>
-		     <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${tagDropdownOpen ? "rotate-180" : ""}`} />
-		   </button>
+	      {/* Row 2: Discourse Sub-Filter Controls (类别 > | 标签 > | 最新 | 热门 | 语言) */}
+	      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-0.5">
+	        <div className="flex items-center gap-2 flex-wrap">
+	          {/* Discourse Category Dropdown (类别 >) */}
+	          <div className="relative" ref={boardDropdownRef}>
+	            <button
+	              type="button"
+	              onClick={() => {
+	                setBoardDropdownOpen(!boardDropdownOpen);
+	                setBoardQuery("");
+	              }}
+	              className={`h-9 px-3 rounded-md border text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+	                selectedBoard !== "all"
+	                  ? `${currentBoard.bgColor} ${currentBoard.borderColor} ${currentBoard.color} font-semibold shadow-xs`
+	                  : "bg-surface hover:bg-surfaceBorder border-surfaceBorder text-gray-300"
+	              }`}
+	            >
+	              <span className="text-gray-400 font-normal">{t("community.searchCategoryFilter")}</span>
+	              <span className="text-gray-500 font-mono">&gt;</span>
+	              <span className="max-w-[130px] truncate">
+	                {selectedBoard === "all" ? t("community.allBoardsOption") : boardDisplayName(currentBoard, locale)}
+	              </span>
+	              <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${boardDropdownOpen ? "rotate-180" : ""}`} />
+	            </button>
 
-		   {tagDropdownOpen && (
-		     <div className="absolute right-0 sm:right-auto sm:left-0 top-full mt-1.5 w-64 rounded-lg bg-surface border border-surfaceBorder shadow-xl z-50 p-2 space-y-2 animate-in fade-in duration-100">
-		       <div className="relative">
-		         <Search className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-2.5" />
-		         <input
-		           ref={tagSearchInputRef}
-		           type="text"
-		           value={tagQuery}
-		           onChange={(e) => {
-		             setTagQuery(e.target.value);
-		             fetchTags(e.target.value);
-		           }}
-		           placeholder={t("community.tagDropdownPlaceholder")}
-		           className="w-full pl-8 pr-2.5 py-1.5 rounded-md bg-background border border-surfaceBorder text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 font-mono"
-		         />
-		       </div>
+	            {boardDropdownOpen && (
+	              <div className="absolute left-0 top-full mt-1.5 w-72 rounded-lg bg-surface border border-surfaceBorder shadow-xl z-50 p-2 space-y-2 animate-in fade-in duration-100">
+	                <div className="relative">
+	                  <Search className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-2.5" />
+	                  <input
+	                    ref={boardSearchInputRef}
+	                    type="text"
+	                    value={boardQuery}
+	                    onChange={(e) => setBoardQuery(e.target.value)}
+	                    placeholder={t("community.boardDropdownPlaceholder")}
+	                    className="w-full pl-8 pr-2.5 py-1.5 rounded-md bg-background border border-surfaceBorder text-xs text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 font-mono"
+	                  />
+	                </div>
 
-		       <div className="max-h-56 overflow-y-auto space-y-0.5 scrollbar-thin">
-		         <button
-		           type="button"
-		           onClick={() => {
-		             setFilterTagId(null);
-		             setFilterTagName(null);
-		             setTagDropdownOpen(false);
-		           }}
-		           className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors ${
-		             !filterTagId && !filterTagName
-		               ? "bg-primary text-white font-semibold"
-		               : "text-gray-400 hover:text-white hover:bg-white/[0.05]"
-		           }`}
-		         >
-		           <span>{t("community.allTagsOption")}</span>
-		           {!filterTagId && !filterTagName && <span className="text-[10px]">✓</span>}
-		         </button>
+	                <div className="max-h-60 overflow-y-auto space-y-0.5 scrollbar-thin">
+	                  <button
+	                    type="button"
+	                    onClick={() => {
+	                      setSelectedBoard("all");
+	                      setBoardDropdownOpen(false);
+	                    }}
+	                    className={`w-full text-left px-2.5 py-2 rounded-md text-xs flex items-center justify-between transition-colors ${
+	                      selectedBoard === "all"
+	                        ? "bg-primary text-white font-semibold"
+	                        : "text-gray-300 hover:text-white hover:bg-white/[0.05]"
+	                    }`}
+	                  >
+	                    <span className="flex items-center gap-2 truncate">
+	                      <Hash className="w-3.5 h-3.5 shrink-0 opacity-70" />
+	                      <span>{t("community.allBoardsOption")}</span>
+	                    </span>
+	                    {selectedBoard === "all" && <span className="text-[10px]">✓</span>}
+	                  </button>
 
-		         {filteredTags.length === 0 ? (
-		           <div className="py-4 text-center text-xs font-mono text-gray-500">
-		             {t("community.noTagMatch")}
-		           </div>
-		         ) : (
-		           filteredTags.map((tag) => {
-		             const isSelected = filterTagId === tag.id || filterTagName === tag.name;
-		             return (
-		               <button
-		                 key={tag.id}
-		                 type="button"
-		                 onClick={() => {
-		                   setFilterTagId(tag.id);
-		                   setFilterTagName(null);
-		                   setTagDropdownOpen(false);
-		                 }}
-		                 className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors ${
-		                   isSelected
-		                     ? "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
-		                     : "text-gray-300 hover:text-white hover:bg-white/[0.05]"
-		                 }`}
-		               >
-		                 <span className="flex items-center gap-1.5 truncate">
-		                   <TagIcon className="w-3 h-3 text-gray-500 shrink-0" />
-		                   <span className="truncate">#{tag.name}</span>
-		                 </span>
-		                 {isSelected && <span className="text-[10px] text-emerald-400">✓</span>}
-		               </button>
-		             );
-		           })
-		         )}
-		       </div>
-		     </div>
-		   )}
-		 </div>
+	                  {filteredBoards
+	                    .filter((b) => b.code !== "all")
+	                    .map((board) => {
+	                      const Icon = resolveBoardIcon(board);
+	                      const isSelected = selectedBoard === board.code;
+	                      return (
+	                        <button
+	                          key={board.code}
+	                          type="button"
+	                          onClick={() => {
+	                            setSelectedBoard(board.code);
+	                            setBoardDropdownOpen(false);
+	                          }}
+	                          className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors ${
+	                            isSelected
+	                              ? `${board.bgColor} ${board.color} font-semibold border ${board.borderColor}`
+	                              : "text-gray-300 hover:text-white hover:bg-white/[0.05]"
+	                          }`}
+	                        >
+	                          <span className="flex items-center gap-2 min-w-0">
+	                            <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${board.bgColor} ${board.borderColor} border`}>
+	                              <Icon className={`w-3 h-3 ${board.color}`} />
+	                            </span>
+	                            <span className="truncate">{boardDisplayName(board, locale)}</span>
+	                          </span>
+	                          {isSelected && <span className="text-[10px]">✓</span>}
+	                        </button>
+	                      );
+	                    })}
+	                </div>
+	              </div>
+	            )}
+	          </div>
 
-		                <button onClick={loadTopics} className="px-3.5 h-10 max-sm:min-h-[44px] rounded-md bg-surface hover:bg-surfaceBorder border border-surfaceBorder text-gray-300 text-sm hidden sm:inline-flex items-center justify-center">
-		 {t("common.search")}
-		 </button>
-		 {user ? (
-		                    <button onClick={() => setIsComposerOpen(true)} className="sm:hidden px-3.5 h-9 max-sm:min-h-[44px] rounded-md bg-white text-black text-sm font-bold flex items-center gap-2">
-		 <Plus className="w-4 h-4" />
-		 {t("community.publishNew")}
-		 </button>
-		 ) : null}
-		 </div>
-		 </div>
+	          {/* Discourse Tag Dropdown (标签 >) */}
+	          <div className="relative" ref={tagDropdownRef}>
+	            <button
+	              type="button"
+	              onClick={() => {
+	                setTagDropdownOpen(!tagDropdownOpen);
+	                setTagQuery("");
+	              }}
+	              className={`h-9 px-3 rounded-md border text-xs font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer ${
+	                currentSelectedTagObj
+	                  ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-semibold shadow-xs"
+	                  : "bg-surface hover:bg-surfaceBorder border-surfaceBorder text-gray-300"
+	              }`}
+	            >
+	              <span className="text-gray-400 font-normal">{t("community.searchTagFilter")}</span>
+	              <span className="text-gray-500 font-mono">&gt;</span>
+	              <span className="max-w-[120px] truncate">
+	                {currentSelectedTagObj ? `#${currentSelectedTagObj.name}` : t("community.allTagsOption")}
+	              </span>
+	              <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${tagDropdownOpen ? "rotate-180" : ""}`} />
+	            </button>
 
-		 {/* 已选标签过滤 Chip (如通过帖子下方点击或下拉选择时出现) */}
-		 {currentSelectedTagObj && (
-		 <div className="flex items-center gap-2 pt-1 text-xs font-mono animate-in fade-in duration-100">
-		   <span className="text-gray-500">{t("community.selectedTag", { name: "" })}</span>
-		   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-semibold">
-		     <TagIcon className="w-3 h-3" />
-		     <span>#{currentSelectedTagObj.name}</span>
-		     <button
-		       type="button"
-		       onClick={() => {
-		         setFilterTagId(null);
-		         setFilterTagName(null);
-		       }}
-		       className="hover:text-white p-0.5"
-		       title={t("community.clearTag")}
-		     >
-		       <X className="w-3 h-3" />
-		     </button>
-		   </span>
-		 </div>
-		 )}
-		 </div>
-		 </div>
+	            {tagDropdownOpen && (
+	              <div className="absolute left-0 top-full mt-1.5 w-64 rounded-lg bg-surface border border-surfaceBorder shadow-xl z-50 p-2 space-y-2 animate-in fade-in duration-100">
+	                <div className="relative">
+	                  <Search className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-2.5" />
+	                  <input
+	                    ref={tagSearchInputRef}
+	                    type="text"
+	                    value={tagQuery}
+	                    onChange={(e) => {
+	                      setTagQuery(e.target.value);
+	                      fetchTags(e.target.value);
+	                    }}
+	                    placeholder={t("community.tagDropdownPlaceholder")}
+	                    className="w-full pl-8 pr-2.5 py-1.5 rounded-md bg-background border border-surfaceBorder text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 font-mono"
+	                  />
+	                </div>
+
+	                <div className="max-h-56 overflow-y-auto space-y-0.5 scrollbar-thin">
+	                  <button
+	                    type="button"
+	                    onClick={() => {
+	                      setFilterTagId(null);
+	                      setFilterTagName(null);
+	                      setTagDropdownOpen(false);
+	                    }}
+	                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors ${
+	                      !filterTagId && !filterTagName
+	                        ? "bg-primary text-white font-semibold"
+	                        : "text-gray-400 hover:text-white hover:bg-white/[0.05]"
+	                    }`}
+	                  >
+	                    <span>{t("community.allTagsOption")}</span>
+	                    {!filterTagId && !filterTagName && <span className="text-[10px]">✓</span>}
+	                  </button>
+
+	                  {filteredTags.length === 0 ? (
+	                    <div className="py-4 text-center text-xs font-mono text-gray-500">
+	                      {t("community.noTagMatch")}
+	                    </div>
+	                  ) : (
+	                    filteredTags.map((tag) => {
+	                      const isSelected = filterTagId === tag.id || filterTagName === tag.name;
+	                      return (
+	                        <button
+	                          key={tag.id}
+	                          type="button"
+	                          onClick={() => {
+	                            setFilterTagId(tag.id);
+	                            setFilterTagName(null);
+	                            setTagDropdownOpen(false);
+	                          }}
+	                          className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors ${
+	                            isSelected
+	                              ? "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
+	                              : "text-gray-300 hover:text-white hover:bg-white/[0.05]"
+	                          }`}
+	                        >
+	                          <span className="flex items-center gap-1.5 truncate">
+	                            <TagIcon className="w-3 h-3 text-gray-500 shrink-0" />
+	                            <span className="truncate">#{tag.name}</span>
+	                          </span>
+	                          {isSelected && <span className="text-[10px] text-emerald-400">✓</span>}
+	                        </button>
+	                      );
+	                    })
+	                  )}
+	                </div>
+	              </div>
+	            )}
+	          </div>
+	        </div>
+
+	        {/* Tabs & Language filter */}
+	        <div className="flex items-center gap-2 overflow-x-auto">
+	          <div className="flex items-center gap-0.5 bg-surface border border-surfaceBorder rounded-md p-0.5 shrink-0">
+	            <button
+	              onClick={() => setActiveTab("latest")}
+	              className={`px-3 h-8 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+	                activeTab === "latest" ? "bg-white text-black shadow-xs" : "text-gray-400 hover:text-white"
+	              }`}
+	            >
+	              <Sparkles className="w-3.5 h-3.5" />
+	              <span>{t("community.latest")}</span>
+	            </button>
+	            <button
+	              onClick={() => setActiveTab("top")}
+	              className={`px-3 h-8 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+	                activeTab === "top" ? "bg-white text-black shadow-xs" : "text-gray-400 hover:text-white"
+	              }`}
+	            >
+	              <Flame className="w-3.5 h-3.5" />
+	              <span>{t("community.top")}</span>
+	            </button>
+	          </div>
+
+	          <div className="flex items-center gap-0.5 bg-surface border border-surfaceBorder rounded-md p-0.5 shrink-0">
+	            <button
+	              onClick={() => setFilterLanguage("all")}
+	              className={`px-2.5 h-8 rounded text-xs font-medium transition-colors ${
+	                filterLanguage === "all" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"
+	              }`}
+	            >
+	              {t("community.languageAll")}
+	            </button>
+	            <button
+	              onClick={() => setFilterLanguage("zh-CN")}
+	              className={`px-2.5 h-8 rounded text-xs font-medium transition-colors ${
+	                filterLanguage === "zh-CN" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"
+	              }`}
+	            >
+	              {t("community.languageZh")}
+	            </button>
+	            <button
+	              onClick={() => setFilterLanguage("en-US")}
+	              className={`px-2.5 h-8 rounded text-xs font-medium transition-colors ${
+	                filterLanguage === "en-US" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"
+	              }`}
+	            >
+	              {t("community.languageEn")}
+	            </button>
+	          </div>
+	        </div>
+	      </div>
+
+	      {/* Active Tag Filter Chip */}
+	      {currentSelectedTagObj && (
+	        <div className="flex items-center gap-2 pt-0.5 text-xs font-mono animate-in fade-in duration-100">
+	          <span className="text-gray-500">{t("community.selectedTag", { name: "" })}</span>
+	          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-semibold">
+	            <TagIcon className="w-3 h-3" />
+	            <span>#{currentSelectedTagObj.name}</span>
+	            <button
+	              type="button"
+	              onClick={() => {
+	                setFilterTagId(null);
+	                setFilterTagName(null);
+	              }}
+	              className="hover:text-white p-0.5"
+	              title={t("community.clearTag")}
+	            >
+	              <X className="w-3 h-3" />
+	            </button>
+	          </span>
+	        </div>
+	      )}
+	    </div>
+	  </div>
 
  <div className="px-4 py-6 space-y-5 flex-1">
  <div className="border border-surfaceBorder rounded-xl overflow-hidden bg-surface shadow-sm">
