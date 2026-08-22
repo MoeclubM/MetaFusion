@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, ChevronDown } from "lucide-react";
 
 export type SelectOption = {
@@ -64,15 +65,31 @@ export function Select({
       const r = btn.getBoundingClientRect();
       const maxH = 240;
       const gap = 4;
-      const spaceBelow = window.innerHeight - r.bottom - gap;
-      const openUp = spaceBelow < 160 && r.top > spaceBelow;
+      const pad = 8;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const width = Math.min(Math.max(r.width, 140), vw - pad * 2);
+      let left = r.left;
+      if (width > r.width && r.left > vw / 2) {
+        left = r.right - width;
+      }
+      left = Math.min(Math.max(pad, left), vw - width - pad);
+
+      const menuH = Math.min(menuRef.current?.scrollHeight ?? maxH, maxH);
+      const spaceBelow = vh - r.bottom - gap;
+      const spaceAbove = r.top - gap;
+      const openUp = spaceBelow < Math.min(160, menuH) && spaceAbove > spaceBelow;
+
       setMenuStyle({
         position: "fixed",
-        left: r.left,
-        width: Math.max(r.width, 140),
+        left,
+        width,
         maxHeight: maxH,
         zIndex: 80,
-        ...(openUp ? { bottom: window.innerHeight - r.top + gap } : { top: r.bottom + gap }),
+        margin: 0,
+        ...(openUp
+          ? { top: "auto", bottom: vh - r.top + gap }
+          : { top: r.bottom + gap, bottom: "auto" }),
       });
     };
     place();
@@ -163,6 +180,59 @@ export function Select({
     }
   };
 
+  const menu =
+    open && menuStyle
+      ? createPortal(
+          <ul
+            ref={menuRef}
+            id={listId}
+            role="listbox"
+            aria-activedescendant={`${listId}-${activeIndex}`}
+            style={menuStyle}
+            className={cx(
+              "list-none overflow-y-auto rounded-md border border-surfaceBorder bg-surface shadow-elevated py-1",
+              menuClassName
+            )}
+          >
+            {options.map((opt, i) => {
+              const isSelected = opt.value === value;
+              const isActive = i === activeIndex;
+              return (
+                <li key={`${opt.value}-${i}`} role="none">
+                  <button
+                    ref={(el) => {
+                      optionRefs.current[i] = el;
+                    }}
+                    type="button"
+                    role="option"
+                    id={`${listId}-${i}`}
+                    aria-selected={isSelected}
+                    disabled={opt.disabled}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    onClick={() => {
+                      if (!opt.disabled) commit(opt.value);
+                    }}
+                    className={cx(
+                      "w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-left",
+                      opt.disabled && "opacity-40 cursor-not-allowed",
+                      isSelected
+                        ? "text-primary bg-primary/10"
+                        : "text-gray-900 dark:text-white",
+                      isActive && !isSelected && "bg-black/[0.04] dark:bg-white/[0.06]",
+                      !opt.disabled && "hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                    )}
+                  >
+                    <span className="min-w-0 truncate">{opt.label}</span>
+                    {isSelected && <Check className="w-3.5 h-3.5 shrink-0 text-primary" strokeWidth={2.2} />}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>,
+          document.body
+        )
+      : null;
+
   return (
     <div className={cx("relative", fullWidth ? "w-full" : "inline-block")} ref={rootRef}>
       {name ? <input type="hidden" name={name} value={value} required={required} /> : null}
@@ -192,54 +262,7 @@ export function Select({
           strokeWidth={1.8}
         />
       </button>
-      {open && (
-        <ul
-          ref={menuRef}
-          id={listId}
-          role="listbox"
-          aria-activedescendant={`${listId}-${activeIndex}`}
-          style={menuStyle}
-          className={cx(
-            "overflow-y-auto rounded-md border border-surfaceBorder bg-surface shadow-elevated py-1",
-            menuClassName
-          )}
-        >
-          {options.map((opt, i) => {
-            const isSelected = opt.value === value;
-            const isActive = i === activeIndex;
-            return (
-              <li key={`${opt.value}-${i}`} role="none">
-                <button
-                  ref={(el) => {
-                    optionRefs.current[i] = el;
-                  }}
-                  type="button"
-                  role="option"
-                  id={`${listId}-${i}`}
-                  aria-selected={isSelected}
-                  disabled={opt.disabled}
-                  onMouseEnter={() => setActiveIndex(i)}
-                  onClick={() => {
-                    if (!opt.disabled) commit(opt.value);
-                  }}
-                  className={cx(
-                    "w-full flex items-center justify-between gap-2 px-3 py-2 text-sm text-left",
-                    opt.disabled && "opacity-40 cursor-not-allowed",
-                    isSelected
-                      ? "text-primary bg-primary/10"
-                      : "text-gray-900 dark:text-white",
-                    isActive && !isSelected && "bg-black/[0.04] dark:bg-white/[0.06]",
-                    !opt.disabled && "hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
-                  )}
-                >
-                  <span className="min-w-0 truncate">{opt.label}</span>
-                  {isSelected && <Check className="w-3.5 h-3.5 shrink-0 text-primary" strokeWidth={2.2} />}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {menu}
     </div>
   );
 }

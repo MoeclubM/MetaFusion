@@ -126,11 +126,9 @@ function ExploreContent() {
  setLoading(true);
  try {
  const params = new URLSearchParams();
- // URL 基础条件（来自首页频道等入口）与用户手动勾选的 tags 合并去重
- const mergedTags = Array.from(new Set([...(tagsParam ? tagsParam.split(",").filter(Boolean) : []), ...selectedTags]));
  if (shelfParam) params.append("shelf", shelfParam);
- if (mergedTags.length > 0) params.append("tags", mergedTags.join(","));
- if (mergedTags.length > 0) params.append("tag_match", tagMatchParam);
+ if (selectedTags.length > 0) params.append("tags", selectedTags.join(","));
+ if (selectedTags.length > 0) params.append("tag_match", tagMatchParam);
  if (queryParam) params.append("q", queryParam);
  const res = await fetchApi<{ items: Work[]; total: number }>(`/catalog/works?${params.toString()}`);
  let items = res.items || [];
@@ -530,11 +528,6 @@ function ExploreContent() {
                       /{shelfParam}
                     </span>
                   )}
-                  {tagsParam && (
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-mono text-xs">
-                      {tagsParam.split(",").filter(Boolean).map((tg) => `#${tg}`).join(tagMatchParam === "all" ? " & " : " / ")}
-                    </span>
-                  )}
                   {selectedTags.map((tagName) => (
                     <span
                       key={tagName}
@@ -618,9 +611,6 @@ function ExploreContent() {
                           id={w.id}
                           imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
-                        <div className="absolute top-1.5 left-1.5 px-2.5 py-1 rounded-sm bg-black/70 backdrop-blur-md text-xs font-mono text-white">
-                          {w.release_date ? String(w.release_date).slice(0, 4) : t("home.archived")}
-                        </div>
                       </div>
                       <div className="p-3 space-y-1 flex-1 flex flex-col justify-between">
                         <div>

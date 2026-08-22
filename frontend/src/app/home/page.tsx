@@ -492,9 +492,6 @@ function HomeShowcaseContent() {
                               id={w.id}
                               imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
-                            <div className="absolute top-1.5 left-1.5 px-2.5 py-1 rounded-sm bg-black/70 backdrop-blur-md text-xs font-mono text-white keep-white">
-                              {w.release_date ? String(w.release_date).slice(0, 4) : t("home.archived")}
-                            </div>
                           </div>
                           <div className="p-4 space-y-1 flex-1 flex flex-col justify-between">
                             <div>
