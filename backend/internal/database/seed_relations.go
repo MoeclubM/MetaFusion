@@ -119,6 +119,10 @@ func seedRelationTypes(db *gorm.DB) {
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "performer").Updates(map[string]interface{}{
 		"allowed_source_types": pq.StringArray{"person", "group", "orchestra", "label", "fictional_band"},
 	}).Error
+	_ = db.Model(&models.RelationType{}).Where("code = ?", "member_of").Updates(map[string]interface{}{
+		"allowed_source_types": pq.StringArray{"person", "virtual_character"},
+		"allowed_target_types": pq.StringArray{"group", "orchestra", "studio", "circle", "publisher", "fictional_band"},
+	}).Error
 }
 
 func ApplyPatches(db *gorm.DB) {

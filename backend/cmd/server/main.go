@@ -92,7 +92,8 @@ func main() {
 	corsConfig.ExposeHeaders = []string{"X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Retry-After", "X-Warning"}
 	r.Use(cors.New(corsConfig))
 
-	// MusicBrainz 风格限流与 User-Agent 识别
+	// 限流必须在可选鉴权之后：否则 JWT/PAT 从未写入 userID，认证写入也会按匿名 60/分钟计。
+	r.Use(auth.OptionalUnifiedAuthMiddleware(cfg, db))
 	limiter := ratelimit.New(60, 600)
 	r.Use(limiter.Middleware())
 
