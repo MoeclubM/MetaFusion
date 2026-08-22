@@ -483,6 +483,7 @@ function ExploreContent() {
                     <Select
                       value={sortBy}
                       onChange={(val) => setSortBy(val as typeof sortBy)}
+                      fullWidth={false}
                       className="h-10 px-3 text-xs font-mono text-gray-700 dark:text-gray-300 min-w-[9.5rem]"
                       options={[
                         { value: "created_at", label: t("explore.latestAdded") },

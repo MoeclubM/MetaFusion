@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useId, useMemo, useRef, useState } from "react";
+import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 
 export type SelectOption = {
@@ -24,6 +24,7 @@ export function Select({
   id,
   name,
   required,
+  fullWidth = true,
   "aria-label": ariaLabel,
 }: {
   value: string;
@@ -36,14 +37,17 @@ export function Select({
   id?: string;
   name?: string;
   required?: boolean;
+  fullWidth?: boolean;
   "aria-label"?: string;
 }) {
   const uid = useId();
   const listId = `${uid}-list`;
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties | undefined>();
   const selectedIndex = useMemo(
     () => options.findIndex((o) => o.value === value),
     [options, value]
@@ -52,13 +56,43 @@ export function Select({
 
   const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined;
 
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const btn = buttonRef.current;
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      const maxH = 240;
+      const gap = 4;
+      const spaceBelow = window.innerHeight - r.bottom - gap;
+      const openUp = spaceBelow < 160 && r.top > spaceBelow;
+      setMenuStyle({
+        position: "fixed",
+        left: r.left,
+        width: Math.max(r.width, 140),
+        maxHeight: maxH,
+        zIndex: 80,
+        ...(openUp ? { bottom: window.innerHeight - r.top + gap } : { top: r.bottom + gap }),
+      });
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open, options.length]);
+
   useEffect(() => {
     if (!open) return;
     const start = selectedIndex >= 0 ? selectedIndex : options.findIndex((o) => !o.disabled);
     setActiveIndex(start < 0 ? 0 : start);
 
     const onPointer = (e: MouseEvent | TouchEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (rootRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -130,7 +164,7 @@ export function Select({
   };
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div className={cx("relative", fullWidth ? "w-full" : "inline-block")} ref={rootRef}>
       {name ? <input type="hidden" name={name} value={value} required={required} /> : null}
       <button
         ref={buttonRef}
@@ -160,11 +194,13 @@ export function Select({
       </button>
       {open && (
         <ul
+          ref={menuRef}
           id={listId}
           role="listbox"
           aria-activedescendant={`${listId}-${activeIndex}`}
+          style={menuStyle}
           className={cx(
-            "absolute left-0 right-0 top-full mt-1 z-50 max-h-60 overflow-y-auto rounded-md border border-surfaceBorder bg-surface shadow-elevated py-1",
+            "overflow-y-auto rounded-md border border-surfaceBorder bg-surface shadow-elevated py-1",
             menuClassName
           )}
         >
