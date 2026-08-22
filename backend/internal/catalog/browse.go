@@ -29,12 +29,10 @@ func parseInc(raw string) map[string]bool {
 }
 
 // BrowseWorks 按 artist/tag/category 枚举作品，类似 MusicBrainz browse/recording
-// GET /api/v1/browse/works?artist=<uuid>&tag=<name>&category=<code>&media_type=&page=&page_size=&inc=
+// GET /api/v1/browse/works?artist=<uuid>&tag=<name>&page=&page_size=&inc=
 func (s *CatalogService) BrowseWorks(c *gin.Context) {
 	artistIDStr := c.Query("artist")
 	tag := c.Query("tag")
-	category := c.Query("category")
-	mediaType := c.Query("media_type")
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "24"))
 	if page < 1 {
@@ -58,13 +56,6 @@ func (s *CatalogService) BrowseWorks(c *gin.Context) {
 	if tag != "" {
 		query = query.Where("id IN (SELECT work_id FROM work_tag_relations wtr JOIN tags t ON wtr.tag_id = t.id WHERE t.name = ?)", tag)
 	}
-	if category != "" {
-		query = query.Where("category_code = ? OR category_code IN (SELECT code FROM categories WHERE parent_code = ?)", category, category)
-	}
-	if mediaType != "" {
-		query = query.Where("media_type = ?", mediaType)
-	}
-
 	// 可见性：仅已发布（与 ListWorks 一致）
 	userRole, _ := c.Get("role")
 	roleStr, _ := userRole.(string)

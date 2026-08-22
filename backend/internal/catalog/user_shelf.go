@@ -11,18 +11,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/metafusion/metafusion-app/internal/models"
-	"github.com/metafusion/metafusion-app/internal/ontology"
 	"gorm.io/gorm"
 )
 
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-_]{1,63}$`)
 
-func validateCustomShelfInput(slug, mediaType string, queryTags, excludeTags []string, db *gorm.DB) error {
+func validateCustomShelfInput(slug string, queryTags, excludeTags []string, db *gorm.DB) error {
 	if slug != "" && !slugRe.MatchString(slug) {
 		return &fieldError{"slug", "slug must be 2-64 chars, lowercase letters/digits/_/-"}
-	}
-	if mediaType != "" && mediaType != "all" && !ontology.IsEnabledMediaType(db, mediaType) {
-		return &fieldError{"media_type", "invalid media_type"}
 	}
 	for _, t := range queryTags {
 		trimmed := strings.TrimSpace(t)
@@ -156,7 +152,6 @@ func (s *CatalogService) CreateCustomShelf(c *gin.Context) {
 		NameEn         string   `json:"name_en"`
 		Description    string   `json:"description"`
 		Icon           string   `json:"icon"`
-		MediaType      string   `json:"media_type"`
 		QueryTags      []string `json:"query_tags"`
 		RequireAllTags bool     `json:"require_all_tags"`
 		ExcludeTags    []string `json:"exclude_tags"`
@@ -170,9 +165,6 @@ func (s *CatalogService) CreateCustomShelf(c *gin.Context) {
 	input.Slug = strings.ToLower(strings.TrimSpace(input.Slug))
 	input.NameZh = strings.TrimSpace(input.NameZh)
 	input.NameEn = strings.TrimSpace(input.NameEn)
-	if input.MediaType == "" {
-		input.MediaType = "all"
-	}
 	if input.Icon == "" {
 		input.Icon = "Sparkles"
 	}
@@ -191,7 +183,7 @@ func (s *CatalogService) CreateCustomShelf(c *gin.Context) {
 			exTags = append(exTags, trimmed)
 		}
 	}
-	if err := validateCustomShelfInput(input.Slug, input.MediaType, qTags, exTags, s.db); err != nil {
+	if err := validateCustomShelfInput(input.Slug, qTags, exTags, s.db); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -222,7 +214,6 @@ func (s *CatalogService) CreateCustomShelf(c *gin.Context) {
 		Description:    input.Description,
 		Icon:           input.Icon,
 		SortOrder:      sortOrder,
-		MediaType:      input.MediaType,
 		QueryTags:      pq.StringArray(qTags),
 		RequireAllTags: input.RequireAllTags,
 		ExcludeTags:    pq.StringArray(exTags),
@@ -344,19 +335,6 @@ func (s *CatalogService) UpdateCustomShelf(c *gin.Context) {
 			updates["icon"] = strings.TrimSpace(iconStr)
 		}
 	}
-	if v, ok := input["media_type"]; ok {
-		if mtStr, ok := v.(string); ok {
-			mt := strings.TrimSpace(mtStr)
-			if mt == "" {
-				mt = "all"
-			}
-			if mt != "all" && !ontology.IsEnabledMediaType(s.db, mt) {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid media_type"})
-				return
-			}
-			updates["media_type"] = mt
-		}
-	}
 	// tags need existence check
 	if v, ok := input["query_tags"]; ok {
 		var tags []string
@@ -374,7 +352,7 @@ func (s *CatalogService) UpdateCustomShelf(c *gin.Context) {
 				}
 			}
 		}
-		if err := validateCustomShelfInput("", "", tags, nil, s.db); err != nil {
+		if err := validateCustomShelfInput("", tags, nil, s.db); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -396,7 +374,7 @@ func (s *CatalogService) UpdateCustomShelf(c *gin.Context) {
 				}
 			}
 		}
-		if err := validateCustomShelfInput("", "", nil, tags, s.db); err != nil {
+		if err := validateCustomShelfInput("", nil, tags, s.db); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
@@ -747,7 +725,6 @@ func (s *CatalogService) SyncPresetShelves(c *gin.Context) {
 			existing.Description = sys.Description
 			existing.Icon = sys.Icon
 			existing.SortOrder = sys.SortOrder
-			existing.MediaType = sys.MediaType
 			existing.QueryTags = sys.QueryTags
 			existing.RequireAllTags = sys.RequireAllTags
 			existing.ExcludeTags = sys.ExcludeTags
@@ -765,7 +742,6 @@ func (s *CatalogService) SyncPresetShelves(c *gin.Context) {
 				Description:    sys.Description,
 				Icon:           sys.Icon,
 				SortOrder:      sys.SortOrder,
-				MediaType:      sys.MediaType,
 				QueryTags:      sys.QueryTags,
 				RequireAllTags: sys.RequireAllTags,
 				ExcludeTags:    sys.ExcludeTags,
@@ -849,7 +825,6 @@ func (s *CatalogService) ForkPresetShelf(c *gin.Context) {
 		Description:    sys.Description,
 		Icon:           sys.Icon,
 		SortOrder:      sys.SortOrder,
-		MediaType:      sys.MediaType,
 		QueryTags:      sys.QueryTags,
 		RequireAllTags: sys.RequireAllTags,
 		ExcludeTags:    sys.ExcludeTags,
@@ -1010,7 +985,6 @@ func cloneVirtualShelf(sys models.VirtualShelf, userID uuid.UUID) models.UserCus
 		Description:    sys.Description,
 		Icon:           sys.Icon,
 		SortOrder:      sys.SortOrder,
-		MediaType:      sys.MediaType,
 		QueryTags:      qTags,
 		RequireAllTags: sys.RequireAllTags,
 		ExcludeTags:    exTags,

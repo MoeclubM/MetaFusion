@@ -68,7 +68,6 @@ CREATE TABLE virtual_shelves (
     description TEXT,
     icon VARCHAR(64),
     sort_order INT DEFAULT 0 NOT NULL,
-    media_type VARCHAR(32) DEFAULT 'all' NOT NULL,
     query_tags TEXT[] DEFAULT '{}' NOT NULL,
     require_all_tags BOOLEAN DEFAULT FALSE NOT NULL,
     exclude_tags TEXT[] DEFAULT '{}' NOT NULL
@@ -101,7 +100,6 @@ CREATE TABLE artists (
 CREATE TABLE works (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     category_code VARCHAR(64) DEFAULT 'general',
-    media_type media_category NOT NULL,
     title VARCHAR(255) NOT NULL,
     original_title VARCHAR(255),
     aliases VARCHAR(255)[] DEFAULT '{}',
@@ -334,7 +332,6 @@ END $$;
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_invitations_code ON invitations(code);
 CREATE INDEX idx_works_category ON works(category_code);
-CREATE INDEX idx_works_media_type ON works(media_type);
 CREATE INDEX idx_works_catalog_metadata ON works USING GIN (catalog_metadata);
 CREATE INDEX idx_releases_work ON releases(work_id);
 CREATE INDEX idx_mediums_release ON mediums(release_id);

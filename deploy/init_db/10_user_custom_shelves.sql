@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS user_custom_shelves (
     description TEXT DEFAULT '' NOT NULL,
     icon VARCHAR(64) DEFAULT 'Sparkles' NOT NULL,
     sort_order INT DEFAULT 0 NOT NULL,
-    media_type VARCHAR(32) DEFAULT 'all' NOT NULL,
     query_tags TEXT[] DEFAULT '{}' NOT NULL,
     require_all_tags BOOLEAN DEFAULT FALSE NOT NULL,
     exclude_tags TEXT[] DEFAULT '{}' NOT NULL,

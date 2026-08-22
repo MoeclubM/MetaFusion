@@ -182,8 +182,6 @@ func (s *AdminService) ListWorks(c *gin.Context) {
 		pageSize = 20
 	}
 	q := c.Query("q")
-	mediaType := c.Query("media_type")
-	categoryCode := c.Query("category_code")
 	status := c.Query("status")
 
 	query := s.db.Model(&models.Work{}).
@@ -195,12 +193,6 @@ func (s *AdminService) ListWorks(c *gin.Context) {
 	if q != "" {
 		like := "%" + q + "%"
 		query = query.Where("title ILIKE ? OR original_title ILIKE ?", like, like)
-	}
-	if mediaType != "" {
-		query = query.Where("media_type = ?", mediaType)
-	}
-	if categoryCode != "" {
-		query = query.Where("category_code = ?", categoryCode)
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)

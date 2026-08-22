@@ -185,7 +185,6 @@ type VirtualShelf struct {
 	Description    string         `json:"description"`
 	Icon           string         `json:"icon"`
 	SortOrder      int            `gorm:"default:0;not null" json:"sort_order"`
-	MediaType      string         `gorm:"default:'all';not null" json:"media_type"`
 	QueryTags      pq.StringArray `gorm:"type:text[]" json:"query_tags"`
 	RequireAllTags bool           `gorm:"default:false;not null" json:"require_all_tags"`
 	ExcludeTags    pq.StringArray `gorm:"type:text[]" json:"exclude_tags"`
@@ -263,7 +262,6 @@ type WorkArtistRelation struct {
 type Work struct {
 	ID              uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	CategoryCode    string         `gorm:"default:''" json:"category_code"`
-	MediaType       string         `gorm:"not null" json:"media_type"`
 	Title           string         `gorm:"not null" json:"title"`
 	OriginalTitle   string         `json:"original_title"`
 	Aliases         pq.StringArray `gorm:"type:text[]" json:"aliases"`
@@ -831,7 +829,6 @@ type UserCustomShelf struct {
 	Description    string         `gorm:"type:text;default:'';not null" json:"description"`
 	Icon           string         `gorm:"type:varchar(64);default:'Sparkles';not null" json:"icon"`
 	SortOrder      int            `gorm:"default:0;not null" json:"sort_order"`
-	MediaType      string         `gorm:"type:varchar(32);default:'all';not null" json:"media_type"`
 	QueryTags      pq.StringArray `gorm:"type:text[]" json:"query_tags"`
 	RequireAllTags bool           `gorm:"default:false;not null" json:"require_all_tags"`
 	ExcludeTags    pq.StringArray `gorm:"type:text[]" json:"exclude_tags"`

@@ -39,40 +39,40 @@ INSERT INTO categories (code, parent_code, name_zh, name_en, media_type, sort_or
 ('gallery', NULL, '艺术画册与设定集', 'Artbooks & Key Animation', 'gallery', 80, 'J21');
 
 -- 3.1 预置外挂式虚拟分类与货架系统 (Virtual Shelves / Taxonomy Views)
-INSERT INTO virtual_shelves (slug, parent_slug, name_zh, name_en, description, icon, sort_order, media_type, query_tags, require_all_tags, exclude_tags) VALUES
+INSERT INTO virtual_shelves (slug, parent_slug, name_zh, name_en, description, icon, sort_order, query_tags, require_all_tags, exclude_tags) VALUES
 -- 电影频道
-('movies', NULL, '电影与长片', 'Movies & Films', '收录院线故事片、动画剧场版与纪录长片', 'Film', 10, 'video', ARRAY['电影', '长片'], FALSE, '{}'),
-('anime-movies', 'movies', '动画剧场版', 'Anime Movies', '院线动画长片与剧场版母盘', 'Sparkles', 11, 'video', ARRAY['电影', '动画'], TRUE, '{}'),
-('feature-films', 'movies', '院线故事片', 'Feature Films', '真人实拍故事片与经典电影', 'Clapperboard', 12, 'video', ARRAY['电影', '实拍'], TRUE, '{}'),
-('doc-films', 'movies', '纪录电影', 'Documentary Films', '自然探索、人文历史与科学纪录长片', 'Globe', 13, 'video', ARRAY['电影', '纪录'], TRUE, '{}'),
+('movies', NULL, '电影与长片', 'Movies & Films', '收录院线故事片、动画剧场版与纪录长片', 'Film', 10, ARRAY['电影', '长片'], FALSE, '{}'),
+('anime-movies', 'movies', '动画剧场版', 'Anime Movies', '院线动画长片与剧场版母盘', 'Sparkles', 11, ARRAY['电影', '动画'], TRUE, '{}'),
+('feature-films', 'movies', '院线故事片', 'Feature Films', '真人实拍故事片与经典电影', 'Clapperboard', 12, ARRAY['电影', '实拍'], TRUE, '{}'),
+('doc-films', 'movies', '纪录电影', 'Documentary Films', '自然探索、人文历史与科学纪录长片', 'Globe', 13, ARRAY['电影', '纪录'], TRUE, '{}'),
 
 -- 剧集频道
-('series', NULL, '剧集与节目', 'Series & Shows', '收录电视连续剧、TV 动画番剧与微电影', 'Tv', 20, 'video', ARRAY['剧集', '连续剧'], FALSE, '{}'),
-('anime-series', 'series', 'TV 动画番剧', 'Anime Series', '日本及全球电视动画与网络番剧', 'Flame', 21, 'video', ARRAY['剧集', '动画'], TRUE, '{}'),
-('live-series', 'series', '电视连续剧', 'Drama Series', '中外经典电视剧与迷你剧', 'MonitorPlay', 22, 'video', ARRAY['剧集', '实拍'], TRUE, '{}'),
+('series', NULL, '剧集与节目', 'Series & Shows', '收录电视连续剧、TV 动画番剧与微电影', 'Tv', 20, ARRAY['剧集', '连续剧'], FALSE, '{}'),
+('anime-series', 'series', 'TV 动画番剧', 'Anime Series', '日本及全球电视动画与网络番剧', 'Flame', 21, ARRAY['剧集', '动画'], TRUE, '{}'),
+('live-series', 'series', '电视连续剧', 'Drama Series', '中外经典电视剧与迷你剧', 'MonitorPlay', 22, ARRAY['剧集', '实拍'], TRUE, '{}'),
 
 -- 动漫专区 (跨形态聚合)
-('anime-hub', NULL, '动漫专区', 'Anime Hub', '聚合所有动画电影、TV 番剧、漫画与画集', 'Zap', 30, 'all', ARRAY['动画', '漫画', '轻小说'], FALSE, '{}'),
+('anime-hub', NULL, '动漫专区', 'Anime Hub', '聚合所有动画电影、TV 番剧、漫画与画集', 'Zap', 30, ARRAY['动画', '漫画', '轻小说'], FALSE, '{}'),
 
 -- 音乐频道
-('music', NULL, '音乐与声音', 'Music & Audio', '高解析无损音乐、原声大碟与古典交响', 'Music', 40, 'audio', ARRAY['音乐', '专辑', '原声'], FALSE, '{}'),
-('soundtracks', 'music', '影视与游戏原声', 'Soundtracks & OST', '电影配乐、动画 OST、游戏原声大碟', 'Disc', 41, 'audio', ARRAY['原声'], FALSE, '{}'),
-('classical', 'music', '古典交响乐', 'Classical', '交响乐、协奏曲与室内乐母带', 'Radio', 42, 'audio', ARRAY['古典'], FALSE, '{}'),
-('audiobooks', 'music', '广播剧与有声书', 'Audio Drama', '全景声广播剧与名家演播有声书', 'Headphones', 43, 'audio', ARRAY['广播剧', '有声书'], FALSE, '{}'),
+('music', NULL, '音乐与声音', 'Music & Audio', '高解析无损音乐、原声大碟与古典交响', 'Music', 40, ARRAY['音乐', '专辑', '原声'], FALSE, '{}'),
+('soundtracks', 'music', '影视与游戏原声', 'Soundtracks & OST', '电影配乐、动画 OST、游戏原声大碟', 'Disc', 41, ARRAY['原声'], FALSE, '{}'),
+('classical', 'music', '古典交响乐', 'Classical', '交响乐、协奏曲与室内乐母带', 'Radio', 42, ARRAY['古典'], FALSE, '{}'),
+('audiobooks', 'music', '广播剧与有声书', 'Audio Drama', '全景声广播剧与名家演播有声书', 'Headphones', 43, ARRAY['广播剧', '有声书'], FALSE, '{}'),
 
 -- 图书文献
-('books', NULL, '图书与文献', 'Books & Literature', '世界名著、科幻奇幻小说与出版文献', 'BookOpen', 50, 'text', ARRAY['图书', '小说', '名著'], FALSE, '{}'),
-('scifi-books', 'books', '科幻与奇幻文学', 'Sci-Fi & Fantasy', '雨果奖、星云奖与世界硬核科幻小说', 'Compass', 51, 'text', ARRAY['科幻'], FALSE, '{}'),
-('literature-books', 'books', '经典文学名著', 'World Literature', '中外文学名著典藏版与校勘本', 'Library', 52, 'text', ARRAY['文学', '名著'], FALSE, '{}'),
+('books', NULL, '图书与文献', 'Books & Literature', '世界名著、科幻奇幻小说与出版文献', 'BookOpen', 50, ARRAY['图书', '小说', '名著'], FALSE, '{}'),
+('scifi-books', 'books', '科幻与奇幻文学', 'Sci-Fi & Fantasy', '雨果奖、星云奖与世界硬核科幻小说', 'Compass', 51, ARRAY['科幻'], FALSE, '{}'),
+('literature-books', 'books', '经典文学名著', 'World Literature', '中外文学名著典藏版与校勘本', 'Library', 52, ARRAY['文学', '名著'], FALSE, '{}'),
 
 -- 漫画画册
-('comics', NULL, '漫画与画集', 'Comics & Visual Arts', '连载漫画、艺术设定集与关键帧画册', 'Palette', 60, 'graphic', ARRAY['漫画', '画集', '设定集'], FALSE, '{}'),
-('manga', 'comics', '连载漫画', 'Manga & Comics', '高分辨率完全版与典藏版连载漫画', 'Layers', 61, 'graphic', ARRAY['漫画'], FALSE, '{}'),
-('artbooks', 'comics', '原画与美术设定集', 'Artbooks & Gallery', '官方美术设定集、分镜稿与概念画册', 'Image', 62, 'graphic', ARRAY['画集', '设定集'], FALSE, '{}'),
+('comics', NULL, '漫画与画集', 'Comics & Visual Arts', '连载漫画、艺术设定集与关键帧画册', 'Palette', 60, ARRAY['漫画', '画集', '设定集'], FALSE, '{}'),
+('manga', 'comics', '连载漫画', 'Manga & Comics', '高分辨率完全版与典藏版连载漫画', 'Layers', 61, ARRAY['漫画'], FALSE, '{}'),
+('artbooks', 'comics', '原画与美术设定集', 'Artbooks & Gallery', '官方美术设定集、分镜稿与概念画册', 'Image', 62, ARRAY['画集', '设定集'], FALSE, '{}'),
 
 -- 特色专题货架
-('special-ghibli', NULL, '吉卜力工作室专题', 'Studio Ghibli Archive', '宫崎骏、高畑勋执导动画与久石让配乐全集', 'Heart', 70, 'all', ARRAY['吉卜力'], FALSE, '{}'),
-('special-hires', NULL, 'Hi-Res 24/192 发烧母带', 'Hi-Res Masters', '24bit/96kHz 及以上录音室无损模拟转录母带', 'Sparkles', 71, 'all', ARRAY['Hi-Res'], FALSE, '{}');
+('special-ghibli', NULL, '吉卜力工作室专题', 'Studio Ghibli Archive', '宫崎骏、高畑勋执导动画与久石让配乐全集', 'Heart', 70, ARRAY['吉卜力'], FALSE, '{}'),
+('special-hires', NULL, 'Hi-Res 24/192 发烧母带', 'Hi-Res Masters', '24bit/96kHz 及以上录音室无损模拟转录母带', 'Sparkles', 71, ARRAY['Hi-Res'], FALSE, '{}');
 
 -- 3.2 预置多维正交标签本体库 (Multi-Dimensional Tag Ontology)
 INSERT INTO tags (name, group_type, category_scope) VALUES
@@ -87,6 +87,9 @@ INSERT INTO tags (name, group_type, category_scope) VALUES
 ('画集', 'format', '{}'),
 ('长片', 'format', '{}'),
 ('连续剧', 'format', '{}'),
+('游戏', 'format', '{}'),
+('音乐', 'format', '{}'),
+('动画番剧', 'format', '{}'),
 
 -- 制作手法 (Medium / Technique)
 ('动画', 'medium', '{}'),

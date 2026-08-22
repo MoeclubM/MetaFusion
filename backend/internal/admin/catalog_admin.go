@@ -48,8 +48,6 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 	userIDVal, _ := c.Get("userID")
 	uid, _ := userIDVal.(uuid.UUID)
 	var input struct {
-		CategoryCode  string                 `json:"category_code"`
-		MediaType     string                 `json:"media_type" binding:"required"`
 		Title         string                 `json:"title" binding:"required"`
 		OriginalTitle string                 `json:"original_title"`
 		Summary       string                 `json:"summary"`
@@ -60,13 +58,7 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if !ontology.IsEnabledMediaType(s.db, input.MediaType) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid or disabled media_type"})
-		return
-	}
 	work := models.Work{
-		CategoryCode:    input.CategoryCode,
-		MediaType:       input.MediaType,
 		Title:           strings.TrimSpace(input.Title),
 		OriginalTitle:   input.OriginalTitle,
 		Summary:         input.Summary,
@@ -100,7 +92,7 @@ func (s *AdminService) UpdateWork(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	allowed := map[string]bool{"title": true, "original_title": true, "summary": true, "cover_image_url": true, "category_code": true, "media_type": true, "catalog_metadata": true, "status": true, "content_rating": true}
+	allowed := map[string]bool{"title": true, "original_title": true, "summary": true, "cover_image_url": true, "catalog_metadata": true, "status": true, "content_rating": true}
 	updates := map[string]interface{}{}
 	for k, v := range input {
 		if allowed[k] {

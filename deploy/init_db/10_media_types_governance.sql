@@ -89,10 +89,6 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_categories_media_type') THEN
         ALTER TABLE categories ADD CONSTRAINT fk_categories_media_type FOREIGN KEY (media_type) REFERENCES media_types(code) ON UPDATE CASCADE ON DELETE RESTRICT;
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_works_media_type') THEN
-        -- 先清理非法值（若有）再加 FK；存量仅 8 类，新增后不会触发
-        ALTER TABLE works ADD CONSTRAINT fk_works_media_type FOREIGN KEY (media_type) REFERENCES media_types(code) ON UPDATE CASCADE ON DELETE RESTRICT;
-    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_mediums_media_category') THEN
         ALTER TABLE mediums ADD CONSTRAINT fk_mediums_media_category FOREIGN KEY (media_category) REFERENCES media_types(code) ON UPDATE CASCADE ON DELETE RESTRICT;
     END IF;
@@ -100,5 +96,4 @@ END $$;
 
 -- 5) 索引与校验
 CREATE INDEX IF NOT EXISTS idx_media_types_enabled_sort ON media_types(is_enabled, sort_order);
-CREATE INDEX IF NOT EXISTS idx_works_media_type ON works(media_type);
 CREATE INDEX IF NOT EXISTS idx_mediums_media_category ON mediums(media_category);

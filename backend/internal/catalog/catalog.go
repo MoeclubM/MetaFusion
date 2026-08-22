@@ -278,8 +278,7 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 	customShelfID := c.Query("custom_shelf")
 	tagsParam := c.Query("tags")
 	tagParam := c.Query("tag")
-	mediaType := c.Query("media_type")
-	categoryCode := c.Query("category_code")
+	tagMatch := strings.ToLower(c.DefaultQuery("tag_match", "all"))
 	searchQuery := c.Query("q")
 	sortBy := c.DefaultQuery("sort", "created_at")
 	status := c.Query("status")
@@ -310,20 +309,6 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 	if shelfSlug != "" {
 		var shelf models.VirtualShelf
 		if err := s.db.Where("slug = ?", shelfSlug).First(&shelf).Error; err == nil {
-			if shelf.MediaType != "" && shelf.MediaType != "all" {
-				switch shelf.MediaType {
-				case "video":
-					query = query.Where("media_type IN ('movie', 'tv_series', 'anime')")
-				case "audio":
-					query = query.Where("media_type IN ('music', 'audiobook')")
-				case "text":
-					query = query.Where("media_type IN ('novel')")
-				case "graphic":
-					query = query.Where("media_type IN ('comic', 'gallery')")
-				case "movie", "tv_series", "anime", "music", "audiobook", "novel", "comic", "gallery":
-					query = query.Where("media_type = ?", shelf.MediaType)
-				}
-			}
 			if len(shelf.QueryTags) > 0 {
 				if shelf.RequireAllTags {
 					for _, tName := range shelf.QueryTags {
@@ -339,7 +324,7 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 		}
 	}
 
-	// 自定义推荐分组过滤 (与 shelf 互斥，复用同一套 media_type/query_tags 逻辑)
+	// 自定义推荐分组过滤（与 shelf 互斥，只按 query_tags / exclude_tags）
 	if customShelfID != "" {
 		if cid, err := uuid.Parse(customShelfID); err == nil {
 			var cs models.UserCustomShelf
@@ -349,21 +334,6 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 				isOwnerCS := uidCS != nil && cs.OwnerID == *uidCS
 				isAdminCS := roleCS == "admin" || roleCS == "archivist"
 				if cs.IsPublic || isOwnerCS || isAdminCS {
-					// media_type
-					if cs.MediaType != "" && cs.MediaType != "all" {
-						switch cs.MediaType {
-						case "video":
-							query = query.Where("media_type IN ('movie', 'tv_series', 'anime')")
-						case "audio":
-							query = query.Where("media_type IN ('music', 'audiobook')")
-						case "text":
-							query = query.Where("media_type IN ('novel')")
-						case "graphic":
-							query = query.Where("media_type IN ('comic', 'gallery')")
-						default:
-							query = query.Where("media_type = ?", cs.MediaType)
-						}
-					}
 					if len(cs.QueryTags) > 0 {
 						if cs.RequireAllTags {
 							for _, tName := range cs.QueryTags {
@@ -386,11 +356,20 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 		query = query.Where("id IN (SELECT work_id FROM work_tag_relations wtr JOIN tags t ON wtr.tag_id = t.id WHERE t.name = ?)", tagParam)
 	}
 	if tagsParam != "" {
-		tagList := strings.Split(tagsParam, ",")
-		for _, tName := range tagList {
+		tagList := make([]string, 0)
+		for _, tName := range strings.Split(tagsParam, ",") {
 			trimmed := strings.TrimSpace(tName)
 			if trimmed != "" {
-				query = query.Where("id IN (SELECT work_id FROM work_tag_relations wtr JOIN tags t ON wtr.tag_id = t.id WHERE t.name = ?)", trimmed)
+				tagList = append(tagList, trimmed)
+			}
+		}
+		if len(tagList) > 0 {
+			if tagMatch == "any" {
+				query = query.Where("id IN (SELECT work_id FROM work_tag_relations wtr JOIN tags t ON wtr.tag_id = t.id WHERE t.name = ANY(?))", pq.Array(tagList))
+			} else {
+				for _, tName := range tagList {
+					query = query.Where("id IN (SELECT work_id FROM work_tag_relations wtr JOIN tags t ON wtr.tag_id = t.id WHERE t.name = ?)", tName)
+				}
 			}
 		}
 	}
@@ -400,12 +379,6 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 		if models.ValidLocales[language] {
 			query = query.Where("language = ?", language)
 		}
-	}
-	if mediaType != "" && shelfSlug == "" && customShelfID == "" {
-		query = query.Where("media_type = ?", mediaType)
-	}
-	if categoryCode != "" && shelfSlug == "" && customShelfID == "" {
-		query = query.Where("category_code = ? OR category_code IN (SELECT code FROM categories WHERE parent_code = ?)", categoryCode, categoryCode)
 	}
 	if searchQuery != "" {
 		query = query.Where("title ILIKE ? OR original_title ILIKE ? OR ? = ANY(aliases)", "%"+searchQuery+"%", "%"+searchQuery+"%", searchQuery)
@@ -898,11 +871,6 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	mt := s.resolveMediaType(input.MediaType, input.Tags, input.TagIDs)
-	if mt == "" || !ontology.IsEnabledMediaType(s.db, mt) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请添加形态标签（如电影、专辑、游戏、漫画）以便推断作品形态"})
-		return
-	}
 	var releaseDate *time.Time
 	if input.ReleaseDate != nil && *input.ReleaseDate != "" {
 		if t, err := time.Parse("2006-01-02", *input.ReleaseDate); err == nil {
@@ -912,8 +880,6 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 	workStatus := models.WorkStatusPendingReview
 
 	work := models.Work{
-		CategoryCode:     input.CategoryCode,
-		MediaType:        mt,
 		Title:            strings.TrimSpace(input.Title),
 		OriginalTitle:    strings.TrimSpace(input.OriginalTitle),
 		Aliases:          input.Aliases,
@@ -1438,7 +1404,7 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 					ID:       work.ID.String(),
 					Name:     work.Title,
 					Type:     "work",
-					Category: work.MediaType,
+					Category: "",
 					Role:     rel.Role,
 					Level:    1,
 				})
@@ -1584,8 +1550,6 @@ func (s *CatalogService) ListRelationTypes(c *gin.Context) {
 }
 
 type CreateWorkInput struct {
-	CategoryCode     string                 `json:"category_code"`
-	MediaType        string                 `json:"media_type"`
 	Title            string                 `json:"title"`
 	OriginalTitle    string                 `json:"original_title"`
 	Aliases          []string               `json:"aliases"`
@@ -1689,8 +1653,6 @@ type ComprehensiveArtistRelationInput struct {
 }
 
 type ComprehensiveSubmissionInput struct {
-	CategoryCode     string                             `json:"category_code"`
-	MediaType        string                             `json:"media_type"`
 	Title            string                             `json:"title"`
 	OriginalTitle    string                             `json:"original_title"`
 	Aliases          []string                           `json:"aliases"`
@@ -1730,12 +1692,6 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	mt := s.resolveMediaType(input.MediaType, input.Tags, nil)
-	if mt == "" || !ontology.IsEnabledMediaType(s.db, mt) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请添加形态标签（如电影、专辑、游戏、漫画）以便推断作品形态"})
-		return
-	}
-
 	var releaseDate *time.Time
 	if input.ReleaseDate != nil && *input.ReleaseDate != "" {
 		if t, err := time.Parse("2006-01-02", *input.ReleaseDate); err == nil {
@@ -1753,14 +1709,7 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 		mergedMetadata["external_ids"] = input.ExternalIDs
 	}
 
-	catCode := input.CategoryCode
-	if catCode == "" {
-		catCode = "general"
-	}
-
 	work := models.Work{
-		CategoryCode:     catCode,
-		MediaType:        mt,
 		Title:            strings.TrimSpace(input.Title),
 		OriginalTitle:    strings.TrimSpace(input.OriginalTitle),
 		Aliases:          input.Aliases,
@@ -1900,7 +1849,7 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 				}
 				medCat := mInput.MediaCategory
 				if medCat == "" {
-					medCat = input.MediaType
+					medCat = "music"
 				}
 
 				medium := models.Medium{
@@ -2016,8 +1965,6 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	var input struct {
 		Title            string                 `json:"title"`
 		OriginalTitle    string                 `json:"original_title"`
-		CategoryCode     string                 `json:"category_code"`
-		MediaType        string                 `json:"media_type"`
 		Aliases          []string               `json:"aliases"`
 		ReleaseDate      *string                `json:"release_date"`
 		BeginDate        string                 `json:"begin_date"`
@@ -2045,8 +1992,6 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	beforeState := map[string]interface{}{
 		"title":             work.Title,
 		"original_title":    work.OriginalTitle,
-		"category_code":     work.CategoryCode,
-		"media_type":        work.MediaType,
 		"aliases":           work.Aliases,
 		"begin_date":        work.BeginDate,
 		"end_date":          work.EndDate,
@@ -2061,9 +2006,6 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 
 	work.Title = strings.TrimSpace(input.Title)
 	work.OriginalTitle = strings.TrimSpace(input.OriginalTitle)
-	if input.CategoryCode != "" {
-		work.CategoryCode = input.CategoryCode
-	}
 	if input.Aliases != nil {
 		work.Aliases = input.Aliases
 	}
@@ -2101,23 +2043,15 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 			tagNames = append(tagNames, t.Name)
 		}
 	}
-	if mt := s.resolveMediaType(input.MediaType, tagNames, nil); mt != "" {
-		work.MediaType = mt
-	} else if input.MediaType != "" && ontology.IsEnabledMediaType(s.db, input.MediaType) {
-		work.MediaType = input.MediaType
-	}
-
 	if err := s.db.Save(&work).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	s.replaceWorkTagsByName(&work, input.Tags)
+	s.replaceWorkTagsByName(&work, tagNames)
 
 	afterState := map[string]interface{}{
 		"title":             work.Title,
 		"original_title":    work.OriginalTitle,
-		"category_code":     work.CategoryCode,
-		"media_type":        work.MediaType,
 		"aliases":           work.Aliases,
 		"begin_date":        work.BeginDate,
 		"end_date":          work.EndDate,

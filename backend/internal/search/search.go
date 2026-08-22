@@ -95,8 +95,6 @@ func (s *SearchService) IndexWorkDoc(ctx context.Context, work *models.Work) err
 		"title":          work.Title,
 		"original_title": work.OriginalTitle,
 		"aliases":        work.Aliases,
-		"media_type":     work.MediaType,
-		"category_code":  work.CategoryCode,
 		"summary":        work.Summary,
 		"release_year":   year,
 		"tags":           tags,
@@ -133,8 +131,6 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 	if typ == "" {
 		typ = "work"
 	}
-	mediaType := c.Query("media_type")
-	categoryCode := c.Query("category_code")
 	limitStr := c.DefaultQuery("limit", "25")
 	offsetStr := c.DefaultQuery("offset", "0")
 	limit, _ := strconv.Atoi(limitStr)
@@ -208,32 +204,13 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		})
 	}
 
-	var filterClauses []map[string]interface{}
-	if mediaType != "" {
-		filterClauses = append(filterClauses, map[string]interface{}{
-			"term": map[string]interface{}{"media_type": mediaType},
-		})
-	}
-	if categoryCode != "" {
-		filterClauses = append(filterClauses, map[string]interface{}{
-			"term": map[string]interface{}{"category_code": categoryCode},
-		})
-	}
-
 	queryBody := map[string]interface{}{
 		"query": map[string]interface{}{
 			"bool": map[string]interface{}{
-				"must":   mustClauses,
-				"filter": filterClauses,
+				"must": mustClauses,
 			},
 		},
 		"aggs": map[string]interface{}{
-			"media_types": map[string]interface{}{
-				"terms": map[string]interface{}{"field": "media_type"},
-			},
-			"categories": map[string]interface{}{
-				"terms": map[string]interface{}{"field": "category_code"},
-			},
 			"tags": map[string]interface{}{
 				"terms": map[string]interface{}{"field": "tags", "size": 20},
 			},
@@ -256,12 +233,6 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		var works []models.Work
 		like := "%" + q + "%"
 		dbq := s.db.Model(&models.Work{}).Where("title ILIKE ? OR original_title ILIKE ? OR ? = ANY(aliases)", like, like, q)
-		if mediaType != "" {
-			dbq = dbq.Where("media_type = ?", mediaType)
-		}
-		if categoryCode != "" {
-			dbq = dbq.Where("category_code = ?", categoryCode)
-		}
 		var total int64
 		dbq.Count(&total)
 		dbq.Offset(offset).Limit(limit).Find(&works)

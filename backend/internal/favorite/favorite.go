@@ -28,7 +28,6 @@ type favoriteItem struct {
 type workBrief struct {
 	ID            uuid.UUID `json:"id"`
 	Title         string    `json:"title"`
-	MediaType     string    `json:"media_type"`
 	CoverImageURL string    `json:"cover_image_url"`
 }
 
@@ -210,8 +209,8 @@ func listFavorites(c *gin.Context, db *gorm.DB, userID uuid.UUID) {
 		switch r.TargetType {
 		case "work":
 			var w models.Work
-			if err := db.Select("id", "title", "media_type", "cover_image_url").First(&w, "id = ?", r.TargetID).Error; err == nil {
-				it.Work = &workBrief{ID: w.ID, Title: w.Title, MediaType: w.MediaType, CoverImageURL: w.CoverImageURL}
+			if err := db.Select("id", "title", "cover_image_url").First(&w, "id = ?", r.TargetID).Error; err == nil {
+				it.Work = &workBrief{ID: w.ID, Title: w.Title, CoverImageURL: w.CoverImageURL}
 			}
 		case "release":
 			var rel models.Release
