@@ -25,6 +25,7 @@ import {
   fetchApi,
 } from "@/lib/api";
 import { useRelationTypes } from "@/hooks/useRelationTypes";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { EditorCoreFields } from "./EditorCoreFields";
 import { EditorTemporalFields } from "./EditorTemporalFields";
 import { EditorRelationsField } from "./EditorRelationsField";
@@ -56,6 +57,7 @@ export function UniversalEntityEditor({
   const { t } = useI18n();
   const pathname = usePathname();
   const { relationTypes } = useRelationTypes();
+  const { taxonomy } = useTaxonomy();
   const [activeTab, setActiveTab] = useState<"core" | "temporal" | "relations" | "external" | "note">("core");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -79,12 +81,12 @@ export function UniversalEntityEditor({
     if (isOpen) {
       initializeForm();
     }
-  }, [isOpen, initialData, targetType]);
+  }, [isOpen, initialData, targetType, taxonomy]);
 
   const initializeForm = () => {
     const d = { ...initialData };
     if (targetType === "work" && !d.media_type) {
-      d.media_type = "movie";
+      d.media_type = taxonomy?.media_types?.[0]?.id || "";
     }
     if (targetType === "artist" && !d.entity_type) {
       d.entity_type = "person";
@@ -338,6 +340,7 @@ export function UniversalEntityEditor({
               updateField={updateField}
               aliasesStr={aliasesStr}
               setAliasesStr={setAliasesStr}
+              taxonomy={taxonomy}
             />
           )}
 

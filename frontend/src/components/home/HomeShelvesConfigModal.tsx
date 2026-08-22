@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fetchApi, UserCustomShelf } from "@/lib/api";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Modal } from "@/components/ui/Modal";
 import {
   GripVertical,
@@ -74,6 +75,7 @@ export function HomeShelvesConfigModal({
   editShelfId?: string | null;
 }) {
   const { t, locale } = useI18n();
+  const { taxonomy } = useTaxonomy();
 
   const [localOrder, setLocalOrder] = useState<string[]>(orderKeys);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
@@ -328,13 +330,23 @@ export function HomeShelvesConfigModal({
                 <select
                   value={formMedia}
                   onChange={(e) => setFormMedia(e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white text-xs focus:outline-none focus:border-primary/50"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white text-xs focus:outline-none focus:border-primary/50 font-mono"
                 >
                   <option value="all">{t("home.shelves.mediaAll")}</option>
-                  <option value="video">{t("home.shelves.mediaVideo")}</option>
-                  <option value="audio">{t("home.shelves.mediaAudio")}</option>
-                  <option value="text">{t("home.shelves.mediaText")}</option>
-                  <option value="graphic">{t("home.shelves.mediaGraphic")}</option>
+                  {taxonomy?.media_types && taxonomy.media_types.length > 0
+                    ? taxonomy.media_types.map((mt: any) => {
+                        const label = mt.name || (locale === "en-US" ? mt.name_en : mt.name_zh) || mt.id;
+                        return (
+                          <option key={mt.id} value={mt.id}>
+                            {label} ({mt.id})
+                          </option>
+                        );
+                      })
+                    : (
+                      formMedia && formMedia !== "all" && (
+                        <option value={formMedia}>{formMedia}</option>
+                      )
+                    )}
                 </select>
               </div>
             </div>

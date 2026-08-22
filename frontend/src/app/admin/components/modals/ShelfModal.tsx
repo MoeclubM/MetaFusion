@@ -3,6 +3,7 @@
 import { useI18n } from "@/i18n/I18nProvider";
 import { Layers, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
 export function ShelfModal({
@@ -17,7 +18,8 @@ export function ShelfModal({
   open: boolean;
   onClose: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const { taxonomy } = useTaxonomy();
   return (
     <Modal
       open={open}
@@ -67,10 +69,20 @@ export function ShelfModal({
               className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white focus:outline-none focus:border-emerald-400 font-mono"
             >
               <option value="all">{t("admin.shelfModal.mediaAll")}</option>
-              <option value="video">{t("admin.shelfModal.mediaVideo")}</option>
-              <option value="music">{t("admin.shelfModal.mediaMusic")}</option>
-              <option value="book">{t("admin.shelfModal.mediaBook")}</option>
-              <option value="comic">{t("admin.shelfModal.mediaComic")}</option>
+              {taxonomy?.media_types && taxonomy.media_types.length > 0
+                ? taxonomy.media_types.map((mt: any) => {
+                    const label = mt.name || (locale === "en-US" ? mt.name_en : mt.name_zh) || mt.id;
+                    return (
+                      <option key={mt.id} value={mt.id}>
+                        {label} ({mt.id})
+                      </option>
+                    );
+                  })
+                : (
+                  shelfForm.media_type && shelfForm.media_type !== "all" && (
+                    <option value={shelfForm.media_type}>{shelfForm.media_type}</option>
+                  )
+                )}
             </select>
           </div>
         </div>

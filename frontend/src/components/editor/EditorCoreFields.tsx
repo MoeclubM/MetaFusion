@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Plus, X, Globe2, Tag as TagIcon, Sparkles } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fetchApi } from "@/lib/api";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 
 interface Props {
   targetType: "work" | "artist" | "release";
@@ -39,9 +40,12 @@ export function EditorCoreFields({
   updateField,
   aliasesStr,
   setAliasesStr,
-  taxonomy,
+  taxonomy: propTaxonomy,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const { taxonomy: hookTaxonomy } = useTaxonomy();
+  const taxonomy = propTaxonomy || hookTaxonomy;
+
   const [newTagInput, setNewTagInput] = useState("");
   const [dynamicTagSuggestions, setDynamicTagSuggestions] = useState<string[]>([]);
 
@@ -210,18 +214,26 @@ export function EditorCoreFields({
                 {t("editor.temporal.mediaTypeLabel")} <span className="text-amber-400">*</span>
               </label>
               <select
-                value={formData.media_type || "movie"}
+                value={formData.media_type || (taxonomy?.media_types?.[0]?.id || "")}
                 onChange={(e) => updateField("media_type", e.target.value)}
-                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
+                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400 font-mono"
               >
-                <option value="movie">{t("mediaType.movie")}</option>
-                <option value="tv_series">{t("mediaType.tv_series")}</option>
-                <option value="anime">{t("mediaType.anime")}</option>
-                <option value="music">{t("mediaType.music")}</option>
-                <option value="audiobook">{t("mediaType.audiobook")}</option>
-                <option value="novel">{t("mediaType.novel")}</option>
-                <option value="comic">{t("mediaType.comic")}</option>
-                <option value="gallery">{t("mediaType.gallery")}</option>
+                {taxonomy?.media_types && taxonomy.media_types.length > 0 ? (
+                  taxonomy.media_types.map((mt: any) => {
+                    const label = mt.name || (locale === "en-US" ? mt.name_en : mt.name_zh) || mt.id;
+                    return (
+                      <option key={mt.id} value={mt.id}>
+                        {label} ({mt.id})
+                      </option>
+                    );
+                  })
+                ) : (
+                  formData.media_type && (
+                    <option value={formData.media_type}>
+                      {formData.media_type}
+                    </option>
+                  )
+                )}
               </select>
             </div>
             <div className="space-y-1.5">
