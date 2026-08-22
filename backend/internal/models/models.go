@@ -550,21 +550,20 @@ func (UserGroup) TableName() string { return "user_groups" }
 
 // DiscussionTopic represents community threads and archive reviews
 type DiscussionTopic struct {
-	ID           uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	UserID       uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
-	BoardCode    string     `gorm:"default:'announcement';not null" json:"board_code"`
-	WorkID       *uuid.UUID `gorm:"type:uuid" json:"work_id,omitempty"`
-	ReleaseID    *uuid.UUID `gorm:"type:uuid" json:"release_id,omitempty"`
-	CategoryCode *string    `json:"category_code,omitempty"`
-	Title        string     `gorm:"not null" json:"title"`
-	Content      string     `gorm:"not null" json:"content"` // Deprecated: canonical content is Posts[0].Content
-	Language     string     `gorm:"default:'zh-CN';not null" json:"language"`
-	ViewCount    int        `gorm:"default:0;not null" json:"view_count"`
-	ReplyCount   int        `gorm:"default:0;not null" json:"reply_count"`
-	IsPinned     bool       `gorm:"default:false;not null" json:"is_pinned"`
-	PinnedAt     *time.Time `json:"pinned_at,omitempty"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
+	ID         uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	UserID     uuid.UUID  `gorm:"type:uuid;not null" json:"user_id"`
+	BoardCode  string     `gorm:"default:'announcement';not null" json:"board_code"`
+	WorkID     *uuid.UUID `gorm:"type:uuid" json:"work_id,omitempty"`
+	ReleaseID  *uuid.UUID `gorm:"type:uuid" json:"release_id,omitempty"`
+	Title      string     `gorm:"not null" json:"title"`
+	Content    string     `gorm:"not null" json:"content"` // Deprecated: canonical content is Posts[0].Content
+	Language   string     `gorm:"default:'zh-CN';not null" json:"language"`
+	ViewCount  int        `gorm:"default:0;not null" json:"view_count"`
+	ReplyCount int        `gorm:"default:0;not null" json:"reply_count"`
+	IsPinned   bool       `gorm:"default:false;not null" json:"is_pinned"`
+	PinnedAt   *time.Time `json:"pinned_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
 
 	User     *User       `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Work     *Work       `gorm:"foreignKey:WorkID" json:"work,omitempty"`

@@ -61,7 +61,6 @@ func (s *CommunityService) ListTopics(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 	boardCode := c.Query("board_code")
-	categoryCode := c.Query("category_code")
 	workIDStr := c.Query("work_id")
 	searchQuery := c.Query("q")
 	tagIDStr := c.Query("tag_id")
@@ -75,7 +74,7 @@ func (s *CommunityService) ListTopics(c *gin.Context) {
 
 	query := s.db.Model(&models.DiscussionTopic{}).
 		Preload("User").
-		Preload("Work.Category").
+		Preload("Work").
 		Preload("Tags")
 
 	if boardCode != "" && boardCode != "all" {
@@ -87,9 +86,6 @@ func (s *CommunityService) ListTopics(c *gin.Context) {
 	}
 	if language != "" {
 		query = query.Where("language = ?", language)
-	}
-	if categoryCode != "" {
-		query = query.Where("category_code = ?", categoryCode)
 	}
 	if workIDStr != "" {
 		if workID, err := uuid.Parse(workIDStr); err == nil {
@@ -136,7 +132,7 @@ func (s *CommunityService) GetTopic(c *gin.Context) {
 
 	var topic models.DiscussionTopic
 	if err := s.db.Preload("User").
-		Preload("Work.Category").
+		Preload("Work").
 		Preload("Tags").
 		Preload("Posts", func(db *gorm.DB) *gorm.DB { return db.Order("post_number asc") }).
 		Preload("Posts.User").
@@ -173,15 +169,14 @@ func (s *CommunityService) CreateTopic(c *gin.Context) {
 	userID := c.MustGet("userID").(uuid.UUID)
 
 	var input struct {
-		BoardCode    string     `json:"board_code"`
-		Title        string     `json:"title" binding:"required"`
-		Content      string     `json:"content" binding:"required"`
-		WorkID       *uuid.UUID `json:"work_id"`
-		ReleaseID    *uuid.UUID `json:"release_id"`
-		CategoryCode *string    `json:"category_code"`
-		Language     string     `json:"language"`
-		TagIDs       []uint     `json:"tag_ids"`
-		TagNames     []string   `json:"tag_names"`
+		BoardCode string     `json:"board_code"`
+		Title     string     `json:"title" binding:"required"`
+		Content   string     `json:"content" binding:"required"`
+		WorkID    *uuid.UUID `json:"work_id"`
+		ReleaseID *uuid.UUID `json:"release_id"`
+		Language  string     `json:"language"`
+		TagIDs    []uint     `json:"tag_ids"`
+		TagNames  []string   `json:"tag_names"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -213,16 +208,15 @@ func (s *CommunityService) CreateTopic(c *gin.Context) {
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
 		topic = models.DiscussionTopic{
-			UserID:       userID,
-			BoardCode:    boardCode,
-			Title:        input.Title,
-			Content:      input.Content,
-			Language:     lang,
-			WorkID:       input.WorkID,
-			ReleaseID:    input.ReleaseID,
-			CategoryCode: input.CategoryCode,
-			CreatedAt:    now,
-			UpdatedAt:    now,
+			UserID:    userID,
+			BoardCode: boardCode,
+			Title:     input.Title,
+			Content:   input.Content,
+			Language:  lang,
+			WorkID:    input.WorkID,
+			ReleaseID: input.ReleaseID,
+			CreatedAt: now,
+			UpdatedAt: now,
 		}
 		if err := tx.Create(&topic).Error; err != nil {
 			return err
@@ -282,7 +276,7 @@ func (s *CommunityService) CreateTopic(c *gin.Context) {
 		return
 	}
 
-	s.db.Preload("User").Preload("Work.Category").Preload("Tags").
+	s.db.Preload("User").Preload("Work").Preload("Tags").
 		Preload("Posts", func(db *gorm.DB) *gorm.DB { return db.Order("post_number asc") }).Preload("Posts.User").
 		Where("id = ?", topic.ID).First(&topic)
 	c.JSON(http.StatusCreated, topic)

@@ -259,7 +259,6 @@ CREATE TABLE discussion_topics (
     board_code VARCHAR(32) DEFAULT 'announcement' NOT NULL,
     work_id UUID REFERENCES works(id) ON DELETE SET NULL,
     release_id UUID REFERENCES releases(id) ON DELETE SET NULL,
-    category_code VARCHAR(32) REFERENCES categories(code) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
     view_count INT DEFAULT 0 NOT NULL,

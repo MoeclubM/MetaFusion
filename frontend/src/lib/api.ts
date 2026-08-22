@@ -478,7 +478,6 @@ export interface DiscussionTopic { is_pinned?:boolean; pinned_at?:string;
   board_code: string;
   work_id?: string;
   release_id?: string;
-  category_code?: string;
   title: string;
   content: string;
   view_count: number;
