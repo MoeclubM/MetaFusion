@@ -113,6 +113,12 @@ func seedRelationTypes(db *gorm.DB) {
 	}).Error
 	_ = db.Exec(`UPDATE relation_types SET attribute_schema = $1::jsonb, updated_at = NOW() WHERE code = 'voice_actor_of'`,
 		`[{"key": "locale", "type": "string", "label": "配音语种"}, {"key": "region", "type": "string", "label": "地区"}, {"key": "character_name", "type": "string", "label": "角色全名"}, {"key": "is_original_cast", "type": "boolean", "label": "初代/原案声优"}]`).Error
+	_ = db.Model(&models.RelationType{}).Where("code = ?", "producer").Updates(map[string]interface{}{
+		"allowed_source_types": pq.StringArray{"person", "studio", "publisher", "label"},
+	}).Error
+	_ = db.Model(&models.RelationType{}).Where("code = ?", "performer").Updates(map[string]interface{}{
+		"allowed_source_types": pq.StringArray{"person", "group", "orchestra", "label", "fictional_band"},
+	}).Error
 }
 
 func ApplyPatches(db *gorm.DB) {
