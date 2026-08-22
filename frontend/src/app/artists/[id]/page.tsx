@@ -20,6 +20,7 @@ import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLin
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { EntityCover } from "@/components/common/EntityCover";
+import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 
 export default function ArtistDetailPage() {
@@ -180,14 +181,15 @@ export default function ArtistDetailPage() {
                   if (!w || !w.id) return null;
                   return (
                     <Link key={w.id} href={`/works/${w.id}`} className="group relative overflow-hidden rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface flex flex-col shadow-2xs hover:shadow-elevated hover:border-primary/40 transition-all">
-                      <div className="relative aspect-[3/4] bg-black/40 overflow-hidden">
-                        <EntityCover
+                      <div className="relative">
+                        <AdaptiveCover
                           src={w.cover_image_url}
                           alt={w.title}
                           title={w.title}
                           originalTitle={w.original_title}
                           id={w.id}
-                          imgClassName="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
+                          tags={(w.tags || []).map((t: any) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
+                          className="bg-black/40 group-hover:scale-[1.03] transition-transform duration-300 origin-center"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60 pointer-events-none" />
                         {role && <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.2 rounded-sm bg-primary text-white font-mono text-[9px] font-bold">{role}</span>}

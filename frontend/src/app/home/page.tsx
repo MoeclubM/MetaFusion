@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { HomeShelvesConfigModal } from "@/components/home/HomeShelvesConfigModal";
 import { EntityCover } from "@/components/common/EntityCover";
+import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { shelfRuleToExploreHref } from "@/lib/shelfQuery";
 import {
@@ -484,16 +485,15 @@ function HomeShowcaseContent() {
                           href={`/works/${w.id}`}
                           className="group relative rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs hover:shadow-elevated hover:border-primary/50 transition-all flex flex-col"
                         >
-                          <div className="aspect-[3/4] w-full bg-black/5 dark:bg-black/40 relative overflow-hidden">
-                            <EntityCover
-                              src={w.cover_image_url}
-                              alt={w.title}
-                              title={w.title}
-                              originalTitle={w.original_title}
-                              id={w.id}
-                              imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          </div>
+                          <AdaptiveCover
+                            src={w.cover_image_url}
+                            alt={w.title}
+                            title={w.title}
+                            originalTitle={w.original_title}
+                            id={w.id}
+                            tags={(w.tags || []).map((t) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
+                            className="bg-black/5 dark:bg-black/40 group-hover:scale-105 transition-transform duration-300 origin-center"
+                          />
                           <div className="p-4 space-y-1 flex-1 flex flex-col justify-between">
                             <div>
                               <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-1 group-hover:text-primary transition-colors">

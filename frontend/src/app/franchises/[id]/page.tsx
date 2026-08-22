@@ -21,6 +21,7 @@ import { TemporalBadge } from "@/components/entity/TemporalBadge";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { EntityCover } from "@/components/common/EntityCover";
+import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { GroupedRelations } from "@/components/entity/RelationsList";
 
@@ -99,16 +100,15 @@ export default function FranchiseDetailPage() {
         <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
             <div className="w-32 sm:w-40 shrink-0">
-              <div className="aspect-[3/4] rounded-md overflow-hidden border border-black/10 dark:border-white/10 bg-background shadow-xs">
-                <EntityCover
-                  src={fr.cover_image_url}
-                  alt={localized.title}
-                  title={localized.title}
-                  originalTitle={fr.original_title}
-                  id={fr.id}
-                  imgClassName="w-full h-full object-cover"
-                />
-              </div>
+              <AdaptiveCover
+                src={fr.cover_image_url}
+                alt={localized.title}
+                title={localized.title}
+                originalTitle={fr.original_title}
+                id={fr.id}
+                tags={(fr.tags || []).map((t) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
+                className="rounded-md overflow-hidden border border-black/10 dark:border-white/10 bg-background shadow-xs"
+              />
             </div>
             <div className="flex-1 space-y-3 min-w-0">
               <div className="flex flex-wrap items-center gap-2 font-mono text-xs">
