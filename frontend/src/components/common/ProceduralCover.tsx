@@ -5,7 +5,6 @@ import React, { useMemo } from "react";
 interface ProceduralCoverProps {
   title?: string;
   originalTitle?: string;
-  mediaType?: string;
   id?: string;
   className?: string;
 }
@@ -18,21 +17,24 @@ function djb2Hash(str: string): number {
   return Math.abs(hash >>> 0);
 }
 
-const PALETTES: Record<string, { bg1: string; bg2: string; accent: string; badge: string; subBadge: string }> = {
-  movie: { bg1: "#180c05", bg2: "#2e150a", accent: "#ea580c", badge: "4K UHD · MASTER", subBadge: "CINEMA ARCHIVE" },
-  tv_series: { bg1: "#090d16", bg2: "#111c30", accent: "#3b82f6", badge: "HD SERIES · BOXSET", subBadge: "TELEPLAY ARCHIVE" },
-  anime: { bg1: "#061214", bg2: "#0f2628", accent: "#2dd4bf", badge: "1080P BDMV · ANIME", subBadge: "ANIMATION ARCHIVE" },
-  music: { bg1: "#080d14", bg2: "#0f172a", accent: "#38bdf8", badge: "HI-RES · 24BIT/96K", subBadge: "AUDIO MASTER" },
-  audiobook: { bg1: "#0b130e", bg2: "#14241c", accent: "#10b981", badge: "AUDIOBOOK · UNABRIDGED", subBadge: "VOICE ARCHIVE" },
-  novel: { bg1: "#0d0d12", bg2: "#1e1828", accent: "#a855f7", badge: "HARDCOVER NOVEL", subBadge: "LITERATURE ARCHIVE" },
-  book: { bg1: "#0d0d12", bg2: "#1e1828", accent: "#a855f7", badge: "MONOGRAPH · BOOK", subBadge: "LITERATURE ARCHIVE" },
-  comic: { bg1: "#140c1e", bg2: "#2a1435", accent: "#f43f5e", badge: "MANGA TANKOBON", subBadge: "GRAPHIC ARCHIVE" },
-  gallery: { bg1: "#140c1e", bg2: "#2a1435", accent: "#ec4899", badge: "OFFICIAL ARTBOOK", subBadge: "VISUAL ARCHIVE" },
-};
+function hsl(h: number, s: number, l: number): string {
+  return `hsl(${h} ${s}% ${l}%)`;
+}
 
-export function ProceduralCover({ title = "Untitled", originalTitle, mediaType = "movie", id = "", className = "" }: ProceduralCoverProps) {
-  const hash = useMemo(() => djb2Hash(`${title}_${mediaType}_${id}`), [title, mediaType, id]);
-  const p = PALETTES[mediaType] || { bg1: "#0a0a0f", bg2: "#14141e", accent: "#6366f1", badge: "ARCHIVE MASTER", subBadge: "METAFUSION" };
+function paletteFromHash(hash: number) {
+  const hue = hash % 360;
+  const hue2 = (hue + 16 + ((hash >>> 8) % 28)) % 360;
+  const sat = 34 + (hash % 16);
+  return {
+    bg1: hsl(hue, sat, 7),
+    bg2: hsl(hue2, sat + 6, 13),
+    accent: hsl(hue, 68 + ((hash >>> 4) % 18), 52 + ((hash >>> 12) % 8)),
+  };
+}
+
+export function ProceduralCover({ title = "Untitled", originalTitle, id = "", className = "" }: ProceduralCoverProps) {
+  const hash = useMemo(() => djb2Hash(`${title}_${id}`), [title, id]);
+  const p = useMemo(() => paletteFromHash(hash), [hash]);
 
   const refCode = useMemo(() => {
     return `REF: MF-${hash.toString(16).toUpperCase().padStart(6, "0").slice(0, 6)}`;
@@ -69,14 +71,14 @@ export function ProceduralCover({ title = "Untitled", originalTitle, mediaType =
           <div className="flex items-center justify-between font-mono text-[9px] sm:text-[10px] tracking-wider">
             <span className="flex items-center gap-1.5 font-bold" style={{ color: p.accent }}>
               <span className="w-1.5 h-1.5 rounded-xs inline-block" style={{ backgroundColor: p.accent }} />
-              {p.subBadge}
+              METAFUSION
             </span>
             <span className="text-white/40">{refCode}</span>
           </div>
 
           <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-xs bg-white/[0.06] border border-white/10 font-mono text-[9px] text-gray-200">
             <span className="w-1 h-1 rounded-full animate-pulse" style={{ backgroundColor: p.accent }} />
-            <span>{p.badge}</span>
+            <span>ARCHIVE MASTER</span>
           </div>
         </div>
 

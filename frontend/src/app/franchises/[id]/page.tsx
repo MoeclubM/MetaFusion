@@ -104,7 +104,6 @@ export default function FranchiseDetailPage() {
                   alt={localized.title}
                   title={localized.title}
                   originalTitle={fr.original_title}
-                  mediaType="franchise"
                   id={fr.id}
                   imgClassName="w-full h-full object-cover"
                 />

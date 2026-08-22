@@ -8,7 +8,6 @@ interface EntityCoverProps {
   alt?: string;
   title?: string;
   originalTitle?: string;
-  mediaType?: string;
   id?: string;
   className?: string;
   imgClassName?: string;
@@ -20,7 +19,6 @@ export function EntityCover({
   alt = "",
   title = "Untitled",
   originalTitle,
-  mediaType = "movie",
   id = "",
   className = "",
   imgClassName = "w-full h-full object-cover",
@@ -33,7 +31,6 @@ export function EntityCover({
       <ProceduralCover
         title={title}
         originalTitle={originalTitle}
-        mediaType={mediaType}
         id={id}
         className={className}
       />
