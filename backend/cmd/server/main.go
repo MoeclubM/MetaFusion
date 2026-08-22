@@ -436,19 +436,49 @@ func main() {
 					c.JSON(http.StatusOK, gin.H{"message": "Upload completed, transcoding started"})
 				})
 
-				storageGroup.GET("/download/:asset_id", func(c *gin.Context) {
-					assetID, err := uuid.Parse(c.Param("asset_id"))
-					if err != nil {
-						c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid asset ID"})
-						return
-					}
-					downloadURL, err := storageSvc.GetDownloadURL(c.Request.Context(), assetID)
-					if err != nil {
-						c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-						return
-					}
-					c.JSON(http.StatusOK, gin.H{"download_url": downloadURL})
-				})
+					storageGroup.GET("/download/:asset_id", func(c *gin.Context) {
+						assetID, err := uuid.Parse(c.Param("asset_id"))
+						if err != nil {
+							c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid asset ID"})
+							return
+						}
+						downloadURL, err := storageSvc.GetDownloadURL(c.Request.Context(), assetID)
+						if err != nil {
+							c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+							return
+						}
+						c.JSON(http.StatusOK, gin.H{"download_url": downloadURL})
+					})
+
+					// 资产挂载绑定接口 (Asset Polymorphic Bindings)
+					storageGroup.POST("/bind", func(c *gin.Context) {
+						var input struct {
+							AssetID          uuid.UUID `json:"asset_id" binding:"required"`
+							TargetEntityType string    `json:"target_entity_type" binding:"required"`
+							TargetEntityID   uuid.UUID `json:"target_entity_id" binding:"required"`
+							BindingRole      string    `json:"binding_role"`
+						}
+						if err := c.ShouldBindJSON(&input); err != nil {
+							c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+							return
+						}
+						bindingRole := input.BindingRole
+						if bindingRole == "" {
+							bindingRole = "master_archive"
+						}
+						binding := models.AssetBinding{
+							AssetID:          input.AssetID,
+							TargetEntityType: input.TargetEntityType,
+							TargetEntityID:   input.TargetEntityID,
+							BindingRole:      bindingRole,
+						}
+						if err := db.Where("asset_id = ? AND target_entity_type = ? AND target_entity_id = ? AND binding_role = ?",
+							input.AssetID, input.TargetEntityType, input.TargetEntityID, bindingRole).FirstOrCreate(&binding).Error; err != nil {
+							c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+							return
+						}
+						c.JSON(http.StatusOK, gin.H{"status": "bound", "binding": binding})
+					})
 			}
 		}
 

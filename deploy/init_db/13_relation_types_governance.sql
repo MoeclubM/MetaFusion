@@ -181,6 +181,33 @@ INSERT INTO relation_types (
     'amber', 'Sparkles', 160, TRUE, TRUE
 ),
 (
+    'voice_actor_of', 'agent_agent', '角色声优 / 角色配音 (CV)', 'Voice Actor Of',
+    jsonb_build_object('zh-CN', '角色声优', 'en-US', 'Voice Actor Of', 'ja', 'CV担当・声優'),
+    '真实声优为虚拟角色提供配音出演',
+    '饰演 / 配音了角色', '声优 (CV) 为', 'voices character', 'is voiced by',
+    ARRAY['person'], ARRAY['virtual_character', 'person'],
+    FALSE, FALSE, '[{"key": "character_name", "type": "string", "label": "角色全名"}, {"key": "is_original_cast", "type": "boolean", "label": "初代/原案声优"}]'::jsonb,
+    'rose', 'Mic', 35, TRUE, TRUE
+),
+(
+    'real_counterpart_of', 'agent_agent', '声优实装现场乐队 / 现实对应', 'Real Live Counterpart Of',
+    jsonb_build_object('zh-CN', '现场实装对照', 'en-US', 'Real Live Counterpart', 'ja', 'リアルライブ実装'),
+    '三次元声优实操现场乐队与二次元虚拟组合之间的跨次元映射 (如 Poppin Party 现场组 与 2D 原型)',
+    '现场演奏实装为', '三次元现实对应为', 'is real live counterpart of', 'has real live counterpart',
+    ARRAY['group'], ARRAY['fictional_band'],
+    TRUE, FALSE, '[]'::jsonb,
+    'amber', 'Sparkles', 36, TRUE, TRUE
+),
+(
+    'character_in', 'agent_work', '登场角色 / 出场于', 'Character In',
+    jsonb_build_object('zh-CN', '登场角色', 'en-US', 'Character In', 'ja', '登場キャラクター'),
+    '虚拟角色在特定动画、游戏或漫画作品中登场亮相',
+    '出场于作品', '登场角色', 'appears in', 'features character',
+    ARRAY['virtual_character'], ARRAY['work'],
+    FALSE, FALSE, '[{"key": "role_type", "type": "select", "label": "角色定位", "options": ["主角", "主要配角", "客串/背景"]}]'::jsonb,
+    'purple', 'UserCheck', 165, TRUE, TRUE
+),
+(
     'illustrator', 'agent_work', '插画 / 原画 / 人设', 'Illustrator / Character Design',
     jsonb_build_object('zh-CN', '插画/人设', 'en-US', 'Illustrator', 'ja', 'イラスト・原画'),
     '轻小说插画师、漫画作画、动画角色原案或画集原画师',
@@ -231,6 +258,15 @@ INSERT INTO relation_types (
     '为该作品的官方原声带', '官方原声配乐作品', 'is soundtrack of', 'has soundtrack',
     ARRAY['work'], ARRAY['work'],
     FALSE, FALSE, '[]'::jsonb, 'purple', 'Disc', 300, TRUE, TRUE
+),
+(
+    'part_of_universe', 'work_work', '世界观 / 企划归属', 'Part of Franchise / Universe',
+    jsonb_build_object('zh-CN', '企划归属', 'en-US', 'Part of Universe', 'ja', 'プロジェクト・世界観所属'),
+    '游戏、动画、漫画、衍生专辑隶属于某跨媒体大企划世界观 (如 BanG Dream! / 明日方舟)',
+    '属于企划 / 世界观', '企划包含子作品', 'is part of franchise/universe', 'contains sub-work',
+    ARRAY['work'], ARRAY['work'],
+    FALSE, TRUE, '[]'::jsonb,
+    'indigo', 'Layers', 305, TRUE, TRUE
 ),
 (
     'adapted_from', 'work_work', '改编自 (原作)', 'Adapted From',

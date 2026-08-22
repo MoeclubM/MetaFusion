@@ -13,6 +13,7 @@ import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, 
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
+import { MultipartUploader } from "@/components/MultipartUploader";
 import FavoriteButton from "@/components/FavoriteButton";
 
 type ReleaseWithWork = Release & { work?: Work };
@@ -31,6 +32,10 @@ export default function ReleaseDetailPage() {
   // Edit and Revision History Modals
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  // Standalone upload directly to specific medium
+  const [targetMediumId, setTargetMediumId] = useState<string | null>(null);
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   useEffect(() => {
     if (!releaseId) return;
@@ -199,9 +204,22 @@ export default function ReleaseDetailPage() {
                         </span>
                         <span className="hidden sm:inline font-mono text-[11px] text-gray-500">{med.format} · {med.media_category}</span>
                       </div>
-                      <a href={`#medium-${med.id}`} className="font-mono text-[10px] text-gray-400 hover:text-primary">
-                        #{med.id.slice(0, 8)}
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setTargetMediumId(med.id);
+                            setIsUploadOpen(true);
+                          }}
+                          className="px-2.5 h-6.5 rounded-md bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all text-xs font-mono inline-flex items-center gap-1"
+                          title="独立上传原档资产至本介质"
+                        >
+                          <HardDrive className="w-3 h-3" />
+                          <span>上传至此介质</span>
+                        </button>
+                        <a href={`#medium-${med.id}`} className="font-mono text-[10px] text-gray-400 hover:text-primary">
+                          #{med.id.slice(0, 8)}
+                        </a>
+                      </div>
                     </div>
 
                     {tracks.length > 0 && (
@@ -336,14 +354,31 @@ export default function ReleaseDetailPage() {
         }}
       />
 
-      {/* Revision History & Diff Modal */}
-      <RevisionHistoryModal
-        isOpen={isHistoryOpen}
-        onClose={() => setIsHistoryOpen(false)}
-        targetType="release"
-        targetId={release.id}
-        entityTitle={release.edition_name}
-      />
-    </div>
+	      {/* Revision History & Diff Modal */}
+	      <RevisionHistoryModal
+	        isOpen={isHistoryOpen}
+	        onClose={() => setIsHistoryOpen(false)}
+	        targetType="release"
+	        targetId={release.id}
+	        entityTitle={release.edition_name}
+	      />
+
+	      {/* Standalone Multipart Uploader to Medium */}
+	      <MultipartUploader
+	        isOpen={isUploadOpen}
+	        onClose={() => {
+	          setIsUploadOpen(false);
+	          setTargetMediumId(null);
+	        }}
+	        releaseId={release.id}
+	        mediumId={targetMediumId || undefined}
+	        onUploadSuccess={() => {
+	          setLoading(true);
+	          fetchApi<ReleaseWithWork>(`/catalog/releases/${releaseId}`)
+	            .then(setRelease)
+	            .finally(() => setLoading(false));
+	        }}
+	      />
+	    </div>
   );
 }

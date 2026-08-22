@@ -96,11 +96,20 @@ func (p *Processor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
-	// 4. 更新数据库状态为完成
+	// 4. 更新数据库状态为完成 (同时同步 AssetFile 与 AssetRegistry)
 	asset.TechnicalSpecs = models.JSONB(specs)
 	asset.TranscodeStatus = "completed"
 	asset.TranscodeError = ""
 	p.db.Save(&asset)
+
+	// 同步更新独立 CAS 资产注册表 (AssetRegistry)
+	var reg models.AssetRegistry
+	if errReg := p.db.Where("id = ? OR sha256_hash = ?", asset.ID, asset.Sha256Hash).First(&reg).Error; errReg == nil {
+		reg.TechnicalSpecs = models.JSONB(specs)
+		reg.TranscodeStatus = "completed"
+		reg.TranscodeError = ""
+		p.db.Save(&reg)
+	}
 
 	log.Printf("Successfully processed and transcoded asset: %s (%s)", asset.FileName, asset.ID)
 	return nil
@@ -236,5 +245,13 @@ func (p *Processor) failAsset(asset *models.AssetFile, reason string) {
 	asset.TranscodeStatus = "failed"
 	asset.TranscodeError = reason
 	p.db.Save(asset)
+
+	var reg models.AssetRegistry
+	if errReg := p.db.Where("id = ? OR sha256_hash = ?", asset.ID, asset.Sha256Hash).First(&reg).Error; errReg == nil {
+		reg.TranscodeStatus = "failed"
+		reg.TranscodeError = reason
+		p.db.Save(&reg)
+	}
+
 	log.Printf("Asset %s transcode failed: %s", asset.ID, reason)
 }

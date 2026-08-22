@@ -9,12 +9,23 @@ interface MultipartUploaderProps {
   isOpen: boolean;
   onClose: () => void;
   workId?: string;
+  releaseId?: string;
+  mediumId?: string;
+  trackId?: string;
   onUploadSuccess?: () => void;
 }
 
 const CHUNK_SIZE = 50 * 1024 * 1024;
 
-export const MultipartUploader: React.FC<MultipartUploaderProps> = ({ isOpen, onClose, workId, onUploadSuccess }) => {
+export const MultipartUploader: React.FC<MultipartUploaderProps> = ({
+  isOpen,
+  onClose,
+  workId,
+  releaseId,
+  mediumId,
+  trackId,
+  onUploadSuccess,
+}) => {
   const { t } = useI18n();
   const [file, setFile] = useState<File | null>(null);
   // Keep initial Chinese string as canonical default edition name
@@ -53,7 +64,7 @@ export const MultipartUploader: React.FC<MultipartUploaderProps> = ({ isOpen, on
 
   const handleStartUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !workId) {
+    if (!file || (!workId && !releaseId && !mediumId)) {
       setError(t("uploader.fileRequired"));
       return;
     }
@@ -62,18 +73,25 @@ export const MultipartUploader: React.FC<MultipartUploaderProps> = ({ isOpen, on
     setProgress(0);
     setIsInstant(false);
     try {
-      setStatusText(t("uploader.createRelease"));
-      const release = await fetchApi<{ id: string }>("/catalog/releases", {
-        method: "POST",
-        body: JSON.stringify({
-          work_id: workId,
-          publisher_id: publisherId || undefined,
-          edition_name: editionName.trim(),
-          publisher: publisher.trim(),
-          catalog_number: catalogNumber.trim(),
-          notes: notes.trim(),
-        }),
-      });
+      let targetReleaseId = releaseId;
+
+      // 如果未直接传入 releaseId 且有 workId，则创建新 Release
+      if (!targetReleaseId && workId) {
+        setStatusText(t("uploader.createRelease"));
+        const release = await fetchApi<{ id: string }>("/catalog/releases", {
+          method: "POST",
+          body: JSON.stringify({
+            work_id: workId,
+            publisher_id: publisherId || undefined,
+            edition_name: editionName.trim(),
+            publisher: publisher.trim(),
+            catalog_number: catalogNumber.trim(),
+            notes: notes.trim(),
+          }),
+        });
+        targetReleaseId = release.id;
+      }
+
       const sha256 = await calculateSha256(file);
       const partCount = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
       setStatusText(t("uploader.negotiate"));
@@ -86,7 +104,11 @@ export const MultipartUploader: React.FC<MultipartUploaderProps> = ({ isOpen, on
       }>("/storage/upload/initiate", {
         method: "POST",
         body: JSON.stringify({
-          release_id: release.id,
+          release_id: targetReleaseId || undefined,
+          medium_id: mediumId || undefined,
+          track_id: trackId || undefined,
+          target_entity_type: mediumId ? "medium" : (targetReleaseId ? "release" : undefined),
+          target_entity_id: mediumId || targetReleaseId || undefined,
           file_name: file.name,
           file_size: file.size,
           sha256_hash: sha256,

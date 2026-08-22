@@ -60,12 +60,19 @@ func NewStorageService(cfg *config.Config, db *gorm.DB, asynqClient *asynq.Clien
 }
 
 type InitiateUploadRequest struct {
-	ReleaseID  uuid.UUID `json:"release_id" binding:"required"`
-	FileName   string    `json:"file_name" binding:"required"`
-	FileSize   int64     `json:"file_size" binding:"required"`
-	Sha256Hash string    `json:"sha256_hash" binding:"required"`
-	MimeType   string    `json:"mime_type" binding:"required"`
-	PartCount  int       `json:"part_count" binding:"required,min=1"`
+	ReleaseID        *uuid.UUID `json:"release_id"`         // 可选：兼容老版本或指定 Release
+	MediumID         *uuid.UUID `json:"medium_id"`          // 可选：指定 Medium 载体
+	TrackID          *uuid.UUID `json:"track_id"`           // 可选：指定 Track 曲目
+	CanonicalEntryID *uuid.UUID `json:"canonical_entry_id"` // 可选：指定母版录音
+	TargetEntityType string     `json:"target_entity_type"` // 'medium', 'track', 'canonical_entry', 'release', 'work'
+	TargetEntityID   *uuid.UUID `json:"target_entity_id"`   // 挂载目标实体的 UUID
+	BindingRole      string     `json:"binding_role"`       // 'master_archive', 'disc_image', 'track_audio', 'scans', 'video'
+	FileRole         string     `json:"file_role"`          // master_archive / preview_sample / artwork
+	FileName         string     `json:"file_name" binding:"required"`
+	FileSize         int64      `json:"file_size" binding:"required"`
+	Sha256Hash       string     `json:"sha256_hash" binding:"required"`
+	MimeType         string     `json:"mime_type" binding:"required"`
+	PartCount        int        `json:"part_count" binding:"required,min=1"`
 }
 
 type InitiateUploadResponse struct {
@@ -76,31 +83,77 @@ type InitiateUploadResponse struct {
 	PresignedURLs   []string  `json:"presigned_urls,omitempty"`
 }
 
-// InitiateUpload 初始化大文件上传 (优先检查秒传)
+// InitiateUpload 初始化大文件上传 (支持独立 CAS 资产库与多态实体挂载，优先检查秒传)
 func (s *StorageService) InitiateUpload(ctx context.Context, req *InitiateUploadRequest) (*InitiateUploadResponse, error) {
-	// 1. 检查秒传 (Instant Upload / Deduplication)
-	var existingAsset models.AssetFile
-	err := s.db.Where("sha256_hash = ? AND transcode_status = 'completed'", req.Sha256Hash).First(&existingAsset).Error
-	if err == nil {
-		// 命中秒传：直接复用已有资产文件的技术规格与 S3 路径
-		newAsset := models.AssetFile{
-			ReleaseID:       req.ReleaseID,
-			FileRole:        "master_archive",
-			FileName:        req.FileName,
-			S3Bucket:        existingAsset.S3Bucket,
-			S3Key:           existingAsset.S3Key,
-			FileSize:        existingAsset.FileSize,
-			Sha256Hash:      req.Sha256Hash,
-			MimeType:        req.MimeType,
-			TechnicalSpecs:  existingAsset.TechnicalSpecs,
-			TranscodeStatus: "completed",
+	fileRole := req.FileRole
+	if fileRole == "" {
+		fileRole = "master_archive"
+	}
+	bindingRole := req.BindingRole
+	if bindingRole == "" {
+		bindingRole = fileRole
+	}
+
+	// 确定有效挂载目标
+	var targetType string
+	var targetID *uuid.UUID
+
+	if req.TargetEntityType != "" && req.TargetEntityID != nil && *req.TargetEntityID != uuid.Nil {
+		targetType = req.TargetEntityType
+		targetID = req.TargetEntityID
+	} else if req.MediumID != nil && *req.MediumID != uuid.Nil {
+		targetType = "medium"
+		targetID = req.MediumID
+	} else if req.TrackID != nil && *req.TrackID != uuid.Nil {
+		targetType = "track"
+		targetID = req.TrackID
+	} else if req.CanonicalEntryID != nil && *req.CanonicalEntryID != uuid.Nil {
+		targetType = "canonical_entry"
+		targetID = req.CanonicalEntryID
+	} else if req.ReleaseID != nil && *req.ReleaseID != uuid.Nil {
+		targetType = "release"
+		targetID = req.ReleaseID
+	}
+
+	// 1. 检查秒传 (Instant Upload / CAS Deduplication)
+	var existingRegistry models.AssetRegistry
+	errReg := s.db.Where("sha256_hash = ? AND transcode_status = 'completed'", req.Sha256Hash).First(&existingRegistry).Error
+	if errReg == nil {
+		// 命中秒传：若提供了挂载目标，在 asset_bindings 中登记关联
+		if targetType != "" && targetID != nil {
+			binding := models.AssetBinding{
+				AssetID:          existingRegistry.ID,
+				TargetEntityType: targetType,
+				TargetEntityID:   *targetID,
+				BindingRole:      bindingRole,
+			}
+			_ = s.db.Where("asset_id = ? AND target_entity_type = ? AND target_entity_id = ? AND binding_role = ?",
+				existingRegistry.ID, targetType, *targetID, bindingRole).FirstOrCreate(&binding).Error
 		}
-		if err := s.db.Create(&newAsset).Error; err != nil {
-			return nil, err
+
+		// 兼容旧版 models.AssetFile 记录
+		if req.ReleaseID != nil && *req.ReleaseID != uuid.Nil {
+			newAsset := models.AssetFile{
+				ReleaseID:        *req.ReleaseID,
+				MediumID:         req.MediumID,
+				TrackID:          req.TrackID,
+				CanonicalEntryID: req.CanonicalEntryID,
+				FileRole:         fileRole,
+				FileName:         req.FileName,
+				S3Bucket:         existingRegistry.S3Bucket,
+				S3Key:            existingRegistry.S3Key,
+				FileSize:         existingRegistry.FileSize,
+				Sha256Hash:       req.Sha256Hash,
+				MimeType:         req.MimeType,
+				TechnicalSpecs:   existingRegistry.TechnicalSpecs,
+				TranscodeStatus:  "completed",
+			}
+			_ = s.db.Create(&newAsset).Error
 		}
+
 		return &InitiateUploadResponse{
 			IsInstantUpload: true,
-			AssetID:         newAsset.ID,
+			AssetID:         existingRegistry.ID,
 		}, nil
 	}
 
@@ -126,29 +179,58 @@ func (s *StorageService) InitiateUpload(ctx context.Context, req *InitiateUpload
 		if err != nil {
 			return nil, fmt.Errorf("failed to presign part %d: %w", i, err)
 		}
-		// 替换公网端点 (用于解决 Docker 内部网络名与外部浏览器访问域名差异)
 		presignedURLs[i-1] = s.formatPublicURL(partURL.String())
 	}
 
-	// 4. 登记初始待转码资产记录
-	asset := models.AssetFile{
-		ReleaseID:       req.ReleaseID,
-		FileRole:        "master_archive",
+	// 4. 登记初始 CAS 资产记录 (asset_registry)
+	registryItem := models.AssetRegistry{
+		Sha256Hash:      req.Sha256Hash,
 		FileName:        req.FileName,
+		FileSize:        req.FileSize,
+		MimeType:        req.MimeType,
 		S3Bucket:        s.cfg.S3BucketMaster,
 		S3Key:           s3Key,
-		FileSize:        req.FileSize,
-		Sha256Hash:      req.Sha256Hash,
-		MimeType:        req.MimeType,
+		StorageTier:     "hot_s3",
 		TranscodeStatus: "pending",
 	}
-	if err := s.db.Create(&asset).Error; err != nil {
+	if err := s.db.Create(&registryItem).Error; err != nil {
 		return nil, err
+	}
+
+	// 5. 挂载关系建立 (asset_bindings)
+	if targetType != "" && targetID != nil {
+		binding := models.AssetBinding{
+			AssetID:          registryItem.ID,
+			TargetEntityType: targetType,
+			TargetEntityID:   *targetID,
+			BindingRole:      bindingRole,
+		}
+		_ = s.db.Create(&binding).Error
+	}
+
+	// 6. 兼容登记老版本 AssetFile 记录
+	if req.ReleaseID != nil && *req.ReleaseID != uuid.Nil {
+		asset := models.AssetFile{
+			ID:               registryItem.ID, // 保持统一 UUID
+			ReleaseID:        *req.ReleaseID,
+			MediumID:         req.MediumID,
+			TrackID:          req.TrackID,
+			CanonicalEntryID: req.CanonicalEntryID,
+			FileRole:         fileRole,
+			FileName:         req.FileName,
+			S3Bucket:         s.cfg.S3BucketMaster,
+			S3Key:            s3Key,
+			FileSize:         req.FileSize,
+			Sha256Hash:       req.Sha256Hash,
+			MimeType:         req.MimeType,
+			TranscodeStatus:  "pending",
+		}
+		_ = s.db.Create(&asset).Error
 	}
 
 	return &InitiateUploadResponse{
 		IsInstantUpload: false,
-		AssetID:         asset.ID,
+		AssetID:         registryItem.ID,
 		UploadID:        uploadID,
 		S3Key:           s3Key,
 		PresignedURLs:   presignedURLs,
