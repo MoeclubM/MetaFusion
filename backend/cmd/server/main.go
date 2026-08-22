@@ -370,18 +370,18 @@ func main() {
 			catGroup.POST("/merge", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.MergeEntities)
 			catGroup.POST("/submit", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.SubmitComprehensiveArchive)
 			// 用户自建推荐分组（私有默认，可设公开）
-			catGroup.GET("/shelves/custom", catalogSvc.ListCustomShelves)
-			catGroup.POST("/shelves/custom", catalogSvc.CreateCustomShelf)
-			catGroup.POST("/shelves/custom/sync-presets", catalogSvc.SyncPresetShelves)
-			catGroup.POST("/shelves/custom/ensure-defaults", catalogSvc.EnsureDefaultShelves)
-			catGroup.POST("/shelves/custom/reset-defaults", catalogSvc.ResetDefaultShelves)
-			catGroup.POST("/shelves/custom/fork/:slug", catalogSvc.ForkPresetShelf)
-			catGroup.GET("/shelves/custom/:id", catalogSvc.GetCustomShelf)
-			catGroup.PUT("/shelves/custom/:id", catalogSvc.UpdateCustomShelf)
-			catGroup.DELETE("/shelves/custom/:id", catalogSvc.DeleteCustomShelf)
+			catGroup.GET("/shelves/custom", auth.OptionalUnifiedAuthMiddleware(cfg, db), catalogSvc.ListCustomShelves)
+			catGroup.POST("/shelves/custom", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateCustomShelf)
+			catGroup.POST("/shelves/custom/sync-presets", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.SyncPresetShelves)
+			catGroup.POST("/shelves/custom/ensure-defaults", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.EnsureDefaultShelves)
+			catGroup.POST("/shelves/custom/reset-defaults", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.ResetDefaultShelves)
+			catGroup.POST("/shelves/custom/fork/:slug", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.ForkPresetShelf)
+			catGroup.GET("/shelves/custom/:id", auth.OptionalUnifiedAuthMiddleware(cfg, db), catalogSvc.GetCustomShelf)
+			catGroup.PUT("/shelves/custom/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateCustomShelf)
+			catGroup.DELETE("/shelves/custom/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.DeleteCustomShelf)
 			// 个人首页布局
-			catGroup.GET("/home/layout", catalogSvc.GetHomeLayout)
-			catGroup.PUT("/home/layout", catalogSvc.PutHomeLayout)
+			catGroup.GET("/home/layout", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.GetHomeLayout)
+			catGroup.PUT("/home/layout", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.PutHomeLayout)
 		}
 
 		// ── MusicBrainz WS/2 兼容浏览层（开放读取） ──
