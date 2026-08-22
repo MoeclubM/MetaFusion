@@ -220,6 +220,33 @@ CREATE TABLE asset_files (
 );
 
 -- 11. 通用高级语义关系图谱网络 (Universal Advanced Entity Relationships)
+CREATE TABLE IF NOT EXISTS entity_type_definitions (
+    code VARCHAR(64) PRIMARY KEY,
+    name_zh VARCHAR(64) NOT NULL,
+    name_en VARCHAR(64) NOT NULL,
+    names JSONB DEFAULT '{}'::jsonb NOT NULL,
+    desc_zh TEXT DEFAULT '',
+    desc_en TEXT DEFAULT '',
+    color VARCHAR(32) DEFAULT 'amber' NOT NULL,
+    bg_color VARCHAR(32) DEFAULT 'bg-amber-500/10' NOT NULL,
+    border_color VARCHAR(32) DEFAULT 'border-amber-500/30' NOT NULL,
+    sort_order INT DEFAULT 0 NOT NULL,
+    is_system BOOLEAN DEFAULT FALSE NOT NULL,
+    is_enabled BOOLEAN DEFAULT TRUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+INSERT INTO entity_type_definitions (code, name_zh, name_en, names, desc_zh, desc_en, color, bg_color, border_color, sort_order, is_system, is_enabled) VALUES
+('person',    '个人创作者',        'Individual Creator', '{"zh-CN":"个人创作者","en-US":"Individual Creator"}', '导演、著者、作曲家、编曲、作词、画师等', 'Director, author, composer, arranger, lyricist, illustrator, etc.', 'text-amber-400', 'bg-amber-500/10', 'border-amber-500/30', 10, TRUE, TRUE),
+('studio',    '制作机构 / 工作室',  'Studio',             '{"zh-CN":"制作机构 / 工作室","en-US":"Studio"}',             '动画工作室、影视制作公司、开发组等', 'Animation studio, production company, dev team, etc.', 'text-purple-400', 'bg-purple-500/10', 'border-purple-500/30', 20, TRUE, TRUE),
+('publisher', '出版社 / 发行厂牌',  'Publisher / Label',  '{"zh-CN":"出版社 / 发行厂牌","en-US":"Publisher / Label"}',  '图书出版社、影音发行商、唱片公司等', 'Book publisher, AV distributor, record label, etc.', 'text-sky-400', 'bg-sky-500/10', 'border-sky-500/30', 30, TRUE, TRUE),
+('orchestra', '管弦乐团 / 歌剧团',  'Orchestra',          '{"zh-CN":"管弦乐团 / 歌剧团","en-US":"Orchestra"}',          '交响乐团、室内乐团、爱乐乐团等', 'Symphony, chamber orchestra, philharmonic, etc.', 'text-emerald-400', 'bg-emerald-500/10', 'border-emerald-500/30', 40, TRUE, TRUE),
+('group',     '乐队 / 演职团体',    'Band / Group',       '{"zh-CN":"乐队 / 演职团体","en-US":"Band / Group"}',       '摇滚乐队、室内乐组合、偶像团体等', 'Rock band, chamber group, idol group, etc.', 'text-rose-400', 'bg-rose-500/10', 'border-rose-500/30', 50, TRUE, TRUE),
+('circle',    '同人社团 / 独立组织', 'Circle',             '{"zh-CN":"同人社团 / 独立组织","en-US":"Circle"}',             '同人音乐社团、独立创作小组等', 'Doujin music circle, indie creative group, etc.', 'text-indigo-400', 'bg-indigo-500/10', 'border-indigo-500/30', 60, TRUE, TRUE),
+('label',     '独立厂牌 / 子品牌',  'Indie Label',        '{"zh-CN":"独立厂牌 / 子品牌","en-US":"Indie Label"}',        '出版子厂牌、专项音乐厂牌等', 'Imprint, sub-label, specialty music label, etc.', 'text-teal-400', 'bg-teal-500/10', 'border-teal-500/30', 70, TRUE, TRUE)
+ON CONFLICT (code) DO NOTHING;
+
 CREATE TABLE entity_relationships (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source_type VARCHAR(32) NOT NULL,              -- 'artist', 'work', 'release', 'expression'

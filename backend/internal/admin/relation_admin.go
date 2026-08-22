@@ -328,6 +328,179 @@ func (s *AdminService) UpsertEntityRelations(c *gin.Context) {
 			return
 		}
 	}
-	writeAudit(s.db, c, "entity.relations.upsert", "entity_relationship", "", map[string]interface{}{"count": len(input.Relations)})
-	c.JSON(http.StatusOK, gin.H{"status": "success", "count": len(input.Relations)})
-}
+		writeAudit(s.db, c, "entity.relations.upsert", "entity_relationship", "", map[string]interface{}{"count": len(input.Relations)})
+		c.JSON(http.StatusOK, gin.H{"status": "success", "count": len(input.Relations)})
+	}
+
+	// ListEntityTypesAdmin 管理员获取全部实体类型定义
+	func (s *AdminService) ListEntityTypesAdmin(c *gin.Context) {
+		var items []models.EntityTypeDefinition
+		if err := s.db.Order("sort_order asc, created_at asc").Find(&items).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"items": items, "total": len(items)})
+	}
+
+	// CreateEntityType 创建新实体类型定义
+	func (s *AdminService) CreateEntityType(c *gin.Context) {
+		var input struct {
+			Code        string                 `json:"code" binding:"required"`
+			NameZh      string                 `json:"name_zh" binding:"required"`
+			NameEn      string                 `json:"name_en" binding:"required"`
+			Names       map[string]interface{} `json:"names"`
+			DescZh      string                 `json:"desc_zh"`
+			DescEn      string                 `json:"desc_en"`
+			Color       string                 `json:"color"`
+			BgColor     string                 `json:"bg_color"`
+			BorderColor string                 `json:"border_color"`
+			SortOrder   int                    `json:"sort_order"`
+			IsEnabled   *bool                  `json:"is_enabled"`
+		}
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		code := strings.ToLower(strings.TrimSpace(input.Code))
+		if code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Entity type code cannot be empty"})
+			return
+		}
+
+		names := models.JSONB{"zh-CN": input.NameZh, "en-US": input.NameEn}
+		if input.Names != nil {
+			names = models.JSONB(input.Names)
+		}
+
+		isEnabled := true
+		if input.IsEnabled != nil {
+			isEnabled = *input.IsEnabled
+		}
+
+		color := input.Color
+		if color == "" {
+			color = "text-amber-400"
+		}
+		bgColor := input.BgColor
+		if bgColor == "" {
+			bgColor = "bg-amber-500/10"
+		}
+		borderColor := input.BorderColor
+		if borderColor == "" {
+			borderColor = "border-amber-500/30"
+		}
+
+		item := models.EntityTypeDefinition{
+			Code:        code,
+			NameZh:      input.NameZh,
+			NameEn:      input.NameEn,
+			Names:       names,
+			DescZh:      input.DescZh,
+			DescEn:      input.DescEn,
+			Color:       color,
+			BgColor:     bgColor,
+			BorderColor: borderColor,
+			SortOrder:   input.SortOrder,
+			IsSystem:    false,
+			IsEnabled:   isEnabled,
+		}
+
+		if err := s.db.Create(&item).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create entity type: " + err.Error()})
+			return
+		}
+
+		writeAudit(s.db, c, "entity_type.create", "entity_type", code, map[string]interface{}{"name_zh": input.NameZh})
+		c.JSON(http.StatusCreated, item)
+	}
+
+	// UpdateEntityType 更新实体类型定义
+	func (s *AdminService) UpdateEntityType(c *gin.Context) {
+		code := strings.ToLower(strings.TrimSpace(c.Param("code")))
+		var existing models.EntityTypeDefinition
+		if err := s.db.Where("code = ?", code).First(&existing).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Entity type definition not found"})
+			return
+		}
+
+		var input struct {
+			NameZh      string                 `json:"name_zh"`
+			NameEn      string                 `json:"name_en"`
+			Names       map[string]interface{} `json:"names"`
+			DescZh      string                 `json:"desc_zh"`
+			DescEn      string                 `json:"desc_en"`
+			Color       string                 `json:"color"`
+			BgColor     string                 `json:"bg_color"`
+			BorderColor string                 `json:"border_color"`
+			SortOrder   *int                   `json:"sort_order"`
+			IsEnabled   *bool                  `json:"is_enabled"`
+		}
+		if err := c.ShouldBindJSON(&input); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		updates := map[string]interface{}{}
+		if input.NameZh != "" {
+			updates["name_zh"] = input.NameZh
+		}
+		if input.NameEn != "" {
+			updates["name_en"] = input.NameEn
+		}
+		if input.Names != nil {
+			updates["names"] = models.JSONB(input.Names)
+		}
+		if input.DescZh != "" {
+			updates["desc_zh"] = input.DescZh
+		}
+		if input.DescEn != "" {
+			updates["desc_en"] = input.DescEn
+		}
+		if input.Color != "" {
+			updates["color"] = input.Color
+		}
+		if input.BgColor != "" {
+			updates["bg_color"] = input.BgColor
+		}
+		if input.BorderColor != "" {
+			updates["border_color"] = input.BorderColor
+		}
+		if input.SortOrder != nil {
+			updates["sort_order"] = *input.SortOrder
+		}
+		if input.IsEnabled != nil {
+			updates["is_enabled"] = *input.IsEnabled
+		}
+
+		if err := s.db.Model(&existing).Updates(updates).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		writeAudit(s.db, c, "entity_type.update", "entity_type", code, updates)
+		s.db.Where("code = ?", code).First(&existing)
+		c.JSON(http.StatusOK, existing)
+	}
+
+	// DeleteEntityType 删除实体类型定义（系统内置类型不可删）
+	func (s *AdminService) DeleteEntityType(c *gin.Context) {
+		code := strings.ToLower(strings.TrimSpace(c.Param("code")))
+		var existing models.EntityTypeDefinition
+		if err := s.db.Where("code = ?", code).First(&existing).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Entity type definition not found"})
+			return
+		}
+		if existing.IsSystem {
+			c.JSON(http.StatusForbidden, gin.H{"error": "System built-in entity type cannot be deleted"})
+			return
+		}
+
+		if err := s.db.Where("code = ?", code).Delete(&models.EntityTypeDefinition{}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		writeAudit(s.db, c, "entity_type.delete", "entity_type", code, map[string]interface{}{"name_zh": existing.NameZh})
+		c.JSON(http.StatusOK, gin.H{"status": "deleted", "code": code})
+	}

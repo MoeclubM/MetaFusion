@@ -20,6 +20,7 @@ import { HealthTab } from "./components/tabs/HealthTab";
 import { SettingsTab } from "./components/tabs/SettingsTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { CategoriesTab } from "./components/tabs/CategoriesTab";
+import { EntityTypesTab } from "./components/tabs/EntityTypesTab";
 import { ArtistModal } from "./components/modals/ArtistModal";
 import { ShelfModal } from "./components/modals/ShelfModal";
 
@@ -46,6 +47,7 @@ function AdminContent() {
           {d.activeTab === "releases" && <ReleasesTab loading={d.loading} filteredReleases={d.filteredReleases} expandedReleaseId={d.expandedReleaseId} setExpandedReleaseId={d.setExpandedReleaseId} verifyingReleaseId={d.verifyingReleaseId} handleToggleVerification={d.handleToggleVerification} />}
           {d.activeTab === "assets" && <AssetsTab loading={d.loading} filteredAssets={d.filteredAssets} handleRetryAsset={d.handleRetryAsset} />}
           {d.activeTab === "artists" && <AgentsTab loading={d.loading} filteredArtists={d.filteredArtists} artistsList={d.artistsList} selectedEntityType={d.selectedEntityType} setSelectedEntityType={d.setSelectedEntityType} handleOpenCreateArtist={d.handleOpenCreateArtist} handleOpenEditArtist={d.handleOpenEditArtist} handleDeleteArtist={d.handleDeleteArtist} />}
+          {d.activeTab === "entity_types" && <EntityTypesTab />}
           {d.activeTab === "users" && <UsersTab loading={d.loading} filteredUsers={d.filteredUsers} roleUpdatingId={d.roleUpdatingId} user={d.user} handleUpdateRole={d.handleUpdateRole} handleUpdateUser={d.handleUpdateUser} />}
           {d.activeTab === "topics" && <TopicsTab loading={d.loading} topicsList={d.topicsList} handleDeleteTopic={d.handleDeleteTopic} />}
           {d.activeTab === "boards" && <BoardsTab />}

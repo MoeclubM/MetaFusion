@@ -32,6 +32,7 @@ export type Tab =
   | "releases"
   | "assets"
   | "artists"
+  | "entity_types"
   | "relationships"
   | "shelves"
   | "users"
@@ -63,6 +64,7 @@ export const sidebarGroups: SidebarGroup[] = [
     labelKey: "admin.sidebar.groupLibrary",
     items: [
       { id: "artists", labelKey: "admin.sidebar.itemAgents", icon: Users },
+      { id: "entity_types", labelKey: "admin.sidebar.itemEntityTypes", icon: Settings2 },
       { id: "shelves", labelKey: "admin.sidebar.itemShelves", icon: Layers },
       { id: "relationships", labelKey: "admin.sidebar.itemRelationships", icon: Waypoints },
     ],

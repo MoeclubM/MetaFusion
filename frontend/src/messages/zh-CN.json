@@ -445,6 +445,7 @@
   "admin.sidebar.itemReleases": "发行版本",
   "admin.sidebar.itemAssets": "资产与文件",
   "admin.sidebar.itemAgents": "创作者与机构",
+  "admin.sidebar.itemEntityTypes": "实体类型管理",
   "admin.sidebar.itemRelationships": "关系图谱连线",
   "admin.sidebar.itemShelves": "推荐陈列配置",
   "admin.sidebar.itemUsers": "成员与权限管理",

@@ -533,6 +533,49 @@ var ValidBoardIcons = map[string]bool{
 	"Megaphone": true, "Bug": true, "MessageCircle": true,
 }
 
+// EntityTypeDefinition represents dynamic, extensible entity types for artists/creators/organizations
+type EntityTypeDefinition struct {
+	Code        string    `gorm:"primaryKey;type:varchar(64)" json:"code"`
+	NameZh      string    `gorm:"type:varchar(64);not null" json:"name_zh"`
+	NameEn      string    `gorm:"type:varchar(64);not null" json:"name_en"`
+	Names       JSONB     `gorm:"type:jsonb;default:'{}'" json:"names"`
+	DescZh      string    `gorm:"type:text" json:"desc_zh"`
+	DescEn      string    `gorm:"type:text" json:"desc_en"`
+	Color       string    `gorm:"type:varchar(32);default:'amber';not null" json:"color"`
+	BgColor     string    `gorm:"type:varchar(32);default:'bg-amber-500/10';not null" json:"bg_color"`
+	BorderColor string    `gorm:"type:varchar(32);default:'border-amber-500/30';not null" json:"border_color"`
+	SortOrder   int       `gorm:"default:0;not null" json:"sort_order"`
+	IsSystem    bool      `gorm:"default:false;not null" json:"is_system"`
+	IsEnabled   bool      `gorm:"default:true;not null" json:"is_enabled"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (e EntityTypeDefinition) TableName() string { return "entity_type_definitions" }
+
+func (e EntityTypeDefinition) LocalizedName(locale string) string {
+	loc := NormalizeLocale(locale)
+	if e.Names != nil {
+		if v, ok := e.Names[loc]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+	}
+	if loc == "en-US" && e.NameEn != "" {
+		return e.NameEn
+	}
+	return e.NameZh
+}
+
+func (e EntityTypeDefinition) LocalizedDesc(locale string) string {
+	loc := NormalizeLocale(locale)
+	if loc == "en-US" && e.DescEn != "" {
+		return e.DescEn
+	}
+	return e.DescZh
+}
+
 // UserGroup represents an admin-manageable permission grouping
 type UserGroup struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`

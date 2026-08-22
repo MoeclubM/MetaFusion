@@ -111,7 +111,7 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 	_ = s.db.Order("sort_order asc").Find(&shelves).Error
 
 	var allTags []models.Tag
-	_ = s.db.Order("id asc").Find(&allTags).Error
+	_ = s.db.Where("group_type != ?", "topic").Order("id asc").Find(&allTags).Error
 
 	tagGroups := make(map[string][]models.Tag)
 	for _, t := range allTags {
@@ -183,22 +183,46 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 		})
 	}
 
-	entityTypes := []map[string]string{
-		{"id": "person", "name_zh": "个人创作者", "name_en": "Individual Creator", "desc_zh": "导演、著者、作曲家、编曲、作词、画师等", "desc_en": "Director, author, composer, arranger, lyricist, illustrator, etc.", "color": "text-amber-400", "bg_color": "bg-amber-500/10", "border_color": "border-amber-500/30"},
-		{"id": "studio", "name_zh": "制作机构 / 工作室", "name_en": "Studio", "desc_zh": "动画工作室、影视制作公司、开发组等", "desc_en": "Animation studio, production company, dev team, etc.", "color": "text-purple-400", "bg_color": "bg-purple-500/10", "border_color": "border-purple-500/30"},
-		{"id": "publisher", "name_zh": "出版社 / 发行厂牌", "name_en": "Publisher / Label", "desc_zh": "图书出版社、影音发行商、唱片公司等", "desc_en": "Book publisher, AV distributor, record label, etc.", "color": "text-sky-400", "bg_color": "bg-sky-500/10", "border_color": "border-sky-500/30"},
-		{"id": "orchestra", "name_zh": "管弦乐团 / 歌剧团", "name_en": "Orchestra", "desc_zh": "交响乐团、室内乐团、爱乐乐团等", "desc_en": "Symphony, chamber orchestra, philharmonic, etc.", "color": "text-emerald-400", "bg_color": "bg-emerald-500/10", "border_color": "border-emerald-500/30"},
-		{"id": "group", "name_zh": "乐队 / 演职团体", "name_en": "Band / Group", "desc_zh": "摇滚乐队、室内乐组合、偶像团体等", "desc_en": "Rock band, chamber group, idol group, etc.", "color": "text-rose-400", "bg_color": "bg-rose-500/10", "border_color": "border-rose-500/30"},
-		{"id": "circle", "name_zh": "同人社团 / 独立组织", "name_en": "Circle", "desc_zh": "同人音乐社团、独立创作小组等", "desc_en": "Doujin music circle, indie creative group, etc.", "color": "text-indigo-400", "bg_color": "bg-indigo-500/10", "border_color": "border-indigo-500/30"},
-		{"id": "label", "name_zh": "独立厂牌 / 子品牌", "name_en": "Indie Label", "desc_zh": "出版子厂牌、专项音乐厂牌等", "desc_en": "Imprint, sub-label, specialty music label, etc.", "color": "text-teal-400", "bg_color": "bg-teal-500/10", "border_color": "border-teal-500/30"},
-	}
-	for i := range entityTypes {
-		if locale == "en-US" {
-			entityTypes[i]["name"] = entityTypes[i]["name_en"]
-			entityTypes[i]["desc"] = entityTypes[i]["desc_en"]
-		} else {
-			entityTypes[i]["name"] = entityTypes[i]["name_zh"]
-			entityTypes[i]["desc"] = entityTypes[i]["desc_zh"]
+	var dynamicEntityTypes []models.EntityTypeDefinition
+	_ = s.db.Where("is_enabled = ?", true).Order("sort_order asc").Find(&dynamicEntityTypes).Error
+
+	entityTypes := make([]map[string]string, 0, len(dynamicEntityTypes))
+	if len(dynamicEntityTypes) > 0 {
+		for _, det := range dynamicEntityTypes {
+			name := det.LocalizedName(locale)
+			desc := det.LocalizedDesc(locale)
+			entityTypes = append(entityTypes, map[string]string{
+				"id":           det.Code,
+				"name_zh":      det.NameZh,
+				"name_en":      det.NameEn,
+				"name":         name,
+				"desc_zh":      det.DescZh,
+				"desc_en":      det.DescEn,
+				"desc":         desc,
+				"color":        det.Color,
+				"bg_color":     det.BgColor,
+				"border_color": det.BorderColor,
+			})
+		}
+	} else {
+		fallbackTypes := []map[string]string{
+			{"id": "person", "name_zh": "个人创作者", "name_en": "Individual Creator", "desc_zh": "导演、著者、作曲家、编曲、作词、画师等", "desc_en": "Director, author, composer, arranger, lyricist, illustrator, etc.", "color": "text-amber-400", "bg_color": "bg-amber-500/10", "border_color": "border-amber-500/30"},
+			{"id": "studio", "name_zh": "制作机构 / 工作室", "name_en": "Studio", "desc_zh": "动画工作室、影视制作公司、开发组等", "desc_en": "Animation studio, production company, dev team, etc.", "color": "text-purple-400", "bg_color": "bg-purple-500/10", "border_color": "border-purple-500/30"},
+			{"id": "publisher", "name_zh": "出版社 / 发行厂牌", "name_en": "Publisher / Label", "desc_zh": "图书出版社、影音发行商、唱片公司等", "desc_en": "Book publisher, AV distributor, record label, etc.", "color": "text-sky-400", "bg_color": "bg-sky-500/10", "border_color": "border-sky-500/30"},
+			{"id": "orchestra", "name_zh": "管弦乐团 / 歌剧团", "name_en": "Orchestra", "desc_zh": "交响乐团、室内乐团、爱乐乐团等", "desc_en": "Symphony, chamber orchestra, philharmonic, etc.", "color": "text-emerald-400", "bg_color": "bg-emerald-500/10", "border_color": "border-emerald-500/30"},
+			{"id": "group", "name_zh": "乐队 / 演职团体", "name_en": "Band / Group", "desc_zh": "摇滚乐队、室内乐组合、偶像团体等", "desc_en": "Rock band, chamber group, idol group, etc.", "color": "text-rose-400", "bg_color": "bg-rose-500/10", "border_color": "border-rose-500/30"},
+			{"id": "circle", "name_zh": "同人社团 / 独立组织", "name_en": "Circle", "desc_zh": "同人音乐社团、独立创作小组等", "desc_en": "Doujin music circle, indie creative group, etc.", "color": "text-indigo-400", "bg_color": "bg-indigo-500/10", "border_color": "border-indigo-500/30"},
+			{"id": "label", "name_zh": "独立厂牌 / 子品牌", "name_en": "Indie Label", "desc_zh": "出版子厂牌、专项音乐厂牌等", "desc_en": "Imprint, sub-label, specialty music label, etc.", "color": "text-teal-400", "bg_color": "bg-teal-500/10", "border_color": "border-teal-500/30"},
+		}
+		for _, et := range fallbackTypes {
+			if locale == "en-US" {
+				et["name"] = et["name_en"]
+				et["desc"] = et["desc_en"]
+			} else {
+				et["name"] = et["name_zh"]
+				et["desc"] = et["desc_zh"]
+			}
+			entityTypes = append(entityTypes, et)
 		}
 	}
 
