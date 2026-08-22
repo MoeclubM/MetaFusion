@@ -27,7 +27,26 @@ func (j *JSONB) Scan(value interface{}) error {
 	}
 	bytes, ok := value.([]byte)
 	if !ok {
-		return errors.New("type assertion to []byte failed")
+		s, ok2 := value.(string)
+		if !ok2 {
+			return errors.New("type assertion to []byte failed")
+		}
+		bytes = []byte(s)
+	}
+	if len(bytes) == 0 || string(bytes) == "null" {
+		*j = make(map[string]interface{})
+		return nil
+	}
+	var obj map[string]interface{}
+	if err := json.Unmarshal(bytes, &obj); err == nil {
+		*j = obj
+		return nil
+	}
+	// relation_types.attribute_schema 等字段在 SQL 种子里是 JSON 数组
+	var arr []interface{}
+	if err := json.Unmarshal(bytes, &arr); err == nil {
+		*j = JSONB{"fields": arr}
+		return nil
 	}
 	return json.Unmarshal(bytes, j)
 }
@@ -398,7 +417,7 @@ type CanonicalEntry struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	Title         string     `gorm:"not null" json:"title"`
 	SortTitle     string     `json:"sort_title"`
-	Duration      int        `json:"duration_seconds"`
+	Duration      int        `gorm:"column:duration_seconds" json:"duration_seconds"`
 	ISRC          string     `json:"isrc"`
 	ISBN          string     `json:"isbn"`
 	ArtistCredit  string     `json:"artist_credit"`
