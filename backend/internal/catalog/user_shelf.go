@@ -889,53 +889,261 @@ func (s *CatalogService) ForkPresetShelf(c *gin.Context) {
 	})
 }
 
-// InitUserDefaultShelves initializes user's custom shelves from system presets
-func InitUserDefaultShelves(db *gorm.DB, userID uuid.UUID) ([]models.UserCustomShelf, []string, error) {
-	var systemShelves []models.VirtualShelf
-	if err := db.Order("sort_order asc").Find(&systemShelves).Error; err != nil {
-		return nil, nil, err
+func customShelfKey(id uuid.UUID) string {
+	return "custom:" + id.String()
+}
+
+func advisoryLockKey(userID uuid.UUID) int64 {
+	var n uint64
+	for i := 0; i < 8; i++ {
+		n = (n << 8) | uint64(userID[i])
 	}
+	return int64(n)
+}
 
-	var resultShelves []models.UserCustomShelf
-	var resultOrder []string
+func lockUserShelfTx(tx *gorm.DB, userID uuid.UUID) error {
+	return tx.Exec("SELECT pg_advisory_xact_lock(?)", advisoryLockKey(userID)).Error
+}
 
-	for _, sys := range systemShelves {
-		newShelf := models.UserCustomShelf{
-			ID:             uuid.New(),
-			OwnerID:        userID,
-			Slug:           sys.Slug,
-			NameZh:         sys.NameZh,
-			NameEn:         sys.NameEn,
-			Description:    sys.Description,
-			Icon:           sys.Icon,
-			SortOrder:      sys.SortOrder,
-			MediaType:      sys.MediaType,
-			QueryTags:      sys.QueryTags,
-			RequireAllTags: sys.RequireAllTags,
-			ExcludeTags:    sys.ExcludeTags,
-			IsPublic:       false,
-			CreatedAt:      time.Now(),
-			UpdatedAt:      time.Now(),
-		}
-		if err := db.Create(&newShelf).Error; err == nil {
-			resultShelves = append(resultShelves, newShelf)
-			resultOrder = append(resultOrder, "custom:"+newShelf.ID.String())
+func loadUserCustomShelves(tx *gorm.DB, userID uuid.UUID) ([]models.UserCustomShelf, error) {
+	var items []models.UserCustomShelf
+	err := tx.Where("owner_id = ?", userID).Order("sort_order asc, created_at asc").Find(&items).Error
+	return items, err
+}
+
+func loadLayoutOrder(tx *gorm.DB, userID uuid.UUID) []string {
+	var raw string
+	_ = tx.Raw("SELECT order_json::text FROM user_home_layouts WHERE user_id = ?", userID).Scan(&raw)
+	return parseOrderJSONRaw(raw)
+}
+
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
 		}
 	}
+	return true
+}
 
-	orderJSONStr := toJSONArray(resultOrder)
+func upsertLayoutOrder(tx *gorm.DB, userID uuid.UUID, order []string) error {
+	if order == nil {
+		order = []string{}
+	}
 	var layout models.UserHomeLayout
-	if err := db.Where("user_id = ?", userID).First(&layout).Error; err != nil {
+	if err := tx.Where("user_id = ?", userID).First(&layout).Error; err != nil {
 		layout = models.UserHomeLayout{
 			UserID:            userID,
 			HiddenSystemSlugs: pq.StringArray{},
 			UpdatedAt:         time.Now(),
 		}
-		_ = db.Create(&layout).Error
+		_ = tx.Create(&layout).Error
 	}
-	db.Exec("UPDATE user_home_layouts SET hidden_system_slugs = '{}', order_json = ?::jsonb, updated_at = NOW() WHERE user_id = ?", orderJSONStr, userID)
+	return tx.Exec(
+		"UPDATE user_home_layouts SET hidden_system_slugs = '{}', order_json = ?::jsonb, updated_at = NOW() WHERE user_id = ?",
+		toJSONArray(order), userID,
+	).Error
+}
 
+// normalizeUserShelfOrder maps a mixed/legacy layout onto the user's shelves only.
+// System slugs are rewritten to custom:<id> when the user already has a copy with that slug.
+func normalizeUserShelfOrder(order []string, shelves []models.UserCustomShelf) []string {
+	byID := make(map[string]struct{}, len(shelves))
+	bySlug := make(map[string]uuid.UUID, len(shelves))
+	for _, s := range shelves {
+		byID[s.ID.String()] = struct{}{}
+		bySlug[s.Slug] = s.ID
+	}
+	seen := map[string]bool{}
+	out := make([]string, 0, len(shelves))
+	for _, k := range order {
+		trimmed := strings.TrimSpace(k)
+		if trimmed == "" {
+			continue
+		}
+		var id string
+		if strings.HasPrefix(trimmed, "custom:") {
+			id = strings.TrimPrefix(trimmed, "custom:")
+			if _, ok := byID[id]; !ok {
+				continue
+			}
+		} else if mapped, ok := bySlug[trimmed]; ok {
+			id = mapped.String()
+		} else {
+			continue
+		}
+		key := "custom:" + id
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, key)
+	}
+	for _, s := range shelves {
+		key := customShelfKey(s.ID)
+		if !seen[key] {
+			out = append(out, key)
+			seen[key] = true
+		}
+	}
+	return out
+}
+
+func cloneVirtualShelf(sys models.VirtualShelf, userID uuid.UUID) models.UserCustomShelf {
+	qTags := sys.QueryTags
+	if qTags == nil {
+		qTags = pq.StringArray{}
+	}
+	exTags := sys.ExcludeTags
+	if exTags == nil {
+		exTags = pq.StringArray{}
+	}
+	return models.UserCustomShelf{
+		ID:             uuid.New(),
+		OwnerID:        userID,
+		Slug:           sys.Slug,
+		NameZh:         sys.NameZh,
+		NameEn:         sys.NameEn,
+		Description:    sys.Description,
+		Icon:           sys.Icon,
+		SortOrder:      sys.SortOrder,
+		MediaType:      sys.MediaType,
+		QueryTags:      qTags,
+		RequireAllTags: sys.RequireAllTags,
+		ExcludeTags:    exTags,
+		IsPublic:       false,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+}
+
+func copySystemShelvesToUser(tx *gorm.DB, userID uuid.UUID) ([]models.UserCustomShelf, []string, error) {
+	var systemShelves []models.VirtualShelf
+	if err := tx.Order("sort_order asc").Find(&systemShelves).Error; err != nil {
+		return nil, nil, err
+	}
+	var resultShelves []models.UserCustomShelf
+	var resultOrder []string
+	for _, sys := range systemShelves {
+		newShelf := cloneVirtualShelf(sys, userID)
+		if err := tx.Create(&newShelf).Error; err != nil {
+			continue
+		}
+		resultShelves = append(resultShelves, newShelf)
+		resultOrder = append(resultOrder, customShelfKey(newShelf.ID))
+	}
+	if resultShelves == nil {
+		resultShelves = []models.UserCustomShelf{}
+	}
+	if resultOrder == nil {
+		resultOrder = []string{}
+	}
+	if err := upsertLayoutOrder(tx, userID, resultOrder); err != nil {
+		return resultShelves, resultOrder, err
+	}
 	return resultShelves, resultOrder, nil
+}
+
+func existingUserShelfState(db *gorm.DB, userID uuid.UUID, existing []models.UserCustomShelf) ([]models.UserCustomShelf, []string) {
+	prev := loadLayoutOrder(db, userID)
+	order := normalizeUserShelfOrder(prev, existing)
+	if !stringSlicesEqual(prev, order) {
+		_ = upsertLayoutOrder(db, userID, order)
+	}
+	return existing, order
+}
+
+// InitUserDefaultShelves copies system virtual_shelves into the user's config
+// once. Later calls return the existing user shelves (no dual-track, no overwrite).
+func InitUserDefaultShelves(db *gorm.DB, userID uuid.UUID) ([]models.UserCustomShelf, []string, error) {
+	existing, err := loadUserCustomShelves(db, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(existing) > 0 {
+		items, order := existingUserShelfState(db, userID, existing)
+		return items, order, nil
+	}
+
+	var resultShelves []models.UserCustomShelf
+	var resultOrder []string
+	err = db.Transaction(func(tx *gorm.DB) error {
+		if err := lockUserShelfTx(tx, userID); err != nil {
+			return err
+		}
+		again, err := loadUserCustomShelves(tx, userID)
+		if err != nil {
+			return err
+		}
+		if len(again) > 0 {
+			items, order := existingUserShelfState(tx, userID, again)
+			resultShelves = items
+			resultOrder = order
+			return nil
+		}
+		copied, order, err := copySystemShelvesToUser(tx, userID)
+		if err != nil {
+			return err
+		}
+		resultShelves = copied
+		resultOrder = order
+		return nil
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	if resultShelves == nil {
+		resultShelves = []models.UserCustomShelf{}
+	}
+	if resultOrder == nil {
+		resultOrder = []string{}
+	}
+	return resultShelves, resultOrder, nil
+}
+
+// EnsureDefaultShelves POST /shelves/custom/ensure-defaults
+func (s *CatalogService) EnsureDefaultShelves(c *gin.Context) {
+	uid := currentUserID(c)
+	if uid == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		return
+	}
+	items, order, err := InitUserDefaultShelves(s.db, *uid)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to ensure shelves: " + err.Error()})
+		return
+	}
+	if items == nil {
+		items = []models.UserCustomShelf{}
+	}
+	if order == nil {
+		order = []string{}
+	}
+	c.JSON(http.StatusOK, gin.H{"items": items, "order": order})
+}
+
+func resetUserDefaultShelves(db *gorm.DB, userID uuid.UUID) ([]models.UserCustomShelf, []string, error) {
+	var resultShelves []models.UserCustomShelf
+	var resultOrder []string
+	err := db.Transaction(func(tx *gorm.DB) error {
+		if err := lockUserShelfTx(tx, userID); err != nil {
+			return err
+		}
+		if err := tx.Where("owner_id = ?", userID).Delete(&models.UserCustomShelf{}).Error; err != nil {
+			return err
+		}
+		copied, order, err := copySystemShelvesToUser(tx, userID)
+		if err != nil {
+			return err
+		}
+		resultShelves = copied
+		resultOrder = order
+		return nil
+	})
+	return resultShelves, resultOrder, err
 }
 
 // ResetDefaultShelves POST /shelves/custom/reset-defaults
@@ -946,14 +1154,16 @@ func (s *CatalogService) ResetDefaultShelves(c *gin.Context) {
 		return
 	}
 
-	// Remove existing custom shelves for this user
-	s.db.Where("owner_id = ?", *uid).Delete(&models.UserCustomShelf{})
-
-	// Re-initialize from presets
-	shelves, order, err := InitUserDefaultShelves(s.db, *uid)
+	shelves, order, err := resetUserDefaultShelves(s.db, *uid)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reset shelves: " + err.Error()})
 		return
+	}
+	if shelves == nil {
+		shelves = []models.UserCustomShelf{}
+	}
+	if order == nil {
+		order = []string{}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

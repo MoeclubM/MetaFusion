@@ -932,6 +932,12 @@ export function forkPresetShelf(slug: string): Promise<{ shelf: UserCustomShelf;
   });
 }
 
+export function ensureDefaultShelves(): Promise<{ items: UserCustomShelf[]; order: string[] }> {
+  return fetchApi<{ items: UserCustomShelf[]; order: string[] }>("/catalog/shelves/custom/ensure-defaults", {
+    method: "POST",
+  });
+}
+
 export function resetDefaultShelves(): Promise<{ items: UserCustomShelf[]; order: string[] }> {
   return fetchApi<{ items: UserCustomShelf[]; order: string[] }>("/catalog/shelves/custom/reset-defaults", {
     method: "POST",

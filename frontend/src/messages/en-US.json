@@ -684,7 +684,7 @@
   "admin.shelfModal.preset.ghibli": "Ghibli",
   "admin.shelfModal.preset.4K_UHD": "4K_UHD",
   "admin.shelfModal.preset.hiRes": "Hi-Res",
-  "home.shelves.dragHint": "Drag to reorder. Eye toggles presets. Custom groups are reordered here only — create/delete below.",
+  "home.shelves.dragHint": "Drag to reorder. Every shelf in this list can be edited or deleted, including ones copied from system presets.",
   "home.shelves.items": "{count} items",
   "home.shelves.newGroup": "New Group",
   "home.shelves.slugLabel": "Slug *",
@@ -703,11 +703,11 @@
   "home.shelves.publicShare": "Public",
   "home.shelves.saveLayout": "Save Layout",
   "home.shelves.saving": "Saving…",
-  "home.shelves.emptyCustom": "No custom groups yet. Create one above.",
+  "home.shelves.emptyCustom": "No shelves yet. Create one, or restore system presets.",
   "home.shelves.deleteConfirm": "Delete custom group \"{name}\"?",
   "home.shelves.allWorks": "All works",
   "home.shelves.customBadge": "Custom",
-  "home.shelves.syncPresetsConfirm": "Are you sure you want to sync system presets as your custom channels? You will be able to customize all channels.",
+  "home.shelves.syncPresetsConfirm": "Reset your shelf list to system presets? The current list will be replaced with copies of the presets.",
   "home.shelves.editTitle": "Edit Channel Configuration",
   "home.shelves.editShelf": "Edit Channel",
   "home.shelves.editSave": "Save Changes",
@@ -1071,5 +1071,9 @@
   "explore.entityGroupFictional": "Fictional characters / bands",
   "explore.entityGroupOther": "Other types",
   "editor.core.romajiAliasHint": "Romaji is stored as an alias for search; it is not a separate catalog locale.",
-  "editor.core.formTagHint": "Classify the work with tags such as 电影 / 专辑 / 游戏 / 漫画. Media type is inferred from those tags — there is no separate form dropdown."
+  "editor.core.formTagHint": "Classify the work with tags such as 电影 / 专辑 / 游戏 / 漫画. Media type is inferred from those tags — there is no separate form dropdown.",
+  "home.shelves.editMyList": "Edit my shelves",
+  "home.shelves.loginToEdit": "Sign in to edit shelves",
+  "home.shelves.guestPreviewHint": "Previewing system presets. After you sign in they are copied into your config; from then on you only edit that list.",
+  "home.shelves.copyFailed": "Could not copy system presets. Retry later or create a shelf yourself."
 }

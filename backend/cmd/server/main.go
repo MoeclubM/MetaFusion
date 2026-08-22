@@ -373,6 +373,7 @@ func main() {
 			catGroup.GET("/shelves/custom", catalogSvc.ListCustomShelves)
 			catGroup.POST("/shelves/custom", catalogSvc.CreateCustomShelf)
 			catGroup.POST("/shelves/custom/sync-presets", catalogSvc.SyncPresetShelves)
+			catGroup.POST("/shelves/custom/ensure-defaults", catalogSvc.EnsureDefaultShelves)
 			catGroup.POST("/shelves/custom/reset-defaults", catalogSvc.ResetDefaultShelves)
 			catGroup.POST("/shelves/custom/fork/:slug", catalogSvc.ForkPresetShelf)
 			catGroup.GET("/shelves/custom/:id", catalogSvc.GetCustomShelf)

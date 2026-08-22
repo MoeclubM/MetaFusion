@@ -684,7 +684,7 @@
   "admin.shelfModal.preset.ghibli": "吉卜力",
   "admin.shelfModal.preset.4K_UHD": "4K_UHD",
   "admin.shelfModal.preset.hiRes": "Hi-Res",
-  "home.shelves.dragHint": "拖拽调整首页展示顺序；眼图标切换系统预设的显隐。自建分组在此仅排序，增删在下方。",
+  "home.shelves.dragHint": "拖拽调整首页展示顺序。列表中的货架均可编辑、删除，包括最初从系统复制的。",
   "home.shelves.items": "{count} 项",
   "home.shelves.newGroup": "新建分组",
   "home.shelves.slugLabel": "标识 *",
@@ -703,11 +703,11 @@
   "home.shelves.publicShare": "公开分享",
   "home.shelves.saveLayout": "保存布局",
   "home.shelves.saving": "保存中…",
-  "home.shelves.emptyCustom": "暂无自建分组，点击上方新建。",
+  "home.shelves.emptyCustom": "还没有货架。可新建，或恢复系统预设。",
   "home.shelves.deleteConfirm": "删除自建分组 \"{name}\"？",
   "home.shelves.allWorks": "全部作品",
   "home.shelves.customBadge": "自建",
-  "home.shelves.syncPresetsConfirm": "确认将系统预设同步导入为您的自定义频道吗？这将让您拥有对全部频道的自由编辑权限。",
+  "home.shelves.syncPresetsConfirm": "确认将货架列表重置为系统预设吗？当前列表会被系统预设的副本替换。",
   "home.shelves.editTitle": "编辑频道配置",
   "home.shelves.editShelf": "编辑频道",
   "home.shelves.editSave": "保存修改",
@@ -1071,5 +1071,9 @@
   "explore.entityGroupFictional": "虚拟角色 / 企划乐队",
   "explore.entityGroupOther": "其他类型",
   "editor.core.romajiAliasHint": "罗马音作为别名保存，便于检索；不是独立语种。",
-  "editor.core.formTagHint": "用标签标明形态（如电影、专辑、游戏、漫画），保存时据此写入后台形态词表，不再另选下拉。"
+  "editor.core.formTagHint": "用标签标明形态（如电影、专辑、游戏、漫画），保存时据此写入后台形态词表，不再另选下拉。",
+  "home.shelves.editMyList": "编辑我的货架列表",
+  "home.shelves.loginToEdit": "登录后编辑货架",
+  "home.shelves.guestPreviewHint": "当前为系统预设预览。登录后会复制到你的配置，之后只改这一份列表。",
+  "home.shelves.copyFailed": "未能从系统预设生成货架，请稍后重试或手动新建。"
 }
