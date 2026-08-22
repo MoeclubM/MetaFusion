@@ -12,6 +12,7 @@ interface EntityCoverProps {
   className?: string;
   imgClassName?: string;
   loading?: "lazy" | "eager";
+  onLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
 }
 
 export function EntityCover({
@@ -21,8 +22,9 @@ export function EntityCover({
   originalTitle,
   id = "",
   className = "",
-  imgClassName = "w-full h-full object-cover",
+  imgClassName,
   loading = "lazy",
+  onLoad,
 }: EntityCoverProps) {
   const [hasError, setHasError] = useState(false);
 
@@ -41,9 +43,10 @@ export function EntityCover({
     <img
       src={src}
       alt={alt || title}
-      className={imgClassName}
+      className={imgClassName ?? "w-full h-full object-cover"}
       loading={loading}
       onError={() => setHasError(true)}
+      onLoad={onLoad}
     />
   );
 }
