@@ -11,6 +11,7 @@ import {
   Release,
   Franchise,
   dictTermLabel,
+  workFacetTagGroups,
 } from "@/lib/api";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -239,9 +240,9 @@ function ExploreContent() {
  medium: t("explore.tagGroup.medium"),
  genre: t("explore.tagGroup.genre"),
  theme: t("explore.tagGroup.theme"),
- spec: t("explore.tagGroup.spec"),
  general: t("explore.tagGroup.general"),
  };
+ const workTagGroups = workFacetTagGroups(tagGroups);
 
  const placeholderByType =
  activeType === "artists"
@@ -338,7 +339,7 @@ function ExploreContent() {
                 </div>
 
                 <div className="space-y-4">
-                  {Object.entries(tagGroups).map(([groupKey, tagsInGroup]) => (
+                  {workTagGroups.map(([groupKey, tagsInGroup]) => (
                     <div key={groupKey} className="space-y-1.5">
                       <div className="font-mono text-[11px] uppercase text-gray-400 font-bold tracking-wider">
                         {tagGroupLabels[groupKey] || groupKey}

@@ -1075,5 +1075,11 @@
   "home.shelves.editMyList": "编辑我的货架列表",
   "home.shelves.loginToEdit": "登录后编辑货架",
   "home.shelves.guestPreviewHint": "当前为系统预设预览。登录后会复制到你的配置，之后只改这一份列表。",
-  "home.shelves.copyFailed": "未能从系统预设生成货架，请稍后重试或手动新建。"
+  "home.shelves.copyFailed": "未能从系统预设生成货架，请稍后重试或手动新建。",
+  "editor.core.carrierMetaHint": "碟片规格、装帧、ISBN 等写在发行/载体元数据里，不是作品标签。",
+  "editor.core.packagingLabel": "装帧 / 包装",
+  "editor.core.packagingUnset": "未指定",
+  "release.detail.packagingLabel": "装帧：",
+  "admin.shelfModal.preset.game": "游戏",
+  "admin.shelfModal.preset.album": "专辑"
 }

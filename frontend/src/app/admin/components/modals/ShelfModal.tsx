@@ -102,15 +102,15 @@ export function ShelfModal({
           </div>
           <div className="flex flex-wrap gap-1 pt-1.5">
             {([
-              { key: "movie", labelKey: "admin.shelfModal.preset.movie" },
-              { key: "anime", labelKey: "admin.shelfModal.preset.anime" },
-              { key: "series", labelKey: "admin.shelfModal.preset.series" },
-              { key: "soundtrack", labelKey: "admin.shelfModal.preset.soundtrack" },
-              { key: "classical", labelKey: "admin.shelfModal.preset.classical" },
-              { key: "scifi", labelKey: "admin.shelfModal.preset.scifi" },
-              { key: "ghibli", labelKey: "admin.shelfModal.preset.ghibli" },
-              { key: "4K_UHD", labelKey: "admin.shelfModal.preset.4K_UHD" },
-              { key: "Hi-Res", labelKey: "admin.shelfModal.preset.hiRes" },
+              { key: "电影", labelKey: "admin.shelfModal.preset.movie" },
+              { key: "动画", labelKey: "admin.shelfModal.preset.anime" },
+              { key: "剧集", labelKey: "admin.shelfModal.preset.series" },
+              { key: "游戏", labelKey: "admin.shelfModal.preset.game" },
+              { key: "专辑", labelKey: "admin.shelfModal.preset.album" },
+              { key: "原声", labelKey: "admin.shelfModal.preset.soundtrack" },
+              { key: "古典", labelKey: "admin.shelfModal.preset.classical" },
+              { key: "科幻", labelKey: "admin.shelfModal.preset.scifi" },
+              { key: "吉卜力", labelKey: "admin.shelfModal.preset.ghibli" },
             ] as const).map((preset) => (
               <button
                 key={preset.key}

@@ -113,6 +113,7 @@ export default function ReleaseDetailPage() {
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">
                 <span className="px-2 py-0.5 rounded-sm bg-primary text-white font-semibold">{t("release.detail.badge")}</span>
                 {release.catalog_number && <span className="text-gray-500">{release.catalog_number}</span>}
+                {release.packaging && <span className="text-gray-500">{t("release.detail.packagingLabel")}{release.packaging}</span>}
                 {release.barcode && <span className="text-gray-500">{t("release.detail.barcode", { code: release.barcode })}</span>}
               </div>
               <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white leading-tight">{release.edition_name}</h1>

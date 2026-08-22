@@ -123,6 +123,17 @@ export interface VirtualShelf {
   children?: VirtualShelf[];
 }
 
+/** Work browse/editor facets. spec (规格) is carrier-only and excluded. */
+export const WORK_TAG_GROUPS = ["format", "medium", "genre", "theme", "general"] as const;
+
+export function isWorkTagGroup(group: string): boolean {
+  return (WORK_TAG_GROUPS as readonly string[]).includes(group);
+}
+
+export function workFacetTagGroups(groups: Record<string, Tag[]> | undefined): [string, Tag[]][] {
+  return Object.entries(groups || {}).filter(([key, tags]) => isWorkTagGroup(key) && (tags?.length ?? 0) > 0);
+}
+
 export interface TaxonomyResponse {
   categories: Category[];
   shelves?: VirtualShelf[];

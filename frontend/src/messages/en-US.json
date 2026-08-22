@@ -1075,5 +1075,11 @@
   "home.shelves.editMyList": "Edit my shelves",
   "home.shelves.loginToEdit": "Sign in to edit shelves",
   "home.shelves.guestPreviewHint": "Previewing system presets. After you sign in they are copied into your config; from then on you only edit that list.",
-  "home.shelves.copyFailed": "Could not copy system presets. Retry later or create a shelf yourself."
+  "home.shelves.copyFailed": "Could not copy system presets. Retry later or create a shelf yourself.",
+  "editor.core.carrierMetaHint": "Disc format, packaging, and ISBN belong on the release or medium — not as work tags.",
+  "editor.core.packagingLabel": "Packaging",
+  "editor.core.packagingUnset": "Not specified",
+  "release.detail.packagingLabel": "Packaging: ",
+  "admin.shelfModal.preset.game": "Game",
+  "admin.shelfModal.preset.album": "Album"
 }

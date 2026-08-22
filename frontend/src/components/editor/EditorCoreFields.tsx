@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, X, Globe2, Tag as TagIcon, Sparkles } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, isWorkTagGroup } from "@/lib/api";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { CATALOG_LOCALES, LocaleEntry } from "./localeForm";
 import { Select } from "@/components/ui/Select";
@@ -50,14 +50,20 @@ export function EditorCoreFields({
   const [activeLocale, setActiveLocale] = useState(formData.language || locale || "zh-CN");
 
   useEffect(() => {
+    const workOnly = (name: string, group?: string) =>
+      Boolean(name) && (!group || isWorkTagGroup(group));
     if (taxonomy?.tags && Array.isArray(taxonomy.tags) && taxonomy.tags.length > 0) {
-      const tagNames = taxonomy.tags.map((t: any) => (typeof t === "string" ? t : t.name)).filter(Boolean);
+      const tagNames = taxonomy.tags
+        .filter((tg: any) => workOnly(typeof tg === "string" ? tg : tg.name, typeof tg === "string" ? undefined : tg.group_type))
+        .map((tg: any) => (typeof tg === "string" ? tg : tg.name));
       setDynamicTagSuggestions(tagNames.slice(0, 24));
     } else {
-      fetchApi<{ id: number; name: string }[]>("/catalog/tags")
+      fetchApi<{ id: number; name: string; group_type?: string }[]>("/catalog/tags")
         .then((data) => {
           if (Array.isArray(data)) {
-            setDynamicTagSuggestions(data.map((t) => t.name).filter(Boolean).slice(0, 24));
+            setDynamicTagSuggestions(
+              data.filter((tg) => workOnly(tg.name, tg.group_type)).map((tg) => tg.name).slice(0, 24)
+            );
           }
         })
         .catch(() => {});
@@ -359,6 +365,21 @@ export function EditorCoreFields({
               />
             </div>
             <div className="space-y-1.5">
+              <label className={labelClass}>{t("editor.core.packagingLabel")}</label>
+              <Select
+                value={formData.packaging || ""}
+                onChange={(val) => updateField("packaging", val)}
+                className="font-mono"
+                options={[
+                  { value: "", label: t("editor.core.packagingUnset") },
+                  ...(taxonomy?.packagings || []).map((p: any) => ({
+                    value: p.id,
+                    label: p.name || p.name_zh || p.id,
+                  })),
+                ]}
+              />
+            </div>
+            <div className="space-y-1.5">
               <label className={labelClass}>{t("editor.core.distributionChannelLabel")}</label>
               <Select
                 value={formData.distribution_channel || "mixed"}
@@ -388,6 +409,7 @@ export function EditorCoreFields({
       </div>
 
       {/* ── 3. 全动态标签与体裁系统 (Dynamic Tagging & Themes) ── */}
+      {targetType !== "release" && (
       <div className="p-4 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface space-y-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -399,7 +421,10 @@ export function EditorCoreFields({
           </span>
         </div>
         {targetType === "work" && (
-          <p className="text-[11px] leading-relaxed text-gray-500">{t("editor.core.formTagHint")}</p>
+          <>
+            <p className="text-[11px] leading-relaxed text-gray-500">{t("editor.core.formTagHint")}</p>
+            <p className="text-[11px] leading-relaxed text-gray-500">{t("editor.core.carrierMetaHint")}</p>
+          </>
         )}
 
         <div className="flex flex-wrap items-center gap-2 min-h-[32px]">
@@ -474,6 +499,7 @@ export function EditorCoreFields({
           </div>
         )}
       </div>
+      )}
 
       {targetType === "release" && (
         <div className="space-y-1.5">
