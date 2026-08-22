@@ -309,7 +309,7 @@ export function UniversalEntityEditor({
 
         {/* Auth Warning if not logged in */}
         {!user && (
-          <div className="mx-6 mt-4 p-3.5 rounded-card bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-xs text-amber-200">
+          <div className="mx-6 mt-4 p-3.5 rounded-lg bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-xs text-amber-800 dark:text-amber-200">
             <div className="flex items-center gap-2">
               <Lock className="w-4 h-4 text-amber-400 shrink-0" />
               <span>{t("editor.universal.unauthWarning")}</span>

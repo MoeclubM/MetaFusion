@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { fetchApi, Artist } from "@/lib/api";
 import { X, UploadCloud, FileText, Loader2, AlertCircle, Check, ShieldCheck, Hash, Fingerprint } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
+import { Select } from "@/components/ui/Select";
 
 interface MultipartUploaderProps {
   isOpen: boolean;
@@ -218,14 +219,26 @@ export const MultipartUploader: React.FC<MultipartUploaderProps> = ({
               {publishersList.length > 0 && <span className="font-mono text-[10px] text-gray-500">{t("uploader.publisherHint")}</span>}
             </div>
             {publishersList.length > 0 && (
-              <select disabled={isUploading} value={publisherId || ""} onChange={(e) => { const val = e.target.value; if (val === "") setPublisherId(null); else { setPublisherId(val); const found = publishersList.find((p) => p.id === val); if (found) setPublisher(found.name); }}} className="w-full px-2.5 h-10 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white text-xs focus:outline-none focus:border-primary">
-                <option value="">{t("uploader.publisherSelectPlaceholder")}</option>
-                {publishersList.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} {p.original_name ? `(${p.original_name})` : ""}
-                  </option>
-                ))}
-              </select>
+              <Select
+                disabled={isUploading}
+                value={publisherId || ""}
+                onChange={(val) => {
+                  if (val === "") setPublisherId(null);
+                  else {
+                    setPublisherId(val);
+                    const found = publishersList.find((p) => p.id === val);
+                    if (found) setPublisher(found.name);
+                  }
+                }}
+                className="text-xs"
+                options={[
+                  { value: "", label: t("uploader.publisherSelectPlaceholder") },
+                  ...publishersList.map((p) => ({
+                    value: p.id,
+                    label: p.original_name ? `${p.name} (${p.original_name})` : p.name,
+                  })),
+                ]}
+              />
             )}
             <input type="text" disabled={isUploading} placeholder={t("uploader.publisherManualPlaceholder")} value={publisher} onChange={(e) => { setPublisher(e.target.value); const found = publishersList.find((p) => p.name === e.target.value.trim()); setPublisherId(found ? found.id : null); }} className="w-full px-2.5 h-10 bg-background border border-black/10 dark:border-white/10 rounded-md text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary" />
           </div>

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
+import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/lib/themeContext";
@@ -513,14 +514,16 @@ export default function SettingsPage() {
                     <Globe className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.5} />
                     <span>{t("settings.interfaceLanguage")}</span>
                   </span>
-                  <select
+                  <Select
                     value={locale}
-                    onChange={(e) => setLocale(e.target.value as unknown as "zh-CN" | "en-US")}
-                    className="px-2 py-0.5 rounded-md bg-black/[0.03] dark:bg-white/[0.06] hover:bg-black/[0.06] dark:hover:bg-white/[0.10] text-gray-700 dark:text-gray-200 border border-black/10 dark:border-white/10 text-xs font-sans cursor-pointer focus:outline-none"
-                  >
-                    <option value="zh-CN">{t("locale.chinese")} (Chinese)</option>
-                    <option value="en-US">English (US)</option>
-                  </select>
+                    onChange={(val) => setLocale(val as "zh-CN" | "en-US")}
+                    fullWidth={false}
+                    className="min-w-[10.5rem] h-8 px-2 text-xs"
+                    options={[
+                      { value: "zh-CN", label: `${t("locale.chinese")} (Chinese)` },
+                      { value: "en-US", label: "English (US)" },
+                    ]}
+                  />
                 </div>
               </div>
 

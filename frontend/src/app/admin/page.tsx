@@ -28,14 +28,14 @@ function AdminContent() {
   const d = useAdminDashboard();
   if (d.authLoading || (!d.user && d.loading)) {
     return (
-      <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center text-gray-400 font-mono text-xs">
+      <div className="dark min-h-screen bg-[#0a0a0c] flex items-center justify-center text-gray-400 font-mono text-xs">
         <RefreshCw className="w-4 h-4 animate-spin mr-2 text-amber-400" />
         {d.t("admin.loading")}
       </div>
     );
   }
   return (
-    <div className="min-h-screen bg-[#0a0a0c] text-gray-100 flex flex-col font-sans selection:bg-amber-500/20 selection:text-amber-200">
+    <div className="dark min-h-screen bg-[#0a0a0c] text-gray-100 flex flex-col font-sans selection:bg-amber-500/20 selection:text-amber-200">
       <AdminHeader activeTab={d.activeTab} searchQuery={d.searchQuery} setSearchQuery={d.setSearchQuery} loading={d.loading} loadData={d.loadData} user={d.user} logout={d.logout} />
       <div className="flex-1 flex overflow-hidden">
         <AdminSidebar activeTab={d.activeTab} setActiveTab={d.setActiveTab} setSearchQuery={d.setSearchQuery} pendingReviewsCount={d.pendingReviewsCount} />
@@ -66,7 +66,7 @@ function AdminContent() {
 
 export default function AdminPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center text-gray-400 font-mono text-xs">Loading MetaFusion Admin...</div>}>
+    <Suspense fallback={<div className="dark min-h-screen bg-[#0a0a0c] flex items-center justify-center text-gray-400 font-mono text-xs">Loading MetaFusion Admin...</div>}>
       <AdminContent />
     </Suspense>
   );

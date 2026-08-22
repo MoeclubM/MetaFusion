@@ -436,7 +436,7 @@ export function EditorCoreFields({
               }
             }}
             placeholder={t("editor.core.addTagPlaceholder")}
-            className={`flex-1 ${fieldClass}`}
+            className="flex-1 px-3.5 h-10 rounded-lg bg-background border border-black/10 dark:border-white/10 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-primary"
           />
           <button
             type="button"

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { displayNameOf } from "@/lib/api";
 import { UserAvatar } from "@/components/UserAvatar";
+import { Select } from "@/components/ui/Select";
 import { Users, Copy, Check, Pencil, X, AlertCircle } from "lucide-react";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
@@ -178,18 +179,20 @@ export function UsersTab({
                           </button>
                         )}
                       </td>
-                      <td className="py-3 px-3">
-                        <select
+                      <td className="py-3 px-3 relative z-10">
+                        <Select
                           value={u.role}
                           disabled={roleUpdatingId === u.id || isSelf}
-                          onChange={(e) => handleUpdateRole(u.id, e.target.value)}
-                          className="px-2 py-1 rounded bg-white/[0.04] border border-white/10 text-xs text-white focus:outline-none focus:border-amber-400 disabled:opacity-40"
-                        >
-                          <option value="member">{t("admin.users.roleUser")}</option>
-                          <option value="archivist">{t("admin.users.roleArchivist")}</option>
-                          <option value="admin">{t("admin.users.roleAdmin")}</option>
-                          <option value="banned">{t("admin.users.roleBanned")}</option>
-                        </select>
+                          onChange={(val) => handleUpdateRole(u.id, val)}
+                          fullWidth={false}
+                          className="h-8 px-2 text-xs min-w-[7.5rem]"
+                          options={[
+                            { value: "member", label: t("admin.users.roleUser") },
+                            { value: "archivist", label: t("admin.users.roleArchivist") },
+                            { value: "admin", label: t("admin.users.roleAdmin") },
+                            { value: "banned", label: t("admin.users.roleBanned") },
+                          ]}
+                        />
                       </td>
                       <td className="py-3 px-3 font-mono text-gray-400 text-[11px] whitespace-nowrap">
                         {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
@@ -277,17 +280,17 @@ export function UsersTab({
 
               <label className="block space-y-1">
                 <span className="text-xs font-medium text-gray-300">{t("admin.users.fieldRole")}</span>
-                <select
+                <Select
                   value={editRole}
-                  onChange={(e) => setEditRole(e.target.value)}
+                  onChange={setEditRole}
                   disabled={editing.id === user?.id}
-                  className="w-full h-10 px-2 rounded-md bg-white/[0.06] border border-white/15 text-sm text-white focus:outline-none focus:border-amber-400 disabled:opacity-40"
-                >
-                  <option value="member">{t("admin.users.roleUser")}</option>
-                  <option value="archivist">{t("admin.users.roleArchivist")}</option>
-                  <option value="admin">{t("admin.users.roleAdmin")}</option>
-                  <option value="banned">{t("admin.users.roleBanned")}</option>
-                </select>
+                  options={[
+                    { value: "member", label: t("admin.users.roleUser") },
+                    { value: "archivist", label: t("admin.users.roleArchivist") },
+                    { value: "admin", label: t("admin.users.roleAdmin") },
+                    { value: "banned", label: t("admin.users.roleBanned") },
+                  ]}
+                />
               </label>
 
               <div className="flex gap-2 pt-1">
