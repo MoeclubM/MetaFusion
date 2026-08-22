@@ -241,538 +241,544 @@ function ExploreContent() {
  ? t("explore.searchPlaceholderRelease")
  : t("explore.searchPlaceholder");
 
- return (
- <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
- <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
- <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
- <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
- <Navbar />
+    return (
+      <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
+        <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+        <Navbar />
 
- <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full flex-1 space-y-5">
- {/* Header + Search — Terminal Card */}
- <div className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
- <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-black/5 dark:border-white/[0.06] pb-3">
- <div className="space-y-0.5">
- <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
- <span>{t("explore.title")}</span>
- </h1>
- </div>
+        {/* Explore Two-Column Layout */}
+        <div className="relative z-10 max-w-[1440px] mx-auto w-full flex-1 flex flex-col md:flex-row items-stretch">
+          {/* ===================== Left Sidebar Filter ===================== */}
+          <aside className="w-full md:w-64 lg:w-72 shrink-0 border-b md:border-b-0 md:border-r border-black/10 dark:border-white/[0.08] bg-surface/50 backdrop-blur-md p-4 sm:p-5 space-y-6 md:sticky md:top-12 md:h-[calc(100vh-3rem)] md:overflow-y-auto">
+            {/* Entity Type Navigation (作品 / 创作者 / 发行版) */}
+            <div className="space-y-2">
+              <h2 className="text-xs font-mono font-bold tracking-widest text-gray-500 uppercase">
+                {t("explore.title")}
+              </h2>
+              <div className="grid grid-cols-3 md:grid-cols-1 gap-1">
+                <button
+                  onClick={() => handleSwitchType("works")}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors text-left ${
+                    activeType === "works"
+                      ? "bg-primary text-white shadow-xs"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <Layers className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t("explore.typeWorks")}</span>
+                </button>
+                <button
+                  onClick={() => handleSwitchType("artists")}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors text-left ${
+                    activeType === "artists"
+                      ? "bg-primary text-white shadow-xs"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <Users className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t("explore.typeArtists")}</span>
+                </button>
+                <button
+                  onClick={() => handleSwitchType("releases")}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors text-left ${
+                    activeType === "releases"
+                      ? "bg-primary text-white shadow-xs"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <Disc className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t("explore.typeReleases")}</span>
+                </button>
+              </div>
+            </div>
 
- <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md">
- <div className="relative flex items-center">
- <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
- <input
- type="text"
- placeholder={placeholderByType}
- value={searchInput}
- onChange={(e) => setSearchInput(e.target.value)}
- className="w-full pl-11 pr-10 h-11 max-sm:min-h-[44px] rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 font-mono transition-all"
- />
- {searchInput && (
- <button
- type="button"
- onClick={() => {
- setSearchInput("");
- updateUrl({ q: "" });
- }}
- className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white"
- >
- <X className="w-4 h-4" />
- </button>
- )}
- </div>
- </form>
- </div>
+            {/* Sub-Filters: Works Tags */}
+            {activeType === "works" && (
+              <div className="space-y-4 pt-4 border-t border-black/5 dark:border-white/[0.06]">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-mono font-bold tracking-widest text-gray-500 uppercase flex items-center gap-1.5">
+                    <TagIcon className="w-3.5 h-3.5" />
+                    <span>{t("explore.tagFilter")}</span>
+                  </h3>
+                  {selectedTags.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setSelectedTags([]);
+                        updateUrl({ tags: [], q: queryParam });
+                      }}
+                      className="text-xs text-primary hover:underline font-mono"
+                    >
+                      {t("explore.clearTags")}
+                    </button>
+                  )}
+                </div>
 
- {/* Type Tabs */}
- <div className="flex items-center gap-2 pt-2.5 border-t border-black/[0.06] dark:border-white/[0.06] overflow-x-auto no-scrollbar">
- <button
- onClick={() => handleSwitchType("works")}
- className={`inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-lg text-sm font-semibold whitespace-nowrap border transition-all ${
- activeType === "works"
- ? "bg-primary text-white keep-white border-primary shadow-xs"
- : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
- }`}
- >
- <Layers className="w-4 h-4" />
- <span>{t("explore.typeWorks")}</span>
- </button>
- <button
- onClick={() => handleSwitchType("artists")}
- className={`inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-lg text-sm font-semibold whitespace-nowrap border transition-all ${
- activeType === "artists"
- ? "bg-primary text-white keep-white border-primary shadow-xs"
- : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
- }`}
- >
- <Users className="w-4 h-4" />
- <span>{t("explore.typeArtists")}</span>
- </button>
- <button
- onClick={() => handleSwitchType("releases")}
- className={`inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-lg text-sm font-semibold whitespace-nowrap border transition-all ${
- activeType === "releases"
- ? "bg-primary text-white keep-white border-primary shadow-xs"
- : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
- }`}
- >
- <Disc className="w-4 h-4" />
- <span>{t("explore.typeReleases")}</span>
- </button>
+                <div className="space-y-4">
+                  {Object.entries(tagGroups).map(([groupKey, tagsInGroup]) => (
+                    <div key={groupKey} className="space-y-1.5">
+                      <div className="font-mono text-[11px] uppercase text-gray-400 font-bold tracking-wider">
+                        {tagGroupLabels[groupKey] || groupKey}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {tagsInGroup.map((tg) => {
+                          const isChecked = selectedTags.includes(tg.name);
+                          return (
+                            <button
+                              key={tg.id}
+                              onClick={() => handleToggleTag(tg.name)}
+                              className={`px-2 py-0.5 rounded text-xs font-mono transition-all flex items-center gap-1 border ${
+                                isChecked
+                                  ? "bg-primary text-white border-primary font-semibold shadow-2xs"
+                                  : "bg-black/[0.02] dark:bg-white/[0.03] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:border-primary/40"
+                              }`}
+                            >
+                              <span>#{tg.name}</span>
+                              {isChecked && <Check className="w-2.5 h-2.5" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
- <div className="ml-auto flex items-center gap-2 shrink-0">
- {activeType === "works" && (
- <>
- <button
- onClick={() => setShowTagFilterPanel(!showTagFilterPanel)}
- className={`h-10 max-sm:min-h-[44px] px-3.5 rounded-lg border text-sm font-mono flex items-center gap-2 transition-colors ${
- showTagFilterPanel || selectedTags.length > 0
- ? "bg-primary/10 text-primary border-primary/30 font-semibold"
- : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300"
- }`}
- >
- <TagIcon className="w-4 h-4" />
- <span>{t("explore.tagFilter")}</span>
- {selectedTags.length > 0 && (
- <span className="w-4 h-4 rounded-full bg-primary text-white text-xs grid place-items-center font-bold">
- {selectedTags.length}
- </span>
- )}
- </button>
- <select
- value={sortBy}
- onChange={(e) => setSortBy(e.target.value as any)}
- className="h-10 max-sm:min-h-[44px] px-3 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm text-gray-700 dark:text-gray-300 font-mono focus:outline-none"
- >
- <option value="created_at">{t("explore.latestAdded")}</option>
- <option value="release_date">{t("explore.byYear")}</option>
- <option value="title">{t("explore.byName")}</option>
- </select>
- <div className="flex items-center gap-0.5 rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] p-0.5">
- <button
- onClick={() => setViewMode("grid")}
- className={`w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-md transition-colors ${
- viewMode === "grid" ? "bg-surface text-primary shadow-xs" : "text-gray-400 hover:text-gray-700 dark:hover:text-white"
- }`}
- title={t("explore.gridView")}
- >
- <LayoutGrid className="w-4 h-4" strokeWidth={1.7} />
- </button>
- <button
- onClick={() => setViewMode("list")}
- className={`w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-md transition-colors ${
- viewMode === "list" ? "bg-surface text-primary shadow-xs" : "text-gray-400 hover:text-gray-700 dark:hover:text-white"
- }`}
- title={t("explore.listView")}
- >
- <List className="w-4 h-4" strokeWidth={1.7} />
- </button>
- </div>
- </>
- )}
- {activeType === "artists" && (
- <span className="font-mono text-sm text-gray-500 hidden sm:inline">
- {t("explore.artistHint")}
- </span>
- )}
- {activeType === "releases" && (
- <span className="font-mono text-sm text-gray-500 hidden sm:inline">
- {t("explore.releaseHint")}
- </span>
- )}
- </div>
- </div>
+            {/* Sub-Filters: Artists Entity Types */}
+            {activeType === "artists" && (
+              <div className="space-y-2 pt-4 border-t border-black/5 dark:border-white/[0.06]">
+                <h3 className="text-xs font-mono font-bold tracking-widest text-gray-500 uppercase">
+                  {t("explore.artistHint")}
+                </h3>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => {
+                      setSelectedEntityType("");
+                      updateUrl({ entity_type: "" });
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-mono transition-colors text-left ${
+                      selectedEntityType === ""
+                        ? "bg-primary/10 text-primary font-semibold border border-primary/20"
+                        : "text-gray-600 dark:text-gray-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                    }`}
+                  >
+                    <span>{t("common.all")}</span>
+                    {selectedEntityType === "" && <span>✓</span>}
+                  </button>
+                  {ENTITY_TYPE_OPTIONS.map((opt) => {
+                    const isSelected = selectedEntityType === opt.code;
+                    return (
+                      <button
+                        key={opt.code}
+                        onClick={() => {
+                          const next = isSelected ? "" : opt.code;
+                          setSelectedEntityType(next);
+                          updateUrl({ entity_type: next });
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-md text-xs font-mono transition-colors text-left ${
+                          isSelected
+                            ? "bg-primary/10 text-primary font-semibold border border-primary/20"
+                            : "text-gray-600 dark:text-gray-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                        }`}
+                      >
+                        <span className="truncate">{t(opt.nameKey)}</span>
+                        {isSelected && <span>✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
- {/* Works: Tag Filter Drawer */}
- {activeType === "works" && showTagFilterPanel && Object.keys(tagGroups).length > 0 && (
- <div className="p-4 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 space-y-2.5 pt-2.5">
- <div className="flex items-center justify-between text-sm font-semibold text-gray-700 dark:text-gray-300">
- <span className="flex items-center gap-2">
- <TagIcon className="w-4 h-4 text-primary" />
- {t("explore.filterByTag")}
- </span>
- {selectedTags.length > 0 && (
- <button
- onClick={() => {
- setSelectedTags([]);
- updateUrl({ tags: [], q: queryParam });
- }}
- className="text-primary hover:underline text-sm"
- >
- {t("explore.clearTags")}
- </button>
- )}
- </div>
- <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2.5 text-sm">
- {Object.entries(tagGroups).map(([groupKey, tagsInGroup]) => (
- <div key={groupKey} className="space-y-1 p-2 rounded-md bg-surface border border-black/5 dark:border-white/5">
- <div className="font-mono text-xs uppercase text-gray-400 font-bold tracking-wider">
- {tagGroupLabels[groupKey] || groupKey} ({groupKey})
- </div>
- <div className="flex flex-wrap gap-2">
- {tagsInGroup.map((tg) => {
- const isChecked = selectedTags.includes(tg.name);
- return (
- <button
- key={tg.id}
- onClick={() => handleToggleTag(tg.name)}
- className={`px-2.5 py-1 rounded-sm text-xs font-mono transition-all flex items-center gap-2 border ${
- isChecked
- ? "bg-primary text-white keep-white border-primary font-bold shadow-xs"
- : "bg-black/[0.03] dark:bg-white/[0.04] border-black/5 dark:border-white/5 text-gray-700 dark:text-gray-300 hover:border-primary/40"
- }`}
- >
- <span>#{tg.name}</span>
- {isChecked && <Check className="w-2.5 h-2.5" />}
- </button>
- );
- })}
- </div>
- </div>
- ))}
- </div>
- </div>
- )}
+            {/* Sub-Filters: Releases Hint */}
+            {activeType === "releases" && (
+              <div className="pt-4 border-t border-black/5 dark:border-white/[0.06]">
+                <p className="text-xs text-gray-500 font-mono leading-relaxed">
+                  {t("explore.releaseHint")}
+                </p>
+              </div>
+            )}
+          </aside>
 
- {/* Artists: Entity Type Pills */}
- {activeType === "artists" && (
- <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pt-2 border-t border-black/[0.06] dark:border-white/[0.06]">
- <button
- onClick={() => {
- setSelectedEntityType("");
- updateUrl({ entity_type: "" });
- }}
- className={`px-3.5 h-9 max-sm:min-h-[44px] rounded-md whitespace-nowrap border text-sm transition-all ${
- selectedEntityType === ""
- ? "bg-primary/10 text-primary border-primary/30 font-semibold"
- : "bg-black/[0.02] dark:bg-white/[0.02] border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
- }`}
- >
- {t("common.all")}
- </button>
- {ENTITY_TYPE_OPTIONS.map((opt) => (
- <button
- key={opt.code}
- onClick={() => {
- const next = selectedEntityType === opt.code ? "" : opt.code;
- setSelectedEntityType(next);
- updateUrl({ entity_type: next });
- }}
- className={`px-3.5 h-9 max-sm:min-h-[44px] rounded-md whitespace-nowrap border text-sm transition-all ${
- selectedEntityType === opt.code
- ? "bg-primary/10 text-primary border-primary/30 font-semibold"
- : "bg-black/[0.02] dark:bg-white/[0.02] border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
- }`}
- >
- {t(opt.nameKey)}
- </button>
- ))}
- </div>
- )}
- </div>
+          {/* ===================== Right Main Content ===================== */}
+          <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-4">
+            {/* Top Compact Search & Sorting Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface/80 border border-black/10 dark:border-white/[0.08] p-3 rounded-lg backdrop-blur-md">
+              <form onSubmit={handleSearchSubmit} className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder={placeholderByType}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="w-full pl-9 pr-16 h-10 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary font-mono transition-all"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {searchInput && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchInput("");
+                        updateUrl({ q: "" });
+                      }}
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-white"
+                      title={t("explore.clearAll")}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="px-2.5 py-1 rounded bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-xs font-mono text-gray-700 dark:text-gray-300 transition-colors"
+                  >
+                    {t("common.search")}
+                  </button>
+                </div>
+              </form>
 
- {/* Filter State Bar */}
- {(queryParam || selectedTags.length > 0 || selectedEntityType || mediaTypeParam) && (
- <div className="flex items-center justify-between font-mono text-sm text-gray-500 px-1 flex-wrap gap-2">
- <div className="flex items-center gap-2 flex-wrap">
- <span>
- {activeType === "works"
- ? t("explore.filterResult", { count: total })
- : activeType === "artists"
- ? t("explore.filterResultArtists", { count: total })
- : t("explore.filterResultReleases", { count: total })}
- </span>
- {mediaTypeParam && mediaTypeParam !== "all" && (
- <span className="px-2.5 py-1 rounded-md bg-sky-500/10 text-sky-500 border border-sky-500/20 flex items-center gap-2 font-mono text-sm">
- <span>{t(`home.shelves.media${mediaTypeParam.charAt(0).toUpperCase()}${mediaTypeParam.slice(1)}`)}</span>
- </span>
- )}
- {tagsParam && (
- <span className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-2 font-mono text-sm">
- <span>{tagsParam.split(",").filter(Boolean).map((tg) => `#${tg}`).join(tagMatchParam === "all" ? " & " : " / ")}</span>
- </span>
- )}
- {selectedTags.map((tagName) => (
- <span
- key={tagName}
- className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-2 font-mono text-sm"
- >
- <span>#{tagName}</span>
- <button onClick={() => handleRemoveTag(tagName)}>
- <X className="w-4 h-4 hover:text-red-500" />
- </button>
- </span>
- ))}
- {selectedEntityType && (
- <span className="px-2.5 py-1 rounded-md bg-sky-500/10 text-sky-500 border border-sky-500/20 flex items-center gap-2 font-mono text-sm">
- <span>{t(`entity.${selectedEntityType}`)}</span>
- <button
- onClick={() => {
- setSelectedEntityType("");
- updateUrl({ entity_type: "" });
- }}
- >
- <X className="w-4 h-4 hover:text-red-500" />
- </button>
- </span>
- )}
- {queryParam && (
- <span className="px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono text-sm">
- {t("explore.keywordLabel")} &ldquo;{queryParam}&rdquo;
- </span>
- )}
- </div>
- <button onClick={clearAllFilters} className="text-primary hover:underline shrink-0 font-mono text-sm">
- {t("explore.clearAll")}
- </button>
- </div>
- )}
+              <div className="flex items-center gap-2 shrink-0">
+                {activeType === "works" && (
+                  <>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value as any)}
+                      className="h-10 px-3 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs text-gray-700 dark:text-gray-300 font-mono focus:outline-none"
+                    >
+                      <option value="created_at">{t("explore.latestAdded")}</option>
+                      <option value="release_date">{t("explore.byYear")}</option>
+                      <option value="title">{t("explore.byName")}</option>
+                    </select>
 
- {/* Content */}
- {activeType === "works" ? (
- loading ? (
- <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
- {Array.from({ length: 10 }).map((_, i) => (
- <div
- key={i}
- className="aspect-[3/4] rounded-lg bg-black/[0.03] dark:bg-white/[0.03] animate-pulse border border-black/5 dark:border-white/5"
- />
- ))}
- </div>
- ) : works.length === 0 ? (
- <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
- <div className="w-10 h-10 max-sm:min-h-[44px] rounded-sm bg-primary/10 border border-primary/20 text-primary grid place-items-center mx-auto">
- <Disc3 className="w-5 h-5 animate-spin-slow" />
- </div>
- <div className="space-y-0.5">
- <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noMatchTitle")}</h3>
- <p className="font-mono text-sm text-gray-500 max-w-sm mx-auto">{t("explore.noMatchHint")}</p>
- </div>
- <Link
- href="/contribute"
- className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md bg-primary text-white keep-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-xs"
- >
- <Plus className="w-4 h-4" />
- <span>{t("explore.newWork")}</span>
- </Link>
- </div>
- ) : viewMode === "grid" ? (
- <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
- {works.map((w) => (
- <Link
- key={w.id}
- href={`/works/${w.id}`}
- className="group relative rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs hover:shadow-elevated hover:border-primary/50 transition-all flex flex-col"
- >
- <div className="aspect-[3/4] w-full bg-black/5 dark:bg-black/40 relative overflow-hidden">
- <EntityCover
- src={w.cover_image_url}
- alt={w.title}
- title={w.title}
- originalTitle={w.original_title}
- mediaType={w.media_type}
- id={w.id}
- imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
- />
- <div className="absolute top-1.5 left-1.5 px-2.5 py-1 rounded-sm bg-black/70 backdrop-blur-md text-xs font-mono text-white keep-white">
- {w.media_type || t("home.workFallback")}
- </div>
- </div>
- <div className="p-4 space-y-1 flex-1 flex flex-col justify-between">
- <div>
- <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-1 group-hover:text-primary transition-colors">
- {w.title}
- </h3>
- {w.original_title && <p className="font-mono text-xs text-gray-500 line-clamp-1">{w.original_title}</p>}
- </div>
- {w.tags && w.tags.length > 0 && (
- <div className="flex flex-wrap gap-2 pt-0.5">
- {w.tags.slice(0, 3).map((tg) => (
- <span key={tg.id} className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] text-xs font-mono text-gray-600 dark:text-gray-400">
- #{tg.name}
- </span>
- ))}
- {w.tags.length > 3 && <span className="text-xs font-mono text-gray-400">+{w.tags.length - 3}</span>}
- </div>
- )}
- <div className="pt-1.5 flex items-center justify-between font-mono text-xs text-gray-500 border-t border-black/[0.04] dark:border-white/[0.04]">
- <span>{w.release_date ? String(w.release_date).slice(0, 4) : "—"}</span>
- <span className="flex items-center gap-0.5 group-hover:text-primary transition-colors">
- {t("explore.detail")} <ArrowRight className="w-2.5 h-2.5" />
- </span>
- </div>
- </div>
- </Link>
- ))}
- </div>
- ) : (
- <div className="rounded-lg border border-black/10 dark:border-white/10 bg-surface overflow-hidden shadow-2xs divide-y divide-black/[0.06] dark:divide-white/[0.06]">
- {works.map((w) => (
- <Link
- key={w.id}
- href={`/works/${w.id}`}
- className="p-4 flex items-center justify-between gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors group"
- >
- <div className="flex items-center gap-3 min-w-0">
- <div className="w-9 h-12 rounded-sm bg-black/5 dark:bg-black/40 overflow-hidden shrink-0">
- <EntityCover
- src={w.cover_image_url}
- alt={w.title}
- title={w.title}
- originalTitle={w.original_title}
- mediaType={w.media_type}
- id={w.id}
- imgClassName="w-full h-full object-cover"
- />
- </div>
- <div className="space-y-0.5 min-w-0">
- <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate group-hover:text-primary transition-colors">
- {w.title}
- </h3>
- <p className="font-mono text-xs text-gray-500 truncate">
- {w.original_title ? `${w.original_title} · ` : ""}
- {w.media_type || ""}
- {w.release_date ? ` · ${String(w.release_date).slice(0, 10)}` : ""}
- </p>
- {w.tags && w.tags.length > 0 && (
- <div className="flex flex-wrap gap-2 pt-0.5">
- {w.tags.map((tg) => (
- <span key={tg.id} className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] text-xs font-mono text-gray-500">
- #{tg.name}
- </span>
- ))}
- </div>
- )}
- </div>
- </div>
- <div className="text-primary text-sm font-mono flex items-center gap-2 shrink-0">
- <span>{t("explore.detail")}</span>
- <ArrowRight className="w-4 h-4" />
- </div>
- </Link>
- ))}
- </div>
- )
- ) : activeType === "artists" ? (
- loading ? (
- <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
- {Array.from({ length: 8 }).map((_, i) => (
- <div key={i} className="h-24 rounded-lg bg-black/[0.03] dark:bg-white/[0.03] animate-pulse border border-black/5 dark:border-white/5" />
- ))}
- </div>
- ) : artists.length === 0 ? (
- <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
- <div className="w-10 h-10 max-sm:min-h-[44px] rounded-sm bg-sky-500/10 border border-sky-500/20 text-sky-500 grid place-items-center mx-auto">
- <Users className="w-5 h-5" />
- </div>
- <div className="space-y-0.5">
- <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noArtistMatchTitle")}</h3>
- <p className="font-mono text-sm text-gray-500 max-w-sm mx-auto">{t("explore.noArtistMatchHint")}</p>
- </div>
- <Link
- href="/artists/new"
- className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md bg-primary text-white keep-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-xs"
- >
- <Plus className="w-4 h-4" />
- <span>{t("explore.newArtist")}</span>
- </Link>
- </div>
- ) : (
- <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
- {artists.map((a) => (
- <Link
- key={a.id}
- href={`/artists/${a.id}`}
- className="group p-4 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm hover:border-primary/40 hover:shadow-elevated transition-all space-y-1.5"
- >
- <div className="flex items-start justify-between gap-2">
- <div className="min-w-0">
- <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
- {a.name}
- </h3>
- {a.original_name && <p className="font-mono text-xs text-gray-500 truncate">{a.original_name}</p>}
- </div>
- <span className="shrink-0 px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/5 text-xs font-mono text-gray-600 dark:text-gray-400">
- {t(`entity.${a.entity_type}`) !== `entity.${a.entity_type}` ? t(`entity.${a.entity_type}`) : a.entity_type}
- </span>
- </div>
- {a.disambiguation && <p className="text-sm text-gray-500 line-clamp-2">{a.disambiguation}</p>}
- {a.biography && <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{a.biography}</p>}
- <div className="flex items-center gap-2 font-mono text-xs text-gray-500 pt-1.5 border-t border-black/[0.04] dark:border-white/[0.04]">
- {a.country && <span>{a.country}</span>}
- <span className="ml-auto flex items-center gap-0.5 text-primary">
- {t("explore.detail")} <ArrowRight className="w-2.5 h-2.5" />
- </span>
- </div>
- </Link>
- ))}
- </div>
- )
- ) : loading ? (
- <div className="space-y-2.5">
- {Array.from({ length: 6 }).map((_, i) => (
- <div key={i} className="h-16 rounded-lg bg-black/[0.03] dark:bg-white/[0.03] animate-pulse border border-black/5 dark:border-white/5" />
- ))}
- </div>
- ) : releases.length === 0 ? (
- <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
- <div className="w-10 h-10 max-sm:min-h-[44px] rounded-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 grid place-items-center mx-auto">
- <Disc className="w-5 h-5" />
- </div>
- <div className="space-y-0.5">
- <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noReleaseMatchTitle")}</h3>
- <p className="font-mono text-sm text-gray-500 max-w-sm mx-auto">{t("explore.noReleaseMatchHint")}</p>
- </div>
- <Link
- href="/releases/new"
- className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md bg-primary text-white keep-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-xs"
- >
- <Plus className="w-4 h-4" />
- <span>{t("explore.newRelease")}</span>
- </Link>
- </div>
- ) : (
- <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs divide-y divide-black/[0.06] dark:divide-white/[0.06]">
- {releases.map((r) => (
- <Link
- key={r.id}
- href={`/releases/${r.id}`}
- className="p-4 flex items-center justify-between gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors group"
- >
- <div className="min-w-0 space-y-0.5">
- <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
- {r.edition_name}
- </h3>
- <p className="font-mono text-xs text-gray-500 truncate">
- {r.work?.title ? `${r.work.title} · ` : ""}
- {r.publisher || r.publisher_entity?.name || t("explore.unknownPublisher")}
- {r.catalog_number ? ` · ${r.catalog_number}` : ""}
- {r.edition_date ? ` · ${String(r.edition_date).slice(0, 10)}` : ""}
- </p>
- <div className="flex items-center gap-2 pt-0.5">
- <span
- className={`px-2.5 py-1 rounded-sm text-xs font-mono border ${
- r.is_master_verified
- ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
- : "bg-amber-500/10 text-amber-600 border-amber-500/20"
- }`}
- >
- {r.is_master_verified ? t("work.detail.verified") : t("work.detail.pending")}
- </span>
- {r.packaging && <span className="text-xs font-mono text-gray-500">{r.packaging}</span>}
- </div>
- </div>
- <div className="text-primary text-sm font-mono flex items-center gap-0.5 shrink-0">
- <span>{t("explore.detail")}</span>
- <ArrowRight className="w-4 h-4" />
- </div>
- </Link>
- ))}
- </div>
- )}
- </main>
- </div>
- );
+                    <div className="flex items-center gap-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] p-0.5">
+                      <button
+                        onClick={() => setViewMode("grid")}
+                        className={`w-9 h-9 grid place-items-center rounded transition-colors ${
+                          viewMode === "grid" ? "bg-surface text-primary shadow-xs" : "text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                        }`}
+                        title={t("explore.gridView")}
+                      >
+                        <LayoutGrid className="w-4 h-4" strokeWidth={1.7} />
+                      </button>
+                      <button
+                        onClick={() => setViewMode("list")}
+                        className={`w-9 h-9 grid place-items-center rounded transition-colors ${
+                          viewMode === "list" ? "bg-surface text-primary shadow-xs" : "text-gray-400 hover:text-gray-700 dark:hover:text-white"
+                        }`}
+                        title={t("explore.listView")}
+                      >
+                        <List className="w-4 h-4" strokeWidth={1.7} />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Active Filters Summary */}
+            {(queryParam || selectedTags.length > 0 || selectedEntityType || mediaTypeParam) && (
+              <div className="flex items-center justify-between font-mono text-xs text-gray-500 px-1 flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    {activeType === "works"
+                      ? t("explore.filterResult", { count: total })
+                      : activeType === "artists"
+                      ? t("explore.filterResultArtists", { count: total })
+                      : t("explore.filterResultReleases", { count: total })}
+                  </span>
+                  {mediaTypeParam && mediaTypeParam !== "all" && (
+                    <span className="px-2 py-0.5 rounded bg-sky-500/10 text-sky-500 border border-sky-500/20 font-mono text-xs">
+                      {t(`home.shelves.media${mediaTypeParam.charAt(0).toUpperCase()}${mediaTypeParam.slice(1)}`)}
+                    </span>
+                  )}
+                  {tagsParam && (
+                    <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-mono text-xs">
+                      {tagsParam.split(",").filter(Boolean).map((tg) => `#${tg}`).join(tagMatchParam === "all" ? " & " : " / ")}
+                    </span>
+                  )}
+                  {selectedTags.map((tagName) => (
+                    <span
+                      key={tagName}
+                      className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 flex items-center gap-1.5 font-mono text-xs"
+                    >
+                      <span>#{tagName}</span>
+                      <button onClick={() => handleRemoveTag(tagName)}>
+                        <X className="w-3 h-3 hover:text-red-500" />
+                      </button>
+                    </span>
+                  ))}
+                  {selectedEntityType && (
+                    <span className="px-2 py-0.5 rounded bg-sky-500/10 text-sky-500 border border-sky-500/20 flex items-center gap-1.5 font-mono text-xs">
+                      <span>{t(`entity.${selectedEntityType}`)}</span>
+                      <button
+                        onClick={() => {
+                          setSelectedEntityType("");
+                          updateUrl({ entity_type: "" });
+                        }}
+                      >
+                        <X className="w-3 h-3 hover:text-red-500" />
+                      </button>
+                    </span>
+                  )}
+                  {queryParam && (
+                    <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20 font-mono text-xs">
+                      {t("explore.keywordLabel")} &ldquo;{queryParam}&rdquo;
+                    </span>
+                  )}
+                </div>
+                <button onClick={clearAllFilters} className="text-primary hover:underline shrink-0 font-mono text-xs">
+                  {t("explore.clearAll")}
+                </button>
+              </div>
+            )}
+
+            {/* List / Grid Content */}
+            {activeType === "works" ? (
+              loading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="aspect-[3/4] rounded-lg bg-black/[0.03] dark:bg-white/[0.03] animate-pulse border border-black/5 dark:border-white/5"
+                    />
+                  ))}
+                </div>
+              ) : works.length === 0 ? (
+                <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
+                  <div className="w-10 h-10 rounded-sm bg-primary/10 border border-primary/20 text-primary grid place-items-center mx-auto">
+                    <Disc3 className="w-5 h-5 animate-spin-slow" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noMatchTitle")}</h3>
+                    <p className="font-mono text-sm text-gray-500 max-w-sm mx-auto">{t("explore.noMatchHint")}</p>
+                  </div>
+                  <Link
+                    href="/contribute"
+                    className="inline-flex items-center gap-2 px-3.5 h-9 rounded-md bg-primary text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-xs"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{t("explore.newWork")}</span>
+                  </Link>
+                </div>
+              ) : viewMode === "grid" ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {works.map((w) => (
+                    <Link
+                      key={w.id}
+                      href={`/works/${w.id}`}
+                      className="group relative rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs hover:shadow-elevated hover:border-primary/50 transition-all flex flex-col"
+                    >
+                      <div className="aspect-[3/4] w-full bg-black/5 dark:bg-black/40 relative overflow-hidden">
+                        <EntityCover
+                          src={w.cover_image_url}
+                          alt={w.title}
+                          title={w.title}
+                          originalTitle={w.original_title}
+                          mediaType={w.media_type}
+                          id={w.id}
+                          imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute top-1.5 left-1.5 px-2.5 py-1 rounded-sm bg-black/70 backdrop-blur-md text-xs font-mono text-white">
+                          {w.media_type || t("home.workFallback")}
+                        </div>
+                      </div>
+                      <div className="p-3 space-y-1 flex-1 flex flex-col justify-between">
+                        <div>
+                          <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-1 group-hover:text-primary transition-colors">
+                            {w.title}
+                          </h3>
+                          {w.original_title && <p className="font-mono text-xs text-gray-500 line-clamp-1">{w.original_title}</p>}
+                        </div>
+                        {w.tags && w.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {w.tags.slice(0, 2).map((tg) => (
+                              <span key={tg.id} className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] text-[11px] font-mono text-gray-600 dark:text-gray-400">
+                                #{tg.name}
+                              </span>
+                            ))}
+                            {w.tags.length > 2 && <span className="text-[11px] font-mono text-gray-400">+{w.tags.length - 2}</span>}
+                          </div>
+                        )}
+                        <div className="pt-1.5 flex items-center justify-between font-mono text-xs text-gray-500 border-t border-black/[0.04] dark:border-white/[0.04]">
+                          <span>{w.release_date ? String(w.release_date).slice(0, 4) : "—"}</span>
+                          <span className="flex items-center gap-0.5 group-hover:text-primary transition-colors">
+                            {t("explore.detail")} <ArrowRight className="w-2.5 h-2.5" />
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-black/10 dark:border-white/10 bg-surface overflow-hidden shadow-2xs divide-y divide-black/[0.06] dark:divide-white/[0.06]">
+                  {works.map((w) => (
+                    <Link
+                      key={w.id}
+                      href={`/works/${w.id}`}
+                      className="p-3.5 flex items-center justify-between gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors group"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-12 rounded-sm bg-black/5 dark:bg-black/40 overflow-hidden shrink-0">
+                          <EntityCover
+                            src={w.cover_image_url}
+                            alt={w.title}
+                            title={w.title}
+                            originalTitle={w.original_title}
+                            mediaType={w.media_type}
+                            id={w.id}
+                            imgClassName="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="space-y-0.5 min-w-0">
+                          <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate group-hover:text-primary transition-colors">
+                            {w.title}
+                          </h3>
+                          <p className="font-mono text-xs text-gray-500 truncate">
+                            {w.original_title ? `${w.original_title} · ` : ""}
+                            {w.media_type || ""}
+                            {w.release_date ? ` · ${String(w.release_date).slice(0, 10)}` : ""}
+                          </p>
+                          {w.tags && w.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                              {w.tags.map((tg) => (
+                                <span key={tg.id} className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] text-[11px] font-mono text-gray-500">
+                                  #{tg.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-primary text-sm font-mono flex items-center gap-1.5 shrink-0">
+                        <span>{t("explore.detail")}</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )
+            ) : activeType === "artists" ? (
+              loading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="h-24 rounded-lg bg-black/[0.03] dark:bg-white/[0.03] animate-pulse border border-black/5 dark:border-white/5" />
+                  ))}
+                </div>
+              ) : artists.length === 0 ? (
+                <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
+                  <div className="w-10 h-10 rounded-sm bg-sky-500/10 border border-sky-500/20 text-sky-500 grid place-items-center mx-auto">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noArtistMatchTitle")}</h3>
+                    <p className="font-mono text-sm text-gray-500 max-w-sm mx-auto">{t("explore.noArtistMatchHint")}</p>
+                  </div>
+                  <Link
+                    href="/artists/new"
+                    className="inline-flex items-center gap-2 px-3.5 h-9 rounded-md bg-primary text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-xs"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{t("explore.newArtist")}</span>
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {artists.map((a) => (
+                    <Link
+                      key={a.id}
+                      href={`/artists/${a.id}`}
+                      className="group p-4 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm hover:border-primary/40 hover:shadow-elevated transition-all space-y-1.5"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                            {a.name}
+                          </h3>
+                          {a.original_name && <p className="font-mono text-xs text-gray-500 truncate">{a.original_name}</p>}
+                        </div>
+                        <span className="shrink-0 px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/5 text-[11px] font-mono text-gray-600 dark:text-gray-400">
+                          {t(`entity.${a.entity_type}`) !== `entity.${a.entity_type}` ? t(`entity.${a.entity_type}`) : a.entity_type}
+                        </span>
+                      </div>
+                      {a.disambiguation && <p className="text-xs text-gray-500 line-clamp-2">{a.disambiguation}</p>}
+                      {a.biography && <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">{a.biography}</p>}
+                      <div className="flex items-center gap-2 font-mono text-xs text-gray-500 pt-1.5 border-t border-black/[0.04] dark:border-white/[0.04]">
+                        {a.country && <span>{a.country}</span>}
+                        <span className="ml-auto flex items-center gap-0.5 text-primary">
+                          {t("explore.detail")} <ArrowRight className="w-2.5 h-2.5" />
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )
+            ) : loading ? (
+              <div className="space-y-2.5">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-16 rounded-lg bg-black/[0.03] dark:bg-white/[0.03] animate-pulse border border-black/5 dark:border-white/5" />
+                ))}
+              </div>
+            ) : releases.length === 0 ? (
+              <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
+                <div className="w-10 h-10 rounded-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 grid place-items-center mx-auto">
+                  <Disc className="w-5 h-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noReleaseMatchTitle")}</h3>
+                  <p className="font-mono text-sm text-gray-500 max-w-sm mx-auto">{t("explore.noReleaseMatchHint")}</p>
+                </div>
+                <Link
+                  href="/releases/new"
+                  className="inline-flex items-center gap-2 px-3.5 h-9 rounded-md bg-primary text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{t("explore.newRelease")}</span>
+                </Link>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs divide-y divide-black/[0.06] dark:divide-white/[0.06]">
+                {releases.map((r) => (
+                  <Link
+                    key={r.id}
+                    href={`/releases/${r.id}`}
+                    className="p-3.5 flex items-center justify-between gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors group"
+                  >
+                    <div className="min-w-0 space-y-0.5">
+                      <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                        {r.edition_name}
+                      </h3>
+                      <p className="font-mono text-xs text-gray-500 truncate">
+                        {r.work?.title ? `${r.work.title} · ` : ""}
+                        {r.publisher || r.publisher_entity?.name || t("explore.unknownPublisher")}
+                        {r.catalog_number ? ` · ${r.catalog_number}` : ""}
+                        {r.edition_date ? ` · ${String(r.edition_date).slice(0, 10)}` : ""}
+                      </p>
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <span
+                          className={`px-2 py-0.5 rounded-sm text-[11px] font-mono border ${
+                            r.is_master_verified
+                              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                              : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                          }`}
+                        >
+                          {r.is_master_verified ? t("work.detail.verified") : t("work.detail.pending")}
+                        </span>
+                        {r.packaging && <span className="text-[11px] font-mono text-gray-500">{r.packaging}</span>}
+                      </div>
+                    </div>
+                    <div className="text-primary text-sm font-mono flex items-center gap-0.5 shrink-0">
+                      <span>{t("explore.detail")}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
+    );
 }
 
 export default function ExplorePage() {
