@@ -145,9 +145,13 @@ export default function ReleaseDetailPage() {
           {work?.tags && work.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
               {work.tags.map((tag) => (
-                <span key={tag.id} className="px-2 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/10 font-mono text-[10px] text-gray-600 dark:text-gray-400">
+                <Link
+                  key={tag.id}
+                  href={`/explore?tags=${encodeURIComponent(tag.name)}`}
+                  className="px-2 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/10 hover:border-primary/50 hover:text-primary transition-colors font-mono text-[10px] text-gray-600 dark:text-gray-400"
+                >
                   #{tag.name}
-                </span>
+                </Link>
               ))}
             </div>
           )}

@@ -239,8 +239,9 @@ type Work struct {
 	CoverImageURL   string         `json:"cover_image_url"`
 	ContentRating   string         `gorm:"default:'General'" json:"content_rating"`
 	Status          string         `gorm:"default:'completed'" json:"status"`
-	ViewCount       int64          `gorm:"default:0;not null" json:"view_count"`
-	CatalogMetadata JSONB          `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
+		ViewCount       int64          `gorm:"default:0;not null" json:"view_count"`
+		FavoriteCount   int64          `gorm:"-" json:"favorite_count"`
+		CatalogMetadata JSONB          `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
 	CreatedBy       *uuid.UUID     `gorm:"type:uuid" json:"created_by,omitempty"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`

@@ -431,6 +431,7 @@ export interface Work {
   content_rating?: string;
   status: string;
   view_count: number;
+  favorite_count?: number;
   catalog_metadata: Record<string, any>;
   category?: Category;
   tags?: Tag[];

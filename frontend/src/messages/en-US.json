@@ -105,6 +105,7 @@
   "work.detail.loading": "LOADING WORK…",
   "work.detail.explore": "Explore",
   "work.detail.viewCount": "{count} views",
+  "work.detail.favoriteCount": "{count} favorites",
   "work.detail.clc": "CLC {code}",
   "work.detail.workBadge": "WORK",
   "work.detail.alias": "Aliases: {value}",

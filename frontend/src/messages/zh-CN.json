@@ -105,6 +105,7 @@
   "work.detail.loading": "LOADING WORK…",
   "work.detail.explore": "探索",
   "work.detail.viewCount": "{count} 浏览",
+  "work.detail.favoriteCount": "{count} 收藏",
   "work.detail.clc": "CLC {code}",
   "work.detail.workBadge": "WORK",
   "work.detail.alias": "别名：{value}",

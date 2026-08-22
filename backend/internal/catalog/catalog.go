@@ -442,9 +442,14 @@ func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 		return
 	}
 
-	s.db.Model(&work).UpdateColumn("view_count", gorm.Expr("view_count + 1"))
+		s.db.Model(&work).UpdateColumn("view_count", gorm.Expr("view_count + 1"))
+		work.ViewCount++
 
-	inc := parseInc(c.Query("inc"))
+		var favCount int64
+		_ = s.db.Table("favorites").Where("target_type = ? AND target_id = ?", "work", work.ID).Count(&favCount).Error
+		work.FavoriteCount = favCount
+
+		inc := parseInc(c.Query("inc"))
 	// 处理 fmt 参数：MusicBrainz 兼容，仅支持 json
 	if fmtParam := c.Query("fmt"); fmtParam != "" && fmtParam != "json" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported fmt, only json supported", "code": "BAD_REQUEST"})
