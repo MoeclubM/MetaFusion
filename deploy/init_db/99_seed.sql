@@ -124,5 +124,11 @@ INSERT INTO tags (name, group_type, category_scope) VALUES
 ('奥斯卡', 'theme', '{}')
 ON CONFLICT (name) DO NOTHING;
 
+-- 3.3 默认论坛系统分区（闲聊 / 答疑；announcement、bug_report、comment 由 01/05 种子）
+INSERT INTO forum_boards (code, name_zh, name_en, description, color, icon, sort_order, is_enabled, show_in_feed, names) VALUES
+('casual', '闲聊', 'Casual Chat', '轻松闲聊与站内日常交流', 'purple', 'Coffee', 45, TRUE, TRUE, '{"zh-CN":"闲聊","en-US":"Casual Chat"}'),
+('qa',     '答疑', 'Q&A',         '使用问题、编目与功能答疑', 'teal',   'Hash',   55, TRUE, TRUE, '{"zh-CN":"答疑","en-US":"Q&A"}')
+ON CONFLICT (code) DO NOTHING;
+
 -- 4. 作品 / 主体 / 发行版编目改由 99_z_cross_media_catalog_samples.sql 提供（真实跨媒介样例）。
 -- 旧演示条目（星际穿越、攻壳等）已按部署要求移除。必须排在本文件之后，以便用户与标签序号就绪。

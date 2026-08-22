@@ -1,5 +1,5 @@
 -- 05_forum_boards.sql — forum_boards as first-class entity, FK migration from CHECK
--- Spec: default 3 boards: 站点公告(announcement), Bug反馈(bug_report), 评论专用(comment); comment board is comment-only and excluded from feeds
+-- Spec: default boards: 站点公告(announcement), 闲聊(casual), 答疑(qa), Bug反馈(bug_report), 评论专用(comment); comment board is comment-only and excluded from feeds
 CREATE TABLE IF NOT EXISTS forum_boards (
     code VARCHAR(32) PRIMARY KEY,
     name_zh VARCHAR(64) NOT NULL,
@@ -40,6 +40,11 @@ ON CONFLICT (code) DO UPDATE SET
     sort_order = EXCLUDED.sort_order,
     show_in_feed = EXCLUDED.show_in_feed,
     names = EXCLUDED.names;
+
+INSERT INTO forum_boards (code, name_zh, name_en, description, color, icon, sort_order, is_enabled, show_in_feed, names) VALUES
+('casual', '闲聊', 'Casual Chat', '轻松闲聊与站内日常交流', 'purple', 'Coffee', 45, TRUE, TRUE, '{"zh-CN":"闲聊","en-US":"Casual Chat"}'),
+('qa',     '答疑', 'Q&A',         '使用问题、编目与功能答疑', 'teal',   'Hash',   55, TRUE, TRUE, '{"zh-CN":"答疑","en-US":"Q&A"}')
+ON CONFLICT (code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS user_groups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
