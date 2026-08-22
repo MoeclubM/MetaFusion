@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { Users } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
-import { getLocalizedEntityTypeOptions, EntityType } from "@/lib/api";
+import { dictTermLabel } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
 export function ArtistModal({
@@ -19,7 +21,13 @@ export function ArtistModal({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const entityOpts = getLocalizedEntityTypeOptions(t);
+  const { taxonomy } = useTaxonomy();
+  const entityOpts = taxonomy?.entity_types || [];
+
+  useEffect(() => {
+    if (!open || editingArtist || entityOpts.length === 0) return;
+    setArtistForm((prev) => (prev.entity_type ? prev : { ...prev, entity_type: entityOpts[0].id }));
+  }, [open, editingArtist, entityOpts, setArtistForm]);
   return (
     <Modal
       open={open}
@@ -52,12 +60,12 @@ export function ArtistModal({
             <label className="block text-gray-300 font-medium mb-1">{t("admin.artistModal.fieldType")}</label>
             <select
               value={artistForm.entity_type}
-              onChange={(e) => setArtistForm({ ...artistForm, entity_type: e.target.value as EntityType })}
+              onChange={(e) => setArtistForm({ ...artistForm, entity_type: e.target.value })}
               className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white focus:outline-none focus:border-sky-400"
             >
               {entityOpts.map((opt) => (
-                <option key={opt.code} value={opt.code}>
-                  {opt.name}
+                <option key={opt.id} value={opt.id}>
+                  {dictTermLabel(opt.id, entityOpts)}
                 </option>
               ))}
             </select>

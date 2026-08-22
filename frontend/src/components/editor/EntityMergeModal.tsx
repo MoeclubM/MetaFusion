@@ -10,7 +10,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  targetType: "artist" | "work" | "release";
+  targetType: "work" | "artist" | "release" | "franchise";
   sourceEntity: {
     id: string;
     title: string;
@@ -60,7 +60,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
       if (onMergeSuccess) {
         onMergeSuccess(res.target_id);
       } else {
-        window.location.href = `/${targetType === "artist" ? "artists" : targetType === "work" ? "works" : "releases"}/${res.target_id}`;
+        window.location.href = `/${targetType === "artist" ? "artists" : targetType === "work" ? "works" : targetType === "franchise" ? "franchises" : "releases"}/${res.target_id}`;
       }
     } catch (err: any) {
       setError(err.message || t("editor.merge.failedMsg"));

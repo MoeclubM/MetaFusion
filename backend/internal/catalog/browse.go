@@ -17,7 +17,6 @@ func parseInc(raw string) map[string]bool {
 	if raw == "" {
 		return m
 	}
-	// MusicBrainz 允许 + 和空格组合，这里统一按非字母数字切分后过滤
 	raw = strings.ReplaceAll(raw, "+", " ")
 	raw = strings.ReplaceAll(raw, ",", " ")
 	for _, part := range strings.Fields(raw) {
@@ -36,9 +35,6 @@ func (s *CatalogService) BrowseWorks(c *gin.Context) {
 	tag := c.Query("tag")
 	category := c.Query("category")
 	mediaType := c.Query("media_type")
-	if mediaType == "" {
-		mediaType = c.Query("mediaType")
-	}
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "24"))
 	if page < 1 {

@@ -3,16 +3,13 @@
 import React, { useEffect, useState, Suspense, useCallback } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, Work, VirtualShelf, UserCustomShelf, UserHomeLayout, resetDefaultShelves } from "@/lib/api";
+import { fetchApi, Work, VirtualShelf, UserCustomShelf, UserHomeLayout, resetDefaultShelves, forkPresetShelf } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { HomeShelvesConfigModal } from "@/components/home/HomeShelvesConfigModal";
 import { EntityCover } from "@/components/common/EntityCover";
 import { shelfRuleToExploreHref } from "@/lib/shelfQuery";
 import {
- Compass,
- ArrowRight,
- Disc3,
  Plus,
  Layers,
  Sparkles,
@@ -21,7 +18,6 @@ import {
  Music,
  BookOpen,
  Image as ImageIcon,
- Gamepad2,
  ChevronRight,
  MessageCircle,
  Settings2,
@@ -178,7 +174,6 @@ function HomeShowcaseContent() {
  }
 
  const allWorks: Work[] = worksRes?.items || [];
- // build map for all keys (system + custom) for quick pill counts; actual ordered rendering will recompute
  const grouped: Record<string, Work[]> = {};
   allShelves.forEach((shelf) => {
     grouped[shelf.slug] = allWorks.filter((w) => matchesShelfCriteria(w, shelf.media_type, shelf.query_tags || [], !!shelf.require_all_tags, shelf.exclude_tags || []));
@@ -294,11 +289,45 @@ function HomeShowcaseContent() {
     return shelfRuleToExploreHref(source);
   };
 
-  const openEditFor = (key: string) => {
-    if (!key.startsWith("custom:")) return;
-    setEditingShelfId(key.slice(7));
-    setConfigOpen(true);
+  const openEditFor = async (key: string) => {
+    if (!user) {
+      setEditingShelfId(null);
+      setConfigOpen(true);
+      return;
+    }
+    if (key.startsWith("custom:")) {
+      setEditingShelfId(key.slice(7));
+      setConfigOpen(true);
+      return;
+    }
+    try {
+      const res = await forkPresetShelf(key);
+      if (!res?.shelf?.id) return;
+      const customKey = `custom:${res.shelf.id}`;
+      setCustomShelves((prev) => (prev.some((c) => c.id === res.shelf.id) ? prev : [...prev, res.shelf]));
+      if (res.order) setOrderKeys(res.order);
+      const nextHidden = hiddenSlugs.includes(key) ? hiddenSlugs : [...hiddenSlugs, key];
+      setHiddenSlugs(nextHidden);
+      setWorksByKey((prev) => ({ ...prev, [customKey]: prev[key] || prev[customKey] || [] }));
+      const nextOrder = res.order || orderKeys;
+      try { localStorage.setItem(storageKey, JSON.stringify({ hidden: nextHidden, order: nextOrder })); } catch {}
+      fetchApi("/catalog/home/layout", {
+        method: "PUT",
+        body: JSON.stringify({ hidden_system_slugs: nextHidden, order_json: nextOrder }),
+      }).catch(() => {});
+      setEditingShelfId(res.shelf.id);
+      setConfigOpen(true);
+    } catch (e) {
+      console.error("fork preset shelf failed", e);
+      setEditingShelfId(null);
+      setConfigOpen(true);
+    }
   };
+
+ const customSlugSet = new Set<string>([
+   ...customShelves.map((c) => c.slug),
+   ...Array.from(publicCache.values()).map((c) => c.slug),
+ ]);
 
  // build ordered display list — public for guests
  const allKeysOrdered = (() => {
@@ -308,13 +337,13 @@ function HomeShowcaseContent() {
  base.forEach((k) => {
  if (!k || seen.has(k)) return;
  seen.add(k);
- // skip hidden system
- if (!k.startsWith("custom:") && hiddenSlugs.includes(k)) return;
+ if (!k.startsWith("custom:")) {
+   if (hiddenSlugs.includes(k) || customSlugSet.has(k)) return;
+ }
  out.push(k);
  });
- // append any missing system/custom not in order (new shelves)
  shelves.forEach((s) => {
- if (!seen.has(s.slug) && !hiddenSlugs.includes(s.slug)) {
+ if (!seen.has(s.slug) && !hiddenSlugs.includes(s.slug) && !customSlugSet.has(s.slug)) {
  out.push(s.slug);
  seen.add(s.slug);
  }
@@ -326,7 +355,6 @@ function HomeShowcaseContent() {
  seen.add(k);
  }
  });
- // also include publicCache keys that are in order but not in customShelves
  publicCache.forEach((_, k) => {
  if (!seen.has(k) && orderKeys.includes(k)) {
  out.push(k);
@@ -349,35 +377,11 @@ function HomeShowcaseContent() {
  <Navbar />
 
  <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full flex-1 space-y-5">
- {/* Channel quick nav */}
- <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
- {allKeysOrdered.map((key) => {
- const isCustom = key.startsWith("custom:");
- const sys = !isCustom ? systemMap.get(key) : null;
- const cs = isCustom ? customMap.get(key) : null;
- const label = isCustom
- ? (locale === "en-US" && cs?.name_en ? cs!.name_en : cs?.name_zh || key)
- : (locale === "en-US" && sys?.name_en ? sys!.name_en : sys?.name_zh || key);
- const Icon = isCustom
- ? (SHELF_ICONS[cs?.media_type || ""] || Sparkles)
- : (SHELF_ICONS[key] || SHELF_ICONS[sys?.media_type || ""] || Layers);
- const count = worksByKey[key]?.length ?? 0;
- return (
- <a
- key={key}
- href={`#shelf-${key}`}
- className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md border border-black/10 dark:border-white/10 bg-surface hover:border-primary/50 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary transition-all whitespace-nowrap shadow-2xs"
- >
- <Icon className="w-4 h-4 text-primary" strokeWidth={1.7} />
- <span>{label}</span>
- <span className="font-mono text-xs text-gray-400">({count})</span>
- </a>
- );
- })}
+ <div className="flex items-center justify-end">
  <button
  type="button"
- onClick={() => setConfigOpen(true)}
- className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md border border-dashed border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 text-sm font-medium whitespace-nowrap shrink-0"
+ onClick={() => { setEditingShelfId(null); setConfigOpen(true); }}
+ className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md border border-dashed border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 text-sm font-medium whitespace-nowrap"
  >
  <Settings2 className="w-4 h-4" />
  <span>{t("shelf.customize")}</span>
@@ -431,18 +435,8 @@ function HomeShowcaseContent() {
  <Icon className="w-4 h-4" strokeWidth={1.8} />
  </div>
  <div>
- <h2 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm flex items-center gap-2">
+ <h2 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">
  {shelfTitle}
- {isCustom && user && (
- <button
- type="button"
- onClick={() => openEditFor(key)}
- className="p-1.5 rounded-sm text-gray-400 hover:text-primary hover:bg-primary/10 transition-colors max-sm:min-h-[44px] max-sm:min-w-[44px] grid place-items-center"
- title={t("home.shelves.editShelf")}
- >
- <Pencil className="w-3.5 h-3.5" />
- </button>
- )}
  </h2>
  <p className="font-mono text-sm text-gray-500">
  {t("home.channelWorksCount", { count: shelfWorks.length })}
@@ -451,6 +445,16 @@ function HomeShowcaseContent() {
  </div>
  </div>
 
+ <div className="flex items-center gap-3">
+ <button
+ type="button"
+ onClick={() => openEditFor(key)}
+ className="inline-flex items-center gap-1 font-mono text-sm text-gray-500 hover:text-primary transition-colors max-sm:min-h-[44px]"
+ title={t("home.shelves.editShelf")}
+ >
+ <Pencil className="w-3.5 h-3.5" />
+ <span>{t("common.edit")}</span>
+ </button>
  <Link
  href={viewAllHref}
  className="inline-flex items-center gap-0.5 font-mono text-sm text-primary hover:underline font-medium"
@@ -458,6 +462,7 @@ function HomeShowcaseContent() {
  <span>{t("home.viewAll")}</span>
  <ChevronRight className="w-4 h-4" />
  </Link>
+ </div>
  </div>
 
  {shelfWorks.length === 0 ? (

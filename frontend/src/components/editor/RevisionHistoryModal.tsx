@@ -9,7 +9,7 @@ import { DiffViewer } from "./DiffViewer";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  targetType: "work" | "artist" | "release";
+  targetType: "work" | "artist" | "release" | "franchise";
   targetId: string;
   entityTitle: string;
 }

@@ -26,7 +26,7 @@ export interface User {
 }
 
 // ── 收藏 ──
-export type FavoriteTargetType = "work" | "release" | "artist";
+export type FavoriteTargetType = "work" | "release" | "artist" | "franchise";
 
 export interface FavoriteItem {
   id: string;
@@ -36,6 +36,7 @@ export interface FavoriteItem {
   work?: { id: string; title: string; media_type: string; cover_image_url?: string };
   release?: { id: string; work_id: string; edition_name: string };
   artist?: { id: string; name: string; original_name?: string; entity_type?: string };
+  franchise?: { id: string; title: string; original_title?: string; cover_image_url?: string };
 }
 
 /** 切换收藏状态，返回切换后是否已收藏 */
@@ -128,68 +129,51 @@ export interface TaxonomyResponse {
   shelves?: VirtualShelf[];
   tags?: Tag[];
   tag_groups?: Record<string, Tag[]>;
-  media_types: { id: string; name_zh: string; name_en: string; name?: string }[];
-  entity_types?: { id: string; name_zh: string; name_en: string; name?: string; desc_zh?: string; desc_en?: string; desc?: string; color?: string; bg_color?: string; border_color?: string }[];
-  roles: { id: string; name_zh: string; name_en: string }[];
-  packagings: { id: string; name_zh: string; name_en: string }[];
+  media_types: DictTerm[];
+  entity_types?: DictTerm[];
+  roles: DictTerm[];
+  packagings: DictTerm[];
   formats: { id: string; name: string }[];
   languages: { code: string; name: string }[];
 }
 
-export type EntityType = 'person' | 'group' | 'orchestra' | 'studio' | 'publisher' | 'circle' | 'label';
+/** 词表条目。展示名以服务端按请求 locale 填好的 name 为准，不在前端维护类型译文。 */
+export type DictTerm = {
+  id: string;
+  name?: string;
+  name_zh?: string;
+  name_en?: string;
+  desc?: string;
+  desc_zh?: string;
+  desc_en?: string;
+  color?: string;
+  bg_color?: string;
+  border_color?: string;
+  forward?: string;
+  reverse?: string;
+};
 
-// i18n: name/desc 通过 entity.* 翻译键渲染，禁止直接写死中文；页面请用 getLocalizedEntityTypeOptions(t) 或 getEntityName(code, t) / getEntityDesc(code, t)
-// 保留的 name/desc 为 legacy offline fallback（英文），真实展示以 t(nameKey/descKey) 为准
-export const ENTITY_TYPE_OPTIONS: { code: EntityType; nameKey: string; descKey: string; name: string; desc: string; color: string; bgColor: string; borderColor: string }[] = [
-  { code: 'person', nameKey: 'entity.person', descKey: 'entity.personDesc', name: 'Individual Creator', desc: 'Director, author, composer, arranger, lyricist, illustrator, etc.', color: 'text-amber-400', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/30' },
-  { code: 'studio', nameKey: 'entity.studio', descKey: 'entity.studioDesc', name: 'Studio', desc: 'Animation studio, production company, dev team, etc.', color: 'text-purple-400', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/30' },
-  { code: 'publisher', nameKey: 'entity.publisher', descKey: 'entity.publisherDesc', name: 'Publisher / Label', desc: 'Book publisher, AV distributor, record label, etc.', color: 'text-sky-400', bgColor: 'bg-sky-500/10', borderColor: 'border-sky-500/30' },
-  { code: 'orchestra', nameKey: 'entity.orchestra', descKey: 'entity.orchestraDesc', name: 'Orchestra', desc: 'Symphony, chamber orchestra, philharmonic, etc.', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10', borderColor: 'border-emerald-500/30' },
-  { code: 'group', nameKey: 'entity.group', descKey: 'entity.groupDesc', name: 'Band / Group', desc: 'Rock band, chamber group, idol group, etc.', color: 'text-rose-400', bgColor: 'bg-rose-500/10', borderColor: 'border-rose-500/30' },
-  { code: 'circle', nameKey: 'entity.circle', descKey: 'entity.circleDesc', name: 'Circle', desc: 'Doujin music circle, indie creative group, etc.', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', borderColor: 'border-indigo-500/30' },
-  { code: 'label', nameKey: 'entity.label', descKey: 'entity.labelDesc', name: 'Indie Label', desc: 'Imprint, sub-label, specialty music label, etc.', color: 'text-teal-400', bgColor: 'bg-teal-500/10', borderColor: 'border-teal-500/30' },
-];
-
-export function getLocalizedEntityTypeOptions(t: (k: string) => string) {
-  const map: Record<EntityType, { nameKey: string; descKey: string; color: string; bgColor: string; borderColor: string }> = {
-    person: { nameKey: 'entity.person', descKey: 'entity.personDesc', color: 'text-amber-400', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/30' },
-    studio: { nameKey: 'entity.studio', descKey: 'entity.studioDesc', color: 'text-purple-400', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/30' },
-    publisher: { nameKey: 'entity.publisher', descKey: 'entity.publisherDesc', color: 'text-sky-400', bgColor: 'bg-sky-500/10', borderColor: 'border-sky-500/30' },
-    orchestra: { nameKey: 'entity.orchestra', descKey: 'entity.orchestraDesc', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10', borderColor: 'border-emerald-500/30' },
-    group: { nameKey: 'entity.group', descKey: 'entity.groupDesc', color: 'text-rose-400', bgColor: 'bg-rose-500/10', borderColor: 'border-rose-500/30' },
-    circle: { nameKey: 'entity.circle', descKey: 'entity.circleDesc', color: 'text-indigo-400', bgColor: 'bg-indigo-500/10', borderColor: 'border-indigo-500/30' },
-    label: { nameKey: 'entity.label', descKey: 'entity.labelDesc', color: 'text-teal-400', bgColor: 'bg-teal-500/10', borderColor: 'border-teal-500/30' },
-  };
-  return (Object.keys(map) as EntityType[]).map((code) => ({
-    code,
-    name: t(map[code].nameKey),
-    desc: t(map[code].descKey),
-    color: map[code].color,
-    bgColor: map[code].bgColor,
-    borderColor: map[code].borderColor,
-  }));
+export function dictTermLabel(code: string | undefined | null, terms?: DictTerm[] | null): string {
+  if (!code) return '';
+  const hit = terms?.find((t) => t.id === code);
+  if (!hit) return code;
+  return (hit.name || hit.name_zh || hit.name_en || code).trim() || code;
 }
 
-// ── i18n helpers: prefer these over reading ENTITY_TYPE_OPTIONS / ROLE_OPTIONS .name directly ──
-// ENTITY_TYPE_OPTIONS / ROLE_OPTIONS 保留的 name/desc 为 legacy fallback（英文），展示层应走 t(nameKey/descKey)
-export function getEntityName(code: string, t: (k: string) => string): string {
-  return t(`entity.${code}`);
+/** 四类编目枢纽；其余 code 都是主体（artists）上的动态 entity_type。 */
+export const CATALOG_HUBS = ['work', 'artist', 'release', 'franchise', 'canonical_entry'] as const;
+export type CatalogHub = (typeof CATALOG_HUBS)[number];
+
+export function isCatalogHub(type: string): type is CatalogHub {
+  return (CATALOG_HUBS as readonly string[]).includes(type);
 }
-export function getEntityDesc(code: string, t: (k: string) => string): string {
-  return t(`entity.${code}Desc`);
+
+export function catalogHubOf(type: string): CatalogHub {
+  const normalized = (type || '').toLowerCase();
+  if (isCatalogHub(normalized)) return normalized;
+  return 'artist';
 }
-export function getRoleName(code: string, t: (k: string) => string): string {
-  const key = `role.${code}`;
-  const translated = t(key);
-  if (translated && translated !== key) return translated;
-  return code;
-}
-export function getMediaTypeName(code: string, t: (k: string) => string): string {
-  const key = `media_type.${code}`;
-  const translated = t(key);
-  if (translated && translated !== key) return translated;
-  return code;
-}
+
 export function getBoardName(code: string, t: (k: string) => string): string {
   return t(`board.${code}`);
 }
@@ -210,18 +194,48 @@ export interface Tag {
   group_type: string;
 }
 
+export interface EntityTranslation {
+  locale: string;
+  title?: string;
+  name?: string;
+  summary?: string;
+  biography?: string;
+}
+
+export function pickLocalized(
+  locale: string,
+  translations: EntityTranslation[] | undefined,
+  fallbackTitle: string,
+  fallbackBody?: string
+): { title: string; body: string } {
+  const rows = translations || [];
+  const exact = rows.find((r) => r.locale === locale);
+  if (exact) {
+    return {
+      title: (exact.title || exact.name || fallbackTitle || "").trim() || fallbackTitle,
+      body: (exact.summary || exact.biography || fallbackBody || "").trim() || (fallbackBody || ""),
+    };
+  }
+  return {
+    title: (fallbackTitle || "").trim(),
+    body: (fallbackBody || "").trim(),
+  };
+}
+
 export interface Artist {
   id: string;
   name: string;
   original_name?: string;
   disambiguation?: string;
-  entity_type: EntityType | string;
+  entity_type: string;
   country?: string;
   biography?: string;
+  language?: string;
   begin_date?: string;
   end_date?: string;
   ended?: boolean;
   external_ids: Record<string, any>;
+  translations?: EntityTranslation[];
 }
 
 export interface ArtistWorkItem {
@@ -236,6 +250,7 @@ export interface ConnectedEntityItem {
   country?: string;
   relationship_type: string;
   relationship_name: string;
+  qualifier?: string;
   direction: 'forward' | 'reverse';
   label: string;
   begin_date?: string;
@@ -272,6 +287,7 @@ export interface EntityRelationship {
   target_type: string;
   target_id: string;
   relationship_type: string;
+  qualifier?: string;
   begin_date?: string;
   end_date?: string;
   ended?: boolean;
@@ -404,6 +420,10 @@ export interface Release {
   publisher?: string;
   packaging?: string;
   edition_date?: string;
+  country?: string;
+  language?: string;
+  distribution_channel?: string;
+  catalog_metadata?: Record<string, any>;
   uploader?: User;
   publisher_entity?: Artist;
   work?: Work;
@@ -438,10 +458,61 @@ export interface Work {
   tags?: Tag[];
   artist_relations?: WorkArtistRelation[];
   releases?: Release[];
+  connected_entities?: ConnectedEntityItem[];
+  relations?: EntityRelationship[];
+  translations?: EntityTranslation[];
   created_by?: string;
   creator?: User;
   created_at?: string;
   updated_at?: string;
+}
+
+export interface Franchise {
+  id: string;
+  title: string;
+  original_title?: string;
+  aliases?: string[];
+  disambiguation?: string;
+  summary?: string;
+  cover_image_url?: string;
+  begin_date?: string;
+  end_date?: string;
+  ended?: boolean;
+  country?: string;
+  language?: string;
+  external_ids?: Record<string, any>;
+  catalog_metadata?: Record<string, any>;
+  favorite_count?: number;
+  tags?: Tag[];
+  translations?: EntityTranslation[];
+  created_at?: string;
+}
+
+export interface FranchiseDetailResponse {
+  franchise: Franchise;
+  parents?: Franchise[];
+  children?: Franchise[];
+  works?: Work[];
+  agents?: Artist[];
+  connected_entities?: ConnectedEntityItem[];
+  relations?: EntityRelationship[];
+}
+
+export function catalogEntityHref(type: string, id: string): string {
+  switch (catalogHubOf(type)) {
+    case "work":
+      return `/works/${id}`;
+    case "artist":
+      return `/artists/${id}`;
+    case "release":
+      return `/releases/${id}`;
+    case "franchise":
+      return `/franchises/${id}`;
+    case "canonical_entry":
+      return `/explore`;
+    default:
+      return `/artists/${id}`;
+  }
 }
 
 export interface GraphNode {
@@ -909,6 +980,13 @@ export async function updateArtist(id: string, payload: Record<string, any>): Pr
 
 export async function updateRelease(id: string, payload: Record<string, any>): Promise<{ status: string; release: Release }> {
   return fetchApi<{ status: string; release: Release }>(`/catalog/releases/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateFranchise(id: string, payload: Record<string, any>): Promise<{ status: string; franchise: Franchise }> {
+  return fetchApi<{ status: string; franchise: Franchise }>(`/catalog/franchises/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });

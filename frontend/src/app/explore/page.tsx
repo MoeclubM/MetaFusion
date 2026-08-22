@@ -7,13 +7,15 @@ import { Navbar } from "@/components/Navbar";
 import {
   fetchApi,
   Work,
-  Tag,
-  TaxonomyResponse,
   Artist,
   Release,
+  Franchise,
+  dictTermLabel,
 } from "@/lib/api";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { useI18n } from "@/i18n/I18nProvider";
 import { EntityCover } from "@/components/common/EntityCover";
+import { Select } from "@/components/ui/Select";
 import {
  SlidersHorizontal,
  LayoutGrid,
@@ -28,18 +30,20 @@ import {
  Layers,
  Users,
  Disc,
+ Network,
 } from "lucide-react";
 
-type ExploreType = "works" | "artists" | "releases";
+type ExploreType = "works" | "artists" | "releases" | "franchises";
 
 function ExploreContent() {
  const { t } = useI18n();
+ const { taxonomy, entityTypeLabel } = useTaxonomy();
  const searchParams = useSearchParams();
  const router = useRouter();
 
  const typeParam = (searchParams.get("type") as ExploreType) || "works";
  const activeType: ExploreType =
- typeParam === "artists" || typeParam === "releases" ? typeParam : "works";
+ typeParam === "artists" || typeParam === "releases" || typeParam === "franchises" ? typeParam : "works";
  const queryParam = searchParams.get("q") || "";
  const tagsParam = searchParams.get("tags") || "";
  const tagMatchParam = searchParams.get("tag_match") === "all" ? "all" : "any";
@@ -48,8 +52,9 @@ function ExploreContent() {
   const [works, setWorks] = useState<Work[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [releases, setReleases] = useState<Release[]>([]);
-  const [tagGroups, setTagGroups] = useState<Record<string, Tag[]>>({});
-  const [dynamicEntityTypes, setDynamicEntityTypes] = useState<{ id: string; name: string; name_zh: string; name_en: string; desc?: string }[]>([]);
+  const [franchises, setFranchises] = useState<Franchise[]>([]);
+  const tagGroups = taxonomy?.tag_groups || {};
+  const dynamicEntityTypes = taxonomy?.entity_types || [];
   const [selectedTags, setSelectedTags] = useState<string[]>(
     tagsParam ? tagsParam.split(",").filter(Boolean) : []
   );
@@ -60,15 +65,6 @@ function ExploreContent() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showTagFilterPanel, setShowTagFilterPanel] = useState<boolean>(false);
   const [total, setTotal] = useState<number>(0);
-
-  useEffect(() => {
-    fetchApi<TaxonomyResponse>("/catalog/taxonomy")
-      .then((data) => {
-        if (data.tag_groups) setTagGroups(data.tag_groups);
-        if (data.entity_types) setDynamicEntityTypes(data.entity_types as any);
-      })
-      .catch(() => {});
-  }, []);
 
  useEffect(() => {
  setSearchInput(queryParam);
@@ -186,9 +182,27 @@ function ExploreContent() {
  }
  };
 
+ const loadFranchises = async () => {
+ setLoading(true);
+ try {
+ const params = new URLSearchParams();
+ if (queryParam) params.append("q", queryParam);
+ params.append("page_size", "24");
+ const res = await fetchApi<{ items: Franchise[]; total: number }>(`/catalog/franchises?${params.toString()}`);
+ setFranchises(res.items || []);
+ setTotal(res.total ?? (res.items || []).length);
+ } catch {
+ setFranchises([]);
+ setTotal(0);
+ } finally {
+ setLoading(false);
+ }
+ };
+
  useEffect(() => {
  if (activeType === "works") loadWorks();
  else if (activeType === "artists") loadArtists();
+ else if (activeType === "franchises") loadFranchises();
  else loadReleases();
  // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [activeType, selectedTags, queryParam, selectedEntityType, sortBy, tagsParam, tagMatchParam, mediaTypeParam]);
@@ -240,6 +254,8 @@ function ExploreContent() {
  ? t("explore.searchPlaceholderArtist")
  : activeType === "releases"
  ? t("explore.searchPlaceholderRelease")
+ : activeType === "franchises"
+ ? t("explore.searchPlaceholderFranchise")
  : t("explore.searchPlaceholder");
 
     return (
@@ -258,7 +274,7 @@ function ExploreContent() {
               <h2 className="text-xs font-mono font-bold tracking-widest text-gray-500 uppercase">
                 {t("explore.title")}
               </h2>
-              <div className="grid grid-cols-3 md:grid-cols-1 gap-1">
+              <div className="grid grid-cols-2 md:grid-cols-1 gap-1">
                 <button
                   onClick={() => handleSwitchType("works")}
                   className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors text-left ${
@@ -291,6 +307,17 @@ function ExploreContent() {
                 >
                   <Disc className="w-4 h-4 shrink-0" />
                   <span className="truncate">{t("explore.typeReleases")}</span>
+                </button>
+                <button
+                  onClick={() => handleSwitchType("franchises")}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors text-left ${
+                    activeType === "franchises"
+                      ? "bg-primary text-white shadow-xs"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                  }`}
+                >
+                  <Network className="w-4 h-4 shrink-0" />
+                  <span className="truncate">{t("explore.typeFranchises")}</span>
                 </button>
               </div>
             </div>
@@ -347,12 +374,15 @@ function ExploreContent() {
               </div>
             )}
 
-            {/* Sub-Filters: Artists Entity Types */}
+            {/* Sub-Filters: Artists Entity Types（词表动态，不写死 code） */}
             {activeType === "artists" && (
               <div className="space-y-2 pt-4 border-t border-black/5 dark:border-white/[0.06]">
                 <h3 className="text-xs font-mono font-bold tracking-widest text-gray-500 uppercase">
-                  {t("explore.artistHint")}
+                  {t("explore.artistFilterTitle")}
                 </h3>
+                <p className="text-[11px] font-mono text-gray-500 leading-relaxed">
+                  {t("explore.artistHint")}
+                </p>
                 <div className="space-y-1">
                   <button
                     onClick={() => {
@@ -373,6 +403,7 @@ function ExploreContent() {
                     return (
                       <button
                         key={opt.id}
+                        title={opt.desc || undefined}
                         onClick={() => {
                           const next = isSelected ? "" : opt.id;
                           setSelectedEntityType(next);
@@ -384,7 +415,7 @@ function ExploreContent() {
                             : "text-gray-600 dark:text-gray-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
                         }`}
                       >
-                        <span className="truncate">{opt.name || opt.name_zh || opt.id}</span>
+                        <span className="truncate">{dictTermLabel(opt.id, dynamicEntityTypes)}</span>
                         {isSelected && <span>✓</span>}
                       </button>
                     );
@@ -398,6 +429,13 @@ function ExploreContent() {
               <div className="pt-4 border-t border-black/5 dark:border-white/[0.06]">
                 <p className="text-xs text-gray-500 font-mono leading-relaxed">
                   {t("explore.releaseHint")}
+                </p>
+              </div>
+            )}
+            {activeType === "franchises" && (
+              <div className="pt-4 border-t border-black/5 dark:border-white/[0.06]">
+                <p className="text-xs text-gray-500 font-mono leading-relaxed">
+                  {t("explore.franchiseHint")}
                 </p>
               </div>
             )}
@@ -442,15 +480,16 @@ function ExploreContent() {
               <div className="flex items-center gap-2 shrink-0">
                 {activeType === "works" && (
                   <>
-                    <select
+                    <Select
                       value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as any)}
-                      className="h-10 px-3 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs text-gray-700 dark:text-gray-300 font-mono focus:outline-none"
-                    >
-                      <option value="created_at">{t("explore.latestAdded")}</option>
-                      <option value="release_date">{t("explore.byYear")}</option>
-                      <option value="title">{t("explore.byName")}</option>
-                    </select>
+                      onChange={(val) => setSortBy(val as typeof sortBy)}
+                      className="h-10 px-3 text-xs font-mono text-gray-700 dark:text-gray-300 min-w-[9.5rem]"
+                      options={[
+                        { value: "created_at", label: t("explore.latestAdded") },
+                        { value: "release_date", label: t("explore.byYear") },
+                        { value: "title", label: t("explore.byName") },
+                      ]}
+                    />
 
                     <div className="flex items-center gap-0.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.03] dark:bg-white/[0.04] p-0.5">
                       <button
@@ -486,6 +525,8 @@ function ExploreContent() {
                       ? t("explore.filterResult", { count: total })
                       : activeType === "artists"
                       ? t("explore.filterResultArtists", { count: total })
+                      : activeType === "franchises"
+                      ? t("explore.filterResultFranchises", { count: total })
                       : t("explore.filterResultReleases", { count: total })}
                   </span>
                   {mediaTypeParam && mediaTypeParam !== "all" && (
@@ -512,8 +553,7 @@ function ExploreContent() {
                   {selectedEntityType && (
                     <span className="px-2 py-0.5 rounded bg-sky-500/10 text-sky-500 border border-sky-500/20 flex items-center gap-1.5 font-mono text-xs">
                       <span>
-                        {dynamicEntityTypes.find((e) => e.id === selectedEntityType)?.name ||
-                          (t(`entity.${selectedEntityType}`) !== `entity.${selectedEntityType}` ? t(`entity.${selectedEntityType}`) : selectedEntityType)}
+                        {entityTypeLabel(selectedEntityType)}
                       </span>
                       <button
                         onClick={() => {
@@ -702,8 +742,7 @@ function ExploreContent() {
                           {a.original_name && <p className="font-mono text-xs text-gray-500 truncate">{a.original_name}</p>}
                         </div>
                         <span className="shrink-0 px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/5 text-[11px] font-mono text-gray-600 dark:text-gray-400">
-                          {dynamicEntityTypes.find((e) => e.id === a.entity_type)?.name ||
-                            (t(`entity.${a.entity_type}`) !== `entity.${a.entity_type}` ? t(`entity.${a.entity_type}`) : a.entity_type)}
+                          {entityTypeLabel(a.entity_type)}
                         </span>
                       </div>
                       {a.disambiguation && <p className="text-xs text-gray-500 line-clamp-2">{a.disambiguation}</p>}
@@ -714,6 +753,50 @@ function ExploreContent() {
                           {t("explore.detail")} <ArrowRight className="w-2.5 h-2.5" />
                         </span>
                       </div>
+                    </Link>
+                  ))}
+                </div>
+              )
+            ) : activeType === "franchises" ? (
+              loading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-24 rounded-lg bg-black/[0.03] dark:bg-white/[0.03] animate-pulse border border-black/5 dark:border-white/5" />
+                  ))}
+                </div>
+              ) : franchises.length === 0 ? (
+                <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
+                  <div className="w-10 h-10 rounded-sm bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 grid place-items-center mx-auto">
+                    <Network className="w-5 h-5" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noFranchiseMatchTitle")}</h3>
+                    <p className="font-mono text-sm text-gray-500 max-w-sm mx-auto">{t("explore.noFranchiseMatchHint")}</p>
+                  </div>
+                  <Link
+                    href="/franchises/new"
+                    className="inline-flex items-center gap-2 px-3.5 h-9 rounded-md bg-primary text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-xs"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{t("explore.newFranchise")}</span>
+                  </Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {franchises.map((f) => (
+                    <Link
+                      key={f.id}
+                      href={`/franchises/${f.id}`}
+                      className="group p-4 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm hover:border-primary/40 hover:shadow-elevated transition-all space-y-1.5"
+                    >
+                      <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                        {f.title}
+                      </h3>
+                      {f.original_title && <p className="font-mono text-xs text-gray-500 truncate">{f.original_title}</p>}
+                      {f.disambiguation && <p className="text-xs text-gray-500 line-clamp-2">{f.disambiguation}</p>}
+                      <span className="ml-auto flex items-center gap-0.5 text-primary font-mono text-xs">
+                        {t("explore.detail")} <ArrowRight className="w-2.5 h-2.5" />
+                      </span>
                     </Link>
                   ))}
                 </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchApi, TaxonomyResponse } from "@/lib/api";
+import { fetchApi, TaxonomyResponse, dictTermLabel } from "@/lib/api";
 
 let cachedTaxonomy: TaxonomyResponse | null = null;
 let pendingPromise: Promise<TaxonomyResponse> | null = null;
@@ -53,5 +53,11 @@ export function useTaxonomy() {
     };
   }, []);
 
-  return { taxonomy, loading };
+  return {
+    taxonomy,
+    loading,
+    entityTypeLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.entity_types),
+    mediaTypeLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.media_types),
+    roleLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.roles),
+  };
 }

@@ -47,9 +47,12 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		&models.Category{},
 		&models.VirtualShelf{},
 		&models.Tag{},
+		&models.MediaType{},
 		&models.Artist{},
 		&models.WorkArtistRelation{},
 		&models.Work{},
+		&models.Franchise{},
+		&models.FranchiseTranslation{},
 		&models.Release{},
 		&models.Medium{},
 		&models.CanonicalEntry{},
@@ -78,6 +81,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		&models.ApiToken{},
 		&models.Favorite{},
 	)
+	ApplyPatches(db)
 	log.Println("Database connection pool initialized successfully.")
 	return db, nil
 }

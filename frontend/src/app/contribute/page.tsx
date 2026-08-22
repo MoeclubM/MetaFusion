@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
-import { Layers, Users, Disc, ArrowRight, Lock, LogIn } from "lucide-react";
+import { Layers, Users, Disc, Network, ArrowRight, Lock, LogIn } from "lucide-react";
 
 export default function ContributeHubPage() {
   const { user } = useAuth();
@@ -38,6 +38,15 @@ export default function ContributeHubPage() {
       border: "hover:border-emerald-500/30",
       bg: "bg-emerald-500/10",
     },
+    {
+      href: "/franchises/new",
+      icon: Network,
+      title: t("create.hub.cardFranchiseTitle"),
+      desc: t("create.hub.cardFranchiseDesc"),
+      accent: "text-indigo-400",
+      border: "hover:border-indigo-500/30",
+      bg: "bg-indigo-500/10",
+    },
   ] as const;
 
   return (
@@ -70,7 +79,7 @@ export default function ContributeHubPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           {cards.map((c) => {
             const Icon = c.icon;
             return (

@@ -147,6 +147,16 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 	}
 
 	// 专类搜索：artist/release 直查 SQL，work 走 ES 优先
+	if typ == "franchise" {
+		var franchises []models.Franchise
+		like := "%" + q + "%"
+		dbq := s.db.Model(&models.Franchise{}).Where("title ILIKE ? OR original_title ILIKE ? OR disambiguation ILIKE ? OR array_to_string(aliases, ' ') ILIKE ?", like, like, like, like)
+		var total int64
+		dbq.Count(&total)
+		dbq.Offset(offset).Limit(limit).Find(&franchises)
+		c.JSON(http.StatusOK, gin.H{"type": "franchise", "items": franchises, "total": total, "limit": limit, "offset": offset, "query": q})
+		return
+	}
 	if typ == "artist" {
 		var artists []models.Artist
 		like := "%" + q + "%"
@@ -172,10 +182,12 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		var works []models.Work
 		var artists []models.Artist
 		var releases []models.Release
+		var franchises []models.Franchise
 		s.db.Where("title ILIKE ? OR original_title ILIKE ?", like, like).Limit(limit).Find(&works)
 		s.db.Where("name ILIKE ? OR original_name ILIKE ?", like, like).Limit(limit).Find(&artists)
 		s.db.Where("edition_name ILIKE ? OR publisher ILIKE ?", like, like).Preload("Work").Limit(limit).Find(&releases)
-		c.JSON(http.StatusOK, gin.H{"type": "all", "works": works, "artists": artists, "releases": releases, "query": q})
+		s.db.Where("title ILIKE ? OR original_title ILIKE ? OR array_to_string(aliases, ' ') ILIKE ?", like, like, like).Limit(limit).Find(&franchises)
+		c.JSON(http.StatusOK, gin.H{"type": "all", "works": works, "artists": artists, "releases": releases, "franchises": franchises, "query": q})
 		return
 	}
 

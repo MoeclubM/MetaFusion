@@ -1,8 +1,9 @@
 "use client";
 
 import { Users, Plus } from "lucide-react";
-import { getLocalizedEntityTypeOptions } from "@/lib/api";
+import { dictTermLabel } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
 export function AgentsTab({
@@ -19,7 +20,8 @@ export function AgentsTab({
   "loading" | "filteredArtists" | "artistsList" | "selectedEntityType" | "setSelectedEntityType" | "handleOpenCreateArtist" | "handleOpenEditArtist" | "handleDeleteArtist"
 >) {
   const { t } = useI18n();
-  const entityOpts = getLocalizedEntityTypeOptions(t);
+  const { taxonomy, entityTypeLabel } = useTaxonomy();
+  const entityOpts = taxonomy?.entity_types || [];
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -51,18 +53,18 @@ export function AgentsTab({
           {t("admin.agents.all", { count: artistsList.length })}
         </button>
         {entityOpts.map((opt) => {
-          const count = artistsList.filter((a) => a.entity_type === opt.code).length;
+          const count = artistsList.filter((a) => a.entity_type === opt.id).length;
           return (
             <button
-              key={opt.code}
-              onClick={() => setSelectedEntityType(opt.code)}
+              key={opt.id}
+              onClick={() => setSelectedEntityType(opt.id)}
               className={`px-3 py-1 rounded-lg border transition-colors whitespace-nowrap ${
-                selectedEntityType === opt.code
+                selectedEntityType === opt.id
                   ? "bg-white text-black border-white font-semibold"
                   : "bg-surface border-surfaceBorder text-gray-400 hover:text-white"
               }`}
             >
-              {opt.name} ({count})
+              {dictTermLabel(opt.id, entityOpts)} ({count})
             </button>
           );
         })}
@@ -102,7 +104,7 @@ export function AgentsTab({
                   </td>
                   <td className="py-3 px-3">
                     <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-white/[0.06] border border-white/10 text-gray-300">
-                      {entityOpts.find((o) => o.code === artist.entity_type)?.name || artist.entity_type}
+                      {entityTypeLabel(artist.entity_type)}
                     </span>
                   </td>
                   <td className="py-3 px-3 font-mono text-gray-300">{artist.country || "—"}</td>

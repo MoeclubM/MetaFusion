@@ -57,7 +57,7 @@ type User struct {
 type Favorite struct {
 	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	UserID     uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_fav_user_target,priority:1" json:"user_id"`
-	TargetType string    `gorm:"type:varchar(16);not null;uniqueIndex:idx_fav_user_target,priority:2" json:"target_type"` // 'work', 'release', 'artist'
+	TargetType string    `gorm:"type:varchar(16);not null;uniqueIndex:idx_fav_user_target,priority:2" json:"target_type"` // 'work', 'release', 'artist', 'franchise'
 	TargetID   uuid.UUID `gorm:"type:uuid;not null;uniqueIndex:idx_fav_user_target,priority:3" json:"target_id"`
 	CreatedAt  time.Time `gorm:"index" json:"created_at"`
 
@@ -81,25 +81,54 @@ type Invitation struct {
 	User    *User `gorm:"foreignKey:UsedBy" json:"user,omitempty"`
 }
 
-// ValidLocales 允许的语种白名单 (首批 zh-CN / en-US)
-var ValidLocales = map[string]bool{"zh-CN": true, "en-US": true}
+// ValidLocales 允许的语种白名单（翻译表；未单独建 Nomen 的题名仍可用 original_title/aliases）
+var ValidLocales = map[string]bool{
+	"zh-CN": true, "zh-TW": true, "en-US": true, "ja": true, "ko": true,
+}
 
+// NormalizeLocale maps inbound tags (Accept-Language, typed aliases) onto ValidLocales.
 func NormalizeLocale(input string) string {
 	if ValidLocales[input] {
 		return input
 	}
 	low := input
-	if len(low) >= 2 {
-		// crude prefix match
-		if low[:2] == "en" || low[:2] == "EN" {
-			return "en-US"
+	if len(low) >= 5 {
+		switch low[:5] {
+		case "zh-TW", "zh-HK":
+			return "zh-TW"
 		}
-		if low[:2] == "zh" || low[:2] == "ZH" {
+	}
+	if len(low) >= 2 {
+		switch low[:2] {
+		case "en", "EN":
+			return "en-US"
+		case "zh", "ZH":
 			return "zh-CN"
+		case "ja", "JA":
+			return "ja"
+		case "ko", "KO":
+			return "ko"
 		}
 	}
 	return "zh-CN"
 }
+
+// MediaType is the admin-governed form dictionary (game/comic/music/…)
+type MediaType struct {
+	Code        string    `gorm:"primaryKey;type:varchar(32)" json:"code"`
+	NameZh      string    `gorm:"type:varchar(64);not null" json:"name_zh"`
+	NameEn      string    `gorm:"type:varchar(64);not null" json:"name_en"`
+	Names       JSONB     `gorm:"type:jsonb;default:'{}'" json:"names"`
+	Description string    `gorm:"type:text" json:"description"`
+	Icon        string    `gorm:"type:varchar(64)" json:"icon"`
+	SortOrder   int       `gorm:"default:0;not null" json:"sort_order"`
+	IsEnabled   bool      `gorm:"default:true;not null" json:"is_enabled"`
+	CLCPrefix   string    `gorm:"type:varchar(16)" json:"clc_prefix"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+func (MediaType) TableName() string { return "media_types" }
 
 // Category represents hierarchical media classifications
 type Category struct {
@@ -180,17 +209,6 @@ const (
 	EntityTypeLabel     = "label"
 )
 
-// ValidEntityTypes map for validation
-var ValidEntityTypes = map[string]bool{
-	EntityTypePerson:    true,
-	EntityTypeGroup:     true,
-	EntityTypeOrchestra: true,
-	EntityTypeStudio:    true,
-	EntityTypePublisher: true,
-	EntityTypeCircle:    true,
-	EntityTypeLabel:     true,
-}
-
 // Artist represents MusicBrainz-grade creators, entities, orchestras, studios
 type Artist struct {
 	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
@@ -204,8 +222,11 @@ type Artist struct {
 	EndDate        string     `gorm:"type:varchar(16)" json:"end_date"`
 	Ended          bool       `gorm:"default:false;not null" json:"ended"`
 	ExternalIDs    JSONB      `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	Language       string     `gorm:"type:varchar(16);default:'zh-CN'" json:"language"`
 	CreatedBy      *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
+
+	Translations []ArtistTranslation `gorm:"foreignKey:ArtistID" json:"translations,omitempty"`
 }
 
 // WorkArtistRelation represents structured creator roles (Composer, Director, Author, etc.)
@@ -222,7 +243,7 @@ type WorkArtistRelation struct {
 // Work represents FRBR Work entity
 type Work struct {
 	ID              uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	CategoryCode    string         `gorm:"not null" json:"category_code"`
+	CategoryCode    string         `gorm:"default:''" json:"category_code"`
 	MediaType       string         `gorm:"not null" json:"media_type"`
 	Title           string         `gorm:"not null" json:"title"`
 	OriginalTitle   string         `json:"original_title"`
@@ -233,7 +254,8 @@ type Work struct {
 	Ended           bool           `gorm:"default:false;not null" json:"ended"`
 	Country         string         `json:"country"`
 	Language        string         `gorm:"default:'zh-CN'" json:"language"`
-	// OriginalLanguage 作品原始语言（ISO 639-1，如 zh/ja/en/ko），与 Language（元数据主语言，BCP-47）区分
+	// OriginalLanguage 作品内容本身的语言（ISO 639-1，如 zh/ja/en/ko）。
+	// Language 是默认显示语种（BCP-47），与 translations 中设为默认的那一组题名+简介对应。
 	OriginalLanguage string `gorm:"type:varchar(16);default:''" json:"original_language"`
 	Summary          string `json:"summary"`
 	CoverImageURL   string         `json:"cover_image_url"`
@@ -250,6 +272,7 @@ type Work struct {
 	Tags            []Tag                `gorm:"many2many:work_tag_relations;" json:"tags,omitempty"`
 	ArtistRelations []WorkArtistRelation `gorm:"foreignKey:WorkID" json:"artist_relations,omitempty"`
 	Releases        []Release            `gorm:"foreignKey:WorkID" json:"releases,omitempty"`
+	Translations    []WorkTranslation    `gorm:"foreignKey:WorkID" json:"translations,omitempty"`
 }
 
 // Release represents FRBR Manifestation / Commercial Release Boxset
@@ -261,12 +284,16 @@ type Release struct {
 	CatalogNumber    string     `json:"catalog_number"`
 	Barcode          string     `json:"barcode"`
 	Publisher        string     `json:"publisher"`
-	Packaging        string     `gorm:"default:'box_set'" json:"packaging"`
-	EditionDate      *time.Time `json:"edition_date,omitempty"`
-	UploaderID       *uuid.UUID `gorm:"type:uuid" json:"uploader_id,omitempty"`
-	IsMasterVerified bool       `gorm:"default:false;not null" json:"is_master_verified"`
-	Notes            string     `json:"notes"`
-	CreatedAt        time.Time  `json:"created_at"`
+	Packaging            string     `gorm:"default:'box_set'" json:"packaging"`
+	EditionDate          *time.Time `json:"edition_date,omitempty"`
+	Country              string     `json:"country"`
+	Language             string     `json:"language"`
+	DistributionChannel  string     `gorm:"default:'mixed';not null" json:"distribution_channel"`
+	CatalogMetadata      JSONB      `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
+	UploaderID           *uuid.UUID `gorm:"type:uuid" json:"uploader_id,omitempty"`
+	IsMasterVerified     bool       `gorm:"default:false;not null" json:"is_master_verified"`
+	Notes                string     `json:"notes"`
+	CreatedAt            time.Time  `json:"created_at"`
 
 	PublisherEntity *Artist     `gorm:"foreignKey:PublisherID" json:"publisher_entity,omitempty"`
 	Work            *Work       `gorm:"foreignKey:WorkID" json:"work,omitempty"`
@@ -316,6 +343,42 @@ func (AssetFile) TableName() string {
 func (WorkArtistRelation) TableName() string {
 	return "work_artist_relations"
 }
+
+// Franchise is a first-class IP / universe hub (not a Work)
+type Franchise struct {
+	ID              uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Title           string         `gorm:"not null" json:"title"`
+	OriginalTitle   string         `json:"original_title"`
+	Aliases         pq.StringArray `gorm:"type:text[]" json:"aliases"`
+	Disambiguation  string         `json:"disambiguation"`
+	Summary         string         `json:"summary"`
+	CoverImageURL   string         `json:"cover_image_url"`
+	BeginDate       string         `gorm:"type:varchar(16)" json:"begin_date"`
+	EndDate         string         `gorm:"type:varchar(16)" json:"end_date"`
+	Ended           bool           `gorm:"default:false;not null" json:"ended"`
+	Country         string         `json:"country"`
+	Language        string         `gorm:"type:varchar(16);default:'zh-CN'" json:"language"`
+	ExternalIDs     JSONB          `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	CatalogMetadata JSONB          `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
+	CreatedBy       *uuid.UUID     `gorm:"type:uuid" json:"created_by,omitempty"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	FavoriteCount   int64          `gorm:"-" json:"favorite_count"`
+
+	Tags         []Tag                   `gorm:"many2many:franchise_tag_relations;" json:"tags,omitempty"`
+	Translations []FranchiseTranslation  `gorm:"foreignKey:FranchiseID" json:"translations,omitempty"`
+}
+
+func (Franchise) TableName() string { return "franchises" }
+
+type FranchiseTranslation struct {
+	FranchiseID uuid.UUID `gorm:"type:uuid;primaryKey" json:"franchise_id"`
+	Locale      string    `gorm:"type:varchar(16);primaryKey" json:"locale"`
+	Title       string    `gorm:"type:varchar(255)" json:"title"`
+	Summary     string    `gorm:"type:text" json:"summary"`
+}
+
+func (FranchiseTranslation) TableName() string { return "franchise_translations" }
 
 func (EntityRelationship) TableName() string {
 	return "entity_relationships"
@@ -432,6 +495,7 @@ type EntityRelationship struct {
 	TargetType       string    `gorm:"type:varchar(32);not null" json:"target_type"`
 	TargetID         uuid.UUID `gorm:"type:uuid;not null" json:"target_id"`
 	RelationshipType string    `gorm:"type:varchar(64);not null" json:"relationship_type"`
+	Qualifier        string    `gorm:"type:varchar(64);default:'';not null" json:"qualifier"`
 	BeginDate        string    `gorm:"type:varchar(16)" json:"begin_date"`
 	EndDate          string    `gorm:"type:varchar(16)" json:"end_date"`
 	Ended            bool      `gorm:"default:false;not null" json:"ended"`

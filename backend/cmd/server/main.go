@@ -182,17 +182,6 @@ func main() {
 				c.JSON(http.StatusOK, info)
 			})
 
-			// 兼容旧版邀请列表
-			authGroup.GET("/invites", auth.UnifiedAuthMiddleware(cfg, db), func(c *gin.Context) {
-				userID := c.MustGet("userID").(uuid.UUID)
-				info, err := authSvc.GetUserInviteInfo(userID)
-				if err != nil {
-					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-					return
-				}
-				c.JSON(http.StatusOK, info)
-			})
-
 			// 修改密码
 			authGroup.POST("/change-password", auth.UnifiedAuthMiddleware(cfg, db), func(c *gin.Context) {
 				userID := c.MustGet("userID").(uuid.UUID)
@@ -354,6 +343,9 @@ func main() {
 			catGroup.GET("/artists", catalogSvc.ListArtists)
 			catGroup.GET("/artists/:id", catalogSvc.GetArtistDetail)
 			catGroup.GET("/artists/:id/graph", catalogSvc.GetArtistGraph)
+			catGroup.GET("/franchises", catalogSvc.ListFranchises)
+			catGroup.GET("/franchises/:id", catalogSvc.GetFranchiseDetail)
+			catGroup.GET("/franchises/:id/graph", catalogSvc.GetFranchiseGraph)
 			catGroup.GET("/works", catalogSvc.ListWorks)
 			catGroup.GET("/works/:id", catalogSvc.GetWorkDetail)
 			catGroup.GET("/works/:id/graph", catalogSvc.GetWorkGraph)
@@ -364,6 +356,8 @@ func main() {
 			catGroup.GET("/mediums/:id", catalogSvc.GetMediumDetail)
 			catGroup.POST("/artists", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateArtistForMember)
 			catGroup.PUT("/artists/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateArtistForMember)
+			catGroup.POST("/franchises", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateFranchiseForMember)
+			catGroup.PUT("/franchises/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateFranchiseForMember)
 			catGroup.POST("/works", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateWorkForMember)
 			catGroup.PUT("/works/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateWorkForMember)
 			catGroup.POST("/releases", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateReleaseForMember)
@@ -371,6 +365,7 @@ func main() {
 			catGroup.POST("/mediums", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateMediumForMember)
 			catGroup.POST("/tracks", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateTrackForMember)
 			catGroup.PUT("/works/:id/relations", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpsertWorkRelationsForMember)
+			catGroup.PUT("/entity-relations", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpsertEntityRelationsForMember)
 			catGroup.GET("/revisions", catalogSvc.ListEntityRevisions)
 			catGroup.POST("/merge", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.MergeEntities)
 			catGroup.POST("/submit", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.SubmitComprehensiveArchive)
@@ -394,15 +389,18 @@ func main() {
 			browse.GET("/works", catalogSvc.BrowseWorks)
 			browse.GET("/releases", catalogSvc.BrowseReleases)
 			browse.GET("/artists", catalogSvc.BrowseArtists)
+			browse.GET("/franchises", catalogSvc.ListFranchises)
 		}
 		ws2 := api.Group("/ws/2", auth.OptionalUnifiedAuthMiddleware(cfg, db))
 		{
 			ws2.GET("/work/:id", catalogSvc.GetWorkDetail)
 			ws2.GET("/release/:id", catalogSvc.GetReleaseDetail)
 			ws2.GET("/artist/:id", catalogSvc.GetArtistDetail)
+			ws2.GET("/franchise/:id", catalogSvc.GetFranchiseDetail)
 			ws2.GET("/work", catalogSvc.ListWorks)
 			ws2.GET("/release", catalogSvc.ListReleases)
 			ws2.GET("/artist", catalogSvc.ListArtists)
+			ws2.GET("/franchise", catalogSvc.ListFranchises)
 		}
 
 		// 分片直传与对象存储（统一鉴权）
@@ -560,6 +558,8 @@ func main() {
 			adminGroup.POST("/artists", adminSvc.CreateArtist)
 			adminGroup.PUT("/artists/:id", adminSvc.UpdateArtist)
 			adminGroup.DELETE("/artists/:id", adminSvc.DeleteArtist)
+			adminGroup.GET("/franchises", catalogSvc.ListFranchises)
+			adminGroup.POST("/franchises", catalogSvc.CreateFranchiseForMember)
 			adminGroup.GET("/canonical-entries", adminSvc.ListCanonicalEntries)
 			adminGroup.POST("/canonical-entries", adminSvc.CreateCanonicalEntry)
 			adminGroup.PUT("/canonical-entries/:id", adminSvc.UpdateCanonicalEntry)

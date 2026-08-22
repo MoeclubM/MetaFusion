@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/metafusion/metafusion-app/internal/models"
+	"github.com/metafusion/metafusion-app/internal/ontology"
 )
 
 func validateCoverURL(raw string) error {
@@ -47,7 +48,7 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 	userIDVal, _ := c.Get("userID")
 	uid, _ := userIDVal.(uuid.UUID)
 	var input struct {
-		CategoryCode  string                 `json:"category_code" binding:"required"`
+		CategoryCode  string                 `json:"category_code"`
 		MediaType     string                 `json:"media_type" binding:"required"`
 		Title         string                 `json:"title" binding:"required"`
 		OriginalTitle string                 `json:"original_title"`
@@ -57,6 +58,10 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if !ontology.IsEnabledMediaType(s.db, input.MediaType) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid or disabled media_type"})
 		return
 	}
 	work := models.Work{
@@ -78,6 +83,8 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	loc := "zh-CN"
+	_ = s.db.Create(&models.WorkTranslation{WorkID: work.ID, Locale: loc, Title: work.Title, Summary: work.Summary}).Error
 	writeAudit(s.db, c, "work.create", "work", work.ID.String(), map[string]interface{}{"title": work.Title})
 	c.JSON(http.StatusCreated, work)
 }
@@ -183,7 +190,7 @@ func (s *AdminService) CreateArtist(c *gin.Context) {
 	}
 	if input.EntityType == "" {
 		input.EntityType = models.EntityTypePerson
-	} else if !models.ValidEntityTypes[input.EntityType] {
+	} else if !ontology.IsEnabledEntityType(s.db, input.EntityType) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_entity_type")})
 		return
 	}
@@ -223,7 +230,7 @@ func (s *AdminService) UpdateArtist(c *gin.Context) {
 	}
 
 	if et, ok := input["entity_type"].(string); ok && et != "" {
-		if !models.ValidEntityTypes[et] {
+		if !ontology.IsEnabledEntityType(s.db, et) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_entity_type")})
 			return
 		}
@@ -322,8 +329,9 @@ func (s *AdminService) UpdateRelease(c *gin.Context) {
 		return
 	}
 	allowed := map[string]bool{
-		"edition_name": true, "catalog_number": true, "barcode": true,
-		"publisher": true, "publisher_id": true, "packaging": true, "notes": true,
+	"edition_name": true, "catalog_number": true, "barcode": true,
+			"publisher": true, "publisher_id": true, "packaging": true, "notes": true,
+			"country": true, "language": true, "distribution_channel": true, "catalog_metadata": true,
 	}
 	updates := map[string]interface{}{}
 	for k, v := range input {
@@ -518,14 +526,6 @@ func (s *AdminService) ListTagsAdmin(c *gin.Context) {
 	var tags []models.Tag
 	if err := query.Order("group_type asc, name asc").Offset((page - 1) * pageSize).Limit(pageSize).Find(&tags).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	// 兼容旧前端直接期望数组的调用：无筛选且未显式分页时保持裸数组返回以免静默 Break
-	hasFilter := q != "" || groupType != "" || c.Query("page") != "" || c.Query("page_size") != ""
-	if !hasFilter {
-		// 返回裸数组以兼容历史 loadFallback，同时也提供分页包装的兼容分支
-		// 前端已同时兼容两种形态，这里优先返回包装以便新 UI 获取 total
-		c.JSON(http.StatusOK, gin.H{"items": tags, "total": total, "page": page, "page_size": pageSize})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": tags, "total": total, "page": page, "page_size": pageSize})

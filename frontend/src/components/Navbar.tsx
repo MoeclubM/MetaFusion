@@ -24,6 +24,7 @@ import {
  Layers,
  Users,
  Disc,
+ Network,
  Sparkles,
  Code2,
  Github,
@@ -123,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
  <button
  type="button"
  className={`inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-lg border text-sm font-medium tracking-wide transition-all shadow-2xs ${
- pathname.startsWith("/contribute") || pathname.startsWith("/works/new") || pathname.startsWith("/artists/new") || pathname.startsWith("/releases/new")
+ pathname.startsWith("/contribute") || pathname.startsWith("/works/new") || pathname.startsWith("/artists/new") || pathname.startsWith("/releases/new") || pathname.startsWith("/franchises/new")
  ? "bg-primary text-white keep-white border-primary shadow-xs font-semibold"
  : "bg-primary/10 hover:bg-primary/20 text-primary border-primary/20 hover:border-primary/40 font-medium"
  }`}
@@ -142,6 +143,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
  </Link>
  <Link href="/releases/new" className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-black/5 dark:hover:bg-white/[0.06] text-gray-700 dark:text-gray-200">
  <Disc className="w-4 h-4 text-emerald-500" /> {t("nav.createRelease")}
+ </Link>
+ <Link href="/franchises/new" className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-black/5 dark:hover:bg-white/[0.06] text-gray-700 dark:text-gray-200">
+ <Network className="w-4 h-4 text-indigo-500" /> {t("nav.createFranchise")}
  </Link>
  <div className="border-t border-black/[0.06] dark:border-white/[0.06] mt-1 pt-1">
  <Link href="/contribute" className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-primary/10 text-primary font-medium">

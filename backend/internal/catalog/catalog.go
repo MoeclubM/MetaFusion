@@ -15,6 +15,7 @@ import (
 	"github.com/lib/pq"
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"github.com/metafusion/metafusion-app/internal/models"
+	"github.com/metafusion/metafusion-app/internal/ontology"
 	"github.com/metafusion/metafusion-app/internal/security"
 	"gorm.io/gorm"
 )
@@ -125,29 +126,28 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 		Name string `json:"name"`
 	}
 	outCats := make([]outCat, 0, len(categories))
-	mediaTypesMap := make(map[string]map[string]string)
-
 	for _, cat := range categories {
 		outCats = append(outCats, outCat{Category: cat, Name: cat.LocalizedName(locale)})
-		if cat.ParentCode == nil {
-			mediaTypesMap[cat.MediaType] = map[string]string{
-				"id":      cat.MediaType,
-				"name_zh": cat.NameZh,
-				"name_en": cat.NameEn,
-				"name":    cat.LocalizedName(locale),
-			}
-		}
 	}
 
 	mediaTypes := make([]map[string]string, 0)
-	seen := make(map[string]bool)
-	for _, cat := range categories {
-		if cat.ParentCode == nil && !seen[cat.MediaType] {
-			seen[cat.MediaType] = true
-			if mt, ok := mediaTypesMap[cat.MediaType]; ok {
-				mediaTypes = append(mediaTypes, mt)
+	var mtRows []models.MediaType
+	_ = s.db.Where("is_enabled = ?", true).Order("sort_order asc").Find(&mtRows).Error
+	for _, mt := range mtRows {
+		name := mt.NameZh
+		if locale == "en-US" && mt.NameEn != "" {
+			name = mt.NameEn
+		}
+		if mt.Names != nil {
+			if v, ok := mt.Names[locale]; ok {
+				if s, ok := v.(string); ok && s != "" {
+					name = s
+				}
 			}
 		}
+		mediaTypes = append(mediaTypes, map[string]string{
+			"id": mt.Code, "name_zh": mt.NameZh, "name_en": mt.NameEn, "name": name,
+		})
 	}
 
 	// 组装虚拟货架树
@@ -187,43 +187,21 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 	_ = s.db.Where("is_enabled = ?", true).Order("sort_order asc").Find(&dynamicEntityTypes).Error
 
 	entityTypes := make([]map[string]string, 0, len(dynamicEntityTypes))
-	if len(dynamicEntityTypes) > 0 {
-		for _, det := range dynamicEntityTypes {
-			name := det.LocalizedName(locale)
-			desc := det.LocalizedDesc(locale)
-			entityTypes = append(entityTypes, map[string]string{
-				"id":           det.Code,
-				"name_zh":      det.NameZh,
-				"name_en":      det.NameEn,
-				"name":         name,
-				"desc_zh":      det.DescZh,
-				"desc_en":      det.DescEn,
-				"desc":         desc,
-				"color":        det.Color,
-				"bg_color":     det.BgColor,
-				"border_color": det.BorderColor,
-			})
-		}
-	} else {
-		fallbackTypes := []map[string]string{
-			{"id": "person", "name_zh": "个人创作者", "name_en": "Individual Creator", "desc_zh": "导演、著者、作曲家、编曲、作词、画师等", "desc_en": "Director, author, composer, arranger, lyricist, illustrator, etc.", "color": "text-amber-400", "bg_color": "bg-amber-500/10", "border_color": "border-amber-500/30"},
-			{"id": "studio", "name_zh": "制作机构 / 工作室", "name_en": "Studio", "desc_zh": "动画工作室、影视制作公司、开发组等", "desc_en": "Animation studio, production company, dev team, etc.", "color": "text-purple-400", "bg_color": "bg-purple-500/10", "border_color": "border-purple-500/30"},
-			{"id": "publisher", "name_zh": "出版社 / 发行厂牌", "name_en": "Publisher / Label", "desc_zh": "图书出版社、影音发行商、唱片公司等", "desc_en": "Book publisher, AV distributor, record label, etc.", "color": "text-sky-400", "bg_color": "bg-sky-500/10", "border_color": "border-sky-500/30"},
-			{"id": "orchestra", "name_zh": "管弦乐团 / 歌剧团", "name_en": "Orchestra", "desc_zh": "交响乐团、室内乐团、爱乐乐团等", "desc_en": "Symphony, chamber orchestra, philharmonic, etc.", "color": "text-emerald-400", "bg_color": "bg-emerald-500/10", "border_color": "border-emerald-500/30"},
-			{"id": "group", "name_zh": "乐队 / 演职团体", "name_en": "Band / Group", "desc_zh": "摇滚乐队、室内乐组合、偶像团体等", "desc_en": "Rock band, chamber group, idol group, etc.", "color": "text-rose-400", "bg_color": "bg-rose-500/10", "border_color": "border-rose-500/30"},
-			{"id": "circle", "name_zh": "同人社团 / 独立组织", "name_en": "Circle", "desc_zh": "同人音乐社团、独立创作小组等", "desc_en": "Doujin music circle, indie creative group, etc.", "color": "text-indigo-400", "bg_color": "bg-indigo-500/10", "border_color": "border-indigo-500/30"},
-			{"id": "label", "name_zh": "独立厂牌 / 子品牌", "name_en": "Indie Label", "desc_zh": "出版子厂牌、专项音乐厂牌等", "desc_en": "Imprint, sub-label, specialty music label, etc.", "color": "text-teal-400", "bg_color": "bg-teal-500/10", "border_color": "border-teal-500/30"},
-		}
-		for _, et := range fallbackTypes {
-			if locale == "en-US" {
-				et["name"] = et["name_en"]
-				et["desc"] = et["desc_en"]
-			} else {
-				et["name"] = et["name_zh"]
-				et["desc"] = et["desc_zh"]
-			}
-			entityTypes = append(entityTypes, et)
-		}
+	for _, det := range dynamicEntityTypes {
+		name := det.LocalizedName(locale)
+		desc := det.LocalizedDesc(locale)
+		entityTypes = append(entityTypes, map[string]string{
+			"id":           det.Code,
+			"name_zh":      det.NameZh,
+			"name_en":      det.NameEn,
+			"name":         name,
+			"desc_zh":      det.DescZh,
+			"desc_en":      det.DescEn,
+			"desc":         desc,
+			"color":        det.Color,
+			"bg_color":     det.BgColor,
+			"border_color": det.BorderColor,
+		})
 	}
 
 	packagings := []map[string]string{
@@ -249,7 +227,7 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 	}
 
 	languages := []map[string]string{
-		{"code": "zh-CN", "name": "中文 (Chinese)"},
+		{"code": "zh", "name": "中文 (Chinese)"},
 		{"code": "ja", "name": "日本語 (Japanese)"},
 		{"code": "en", "name": "English"},
 		{"code": "ko", "name": "한국어 (Korean)"},
@@ -417,9 +395,7 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 		}
 	}
 
-	if language != "" && models.ValidLocales[language] {
-		query = query.Where("language = ?", language)
-	} else if language != "" {
+	if language != "" {
 		language = models.NormalizeLocale(language)
 		if models.ValidLocales[language] {
 			query = query.Where("language = ?", language)
@@ -462,7 +438,7 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 }
 // GetWorkDetail 获取作品概览（轻量，不再全量预加载 Release/Medium/Track）
 // 如需关联版本列表，请调 GET /releases?work_id= 分页接口
-// 支持 MusicBrainz 风格 inc 展开：?inc=releases+artists+tags+relations+revisions
+// ?inc=releases+relations+revisions 附加展开字段，响应始终为作品字段平铺
 func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 	idStr := c.Param("id")
 	workID, err := uuid.Parse(idStr)
@@ -475,6 +451,7 @@ func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 	q := s.db.Preload("Category").
 		Preload("Tags").
 		Preload("ArtistRelations.Artist").
+		Preload("Translations").
 		Where("id = ?", workID)
 
 	if err := q.First(&work).Error; err != nil {
@@ -493,41 +470,29 @@ func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 		_ = s.db.Table("favorites").Where("target_type = ? AND target_id = ?", "work", work.ID).Count(&favCount).Error
 		work.FavoriteCount = favCount
 
-		inc := parseInc(c.Query("inc"))
-	// 处理 fmt 参数：MusicBrainz 兼容，仅支持 json
-	if fmtParam := c.Query("fmt"); fmtParam != "" && fmtParam != "json" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported fmt, only json supported", "code": "BAD_REQUEST"})
-		return
-	}
-	if len(inc) == 0 {
-		c.JSON(http.StatusOK, work)
-		return
-	}
-	// inc 非空时返回富化结构，原始 work 字段平铺并附加展开数据，保证网页端完整功能可经 API 复现
+	inc := parseInc(c.Query("inc"))
 	b, _ := json.Marshal(work)
 	var m map[string]interface{}
 	_ = json.Unmarshal(b, &m)
 
-	if inc["releases"] || inc["release"] {
+	if inc["releases"] {
 		var releases []models.Release
 		uid := currentUserID(c)
 		rq := applyReleaseVisibility(s.db.Model(&models.Release{}), uid).Where("work_id = ?", work.ID).Order("edition_date asc, created_at asc").Limit(50)
 		_ = rq.Find(&releases).Error
 		m["releases"] = releases
 	}
-	if inc["relations"] || inc["relation"] || inc["rels"] {
+	if inc["relations"] || inc["rels"] {
 		var rels []models.EntityRelationship
 		_ = s.db.Where("(source_type = 'work' AND source_id = ?) OR (target_type = 'work' AND target_id = ?)", work.ID, work.ID).Order("created_at desc").Limit(50).Find(&rels).Error
 		m["relations"] = rels
+		locale := backendi18n.LocaleFromContext(c)
+		m["connected_entities"] = s.connectedFromRels(locale, rels, "work", work.ID)
 	}
-	if inc["revisions"] || inc["edits"] {
+	if inc["revisions"] {
 		var revs []models.EntityRevision
 		_ = s.db.Where("target_type = 'work' AND target_id = ?", work.ID).Order("created_at desc").Limit(20).Find(&revs).Error
 		m["revisions"] = revs
-	}
-	if inc["graph"] {
-		// 复用 GetWorkGraph 的轻量查询在 inc=graph 时内联
-		m["graph_hint"] = "/api/v1/catalog/works/" + work.ID.String() + "/graph"
 	}
 	c.JSON(http.StatusOK, m)
 }
@@ -617,15 +582,7 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 			return
 		}
 	}
-	if fmtParam := c.Query("fmt"); fmtParam != "" && fmtParam != "json" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported fmt, only json supported"})
-		return
-	}
 	inc := parseInc(c.Query("inc"))
-	if len(inc) == 0 {
-		c.JSON(http.StatusOK, release)
-		return
-	}
 	b, _ := json.Marshal(release)
 	var m map[string]interface{}
 	_ = json.Unmarshal(b, &m)
@@ -802,16 +759,8 @@ func (s *CatalogService) GetWorkGraph(c *gin.Context) {
 		}
 
 		var otherName = "关联实体"
-		if otherType == "work" {
-			var otherWork models.Work
-			if err := s.db.Where("id = ?", otherID).First(&otherWork).Error; err == nil {
-				otherName = otherWork.Title
-			}
-		} else if otherType == "artist" {
-			var otherArtist models.Artist
-			if err := s.db.Where("id = ?", otherID).First(&otherArtist).Error; err == nil {
-				otherName = otherArtist.Name
-			}
+		if n, ok := ontology.LookupName(s.db, otherType, otherID); ok {
+			otherName = n
 		}
 
 		relLabel := cr.RelationshipType
@@ -889,13 +838,15 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		return
 	}
 	var input struct {
-		Name           string                 `json:"name" binding:"required"`
+		Name           string                 `json:"name"`
 		OriginalName   string                 `json:"original_name"`
 		Disambiguation string                 `json:"disambiguation"`
 		EntityType     string                 `json:"entity_type"`
 		Country        string                 `json:"country"`
 		Biography      string                 `json:"biography"`
+		Language       string                 `json:"language"`
 		ExternalIDs    map[string]interface{} `json:"external_ids"`
+		Translations   []LocaleTextInput      `json:"translations"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -903,7 +854,7 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 	}
 	if input.EntityType == "" {
 		input.EntityType = models.EntityTypePerson
-	} else if !models.ValidEntityTypes[input.EntityType] {
+	} else if !ontology.IsEnabledEntityType(s.db, input.EntityType) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_entity_type")})
 		return
 	}
@@ -918,13 +869,21 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		EntityType:     input.EntityType,
 		Country:        strings.TrimSpace(input.Country),
 		Biography:      input.Biography,
+		Language:       input.Language,
 		ExternalIDs:    ext,
 		CreatedBy:      uid,
+	}
+	items := applyArtistLocaleDefaults(&artist, input.Translations, input.Language)
+	if strings.TrimSpace(artist.Name) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+		return
 	}
 	if err := s.db.Create(&artist).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	s.upsertArtistTranslations(artist.ID, items)
+	_ = s.db.Preload("Translations").First(&artist, artist.ID).Error
 	c.JSON(http.StatusCreated, artist)
 }
 
@@ -939,6 +898,11 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	mt := s.resolveMediaType(input.MediaType, input.Tags, input.TagIDs)
+	if mt == "" || !ontology.IsEnabledMediaType(s.db, mt) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请添加形态标签（如电影、专辑、游戏、漫画）以便推断作品形态"})
+		return
+	}
 	var releaseDate *time.Time
 	if input.ReleaseDate != nil && *input.ReleaseDate != "" {
 		if t, err := time.Parse("2006-01-02", *input.ReleaseDate); err == nil {
@@ -949,7 +913,7 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 
 	work := models.Work{
 		CategoryCode:     input.CategoryCode,
-		MediaType:        input.MediaType,
+		MediaType:        mt,
 		Title:            strings.TrimSpace(input.Title),
 		OriginalTitle:    strings.TrimSpace(input.OriginalTitle),
 		Aliases:          input.Aliases,
@@ -964,6 +928,11 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		CatalogMetadata:  models.JSONB(input.CatalogMetadata),
 		CreatedBy:        uid,
 	}
+	localeItems := applyWorkLocaleDefaults(&work, input.Translations, input.Language)
+	if strings.TrimSpace(work.Title) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "title required"})
+		return
+	}
 	if err := validateCoverURL(work.CoverImageURL); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -972,11 +941,17 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	tagNames := input.Tags
 	if len(input.TagIDs) > 0 {
-		var tags []models.Tag
-		s.db.Where("id IN ?", input.TagIDs).Find(&tags)
-		s.db.Model(&work).Association("Tags").Append(&tags)
+		var byID []models.Tag
+		s.db.Where("id IN ?", input.TagIDs).Find(&byID)
+		for _, t := range byID {
+			tagNames = append(tagNames, t.Name)
+		}
 	}
+	s.replaceWorkTagsByName(&work, tagNames)
+	s.upsertWorkTranslations(work.ID, localeItems)
+	_ = s.db.Preload("Tags").Preload("Translations").First(&work, work.ID).Error
 	c.JSON(http.StatusCreated, work)
 }
 
@@ -1018,18 +993,31 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 			publisherName = pubArtist.Name
 		}
 	}
+	ch := ontology.NormalizeDistributionChannel(input.DistributionChannel)
+	if input.DistributionChannel != "" && ch == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid distribution_channel"})
+		return
+	}
+	meta := models.JSONB{}
+	if input.CatalogMetadata != nil {
+		meta = models.JSONB(input.CatalogMetadata)
+	}
 	release := models.Release{
-		WorkID:           input.WorkID,
-		PublisherID:      input.PublisherID,
-		EditionName:      input.EditionName,
-		CatalogNumber:    input.CatalogNumber,
-		Barcode:          input.Barcode,
-		Publisher:        publisherName,
-		Packaging:        input.Packaging,
-		EditionDate:      editionDate,
-		UploaderID:       uid,
-		IsMasterVerified: false,
-		Notes:            input.Notes,
+		WorkID:              input.WorkID,
+		PublisherID:         input.PublisherID,
+		EditionName:         input.EditionName,
+		CatalogNumber:       input.CatalogNumber,
+		Barcode:             input.Barcode,
+		Publisher:           publisherName,
+		Packaging:           input.Packaging,
+		EditionDate:         editionDate,
+		Country:             strings.TrimSpace(input.Country),
+		Language:            strings.TrimSpace(input.Language),
+		DistributionChannel: ch,
+		CatalogMetadata:     meta,
+		UploaderID:          uid,
+		IsMasterVerified:    false,
+		Notes:               input.Notes,
 	}
 	if release.Packaging == "" {
 		release.Packaging = "box_set"
@@ -1136,13 +1124,6 @@ func (s *CatalogService) CreateTrackForMember(c *gin.Context) {
 	c.JSON(http.StatusCreated, track)
 }
 
-var validWorkRoles = map[string]bool{
-	"director": true, "author": true, "composer": true, "lyricist": true,
-	"performer": true, "voice_actor": true, "conductor": true, "arranger": true,
-	"illustrator": true, "studio": true, "producer": true, "publisher": true,
-	"translator": true, "editor": true, "orchestra": true,
-}
-
 func (s *CatalogService) UpsertWorkRelationsForMember(c *gin.Context) {
 	uid := currentUserID(c)
 	if uid == nil {
@@ -1176,7 +1157,7 @@ func (s *CatalogService) UpsertWorkRelationsForMember(c *gin.Context) {
 		return
 	}
 	for _, r := range input.Relations {
-		if !validWorkRoles[r.Role] {
+		if !ontology.IsEnabledWorkRole(s.db, r.Role) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_role") + r.Role})
 			return
 		}
@@ -1197,6 +1178,7 @@ func (s *CatalogService) UpsertWorkRelationsForMember(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
+		s.mirrorArtistWorkEdge(r.ArtistID, workID, r.Role)
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "count": len(input.Relations)})
 }
@@ -1239,6 +1221,7 @@ type ConnectedEntityItem struct {
 	EntityType       string       `json:"entity_type"`
 	Country          string       `json:"country,omitempty"`
 	RelationshipType string       `json:"relationship_type"`
+	Qualifier        string       `json:"qualifier,omitempty"`
 	RelationshipName string       `json:"relationship_name"`
 	Direction        string       `json:"direction"` // 'forward' | 'reverse'
 	Label            string       `json:"label"`
@@ -1265,12 +1248,7 @@ type ArtistDetailResponse struct {
 }
 
 // GetArtistDetail 获取创作者/机构实体详情及参演/出版列表与关联机构
-// 支持 inc 参数，MusicBrainz 兼容 fmt=json 校验
 func (s *CatalogService) GetArtistDetail(c *gin.Context) {
-	if fmtParam := c.Query("fmt"); fmtParam != "" && fmtParam != "json" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported fmt, only json supported"})
-		return
-	}
 	artistID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_artist_id")})
@@ -1278,7 +1256,7 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 	}
 
 	var artist models.Artist
-	if err := s.db.Where("id = ?", artistID).First(&artist).Error; err != nil {
+	if err := s.db.Preload("Translations").Where("id = ?", artistID).First(&artist).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Artist not found"})
 		return
 	}
@@ -1302,6 +1280,33 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 		if err := wQ.Find(&works).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
+		}
+	}
+
+	// 图谱边中的作品（character_in / creator 等），并入作者枢纽列表
+	var graphWorkRels []models.EntityRelationship
+	s.db.Where(
+		"(source_type = 'artist' AND source_id = ? AND target_type = 'work') OR (target_type = 'artist' AND target_id = ? AND source_type = 'work')",
+		artistID, artistID,
+	).Find(&graphWorkRels)
+	seenWorks := map[uuid.UUID]bool{}
+	for _, w := range works {
+		seenWorks[w.ID] = true
+	}
+	for _, er := range graphWorkRels {
+		wid := er.TargetID
+		if er.TargetType != "work" {
+			wid = er.SourceID
+		}
+		if seenWorks[wid] {
+			continue
+		}
+		var w models.Work
+		wQ := applyWorkVisibility(s.db.Preload("Category").Preload("Tags"), currentUserID(c)).Where("id = ?", wid)
+		if err := wQ.First(&w).Error; err == nil {
+			works = append(works, w)
+			seenWorks[w.ID] = true
+			roleMap[w.ID] = er.RelationshipType
 		}
 	}
 
@@ -1334,51 +1339,48 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 
 	connectedEntities := make([]ConnectedEntityItem, 0)
 	for _, er := range entRels {
-		var otherID uuid.UUID
-		var dir string
-		if er.SourceID == artist.ID {
-			otherID = er.TargetID
-			dir = "forward"
+		otherType, otherID, dir := er.TargetType, er.TargetID, "forward"
+		if er.SourceType == "artist" && er.SourceID == artist.ID {
+			otherType, otherID, dir = er.TargetType, er.TargetID, "forward"
 		} else {
-			otherID = er.SourceID
-			dir = "reverse"
+			otherType, otherID, dir = er.SourceType, er.SourceID, "reverse"
 		}
-
-		var otherArtist models.Artist
-		if err := s.db.Where("id = ?", otherID).First(&otherArtist).Error; err == nil {
-			label := er.RelationshipType
-			name := er.RelationshipType
-			color := "sky"
-			icon := "Link"
-			if rt, ok := relTypeMap[er.RelationshipType]; ok {
-				name = rt.LocalizedName(locale)
-				color = rt.Color
-				icon = rt.Icon
-				if dir == "forward" {
-					label = rt.LocalizedForwardLabel(locale)
-				} else {
-					label = rt.LocalizedReverseLabel(locale)
-				}
+		name, ok := ontology.LookupName(s.db, otherType, otherID)
+		if !ok {
+			continue
+		}
+		label := er.RelationshipType
+		relName := er.RelationshipType
+		color := "sky"
+		icon := "Link"
+		if rt, hit := relTypeMap[er.RelationshipType]; hit {
+			relName = rt.LocalizedName(locale)
+			color = rt.Color
+			icon = rt.Icon
+			if dir == "forward" {
+				label = rt.LocalizedForwardLabel(locale)
+			} else {
+				label = rt.LocalizedReverseLabel(locale)
 			}
-			connectedEntities = append(connectedEntities, ConnectedEntityItem{
-				EntityID:         otherArtist.ID.String(),
-				EntityName:       otherArtist.Name,
-				EntityType:       otherArtist.EntityType,
-				Country:          otherArtist.Country,
-				RelationshipType: er.RelationshipType,
-				RelationshipName: name,
-				Direction:        dir,
-				Label:            label,
-				BeginDate:        er.BeginDate,
-				EndDate:          er.EndDate,
-				Ended:            er.Ended,
-				IsCurrent:        er.IsCurrent(),
-				DateSpan:         er.DateSpan(),
-				Attributes:       er.Attributes,
-				Color:            color,
-				Icon:             icon,
-			})
 		}
+		connectedEntities = append(connectedEntities, ConnectedEntityItem{
+			EntityID:         otherID.String(),
+			EntityName:       name,
+			EntityType:       otherType,
+			RelationshipType: er.RelationshipType,
+			Qualifier:        er.Qualifier,
+			RelationshipName: relName,
+			Direction:        dir,
+			Label:            label,
+			BeginDate:        er.BeginDate,
+			EndDate:          er.EndDate,
+			Ended:            er.Ended,
+			IsCurrent:        er.IsCurrent(),
+			DateSpan:         er.DateSpan(),
+			Attributes:       er.Attributes,
+			Color:            color,
+			Icon:             icon,
+		})
 	}
 
 	c.JSON(http.StatusOK, ArtistDetailResponse{
@@ -1462,49 +1464,47 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 	s.db.Where("(source_type = 'artist' AND source_id = ?) OR (target_type = 'artist' AND target_id = ?)", artistID, artistID).Find(&entRels)
 
 	for _, er := range entRels {
-		var otherID uuid.UUID
-		var dir string
-		if er.SourceID == artistID {
-			otherID = er.TargetID
-			dir = "forward"
+		otherType, otherID, dir := er.TargetType, er.TargetID, "forward"
+		if er.SourceType == "artist" && er.SourceID == artistID {
+			otherType, otherID, dir = er.TargetType, er.TargetID, "forward"
 		} else {
-			otherID = er.SourceID
-			dir = "reverse"
+			otherType, otherID, dir = er.SourceType, er.SourceID, "reverse"
 		}
 
-		var otherArtist models.Artist
-		if err := s.db.Where("id = ?", otherID).First(&otherArtist).Error; err == nil {
-			if !nodeSet[otherArtist.ID.String()] {
-				nodeSet[otherArtist.ID.String()] = true
-				nodes = append(nodes, GraphNode{
-					ID:       otherArtist.ID.String(),
-					Name:     otherArtist.Name,
-					Type:     "artist",
-					Category: otherArtist.EntityType,
-					Level:    1,
-				})
-			}
-
-			label := er.RelationshipType
-			color := "sky"
-			if rt, ok := relTypeMap[er.RelationshipType]; ok {
-				color = rt.Color
-				if dir == "forward" {
-					label = rt.LocalizedForwardLabel(locale)
-				} else {
-					label = rt.LocalizedReverseLabel(locale)
-				}
-			}
-
-			links = append(links, GraphLink{
-				Source:     er.SourceID.String(),
-				Target:     er.TargetID.String(),
-				Type:       er.RelationshipType,
-				Label:      label,
-				Color:      color,
-				Attributes: er.Attributes,
+		name, ok := ontology.LookupName(s.db, otherType, otherID)
+		if !ok {
+			continue
+		}
+		if !nodeSet[otherID.String()] {
+			nodeSet[otherID.String()] = true
+			nodes = append(nodes, GraphNode{
+				ID:       otherID.String(),
+				Name:     name,
+				Type:     otherType,
+				Category: otherType,
+				Level:    1,
 			})
 		}
+
+		label := er.RelationshipType
+		color := "sky"
+		if rt, hit := relTypeMap[er.RelationshipType]; hit {
+			color = rt.Color
+			if dir == "forward" {
+				label = rt.LocalizedForwardLabel(locale)
+			} else {
+				label = rt.LocalizedReverseLabel(locale)
+			}
+		}
+
+		links = append(links, GraphLink{
+			Source:     er.SourceID.String(),
+			Target:     er.TargetID.String(),
+			Type:       er.RelationshipType,
+			Label:      label,
+			Color:      color,
+			Attributes: er.Attributes,
+		})
 	}
 
 	// 3. 如果是机构/厂牌/工作室，同时关联其出版的发行版
@@ -1585,8 +1585,8 @@ func (s *CatalogService) ListRelationTypes(c *gin.Context) {
 
 type CreateWorkInput struct {
 	CategoryCode     string                 `json:"category_code"`
-	MediaType        string                 `json:"media_type" binding:"required"`
-	Title            string                 `json:"title" binding:"required"`
+	MediaType        string                 `json:"media_type"`
+	Title            string                 `json:"title"`
 	OriginalTitle    string                 `json:"original_title"`
 	Aliases          []string               `json:"aliases"`
 	ReleaseDate      *string                `json:"release_date"`
@@ -1594,74 +1594,12 @@ type CreateWorkInput struct {
 	Language         string                 `json:"language"`
 	OriginalLanguage string                 `json:"original_language"`
 	Summary          string                 `json:"summary"`
-	CoverImageURL   string                 `json:"cover_image_url"`
-	ContentRating   string                 `json:"content_rating"`
-	CatalogMetadata map[string]interface{} `json:"catalog_metadata"`
-	TagIDs          []uint                 `json:"tag_ids"`
-}
-
-// CreateWork 创建新作品编目
-func (s *CatalogService) CreateWork(c *gin.Context) {
-	userIDVal, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": backendi18n.T(c, "catalog.not_logged_in")})
-		return
-	}
-	userID := userIDVal.(uuid.UUID)
-
-	var input CreateWorkInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	var releaseDate *time.Time
-	if input.ReleaseDate != nil && *input.ReleaseDate != "" {
-		if t, err := time.Parse("2006-01-02", *input.ReleaseDate); err == nil {
-			releaseDate = &t
-		}
-	}
-
-	workStatus := models.WorkStatusPendingReview
-
-	catCode := input.CategoryCode
-	if catCode == "" {
-		catCode = input.MediaType
-	}
-
-	work := models.Work{
-		CategoryCode:    catCode,
-		MediaType:       input.MediaType,
-		Title:           input.Title,
-		OriginalTitle:   input.OriginalTitle,
-		Aliases:         input.Aliases,
-		ReleaseDate:     releaseDate,
-		Country:         input.Country,
-		Language:        input.Language,
-		Summary:         input.Summary,
-		CoverImageURL:   input.CoverImageURL,
-		ContentRating:   input.ContentRating,
-		Status:          workStatus,
-		CatalogMetadata: models.JSONB(input.CatalogMetadata),
-		CreatedBy:       &userID,
-	}
-
-	if err := validateCoverURL(work.CoverImageURL); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if err := s.db.Create(&work).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	if len(input.TagIDs) > 0 {
-		var tags []models.Tag
-		s.db.Where("id IN ?", input.TagIDs).Find(&tags)
-		s.db.Model(&work).Association("Tags").Append(&tags)
-	}
-
-	c.JSON(http.StatusCreated, work)
+	CoverImageURL    string                 `json:"cover_image_url"`
+	ContentRating    string                 `json:"content_rating"`
+	CatalogMetadata  map[string]interface{} `json:"catalog_metadata"`
+	TagIDs           []uint                 `json:"tag_ids"`
+	Tags             []string               `json:"tags"`
+	Translations     []LocaleTextInput      `json:"translations"`
 }
 
 type CreateReleaseInput struct {
@@ -1671,9 +1609,13 @@ type CreateReleaseInput struct {
 	CatalogNumber string     `json:"catalog_number"`
 	Barcode       string     `json:"barcode"`
 	Publisher     string     `json:"publisher"`
-	Packaging     string     `json:"packaging"`
-	EditionDate   *string    `json:"edition_date"`
-	Notes         string     `json:"notes"`
+	Packaging           string     `json:"packaging"`
+	EditionDate         *string    `json:"edition_date"`
+	Country             string     `json:"country"`
+	Language            string     `json:"language"`
+	DistributionChannel string     `json:"distribution_channel"`
+	CatalogMetadata     map[string]interface{} `json:"catalog_metadata"`
+	Notes               string     `json:"notes"`
 }
 
 // CreateRelease 创建发行商品版本
@@ -1747,30 +1689,31 @@ type ComprehensiveArtistRelationInput struct {
 }
 
 type ComprehensiveSubmissionInput struct {
-	CategoryCode    string                             `json:"category_code"`
-	MediaType       string                             `json:"media_type" binding:"required"`
-	Title           string                             `json:"title" binding:"required"`
-	OriginalTitle   string                             `json:"original_title"`
-	Aliases         []string                           `json:"aliases"`
-	ReleaseDate     *string                            `json:"release_date"`
-	Country         string                             `json:"country"`
-	Language        string                             `json:"language"`
-	OriginalLanguage string                            `json:"original_language"`
-	Summary         string                             `json:"summary"`
-	CoverImageURL   string                             `json:"cover_image_url"`
-	Tags            []string                           `json:"tags"`
-	CatalogMetadata map[string]interface{}             `json:"catalog_metadata"`
-	ExternalIDs     map[string]interface{}             `json:"external_ids"`
-	ArtistRelations []ComprehensiveArtistRelationInput `json:"artist_relations"`
-	EditionName     string                             `json:"edition_name"`
-	CatalogNumber   string                             `json:"catalog_number"`
-	Barcode         string                             `json:"barcode"`
-	Publisher       string                             `json:"publisher"`
-	PublisherID     *uuid.UUID                         `json:"publisher_id"`
-	Packaging       string                             `json:"packaging"`
-	EditionDate     *string                            `json:"edition_date"`
-	Notes           string                             `json:"notes"`
-	Mediums         []ComprehensiveMediumInput         `json:"mediums"`
+	CategoryCode     string                             `json:"category_code"`
+	MediaType        string                             `json:"media_type"`
+	Title            string                             `json:"title"`
+	OriginalTitle    string                             `json:"original_title"`
+	Aliases          []string                           `json:"aliases"`
+	ReleaseDate      *string                            `json:"release_date"`
+	Country          string                             `json:"country"`
+	Language         string                             `json:"language"`
+	OriginalLanguage string                             `json:"original_language"`
+	Summary          string                             `json:"summary"`
+	CoverImageURL    string                             `json:"cover_image_url"`
+	Tags             []string                           `json:"tags"`
+	CatalogMetadata  map[string]interface{}             `json:"catalog_metadata"`
+	ExternalIDs      map[string]interface{}             `json:"external_ids"`
+	ArtistRelations  []ComprehensiveArtistRelationInput `json:"artist_relations"`
+	EditionName      string                             `json:"edition_name"`
+	CatalogNumber    string                             `json:"catalog_number"`
+	Barcode          string                             `json:"barcode"`
+	Publisher        string                             `json:"publisher"`
+	PublisherID      *uuid.UUID                         `json:"publisher_id"`
+	Packaging        string                             `json:"packaging"`
+	EditionDate      *string                            `json:"edition_date"`
+	Notes            string                             `json:"notes"`
+	Mediums          []ComprehensiveMediumInput         `json:"mediums"`
+	Translations     []LocaleTextInput                  `json:"translations"`
 }
 
 // SubmitComprehensiveArchive 处理类似 MusicBrainz 的详尽多实体一站式考据录入
@@ -1785,6 +1728,11 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 	var input ComprehensiveSubmissionInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	mt := s.resolveMediaType(input.MediaType, input.Tags, nil)
+	if mt == "" || !ontology.IsEnabledMediaType(s.db, mt) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请添加形态标签（如电影、专辑、游戏、漫画）以便推断作品形态"})
 		return
 	}
 
@@ -1812,7 +1760,7 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 
 	work := models.Work{
 		CategoryCode:     catCode,
-		MediaType:        input.MediaType,
+		MediaType:        mt,
 		Title:            strings.TrimSpace(input.Title),
 		OriginalTitle:    strings.TrimSpace(input.OriginalTitle),
 		Aliases:          input.Aliases,
@@ -1826,21 +1774,21 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 		CatalogMetadata:  models.JSONB(mergedMetadata),
 		CreatedBy:        &userID,
 	}
-	if work.Language == "" {
-		work.Language = "zh-CN"
+	localeItems := applyWorkLocaleDefaults(&work, input.Translations, input.Language)
+	if strings.TrimSpace(work.Title) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "title required"})
+		return
 	}
 	if err := validateCoverURL(work.CoverImageURL); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
-	}
-	if work.CoverImageURL == "" {
-		work.CoverImageURL = "/covers/interstellar.svg"
 	}
 
 	if err := s.db.Create(&work).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": backendi18n.T(c, "catalog.create_work_failed") + err.Error()})
 		return
 	}
+	s.upsertWorkTranslations(work.ID, localeItems)
 
 	// 关联并注入多维标签
 	for _, tName := range input.Tags {
@@ -1878,10 +1826,11 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 		}
 		role := strings.TrimSpace(relInput.Role)
 		if role == "" {
-			role = "Creator"
+			role = "author"
 		}
-		if !validWorkRoles[strings.ToLower(role)] && role != "Creator" {
-			// 允许 taxonomy 中的首字母大写角色，统一小写校验
+		if !ontology.IsEnabledWorkRole(s.db, strings.ToLower(role)) && strings.ToLower(role) != "creator" && strings.ToLower(role) != "author" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_role") + role})
+			return
 		}
 		relation := models.WorkArtistRelation{
 			WorkID:   work.ID,
@@ -1889,6 +1838,7 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 			Role:     role,
 		}
 		s.db.Create(&relation)
+		s.mirrorArtistWorkEdge(*relInput.ArtistID, work.ID, role)
 	}
 
 	// 发行版与载体/曲目录入
@@ -2064,25 +2014,28 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	}
 
 	var input struct {
-		Title           string                 `json:"title" binding:"required"`
-		OriginalTitle   string                 `json:"original_title"`
-		CategoryCode    string                 `json:"category_code"`
-		MediaType       string                 `json:"media_type"`
-		Aliases         []string               `json:"aliases"`
-		ReleaseDate     *string                `json:"release_date"`
-		BeginDate       string                 `json:"begin_date"`
-		EndDate         string                 `json:"end_date"`
-		Ended           bool                   `json:"ended"`
-		Country         string                 `json:"country"`
-		Language        string                 `json:"language"`
-		OriginalLanguage string                `json:"original_language"`
-		Summary         string                 `json:"summary"`
-		CoverImageURL   string                 `json:"cover_image_url"`
-		ContentRating   string                 `json:"content_rating"`
-		Status          string                 `json:"status"`
-		CatalogMetadata map[string]interface{} `json:"catalog_metadata"`
-		EditNote        string                 `json:"edit_note"`
-		SourceURLs      []string               `json:"source_urls"`
+		Title            string                 `json:"title"`
+		OriginalTitle    string                 `json:"original_title"`
+		CategoryCode     string                 `json:"category_code"`
+		MediaType        string                 `json:"media_type"`
+		Aliases          []string               `json:"aliases"`
+		ReleaseDate      *string                `json:"release_date"`
+		BeginDate        string                 `json:"begin_date"`
+		EndDate          string                 `json:"end_date"`
+		Ended            bool                   `json:"ended"`
+		Country          string                 `json:"country"`
+		Language         string                 `json:"language"`
+		OriginalLanguage string                 `json:"original_language"`
+		Summary          string                 `json:"summary"`
+		CoverImageURL    string                 `json:"cover_image_url"`
+		ContentRating    string                 `json:"content_rating"`
+		Status           string                 `json:"status"`
+		CatalogMetadata  map[string]interface{} `json:"catalog_metadata"`
+		EditNote         string                 `json:"edit_note"`
+		SourceURLs       []string               `json:"source_urls"`
+		Tags             []string               `json:"tags"`
+		TagIDs           []uint                 `json:"tag_ids"`
+		Translations     []LocaleTextInput      `json:"translations"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -2111,9 +2064,6 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	if input.CategoryCode != "" {
 		work.CategoryCode = input.CategoryCode
 	}
-	if input.MediaType != "" {
-		work.MediaType = input.MediaType
-	}
 	if input.Aliases != nil {
 		work.Aliases = input.Aliases
 	}
@@ -2126,12 +2076,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	work.EndDate = input.EndDate
 	work.Ended = input.Ended
 	work.Country = input.Country
-	if input.Language != "" {
-		work.Language = input.Language
-	}
-	if input.OriginalLanguage != "" {
-		work.OriginalLanguage = input.OriginalLanguage
-	}
+	work.OriginalLanguage = input.OriginalLanguage
 	work.Summary = input.Summary
 	work.CoverImageURL = input.CoverImageURL
 	if input.ContentRating != "" {
@@ -2143,11 +2088,30 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	if input.CatalogMetadata != nil {
 		work.CatalogMetadata = models.JSONB(input.CatalogMetadata)
 	}
+	localeItems := applyWorkLocaleDefaults(&work, input.Translations, input.Language)
+	if strings.TrimSpace(work.Title) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "title required"})
+		return
+	}
+	tagNames := input.Tags
+	if len(input.TagIDs) > 0 {
+		var byID []models.Tag
+		s.db.Where("id IN ?", input.TagIDs).Find(&byID)
+		for _, t := range byID {
+			tagNames = append(tagNames, t.Name)
+		}
+	}
+	if mt := s.resolveMediaType(input.MediaType, tagNames, nil); mt != "" {
+		work.MediaType = mt
+	} else if input.MediaType != "" && ontology.IsEnabledMediaType(s.db, input.MediaType) {
+		work.MediaType = input.MediaType
+	}
 
 	if err := s.db.Save(&work).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	s.replaceWorkTagsByName(&work, input.Tags)
 
 	afterState := map[string]interface{}{
 		"title":             work.Title,
@@ -2167,6 +2131,8 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	}
 
 	s.recordRevision("work", work.ID, &userID, "update", "更新作品元数据", input.EditNote, input.SourceURLs, beforeState, afterState)
+	s.upsertWorkTranslations(work.ID, localeItems)
+	_ = s.db.Preload("Tags").Preload("Translations").First(&work, work.ID).Error
 	c.JSON(http.StatusOK, gin.H{"status": "success", "work": work})
 }
 
@@ -2190,18 +2156,20 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 	}
 
 	var input struct {
-		Name           string                 `json:"name" binding:"required"`
+		Name           string                 `json:"name"`
 		OriginalName   string                 `json:"original_name"`
 		Disambiguation string                 `json:"disambiguation"`
 		EntityType     string                 `json:"entity_type"`
 		Country        string                 `json:"country"`
 		Biography      string                 `json:"biography"`
+		Language       string                 `json:"language"`
 		BeginDate      string                 `json:"begin_date"`
 		EndDate        string                 `json:"end_date"`
 		Ended          bool                   `json:"ended"`
 		ExternalIDs    map[string]interface{} `json:"external_ids"`
 		EditNote       string                 `json:"edit_note"`
 		SourceURLs     []string               `json:"source_urls"`
+		Translations   []LocaleTextInput      `json:"translations"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -2225,6 +2193,10 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 	artist.OriginalName = strings.TrimSpace(input.OriginalName)
 	artist.Disambiguation = strings.TrimSpace(input.Disambiguation)
 	if input.EntityType != "" {
+		if !ontology.IsEnabledEntityType(s.db, input.EntityType) {
+			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_entity_type")})
+			return
+		}
 		artist.EntityType = input.EntityType
 	}
 	artist.Country = input.Country
@@ -2234,6 +2206,11 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 	artist.Ended = input.Ended
 	if input.ExternalIDs != nil {
 		artist.ExternalIDs = models.JSONB(input.ExternalIDs)
+	}
+	items := applyArtistLocaleDefaults(&artist, input.Translations, input.Language)
+	if strings.TrimSpace(artist.Name) == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
+		return
 	}
 
 	if err := s.db.Save(&artist).Error; err != nil {
@@ -2255,6 +2232,8 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 	}
 
 	s.recordRevision("artist", artist.ID, &userID, "update", "更新创作者/机构主体档案", input.EditNote, input.SourceURLs, beforeState, afterState)
+	s.upsertArtistTranslations(artist.ID, items)
+	_ = s.db.Preload("Translations").First(&artist, artist.ID).Error
 	c.JSON(http.StatusOK, gin.H{"status": "success", "artist": artist})
 }
 
@@ -2278,15 +2257,19 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 	}
 
 	var input struct {
-		EditionName   string   `json:"edition_name" binding:"required"`
-		CatalogNumber string   `json:"catalog_number"`
-		Barcode       string   `json:"barcode"`
-		PublisherID   *string  `json:"publisher_id"`
-		Packaging     string   `json:"packaging"`
-		EditionDate   *string  `json:"edition_date"`
-		Notes         string   `json:"notes"`
-		EditNote      string   `json:"edit_note"`
-		SourceURLs    []string `json:"source_urls"`
+		EditionName         string                 `json:"edition_name" binding:"required"`
+		CatalogNumber       string                 `json:"catalog_number"`
+		Barcode             string                 `json:"barcode"`
+		PublisherID         *string                `json:"publisher_id"`
+		Packaging           string                 `json:"packaging"`
+		EditionDate         *string                `json:"edition_date"`
+		Country             string                 `json:"country"`
+		Language            string                 `json:"language"`
+		DistributionChannel string                 `json:"distribution_channel"`
+		CatalogMetadata     map[string]interface{} `json:"catalog_metadata"`
+		Notes               string                 `json:"notes"`
+		EditNote            string                 `json:"edit_note"`
+		SourceURLs          []string               `json:"source_urls"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -2320,6 +2303,19 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		if t, err := time.Parse("2006-01-02", *input.EditionDate); err == nil {
 			release.EditionDate = &t
 		}
+	}
+	release.Country = strings.TrimSpace(input.Country)
+	release.Language = strings.TrimSpace(input.Language)
+	if input.DistributionChannel != "" {
+		ch := ontology.NormalizeDistributionChannel(input.DistributionChannel)
+		if ch == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid distribution_channel"})
+			return
+		}
+		release.DistributionChannel = ch
+	}
+	if input.CatalogMetadata != nil {
+		release.CatalogMetadata = models.JSONB(input.CatalogMetadata)
 	}
 
 	if err := s.db.Save(&release).Error; err != nil {
@@ -2488,6 +2484,39 @@ func (s *CatalogService) MergeEntities(c *gin.Context) {
 		}
 		tx.Create(&rev)
 		tx.Where("id = ?", srcUUID).Delete(&models.Work{})
+
+	case "franchise":
+		var srcFr, tgtFr models.Franchise
+		if err := tx.Where("id = ?", srcUUID).First(&srcFr).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusNotFound, gin.H{"error": "Source franchise not found"})
+			return
+		}
+		if err := tx.Where("id = ?", tgtUUID).First(&tgtFr).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target franchise not found"})
+			return
+		}
+		tx.Model(&models.EntityRelationship{}).Where("source_type = 'franchise' AND source_id = ?", srcUUID).Update("source_id", tgtUUID)
+		tx.Model(&models.EntityRelationship{}).Where("target_type = 'franchise' AND target_id = ?", srcUUID).Update("target_id", tgtUUID)
+		mergedAliases := append(tgtFr.Aliases, srcFr.Title)
+		mergedAliases = append(mergedAliases, srcFr.Aliases...)
+		tx.Model(&tgtFr).Update("aliases", mergedAliases)
+		rev := models.EntityRevision{
+			TargetType:  "franchise",
+			TargetID:    tgtUUID,
+			EditorID:    &userID,
+			EditType:    "merge",
+			Summary:     fmt.Sprintf("合并企划: 将 [%s] 合并至当前企划", srcFr.Title),
+			EditNote:    input.MergeNote,
+			SourceURLs:  input.SourceURLs,
+			BeforeState: models.JSONB(map[string]interface{}{"merged_source": srcFr}),
+			AfterState:  models.JSONB(map[string]interface{}{"target_franchise": tgtFr}),
+			Status:      "applied",
+			CreatedAt:   time.Now(),
+		}
+		tx.Create(&rev)
+		tx.Where("id = ?", srcUUID).Delete(&models.Franchise{})
 
 	default:
 		tx.Rollback()

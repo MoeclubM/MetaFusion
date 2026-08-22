@@ -5,9 +5,17 @@ import { Plus, X, Globe2, Tag as TagIcon, Sparkles } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fetchApi } from "@/lib/api";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
+import { CATALOG_LOCALES, LocaleEntry } from "./localeForm";
+import { Select } from "@/components/ui/Select";
+
+const fieldClass =
+  "w-full px-3.5 h-10 rounded-lg bg-background border border-black/10 dark:border-white/10 text-gray-900 dark:text-white text-sm focus:outline-none focus:border-primary";
+const areaClass =
+  "w-full p-3.5 rounded-lg bg-background border border-black/10 dark:border-white/10 text-gray-900 dark:text-white text-sm leading-relaxed resize-none focus:outline-none focus:border-primary";
+const labelClass = "block text-xs sm:text-sm font-mono text-gray-600 dark:text-gray-300";
 
 interface Props {
-  targetType: "work" | "artist" | "release";
+  targetType: "work" | "artist" | "release" | "franchise";
   formData: Record<string, any>;
   updateField: (key: string, val: any) => void;
   aliasesStr: string;
@@ -15,16 +23,7 @@ interface Props {
   taxonomy?: any;
 }
 
-// 元数据主语言（BCP-47）：词条文本以何种语言书写
-const METADATA_LANGUAGE_OPTIONS = [
-  { code: "zh-CN", labelKey: "editor.core.langZhHans" },
-  { code: "zh-TW", labelKey: "editor.core.langZhHant" },
-  { code: "en-US", labelKey: "editor.core.langEn" },
-  { code: "ja-JP", labelKey: "editor.core.langJa" },
-  { code: "ko-KR", labelKey: "editor.core.langKo" },
-];
-
-// 原始语言（ISO 639-1）：作品内容本身的语言
+// 原始语言（ISO 639-1）：作品内容本身的语言，与编目语种无关
 const ORIGINAL_LANGUAGE_OPTIONS = [
   { code: "zh", labelKey: "editor.core.origLangZh" },
   { code: "ja", labelKey: "editor.core.langJa" },
@@ -48,6 +47,7 @@ export function EditorCoreFields({
 
   const [newTagInput, setNewTagInput] = useState("");
   const [dynamicTagSuggestions, setDynamicTagSuggestions] = useState<string[]>([]);
+  const [activeLocale, setActiveLocale] = useState(formData.language || locale || "zh-CN");
 
   useEffect(() => {
     if (taxonomy?.tags && Array.isArray(taxonomy.tags) && taxonomy.tags.length > 0) {
@@ -64,15 +64,42 @@ export function EditorCoreFields({
     }
   }, [taxonomy]);
 
+  useEffect(() => {
+    if (formData.language) setActiveLocale(formData.language);
+  }, [formData.language]);
+
   const tags: string[] = Array.isArray(formData.tags)
     ? formData.tags.map((t: any) => (typeof t === "string" ? t : t.name))
     : [];
 
-  const names: Record<string, string> = formData.names || {};
+  const translations: Record<string, LocaleEntry> = formData.translations || {};
+  const defaultLocale: string = formData.language || "zh-CN";
+  const usesLocalePack = targetType === "work" || targetType === "artist" || targetType === "franchise";
 
-  const handleUpdateName = (langKey: string, val: string) => {
-    const updated = { ...names, [langKey]: val };
-    updateField("names", updated);
+  const syncCanonicalFromLocale = (loc: string, entry: LocaleEntry) => {
+    if (targetType === "work" || targetType === "franchise") {
+      updateField("title", entry.title || "");
+      updateField("summary", entry.summary || "");
+    } else if (targetType === "artist") {
+      updateField("name", entry.title || "");
+      updateField("biography", entry.summary || "");
+    }
+  };
+
+  const handleUpdateTranslation = (loc: string, patch: Partial<LocaleEntry>) => {
+    const prev = translations[loc] || { title: "", summary: "" };
+    const nextEntry: LocaleEntry = {
+      title: patch.title !== undefined ? patch.title : prev.title,
+      summary: patch.summary !== undefined ? patch.summary : prev.summary,
+    };
+    updateField("translations", { ...translations, [loc]: nextEntry });
+    if (loc === defaultLocale) syncCanonicalFromLocale(loc, nextEntry);
+  };
+
+  const handleSetDefaultLocale = (loc: string) => {
+    updateField("language", loc);
+    const entry = translations[loc] || { title: "", summary: "" };
+    syncCanonicalFromLocale(loc, entry);
   };
 
   const handleAddTag = (tagToAdd: string) => {
@@ -89,110 +116,132 @@ export function EditorCoreFields({
     );
   };
 
+  const entityTypeOptions =
+    taxonomy?.entity_types && taxonomy.entity_types.length > 0
+      ? taxonomy.entity_types.map((et: any) => ({
+          value: et.id,
+          label: et.name || et.name_zh || et.id,
+        }))
+      : formData.entity_type
+        ? [{ value: formData.entity_type, label: formData.entity_type }]
+        : [];
+
   return (
     <div className="space-y-5">
       {/* ── 1. 多语言基础标识 (Multilingual Identification) ── */}
-      <div className="p-4 rounded-card bg-white/[0.02] border border-white/[0.06] space-y-4">
-        <div className="flex items-center justify-between">
+      <div className="p-4 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface space-y-4">
+        <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2">
             <Globe2 className="w-4 h-4 text-amber-400" />
-            <h3 className="text-xs font-semibold text-white">{t("editor.core.multilingualTitle")}</h3>
+            <h3 className="text-xs font-semibold text-gray-900 dark:text-white">{t("editor.core.multilingualTitle")}</h3>
           </div>
-          {targetType === "work" && (
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] font-mono text-gray-400">{t("editor.core.metadataLangLabel")}</label>
-              <select
-                value={formData.language || "zh-CN"}
-                onChange={(e) => updateField("language", e.target.value)}
-                title={t("editor.core.metadataLangHint")}
-                className="px-3 h-9 rounded-lg bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
-              >
-                {METADATA_LANGUAGE_OPTIONS.map((opt) => (
-                  <option key={opt.code} value={opt.code}>
-                    {t(opt.labelKey)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Primary Title / Name */}
-          <div className="space-y-1.5 md:col-span-2">
-            <label className="block text-xs sm:text-sm font-mono text-gray-300">
+        {usesLocalePack ? (
+          <>
+            <p className="text-[11px] leading-relaxed text-gray-500">{t("editor.core.localePackHint")}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {CATALOG_LOCALES.map((opt) => {
+                const isActive = activeLocale === opt.code;
+                const isDefault = defaultLocale === opt.code;
+                const filled = !!(translations[opt.code]?.title || translations[opt.code]?.summary);
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => setActiveLocale(opt.code)}
+                    className={`px-2.5 h-8 rounded-md font-mono text-[11px] border transition-colors inline-flex items-center gap-1.5 ${
+                      isActive
+                        ? "bg-amber-500/15 border-amber-400/40 text-amber-800 dark:text-amber-100"
+                        : "bg-black/[0.03] dark:bg-white/[0.03] border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/[0.06] dark:hover:bg-white/[0.06]"
+                    }`}
+                  >
+                    {t(opt.labelKey)}
+                    {isDefault && (
+                      <span className="text-[9px] uppercase tracking-wide text-amber-700 dark:text-amber-300">{t("editor.core.defaultBadge")}</span>
+                    )}
+                    {filled && !isDefault && <span className="w-1 h-1 rounded-full bg-emerald-400" />}
+                  </button>
+                );
+              })}
+            </div>
+            {CATALOG_LOCALES.map((opt) => {
+              if (opt.code !== activeLocale) return null;
+              const entry = translations[opt.code] || { title: "", summary: "" };
+              const isDefault = defaultLocale === opt.code;
+              return (
+                <div key={opt.code} className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className={labelClass}>
+                      {t("editor.core.localeTitleLabel")}
+                      {isDefault && <span className="text-amber-400"> *</span>}
+                    </label>
+                    {isDefault ? (
+                      <span className="font-mono text-[10px] text-amber-700/80 dark:text-amber-300/80">{t("editor.core.defaultBadge")}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleSetDefaultLocale(opt.code)}
+                        className="font-mono text-[11px] text-gray-500 hover:text-amber-700 dark:hover:text-amber-200 underline underline-offset-2"
+                      >
+                        {t("editor.core.setAsDefault")}
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    required={isDefault}
+                    value={entry.title}
+                    onChange={(e) => handleUpdateTranslation(opt.code, { title: e.target.value })}
+                    placeholder={t("editor.core.localeTitlePlaceholder")}
+                    className={`${fieldClass} font-medium`}
+                  />
+                  {opt.romaji && (
+                    <div className="space-y-1.5">
+                      <label className="block text-xs sm:text-sm font-mono text-gray-500">{t("editor.core.romaji")}</label>
+                      <input
+                        type="text"
+                        value={formData.romaji || ""}
+                        onChange={(e) => updateField("romaji", e.target.value)}
+                        placeholder={t("editor.core.romajiPlaceholder")}
+                        className={fieldClass}
+                      />
+                      <p className="text-[11px] text-gray-500">{t("editor.core.romajiAliasHint")}</p>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <label className={labelClass}>
+                      {targetType === "artist" ? t("editor.core.artistBioLabel") : t("editor.core.localeSummaryLabel")}
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={entry.summary}
+                      onChange={(e) => handleUpdateTranslation(opt.code, { summary: e.target.value })}
+                      placeholder={t("editor.core.localeSummaryPlaceholder")}
+                      className={areaClass}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          <div className="space-y-1.5">
+            <label className={labelClass}>
               {t("editor.core.primaryTitleLabel")} <span className="text-amber-400">*</span>
             </label>
             <input
               type="text"
               required
-              value={formData.title || formData.name || formData.edition_name || ""}
-              onChange={(e) => {
-                if (targetType === "work") updateField("title", e.target.value);
-                else if (targetType === "artist") updateField("name", e.target.value);
-                else updateField("edition_name", e.target.value);
-              }}
+              value={formData.edition_name || ""}
+              onChange={(e) => updateField("edition_name", e.target.value)}
               placeholder={t("editor.core.primaryTitlePlaceholder")}
-              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm font-medium focus:outline-none focus:border-amber-400"
+              className={`${fieldClass} font-medium`}
             />
           </div>
+        )}
 
-          {/* Chinese Name */}
-          <div className="space-y-1.5">
-            <label className="block text-xs sm:text-sm font-mono text-gray-400">{t("editor.core.chineseName")}</label>
-            <input
-              type="text"
-              value={names["zh-CN"] || ""}
-              onChange={(e) => handleUpdateName("zh-CN", e.target.value)}
-              placeholder={t("editor.core.chinesePlaceholder")}
-              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
-            />
-          </div>
-
-          {/* Japanese Native Name */}
-          <div className="space-y-1.5">
-            <label className="block text-xs sm:text-sm font-mono text-gray-400">{t("editor.core.japaneseNative")}</label>
-            <input
-              type="text"
-              value={formData.original_title || formData.original_name || names["ja-JP"] || ""}
-              onChange={(e) => {
-                if (targetType === "work") updateField("original_title", e.target.value);
-                else updateField("original_name", e.target.value);
-                handleUpdateName("ja-JP", e.target.value);
-              }}
-              placeholder={t("editor.core.japanesePlaceholder")}
-              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
-            />
-          </div>
-
-          {/* Romaji / Latin Transliteration */}
-          <div className="space-y-1.5">
-            <label className="block text-xs sm:text-sm font-mono text-gray-400">{t("editor.core.romaji")}</label>
-            <input
-              type="text"
-              value={names["ja-Latn"] || ""}
-              onChange={(e) => handleUpdateName("ja-Latn", e.target.value)}
-              placeholder={t("editor.core.romajiPlaceholder")}
-              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
-            />
-          </div>
-
-          {/* English International Name */}
-          <div className="space-y-1.5">
-            <label className="block text-xs sm:text-sm font-mono text-gray-400">{t("editor.core.englishName")}</label>
-            <input
-              type="text"
-              value={names["en-US"] || ""}
-              onChange={(e) => handleUpdateName("en-US", e.target.value)}
-              placeholder={t("editor.core.englishPlaceholder")}
-              className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
-            />
-          </div>
-        </div>
-
-        {/* Aliases */}
-        <div className="space-y-1.5 pt-2 border-t border-white/[0.04]">
-          <label className="block text-xs sm:text-sm font-mono text-gray-300">
+        <div className="space-y-1.5 pt-2 border-t border-black/5 dark:border-white/[0.06]">
+          <label className={labelClass}>
             {t("editor.core.aliasesLabel")}
           </label>
           <input
@@ -200,7 +249,7 @@ export function EditorCoreFields({
             value={aliasesStr}
             onChange={(e) => setAliasesStr(e.target.value)}
             placeholder={t("editor.core.aliasesPlaceholder")}
-            className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
+            className={fieldClass}
           />
         </div>
       </div>
@@ -208,100 +257,66 @@ export function EditorCoreFields({
       {/* ── 2. 主体性质 / 分发参数 ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {targetType === "work" && (
-          <>
-            <div className="space-y-1.5">
-              <label className="block text-xs sm:text-sm font-mono text-gray-300">
-                {t("editor.temporal.mediaTypeLabel")} <span className="text-amber-400">*</span>
-              </label>
-              <select
-                value={formData.media_type || (taxonomy?.media_types?.[0]?.id || "")}
-                onChange={(e) => updateField("media_type", e.target.value)}
-                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400 font-mono"
-              >
-                {taxonomy?.media_types && taxonomy.media_types.length > 0 ? (
-                  taxonomy.media_types.map((mt: any) => {
-                    const label = mt.name || (locale === "en-US" ? mt.name_en : mt.name_zh) || mt.id;
-                    return (
-                      <option key={mt.id} value={mt.id}>
-                        {label} ({mt.id})
-                      </option>
-                    );
-                  })
-                ) : (
-                  formData.media_type && (
-                    <option value={formData.media_type}>
-                      {formData.media_type}
-                    </option>
-                  )
-                )}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="block text-xs sm:text-sm font-mono text-gray-300" title={t("editor.core.originalLangHint")}>
-                {t("editor.core.originalLangLabel")}
-              </label>
-              <select
-                value={formData.original_language || ""}
-                onChange={(e) => updateField("original_language", e.target.value)}
-                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
-              >
-                <option value="">{t("editor.core.originalLangUnknown")}</option>
-                {ORIGINAL_LANGUAGE_OPTIONS.map((opt) => (
-                  <option key={opt.code} value={opt.code}>
-                    {t(opt.labelKey)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </>
+          <div className="space-y-1.5">
+            <label className={labelClass} title={t("editor.core.originalLangHint")}>
+              {t("editor.core.originalLangLabel")}
+            </label>
+            <Select
+              value={formData.original_language || ""}
+              onChange={(val) => updateField("original_language", val)}
+              options={[
+                { value: "", label: t("editor.core.originalLangUnknown") },
+                ...ORIGINAL_LANGUAGE_OPTIONS.map((opt) => ({
+                  value: opt.code,
+                  label: t(opt.labelKey),
+                })),
+              ]}
+            />
+          </div>
         )}
 
         {targetType === "artist" && (
           <>
             <div className="space-y-1.5">
-              <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.entityTypeLabel")}</label>
-              <select
+              <label className={labelClass}>{t("editor.core.entityTypeLabel")}</label>
+              <Select
                 value={formData.entity_type || "person"}
-                onChange={(e) => updateField("entity_type", e.target.value)}
-                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400 font-mono"
-              >
-                {taxonomy?.entity_types && taxonomy.entity_types.length > 0 ? (
-                  taxonomy.entity_types.map((et: any) => (
-                    <option key={et.id} value={et.id}>
-                      {et.name || et.name_zh || et.id}
-                    </option>
-                  ))
-                ) : (
-                  <>
-                    <option value="person">{t("editor.core.entityTypePerson")}</option>
-                    <option value="studio">{t("editor.core.entityTypeStudio")}</option>
-                    <option value="publisher">{t("editor.core.entityTypePublisher")}</option>
-                    <option value="label">{t("editor.core.entityTypeLabelOrg")}</option>
-                    <option value="group">{t("editor.core.entityTypeGroup")}</option>
-                    <option value="circle">{t("editor.core.entityTypeCircle")}</option>
-                    <option value="orchestra">{t("editor.core.entityTypeOrchestra")}</option>
-                  </>
-                )}
-              </select>
+                onChange={(val) => updateField("entity_type", val)}
+                className="font-mono"
+                options={entityTypeOptions}
+              />
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.disambiguationLabel")}</label>
+              <label className={labelClass}>{t("editor.core.disambiguationLabel")}</label>
               <input
                 type="text"
                 value={formData.disambiguation || ""}
                 onChange={(e) => updateField("disambiguation", e.target.value)}
                 placeholder={t("editor.core.disambiguationPlaceholder")}
-                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
+                className={fieldClass}
               />
             </div>
           </>
         )}
 
+        {targetType === "franchise" && (
+          <div className="space-y-1.5">
+            <label className={labelClass}>{t("editor.core.disambiguationLabel")}</label>
+            <input
+              type="text"
+              value={formData.disambiguation || ""}
+              onChange={(e) => updateField("disambiguation", e.target.value)}
+              placeholder={t("editor.core.disambiguationPlaceholder")}
+              className={fieldClass}
+            />
+          </div>
+        )}
+
         {targetType === "release" && (
           <>
             <div className="space-y-1.5 md:col-span-2">
-              <label className="block text-xs sm:text-sm font-mono text-gray-300">
+              <label className={labelClass}>
                 {t("editor.core.workIdLabel")} <span className="text-amber-400">*</span>
               </label>
               <input
@@ -310,57 +325,83 @@ export function EditorCoreFields({
                 value={formData.work_id || ""}
                 onChange={(e) => updateField("work_id", e.target.value)}
                 placeholder={t("editor.core.workIdPlaceholder")}
-                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
+                className={`${fieldClass} font-mono`}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.catalogNumberLabel")}</label>
+              <label className={labelClass}>{t("editor.core.catalogNumberLabel")}</label>
               <input
                 type="text"
                 value={formData.catalog_number || ""}
                 onChange={(e) => updateField("catalog_number", e.target.value)}
                 placeholder={t("editor.core.catalogNumberPlaceholder")}
-                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
+                className={`${fieldClass} font-mono`}
               />
             </div>
             <div className="space-y-1.5">
-              <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.barcodeLabel")}</label>
+              <label className={labelClass}>{t("editor.core.barcodeLabel")}</label>
               <input
                 type="text"
                 value={formData.barcode || ""}
                 onChange={(e) => updateField("barcode", e.target.value)}
                 placeholder={t("editor.core.barcodePlaceholder")}
-                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
+                className={`${fieldClass} font-mono`}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{t("editor.core.releaseLanguageLabel")}</label>
+              <input
+                type="text"
+                value={formData.language || ""}
+                onChange={(e) => updateField("language", e.target.value)}
+                placeholder={t("editor.core.releaseLanguagePlaceholder")}
+                className={`${fieldClass} font-mono`}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{t("editor.core.distributionChannelLabel")}</label>
+              <Select
+                value={formData.distribution_channel || "mixed"}
+                onChange={(val) => updateField("distribution_channel", val)}
+                className="font-mono"
+                options={[
+                  { value: "mixed", label: t("editor.core.channelMixed") },
+                  { value: "physical", label: t("editor.core.channelPhysical") },
+                  { value: "digital", label: t("editor.core.channelDigital") },
+                  { value: "web", label: t("editor.core.channelWeb") },
+                ]}
               />
             </div>
           </>
         )}
 
         <div className="space-y-1.5">
-          <label className="block text-xs sm:text-sm font-mono text-gray-300">{t("editor.core.countryLabel")}</label>
+          <label className={labelClass}>{t("editor.core.countryLabel")}</label>
           <input
             type="text"
             value={formData.country || ""}
             onChange={(e) => updateField("country", e.target.value)}
             placeholder={t("editor.core.countryPlaceholder")}
-            className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white font-mono text-sm focus:outline-none focus:border-amber-400"
+            className={`${fieldClass} font-mono`}
           />
         </div>
       </div>
 
       {/* ── 3. 全动态标签与体裁系统 (Dynamic Tagging & Themes) ── */}
-      <div className="p-4 rounded-card bg-white/[0.02] border border-white/[0.06] space-y-3.5">
+      <div className="p-4 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface space-y-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TagIcon className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-xs sm:text-sm font-semibold text-white">{t("editor.core.tagsTitle")}</h3>
+            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white">{t("editor.core.tagsTitle")}</h3>
           </div>
           <span className="font-mono text-xs text-gray-500">
             {t("editor.core.tagsSub")}
           </span>
         </div>
+        {targetType === "work" && (
+          <p className="text-[11px] leading-relaxed text-gray-500">{t("editor.core.formTagHint")}</p>
+        )}
 
-        {/* Selected Tags Chips */}
         <div className="flex flex-wrap items-center gap-2 min-h-[32px]">
           {tags.length === 0 ? (
             <span className="text-xs sm:text-sm text-gray-500 font-mono">{t("editor.core.noTags")}</span>
@@ -368,13 +409,13 @@ export function EditorCoreFields({
             tags.map((tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs sm:text-sm font-mono transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-mono transition-colors"
               >
                 #{tag}
                 <button
                   type="button"
                   onClick={() => handleRemoveTag(tag)}
-                  className="p-0.5 hover:bg-emerald-500/20 rounded-full text-emerald-400 hover:text-rose-300 cursor-pointer"
+                  className="p-0.5 hover:bg-emerald-500/20 rounded-full text-emerald-600 dark:text-emerald-400 hover:text-rose-500 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -383,7 +424,6 @@ export function EditorCoreFields({
           )}
         </div>
 
-        {/* Add Tag Input */}
         <div className="flex items-center gap-2 pt-1">
           <input
             type="text"
@@ -396,21 +436,20 @@ export function EditorCoreFields({
               }
             }}
             placeholder={t("editor.core.addTagPlaceholder")}
-            className="flex-1 px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
+            className={`flex-1 ${fieldClass}`}
           />
           <button
             type="button"
             onClick={() => handleAddTag(newTagInput)}
-            className="px-4 h-10 rounded-lg bg-white/[0.06] border border-white/10 hover:bg-white/10 text-white text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            className="px-4 h-10 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 hover:bg-black/[0.08] dark:hover:bg-white/10 text-gray-900 dark:text-white text-sm font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             {t("editor.core.addBtn")}
           </button>
         </div>
 
-        {/* Quick Tag Suggestions (Dynamically loaded from Database Tags) */}
         {dynamicTagSuggestions.length > 0 && (
-          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-white/[0.04]">
+          <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-black/5 dark:border-white/[0.06]">
             <span className="font-mono text-xs text-gray-500 mr-1 flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               {t("editor.core.quickSuggestions")}
@@ -424,8 +463,8 @@ export function EditorCoreFields({
                   onClick={() => (isSelected ? handleRemoveTag(sug) : handleAddTag(sug))}
                   className={`px-2.5 py-1 rounded-full font-mono text-xs border transition-all cursor-pointer ${
                     isSelected
-                      ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-200"
-                      : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white hover:bg-white/[0.08]"
+                      ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-800 dark:text-emerald-200"
+                      : "bg-black/[0.03] dark:bg-white/[0.03] border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.08]"
                   }`}
                 >
                   +{sug}
@@ -436,23 +475,20 @@ export function EditorCoreFields({
         )}
       </div>
 
-      {/* ── 4. 简介 / 传记 ── */}
-      <div className="space-y-1.5">
-        <label className="block text-xs sm:text-sm font-mono text-gray-300">
-          {t("editor.core.summaryLabel")}
-        </label>
-        <textarea
-          rows={4}
-          value={formData.summary || formData.biography || formData.notes || ""}
-          onChange={(e) => {
-            if (targetType === "artist") updateField("biography", e.target.value);
-            else if (targetType === "work") updateField("summary", e.target.value);
-            else updateField("notes", e.target.value);
-          }}
-          placeholder={t("editor.core.summaryPlaceholder")}
-          className="w-full p-3.5 rounded-lg bg-background border border-white/10 text-white text-sm leading-relaxed resize-none focus:outline-none focus:border-amber-400"
-        />
-      </div>
+      {targetType === "release" && (
+        <div className="space-y-1.5">
+          <label className={labelClass}>
+            {t("editor.core.summaryLabel")}
+          </label>
+          <textarea
+            rows={4}
+            value={formData.notes || ""}
+            onChange={(e) => updateField("notes", e.target.value)}
+            placeholder={t("editor.core.summaryPlaceholder")}
+            className={areaClass}
+          />
+        </div>
+      )}
     </div>
   );
 }

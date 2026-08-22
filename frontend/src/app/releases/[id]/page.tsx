@@ -4,11 +4,12 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, Release, Work, Category, categoryDisplayName, getRoleName, getMediaTypeName } from "@/lib/api";
+import { fetchApi, Release, Work, Category, categoryDisplayName } from "@/lib/api";
 import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
 import { useAuth } from "@/lib/authContext";
 import { usePlayer } from "@/lib/playerContext";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Edit3, History } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
@@ -24,6 +25,7 @@ export default function ReleaseDetailPage() {
   const { user } = useAuth();
   const { playTrack } = usePlayer();
   const { t, locale } = useI18n();
+  const { mediaTypeLabel, roleLabel } = useTaxonomy();
   const [release, setRelease] = useState<ReleaseWithWork | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
@@ -117,7 +119,7 @@ export default function ReleaseDetailPage() {
                   </span>
                 ) : work?.media_type ? (
                   <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
-                    {getMediaTypeName(work.media_type, t)}
+                    {mediaTypeLabel(work.media_type)}
                   </span>
                 ) : null}
                 {release.catalog_number && <span className="text-gray-500">{release.catalog_number}</span>}
@@ -165,7 +167,7 @@ export default function ReleaseDetailPage() {
               {work.artist_relations.map((rel) => (
                 <Link key={rel.id} href={`/artists/${rel.artist_id}`} className="px-2 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs text-gray-700 dark:text-gray-300 hover:text-primary inline-flex items-center gap-1 transition-colors">
                   <User className="w-3 h-3 text-primary" strokeWidth={1.5} />
-                  <span className="font-mono text-[10px] text-gray-500">{getRoleName(rel.role, t)}:</span> {rel.artist?.name}
+                  <span className="font-mono text-[10px] text-gray-500">{roleLabel(rel.role)}:</span> {rel.artist?.name}
                 </Link>
               ))}
             </div>

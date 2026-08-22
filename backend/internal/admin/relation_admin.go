@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"github.com/metafusion/metafusion-app/internal/models"
+	"github.com/metafusion/metafusion-app/internal/ontology"
 )
 
 // ListRelationTypesAdmin 管理员获取全部动态关系类型
@@ -282,6 +283,7 @@ func (s *AdminService) UpsertEntityRelations(c *gin.Context) {
 			TargetType       string                 `json:"target_type" binding:"required"`
 			TargetID         uuid.UUID              `json:"target_id" binding:"required"`
 			RelationshipType string                 `json:"relationship_type" binding:"required"`
+			Qualifier        string                 `json:"qualifier"`
 			BeginDate        string                 `json:"begin_date"`
 			EndDate          string                 `json:"end_date"`
 			Ended            bool                   `json:"ended"`
@@ -293,10 +295,13 @@ func (s *AdminService) UpsertEntityRelations(c *gin.Context) {
 		return
 	}
 	for _, r := range input.Relations {
-		var count int64
-		s.db.Model(&models.RelationType{}).Where("code = ? AND is_enabled = ?", r.RelationshipType, true).Count(&count)
-		if count == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid or disabled relationship type: " + r.RelationshipType})
+		spec := ontology.EdgeSpec{
+			SourceType: r.SourceType, SourceID: r.SourceID,
+			TargetType: r.TargetType, TargetID: r.TargetID,
+			RelationshipType: r.RelationshipType, Qualifier: r.Qualifier,
+		}
+		if err := ontology.ValidateRelationEdge(s.db, spec); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 	}
@@ -305,18 +310,19 @@ func (s *AdminService) UpsertEntityRelations(c *gin.Context) {
 		if r.Attributes != nil {
 			attrs = models.JSONB(r.Attributes)
 		}
+		qual := strings.TrimSpace(r.Qualifier)
 		rel := models.EntityRelationship{
 			SourceType: r.SourceType, SourceID: r.SourceID,
 			TargetType: r.TargetType, TargetID: r.TargetID,
 			RelationshipType: r.RelationshipType,
+			Qualifier:        qual,
 			BeginDate:        r.BeginDate,
 			EndDate:          r.EndDate,
 			Ended:            r.Ended,
 			Attributes:       attrs,
 		}
-		// 存在则更新时序与属性，不存在则插入
-		if err := s.db.Where("source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ?",
-			r.SourceType, r.SourceID, r.TargetType, r.TargetID, r.RelationshipType).
+		if err := s.db.Where("source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
+			r.SourceType, r.SourceID, r.TargetType, r.TargetID, r.RelationshipType, qual).
 			Assign(models.EntityRelationship{
 				BeginDate:  r.BeginDate,
 				EndDate:    r.EndDate,

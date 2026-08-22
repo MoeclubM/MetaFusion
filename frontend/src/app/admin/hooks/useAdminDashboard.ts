@@ -13,7 +13,6 @@ import {
   DiscussionTopic,
   Artist,
   AdminAuditLog,
-  EntityType,
   VirtualShelf,
   updateWorkStatus,
 } from "@/lib/api";
@@ -65,7 +64,7 @@ export function useAdminDashboard() {
     name: "",
     original_name: "",
     disambiguation: "",
-    entity_type: "person" as EntityType,
+    entity_type: "",
     country: "",
     biography: "",
     mb_id: "",
@@ -272,7 +271,7 @@ export function useAdminDashboard() {
       name: "",
       original_name: "",
       disambiguation: "",
-      entity_type: "person" as EntityType,
+      entity_type: "",
       country: "",
       biography: "",
       mb_id: "",
@@ -286,9 +285,7 @@ export function useAdminDashboard() {
   const handleOpenEditArtist = (artist: Artist) => {
     setEditingArtist(artist);
     const ext = artist.external_ids || {};
-    const eType = (["person", "group", "orchestra", "studio", "publisher", "circle", "label"].includes(artist.entity_type)
-      ? artist.entity_type
-      : "person") as EntityType;
+    const eType = artist.entity_type || "";
 
     setArtistForm({
       name: artist.name || "",

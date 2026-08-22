@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fetchApi, UserCustomShelf } from "@/lib/api";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
@@ -96,18 +96,27 @@ export function HomeShelvesConfigModal({
   const [formSubmitting, setFormSubmitting] = useState(false);
 
   const [availableTags, setAvailableTags] = useState<{ name: string }[]>([]);
+  const autoOpenedFor = useRef<string | null>(null);
 
   useEffect(() => {
     setLocalOrder(orderKeys);
   }, [orderKeys]);
 
-  // 外部指定要编辑的频道（如首页频道标题旁的铅笔入口），打开时直接进入编辑表单
+  // 外部指定要编辑的频道（如首页频道标题旁的铅笔入口），打开时直接进入编辑表单。
+  // customShelves 可能在 fork 预设后同一轮才写入，因此一并监听。
   useEffect(() => {
-    if (!open || !editShelfId) return;
+    if (!open) {
+      autoOpenedFor.current = null;
+      return;
+    }
+    if (!editShelfId || autoOpenedFor.current === editShelfId) return;
     const target = customShelves.find((c) => c.id === editShelfId);
-    if (target) openEditForm(target);
+    if (target) {
+      autoOpenedFor.current = editShelfId;
+      openEditForm(target);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, editShelfId]);
+  }, [open, editShelfId, customShelves]);
 
   useEffect(() => {
     if (!open) return;

@@ -5,9 +5,10 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { MultipartUploader } from "@/components/MultipartUploader";
-import { fetchApi, Work, Release, DiscussionTopic, Category, categoryDisplayName, getRoleName, getMediaTypeName } from "@/lib/api";
+import { fetchApi, Work, Release, DiscussionTopic, Category, categoryDisplayName, ConnectedEntityItem, pickLocalized } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Layers, MessageSquare, User, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Eye, Bookmark, ArrowUpRight, Edit3, History, GitMerge } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
@@ -16,13 +17,16 @@ import { TemporalBadge } from "@/components/entity/TemporalBadge";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { EntityCover } from "@/components/common/EntityCover";
+import { GroupedRelations } from "@/components/entity/RelationsList";
 export default function WorkDirectoryPage() {
  const params = useParams();
  const workId = params.id as string;
  const { user } = useAuth();
  const { t, locale } = useI18n();
+ const { mediaTypeLabel, roleLabel } = useTaxonomy();
 
  const [work, setWork] = useState<Work | null>(null);
+ const [connected, setConnected] = useState<ConnectedEntityItem[]>([]);
  const [releases, setReleases] = useState<Release[]>([]);
  const [total, setTotal] = useState(0);
  const [page, setPage] = useState(1);
@@ -42,8 +46,9 @@ export default function WorkDirectoryPage() {
  const loadWork = async () => {
  setLoadingWork(true);
  try {
- const data = await fetchApi<Work>(`/catalog/works/${workId}`);
+ const data = await fetchApi<Work>(`/catalog/works/${workId}?inc=relations`);
  setWork(data);
+ setConnected(data.connected_entities || []);
  } catch (e) {
  console.error(e);
  } finally {
@@ -107,6 +112,7 @@ export default function WorkDirectoryPage() {
  }
 
  const meta = work.catalog_metadata || {};
+ const localized = pickLocalized(locale, work.translations, work.title, work.summary);
 
  return (
  <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
@@ -125,11 +131,11 @@ export default function WorkDirectoryPage() {
  </>
  ) : work.media_type ? (
  <>
- <span className="text-gray-600 dark:text-gray-400">{getMediaTypeName(work.media_type, t)}</span>
+ <span className="text-gray-600 dark:text-gray-400">{mediaTypeLabel(work.media_type)}</span>
  <span className="text-gray-400 dark:text-white/20">/</span>
  </>
  ) : null}
- <span className="text-gray-900 dark:text-white truncate max-w-[40ch]">{work.title}</span>
+ <span className="text-gray-900 dark:text-white truncate max-w-[40ch]">{localized.title}</span>
  </div>
 
 	 <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden space-y-3">
@@ -138,8 +144,8 @@ export default function WorkDirectoryPage() {
 	 <div className="aspect-[3/4] rounded-md overflow-hidden border border-black/10 dark:border-white/10 bg-background shadow-xs">
 	 <EntityCover
 	 src={work.cover_image_url}
-	 alt={work.title}
-	 title={work.title}
+	 alt={localized.title}
+	 title={localized.title}
 	 originalTitle={work.original_title}
 	 mediaType={work.media_type}
 	 id={work.id}
@@ -157,7 +163,7 @@ export default function WorkDirectoryPage() {
 	 </span>
 	 ) : work.media_type ? (
 	 <span className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
-	 {getMediaTypeName(work.media_type, t)}
+	 {mediaTypeLabel(work.media_type)}
 	 </span>
 	 ) : null}
 	 <TemporalBadge
@@ -182,8 +188,8 @@ export default function WorkDirectoryPage() {
 	 </div>
 	 </div>
 	 <div>
-	 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{work.title}</h1>
-	 {work.original_title && <p className="font-mono text-sm text-gray-500 dark:text-gray-400 mt-0.5">{work.original_title}</p>}
+	 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{localized.title}</h1>
+	 {work.original_title && work.original_title !== localized.title && <p className="font-mono text-sm text-gray-500 dark:text-gray-400 mt-0.5">{work.original_title}</p>}
 	 {work.original_language && <p className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t("work.detail.originalLanguage", { value: t(`origLang.${work.original_language}`) })}</p>}
 	 {work.aliases && work.aliases.length > 0 && <p className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t("work.detail.alias", { value: work.aliases.join(" / ") })}</p>}
 	 </div>
@@ -196,13 +202,13 @@ export default function WorkDirectoryPage() {
 	 className="inline-flex items-center gap-2 px-2.5 py-1 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 hover:border-primary/40 text-sm text-gray-700 dark:text-gray-200 transition-colors"
 	 >
 	 <User className="w-4 h-4 text-primary" strokeWidth={1.5} />
-	 <span className="font-mono text-xs text-gray-500">{getRoleName(rel.role, t)}:</span>
+	 <span className="font-mono text-xs text-gray-500">{roleLabel(rel.role)}:</span>
 	 <span className="underline decoration-dotted underline-offset-2">{rel.artist?.name}</span>
 	 </Link>
 	 ))}
 	 </div>
 	 )}
-	 {work.summary && <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl line-clamp-3">{work.summary}</p>}
+	 {localized.body && <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl line-clamp-3">{localized.body}</p>}
 	 {work.tags && work.tags.length > 0 && (
 	 <div className="flex flex-wrap gap-2 pt-0.5">
 	 {work.tags.map((tag) => (
@@ -231,6 +237,13 @@ export default function WorkDirectoryPage() {
  </div>
  </div>
  </section>
+
+ {connected.length > 0 && (
+ <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft p-4 sm:p-5 space-y-3">
+ <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">{t("work.detail.relations")}</h2>
+ <GroupedRelations items={connected} />
+ </section>
+ )}
 
  <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
  <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -386,7 +399,7 @@ export default function WorkDirectoryPage() {
  onClose={() => setIsHistoryOpen(false)}
  targetType="work"
  targetId={work.id}
- entityTitle={work.title}
+ entityTitle={localized.title}
  />
 
  {/* Entity Merge Modal */}

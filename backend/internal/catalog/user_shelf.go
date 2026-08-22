@@ -11,14 +11,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"github.com/metafusion/metafusion-app/internal/models"
+	"github.com/metafusion/metafusion-app/internal/ontology"
 	"gorm.io/gorm"
 )
-
-var validMediaTypes = map[string]bool{
-	"all": true, "video": true, "audio": true, "text": true, "graphic": true,
-	"movie": true, "tv_series": true, "anime": true, "music": true, "audiobook": true,
-	"novel": true, "comic": true, "gallery": true,
-}
 
 var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-_]{1,63}$`)
 
@@ -26,7 +21,7 @@ func validateCustomShelfInput(slug, mediaType string, queryTags, excludeTags []s
 	if slug != "" && !slugRe.MatchString(slug) {
 		return &fieldError{"slug", "slug must be 2-64 chars, lowercase letters/digits/_/-"}
 	}
-	if mediaType != "" && !validMediaTypes[mediaType] {
+	if mediaType != "" && mediaType != "all" && !ontology.IsEnabledMediaType(db, mediaType) {
 		return &fieldError{"media_type", "invalid media_type"}
 	}
 	for _, t := range queryTags {
@@ -352,7 +347,7 @@ func (s *CatalogService) UpdateCustomShelf(c *gin.Context) {
 			if mt == "" {
 				mt = "all"
 			}
-			if !validMediaTypes[mt] {
+			if mt != "all" && !ontology.IsEnabledMediaType(s.db, mt) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "invalid media_type"})
 				return
 			}

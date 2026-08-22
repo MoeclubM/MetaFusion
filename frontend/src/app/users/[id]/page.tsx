@@ -161,9 +161,9 @@ export default function UserDetailPage() {
           : tab === "favorites" ? (
             <ul className="divide-y divide-black/5 dark:divide-white/[0.06]">
               {items.map((it: FavoriteItem) => {
-                const href = it.target_type === "work" ? `/works/${it.target_id}` : it.target_type === "release" ? `/releases/${it.target_id}` : `/artists/${it.target_id}`;
-                const title = it.work?.title || it.release?.edition_name || it.artist?.name || it.target_id;
-                const typeLabel = it.target_type === "work" ? t("users.profile.tabs.works") : it.target_type === "release" ? t("users.profile.tabs.releases") : t("users.profile.tabs.artists");
+                const href = it.target_type === "work" ? `/works/${it.target_id}` : it.target_type === "release" ? `/releases/${it.target_id}` : it.target_type === "franchise" ? `/franchises/${it.target_id}` : `/artists/${it.target_id}`;
+                const title = it.work?.title || it.release?.edition_name || it.artist?.name || it.franchise?.title || it.target_id;
+                const typeLabel = it.target_type === "work" ? t("users.profile.tabs.works") : it.target_type === "release" ? t("users.profile.tabs.releases") : it.target_type === "franchise" ? t("explore.typeFranchises") : t("users.profile.tabs.artists");
                 return (
                   <li key={it.id}>
                     <Link href={href} className="p-3 flex items-center gap-2.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors group">

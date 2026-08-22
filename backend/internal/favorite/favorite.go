@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var validTargets = map[string]bool{"work": true, "release": true, "artist": true}
+var validTargets = map[string]bool{"work": true, "release": true, "artist": true, "franchise": true}
 
 // favoriteItem 列表条目：收藏元数据 + 实体摘要
 type favoriteItem struct {
@@ -19,9 +19,10 @@ type favoriteItem struct {
 	TargetType string    `json:"target_type"`
 	TargetID   uuid.UUID `json:"target_id"`
 	CreatedAt  string    `json:"created_at"`
-	Work       *workBrief    `json:"work,omitempty"`
-	Release    *releaseBrief `json:"release,omitempty"`
-	Artist     *artistBrief  `json:"artist,omitempty"`
+	Work       *workBrief      `json:"work,omitempty"`
+	Release    *releaseBrief   `json:"release,omitempty"`
+	Artist     *artistBrief    `json:"artist,omitempty"`
+	Franchise  *franchiseBrief `json:"franchise,omitempty"`
 }
 
 type workBrief struct {
@@ -42,6 +43,13 @@ type artistBrief struct {
 	Name         string    `json:"name"`
 	OriginalName string    `json:"original_name"`
 	EntityType   string    `json:"entity_type"`
+}
+
+type franchiseBrief struct {
+	ID            uuid.UUID `json:"id"`
+	Title         string    `json:"title"`
+	OriginalTitle string    `json:"original_title"`
+	CoverImageURL string    `json:"cover_image_url"`
 }
 
 // Toggle 收藏 / 取消收藏（幂等切换）
@@ -215,6 +223,11 @@ func listFavorites(c *gin.Context, db *gorm.DB, userID uuid.UUID) {
 			if err := db.Select("id", "name", "original_name", "entity_type").First(&a, "id = ?", r.TargetID).Error; err == nil {
 				it.Artist = &artistBrief{ID: a.ID, Name: a.Name, OriginalName: a.OriginalName, EntityType: a.EntityType}
 			}
+		case "franchise":
+			var f models.Franchise
+			if err := db.Select("id", "title", "original_title", "cover_image_url").First(&f, "id = ?", r.TargetID).Error; err == nil {
+				it.Franchise = &franchiseBrief{ID: f.ID, Title: f.Title, OriginalTitle: f.OriginalTitle, CoverImageURL: f.CoverImageURL}
+			}
 		}
 		items = append(items, it)
 	}
@@ -229,6 +242,8 @@ func targetExists(db *gorm.DB, targetType string, id uuid.UUID) bool {
 		return exists(db, &models.Release{}, id)
 	case "artist":
 		return exists(db, &models.Artist{}, id)
+	case "franchise":
+		return exists(db, &models.Franchise{}, id)
 	}
 	return false
 }

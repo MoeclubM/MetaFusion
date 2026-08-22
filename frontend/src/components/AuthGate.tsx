@@ -12,6 +12,7 @@ const PROTECTED_PREFIXES = [
   "/works/new",
   "/releases/new",
   "/artists/new",
+  "/franchises/new",
 ];
 
 function isProtectedPath(pathname: string | null): boolean {

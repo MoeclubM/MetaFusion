@@ -4,13 +4,14 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, ArtistDetailResponse, Category, categoryDisplayName, ConnectedEntityItem } from "@/lib/api";
+import { fetchApi, ArtistDetailResponse, Category, categoryDisplayName, ConnectedEntityItem, catalogEntityHref, pickLocalized } from "@/lib/api";
 import {
   User, Building, Film, Globe, ExternalLink, Layers, Eye, ArrowUpRight,
   Handshake, FileSignature, Briefcase, Network, Sparkles, Building2, CheckCircle2,
   Edit3, History, GitMerge
 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
@@ -24,6 +25,7 @@ export default function ArtistDetailPage() {
   const params = useParams();
   const artistId = params.id as string;
   const { t, locale } = useI18n();
+  const { entityTypeLabel } = useTaxonomy();
 
   const [data, setData] = useState<ArtistDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,11 +42,7 @@ export default function ArtistDetailPage() {
     fetchApi<ArtistDetailResponse>(`/catalog/artists/${artistId}`)
       .then((res) => {
         setData(res);
-        if (
-          (res.artist.entity_type === "publisher" || res.artist.entity_type === "label") &&
-          res.releases?.length &&
-          !res.works?.length
-        ) {
+        if (res.releases?.length && !res.works?.length) {
           setActiveTab("releases");
         } else if (!res.works?.length && !res.releases?.length && res.connected_entities?.length) {
           setActiveTab("affiliations");
@@ -65,29 +63,15 @@ export default function ArtistDetailPage() {
   }
 
   const artist = data.artist;
+  const localized = pickLocalized(locale, artist.translations, artist.name, artist.biography);
   const works = data.works || [];
   const releases = data.releases || [];
   const connectedEntities: ConnectedEntityItem[] = data.connected_entities || [];
   const extIds = artist.external_ids || {};
 
-  const getEntityTypeLabel = (type: string) => {
-    const m: Record<string, string> = {
-      studio: "entity.studio",
-      publisher: "entity.publisher",
-      group: "entity.group",
-      orchestra: "entity.orchestra",
-      circle: "entity.circle",
-      label: "entity.label",
-    };
-    const key = m[type] || "entity.person";
-    const v = t(key);
-    return v !== key ? v : t("entity.person");
-  };
+  const getEntityTypeLabel = (type: string) => entityTypeLabel(type);
 
-  const getEntityIcon = (type: string) => {
-    if (type === "studio" || type === "publisher" || type === "label") {
-      return <Building className="w-8 h-8 text-amber-400" strokeWidth={1.4} />;
-    }
+  const getEntityIcon = () => {
     return <User className="w-8 h-8 text-amber-400" strokeWidth={1.4} />;
   };
 
@@ -98,7 +82,7 @@ export default function ArtistDetailPage() {
         <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
           <div className="flex flex-col sm:flex-row gap-4 items-start">
             <div className="w-16 h-16 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 grid place-items-center shrink-0 shadow-xs">
-              {getEntityIcon(artist.entity_type)}
+              {getEntityIcon()}
             </div>
             <div className="flex-1 space-y-2.5 min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">
@@ -122,7 +106,7 @@ export default function ArtistDetailPage() {
                 {connectedEntities.filter((e) => e.is_current !== false).slice(0, 3).map((ent) => (
                   <Link
                     key={ent.entity_id + ent.relationship_type}
-                    href={`/artists/${ent.entity_id}`}
+                    href={catalogEntityHref(ent.entity_type, ent.entity_id)}
                     className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-500/20 transition-colors"
                   >
                     <span className="text-gray-500">{ent.label}:</span>
@@ -131,11 +115,11 @@ export default function ArtistDetailPage() {
                 ))}
               </div>
               <div>
-                <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{artist.name}</h1>
-                {artist.original_name && <p className="font-mono text-xs text-gray-500 dark:text-gray-400 mt-0.5">{artist.original_name}</p>}
+                <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{localized.title}</h1>
+                {artist.original_name && artist.original_name !== localized.title && <p className="font-mono text-xs text-gray-500 dark:text-gray-400 mt-0.5">{artist.original_name}</p>}
                 {artist.disambiguation && <p className="font-mono text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{artist.disambiguation}</p>}
               </div>
-              {artist.biography && <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl line-clamp-3">{artist.biography}</p>}
+              {localized.body && <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl line-clamp-3">{localized.body}</p>}
               
               {/* External Authority Links */}
               <ExternalAuthorityLinks externalIds={extIds} className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]" />
@@ -297,7 +281,7 @@ export default function ArtistDetailPage() {
                         .map((ent) => (
                           <Link
                             key={ent.entity_id + ent.relationship_type}
-                            href={`/artists/${ent.entity_id}`}
+                            href={catalogEntityHref(ent.entity_type, ent.entity_id)}
                             className="p-3.5 rounded-lg border border-emerald-500/20 bg-surface hover:border-emerald-500/40 transition-all flex flex-col justify-between gap-3 shadow-2xs"
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -366,7 +350,7 @@ export default function ArtistDetailPage() {
                         .map((ent) => (
                           <Link
                             key={ent.entity_id + ent.relationship_type}
-                            href={`/artists/${ent.entity_id}`}
+                            href={catalogEntityHref(ent.entity_type, ent.entity_id)}
                             className="p-3.5 rounded-lg border border-black/10 dark:border-white/10 bg-surface/60 hover:bg-surface transition-all flex flex-col justify-between gap-3 shadow-2xs"
                           >
                             <div className="flex items-start justify-between gap-2">
@@ -440,7 +424,7 @@ export default function ArtistDetailPage() {
         onClose={() => setIsHistoryOpen(false)}
         targetType="artist"
         targetId={artist.id}
-        entityTitle={artist.name}
+        entityTitle={localized.title}
       />
 
       {/* Entity Merge Modal */}

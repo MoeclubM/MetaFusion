@@ -22,7 +22,9 @@ import {
   updateWork,
   updateArtist,
   updateRelease,
+  updateFranchise,
   fetchApi,
+  catalogHubOf,
 } from "@/lib/api";
 import { useRelationTypes } from "@/hooks/useRelationTypes";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
@@ -31,8 +33,9 @@ import { EditorTemporalFields } from "./EditorTemporalFields";
 import { EditorRelationsField } from "./EditorRelationsField";
 import { EditorExternalIds } from "./EditorExternalIds";
 import { EditorNotesField } from "./EditorNotesField";
+import { seedLocaleForm, translationsPayload } from "./localeForm";
 
-export type EntityTypeTarget = "work" | "artist" | "release";
+export type EntityTypeTarget = "work" | "artist" | "release" | "franchise";
 
 interface Props {
   isOpen: boolean;
@@ -54,7 +57,7 @@ export function UniversalEntityEditor({
   isFullPage = false,
 }: Props) {
   const { user } = useAuth();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const pathname = usePathname();
   const { relationTypes } = useRelationTypes();
   const { taxonomy } = useTaxonomy();
@@ -70,10 +73,13 @@ export function UniversalEntityEditor({
   const [relations, setRelations] = useState<
     Array<{
       target_id: string;
+      target_type: string;
       relationship_type: string;
+      qualifier?: string;
       begin_date?: string;
       end_date?: string;
       ended?: boolean;
+      target_label?: string;
     }>
   >([]);
 
@@ -85,11 +91,13 @@ export function UniversalEntityEditor({
 
   const initializeForm = () => {
     const d = { ...initialData };
-    if (targetType === "work" && !d.media_type) {
-      d.media_type = taxonomy?.media_types?.[0]?.id || "";
-    }
     if (targetType === "artist" && !d.entity_type) {
-      d.entity_type = "person";
+      d.entity_type = taxonomy?.entity_types?.[0]?.id || "";
+    }
+    if (targetType === "work" || targetType === "artist" || targetType === "franchise") {
+      const seeded = seedLocaleForm(d, mode, locale);
+      d.translations = seeded.translations;
+      d.language = seeded.language;
     }
     setFormData(d);
     if (Array.isArray(d.aliases)) {
@@ -120,9 +128,20 @@ export function UniversalEntityEditor({
 
   const addRelationRow = () => {
     const defaultType = relationTypes[0]?.code || "related";
+    const defaultTarget = catalogHubOf(
+      (relationTypes[0]?.allowed_target_types || [])[0] || "work"
+    );
     setRelations((prev) => [
       ...prev,
-      { target_id: "", relationship_type: defaultType, begin_date: "", end_date: "", ended: false },
+      {
+        target_id: "",
+        target_type: defaultTarget,
+        relationship_type: defaultType,
+        qualifier: "",
+        begin_date: "",
+        end_date: "",
+        ended: false,
+      },
     ]);
   };
 
@@ -161,6 +180,40 @@ export function UniversalEntityEditor({
         source_urls: sourceUrls,
       };
 
+      if (targetType === "work" || targetType === "artist" || targetType === "franchise") {
+        const translations = (formData.translations || {}) as Record<string, { title: string; summary: string }>;
+        const defaultLoc = formData.language || "zh-CN";
+        const def = translations[defaultLoc] || { title: "", summary: "" };
+        payload.translations = translationsPayload(translations);
+        payload.language = defaultLoc;
+        delete payload.names;
+        delete payload.romaji;
+        if (targetType === "artist") {
+          payload.name = def.title || formData.name;
+          payload.biography = def.summary || formData.biography;
+        } else {
+          payload.title = def.title || formData.title;
+          payload.summary = def.summary || formData.summary;
+        }
+        const romaji = typeof formData.romaji === "string" ? formData.romaji.trim() : "";
+        if (romaji) {
+          const merged = [...(aliases || [])];
+          if (!merged.includes(romaji)) merged.push(romaji);
+          payload.aliases = merged;
+        }
+        if (targetType === "work" || targetType === "franchise") {
+          payload.tags = Array.isArray(formData.tags)
+            ? formData.tags.map((t: any) => (typeof t === "string" ? t : t.name)).filter(Boolean)
+            : [];
+        }
+        const displayName = targetType === "artist" ? payload.name : payload.title;
+        if (!String(displayName || "").trim()) {
+          setError(t("editor.core.defaultTitleRequired"));
+          setSubmitting(false);
+          return;
+        }
+      }
+
       let result: any = null;
 
       if (mode === "edit") {
@@ -170,6 +223,8 @@ export function UniversalEntityEditor({
           result = await updateArtist(initialData.id, payload);
         } else if (targetType === "release") {
           result = await updateRelease(initialData.id, payload);
+        } else if (targetType === "franchise") {
+          result = await updateFranchise(initialData.id, payload);
         }
       } else {
         // Create mode
@@ -179,27 +234,29 @@ export function UniversalEntityEditor({
           result = await fetchApi("/catalog/artists", { method: "POST", body: JSON.stringify(payload) });
         } else if (targetType === "release") {
           result = await fetchApi("/catalog/releases", { method: "POST", body: JSON.stringify(payload) });
+        } else if (targetType === "franchise") {
+          result = await fetchApi("/catalog/franchises", { method: "POST", body: JSON.stringify(payload) });
         }
       }
 
-      // If relations were configured, upsert them
-      if (relations.length > 0 && (initialData.id || result?.work?.id || result?.artist?.id || result?.id)) {
-        const entityId = initialData.id || result?.work?.id || result?.artist?.id || result?.id;
+      if (relations.length > 0 && (initialData.id || result?.work?.id || result?.artist?.id || result?.franchise?.id || result?.id)) {
+        const entityId = initialData.id || result?.work?.id || result?.artist?.id || result?.franchise?.id || result?.id;
         const formattedRels = relations
           .filter((r) => r.target_id.trim())
           .map((r) => ({
             source_type: targetType,
             source_id: entityId,
-            target_type: "artist",
+            target_type: r.target_type || "artist",
             target_id: r.target_id.trim(),
             relationship_type: r.relationship_type,
+            qualifier: r.qualifier || "",
             begin_date: r.begin_date || undefined,
             end_date: r.end_date || undefined,
             ended: r.ended || false,
-            attributes: {},
+            attributes: r.qualifier ? { locale: r.qualifier } : {},
           }));
         if (formattedRels.length > 0) {
-          await fetchApi("/admin/entity-relations", {
+          await fetchApi("/catalog/entity-relations", {
             method: "PUT",
             body: JSON.stringify({ relations: formattedRels }),
           });
@@ -217,34 +274,34 @@ export function UniversalEntityEditor({
   };
 
   const containerClasses = isFullPage
-    ? "w-full max-w-4xl mx-auto rounded-lg border border-white/10 bg-surface shadow-2xl overflow-hidden my-5"
+    ? "w-full max-w-4xl mx-auto rounded-lg border border-black/10 dark:border-white/10 bg-surface shadow-2xl overflow-hidden my-5"
     : "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in";
 
   const modalInnerClasses = isFullPage
     ? "w-full flex flex-col"
-    : "w-full max-w-4xl max-h-[90vh] flex flex-col rounded-lg border border-white/10 bg-surface shadow-2xl overflow-hidden";
+    : "w-full max-w-4xl max-h-[90vh] flex flex-col rounded-lg border border-black/10 dark:border-white/10 bg-surface shadow-2xl overflow-hidden";
 
   return (
     <div className={containerClasses}>
       <div className={modalInnerClasses}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.08] bg-background/60">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-black/10 dark:border-white/[0.08] bg-background/60">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-md bg-amber-500/10 border border-amber-500/20 grid place-items-center">
               <Sparkles className="w-4 h-4 text-amber-400" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <h2 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 {mode === "edit" ? t("editor.universal.editTitle") : t("editor.universal.createTitle")}
               </h2>
-              <p className="font-mono text-xs text-gray-400 truncate max-w-md">
+              <p className="font-mono text-xs text-gray-500 truncate max-w-md">
                 {targetType.toUpperCase()}: {formData.title || formData.name || formData.edition_name || t("editor.universal.newEntry")}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -268,14 +325,14 @@ export function UniversalEntityEditor({
         )}
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1.5 px-6 pt-3 border-b border-white/[0.06] bg-background/30 font-mono text-xs sm:text-sm overflow-x-auto">
+        <div className="flex items-center gap-1.5 px-6 pt-3 border-b border-black/5 dark:border-white/[0.06] bg-background/30 font-mono text-xs sm:text-sm overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab("core")}
             className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "core"
-                ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "border-amber-400 text-gray-900 dark:text-white bg-black/[0.03] dark:bg-white/[0.04] font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
             }`}
           >
             <FileText className="w-4 h-4" />
@@ -286,8 +343,8 @@ export function UniversalEntityEditor({
             onClick={() => setActiveTab("temporal")}
             className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "temporal"
-                ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "border-amber-400 text-gray-900 dark:text-white bg-black/[0.03] dark:bg-white/[0.04] font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
             }`}
           >
             <Clock className="w-4 h-4" />
@@ -298,8 +355,8 @@ export function UniversalEntityEditor({
             onClick={() => setActiveTab("relations")}
             className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "relations"
-                ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "border-amber-400 text-gray-900 dark:text-white bg-black/[0.03] dark:bg-white/[0.04] font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
             }`}
           >
             <LinkIcon className="w-4 h-4" />
@@ -310,8 +367,8 @@ export function UniversalEntityEditor({
             onClick={() => setActiveTab("external")}
             className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "external"
-                ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "border-amber-400 text-gray-900 dark:text-white bg-black/[0.03] dark:bg-white/[0.04] font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
             }`}
           >
             <Globe className="w-4 h-4" />
@@ -322,8 +379,8 @@ export function UniversalEntityEditor({
             onClick={() => setActiveTab("note")}
             className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "note"
-                ? "border-amber-400 text-white bg-white/[0.04] font-semibold"
-                : "border-transparent text-gray-400 hover:text-gray-200"
+                ? "border-amber-400 text-gray-900 dark:text-white bg-black/[0.03] dark:bg-white/[0.04] font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
             }`}
           >
             <ShieldCheck className="w-4 h-4" />
@@ -356,6 +413,8 @@ export function UniversalEntityEditor({
             <EditorRelationsField
               relations={relations}
               relationTypes={relationTypes}
+              sourceType={targetType}
+              sourceEntityType={formData.entity_type}
               addRelationRow={addRelationRow}
               removeRelationRow={removeRelationRow}
               updateRelationRow={updateRelationRow}
@@ -380,13 +439,13 @@ export function UniversalEntityEditor({
           )}
 
           {error && (
-            <div className="p-3 rounded-card bg-rose-500/10 border border-rose-500/20 text-xs text-rose-300">
+            <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-xs text-rose-700 dark:text-rose-300">
               {error}
             </div>
           )}
 
           {/* Footer Action Buttons */}
-          <div className="flex items-center justify-between pt-4 border-t border-white/[0.08]">
+          <div className="flex items-center justify-between pt-4 border-t border-black/10 dark:border-white/[0.08]">
             <span className="font-mono text-xs text-gray-500 flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               <span>{t("editor.universal.footerNote")}</span>
@@ -396,7 +455,7 @@ export function UniversalEntityEditor({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 h-10 rounded-lg border border-white/10 text-sm text-gray-300 hover:bg-white/10 transition-colors cursor-pointer"
+                className="px-4 h-10 rounded-lg border border-black/10 dark:border-white/10 text-sm text-gray-600 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/10 transition-colors cursor-pointer"
               >
                 {t("editor.universal.cancel")}
               </button>
