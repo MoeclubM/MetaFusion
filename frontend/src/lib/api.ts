@@ -129,6 +129,7 @@ export interface TaxonomyResponse {
   tags?: Tag[];
   tag_groups?: Record<string, Tag[]>;
   media_types: { id: string; name_zh: string; name_en: string; name?: string }[];
+  entity_types?: { id: string; name_zh: string; name_en: string; name?: string; desc_zh?: string; desc_en?: string; desc?: string; color?: string; bg_color?: string; border_color?: string }[];
   roles: { id: string; name_zh: string; name_en: string }[];
   packagings: { id: string; name_zh: string; name_en: string }[];
   formats: { id: string; name: string }[];

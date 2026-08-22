@@ -183,6 +183,25 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 		})
 	}
 
+	entityTypes := []map[string]string{
+		{"id": "person", "name_zh": "个人创作者", "name_en": "Individual Creator", "desc_zh": "导演、著者、作曲家、编曲、作词、画师等", "desc_en": "Director, author, composer, arranger, lyricist, illustrator, etc.", "color": "text-amber-400", "bg_color": "bg-amber-500/10", "border_color": "border-amber-500/30"},
+		{"id": "studio", "name_zh": "制作机构 / 工作室", "name_en": "Studio", "desc_zh": "动画工作室、影视制作公司、开发组等", "desc_en": "Animation studio, production company, dev team, etc.", "color": "text-purple-400", "bg_color": "bg-purple-500/10", "border_color": "border-purple-500/30"},
+		{"id": "publisher", "name_zh": "出版社 / 发行厂牌", "name_en": "Publisher / Label", "desc_zh": "图书出版社、影音发行商、唱片公司等", "desc_en": "Book publisher, AV distributor, record label, etc.", "color": "text-sky-400", "bg_color": "bg-sky-500/10", "border_color": "border-sky-500/30"},
+		{"id": "orchestra", "name_zh": "管弦乐团 / 歌剧团", "name_en": "Orchestra", "desc_zh": "交响乐团、室内乐团、爱乐乐团等", "desc_en": "Symphony, chamber orchestra, philharmonic, etc.", "color": "text-emerald-400", "bg_color": "bg-emerald-500/10", "border_color": "border-emerald-500/30"},
+		{"id": "group", "name_zh": "乐队 / 演职团体", "name_en": "Band / Group", "desc_zh": "摇滚乐队、室内乐组合、偶像团体等", "desc_en": "Rock band, chamber group, idol group, etc.", "color": "text-rose-400", "bg_color": "bg-rose-500/10", "border_color": "border-rose-500/30"},
+		{"id": "circle", "name_zh": "同人社团 / 独立组织", "name_en": "Circle", "desc_zh": "同人音乐社团、独立创作小组等", "desc_en": "Doujin music circle, indie creative group, etc.", "color": "text-indigo-400", "bg_color": "bg-indigo-500/10", "border_color": "border-indigo-500/30"},
+		{"id": "label", "name_zh": "独立厂牌 / 子品牌", "name_en": "Indie Label", "desc_zh": "出版子厂牌、专项音乐厂牌等", "desc_en": "Imprint, sub-label, specialty music label, etc.", "color": "text-teal-400", "bg_color": "bg-teal-500/10", "border_color": "border-teal-500/30"},
+	}
+	for i := range entityTypes {
+		if locale == "en-US" {
+			entityTypes[i]["name"] = entityTypes[i]["name_en"]
+			entityTypes[i]["desc"] = entityTypes[i]["desc_en"]
+		} else {
+			entityTypes[i]["name"] = entityTypes[i]["name_zh"]
+			entityTypes[i]["desc"] = entityTypes[i]["desc_zh"]
+		}
+	}
+
 	packagings := []map[string]string{
 		{"id": "jewel_case", "name_zh": "标准珠宝盒 (Jewel Case)", "name_en": "Jewel Case"},
 		{"id": "digipak", "name_zh": "纸套包装 (Digipak)", "name_en": "Digipak"},
@@ -219,11 +238,12 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 		"shelves":     rootShelves,
 		"tag_groups":  tagGroups,
 		"tags":        allTags,
-		"media_types": mediaTypes,
-		"roles":       roles,
-		"packagings":  packagings,
-		"formats":     formats,
-		"languages":   languages,
+		"media_types":  mediaTypes,
+		"entity_types": entityTypes,
+		"roles":        roles,
+		"packagings":   packagings,
+		"formats":      formats,
+		"languages":    languages,
 	})
 }
 

@@ -5,13 +5,12 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import {
- fetchApi,
- Work,
- Tag,
- TaxonomyResponse,
- Artist,
- Release,
- ENTITY_TYPE_OPTIONS,
+  fetchApi,
+  Work,
+  Tag,
+  TaxonomyResponse,
+  Artist,
+  Release,
 } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { EntityCover } from "@/components/common/EntityCover";
@@ -46,28 +45,30 @@ function ExploreContent() {
  const tagMatchParam = searchParams.get("tag_match") === "all" ? "all" : "any";
  const mediaTypeParam = searchParams.get("media_type") || "";
  const entityTypeParam = searchParams.get("entity_type") || "";
- const [works, setWorks] = useState<Work[]>([]);
- const [artists, setArtists] = useState<Artist[]>([]);
- const [releases, setReleases] = useState<Release[]>([]);
- const [tagGroups, setTagGroups] = useState<Record<string, Tag[]>>({});
- const [selectedTags, setSelectedTags] = useState<string[]>(
- tagsParam ? tagsParam.split(",").filter(Boolean) : []
- );
- const [searchInput, setSearchInput] = useState<string>(queryParam);
- const [selectedEntityType, setSelectedEntityType] = useState<string>(entityTypeParam);
- const [sortBy, setSortBy] = useState<"created_at" | "release_date" | "title">("created_at");
- const [loading, setLoading] = useState(true);
- const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
- const [showTagFilterPanel, setShowTagFilterPanel] = useState<boolean>(false);
- const [total, setTotal] = useState<number>(0);
+  const [works, setWorks] = useState<Work[]>([]);
+  const [artists, setArtists] = useState<Artist[]>([]);
+  const [releases, setReleases] = useState<Release[]>([]);
+  const [tagGroups, setTagGroups] = useState<Record<string, Tag[]>>({});
+  const [dynamicEntityTypes, setDynamicEntityTypes] = useState<{ id: string; name: string; name_zh: string; name_en: string; desc?: string }[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>(
+    tagsParam ? tagsParam.split(",").filter(Boolean) : []
+  );
+  const [searchInput, setSearchInput] = useState<string>(queryParam);
+  const [selectedEntityType, setSelectedEntityType] = useState<string>(entityTypeParam);
+  const [sortBy, setSortBy] = useState<"created_at" | "release_date" | "title">("created_at");
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [showTagFilterPanel, setShowTagFilterPanel] = useState<boolean>(false);
+  const [total, setTotal] = useState<number>(0);
 
- useEffect(() => {
- fetchApi<TaxonomyResponse>("/catalog/taxonomy")
- .then((data) => {
- if (data.tag_groups) setTagGroups(data.tag_groups);
- })
- .catch(() => {});
- }, []);
+  useEffect(() => {
+    fetchApi<TaxonomyResponse>("/catalog/taxonomy")
+      .then((data) => {
+        if (data.tag_groups) setTagGroups(data.tag_groups);
+        if (data.entity_types) setDynamicEntityTypes(data.entity_types as any);
+      })
+      .catch(() => {});
+  }, []);
 
  useEffect(() => {
  setSearchInput(queryParam);
@@ -367,13 +368,13 @@ function ExploreContent() {
                     <span>{t("common.all")}</span>
                     {selectedEntityType === "" && <span>✓</span>}
                   </button>
-                  {ENTITY_TYPE_OPTIONS.map((opt) => {
-                    const isSelected = selectedEntityType === opt.code;
+                  {dynamicEntityTypes.map((opt) => {
+                    const isSelected = selectedEntityType === opt.id;
                     return (
                       <button
-                        key={opt.code}
+                        key={opt.id}
                         onClick={() => {
-                          const next = isSelected ? "" : opt.code;
+                          const next = isSelected ? "" : opt.id;
                           setSelectedEntityType(next);
                           updateUrl({ entity_type: next });
                         }}
@@ -383,7 +384,7 @@ function ExploreContent() {
                             : "text-gray-600 dark:text-gray-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
                         }`}
                       >
-                        <span className="truncate">{t(opt.nameKey)}</span>
+                        <span className="truncate">{opt.name || opt.name_zh || opt.id}</span>
                         {isSelected && <span>✓</span>}
                       </button>
                     );
@@ -510,7 +511,10 @@ function ExploreContent() {
                   ))}
                   {selectedEntityType && (
                     <span className="px-2 py-0.5 rounded bg-sky-500/10 text-sky-500 border border-sky-500/20 flex items-center gap-1.5 font-mono text-xs">
-                      <span>{t(`entity.${selectedEntityType}`)}</span>
+                      <span>
+                        {dynamicEntityTypes.find((e) => e.id === selectedEntityType)?.name ||
+                          (t(`entity.${selectedEntityType}`) !== `entity.${selectedEntityType}` ? t(`entity.${selectedEntityType}`) : selectedEntityType)}
+                      </span>
                       <button
                         onClick={() => {
                           setSelectedEntityType("");
@@ -698,7 +702,8 @@ function ExploreContent() {
                           {a.original_name && <p className="font-mono text-xs text-gray-500 truncate">{a.original_name}</p>}
                         </div>
                         <span className="shrink-0 px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/5 text-[11px] font-mono text-gray-600 dark:text-gray-400">
-                          {t(`entity.${a.entity_type}`) !== `entity.${a.entity_type}` ? t(`entity.${a.entity_type}`) : a.entity_type}
+                          {dynamicEntityTypes.find((e) => e.id === a.entity_type)?.name ||
+                            (t(`entity.${a.entity_type}`) !== `entity.${a.entity_type}` ? t(`entity.${a.entity_type}`) : a.entity_type)}
                         </span>
                       </div>
                       {a.disambiguation && <p className="text-xs text-gray-500 line-clamp-2">{a.disambiguation}</p>}

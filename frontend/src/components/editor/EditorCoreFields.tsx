@@ -263,15 +263,25 @@ export function EditorCoreFields({
               <select
                 value={formData.entity_type || "person"}
                 onChange={(e) => updateField("entity_type", e.target.value)}
-                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400"
+                className="w-full px-3.5 h-10 rounded-lg bg-background border border-white/10 text-white text-sm focus:outline-none focus:border-amber-400 font-mono"
               >
-                <option value="person">{t("editor.core.entityTypePerson")}</option>
-                <option value="studio">{t("editor.core.entityTypeStudio")}</option>
-                <option value="publisher">{t("editor.core.entityTypePublisher")}</option>
-                <option value="label">{t("editor.core.entityTypeLabelOrg")}</option>
-                <option value="group">{t("editor.core.entityTypeGroup")}</option>
-                <option value="circle">{t("editor.core.entityTypeCircle")}</option>
-                <option value="orchestra">{t("editor.core.entityTypeOrchestra")}</option>
+                {taxonomy?.entity_types && taxonomy.entity_types.length > 0 ? (
+                  taxonomy.entity_types.map((et: any) => (
+                    <option key={et.id} value={et.id}>
+                      {et.name || et.name_zh || et.id}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="person">{t("editor.core.entityTypePerson")}</option>
+                    <option value="studio">{t("editor.core.entityTypeStudio")}</option>
+                    <option value="publisher">{t("editor.core.entityTypePublisher")}</option>
+                    <option value="label">{t("editor.core.entityTypeLabelOrg")}</option>
+                    <option value="group">{t("editor.core.entityTypeGroup")}</option>
+                    <option value="circle">{t("editor.core.entityTypeCircle")}</option>
+                    <option value="orchestra">{t("editor.core.entityTypeOrchestra")}</option>
+                  </>
+                )}
               </select>
             </div>
 
