@@ -1,6 +1,7 @@
 package database
 
 import (
+	"encoding/json"
 	"log"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 // that AutoMigrate cannot express (CHECK drops, unique rebuilds).
 func applySchemaPatches(db *gorm.DB) {
 	migrateHardClassificationToTags(db)
+	restoreSeedShelfQueryTagsIfClobbered(db)
 
 	stmts := []string{
 		`ALTER TABLE entity_relationships ADD COLUMN IF NOT EXISTS qualifier VARCHAR(64) NOT NULL DEFAULT ''`,
@@ -204,56 +206,31 @@ func migrateHardClassificationToTags(db *gorm.DB) {
 		}
 	}
 
-	migrateShelfQueryTags := func(table, idCol string) {
-		if !columnExists(db, table, "media_type") || !columnExists(db, table, "query_tags") {
-			return
-		}
-		type shelfRow struct {
-			ID        string
-			MediaType string
-			QueryTags pq.StringArray
-		}
-		var rows []shelfRow
-		_ = db.Raw(`SELECT `+idCol+`::text AS id, media_type, query_tags FROM `+table+` WHERE media_type IS NOT NULL AND btrim(media_type) <> '' AND media_type <> 'all'`).Scan(&rows).Error
-		for _, r := range rows {
-			mt := strings.ToLower(strings.TrimSpace(r.MediaType))
-			extra := formatTagsForLegacyMediaCode(mt, nameByCode[mt])
-			isAgg := mt == "video" || mt == "audio" || mt == "text" || mt == "graphic"
-			if isAgg && len(r.QueryTags) > 0 {
-				continue
-			}
-			merged := mergeTagNames(r.QueryTags, extra)
-			if len(merged) == len(r.QueryTags) {
-				same := true
-				for i := range merged {
-					if merged[i] != r.QueryTags[i] {
-						same = false
-						break
-					}
-				}
-				if same {
-					continue
-				}
-			}
-			for _, n := range merged {
-				ensureFormatTag(db, n)
-			}
-			_ = db.Exec(`UPDATE `+table+` SET query_tags = ? WHERE `+idCol+`::text = ?`, pq.Array(merged), r.ID).Error
-		}
-	}
+	shelfOK := true
 	if shelfHas {
-		migrateShelfQueryTags("virtual_shelves", "slug")
+		if err := migrateShelfQueryTags(db, "virtual_shelves", "slug", nameByCode); err != nil {
+			log.Printf("virtual_shelves media_type tag copy failed: %v", err)
+			shelfOK = false
+		}
 	}
+	customOK := true
 	if customHas {
-		migrateShelfQueryTags("user_custom_shelves", "id")
+		if err := migrateShelfQueryTags(db, "user_custom_shelves", "id", nameByCode); err != nil {
+			log.Printf("user_custom_shelves media_type tag copy failed: %v", err)
+			customOK = false
+		}
 	}
 
 	drops := []string{
 		`ALTER TABLE works DROP CONSTRAINT IF EXISTS fk_works_media_type`,
 		`DROP INDEX IF EXISTS idx_works_media_type`,
 		`ALTER TABLE works DROP COLUMN IF EXISTS media_type`,
-		`ALTER TABLE virtual_shelves DROP COLUMN IF EXISTS media_type`,
-		`ALTER TABLE user_custom_shelves DROP COLUMN IF EXISTS media_type`,
+	}
+	if shelfOK {
+		drops = append(drops, `ALTER TABLE virtual_shelves DROP COLUMN IF EXISTS media_type`)
+	}
+	if customOK {
+		drops = append(drops, `ALTER TABLE user_custom_shelves DROP COLUMN IF EXISTS media_type`)
 	}
 	for _, s := range drops {
 		if err := db.Exec(s).Error; err != nil {
@@ -261,4 +238,118 @@ func migrateHardClassificationToTags(db *gorm.DB) {
 		}
 	}
 	log.Printf("migrated hard classification columns to tags")
+}
+
+func decodeJSONStringArray(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "null" {
+		return nil
+	}
+	var out []string
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return nil
+	}
+	return out
+}
+
+func migrateShelfQueryTags(db *gorm.DB, table, idCol string, nameByCode map[string]string) error {
+	if !columnExists(db, table, "media_type") || !columnExists(db, table, "query_tags") {
+		return nil
+	}
+	type shelfRow struct {
+		ID        string
+		MediaType string
+		QueryTags string
+	}
+	var rows []shelfRow
+	if err := db.Raw(`SELECT `+idCol+`::text AS id, media_type, COALESCE(array_to_json(query_tags), '[]')::text AS query_tags FROM `+table+` WHERE media_type IS NOT NULL AND btrim(media_type) <> '' AND media_type <> 'all'`).Scan(&rows).Error; err != nil {
+		return err
+	}
+	for _, r := range rows {
+		existing := decodeJSONStringArray(r.QueryTags)
+		mt := strings.ToLower(strings.TrimSpace(r.MediaType))
+		extra := formatTagsForLegacyMediaCode(mt, nameByCode[mt])
+		isAgg := mt == "video" || mt == "audio" || mt == "text" || mt == "graphic"
+		if isAgg && len(existing) > 0 {
+			continue
+		}
+		merged := mergeTagNames(existing, extra)
+		if len(merged) == len(existing) {
+			same := true
+			for i := range merged {
+				if merged[i] != existing[i] {
+					same = false
+					break
+				}
+			}
+			if same {
+				continue
+			}
+		}
+		for _, n := range merged {
+			ensureFormatTag(db, n)
+		}
+		if err := db.Exec(`UPDATE `+table+` SET query_tags = ? WHERE `+idCol+`::text = ?`, pq.Array(merged), r.ID).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type seedShelfQuerySpec struct {
+	Slug    string
+	Seed    []string
+	Clobber []string
+}
+
+// restoreSeedShelfQueryTagsIfClobbered undoes a prior bug: GORM failed to scan
+// TEXT[] query_tags as empty, then aggregate media_type (video/audio/text/graphic)
+// overwrote curated shelf tags. Only rewrites rows that still match the clobber.
+func restoreSeedShelfQueryTagsIfClobbered(db *gorm.DB) {
+	if !columnExists(db, "virtual_shelves", "query_tags") {
+		return
+	}
+	video := []string{"电影", "剧集", "动画"}
+	audio := []string{"音乐", "专辑", "有声书"}
+	text := []string{"图书"}
+	graphic := []string{"漫画", "画集"}
+	specs := []seedShelfQuerySpec{
+		{Slug: "movies", Seed: []string{"电影", "长片"}, Clobber: video},
+		{Slug: "anime-movies", Seed: []string{"电影", "动画"}, Clobber: video},
+		{Slug: "feature-films", Seed: []string{"电影", "实拍"}, Clobber: video},
+		{Slug: "doc-films", Seed: []string{"电影", "纪录"}, Clobber: video},
+		{Slug: "series", Seed: []string{"剧集", "连续剧"}, Clobber: video},
+		{Slug: "anime-series", Seed: []string{"剧集", "动画"}, Clobber: video},
+		{Slug: "live-series", Seed: []string{"剧集", "实拍"}, Clobber: video},
+		{Slug: "music", Seed: []string{"音乐", "专辑", "原声"}, Clobber: audio},
+		{Slug: "soundtracks", Seed: []string{"原声"}, Clobber: audio},
+		{Slug: "classical", Seed: []string{"古典"}, Clobber: audio},
+		{Slug: "audiobooks", Seed: []string{"广播剧", "有声书"}, Clobber: audio},
+		{Slug: "books", Seed: []string{"图书", "小说", "名著"}, Clobber: text},
+		{Slug: "scifi-books", Seed: []string{"科幻"}, Clobber: text},
+		{Slug: "literature-books", Seed: []string{"文学", "名著"}, Clobber: text},
+		{Slug: "comics", Seed: []string{"漫画", "画集", "设定集"}, Clobber: graphic},
+		{Slug: "manga", Seed: []string{"漫画"}, Clobber: graphic},
+		{Slug: "artbooks", Seed: []string{"画集", "设定集"}, Clobber: graphic},
+	}
+	restored := 0
+	for _, spec := range specs {
+		res := db.Exec(`UPDATE virtual_shelves SET query_tags = ? WHERE slug = ? AND query_tags = ?`, pq.Array(spec.Seed), spec.Slug, pq.Array(spec.Clobber))
+		if res.Error != nil {
+			log.Printf("restore virtual_shelves %s: %v", spec.Slug, res.Error)
+		} else {
+			restored += int(res.RowsAffected)
+		}
+		if columnExists(db, "user_custom_shelves", "query_tags") {
+			res = db.Exec(`UPDATE user_custom_shelves SET query_tags = ? WHERE slug = ? AND query_tags = ?`, pq.Array(spec.Seed), spec.Slug, pq.Array(spec.Clobber))
+			if res.Error != nil {
+				log.Printf("restore user_custom_shelves %s: %v", spec.Slug, res.Error)
+				continue
+			}
+			restored += int(res.RowsAffected)
+		}
+	}
+	if restored > 0 {
+		log.Printf("restored %d clobbered shelf query_tags from seed", restored)
+	}
 }
