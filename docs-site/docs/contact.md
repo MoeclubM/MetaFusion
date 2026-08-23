@@ -10,7 +10,7 @@ group: "meta"
 ## 站务
 
 - **GitHub**：[MoeclubM/MetaFusion](https://github.com/MoeclubM/MetaFusion)（提 Issue / PR 最快）
-- **站内私信**：登录后 `POST /api/v1/messages/with/:user_id` 或社区 @站务
+- **站内私信**：登录后在站务账号主页点击「发送私信」，或在社区发帖时 @站务
 - **社区板块**：在 `/community` 的 `general` 或 `announcement` 下发帖，标题前缀 `[反馈]` / `[合规]` 便于分拣
 
 ## 报告问题
