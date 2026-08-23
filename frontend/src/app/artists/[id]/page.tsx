@@ -253,7 +253,6 @@ export default function ArtistDetailPage() {
                       <div className="font-mono text-[10px] text-gray-500 truncate">{rel.catalog_number || "—"}{rel.barcode ? " · " + rel.barcode : ""}</div>
                       <div className="font-mono text-[10px] text-gray-400">{rel.edition_date ? new Date(rel.edition_date).getFullYear() : "—"}</div>
                     </div>
-                    <span className={`shrink-0 px-1.5 py-0.2 rounded-sm text-[10px] font-mono border ${rel.is_master_verified ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-300" : "bg-black/[0.04] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-500"}`}>{rel.is_master_verified ? t("work.detail.verified") : t("work.detail.pending")}</span>
                   </div>
                 </a>
               ))}

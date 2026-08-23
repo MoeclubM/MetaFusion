@@ -58,5 +58,6 @@ export function useTaxonomy() {
     loading,
     entityTypeLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.entity_types),
     roleLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.roles),
+    packagingLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.packagings),
   };
 }

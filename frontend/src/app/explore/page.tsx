@@ -41,7 +41,7 @@ type ExploreType = "works" | "artists" | "releases" | "franchises";
 
 function ExploreContent() {
   const { t, locale } = useI18n();
- const { taxonomy, entityTypeLabel } = useTaxonomy();
+  const { taxonomy, entityTypeLabel, packagingLabel } = useTaxonomy();
  const searchParams = useSearchParams();
  const router = useRouter();
 
@@ -848,18 +848,13 @@ function ExploreContent() {
                         {r.catalog_number ? ` · ${r.catalog_number}` : ""}
                         {r.edition_date ? ` · ${String(r.edition_date).slice(0, 10)}` : ""}
                       </p>
-                      <div className="flex items-center gap-2 pt-0.5">
-                        <span
-                          className={`px-2 py-0.5 rounded-sm text-[11px] font-mono border ${
-                            r.is_master_verified
-                              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-                              : "bg-amber-500/10 text-amber-600 border-amber-500/20"
-                          }`}
-                        >
-                          {r.is_master_verified ? t("work.detail.verified") : t("work.detail.pending")}
-                        </span>
-                        {r.packaging && <span className="text-[11px] font-mono text-gray-500">{r.packaging}</span>}
-                      </div>
+                      {r.packaging && (
+                        <div className="flex items-center gap-2 pt-0.5">
+                          <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/5 text-[11px] font-mono text-gray-600 dark:text-gray-400">
+                            {packagingLabel(r.packaging)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="text-primary text-sm font-mono flex items-center gap-0.5 shrink-0">
                       <span>{t("explore.detail")}</span>

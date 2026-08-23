@@ -13,6 +13,7 @@ import {
   pickLocalized,
 } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Layers, Network, Users, ArrowRight } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
@@ -29,6 +30,7 @@ export default function FranchiseDetailPage() {
   const params = useParams();
   const franchiseId = params.id as string;
   const { t, locale } = useI18n();
+  const { entityTypeLabel } = useTaxonomy();
   const [data, setData] = useState<FranchiseDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -213,7 +215,7 @@ export default function FranchiseDetailPage() {
                   href={`/artists/${a.id}`}
                   className="px-2.5 py-1 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm hover:border-primary/40"
                 >
-                  <span className="font-mono text-[10px] text-gray-500 mr-1">{a.entity_type}</span>
+                  <span className="font-mono text-[10px] text-gray-500 mr-1">{entityTypeLabel(a.entity_type)}</span>
                   {a.name}
                 </Link>
               ))}

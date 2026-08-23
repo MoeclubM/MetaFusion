@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { fetchApi, Release, Work } from "@/lib/api";
-import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
+import { entryLabel, mediumLabel, entryRowHeader, formatMediaFormat, formatMediaCategory } from "@/lib/mediaLabels";
 import { useAuth } from "@/lib/authContext";
 import { usePlayer } from "@/lib/playerContext";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -24,8 +24,8 @@ export default function ReleaseDetailPage() {
   const releaseId = params.id as string;
   const { user } = useAuth();
   const { playTrack } = usePlayer();
-  const { t } = useI18n();
-  const { roleLabel } = useTaxonomy();
+  const { t, locale } = useI18n();
+  const { roleLabel, packagingLabel } = useTaxonomy();
   const [release, setRelease] = useState<ReleaseWithWork | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
@@ -113,7 +113,7 @@ export default function ReleaseDetailPage() {
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">
                 <span className="px-2 py-0.5 rounded-sm bg-primary text-white font-semibold">{t("release.detail.badge")}</span>
                 {release.catalog_number && <span className="text-gray-500">{release.catalog_number}</span>}
-                {release.packaging && <span className="text-gray-500">{t("release.detail.packagingLabel")}{release.packaging}</span>}
+                {release.packaging && <span className="text-gray-500">{t("release.detail.packagingLabel")}{packagingLabel(release.packaging)}</span>}
                 {release.barcode && <span className="text-gray-500">{t("release.detail.barcode", { code: release.barcode })}</span>}
               </div>
               <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white leading-tight">{release.edition_name}</h1>
@@ -184,6 +184,9 @@ export default function ReleaseDetailPage() {
               .map((med) => {
                 const tracks = med.tracks || [];
                 const files = med.asset_files || [];
+                const fLabel = formatMediaFormat(med.format, locale);
+                const cLabel = formatMediaCategory(med.media_category, locale);
+                const specLabel = [fLabel, cLabel && cLabel !== fLabel ? cLabel : null].filter(Boolean).join(" · ");
                 return (
                   <section key={med.id} id={`medium-${med.id}`} className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
                     <div className="px-3.5 sm:px-4 py-2.5 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-black/[0.02] dark:bg-white/[0.02]">
@@ -195,7 +198,7 @@ export default function ReleaseDetailPage() {
                           {mLabel}
                           {med.position} · {med.name}
                         </span>
-                        <span className="hidden sm:inline font-mono text-[11px] text-gray-500">{med.format} · {med.media_category}</span>
+                        {specLabel && <span className="hidden sm:inline font-mono text-[11px] text-gray-500">{specLabel}</span>}
                       </div>
                       <div className="flex items-center gap-2">
                         <button

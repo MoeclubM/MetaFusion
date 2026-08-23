@@ -294,20 +294,19 @@ export default function WorkDirectoryPage() {
  </tbody>
  </table>
  </div>
- <div className="sm:hidden divide-y divide-black/5 dark:divide-white/[0.06]">
- {releases.map((rel) => (
- <a key={rel.id} href={`/releases/${rel.id}`} className="block px-3.5 py-3 active:bg-black/[0.02] dark:active:bg-white/[0.04]">
- <div className="flex items-start justify-between gap-3">
- <div className="min-w-0 space-y-0.5">
- <div className="font-semibold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2 inline-flex items-center gap-2">{rel.edition_name} <ArrowUpRight className="w-4 h-4 text-gray-400 shrink-0" strokeWidth={1.6} /></div>
- <div className="font-mono text-xs text-gray-500 truncate">{rel.publisher_entity ? rel.publisher_entity.name : rel.publisher || "—"} {rel.catalog_number ? "· " + rel.catalog_number : ""}</div>
- <div className="font-mono text-xs text-gray-400">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</div>
- </div>
- <span className={`shrink-0 px-2.5 py-1 rounded-sm text-xs font-mono border ${rel.is_master_verified ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-300" : "bg-black/[0.04] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-500"}`}>{rel.is_master_verified ? t("work.detail.verified") : t("work.detail.pending")}</span>
- </div>
- </a>
- ))}
- </div>
+   <div className="sm:hidden divide-y divide-black/5 dark:divide-white/[0.06]">
+   {releases.map((rel) => (
+   <a key={rel.id} href={`/releases/${rel.id}`} className="block px-3.5 py-3 active:bg-black/[0.02] dark:active:bg-white/[0.04]">
+   <div className="flex items-start justify-between gap-3">
+   <div className="min-w-0 space-y-0.5">
+   <div className="font-semibold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2 inline-flex items-center gap-2">{rel.edition_name} <ArrowUpRight className="w-4 h-4 text-gray-400 shrink-0" strokeWidth={1.6} /></div>
+   <div className="font-mono text-xs text-gray-500 truncate">{rel.publisher_entity ? rel.publisher_entity.name : rel.publisher || "—"} {rel.catalog_number ? "· " + rel.catalog_number : ""}</div>
+   <div className="font-mono text-xs text-gray-400">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</div>
+   </div>
+   </div>
+   </a>
+   ))}
+   </div>
  <div className="px-3.5 py-2.5 border-t border-black/5 dark:border-white/[0.06] bg-black/[0.01] dark:bg-white/[0.01] flex items-center justify-between">
  <span className="font-mono text-sm text-gray-500">
  {t("common.pagination", { page, total: totalPages })}
