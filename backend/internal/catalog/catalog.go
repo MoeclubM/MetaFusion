@@ -519,7 +519,19 @@ func (s *CatalogService) ListReleases(c *gin.Context) {
 	query.Count(&total)
 
 	var releases []models.Release
-	if err := query.Preload("PublisherEntity").Preload("PublisherEntity.Translations").Preload("Work").Preload("Work.Translations").Offset(offset).Limit(pageSize).Find(&releases).Error; err != nil {
+	if err := query.
+		Preload("PublisherEntity").
+		Preload("PublisherEntity.Translations").
+		Preload("Work").
+		Preload("Work.Translations").
+		Preload("Work.Tags").
+		Preload("Work.ArtistRelations").
+		Preload("Work.ArtistRelations.Artist").
+		Preload("Work.ArtistRelations.Artist.Translations").
+		Preload("Mediums").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&releases).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -1345,7 +1357,17 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 
 	releases := make([]models.Release, 0)
 	uidPub := currentUserID(c)
-	pubQ := s.db.Preload("Work").Preload("Work.Translations").Where("(publisher_id = ? OR (publisher_id IS NULL AND publisher ILIKE ?))", artist.ID, "%"+artist.Name+"%")
+	pubQ := s.db.
+		Preload("Work").
+		Preload("Work.Translations").
+		Preload("Work.Tags").
+		Preload("Work.ArtistRelations").
+		Preload("Work.ArtistRelations.Artist").
+		Preload("Work.ArtistRelations.Artist.Translations").
+		Preload("Mediums").
+		Preload("PublisherEntity").
+		Preload("PublisherEntity.Translations").
+		Where("(publisher_id = ? OR (publisher_id IS NULL AND publisher ILIKE ?))", artist.ID, "%"+artist.Name+"%")
 	pubQ = applyReleaseVisibility(pubQ, uidPub)
 	pubQ.Order("edition_date desc, created_at desc").Find(&releases)
 

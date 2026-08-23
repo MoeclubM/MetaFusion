@@ -21,6 +21,7 @@ import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { EntityCover } from "@/components/common/EntityCover";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
+import { ArtistReleasesTab } from "@/components/artist/ArtistReleasesTab";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 
 export default function ArtistDetailPage() {
@@ -217,47 +218,7 @@ export default function ArtistDetailPage() {
         )}
 
         {activeTab === "releases" && (
-          <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-black/[0.02] dark:bg-white/[0.02] border-b border-black/5 dark:border-white/[0.06] font-mono text-[10px] uppercase tracking-wider text-gray-500">
-                  <tr>
-                    <th className="py-2.5 px-3.5 font-medium">{t("artist.detail.tableReleaseTitle")}</th>
-                    <th className="py-2.5 px-3.5 font-medium">{t("artist.detail.tableCatalogNo")}</th>
-                    <th className="py-2.5 px-3.5 font-medium">{t("artist.detail.tableBarcode")}</th>
-                    <th className="py-2.5 px-3.5 text-right font-medium">{t("artist.detail.tableYear")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
-                  {releases.map((rel) => (
-                    <tr key={rel.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
-                      <td className="py-2.5 px-3.5 font-medium text-gray-900 dark:text-white">
-                        <Link href={`/releases/${rel.id}`} className="hover:text-primary inline-flex items-center gap-1">
-                          {rel.edition_name} <ArrowUpRight className="w-3 h-3 text-gray-400" strokeWidth={1.5} />
-                        </Link>
-                      </td>
-                      <td className="py-2.5 px-3.5 font-mono text-gray-500">{rel.catalog_number || "—"}</td>
-                      <td className="py-2.5 px-3.5 font-mono text-gray-500">{rel.barcode || "—"}</td>
-                      <td className="py-2.5 px-3.5 font-mono text-gray-500 text-right">{rel.edition_date ? new Date(rel.edition_date).getFullYear() : "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="sm:hidden divide-y divide-black/5 dark:divide-white/[0.06]">
-              {releases.map((rel) => (
-                <a key={rel.id} href={`/releases/${rel.id}`} className="block px-3.5 py-3 active:bg-black/[0.02] dark:active:bg-white/[0.04]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-0.5">
-                      <div className="font-medium text-gray-900 dark:text-white text-xs line-clamp-2 inline-flex items-center gap-1">{rel.edition_name} <ArrowUpRight className="w-3 h-3 text-gray-400 shrink-0" strokeWidth={1.5} /></div>
-                      <div className="font-mono text-[10px] text-gray-500 truncate">{rel.catalog_number || "—"}{rel.barcode ? " · " + rel.barcode : ""}</div>
-                      <div className="font-mono text-[10px] text-gray-400">{rel.edition_date ? new Date(rel.edition_date).getFullYear() : "—"}</div>
-                    </div>
-                  </div>
-                </a>
-              ))}
-            </div>
-          </div>
+          <ArtistReleasesTab releases={releases} artistName={localized.title || artist.name} />
         )}
 
         {activeTab === "affiliations" && (

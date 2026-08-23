@@ -147,10 +147,13 @@ func (s *CatalogService) BrowseReleases(c *gin.Context) {
 
 	// inc 控制预加载
 	if inc["work"] || inc["works"] {
-		query = query.Preload("Work").Preload("Work.Translations")
+		query = query.Preload("Work").Preload("Work.Translations").Preload("Work.Tags").Preload("Work.ArtistRelations").Preload("Work.ArtistRelations.Artist")
+	}
+	if inc["mediums"] || inc["medium"] {
+		query = query.Preload("Mediums")
 	}
 	if inc["artist"] || inc["artists"] || inc["publisher"] {
-		query = query.Preload("PublisherEntity")
+		query = query.Preload("PublisherEntity").Preload("PublisherEntity.Translations")
 	}
 
 	var releases []models.Release
