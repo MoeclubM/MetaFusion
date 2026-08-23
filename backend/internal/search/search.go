@@ -40,7 +40,31 @@ func NewSearchService(cfg *config.Config, db *gorm.DB) (*SearchService, error) {
 
 	service := &SearchService{os: osClient, db: db, cfg: cfg}
 	_ = service.ensureIndex(context.Background())
+	go func() {
+		_ = service.ReindexAll(context.Background())
+	}()
 	return service, nil
+}
+
+// ReindexAll 将数据库中所有作品全量同步至 OpenSearch 索引
+func (s *SearchService) ReindexAll(ctx context.Context) error {
+	if s.db == nil {
+		return nil
+	}
+	var works []models.Work
+	if err := s.db.Preload("Translations").Preload("Tags").Find(&works).Error; err != nil {
+		log.Printf("Failed to load works for OpenSearch reindex: %v", err)
+		return err
+	}
+	count := 0
+	for _, w := range works {
+		workCopy := w
+		if err := s.IndexWorkDoc(ctx, &workCopy); err == nil {
+			count++
+		}
+	}
+	log.Printf("Successfully indexed %d/%d works into OpenSearch", count, len(works))
+	return nil
 }
 
 func (s *SearchService) ensureIndex(ctx context.Context) error {
