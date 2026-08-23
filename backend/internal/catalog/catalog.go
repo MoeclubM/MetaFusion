@@ -274,6 +274,12 @@ func (s *CatalogService) ListTags(c *gin.Context) {
 func (s *CatalogService) ListWorks(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "24"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 24
+	}
 	shelfSlug := c.Query("shelf")
 	customShelfID := c.Query("custom_shelf")
 	tagsParam := c.Query("tags")
@@ -389,6 +395,8 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 		query = query.Order("view_count desc")
 	case "release_date":
 		query = query.Order("release_date desc")
+	case "title":
+		query = query.Order("title asc")
 	default:
 		query = query.Order("created_at desc")
 	}
@@ -472,7 +480,13 @@ func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 // ListReleases 按作品分页列出发行版，仅返回已审核通过的版本
 func (s *CatalogService) ListReleases(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "24"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 24
+	}
 	workIDStr := c.Query("work_id")
 	q := c.Query("q")
 	sortBy := c.DefaultQuery("sort", "created_at")
@@ -1188,6 +1202,12 @@ func (s *CatalogService) UpsertWorkRelationsForMember(c *gin.Context) {
 func (s *CatalogService) ListArtists(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "24"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 24
+	}
 	entityType := c.Query("entity_type")
 	searchQuery := c.Query("q")
 	offset := (page - 1) * pageSize
@@ -1210,9 +1230,10 @@ func (s *CatalogService) ListArtists(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"items": artists,
-		"total": total,
-		"page":  page,
+		"items":     artists,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
 	})
 }
 
