@@ -10,6 +10,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { BrandMark } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
 import { displayNameOf } from "@/lib/api";
+import { OmniImportModal } from "./importer/OmniImportModal";
 import {
   Plus,
   LogOut,
@@ -36,12 +37,13 @@ interface NavbarProps {
  onOpenUpload?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
+ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
  const { user, logout } = useAuth();
  const { t } = useI18n();
  const pathname = usePathname();
 
  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+ const [isImportModalOpen, setIsImportModalOpen] = useState(false);
  const userMenuRef = useRef<HTMLDivElement>(null);
 
  useEffect(() => {
@@ -149,8 +151,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
  <Network className="w-4 h-4 text-indigo-500" /> {t("nav.createFranchise")}
  </Link>
  <div className="border-t border-black/[0.06] dark:border-white/[0.06] mt-1 pt-1">
- <Link href="/contribute" className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-primary/10 text-primary font-medium">
- <Sparkles className="w-4 h-4" /> {t("nav.contributeSystem")}
+ <button
+   type="button"
+   onClick={() => setIsImportModalOpen(true)}
+   className="w-full flex items-center gap-2.5 px-3.5 py-2 hover:bg-primary/10 text-primary font-semibold text-left transition-colors cursor-pointer"
+ >
+   <Sparkles className="w-4 h-4 text-primary" /> {t("nav.importExternal")}
+ </button>
+ <Link href="/contribute" className="flex items-center gap-2.5 px-3.5 py-2 hover:bg-black/5 dark:hover:bg-white/[0.06] text-gray-700 dark:text-gray-200 font-medium">
+   <Library className="w-4 h-4 text-gray-500" /> {t("nav.contributeSystem")}
  </Link>
  </div>
  </div>
@@ -307,6 +316,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
  </nav>
  </div>
  </header>
+ <OmniImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
  </>
  );
 };

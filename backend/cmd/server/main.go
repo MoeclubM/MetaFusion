@@ -27,6 +27,7 @@ import (
 	"github.com/metafusion/metafusion-app/internal/database"
 	"github.com/metafusion/metafusion-app/internal/favorite"
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
+	"github.com/metafusion/metafusion-app/internal/importer"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/openapi"
 	"github.com/metafusion/metafusion-app/internal/ratelimit"
@@ -82,6 +83,8 @@ func main() {
 	if err != nil {
 		log.Printf("Storage service warning: %v", err)
 	}
+
+	importerSvc := importer.NewImporterService(db, cfg, storageSvc, searchSvc, catalogSvc)
 
 	// 4. 配置 Gin HTTP 路由器
 	r := gin.Default()
@@ -455,6 +458,14 @@ func main() {
 			browse.GET("/artists", catalogSvc.BrowseArtists)
 			browse.GET("/franchises", catalogSvc.ListFranchises)
 		}
+
+		// ── 多源权威数字馆藏一键导入套件 (OmniSource Importer: MusicBrainz / TMDB / IMDb / Bangumi) ──
+		importerGroup := api.Group("/importer")
+		{
+			importerGroup.POST("/preview", auth.OptionalUnifiedAuthMiddleware(cfg, db), importerSvc.PreviewHandler)
+			importerGroup.POST("/import", auth.UnifiedAuthMiddleware(cfg, db), importerSvc.ImportHandler)
+		}
+
 		ws2 := api.Group("/ws/2", auth.OptionalUnifiedAuthMiddleware(cfg, db))
 		{
 			ws2.GET("/work/:id", catalogSvc.GetWorkDetail)

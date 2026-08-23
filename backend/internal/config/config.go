@@ -25,6 +25,7 @@ type Config struct {
 	JWTSecret          string
 	AllowedOrigins     string
 	MaxConcurrentVideo int
+	TMDBAPIKey         string
 }
 
 func Load() *Config {
@@ -55,6 +56,7 @@ func Load() *Config {
 		JWTSecret:          jwtSecret,
 		AllowedOrigins:     getEnv("CORS_ALLOWED_ORIGINS", ""),
 		MaxConcurrentVideo: getEnvInt("MAX_CONCURRENT_VIDEO_TASKS", 2),
+		TMDBAPIKey:         getEnv("TMDB_API_KEY", ""),
 	}
 }
 

@@ -1062,3 +1062,134 @@ export function deleteApiToken(id: string): Promise<{ status: string }> {
   return fetchApi<{ status: string }>(`/auth/tokens/${id}`, { method: "DELETE" });
 }
 
+// ── OmniSource Importer 多源权威数字馆藏一键导入套件 ──
+export interface ImporterPreviewRequest {
+  source?: string;
+  url_or_id: string;
+  media_type_hint?: string;
+}
+
+export interface ImporterTranslationItem {
+  locale: string;
+  title: string;
+  summary: string;
+}
+
+export interface ImporterWorkPreview {
+  title: string;
+  original_title: string;
+  aliases: string[];
+  release_date: string;
+  begin_date?: string;
+  country: string;
+  language: string;
+  original_language?: string;
+  summary: string;
+  cover_image_url: string;
+  cover_aspect: string;
+  content_rating: string;
+  tags: string[];
+  translations: ImporterTranslationItem[];
+  catalog_metadata?: Record<string, any>;
+}
+
+export interface ImporterArtistPreview {
+  id?: string;
+  name: string;
+  original_name?: string;
+  role: string;
+  entity_type: string;
+  country?: string;
+  biography?: string;
+  disambiguation?: string;
+  language?: string;
+  external_ids?: Record<string, any>;
+  translations?: ImporterTranslationItem[];
+}
+
+export interface ImporterTrackPreview {
+  position: number;
+  title: string;
+  duration_seconds: number;
+  artist_credit?: string;
+  isrc?: string;
+  recording_mbid?: string;
+}
+
+export interface ImporterMediumPreview {
+  position: number;
+  name: string;
+  format: string;
+  media_category: string;
+  tracks: ImporterTrackPreview[];
+}
+
+export interface ImporterReleasePreview {
+  edition_name: string;
+  catalog_number?: string;
+  barcode?: string;
+  publisher?: string;
+  packaging?: string;
+  country?: string;
+  language?: string;
+  distribution_channel?: string;
+  edition_date?: string;
+  notes?: string;
+  catalog_metadata?: Record<string, any>;
+}
+
+export interface ImporterPreviewResponse {
+  source: string;
+  external_id: string;
+  external_url: string;
+  media_type: string;
+  work: ImporterWorkPreview;
+  artists: ImporterArtistPreview[];
+  release: ImporterReleasePreview;
+  mediums: ImporterMediumPreview[];
+  tags: string[];
+}
+
+export interface ImporterImportRequest {
+  source?: string;
+  url_or_id?: string;
+  media_type_hint?: string;
+  work?: ImporterWorkPreview;
+  artists?: ImporterArtistPreview[];
+  release?: ImporterReleasePreview;
+  mediums?: ImporterMediumPreview[];
+  download_cover?: boolean;
+  edit_note?: string;
+  source_urls?: string[];
+  is_master_verified?: boolean;
+}
+
+export interface ImporterImportResponse {
+  success: boolean;
+  work_id: string;
+  release_id: string;
+  work: Work;
+  release: Release;
+  imported_counts: {
+    artists: number;
+    mediums: number;
+    tracks: number;
+  };
+  redirect_url: string;
+}
+
+export function previewExternalCatalog(payload: ImporterPreviewRequest): Promise<ImporterPreviewResponse> {
+  return fetchApi<ImporterPreviewResponse>("/importer/preview", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function importExternalCatalog(payload: ImporterImportRequest): Promise<ImporterImportResponse> {
+  return fetchApi<ImporterImportResponse>("/importer/import", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+

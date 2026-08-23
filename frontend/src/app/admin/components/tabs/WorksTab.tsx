@@ -1,17 +1,20 @@
 "use client";
 
+import React, { useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 
 import Link from "next/link";
-import { Library, Eye } from "lucide-react";
+import { Library, Eye, Sparkles } from "lucide-react";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
+import { OmniImportModal } from "@/components/importer/OmniImportModal";
 
 export function WorksTab({
   loading,
   filteredWorks,
 }: Pick<AdminDashboard, "loading" | "filteredWorks">) {
   const { t } = useI18n();
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -24,7 +27,16 @@ export function WorksTab({
             {t("admin.works.subtitle")}
           </p>
         </div>
-        <span className="text-[11px] font-mono text-gray-500 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/10">{t("admin.works.readOnlyAudit")}</span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsImportModalOpen(true)}
+            className="px-3 h-8 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-xs font-mono inline-flex items-center gap-1.5 shadow-xs transition-all cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{t("nav.importExternal")}</span>
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-surfaceBorder bg-surface overflow-hidden">
@@ -96,6 +108,11 @@ export function WorksTab({
           </tbody>
         </table>
       </div>
+
+      <OmniImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+      />
     </div>
   );
 }
