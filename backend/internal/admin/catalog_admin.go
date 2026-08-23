@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/ontology"
+	catalogsvc "github.com/metafusion/metafusion-app/internal/catalog"
 )
 
 func validateCoverURL(raw string) error {
@@ -52,6 +53,7 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 		OriginalTitle string                 `json:"original_title"`
 		Summary       string                 `json:"summary"`
 		CoverImageURL string                 `json:"cover_image_url"`
+		CoverAspect   string                 `json:"cover_aspect"`
 		CatalogMetadata map[string]interface{} `json:"catalog_metadata"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -63,6 +65,7 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 		OriginalTitle:   input.OriginalTitle,
 		Summary:         input.Summary,
 		CoverImageURL:   input.CoverImageURL,
+		CoverAspect:     catalogsvc.NormalizeCoverAspect(input.CoverAspect),
 		Status:          models.WorkStatusPendingReview,
 		CatalogMetadata: models.JSONB(input.CatalogMetadata),
 		CreatedBy:       &uid,
@@ -92,11 +95,18 @@ func (s *AdminService) UpdateWork(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	allowed := map[string]bool{"title": true, "original_title": true, "summary": true, "cover_image_url": true, "catalog_metadata": true, "status": true, "content_rating": true}
+	allowed := map[string]bool{"title": true, "original_title": true, "summary": true, "cover_image_url": true, "cover_aspect": true, "catalog_metadata": true, "status": true, "content_rating": true}
 	updates := map[string]interface{}{}
 	for k, v := range input {
 		if allowed[k] {
 			updates[k] = v
+		}
+	}
+	if v, ok := updates["cover_aspect"]; ok {
+		if s, isStr := v.(string); isStr {
+			updates["cover_aspect"] = catalogsvc.NormalizeCoverAspect(s)
+		} else {
+			delete(updates, "cover_aspect")
 		}
 	}
 	if len(updates) == 0 {

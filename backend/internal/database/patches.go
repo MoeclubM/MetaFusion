@@ -26,6 +26,7 @@ func applySchemaPatches(db *gorm.DB) {
 		`ALTER TABLE works ALTER COLUMN category_code SET DEFAULT ''`,
 		`ALTER TABLE artists ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
 		`ALTER TABLE franchises ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
+		`ALTER TABLE works ADD COLUMN IF NOT EXISTS cover_aspect VARCHAR(8) DEFAULT '' NOT NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_custom_shelves_owner_slug ON user_custom_shelves(owner_id, slug)`,
 	}
 	for _, s := range stmts {

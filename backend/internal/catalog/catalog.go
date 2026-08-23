@@ -20,6 +20,17 @@ import (
 	"gorm.io/gorm"
 )
 
+// coverAspectValues 是允许手动固定的封面显示比例；空串/未知值一律归一为 ""（自动）。
+var coverAspectValues = map[string]bool{"1:1": true, "2:3": true, "3:4": true, "4:3": true}
+
+func NormalizeCoverAspect(raw string) string {
+	v := strings.TrimSpace(raw)
+	if coverAspectValues[v] {
+		return v
+	}
+	return ""
+}
+
 func validateCoverURL(raw string) error {
 	if raw == "" {
 		return nil
@@ -903,6 +914,7 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		OriginalLanguage: input.OriginalLanguage,
 		Summary:          input.Summary,
 		CoverImageURL:    input.CoverImageURL,
+		CoverAspect:      NormalizeCoverAspect(input.CoverAspect),
 		ContentRating:    input.ContentRating,
 		Status:           workStatus,
 		CatalogMetadata:  models.JSONB(input.CatalogMetadata),
@@ -1579,6 +1591,7 @@ type CreateWorkInput struct {
 	OriginalLanguage string                 `json:"original_language"`
 	Summary          string                 `json:"summary"`
 	CoverImageURL    string                 `json:"cover_image_url"`
+	CoverAspect      string                 `json:"cover_aspect"`
 	ContentRating    string                 `json:"content_rating"`
 	CatalogMetadata  map[string]interface{} `json:"catalog_metadata"`
 	TagIDs           []uint                 `json:"tag_ids"`
@@ -1977,6 +1990,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		OriginalLanguage string                 `json:"original_language"`
 		Summary          string                 `json:"summary"`
 		CoverImageURL    string                 `json:"cover_image_url"`
+		CoverAspect      string                 `json:"cover_aspect"`
 		ContentRating    string                 `json:"content_rating"`
 		Status           string                 `json:"status"`
 		CatalogMetadata  map[string]interface{} `json:"catalog_metadata"`
@@ -2003,6 +2017,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		"original_language": work.OriginalLanguage,
 		"summary":           work.Summary,
 		"cover_image_url":   work.CoverImageURL,
+		"cover_aspect":      work.CoverAspect,
 		"catalog_metadata":  work.CatalogMetadata,
 	}
 
@@ -2023,6 +2038,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	work.OriginalLanguage = input.OriginalLanguage
 	work.Summary = input.Summary
 	work.CoverImageURL = input.CoverImageURL
+	work.CoverAspect = NormalizeCoverAspect(input.CoverAspect)
 	if input.ContentRating != "" {
 		work.ContentRating = input.ContentRating
 	}
@@ -2063,6 +2079,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		"original_language": work.OriginalLanguage,
 		"summary":           work.Summary,
 		"cover_image_url":   work.CoverImageURL,
+		"cover_aspect":      work.CoverAspect,
 		"catalog_metadata":  work.CatalogMetadata,
 	}
 

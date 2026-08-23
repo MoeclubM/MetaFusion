@@ -301,6 +301,8 @@ type Work struct {
 	OriginalLanguage string `gorm:"type:varchar(16);default:''" json:"original_language"`
 	Summary          string `json:"summary"`
 	CoverImageURL   string         `json:"cover_image_url"`
+	// CoverAspect 手动指定的封面显示比例（"1:1"/"2:3"/"3:4"），空串 = 自动推断
+	CoverAspect     string         `gorm:"type:varchar(8);default:''" json:"cover_aspect"`
 	ContentRating   string         `gorm:"default:'General'" json:"content_rating"`
 	Status          string         `gorm:"default:'completed'" json:"status"`
 		ViewCount       int64          `gorm:"default:0;not null" json:"view_count"`
