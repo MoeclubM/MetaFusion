@@ -815,6 +815,7 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		return
 	}
 	var input struct {
+		ID             *uuid.UUID             `json:"id"`
 		Name           string                 `json:"name"`
 		OriginalName   string                 `json:"original_name"`
 		Disambiguation string                 `json:"disambiguation"`
@@ -839,7 +840,12 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 	if input.ExternalIDs != nil {
 		ext = models.JSONB(input.ExternalIDs)
 	}
+	artistID := uuid.New()
+	if input.ID != nil && *input.ID != uuid.Nil {
+		artistID = *input.ID
+	}
 	artist := models.Artist{
+		ID:             artistID,
 		Name:           strings.TrimSpace(input.Name),
 		OriginalName:   strings.TrimSpace(input.OriginalName),
 		Disambiguation: strings.TrimSpace(input.Disambiguation),
@@ -882,8 +888,13 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		}
 	}
 	workStatus := models.WorkStatusPendingReview
+	roleStr, _ := c.Get("role")
+	if roleStr == "admin" || roleStr == "archivist" {
+		workStatus = models.WorkStatusPublished
+	}
 
 	work := models.Work{
+		ID:               input.ID,
 		Title:            strings.TrimSpace(input.Title),
 		OriginalTitle:    strings.TrimSpace(input.OriginalTitle),
 		Aliases:          input.Aliases,
@@ -922,6 +933,20 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 	}
 	s.replaceWorkTagsByName(&work, tagNames)
 	s.upsertWorkTranslations(work.ID, localeItems)
+
+	// 记录创建修订历史
+	s.recordRevision("work", work.ID, uid, "create", "创建作品元数据", "通过官方API创建作品初始档案", nil, nil, map[string]interface{}{
+		"title":             work.Title,
+		"original_title":    work.OriginalTitle,
+		"aliases":           work.Aliases,
+		"country":           work.Country,
+		"language":          work.Language,
+		"summary":           work.Summary,
+		"cover_image_url":   work.CoverImageURL,
+		"cover_aspect":      work.CoverAspect,
+		"catalog_metadata":  work.CatalogMetadata,
+	})
+
 	_ = s.db.Preload("Tags").Preload("Translations").First(&work, work.ID).Error
 	c.JSON(http.StatusCreated, work)
 }
@@ -973,6 +998,11 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 	if input.CatalogMetadata != nil {
 		meta = models.JSONB(input.CatalogMetadata)
 	}
+	isMasterVerified := false
+	roleStr, _ := c.Get("role")
+	if roleStr == "admin" || roleStr == "archivist" {
+		isMasterVerified = true
+	}
 	release := models.Release{
 		WorkID:              input.WorkID,
 		PublisherID:         input.PublisherID,
@@ -987,7 +1017,7 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 		DistributionChannel: ch,
 		CatalogMetadata:     meta,
 		UploaderID:          uid,
-		IsMasterVerified:    false,
+		IsMasterVerified:    isMasterVerified,
 		Notes:               input.Notes,
 	}
 	if release.Packaging == "" {
@@ -1561,6 +1591,7 @@ func (s *CatalogService) ListRelationTypes(c *gin.Context) {
 }
 
 type CreateWorkInput struct {
+	ID               uuid.UUID              `json:"id"`
 	Title            string                 `json:"title"`
 	OriginalTitle    string                 `json:"original_title"`
 	Aliases          []string               `json:"aliases"`
