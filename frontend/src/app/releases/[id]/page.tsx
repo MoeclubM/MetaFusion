@@ -302,7 +302,7 @@ export default function ReleaseDetailPage() {
                                             artist: work?.title || release.edition_name,
                                             album: release.edition_name,
                                             coverUrl: work?.cover_image_url,
-                                            audioUrl: asset.technical_specs?.preview_audio_url || `/storage/preview/${asset.id}/preview.m4a`,
+                                            audioUrl: asset.technical_specs?.preview_audio_url || `/storage/preview/previews/${asset.id}/preview.m4a`,
                                           });
                                         }}
                                         className="px-2.5 h-7 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-200 hover:text-primary inline-flex items-center gap-1 text-xs"

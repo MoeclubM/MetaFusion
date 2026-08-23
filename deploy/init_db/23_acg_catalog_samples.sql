@@ -37,43 +37,58 @@ ON CONFLICT (name) DO NOTHING;
 -- ---------------------------------------------------------------------------
 -- 1. 企划枢纽 (Franchises)
 -- ---------------------------------------------------------------------------
-INSERT INTO franchises (id, title, original_title, aliases, disambiguation, summary, begin_date, country, created_by, external_ids) VALUES
+INSERT INTO franchises (id, title, original_title, aliases, disambiguation, summary, cover_image_url, begin_date, country, created_by, external_ids) VALUES
 ('deadbeef-0000-4000-8000-000000000001', '刀剑神域', 'ソードアート・オンライン',
     '{"Sword Art Online","SAO","刀剑"}', '川原砾跨媒介科幻企划',
     '以完全潜行虚拟现实技术为背景的科幻冒险企划，涵盖轻小说、TV动画、剧场版长片及衍生原声音乐。',
+    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1200&q=80',
     '2009-04-10', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"https://www.swordart-online.net"}'),
 
 ('deadbeef-0000-4000-8000-000000000002', '葬送的芙莉莲', '葬送のフリーレン',
     '{"Frieren: Beyond Journey''s End","葬送的芙莉莲"}', '山田钟人与阿部司奇幻后日谈企划',
     '讲述打倒魔王后的精灵魔法使芙莉莲在漫长岁月中追寻人类情感与记忆的奇幻史诗，包含原作连载漫画与高口碑 TV 动画。',
+    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
     '2020-04-28', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"https://frieren-anime.jp"}'),
 
 ('deadbeef-0000-4000-8000-000000000003', '孤独摇滚！', 'ぼっち・ざ・ろっく！',
     '{"BOCCHI THE ROCK!","孤独摇滚","滚妹"}', '芳文社芳华摇滚企划',
     '滨路晶创作的四格音乐漫画及其现象级 TV 动画改编，围绕下北泽高中生少女乐队「结束乐队」展开。',
+    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80',
     '2017-12-19', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"https://bocchi.rocks"}'),
 
 ('deadbeef-0000-4000-8000-000000000004', '紫罗兰永恒花园', 'ヴァイオレット・エヴァーガーデン',
     '{"Violet Evergarden","京紫"}', '晓佳奈与京都动画跨媒介企划',
     '第5届京都动画大奖唯一大奖得主。讲述战争中作为道具被培养的人偶少女薇尔莉特，在战后成为自动手记人偶探寻「我爱你」含义的感人篇章。',
+    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
     '2015-12-25', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"http://violet-evergarden.jp"}'),
 
 ('deadbeef-0000-4000-8000-000000000005', 'Re:从零开始的异世界生活', 'Re:ゼロから始める異世界生活',
     '{"Re:Zero","Re0","从零开始"}', '长月达平异世界奇幻企划',
     '高中生菜月昴被召唤至异世界后获得「死亡回归」能力，为了守护所爱之人经历无数次绝望与重生的史诗企划。',
+    'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80',
     '2012-04-20', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"http://re-zero-anime.jp"}'),
 
 ('deadbeef-0000-4000-8000-000000000006', '进击的巨人', '進撃の巨人',
     '{"Attack on Titan","AOT","巨人"}', '谏山创黑暗奇幻史诗企划',
     '讲述被高墙隔绝的人类与捕食人类的巨人之间抗争的黑暗史诗，涵盖连载漫画、TV全季动画与泽野弘之配乐原声。',
+    'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1200&q=80',
     '2009-09-09', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"https://shingeki.tv"}')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+    title = EXCLUDED.title,
+    original_title = EXCLUDED.original_title,
+    aliases = EXCLUDED.aliases,
+    disambiguation = EXCLUDED.disambiguation,
+    summary = EXCLUDED.summary,
+    cover_image_url = EXCLUDED.cover_image_url,
+    begin_date = EXCLUDED.begin_date,
+    country = EXCLUDED.country,
+    external_ids = EXCLUDED.external_ids;
 
 INSERT INTO franchise_translations (franchise_id, locale, title, summary) VALUES
 ('deadbeef-0000-4000-8000-000000000001', 'en-US', 'Sword Art Online', 'Kawahara Reki VR sci-fi franchise spanning novels, TV anime, films, and soundtracks.'),

@@ -167,10 +167,10 @@ func (p *Processor) transcodeVideo(ctx context.Context, inputPath, tempDir strin
 	_ = p.uploadDirectoryToS3(ctx, outputHlsDir, p.cfg.S3BucketPreview, prefix+"/hls")
 	if _, err := os.Stat(thumbPath); err == nil {
 		_ = p.uploadFileToS3(ctx, thumbPath, p.cfg.S3BucketPreview, prefix+"/thumbnail.webp", "image/webp")
-		specs["preview_thumbnail"] = fmt.Sprintf("/storage/preview/%s/thumbnail.webp", asset.ID)
+		specs["preview_thumbnail"] = fmt.Sprintf("/storage/preview/%s/thumbnail.webp", prefix)
 	}
 
-	specs["preview_hls"] = fmt.Sprintf("/storage/preview/%s/hls/index.m3u8", asset.ID)
+	specs["preview_hls"] = fmt.Sprintf("/storage/preview/%s/hls/index.m3u8", prefix)
 	return nil
 }
 
@@ -185,7 +185,7 @@ func (p *Processor) transcodeAudio(ctx context.Context, inputPath, tempDir strin
 	prefix := fmt.Sprintf("previews/%s", asset.ID)
 	if _, err := os.Stat(outputAAC); err == nil {
 		_ = p.uploadFileToS3(ctx, outputAAC, p.cfg.S3BucketPreview, prefix+"/preview.m4a", "audio/mp4")
-		specs["preview_audio_url"] = fmt.Sprintf("/storage/preview/%s/preview.m4a", asset.ID)
+		specs["preview_audio_url"] = fmt.Sprintf("/storage/preview/%s/preview.m4a", prefix)
 	}
 
 	return nil
@@ -199,7 +199,7 @@ func (p *Processor) transcodeImage(ctx context.Context, inputPath, tempDir strin
 	prefix := fmt.Sprintf("previews/%s", asset.ID)
 	if _, err := os.Stat(outputWebP); err == nil {
 		_ = p.uploadFileToS3(ctx, outputWebP, p.cfg.S3BucketPreview, prefix+"/preview.webp", "image/webp")
-		specs["preview_image_url"] = fmt.Sprintf("/storage/preview/%s/preview.webp", asset.ID)
+		specs["preview_image_url"] = fmt.Sprintf("/storage/preview/%s/preview.webp", prefix)
 	}
 	return nil
 }

@@ -12,6 +12,7 @@ import {
   Franchise,
   dictTermLabel,
   workFacetTagGroups,
+  pickLocalized,
 } from "@/lib/api";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -39,7 +40,7 @@ import {
 type ExploreType = "works" | "artists" | "releases" | "franchises";
 
 function ExploreContent() {
- const { t } = useI18n();
+  const { t, locale } = useI18n();
  const { taxonomy, entityTypeLabel } = useTaxonomy();
  const searchParams = useSearchParams();
  const router = useRouter();
@@ -598,7 +599,9 @@ function ExploreContent() {
                 </div>
               ) : viewMode === "grid" ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                  {works.map((w) => (
+                  {works.map((w) => {
+                    const loc = pickLocalized(locale, w.translations, w.title, w.summary);
+                    return (
                     <Link
                       key={w.id}
                       href={`/works/${w.id}`}
@@ -606,8 +609,8 @@ function ExploreContent() {
                     >
                       <AdaptiveCover
                         src={w.cover_image_url}
-                        alt={w.title}
-                        title={w.title}
+                        alt={loc.title}
+                        title={loc.title}
                         originalTitle={w.original_title}
                         id={w.id}
                         tags={(w.tags || []).map((t) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
@@ -617,9 +620,9 @@ function ExploreContent() {
                       <div className="p-3 space-y-1 flex-1 flex flex-col justify-between">
                         <div>
                           <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-1 group-hover:text-primary transition-colors">
-                            {w.title}
+                            {loc.title}
                           </h3>
-                          {isDistinctOriginalTitle(w.original_title, w.title) && (
+                          {isDistinctOriginalTitle(w.original_title, loc.title) && (
                             <p className="font-mono text-xs text-gray-500 line-clamp-1">{w.original_title}</p>
                           )}
                         </div>
@@ -641,12 +644,14 @@ function ExploreContent() {
                         </div>
                       </div>
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="rounded-lg border border-black/10 dark:border-white/10 bg-surface overflow-hidden shadow-2xs divide-y divide-black/[0.06] dark:divide-white/[0.06]">
                   {works.map((w) => {
-                    const showOriginal = isDistinctOriginalTitle(w.original_title, w.title);
+                    const loc = pickLocalized(locale, w.translations, w.title, w.summary);
+                    const showOriginal = isDistinctOriginalTitle(w.original_title, loc.title);
                     const dateLabel = w.release_date ? String(w.release_date).slice(0, 10) : "";
                     return (
                     <Link
@@ -658,8 +663,8 @@ function ExploreContent() {
                         <div className="w-9 h-12 rounded-sm bg-black/5 dark:bg-black/40 overflow-hidden shrink-0">
                           <EntityCover
                             src={w.cover_image_url}
-                            alt={w.title}
-                            title={w.title}
+                            alt={loc.title}
+                            title={loc.title}
                             originalTitle={w.original_title}
                             id={w.id}
                             imgClassName="w-full h-full object-cover"
@@ -667,7 +672,7 @@ function ExploreContent() {
                         </div>
                         <div className="space-y-0.5 min-w-0">
                           <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate group-hover:text-primary transition-colors">
-                            {w.title}
+                            {loc.title}
                           </h3>
                           {(showOriginal || dateLabel) && (
                             <p className="font-mono text-xs text-gray-500 truncate">
@@ -721,7 +726,9 @@ function ExploreContent() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {artists.map((a) => (
+                  {artists.map((a) => {
+                    const loc = pickLocalized(locale, a.translations, a.name, a.biography);
+                    return (
                     <Link
                       key={a.id}
                       href={`/artists/${a.id}`}
@@ -730,16 +737,16 @@ function ExploreContent() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
-                            {a.name}
+                            {loc.title}
                           </h3>
-                          {isDistinctOriginalTitle(a.original_name, a.name) && <p className="font-mono text-xs text-gray-500 truncate">{a.original_name}</p>}
+                          {isDistinctOriginalTitle(a.original_name, loc.title) && <p className="font-mono text-xs text-gray-500 truncate">{a.original_name}</p>}
                         </div>
                         <span className="shrink-0 px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/5 text-[11px] font-mono text-gray-600 dark:text-gray-400">
                           {entityTypeLabel(a.entity_type)}
                         </span>
                       </div>
                       {a.disambiguation && <p className="text-xs text-gray-500 line-clamp-2">{a.disambiguation}</p>}
-                      {a.biography && <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">{a.biography}</p>}
+                      {loc.body && <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">{loc.body}</p>}
                       <div className="flex items-center gap-2 font-mono text-xs text-gray-500 pt-1.5 border-t border-black/[0.04] dark:border-white/[0.04]">
                         {a.country && <span>{a.country}</span>}
                         <span className="ml-auto flex items-center gap-0.5 text-primary">
@@ -747,7 +754,8 @@ function ExploreContent() {
                         </span>
                       </div>
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               )
             ) : activeType === "franchises" ? (
@@ -776,16 +784,18 @@ function ExploreContent() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {franchises.map((f) => (
+                  {franchises.map((f) => {
+                    const loc = pickLocalized(locale, f.translations, f.title, f.summary);
+                    return (
                     <Link
                       key={f.id}
                       href={`/franchises/${f.id}`}
                       className="group p-4 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm hover:border-primary/40 hover:shadow-elevated transition-all space-y-1.5"
                     >
                       <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
-                        {f.title}
+                        {loc.title}
                       </h3>
-                      {isDistinctOriginalTitle(f.original_title, f.title) && (
+                      {isDistinctOriginalTitle(f.original_title, loc.title) && (
                         <p className="font-mono text-xs text-gray-500 truncate">{f.original_title}</p>
                       )}
                       {f.disambiguation && <p className="text-xs text-gray-500 line-clamp-2">{f.disambiguation}</p>}
@@ -793,7 +803,8 @@ function ExploreContent() {
                         {t("explore.detail")} <ArrowRight className="w-2.5 h-2.5" />
                       </span>
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               )
             ) : loading ? (
