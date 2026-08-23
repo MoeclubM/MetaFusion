@@ -1230,6 +1230,12 @@ export interface PluginItem {
   type: "native" | "external_http" | "webhook";
   endpoint_url?: string;
   capabilities: string[];
+  dependencies?: Record<string, string>;
+  dependents?: string[];
+  dependency_status?: "satisfied" | "missing_dependencies" | "unmet_versions" | "inactive_dependencies" | string;
+  missing_dependencies?: string[];
+  inactive_dependencies?: string[];
+  load_order?: number;
   config_schema: PluginConfigSchema;
   config: Record<string, any>;
   is_enabled: boolean;
@@ -1253,6 +1259,7 @@ export interface RegisterExternalPluginPayload {
   endpoint_url: string;
   secret_token?: string;
   capabilities: string[];
+  dependencies?: Record<string, string>;
   config_schema?: PluginConfigSchema;
   config?: Record<string, any>;
   is_enabled?: boolean;
@@ -1261,6 +1268,7 @@ export interface RegisterExternalPluginPayload {
 export interface UpdatePluginPayload {
   is_enabled?: boolean;
   config?: Record<string, any>;
+  cascade?: boolean;
 }
 
 export function fetchPublicPlugins(capability?: string): Promise<{ items: PluginItem[]; count: number }> {

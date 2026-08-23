@@ -30,9 +30,20 @@ func applySchemaPatches(db *gorm.DB) {
 		`ALTER TABLE artists ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
 		`ALTER TABLE franchises ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
 		`ALTER TABLE works ADD COLUMN IF NOT EXISTS cover_aspect VARCHAR(8) DEFAULT '' NOT NULL`,
+		`ALTER TABLE system_plugins ADD COLUMN IF NOT EXISTS dependencies JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE works ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE artists ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE mediums ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE franchises ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE canonical_entries ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_custom_shelves_owner_slug ON user_custom_shelves(owner_id, slug)`,
 		`CREATE INDEX IF NOT EXISTS idx_works_external_ids_gin ON works USING GIN (external_ids)`,
 		`CREATE INDEX IF NOT EXISTS idx_releases_external_ids_gin ON releases USING GIN (external_ids)`,
+		`CREATE INDEX IF NOT EXISTS idx_works_attributes_gin ON works USING GIN (attributes)`,
+		`CREATE INDEX IF NOT EXISTS idx_artists_attributes_gin ON artists USING GIN (attributes)`,
+		`CREATE INDEX IF NOT EXISTS idx_releases_attributes_gin ON releases USING GIN (attributes)`,
 	}
 	for _, s := range stmts {
 		if err := db.Exec(s).Error; err != nil {

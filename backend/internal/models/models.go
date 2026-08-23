@@ -266,6 +266,7 @@ type Artist struct {
 	EndDate        string     `gorm:"type:varchar(16)" json:"end_date"`
 	Ended          bool       `gorm:"default:false;not null" json:"ended"`
 	ExternalIDs    JSONB      `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	Attributes     JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 	Language       string     `gorm:"type:varchar(16);default:'zh-CN'" json:"language"`
 	CreatedBy      *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
 	CreatedAt      time.Time  `json:"created_at"`
@@ -309,6 +310,7 @@ type Work struct {
 	ViewCount       int64          `gorm:"default:0;not null" json:"view_count"`
 	FavoriteCount   int64          `gorm:"-" json:"favorite_count"`
 	ExternalIDs     JSONB          `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	Attributes      JSONB          `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 	CatalogMetadata JSONB          `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
 	CreatedBy       *uuid.UUID     `gorm:"type:uuid" json:"created_by,omitempty"`
 	CreatedAt       time.Time      `json:"created_at"`
@@ -336,6 +338,7 @@ type Release struct {
 	Language             string     `json:"language"`
 	DistributionChannel  string     `gorm:"default:'mixed';not null" json:"distribution_channel"`
 	ExternalIDs          JSONB      `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	Attributes           JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 	CatalogMetadata      JSONB      `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
 	UploaderID           *uuid.UUID `gorm:"type:uuid" json:"uploader_id,omitempty"`
 	IsMasterVerified     bool       `gorm:"default:false;not null" json:"is_master_verified"`
@@ -358,6 +361,7 @@ type Medium struct {
 	Format        string    `gorm:"not null" json:"format"`
 	MediaCategory string    `gorm:"not null" json:"media_category"`
 	TrackCount    int       `gorm:"default:0;not null" json:"track_count"`
+	Attributes    JSONB     `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 
 	Tracks     []Track     `gorm:"foreignKey:MediumID" json:"tracks,omitempty"`
 	AssetFiles []AssetFile `gorm:"foreignKey:MediumID" json:"asset_files,omitempty"`
@@ -406,6 +410,7 @@ type Franchise struct {
 	Country         string         `json:"country"`
 	Language        string         `gorm:"type:varchar(16);default:'zh-CN'" json:"language"`
 	ExternalIDs     JSONB          `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	Attributes      JSONB          `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 	CatalogMetadata JSONB          `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
 	CreatedBy       *uuid.UUID     `gorm:"type:uuid" json:"created_by,omitempty"`
 	CreatedAt       time.Time      `json:"created_at"`
@@ -452,6 +457,7 @@ type CanonicalEntry struct {
 	RecordingDate string     `gorm:"type:varchar(16)" json:"recording_date"`
 	WorkID        *uuid.UUID `gorm:"type:uuid" json:"work_id,omitempty"`
 	ExternalIDs   JSONB      `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	Attributes    JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 	CreatedAt     time.Time  `json:"created_at"`
 
 	Work *Work `gorm:"foreignKey:WorkID" json:"work,omitempty"`
@@ -469,6 +475,7 @@ type Track struct {
 	DurationSeconds  int        `json:"duration_seconds"`
 	ISRC             string     `json:"isrc"`
 	ArtistCredit     string     `json:"artist_credit"`
+	Attributes       JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 
 	CanonicalEntry *CanonicalEntry `gorm:"foreignKey:CanonicalEntryID" json:"canonical_entry,omitempty"`
 }
@@ -790,6 +797,62 @@ type ExternalLinkItem struct {
 	Icon     string `json:"icon"`
 	IconURL  string `json:"icon_url,omitempty"`
 	Category string `json:"category"`
+}
+
+// EntityAttributeSchema represents dynamic, extensible custom attribute schemas for any catalog entity
+type EntityAttributeSchema struct {
+	ID              uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	EntityType      string    `gorm:"type:varchar(32);not null;index" json:"entity_type"` // 'work', 'artist', 'release', 'medium', 'track', 'franchise', 'canonical_entry'
+	AttributeKey    string    `gorm:"type:varchar(64);not null;index" json:"attribute_key"`
+	NameZh          string    `gorm:"type:varchar(128);not null" json:"name_zh"`
+	NameEn          string    `gorm:"type:varchar(128);not null" json:"name_en"`
+	Names           JSONB     `gorm:"type:jsonb;default:'{}'" json:"names"`
+	DescZh          string    `gorm:"type:text;default:''" json:"desc_zh"`
+	DescEn          string    `gorm:"type:text;default:''" json:"desc_en"`
+	Descriptions    JSONB     `gorm:"type:jsonb;default:'{}'" json:"descriptions"`
+	DataType        string    `gorm:"type:varchar(32);default:'text';not null" json:"data_type"` // 'text', 'number', 'select', 'multiselect', 'date', 'boolean', 'array', 'url'
+	Options         JSONB     `gorm:"type:jsonb;default:'[]'" json:"options"`
+	ValidationRules JSONB     `gorm:"type:jsonb;default:'{}'" json:"validation_rules"`
+	CategoryFilter  string    `gorm:"type:varchar(64);default:''" json:"category_filter"`
+	DisplayOrder    int       `gorm:"default:0;not null" json:"display_order"`
+	IsRequired      bool      `gorm:"default:false;not null" json:"is_required"`
+	IsSearchable    bool      `gorm:"default:true;not null" json:"is_searchable"`
+	IsEnabled       bool      `gorm:"default:true;not null" json:"is_enabled"`
+	IsSystem        bool      `gorm:"default:false;not null" json:"is_system"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+func (EntityAttributeSchema) TableName() string { return "entity_attribute_schemas" }
+
+func (s EntityAttributeSchema) LocalizedName(locale string) string {
+	loc := NormalizeLocale(locale)
+	if s.Names != nil {
+		if v, ok := s.Names[loc]; ok {
+			if str, ok := v.(string); ok && str != "" {
+				return str
+			}
+		}
+	}
+	if loc == "en-US" && s.NameEn != "" {
+		return s.NameEn
+	}
+	return s.NameZh
+}
+
+func (s EntityAttributeSchema) LocalizedDesc(locale string) string {
+	loc := NormalizeLocale(locale)
+	if s.Descriptions != nil {
+		if v, ok := s.Descriptions[loc]; ok {
+			if str, ok := v.(string); ok && str != "" {
+				return str
+			}
+		}
+	}
+	if loc == "en-US" && s.DescEn != "" {
+		return s.DescEn
+	}
+	return s.DescZh
 }
 
 // UserGroup represents an admin-manageable permission grouping

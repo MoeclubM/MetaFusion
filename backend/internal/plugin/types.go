@@ -15,6 +15,7 @@ const (
 	CapExport           = "export"
 	CapNotification     = "notification"
 	CapTranscoderHook   = "transcoder_hook"
+	CapAIEnrichment     = "ai_enrichment"
 )
 
 // PluginType 插件类型
@@ -42,18 +43,19 @@ type ConfigSchema struct {
 
 // Manifest 插件元数据与能力声明
 type Manifest struct {
-	ID               string       `json:"id"`
-	Name             string       `json:"name"`
-	Version          string       `json:"version"`
-	Description      string       `json:"description"`
-	Author           string       `json:"author"`
-	Icon             string       `json:"icon"`
-	Type             string       `json:"type"` // "native", "external_http", "webhook"
-	Capabilities     []string     `json:"capabilities"`
-	ConfigSchema     ConfigSchema `json:"config_schema"`
-	SupportedSources []string     `json:"supported_sources,omitempty"`
-	SupportedFormats []string     `json:"supported_formats,omitempty"`
-	SupportedEvents  []string     `json:"supported_events,omitempty"`
+	ID               string            `json:"id"`
+	Name             string            `json:"name"`
+	Version          string            `json:"version"`
+	Description      string            `json:"description"`
+	Author           string            `json:"author"`
+	Icon             string            `json:"icon"`
+	Type             string            `json:"type"` // "native", "external_http", "webhook"
+	Capabilities     []string          `json:"capabilities"`
+	Dependencies     map[string]string `json:"dependencies,omitempty"` // 声明前置依赖插件与版本约束，如 {"musicbrainz": ">=1.0.0"}
+	ConfigSchema     ConfigSchema      `json:"config_schema"`
+	SupportedSources []string          `json:"supported_sources,omitempty"`
+	SupportedFormats []string          `json:"supported_formats,omitempty"`
+	SupportedEvents  []string          `json:"supported_events,omitempty"`
 }
 
 // HealthStatus 插件健康检查状态
@@ -106,23 +108,29 @@ type NotifierPlugin interface {
 
 // PluginDTO 面向前端展示与管理的插件数据传输对象
 type PluginDTO struct {
-	ID               string                 `json:"id"`
-	Name             string                 `json:"name"`
-	Version          string                 `json:"version"`
-	Description      string                 `json:"description"`
-	Author           string                 `json:"author"`
-	Icon             string                 `json:"icon"`
-	Type             string                 `json:"type"`
-	EndpointURL      string                 `json:"endpoint_url,omitempty"`
-	Capabilities     []string               `json:"capabilities"`
-	ConfigSchema     ConfigSchema           `json:"config_schema"`
-	Config           map[string]interface{} `json:"config"`
-	IsEnabled        bool                   `json:"is_enabled"`
-	IsSystem         bool                   `json:"is_system"`
-	Health           HealthStatus           `json:"health"`
-	SupportedSources []string               `json:"supported_sources,omitempty"`
-	SupportedFormats []string               `json:"supported_formats,omitempty"`
-	SupportedEvents  []string               `json:"supported_events,omitempty"`
-	CreatedAt        time.Time              `json:"created_at"`
-	UpdatedAt        time.Time              `json:"updated_at"`
+	ID                   string                 `json:"id"`
+	Name                 string                 `json:"name"`
+	Version              string                 `json:"version"`
+	Description          string                 `json:"description"`
+	Author               string                 `json:"author"`
+	Icon                 string                 `json:"icon"`
+	Type                 string                 `json:"type"`
+	EndpointURL          string                 `json:"endpoint_url,omitempty"`
+	Capabilities         []string               `json:"capabilities"`
+	Dependencies         map[string]string      `json:"dependencies,omitempty"`
+	Dependents           []string               `json:"dependents,omitempty"`
+	DependencyStatus     string                 `json:"dependency_status"` // "satisfied", "missing_dependencies", "unmet_versions", "inactive_dependencies"
+	MissingDependencies []string               `json:"missing_dependencies,omitempty"`
+	InactiveDependencies []string              `json:"inactive_dependencies,omitempty"`
+	LoadOrder            int                    `json:"load_order"`
+	ConfigSchema         ConfigSchema           `json:"config_schema"`
+	Config               map[string]interface{} `json:"config"`
+	IsEnabled            bool                   `json:"is_enabled"`
+	IsSystem             bool                   `json:"is_system"`
+	Health               HealthStatus           `json:"health"`
+	SupportedSources     []string               `json:"supported_sources,omitempty"`
+	SupportedFormats     []string               `json:"supported_formats,omitempty"`
+	SupportedEvents      []string               `json:"supported_events,omitempty"`
+	CreatedAt            time.Time              `json:"created_at"`
+	UpdatedAt            time.Time              `json:"updated_at"`
 }
