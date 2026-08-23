@@ -81,7 +81,7 @@ curl -X POST /api/v1/catalog/works \
   -H "Authorization: Bearer mfp_..." \
   -H "User-Agent: MyApp/1.0 (you@example.com)" \
   -H "Content-Type: application/json" \
-  -d '{"title":"新作品","media_type":"anime","edit_note":"initial import","source_urls":["https://..."]}'
+  -d '{"title":"新作品","tags":["动画","电影"],"cover_aspect":"2:3","edit_note":"initial import","source_urls":["https://..."]}'
 ```
 
 ## 限流与 User-Agent

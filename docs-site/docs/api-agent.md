@@ -16,7 +16,7 @@ MetaFusion 的开放 API 设计为 Agent 友好：稳定的 ID、可追溯的修
   "tools": [
     { "name": "metafusion_search", "description": "Search works/artists/releases", "parameters": { "q": "string", "type": "work|artist|release|all" }, "endpoint": "GET /api/v1/search" },
     { "name": "metafusion_lookup_work", "description": "Lookup work with inc", "parameters": { "id": "uuid", "inc": "releases+relations" } },
-    { "name": "metafusion_create_work", "description": "Create work (needs edit_note/source_urls)", "parameters": { "title": "string", "media_type": "string", "edit_note": "string", "source_urls": "string[]" } }
+    { "name": "metafusion_create_work", "description": "Create work (needs edit_note/source_urls)", "parameters": { "title": "string", "tags": "string[]", "cover_aspect": "string", "edit_note": "string", "source_urls": "string[]" } }
   ]
 }
 ```

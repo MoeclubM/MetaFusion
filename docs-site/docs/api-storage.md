@@ -28,7 +28,7 @@ Content-Type: application/json
 响应：
 
 ```json
-{ "s3_key": "masters/<uuid>/track.flac", "upload_urls": ["https://minio/...?X-Amz-Signature=..."], "dedup": false }
+{ "s3_key": "masters/<uuid>/track.flac", "upload_urls": ["https://s3-storage/...?X-Amz-Signature=..."], "dedup": false }
 ```
 
 - `dedup: true` 表示 SHA-256 命中秒传，可跳过 PUT 直接 `complete`

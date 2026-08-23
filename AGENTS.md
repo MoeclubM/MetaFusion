@@ -26,8 +26,9 @@
 - 未获用户明确授权不执行 `git push --force`；推送前确认远端状态。
 
 ## 2. 项目上下文
-- 技术栈：Go (backend) + Next.js (frontend) + Postgres + MinIO + FFmpeg Worker，`deploy/docker-compose.yml` 一键启动。
-- 核心模型：LRM 混合 `Work / CanonicalEntry / Release / Medium / Track / AssetFile`，标签 + 虚拟货架为当前分类体系（Categories 已废弃）。
+- 技术栈：Go (backend) + Next.js (frontend) + Postgres + RustFS (S3 兼容对象存储) + OpenSearch 2.x + FFmpeg Worker，`deploy/docker-compose.yml` 一键启动。
+- 核心模型：LRM 混合 `Work / CanonicalEntry / Release / Medium / Track / AssetFile`，实体保持纯净标题，通过「标签 + 虚拟货架 + Release 规格 + 实体图谱边」自然表达，无 `media_type`（传统树状分类与硬编码形态已完全废弃）。
+- 封面与多语言：封面支持自适应自然宽高比与手动 `cover_aspect` 属性控制；多语言题名与简介基于 `work_translations` 本地化回退链。
 - 约束：详见 `C:\Users\QwQ\.zcode\cli\memories\projects\metafusion-38d133024429979f\memory\MEMORY.md` 索引的各项记忆（如 Archive Cosmos 设计规范、受控媒体访问、空状态优先等）。
 
 ## 3. 其他协作约定

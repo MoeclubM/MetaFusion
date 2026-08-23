@@ -58,7 +58,7 @@ MetaFusion 采用国际图书馆学联合会（IFLA）最新制定的 **LRM (Lib
 
 | 层级 | LRM 定义 | MetaFusion 平台职责 | 核心数据字段 | 典型示例 |
 |---|---|---|---|---|
-| **Work** | 作品概念 (LRM-E1) | 独立的精神与艺术创作概念，聚合所有翻唱、改编与重映版本 | `id (UUID)`, `title`, `translations`（按 locale 的题名+简介）, `language`（默认显示语种）, `media_type`, `summary`, `cover_image_url` | 《攻壳机动队》、《星际穿越》、《贝多芬第九交响曲》 |
+| **Work** | 作品概念 (LRM-E1) | 独立的精神与艺术创作概念，聚合所有翻唱、改编与重映版本 | `id (UUID)`, `title`, `original_title`, `translations`（按 locale 的题名+简介）, `language`（默认显示语种）, `original_language`, `summary`, `cover_image_url`, `cover_aspect`, `tags` | 《攻壳机动队》、《星际穿越》、《贝多芬第九交响曲》 |
 | **Expression** | 表现形式 (LRM-E2) | 艺术概念的具体知觉实现（音频声道、画面规格、语言文本） | `canonical_entries`, `format`, `channels`, `sample_rate`, `bit_depth` | 24bit/96kHz Hi-Res 立体声母带、IMAX 1.43:1 动态画幅剪辑版 |
 | **Manifestation (Release)** | 载体发行 (LRM-E3) | 面向公众的特定物理或数字出版载体形态，包含条码与唱片编号 | `edition_name`, `catalog_number`, `barcode`, `packaging`, `release_date`, `country` | `VIZL-123` 初回限定盘 (CD+Blu-ray)、`UHD-8848` 限量铁盒收藏版 |
 | **Medium** | 载体介质 (LRM-E3 容器) | 复合发行版下的独立物理/数字存储盘片或分卷 | `position`, `format` (CD/BD/Vinyl/Digital/Book), `track_count` | `Disc 1 (Original CD)`, `Disc 2 (Bonus BD)`, `Side A` |
@@ -93,18 +93,18 @@ MetaFusion 采用国际图书馆学联合会（IFLA）最新制定的 **LRM (Lib
 | **Release** | 同作品的一次封装（分服、卷册、数字碟、初回盘） | 产品级分家的新作 |
 | **Agent** | 人 / 团 / 社 / 厂牌 / 虚拟角色 / 虚拟乐队 | 职阶、CV 字符串、从者专用表 |
 
-真正灵活的是三本字典：`media_types`、`entity_type_definitions`、`relation_types`。JSONB（`catalog_metadata`、关系 `attributes`）与关系 `qualifier` 只放题材附属字段（分服代码、配音语种）。
+真正灵活的是核心字典与标签本体：`entity_type_definitions`（创作者类型）、`relation_types`（多维关系网络）与多维标签体系。实体的形态与规格通过「多维标签 + 虚拟货架 + Release 规格 + 实体图谱边」自然表达，无任何 `media_type` 字段侵入。JSONB（`catalog_metadata`、关系 `attributes`）与关系 `qualifier` 只放题材附属字段（分服代码、配音语种）。
 
 ### 4.1 新概念判定树
 
 ```mermaid
 flowchart TD
   q1["新出现的东西"]
-  q1 --> workNode["独立创作产品 → Work 必要时新增 media_type"]
-  q1 --> releaseNode["同作品一次封装 → Release"]
-  q1 --> agentNode["人或组织或角色或乐队 → Agent 必要时新增 entity_type"]
-  q1 --> franchiseNode["可衍生世界观或跨媒介产品线 → Franchise 可嵌套"]
-  q1 --> relNode["上述之间的联系 → 新增 relation_type"]
+  q1 --> workNode["独立创作产品 → Work（纯净标题，附带多语言翻译与标签）"]
+  q1 --> releaseNode["同作品一次封装 → Release（包含包装、格式与规格）"]
+  q1 --> agentNode["人或组织或角色或乐队 → Agent（必要时指定 entity_type）"]
+  q1 --> franchiseNode["可衍生世界观或跨媒介产品线 → Franchise（可嵌套）"]
+  q1 --> relNode["上述之间的联系 → 新增 relation_type 边"]
   q1 --> attrNode["职阶/平台/ISBN/语种 → tag 或 JSONB 或关系 qualifier"]
 ```
 

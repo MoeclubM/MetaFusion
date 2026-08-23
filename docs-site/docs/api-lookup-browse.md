@@ -42,7 +42,7 @@ curl "/api/v1/catalog/works/<work_id>?inc=releases+artists" -H "User-Agent: MyAp
 对应探索页与关联列表，支持分页与 `inc`。
 
 ```http
-GET /api/v1/browse/works?artist=<artist_id>&tag=<tag>&category=<code>&page=1&page_size=24&inc=artists
+GET /api/v1/browse/works?artist=<artist_id>&tag=<tag>&page=1&page_size=24&inc=artists
 GET /api/v1/browse/releases?artist=<artist_id>&work=<work_id>&inc=work
 GET /api/v1/browse/artists?work=<work_id>&collaborator=<artist_id>&q=keyword
 ```
@@ -60,10 +60,10 @@ const releases = await fetch("/api/v1/browse/releases?work=" + workId).then(r =>
 ## 作品列表的多维筛选（ListWorks）
 
 ```http
-GET /api/v1/catalog/works?q=keyword&category=<code>&media_type=music&tag=<tag>&shelf=<shelf>&language=zh-CN&sort=view_count&order=desc&page=1&page_size=24&inc=artists
+GET /api/v1/catalog/works?q=keyword&tags=动画,电影&tag_match=all&shelf=<shelf>&language=zh-CN&sort=view_count&page=1&page_size=24&inc=artists
 ```
 
-与前端 `/explore` 筛选器一一对应，见 [分类体系](/taxonomy)。
+与前端 `/explore` 筛选器一一对应，见 [编目体系](/taxonomy)。
 
 ## 图谱
 

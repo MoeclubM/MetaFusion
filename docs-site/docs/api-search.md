@@ -1,13 +1,13 @@
 ---
 title: "Search 检索"
-description: "全文检索：ES 优先、SQL 降级，游客开放。"
+description: "全文检索：OpenSearch 2.x 驱动、SQL 降级，游客开放。"
 order: 33
 group: "api"
 ---
 
 # Search 检索
 
-游客开放，与站内搜索同源。ES 离线时自动降级为 SQL `ILIKE`，不阻塞可用性。
+游客开放，与站内搜索同源。基于 **OpenSearch 2.x** 构建多语言分词与倒排索引；OpenSearch 离线时自动优雅降级为 SQL `ILIKE`，不阻塞可用性。
 
 ## 接口
 
@@ -22,15 +22,10 @@ GET /api/v1/search?q=keyword&type=all&limit=5
 
 | 参数 | 说明 |
 |---|---|
-| `q` | 必填，Lucene 风格关键词 |
-| `type` | `work` \| `artist` \| `release` \| `all`（默认 all） |
-| `limit` | 默认 10，最大 50 |
+| `q` | 必填，检索关键词 |
+| `type` | `work` \| `artist` \| `release` \| `franchise` \| `all`（默认 work） |
+| `limit` | 默认 25，最大 100 |
 | `offset` | 分页偏移 |
-
-## 在线试玩
-
-```bash
-```
 
 ## 示例
 
@@ -45,7 +40,16 @@ curl "/api/v1/search?q=攻壳机动队&type=work&limit=3" -H "User-Agent: MyApp/
 
 ```json
 {
-  "works": [{ "id": "...", "title": "攻壳机动队", "media_type": "anime" }],
+  "works": [
+    {
+      "id": "deadbeef-0000-4000-8000-000000000001",
+      "title": "攻壳机动队",
+      "original_title": "GHOST IN THE SHELL",
+      "tags": ["动画", "电影", "科幻", "赛博朋克"],
+      "cover_aspect": "2:3",
+      "release_year": 1995
+    }
+  ],
   "artists": [],
   "releases": [],
   "total": 12

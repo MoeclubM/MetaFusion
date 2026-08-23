@@ -21,10 +21,10 @@ A：已注册用户在 `/invites` 或 `GET /auth/invite` 获取自己的 `MF-` �
 A：全部元数据（作品/发行/创作者/分类/标签/搜索/社区文字）。点击播放/下载/上传/发帖时会引导登录。
 
 **Q：为什么播放 401？**  
-A：媒体受控，需 `Authorization: Bearer <JWT|PAT>`。确认已登录且请求透传了鉴权头，`/storage/preview/*` 当前由 MinIO 直出，生产需收紧为预签名。
+A：媒体受控，需 `Authorization: Bearer <JWT|PAT>`。确认已登录且请求透传了鉴权头，`/storage/preview/*` 由 RustFS 对象存储经网关代理流式分发。
 
 **Q：封面不显示？**  
-A：`cover_url` 会经 `validateCoverURL` 校验，非法外链会被拒绝。请使用站内上传或可信图床直链。
+A：`cover_image_url` 会经校验，非法外链会被拒绝。请使用站内上传或可信图床直链。
 
 ## 编辑与审核
 
@@ -47,8 +47,8 @@ A：匿名 60/min，认证 600/min，响应头 `X-RateLimit-*`，429 时请退�
 
 ## 部署
 
-**Q：ES 没起来怎么办？**  
-A：搜索会自动降级为 SQL `ILIKE`，不影响浏览。公网部署请置 ES 于内网并开启认证。
+**Q：OpenSearch 没起来怎么办？**  
+A：搜索会自动降级为 SQL `ILIKE`，不影响系统正常浏览。公网部署请置 OpenSearch 于内网容器并开启认证。
 
 **Q：文档站如何访问？**  
 A：线上环境访问 `/docs/`（网关自动代理），本地独立开发运行 `http://localhost:3001/overview`。

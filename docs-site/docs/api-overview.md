@@ -28,7 +28,7 @@ MetaFusion 提供 MusicBrainz WS/2 风格的开放编目 API，适合自建应�
 |---|---|---|
 | **Lookup**：单实体详情 + `inc` 展开 | 详情页 | 读开放，写需认证 |
 | **Browse**：按关联实体枚举 | 探索/关联列表 | 开放 |
-| **Search**：全文检索（ES/SQL 降级） | 搜索 | 开放 |
+| **Search**：全文检索（OpenSearch/SQL 降级） | 搜索 | 开放 |
 
 ## 访问模型
 

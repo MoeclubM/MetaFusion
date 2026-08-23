@@ -27,8 +27,8 @@ features:
     title: 人人可编辑可贡献
     details: 开放式的词条创建、修订历史与实体合并机制。注册用户可参与维护，每一步修改均有清晰历史记录。
   - icon: 🏛️
-    title: FRBR 规范化编目
-    details: 采用作品 (Work)、表现 (Expression)、发行 (Release) 与载体 (Medium) 四层架构，条理清晰地组织多版本与曲目。
+    title: IFLA LRM 规范化编目
+    details: 采用作品 (Work)、表现 (Expression)、发行 (Release) 与载体 (Medium) 增强架构，条理清晰地组织多版本、多语言与曲目。
   - icon: ⚡
     title: 完整 API 与 Agent 友好
     details: 提供 MusicBrainz 风格的 Lookup / Browse / Search REST API 与 PAT 个人访问令牌，网页端功能 100% 支持程序化调用。

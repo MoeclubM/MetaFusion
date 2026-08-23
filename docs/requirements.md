@@ -27,10 +27,10 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 ### 2.1 两级可见性
 
 **L0 — 开放（无需登录，允许游客与搜索引擎）**
-- 作品（Work）详情、发行版（Release）元数据、载体（Medium）与曲目（Track）结构、创作者（Artist）档案、分类（Category）与标签（Tag）体系、CanonicalEntry 结构
-- 搜索（`/api/v1/search`、`/api/v1/catalog/*` 列表与详情）、社区帖子列表与详情的文字部分
+- 作品（Work）详情、发行版（Release）元数据、载体（Medium）与曲目（Track）结构、创作者（Artist）档案、标签（Tag）与虚拟货架（Virtual Shelf）体系、CanonicalEntry 结构（完全无 `media_type` 冗余）
+- 搜索（`/api/v1/search`、`/api/v1/catalog/*` 列表与详情，基于 OpenSearch 2.x 构建）、社区帖子列表与详情的文字部分
 - 首页、探索页、榜单等聚合页
-- 封面缩略图（低分辨率预览封面可视为元数据的一部分，是否开放由 `system_settings.preview_requires_auth` 另行控制，默认开放）
+- 封面缩略图（支持自适应自然宽高比与 `cover_aspect` 属性控制，低分辨率预览封面可视为元数据的一部分，是否开放由 `system_settings.preview_requires_auth` 另行控制，默认开放）
 
 **L1 — 登录可见（需 `Authorization: Bearer <JWT>`，游客命中返回 401 并引导登录）**
 - 任何 `asset_files` 二进制：`GET /api/v1/storage/download/:asset_id` 预签名下载链接、`masters/*` 原档、`previews/*` HLS 切片（`index.m3u8` / `segment_*.ts`）、音频 `preview.m4a`、图像 `preview.webp`、波形/字幕/CUE/Log 附属文件
@@ -38,7 +38,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 - 社区写入：发帖、回帖、评注
 - 个人数据：邀请信息、已邀请用户列表
 
-> 原则：**元数据可爬、媒体不可爬**。Nginx 对 `/storage/preview/*` 与 MinIO 预签名链接的透传必须校验 JWT，不得因直链外泄绕过鉴权。
+> 原则：**元数据可爬、媒体不可爬**。Nginx 对 `/storage/preview/*` 与 RustFS (S3 兼容) 预签名链接的透传必须校验 JWT，不得因直链外泄绕过鉴权。
 
 ### 2.2 邀请制的真实目的
 
@@ -65,7 +65,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 | ID | 需求 | 说明 |
 |---|---|---|
 | META-01 | 游客可浏览 | `GET /catalog/works`、`GET /catalog/works/:id`、`GET /catalog/releases/:id`、`GET /catalog/artists/:id`、`GET /community/boards`、`GET /community/topics` 等无需鉴权 |
-| META-02 | 搜索开放 | `GET /search` 对游客开放，ES 离线时降级为 SQL `ILIKE`，不得因鉴权导致搜索引擎无法收录 |
+| META-02 | 搜索开放 | `GET /search` 对游客开放，OpenSearch 离线时降级为 SQL `ILIKE`，不得因鉴权导致搜索引擎无法收录 |
 | META-03 | 多语言开放 | `work_translations` 等翻译表随元数据一并开放，`?locale` 仅影响展示语言，不影响可见性 |
 
 ### 3.3 媒体受控
@@ -97,7 +97,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 
 - **前端**：`AuthGate` 仅拦截 `L1` 交互（播放、下载、上传、发帖），不得全站强制登录；游客访问元数据页不弹登录，仅在触发媒体操作时引导。
 - **后端**：`catalog` 与 `community` 读接口保持公开；`storage` 全量加 `AuthMiddleware`；`search` 保持公开。
-- **网关**：`deploy/nginx.conf` 对 `/storage/preview/*` 的反代需透传并校验 `Authorization`，MinIO `metafusion-preview` 桶不得设为 `public`（当前 `anonymous set download` 仅为过渡，需收紧）。
+- **网关**：`deploy/nginx.conf` 对 `/storage/preview/*` 的反代需透传并校验 `Authorization`，RustFS `metafusion-preview` 桶不得设为 `public`（当前 `anonymous set download` 仅为过渡，需收紧）。
 
 ---
 

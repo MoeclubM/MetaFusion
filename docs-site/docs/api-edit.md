@@ -13,8 +13,8 @@ group: "api"
 
 ```http
 POST /api/v1/catalog/artists   { translations, language, entity_type, edit_note, source_urls }
-POST /api/v1/catalog/works     { translations, language, tags, original_language, catalog_metadata, edit_note, source_urls }
-POST /api/v1/catalog/releases  { work_id, edition_name, catalog_number, release_date, edit_note }
+POST /api/v1/catalog/works     { title, translations, language, tags, cover_aspect, original_language, catalog_metadata, edit_note, source_urls }
+POST /api/v1/catalog/releases  { work_id, edition_name, catalog_number, release_date, packaging, edit_note }
 POST /api/v1/catalog/mediums   { release_id, position, name, format }
 POST /api/v1/catalog/tracks    { medium_id, canonical_entry_id, position }
 POST /api/v1/catalog/franchises { translations, language, aliases, edit_note, source_urls }
@@ -22,14 +22,14 @@ PUT  /api/v1/catalog/franchises/:id
 PUT  /api/v1/catalog/entity-relations  { relations: [{ source_type, source_id, target_type, target_id, relationship_type, qualifier }] }
 ```
 
-`translations` 为唯一多语言来源：`[{ locale, title|name, summary|biography }]`。`locale` 白名单：`zh-CN / zh-TW / en-US / ja / ko`。主表题名与简介等于 `language` 所指那一组。
+`translations` 为多语言来源：`[{ locale, title|name, summary|biography }]`。`locale` 白名单：`zh-CN / zh-TW / en-US / ja / ko` 等。主表题名与简介等于 `language` 所指那一组。
 
-作品形态由标签推断 `media_type`（如「电影」→ `movie`，「专辑」→ `music`），也可显式传入已启用的 `media_types.code`。
+作品形态通过 `tags` 标签（如 `["动画", "电影"]` 或 `["专辑"]`）与 `cover_aspect`（`"1:1"` / `"2:3"` / `"3:4"`）表达，无需 `media_type`。
 
 ## 编辑
 
 ```http
-PUT /api/v1/catalog/works/:id            { title?, summary?, cover_url?, edit_note, source_urls }
+PUT /api/v1/catalog/works/:id            { title?, summary?, cover_image_url?, cover_aspect?, tags?, edit_note, source_urls }
 PUT /api/v1/catalog/artists/:id          { name?, biography?, edit_note }
 PUT /api/v1/catalog/releases/:id         { edition_name?, catalog_number?, edit_note }
 PUT /api/v1/catalog/works/:id/relations  { relations: [{ target_type, target_id, relation_type }] }
@@ -40,12 +40,12 @@ PUT /api/v1/catalog/works/:id/relations  { relations: [{ target_type, target_id,
 ```http
 POST /api/v1/catalog/submit
 {
-  "work": { "title": "...", "media_type": "anime" },
+  "work": { "title": "攻壳机动队", "tags": ["动画", "电影", "科幻"], "cover_aspect": "2:3" },
   "artists": [{ "artist_id": "...", "role": "director" }],
-  "release": { "edition_name": "初回限定", "catalog_number": "VIZL-1" },
-  "mediums": [{ "position": 1, "name": "Disc 1", "format": "BD" }],
-  "tracks": [{ "medium_position": 1, "position": 1, "title": "Track 1" }],
-  "edit_note": "import from official site",
+  "release": { "edition_name": "4K UHD 收藏版", "catalog_number": "UHD-1001", "packaging": "box_set" },
+  "mediums": [{ "position": 1, "name": "Disc 1 (4K UHD)", "format": "UHD-BD" }],
+  "tracks": [{ "medium_position": 1, "position": 1, "title": "Main Feature" }],
+  "edit_note": "import from official catalog",
   "source_urls": ["https://example.com"]
 }
 ```
@@ -73,7 +73,7 @@ POST /api/v1/catalog/merge
 
 - `Member` 角色仅可关联现有实体，不会以 `name` 兜底创建新实体
 - `role` 须为 `relation_types` 中已启用、且 `allowed_target_types` 含 `work` 的谓词（不再使用硬编码 `validWorkRoles`）
-- `entity_type` / `media_type` 读字典表；图谱端点为 `work | artist | release | franchise | canonical_entry`，同类多边用 `qualifier`
+- `entity_type` / `relation_types` 读字典表；图谱端点为 `work | artist | release | franchise | canonical_entry`，同类多边用 `qualifier`
 
 ## 示例
 
