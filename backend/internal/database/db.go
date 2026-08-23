@@ -64,6 +64,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		&models.RelationType{},
 		&models.EntityTypeDefinition{},
 		&models.ExternalDatabaseDefinition{},
+		&models.EntityAttributeSchema{},
 		&models.ForumBoard{},
 		&models.UserGroup{},
 		&models.DiscussionTopic{},

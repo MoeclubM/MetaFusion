@@ -334,9 +334,24 @@ func (s *AdminService) UpsertEntityRelations(c *gin.Context) {
 			return
 		}
 	}
-		writeAudit(s.db, c, "entity.relations.upsert", "entity_relationship", "", map[string]interface{}{"count": len(input.Relations)})
-		c.JSON(http.StatusOK, gin.H{"status": "success", "count": len(input.Relations)})
+	writeAudit(s.db, c, "entity.relations.upsert", "entity_relationship", "", map[string]interface{}{"count": len(input.Relations)})
+	c.JSON(http.StatusOK, gin.H{"status": "success", "count": len(input.Relations)})
+}
+
+// DeleteEntityRelation 管理员删除实体关系
+func (s *AdminService) DeleteEntityRelation(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid relation ID"})
+		return
 	}
+	if err := s.db.Where("id = ?", id).Delete(&models.EntityRelationship{}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(s.db, c, "entity_relationship.delete", "entity_relationship", id.String(), nil)
+	c.JSON(http.StatusOK, gin.H{"status": "deleted", "id": id})
+}
 
 	// ListEntityTypesAdmin 管理员获取全部实体类型定义
 	func (s *AdminService) ListEntityTypesAdmin(c *gin.Context) {

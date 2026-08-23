@@ -294,6 +294,72 @@ func LookupDisplay(db *gorm.DB, typ string, id uuid.UUID) (EntityLabel, bool) {
 
 func HubTypes() map[string]bool { return hubTypes }
 
+// NodeMeta contains visual metadata for knowledge graph nodes
+type NodeMeta struct {
+	Name           string `json:"name"`
+	OriginalName   string `json:"original_name,omitempty"`
+	CoverImageURL  string `json:"cover_image_url,omitempty"`
+	Disambiguation string `json:"disambiguation,omitempty"`
+	Country        string `json:"country,omitempty"`
+	Category       string `json:"category,omitempty"`
+	Status         string `json:"status,omitempty"`
+}
+
+// LookupNodeMeta retrieves rich node information for graph visualization
+func LookupNodeMeta(db *gorm.DB, typ string, id uuid.UUID) (NodeMeta, bool) {
+	switch typ {
+	case "work":
+		var w models.Work
+		if err := db.Select("id, title, original_title, cover_image_url, country, status").Where("id = ?", id).First(&w).Error; err == nil {
+			return NodeMeta{
+				Name:          w.Title,
+				OriginalName:  w.OriginalTitle,
+				CoverImageURL: w.CoverImageURL,
+				Country:       w.Country,
+				Status:        w.Status,
+			}, true
+		}
+	case "artist":
+		var a models.Artist
+		if err := db.Select("id, name, original_name, disambiguation, country, entity_type").Where("id = ?", id).First(&a).Error; err == nil {
+			return NodeMeta{
+				Name:           a.Name,
+				OriginalName:   a.OriginalName,
+				Disambiguation: a.Disambiguation,
+				Country:        a.Country,
+				Category:       a.EntityType,
+			}, true
+		}
+	case "release":
+		var r models.Release
+		if err := db.Select("id, edition_name, country").Where("id = ?", id).First(&r).Error; err == nil {
+			return NodeMeta{
+				Name:    r.EditionName,
+				Country: r.Country,
+			}, true
+		}
+	case "franchise":
+		var f models.Franchise
+		if err := db.Select("id, title, original_title, cover_image_url, country, disambiguation").Where("id = ?", id).First(&f).Error; err == nil {
+			return NodeMeta{
+				Name:           f.Title,
+				OriginalName:   f.OriginalTitle,
+				CoverImageURL:  f.CoverImageURL,
+				Country:        f.Country,
+				Disambiguation: f.Disambiguation,
+			}, true
+		}
+	case "canonical_entry":
+		var e models.CanonicalEntry
+		if err := db.Select("id, title").Where("id = ?", id).First(&e).Error; err == nil {
+			return NodeMeta{
+				Name: e.Title,
+			}, true
+		}
+	}
+	return NodeMeta{}, false
+}
+
 // OntologyTerm represents a multilingual ontology dictionary term
 type OntologyTerm struct {
 	ID     string            `json:"id"`

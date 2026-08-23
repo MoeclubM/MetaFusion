@@ -24,6 +24,10 @@ import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { ArtistReleasesTab } from "@/components/artist/ArtistReleasesTab";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 
+import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
+import { InteractiveRelationGraph } from "@/components/graph/InteractiveRelationGraph";
+import { fetchEntityGraph, GraphNode, GraphLink } from "@/lib/api";
+
 export default function ArtistDetailPage() {
   const params = useParams();
   const artistId = params.id as string;
@@ -31,8 +35,9 @@ export default function ArtistDetailPage() {
   const { entityTypeLabel } = useTaxonomy();
 
   const [data, setData] = useState<ArtistDetailResponse | null>(null);
+  const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; links: GraphLink[] } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"works" | "releases" | "affiliations">("works");
+  const [activeTab, setActiveTab] = useState<"works" | "releases" | "affiliations" | "graph">("works");
 
   // Edit, Revision History, and Merge Modals
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -53,6 +58,10 @@ export default function ArtistDetailPage() {
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
+
+    fetchEntityGraph("artist", artistId)
+      .then((g) => setGraphData(g))
+      .catch((err) => console.error("Artist graph fetch failed:", err));
   }, [artistId]);
 
   if (loading) return <div className="min-h-screen bg-background grid place-items-center font-mono text-xs text-gray-500">{t("artist.detail.loading")}</div>;
@@ -131,6 +140,13 @@ export default function ArtistDetailPage() {
                 category="artist"
                 className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]"
               />
+
+              {/* Dynamic Attributes */}
+              {artist.attributes && Object.keys(artist.attributes).length > 0 && (
+                <div className="pt-2">
+                  <DynamicAttributeViewer attributes={artist.attributes} />
+                </div>
+              )}
             </div>
           </div>
 
@@ -159,6 +175,15 @@ export default function ArtistDetailPage() {
                 >
                   <Handshake className="w-3.5 h-3.5" strokeWidth={1.5} />
                   <span>{t("artist.detail.affiliations", { count: connectedEntities.length })}</span>
+                </button>
+              )}
+              {graphData && graphData.nodes.length > 0 && (
+                <button
+                  onClick={() => setActiveTab("graph")}
+                  className={`px-3 h-7 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors ${activeTab === "graph" ? "bg-primary text-white keep-white border-primary shadow-xs" : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"}`}
+                >
+                  <Network className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  <span>{t("graph.title")}</span>
                 </button>
               )}
             </div>
@@ -367,6 +392,18 @@ export default function ArtistDetailPage() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {activeTab === "graph" && graphData && (
+          <div className="rounded-lg border border-black/10 dark:border-white/10 bg-surface p-4 sm:p-5 space-y-3">
+            <InteractiveRelationGraph
+              centerEntityId={artist.id}
+              centerEntityType="artist"
+              nodes={graphData.nodes}
+              links={graphData.links}
+              height={520}
+            />
           </div>
         )}
       </main>

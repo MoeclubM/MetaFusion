@@ -429,6 +429,8 @@ func main() {
 			catGroup.POST("/works/:id/comments", auth.UnifiedAuthMiddleware(cfg, db), communitySvc.CreateWorkComment)
 			catGroup.GET("/releases", catalogSvc.ListReleases)
 			catGroup.GET("/releases/:id", catalogSvc.GetReleaseDetail)
+			catGroup.GET("/releases/:id/graph", catalogSvc.GetReleaseGraph)
+			catGroup.GET("/attributes", catalogSvc.ListAttributeSchemas)
 			catGroup.GET("/mediums/:id", catalogSvc.GetMediumDetail)
 			catGroup.POST("/artists", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateArtistForMember)
 			catGroup.PUT("/artists/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateArtistForMember)
@@ -442,6 +444,7 @@ func main() {
 			catGroup.POST("/tracks", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateTrackForMember)
 			catGroup.PUT("/works/:id/relations", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpsertWorkRelationsForMember)
 			catGroup.PUT("/entity-relations", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpsertEntityRelationsForMember)
+			catGroup.DELETE("/entity-relations/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.DeleteEntityRelationForMember)
 			catGroup.GET("/revisions", catalogSvc.ListEntityRevisions)
 			catGroup.POST("/merge", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.MergeEntities)
 			catGroup.POST("/submit", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.SubmitComprehensiveArchive)
@@ -476,8 +479,9 @@ func main() {
 			importerGroup.POST("/import", auth.UnifiedAuthMiddleware(cfg, db), importerSvc.ImportHandler)
 		}
 
-		// ── 元数据项目公开定义（外部数据库定义） ──
+		// ── 元数据项目公开定义（外部数据库定义与属性模式定义） ──
 		api.GET("/metadata/external-databases", catalogSvc.ListExternalDatabases)
+		api.GET("/metadata/attributes", catalogSvc.ListAttributeSchemas)
 
 		// ── 插件中心公开接口与数据导出 ──
 		api.GET("/plugins", auth.OptionalUnifiedAuthMiddleware(cfg, db), pluginHandler.ListPublicPlugins)
@@ -687,6 +691,7 @@ func main() {
 				// 实体关系与动态关系类型、实体类型定义
 				adminGroup.PUT("/works/:id/relations", adminSvc.UpsertWorkRelations)
 				adminGroup.PUT("/entity-relations", adminSvc.UpsertEntityRelations)
+				adminGroup.DELETE("/entity-relations/:id", adminSvc.DeleteEntityRelation)
 				adminGroup.GET("/relation-types", adminSvc.ListRelationTypesAdmin)
 				adminGroup.POST("/relation-types", adminSvc.CreateRelationType)
 				adminGroup.PUT("/relation-types/:code", adminSvc.UpdateRelationType)
@@ -695,6 +700,11 @@ func main() {
 				adminGroup.POST("/entity-types", adminSvc.CreateEntityType)
 				adminGroup.PUT("/entity-types/:code", adminSvc.UpdateEntityType)
 				adminGroup.DELETE("/entity-types/:code", adminSvc.DeleteEntityType)
+				// 实体可扩展动态属性模式管理
+				adminGroup.GET("/attributes", adminSvc.ListAttributeSchemasAdmin)
+				adminGroup.POST("/attributes", adminSvc.CreateAttributeSchema)
+				adminGroup.PUT("/attributes/:id", adminSvc.UpdateAttributeSchema)
+				adminGroup.DELETE("/attributes/:id", adminSvc.DeleteAttributeSchema)
 				// 外部权威数据库项目管理
 				adminGroup.GET("/external-databases", adminSvc.ListExternalDatabasesAdmin)
 				adminGroup.POST("/external-databases", adminSvc.CreateExternalDatabase)

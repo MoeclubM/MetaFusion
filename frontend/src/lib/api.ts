@@ -244,6 +244,7 @@ export interface Artist {
   end_date?: string;
   ended?: boolean;
   external_ids: Record<string, any>;
+  attributes?: Record<string, any>;
   translations?: EntityTranslation[];
 }
 
@@ -435,6 +436,7 @@ export interface Release {
   language?: string;
   distribution_channel?: string;
   external_ids?: Record<string, any>;
+  attributes?: Record<string, any>;
   external_links?: ExternalLinkDisplay[];
   catalog_metadata?: Record<string, any>;
   uploader?: User;
@@ -468,6 +470,7 @@ export interface Work {
   view_count: number;
   favorite_count?: number;
   external_ids?: Record<string, any>;
+  attributes?: Record<string, any>;
   external_links?: ExternalLinkDisplay[];
   catalog_metadata: Record<string, any>;
   category?: Category;
@@ -497,6 +500,7 @@ export interface Franchise {
   country?: string;
   language?: string;
   external_ids?: Record<string, any>;
+  attributes?: Record<string, any>;
   catalog_metadata?: Record<string, any>;
   favorite_count?: number;
   tags?: Tag[];
@@ -534,17 +538,55 @@ export function catalogEntityHref(type: string, id: string): string {
 export interface GraphNode {
   id: string;
   name: string;
+  original_name?: string;
   type: string;
   category: string;
   role?: string;
   level: number;
+  cover_image_url?: string;
+  disambiguation?: string;
+  country?: string;
+  status?: string;
 }
 
 export interface GraphLink {
+  id?: string;
   source: string;
   target: string;
+  source_type?: string;
+  target_type?: string;
   type: string;
   label: string;
+  qualifier?: string;
+  color?: string;
+  attributes?: Record<string, any>;
+  begin_date?: string;
+  end_date?: string;
+  ended?: boolean;
+  is_hierarchical?: boolean;
+}
+
+export interface EntityAttributeSchema {
+  id: string;
+  entity_type: string;
+  attribute_key: string;
+  name_zh: string;
+  name_en: string;
+  names?: Record<string, string>;
+  desc_zh?: string;
+  desc_en?: string;
+  descriptions?: Record<string, string>;
+  data_type: "text" | "number" | "select" | "multi_select" | "date" | "boolean" | "array" | "url" | "json";
+  options?: { fields?: any[] } | any[];
+  validation_rules?: Record<string, any>;
+  category_filter?: string;
+  display_order: number;
+  is_required: boolean;
+  is_searchable: boolean;
+  is_enabled: boolean;
+  is_system: boolean;
+  display_name?: string;
+  display_description?: string;
 }
 
 export interface ForumPost {
@@ -1373,6 +1415,62 @@ export function deleteExternalDatabase(code: string): Promise<{ message: string 
     method: "DELETE",
   });
 }
+
+// ── 实体可扩展动态属性 (Dynamic Attributes) ──
+export async function fetchAttributeSchemas(entityType?: string, category?: string): Promise<EntityAttributeSchema[]> {
+  const params = new URLSearchParams();
+  if (entityType) params.set("entity_type", entityType);
+  if (category) params.set("category", category);
+  const q = params.toString();
+  const res = await fetchApi<{ items: EntityAttributeSchema[]; total: number }>(`/catalog/attributes${q ? `?${q}` : ""}`);
+  return res.items || [];
+}
+
+export function fetchAttributeSchemasAdmin(entityType?: string): Promise<{ items: EntityAttributeSchema[]; total: number }> {
+  const q = entityType ? `?entity_type=${encodeURIComponent(entityType)}` : "";
+  return fetchApi<{ items: EntityAttributeSchema[]; total: number }>(`/admin/attributes${q}`);
+}
+
+export function createAttributeSchema(data: Partial<EntityAttributeSchema>): Promise<EntityAttributeSchema> {
+  return fetchApi<EntityAttributeSchema>("/admin/attributes", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateAttributeSchema(id: string, data: Partial<EntityAttributeSchema>): Promise<EntityAttributeSchema> {
+  return fetchApi<EntityAttributeSchema>(`/admin/attributes/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteAttributeSchema(id: string): Promise<{ status: string }> {
+  return fetchApi<{ status: string }>(`/admin/attributes/${id}`, {
+    method: "DELETE",
+  });
+}
+
+// ── 知识图谱拓扑与关系边 ──
+export function fetchEntityGraph(entityType: string, id: string): Promise<{ nodes: GraphNode[]; links: GraphLink[] }> {
+  const hub = catalogHubOf(entityType);
+  let endpoint = `/catalog/works/${id}/graph`;
+  if (hub === "artist") {
+    endpoint = `/catalog/artists/${id}/graph`;
+  } else if (hub === "franchise") {
+    endpoint = `/catalog/franchises/${id}/graph`;
+  } else if (hub === "release") {
+    endpoint = `/catalog/releases/${id}/graph`;
+  }
+  return fetchApi<{ nodes: GraphNode[]; links: GraphLink[] }>(endpoint);
+}
+
+export function deleteEntityRelation(id: string): Promise<{ status: string; id: string }> {
+  return fetchApi<{ status: string; id: string }>(`/catalog/entity-relations/${id}`, {
+    method: "DELETE",
+  });
+}
+
 
 
 

@@ -9,7 +9,7 @@ import { fetchApi, Work, Release, DiscussionTopic, ConnectedEntityItem, pickLoca
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
-import { Layers, MessageSquare, User, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Eye, Bookmark, ArrowUpRight, Edit3, History, GitMerge } from "lucide-react";
+import { Layers, MessageSquare, User, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Eye, Bookmark, ArrowUpRight, Edit3, History, GitMerge, Network, List } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
@@ -21,6 +21,9 @@ import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { GroupedRelations } from "@/components/entity/RelationsList";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
+import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
+import { InteractiveRelationGraph } from "@/components/graph/InteractiveRelationGraph";
+import { fetchEntityGraph, GraphNode, GraphLink } from "@/lib/api";
 export default function WorkDirectoryPage() {
  const params = useParams();
  const workId = params.id as string;
@@ -30,6 +33,8 @@ export default function WorkDirectoryPage() {
 
  const [work, setWork] = useState<Work | null>(null);
  const [connected, setConnected] = useState<ConnectedEntityItem[]>([]);
+ const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; links: GraphLink[] } | null>(null);
+ const [relationViewMode, setRelationViewMode] = useState<"graph" | "list">("graph");
  const [releases, setReleases] = useState<Release[]>([]);
  const [total, setTotal] = useState(0);
  const [page, setPage] = useState(1);
@@ -52,6 +57,10 @@ export default function WorkDirectoryPage() {
  const data = await fetchApi<Work>(`/catalog/works/${workId}?inc=relations`);
  setWork(data);
  setConnected(data.connected_entities || []);
+
+ fetchEntityGraph("work", workId)
+   .then((g) => setGraphData(g))
+   .catch((err) => console.error("Graph fetch failed:", err));
  } catch (e) {
  console.error(e);
  } finally {
@@ -216,6 +225,13 @@ export default function WorkDirectoryPage() {
 	   </div>
 	 )}
 
+	 {/* 实体扩展动态属性展示 (Dynamic Attributes) */}
+	 {work.attributes && Object.keys(work.attributes).length > 0 && (
+	   <div className="pt-1">
+	     <DynamicAttributeViewer attributes={work.attributes} />
+	   </div>
+	 )}
+
  {/* Action Toolbar */}
  <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
  <EntityActionToolbar
@@ -231,10 +247,49 @@ export default function WorkDirectoryPage() {
  </div>
  </section>
 
- {connected.length > 0 && (
+ {(connected.length > 0 || (graphData && graphData.nodes.length > 1)) && (
  <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft p-4 sm:p-5 space-y-3">
+ <div className="flex items-center justify-between">
  <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">{t("work.detail.relations")}</h2>
- <GroupedRelations items={connected} />
+ <div className="flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-xs">
+   <button
+     type="button"
+     onClick={() => setRelationViewMode("graph")}
+     className={`px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 transition-all ${
+       relationViewMode === "graph"
+         ? "bg-background text-foreground shadow-xs"
+         : "text-muted-foreground hover:text-foreground"
+     }`}
+   >
+     <Network className="w-3.5 h-3.5" />
+     {t("graph.title")}
+   </button>
+   <button
+     type="button"
+     onClick={() => setRelationViewMode("list")}
+     className={`px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 transition-all ${
+       relationViewMode === "list"
+         ? "bg-background text-foreground shadow-xs"
+         : "text-muted-foreground hover:text-foreground"
+     }`}
+   >
+     <List className="w-3.5 h-3.5" />
+     {t("work.detail.relations")}
+   </button>
+ </div>
+ </div>
+
+ {relationViewMode === "graph" && graphData && graphData.nodes.length > 0 ? (
+   <InteractiveRelationGraph
+     centerEntityId={work.id}
+     centerEntityType="work"
+     nodes={graphData.nodes}
+     links={graphData.links}
+     height={460}
+   />
+ ) : (
+   <GroupedRelations items={connected} />
+ )}
  </section>
  )}
 

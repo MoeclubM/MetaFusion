@@ -636,22 +636,35 @@ func (s *CatalogService) GetMediumDetail(c *gin.Context) {
 
 // GraphNode 关系图谱节点
 type GraphNode struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Type     string `json:"type"`     // 'work', 'artist', 'release', 'medium'
-	Category string `json:"category"` // 'main_work', 'artist', 'soundtrack', 'adaptation', 'release'
-	Role     string `json:"role,omitempty"`
-	Level    int    `json:"level"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	OriginalName   string `json:"original_name,omitempty"`
+	Type           string `json:"type"`     // 'work', 'artist', 'release', 'medium', 'franchise', 'canonical_entry'
+	Category       string `json:"category"` // 'main_work', 'artist', 'soundtrack', 'adaptation', 'release', etc.
+	Role           string `json:"role,omitempty"`
+	Level          int    `json:"level"`
+	CoverImageURL  string `json:"cover_image_url,omitempty"`
+	Disambiguation string `json:"disambiguation,omitempty"`
+	Country        string `json:"country,omitempty"`
+	Status         string `json:"status,omitempty"`
 }
 
 // GraphLink 关系图谱连线
 type GraphLink struct {
-	Source     string       `json:"source"`
-	Target     string       `json:"target"`
-	Type       string       `json:"type"`
-	Label      string       `json:"label"`
-	Color      string       `json:"color,omitempty"`
-	Attributes models.JSONB `json:"attributes,omitempty"`
+	ID             string       `json:"id,omitempty"`
+	Source         string       `json:"source"`
+	Target         string       `json:"target"`
+	SourceType     string       `json:"source_type,omitempty"`
+	TargetType     string       `json:"target_type,omitempty"`
+	Type           string       `json:"type"`
+	Label          string       `json:"label"`
+	Qualifier      string       `json:"qualifier,omitempty"`
+	Color          string       `json:"color,omitempty"`
+	Attributes     models.JSONB `json:"attributes,omitempty"`
+	BeginDate      string       `json:"begin_date,omitempty"`
+	EndDate        string       `json:"end_date,omitempty"`
+	Ended          bool         `json:"ended,omitempty"`
+	IsHierarchical bool         `json:"is_hierarchical,omitempty"`
 }
 
 // GetWorkGraph 获取作品的高级知识图谱网络
@@ -678,25 +691,36 @@ func (s *CatalogService) GetWorkGraph(c *gin.Context) {
 
 	nodes := []GraphNode{
 		{
-			ID:       work.ID.String(),
-			Name:     work.Title,
-			Type:     "work",
-			Category: "main_work",
-			Level:    1,
+			ID:            work.ID.String(),
+			Name:          work.Title,
+			OriginalName:  work.OriginalTitle,
+			Type:          "work",
+			Category:      "main_work",
+			Level:         1,
+			CoverImageURL: work.CoverImageURL,
+			Country:       work.Country,
+			Status:        work.Status,
 		},
 	}
+	nodeSet := map[string]bool{work.ID.String(): true}
 	links := []GraphLink{}
 
 	for _, rel := range work.ArtistRelations {
 		if rel.Artist != nil {
-			nodes = append(nodes, GraphNode{
-				ID:       rel.Artist.ID.String(),
-				Name:     rel.Artist.Name,
-				Type:     "artist",
-				Category: "artist",
-				Role:     rel.Role,
-				Level:    0,
-			})
+			if !nodeSet[rel.Artist.ID.String()] {
+				nodeSet[rel.Artist.ID.String()] = true
+				nodes = append(nodes, GraphNode{
+					ID:             rel.Artist.ID.String(),
+					Name:           rel.Artist.Name,
+					OriginalName:   rel.Artist.OriginalName,
+					Type:           "artist",
+					Category:       rel.Artist.EntityType,
+					Role:           rel.Role,
+					Disambiguation: rel.Artist.Disambiguation,
+					Country:        rel.Artist.Country,
+					Level:          0,
+				})
+			}
 			roleLabel := rel.Role
 			color := "amber"
 			if rt, ok := relTypeMap[rel.Role]; ok {
@@ -704,46 +728,59 @@ func (s *CatalogService) GetWorkGraph(c *gin.Context) {
 				color = rt.Color
 			}
 			links = append(links, GraphLink{
-				Source: rel.Artist.ID.String(),
-				Target: work.ID.String(),
-				Type:   rel.Role,
-				Label:  roleLabel,
-				Color:  color,
+				Source:     rel.Artist.ID.String(),
+				Target:     work.ID.String(),
+				SourceType: "artist",
+				TargetType: "work",
+				Type:       rel.Role,
+				Label:      roleLabel,
+				Color:      color,
 			})
 		}
 	}
 
 	for _, rel := range work.Releases {
-		nodes = append(nodes, GraphNode{
-			ID:       rel.ID.String(),
-			Name:     rel.EditionName,
-			Type:     "release",
-			Category: "release",
-			Level:    2,
-		})
+		if !nodeSet[rel.ID.String()] {
+			nodeSet[rel.ID.String()] = true
+			nodes = append(nodes, GraphNode{
+				ID:       rel.ID.String(),
+				Name:     rel.EditionName,
+				Type:     "release",
+				Category: "release",
+				Country:  rel.Country,
+				Level:    2,
+			})
+		}
 		links = append(links, GraphLink{
-			Source: work.ID.String(),
-			Target: rel.ID.String(),
-			Type:   "released_as",
-			Label:  "发行实体",
-			Color:  "cyan",
+			Source:     work.ID.String(),
+			Target:     rel.ID.String(),
+			SourceType: "work",
+			TargetType: "release",
+			Type:       "released_as",
+			Label:      "发行实体",
+			Color:      "cyan",
 		})
 
 		for _, med := range rel.Mediums {
-			nodes = append(nodes, GraphNode{
-				ID:       med.ID.String(),
-				Name:     med.Name,
-				Type:     "medium",
-				Category: med.MediaCategory,
-				Role:     med.Format,
-				Level:    3,
-			})
+			if !nodeSet[med.ID.String()] {
+				nodeSet[med.ID.String()] = true
+				nodes = append(nodes, GraphNode{
+					ID:       med.ID.String(),
+					Name:     med.Name,
+					Type:     "medium",
+					Category: med.MediaCategory,
+					Role:     med.Format,
+					Level:    3,
+				})
+			}
 			links = append(links, GraphLink{
-				Source: rel.ID.String(),
-				Target: med.ID.String(),
-				Type:   "contains_disc",
-				Label:  med.Format,
-				Color:  "purple",
+				Source:     rel.ID.String(),
+				Target:     med.ID.String(),
+				SourceType: "release",
+				TargetType: "medium",
+				Type:       "contains_disc",
+				Label:      med.Format,
+				Color:      "purple",
 			})
 		}
 	}
@@ -761,15 +798,29 @@ func (s *CatalogService) GetWorkGraph(c *gin.Context) {
 			dir = "reverse"
 		}
 
-		var otherName = "关联实体"
-		if n, ok := ontology.LookupName(s.db, otherType, otherID); ok {
-			otherName = n
+		if !nodeSet[otherID.String()] {
+			nodeSet[otherID.String()] = true
+			meta, _ := ontology.LookupNodeMeta(s.db, otherType, otherID)
+			nodes = append(nodes, GraphNode{
+				ID:             otherID.String(),
+				Name:           meta.Name,
+				OriginalName:   meta.OriginalName,
+				Type:           otherType,
+				Category:       cr.RelationshipType,
+				CoverImageURL:  meta.CoverImageURL,
+				Disambiguation: meta.Disambiguation,
+				Country:        meta.Country,
+				Status:         meta.Status,
+				Level:          2,
+			})
 		}
 
 		relLabel := cr.RelationshipType
 		color := "sky"
+		isHier := false
 		if rt, ok := relTypeMap[cr.RelationshipType]; ok {
 			color = rt.Color
+			isHier = rt.IsHierarchical
 			if dir == "forward" {
 				relLabel = rt.LocalizedForwardLabel(locale)
 			} else {
@@ -777,20 +828,21 @@ func (s *CatalogService) GetWorkGraph(c *gin.Context) {
 			}
 		}
 
-		nodes = append(nodes, GraphNode{
-			ID:       otherID.String(),
-			Name:     otherName,
-			Type:     otherType,
-			Category: cr.RelationshipType,
-			Level:    2,
-		})
 		links = append(links, GraphLink{
-			Source:     cr.SourceID.String(),
-			Target:     cr.TargetID.String(),
-			Type:       cr.RelationshipType,
-			Label:      relLabel,
-			Color:      color,
-			Attributes: cr.Attributes,
+			ID:             cr.ID.String(),
+			Source:         cr.SourceID.String(),
+			Target:         cr.TargetID.String(),
+			SourceType:     cr.SourceType,
+			TargetType:     cr.TargetType,
+			Type:           cr.RelationshipType,
+			Label:          relLabel,
+			Qualifier:      cr.Qualifier,
+			Color:          color,
+			Attributes:     cr.Attributes,
+			BeginDate:      cr.BeginDate,
+			EndDate:        cr.EndDate,
+			Ended:          cr.Ended,
+			IsHierarchical: isHier,
 		})
 	}
 
@@ -854,6 +906,7 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		Biography      string                 `json:"biography"`
 		Language       string                 `json:"language"`
 		ExternalIDs    map[string]interface{} `json:"external_ids"`
+		Attributes     map[string]interface{} `json:"attributes"`
 		Translations   []LocaleTextInput      `json:"translations"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -870,6 +923,10 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 	if input.ExternalIDs != nil {
 		ext = models.JSONB(input.ExternalIDs)
 	}
+	attrs := models.JSONB{}
+	if input.Attributes != nil {
+		attrs = models.JSONB(input.Attributes)
+	}
 	artistID := uuid.New()
 	if input.ID != nil && *input.ID != uuid.Nil {
 		artistID = *input.ID
@@ -884,6 +941,7 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		Biography:      input.Biography,
 		Language:       input.Language,
 		ExternalIDs:    ext,
+		Attributes:     attrs,
 		CreatedBy:      uid,
 	}
 	items := applyArtistLocaleDefaults(&artist, input.Translations, input.Language)
@@ -928,6 +986,11 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		extIDs = models.JSONB(input.ExternalIDs)
 	}
 
+	attrs := models.JSONB{}
+	if input.Attributes != nil {
+		attrs = models.JSONB(input.Attributes)
+	}
+
 	work := models.Work{
 		ID:               input.ID,
 		Title:            strings.TrimSpace(input.Title),
@@ -943,6 +1006,7 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		ContentRating:    input.ContentRating,
 		Status:           workStatus,
 		ExternalIDs:      extIDs,
+		Attributes:       attrs,
 		CatalogMetadata:  models.JSONB(input.CatalogMetadata),
 		CreatedBy:        uid,
 	}
@@ -1043,6 +1107,10 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 	if input.ExternalIDs != nil {
 		extIDs = models.JSONB(input.ExternalIDs)
 	}
+	attrs := models.JSONB{}
+	if input.Attributes != nil {
+		attrs = models.JSONB(input.Attributes)
+	}
 
 	release := models.Release{
 		WorkID:              input.WorkID,
@@ -1057,6 +1125,7 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 		Language:            strings.TrimSpace(input.Language),
 		DistributionChannel: ch,
 		ExternalIDs:         extIDs,
+		Attributes:          attrs,
 		CatalogMetadata:     meta,
 		UploaderID:          uid,
 		IsMasterVerified:    isMasterVerified,
@@ -1483,11 +1552,14 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 
 	nodes := []GraphNode{
 		{
-			ID:       artist.ID.String(),
-			Name:     artist.Name,
-			Type:     "artist",
-			Category: artist.EntityType,
-			Level:    0,
+			ID:             artist.ID.String(),
+			Name:           artist.Name,
+			OriginalName:   artist.OriginalName,
+			Type:           "artist",
+			Category:       artist.EntityType,
+			Disambiguation: artist.Disambiguation,
+			Country:        artist.Country,
+			Level:          0,
 		},
 	}
 	nodeSet := map[string]bool{artist.ID.String(): true}
@@ -1503,12 +1575,16 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 			if !nodeSet[work.ID.String()] {
 				nodeSet[work.ID.String()] = true
 				nodes = append(nodes, GraphNode{
-					ID:       work.ID.String(),
-					Name:     work.Title,
-					Type:     "work",
-					Category: "",
-					Role:     rel.Role,
-					Level:    1,
+					ID:            work.ID.String(),
+					Name:          work.Title,
+					OriginalName:  work.OriginalTitle,
+					Type:          "work",
+					Category:      "main_work",
+					Role:          rel.Role,
+					CoverImageURL: work.CoverImageURL,
+					Country:       work.Country,
+					Status:        work.Status,
+					Level:         1,
 				})
 			}
 			roleLabel := rel.Role
@@ -1518,11 +1594,13 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 				color = rt.Color
 			}
 			links = append(links, GraphLink{
-				Source: artist.ID.String(),
-				Target: work.ID.String(),
-				Type:   rel.Role,
-				Label:  roleLabel,
-				Color:  color,
+				Source:     artist.ID.String(),
+				Target:     work.ID.String(),
+				SourceType: "artist",
+				TargetType: "work",
+				Type:       rel.Role,
+				Label:      roleLabel,
+				Color:      color,
 			})
 		}
 	}
@@ -1539,25 +1617,29 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 			otherType, otherID, dir = er.SourceType, er.SourceID, "reverse"
 		}
 
-		name, ok := ontology.LookupName(s.db, otherType, otherID)
-		if !ok {
-			continue
-		}
 		if !nodeSet[otherID.String()] {
 			nodeSet[otherID.String()] = true
+			meta, _ := ontology.LookupNodeMeta(s.db, otherType, otherID)
 			nodes = append(nodes, GraphNode{
-				ID:       otherID.String(),
-				Name:     name,
-				Type:     otherType,
-				Category: otherType,
-				Level:    1,
+				ID:             otherID.String(),
+				Name:           meta.Name,
+				OriginalName:   meta.OriginalName,
+				Type:           otherType,
+				Category:       er.RelationshipType,
+				CoverImageURL:  meta.CoverImageURL,
+				Disambiguation: meta.Disambiguation,
+				Country:        meta.Country,
+				Status:         meta.Status,
+				Level:          1,
 			})
 		}
 
 		label := er.RelationshipType
 		color := "sky"
+		isHier := false
 		if rt, hit := relTypeMap[er.RelationshipType]; hit {
 			color = rt.Color
+			isHier = rt.IsHierarchical
 			if dir == "forward" {
 				label = rt.LocalizedForwardLabel(locale)
 			} else {
@@ -1566,12 +1648,20 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 		}
 
 		links = append(links, GraphLink{
-			Source:     er.SourceID.String(),
-			Target:     er.TargetID.String(),
-			Type:       er.RelationshipType,
-			Label:      label,
-			Color:      color,
-			Attributes: er.Attributes,
+			ID:             er.ID.String(),
+			Source:         er.SourceID.String(),
+			Target:         er.TargetID.String(),
+			SourceType:     er.SourceType,
+			TargetType:     er.TargetType,
+			Type:           er.RelationshipType,
+			Label:          label,
+			Qualifier:      er.Qualifier,
+			Color:          color,
+			Attributes:     er.Attributes,
+			BeginDate:      er.BeginDate,
+			EndDate:        er.EndDate,
+			Ended:          er.Ended,
+			IsHierarchical: isHier,
 		})
 	}
 
@@ -1588,17 +1678,200 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 					Type:     "release",
 					Category: "release",
 					Role:     "publisher",
+					Country:  rel.Country,
 					Level:    1,
 				})
 			}
 			links = append(links, GraphLink{
-				Source: artist.ID.String(),
-				Target: rel.ID.String(),
-				Type:   "published",
-				Label:  "出版发行",
-				Color:  "cyan",
+				Source:     artist.ID.String(),
+				Target:     rel.ID.String(),
+				SourceType: "artist",
+				TargetType: "release",
+				Type:       "published",
+				Label:      "出版发行",
+				Color:      "cyan",
 			})
 		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"nodes": nodes,
+		"links": links,
+	})
+}
+
+// GetReleaseGraph 获取发行版的关系图谱网络
+func (s *CatalogService) GetReleaseGraph(c *gin.Context) {
+	releaseID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid release ID"})
+		return
+	}
+
+	var rel models.Release
+	if err := s.db.Preload("Work").Preload("PublisherEntity").Preload("Mediums.Tracks").Where("id = ?", releaseID).First(&rel).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Release not found"})
+		return
+	}
+
+	var allRelTypes []models.RelationType
+	s.db.Find(&allRelTypes)
+	relTypeMap := make(map[string]models.RelationType)
+	for _, rt := range allRelTypes {
+		relTypeMap[rt.Code] = rt
+	}
+	locale := backendi18n.LocaleFromContext(c)
+
+	nodes := []GraphNode{
+		{
+			ID:       rel.ID.String(),
+			Name:     rel.EditionName,
+			Type:     "release",
+			Category: "release",
+			Level:    1,
+			Country:  rel.Country,
+		},
+	}
+	nodeSet := map[string]bool{rel.ID.String(): true}
+	links := []GraphLink{}
+
+	// 1. 所属主作品 Work
+	if rel.Work != nil {
+		if !nodeSet[rel.Work.ID.String()] {
+			nodeSet[rel.Work.ID.String()] = true
+			nodes = append(nodes, GraphNode{
+				ID:            rel.Work.ID.String(),
+				Name:          rel.Work.Title,
+				OriginalName:  rel.Work.OriginalTitle,
+				Type:          "work",
+				Category:      "main_work",
+				Level:         0,
+				CoverImageURL: rel.Work.CoverImageURL,
+				Country:       rel.Work.Country,
+				Status:        rel.Work.Status,
+			})
+		}
+		links = append(links, GraphLink{
+			Source:     rel.Work.ID.String(),
+			Target:     rel.ID.String(),
+			SourceType: "work",
+			TargetType: "release",
+			Type:       "released_as",
+			Label:      "发行实体",
+			Color:      "cyan",
+		})
+	}
+
+	// 2. 出版发行主体 PublisherEntity
+	if rel.PublisherEntity != nil {
+		if !nodeSet[rel.PublisherEntity.ID.String()] {
+			nodeSet[rel.PublisherEntity.ID.String()] = true
+			nodes = append(nodes, GraphNode{
+				ID:             rel.PublisherEntity.ID.String(),
+				Name:           rel.PublisherEntity.Name,
+				OriginalName:   rel.PublisherEntity.OriginalName,
+				Type:           "artist",
+				Category:       rel.PublisherEntity.EntityType,
+				Disambiguation: rel.PublisherEntity.Disambiguation,
+				Country:        rel.PublisherEntity.Country,
+				Level:          2,
+			})
+		}
+		links = append(links, GraphLink{
+			Source:     rel.PublisherEntity.ID.String(),
+			Target:     rel.ID.String(),
+			SourceType: "artist",
+			TargetType: "release",
+			Type:       "publisher_of",
+			Label:      "出版发行",
+			Color:      "emerald",
+		})
+	}
+
+	// 3. 载体介质与音轨 (Mediums)
+	for _, med := range rel.Mediums {
+		if !nodeSet[med.ID.String()] {
+			nodeSet[med.ID.String()] = true
+			nodes = append(nodes, GraphNode{
+				ID:       med.ID.String(),
+				Name:     med.Name,
+				Type:     "medium",
+				Category: med.MediaCategory,
+				Role:     med.Format,
+				Level:    2,
+			})
+		}
+		links = append(links, GraphLink{
+			Source:     rel.ID.String(),
+			Target:     med.ID.String(),
+			SourceType: "release",
+			TargetType: "medium",
+			Type:       "contains_disc",
+			Label:      med.Format,
+			Color:      "purple",
+		})
+	}
+
+	// 4. 跨实体语义边 (EntityRelationship)
+	var crossRels []models.EntityRelationship
+	s.db.Where("source_id = ? OR target_id = ?", releaseID, releaseID).Find(&crossRels)
+
+	for _, cr := range crossRels {
+		otherID := cr.TargetID
+		otherType := cr.TargetType
+		dir := "forward"
+		if cr.TargetID == releaseID {
+			otherID = cr.SourceID
+			otherType = cr.SourceType
+			dir = "reverse"
+		}
+
+		if !nodeSet[otherID.String()] {
+			nodeSet[otherID.String()] = true
+			meta, _ := ontology.LookupNodeMeta(s.db, otherType, otherID)
+			nodes = append(nodes, GraphNode{
+				ID:             otherID.String(),
+				Name:           meta.Name,
+				OriginalName:   meta.OriginalName,
+				Type:           otherType,
+				Category:       cr.RelationshipType,
+				CoverImageURL:  meta.CoverImageURL,
+				Disambiguation: meta.Disambiguation,
+				Country:        meta.Country,
+				Status:         meta.Status,
+				Level:          2,
+			})
+		}
+
+		relLabel := cr.RelationshipType
+		color := "sky"
+		isHier := false
+		if rt, ok := relTypeMap[cr.RelationshipType]; ok {
+			color = rt.Color
+			isHier = rt.IsHierarchical
+			if dir == "forward" {
+				relLabel = rt.LocalizedForwardLabel(locale)
+			} else {
+				relLabel = rt.LocalizedReverseLabel(locale)
+			}
+		}
+
+		links = append(links, GraphLink{
+			ID:             cr.ID.String(),
+			Source:         cr.SourceID.String(),
+			Target:         cr.TargetID.String(),
+			SourceType:     cr.SourceType,
+			TargetType:     cr.TargetType,
+			Type:           cr.RelationshipType,
+			Label:          relLabel,
+			Qualifier:      cr.Qualifier,
+			Color:          color,
+			Attributes:     cr.Attributes,
+			BeginDate:      cr.BeginDate,
+			EndDate:        cr.EndDate,
+			Ended:          cr.Ended,
+			IsHierarchical: isHier,
+		})
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -1753,6 +2026,7 @@ type CreateWorkInput struct {
 	CoverAspect      string                 `json:"cover_aspect"`
 	ContentRating    string                 `json:"content_rating"`
 	ExternalIDs      map[string]interface{} `json:"external_ids"`
+	Attributes       map[string]interface{} `json:"attributes"`
 	CatalogMetadata  map[string]interface{} `json:"catalog_metadata"`
 	TagIDs           []uint                 `json:"tag_ids"`
 	Tags             []string               `json:"tags"`
@@ -1772,6 +2046,7 @@ type CreateReleaseInput struct {
 	Language            string                 `json:"language"`
 	DistributionChannel string                 `json:"distribution_channel"`
 	ExternalIDs         map[string]interface{} `json:"external_ids"`
+	Attributes          map[string]interface{} `json:"attributes"`
 	CatalogMetadata     map[string]interface{} `json:"catalog_metadata"`
 	Notes               string                 `json:"notes"`
 }
@@ -2155,6 +2430,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		ContentRating    string                 `json:"content_rating"`
 		Status           string                 `json:"status"`
 		ExternalIDs      map[string]interface{} `json:"external_ids"`
+		Attributes       map[string]interface{} `json:"attributes"`
 		CatalogMetadata  map[string]interface{} `json:"catalog_metadata"`
 		EditNote         string                 `json:"edit_note"`
 		SourceURLs       []string               `json:"source_urls"`
@@ -2181,6 +2457,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		"cover_image_url":   work.CoverImageURL,
 		"cover_aspect":      work.CoverAspect,
 		"external_ids":      work.ExternalIDs,
+		"attributes":        work.Attributes,
 		"catalog_metadata":  work.CatalogMetadata,
 	}
 
@@ -2210,6 +2487,9 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	}
 	if input.ExternalIDs != nil {
 		work.ExternalIDs = models.JSONB(input.ExternalIDs)
+	}
+	if input.Attributes != nil {
+		work.Attributes = models.JSONB(input.Attributes)
 	}
 	if input.CatalogMetadata != nil {
 		work.CatalogMetadata = models.JSONB(input.CatalogMetadata)
@@ -2247,6 +2527,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		"cover_image_url":   work.CoverImageURL,
 		"cover_aspect":      work.CoverAspect,
 		"external_ids":      work.ExternalIDs,
+		"attributes":        work.Attributes,
 		"catalog_metadata":  work.CatalogMetadata,
 	}
 
@@ -2287,6 +2568,7 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 		EndDate        string                 `json:"end_date"`
 		Ended          bool                   `json:"ended"`
 		ExternalIDs    map[string]interface{} `json:"external_ids"`
+		Attributes     map[string]interface{} `json:"attributes"`
 		EditNote       string                 `json:"edit_note"`
 		SourceURLs     []string               `json:"source_urls"`
 		Translations   []LocaleTextInput      `json:"translations"`
@@ -2307,6 +2589,7 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 		"end_date":       artist.EndDate,
 		"ended":          artist.Ended,
 		"external_ids":   artist.ExternalIDs,
+		"attributes":     artist.Attributes,
 	}
 
 	artist.Name = strings.TrimSpace(input.Name)
@@ -2327,6 +2610,9 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 	if input.ExternalIDs != nil {
 		artist.ExternalIDs = models.JSONB(input.ExternalIDs)
 	}
+	if input.Attributes != nil {
+		artist.Attributes = models.JSONB(input.Attributes)
+	}
 	items := applyArtistLocaleDefaults(&artist, input.Translations, input.Language)
 	if strings.TrimSpace(artist.Name) == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
@@ -2346,6 +2632,11 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 		"country":        artist.Country,
 		"biography":      artist.Biography,
 		"begin_date":     artist.BeginDate,
+		"end_date":       artist.EndDate,
+		"ended":          artist.Ended,
+		"external_ids":   artist.ExternalIDs,
+		"attributes":     artist.Attributes,
+	}
 		"end_date":       artist.EndDate,
 		"ended":          artist.Ended,
 		"external_ids":   artist.ExternalIDs,
@@ -2387,6 +2678,7 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		Language            string                 `json:"language"`
 		DistributionChannel string                 `json:"distribution_channel"`
 		ExternalIDs         map[string]interface{} `json:"external_ids"`
+		Attributes          map[string]interface{} `json:"attributes"`
 		CatalogMetadata     map[string]interface{} `json:"catalog_metadata"`
 		Notes               string                 `json:"notes"`
 		EditNote            string                 `json:"edit_note"`
@@ -2404,6 +2696,7 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		"publisher_id":   release.PublisherID,
 		"packaging":      release.Packaging,
 		"external_ids":   release.ExternalIDs,
+		"attributes":     release.Attributes,
 		"notes":          release.Notes,
 	}
 
@@ -2439,6 +2732,9 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 	if input.ExternalIDs != nil {
 		release.ExternalIDs = models.JSONB(input.ExternalIDs)
 	}
+	if input.Attributes != nil {
+		release.Attributes = models.JSONB(input.Attributes)
+	}
 	if input.CatalogMetadata != nil {
 		release.CatalogMetadata = models.JSONB(input.CatalogMetadata)
 	}
@@ -2455,6 +2751,7 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		"publisher_id":   release.PublisherID,
 		"packaging":      release.Packaging,
 		"external_ids":   release.ExternalIDs,
+		"attributes":     release.Attributes,
 		"notes":          release.Notes,
 	}
 

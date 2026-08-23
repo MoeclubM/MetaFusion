@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, Network, List } from "lucide-react";
 import { fetchApi, RelationType, catalogHubOf, isCatalogHub } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Select } from "@/components/ui/Select";
+import { VisualRelationEditor } from "@/components/graph/VisualRelationEditor";
 
 export interface RelationRow {
   target_id: string;
@@ -73,6 +74,8 @@ export function EditorRelationsField({
     return codes;
   }, [sourceType, sourceEntityType]);
 
+  const [viewMode, setViewMode] = useState<"visual" | "list">("visual");
+
   const filteredTypes = useMemo(() => {
     const list = relationTypes.filter((rt) => typeAllowed(rt.allowed_source_types, sourceCodes));
     return list.length > 0 ? list : relationTypes;
@@ -80,42 +83,91 @@ export function EditorRelationsField({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="text-xs font-semibold text-gray-900 dark:text-white">{t("editor.relations.title")}</h3>
           <p className="text-[11px] text-gray-500">{t("editor.relations.desc")}</p>
         </div>
-        <button
-          type="button"
-          onClick={addRelationRow}
-          className="px-3.5 h-9 rounded-lg bg-primary text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 hover:opacity-90 transition-opacity shadow-xs cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          {t("editor.relations.addRow")}
-        </button>
-      </div>
 
-      {relations.length === 0 && (
-        <div className="p-8 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface text-center font-mono text-xs sm:text-sm text-gray-500">
-          {t("editor.relations.noRelations")}
+        <div className="flex items-center gap-2">
+          {/* 模式切换 */}
+          <div className="flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-xs">
+            <button
+              type="button"
+              onClick={() => setViewMode("visual")}
+              className={`px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 transition-all ${
+                viewMode === "visual"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Network className="w-3.5 h-3.5" />
+              {t("graph.visualEditor")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 transition-all ${
+                viewMode === "list"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              列表表单
+            </button>
+          </div>
+
+          {viewMode === "list" && (
+            <button
+              type="button"
+              onClick={addRelationRow}
+              className="px-3.5 h-8 rounded-lg bg-primary text-white text-xs font-semibold flex items-center gap-1.5 hover:opacity-90 transition-opacity shadow-xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              {t("editor.relations.addRow")}
+            </button>
+          )}
         </div>
-      )}
-
-      <div className="space-y-3">
-        {relations.map((rel, idx) => (
-          <RelationEditorRow
-            key={idx}
-            rel={rel}
-            idx={idx}
-            filteredTypes={filteredTypes}
-            locale={locale}
-            t={t}
-            entityTypeLabel={entityTypeLabel}
-            updateRelationRow={updateRelationRow}
-            removeRelationRow={removeRelationRow}
-          />
-        ))}
       </div>
+
+      {viewMode === "visual" ? (
+        <VisualRelationEditor
+          sourceType={sourceType}
+          relations={relations}
+          relationTypes={filteredTypes}
+          onAddRelation={(newRel) => {
+            addRelationRow();
+            updateRelationRow(relations.length, newRel);
+          }}
+          onRemoveRelation={removeRelationRow}
+          onUpdateRelation={updateRelationRow}
+        />
+      ) : (
+        <>
+          {relations.length === 0 && (
+            <div className="p-8 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface text-center font-mono text-xs sm:text-sm text-gray-500">
+              {t("editor.relations.noRelations")}
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {relations.map((rel, idx) => (
+              <RelationEditorRow
+                key={idx}
+                rel={rel}
+                idx={idx}
+                filteredTypes={filteredTypes}
+                locale={locale}
+                t={t}
+                entityTypeLabel={entityTypeLabel}
+                updateRelationRow={updateRelationRow}
+                removeRelationRow={removeRelationRow}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

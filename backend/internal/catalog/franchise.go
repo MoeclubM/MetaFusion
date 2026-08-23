@@ -26,6 +26,7 @@ type CreateFranchiseInput struct {
 	Country         string                 `json:"country"`
 	Language        string                 `json:"language"`
 	ExternalIDs     map[string]interface{} `json:"external_ids"`
+	Attributes      map[string]interface{} `json:"attributes"`
 	CatalogMetadata map[string]interface{} `json:"catalog_metadata"`
 	TagIDs          []uint                 `json:"tag_ids"`
 	Tags            []string               `json:"tags"`
@@ -177,7 +178,16 @@ func (s *CatalogService) GetFranchiseGraph(c *gin.Context) {
 		relTypeMap[rt.Code] = rt
 	}
 
-	nodes := []GraphNode{{ID: fr.ID.String(), Name: fr.Title, Type: "franchise", Category: "franchise", Level: 0}}
+	nodes := []GraphNode{{
+		ID:            fr.ID.String(),
+		Name:          fr.Title,
+		OriginalName:  fr.OriginalTitle,
+		Type:          "franchise",
+		Category:      "franchise",
+		CoverImageURL: fr.CoverImageURL,
+		Country:       fr.Country,
+		Level:         0,
+	}}
 	nodeSet := map[string]bool{fr.ID.String(): true}
 	links := []GraphLink{}
 
@@ -191,22 +201,32 @@ func (s *CatalogService) GetFranchiseGraph(c *gin.Context) {
 			otherType, otherID = er.SourceType, er.SourceID
 			dir = "reverse"
 		}
-		name, ok := ontology.LookupName(s.db, otherType, otherID)
-		if !ok {
-			continue
-		}
 		if !nodeSet[otherID.String()] {
 			nodeSet[otherID.String()] = true
 			level := 1
 			if otherType == "franchise" && dir == "forward" {
 				level = -1
 			}
-			nodes = append(nodes, GraphNode{ID: otherID.String(), Name: name, Type: otherType, Category: er.RelationshipType, Level: level})
+			meta, _ := ontology.LookupNodeMeta(s.db, otherType, otherID)
+			nodes = append(nodes, GraphNode{
+				ID:             otherID.String(),
+				Name:           meta.Name,
+				OriginalName:   meta.OriginalName,
+				Type:           otherType,
+				Category:       er.RelationshipType,
+				CoverImageURL:  meta.CoverImageURL,
+				Disambiguation: meta.Disambiguation,
+				Country:        meta.Country,
+				Status:         meta.Status,
+				Level:          level,
+			})
 		}
 		label := er.RelationshipType
 		color := "indigo"
+		isHier := false
 		if rt, ok := relTypeMap[er.RelationshipType]; ok {
 			color = rt.Color
+			isHier = rt.IsHierarchical
 			if dir == "forward" {
 				label = rt.LocalizedForwardLabel(locale)
 			} else {
@@ -214,8 +234,20 @@ func (s *CatalogService) GetFranchiseGraph(c *gin.Context) {
 			}
 		}
 		links = append(links, GraphLink{
-			Source: er.SourceID.String(), Target: er.TargetID.String(),
-			Type: er.RelationshipType, Label: label, Color: color, Attributes: er.Attributes,
+			ID:             er.ID.String(),
+			Source:         er.SourceID.String(),
+			Target:         er.TargetID.String(),
+			SourceType:     er.SourceType,
+			TargetType:     er.TargetType,
+			Type:           er.RelationshipType,
+			Label:          label,
+			Qualifier:      er.Qualifier,
+			Color:          color,
+			Attributes:     er.Attributes,
+			BeginDate:      er.BeginDate,
+			EndDate:        er.EndDate,
+			Ended:          er.Ended,
+			IsHierarchical: isHier,
 		})
 	}
 
@@ -225,11 +257,25 @@ func (s *CatalogService) GetFranchiseGraph(c *gin.Context) {
 		p := ancestors[i]
 		if !nodeSet[p.ID.String()] {
 			nodeSet[p.ID.String()] = true
-			nodes = append(nodes, GraphNode{ID: p.ID.String(), Name: p.Title, Type: "franchise", Category: "franchise", Level: -(len(ancestors) - i)})
+			nodes = append(nodes, GraphNode{
+				ID:            p.ID.String(),
+				Name:          p.Title,
+				OriginalName:  p.OriginalTitle,
+				Type:          "franchise",
+				Category:      "franchise",
+				CoverImageURL: p.CoverImageURL,
+				Country:       p.Country,
+				Level:         -(len(ancestors) - i),
+			})
 		}
 		links = append(links, GraphLink{
-			Source: prevID.String(), Target: p.ID.String(),
-			Type: "part_of_franchise", Label: "part_of_franchise", Color: "indigo",
+			Source:     prevID.String(),
+			Target:     p.ID.String(),
+			SourceType: "franchise",
+			TargetType: "franchise",
+			Type:       "part_of_franchise",
+			Label:      "属于企划",
+			Color:      "indigo",
 		})
 		prevID = p.ID
 	}
@@ -256,6 +302,10 @@ func (s *CatalogService) CreateFranchiseForMember(c *gin.Context) {
 	if input.ExternalIDs != nil {
 		ext = models.JSONB(input.ExternalIDs)
 	}
+	attrs := models.JSONB{}
+	if input.Attributes != nil {
+		attrs = models.JSONB(input.Attributes)
+	}
 	meta := models.JSONB{}
 	if input.CatalogMetadata != nil {
 		meta = models.JSONB(input.CatalogMetadata)
@@ -273,6 +323,7 @@ func (s *CatalogService) CreateFranchiseForMember(c *gin.Context) {
 		Country:         strings.TrimSpace(input.Country),
 		Language:        input.Language,
 		ExternalIDs:     ext,
+		Attributes:      attrs,
 		CatalogMetadata: meta,
 		CreatedBy:       uid,
 	}
@@ -324,7 +375,7 @@ func (s *CatalogService) UpdateFranchiseForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	before := map[string]interface{}{"title": fr.Title, "original_title": fr.OriginalTitle, "summary": fr.Summary}
+	before := map[string]interface{}{"title": fr.Title, "original_title": fr.OriginalTitle, "summary": fr.Summary, "attributes": fr.Attributes}
 	fr.Title = strings.TrimSpace(input.Title)
 	fr.OriginalTitle = strings.TrimSpace(input.OriginalTitle)
 	if input.Aliases != nil {
@@ -340,6 +391,9 @@ func (s *CatalogService) UpdateFranchiseForMember(c *gin.Context) {
 	if input.ExternalIDs != nil {
 		fr.ExternalIDs = models.JSONB(input.ExternalIDs)
 	}
+	if input.Attributes != nil {
+		fr.Attributes = models.JSONB(input.Attributes)
+	}
 	if input.CatalogMetadata != nil {
 		fr.CatalogMetadata = models.JSONB(input.CatalogMetadata)
 	}
@@ -352,7 +406,7 @@ func (s *CatalogService) UpdateFranchiseForMember(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	after := map[string]interface{}{"title": fr.Title, "original_title": fr.OriginalTitle, "summary": fr.Summary}
+	after := map[string]interface{}{"title": fr.Title, "original_title": fr.OriginalTitle, "summary": fr.Summary, "attributes": fr.Attributes}
 	s.recordRevision("franchise", fr.ID, &userID, "update", "更新企划", "", nil, before, after)
 	s.replaceFranchiseTagsByName(&fr, input.Tags)
 	s.upsertFranchiseTranslations(fr.ID, items)

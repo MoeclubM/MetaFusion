@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Lock,
   LogIn,
+  Layers,
 } from "lucide-react";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -33,6 +34,7 @@ import { EditorTemporalFields } from "./EditorTemporalFields";
 import { EditorRelationsField } from "./EditorRelationsField";
 import { EditorExternalIds } from "./EditorExternalIds";
 import { EditorNotesField } from "./EditorNotesField";
+import { DynamicAttributeForm } from "@/components/attributes/DynamicAttributeForm";
 import { seedLocaleForm, translationsPayload } from "./localeForm";
 
 export type EntityTypeTarget = "work" | "artist" | "release" | "franchise";
@@ -61,7 +63,7 @@ export function UniversalEntityEditor({
   const pathname = usePathname();
   const { relationTypes } = useRelationTypes();
   const { taxonomy } = useTaxonomy();
-  const [activeTab, setActiveTab] = useState<"core" | "temporal" | "relations" | "external" | "note">("core");
+  const [activeTab, setActiveTab] = useState<"core" | "temporal" | "attributes" | "relations" | "external" | "note">("core");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -352,6 +354,18 @@ export function UniversalEntityEditor({
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("attributes")}
+            className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+              activeTab === "attributes"
+                ? "border-amber-400 text-gray-900 dark:text-white bg-black/[0.03] dark:bg-white/[0.04] font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+            }`}
+          >
+            <Layers className="w-4 h-4" />
+            {t("attributes.title")}
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("relations")}
             className={`px-4 py-2.5 rounded-t-sm border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === "relations"
@@ -406,6 +420,15 @@ export function UniversalEntityEditor({
               formData={formData}
               updateField={updateField}
               targetType={targetType}
+            />
+          )}
+
+          {activeTab === "attributes" && (
+            <DynamicAttributeForm
+              entityType={targetType}
+              category={formData.category_code}
+              value={formData.attributes || {}}
+              onChange={(attrs) => updateField("attributes", attrs)}
             />
           )}
 

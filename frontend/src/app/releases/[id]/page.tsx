@@ -10,13 +10,16 @@ import { useAuth } from "@/lib/authContext";
 import { usePlayer } from "@/lib/playerContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
-import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Edit3, History } from "lucide-react";
+import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Edit3, History, Network } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import { MultipartUploader } from "@/components/MultipartUploader";
 import FavoriteButton from "@/components/FavoriteButton";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
+import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
+import { InteractiveRelationGraph } from "@/components/graph/InteractiveRelationGraph";
+import { fetchEntityGraph, GraphNode, GraphLink } from "@/lib/api";
 
 type ReleaseWithWork = Release & { work?: Work };
 
@@ -28,6 +31,7 @@ export default function ReleaseDetailPage() {
   const { t, locale } = useI18n();
   const { roleLabel, packagingLabel, mediumFormatLabel, mediaCategoryLabel } = useTaxonomy();
   const [release, setRelease] = useState<ReleaseWithWork | null>(null);
+  const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; links: GraphLink[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -47,6 +51,10 @@ export default function ReleaseDetailPage() {
       .then(setRelease)
       .catch((e) => console.error(e))
       .finally(() => setLoading(false));
+
+    fetchEntityGraph("release", releaseId)
+      .then((g) => setGraphData(g))
+      .catch((err) => console.error("Release graph fetch failed:", err));
   }, [releaseId]);
 
   const copyText = (text: string, id: string) => {
@@ -172,6 +180,30 @@ export default function ReleaseDetailPage() {
                 externalIds={release.external_ids}
                 externalLinks={release.external_links}
                 category="release"
+              />
+            </div>
+          )}
+
+          {/* 实体动态扩展属性展示 */}
+          {release.attributes && Object.keys(release.attributes).length > 0 && (
+            <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
+              <DynamicAttributeViewer attributes={release.attributes} />
+            </div>
+          )}
+
+          {/* 关联图谱网络 */}
+          {graphData && graphData.nodes.length > 1 && (
+            <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06] space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-900 dark:text-white">
+                <Network className="w-3.5 h-3.5 text-primary" />
+                <span>{t("graph.title")}</span>
+              </div>
+              <InteractiveRelationGraph
+                centerEntityId={release.id}
+                centerEntityType="release"
+                nodes={graphData.nodes}
+                links={graphData.links}
+                height={400}
               />
             </div>
           )}
