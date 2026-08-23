@@ -190,9 +190,8 @@ export default function ArtistDetailPage() {
                           id={w.id}
                           tags={(w.tags || []).map((t: any) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
                           aspect={w.cover_aspect}
-                          className="bg-black/40 group-hover:scale-[1.03] transition-transform duration-300 origin-center"
+                          className="bg-black/5 dark:bg-black/40 group-hover:scale-105 transition-transform duration-300 origin-center"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60 pointer-events-none" />
                         {role && <span className="absolute bottom-1.5 right-1.5 px-1.5 py-0.2 rounded-sm bg-primary text-white font-mono text-[9px] font-bold">{role}</span>}
                       </div>
                       <div className="p-2.5 flex-1 flex flex-col justify-between gap-1">
