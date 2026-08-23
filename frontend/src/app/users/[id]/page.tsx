@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
-import { fetchApi, displayNameOf } from "@/lib/api";
+import { fetchApi, displayNameOf, toggleFavorite, FavoriteTargetType } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import DirectMessageModal from "@/components/community/DirectMessageModal";
-import { Clock, Shield, FileText, Disc, Users, MessageSquare, History, Mail, MessageCircle, Calendar, Heart, Lock } from "lucide-react";
+import { Clock, Shield, FileText, Disc, Users, MessageSquare, History, Mail, MessageCircle, Calendar, Heart, Lock, Trash2, Layers, Network } from "lucide-react";
 import { fetchFavorites, FavoriteItem } from "@/lib/api";
 
 type Profile = {
@@ -20,6 +20,9 @@ type Profile = {
 export default function UserDetailPage() {
   const params = useParams() as { id: string };
   const id = params.id;
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") || "all";
+
   const { user: currentUser } = useAuth();
   const { t, locale } = useI18n();
   const tabs = [
@@ -32,8 +35,10 @@ export default function UserDetailPage() {
     { id: "favorites", label: t("users.profile.tabs.favorites") },
     { id: "audits", label: t("users.profile.tabs.audits") },
   ] as const;
+
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [tab, setTab] = useState<string>("all");
+  const [tab, setTab] = useState<string>(initialTab);
+  const [favFilter, setFavFilter] = useState<FavoriteTargetType | "">("");
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -49,7 +54,7 @@ export default function UserDetailPage() {
   useEffect(() => {
     if (tab !== "favorites") return;
     setLoading(true);
-    fetchFavorites(id, { page, pageSize: 20 })
+    fetchFavorites(id, { targetType: favFilter || undefined, page, pageSize: 20 })
       .then((r) => {
         setFavVisible(r.visible);
         setItems(r.items || []);
@@ -58,7 +63,7 @@ export default function UserDetailPage() {
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
     return;
-  }, [id, tab, page]);
+  }, [id, tab, favFilter, page]);
 
   useEffect(() => {
     if (tab === "favorites") return;
@@ -69,11 +74,33 @@ export default function UserDetailPage() {
       .finally(() => setLoading(false));
   }, [id, tab, page]);
 
+  const handleRemoveFavorite = async (e: React.MouseEvent, it: FavoriteItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await toggleFavorite(it.target_type, it.target_id);
+      setItems((prev) => prev.filter((item) => item.id !== it.id));
+      setTotal((prev) => Math.max(0, prev - 1));
+      if (profile) {
+        setProfile({
+          ...profile,
+          stats: {
+            ...profile.stats,
+            favorites_count: Math.max(0, profile.stats.favorites_count - 1),
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Failed to remove favorite:", error);
+    }
+  };
+
   if (err) return <div className="min-h-screen bg-background text-white p-6"><Navbar /><div className="max-w-5xl mx-auto pt-8 text-rose-400 text-sm">{err}</div></div>;
   if (!profile) return <div className="min-h-screen bg-background text-white"><Navbar /><div className="max-w-5xl mx-auto p-6 text-gray-500 text-sm">{t("common.loading")}</div></div>;
 
   const u = profile.user;
   const s = profile.stats;
+  const isMe = currentUser?.id === u.id;
 
   return (
     <div className="min-h-screen bg-background text-gray-900 dark:text-white flex flex-col">
@@ -146,6 +173,33 @@ export default function UserDetailPage() {
           ))}
         </div>
 
+        {tab === "favorites" && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+            {[
+              { id: "", label: t("users.profile.favFilterAll") },
+              { id: "work", label: t("users.profile.favFilterWork") },
+              { id: "release", label: t("users.profile.favFilterRelease") },
+              { id: "artist", label: t("users.profile.favFilterArtist") },
+              { id: "franchise", label: t("users.profile.favFilterFranchise") },
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => {
+                  setFavFilter(f.id as FavoriteTargetType | "");
+                  setPage(1);
+                }}
+                className={`px-2.5 h-6.5 rounded-full text-[11px] font-medium border transition-colors ${
+                  favFilter === f.id
+                    ? "bg-rose-500/10 text-rose-500 border-rose-500/30 font-semibold"
+                    : "bg-black/[0.02] dark:bg-white/[0.03] border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
           {loading ? <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("common.loading")}</div>
           : tab === "favorites" && !favVisible ? (
@@ -165,14 +219,24 @@ export default function UserDetailPage() {
                 const title = it.work?.title || it.release?.edition_name || it.artist?.name || it.franchise?.title || it.target_id;
                 const typeLabel = it.target_type === "work" ? t("users.profile.tabs.works") : it.target_type === "release" ? t("users.profile.tabs.releases") : it.target_type === "franchise" ? t("explore.typeFranchises") : t("users.profile.tabs.artists");
                 return (
-                  <li key={it.id}>
-                    <Link href={href} className="p-3 flex items-center gap-2.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors group">
+                  <li key={it.id} className="p-3 flex items-center justify-between gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors group">
+                    <Link href={href} className="flex items-center gap-2.5 min-w-0 flex-1">
                       <Heart className="w-3.5 h-3.5 shrink-0 text-rose-500" fill="currentColor" strokeWidth={0} />
                       <div className="min-w-0 flex-1">
                         <div className="text-xs text-gray-900 dark:text-white font-medium truncate group-hover:text-primary transition-colors">{title}</div>
                         <div className="text-[10px] text-gray-500 font-mono mt-0.5">{typeLabel}{it.created_at ? ` · ${new Date(it.created_at).toLocaleDateString()}` : ""}</div>
                       </div>
                     </Link>
+                    {isMe && (
+                      <button
+                        type="button"
+                        onClick={(e) => handleRemoveFavorite(e, it)}
+                        title={t("users.profile.unfavorite")}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-rose-500/10 text-gray-400 hover:text-rose-500"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </li>
                 );
               })}

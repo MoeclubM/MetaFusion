@@ -11,24 +11,25 @@ import { BrandMark } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
 import { displayNameOf } from "@/lib/api";
 import {
- Plus,
- LogOut,
- User as UserIcon,
- MessageCircle,
- Shield,
- Settings,
- ChevronDown,
- Gift,
- Library,
- Compass,
- Layers,
- Users,
- Disc,
- Network,
- Sparkles,
- Code2,
- Github,
- BookOpen,
+  Plus,
+  LogOut,
+  User as UserIcon,
+  MessageCircle,
+  Shield,
+  Settings,
+  ChevronDown,
+  Gift,
+  Library,
+  Compass,
+  Layers,
+  Users,
+  Disc,
+  Network,
+  Sparkles,
+  Code2,
+  Github,
+  BookOpen,
+  Heart,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -192,15 +193,33 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenUpload }) => {
  </div>
  </div>
 
- <div className="py-1">
- <Link
- href="/contribute"
- onClick={() => setIsUserMenuOpen(false)}
- className="w-full px-3.5 py-2 text-left text-primary hover:bg-primary/10 flex items-center gap-2.5 transition-colors font-medium sm:hidden"
- >
- <Plus className="w-4 h-4 text-primary" strokeWidth={2} />
- <span>{t("nav.contribute")}</span>
- </Link>
+                  <div className="py-1">
+                    <Link
+                      href={`/users/${user.id}`}
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="w-full px-3.5 py-2 text-left text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.06] flex items-center gap-2.5 transition-colors font-medium"
+                    >
+                      <UserIcon className="w-4 h-4 text-primary" strokeWidth={1.7} />
+                      <span>{t("nav.userProfile")}</span>
+                    </Link>
+
+                    <Link
+                      href={`/users/${user.id}?tab=favorites`}
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="w-full px-3.5 py-2 text-left text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.06] flex items-center gap-2.5 transition-colors"
+                    >
+                      <Heart className="w-4 h-4 text-rose-500" strokeWidth={1.7} />
+                      <span>{t("nav.myFavorites")}</span>
+                    </Link>
+
+                    <Link
+                      href="/contribute"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="w-full px-3.5 py-2 text-left text-primary hover:bg-primary/10 flex items-center gap-2.5 transition-colors font-medium sm:hidden"
+                    >
+                      <Plus className="w-4 h-4 text-primary" strokeWidth={2} />
+                      <span>{t("nav.contribute")}</span>
+                    </Link>
 
  <Link
  href="/invites"
