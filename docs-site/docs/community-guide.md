@@ -1,61 +1,40 @@
 ---
 title: "社区使用"
-description: "板块、发帖、回帖、审核与私信。"
+description: "板块、发帖、回帖、审核与私信交流指南。"
 order: 40
 group: "community"
 ---
 
-# 社区使用
+# 社区使用指南
 
-社区遵循“读开放、写需登录”，与元数据开放策略一致。
+MetaFusion 社区遵循“浏览开放、互动需登录”的原则，为爱好者与考据者提供开放、友好的交流空间。
 
-## 板块
+## 社区板块
 
-```http
-GET /api/v1/community/boards
-```
+社区默认划分为三大核心讨论区：
 
-默认三板块（见 `forum-boards-three-default`）：
+- **公告（Announcement）**：站务通知、版本更新与重要规则发布（仅站务团队可发布）。
+- **综合讨论（General）**：作品交流、版本考据、创作心得与日常探讨。
+- **评注分区（Comment）**：针对具体作品或发行版的深度条目评注，默认不占用全站综合信息流。
 
-- `announcement`：公告（仅站务可发）
-- `general`：综合讨论
-- `comment`：评注分区，`show_in_feed=false` 不进入 `board_code=all` 信息流
+在社区首页，你可以通过顶部的语种切换器筛选特定语言的讨论内容（如简体中文、英语等）。
 
-语种过滤 `?language=zh-CN/en-US` 对游客同样生效（`forum-language-i18n-multilingual`）。
+## 浏览与发帖
 
-## 帖子
+- **浏览与检索**：游客及所有注册用户均可在社区大厅按板块浏览讨论主题，或在顶部搜索栏输入关键词检索历史讨论。
+- **发起新话题**：登录后，在社区页面点击「发布话题」，选择所属板块并填写标题与正文（支持 Markdown 语法排版）。发布时可关联对应的作品生成信息卡片，并可添加专属话题标签。
+- **参与回复**：进入任意话题详情页，即可阅读完整楼层对话。在页面底部输入框中撰写回复，支持引用特定楼层进行精准探讨。
 
-```http
-GET  /api/v1/community/topics?board_code=general&page=1&q=keyword
-GET  /api/v1/community/topics/:id          # 含 posts 流
-POST /api/v1/community/topics               # 需认证
-{ "board_code": "general", "title": "标题", "content": "正文（Markdown）", "work_id": "<uuid>", "tag_ids": [] }
+## 站内私信
 
-POST /api/v1/community/topics/:id/posts    # 回帖，需认证
-{ "content": "回复正文", "reply_to_post_number": 2 }
-```
+登录用户可在任意用户的个人主页点击「发送私信」，或在私信收件箱中发起一对一即时交流，适合进行私下协作考据、文献补充与站务问题沟通。
 
-文字部分对游客开放可浏览与检索；写入一律需登录。
+## 社区规范与审核
 
-## 私信
+- **内容合规**：社区配有巡查与审核机制，严禁发布侵权盗版链接、商业广告、恶意灌水与人身攻击内容。违规内容将被清理，违规账号将被限制互动或封禁。
+- **频率保护**：为了维护良好的交流秩序，短时间内连续高频发帖或私信会触发系统的频率保护。
 
-```http
-POST /api/v1/messages/with/:user_id  { "content": "hi" }
-GET  /api/v1/messages/with/:user_id?page=1
-GET  /api/v1/messages/conversations
-```
+## 快速入口
 
-需认证，适合协作考据与站务沟通。
-
-## 审核
-
-- 社区写入受 `community_admin` 审核，垃圾内容与外链滥用会被限流或封禁
-- 速率限制对 `L1` 写入接口生效
-
-## 前端入口
-
-- `/community`：板块与信息流
-- `/community/:id`：帖子详情
-- 个人页的贡献与消息入口
-
-> 发帖前先搜索是否已有相关讨论，引用作品时可带 `work_id` 关联，自动生成卡片。
+- **导航入口**：点击顶部导航栏的 **“社区”** 即可进入板块广场与最新动态流。
+- **关联引用**：在讨论作品时，建议在发帖界面关联对应作品，系统将自动生成精美信息卡片，方便其他同好快速跳转查阅。

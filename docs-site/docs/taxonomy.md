@@ -67,32 +67,17 @@ MetaFusion 具备完整的国际化编目支持，所有主实体均通过 `_tra
 - **支持语种**：`zh-CN`（简体中文）、`zh-TW`（繁体中文）、`en-US`（英语）、`ja`（日语）、`ko`（韩语）等；
 - **主表与回退链**：
   1. 主表的 `title` / `summary`（或 `name` / `biography`）作为默认语种基准；
-  2. 请求时通过 `?locale=zh-CN` 指定偏好语言；
-  3. 服务端/前端优先展示对应语种的精确翻译，未命中时回退到默认语种与原文标题。
+  2. 访问页面时通过界面顶部的语言切换器选择偏好语言；
+  3. 系统优先展示对应语种的精确翻译与本地化简介，未命中时平滑回退到默认语种与原文标题。
 
 ---
 
-## 5. API 接口与拉取
+## 5. 探索页与组合筛选指南
 
-```http
-GET /api/v1/catalog/taxonomy
-GET /api/v1/catalog/tags?group_type=format
-GET /api/v1/catalog/shelves
-GET /api/v1/catalog/relation-types
-```
+在探索页面（`/explore`），你可以利用多维编目体系快速发现感兴趣的内容：
 
-### 5.1 作品列表筛选（ListWorks）
-```http
-GET /api/v1/catalog/works?shelf=anime-movies&tags=动画,电影&tag_match=all&language=zh-CN&sort=created_at&page=1&page_size=24
-```
-
-| 参数 | 说明 |
-|---|---|
-| `shelf` | 虚拟货架 Slug |
-| `custom_shelf` | 用户自定义货架 UUID |
-| `tags` / `tag` | 标签名称过滤（逗号分隔） |
-| `tag_match` | 标签匹配模式：`all`（同时满足）/ `any`（满足其一） |
-| `q` | 全文检索关键词 |
-| `language` / `locale` | 语言过滤与本地化偏好 |
-| `sort` | 排序字段：`created_at` / `view_count` / `title` / `release_date` |
-| `page` / `page_size` | 分页参数（`page_size` 最大 100） |
+- **货架切换**：在页面顶部可直接切换不同的预设虚拟货架（如“剧场版动画”、“高解析音频专区”）或自己的自定义货架；
+- **多标签组合筛选**：点击标签栏选择一个或多个标签，支持切换「同时满足（全部匹配）」或「满足其一（任一匹配）」模式；
+- **关键词搜索**：在搜索栏输入原名、中文名、外文别名或创作者名称，系统提供即时联想与全文检索；
+- **灵活排序**：支持按收录时间、浏览热度、首字母标题、发行日期等维度进行排序；
+- **开发者调用**：如需通过外部程序自动化检索或批量拉取货架与标签数据，请参阅专门的 [API 检索与浏览指引](/api-lookup-browse)。

@@ -78,7 +78,7 @@ MetaFusion 采用国际图书馆学联合会（IFLA）最新制定的 **LRM (Lib
 3. **版本演进与不可篡改审计**：
    - 所有 LRM 实体的每一次创建、更新或合并，均记录于不可篡改的 `entity_revisions` 审计流中，支持完整的版本追溯、差异对比（Diff）与社群协作审核。
 4. **MusicBrainz WS/2 无缝映射**：
-   - 开放 API 直接提供符合 MusicBrainz WS/2 规范的 `GET /ws/2/work/:id`、`GET /ws/2/release/:id` 与 `GET /ws/2/artist/:id` 接口，支持自动化抓取器与编目工具一键导入。
+   - 平台原生兼容 MusicBrainz WS/2 规范接口，支持自动化抓取器与主流编目工具一键导入作品、发行版与创作者数据（详见 [开发者 API 概览](/api-overview)）。
 
 ---
 
@@ -139,5 +139,5 @@ flowchart TD
 
 **个人创作者**：久石让 / wowaka 的枢纽是 Agent 页，不建「某某宇宙」Franchise。单曲 `included_in` 专辑；Vocaloid 曲指向虚拟歌手而非声库公司。Toby Fox 在共享世界观明确之前不必为 Undertale/Deltarune 建 Franchise。
 
-API：`GET/POST /catalog/franchises`，`GET/PUT /catalog/franchises/:id`（`inc=works+agents+children+relations`），`GET /catalog/franchises/:id/graph`。成员写边：`PUT /catalog/entity-relations`。
+在企划详情页中可直观查看嵌套的子企划、关联作品、演职人员及可视化关系图谱；编辑者可在词条管理界面中为企划关联作品与维护实体间关系。如需程序化操作，请查阅 [API 编目与实体管理](/api-edit)。
 

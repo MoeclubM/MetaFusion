@@ -23,4 +23,4 @@ group: "meta"
 
 - FRBR 编目、PB 级双轨存储、HLS/音频/图书转码、邀请链、Asynq Worker、ES 检索与 SQL 降级、PAT（`mfp_`）与 WS/2 兼容 API 落地
 
-> 文档内容随主站版本同步更新，编辑请提 PR 至 `docs-site/content/docs/`。
+> 文档内容随主站版本同步更新，编辑请提 PR 至 `docs-site/docs/`。

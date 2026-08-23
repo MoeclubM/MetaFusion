@@ -20,11 +20,12 @@ group: "meta"
 | 侵权 / 合规 | 社区私信站务 + 附 URL 与权属证明（见 [版权与 DMCA](/copyright)） |
 | 审核申诉 | 站内私信，附 Work/Release ID 与修订记录 |
 | Bug / 功能建议 | GitHub Issue，附复现步骤与截图 |
-| 文档错误 | GitHub PR 直接改 `docs-site/content/docs/*.md` |
+| 文档错误 | GitHub PR 直接改 `docs-site/docs/*.md` |
+| 其它合作 | 站内私信站务账号 |
 
 ## 贡献文档
 
-本文档站内容位于 `docs-site/content/docs/`，每篇 Markdown 含 frontmatter：
+本文档站内容位于 `docs-site/docs/`，每篇 Markdown 含 frontmatter：
 
 ```yaml
 ---
