@@ -611,6 +611,7 @@ function ExploreContent() {
                         originalTitle={w.original_title}
                         id={w.id}
                         tags={(w.tags || []).map((t) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
+                        aspect={w.cover_aspect}
                         className="bg-black/5 dark:bg-black/40 group-hover:scale-105 transition-transform duration-300 origin-center"
                       />
                       <div className="p-3 space-y-1 flex-1 flex flex-col justify-between">

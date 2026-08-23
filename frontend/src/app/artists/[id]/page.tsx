@@ -189,6 +189,7 @@ export default function ArtistDetailPage() {
                           originalTitle={w.original_title}
                           id={w.id}
                           tags={(w.tags || []).map((t: any) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
+                          aspect={w.cover_aspect}
                           className="bg-black/40 group-hover:scale-[1.03] transition-transform duration-300 origin-center"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60 pointer-events-none" />

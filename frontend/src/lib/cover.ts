@@ -9,6 +9,17 @@
 
 export type CoverTagInput = string | { name?: string } | null | undefined;
 
+/** 手动设置的封面比例值（works.cover_aspect），如 "1:1"；空/未知 = 自动 */
+export function parseManualRatio(aspect?: string | null): number | null {
+  if (!aspect) return null;
+  const m = /^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/.exec(aspect.trim());
+  if (!m) return null;
+  const w = parseFloat(m[1]);
+  const h = parseFloat(m[2]);
+  if (!isFinite(w) || !isFinite(h) || w <= 0 || h <= 0) return null;
+  return w / h;
+}
+
 const SQUARE_EXACT = [
   "album", "single", "ep", "lp", "cd", "ost",
   "专辑", "单曲", "迷你专辑", "原声带", "原声", "配乐", "唱片", "音乐",

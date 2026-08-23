@@ -139,6 +139,7 @@ export default function WorkDirectoryPage() {
 	 originalTitle={work.original_title}
 	 id={work.id}
 	 tags={(work.tags || []).map((t: any) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
+	 aspect={work.cover_aspect}
 	 className="rounded-md overflow-hidden border border-black/10 dark:border-white/10 bg-background shadow-xs"
 	 />
 	 </div>

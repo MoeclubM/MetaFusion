@@ -458,6 +458,8 @@ export interface Work {
   original_language?: string;
   summary?: string;
   cover_image_url?: string;
+  /** 手动固定封面显示比例（"1:1"/"2:3"/"3:4"/"4:3"），空 = 自动 */
+  cover_aspect?: string;
   content_rating?: string;
   status: string;
   view_count: number;

@@ -33,6 +33,9 @@ const ORIGINAL_LANGUAGE_OPTIONS = [
   { code: "de", labelKey: "editor.core.origLangDe" },
 ];
 
+// 封面显示比例：空值 = 自动推断；其余为手动固定
+export const COVER_ASPECT_OPTIONS = ["1:1", "2:3", "3:4", "4:3"];
+
 export function EditorCoreFields({
   targetType,
   formData,
@@ -263,22 +266,37 @@ export function EditorCoreFields({
       {/* ── 2. 主体性质 / 分发参数 ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {targetType === "work" && (
-          <div className="space-y-1.5">
-            <label className={labelClass} title={t("editor.core.originalLangHint")}>
-              {t("editor.core.originalLangLabel")}
-            </label>
-            <Select
-              value={formData.original_language || ""}
-              onChange={(val) => updateField("original_language", val)}
-              options={[
-                { value: "", label: t("editor.core.originalLangUnknown") },
-                ...ORIGINAL_LANGUAGE_OPTIONS.map((opt) => ({
-                  value: opt.code,
-                  label: t(opt.labelKey),
-                })),
-              ]}
-            />
-          </div>
+          <>
+            <div className="space-y-1.5">
+              <label className={labelClass} title={t("editor.core.originalLangHint")}>
+                {t("editor.core.originalLangLabel")}
+              </label>
+              <Select
+                value={formData.original_language || ""}
+                onChange={(val) => updateField("original_language", val)}
+                options={[
+                  { value: "", label: t("editor.core.originalLangUnknown") },
+                  ...ORIGINAL_LANGUAGE_OPTIONS.map((opt) => ({
+                    value: opt.code,
+                    label: t(opt.labelKey),
+                  })),
+                ]}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass} title={t("editor.core.coverAspectHint")}>
+                {t("editor.core.coverAspectRatio")}
+              </label>
+              <Select
+                value={formData.cover_aspect || ""}
+                onChange={(val) => updateField("cover_aspect", val)}
+                options={[
+                  { value: "", label: t("editor.core.coverAspectAuto") },
+                  ...COVER_ASPECT_OPTIONS.map((v) => ({ value: v, label: v })),
+                ]}
+              />
+            </div>
+          </>
         )}
 
         {targetType === "artist" && (
