@@ -221,27 +221,9 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 		})
 	}
 
-	packagings := []map[string]string{
-		{"id": "jewel_case", "name_zh": "标准珠宝盒 (Jewel Case)", "name_en": "Jewel Case"},
-		{"id": "digipak", "name_zh": "纸套包装 (Digipak)", "name_en": "Digipak"},
-		{"id": "steelbook", "name_zh": "限量铁盒 (Steelbook)", "name_en": "Steelbook"},
-		{"id": "box_set", "name_zh": "豪华精装盒 (Box Set)", "name_en": "Box Set"},
-		{"id": "gatefold", "name_zh": "黑胶折页 (Gatefold)", "name_en": "Gatefold"},
-		{"id": "slipcase", "name_zh": "考据收藏盒 (Slipcase)", "name_en": "Slipcase"},
-		{"id": "digital", "name_zh": "高解析数字母带 (Digital Master)", "name_en": "Digital Master"},
-	}
-
-	formats := []map[string]string{
-		{"id": "CD", "name": "CD (Compact Disc)"},
-		{"id": "Blu-ray", "name": "Blu-ray (BDMV)"},
-		{"id": "4K Ultra HD Blu-ray", "name": "4K Ultra HD Blu-ray"},
-		{"id": "Vinyl", "name": "Vinyl (12\" LP)"},
-		{"id": "SACD", "name": "SACD / DSD ISO"},
-		{"id": "Hi-Res FLAC", "name": "Hi-Res FLAC (24/192)"},
-		{"id": "DVD-Video", "name": "DVD-Video"},
-		{"id": "EPUB/PDF", "name": "EPUB / PDF"},
-		{"id": "Cassette", "name": "Cassette Tape"},
-	}
+	packagings := ontology.StandardPackagings(locale)
+	formats := ontology.StandardMediumFormats(locale)
+	mediaCategories := ontology.StandardMediaCategories(locale)
 
 	languages := []map[string]string{
 		{"code": "zh", "name": "中文 (Chinese)"},
@@ -253,16 +235,19 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"categories":   outCats,
-		"shelves":      rootShelves,
-		"tag_groups":   tagGroups,
-		"tags":         workTags,
-		"media_types":  mediaTypes,
-		"entity_types": entityTypes,
-		"roles":        roles,
-		"packagings":   packagings,
-		"formats":      formats,
-		"languages":    languages,
+		"categories":       outCats,
+		"shelves":          rootShelves,
+		"tag_groups":       tagGroups,
+		"tags":             workTags,
+		"media_types":      mediaTypes,
+		"media_categories": mediaCategories,
+		"entity_types":     entityTypes,
+		"roles":            roles,
+		"packagings":       packagings,
+		"packaging_types":  packagings,
+		"formats":          formats,
+		"medium_formats":   formats,
+		"languages":        languages,
 	})
 }
 

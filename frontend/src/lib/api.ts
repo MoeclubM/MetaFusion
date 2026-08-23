@@ -140,10 +140,13 @@ export interface TaxonomyResponse {
   tags?: Tag[];
   tag_groups?: Record<string, Tag[]>;
   media_types: DictTerm[];
+  media_categories?: DictTerm[];
   entity_types?: DictTerm[];
   roles: DictTerm[];
   packagings: DictTerm[];
-  formats: { id: string; name: string }[];
+  packaging_types?: DictTerm[];
+  formats: DictTerm[];
+  medium_formats?: DictTerm[];
   languages: { code: string; name: string }[];
 }
 
@@ -165,9 +168,12 @@ export type DictTerm = {
 
 export function dictTermLabel(code: string | undefined | null, terms?: DictTerm[] | null): string {
   if (!code) return '';
-  const hit = terms?.find((t) => t.id === code);
-  if (!hit) return code;
-  return (hit.name || hit.name_zh || hit.name_en || code).trim() || code;
+  const trimmed = code.trim();
+  if (!trimmed) return '';
+  const lower = trimmed.toLowerCase();
+  const hit = terms?.find((t) => t.id === trimmed || t.id.toLowerCase() === lower);
+  if (!hit) return trimmed;
+  return (hit.name || hit.name_zh || hit.name_en || trimmed).trim() || trimmed;
 }
 
 /** 四类编目枢纽；其余 code 都是主体（artists）上的动态 entity_type。 */

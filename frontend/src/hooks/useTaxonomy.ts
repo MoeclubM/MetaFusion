@@ -58,6 +58,8 @@ export function useTaxonomy() {
     loading,
     entityTypeLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.entity_types),
     roleLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.roles),
-    packagingLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.packagings),
+    packagingLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.packagings || taxonomy?.packaging_types),
+    mediumFormatLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.medium_formats || taxonomy?.formats),
+    mediaCategoryLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.media_categories || taxonomy?.media_types),
   };
 }

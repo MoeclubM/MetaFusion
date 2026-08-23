@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { fetchApi, Release, Work } from "@/lib/api";
-import { entryLabel, mediumLabel, entryRowHeader, formatMediaFormat, formatMediaCategory } from "@/lib/mediaLabels";
+import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
 import { useAuth } from "@/lib/authContext";
 import { usePlayer } from "@/lib/playerContext";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -25,7 +25,7 @@ export default function ReleaseDetailPage() {
   const { user } = useAuth();
   const { playTrack } = usePlayer();
   const { t, locale } = useI18n();
-  const { roleLabel, packagingLabel } = useTaxonomy();
+  const { roleLabel, packagingLabel, mediumFormatLabel, mediaCategoryLabel } = useTaxonomy();
   const [release, setRelease] = useState<ReleaseWithWork | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
@@ -184,8 +184,8 @@ export default function ReleaseDetailPage() {
               .map((med) => {
                 const tracks = med.tracks || [];
                 const files = med.asset_files || [];
-                const fLabel = formatMediaFormat(med.format, locale);
-                const cLabel = formatMediaCategory(med.media_category, locale);
+                const fLabel = mediumFormatLabel(med.format);
+                const cLabel = mediaCategoryLabel(med.media_category);
                 const specLabel = [fLabel, cLabel && cLabel !== fLabel ? cLabel : null].filter(Boolean).join(" · ");
                 return (
                   <section key={med.id} id={`medium-${med.id}`} className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
