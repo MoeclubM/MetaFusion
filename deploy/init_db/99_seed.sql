@@ -234,10 +234,13 @@ ON CONFLICT (code) DO UPDATE SET
 -- ------------------------------------------------------------------------------
 -- 4. 社区出厂初始指南与欢迎主题 (Initial Genesis Announcement & Site Guide)
 -- ------------------------------------------------------------------------------
+-- 清理旧版测试占位假连续 UUID
+DELETE FROM discussion_topics WHERE id = '00000000-0000-4000-8000-000000000001'::uuid;
+
 INSERT INTO discussion_topics (
     id, user_id, board_code, title, content, language, view_count, reply_count, is_pinned, pinned_at, created_at, updated_at
 ) VALUES (
-    '00000000-0000-4000-8000-000000000001',
+    'c4a8f921-6b3e-4d5a-9f12-8e7b3c2a1d0e',
     '00000000-0000-0000-0000-000000000001',
     'announcement',
     '欢迎来到 MetaFusion：新世代高保真多媒介数字馆藏与协作知识库',
@@ -290,8 +293,8 @@ ON CONFLICT (id) DO UPDATE SET
 INSERT INTO forum_posts (
     id, topic_id, post_number, user_id, content, created_at, updated_at
 ) VALUES (
-    '00000000-0000-4000-8000-000000000002',
-    '00000000-0000-4000-8000-000000000001',
+    'd5b9a032-7c4f-4e6b-a023-9f8c4d3b2e1f',
+    'c4a8f921-6b3e-4d5a-9f12-8e7b3c2a1d0e',
     1,
     '00000000-0000-0000-0000-000000000001',
     '# 欢迎来到 MetaFusion 数字档案与编目协作平台
@@ -333,7 +336,7 @@ ON CONFLICT (topic_id, post_number) DO UPDATE SET
 
 -- 欢迎贴多语言翻译 (en-US)
 INSERT INTO topic_translations (topic_id, locale, title, content) VALUES (
-    '00000000-0000-4000-8000-000000000001',
+    'c4a8f921-6b3e-4d5a-9f12-8e7b3c2a1d0e',
     'en-US',
     'Welcome to MetaFusion: Next-Gen Lossless Multi-Media Catalog & Knowledge Base',
     '# Welcome to MetaFusion Digital Archive & Cataloging Platform
@@ -366,7 +369,7 @@ ON CONFLICT (topic_id, locale) DO UPDATE SET
 
 -- 关联初始标签
 INSERT INTO topic_tag_relations (topic_id, tag_id)
-SELECT '00000000-0000-4000-8000-000000000001'::uuid, t.id
+SELECT 'c4a8f921-6b3e-4d5a-9f12-8e7b3c2a1d0e'::uuid, t.id
 FROM tags t
 WHERE t.name IN ('公告', '考据', '新人报到')
 ON CONFLICT DO NOTHING;

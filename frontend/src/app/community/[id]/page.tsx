@@ -7,6 +7,7 @@ import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
 import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
@@ -260,10 +261,10 @@ export default function TopicDetailPage() {
  <span className="text-gray-500 font-mono text-sm">#{opPost?.post_number ?? 1}</span>
  </div>
 
- {/* Post Body */}
- <div className="text-gray-700 dark:text-gray-200 text-sm leading-relaxed whitespace-pre-wrap font-sans py-1">
- {opPost?.content || topic.content}
- </div>
+   {/* Post Body */}
+   <div className="py-1">
+     <MarkdownRenderer content={opPost?.content || topic.content} />
+   </div>
 
  {/* Discourse Post Action Bar */}
  <div className="flex items-center justify-between pt-2.5 border-t border-surfaceBorder/60 text-gray-500">
@@ -356,9 +357,9 @@ export default function TopicDetailPage() {
  <span className="text-gray-500 font-mono text-sm">#{post.post_number}</span>
  </div>
 
- <div className="text-gray-700 dark:text-gray-200 text-sm leading-relaxed whitespace-pre-wrap py-1">
- {post.content}
- </div>
+   <div className="py-1">
+     <MarkdownRenderer content={post.content} />
+   </div>
 
  {/* Post Actions */}
  <div className="flex items-center justify-between pt-2.5 border-t border-surfaceBorder/60 text-gray-500">

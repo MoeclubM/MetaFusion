@@ -16,6 +16,7 @@ import {
   Quote,
   Code,
   List,
+  Sigma,
   X,
   Minimize2,
   Maximize2,
@@ -27,6 +28,7 @@ import {
   ChevronDown,
   Tag as TagIcon,
 } from "lucide-react";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -153,6 +155,14 @@ function MarkdownToolbar({
         title={t("community.list")}
       >
         <List className="w-3.5 h-3.5" />
+      </button>
+      <button
+        type="button"
+        onClick={() => wrapSelection("$", "$", t("community.mathPlaceholder") || "E=mc^2")}
+        className="p-1 hover:text-white rounded hover:bg-background"
+        title={t("community.math") || "LaTeX Formula"}
+      >
+        <Sigma className="w-3.5 h-3.5" />
       </button>
     </div>
   );
@@ -683,8 +693,8 @@ export default function PostComposer({
               onChange={(e) => setNewContent(e.target.value)}
               className="w-full h-full p-3.5 bg-background border border-surfaceBorder rounded-lg text-white text-sm focus:outline-none focus:border-gray-600 resize-none font-mono leading-relaxed overflow-y-auto"
             />
-            <div className="hidden md:block h-full p-3.5 bg-background/50 border border-surfaceBorder rounded-lg overflow-y-auto text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
-              {newContent ? newContent : <span className="text-gray-600 font-mono">{t("community.livePreview")}</span>}
+            <div className="hidden md:block h-full p-3.5 bg-background/50 border border-surfaceBorder rounded-lg overflow-y-auto">
+              {newContent ? <MarkdownRenderer content={newContent} /> : <span className="text-gray-600 font-mono">{t("community.livePreview")}</span>}
             </div>
           </div>
 
@@ -745,8 +755,8 @@ export default function PostComposer({
               onChange={(e) => setNewContent(e.target.value)}
               className="w-full h-full p-3.5 bg-background border border-surfaceBorder rounded-lg text-white text-sm focus:outline-none focus:border-gray-600 resize-none font-mono leading-relaxed overflow-y-auto"
             />
-            <div className="hidden md:block h-full p-3.5 bg-background/50 border border-surfaceBorder rounded-lg overflow-y-auto text-gray-300 text-sm leading-relaxed whitespace-pre-wrap">
-              {newContent ? newContent : <span className="text-gray-600 font-mono">{t("community.livePreview")}</span>}
+            <div className="hidden md:block h-full p-3.5 bg-background/50 border border-surfaceBorder rounded-lg overflow-y-auto">
+              {newContent ? <MarkdownRenderer content={newContent} /> : <span className="text-gray-600 font-mono">{t("community.livePreview")}</span>}
             </div>
           </div>
 

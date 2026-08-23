@@ -326,3 +326,23 @@ img, video { max-width: 100%; }
 /* Player offset — when GlobalAudioPlayer is mounted, main content needs bottom padding */
 body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 @media (max-width: 640px) { body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 112px; } }
+
+/* --- Markdown & KaTeX / Math Typography --- */
+.markdown-body {
+  word-wrap: break-word;
+}
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5rem 0;
+  margin: 0.75rem 0 !important;
+}
+.katex {
+  font-size: 1.05em;
+  text-rendering: auto;
+}
+.markdown-body pre code.hljs {
+  padding: 0;
+  background: transparent;
+}
+
