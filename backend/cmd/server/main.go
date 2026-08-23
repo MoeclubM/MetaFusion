@@ -60,22 +60,22 @@ func main() {
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
 	defer asynqClient.Close()
 
+	searchSvc, err := search.NewSearchService(cfg, db)
+	if err != nil {
+		log.Printf("Search service warning: %v", err)
+	}
+
 	// 3. 初始化各模块服务
 	authSvc := auth.NewAuthService(db, cfg)
 	catalogSvc := catalog.NewCatalogService(db)
 	communitySvc := community.NewCommunityService(db)
 	messageSvc := community.NewMessageService(db)
-	adminSvc := admin.NewAdminService(db)
+	adminSvc := admin.NewAdminService(db, searchSvc)
 	apiKeySvc := apikey.NewService(db)
 
 	storageSvc, err := storage.NewStorageService(cfg, db, asynqClient)
 	if err != nil {
 		log.Printf("Storage service warning: %v", err)
-	}
-
-	searchSvc, err := search.NewSearchService(cfg, db)
-	if err != nil {
-		log.Printf("Search service warning: %v", err)
 	}
 
 	// 4. 配置 Gin HTTP 路由器
@@ -562,6 +562,7 @@ func main() {
 			adminGroup.DELETE("/artists/:id", adminSvc.DeleteArtist)
 			adminGroup.GET("/franchises", catalogSvc.ListFranchises)
 			adminGroup.POST("/franchises", catalogSvc.CreateFranchiseForMember)
+			adminGroup.DELETE("/franchises/:id", adminSvc.DeleteFranchise)
 			adminGroup.GET("/canonical-entries", adminSvc.ListCanonicalEntries)
 			adminGroup.POST("/canonical-entries", adminSvc.CreateCanonicalEntry)
 			adminGroup.PUT("/canonical-entries/:id", adminSvc.UpdateCanonicalEntry)

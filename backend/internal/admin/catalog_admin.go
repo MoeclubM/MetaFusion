@@ -13,9 +13,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	catalogsvc "github.com/metafusion/metafusion-app/internal/catalog"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/ontology"
-	catalogsvc "github.com/metafusion/metafusion-app/internal/catalog"
+	"gorm.io/gorm"
 )
 
 func validateCoverURL(raw string) error {
@@ -135,10 +136,46 @@ func (s *AdminService) DeleteWork(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid work ID"})
 		return
 	}
-	if err := s.db.Where("id = ?", workID).Delete(&models.Work{}).Error; err != nil {
+
+	// 物理级联删除多态关系与关联数据
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// 1. 删除 entity_relationships (作为 source 或 target)
+		if err := tx.Where("(source_type = 'work' AND source_id = ?) OR (target_type = 'work' AND target_id = ?)", workID, workID).Delete(&models.EntityRelationship{}).Error; err != nil {
+			return err
+		}
+		// 2. 删除 asset_bindings (挂载到 work 的资产)
+		if err := tx.Where("target_entity_type = 'work' AND target_entity_id = ?", workID).Delete(&models.AssetBinding{}).Error; err != nil {
+			return err
+		}
+		// 3. 删除 favorites 收藏
+		if err := tx.Where("target_type = 'work' AND target_id = ?", workID).Delete(&models.Favorite{}).Error; err != nil {
+			return err
+		}
+		// 4. 删除 work_translations 多语言翻译
+		if err := tx.Where("work_id = ?", workID).Delete(&models.WorkTranslation{}).Error; err != nil {
+			return err
+		}
+		// 5. 删除 work_tag_relations 关联
+		if err := tx.Exec("DELETE FROM work_tag_relations WHERE work_id = ?", workID).Error; err != nil {
+			return err
+		}
+		// 6. 删除主体 Work
+		if err := tx.Where("id = ?", workID).Delete(&models.Work{}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 同步从 OpenSearch 中删除索引文档
+	if s.search != nil {
+		_ = s.search.DeleteWorkDoc(c.Request.Context(), workID)
+	}
+
 	writeAudit(s.db, c, "work.delete", "work", workID.String(), nil)
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
@@ -262,11 +299,87 @@ func (s *AdminService) DeleteArtist(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid artist ID"})
 		return
 	}
-	if err := s.db.Where("id = ?", artistID).Delete(&models.Artist{}).Error; err != nil {
+
+	// 物理级联删除多态关系与关联数据
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// 1. 删除 entity_relationships (作为 source 或 target)
+		if err := tx.Where("(source_type = 'artist' AND source_id = ?) OR (target_type = 'artist' AND target_id = ?)", artistID, artistID).Delete(&models.EntityRelationship{}).Error; err != nil {
+			return err
+		}
+		// 2. 删除 asset_bindings (挂载到 artist 的资产)
+		if err := tx.Where("target_entity_type = 'artist' AND target_entity_id = ?", artistID).Delete(&models.AssetBinding{}).Error; err != nil {
+			return err
+		}
+		// 3. 删除 favorites 收藏
+		if err := tx.Where("target_type = 'artist' AND target_id = ?", artistID).Delete(&models.Favorite{}).Error; err != nil {
+			return err
+		}
+		// 4. 删除 artist_translations 多语言翻译
+		if err := tx.Where("artist_id = ?", artistID).Delete(&models.ArtistTranslation{}).Error; err != nil {
+			return err
+		}
+		// 5. 删除 work_artist_relations 关联
+		if err := tx.Where("artist_id = ?", artistID).Delete(&models.WorkArtistRelation{}).Error; err != nil {
+			return err
+		}
+		// 6. 删除主体 Artist
+		if err := tx.Where("id = ?", artistID).Delete(&models.Artist{}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	writeAudit(s.db, c, "artist.delete", "artist", artistID.String(), nil)
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func (s *AdminService) DeleteFranchise(c *gin.Context) {
+	franchiseID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid franchise ID"})
+		return
+	}
+
+	// 物理级联删除多态关系与关联数据
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// 1. 删除 entity_relationships (作为 source 或 target)
+		if err := tx.Where("(source_type = 'franchise' AND source_id = ?) OR (target_type = 'franchise' AND target_id = ?)", franchiseID, franchiseID).Delete(&models.EntityRelationship{}).Error; err != nil {
+			return err
+		}
+		// 2. 删除 asset_bindings (挂载到 franchise 的资产)
+		if err := tx.Where("target_entity_type = 'franchise' AND target_entity_id = ?", franchiseID).Delete(&models.AssetBinding{}).Error; err != nil {
+			return err
+		}
+		// 3. 删除 favorites 收藏
+		if err := tx.Where("target_type = 'franchise' AND target_id = ?", franchiseID).Delete(&models.Favorite{}).Error; err != nil {
+			return err
+		}
+		// 4. 删除 franchise_translations 多语言翻译
+		if err := tx.Where("franchise_id = ?", franchiseID).Delete(&models.FranchiseTranslation{}).Error; err != nil {
+			return err
+		}
+		// 5. 删除 franchise_tag_relations 关联
+		if err := tx.Exec("DELETE FROM franchise_tag_relations WHERE franchise_id = ?", franchiseID).Error; err != nil {
+			return err
+		}
+		// 6. 删除主体 Franchise
+		if err := tx.Where("id = ?", franchiseID).Delete(&models.Franchise{}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	writeAudit(s.db, c, "franchise.delete", "franchise", franchiseID.String(), nil)
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 

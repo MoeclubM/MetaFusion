@@ -8,15 +8,21 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/metafusion/metafusion-app/internal/models"
+	"github.com/metafusion/metafusion-app/internal/search"
 	"gorm.io/gorm"
 )
 
 type AdminService struct {
-	db *gorm.DB
+	db     *gorm.DB
+	search *search.SearchService
 }
 
-func NewAdminService(db *gorm.DB) *AdminService {
-	return &AdminService{db: db}
+func NewAdminService(db *gorm.DB, searchSvc ...*search.SearchService) *AdminService {
+	svc := &AdminService{db: db}
+	if len(searchSvc) > 0 {
+		svc.search = searchSvc[0]
+	}
+	return svc
 }
 
 // GetStats 获取全站运行指标统计
