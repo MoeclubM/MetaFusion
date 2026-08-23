@@ -34,6 +34,7 @@ type WorkPreview struct {
 	CoverAspect      string            `json:"cover_aspect"` // "1:1", "2:3", "3:4", "16:9"
 	ContentRating    string            `json:"content_rating"`
 	Tags             []string          `json:"tags"`
+	ExternalIDs      models.JSONB      `json:"external_ids"`
 	Translations     []TranslationItem `json:"translations"`
 	CatalogMetadata  models.JSONB      `json:"catalog_metadata"`
 }
@@ -84,6 +85,7 @@ type ReleasePreview struct {
 	DistributionChannel string       `json:"distribution_channel"`
 	EditionDate         string       `json:"edition_date"`
 	Notes               string       `json:"notes"`
+	ExternalIDs         models.JSONB `json:"external_ids"`
 	CatalogMetadata     models.JSONB `json:"catalog_metadata"`
 }
 

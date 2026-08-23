@@ -144,12 +144,13 @@ func (s *CatalogService) GetFranchiseDetail(c *gin.Context) {
 
 	inc := parseInc(c.Query("inc"))
 	out := gin.H{
-		"franchise": fr,
-		"parents":   parents,
-		"children":  children,
-		"works":     works,
-		"agents":    agents,
+		"franchise":          fr,
+		"parents":            parents,
+		"children":           children,
+		"works":              works,
+		"agents":             agents,
 		"connected_entities": connected,
+		"external_links":     s.buildExternalLinks(locale, "franchise", fr.ExternalIDs),
 	}
 	if inc["relations"] || inc["rels"] {
 		out["relations"] = rels

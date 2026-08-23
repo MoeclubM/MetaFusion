@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
+import { useI18n } from "@/i18n/I18nProvider";
 
 const PROTECTED_PREFIXES = [
   "/admin",
@@ -22,6 +23,7 @@ function isProtectedPath(pathname: string | null): boolean {
 
 export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
 
@@ -39,7 +41,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <div className="min-h-screen bg-background grid place-items-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-          <span className="font-mono text-xs text-gray-500 tracking-wider">METAFUSION INITIALIZING...</span>
+          <span className="font-mono text-xs text-gray-500 tracking-wider">{t("auth.initializing")}</span>
         </div>
       </div>
     );

@@ -16,6 +16,7 @@ import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import { MultipartUploader } from "@/components/MultipartUploader";
 import FavoriteButton from "@/components/FavoriteButton";
+import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 
 type ReleaseWithWork = Release & { work?: Work };
 
@@ -207,10 +208,10 @@ export default function ReleaseDetailPage() {
                             setIsUploadOpen(true);
                           }}
                           className="px-2.5 h-6.5 rounded-md bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all text-xs font-mono inline-flex items-center gap-1"
-                          title="独立上传原档资产至本介质"
+                          title={t("release.detail.uploadToMedium")}
                         >
                           <HardDrive className="w-3 h-3" />
-                          <span>上传至此介质</span>
+                          <span>{t("release.detail.uploadToMedium")}</span>
                         </button>
                         <a href={`#medium-${med.id}`} className="font-mono text-[10px] text-gray-400 hover:text-primary">
                           #{med.id.slice(0, 8)}

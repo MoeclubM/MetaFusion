@@ -50,16 +50,21 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 	userIDVal, _ := c.Get("userID")
 	uid, _ := userIDVal.(uuid.UUID)
 	var input struct {
-		Title         string                 `json:"title" binding:"required"`
-		OriginalTitle string                 `json:"original_title"`
-		Summary       string                 `json:"summary"`
-		CoverImageURL string                 `json:"cover_image_url"`
-		CoverAspect   string                 `json:"cover_aspect"`
+		Title           string                 `json:"title" binding:"required"`
+		OriginalTitle   string                 `json:"original_title"`
+		Summary         string                 `json:"summary"`
+		CoverImageURL   string                 `json:"cover_image_url"`
+		CoverAspect     string                 `json:"cover_aspect"`
+		ExternalIDs     map[string]interface{} `json:"external_ids"`
 		CatalogMetadata map[string]interface{} `json:"catalog_metadata"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	extIDs := models.JSONB{}
+	if input.ExternalIDs != nil {
+		extIDs = models.JSONB(input.ExternalIDs)
 	}
 	work := models.Work{
 		Title:           strings.TrimSpace(input.Title),
@@ -68,6 +73,7 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 		CoverImageURL:   input.CoverImageURL,
 		CoverAspect:     catalogsvc.NormalizeCoverAspect(input.CoverAspect),
 		Status:          models.WorkStatusPendingReview,
+		ExternalIDs:     extIDs,
 		CatalogMetadata: models.JSONB(input.CatalogMetadata),
 		CreatedBy:       &uid,
 	}
@@ -96,7 +102,7 @@ func (s *AdminService) UpdateWork(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	allowed := map[string]bool{"title": true, "original_title": true, "summary": true, "cover_image_url": true, "cover_aspect": true, "catalog_metadata": true, "status": true, "content_rating": true}
+	allowed := map[string]bool{"title": true, "original_title": true, "summary": true, "cover_image_url": true, "cover_aspect": true, "external_ids": true, "catalog_metadata": true, "status": true, "content_rating": true}
 	updates := map[string]interface{}{}
 	for k, v := range input {
 		if allowed[k] {
@@ -387,14 +393,19 @@ func (s *AdminService) CreateRelease(c *gin.Context) {
 	userIDVal, _ := c.Get("userID")
 	uid, _ := userIDVal.(uuid.UUID)
 	var input struct {
-		WorkID        uuid.UUID  `json:"work_id" binding:"required"`
-		PublisherID   *uuid.UUID `json:"publisher_id"`
-		EditionName   string     `json:"edition_name" binding:"required"`
-		CatalogNumber string     `json:"catalog_number"`
-		Barcode       string     `json:"barcode"`
-		Publisher     string     `json:"publisher"`
-		Packaging     string     `json:"packaging"`
-		Notes         string     `json:"notes"`
+		WorkID              uuid.UUID              `json:"work_id" binding:"required"`
+		PublisherID         *uuid.UUID             `json:"publisher_id"`
+		EditionName         string                 `json:"edition_name" binding:"required"`
+		CatalogNumber       string                 `json:"catalog_number"`
+		Barcode             string                 `json:"barcode"`
+		Publisher           string                 `json:"publisher"`
+		Packaging           string                 `json:"packaging"`
+		Country             string                 `json:"country"`
+		Language            string                 `json:"language"`
+		DistributionChannel string                 `json:"distribution_channel"`
+		ExternalIDs         map[string]interface{} `json:"external_ids"`
+		CatalogMetadata     map[string]interface{} `json:"catalog_metadata"`
+		Notes               string                 `json:"notes"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -409,17 +420,27 @@ func (s *AdminService) CreateRelease(c *gin.Context) {
 		}
 	}
 
+	extIDs := models.JSONB{}
+	if input.ExternalIDs != nil {
+		extIDs = models.JSONB(input.ExternalIDs)
+	}
+
 	release := models.Release{
-		WorkID:           input.WorkID,
-		PublisherID:      input.PublisherID,
-		EditionName:      input.EditionName,
-		CatalogNumber:    input.CatalogNumber,
-		Barcode:          input.Barcode,
-		Publisher:        publisherName,
-		Packaging:        input.Packaging,
-		Notes:            input.Notes,
-		UploaderID:       &uid,
-		IsMasterVerified: false,
+		WorkID:              input.WorkID,
+		PublisherID:         input.PublisherID,
+		EditionName:         input.EditionName,
+		CatalogNumber:       input.CatalogNumber,
+		Barcode:             input.Barcode,
+		Publisher:           publisherName,
+		Packaging:           input.Packaging,
+		Country:             strings.TrimSpace(input.Country),
+		Language:            strings.TrimSpace(input.Language),
+		DistributionChannel: input.DistributionChannel,
+		ExternalIDs:         extIDs,
+		CatalogMetadata:     models.JSONB(input.CatalogMetadata),
+		Notes:               input.Notes,
+		UploaderID:          &uid,
+		IsMasterVerified:    false,
 	}
 	if release.Packaging == "" {
 		release.Packaging = "box_set"
@@ -444,9 +465,9 @@ func (s *AdminService) UpdateRelease(c *gin.Context) {
 		return
 	}
 	allowed := map[string]bool{
-	"edition_name": true, "catalog_number": true, "barcode": true,
-			"publisher": true, "publisher_id": true, "packaging": true, "notes": true,
-			"country": true, "language": true, "distribution_channel": true, "catalog_metadata": true,
+		"edition_name": true, "catalog_number": true, "barcode": true,
+		"publisher": true, "publisher_id": true, "packaging": true, "notes": true,
+		"country": true, "language": true, "distribution_channel": true, "external_ids": true, "catalog_metadata": true,
 	}
 	updates := map[string]interface{}{}
 	for k, v := range input {

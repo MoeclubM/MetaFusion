@@ -429,6 +429,9 @@ func FetchMusicBrainzPreview(ctx context.Context, input string) (*PreviewRespons
 			CoverAspect:      "1:1",
 			ContentRating:    "General",
 			Tags:             tags,
+			ExternalIDs: models.JSONB{
+				"musicbrainz": data.ReleaseGroup.ID,
+			},
 			Translations: []TranslationItem{
 				{
 					Locale:  "zh-CN",
@@ -458,6 +461,9 @@ func FetchMusicBrainzPreview(ctx context.Context, input string) (*PreviewRespons
 			DistributionChannel: "physical",
 			EditionDate:         releaseDate,
 			Notes:               fmt.Sprintf("Imported from MusicBrainz (Release MBID: %s)", data.ID),
+			ExternalIDs: models.JSONB{
+				"musicbrainz": data.ID,
+			},
 			CatalogMetadata: models.JSONB{
 				"musicbrainz_release_id": data.ID,
 			},

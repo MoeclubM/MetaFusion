@@ -479,6 +479,7 @@
   "admin.sidebar.itemAssets": "Asset Files",
   "admin.sidebar.itemAgents": "Artists & Creators",
   "admin.sidebar.itemEntityTypes": "Entity Types",
+  "admin.sidebar.itemExternalDatabases": "External Databases",
   "admin.sidebar.itemRelationships": "Entity Graph",
   "admin.sidebar.itemShelves": "Featured Shelves",
   "admin.sidebar.itemUsers": "Users & Roles",

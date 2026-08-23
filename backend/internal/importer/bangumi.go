@@ -355,6 +355,7 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 			CoverAspect:      coverAspect,
 			ContentRating:    "General",
 			Tags:             tags,
+			ExternalIDs:      models.JSONB{"bangumi": strconv.Itoa(data.ID)},
 			Translations: []TranslationItem{
 				{Locale: "zh-CN", Title: workTitle, Summary: data.Summary},
 				{Locale: "ja", Title: origTitle, Summary: data.Summary},
@@ -372,6 +373,7 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 			DistributionChannel: "mixed",
 			EditionDate:         data.Date,
 			Notes:               fmt.Sprintf("Imported from Bangumi (Subject ID: %d)", data.ID),
+			ExternalIDs:         models.JSONB{"bangumi": strconv.Itoa(data.ID)},
 			CatalogMetadata:     extIDs,
 		},
 		Mediums: mediums,

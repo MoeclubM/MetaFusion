@@ -133,7 +133,7 @@ export default function ContributeHubPage() {
         {/* Manual Creation Cards */}
         <div className="space-y-2">
           <div className="text-xs font-mono text-gray-400 uppercase tracking-wider font-semibold">
-            手动编目入库 (Manual Cataloging)
+            {t("create.hub.manualSectionTitle")}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
             {cards.map((c) => {

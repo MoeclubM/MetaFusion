@@ -15,6 +15,7 @@ func applySchemaPatches(db *gorm.DB) {
 	migrateHardClassificationToTags(db)
 	restoreSeedShelfQueryTagsIfClobbered(db)
 	migrateCarrierTagsOffWorks(db)
+	migrateLegacyExternalIDs(db)
 
 	stmts := []string{
 		`ALTER TABLE entity_relationships ADD COLUMN IF NOT EXISTS qualifier VARCHAR(64) NOT NULL DEFAULT ''`,
@@ -22,12 +23,16 @@ func applySchemaPatches(db *gorm.DB) {
 		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS language VARCHAR(64) DEFAULT ''`,
 		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS distribution_channel VARCHAR(32) DEFAULT 'mixed' NOT NULL`,
 		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS catalog_metadata JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS external_ids JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE works ALTER COLUMN category_code DROP NOT NULL`,
 		`ALTER TABLE works ALTER COLUMN category_code SET DEFAULT ''`,
+		`ALTER TABLE works ADD COLUMN IF NOT EXISTS external_ids JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE artists ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
 		`ALTER TABLE franchises ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
 		`ALTER TABLE works ADD COLUMN IF NOT EXISTS cover_aspect VARCHAR(8) DEFAULT '' NOT NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_custom_shelves_owner_slug ON user_custom_shelves(owner_id, slug)`,
+		`CREATE INDEX IF NOT EXISTS idx_works_external_ids_gin ON works USING GIN (external_ids)`,
+		`CREATE INDEX IF NOT EXISTS idx_releases_external_ids_gin ON releases USING GIN (external_ids)`,
 	}
 	for _, s := range stmts {
 		if err := db.Exec(s).Error; err != nil {
@@ -398,4 +403,27 @@ SET order_json = COALESCE((
 	WHERE elem <> 'special-hires'
 ), '[]'::jsonb)
 WHERE order_json @> '["special-hires"]'::jsonb`).Error
+}
+
+func migrateLegacyExternalIDs(db *gorm.DB) {
+	if columnExists(db, "works", "external_ids") && columnExists(db, "works", "catalog_metadata") {
+		_ = db.Exec(`
+			UPDATE works
+			SET external_ids = catalog_metadata->'external_ids'
+			WHERE (external_ids = '{}'::jsonb OR external_ids IS NULL)
+			  AND catalog_metadata ? 'external_ids'
+			  AND jsonb_typeof(catalog_metadata->'external_ids') = 'object'
+			  AND catalog_metadata->'external_ids' <> '{}'::jsonb
+		`).Error
+	}
+	if columnExists(db, "releases", "external_ids") && columnExists(db, "releases", "catalog_metadata") {
+		_ = db.Exec(`
+			UPDATE releases
+			SET external_ids = catalog_metadata->'external_ids'
+			WHERE (external_ids = '{}'::jsonb OR external_ids IS NULL)
+			  AND catalog_metadata ? 'external_ids'
+			  AND jsonb_typeof(catalog_metadata->'external_ids') = 'object'
+			  AND catalog_metadata->'external_ids' <> '{}'::jsonb
+		`).Error
+	}
 }

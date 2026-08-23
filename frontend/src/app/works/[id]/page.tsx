@@ -20,6 +20,7 @@ import { EntityCover } from "@/components/common/EntityCover";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { GroupedRelations } from "@/components/entity/RelationsList";
+import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 export default function WorkDirectoryPage() {
  const params = useParams();
  const workId = params.id as string;
@@ -202,6 +203,17 @@ export default function WorkDirectoryPage() {
 	 </Link>
 	 ))}
 	 </div>
+	 )}
+
+	 {/* 外部权威数据库互联 */}
+	 {(work.external_links?.length || (work.external_ids && Object.keys(work.external_ids).length > 0)) && (
+	   <div className="pt-1">
+	     <ExternalAuthorityLinks
+	       externalIds={work.external_ids}
+	       externalLinks={work.external_links}
+	       category="work"
+	     />
+	   </div>
 	 )}
 
  {/* Action Toolbar */}

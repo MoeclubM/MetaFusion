@@ -412,6 +412,7 @@ func main() {
 		{
 			catGroup.GET("/taxonomy", catalogSvc.GetTaxonomy)
 			catGroup.GET("/relation-types", catalogSvc.ListRelationTypes)
+			catGroup.GET("/external-databases", catalogSvc.ListExternalDatabases)
 			catGroup.GET("/shelves", catalogSvc.ListShelves)
 			catGroup.GET("/categories", catalogSvc.ListCategories)
 			catGroup.GET("/tags", catalogSvc.ListTags)
@@ -474,6 +475,9 @@ func main() {
 			importerGroup.POST("/preview", auth.OptionalUnifiedAuthMiddleware(cfg, db), importerSvc.PreviewHandler)
 			importerGroup.POST("/import", auth.UnifiedAuthMiddleware(cfg, db), importerSvc.ImportHandler)
 		}
+
+		// ── 元数据项目公开定义（外部数据库定义） ──
+		api.GET("/metadata/external-databases", catalogSvc.ListExternalDatabases)
 
 		// ── 插件中心公开接口与数据导出 ──
 		api.GET("/plugins", auth.OptionalUnifiedAuthMiddleware(cfg, db), pluginHandler.ListPublicPlugins)
@@ -691,6 +695,11 @@ func main() {
 				adminGroup.POST("/entity-types", adminSvc.CreateEntityType)
 				adminGroup.PUT("/entity-types/:code", adminSvc.UpdateEntityType)
 				adminGroup.DELETE("/entity-types/:code", adminSvc.DeleteEntityType)
+				// 外部权威数据库项目管理
+				adminGroup.GET("/external-databases", adminSvc.ListExternalDatabasesAdmin)
+				adminGroup.POST("/external-databases", adminSvc.CreateExternalDatabase)
+				adminGroup.PUT("/external-databases/:code", adminSvc.UpdateExternalDatabase)
+				adminGroup.DELETE("/external-databases/:code", adminSvc.DeleteExternalDatabase)
 			// 内容多语言翻译
 			adminGroup.GET("/translations/works/:id", adminSvc.ListWorkTranslations)
 			adminGroup.PUT("/translations/works/:id", adminSvc.UpsertWorkTranslations)

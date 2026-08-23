@@ -7,6 +7,7 @@ import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import { Check, Copy, ExternalLink } from "lucide-react";
+import { useI18n } from "@/i18n/I18nProvider";
 
 import "katex/dist/katex.min.css";
 import "highlight.js/styles/github-dark.css";
@@ -44,6 +45,7 @@ function CodeBlockWrapper({
   code: string;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -64,17 +66,17 @@ function CodeBlockWrapper({
           type="button"
           onClick={handleCopy}
           className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 text-gray-300 hover:text-white transition-colors cursor-pointer text-[11px]"
-          title="Copy code"
+          title={t("common.copy")}
         >
           {copied ? (
             <>
               <Check className="w-3 h-3 text-emerald-400" />
-              <span className="text-emerald-400 font-medium">Copied</span>
+              <span className="text-emerald-400 font-medium">{t("common.copied")}</span>
             </>
           ) : (
             <>
               <Copy className="w-3 h-3" />
-              <span>Copy</span>
+              <span>{t("common.copy")}</span>
             </>
           )}
         </button>

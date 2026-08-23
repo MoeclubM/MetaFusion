@@ -1,38 +1,38 @@
+import { getMessages, translate } from "@/i18n/getMessages";
+
 export type MediaType = "movie" | "tv_series" | "anime" | "music" | "audiobook" | "novel" | "comic" | "gallery" | string;
 
 export function mediumLabel(mediaType: MediaType, t?: (k: string) => string): string {
-  if (t) {
-    switch (mediaType) {
-      case "movie": case "anime": case "tv_series": return t("media.disc");
-      case "music": case "audiobook": return t("media.disc");
-      case "novel": return t("media.volume");
-      case "comic": return t("media.reel");
-      case "gallery": return t("media.volume");
-      default: return t("media.carrier");
-    }
+  const trans = t || ((k: string) => translate(getMessages(), k));
+  switch (mediaType) {
+    case "movie": case "anime": case "tv_series": return trans("media.disc");
+    case "music": case "audiobook": return trans("media.disc");
+    case "novel": return trans("media.volume");
+    case "comic": return trans("media.reel");
+    case "gallery": return trans("media.volume");
+    default: return trans("media.carrier");
   }
-  return "载体";
 }
 
 export function entryLabel(mediaType: MediaType, t?: (k: string) => string): string {
-  if (t) {
-    switch (mediaType) {
-      case "music": case "audiobook": return t("media.track");
-      case "movie": case "tv_series": case "anime": return t("media.episode");
-      case "novel": return t("media.chapter");
-      case "comic": return t("media.talk");
-      case "gallery": return t("media.page");
-      default: return t("media.entry");
-    }
+  const trans = t || ((k: string) => translate(getMessages(), k));
+  switch (mediaType) {
+    case "music": case "audiobook": return trans("media.track");
+    case "movie": case "tv_series": case "anime": return trans("media.episode");
+    case "novel": return trans("media.chapter");
+    case "comic": return trans("media.talk");
+    case "gallery": return trans("media.page");
+    default: return trans("media.entry");
   }
-  return "条目";
 }
 
 export function carrierLabel(t?: (k: string, v?: Record<string, string|number>) => string): string {
-  return t ? t("media.carrierLabel") : "载体";
+  const trans = t || ((k: string, v?: Record<string, string|number>) => translate(getMessages(), k, v));
+  return trans("media.carrierLabel");
 }
 
 export function entryRowHeader(mediaType: MediaType, t?: (k: string, v?: Record<string, string|number>) => string): string {
+  const trans = t || ((k: string, v?: Record<string, string|number>) => translate(getMessages(), k, v));
   const label = entryLabel(mediaType, t as any);
-  return t ? t("media.entryRow", { label }) : `${label} / 母版条目`;
+  return trans("media.entryRow", { label });
 }

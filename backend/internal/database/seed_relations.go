@@ -125,7 +125,179 @@ func seedRelationTypes(db *gorm.DB) {
 	}).Error
 }
 
+func seedExternalDatabaseDefinitions(db *gorm.DB) {
+	defs := []models.ExternalDatabaseDefinition{
+		{
+			Code: "wikipedia", NameZh: "维基百科", NameEn: "Wikipedia",
+			Names: models.JSONB{"zh-CN": "维基百科", "en-US": "Wikipedia", "ja": "ウィキペディア"},
+			Category: "all", URLPattern: "https://zh.wikipedia.org/wiki/{id}",
+			Icon: "Globe", ValidationRegex: "",
+			Description: "全球多语言自由百科全书（填词条标题或完整 URL）",
+			SortOrder: 10, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "wikidata", NameZh: "维基数据", NameEn: "Wikidata",
+			Names: models.JSONB{"zh-CN": "维基数据", "en-US": "Wikidata"},
+			Category: "all", URLPattern: "https://www.wikidata.org/wiki/{id}",
+			Icon: "Database", ValidationRegex: `^Q\d+$`,
+			Description: "维基媒体结构化知识图谱实体项 (如 Q11303)",
+			SortOrder: 20, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "musicbrainz", NameZh: "MusicBrainz", NameEn: "MusicBrainz",
+			Names: models.JSONB{"zh-CN": "MusicBrainz", "en-US": "MusicBrainz"},
+			Category: "all", URLPattern: "https://musicbrainz.org/release-group/{id}",
+			Icon: "Disc3", ValidationRegex: `^[0-9a-fA-F\-]{36}$`,
+			Description: "开放音乐元数据百科全书 (MBID UUID)",
+			SortOrder: 30, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "discogs", NameZh: "Discogs", NameEn: "Discogs",
+			Names: models.JSONB{"zh-CN": "Discogs", "en-US": "Discogs"},
+			Category: "all", URLPattern: "https://www.discogs.com/master/{id}",
+			Icon: "Disc", ValidationRegex: `^\d+$`,
+			Description: "全球权威黑胶与实体唱片数据库 (Master/Release ID)",
+			SortOrder: 40, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "vgmdb", NameZh: "VGMdb", NameEn: "VGMdb",
+			Names: models.JSONB{"zh-CN": "VGMdb", "en-US": "VGMdb"},
+			Category: "all", URLPattern: "https://vgmdb.net/album/{id}",
+			Icon: "Music2", ValidationRegex: `^\d+$`,
+			Description: "电子游戏与动漫原声音乐专题数据库",
+			SortOrder: 50, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "spotify", NameZh: "Spotify", NameEn: "Spotify",
+			Names: models.JSONB{"zh-CN": "Spotify", "en-US": "Spotify"},
+			Category: "all", URLPattern: "https://open.spotify.com/album/{id}",
+			Icon: "PlayCircle", ValidationRegex: `^[0-9A-Za-z]{22}$`,
+			Description: "全球流媒体音乐服务平台 (Album / Artist ID)",
+			SortOrder: 60, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "apple_music", NameZh: "Apple Music", NameEn: "Apple Music",
+			Names: models.JSONB{"zh-CN": "Apple Music", "en-US": "Apple Music"},
+			Category: "all", URLPattern: "https://music.apple.com/album/{id}",
+			Icon: "Apple", ValidationRegex: `^\d+$`,
+			Description: "苹果音乐数字专辑与创作者页面",
+			SortOrder: 70, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "imdb", NameZh: "IMDb", NameEn: "IMDb",
+			Names: models.JSONB{"zh-CN": "IMDb 互联网电影资料库", "en-US": "IMDb"},
+			Category: "work", URLPattern: "https://www.imdb.com/title/{id}/",
+			Icon: "Film", ValidationRegex: `^tt\d+$`,
+			Description: "全球权威互联网电影资料库 (如 tt0816692 / nm0000001)",
+			SortOrder: 80, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "tmdb", NameZh: "TMDB", NameEn: "The Movie Database",
+			Names: models.JSONB{"zh-CN": "TMDB 影视数据库", "en-US": "The Movie Database"},
+			Category: "work", URLPattern: "https://www.themoviedb.org/movie/{id}",
+			Icon: "Clapperboard", ValidationRegex: `^\d+$`,
+			Description: "开放社区影视元数据与海报媒体库",
+			SortOrder: 90, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "douban_movie", NameZh: "豆瓣电影", NameEn: "Douban Movie",
+			Names: models.JSONB{"zh-CN": "豆瓣电影", "en-US": "Douban Movie"},
+			Category: "work", URLPattern: "https://movie.douban.com/subject/{id}/",
+			Icon: "Tv", ValidationRegex: `^\d+$`,
+			Description: "中文影视与文化评论社区 (条目 ID)",
+			SortOrder: 100, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "bangumi", NameZh: "Bangumi 番组计划", NameEn: "Bangumi",
+			Names: models.JSONB{"zh-CN": "Bangumi 番组计划", "en-US": "Bangumi"},
+			Category: "all", URLPattern: "https://bgm.tv/subject/{id}",
+			Icon: "Tv2", ValidationRegex: `^\d+$`,
+			Description: "中文 ACG 二次元动画/漫画/游戏/音乐条目索引",
+			SortOrder: 110, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "vndb", NameZh: "VNDB 视觉小说数据库", NameEn: "Visual Novel Database",
+			Names: models.JSONB{"zh-CN": "VNDB 视觉小说数据库", "en-US": "VNDB"},
+			Category: "work", URLPattern: "https://vndb.org/v{id}",
+			Icon: "BookHeart", ValidationRegex: `^v?\d+$`,
+			Description: "全球权威视觉小说条目数据库 (如 v17)",
+			SortOrder: 120, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "steam", NameZh: "Steam", NameEn: "Steam",
+			Names: models.JSONB{"zh-CN": "Steam 游戏商店", "en-US": "Steam"},
+			Category: "work", URLPattern: "https://store.steampowered.com/app/{id}",
+			Icon: "Gamepad2", ValidationRegex: `^\d+$`,
+			Description: "Valve 旗下一体化数字游戏分发与社群平台 (App ID)",
+			SortOrder: 130, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "anilist", NameZh: "AniList", NameEn: "AniList",
+			Names: models.JSONB{"zh-CN": "AniList", "en-US": "AniList"},
+			Category: "all", URLPattern: "https://anilist.co/anime/{id}",
+			Icon: "Sparkles", ValidationRegex: `^\d+$`,
+			Description: "现代动画与漫画社交追踪数据库",
+			SortOrder: 140, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "goodreads", NameZh: "Goodreads", NameEn: "Goodreads",
+			Names: models.JSONB{"zh-CN": "Goodreads", "en-US": "Goodreads"},
+			Category: "work", URLPattern: "https://www.goodreads.com/book/show/{id}",
+			Icon: "BookOpen", ValidationRegex: `^\d+.*$`,
+			Description: "全球读者书评与阅读记录平台",
+			SortOrder: 150, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "douban_book", NameZh: "豆瓣读书", NameEn: "Douban Book",
+			Names: models.JSONB{"zh-CN": "豆瓣读书", "en-US": "Douban Book"},
+			Category: "work", URLPattern: "https://book.douban.com/subject/{id}/",
+			Icon: "Book", ValidationRegex: `^\d+$`,
+			Description: "中文书籍条目与读书笔记社区",
+			SortOrder: 160, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "isbndb", NameZh: "ISBNdb", NameEn: "ISBNdb",
+			Names: models.JSONB{"zh-CN": "ISBNdb 国际标准书号库", "en-US": "ISBNdb"},
+			Category: "release", URLPattern: "https://isbndb.com/book/{id}",
+			Icon: "Barcode", ValidationRegex: `^[0-9\-]{10,17}$`,
+			Description: "国际标准书号全球注册库 (ISBN-10 / ISBN-13)",
+			SortOrder: 170, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "isni", NameZh: "ISNI 国际标准名称标识", NameEn: "ISNI",
+			Names: models.JSONB{"zh-CN": "ISNI 国际标准名称标识", "en-US": "ISNI"},
+			Category: "artist", URLPattern: "https://isni.org/isni/{id}",
+			Icon: "UserCheck", ValidationRegex: `^\d{15}[\dX]$`,
+			Description: "ISO 国际标准名称标识符 (16 位数字或 X)",
+			SortOrder: 180, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "orcid", NameZh: "ORCID 学术学者标识", NameEn: "ORCID",
+			Names: models.JSONB{"zh-CN": "ORCID 学者标识", "en-US": "ORCID"},
+			Category: "artist", URLPattern: "https://orcid.org/{id}",
+			Icon: "GraduationCap", ValidationRegex: `^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$`,
+			Description: "全球科研人员与学者开放唯一标识符",
+			SortOrder: 190, IsEnabled: true, IsSystem: true,
+		},
+		{
+			Code: "twitter_x", NameZh: "X (Twitter)", NameEn: "X (Twitter)",
+			Names: models.JSONB{"zh-CN": "X (原 Twitter)", "en-US": "X (Twitter)"},
+			Category: "artist", URLPattern: "https://x.com/{id}",
+			Icon: "AtSign", ValidationRegex: `^[A-Za-z0-9_]{1,15}$`,
+			Description: "官方社交媒体账号 ID",
+			SortOrder: 200, IsEnabled: true, IsSystem: true,
+		},
+	}
+	for _, def := range defs {
+		_ = db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "code"}},
+			DoUpdates: clause.AssignmentColumns([]string{"name_zh", "name_en", "names", "category", "url_pattern", "icon", "validation_regex", "description", "sort_order", "is_system"}),
+		}).Create(&def).Error
+	}
+}
+
 func ApplyPatches(db *gorm.DB) {
 	applySchemaPatches(db)
 	seedRelationTypes(db)
+	seedExternalDatabaseDefinitions(db)
 }

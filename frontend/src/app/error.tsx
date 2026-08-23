@@ -39,10 +39,10 @@ export default function Error({
         </div>
 
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
-          {t("error.title") || "页面遇到异常"}
+          {t("error.title")}
         </h1>
         <p className="text-sm sm:text-base text-gray-400 mb-4 leading-relaxed">
-          {t("error.desc") || "系统遇到了未预期的错误。该问题已被自动捕获，您可以尝试重新加载或返回首页。"}
+          {t("error.desc")}
         </p>
 
         {process.env.NODE_ENV !== "production" && error.message && (
@@ -57,7 +57,7 @@ export default function Error({
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-medium shadow-lg shadow-primary/25 transition-all"
           >
             <RotateCcw className="w-4 h-4" />
-            <span>{t("error.retry") || "重试加载"}</span>
+            <span>{t("error.retry")}</span>
           </button>
 
           <Link
@@ -65,7 +65,7 @@ export default function Error({
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 text-sm font-medium transition-colors"
           >
             <Home className="w-4 h-4" />
-            <span>{t("nav.home") || "返回首页"}</span>
+            <span>{t("nav.home")}</span>
           </Link>
         </div>
       </div>

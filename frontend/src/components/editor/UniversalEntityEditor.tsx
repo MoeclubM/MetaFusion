@@ -425,6 +425,7 @@ export function UniversalEntityEditor({
             <EditorExternalIds
               externalIds={formData.external_ids || {}}
               updateExternalId={updateExternalId}
+              category={targetType}
             />
           )}
 

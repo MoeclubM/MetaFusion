@@ -1,0 +1,39 @@
+---
+description: 全栈严格多语言与国际化零硬编码铁律（前端 UI 文案与后端存储数据/实体多语言映射规范）
+alwaysApply: true
+---
+
+# 全栈多语言与国际化零硬编码铁律 (i18n & Localization Strict Rules)
+
+本项目（MetaFusion）为全球化开放元数据与多媒介档案协作平台，**所有 UI 文本与存储实体数据必须具备多语言能力，严禁硬编码任何单一语言文案**。
+
+## 1. 前端 UI 文本零硬编码
+
+1. **统一字典驱动**：
+   - 任何用户可见的文本（页面标题、按钮、表单标签、Placeholder、Tooltip、空状态提示、Modal 标题与文案、Toast/Alert 提示、错误边界等）**严禁直接写死中文或英文**；
+   - 统一在 `frontend/src/messages/zh-CN.json` 与 `frontend/src/messages/en-US.json` 中配置键值，并在组件中通过 `useI18n()` 的 `t("key.path")` 或 `useTranslations()` 引用；
+   - 新增/修改 UI 时，中英字典必须同步增补并对齐。
+2. **严禁带默认中文 fallback**：
+   - 严禁出现 `t("xxx") || "某某中文"` 这种反向硬编码写法；
+   - 如果遇到带变量插值，使用 `t("key.path", { varName: value })`；
+   - 动态标签与类型展示若有字典，优先使用 helper（如 `mediumLabel(type, t)`）。
+
+## 2. 后端数据模型与实体元数据多语言规范
+
+1. **实体题名与描述多语言表**：
+   - 作品题名与简介：`work_translations`（`work_id`, `language_code`, `title`, `summary`, `aliases`）；
+   - 创作者主体：`artist_translations`（`artist_id`, `language_code`, `name`, `biography`, `aliases`）；
+   - 企划与世界观：`franchise_translations`（`franchise_id`, `language_code`, `name`, `description`）；
+   - 社区板块与主题：`board_translations`、`topic_translations`。
+2. **术语与动态字典多语言 JSONB**：
+   - 本体术语与标签：`ontology_terms` / `tags` 的展示名必须为多语言 `display_names JSONB`（如 `{"zh-CN": "动画", "en-US": "Anime", "ja-JP": "アニメ"}`）；
+   - 外部数据库定义：`external_database_definitions` 包含 `name_zh`, `name_en` 及 `names JSONB`。
+3. **API 多语言解析与回退链 (Fallback Chain)**：
+   - 后端通过 `Accept-Language` 头、`x-locale` 头或 `?lang=` 参数解析客户端首选语言；
+   - 回退顺序：`请求语言 (User Locale)` -> `英文 (en-US)` -> `原产语言 (original_language)` -> `默认中文/系统兜底`；
+   - 后端返回给前端的业务错误与系统消息通过 `i18n.T(c, key)` 获取本地化文案。
+
+## 3. 编目与代码审查
+
+- 每次添加新页面或修改组件时，必须验证双语字典完整性；
+- 严禁在数据库种子或业务逻辑中为实体写死不可本地化的静态属性。

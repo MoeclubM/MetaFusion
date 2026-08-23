@@ -396,8 +396,8 @@ export function ArtistReleasesTab({ releases, artistName }: ArtistReleasesTabPro
                       {/* Mediums / Tracks info */}
                       {mediumsSummary && (
                         <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border border-emerald-500/20 text-[11px] font-mono">
-                          {mediumsSummary.formatLabels || `${mediumsSummary.mediumCount} 碟`}
-                          {mediumsSummary.trackCount > 0 ? ` · ${mediumsSummary.trackCount} 轨` : ""}
+                          {mediumsSummary.formatLabels || t("artist.detail.discCount", { count: mediumsSummary.mediumCount })}
+                          {mediumsSummary.trackCount > 0 ? t("artist.detail.trackCount", { count: mediumsSummary.trackCount }) : ""}
                         </span>
                       )}
 

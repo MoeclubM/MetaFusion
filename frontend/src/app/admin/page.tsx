@@ -21,9 +21,11 @@ import { SettingsTab } from "./components/tabs/SettingsTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { RelationshipsTab } from "./components/tabs/RelationshipsTab";
 import { EntityTypesTab } from "./components/tabs/EntityTypesTab";
+import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { PluginsTab } from "./components/tabs/PluginsTab";
 import { ArtistModal } from "./components/modals/ArtistModal";
 import { ShelfModal } from "./components/modals/ShelfModal";
+import { useI18n } from "@/i18n/I18nProvider";
 
 function AdminContent() {
   const d = useAdminDashboard();
@@ -49,6 +51,7 @@ function AdminContent() {
           {d.activeTab === "assets" && <AssetsTab loading={d.loading} filteredAssets={d.filteredAssets} handleRetryAsset={d.handleRetryAsset} />}
           {d.activeTab === "artists" && <AgentsTab loading={d.loading} filteredArtists={d.filteredArtists} artistsList={d.artistsList} selectedEntityType={d.selectedEntityType} setSelectedEntityType={d.setSelectedEntityType} handleOpenCreateArtist={d.handleOpenCreateArtist} handleOpenEditArtist={d.handleOpenEditArtist} handleDeleteArtist={d.handleDeleteArtist} />}
           {d.activeTab === "entity_types" && <EntityTypesTab />}
+          {d.activeTab === "external_databases" && <ExternalDatabasesTab />}
           {d.activeTab === "users" && <UsersTab loading={d.loading} filteredUsers={d.filteredUsers} roleUpdatingId={d.roleUpdatingId} user={d.user} handleUpdateRole={d.handleUpdateRole} handleUpdateUser={d.handleUpdateUser} />}
           {d.activeTab === "topics" && <TopicsTab loading={d.loading} topicsList={d.topicsList} handleDeleteTopic={d.handleDeleteTopic} />}
           {d.activeTab === "boards" && <BoardsTab />}
@@ -66,9 +69,18 @@ function AdminContent() {
   );
 }
 
+function AdminLoadingFallback() {
+  const { t } = useI18n();
+  return (
+    <div className="dark min-h-screen bg-[#0a0a0c] flex items-center justify-center text-gray-400 font-mono text-xs">
+      {t("admin.loadingAdmin")}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   return (
-    <Suspense fallback={<div className="dark min-h-screen bg-[#0a0a0c] flex items-center justify-center text-gray-400 font-mono text-xs">Loading MetaFusion Admin...</div>}>
+    <Suspense fallback={<AdminLoadingFallback />}>
       <AdminContent />
     </Suspense>
   );

@@ -474,6 +474,8 @@ func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 		_ = s.db.Where("target_type = 'work' AND target_id = ?", work.ID).Order("created_at desc").Limit(20).Find(&revs).Error
 		m["revisions"] = revs
 	}
+	locale := backendi18n.LocaleFromContext(c)
+	m["external_links"] = s.buildExternalLinks(locale, "work", work.ExternalIDs)
 	c.JSON(http.StatusOK, m)
 }
 
@@ -595,6 +597,8 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 		_ = s.db.Where("target_type = 'release' AND target_id = ?", release.ID).Order("created_at desc").Limit(20).Find(&revs).Error
 		m["revisions"] = revs
 	}
+	locale := backendi18n.LocaleFromContext(c)
+	m["external_links"] = s.buildExternalLinks(locale, "release", release.ExternalIDs)
 	c.JSON(http.StatusOK, m)
 }
 
@@ -919,6 +923,11 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		workStatus = models.WorkStatusPublished
 	}
 
+	extIDs := models.JSONB{}
+	if input.ExternalIDs != nil {
+		extIDs = models.JSONB(input.ExternalIDs)
+	}
+
 	work := models.Work{
 		ID:               input.ID,
 		Title:            strings.TrimSpace(input.Title),
@@ -933,6 +942,7 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		CoverAspect:      NormalizeCoverAspect(input.CoverAspect),
 		ContentRating:    input.ContentRating,
 		Status:           workStatus,
+		ExternalIDs:      extIDs,
 		CatalogMetadata:  models.JSONB(input.CatalogMetadata),
 		CreatedBy:        uid,
 	}
@@ -1029,6 +1039,11 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 	if roleStr == "admin" || roleStr == "archivist" {
 		isMasterVerified = true
 	}
+	extIDs := models.JSONB{}
+	if input.ExternalIDs != nil {
+		extIDs = models.JSONB(input.ExternalIDs)
+	}
+
 	release := models.Release{
 		WorkID:              input.WorkID,
 		PublisherID:         input.PublisherID,
@@ -1041,6 +1056,7 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 		Country:             strings.TrimSpace(input.Country),
 		Language:            strings.TrimSpace(input.Language),
 		DistributionChannel: ch,
+		ExternalIDs:         extIDs,
 		CatalogMetadata:     meta,
 		UploaderID:          uid,
 		IsMasterVerified:    isMasterVerified,
@@ -1278,10 +1294,11 @@ type ArtistWorkItem struct {
 }
 
 type ArtistDetailResponse struct {
-	Artist            models.Artist         `json:"artist"`
-	Works             []ArtistWorkItem      `json:"works"`
-	Releases          []models.Release      `json:"releases"`
-	ConnectedEntities []ConnectedEntityItem `json:"connected_entities"`
+	Artist            models.Artist           `json:"artist"`
+	Works             []ArtistWorkItem        `json:"works"`
+	Releases          []models.Release        `json:"releases"`
+	ConnectedEntities []ConnectedEntityItem   `json:"connected_entities"`
+	ExternalLinks     []models.ExternalLinkItem `json:"external_links"`
 }
 
 // GetArtistDetail 获取创作者/机构实体详情及参演/出版列表与关联机构
@@ -1438,6 +1455,7 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 		Works:             workItems,
 		Releases:          releases,
 		ConnectedEntities: connectedEntities,
+		ExternalLinks:     s.buildExternalLinks(locale, "artist", artist.ExternalIDs),
 	})
 }
 
@@ -1633,6 +1651,94 @@ func (s *CatalogService) ListRelationTypes(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"items": out})
 }
 
+// ListExternalDatabases 获取当前系统启用的外部数据库定义（公开接口）
+func (s *CatalogService) ListExternalDatabases(c *gin.Context) {
+	category := c.Query("category")
+	locale := backendi18n.LocaleFromContext(c)
+
+	query := s.db.Model(&models.ExternalDatabaseDefinition{}).Where("is_enabled = ?", true)
+	if category != "" && category != "all" {
+		query = query.Where("category = ? OR category = 'all'", category)
+	}
+
+	var items []models.ExternalDatabaseDefinition
+	if err := query.Order("sort_order asc, code asc").Find(&items).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	type OutItem struct {
+		models.ExternalDatabaseDefinition
+		DisplayName string `json:"display_name"`
+	}
+
+	out := make([]OutItem, 0, len(items))
+	for _, it := range items {
+		out = append(out, OutItem{
+			ExternalDatabaseDefinition: it,
+			DisplayName:                it.LocalizedName(locale),
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": out, "total": len(out)})
+}
+
+// buildExternalLinks maps raw external_ids to rich ExternalLinkItem array based on registered definitions
+func (s *CatalogService) buildExternalLinks(locale string, category string, externalIDs models.JSONB) []models.ExternalLinkItem {
+	if externalIDs == nil || len(externalIDs) == 0 {
+		return []models.ExternalLinkItem{}
+	}
+
+	var defs []models.ExternalDatabaseDefinition
+	_ = s.db.Where("is_enabled = ?", true).Order("sort_order asc, code asc").Find(&defs).Error
+
+	defMap := make(map[string]models.ExternalDatabaseDefinition, len(defs))
+	for _, d := range defs {
+		defMap[d.Code] = d
+	}
+
+	out := make([]models.ExternalLinkItem, 0, len(externalIDs))
+	for _, d := range defs {
+		if rawVal, exists := externalIDs[d.Code]; exists {
+			valStr := strings.TrimSpace(fmt.Sprintf("%v", rawVal))
+			if valStr != "" && valStr != "<nil>" {
+				linkURL := d.BuildURL(valStr)
+				out = append(out, models.ExternalLinkItem{
+					Code:     d.Code,
+					Name:     d.LocalizedName(locale),
+					URL:      linkURL,
+					ID:       valStr,
+					Icon:     d.Icon,
+					IconURL:  d.IconURL,
+					Category: d.Category,
+				})
+			}
+		}
+	}
+
+	for k, rawVal := range externalIDs {
+		if _, known := defMap[k]; !known {
+			valStr := strings.TrimSpace(fmt.Sprintf("%v", rawVal))
+			if valStr != "" && valStr != "<nil>" {
+				linkURL := valStr
+				if !strings.HasPrefix(valStr, "http://") && !strings.HasPrefix(valStr, "https://") {
+					linkURL = ""
+				}
+				out = append(out, models.ExternalLinkItem{
+					Code:     k,
+					Name:     k,
+					URL:      linkURL,
+					ID:       valStr,
+					Icon:     "Globe",
+					Category: "other",
+				})
+			}
+		}
+	}
+
+	return out
+}
+
 type CreateWorkInput struct {
 	ID               uuid.UUID              `json:"id"`
 	Title            string                 `json:"title"`
@@ -1646,6 +1752,7 @@ type CreateWorkInput struct {
 	CoverImageURL    string                 `json:"cover_image_url"`
 	CoverAspect      string                 `json:"cover_aspect"`
 	ContentRating    string                 `json:"content_rating"`
+	ExternalIDs      map[string]interface{} `json:"external_ids"`
 	CatalogMetadata  map[string]interface{} `json:"catalog_metadata"`
 	TagIDs           []uint                 `json:"tag_ids"`
 	Tags             []string               `json:"tags"`
@@ -1653,19 +1760,20 @@ type CreateWorkInput struct {
 }
 
 type CreateReleaseInput struct {
-	WorkID        uuid.UUID  `json:"work_id" binding:"required"`
-	PublisherID   *uuid.UUID `json:"publisher_id"`
-	EditionName   string     `json:"edition_name" binding:"required"`
-	CatalogNumber string     `json:"catalog_number"`
-	Barcode       string     `json:"barcode"`
-	Publisher     string     `json:"publisher"`
-	Packaging           string     `json:"packaging"`
-	EditionDate         *string    `json:"edition_date"`
-	Country             string     `json:"country"`
-	Language            string     `json:"language"`
-	DistributionChannel string     `json:"distribution_channel"`
+	WorkID              uuid.UUID              `json:"work_id" binding:"required"`
+	PublisherID         *uuid.UUID             `json:"publisher_id"`
+	EditionName         string                 `json:"edition_name" binding:"required"`
+	CatalogNumber       string                 `json:"catalog_number"`
+	Barcode             string                 `json:"barcode"`
+	Publisher           string                 `json:"publisher"`
+	Packaging           string                 `json:"packaging"`
+	EditionDate         *string                `json:"edition_date"`
+	Country             string                 `json:"country"`
+	Language            string                 `json:"language"`
+	DistributionChannel string                 `json:"distribution_channel"`
+	ExternalIDs         map[string]interface{} `json:"external_ids"`
 	CatalogMetadata     map[string]interface{} `json:"catalog_metadata"`
-	Notes               string     `json:"notes"`
+	Notes               string                 `json:"notes"`
 }
 
 // CreateRelease 创建发行商品版本
@@ -2046,6 +2154,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		CoverAspect      string                 `json:"cover_aspect"`
 		ContentRating    string                 `json:"content_rating"`
 		Status           string                 `json:"status"`
+		ExternalIDs      map[string]interface{} `json:"external_ids"`
 		CatalogMetadata  map[string]interface{} `json:"catalog_metadata"`
 		EditNote         string                 `json:"edit_note"`
 		SourceURLs       []string               `json:"source_urls"`
@@ -2071,6 +2180,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		"summary":           work.Summary,
 		"cover_image_url":   work.CoverImageURL,
 		"cover_aspect":      work.CoverAspect,
+		"external_ids":      work.ExternalIDs,
 		"catalog_metadata":  work.CatalogMetadata,
 	}
 
@@ -2097,6 +2207,9 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	}
 	if input.Status != "" {
 		work.Status = input.Status
+	}
+	if input.ExternalIDs != nil {
+		work.ExternalIDs = models.JSONB(input.ExternalIDs)
 	}
 	if input.CatalogMetadata != nil {
 		work.CatalogMetadata = models.JSONB(input.CatalogMetadata)
@@ -2133,6 +2246,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		"summary":           work.Summary,
 		"cover_image_url":   work.CoverImageURL,
 		"cover_aspect":      work.CoverAspect,
+		"external_ids":      work.ExternalIDs,
 		"catalog_metadata":  work.CatalogMetadata,
 	}
 
@@ -2272,6 +2386,7 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		Country             string                 `json:"country"`
 		Language            string                 `json:"language"`
 		DistributionChannel string                 `json:"distribution_channel"`
+		ExternalIDs         map[string]interface{} `json:"external_ids"`
 		CatalogMetadata     map[string]interface{} `json:"catalog_metadata"`
 		Notes               string                 `json:"notes"`
 		EditNote            string                 `json:"edit_note"`
@@ -2288,6 +2403,7 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		"barcode":        release.Barcode,
 		"publisher_id":   release.PublisherID,
 		"packaging":      release.Packaging,
+		"external_ids":   release.ExternalIDs,
 		"notes":          release.Notes,
 	}
 
@@ -2320,6 +2436,9 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		}
 		release.DistributionChannel = ch
 	}
+	if input.ExternalIDs != nil {
+		release.ExternalIDs = models.JSONB(input.ExternalIDs)
+	}
 	if input.CatalogMetadata != nil {
 		release.CatalogMetadata = models.JSONB(input.CatalogMetadata)
 	}
@@ -2335,6 +2454,7 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		"barcode":        release.Barcode,
 		"publisher_id":   release.PublisherID,
 		"packaging":      release.Packaging,
+		"external_ids":   release.ExternalIDs,
 		"notes":          release.Notes,
 	}
 

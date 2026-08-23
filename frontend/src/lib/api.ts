@@ -1303,5 +1303,64 @@ export function testPluginNotification(): Promise<{ message: string }> {
   });
 }
 
+// ── 外部权威数据库预设定义 ──
+export interface ExternalDatabaseDefinition {
+  code: string;
+  name_zh: string;
+  name_en: string;
+  name?: string;
+  names?: Record<string, string>;
+  category: string; // "all" | "work" | "artist" | "release" | "franchise" | "canonical_entry"
+  url_pattern: string;
+  icon: string;
+  icon_url: string;
+  validation_regex: string;
+  description: string;
+  sort_order: number;
+  is_enabled: boolean;
+  is_system: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ExternalLinkDisplay {
+  code: string;
+  name: string;
+  icon: string;
+  icon_url: string;
+  external_id: string;
+  url: string;
+}
+
+export function fetchExternalDatabases(category?: string): Promise<{ items: ExternalDatabaseDefinition[] }> {
+  const q = category ? `?category=${encodeURIComponent(category)}` : "";
+  return fetchApi<{ items: ExternalDatabaseDefinition[] }>(`/metadata/external-databases${q}`);
+}
+
+export function fetchAdminExternalDatabases(): Promise<{ items: ExternalDatabaseDefinition[] }> {
+  return fetchApi<{ items: ExternalDatabaseDefinition[] }>("/admin/external-databases");
+}
+
+export function createExternalDatabase(data: Partial<ExternalDatabaseDefinition>): Promise<{ message: string; data: ExternalDatabaseDefinition }> {
+  return fetchApi<{ message: string; data: ExternalDatabaseDefinition }>("/admin/external-databases", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateExternalDatabase(code: string, data: Partial<ExternalDatabaseDefinition>): Promise<{ message: string; data: ExternalDatabaseDefinition }> {
+  return fetchApi<{ message: string; data: ExternalDatabaseDefinition }>(`/admin/external-databases/${encodeURIComponent(code)}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export function deleteExternalDatabase(code: string): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>(`/admin/external-databases/${encodeURIComponent(code)}`, {
+    method: "DELETE",
+  });
+}
+
+
 
 

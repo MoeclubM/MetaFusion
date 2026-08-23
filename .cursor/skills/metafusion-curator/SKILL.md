@@ -82,7 +82,8 @@ flowchart TD
 ### Step 3: 提取纯净题名与多语言本地化 (Pure Title & i18n)
 - 剔除所有修饰语，确立主表 `title`；
 - 标记 `original_language`（如 `ja`, `zh-CN`, `en`）；
-- 构建 `translations` 多语言映射数组（`zh-CN`, `zh-TW`, `en-US`, `ja`, `ko`），同时录入本地化题名与简介。
+- 构建 `translations` 多语言映射数组（`zh-CN`, `zh-TW`, `en-US`, `ja`, `ko`），同时录入本地化题名与简介；
+- **零硬编码原则**：严禁仅录入单一语言而忽略多语言回退支持，本体标签（Tags/Ontology Terms）必须提供 `display_names JSONB` 多语言字段，外部数据库提供中英多语言名称。前端展示层严禁在代码中写死中文或英文，必须由 i18n 字典驱动。
 
 ### Step 4: 建立 Release 树状结构 (Release -> Medium -> Track)
 - 为具体物理/数字版本创建 Release，填充 `edition_name`、`barcode` (ISBN-13/EAN)、`catalog_number`（唱片编号）、`release_date`、`country`、`packaging`；

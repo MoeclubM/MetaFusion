@@ -401,7 +401,7 @@ export default function SettingsPage() {
                 <div
                   className="relative group cursor-pointer shrink-0"
                   onClick={() => fileInputRef.current?.click()}
-                  title={t("settings.avatarUpload") || "点击更换头像"}
+                  title={t("settings.avatarUpload")}
                 >
                   <UserAvatar
                     user={{
