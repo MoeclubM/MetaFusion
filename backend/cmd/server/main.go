@@ -101,6 +101,12 @@ func main() {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "metafusion-backend"})
 	})
+	r.GET("/api/v1/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "metafusion-backend"})
+	})
+	r.GET("/api/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "metafusion-backend"})
+	})
 
 	// 静态本地上传目录路由（支持离线开发与回退）
 	_ = os.MkdirAll("./uploads/avatars", 0755)
