@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -305,9 +306,10 @@ type Work struct {
 	CoverAspect     string         `gorm:"type:varchar(8);default:''" json:"cover_aspect"`
 	ContentRating   string         `gorm:"default:'General'" json:"content_rating"`
 	Status          string         `gorm:"default:'completed'" json:"status"`
-		ViewCount       int64          `gorm:"default:0;not null" json:"view_count"`
-		FavoriteCount   int64          `gorm:"-" json:"favorite_count"`
-		CatalogMetadata JSONB          `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
+	ViewCount       int64          `gorm:"default:0;not null" json:"view_count"`
+	FavoriteCount   int64          `gorm:"-" json:"favorite_count"`
+	ExternalIDs     JSONB          `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	CatalogMetadata JSONB          `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
 	CreatedBy       *uuid.UUID     `gorm:"type:uuid" json:"created_by,omitempty"`
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
@@ -333,6 +335,7 @@ type Release struct {
 	Country              string     `json:"country"`
 	Language             string     `json:"language"`
 	DistributionChannel  string     `gorm:"default:'mixed';not null" json:"distribution_channel"`
+	ExternalIDs          JSONB      `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
 	CatalogMetadata      JSONB      `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
 	UploaderID           *uuid.UUID `gorm:"type:uuid" json:"uploader_id,omitempty"`
 	IsMasterVerified     bool       `gorm:"default:false;not null" json:"is_master_verified"`
@@ -724,6 +727,71 @@ func (e EntityTypeDefinition) LocalizedDesc(locale string) string {
 	return e.DescZh
 }
 
+// ExternalDatabaseDefinition represents dynamic, admin-governed external authority database presets
+type ExternalDatabaseDefinition struct {
+	Code            string    `gorm:"primaryKey;type:varchar(64)" json:"code"`
+	NameZh          string    `gorm:"type:varchar(64);not null" json:"name_zh"`
+	NameEn          string    `gorm:"type:varchar(64);not null" json:"name_en"`
+	Names           JSONB     `gorm:"type:jsonb;default:'{}'" json:"names"`
+	Category        string    `gorm:"type:varchar(32);default:'all';not null" json:"category"` // 'all', 'work', 'artist', 'release', 'franchise', 'canonical_entry'
+	URLPattern      string    `gorm:"type:varchar(512);not null" json:"url_pattern"`
+	Icon            string    `gorm:"type:varchar(64);default:'Globe';not null" json:"icon"`
+	IconURL         string    `gorm:"type:varchar(512);default:'';not null" json:"icon_url"`
+	ValidationRegex string    `gorm:"type:varchar(255);default:'';not null" json:"validation_regex"`
+	Description     string    `gorm:"type:text;default:'';not null" json:"description"`
+	SortOrder       int       `gorm:"default:0;not null" json:"sort_order"`
+	IsEnabled       bool      `gorm:"default:true;not null" json:"is_enabled"`
+	IsSystem        bool      `gorm:"default:false;not null" json:"is_system"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+func (ExternalDatabaseDefinition) TableName() string { return "external_database_definitions" }
+
+func (e ExternalDatabaseDefinition) LocalizedName(locale string) string {
+	loc := NormalizeLocale(locale)
+	if e.Names != nil {
+		if v, ok := e.Names[loc]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+	}
+	if loc == "en-US" && e.NameEn != "" {
+		return e.NameEn
+	}
+	return e.NameZh
+}
+
+// BuildURL transforms an external ID or raw URL into a canonical destination URL using url_pattern
+func (e ExternalDatabaseDefinition) BuildURL(idOrURL string) string {
+	idOrURL = strings.TrimSpace(idOrURL)
+	if idOrURL == "" {
+		return ""
+	}
+	if strings.HasPrefix(idOrURL, "http://") || strings.HasPrefix(idOrURL, "https://") {
+		return idOrURL
+	}
+	if e.URLPattern == "" {
+		return ""
+	}
+	if strings.Contains(e.URLPattern, "{id}") {
+		return strings.ReplaceAll(e.URLPattern, "{id}", idOrURL)
+	}
+	return e.URLPattern + idOrURL
+}
+
+// ExternalLinkItem represents assembled link metadata for frontend presentation
+type ExternalLinkItem struct {
+	Code     string `json:"code"`
+	Name     string `json:"name"`
+	URL      string `json:"url"`
+	ID       string `json:"id"`
+	Icon     string `json:"icon"`
+	IconURL  string `json:"icon_url,omitempty"`
+	Category string `json:"category"`
+}
+
 // UserGroup represents an admin-manageable permission grouping
 type UserGroup struct {
 	ID          uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
@@ -947,4 +1015,27 @@ type ApiToken struct {
 }
 
 func (ApiToken) TableName() string { return "api_tokens" }
+
+// SystemPlugin represents an in-process or out-of-process modular extension
+type SystemPlugin struct {
+	ID           string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+	Name         string         `gorm:"type:varchar(128);not null" json:"name"`
+	Version      string         `gorm:"type:varchar(32);not null" json:"version"`
+	Description  string         `gorm:"type:text;not null" json:"description"`
+	Author       string         `gorm:"type:varchar(128);not null" json:"author"`
+	Icon         string         `gorm:"type:varchar(64);default:'Puzzle';not null" json:"icon"`
+	Type         string         `gorm:"type:varchar(32);default:'native';not null" json:"type"` // "native", "external_http", "webhook"
+	EndpointURL  string         `gorm:"type:varchar(512);default:'';not null" json:"endpoint_url"`
+	SecretToken  string         `gorm:"type:varchar(255);default:'';not null" json:"secret_token,omitempty"`
+	Capabilities pq.StringArray `gorm:"type:text[];not null" json:"capabilities"`
+	ConfigSchema JSONB          `gorm:"type:jsonb;default:'{}'" json:"config_schema"`
+	Config       JSONB          `gorm:"type:jsonb;default:'{}'" json:"config"`
+	IsEnabled    bool           `gorm:"default:true;not null" json:"is_enabled"`
+	IsSystem     bool           `gorm:"default:false;not null" json:"is_system"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+}
+
+func (SystemPlugin) TableName() string { return "system_plugins" }
+
 

@@ -30,6 +30,7 @@ import (
 	"github.com/metafusion/metafusion-app/internal/importer"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/openapi"
+	"github.com/metafusion/metafusion-app/internal/plugin"
 	"github.com/metafusion/metafusion-app/internal/ratelimit"
 	"github.com/metafusion/metafusion-app/internal/search"
 	"github.com/metafusion/metafusion-app/internal/storage"
@@ -85,6 +86,14 @@ func main() {
 	}
 
 	importerSvc := importer.NewImporterService(db, cfg, storageSvc, searchSvc, catalogSvc)
+
+	// 初始化可扩展插件内核系统 (Plugin Kernel & Registry)
+	pluginMgr := plugin.NewManager(db, cfg)
+	if err := pluginMgr.Initialize(context.Background()); err != nil {
+		log.Printf("Plugin manager warning: %v", err)
+	}
+	pluginHandler := plugin.NewHandler(pluginMgr)
+	importerSvc.SetPluginResolver(pluginMgr)
 
 	// 4. 配置 Gin HTTP 路由器
 	r := gin.Default()
@@ -466,6 +475,10 @@ func main() {
 			importerGroup.POST("/import", auth.UnifiedAuthMiddleware(cfg, db), importerSvc.ImportHandler)
 		}
 
+		// ── 插件中心公开接口与数据导出 ──
+		api.GET("/plugins", auth.OptionalUnifiedAuthMiddleware(cfg, db), pluginHandler.ListPublicPlugins)
+		api.GET("/export/:format/:id", auth.OptionalUnifiedAuthMiddleware(cfg, db), pluginHandler.ExportWorkHandler)
+
 		ws2 := api.Group("/ws/2", auth.OptionalUnifiedAuthMiddleware(cfg, db))
 		{
 			ws2.GET("/work/:id", catalogSvc.GetWorkDetail)
@@ -693,6 +706,14 @@ func main() {
 			// 审计与系统
 			adminGroup.GET("/audit-logs", adminSvc.ListAuditLogs)
 			adminGroup.GET("/system/health", adminSvc.GetSystemHealth)
+			// 插件管理中心 (Plugin Center)
+			adminGroup.GET("/plugins", pluginHandler.ListAdminPlugins)
+			adminGroup.GET("/plugins/:id", pluginHandler.GetAdminPlugin)
+			adminGroup.POST("/plugins", pluginHandler.RegisterExternalPlugin)
+			adminGroup.PUT("/plugins/:id", pluginHandler.UpdatePlugin)
+			adminGroup.DELETE("/plugins/:id", pluginHandler.DeletePlugin)
+			adminGroup.POST("/plugins/:id/test", pluginHandler.TestPluginHealth)
+			adminGroup.POST("/plugins/test-notify", pluginHandler.TestNotify)
 		}
 	}
 

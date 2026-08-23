@@ -14,6 +14,7 @@ import {
   Music2,
   Inbox,
   Settings2,
+  Puzzle,
 } from "lucide-react";
 
 export function formatBytes(bytes: number) {
@@ -39,6 +40,7 @@ export type Tab =
   | "topics"
   | "boards"
   | "audit"
+  | "plugins"
   | "health"
   | "settings";
 
@@ -81,6 +83,7 @@ export const sidebarGroups: SidebarGroup[] = [
   {
     labelKey: "admin.sidebar.groupSystem",
     items: [
+      { id: "plugins", labelKey: "admin.sidebar.itemPlugins", icon: Puzzle, badgeKey: "admin.sidebar.badgePlugins" },
       { id: "health", labelKey: "admin.sidebar.itemHealth", icon: Activity },
       { id: "settings", labelKey: "admin.sidebar.itemSettings", icon: Settings2 },
     ],

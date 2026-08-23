@@ -1192,4 +1192,116 @@ export function importExternalCatalog(payload: ImporterImportRequest): Promise<I
   });
 }
 
+// ── 插件系统 (Plugin System) ──
+
+export interface PluginConfigField {
+  key: string;
+  label: string;
+  type: string; // "string" | "password" | "number" | "boolean" | "select" | "textarea"
+  default_value?: any;
+  description?: string;
+  required?: boolean;
+  options?: string[];
+}
+
+export interface PluginConfigSchema {
+  fields: PluginConfigField[];
+}
+
+export interface PluginHealthStatus {
+  status: "healthy" | "warning" | "unhealthy" | "disabled" | "unknown";
+  message: string;
+  latency_ms: number;
+  last_checked: string;
+}
+
+export interface PluginItem {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  icon: string;
+  type: "native" | "external_http" | "webhook";
+  endpoint_url?: string;
+  capabilities: string[];
+  config_schema: PluginConfigSchema;
+  config: Record<string, any>;
+  is_enabled: boolean;
+  is_system: boolean;
+  health: PluginHealthStatus;
+  supported_sources?: string[];
+  supported_formats?: string[];
+  supported_events?: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RegisterExternalPluginPayload {
+  id: string;
+  name: string;
+  version?: string;
+  description?: string;
+  author?: string;
+  icon?: string;
+  type?: string;
+  endpoint_url: string;
+  secret_token?: string;
+  capabilities: string[];
+  config_schema?: PluginConfigSchema;
+  config?: Record<string, any>;
+  is_enabled?: boolean;
+}
+
+export interface UpdatePluginPayload {
+  is_enabled?: boolean;
+  config?: Record<string, any>;
+}
+
+export function fetchPublicPlugins(capability?: string): Promise<{ items: PluginItem[]; count: number }> {
+  const query = capability ? `?capability=${encodeURIComponent(capability)}` : "";
+  return fetchApi<{ items: PluginItem[]; count: number }>(`/plugins${query}`);
+}
+
+export function fetchAdminPlugins(): Promise<{ items: PluginItem[]; count: number }> {
+  return fetchApi<{ items: PluginItem[]; count: number }>("/admin/plugins");
+}
+
+export function fetchAdminPlugin(id: string): Promise<PluginItem> {
+  return fetchApi<PluginItem>(`/admin/plugins/${id}`);
+}
+
+export function registerExternalPlugin(payload: RegisterExternalPluginPayload): Promise<{ message: string; plugin: PluginItem }> {
+  return fetchApi<{ message: string; plugin: PluginItem }>("/admin/plugins", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updatePlugin(id: string, payload: UpdatePluginPayload): Promise<{ message: string; plugin: PluginItem }> {
+  return fetchApi<{ message: string; plugin: PluginItem }>(`/admin/plugins/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deletePlugin(id: string): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>(`/admin/plugins/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export function testPluginHealth(id: string): Promise<PluginHealthStatus> {
+  return fetchApi<PluginHealthStatus>(`/admin/plugins/${id}/test`, {
+    method: "POST",
+  });
+}
+
+export function testPluginNotification(): Promise<{ message: string }> {
+  return fetchApi<{ message: string }>("/admin/plugins/test-notify", {
+    method: "POST",
+  });
+}
+
+
 

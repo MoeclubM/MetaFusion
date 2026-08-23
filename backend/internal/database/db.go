@@ -61,9 +61,10 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 			&models.AssetRegistry{},
 			&models.AssetBinding{},
 			&models.EntityRelationship{},
-			&models.RelationType{},
-			&models.EntityTypeDefinition{},
-			&models.ForumBoard{},
+		&models.RelationType{},
+		&models.EntityTypeDefinition{},
+		&models.ExternalDatabaseDefinition{},
+		&models.ForumBoard{},
 		&models.UserGroup{},
 		&models.DiscussionTopic{},
 		&models.ForumPost{},
@@ -80,6 +81,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		&models.EntityRevision{},
 		&models.ApiToken{},
 		&models.Favorite{},
+		&models.SystemPlugin{},
 	)
 	ApplyPatches(db)
 	log.Println("Database connection pool initialized successfully.")

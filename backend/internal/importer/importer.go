@@ -24,12 +24,19 @@ import (
 	"gorm.io/gorm"
 )
 
+// PluginImporterResolver 插件体系对接解析器
+type PluginImporterResolver interface {
+	GetImporterPreview(ctx context.Context, req *PreviewRequest) (*PreviewResponse, error)
+	NotifyEvent(ctx context.Context, event string, payload map[string]interface{})
+}
+
 type ImporterService struct {
-	db         *gorm.DB
-	cfg        *config.Config
-	storageSvc *storage.StorageService
-	searchSvc  *search.SearchService
-	catalogSvc *catalog.CatalogService
+	db             *gorm.DB
+	cfg            *config.Config
+	storageSvc     *storage.StorageService
+	searchSvc      *search.SearchService
+	catalogSvc     *catalog.CatalogService
+	pluginResolver PluginImporterResolver
 }
 
 func NewImporterService(
@@ -46,6 +53,11 @@ func NewImporterService(
 		searchSvc:  searchSvc,
 		catalogSvc: catalogSvc,
 	}
+}
+
+// SetPluginResolver 注入插件内核解析器
+func (s *ImporterService) SetPluginResolver(r PluginImporterResolver) {
+	s.pluginResolver = r
 }
 
 // DetectSource 根据 URL 或 ID 格式自动识别权威源
@@ -89,6 +101,24 @@ func (s *ImporterService) PreviewHandler(c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 25*time.Second)
+	defer cancel()
+
+	// 优先通过动态插件体系调度解析
+	if s.pluginResolver != nil {
+		pRes, pErr := s.pluginResolver.GetImporterPreview(ctx, &req)
+		if pErr == nil && pRes != nil {
+			c.JSON(http.StatusOK, pRes)
+			return
+		}
+		if pErr != nil && !strings.Contains(pErr.Error(), "no enabled importer plugin found") {
+			c.JSON(http.StatusBadGateway, gin.H{
+				"error": fmt.Sprintf("Plugin importer error: %s", pErr.Error()),
+			})
+			return
+		}
+	}
+
 	src := strings.ToLower(strings.TrimSpace(req.Source))
 	if src == "" || src == "auto" {
 		src = DetectSource(req.URLOrID, req.MediaTypeHint)
@@ -96,9 +126,6 @@ func (s *ImporterService) PreviewHandler(c *gin.Context) {
 
 	var res *PreviewResponse
 	var err error
-
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 25*time.Second)
-	defer cancel()
 
 	switch src {
 	case "musicbrainz":
@@ -109,7 +136,7 @@ func (s *ImporterService) PreviewHandler(c *gin.Context) {
 		res, err = FetchBangumiPreview(ctx, req.URLOrID)
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": fmt.Sprintf("Unsupported or unrecognized data source: %s. Supported: musicbrainz, tmdb, imdb, bangumi", req.URLOrID),
+			"error": fmt.Sprintf("Unsupported or unrecognized data source: %s. Supported: musicbrainz, tmdb, imdb, bangumi, vndb, douban", req.URLOrID),
 		})
 		return
 	}
@@ -141,26 +168,37 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 
 	// 若未传入完整 WorkPreview，先自动解析 Preview
 	if req.Work == nil {
-		src := strings.ToLower(strings.TrimSpace(req.Source))
-		if src == "" || src == "auto" {
-			src = DetectSource(req.URLOrID, req.MediaTypeHint)
-		}
-
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 25*time.Second)
 		defer cancel()
 
 		var preview *PreviewResponse
 		var err error
-		switch src {
-		case "musicbrainz":
-			preview, err = FetchMusicBrainzPreview(ctx, req.URLOrID)
-		case "tmdb", "imdb":
-			preview, err = FetchTMDBPreview(ctx, req.URLOrID, req.MediaTypeHint, s.cfg.TMDBAPIKey)
-		case "bangumi":
-			preview, err = FetchBangumiPreview(ctx, req.URLOrID)
-		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot identify source for " + req.URLOrID})
-			return
+
+		if s.pluginResolver != nil {
+			preview, err = s.pluginResolver.GetImporterPreview(ctx, &PreviewRequest{
+				Source:        req.Source,
+				URLOrID:       req.URLOrID,
+				MediaTypeHint: req.MediaTypeHint,
+			})
+		}
+
+		if preview == nil {
+			src := strings.ToLower(strings.TrimSpace(req.Source))
+			if src == "" || src == "auto" {
+				src = DetectSource(req.URLOrID, req.MediaTypeHint)
+			}
+
+			switch src {
+			case "musicbrainz":
+				preview, err = FetchMusicBrainzPreview(ctx, req.URLOrID)
+			case "tmdb", "imdb":
+				preview, err = FetchTMDBPreview(ctx, req.URLOrID, req.MediaTypeHint, s.cfg.TMDBAPIKey)
+			case "bangumi":
+				preview, err = FetchBangumiPreview(ctx, req.URLOrID)
+			default:
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot identify source for " + req.URLOrID})
+				return
+			}
 		}
 
 		if err != nil {
@@ -223,6 +261,13 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 	meta["imported_from"] = req.Source
 	meta["imported_at"] = time.Now().Format(time.RFC3339)
 
+	workExtIDs := models.JSONB{}
+	if workPrev.ExternalIDs != nil {
+		workExtIDs = workPrev.ExternalIDs
+	} else if req.ExternalID != "" && req.Source != "" {
+		workExtIDs = models.JSONB{req.Source: req.ExternalID}
+	}
+
 	work := models.Work{
 		ID:               uuid.New(),
 		Title:            strings.TrimSpace(workPrev.Title),
@@ -238,6 +283,7 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 		CoverAspect:      workPrev.CoverAspect,
 		ContentRating:    workPrev.ContentRating,
 		Status:           workStatus,
+		ExternalIDs:      workExtIDs,
 		CatalogMetadata:  meta,
 		CreatedBy:        &userID,
 	}
@@ -417,6 +463,13 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 		}
 	}
 
+	relExtIDs := models.JSONB{}
+	if relPrev != nil && relPrev.ExternalIDs != nil {
+		relExtIDs = relPrev.ExternalIDs
+	} else if req.ExternalID != "" && req.Source != "" {
+		relExtIDs = models.JSONB{req.Source: req.ExternalID}
+	}
+
 	release = models.Release{
 		ID:                  uuid.New(),
 		WorkID:              work.ID,
@@ -430,6 +483,7 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 		Country:             work.Country,
 		Language:            work.Language,
 		DistributionChannel: distChannel,
+		ExternalIDs:         relExtIDs,
 		CatalogMetadata:     meta,
 		UploaderID:          &userID,
 		IsMasterVerified:    req.IsMasterVerified,
@@ -566,6 +620,17 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 	if err := tx.Commit().Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction: " + err.Error()})
 		return
+	}
+
+	// 触发插件系统通知钩子
+	if s.pluginResolver != nil {
+		s.pluginResolver.NotifyEvent(context.Background(), "import.completed", map[string]interface{}{
+			"work_id":   work.ID.String(),
+			"title":     work.Title,
+			"source":    req.Source,
+			"user_id":   userID.String(),
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
 	}
 
 	// 6. 异步同步至 OpenSearch 索引

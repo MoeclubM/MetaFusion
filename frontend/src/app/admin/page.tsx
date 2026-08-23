@@ -21,6 +21,7 @@ import { SettingsTab } from "./components/tabs/SettingsTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { RelationshipsTab } from "./components/tabs/RelationshipsTab";
 import { EntityTypesTab } from "./components/tabs/EntityTypesTab";
+import { PluginsTab } from "./components/tabs/PluginsTab";
 import { ArtistModal } from "./components/modals/ArtistModal";
 import { ShelfModal } from "./components/modals/ShelfModal";
 
@@ -52,6 +53,7 @@ function AdminContent() {
           {d.activeTab === "topics" && <TopicsTab loading={d.loading} topicsList={d.topicsList} handleDeleteTopic={d.handleDeleteTopic} />}
           {d.activeTab === "boards" && <BoardsTab />}
           {d.activeTab === "audit" && <AuditTab auditLogs={d.auditLogs} />}
+          {d.activeTab === "plugins" && <PluginsTab />}
           {d.activeTab === "health" && <HealthTab />}
           {d.activeTab === "settings" && <SettingsTab />}
           {d.activeTab === "shelves" && <ShelvesTab loading={d.loading} filteredShelves={d.filteredShelves} handleOpenCreateShelf={d.handleOpenCreateShelf} handleOpenEditShelf={d.handleOpenEditShelf} handleDeleteShelf={d.handleDeleteShelf} />}

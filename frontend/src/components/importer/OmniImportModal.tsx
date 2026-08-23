@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   X,
@@ -9,6 +9,9 @@ import {
   Disc,
   Film,
   BookOpen,
+  Gamepad2,
+  Globe,
+  Puzzle,
   ArrowRight,
   CheckCircle2,
   AlertCircle,
@@ -27,7 +30,9 @@ import { useI18n } from "@/i18n/I18nProvider";
 import {
   previewExternalCatalog,
   importExternalCatalog,
+  fetchPublicPlugins,
   ImporterPreviewResponse,
+  PluginItem,
 } from "@/lib/api";
 
 interface Props {
@@ -36,33 +41,6 @@ interface Props {
   initialSource?: string;
   initialURLOrID?: string;
 }
-
-const EXAMPLES = [
-  {
-    label: "Abbey Road (MusicBrainz)",
-    source: "musicbrainz",
-    val: "https://musicbrainz.org/release/4b9b9c02-d96a-4933-9133-149b3dc33989",
-    type: "music",
-  },
-  {
-    label: "星际穿越 (IMDb tt0816692)",
-    source: "imdb",
-    val: "https://www.imdb.com/title/tt0816692/",
-    type: "movie",
-  },
-  {
-    label: "葬送的芙莉莲 (Bangumi 364450)",
-    source: "bangumi",
-    val: "https://bgm.tv/subject/364450",
-    type: "anime",
-  },
-  {
-    label: "奥本海默 (TMDB 872585)",
-    source: "tmdb",
-    val: "https://www.themoviedb.org/movie/872585",
-    type: "movie",
-  },
-];
 
 export function OmniImportModal({
   isOpen,
@@ -74,6 +52,40 @@ export function OmniImportModal({
   const { t } = useI18n();
   const router = useRouter();
 
+  const examples = [
+    {
+      label: "Abbey Road (MusicBrainz)",
+      source: "musicbrainz",
+      val: "https://musicbrainz.org/release/4b9b9c02-d96a-4933-9133-149b3dc33989",
+      type: "music",
+    },
+    {
+      label: t("importer.exampleInterstellar"),
+      source: "imdb",
+      val: "https://www.imdb.com/title/tt0816692/",
+      type: "movie",
+    },
+    {
+      label: t("importer.exampleFrieren"),
+      source: "bangumi",
+      val: "https://bgm.tv/subject/364450",
+      type: "anime",
+    },
+    {
+      label: t("importer.exampleSteinsGate"),
+      source: "vndb",
+      val: "https://vndb.org/v2002",
+      type: "game",
+    },
+    {
+      label: t("importer.exampleOppenheimer"),
+      source: "tmdb",
+      val: "https://www.themoviedb.org/movie/872585",
+      type: "movie",
+    },
+  ];
+
+  const [plugins, setPlugins] = useState<PluginItem[]>([]);
   const [source, setSource] = useState<string>(initialSource);
   const [inputVal, setInputVal] = useState<string>(initialURLOrID);
   const [mediaHint, setMediaHint] = useState<string>("");
@@ -87,6 +99,18 @@ export function OmniImportModal({
   const [editNote, setEditNote] = useState("");
   const [importing, setImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<any>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchPublicPlugins("importer")
+        .then((res) => {
+          if (res?.items && res.items.length > 0) {
+            setPlugins(res.items);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -141,7 +165,7 @@ export function OmniImportModal({
         mediums: previewData.mediums,
         download_cover: downloadCover,
         is_master_verified: isMasterVerified,
-        edit_note: editNote.trim() || `通过 OmniSource Importer 从 ${previewData.source.toUpperCase()} 权威数据源快速一键导入`,
+        edit_note: editNote.trim() || t("importer.defaultEditNote", { source: previewData.source.toUpperCase() }),
         source_urls: [previewData.external_url || inputVal],
       });
 
@@ -196,13 +220,30 @@ export function OmniImportModal({
 
         {/* Modal Body */}
         <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
-          {/* Source Tabs */}
+          {/* Dynamic Plugin Source Tabs */}
           <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-black/5 dark:bg-white/[0.04] border border-black/5 dark:border-white/[0.06] text-xs font-mono">
             {[
               { id: "auto", label: t("importer.sourceAuto"), icon: Sparkles },
-              { id: "musicbrainz", label: "MusicBrainz", icon: Disc },
-              { id: "tmdb", label: "TMDB / IMDb", icon: Film },
-              { id: "bangumi", label: "Bangumi (bgm.tv)", icon: BookOpen },
+              ...(plugins.length > 0
+                ? plugins.map((p) => {
+                    let Icon = Puzzle;
+                    if (p.icon === "Disc" || p.id === "musicbrainz") Icon = Disc;
+                    else if (p.icon === "Film" || p.id === "tmdb") Icon = Film;
+                    else if (p.icon === "Tv" || p.id === "bangumi") Icon = BookOpen;
+                    else if (p.icon === "Gamepad2" || p.id === "vndb") Icon = Gamepad2;
+                    else if (p.icon === "BookOpen" || p.id === "douban") Icon = BookOpen;
+                    return {
+                      id: p.id,
+                      label: p.name.split(" ")[0] || p.name,
+                      icon: Icon,
+                    };
+                  })
+                : [
+                    { id: "musicbrainz", label: "MusicBrainz", icon: Disc },
+                    { id: "tmdb", label: "TMDB / IMDb", icon: Film },
+                    { id: "bangumi", label: "Bangumi", icon: BookOpen },
+                    { id: "vndb", label: "VNDB", icon: Gamepad2 },
+                  ]),
             ].map((tab) => {
               const Icon = tab.icon;
               const active = source === tab.id;
@@ -234,12 +275,16 @@ export function OmniImportModal({
                 onKeyDown={(e) => e.key === "Enter" && handleParse()}
                 placeholder={
                   source === "musicbrainz"
-                    ? "输入 MusicBrainz Release MBID 或 URL (如 4b9b9c02-d96a-4933-9133-149b3dc33989)"
+                    ? t("importer.placeholderMusicbrainz")
                     : source === "tmdb" || source === "imdb"
-                    ? "输入 IMDb ID (如 tt0816692) 或 TMDB URL (如 themoviedb.org/movie/157336)"
+                    ? t("importer.placeholderTmdb")
                     : source === "bangumi"
-                    ? "输入 Bangumi 条目链接或 Subject ID (如 https://bgm.tv/subject/364450)"
-                    : "粘贴 MusicBrainz、IMDb / TMDB 或 Bangumi 链接 / ID..."
+                    ? t("importer.placeholderBangumi")
+                    : source === "vndb"
+                    ? t("importer.placeholderVndb")
+                    : source === "douban"
+                    ? t("importer.placeholderDouban")
+                    : t("importer.placeholderDefault")
                 }
                 className="w-full pl-3.5 pr-28 h-11 rounded-xl bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all text-gray-900 dark:text-white font-mono"
               />
@@ -266,7 +311,7 @@ export function OmniImportModal({
             {/* Quick Example Pills */}
             <div className="flex flex-wrap items-center gap-1.5 pt-1">
               <span className="text-[11px] font-mono text-gray-400 mr-1">{t("importer.examplesLabel")}:</span>
-              {EXAMPLES.map((ex, idx) => (
+              {examples.map((ex, idx) => (
                 <button
                   key={idx}
                   type="button"
@@ -440,7 +485,7 @@ export function OmniImportModal({
                             })}
                             {med.tracks.length > 4 && (
                               <div className="text-[10px] text-gray-400 italic">
-                                ... 以及另外 {med.tracks.length - 4} 项
+                                {t("importer.moreTracks", { count: med.tracks.length - 4 })}
                               </div>
                             )}
                           </div>
