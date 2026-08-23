@@ -735,12 +735,15 @@ let boardsCache: ForumBoard[] | null = null;
 let boardsCacheAt = 0;
 const BOARDS_TTL_MS = 5 * 60 * 1000;
 
-// nameKey/descKey 复用既有翻译：board.announcement / board.bug_report / board.comment 均已在 messages 中存在
+// nameKey/descKey 复用既有翻译：board.announcement / board.casual / board.qa / board.reviews / board.bug_report / board.comment
 const FALLBACK_BOARDS: ForumBoard[] = [
   VIRTUAL_ALL_BOARD,
-  { code: "announcement", nameKey: "board.announcement", descKey: "board.announcementDesc", name_zh: "Announcements", name: "Announcements", name_en: "Announcements", description: "Announcements & operations", desc: "Announcements & operations", color: "text-amber-400", bgColor: "bg-amber-500/15", borderColor: "border-amber-500/30", icon: "Megaphone", show_in_feed: true },
-  { code: "bug_report", nameKey: "board.bug_report", descKey: "board.bug_reportDesc", name_zh: "Bug Reports", name: "Bug Reports", name_en: "Bug Reports", description: "Bug reports & reproductions", desc: "Bug reports & reproductions", color: "text-rose-400", bgColor: "bg-rose-500/15", borderColor: "border-rose-500/30", icon: "Bug", show_in_feed: true },
-  { code: "comment", nameKey: "board.comment", descKey: "board.commentDesc", name_zh: "Comments Only", name: "Comments Only", name_en: "Comments Only", description: "Comment carrier for works & topics, excluded from feeds", desc: "Comment carrier for works & topics, excluded from feeds", color: "text-sky-400", bgColor: "bg-sky-500/15", borderColor: "border-sky-500/30", icon: "MessageCircle", show_in_feed: false },
+  { code: "announcement", nameKey: "board.announcement", descKey: "board.announcementDesc", name_zh: "站点公告", name: "Announcements", name_en: "Announcements", description: "站点公告与运营通知", desc: "Announcements & operations", color: "text-amber-400", bgColor: "bg-amber-500/15", borderColor: "border-amber-500/30", icon: "Megaphone", sort_order: 10, is_enabled: true, show_in_feed: true },
+  { code: "casual", nameKey: "board.casual", descKey: "board.casualDesc", name_zh: "闲聊杂谈", name: "Casual Chat", name_en: "Casual Chat", description: "轻松闲聊与站内日常交流", desc: "Casual chat & discussions", color: "text-purple-400", bgColor: "bg-purple-500/15", borderColor: "border-purple-500/30", icon: "Coffee", sort_order: 20, is_enabled: true, show_in_feed: true },
+  { code: "qa", nameKey: "board.qa", descKey: "board.qaDesc", name_zh: "求助答疑", name: "Q&A", name_en: "Q&A", description: "使用问题、编目与功能答疑", desc: "Questions, cataloging & help", color: "text-teal-400", bgColor: "bg-teal-500/15", borderColor: "border-teal-500/30", icon: "Hash", sort_order: 30, is_enabled: true, show_in_feed: true },
+  { code: "reviews", nameKey: "board.reviews", descKey: "board.reviewsDesc", name_zh: "考据评注", name: "Archive Reviews", name_en: "Archive Reviews", description: "版本考证、原盘评析与文献释读", desc: "Edition analysis & archive reviews", color: "text-emerald-400", bgColor: "bg-emerald-500/15", borderColor: "border-emerald-500/30", icon: "BookOpen", sort_order: 40, is_enabled: true, show_in_feed: true },
+  { code: "bug_report", nameKey: "board.bug_report", descKey: "board.bug_reportDesc", name_zh: "反馈与建议", name: "Feedback & Bug Reports", name_en: "Feedback & Bug Reports", description: "缺陷反馈、功能建议与复现信息", desc: "Bug reports & feature feedback", color: "text-rose-400", bgColor: "bg-rose-500/15", borderColor: "border-rose-500/30", icon: "Bug", sort_order: 50, is_enabled: true, show_in_feed: true },
+  { code: "comment", nameKey: "board.comment", descKey: "board.commentDesc", name_zh: "评论专用", name: "Comments", name_en: "Comments", description: "作品与讨论的评论承载区，不进入信息流与全站聚合", desc: "Comment carrier for works & topics, excluded from feeds", color: "text-sky-400", bgColor: "bg-sky-500/15", borderColor: "border-sky-500/30", icon: "MessageCircle", sort_order: 60, is_enabled: true, show_in_feed: false },
 ];
 
 export const FORUM_BOARDS: ForumBoard[] = FALLBACK_BOARDS;

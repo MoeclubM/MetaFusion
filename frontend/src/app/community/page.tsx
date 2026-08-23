@@ -55,10 +55,13 @@ const BOARD_ICON_MAP: Record<string, React.ElementType> = {
  Megaphone, Bug, MessageCircle, Film, Music2,
 };
 const BOARD_ICON: Record<string, React.ElementType> = {
- all: Layers,
- announcement: Megaphone,
- bug_report: Bug,
- comment: MessageCircle,
+  all: Layers,
+  announcement: Megaphone,
+  casual: Coffee,
+  qa: Hash,
+  reviews: BookOpen,
+  bug_report: Bug,
+  comment: MessageCircle,
 };
 function resolveBoardIcon(board: ForumBoard): React.ElementType {
  if (board.icon && BOARD_ICON_MAP[board.icon]) return BOARD_ICON_MAP[board.icon];

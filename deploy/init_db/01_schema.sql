@@ -263,7 +263,7 @@ CREATE TABLE entity_relationships (
     UNIQUE(source_type, source_id, target_type, target_id, relationship_type)
 );
 
--- 12. 论坛分区 (Boards) — announcement=站点公告, casual=闲聊, qa=答疑, bug_report=Bug反馈, comment=评论专用(不进feed)
+-- 12. 论坛分区 (Boards) — announcement=站点公告, casual=闲聊杂谈, qa=求助答疑, reviews=考据评注, bug_report=反馈与建议, comment=评论专用(不进feed)
 CREATE TABLE IF NOT EXISTS forum_boards (
     code VARCHAR(32) PRIMARY KEY,
     name_zh VARCHAR(64) NOT NULL,
@@ -311,17 +311,15 @@ CREATE TABLE topic_tag_relations (
     PRIMARY KEY (topic_id, tag_id)
 );
 
--- 种子分区（默认：announcement / casual / qa / bug_report / comment；comment 不进 feed）
+-- 种子分区（默认：announcement / casual / qa / reviews / bug_report / comment；comment 不进 feed）
 INSERT INTO forum_boards (code, name_zh, name_en, description, color, icon, sort_order, is_enabled, show_in_feed, names) VALUES
-('announcement', '站点公告', 'Announcements', '站点公告与运营通知', 'amber', 'Megaphone', 10, TRUE, TRUE, '{"zh-CN":"站点公告","en-US":"Announcements"}'),
-('bug_report',   'Bug反馈',  'Bug Reports',   '缺陷反馈与复现信息', 'rose',  'Bug',         60, TRUE, TRUE, '{"zh-CN":"Bug反馈","en-US":"Bug Reports"}'),
-('comment',      '评论专用', 'Comments',      '作品与讨论的评论承载区，不进入信息流', 'sky', 'MessageCircle', 70, TRUE, FALSE, '{"zh-CN":"评论专用","en-US":"Comments"}')
-ON CONFLICT (code) DO UPDATE SET name_zh=EXCLUDED.name_zh, name_en=EXCLUDED.name_en, description=EXCLUDED.description, sort_order=EXCLUDED.sort_order, names=EXCLUDED.names;
-
-INSERT INTO forum_boards (code, name_zh, name_en, description, color, icon, sort_order, is_enabled, show_in_feed, names) VALUES
-('casual', '闲聊', 'Casual Chat', '轻松闲聊与站内日常交流', 'purple', 'Coffee', 45, TRUE, TRUE, '{"zh-CN":"闲聊","en-US":"Casual Chat"}'),
-('qa',     '答疑', 'Q&A',         '使用问题、编目与功能答疑', 'teal',   'Hash',   55, TRUE, TRUE, '{"zh-CN":"答疑","en-US":"Q&A"}')
-ON CONFLICT (code) DO NOTHING;
+('announcement', '站点公告',   'Announcements',          '站点公告与运营通知',                   'amber',   'Megaphone',     10, TRUE, TRUE,  '{"zh-CN":"站点公告","en-US":"Announcements"}'),
+('casual',       '闲聊杂谈',   'Casual Chat',            '轻松闲聊与站内日常交流',               'purple',  'Coffee',        20, TRUE, TRUE,  '{"zh-CN":"闲聊杂谈","en-US":"Casual Chat"}'),
+('qa',           '求助答疑',   'Q&A',                    '使用问题、编目与功能答疑',             'teal',    'Hash',          30, TRUE, TRUE,  '{"zh-CN":"求助答疑","en-US":"Q&A"}'),
+('reviews',      '考据评注',   'Archive Reviews',        '版本考证、原盘评析与文献释读',         'emerald', 'BookOpen',      40, TRUE, TRUE,  '{"zh-CN":"考据评注","en-US":"Archive Reviews"}'),
+('bug_report',   '反馈与建议', 'Feedback & Bug Reports', '缺陷反馈、功能建议与复现信息',         'rose',    'Bug',           50, TRUE, TRUE,  '{"zh-CN":"反馈与建议","en-US":"Feedback & Bug Reports"}'),
+('comment',      '评论专用',   'Comments',               '作品与讨论的评论承载区，不进入信息流与全站聚合', 'sky',     'MessageCircle', 60, TRUE, FALSE, '{"zh-CN":"评论专用","en-US":"Comments"}')
+ON CONFLICT (code) DO UPDATE SET name_zh=EXCLUDED.name_zh, name_en=EXCLUDED.name_en, description=EXCLUDED.description, color=EXCLUDED.color, icon=EXCLUDED.icon, sort_order=EXCLUDED.sort_order, is_enabled=EXCLUDED.is_enabled, show_in_feed=EXCLUDED.show_in_feed, names=EXCLUDED.names;
 
 -- FK: 幂等绑定 board_code → forum_boards(code)
 DO $$ BEGIN

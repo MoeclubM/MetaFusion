@@ -46,7 +46,7 @@ requests.put(f"{BASE}/catalog/works/{work_id}", headers=H, json={
 
 # 4. 发帖
 requests.post(f"{BASE}/community/topics", headers=H, json={
-    "board_code": "general", "title": "考据笔记", "content": "来源：..."
+    "board_code": "reviews", "title": "考据笔记", "content": "来源：..."
 })
 ```
 

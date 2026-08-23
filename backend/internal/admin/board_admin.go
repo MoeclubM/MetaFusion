@@ -290,10 +290,6 @@ func (s *AdminService) DeleteBoard(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": code + backendi18n.T(c, "board.code_reserved")})
 		return
 	}
-	if code == "general" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "board.general_disabled")})
-		return
-	}
 	if code == "all" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "board.all_no_delete")})
 		return
