@@ -2,30 +2,41 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 )
 
 type Config struct {
-	Port         string
-	DBHost       string
-	DBPort       string
-	DBUser       string
-	DBPassword   string
-	DBName       string
-	RedisAddr    string
-	ElasticURL   string
-	S3Endpoint   string
-	S3PublicURL  string
-	S3AccessKey  string
-	S3SecretKey  string
-	S3BucketMaster string
-	S3BucketPreview string
-	JWTSecret    string
+	Port               string
+	DBHost             string
+	DBPort             string
+	DBUser             string
+	DBPassword         string
+	DBName             string
+	RedisAddr          string
+	ElasticURL         string
+	S3Endpoint         string
+	S3PublicURL        string
+	S3AccessKey        string
+	S3SecretKey        string
+	S3BucketMaster     string
+	S3BucketPreview    string
+	JWTSecret          string
+	AllowedOrigins     string
 	MaxConcurrentVideo int
 }
 
 func Load() *Config {
+	jwtSecret := getEnv("JWT_SECRET", "")
+	if jwtSecret == "" {
+		if os.Getenv("NODE_ENV") == "production" || os.Getenv("GIN_MODE") == "release" {
+			log.Println("CRITICAL SECURITY WARNING: JWT_SECRET is not set in production mode! Please configure JWT_SECRET.")
+		}
+		// 开发回退默认值，避免空 key 导致非法伪造
+		jwtSecret = "metafusion-default-dev-secret-key-32bytes-min!!"
+	}
+
 	return &Config{
 		Port:               getEnv("PORT", "8080"),
 		DBHost:             getEnv("DB_HOST", "localhost"),
@@ -41,7 +52,8 @@ func Load() *Config {
 		S3SecretKey:        getEnv("S3_SECRET_KEY", ""),
 		S3BucketMaster:     getEnv("S3_BUCKET_MASTER", "metafusion-master"),
 		S3BucketPreview:    getEnv("S3_BUCKET_PREVIEW", "metafusion-preview"),
-		JWTSecret:          getEnv("JWT_SECRET", ""),
+		JWTSecret:          jwtSecret,
+		AllowedOrigins:     getEnv("CORS_ALLOWED_ORIGINS", ""),
 		MaxConcurrentVideo: getEnvInt("MAX_CONCURRENT_VIDEO_TASKS", 2),
 	}
 }

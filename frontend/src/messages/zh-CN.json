@@ -1,4 +1,9 @@
 {
+  "notFound.title": "页面未找到",
+  "notFound.desc": "您访问的实体、文献档案或页面不存在，可能已被迁移或移除。",
+  "error.title": "页面遇到异常",
+  "error.desc": "系统遇到了未预期的错误。该问题已被自动捕获，您可以尝试重新加载或返回首页。",
+  "error.retry": "重试加载",
   "common.loading": "加载中…",
   "common.loadingTopics": "加载主题列表中…",
   "common.search": "搜索",

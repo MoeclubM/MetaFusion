@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -84,9 +89,28 @@ func main() {
 	// i18n: ?locale/?language > x-locale > Accept-Language > zh-CN
 	r.Use(backendi18n.Middleware())
 
-	// 配置 CORS — 扩展支持 PAT 头与 User-Agent
+	// 安全响应头中间件 (Security Headers)
+	r.Use(func(c *gin.Context) {
+		c.Header("X-Content-Type-Options", "nosniff")
+		c.Header("X-Frame-Options", "SAMEORIGIN")
+		c.Header("X-XSS-Protection", "1; mode=block")
+		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		c.Next()
+	})
+
+	// 配置 CORS — 扩展支持 PAT 头与 User-Agent，支持环境变量配置域名白名单
 	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowAllOrigins = true
+	if cfg.AllowedOrigins != "" {
+		origins := strings.Split(cfg.AllowedOrigins, ",")
+		for i := range origins {
+			origins[i] = strings.TrimSpace(origins[i])
+		}
+		corsConfig.AllowOrigins = origins
+		corsConfig.AllowCredentials = true
+	} else {
+		corsConfig.AllowAllOrigins = true
+	}
 	corsConfig.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "Range", "Accept-Language", "x-locale", "X-API-Key", "X-Token", "User-Agent"}
 	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
 	corsConfig.ExposeHeaders = []string{"X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset", "Retry-After", "X-Warning"}
@@ -97,7 +121,39 @@ func main() {
 	limiter := ratelimit.New(60, 600)
 	r.Use(limiter.Middleware())
 
-	// 健康检查
+	// 生产健康检查探针体系 (Liveness & Readiness Probes)
+	r.GET("/healthz", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "live", "service": "metafusion-backend"})
+	})
+	r.GET("/live", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "live", "service": "metafusion-backend"})
+	})
+	r.GET("/ready", func(c *gin.Context) {
+		checks := gin.H{}
+		allHealthy := true
+
+		// 1. PostgreSQL 检查
+		if sqlDB, err := db.DB(); err != nil || sqlDB.Ping() != nil {
+			checks["postgres"] = "unhealthy"
+			allHealthy = false
+		} else {
+			checks["postgres"] = "healthy"
+		}
+
+		// 2. Redis 检查
+		if err := asynqClient.Ping(); err != nil {
+			checks["redis"] = "unhealthy"
+			allHealthy = false
+		} else {
+			checks["redis"] = "healthy"
+		}
+
+		if allHealthy {
+			c.JSON(http.StatusOK, gin.H{"status": "ready", "checks": checks})
+		} else {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "checks": checks})
+		}
+	})
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "metafusion-backend"})
 	})
@@ -629,8 +685,32 @@ func main() {
 		}
 	}
 
-	log.Printf("MetaFusion Backend API Server starting on port %s...", cfg.Port)
-	if err := r.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("Server failed to run: %v", err)
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: r,
+	}
+
+	// 启动 HTTP 服务（Goroutine 运行以配合优雅停机）
+	go func() {
+		log.Printf("MetaFusion Backend API Server starting on port %s...", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("Server failed to run: %v", err)
+		}
+	}()
+
+	// 监听系统中断信号（SIGINT, SIGTERM）
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	sig := <-quit
+	log.Printf("Received signal %v. Initiating graceful shutdown...", sig)
+
+	// 设置 10 秒超时以等待正在处理的请求完成
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("Server forced to shutdown with error: %v", err)
+	} else {
+		log.Println("MetaFusion Backend API Server exited cleanly.")
 	}
 }

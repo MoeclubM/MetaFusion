@@ -1,4 +1,9 @@
 {
+  "notFound.title": "Page Not Found",
+  "notFound.desc": "The entity, archive, or page you requested does not exist or has been relocated.",
+  "error.title": "Application Error",
+  "error.desc": "An unexpected error occurred. This has been captured, please try reloading or navigate home.",
+  "error.retry": "Retry",
   "common.loading": "Loading…",
   "common.loadingTopics": "Loading topics…",
   "common.search": "Search",
