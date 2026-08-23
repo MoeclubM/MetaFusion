@@ -1,6 +1,7 @@
 "use client";
 
 import { Users, Plus } from "lucide-react";
+import { isDistinctOriginalTitle } from "@/lib/titles";
 import { dictTermLabel } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
@@ -99,7 +100,7 @@ export function AgentsTab({
                 <tr key={artist.id} className="hover:bg-white/[0.02]">
                   <td className="py-3 px-4">
                     <div className="font-semibold text-white">{artist.name}</div>
-                    {artist.original_name && <div className="text-[11px] text-gray-400 mt-0.5">{artist.original_name}</div>}
+                    {isDistinctOriginalTitle(artist.original_name, artist.name) && <div className="text-[11px] text-gray-400 mt-0.5">{artist.original_name}</div>}
                     {artist.disambiguation && <div className="text-[10px] text-amber-400 font-mono mt-0.5">({artist.disambiguation})</div>}
                   </td>
                   <td className="py-3 px-3">

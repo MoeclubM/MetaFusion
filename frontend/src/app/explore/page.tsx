@@ -732,7 +732,7 @@ function ExploreContent() {
                           <h3 className="font-semibold text-sm text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
                             {a.name}
                           </h3>
-                          {a.original_name && <p className="font-mono text-xs text-gray-500 truncate">{a.original_name}</p>}
+                          {isDistinctOriginalTitle(a.original_name, a.name) && <p className="font-mono text-xs text-gray-500 truncate">{a.original_name}</p>}
                         </div>
                         <span className="shrink-0 px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/5 text-[11px] font-mono text-gray-600 dark:text-gray-400">
                           {entityTypeLabel(a.entity_type)}

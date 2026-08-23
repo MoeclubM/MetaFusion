@@ -118,7 +118,7 @@ export default function ArtistDetailPage() {
               </div>
               <div>
                 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{localized.title}</h1>
-                {artist.original_name && artist.original_name !== localized.title && <p className="font-mono text-xs text-gray-500 dark:text-gray-400 mt-0.5">{artist.original_name}</p>}
+                {isDistinctOriginalTitle(artist.original_name, localized.title) && <p className="font-mono text-xs text-gray-500 dark:text-gray-400 mt-0.5">{artist.original_name}</p>}
                 {artist.disambiguation && <p className="font-mono text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{artist.disambiguation}</p>}
               </div>
               {localized.body && <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl line-clamp-3">{localized.body}</p>}
