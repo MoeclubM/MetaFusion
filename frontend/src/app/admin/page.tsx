@@ -19,7 +19,7 @@ import { AuditTab } from "./components/tabs/AuditTab";
 import { HealthTab } from "./components/tabs/HealthTab";
 import { SettingsTab } from "./components/tabs/SettingsTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
-import { CategoriesTab } from "./components/tabs/CategoriesTab";
+import { RelationshipsTab } from "./components/tabs/RelationshipsTab";
 import { EntityTypesTab } from "./components/tabs/EntityTypesTab";
 import { ArtistModal } from "./components/modals/ArtistModal";
 import { ShelfModal } from "./components/modals/ShelfModal";
@@ -55,7 +55,7 @@ function AdminContent() {
           {d.activeTab === "health" && <HealthTab />}
           {d.activeTab === "settings" && <SettingsTab />}
           {d.activeTab === "shelves" && <ShelvesTab loading={d.loading} filteredShelves={d.filteredShelves} handleOpenCreateShelf={d.handleOpenCreateShelf} handleOpenEditShelf={d.handleOpenEditShelf} handleDeleteShelf={d.handleDeleteShelf} />}
-          {d.activeTab === "relationships" && <CategoriesTab />}
+          {d.activeTab === "relationships" && <RelationshipsTab />}
         </main>
       </div>
       <ArtistModal open={d.isArtistModalOpen} onClose={() => d.setIsArtistModalOpen(false)} editingArtist={d.editingArtist} artistForm={d.artistForm} setArtistForm={d.setArtistForm} artistSubmitting={d.artistSubmitting} handleSaveArtist={d.handleSaveArtist} />

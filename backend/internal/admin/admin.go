@@ -191,7 +191,6 @@ func (s *AdminService) ListWorks(c *gin.Context) {
 	status := c.Query("status")
 
 	query := s.db.Model(&models.Work{}).
-		Preload("Category").
 		Preload("Releases.Mediums").
 		Preload("Releases.PublisherEntity").
 		Preload("ArtistRelations.Artist").

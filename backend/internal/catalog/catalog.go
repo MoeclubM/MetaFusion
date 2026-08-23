@@ -269,16 +269,12 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 // ListTags 获取标签列表
 func (s *CatalogService) ListTags(c *gin.Context) {
 	groupType := c.Query("group_type")
-	mediaType := c.Query("media_type")
 
 	query := s.db.Model(&models.Tag{})
 	if groupType != "" {
 		query = query.Where("group_type = ?", groupType)
 	} else {
 		query = query.Where("group_type NOT IN ?", []string{models.TagGroupTopic, models.TagGroupSpec})
-	}
-	if mediaType != "" {
-		query = query.Where("? = ANY(category_scope) OR category_scope = '{}'", mediaType)
 	}
 
 	var tags []models.Tag
@@ -307,7 +303,7 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 	}
 
 	offset := (page - 1) * pageSize
-	query := s.db.Model(&models.Work{}).Preload("Category").Preload("Tags").Preload("ArtistRelations.Artist").Preload("Translations")
+	query := s.db.Model(&models.Work{}).Preload("Tags").Preload("ArtistRelations.Artist").Preload("Translations")
 
 	// 状态过滤：未登录/普通用户默认只能查 published/completed 作品
 	userRole, _ := c.Get("role")
@@ -440,8 +436,7 @@ func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 	}
 
 	var work models.Work
-	q := s.db.Preload("Category").
-		Preload("Tags").
+	q := s.db.Preload("Tags").
 		Preload("ArtistRelations.Artist").
 		Preload("Translations").
 		Where("id = ?", workID)
@@ -549,7 +544,6 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 
 	var release models.Release
 	if err := s.db.
-		Preload("Work.Category").
 		Preload("Work.Translations").
 		Preload("PublisherEntity").
 		Preload("PublisherEntity.Translations").
@@ -617,7 +611,7 @@ func (s *CatalogService) GetMediumDetail(c *gin.Context) {
 
 	// 附带 Release 与 Work 供面包屑
 	var release models.Release
-	_ = s.db.Preload("Work.Category").Where("id = ?", medium.ReleaseID).First(&release).Error
+	_ = s.db.Where("id = ?", medium.ReleaseID).First(&release).Error
 
 	c.JSON(http.StatusOK, gin.H{
 		"medium":  medium,
@@ -1270,7 +1264,7 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 
 	works := make([]models.Work, 0)
 	if len(workIDs) > 0 {
-		wQ := s.db.Preload("Category").Preload("Tags").Preload("Translations").Where("id IN ?", workIDs)
+		wQ := s.db.Preload("Tags").Preload("Translations").Where("id IN ?", workIDs)
 		wQ = applyWorkVisibility(wQ, currentUserID(c))
 		if err := wQ.Find(&works).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1297,7 +1291,7 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 			continue
 		}
 		var w models.Work
-		wQ := applyWorkVisibility(s.db.Preload("Category").Preload("Tags").Preload("Translations"), currentUserID(c)).Where("id = ?", wid)
+		wQ := applyWorkVisibility(s.db.Preload("Tags").Preload("Translations"), currentUserID(c)).Where("id = ?", wid)
 		if err := wQ.First(&w).Error; err == nil {
 			works = append(works, w)
 			seenWorks[w.ID] = true

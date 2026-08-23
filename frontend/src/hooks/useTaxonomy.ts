@@ -57,7 +57,6 @@ export function useTaxonomy() {
     taxonomy,
     loading,
     entityTypeLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.entity_types),
-    mediaTypeLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.media_types),
     roleLabel: (code?: string | null) => dictTermLabel(code, taxonomy?.roles),
   };
 }

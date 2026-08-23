@@ -81,7 +81,6 @@ func (s *CatalogService) BrowseWorks(c *gin.Context) {
 		if withTags {
 			query = query.Preload("Tags")
 		}
-		query = query.Preload("Category")
 	}
 
 	query = query.Preload("Translations")

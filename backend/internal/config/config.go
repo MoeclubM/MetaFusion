@@ -34,7 +34,7 @@ func Load() *Config {
 		DBPassword:         getEnv("DB_PASSWORD", ""),
 		DBName:             getEnv("DB_NAME", "metafusion_db"),
 		RedisAddr:          getEnv("REDIS_ADDR", "localhost:6379"),
-		ElasticURL:         getEnv("ELASTICSEARCH_URL", "http://localhost:9200"),
+		ElasticURL:         getEnv("OPENSEARCH_URL", getEnv("ELASTICSEARCH_URL", "http://localhost:9200")),
 		S3Endpoint:         getEnv("S3_ENDPOINT", "localhost:9000"),
 		S3PublicURL:        getEnv("S3_PUBLIC_ENDPOINT", "http://localhost:9000"),
 		S3AccessKey:        getEnv("S3_ACCESS_KEY", ""),

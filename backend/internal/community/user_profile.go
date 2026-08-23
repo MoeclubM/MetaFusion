@@ -86,7 +86,7 @@ func GetUserContributions(db *gorm.DB) gin.HandlerFunc {
 			q := db.Model(&models.Work{}).Where("created_by = ?", uid)
 			q.Count(&total)
 			var items []models.Work
-			q.Preload("Category").Preload("Translations").Order("created_at desc").Offset(offset).Limit(pageSize).Find(&items)
+			q.Preload("Translations").Order("created_at desc").Offset(offset).Limit(pageSize).Find(&items)
 			c.JSON(http.StatusOK, gin.H{"items": items, "total": total, "page": page, "page_size": pageSize})
 		case "releases":
 			var total int64

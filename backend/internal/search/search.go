@@ -86,8 +86,6 @@ func (s *SearchService) ensureIndex(ctx context.Context) error {
 					"original_title": { "type": "text" },
 					"aliases": { "type": "text" },
 					"translated_titles": { "type": "text" },
-					"media_type": { "type": "keyword" },
-					"category_code": { "type": "keyword" },
 					"summary": { "type": "text" },
 					"release_year": { "type": "integer" },
 					"tags": { "type": "keyword" },

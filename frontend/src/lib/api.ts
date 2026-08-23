@@ -191,13 +191,6 @@ export function getBoardDesc(code: string, t: (k: string) => string): string {
   return t(`board.${code}Desc`);
 }
 
-export function categoryDisplayName(cat: Category, locale?: string): string {
-  if (cat.name && cat.name.trim()) return cat.name;
-  if (locale === 'en-US' && cat.name_en) return cat.name_en;
-  if (locale === 'zh-CN' && cat.name_zh) return cat.name_zh;
-  return cat.name_zh || cat.name_en || cat.code;
-}
-
 export interface Tag {
   id: number;
   name: string;

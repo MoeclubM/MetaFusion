@@ -42,23 +42,6 @@ func IsEnabledEntityType(db *gorm.DB, code string) bool {
 	return n > 0
 }
 
-func IsEnabledMediaType(db *gorm.DB, code string) bool {
-	if code == "all" {
-		return true
-	}
-	if code == "" {
-		return false
-	}
-	var total int64
-	db.Model(&models.MediaType{}).Count(&total)
-	if total == 0 {
-		return true
-	}
-	var n int64
-	db.Model(&models.MediaType{}).Where("code = ? AND is_enabled = ?", code, true).Count(&n)
-	return n > 0
-}
-
 func IsEnabledWorkRole(db *gorm.DB, code string) bool {
 	if code == "" {
 		return false
