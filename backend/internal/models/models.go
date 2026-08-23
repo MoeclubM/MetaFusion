@@ -1028,6 +1028,7 @@ type SystemPlugin struct {
 	EndpointURL  string         `gorm:"type:varchar(512);default:'';not null" json:"endpoint_url"`
 	SecretToken  string         `gorm:"type:varchar(255);default:'';not null" json:"secret_token,omitempty"`
 	Capabilities pq.StringArray `gorm:"type:text[];not null" json:"capabilities"`
+	Dependencies JSONB          `gorm:"type:jsonb;default:'{}'" json:"dependencies"`
 	ConfigSchema JSONB          `gorm:"type:jsonb;default:'{}'" json:"config_schema"`
 	Config       JSONB          `gorm:"type:jsonb;default:'{}'" json:"config"`
 	IsEnabled    bool           `gorm:"default:true;not null" json:"is_enabled"`
