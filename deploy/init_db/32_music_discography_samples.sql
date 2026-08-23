@@ -140,121 +140,121 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
 ('c001cafe-0000-4000-8000-000000000101', '', '范特西', 'Fantasy',
     '{"Fantasy","周杰伦第2张专辑","Jay Chou Fantasy"}', '2001-09-14', '2001-09-14', '2001-09-14', TRUE, '中国台湾', 'zh-CN', 'zh',
     '周杰伦于2001年发行的第2张录音室专辑，斩获第13届台湾金曲奖最佳流行音乐演唱专辑等五项大奖，确立了其华语天王地位。',
-    'https://coverartarchive.org/release/9c42c26d-2092-4f7f-8380-0a1e389d4432/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop","R&B","Hip-Hop"],"tracks_count":10}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000101.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop","R&B","Hip-Hop"],"tracks_count":10}'),
 
 -- 02. 叶惠美
 ('c001cafe-0000-4000-8000-000000000102', '', '叶惠美', 'Yeh Hui-Mei',
     '{"Ye Hui Mei","以母亲命名的专辑"}', '2003-07-31', '2003-07-31', '2003-07-31', TRUE, '中国台湾', 'zh-CN', 'zh',
     '以母亲名字命名的第4张录音室专辑，包含《以父之名》《晴天》《东风破》等神作，荣获金曲奖最佳流行音乐演唱专辑奖。',
-    'https://coverartarchive.org/release/a5e8f496-e260-449e-b1cf-7df46944e8d2/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop","Classical Crossover","Chinoiserie"],"tracks_count":11}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000102.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop","Classical Crossover","Chinoiserie"],"tracks_count":11}'),
 
 -- 03. 七里香
 ('c001cafe-0000-4000-8000-000000000103', '', '七里香', 'Common Jasmine Orange',
     '{"Common Jasmine Orange","周杰伦第5张专辑"}', '2004-08-03', '2004-08-03', '2004-08-03', TRUE, '中国台湾', 'zh-CN', 'zh',
     '周杰伦第5张录音室专辑，亚洲销量突破300万张，同名主打歌与《止战之殇》《借口》传唱至今。',
-    'https://coverartarchive.org/release/7e95fc8a-2117-48f8-a006-25868e775e53/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop","Folk Pop"],"tracks_count":10}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000103.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop","Folk Pop"],"tracks_count":10}'),
 
 -- 04. U87
 ('c001cafe-0000-4000-8000-000000000104', '', 'U87', 'U87',
     '{"Eason Chan U87","纽曼U87麦克风专辑"}', '2005-06-07', '2005-06-07', '2005-06-07', TRUE, '中国香港', 'zh-CN', 'zh',
     '陈奕迅加盟新艺宝后的首张粤语大碟，以传奇录音麦克风 Neumann U87 命名，被时代杂志评为当年五大最值得购买大碟之一。',
-    'https://coverartarchive.org/release/8fb217f5-2070-4f51-b845-a7b3724c96aa/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Cantopop","Pop Rock"],"tracks_count":12}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000104.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Cantopop","Pop Rock"],"tracks_count":12}'),
 
 -- 05. Special Thanks To...
 ('c001cafe-0000-4000-8000-000000000105', '', 'Special Thanks To...', 'Special Thanks To...',
     '{"陈奕迅第3张国语专辑","Special Thanks To"}', '2002-04-02', '2002-04-02', '2002-04-02', TRUE, '中国香港', 'zh-CN', 'zh',
     '陈奕迅经典国语专辑，包揽金曲奖最佳国语流行音乐演唱专辑奖与最佳国语男演唱人奖，收录《你的背包》《谢谢侬》。',
-    'https://coverartarchive.org/release/b801a613-2df6-43e9-b59a-1c5c07469a53/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Mandopop","Pop Rock"],"tracks_count":13}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000105.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Mandopop","Pop Rock"],"tracks_count":13}'),
 
 -- 06. 风筝
 ('c001cafe-0000-4000-8000-000000000106', '', '风筝', 'Kite',
     '{"Stefanie Sun Kite","孙燕姿第3张专辑"}', '2001-07-09', '2001-07-09', '2001-07-09', TRUE, '中国台湾', 'zh-CN', 'zh',
     '孙燕姿第3张国语专辑，收录《风筝》《绿光》《任性》，开创了华语流行电子舞曲与民谣抒情的全新时代。',
-    'https://coverartarchive.org/release/c7512da3-0bca-4b07-8822-ea79ec50873a/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Mandopop","Dance-Pop","Folk"],"tracks_count":10}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000106.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Mandopop","Dance-Pop","Folk"],"tracks_count":10}'),
 
 -- 07. 寓言
 ('c001cafe-0000-4000-8000-000000000107', '', '寓言', 'Fable',
     '{"Faye Wong Fable","王菲概念专辑寓言"}', '2000-10-20', '2000-10-20', '2000-10-20', TRUE, '中国香港', 'zh-CN', 'zh',
     '王菲第17张录音室大碟，前五首由王菲亲自作曲、张亚东编曲、林夕作词的寓言五部曲（《寒武纪》《新房客》《香奈儿》《阿修罗》《彼岸花》）被誉为华语概念艺术巅峰。',
-    'https://coverartarchive.org/release/12e8736e-d2cb-4654-8e3b-41da268e0e7a/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Art Pop","Trip-Hop","Dream Pop"],"tracks_count":12}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000107.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Art Pop","Trip-Hop","Dream Pop"],"tracks_count":12}'),
 
 -- 08. 浮躁
 ('c001cafe-0000-4000-8000-000000000108', '', '浮躁', 'Restless',
     '{"Fu Zao","王菲浮躁专辑"}', '1996-06-03', '1996-06-03', '1996-06-03', TRUE, '中国香港', 'zh-CN', 'zh',
     '王菲携手窦唯与 Cocteau Twins 打造的极简迷幻与独立流行巅峰之作，开创华语前卫流行先河。',
-    'https://coverartarchive.org/release/eeff8db5-1fc3-4ea2-a1b7-a3f11d13f9f4/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Dream Pop","Indie Pop","Ambient"],"tracks_count":10}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000108.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Dream Pop","Indie Pop","Ambient"],"tracks_count":10}'),
 
 -- 09. 后来的我们
 ('c001cafe-0000-4000-8000-000000000109', '', '后来的我们', 'Here, After, Us',
     '{"Here After Us Single","五月天单曲后来的我们"}', '2016-07-21', '2016-07-21', '2016-07-21', TRUE, '中国台湾', 'zh-CN', 'zh',
     '五月天第9张专辑《自传》中的核心叙事单曲，阿信作词、怪兽作曲，讲述时光荏苒中青涩记忆的深情释怀。',
-    'https://coverartarchive.org/release/a38093d3-7d9a-4c91-9e76-eeecb0e2aa59/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop Rock","Ballad"],"tracks_count":1}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000109.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop Rock","Ballad"],"tracks_count":1}'),
 
 -- 10. 第二人生
 ('c001cafe-0000-4000-8000-000000000110', '', '第二人生', 'Second Round',
     '{"Second Round","五月天第8张专辑"}', '2011-12-16', '2011-12-16', '2011-12-16', TRUE, '中国台湾', 'zh-CN', 'zh',
     '五月天获得第23届金曲奖最佳国语专辑、最佳乐团等六项大奖的末日与明日概念双版专辑。',
-    'https://coverartarchive.org/release/622dfabf-a63e-4fa0-b4fe-eeb914e9f783/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop Rock","Alternative Rock"],"tracks_count":16}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000110.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop Rock","Alternative Rock"],"tracks_count":16}'),
 
 -- 11. 万能青年旅店
 ('c001cafe-0000-4000-8000-000000000111', '', '万能青年旅店', 'Omnipotent Youth Society',
     '{"万青首专","万能青年旅店同名专辑"}', '2010-11-12', '2010-11-12', '2010-11-12', TRUE, '中国', 'zh-CN', 'zh',
     '石家庄摇滚乐队万能青年旅店的首张同名专辑，收录《杀死那个石家庄人》《秦皇岛》，中国独立摇滚历史丰碑。',
-    'https://coverartarchive.org/release/55e34746-86c5-41e1-b4ef-f952f4c9c223/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Indie Rock","Art Rock","Chamber Pop"],"tracks_count":9}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000111.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Indie Rock","Art Rock","Chamber Pop"],"tracks_count":9}'),
 
 -- 12. 冀西南林路行
 ('c001cafe-0000-4000-8000-000000000112', '', '冀西南林路行', 'Inside the Cable Temple',
     '{"万青二专","Inside the Cable Temple"}', '2020-12-22', '2020-12-22', '2020-12-22', TRUE, '中国', 'zh-CN', 'zh',
     '万能青年旅店历时十年推出的第2张概念专辑，以太行山工业变迁与自然为题材，打破多项独立音乐数字销量纪录。',
-    'https://coverartarchive.org/release/8e1c6b12-9c3a-4467-9c98-1e42b6a93d0f/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Progressive Rock","Free Jazz","Art Rock"],"tracks_count":8}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000112.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Progressive Rock","Free Jazz","Art Rock"],"tracks_count":8}'),
 
 -- 13. 生如夏花
 ('c001cafe-0000-4000-8000-000000000113', '', '生如夏花', 'Born Like Summer Flowers',
     '{"Born Like Summer Flowers","朴树生如夏花"}', '2003-11-08', '2003-11-08', '2003-11-08', TRUE, '中国', 'zh-CN', 'zh',
     '朴树第2张录音室专辑，张亚东担任制作人，收录《生如夏花》《且听风吟》《傻子才悲伤》，极富异域风情与哲思。',
-    'https://coverartarchive.org/release/b8b6f4e2-9da2-4682-9658-297f0a8d6092/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Folk Rock","Indie Pop","Worldbeat"],"tracks_count":11}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000113.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Folk Rock","Indie Pop","Worldbeat"],"tracks_count":11}'),
 
 -- 14. 新长征路上的摇滚
 ('c001cafe-0000-4000-8000-000000000114', '', '新长征路上的摇滚', 'Rock ''N'' Roll on the New Long March',
     '{"Rock ''N'' Roll on the New Long March","一无所有"}', '1989-02-01', '1989-02-01', '1989-02-01', TRUE, '中国', 'zh-CN', 'zh',
     '崔健发行的中国内地第一张原创摇滚乐专辑，收录《一无所有》《假行僧》《花房姑娘》，开启中国摇滚历史新篇章。',
-    'https://coverartarchive.org/release/c6bdfc28-971c-43f1-bd12-f0ba250bfd4b/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Roots Rock","Blues Rock","Folk Rock"],"tracks_count":9}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000114.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Roots Rock","Blues Rock","Folk Rock"],"tracks_count":9}'),
 
 -- 15. 吻别
 ('c001cafe-0000-4000-8000-000000000115', '', '吻别', 'The Goodbye Kiss',
     '{"The Goodbye Kiss","张学友吻别"}', '1993-03-05', '1993-03-05', '1993-03-05', TRUE, '中国香港', 'zh-CN', 'zh',
     '张学友第5张国语大碟，年度销量超400万张，创下华人唱片全球销量神话。',
-    'https://coverartarchive.org/release/81ebc638-8924-4f05-89f5-420a7b458b29/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Mandopop","Adult Contemporary"],"tracks_count":10}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000115.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Mandopop","Adult Contemporary"],"tracks_count":10}'),
 
 -- 16. David Tao
 ('c001cafe-0000-4000-8000-000000000116', '', 'David Tao', 'David Tao',
     '{"陶喆同名专辑","陶喆首专"}', '1997-12-06', '1997-12-06', '1997-12-06', TRUE, '中国台湾', 'zh-CN', 'zh',
     '陶喆首张同名全创作专辑，将西方经典 R&B、Acappella 与台湾本土民谣融合，收录《爱，很简单》《沙滩》。',
-    'https://coverartarchive.org/release/6ea65691-3824-45e0-b6ef-ee29b9f4803d/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["R&B","Soul","Contemporary Pop"],"tracks_count":10}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000116.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["R&B","Soul","Contemporary Pop"],"tracks_count":10}'),
 
 -- 17. 之乎者也
 ('c001cafe-0000-4000-8000-000000000117', '', '之乎者也', 'Zhi Hu Zhe Ye',
     '{"Zhi Hu Zhe Ye","罗大佑首张专辑"}', '1982-04-21', '1982-04-21', '1982-04-21', TRUE, '中国台湾', 'zh-CN', 'zh',
     '罗大佑首张个人创作专辑，被《台湾流行音乐百佳专辑》评为第一名，收录《童年》《光阴的故事》《鹿港小镇》。',
-    'https://coverartarchive.org/release/8d6c7015-3850-466d-8ff7-8c38adbaeaee/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Folk Rock","Roots Rock"],"tracks_count":10}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000117.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Folk Rock","Roots Rock"],"tracks_count":10}'),
 
 -- 18. 乐与怒
 ('c001cafe-0000-4000-8000-000000000118', '', '乐与怒', 'Rock ''n'' Roll',
     '{"Beyond 乐与怒","海阔天空专辑"}', '1993-05-14', '1993-05-14', '1993-05-14', TRUE, '中国香港', 'zh-CN', 'zh',
     'Beyond 乐队在黄家驹生前的最后一张录音室大碟，收录华语殿堂级金曲《海阔天空》《情人》《命运派对》。',
-    'https://coverartarchive.org/release/36f1c42f-870d-4fa0-be9c-70e2f5b5bbf8/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Hard Rock","Pop Rock"],"tracks_count":12}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000118.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Hard Rock","Pop Rock"],"tracks_count":12}'),
 
 -- 19. 丑奴儿
 ('c001cafe-0000-4000-8000-000000000119', '', '丑奴儿', 'The Servile',
     '{"The Servile","草东首专"}', '2016-02-19', '2016-02-19', '2016-02-19', TRUE, '中国台湾', 'zh-CN', 'zh',
     '草东没有派对的首张全长专辑，斩获金曲奖最佳新人、最佳乐团及年度歌曲三项大奖，收录《大风吹》《山海》。',
-    'https://coverartarchive.org/release/d3a8b278-f716-43d9-9528-662eb74f3261/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Indie Rock","Post-Punk","Grunge"],"tracks_count":12}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000119.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Indie Rock","Post-Punk","Grunge"],"tracks_count":12}'),
 
 -- 20. 黑梦
 ('c001cafe-0000-4000-8000-000000000120', '', '黑梦', 'Black Dream',
     '{"Black Dream","窦唯首专"}', '1994-05-01', '1994-05-01', '1994-05-01', TRUE, '中国', 'zh-CN', 'zh',
     '窦唯离开黑豹乐队后发行的首张个人专辑，魔岩三杰代表作，收录《高级动物》《黑色梦中》，中国哥特与后朋克经典。',
-    'https://coverartarchive.org/release/05cb933e-5153-4876-afba-faeb37c041ee/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Post-Punk","Gothic Rock","Alternative"],"tracks_count":10}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000120.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Post-Punk","Gothic Rock","Alternative"],"tracks_count":10}'),
 
 -- ==========================================
 -- 分组 2: 世界流行、摇滚与发烧天碟 (18部)
@@ -263,109 +263,109 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
 ('c001cafe-0000-4000-8000-000000000121', '', 'Thriller', 'Thriller',
     '{"颤栗","Michael Jackson Thriller"}', '1982-11-30', '1982-11-30', '1982-11-30', TRUE, '美国', 'en-US', 'en',
     '流行音乐史上最畅销专辑，全球销量突破7000万张，收录《Billie Jean》《Beat It》《Thriller》，狂揽8座格莱美奖。',
-    'https://coverartarchive.org/release/62283e78-9588-4668-b7a4-3a551f3efeb4/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop","Post-Disco","Funk","Rock"],"tracks_count":9}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000121.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop","Post-Disco","Funk","Rock"],"tracks_count":9}'),
 
 -- 22. Bad
 ('c001cafe-0000-4000-8000-000000000122', '', 'Bad', 'Bad',
     '{"真棒","MJ Bad"}', '1987-08-31', '1987-08-31', '1987-08-31', TRUE, '美国', 'en-US', 'en',
     '迈克尔·杰克逊第7张录音室专辑，创造单张专辑诞生5首 Billboard 冠军单曲的历史纪录，收录《Smooth Criminal》。',
-    'https://coverartarchive.org/release/ec9bdba1-4c46-4a4b-91d1-4ba29c15fbcf/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop","Funk","Rock","Dance-Pop"],"tracks_count":11}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000122.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop","Funk","Rock","Dance-Pop"],"tracks_count":11}'),
 
 -- 23. Abbey Road
 ('c001cafe-0000-4000-8000-000000000123', '', 'Abbey Road', 'Abbey Road',
     '{"修道院路","披头士阿比路"}', '1969-09-26', '1969-09-26', '1969-09-26', TRUE, '英国', 'en-US', 'en',
     '披头士乐队四位成员共同录制的最后一张录音室专辑，著名的斑马线封面与 B 面组曲成为摇滚史永恒象征。',
-    'https://coverartarchive.org/release/4a58498f-be89-4a00-abf2-9be06803716d/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Rock","Pop Rock","Progressive Rock"],"tracks_count":17}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000123.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Rock","Pop Rock","Progressive Rock"],"tracks_count":17}'),
 
 -- 24. The Dark Side of the Moon
 ('c001cafe-0000-4000-8000-000000000124', '', 'The Dark Side of the Moon', 'The Dark Side of the Moon',
     '{"月之暗面","Pink Floyd 月之暗面"}', '1973-03-01', '1973-03-01', '1973-03-01', TRUE, '英国', 'en-US', 'en',
     '平克·弗洛伊德前卫概念专辑巅峰，在 Billboard 专辑榜创下在榜超过900周的史诗纪录，全球发烧音响试音终极圣碟。',
-    'https://coverartarchive.org/release/a12366b5-ec60-449e-8c65-27a964344445/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Progressive Rock","Psychedelic Rock","Art Rock"],"tracks_count":10}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000124.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Progressive Rock","Psychedelic Rock","Art Rock"],"tracks_count":10}'),
 
 -- 25. 1989
 ('c001cafe-0000-4000-8000-000000000125', '', '1989', '1989',
     '{"泰勒斯威夫特1989","Taylor Swift 1989"}', '2014-10-27', '2014-10-27', '2014-10-27', TRUE, '美国', 'en-US', 'en',
     '泰勒·斯威夫特转型流行乐的里程碑大作，获格莱美年度专辑与最佳流行演唱专辑，收录《Blank Space》《Shake It Off》。',
-    'https://coverartarchive.org/release/3eef8a56-8a71-4fe1-92b8-f6a6176fc805/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Synth-Pop","Dance-Pop"],"tracks_count":13}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000125.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Synth-Pop","Dance-Pop"],"tracks_count":13}'),
 
 -- 26. A Night at the Opera
 ('c001cafe-0000-4000-8000-000000000126', '', 'A Night at the Opera', 'A Night at the Opera',
     '{"歌剧之夜","Queen 歌剧之夜"}', '1975-11-21', '1975-11-21', '1975-11-21', TRUE, '英国', 'en-US', 'en',
     '皇后乐队第4张录音室专辑，收录长达6分钟的摇滚歌剧史诗《Bohemian Rhapsody》（波西米亚狂想曲）。',
-    'https://coverartarchive.org/release/ebf38e6e-5da7-4e68-b0a6-c9561efdf44a/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Progressive Rock","Glam Rock","Opera Rock"],"tracks_count":12}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000126.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Progressive Rock","Glam Rock","Opera Rock"],"tracks_count":12}'),
 
 -- 27. 21
 ('c001cafe-0000-4000-8000-000000000127', '', '21', '21',
     '{"Adele 21","阿黛尔21"}', '2011-01-24', '2011-01-24', '2011-01-24', TRUE, '英国', 'en-US', 'en',
     '阿黛尔第2张录音室专辑，全球销量突破3100万张，包揽第54届格莱美奖年度专辑与年度制作等6座大奖，收录《Rolling in the Deep》。',
-    'https://coverartarchive.org/release/f356bf1f-be45-4235-8656-e91060934cf5/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soul","Pop","Blues","R&B"],"tracks_count":11}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000127.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soul","Pop","Blues","R&B"],"tracks_count":11}'),
 
 -- 28. OK Computer
 ('c001cafe-0000-4000-8000-000000000128', '', 'OK Computer', 'OK Computer',
     '{"OK计算机","Radiohead OK Computer"}', '1997-05-21', '1997-05-21', '1997-05-21', TRUE, '英国', 'en-US', 'en',
     '电台司令第3张录音室大碟，以反乌托邦与信息化异化为主题，被各大权威乐评机构评选为九十年代最伟大的另类摇滚专辑。',
-    'https://coverartarchive.org/release/9c450c26-681a-47d0-8f96-5bdf8e98627b/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Art Rock","Alternative Rock","Electronic"],"tracks_count":12}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000128.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Art Rock","Alternative Rock","Electronic"],"tracks_count":12}'),
 
 -- 29. Nevermind
 ('c001cafe-0000-4000-8000-000000000129', '', 'Nevermind', 'Nevermind',
     '{"涅槃从不介意","Nirvana Nevermind"}', '1991-09-24', '1991-09-24', '1991-09-24', TRUE, '美国', 'en-US', 'en',
     '涅槃乐队第2张录音室专辑，以《Smells Like Teen Spirit》将西雅图 Grunge 垃圾摇滚推向全球主流视野。',
-    'https://coverartarchive.org/release/a5e0de29-79f9-4677-8027-849ee1619cb5/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Grunge","Alternative Rock"],"tracks_count":12}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000129.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Grunge","Alternative Rock"],"tracks_count":12}'),
 
 -- 30. Hotel California
 ('c001cafe-0000-4000-8000-000000000130', '', 'Hotel California', 'Hotel California',
     '{"加州旅馆","老鹰乐队加州旅馆"}', '1976-12-08', '1976-12-08', '1976-12-08', TRUE, '美国', 'en-US', 'en',
     '老鹰乐队第5张录音室专辑，全球发烧音响试音王牌，同名主打歌长达两分多钟的双吉他 Solo 成为摇滚史永恒经典。',
-    'https://coverartarchive.org/release/bb5b0cbe-9856-42d4-a749-8c9dfa5b4c10/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Classic Rock","Country Rock","Soft Rock"],"tracks_count":9}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000130.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Classic Rock","Country Rock","Soft Rock"],"tracks_count":9}'),
 
 -- 31. Random Access Memories
 ('c001cafe-0000-4000-8000-000000000131', '', 'Random Access Memories', 'Random Access Memories',
     '{"超时空记忆","Daft Punk RAM"}', '2013-05-17', '2013-05-17', '2013-05-17', TRUE, '法国', 'en-US', 'en',
     '傻朋克第4张录音室专辑，回归七八十年代模拟合成器与全真人实录音色，斩获格莱美年度专辑与最佳电子舞曲专辑。',
-    'https://coverartarchive.org/release/4eef3755-e41c-4b53-a5c9-59daef6951fe/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Disco","Funk","Electronic","Synth-Pop"],"tracks_count":13}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000131.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Disco","Funk","Electronic","Synth-Pop"],"tracks_count":13}'),
 
 -- 32. The Rise and Fall of Ziggy Stardust
 ('c001cafe-0000-4000-8000-000000000132', '', 'The Rise and Fall of Ziggy Stardust and the Spiders from Mars', 'The Rise and Fall of Ziggy Stardust and the Spiders from Mars',
     '{"Ziggy Stardust","鲍伊齐格星尘"}', '1972-06-16', '1972-06-16', '1972-06-16', TRUE, '英国', 'en-US', 'en',
     '大卫·鲍伊塑造外星摇滚巨星 Ziggy Stardust 的华丽摇滚概念大碟，开启跨性别美学与摇滚剧场演出新纪元。',
-    'https://coverartarchive.org/release/9d8b3dae-3705-4f4d-80dc-d1a1b4175b1c/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Glam Rock","Art Rock","Proto-Punk"],"tracks_count":11}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000132.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Glam Rock","Art Rock","Proto-Punk"],"tracks_count":11}'),
 
 -- 33. Rumours
 ('c001cafe-0000-4000-8000-000000000133', '', 'Rumours', 'Rumours',
     '{"谣言","Fleetwood Mac 谣言"}', '1977-02-04', '1977-02-04', '1977-02-04', TRUE, '英国', 'en-US', 'en',
     '佛利伍麦克合唱团最伟大的录音室专辑，全球销量突破4000万张，收录《Dreams》《Go Your Own Way》《The Chain》。',
-    'https://coverartarchive.org/release/720d2a84-0a37-4d92-bf39-440268593a20/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop Rock","Soft Rock","Folk Rock"],"tracks_count":11}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000133.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Pop Rock","Soft Rock","Folk Rock"],"tracks_count":11}'),
 
 -- 34. Led Zeppelin IV
 ('c001cafe-0000-4000-8000-000000000134', '', 'Led Zeppelin IV', 'Led Zeppelin IV',
     '{"齐柏林飞艇4","Stairway to Heaven"}', '1971-11-08', '1971-11-08', '1971-11-08', TRUE, '英国', 'en-US', 'en',
     '齐柏林飞艇无题第4张录音室专辑，硬摇滚与民谣的至高结合，收录摇滚圣歌《Stairway to Heaven》（天国的阶梯）。',
-    'https://coverartarchive.org/release/c6ba5fc5-8f6b-4e89-8d77-9ca0faeaee91/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Hard Rock","Heavy Metal","Folk Rock"],"tracks_count":8}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000134.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Hard Rock","Heavy Metal","Folk Rock"],"tracks_count":8}'),
 
 -- 35. Kind of Blue
 ('c001cafe-0000-4000-8000-000000000135', '', 'Kind of Blue', 'Kind of Blue',
     '{"泛蓝调调","Miles Davis 泛蓝调调"}', '1959-08-17', '1959-08-17', '1959-08-17', TRUE, '美国', 'en-US', 'en',
     '迈尔斯·戴维斯调式爵士（Modal Jazz）巅峰开山之作，被全人类公认为爵士乐历史上最伟大、最畅销的唱片。',
-    'https://coverartarchive.org/release/12e8736e-d2cb-4654-8e3b-41da268e0e7a/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Modal Jazz","Cool Jazz"],"tracks_count":5}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000135.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Modal Jazz","Cool Jazz"],"tracks_count":5}'),
 
 -- 36. Come Away with Me
 ('c001cafe-0000-4000-8000-000000000136', '', 'Come Away with Me', 'Come Away with Me',
     '{"远走高飞","Norah Jones 远走高飞"}', '2002-02-26', '2002-02-26', '2002-02-26', TRUE, '美国', 'en-US', 'en',
     '诺拉·琼斯首张录音室专辑，席卷格莱美年度专辑、年度制作、年度歌曲等8项大奖，温暖细腻的人声试音天碟。',
-    'https://coverartarchive.org/release/ec10fa31-d851-4091-a159-4d69eb1d2ea1/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Vocal Jazz","Contemporary Folk","Country Pop"],"tracks_count":14}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000136.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Vocal Jazz","Contemporary Folk","Country Pop"],"tracks_count":14}'),
 
 -- 37. WHEN WE ALL FALL ASLEEP, WHERE DO WE GO?
 ('c001cafe-0000-4000-8000-000000000137', '', 'WHEN WE ALL FALL ASLEEP, WHERE DO WE GO?', 'WHEN WE ALL FALL ASLEEP, WHERE DO WE GO?',
     '{"怪奇比莉首专","Billie Eilish WWAFAWDWG"}', '2019-03-29', '2019-03-29', '2019-03-29', TRUE, '美国', 'en-US', 'en',
     '碧梨首张录音室大碟，以卧室制作呈现超凡低频与暗黑流行空间感，横扫格莱美四大通类大奖。',
-    'https://coverartarchive.org/release/455fc7f7-b08e-49b0-9e6b-07b97587efc5/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Electropop","Dark Pop","Avant-Pop"],"tracks_count":14}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000137.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Electropop","Dark Pop","Avant-Pop"],"tracks_count":14}'),
 
 -- 38. A Rush of Blood to the Head
 ('c001cafe-0000-4000-8000-000000000138', '', 'A Rush of Blood to the Head', 'A Rush of Blood to the Head',
     '{"玩酷人生/心血来潮","Coldplay 2专"}', '2002-08-26', '2002-08-26', '2002-08-26', TRUE, '英国', 'en-US', 'en',
     '酷玩乐队第2张录音室专辑，获格莱美最佳另类音乐专辑与年度制作奖，收录《The Scientist》《Clocks》《In My Place》。',
-    'https://coverartarchive.org/release/4db4e0b3-f027-4c31-9fc9-c89b88ebaf6b/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Post-Britpop","Alternative Rock","Piano Rock"],"tracks_count":11}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000138.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Post-Britpop","Alternative Rock","Piano Rock"],"tracks_count":11}'),
 
 -- ==========================================
 -- 分组 3: 动漫/游戏/影视神级原声 OST (14部)
@@ -374,85 +374,85 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
 ('c001cafe-0000-4000-8000-000000000139', '', 'GHOST IN THE SHELL', 'GHOST IN THE SHELL (Original Soundtrack)',
     '{"攻壳机动队原声带","Ghost In The Shell OST","川井宪次傀儡谣"}', '1995-11-22', '1995-11-22', '1995-11-22', TRUE, '日本', 'ja', 'ja',
     '川井宪次操刀的押井守剧场版动画《攻壳机动队》原声大碟，以神道民俗合唱与保加利亚声乐打造的《傀儡谣》享誉全球影坛。',
-    'https://coverartarchive.org/release/cb9f64bf-1b86-4f40-b6a6-0683a37213bb/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Choral","Tribal Ambient","Electronic"],"tracks_count":11}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000139.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Choral","Tribal Ambient","Electronic"],"tracks_count":11}'),
 
 -- 40. Interstellar
 ('c001cafe-0000-4000-8000-000000000140', '', 'Interstellar', 'Interstellar (Original Motion Picture Soundtrack)',
     '{"星际穿越原声带","Hans Zimmer Interstellar OST"}', '2014-11-17', '2014-11-17', '2014-11-17', TRUE, '美国', 'en-US', 'en',
     '汉斯·季默为克里斯托弗·诺兰科幻巨作《星际穿越》量身打造的原声带，以伦敦圣殿教堂四层管风琴实录展现浩瀚宇宙与深沉父爱。',
-    'https://coverartarchive.org/release/b8b6f4e2-9da2-4682-9658-297f0a8d6092/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Modern Classical","Pipe Organ","Minimalism"],"tracks_count":16}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000140.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Modern Classical","Pipe Organ","Minimalism"],"tracks_count":16}'),
 
 -- 41. 千与千寻 原声集
 ('c001cafe-0000-4000-8000-000000000141', '', '千与千寻 原声集', '千と千尋の神隠し サウンドトラック',
     '{"Spirited Away OST","久石让千与千寻原声"}', '2001-07-18', '2001-07-18', '2001-07-18', TRUE, '日本', 'ja', 'ja',
     '久石让操刀、新日本爱乐交响乐团演奏的宫崎骏动画奥斯卡大作《千与千寻》官方原声大碟，收录《那个夏天》《一日之川》《总是一次又一次》。',
-    'https://coverartarchive.org/release/36e0882e-6ff6-42d7-a5ca-70ee5379f8fa/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Orchestral","Modern Classical"],"tracks_count":21}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000141.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Orchestral","Modern Classical"],"tracks_count":21}'),
 
 -- 42. NieR:Automata Original Soundtrack
 ('c001cafe-0000-4000-8000-000000000142', '', 'NieR:Automata Original Soundtrack', 'NieR:Automata Original Soundtrack',
     '{"尼尔机械纪元原声带","NieR Automata OST"}', '2017-03-29', '2017-03-29', '2017-03-29', TRUE, '日本', 'ja', 'ja',
     '冈部启一领衔 MONACA 制作的《尼尔：机械纪元》3CD 官方原声大碟，以造语人声与哀婉交响荣获 TGA 最佳游戏原声音乐大奖。',
-    'https://coverartarchive.org/release/8dbb7908-41ec-4589-a035-7170560a6316/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Video Game Soundtrack","Choral","Ambient","Industrial"],"tracks_count":46}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000142.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Video Game Soundtrack","Choral","Ambient","Industrial"],"tracks_count":46}'),
 
 -- 43. FINAL FANTASY VII ORIGINAL SOUNDTRACK
 ('c001cafe-0000-4000-8000-000000000143', '', 'FINAL FANTASY VII ORIGINAL SOUNDTRACK', 'FINAL FANTASY VII ORIGINAL SOUNDTRACK',
     '{"最终幻想7原声带","FF7 OST","植松伸夫片翼天使"}', '1997-02-10', '1997-02-10', '1997-02-10', TRUE, '日本', 'ja', 'ja',
     '植松伸夫操刀的《最终幻想VII》4CD 原声大碟，收录电子游戏配乐历史上最著名的神作《片翼的天使》《爱丽丝主题曲》。',
-    'https://coverartarchive.org/release/d1a1b417-5b1c-4b53-a5c9-59daef6951fe/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Video Game Soundtrack","Chamber Music","Orchestral"],"tracks_count":85}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000143.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Video Game Soundtrack","Chamber Music","Orchestral"],"tracks_count":85}'),
 
 -- 44. 塞尔达传说：旷野之息 原声带
 ('c001cafe-0000-4000-8000-000000000144', '', '塞尔达传说：旷野之息 原声带', 'ゼルダの伝説 ブレス オブ ザ ワイルド オリジナルサウンドトラック',
     '{"The Legend of Zelda: Breath of the Wild OST","荒野之息原声带"}', '2018-04-25', '2018-04-25', '2018-04-25', TRUE, '日本', 'ja', 'ja',
     '任天堂官方发行的《塞尔达传说：旷野之息》5CD 原声大碟，以极简主义钢琴点缀海拉鲁大陆的自然风貌与冒险历程。',
-    'https://coverartarchive.org/release/55e34746-86c5-41e1-b4ef-f952f4c9c223/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Video Game Soundtrack","Minimalism","Piano","Atmospheric"],"tracks_count":211}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000144.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Video Game Soundtrack","Minimalism","Piano","Atmospheric"],"tracks_count":211}'),
 
 -- 45. 皎月云间之梦
 ('c001cafe-0000-4000-8000-000000000145', '', '皎月云间之梦', 'Jade Moon Upon a Sea of Clouds',
     '{"原神璃月篇原声带","Genshin Impact Liyue OST","陈致逸皎月云间之梦"}', '2020-11-06', '2020-11-06', '2020-11-06', TRUE, '中国', 'zh-CN', 'zh',
     'HOYO-MiX 出品、陈致逸作曲、上海交响乐团实录演奏的《原神》璃月篇交响原声专辑，将传统国风民乐与西方交响乐宏大融合。',
-    'https://coverartarchive.org/release/f356bf1f-be45-4235-8656-e91060934cf5/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Video Game Soundtrack","Symphonic","Chinese Traditional"],"tracks_count":69}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000145.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Video Game Soundtrack","Symphonic","Chinese Traditional"],"tracks_count":69}'),
 
 -- 46. COWBOY BEBOP
 ('c001cafe-0000-4000-8000-000000000146', '', 'COWBOY BEBOP', 'COWBOY BEBOP (Original Soundtrack)',
     '{"星际牛仔原声带","Cowboy Bebop OST","菅野洋子星际牛仔"}', '1998-05-21', '1998-05-21', '1998-05-21', TRUE, '日本', 'ja', 'ja',
     '菅野洋子携手 Seatbelts 乐队为渡边信一郎动画神作《星际牛仔》创作的爵士狂想大碟，收录《Tank!》《Rush》。',
-    'https://coverartarchive.org/release/81ebc638-8924-4f05-89f5-420a7b458b29/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Big Band","Bebop","Blues"],"tracks_count":17}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000146.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Big Band","Bebop","Blues"],"tracks_count":17}'),
 
 -- 47. 进击的巨人 Season 1 Original Soundtrack
 ('c001cafe-0000-4000-8000-000000000147', '', '进击的巨人 Season 1 Original Soundtrack', '「進撃の巨人」オリジナルサウンドトラック',
     '{"Attack on Titan OST 1","泽野弘之巨人原声"}', '2013-06-28', '2013-06-28', '2013-06-28', TRUE, '日本', 'ja', 'ja',
     '泽野弘之操刀的《进击的巨人》第1季动画原声大碟，收录《ətˈæk 0N tάɪtn》《Vogel im Käfig》《立body機motion》等热血神曲。',
-    'https://coverartarchive.org/release/2a2d1547-43jp-4fe1-92b8-f6a6176fc805/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Epic Orchestral","Vocal Rock"],"tracks_count":16}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000147.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Epic Orchestral","Vocal Rock"],"tracks_count":16}'),
 
 -- 48. Star Wars: Episode IV - A New Hope
 ('c001cafe-0000-4000-8000-000000000148', '', 'Star Wars: Episode IV - A New Hope', 'Star Wars: Episode IV - A New Hope (Original Motion Picture Soundtrack)',
     '{"星球大战原声带","Star Wars OST","约翰威廉姆斯星球大战"}', '1977-06-01', '1977-06-01', '1977-06-01', TRUE, '美国', 'en-US', 'en',
     '约翰·威廉姆斯执棒伦敦交响乐团演奏的科幻电影里程碑原声，获奥斯卡最佳原创音乐奖，确立了好莱坞主导交响配乐范式。',
-    'https://coverartarchive.org/release/622dfabf-a63e-4fa0-b4fe-eeb914e9f783/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Film Score","Late Romantic Orchestral"],"tracks_count":16}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000148.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Film Score","Late Romantic Orchestral"],"tracks_count":16}'),
 
 -- 49. The Legend of 1900
 ('c001cafe-0000-4000-8000-000000000149', '', 'The Legend of 1900', 'The Legend of 1900 (Original Soundtrack)',
     '{"海上钢琴师原声带","莫里康内海上钢琴师"}', '1998-10-28', '1998-10-28', '1998-10-28', TRUE, '意大利', 'en-US', 'it',
     '埃尼奥·莫里康内操刀的影史殿堂级配乐，斩获金球奖最佳原创配乐，收录《Playing Love》《Magic Waltz》《The Crave》。',
-    'https://coverartarchive.org/release/c6bdfc28-971c-43f1-bd12-f0ba250bfd4b/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Ragtime","Solo Piano","Romantic Orchestral"],"tracks_count":21}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000149.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Ragtime","Solo Piano","Romantic Orchestral"],"tracks_count":21}'),
 
 -- 50. Paprika Original Soundtrack
 ('c001cafe-0000-4000-8000-000000000150', '', 'Paprika Original Soundtrack', '「パプリカ」オリジナルサウンドトラック',
     '{"红辣椒原声带","平泽进红辣椒原声"}', '2006-11-23', '2006-11-23', '2006-11-23', TRUE, '日本', 'ja', 'ja',
     '平泽进为今敏导演造梦神作《红辣椒》（盗梦侦探）打造的电幻先锋原声大碟，收录《白虎野之娘》《游行 Parade》。',
-    'https://coverartarchive.org/release/a5e8f496-e260-449e-b1cf-7df46944e8d2/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Techno-Pop","Avant-Garde Electronic"],"tracks_count":13}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000150.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Techno-Pop","Avant-Garde Electronic"],"tracks_count":13}'),
 
 -- 51. Inception
 ('c001cafe-0000-4000-8000-000000000151', '', 'Inception', 'Inception (Music from the Motion Picture)',
     '{"盗梦空间原声带","Inception OST","Hans Zimmer Time"}', '2010-07-13', '2010-07-13', '2010-07-13', TRUE, '美国', 'en-US', 'en',
     '汉斯·季默为诺兰《盗梦空间》打造的划时代配乐，引入震撼管乐与强劲电子低频，收录催人泪下的不朽神曲《Time》。',
-    'https://coverartarchive.org/release/3eef8a56-8a71-4fe1-92b8-f6a6176fc805/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Electronic Orchestral","Ambient"],"tracks_count":12}'),
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000151.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Electronic Orchestral","Ambient"],"tracks_count":12}'),
 
 -- 52. 幽灵公主 原声集
 ('c001cafe-0000-4000-8000-000000000152', '', '幽灵公主 原声集', 'もののけ姫 サウンドトラック',
     '{"Princess Mononoke OST","久石让幽灵公主"}', '1997-07-02', '1997-07-02', '1997-07-02', TRUE, '日本', 'ja', 'ja',
     '久石让操刀、东京爱乐交响乐团演奏的吉卜力壮阔自然史诗《幽灵公主》官方原声大碟，以太鼓与交响乐描绘人与自然的抗争与共生。',
-    'https://coverartarchive.org/release/cb9f64bf-1b86-4f40-b6a6-0683a37213bb/front.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Symphonic Poem","Traditional Japanese"],"tracks_count":33}')
+    '/storage/preview/covers/c001cafe-0000-4000-8000-000000000152.jpg', '1:1', 'General', 'completed', '00000000-0000-0000-0000-000000000001', '{"genres":["Soundtrack","Symphonic Poem","Traditional Japanese"],"tracks_count":33}')
 
 ON CONFLICT (id) DO UPDATE SET
     title = EXCLUDED.title,

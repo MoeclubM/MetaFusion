@@ -89,7 +89,11 @@ Desktop.ini
 .cache/
 .parcel-cache/
 
-# --- Go ---
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 # 二进制与本地构建
 backend/bin/
 backend/vendor/
@@ -116,6 +120,14 @@ temp/
 .tmp/
 *.tmp
 *.temp
+deploy/cover_cache/
+*.json
+deploy/*.json
+deploy/*.py
+deploy/*.sql.bak
+batch_update_covers.sql
+deploy/batch_update_covers.sql
+
 
 # --- 文档站点临时构建缓存 ---
 .docs-site/
