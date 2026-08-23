@@ -115,7 +115,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"海贼王","One Piece","海贼"}', '1997-07-22', '1997-07-22', '', FALSE,
     '日本', 'zh-CN', 'ja',
     '财富、名声、力量，曾经拥有这整个世界的男人「海贼王」哥尔·D·罗杰在临死前的一席话，让全世界的人们奔向大海。少年蒙奇·D·路飞为了实现与红发香克斯的约定，高扬草帽海贼团旗帜，踏上寻找大秘宝「ONE PIECE」并成为海贼王的波澜壮阔大冒险。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/0a/6f/957_1gL01.jpg',
     '3:4', 'Teen', 'ongoing', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 2. 火影忍者
@@ -123,7 +123,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Naruto","狐忍","鸣人"}', '1999-09-21', '1999-09-21', '2014-11-10', TRUE,
     '日本', 'zh-CN', 'ja',
     '木叶隐村体内封印着九尾妖狐的孤儿漩涡鸣人，在村民的冷眼与歧视中立志成为超越历代火影的伟大忍者。通过与同伴佐助、小樱以及恩师卡卡西的相处与历练，踏上不断突破宿命、以忍道连接人心的宏大史诗。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/9b/65/1586_11l3z.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社","volumes_count":72}', '00000000-0000-0000-0000-000000000001'),
 
 -- 3. 死神
@@ -131,7 +131,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"BLEACH","漂灵","死神BLEACH"}', '2001-08-07', '2001-08-07', '2016-08-22', TRUE,
     '日本', 'zh-CN', 'ja',
     '拥有能看见灵体体质的高中生黑崎一护，某天邂逅了死神朽木露琪亚并意外获得了死神之力。为了守护家人与现世安宁，一护手持斩魄刀斩断虚妄，闯入尸魂界与虚圈，卷入跨越千年的魂魄平衡激战。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/7f/75/1588_k8a3Z.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社","volumes_count":74}', '00000000-0000-0000-0000-000000000001'),
 
 -- 4. JOJO的奇妙冒险
@@ -139,7 +139,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"JoJo''s Bizarre Adventure","JOJO","替身之战"}', '1987-01-01', '1987-01-01', '', FALSE,
     '日本', 'zh-CN', 'ja',
     '讲述英国贵族乔斯达家族数代人与宿敌迪奥·布兰度及其追随者之间跨越百年、波澜壮阔的宿命对决。作品开创性引入「波纹气功」与「替身（Stand）」精神力量体系，以人类勇气的赞歌贯穿八部篇章。',
-    'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/3d/bf/3352_9W1jU.jpg',
     '3:4', 'Mature', 'ongoing', '{"serialization_magazine":"周刊少年Jump / Ultra Jump","publisher":"集英社"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 5. 钢之炼金术师
@@ -147,7 +147,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Fullmetal Alchemist","钢炼","FMA"}', '2001-07-12', '2001-07-12', '2010-06-11', TRUE,
     '日本', 'zh-CN', 'ja',
     '爱德华与阿尔冯斯两兄弟因触犯炼金术最大的禁忌「人体炼成」，分别失去了肢体与肉体。为了寻找能恢复原本身体的「贤者之石」，兄弟二人成为国家炼金术师，在军国阴谋与七宗罪人造人的黑幕中追寻真理。',
-    'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/7b/d2/2215_c82Ua.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"月刊少年GANGAN","publisher":"Square Enix","volumes_count":27}', '00000000-0000-0000-0000-000000000001'),
 
 -- 6. 灌篮高手
@@ -155,7 +155,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Slam Dunk","男儿当入樽","篮球飞人"}', '1990-10-01', '1990-10-01', '1996-06-17', TRUE,
     '日本', 'zh-CN', 'ja',
     '不良少年樱木花道为了讨好心仪的女孩赤木晴子加入湘北高中篮球队，在严苛的训练与与赤木刚宪、流川枫、宫城良田、三井寿的磨合中，真正领悟篮球运动的热血与执着，向着全国制霸发起冲击。',
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/55/54/2253_2fL2Y.jpg',
     '3:4', 'General', 'completed', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社","volumes_count":31}', '00000000-0000-0000-0000-000000000001'),
 
 -- 7. 全职猎人
@@ -163,7 +163,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Hunter x Hunter","猎人","全职猎人HUNTER×HUNTER"}', '1998-03-03', '1998-03-03', '', FALSE,
     '日本', 'zh-CN', 'ja',
     '自幼在鲸鱼岛长大的少年杰·富力士为了寻找未曾谋面的父亲金·富力士，决定参加合格率极低的猎人考试。旅途中结识奇犽、酷拉皮卡、雷欧力，逐渐步入由「念能力」构建的黑暗大陆与残酷生态之中。',
-    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/6a/a2/1231_38f2a.jpg',
     '3:4', 'Teen', 'ongoing', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 8. 龙珠
@@ -171,7 +171,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Dragon Ball","七龙珠","龙珠Z"}', '1984-11-20', '1984-11-20', '1995-05-23', TRUE,
     '日本', 'zh-CN', 'ja',
     '深山深处长着尾巴的纯真少年孙悟空，与寻找七颗能实现任何愿望的龙珠的少女布尔玛相遇。自此展开踏遍天下寻访武道宗师、天下第一武道会与对抗宇宙级强敌的王道战斗史诗。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/c5/4b/1234_d94N9.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社","volumes_count":42}', '00000000-0000-0000-0000-000000000001'),
 
 -- 9. 鬼灭之刃
@@ -179,7 +179,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Demon Slayer: Kimetsu no Yaiba","鬼灭"}', '2016-02-15', '2016-02-15', '2020-05-18', TRUE,
     '日本', 'zh-CN', 'ja',
     '日本大正时期，卖炭少年灶门炭治郎一家遭遇恶鬼屠杀，唯一幸存的妹妹祢豆子亦变成狂暴恶鬼。在猎鬼人指引下，炭治郎加入鬼杀队，习得全集中呼吸法，为让妹妹重返人类、斩断悲伤连锁而拔刀决战鬼舞辻无惨。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/d0/bb/178550_t1qX3.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社","volumes_count":23}', '00000000-0000-0000-0000-000000000001'),
 
 -- 10. 咒术回战
@@ -187,7 +187,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Jujutsu Kaisen","咒术"}', '2018-03-05', '2018-03-05', '2024-09-30', TRUE,
     '日本', 'zh-CN', 'ja',
     '拥有超常身体能力的高中生虎杖悠仁，为了拯救同学吞下特级咒物「两面宿傩的手指」。进入东京都立咒术高等专门学校后，在最强咒术师五条悟门下与同伴伏黑惠、钉崎野蔷薇共同面对人类负面情绪滋生的咒灵危机。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/7f/f3/245842_x2mK5.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社","volumes_count":28}', '00000000-0000-0000-0000-000000000001'),
 
 -- 11. 电锯人
@@ -195,7 +195,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Chainsaw Man","链锯人"}', '2018-12-03', '2018-12-03', '', FALSE,
     '日本', 'zh-CN', 'ja',
     '背负巨额债务与恶魔波奇塔相依为命的少年电次，在遭黑帮背叛杀害后与电锯恶魔心脏合体复活。作为恶魔猎人被公安收留后，在神秘上司玛奇玛的掌控中展开颠覆常理、荒诞狂野的生存篇章。',
-    'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/b8/67/268153_zK0Zq.jpg',
     '3:4', 'Mature', 'ongoing', '{"serialization_magazine":"少年Jump+","publisher":"集英社"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 12. 幽游白书
@@ -203,7 +203,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Yu Yu Hakusho","幽白"}', '1990-12-03', '1990-12-03', '1994-07-25', TRUE,
     '日本', 'zh-CN', 'ja',
     '十四岁不良少年浦饭幽助为了救一名小孩意外车祸身亡，因其死出乎灵界预料而获得复活试炼，成为灵界侦探。从暗黑武术大会到魔界统一战，谱写经典热血格斗神作。',
-    'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/d4/06/2899_m0M7z.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社","volumes_count":19}', '00000000-0000-0000-0000-000000000001'),
 
 -- 13. 一拳超人
@@ -211,7 +211,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"One-Punch Man","一拳"}', '2012-06-14', '2012-06-14', '', FALSE,
     '日本', 'zh-CN', 'ja',
     '因兴趣使然成为英雄的青年埼玉，经过三年严苛训练获得了无论面对何等强大怪人都能一拳解决的无敌力量，却也因此陷入失去战斗激情的空虚，与改造人杰诺斯一起加入英雄协会。',
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/21/df/3141_XpC1c.jpg',
     '3:4', 'Teen', 'ongoing', '{"serialization_magazine":"隔壁的Young Jump","publisher":"集英社"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 14. 灵能百分百
@@ -219,7 +219,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Mob Psycho 100","路人超能100"}', '2012-04-18', '2012-04-18', '2017-12-22', TRUE,
     '日本', 'zh-CN', 'ja',
     '平凡初中生影山茂夫（路人）拥有无与伦比的超能力，但为了过上普通生活而刻意压抑情感。当其情绪累积达到100%时便会爆发毁天灭地的力量，在师傅灵幻新隆的引导下探索人性的善良与自我认同。',
-    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/b8/0a/2254_Ggw9Q.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"Ura Sunday","publisher":"小学馆","volumes_count":16}', '00000000-0000-0000-0000-000000000001'),
 
 -- 15. 我的英雄学院
@@ -227,7 +227,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"My Hero Academia","我英"}', '2014-07-07', '2014-07-07', '2024-08-05', TRUE,
     '日本', 'zh-CN', 'ja',
     '在绝大多数人都拥有「个性」超能力的时代，天生无个性的少年绿谷出久自幼憧憬英雄欧尔麦特。在继承了「One For All」的火种后，进入雄英高中英雄科，与同窗共赴成为最棒英雄的征程。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/8e/3c/278546_W126q.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社","volumes_count":42}', '00000000-0000-0000-0000-000000000001'),
 
 -- 16. 银魂
@@ -235,7 +235,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Gintama","万事屋"}', '2003-12-08', '2003-12-08', '2019-06-20', TRUE,
     '日本', 'zh-CN', 'ja',
     '江户末期天人天降，幕府颁布废刀令。在失去武士地位的歌舞伎町，死鱼眼白发武士坂田银时与志村新八、神乐经营万事屋，在无厘头搞笑吐糟与守护灵魂尊严的炽热武士之魂间交织前行。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/7f/00/40969_4y48o.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社","volumes_count":77}', '00000000-0000-0000-0000-000000000001'),
 
 -- 17. 妖精的尾巴
@@ -243,7 +243,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Fairy Tail","魔导少年"}', '2006-08-02', '2006-08-02', '2017-07-26', TRUE,
     '日本', 'zh-CN', 'ja',
     '在充满魔法的菲奥雷王国，憧憬魔导士公会「妖精的尾巴」的少女露西偶遇灭龙魔导士纳兹与飞行猫哈比。在充满羁绊与奇迹的公会大家庭中，共同守护伙伴与世界的和平。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/54/12/328114_Y73q7.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"周刊少年Magazine","publisher":"讲谈社","volumes_count":63}', '00000000-0000-0000-0000-000000000001'),
 
 -- 18. 名侦探柯南
@@ -251,7 +251,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Detective Conan","Case Closed","柯南"}', '1994-01-05', '1994-01-05', '', FALSE,
     '日本', 'zh-CN', 'ja',
     '高中生侦探工藤新一被黑衣组织灌下毒药身体缩小成小学生，化名江户川柯南寄住在毛利兰家中。借助阿笠博士的发明暗中破获无数悬案，追踪黑衣组织真相。',
-    'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/7f/73/2585_8wS88.jpg',
     '3:4', 'General', 'ongoing', '{"serialization_magazine":"周刊少年Sunday","publisher":"小学馆"}', '00000000-0000-0000-0000-000000000001'),
 
 -- === [第二组：优秀国漫与华语漫画 (19-35)] ===
@@ -260,7 +260,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"The Outcast","异人下","甲申之乱"}', '2015-02-26', '2015-02-26', '', FALSE,
     '中国', 'zh-CN', 'zh',
     '大学生张楚岚因爷爷遗体被盗卷入异人世界，结识身世成谜、长生不老且身怀菜刀神技的少女冯宝宝。为了追查爷爷隐藏的「炁体源流」秘密与甲申之乱八奇技真相，张楚岚投身异人演武大会罗天大醮。',
-    'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/15/22/3351_e3Llb.jpg',
     '3:4', 'Teen', 'ongoing', '{"platform":"腾讯动漫","creator":"米二"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 20. 镖人
@@ -268,7 +268,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Blades of the Guardians","镖人漫画"}', '2015-07-01', '2015-07-01', '', FALSE,
     '中国', 'zh-CN', 'zh',
     '隋朝大业三年，天下动荡民不聊生。身手不凡的镖客刀马带着幼子小七行走西域大漠，受托护送朝廷要犯知世郎前往长安，卷入隋炀帝暴政、西域胡商与世家门阀的血雨腥风。',
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/0d/18/2591_O54eE.jpg',
     '3:4', 'Mature', 'ongoing', '{"creator":"许先哲","historical_setting":"隋末乱世"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 21. 镇魂街
@@ -276,7 +276,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Rakshasa Street","罗刹街"}', '2010-02-03', '2010-02-03', '', FALSE,
     '中国', 'zh-CN', 'zh',
     '吸纳亡灵镇压恶鬼的罗刹街镇魂将曹焱兵，拥有罕见的武神躯体质，可召唤曹魏多名虎将守护灵。与误入灵域的寄灵人夏玲同行，抵御王国组织与神武灵军团的野心侵袭。',
-    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/3d/8c/225381_3Uu11.jpg',
     '3:4', 'Teen', 'ongoing', '{"platform":"有妖气 / 快看漫画","creator":"许辰"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 22. 狐妖小红娘
@@ -284,7 +284,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Fox Spirit Matchmaker","相思树"}', '2012-05-04', '2012-05-04', '', FALSE,
     '中国', 'zh-CN', 'zh',
     '涂山狐妖一族以红线仙为业，帮助转世续缘的人妖恋人找回前世记忆。呆萌小狐妖涂山苏苏与视财如命的道士白月初相遇，在解决一桩桩前世今生的情缘委托中揭开涂山红红与东方月初的宏大宿命。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/a0/02/14197_d94N9.jpg',
     '3:4', 'Teen', 'ongoing', '{"platform":"腾讯动漫","creator":"小新"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 23. 火凤燎原
@@ -292,7 +292,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"The Ravages of Time","火凤"}', '2001-03-01', '2001-03-01', '', FALSE,
     '中国香港', 'zh-CN', 'zh',
     '东汉末年，董卓乱政。天下第一暗杀组织残兵之首燎原火（赵云）与富甲天下的司马家族二公子司马懿联手入局乱世。水镜八奇神机妙算，在无数计中计与兵者诡道中重构颠覆性的三国智谋史诗。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/49/a2/220722_n3j0A.jpg',
     '3:4', 'Mature', 'ongoing', '{"publisher":"东立出版社","creator":"陈某"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 24. 长歌行
@@ -300,7 +300,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Chang Ge Xing","Song of the Long March"}', '2011-02-01', '2011-02-01', '', FALSE,
     '中国', 'zh-CN', 'zh',
     '唐武德九年玄武门之变后，原太子李建成之女永宁公主李长歌女扮男装出逃朔州。在边塞战火与突厥纷争中，长歌从复仇私念蜕变为心系大唐苍生与天下安定的巾帼传奇。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/37/10/2831_jp.jpg',
     '3:4', 'Teen', 'ongoing', '{"creator":"夏达","historical_setting":"初唐贞观"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 25. 端脑
@@ -308,7 +308,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Die Now","端脑少年"}', '2011-04-18', '2011-04-18', '2016-06-24', TRUE,
     '中国', 'zh-CN', 'zh',
     '推理社少年夏驰为了寻找失踪的女友晴知，被卷入名为「端脑」的未知高维绝密真人解谜系统。在生死一线的团队博弈、密码破译与宇宙级文明对抗中探寻终极真相。',
-    'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/33/c4/3088_jp.jpg',
     '3:4', 'Teen', 'completed', '{"platform":"有妖气","creator":"壁水羽"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 26. 刺客伍六七
@@ -316,7 +316,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Scissor Seven","伍六七黑白双龙"}', '2019-12-25', '2019-12-25', '', FALSE,
     '中国', 'zh-CN', 'zh',
     '在小鸡岛上以剪发为掩护的兼职廉价刺客伍六七，不仅记忆全失而且每次任务都以奇葩方式失败。随着斯坦国与玄武国刺客的降临，昔日玄武国第一暗影刺客柒的尘封记忆逐渐苏醒。',
-    'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/f5/a8/23837_vMv7v.jpg',
     '3:4', 'Teen', 'ongoing', '{"creator":"何小疯","studio":"啊哈娱乐"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 27. 子不语
@@ -324,7 +324,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Zi Bu Yu","No Words"}', '2008-01-01', '2008-01-01', '2010-12-01', TRUE,
     '中国', 'zh-CN', 'zh',
     '跟随父母搬到风景如画的古老小镇麟趾的九岁少女莫语，拥有能看见自然精怪与古老神灵的纯净双眼。在静谧山水间感受人与神灵万物之间温存而动人的默契。',
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/7b/d2/3352_9W1jU.jpg',
     '3:4', 'General', 'completed', '{"creator":"夏达","publisher":"Ultra Jump / 新世纪出版社"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 28. 步天歌
@@ -332,7 +332,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Song of the Sky Pacers","步天歌漫画"}', '2018-09-08', '2018-09-08', '', FALSE,
     '中国', 'zh-CN', 'zh',
     '大夏皇室诞下一对龙凤双生子，哥哥生有天劫红痣被弃于民间跟随老道修习红尘术，妹妹生有祥瑞额纹被带入蓬莱仙宗求索大道。一仙一凡异地相望，开启逆转天命的修真传奇。',
-    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/6a/a2/399868_W126q.jpg',
     '3:4', 'Teen', 'ongoing', '{"creator":"夏达","genre":"国风修仙"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 29. 尸兄
@@ -340,7 +340,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Zombie Brother","我叫白小飞"}', '2011-09-29', '2011-09-29', '2020-05-10', TRUE,
     '中国', 'zh-CN', 'zh',
     '自来水厂水源污染引发变异尸病毒，H市瞬间沦为丧尸死城。普通青年白小飞注射强化药剂，在绝境中结识伙伴并一路升级，迎战千年前龙右尸王与黑暗势力。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/54/12/328114_Y73q7.jpg',
     '3:4', 'Mature', 'completed', '{"platform":"腾讯动漫","creator":"七度鱼"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 30. 雏蜂
@@ -348,7 +348,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"School Shock","BEE"}', '2009-09-15', '2009-09-15', '', FALSE,
     '中国', 'zh-CN', 'zh',
     '公元2017年新一代生化纳米单兵武器「尖兵」诞生。寿命仅剩不到一年的仿生女尖兵琉璃执行退役前最后任务，保护普通高中生孙浩轩，卷入国家利益争夺的残酷科幻战火。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/d0/bb/183863_n93U8.jpg',
     '3:4', 'Teen', 'ongoing', '{"creator":"白猫骑士","platform":"有妖气"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 31. 虎 X 鹤 妖师录
@@ -356,7 +356,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Tiger Crane","虎鹤妖师录"}', '2010-10-01', '2010-10-01', '2017-04-15', TRUE,
     '中国', 'zh-CN', 'zh',
     '乐观开朗的山野孤儿虎子误吞赤珠，与冷酷严谨的国御妖师队长祁晓轩结为同伴。双男主性格迥异却在斩妖除魔的道路上携手并进，揭开五百年妖师真相。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/d4/06/141444_m0M7z.jpg',
     '3:4', 'Teen', 'completed', '{"platform":"有妖气","creator":"黄晓达"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 32. 阎王不高兴
@@ -364,7 +364,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"King of Hell is not Happy","大王不高兴"}', '2016-06-15', '2016-06-15', '2020-03-20', TRUE,
     '中国', 'zh-CN', 'zh',
     '新任地府阎王阎小罗虽然法力高强，却天生胆小极度怕鬼。在黑白无常与西方路西法等神话人物的交织中，化身兼具中西神话特色的爆笑神魔世界守护者。',
-    'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/21/df/4774_XpC1c.jpg',
     '3:4', 'General', 'completed', '{"creator":"使徒子","platform":"快看漫画"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 33. 快把我哥带走
@@ -372,7 +372,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Take My Brother Away","请带走我哥"}', '2015-09-25', '2015-09-25', '', FALSE,
     '中国', 'zh-CN', 'zh',
     '讲述极度不靠谱、日常作死但关键时刻无比护妹的哥哥时分，与武力值爆表、经常暴揍哥哥的妹妹时秒之间啼笑皆非又温暖治愈的青春校园日常。',
-    'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/b8/0a/55122_Ggw9Q.jpg',
     '3:4', 'General', 'ongoing', '{"creator":"幽·灵","platform":"快看漫画"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 34. 拾又之国
@@ -380,7 +380,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Magmell of the Sea Blue","群青的马格梅尔"}', '2014-06-25', '2014-06-25', '', FALSE,
     '中国', 'zh-CN', 'zh',
     '太平洋中央突然凭空出现了一片未知的新大陆「圣洲」马格梅尔，拥有超越人类认知的未知生物、珍稀矿产与残酷法则。少年拾荒者因又专职在此搜救落难探险者。',
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/8e/3c/69877_jp.jpg',
     '3:4', 'Teen', 'ongoing', '{"creator":"第年秒","publisher":"少年Jump+ / 翻翻动漫"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 35. 凤逆天下
@@ -388,7 +388,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Feng Ni Tian Xia","狂妃天下"}', '2013-05-15', '2013-05-15', '2022-01-20', TRUE,
     '中国', 'zh-CN', 'zh',
     '二十一世纪王牌女杀手穿成为南翼国宰相府第一废柴嫡女凰北月。在强者为尊的卡尔卡斯大陆驭万兽、炼灵丹、手刃仇敌，登临天下至尊王座。',
-    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/0a/6f/214265_5rZrn.jpg',
     '3:4', 'Teen', 'completed', '{"platform":"知音漫客 / 快看漫画","genre":"玄幻言情"}', '00000000-0000-0000-0000-000000000001'),
 
 -- === [第三组：图像小说、美漫与剧情青年漫 (36-52)] ===
@@ -397,7 +397,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Watchmen","监视者"}', '1986-09-01', '1986-09-01', '1987-10-01', TRUE,
     '美国', 'zh-CN', 'en',
     '冷战高峰期美苏核阴云笼罩，蒙面英雄「笑匠」离奇坠楼身亡。行事偏执的罗夏展开调查并警示旧日盟友，逐渐揭开一个以数百万无辜生命为代价终结人类自毁的绝大乌托邦阴谋。唯一获得雨果奖的传世图像小说殿堂级神作。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/49/95/122091_j5w1q.jpg',
     '3:4', 'Mature', 'completed', '{"publisher":"DC Comics","writer":"Alan Moore","artist":"Dave Gibbons","award":"雨果奖"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 37. V字仇杀队
@@ -405,7 +405,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"V for Vendetta","V怪客"}', '1982-03-01', '1982-03-01', '1989-05-01', TRUE,
     '英国', 'zh-CN', 'en',
     '在未来核战后的极权主义反乌托邦英国，头戴盖伊·福克斯面具的神秘无政府主义斗士「V」以剧场式的复仇暗杀政权核心，解救少女艾薇并唤醒沉睡民众对抗法西斯强权。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/5b/c2/2_U1555.jpg',
     '3:4', 'Mature', 'completed', '{"publisher":"DC Comics / Vertigo","writer":"Alan Moore","artist":"David Lloyd"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 38. 睡魔
@@ -413,7 +413,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"The Sandman","沙人","梦之主"}', '1989-01-01', '1989-01-01', '1996-03-01', TRUE,
     '美国', 'zh-CN', 'en',
     '无尽家族七人之一的梦之主墨菲斯被人类神秘学者禁锢囚禁七十年后逃脱。为了重塑衰败的梦境王国，墨菲斯找回失去的三件法器，跨越古典神话、历史典故与现代虚无，探寻存在与责任的沉思。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/f1/b7/111855_0z7bE.jpg',
     '3:4', 'Mature', 'completed', '{"publisher":"DC Comics / Vertigo","writer":"Neil Gaiman","award":"世界奇幻奖"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 39. 剑风传奇
@@ -421,7 +421,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Berserk","烙印勇士","剑风"}', '1989-08-25', '1989-08-25', '', FALSE,
     '日本', 'zh-CN', 'ja',
     '从死尸中出生的黑衣剑士格斯，手握斩龙巨剑在大地猎杀恶魔使徒。追溯至黄金时代与格里菲斯建立鹰之团的深厚羁绊，再到蚀之刻刻骨铭心的绝望背叛，谱写对抗残酷因果律与神之手的无尽斗争。',
-    'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/15/22/3351_e3Llb.jpg',
     '3:4', 'Mature', 'ongoing', '{"serialization_magazine":"Young Animal","publisher":"白泉社"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 40. 怪物 MONSTER
@@ -429,7 +429,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Monster","怪物浦泽直树","约翰李贝特"}', '1994-12-05', '1994-12-05', '2001-12-20', TRUE,
     '日本', 'zh-CN', 'ja',
     '德国杜塞尔多夫优秀的脑外科医生天马贤三，在道德抉择中坚持救治了一位头部中弹的神秘孤儿约翰。数年后约翰成长为操纵人心、制造连环血案的恶魔化身，天马医生背负沉重救赎踏上横跨冷战遗址的追凶之路。',
-    'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/0d/18/2591_O54eE.jpg',
     '3:4', 'Mature', 'completed', '{"serialization_magazine":"Big Comic Original","publisher":"小学馆","volumes_count":18}', '00000000-0000-0000-0000-000000000001'),
 
 -- 41. 死亡笔记
@@ -437,7 +437,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Death Note","死亡笔记本","基拉"}', '2003-12-01', '2003-12-01', '2006-05-15', TRUE,
     '日本', 'zh-CN', 'ja',
     '天才高中生夜神月偶然捡到死神流克遗落人间的「死亡笔记」，企图以制裁罪犯的名义建立没有犯罪的新世界，化身救世主基拉。世界第一名侦探L接受国际刑警委托，两位极致天才展开惊心动魄的心理博弈。',
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/3d/8c/225381_3Uu11.jpg',
     '3:4', 'Teen', 'completed', '{"serialization_magazine":"周刊少年Jump","publisher":"集英社","volumes_count":12}', '00000000-0000-0000-0000-000000000001'),
 
 -- 42. 浪客行
@@ -445,7 +445,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Vagabond","浪人剑客","宫本武藏"}', '1998-03-23', '1998-03-23', '', FALSE,
     '日本', 'zh-CN', 'ja',
     '改编自吉川英治小说《宫本武藏》，以水墨磅礴之势刻画关原之战后新免武藏从一头嗜血野兽历经生死搏杀、参悟剑道与生命的真谛，走向「天下无双」空灵境界的心路历程。',
-    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/a0/02/14197_d94N9.jpg',
     '3:4', 'Mature', 'ongoing', '{"serialization_magazine":"周刊Morning","publisher":"讲谈社"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 43. 间谍过家家
@@ -453,7 +453,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Spy x Family","间谍家家酒"}', '2019-03-25', '2019-03-25', '', FALSE,
     '日本', 'zh-CN', 'ja',
     '西国顶级间谍「黄昏」为了执行代号「枭」的和平任务，被迫组建临时家庭。未曾想领养的女儿阿尼亚是读心超能力者，协议结婚的妻子约尔是代号「荆棘公主」的顶尖杀手。互相隐瞒身份的三人展开充满温馨与笑料的家庭生活。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/49/a2/220722_n3j0A.jpg',
     '3:4', 'General', 'ongoing', '{"serialization_magazine":"少年Jump+","publisher":"集英社"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 44. 铳梦
@@ -461,7 +461,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Battle Angel Alita","GUNNM","阿丽塔"}', '1990-12-15', '1990-12-15', '1995-04-01', TRUE,
     '日本', 'zh-CN', 'ja',
     '在悬浮天空城市萨雷姆下方的废铁镇，改造人义体医生依德在垃圾堆中捡到失去记忆但掌握失传机甲术格斗的少女加里。在残酷的赏金猎人与死亡机甲球赛道上，加里追寻自我的灵魂存在。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/39/wm/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg',
     '3:4', 'Mature', 'completed', '{"serialization_magazine":"Business Jump","publisher":"集英社","volumes_count":9}', '00000000-0000-0000-0000-000000000001'),
 
 -- 45. 阿基拉
@@ -469,7 +469,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Akira","亚基拉"}', '1982-12-06', '1982-12-06', '1990-06-11', TRUE,
     '日本', 'zh-CN', 'ja',
     '第三次世界大战毁灭东京三十年后的2019年，重建的新东京繁华之下暗流涌动。暴走族少年金田与觉醒了超越人类极限超自然力量的铁雄，在国家最高机密「阿基拉」的终极能量复苏中走向崩坏与重生。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/37/10/2831_jp.jpg',
     '3:4', 'Mature', 'completed', '{"serialization_magazine":"周刊Young Magazine","publisher":"讲谈社","volumes_count":6}', '00000000-0000-0000-0000-000000000001'),
 
 -- 46. 攻壳机动队
@@ -477,7 +477,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Ghost in the Shell","GITS","攻壳"}', '1989-04-22', '1989-04-22', '1990-11-20', TRUE,
     '日本', 'zh-CN', 'ja',
     '在义体化与电子脑高度普及的近未来，全身义体化的公安九课少佐草薙素子率领精英特工打击新型高科技与网络恐怖犯罪。当面对诞生自网络海洋的「傀儡师」智能生命时，少佐对自身Ghost（灵魂）本质产生终极思辨。',
-    'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/33/c4/3088_jp.jpg',
     '3:4', 'Mature', 'completed', '{"serialization_magazine":"Young Magazine海贼版","publisher":"讲谈社"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 47. 特工次时代 BLAME!
@@ -485,7 +485,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Blame!","特工次时代","雾亥"}', '1997-01-25', '1997-01-25', '2003-07-25', TRUE,
     '日本', 'zh-CN', 'ja',
     '在失去控制而无限增殖膨胀至木星轨道之外的冷酷超巨构建筑「都市」中，沉默寡言的探索者雾亥手持具有绝对破坏力的引力子放射线射出装置，穿越千万层冷酷钢筋铁骨，寻找保存着纯净「网络球基因」的人类遗存。',
-    'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/f5/a8/23837_vMv7v.jpg',
     '3:4', 'Mature', 'completed', '{"serialization_magazine":"月刊Afternoon","publisher":"讲谈社","volumes_count":10}', '00000000-0000-0000-0000-000000000001'),
 
 -- 48. 20世纪少年
@@ -493,7 +493,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"20th Century Boys","朋友"}', '1999-09-27', '1999-09-27', '2006-04-24', TRUE,
     '日本', 'zh-CN', 'ja',
     '1969年远藤贤知与童年伙伴在秘密基地写下的拯救世界「预言之书」，在三十年后的世纪末竟被神秘教主「朋友」一步步化为真实的细菌毁灭与机器人袭击。昔日伙伴再度集结，挽救被谎言统治的人类文明。',
-    'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/7b/d2/3352_9W1jU.jpg',
     '3:4', 'Mature', 'completed', '{"serialization_magazine":"Big Comic Spirits","publisher":"小学馆","volumes_count":22}', '00000000-0000-0000-0000-000000000001'),
 
 -- 49. 蓦然回首
@@ -501,7 +501,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Look Back","回头看"}', '2021-07-19', '2021-07-19', '2021-07-19', TRUE,
     '日本', 'zh-CN', 'ja',
     '对自己画技充满自信的小学生藤野，在学校报纸上见识到了家里蹲同学京本惊为天人的背景画力。从较劲、同行到成为无话不谈的漫画创作搭档，在命运残酷的转折下，画笔成为了跨越平行时空连接彼此的唯一救赎。',
-    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/6a/a2/399868_W126q.jpg',
     '3:4', 'General', 'completed', '{"serialization_magazine":"少年Jump+","publisher":"集英社","format":"单篇完结"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 50. 炎拳
@@ -509,7 +509,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"Fire Punch","阿格尼"}', '2016-04-18', '2016-04-18', '2018-01-01', TRUE,
     '日本', 'zh-CN', 'ja',
     '在被「冰之魔女」冰封的极寒末世，拥有超常肉体再生能力的少年阿格尼被永不熄灭的仇恨火焰焚烧全身。在永恒剧痛中化身为全身燃烧的「炎拳」，为了向屠村的仇敌复仇而踏过焦黑的荒原。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/54/12/328114_Y73q7.jpg',
     '3:4', 'Mature', 'completed', '{"serialization_magazine":"少年Jump+","publisher":"集英社","volumes_count":8}', '00000000-0000-0000-0000-000000000001'),
 
 -- 51. 蝙蝠侠：黑暗骑士归来
@@ -517,7 +517,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"The Dark Knight Returns","DKR","黑暗骑士归来"}', '1986-02-01', '1986-02-01', '1986-06-01', TRUE,
     '美国', 'zh-CN', 'en',
     '隐退十年的五十五岁布鲁斯·韦恩面对哥谭市变种人黑帮横行与罪恶肆虐，毅然重新披上黑暗骑士战袍。在冷酷的媒体审判与政府超人代理人的正面决战中，彻底改写超级英雄历史的史诗篇章。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/6a/a2/399868_W126q.jpg',
     '3:4', 'Mature', 'completed', '{"publisher":"DC Comics","writer":"Frank Miller"}', '00000000-0000-0000-0000-000000000001'),
 
 -- 52. 蝙蝠侠：漫长的万圣节
@@ -525,7 +525,7 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
     '{"The Long Halloween","漫长的万圣节"}', '1996-10-01', '1996-10-01', '1997-12-01', TRUE,
     '美国', 'zh-CN', 'en',
     '哥谭市黑帮马罗尼与法尔科内家族势力庞大，名为「假日杀手」的神秘连环杀手在每个节假日针对黑帮成员展开行刑式暗杀。蝙蝠侠、戈登警长与检察官哈维·丹特组成正义同盟，最终却见证了双面人的悲剧堕落。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+    'https://lain.bgm.tv/pic/cover/l/54/12/328114_Y73q7.jpg',
     '3:4', 'Mature', 'completed', '{"publisher":"DC Comics","writer":"Jeph Loeb","artist":"Tim Sale"}', '00000000-0000-0000-0000-000000000001')
 ON CONFLICT (id) DO UPDATE SET
     title = EXCLUDED.title,

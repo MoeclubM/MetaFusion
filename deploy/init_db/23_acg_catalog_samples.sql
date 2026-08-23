@@ -41,42 +41,42 @@ INSERT INTO franchises (id, title, original_title, aliases, disambiguation, summ
 ('deadbeef-0000-4000-8000-000000000001', '刀剑神域', 'ソードアート・オンライン',
     '{"Sword Art Online","SAO","刀剑"}', '川原砾跨媒介科幻企划',
     '以完全潜行虚拟现实技术为背景的科幻冒险企划，涵盖轻小说、TV动画、剧场版长片及衍生原声音乐。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1200&q=80',
+    'https://lain.bgm.tv/pic/cover/l/7b/d2/3352_9W1jU.jpg',
     '2009-04-10', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"https://www.swordart-online.net"}'),
 
 ('deadbeef-0000-4000-8000-000000000002', '葬送的芙莉莲', '葬送のフリーレン',
     '{"Frieren: Beyond Journey''s End","葬送的芙莉莲"}', '山田钟人与阿部司奇幻后日谈企划',
     '讲述打倒魔王后的精灵魔法使芙莉莲在漫长岁月中追寻人类情感与记忆的奇幻史诗，包含原作连载漫画与高口碑 TV 动画。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80',
+    'https://lain.bgm.tv/pic/cover/l/6a/a2/399868_W126q.jpg',
     '2020-04-28', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"https://frieren-anime.jp"}'),
 
 ('deadbeef-0000-4000-8000-000000000003', '孤独摇滚！', 'ぼっち・ざ・ろっく！',
     '{"BOCCHI THE ROCK!","孤独摇滚","滚妹"}', '芳文社芳华摇滚企划',
     '滨路晶创作的四格音乐漫画及其现象级 TV 动画改编，围绕下北泽高中生少女乐队「结束乐队」展开。',
-    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1200&q=80',
+    'https://lain.bgm.tv/pic/cover/l/54/12/328114_Y73q7.jpg',
     '2017-12-19', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"https://bocchi.rocks"}'),
 
 ('deadbeef-0000-4000-8000-000000000004', '紫罗兰永恒花园', 'ヴァイオレット・エヴァーガーデン',
     '{"Violet Evergarden","京紫"}', '晓佳奈与京都动画跨媒介企划',
     '第5届京都动画大奖唯一大奖得主。讲述战争中作为道具被培养的人偶少女薇尔莉特，在战后成为自动手记人偶探寻「我爱你」含义的感人篇章。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80',
+    'https://lain.bgm.tv/pic/cover/l/d0/bb/183863_n93U8.jpg',
     '2015-12-25', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"http://violet-evergarden.jp"}'),
 
 ('deadbeef-0000-4000-8000-000000000005', 'Re:从零开始的异世界生活', 'Re:ゼロから始める異世界生活',
     '{"Re:Zero","Re0","从零开始"}', '长月达平异世界奇幻企划',
     '高中生菜月昴被召唤至异世界后获得「死亡回归」能力，为了守护所爱之人经历无数次绝望与重生的史诗企划。',
-    'https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=1200&q=80',
+    'https://lain.bgm.tv/pic/cover/l/d4/06/141444_m0M7z.jpg',
     '2012-04-20', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"http://re-zero-anime.jp"}'),
 
 ('deadbeef-0000-4000-8000-000000000006', '进击的巨人', '進撃の巨人',
     '{"Attack on Titan","AOT","巨人"}', '谏山创黑暗奇幻史诗企划',
     '讲述被高墙隔绝的人类与捕食人类的巨人之间抗争的黑暗史诗，涵盖连载漫画、TV全季动画与泽野弘之配乐原声。',
-    'https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=1200&q=80',
+    'https://lain.bgm.tv/pic/cover/l/b8/0a/55122_Ggw9Q.jpg',
     '2009-09-09', '日本', '00000000-0000-0000-0000-000000000001',
     '{"official":"https://shingeki.tv"}')
 ON CONFLICT (id) DO UPDATE SET
@@ -238,108 +238,115 @@ ON CONFLICT DO NOTHING;
 -- ---------------------------------------------------------------------------
 -- 3. 作品库 (Works: 小说原著、分卷漫画、TV 动画番剧、剧场版电影、原声大碟)
 -- ---------------------------------------------------------------------------
-INSERT INTO works (id, category_code, title, original_title, aliases, release_date, begin_date, end_date, ended, country, language, original_language, summary, status, created_by, catalog_metadata) VALUES
+INSERT INTO works (id, category_code, title, original_title, aliases, release_date, begin_date, end_date, ended, country, language, original_language, summary, cover_image_url, cover_aspect, status, created_by, catalog_metadata) VALUES
 -- 1. 刀剑神域 系列
 ('deadbeef-0000-4000-8000-000000000101', '', '刀剑神域', 'ソードアート・オンライン',
     '{"Sword Art Online Novel","SAO小说","刀剑轻小说"}', '2009-04-10', '2009-04-10', '', FALSE, '日本', 'ja', 'ja',
     '川原砾创作、abec插画的轻小说原著，电击文库刊行。艾恩葛朗特篇至Alicization篇，分卷作为同一 Work 下的多个 Release 编目。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"volumes":28,"label":"電撃文庫","format":"light_novel"}'),
+    'https://lain.bgm.tv/pic/cover/l/7b/d2/3352_9W1jU.jpg', '3:4', 'completed', '00000000-0000-0000-0000-000000000001', '{"volumes":28,"label":"電撃文庫","format":"light_novel"}'),
 
 ('deadbeef-0000-4000-8000-000000000102', '', '刀剑神域', 'ソードアート・オンライン',
     '{"SAO S1","刀剑神域第1期"}', '2012-07-07', '2012-07-07', '2012-12-22', TRUE, '日本', 'ja', 'ja',
     'A-1 Pictures 制作改编的 TV 动画第 1 季，全 25 话，涵盖艾恩葛朗特篇与妖精之舞篇。配乐为梶浦由记。与轻小说原著同名，以 Franchise 企划与改编关系区分。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":25,"director":"伊藤智彦","format":"tv_anime","season":1}'),
+    'https://lain.bgm.tv/pic/cover/l/f5/a8/23837_vMv7v.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":25,"director":"伊藤智彦","format":"tv_anime","season":1}'),
 
 ('deadbeef-0000-4000-8000-000000000103', '', '刀剑神域：序列之争', '劇場版 ソードアート・オンライン -オーディナル・スケール-',
     '{"Sword Art Online The Movie: Ordinal Scale","序列之争"}', '2017-02-18', '2017-02-18', '2017-02-18', TRUE, '日本', 'ja', 'ja',
     '川原砾亲自编写原创故事的动画电影，以 AR 增强现实装置 Augma 为舞台。全球院线上映收获超 43 亿日元票房。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"duration_mins":119,"box_office_jpy":"4.3B"}'),
+    'https://lain.bgm.tv/pic/cover/l/7f/75/150125_bI7gB.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"duration_mins":119,"box_office_jpy":"4.3B"}'),
 
 ('deadbeef-0000-4000-8000-000000000104', '', 'Sword Art Online Music Collection', 'Sword Art Online Music Collection',
     '{"刀剑神域 梶浦由记原声精选","SAO OST"}', '2016-01-27', '2016-01-27', '2016-01-27', TRUE, '日本', 'ja', 'ja',
     '梶浦由记操刀的《刀剑神域》TV动画第1&2期及Extra Edition配乐集，4CD收录131首，Aniplex发行（品番 SVWC-70116~9）。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"discs":4,"tracks":131,"catalog":"SVWC-70116"}'),
+    'https://lain.bgm.tv/pic/cover/l/2a/2d/154743_jp.jpg', '1:1', 'completed', '00000000-0000-0000-0000-000000000001', '{"discs":4,"tracks":131,"catalog":"SVWC-70116"}'),
 
 -- 2. 葬送的芙莉莲 系列
 ('deadbeef-0000-4000-8000-000000000105', '', '葬送的芙莉莲', '葬送のフリーレン',
     '{"Frieren Manga","葬送的芙莉莲原作漫画"}', '2020-04-28', '2020-04-28', '', FALSE, '日本', 'ja', 'ja',
     '山田钟人原作、阿部司作画的现象级连载漫画，小学馆《周刊少年Sunday》连载。分卷单行本作为同一 Work 下的多个 Release 编目。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"magazine":"周刊少年Sunday","format":"manga"}'),
+    'https://lain.bgm.tv/pic/cover/l/55/54/304417_F5j6m.jpg', '3:4', 'completed', '00000000-0000-0000-0000-000000000001', '{"magazine":"周刊少年Sunday","format":"manga"}'),
 
 ('deadbeef-0000-4000-8000-000000000106', '', '葬送的芙莉莲', '葬送のフリーレン',
     '{"Frieren Anime","芙莉莲 TV动画"}', '2023-09-29', '2023-09-29', '2024-03-22', TRUE, '日本', 'ja', 'ja',
     'Madhouse 制作的高口碑 TV 动画，监督斋藤圭一郎。首播于日本电视台金曜 Road Show 播出 2 小时特别篇，全 28 话。与漫画原作同名，以 Franchise 企划与改编关系区分。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":28,"director":"斎藤圭一郎","format":"tv_anime","season":1}'),
+    'https://lain.bgm.tv/pic/cover/l/6a/a2/399868_W126q.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":28,"director":"斎藤圭一郎","format":"tv_anime","season":1}'),
 
 ('deadbeef-0000-4000-8000-000000000107', '', 'TV 动画「葬送的芙莉莲」Original Soundtrack', 'TVアニメ『葬送のフリーレン』Original Soundtrack',
     '{"芙莉莲 原声带","Frieren OST"}', '2024-04-17', '2024-04-17', '2024-04-17', TRUE, '日本', 'ja', 'ja',
     'Evan Call 创作的《葬送的芙莉莲》官方原声带，东宝动画发行（THCA-60288）。2CD 70首，融合中世纪民谣器乐与恢弘交响。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"discs":2,"tracks":70,"catalog":"THCA-60288"}'),
+    'https://lain.bgm.tv/pic/cover/l/c5/4b/472852_9qK9V.jpg', '1:1', 'completed', '00000000-0000-0000-0000-000000000001', '{"discs":2,"tracks":70,"catalog":"THCA-60288"}'),
 
 -- 3. 孤独摇滚！ 系列
 ('deadbeef-0000-4000-8000-000000000108', '', '孤独摇滚！', 'ぼっち・ざ・ろっく！',
     '{"Bocchi Manga","孤独摇滚原作"}', '2017-12-19', '2017-12-19', '', FALSE, '日本', 'ja', 'ja',
     '滨路晶创作的四格音乐漫画，芳文社《Manga Time Kirara MAX》连载。单行本作为同一 Work 下的多个 Release 编目。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"publisher":"芳文社","format":"manga"}'),
+    'https://lain.bgm.tv/pic/cover/l/9b/65/274457_0e6Z9.jpg', '3:4', 'completed', '00000000-0000-0000-0000-000000000001', '{"publisher":"芳文社","format":"manga"}'),
 
 ('deadbeef-0000-4000-8000-000000000109', '', '孤独摇滚！', 'ぼっち・ざ・ろっく！',
     '{"Bocchi Anime","孤独摇滚动画第一季"}', '2022-10-08', '2022-10-08', '2022-12-24', TRUE, '日本', 'ja', 'ja',
     'CloverWorks 制作改编的 TV 动画，监督斋藤圭一郎。全 12 话，凭借极其富有创意的演出风格与高水准吉他实录引爆全球二次元与摇滚圈。与漫画原作同名，以 Franchise 企划与改编关系区分。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":12,"director":"斎藤圭一郎","format":"tv_anime","season":1}'),
+    'https://lain.bgm.tv/pic/cover/l/54/12/328114_Y73q7.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":12,"director":"斎藤圭一郎","format":"tv_anime","season":1}'),
 
 ('deadbeef-0000-4000-8000-000000000110', '', '結束バンド', '結束バンド',
     '{"Kessoku Band Album","结束乐队首张专辑"}', '2022-12-28', '2022-12-28', '2022-12-28', TRUE, '日本', 'ja', 'ja',
     '剧内乐队「结束乐队」发行的录音室专辑（Aniplex，SVWC-70613）。与虚构乐队 Artist 实体「結束バンド」同名属正常现象，以实体类型区分，不靠标题注记。收录《青春コンプレックス》《あのバンド》《星座になれたら》等14首经典曲目，登顶 Oricon 与 Billboard Japan 榜首。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"tracks":14,"catalog":"SVWC-70613","format":"album"}'),
+    'https://lain.bgm.tv/pic/cover/l/7f/73/404285_8wS88.jpg', '1:1', 'completed', '00000000-0000-0000-0000-000000000001', '{"tracks":14,"catalog":"SVWC-70613","format":"album"}'),
 
 -- 4. 紫罗兰永恒花园 系列
 ('deadbeef-0000-4000-8000-000000000111', '', '紫罗兰永恒花园', 'ヴァイオレット・エヴァーガーデン',
     '{"Violet Evergarden Novel","京紫小说"}', '2015-12-25', '2015-12-25', '2020-03-27', TRUE, '日本', 'ja', 'ja',
     '晓佳奈著、高濑亚贵子插画的轻小说。KA Esuma文库刊行（上卷、下卷、外传、After），分卷作为同一 Work 下的 Release 编目。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"volumes":4,"label":"KAエスマ文庫","format":"light_novel"}'),
+    'https://lain.bgm.tv/pic/cover/l/7f/00/159846_4y48o.jpg', '3:4', 'completed', '00000000-0000-0000-0000-000000000001', '{"volumes":4,"label":"KAエスマ文庫","format":"light_novel"}'),
 
 ('deadbeef-0000-4000-8000-000000000112', '', '紫罗兰永恒花园', 'ヴァイオレット・エヴァーガーデン',
     '{"Violet Evergarden TV","京紫TV版"}', '2018-01-10', '2018-01-10', '2018-04-04', TRUE, '日本', 'ja', 'ja',
     '京都动画制作的顶级画质 TV 动画，监督石立太一。全 13 话 + 1 话 OVA，以极其细腻的光影画风与动人情感刻画震撼观众。与轻小说原著同名，以 Franchise 企划与改编关系区分。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":14,"studio":"京都アニメーション","format":"tv_anime","season":1}'),
+    'https://lain.bgm.tv/pic/cover/l/d0/bb/183863_n93U8.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":14,"studio":"京都アニメーション","format":"tv_anime","season":1}'),
 
 ('deadbeef-0000-4000-8000-000000000113', '', '紫罗兰永恒花园 剧场版', '劇場版 ヴァイオレット・エヴァーガーデン',
     '{"Violet Evergarden: The Movie","京紫最终剧场版"}', '2020-09-18', '2020-09-18', '2020-09-18', TRUE, '日本', 'ja', 'ja',
     '京都动画制作的完结篇剧场长片，片长 140 分钟。讲述薇尔莉特探寻少佐下落的终章，斩获第44届日本电影学院奖优秀动画作品奖。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"duration_mins":140,"studio":"京都アニメーション"}'),
+    'https://lain.bgm.tv/pic/cover/l/7f/f3/245842_x2mK5.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"duration_mins":140,"studio":"京都アニメーション"}'),
 
 ('deadbeef-0000-4000-8000-000000000114', '', 'VIOLET EVERGARDEN : Automemories', 'VIOLET EVERGARDEN : Automemories',
     '{"紫罗兰永恒花园 原声带","Violet Evergarden OST"}', '2018-03-28', '2018-03-28', '2018-03-28', TRUE, '日本', 'ja', 'ja',
     'Evan Call 操刀的《紫罗兰永恒花园》官方管弦乐原声大碟，Lantis 发行（LACA-9573~4）。2CD 47首，布达佩斯交响乐团实录。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"discs":2,"tracks":47,"catalog":"LACA-9573"}'),
+    'https://lain.bgm.tv/pic/cover/l/b8/67/237583_zK0Zq.jpg', '1:1', 'completed', '00000000-0000-0000-0000-000000000001', '{"discs":2,"tracks":47,"catalog":"LACA-9573"}'),
 
 -- 5. Re:从零开始的异世界生活 系列
 ('deadbeef-0000-4000-8000-000000000115', '', 'Re:从零开始的异世界生活', 'Re:ゼロから始める異世界生活',
     '{"Re:Zero Novel","Re0轻小说"}', '2014-01-24', '2014-01-24', '', FALSE, '日本', 'ja', 'ja',
     '长月达平原作、大冢真一郎插画，MF文库J刊行。包含正篇30+卷及短篇集，分卷作为同一 Work 下的 Release 编目。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"label":"MF文庫J","format":"light_novel"}'),
+    'https://lain.bgm.tv/pic/cover/l/3d/bf/92160_t1qX3.jpg', '3:4', 'completed', '00000000-0000-0000-0000-000000000001', '{"label":"MF文庫J","format":"light_novel"}'),
 
 ('deadbeef-0000-4000-8000-000000000116', '', 'Re:从零开始的异世界生活', 'Re:ゼロから始める異世界生活',
     '{"Re:Zero S1","Re0第1季"}', '2016-04-04', '2016-04-04', '2016-09-19', TRUE, '日本', 'ja', 'ja',
     'WHITE FOX 制作的 TV 动画第 1 季，全 25 话。讲述菜月昴在王都、罗兹瓦尔宅邸与白鲸攻略战中的生死轮回。与轻小说原著同名，以 Franchise 企划与改编关系区分。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":25,"director":"渡邊政治","format":"tv_anime","season":1}'),
+    'https://lain.bgm.tv/pic/cover/l/d4/06/141444_m0M7z.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":25,"director":"渡邊政治","format":"tv_anime","season":1}'),
 
 -- 6. 进击的巨人 系列
 ('deadbeef-0000-4000-8000-000000000117', '', '进击的巨人', '進撃の巨人',
     '{"Attack on Titan Manga","巨人原作漫画"}', '2009-09-09', '2009-09-09', '2021-04-09', TRUE, '日本', 'ja', 'ja',
     '谏山创创作的黑暗奇幻漫画，讲谈社《别册少年Magazine》连载，全34卷139话完结。分卷作为同一 Work 下的多个 Release 编目。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"volumes":34,"chapters":139,"publisher":"講談社","format":"manga"}'),
+    'https://lain.bgm.tv/pic/cover/l/21/df/4774_XpC1c.jpg', '3:4', 'completed', '00000000-0000-0000-0000-000000000001', '{"volumes":34,"chapters":139,"publisher":"講談社","format":"manga"}'),
 
 ('deadbeef-0000-4000-8000-000000000118', '', '进击的巨人', '進撃の巨人 Season 1',
     '{"Attack on Titan Season 1","巨人第一季动画"}', '2013-04-07', '2013-04-07', '2013-09-29', TRUE, '日本', 'ja', 'ja',
     'WIT STUDIO 制作、荒木哲郎执导的现象级 TV 动画第 1 季，全 25 话。立体机动装置的动态长镜头演出与世界观揭示引爆全球。与漫画原作同名，以 Franchise 企划与改编关系区分。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":25,"director":"荒木哲郎","format":"tv_anime","season":1}'),
+    'https://lain.bgm.tv/pic/cover/l/b8/0a/55122_Ggw9Q.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"episodes":25,"director":"荒木哲郎","format":"tv_anime","season":1}'),
 
 ('deadbeef-0000-4000-8000-000000000119', '', '「進撃の巨人」Original Soundtrack', '「進撃の巨人」Original Soundtrack',
     '{"Attack on Titan OST 1","巨人 泽野弘之原声带"}', '2013-06-28', '2013-06-28', '2013-06-28', TRUE, '日本', 'ja', 'ja',
     '泽野弘之谱曲的《进击的巨人》第一季官方原声大碟，波丽佳音发行（PCCG-01351）。收录《ətˈæk 0N tάɪtn》《Vogel im Käfig》《立body機motion》等16首燃曲。',
-    'completed', '00000000-0000-0000-0000-000000000001', '{"tracks":16,"catalog":"PCCG-01351"}')
-ON CONFLICT (id) DO NOTHING;
+    'https://lain.bgm.tv/pic/cover/l/8e/3c/69877_jp.jpg', '1:1', 'completed', '00000000-0000-0000-0000-000000000001', '{"tracks":16,"catalog":"PCCG-01351"}')
+ON CONFLICT (id) DO UPDATE SET
+    title = EXCLUDED.title,
+    original_title = EXCLUDED.original_title,
+    aliases = EXCLUDED.aliases,
+    summary = EXCLUDED.summary,
+    cover_image_url = EXCLUDED.cover_image_url,
+    cover_aspect = EXCLUDED.cover_aspect,
+    catalog_metadata = EXCLUDED.catalog_metadata;
 
 INSERT INTO work_translations (work_id, locale, title, summary) VALUES
 ('deadbeef-0000-4000-8000-000000000101', 'en-US', 'Sword Art Online', 'Light novel series by Reki Kawahara with illustrations by abec, published by Dengeki Bunko.'),
@@ -658,7 +665,14 @@ INSERT INTO releases (id, work_id, publisher_id, edition_name, catalog_number, b
     'deadbeef-0000-4000-8000-000000000259', 'Original Soundtrack CD', 'PCCG-01351', '4988013388765', 'ポニーキャニオン', 'jewel_case',
     '2013-06-28', TRUE, '泽野弘之经典配乐，收录 16 首曲目。', 'JP', 'ja', 'physical',
     '{"catalog":"PCCG-01351","tracks":16}')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+    title = EXCLUDED.title,
+    original_title = EXCLUDED.original_title,
+    aliases = EXCLUDED.aliases,
+    summary = EXCLUDED.summary,
+    cover_image_url = EXCLUDED.cover_image_url,
+    cover_aspect = EXCLUDED.cover_aspect,
+    catalog_metadata = EXCLUDED.catalog_metadata;
 
 -- 载体层 (Mediums: Book, CD, Digital, Broadcast, Theatrical)
 INSERT INTO mediums (id, release_id, position, name, format, media_category, track_count) VALUES

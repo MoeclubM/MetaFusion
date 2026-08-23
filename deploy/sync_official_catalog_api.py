@@ -24,7 +24,7 @@ import urllib.request
 import urllib.error
 from typing import Dict, Any, List, Optional
 
-API_BASE = "http://localhost/api/v1"
+API_BASE = "http://127.0.0.1/api/v1"
 ADMIN_USER = "admin"
 ADMIN_PASS = "AdminPassword2026!"
 

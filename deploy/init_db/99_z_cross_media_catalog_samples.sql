@@ -22,7 +22,7 @@ ON CONFLICT (name) DO NOTHING;
 -- ---------------------------------------------------------------------------
 -- 企划枢纽（不含宫崎骏/久石让/wowaka 个人作品集）
 -- ---------------------------------------------------------------------------
-INSERT INTO franchises (id, title, original_title, aliases, disambiguation, summary, begin_date, country, created_by, external_ids) VALUES
+INSERT INTO franchises (id, title, original_title, aliases, disambiguation, summary, cover_image_url, begin_date, country, created_by, external_ids) VALUES
 ('cafef00d-0000-4000-8000-000000000001', '明日方舟', 'アークナイツ',
     '{"Arknights","アークナイツ"}', '鹰角网络跨媒介企划',
     '以泰拉大陆为舞台的战术策略游戏及其衍生音乐、动画与漫画。国服由鹰角运营，日/韩/全球由 Yostar 发行，同属一部游戏 Work。',
@@ -48,7 +48,16 @@ INSERT INTO franchises (id, title, original_title, aliases, disambiguation, summ
     '以学园都市为舞台的轻小说及其动画、漫画衍生。镰池和马是创作者个人，其作品集本身不是 Franchise。',
     '2004-04-10', '日本', '00000000-0000-0000-0000-000000000001',
     '{}')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+    title = EXCLUDED.title,
+    original_title = EXCLUDED.original_title,
+    aliases = EXCLUDED.aliases,
+    disambiguation = EXCLUDED.disambiguation,
+    summary = EXCLUDED.summary,
+    cover_image_url = EXCLUDED.cover_image_url,
+    begin_date = EXCLUDED.begin_date,
+    country = EXCLUDED.country,
+    external_ids = EXCLUDED.external_ids;
 
 INSERT INTO franchise_translations (franchise_id, locale, title, summary) VALUES
 ('cafef00d-0000-4000-8000-000000000001', 'en-US', 'Arknights', 'Hypergryph tactical RPG and its spin-off media. CN and JP clients are Releases of one Work.'),
@@ -228,73 +237,80 @@ ON CONFLICT DO NOTHING;
 -- ---------------------------------------------------------------------------
 -- 作品（探索页展示 published/completed；不含媒体文件）
 -- ---------------------------------------------------------------------------
-INSERT INTO works (id, category_code, title, original_title, aliases, release_date, begin_date, end_date, ended, country, language, original_language, summary, status, created_by, catalog_metadata) VALUES
+INSERT INTO works (id, category_code, title, original_title, aliases, release_date, begin_date, end_date, ended, country, language, original_language, summary, cover_image_url, cover_aspect, status, created_by, catalog_metadata) VALUES
 ('cafef00d-0000-4000-8000-000000000101', '', '明日方舟', 'アークナイツ',
     '{"Arknights","明日方舟"}', '2019-05-01', '2019-04-30', '', FALSE, '中国', 'zh-CN', 'zh',
     '鹰角网络开发的塔防策略游戏。国服（iOS 2019-04-30 / Android 2019-05-01）与日服（Yostar，2020-01-16）是同一 Work 下的不同 Release。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/0a/6f/214265_5rZrn.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"sources":["https://zh.wikipedia.org/wiki/明日方舟"]}'),
 ('cafef00d-0000-4000-8000-000000000102', '', '明日方舟OST1', 'ARKNIGHTS Original Soundtrack 01',
     '{"明日方舟 OST1","Arknights OST1"}', '2019-06-20', '2019-06-20', '2019-06-20', TRUE, '中国', 'zh-CN', 'zh',
     '塞壬唱片发行的游戏原声第 1 辑，2019-06-20 上线，收录 12 首。作曲/编曲 Bao.Uner，制作 Windbell。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://media.vgm.io/albums/68/90786/90786-1594921946.jpg', '1:1', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"tracks":12,"sources":["https://prts.wiki/w/明日方舟OST1"]}'),
 ('cafef00d-0000-4000-8000-000000000103', '', 'BanG Dream! 少女乐团派对', 'バンドリ！ ガールズバンドパーティ！',
     '{"ガルパ","Girls Band Party","GBP"}', '2017-03-16', '2017-03-16', '', FALSE, '日本', 'ja', 'ja',
     'BanG Dream! 企划下的节奏+冒险游戏。Craft Egg 开发，Bushiroad 提供。日服 2017-03-16。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/f9/be/192777_c42u5.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"sources":["https://www.inside-games.jp/article/2017/03/16/105955.html"]}'),
 ('cafef00d-0000-4000-8000-000000000104', '', 'BanG Dream! It''s MyGO!!!!!', 'BanG Dream! It''s MyGO!!!!!',
     '{"MyGO","マイゴ"}', '2023-06-29', '2023-06-29', '2023-09-14', TRUE, '日本', 'ja', 'ja',
     'BanG Dream! 子作品，监督柿本広大，动画制作サンジゲン。2023-06-29 起播（首日 3 话），2023-09-14 完结，全 13 话。与游戏同属企划，不是游戏的分卷。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/6e/c3/428734_qUvVv.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"episodes":13,"director":"柿本広大"}'),
 ('cafef00d-0000-4000-8000-000000000105', '', 'Fate/stay night', 'Fate/stay night',
     '{"FSN","フェイトステイナイト"}', '2004-01-30', '2004-01-30', '2004-01-30', TRUE, '日本', 'ja', 'ja',
     'TYPE-MOON 视觉小说原作，Fate 父企划核心作品。原作奈须きのこ，人设武内崇。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/5b/c2/2_U1555.jpg', '3:4', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"platform":"PC","sources":["https://zh.wikipedia.org/wiki/Fate/stay_night"]}'),
 ('cafef00d-0000-4000-8000-000000000106', '', 'Fate/Grand Order', 'Fate/Grand Order',
     '{"FGO","命运-冠位指定"}', '2015-07-30', '2015-07-30', '', FALSE, '日本', 'ja', 'ja',
     'Fate 子企划下的手机游戏。日服 Android 2015-07-30、iOS 2015-08-12；国服 iOS 2016-09-29、Android 2016-10-13。分服是 Release，不是两部作品。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/f1/b7/111855_0z7bE.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"sources":["https://zh.wikipedia.org/wiki/Fate/Grand_Order"]}'),
 ('cafef00d-0000-4000-8000-000000000107', '', '魔法禁书目录', 'とある魔術の禁書目録',
     '{"Index","禁书目录旧约","A Certain Magical Index"}', '2004-04-10', '2004-04-10', '2010-10-10', TRUE, '日本', 'ja', 'ja',
     '轻小说正编（通称旧约，与新约系列以不同 Work 区分）。分卷是同一 Work 下的多条 Release（ISBN 写在 Release），不是每个分卷一部 Work。电撃文库，插画灰村キヨタカ。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/15/22/3351_e3Llb.jpg', '3:4', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"volumes":22,"series":"old_testament","sources":["https://web.archive.org/web/20171017093412/http://dengekibunko.jp/newreleases/978-4-8402-2658-5/"]}'),
 ('cafef00d-0000-4000-8000-000000000108', '', '某科学的超电磁炮', 'とある科学の超電磁砲',
     '{"Railgun","超炮","A Certain Scientific Railgun"}', '2009-10-03', '2009-10-03', '', FALSE, '日本', 'ja', 'ja',
     '禁书目录世界观衍生动画，制作 J.C.STAFF。TV 第 1 期 2009-10-03 起播。御坂美琴以角色实体出场。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/0d/18/2591_O54eE.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"studio":"J.C.STAFF"}'),
 ('cafef00d-0000-4000-8000-000000000109', '', 'アンノウン・マザーグース', 'アンノウン・マザーグース',
     '{"Unknown Mother-Goose","未知母鹅"}', '2017-08-22', '2017-08-22', '2017-08-22', TRUE, '日本', 'ja', 'ja',
     'wowaka 作曲作词、初音未来演唱。2017-08-22 于 niconico 公开，后作为 Disc 1 Track 1 收录于 2017-08-30 的《Re:Start》，并非收录于 2011 年专辑《アンハッピーリフレイン》。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/3d/8c/225381_3Uu11.jpg', '1:1', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"niconico_date":"2017-08-22"}'),
 ('cafef00d-0000-4000-8000-000000000110', '', 'アンハッピーリフレイン', 'アンハッピーリフレイン',
     '{"Unhappy Refrain","不幸的叠句"}', '2011-05-18', '2011-05-18', '2011-05-18', TRUE, '日本', 'ja', 'ja',
     'wowaka 在 BALLOOM 发行的专辑（2011-05-18）。个人专辑不是 Franchise；未知母鹅并未收录于此碟。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/a0/02/14197_d94N9.jpg', '1:1', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"label":"BALLOOM"}'),
 ('cafef00d-0000-4000-8000-000000000111', '', 'HATSUNE MIKU 10th Anniversary Album「Re:Start」', 'HATSUNE MIKU 10th Anniversary Album「Re:Start」',
     '{"Re:Start","初音ミク 10th"}', '2017-08-30', '2017-08-30', '2017-08-30', TRUE, '日本', 'ja', 'ja',
     '初音未来十周年合辑，U&R records，2017-08-30。Disc 1 第 1 曲为 wowaka《アンノウン・マザーグース》。通常盘品番 DUED-1229，条码 4589686423540。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/49/a2/220722_n3j0A.jpg', '1:1', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"catalog":"DUED-1229","barcode":"4589686423540","sources":["https://vgmdb.net/album/82794"]}'),
 ('cafef00d-0000-4000-8000-000000000112', '', '千与千寻', '千と千尋の神隠し',
     '{"Spirited Away","Sen to Chihiro no Kamikakushi"}', '2001-07-20', '2001-07-20', '2001-07-20', TRUE, '日本', 'ja', 'ja',
     '吉卜力工作室动画长片，导演宫崎骏，配乐久石让，主题歌木村弓，日本院线东宝，2001-07-20 公映。不把宫崎骏或久石让建成 Franchise。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://image.tmdb.org/t/p/original/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"distributor":"東宝"}'),
 ('cafef00d-0000-4000-8000-000000000113', '', '千と千尋の神隠し サウンドトラック', '千と千尋の神隠し サウンドトラック',
     '{"Spirited Away Soundtrack","千与千寻 原声带"}', '2001-07-18', '2001-07-18', '2001-07-18', TRUE, '日本', 'ja', 'ja',
     '电影原声带，作曲久石让，管弦新日本フィル，主题歌木村弓。徳間ジャパン，品番 TKCA-72165，2001-07-18（早于院线两日）。',
-    'completed', '00000000-0000-0000-0000-000000000001',
+    'https://lain.bgm.tv/pic/cover/l/37/10/2831_jp.jpg', '1:1', 'completed', '00000000-0000-0000-0000-000000000001',
     '{"catalog":"TKCA-72165"}')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+    title = EXCLUDED.title,
+    original_title = EXCLUDED.original_title,
+    aliases = EXCLUDED.aliases,
+    summary = EXCLUDED.summary,
+    cover_image_url = EXCLUDED.cover_image_url,
+    cover_aspect = EXCLUDED.cover_aspect,
+    catalog_metadata = EXCLUDED.catalog_metadata;
 
 INSERT INTO work_translations (work_id, locale, title, summary) VALUES
 ('cafef00d-0000-4000-8000-000000000101', 'en-US', 'Arknights', 'Tower-defense RPG by Hypergryph. CN and JP are Releases of one Work.'),
@@ -486,7 +502,14 @@ INSERT INTO releases (id, work_id, publisher_id, edition_name, catalog_number, b
     '2023-06-29', TRUE,
     '2023-06-29 起播，2023-09-14 终了，全 13 话。',
     'JP', 'ja', 'web', '{"episodes":13,"end":"2023-09-14"}')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+    title = EXCLUDED.title,
+    original_title = EXCLUDED.original_title,
+    aliases = EXCLUDED.aliases,
+    summary = EXCLUDED.summary,
+    cover_image_url = EXCLUDED.cover_image_url,
+    cover_aspect = EXCLUDED.cover_aspect,
+    catalog_metadata = EXCLUDED.catalog_metadata;
 
 -- 载体层（无 Track / AssetFile）
 INSERT INTO mediums (id, release_id, position, name, format, media_category, track_count) VALUES

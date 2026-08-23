@@ -12,6 +12,22 @@ const nextConfig = {
         hostname: "**.r2.cloudflarestorage.com",
       },
       {
+        protocol: "https",
+        hostname: "lain.bgm.tv",
+      },
+      {
+        protocol: "https",
+        hostname: "image.tmdb.org",
+      },
+      {
+        protocol: "https",
+        hostname: "coverartarchive.org",
+      },
+      {
+        protocol: "https",
+        hostname: "media.vgm.io",
+      },
+      {
         protocol: "http",
         hostname: "localhost",
       },

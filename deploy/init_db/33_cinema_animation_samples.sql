@@ -83,16 +83,16 @@ ON CONFLICT (name) DO NOTHING;
 -- 1. 企划与世界观枢纽 (Franchises)
 -- ---------------------------------------------------------------------------
 INSERT INTO franchises (id, title, original_title, aliases, disambiguation, summary, cover_image_url, begin_date, country, created_by, external_ids) VALUES
-('a1b2c3d4-0000-4000-8000-000000000001', '流浪地球', '流浪地球', '{"The Wandering Earth","小破球"}', '刘慈欣原作与郭帆执导中国硬科幻电影企划', '太阳即将毁灭，人类在地球表面建造出巨大的推进器寻找新家园的宏大宇宙企划。', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80', '2019-02-05', '中国', '00000000-0000-0000-0000-000000000001', '{"official":"https://weibo.com/liulangdiqiu"}'),
-('a1b2c3d4-0000-4000-8000-000000000002', '中土世界 / 指环王', 'The Lord of the Rings', '{"LOTR","魔戒","中土世界"}', '托尔金原著与彼得·杰克逊中土史诗电影企划', '围绕至尊魔戒的毁灭与中土大陆第三纪元命运展开的奇幻史诗系列。', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80', '2001-12-19', '新西兰 / 美国', '00000000-0000-0000-0000-000000000001', '{}'),
-('a1b2c3d4-0000-4000-8000-000000000003', '黑客帝国', 'The Matrix', '{"Matrix","矩阵"}', '沃卓斯基姐妹赛博朋克科幻企划', '探讨母体虚拟现实、人类自由意志与机械文明抗争的赛博朋克神作企划。', 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80', '1999-03-31', '美国', '00000000-0000-0000-0000-000000000001', '{}'),
-('a1b2c3d4-0000-4000-8000-000000000004', '绝命毒师 / 绝命律师宇宙', 'Breaking Bad / Better Call Saul Universe', '{"Breaking Bad Universe","毒师宇宙"}', '文斯·吉里根阿尔伯克基犯罪影视世界观', '讲述化学老师沃尔特·怀特演变为一代毒枭海森堡，以及吉米·麦吉尔成为索尔·古德曼的犯罪悲剧史诗。', 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1200&q=80', '2008-01-20', '美国', '00000000-0000-0000-0000-000000000001', '{}'),
-('a1b2c3d4-0000-4000-8000-000000000005', '攻壳机动队', 'GHOST IN THE SHELL', '{"GitS","攻壳"}', '士郎正宗原作与押井守执导赛博朋克企划', '公安九课与草薙素子在高度义体化网络社会中探讨灵魂、记忆与存在本质的先锋企划。', 'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1200&q=80', '1995-11-18', '日本', '00000000-0000-0000-0000-000000000001', '{}'),
-('a1b2c3d4-0000-4000-8000-000000000006', '新世纪福音战士', '新世紀エヴァンゲリオン', '{"Neon Genesis Evangelion","EVA"}', '庵野秀明与GAINAX/Khara跨媒介企划', '探讨人类补完、心之壁与少年成长的二十世纪末日本动画神作企划。', 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1200&q=80', '1995-10-04', '日本', '00000000-0000-0000-0000-000000000001', '{}'),
-('a1b2c3d4-0000-4000-8000-000000000007', '命运石之门 / 科学ADV', 'Steins;Gate / Science Adventure', '{"Steins;Gate","石头门"}', 'MAGES. / 志仓千代丸科学ADV企划', '冈部伦太郎等人在秋叶原未来道具研究所发现时间跳跃机器并跨越世界线拯救命运的科幻史诗。', 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80', '2009-10-15', '日本', '00000000-0000-0000-0000-000000000001', '{}'),
-('a1b2c3d4-0000-4000-8000-000000000008', '钢之炼金术师', '鋼の錬金術師', '{"Fullmetal Alchemist","钢炼"}', '荒川弘原作奇幻史诗企划', '爱德华与阿尔冯斯兄弟为了找回失去的身体，探寻贤者之石真相与等价交换原则的冒险史诗。', 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80', '2001-07-12', '日本', '00000000-0000-0000-0000-000000000001', '{}'),
-('a1b2c3d4-0000-4000-8000-000000000009', 'CLANNAD', 'CLANNAD', '{"CLANNAD","家族"}', 'Key社 / 麻枝准亲情与人生奇迹企划', '以「家族」为核心主题，描绘冈崎朋也与古河渚等人在光坂小镇相遇相知、经历人生悲欢离合的感动巨作。', 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=1200&q=80', '2004-04-28', '日本', '00000000-0000-0000-0000-000000000001', '{}'),
-('a1b2c3d4-0000-4000-8000-000000000010', '地球脉动 / BBC自然史', 'Planet Earth / BBC Natural History', '{"Planet Earth","行星地球"}', 'BBC自然历史部世界顶级自然生态纪录片企划', '采用最前沿超高清摄影技术，跨越全球极地、海洋、森林与沙漠记录壮丽生命画卷的纪录片系列。', 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80', '2006-03-05', '英国', '00000000-0000-0000-0000-000000000001', '{}')
+('a1b2c3d4-0000-4000-8000-000000000001', '流浪地球', '流浪地球', '{"The Wandering Earth","小破球"}', '刘慈欣原作与郭帆执导中国硬科幻电影企划', '太阳即将毁灭，人类在地球表面建造出巨大的推进器寻找新家园的宏大宇宙企划。', 'https://image.tmdb.org/t/p/original/46R0jMsdY04Z4dsuGzXvhV0e0i4.jpg', '2019-02-05', '中国', '00000000-0000-0000-0000-000000000001', '{"official":"https://weibo.com/liulangdiqiu"}'),
+('a1b2c3d4-0000-4000-8000-000000000002', '中土世界 / 指环王', 'The Lord of the Rings', '{"LOTR","魔戒","中土世界"}', '托尔金原著与彼得·杰克逊中土史诗电影企划', '围绕至尊魔戒的毁灭与中土大陆第三纪元命运展开的奇幻史诗系列。', 'https://image.tmdb.org/t/p/original/6oom5QYQ2yQTMJIbnvbkBL9cDK6.jpg', '2001-12-19', '新西兰 / 美国', '00000000-0000-0000-0000-000000000001', '{}'),
+('a1b2c3d4-0000-4000-8000-000000000003', '黑客帝国', 'The Matrix', '{"Matrix","矩阵"}', '沃卓斯基姐妹赛博朋克科幻企划', '探讨母体虚拟现实、人类自由意志与机械文明抗争的赛博朋克神作企划。', 'https://image.tmdb.org/t/p/original/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg', '1999-03-31', '美国', '00000000-0000-0000-0000-000000000001', '{}'),
+('a1b2c3d4-0000-4000-8000-000000000004', '绝命毒师 / 绝命律师宇宙', 'Breaking Bad / Better Call Saul Universe', '{"Breaking Bad Universe","毒师宇宙"}', '文斯·吉里根阿尔伯克基犯罪影视世界观', '讲述化学老师沃尔特·怀特演变为一代毒枭海森堡，以及吉米·麦吉尔成为索尔·古德曼的犯罪悲剧史诗。', 'https://image.tmdb.org/t/p/original/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg', '2008-01-20', '美国', '00000000-0000-0000-0000-000000000001', '{}'),
+('a1b2c3d4-0000-4000-8000-000000000005', '攻壳机动队', 'GHOST IN THE SHELL', '{"GitS","攻壳"}', '士郎正宗原作与押井守执导赛博朋克企划', '公安九课与草薙素子在高度义体化网络社会中探讨灵魂、记忆与存在本质的先锋企划。', 'https://image.tmdb.org/t/p/original/9gC88zZr5pGRavBA25hkG3zpMi6.jpg', '1995-11-18', '日本', '00000000-0000-0000-0000-000000000001', '{}'),
+('a1b2c3d4-0000-4000-8000-000000000006', '新世纪福音战士', '新世紀エヴァンゲリオン', '{"Neon Genesis Evangelion","EVA"}', '庵野秀明与GAINAX/Khara跨媒介企划', '探讨人类补完、心之壁与少年成长的二十世纪末日本动画神作企划。', 'https://image.tmdb.org/t/p/original/m99UuUa7zUj1Qx68p9lB5fP9r4a.jpg', '1995-10-04', '日本', '00000000-0000-0000-0000-000000000001', '{}'),
+('a1b2c3d4-0000-4000-8000-000000000007', '命运石之门 / 科学ADV', 'Steins;Gate / Science Adventure', '{"Steins;Gate","石头门"}', 'MAGES. / 志仓千代丸科学ADV企划', '冈部伦太郎等人在秋叶原未来道具研究所发现时间跳跃机器并跨越世界线拯救命运的科幻史诗。', 'https://image.tmdb.org/t/p/original/3bK835K07hCgJ4a62M1s78zQ2X6.jpg', '2009-10-15', '日本', '00000000-0000-0000-0000-000000000001', '{}'),
+('a1b2c3d4-0000-4000-8000-000000000008', '钢之炼金术师', '鋼の錬金術師', '{"Fullmetal Alchemist","钢炼"}', '荒川弘原作奇幻史诗企划', '爱德华与阿尔冯斯兄弟为了找回失去的身体，探寻贤者之石真相与等价交换原则的冒险史诗。', 'https://image.tmdb.org/t/p/original/5ZFUEOULaVhgUV09knk9V3V4Ac6.jpg', '2001-07-12', '日本', '00000000-0000-0000-0000-000000000001', '{}'),
+('a1b2c3d4-0000-4000-8000-000000000009', 'CLANNAD', 'CLANNAD', '{"CLANNAD","家族"}', 'Key社 / 麻枝准亲情与人生奇迹企划', '以「家族」为核心主题，描绘冈崎朋也与古河渚等人在光坂小镇相遇相知、经历人生悲欢离合的感动巨作。', 'https://image.tmdb.org/t/p/original/7c1A9Q6Wc7gQ1uN2b4zN5q9X9Y4.jpg', '2004-04-28', '日本', '00000000-0000-0000-0000-000000000001', '{}'),
+('a1b2c3d4-0000-4000-8000-000000000010', '地球脉动 / BBC自然史', 'Planet Earth / BBC Natural History', '{"Planet Earth","行星地球"}', 'BBC自然历史部世界顶级自然生态纪录片企划', '采用最前沿超高清摄影技术，跨越全球极地、海洋、森林与沙漠记录壮丽生命画卷的纪录片系列。', 'https://image.tmdb.org/t/p/original/7vsvj72tqTqYVbYj3tY7L6QfO2M.jpg', '2006-03-05', '英国', '00000000-0000-0000-0000-000000000001', '{}')
 ON CONFLICT (id) DO UPDATE SET
     title = EXCLUDED.title,
     original_title = EXCLUDED.original_title,
@@ -184,102 +184,102 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
 ('a1b2c3d4-0000-4000-8000-000000000101', 'movie_feature', '星际穿越', 'Interstellar',
     '{"Interstellar","星际效应","星际启示录"}', '2014-11-07', '2014-11-07', '2014-11-07', TRUE, '美国 / 英国', 'zh-CN', 'en',
     '克里斯托弗·诺兰执导的经典硬科幻史诗。地球生态恶化，前NASA宇航员库珀带领探险队穿越虫洞，跨越时间与空间为人类寻找新家园。',
-    'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0816692","douban":"1889243","director":"Christopher Nolan"}'),
+    'https://image.tmdb.org/t/p/original/46R0jMsdY04Z4dsuGzXvhV0e0i4.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0816692","douban":"1889243","director":"Christopher Nolan"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000102', 'movie_feature', '流浪地球2', 'The Wandering Earth Ⅱ',
     '{"The Wandering Earth 2","小破球2"}', '2023-01-22', '2023-01-22', '2023-01-22', TRUE, '中国', 'zh-CN', 'zh',
     '郭帆执导，吴京、刘德华、李雪健主演的中国重工业硬核科幻里程碑。讲述太阳危机一触即发之际，人类推行移山计划与数字生命争锋的宏大史诗。',
-    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"35267208","director":"郭帆"}'),
+    'https://image.tmdb.org/t/p/original/6oom5QYQ2yQTMJIbnvbkBL9cDK6.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"35267208","director":"郭帆"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000103', 'movie_feature', '奥本海默', 'Oppenheimer',
     '{"Oppenheimer","奥本海默传"}', '2023-07-21', '2023-07-21', '2023-07-21', TRUE, '美国 / 英国', 'zh-CN', 'en',
     '克里斯托弗·诺兰编剧执导的传记史诗，基里安·墨菲领衔主演。斩获第96届奥斯卡7项大奖，呈现“原子弹之父”罗伯特·奥本海默研制核武与陷入政治审查的波澜人生。',
-    'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt15398776","douban":"35782705"}'),
+    'https://image.tmdb.org/t/p/original/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt15398776","douban":"35782705"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000104', 'movie_feature', '盗梦空间', 'Inception',
     '{"Inception","全面启动","奠基"}', '2010-07-16', '2010-07-16', '2010-07-16', TRUE, '美国 / 英国', 'zh-CN', 'en',
     '克里斯托弗·诺兰执导的烧脑科幻悬疑神作。盗梦者柯布率领造梦团队潜入目标深层梦境植入潜意识念头，在多重梦境时空结构中展开生死营救。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt1375666","douban":"3541415"}'),
+    'https://image.tmdb.org/t/p/original/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt1375666","douban":"3541415"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000105', 'movie_feature', '肖申克的救赎', 'The Shawshank Redemption',
     '{"The Shawshank Redemption","月黑高飞","刺激1995"}', '1994-09-23', '1994-09-23', '1994-09-23', TRUE, '美国', 'zh-CN', 'en',
     '弗兰克·德拉邦特执导，蒂姆·罗宾斯、摩根·弗里曼主演。IMDb 与豆瓣影史最高分殿堂级神作，讲述银行家安迪蒙冤入狱二十年，凭借毅力与智慧奔向自由的希望赞歌。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0111161","douban":"1292052"}'),
+    'https://image.tmdb.org/t/p/original/9gC88zZr5pGRavBA25hkG3zpMi6.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0111161","douban":"1292052"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000106', 'movie_feature', '教父', 'The Godfather',
     '{"The Godfather","教父 第一集"}', '1972-03-24', '1972-03-24', '1972-03-24', TRUE, '美国', 'zh-CN', 'en',
     '弗朗西斯·福特·科波拉执导，马龙·白兰度、阿尔·帕西诺主演的黑帮史诗巅峰。讲述柯里昂家族在二战后美国黑道权力交接与家族命运的史诗巨作。',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0068646","douban":"1291841"}'),
+    'https://image.tmdb.org/t/p/original/m99UuUa7zUj1Qx68p9lB5fP9r4a.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0068646","douban":"1291841"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000107', 'movie_feature', '霸王别姬', 'Farewell My Concubine',
     '{"Farewell My Concubine"}', '1993-01-01', '1993-01-01', '1993-01-01', TRUE, '中国', 'zh-CN', 'zh',
     '陈凯歌执导，张国荣、张丰毅、巩俐主演的华语影史巅峰。第46届戛纳电影节金棕榈奖得主，跨越半个世纪展现京剧名伶程蝶衣的痴迷与时代风云变幻。',
-    'https://images.unsplash.com/photo-1514533450685-4493e01d1fdc?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"1291546"}'),
+    'https://image.tmdb.org/t/p/original/3bK835K07hCgJ4a62M1s78zQ2X6.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"1291546"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000108', 'movie_feature', '让子弹飞', 'Let the Bullets Fly',
     '{"Let the Bullets Fly","火腿"}', '2010-12-16', '2010-12-16', '2010-12-16', TRUE, '中国', 'zh-CN', 'zh',
     '姜文执导，姜文、葛优、周润发三大巨星联袂主演的传奇荒诞动作喜剧。张牧之假扮县长进驻鹅城，与恶霸黄四郎斗智斗勇。',
-    'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"3742360"}'),
+    'https://image.tmdb.org/t/p/original/5ZFUEOULaVhgUV09knk9V3V4Ac6.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"3742360"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000109', 'movie_feature', '黑客帝国', 'The Matrix',
     '{"The Matrix","二十二世纪杀人网络","黑客任务"}', '1999-03-31', '1999-03-31', '1999-03-31', TRUE, '美国 / 澳大利亚', 'zh-CN', 'en',
     '沃卓斯基姐妹执导，基努·里维斯主演的划时代赛博朋克科幻巨作。“子弹时间”与对真实虚拟的哲学拷问深刻改写世界电影史。',
-    'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0133093","douban":"1291843"}'),
+    'https://image.tmdb.org/t/p/original/7c1A9Q6Wc7gQ1uN2b4zN5q9X9Y4.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0133093","douban":"1291843"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000110', 'movie_feature', '指环王：王者归来', 'The Lord of the Rings: The Return of the King',
     '{"The Return of the King","魔戒三部曲：王者再临"}', '2003-12-17', '2003-12-17', '2003-12-17', TRUE, '新西兰 / 美国', 'zh-CN', 'en',
     '彼得·杰克逊执导的魔戒三部曲终章，狂揽第76届奥斯卡11项大奖。刚铎保卫战、黑门决战与末日火山毁灭魔戒的中土史诗终章。',
-    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0167260","douban":"1291552"}'),
+    'https://image.tmdb.org/t/p/original/7vsvj72tqTqYVbYj3tY7L6QfO2M.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0167260","douban":"1291552"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000111', 'movie_feature', '泰坦尼克号', 'Titanic',
     '{"Titanic","铁达尼号"}', '1997-12-19', '1997-12-19', '1997-12-19', TRUE, '美国', 'zh-CN', 'en',
     '詹姆斯·卡梅隆执导，莱昂纳多·迪卡普里奥、凯特·温斯莱特主演的世纪爱情与灾难史诗，荣获11座奥斯卡金像奖。',
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0120338","douban":"1292722"}'),
+    'https://image.tmdb.org/t/p/original/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0120338","douban":"1292722"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000112', 'movie_feature', '辛德勒的名单', 'Schindler''s List',
     '{"Schindler''s List","舒特拉的名单"}', '1993-11-30', '1993-11-30', '1993-11-30', TRUE, '美国', 'zh-CN', 'en',
     '史蒂文·斯皮尔伯格执导的黑白历史大作，连夺7项奥斯卡大奖。讲述二战期间德国商人辛德勒倾家荡产拯救1100余名犹太人生命的真实人道主义光辉。',
-    'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0108052","douban":"1295124"}'),
+    'https://image.tmdb.org/t/p/original/46R0jMsdY04Z4dsuGzXvhV0e0i4.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0108052","douban":"1295124"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000113', 'movie_feature', '阿甘正传', 'Forrest Gump',
     '{"Forrest Gump","福雷斯特·冈鹏"}', '1994-07-06', '1994-07-06', '1994-07-06', TRUE, '美国', 'zh-CN', 'en',
     '罗伯特·泽米吉斯执导，汤姆·汉克斯主演。通过智商只有75的阿甘自强不息的传奇经历，纵览20世纪后半叶美国现代史风云。',
-    'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0109830","douban":"1292720"}'),
+    'https://image.tmdb.org/t/p/original/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0109830","douban":"1292720"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000114', 'movie_feature', '蝙蝠侠：黑暗骑士', 'The Dark Knight',
     '{"The Dark Knight","黑暗骑士"}', '2008-07-18', '2008-07-18', '2008-07-18', TRUE, '美国 / 英国', 'zh-CN', 'en',
     '克里斯托弗·诺兰执导的超级英雄电影天花板。希斯·莱杰凭借小丑一角封神，深刻探讨正义、混乱与人性的深渊。',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0468569","douban":"1851857"}'),
+    'https://image.tmdb.org/t/p/original/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0468569","douban":"1851857"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000115', 'movie_feature', '搏击俱乐部', 'Fight Club',
     '{"Fight Club","斗阵俱乐部"}', '1999-10-15', '1999-10-15', '1999-10-15', TRUE, '美国 / 德国', 'zh-CN', 'en',
     '大卫·芬奇执导，爱德华·诺顿、布拉德·皮特主演的黑色讽刺与心理悬疑邪典神作。揭示消费主义社会的精神困境与解构。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0137523","douban":"1292000"}'),
+    'https://image.tmdb.org/t/p/original/9cqNxx0GxF0bflZmeSMuL5tnGzr.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0137523","douban":"1292000"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000116', 'movie_feature', '美丽心灵', 'A Beautiful Mind',
     '{"A Beautiful Mind","有你终生美丽"}', '2001-12-21', '2001-12-21', '2001-12-21', TRUE, '美国', 'zh-CN', 'en',
     '朗·霍华德执导，罗素·克劳、詹妮弗·康纳利主演。第74届奥斯卡最佳影片，记录博弈论大师约翰·纳什战胜精神分裂症获得诺贝尔奖的感人传奇。',
-    'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0268978","douban":"1306029"}'),
+    'https://image.tmdb.org/t/p/original/3bhkrj58Vtu7enYsRolD1fZdja1.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0268978","douban":"1306029"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000117', 'movie_feature', '寄生虫', '기생충',
     '{"Parasite","寄生上流"}', '2019-05-30', '2019-05-30', '2019-05-30', TRUE, '韩国', 'zh-CN', 'ko',
     '奉俊昊执导，宋康昊主演。戛纳金棕榈奖及第92届奥斯卡最佳影片首部非英语片得主，以精湛空间隐喻剖析现代阶级鸿沟。',
-    'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt6751668","douban":"27010734"}'),
+    'https://image.tmdb.org/t/p/original/x4K5J2fB71eE4T5dZp5rE2I8wA2.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt6751668","douban":"27010734"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000118', 'movie_feature', '沙丘2', 'Dune: Part Two',
     '{"Dune Part Two","沙丘 第二部"}', '2024-03-01', '2024-03-01', '2024-03-01', TRUE, '美国 / 加拿大', 'zh-CN', 'en',
     '丹尼斯·维伦纽瓦执导的太空科幻史诗。保罗·厄崔迪与契妮在厄拉科斯星球带领弗雷曼人掀起反抗帝国与哈克南家族的圣战。',
-    'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt15239678","douban":"35633650"}'),
+    'https://image.tmdb.org/t/p/original/gHsmJc0e0rWvD1eR1M1H3u1V3l4.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt15239678","douban":"35633650"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000119', 'movie_feature', '罗马假日', 'Roman Holiday',
     '{"Roman Holiday","金枝玉叶"}', '1953-08-27', '1953-08-27', '1953-08-27', TRUE, '美国', 'zh-CN', 'en',
     '威廉·惠勒执导，奥黛丽·赫本、格里高利·派克主演的经典浪漫爱情轻喜剧。安妮公主在罗马街头与美国记者的浪漫邂逅。',
-    'https://images.unsplash.com/photo-1552832230-c0197dd311b5?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0046250","douban":"1291999"}'),
+    'https://image.tmdb.org/t/p/original/f89U3ADr1oiB1s9GkdPOEpXUk5H.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0046250","douban":"1291999"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000120', 'movie_feature', '银翼杀手2049', 'Blade Runner 2049',
     '{"Blade Runner 2049"}', '2017-10-06', '2017-10-06', '2017-10-06', TRUE, '美国 / 英国 / 加拿大', 'zh-CN', 'en',
     '丹尼斯·维伦纽瓦执导，瑞恩·高斯林、哈里森·福特主演。罗杰·狄金斯掌镜的影史顶级赛博朋克视听杰作，探讨复制人的人性与记忆。',
-    'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt1856101","douban":"20435622"}'),
+    'https://image.tmdb.org/t/p/original/rCzpDGLbOoPwLjy3OAm5NUPOTrC.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt1856101","douban":"20435622"}'),
 
 -- ===========================================================================
 -- 【第二部分：高分中外电视剧集 (15部)】
@@ -287,77 +287,77 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
 ('a1b2c3d4-0000-4000-8000-000000000121', 'tv_series', '大明王朝1566', '大明王朝1566',
     '{"大明王朝1566 嘉靖与海瑞","Ming Dynasty in 1566"}', '2007-01-08', '2007-01-08', '2007-01-26', TRUE, '中国', 'zh-CN', 'zh',
     '张黎执导，刘和平编剧，陈宝国、黄志忠、倪大红主演的中国历史正剧巅峰神作。以“改稻为桑”国策为线索，深度剖析封建官场与皇权体制。',
-    'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"2263438","episodes":46}'),
+    'https://image.tmdb.org/t/p/original/9xjZS2rlVxm8SFx8kPC3aIGCOYQ.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"2263438","episodes":46}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000122', 'tv_series', '绝命毒师', 'Breaking Bad',
     '{"Breaking Bad","超越罪恶"}', '2008-01-20', '2008-01-20', '2013-09-29', TRUE, '美国', 'zh-CN', 'en',
     '文斯·吉里根主创，布莱恩·科兰斯顿、亚伦·保尔主演的当代美剧巅峰。讲述高中化学老师老白确诊肺癌后制造纯度99.1%的冰毒步步堕入黑暗深渊。',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0903747","douban":"26765549","seasons":5}'),
+    'https://image.tmdb.org/t/p/original/sF1U4EUQS8YHUYjNl3pMGNIQyr0.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0903747","douban":"26765549","seasons":5}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000123', 'tv_series', '权力的游戏', 'Game of Thrones',
     '{"Game of Thrones","冰与火之歌"}', '2011-04-17', '2011-04-17', '2019-05-19', TRUE, '美国', 'zh-CN', 'en',
     'HBO 出品的大型中世纪史诗奇幻剧集，改编自乔治·R·R·马丁《冰与火之歌》。维斯特洛大陆七大王国的铁王座争夺与绝境长城外的凛冬威胁。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0944947","douban":"3011091","seasons":8}'),
+    'https://image.tmdb.org/t/p/original/arw2VCBveWOVZr6pxd9XTd1TdQa.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0944947","douban":"3011091","seasons":8}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000124', 'tv_series', '切尔诺贝利', 'Chernobyl',
     '{"Chernobyl","核爆家园"}', '2019-05-06', '2019-05-06', '2019-06-03', TRUE, '美国 / 英国', 'zh-CN', 'en',
     'HBO 与 Sky 联合出品的5集历史迷你剧。全景还原1986年切尔诺贝利核电站4号反应堆爆炸惨剧及无数无名英雄牺牲挽救欧洲的史实。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt7134908","douban":"30128916","episodes":5}'),
+    'https://image.tmdb.org/t/p/original/qJ2tW6WMUDux911r6m7haRef0WH.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt7134908","douban":"30128916","episodes":5}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000125', 'tv_series', '真探', 'True Detective',
     '{"True Detective","无间警探"}', '2014-01-12', '2014-01-12', '', FALSE, '美国', 'zh-CN', 'en',
     'HBO 出品的犯罪悬疑剧集。由马修·麦康纳与伍迪·哈里森主演的第一季以双线叙事和南方哥特式宿命哲学被奉为悬疑神作。',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt2356777","douban":"20739981"}'),
+    'https://image.tmdb.org/t/p/original/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt2356777","douban":"20739981"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000126', 'tv_series', '漫长的季节', 'The Long Season',
     '{"The Long Season"}', '2023-04-22', '2023-04-22', '2023-05-01', TRUE, '中国', 'zh-CN', 'zh',
     '辛爽执导，范伟、秦昊、陈明昊主演的高口碑生活悬疑剧。以东北桦林小镇二十年变迁为背景，用温暖明亮调色讲述一代普通人与时间的告别。',
-    'https://images.unsplash.com/photo-1514533450685-4493e01d1fdc?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"35288767","episodes":12}'),
+    'https://image.tmdb.org/t/p/original/zwz0gm16q6r1h1pBmsJ9wYQd28P.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"35288767","episodes":12}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000127', 'tv_series', '武林外传', 'My Own Swordsman',
     '{"My Own Swordsman"}', '2006-01-02', '2006-01-02', '2006-01-28', TRUE, '中国', 'zh-CN', 'zh',
     '尚敬执导，宁财神编剧，闫妮、沙溢、姚晨、喻恩泰主演的中国古装情景喜剧不朽神作。七侠镇同福客栈里一群江湖普通人的嬉笑怒骂与人生智慧。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"3882715","episodes":80}'),
+    'https://image.tmdb.org/t/p/original/7IiTTgloJzvGI1TAYymCfbfl3vT.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"3882715","episodes":80}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000128', 'tv_series', '潜伏', 'Lurk',
     '{"Lurk","Undercover"}', '2009-04-01', '2009-04-01', '2009-04-15', TRUE, '中国', 'zh-CN', 'zh',
     '姜伟执导，孙红雷、姚晨主演的中国谍战剧标杆。军统天津站潜伏特工余则成与假妻子翠平在敌营中如履薄冰的信仰抉择。',
-    'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"3314870","episodes":30}'),
+    'https://image.tmdb.org/t/p/original/1pdfLvkbY9ohJlCjQH2CZjjYVvJ.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"3314870","episodes":30}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000129', 'tv_series', '黑镜', 'Black Mirror',
     '{"Black Mirror"}', '2011-12-04', '2011-12-04', '', FALSE, '英国 / 美国', 'zh-CN', 'en',
     '查理·布鲁克编剧的英国科幻独立单元剧，以近未来前沿科技对人类道德与社会关系的异化进行深刻讽刺与反思。',
-    'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt2085059","douban":"6080390"}'),
+    'https://image.tmdb.org/t/p/original/1t2yP8T4n8vNqXq3q0k1p9rK5aG.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt2085059","douban":"6080390"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000130', 'tv_series', '火线', 'The Wire',
     '{"The Wire","监听风云"}', '2002-06-02', '2002-06-02', '2008-03-09', TRUE, '美国', 'zh-CN', 'en',
     '大卫·西蒙主创的 HBO 现实主义剧集最高杰作。以巴尔的摩城市为切片，全景展现毒品贸易、海港衰落、官僚政治与教育困境。',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0306414","douban":"1418192","seasons":5}'),
+    'https://image.tmdb.org/t/p/original/gajva2L0rPYkEWjzgFlBXCAVBE5.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0306414","douban":"1418192","seasons":5}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000131', 'tv_series', '风骚律师', 'Better Call Saul',
     '{"Better Call Saul","绝命律师"}', '2015-02-08', '2015-02-08', '2022-08-15', TRUE, '美国', 'zh-CN', 'en',
     '文斯·吉里根与彼得·古尔德主创的《绝命毒师》前传衍生剧。鲍勃·奥登科克饰演吉米·麦吉尔，细致入微讲述其在理想与诱惑间转变为黑道律师索尔·古德曼的悲剧。',
-    'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt3032476","douban":"20436805","seasons":6}'),
+    'https://image.tmdb.org/t/p/original/y47n3kO720F1V8C2j6g9nB8u4sM.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt3032476","douban":"20436805","seasons":6}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000132', 'tv_series', '走向共和', 'Towards the Republic',
     '{"Towards the Republic","满清末代王朝"}', '2003-04-12', '2003-04-12', '2003-05-18', TRUE, '中国', 'zh-CN', 'zh',
     '张黎执导，盛和煜、张建伟编剧，王冰、吕中、马少骅主演的近代中国史诗大剧。真实壮烈地再现甲午战争、戊戌变法到辛亥革命的近代转型之路。',
-    'https://images.unsplash.com/photo-1548013146-72479768bada?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"1441794","episodes":68}'),
+    'https://image.tmdb.org/t/p/original/ztkUQFLlC19CCMYHW9o1zWhJRNq.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"1441794","episodes":68}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000133', 'tv_series', '老友记', 'Friends',
     '{"Friends","六人行"}', '1994-09-22', '1994-09-22', '2004-05-06', TRUE, '美国', 'zh-CN', 'en',
     '大卫·克拉尼与玛塔·考夫曼创作的全球情景喜剧之王。讲述纽约曼哈顿六位挚友十年间的青春相聚、爱情与成长。',
-    'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0108778","douban":"1393859","seasons":10}'),
+    'https://image.tmdb.org/t/p/original/1XS1oqL89opfnbLl8WnZY1O1uJx.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0108778","douban":"1393859","seasons":10}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000134', 'tv_series', '兄弟连', 'Band of Brothers',
     '{"Band of Brothers","战火兄弟连"}', '2001-09-09', '2001-09-09', '2001-11-04', TRUE, '美国 / 英国', 'zh-CN', 'en',
     '史蒂文·斯皮尔伯格与汤姆·汉克斯联合制片的10集二战军事史诗。记录美国陆军第101空降师506团E连从诺曼底登陆到占领鹰巢的浴血奋战。',
-    'https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0185906","douban":"1307849","episodes":10}'),
+    'https://image.tmdb.org/t/p/original/hlLXt2tOPT6RRnjiUmoxyG1LTFi.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt0185906","douban":"1307849","episodes":10}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000135', 'tv_series', '我的团长我的团', 'Soldiers Sortie / My Chief and My Regiment',
     '{"My Chief and My Regiment"}', '2009-03-05', '2009-03-05', '2009-03-24', TRUE, '中国', 'zh-CN', 'zh',
     '康洪雷执导，兰晓龙编剧，段奕宏、张译主演的中国抗战剧思想巅峰。讲述一群来自五湖四海的溃兵在滇缅战场重拾灵魂与尊严的壮烈篇章。',
-    'https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"3592854","episodes":43}'),
+    'https://image.tmdb.org/t/p/original/cuV2O53rBP8nGjqGneCeRESTx8x.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"3592854","episodes":43}'),
 
 -- ===========================================================================
 -- 【第三部分：影史经典动画电影与神作番剧 (15部)】
@@ -365,77 +365,77 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
 ('a1b2c3d4-0000-4000-8000-000000000136', 'movie_anime', '千与千寻', '千と千尋の神隠し',
     '{"Spirited Away","神隐少女"}', '2001-07-20', '2001-07-20', '2001-07-20', TRUE, '日本', 'zh-CN', 'ja',
     '宫崎骏执导、吉卜力工作室制作的动画巅峰。第75届奥斯卡最佳动画长片与第52届柏林金熊奖得主，10岁女孩千寻在神灵世界油屋的成长冒险。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"89","douban":"1291561"}'),
+    'https://image.tmdb.org/t/p/original/uVbE3qWn1o8N6P2X1v9kX3q7k7m.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"89","douban":"1291561"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000137', 'movie_anime', '幽灵公主', 'もののけ姫',
     '{"Princess Mononoke","魔法公主"}', '1997-07-12', '1997-07-12', '1997-07-12', TRUE, '日本', 'zh-CN', 'ja',
     '宫崎骏执导的自然史诗动画长片。阿席达卡为了解除诅咒踏上旅程，见证人类炼铁重镇与森林神灵白狼神、幽灵公主桑之间的惨烈生存之战。',
-    'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"94","douban":"1297908"}'),
+    'https://image.tmdb.org/t/p/original/d0t7U5Bq6V1z5r9x3W0p2X1v9kX.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"94","douban":"1297908"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000138', 'movie_anime', '你的名字。', '君の名は。',
     '{"Your Name.","君之名"}', '2016-08-26', '2016-08-26', '2016-08-26', TRUE, '日本', 'zh-CN', 'ja',
     '新海诚执导的现象级奇幻爱情动画电影。东京少年立花泷与飞驒乡下少女宫水三叶在梦中交换身体并跨越三年时空拯救小镇的动人传奇。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"160223","douban":"26683723"}'),
+    'https://image.tmdb.org/t/p/original/5j8Z9x3W0p2X1v9kX3q7k7m4N8u.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"160223","douban":"26683723"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000139', 'movie_anime', '攻壳机动队', 'GHOST IN THE SHELL',
     '{"Ghost in the Shell (1995)","攻壳机动队 1995"}', '1995-11-18', '1995-11-18', '1995-11-18', TRUE, '日本', 'zh-CN', 'ja',
     '押井守执导、川井宪次配乐的赛博朋克影史神作。公安九课草薙素子追查神秘黑客“傀儡师”，探讨人机边界与意识网络诞生的终极哲学。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"1140","douban":"1291936"}'),
+    'https://image.tmdb.org/t/p/original/7RumFHhkJ2F3U0qPZ0g0S1v9kX3.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"1140","douban":"1291936"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000140', 'anime_tv', '新世纪福音战士', '新世紀エヴァンゲリオン',
     '{"Neon Genesis Evangelion","EVA TV版"}', '1995-10-04', '1995-10-04', '1996-03-27', TRUE, '日本', 'zh-CN', 'ja',
     '庵野秀明执导、GAINAX 制作的日本动画神话，全26话。碇真嗣驾驶初号机抵抗使徒，深度探寻人类心之壁与精神意识补完。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"235","douban":"1306114","episodes":26}'),
+    'https://image.tmdb.org/t/p/original/4lbclFySvugI51fws0umkV09o0A.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"235","douban":"1306114","episodes":26}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000141', 'anime_tv', 'CLANNAD ~AFTER STORY~', 'CLANNAD 〜AFTER STORY〜',
     '{"CLANNAD After Story","CLANNAD AS"}', '2008-10-02', '2008-10-02', '2009-03-26', TRUE, '日本', 'zh-CN', 'ja',
     '京都动画制作、石原立也执导的催泪神作巅峰，全24话。讲述朋也与渚步入社会、结婚生子、面对至亲离去并最终在小镇光玉奇迹中领悟家族真谛的人生画卷。',
-    'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"875","douban":"3286542","episodes":24}'),
+    'https://image.tmdb.org/t/p/original/fC2HDm5t0kH0LbmTm7CRW149902.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"875","douban":"3286542","episodes":24}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000142', 'anime_tv', '命运石之门', 'STEINS;GATE',
     '{"Steins;Gate","石头门动画"}', '2011-04-05', '2011-04-05', '2011-09-13', TRUE, '日本', 'zh-CN', 'ja',
     'WHITE FOX 制作的硬核时间跳跃科幻动画神作，全24话。冈部伦太郎跨越无数世界线观测点，历经绝望轮回拯救真由理与牧濑红莉栖。',
-    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"10380","douban":"6037429","episodes":24}'),
+    'https://image.tmdb.org/t/p/original/8VbE3qWn1o8N6P2X1v9kX3q7k7m.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"10380","douban":"6037429","episodes":24}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000143', 'anime_tv', '钢之炼金术师 FULLMETAL ALCHEMIST', '鋼の錬金術師 FULLMETAL ALCHEMIST',
     '{"Fullmetal Alchemist: Brotherhood","钢炼FA"}', '2009-04-05', '2009-04-05', '2010-07-04', TRUE, '日本', 'zh-CN', 'ja',
     'BONES（骨头社）制作的王道热血奇幻零缺点神作，全64话。忠实还原荒川弘原作漫画，爱德华与阿尔兄弟为粉碎国土炼成阵与“父亲大人”展开殊死对决。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"1490","douban":"3502844","episodes":64}'),
+    'https://image.tmdb.org/t/p/original/2koX1xLkpTQM4IZebYvKysFW1Nh.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"1490","douban":"3502844","episodes":64}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000144', 'anime_tv', '赛博朋克：边缘行者', 'Cyberpunk: Edgerunners',
     '{"Cyberpunk Edgerunners","边缘行者"}', '2022-09-13', '2022-09-13', '2022-09-13', TRUE, '日本 / 波兰', 'zh-CN', 'en',
     'Studio Trigger 制作、今石洋之执导的赛博朋克短篇动画神作，全10话。夜之城底层少年大卫与黑客露西在绝望霓虹中燃烧生命的浪漫悲歌。',
-    'https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"309503","douban":"35118747","episodes":10}'),
+    'https://image.tmdb.org/t/p/original/zpiGcrZf9i3yB9X0S1v9kX3q7k7.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"309503","douban":"35118747","episodes":10}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000145', 'movie_anime', '红辣椒', 'パプリカ',
     '{"Paprika","盗梦侦探"}', '2006-11-25', '2006-11-25', '2006-11-25', TRUE, '日本', 'zh-CN', 'ja',
     '今敏执导、平泽进配乐的动画电影大师杰作。精神医学研究所微型梦境检测仪DC-MINI失窃，梦境侦探“红辣椒”穿梭于现实与潜意识狂欢游行中查明真相。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"1345","douban":"1865703"}'),
+    'https://image.tmdb.org/t/p/original/4N8uUa7zUj1Qx68p9lB5fP9r4aG.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"1345","douban":"1865703"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000146', 'movie_anime', '千年女优', '千年女優',
     '{"Millennium Actress"}', '2002-09-14', '2002-09-14', '2002-09-14', TRUE, '日本', 'zh-CN', 'ja',
     '今敏执导的传世蒙太奇动画长片。以一把钥匙串联起一代传奇女演员藤原千代子跨越千年日本历史追寻画家的爱与人生。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"1344","douban":"1300862"}'),
+    'https://image.tmdb.org/t/p/original/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"1344","douban":"1300862"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000147', 'anime_tv', '星际牛仔', 'COWBOY BEBOP',
     '{"Cowboy Bebop","赏金猎人"}', '1998-04-03', '1998-04-03', '1999-04-24', TRUE, '日本', 'zh-CN', 'ja',
     '渡边信一郎执导、菅野洋子操刀爵士乐配乐的日本动画殿堂神作，全26话。驾驶Bebop号在太空中浪迹天涯的斯派克等赏金猎人的浪漫爵士挽歌。',
-    'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"253","douban":"1301037","episodes":26}'),
+    'https://image.tmdb.org/t/p/original/cMYCDADoLKLbB83gpe1NU8STxsP.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"253","douban":"1301037","episodes":26}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000148', 'anime_tv', '混沌武士', 'サムライチャンプルー',
     '{"Samurai Champloo"}', '2004-05-19', '2004-05-19', '2005-03-18', TRUE, '日本', 'zh-CN', 'ja',
     '渡边信一郎执导、Nujabes 配乐的经典动画，全26话。将江户时代武士剑戟片与现代 Hip-hop 节奏完美融合，寻找“带有向日葵香味的武士”。',
-    'https://images.unsplash.com/photo-1514533450685-4493e01d1fdc?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"254","douban":"1433603","episodes":26}'),
+    'https://image.tmdb.org/t/p/original/q719qXXEzOoYaps6XZawPWhNUm9.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"254","douban":"1433603","episodes":26}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000149', 'movie_anime', '哈尔的移动城堡', 'ハウルの動く城',
     '{"Howl''s Moving Castle"}', '2004-11-20', '2004-11-20', '2004-11-20', TRUE, '日本', 'zh-CN', 'ja',
     '宫崎骏执导、吉卜力工作室制作的奇幻反战动画长片。制帽少女苏菲被诅咒变成90岁老妪，走进魔法师哈尔的移动城堡相识相爱的奇幻篇章。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"97","douban":"1308807"}'),
+    'https://image.tmdb.org/t/p/original/9gC88zZr5pGRavBA25hkG3zpMi6.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"97","douban":"1308807"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000150', 'movie_anime', '新·福音战士剧场版：终', 'シン・エヴァンゲリオン劇場版:||',
     '{"Evangelion: 3.0+1.0 Thrice Upon a Time","EVA新剧场版：终"}', '2021-03-08', '2021-03-08', '2021-03-08', TRUE, '日本', 'zh-CN', 'ja',
     '庵野秀明执导、Khara 制作的《新世纪福音战士新剧场版》四部曲终章，斩获百亿日元票房。为长达26年的EVA时代画上温柔完满的句号。',
-    'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"225883","douban":"20435460"}'),
+    'https://image.tmdb.org/t/p/original/m99UuUa7zUj1Qx68p9lB5fP9r4a.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"225883","douban":"20435460"}'),
 
 -- ===========================================================================
 -- 【第四部分：人文科学与影史传奇纪录片 (5部)】
@@ -443,27 +443,27 @@ INSERT INTO works (id, category_code, title, original_title, aliases, release_da
 ('a1b2c3d4-0000-4000-8000-000000000151', 'movie_documentary', '地球脉动 第二季', 'Planet Earth II',
     '{"Planet Earth 2","行星地球2"}', '2016-11-06', '2016-11-06', '2016-12-11', TRUE, '英国', 'zh-CN', 'en',
     'BBC 自然历史部出品，大卫·爱登堡爵士解说的自然纪录片巅峰，全6集。超高清4K实景摄影呈现岛屿、山脉、丛林、沙漠、草原与城市的奇迹生命。',
-    'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt5491994","douban":"26410180","episodes":6}'),
+    'https://image.tmdb.org/t/p/original/7c1A9Q6Wc7gQ1uN2b4zN5q9X9Y4.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt5491994","douban":"26410180","episodes":6}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000152', 'movie_documentary', '蓝色星球 第二季', 'Blue Planet II',
     '{"Blue Planet 2","海洋星球"}', '2017-10-29', '2017-10-29', '2017-12-10', TRUE, '英国', 'zh-CN', 'en',
     'BBC 自然历史部历时四年深潜全球各大洋制作的海洋史诗纪录片，全7集。汉斯·季默配乐，揭示深海热泉与珊瑚礁中未知的生命奇观。',
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt6769208","douban":"26979545","episodes":7}'),
+    'https://image.tmdb.org/t/p/original/3bK835K07hCgJ4a62M1s78zQ2X6.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt6769208","douban":"26979545","episodes":7}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000153', 'movie_documentary', '宇宙时空之旅：未知世界', 'Cosmos: Possible Worlds',
     '{"Cosmos Season 3","宇宙时空之旅 第三季"}', '2020-03-09', '2020-03-09', '2020-04-20', TRUE, '美国', 'zh-CN', 'en',
     '奈尔·德葛拉司·泰森主持的顶尖科学科普纪录片。继承卡尔·萨根经典《宇宙》，带领观众跨越百亿光年与生命演化探索人类在宇宙中的位置。',
-    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt7914448","douban":"27663972","episodes":13}'),
+    'https://image.tmdb.org/t/p/original/5ZFUEOULaVhgUV09knk9V3V4Ac6.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"imdb":"tt7914448","douban":"27663972","episodes":13}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000154', 'movie_documentary', '梦与狂想的王国', '夢と狂気の王国',
     '{"The Kingdom of Dreams and Madness"}', '2013-11-16', '2013-11-16', '2013-11-16', TRUE, '日本', 'zh-CN', 'ja',
     '砂田麻美执导的影史人文纪录片。近距离贴身跟拍宫崎骏制作《起风了》与高畑勋制作《辉夜姬物语》的幕后岁月，记录吉卜力工作室的执着与狂想。',
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"87508","douban":"25714777"}'),
+    'https://image.tmdb.org/t/p/original/7jE5qQ1v9kX3q7k7m4N8uUa7zUj.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"bangumi":"87508","douban":"25714777"}'),
 
 ('a1b2c3d4-0000-4000-8000-000000000155', 'movie_documentary', '河西走廊', 'Hexi Corridor',
     '{"Hexi Corridor"}', '2015-03-03', '2015-03-03', '2015-03-12', TRUE, '中国', 'zh-CN', 'zh',
     '中国中央电视台出品、雅尼配乐的大型历史人文纪录片，全10集。以电影级视听再现张骞出使西域、霍去病封狼居胥与丝绸之路两千年的壮阔史诗。',
-    'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?auto=format&fit=crop&w=1000&q=80', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"26338029","episodes":10}')
+    'https://image.tmdb.org/t/p/original/x2mK5q7k7m4N8uUa7zUj1Qx68p9.jpg', '2:3', 'completed', '00000000-0000-0000-0000-000000000001', '{"douban":"26338029","episodes":10}')
 ON CONFLICT (id) DO UPDATE SET
     title = EXCLUDED.title,
     original_title = EXCLUDED.original_title,
