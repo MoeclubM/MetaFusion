@@ -582,8 +582,8 @@ INSERT INTO releases (id, work_id, publisher_id, edition_name, catalog_number, b
     '{"season":1,"episodes":12}'),
 
 ('deadbeef-0000-4000-8000-000000000313', 'deadbeef-0000-4000-8000-000000000110',
-    NULL, '同名专辑 实体 CD（初回盘）', 'SVWC-70613', '4534530140777', 'Aniplex', 'jewel_case',
-    '2022-12-28', TRUE, '专辑名与虚构乐队 Artist 实体同名，属正常同名现象；「同名专辑」是版次描述，写在发行层而非标题。收录 14 首剧内经典完整版歌曲。', 'JP', 'ja', 'physical',
+    NULL, '实体 CD（初回盘）', 'SVWC-70613', '4534530140777', 'Aniplex', 'jewel_case',
+    '2022-12-28', TRUE, '专辑名与虚构乐队 Artist 实体同名，属正常同名现象；收录 14 首剧内经典完整版歌曲。', 'JP', 'ja', 'physical',
     '{"catalog":"SVWC-70613","tracks":14}'),
 
 -- 紫罗兰永恒花园
