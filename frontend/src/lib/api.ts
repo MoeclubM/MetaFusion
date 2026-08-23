@@ -404,6 +404,7 @@ export interface AdminAuditLog {
   target_id: string;
   detail: Record<string, any>;
   ip: string;
+  user_agent?: string;
   created_at: string;
 }
 
