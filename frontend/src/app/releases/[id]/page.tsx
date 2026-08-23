@@ -165,6 +165,17 @@ export default function ReleaseDetailPage() {
             </div>
           )}
 
+          {/* 外部权威数据库互联 */}
+          {(release.external_links?.length || (release.external_ids && Object.keys(release.external_ids).length > 0)) && (
+            <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
+              <ExternalAuthorityLinks
+                externalIds={release.external_ids}
+                externalLinks={release.external_links}
+                category="release"
+              />
+            </div>
+          )}
+
           {/* Action Toolbar */}
           <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
             <EntityActionToolbar

@@ -337,6 +337,7 @@ export interface ArtistDetailResponse {
   works: ArtistWorkItem[];
   releases: Release[];
   connected_entities?: ConnectedEntityItem[];
+  external_links?: ExternalLinkDisplay[];
 }
 
 export interface WorkArtistRelation {
@@ -433,6 +434,8 @@ export interface Release {
   country?: string;
   language?: string;
   distribution_channel?: string;
+  external_ids?: Record<string, any>;
+  external_links?: ExternalLinkDisplay[];
   catalog_metadata?: Record<string, any>;
   uploader?: User;
   publisher_entity?: Artist;
@@ -464,6 +467,8 @@ export interface Work {
   status: string;
   view_count: number;
   favorite_count?: number;
+  external_ids?: Record<string, any>;
+  external_links?: ExternalLinkDisplay[];
   catalog_metadata: Record<string, any>;
   category?: Category;
   tags?: Tag[];

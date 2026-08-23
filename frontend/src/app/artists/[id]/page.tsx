@@ -125,7 +125,12 @@ export default function ArtistDetailPage() {
               {localized.body && <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl line-clamp-3">{localized.body}</p>}
               
               {/* External Authority Links */}
-              <ExternalAuthorityLinks externalIds={extIds} className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]" />
+              <ExternalAuthorityLinks
+                externalIds={extIds}
+                externalLinks={data.external_links}
+                category="artist"
+                className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]"
+              />
             </div>
           </div>
 
