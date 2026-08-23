@@ -1,0 +1,33 @@
+---
+description: 本仓库改完即 git commit（覆盖「未要求则不提交」）；未经明确要求不 push
+alwaysApply: true
+---
+
+# Git：改完即提交（仅本仓库）
+
+本仓库以根目录 `AGENTS.md` 第 1 节为准，并**覆盖** Cursor 默认 user_rule「未明确要求则不 commit」。Agent 完成文件操作后必须立即提交，不要攒、不要等用户再提醒。
+
+## 何时提交
+
+每完成一个逻辑单元立刻 `git commit`：一个功能、一次修复、一次文档更新、一次机械重命名/格式化（后者单独提交，不与逻辑变更混在一起）。连续多步时每步结束即提交。
+
+## 提交信息
+
+- Conventional Commits：`feat` / `fix` / `chore` / `docs` / `style` / `refactor` / `test` / `build`
+- 首行 < 72 字符；需要时在空行后写动机与影响
+- 与近期 `git log` 风格一致；用户可见文案变更优先中文
+
+```
+feat: 作品页展示跨媒介关系
+fix: 修复货架空状态下的重复请求
+```
+
+## 暂存范围
+
+提交前先 `git status`。只 `git add` 本次任务相关文件。排除 `.env`、密钥、token、`*.tsbuildinfo`。`git diff --cached` 确认无敏感信息。触及 `frontend/` 尽量 `tsc` 通过、触及 `backend/` 尽量 `go vet` 通过后再提交。
+
+## 禁止
+
+- **不要** `git push`，除非用户明确要求；禁止 force push `main` / `master`
+- 不要改 git config；不要 `--no-verify` / `--no-gpg-sign`
+- 不要 `git commit --amend`，除非用户明确要求且符合安全协议（本次提交由你创建、未 push、hook 未拒绝）

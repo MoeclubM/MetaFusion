@@ -25,11 +25,14 @@
 - 默认在当前分支提交；需要新功能时从 `main` 新建分支，PR 合并回 `main`。
 - 未获用户明确授权不执行 `git push --force`；推送前确认远端状态。
 
-## 2. 项目上下文
-- 技术栈：Go (backend) + Next.js (frontend) + Postgres + RustFS (S3 兼容对象存储) + OpenSearch 2.x + FFmpeg Worker，`deploy/docker-compose.yml` 一键启动。
-- 核心模型：LRM 混合 `Work / CanonicalEntry / Release / Medium / Track / AssetFile`，实体保持纯净标题，通过「标签 + 虚拟货架 + Release 规格 + 实体图谱边」自然表达，无 `media_type`（传统树状分类与硬编码形态已完全废弃）。
-- 封面与多语言：封面支持自适应自然宽高比与手动 `cover_aspect` 属性控制；多语言题名与简介基于 `work_translations` 本地化回退链。
-- 约束：详见 `C:\Users\QwQ\.zcode\cli\memories\projects\metafusion-38d133024429979f\memory\MEMORY.md` 索引的各项记忆（如 Archive Cosmos 设计规范、受控媒体访问、空状态优先等）。
+## 2. 项目上下文与实体编目最高准则 (Supreme Cataloging Standards)
+- **核心标准 Skill**：所有涉及数据编目、实体创建、数据导入、审核巡检与修改的 AI Agent，必须严格执行 [metafusion-curator](.cursor/skills/metafusion-curator/SKILL.md) 与 [lrm-catalog-standards](.cursor/skills/lrm-catalog-standards/SKILL.md)。
+- **技术栈**：Go (backend) + Next.js (frontend) + Postgres + RustFS (S3 兼容对象存储) + OpenSearch 2.x + FFmpeg Worker，`deploy/docker-compose.yml` 一键启动。
+- **核心模型**：LRM 混合 `Work / CanonicalEntry / Release / Medium / Track / AssetFile`，实体必须保持纯净标题（Work 严禁混入季数/载体/规格），通过「标签 + 虚拟货架 + Release 规格 + 实体图谱边」自然表达，无 `media_type`（传统树状分类与硬编码形态已完全废弃）。
+- **实体图谱与拓扑**：通过 `adaptation_of`、`soundtrack_of`、`sequel_of`、`spin_off_of` 组织有向无环图谱（DAG），严禁循环边与自环；跨作品登场通过多条 `character_in` 边连接，严禁分裂实体。
+- **封面与多语言**：封面支持自适应自然宽高比与强制 `cover_aspect`（音乐 1:1、影视/动画 2:3、书籍 3:4），严禁风景图与占位图；多语言题名与简介基于 `work_translations` 本地化回退链。
+- **不可篡改审计流**：每次写操作必须附带 `source_urls`（权威考据源）与 `edit_note`（编辑动机说明），生成不可篡改版本快照。
+- **约束**：详见 `C:\Users\QwQ\.zcode\cli\memories\projects\metafusion-38d133024429979f\memory\MEMORY.md` 索引的各项记忆（如 Archive Cosmos 设计规范、受控媒体访问、空状态优先等）。
 
 ## 3. 其他协作约定
 - 保持代码风格与周边一致，注释仅解释代码无法自明的约束。

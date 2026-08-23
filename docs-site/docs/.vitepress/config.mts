@@ -15,6 +15,7 @@ export default defineConfig({
 
     nav: [
       { text: '平台指南', link: '/overview' },
+      { text: '编目指引', link: '/curation-guide' },
       { text: '编辑规范', link: '/editing-guide' },
       { text: 'IFLA LRM 体系', link: '/frbr-model' },
       { text: '开放 API', link: '/api-overview' },
@@ -38,6 +39,7 @@ export default defineConfig({
       {
         text: '🏛️ 数据体系与分类规范',
         items: [
+          { text: '权威编目与审查指引', link: '/curation-guide' },
           { text: 'IFLA LRM 增强版实体模型', link: '/frbr-model' },
           { text: '分类体系与动态标签', link: '/taxonomy' }
         ]

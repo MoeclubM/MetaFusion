@@ -80,7 +80,9 @@ Desktop.ini
 .zcode/
 .muse/
 .claude/
-.cursor/
+.cursor/*
+!.cursor/skills/
+!.cursor/rules/
 .trae/
 
 # --- 缓存 ---
