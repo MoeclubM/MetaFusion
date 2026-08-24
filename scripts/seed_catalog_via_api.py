@@ -835,7 +835,7 @@ SEED_DATA = {
             "disambiguation": "爱潜水的乌贼西幻克苏鲁神话宇宙",
             "summary": "由二十二条神之途径、源质、旧日与蒸汽工业维多利亚时代构筑的宏大西幻神话世界观，涵盖《诡秘之主》《宿命之环》及官方概念原声大碟。",
             "country": "中国",
-            "cover_image_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/12/e1/290411_59o1O.jpg",
             "begin_date": "2018-04-01",
             "tags": ["奇幻", "克苏鲁", "蒸汽朋克", "跨媒介"],
             "translations": [{"locale": "en-US", "title": "Lord of the Mysteries Universe", "summary": "The grand cosmic fantasy universe created by Cuttlefish That Loves Diving."}]
@@ -848,7 +848,7 @@ SEED_DATA = {
             "disambiguation": "刘慈欣硬科幻宏大宇宙企划",
             "summary": "以三体文明与地球文明跨越数百年的生死博弈为核心的硬核科幻史诗，涵盖小说三部曲、广播剧、影视及原声音乐。",
             "country": "中国",
-            "cover_image_url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/da/52/9585_ZhcrW.jpg",
             "begin_date": "2006-05",
             "tags": ["科幻", "硬科幻", "三体", "跨媒介"],
             "translations": [{"locale": "en-US", "title": "The Three-Body Universe", "summary": "Epic sci-fi franchise based on Liu Cixin's Hugo Award-winning trilogy."}]
@@ -861,7 +861,7 @@ SEED_DATA = {
             "disambiguation": "川原砾跨媒介虚拟现实科幻企划",
             "summary": "以完全潜行虚拟现实技术（FullDive）为背景的冒险企划，涵盖轻小说原作、TV动画、剧场版长片及衍生音乐原声。",
             "country": "日本",
-            "cover_image_url": "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/94/a3/29550_tVp3B.jpg",
             "begin_date": "2009-04-10",
             "tags": ["轻小说", "动画", "科幻", "跨媒介"],
             "translations": [{"locale": "en-US", "title": "Sword Art Online Franchise", "summary": "Cross-media sci-fi adventure franchise by Reki Kawahara."}]
@@ -874,7 +874,7 @@ SEED_DATA = {
             "disambiguation": "山田钟人与阿部司后日谈奇幻企划",
             "summary": "讲述打倒魔王后的精灵魔法使芙莉莲在漫长岁月中追寻人类记忆的奇幻史诗，包含原作连载漫画、TV动画及原声交响。",
             "country": "日本",
-            "cover_image_url": "https://images.unsplash.com/photo-1514533450685-4493e01d1fdc?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/a1/bd/305429_axzF3.jpg",
             "begin_date": "2020-04-28",
             "tags": ["漫画", "动画", "奇幻", "跨媒介"],
             "translations": [{"locale": "en-US", "title": "Frieren Franchise", "summary": "Fantasy epic exploring the aftermath of a hero's journey."}]
@@ -887,7 +887,7 @@ SEED_DATA = {
             "disambiguation": "滨路晶芳文社青春摇滚跨媒介企划",
             "summary": "围绕社恐吉他手后藤一里与结束乐队的青春摇滚企划，包含原作漫画、爆款TV动画、剧场总集篇及实体公信榜冠军唱片。",
             "country": "日本",
-            "cover_image_url": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/11/ad/328609_GjBsb.jpg",
             "begin_date": "2017-12-19",
             "tags": ["漫画", "动画", "音乐", "摇滚乐", "跨媒介"],
             "translations": [{"locale": "en-US", "title": "Bocchi the Rock! Franchise", "summary": "Popular youth band music franchise featuring Kessoku Band."}]
@@ -900,7 +900,7 @@ SEED_DATA = {
             "disambiguation": "庵野秀明机甲与心理学跨媒介史诗",
             "summary": "探讨人类补完计划、存在主义与心灵隔阂的里程碑式跨媒介企划，包含 TV 动画、旧剧场版、新剧场版四部曲及高解析原声母带。",
             "country": "日本",
-            "cover_image_url": "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/e1/9b/265_G213y.jpg",
             "begin_date": "1995-10-04",
             "tags": ["动画", "科幻", "EVA", "跨媒介"],
             "translations": [{"locale": "en-US", "title": "Neon Genesis Evangelion Franchise", "summary": "Milestone psychological mecha anime franchise directed by Hideaki Anno."}]
@@ -922,7 +922,7 @@ SEED_DATA = {
             "language": "zh-CN",
             "original_language": "zh-CN",
             "summary": "起于维多利亚蒸汽朋克，沉入克苏鲁秘术神话。周明瑞穿越为克莱恩·莫雷蒂，在灰雾之上的神秘殿堂执掌愚者王座，探寻神灵途径与世界真相。",
-            "cover_image_url": "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/12/e1/290411_59o1O.jpg",
             "cover_aspect": "3:4",
             "tags": ["图书", "小说", "奇幻", "克苏鲁", "蒸汽朋克", "网络文学"],
             "translations": [
@@ -939,7 +939,7 @@ SEED_DATA = {
             "language": "zh-CN",
             "original_language": "zh-CN",
             "summary": "《诡秘之主》第二部。以因蒂斯共和国为舞台，少年卢米安·李在神秘梦境与宿命轮回中追寻真相与救赎，揭开外神与古老灾祸的帷幕。",
-            "cover_image_url": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/d0/55/423661_Wz06Z.jpg",
             "cover_aspect": "3:4",
             "tags": ["图书", "小说", "奇幻", "克苏鲁", "网络文学"],
             "translations": [
@@ -956,7 +956,7 @@ SEED_DATA = {
             "language": "zh-CN",
             "original_language": "zh-CN",
             "summary": "诡异莫测的修仙世界，李火旺分不清现代精神病院与残酷民俗修仙界究竟何为真实。在天道崩塌与克苏鲁民俗中苦苦挣扎求存。",
-            "cover_image_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/ee/71/490347_5tFeU.jpg",
             "cover_aspect": "3:4",
             "tags": ["图书", "小说", "仙侠", "修真", "克苏鲁", "网络文学"],
             "translations": [
@@ -973,7 +973,7 @@ SEED_DATA = {
             "language": "zh-CN",
             "original_language": "zh-CN",
             "summary": "文化大革命时期的绝密军方工程'红岸基地'向宇宙发射了人类第一声啼鸣。四光年外的三体文明接收到了信号，两个文明的命运自此不可逆转地交织。",
-            "cover_image_url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/da/52/9585_ZhcrW.jpg",
             "cover_aspect": "3:4",
             "tags": ["图书", "小说", "科幻", "硬科幻", "名著", "三体"],
             "translations": [
@@ -990,7 +990,7 @@ SEED_DATA = {
             "language": "zh-CN",
             "original_language": "zh-CN",
             "summary": "网游荣耀中被誉为教科书级别的顶尖高手叶修，因为种种原因遭到俱乐部的驱逐，离开职业圈的他被一家网吧收留，成为一名值夜班的网管。重返荣耀，再铸辉煌。",
-            "cover_image_url": "https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/f4/b0/84106_1UUKD.jpg",
             "cover_aspect": "3:4",
             "tags": ["图书", "小说", "网络文学", "日常"],
             "translations": [
@@ -1007,7 +1007,7 @@ SEED_DATA = {
             "language": "en-US",
             "original_language": "en-US",
             "summary": "在荒凉严酷的厄拉科斯星球上，唯一的宝贵资源'美琅脂'香料维系着全银河帝国的星际航行与意识进化。少年保罗·厄崔迪在背叛与沙丘原住民信仰中成长为救世主。",
-            "cover_image_url": "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/fc/b5/19748_0sC3J.jpg",
             "cover_aspect": "3:4",
             "tags": ["图书", "小说", "科幻", "硬科幻", "名著"],
             "translations": [
@@ -1024,7 +1024,7 @@ SEED_DATA = {
             "language": "es",
             "original_language": "es",
             "summary": "布恩迪亚家族七代人在虚构城镇马孔多的传奇兴衰史，魔幻与现实交织，深刻展现了拉丁美洲近百年来的孤独与沧桑宿命。",
-            "cover_image_url": "https://images.unsplash.com/photo-1463320726281-696a485928c7?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/00/e2/538393_5JIm0.jpg",
             "cover_aspect": "3:4",
             "tags": ["图书", "小说", "文学", "名著"],
             "translations": [
@@ -1043,7 +1043,7 @@ SEED_DATA = {
             "language": "ja",
             "original_language": "ja",
             "summary": "山田钟人原作、阿部司作画。勇者辛美尔逝世后，寿命长达千年的精灵魔法使芙莉莲重新踏上前往灵魂长眠之地的旅程，在旅途中逐渐理解辛美尔与人类的心意。",
-            "cover_image_url": "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/a1/bd/305429_axzF3.jpg",
             "cover_aspect": "3:4",
             "tags": ["漫画", "奇幻", "冒险", "治愈"],
             "translations": [
@@ -1060,7 +1060,7 @@ SEED_DATA = {
             "language": "ja",
             "original_language": "ja",
             "summary": "藤本树创作的暗黑奇幻少年漫画。背负巨额债务的少年电次与电锯恶魔波奇塔相依为命，在重生成为电锯人后加入公安对魔特异课，卷入人与恶魔的疯狂搏杀。",
-            "cover_image_url": "https://images.unsplash.com/photo-1563089145-599997674d42?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/b7/65/349615_s1u1b.jpg",
             "cover_aspect": "3:4",
             "tags": ["漫画", "奇幻", "热血", "动作"],
             "translations": [
@@ -1077,7 +1077,7 @@ SEED_DATA = {
             "language": "zh-CN",
             "original_language": "zh-CN",
             "summary": "米二创作的现象级国漫。平凡大学生张楚岚因爷爷尸骨被盗卷入异人世界，结识不老不死的神秘少女冯宝宝，一同解开甲申之乱与炁体源流的惊天秘辛。",
-            "cover_image_url": "https://images.unsplash.com/photo-1579783902614-a3fb3927b675?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/81/5a/175459_RAH87.jpg",
             "cover_aspect": "3:4",
             "tags": ["漫画", "热血", "奇幻", "武侠", "动作"],
             "translations": [
@@ -1094,7 +1094,7 @@ SEED_DATA = {
             "language": "zh-CN",
             "original_language": "zh-CN",
             "summary": "许先哲创作的硬派历史武侠漫画。隋末大业三年，天下将乱，身手不凡的镖客刀马带着幼子小七行走西域大漠，接下一趟护送知世郎前往长安的凶险密镖。",
-            "cover_image_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/ba/f7/184725_C1uE8.jpg",
             "cover_aspect": "3:4",
             "tags": ["漫画", "武侠", "历史", "动作"],
             "translations": [
@@ -1113,7 +1113,7 @@ SEED_DATA = {
             "language": "ja",
             "original_language": "ja",
             "summary": "A-1 Pictures 制作，伊藤智彦执导。一万名玩家被困于完全潜行 VRMMORPG 艾恩葛朗特，游戏中的死亡即意味着现实的终结。桐人与亚丝娜为了通关而战。",
-            "cover_image_url": "https://images.unsplash.com/photo-1578632767115-351597cf2477?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/94/a3/29550_tVp3B.jpg",
             "cover_aspect": "2:3",
             "tags": ["剧集", "动画", "科幻", "冒险", "动作"],
             "translations": [
@@ -1130,7 +1130,7 @@ SEED_DATA = {
             "language": "ja",
             "original_language": "ja",
             "summary": "CloverWorks 制作，斋藤圭一郎执导。极度社恐却拥有精湛吉他技艺的'吉他英雄'后藤一里，在下北泽 LIVEHOUSE 结识伙伴组建'结束乐队'，用摇滚乐治愈青春。",
-            "cover_image_url": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/11/ad/328609_GjBsb.jpg",
             "cover_aspect": "2:3",
             "tags": ["剧集", "动画", "日常", "喜剧", "摇滚乐"],
             "translations": [
@@ -1147,7 +1147,7 @@ SEED_DATA = {
             "language": "ja",
             "original_language": "ja",
             "summary": "京都动画倾力打造，石立太一执导。曾经作为战争兵器的自动手记人偶薇尔莉特·伊芙加登，在为人们代笔信件的旅途中，逐渐领悟少佐留下的'我爱你'的真正含义。",
-            "cover_image_url": "https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/1e/e2/183878_Fef1o.jpg",
             "cover_aspect": "2:3",
             "tags": ["剧集", "动画", "治愈", "催泪", "文学"],
             "translations": [
@@ -1164,7 +1164,7 @@ SEED_DATA = {
             "language": "ja",
             "original_language": "ja",
             "summary": "GAINAX 制作，庵野秀明执导。2015年使徒突袭第三新东京市，14岁少年碇真嗣被父亲要求驾驶泛用人型决战兵器 EVA 初号机，在抗击使徒与内心封闭中寻找存在的价值。",
-            "cover_image_url": "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/e1/9b/265_G213y.jpg",
             "cover_aspect": "2:3",
             "tags": ["剧集", "动画", "科幻", "EVA"],
             "translations": [
@@ -1181,7 +1181,7 @@ SEED_DATA = {
             "language": "ja",
             "original_language": "ja",
             "summary": "吉卜力工作室出品，宫崎骏编导。10岁女孩千寻在搬家途中误入神灵异世界，为了拯救贪吃变成猪的父母，在油屋汤婆婆手下打工自立，并结识少年白龙。",
-            "cover_image_url": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg",
             "cover_aspect": "2:3",
             "tags": ["电影", "动画", "奇幻", "冒险", "吉卜力", "奥斯卡"],
             "translations": [
@@ -1200,7 +1200,7 @@ SEED_DATA = {
             "language": "en-US",
             "original_language": "en-US",
             "summary": "克里斯托弗·诺兰执导。未来地球遭遇枯萎病肆虐，前宇航员库珀告别年幼的儿女，穿越土星旁的虫洞前往未知星系寻找人类宜居新家园。爱是唯一可以超越时间与空间的事物。",
-            "cover_image_url": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
             "cover_aspect": "2:3",
             "tags": ["电影", "实拍", "科幻", "硬科幻", "诺兰"],
             "translations": [
@@ -1217,7 +1217,7 @@ SEED_DATA = {
             "language": "zh-CN",
             "original_language": "zh-CN",
             "summary": "郭帆执导，刘慈欣监制。太阳危机爆发前夕，面对地球停转与移山计划的艰难抉择，航天员刘培强与数字生命研究员图恒宇等人为拯救人类文明做出史诗抉择。",
-            "cover_image_url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://image.tmdb.org/t/p/w500/cAS2e9hUwu6Ydsx7byXj16H00Ai.jpg",
             "cover_aspect": "2:3",
             "tags": ["电影", "实拍", "科幻", "硬科幻", "刘慈欣"],
             "translations": [
@@ -1236,7 +1236,7 @@ SEED_DATA = {
             "language": "ja",
             "original_language": "ja",
             "summary": "TV动画《孤独摇滚！》剧中乐队'结束乐队'的完整首张录音室专辑，收录《青春情结》《若能化为星座》《吉他与孤独与蓝色星球》《滚动的岩石，清晨降临到你身边》等14首高口碑摇滚金曲。",
-            "cover_image_url": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/d5/4b/404104_pS37H.jpg",
             "cover_aspect": "1:1",
             "tags": ["音乐", "专辑", "流行摇滚", "原声带"],
             "translations": [
@@ -1253,7 +1253,7 @@ SEED_DATA = {
             "language": "zh-CN",
             "original_language": "zh-CN",
             "summary": "阅文集团官方出品的《诡秘之主》管弦乐概念原声专辑，融合维多利亚古典交响与神秘克苏鲁空灵合唱，呈现灰雾之上与贝克兰德雾夜的史诗意境。",
-            "cover_image_url": "https://images.unsplash.com/photo-1507838153414-b4b713384a76?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://lain.bgm.tv/pic/cover/l/12/e1/290411_59o1O.jpg",
             "cover_aspect": "1:1",
             "tags": ["音乐", "专辑", "交响原声", "原声带"],
             "translations": [
@@ -1270,7 +1270,7 @@ SEED_DATA = {
             "language": "en-US",
             "original_language": "en-US",
             "summary": "汉斯·季默执笔配乐。采用伦敦圣殿教堂的历史管风琴为主奏乐器，宏大的宇宙孤独感与深邃的父女情感在音符中回荡，被誉为21世纪最震撼的电影配乐之一。",
-            "cover_image_url": "https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?auto=format&fit=crop&w=800&q=80",
+            "cover_image_url": "https://coverartarchive.org/release/84409395-5ff1-4560-9ba1-14fc3f1d3319/12795861962.jpg",
             "cover_aspect": "1:1",
             "tags": ["音乐", "专辑", "交响原声", "原声带", "诺兰"],
             "translations": [
