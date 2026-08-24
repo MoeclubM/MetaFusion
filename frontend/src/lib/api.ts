@@ -113,14 +113,37 @@ export interface VirtualShelf {
   parent_slug?: string;
   name_zh: string;
   name_en: string;
+  names?: Record<string, string>;
   name?: string;
   description?: string;
+  descriptions?: Record<string, string>;
   icon?: string;
   sort_order: number;
   query_tags: string[];
   require_all_tags: boolean;
   exclude_tags: string[];
   children?: VirtualShelf[];
+}
+
+export interface UserCustomShelf {
+  id: string;
+  owner_id: string;
+  slug: string;
+  name_zh: string;
+  name_en: string;
+  names?: Record<string, string>;
+  name?: string;
+  description: string;
+  descriptions?: Record<string, string>;
+  icon: string;
+  sort_order: number;
+  query_tags: string[];
+  require_all_tags: boolean;
+  exclude_tags: string[];
+  is_public: boolean;
+  view_count: number;
+  created_at: string;
+  updated_at: string;
 }
 
 /** Work browse/editor facets. spec (规格) is carrier-only and excluded. */
@@ -229,6 +252,57 @@ export function pickLocalized(
     title: (fallbackTitle || "").trim(),
     body: (fallbackBody || "").trim(),
   };
+}
+
+/** 动态多语言字段映射解析辅助函数（支持 names: Record<string, string> / JSONB 结构与多层回退） */
+export function pickLocalizedName(
+  locale: string,
+  names?: Record<string, string> | null,
+  fallbackZh?: string,
+  fallbackEn?: string,
+  defaultSlug?: string
+): string {
+  if (names && typeof names === "object") {
+    // 1. 精确匹配当前语言，如 zh-CN, en-US, ja, ko
+    if (names[locale] && typeof names[locale] === "string" && names[locale].trim()) {
+      return names[locale].trim();
+    }
+    // 2. 前缀匹配语言家族，如 zh 匹配 zh-CN, en 匹配 en-US
+    const prefix = locale.split("-")[0]?.toLowerCase();
+    if (prefix) {
+      for (const [k, v] of Object.entries(names)) {
+        if (k.toLowerCase().startsWith(prefix) && typeof v === "string" && v.trim()) {
+          return v.trim();
+        }
+      }
+    }
+    // 3. 回退至 zh-CN
+    if (names["zh-CN"] && typeof names["zh-CN"] === "string" && names["zh-CN"].trim()) {
+      return names["zh-CN"].trim();
+    }
+    // 4. 回退至 en-US
+    if (names["en-US"] && typeof names["en-US"] === "string" && names["en-US"].trim()) {
+      return names["en-US"].trim();
+    }
+    // 5. 任意非空值
+    for (const v of Object.values(names)) {
+      if (typeof v === "string" && v.trim()) {
+        return v.trim();
+      }
+    }
+  }
+
+  // 6. 回退到 legacy 静态字段
+  if (locale === "en-US" && fallbackEn && fallbackEn.trim()) {
+    return fallbackEn.trim();
+  }
+  if (fallbackZh && fallbackZh.trim() && !fallbackZh.includes("???")) {
+    return fallbackZh.trim();
+  }
+  if (fallbackEn && fallbackEn.trim()) {
+    return fallbackEn.trim();
+  }
+  return defaultSlug || "";
 }
 
 export interface Artist {
@@ -958,24 +1032,6 @@ export async function deleteAvatar(): Promise<{ avatar_url: string; user: User; 
   });
 }
 
-
-export interface UserCustomShelf {
-  id: string;
-  owner_id: string;
-  slug: string;
-  name_zh: string;
-  name_en: string;
-  description?: string;
-  icon?: string;
-  sort_order: number;
-  query_tags: string[];
-  require_all_tags: boolean;
-  exclude_tags: string[];
-  is_public: boolean;
-  view_count: number;
-  created_at: string;
-  updated_at: string;
-}
 
 export interface UserHomeLayout {
   hidden_system_slugs: string[];

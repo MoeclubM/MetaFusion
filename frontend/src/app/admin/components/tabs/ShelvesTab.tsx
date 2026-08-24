@@ -1,9 +1,9 @@
 "use client";
 
 import { useI18n } from "@/i18n/I18nProvider";
-
 import Link from "next/link";
 import { Layers, Plus, Eye, Edit2, Trash2 } from "lucide-react";
+import { MultilingualBadges } from "@/components/common/DynamicNamesEditor";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
 export function ShelvesTab({
@@ -40,8 +40,7 @@ export function ShelvesTab({
           <thead className="bg-background/80 text-gray-400 border-b border-surfaceBorder text-[11px] font-mono">
             <tr>
               <th className="py-3 px-4">{t("admin.shelves.colSlug")}</th>
-              <th className="py-3 px-3">{t("admin.shelves.colNameZh")}</th>
-              <th className="py-3 px-3">{t("admin.shelves.colNameEn")}</th>
+              <th className="py-3 px-3">{t("admin.shelves.colNames")}</th>
               <th className="py-3 px-3">{t("admin.shelves.colQuery")}</th>
               <th className="py-3 px-3">{t("admin.shelves.colMatch")}</th>
               <th className="py-3 px-3">{t("admin.shelves.colOrder")}</th>
@@ -51,13 +50,13 @@ export function ShelvesTab({
           <tbody className="divide-y divide-surfaceBorder/60">
             {loading ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-gray-500 font-mono">
+                <td colSpan={6} className="py-12 text-center text-gray-500 font-mono">
                   {t("common.loadingGeneric")}
                 </td>
               </tr>
             ) : filteredShelves.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-gray-500 font-mono">
+                <td colSpan={6} className="py-12 text-center text-gray-500 font-mono">
                   {t("admin.shelves.noData")}
                 </td>
               </tr>
@@ -65,8 +64,13 @@ export function ShelvesTab({
               filteredShelves.map((shelf) => (
                 <tr key={shelf.id || shelf.slug} className="hover:bg-white/[0.02]">
                   <td className="py-3 px-4 font-mono text-emerald-300 font-bold">{shelf.slug}</td>
-                  <td className="py-3 px-3 font-semibold text-white">{shelf.name_zh}</td>
-                  <td className="py-3 px-3 font-mono text-gray-400 text-[11px]">{shelf.name_en || "—"}</td>
+                  <td className="py-3 px-3">
+                    <MultilingualBadges
+                      names={shelf.names}
+                      fallbackZh={shelf.name_zh}
+                      fallbackEn={shelf.name_en}
+                    />
+                  </td>
                   <td className="py-3 px-3">
                     <div className="flex flex-wrap gap-1 max-w-sm">
                       {shelf.query_tags && shelf.query_tags.length > 0 ? (

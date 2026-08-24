@@ -11,6 +11,7 @@ import {
   UserHomeLayout,
   resetDefaultShelves,
   ensureDefaultShelves,
+  pickLocalizedName,
 } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -75,6 +76,7 @@ type ChannelShelf = {
   slug: string;
   name_zh: string;
   name_en?: string;
+  names?: Record<string, string>;
   query_tags?: string[] | null;
   require_all_tags?: boolean;
   exclude_tags?: string[] | null;
@@ -176,6 +178,7 @@ function HomeShowcaseContent() {
           slug: c.slug,
           name_zh: c.name_zh,
           name_en: c.name_en,
+          names: c.names,
           query_tags: c.query_tags,
           require_all_tags: c.require_all_tags,
           exclude_tags: c.exclude_tags,
@@ -189,6 +192,7 @@ function HomeShowcaseContent() {
           slug: s.slug,
           name_zh: s.name_zh,
           name_en: s.name_en,
+          names: s.names,
           query_tags: s.query_tags,
           require_all_tags: s.require_all_tags,
           exclude_tags: s.exclude_tags,
@@ -243,6 +247,7 @@ function HomeShowcaseContent() {
         slug: c.slug,
         name_zh: c.name_zh,
         name_en: c.name_en,
+        names: c.names,
         query_tags: c.query_tags,
         require_all_tags: c.require_all_tags,
         exclude_tags: c.exclude_tags,
@@ -295,6 +300,7 @@ function HomeShowcaseContent() {
         slug: c.slug,
         name_zh: c.name_zh,
         name_en: c.name_en,
+        names: c.names,
         query_tags: c.query_tags,
         require_all_tags: c.require_all_tags,
         exclude_tags: c.exclude_tags,
@@ -321,6 +327,7 @@ function HomeShowcaseContent() {
         slug: c.slug,
         name_zh: c.name_zh,
         name_en: c.name_en,
+        names: c.names,
         query_tags: c.query_tags,
         require_all_tags: c.require_all_tags,
         exclude_tags: c.exclude_tags,
@@ -334,6 +341,7 @@ function HomeShowcaseContent() {
         slug: s.slug,
         name_zh: s.name_zh,
         name_en: s.name_en,
+        names: s.names,
         query_tags: s.query_tags,
         require_all_tags: s.require_all_tags,
         exclude_tags: s.exclude_tags,
@@ -437,7 +445,7 @@ function HomeShowcaseContent() {
             {displayChannels.map((ch) => {
               const shelfWorks = worksByKey[ch.key] || [];
               const Icon = SHELF_ICONS[ch.slug] || Layers;
-              const shelfTitle = locale === "en-US" && ch.name_en ? ch.name_en : ch.name_zh || "";
+              const shelfTitle = pickLocalizedName(locale, ch.names, ch.name_zh, ch.name_en, ch.slug);
               const viewAllHref = shelfRuleToExploreHref(ch);
 
               return (

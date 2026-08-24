@@ -221,6 +221,7 @@ export function useAdminDashboard() {
       slug: "",
       name_zh: "",
       name_en: "",
+      names: { "zh-CN": "", "en-US": "" },
       query_tags: [],
       require_all_tags: false,
       sort_order: (shelvesList.length + 1) * 10,
@@ -230,19 +231,35 @@ export function useAdminDashboard() {
   };
 
   const handleOpenEditShelf = (shelf: VirtualShelf) => {
-    setShelfForm({ ...shelf, query_tags: shelf.query_tags || [] });
+    const initialNames: Record<string, string> = { ...(shelf.names || {}) };
+    if (!initialNames["zh-CN"] && shelf.name_zh) initialNames["zh-CN"] = shelf.name_zh;
+    if (!initialNames["en-US"] && shelf.name_en) initialNames["en-US"] = shelf.name_en;
+
+    setShelfForm({ ...shelf, names: initialNames, query_tags: shelf.query_tags || [] });
     setShelfTagInput("");
     setIsShelfModalOpen(true);
   };
 
   const handleSaveShelf = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!shelfForm.slug || !shelfForm.name_zh) {
+    const names = { ...(shelfForm.names || {}) };
+    const nameZh = names["zh-CN"] || shelfForm.name_zh || Object.values(names)[0] || "";
+    const nameEn = names["en-US"] || shelfForm.name_en || nameZh;
+
+    if (!shelfForm.slug || (!nameZh && Object.keys(names).length === 0)) {
       alert(t("admin.alert.shelfRequired"));
       return;
     }
+
+    const payload = {
+      ...shelfForm,
+      name_zh: nameZh,
+      name_en: nameEn,
+      names,
+    };
+
     try {
-      await fetchApi("/admin/shelves", { method: "POST", body: JSON.stringify(shelfForm) });
+      await fetchApi("/admin/shelves", { method: "POST", body: JSON.stringify(payload) });
       setIsShelfModalOpen(false);
       const res = await fetchApi<VirtualShelf[]>("/admin/shelves");
       setShelvesList(res || []);

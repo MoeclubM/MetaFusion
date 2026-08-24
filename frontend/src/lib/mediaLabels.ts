@@ -36,3 +36,17 @@ export function entryRowHeader(mediaType: MediaType, t?: (k: string, v?: Record<
   const label = entryLabel(mediaType, t as any);
   return trans("media.entryRow", { label });
 }
+
+export function canonicalEntryLabel(mediaType: MediaType, t?: (k: string) => string): string {
+  const trans = t || ((k: string) => translate(getMessages(), k));
+  switch (mediaType) {
+    case "music": return trans("media.canonicalRecording");
+    case "novel": return trans("media.canonicalChapter");
+    case "movie": case "tv_series": case "anime": return trans("media.canonicalCut");
+    case "comic": return trans("media.canonicalEpisode");
+    case "audiobook": return trans("media.canonicalAudio");
+    case "game": return trans("media.canonicalScenario");
+    default: return trans("media.canonicalExpression");
+  }
+}
+

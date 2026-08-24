@@ -2,8 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { fetchApi, UserCustomShelf } from "@/lib/api";
+import { fetchApi, UserCustomShelf, pickLocalizedName } from "@/lib/api";
 import { Modal } from "@/components/ui/Modal";
+import { DynamicNamesEditor } from "@/components/common/DynamicNamesEditor";
 import {
   GripVertical,
   Trash2,
@@ -84,6 +85,7 @@ export function HomeShelvesConfigModal({
   const [formSlug, setFormSlug] = useState("");
   const [formZh, setFormZh] = useState("");
   const [formEn, setFormEn] = useState("");
+  const [formNames, setFormNames] = useState<Record<string, string>>({ "zh-CN": "", "en-US": "" });
   const [formTags, setFormTags] = useState<string[]>([]);
   const [formTagInput, setFormTagInput] = useState("");
   const [formRequireAll, setFormRequireAll] = useState(false);
@@ -143,6 +145,7 @@ export function HomeShelvesConfigModal({
     setFormSlug("");
     setFormZh("");
     setFormEn("");
+    setFormNames({ "zh-CN": "", "en-US": "" });
     setFormTags([]);
     setFormTagInput("");
     setFormRequireAll(false);
@@ -155,6 +158,10 @@ export function HomeShelvesConfigModal({
     setFormSlug(item.slug || "");
     setFormZh(item.name_zh || "");
     setFormEn(item.name_en || "");
+    const initialNames: Record<string, string> = { ...(item.names || {}) };
+    if (!initialNames["zh-CN"] && item.name_zh) initialNames["zh-CN"] = item.name_zh;
+    if (!initialNames["en-US"] && item.name_en) initialNames["en-US"] = item.name_en;
+    setFormNames(initialNames);
     setFormTags(item.query_tags || []);
     setFormTagInput("");
     setFormRequireAll(!!item.require_all_tags);
@@ -165,7 +172,10 @@ export function HomeShelvesConfigModal({
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const slug = formSlug.toLowerCase().replace(/[^a-z0-9-_]/g, "");
-    if (!slug || !formZh.trim()) return;
+    const names = { ...formNames };
+    const nameZh = (names["zh-CN"] || Object.values(names)[0] || formZh || "").trim();
+    const nameEn = (names["en-US"] || formEn || nameZh).trim();
+    if (!slug || !nameZh) return;
 
     setFormSubmitting(true);
     try {
@@ -173,8 +183,9 @@ export function HomeShelvesConfigModal({
         // Update existing
         await onUpdateCustom(editingId, {
           slug,
-          name_zh: formZh.trim(),
-          name_en: formEn.trim(),
+          name_zh: nameZh,
+          name_en: nameEn,
+          names,
           query_tags: formTags,
           require_all_tags: formRequireAll,
           is_public: formPublic,
@@ -183,8 +194,9 @@ export function HomeShelvesConfigModal({
         // Create new
         await onCreateCustom({
           slug,
-          name_zh: formZh.trim(),
-          name_en: formEn.trim(),
+          name_zh: nameZh,
+          name_en: nameEn,
+          names,
           query_tags: formTags,
           require_all_tags: formRequireAll,
           is_public: formPublic,
@@ -275,26 +287,14 @@ export function HomeShelvesConfigModal({
               </button>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label className="block text-gray-600 dark:text-gray-400 text-[11px] mb-1">{t("home.shelves.nameZhLabel")}</label>
-                <input
-                  value={formZh}
-                  onChange={(e) => setFormZh(e.target.value)}
-                  placeholder={t("home.shelves.nameZhLabel")}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white text-xs focus:outline-none focus:border-primary/50"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-gray-600 dark:text-gray-400 text-[11px] mb-1">{t("home.shelves.nameEnLabel")}</label>
-                <input
-                  value={formEn}
-                  onChange={(e) => setFormEn(e.target.value)}
-                  placeholder={t("home.shelves.nameEnLabel")}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white text-xs focus:outline-none focus:border-primary/50"
-                />
-              </div>
+            <div className="space-y-1">
+              <label className="block text-gray-600 dark:text-gray-400 text-[11px]">
+                {t("admin.fieldNames")}
+              </label>
+              <DynamicNamesEditor
+                value={formNames}
+                onChange={setFormNames}
+              />
             </div>
 
             <div>
@@ -399,7 +399,7 @@ export function HomeShelvesConfigModal({
               </div>
             ) : (
               currentOrderedShelves.map((shelf, idx) => {
-                const label = locale === "en-US" && shelf.name_en ? shelf.name_en : shelf.name_zh;
+                const label = pickLocalizedName(locale, shelf.names, shelf.name_zh, shelf.name_en, shelf.slug);
                 const Icon = SHELF_ICONS[shelf.slug] || Sparkles;
 
                 return (

@@ -1,8 +1,9 @@
 "use client";
 
 import { useI18n } from "@/i18n/I18nProvider";
-import { Layers, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { DynamicNamesEditor } from "@/components/common/DynamicNamesEditor";
+import { Layers, X } from "lucide-react";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
 export function ShelfModal({
@@ -18,6 +19,7 @@ export function ShelfModal({
   onClose: () => void;
 }) {
   const { t } = useI18n();
+
   return (
     <Modal
       open={open}
@@ -25,42 +27,36 @@ export function ShelfModal({
       title={shelfForm.slug ? t("admin.shelfModal.editTitle") : t("admin.shelfModal.createTitle")}
       icon={<Layers className="w-4 h-4 text-emerald-400" />}
     >
-      <form onSubmit={handleSaveShelf} className="space-y-3 text-xs">
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-gray-300 font-medium mb-1">{t("admin.shelfModal.fieldSlug")}</label>
-            <input
-              required
-              value={shelfForm.slug || ""}
-              onChange={(e) => setShelfForm({ ...shelfForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, "") })}
-              placeholder={t("admin.shelfModal.fieldSlugPlaceholder")}
-              className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white font-mono focus:outline-none focus:border-emerald-400"
-            />
-          </div>
-          <div>
-            <label className="block text-gray-300 font-medium mb-1">{t("admin.shelfModal.fieldNameZh")}</label>
-            <input
-              required
-              value={shelfForm.name_zh || ""}
-              onChange={(e) => setShelfForm({ ...shelfForm, name_zh: e.target.value })}
-              placeholder={t("admin.shelfModal.fieldNameZhPlaceholder")}
-              className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white focus:outline-none focus:border-emerald-400"
-            />
-          </div>
-        </div>
-
+      <form onSubmit={handleSaveShelf} className="space-y-4 text-xs">
         <div>
-          <label className="block text-gray-300 font-medium mb-1">{t("admin.shelfModal.fieldNameEn")}</label>
+          <label className="block text-[11px] font-mono text-gray-300 font-medium mb-1">
+            {t("admin.shelfModal.fieldSlug")}
+          </label>
           <input
-            value={shelfForm.name_en || ""}
-            onChange={(e) => setShelfForm({ ...shelfForm, name_en: e.target.value })}
-            placeholder={t("admin.shelfModal.fieldNameEnPlaceholder")}
-            className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white focus:outline-none focus:border-emerald-400"
+            required
+            value={shelfForm.slug || ""}
+            onChange={(e) =>
+              setShelfForm({
+                ...shelfForm,
+                slug: e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, ""),
+              })
+            }
+            placeholder={t("admin.shelfModal.fieldSlugPlaceholder")}
+            className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white font-mono focus:outline-none focus:border-emerald-400"
           />
         </div>
 
+        <DynamicNamesEditor
+          label={t("admin.shelves.colNameZh")}
+          value={shelfForm.names}
+          onChange={(names) => setShelfForm({ ...shelfForm, names })}
+          required
+        />
+
         <div>
-          <label className="block text-gray-300 font-medium mb-1">{t("admin.shelfModal.fieldQuery")}</label>
+          <label className="block text-[11px] font-mono text-gray-300 font-medium mb-1">
+            {t("admin.shelfModal.fieldQuery")}
+          </label>
           <div className="flex flex-wrap gap-1.5 p-2 rounded-lg bg-white/[0.04] border border-white/10 min-h-[36px]">
             {(shelfForm.query_tags || []).map((tag, idx) => (
               <span
@@ -120,43 +116,51 @@ export function ShelfModal({
                     setShelfForm({ ...shelfForm, query_tags: [...(shelfForm.query_tags || []), preset.key] });
                   }
                 }}
-                className="px-1.5 py-0.2 rounded bg-white/[0.04] text-[10px] font-mono text-gray-400 hover:text-white"
+                className="px-2 py-0.5 rounded bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 hover:text-white border border-white/5 text-[11px] font-mono transition-colors"
               >
-                + #{t(preset.labelKey)}
+                +{t(preset.labelKey)}
               </button>
             ))}
           </div>
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-1">
-          <div className="flex items-center gap-2 p-2 rounded-lg bg-white/[0.02] border border-white/5">
-            <input
-              type="checkbox"
-              id="require_all"
-              checked={shelfForm.require_all_tags ?? false}
-              onChange={(e) => setShelfForm({ ...shelfForm, require_all_tags: e.target.checked })}
-              className="rounded border-white/20 text-emerald-500"
-            />
-            <label htmlFor="require_all" className="text-gray-300 text-[11px] select-none cursor-pointer">
-              {t("admin.shelfModal.requireAll")}
-            </label>
-          </div>
           <div>
-            <label className="block text-gray-400 text-[10px] mb-0.5">{t("admin.shelfModal.fieldOrder")}</label>
+            <label className="block text-[11px] font-mono text-gray-300 font-medium mb-1">
+              {t("admin.shelfModal.fieldOrder")}
+            </label>
             <input
               type="number"
               value={shelfForm.sort_order ?? 0}
               onChange={(e) => setShelfForm({ ...shelfForm, sort_order: parseInt(e.target.value) || 0 })}
-              className="w-full px-2 py-1 rounded bg-white/[0.04] border border-white/10 text-white font-mono text-xs"
+              className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white font-mono focus:outline-none focus:border-emerald-400"
             />
+          </div>
+          <div className="flex items-end pb-2">
+            <label className="flex items-center gap-2 text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={shelfForm.require_all_tags ?? false}
+                onChange={(e) => setShelfForm({ ...shelfForm, require_all_tags: e.target.checked })}
+                className="rounded border-white/20 bg-white/5 text-emerald-500 focus:ring-0"
+              />
+              <span>{t("admin.shelfModal.requireAll")}</span>
+            </label>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-3 border-t border-white/[0.06]">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-gray-300 hover:text-white">
+        <div className="flex items-center justify-end gap-2 pt-4 border-t border-white/10">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors"
+          >
             {t("admin.shelfModal.cancel")}
           </button>
-          <button type="submit" className="px-4 py-2 rounded-lg bg-emerald-400 text-black font-semibold hover:bg-emerald-300">
+          <button
+            type="submit"
+            className="px-4 py-1.5 rounded-lg bg-emerald-400 text-black font-semibold hover:bg-emerald-300 transition-colors"
+          >
             {t("admin.shelfModal.save")}
           </button>
         </div>

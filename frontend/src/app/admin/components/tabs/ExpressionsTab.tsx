@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/i18n/I18nProvider";
 import Link from "next/link";
-import { Music2, Clock, Trash2, ExternalLink } from "lucide-react";
+import { Sparkles, Clock, Trash2, ExternalLink } from "lucide-react";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
 export function ExpressionsTab({
@@ -19,7 +19,7 @@ export function ExpressionsTab({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 rounded-2xl bg-[#111115] border border-white/[0.08]">
         <div>
           <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <Music2 className="w-5 h-5 text-purple-400" />
+            <Sparkles className="w-5 h-5 text-teal-400" />
             {t("admin.expressions.title")}
           </h2>
           <p className="text-xs text-gray-400 mt-1">
