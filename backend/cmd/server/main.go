@@ -35,6 +35,7 @@ import (
 	"github.com/metafusion/metafusion-app/internal/ratelimit"
 	"github.com/metafusion/metafusion-app/internal/search"
 	"github.com/metafusion/metafusion-app/internal/storage"
+	"github.com/redis/go-redis/v9"
 )
 
 func translateAuthError(c *gin.Context, msg string) string {
@@ -64,9 +65,14 @@ func main() {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	// 2. 初始化 Redis Asynq 任务客户端
+	// 2. 初始化 Redis Asynq 任务客户端与通用 Redis Client
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{Addr: cfg.RedisAddr})
 	defer asynqClient.Close()
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: cfg.RedisAddr,
+	})
+	defer redisClient.Close()
 
 	searchSvc, err := search.NewSearchService(cfg, db)
 	if err != nil {
@@ -74,7 +80,7 @@ func main() {
 	}
 
 	// 3. 初始化各模块服务
-	authSvc := auth.NewAuthService(db, cfg)
+	authSvc := auth.NewAuthService(db, cfg, redisClient)
 	catalogSvc := catalog.NewCatalogService(db)
 	communitySvc := community.NewCommunityService(db)
 	messageSvc := community.NewMessageService(db)
@@ -226,12 +232,19 @@ func main() {
 					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 					return
 				}
-				user, token, err := authSvc.Register(&input)
+				user, pair, err := authSvc.RegisterWithPair(&input)
 				if err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": translateAuthError(c, err.Error())})
 					return
 				}
-				c.JSON(http.StatusOK, gin.H{"user": user, "token": token})
+				c.JSON(http.StatusOK, gin.H{
+					"user":          user,
+					"token":         pair.AccessToken,
+					"access_token":  pair.AccessToken,
+					"refresh_token": pair.RefreshToken,
+					"expires_in":    pair.ExpiresIn,
+					"token_type":    pair.TokenType,
+				})
 			})
 
 			authGroup.POST("/login", func(c *gin.Context) {
@@ -240,12 +253,59 @@ func main() {
 					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 					return
 				}
-				user, token, err := authSvc.Login(&input)
+				user, pair, err := authSvc.LoginWithPair(&input)
 				if err != nil {
 					c.JSON(http.StatusUnauthorized, gin.H{"error": translateAuthError(c, err.Error())})
 					return
 				}
-				c.JSON(http.StatusOK, gin.H{"user": user, "token": token})
+				c.JSON(http.StatusOK, gin.H{
+					"user":          user,
+					"token":         pair.AccessToken,
+					"access_token":  pair.AccessToken,
+					"refresh_token": pair.RefreshToken,
+					"expires_in":    pair.ExpiresIn,
+					"token_type":    pair.TokenType,
+				})
+			})
+
+			// 双 Token 刷新端点 (Rotation 支持)
+			authGroup.POST("/refresh", func(c *gin.Context) {
+				var req struct {
+					RefreshToken string `json:"refresh_token" binding:"required"`
+				}
+				if err := c.ShouldBindJSON(&req); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "auth.refresh_token_required")})
+					return
+				}
+				pair, err := authSvc.RefreshToken(req.RefreshToken)
+				if err != nil {
+					c.JSON(http.StatusUnauthorized, gin.H{"error": backendi18n.T(c, "auth.refresh_token_invalid"), "detail": err.Error()})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"user":          pair.User,
+					"token":         pair.AccessToken,
+					"access_token":  pair.AccessToken,
+					"refresh_token": pair.RefreshToken,
+					"expires_in":    pair.ExpiresIn,
+					"token_type":    pair.TokenType,
+				})
+			})
+
+			// 登出并吊销 Token
+			authGroup.POST("/logout", func(c *gin.Context) {
+				var req struct {
+					RefreshToken string `json:"refresh_token"`
+				}
+				_ = c.ShouldBindJSON(&req)
+				if req.RefreshToken != "" {
+					_ = authSvc.RevokeToken(req.RefreshToken)
+				}
+				authHeader := c.GetHeader("Authorization")
+				if parts := strings.SplitN(authHeader, " ", 2); len(parts) == 2 {
+					_ = authSvc.RevokeToken(parts[1])
+				}
+				c.JSON(http.StatusOK, gin.H{"message": backendi18n.T(c, "auth.logged_out")})
 			})
 
 			authGroup.GET("/me", auth.UnifiedAuthMiddleware(cfg, db), func(c *gin.Context) {

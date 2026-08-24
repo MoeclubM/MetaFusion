@@ -1,10 +1,12 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -15,39 +17,108 @@ import (
 	"github.com/metafusion/metafusion-app/internal/config"
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"github.com/metafusion/metafusion-app/internal/models"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+)
+
+const (
+	AccessTokenDuration  = 2 * time.Hour         // 短期 Access Token (2小时)
+	RefreshTokenDuration = 14 * 24 * time.Hour   // 长期 Refresh Token (14天)
+	TokenTypeAccess      = "access"
+	TokenTypeRefresh     = "refresh"
 )
 
 type AuthService struct {
 	db  *gorm.DB
 	cfg *config.Config
+	rdb *redis.Client
 }
 
-func NewAuthService(db *gorm.DB, cfg *config.Config) *AuthService {
-	return &AuthService{db: db, cfg: cfg}
+func NewAuthService(db *gorm.DB, cfg *config.Config, rdb ...*redis.Client) *AuthService {
+	var redisClient *redis.Client
+	if len(rdb) > 0 {
+		redisClient = rdb[0]
+	}
+	return &AuthService{db: db, cfg: cfg, rdb: redisClient}
 }
 
 type Claims struct {
-	UserID   uuid.UUID `json:"user_id"`
-	Username string    `json:"username"`
-	Role     string    `json:"role"`
+	UserID    uuid.UUID `json:"user_id"`
+	Username  string    `json:"username"`
+	Role      string    `json:"role"`
+	TokenType string    `json:"token_type,omitempty"` // "access" 或 "refresh"
 	jwt.RegisteredClaims
 }
 
-func (s *AuthService) GenerateToken(user *models.User) (string, error) {
-	claims := Claims{
-		UserID:   user.ID,
-		Username: user.Username,
-		Role:     user.Role,
+type TokenPair struct {
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
+	ExpiresIn    int64        `json:"expires_in"` // access_token 有效秒数
+	TokenType    string       `json:"token_type"` // "Bearer"
+	Token        string       `json:"token"`      // 保持向后兼容老客户端 (等同 access_token)
+	User         *models.User `json:"user,omitempty"`
+}
+
+// GenerateTokenPair 为指定用户生成双 Token 对（Access Token + Refresh Token）
+func (s *AuthService) GenerateTokenPair(user *models.User) (*TokenPair, error) {
+	now := time.Now()
+	accessJti := uuid.New().String()
+	refreshJti := uuid.New().String()
+
+	accessClaims := Claims{
+		UserID:    user.ID,
+		Username:  user.Username,
+		Role:      user.Role,
+		TokenType: TokenTypeAccess,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ID:        accessJti,
+			Subject:   user.ID.String(),
+			ExpiresAt: jwt.NewNumericDate(now.Add(AccessTokenDuration)),
+			IssuedAt:  jwt.NewNumericDate(now),
 			Issuer:    "metafusion-api",
 		},
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(s.cfg.JWTSecret))
+	accessToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims).SignedString([]byte(s.cfg.JWTSecret))
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign access token: %w", err)
+	}
+
+	refreshClaims := Claims{
+		UserID:    user.ID,
+		Username:  user.Username,
+		Role:      user.Role,
+		TokenType: TokenTypeRefresh,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        refreshJti,
+			Subject:   user.ID.String(),
+			ExpiresAt: jwt.NewNumericDate(now.Add(RefreshTokenDuration)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			Issuer:    "metafusion-api",
+		},
+	}
+	refreshToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims).SignedString([]byte(s.cfg.JWTSecret))
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign refresh token: %w", err)
+	}
+
+	return &TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    int64(AccessTokenDuration.Seconds()),
+		TokenType:    "Bearer",
+		Token:        accessToken,
+		User:         user,
+	}, nil
+}
+
+// GenerateToken 保留老签名生成方法，生成标准 Access Token (保持向下兼容)
+func (s *AuthService) GenerateToken(user *models.User) (string, error) {
+	pair, err := s.GenerateTokenPair(user)
+	if err != nil {
+		return "", err
+	}
+	return pair.AccessToken, nil
 }
 
 func (s *AuthService) ParseToken(tokenStr string) (*Claims, error) {
@@ -58,9 +129,98 @@ func (s *AuthService) ParseToken(tokenStr string) (*Claims, error) {
 		return nil, err
 	}
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
+		// 检查是否在 Redis 吊销黑名单中
+		if s.isTokenBlacklisted(claims.ID, claims.UserID.String()) {
+			return nil, errors.New("token has been revoked")
+		}
 		return claims, nil
 	}
 	return nil, errors.New("invalid token")
+}
+
+// isTokenBlacklisted 检查 token ID 或用户级吊销状态
+func (s *AuthService) isTokenBlacklisted(jti string, userID string) bool {
+	if s.rdb == nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if jti != "" {
+		exists, err := s.rdb.Exists(ctx, "auth:blacklist:"+jti).Result()
+		if err == nil && exists > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// RevokeToken 将指定 Token（或其 JTI）置入 Redis 黑名单
+func (s *AuthService) RevokeToken(tokenStr string) error {
+	token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.cfg.JWTSecret), nil
+	})
+	if err != nil || !token.Valid {
+		return nil // 无效 token 无需额外入黑名单
+	}
+	claims, ok := token.Claims.(*Claims)
+	if !ok || claims.ID == "" {
+		return nil
+	}
+	if s.rdb == nil {
+		return nil
+	}
+	ttl := time.Until(claims.ExpiresAt.Time)
+	if ttl <= 0 {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return s.rdb.Set(ctx, "auth:blacklist:"+claims.ID, "revoked", ttl).Err()
+}
+
+// RefreshToken 用有效的 Refresh Token 换取全新的 TokenPair，并使原 Refresh Token 失效 (Rotation)
+func (s *AuthService) RefreshToken(refreshTokenStr string) (*TokenPair, error) {
+	token, err := jwt.ParseWithClaims(refreshTokenStr, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.cfg.JWTSecret), nil
+	})
+	if err != nil || !token.Valid {
+		return nil, errors.New("invalid or expired refresh token")
+	}
+	claims, ok := token.Claims.(*Claims)
+	if !ok {
+		return nil, errors.New("invalid token claims")
+	}
+
+	// 必须为 refresh 类型的 token
+	if claims.TokenType != "" && claims.TokenType != TokenTypeRefresh {
+		return nil, errors.New("provided token is not a refresh token")
+	}
+
+	// 检查黑名单
+	if s.isTokenBlacklisted(claims.ID, claims.UserID.String()) {
+		return nil, errors.New("refresh token has been revoked")
+	}
+
+	// 查询用户最新状态（确保未被封禁或删除）
+	var user models.User
+	if err := s.db.First(&user, "id = ?", claims.UserID).Error; err != nil {
+		return nil, errors.New("user not found")
+	}
+	if user.Role == "banned" {
+		return nil, errors.New("account has been banned")
+	}
+
+	// 生成新 Token 对
+	pair, err := s.GenerateTokenPair(&user)
+	if err != nil {
+		return nil, err
+	}
+
+	// 吊销使用过的旧 Refresh Token (Rotation 保护)
+	_ = s.RevokeToken(refreshTokenStr)
+
+	return pair, nil
 }
 
 // GenerateUserInviteCode 生成用户专属邀请码（保留兼容，老数据仍有该字段）
@@ -134,49 +294,48 @@ type LoginInput struct {
 	Password        string `json:"password" binding:"required"`
 }
 
-func (s *AuthService) Register(input *RegisterInput) (*models.User, string, error) {
+func (s *AuthService) RegisterWithPair(input *RegisterInput) (*models.User, *TokenPair, error) {
 	if !isRegistrationEnabled(s.db) {
-		return nil, "", errors.New("注册功能已关闭，请联系管理员")
+		return nil, nil, errors.New("注册功能已关闭，请联系管理员")
 	}
 	username := strings.TrimSpace(input.Username)
 	email := strings.TrimSpace(input.Email)
 	inviteCode := strings.TrimSpace(input.InviteCode)
 
 	if username == "" || email == "" {
-		return nil, "", errors.New("用户名与邮箱不能为空")
+		return nil, nil, errors.New("用户名与邮箱不能为空")
 	}
 
 	var inviterID *uuid.UUID
 	if isInviteRequired(s.db) {
 		if inviteCode == "" {
-			return nil, "", errors.New("需要邀请码才能注册")
+			return nil, nil, errors.New("需要邀请码才能注册")
 		}
 		id, err := resolveInviterID(s.db, inviteCode)
 		if err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
 		inviterID = id
 	} else if inviteCode != "" {
 		id, err := resolveInviterID(s.db, inviteCode)
 		if err != nil {
-			return nil, "", err
+			return nil, nil, err
 		}
 		inviterID = id
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	newUserInviteCode := GenerateUserInviteCode()
-	// display_name 可选，独立于 username，空则不落库由展示层 fallback
 	var displayName *string
 	if input.DisplayName != nil {
 		trimmed := strings.TrimSpace(*input.DisplayName)
 		if trimmed != "" {
 			if len(trimmed) > 64 {
-				return nil, "", errors.New("昵称过长，最多 64 字符")
+				return nil, nil, errors.New("昵称过长，最多 64 字符")
 			}
 			displayName = &trimmed
 		}
@@ -196,28 +355,36 @@ func (s *AuthService) Register(input *RegisterInput) (*models.User, string, erro
 
 	if err := s.db.Create(user).Error; err != nil {
 		if strings.Contains(err.Error(), "duplicate") || strings.Contains(err.Error(), "unique") {
-			return nil, "", errors.New("用户名或邮箱已被占用")
+			return nil, nil, errors.New("用户名或邮箱已被占用")
 		}
-		return nil, "", err
+		return nil, nil, err
 	}
 
-	token, err := s.GenerateToken(user)
-	return user, token, err
+	pair, err := s.GenerateTokenPair(user)
+	return user, pair, err
 }
 
-func (s *AuthService) Login(input *LoginInput) (*models.User, string, error) {
+func (s *AuthService) Register(input *RegisterInput) (*models.User, string, error) {
+	user, pair, err := s.RegisterWithPair(input)
+	if err != nil {
+		return nil, "", err
+	}
+	return user, pair.AccessToken, nil
+}
+
+func (s *AuthService) LoginWithPair(input *LoginInput) (*models.User, *TokenPair, error) {
 	var user models.User
 	err := s.db.Where("email = ? OR username = ?", input.EmailOrUsername, input.EmailOrUsername).First(&user).Error
 	if err != nil {
-		return nil, "", errors.New("用户名或密码错误")
+		return nil, nil, errors.New("用户名或密码错误")
 	}
 
 	if user.Role == "banned" {
-		return nil, "", errors.New("账号已被封禁，请联系管理员")
+		return nil, nil, errors.New("账号已被封禁，请联系管理员")
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
-		return nil, "", errors.New("用户名或密码错误")
+		return nil, nil, errors.New("用户名或密码错误")
 	}
 
 	// 若老用户未生成专属邀请码，自动补全
@@ -230,8 +397,16 @@ func (s *AuthService) Login(input *LoginInput) (*models.User, string, error) {
 		s.db.Model(&user).Update("invite_code", user.InviteCode)
 	}
 
-	token, err := s.GenerateToken(&user)
-	return &user, token, err
+	pair, err := s.GenerateTokenPair(&user)
+	return &user, pair, err
+}
+
+func (s *AuthService) Login(input *LoginInput) (*models.User, string, error) {
+	user, pair, err := s.LoginWithPair(input)
+	if err != nil {
+		return nil, "", err
+	}
+	return user, pair.AccessToken, nil
 }
 
 // GetUserInviteInfo 获取当前用户的专属永久邀请码及受邀成员列表
@@ -489,6 +664,10 @@ func tryJWTAuth(c *gin.Context, cfg *config.Config) bool {
 		return false
 	}
 	if claims, ok := token.Claims.(*Claims); ok {
+		// refresh token 不能用于普通 API 鉴权
+		if claims.TokenType == TokenTypeRefresh {
+			return false
+		}
 		c.Set("userID", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
