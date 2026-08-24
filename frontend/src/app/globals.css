@@ -13,6 +13,12 @@
   --bg-color: #0b0f17;
   --surface-color: #121826;
   --surface-hover-color: #1a2336;
+  --card: #121826;
+  --card-foreground: #f0f3f6;
+  --border: rgba(255, 255, 255, 0.1);
+  --foreground: #f0f3f6;
+  --background: #0b0f17;
+  --primary: #3b82f6;
   --font-display: "Instrument Serif", "Noto Serif SC", Georgia, serif;
   --font-sans: "Inter", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
@@ -27,6 +33,12 @@
   --bg-color: #f8fafc;
   --surface-color: #ffffff;
   --surface-hover-color: #f1f5f9;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: rgba(0, 0, 0, 0.1);
+  --foreground: #0f172a;
+  --background: #f8fafc;
+  --primary: #2563eb;
 }
 
 /* Accents */

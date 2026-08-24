@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useTheme } from "@/lib/themeContext";
 import { GraphNode, GraphLink, catalogEntityHref } from "@/lib/api";
 import Link from "next/link";
 import {
@@ -47,76 +48,76 @@ interface LayoutNode extends GraphNode {
   radius: number;
 }
 
-// 实体类型视觉主题配置与本地化辅助
-const getEntityTypeTheme = (type: string, t: (k: string) => string) => {
+// 实体类型视觉主题配置与本地化辅助（支持明暗双模式高保真渲染）
+const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = false) => {
   switch (type) {
     case "work":
       return {
         label: t("graph.type.work"),
-        primaryColor: "#0284c7", // sky-600
-        bgFill: "#e0f2fe",
-        textFill: "#0369a1",
-        stroke: "#38bdf8",
+        primaryColor: isDark ? "#38bdf8" : "#0284c7",
+        bgFill: isDark ? "#0c4a6e" : "#e0f2fe",
+        textFill: isDark ? "#7dd3fc" : "#0369a1",
+        stroke: isDark ? "#0284c7" : "#38bdf8",
         badgeBgClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
         icon: Film,
       };
     case "artist":
       return {
         label: t("graph.type.artist"),
-        primaryColor: "#059669", // emerald-600
-        bgFill: "#d1fae5",
-        textFill: "#047857",
-        stroke: "#34d399",
+        primaryColor: isDark ? "#34d399" : "#059669",
+        bgFill: isDark ? "#064e3b" : "#dcfce7",
+        textFill: isDark ? "#86efac" : "#15803d",
+        stroke: isDark ? "#059669" : "#34d399",
         badgeBgClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
         icon: User,
       };
     case "release":
       return {
         label: t("graph.type.release"),
-        primaryColor: "#d97706", // amber-600
-        bgFill: "#fef3c7",
-        textFill: "#b45309",
-        stroke: "#fbbf24",
+        primaryColor: isDark ? "#fbbf24" : "#d97706",
+        bgFill: isDark ? "#78350f" : "#ffedd5",
+        textFill: isDark ? "#fed7aa" : "#c2410c",
+        stroke: isDark ? "#d97706" : "#fbbf24",
         badgeBgClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
         icon: Disc,
       };
     case "franchise":
       return {
         label: t("graph.type.franchise"),
-        primaryColor: "#4f46e5", // indigo-600
-        bgFill: "#e0e7ff",
-        textFill: "#4338ca",
-        stroke: "#818cf8",
+        primaryColor: isDark ? "#818cf8" : "#4f46e5",
+        bgFill: isDark ? "#312e81" : "#e0e7ff",
+        textFill: isDark ? "#a5b4fc" : "#4338ca",
+        stroke: isDark ? "#4f46e5" : "#818cf8",
         badgeBgClass: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
         icon: Layers,
       };
     case "medium":
       return {
         label: t("graph.type.medium"),
-        primaryColor: "#9333ea", // purple-600
-        bgFill: "#f3e8ff",
-        textFill: "#7e22ce",
-        stroke: "#c084fc",
+        primaryColor: isDark ? "#c084fc" : "#9333ea",
+        bgFill: isDark ? "#581c87" : "#f3e8ff",
+        textFill: isDark ? "#d8b4fe" : "#7e22ce",
+        stroke: isDark ? "#9333ea" : "#c084fc",
         badgeBgClass: "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30",
         icon: Disc,
       };
     case "canonical_entry":
       return {
         label: t("graph.type.canonical_entry"),
-        primaryColor: "#0d9488", // teal-600
-        bgFill: "#ccfbf1",
-        textFill: "#0f766e",
-        stroke: "#2dd4bf",
+        primaryColor: isDark ? "#2dd4bf" : "#0d9488",
+        bgFill: isDark ? "#134e4a" : "#ccfbf1",
+        textFill: isDark ? "#5eead4" : "#0f766e",
+        stroke: isDark ? "#0d9488" : "#2dd4bf",
         badgeBgClass: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
         icon: Sparkles,
       };
     default:
       return {
         label: type,
-        primaryColor: "#64748b",
-        bgFill: "#f1f5f9",
-        textFill: "#475569",
-        stroke: "#94a3b8",
+        primaryColor: isDark ? "#94a3b8" : "#64748b",
+        bgFill: isDark ? "#27272a" : "#f1f5f9",
+        textFill: isDark ? "#e4e4e7" : "#475569",
+        stroke: isDark ? "#52525b" : "#94a3b8",
         badgeBgClass: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-500/30",
         icon: Tag,
       };
@@ -158,6 +159,9 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   showInspector = true,
 }) => {
   const { t } = useI18n();
+  const { resolvedMode } = useTheme();
+  const isDark = resolvedMode === "dark";
+
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -172,6 +176,16 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredLinkId, setHoveredLinkId] = useState<string | null>(null);
+
+  // 主题自适应高保真颜色（彻底杜绝 SVG 属性 fallback 纯黑色块）
+  const capsuleBg = isDark ? "#18181b" : "#ffffff";
+  const capsuleStroke = isDark ? "#27272a" : "#e4e4e7";
+  const nodeNameFill = isDark ? "#f4f4f5" : "#09090b";
+  const edgeBadgeBg = isDark ? "#27272a" : "#ffffff";
+  const edgeBadgeStroke = isDark ? "#3f3f46" : "#d4d4d8";
+  const edgeBadgeText = isDark ? "#e4e4e7" : "#3f3f46";
+  const centerFill = isDark ? "#3b82f6" : "#2563eb";
+  const centerBorder = isDark ? "#0b0f17" : "#ffffff";
 
   // 过滤连线
   const filteredLinks = useMemo(() => {
@@ -730,10 +744,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           <defs>
             {/* 连线与标签投影滤镜 */}
             <filter id="badge-drop-shadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.15" />
+              <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" floodColor="#000000" floodOpacity={isDark ? "0.35" : "0.08"} />
             </filter>
             <filter id="node-drop-shadow" x="-30%" y="-30%" width="160%" height="160%">
-              <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000000" floodOpacity="0.22" />
+              <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000000" floodOpacity={isDark ? "0.45" : "0.15"} />
             </filter>
 
             {/* 节点通用渐变定义 */}
@@ -757,6 +771,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               <stop offset="0%" stopColor="#4f46e5" />
               <stop offset="100%" stopColor="#4338ca" />
             </linearGradient>
+            <linearGradient id="grad-canonical_entry" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0d9488" />
+              <stop offset="100%" stopColor="#0f766e" />
+            </linearGradient>
             <linearGradient id="grad-default" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#64748b" />
               <stop offset="100%" stopColor="#475569" />
@@ -772,7 +790,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#64748b" opacity="0.9" />
+              <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill={isDark ? "#94a3b8" : "#64748b"} opacity="0.9" />
             </marker>
             <marker
               id="arrow-sky"
@@ -869,10 +887,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               const midX = (src.x + tgt.x) / 2;
               const midY = (src.y + tgt.y) / 2;
 
-              // 谓词徽章尺寸计算 (字号 12px, 充裕的呼吸内边距)
+              // 谓词徽章尺寸计算 (字号 11px, 充裕的呼吸内边距)
               const badgeLabel = link.label || link.type;
-              const badgeWidth = Math.max(72, badgeLabel.length * 12.5 + 28);
-              const badgeHeight = 26;
+              const badgeWidth = Math.max(68, badgeLabel.length * 12 + 24);
+              const badgeHeight = 24;
 
               return (
                 <g
@@ -905,16 +923,16 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                     markerEnd={`url(#arrow-${link.color || "default"})`}
                   />
 
-                  {/* 连线谓词徽章 (Edge Badges - 磨砂卡片质感、12px 高对比字号) */}
+                  {/* 连线谓词徽章 (Edge Badges - 高保真明暗自适应卡片质感) */}
                   <g transform={`translate(${midX}, ${midY})`}>
                     <rect
                       x={-badgeWidth / 2}
                       y={-badgeHeight / 2}
                       width={badgeWidth}
                       height={badgeHeight}
-                      rx={13}
-                      fill="var(--card)"
-                      stroke={isHovered ? colorHex : "var(--border)"}
+                      rx={6}
+                      fill={edgeBadgeBg}
+                      stroke={isHovered ? colorHex : edgeBadgeStroke}
                       strokeWidth={isHovered ? 1.5 : 1}
                       filter="url(#badge-drop-shadow)"
                       className="transition-all"
@@ -923,16 +941,16 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                     <circle
                       cx={-badgeWidth / 2 + 10}
                       cy={0}
-                      r={3.5}
+                      r={3}
                       fill={colorHex}
                     />
                     <text
-                      x={5}
-                      y={4.2}
+                      x={4}
+                      y={3.8}
                       textAnchor="middle"
-                      fontSize="12"
+                      fontSize="11"
                       fontWeight="600"
-                      fill="var(--foreground)"
+                      fill={edgeBadgeText}
                       className="pointer-events-none font-sans select-none"
                     >
                       {badgeLabel}
@@ -948,7 +966,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               const isSelected = selectedNode?.id === node.id;
               const isHovered = hoveredNodeId === node.id;
               const r = node.radius;
-              const theme = getEntityTypeTheme(node.type, t);
+              const theme = getEntityTypeTheme(node.type, t, isDark);
 
               // 计算下方名称药丸胶囊的宽度与内容
               const typeLabel = theme.label;
@@ -990,8 +1008,8 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                   {/* 节点主圆底色 */}
                   <circle
                     r={r}
-                    fill={isCenter ? "var(--primary)" : `url(#grad-${node.type})`}
-                    stroke={isCenter ? "var(--background)" : theme.stroke}
+                    fill={isCenter ? centerFill : `url(#grad-${node.type})`}
+                    stroke={isCenter ? centerBorder : theme.stroke}
                     strokeWidth={isCenter ? 3.5 : 2.5}
                     filter="url(#node-drop-shadow)"
                   />
@@ -1029,12 +1047,12 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                   {/* 中心节点专属小皇冠/徽标标识 */}
                   {isCenter && (
                     <g transform={`translate(${r - 6}, ${-(r - 6)})`}>
-                      <circle r={9} fill="var(--primary)" stroke="var(--background)" strokeWidth={2} />
-                      <Sparkle className="w-2.5 h-2.5 text-primary-foreground -translate-x-[5px] -translate-y-[5px]" />
+                      <circle r={9} fill={centerFill} stroke={centerBorder} strokeWidth={2} />
+                      <Sparkle className="w-2.5 h-2.5 text-white -translate-x-[5px] -translate-y-[5px]" />
                     </g>
                   )}
 
-                  {/* 节点下方名称与类型双层清晰药丸 (Node Title & Type Badge) */}
+                  {/* 节点下方名称与类型双层清晰药丸 (Node Title & Type Badge - 高保真明暗自适应) */}
                   <g transform={`translate(0, ${r + 20})`}>
                     {/* 药丸背景底托 */}
                     <rect
@@ -1043,8 +1061,8 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                       width={pillWidth}
                       height={pillHeight}
                       rx={pillHeight / 2}
-                      fill="var(--card)"
-                      stroke={isSelected || isHovered ? theme.primaryColor : "var(--border)"}
+                      fill={capsuleBg}
+                      stroke={isSelected || isHovered ? theme.primaryColor : capsuleStroke}
                       strokeWidth={isSelected || isHovered ? 1.5 : 1}
                       filter="url(#badge-drop-shadow)"
                     />
@@ -1077,7 +1095,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                       textAnchor="middle"
                       fontSize="13"
                       fontWeight="600"
-                      fill="var(--foreground)"
+                      fill={nodeNameFill}
                       className="pointer-events-none select-none font-sans"
                     >
                       {truncatedName}
@@ -1105,10 +1123,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               <div className="flex items-center gap-1.5 mb-1">
                 <span
                   className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                    getEntityTypeTheme(selectedNode.type, t).badgeBgClass
+                    getEntityTypeTheme(selectedNode.type, t, isDark).badgeBgClass
                   }`}
                 >
-                  {getEntityTypeTheme(selectedNode.type, t).label}
+                  {getEntityTypeTheme(selectedNode.type, t, isDark).label}
                 </span>
                 {selectedNode.id === centerEntityId && (
                   <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25">
