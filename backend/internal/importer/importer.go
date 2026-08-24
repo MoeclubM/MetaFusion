@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -74,6 +75,12 @@ func DetectSource(input string, hint string) string {
 	}
 	if strings.Contains(clean, "themoviedb.org") {
 		return "tmdb"
+	}
+	if strings.Contains(clean, "vndb.org") || (strings.HasPrefix(clean, "v") && regexp.MustCompile(`^v\d+$`).MatchString(clean)) {
+		return "vndb"
+	}
+	if strings.Contains(clean, "douban.com") {
+		return "douban"
 	}
 
 	// 纯数字 ID 时依据 hint 判断
@@ -268,52 +275,211 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 		workExtIDs = models.JSONB{req.Source: req.ExternalID}
 	}
 
-	work := models.Work{
-		ID:               uuid.New(),
-		Title:            strings.TrimSpace(workPrev.Title),
-		OriginalTitle:    strings.TrimSpace(workPrev.OriginalTitle),
-		Aliases:          workPrev.Aliases,
-		ReleaseDate:      releaseDate,
-		BeginDate:        workPrev.BeginDate,
-		Country:          workPrev.Country,
-		Language:         workPrev.Language,
-		OriginalLanguage: workPrev.OriginalLanguage,
-		Summary:          workPrev.Summary,
-		CoverImageURL:    finalCoverURL,
-		CoverAspect:      workPrev.CoverAspect,
-		ContentRating:    workPrev.ContentRating,
-		Status:           workStatus,
-		ExternalIDs:      workExtIDs,
-		CatalogMetadata:  meta,
-		CreatedBy:        &userID,
-	}
-	if work.Language == "" {
-		work.Language = "zh-CN"
-	}
-	if work.ContentRating == "" {
-		work.ContentRating = "General"
-	}
+	isMerge := req.TargetWorkID != nil && *req.TargetWorkID != uuid.Nil && (req.LinkMode == "append_release_to_work" || req.LinkMode == "merge_translations")
+	isCreateRelation := req.TargetWorkID != nil && *req.TargetWorkID != uuid.Nil && req.LinkMode == "create_relation"
 
-	if err := tx.Create(&work).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create work: " + err.Error()})
-		return
-	}
+	var work models.Work
+	if isMerge {
+		if err := tx.Preload("Translations").Preload("Tags").First(&work, "id = ?", *req.TargetWorkID).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusNotFound, gin.H{"error": "Target work not found for merging"})
+			return
+		}
 
-	// 多语言标题与简介
-	for _, trans := range workPrev.Translations {
-		if trans.Locale != "" {
-			wt := models.WorkTranslation{
-				WorkID:  work.ID,
-				Locale:  models.NormalizeLocale(trans.Locale),
-				Title:   trans.Title,
-				Summary: trans.Summary,
+		// 1. 合并多语言题名与简介
+		type transCandidate struct {
+			locale  string
+			title   string
+			summary string
+		}
+		var candidates []transCandidate
+		for _, tr := range workPrev.Translations {
+			if tr.Locale != "" {
+				candidates = append(candidates, transCandidate{
+					locale:  models.NormalizeLocale(tr.Locale),
+					title:   strings.TrimSpace(tr.Title),
+					summary: strings.TrimSpace(tr.Summary),
+				})
 			}
-			_ = tx.Create(&wt).Error
+		}
+		if workPrev.Language != "" && workPrev.Title != "" {
+			normLoc := models.NormalizeLocale(workPrev.Language)
+			has := false
+			for _, c := range candidates {
+				if c.locale == normLoc {
+					has = true
+					break
+				}
+			}
+			if !has {
+				candidates = append(candidates, transCandidate{
+					locale:  normLoc,
+					title:   strings.TrimSpace(workPrev.Title),
+					summary: strings.TrimSpace(workPrev.Summary),
+				})
+			}
+		}
+		if workPrev.OriginalLanguage != "" && workPrev.OriginalTitle != "" {
+			normLoc := models.NormalizeLocale(workPrev.OriginalLanguage)
+			has := false
+			for _, c := range candidates {
+				if c.locale == normLoc {
+					has = true
+					break
+				}
+			}
+			if !has {
+				candidates = append(candidates, transCandidate{
+					locale:  normLoc,
+					title:   strings.TrimSpace(workPrev.OriginalTitle),
+					summary: "",
+				})
+			}
+		}
+
+		for _, cand := range candidates {
+			if cand.locale == "" || (cand.title == "" && cand.summary == "") {
+				continue
+			}
+			var existingWT models.WorkTranslation
+			if err := tx.Where("work_id = ? AND locale = ?", work.ID, cand.locale).First(&existingWT).Error; err != nil {
+				newWT := models.WorkTranslation{
+					WorkID:  work.ID,
+					Locale:  cand.locale,
+					Title:   cand.title,
+					Summary: cand.summary,
+				}
+				_ = tx.Create(&newWT).Error
+			} else {
+				upd := map[string]interface{}{}
+				if existingWT.Title == "" && cand.title != "" {
+					upd["title"] = cand.title
+				}
+				if existingWT.Summary == "" && cand.summary != "" {
+					upd["summary"] = cand.summary
+				}
+				if len(upd) > 0 {
+					_ = tx.Model(&existingWT).Updates(upd).Error
+				}
+			}
+		}
+
+		// 2. 外部标识符多维合并与 Work 基础信息补充
+		if work.ExternalIDs == nil {
+			work.ExternalIDs = models.JSONB{}
+		}
+		if workPrev.ExternalIDs != nil {
+			for k, v := range workPrev.ExternalIDs {
+				if v != nil && fmt.Sprintf("%v", v) != "" {
+					work.ExternalIDs[k] = v
+				}
+			}
+		}
+		if req.ExternalID != "" && req.Source != "" {
+			work.ExternalIDs[req.Source] = req.ExternalID
+		}
+
+		aliasSet := make(map[string]bool)
+		for _, a := range work.Aliases {
+			if t := strings.TrimSpace(a); t != "" {
+				aliasSet[t] = true
+			}
+		}
+		for _, a := range workPrev.Aliases {
+			if t := strings.TrimSpace(a); t != "" && !aliasSet[t] {
+				aliasSet[t] = true
+				work.Aliases = append(work.Aliases, t)
+			}
+		}
+		if workPrev.OriginalTitle != "" && workPrev.OriginalTitle != work.Title && !aliasSet[workPrev.OriginalTitle] {
+			aliasSet[workPrev.OriginalTitle] = true
+			work.Aliases = append(work.Aliases, workPrev.OriginalTitle)
+		}
+
+		workUpdates := map[string]interface{}{
+			"external_ids": work.ExternalIDs,
+			"aliases":      work.Aliases,
+			"updated_at":   time.Now(),
+		}
+		if work.OriginalTitle == "" && workPrev.OriginalTitle != "" {
+			workUpdates["original_title"] = strings.TrimSpace(workPrev.OriginalTitle)
+			work.OriginalTitle = workPrev.OriginalTitle
+		}
+		if work.Summary == "" && workPrev.Summary != "" {
+			workUpdates["summary"] = workPrev.Summary
+			work.Summary = workPrev.Summary
+		}
+		if work.CoverImageURL == "" && finalCoverURL != "" {
+			workUpdates["cover_image_url"] = finalCoverURL
+			work.CoverImageURL = finalCoverURL
+		}
+		if work.CoverAspect == "" && workPrev.CoverAspect != "" {
+			workUpdates["cover_aspect"] = workPrev.CoverAspect
+			work.CoverAspect = workPrev.CoverAspect
+		}
+		if work.Country == "" && workPrev.Country != "" {
+			workUpdates["country"] = workPrev.Country
+			work.Country = workPrev.Country
+		}
+		if work.OriginalLanguage == "" && workPrev.OriginalLanguage != "" {
+			workUpdates["original_language"] = workPrev.OriginalLanguage
+			work.OriginalLanguage = workPrev.OriginalLanguage
+		}
+		if work.ReleaseDate == nil && releaseDate != nil {
+			workUpdates["release_date"] = releaseDate
+			work.ReleaseDate = releaseDate
+		}
+
+		_ = tx.Model(&work).Updates(workUpdates).Error
+	} else {
+		// 新建独立作品
+		work = models.Work{
+			ID:               uuid.New(),
+			Title:            strings.TrimSpace(workPrev.Title),
+			OriginalTitle:    strings.TrimSpace(workPrev.OriginalTitle),
+			Aliases:          workPrev.Aliases,
+			ReleaseDate:      releaseDate,
+			BeginDate:        workPrev.BeginDate,
+			Country:          workPrev.Country,
+			Language:         workPrev.Language,
+			OriginalLanguage: workPrev.OriginalLanguage,
+			Summary:          workPrev.Summary,
+			CoverImageURL:    finalCoverURL,
+			CoverAspect:      workPrev.CoverAspect,
+			ContentRating:    workPrev.ContentRating,
+			Status:           workStatus,
+			ExternalIDs:      workExtIDs,
+			CatalogMetadata:  meta,
+			CreatedBy:        &userID,
+		}
+		if work.Language == "" {
+			work.Language = "zh-CN"
+		}
+		if work.ContentRating == "" {
+			work.ContentRating = "General"
+		}
+
+		if err := tx.Create(&work).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create work: " + err.Error()})
+			return
+		}
+
+		// 多语言标题与简介
+		for _, trans := range workPrev.Translations {
+			if trans.Locale != "" {
+				wt := models.WorkTranslation{
+					WorkID:  work.ID,
+					Locale:  models.NormalizeLocale(trans.Locale),
+					Title:   trans.Title,
+					Summary: trans.Summary,
+				}
+				_ = tx.Create(&wt).Error
+			}
 		}
 	}
 
-	// 标签关联
+	// 标签关联 (无论是新建还是合并)
 	if len(workPrev.Tags) > 0 {
 		for _, tagName := range workPrev.Tags {
 			tName := strings.TrimSpace(tagName)
@@ -361,7 +527,6 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 		}
 
 		if !found {
-			// 按名称查询
 			if err := tx.Where("name = ?", artName).First(&artist).Error; err == nil {
 				found = true
 			}
@@ -395,17 +560,21 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 			primaryPublisherID = &artist.ID
 		}
 
-		// 建立 WorkArtistRelation
+		// 建立 WorkArtistRelation (避免重复)
 		relRole := artPrev.Role
 		if relRole == "" {
 			relRole = "Creator"
 		}
-		workArtRel := models.WorkArtistRelation{
-			WorkID:   work.ID,
-			ArtistID: artist.ID,
-			Role:     relRole,
+		var countRel int64
+		tx.Model(&models.WorkArtistRelation{}).Where("work_id = ? AND artist_id = ?", work.ID, artist.ID).Count(&countRel)
+		if countRel == 0 {
+			workArtRel := models.WorkArtistRelation{
+				WorkID:   work.ID,
+				ArtistID: artist.ID,
+				Role:     relRole,
+			}
+			_ = tx.Create(&workArtRel).Error
 		}
-		_ = tx.Create(&workArtRel).Error
 
 		// 挂载知识图谱动态关系
 		relTypeCode := "creator"
@@ -429,134 +598,167 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 		}
 	}
 
-	// 3. 创建 Release 发行版
+	// 跨媒介语义关系建立 (当 link_mode 为 create_relation 时)
+	if isCreateRelation {
+		relTypeCode := strings.TrimSpace(req.RelationType)
+		if relTypeCode == "" {
+			switch strings.ToLower(req.MediaTypeHint) {
+			case "music":
+				relTypeCode = "soundtrack_of"
+			case "movie", "tv", "anime":
+				relTypeCode = "adaptation_of"
+			case "game":
+				relTypeCode = "spin_off_of"
+			default:
+				relTypeCode = "spin_off_of"
+			}
+		}
+		if ontology.IsEnabledRelationType(tx, relTypeCode) {
+			edge := models.EntityRelationship{
+				SourceType:       "work",
+				SourceID:         work.ID,
+				TargetType:       "work",
+				TargetID:         *req.TargetWorkID,
+				RelationshipType: relTypeCode,
+				Qualifier:        "Cross-source auto link",
+			}
+			_ = tx.Create(&edge).Error
+		}
+	}
+
+	// 3. 创建 Release 发行版与 Medium/Tracks (除 merge_translations 外均挂载 Release)
 	var release models.Release
 	importedMediumsCount := 0
 	importedTracksCount := 0
 
-	relPrev := req.Release
-	editionName := fmt.Sprintf("%s（官方首发版）", work.Title)
-	catalogNum := ""
-	barcode := ""
-	publisherStr := ""
-	packaging := "digital_release"
-	distChannel := "mixed"
-	var editionDate *time.Time = releaseDate
+	if req.LinkMode != "merge_translations" {
+		relPrev := req.Release
+		editionName := fmt.Sprintf("%s（官方首发版）", work.Title)
+		if isMerge {
+			editionName = fmt.Sprintf("%s（%s 导入版）", work.Title, req.Source)
+		}
+		catalogNum := ""
+		barcode := ""
+		publisherStr := ""
+		packaging := "digital_release"
+		distChannel := "mixed"
+		var editionDate *time.Time = releaseDate
 
-	if relPrev != nil {
-		if relPrev.EditionName != "" {
-			editionName = relPrev.EditionName
-		}
-		catalogNum = relPrev.CatalogNumber
-		barcode = relPrev.Barcode
-		publisherStr = relPrev.Publisher
-		if relPrev.Packaging != "" {
-			packaging = relPrev.Packaging
-		}
-		if relPrev.DistributionChannel != "" {
-			distChannel = ontology.NormalizeDistributionChannel(relPrev.DistributionChannel)
-		}
-		if relPrev.EditionDate != "" {
-			if t, err := time.Parse("2006-01-02", relPrev.EditionDate); err == nil {
-				editionDate = &t
+		if relPrev != nil {
+			if relPrev.EditionName != "" {
+				editionName = relPrev.EditionName
+			}
+			catalogNum = relPrev.CatalogNumber
+			barcode = relPrev.Barcode
+			publisherStr = relPrev.Publisher
+			if relPrev.Packaging != "" {
+				packaging = relPrev.Packaging
+			}
+			if relPrev.DistributionChannel != "" {
+				distChannel = ontology.NormalizeDistributionChannel(relPrev.DistributionChannel)
+			}
+			if relPrev.EditionDate != "" {
+				if t, err := time.Parse("2006-01-02", relPrev.EditionDate); err == nil {
+					editionDate = &t
+				}
 			}
 		}
-	}
 
-	relExtIDs := models.JSONB{}
-	if relPrev != nil && relPrev.ExternalIDs != nil {
-		relExtIDs = relPrev.ExternalIDs
-	} else if req.ExternalID != "" && req.Source != "" {
-		relExtIDs = models.JSONB{req.Source: req.ExternalID}
-	}
+		relExtIDs := models.JSONB{}
+		if relPrev != nil && relPrev.ExternalIDs != nil {
+			relExtIDs = relPrev.ExternalIDs
+		} else if req.ExternalID != "" && req.Source != "" {
+			relExtIDs = models.JSONB{req.Source: req.ExternalID}
+		}
 
-	release = models.Release{
-		ID:                  uuid.New(),
-		WorkID:              work.ID,
-		PublisherID:         primaryPublisherID,
-		EditionName:         editionName,
-		CatalogNumber:       catalogNum,
-		Barcode:             barcode,
-		Publisher:           publisherStr,
-		Packaging:           packaging,
-		EditionDate:         editionDate,
-		Country:             work.Country,
-		Language:            work.Language,
-		DistributionChannel: distChannel,
-		ExternalIDs:         relExtIDs,
-		CatalogMetadata:     meta,
-		UploaderID:          &userID,
-		IsMasterVerified:    req.IsMasterVerified,
-		Notes:               fmt.Sprintf("Auto-imported via OmniSource Importer from %s", req.Source),
-	}
-	if err := tx.Create(&release).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create release: " + err.Error()})
-		return
-	}
+		release = models.Release{
+			ID:                  uuid.New(),
+			WorkID:              work.ID,
+			PublisherID:         primaryPublisherID,
+			EditionName:         editionName,
+			CatalogNumber:       catalogNum,
+			Barcode:             barcode,
+			Publisher:           publisherStr,
+			Packaging:           packaging,
+			EditionDate:         editionDate,
+			Country:             work.Country,
+			Language:            work.Language,
+			DistributionChannel: distChannel,
+			ExternalIDs:         relExtIDs,
+			CatalogMetadata:     meta,
+			UploaderID:          &userID,
+			IsMasterVerified:    req.IsMasterVerified,
+			Notes:               fmt.Sprintf("Auto-imported via OmniSource Importer from %s", req.Source),
+		}
+		if err := tx.Create(&release).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create release: " + err.Error()})
+			return
+		}
 
-	// 4. 创建 Medium 与 Tracks / CanonicalEntries
-	for _, medPrev := range req.Mediums {
-		med := models.Medium{
-			ID:            uuid.New(),
-			ReleaseID:     release.ID,
-			Position:      medPrev.Position,
-			Name:          medPrev.Name,
-			Format:        medPrev.Format,
-			MediaCategory: medPrev.MediaCategory,
-			TrackCount:    len(medPrev.Tracks),
-		}
-		if med.Position <= 0 {
-			med.Position = importedMediumsCount + 1
-		}
-		if med.Format == "" {
-			med.Format = "Digital"
-		}
-		if med.MediaCategory == "" {
-			med.MediaCategory = "audio"
-		}
-		if err := tx.Create(&med).Error; err != nil {
-			log.Printf("[Importer] Create medium notice: %v", err)
-			continue
-		}
-		importedMediumsCount++
-
-		for _, trkPrev := range medPrev.Tracks {
-			// 母版录音条目 CanonicalEntry
-			canon := models.CanonicalEntry{
-				ID:              uuid.New(),
-				Title:           trkPrev.Title,
-				SortTitle:       trkPrev.Title,
-				Duration:        trkPrev.DurationSeconds,
-				ISRC:            trkPrev.ISRC,
-				ArtistCredit:    trkPrev.ArtistCredit,
-				WorkID:          &work.ID,
-				ExternalIDs: models.JSONB{
-					"source": req.Source,
-				},
+		// 4. 创建 Medium 与 Tracks / CanonicalEntries
+		for _, medPrev := range req.Mediums {
+			med := models.Medium{
+				ID:            uuid.New(),
+				ReleaseID:     release.ID,
+				Position:      medPrev.Position,
+				Name:          medPrev.Name,
+				Format:        medPrev.Format,
+				MediaCategory: medPrev.MediaCategory,
+				TrackCount:    len(medPrev.Tracks),
 			}
-			if trkPrev.RecordingMBID != "" {
-				canon.ExternalIDs["musicbrainz_recording_id"] = trkPrev.RecordingMBID
+			if med.Position <= 0 {
+				med.Position = importedMediumsCount + 1
 			}
-			_ = tx.Create(&canon).Error
+			if med.Format == "" {
+				med.Format = "Digital"
+			}
+			if med.MediaCategory == "" {
+				med.MediaCategory = "audio"
+			}
+			if err := tx.Create(&med).Error; err != nil {
+				log.Printf("[Importer] Create medium notice: %v", err)
+				continue
+			}
+			importedMediumsCount++
 
-			// 实体曲目/单集 Track
-			trk := models.Track{
-				ID:               uuid.New(),
-				MediumID:         med.ID,
-				CanonicalEntryID: &canon.ID,
-				WorkID:           &work.ID,
-				Position:         trkPrev.Position,
-				Title:            trkPrev.Title,
-				DurationSeconds:  trkPrev.DurationSeconds,
-				ISRC:             trkPrev.ISRC,
-				ArtistCredit:     trkPrev.ArtistCredit,
-			}
-			if trk.Position <= 0 {
-				trk.Position = importedTracksCount + 1
-			}
-			if err := tx.Create(&trk).Error; err == nil {
-				importedTracksCount++
+			for _, trkPrev := range medPrev.Tracks {
+				// 母版录音条目 CanonicalEntry
+				canon := models.CanonicalEntry{
+					ID:              uuid.New(),
+					Title:           trkPrev.Title,
+					SortTitle:       trkPrev.Title,
+					Duration:        trkPrev.DurationSeconds,
+					ISRC:            trkPrev.ISRC,
+					ArtistCredit:    trkPrev.ArtistCredit,
+					WorkID:          &work.ID,
+					ExternalIDs: models.JSONB{
+						"source": req.Source,
+					},
+				}
+				if trkPrev.RecordingMBID != "" {
+					canon.ExternalIDs["musicbrainz_recording_id"] = trkPrev.RecordingMBID
+				}
+				_ = tx.Create(&canon).Error
+
+				// 实体曲目/单集 Track
+				trk := models.Track{
+					ID:               uuid.New(),
+					MediumID:         med.ID,
+					CanonicalEntryID: &canon.ID,
+					WorkID:           &work.ID,
+					Position:         trkPrev.Position,
+					Title:            trkPrev.Title,
+					DurationSeconds:  trkPrev.DurationSeconds,
+					ISRC:             trkPrev.ISRC,
+					ArtistCredit:     trkPrev.ArtistCredit,
+				}
+				if trk.Position <= 0 {
+					trk.Position = importedTracksCount + 1
+				}
+				if err := tx.Create(&trk).Error; err == nil {
+					importedTracksCount++
+				}
 			}
 		}
 	}
@@ -564,19 +766,30 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 	// 5. 记录版本审计快照 (entity_revisions)
 	editNote := req.EditNote
 	if editNote == "" {
-		editNote = fmt.Sprintf("通过 OmniSource Importer 权威数据源 (%s) 快速一键导入入库", req.Source)
+		if isMerge {
+			editNote = fmt.Sprintf("合并来自权威数据源 (%s) 的多语言与发行版规格至作品《%s》", req.Source, work.Title)
+		} else {
+			editNote = fmt.Sprintf("通过 OmniSource Importer 权威数据源 (%s) 快速一键导入入库", req.Source)
+		}
 	}
 	sourceURLs := req.SourceURLs
 	if len(sourceURLs) == 0 && req.URLOrID != "" {
 		sourceURLs = []string{req.URLOrID}
 	}
 
+	workEditType := "create"
+	workSummary := fmt.Sprintf("一键导入作品: %s", work.Title)
+	if isMerge {
+		workEditType = "update"
+		workSummary = fmt.Sprintf("合并导入作品数据源 (%s): %s", req.Source, work.Title)
+	}
+
 	revWork := models.EntityRevision{
 		TargetType:  "work",
 		TargetID:    work.ID,
 		EditorID:    &userID,
-		EditType:    "create",
-		Summary:     fmt.Sprintf("一键导入作品: %s", work.Title),
+		EditType:    workEditType,
+		Summary:     workSummary,
 		EditNote:    editNote,
 		SourceURLs:  sourceURLs,
 		AfterState: models.JSONB{
@@ -585,37 +798,43 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 			"cover_image_url": work.CoverImageURL,
 			"release_date":    work.ReleaseDate,
 			"country":         work.Country,
+			"external_ids":    work.ExternalIDs,
+			"aliases":         work.Aliases,
 		},
 		Diff: models.JSONB{
-			"action": "imported",
-			"source": req.Source,
+			"action":    "imported",
+			"source":    req.Source,
+			"link_mode": req.LinkMode,
 		},
 		Status:    "applied",
 		CreatedAt: time.Now(),
 	}
 	_ = tx.Create(&revWork).Error
 
-	revRelease := models.EntityRevision{
-		TargetType:  "release",
-		TargetID:    release.ID,
-		EditorID:    &userID,
-		EditType:    "create",
-		Summary:     fmt.Sprintf("一键导入版本: %s", release.EditionName),
-		EditNote:    editNote,
-		SourceURLs:  sourceURLs,
-		AfterState: models.JSONB{
-			"edition_name": release.EditionName,
-			"publisher":    release.Publisher,
-			"packaging":    release.Packaging,
-		},
-		Diff: models.JSONB{
-			"action": "imported",
-			"source": req.Source,
-		},
-		Status:    "applied",
-		CreatedAt: time.Now(),
+	if release.ID != uuid.Nil {
+		revRelease := models.EntityRevision{
+			TargetType:  "release",
+			TargetID:    release.ID,
+			EditorID:    &userID,
+			EditType:    "create",
+			Summary:     fmt.Sprintf("一键导入/挂载版本: %s", release.EditionName),
+			EditNote:    editNote,
+			SourceURLs:  sourceURLs,
+			AfterState: models.JSONB{
+				"edition_name": release.EditionName,
+				"publisher":    release.Publisher,
+				"packaging":    release.Packaging,
+				"work_id":      work.ID,
+			},
+			Diff: models.JSONB{
+				"action": "imported",
+				"source": req.Source,
+			},
+			Status:    "applied",
+			CreatedAt: time.Now(),
+		}
+		_ = tx.Create(&revRelease).Error
 	}
-	_ = tx.Create(&revRelease).Error
 
 	if err := tx.Commit().Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction: " + err.Error()})
@@ -624,10 +843,15 @@ func (s *ImporterService) ImportHandler(c *gin.Context) {
 
 	// 触发插件系统通知钩子
 	if s.pluginResolver != nil {
-		s.pluginResolver.NotifyEvent(context.Background(), "import.completed", map[string]interface{}{
+		eventName := "import.completed"
+		if isMerge {
+			eventName = "import.merged"
+		}
+		s.pluginResolver.NotifyEvent(context.Background(), eventName, map[string]interface{}{
 			"work_id":   work.ID.String(),
 			"title":     work.Title,
 			"source":    req.Source,
+			"link_mode": req.LinkMode,
 			"user_id":   userID.String(),
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
 		})

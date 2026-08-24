@@ -19,6 +19,9 @@ func TestDetectSource(t *testing.T) {
 		{"https://www.themoviedb.org/tv/1399", "", "tmdb"},
 		{"https://bgm.tv/subject/364450", "", "bangumi"},
 		{"https://bangumi.tv/subject/364450", "", "bangumi"},
+		{"https://vndb.org/v2002", "", "vndb"},
+		{"v2002", "", "vndb"},
+		{"https://movie.douban.com/subject/1292052/", "", "douban"},
 		{"364450", "anime", "bangumi"},
 		{"157336", "movie", "tmdb"},
 	}

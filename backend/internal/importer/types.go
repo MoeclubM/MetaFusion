@@ -117,6 +117,9 @@ type ImportRequest struct {
 	EditNote         string           `json:"edit_note"`          // 编辑注记 (默认自动生成)
 	SourceURLs       []string         `json:"source_urls"`        // 参考链接列表
 	IsMasterVerified bool             `json:"is_master_verified"` // 是否标记为核验主版
+	TargetWorkID     *uuid.UUID       `json:"target_work_id,omitempty"` // 目标母体作品 UUID（已有作品）
+	LinkMode         string           `json:"link_mode,omitempty"`      // "new_work" (默认), "append_release_to_work", "merge_translations", "create_relation"
+	RelationType     string           `json:"relation_type,omitempty"`  // 当 link_mode 为 "create_relation" 时的关系类型
 }
 
 // ImportResponse 导入成功响应

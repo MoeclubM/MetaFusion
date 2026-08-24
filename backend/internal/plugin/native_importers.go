@@ -143,7 +143,7 @@ func (p *MusicBrainzPlugin) ValidateExternalID(source string, externalID string)
 	return len(clean) == 36 && strings.Count(clean, "-") == 4
 }
 
-// ── 2. TMDB / IMDb 原生插件 ──
+// ── 2. TMDB 原生插件 ──
 
 type TMDBPlugin struct {
 	config map[string]interface{}
@@ -160,9 +160,9 @@ func NewTMDBPlugin() Plugin {
 func (p *TMDBPlugin) Manifest() Manifest {
 	return Manifest{
 		ID:          "tmdb",
-		Name:        "The Movie Database (TMDB & IMDb)",
+		Name:        "The Movie Database (TMDB)",
 		Version:     "1.0.0",
-		Description: "全球主流影视作品权威元数据源，支持按 IMDb ID 或 TMDB ID 提取电影、电视剧集、演职员与剧照海报",
+		Description: "全球主流影视作品权威元数据源，支持按 TMDB ID 或 URL 提取电影、电视剧集、演职员与剧照海报",
 		Author:      "MetaFusion Core",
 		Icon:        "Film",
 		Type:        PluginTypeNative,
@@ -170,7 +170,7 @@ func (p *TMDBPlugin) Manifest() Manifest {
 			CapImporter,
 			CapMetadataProvider,
 		},
-		SupportedSources: []string{"tmdb", "imdb"},
+		SupportedSources: []string{"tmdb"},
 		ConfigSchema: ConfigSchema{
 			Fields: []ConfigField{
 				{
@@ -238,12 +238,12 @@ func (p *TMDBPlugin) HealthCheck(ctx context.Context) HealthStatus {
 }
 
 func (p *TMDBPlugin) SupportedSources() []string {
-	return []string{"tmdb", "imdb"}
+	return []string{"tmdb"}
 }
 
 func (p *TMDBPlugin) DetectSource(input string, hint string) bool {
 	clean := strings.ToLower(strings.TrimSpace(input))
-	return strings.Contains(clean, "themoviedb.org") || strings.Contains(clean, "imdb.com") || (strings.HasPrefix(clean, "tt") && len(clean) >= 7)
+	return strings.Contains(clean, "themoviedb.org")
 }
 
 func (p *TMDBPlugin) Preview(ctx context.Context, req *importer.PreviewRequest) (*importer.PreviewResponse, error) {
@@ -268,6 +268,113 @@ func (p *TMDBPlugin) GetMetadata(ctx context.Context, source string, externalID 
 func (p *TMDBPlugin) ValidateExternalID(source string, externalID string) bool {
 	clean := strings.TrimSpace(externalID)
 	return clean != ""
+}
+
+// ── 2.5. IMDb 原生插件 ──
+
+type IMDbPlugin struct {
+	config map[string]interface{}
+	client *http.Client
+}
+
+func NewIMDbPlugin() Plugin {
+	return &IMDbPlugin{
+		config: make(map[string]interface{}),
+		client: &http.Client{Timeout: 20 * time.Second},
+	}
+}
+
+func (p *IMDbPlugin) Manifest() Manifest {
+	return Manifest{
+		ID:          "imdb",
+		Name:        "Internet Movie Database (IMDb)",
+		Version:     "1.0.0",
+		Description: "全球最具权威的电影与电视数据库，支持按 IMDb ID (tt...) 或链接解析影片主创、演职员及详情",
+		Author:      "MetaFusion Core",
+		Icon:        "Film",
+		Type:        PluginTypeNative,
+		Capabilities: []string{
+			CapImporter,
+			CapMetadataProvider,
+		},
+		SupportedSources: []string{"imdb"},
+		ConfigSchema: ConfigSchema{
+			Fields: []ConfigField{
+				{
+					Key:          "tmdb_api_key",
+					Label:        "可选 TMDB API Key（辅助解析）",
+					Type:        "password",
+					DefaultValue: "",
+					Description:  "若提供，可使用 TMDB Find 接口获取更精准的中英双语元数据",
+					Required:     false,
+				},
+			},
+		},
+	}
+}
+
+func (p *IMDbPlugin) Init(ctx context.Context, config map[string]interface{}) error {
+	p.config = config
+	return nil
+}
+
+func (p *IMDbPlugin) Start(ctx context.Context) error {
+	return nil
+}
+
+func (p *IMDbPlugin) Stop(ctx context.Context) error {
+	return nil
+}
+
+func (p *IMDbPlugin) HealthCheck(ctx context.Context) HealthStatus {
+	start := time.Now()
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://www.imdb.com/title/tt0816692/", nil)
+	if err != nil {
+		return HealthStatus{Status: "unhealthy", Message: err.Error(), LatencyMs: 0, LastChecked: time.Now()}
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	resp, err := p.client.Do(req)
+	latency := time.Since(start).Milliseconds()
+	if err != nil {
+		return HealthStatus{Status: "warning", Message: fmt.Sprintf("IMDb ping notice: %v", err), LatencyMs: latency, LastChecked: time.Now()}
+	}
+	defer resp.Body.Close()
+	return HealthStatus{Status: "healthy", Message: "IMDb reachable", LatencyMs: latency, LastChecked: time.Now()}
+}
+
+func (p *IMDbPlugin) SupportedSources() []string {
+	return []string{"imdb"}
+}
+
+func (p *IMDbPlugin) DetectSource(input string, hint string) bool {
+	clean := strings.ToLower(strings.TrimSpace(input))
+	return strings.Contains(clean, "imdb.com") || (strings.HasPrefix(clean, "tt") && len(clean) >= 7)
+}
+
+func (p *IMDbPlugin) Preview(ctx context.Context, req *importer.PreviewRequest) (*importer.PreviewResponse, error) {
+	apiKey := ""
+	if k, ok := p.config["tmdb_api_key"].(string); ok && strings.TrimSpace(k) != "" {
+		apiKey = strings.TrimSpace(k)
+	}
+	return importer.FetchTMDBPreview(ctx, req.URLOrID, req.MediaTypeHint, apiKey)
+}
+
+func (p *IMDbPlugin) GetMetadata(ctx context.Context, source string, externalID string) (map[string]interface{}, error) {
+	preview, err := p.Preview(ctx, &importer.PreviewRequest{URLOrID: externalID})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"source":      "imdb",
+		"external_id": externalID,
+		"title":       preview.Work.Title,
+		"artists":     preview.Artists,
+	}, nil
+}
+
+func (p *IMDbPlugin) ValidateExternalID(source string, externalID string) bool {
+	clean := strings.ToLower(strings.TrimSpace(externalID))
+	return strings.HasPrefix(clean, "tt") && len(clean) >= 7
 }
 
 // ── 3. Bangumi 番组计划原生插件 ──

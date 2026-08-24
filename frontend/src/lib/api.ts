@@ -1200,6 +1200,7 @@ export interface ImporterPreviewResponse {
 export interface ImporterImportRequest {
   source?: string;
   url_or_id?: string;
+  external_id?: string;
   media_type_hint?: string;
   work?: ImporterWorkPreview;
   artists?: ImporterArtistPreview[];
@@ -1209,6 +1210,9 @@ export interface ImporterImportRequest {
   edit_note?: string;
   source_urls?: string[];
   is_master_verified?: boolean;
+  target_work_id?: string;
+  link_mode?: "new_work" | "append_release_to_work" | "merge_translations" | "create_relation";
+  relation_type?: string;
 }
 
 export interface ImporterImportResponse {

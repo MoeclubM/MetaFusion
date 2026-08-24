@@ -89,6 +89,7 @@ func NewManager(db *gorm.DB, cfg *config.Config) *Manager {
 	// 注册内置原生插件工厂
 	reg.RegisterFactory("musicbrainz", NewMusicBrainzPlugin)
 	reg.RegisterFactory("tmdb", NewTMDBPlugin)
+	reg.RegisterFactory("imdb", NewIMDbPlugin)
 	reg.RegisterFactory("bangumi", NewBangumiPlugin)
 	reg.RegisterFactory("vndb", NewVNDBPlugin)
 	reg.RegisterFactory("douban", NewDoubanPlugin)
