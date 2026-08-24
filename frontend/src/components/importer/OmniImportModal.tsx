@@ -95,7 +95,6 @@ export function OmniImportModal({
   const [error, setError] = useState<string>("");
 
   const [downloadCover, setDownloadCover] = useState(true);
-  const [isMasterVerified, setIsMasterVerified] = useState(false);
   const [editNote, setEditNote] = useState("");
   const [importing, setImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<any>(null);
@@ -164,7 +163,6 @@ export function OmniImportModal({
         release: previewData.release,
         mediums: previewData.mediums,
         download_cover: downloadCover,
-        is_master_verified: isMasterVerified,
         edit_note: editNote.trim() || t("importer.defaultEditNote", { source: previewData.source.toUpperCase() }),
         source_urls: [previewData.external_url || inputVal],
       });
@@ -507,18 +505,6 @@ export function OmniImportModal({
                   />
                   <span>{t("importer.optDownloadCover")}</span>
                 </label>
-
-                {(user?.role === "admin" || user?.role === "archivist") && (
-                  <label className="flex items-center gap-2 text-xs font-mono text-gray-700 dark:text-gray-300 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={isMasterVerified}
-                      onChange={(e) => setIsMasterVerified(e.target.checked)}
-                      className="rounded border-gray-400 text-primary focus:ring-primary/20"
-                    />
-                    <span>{t("importer.optMasterVerified")}</span>
-                  </label>
-                )}
               </div>
             </div>
           )}
