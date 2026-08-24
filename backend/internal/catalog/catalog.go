@@ -2637,10 +2637,6 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 		"external_ids":   artist.ExternalIDs,
 		"attributes":     artist.Attributes,
 	}
-		"end_date":       artist.EndDate,
-		"ended":          artist.Ended,
-		"external_ids":   artist.ExternalIDs,
-	}
 
 	s.recordRevision("artist", artist.ID, &userID, "update", "更新创作者/机构主体档案", input.EditNote, input.SourceURLs, beforeState, afterState)
 	s.upsertArtistTranslations(artist.ID, items)

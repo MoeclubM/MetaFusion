@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -135,9 +136,12 @@ func main() {
 
 	// 生产健康检查探针体系 (Liveness & Readiness Probes)
 	r.GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "live", "service": "metafusion-backend"})
+		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "metafusion-backend"})
 	})
 	r.GET("/live", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "live", "service": "metafusion-backend"})
+	})
+	r.GET("/livez", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "live", "service": "metafusion-backend"})
 	})
 	r.GET("/ready", func(c *gin.Context) {
@@ -153,10 +157,11 @@ func main() {
 		}
 
 		// 2. Redis 检查
-		if err := asynqClient.Ping(); err != nil {
+		if conn, err := net.DialTimeout("tcp", cfg.RedisAddr, 2*time.Second); err != nil {
 			checks["redis"] = "unhealthy"
 			allHealthy = false
 		} else {
+			_ = conn.Close()
 			checks["redis"] = "healthy"
 		}
 

@@ -569,8 +569,10 @@ func (p *BibTeXExporterPlugin) ExportWork(ctx context.Context, work *models.Work
 	}
 
 	year := "2026"
-	if len(work.ReleaseDate) >= 4 {
-		year = work.ReleaseDate[:4]
+	if work.ReleaseDate != nil {
+		year = fmt.Sprintf("%d", work.ReleaseDate.Year())
+	} else if len(work.BeginDate) >= 4 {
+		year = work.BeginDate[:4]
 	}
 
 	citeKey := fmt.Sprintf("metafusion_%s_%s", sanitizeCiteKey(work.Title), year)

@@ -25,6 +25,38 @@ type Manager struct {
 	mu       sync.RWMutex
 }
 
+func toJSONB(v interface{}) models.JSONB {
+	if v == nil {
+		return models.JSONB{}
+	}
+	if jb, ok := v.(models.JSONB); ok {
+		return jb
+	}
+	if m, ok := v.(map[string]interface{}); ok {
+		return models.JSONB(m)
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return models.JSONB{}
+	}
+	var res map[string]interface{}
+	if err := json.Unmarshal(b, &res); err != nil {
+		return models.JSONB{}
+	}
+	return models.JSONB(res)
+}
+
+func unmarshalJSONB(jb models.JSONB, target interface{}) error {
+	if jb == nil {
+		return nil
+	}
+	b, err := json.Marshal(jb)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(b, target)
+}
+
 // RegisterExternalInput 注册外部进程/Webhook插件请求
 type RegisterExternalInput struct {
 	ID           string                 `json:"id" binding:"required"`
@@ -92,11 +124,6 @@ func (m *Manager) Initialize(ctx context.Context) error {
 
 		var dbPlugin models.SystemPlugin
 		err := m.db.Where("id = ?", manifest.ID).First(&dbPlugin).Error
-		schemaBytes, _ := json.Marshal(manifest.ConfigSchema)
-		depsBytes, _ := json.Marshal(manifest.Dependencies)
-		if manifest.Dependencies == nil {
-			depsBytes = []byte("{}")
-		}
 
 		if err != nil && err == gorm.ErrRecordNotFound {
 			// 初始化新内置插件入库
@@ -106,7 +133,6 @@ func (m *Manager) Initialize(ctx context.Context) error {
 					defaultCfg[f.Key] = f.DefaultValue
 				}
 			}
-			cfgBytes, _ := json.Marshal(defaultCfg)
 
 			dbPlugin = models.SystemPlugin{
 				ID:           manifest.ID,
@@ -117,9 +143,9 @@ func (m *Manager) Initialize(ctx context.Context) error {
 				Icon:         manifest.Icon,
 				Type:         PluginTypeNative,
 				Capabilities: pq.StringArray(manifest.Capabilities),
-				Dependencies: models.JSONB(depsBytes),
-				ConfigSchema: models.JSONB(schemaBytes),
-				Config:       models.JSONB(cfgBytes),
+				Dependencies: toJSONB(manifest.Dependencies),
+				ConfigSchema: toJSONB(manifest.ConfigSchema),
+				Config:       toJSONB(defaultCfg),
 				IsEnabled:    true,
 				IsSystem:     true,
 				CreatedAt:    time.Now(),
@@ -137,8 +163,8 @@ func (m *Manager) Initialize(ctx context.Context) error {
 				"author":        manifest.Author,
 				"icon":          manifest.Icon,
 				"capabilities":  pq.StringArray(manifest.Capabilities),
-				"dependencies":  models.JSONB(depsBytes),
-				"config_schema": models.JSONB(schemaBytes),
+				"dependencies":  toJSONB(manifest.Dependencies),
+				"config_schema": toJSONB(manifest.ConfigSchema),
 				"is_system":     true,
 			})
 		}
@@ -175,7 +201,7 @@ func (m *Manager) Initialize(ctx context.Context) error {
 
 		var instance Plugin
 		var cfgMap map[string]interface{}
-		_ = json.Unmarshal([]byte(row.Config), &cfgMap)
+		_ = unmarshalJSONB(row.Config, &cfgMap)
 		if cfgMap == nil {
 			cfgMap = make(map[string]interface{})
 		}
@@ -190,9 +216,9 @@ func (m *Manager) Initialize(ctx context.Context) error {
 		} else {
 			// 外部 HTTP / Webhook 驱动插件
 			var schema ConfigSchema
-			_ = json.Unmarshal([]byte(row.ConfigSchema), &schema)
+			_ = unmarshalJSONB(row.ConfigSchema, &schema)
 			var deps map[string]string
-			_ = json.Unmarshal([]byte(row.Dependencies), &deps)
+			_ = unmarshalJSONB(row.Dependencies, &deps)
 
 			manifest := Manifest{
 				ID:           row.ID,
@@ -239,7 +265,7 @@ func (m *Manager) buildGraphFromDB() (*DependencyGraph, map[string]models.System
 		pluginMap[p.ID] = p
 		var deps map[string]string
 		if len(p.Dependencies) > 0 {
-			_ = json.Unmarshal([]byte(p.Dependencies), &deps)
+			_ = unmarshalJSONB(p.Dependencies, &deps)
 		}
 		graph.AddNode(PluginNode{
 			ID:           p.ID,
@@ -296,7 +322,7 @@ func (m *Manager) enableSinglePlugin(ctx context.Context, row *models.SystemPlug
 	m.db.Model(row).Update("is_enabled", true)
 
 	var cfgMap map[string]interface{}
-	_ = json.Unmarshal([]byte(row.Config), &cfgMap)
+	_ = unmarshalJSONB(row.Config, &cfgMap)
 
 	inst, exists := m.registry.GetInstance(row.ID)
 	if !exists {
@@ -306,9 +332,9 @@ func (m *Manager) enableSinglePlugin(ctx context.Context, row *models.SystemPlug
 			}
 		} else {
 			var schema ConfigSchema
-			_ = json.Unmarshal([]byte(row.ConfigSchema), &schema)
+			_ = unmarshalJSONB(row.ConfigSchema, &schema)
 			var deps map[string]string
-			_ = json.Unmarshal([]byte(row.Dependencies), &deps)
+			_ = unmarshalJSONB(row.Dependencies, &deps)
 
 			manifest := Manifest{
 				ID:           row.ID,
@@ -429,14 +455,10 @@ func (m *Manager) UpdatePlugin(ctx context.Context, id string, input UpdatePlugi
 	}
 
 	if input.Config != nil {
-		cfgBytes, err := json.Marshal(input.Config)
-		if err != nil {
-			return nil, fmt.Errorf("invalid config json: %w", err)
-		}
-		if err := m.db.Model(&row).Update("config", models.JSONB(cfgBytes)).Error; err != nil {
+		if err := m.db.Model(&row).Update("config", toJSONB(input.Config)).Error; err != nil {
 			return nil, fmt.Errorf("failed to update config in db: %w", err)
 		}
-		row.Config = models.JSONB(cfgBytes)
+		row.Config = toJSONB(input.Config)
 
 		// 重新给活跃实例应用新配置
 		if row.IsEnabled {
@@ -488,25 +510,10 @@ func (m *Manager) RegisterExternalPlugin(ctx context.Context, input RegisterExte
 		pType = PluginTypeExternalHTTP
 	}
 
-	var schemaBytes []byte
-	if input.ConfigSchema != nil {
-		schemaBytes, _ = json.Marshal(input.ConfigSchema)
-	} else {
-		schemaBytes = []byte(`{"fields":[]}`)
-	}
-
-	var depsBytes []byte
-	if input.Dependencies != nil {
-		depsBytes, _ = json.Marshal(input.Dependencies)
-	} else {
-		depsBytes = []byte(`{}`)
-	}
-
 	cfg := input.Config
 	if cfg == nil {
 		cfg = make(map[string]interface{})
 	}
-	cfgBytes, _ := json.Marshal(cfg)
 
 	// 循环依赖试探检测
 	graph, _, _ := m.buildGraphFromDB()
@@ -531,9 +538,9 @@ func (m *Manager) RegisterExternalPlugin(ctx context.Context, input RegisterExte
 		EndpointURL:  input.EndpointURL,
 		SecretToken:  input.SecretToken,
 		Capabilities: pq.StringArray(input.Capabilities),
-		Dependencies: models.JSONB(depsBytes),
-		ConfigSchema: models.JSONB(schemaBytes),
-		Config:       models.JSONB(cfgBytes),
+		Dependencies: toJSONB(input.Dependencies),
+		ConfigSchema: toJSONB(input.ConfigSchema),
+		Config:       toJSONB(cfg),
 		IsEnabled:    input.IsEnabled,
 		IsSystem:     false,
 		CreatedAt:    time.Now(),
@@ -546,7 +553,9 @@ func (m *Manager) RegisterExternalPlugin(ctx context.Context, input RegisterExte
 
 	if row.IsEnabled {
 		var schema ConfigSchema
-		_ = json.Unmarshal(schemaBytes, &schema)
+		if input.ConfigSchema != nil {
+			schema = *input.ConfigSchema
+		}
 		manifest := Manifest{
 			ID:           row.ID,
 			Name:         row.Name,
@@ -617,7 +626,7 @@ func (m *Manager) TestPluginHealth(ctx context.Context, id string) (*HealthStatu
 		}
 
 		var cfgMap map[string]interface{}
-		_ = json.Unmarshal([]byte(row.Config), &cfgMap)
+		_ = unmarshalJSONB(row.Config, &cfgMap)
 
 		if row.Type == PluginTypeNative {
 			if factory, ok := m.registry.GetFactory(id); ok {
@@ -625,7 +634,7 @@ func (m *Manager) TestPluginHealth(ctx context.Context, id string) (*HealthStatu
 			}
 		} else {
 			var schema ConfigSchema
-			_ = json.Unmarshal([]byte(row.ConfigSchema), &schema)
+			_ = unmarshalJSONB(row.ConfigSchema, &schema)
 			manifest := Manifest{
 				ID:           row.ID,
 				Name:         row.Name,
@@ -659,11 +668,11 @@ func (m *Manager) DetectAndPreview(ctx context.Context, req *importer.PreviewReq
 		return nil, fmt.Errorf("no importer plugin active in the system")
 	}
 
-	// 1. 若前端指定了 Hint，优先匹配 Hint
-	if req.Hint != "" {
+	// 1. 若前端指定了 Source，优先匹配
+	if req.Source != "" && req.Source != "auto" {
 		for _, imp := range importers {
 			for _, src := range imp.SupportedSources() {
-				if strings.EqualFold(src, req.Hint) {
+				if strings.EqualFold(src, req.Source) {
 					return imp.Preview(ctx, req)
 				}
 			}
@@ -672,12 +681,20 @@ func (m *Manager) DetectAndPreview(ctx context.Context, req *importer.PreviewReq
 
 	// 2. 依次由各导入插件进行 DetectSource 探测
 	for _, imp := range importers {
-		if imp.DetectSource(req.Input, req.Hint) {
+		if imp.DetectSource(req.URLOrID, req.MediaTypeHint) {
 			return imp.Preview(ctx, req)
 		}
 	}
 
-	return nil, fmt.Errorf("no active plugin recognized the provided URL or ID: %s", req.Input)
+	return nil, fmt.Errorf("no active plugin recognized the provided URL or ID: %s", req.URLOrID)
+}
+
+func (m *Manager) GetImporterPreview(ctx context.Context, req *importer.PreviewRequest) (*importer.PreviewResponse, error) {
+	return m.DetectAndPreview(ctx, req)
+}
+
+func (m *Manager) NotifyEvent(ctx context.Context, event string, payload map[string]interface{}) {
+	m.Notify(ctx, event, payload)
 }
 
 // Notify 广播事件通知至所有已激活的 Notifier 插件 (异步非阻塞)
@@ -761,18 +778,18 @@ func (m *Manager) ExportWork(ctx context.Context, format string, workID uuid.UUI
 
 func (m *Manager) toDTOWithGraph(ctx context.Context, r *models.SystemPlugin, graph *DependencyGraph, loadOrder int) *PluginDTO {
 	var schema ConfigSchema
-	_ = json.Unmarshal([]byte(r.ConfigSchema), &schema)
+	_ = unmarshalJSONB(r.ConfigSchema, &schema)
 
 	var deps map[string]string
 	if len(r.Dependencies) > 0 {
-		_ = json.Unmarshal([]byte(r.Dependencies), &deps)
+		_ = unmarshalJSONB(r.Dependencies, &deps)
 	}
 	if deps == nil {
 		deps = make(map[string]string)
 	}
 
 	var cfgMap map[string]interface{}
-	_ = json.Unmarshal([]byte(r.Config), &cfgMap)
+	_ = unmarshalJSONB(r.Config, &cfgMap)
 	if cfgMap == nil {
 		cfgMap = make(map[string]interface{})
 	}

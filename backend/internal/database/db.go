@@ -40,8 +40,8 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	// 自动同步模型结构（若数据库已有表则跳过，不影响手动执行的 01_schema.sql）
-	_ = db.AutoMigrate(
+	// 自动同步模型结构（若数据库已有表则跳过，独立迁移各表避免单一约束差异阻塞全库）
+	modelsToMigrate := []interface{}{
 		&models.User{},
 		&models.Invitation{},
 		&models.Category{},
@@ -56,11 +56,11 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		&models.Release{},
 		&models.Medium{},
 		&models.CanonicalEntry{},
-			&models.Track{},
-			&models.AssetFile{},
-			&models.AssetRegistry{},
-			&models.AssetBinding{},
-			&models.EntityRelationship{},
+		&models.Track{},
+		&models.AssetFile{},
+		&models.AssetRegistry{},
+		&models.AssetBinding{},
+		&models.EntityRelationship{},
 		&models.RelationType{},
 		&models.EntityTypeDefinition{},
 		&models.ExternalDatabaseDefinition{},
@@ -83,7 +83,12 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		&models.ApiToken{},
 		&models.Favorite{},
 		&models.SystemPlugin{},
-	)
+	}
+	for _, m := range modelsToMigrate {
+		if err := db.AutoMigrate(m); err != nil {
+			log.Printf("AutoMigrate [%T] notice: %v", m, err)
+		}
+	}
 	ApplyPatches(db)
 	log.Println("Database connection pool initialized successfully.")
 	return db, nil

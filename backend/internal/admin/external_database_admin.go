@@ -102,7 +102,7 @@ func (s *AdminService) CreateExternalDatabase(c *gin.Context) {
 		return
 	}
 
-	s.logAdminAction(c, "create_external_database", "external_database", item.Code, models.JSONB{
+	writeAudit(s.db, c, "external_database.create", "external_database", item.Code, map[string]interface{}{
 		"code":        item.Code,
 		"name_zh":     item.NameZh,
 		"url_pattern": item.URLPattern,
@@ -190,7 +190,7 @@ func (s *AdminService) UpdateExternalDatabase(c *gin.Context) {
 	var updated models.ExternalDatabaseDefinition
 	_ = s.db.Where("code = ?", code).First(&updated)
 
-	s.logAdminAction(c, "update_external_database", "external_database", code, models.JSONB{
+	writeAudit(s.db, c, "external_database.update", "external_database", code, map[string]interface{}{
 		"updates": updates,
 	})
 
@@ -221,7 +221,7 @@ func (s *AdminService) DeleteExternalDatabase(c *gin.Context) {
 		return
 	}
 
-	s.logAdminAction(c, "delete_external_database", "external_database", code, models.JSONB{
+	writeAudit(s.db, c, "external_database.delete", "external_database", code, map[string]interface{}{
 		"code": code,
 	})
 

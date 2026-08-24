@@ -61,6 +61,17 @@ func IsEnabledWorkRole(db *gorm.DB, code string) bool {
 	return false
 }
 
+func IsEnabledRelationType(db *gorm.DB, code string) bool {
+	if code == "" {
+		return false
+	}
+	var rt models.RelationType
+	if err := db.Where("code = ? AND is_enabled = ?", code, true).First(&rt).Error; err != nil {
+		return false
+	}
+	return true
+}
+
 type EdgeSpec struct {
 	SourceType       string
 	SourceID         uuid.UUID

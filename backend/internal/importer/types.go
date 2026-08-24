@@ -26,6 +26,7 @@ type WorkPreview struct {
 	Aliases          []string          `json:"aliases"`
 	ReleaseDate      string            `json:"release_date"` // YYYY-MM-DD
 	BeginDate        string            `json:"begin_date"`
+	EndDate          string            `json:"end_date,omitempty"`
 	Country          string            `json:"country"`
 	Language         string            `json:"language"`
 	OriginalLanguage string            `json:"original_language"`
@@ -106,6 +107,7 @@ type PreviewResponse struct {
 type ImportRequest struct {
 	Source           string           `json:"source"`
 	URLOrID          string           `json:"url_or_id"`
+	ExternalID       string           `json:"external_id,omitempty"`
 	MediaTypeHint    string           `json:"media_type_hint,omitempty"`
 	Work             *WorkPreview     `json:"work,omitempty"`
 	Artists          []ArtistPreview  `json:"artists,omitempty"`
