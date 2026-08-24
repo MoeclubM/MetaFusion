@@ -148,6 +148,7 @@ UPDATE works SET cover_image_url = 'https://lain.bgm.tv/pic/cover/l/e1/9b/265_G2
 UPDATE works SET cover_image_url = 'https://lain.bgm.tv/pic/cover/l/3d/bd/309_O4dD9.jpg', cover_aspect = '2:3' WHERE LOWER(TRIM(title)) = '攻壳机动队';
 UPDATE works SET cover_image_url = 'https://lain.bgm.tv/pic/cover/l/1e/e2/183878_Fef1o.jpg', cover_aspect = '2:3' WHERE LOWER(TRIM(title)) = '紫罗兰永恒花园';
 UPDATE works SET cover_image_url = 'https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg', cover_aspect = '2:3' WHERE LOWER(TRIM(title)) = '千与千寻';
+UPDATE works SET cover_image_url = 'https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg', cover_aspect = '2:3' WHERE LOWER(TRIM(title)) = '宮崎駿監督作品集';
 UPDATE works SET cover_image_url = 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg', cover_aspect = '2:3' WHERE LOWER(TRIM(title)) = 'interstellar' OR LOWER(TRIM(title)) = '星际穿越';
 UPDATE works SET cover_image_url = 'https://image.tmdb.org/t/p/w500/cAS2e9hUwu6Ydsx7byXj16H00Ai.jpg', cover_aspect = '2:3' WHERE LOWER(TRIM(title)) LIKE '%流浪地球%';
 UPDATE works SET cover_image_url = 'https://lain.bgm.tv/pic/cover/l/8e/3c/142981_v90B1.jpg', cover_aspect = '2:3' WHERE LOWER(TRIM(title)) = 're:从零开始的异世界生活';

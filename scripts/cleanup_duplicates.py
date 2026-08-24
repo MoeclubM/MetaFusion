@@ -108,6 +108,10 @@ OFFICIAL_COVERS = {
         "cover_image_url": "https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg",
         "cover_aspect": "2:3"
     },
+    "宮崎駿監督作品集": {
+        "cover_image_url": "https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg",
+        "cover_aspect": "2:3"
+    },
     "Interstellar": {
         "cover_image_url": "https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg",
         "cover_aspect": "2:3"

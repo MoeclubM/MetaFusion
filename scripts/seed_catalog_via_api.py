@@ -1188,6 +1188,23 @@ SEED_DATA = {
                 {"locale": "en-US", "title": "Spirited Away", "summary": "Academy Award-winning animated masterpiece by Hayao Miyazaki and Studio Ghibli."}
             ]
         },
+        {
+            "key": "work_miyazaki_collection",
+            "title": "宮崎駿監督作品集",
+            "original_title": "宮崎駿監督作品集",
+            "aliases": ["The Collected Works of Hayao Miyazaki", "宫崎骏监督作品集"],
+            "release_date": "2014-07-02",
+            "country": "日本",
+            "language": "ja",
+            "original_language": "ja",
+            "summary": "吉卜力工作室与华特迪士尼日本发行的宫崎骏导演全集典藏。完整收录宫崎骏自1979年至2013年执导的11部长篇动画电影（《鲁邦三世卡里奥斯特罗之城》《风之谷》《天空之城》《龙猫》《魔女宅急便》《红猪》《幽灵公主》《千与千寻》《哈尔的移动城堡》《悬崖上的金鱼姬》《起风了》），以及2部珍贵特典盘（含《ユキの太阳》《On Your Mark》MV及引退记者会实录）。",
+            "cover_image_url": "https://image.tmdb.org/t/p/w500/39wmItIWsg5sZMyRUHLkWBcuVCM.jpg",
+            "cover_aspect": "2:3",
+            "tags": ["电影", "动画", "作品集", "吉卜力", "宫崎骏", "典藏"],
+            "translations": [
+                {"locale": "en-US", "title": "The Collected Works of Hayao Miyazaki", "summary": "A 13-disc definitive Blu-ray box set compiling 11 feature films directed by Hayao Miyazaki from 1979 to 2013, alongside two bonus documentary discs."}
+            ]
+        },
 
         # === 院线电影 (Feature Films) ===
         {
@@ -1565,20 +1582,64 @@ SEED_DATA = {
             "notes": "高清母带重制标准蓝光盒装，收录全26话及旧剧场版"
         },
 
-        # --- 千与千寻 电影 Releases ---
+        # --- 千与千寻 电影 Releases (日本官方初版蓝光单行本) ---
         {
             "key": "rel_spirited_away_bd",
             "work_key": "work_spirited_away",
             "publisher_artist_key": "ghibli",
-            "edition_name": "千与千寻（吉卜力工作室典藏蓝光版，VWBS-1531，Disney/Studio Ghibli）",
-            "catalog_number": "VWBS-1531",
-            "barcode": "4959241753199",
+            "edition_name": "千与千寻（日本院线官方初版蓝光，VWBS-1530，Walt Disney Studios Japan）",
+            "catalog_number": "VWBS-1530",
+            "barcode": "4959241753069",
             "publisher": "Walt Disney Studios Japan",
             "packaging": "Slipcase",
             "edition_date": "2014-07-16",
             "country": "JPN",
+            "language": "ja",
             "distribution_channel": "physical",
-            "notes": "吉卜力高清数字化档案典藏碟"
+            "notes": "《千与千寻》官方初版 Blu-ray（1 BD-50，双层 50GB，含正片及绘本分镜与剧场预告）",
+            "mediums": [
+                {
+                    "position": 1,
+                    "name": "Disc 1 (BD-50): 千与千寻 电影正片 (Feature Film)",
+                    "format": "Blu-ray",
+                    "media_category": "video",
+                    "tracks": [
+                        {"position": 1, "title": "《千与千寻》正片 (125分钟 / DTS-HD Master Audio 6.1ch / 日本语・多国语字幕)", "duration_seconds": 7500, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}
+                    ]
+                }
+            ]
+        },
+
+        # --- 宮崎駿監督作品集 13BD 豪华限定盒装 Releases ---
+        {
+            "key": "rel_miyazaki_collection_box",
+            "work_key": "work_miyazaki_collection",
+            "publisher_artist_key": "ghibli",
+            "edition_name": "宮崎駿監督作品集（13BD 豪华限定盒装，VWBS-1531，Walt Disney Studios Japan / 吉卜力工作室）",
+            "catalog_number": "VWBS-1531",
+            "barcode": "4959241753076",
+            "publisher": "Walt Disney Studios Japan",
+            "packaging": "Box Set",
+            "edition_date": "2014-07-02",
+            "country": "JPN",
+            "language": "ja",
+            "distribution_channel": "physical",
+            "notes": "收录宫崎骏自1979年至2013年执导的11部长篇动画电影及2部珍贵特典盘，全13碟豪华限定蓝光盒装",
+            "mediums": [
+                {"position": 1, "name": "Disc 1 (BD): 《鲁邦三世 卡里奥斯特罗之城》(1979)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《鲁邦三世 卡里奥斯特罗之城》正片", "duration_seconds": 6000, "artist_credit": "导演：宫崎骏"}]},
+                {"position": 2, "name": "Disc 2 (BD): 《风之谷》(1984)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《风之谷》正片", "duration_seconds": 6960, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 3, "name": "Disc 3 (BD): 《天空之城》(1986)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《天空之城》正片", "duration_seconds": 7440, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 4, "name": "Disc 4 (BD): 《龙猫》(1988)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《龙猫》正片", "duration_seconds": 5160, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 5, "name": "Disc 5 (BD): 《魔女宅急便》(1989)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《魔女宅急便》正片", "duration_seconds": 6180, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 6, "name": "Disc 6 (BD): 《红猪》(1992)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《红猪》正片", "duration_seconds": 5580, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 7, "name": "Disc 7 (BD): 《幽灵公主》(1997)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《幽灵公主》正片", "duration_seconds": 8040, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 8, "name": "Disc 8 (BD): 《千与千寻》(2001)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《千与千寻》正片 (VWBS-1531 Disc 8)", "duration_seconds": 7500, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 9, "name": "Disc 9 (BD): 《哈尔的移动城堡》(2004)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《哈尔的移动城堡》正片", "duration_seconds": 7140, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 10, "name": "Disc 10 (BD): 《悬崖上的金鱼姬》(2008)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《悬崖上的金鱼姬》正片", "duration_seconds": 6060, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 11, "name": "Disc 11 (BD): 《起风了》(2013)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《起风了》正片", "duration_seconds": 7560, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 12, "name": "Disc 12 (Bonus BD): 特典盘 1（《ユキの太阳》/《On Your Mark》）", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《ユキの太阳》试验片 (1972) / 《On Your Mark》MV (1995)", "duration_seconds": 720, "artist_credit": "监督：宫崎骏"}]},
+                {"position": 13, "name": "Disc 13 (Bonus BD): 特典盘 2（宫崎骏引退记者会完整高清纪录）", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "宫崎骏引退记者会 (2013.9.6) 完整无剪辑高清实录", "duration_seconds": 5400, "artist_credit": "出镜：宫崎骏 / 铃木敏夫"}]}
+            ]
         },
 
         # --- 星际穿越 电影 Releases ---
@@ -1826,6 +1887,13 @@ SEED_DATA = {
             ]
         },
         {
+            "work_key": "work_miyazaki_collection",
+            "relations": [
+                {"artist_key": "miyazaki_hayao", "role": "director"},
+                {"artist_key": "ghibli", "role": "studio"}
+            ]
+        },
+        {
             "work_key": "work_interstellar",
             "relations": [
                 {"artist_key": "nolan", "role": "director"},
@@ -1874,7 +1942,8 @@ SEED_DATA = {
         {"source_type": "work", "source_key": "work_kessoku_album", "target_type": "work", "target_key": "work_bocchi_anime", "relationship_type": "soundtrack_of"},
         {"source_type": "work", "source_key": "work_interstellar_ost", "target_type": "work", "target_key": "work_interstellar", "relationship_type": "soundtrack_of"},
         {"source_type": "work", "source_key": "work_bocchi_anime", "target_type": "work", "target_key": "work_frieren_manga", "relationship_type": "crossover_with", "qualifier": "监督/作画主创联动"},
-        {"source_type": "work", "source_key": "work_wandering_earth_2", "target_type": "work", "target_key": "work_threebody", "relationship_type": "crossover_with", "qualifier": "同属刘慈欣宏大科幻世界观延伸"}
+        {"source_type": "work", "source_key": "work_wandering_earth_2", "target_type": "work", "target_key": "work_threebody", "relationship_type": "crossover_with", "qualifier": "同属刘慈欣宏大科幻世界观延伸"},
+        {"source_type": "work", "source_key": "work_spirited_away", "target_type": "work", "target_key": "work_miyazaki_collection", "relationship_type": "included_in", "qualifier": "收录于全集盒装 (VWBS-1531 Disc 8)"}
     ],
 
     # -------------------------------------------------------------------------

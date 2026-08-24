@@ -70,6 +70,12 @@ Work (纯净逻辑作品 / 思想创作，如《宿命之环》《攻壳机动�
   - `全职高手 动画原声带（初回限定盘 CD+Booklet，Sony Music，SVWC-70231）`
   - `攻壳机动队 原声大碟（初回限定盘 CD，Victor Entertainment，VICL-60017）`
 
+### 2.6 多作品全集 / 豪华盒装 (Multi-Work Boxset & Compilation)
+- **核心铁律**：严禁将多部作品全集/作品集盒装的品番/条形码直接挂载在单部作品下（如严禁将 13 碟全集盒装 `VWBS-1531` 当作《千与千寻》单部电影发行版）。
+- **单行本与全集分离**：
+  - 单部作品挂载独立单行本（如《千与千寻（日本院线官方初版蓝光，VWBS-1530，1 BD-50）》）；
+  - 全集盒装建立独立汇编作品/Release（如《宮崎駿監督作品集（13BD 豪华限定盒装，VWBS-1531，Walt Disney Studios Japan）》），分盘（Mediums）1:1 建立 13 张碟片，并通过 `Track` / `CanonicalEntry` 或 `entity_relationships`（`included_in`）将分碟精准链接回各母体作品。
+
 ---
 
 ## 3. 编目清洗与种子数据规整守则
