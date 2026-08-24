@@ -36,6 +36,7 @@ function print_usage() {
     echo "  fast [service]  - 增量极速更新指定服务 (默认)，自动复用构建缓存 (几秒内完成)"
     echo "  dev             - 启动热重载开发模式 (源码挂载，修改代码免构建秒级生效)"
     echo "  prod            - 完整生产模式冷启动"
+    echo "  pull            - 直接拉取 GHCR 预构建生产镜像并启动 (免本地编译)"
     echo "  migrate [cmd]   - 执行版本化数据库迁移 (up/down/status/force)"
     echo "  restart [svc]   - 快速重启容器 (不重编镜像)"
     echo "  prune           - 清理所有旧镜像与未使用的构建缓存 (释放磁盘)"
@@ -79,6 +80,15 @@ case "$ACTION" in
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 生产环境已启动！"
+        ;;
+
+    pull)
+        echo "📦 拉取预构建生产容器镜像 (GHCR)..."
+        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml pull
+        echo "🗄️ 执行数据库版本化迁移..."
+        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml run --rm --no-deps -e DB_HOST=postgres backend /app/migrate up
+        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+        echo "✅ 生产镜像拉取与启动完成！"
         ;;
 
     migrate)

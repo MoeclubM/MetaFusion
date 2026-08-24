@@ -1,0 +1,31 @@
+# ==============================================================================
+# MetaFusion 生产镜像编排配置 (Production Pre-built Image Override)
+#
+# 使用方式:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# 优势:
+#   直接从 GitHub Container Registry 拉取官方预构建优化镜像，服务器无需安装 Go/Node/Bun，
+#   1 秒极速启动，杜绝生产构建资源浪费与内存打满。
+# ==============================================================================
+
+services:
+  frontend:
+    build: !reset null
+    image: ${IMAGE_PREFIX:-ghcr.io/metafusion/metafusion}/frontend:${IMAGE_TAG:-latest}
+    restart: always
+
+  docs-site:
+    build: !reset null
+    image: ${IMAGE_PREFIX:-ghcr.io/metafusion/metafusion}/docs-site:${IMAGE_TAG:-latest}
+    restart: always
+
+  backend:
+    build: !reset null
+    image: ${IMAGE_PREFIX:-ghcr.io/metafusion/metafusion}/backend:${IMAGE_TAG:-latest}
+    restart: always
+
+  transcoder-worker:
+    build: !reset null
+    image: ${IMAGE_PREFIX:-ghcr.io/metafusion/metafusion}/worker:${IMAGE_TAG:-latest}
+    restart: always
