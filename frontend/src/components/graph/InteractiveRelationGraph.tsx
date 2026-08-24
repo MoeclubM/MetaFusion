@@ -10,7 +10,6 @@ import {
   ZoomOut,
   Maximize2,
   Minimize2,
-  RotateCcw,
   Sparkles,
   ExternalLink,
   Info,
@@ -24,7 +23,6 @@ import {
   Disc,
   User,
   Film,
-  Sparkle,
   X,
   Scan,
 } from "lucide-react";
@@ -148,6 +146,65 @@ const getLinkColorHex = (color?: string) => {
   }
 };
 
+// 连线谓词徽标智能定位与包围盒避让算法 (Smart Edge Badge Placement & Node Capsule Boundary Avoidance)
+const calculateEdgeBadgePosition = (
+  src: LayoutNode,
+  tgt: LayoutNode,
+  pillHalfWidth = 115
+): { x: number; y: number } => {
+  const dx = tgt.x - src.x;
+  const dy = tgt.y - src.y;
+  const dist = Math.hypot(dx, dy) || 1;
+
+  // 节点下方胶囊边界估计：高度 28px，下移 r + 20px，加上阴影安全外边距至 r + 46px
+  const capsuleBottomOffset = 46;
+
+  // 初始参数区间（排除两端节点中心圆）
+  let tMin = (src.radius + 24) / dist;
+  let tMax = 1 - (tgt.radius + 24) / dist;
+
+  // 若从 src 向下连线 (dy > 0)，可能穿过 src 下方的标题胶囊
+  if (dy > 0) {
+    const capHeightDist = src.radius + capsuleBottomOffset;
+    const xOffsetAtCapBottom = Math.abs((dx / dy) * capHeightDist);
+    if (xOffsetAtCapBottom < pillHalfWidth + 16) {
+      const tClearSrcCap = (src.radius + capsuleBottomOffset + 14) / dy;
+      tMin = Math.max(tMin, Math.min(0.48, tClearSrcCap));
+    }
+  }
+
+  // 若连线向上到达 tgt (dy < 0，tgt 在上方)，可能被 tgt 下方的标题胶囊挡住
+  if (dy < 0) {
+    const capHeightDist = tgt.radius + capsuleBottomOffset;
+    const xOffsetAtCapBottom = Math.abs((dx / Math.abs(dy)) * capHeightDist);
+    if (xOffsetAtCapBottom < pillHalfWidth + 16) {
+      const tClearTgtCap = 1 - (tgt.radius + capsuleBottomOffset + 14) / Math.abs(dy);
+      tMax = Math.min(tMax, Math.max(0.52, tClearTgtCap));
+    }
+  }
+
+  // 最佳插值参数
+  let t = 0.5;
+  if (tMin < tMax) {
+    t = (tMin + tMax) / 2;
+  } else {
+    t = 0.5;
+  }
+
+  let posX = src.x + t * dx;
+  let posY = src.y + t * dy;
+
+  // 如果极端情况下两节点垂直间距过小 (tMin >= tMax)，向法线方向侧移 28px 避开胶囊正中
+  if (tMin >= tMax) {
+    const normalX = -dy / dist;
+    const normalY = dx / dist;
+    posX += normalX * 28;
+    posY += normalY * 28;
+  }
+
+  return { x: posX, y: posY };
+};
+
 export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> = ({
   centerEntityId,
   centerEntityType,
@@ -167,17 +224,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<"radial" | "hierarchy" | "force">("radial");
-  const [filterType, setFilterType] = useState<"all" | "hierarchy" | "cast" | "media">("all");
-  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [hoveredLinkId, setHoveredLinkId] = useState<string | null>(null);
-
-  // 拖拽平移的内部引用，避免闭包状态陈旧
+  // 拖拽手势状态追踪 Ref
   const dragRef = useRef<{
     isDown: boolean;
     startX: number;
@@ -194,7 +241,17 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     hasMoved: false,
   });
 
-  // 主题自适应高保真颜色（彻底杜绝 SVG 属性 fallback 纯黑色块）
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<"radial" | "hierarchy" | "force">("radial");
+  const [filterType, setFilterType] = useState<"all" | "hierarchy" | "cast" | "media">("all");
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [hoveredLinkId, setHoveredLinkId] = useState<string | null>(null);
+
+  // 主题自适应高保真颜色
   const capsuleBg = isDark ? "#18181b" : "#ffffff";
   const capsuleStroke = isDark ? "#27272a" : "#e4e4e7";
   const nodeNameFill = isDark ? "#f4f4f5" : "#09090b";
@@ -293,7 +350,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     if (layoutMode === "radial") {
       // 放射状布局：单环或双层同心环交错排布
       if (totalOthers <= 7) {
-        const radius = Math.max(240, 180 + totalOthers * 14);
+        const radius = Math.max(270, 200 + totalOthers * 16);
         otherNodes.forEach((node, i) => {
           const angle = (i / Math.max(1, totalOthers)) * 2 * Math.PI - Math.PI / 2;
           const x = centerX + radius * Math.cos(angle);
@@ -304,14 +361,14 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             y,
             vx: 0,
             vy: 0,
-            radius: 30,
+            radius: 30, // 普通节点 60px 直径
           });
         });
       } else {
         const innerCount = Math.min(6, Math.ceil(totalOthers / 2));
         const outerCount = totalOthers - innerCount;
-        const rInner = 220;
-        const rOuter = 390;
+        const rInner = 250;
+        const rOuter = 410;
 
         for (let i = 0; i < innerCount; i++) {
           const node = otherNodes[i];
@@ -345,7 +402,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         }
       }
     } else if (layoutMode === "hierarchy") {
-      // 层次结构布局
+      // 层次结构布局：充裕的层级间距
       const topNodes: GraphNode[] = [];
       const bottomReleaseNodes: GraphNode[] = [];
       const bottomMediumNodes: GraphNode[] = [];
@@ -373,20 +430,20 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
       // Top (企划、原作、前作)
       topNodes.forEach((node, i) => {
-        const span = Math.max(0, (topNodes.length - 1) * 230);
+        const span = Math.max(0, (topNodes.length - 1) * 240);
         const startX = centerX - span / 2 + (topNodes.length > 1 ? (span / (topNodes.length - 1)) * i : 0);
-        map.set(node.id, { ...node, x: startX, y: centerY - 210, vx: 0, vy: 0, radius: 32 });
+        map.set(node.id, { ...node, x: startX, y: centerY - 230, vx: 0, vy: 0, radius: 32 });
       });
 
       // Bottom 1 (发行版、续作、改编)
       bottomReleaseNodes.forEach((node, i) => {
-        const span = Math.max(0, (bottomReleaseNodes.length - 1) * 230);
+        const span = Math.max(0, (bottomReleaseNodes.length - 1) * 240);
         const startX =
           centerX - span / 2 + (bottomReleaseNodes.length > 1 ? (span / (bottomReleaseNodes.length - 1)) * i : 0);
         map.set(node.id, {
           ...node,
           x: startX,
-          y: centerY + (bottomMediumNodes.length > 0 ? 170 : 210),
+          y: centerY + (bottomMediumNodes.length > 0 ? 190 : 230),
           vx: 0,
           vy: 0,
           radius: 30,
@@ -395,27 +452,27 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
       // Bottom 2 (分碟载体 Mediums)
       bottomMediumNodes.forEach((node, i) => {
-        const span = Math.max(0, (bottomMediumNodes.length - 1) * 200);
+        const span = Math.max(0, (bottomMediumNodes.length - 1) * 210);
         const startX =
           centerX - span / 2 + (bottomMediumNodes.length > 1 ? (span / (bottomMediumNodes.length - 1)) * i : 0);
-        map.set(node.id, { ...node, x: startX, y: centerY + 280, vx: 0, vy: 0, radius: 28 });
+        map.set(node.id, { ...node, x: startX, y: centerY + 300, vx: 0, vy: 0, radius: 28 });
       });
 
       // Left (创作者、演职员)
       leftArtistNodes.forEach((node, i) => {
         const total = leftArtistNodes.length;
-        const startY = centerY - ((total - 1) * 110) / 2;
-        map.set(node.id, { ...node, x: centerX - 360, y: startY + i * 110, vx: 0, vy: 0, radius: 30 });
+        const startY = centerY - ((total - 1) * 130) / 2;
+        map.set(node.id, { ...node, x: centerX - 380, y: startY + i * 130, vx: 0, vy: 0, radius: 30 });
       });
 
       // Right (衍生品、跨媒介联动等)
       rightOtherNodes.forEach((node, i) => {
         const total = rightOtherNodes.length;
-        const startY = centerY - ((total - 1) * 110) / 2;
-        map.set(node.id, { ...node, x: centerX + 360, y: startY + i * 110, vx: 0, vy: 0, radius: 30 });
+        const startY = centerY - ((total - 1) * 130) / 2;
+        map.set(node.id, { ...node, x: centerX + 380, y: startY + i * 130, vx: 0, vy: 0, radius: 30 });
       });
     } else {
-      // 力导向模拟排布
+      // 自然力导向模拟排布
       const simNodes: LayoutNode[] = [
         {
           ...centerNode,
@@ -429,7 +486,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
       otherNodes.forEach((node, i) => {
         const angle = (i / Math.max(1, totalOthers)) * 2 * Math.PI;
-        const initDist = 240;
+        const initDist = 260;
         simNodes.push({
           ...node,
           x: centerX + initDist * Math.cos(angle) + (Math.random() - 0.5) * 20,
@@ -440,10 +497,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         });
       });
 
-      const kRep = 65000;
-      const targetLen = 250;
+      const kRep = 80000;
+      const targetLen = 270;
       const kSpring = 0.04;
-      const kCenter = 0.015;
+      const kCenter = 0.012;
 
       for (let iter = 0; iter < 60; iter++) {
         for (let i = 0; i < simNodes.length; i++) {
@@ -453,7 +510,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             const dx = n2.x - n1.x;
             const dy = n2.y - n1.y;
             const dist = Math.hypot(dx, dy) || 1;
-            if (dist < 180) {
+            if (dist < 200) {
               const force = (kRep / (dist * dist)) * 1.5;
               const fx = (dx / dist) * force;
               const fy = (dy / dist) * force;
@@ -574,7 +631,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       const scaleX = availableWidth / boxWidth;
       const scaleY = availableHeight / boxHeight;
 
-      // 缩放范围限制在 [0.45, 1.25]，默认不小于 0.45，不大于 1.25
+      // 缩放范围限制在 [0.45, 1.25]
       const idealZoom = Math.min(1.2, Math.max(0.45, Math.min(scaleX, scaleY)));
       const roundedZoom = +idealZoom.toFixed(2);
 
@@ -647,10 +704,8 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
   // 鼠标 / 触控指针拖拽平移事件处理（使用精准 Pointer Events 并在拖拽期间保持 1:1 位移）
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // 仅在主按键（左键）按下时触发画布拖拽
     if (e.button !== 0) return;
 
-    // 如果点击的是节点或连线卡片等可交互元素，不触发背景拖拽
     const target = e.target as HTMLElement | SVGElement;
     if (target.closest("[data-node-interactive='true']")) {
       return;
@@ -902,6 +957,16 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000000" floodOpacity={isDark ? "0.45" : "0.15"} />
             </filter>
 
+            {/* 中心节点柔和环境光晕与聚焦光环渐变 */}
+            <radialGradient id="grad-center-halo" cx="50%" cy="50%" r="50%">
+              <stop offset="50%" stopColor={isDark ? "#38bdf8" : "#0284c7"} stopOpacity="0.28" />
+              <stop offset="100%" stopColor={isDark ? "#38bdf8" : "#0284c7"} stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id="grad-center-ring" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={isDark ? "#38bdf8" : "#0284c7"} />
+              <stop offset="100%" stopColor={isDark ? "#818cf8" : "#4f46e5"} />
+            </linearGradient>
+
             {/* 节点通用渐变定义 */}
             <linearGradient id="grad-work" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#0284c7" />
@@ -1030,57 +1095,237 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               transition: isDragging ? "none" : "transform 200ms cubic-bezier(0.16, 1, 0.3, 1)",
             }}
           >
-            {/* 1. 渲染拓扑连线 (Edges) */}
-            {filteredLinks.map((link, idx) => {
-              const src = layoutNodes.get(link.source);
-              const tgt = layoutNodes.get(link.target);
-              if (!src || !tgt) return null;
+            {/* 1. 渲染拓扑连线底层 (Edges Lines Layer) */}
+            <g className="edges-lines-layer">
+              {filteredLinks.map((link, idx) => {
+                const src = layoutNodes.get(link.source);
+                const tgt = layoutNodes.get(link.target);
+                if (!src || !tgt) return null;
 
-              const isHovered = hoveredLinkId === (link.id || `${link.source}-${link.target}`);
-              const colorHex = getLinkColorHex(link.color);
-              const strokeWidth = isHovered ? 2.5 : 1.8;
+                const isHovered = hoveredLinkId === (link.id || `${link.source}-${link.target}`);
+                const colorHex = getLinkColorHex(link.color);
+                const strokeWidth = isHovered ? 2.5 : 1.8;
 
-              const midX = (src.x + tgt.x) / 2;
-              const midY = (src.y + tgt.y) / 2;
+                return (
+                  <g
+                    key={`line-${link.id || idx}`}
+                    data-node-interactive="true"
+                    className="transition-opacity duration-200 cursor-pointer"
+                    onMouseEnter={() => setHoveredLinkId(link.id || `${link.source}-${link.target}`)}
+                    onMouseLeave={() => setHoveredLinkId(null)}
+                    onClick={() => onEdgeClick?.(link)}
+                  >
+                    {/* 背景透明粗线扩大鼠标交互区域 */}
+                    <line
+                      x1={src.x}
+                      y1={src.y}
+                      x2={tgt.x}
+                      y2={tgt.y}
+                      stroke="transparent"
+                      strokeWidth={18}
+                    />
 
-              const badgeLabel = link.label || link.type;
-              const badgeWidth = Math.max(68, badgeLabel.length * 12 + 24);
-              const badgeHeight = 24;
+                    {/* 实体连线 */}
+                    <line
+                      x1={src.x}
+                      y1={src.y}
+                      x2={tgt.x}
+                      y2={tgt.y}
+                      stroke={colorHex}
+                      strokeWidth={strokeWidth}
+                      strokeDasharray={link.is_hierarchical ? "none" : "5,3"}
+                      opacity={isHovered ? 1 : 0.75}
+                      markerEnd={`url(#arrow-${link.color || "default"})`}
+                    />
+                  </g>
+                );
+              })}
+            </g>
 
-              return (
-                <g
-                  key={link.id || idx}
-                  data-node-interactive="true"
-                  className="transition-opacity duration-200 cursor-pointer"
-                  onMouseEnter={() => setHoveredLinkId(link.id || `${link.source}-${link.target}`)}
-                  onMouseLeave={() => setHoveredLinkId(null)}
-                  onClick={() => onEdgeClick?.(link)}
-                >
-                  {/* 背景透明粗线扩大鼠标交互区域 */}
-                  <line
-                    x1={src.x}
-                    y1={src.y}
-                    x2={tgt.x}
-                    y2={tgt.y}
-                    stroke="transparent"
-                    strokeWidth={18}
-                  />
+            {/* 2. 渲染拓扑节点层 (Nodes Layer: 主圆、呼吸光环、封面、标题胶囊) */}
+            <g className="nodes-layer">
+              {Array.from(layoutNodes.values()).map((node) => {
+                const isCenter = node.id === centerEntityId;
+                const isSelected = selectedNode?.id === node.id;
+                const isHovered = hoveredNodeId === node.id;
+                const r = node.radius;
+                const theme = getEntityTypeTheme(node.type, t, isDark);
 
-                  {/* 实体连线 */}
-                  <line
-                    x1={src.x}
-                    y1={src.y}
-                    x2={tgt.x}
-                    y2={tgt.y}
-                    stroke={colorHex}
-                    strokeWidth={strokeWidth}
-                    strokeDasharray={link.is_hierarchical ? "none" : "5,3"}
-                    opacity={isHovered ? 1 : 0.75}
-                    markerEnd={`url(#arrow-${link.color || "default"})`}
-                  />
+                const typeLabel = theme.label;
+                const typeBadgeWidth = Math.max(34, typeLabel.length * 11 + 10);
+                const maxNameChars = 16;
+                const truncatedName =
+                  node.name.length > maxNameChars ? `${node.name.slice(0, maxNameChars - 1)}…` : node.name;
+                const nameWidth = truncatedName.length * 12.5;
+                const pillWidth = Math.min(240, Math.max(110, typeBadgeWidth + nameWidth + 24));
+                const pillHeight = 28;
 
-                  {/* 连线谓词徽章 (Edge Badges - 高保真明暗自适应卡片质感) */}
-                  <g transform={`translate(${midX}, ${midY})`}>
+                return (
+                  <g
+                    key={node.id}
+                    data-node-interactive="true"
+                    transform={`translate(${node.x}, ${node.y})`}
+                    className="cursor-pointer transition-transform duration-150 group"
+                    onMouseEnter={() => setHoveredNodeId(node.id)}
+                    onMouseLeave={() => setHoveredNodeId(null)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedNode(node);
+                      onNodeClick?.(node);
+                    }}
+                  >
+                    <title>{`${node.name} (${typeLabel})`}</title>
+
+                    {/* 中心节点高雅呼吸光环与聚焦环 (Focus Ring) */}
+                    {isCenter && (
+                      <>
+                        {/* 外围柔和呼吸光晕 */}
+                        <circle
+                          r={r + 14}
+                          fill="url(#grad-center-halo)"
+                          className="animate-pulse pointer-events-none"
+                        />
+                        {/* 细腻质感同心外环 */}
+                        <circle
+                          r={r + 6}
+                          fill="none"
+                          stroke="url(#grad-center-ring)"
+                          strokeWidth={1.8}
+                          strokeDasharray="4 3"
+                          opacity={0.85}
+                          className="pointer-events-none"
+                        />
+                      </>
+                    )}
+
+                    {/* 选中/悬浮状态的高亮光环 (非中心节点) */}
+                    {!isCenter && (isSelected || isHovered) && (
+                      <circle
+                        r={r + 6}
+                        fill="none"
+                        stroke={theme.primaryColor}
+                        strokeWidth={2}
+                        strokeOpacity={0.65}
+                        className="pointer-events-none animate-pulse"
+                      />
+                    )}
+
+                    {/* 节点主圆底色 */}
+                    <circle
+                      r={r}
+                      fill={isCenter ? centerFill : `url(#grad-${node.type})`}
+                      stroke={isCenter ? centerBorder : theme.stroke}
+                      strokeWidth={isCenter ? 3.5 : 2.5}
+                      filter="url(#node-drop-shadow)"
+                    />
+
+                    {/* 封面图片剪裁区 */}
+                    {node.cover_image_url ? (
+                      <>
+                        <clipPath id={`clip-${node.id}`}>
+                          <circle r={r - 3} />
+                        </clipPath>
+                        <image
+                          href={node.cover_image_url}
+                          x={-(r - 3)}
+                          y={-(r - 3)}
+                          width={(r - 3) * 2}
+                          height={(r - 3) * 2}
+                          preserveAspectRatio="xMidYMid slice"
+                          clipPath={`url(#clip-${node.id})`}
+                        />
+                      </>
+                    ) : (
+                      <text
+                        textAnchor="middle"
+                        y={isCenter ? 5 : 4}
+                        fontSize={isCenter ? "14" : "12"}
+                        fontWeight="bold"
+                        fill="#ffffff"
+                        className="pointer-events-none font-mono select-none"
+                      >
+                        {node.type.slice(0, 2).toUpperCase()}
+                      </text>
+                    )}
+
+                    {/* 节点下方名称与类型双层清晰药丸 (Node Title & Type Badge) */}
+                    <g transform={`translate(0, ${r + 20})`}>
+                      <rect
+                        x={-pillWidth / 2}
+                        y={-pillHeight / 2}
+                        width={pillWidth}
+                        height={pillHeight}
+                        rx={pillHeight / 2}
+                        fill={capsuleBg}
+                        stroke={isSelected || isHovered ? theme.primaryColor : capsuleStroke}
+                        strokeWidth={isSelected || isHovered ? 1.5 : 1}
+                        filter="url(#badge-drop-shadow)"
+                      />
+
+                      <rect
+                        x={-pillWidth / 2 + 4}
+                        y={-9}
+                        width={typeBadgeWidth}
+                        height={18}
+                        rx={9}
+                        fill={theme.bgFill}
+                      />
+                      <text
+                        x={-pillWidth / 2 + 4 + typeBadgeWidth / 2}
+                        y={3.5}
+                        textAnchor="middle"
+                        fontSize="10"
+                        fontWeight="700"
+                        fill={theme.textFill}
+                        className="pointer-events-none select-none font-sans"
+                      >
+                        {typeLabel}
+                      </text>
+
+                      <text
+                        x={(-pillWidth / 2 + 4 + typeBadgeWidth + (pillWidth / 2 - 6)) / 2}
+                        y={4.5}
+                        textAnchor="middle"
+                        fontSize="13"
+                        fontWeight="600"
+                        fill={nodeNameFill}
+                        className="pointer-events-none select-none font-sans"
+                      >
+                        {truncatedName}
+                      </text>
+                    </g>
+                  </g>
+                );
+              })}
+            </g>
+
+            {/* 3. 渲染连线谓词徽章层 (Edge Badges Top Layer - 智能避让胶囊、永不被遮挡) */}
+            <g className="edges-badges-layer">
+              {filteredLinks.map((link, idx) => {
+                const src = layoutNodes.get(link.source);
+                const tgt = layoutNodes.get(link.target);
+                if (!src || !tgt) return null;
+
+                const isHovered = hoveredLinkId === (link.id || `${link.source}-${link.target}`);
+                const colorHex = getLinkColorHex(link.color);
+
+                // 智能避让两端节点包围盒与标题胶囊，定位在开阔有效线段中央
+                const badgePos = calculateEdgeBadgePosition(src, tgt);
+
+                const badgeLabel = link.label || link.type;
+                const badgeWidth = Math.max(68, badgeLabel.length * 12 + 24);
+                const badgeHeight = 24;
+
+                return (
+                  <g
+                    key={`badge-${link.id || idx}`}
+                    data-node-interactive="true"
+                    transform={`translate(${badgePos.x}, ${badgePos.y})`}
+                    className="cursor-pointer transition-all duration-150"
+                    onMouseEnter={() => setHoveredLinkId(link.id || `${link.source}-${link.target}`)}
+                    onMouseLeave={() => setHoveredLinkId(null)}
+                    onClick={() => onEdgeClick?.(link)}
+                  >
                     <rect
                       x={-badgeWidth / 2}
                       y={-badgeHeight / 2}
@@ -1111,151 +1356,9 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                       {badgeLabel}
                     </text>
                   </g>
-                </g>
-              );
-            })}
-
-            {/* 2. 渲染拓扑节点 (Nodes) */}
-            {Array.from(layoutNodes.values()).map((node) => {
-              const isCenter = node.id === centerEntityId;
-              const isSelected = selectedNode?.id === node.id;
-              const isHovered = hoveredNodeId === node.id;
-              const r = node.radius;
-              const theme = getEntityTypeTheme(node.type, t, isDark);
-
-              const typeLabel = theme.label;
-              const typeBadgeWidth = Math.max(34, typeLabel.length * 11 + 10);
-              const maxNameChars = 16;
-              const truncatedName =
-                node.name.length > maxNameChars ? `${node.name.slice(0, maxNameChars - 1)}…` : node.name;
-              const nameWidth = truncatedName.length * 12.5;
-              const pillWidth = Math.min(240, Math.max(110, typeBadgeWidth + nameWidth + 24));
-              const pillHeight = 28;
-
-              return (
-                <g
-                  key={node.id}
-                  data-node-interactive="true"
-                  transform={`translate(${node.x}, ${node.y})`}
-                  className="cursor-pointer transition-transform duration-150 group"
-                  onMouseEnter={() => setHoveredNodeId(node.id)}
-                  onMouseLeave={() => setHoveredNodeId(null)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedNode(node);
-                    onNodeClick?.(node);
-                  }}
-                >
-                  <title>{`${node.name} (${typeLabel})`}</title>
-
-                  {/* 外圈光晕与高亮光环 */}
-                  {(isCenter || isSelected || isHovered) && (
-                    <circle
-                      r={r + (isCenter ? 8 : 6)}
-                      className={
-                        isCenter
-                          ? "fill-primary/20 stroke-primary/60 animate-pulse"
-                          : "fill-sky-500/20 stroke-sky-500/60"
-                      }
-                      strokeWidth={isCenter ? 2.5 : 2}
-                    />
-                  )}
-
-                  {/* 节点主圆底色 */}
-                  <circle
-                    r={r}
-                    fill={isCenter ? centerFill : `url(#grad-${node.type})`}
-                    stroke={isCenter ? centerBorder : theme.stroke}
-                    strokeWidth={isCenter ? 3.5 : 2.5}
-                    filter="url(#node-drop-shadow)"
-                  />
-
-                  {/* 封面图片剪裁区 */}
-                  {node.cover_image_url ? (
-                    <>
-                      <clipPath id={`clip-${node.id}`}>
-                        <circle r={r - 3} />
-                      </clipPath>
-                      <image
-                        href={node.cover_image_url}
-                        x={-(r - 3)}
-                        y={-(r - 3)}
-                        width={(r - 3) * 2}
-                        height={(r - 3) * 2}
-                        preserveAspectRatio="xMidYMid slice"
-                        clipPath={`url(#clip-${node.id})`}
-                      />
-                    </>
-                  ) : (
-                    <text
-                      textAnchor="middle"
-                      y={isCenter ? 5 : 4}
-                      fontSize={isCenter ? "14" : "12"}
-                      fontWeight="bold"
-                      fill="#ffffff"
-                      className="pointer-events-none font-mono select-none"
-                    >
-                      {node.type.slice(0, 2).toUpperCase()}
-                    </text>
-                  )}
-
-                  {/* 中心节点专属小皇冠标识 */}
-                  {isCenter && (
-                    <g transform={`translate(${r - 6}, ${-(r - 6)})`}>
-                      <circle r={9} fill={centerFill} stroke={centerBorder} strokeWidth={2} />
-                      <Sparkle className="w-2.5 h-2.5 text-white -translate-x-[5px] -translate-y-[5px]" />
-                    </g>
-                  )}
-
-                  {/* 节点下方名称与类型双层清晰药丸 (Node Title & Type Badge) */}
-                  <g transform={`translate(0, ${r + 20})`}>
-                    <rect
-                      x={-pillWidth / 2}
-                      y={-pillHeight / 2}
-                      width={pillWidth}
-                      height={pillHeight}
-                      rx={pillHeight / 2}
-                      fill={capsuleBg}
-                      stroke={isSelected || isHovered ? theme.primaryColor : capsuleStroke}
-                      strokeWidth={isSelected || isHovered ? 1.5 : 1}
-                      filter="url(#badge-drop-shadow)"
-                    />
-
-                    <rect
-                      x={-pillWidth / 2 + 4}
-                      y={-9}
-                      width={typeBadgeWidth}
-                      height={18}
-                      rx={9}
-                      fill={theme.bgFill}
-                    />
-                    <text
-                      x={-pillWidth / 2 + 4 + typeBadgeWidth / 2}
-                      y={3.5}
-                      textAnchor="middle"
-                      fontSize="10"
-                      fontWeight="700"
-                      fill={theme.textFill}
-                      className="pointer-events-none select-none font-sans"
-                    >
-                      {typeLabel}
-                    </text>
-
-                    <text
-                      x={(-pillWidth / 2 + 4 + typeBadgeWidth + (pillWidth / 2 - 6)) / 2}
-                      y={4.5}
-                      textAnchor="middle"
-                      fontSize="13"
-                      fontWeight="600"
-                      fill={nodeNameFill}
-                      className="pointer-events-none select-none font-sans"
-                    >
-                      {truncatedName}
-                    </text>
-                  </g>
-                </g>
-              );
-            })}
+                );
+              })}
+            </g>
           </g>
         </svg>
 
@@ -1375,7 +1478,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                         </span>
                       </div>
                       <span className="font-medium text-foreground truncate max-w-[110px]" title={rel.otherNode?.name}>
-                        {rel.otherNode?.name || rel.link.target}
+                        {rel.otherNode?.name || "Target"}
                       </span>
                     </div>
                   );
