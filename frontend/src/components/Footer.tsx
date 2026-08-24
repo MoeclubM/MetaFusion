@@ -1,5 +1,5 @@
 "use client";
-import { Github } from "lucide-react";
+import { GitHubIcon } from "./Icons";
 
 export function Footer() {
   return (
@@ -12,7 +12,7 @@ export function Footer() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
-          <Github className="w-3.5 h-3.5" strokeWidth={1.6} />
+          <GitHubIcon className="w-3.5 h-3.5" />
           <span>github.com/MoeclubM/MetaFusion</span>
         </a>
       </div>

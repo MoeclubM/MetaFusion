@@ -12,6 +12,7 @@ import { UserAvatar } from "./UserAvatar";
 import { displayNameOf } from "@/lib/api";
 import { OmniImportModal } from "./importer/OmniImportModal";
 import { UserRoleBadge } from "@/lib/roles";
+import { GitHubIcon } from "./Icons";
 import {
   Plus,
   LogOut,
@@ -29,7 +30,6 @@ import {
   Network,
   Sparkles,
   Code2,
-  Github,
   BookOpen,
   Heart,
 } from "lucide-react";
@@ -111,16 +111,16 @@ interface NavbarProps {
  <div className="flex items-center gap-2 sm:gap-2.5">
  {/* 项目仓库入口仅落地页展示，进入站内后不再显示 */}
  {pathname === "/" && (
- <a
- href="https://github.com/MoeclubM/MetaFusion"
- target="_blank"
- rel="noopener noreferrer"
- aria-label="GitHub — MoeclubM/MetaFusion"
- className="hidden sm:inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-lg bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-sm font-mono font-medium transition-colors"
- >
- <Github className="w-4 h-4" strokeWidth={1.8} />
- <span>REPO</span>
- </a>
+          <a
+            href="https://github.com/MoeclubM/MetaFusion"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub — MoeclubM/MetaFusion"
+            className="hidden sm:inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-lg bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-sm font-mono font-medium transition-colors"
+          >
+            <GitHubIcon className="w-4 h-4" />
+            <span>REPO</span>
+          </a>
  )}
  {/* Create dropdown — only logged in */}
  {user && (

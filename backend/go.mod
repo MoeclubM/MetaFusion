@@ -3,17 +3,18 @@ module github.com/metafusion/metafusion-app
 go 1.25.0
 
 require (
-	github.com/gin-contrib/cors v1.7.2
-	github.com/gin-gonic/gin v1.10.0
+	github.com/gin-contrib/cors v1.7.7
+	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
-	github.com/hibiken/asynq v0.24.1
-	github.com/lib/pq v1.10.9
+	github.com/hibiken/asynq v0.26.0
+	github.com/lib/pq v1.12.3
 	github.com/minio/minio-go/v7 v7.3.0
 	github.com/opensearch-project/opensearch-go/v2 v2.3.0
+	github.com/redis/go-redis/v9 v9.5.1
 	golang.org/x/crypto v0.55.0
-	gorm.io/driver/postgres v1.5.7
-	gorm.io/gorm v1.25.10
+	gorm.io/driver/postgres v1.6.2
+	gorm.io/gorm v1.31.2
 )
 
 require (
