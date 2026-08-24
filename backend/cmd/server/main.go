@@ -135,16 +135,24 @@ func main() {
 	r.Use(limiter.Middleware())
 
 	// 生产健康检查探针体系 (Liveness & Readiness Probes)
-	r.GET("/healthz", func(c *gin.Context) {
+	healthHandler := func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "metafusion-backend"})
-	})
+	}
+	r.GET("/healthz", healthHandler)
+	r.HEAD("/healthz", healthHandler)
 	r.GET("/live", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "live", "service": "metafusion-backend"})
+	})
+	r.HEAD("/live", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "live", "service": "metafusion-backend"})
 	})
 	r.GET("/livez", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "live", "service": "metafusion-backend"})
 	})
-	r.GET("/ready", func(c *gin.Context) {
+	r.HEAD("/livez", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "live", "service": "metafusion-backend"})
+	})
+	readyHandler := func(c *gin.Context) {
 		checks := gin.H{}
 		allHealthy := true
 
@@ -170,16 +178,15 @@ func main() {
 		} else {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "checks": checks})
 		}
-	})
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "metafusion-backend"})
-	})
-	r.GET("/api/v1/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "metafusion-backend"})
-	})
-	r.GET("/api/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "healthy", "service": "metafusion-backend"})
-	})
+	}
+	r.GET("/ready", readyHandler)
+	r.HEAD("/ready", readyHandler)
+	r.GET("/health", healthHandler)
+	r.HEAD("/health", healthHandler)
+	r.GET("/api/v1/health", healthHandler)
+	r.HEAD("/api/v1/health", healthHandler)
+	r.GET("/api/health", healthHandler)
+	r.HEAD("/api/health", healthHandler)
 
 	// 静态本地上传目录路由（支持离线开发与回退）
 	_ = os.MkdirAll("./uploads/avatars", 0755)

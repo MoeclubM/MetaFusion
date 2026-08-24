@@ -134,7 +134,7 @@ func itoa(n int) string {
 func UserAgentMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Allow health and openapi without UA
-		if c.Request.URL.Path == "/health" || c.Request.URL.Path == "/api/v1/openapi.json" {
+		if c.Request.URL.Path == "/health" || c.Request.URL.Path == "/healthz" || c.Request.URL.Path == "/ready" || c.Request.URL.Path == "/live" || c.Request.URL.Path == "/livez" || c.Request.URL.Path == "/api/v1/health" || c.Request.URL.Path == "/api/health" || c.Request.URL.Path == "/api/v1/openapi.json" {
 			c.Next()
 			return
 		}
