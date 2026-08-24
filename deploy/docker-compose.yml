@@ -202,9 +202,6 @@ services:
       - RUSTFS_STORAGE_DIR=/data
     volumes:
       - s3_data:/data
-    ports:
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
-      - "9000:9000"
     networks:
       - metafusion-net
 
