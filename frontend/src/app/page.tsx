@@ -7,11 +7,11 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { BrandMark } from "@/components/Logo";
 import { ThemePicker } from "@/components/ThemePicker";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { GitHubIcon } from "@/components/Icons";
 import {
   Library,
   LogIn,
   Compass,
-  Github,
   BookOpen,
   Database,
 } from "lucide-react";
@@ -44,7 +44,7 @@ function RootLandingInner() {
           aria-label="GitHub — MoeclubM/MetaFusion"
           className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors"
         >
-          <Github className="w-3.5 h-3.5" strokeWidth={1.8} />
+          <GitHubIcon className="w-3.5 h-3.5" />
           <span>REPO</span>
         </a>
         <ThemePicker />
@@ -124,7 +124,7 @@ function RootLandingInner() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
-          <Github className="w-3.5 h-3.5" strokeWidth={1.6} />
+          <GitHubIcon className="w-3.5 h-3.5" />
           <span>github.com/MoeclubM/MetaFusion</span>
         </a>
       </footer>
