@@ -745,12 +745,19 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     };
   }, [fitToView]);
 
-  // 最大化状态切换后延时二次自适应校准，确保动效与渲染稳定
+  // 最大化状态切换后自适应校准，确保动效与渲染稳定
   useEffect(() => {
+    let rafId: number | null = null;
+    rafId = requestAnimationFrame(() => {
+      fitToView();
+    });
     const timer = setTimeout(() => {
       fitToView();
-    }, 60);
-    return () => clearTimeout(timer);
+    }, 80);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      clearTimeout(timer);
+    };
   }, [isFullscreen, fitToView]);
 
   // 以指定 SVG 锚点为基准的定点缩放算法 (Anchor Zooming Math)
@@ -867,25 +874,12 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   return (
     <div
       ref={containerRef}
-      className={`relative flex flex-col overflow-hidden select-none transition-[border-radius,box-shadow] duration-200 ${
+      className={`relative flex flex-col overflow-hidden select-none transition-all duration-200 ${
         isFullscreen
-          ? "fixed inset-0 z-50 w-screen h-screen max-w-none max-h-none m-0 rounded-none bg-background text-foreground"
+          ? "fixed top-14 sm:top-[3.75rem] left-0 right-0 bottom-0 z-30 w-full h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-3.75rem)] max-w-none max-h-none m-0 rounded-none border-t border-border/60 bg-background/98 backdrop-blur-md text-foreground shadow-2xl"
           : `rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md shadow-sm ${className}`
       }`}
-      style={
-        isFullscreen
-          ? {
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              width: "100vw",
-              height: "100vh",
-              zIndex: 50,
-            }
-          : { height }
-      }
+      style={isFullscreen ? undefined : { height }}
     >
       {/* 顶部工具栏与控制面板 */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-background/85 border-b border-border/60 backdrop-blur-md z-10">
