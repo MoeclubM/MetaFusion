@@ -187,7 +187,7 @@ func (s *AdminService) DeleteWork(c *gin.Context) {
 			return err
 		}
 		// 7. 删除 entity_revisions 修订审计快照
-		if err := tx.Where("entity_type = 'work' AND entity_id = ?", workID).Delete(&models.EntityRevision{}).Error; err != nil {
+		if err := tx.Where("target_type = 'work' AND target_id = ?", workID).Delete(&models.EntityRevision{}).Error; err != nil {
 			return err
 		}
 		// 8. 删除评论与论坛讨论
@@ -382,7 +382,7 @@ func (s *AdminService) DeleteArtist(c *gin.Context) {
 			return err
 		}
 		// 6. 删除 entity_revisions 审计修订记录
-		if err := tx.Where("entity_type = 'artist' AND entity_id = ?", artistID).Delete(&models.EntityRevision{}).Error; err != nil {
+		if err := tx.Where("target_type = 'artist' AND target_id = ?", artistID).Delete(&models.EntityRevision{}).Error; err != nil {
 			return err
 		}
 		// 7. 删除主体 Artist
