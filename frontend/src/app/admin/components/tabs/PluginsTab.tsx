@@ -268,7 +268,11 @@ export function PluginsTab() {
 
   // Delete external plugin
   const handleDelete = async (plugin: PluginItem) => {
-    if (!window.confirm(`确定要删除外部插件 "${plugin.name}" (${plugin.id}) 吗？`)) {
+    if (
+      !window.confirm(
+        t("admin.plugins.deleteConfirm", { name: plugin.name, id: plugin.id })
+      )
+    ) {
       return;
     }
     try {
@@ -678,9 +682,11 @@ export function PluginsTab() {
                       {!plugin.is_enabled
                         ? t("admin.plugins.statusDisabled")
                         : plugin.health?.status === "healthy"
-                        ? t("admin.plugins.statusHealthy", {
-                            latency: plugin.health?.latency_ms || 0,
-                          })
+                        ? (plugin.health?.latency_ms && plugin.health.latency_ms > 0)
+                          ? t("admin.plugins.statusLatency", {
+                              latency: plugin.health.latency_ms,
+                            })
+                          : t("admin.plugins.statusActive")
                         : plugin.health?.status === "warning"
                         ? t("admin.plugins.statusWarning")
                         : t("admin.plugins.statusUnhealthy")}
@@ -982,7 +988,7 @@ export function PluginsTab() {
               ) : (
                 <div className="space-y-2">
                   <label className="block text-xs font-medium text-gray-300 font-mono">
-                    JSON 配置参数
+                    {t("admin.plugins.fieldJsonConfig")}
                   </label>
                   <textarea
                     rows={12}
@@ -1033,7 +1039,7 @@ export function PluginsTab() {
                     {t("admin.plugins.registerExternal")}
                   </h3>
                   <p className="text-[10px] text-gray-400 mt-0.5">
-                    注册外部微服务或 Webhook 驱动插件
+                    {t("admin.plugins.registerModalSubtitle")}
                   </p>
                 </div>
               </div>
@@ -1052,7 +1058,7 @@ export function PluginsTab() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-gray-300">
-                    插件唯一 ID <span className="text-amber-400">*</span>
+                    {t("admin.plugins.fieldId")} <span className="text-amber-400">*</span>
                   </label>
                   <input
                     type="text"
@@ -1068,7 +1074,7 @@ export function PluginsTab() {
 
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-gray-300">
-                    显示名称 <span className="text-amber-400">*</span>
+                    {t("admin.plugins.fieldName")} <span className="text-amber-400">*</span>
                   </label>
                   <input
                     type="text"
@@ -1085,7 +1091,7 @@ export function PluginsTab() {
 
               <div className="space-y-1">
                 <label className="block text-xs font-medium text-gray-300">
-                  服务端点 URL (Endpoint) <span className="text-amber-400">*</span>
+                  {t("admin.plugins.fieldEndpoint")} <span className="text-amber-400">*</span>
                 </label>
                 <input
                   type="url"
@@ -1104,7 +1110,7 @@ export function PluginsTab() {
 
               <div className="space-y-1">
                 <label className="block text-xs font-medium text-gray-300">
-                  依赖声明 (Dependencies)
+                  {t("admin.plugins.fieldDeps")}
                 </label>
                 <input
                   type="text"
@@ -1114,17 +1120,17 @@ export function PluginsTab() {
                   className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none font-mono"
                 />
                 <p className="text-[10px] text-gray-500">
-                  声明此插件依赖的基础组件（支持 Semver 版本约束）
+                  {t("admin.plugins.fieldDepsHint")}
                 </p>
               </div>
 
               <div className="space-y-1">
                 <label className="block text-xs font-medium text-gray-300">
-                  插件描述
+                  {t("admin.plugins.fieldDesc")}
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="说明插件用途与支持的数据源格式"
+                  placeholder={t("admin.plugins.fieldDescPlaceholder")}
                   value={registerForm.description}
                   onChange={(e) =>
                     setRegisterForm({
@@ -1139,7 +1145,7 @@ export function PluginsTab() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-gray-300">
-                    作者信息
+                    {t("admin.plugins.fieldAuthor")}
                   </label>
                   <input
                     type="text"
@@ -1157,7 +1163,7 @@ export function PluginsTab() {
 
                 <div className="space-y-1">
                   <label className="block text-xs font-medium text-gray-300">
-                    版本号 (Semver)
+                    {t("admin.plugins.fieldVersion")}
                   </label>
                   <input
                     type="text"
@@ -1176,11 +1182,11 @@ export function PluginsTab() {
 
               <div className="space-y-1">
                 <label className="block text-xs font-medium text-gray-300">
-                  HMAC 验签密钥 (Secret Token)
+                  {t("admin.plugins.fieldSecret")}
                 </label>
                 <input
                   type="password"
-                  placeholder="用于 X-MetaFusion-Signature 请求签名校验"
+                  placeholder={t("admin.plugins.fieldSecretPlaceholder")}
                   value={registerForm.secret_token}
                   onChange={(e) =>
                     setRegisterForm({
