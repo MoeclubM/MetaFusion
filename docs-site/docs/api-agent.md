@@ -1,23 +1,25 @@
 ---
-title: "AI Agent 接入与自动化编目准则"
-description: "面向 LLM / AI 代理的 OpenAPI 工具定义、标准编目 SOP、纯净实体准则与自动化审查规程。"
+title: "AI Agent 自动化 API 与工具规范"
+description: "面向 LLM / 智能体的 OpenAPI 工具定义、原子化与事务写入端点、质检拦截与自动化巡检规范。"
 order: 36
 group: "api"
 ---
 
-# AI Agent 接入与自动化编目准则
+# AI Agent 自动化 API 与工具规范 (AI Agent API & Tool Specs)
 
-MetaFusion 开放 API 专为自动化考据与 AI Agent 协同设计。为了保障数据纯净度、图谱拓扑一致性与版本可追溯性，所有接入 MetaFusion 的 AI Agent 必须严格遵守本项目内置的 **[MetaFusion Curator 编目审查技能包](/.cursor/skills/metafusion-curator/SKILL.md)**。
+MetaFusion 开放 API 为大语言模型（LLM）与自动化 Agent 提供了结构化、原子化的编目写入端点。本规范提供标准 Function Calling / Tools JSON Schema 定义、原子写入端点规范以及错误自愈与安全红线。
+
+> 💡 **全面协作指南**：如需了解 Agent 身份设定、7步 SOP、多作品盒装案例、录音母版复用与完整 Python / TypeScript 脚本，请参阅专栏文档 **[《AI Agent 接入与自动化编目协作指南》](/agent-integration)**。
 
 ---
 
-## 1. 核心接入规范与最高法则
+## 1. 核心接入规范与最高红线
 
 1. **纯净实体原则 (Pure Entity Rule)**：
    - 创建或编辑 `Work` 逻辑作品时，`title` 必须保持最纯净的原作题名，**绝对禁止**混入季数（如“第1季”）、载体介质（如“TV动画”、“单行本”）、规格画质（如“1080P”、“Hi-Res”）或压制字幕组修饰词。
    - 所有出版规格、分卷分季、ISBN-13 与唱片编号必须归属于 `Release` 发行版与 `Medium` / `Track` 容器。
 2. **每次写入必带审计信息**：
-   - 每次调用写入/更新 API，必须在 payload 中携带明确具体的 `edit_note`（修订动机说明）与可访问核验的 `source_urls`（权威考据源列表）。
+   - 每次调用写入/更新 API，必须在 payload 中携带明确具体的 `edit_note`（修订动机说明，≥ 10 字符）与可访问核验的 `source_urls`（权威考据源列表）。
 3. **检索查重优先 (Search & Deduplication First)**：
    - 严禁盲目直接创建。必须先调用 `GET /api/v1/search` 检索库内现有实体，优先复用或合并。
 4. **封面规范与真实性**：
@@ -25,9 +27,9 @@ MetaFusion 开放 API 专为自动化考据与 AI Agent 协同设计。为了保
 
 ---
 
-## 2. LLM 工具定义描述 (Tool Declarations)
+## 2. LLM 工具定义描述 (Tool Declarations / JSON Schema)
 
-可直接拉取 `GET /api/v1/openapi.json`，或向 LLM 注入以下原子与一站式编目工具：
+可直接拉取 `GET /api/v1/openapi.json`，或向 LLM 注入以下原子与一站式编目工具定义：
 
 ```json
 {
@@ -38,7 +40,7 @@ MetaFusion 开放 API 专为自动化考据与 AI Agent 协同设计。为了保
       "parameters": {
         "type": "object",
         "properties": {
-          "q": { "type": "string", "description": "Search query keywords" },
+          "q": { "type": "string", "description": "Search query keywords or barcode" },
           "type": { "type": "string", "enum": ["work", "artist", "release", "franchise", "all"], "default": "all" }
         },
         "required": ["q"]
@@ -51,14 +53,14 @@ MetaFusion 开放 API 专为自动化考据与 AI Agent 协同设计。为了保
         "type": "object",
         "properties": {
           "id": { "type": "string", "format": "uuid", "description": "Work UUID" },
-          "inc": { "type": "string", "description": "Includes: releases+artists+relations+translations" }
+          "inc": { "type": "string", "description": "Includes: releases+artists+relations+translations", "default": "releases+artists+relations+translations" }
         },
         "required": ["id"]
       }
     },
     {
       "name": "metafusion_submit_catalog",
-      "description": "Atomically submit a pure Work along with Release, Mediums, Tracks, Artists, and Translations",
+      "description": "Atomically submit a pure Work along with Release, Mediums, Tracks, Artists, and Translations in a single ACID transaction",
       "parameters": {
         "type": "object",
         "properties": {
@@ -66,9 +68,9 @@ MetaFusion 开放 API 专为自动化考据与 AI Agent 协同设计。为了保
             "type": "object",
             "properties": {
               "title": { "type": "string", "description": "Pure entity title (NO season, format, or resolution)" },
-              "original_language": { "type": "string" },
+              "original_language": { "type": "string", "description": "ISO 639-1 code (e.g. ja, zh, en)" },
               "cover_aspect": { "type": "string", "enum": ["1:1", "2:3", "3:4"] },
-              "cover_image_url": { "type": "string" },
+              "cover_image_url": { "type": "string", "description": "Direct URL to official cover hosted on object storage" },
               "tags": { "type": "array", "items": { "type": "string" } },
               "translations": {
                 "type": "array",
@@ -78,17 +80,63 @@ MetaFusion 开放 API 专为自动化考据与 AI Agent 协同设计。为了保
                     "locale": { "type": "string" },
                     "title": { "type": "string" },
                     "summary": { "type": "string" }
-                  }
+                  },
+                  "required": ["locale", "title"]
                 }
               }
             },
-            "required": ["title", "cover_aspect"]
+            "required": ["title", "cover_aspect", "original_language"]
           },
-          "release": { "type": "object" },
-          "mediums": { "type": "array" },
-          "tracks": { "type": "array" },
-          "artists": { "type": "array" },
-          "edit_note": { "type": "string", "description": "Detailed explanation of this cataloging submission" },
+          "artists": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "artist_id": { "type": "string", "format": "uuid" },
+                "role": { "type": "string", "description": "e.g. director, composer, author, illustrator" }
+              },
+              "required": ["artist_id", "role"]
+            }
+          },
+          "release": {
+            "type": "object",
+            "properties": {
+              "edition_name": { "type": "string" },
+              "catalog_number": { "type": "string" },
+              "barcode": { "type": "string", "description": "Valid ISBN-13 or EAN barcode" },
+              "release_date": { "type": "string", "format": "date" },
+              "country": { "type": "string" },
+              "packaging": { "type": "string" }
+            },
+            "required": ["edition_name"]
+          },
+          "mediums": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "position": { "type": "integer" },
+                "name": { "type": "string" },
+                "format": { "type": "string", "enum": ["CD", "Vinyl", "Blu-ray", "UHD-BD", "DVD", "Paperback", "Hardcover", "Digital"] }
+              },
+              "required": ["position", "format"]
+            }
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "medium_position": { "type": "integer" },
+                "position": { "type": "integer" },
+                "title": { "type": "string" },
+                "duration": { "type": "integer", "description": "Duration in seconds" },
+                "canonical_entry_id": { "type": "string", "format": "uuid" }
+              },
+              "required": ["medium_position", "position", "title"]
+            }
+          },
+          "edit_note": { "type": "string", "description": "Detailed explanation of this cataloging submission (>= 10 chars)" },
           "source_urls": { "type": "array", "items": { "type": "string" }, "description": "Authoritative evidence URLs" }
         },
         "required": ["work", "edit_note", "source_urls"]
@@ -105,13 +153,14 @@ MetaFusion 开放 API 专为自动化考据与 AI Agent 协同设计。为了保
             "items": {
               "type": "object",
               "properties": {
-                "source_type": { "type": "string" },
-                "source_id": { "type": "string" },
-                "target_type": { "type": "string" },
-                "target_id": { "type": "string" },
-                "relationship_type": { "type": "string" },
+                "source_type": { "type": "string", "enum": ["work", "artist", "franchise"] },
+                "source_id": { "type": "string", "format": "uuid" },
+                "target_type": { "type": "string", "enum": ["work", "artist", "franchise"] },
+                "target_id": { "type": "string", "format": "uuid" },
+                "relationship_type": { "type": "string", "enum": ["part_of_franchise", "adaptation_of", "soundtrack_of", "sequel_of", "prequel_of", "spin_off_of", "crossover_with", "included_in", "voice_actor_of", "character_in"] },
                 "qualifier": { "type": "string" }
-              }
+              },
+              "required": ["source_type", "source_id", "target_type", "target_id", "relationship_type"]
             }
           },
           "edit_note": { "type": "string" },
@@ -126,73 +175,100 @@ MetaFusion 开放 API 专为自动化考据与 AI Agent 协同设计。为了保
 
 ---
 
-## 3. Python 编目与质检 Agent 完整示例
+## 3. 核心写入端点规范
 
-```python
-import os
-import requests
+### 3.1 一站式原子入库 (`POST /api/v1/catalog/submit`)
 
-API_BASE = "https://your-metafusion-instance.org/api/v1"
-HEADERS = {
-    "Authorization": "Bearer mfp_your_token_here",
-    "User-Agent": "MetaFusion-Curator-Agent/1.0 (agent@example.org)",
-    "Content-Type": "application/json"
-}
+支持在单次请求中原子性创建逻辑作品（Work）、物理发行版（Release）、介质容器（Medium）、分轨/单集（Track）、创作者演职绑定（Artist Relationships）与多语言翻译（Translations）。任何一个环节校验失败（如 ISBN 校验位错误、题名命中污染黑名单），整个事务自动回滚。
 
-def curate_anime_movie():
-    # 1. 查重检索
-    q_resp = requests.get(f"{API_BASE}/search", params={"q": "攻壳机动队", "type": "work"}, headers=HEADERS).json()
-    if q_resp.get("works"):
-        print(f"Work already exists: ID={q_resp['works'][0]['id']}")
-        return
+#### 请求示例
 
-    # 2. 一站式纯净入库
-    payload = {
-        "work": {
-            "title": "攻壳机动队",
-            "original_language": "ja",
-            "cover_aspect": "2:3",
-            "cover_image_url": "https://storage.metafusion.local/covers/gits_1995.webp",
-            "tags": ["动画", "电影", "科幻", "赛博朋克"],
-            "translations": [
-                { "locale": "zh-CN", "title": "攻壳机动队", "summary": "公元2029年，网络高度发达的信息化时代..." },
-                { "locale": "en-US", "title": "Ghost in the Shell", "summary": "A cyborg policewoman and her partner hunt a mysterious hacker..." },
-                { "locale": "ja", "title": "GHOST IN THE SHELL / 攻殻機動隊", "summary": "西暦2029年。情報化の進展と同調して..." }
-            ]
-        },
-        "artists": [
-            { "artist_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d", "role": "director" }
-        ],
-        "release": {
-            "edition_name": "4K UHD 典藏限量铁盒版",
-            "catalog_number": "BCQA-0001",
-            "barcode": "4934569363015",
-            "release_date": "2018-06-22",
-            "country": "JPN",
-            "packaging": "Steelbook"
-        },
-        "mediums": [
-            { "position": 1, "name": "Disc 1 (4K UHD)", "format": "UHD-BD" }
-        ],
-        "tracks": [
-            { "medium_position": 1, "position": 1, "title": "Main Feature" }
-        ],
-        "edit_note": "Authoritative import from Bandai Visual catalog and official archives",
-        "source_urls": ["https://v-storage.bnarts.jp/sp-site/ghost-in-the-shell/"]
+```http
+POST /api/v1/catalog/submit HTTP/1.1
+Host: api.metafusion.local
+Authorization: Bearer mfp_your_personal_access_token
+User-Agent: MetaFusionCuratorBot/1.0
+Content-Type: application/json
+
+{
+  "work": {
+    "title": "秒速5厘米",
+    "original_language": "ja",
+    "cover_aspect": "2:3",
+    "cover_image_url": "https://storage.metafusion.local/covers/5cm_poster.webp",
+    "tags": ["动画", "电影", "爱情", "青春", "新海诚"],
+    "translations": [
+      { "locale": "zh-CN", "title": "秒速5厘米", "summary": "时间带着明显的恶意，从我的头顶流逝..." },
+      { "locale": "ja", "title": "秒速5センチメートル", "summary": "どれほどの速さで生きれば、きみにまた会えるのか。" },
+      { "locale": "en-US", "title": "5 Centimeters per Second", "summary": "A tale of two people who were close friends..." }
+    ]
+  },
+  "artists": [
+    { "artist_id": "c1aebc99-9c0b-4ef8-bb6d-6bb9bd380a01", "role": "director" }
+  ],
+  "release": {
+    "edition_name": "日本院线官方初版蓝光",
+    "catalog_number": "CWBA-0005",
+    "barcode": "4988104044952",
+    "release_date": "2008-04-18",
+    "country": "JPN",
+    "packaging": "Digipak"
+  },
+  "mediums": [
+    {
+      "position": 1,
+      "name": "Disc 1 (Feature)",
+      "format": "Blu-ray"
     }
-    
-    resp = requests.post(f"{API_BASE}/catalog/submit", json=payload, headers=HEADERS)
-    resp.raise_for_status()
-    print("Cataloged pure work successfully:", resp.json())
+  ],
+  "tracks": [
+    { "medium_position": 1, "position": 1, "title": "第1话：樱花抄", "duration": 1560 },
+    { "medium_position": 1, "position": 2, "title": "第2话：宇航员", "duration": 1320 },
+    { "medium_position": 1, "position": 3, "title": "第3话：秒速5厘米", "duration": 900 }
+  ],
+  "edit_note": "根据 CoMix Wave Films 官方档案录入初版蓝光规格与分集分轨",
+  "source_urls": [
+    "https://www.cwfilms.jp/5cm/"
+  ]
+}
+```
 
-if __name__ == "__main__":
-    curate_anime_movie()
+#### 成功响应 (`201 Created`)
+
+```json
+{
+  "code": 201,
+  "message": "Work and release cataloged successfully",
+  "data": {
+    "work_id": "7b8deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "release_id": "8c9deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6e",
+    "revision_id": "9d0deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6f",
+    "medium_count": 1,
+    "track_count": 3
+  }
+}
 ```
 
 ---
 
 ## 4. 自动化巡检与错误自愈策略
 
-- **429 Too Many Requests**：读取响应头 `Retry-After`，采用指数退避算法暂停后重试（建议 Agent 批量请求间隔 ≥ 1.0s）；
-- **422 Unprocessable Entity (Dirty Title / Cyclic Relation)**：解析错误明细，自动清洗 Work 标题并剥离修饰词至 Release，或断开循环关系边后重新提交；
-- **401/403 Forbidden**：检查 Personal Access Token 权限范围（需具备 `catalog:write` 权限），更新 Authorization 请求头。
+| 状态码 | 错误类型 | 触发原因 | Agent 自动化自愈策略 |
+|---|---|---|---|
+| **422** | `DirtyTitleError` | Work 标题中包含“第1季”、“1080P”、“TV版”等修饰词 | 自动剥离污染词汇并移入 Release `edition_name`，重新提交 |
+| **422** | `CyclicGraphError` | 实体拓扑关系形成环路（如 A 是 B 的续作，B 又被指向为 A 的续作） | 运行本地 DFS 环路检测，剔除冗余反向边，维持单向 DAG |
+| **422** | `InvalidCoverAspect` | 图片实际宽高比与 `cover_aspect` 偏差 > 5% | 校正 `cover_aspect`（1:1 / 2:3 / 3:4）或更换官方正规海报 |
+| **422** | `InvalidBarcode` | ISBN-13 模 10 校验位计算不匹配 | 重新比对权威出版库纠正条形码 |
+| **422** | `MissingAuditInfo` | `edit_note` 缺失/过短（< 10 字）或 `source_urls` 为空 | 补充考据动机说明与至少一条官方权威源 URL |
+| **429** | `RateLimitExceeded` | 触发调用频控 | 解析响应头 `Retry-After`，按指数退避暂停后重试 |
+| **401 / 403** | `Unauthorized` | 令牌过期或缺少 `catalog:write` 权限 | 更新 PAT 访问令牌或申请提权 |
+
+---
+
+## 5. 相关指引
+
+- [AI Agent 接入与自动化编目协作指南](/agent-integration)
+- [权威编目与元数据审查准则](/curation-guide)
+- [IFLA LRM 增强版实体模型](/frbr-model)
+- [PAT 访问令牌与认证](/api-auth)
+- [全文搜索与多维过滤 API](/api-search)

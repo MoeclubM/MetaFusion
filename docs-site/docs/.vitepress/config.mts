@@ -16,8 +16,8 @@ export default defineConfig({
     nav: [
       { text: '平台指南', link: '/overview' },
       { text: '编目指引', link: '/curation-guide' },
-      { text: '编辑规范', link: '/editing-guide' },
-      { text: 'IFLA LRM 体系', link: '/frbr-model' },
+      { text: 'LRM 体系', link: '/frbr-model' },
+      { text: 'AI Agent 协作', link: '/agent-integration' },
       { text: '开放 API', link: '/api-overview' },
       { text: '社区', link: '/community-guide' },
       {
@@ -37,19 +37,18 @@ export default defineConfig({
         ]
       },
       {
-        text: '🏛️ 数据体系与分类规范',
+        text: '🏛️ 数据体系与编目规范',
         items: [
-          { text: '权威编目与审查指引', link: '/curation-guide' },
+          { text: '权威编目与审查准则', link: '/curation-guide' },
           { text: 'IFLA LRM 增强版实体模型', link: '/frbr-model' },
           { text: '分类体系与动态标签', link: '/taxonomy' }
         ]
       },
       {
-        text: '✍️ 社区共建与编辑规范',
+        text: '🤖 AI Agent 与自动化协作',
         items: [
-          { text: '词条编辑与合并规范', link: '/editing-guide' },
-          { text: '资源收录与投稿标准', link: '/contribute-guide' },
-          { text: '媒体上传与转码流', link: '/upload-transcode' }
+          { text: 'AI Agent 接入与自动化编目协作指南', link: '/agent-integration' },
+          { text: 'AI Agent 自动化 API 与工具规范', link: '/api-agent' }
         ]
       },
       {
@@ -60,8 +59,15 @@ export default defineConfig({
           { text: '实体查询与关联展开 (Lookup/Browse)', link: '/api-lookup-browse' },
           { text: '全文搜索与多维过滤 (Search)', link: '/api-search' },
           { text: '词条写入与合并接口', link: '/api-edit' },
-          { text: '资源直传与预签名下载', link: '/api-storage' },
-          { text: 'AI Agent 接入与自动化准则', link: '/api-agent' }
+          { text: '资源直传与预签名下载', link: '/api-storage' }
+        ]
+      },
+      {
+        text: '✍️ 社区共建与编辑规范',
+        items: [
+          { text: '词条编辑与合并规范', link: '/editing-guide' },
+          { text: '资源收录与投稿标准', link: '/contribute-guide' },
+          { text: '媒体上传与转码流', link: '/upload-transcode' }
         ]
       },
       {

@@ -1,143 +1,234 @@
 ---
 title: "IFLA LRM 增强版实体模型"
-description: "MetaFusion 融合国际图书馆学 LRM 规范与现代数字媒体流的增强实体架构。"
+description: "MetaFusion 融合国际图书馆学 IFLA LRM 与 MusicBrainz 编目哲学的五层混合实体架构。"
 order: 10
 group: "model"
 ---
 
-# IFLA LRM 增强版实体模型体系 (LRM-Enhanced)
+# IFLA LRM 增强版实体模型体系 (LRM-Enhanced Architecture)
 
-MetaFusion 采用国际图书馆学联合会（IFLA）最新制定的 **LRM (Library Reference Model 图书馆参考模型)** 规范，并在其基础上融合了高解析无损音频抓轨、多码率切片流媒体与开放协同修订机制，构建了面向跨媒介（电影、音乐、剧集、文献、动漫、画集）的 **LRM 增强版分层数据架构**。
+MetaFusion 彻底废弃传统树状分类与硬编码 `media_type` 枚举，采用国际图书馆学联合会（IFLA）制定的 **LRM (Library Reference Model 图书馆参考模型)** 规范，并深度融合 **MusicBrainz 录音母版复用哲学** 与 **现代多媒介流媒体体系**，构建了面向跨媒介（电影、音乐、剧集、文献、动漫、游戏）的 **五层混合实体模型 + 四大核心枢纽**。
 
 ---
 
-## 1. 核心分层架构
+## 1. 五层核心实体分层体系 (The 5-Layer Hierarchy)
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│  LRM-E1: Work (作品概念层)                              │
-│  - 纯粹的知识与艺术创作概念，如《千与千寻》《奥本海默》《BAD MODE》 │
+│  LRM-E1: Work (逻辑作品概念层: 纯净题名与核心思想)       │
+│  - 纯粹思想与艺术创作概念，如《千与千寻》《范特西》《三体》│
+│  - 词曲创作绑定: composer, lyricist, author           │
 └───────────────────────────┬────────────────────────────┘
-                            │ 派生 / 表现
+                            │ 1:N 抽象创作演化为母版/录音
 ┌───────────────────────────▼────────────────────────────┐
-│  LRM-E2: Expression (表现形式层)                        │
-│  - 语种版本、原声/无损母带、导演剪辑版、分轨编目、曲目典范条目    │
+│  LRM-E2: CanonicalEntry / Recording (典范母版/录音)    │
+│  - 单曲母带、动画单集母版、漫画分话母版、游戏关卡母版 │
+│  - 录音演职绑定: performer, arranger, producer         │
+│  - 可被多个不同 Release / Track 跨版本复用            │
 └───────────────────────────┬────────────────────────────┘
-                            │ 物化 / 出版发行
+                            │ 1:N 商业发行封装 / 复用于多发行版
 ┌───────────────────────────▼────────────────────────────┐
-│  LRM-E3: Manifestation / Release (载体发行版)           │
-│  - 具体的物理或数字发行物 (初回限定盘、4K UHD 铁盒、SACD、数字专辑) │
-│    └─ Medium (载体单元: Disc 1, Disc 2, Side A/B)       │
+│  LRM-E3: Release (商业发行版本 / 包装规格)             │
+│  - 初回限定盘 CD+BD、4K UHD 铁盒版、精装单行本分卷     │
+│  - 商业属性: barcode (ISBN/EAN), catalog_number, 厂牌 │
+│    └─ Medium (介质容器: Disc 1, Disc 2, Vol.1)         │
+│         └─ Track (物理分轨: 音轨序号、时长、母版引用) │
 └───────────────────────────┬────────────────────────────┘
-                            │ 单件 / 数字化存储
+                            │ 1:N 数字化持久化
 ┌───────────────────────────▼────────────────────────────┐
-│  LRM-E4: Item / Asset (物理单件与资源资产)               │
-│  - 对象存储文件、SHA-256 校验哈希、分片流媒体切片、抓轨日志     │
+│  LRM-E4: Item / AssetFile (实体单件与存储资产)          │
+│  - RustFS / S3 对象存储、SHA-256 校验、HLS 切片流      │
 └────────────────────────────────────────────────────────┘
 ```
 
-同时，通过 **LRM-E5 Agent（责任主体）** 构建横跨全生命周期的创作者与制作机构协作关系图谱：
+同时，通过 **LRM-E5 Artist（责任主体）** 与 **Franchise（世界观/企划枢纽）** 构建横跨全生命周期的创作者与制作机构协作关系图谱：
 
 ```
-                    ┌──────────────────┐
-                    │ LRM-E5: Agent    │
-                    │ (创作者 / 机构)    │
-                    └─────────┬────────┘
-                              │ 承担职能 (Role)
-             ┌────────────────┼────────────────┐
-             │                │                │
-      执导 / 谱曲 / 著作者     演奏 / 声优 / 演唱     出品 / 录音工作室 / 厂牌
-             │                │                │
-             ▼                ▼                ▼
-       [ LRM-E1 Work ] ─── [ LRM-E2 Expr ] ─── [ LRM-E3 Release ]
+[ Franchise (世界观/企划枢纽) ] ─── part_of_franchise ───┐
+                                                        ▼
+[ Artist (责任主体: 创作者/机构) ] ─── creator_of ───► [ Work (逻辑作品概念层: 纯净题名) ]
+                                                        │
+                                                 1:N    │ 抽象创作演化为母版/单曲
+                                                        ▼
+                                           [ CanonicalEntry (典范母版/录音 Recording) ]
+                                                        │
+                                                 1:N    │ 商业发行包含 / 复用于多 Release
+                                                        ▼
+                                           [ Release (商业发行版本: 规格/厂牌/条码) ]
+                                                        │
+                                                 1:N    │ 物理介质/分盘/分卷
+                                                        ▼
+                                             [ Medium (介质容器: Disc / Vol / Reel) ]
+                                                        │
+                                                 1:N    │ 物理音轨/单集分轨/关卡
+                                                        ▼
+                                             [ Track (分轨: 序号/标题/时长/母版关联) ]
 ```
 
 ---
 
-## 2. LRM 实体层级详细职责
+## 2. LRM 各层实体详细职责与纯净题名准则
 
-| 层级 | LRM 定义 | MetaFusion 平台职责 | 核心数据字段 | 典型示例 |
-|---|---|---|---|---|
-| **Work** | 作品概念 (LRM-E1) | 独立的精神与艺术创作概念，聚合所有翻唱、改编与重映版本 | `id (UUID)`, `title`, `original_title`, `translations`（按 locale 的题名+简介）, `language`（默认显示语种）, `original_language`, `summary`, `cover_image_url`, `cover_aspect`, `tags` | 《攻壳机动队》、《星际穿越》、《贝多芬第九交响曲》 |
-| **Expression** | 表现形式 (LRM-E2) | 艺术概念的具体知觉实现（音频声道、画面规格、语言文本） | `canonical_entries`, `format`, `channels`, `sample_rate`, `bit_depth` | 24bit/96kHz Hi-Res 立体声母带、IMAX 1.43:1 动态画幅剪辑版 |
-| **Manifestation (Release)** | 载体发行 (LRM-E3) | 面向公众的特定物理或数字出版载体形态，包含条码与唱片编号 | `edition_name`, `catalog_number`, `barcode`, `packaging`, `release_date`, `country` | `VIZL-123` 初回限定盘 (CD+Blu-ray)、`UHD-8848` 限量铁盒收藏版 |
-| **Medium** | 载体介质 (LRM-E3 容器) | 复合发行版下的独立物理/数字存储盘片或分卷 | `position`, `format` (CD/BD/Vinyl/Digital/Book), `track_count` | `Disc 1 (Original CD)`, `Disc 2 (Bonus BD)`, `Side A` |
-| **Track / Entry** | 条目/分轨 (LRM-E3 内容项) | 介质载体上的具体音轨、影片章节或书籍分册 | `position`, `title`, `duration`, `canonical_entry_id` | `Track 01: 谣 III - Reincarnation` (03:44) |
-| **Item / Asset** | 实体单件/资产 (LRM-E4) | 存储节点上的具体数字化文件与物理特征 | `s3_key`, `file_size`, `sha256`, `mime_type`, `transcode_status` | `master_24_96.flac` (SHA256 校验完备) |
-| **Agent** | 责任主体 (LRM-E5) | 参与创作、演出、制作、出版的个人或组织法人 | `name`, `type` (Person / Group / Studio / Orchestra), `aliases`, `country` | 克里斯托弗·诺兰、久石让、柏林爱乐乐团、吉卜力工作室 |
-
----
-
-## 3. 为什么选择 LRM 增强版架构？
-
-1. **避免跨媒介实体混淆**：
-   - 传统的平面数据库往往将《千与千寻》电影、电影原声带 CD、主题曲单曲以及艺术画集混在同一张表内，导致字段大量冲突。
-   - LRM 架构将《千与千寻》（电影 Work）与《千与千寻 电影原声大碟》（音乐 Work）清晰拆分为独立概念，并通过 `adaptation` / `soundtrack_of` 图谱关系边紧密互联。
-2. **多语言与跨国版本无缝支持**：
-   - 统一在 Work / Artist / Franchise 层提供 `translations` 表（`zh-CN` / `zh-TW` / `en-US` / `ja` / `ko`），每种语言同时保存题名与简介；主表 `title`/`summary`（或 `name`/`biography`）等于默认显示语种那一组。
-3. **版本演进与不可篡改审计**：
-   - 所有 LRM 实体的每一次创建、更新或合并，均记录于不可篡改的 `entity_revisions` 审计流中，支持完整的版本追溯、差异对比（Diff）与社群协作审核。
-4. **MusicBrainz WS/2 无缝映射**：
-   - 平台原生兼容 MusicBrainz WS/2 规范接口，支持自动化抓取器与主流编目工具一键导入作品、发行版与创作者数据（详见 [开发者 API 概览](/api-overview)）。
+| 实体层级 | LRM 对应定义 | MetaFusion 平台职责 | 核心数据字段 | 命名黄金准则 (Pure Title Rule) | 典型违规反例 |
+|---|---|---|---|---|---|
+| **Work** | 作品概念 (LRM-E1) | 独立的精神与艺术创作概念本体，聚合所有版本、跨媒介改编与翻唱 | `id (UUID)`, `title`, `original_language`, `cover_aspect`, `tags`, `translations` | **只保留最纯粹的原作主名**。<br>如《进击的巨人》、《范特西》、《三体》 | ❌ 包含“第1季”、“TV动画版”、“1080P”、“重制版”、“Vol.1”、“OST” |
+| **CanonicalEntry** | 表现/典范录音 (LRM-E2) | 具体声音录音母带（Recording）、影视单集母版、漫画单话母版 | `id (UUID)`, `work_id`, `title`, `default_duration`, `isrc`, `attributes` | **母版/单曲原始标准名**。<br>如《晴天 (Master Recording)》、《第1话：给二千年后的你》 | ❌ 混入专辑名、混入光盘编号（如“Disc 1 Track 03”） |
+| **Release** | 载体发行版 (LRM-E3) | 面向公众的特定物理或数字出版载体形态，具备条码与唱片编号 | `id (UUID)`, `work_id`, `edition_name`, `catalog_number`, `barcode`, `publisher_id` | **标明版本规格、卷次、出版方、装帧**。<br>如《范特西（首版CD，BMG唱片，2001）》 | ❌ 泛用模版复制（所有网文都写“网络连载版”）、缺少版本区分 |
+| **Medium** | 载体介质容器 | 复合发行版下的独立物理/数字存储盘片或分卷 | `id (UUID)`, `release_id`, `position`, `name`, `format` (CD/BD/Vinyl/Book) | **介质序数与载体名称**。<br>如 `Disc 1 (Feature BD)`、`Vol.1` | ❌ 遗漏分盘、将多盘合为单盘导致序号冲突 |
+| **Track** | 物理分轨/项 | 介质载体上的具体音轨、影片章节或书籍分册 | `id (UUID)`, `medium_id`, `canonical_entry_id`, `position`, `title`, `duration` | **分轨序号 + 轨题名**。<br>如 `1. 爱在西元前 (03:43)` | ❌ 序号颠倒、时长填 0、未绑定母版 |
+| **Item / Asset** | 实体单件/资产 (LRM-E4) | 存储节点上的具体数字化文件与物理特征 | `s3_key`, `file_size`, `sha256`, `mime_type`, `transcode_status` | 物理资产文件（受控媒体流与 SHA256） | ❌ 盗链外站易失效 URL |
+| **Artist** | 责任主体 (LRM-E5) | 参与创作、演出、制作、出版的个人、虚拟角色、团体或法人机构 | `id (UUID)`, `name`, `type` (Person/Group/Studio), `aliases`, `translations` | **规范标准原名**（如“周杰伦”、“吉卜力工作室”） | ❌ 按单部作品重复创建主体 |
+| **Franchise** | 世界观企划枢纽 | 聚合同一世界观下的跨媒介作品线与宇宙 | `id (UUID)`, `name`, `description`, `translations` | **世界观/系列标准名**（如“三体宇宙”、“Fate 系列”） | ❌ 为作者个人作品全集建企划 |
 
 ---
 
-## 4. 稳定枢纽 + 动态类型
+## 3. 词曲创作与录音演职主体的严格分离与复用机制
 
-全库只保留四类可独立成页的实体。类型与关系走字典表，不随题材加第五枢纽。
+### 3.1 创作者 (Work Level) 与 录音演职主体 (Recording Level)
 
-| 枢纽 | 含义 | 不做什么 |
-|---|---|---|
-| **Franchise** | 企划 / 世界观 / 可嵌套子企划 | 个人作者曲库、单部游戏分服、轻小说分卷 |
-| **Work** | 一部可独立指认的创作 | 国服客户端、ISBN 各异的卷册 |
-| **Release** | 同作品的一次封装（分服、卷册、数字碟、初回盘） | 产品级分家的新作 |
-| **Agent** | 人 / 团 / 社 / 厂牌 / 虚拟角色 / 虚拟乐队 | 职阶、CV 字符串、从者专用表 |
-
-真正灵活的是核心字典与标签本体：`entity_type_definitions`（创作者类型）、`relation_types`（多维关系网络）与多维标签体系。实体的形态与规格通过「多维标签 + 虚拟货架 + Release 规格 + 实体图谱边」自然表达，无任何 `media_type` 字段侵入。JSONB（`catalog_metadata`、关系 `attributes`）与关系 `qualifier` 只放题材附属字段（分服代码、配音语种）。
-
-### 4.1 新概念判定树
+在传统低精度数据库中，作词、作曲、编曲、演唱常被混为一谈。MetaFusion 实行严格的层次化演职隔离：
 
 ```mermaid
-flowchart TD
-  q1["新出现的东西"]
-  q1 --> workNode["独立创作产品 → Work（纯净标题，附带多语言翻译与标签）"]
-  q1 --> releaseNode["同作品一次封装 → Release（包含包装、格式与规格）"]
-  q1 --> agentNode["人或组织或角色或乐队 → Agent（必要时指定 entity_type）"]
-  q1 --> franchiseNode["可衍生世界观或跨媒介产品线 → Franchise（可嵌套）"]
-  q1 --> relNode["上述之间的联系 → 新增 relation_type 边"]
-  q1 --> attrNode["职阶/平台/ISBN/语种 → tag 或 JSONB 或关系 qualifier"]
+classDiagram
+    class Work {
+        +UUID id
+        +String title
+        +String original_language
+        +String cover_aspect
+        +Relations: composer, lyricist, author
+    }
+    class CanonicalEntry {
+        +UUID id
+        +UUID work_id
+        +String title
+        +Int default_duration
+        +String isrc
+        +Relations: performer, arranger, producer, phonographic_copyright
+    }
+    class Track {
+        +UUID id
+        +UUID medium_id
+        +UUID canonical_entry_id
+        +Int position
+        +String title
+        +Int duration
+    }
+    class Release {
+        +UUID id
+        +UUID work_id
+        +String edition_name
+        +String barcode
+        +String catalog_number
+        +UUID publisher_id
+    }
+    Work "1" -- "0..*" CanonicalEntry : has master entries
+    Work "1" -- "0..*" Release : manifests as
+    CanonicalEntry "1" -- "0..*" Track : referenced by
+    Release "1" -- "1..*" Track : contains via Mediums
 ```
 
-- **何时升级子 Franchise**：一条支线自己已经跨媒介（漫画+动画+游戏）→ 子企划；只是正传的卷册或一季续作 → 留在 Work / `sequel_of`。
-- **个人创作者的作品全集不是 Franchise**。枢纽是 Agent 页。只有当作者造出可被多人衍生的世界观才建 Franchise，并用 `creator_of` 接到企划上。
-- **CanonicalEntry**：可跨发行复用的内容母版（同一录音、同一漫画话、VN 一条路线）。不成页、不是第五枢纽。从者是 Agent。
-- **同类多边**用 `qualifier`（日配 `ja` / 中配 `zh-CN`），不要为此拆实体。
-- 新编目专辑收录用 `included_in`；`part_of_universe` 仅保留给未迁完的旧数据。
+- **Work 级关系**：
+  - `composer`（作曲者）：写出旋律与和弦的主体（如：周杰伦、久石让）；
+  - `lyricist`（作词者）：创作歌词的主体（如：方文山、林夕）；
+  - `author`（原著作者）：文学创作者（如：刘慈欣、尾田荣一郎）。
+- **CanonicalEntry / Recording 级关系**：
+  - `performer` / `vocalist`（演唱者/演奏者）：实际发声的主体；
+  - `arranger`（编曲者）：将纯乐谱编配为完整配器编制的音乐人（如：钟兴民、林迈可）；
+  - `producer`（录音制作人）：监制整个录音工程的主体；
+  - `phonographic_copyright`（录音制品版权方 ℗）。
 
-### 4.2 连接矩阵
+### 3.2 Recording 复用与「Appears on Releases」反查原理
 
-行 = 起点，列 = 终点。Agent 列还可按 `entity_type` 收紧。
+当一首典范录音（如《晴天》2001 原版母带）在多个发行版中出现时：
+1. **单次创建**：仅在库中保留一个具有全局唯一 UUID 的 `CanonicalEntry`（可包含 ISRC 编码）；
+2. **多点引用**：
+   - Release A（2003《叶惠美》首版 CD）的 Medium 1 Track 3 引用该 `CanonicalEntry`；
+   - Release B（2004《Initial J》日本精选集）的 Medium 1 Track 1 引用同一个 `CanonicalEntry`；
+   - Release C（2020《周杰伦20周年黑胶大套装》）的 Disc 4 Track 3 再次引用同一个 `CanonicalEntry`；
+3. **反向索引**：系统无需冗余复制单曲元数据，通过 SQL `JOIN tracks ON tracks.canonical_entry_id = canonical_entries.id JOIN mediums ... JOIN releases ...` 即可实时反查出该母版录音收录于哪些商业发行版（Appears on Releases）。
 
-| | Franchise | Work | Agent | Release |
-|---|---|---|---|---|
-| Franchise | `part_of_franchise` 嵌套 | — | — | — |
-| Work | `part_of_franchise` | 原声 / 改编 / 续作 / 收录 / DLC / 联动 | — | 外键 `work_id` |
-| Agent | `creator_of` / `character_in` / `imprint_of` | 演职 + 图谱边 | CV / 成员 / 变体 / 现场对照 | 出版者 |
-| CanonicalEntry | — | `included_in` | 曲目级演唱 | Track 引用 |
+---
 
-关系校验只认 `allowed_source_types` / `allowed_target_types`（可写枢纽名或 `entity_type` 码）。层级谓词（`is_hierarchical`）写入时拒绝自环与祖先环。
+## 4. 多作品合集与豪华盒装 (Multi-Work Boxsets) 建模规范
 
-### 4.3 编目示例
+### 4.1 教学案例：宮崎駿監督作品集 (13BD Boxset) vs. 千与千寻单行本
 
-**明日方舟**：企划 = Franchise；游戏本体 = Work `game`；国服/日服/国际服 = 同一 Work 下多条 Release（`country` + `catalog_metadata.server`）；终末地 = 另一 Game Work；官方漫画与网络未出版漫画各为 Comic Work；塞壬唱片 = Agent `label` + `imprint_of`；OST / 合作单曲 = Music Work，`soundtrack_of` 仅当真是游戏原声。
+```
+[ 单行本 Release: VWBS-1530 ] ─────────► 属于单部作品 ─────────► [ Work: 千与千寻 ]
+(1 BD-50, 日本院线初版)                                             ▲
+                                                                    │
+[ 13BD 豪华盒装 Release: VWBS-1531 ]                                 │
+   ├── Medium 01: 鲁邦三世 卡里奥斯特罗之城 (BD) ── Track 1 ──► [ Work: 鲁邦三世 ]
+   ├── Medium 02: 风之谷 (BD)                 ── Track 1 ──► [ Work: 风之谷 ]
+   ├── Medium 03: 天空之城 (BD)               ── Track 1 ──► [ Work: 天空之城 ]
+   ├── Medium 04: 龙猫 (BD)                   ── Track 1 ──► [ Work: 龙猫 ]
+   ├── Medium 05: 魔女宅急便 (BD)             ── Track 1 ──► [ Work: 魔女宅急便 ]
+   ├── Medium 06: 红猪 (BD)                   ── Track 1 ──► [ Work: 红猪 ]
+   ├── Medium 07: 幽灵公主 (BD)               ── Track 1 ──► [ Work: 幽灵公主 ]
+   ├── Medium 08: 千与千寻 (BD)               ── Track 1 ───┘ (精准回溯)
+   ├── Medium 09: 哈尔的移动城堡 (BD)         ── Track 1 ──► [ Work: 哈尔的移动城堡 ]
+   ├── Medium 10: 悬崖上的金鱼姬 (BD)         ── Track 1 ──► [ Work: 悬崖上的金鱼姬 ]
+   ├── Medium 11: 起风了 (BD)                 ── Track 1 ──► [ Work: 起风了 ]
+   ├── Medium 12: 特典盘 1 (On Your Mark & 宣传片)
+   └── Medium 13: 特典盘 2 (引退记者会等)
+```
 
-**BanG Dream!**：企划 = Franchise；游戏与各季动画各为 Work；2D 乐队 = `fictional_band`，现场声优乐队 = `group` + `real_counterpart_of`；角色与 CV 必须是三条实体 + 两条边：`person --voice_actor_of--> virtual_character --character_in--> work/franchise`，`qualifier` 区分语种。禁止只写简介字符串。
+- **严禁反例**：在《千与千寻》单部作品页面上填入 `catalog_number = "VWBS-1531"`（这是 13 碟大盒装，不是千与千寻单碟！）。
+- **正解流程**：
+  1. 《千与千寻》作品页挂载 `VWBS-1530` 单碟蓝光；
+  2. 独立创建汇编作品《宮崎駿監督作品集》，其下挂载 `VWBS-1531` 发行版；
+  3. 创建 13 个 Medium，Medium 8 的 Track 关联《千与千寻》电影母版；
+  4. 建立图谱边 `千与千寻 included_in 宮崎駿監督作品集`。
 
-**Fate / FGO**：Fate 为父 Franchise，FGO 为子 Franchise；FSN 三条路线 = CanonicalEntry，不拆三部 Work；从者不建 Servant 表，职阶进标签或 `catalog_metadata`；Saber / Saber Alter = 两个角色 + `alternate_form_of`；DLC 卖成独立产品才用 `expansion_of`，分服仍是 Release。
+---
 
-**魔禁 / 超电磁炮**：镰池 = Agent，作者页聚合小说；学园都市 = 父 Franchise；旧约 22 卷 = **一部** Novel Work + 22 条 Release（ISBN 进 `edition_name` / `catalog_metadata.isbn`）；新约卷号重置 = 新 Work + `sequel_of`；超炮已跨媒介 → 子 Franchise；美琴跨作品登场 = 同一角色多条 `character_in`。
+## 5. 跨媒介世界观企划 Hub 与 DAG 拓扑图谱 (Franchise & DAG Topology)
 
-**个人创作者**：久石让 / wowaka 的枢纽是 Agent 页，不建「某某宇宙」Franchise。单曲 `included_in` 专辑；Vocaloid 曲指向虚拟歌手而非声库公司。Toby Fox 在共享世界观明确之前不必为 Undertale/Deltarune 建 Franchise。
+### 5.1 实体连接矩阵与拓扑约束 (Graph Connectivity Matrix)
 
-在企划详情页中可直观查看嵌套的子企划、关联作品、演职人员及可视化关系图谱；编辑者可在词条管理界面中为企划关联作品与维护实体间关系。如需程序化操作，请查阅 [API 编目与实体管理](/api-edit)。
+| 源实体类型 (Source) | 目标实体类型 (Target) | 允许的关系类型 (`relationship_type`) | 语义约束与拓扑检测规则 |
+|---|---|---|---|
+| **Franchise** | **Franchise** | `part_of_franchise` | 企划嵌套（如 `FGO` 属于 `Fate 系列`） |
+| **Work** | **Franchise** | `part_of_franchise` | 作品归属于企划 |
+| **Work** | **Work** | `adaptation_of` (改编自)<br>`soundtrack_of` (原声带)<br>`sequel_of` (续作)<br>`prequel_of` (前作)<br>`spin_off_of` (衍生作品)<br>`included_in` (收录于合集)<br>`expansion_of` (DLC/资料片)<br>`remake_of` (重制自)<br>`crossover_with` (跨界联动) | **严格保持有向无环 (DAG)**。<br>- 禁止自环（`source_id != target_id`）<br>- 禁止 `sequel_of` 与 `prequel_of` 双向闭环<br>- `crossover_with` 为对称边（无需循环检测） |
+| **Artist** | **Franchise** | `creator_of`, `imprint_of` | 企划创立者、旗下品牌/厂牌 |
+| **Artist** | **Work** | 演职职能 (`director`, `author`, `composer`, `lyricist`, `illustrator`, etc.) + `character_in` | 艺术创作关系与角色出场 |
+| **Artist** | **CanonicalEntry** | 录音制作职能 (`performer`, `arranger`, `producer`, `phonographic_copyright`) | 录音工程母版关系 |
+| **Artist** | **Artist** | `voice_actor_of` (声优配音)<br>`member_of` (乐队/团体成员)<br>`real_counterpart_of` (现实对照乐队)<br>`alternate_form_of` (角色形态变体)<br>`imprint_of` (子厂牌) | 多边使用 `qualifier` 区分语种与版本 |
 
+---
+
+## 6. 消除 `media_type` 的四重正交表达体系
+
+MetaFusion 坚决反对在主表强加 `media_type` 枚举。作品形态由四重维度正交决定：
+
+1. **多维标签 (`tags`)**：
+   - `format` 分组：`["动画", "电影"]`、`["音乐", "专辑"]`、`["轻小说"]`、`["漫画"]`、`["游戏"]`；
+   - `genre` 分组：`["科幻", "赛博朋克"]`、`["交响配乐"]`、`["悬疑推理"]`；
+2. **封面画幅 (`cover_aspect`)**：
+   - `"1:1"` (音乐唱片/OST)；
+   - `"2:3"` (电影/动画海报)；
+   - `"3:4"` (书籍/漫画/单行本)；
+3. **Release 载体规格**：
+   - Medium `format`: `Paperback`, `Hardcover`, `CD`, `Vinyl`, `Blu-ray`, `UHD-BD`, `Digital Book`, `Digital Album`；
+4. **实体图谱边 (`entity_relationships`)**：
+   - 通过 `adaptation_of`、`soundtrack_of`、`spin_off_of` 自然表达媒介演变。
+
+---
+
+## 7. 典型编目案例实战
+
+- **明日方舟**：企划 = Franchise；游戏本体 = Work；国服/日服/国际服 = 同一 Work 下多条 Release（`country` + `catalog_metadata.server`）；终末地 = 另一 Game Work；官方漫画各为 Comic Work；塞壬唱片 = Agent `label` + `imprint_of`；OST = Music Work，通过 `soundtrack_of` 连接游戏。
+- **BanG Dream!**：企划 = Franchise；游戏与各季动画各为 Work；2D 乐队 = `fictional_band`，现场声优乐队 = `group` + `real_counterpart_of`；角色与 CV 必须是三条实体 + 两条边：`person --voice_actor_of--> virtual_character --character_in--> work/franchise`，`qualifier` 区分语种。
+- **Fate / FGO**：Fate 为父 Franchise，FGO 为子 Franchise；FSN 三条路线 = CanonicalEntry，不拆三部 Work；Saber / Saber Alter = 两个角色 + `alternate_form_of`；分服仍是 Release。
+- **魔禁 / 超电磁炮**：学园都市 = 父 Franchise；旧约 22 卷 = **一部** Novel Work + 22 条 Release；新约卷号重置 = 新 Work + `sequel_of`；超炮已跨媒介 → 子 Franchise；美琴跨作品登场 = 同一角色多条 `character_in`。
+- **个人创作者**：久石让 / wowaka 的枢纽是 Agent 页，不建「某某宇宙」Franchise。单曲 `included_in` 专辑；Vocaloid 曲指向虚拟歌手而非声库公司。
+
+---
+
+## 8. 延伸阅读
+
+- [权威编目与元数据审查准则](/curation-guide)
+- [AI Agent 接入与自动化编目协作指南](/agent-integration)
+- [分类体系与动态标签](/taxonomy)
+- [开发者 API 概览](/api-overview)
