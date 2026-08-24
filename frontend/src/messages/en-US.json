@@ -1553,6 +1553,8 @@
   "graph.zoomIn": "Zoom In",
   "graph.zoomOut": "Zoom Out",
   "graph.resetView": "Reset View",
+  "graph.fitView": "Fit to Screen",
+  "graph.centerNode": "Center Focus",
   "graph.fullscreen": "Fullscreen",
   "graph.exitFullscreen": "Exit Fullscreen",
   "graph.interactiveHint": "Scroll to zoom · Drag to pan · Click node to inspect details",
