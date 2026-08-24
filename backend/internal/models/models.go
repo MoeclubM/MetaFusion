@@ -183,7 +183,9 @@ type VirtualShelf struct {
 	ParentSlug     *string        `json:"parent_slug,omitempty"`
 	NameZh         string         `gorm:"not null" json:"name_zh"`
 	NameEn         string         `gorm:"not null" json:"name_en"`
+	Names          JSONB          `gorm:"type:jsonb;default:'{}'" json:"names"`
 	Description    string         `json:"description"`
+	Descriptions   JSONB          `gorm:"type:jsonb;default:'{}'" json:"descriptions"`
 	Icon           string         `json:"icon"`
 	SortOrder      int            `gorm:"default:0;not null" json:"sort_order"`
 	QueryTags      pq.StringArray `gorm:"type:text[]" json:"query_tags"`
@@ -194,10 +196,49 @@ type VirtualShelf struct {
 }
 
 func (s VirtualShelf) LocalizedName(locale string) string {
-	if NormalizeLocale(locale) == "en-US" && s.NameEn != "" {
+	loc := NormalizeLocale(locale)
+	if s.Names != nil {
+		if v, ok := s.Names[loc]; ok {
+			if str, ok := v.(string); ok && str != "" {
+				return str
+			}
+		}
+		if len(loc) >= 2 {
+			prefix := loc[:2]
+			for k, v := range s.Names {
+				if strings.HasPrefix(k, prefix) {
+					if str, ok := v.(string); ok && str != "" {
+						return str
+					}
+				}
+			}
+		}
+		if v, ok := s.Names["zh-CN"]; ok {
+			if str, ok := v.(string); ok && str != "" {
+				return str
+			}
+		}
+		if v, ok := s.Names["en-US"]; ok {
+			if str, ok := v.(string); ok && str != "" {
+				return str
+			}
+		}
+		for _, v := range s.Names {
+			if str, ok := v.(string); ok && str != "" {
+				return str
+			}
+		}
+	}
+	if loc == "en-US" && s.NameEn != "" {
 		return s.NameEn
 	}
-	return s.NameZh
+	if s.NameZh != "" && !strings.Contains(s.NameZh, "???") {
+		return s.NameZh
+	}
+	if s.NameEn != "" {
+		return s.NameEn
+	}
+	return s.Slug
 }
 
 // WorkStatus constants
@@ -446,8 +487,14 @@ func (CanonicalEntry) TableName() string {
 	return "canonical_entries"
 }
 
-// CanonicalEntry represents a reusable master entry for multi-edition unification
-// Generic naming covers all media: music recording, TV episode master, book chapter, gallery page
+// CanonicalEntry represents the LRM-E2 Expression layer (典范条目 / 标准篇目 / 具体创作表达)
+// Generic, universal model covering all media expressions:
+// - Music: Master Recording / Audio Track (母版录音/单曲音轨)
+// - Books/Novels: Canonical Text / Chapter / Story Piece (标准正文/典范章节/篇目)
+// - Cinema/Anime/Series: Feature Film Cut / Episode Master (正片剪辑/分集母版/单集)
+// - Manga/Comics: Serialized Chapter / Story Episode (连载单话/分篇)
+// - Podcasts/Audio Dramas: Master Episode Audio (典范单集/声音母版)
+// - Games: Main Game Scenario / DLC Campaign (游戏本体剧情/战役篇章)
 type CanonicalEntry struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	Title         string     `gorm:"not null" json:"title"`
@@ -465,7 +512,7 @@ type CanonicalEntry struct {
 	Work *Work `gorm:"foreignKey:WorkID" json:"work,omitempty"`
 }
 
-// Track represents a position reference to a CanonicalEntry on a medium
+// Track represents a physical position/offset reference to a CanonicalEntry (Expression) on a specific Medium
 type Track struct {
 	ID               uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	MediumID         uuid.UUID  `gorm:"type:uuid;not null" json:"medium_id"`
@@ -627,6 +674,26 @@ func (r RelationType) LocalizedName(locale string) string {
 				return s
 			}
 		}
+		if len(loc) >= 2 {
+			prefix := loc[:2]
+			for k, v := range r.Names {
+				if strings.HasPrefix(k, prefix) {
+					if s, ok := v.(string); ok && s != "" {
+						return s
+					}
+				}
+			}
+		}
+		if v, ok := r.Names["zh-CN"]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+		if v, ok := r.Names["en-US"]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
 	}
 	if loc == "en-US" && r.NameEn != "" {
 		return r.NameEn
@@ -671,6 +738,26 @@ func (b ForumBoard) LocalizedName(locale string) string {
 	loc := NormalizeLocale(locale)
 	if b.Names != nil {
 		if v, ok := b.Names[loc]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+		if len(loc) >= 2 {
+			prefix := loc[:2]
+			for k, v := range b.Names {
+				if strings.HasPrefix(k, prefix) {
+					if s, ok := v.(string); ok && s != "" {
+						return s
+					}
+				}
+			}
+		}
+		if v, ok := b.Names["zh-CN"]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+		if v, ok := b.Names["en-US"]; ok {
 			if s, ok := v.(string); ok && s != "" {
 				return s
 			}
@@ -722,6 +809,26 @@ func (e EntityTypeDefinition) LocalizedName(locale string) string {
 				return s
 			}
 		}
+		if len(loc) >= 2 {
+			prefix := loc[:2]
+			for k, v := range e.Names {
+				if strings.HasPrefix(k, prefix) {
+					if s, ok := v.(string); ok && s != "" {
+						return s
+					}
+				}
+			}
+		}
+		if v, ok := e.Names["zh-CN"]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+		if v, ok := e.Names["en-US"]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
 	}
 	if loc == "en-US" && e.NameEn != "" {
 		return e.NameEn
@@ -762,6 +869,26 @@ func (e ExternalDatabaseDefinition) LocalizedName(locale string) string {
 	loc := NormalizeLocale(locale)
 	if e.Names != nil {
 		if v, ok := e.Names[loc]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+		if len(loc) >= 2 {
+			prefix := loc[:2]
+			for k, v := range e.Names {
+				if strings.HasPrefix(k, prefix) {
+					if s, ok := v.(string); ok && s != "" {
+						return s
+					}
+				}
+			}
+		}
+		if v, ok := e.Names["zh-CN"]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+		if v, ok := e.Names["en-US"]; ok {
 			if s, ok := v.(string); ok && s != "" {
 				return s
 			}
@@ -987,7 +1114,9 @@ type UserCustomShelf struct {
 	Slug           string         `gorm:"type:varchar(64);not null" json:"slug"`
 	NameZh         string         `gorm:"not null" json:"name_zh"`
 	NameEn         string         `gorm:"default:'';not null" json:"name_en"`
+	Names          JSONB          `gorm:"type:jsonb;default:'{}'" json:"names"`
 	Description    string         `gorm:"type:text;default:'';not null" json:"description"`
+	Descriptions   JSONB          `gorm:"type:jsonb;default:'{}'" json:"descriptions"`
 	Icon           string         `gorm:"type:varchar(64);default:'Sparkles';not null" json:"icon"`
 	SortOrder      int            `gorm:"default:0;not null" json:"sort_order"`
 	QueryTags      pq.StringArray `gorm:"type:text[]" json:"query_tags"`
@@ -1003,10 +1132,49 @@ type UserCustomShelf struct {
 func (UserCustomShelf) TableName() string { return "user_custom_shelves" }
 
 func (s UserCustomShelf) LocalizedName(locale string) string {
-	if NormalizeLocale(locale) == "en-US" && s.NameEn != "" {
+	loc := NormalizeLocale(locale)
+	if s.Names != nil {
+		if v, ok := s.Names[loc]; ok {
+			if str, ok := v.(string); ok && str != "" {
+				return str
+			}
+		}
+		if len(loc) >= 2 {
+			prefix := loc[:2]
+			for k, v := range s.Names {
+				if strings.HasPrefix(k, prefix) {
+					if str, ok := v.(string); ok && str != "" {
+						return str
+					}
+				}
+			}
+		}
+		if v, ok := s.Names["zh-CN"]; ok {
+			if str, ok := v.(string); ok && str != "" {
+				return str
+			}
+		}
+		if v, ok := s.Names["en-US"]; ok {
+			if str, ok := v.(string); ok && str != "" {
+				return str
+			}
+		}
+		for _, v := range s.Names {
+			if str, ok := v.(string); ok && str != "" {
+				return str
+			}
+		}
+	}
+	if loc == "en-US" && s.NameEn != "" {
 		return s.NameEn
 	}
-	return s.NameZh
+	if s.NameZh != "" && !strings.Contains(s.NameZh, "???") {
+		return s.NameZh
+	}
+	if s.NameEn != "" {
+		return s.NameEn
+	}
+	return s.Slug
 }
 
 // UserHomeLayout 个人首页布局：隐藏的系统预设 + 整体顺序

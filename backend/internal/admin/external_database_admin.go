@@ -197,7 +197,7 @@ func (s *AdminService) UpdateExternalDatabase(c *gin.Context) {
 	c.JSON(http.StatusOK, updated)
 }
 
-// DeleteExternalDatabase 删除外部数据库配置（系统内置不可物理删除，仅可禁用）
+// DeleteExternalDatabase 删除外部数据库配置
 func (s *AdminService) DeleteExternalDatabase(c *gin.Context) {
 	code := strings.ToLower(strings.TrimSpace(c.Param("code")))
 	if code == "" {
@@ -208,11 +208,6 @@ func (s *AdminService) DeleteExternalDatabase(c *gin.Context) {
 	var existing models.ExternalDatabaseDefinition
 	if err := s.db.Where("code = ?", code).First(&existing).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "External database definition not found"})
-		return
-	}
-
-	if existing.IsSystem {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "System preset database definitions cannot be deleted; you can disable them instead"})
 		return
 	}
 

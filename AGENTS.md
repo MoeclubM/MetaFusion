@@ -29,7 +29,7 @@
 - **核心标准 Skill**：所有涉及数据编目、实体创建、数据导入、审核巡检与修改的 AI Agent，必须严格执行 [metafusion-curator](.cursor/skills/metafusion-curator/SKILL.md) 与 [lrm-catalog-standards](.cursor/skills/lrm-catalog-standards/SKILL.md)。
 - **全栈多语言与国际化零硬编码铁律**：所有 UI 文本与存储实体数据必须具备多语言能力。前端严禁硬编码任何中英文文案，必须通过 `frontend/src/messages/{zh-CN,en-US}.json` 字典与 `useI18n()` 统一管理；实体数据通过 `work_translations`/`artist_translations`/`franchise_translations` 或 `JSONB` 多语言映射持久化，严格遵循多语言回退链（User Locale -> en-US -> original_language -> Default）。详见 `.cursor/rules/i18n-localization-strict.mdc`。
 - **技术栈**：Go (backend) + Next.js (frontend) + Postgres + RustFS (S3 兼容对象存储) + OpenSearch 2.x + FFmpeg Worker，`deploy/docker-compose.yml` 一键启动。
-- **核心模型**：LRM 混合 `Work / CanonicalEntry / Release / Medium / Track / AssetFile`，实体必须保持纯净标题（Work 严禁混入季数/载体/规格），通过「标签 + 虚拟货架 + Release 规格 + 实体图谱边」自然表达，无 `media_type`（传统树状分类与硬编码形态已完全废弃）。
+- **核心模型**：LRM 混合 `Work / CanonicalEntry / Release / Medium / Track / AssetFile`。`CanonicalEntry` 作为通用的 LRM-E2 表现层（Expression），自适应对应跨媒介具体创作表达（音乐录音母版、图书正文/典范章节、影视正片剪辑/分集母版、漫画连载话、游戏本体战役），支持跨发行版本复用；实体必须保持纯净标题（Work 严禁混入季数/载体/规格），通过「标签 + 虚拟货架 + Release 规格 + 实体图谱边」自然表达，无 `media_type`（传统树状分类与硬编码形态已完全废弃）。
 - **插件架构与解耦治理**：核心实体层保持纯粹，外围抓取（Importers）、格式导出（Exporters）、通知外发（Notifiers）、媒体分析与 AI 增强全面采用插件化与 DAG 拓扑依赖治理（支持 Semver 约束、循环依赖检测与级联启停保护）。详见 [`docs/architecture/plugin-decoupling-blueprint.md`](docs/architecture/plugin-decoupling-blueprint.md)。
 - **实体图谱与拓扑**：通过 `adaptation_of`、`soundtrack_of`、`sequel_of`、`spin_off_of` 组织有向无环图谱（DAG），严禁循环边与自环；跨作品登场通过多条 `character_in` 边连接，严禁分裂实体。
 - **封面与多语言**：封面支持自适应自然宽高比与强制 `cover_aspect`（音乐 1:1、影视/动画 2:3、书籍 3:4），严禁风景图与占位图；多语言题名与简介基于 `work_translations` 本地化回退链。

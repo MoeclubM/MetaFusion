@@ -236,11 +236,6 @@ func (s *AdminService) DeleteAttributeSchema(c *gin.Context) {
 		return
 	}
 
-	if schema.IsSystem {
-		c.JSON(http.StatusForbidden, gin.H{"error": "System attribute schemas cannot be deleted"})
-		return
-	}
-
 	if err := s.db.Delete(&schema).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete attribute schema: " + err.Error()})
 		return

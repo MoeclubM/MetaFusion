@@ -16,8 +16,16 @@ func applySchemaPatches(db *gorm.DB) {
 	restoreSeedShelfQueryTagsIfClobbered(db)
 	migrateCarrierTagsOffWorks(db)
 	migrateLegacyExternalIDs(db)
+	migrateMultilingualJSONBFields(db)
 
 	stmts := []string{
+		`ALTER TABLE virtual_shelves ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE virtual_shelves ADD COLUMN IF NOT EXISTS descriptions JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE user_custom_shelves ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE user_custom_shelves ADD COLUMN IF NOT EXISTS descriptions JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE entity_type_definitions ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE relation_types ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE external_database_definitions ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE entity_relationships ADD COLUMN IF NOT EXISTS qualifier VARCHAR(64) NOT NULL DEFAULT ''`,
 		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS country VARCHAR(64) DEFAULT ''`,
 		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS language VARCHAR(64) DEFAULT ''`,
@@ -437,4 +445,87 @@ func migrateLegacyExternalIDs(db *gorm.DB) {
 			  AND catalog_metadata->'external_ids' <> '{}'::jsonb
 		`).Error
 	}
+}
+
+// migrateMultilingualJSONBFields scans legacy name_zh / name_en columns and populates names JSONB with clean UTF-8
+func migrateMultilingualJSONBFields(db *gorm.DB) {
+	// 修复 virtual_shelves 默认多语言及乱码
+	type shelfData struct {
+		Slug   string
+		NameZh string
+		NameEn string
+		Ja     string
+	}
+	standardShelves := []shelfData{
+		{Slug: "movies", NameZh: "电影与长片", NameEn: "Movies & Films", Ja: "映画・長編"},
+		{Slug: "anime-movies", NameZh: "动画剧场版", NameEn: "Anime Movies", Ja: "劇場アニメ"},
+		{Slug: "feature-films", NameZh: "院线故事片", NameEn: "Feature Films", Ja: "長編映画"},
+		{Slug: "doc-films", NameZh: "纪录电影", NameEn: "Documentary Films", Ja: "ドキュメンタリー"},
+		{Slug: "series", NameZh: "剧集与节目", NameEn: "Series & Shows", Ja: "ドラマ・番組"},
+		{Slug: "anime-series", NameZh: "TV 动画番剧", NameEn: "Anime Series", Ja: "TVアニメ"},
+		{Slug: "live-series", NameZh: "电视连续剧", NameEn: "Drama Series", Ja: "テレビドラマ"},
+		{Slug: "anime-hub", NameZh: "动漫专区", NameEn: "Anime Hub", Ja: "アニメ特設"},
+		{Slug: "music", NameZh: "音乐与声音", NameEn: "Music & Audio", Ja: "音楽・サウンド"},
+		{Slug: "soundtracks", NameZh: "影视与游戏原声", NameEn: "Soundtracks & OST", Ja: "サントラ・劇伴"},
+		{Slug: "classical", NameZh: "古典交响乐", NameEn: "Classical", Ja: "クラシック"},
+		{Slug: "audiobooks", NameZh: "广播剧与有声书", NameEn: "Audio Drama", Ja: "ボイスドラマ・オーディオブック"},
+		{Slug: "books", NameZh: "图书与文献", NameEn: "Books & Literature", Ja: "書籍・文学"},
+		{Slug: "scifi-books", NameZh: "科幻与奇幻文学", NameEn: "Sci-Fi & Fantasy", Ja: "SF・ファンタジー文学"},
+		{Slug: "literature-books", NameZh: "经典文学名著", NameEn: "World Literature", Ja: "世界文学・名著"},
+		{Slug: "comics", NameZh: "漫画与画集", NameEn: "Comics & Visual Arts", Ja: "マンガ・画集"},
+		{Slug: "manga", NameZh: "连载漫画", NameEn: "Manga & Comics", Ja: "マンガ"},
+		{Slug: "artbooks", NameZh: "原画与美术设定集", NameEn: "Artbooks & Gallery", Ja: "画集・設定資料集"},
+		{Slug: "special-ghibli", NameZh: "吉卜力工作室专题", NameEn: "Studio Ghibli Archive", Ja: "スタジオジブリ特集"},
+	}
+
+	for _, s := range standardShelves {
+		namesMap := map[string]string{
+			"zh-CN": s.NameZh,
+			"en-US": s.NameEn,
+			"ja":    s.Ja,
+		}
+		namesJSON, _ := json.Marshal(namesMap)
+		_ = db.Exec(`
+			UPDATE virtual_shelves
+			SET name_zh = CASE WHEN name_zh LIKE '%?%' OR name_zh = '' THEN ? ELSE name_zh END,
+			    name_en = CASE WHEN name_en = '' THEN ? ELSE name_en END,
+			    names = CASE WHEN names = '{}'::jsonb OR names IS NULL OR (names->>'zh-CN') LIKE '%?%' THEN ?::jsonb ELSE names END
+			WHERE slug = ?
+		`, s.NameZh, s.NameEn, string(namesJSON), s.Slug).Error
+	}
+
+	// 自动合并其他 virtual_shelves 的 names
+	_ = db.Exec(`
+		UPDATE virtual_shelves
+		SET names = jsonb_build_object('zh-CN', name_zh, 'en-US', COALESCE(NULLIF(name_en, ''), name_zh))
+		WHERE (names = '{}'::jsonb OR names IS NULL) AND name_zh NOT LIKE '%?%'
+	`).Error
+
+	// 自动合并 user_custom_shelves 的 names
+	_ = db.Exec(`
+		UPDATE user_custom_shelves
+		SET names = jsonb_build_object('zh-CN', name_zh, 'en-US', COALESCE(NULLIF(name_en, ''), name_zh))
+		WHERE (names = '{}'::jsonb OR names IS NULL) AND name_zh NOT LIKE '%?%'
+	`).Error
+
+	// 自动合并 entity_type_definitions 的 names
+	_ = db.Exec(`
+		UPDATE entity_type_definitions
+		SET names = jsonb_build_object('zh-CN', name_zh, 'en-US', COALESCE(NULLIF(name_en, ''), name_zh))
+		WHERE (names = '{}'::jsonb OR names IS NULL) AND name_zh NOT LIKE '%?%'
+	`).Error
+
+	// 自动合并 relation_types 的 names
+	_ = db.Exec(`
+		UPDATE relation_types
+		SET names = jsonb_build_object('zh-CN', name_zh, 'en-US', COALESCE(NULLIF(name_en, ''), name_zh))
+		WHERE (names = '{}'::jsonb OR names IS NULL) AND name_zh NOT LIKE '%?%'
+	`).Error
+
+	// 自动合并 external_database_definitions 的 names
+	_ = db.Exec(`
+		UPDATE external_database_definitions
+		SET names = jsonb_build_object('zh-CN', name_zh, 'en-US', COALESCE(NULLIF(name_en, ''), name_zh))
+		WHERE (names = '{}'::jsonb OR names IS NULL) AND name_zh NOT LIKE '%?%'
+	`).Error
 }

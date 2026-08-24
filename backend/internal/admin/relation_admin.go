@@ -210,16 +210,12 @@ func (s *AdminService) UpdateRelationType(c *gin.Context) {
 	c.JSON(http.StatusOK, existing)
 }
 
-// DeleteRelationType 删除动态关系类型（系统内置关系不可删）
+// DeleteRelationType 删除动态关系类型
 func (s *AdminService) DeleteRelationType(c *gin.Context) {
 	code := strings.ToLower(strings.TrimSpace(c.Param("code")))
 	var existing models.RelationType
 	if err := s.db.Where("code = ?", code).First(&existing).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Relation type not found"})
-		return
-	}
-	if existing.IsSystem {
-		c.JSON(http.StatusForbidden, gin.H{"error": "System built-in relation type cannot be deleted"})
 		return
 	}
 
@@ -504,16 +500,12 @@ func (s *AdminService) DeleteEntityRelation(c *gin.Context) {
 		c.JSON(http.StatusOK, existing)
 	}
 
-	// DeleteEntityType 删除实体类型定义（系统内置类型不可删）
+	// DeleteEntityType 删除实体类型定义
 	func (s *AdminService) DeleteEntityType(c *gin.Context) {
 		code := strings.ToLower(strings.TrimSpace(c.Param("code")))
 		var existing models.EntityTypeDefinition
 		if err := s.db.Where("code = ?", code).First(&existing).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Entity type definition not found"})
-			return
-		}
-		if existing.IsSystem {
-			c.JSON(http.StatusForbidden, gin.H{"error": "System built-in entity type cannot be deleted"})
 			return
 		}
 

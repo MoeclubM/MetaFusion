@@ -8,13 +8,13 @@ MetaFusion 融合国际图书馆参考模型（IFLA LRM）与 MusicBrainz 编目
 ┌────────────────────────────────────────────────────────┐
 │  LRM-E1: Work (逻辑作品概念层: 纯净题名与核心思想)       │
 │  - 纯粹思想与艺术创作概念，如《千与千寻》《范特西》《三体》│
-│  - 词曲创作绑定: composer, lyricist, author           │
+│  - 词曲/原著创作绑定: composer, lyricist, author         │
 └───────────────────────────┬────────────────────────────┘
-                            │ 1:N 抽象创作演化为母版/录音
+                            │ 1:N 抽象创作演化为具体表现
 ┌───────────────────────────▼────────────────────────────┐
-│  LRM-E2: CanonicalEntry / Recording (典范母版/录音)    │
-│  - 单曲母带、动画单集母版、漫画分话母版、游戏关卡母版 │
-│  - 录音演职绑定: performer, arranger, producer         │
+│  LRM-E2: CanonicalEntry (表现层 Expression: 典范条目)  │
+│  - 音乐录音母版、影视正片/分集剪辑、小说正文/章节、漫画话 │
+│  - 表现制作演职绑定: performer, arranger, director, etc.│
 │  - 可被多个不同 Release / Track 跨版本复用            │
 └───────────────────────────┬────────────────────────────┘
                             │ 1:N 商业发行封装 / 复用于多发行版
@@ -23,7 +23,7 @@ MetaFusion 融合国际图书馆参考模型（IFLA LRM）与 MusicBrainz 编目
 │  - 初回限定盘 CD+BD、4K UHD 铁盒版、精装单行本分卷     │
 │  - 商业属性: barcode (ISBN/EAN), catalog_number, 厂牌 │
 │    └─ Medium (介质容器: Disc 1, Disc 2, Vol.1)         │
-│         └─ Track (物理分轨: 音轨序号、时长、母版引用) │
+│         └─ Track (物理分轨: 音轨序号、篇目项、母版引用)│
 └───────────────────────────┬────────────────────────────┘
                             │ 1:N 数字化持久化
 ┌───────────────────────────▼────────────────────────────┐
@@ -34,11 +34,11 @@ MetaFusion 融合国际图书馆参考模型（IFLA LRM）与 MusicBrainz 编目
 
 ---
 
-## 2. 词曲创作与录音演职主体的严格分离与复用机制
+## 2. 抽象创作与表现层实现的严格分离与复用机制
 
-### 2.1 创作者 (Work Level) 与 录音演职主体 (Recording Level)
+### 2.1 创作者 (Work Level) 与 表现制作演职主体 (CanonicalEntry / Expression Level)
 
-在传统低精度数据库中，作词、作曲、编曲、演唱常被混为一谈。MetaFusion 实行严格的层次化演职隔离：
+在传统低精度数据库中，编剧/监督、原著/翻译、作词/作曲/演唱常被混为一谈。MetaFusion 实行严格的层次化演职隔离：
 
 ```mermaid
 classDiagram
@@ -47,7 +47,7 @@ classDiagram
         +String title
         +String original_language
         +String cover_aspect
-        +Relations: composer, lyricist, author
+        +Relations: composer, lyricist, author, scriptwriter
     }
     class CanonicalEntry {
         +UUID id
@@ -55,7 +55,8 @@ classDiagram
         +String title
         +Int default_duration
         +String isrc
-        +Relations: performer, arranger, producer, phonographic_copyright
+        +String isbn
+        +Relations: performer, arranger, producer, director, voice_actor, translator
     }
     class Track {
         +UUID id
@@ -73,31 +74,31 @@ classDiagram
         +String catalog_number
         +UUID publisher_id
     }
-    Work "1" -- "0..*" CanonicalEntry : has master entries
+    Work "1" -- "0..*" CanonicalEntry : has expressions
     Work "1" -- "0..*" Release : manifests as
     CanonicalEntry "1" -- "0..*" Track : referenced by
     Release "1" -- "1..*" Track : contains via Mediums
 ```
 
-- **Work 级关系**：
+- **Work 级原创关系**：
   - `composer`（作曲者）：写出旋律与和弦的主体（如：周杰伦、久石让）；
   - `lyricist`（作词者）：创作歌词的主体（如：方文山、林夕）；
-  - `author`（原著作者）：文学创作者（如：刘慈欣、尾田荣一郎）。
-- **CanonicalEntry / Recording 级关系**：
-  - `performer` / `vocalist`（演唱者/演奏者）：实际发声的主体；
-  - `arranger`（编曲者）：将纯乐谱编配为完整配器编制的音乐人（如：钟兴民、林迈可）；
-  - `producer`（录音制作人）：监制整个录音工程的主体；
-  - `phonographic_copyright`（录音制品版权方 ℗）。
+  - `author`（原著作者）：文学创作者（如：刘慈欣、尾田荣一郎）；
+  - `scriptwriter`（剧本原案）：影视动画脚本作者。
+- **CanonicalEntry (Expression) 级表现制作关系**：
+  - 音乐：`performer`（演唱/演奏）、`arranger`（编曲）、`producer`（录音制作人）、`phonographic_copyright`（录音制品版权方 ℗）；
+  - 影视：`director`（剪辑/分集导演）、`voice_actor`（配音演员）、`sound_director`（音响监督）；
+  - 文学/漫画：`translator`（特定语言翻译）、`editor`（分卷责任编辑）。
 
-### 2.2 Recording 复用与「Appears on Releases」反查原理
+### 2.2 跨发行复用与「Appears on Releases」反查原理
 
-当一首典范录音（如《晴天》2001 原版母带）在多个发行版中出现时：
-1. **单次创建**：仅在库中保留一个具有全局唯一 UUID 的 `CanonicalEntry`（可包含 ISRC 编码）；
+当同一个典范创作表达（如《晴天》2001 原版母带、电影《千与千寻》院线正片母版、《三体》第一章正文）在多个发行版中出现时：
+1. **单次创建**：仅在库中保留一个具有全局唯一 UUID 的 `CanonicalEntry`（可包含 ISRC/ISBN 等标准编码）；
 2. **多点引用**：
-   - Release A（2001《叶惠美》首版 CD）的 Medium 1 Track 3 引用该 `CanonicalEntry`；
-   - Release B（2004《Initial J》日本精选集）的 Medium 1 Track 1 引用同一个 `CanonicalEntry`；
-   - Release C（2020《周杰伦20周年黑胶大套装》）的 Disc 4 Track 3 再次引用同一个 `CanonicalEntry`；
-3. **反向索引**：系统无需冗余复制单曲元数据，通过 SQL `JOIN tracks ON tracks.canonical_entry_id = canonical_entries.id JOIN mediums ... JOIN releases ...` 即可实时反查出该母版录音收录于哪些商业发行版（Appears on Releases）。
+   - 音乐：Release A（2003《叶惠美》首版 CD）的 Medium 1 Track 3、Release B（2004《Initial J》精选集）的 Medium 1 Track 1、Release C（2020 黑胶大套装）的 Disc 4 Track 3 共同引用同一个 `CanonicalEntry`；
+   - 影视：Release A（日本院线初版蓝光）、Release B（4K UHD 典藏铁盒版）、Release C（流媒体数字重映版）共同引用同一部电影正片 `CanonicalEntry`；
+   - 图书：Release A（初版平装本）、Release B（全集精装盒装）、Release C（电子书典藏版）共同引用同一个章节正文 `CanonicalEntry`；
+3. **反向索引**：系统无需冗余复制单曲/章节/正片元数据，通过 SQL `JOIN tracks ON tracks.canonical_entry_id = canonical_entries.id JOIN mediums ... JOIN releases ...` 即可实时反查出该典范篇目收录于哪些商业发行版（Appears on Releases）。
 
 ---
 

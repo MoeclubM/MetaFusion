@@ -50,42 +50,43 @@ ON CONFLICT (code) DO UPDATE SET
     clc_prefix = EXCLUDED.clc_prefix;
 
 -- 3.1 预置外挂式虚拟分类与货架系统 (Virtual Shelves / Taxonomy Views)
-INSERT INTO virtual_shelves (slug, parent_slug, name_zh, name_en, description, icon, sort_order, query_tags, require_all_tags, exclude_tags) VALUES
+INSERT INTO virtual_shelves (slug, parent_slug, name_zh, name_en, names, description, icon, sort_order, query_tags, require_all_tags, exclude_tags) VALUES
 -- 电影频道
-('movies', NULL, '电影与长片', 'Movies & Films', '收录院线故事片、动画剧场版与纪录长片', 'Film', 10, ARRAY['电影', '长片'], FALSE, '{}'),
-('anime-movies', 'movies', '动画剧场版', 'Anime Movies', '院线动画长片与剧场版母盘', 'Sparkles', 11, ARRAY['电影', '动画'], TRUE, '{}'),
-('feature-films', 'movies', '院线故事片', 'Feature Films', '真人实拍故事片与经典电影', 'Clapperboard', 12, ARRAY['电影', '实拍'], TRUE, '{}'),
-('doc-films', 'movies', '纪录电影', 'Documentary Films', '自然探索、人文历史与科学纪录长片', 'Globe', 13, ARRAY['电影', '纪录'], TRUE, '{}'),
+('movies', NULL, '电影与长片', 'Movies & Films', '{"zh-CN": "电影与长片", "en-US": "Movies & Films", "ja": "映画・長編"}'::jsonb, '收录院线故事片、动画剧场版与纪录长片', 'Film', 10, ARRAY['电影', '长片'], FALSE, '{}'),
+('anime-movies', 'movies', '动画剧场版', 'Anime Movies', '{"zh-CN": "动画剧场版", "en-US": "Anime Movies", "ja": "劇場アニメ"}'::jsonb, '院线动画长片与剧场版母盘', 'Sparkles', 11, ARRAY['电影', '动画'], TRUE, '{}'),
+('feature-films', 'movies', '院线故事片', 'Feature Films', '{"zh-CN": "院线故事片", "en-US": "Feature Films", "ja": "長編映画"}'::jsonb, '真人实拍故事片与经典电影', 'Clapperboard', 12, ARRAY['电影', '实拍'], TRUE, '{}'),
+('doc-films', 'movies', '纪录电影', 'Documentary Films', '{"zh-CN": "纪录电影", "en-US": "Documentary Films", "ja": "ドキュメンタリー"}'::jsonb, '自然探索、人文历史与科学纪录长片', 'Globe', 13, ARRAY['电影', '纪录'], TRUE, '{}'),
 
 -- 剧集频道
-('series', NULL, '剧集与节目', 'Series & Shows', '收录电视连续剧、TV 动画番剧与微电影', 'Tv', 20, ARRAY['剧集', '连续剧'], FALSE, '{}'),
-('anime-series', 'series', 'TV 动画番剧', 'Anime Series', '日本及全球电视动画与网络番剧', 'Flame', 21, ARRAY['剧集', '动画'], TRUE, '{}'),
-('live-series', 'series', '电视连续剧', 'Drama Series', '中外经典电视剧与迷你剧', 'MonitorPlay', 22, ARRAY['剧集', '实拍'], TRUE, '{}'),
+('series', NULL, '剧集与节目', 'Series & Shows', '{"zh-CN": "剧集与节目", "en-US": "Series & Shows", "ja": "ドラマ・番組"}'::jsonb, '收录电视连续剧、TV 动画番剧与微电影', 'Tv', 20, ARRAY['剧集', '连续剧'], FALSE, '{}'),
+('anime-series', 'series', 'TV 动画番剧', 'Anime Series', '{"zh-CN": "TV 动画番剧", "en-US": "Anime Series", "ja": "TVアニメ"}'::jsonb, '日本及全球电视动画与网络番剧', 'Flame', 21, ARRAY['剧集', '动画'], TRUE, '{}'),
+('live-series', 'series', '电视连续剧', 'Drama Series', '{"zh-CN": "电视连续剧", "en-US": "Drama Series", "ja": "テレビドラマ"}'::jsonb, '中外经典电视剧与迷你剧', 'MonitorPlay', 22, ARRAY['剧集', '实拍'], TRUE, '{}'),
 
 -- 动漫专区 (跨形态聚合)
-('anime-hub', NULL, '动漫专区', 'Anime Hub', '聚合所有动画电影、TV 番剧、漫画与画集', 'Zap', 30, ARRAY['动画', '漫画', '轻小说'], FALSE, '{}'),
+('anime-hub', NULL, '动漫专区', 'Anime Hub', '{"zh-CN": "动漫专区", "en-US": "Anime Hub", "ja": "アニメ特設"}'::jsonb, '聚合所有动画电影、TV 番剧、漫画与画集', 'Zap', 30, ARRAY['动画', '漫画', '轻小说'], FALSE, '{}'),
 
 -- 音乐频道
-('music', NULL, '音乐与声音', 'Music & Audio', '高解析无损音乐、原声大碟与古典交响', 'Music', 40, ARRAY['音乐', '专辑', '原声'], FALSE, '{}'),
-('soundtracks', 'music', '影视与游戏原声', 'Soundtracks & OST', '电影配乐、动画 OST、游戏原声大碟', 'Disc', 41, ARRAY['原声'], FALSE, '{}'),
-('classical', 'music', '古典交响乐', 'Classical', '交响乐、协奏曲与室内乐母带', 'Radio', 42, ARRAY['古典'], FALSE, '{}'),
-('audiobooks', 'music', '广播剧与有声书', 'Audio Drama', '全景声广播剧与名家演播有声书', 'Headphones', 43, ARRAY['广播剧', '有声书'], FALSE, '{}'),
+('music', NULL, '音乐与声音', 'Music & Audio', '{"zh-CN": "音乐与声音", "en-US": "Music & Audio", "ja": "音楽・サウンド"}'::jsonb, '高解析无损音乐、原声大碟与古典交响', 'Music', 40, ARRAY['音乐', '专辑', '原声'], FALSE, '{}'),
+('soundtracks', 'music', '影视与游戏原声', 'Soundtracks & OST', '{"zh-CN": "影视与游戏原声", "en-US": "Soundtracks & OST", "ja": "サントラ・劇伴"}'::jsonb, '电影配乐、动画 OST、游戏原声大碟', 'Disc', 41, ARRAY['原声'], FALSE, '{}'),
+('classical', 'music', '古典交响乐', 'Classical', '{"zh-CN": "古典交响乐", "en-US": "Classical", "ja": "クラシック"}'::jsonb, '交响乐、协奏曲与室内乐母带', 'Radio', 42, ARRAY['古典'], FALSE, '{}'),
+('audiobooks', 'music', '广播剧与有声书', 'Audio Drama', '{"zh-CN": "广播剧与有声书", "en-US": "Audio Drama", "ja": "ボイスドラマ・オーディオブック"}'::jsonb, '全景声广播剧与名家演播有声书', 'Headphones', 43, ARRAY['广播剧', '有声书'], FALSE, '{}'),
 
 -- 图书文献
-('books', NULL, '图书与文献', 'Books & Literature', '世界名著、科幻奇幻小说与出版文献', 'BookOpen', 50, ARRAY['图书', '小说', '名著'], FALSE, '{}'),
-('scifi-books', 'books', '科幻与奇幻文学', 'Sci-Fi & Fantasy', '雨果奖、星云奖与世界硬核科幻小说', 'Compass', 51, ARRAY['科幻'], FALSE, '{}'),
-('literature-books', 'books', '经典文学名著', 'World Literature', '中外文学名著典藏版与校勘本', 'Library', 52, ARRAY['文学', '名著'], FALSE, '{}'),
+('books', NULL, '图书与文献', 'Books & Literature', '{"zh-CN": "图书与文献", "en-US": "Books & Literature", "ja": "書籍・文学"}'::jsonb, '世界名著、科幻奇幻小说与出版文献', 'BookOpen', 50, ARRAY['图书', '小说', '名著'], FALSE, '{}'),
+('scifi-books', 'books', '科幻与奇幻文学', 'Sci-Fi & Fantasy', '{"zh-CN": "科幻与奇幻文学", "en-US": "Sci-Fi & Fantasy", "ja": "SF・ファンタジー文学"}'::jsonb, '雨果奖、星云奖与世界硬核科幻小说', 'Compass', 51, ARRAY['科幻'], FALSE, '{}'),
+('literature-books', 'books', '经典文学名著', 'World Literature', '{"zh-CN": "经典文学名著", "en-US": "World Literature", "ja": "世界文学・名著"}'::jsonb, '中外文学名著典藏版与校勘本', 'Library', 52, ARRAY['文学', '名著'], FALSE, '{}'),
 
 -- 漫画画册
-('comics', NULL, '漫画与画集', 'Comics & Visual Arts', '连载漫画、艺术设定集与关键帧画册', 'Palette', 60, ARRAY['漫画', '画集', '设定集'], FALSE, '{}'),
-('manga', 'comics', '连载漫画', 'Manga & Comics', '高分辨率完全版与典藏版连载漫画', 'Layers', 61, ARRAY['漫画'], FALSE, '{}'),
-('artbooks', 'comics', '原画与美术设定集', 'Artbooks & Gallery', '官方美术设定集、分镜稿与概念画册', 'Image', 62, ARRAY['画集', '设定集'], FALSE, '{}'),
+('comics', NULL, '漫画与画集', 'Comics & Visual Arts', '{"zh-CN": "漫画与画集", "en-US": "Comics & Visual Arts", "ja": "マンガ・画集"}'::jsonb, '连载漫画、艺术设定集与关键帧画册', 'Palette', 60, ARRAY['漫画', '画集', '设定集'], FALSE, '{}'),
+('manga', 'comics', '连载漫画', 'Manga & Comics', '{"zh-CN": "连载漫画", "en-US": "Manga & Comics", "ja": "マンガ"}'::jsonb, '高分辨率完全版与典藏版连载漫画', 'Layers', 61, ARRAY['漫画'], FALSE, '{}'),
+('artbooks', 'comics', '原画与美术设定集', 'Artbooks & Gallery', '{"zh-CN": "原画与美术设定集", "en-US": "Artbooks & Gallery", "ja": "画集・設定資料集"}'::jsonb, '官方美术设定集、分镜稿与概念画册', 'Image', 62, ARRAY['画集', '设定集'], FALSE, '{}'),
 
 -- 特色专题货架（内容标签，不是碟片规格）
-('special-ghibli', NULL, '吉卜力工作室专题', 'Studio Ghibli Archive', '宫崎骏、高畑勋执导动画与久石让配乐全集', 'Heart', 70, ARRAY['吉卜力'], FALSE, '{}')
+('special-ghibli', NULL, '吉卜力工作室专题', 'Studio Ghibli Archive', '{"zh-CN": "吉卜力工作室专题", "en-US": "Studio Ghibli Archive", "ja": "スタジオジブリ特集"}'::jsonb, '宫崎骏、高畑勋执导动画与久石让配乐全集', 'Heart', 70, ARRAY['吉卜力'], FALSE, '{}')
 ON CONFLICT (slug) DO UPDATE SET
     name_zh = EXCLUDED.name_zh,
     name_en = EXCLUDED.name_en,
+    names = EXCLUDED.names,
     description = EXCLUDED.description,
     icon = EXCLUDED.icon,
     sort_order = EXCLUDED.sort_order,
@@ -254,7 +255,7 @@ MetaFusion 是一个基于 **FRBR / LRM 概念模型** 与 **内容寻址存储�
 
 1. **LRM 混合实体模型**：
    - **Work（抽象作品）**：承载作品纯净题名、多语言题名、创作起止与跨媒介属性。
-   - **CanonicalEntry（母版条目）**：可跨发行版复用的纯净录音/分集母版，杜绝同内容重复录入。
+   - **CanonicalEntry（典范条目 / 表现层 Expression）**：可跨发行版复用的具体创作表达（如录音母版/分集正片/连载单话/典范章节），杜绝同内容重复录入。
    - **Release（发行版 / Manifestation）**：记录商品规格、发行厂牌、ISBN、EAN-13 条形码与分卷/分服。
    - **Medium（载体介质）**：解决单发行箱套内多碟片、不同媒介（如 2CD + 1BDMV + 设定集）的精准物理分级。
    - **AssetFile / CAS（无损资产）**：基于 SHA-256 唯一指纹与 S3 兼容对象存储，实现位完全精确的母盘保全与流媒体自适应转码。
@@ -307,7 +308,7 @@ MetaFusion 是一个基于 **FRBR / LRM 概念模型** 与 **内容寻址存储�
 
 1. **LRM 混合实体模型**：
    - **Work（抽象作品）**：承载作品纯净题名、多语言题名、创作起止与跨媒介属性。
-   - **CanonicalEntry（母版条目）**：可跨发行版复用的纯净录音/分集母版，杜绝同内容重复录入。
+   - **CanonicalEntry（典范条目 / 表现层 Expression）**：可跨发行版复用的具体创作表达（如录音母版/分集正片/连载单话/典范章节），杜绝同内容重复录入。
    - **Release（发行版 / Manifestation）**：记录商品规格、发行厂牌、ISBN、EAN-13 条形码与分卷/分服。
    - **Medium（载体介质）**：解决单发行箱套内多碟片、不同媒介（如 2CD + 1BDMV + 设定集）的精准物理分级。
    - **AssetFile / CAS（无损资产）**：基于 SHA-256 唯一指纹与 S3 兼容对象存储，实现位完全精确的母盘保全与流媒体自适应转码。
@@ -349,7 +350,7 @@ MetaFusion is a next-generation multi-media lossless digital repository, entity 
 
 1. **FRBR / LRM Hybrid Entity Model**:
    - **Work**: Canonical pure titles, multi-language localization, temporal spans, and cross-media properties.
-   - **CanonicalEntry**: Reusable master tracks/recordings across releases.
+   - **CanonicalEntry (Expression)**: Reusable creative expressions (master recordings, film/episode cuts, book chapters, manga chapters) across releases.
    - **Release**: Commercial manifestations, barcodes (EAN-13), publisher labels, and physical editions.
    - **Medium**: Discs/volumes (e.g. 2CD + 1BDMV box set).
    - **AssetFile / CAS**: Bit-exact SHA-256 S3 assets with automated transcoding.

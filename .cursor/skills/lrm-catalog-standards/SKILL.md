@@ -13,41 +13,47 @@ description: Enforce LRM (Library Reference Model) and MusicBrainz-aligned catal
 
 ## 1. 核心实体模型五层分层体系 (The 5-Layer LRM Hierarchy)
 
-MetaFusion 融合 IFLA LRM 与 MusicBrainz 编目哲学，将媒体实体划分为五层结构：
+MetaFusion 融合 IFLA LRM（国际图书馆参考模型）与现代多媒介流媒体/编目哲学，将媒体实体划分为五层结构：
 
 ```
-Work (纯净逻辑作品 / 思想创作概念，如《千与千寻》《范特西》《三体》《流浪地球》)
- └── CanonicalEntry (典范母版 / 录音 Recording / 单曲母带 / 剧集分集母版)
+Work (纯净逻辑作品 / 抽象思想创作概念，如《千与千寻》《范特西》《三体》《流浪地球》)
+ └── CanonicalEntry (表现层 Expression / 典范条目 / 标准篇目 / 跨媒介具体创作表达)
       └── Release (具体发行版本 / 物理载体 / 商业发售规格)
            └── Medium (介质容器 / 盘片 / 卷册，如 Disc 1 CD, Disc 2 BD, Vol.1)
-                └── Track (物理分轨 / 音轨序号 / 章节目录)
+                └── Track (物理分轨 / 音轨序号 / 章节目录项)
 ```
 
-### 1.1 各层职责与纯净题名界定
+### 1.1 各层职责与跨媒介表现层 (CanonicalEntry / Expression) 映射
 
 - **Work 题名**：必须保持**绝对纯净**，严禁混入媒介、版本、规格、音质或分卷副标题前缀：
   - ✅ 正确：`宿命之环`、`攻壳机动队`、`千与千寻`、`范特西`
   - ❌ 错误：`宿命之环（起点中文网首发版）`、`攻壳机动队 剧场版 1080P`、`千与千寻 日本13BD豪华盒装版`、`范特西 CD+VCD限量版`
-- **CanonicalEntry 题名**：表示抽象思想的具体典范母版/单曲录音（Recording）：
-  - ✅ 正确：`晴天 (Master Recording)`、`第1话：给二千年后的你`
-  - ❌ 错误：`Disc 1 Track 03`、`晴天 320kbps MP3`
+- **CanonicalEntry（表现层 Expression / 典范条目）**：承载抽象 Work 的具体创作实现与可复用篇目/母版内容。在不同媒介领域下自适应对应为：
+  - 🎵 **音乐 (Music)**：`CanonicalEntry` = 典范录音 / 母版 (Recording / Master Audio Track)，如《晴天 (Master Recording)》；
+  - 📚 **图书 / 小说 (Books / Novels)**：`CanonicalEntry` = 标准篇目 / 典范章节 / 正文篇幅 (Chapter / Canonical Text / Story Piece)，如《第1章：红月亮》；
+  - 🎬 **影视 / 动画 / 剧集 (Cinema / Anime / Series)**：`CanonicalEntry` = 正片剪辑 / 分集母版 / 典范剧集 (Feature Film Cut / Episode Master)，如《第1话：给二千年后的你》、《正片公映版 (Theatrical Master)》；
+  - 🎨 **漫画 / 绘本 (Manga / Comics)**：`CanonicalEntry` = 连载话 / 篇章 (Episode / Story Chapter)，如《第1话：风车村的红发》；
+  - 🎙️ **播客 / 广播剧 / 有声书 (Podcasts / Audio Dramas)**：`CanonicalEntry` = 典范单集 / 正片声音母版 (Master Episode Audio)；
+  - 🎮 **游戏 (Games)**：`CanonicalEntry` = 游戏本体剧情 / 扩展战役篇章 (Main Scenario / DLC Campaign)。
 - **Release 题名与规格**：**严禁机械化模版式重复**（如所有网文都填同一句“网络连载版”）。Release 必须具有唯一且可精确辨识的**版本规格、出版机构、卷次、装帧或媒介渠道**。
 
-### 1.2 词曲创作与录音演职主体的严格分离
+### 1.2 抽象创作与表现层实现的严格分离及跨发行复用机制
 
-在多媒体与音乐编目中，必须严格区分 **Work 级创作关系** 与 **Recording / CanonicalEntry 级录音制作关系**：
+在全媒介编目中，必须严格区分 **Work 级抽象创作关系** 与 **CanonicalEntry 级具体表现制作关系**：
 
-1. **Work 级创作关系**（抽象思想的创作者）：
-   - `composer`（作曲者）、`lyricist`（作词者）、`author`（原著作者）。
-   - **规则**：无论歌曲被翻唱、重新编曲或收录于何种专辑，Work 的 `composer` 与 `lyricist` 恒定不变。
-2. **CanonicalEntry / Recording 级录音制作关系**（具体声音母版的实现者与权利人）：
-   - `performer` / `vocalist` / `instrumentalist`（表演者/歌手/乐手）；
-   - `arranger`（编曲者）、`producer`（录音制作人）、`sound_engineer`（混音/母带工程师）；
-   - `phonographic_copyright`（℗ 录音制品版权方）。
-3. **Recording 复用与「Appears on Releases」反查机制**：
-   - 同一首录音母版（`CanonicalEntry`）由唯一的全局 UUID 标识；
-   - 它可以被多个不同 Release 的 Track 节点同时引用（例如首版专辑 CD、精选集、黑胶复刻版）；
-   - 系统通过 `tracks.canonical_entry_id` 反查该录音在全库所有发行版中的收录记录（Appears on Releases），消除元数据冗余。
+1. **Work 级创作关系**（抽象思想与原创内核）：
+   - `author`（文学作者）、`composer`（作曲者）、`lyricist`（作词者）、`scriptwriter`（剧本创作者）、`character_designer`（原案设计者）。
+   - **规则**：无论内容被收录于何种载体或发行版本，Work 的核心创作者恒定不变。
+2. **CanonicalEntry (Expression) 级制作演职与版本表现关系**（具体母版/篇目的实现者与权利人）：
+   - 音乐：`performer`（演唱/演奏）、`arranger`（编曲）、`producer`（录音制作人）、`phonographic_copyright`（℗ 录音版权）；
+   - 影视/动画：`director`（剪辑/分集导演）、`sound_director`（音响监督）、`voice_actor`（配音演员）；
+   - 图书/漫画：`translator`（特定译本翻译）、`editor`（分卷责任编辑）。
+3. **跨发行复用 (Expression Reuse) 与「Appears on Releases」反查机制**：
+   - 同一个具体的 `CanonicalEntry` 由全局唯一 UUID 标识；
+   - **小说案例**：同一部小说的标准正文篇章（`CanonicalEntry`），同时被初版平装书（Release A）、精装合订本（Release B）、Kindle 电子书（Release C）引用；
+   - **电影案例**：同一部电影的院线公映正片母版（`CanonicalEntry`），同时被院线首映版（Release A）、4K UHD 蓝光版（Release B）、流媒体重映版（Release C）引用；
+   - **音乐案例**：同一首母版录音（`CanonicalEntry`），同时被首版 CD（Release A）、精选集（Release B）、20周年黑胶套装（Release C）引用；
+   - 系统通过 `tracks.canonical_entry_id` 反查该篇目/母版在全库所有发行版中的收录记录（Appears on Releases），彻底消除元数据冗余。
 
 ---
 
