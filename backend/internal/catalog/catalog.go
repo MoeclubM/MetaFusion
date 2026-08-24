@@ -949,6 +949,16 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "name required"})
 		return
 	}
+	// 查重防重机制：若同名同类型创作者已存在，复用现有实体并合并补充信息
+	var existingArtist models.Artist
+	trimmedName := strings.TrimSpace(artist.Name)
+	if err := s.db.Where("LOWER(TRIM(name)) = LOWER(TRIM(?)) AND entity_type = ?", trimmedName, artist.EntityType).First(&existingArtist).Error; err == nil {
+		s.upsertArtistTranslations(existingArtist.ID, items)
+		_ = s.db.Preload("Translations").First(&existingArtist, existingArtist.ID).Error
+		c.JSON(http.StatusOK, existingArtist)
+		return
+	}
+
 	if err := s.db.Create(&artist).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1019,6 +1029,43 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 查重防重机制：若同名作品已存在，复用现有实体并合并补充信息
+	var existingWork models.Work
+	trimmedTitle := strings.TrimSpace(work.Title)
+	dupQuery := s.db.Where("LOWER(TRIM(title)) = LOWER(TRIM(?))", trimmedTitle)
+	if work.OriginalLanguage != "" {
+		dupQuery = dupQuery.Where("original_language = ? OR original_language = ''", work.OriginalLanguage)
+	}
+	if err := dupQuery.First(&existingWork).Error; err == nil {
+		tagNames := input.Tags
+		if len(input.TagIDs) > 0 {
+			var byID []models.Tag
+			s.db.Where("id IN ?", input.TagIDs).Find(&byID)
+			for _, t := range byID {
+				tagNames = append(tagNames, t.Name)
+			}
+		}
+		if len(tagNames) > 0 {
+			s.replaceWorkTagsByName(&existingWork, tagNames)
+		}
+		s.upsertWorkTranslations(existingWork.ID, localeItems)
+
+		// 检查封面是否需要更新（现有封面为空或为旧占位图且新封面有效）
+		if work.CoverImageURL != "" && (existingWork.CoverImageURL == "" || strings.Contains(existingWork.CoverImageURL, "unsplash.com")) {
+			s.db.Model(&models.Work{}).Where("id = ?", existingWork.ID).Updates(map[string]interface{}{
+				"cover_image_url": work.CoverImageURL,
+				"cover_aspect":    work.CoverAspect,
+			})
+			existingWork.CoverImageURL = work.CoverImageURL
+			existingWork.CoverAspect = work.CoverAspect
+		}
+
+		_ = s.db.Preload("Tags").Preload("Translations").First(&existingWork, existingWork.ID).Error
+		c.JSON(http.StatusOK, existingWork)
+		return
+	}
+
 	if err := s.db.Create(&work).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -2202,12 +2249,33 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 		return
 	}
 
-	if err := s.db.Create(&work).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": backendi18n.T(c, "catalog.create_work_failed") + err.Error()})
-		return
+	// 查重防重机制：若同名作品已存在，复用现有实体
+	var existingWork models.Work
+	trimmedTitle := strings.TrimSpace(work.Title)
+	dupQuery := s.db.Where("LOWER(TRIM(title)) = LOWER(TRIM(?))", trimmedTitle)
+	if work.OriginalLanguage != "" {
+		dupQuery = dupQuery.Where("original_language = ? OR original_language = ''", work.OriginalLanguage)
 	}
-	s.upsertWorkTranslations(work.ID, localeItems)
-	s.replaceWorkTagsByName(&work, input.Tags)
+	if err := dupQuery.First(&existingWork).Error; err == nil {
+		work = existingWork
+		if len(input.Tags) > 0 {
+			s.replaceWorkTagsByName(&work, input.Tags)
+		}
+		s.upsertWorkTranslations(work.ID, localeItems)
+		if input.CoverImageURL != "" && (work.CoverImageURL == "" || strings.Contains(work.CoverImageURL, "unsplash.com")) {
+			s.db.Model(&models.Work{}).Where("id = ?", work.ID).Updates(map[string]interface{}{
+				"cover_image_url": input.CoverImageURL,
+			})
+			work.CoverImageURL = input.CoverImageURL
+		}
+	} else {
+		if err := s.db.Create(&work).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": backendi18n.T(c, "catalog.create_work_failed") + err.Error()})
+			return
+		}
+		s.upsertWorkTranslations(work.ID, localeItems)
+		s.replaceWorkTagsByName(&work, input.Tags)
+	}
 
 	// 演职人员与关联实体关系录入 — 仅允许关联现有 artist_id，禁止直接填写名称自动创建
 	for _, relInput := range input.ArtistRelations {

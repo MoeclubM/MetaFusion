@@ -236,7 +236,7 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
               {t("graph.visualEditor")}
             </h4>
             <p className="text-[11px] text-muted-foreground">
-              {t("graph.subtitle")} ({relations.length} 关联)
+              {t("graph.subtitle")} ({t("graph.relationCount", { count: relations.length })})
             </p>
           </div>
         </div>
@@ -284,11 +284,11 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
 
             <div className="text-xs text-muted-foreground bg-secondary/50 p-2 rounded-md space-y-1">
               <div>
-                <span className="font-medium text-foreground">关系谓词:</span>{" "}
+                <span className="font-medium text-foreground">{t("graph.predicate")}:</span>{" "}
                 <span className="font-mono text-primary font-semibold">{selectedEdge.link.label}</span>
               </div>
               <div>
-                <span className="font-medium text-foreground">目标实体:</span>{" "}
+                <span className="font-medium text-foreground">{t("graph.targetEntity")}:</span>{" "}
                 <span>{selectedEdge.link.target}</span>
               </div>
             </div>
@@ -299,7 +299,7 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
                 onClick={() => setSelectedEdge(null)}
                 className="px-2.5 py-1 text-xs rounded-md border border-border text-foreground hover:bg-secondary"
               >
-                取消
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -355,12 +355,12 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
                     }`}
                   >
                     {type === "work"
-                      ? "作品 Work"
+                      ? t("graph.type.work")
                       : type === "artist"
-                      ? "创作者 Artist"
+                      ? t("graph.type.artist")
                       : type === "franchise"
-                      ? "企划 Franchise"
-                      : "发行 Release"}
+                      ? t("graph.type.franchise")
+                      : t("graph.type.release")}
                   </button>
                 ))}
               </div>
@@ -428,7 +428,7 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
                     onClick={() => setSelectedTarget(null)}
                     className="text-muted-foreground hover:text-foreground text-xs"
                   >
-                    重选
+                    {t("graph.reselect")}
                   </button>
                 </div>
               )}
@@ -486,7 +486,7 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
                 onClick={() => setShowAddModal(false)}
                 className="px-4 py-2 text-xs font-medium rounded-lg border border-border text-foreground hover:bg-secondary"
               >
-                取消
+                {t("common.cancel")}
               </button>
               <button
                 type="button"

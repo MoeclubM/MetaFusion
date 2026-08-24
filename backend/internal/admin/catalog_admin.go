@@ -62,6 +62,23 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 查重防重机制：若同名作品已存在，复用现有实体
+	var existingWork models.Work
+	trimmedTitle := strings.TrimSpace(input.Title)
+	if err := s.db.Where("LOWER(TRIM(title)) = LOWER(TRIM(?))", trimmedTitle).First(&existingWork).Error; err == nil {
+		if input.CoverImageURL != "" && (existingWork.CoverImageURL == "" || strings.Contains(existingWork.CoverImageURL, "unsplash.com")) {
+			s.db.Model(&models.Work{}).Where("id = ?", existingWork.ID).Updates(map[string]interface{}{
+				"cover_image_url": input.CoverImageURL,
+				"cover_aspect":    catalogsvc.NormalizeCoverAspect(input.CoverAspect),
+			})
+			existingWork.CoverImageURL = input.CoverImageURL
+			existingWork.CoverAspect = catalogsvc.NormalizeCoverAspect(input.CoverAspect)
+		}
+		c.JSON(http.StatusOK, existingWork)
+		return
+	}
+
 	extIDs := models.JSONB{}
 	if input.ExternalIDs != nil {
 		extIDs = models.JSONB(input.ExternalIDs)
@@ -165,7 +182,43 @@ func (s *AdminService) DeleteWork(c *gin.Context) {
 		if err := tx.Exec("DELETE FROM work_tag_relations WHERE work_id = ?", workID).Error; err != nil {
 			return err
 		}
-		// 6. 删除主体 Work
+		// 6. 删除 work_artist_relations 关联
+		if err := tx.Where("work_id = ?", workID).Delete(&models.WorkArtistRelation{}).Error; err != nil {
+			return err
+		}
+		// 7. 删除 entity_revisions 修订审计快照
+		if err := tx.Where("entity_type = 'work' AND entity_id = ?", workID).Delete(&models.EntityRevision{}).Error; err != nil {
+			return err
+		}
+		// 8. 删除评论与论坛讨论
+		if err := tx.Where("work_id = ?", workID).Delete(&models.Comment{}).Error; err != nil {
+			return err
+		}
+		var topicIDs []uuid.UUID
+		tx.Model(&models.DiscussionTopic{}).Where("work_id = ?", workID).Pluck("id", &topicIDs)
+		if len(topicIDs) > 0 {
+			_ = tx.Where("topic_id IN ?", topicIDs).Delete(&models.ForumPost{}).Error
+			_ = tx.Where("id IN ?", topicIDs).Delete(&models.DiscussionTopic{}).Error
+		}
+		// 9. 删除 Releases 及其 Mediums 与 Tracks
+		var relIDs []uuid.UUID
+		tx.Model(&models.Release{}).Where("work_id = ?", workID).Pluck("id", &relIDs)
+		if len(relIDs) > 0 {
+			var medIDs []uuid.UUID
+			tx.Model(&models.Medium{}).Where("release_id IN ?", relIDs).Pluck("id", &medIDs)
+			if len(medIDs) > 0 {
+				_ = tx.Where("medium_id IN ?", medIDs).Delete(&models.Track{}).Error
+				_ = tx.Where("id IN ?", medIDs).Delete(&models.Medium{}).Error
+			}
+			_ = tx.Where("target_entity_type = 'release' AND target_entity_id IN ?", relIDs).Delete(&models.AssetBinding{}).Error
+			_ = tx.Where("entity_type = 'release' AND entity_id IN ?", relIDs).Delete(&models.EntityRevision{}).Error
+			_ = tx.Where("id IN ?", relIDs).Delete(&models.Release{}).Error
+		}
+		// 10. 删除 CanonicalEntries 与剩余 Tracks
+		_ = tx.Where("work_id = ?", workID).Delete(&models.Track{}).Error
+		_ = tx.Where("work_id = ?", workID).Delete(&models.CanonicalEntry{}).Error
+
+		// 11. 删除主体 Work
 		if err := tx.Where("id = ?", workID).Delete(&models.Work{}).Error; err != nil {
 			return err
 		}
@@ -328,7 +381,11 @@ func (s *AdminService) DeleteArtist(c *gin.Context) {
 		if err := tx.Where("artist_id = ?", artistID).Delete(&models.WorkArtistRelation{}).Error; err != nil {
 			return err
 		}
-		// 6. 删除主体 Artist
+		// 6. 删除 entity_revisions 审计修订记录
+		if err := tx.Where("entity_type = 'artist' AND entity_id = ?", artistID).Delete(&models.EntityRevision{}).Error; err != nil {
+			return err
+		}
+		// 7. 删除主体 Artist
 		if err := tx.Where("id = ?", artistID).Delete(&models.Artist{}).Error; err != nil {
 			return err
 		}

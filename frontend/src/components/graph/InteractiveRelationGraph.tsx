@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { GraphNode, GraphLink, catalogEntityHref } from "@/lib/api";
 import Link from "next/link";
@@ -14,10 +14,17 @@ import {
   ExternalLink,
   Info,
   Network,
-  Filter,
   Layers,
-  Users,
   Compass,
+  ArrowRight,
+  ArrowLeft,
+  Tag,
+  Globe,
+  Disc,
+  User,
+  Film,
+  Sparkle,
+  X,
 } from "lucide-react";
 
 interface InteractiveRelationGraphProps {
@@ -40,12 +47,111 @@ interface LayoutNode extends GraphNode {
   radius: number;
 }
 
+// 实体类型视觉主题配置与本地化辅助
+const getEntityTypeTheme = (type: string, t: (k: string) => string) => {
+  switch (type) {
+    case "work":
+      return {
+        label: t("graph.type.work"),
+        primaryColor: "#0284c7", // sky-600
+        bgFill: "#e0f2fe",
+        textFill: "#0369a1",
+        stroke: "#38bdf8",
+        badgeBgClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
+        icon: Film,
+      };
+    case "artist":
+      return {
+        label: t("graph.type.artist"),
+        primaryColor: "#059669", // emerald-600
+        bgFill: "#d1fae5",
+        textFill: "#047857",
+        stroke: "#34d399",
+        badgeBgClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+        icon: User,
+      };
+    case "release":
+      return {
+        label: t("graph.type.release"),
+        primaryColor: "#d97706", // amber-600
+        bgFill: "#fef3c7",
+        textFill: "#b45309",
+        stroke: "#fbbf24",
+        badgeBgClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+        icon: Disc,
+      };
+    case "franchise":
+      return {
+        label: t("graph.type.franchise"),
+        primaryColor: "#4f46e5", // indigo-600
+        bgFill: "#e0e7ff",
+        textFill: "#4338ca",
+        stroke: "#818cf8",
+        badgeBgClass: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
+        icon: Layers,
+      };
+    case "medium":
+      return {
+        label: t("graph.type.medium"),
+        primaryColor: "#9333ea", // purple-600
+        bgFill: "#f3e8ff",
+        textFill: "#7e22ce",
+        stroke: "#c084fc",
+        badgeBgClass: "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30",
+        icon: Disc,
+      };
+    case "canonical_entry":
+      return {
+        label: t("graph.type.canonical_entry"),
+        primaryColor: "#0d9488", // teal-600
+        bgFill: "#ccfbf1",
+        textFill: "#0f766e",
+        stroke: "#2dd4bf",
+        badgeBgClass: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
+        icon: Sparkles,
+      };
+    default:
+      return {
+        label: type,
+        primaryColor: "#64748b",
+        bgFill: "#f1f5f9",
+        textFill: "#475569",
+        stroke: "#94a3b8",
+        badgeBgClass: "bg-zinc-500/15 text-zinc-700 dark:text-zinc-300 border-zinc-500/30",
+        icon: Tag,
+      };
+  }
+};
+
+const getLinkColorHex = (color?: string) => {
+  switch (color) {
+    case "emerald":
+      return "#10b981";
+    case "sky":
+    case "blue":
+      return "#0284c7";
+    case "purple":
+      return "#a855f7";
+    case "indigo":
+      return "#6366f1";
+    case "amber":
+      return "#f59e0b";
+    case "rose":
+    case "red":
+      return "#f43f5e";
+    case "teal":
+      return "#14b8a6";
+    default:
+      return "#64748b";
+  }
+};
+
 export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> = ({
   centerEntityId,
   centerEntityType,
   nodes,
   links,
-  height = 560,
+  height = 600,
   className = "",
   onNodeClick,
   onEdgeClick,
@@ -60,7 +166,6 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [layoutMode, setLayoutMode] = useState<"radial" | "hierarchy" | "force">("radial");
   const [filterType, setFilterType] = useState<"all" | "hierarchy" | "cast" | "media">("all");
@@ -80,7 +185,8 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           l.type.includes("parent") ||
           l.type.includes("child") ||
           l.type.includes("franchise") ||
-          l.type.includes("released_as")
+          l.type.includes("released_as") ||
+          l.type.includes("medium")
       );
     }
     if (filterType === "cast") {
@@ -91,7 +197,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           l.type.includes("author") ||
           l.type.includes("director") ||
           l.type.includes("composer") ||
-          l.type.includes("publisher")
+          l.type.includes("publisher") ||
+          l.type.includes("staff") ||
+          l.type.includes("voice") ||
+          l.type.includes("actor")
       );
     }
     if (filterType === "media") {
@@ -100,7 +209,8 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           l.type.includes("adapt") ||
           l.type.includes("soundtrack") ||
           l.type.includes("spin_off") ||
-          l.type.includes("remake")
+          l.type.includes("remake") ||
+          l.type.includes("crossover")
       );
     }
     return links;
@@ -120,18 +230,18 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     return nodes.filter((n) => activeNodeIds.has(n.id));
   }, [nodes, activeNodeIds]);
 
-  // 计算节点布局坐标
+  // 计算节点布局坐标 (宽 1000, 高 680 的更宽阔基准坐标系)
   const layoutNodes = useMemo<Map<string, LayoutNode>>(() => {
     const map = new Map<string, LayoutNode>();
-    const width = 800;
-    const height = 560;
+    const width = 1000;
+    const height = 680;
     const centerX = width / 2;
     const centerY = height / 2;
 
     const otherNodes = activeNodes.filter((n) => n.id !== centerEntityId);
     const totalOthers = otherNodes.length;
 
-    // 中心节点
+    // 中心节点配置
     const centerNode = activeNodes.find((n) => n.id === centerEntityId) || {
       id: centerEntityId,
       name: "Current",
@@ -146,87 +256,246 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       y: centerY,
       vx: 0,
       vy: 0,
-      radius: 40,
+      radius: 38, // 中心节点大尺寸 76px 直径
     });
 
     if (layoutMode === "radial") {
-      const radius = totalOthers > 8 ? 220 : 180;
-      otherNodes.forEach((node, i) => {
-        const angle = (i / Math.max(1, totalOthers)) * 2 * Math.PI - Math.PI / 2;
-        const x = centerX + radius * Math.cos(angle);
-        const y = centerY + radius * Math.sin(angle);
-        map.set(node.id, {
-          ...node,
-          x,
-          y,
-          vx: 0,
-          vy: 0,
-          radius: node.type === "artist" ? 28 : 32,
+      // 放射状布局：节点少时单环大半径，节点多时双层同心环交错排布，彻底杜绝重叠
+      if (totalOthers <= 7) {
+        const radius = Math.max(240, 180 + totalOthers * 14);
+        otherNodes.forEach((node, i) => {
+          const angle = (i / Math.max(1, totalOthers)) * 2 * Math.PI - Math.PI / 2;
+          const x = centerX + radius * Math.cos(angle);
+          const y = centerY + radius * Math.sin(angle);
+          map.set(node.id, {
+            ...node,
+            x,
+            y,
+            vx: 0,
+            vy: 0,
+            radius: 30, // 普通节点 60px 直径
+          });
         });
-      });
+      } else {
+        // 双层环排布
+        const innerCount = Math.min(6, Math.ceil(totalOthers / 2));
+        const outerCount = totalOthers - innerCount;
+        const rInner = 220;
+        const rOuter = 390;
+
+        // 内环
+        for (let i = 0; i < innerCount; i++) {
+          const node = otherNodes[i];
+          const angle = (i / innerCount) * 2 * Math.PI - Math.PI / 2;
+          const x = centerX + rInner * Math.cos(angle);
+          const y = centerY + rInner * Math.sin(angle);
+          map.set(node.id, {
+            ...node,
+            x,
+            y,
+            vx: 0,
+            vy: 0,
+            radius: 30,
+          });
+        }
+
+        // 外环（角度交错偏移半个角度步长）
+        const offsetAngle = Math.PI / innerCount;
+        for (let i = 0; i < outerCount; i++) {
+          const node = otherNodes[innerCount + i];
+          const angle = (i / outerCount) * 2 * Math.PI - Math.PI / 2 + offsetAngle;
+          const x = centerX + rOuter * Math.cos(angle);
+          const y = centerY + rOuter * Math.sin(angle);
+          map.set(node.id, {
+            ...node,
+            x,
+            y,
+            vx: 0,
+            vy: 0,
+            radius: 30,
+          });
+        }
+      }
     } else if (layoutMode === "hierarchy") {
-      // 分层布局：上层为原作/企划，中层为中心，下层为改编/衍生/发行
+      // 层次结构布局：纵向间距扩展至 190px~220px，横向节点间距扩展至 220px~260px
       const topNodes: GraphNode[] = [];
-      const bottomNodes: GraphNode[] = [];
-      const sideNodes: GraphNode[] = [];
+      const bottomReleaseNodes: GraphNode[] = [];
+      const bottomMediumNodes: GraphNode[] = [];
+      const leftArtistNodes: GraphNode[] = [];
+      const rightOtherNodes: GraphNode[] = [];
 
       otherNodes.forEach((node) => {
-        if (node.level < 0 || node.category === "parent_franchise" || node.category === "original_work") {
+        if (
+          node.level < 0 ||
+          node.category === "parent_franchise" ||
+          node.category === "original_work" ||
+          node.type === "franchise"
+        ) {
           topNodes.push(node);
-        } else if (node.level > 0 || node.type === "release" || node.type === "medium") {
-          bottomNodes.push(node);
+        } else if (node.type === "medium") {
+          bottomMediumNodes.push(node);
+        } else if (node.level > 0 || node.type === "release" || node.category === "release") {
+          bottomReleaseNodes.push(node);
+        } else if (node.type === "artist" || node.category === "artist") {
+          leftArtistNodes.push(node);
         } else {
-          sideNodes.push(node);
+          rightOtherNodes.push(node);
         }
       });
 
-      // 放置 top
+      // 放置 Top (企划、原作、前作)
       topNodes.forEach((node, i) => {
-        const span = Math.min(600, topNodes.length * 150);
-        const startX = centerX - span / 2 + (span / Math.max(1, topNodes.length)) * (i + 0.5);
-        map.set(node.id, { ...node, x: startX, y: centerY - 180, vx: 0, vy: 0, radius: 32 });
+        const span = Math.max(0, (topNodes.length - 1) * 230);
+        const startX = centerX - span / 2 + (topNodes.length > 1 ? (span / (topNodes.length - 1)) * i : 0);
+        map.set(node.id, { ...node, x: startX, y: centerY - 210, vx: 0, vy: 0, radius: 32 });
       });
 
-      // 放置 bottom
-      bottomNodes.forEach((node, i) => {
-        const span = Math.min(680, bottomNodes.length * 130);
-        const startX = centerX - span / 2 + (span / Math.max(1, bottomNodes.length)) * (i + 0.5);
-        map.set(node.id, { ...node, x: startX, y: centerY + 180, vx: 0, vy: 0, radius: 30 });
+      // 放置 Bottom 1 (发行版、续作、改编)
+      bottomReleaseNodes.forEach((node, i) => {
+        const span = Math.max(0, (bottomReleaseNodes.length - 1) * 230);
+        const startX =
+          centerX - span / 2 + (bottomReleaseNodes.length > 1 ? (span / (bottomReleaseNodes.length - 1)) * i : 0);
+        map.set(node.id, {
+          ...node,
+          x: startX,
+          y: centerY + (bottomMediumNodes.length > 0 ? 170 : 210),
+          vx: 0,
+          vy: 0,
+          radius: 30,
+        });
       });
 
-      // 放置 side (左右两侧)
-      sideNodes.forEach((node, i) => {
-        const isLeft = i % 2 === 0;
-        const idxInSide = Math.floor(i / 2);
-        const x = isLeft ? centerX - 240 : centerX + 240;
-        const y = centerY - 60 + idxInSide * 80;
-        map.set(node.id, { ...node, x, y, vx: 0, vy: 0, radius: 28 });
+      // 放置 Bottom 2 (分碟载体 Mediums)
+      bottomMediumNodes.forEach((node, i) => {
+        const span = Math.max(0, (bottomMediumNodes.length - 1) * 200);
+        const startX =
+          centerX - span / 2 + (bottomMediumNodes.length > 1 ? (span / (bottomMediumNodes.length - 1)) * i : 0);
+        map.set(node.id, { ...node, x: startX, y: centerY + 280, vx: 0, vy: 0, radius: 28 });
+      });
+
+      // 放置 Left (创作者、演职员)
+      leftArtistNodes.forEach((node, i) => {
+        const total = leftArtistNodes.length;
+        const startY = centerY - ((total - 1) * 110) / 2;
+        map.set(node.id, { ...node, x: centerX - 360, y: startY + i * 110, vx: 0, vy: 0, radius: 30 });
+      });
+
+      // 放置 Right (衍生品、跨媒介联动等)
+      rightOtherNodes.forEach((node, i) => {
+        const total = rightOtherNodes.length;
+        const startY = centerY - ((total - 1) * 110) / 2;
+        map.set(node.id, { ...node, x: centerX + 360, y: startY + i * 110, vx: 0, vy: 0, radius: 30 });
       });
     } else {
-      // 力导向简易排布
-      const radius = 200;
+      // 自然力导向模拟排布 (Force-Directed Relaxation with generous spacing)
+      const simNodes: LayoutNode[] = [
+        {
+          ...centerNode,
+          x: centerX,
+          y: centerY,
+          vx: 0,
+          vy: 0,
+          radius: 38,
+        },
+      ];
+
       otherNodes.forEach((node, i) => {
         const angle = (i / Math.max(1, totalOthers)) * 2 * Math.PI;
-        const x = centerX + radius * Math.cos(angle) + (Math.random() - 0.5) * 40;
-        const y = centerY + radius * Math.sin(angle) + (Math.random() - 0.5) * 40;
-        map.set(node.id, { ...node, x, y, vx: 0, vy: 0, radius: 30 });
+        const initDist = 240;
+        simNodes.push({
+          ...node,
+          x: centerX + initDist * Math.cos(angle) + (Math.random() - 0.5) * 20,
+          y: centerY + initDist * Math.sin(angle) + (Math.random() - 0.5) * 20,
+          vx: 0,
+          vy: 0,
+          radius: 30,
+        });
+      });
+
+      // 运行 60 轮确定性力导向松弛迭代
+      const kRep = 65000;
+      const targetLen = 250;
+      const kSpring = 0.04;
+      const kCenter = 0.015;
+
+      for (let iter = 0; iter < 60; iter++) {
+        // 节点两两排斥
+        for (let i = 0; i < simNodes.length; i++) {
+          for (let j = i + 1; j < simNodes.length; j++) {
+            const n1 = simNodes[i];
+            const n2 = simNodes[j];
+            let dx = n2.x - n1.x;
+            let dy = n2.y - n1.y;
+            let dist = Math.hypot(dx, dy) || 1;
+            if (dist < 180) {
+              const force = (kRep / (dist * dist)) * 1.5;
+              const fx = (dx / dist) * force;
+              const fy = (dy / dist) * force;
+              if (i !== 0) {
+                n1.x -= fx;
+                n1.y -= fy;
+              }
+              if (j !== 0) {
+                n2.x += fx;
+                n2.y += fy;
+              }
+            }
+          }
+        }
+
+        // 连线弹簧吸引力
+        filteredLinks.forEach((link) => {
+          const sIdx = simNodes.findIndex((n) => n.id === link.source);
+          const tIdx = simNodes.findIndex((n) => n.id === link.target);
+          if (sIdx >= 0 && tIdx >= 0) {
+            const sNode = simNodes[sIdx];
+            const tNode = simNodes[tIdx];
+            const dx = tNode.x - sNode.x;
+            const dy = tNode.y - sNode.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const displacement = dist - targetLen;
+            const fx = (dx / dist) * displacement * kSpring;
+            const fy = (dy / dist) * displacement * kSpring;
+            if (sIdx !== 0) {
+              sNode.x += fx;
+              sNode.y += fy;
+            }
+            if (tIdx !== 0) {
+              tNode.x -= fx;
+              tNode.y -= fy;
+            }
+          }
+        });
+
+        // 向中心拉拢与边界约束
+        for (let i = 1; i < simNodes.length; i++) {
+          const n = simNodes[i];
+          n.x += (centerX - n.x) * kCenter;
+          n.y += (centerY - n.y) * kCenter;
+          n.x = Math.max(120, Math.min(880, n.x));
+          n.y = Math.max(100, Math.min(580, n.y));
+        }
+      }
+
+      simNodes.forEach((node) => {
+        map.set(node.id, node);
       });
     }
 
     return map;
-  }, [activeNodes, centerEntityId, centerEntityType, layoutMode]);
+  }, [activeNodes, centerEntityId, centerEntityType, layoutMode, filteredLinks]);
 
   // 重置视图
-  const handleResetView = () => {
+  const handleResetView = useCallback(() => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setSelectedNode(null);
-  };
+  }, []);
 
   // 缩放操作
-  const handleZoom = (delta: number) => {
+  const handleZoom = useCallback((delta: number) => {
     setZoom((prev) => Math.min(2.8, Math.max(0.35, +(prev + delta).toFixed(2))));
-  };
+  }, []);
 
   // 鼠标滚轮缩放 - 绑定非被动原生事件，严格阻止外层页面滚动
   useEffect(() => {
@@ -265,64 +534,48 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
   const handleMouseUp = () => {
     setIsDragging(false);
-    setDraggedNodeId(null);
   };
 
-  const getNodeColor = (type: string, isCenter: boolean) => {
-    if (isCenter) return "fill-primary text-primary-foreground stroke-primary";
-    switch (type) {
-      case "work":
-        return "fill-sky-500/20 text-sky-600 dark:text-sky-400 stroke-sky-500";
-      case "artist":
-        return "fill-emerald-500/20 text-emerald-600 dark:text-emerald-400 stroke-emerald-500";
-      case "release":
-        return "fill-amber-500/20 text-amber-600 dark:text-amber-400 stroke-amber-500";
-      case "franchise":
-        return "fill-indigo-500/20 text-indigo-600 dark:text-indigo-400 stroke-indigo-500";
-      case "medium":
-        return "fill-purple-500/20 text-purple-600 dark:text-purple-400 stroke-purple-500";
-      default:
-        return "fill-zinc-500/20 text-zinc-600 dark:text-zinc-400 stroke-zinc-500";
-    }
-  };
+  // 选中的节点所连接的所有图谱关系 (用于 Inspector 详细卡片)
+  const selectedNodeRelations = useMemo(() => {
+    if (!selectedNode) return [];
+    const list: {
+      link: GraphLink;
+      otherNode: LayoutNode | GraphNode | undefined;
+      isOutgoing: boolean;
+    }[] = [];
 
-  const getLinkColor = (color?: string) => {
-    switch (color) {
-      case "emerald":
-        return "#10b981";
-      case "sky":
-        return "#0284c7";
-      case "purple":
-        return "#a855f7";
-      case "indigo":
-        return "#6366f1";
-      case "amber":
-        return "#f59e0b";
-      case "rose":
-        return "#f43f5e";
-      default:
-        return "#64748b";
-    }
-  };
+    filteredLinks.forEach((link) => {
+      if (link.source === selectedNode.id) {
+        const otherNode = layoutNodes.get(link.target) || nodes.find((n) => n.id === link.target);
+        list.push({ link, otherNode, isOutgoing: true });
+      } else if (link.target === selectedNode.id) {
+        const otherNode = layoutNodes.get(link.source) || nodes.find((n) => n.id === link.source);
+        list.push({ link, otherNode, isOutgoing: false });
+      }
+    });
+
+    return list;
+  }, [selectedNode, filteredLinks, layoutNodes, nodes]);
 
   return (
     <div
       ref={containerRef}
-      className={`relative flex flex-col rounded-2xl border border-border/70 bg-card/60 backdrop-blur-md overflow-hidden shadow-sm select-none ${
+      className={`relative flex flex-col rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md overflow-hidden shadow-sm select-none ${
         isFullscreen ? "fixed inset-0 z-50 rounded-none h-screen w-screen" : ""
       } ${className}`}
       style={{ height: isFullscreen ? "100vh" : height }}
     >
       {/* 顶部工具栏与控制面板 */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-background/80 border-b border-border/50 backdrop-blur-md z-10">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-background/85 border-b border-border/60 backdrop-blur-md z-10">
         <div className="flex items-center gap-2">
-          <div className="p-1 rounded-md bg-primary/10 text-primary">
+          <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
             <Network className="w-4 h-4" />
           </div>
           <div>
             <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
               {t("graph.title")}
-              <span className="text-[10px] font-normal text-muted-foreground px-1.5 py-0.5 rounded-full bg-secondary">
+              <span className="text-[10px] font-mono font-medium text-muted-foreground px-2 py-0.5 rounded-full bg-secondary border border-border/40">
                 {t("graph.connectedNodes", { count: activeNodes.length })}
               </span>
             </h3>
@@ -330,14 +583,16 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         </div>
 
         {/* 布局与过滤器 */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           {/* 关系分类过滤 */}
           <div className="flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-[11px]">
             <button
               type="button"
               onClick={() => setFilterType("all")}
-              className={`px-2 py-1 rounded-md font-medium transition-all ${
-                filterType === "all" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                filterType === "all"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {t("graph.filterAll")}
@@ -345,8 +600,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             <button
               type="button"
               onClick={() => setFilterType("hierarchy")}
-              className={`px-2 py-1 rounded-md font-medium transition-all ${
-                filterType === "hierarchy" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                filterType === "hierarchy"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {t("graph.filterHierarchy")}
@@ -354,8 +611,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             <button
               type="button"
               onClick={() => setFilterType("cast")}
-              className={`px-2 py-1 rounded-md font-medium transition-all ${
-                filterType === "cast" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                filterType === "cast"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {t("graph.filterCast")}
@@ -363,8 +622,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             <button
               type="button"
               onClick={() => setFilterType("media")}
-              className={`px-2 py-1 rounded-md font-medium transition-all ${
-                filterType === "media" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                filterType === "media"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {t("graph.filterMedia")}
@@ -377,8 +638,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               type="button"
               onClick={() => setLayoutMode("radial")}
               title={t("graph.layoutRadial")}
-              className={`px-2 py-1 rounded-md font-medium transition-all ${
-                layoutMode === "radial" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                layoutMode === "radial"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Compass className="w-3.5 h-3.5 inline mr-1" />
@@ -388,8 +651,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               type="button"
               onClick={() => setLayoutMode("hierarchy")}
               title={t("graph.layoutHierarchy")}
-              className={`px-2 py-1 rounded-md font-medium transition-all ${
-                layoutMode === "hierarchy" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                layoutMode === "hierarchy"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Layers className="w-3.5 h-3.5 inline mr-1" />
@@ -399,8 +664,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               type="button"
               onClick={() => setLayoutMode("force")}
               title={t("graph.layoutForce")}
-              className={`px-2 py-1 rounded-md font-medium transition-all ${
-                layoutMode === "force" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                layoutMode === "force"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Sparkles className="w-3.5 h-3.5 inline mr-1" />
@@ -414,7 +681,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               type="button"
               onClick={() => handleZoom(0.15)}
               title={t("graph.zoomIn")}
-              className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
@@ -422,7 +689,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               type="button"
               onClick={() => handleZoom(-0.15)}
               title={t("graph.zoomOut")}
-              className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
@@ -430,7 +697,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               type="button"
               onClick={handleResetView}
               title={t("graph.resetView")}
-              className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
@@ -438,7 +705,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               type="button"
               onClick={() => setIsFullscreen(!isFullscreen)}
               title={isFullscreen ? t("graph.exitFullscreen") : t("graph.fullscreen")}
-              className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
             </button>
@@ -457,65 +724,132 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         <svg
           ref={svgRef}
           className="w-full h-full"
-          viewBox="0 0 800 560"
+          viewBox="0 0 1000 680"
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
+            {/* 连线与标签投影滤镜 */}
+            <filter id="badge-drop-shadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" floodColor="#000000" floodOpacity="0.15" />
+            </filter>
+            <filter id="node-drop-shadow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000000" floodOpacity="0.22" />
+            </filter>
+
+            {/* 节点通用渐变定义 */}
+            <linearGradient id="grad-work" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0284c7" />
+              <stop offset="100%" stopColor="#0369a1" />
+            </linearGradient>
+            <linearGradient id="grad-artist" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#059669" />
+              <stop offset="100%" stopColor="#047857" />
+            </linearGradient>
+            <linearGradient id="grad-release" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#d97706" />
+              <stop offset="100%" stopColor="#b45309" />
+            </linearGradient>
+            <linearGradient id="grad-medium" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#9333ea" />
+              <stop offset="100%" stopColor="#7e22ce" />
+            </linearGradient>
+            <linearGradient id="grad-franchise" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#4f46e5" />
+              <stop offset="100%" stopColor="#4338ca" />
+            </linearGradient>
+            <linearGradient id="grad-default" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#64748b" />
+              <stop offset="100%" stopColor="#475569" />
+            </linearGradient>
+
             {/* 连线箭头定义 */}
             <marker
               id="arrow-default"
               viewBox="0 0 10 10"
-              refX="22"
+              refX="26"
               refY="5"
               markerWidth="6"
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 1 L 10 5 L 0 9 z" fill="#64748b" opacity="0.8" />
+              <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#64748b" opacity="0.9" />
             </marker>
             <marker
               id="arrow-sky"
               viewBox="0 0 10 10"
-              refX="24"
+              refX="26"
               refY="5"
               markerWidth="6"
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 1 L 10 5 L 0 9 z" fill="#0284c7" />
+              <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#0284c7" />
             </marker>
             <marker
               id="arrow-emerald"
               viewBox="0 0 10 10"
-              refX="24"
+              refX="26"
               refY="5"
               markerWidth="6"
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
+              <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#10b981" />
             </marker>
             <marker
               id="arrow-indigo"
               viewBox="0 0 10 10"
-              refX="24"
+              refX="26"
               refY="5"
               markerWidth="6"
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 1 L 10 5 L 0 9 z" fill="#6366f1" />
+              <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#6366f1" />
             </marker>
             <marker
               id="arrow-purple"
               viewBox="0 0 10 10"
-              refX="24"
+              refX="26"
               refY="5"
               markerWidth="6"
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 1 L 10 5 L 0 9 z" fill="#a855f7" />
+              <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#a855f7" />
+            </marker>
+            <marker
+              id="arrow-amber"
+              viewBox="0 0 10 10"
+              refX="26"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#f59e0b" />
+            </marker>
+            <marker
+              id="arrow-rose"
+              viewBox="0 0 10 10"
+              refX="26"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#f43f5e" />
+            </marker>
+            <marker
+              id="arrow-teal"
+              viewBox="0 0 10 10"
+              refX="26"
+              refY="5"
+              markerWidth="6"
+              markerHeight="6"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#14b8a6" />
             </marker>
           </defs>
 
@@ -528,12 +862,17 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               if (!src || !tgt) return null;
 
               const isHovered = hoveredLinkId === (link.id || `${link.source}-${link.target}`);
-              const colorHex = getLinkColor(link.color);
-              const strokeWidth = isHovered ? 2.5 : 1.5;
+              const colorHex = getLinkColorHex(link.color);
+              const strokeWidth = isHovered ? 2.5 : 1.8;
 
-              // 计算中点与倾斜角度用于摆放 Edge Badge
+              // 计算中点用于摆放 Edge Badge
               const midX = (src.x + tgt.x) / 2;
               const midY = (src.y + tgt.y) / 2;
+
+              // 谓词徽章尺寸计算 (字号 12px, 充裕的呼吸内边距)
+              const badgeLabel = link.label || link.type;
+              const badgeWidth = Math.max(72, badgeLabel.length * 12.5 + 28);
+              const badgeHeight = 26;
 
               return (
                 <g
@@ -543,15 +882,16 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                   onMouseLeave={() => setHoveredLinkId(null)}
                   onClick={() => onEdgeClick?.(link)}
                 >
-                  {/* 背景粗线用于扩大点击响应区域 */}
+                  {/* 背景透明粗线扩大鼠标交互区域 */}
                   <line
                     x1={src.x}
                     y1={src.y}
                     x2={tgt.x}
                     y2={tgt.y}
                     stroke="transparent"
-                    strokeWidth={14}
+                    strokeWidth={18}
                   />
+
                   {/* 实体连线 */}
                   <line
                     x1={src.x}
@@ -560,34 +900,42 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                     y2={tgt.y}
                     stroke={colorHex}
                     strokeWidth={strokeWidth}
-                    strokeDasharray={link.is_hierarchical ? "none" : "4,2"}
-                    opacity={isHovered ? 1 : 0.65}
+                    strokeDasharray={link.is_hierarchical ? "none" : "5,3"}
+                    opacity={isHovered ? 1 : 0.75}
                     markerEnd={`url(#arrow-${link.color || "default"})`}
                   />
 
-                  {/* 语义边文本徽章 (Edge Badge) */}
+                  {/* 连线谓词徽章 (Edge Badges - 磨砂卡片质感、12px 高对比字号) */}
                   <g transform={`translate(${midX}, ${midY})`}>
                     <rect
-                      x={-(link.label.length * 4.5 + 8)}
-                      y={-10}
-                      width={link.label.length * 9 + 16}
-                      height={20}
-                      rx={10}
+                      x={-badgeWidth / 2}
+                      y={-badgeHeight / 2}
+                      width={badgeWidth}
+                      height={badgeHeight}
+                      rx={13}
                       fill="var(--card)"
-                      stroke={colorHex}
-                      strokeWidth={isHovered ? 1.5 : 0.8}
-                      className="shadow-xs"
+                      stroke={isHovered ? colorHex : "var(--border)"}
+                      strokeWidth={isHovered ? 1.5 : 1}
+                      filter="url(#badge-drop-shadow)"
+                      className="transition-all"
+                    />
+                    {/* 关系类型小圆点指示器 */}
+                    <circle
+                      cx={-badgeWidth / 2 + 10}
+                      cy={0}
+                      r={3.5}
+                      fill={colorHex}
                     />
                     <text
-                      x={0}
-                      y={3}
+                      x={5}
+                      y={4.2}
                       textAnchor="middle"
-                      fontSize="9.5"
+                      fontSize="12"
                       fontWeight="600"
-                      fill={colorHex}
-                      className="pointer-events-none font-sans"
+                      fill="var(--foreground)"
+                      className="pointer-events-none font-sans select-none"
                     >
-                      {link.label}
+                      {badgeLabel}
                     </text>
                   </g>
                 </g>
@@ -600,12 +948,23 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               const isSelected = selectedNode?.id === node.id;
               const isHovered = hoveredNodeId === node.id;
               const r = node.radius;
+              const theme = getEntityTypeTheme(node.type, t);
+
+              // 计算下方名称药丸胶囊的宽度与内容
+              const typeLabel = theme.label;
+              const typeBadgeWidth = Math.max(34, typeLabel.length * 11 + 10);
+              const maxNameChars = 16;
+              const truncatedName =
+                node.name.length > maxNameChars ? `${node.name.slice(0, maxNameChars - 1)}…` : node.name;
+              const nameWidth = truncatedName.length * 12.5;
+              const pillWidth = Math.min(240, Math.max(110, typeBadgeWidth + nameWidth + 24));
+              const pillHeight = 28;
 
               return (
                 <g
                   key={node.id}
                   transform={`translate(${node.x}, ${node.y})`}
-                  className="cursor-pointer transition-transform duration-150"
+                  className="cursor-pointer transition-transform duration-150 group"
                   onMouseEnter={() => setHoveredNodeId(node.id)}
                   onMouseLeave={() => setHoveredNodeId(null)}
                   onClick={() => {
@@ -613,78 +972,115 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                     onNodeClick?.(node);
                   }}
                 >
-                  {/* 外圈光晕 */}
+                  <title>{`${node.name} (${typeLabel})`}</title>
+
+                  {/* 外圈光晕与高亮光环 */}
                   {(isCenter || isSelected || isHovered) && (
                     <circle
                       r={r + (isCenter ? 8 : 6)}
-                      className={`animate-pulse ${
+                      className={
                         isCenter
-                          ? "fill-primary/20 stroke-primary/50"
-                          : "fill-sky-500/20 stroke-sky-500/50"
-                      }`}
-                      strokeWidth={1.5}
+                          ? "fill-primary/20 stroke-primary/60 animate-pulse"
+                          : "fill-sky-500/20 stroke-sky-500/60"
+                      }
+                      strokeWidth={isCenter ? 2.5 : 2}
                     />
                   )}
 
-                  {/* 节点圆形背景 */}
+                  {/* 节点主圆底色 */}
                   <circle
                     r={r}
-                    className={`${getNodeColor(node.type, isCenter)} shadow-md`}
-                    strokeWidth={isCenter ? 3 : 2}
+                    fill={isCenter ? "var(--primary)" : `url(#grad-${node.type})`}
+                    stroke={isCenter ? "var(--background)" : theme.stroke}
+                    strokeWidth={isCenter ? 3.5 : 2.5}
+                    filter="url(#node-drop-shadow)"
                   />
 
-                  {/* 节点头像/封面或类型图标缩写 */}
+                  {/* 封面图片剪裁区 */}
                   {node.cover_image_url ? (
-                    <clipPath id={`clip-${node.id}`}>
-                      <circle r={r - 3} />
-                    </clipPath>
-                  ) : null}
-
-                  {node.cover_image_url ? (
-                    <image
-                      href={node.cover_image_url}
-                      x={-(r - 3)}
-                      y={-(r - 3)}
-                      width={(r - 3) * 2}
-                      height={(r - 3) * 2}
-                      preserveAspectRatio="xMidYMid slice"
-                      clipPath={`url(#clip-${node.id})`}
-                    />
+                    <>
+                      <clipPath id={`clip-${node.id}`}>
+                        <circle r={r - 3} />
+                      </clipPath>
+                      <image
+                        href={node.cover_image_url}
+                        x={-(r - 3)}
+                        y={-(r - 3)}
+                        width={(r - 3) * 2}
+                        height={(r - 3) * 2}
+                        preserveAspectRatio="xMidYMid slice"
+                        clipPath={`url(#clip-${node.id})`}
+                      />
+                    </>
                   ) : (
+                    /* 无封面时的字母简写或图标 */
                     <text
                       textAnchor="middle"
-                      y={4}
-                      fontSize={isCenter ? "13" : "11"}
+                      y={isCenter ? 5 : 4}
+                      fontSize={isCenter ? "14" : "12"}
                       fontWeight="bold"
-                      fill="currentColor"
-                      className="pointer-events-none font-mono"
+                      fill="#ffffff"
+                      className="pointer-events-none font-mono select-none"
                     >
                       {node.type.slice(0, 2).toUpperCase()}
                     </text>
                   )}
 
-                  {/* 节点下方名称标签 */}
-                  <g transform={`translate(0, ${r + 14})`}>
+                  {/* 中心节点专属小皇冠/徽标标识 */}
+                  {isCenter && (
+                    <g transform={`translate(${r - 6}, ${-(r - 6)})`}>
+                      <circle r={9} fill="var(--primary)" stroke="var(--background)" strokeWidth={2} />
+                      <Sparkle className="w-2.5 h-2.5 text-primary-foreground -translate-x-[5px] -translate-y-[5px]" />
+                    </g>
+                  )}
+
+                  {/* 节点下方名称与类型双层清晰药丸 (Node Title & Type Badge) */}
+                  <g transform={`translate(0, ${r + 20})`}>
+                    {/* 药丸背景底托 */}
                     <rect
-                      x={-Math.min(90, node.name.length * 5.5 + 8)}
+                      x={-pillWidth / 2}
+                      y={-pillHeight / 2}
+                      width={pillWidth}
+                      height={pillHeight}
+                      rx={pillHeight / 2}
+                      fill="var(--card)"
+                      stroke={isSelected || isHovered ? theme.primaryColor : "var(--border)"}
+                      strokeWidth={isSelected || isHovered ? 1.5 : 1}
+                      filter="url(#badge-drop-shadow)"
+                    />
+
+                    {/* 类型微型徽标 (Mini Type Badge) */}
+                    <rect
+                      x={-pillWidth / 2 + 4}
                       y={-9}
-                      width={Math.min(180, node.name.length * 11 + 16)}
+                      width={typeBadgeWidth}
                       height={18}
-                      rx={6}
-                      fill="var(--background)"
-                      stroke="var(--border)"
-                      strokeWidth={0.8}
-                      opacity={0.92}
+                      rx={9}
+                      fill={theme.bgFill}
                     />
                     <text
-                      textAnchor="middle"
+                      x={-pillWidth / 2 + 4 + typeBadgeWidth / 2}
                       y={3.5}
+                      textAnchor="middle"
                       fontSize="10"
-                      fontWeight="500"
-                      fill="var(--foreground)"
-                      className="pointer-events-none truncate"
+                      fontWeight="700"
+                      fill={theme.textFill}
+                      className="pointer-events-none select-none font-sans"
                     >
-                      {node.name.length > 14 ? `${node.name.slice(0, 13)}…` : node.name}
+                      {typeLabel}
+                    </text>
+
+                    {/* 实体名称主标题 (13px font-semibold 高清晰对比) */}
+                    <text
+                      x={(-pillWidth / 2 + 4 + typeBadgeWidth + (pillWidth / 2 - 6)) / 2}
+                      y={4.5}
+                      textAnchor="middle"
+                      fontSize="13"
+                      fontWeight="600"
+                      fill="var(--foreground)"
+                      className="pointer-events-none select-none font-sans"
+                    >
+                      {truncatedName}
                     </text>
                   </g>
                 </g>
@@ -694,72 +1090,143 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         </svg>
 
         {/* 底部交互操作提示浮层 */}
-        <div className="absolute bottom-3 left-4 pointer-events-none text-[11px] text-muted-foreground/80 flex items-center gap-1.5 bg-background/70 backdrop-blur-xs px-2.5 py-1 rounded-full border border-border/40">
+        <div className="absolute bottom-3 left-4 pointer-events-none text-[11px] text-muted-foreground/90 flex items-center gap-1.5 bg-background/85 backdrop-blur-md px-3 py-1.5 rounded-full border border-border/50 shadow-xs">
           <Info className="w-3.5 h-3.5 text-primary shrink-0" />
           <span>{t("graph.interactiveHint")}</span>
         </div>
       </div>
 
-      {/* 侧边/悬浮节点详细信息检查器 (Node Inspector Popover) */}
+      {/* 侧边/悬浮节点详细信息检查器 (Property Inspector Popover) */}
       {showInspector && selectedNode && (
-        <div className="absolute top-14 right-4 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-border/80 bg-card/95 backdrop-blur-md p-4 shadow-xl z-20 space-y-3 animate-in fade-in slide-in-from-right-4 duration-200">
-          <div className="flex items-start justify-between gap-2 pb-2 border-b border-border/50">
-            <div className="min-w-0">
-              <span className="text-[10px] font-mono font-semibold uppercase px-1.5 py-0.5 rounded bg-primary/10 text-primary inline-block mb-1">
-                {selectedNode.type}
-              </span>
-              <h4 className="text-sm font-bold text-foreground truncate">{selectedNode.name}</h4>
+        <div className="absolute top-14 right-4 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card/98 backdrop-blur-xl p-4 shadow-2xl z-20 space-y-3.5 animate-in fade-in slide-in-from-right-4 duration-200">
+          {/* 检查器顶部标题栏 */}
+          <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-border/60">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                    getEntityTypeTheme(selectedNode.type, t).badgeBgClass
+                  }`}
+                >
+                  {getEntityTypeTheme(selectedNode.type, t).label}
+                </span>
+                {selectedNode.id === centerEntityId && (
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25">
+                    {t("common.all") || "Center"}
+                  </span>
+                )}
+              </div>
+              <h4 className="text-sm font-bold text-foreground truncate" title={selectedNode.name}>
+                {selectedNode.name}
+              </h4>
               {selectedNode.original_name && (
-                <p className="text-xs text-muted-foreground truncate">{selectedNode.original_name}</p>
+                <p className="text-xs text-muted-foreground truncate" title={selectedNode.original_name}>
+                  {selectedNode.original_name}
+                </p>
               )}
             </div>
             <button
               type="button"
               onClick={() => setSelectedNode(null)}
-              className="text-muted-foreground hover:text-foreground text-xs p-1 rounded hover:bg-secondary"
+              className="text-muted-foreground hover:text-foreground text-xs p-1.5 rounded-lg hover:bg-secondary transition-colors"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
 
+          {/* 封面海报大图预览 */}
           {selectedNode.cover_image_url && (
-            <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border/40 bg-muted">
+            <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border/60 bg-muted shadow-xs group">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={selectedNode.cover_image_url}
                 alt={selectedNode.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
             </div>
           )}
 
-          <div className="space-y-1.5 text-xs text-muted-foreground">
+          {/* 实体基础属性网格 */}
+          <div className="space-y-1.5 text-xs text-muted-foreground bg-secondary/40 p-2.5 rounded-xl border border-border/40">
             {selectedNode.country && (
-              <div className="flex justify-between">
-                <span>地区/国别:</span>
+              <div className="flex justify-between items-center">
+                <span className="flex items-center gap-1">
+                  <Globe className="w-3 h-3 text-muted-foreground" />
+                  {t("graph.country")}:
+                </span>
                 <span className="font-mono text-foreground font-medium">{selectedNode.country}</span>
               </div>
             )}
             {selectedNode.status && (
-              <div className="flex justify-between">
-                <span>状态:</span>
+              <div className="flex justify-between items-center">
+                <span>{t("graph.status")}:</span>
                 <span className="text-foreground font-medium">{selectedNode.status}</span>
               </div>
             )}
             {selectedNode.disambiguation && (
-              <div className="text-[11px] text-muted-foreground bg-secondary/50 p-2 rounded">
+              <div className="pt-1 text-[11px] text-muted-foreground border-t border-border/40">
+                <span className="font-semibold text-foreground/80">{t("graph.disambiguation")}: </span>
                 {selectedNode.disambiguation}
               </div>
             )}
           </div>
 
-          <div className="pt-2 border-t border-border/40 flex justify-end">
+          {/* 图谱中与此节点的关联关系列表 */}
+          <div className="space-y-2">
+            <h5 className="text-xs font-semibold text-foreground flex items-center justify-between">
+              <span>{t("graph.connectedEdges")}</span>
+              <span className="text-[10px] font-mono text-muted-foreground px-1.5 py-0.2 rounded bg-secondary">
+                {selectedNodeRelations.length}
+              </span>
+            </h5>
+
+            <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 text-xs">
+              {selectedNodeRelations.length > 0 ? (
+                selectedNodeRelations.map((rel, i) => {
+                  const relColor = getLinkColorHex(rel.link.color);
+                  return (
+                    <div
+                      key={rel.link.id || i}
+                      className="flex items-center justify-between gap-1.5 p-1.5 rounded-lg bg-background border border-border/50 text-[11px]"
+                    >
+                      <div className="flex items-center gap-1 min-w-0">
+                        {rel.isOutgoing ? (
+                          <ArrowRight className="w-3 h-3 text-primary shrink-0" />
+                        ) : (
+                          <ArrowLeft className="w-3 h-3 text-emerald-500 shrink-0" />
+                        )}
+                        <span
+                          className="font-medium px-1.5 py-0.5 rounded text-[10px]"
+                          style={{
+                            backgroundColor: `${relColor}15`,
+                            color: relColor,
+                          }}
+                        >
+                          {rel.link.label}
+                        </span>
+                      </div>
+                      <span className="font-medium text-foreground truncate max-w-[110px]" title={rel.otherNode?.name}>
+                        {rel.otherNode?.name || "Target"}
+                      </span>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-[11px] text-muted-foreground text-center py-2">
+                  {t("graph.noConnectedEdges")}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 底部操作区：进入详情档案 */}
+          <div className="pt-2.5 border-t border-border/60 flex items-center justify-end gap-2">
             <Link
               href={catalogEntityHref(selectedNode.type, selectedNode.id)}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors shadow-xs"
             >
-              {t("graph.inspectEntity")}
-              <ExternalLink className="w-3 h-3" />
+              <span>{t("graph.inspectEntity")}</span>
+              <ExternalLink className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
