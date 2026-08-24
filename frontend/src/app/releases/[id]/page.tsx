@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/authContext";
 import { usePlayer } from "@/lib/playerContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
-import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Edit3, History, Network } from "lucide-react";
+import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Edit3, History, Network, Layers, Film } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
@@ -19,7 +19,8 @@ import FavoriteButton from "@/components/FavoriteButton";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
 import { InteractiveRelationGraph } from "@/components/graph/InteractiveRelationGraph";
-import { fetchEntityGraph, GraphNode, GraphLink } from "@/lib/api";
+import { fetchEntityGraph, GraphNode, GraphLink, pickLocalized } from "@/lib/api";
+import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 
 type ReleaseWithWork = Release & { work?: Work };
 
@@ -184,6 +185,53 @@ export default function ReleaseDetailPage() {
             </div>
           )}
 
+          {/* 收录作品与汇编篇目（多作品合集/大盒装专属展示） */}
+          {release.included_works && release.included_works.length > 0 && (
+            <div className="pt-3 border-t border-black/5 dark:border-white/[0.06] space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-semibold text-gray-900 dark:text-white">
+                  <Layers className="w-3.5 h-3.5 text-primary" />
+                  <span>{t("release.detail.includedWorks")}</span>
+                  <span className="px-1.5 py-0.5 rounded-sm bg-primary/10 text-primary font-mono text-[10px] font-bold">
+                    {release.included_works.length}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                {release.included_works.map((iw) => {
+                  const loc = pickLocalized(locale, iw.translations, iw.title, iw.summary);
+                  return (
+                    <Link
+                      key={iw.id}
+                      href={`/works/${iw.id}`}
+                      className="group flex flex-col rounded-md border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-primary/50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] p-2 transition-all"
+                    >
+                      <div className="w-full aspect-[2/3] rounded overflow-hidden bg-black/5 dark:bg-white/5 mb-1.5 shadow-xs">
+                        <AdaptiveCover
+                          src={iw.cover_image_url}
+                          alt={loc.title}
+                          title={loc.title}
+                          originalTitle={iw.original_title}
+                          id={iw.id}
+                          aspect={iw.cover_aspect || "2:3"}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="font-semibold text-xs text-gray-900 dark:text-white group-hover:text-primary line-clamp-2 leading-snug">
+                        {loc.title}
+                      </div>
+                      {iw.original_title && iw.original_title !== loc.title && (
+                        <div className="font-mono text-[10px] text-gray-500 truncate mt-0.5">
+                          {iw.original_title}
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* 实体动态扩展属性展示 */}
           {release.attributes && Object.keys(release.attributes).length > 0 && (
             <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
@@ -281,10 +329,26 @@ export default function ReleaseDetailPage() {
                               .sort((a, b) => a.position - b.position)
                               .map((tr) => {
                                 const displayTitle = tr.title_override || tr.canonical_entry?.title || tr.title;
+                                const trWork = tr.work || tr.canonical_entry?.work;
+                                const trWorkLoc = trWork ? pickLocalized(locale, trWork.translations, trWork.title, trWork.summary) : null;
                                 return (
                                   <tr key={tr.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                                     <td className="py-2 px-3.5 font-mono text-gray-500 tabular-nums">{tr.position}</td>
-                                    <td className="py-2 px-3.5 font-medium text-gray-900 dark:text-white">{displayTitle}</td>
+                                    <td className="py-2 px-3.5 font-medium text-gray-900 dark:text-white">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span>{displayTitle}</span>
+                                        {trWork && trWork.id !== release.work_id && (
+                                          <Link
+                                            href={`/works/${trWork.id}`}
+                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 text-[10px] hover:bg-sky-500/20 transition-colors font-mono"
+                                            title={trWorkLoc?.title}
+                                          >
+                                            <Film className="w-2.5 h-2.5" />
+                                            <span className="truncate max-w-[22ch]">{trWorkLoc?.title}</span>
+                                          </Link>
+                                        )}
+                                      </div>
+                                    </td>
                                     <td className="py-2 px-3.5 text-gray-500 text-xs">
                                       {tr.canonical_entry ? (
                                         <span className="inline-flex items-center gap-1">

@@ -479,6 +479,7 @@ type Track struct {
 	ArtistCredit     string     `json:"artist_credit"`
 	Attributes       JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 
+	Work           *Work           `gorm:"foreignKey:WorkID" json:"work,omitempty"`
 	CanonicalEntry *CanonicalEntry `gorm:"foreignKey:CanonicalEntryID" json:"canonical_entry,omitempty"`
 }
 

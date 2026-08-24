@@ -125,7 +125,7 @@ func (s *CatalogService) BrowseReleases(c *gin.Context) {
 
 	if workIDStr != "" {
 		if wid, err := uuid.Parse(workIDStr); err == nil {
-			query = query.Where("work_id = ?", wid)
+			query = applyWorkReleaseFilter(query, wid)
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid work id"})
 			return

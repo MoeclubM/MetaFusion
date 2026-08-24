@@ -338,42 +338,63 @@ export default function WorkDirectoryPage() {
  </tr>
  </thead>
  <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
- {releases.map((rel) => (
- <tr key={rel.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
- <td className="py-2.5 px-3.5">
- <Link href={`/releases/${rel.id}`} className="font-semibold text-gray-900 dark:text-white hover:text-primary inline-flex items-center gap-2">
- {rel.edition_name} <ArrowUpRight className="w-4 h-4 text-gray-400" strokeWidth={1.6} />
- </Link>
- </td>
- <td className="py-2.5 px-3.5 text-gray-600 dark:text-gray-400">
- {rel.publisher_entity ? (
- <Link href={`/artists/${rel.publisher_entity.id}`} className="text-primary hover:underline font-medium">
- {rel.publisher_entity.name}
- </Link>
- ) : (
- rel.publisher || "—"
- )}
- </td>
- <td className="py-2.5 px-3.5 font-mono text-gray-500">{rel.catalog_number || "—"}</td>
- <td className="py-2.5 px-3.5 font-mono text-gray-500 text-right">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</td>
- </tr>
- ))}
+   {releases.map((rel) => {
+     const isBoxset = rel.work_id !== work.id || rel.packaging?.toLowerCase().includes("box");
+     return (
+       <tr key={rel.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+         <td className="py-2.5 px-3.5">
+           <div className="flex flex-wrap items-center gap-2">
+             <Link href={`/releases/${rel.id}`} className="font-semibold text-gray-900 dark:text-white hover:text-primary inline-flex items-center gap-1.5">
+               {rel.edition_name} <ArrowUpRight className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.6} />
+             </Link>
+             {isBoxset && (
+               <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-[10px] font-mono font-medium shrink-0">
+                 {t("work.detail.boxsetInclusion")}
+               </span>
+             )}
+           </div>
+         </td>
+         <td className="py-2.5 px-3.5 text-gray-600 dark:text-gray-400">
+           {rel.publisher_entity ? (
+             <Link href={`/artists/${rel.publisher_entity.id}`} className="text-primary hover:underline font-medium">
+               {rel.publisher_entity.name}
+             </Link>
+           ) : (
+             rel.publisher || "—"
+           )}
+         </td>
+         <td className="py-2.5 px-3.5 font-mono text-gray-500">{rel.catalog_number || "—"}</td>
+         <td className="py-2.5 px-3.5 font-mono text-gray-500 text-right">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</td>
+       </tr>
+     );
+   })}
  </tbody>
  </table>
  </div>
-   <div className="sm:hidden divide-y divide-black/5 dark:divide-white/[0.06]">
-   {releases.map((rel) => (
-   <a key={rel.id} href={`/releases/${rel.id}`} className="block px-3.5 py-3 active:bg-black/[0.02] dark:active:bg-white/[0.04]">
-   <div className="flex items-start justify-between gap-3">
-   <div className="min-w-0 space-y-0.5">
-   <div className="font-semibold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2 inline-flex items-center gap-2">{rel.edition_name} <ArrowUpRight className="w-4 h-4 text-gray-400 shrink-0" strokeWidth={1.6} /></div>
-   <div className="font-mono text-xs text-gray-500 truncate">{rel.publisher_entity ? rel.publisher_entity.name : rel.publisher || "—"} {rel.catalog_number ? "· " + rel.catalog_number : ""}</div>
-   <div className="font-mono text-xs text-gray-400">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</div>
-   </div>
-   </div>
-   </a>
-   ))}
-   </div>
+  <div className="sm:hidden divide-y divide-black/5 dark:divide-white/[0.06]">
+  {releases.map((rel) => {
+    const isBoxset = rel.work_id !== work.id || rel.packaging?.toLowerCase().includes("box");
+    return (
+      <a key={rel.id} href={`/releases/${rel.id}`} className="block px-3.5 py-3 active:bg-black/[0.02] dark:active:bg-white/[0.04]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 space-y-1">
+            <div className="font-semibold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2 inline-flex items-center gap-1.5 flex-wrap">
+              <span>{rel.edition_name}</span>
+              {isBoxset && (
+                <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-[10px] font-mono font-medium shrink-0">
+                  {t("work.detail.boxsetInclusion")}
+                </span>
+              )}
+              <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 shrink-0" strokeWidth={1.6} />
+            </div>
+            <div className="font-mono text-xs text-gray-500 truncate">{rel.publisher_entity ? rel.publisher_entity.name : rel.publisher || "—"} {rel.catalog_number ? "· " + rel.catalog_number : ""}</div>
+            <div className="font-mono text-xs text-gray-400">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</div>
+          </div>
+        </div>
+      </a>
+    );
+  })}
+  </div>
  <div className="px-3.5 py-2.5 border-t border-black/5 dark:border-white/[0.06] bg-black/[0.01] dark:bg-white/[0.01] flex items-center justify-between">
  <span className="font-mono text-sm text-gray-500">
  {t("common.pagination", { page, total: totalPages })}

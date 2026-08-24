@@ -417,6 +417,41 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 		"page_size": pageSize,
 	})
 }
+// applyWorkReleaseFilter 筛选与指定 Work 关联的所有 Release：
+// 1. releases.work_id = workID（母体作品直接发行版）
+// 2. 载体曲目关联（Track / CanonicalEntry 归属于该 workID）
+// 3. 实体关系直连（EntityRelationship source/target 为 release 与 work）
+// 4. 汇编作品/盒装合集关系（Work 被收录于某 compilation/anthology work，该 compilation work 旗下的 release）
+func applyWorkReleaseFilter(db *gorm.DB, workID uuid.UUID) *gorm.DB {
+	return db.Where(`
+		work_id = ? 
+		OR id IN (
+			SELECT m.release_id FROM mediums m 
+			JOIN tracks t ON t.medium_id = m.id 
+			WHERE t.work_id = ? 
+			   OR t.canonical_entry_id IN (SELECT ce.id FROM canonical_entries ce WHERE ce.work_id = ?)
+		)
+		OR id IN (
+			SELECT er.source_id FROM entity_relationships er 
+			WHERE er.source_type = 'release' AND er.target_type = 'work' AND er.target_id = ?
+		)
+		OR id IN (
+			SELECT er.target_id FROM entity_relationships er 
+			WHERE er.target_type = 'release' AND er.source_type = 'work' AND er.source_id = ?
+		)
+		OR work_id IN (
+			SELECT er.target_id FROM entity_relationships er 
+			WHERE er.source_type = 'work' AND er.source_id = ? 
+			  AND er.relationship_type IN ('included_in', 'part_of', 'anthology_of')
+		)
+		OR work_id IN (
+			SELECT er.source_id FROM entity_relationships er 
+			WHERE er.target_type = 'work' AND er.target_id = ? 
+			  AND er.relationship_type IN ('includes_work', 'compilation_of', 'anthology_of')
+		)
+	`, workID, workID, workID, workID, workID, workID, workID)
+}
+
 // GetWorkDetail 获取作品概览（轻量，不再全量预加载 Release/Medium/Track）
 // 如需关联版本列表，请调 GET /releases?work_id= 分页接口
 // ?inc=releases+relations+revisions 附加展开字段，响应始终为作品字段平铺
@@ -458,7 +493,8 @@ func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 	if inc["releases"] {
 		var releases []models.Release
 		uid := currentUserID(c)
-		rq := applyReleaseVisibility(s.db.Model(&models.Release{}), uid).Where("work_id = ?", work.ID).Order("edition_date asc, created_at asc").Limit(50)
+		rq := applyReleaseVisibility(s.db.Model(&models.Release{}), uid)
+		rq = applyWorkReleaseFilter(rq, work.ID).Order("edition_date asc, created_at asc").Limit(50)
 		_ = rq.Find(&releases).Error
 		m["releases"] = releases
 	}
@@ -499,7 +535,7 @@ func (s *CatalogService) ListReleases(c *gin.Context) {
 
 	if workIDStr != "" {
 		if workID, err := uuid.Parse(workIDStr); err == nil {
-			query = query.Where("work_id = ?", workID)
+			query = applyWorkReleaseFilter(query, workID)
 		} else if workIDStr != "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_work_id_q")})
 			return
@@ -558,11 +594,13 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 	var release models.Release
 	if err := s.db.
 		Preload("Work.Translations").
+		Preload("Work.Tags").
 		Preload("PublisherEntity").
 		Preload("PublisherEntity.Translations").
 		Preload("Uploader").
 		Preload("Mediums", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") }).
-		Preload("Mediums.Tracks.CanonicalEntry").
+		Preload("Mediums.Tracks.Work.Translations").
+		Preload("Mediums.Tracks.CanonicalEntry.Work.Translations").
 		Preload("Mediums.AssetFiles").
 		Preload("AssetFiles").
 		Where("id = ?", releaseID).
@@ -583,10 +621,56 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 			return
 		}
 	}
+
+	// 聚合多作品合集/大盒装关联的所有 Works
+	workIDMap := make(map[uuid.UUID]bool)
+	if release.WorkID != uuid.Nil {
+		workIDMap[release.WorkID] = true
+	}
+	for _, med := range release.Mediums {
+		for _, tr := range med.Tracks {
+			if tr.WorkID != nil && *tr.WorkID != uuid.Nil {
+				workIDMap[*tr.WorkID] = true
+			}
+			if tr.CanonicalEntry != nil && tr.CanonicalEntry.WorkID != nil && *tr.CanonicalEntry.WorkID != uuid.Nil {
+				workIDMap[*tr.CanonicalEntry.WorkID] = true
+			}
+		}
+	}
+	var relWorkIDs []uuid.UUID
+	s.db.Raw(`
+		SELECT DISTINCT source_id FROM entity_relationships WHERE source_type = 'work' AND (
+			(target_type = 'release' AND target_id = ?) 
+			OR (target_type = 'work' AND target_id = ? AND relationship_type IN ('included_in', 'part_of', 'anthology_of'))
+		)
+		UNION
+		SELECT DISTINCT target_id FROM entity_relationships WHERE target_type = 'work' AND (
+			(source_type = 'release' AND source_id = ?)
+			OR (source_type = 'work' AND source_id = ? AND relationship_type IN ('includes_work', 'compilation_of', 'anthology_of'))
+		)
+	`, release.ID, release.WorkID, release.ID, release.WorkID).Pluck("source_id", &relWorkIDs)
+	for _, rwid := range relWorkIDs {
+		if rwid != uuid.Nil {
+			workIDMap[rwid] = true
+		}
+	}
+
+	var allWorkIDs []uuid.UUID
+	for wid := range workIDMap {
+		allWorkIDs = append(allWorkIDs, wid)
+	}
+
+	var includedWorks []models.Work
+	if len(allWorkIDs) > 0 {
+		_ = s.db.Preload("Translations").Preload("Tags").Where("id IN ?", allWorkIDs).Order("release_date asc, created_at asc").Find(&includedWorks).Error
+	}
+
 	inc := parseInc(c.Query("inc"))
 	b, _ := json.Marshal(release)
 	var m map[string]interface{}
 	_ = json.Unmarshal(b, &m)
+	m["included_works"] = includedWorks
+
 	if inc["relations"] || inc["rels"] {
 		var rels []models.EntityRelationship
 		_ = s.db.Where("(source_type = 'release' AND source_id = ?) OR (target_type = 'release' AND target_id = ?)", release.ID, release.ID).Limit(50).Find(&rels).Error
@@ -676,7 +760,7 @@ func (s *CatalogService) GetWorkGraph(c *gin.Context) {
 	}
 
 	var work models.Work
-	if err := s.db.Preload("ArtistRelations.Artist").Preload("Releases.Mediums").Where("id = ?", workID).First(&work).Error; err != nil {
+	if err := s.db.Preload("ArtistRelations.Artist").Where("id = ?", workID).First(&work).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Work not found: " + err.Error()})
 		return
 	}
@@ -735,52 +819,6 @@ func (s *CatalogService) GetWorkGraph(c *gin.Context) {
 				Type:       rel.Role,
 				Label:      roleLabel,
 				Color:      color,
-			})
-		}
-	}
-
-	for _, rel := range work.Releases {
-		if !nodeSet[rel.ID.String()] {
-			nodeSet[rel.ID.String()] = true
-			nodes = append(nodes, GraphNode{
-				ID:       rel.ID.String(),
-				Name:     rel.EditionName,
-				Type:     "release",
-				Category: "release",
-				Country:  rel.Country,
-				Level:    2,
-			})
-		}
-		links = append(links, GraphLink{
-			Source:     work.ID.String(),
-			Target:     rel.ID.String(),
-			SourceType: "work",
-			TargetType: "release",
-			Type:       "released_as",
-			Label:      "发行实体",
-			Color:      "cyan",
-		})
-
-		for _, med := range rel.Mediums {
-			if !nodeSet[med.ID.String()] {
-				nodeSet[med.ID.String()] = true
-				nodes = append(nodes, GraphNode{
-					ID:       med.ID.String(),
-					Name:     med.Name,
-					Type:     "medium",
-					Category: med.MediaCategory,
-					Role:     med.Format,
-					Level:    3,
-				})
-			}
-			links = append(links, GraphLink{
-				Source:     rel.ID.String(),
-				Target:     med.ID.String(),
-				SourceType: "release",
-				TargetType: "medium",
-				Type:       "contains_disc",
-				Label:      med.Format,
-				Color:      "purple",
 			})
 		}
 	}
@@ -1233,6 +1271,7 @@ func (s *CatalogService) CreateTrackForMember(c *gin.Context) {
 	}
 	var input struct {
 		MediumID         uuid.UUID  `json:"medium_id" binding:"required"`
+		WorkID           *uuid.UUID `json:"work_id"`
 		Position         int        `json:"position" binding:"required"`
 		Title            string     `json:"title"`
 		CanonicalEntryID *uuid.UUID `json:"canonical_entry_id"`
@@ -1267,8 +1306,13 @@ func (s *CatalogService) CreateTrackForMember(c *gin.Context) {
 			return
 		}
 	}
+	targetWorkID := input.WorkID
+	if targetWorkID == nil && rel.WorkID != uuid.Nil {
+		targetWorkID = &rel.WorkID
+	}
 	track := models.Track{
 		MediumID:         input.MediumID,
+		WorkID:           targetWorkID,
 		CanonicalEntryID: input.CanonicalEntryID,
 		Position:         input.Position,
 		Title:            strings.TrimSpace(input.Title),
@@ -1756,7 +1800,13 @@ func (s *CatalogService) GetReleaseGraph(c *gin.Context) {
 	}
 
 	var rel models.Release
-	if err := s.db.Preload("Work").Preload("PublisherEntity").Preload("Mediums.Tracks").Where("id = ?", releaseID).First(&rel).Error; err != nil {
+	if err := s.db.
+		Preload("Work").
+		Preload("PublisherEntity").
+		Preload("Mediums.Tracks.Work").
+		Preload("Mediums.Tracks.CanonicalEntry.Work").
+		Where("id = ?", releaseID).
+		First(&rel).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Release not found"})
 		return
 	}
@@ -1807,6 +1857,39 @@ func (s *CatalogService) GetReleaseGraph(c *gin.Context) {
 			Label:      "发行实体",
 			Color:      "cyan",
 		})
+	}
+
+	// 1.1 分碟/曲目所属作品（多作品合集支持）
+	for _, med := range rel.Mediums {
+		for _, tr := range med.Tracks {
+			targetWork := tr.Work
+			if targetWork == nil && tr.CanonicalEntry != nil {
+				targetWork = tr.CanonicalEntry.Work
+			}
+			if targetWork != nil && !nodeSet[targetWork.ID.String()] {
+				nodeSet[targetWork.ID.String()] = true
+				nodes = append(nodes, GraphNode{
+					ID:            targetWork.ID.String(),
+					Name:          targetWork.Title,
+					OriginalName:  targetWork.OriginalTitle,
+					Type:          "work",
+					Category:      "included_work",
+					Level:         0,
+					CoverImageURL: targetWork.CoverImageURL,
+					Country:       targetWork.Country,
+					Status:        targetWork.Status,
+				})
+				links = append(links, GraphLink{
+					Source:     targetWork.ID.String(),
+					Target:     rel.ID.String(),
+					SourceType: "work",
+					TargetType: "release",
+					Type:       "included_in",
+					Label:      "收录作品",
+					Color:      "cyan",
+				})
+			}
+		}
 	}
 
 	// 2. 出版发行主体 PublisherEntity
@@ -2146,11 +2229,12 @@ func (s *CatalogService) CreateRelease(c *gin.Context) {
 }
 
 type ComprehensiveTrackInput struct {
-	Position        int    `json:"position"`
-	Title           string `json:"title"`
-	ArtistCredit    string `json:"artist_credit"`
-	DurationSeconds int    `json:"duration_seconds"`
-	ISRC            string `json:"isrc"`
+	WorkID          *uuid.UUID `json:"work_id"`
+	Position        int        `json:"position"`
+	Title           string     `json:"title"`
+	ArtistCredit    string     `json:"artist_credit"`
+	DurationSeconds int        `json:"duration_seconds"`
+	ISRC            string     `json:"isrc"`
 }
 
 type ComprehensiveMediumInput struct {
@@ -2389,9 +2473,13 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 						if pos <= 0 {
 							pos = tIdx + 1
 						}
+						tWorkID := tInput.WorkID
+						if tWorkID == nil {
+							tWorkID = &work.ID
+						}
 						track := models.Track{
 							MediumID:        medium.ID,
-							WorkID:          &work.ID,
+							WorkID:          tWorkID,
 							Position:        pos,
 							Title:           tTitle,
 							ArtistCredit:    tInput.ArtistCredit,
@@ -2404,7 +2492,7 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 							Duration:     tInput.DurationSeconds,
 							ISRC:         tInput.ISRC,
 							ArtistCredit: tInput.ArtistCredit,
-							WorkID:       &work.ID,
+							WorkID:       tWorkID,
 						}
 						if err := s.db.Create(&canonical).Error; err == nil {
 							track.CanonicalEntryID = &canonical.ID

@@ -360,6 +360,7 @@ export interface CanonicalEntry {
   artist_credit?: string;
   recording_date?: string;
   work_id?: string;
+  work?: Work;
   external_ids?: Record<string, any>;
   created_at?: string;
 }
@@ -375,6 +376,7 @@ export interface Track {
   duration_seconds?: number;
   isrc?: string;
   artist_credit?: string;
+  work?: Work;
   canonical_entry?: CanonicalEntry;
 }
 
@@ -442,6 +444,7 @@ export interface Release {
   uploader?: User;
   publisher_entity?: Artist;
   work?: Work;
+  included_works?: Work[];
   is_master_verified: boolean;
   notes?: string;
   mediums?: Medium[];

@@ -573,7 +573,33 @@ func (s *AdminService) ListReleasesAdmin(c *gin.Context) {
 		Preload("Uploader")
 	if workIDStr != "" {
 		if wid, err := uuid.Parse(workIDStr); err == nil {
-			query = query.Where("work_id = ?", wid)
+			query = query.Where(`
+				work_id = ? 
+				OR id IN (
+					SELECT m.release_id FROM mediums m 
+					JOIN tracks t ON t.medium_id = m.id 
+					WHERE t.work_id = ? 
+					   OR t.canonical_entry_id IN (SELECT ce.id FROM canonical_entries ce WHERE ce.work_id = ?)
+				)
+				OR id IN (
+					SELECT er.source_id FROM entity_relationships er 
+					WHERE er.source_type = 'release' AND er.target_type = 'work' AND er.target_id = ?
+				)
+				OR id IN (
+					SELECT er.target_id FROM entity_relationships er 
+					WHERE er.target_type = 'release' AND er.source_type = 'work' AND er.source_id = ?
+				)
+				OR work_id IN (
+					SELECT er.target_id FROM entity_relationships er 
+					WHERE er.source_type = 'work' AND er.source_id = ? 
+					  AND er.relationship_type IN ('included_in', 'part_of', 'anthology_of')
+				)
+				OR work_id IN (
+					SELECT er.source_id FROM entity_relationships er 
+					WHERE er.target_type = 'work' AND er.target_id = ? 
+					  AND er.relationship_type IN ('includes_work', 'compilation_of', 'anthology_of')
+				)
+			`, wid, wid, wid, wid, wid, wid, wid)
 		}
 	}
 	if q != "" {
@@ -628,15 +654,39 @@ func (s *AdminService) DeleteMedium(c *gin.Context) {
 
 func (s *AdminService) CreateTrack(c *gin.Context) {
 	var input struct {
-		MediumID uuid.UUID `json:"medium_id" binding:"required"`
-		Position int       `json:"position" binding:"required"`
-		Title    string    `json:"title"`
+		MediumID         uuid.UUID  `json:"medium_id" binding:"required"`
+		WorkID           *uuid.UUID `json:"work_id"`
+		Position         int        `json:"position" binding:"required"`
+		Title            string     `json:"title"`
+		CanonicalEntryID *uuid.UUID `json:"canonical_entry_id"`
+		DurationSeconds  int        `json:"duration_seconds"`
+		ISRC             string     `json:"isrc"`
+		ArtistCredit     string     `json:"artist_credit"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	track := models.Track{MediumID: input.MediumID, Position: input.Position, Title: input.Title}
+	targetWorkID := input.WorkID
+	if targetWorkID == nil {
+		var med models.Medium
+		if err := s.db.Where("id = ?", input.MediumID).First(&med).Error; err == nil {
+			var rel models.Release
+			if err := s.db.Where("id = ?", med.ReleaseID).First(&rel).Error; err == nil && rel.WorkID != uuid.Nil {
+				targetWorkID = &rel.WorkID
+			}
+		}
+	}
+	track := models.Track{
+		MediumID:         input.MediumID,
+		WorkID:           targetWorkID,
+		CanonicalEntryID: input.CanonicalEntryID,
+		Position:         input.Position,
+		Title:            strings.TrimSpace(input.Title),
+		DurationSeconds:  input.DurationSeconds,
+		ISRC:             strings.TrimSpace(input.ISRC),
+		ArtistCredit:     strings.TrimSpace(input.ArtistCredit),
+	}
 	if err := s.db.Create(&track).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

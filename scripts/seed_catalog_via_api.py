@@ -270,6 +270,10 @@ class MetaFusionApiClient:
                     "isrc": t.get("isrc", ""),
                     "artist_credit": t.get("artist_credit", "")
                 }
+                if t.get("work_key"):
+                    twid = self.work_id_map.get(t["work_key"])
+                    if twid:
+                        trk_payload["work_id"] = twid
                 self._request("POST", "/catalog/tracks", trk_payload)
                 self.stats["tracks_created"] += 1
 
@@ -1633,7 +1637,7 @@ SEED_DATA = {
                 {"position": 5, "name": "Disc 5 (BD): 《魔女宅急便》(1989)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《魔女宅急便》正片", "duration_seconds": 6180, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
                 {"position": 6, "name": "Disc 6 (BD): 《红猪》(1992)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《红猪》正片", "duration_seconds": 5580, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
                 {"position": 7, "name": "Disc 7 (BD): 《幽灵公主》(1997)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《幽灵公主》正片", "duration_seconds": 8040, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
-                {"position": 8, "name": "Disc 8 (BD): 《千与千寻》(2001)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《千与千寻》正片 (VWBS-1531 Disc 8)", "duration_seconds": 7500, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
+                {"position": 8, "name": "Disc 8 (BD): 《千与千寻》(2001)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "work_key": "work_spirited_away", "title": "《千与千寻》正片 (VWBS-1531 Disc 8)", "duration_seconds": 7500, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
                 {"position": 9, "name": "Disc 9 (BD): 《哈尔的移动城堡》(2004)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《哈尔的移动城堡》正片", "duration_seconds": 7140, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
                 {"position": 10, "name": "Disc 10 (BD): 《悬崖上的金鱼姬》(2008)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《悬崖上的金鱼姬》正片", "duration_seconds": 6060, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
                 {"position": 11, "name": "Disc 11 (BD): 《起风了》(2013)", "format": "Blu-ray", "media_category": "video", "tracks": [{"position": 1, "title": "《起风了》正片", "duration_seconds": 7560, "artist_credit": "导演：宫崎骏 / 音乐：久石让"}]},
