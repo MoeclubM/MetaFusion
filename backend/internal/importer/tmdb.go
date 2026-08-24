@@ -15,9 +15,12 @@ import (
 )
 
 var (
-	imdbIDRegex   = regexp.MustCompile(`^(?:https?://(?:www\.)?imdb\.com/title/)?(tt\d+)/?`)
-	tmdbURLRegex  = regexp.MustCompile(`themoviedb\.org/(movie|tv)/(\d+)`)
-	numericIDRegex = regexp.MustCompile(`^\d+$`)
+	imdbIDRegex          = regexp.MustCompile(`^(?:https?://(?:www\.)?imdb\.com/title/)?(tt\d+)/?`)
+	imdbNameRegex        = regexp.MustCompile(`^(?:https?://(?:www\.)?imdb\.com/name/)?(nm\d+)/?`)
+	tmdbURLRegex         = regexp.MustCompile(`themoviedb\.org/(movie|tv)/(\d+)`)
+	tmdbPersonURLRegex   = regexp.MustCompile(`themoviedb\.org/person/(\d+)`)
+	tmdbCompanyURLRegex  = regexp.MustCompile(`themoviedb\.org/company/(\d+)`)
+	numericIDRegex       = regexp.MustCompile(`^\d+$`)
 )
 
 type tmdbFindResponse struct {
@@ -916,4 +919,299 @@ func htmlUnescape(s string) string {
 	s = strings.ReplaceAll(s, "&gt;", ">")
 	s = strings.ReplaceAll(s, "&#39;", "'")
 	return s
+}
+
+// ParseTMDBOrIMDbPersonID 解析 TMDB/IMDb 人物标识符
+func ParseTMDBOrIMDbPersonID(input string) (isIMDb bool, id string, err error) {
+	clean := strings.TrimSpace(input)
+	if m := imdbNameRegex.FindStringSubmatch(clean); len(m) > 1 {
+		return true, m[1], nil
+	}
+	if m := tmdbPersonURLRegex.FindStringSubmatch(clean); len(m) > 1 {
+		return false, m[1], nil
+	}
+	if numericIDRegex.MatchString(clean) {
+		return false, clean, nil
+	}
+	return false, "", fmt.Errorf("invalid TMDB/IMDb Person URL or ID: %s", input)
+}
+
+// ParseTMDBCompanyID 解析 TMDB 制片公司/工作室标识符
+func ParseTMDBCompanyID(input string) (string, error) {
+	clean := strings.TrimSpace(input)
+	if m := tmdbCompanyURLRegex.FindStringSubmatch(clean); len(m) > 1 {
+		return m[1], nil
+	}
+	if numericIDRegex.MatchString(clean) {
+		return clean, nil
+	}
+	return "", fmt.Errorf("invalid TMDB Company URL or ID: %s", input)
+}
+
+// FetchTMDBPersonPreview 解析 TMDB / IMDb 人物与演职员
+func FetchTMDBPersonPreview(ctx context.Context, input string, apiKey string) (*PreviewResponse, error) {
+	isIMDb, id, err := ParseTMDBOrIMDbPersonID(input)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	personID := id
+
+	if isIMDb && apiKey != "" {
+		findURL := fmt.Sprintf("https://api.themoviedb.org/3/find/%s?api_key=%s&external_source=imdb_id", id, apiKey)
+		if fReq, err := http.NewRequestWithContext(ctx, "GET", findURL, nil); err == nil {
+			fReq.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
+			if fResp, err := client.Do(fReq); err == nil && fResp.StatusCode == http.StatusOK {
+				var fData struct {
+					PersonResults []struct {
+						ID int `json:"id"`
+					} `json:"person_results"`
+				}
+				if json.NewDecoder(fResp.Body).Decode(&fData) == nil && len(fData.PersonResults) > 0 {
+					personID = fmt.Sprintf("%d", fData.PersonResults[0].ID)
+				}
+				fResp.Body.Close()
+			}
+		}
+	}
+
+	if apiKey != "" {
+		detailURL := fmt.Sprintf("https://api.themoviedb.org/3/person/%s?api_key=%s&append_to_response=external_ids,translations,images", personID, apiKey)
+		req, err := http.NewRequestWithContext(ctx, "GET", detailURL, nil)
+		if err == nil {
+			req.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
+			if resp, err := client.Do(req); err == nil && resp.StatusCode == http.StatusOK {
+				defer resp.Body.Close()
+				var data struct {
+					ID                 int      `json:"id"`
+					Name               string   `json:"name"`
+					AlsoKnownAs        []string `json:"also_known_as"`
+					Biography          string   `json:"biography"`
+					Birthday           string   `json:"birthday"`
+					Deathday           string   `json:"deathday"`
+					Gender             int      `json:"gender"`
+					KnownForDepartment string   `json:"known_for_department"`
+					PlaceOfBirth       string   `json:"place_of_birth"`
+					ProfilePath        string   `json:"profile_path"`
+					ExternalIDs        struct {
+						ImdbID      string `json:"imdb_id"`
+						WikidataID  string `json:"wikidata_id"`
+						TwitterID   string `json:"twitter_id"`
+						InstagramID string `json:"instagram_id"`
+					} `json:"external_ids"`
+					Translations struct {
+						Translations []struct {
+							Iso639_1 string `json:"iso_639_1"`
+							Data     struct {
+								Biography string `json:"biography"`
+							} `json:"data"`
+						} `json:"translations"`
+					} `json:"translations"`
+				}
+
+				if json.NewDecoder(resp.Body).Decode(&data) == nil {
+					avatarURL := ""
+					if data.ProfilePath != "" {
+						avatarURL = "https://image.tmdb.org/t/p/original" + data.ProfilePath
+					}
+
+					extIDs := models.JSONB{
+						"tmdb_person": fmt.Sprintf("%d", data.ID),
+					}
+					if data.ExternalIDs.ImdbID != "" {
+						extIDs["imdb_person"] = data.ExternalIDs.ImdbID
+					} else if isIMDb {
+						extIDs["imdb_person"] = id
+					}
+					if data.ExternalIDs.WikidataID != "" {
+						extIDs["wikidata"] = data.ExternalIDs.WikidataID
+					}
+
+					translations := make([]TranslationItem, 0)
+					for _, tr := range data.Translations.Translations {
+						if tr.Iso639_1 == "zh" && tr.Data.Biography != "" {
+							translations = append(translations, TranslationItem{
+								Locale:  "zh-CN",
+								Title:   data.Name,
+								Summary: tr.Data.Biography,
+							})
+						}
+					}
+
+					bio := data.Biography
+					if data.PlaceOfBirth != "" {
+						if bio != "" {
+							bio += "\n\n"
+						}
+						bio += fmt.Sprintf("出生地: %s", data.PlaceOfBirth)
+					}
+					if data.Birthday != "" {
+						bio += fmt.Sprintf(" | 生日: %s", data.Birthday)
+					}
+
+					artist := ArtistPreview{
+						Name:         data.Name,
+						OriginalName: data.Name,
+						EntityType:   models.EntityTypePerson,
+						Role:         data.KnownForDepartment,
+						Country:      data.PlaceOfBirth,
+						Biography:    bio,
+						AvatarURL:    avatarURL,
+						Aliases:      data.AlsoKnownAs,
+						ExternalIDs:  extIDs,
+						Translations: translations,
+					}
+
+					return &PreviewResponse{
+						Source:      "tmdb",
+						EntityType:  "artist",
+						ExternalID:  fmt.Sprintf("%d", data.ID),
+						ExternalURL: fmt.Sprintf("https://www.themoviedb.org/person/%d", data.ID),
+						MediaType:   "person",
+						Artist:      &artist,
+					}, nil
+				}
+			}
+		}
+	}
+
+	// 降级爬取 TMDB Person Web 页面
+	pageURL := fmt.Sprintf("https://www.themoviedb.org/person/%s", personID)
+	pReq, _ := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
+	pReq.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	pReq.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+
+	pResp, err := client.Do(pReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch TMDB person page: %w", err)
+	}
+	defer pResp.Body.Close()
+
+	htmlBody, _ := io.ReadAll(pResp.Body)
+	htmlStr := string(htmlBody)
+
+	nameMatch := regexp.MustCompile(`<meta property="og:title" content="([^"]+)"`).FindStringSubmatch(htmlStr)
+	name := fmt.Sprintf("TMDB Person %s", personID)
+	if len(nameMatch) > 1 {
+		name = htmlUnescape(nameMatch[1])
+	}
+
+	imgMatch := regexp.MustCompile(`<meta property="og:image" content="([^"]+)"`).FindStringSubmatch(htmlStr)
+	avatarURL := ""
+	if len(imgMatch) > 1 {
+		avatarURL = imgMatch[1]
+	}
+
+	artist := ArtistPreview{
+		Name:         name,
+		OriginalName: name,
+		EntityType:   models.EntityTypePerson,
+		Role:         "Actor / Crew",
+		AvatarURL:    avatarURL,
+		ExternalIDs: models.JSONB{
+			"tmdb_person": personID,
+		},
+	}
+
+	return &PreviewResponse{
+		Source:      "tmdb",
+		EntityType:  "artist",
+		ExternalID:  personID,
+		ExternalURL: pageURL,
+		MediaType:   "person",
+		Artist:      &artist,
+	}, nil
+}
+
+// FetchTMDBCompanyPreview 解析 TMDB 制片公司/工作室
+func FetchTMDBCompanyPreview(ctx context.Context, input string, apiKey string) (*PreviewResponse, error) {
+	companyID, err := ParseTMDBCompanyID(input)
+	if err != nil {
+		return nil, err
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+
+	if apiKey != "" {
+		detailURL := fmt.Sprintf("https://api.themoviedb.org/3/company/%s?api_key=%s", companyID, apiKey)
+		req, err := http.NewRequestWithContext(ctx, "GET", detailURL, nil)
+		if err == nil {
+			req.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
+			if resp, err := client.Do(req); err == nil && resp.StatusCode == http.StatusOK {
+				defer resp.Body.Close()
+				var data struct {
+					ID            int    `json:"id"`
+					Name          string `json:"name"`
+					Description   string `json:"description"`
+					Headquarters  string `json:"headquarters"`
+					Homepage      string `json:"homepage"`
+					LogoPath      string `json:"logo_path"`
+					OriginCountry string `json:"origin_country"`
+				}
+
+				if json.NewDecoder(resp.Body).Decode(&data) == nil {
+					logoURL := ""
+					if data.LogoPath != "" {
+						logoURL = "https://image.tmdb.org/t/p/original" + data.LogoPath
+					}
+
+					bio := data.Description
+					if data.Headquarters != "" {
+						if bio != "" {
+							bio += "\n\n"
+						}
+						bio += fmt.Sprintf("总部: %s", data.Headquarters)
+					}
+					if data.Homepage != "" {
+						if bio != "" {
+							bio += " | "
+						}
+						bio += fmt.Sprintf("官网: %s", data.Homepage)
+					}
+
+					artist := ArtistPreview{
+						Name:         data.Name,
+						OriginalName: data.Name,
+						EntityType:   models.EntityTypeStudio,
+						Role:         "Production Company",
+						Country:      data.OriginCountry,
+						Biography:    bio,
+						AvatarURL:    logoURL,
+						ExternalIDs: models.JSONB{
+							"tmdb_company": fmt.Sprintf("%d", data.ID),
+						},
+					}
+
+					return &PreviewResponse{
+						Source:      "tmdb",
+						EntityType:  "organization",
+						ExternalID:  fmt.Sprintf("%d", data.ID),
+						ExternalURL: fmt.Sprintf("https://www.themoviedb.org/company/%d", data.ID),
+						MediaType:   "organization",
+						Artist:      &artist,
+					}, nil
+				}
+			}
+		}
+	}
+
+	artist := ArtistPreview{
+		Name:         fmt.Sprintf("TMDB Company %s", companyID),
+		OriginalName: fmt.Sprintf("TMDB Company %s", companyID),
+		EntityType:   models.EntityTypeStudio,
+		Role:         "Production Company",
+		ExternalIDs: models.JSONB{
+			"tmdb_company": companyID,
+		},
+	}
+
+	return &PreviewResponse{
+		Source:      "tmdb",
+		EntityType:  "organization",
+		ExternalID:  companyID,
+		ExternalURL: fmt.Sprintf("https://www.themoviedb.org/company/%s", companyID),
+		MediaType:   "organization",
+		Artist:      &artist,
+	}, nil
 }

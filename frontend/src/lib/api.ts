@@ -1113,6 +1113,7 @@ export function deleteApiToken(id: string): Promise<{ status: string }> {
 export interface ImporterPreviewRequest {
   source?: string;
   url_or_id: string;
+  entity_type?: string;
   media_type_hint?: string;
 }
 
@@ -1150,6 +1151,26 @@ export interface ImporterArtistPreview {
   biography?: string;
   disambiguation?: string;
   language?: string;
+  avatar_url?: string;
+  character_name?: string;
+  aliases?: string[];
+  external_ids?: Record<string, any>;
+  translations?: ImporterTranslationItem[];
+  matched_artist?: Artist;
+}
+
+export interface StaffAssociation {
+  parsed_name: string;
+  parsed_original?: string;
+  parsed_role: string;
+  entity_type: string;
+  action: "create" | "link" | "skip";
+  target_artist_id?: string;
+  custom_role?: string;
+  character_name?: string;
+  country?: string;
+  biography?: string;
+  avatar_url?: string;
   external_ids?: Record<string, any>;
   translations?: ImporterTranslationItem[];
 }
@@ -1187,23 +1208,28 @@ export interface ImporterReleasePreview {
 
 export interface ImporterPreviewResponse {
   source: string;
+  entity_type?: string;
   external_id: string;
   external_url: string;
   media_type: string;
-  work: ImporterWorkPreview;
-  artists: ImporterArtistPreview[];
-  release: ImporterReleasePreview;
-  mediums: ImporterMediumPreview[];
+  work?: ImporterWorkPreview;
+  artist?: ImporterArtistPreview;
+  artists?: ImporterArtistPreview[];
+  release?: ImporterReleasePreview;
+  mediums?: ImporterMediumPreview[];
   tags: string[];
 }
 
 export interface ImporterImportRequest {
+  entity_type?: string;
   source?: string;
   url_or_id?: string;
   external_id?: string;
   media_type_hint?: string;
   work?: ImporterWorkPreview;
+  artist?: ImporterArtistPreview;
   artists?: ImporterArtistPreview[];
+  staff_associations?: StaffAssociation[];
   release?: ImporterReleasePreview;
   mediums?: ImporterMediumPreview[];
   download_cover?: boolean;
@@ -1217,10 +1243,13 @@ export interface ImporterImportRequest {
 
 export interface ImporterImportResponse {
   success: boolean;
-  work_id: string;
-  release_id: string;
-  work: Work;
-  release: Release;
+  entity_type?: string;
+  work_id?: string;
+  release_id?: string;
+  artist_id?: string;
+  work?: Work;
+  release?: Release;
+  artist?: Artist;
   imported_counts: {
     artists: number;
     mediums: number;

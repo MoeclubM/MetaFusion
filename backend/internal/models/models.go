@@ -244,13 +244,15 @@ type Tag struct {
 
 // EntityType constants
 const (
-	EntityTypePerson    = "person"
-	EntityTypeGroup     = "group"
-	EntityTypeOrchestra = "orchestra"
-	EntityTypeStudio    = "studio"
-	EntityTypePublisher = "publisher"
-	EntityTypeCircle    = "circle"
-	EntityTypeLabel     = "label"
+	EntityTypePerson           = "person"
+	EntityTypeGroup            = "group"
+	EntityTypeOrchestra        = "orchestra"
+	EntityTypeStudio           = "studio"
+	EntityTypePublisher        = "publisher"
+	EntityTypeCircle           = "circle"
+	EntityTypeLabel            = "label"
+	EntityTypeCharacter        = "character"
+	EntityTypeVirtualCharacter = "virtual_character"
 )
 
 // Artist represents MusicBrainz-grade creators, entities, orchestras, studios

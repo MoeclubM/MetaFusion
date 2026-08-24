@@ -696,8 +696,93 @@ func seedAttributeSchemas(db *gorm.DB) {
 	}
 }
 
+func seedEntityTypeDefinitions(db *gorm.DB) {
+	defs := []models.EntityTypeDefinition{
+		{
+			Code: "person", NameZh: "自然人 / 创作者", NameEn: "Person / Creator",
+			Names: models.JSONB{"zh-CN": "自然人 / 创作者", "en-US": "Person / Creator", "ja": "個人 / クリエイター"},
+			DescZh: "人类创作者个体（编剧、作家、配音演员、导演、插画师等）",
+			DescEn: "Individual human creators (authors, voice actors, directors, illustrators, etc.)",
+			Color: "blue", BgColor: "bg-blue-500/10", BorderColor: "border-blue-500/30",
+			SortOrder: 10, IsSystem: true, IsEnabled: true,
+		},
+		{
+			Code: "group", NameZh: "团体 / 乐队组合", NameEn: "Group / Band",
+			Names: models.JSONB{"zh-CN": "团体 / 乐队组合", "en-US": "Group / Band", "ja": "グループ / バンド"},
+			DescZh: "多人音乐团体、企划组合、创作组合等",
+			DescEn: "Musical groups, idol units, creative collaborative units",
+			Color: "purple", BgColor: "bg-purple-500/10", BorderColor: "border-purple-500/30",
+			SortOrder: 20, IsSystem: true, IsEnabled: true,
+		},
+		{
+			Code: "orchestra", NameZh: "管弦乐团 / 室内乐团", NameEn: "Orchestra / Ensemble",
+			Names: models.JSONB{"zh-CN": "管弦乐团 / 室内乐团", "en-US": "Orchestra / Ensemble", "ja": "オーケストラ / 室内管弦楽団"},
+			DescZh: "大型管弦乐团、交响乐团或编制室内乐团",
+			DescEn: "Symphony orchestras, philharmonic orchestras, chamber ensembles",
+			Color: "amber", BgColor: "bg-amber-500/10", BorderColor: "border-amber-500/30",
+			SortOrder: 30, IsSystem: true, IsEnabled: true,
+		},
+		{
+			Code: "studio", NameZh: "制作公司 / 开发工作室", NameEn: "Studio / Production Company",
+			Names: models.JSONB{"zh-CN": "制作公司 / 开发工作室", "en-US": "Studio / Production Company", "ja": "制作スタジオ / 開発会社"},
+			DescZh: "动画制作公司、影视制片厂、游戏开发工作室等",
+			DescEn: "Animation studios, film production companies, game developers",
+			Color: "emerald", BgColor: "bg-emerald-500/10", BorderColor: "border-emerald-500/30",
+			SortOrder: 40, IsSystem: true, IsEnabled: true,
+		},
+		{
+			Code: "publisher", NameZh: "出版机构 / 发行商", NameEn: "Publisher / Distributor",
+			Names: models.JSONB{"zh-CN": "出版机构 / 发行商", "en-US": "Publisher / Distributor", "ja": "出版社 / 配給元"},
+			DescZh: "图书出版社、漫画杂志社、游戏/影视发行商等",
+			DescEn: "Book publishers, manga editorial departments, distributors",
+			Color: "indigo", BgColor: "bg-indigo-500/10", BorderColor: "border-indigo-500/30",
+			SortOrder: 50, IsSystem: true, IsEnabled: true,
+		},
+		{
+			Code: "label", NameZh: "唱片厂牌 / 音像品牌", NameEn: "Record Label / Imprint",
+			Names: models.JSONB{"zh-CN": "唱片厂牌 / 音像品牌", "en-US": "Record Label / Imprint", "ja": "レコードレーベル"},
+			DescZh: "音乐唱片厂牌、声像制品品牌",
+			DescEn: "Record labels, audio-visual release imprints",
+			Color: "teal", BgColor: "bg-teal-500/10", BorderColor: "border-teal-500/30",
+			SortOrder: 60, IsSystem: true, IsEnabled: true,
+		},
+		{
+			Code: "circle", NameZh: "同人社团 / 独立团队", NameEn: "Doujin Circle / Indie Team",
+			Names: models.JSONB{"zh-CN": "同人社团 / 独立团队", "en-US": "Doujin Circle / Indie Team", "ja": "同人サークル"},
+			DescZh: "独立同人创作社团、非法人开发小组",
+			DescEn: "Independent doujin circles, non-corporate development teams",
+			Color: "rose", BgColor: "bg-rose-500/10", BorderColor: "border-rose-500/30",
+			SortOrder: 70, IsSystem: true, IsEnabled: true,
+		},
+		{
+			Code: "character", NameZh: "角色 / 虚拟角色", NameEn: "Character / Virtual Persona",
+			Names: models.JSONB{"zh-CN": "角色 / 虚拟角色", "en-US": "Character / Virtual Persona", "ja": "キャラクター / 仮想人物"},
+			DescZh: "虚构作品登场角色、虚拟歌姬、VTuber 或企划角色",
+			DescEn: "Fictional characters, virtual singers, VTubers, franchise characters",
+			Color: "pink", BgColor: "bg-pink-500/10", BorderColor: "border-pink-500/30",
+			SortOrder: 80, IsSystem: true, IsEnabled: true,
+		},
+		{
+			Code: "virtual_character", NameZh: "虚拟角色 (别名兼容)", NameEn: "Virtual Character",
+			Names: models.JSONB{"zh-CN": "虚拟角色", "en-US": "Virtual Character", "ja": "バーチャルキャラクター"},
+			DescZh: "虚拟角色实体类型别名兼容项",
+			DescEn: "Compatibility alias for virtual character type",
+			Color: "pink", BgColor: "bg-pink-500/10", BorderColor: "border-pink-500/30",
+			SortOrder: 81, IsSystem: true, IsEnabled: true,
+		},
+	}
+
+	for _, d := range defs {
+		_ = db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "code"}},
+			DoNothing: true,
+		}).Create(&d).Error
+	}
+}
+
 func ApplyPatches(db *gorm.DB) {
 	applySchemaPatches(db)
+	seedEntityTypeDefinitions(db)
 	seedRelationTypes(db)
 	seedExternalDatabaseDefinitions(db)
 	seedAttributeSchemas(db)

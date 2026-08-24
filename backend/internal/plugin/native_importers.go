@@ -3,9 +3,7 @@ package plugin
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -121,7 +119,15 @@ func (p *MusicBrainzPlugin) DetectSource(input string, hint string) bool {
 }
 
 func (p *MusicBrainzPlugin) Preview(ctx context.Context, req *importer.PreviewRequest) (*importer.PreviewResponse, error) {
-	return importer.FetchMusicBrainzPreview(ctx, req.URLOrID)
+	entityType := importer.DetectEntityType(req.URLOrID, req.EntityType)
+	switch entityType {
+	case "artist", "person":
+		return importer.FetchMusicBrainzArtistPreview(ctx, req.URLOrID)
+	case "organization", "label", "studio", "publisher":
+		return importer.FetchMusicBrainzLabelPreview(ctx, req.URLOrID)
+	default:
+		return importer.FetchMusicBrainzPreview(ctx, req.URLOrID)
+	}
 }
 
 func (p *MusicBrainzPlugin) GetMetadata(ctx context.Context, source string, externalID string) (map[string]interface{}, error) {
@@ -248,7 +254,15 @@ func (p *TMDBPlugin) DetectSource(input string, hint string) bool {
 
 func (p *TMDBPlugin) Preview(ctx context.Context, req *importer.PreviewRequest) (*importer.PreviewResponse, error) {
 	apiKey := p.getAPIKey()
-	return importer.FetchTMDBPreview(ctx, req.URLOrID, req.MediaTypeHint, apiKey)
+	entityType := importer.DetectEntityType(req.URLOrID, req.EntityType)
+	switch entityType {
+	case "artist", "person":
+		return importer.FetchTMDBPersonPreview(ctx, req.URLOrID, apiKey)
+	case "organization", "company", "studio", "publisher":
+		return importer.FetchTMDBCompanyPreview(ctx, req.URLOrID, apiKey)
+	default:
+		return importer.FetchTMDBPreview(ctx, req.URLOrID, req.MediaTypeHint, apiKey)
+	}
 }
 
 func (p *TMDBPlugin) GetMetadata(ctx context.Context, source string, externalID string) (map[string]interface{}, error) {
@@ -479,7 +493,15 @@ func (p *BangumiPlugin) DetectSource(input string, hint string) bool {
 }
 
 func (p *BangumiPlugin) Preview(ctx context.Context, req *importer.PreviewRequest) (*importer.PreviewResponse, error) {
-	return importer.FetchBangumiPreview(ctx, req.URLOrID)
+	entityType := importer.DetectEntityType(req.URLOrID, req.EntityType)
+	switch entityType {
+	case "artist", "person":
+		return importer.FetchBangumiPersonPreview(ctx, req.URLOrID)
+	case "character":
+		return importer.FetchBangumiCharacterPreview(ctx, req.URLOrID)
+	default:
+		return importer.FetchBangumiPreview(ctx, req.URLOrID)
+	}
 }
 
 func (p *BangumiPlugin) GetMetadata(ctx context.Context, source string, externalID string) (map[string]interface{}, error) {
@@ -610,150 +632,20 @@ func extractVNDBID(input string) string {
 }
 
 func (p *VNDBPlugin) Preview(ctx context.Context, req *importer.PreviewRequest) (*importer.PreviewResponse, error) {
-	vnID := extractVNDBID(req.URLOrID)
-	if vnID == "" {
-		return nil, fmt.Errorf("invalid VNDB ID or URL: %s", req.URLOrID)
-	}
-
-	payload := map[string]interface{}{
-		"filters": []interface{}{"id", "=", vnID},
-		"fields":  "title, alttitle, titles{title, latin, lang, official, main}, released, description, image.url, tags{name}, developers{name, original}",
-	}
-	bodyBytes, err := json.Marshal(payload)
+	kind, id, err := importer.ParseVNDBID(req.URLOrID)
 	if err != nil {
 		return nil, err
 	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", "https://api.vndb.org/kana/vn", bytes.NewReader(bodyBytes))
-	if err != nil {
-		return nil, err
+	switch kind {
+	case "artist":
+		return importer.FetchVNDBStaffPreview(ctx, id)
+	case "character":
+		return importer.FetchVNDBCharacterPreview(ctx, id)
+	case "organization":
+		return importer.FetchVNDBProducerPreview(ctx, id)
+	default:
+		return importer.FetchVNDBVNPreview(ctx, id)
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("User-Agent", "MetaFusion/1.0 (contact@metafusion.local)")
-	if token, ok := p.config["api_token"].(string); ok && token != "" {
-		httpReq.Header.Set("Authorization", "token "+token)
-	}
-
-	resp, err := p.client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query VNDB Kana API: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		b, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("VNDB API error %d: %s", resp.StatusCode, string(b))
-	}
-
-	var data struct {
-		Results []struct {
-			ID          string `json:"id"`
-			Title       string `json:"title"`
-			AltTitle    string `json:"alttitle"`
-			Released    string `json:"released"`
-			Description string `json:"description"`
-			Image       struct {
-				URL string `json:"url"`
-			} `json:"image"`
-			Titles []struct {
-				Title    string `json:"title"`
-				Latin    string `json:"latin"`
-				Lang     string `json:"lang"`
-				Official bool   `json:"official"`
-				Main     bool   `json:"main"`
-			} `json:"titles"`
-			Tags []struct {
-				Name string `json:"name"`
-			} `json:"tags"`
-			Developers []struct {
-				Name     string `json:"name"`
-				Original string `json:"original"`
-			} `json:"developers"`
-		} `json:"results"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, err
-	}
-
-	if len(data.Results) == 0 {
-		return nil, fmt.Errorf("VNDB visual novel not found for %s", vnID)
-	}
-
-	vn := data.Results[0]
-	tagList := make([]string, 0, len(vn.Tags)+2)
-	tagList = append(tagList, "Visual Novel", "Game")
-	for i, t := range vn.Tags {
-		if i < 8 && t.Name != "" {
-			tagList = append(tagList, t.Name)
-		}
-	}
-
-	artists := make([]importer.ArtistPreview, 0)
-	for _, dev := range vn.Developers {
-		name := dev.Name
-		if name == "" {
-			name = dev.Original
-		}
-		if name != "" {
-			artists = append(artists, importer.ArtistPreview{
-				Name:         name,
-				OriginalName: dev.Original,
-				Role:         "Developer",
-				EntityType:   "studio",
-			})
-		}
-	}
-
-	translations := make([]importer.TranslationItem, 0)
-	for _, t := range vn.Titles {
-		loc := "en-US"
-		if t.Lang == "ja" {
-			loc = "ja-JP"
-		} else if t.Lang == "zh" || t.Lang == "zh-Hans" || t.Lang == "zh-Hant" {
-			loc = "zh-CN"
-		}
-		translations = append(translations, importer.TranslationItem{
-			Locale:  loc,
-			Title:   t.Title,
-			Summary: "",
-		})
-	}
-
-	preview := &importer.PreviewResponse{
-		Source:      "vndb",
-		ExternalID:  vn.ID,
-		ExternalURL: fmt.Sprintf("https://vndb.org/%s", vn.ID),
-		MediaType:   "game",
-		Work: importer.WorkPreview{
-			Title:         vn.Title,
-			OriginalTitle: vn.AltTitle,
-			ReleaseDate:   vn.Released,
-			Summary:       cleanVNDBDescription(vn.Description),
-			CoverImageURL: vn.Image.URL,
-			CoverAspect:   "2:3",
-			Tags:          tagList,
-			Translations:  translations,
-		},
-		Artists: artists,
-		Release: importer.ReleasePreview{
-			EditionName: "Standard Edition",
-			Packaging:   "Digital",
-			Country:     "JP",
-			EditionDate: vn.Released,
-		},
-		Mediums: []importer.MediumPreview{
-			{
-				Position:      1,
-				Name:          "Main Game",
-				Format:        "Digital",
-				MediaCategory: "game",
-			},
-		},
-		Tags: tagList,
-	}
-
-	return preview, nil
 }
 
 func cleanVNDBDescription(desc string) string {
