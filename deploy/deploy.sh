@@ -75,8 +75,10 @@ case "$ACTION" in
         echo "🏭 启动生产集群模式..."
         export DOCKER_BUILDKIT=1
         docker compose $COMPOSE_ENV -f docker-compose.yml build backend
+        echo "🚀 启动数据库与核心基础设施 (Postgres / Redis / RustFS)..."
+        docker compose $COMPOSE_ENV up -d postgres redis rustfs
         echo "🗄️ 执行数据库版本化迁移 (Pre-deployment Migrate Up)..."
-        docker compose $COMPOSE_ENV run --rm --no-deps -e DB_HOST=postgres backend /app/migrate up
+        docker compose $COMPOSE_ENV run --rm -e DB_HOST=postgres backend /app/migrate up
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 生产环境已启动！"
@@ -85,8 +87,10 @@ case "$ACTION" in
     pull)
         echo "📦 拉取预构建生产容器镜像 (GHCR)..."
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml pull
+        echo "🚀 启动数据库与核心基础设施..."
+        docker compose $COMPOSE_ENV up -d postgres redis rustfs
         echo "🗄️ 执行数据库版本化迁移..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml run --rm --no-deps -e DB_HOST=postgres backend /app/migrate up
+        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml run --rm -e DB_HOST=postgres backend /app/migrate up
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
         echo "✅ 生产镜像拉取与启动完成！"
         ;;
@@ -94,7 +98,7 @@ case "$ACTION" in
     migrate)
         CMD=${TARGET:-"up"}
         echo "🗄️ 执行数据库版本化迁移 (mf-migrate $CMD)..."
-        docker compose $COMPOSE_ENV run --rm --no-deps -e DB_HOST=postgres backend /app/migrate "$CMD"
+        docker compose $COMPOSE_ENV run --rm -e DB_HOST=postgres backend /app/migrate "$CMD"
         ;;
 
     restart)
