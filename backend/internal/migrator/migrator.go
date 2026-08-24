@@ -69,8 +69,7 @@ func (m *Migrator) EnsureSchemaMigrationsTable(ctx context.Context) error {
 
 // WithLock 在 PostgreSQL Advisory Lock 互斥保护下执行操作
 func (m *Migrator) WithLock(ctx context.Context, fn func() error) error {
-	var lockAcquired bool
-	err := m.db.QueryRowContext(ctx, "SELECT pg_advisory_lock($1)", LockID).Scan(&lockAcquired)
+	_, err := m.db.ExecContext(ctx, "SELECT pg_advisory_lock($1)", LockID)
 	if err != nil {
 		return fmt.Errorf("failed to acquire migration advisory lock: %w", err)
 	}
