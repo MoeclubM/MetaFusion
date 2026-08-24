@@ -2479,8 +2479,8 @@ SEED_DATA = {
         {
             "work_key": "work_genshin_impact",
             "relations": [
-                {"artist_key": "artist_mihoyo", "role": "developer"},
-                {"artist_key": "artist_mihoyo", "role": "publisher"}
+                {"artist_key": "artist_mihoyo", "role": "studio"},
+                {"artist_key": "artist_mihoyo", "role": "producer"}
             ]
         },
         {
@@ -2488,8 +2488,8 @@ SEED_DATA = {
             "relations": [
                 {"artist_key": "artist_yupeng_chen", "role": "composer"},
                 {"artist_key": "artist_hoyomix", "role": "producer"},
-                {"artist_key": "artist_london_philharmonic", "role": "performer"},
-                {"artist_key": "artist_shanghai_symphony", "role": "performer"}
+                {"artist_key": "artist_london_philharmonic", "role": "orchestra"},
+                {"artist_key": "artist_shanghai_symphony", "role": "orchestra"}
             ]
         }
     ],
