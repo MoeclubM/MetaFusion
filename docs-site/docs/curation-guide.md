@@ -18,7 +18,7 @@ MetaFusion 是面向 ACG、影音与文献的全球化开放元数据与多媒�
 - **八大基本底线**：
   1. **实体题名必须绝对纯净**：逻辑作品层（Work）严禁混入载体、分季、规格、音质等修饰词；
   2. **发行规格必须真实唯一**：发行版（Release）承载物理/数字出版特征（条码、厂牌、装帧）；
-  3. **分层录音与词曲严格分离**：Work 承载抽象创作（作词/作曲），CanonicalEntry 承载典范母版/录音（演职/版权），Track 承载物理分轨；
+  3. **分层表现与创作内核严格分离**：Work 承载抽象创作（作词/作曲/原著作者/剧本原案），CanonicalEntry 承载典范表现形式（录音母版/正片剪辑/典范章节/连载话及其实演版权），Track 承载介质物理分轨/项；
   4. **全集盒装严禁张冠李戴**：多作品大盒装（如 13BD 盒装）必须独立建模为汇编 Release 并分盘关联各母作品，严禁套在单部作品上；
   5. **世界观拓扑有向无环**：Franchise 聚合跨媒介世界观，实体间构建 DAG 有向无环图，以 `qualifier` 细分同构多边；
   6. **数据变更必须全程可溯**：每次写操作必须提供考据来源（`source_urls`）与动机说明（`edit_note`）；
@@ -29,45 +29,45 @@ MetaFusion 是面向 ACG、影音与文献的全球化开放元数据与多媒�
 
 ## 2. 核心架构与 LRM 五层实体哲学 (The 5-Layer LRM Hierarchy)
 
-MetaFusion 彻底废弃传统树状分类与硬编码 `media_type`，融合国际图书馆参考模型（IFLA LRM）与 MusicBrainz 编目哲学，构建 **五层混合实体模型 + 四大核心枢纽**：
+MetaFusion 彻底废弃传统树状分类与硬编码 `media_type`，融合国际图书馆参考模型（IFLA LRM）与多媒介流媒体编目哲学，构建 **五层混合实体模型 + 四大核心枢纽**：
 
 ```
 [ Franchise (世界观/企划枢纽) ] ─── part_of_franchise ───┐
-                                                        ▼
+                                                       ▼
 [ Artist (责任主体: 创作者/机构) ] ─── creator_of ───► [ Work (逻辑作品概念层: 纯净题名) ]
-                                                        │
-                                                 1:N    │ 抽象创作演化为母版/单曲
-                                                        ▼
-                                           [ CanonicalEntry (典范母版/录音 Recording) ]
-                                                        │
-                                                 1:N    │ 商业发行包含 / 复用于多 Release
-                                                        ▼
-                                           [ Release (商业发行版本: 规格/厂牌/条码) ]
-                                                        │
-                                                 1:N    │ 物理介质/分盘/分卷
-                                                        ▼
-                                             [ Medium (介质容器: Disc / Vol / Reel) ]
-                                                        │
-                                                 1:N    │ 物理音轨/单集分轨/关卡
-                                                        ▼
-                                             [ Track (分轨: 序号/标题/时长/母版关联) ]
+                                                       │
+                                                1:N    │ 抽象创作演化为具体表现
+                                                       ▼
+                                          [ CanonicalEntry (表现层 Expression: 典范条目/篇目) ]
+                                                       │
+                                                1:N    │ 商业发行包含 / 跨多 Release 复用
+                                                       ▼
+                                          [ Release (商业发行版本: 规格/厂牌/条码) ]
+                                                       │
+                                                1:N    │ 物理介质/分盘/分卷
+                                                       ▼
+                                            [ Medium (介质容器: Disc / Vol / Reel) ]
+                                                       │
+                                                1:N    │ 物理音轨/单集分轨/篇章条目
+                                                       ▼
+                                            [ Track (分轨/项: 序号/标题/时长/母版篇目关联) ]
 ```
 
-### 2.1 五层实体职责与纯净界定
+### 2.1 五层实体职责与跨媒介表现层 (CanonicalEntry / Expression) 映射
 
-| 实体层级 (Layer) | 对应 LRM / MB 概念 | 核心职责与边界 | 命名黄金准则 (Pure Title Rule) | 典型违规反例 (Strictly Forbidden) |
+| 实体层级 (Layer) | 对应 LRM / 体系概念 | 跨媒介自适应核心职责与边界 | 命名黄金准则 (Pure Title Rule) | 典型违规反例 (Strictly Forbidden) |
 |---|---|---|---|---|
-| **Work** | LRM-E1 / Work | 纯粹的艺术概念与思想创作本体，聚合跨语言、跨时代的创作思想 | **仅保留最纯粹的原作主名**。<br>如《进击的巨人》、《范特西》、《流浪地球》、《三体》 | ❌ 包含“第1季”、“TV动画版”、“1080P”、“重制版”、“Vol.1”、“EP”、“OST” |
-| **CanonicalEntry** | LRM-E2 / Recording / Expression | 典范母版、独立单曲母带、分集母版、漫画单话母版 | **母版/单曲原始标准名**。<br>如《晴天 (Master Recording)》、《第1集：给二千年后的你》 | ❌ 混入专辑名、混入光盘编号（如“Disc 1 Track 03”） |
-| **Release** | LRM-E3 / Manifestation / Release | 商业发售实体、具体出版物、物理/数字封装规格 | **精准标明版本规格、卷次、出版方、装帧**。<br>如《范特西（首版CD，BMG唱片，2001）》、《三体 1（精装单行本，重庆出版社，ISBN 9787536692930）》 | ❌ 泛用模版复制（所有网文都写“网络连载版”）、缺少版本区分与条码 |
-| **Medium** | Medium / Disc / Volume | 物理媒介容器（Disc 1 CD, Disc 2 Blu-ray, Vol.1, Tape A） | **介质序数与载体名称**。<br>如 `Disc 1 (Feature BD)`、`Disc 2 (Bonus OST CD)` | ❌ 遗漏分盘、将多盘合为单盘导致音轨序号冲突 |
-| **Track** | Track / Offset | 特定 Medium 上的具体物理分轨，关联具体 `CanonicalEntry` | **分轨序号 + 轨题名**。<br>如 `1. 爱在西元前 (03:43)`、`01. 序曲 (Overture)` | ❌ 序号颠倒、时长填 0、未绑定典范母版 |
+| **Work** | LRM-E1 / Work | 纯粹的艺术概念与思想创作本体，聚合跨语言、跨载体的创作思想（小说、漫画、动画、电影、音乐、游戏） | **仅保留最纯粹的原作主名**。<br>如《进击的巨人》、《范特西》、《流浪地球》、《三体》 | ❌ 包含“第1季”、“TV动画版”、“1080P”、“重制版”、“Vol.1”、“EP”、“OST” |
+| **CanonicalEntry** | LRM-E2 / Expression | 抽象 Work 的跨媒介具体创作表达：<br>• 🎵 **音乐**：典范录音/母版 (Recording/Master Track)<br>• 📚 **图书**：典范章节/标准正文篇目 (Chapter/Canonical Text)<br>• 🎬 **影视**：正片剪辑/分集母版 (Film Cut/Episode Master)<br>• 🎨 **漫画**：连载单话/篇章 (Story Chapter)<br>• 🎮 **游戏**：游戏本体/战役篇章 (Main Scenario/DLC) | **母版/篇目原始标准名**。<br>如《晴天 (Master Recording)》、《第1话：给二千年后的你》、《第1章：红月亮》 | ❌ 混入专辑名、混入光盘编号（如“Disc 1 Track 03”） |
+| **Release** | LRM-E3 / Manifestation | 商业发售实体、具体出版物、物理/数字封装规格（初版平装书、精装合订本、4K UHD 蓝光版、首版 CD、数字连载版） | **精准标明版本规格、卷次、出版方、装帧**。<br>如《范特西（首版CD，BMG唱片，2001）》、《三体 1（精装单行本，重庆出版社，ISBN 9787536692930）》 | ❌ 泛用模版复制（所有网文都写“网络连载版”）、缺少版本区分与条码 |
+| **Medium** | Medium / Disc / Volume | 物理/数字媒介容器（Disc 1 CD, Disc 2 Blu-ray, Vol.1, Reel 1） | **介质序数与载体名称**。<br>如 `Disc 1 (Feature BD)`、`Disc 2 (Bonus OST CD)`、`Vol.1` | ❌ 遗漏分盘、将多盘合为单盘导致音轨序号冲突 |
+| **Track** | Track / Offset | 特定 Medium 上的具体物理分轨/篇目项，精确关联具体 `CanonicalEntry` | **分轨序号 + 轨/项题名**。<br>如 `1. 爱在西元前 (03:43)`、`第1章：红月亮` | ❌ 序号颠倒、时长填 0、未绑定典范条目 |
 
 ---
 
-## 3. 词曲创作与录音演职版权主体的严格分离
+## 3. 抽象创作与表现层实现的严格分离与复用机制
 
-在音乐与多媒体编目中，必须严格区分 **Work 级创作关系** 与 **Recording / CanonicalEntry 级录音制作关系**：
+在全媒介编目中，必须严格区分 **Work 级抽象创作关系** 与 **CanonicalEntry 级具体表现实现关系**：
 
 ```mermaid
 classDiagram
@@ -76,7 +76,7 @@ classDiagram
         +String title
         +String original_language
         +String cover_aspect
-        +Relations: composer, lyricist, author
+        +Relations: composer, lyricist, author, scriptwriter
     }
     class CanonicalEntry {
         +UUID id
@@ -84,7 +84,8 @@ classDiagram
         +String title
         +Int default_duration
         +String isrc
-        +Relations: performer, arranger, producer, phonographic_copyright
+        +String isbn
+        +Relations: performer, arranger, producer, director, voice_actor, translator
     }
     class Track {
         +UUID id
@@ -102,22 +103,23 @@ classDiagram
         +String catalog_number
         +UUID publisher_id
     }
-    Work "1" -- "0..*" CanonicalEntry : has master entries
+    Work "1" -- "0..*" CanonicalEntry : has expressions
     Work "1" -- "0..*" Release : manifests as
     CanonicalEntry "1" -- "0..*" Track : referenced by
     Release "1" -- "1..*" Track : contains via Mediums
 ```
 
-1. **Work 级创作关系**（抽象思想的创作者）：
-   - `composer`（作曲者）、`lyricist`（作词者）、`author`（原著作者）、`original_creator`（世界观企划人）；
-   - **规则**：无论歌曲被谁翻唱、重新编曲或收录于何种专辑，Work 的 `composer` 与 `lyricist` 恒定不变。
-2. **CanonicalEntry / Recording 级演职与版权关系**（具体声音母版的实现者与权利人）：
-   - `performer` / `vocalist` / `instrumentalist`（表演者/歌手/乐手）；
-   - `arranger`（编曲者）、`producer`（录音制作人）、`sound_engineer`（混音/母带工程师）；
-   - `phonographic_copyright`（℗ 录音制品版权方）。
-3. **Recording 复用与「Appears on Releases」反查原理**：
-   - 同一首录音母版（CanonicalEntry，例如周杰伦《晴天》2001 原版母带）可以被多个 Release 的不同 Track 引用（例如：首版专辑《叶惠美》CD、2004 精选集《Initial J》、2018 黑胶复刻版）；
-   - 系统通过 `tracks.canonical_entry_id` 反查该 Recording 在全库所有 Release 的登场记录（Appears on Releases），避免重复创建相同的单曲母版，实现真正的全局资产拓扑聚合。
+1. **Work 级创作关系**（抽象思想的原创作者）：
+   - `composer`（作曲者）、`lyricist`（作词者）、`author`（原著作者）、`scriptwriter`（剧作编剧）、`original_creator`（世界观企划人）；
+   - **规则**：无论内容被谁演绎、翻唱或收录于何种载体，Work 的核心创作者恒定不变。
+2. **CanonicalEntry (Expression) 级演职与版权关系**（具体表现母版/篇目的实现者与权利人）：
+   - 音乐：`performer`（表演者/歌手/乐手）、`arranger`（编曲者）、`producer`（录音制作人）、`phonographic_copyright`（℗ 录音制品版权方）；
+   - 影视：`director`（剪辑/分集导演）、`sound_director`（音响监督）、`voice_actor`（配音演员）；
+   - 文学/漫画：`translator`（特定译本译者）、`editor`（分卷责任编辑）。
+3. **跨发行复用 (Expression Reuse) 与「Appears on Releases」反查原理**：
+   - 同一个具体的 `CanonicalEntry`（例如周杰伦《晴天》2001 原版母带、电影《千与千寻》院线正片母版、《三体》第一章正文）具有全局唯一 UUID；
+   - 它可以被多个不同 Release 的 Track 节点同时引用（例如：同一篇小说正文被初版平装书、精装合订本、Kindle 电子书同时引用；同一首母版录音被首版专辑 CD、精选集、黑胶复刻版同时引用）；
+   - 系统通过 `tracks.canonical_entry_id` 反查该篇目/母版在全库所有 Release 中的收录记录（Appears on Releases），消除冗余录入，建立全生命周期的版本流变拓扑。
 
 ---
 

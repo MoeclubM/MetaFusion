@@ -34,13 +34,13 @@ Your mission is to catalog works, releases, recordings, artists, and franchises 
 Core Rules:
 1. PURE TITLE RULE: Work-level titles must NEVER contain media formats (TV, OVA, BD), seasons (Season 1, S2), resolutions (1080P, 4K), audio specs (FLAC, Hi-Res), publishers, or packaging types. Put those into Release / Medium / Track instead.
 2. 5-LAYER LRM HIERARCHY:
-   - Work: Pure abstract intellectual concept (has composer, lyricist, author).
-   - CanonicalEntry (Recording): Specific master recording / episode master (has performer, arranger, producer, phonographic_copyright).
+   - Work: Pure abstract intellectual concept (has composer, lyricist, author, scriptwriter).
+   - CanonicalEntry (Expression): Specific master recording, film/episode cut, novel chapter, or manga chapter (has performer, arranger, producer, director, phonographic_copyright).
    - Release: Commercial publication/edition with barcode (ISBN/EAN) and catalog_number.
    - Medium: Physical container disc / volume (Disc 1 Blu-ray, Disc 2 CD, Vol.1).
    - Track: Physical track/item on a Medium, linked to CanonicalEntry and Work.
 3. BOXSET / COMPILATION INTEGRATION: Never attach a multi-work boxset catalog number (e.g. 13BD collection VWBS-1531) to a single standalone work (e.g. Spirited Away VWBS-1530). Create a compilation Work and Release, expand all Mediums, and link each Track to its respective Work.
-4. RECORDING REUSE: Reuse CanonicalEntry across multiple Releases via `tracks.canonical_entry_id` (Appears on Releases).
+4. EXPRESSION REUSE: Reuse CanonicalEntry across multiple Releases via `tracks.canonical_entry_id` (Appears on Releases).
 5. DAG GRAPH TOPOLOGY: Work/Franchise relations must form a strict Directed Acyclic Graph (DAG). No self-loops, no cyclic sequel/prequel loops.
 6. COVER STANDARDS: Strictly enforce aspect ratios: Music/OST = "1:1", Movie/Anime = "2:3", Book/Comic = "3:4". Must be official high-res art without watermarks.
 7. AUDIT TRAIL: Every write payload MUST include `edit_note` (>= 10 chars explanation) and `source_urls` (array of verified public links).
@@ -62,9 +62,9 @@ AI Agent 在执行任何自动化编目任务时，必须严格按照以下 7 �
 ```mermaid
 flowchart TD
     Step1[第 1 步：权威考据与全库检索防重<br>GET /api/v1/search] --> Step2[第 2 步：纯净题名清洗与多语言对齐<br>original_language + translations]
-    Step2 --> Step3[第 3 步：LRM 录音分层与发行版树状建模<br>Work / Entry / Release / Medium / Track]
+    Step2 --> Step3[第 3 步：LRM 表现层分级与发行版树状建模<br>Work / Entry / Release / Medium / Track]
     Step3 --> Step4[第 4 步：多作品合集/盒装分碟映射<br>Mediums + Track.work_id 展开]
-    Step4 --> Step5[第 5 步：录音母版多发行复用<br>CanonicalEntry UUID 关联]
+    Step4 --> Step5[第 5 步：典范篇目多发行复用<br>CanonicalEntry UUID 关联]
     Step5 --> Step6[第 6 步：DAG 拓扑织网与 Qualifier 限定<br>PUT /api/v1/catalog/entity-relations]
     Step6 --> Step7[第 7 步：不可篡改审计签名与原子提交<br>POST /api/v1/catalog/submit]
 ```
@@ -87,16 +87,16 @@ flowchart TD
 - 提取作品核心概念主名，彻底清洗所有修饰词；
 - 标注 `original_language`，并在 `translations` 中提供 `zh-CN`, `zh-TW`, `en-US`, `ja` 等多语言本地化题名与简介。
 
-#### 第 3 步：LRM 录音分层与发行版树状建模 (Layer Hierarchy)
-- **Work 级创作关系**：绑定 `composer`（作曲）、`lyricist`（作词）、`author`（原著作者）；
-- **CanonicalEntry 级录音制作关系**：绑定 `performer`（演唱/演奏）、`arranger`（编曲）、`producer`（制作人）、`phonographic_copyright`（℗ 录音版权）；
+#### 第 3 步：LRM 表现层分级与发行版树状建模 (Layer Hierarchy)
+- **Work 级创作关系**：绑定 `composer`（作曲）、`lyricist`（作词）、`author`（原著作者）、`scriptwriter`（剧本编剧）；
+- **CanonicalEntry 级表现制作关系**：绑定 `performer`（演唱/演奏）、`arranger`（编曲）、`producer`（制作人）、`director`（导演/监督）、`phonographic_copyright`（℗ 录音版权）；
 - **Release 级发行规格**：严格遵循命名规范（如书名卷号、ISBN-13、唱片编号）。
 
 #### 第 4 步：多作品合集与盒装展开 (Boxset Mapping)
 - 对于收录多部独立作品的合集盒装，独立建立汇编 Work/Release，展开全部物理 Medium，并将各分碟 Track 准确指向各自独立的母体 Work。
 
-#### 第 5 步：录音母版跨发行复用 (Recording Reuse)
-- 提取或复用已有的 `CanonicalEntry` UUID，使不同 Release 的 Track 均指向同一母版录音，实现「Appears on Releases」全局反查。
+#### 第 5 步：典范篇目跨发行复用 (Expression Reuse)
+- 提取或复用已有的 `CanonicalEntry` UUID，使不同 Release 的 Track 均指向同一典范篇目/录音/章节，实现「Appears on Releases」全局反查。
 
 #### 第 6 步：DAG 拓扑织网与关系限定 (Graph Topology)
 - 将实体接入世界观企划（Franchise）；
@@ -148,26 +148,26 @@ flowchart TD
 
 ---
 
-## 4. MusicBrainz 录音母版多发行复用与版权分离规范
+## 4. 跨媒介表现层 (CanonicalEntry) 多发行复用与版权分离规范
 
-### 4.1 词曲创作 (Work) 与 录音演职 (Recording) 分离
+### 4.1 抽象创作 (Work) 与 表现演职 (Expression / CanonicalEntry) 分离
 
-| 属性维度 | Work 概念层 (词曲创作) | CanonicalEntry / Recording 层 (录音演职与版权) |
+| 属性维度 | Work 概念层 (抽象创作) | CanonicalEntry / Expression 层 (表现演职与版权) |
 |---|---|---|
-| **核心含义** | 抽象的词曲旋律与思想创作 | 具体的声音母带与表演记录 (Master Recording) |
-| **关联职能** | `composer`（作曲者）、`lyricist`（作词者）、`author`（原作者） | `performer`（演唱/演奏者）、`arranger`（编曲者）、`producer`（制作人）、`sound_engineer`（混音/母带师） |
-| **版权标识** | © 词曲著作权 (Copyright) | ℗ 录音制品版权 (Phonographic Copyright) |
-| **唯一性** | 一首歌只有一个 Work | 一首歌可以有原版录音、Live版、Acoustic版、伴奏版等多个 Recording |
+| **核心含义** | 抽象的词曲旋律、文学故事或剧作思想创作 | 具体的声音母带、正片剪辑、章节正文或单话篇章 |
+| **关联职能** | `composer`（作曲）、`lyricist`（作词）、`author`（原作者）、`scriptwriter`（编剧） | `performer`（演唱/演奏者）、`arranger`（编曲）、`producer`（制作人）、`director`（导演）、`voice_actor`（声优） |
+| **版权标识** | © 原著/词曲著作权 (Copyright) | ℗ 录音制品版权 (Phonographic Copyright) / 影视制版权 |
+| **唯一性** | 一部作品只有一个抽象 Work | 一部作品可以有多个 CanonicalEntry（原版母带、重制版、加长剪辑版、各分集） |
 
-### 4.2 Recording 复用与「Appears on Releases」反查原理
+### 4.2 表现篇目复用与「Appears on Releases」反查原理
 
-当周杰伦 2001 年录制的《晴天》原版母带在多个发行版中出现时：
+当周杰伦 2001 年录制的《晴天》原版母带（或某电影院线版正片、某小说标准正文章节）在多个发行版中出现时：
 1. **单一实体**：全库仅创建 **1 个** CanonicalEntry（UUID: `rec_qingtian_2001`，包含 ISRC `CN-A01-03-00123`）；
 2. **多 Release 引用**：
    - Release 1（2003《叶惠美》首版 CD）：`Disc 1 Track 3` -> `canonical_entry_id = rec_qingtian_2001`；
    - Release 2（2004《Initial J》日本精选集 CD）：`Disc 1 Track 1` -> `canonical_entry_id = rec_qingtian_2001`；
    - Release 3（2020《20周年黑胶大套装》Vinyl）：`Side A Track 3` -> `canonical_entry_id = rec_qingtian_2001`；
-3. **反向索引机制**：系统通过 SQL `JOIN tracks ON tracks.canonical_entry_id = canonical_entries.id`，在歌曲详情页自动呈现 **“Appears on Releases (收录于以下发行版本)”** 聚合列表，彻底杜绝数据冗余。
+3. **反向索引机制**：系统通过 SQL `JOIN tracks ON tracks.canonical_entry_id = canonical_entries.id`，在详情页自动呈现 **“Appears on Releases (收录于以下发行版本)”** 聚合列表，彻底杜绝数据冗余。
 
 ---
 
