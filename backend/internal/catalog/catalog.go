@@ -1068,12 +1068,15 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		return
 	}
 
-	// 查重防重机制：若同名作品已存在，复用现有实体并合并补充信息
+	// 查重防重机制：若同名且同载体形态（封面比例）作品已存在，复用现有实体并合并补充信息
 	var existingWork models.Work
 	trimmedTitle := strings.TrimSpace(work.Title)
 	dupQuery := s.db.Where("LOWER(TRIM(title)) = LOWER(TRIM(?))", trimmedTitle)
 	if work.OriginalLanguage != "" {
 		dupQuery = dupQuery.Where("original_language = ? OR original_language = ''", work.OriginalLanguage)
+	}
+	if work.CoverAspect != "" {
+		dupQuery = dupQuery.Where("cover_aspect = ?", work.CoverAspect)
 	}
 	if err := dupQuery.First(&existingWork).Error; err == nil {
 		tagNames := input.Tags
@@ -2333,12 +2336,15 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 		return
 	}
 
-	// 查重防重机制：若同名作品已存在，复用现有实体
+	// 查重防重机制：若同名且同载体形态（封面比例）作品已存在，复用现有实体
 	var existingWork models.Work
 	trimmedTitle := strings.TrimSpace(work.Title)
 	dupQuery := s.db.Where("LOWER(TRIM(title)) = LOWER(TRIM(?))", trimmedTitle)
 	if work.OriginalLanguage != "" {
 		dupQuery = dupQuery.Where("original_language = ? OR original_language = ''", work.OriginalLanguage)
+	}
+	if work.CoverAspect != "" {
+		dupQuery = dupQuery.Where("cover_aspect = ?", work.CoverAspect)
 	}
 	if err := dupQuery.First(&existingWork).Error; err == nil {
 		work = existingWork

@@ -123,6 +123,16 @@ func seedRelationTypes(db *gorm.DB) {
 			Color: "blue", Icon: "ArrowRight", SortOrder: 333, IsSystem: true, IsEnabled: true,
 		},
 		{
+			Code: "prequel_of", Domain: "work_work",
+			NameZh: "正统前传", NameEn: "Prequel Of",
+			Names: models.JSONB{"zh-CN": "正统前传", "en-US": "Prequel Of"},
+			Description: "故事时间线发生在前作之前的官方正统前传作品",
+			ForwardLabelZh: "为该作的前传", ReverseLabelZh: "拥有正统前传",
+			ForwardLabelEn: "is prequel of", ReverseLabelEn: "has prequel",
+			AllowedSourceTypes: pq.StringArray{"work"}, AllowedTargetTypes: pq.StringArray{"work"},
+			Color: "cyan", Icon: "ArrowLeft", SortOrder: 334, IsSystem: true, IsEnabled: true,
+		},
+		{
 			Code: "spin_off_of", Domain: "work_work",
 			NameZh: "外传 / 衍生作品", NameEn: "Spin-off Of",
 			Names: models.JSONB{"zh-CN": "衍生作品", "en-US": "Spin-off Of"},
@@ -130,7 +140,7 @@ func seedRelationTypes(db *gorm.DB) {
 			ForwardLabelZh: "为该作的外传/衍生", ReverseLabelZh: "拥有外传/衍生",
 			ForwardLabelEn: "is spin-off of", ReverseLabelEn: "has spin-off",
 			AllowedSourceTypes: pq.StringArray{"work"}, AllowedTargetTypes: pq.StringArray{"work"},
-			Color: "amber", Icon: "GitFork", SortOrder: 334, IsSystem: true, IsEnabled: true,
+			Color: "amber", Icon: "GitFork", SortOrder: 335, IsSystem: true, IsEnabled: true,
 		},
 	}
 	for _, row := range rows {

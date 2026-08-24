@@ -237,7 +237,7 @@ class MetaFusionApiClient:
             "edition_date": data.get("edition_date"),
             "country": data.get("country", "CHN"),
             "language": data.get("language", "zh-CN"),
-            "distribution_channel": data.get("distribution_channel", "official"),
+            "distribution_channel": data.get("distribution_channel", "mixed"),
             "catalog_metadata": data.get("catalog_metadata", {}),
             "notes": data.get("notes", "")
         }
@@ -729,6 +729,77 @@ SEED_DATA = {
             "external_ids": {"wikidata": "Q24874406"},
             "translations": [{"locale": "en-US", "name": "Evan Call", "biography": "Composer of Violet Evergarden and Frieren: Beyond Journey's End."}]
         },
+        {
+            "key": "a_kun",
+            "name": "阿鲲",
+            "original_name": "陈鲲 (Roc Chen)",
+            "disambiguation": "著名影视音乐作曲家 / 《流浪地球》系列电影音乐总监",
+            "entity_type": "person",
+            "country": "中国",
+            "biography": "中国著名影视音乐作曲家，伯克利音乐学院校友。以宏伟磅礴的交响史诗与现代电声交织风格享誉海内外，担任《流浪地球》《流浪地球 2》《舌尖上的中国》《风味人间》《觉醒年代》等影视音乐总监兼作曲。",
+            "language": "zh-CN",
+            "external_ids": {"wikidata": "Q65056728"},
+            "translations": [{"locale": "en-US", "name": "Roc Chen (A Kun)", "biography": "Celebrated film composer behind the epic scores of The Wandering Earth series."}]
+        },
+
+        # --- 《流浪地球》系列领衔主演与主创演职员 ---
+        {
+            "key": "wu_jing",
+            "name": "吴京",
+            "original_name": "Wu Jing",
+            "disambiguation": "著名电影演员 / 导演 / 出品人 / 饰演 刘培强",
+            "entity_type": "person",
+            "country": "中国",
+            "biography": "中国著名电影演员、导演、出品人。在《流浪地球》系列中饰演领航者空间站中校航天员刘培强，以深沉的父爱与为人类文明延续献身的英勇形象感动全球观众。",
+            "language": "zh-CN",
+            "external_ids": {"wikidata": "Q706728"},
+            "translations": [{"locale": "en-US", "name": "Wu Jing", "biography": "Renowned Chinese actor and filmmaker starring as astronaut Liu Peiqiang in The Wandering Earth."}]
+        },
+        {
+            "key": "qu_chuxiao",
+            "name": "屈楚萧",
+            "original_name": "Qu Chuxiao",
+            "disambiguation": "青年演员 / 饰演 男主角刘启 (户口)",
+            "entity_type": "person",
+            "country": "中国",
+            "biography": "中国内地青年男演员，毕业于中央戏剧学院。在电影《流浪地球》中饰演男主角刘启（户口），与同伴共同执行点燃木星的绝地营救任务。",
+            "language": "zh-CN",
+            "translations": [{"locale": "en-US", "name": "Qu Chuxiao", "biography": "Chinese actor portraying protagonist Liu Qi in The Wandering Earth."}]
+        },
+        {
+            "key": "li_guangjie",
+            "name": "李光洁",
+            "original_name": "Li Guangjie",
+            "disambiguation": "实力派演员 / 饰演 CN171-11 救援队队长王磊",
+            "entity_type": "person",
+            "country": "中国",
+            "biography": "中国内地实力派男演员。在电影《流浪地球》中饰演坚毅果敢的 CN171-11 救援队队长王磊。",
+            "language": "zh-CN",
+            "translations": [{"locale": "en-US", "name": "Li Guangjie", "biography": "Chinese actor portraying rescue team leader Wang Lei in The Wandering Earth."}]
+        },
+        {
+            "key": "zhao_jinmai",
+            "name": "赵今麦",
+            "original_name": "Zhao Jinmai",
+            "disambiguation": "青年女演员 / 饰演 韩朵朵",
+            "entity_type": "person",
+            "country": "中国",
+            "biography": "中国内地青年女演员。在电影《流浪地球》中饰演韩朵朵，以真挚的全球广播呼吁点燃人类拯救家园的最后希望。",
+            "language": "zh-CN",
+            "translations": [{"locale": "en-US", "name": "Zhao Jinmai", "biography": "Chinese actress who portrayed Han Duoduo in The Wandering Earth."}]
+        },
+        {
+            "key": "wu_mengda",
+            "name": "吴孟达",
+            "original_name": "Ng Man-tat",
+            "disambiguation": "华语影坛传奇演员 / 达叔 / 饰演 韩子昂",
+            "entity_type": "person",
+            "country": "中国香港",
+            "biography": "华语影坛殿堂级传奇演员，人称'达叔'。在电影《流浪地球》中饰演重卡高级驾驶员韩子昂（刘启的外公）。其对角色的深情诠释与敬业精神成为中国科幻影史上的永恒经典。",
+            "language": "zh-CN",
+            "external_ids": {"wikidata": "Q707272"},
+            "translations": [{"locale": "en-US", "name": "Ng Man-tat", "biography": "Legendary Hong Kong actor who portrayed veteran driver Han Zi'ang in The Wandering Earth."}]
+        },
 
         # --- 核心出版机构、制作公司与唱片厂牌 ---
         {
@@ -761,6 +832,48 @@ SEED_DATA = {
             "country": "中国",
             "biography": "中国知名大型综合出版社，策划出版刘慈欣《三体》系列、阿西莫夫《基地》系列等科幻巨著。",
             "language": "zh-CN"
+        },
+        {
+            "key": "sichuan_science_tech_press",
+            "name": "四川科学技术出版社",
+            "original_name": "Sichuan Science and Technology Press",
+            "disambiguation": "科幻世界·中国科幻基石丛书出版方",
+            "entity_type": "publisher",
+            "country": "中国",
+            "biography": "中国著名科技与科幻图书出版社，与《科幻世界》杂志社长期深度合作，出版《中国科幻基石丛书》《流浪地球》《三体》等经典巨著。",
+            "language": "zh-CN"
+        },
+        {
+            "key": "china_film_group",
+            "name": "中国电影股份有限公司",
+            "original_name": "China Film Co., Ltd.",
+            "disambiguation": "中影股份 / 中国电影产业国有龙头企业",
+            "entity_type": "studio",
+            "country": "中国",
+            "biography": "中国电影行业龙头企业与大型综合影视制片发行机构，主导投资、出品并发行《流浪地球》《流浪地球 2》等重工业科幻大片。",
+            "language": "zh-CN",
+            "translations": [{"locale": "en-US", "name": "China Film Co., Ltd.", "biography": "Leading state-owned film corporation in China and primary producer/distributor of The Wandering Earth series."}]
+        },
+        {
+            "key": "beijing_culture",
+            "name": "北京京西文化旅游股份有限公司",
+            "original_name": "Beijing Culture",
+            "disambiguation": "北京文化 / 著名影视投资制作机构",
+            "entity_type": "studio",
+            "country": "中国",
+            "biography": "中国知名影视制作与投资公司，参与出品《流浪地球》《战狼2》《我不是药神》等多部现象级华语电影。",
+            "language": "zh-CN"
+        },
+        {
+            "key": "gwo_film",
+            "name": "郭帆（北京）影业有限公司",
+            "original_name": "G!Film Studio",
+            "disambiguation": "郭帆影业 / 导演郭帆电影创作工作室",
+            "entity_type": "studio",
+            "country": "中国",
+            "biography": "由导演郭帆创立的影视创作与制片工作室，专注于重工业科幻电影探索、前沿视效研发与电影工业化流程建设，主导制作《流浪地球》系列电影。",
+            "language": "zh-CN",
+            "translations": [{"locale": "en-US", "name": "G!Film Studio", "biography": "Film production studio founded by director Frant Gwo, dedicated to hard sci-fi and cinematic industrialization."}]
         },
         {
             "key": "thinkingdom",
@@ -856,6 +969,19 @@ SEED_DATA = {
             "begin_date": "2006-05",
             "tags": ["科幻", "硬科幻", "三体", "跨媒介"],
             "translations": [{"locale": "en-US", "title": "The Three-Body Universe", "summary": "Epic sci-fi franchise based on Liu Cixin's Hugo Award-winning trilogy."}]
+        },
+        {
+            "key": "fr_wandering_earth",
+            "title": "流浪地球",
+            "original_title": "The Wandering Earth Franchise",
+            "aliases": ["流浪地球系列", "流浪地球宇宙", "The Wandering Earth"],
+            "disambiguation": "刘慈欣原著 / 郭帆导演 跨媒介重工业科幻宇宙企划",
+            "summary": "基于刘慈欣同名科幻小说构筑的宏大人类命运共同体科幻史诗。面对太阳老化氦闪灭顶之灾，人类联合政府（UEG）启动'流浪地球计划'，建造万座行星发动机推动地球离开太阳系，跨越两千五百年漫长岁月航向四光年外半人马座新家园。涵盖原著中篇小说、系列院线电影、原声配乐大碟及周边衍生文献。",
+            "country": "中国",
+            "cover_image_url": "https://image.tmdb.org/t/p/w500/1p5Bz9s69p3GFGUyK1Gg56m84c2.jpg",
+            "begin_date": "2000-07-01",
+            "tags": ["科幻", "硬科幻", "流浪地球", "跨媒介", "电影", "小说"],
+            "translations": [{"locale": "en-US", "title": "The Wandering Earth Franchise", "summary": "Epic Chinese hard science-fiction cross-media universe originating from Liu Cixin's Hugo Award-winning novella and expanded by Frant Gwo's cinematic saga."}]
         },
         {
             "key": "fr_sao",
@@ -982,6 +1108,23 @@ SEED_DATA = {
             "tags": ["图书", "小说", "科幻", "硬科幻", "名著", "三体"],
             "translations": [
                 {"locale": "en-US", "title": "The Three-Body Problem", "summary": "Set against the backdrop of China's Cultural Revolution, a secret military project sends signals into space, inviting an alien invasion."}
+            ]
+        },
+        {
+            "key": "work_wandering_earth_novel",
+            "title": "流浪地球",
+            "original_title": "流浪地球",
+            "aliases": ["The Wandering Earth Novella", "流浪地球小说"],
+            "release_date": "2000-07-01",
+            "country": "中国",
+            "language": "zh-CN",
+            "original_language": "zh-CN",
+            "summary": "刘慈欣于2000年发表于《科幻世界》的中篇硬科幻名作，荣获第十二届中国科幻银河奖特等奖。讲述人类为了逃离即将爆发氦闪的太阳，在地球表面建造上万座巨大的重聚变行星发动机，开启长达两千五百年'刹车时代、逃逸时代、流浪时代、新太阳时代'的宇宙悲壮流浪之旅。",
+            "cover_image_url": "https://img1.doubanio.com/view/subject/l/public/s29887778.jpg",
+            "cover_aspect": "3:4",
+            "tags": ["图书", "小说", "科幻", "硬科幻", "名著", "银河奖", "刘慈欣"],
+            "translations": [
+                {"locale": "en-US", "title": "The Wandering Earth (Novella)", "summary": "Liu Cixin's seminal hard science-fiction novella depicting humanity's monumental 2500-year journey to propel Earth away from an expanding Sun."}
             ]
         },
         {
@@ -1229,18 +1372,35 @@ SEED_DATA = {
             ]
         },
         {
+            "key": "work_wandering_earth_1",
+            "title": "流浪地球",
+            "original_title": "流浪地球",
+            "aliases": ["The Wandering Earth", "流浪地球1", "流浪地球 电影第一部"],
+            "release_date": "2019-02-05",
+            "country": "中国",
+            "language": "zh-CN",
+            "original_language": "zh-CN",
+            "summary": "郭帆执导，吴京、屈楚萧、李光洁、赵今麦、吴孟达领衔主演。流浪地球在行经木星轨道时遭遇引力激增危机，地球即将撞击木星，中国救援队 CN171-11 与领航者空间站宇航员刘培强不惜牺牲一切点燃木星大气、利用冲击波挽救地球，开创了中国重工业硬核科幻电影的新纪元。",
+            "cover_image_url": "https://image.tmdb.org/t/p/w500/1p5Bz9s69p3GFGUyK1Gg56m84c2.jpg",
+            "cover_aspect": "2:3",
+            "tags": ["电影", "实拍", "科幻", "硬科幻", "郭帆", "刘慈欣", "吴京", "吴孟达"],
+            "translations": [
+                {"locale": "en-US", "title": "The Wandering Earth", "summary": "Landmark Chinese sci-fi blockbuster directed by Frant Gwo, following rescue teams and astronaut Liu Peiqiang as they ignite Jupiter's atmosphere to save Earth."}
+            ]
+        },
+        {
             "key": "work_wandering_earth_2",
             "title": "流浪地球 2",
             "original_title": "流浪地球 2",
-            "aliases": ["The Wandering Earth II"],
+            "aliases": ["The Wandering Earth II", "流浪地球2"],
             "release_date": "2023-01-22",
             "country": "中国",
             "language": "zh-CN",
             "original_language": "zh-CN",
-            "summary": "郭帆执导，刘慈欣监制。太阳危机爆发前夕，面对地球停转与移山计划的艰难抉择，航天员刘培强与数字生命研究员图恒宇等人为拯救人类文明做出史诗抉择。",
+            "summary": "郭帆执导，吴京、刘德华、李雪健领衔主演。讲述'流浪地球计划'启动前夕的危局：太空电梯危机、月球坠落危机接踵而至，面对移山计划与数字生命计划的严峻抉择，图恒宇与刘培强等人为了人类文明的延续在绝境中孤注一掷。",
             "cover_image_url": "https://image.tmdb.org/t/p/w500/cAS2e9hUwu6Ydsx7byXj16H00Ai.jpg",
             "cover_aspect": "2:3",
-            "tags": ["电影", "实拍", "科幻", "硬科幻", "刘慈欣"],
+            "tags": ["电影", "实拍", "科幻", "硬科幻", "郭帆", "刘慈欣", "吴京"],
             "translations": [
                 {"locale": "en-US", "title": "The Wandering Earth II", "summary": "Prequel sci-fi blockbuster depicting the early days of the Solar Crisis and the Moving Mountain Project."}
             ]
@@ -1279,6 +1439,40 @@ SEED_DATA = {
             "tags": ["音乐", "专辑", "交响原声", "原声带"],
             "translations": [
                 {"locale": "en-US", "title": "Lord of the Mysteries Official Concept Soundtrack", "summary": "Official symphonic concept album inspired by the Lord of the Mysteries universe."}
+            ]
+        },
+        {
+            "key": "work_wandering_earth_1_ost",
+            "title": "流浪地球 电影原声大碟",
+            "original_title": "The Wandering Earth (Original Motion Picture Soundtrack)",
+            "aliases": ["流浪地球 OST", "流浪地球 原声带"],
+            "release_date": "2019-02-12",
+            "country": "中国",
+            "language": "zh-CN",
+            "original_language": "zh-CN",
+            "summary": "阿鲲（Roc Chen）作曲与音乐制作。融合好莱坞级交响乐编制与激昂电声配器，由英国皇家爱乐乐团在伦敦阿比路录音室（Abbey Road Studios）实录，收录《开启新征程》《带着家园流浪》《点燃木星》《开启发动机》等经典震撼曲目。",
+            "cover_image_url": "https://p1.music.126.net/Hq-cugKk_F7tQjB2bJbYpg==/109951163863483259.jpg",
+            "cover_aspect": "1:1",
+            "tags": ["音乐", "专辑", "交响原声", "原声带", "阿鲲", "科幻配乐"],
+            "translations": [
+                {"locale": "en-US", "title": "The Wandering Earth (Original Motion Picture Soundtrack)", "summary": "Epic symphonic soundtrack composed by Roc Chen (A Kun) and recorded by the Royal Philharmonic Orchestra at Abbey Road Studios."}
+            ]
+        },
+        {
+            "key": "work_wandering_earth_2_ost",
+            "title": "流浪地球 2 电影原声大碟",
+            "original_title": "The Wandering Earth II (Original Motion Picture Soundtrack)",
+            "aliases": ["流浪地球2 OST", "流浪地球2 原声带"],
+            "release_date": "2023-01-22",
+            "country": "中国",
+            "language": "zh-CN",
+            "original_language": "zh-CN",
+            "summary": "阿鲲（Roc Chen）倾力创作的《流浪地球 2》官方电影原声大碟。包含《太空电梯》《月球危机》《移山计划》《550W / MOSS》《在这儿，在这儿》《奔赴阿尔法星》等宏大交响与数字电子合唱。",
+            "cover_image_url": "https://p1.music.126.net/oO4Xo4P0_49oIeB-cM3W1Q==/109951168270503028.jpg",
+            "cover_aspect": "1:1",
+            "tags": ["音乐", "专辑", "交响原声", "原声带", "阿鲲", "科幻配乐"],
+            "translations": [
+                {"locale": "en-US", "title": "The Wandering Earth II (Original Motion Picture Soundtrack)", "summary": "Monumental film score by Roc Chen depicting the tension of the Space Elevator Crisis and MOSS's chilling awakening."}
             ]
         },
         {
@@ -1378,6 +1572,36 @@ SEED_DATA = {
             "country": "CHN",
             "distribution_channel": "physical",
             "notes": "雨果奖纪念精装三部曲套装"
+        },
+
+        # --- 流浪地球 原著小说 Releases ---
+        {
+            "key": "rel_we_novel_sfw",
+            "work_key": "work_wandering_earth_novel",
+            "publisher_artist_key": "sichuan_science_tech_press",
+            "edition_name": "流浪地球（中国科幻基石丛书·初版单行本，四川科学技术出版社，ISBN 9787536465497）",
+            "catalog_number": "SFW-TWE-2008",
+            "barcode": "978-7-5364-6549-7",
+            "publisher": "四川科学技术出版社 / 科幻世界",
+            "packaging": "Paperback",
+            "edition_date": "2008-11-01",
+            "country": "CHN",
+            "distribution_channel": "physical",
+            "notes": "中国科幻基石丛书经典初版单行本，收录《流浪地球》《微纪元》《带上她的眼睛》等经典名篇"
+        },
+        {
+            "key": "rel_we_novel_doke",
+            "work_key": "work_wandering_earth_novel",
+            "publisher_artist_key": "thinkingdom",
+            "edition_name": "流浪地球：刘慈欣经典作品典藏（精装插图珍藏版，读客文化 / 江苏凤凰文艺出版社，ISBN 9787559432650）",
+            "catalog_number": "DK-TWE-HC-01",
+            "barcode": "978-7-5594-3265-0",
+            "publisher": "读客文化 / 江苏凤凰文艺出版社",
+            "packaging": "Hardcover",
+            "edition_date": "2019-01-01",
+            "country": "CHN",
+            "distribution_channel": "physical",
+            "notes": "电影上映纪念精装插图珍藏版，全彩星际硬核插画"
         },
 
         # --- 道诡异仙 Releases ---
@@ -1662,11 +1886,59 @@ SEED_DATA = {
             "notes": "IMAX 全画幅原生 4K HDR 母盘"
         },
 
-        # --- 流浪地球 2 电影 Releases ---
+        # --- 流浪地球 电影系列 Releases ---
+        {
+            "key": "rel_wandering_earth_1_4k",
+            "work_key": "work_wandering_earth_1",
+            "publisher_artist_key": "china_film_group",
+            "edition_name": "流浪地球（4K UHD + BD 双碟铁盒典藏限量版，中影数字）",
+            "catalog_number": "CFG-WE1-4K-01",
+            "barcode": "978-7-8800-2019-8",
+            "publisher": "中国电影股份有限公司",
+            "packaging": "Steelbook",
+            "edition_date": "2019-10-01",
+            "country": "CHN",
+            "distribution_channel": "physical",
+            "notes": "官方 4K UHD 杜比视界+杜比全景声双碟典藏铁盒",
+            "mediums": [
+                {
+                    "position": 1,
+                    "name": "Disc 1 (4K UHD-BD): 《流浪地球》4K HDR 杜比视界正片",
+                    "format": "UHD-BD",
+                    "media_category": "movie",
+                    "tracks": [
+                        {"position": 1, "title": "《流浪地球》正片 (Dolby Vision / Dolby Atmos / 125分钟)", "duration_seconds": 7500, "artist_credit": "导演：郭帆 / 原作：刘慈欣 / 音乐：阿鲲"}
+                    ]
+                },
+                {
+                    "position": 2,
+                    "name": "Disc 2 (BD-50): 幕后花絮与重工业视效特辑",
+                    "format": "Blu-ray",
+                    "media_category": "movie",
+                    "tracks": [
+                        {"position": 1, "title": "《流浪地球》幕后纪录片：重工业科幻诞生纪实", "duration_seconds": 5400, "artist_credit": "制作：郭帆影业"}
+                    ]
+                }
+            ]
+        },
+        {
+            "key": "rel_wandering_earth_1_beyond",
+            "work_key": "work_wandering_earth_1",
+            "publisher_artist_key": "china_film_group",
+            "edition_name": "流浪地球：飞跃 2020 特别版（院线加长重映版，中影数字）",
+            "catalog_number": "CFG-WE1-BEYOND",
+            "barcode": "978-7-8800-2020-4",
+            "publisher": "中国电影股份有限公司",
+            "packaging": "Digital",
+            "edition_date": "2020-11-26",
+            "country": "CHN",
+            "distribution_channel": "digital",
+            "notes": "重映加长特别版，新增 11 分钟未公开剧情与特效升级"
+        },
         {
             "key": "rel_wandering_earth_2_4k",
             "work_key": "work_wandering_earth_2",
-            "publisher_artist_key": "chongqing_press",
+            "publisher_artist_key": "china_film_group",
             "edition_name": "流浪地球 2（4K UHD + 杜比全景声 典藏铁盒限量版，中影数字）",
             "catalog_number": "CFG-WE2-4K-01",
             "barcode": "978-7-8800-2023-1",
@@ -1675,7 +1947,82 @@ SEED_DATA = {
             "edition_date": "2023-08-15",
             "country": "CHN",
             "distribution_channel": "physical",
-            "notes": "4K HDR 杜比视界高规格母盘"
+            "notes": "4K HDR 杜比视界高规格母盘",
+            "mediums": [
+                {
+                    "position": 1,
+                    "name": "Disc 1 (4K UHD-BD): 《流浪地球 2》4K HDR 杜比视界正片",
+                    "format": "UHD-BD",
+                    "media_category": "movie",
+                    "tracks": [
+                        {"position": 1, "title": "《流浪地球 2》正片 (Dolby Vision / Dolby Atmos / 173分钟)", "duration_seconds": 10380, "artist_credit": "导演：郭帆 / 原作：刘慈欣 / 音乐：阿鲲"}
+                    ]
+                }
+            ]
+        },
+
+        # --- 流浪地球 电影原声大碟 Releases ---
+        {
+            "key": "rel_wandering_earth_1_ost_digital",
+            "work_key": "work_wandering_earth_1_ost",
+            "publisher_artist_key": "china_film_group",
+            "edition_name": "流浪地球 电影原声大碟（Hi-Res 96kHz/24bit 官方无损数字专辑）",
+            "catalog_number": "ROC-TWE-OST-01",
+            "barcode": "978-7-9008-0005-9",
+            "publisher": "阿鲲音乐工作室 / 中影数字",
+            "packaging": "Digital",
+            "edition_date": "2019-02-12",
+            "country": "CHN",
+            "distribution_channel": "digital",
+            "notes": "官方交响电影原声集，阿比路录音室实录",
+            "mediums": [
+                {
+                    "position": 1,
+                    "name": "Disc 1",
+                    "format": "Digital",
+                    "media_category": "music",
+                    "tracks": [
+                        {"position": 1, "title": "开启新征程 (Opening New Journey)", "duration_seconds": 248, "artist_credit": "阿鲲 / 英国皇家爱乐乐团"},
+                        {"position": 2, "title": "带着家园流浪 (Wandering with Our Home)", "duration_seconds": 182, "artist_credit": "阿鲲 / 英国皇家爱乐乐团"},
+                        {"position": 3, "title": "北京地下城 (Beijing Underground City)", "duration_seconds": 195, "artist_credit": "阿鲲 / 英国皇家爱乐乐团"},
+                        {"position": 4, "title": "上海冰封遗迹 (Shanghai Frozen Ruins)", "duration_seconds": 210, "artist_credit": "阿鲲 / 英国皇家爱乐乐团"},
+                        {"position": 5, "title": "空间站的凝视 (The Gaze of the Space Station)", "duration_seconds": 168, "artist_credit": "阿鲲 / 英国皇家爱乐乐团"},
+                        {"position": 6, "title": "点燃木星 (Ignite Jupiter)", "duration_seconds": 312, "artist_credit": "阿鲲 / 英国皇家爱乐乐团"},
+                        {"position": 7, "title": "人类的赞歌是勇气的赞歌 (Hymn of Courage)", "duration_seconds": 275, "artist_credit": "阿鲲 / 英国皇家爱乐乐团"}
+                    ]
+                }
+            ]
+        },
+        {
+            "key": "rel_wandering_earth_2_ost_digital",
+            "work_key": "work_wandering_earth_2_ost",
+            "publisher_artist_key": "china_film_group",
+            "edition_name": "流浪地球 2 电影原声大碟（Hi-Res 96kHz/24bit 官方数字黑胶纪念版）",
+            "catalog_number": "ROC-TWE2-OST-01",
+            "barcode": "978-7-9008-0006-6",
+            "publisher": "阿鲲音乐工作室 / 中影数字",
+            "packaging": "Digital",
+            "edition_date": "2023-01-22",
+            "country": "CHN",
+            "distribution_channel": "digital",
+            "notes": "官方电影原声大碟",
+            "mediums": [
+                {
+                    "position": 1,
+                    "name": "Disc 1",
+                    "format": "Digital",
+                    "media_category": "music",
+                    "tracks": [
+                        {"position": 1, "title": "太空电梯 (Space Elevator)", "duration_seconds": 264, "artist_credit": "阿鲲 / 电影交响乐团"},
+                        {"position": 2, "title": "月球坠落危机 (Moon Fall Crisis)", "duration_seconds": 285, "artist_credit": "阿鲲 / 电影交响乐团"},
+                        {"position": 3, "title": "移山计划 (Moving Mountain Project)", "duration_seconds": 230, "artist_credit": "阿鲲 / 电影交响乐团"},
+                        {"position": 4, "title": "550W / MOSS的觉醒 (Awakening of MOSS)", "duration_seconds": 192, "artist_credit": "阿鲲 / 电影交响乐团"},
+                        {"position": 5, "title": "在这儿，在这儿 (Right Here, Right Now)", "duration_seconds": 215, "artist_credit": "阿鲲 / 电影交响乐团"},
+                        {"position": 6, "title": "五十岁以上出列 (Volunteers Aged 50 and Above)", "duration_seconds": 308, "artist_credit": "阿鲲 / 电影交响乐团"},
+                        {"position": 7, "title": "奔赴阿尔法星 (Heading to Alpha Centauri)", "duration_seconds": 276, "artist_credit": "阿鲲 / 电影交响乐团"}
+                    ]
+                }
+            ]
         },
 
         # --- 诡秘之主 概念原声大碟 Releases ---
@@ -1905,10 +2252,48 @@ SEED_DATA = {
             ]
         },
         {
+            "work_key": "work_wandering_earth_novel",
+            "relations": [
+                {"artist_key": "liu_cixin", "role": "author"}
+            ]
+        },
+        {
+            "work_key": "work_wandering_earth_1",
+            "relations": [
+                {"artist_key": "guo_fan", "role": "director"},
+                {"artist_key": "liu_cixin", "role": "author"},
+                {"artist_key": "a_kun", "role": "composer"},
+                {"artist_key": "wu_jing", "role": "performer"},
+                {"artist_key": "qu_chuxiao", "role": "performer"},
+                {"artist_key": "li_guangjie", "role": "performer"},
+                {"artist_key": "zhao_jinmai", "role": "performer"},
+                {"artist_key": "wu_mengda", "role": "performer"},
+                {"artist_key": "china_film_group", "role": "studio"},
+                {"artist_key": "beijing_culture", "role": "studio"},
+                {"artist_key": "gwo_film", "role": "studio"}
+            ]
+        },
+        {
             "work_key": "work_wandering_earth_2",
             "relations": [
                 {"artist_key": "guo_fan", "role": "director"},
-                {"artist_key": "liu_cixin", "role": "author"}
+                {"artist_key": "liu_cixin", "role": "author"},
+                {"artist_key": "a_kun", "role": "composer"},
+                {"artist_key": "wu_jing", "role": "performer"},
+                {"artist_key": "china_film_group", "role": "studio"},
+                {"artist_key": "gwo_film", "role": "studio"}
+            ]
+        },
+        {
+            "work_key": "work_wandering_earth_1_ost",
+            "relations": [
+                {"artist_key": "a_kun", "role": "composer"}
+            ]
+        },
+        {
+            "work_key": "work_wandering_earth_2_ost",
+            "relations": [
+                {"artist_key": "a_kun", "role": "composer"}
             ]
         },
         {
@@ -1934,19 +2319,31 @@ SEED_DATA = {
         {"source_type": "work", "source_key": "work_coi", "target_type": "franchise", "target_key": "fr_lotm", "relationship_type": "part_of_franchise"},
         {"source_type": "work", "source_key": "work_lotm_ost", "target_type": "franchise", "target_key": "fr_lotm", "relationship_type": "part_of_franchise"},
         {"source_type": "work", "source_key": "work_threebody", "target_type": "franchise", "target_key": "fr_threebody", "relationship_type": "part_of_franchise"},
+        {"source_type": "work", "source_key": "work_wandering_earth_novel", "target_type": "franchise", "target_key": "fr_wandering_earth", "relationship_type": "part_of_franchise"},
+        {"source_type": "work", "source_key": "work_wandering_earth_1", "target_type": "franchise", "target_key": "fr_wandering_earth", "relationship_type": "part_of_franchise"},
+        {"source_type": "work", "source_key": "work_wandering_earth_2", "target_type": "franchise", "target_key": "fr_wandering_earth", "relationship_type": "part_of_franchise"},
+        {"source_type": "work", "source_key": "work_wandering_earth_1_ost", "target_type": "franchise", "target_key": "fr_wandering_earth", "relationship_type": "part_of_franchise"},
+        {"source_type": "work", "source_key": "work_wandering_earth_2_ost", "target_type": "franchise", "target_key": "fr_wandering_earth", "relationship_type": "part_of_franchise"},
+        {"source_type": "artist", "source_key": "liu_cixin", "target_type": "franchise", "target_key": "fr_wandering_earth", "relationship_type": "creator_of"},
+        {"source_type": "artist", "source_key": "guo_fan", "target_type": "franchise", "target_key": "fr_wandering_earth", "relationship_type": "creator_of"},
         {"source_type": "work", "source_key": "work_sao_anime", "target_type": "franchise", "target_key": "fr_sao", "relationship_type": "part_of_franchise"},
         {"source_type": "work", "source_key": "work_frieren_manga", "target_type": "franchise", "target_key": "fr_frieren", "relationship_type": "part_of_franchise"},
         {"source_type": "work", "source_key": "work_bocchi_anime", "target_type": "franchise", "target_key": "fr_bocchi", "relationship_type": "part_of_franchise"},
         {"source_type": "work", "source_key": "work_kessoku_album", "target_type": "franchise", "target_key": "fr_bocchi", "relationship_type": "part_of_franchise"},
         {"source_type": "work", "source_key": "work_eva_tv", "target_type": "franchise", "target_key": "fr_eva", "relationship_type": "part_of_franchise"},
 
-        # --- 作品间跨媒介关系 ---
+        # --- 作品间跨媒介关系 (DAG) ---
         {"source_type": "work", "source_key": "work_coi", "target_type": "work", "target_key": "work_lotm", "relationship_type": "sequel_of"},
         {"source_type": "work", "source_key": "work_lotm_ost", "target_type": "work", "target_key": "work_lotm", "relationship_type": "soundtrack_of"},
         {"source_type": "work", "source_key": "work_kessoku_album", "target_type": "work", "target_key": "work_bocchi_anime", "relationship_type": "soundtrack_of"},
         {"source_type": "work", "source_key": "work_interstellar_ost", "target_type": "work", "target_key": "work_interstellar", "relationship_type": "soundtrack_of"},
+        {"source_type": "work", "source_key": "work_wandering_earth_2", "target_type": "work", "target_key": "work_wandering_earth_1", "relationship_type": "prequel_of", "qualifier": "正统前传：太阳危机爆发前夕与太空电梯危机"},
+        {"source_type": "work", "source_key": "work_wandering_earth_1", "target_type": "work", "target_key": "work_wandering_earth_novel", "relationship_type": "adaptation_of", "qualifier": "改编自刘慈欣同名科幻名作"},
+        {"source_type": "work", "source_key": "work_wandering_earth_2", "target_type": "work", "target_key": "work_wandering_earth_novel", "relationship_type": "adaptation_of", "qualifier": "世界观与移山计划改编自刘慈欣原著"},
+        {"source_type": "work", "source_key": "work_wandering_earth_1_ost", "target_type": "work", "target_key": "work_wandering_earth_1", "relationship_type": "soundtrack_of", "qualifier": "第一部电影官方原声大碟"},
+        {"source_type": "work", "source_key": "work_wandering_earth_2_ost", "target_type": "work", "target_key": "work_wandering_earth_2", "relationship_type": "soundtrack_of", "qualifier": "第二部电影官方原声大碟"},
+        {"source_type": "work", "source_key": "work_wandering_earth_novel", "target_type": "work", "target_key": "work_threebody", "relationship_type": "crossover_with", "qualifier": "同属刘慈欣硬科幻宏大世界观核心创作"},
         {"source_type": "work", "source_key": "work_bocchi_anime", "target_type": "work", "target_key": "work_frieren_manga", "relationship_type": "crossover_with", "qualifier": "监督/作画主创联动"},
-        {"source_type": "work", "source_key": "work_wandering_earth_2", "target_type": "work", "target_key": "work_threebody", "relationship_type": "crossover_with", "qualifier": "同属刘慈欣宏大科幻世界观延伸"},
         {"source_type": "work", "source_key": "work_spirited_away", "target_type": "work", "target_key": "work_miyazaki_collection", "relationship_type": "included_in", "qualifier": "收录于全集盒装 (VWBS-1531 Disc 8)"}
     ],
 
@@ -2059,6 +2456,57 @@ AccurateRip 校验: 准确比对匹配 (v1 + v2 正确比对，100.0% 置信度)
    - 解决单次发行包含多个光盘（如 2CD + 1BD）或分卷的问题。
 
 欢迎大家在此帖下继续讨论更多特殊边缘案例的编目规范！
+"""
+        },
+        {
+            "board_code": "reviews",
+            "work_key": "work_wandering_earth_1",
+            "title": "【硬核考据】《流浪地球》系列木星引力弹弓、洛希极限与行星发动机重聚变能量拓扑分析",
+            "language": "zh-CN",
+            "tags": ["考据", "硬科幻", "流浪地球", "天体力学"],
+            "content": """# 《流浪地球》系列行星级天体力学与重聚变推进动力学考据
+
+在刘慈欣原著与郭帆导演的《流浪地球》宇宙中，面对太阳氦闪危机，人类建造了上万座高达 11 公里的重聚变行星发动机推动地球前行。
+
+---
+
+## 一、木星引力弹弓与洛希极限（Roche Limit）
+
+地球借力木星进行引力弹弓变轨加速时，木星与地球的刚体洛希极限公式为：
+
+$$
+d_R = R_M \\left( 2 \\frac{\\rho_M}{\\rho_E} \\right)^{1/3}
+$$
+
+而对于流体洛希极限（大气层剥离）：
+
+$$
+d_{\\text{fluid}} \\approx 2.44 R_M \\left( \\frac{\\rho_M}{\\rho_E} \\right)^{1/3}
+$$
+
+当流浪地球切入木星引力场过深，木星引力捕获导致地球大气被巨量剥离吸积形成“引力潮汐吸积桥”。CN171-11 救援队与刘培强中校点燃木星大气释放巨大爆轰波：
+
+$$
+E_{\\text{detonation}} = \\eta \\cdot m_{\\text{mixed}} \\cdot \\Delta H_{\\text{comb}} \\approx 10^{26} \\text{ J}
+$$
+
+---
+
+## 二、重核聚变（烧石头）与万座转向发动机推力
+
+单台喷气发动机推力达 150 亿吨（$F \\approx 1.5 \\times 10^{14}\\text{ N}$），万座发动机总推力：
+
+$$
+F_{\\text{total}} = 10^4 \\times 1.5 \\times 10^{14} \\text{ N} = 1.5 \\times 10^{18} \\text{ N}
+$$
+
+地球质量 $M_E \\approx 5.97 \\times 10^{24}\\text{ kg}$，获得加速度：
+
+$$
+a = \\frac{F_{\\text{total}}}{M_E} \\approx 2.5 \\times 10^{-7} \\text{ m/s}^2
+$$
+
+历经数百年逃逸时代加速后，最终达到光速的千分之五航向半人马座阿尔法星。
 """
         }
     ]
