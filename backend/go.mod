@@ -11,9 +11,10 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/minio/minio-go/v7 v7.3.0
 	github.com/opensearch-project/opensearch-go/v2 v2.3.0
+	github.com/redis/go-redis/v9 v9.5.1
 	golang.org/x/crypto v0.55.0
 	gorm.io/driver/postgres v1.5.7
-	gorm.io/gorm v1.25.10
+	gorm.io/gorm v1.31.2
 )
 
 require (
@@ -48,7 +49,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.3.1 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
-	github.com/redis/go-redis/v9 v9.5.1 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
