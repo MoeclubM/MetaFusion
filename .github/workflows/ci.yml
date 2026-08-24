@@ -29,10 +29,11 @@ jobs:
           git diff --exit-code -- go.mod go.sum || (echo "::error::go.mod/go.sum is not tidy"; exit 1)
       - name: go vet
         run: go vet ./...
-      - name: go build (server+worker)
+      - name: go build (server+worker+migrate)
         run: |
           CGO_ENABLED=0 go build -o /tmp/mf-server ./cmd/server
           CGO_ENABLED=0 go build -o /tmp/mf-worker ./cmd/worker
+          CGO_ENABLED=0 go build -o /tmp/mf-migrate ./cmd/migrate
 
   frontend:
     name: frontend (Bun 1.4 + Next build)

@@ -36,6 +36,7 @@ function print_usage() {
     echo "  fast [service]  - 增量极速更新指定服务 (默认)，自动复用构建缓存 (几秒内完成)"
     echo "  dev             - 启动热重载开发模式 (源码挂载，修改代码免构建秒级生效)"
     echo "  prod            - 完整生产模式冷启动"
+    echo "  migrate [cmd]   - 执行版本化数据库迁移 (up/down/status/force)"
     echo "  restart [svc]   - 快速重启容器 (不重编镜像)"
     echo "  prune           - 清理所有旧镜像与未使用的构建缓存 (释放磁盘)"
     echo "  logs [svc]      - 实时查看容器运行日志"
@@ -72,9 +73,18 @@ case "$ACTION" in
     prod)
         echo "🏭 启动生产集群模式..."
         export DOCKER_BUILDKIT=1
+        docker compose $COMPOSE_ENV -f docker-compose.yml build backend
+        echo "🗄️ 执行数据库版本化迁移 (Pre-deployment Migrate Up)..."
+        docker compose $COMPOSE_ENV run --rm --no-deps -e DB_HOST=postgres backend /app/migrate up
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 生产环境已启动！"
+        ;;
+
+    migrate)
+        CMD=${TARGET:-"up"}
+        echo "🗄️ 执行数据库版本化迁移 (mf-migrate $CMD)..."
+        docker compose $COMPOSE_ENV run --rm --no-deps -e DB_HOST=postgres backend /app/migrate "$CMD"
         ;;
 
     restart)

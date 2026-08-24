@@ -16,10 +16,24 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go mod tidy && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/server ./cmd/server && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/worker ./cmd/worker
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/worker ./cmd/worker && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/migrate ./cmd/migrate
 
 # ==============================================================================
-# Stage 2: Server Runtime (API Server)
+# Stage 2: Database Migrator Runtime
+# ==============================================================================
+FROM alpine:3.19 AS migrator
+
+WORKDIR /app
+RUN apk add --no-cache ca-certificates tzdata curl
+
+COPY --from=builder /app/bin/migrate /app/migrate
+
+ENTRYPOINT ["/app/migrate"]
+CMD ["up"]
+
+# ==============================================================================
+# Stage 3: Server Runtime (API Server)
 # ==============================================================================
 FROM alpine:3.19 AS server
 
@@ -27,12 +41,13 @@ WORKDIR /app
 RUN apk add --no-cache ca-certificates tzdata curl
 
 COPY --from=builder /app/bin/server /app/server
+COPY --from=builder /app/bin/migrate /app/migrate
 
 EXPOSE 8080
 ENTRYPOINT ["/app/server"]
 
 # ==============================================================================
-# Stage 3: Worker Runtime (Transcoder with FFmpeg, Mediainfo, libvips)
+# Stage 4: Worker Runtime (Transcoder with FFmpeg, Mediainfo, libvips)
 # ==============================================================================
 FROM alpine:3.19 AS worker
 

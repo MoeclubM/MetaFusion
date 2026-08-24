@@ -52,6 +52,10 @@ switch ($Action.ToLower()) {
         Write-Host "🏭 启动生产集群模式..." -ForegroundColor Green
         Invoke-DeploySh "prod"
     }
+    "migrate" {
+        Write-Host "🗄️ 执行数据库版本迁移..." -ForegroundColor Cyan
+        if ($Target) { Invoke-DeploySh "migrate $Target" } else { Invoke-DeploySh "migrate" }
+    }
     "restart" {
         Write-Host "🔄 重启容器..." -ForegroundColor Yellow
         if ($Target) { Invoke-DeploySh "restart $Target" } else { Invoke-DeploySh "restart" }
