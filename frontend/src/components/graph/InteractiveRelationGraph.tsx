@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/lib/themeContext";
 import { GraphNode, GraphLink, catalogEntityHref } from "@/lib/api";
@@ -219,11 +218,6 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const { t } = useI18n();
   const { resolvedMode } = useTheme();
   const isDark = resolvedMode === "dark";
-
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -600,21 +594,32 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const getSvgPoint = useCallback((clientX: number, clientY: number): { x: number; y: number } => {
     const svg = svgRef.current;
     if (!svg) return { x: 500, y: 340 };
-    const pt = svg.createSVGPoint();
-    pt.x = clientX;
-    pt.y = clientY;
-    const ctm = svg.getScreenCTM();
-    if (ctm) {
-      const inverted = ctm.inverse();
-      const svgPoint = pt.matrixTransform(inverted);
-      return { x: svgPoint.x, y: svgPoint.y };
+    try {
+      const pt = svg.createSVGPoint();
+      pt.x = clientX;
+      pt.y = clientY;
+      const ctm = svg.getScreenCTM();
+      if (ctm) {
+        const inverted = ctm.inverse();
+        const svgPoint = pt.matrixTransform(inverted);
+        if (Number.isFinite(svgPoint.x) && Number.isFinite(svgPoint.y)) {
+          return { x: svgPoint.x, y: svgPoint.y };
+        }
+      }
+    } catch {
+      // 捕获不可逆矩阵异常
     }
-    const rect = svg.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      return {
-        x: ((clientX - rect.left) / rect.width) * 1000,
-        y: ((clientY - rect.top) / rect.height) * 680,
-      };
+
+    try {
+      const rect = svg.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        return {
+          x: ((clientX - rect.left) / rect.width) * 1000,
+          y: ((clientY - rect.top) / rect.height) * 680,
+        };
+      }
+    } catch {
+      // 容错处理
     }
     return { x: 500, y: 340 };
   }, []);
@@ -646,6 +651,12 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         maxY = Math.max(maxY, n.y + bottomOffset);
       });
 
+      if (!Number.isFinite(minX) || !Number.isFinite(maxX) || !Number.isFinite(minY) || !Number.isFinite(maxY)) {
+        setZoom(1);
+        setPan({ x: 0, y: 0 });
+        return;
+      }
+
       const boxWidth = Math.max(140, maxX - minX);
       const boxHeight = Math.max(140, maxY - minY);
       const boxCenterX = (minX + maxX) / 2;
@@ -662,15 +673,19 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       const scaleY = availableHeight / boxHeight;
 
       // 缩放范围限制在 [0.45, 1.25]
-      const idealZoom = Math.min(1.25, Math.max(0.45, Math.min(scaleX, scaleY)));
+      const rawScale = Math.min(scaleX, scaleY);
+      const idealZoom = Number.isFinite(rawScale) ? Math.min(1.25, Math.max(0.45, rawScale)) : 1;
       const roundedZoom = +idealZoom.toFixed(3);
 
       // 将包围盒几何中心严格对准 SVG 视口中心 (500, 340)
       const targetPanX = +(svgWidth / 2 - roundedZoom * boxCenterX).toFixed(2);
       const targetPanY = +(svgHeight / 2 - roundedZoom * boxCenterY).toFixed(2);
 
-      setZoom(roundedZoom);
-      setPan({ x: targetPanX, y: targetPanY });
+      setZoom(Number.isFinite(roundedZoom) ? roundedZoom : 1);
+      setPan({
+        x: Number.isFinite(targetPanX) ? targetPanX : 0,
+        y: Number.isFinite(targetPanY) ? targetPanY : 0,
+      });
     },
     [layoutNodes]
   );
@@ -680,25 +695,146 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     fitToView();
   }, [layoutNodes, fitToView]);
 
-  // 全屏模式切换时重新自适应居中
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fitToView();
-    }, 60);
-    return () => clearTimeout(timer);
-  }, [isFullscreen, fitToView]);
+  // 原生 Fullscreen API 与 CSS 全屏兼容切换逻辑
+  const toggleFullscreen = useCallback(async () => {
+    const el = containerRef.current;
+    if (!el) return;
 
-  // 监听 ESC 键退出全屏
+    const doc = typeof document !== "undefined" ? (document as Document & {
+      webkitFullscreenElement?: Element;
+      webkitExitFullscreen?: () => Promise<void>;
+    }) : null;
+    if (!doc) return;
+
+    const isNativeFs = Boolean(
+      (doc.fullscreenElement && doc.fullscreenElement === el) ||
+      (doc.webkitFullscreenElement && doc.webkitFullscreenElement === el)
+    );
+
+    if (isNativeFs || isFullscreen) {
+      // 退出全屏
+      try {
+        if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+          if (doc.exitFullscreen) {
+            await doc.exitFullscreen();
+          } else if (doc.webkitExitFullscreen) {
+            await doc.webkitExitFullscreen();
+          }
+        }
+      } catch {
+        // 捕获退出异常
+      }
+      setIsFullscreen(false);
+    } else {
+      // 进入全屏 (优先调用原生 Fullscreen API)
+      const elem = el as HTMLDivElement & {
+        webkitRequestFullscreen?: () => Promise<void>;
+      };
+
+      try {
+        if (typeof elem.requestFullscreen === "function") {
+          await elem.requestFullscreen();
+        } else if (typeof elem.webkitRequestFullscreen === "function") {
+          await elem.webkitRequestFullscreen();
+        }
+      } catch (err) {
+        console.warn("Native fullscreen request failed, falling back to CSS fullscreen:", err);
+      }
+      setIsFullscreen(true);
+    }
+  }, [isFullscreen]);
+
+  // 同步原生全屏状态变化（如用户按 F11 / ESC 或由浏览器原生控制栏退出）
   useEffect(() => {
-    if (!isFullscreen) return;
+    if (typeof document === "undefined") return;
+
+    const handleFullscreenChange = () => {
+      const doc = document as Document & {
+        webkitFullscreenElement?: Element;
+      };
+      const isNativeFs = Boolean(
+        (doc.fullscreenElement && doc.fullscreenElement === containerRef.current) ||
+        (doc.webkitFullscreenElement && doc.webkitFullscreenElement === containerRef.current)
+      );
+      if (isNativeFs) {
+        setIsFullscreen(true);
+      } else if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
+        setIsFullscreen(false);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  // 监听 ESC 键在 CSS 全屏模式下退出
+  useEffect(() => {
+    if (!isFullscreen || typeof window === "undefined") return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        const doc = document as Document & {
+          webkitFullscreenElement?: Element;
+          webkitExitFullscreen?: () => Promise<void>;
+        };
+        if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+          if (doc.exitFullscreen) {
+            doc.exitFullscreen().catch(() => {});
+          } else if (doc.webkitExitFullscreen) {
+            doc.webkitExitFullscreen().catch(() => {});
+          }
+        }
         setIsFullscreen(false);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isFullscreen]);
+
+  // CSS 全屏时锁定主页面背景滚动
+  useEffect(() => {
+    if (!isFullscreen || typeof document === "undefined") return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [isFullscreen]);
+
+  // 监听容器与视口尺寸变动 (ResizeObserver)，无论是全屏切换、窗口缩放还是布局变化，立即执行平滑居中自适应
+  useEffect(() => {
+    const el = canvasContainerRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+
+    let rafId: number | null = null;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          if (rafId) cancelAnimationFrame(rafId);
+          rafId = requestAnimationFrame(() => {
+            fitToView();
+          });
+        }
+      }
+    });
+
+    observer.observe(el);
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+      observer.disconnect();
+    };
+  }, [fitToView]);
+
+  // 全屏状态切换后延时二次自适应校准，确保动效与渲染稳定
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fitToView();
+    }, 80);
+    return () => clearTimeout(timer);
+  }, [isFullscreen, fitToView]);
 
   // 以指定 SVG 锚点为基准的定点缩放算法 (Anchor Zooming Math)
   const handleZoomAnchor = useCallback((factor: number, anchor?: { x: number; y: number }) => {
@@ -811,16 +947,28 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     return list;
   }, [selectedNode, filteredLinks, layoutNodes, nodes]);
 
-  // 核心图谱内容组件 (可在正常视图与全屏视图之间无缝渲染)
-  const renderGraphContent = (isFullScreenMode: boolean) => (
+  return (
     <div
       ref={containerRef}
-      className={`relative flex flex-col overflow-hidden select-none ${
-        isFullScreenMode
-          ? "fixed inset-0 z-[99999] w-screen h-screen bg-background/98 backdrop-blur-2xl text-foreground"
+      className={`relative flex flex-col overflow-hidden select-none transition-[border-radius,box-shadow] duration-200 ${
+        isFullscreen
+          ? "fixed inset-0 z-[99999] w-screen h-screen max-w-none max-h-none m-0 rounded-none bg-background/98 backdrop-blur-2xl text-foreground"
           : `rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md shadow-sm ${className}`
       }`}
-      style={{ height: isFullScreenMode ? "100vh" : height }}
+      style={
+        isFullscreen
+          ? {
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              width: "100vw",
+              height: "100vh",
+              zIndex: 99999,
+            }
+          : { height }
+      }
     >
       {/* 顶部工具栏与控制面板 */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-background/85 border-b border-border/60 backdrop-blur-md z-10">
@@ -968,7 +1116,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             {/* 显眼独立的全屏切换按钮 */}
             <button
               type="button"
-              onClick={() => setIsFullscreen(!isFullscreen)}
+              onClick={toggleFullscreen}
               title={isFullscreen ? t("graph.exitFullscreen") : t("graph.fullscreenView")}
               className={`p-1.5 rounded-lg transition-all font-medium inline-flex items-center gap-1 ${
                 isFullscreen
@@ -1445,7 +1593,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           {!isFullscreen && (
             <button
               type="button"
-              onClick={() => setIsFullscreen(true)}
+              onClick={toggleFullscreen}
               title={t("graph.fullscreenView")}
               className="flex items-center gap-1 text-[11px] font-semibold bg-primary text-primary-foreground px-3 py-1.5 rounded-lg shadow-md hover:bg-primary/90 transition-all"
             >
@@ -1592,10 +1740,4 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       )}
     </div>
   );
-
-  if (isFullscreen && mounted && typeof document !== "undefined") {
-    return createPortal(renderGraphContent(true), document.body);
-  }
-
-  return renderGraphContent(false);
 };
