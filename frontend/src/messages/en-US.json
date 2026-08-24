@@ -1308,6 +1308,7 @@
   "graph.zoomIn": "Zoom In",
   "graph.zoomOut": "Zoom Out",
   "graph.resetView": "Reset View",
+  "graph.fitView": "Fit View",
   "graph.fullscreen": "Fullscreen",
   "graph.exitFullscreen": "Exit Fullscreen",
   "graph.layoutForce": "Force-Directed",
@@ -1563,7 +1564,7 @@
   "graph.zoomIn": "Zoom In",
   "graph.zoomOut": "Zoom Out",
   "graph.resetView": "Reset View",
-  "graph.fitView": "Fit to Screen",
+  "graph.fitView": "Fit View",
   "graph.centerNode": "Center Focus",
   "graph.fullscreen": "Fullscreen",
   "graph.exitFullscreen": "Exit Fullscreen",
@@ -1601,6 +1602,6 @@
   "graph.relationCount": "{count} relations",
   "graph.viewGraph": "Graph View",
   "graph.viewList": "List View",
-  "graph.fullscreenView": "Immersive Fullscreen",
-  "graph.autoFit": "Auto-Fit & Center"
+  "graph.fullscreenView": "Fullscreen",
+  "graph.autoFit": "Fit View"
 }

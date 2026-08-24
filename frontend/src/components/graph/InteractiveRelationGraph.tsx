@@ -25,7 +25,6 @@ import {
   Film,
   X,
   Scan,
-  RotateCcw,
 } from "lucide-react";
 
 export interface InteractiveRelationGraphProps {
@@ -695,98 +694,16 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     fitToView();
   }, [layoutNodes, fitToView]);
 
-  // 原生 Fullscreen API 与 CSS 全屏兼容切换逻辑
-  const toggleFullscreen = useCallback(async () => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const doc = typeof document !== "undefined" ? (document as Document & {
-      webkitFullscreenElement?: Element;
-      webkitExitFullscreen?: () => Promise<void>;
-    }) : null;
-    if (!doc) return;
-
-    const isNativeFs = Boolean(
-      (doc.fullscreenElement && doc.fullscreenElement === el) ||
-      (doc.webkitFullscreenElement && doc.webkitFullscreenElement === el)
-    );
-
-    if (isNativeFs || isFullscreen) {
-      // 退出全屏
-      try {
-        if (doc.fullscreenElement || doc.webkitFullscreenElement) {
-          if (doc.exitFullscreen) {
-            await doc.exitFullscreen();
-          } else if (doc.webkitExitFullscreen) {
-            await doc.webkitExitFullscreen();
-          }
-        }
-      } catch {
-        // 捕获退出异常
-      }
-      setIsFullscreen(false);
-    } else {
-      // 进入全屏 (优先调用原生 Fullscreen API)
-      const elem = el as HTMLDivElement & {
-        webkitRequestFullscreen?: () => Promise<void>;
-      };
-
-      try {
-        if (typeof elem.requestFullscreen === "function") {
-          await elem.requestFullscreen();
-        } else if (typeof elem.webkitRequestFullscreen === "function") {
-          await elem.webkitRequestFullscreen();
-        }
-      } catch (err) {
-        console.warn("Native fullscreen request failed, falling back to CSS fullscreen:", err);
-      }
-      setIsFullscreen(true);
-    }
-  }, [isFullscreen]);
-
-  // 同步原生全屏状态变化（如用户按 F11 / ESC 或由浏览器原生控制栏退出）
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-
-    const handleFullscreenChange = () => {
-      const doc = document as Document & {
-        webkitFullscreenElement?: Element;
-      };
-      const isNativeFs = Boolean(
-        (doc.fullscreenElement && doc.fullscreenElement === containerRef.current) ||
-        (doc.webkitFullscreenElement && doc.webkitFullscreenElement === containerRef.current)
-      );
-      if (isNativeFs) {
-        setIsFullscreen(true);
-      } else if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
-        setIsFullscreen(false);
-      }
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
-    };
+  // 网页窗口内最大化切换逻辑 (In-Browser Fullscreen / 窗口内铺满视口)
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((prev) => !prev);
   }, []);
 
-  // 监听 ESC 键在 CSS 全屏模式下退出
+  // 监听 ESC 键在窗口内最大化模式下退出
   useEffect(() => {
     if (!isFullscreen || typeof window === "undefined") return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        const doc = document as Document & {
-          webkitFullscreenElement?: Element;
-          webkitExitFullscreen?: () => Promise<void>;
-        };
-        if (doc.fullscreenElement || doc.webkitFullscreenElement) {
-          if (doc.exitFullscreen) {
-            doc.exitFullscreen().catch(() => {});
-          } else if (doc.webkitExitFullscreen) {
-            doc.webkitExitFullscreen().catch(() => {});
-          }
-        }
         setIsFullscreen(false);
       }
     };
@@ -794,7 +711,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isFullscreen]);
 
-  // CSS 全屏时锁定主页面背景滚动
+  // 窗口内最大化时锁定主页面背景滚动
   useEffect(() => {
     if (!isFullscreen || typeof document === "undefined") return;
     const prevOverflow = document.body.style.overflow;
@@ -804,7 +721,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     };
   }, [isFullscreen]);
 
-  // 监听容器与视口尺寸变动 (ResizeObserver)，无论是全屏切换、窗口缩放还是布局变化，立即执行平滑居中自适应
+  // 监听容器与视口尺寸变动 (ResizeObserver)，无论是最大化切换还是窗口缩放，立即执行平滑自适应居中
   useEffect(() => {
     const el = canvasContainerRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
@@ -828,11 +745,11 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     };
   }, [fitToView]);
 
-  // 全屏状态切换后延时二次自适应校准，确保动效与渲染稳定
+  // 最大化状态切换后延时二次自适应校准，确保动效与渲染稳定
   useEffect(() => {
     const timer = setTimeout(() => {
       fitToView();
-    }, 80);
+    }, 60);
     return () => clearTimeout(timer);
   }, [isFullscreen, fitToView]);
 
@@ -952,7 +869,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       ref={containerRef}
       className={`relative flex flex-col overflow-hidden select-none transition-[border-radius,box-shadow] duration-200 ${
         isFullscreen
-          ? "fixed inset-0 z-[99999] w-screen h-screen max-w-none max-h-none m-0 rounded-none bg-background/98 backdrop-blur-2xl text-foreground"
+          ? "fixed inset-0 z-50 w-screen h-screen max-w-none max-h-none m-0 rounded-none bg-background text-foreground"
           : `rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md shadow-sm ${className}`
       }`}
       style={
@@ -965,7 +882,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               bottom: 0,
               width: "100vw",
               height: "100vh",
-              zIndex: 99999,
+              zIndex: 50,
             }
           : { height }
       }
@@ -1113,14 +1030,14 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               <Scan className="w-4 h-4" />
             </button>
 
-            {/* 显眼独立的全屏切换按钮 */}
+            {/* 窗口内全屏/最大化切换按钮 */}
             <button
               type="button"
               onClick={toggleFullscreen}
-              title={isFullscreen ? t("graph.exitFullscreen") : t("graph.fullscreenView")}
-              className={`p-1.5 rounded-lg transition-all font-medium inline-flex items-center gap-1 ${
+              title={isFullscreen ? t("graph.exitFullscreen") : t("graph.fullscreen")}
+              className={`p-1.5 rounded-lg transition-all font-medium inline-flex items-center gap-1.5 ${
                 isFullscreen
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                   : "hover:bg-primary/10 hover:text-primary text-muted-foreground"
               }`}
             >
@@ -1128,6 +1045,9 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                 <>
                   <Minimize2 className="w-4 h-4" />
                   <span className="hidden md:inline text-xs font-sans">{t("graph.exitFullscreen")}</span>
+                  <kbd className="hidden sm:inline-block text-[10px] font-mono bg-black/20 text-primary-foreground/90 px-1.5 py-0.5 rounded leading-none">
+                    ESC
+                  </kbd>
                 </>
               ) : (
                 <>
@@ -1577,30 +1497,6 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         <div className="absolute bottom-3 left-4 pointer-events-none text-[11px] text-muted-foreground/90 flex items-center gap-1.5 bg-background/85 backdrop-blur-md px-3 py-1.5 rounded-full border border-border/50 shadow-xs">
           <Info className="w-3.5 h-3.5 text-primary shrink-0" />
           <span>{t("graph.interactiveHint")}</span>
-        </div>
-
-        {/* 右下角浮动快捷复位与全屏按钮 */}
-        <div className="absolute bottom-3 right-4 flex items-center gap-1.5 z-10">
-          <button
-            type="button"
-            onClick={() => fitToView()}
-            title={t("graph.autoFit")}
-            className="flex items-center gap-1 text-[11px] font-medium bg-background/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-border/60 hover:bg-secondary text-muted-foreground hover:text-foreground shadow-xs transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5 text-primary" />
-            <span className="hidden sm:inline">{t("graph.autoFit")}</span>
-          </button>
-          {!isFullscreen && (
-            <button
-              type="button"
-              onClick={toggleFullscreen}
-              title={t("graph.fullscreenView")}
-              className="flex items-center gap-1 text-[11px] font-semibold bg-primary text-primary-foreground px-3 py-1.5 rounded-lg shadow-md hover:bg-primary/90 transition-all"
-            >
-              <Maximize2 className="w-3.5 h-3.5" />
-              <span>{t("graph.fullscreenView")}</span>
-            </button>
-          )}
         </div>
       </div>
 
