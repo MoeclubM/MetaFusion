@@ -239,20 +239,6 @@ export default function ReleaseDetailPage() {
             </div>
           )}
 
-          {/* 关联实体网络 */}
-          {graphData && graphData.nodes.length > 1 && (
-            <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
-              <InteractiveRelationGraph
-                centerEntityId={release.id}
-                centerEntityType="release"
-                nodes={graphData.nodes}
-                links={graphData.links}
-                height={580}
-                title={t("graph.titleRelease")}
-              />
-            </div>
-          )}
-
           {/* Action Toolbar */}
           <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
             <EntityActionToolbar
@@ -264,6 +250,18 @@ export default function ReleaseDetailPage() {
             </EntityActionToolbar>
           </div>
         </section>
+
+        {/* 关联实体网络 */}
+        {graphData && graphData.nodes.length > 1 && (
+          <InteractiveRelationGraph
+            centerEntityId={release.id}
+            centerEntityType="release"
+            nodes={graphData.nodes}
+            links={graphData.links}
+            height={580}
+            title={t("graph.titleRelease")}
+          />
+        )}
 
         {release.mediums && release.mediums.length > 0 ? (
           <div className="space-y-4 sm:space-y-5">

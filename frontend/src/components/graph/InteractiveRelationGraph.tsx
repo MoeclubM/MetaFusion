@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/lib/themeContext";
 import { GraphNode, GraphLink, catalogEntityHref } from "@/lib/api";
@@ -25,9 +26,10 @@ import {
   Film,
   X,
   Scan,
+  RotateCcw,
 } from "lucide-react";
 
-interface InteractiveRelationGraphProps {
+export interface InteractiveRelationGraphProps {
   centerEntityId: string;
   centerEntityType: string;
   nodes: GraphNode[];
@@ -38,6 +40,7 @@ interface InteractiveRelationGraphProps {
   onEdgeClick?: (link: GraphLink) => void;
   showInspector?: boolean;
   title?: string;
+  headerRightExtra?: React.ReactNode;
 }
 
 interface LayoutNode extends GraphNode {
@@ -147,7 +150,7 @@ const getLinkColorHex = (color?: string) => {
   }
 };
 
-// 连线谓词徽标智能定位与包围盒避让算法 (Smart Edge Badge Placement & Node Capsule Boundary Avoidance)
+// 连线谓词徽标智能定位与包围盒避让算法
 const calculateEdgeBadgePosition = (
   src: LayoutNode,
   tgt: LayoutNode,
@@ -157,14 +160,11 @@ const calculateEdgeBadgePosition = (
   const dy = tgt.y - src.y;
   const dist = Math.hypot(dx, dy) || 1;
 
-  // 节点下方胶囊边界估计：高度 28px，下移 r + 20px，加上阴影安全外边距至 r + 46px
   const capsuleBottomOffset = 46;
 
-  // 初始参数区间（排除两端节点中心圆）
   let tMin = (src.radius + 24) / dist;
   let tMax = 1 - (tgt.radius + 24) / dist;
 
-  // 若从 src 向下连线 (dy > 0)，可能穿过 src 下方的标题胶囊
   if (dy > 0) {
     const capHeightDist = src.radius + capsuleBottomOffset;
     const xOffsetAtCapBottom = Math.abs((dx / dy) * capHeightDist);
@@ -174,7 +174,6 @@ const calculateEdgeBadgePosition = (
     }
   }
 
-  // 若连线向上到达 tgt (dy < 0，tgt 在上方)，可能被 tgt 下方的标题胶囊挡住
   if (dy < 0) {
     const capHeightDist = tgt.radius + capsuleBottomOffset;
     const xOffsetAtCapBottom = Math.abs((dx / Math.abs(dy)) * capHeightDist);
@@ -184,7 +183,6 @@ const calculateEdgeBadgePosition = (
     }
   }
 
-  // 最佳插值参数
   let t = 0.5;
   if (tMin < tMax) {
     t = (tMin + tMax) / 2;
@@ -195,7 +193,6 @@ const calculateEdgeBadgePosition = (
   let posX = src.x + t * dx;
   let posY = src.y + t * dy;
 
-  // 如果极端情况下两节点垂直间距过小 (tMin >= tMax)，向法线方向侧移 28px 避开胶囊正中
   if (tMin >= tMax) {
     const normalX = -dy / dist;
     const normalY = dx / dist;
@@ -217,16 +214,22 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   onEdgeClick,
   showInspector = true,
   title,
+  headerRightExtra,
 }) => {
   const { t } = useI18n();
   const { resolvedMode } = useTheme();
   const isDark = resolvedMode === "dark";
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // 拖拽手势状态追踪 Ref
+  // 拖拽平移手势追踪
   const dragRef = useRef<{
     isDown: boolean;
     startX: number;
@@ -247,13 +250,14 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<"radial" | "hierarchy" | "force">("hierarchy");
+  // 严格默认采用层级结构 (Hierarchy) 布局
+  const [layoutMode, setLayoutMode] = useState<"hierarchy" | "radial" | "force">("hierarchy");
   const [filterType, setFilterType] = useState<"all" | "hierarchy" | "cast" | "media">("all");
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredLinkId, setHoveredLinkId] = useState<string | null>(null);
 
-  // 主题自适应高保真颜色
+  // 主题配色
   const capsuleBg = isDark ? "#18181b" : "#ffffff";
   const capsuleStroke = isDark ? "#27272a" : "#e4e4e7";
   const nodeNameFill = isDark ? "#f4f4f5" : "#09090b";
@@ -306,7 +310,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     return links;
   }, [links, filterType]);
 
-  // 根据过滤后的连线获取激活的节点
+  // 获取激活的节点集合
   const activeNodeIds = useMemo(() => {
     const set = new Set<string>([centerEntityId]);
     filteredLinks.forEach((l) => {
@@ -320,18 +324,18 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     return nodes.filter((n) => activeNodeIds.has(n.id));
   }, [nodes, activeNodeIds]);
 
-  // 计算节点布局坐标 (宽 1000, 高 680 基准坐标系)
+  // 计算节点布局坐标并执行全局几何中心对齐校准 (1000 x 680 基准坐标系)
   const layoutNodes = useMemo<Map<string, LayoutNode>>(() => {
     const map = new Map<string, LayoutNode>();
-    const width = 1000;
-    const height = 680;
-    const centerX = width / 2;
-    const centerY = height / 2;
+    const baseWidth = 1000;
+    const baseHeight = 680;
+    const centerX = baseWidth / 2;
+    const centerY = baseHeight / 2;
 
     const otherNodes = activeNodes.filter((n) => n.id !== centerEntityId);
     const totalOthers = otherNodes.length;
 
-    // 中心节点配置
+    // 中心节点初始化
     const centerNode = activeNodes.find((n) => n.id === centerEntityId) || {
       id: centerEntityId,
       name: centerEntityId,
@@ -346,13 +350,13 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       y: centerY,
       vx: 0,
       vy: 0,
-      radius: 38, // 中心节点 76px 直径
+      radius: 38,
     });
 
     if (layoutMode === "radial") {
-      // 放射状布局：单环或双层同心环交错排布
+      // 环形放射布局
       if (totalOthers <= 7) {
-        const radius = Math.max(270, 200 + totalOthers * 16);
+        const radius = Math.max(260, 190 + totalOthers * 16);
         otherNodes.forEach((node, i) => {
           const angle = (i / Math.max(1, totalOthers)) * 2 * Math.PI - Math.PI / 2;
           const x = centerX + radius * Math.cos(angle);
@@ -363,14 +367,14 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             y,
             vx: 0,
             vy: 0,
-            radius: 30, // 普通节点 60px 直径
+            radius: 30,
           });
         });
       } else {
         const innerCount = Math.min(6, Math.ceil(totalOthers / 2));
         const outerCount = totalOthers - innerCount;
-        const rInner = 250;
-        const rOuter = 410;
+        const rInner = 240;
+        const rOuter = 390;
 
         for (let i = 0; i < innerCount; i++) {
           const node = otherNodes[i];
@@ -404,7 +408,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         }
       }
     } else if (layoutMode === "hierarchy") {
-      // 层次结构布局：充裕的层级间距
+      // 层级结构 (Hierarchy) 布局：精细化分类与充裕间距排布
       const topNodes: GraphNode[] = [];
       const bottomReleaseNodes: GraphNode[] = [];
       const bottomMediumNodes: GraphNode[] = [];
@@ -432,12 +436,12 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
       // Top (企划、原作、前作)
       topNodes.forEach((node, i) => {
-        const span = Math.max(0, (topNodes.length - 1) * 240);
+        const span = Math.max(0, (topNodes.length - 1) * 250);
         const startX = centerX - span / 2 + (topNodes.length > 1 ? (span / (topNodes.length - 1)) * i : 0);
-        map.set(node.id, { ...node, x: startX, y: centerY - 230, vx: 0, vy: 0, radius: 32 });
+        map.set(node.id, { ...node, x: startX, y: centerY - 220, vx: 0, vy: 0, radius: 32 });
       });
 
-      // Bottom 1 (发行版、续作、改编)
+      // Bottom 1 (发行版、规格)
       bottomReleaseNodes.forEach((node, i) => {
         const span = Math.max(0, (bottomReleaseNodes.length - 1) * 240);
         const startX =
@@ -445,7 +449,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         map.set(node.id, {
           ...node,
           x: startX,
-          y: centerY + (bottomMediumNodes.length > 0 ? 190 : 230),
+          y: centerY + (bottomMediumNodes.length > 0 ? 180 : 220),
           vx: 0,
           vy: 0,
           radius: 30,
@@ -457,24 +461,24 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         const span = Math.max(0, (bottomMediumNodes.length - 1) * 210);
         const startX =
           centerX - span / 2 + (bottomMediumNodes.length > 1 ? (span / (bottomMediumNodes.length - 1)) * i : 0);
-        map.set(node.id, { ...node, x: startX, y: centerY + 300, vx: 0, vy: 0, radius: 28 });
+        map.set(node.id, { ...node, x: startX, y: centerY + 280, vx: 0, vy: 0, radius: 28 });
       });
 
-      // Left (创作者、演职员)
+      // Left (创作者、演职员、出版机构)
       leftArtistNodes.forEach((node, i) => {
         const total = leftArtistNodes.length;
-        const startY = centerY - ((total - 1) * 130) / 2;
-        map.set(node.id, { ...node, x: centerX - 380, y: startY + i * 130, vx: 0, vy: 0, radius: 30 });
+        const startY = centerY - ((total - 1) * 125) / 2;
+        map.set(node.id, { ...node, x: centerX - 360, y: startY + i * 125, vx: 0, vy: 0, radius: 30 });
       });
 
-      // Right (衍生品、跨媒介联动等)
+      // Right (跨媒介改编、原声带、衍生品等)
       rightOtherNodes.forEach((node, i) => {
         const total = rightOtherNodes.length;
-        const startY = centerY - ((total - 1) * 130) / 2;
-        map.set(node.id, { ...node, x: centerX + 380, y: startY + i * 130, vx: 0, vy: 0, radius: 30 });
+        const startY = centerY - ((total - 1) * 125) / 2;
+        map.set(node.id, { ...node, x: centerX + 360, y: startY + i * 125, vx: 0, vy: 0, radius: 30 });
       });
     } else {
-      // 自然力导向模拟排布
+      // 自然力导向模拟排布 (Force-Directed)
       const simNodes: LayoutNode[] = [
         {
           ...centerNode,
@@ -488,7 +492,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
       otherNodes.forEach((node, i) => {
         const angle = (i / Math.max(1, totalOthers)) * 2 * Math.PI;
-        const initDist = 260;
+        const initDist = 250;
         simNodes.push({
           ...node,
           x: centerX + initDist * Math.cos(angle) + (Math.random() - 0.5) * 20,
@@ -500,9 +504,9 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       });
 
       const kRep = 80000;
-      const targetLen = 270;
+      const targetLen = 260;
       const kSpring = 0.04;
-      const kCenter = 0.012;
+      const kCenter = 0.015;
 
       for (let iter = 0; iter < 60; iter++) {
         for (let i = 0; i < simNodes.length; i++) {
@@ -512,7 +516,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             const dx = n2.x - n1.x;
             const dy = n2.y - n1.y;
             const dist = Math.hypot(dx, dy) || 1;
-            if (dist < 200) {
+            if (dist < 220) {
               const force = (kRep / (dist * dist)) * 1.5;
               const fx = (dx / dist) * force;
               const fy = (dy / dist) * force;
@@ -555,13 +559,37 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           const n = simNodes[i];
           n.x += (centerX - n.x) * kCenter;
           n.y += (centerY - n.y) * kCenter;
-          n.x = Math.max(120, Math.min(880, n.x));
-          n.y = Math.max(100, Math.min(580, n.y));
         }
       }
 
       simNodes.forEach((node) => {
         map.set(node.id, node);
+      });
+    }
+
+    // 【全局几何中心校准】：无论哪种布局算法，均计算整体外接包围盒并自动平移对齐到 (500, 340)
+    if (map.size > 0) {
+      let bMinX = Infinity;
+      let bMaxX = -Infinity;
+      let bMinY = Infinity;
+      let bMaxY = -Infinity;
+
+      map.forEach((node) => {
+        bMinX = Math.min(bMinX, node.x);
+        bMaxX = Math.max(bMaxX, node.x);
+        bMinY = Math.min(bMinY, node.y);
+        bMaxY = Math.max(bMaxY, node.y);
+      });
+
+      const boundCenterX = (bMinX + bMaxX) / 2;
+      const boundCenterY = (bMinY + bMaxY) / 2;
+      const shiftX = centerX - boundCenterX;
+      const shiftY = centerY - boundCenterY;
+
+      // 平移校正所有节点
+      map.forEach((node) => {
+        node.x = +(node.x + shiftX).toFixed(2);
+        node.y = +(node.y + shiftY).toFixed(2);
       });
     }
 
@@ -591,7 +619,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     return { x: 500, y: 340 };
   }, []);
 
-  // 自适应适配视口 (Fit to View / Auto-Center)：根据所有节点包围盒计算优雅缩放与居中
+  // 自适应适配居中 (Auto-Fit & Centering)
   const fitToView = useCallback(
     (customNodes?: Map<string, LayoutNode>) => {
       const nodesMap = customNodes || layoutNodes;
@@ -608,7 +636,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       let maxY = -Infinity;
 
       nodeList.forEach((n) => {
-        const halfPillWidth = 110;
+        const halfPillWidth = 115;
         const topOffset = n.radius + 15;
         const bottomOffset = n.radius + 45;
 
@@ -618,14 +646,14 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         maxY = Math.max(maxY, n.y + bottomOffset);
       });
 
-      const boxWidth = Math.max(120, maxX - minX);
-      const boxHeight = Math.max(120, maxY - minY);
+      const boxWidth = Math.max(140, maxX - minX);
+      const boxHeight = Math.max(140, maxY - minY);
       const boxCenterX = (minX + maxX) / 2;
       const boxCenterY = (minY + maxY) / 2;
 
       const svgWidth = 1000;
       const svgHeight = 680;
-      const padding = 55;
+      const padding = 75; // 舒适的安全留白边界
 
       const availableWidth = svgWidth - padding * 2;
       const availableHeight = svgHeight - padding * 2;
@@ -634,12 +662,12 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       const scaleY = availableHeight / boxHeight;
 
       // 缩放范围限制在 [0.45, 1.25]
-      const idealZoom = Math.min(1.2, Math.max(0.45, Math.min(scaleX, scaleY)));
-      const roundedZoom = +idealZoom.toFixed(2);
+      const idealZoom = Math.min(1.25, Math.max(0.45, Math.min(scaleX, scaleY)));
+      const roundedZoom = +idealZoom.toFixed(3);
 
-      // 将包围盒几何中心对准 SVG 视口中心 (500, 340)
-      const targetPanX = +(svgWidth / 2 - roundedZoom * boxCenterX).toFixed(1);
-      const targetPanY = +(svgHeight / 2 - roundedZoom * boxCenterY).toFixed(1);
+      // 将包围盒几何中心严格对准 SVG 视口中心 (500, 340)
+      const targetPanX = +(svgWidth / 2 - roundedZoom * boxCenterX).toFixed(2);
+      const targetPanY = +(svgHeight / 2 - roundedZoom * boxCenterY).toFixed(2);
 
       setZoom(roundedZoom);
       setPan({ x: targetPanX, y: targetPanY });
@@ -647,12 +675,20 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     [layoutNodes]
   );
 
-  // 布局模式或过滤切换时自动适配居中视角
+  // 节点数据/布局改变时自动执行自适应居中
   useEffect(() => {
     fitToView();
-  }, [layoutMode, filterType, centerEntityId, fitToView]);
+  }, [layoutNodes, fitToView]);
 
-  // 监听 Escape 键退出全屏
+  // 全屏模式切换时重新自适应居中
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fitToView();
+    }, 60);
+    return () => clearTimeout(timer);
+  }, [isFullscreen, fitToView]);
+
+  // 监听 ESC 键退出全屏
   useEffect(() => {
     if (!isFullscreen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -664,37 +700,25 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isFullscreen]);
 
-  // 全屏切换时重新适配居中
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fitToView();
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [isFullscreen, fitToView]);
-
-  // 重置视图
-  const handleResetView = useCallback(() => {
-    fitToView();
-    setSelectedNode(null);
-  }, [fitToView]);
-
-  // 工具栏按钮定点缩放（以视口中心 (500, 340) 为锚点）
-  const handleZoom = useCallback((factor: number) => {
+  // 以指定 SVG 锚点为基准的定点缩放算法 (Anchor Zooming Math)
+  const handleZoomAnchor = useCallback((factor: number, anchor?: { x: number; y: number }) => {
     setZoom((prevZoom) => {
       const nextZoom = Math.min(3.5, Math.max(0.3, +(prevZoom * factor).toFixed(3)));
       if (nextZoom === prevZoom) return prevZoom;
       const scaleChange = nextZoom / prevZoom;
-      const cx = 500;
-      const cy = 340;
+      const ax = anchor?.x ?? 500;
+      const ay = anchor?.y ?? 340;
+
       setPan((prevPan) => ({
-        x: +(cx - (cx - prevPan.x) * scaleChange).toFixed(2),
-        y: +(cy - (cy - prevPan.y) * scaleChange).toFixed(2),
+        x: +(ax - (ax - prevPan.x) * scaleChange).toFixed(2),
+        y: +(ay - (ay - prevPan.y) * scaleChange).toFixed(2),
       }));
+
       return nextZoom;
     });
   }, []);
 
-  // 鼠标滚轮以光标所在 SVG 真实坐标为原点进行定点缩放 (Anchor Zooming)
+  // 鼠标滚轮以光标所在 SVG 真实坐标为原点进行定点缩放
   useEffect(() => {
     const el = canvasContainerRef.current;
     if (!el) return;
@@ -704,27 +728,17 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       e.stopPropagation();
 
       const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-      const { x: mx, y: my } = getSvgPoint(e.clientX, e.clientY);
-
-      setZoom((prevZoom) => {
-        const nextZoom = Math.min(3.5, Math.max(0.3, +(prevZoom * factor).toFixed(3)));
-        if (nextZoom === prevZoom) return prevZoom;
-        const scaleChange = nextZoom / prevZoom;
-        setPan((prevPan) => ({
-          x: +(mx - (mx - prevPan.x) * scaleChange).toFixed(2),
-          y: +(my - (my - prevPan.y) * scaleChange).toFixed(2),
-        }));
-        return nextZoom;
-      });
+      const pt = getSvgPoint(e.clientX, e.clientY);
+      handleZoomAnchor(factor, pt);
     };
 
     el.addEventListener("wheel", handleNativeWheel, { passive: false });
     return () => {
       el.removeEventListener("wheel", handleNativeWheel);
     };
-  }, [getSvgPoint]);
+  }, [getSvgPoint, handleZoomAnchor]);
 
-  // 鼠标 / 触控指针拖拽平移事件处理（使用精准 Pointer Events 并在拖拽期间保持 1:1 位移）
+  // 鼠标 / 触控指针拖拽平移事件处理
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
 
@@ -797,32 +811,39 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     return list;
   }, [selectedNode, filteredLinks, layoutNodes, nodes]);
 
-  return (
+  // 核心图谱内容组件 (可在正常视图与全屏视图之间无缝渲染)
+  const renderGraphContent = (isFullScreenMode: boolean) => (
     <div
       ref={containerRef}
-      className={`relative flex flex-col rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md overflow-hidden shadow-sm select-none ${
-        isFullscreen ? "fixed inset-0 z-[9999] rounded-none h-screen w-screen bg-background/95 backdrop-blur-2xl" : ""
-      } ${className}`}
-      style={{ height: isFullscreen ? "100vh" : height }}
+      className={`relative flex flex-col overflow-hidden select-none ${
+        isFullScreenMode
+          ? "fixed inset-0 z-[99999] w-screen h-screen bg-background/98 backdrop-blur-2xl text-foreground"
+          : `rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md shadow-sm ${className}`
+      }`}
+      style={{ height: isFullScreenMode ? "100vh" : height }}
     >
       {/* 顶部工具栏与控制面板 */}
       <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-background/85 border-b border-border/60 backdrop-blur-md z-10">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="p-1.5 rounded-lg bg-primary/10 text-primary shrink-0">
             <Network className="w-4 h-4" />
           </div>
-          <div>
-            <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <h3 className="text-xs font-semibold text-foreground truncate">
               {title || t("graph.title")}
-              <span className="text-[10px] font-mono font-medium text-muted-foreground px-2 py-0.5 rounded-full bg-secondary border border-border/40">
-                {t("graph.connectedNodes", { count: activeNodes.length })}
-              </span>
             </h3>
+            <span className="text-[10px] font-mono font-medium text-muted-foreground px-2 py-0.5 rounded-full bg-secondary border border-border/40 shrink-0">
+              {t("graph.connectedNodes", { count: activeNodes.length })}
+            </span>
           </div>
         </div>
 
-        {/* 布局与过滤器 */}
+        {/* 布局、过滤器与控制器 */}
         <div className="flex flex-wrap items-center gap-1.5">
+          {headerRightExtra && (
+            <div className="mr-1 border-r border-border/60 pr-2">{headerRightExtra}</div>
+          )}
+
           {/* 关系分类过滤 */}
           <div className="flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-[11px]">
             <button
@@ -871,21 +892,8 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             </button>
           </div>
 
-          {/* 拓扑排布模式 */}
+          {/* 拓扑排布模式切换 (层级结构 / 环形放射 / 力导向) */}
           <div className="hidden sm:flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-[11px]">
-            <button
-              type="button"
-              onClick={() => setLayoutMode("radial")}
-              title={t("graph.layoutRadial")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-                layoutMode === "radial"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Compass className="w-3.5 h-3.5 inline mr-1" />
-              {t("graph.layoutRadial")}
-            </button>
             <button
               type="button"
               onClick={() => setLayoutMode("hierarchy")}
@@ -898,6 +906,19 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             >
               <Layers className="w-3.5 h-3.5 inline mr-1" />
               {t("graph.layoutHierarchy")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode("radial")}
+              title={t("graph.layoutRadial")}
+              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
+                layoutMode === "radial"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Compass className="w-3.5 h-3.5 inline mr-1" />
+              {t("graph.layoutRadial")}
             </button>
             <button
               type="button"
@@ -918,7 +939,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           <div className="flex items-center gap-1 border-l border-border/60 pl-1.5">
             <button
               type="button"
-              onClick={() => handleZoom(1.2)}
+              onClick={() => handleZoomAnchor(1.25)}
               title={t("graph.zoomIn")}
               className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -929,7 +950,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             </span>
             <button
               type="button"
-              onClick={() => handleZoom(1 / 1.2)}
+              onClick={() => handleZoomAnchor(1 / 1.25)}
               title={t("graph.zoomOut")}
               className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
             >
@@ -937,19 +958,35 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             </button>
             <button
               type="button"
-              onClick={handleResetView}
+              onClick={() => fitToView()}
               title={t("graph.fitView")}
               className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
             >
               <Scan className="w-4 h-4" />
             </button>
+
+            {/* 显眼独立的全屏切换按钮 */}
             <button
               type="button"
               onClick={() => setIsFullscreen(!isFullscreen)}
-              title={isFullscreen ? t("graph.exitFullscreen") : t("graph.fullscreen")}
-              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              title={isFullscreen ? t("graph.exitFullscreen") : t("graph.fullscreenView")}
+              className={`p-1.5 rounded-lg transition-all font-medium inline-flex items-center gap-1 ${
+                isFullscreen
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "hover:bg-primary/10 hover:text-primary text-muted-foreground"
+              }`}
             >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {isFullscreen ? (
+                <>
+                  <Minimize2 className="w-4 h-4" />
+                  <span className="hidden md:inline text-xs font-sans">{t("graph.exitFullscreen")}</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-4 h-4" />
+                  <span className="hidden md:inline text-xs font-sans">{t("graph.fullscreen")}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -966,17 +1003,29 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       >
         <svg
           ref={svgRef}
-          className="w-full h-full"
+          className="w-full h-full block"
           viewBox="0 0 1000 680"
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
             {/* 连线与标签投影滤镜 */}
             <filter id="badge-drop-shadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" floodColor="#000000" floodOpacity={isDark ? "0.35" : "0.08"} />
+              <feDropShadow
+                dx="0"
+                dy="1.5"
+                stdDeviation="2.5"
+                floodColor="#000000"
+                floodOpacity={isDark ? "0.35" : "0.08"}
+              />
             </filter>
             <filter id="node-drop-shadow" x="-30%" y="-30%" width="160%" height="160%">
-              <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="#000000" floodOpacity={isDark ? "0.45" : "0.15"} />
+              <feDropShadow
+                dx="0"
+                dy="3"
+                stdDeviation="4"
+                floodColor="#000000"
+                floodOpacity={isDark ? "0.45" : "0.15"}
+              />
             </filter>
 
             {/* 中心节点柔和环境光晕与聚焦光环渐变 */}
@@ -1198,16 +1247,14 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                   >
                     <title>{`${node.name} (${typeLabel})`}</title>
 
-                    {/* 中心节点高雅呼吸光环与聚焦环 (Focus Ring) */}
+                    {/* 中心节点呼吸光环与聚焦环 (Focus Ring) */}
                     {isCenter && (
                       <>
-                        {/* 外围柔和呼吸光晕 */}
                         <circle
                           r={r + 14}
                           fill="url(#grad-center-halo)"
                           className="animate-pulse pointer-events-none"
                         />
-                        {/* 细腻质感同心外环 */}
                         <circle
                           r={r + 6}
                           fill="none"
@@ -1321,7 +1368,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               })}
             </g>
 
-            {/* 3. 渲染连线谓词徽章层 (Edge Badges Top Layer - 智能避让胶囊、永不被遮挡) */}
+            {/* 3. 渲染连线谓词徽章层 (Edge Badges Top Layer) */}
             <g className="edges-badges-layer">
               {filteredLinks.map((link, idx) => {
                 const src = layoutNodes.get(link.source);
@@ -1331,7 +1378,6 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                 const isHovered = hoveredLinkId === (link.id || `${link.source}-${link.target}`);
                 const colorHex = getLinkColorHex(link.color);
 
-                // 智能避让两端节点包围盒与标题胶囊，定位在开阔有效线段中央
                 const badgePos = calculateEdgeBadgePosition(src, tgt);
 
                 const badgeLabel = link.label || link.type;
@@ -1360,12 +1406,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                       filter="url(#badge-drop-shadow)"
                       className="transition-all"
                     />
-                    <circle
-                      cx={-badgeWidth / 2 + 10}
-                      cy={0}
-                      r={3}
-                      fill={colorHex}
-                    />
+                    <circle cx={-badgeWidth / 2 + 10} cy={0} r={3} fill={colorHex} />
                     <text
                       x={4}
                       y={3.8}
@@ -1388,6 +1429,30 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         <div className="absolute bottom-3 left-4 pointer-events-none text-[11px] text-muted-foreground/90 flex items-center gap-1.5 bg-background/85 backdrop-blur-md px-3 py-1.5 rounded-full border border-border/50 shadow-xs">
           <Info className="w-3.5 h-3.5 text-primary shrink-0" />
           <span>{t("graph.interactiveHint")}</span>
+        </div>
+
+        {/* 右下角浮动快捷复位与全屏按钮 */}
+        <div className="absolute bottom-3 right-4 flex items-center gap-1.5 z-10">
+          <button
+            type="button"
+            onClick={() => fitToView()}
+            title={t("graph.autoFit")}
+            className="flex items-center gap-1 text-[11px] font-medium bg-background/85 backdrop-blur-md px-2.5 py-1.5 rounded-lg border border-border/60 hover:bg-secondary text-muted-foreground hover:text-foreground shadow-xs transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-primary" />
+            <span className="hidden sm:inline">{t("graph.autoFit")}</span>
+          </button>
+          {!isFullscreen && (
+            <button
+              type="button"
+              onClick={() => setIsFullscreen(true)}
+              title={t("graph.fullscreenView")}
+              className="flex items-center gap-1 text-[11px] font-semibold bg-primary text-primary-foreground px-3 py-1.5 rounded-lg shadow-md hover:bg-primary/90 transition-all"
+            >
+              <Maximize2 className="w-3.5 h-3.5" />
+              <span>{t("graph.fullscreenView")}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1527,4 +1592,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       )}
     </div>
   );
+
+  if (isFullscreen && mounted && typeof document !== "undefined") {
+    return createPortal(renderGraphContent(true), document.body);
+  }
+
+  return renderGraphContent(false);
 };

@@ -1598,5 +1598,9 @@
   "graph.predicate": "Relation Predicate",
   "graph.targetEntity": "Target Entity",
   "graph.reselect": "Reselect",
-  "graph.relationCount": "{count} relations"
+  "graph.relationCount": "{count} relations",
+  "graph.viewGraph": "Graph View",
+  "graph.viewList": "List View",
+  "graph.fullscreenView": "Immersive Fullscreen",
+  "graph.autoFit": "Auto-Fit & Center"
 }

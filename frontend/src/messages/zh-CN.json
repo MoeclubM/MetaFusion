@@ -1598,5 +1598,9 @@
   "graph.predicate": "关系谓词",
   "graph.targetEntity": "目标实体",
   "graph.reselect": "重选",
-  "graph.relationCount": "{count} 个关联"
+  "graph.relationCount": "{count} 个关联",
+  "graph.viewGraph": "图谱网络",
+  "graph.viewList": "分类列表",
+  "graph.fullscreenView": "全屏沉浸大窗",
+  "graph.autoFit": "自适应居中"
 }

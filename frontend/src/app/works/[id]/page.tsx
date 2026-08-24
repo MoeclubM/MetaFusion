@@ -247,52 +247,72 @@ export default function WorkDirectoryPage() {
  </div>
  </section>
 
- {(connected.length > 0 || (graphData && graphData.nodes.length > 1)) && (
- <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft p-4 sm:p-5 space-y-3">
- <div className="flex items-center justify-between">
- <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">{t("work.detail.relations")}</h2>
- <div className="flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-xs">
-   <button
-     type="button"
-     onClick={() => setRelationViewMode("graph")}
-     className={`px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 transition-all ${
-       relationViewMode === "graph"
-         ? "bg-background text-foreground shadow-xs"
-         : "text-muted-foreground hover:text-foreground"
-     }`}
-   >
-     <Network className="w-3.5 h-3.5" />
-     {t("graph.title")}
-   </button>
-   <button
-     type="button"
-     onClick={() => setRelationViewMode("list")}
-     className={`px-2.5 py-1 rounded-md font-medium flex items-center gap-1.5 transition-all ${
-       relationViewMode === "list"
-         ? "bg-background text-foreground shadow-xs"
-         : "text-muted-foreground hover:text-foreground"
-     }`}
-   >
-     <List className="w-3.5 h-3.5" />
-     {t("work.detail.relations")}
-   </button>
- </div>
- </div>
-
-{relationViewMode === "graph" && graphData && graphData.nodes.length > 0 ? (
-  <InteractiveRelationGraph
-    centerEntityId={work.id}
-    centerEntityType="work"
-    nodes={graphData.nodes}
-    links={graphData.links}
-    height={580}
-    title={t("graph.titleWork")}
-  />
-) : (
-   <GroupedRelations items={connected} />
- )}
- </section>
- )}
+        {(connected.length > 0 || (graphData && graphData.nodes.length > 1)) && (
+          <div>
+            {relationViewMode === "graph" && graphData && graphData.nodes.length > 0 ? (
+              <InteractiveRelationGraph
+                centerEntityId={work.id}
+                centerEntityType="work"
+                nodes={graphData.nodes}
+                links={graphData.links}
+                height={580}
+                title={t("graph.titleWork")}
+                headerRightExtra={
+                  connected.length > 0 ? (
+                    <div className="flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setRelationViewMode("graph")}
+                        className="px-2 py-0.5 rounded font-medium flex items-center gap-1 transition-all bg-background text-foreground shadow-xs"
+                      >
+                        <Network className="w-3 h-3" />
+                        <span>{t("graph.viewGraph")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRelationViewMode("list")}
+                        className="px-2 py-0.5 rounded font-medium flex items-center gap-1 transition-all text-muted-foreground hover:text-foreground"
+                      >
+                        <List className="w-3 h-3" />
+                        <span>{t("graph.viewList")}</span>
+                      </button>
+                    </div>
+                  ) : null
+                }
+              />
+            ) : (
+              <section className="p-4 sm:p-5 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
+                <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2.5">
+                  <h2 className="font-display text-sm font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
+                    <Network className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                    <span>{t("work.detail.relations")}</span>
+                  </h2>
+                  {graphData && graphData.nodes.length > 0 && (
+                    <div className="flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-[11px]">
+                      <button
+                        type="button"
+                        onClick={() => setRelationViewMode("graph")}
+                        className="px-2 py-0.5 rounded font-medium flex items-center gap-1 transition-all text-muted-foreground hover:text-foreground"
+                      >
+                        <Network className="w-3 h-3" />
+                        <span>{t("graph.viewGraph")}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setRelationViewMode("list")}
+                        className="px-2 py-0.5 rounded font-medium flex items-center gap-1 transition-all bg-background text-foreground shadow-xs"
+                      >
+                        <List className="w-3 h-3" />
+                        <span>{t("graph.viewList")}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <GroupedRelations items={connected} />
+              </section>
+            )}
+          </div>
+        )}
 
  <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
  <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
