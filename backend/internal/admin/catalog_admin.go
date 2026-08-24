@@ -211,7 +211,7 @@ func (s *AdminService) DeleteWork(c *gin.Context) {
 				_ = tx.Where("id IN ?", medIDs).Delete(&models.Medium{}).Error
 			}
 			_ = tx.Where("target_entity_type = 'release' AND target_entity_id IN ?", relIDs).Delete(&models.AssetBinding{}).Error
-			_ = tx.Where("entity_type = 'release' AND entity_id IN ?", relIDs).Delete(&models.EntityRevision{}).Error
+			_ = tx.Where("target_type = 'release' AND target_id IN ?", relIDs).Delete(&models.EntityRevision{}).Error
 			_ = tx.Where("id IN ?", relIDs).Delete(&models.Release{}).Error
 		}
 		// 10. 删除 CanonicalEntries 与剩余 Tracks
