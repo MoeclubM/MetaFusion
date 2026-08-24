@@ -54,29 +54,29 @@ function LoginInner() {
  setSubmitting(true);
  try {
  const redirectUrl = searchParams.get("redirect") || "/";
- if (isRegister) {
- const res = await fetchApi<{ user: any; token: string }>("/auth/register", {
- method: "POST",
- body: JSON.stringify({
- username: username.trim(),
- email: email.trim(),
- password,
- invite_code: inviteCode.trim() || undefined,
- }),
- });
- login(res.token, res.user);
- router.replace(redirectUrl);
- } else {
- const res = await fetchApi<{ user: any; token: string }>("/auth/login", {
- method: "POST",
- body: JSON.stringify({
- email_or_username: username.trim() || email.trim(),
- password,
- }),
- });
- login(res.token, res.user);
- router.replace(redirectUrl);
- }
+      if (isRegister) {
+        const res = await fetchApi<{ user: any; token: string; access_token?: string; refresh_token?: string }>("/auth/register", {
+          method: "POST",
+          body: JSON.stringify({
+            username: username.trim(),
+            email: email.trim(),
+            password,
+            invite_code: inviteCode.trim() || undefined,
+          }),
+        });
+        login(res.access_token || res.token, res.user, res.refresh_token);
+        router.replace(redirectUrl);
+      } else {
+        const res = await fetchApi<{ user: any; token: string; access_token?: string; refresh_token?: string }>("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({
+            email_or_username: username.trim() || email.trim(),
+            password,
+          }),
+        });
+        login(res.access_token || res.token, res.user, res.refresh_token);
+        router.replace(redirectUrl);
+      }
  } catch (err: any) {
  setError(err.message || t("auth.requestFailed"));
  } finally {

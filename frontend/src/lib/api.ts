@@ -1016,8 +1016,81 @@ export async function createPost(topicId: string, payload: CreatePostPayload): P
   });
 }
 
+let refreshPromise: Promise<string | null> | null = null;
+
+export function getAccessToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("metafusion_token");
+}
+
+export function getRefreshToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("metafusion_refresh_token");
+}
+
+export function setAuthTokens(accessToken: string, refreshToken?: string | null): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem("metafusion_token", accessToken);
+  if (refreshToken) {
+    localStorage.setItem("metafusion_refresh_token", refreshToken);
+  }
+}
+
+export function clearAuthTokens(): void {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem("metafusion_token");
+  localStorage.removeItem("metafusion_refresh_token");
+}
+
+async function requestTokenRefresh(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    clearAuthTokens();
+    return null;
+  }
+
+  if (refreshPromise) {
+    return refreshPromise;
+  }
+
+  refreshPromise = (async () => {
+    try {
+      const baseUrl = getApiBase();
+      const res = await fetch(`${baseUrl}/auth/refresh`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!res.ok) {
+        clearAuthTokens();
+        return null;
+      }
+
+      const data = await res.json();
+      const newAccessToken = data.access_token || data.token;
+      const newRefreshToken = data.refresh_token;
+
+      if (newAccessToken) {
+        setAuthTokens(newAccessToken, newRefreshToken);
+        return newAccessToken;
+      } else {
+        clearAuthTokens();
+        return null;
+      }
+    } catch {
+      clearAuthTokens();
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("metafusion_token") : null;
+  let token = getAccessToken();
   const locale = typeof window !== "undefined" ? readLocaleCookie() : null;
   const headers: Record<string, string> = {
     ...(!(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
@@ -1035,10 +1108,28 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     if (!headers["Accept-Language"]) headers["Accept-Language"] = locale;
   }
   const baseUrl = getApiBase();
-  const res = await fetch(`${baseUrl}${endpoint}`, {
+  let res = await fetch(`${baseUrl}${endpoint}`, {
     ...options,
     headers,
   });
+
+  // 处理 401 Unauthorized：尝试使用 Refresh Token 静默无感刷新
+  const isAuthEndpoint =
+    endpoint.startsWith("/auth/login") ||
+    endpoint.startsWith("/auth/register") ||
+    endpoint.startsWith("/auth/refresh") ||
+    endpoint.startsWith("/auth/logout");
+
+  if (res.status === 401 && !isAuthEndpoint && getRefreshToken()) {
+    const freshToken = await requestTokenRefresh();
+    if (freshToken) {
+      headers["Authorization"] = `Bearer ${freshToken}`;
+      res = await fetch(`${baseUrl}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    }
+  }
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ error: "Request failed" }));
