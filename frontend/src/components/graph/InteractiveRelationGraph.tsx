@@ -37,6 +37,7 @@ interface InteractiveRelationGraphProps {
   onNodeClick?: (node: GraphNode) => void;
   onEdgeClick?: (link: GraphLink) => void;
   showInspector?: boolean;
+  title?: string;
 }
 
 interface LayoutNode extends GraphNode {
@@ -210,11 +211,12 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   centerEntityType,
   nodes,
   links,
-  height = 600,
+  height = 580,
   className = "",
   onNodeClick,
   onEdgeClick,
   showInspector = true,
+  title,
 }) => {
   const { t } = useI18n();
   const { resolvedMode } = useTheme();
@@ -245,7 +247,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<"radial" | "hierarchy" | "force">("radial");
+  const [layoutMode, setLayoutMode] = useState<"radial" | "hierarchy" | "force">("hierarchy");
   const [filterType, setFilterType] = useState<"all" | "hierarchy" | "cast" | "media">("all");
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -650,6 +652,26 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     fitToView();
   }, [layoutMode, filterType, centerEntityId, fitToView]);
 
+  // 监听 Escape 键退出全屏
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen]);
+
+  // 全屏切换时重新适配居中
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fitToView();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [isFullscreen, fitToView]);
+
   // 重置视图
   const handleResetView = useCallback(() => {
     fitToView();
@@ -779,7 +801,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     <div
       ref={containerRef}
       className={`relative flex flex-col rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md overflow-hidden shadow-sm select-none ${
-        isFullscreen ? "fixed inset-0 z-50 rounded-none h-screen w-screen" : ""
+        isFullscreen ? "fixed inset-0 z-[9999] rounded-none h-screen w-screen bg-background/95 backdrop-blur-2xl" : ""
       } ${className}`}
       style={{ height: isFullscreen ? "100vh" : height }}
     >
@@ -791,7 +813,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           </div>
           <div>
             <h3 className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-              {t("graph.title")}
+              {title || t("graph.title")}
               <span className="text-[10px] font-mono font-medium text-muted-foreground px-2 py-0.5 rounded-full bg-secondary border border-border/40">
                 {t("graph.connectedNodes", { count: activeNodes.length })}
               </span>

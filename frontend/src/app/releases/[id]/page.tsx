@@ -239,19 +239,16 @@ export default function ReleaseDetailPage() {
             </div>
           )}
 
-          {/* 关联图谱网络 */}
+          {/* 关联实体网络 */}
           {graphData && graphData.nodes.length > 1 && (
-            <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06] space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-900 dark:text-white">
-                <Network className="w-3.5 h-3.5 text-primary" />
-                <span>{t("graph.title")}</span>
-              </div>
+            <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
               <InteractiveRelationGraph
                 centerEntityId={release.id}
                 centerEntityType="release"
                 nodes={graphData.nodes}
                 links={graphData.links}
-                height={400}
+                height={580}
+                title={t("graph.titleRelease")}
               />
             </div>
           )}

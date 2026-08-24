@@ -396,13 +396,14 @@ export default function ArtistDetailPage() {
         )}
 
         {activeTab === "graph" && graphData && (
-          <div className="rounded-lg border border-black/10 dark:border-white/10 bg-surface p-4 sm:p-5 space-y-3">
+          <div className="rounded-lg overflow-hidden">
             <InteractiveRelationGraph
               centerEntityId={artist.id}
               centerEntityType="artist"
               nodes={graphData.nodes}
               links={graphData.links}
-              height={520}
+              height={600}
+              title={t("graph.titleArtist")}
             />
           </div>
         )}

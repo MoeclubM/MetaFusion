@@ -279,15 +279,16 @@ export default function WorkDirectoryPage() {
  </div>
  </div>
 
- {relationViewMode === "graph" && graphData && graphData.nodes.length > 0 ? (
-   <InteractiveRelationGraph
-     centerEntityId={work.id}
-     centerEntityType="work"
-     nodes={graphData.nodes}
-     links={graphData.links}
-     height={460}
-   />
- ) : (
+{relationViewMode === "graph" && graphData && graphData.nodes.length > 0 ? (
+  <InteractiveRelationGraph
+    centerEntityId={work.id}
+    centerEntityType="work"
+    nodes={graphData.nodes}
+    links={graphData.links}
+    height={580}
+    title={t("graph.titleWork")}
+  />
+) : (
    <GroupedRelations items={connected} />
  )}
  </section>
