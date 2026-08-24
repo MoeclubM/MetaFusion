@@ -937,6 +937,72 @@ SEED_DATA = {
             "country": "日本",
             "biography": "全球领先的唱片音乐与数字音频发行机构。",
             "language": "ja"
+        },
+        # --- 游戏原声与现代交响制作厂牌/大师 ---
+        {
+            "key": "artist_hoyomix",
+            "name": "HOYO-MiX",
+            "original_name": "HOYO-MiX",
+            "disambiguation": "米哈游旗下原创音乐团队与厂牌",
+            "entity_type": "studio",
+            "country": "中国",
+            "biography": "HOYO-MiX 为米哈游旗下的原创音乐制作团队，致力于打造融合管弦交响、世界民族乐器与现代电子音乐的高品质游戏原声大碟与主题音乐。",
+            "language": "zh-CN",
+            "translations": [
+                {"locale": "en-US", "name": "HOYO-MiX", "biography": "HOYO-MiX is the internal music studio of miHoYo, dedicated to creating world-class game soundtracks combining symphonic orchestrations, traditional ethnic instruments, and modern production."}
+            ]
+        },
+        {
+            "key": "artist_yupeng_chen",
+            "name": "陈致逸",
+            "original_name": "Yu-Peng Chen",
+            "disambiguation": "著名作曲家、音乐制作人，前 HOYO-MiX 核心音乐总监",
+            "entity_type": "person",
+            "country": "中国",
+            "biography": "中国当代著名作曲家、音乐制作人。曾作为主创及音乐总监为《原神》创作蒙德、璃月、稻妻、须弥等篇章交响配乐，开创了中国民乐器与西方管弦乐深度交融的独特风格。",
+            "language": "zh-CN",
+            "translations": [
+                {"locale": "en-US", "name": "Yu-Peng Chen", "biography": "Celebrated Chinese composer and music producer, former music director at HOYO-MiX and principal composer for Genshin Impact."}
+            ]
+        },
+        {
+            "key": "artist_mihoyo",
+            "name": "上海米哈游网络科技股份有限公司",
+            "original_name": "miHoYo",
+            "disambiguation": "中国知名数字互动娱乐与游戏科技研发公司",
+            "entity_type": "studio",
+            "country": "中国",
+            "biography": "成立于2011年，秉承「技术宅拯救世界」的初心，致力于构筑前沿技术驱动的跨媒介虚拟世界与数字文化内容。",
+            "language": "zh-CN",
+            "translations": [
+                {"locale": "en-US", "name": "miHoYo", "biography": "Leading digital entertainment and game development company founded in 2011, developer of Genshin Impact and Honkai series."}
+            ]
+        },
+        {
+            "key": "artist_london_philharmonic",
+            "name": "伦敦爱乐乐团",
+            "original_name": "London Philharmonic Orchestra",
+            "disambiguation": "世界顶级交响乐团之一",
+            "entity_type": "orchestra",
+            "country": "英国",
+            "biography": "世界著名交响乐团，成立于1932年，在古典交响、歌剧与电影/游戏原声录音领域享有崇高声誉。",
+            "language": "en",
+            "translations": [
+                {"locale": "en-US", "name": "London Philharmonic Orchestra", "biography": "World-renowned symphony orchestra based in London, founded in 1932."}
+            ]
+        },
+        {
+            "key": "artist_shanghai_symphony",
+            "name": "上海交响乐团",
+            "original_name": "Shanghai Symphony Orchestra",
+            "disambiguation": "亚洲历史最悠久的交响乐团",
+            "entity_type": "orchestra",
+            "country": "中国",
+            "biography": "前身为1879年成立的上海公共乐队，是中国乃至亚洲最早的交响乐团，参与众多顶级影视与游戏原声录制。",
+            "language": "zh-CN",
+            "translations": [
+                {"locale": "en-US", "name": "Shanghai Symphony Orchestra", "biography": "Asia's oldest symphony orchestra, founded in 1879."}
+            ]
         }
     ],
 
@@ -1034,6 +1100,19 @@ SEED_DATA = {
             "begin_date": "1995-10-04",
             "tags": ["动画", "科幻", "EVA", "跨媒介"],
             "translations": [{"locale": "en-US", "title": "Neon Genesis Evangelion Franchise", "summary": "Milestone psychological mecha anime franchise directed by Hideaki Anno."}]
+        },
+        {
+            "key": "fr_genshin",
+            "title": "原神",
+            "original_title": "原神",
+            "aliases": ["Genshin Impact", "Genshin", "提瓦特宇宙"],
+            "disambiguation": "米哈游提瓦特幻想世界跨媒介企划",
+            "summary": "由米哈游构筑的宏大开放世界跨媒介奇幻宇宙。故事发生于名为「提瓦特」的幻想世界，涵盖七国文明史诗、原创音乐专辑、动画短片与漫画衍生作品。",
+            "country": "中国",
+            "cover_image_url": "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=80",
+            "begin_date": "2020-09-28",
+            "tags": ["游戏", "开放世界", "奇幻", "跨媒介", "原声带"],
+            "translations": [{"locale": "en-US", "title": "Genshin Impact Franchise", "summary": "Global cross-media fantasy franchise created by miHoYo set in the world of Teyvat."}]
         }
     ],
 
@@ -1490,6 +1569,43 @@ SEED_DATA = {
             "tags": ["音乐", "专辑", "交响原声", "原声带", "诺兰"],
             "translations": [
                 {"locale": "en-US", "title": "Interstellar (Original Motion Picture Soundtrack)", "summary": "Masterful organ-driven film score composed by Hans Zimmer."}
+            ]
+        },
+        # === 游戏与游戏原声音乐 (Game & Game Soundtracks) ===
+        {
+            "key": "work_genshin_impact",
+            "title": "原神",
+            "original_title": "原神",
+            "aliases": ["Genshin Impact", "Genshin", "提瓦特篇"],
+            "release_date": "2020-09-28",
+            "country": "中国",
+            "language": "zh-CN",
+            "original_language": "zh-CN",
+            "summary": "米哈游自主研发的全新开放世界冒险 RPG。你将在游戏中探索一个被称作「提瓦特」的幻想世界。在这广阔的世界中，你可以踏遍七国，邂逅性格各异、能力独特的同伴，与他们一同对抗强敌，踏上寻回血亲之路。",
+            "cover_image_url": "https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?w=800&auto=format&fit=crop&q=80",
+            "cover_aspect": "2:3",
+            "content_rating": "general",
+            "tags": ["游戏", "开放世界", "奇幻", "RPG"],
+            "translations": [
+                {"locale": "en-US", "title": "Genshin Impact", "summary": "An open-world adventure RPG developed by miHoYo, inviting players to journey across the vast fantasy continent of Teyvat."}
+            ]
+        },
+        {
+            "key": "work_moon_in_the_clouds",
+            "title": "皎月云间之梦",
+            "original_title": "Jade Moon Upon a Sea of Clouds",
+            "aliases": ["原神-皎月云间之梦", "Genshin Impact - Jade Moon Upon a Sea of Clouds", "原神璃月篇原声带"],
+            "release_date": "2020-11-06",
+            "country": "中国",
+            "language": "zh-CN",
+            "original_language": "zh-CN",
+            "summary": "《原神》璃月篇原声音乐专辑。由 HOYO-MiX 团队制作，陈致逸主创谱曲，携手伦敦爱乐乐团与上海交响乐团倾力录制。专辑分为《琉璃明月 Glazed Moon Over the Tides》《浊世清平 Peaceful and Far-Reaching》与《激流便知 Battles of Liyue》三张分碟，深度融合传统中国民乐器（笛箫、古筝、二胡、琵琶）与西方管弦交响乐。",
+            "cover_image_url": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&auto=format&fit=crop&q=80",
+            "cover_aspect": "1:1",
+            "content_rating": "general",
+            "tags": ["原声带", "游戏音乐", "管弦乐", "民乐"],
+            "translations": [
+                {"locale": "en-US", "title": "Jade Moon Upon a Sea of Clouds", "summary": "The original soundtrack album for the Liyue chapter of Genshin Impact, composed by Yu-Peng Chen and produced by HOYO-MiX in collaboration with the London Philharmonic Orchestra and Shanghai Symphony Orchestra."}
             ]
         }
     ],
@@ -2127,6 +2243,58 @@ SEED_DATA = {
                     ]
                 }
             ]
+        },
+
+        # --- 皎月云间之梦 游戏原声大碟 Releases ---
+        {
+            "key": "rel_moon_in_the_clouds",
+            "work_key": "work_moon_in_the_clouds",
+            "publisher_artist_key": "artist_hoyomix",
+            "edition_name": "皎月云间之梦 (Jade Moon Upon a Sea of Clouds) [3CD 官方典藏版]",
+            "catalog_number": "HYMX-2020-002",
+            "barcode": "978-7-88441-999-9",
+            "publisher": "HOYO-MiX / 米哈游",
+            "packaging": "Digipak",
+            "edition_date": "2020-11-06",
+            "country": "CHN",
+            "distribution_channel": "physical",
+            "notes": "《原神》璃月篇官方 3CD 典藏原声大碟，包含《琉璃明月》《浊世清平》《激流便知》三张分碟全套曲目",
+            "mediums": [
+                {
+                    "position": 1,
+                    "name": "Disc 1: 琉璃明月 (Glazed Moon Over the Tides)",
+                    "format": "CD",
+                    "media_category": "music",
+                    "tracks": [
+                        {"position": 1, "title": "离垢 (Liyue)", "duration_seconds": 285, "artist_credit": "陈致逸 / HOYO-MiX / 伦敦爱乐乐团"},
+                        {"position": 2, "title": "皎月云间之梦 (Jade Moon Upon a Sea of Clouds)", "duration_seconds": 198, "artist_credit": "陈致逸 / HOYO-MiX / 上海交响乐团"},
+                        {"position": 3, "title": "璃月 (Moon in One's Cup)", "duration_seconds": 140, "artist_credit": "陈致逸 / HOYO-MiX / 伦敦爱乐乐团"},
+                        {"position": 4, "title": "晨曦初露 (Dawn in Liyue)", "duration_seconds": 112, "artist_credit": "陈致逸 / HOYO-MiX"}
+                    ]
+                },
+                {
+                    "position": 2,
+                    "name": "Disc 2: 浊世清平 (Peaceful and Far-Reaching)",
+                    "format": "CD",
+                    "media_category": "music",
+                    "tracks": [
+                        {"position": 1, "title": "清平乐 (Peaceful Hike)", "duration_seconds": 130, "artist_credit": "陈致逸 / HOYO-MiX / 上海交响乐团"},
+                        {"position": 2, "title": "渔舟唱晚 (Fisherman's Song)", "duration_seconds": 165, "artist_credit": "陈致逸 / HOYO-MiX"},
+                        {"position": 3, "title": "岩壑之崩 (Rhythm from Afar)", "duration_seconds": 154, "artist_credit": "陈致逸 / HOYO-MiX"}
+                    ]
+                },
+                {
+                    "position": 3,
+                    "name": "Disc 3: 激流便知 (Battles of Liyue)",
+                    "format": "CD",
+                    "media_category": "music",
+                    "tracks": [
+                        {"position": 1, "title": "激流便知 (Rapid as Wildfires)", "duration_seconds": 260, "artist_credit": "陈致逸 / HOYO-MiX / 上海交响乐团"},
+                        {"position": 2, "title": "滔滔不绝 (Chasing the Torrents)", "duration_seconds": 240, "artist_credit": "陈致逸 / HOYO-MiX / 伦敦爱乐乐团"},
+                        {"position": 3, "title": "麟跃幽岩 (Gallant Challenge)", "duration_seconds": 225, "artist_credit": "陈致逸 / HOYO-MiX"}
+                    ]
+                }
+            ]
         }
     ],
 
@@ -2307,6 +2475,22 @@ SEED_DATA = {
             "relations": [
                 {"artist_key": "hans_zimmer", "role": "composer"}
             ]
+        },
+        {
+            "work_key": "work_genshin_impact",
+            "relations": [
+                {"artist_key": "artist_mihoyo", "role": "developer"},
+                {"artist_key": "artist_mihoyo", "role": "publisher"}
+            ]
+        },
+        {
+            "work_key": "work_moon_in_the_clouds",
+            "relations": [
+                {"artist_key": "artist_yupeng_chen", "role": "composer"},
+                {"artist_key": "artist_hoyomix", "role": "producer"},
+                {"artist_key": "artist_london_philharmonic", "role": "performer"},
+                {"artist_key": "artist_shanghai_symphony", "role": "performer"}
+            ]
         }
     ],
 
@@ -2331,12 +2515,15 @@ SEED_DATA = {
         {"source_type": "work", "source_key": "work_bocchi_anime", "target_type": "franchise", "target_key": "fr_bocchi", "relationship_type": "part_of_franchise"},
         {"source_type": "work", "source_key": "work_kessoku_album", "target_type": "franchise", "target_key": "fr_bocchi", "relationship_type": "part_of_franchise"},
         {"source_type": "work", "source_key": "work_eva_tv", "target_type": "franchise", "target_key": "fr_eva", "relationship_type": "part_of_franchise"},
+        {"source_type": "work", "source_key": "work_genshin_impact", "target_type": "franchise", "target_key": "fr_genshin", "relationship_type": "part_of_franchise"},
+        {"source_type": "work", "source_key": "work_moon_in_the_clouds", "target_type": "franchise", "target_key": "fr_genshin", "relationship_type": "part_of_franchise"},
 
         # --- 作品间跨媒介关系 (DAG) ---
         {"source_type": "work", "source_key": "work_coi", "target_type": "work", "target_key": "work_lotm", "relationship_type": "sequel_of"},
         {"source_type": "work", "source_key": "work_lotm_ost", "target_type": "work", "target_key": "work_lotm", "relationship_type": "soundtrack_of"},
         {"source_type": "work", "source_key": "work_kessoku_album", "target_type": "work", "target_key": "work_bocchi_anime", "relationship_type": "soundtrack_of"},
         {"source_type": "work", "source_key": "work_interstellar_ost", "target_type": "work", "target_key": "work_interstellar", "relationship_type": "soundtrack_of"},
+        {"source_type": "work", "source_key": "work_moon_in_the_clouds", "target_type": "work", "target_key": "work_genshin_impact", "relationship_type": "soundtrack_of", "qualifier": "《原神》璃月篇官方原声大碟"},
         {"source_type": "work", "source_key": "work_wandering_earth_2", "target_type": "work", "target_key": "work_wandering_earth_1", "relationship_type": "prequel_of", "qualifier": "正统前传：太阳危机爆发前夕与太空电梯危机"},
         {"source_type": "work", "source_key": "work_wandering_earth_1", "target_type": "work", "target_key": "work_wandering_earth_novel", "relationship_type": "adaptation_of", "qualifier": "改编自刘慈欣同名科幻名作"},
         {"source_type": "work", "source_key": "work_wandering_earth_2", "target_type": "work", "target_key": "work_wandering_earth_novel", "relationship_type": "adaptation_of", "qualifier": "世界观与移山计划改编自刘慈欣原著"},
@@ -2427,6 +2614,37 @@ AccurateRip 校验: 准确比对匹配 (v1 + v2 正确比对，100.0% 置信度)
 | 14 | 転がる岩、君に朝が降る | -0.20 dB | -10.15 dB | **DR10** |
 
 整体专辑官方混音非常扎实，三木真吉的贝斯低频下潜有力，喜多与波奇的双吉他声像分离度极高！
+"""
+        },
+        {
+            "board_code": "reviews",
+            "work_key": "work_moon_in_the_clouds",
+            "title": "【乐理考据】《皎月云间之梦》：笛箫古筝与西方管弦交响的配器融合与五声调式探析",
+            "language": "zh-CN",
+            "tags": ["原声带", "游戏音乐", "乐理考据", "管弦乐", "民乐"],
+            "content": """# 《皎月云间之梦》配器与乐理深度探析
+
+《皎月云间之梦》（Jade Moon Upon a Sea of Clouds）作为《原神》璃月篇的核心原声大碟，由陈致逸执棒、HOYO-MiX 与伦敦爱乐乐团、上海交响乐团携手录制。
+
+---
+
+## 一、五声调式与调性色彩
+
+在《离垢》《皎月云间之梦》等主旋律中，作曲家广泛运用了中国传统五声调式（宫、商、角、徵、羽）：
+
+$$
+\\{1, 2, 3, 5, 6\\} \\longleftrightarrow \\{C, D, E, G, A\\}
+$$
+
+通过将宫调式主音与自然大调的属七和弦（$V^7$）与降七级离调（$\\flat VII$）相结合，构成了极具东方意境同时兼具交响张力的现代音响结构。
+
+---
+
+## 二、民族乐器与双管交响编制的平衡
+
+1. **竹笛与梆笛**：高频穿透力极强，作为主旋律引领者穿插于弦乐组之上；
+2. **古筝与二胡**：负责中频段颗粒感与抒情线条，与上海交响乐团木管组形成温润的音色对话；
+3. **铜管与定音鼓**：在《激流便知》中为璃月战斗音乐注入强烈的节奏动能。
 """
         },
         {

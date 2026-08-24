@@ -11,18 +11,26 @@ import (
 	"gorm.io/gorm"
 )
 
-var validTargets = map[string]bool{"work": true, "release": true, "artist": true, "franchise": true}
+var validTargets = map[string]bool{"work": true, "release": true, "artist": true, "franchise": true, "canonical_entry": true}
 
 // favoriteItem 列表条目：收藏元数据 + 实体摘要
 type favoriteItem struct {
-	ID         uuid.UUID `json:"id"`
-	TargetType string    `json:"target_type"`
-	TargetID   uuid.UUID `json:"target_id"`
-	CreatedAt  string    `json:"created_at"`
-	Work       *workBrief      `json:"work,omitempty"`
-	Release    *releaseBrief   `json:"release,omitempty"`
-	Artist     *artistBrief    `json:"artist,omitempty"`
-	Franchise  *franchiseBrief `json:"franchise,omitempty"`
+	ID             uuid.UUID            `json:"id"`
+	TargetType     string               `json:"target_type"`
+	TargetID       uuid.UUID            `json:"target_id"`
+	CreatedAt      string               `json:"created_at"`
+	Work           *workBrief           `json:"work,omitempty"`
+	Release        *releaseBrief        `json:"release,omitempty"`
+	Artist         *artistBrief         `json:"artist,omitempty"`
+	Franchise      *franchiseBrief      `json:"franchise,omitempty"`
+	CanonicalEntry *canonicalEntryBrief `json:"canonical_entry,omitempty"`
+}
+
+type canonicalEntryBrief struct {
+	ID     uuid.UUID  `json:"id"`
+	WorkID *uuid.UUID `json:"work_id,omitempty"`
+	Title  string     `json:"title"`
+	ISRC   string     `json:"isrc,omitempty"`
 }
 
 type workBrief struct {
@@ -232,6 +240,11 @@ func listFavorites(c *gin.Context, db *gorm.DB, userID uuid.UUID) {
 			if err := db.Preload("Translations").First(&f, "id = ?", r.TargetID).Error; err == nil {
 				it.Franchise = &franchiseBrief{ID: f.ID, Title: f.Title, OriginalTitle: f.OriginalTitle, CoverImageURL: f.CoverImageURL, Translations: f.Translations}
 			}
+		case "canonical_entry":
+			var ce models.CanonicalEntry
+			if err := db.First(&ce, "id = ?", r.TargetID).Error; err == nil {
+				it.CanonicalEntry = &canonicalEntryBrief{ID: ce.ID, WorkID: ce.WorkID, Title: ce.Title, ISRC: ce.ISRC}
+			}
 		}
 		items = append(items, it)
 	}
@@ -248,6 +261,8 @@ func targetExists(db *gorm.DB, targetType string, id uuid.UUID) bool {
 		return exists(db, &models.Artist{}, id)
 	case "franchise":
 		return exists(db, &models.Franchise{}, id)
+	case "canonical_entry":
+		return exists(db, &models.CanonicalEntry{}, id)
 	}
 	return false
 }

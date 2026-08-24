@@ -24,6 +24,7 @@ import {
   updateArtist,
   updateRelease,
   updateFranchise,
+  updateCanonicalEntry,
   fetchApi,
   catalogHubOf,
 } from "@/lib/api";
@@ -37,7 +38,7 @@ import { EditorNotesField } from "./EditorNotesField";
 import { DynamicAttributeForm } from "@/components/attributes/DynamicAttributeForm";
 import { seedLocaleForm, translationsPayload } from "./localeForm";
 
-export type EntityTypeTarget = "work" | "artist" | "release" | "franchise";
+export type EntityTypeTarget = "work" | "artist" | "release" | "franchise" | "canonical_entry";
 
 interface Props {
   isOpen: boolean;
@@ -216,6 +217,21 @@ export function UniversalEntityEditor({
         }
       }
 
+      if (targetType === "canonical_entry") {
+        payload.title = String(formData.title || "").trim();
+        if (!payload.title) {
+          setError(t("editor.core.defaultTitleRequired"));
+          setSubmitting(false);
+          return;
+        }
+        payload.duration_seconds = Number(formData.duration_seconds ?? formData.duration) || 0;
+        payload.isrc = formData.isrc ? String(formData.isrc).trim() : "";
+        payload.isbn = formData.isbn ? String(formData.isbn).trim() : "";
+        payload.artist_credit = formData.artist_credit ? String(formData.artist_credit).trim() : "";
+        payload.sort_title = formData.sort_title ? String(formData.sort_title).trim() : "";
+        payload.recording_date = formData.recording_date ? String(formData.recording_date).trim() : "";
+      }
+
       let result: any = null;
 
       if (mode === "edit") {
@@ -227,6 +243,8 @@ export function UniversalEntityEditor({
           result = await updateRelease(initialData.id, payload);
         } else if (targetType === "franchise") {
           result = await updateFranchise(initialData.id, payload);
+        } else if (targetType === "canonical_entry") {
+          result = await updateCanonicalEntry(initialData.id, payload);
         }
       } else {
         // Create mode
@@ -238,6 +256,8 @@ export function UniversalEntityEditor({
           result = await fetchApi("/catalog/releases", { method: "POST", body: JSON.stringify(payload) });
         } else if (targetType === "franchise") {
           result = await fetchApi("/catalog/franchises", { method: "POST", body: JSON.stringify(payload) });
+        } else if (targetType === "canonical_entry") {
+          result = await fetchApi("/catalog/canonical-entries", { method: "POST", body: JSON.stringify(payload) });
         }
       }
 

@@ -26,7 +26,7 @@ export interface User {
 }
 
 // ── 收藏 ──
-export type FavoriteTargetType = "work" | "release" | "artist" | "franchise";
+export type FavoriteTargetType = "work" | "release" | "artist" | "franchise" | "canonical_entry";
 
 export interface FavoriteItem {
   id: string;
@@ -37,6 +37,7 @@ export interface FavoriteItem {
   release?: { id: string; work_id: string; edition_name: string };
   artist?: { id: string; name: string; original_name?: string; entity_type?: string };
   franchise?: { id: string; title: string; original_title?: string; cover_image_url?: string };
+  canonical_entry?: { id: string; work_id?: string; title: string; isrc?: string };
 }
 
 /** 切换收藏状态，返回切换后是否已收藏 */
@@ -436,7 +437,37 @@ export interface CanonicalEntry {
   work_id?: string;
   work?: Work;
   external_ids?: Record<string, any>;
+  attributes?: Record<string, any>;
   created_at?: string;
+}
+
+export interface CanonicalEntryReleaseSummary {
+  release_id: string;
+  edition_name: string;
+  cover_image_url?: string;
+  cover_aspect?: string;
+  edition_date?: string;
+  country?: string;
+  publisher?: string;
+  publisher_entity?: Artist;
+  medium_name: string;
+  medium_format: string;
+  media_category: string;
+  medium_position: number;
+  track_position: number;
+  track_title: string;
+  duration_seconds: number;
+  isrc?: string;
+  artist_credit?: string;
+}
+
+export interface CanonicalEntryDetailResponse extends CanonicalEntry {
+  releases: CanonicalEntryReleaseSummary[];
+  tracks: Track[];
+  connected_entities?: ConnectedEntityItem[];
+  external_links?: ExternalLinkDisplay[];
+  relations?: EntityRelationship[];
+  revisions?: EntityRevision[];
 }
 
 export interface Track {
@@ -606,7 +637,7 @@ export function catalogEntityHref(type: string, id: string): string {
     case "franchise":
       return `/franchises/${id}`;
     case "canonical_entry":
-      return `/explore`;
+      return `/canonical-entries/${id}`;
     default:
       return `/artists/${id}`;
   }
@@ -1112,6 +1143,13 @@ export async function updateRelease(id: string, payload: Record<string, any>): P
 
 export async function updateFranchise(id: string, payload: Record<string, any>): Promise<{ status: string; franchise: Franchise }> {
   return fetchApi<{ status: string; franchise: Franchise }>(`/catalog/franchises/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateCanonicalEntry(id: string, payload: Record<string, any>): Promise<CanonicalEntry> {
+  return fetchApi<CanonicalEntry>(`/catalog/canonical-entries/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });

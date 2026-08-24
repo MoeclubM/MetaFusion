@@ -26,7 +26,7 @@ import {
 
 interface VisualRelationEditorProps {
   sourceId?: string;
-  sourceType: "work" | "artist" | "release" | "franchise";
+  sourceType: "work" | "artist" | "release" | "franchise" | "canonical_entry";
   sourceName?: string;
   sourceCover?: string;
   relations: RelationRow[];

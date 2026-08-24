@@ -599,7 +599,12 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 		Preload("PublisherEntity.Translations").
 		Preload("Uploader").
 		Preload("Mediums", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") }).
+		Preload("Mediums.Tracks", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") }).
+		Preload("Mediums.Tracks.Work").
 		Preload("Mediums.Tracks.Work.Translations").
+		Preload("Mediums.Tracks.Work.Tags").
+		Preload("Mediums.Tracks.CanonicalEntry").
+		Preload("Mediums.Tracks.CanonicalEntry.Work").
 		Preload("Mediums.Tracks.CanonicalEntry.Work.Translations").
 		Preload("Mediums.AssetFiles").
 		Preload("AssetFiles").
@@ -696,7 +701,13 @@ func (s *CatalogService) GetMediumDetail(c *gin.Context) {
 
 	var medium models.Medium
 	if err := s.db.
+		Preload("Tracks", func(db *gorm.DB) *gorm.DB { return db.Order("position asc") }).
+		Preload("Tracks.Work").
+		Preload("Tracks.Work.Translations").
+		Preload("Tracks.Work.Tags").
 		Preload("Tracks.CanonicalEntry").
+		Preload("Tracks.CanonicalEntry.Work").
+		Preload("Tracks.CanonicalEntry.Work.Translations").
 		Preload("AssetFiles").
 		Where("id = ?", mediumID).
 		First(&medium).Error; err != nil {

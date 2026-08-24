@@ -326,30 +326,38 @@ export default function ReleaseDetailPage() {
                                 const displayTitle = tr.title_override || tr.canonical_entry?.title || tr.title;
                                 const trWork = tr.work || tr.canonical_entry?.work;
                                 const trWorkLoc = trWork ? pickLocalized(locale, trWork.translations, trWork.title, trWork.summary) : null;
+                                const rawCandidateTitle = (trWorkLoc?.title || trWork?.title || "").trim();
+                                const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawCandidateTitle);
+                                const workBadgeTitle = !isUuid && rawCandidateTitle ? rawCandidateTitle : "";
                                 return (
                                   <tr key={tr.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                                     <td className="py-2 px-3.5 font-mono text-gray-500 tabular-nums">{tr.position}</td>
                                     <td className="py-2 px-3.5 font-medium text-gray-900 dark:text-white">
                                       <div className="flex flex-wrap items-center gap-1.5">
                                         <span>{displayTitle}</span>
-                                        {trWork && trWork.id !== release.work_id && (
+                                        {trWork && trWork.id !== release.work_id && workBadgeTitle && (
                                           <Link
                                             href={`/works/${trWork.id}`}
                                             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 text-[10px] hover:bg-sky-500/20 transition-colors font-mono"
-                                            title={trWorkLoc?.title}
+                                            title={workBadgeTitle}
                                           >
                                             <Film className="w-2.5 h-2.5" />
-                                            <span className="truncate max-w-[22ch]">{trWorkLoc?.title}</span>
+                                            <span className="truncate max-w-[22ch]">{workBadgeTitle}</span>
                                           </Link>
                                         )}
                                       </div>
                                     </td>
                                     <td className="py-2 px-3.5 text-gray-500 text-xs">
                                       {tr.canonical_entry ? (
-                                        <span className="inline-flex items-center gap-1">
-                                          {tr.canonical_entry.title}
-                                          {tr.title_override && tr.title_override !== tr.canonical_entry.title && <span className="text-amber-500 text-[10px]">[{t("release.detail.overridden")}]</span>}
-                                        </span>
+                                        <Link
+                                          href={`/canonical-entries/${tr.canonical_entry.id}`}
+                                          className="inline-flex items-center gap-1 text-gray-700 dark:text-gray-300 hover:text-primary hover:underline transition-colors"
+                                        >
+                                          <span>{tr.canonical_entry.title}</span>
+                                          {tr.title_override && tr.title_override !== tr.canonical_entry.title && (
+                                            <span className="text-amber-500 text-[10px]">[{t("release.detail.overridden")}]</span>
+                                          )}
+                                        </Link>
                                       ) : (
                                         <span className="text-gray-400">—</span>
                                       )}

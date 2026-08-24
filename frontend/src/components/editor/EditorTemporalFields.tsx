@@ -6,7 +6,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 interface Props {
   formData: Record<string, any>;
   updateField: (key: string, val: any) => void;
-  targetType: "work" | "artist" | "release" | "franchise";
+  targetType: "work" | "artist" | "release" | "franchise" | "canonical_entry";
 }
 
 export function EditorTemporalFields({ formData, updateField, targetType }: Props) {

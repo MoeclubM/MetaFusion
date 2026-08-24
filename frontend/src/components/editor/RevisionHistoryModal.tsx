@@ -11,7 +11,7 @@ import { UserRoleBadge } from "@/lib/roles";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  targetType: "work" | "artist" | "release" | "franchise";
+  targetType: "work" | "artist" | "release" | "franchise" | "canonical_entry";
   targetId: string;
   entityTitle: string;
 }

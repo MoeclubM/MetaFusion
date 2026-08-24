@@ -15,7 +15,7 @@ const areaClass =
 const labelClass = "block text-xs sm:text-sm font-mono text-gray-600 dark:text-gray-300";
 
 interface Props {
-  targetType: "work" | "artist" | "release" | "franchise";
+  targetType: "work" | "artist" | "release" | "franchise" | "canonical_entry";
   formData: Record<string, any>;
   updateField: (key: string, val: any) => void;
   aliasesStr: string;
@@ -241,8 +241,8 @@ export function EditorCoreFields({
             <input
               type="text"
               required
-              value={formData.edition_name || ""}
-              onChange={(e) => updateField("edition_name", e.target.value)}
+              value={targetType === "canonical_entry" ? (formData.title || "") : (formData.edition_name || "")}
+              onChange={(e) => updateField(targetType === "canonical_entry" ? "title" : "edition_name", e.target.value)}
               placeholder={t("editor.core.primaryTitlePlaceholder")}
               className={`${fieldClass} font-medium`}
             />
@@ -409,6 +409,71 @@ export function EditorCoreFields({
                   { value: "digital", label: t("editor.core.channelDigital") },
                   { value: "web", label: t("editor.core.channelWeb") },
                 ]}
+              />
+            </div>
+          </>
+        )}
+
+        {targetType === "canonical_entry" && (
+          <>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{t("canonicalEntry.editor.artistCredit")}</label>
+              <input
+                type="text"
+                value={formData.artist_credit || ""}
+                onChange={(e) => updateField("artist_credit", e.target.value)}
+                placeholder={t("canonicalEntry.editor.artistCreditPlaceholder")}
+                className={fieldClass}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{t("canonicalEntry.editor.durationSeconds")}</label>
+              <input
+                type="number"
+                min={0}
+                value={formData.duration_seconds ?? formData.duration ?? ""}
+                onChange={(e) => updateField("duration_seconds", parseInt(e.target.value, 10) || 0)}
+                placeholder="240"
+                className={fieldClass}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{t("canonicalEntry.editor.sortTitle")}</label>
+              <input
+                type="text"
+                value={formData.sort_title || ""}
+                onChange={(e) => updateField("sort_title", e.target.value)}
+                placeholder={t("canonicalEntry.editor.sortTitlePlaceholder")}
+                className={fieldClass}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{t("canonicalEntry.editor.recordingDate")}</label>
+              <input
+                type="date"
+                value={formData.recording_date || ""}
+                onChange={(e) => updateField("recording_date", e.target.value)}
+                className={fieldClass}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{t("canonicalEntry.editor.isrc")}</label>
+              <input
+                type="text"
+                value={formData.isrc || ""}
+                onChange={(e) => updateField("isrc", e.target.value)}
+                placeholder="e.g., JPU902300001"
+                className={`${fieldClass} font-mono`}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{t("canonicalEntry.editor.isbn")}</label>
+              <input
+                type="text"
+                value={formData.isbn || ""}
+                onChange={(e) => updateField("isbn", e.target.value)}
+                placeholder="e.g., 978-4-04-100000-0"
+                className={`${fieldClass} font-mono`}
               />
             </div>
           </>

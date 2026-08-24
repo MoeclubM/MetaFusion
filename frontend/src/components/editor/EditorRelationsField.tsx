@@ -22,14 +22,14 @@ export interface RelationRow {
 interface Props {
   relations: RelationRow[];
   relationTypes: RelationType[];
-  sourceType: "work" | "artist" | "release" | "franchise";
+  sourceType: "work" | "artist" | "release" | "franchise" | "canonical_entry";
   sourceEntityType?: string;
   addRelationRow: () => void;
   removeRelationRow: (idx: number) => void;
   updateRelationRow: (idx: number, patch: Partial<RelationRow>) => void;
 }
 
-const HUB_TYPES = ["work", "artist", "release", "franchise"] as const;
+const HUB_TYPES = ["work", "artist", "release", "franchise", "canonical_entry"] as const;
 
 function uniqueHubs(allowed: string[] | undefined): string[] {
   const src = allowed && allowed.length > 0 ? allowed : [...HUB_TYPES];
