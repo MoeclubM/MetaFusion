@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
+import { UserRoleBadge } from "@/lib/roles";
 import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
 import MarkdownRenderer from "@/components/MarkdownRenderer";
@@ -248,9 +249,7 @@ export default function TopicDetailPage() {
  ) : (
  <span className="font-bold text-gray-900 dark:text-white text-sm">{opPost?.user?.username || topic.user?.username || t("community.anonymous")}</span>
  )}
- <span className="px-2.5 py-1 rounded-sm bg-background border border-surfaceBorder text-xs font-mono text-amber-500">
- {(opPost?.user?.role || topic.user?.role) === "admin" ? t("community.admin") : t("community.op")}
- </span>
+ <UserRoleBadge role={opPost?.user?.role || topic.user?.role} t={t} />
  </div>
  <span className="text-xs text-gray-500 font-mono">
  {new Date(opPost?.created_at || topic.created_at).toLocaleString()}
@@ -344,9 +343,7 @@ export default function TopicDetailPage() {
  ) : (
  <span className="font-bold text-gray-900 dark:text-white text-sm">{post.user?.username || t("community.anonymous")}</span>
  )}
- <span className="text-xs text-gray-500 font-mono">
- {post.user?.role === "admin" ? t("community.admin") : t("community.member")}
- </span>
+ <UserRoleBadge role={post.user?.role} t={t} />
  </div>
  <span className="text-xs text-gray-500 font-mono">
  {new Date(post.created_at).toLocaleString()}

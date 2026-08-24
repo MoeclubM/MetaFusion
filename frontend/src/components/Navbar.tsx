@@ -11,6 +11,7 @@ import { BrandMark } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
 import { displayNameOf } from "@/lib/api";
 import { OmniImportModal } from "./importer/OmniImportModal";
+import { UserRoleBadge } from "@/lib/roles";
 import {
   Plus,
   LogOut,
@@ -196,9 +197,9 @@ interface NavbarProps {
  {displayNameOf(user as unknown as { username: string; display_name?: string }) !== user.username && (
  <div className="text-xs text-gray-500 font-mono truncate">@{user.username}</div>
  )}
- <span className="px-2 py-0.5 rounded-sm bg-black/5 dark:bg-white/[0.08] border border-black/10 dark:border-white/10 font-mono text-[10px] text-gray-600 dark:text-gray-300 capitalize inline-block">
- {user.role}
- </span>
+                  <div className="pt-0.5">
+                    <UserRoleBadge role={user.role} t={t} showIcon />
+                  </div>
  </div>
  </div>
 

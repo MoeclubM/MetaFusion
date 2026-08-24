@@ -5,6 +5,7 @@ import { ArrowLeft, Search, X, RefreshCw, LogOut, Shield } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { UserAvatar } from "@/components/UserAvatar";
+import { getUserRoleInfo } from "@/lib/roles";
 import { sidebarGroups } from "./types";
 import type { Tab } from "./types";
 
@@ -106,7 +107,7 @@ export function AdminHeader({
           <UserAvatar user={user} size="sm" shape="rounded" />
           <div className="text-right hidden sm:block">
             <div className="text-xs font-semibold text-gray-200">{user?.username || "Admin"}</div>
-            <div className="font-mono text-[10px] text-amber-400/90 uppercase">{user?.role || "Staff"}</div>
+            <div className="font-mono text-[10px] text-amber-400/90 font-medium">{getUserRoleInfo(user?.role, t).label}</div>
           </div>
           <button
             onClick={logout}

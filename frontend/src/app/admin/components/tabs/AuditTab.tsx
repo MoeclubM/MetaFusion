@@ -2,7 +2,10 @@
 
 import React, { useState, useMemo } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { ScrollText, Search, ChevronDown, ChevronRight, Code2, User, Globe } from "lucide-react";
+import { ScrollText, Search, ChevronDown, ChevronRight, Code2, User, Globe, ExternalLink } from "lucide-react";
+import { UserRoleBadge } from "@/lib/roles";
+import { DiffViewer } from "@/components/editor/DiffViewer";
+import Link from "next/link";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
 export function AuditTab({ auditLogs }: Pick<AdminDashboard, "auditLogs">) {
@@ -118,9 +121,7 @@ export function AuditTab({ auditLogs }: Pick<AdminDashboard, "auditLogs">) {
                         )}
                       </td>
                       <td className="py-3 px-3 font-mono text-gray-400">
-                        <span className="px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/10 text-[10px]">
-                          {log.actor_role}
-                        </span>
+                        <UserRoleBadge role={log.actor_role} t={t} />
                       </td>
                       <td className="py-3 px-3 font-mono text-gray-400 text-[11px]">{log.ip || "—"}</td>
                       <td className="py-3 px-4 text-right font-mono text-gray-400 text-[11px]">

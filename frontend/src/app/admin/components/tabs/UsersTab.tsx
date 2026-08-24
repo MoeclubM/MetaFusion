@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { displayNameOf } from "@/lib/api";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Select } from "@/components/ui/Select";
+import { UserRoleBadge } from "@/lib/roles";
 import { Users, Copy, Check, Pencil, X, AlertCircle } from "lucide-react";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
@@ -153,12 +154,7 @@ export function UsersTab({
                         <div className="font-semibold text-white flex items-center gap-2">
                           <UserAvatar user={u} size="xs" shape="rounded" />
                           <span className="truncate max-w-[120px]">{u.username}</span>
-                          {u.role === "admin" && (
-                            <span className="px-1 py-0.2 rounded text-[9px] font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30 shrink-0">ADMIN</span>
-                          )}
-                          {u.role === "archivist" && (
-                            <span className="px-1 py-0.2 rounded text-[9px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">ARCHIVIST</span>
-                          )}
+                          <UserRoleBadge role={u.role} t={t} />
                         </div>
                         <div className="text-[10px] text-gray-500 font-mono pl-7">{u.invite_code || "—"}</div>
                       </td>

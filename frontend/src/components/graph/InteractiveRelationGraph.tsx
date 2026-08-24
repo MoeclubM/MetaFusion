@@ -53,6 +53,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 }) => {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const [zoom, setZoom] = useState(1);
@@ -224,15 +225,26 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
   // 缩放操作
   const handleZoom = (delta: number) => {
-    setZoom((prev) => Math.min(2.5, Math.max(0.4, prev + delta)));
+    setZoom((prev) => Math.min(2.8, Math.max(0.35, +(prev + delta).toFixed(2))));
   };
 
-  // 鼠标滚轮缩放
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const delta = e.deltaY < 0 ? 0.1 : -0.1;
-    handleZoom(delta);
-  };
+  // 鼠标滚轮缩放 - 绑定非被动原生事件，严格阻止外层页面滚动
+  useEffect(() => {
+    const el = canvasContainerRef.current;
+    if (!el) return;
+
+    const handleNativeWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY < 0 ? 0.12 : -0.12;
+      setZoom((prev) => Math.min(2.8, Math.max(0.35, +(prev + delta).toFixed(2))));
+    };
+
+    el.addEventListener("wheel", handleNativeWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", handleNativeWheel);
+    };
+  }, []);
 
   // 画布拖拽平移
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -436,11 +448,11 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
       {/* 图谱主体 SVG 交互画布 */}
       <div
-        className="flex-1 w-full h-full relative cursor-grab active:cursor-grabbing overflow-hidden bg-dot-grid"
+        ref={canvasContainerRef}
+        className="flex-1 w-full h-full relative cursor-grab active:cursor-grabbing overflow-hidden bg-dot-grid touch-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
-        onWheel={handleWheel}
       >
         <svg
           ref={svgRef}

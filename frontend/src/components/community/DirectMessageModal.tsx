@@ -8,6 +8,7 @@ import {
   User,
 } from "@/lib/api";
 import { UserAvatar } from "@/components/UserAvatar";
+import { UserRoleBadge } from "@/lib/roles";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
@@ -135,9 +136,7 @@ export default function DirectMessageModal({
                 <span className="font-semibold text-white text-sm truncate">
                   {peerUser.username}
                 </span>
-                <span className="px-1.5 py-0.2 rounded bg-white/10 border border-white/10 text-[9px] font-mono text-gray-300 capitalize">
-                  {peerUser.role}
-                </span>
+                <UserRoleBadge role={peerUser.role} t={t} />
               </div>
               <span className="text-[10px] text-gray-400 font-mono flex items-center gap-1">
                 <Clock className="w-2.5 h-2.5" />
