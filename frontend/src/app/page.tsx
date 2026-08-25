@@ -51,58 +51,72 @@ function RootLandingInner() {
         <LocaleSwitcher compact />
       </aside>
 
-      {/* Hero Core: Enlarged Logo Left, Copy Right, Centered as a Whole */}
-      <main className="relative z-10 w-full max-w-6xl mx-auto px-6 py-8 sm:py-12 flex-1 flex flex-col justify-center">
-        <div className="w-full flex flex-col md:flex-row items-center justify-center gap-8 md:gap-14">
-          {/* Enlarged BrandMark Logo */}
-          <div className="shrink-0">
-            <BrandMark size={140} withGlow={true} idSuffix="landing-hero" />
-          </div>
+      {/* Hero Core: Perfectly Centered Stacked Layout */}
+      <main className="relative z-10 w-full max-w-4xl mx-auto px-6 py-10 sm:py-16 flex-1 flex flex-col items-center justify-center text-center">
+        {/* BrandMark Logo & Glowing Halo */}
+        <div className="mb-6 relative group">
+          <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl transform scale-125 group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
+          <BrandMark size={112} withGlow={true} idSuffix="landing-hero" className="relative z-10 drop-shadow-xl" />
+        </div>
 
-          {/* Right Information & Actions */}
-          <div className="flex-1 max-w-xl text-center md:text-left space-y-6">
-            <div className="space-y-3">
-              <div className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-widest text-primary font-semibold">
-                <Database className="w-3.5 h-3.5" />
-                <span>OPEN METADATA & RESOURCE PLATFORM</span>
-              </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-white">
-                MetaFusion
-              </h1>
-              <p className="text-base sm:text-lg text-gray-600 dark:text-gray-300 font-normal leading-relaxed">
-                {t("landing.heroSubtitle")}
-              </p>
-            </div>
+        {/* Tagline Badge */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-primary/10 border border-primary/20 font-mono text-xs uppercase tracking-widest text-primary font-semibold mb-4">
+          <Database className="w-3.5 h-3.5" />
+          <span>{t("landing.tagline")}</span>
+        </div>
 
-            {/* Action Buttons: Left "进入" (Enter), Right "加入" (Join) / "探索" (Explore) */}
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-3.5 pt-2">
-              <Link
-                href={user ? "/home" : "/explore"}
-                className="inline-flex items-center gap-2 px-8 h-12 rounded-full bg-primary text-white keep-white hover:opacity-90 font-semibold text-sm shadow-md hover:shadow-lg transition-all cursor-pointer"
-              >
-                <Library className="w-4 h-4" />
-                <span>{t("landing.enter")}</span>
-              </Link>
+        {/* Main Brand Title */}
+        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-4">
+          MetaFusion
+        </h1>
 
-              {!user ? (
-                <Link
-                  href="/login?tab=register"
-                  className="inline-flex items-center gap-2 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
-                >
-                  <LogIn className="w-4 h-4 text-primary" />
-                  <span>{t("landing.join")}</span>
-                </Link>
-              ) : (
-                <Link
-                  href="/explore"
-                  className="inline-flex items-center gap-2 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
-                >
-                  <Compass className="w-4 h-4 text-primary" />
-                  <span>{t("landing.exploreArchive")}</span>
-                </Link>
-              )}
-            </div>
-          </div>
+        {/* Subtitle */}
+        <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed mb-8">
+          {t("landing.heroSubtitle")}
+        </p>
+
+        {/* Action Buttons: Centered */}
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
+          <Link
+            href={user ? "/home" : "/explore"}
+            className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-primary text-white keep-white hover:opacity-90 font-semibold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all cursor-pointer"
+          >
+            <Library className="w-4 h-4" />
+            <span>{t("landing.enter")}</span>
+          </Link>
+
+          {!user ? (
+            <Link
+              href="/login?tab=register"
+              className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
+            >
+              <LogIn className="w-4 h-4 text-primary" />
+              <span>{t("landing.join")}</span>
+            </Link>
+          ) : (
+            <Link
+              href="/explore"
+              className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
+            >
+              <Compass className="w-4 h-4 text-primary" />
+              <span>{t("landing.exploreArchive")}</span>
+            </Link>
+          )}
+        </div>
+
+        {/* Architecture Highlights */}
+        <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono text-gray-500 dark:text-white/40">
+          <span className="px-2.5 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+            {t("landing.featureGraph")}
+          </span>
+          <span className="text-black/20 dark:text-white/20">·</span>
+          <span className="px-2.5 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+            {t("landing.featureCAS")}
+          </span>
+          <span className="text-black/20 dark:text-white/20">·</span>
+          <span className="px-2.5 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+            {t("landing.featureOpen")}
+          </span>
         </div>
       </main>
 
