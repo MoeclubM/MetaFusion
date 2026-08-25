@@ -22,19 +22,29 @@ function isProtectedPath(pathname: string | null): boolean {
   return PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
+let cachedSetupStatus: { is_initialized: boolean } | null = null;
+
 export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading } = useAuth();
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
 
-  const [setupChecked, setSetupChecked] = useState(false);
+  const [setupChecked, setSetupChecked] = useState(cachedSetupStatus !== null);
   const isProtected = isProtectedPath(pathname);
 
   useEffect(() => {
     // 首次检测系统是否完成 OOBE 初始化
+    if (cachedSetupStatus && cachedSetupStatus.is_initialized) {
+      if (pathname === "/setup") {
+        router.replace("/");
+      }
+      return;
+    }
+
     fetchSetupStatus()
       .then((status) => {
+        cachedSetupStatus = status;
         if (!status.is_initialized) {
           // 系统未初始化且当前不在 /setup，则强制跳转 /setup
           if (pathname !== "/setup") {
@@ -62,7 +72,8 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
     }
   }, [loading, user, isProtected, pathname, router]);
 
-  if (loading || !setupChecked) {
+  // 仅在受保护路由且正在重定向未登录用户时显示阻断全屏加载，普通公开页面（如首页）直接平滑渲染
+  if (isProtected && (loading || !setupChecked)) {
     return (
       <div className="min-h-screen bg-background grid place-items-center">
         <div className="flex flex-col items-center gap-3">
