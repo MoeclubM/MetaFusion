@@ -57,7 +57,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 |---|---|---|
 | AUTH-01 | 注册开关 | `registration_enabled=false` 时 `POST /auth/register` 拒绝，文案 `auth.registration_closed`，前端禁用提交并展示 amber 提示 |
 | AUTH-02 | 邀请开关 | `invite_required=true` 时注册必填 `invite_code` 并经 `resolveInviterID` 校验（`users.invite_code` → `invitations.code` → 专属邀请码 → admin 回退）；`false` 时 `invite_code` 可选，填则校验、不填则直注 |
-| AUTH-03 | 登录 | `email_or_username + password`，`banned` 账号拒绝，JWT 7 天有效期 |
+| AUTH-03 | 登录与双 Token | `email_or_username + password`，`banned` 账号拒绝；采用 Access Token (2h) + Refresh Token (7d) 架构，支持 Redis 实时黑名单撤销与 PAT 长期令牌 |
 | AUTH-04 | 邀请链 | 注册成功写入 `users.invited_by`，`InviteCode` 为 `MF-` 永久码，`GET /auth/invite` 返回 `invite_code / invited_count / invited_users` |
 
 ### 3.2 元数据开放
