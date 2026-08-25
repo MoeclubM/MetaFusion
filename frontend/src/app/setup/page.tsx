@@ -130,40 +130,21 @@ export default function SetupPage() {
   if (status?.is_initialized && !successResult) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col items-center justify-center p-6 selection:bg-primary selection:text-white">
-        <div className="absolute top-5 right-5 z-20 flex items-center gap-2">
-          <ThemePicker />
-          <LocaleSwitcher compact />
-        </div>
-
         <div className="w-full max-w-md p-8 rounded-2xl bg-card border border-border shadow-2xl text-center space-y-6 animate-fade-in">
-          <div className="w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 text-primary grid place-items-center mx-auto">
-            <ShieldCheck className="w-8 h-8" />
-          </div>
-
           <div className="space-y-2">
-            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">
-              {t("setup.alreadyInitTitle")}
+            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white font-mono">
+              {t("setup.notFoundTitle")}
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-              {t("setup.alreadyInitDesc")}
+              {t("setup.notFoundDesc")}
             </p>
           </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
-            <Link
-              href="/login"
-              className="flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-primary text-white keep-white font-semibold text-sm hover:opacity-90 transition-all shadow-md"
-            >
-              <span>{t("setup.goToLogin")}</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link
-              href="/"
-              className="flex-1 inline-flex items-center justify-center gap-2 h-11 rounded-xl bg-black/5 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/[0.12] font-medium text-sm transition-all"
-            >
-              <span>{t("setup.goToHome")}</span>
-            </Link>
-          </div>
+          <Link
+            href="/"
+            className="inline-flex items-center justify-center px-6 h-11 rounded-xl bg-primary text-white keep-white font-semibold text-sm hover:opacity-90 transition-all shadow-md cursor-pointer"
+          >
+            <span>{t("setup.goToHome")}</span>
+          </Link>
         </div>
       </div>
     );

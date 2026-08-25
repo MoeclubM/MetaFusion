@@ -190,13 +190,14 @@ function LoginInner() {
  {isRegister && (
  <div className="space-y-1.5 animate-fade-in">
  <label className="font-mono text-xs sm:text-sm text-gray-600 dark:text-gray-400">
- {t("auth.emailOptional")}
+ {t("auth.email")} <span className="text-rose-500">*</span>
  </label>
  <div className="relative">
  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
  <input
  type="email"
- placeholder="user@example.com"
+ required
+ placeholder={t("auth.emailPlaceholder")}
  value={email}
  onChange={(e) => setEmail(e.target.value)}
  className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
