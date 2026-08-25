@@ -792,9 +792,9 @@ export interface Invitation {
  */
 export interface ForumBoard {
   code: string;
-  /** legacy fallback fields — 展示层请勿直接用，优先走 t(`board.${code}`) */
   name_zh: string;
   name_en?: string;
+  names?: Record<string, string>;
   name: string;
   description?: string;
   desc: string;
@@ -839,6 +839,7 @@ export function normalizeBoard(raw: any, t?: (k: string) => string): ForumBoard 
     descKey,
     name_zh: nameZh,
     name_en: nameEn,
+    names: names || (raw.names as Record<string, string>),
     name: name || resolvedName || nameZh,
     description: desc,
     desc,

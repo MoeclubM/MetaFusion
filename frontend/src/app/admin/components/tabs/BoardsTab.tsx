@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { fetchApi, ForumBoard } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { DynamicNamesEditor, MultilingualBadges } from "@/components/common/DynamicNamesEditor";
 import { LayoutGrid, Plus, Pencil, Trash2, Search, Megaphone, Bug, MessageCircle, BookOpen, Cpu, Archive, Coffee, Layers, Hash, Tag, Sparkles, Flame, Bookmark, MessageSquare, Globe } from "lucide-react";
 
 const COLORS = ["emerald","amber","sky","purple","cyan","rose","indigo","teal"] as const;
@@ -45,21 +46,36 @@ export function BoardsTab() {
 
   const startCreate=()=>{
     const nextOrder = items.length ? Math.max(...items.map(i=>i.sort_order ?? 0))+10 : 10;
-    setForm({ code:"", name_zh:"", name_en:"", description:"", color:"emerald", icon:"BookOpen", sort_order: nextOrder, is_enabled:true, show_in_feed:true });
+    setForm({ code:"", name_zh:"", name_en:"", names: { "zh-CN": "", "en-US": "" }, description:"", color:"emerald", icon:"BookOpen", sort_order: nextOrder, is_enabled:true, show_in_feed:true });
     setEditing(null); setSaveErr(""); setCreating(true);
   };
-  const startEdit=(b: BoardItem)=>{ setForm({ ...b }); setEditing(b); setSaveErr(""); setCreating(true); };
+  const startEdit=(b: BoardItem)=>{
+    const names = b.names || { "zh-CN": b.name_zh || "", "en-US": b.name_en || "" };
+    setForm({ ...b, names });
+    setEditing(b);
+    setSaveErr("");
+    setCreating(true);
+  };
 
   const save=async()=>{
-    const code=(form.code||"").trim(); const nameZh=(form.name_zh||"").trim(); const nameEn=(form.name_en||"").trim();
+    const code=(form.code||"").trim();
+    const names = form.names || {};
+    const nameZh = (names["zh-CN"] || form.name_zh || Object.values(names)[0] || "").trim();
+    const nameEn = (names["en-US"] || form.name_en || nameZh).trim();
     if(!code || !nameZh){ setSaveErr(t("admin.boards.codeRequired")); return; }
     setSaveErr(""); setSaving(true);
     try{
+      const payload = {
+        ...form,
+        code,
+        name_zh: nameZh,
+        name_en: nameEn,
+        names: { ...names, "zh-CN": nameZh, "en-US": nameEn },
+      };
       if(editing){
-        // PATCH partial update via PUT /admin/boards/:code or PUT /admin/boards
-        await fetchApi(`/admin/boards/${encodeURIComponent(code)}`,{ method:"PUT", body: JSON.stringify({ ...form, code, name_zh: nameZh, name_en: nameEn, names: {"zh-CN": nameZh, "en-US": nameEn || nameZh} }) });
+        await fetchApi(`/admin/boards/${encodeURIComponent(code)}`,{ method:"PUT", body: JSON.stringify(payload) });
       } else {
-        await fetchApi("/admin/boards",{ method:"POST", body: JSON.stringify({ ...form, code, name_zh: nameZh, name_en: nameEn, names: {"zh-CN": nameZh, "en-US": nameEn || nameZh} }) });
+        await fetchApi("/admin/boards",{ method:"POST", body: JSON.stringify(payload) });
       }
       setCreating(false); setEditing(null); load();
     }catch(e:any){ setSaveErr(e.message || "Save failed"); }
@@ -107,15 +123,19 @@ export function BoardsTab() {
               <label className="text-[11px] font-mono text-gray-500">{t("admin.boards.sortLabel")}</label>
               <input type="number" value={form.sort_order ?? 0} onChange={e=>setForm({...form,sort_order: Number(e.target.value)})} className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-white/10 text-xs focus:outline-none focus:border-sky-500/30" />
             </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-mono text-gray-500">{t("admin.boards.nameZhLabel")}</label>
-              <input value={form.name_zh||""} onChange={e=>setForm({...form,name_zh:e.target.value})} className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-white/10 text-xs focus:outline-none" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-mono text-gray-500">{t("admin.boards.nameEnLabel")}</label>
-              <input value={form.name_en||""} onChange={e=>setForm({...form,name_en:e.target.value})} className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-white/10 text-xs focus:outline-none" />
-            </div>
           </div>
+          <DynamicNamesEditor
+            value={form.names}
+            onChange={(nextNames) => {
+              setForm({
+                ...form,
+                names: nextNames,
+                name_zh: nextNames["zh-CN"] || form.name_zh || "",
+                name_en: nextNames["en-US"] || form.name_en || "",
+              });
+            }}
+            label={t("admin.boards.colName")}
+          />
           <div className="space-y-1">
             <label className="text-[11px] font-mono text-gray-500">{t("admin.boards.descLabel")}</label>
             <input value={form.description||""} onChange={e=>setForm({...form,description:e.target.value})} className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-white/10 text-xs focus:outline-none" />
@@ -163,7 +183,12 @@ export function BoardsTab() {
               return (
                 <tr key={b.code} className="hover:bg-white/[0.03]">
                   <td className="p-2.5 font-mono flex items-center gap-2"><span className={`w-2 h-2 rounded-full ${colorDot(b.color)}`} /><Icon className="w-3.5 h-3.5 text-gray-500" />{b.code}{isSystem && <span className="px-1.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/20 text-amber-300 text-[10px] font-mono">{t("admin.boards.systemBadge")}</span>}</td>
-                  <td className="p-2.5"><div className="font-medium text-white">{b.name_zh}</div><div className="text-[11px] text-gray-500">{b.name_en}</div></td>
+                  <td className="p-2.5">
+                    <div className="font-medium text-white">{b.name_zh || b.name_en || b.code}</div>
+                    <div className="mt-1">
+                      <MultilingualBadges names={b.names} fallbackZh={b.name_zh} fallbackEn={b.name_en} />
+                    </div>
+                  </td>
                   <td className="p-2.5 text-gray-400 max-w-[220px] truncate" title={b.description}>{b.description}</td>
                   <td className="p-2.5 font-mono">{b.sort_order}</td>
                   <td className="p-2.5 font-mono text-gray-300">{typeof b.topic_count==="number" ? b.topic_count : "—"}</td>
