@@ -83,7 +83,7 @@ export const sidebarGroups: SidebarGroup[] = [
   {
     labelKey: "admin.sidebar.groupSystem",
     items: [
-      { id: "plugins", labelKey: "admin.sidebar.itemPlugins", icon: Puzzle, badgeKey: "admin.sidebar.badgePlugins" },
+      { id: "plugins", labelKey: "admin.sidebar.itemPlugins", icon: Puzzle },
       { id: "health", labelKey: "admin.sidebar.itemHealth", icon: Activity },
       { id: "settings", labelKey: "admin.sidebar.itemSettings", icon: Settings2 },
     ],
