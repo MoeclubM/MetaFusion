@@ -1732,6 +1732,81 @@ export function performInitialSetup(payload: InitialSetupPayload): Promise<Initi
   });
 }
 
+// ── 系统健康监控与任务队列治理 (Health & Asynq Queues) ──
+export interface ComponentHealthInfo {
+  status: "healthy" | "warning" | "unhealthy";
+  latency_ms: number;
+  message?: string;
+  details?: Record<string, any>;
+  last_checked: string;
+}
+
+export interface QueueStatItem {
+  queue: string;
+  memory_usage: number;
+  latency_ms: number;
+  size: number;
+  active: number;
+  pending: number;
+  scheduled: number;
+  retry: number;
+  archived: number;
+  completed: number;
+  paused: boolean;
+  timestamp: string;
+}
+
+export interface SystemHealthDetail {
+  status: "healthy" | "warning" | "unhealthy";
+  timestamp: string;
+  components: Record<string, ComponentHealthInfo>;
+  queues: QueueStatItem[];
+  system_stats: {
+    goroutines: number;
+    cpus: number;
+    alloc_bytes: number;
+    total_alloc: number;
+    sys_bytes: number;
+    num_gc: number;
+    heap_alloc: number;
+    heap_sys: number;
+    heap_inuse: number;
+    go_version: string;
+  };
+}
+
+export interface QueueStatsResponse {
+  queues: QueueStatItem[];
+  transcode_summary: {
+    pending: number;
+    processing: number;
+    completed: number;
+    failed: number;
+  };
+  timestamp: string;
+}
+
+export function fetchSystemHealthDetail(): Promise<SystemHealthDetail> {
+  return fetchApi<SystemHealthDetail>("/admin/system/health");
+}
+
+export function fetchSystemQueues(): Promise<QueueStatsResponse> {
+  return fetchApi<QueueStatsResponse>("/admin/system/queues");
+}
+
+export function pauseQueue(name: string): Promise<{ status: string; queue: string }> {
+  return fetchApi<{ status: string; queue: string }>(`/admin/system/queues/${encodeURIComponent(name)}/pause`, {
+    method: "POST",
+  });
+}
+
+export function unpauseQueue(name: string): Promise<{ status: string; queue: string }> {
+  return fetchApi<{ status: string; queue: string }>(`/admin/system/queues/${encodeURIComponent(name)}/unpause`, {
+    method: "POST",
+  });
+}
+
+
 
 
 
