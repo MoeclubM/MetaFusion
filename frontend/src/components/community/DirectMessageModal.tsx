@@ -5,7 +5,6 @@ import {
   fetchDirectMessages,
   sendDirectMessage,
   DirectMessage,
-  User,
 } from "@/lib/api";
 import { UserAvatar } from "@/components/UserAvatar";
 import { UserRoleBadge } from "@/lib/roles";
@@ -16,7 +15,6 @@ import {
   Send,
   X,
   Clock,
-  Shield,
   Loader2,
   Check,
   CheckCheck,

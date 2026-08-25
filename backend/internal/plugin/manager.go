@@ -179,12 +179,14 @@ func (m *Manager) Initialize(ctx context.Context) error {
 
 	// 检查循环依赖
 	if cycle, err := graph.CheckCycles(); err != nil {
-		log.Printf("[PluginKernel] Warning: Circular dependency detected in plugins: %v", cycle)
+		cleanCycle := strings.ReplaceAll(strings.ReplaceAll(fmt.Sprint(cycle), "\n", " "), "\r", " ")
+		log.Printf("[PluginKernel] Warning: Circular dependency detected in plugins: %s", cleanCycle)
 	}
 
 	topoOrder, err := graph.TopologicalSort()
 	if err != nil {
-		log.Printf("[PluginKernel] Warning: Topological sort warning (%v), falling back to sequential order", err)
+		cleanErr := strings.ReplaceAll(strings.ReplaceAll(err.Error(), "\n", " "), "\r", " ")
+		log.Printf("[PluginKernel] Warning: Topological sort warning (%s), falling back to sequential order", cleanErr)
 		topoOrder = make([]string, 0, len(pluginMap))
 		for id := range pluginMap {
 			topoOrder = append(topoOrder, id)

@@ -1577,7 +1577,9 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 
 	connectedEntities := make([]ConnectedEntityItem, 0)
 	for _, er := range entRels {
-		otherType, otherID, dir := er.TargetType, er.TargetID, "forward"
+		var otherType string
+		var otherID uuid.UUID
+		var dir string
 		if er.SourceType == "artist" && er.SourceID == artist.ID {
 			otherType, otherID, dir = er.TargetType, er.TargetID, "forward"
 		} else {
@@ -1715,7 +1717,9 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 	s.db.Where("(source_type = 'artist' AND source_id = ?) OR (target_type = 'artist' AND target_id = ?)", artistID, artistID).Find(&entRels)
 
 	for _, er := range entRels {
-		otherType, otherID, dir := er.TargetType, er.TargetID, "forward"
+		var otherType string
+		var otherID uuid.UUID
+		var dir string
 		if er.SourceType == "artist" && er.SourceID == artistID {
 			otherType, otherID, dir = er.TargetType, er.TargetID, "forward"
 		} else {

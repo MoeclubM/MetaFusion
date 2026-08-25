@@ -7,7 +7,6 @@ import { Navbar } from "@/components/Navbar";
 import {
   fetchApi,
   CanonicalEntryDetailResponse,
-  CanonicalEntryReleaseSummary,
   ConnectedEntityItem,
   pickLocalized,
   fetchEntityGraph,
@@ -15,8 +14,6 @@ import {
   GraphNode,
   GraphLink,
 } from "@/lib/api";
-import { entryLabel, mediumLabel } from "@/lib/mediaLabels";
-import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import {
@@ -29,14 +26,10 @@ import {
   Layers,
   Network,
   List,
-  Film,
-  Music,
-  Share2,
   Calendar,
   Barcode,
   Hash,
   Sparkles,
-  BookOpen,
 } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
@@ -52,7 +45,6 @@ import { isDistinctOriginalTitle } from "@/lib/titles";
 export default function CanonicalEntryDetailPage() {
   const params = useParams();
   const entryId = params.id as string;
-  const { user } = useAuth();
   const { t, locale } = useI18n();
   const { roleLabel, mediumFormatLabel, mediaCategoryLabel } = useTaxonomy();
 

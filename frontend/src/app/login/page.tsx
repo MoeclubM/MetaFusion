@@ -32,7 +32,6 @@ function LoginInner() {
  const [inviteCode, setInviteCode] = useState(searchParams.get("invite") || "");
  const [error, setError] = useState<string | null>(null);
  const [submitting, setSubmitting] = useState(false);
- const [authSettings, setAuthSettings] = useState<{ registration_enabled: boolean; invite_required: boolean } | null>(null);
 
  // 等鉴权状态初始化完成再判断，避免 /auth/me 未返回时误判为未登录而闪跳
  useEffect(() => {
@@ -41,12 +40,6 @@ function LoginInner() {
  router.replace(redirectUrl);
  }
  }, [loading, user, router, searchParams]);
-
- useEffect(() => {
- fetchApi<{ registration_enabled: boolean; invite_required: boolean }>("/auth/settings")
- .then((s) => setAuthSettings(s))
- .catch(() => setAuthSettings({ registration_enabled: true, invite_required: true }));
- }, []);
 
  const handleSubmit = async (e: React.FormEvent) => {
  e.preventDefault();

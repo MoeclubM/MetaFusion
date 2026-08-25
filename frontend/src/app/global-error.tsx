@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { defaultLocale, localeCookieName, normalizeLocale } from "@/i18n/routing";
+import { localeCookieName, normalizeLocale } from "@/i18n/routing";
 import { getMessages, translate } from "@/i18n/getMessages";
 
 function readCookieLocale(): string | null {

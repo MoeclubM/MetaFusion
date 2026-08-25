@@ -593,7 +593,8 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		if storedURL, err := s.downloadAndStoreCover(c.Request.Context(), workPrev.CoverImageURL); err == nil && storedURL != "" {
 			finalCoverURL = storedURL
 		} else if err != nil {
-			log.Printf("[Importer] Notice: cover download fallback to raw URL (%v)", err)
+			cleanErrMsg := strings.ReplaceAll(strings.ReplaceAll(err.Error(), "\n", " "), "\r", " ")
+			log.Printf("[Importer] Notice: cover download fallback to raw URL (%s)", cleanErrMsg)
 		}
 	}
 
@@ -1343,15 +1344,18 @@ func (s *ImporterService) downloadAndStoreCover(ctx context.Context, rawURL stri
 		return "", err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", rawURL, nil)
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
+		return "", fmt.Errorf("invalid external url: %s", rawURL)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", parsedURL.String(), nil)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
 
-	client := &http.Client{
-		Timeout: 20 * time.Second,
-	}
+	client := security.NewSafeHTTPClient(20 * time.Second)
 
 	resp, err := client.Do(req)
 	if err != nil {

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fetchExternalDatabases, ExternalDatabaseDefinition } from "@/lib/api";
-import { Plus, Trash2, Globe, ExternalLink, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Globe, ExternalLink, AlertCircle } from "lucide-react";
 
 interface Props {
   externalIds: Record<string, any>;
@@ -14,7 +14,6 @@ interface Props {
 export function EditorExternalIds({ externalIds = {}, updateExternalId, category }: Props) {
   const { t, locale } = useI18n();
   const [definitions, setDefinitions] = useState<ExternalDatabaseDefinition[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedCodeToAdd, setSelectedCodeToAdd] = useState("");
   const [customKey, setCustomKey] = useState("");
 
@@ -25,8 +24,7 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
           setDefinitions(res.items);
         }
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch(() => {});
   }, [category]);
 
   const defMap = new Map<string, ExternalDatabaseDefinition>();

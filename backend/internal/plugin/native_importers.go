@@ -14,10 +14,10 @@ import (
 )
 
 var (
-	vndbURLRegex  = regexp.MustCompile(`vndb\.org/v(\d+)`)
-	vndbIDRegex   = regexp.MustCompile(`^v?(\d+)$`)
-	doubanRegex   = regexp.MustCompile(`douban\.com/(?:subject|book|movie)/(\d+)`)
-	isbnRegex     = regexp.MustCompile(`^(?:97[89])?\d{9}[\dX]$`)
+	vndbURLRegex = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?vndb\.org/v(\d+)(?:[/?#].*)?$`)
+	vndbIDRegex  = regexp.MustCompile(`^v?(\d+)$`)
+	doubanRegex  = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?douban\.com/(?:subject|book|movie)/(\d+)(?:[/?#].*)?$`)
+	isbnRegex    = regexp.MustCompile(`^(?:97[89])?\d{9}[\dX]$`)
 )
 
 // ── 1. MusicBrainz 原生插件 ──

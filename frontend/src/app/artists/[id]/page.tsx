@@ -6,9 +6,8 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { fetchApi, ArtistDetailResponse, ConnectedEntityItem, catalogEntityHref, pickLocalized } from "@/lib/api";
 import {
-  User, Building, Film, Globe, ExternalLink, Layers, Eye, ArrowUpRight,
-  Handshake, FileSignature, Briefcase, Network, Sparkles, Building2, CheckCircle2,
-  Edit3, History, GitMerge
+  User, Building, Film, Globe, Layers, Eye, ArrowUpRight,
+  Handshake, Network
 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
@@ -19,7 +18,6 @@ import { TemporalBadge } from "@/components/entity/TemporalBadge";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
-import { EntityCover } from "@/components/common/EntityCover";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { ArtistReleasesTab } from "@/components/artist/ArtistReleasesTab";
 import { isDistinctOriginalTitle } from "@/lib/titles";

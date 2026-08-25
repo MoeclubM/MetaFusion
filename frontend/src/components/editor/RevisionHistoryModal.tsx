@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { X, History, User, Clock, ArrowRight, ExternalLink, GitCommit, FileText, CheckCircle2, Sparkles, Tag } from "lucide-react";
+import { X, History, User, Clock, ExternalLink, GitCommit, FileText } from "lucide-react";
 import { fetchEntityRevisions, EntityRevision } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DiffViewer } from "./DiffViewer";

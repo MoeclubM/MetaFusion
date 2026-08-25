@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/authContext";
 import { usePlayer } from "@/lib/playerContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
-import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Edit3, History, Network, Layers, Film } from "lucide-react";
+import { Copy, Check, HardDrive, Disc, Play, Download, ArrowLeft, ExternalLink, User, Building2, Layers, Film } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";

@@ -15,11 +15,11 @@ import (
 )
 
 var (
-	imdbIDRegex          = regexp.MustCompile(`^(?:https?://(?:www\.)?imdb\.com/title/)?(tt\d+)/?`)
-	imdbNameRegex        = regexp.MustCompile(`^(?:https?://(?:www\.)?imdb\.com/name/)?(nm\d+)/?`)
-	tmdbURLRegex         = regexp.MustCompile(`themoviedb\.org/(movie|tv)/(\d+)`)
-	tmdbPersonURLRegex   = regexp.MustCompile(`themoviedb\.org/person/(\d+)`)
-	tmdbCompanyURLRegex  = regexp.MustCompile(`themoviedb\.org/company/(\d+)`)
+	imdbIDRegex          = regexp.MustCompile(`^(?:https?://(?:www\.)?imdb\.com/title/)?(tt\d+)(?:[/?#].*)?$`)
+	imdbNameRegex        = regexp.MustCompile(`^(?:https?://(?:www\.)?imdb\.com/name/)?(nm\d+)(?:[/?#].*)?$`)
+	tmdbURLRegex         = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?themoviedb\.org/(movie|tv)/(\d+)(?:[/?#].*)?$`)
+	tmdbPersonURLRegex   = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?themoviedb\.org/person/(\d+)(?:[/?#].*)?$`)
+	tmdbCompanyURLRegex  = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?themoviedb\.org/company/(\d+)(?:[/?#].*)?$`)
 	numericIDRegex       = regexp.MustCompile(`^\d+$`)
 )
 

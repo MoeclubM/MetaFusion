@@ -12,18 +12,13 @@ import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
- ArrowLeft,
- Eye,
- Send,
- BookOpen,
- ArrowRight,
- Heart,
- Share2,
- Reply,
- ChevronUp,
- ChevronDown,
- Check,
- Tag as TagIcon,
+  ArrowLeft,
+  ArrowRight,
+  Heart,
+  Share2,
+  Reply,
+  Check,
+  Tag as TagIcon,
 } from "lucide-react";
 
 export default function TopicDetailPage() {

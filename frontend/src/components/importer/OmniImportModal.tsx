@@ -12,23 +12,14 @@ import {
   Gamepad2,
   Globe,
   Puzzle,
-  ArrowRight,
-  CheckCircle2,
   AlertCircle,
-  Clock,
+  CheckCircle2,
   Layers,
   Users,
   Download,
-  ExternalLink,
   Loader2,
-  Link2,
-  PlusCircle,
   GitFork,
-  ChevronDown,
-  ChevronUp,
   UserCheck,
-  UserPlus,
-  UserX,
   Building2,
   User,
   Palette,
@@ -89,17 +80,10 @@ export function OmniImportModal({
   const [isSearchingArtist, setIsSearchingArtist] = useState<boolean>(false);
 
   // 智能查重与关联目标母体
-  const [searchingDuplicates, setSearchingDuplicates] = useState(false);
   const [duplicateMatches, setDuplicateMatches] = useState<Work[]>([]);
   const [selectedTargetWork, setSelectedTargetWork] = useState<Work | null>(null);
   const [linkMode, setLinkMode] = useState<"append_release_to_work" | "merge_translations" | "create_relation" | "new_work">("new_work");
-  const [relationType, setRelationType] = useState<string>("soundtrack_of");
-
-  // 手动搜索目标母体作品
-  const [isManualLinkOpen, setIsManualLinkOpen] = useState(false);
-  const [manualSearchQuery, setManualSearchQuery] = useState("");
-  const [manualSearchResults, setManualSearchResults] = useState<Work[]>([]);
-  const [isSearchingManual, setIsSearchingManual] = useState(false);
+  const [relationType] = useState<string>("soundtrack_of");
 
   const [downloadCover, setDownloadCover] = useState(true);
   const [editNote, setEditNote] = useState("");
@@ -181,7 +165,6 @@ export function OmniImportModal({
       if (queryType === "work" && res.work) {
         const searchTitle = res.work?.title || res.work?.original_title;
         if (searchTitle && searchTitle.trim()) {
-          setSearchingDuplicates(true);
           fetchApi<{ items: Work[] }>(`/catalog/works?q=${encodeURIComponent(searchTitle.trim())}&page_size=5`)
             .then((matchRes) => {
               if (matchRes?.items && matchRes.items.length > 0) {
@@ -190,30 +173,13 @@ export function OmniImportModal({
                 setLinkMode("append_release_to_work");
               }
             })
-            .catch(() => {})
-            .finally(() => {
-              setSearchingDuplicates(false);
-            });
+            .catch(() => {});
         }
       }
     } catch (err: any) {
       setError(err?.message || t("importer.errorParseFailed"));
     } finally {
       setLoadingPreview(false);
-    }
-  };
-
-  const handleManualSearch = async () => {
-    const q = manualSearchQuery.trim();
-    if (!q) return;
-    setIsSearchingManual(true);
-    try {
-      const res = await fetchApi<{ items: Work[] }>(`/catalog/works?q=${encodeURIComponent(q)}&page_size=6`);
-      setManualSearchResults(res?.items || []);
-    } catch {
-      setManualSearchResults([]);
-    } finally {
-      setIsSearchingManual(false);
     }
   };
 

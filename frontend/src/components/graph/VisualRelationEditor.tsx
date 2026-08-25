@@ -19,9 +19,7 @@ import {
   Link2,
   Sparkles,
   Check,
-  X,
   Network,
-  List,
 } from "lucide-react";
 
 interface VisualRelationEditorProps {
