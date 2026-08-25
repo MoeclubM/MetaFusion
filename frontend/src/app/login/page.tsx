@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, fetchSetupStatus } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { BrandMark } from "@/components/Logo";
 import { ThemePicker } from "@/components/ThemePicker";
@@ -16,6 +16,7 @@ import {
  KeyRound,
  ArrowRight,
  AlertCircle,
+ Sparkles,
 } from "lucide-react";
 
 function LoginInner() {
@@ -32,6 +33,13 @@ function LoginInner() {
  const [inviteCode, setInviteCode] = useState(searchParams.get("invite") || "");
  const [error, setError] = useState<string | null>(null);
  const [submitting, setSubmitting] = useState(false);
+ const [hasAdmin, setHasAdmin] = useState<boolean | null>(null);
+
+ useEffect(() => {
+   fetchSetupStatus()
+     .then((s) => setHasAdmin(s.has_admin))
+     .catch(() => setHasAdmin(true));
+ }, []);
 
  // 等鉴权状态初始化完成再判断，避免 /auth/me 未返回时误判为未登录而闪跳
  useEffect(() => {
@@ -98,7 +106,19 @@ function LoginInner() {
  </header>
 
  <main className="relative z-10 flex-1 min-h-0 grid place-items-center py-3">
- <div className="w-full max-w-md max-h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+ <div className="w-full max-w-md max-h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-3">
+ {hasAdmin === false && (
+   <Link
+     href="/setup"
+     className="p-3.5 rounded-xl bg-primary/10 border border-primary/25 text-primary text-xs font-mono font-medium flex items-center justify-between gap-2 hover:bg-primary/15 transition-all group"
+   >
+     <div className="flex items-center gap-2 min-w-0">
+       <Sparkles className="w-4 h-4 shrink-0 text-primary animate-pulse" />
+       <span className="truncate">{t("login.oobeBanner")}</span>
+     </div>
+     <ArrowRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+   </Link>
+ )}
  <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden animate-scale-in">
 	 <div className="p-4 sm:p-5 pb-3 border-b border-black/[0.06] dark:border-white/[0.06]">
 	 <div className="min-w-0">

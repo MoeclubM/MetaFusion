@@ -49,6 +49,7 @@ func translateAuthError(c *gin.Context, msg string) string {
 		"需要邀请码才能注册":          backendi18n.T(c, "auth.invite_required"),
 		"邀请码不能为空":            backendi18n.T(c, "auth.invite_empty"),
 		"无效的邀请码，请向已有成员索取邀请码": backendi18n.T(c, "auth.invite_invalid"),
+		"系统已完成初始化，初始管理员账号已存在": backendi18n.T(c, "auth.already_initialized"),
 	}
 	if v, ok := m[msg]; ok {
 		return v
@@ -204,9 +205,72 @@ func main() {
 
 	api := r.Group("/api/v1")
 	{
+		// OOBE 首次开箱即用初始化检测与设置
+		api.GET("/system/setup-status", func(c *gin.Context) {
+			status, err := authSvc.GetSetupStatus()
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusOK, status)
+		})
+
+		api.POST("/system/setup", func(c *gin.Context) {
+			var input auth.InitialSetupInput
+			if err := c.ShouldBindJSON(&input); err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
+			}
+			user, pair, err := authSvc.PerformInitialSetup(&input)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": translateAuthError(c, err.Error())})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"message":       backendi18n.T(c, "auth.setup_success"),
+				"user":          user,
+				"token":         pair.AccessToken,
+				"access_token":  pair.AccessToken,
+				"refresh_token": pair.RefreshToken,
+				"expires_in":    pair.ExpiresIn,
+				"token_type":    pair.TokenType,
+			})
+		})
+
 		// 认证与专属邀请码
 		authGroup := api.Group("/auth")
 		{
+			authGroup.GET("/setup-status", func(c *gin.Context) {
+				status, err := authSvc.GetSetupStatus()
+				if err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+				c.JSON(http.StatusOK, status)
+			})
+
+			authGroup.POST("/setup", func(c *gin.Context) {
+				var input auth.InitialSetupInput
+				if err := c.ShouldBindJSON(&input); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+					return
+				}
+				user, pair, err := authSvc.PerformInitialSetup(&input)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": translateAuthError(c, err.Error())})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"message":       backendi18n.T(c, "auth.setup_success"),
+					"user":          user,
+					"token":         pair.AccessToken,
+					"access_token":  pair.AccessToken,
+					"refresh_token": pair.RefreshToken,
+					"expires_in":    pair.ExpiresIn,
+					"token_type":    pair.TokenType,
+				})
+			})
+
 			authGroup.GET("/settings", func(c *gin.Context) {
 				var rows []models.SystemSetting
 				_ = db.Find(&rows).Error

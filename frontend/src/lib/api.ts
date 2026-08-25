@@ -1692,6 +1692,46 @@ export function deleteEntityRelation(id: string): Promise<{ status: string; id: 
   });
 }
 
+// ── OOBE 开箱初始化设置 ──
+export interface SetupStatusResponse {
+  is_initialized: boolean;
+  has_admin: boolean;
+  site_name: string;
+  total_users: number;
+}
+
+export interface InitialSetupPayload {
+  username: string;
+  display_name?: string;
+  email: string;
+  password: string;
+  site_name?: string;
+  registration_enabled?: boolean;
+  invite_required?: boolean;
+}
+
+export interface InitialSetupResult {
+  message: string;
+  user: User;
+  token: string;
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  token_type: string;
+}
+
+export function fetchSetupStatus(): Promise<SetupStatusResponse> {
+  return fetchApi<SetupStatusResponse>("/system/setup-status");
+}
+
+export function performInitialSetup(payload: InitialSetupPayload): Promise<InitialSetupResult> {
+  return fetchApi<InitialSetupResult>("/system/setup", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+
 
 
 
