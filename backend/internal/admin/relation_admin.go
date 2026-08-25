@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -385,6 +386,12 @@ func (s *AdminService) DeleteEntityRelation(c *gin.Context) {
 			return
 		}
 
+		var existing models.EntityTypeDefinition
+		if err := s.db.Where("code = ?", code).First(&existing).Error; err == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "admin.entity_type_already_exists")})
+			return
+		}
+
 		names := models.JSONB{"zh-CN": input.NameZh, "en-US": input.NameEn}
 		if input.Names != nil {
 			names = models.JSONB(input.Names)
@@ -397,7 +404,7 @@ func (s *AdminService) DeleteEntityRelation(c *gin.Context) {
 
 		color := input.Color
 		if color == "" {
-			color = "text-amber-400"
+			color = "amber"
 		}
 		bgColor := input.BgColor
 		if bgColor == "" {
@@ -506,6 +513,18 @@ func (s *AdminService) DeleteEntityRelation(c *gin.Context) {
 		var existing models.EntityTypeDefinition
 		if err := s.db.Where("code = ?", code).First(&existing).Error; err != nil {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Entity type definition not found"})
+			return
+		}
+
+		if existing.IsSystem {
+			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "admin.cannot_delete_system_entity_type")})
+			return
+		}
+
+		var count int64
+		s.db.Model(&models.Artist{}).Where("entity_type = ?", code).Count(&count)
+		if count > 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf(backendi18n.T(c, "admin.entity_type_in_use"), count)})
 			return
 		}
 
