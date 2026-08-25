@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Modal } from "@/components/ui/Modal";
 import { DynamicNamesEditor } from "@/components/common/DynamicNamesEditor";
 import { Layers, X } from "lucide-react";
+import { fetchApi } from "@/lib/api";
 import type { AdminDashboard } from "../../hooks/useAdminDashboard";
 
 export function ShelfModal({
@@ -19,6 +21,21 @@ export function ShelfModal({
   onClose: () => void;
 }) {
   const { t } = useI18n();
+  const [dynamicTagSuggestions, setDynamicTagSuggestions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    fetchApi<{ id: number; name: string; group_type?: string }[]>("/catalog/tags")
+      .then((data) => {
+        if (Array.isArray(data)) {
+          const names = data
+            .filter((tg) => Boolean(tg.name) && tg.group_type !== "spec")
+            .map((tg) => tg.name);
+          setDynamicTagSuggestions(names.slice(0, 30));
+        }
+      })
+      .catch(() => {});
+  }, [open]);
 
   return (
     <Modal
@@ -96,31 +113,35 @@ export function ShelfModal({
               className="bg-transparent text-xs text-white placeholder:text-gray-500 focus:outline-none font-mono flex-1 min-w-[120px]"
             />
           </div>
-          <div className="flex flex-wrap gap-1 pt-1.5">
-            {([
-              { key: "电影", labelKey: "admin.shelfModal.preset.movie" },
-              { key: "动画", labelKey: "admin.shelfModal.preset.anime" },
-              { key: "剧集", labelKey: "admin.shelfModal.preset.series" },
-              { key: "游戏", labelKey: "admin.shelfModal.preset.game" },
-              { key: "专辑", labelKey: "admin.shelfModal.preset.album" },
-              { key: "原声", labelKey: "admin.shelfModal.preset.soundtrack" },
-              { key: "古典", labelKey: "admin.shelfModal.preset.classical" },
-              { key: "科幻", labelKey: "admin.shelfModal.preset.scifi" },
-            ] as const).map((preset) => (
-              <button
-                key={preset.key}
-                type="button"
-                onClick={() => {
-                  if (!(shelfForm.query_tags || []).includes(preset.key)) {
-                    setShelfForm({ ...shelfForm, query_tags: [...(shelfForm.query_tags || []), preset.key] });
-                  }
-                }}
-                className="px-2 py-0.5 rounded bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 hover:text-white border border-white/5 text-[11px] font-mono transition-colors"
-              >
-                +{t(preset.labelKey)}
-              </button>
-            ))}
-          </div>
+          {dynamicTagSuggestions.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1.5">
+              {dynamicTagSuggestions.map((tagName) => {
+                const isSelected = (shelfForm.query_tags || []).includes(tagName);
+                return (
+                  <button
+                    key={tagName}
+                    type="button"
+                    onClick={() => {
+                      if (!isSelected) {
+                        setShelfForm({
+                          ...shelfForm,
+                          query_tags: [...(shelfForm.query_tags || []), tagName],
+                        });
+                      }
+                    }}
+                    disabled={isSelected}
+                    className={`px-2 py-0.5 rounded border text-[11px] font-mono transition-colors ${
+                      isSelected
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20 opacity-50 cursor-default"
+                        : "bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 hover:text-white border-white/5"
+                    }`}
+                  >
+                    #{tagName}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-1">
