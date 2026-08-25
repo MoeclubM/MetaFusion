@@ -161,9 +161,16 @@ bash deploy/deploy.sh migrate up
 bash deploy/deploy.sh migrate down
 ```
 
-### 4. 访问服务
+### 4. 访问服务与初始开箱 (OOBE)
 
-- **前端主站与管理后台**：`http://<您的IP>:10100/`（反代域名：`http://findverse.cc/`）
+- **前端主站与管理中台**：`http://<您的IP>:10100/`（反代域名：`http://findverse.cc/`）
+- **首次部署初始化向导 (OOBE)**：`http://<您的IP>:10100/setup`
+  - 新实例首次启动后，访问 `/setup` 即可按向导自主创建初始超级管理员（Super Admin）账号并配置实例准入策略；
+  - 登录页面在未检测到管理员时也会提供明显的初始化引导入口。
+- **预置开发环境账号**（仅限载入测试种子时）：
+  - 超级管理员：`admin` / `admin@metafusion.internal`，默认密码：`AdminPassword2026!`
+  - 首席档案员：`archivist_prime` / `archivist@metafusion.internal`，默认密码：`AdminPassword2026!`
+  - *生产环境登录后请立即进入「个人设置」修改初始密码。*
 - **开发与架构文档站**：`http://<您的IP>:10100/docs`
 - **后端 API 健康状态**：`http://<您的IP>:10100/api/v1/health`
 
