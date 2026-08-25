@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
+import { fetchSetupStatus } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 
 const PROTECTED_PREFIXES = [
@@ -27,16 +28,41 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const pathname = usePathname();
   const router = useRouter();
 
+  const [setupChecked, setSetupChecked] = useState(false);
   const isProtected = isProtectedPath(pathname);
 
   useEffect(() => {
-    if (!loading && !user && isProtected) {
+    // 首次检测系统是否完成 OOBE 初始化
+    fetchSetupStatus()
+      .then((status) => {
+        if (!status.is_initialized) {
+          // 系统未初始化且当前不在 /setup，则强制跳转 /setup
+          if (pathname !== "/setup") {
+            router.replace("/setup");
+          }
+        } else {
+          // 系统已完成初始化且当前访问 /setup，则重定向回首页
+          if (pathname === "/setup") {
+            router.replace("/");
+          }
+        }
+      })
+      .catch(() => {
+        // 网络或后端异常时默认放行
+      })
+      .finally(() => {
+        setSetupChecked(true);
+      });
+  }, [pathname, router]);
+
+  useEffect(() => {
+    if (!loading && !user && isProtected && pathname !== "/setup") {
       const redirectUrl = pathname ? `/login?redirect=${encodeURIComponent(pathname)}` : "/login";
       router.replace(redirectUrl);
     }
   }, [loading, user, isProtected, pathname, router]);
 
-  if (loading) {
+  if (loading || !setupChecked) {
     return (
       <div className="min-h-screen bg-background grid place-items-center">
         <div className="flex flex-col items-center gap-3">
@@ -48,9 +74,10 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
   }
 
   // Block protected routes while redirecting
-  if (!user && isProtected) {
+  if (!user && isProtected && pathname !== "/setup") {
     return null;
   }
 
   return <>{children}</>;
 };
+
