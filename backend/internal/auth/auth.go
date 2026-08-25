@@ -746,3 +746,111 @@ func RequireScope(scope string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// SetupStatusResponse 系统 OOBE 初始化状态
+type SetupStatusResponse struct {
+	IsInitialized bool   `json:"is_initialized"`
+	HasAdmin      bool   `json:"has_admin"`
+	SiteName      string `json:"site_name"`
+	TotalUsers    int64  `json:"total_users"`
+}
+
+// InitialSetupInput OOBE 首次部署管理员初始化输入
+type InitialSetupInput struct {
+	Username            string  `json:"username" binding:"required,min=3,max=32"`
+	DisplayName         *string `json:"display_name" binding:"omitempty,max=64"`
+	Email               string  `json:"email" binding:"required,email"`
+	Password            string  `json:"password" binding:"required,min=8"`
+	SiteName            string  `json:"site_name" binding:"omitempty,max=64"`
+	RegistrationEnabled *bool   `json:"registration_enabled"`
+	InviteRequired      *bool   `json:"invite_required"`
+}
+
+// GetSetupStatus 获取当前系统是否已经配置初始管理员
+func (s *AuthService) GetSetupStatus() (*SetupStatusResponse, error) {
+	var adminCount int64
+	s.db.Model(&models.User{}).Where("role = ?", "admin").Count(&adminCount)
+
+	var totalUsers int64
+	s.db.Model(&models.User{}).Count(&totalUsers)
+
+	siteName := "MetaFusion"
+	var setting models.SystemSetting
+	if err := s.db.Where("key = ?", "site_name").First(&setting).Error; err == nil && setting.Value != "" {
+		siteName = setting.Value
+	}
+
+	return &SetupStatusResponse{
+		IsInitialized: adminCount > 0,
+		HasAdmin:      adminCount > 0,
+		SiteName:      siteName,
+		TotalUsers:    totalUsers,
+	}, nil
+}
+
+// PerformInitialSetup 在系统无管理员时执行 OOBE 首次初始化，创建超级管理员
+func (s *AuthService) PerformInitialSetup(input *InitialSetupInput) (*models.User, *TokenPair, error) {
+	var adminCount int64
+	s.db.Model(&models.User{}).Where("role = ?", "admin").Count(&adminCount)
+	if adminCount > 0 {
+		return nil, nil, errors.New("系统已完成初始化，初始管理员账号已存在")
+	}
+
+	username := strings.TrimSpace(input.Username)
+	email := strings.TrimSpace(input.Email)
+	if username == "" || email == "" {
+		return nil, nil, errors.New("用户名与邮箱不能为空")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var displayName *string
+	if input.DisplayName != nil {
+		trimmed := strings.TrimSpace(*input.DisplayName)
+		if trimmed != "" {
+			displayName = &trimmed
+		}
+	}
+
+	adminUser := &models.User{
+		Username:         username,
+		DisplayName:      displayName,
+		Email:            email,
+		PasswordHash:     string(hash),
+		Role:             "admin",
+		InviteCode:       "MF-ADMIN-2026",
+		InvitesRemaining: 9999,
+		CreatedAt:        time.Now(),
+		UpdatedAt:        time.Now(),
+	}
+
+	if err := s.db.Create(adminUser).Error; err != nil {
+		return nil, nil, fmt.Errorf("创建超级管理员账号失败: %w", err)
+	}
+
+	if input.SiteName != "" {
+		s.db.Save(&models.SystemSetting{Key: "site_name", Value: strings.TrimSpace(input.SiteName)})
+	}
+	if input.RegistrationEnabled != nil {
+		val := "false"
+		if *input.RegistrationEnabled {
+			val = "true"
+		}
+		s.db.Save(&models.SystemSetting{Key: "registration_enabled", Value: val})
+	}
+	if input.InviteRequired != nil {
+		val := "false"
+		if *input.InviteRequired {
+			val = "true"
+		}
+		s.db.Save(&models.SystemSetting{Key: "invite_required", Value: val})
+	}
+	s.db.Save(&models.SystemSetting{Key: "is_initialized", Value: "true"})
+
+	pair, err := s.GenerateTokenPair(adminUser)
+	return adminUser, pair, err
+}
+
