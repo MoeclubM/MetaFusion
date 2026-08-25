@@ -86,6 +86,7 @@ func main() {
 	communitySvc := community.NewCommunityService(db)
 	messageSvc := community.NewMessageService(db)
 	adminSvc := admin.NewAdminService(db, searchSvc)
+	systemHealthSvc := admin.NewSystemHealthService(db, cfg, searchSvc, redisClient)
 	apiKeySvc := apikey.NewService(db)
 
 	storageSvc, err := storage.NewStorageService(cfg, db, asynqClient)
@@ -862,9 +863,12 @@ func main() {
 			// 站点开关：注册 / 邀请（后台可控）
 			adminGroup.GET("/settings", adminSvc.GetSystemSettings)
 			adminGroup.PUT("/settings", adminSvc.UpdateSystemSettings)
-			// 审计与系统
+			// 审计与系统健康 / 异步队列监控
 			adminGroup.GET("/audit-logs", adminSvc.ListAuditLogs)
-			adminGroup.GET("/system/health", adminSvc.GetSystemHealth)
+			adminGroup.GET("/system/health", systemHealthSvc.GetDetailedHealth)
+			adminGroup.GET("/system/queues", systemHealthSvc.GetQueueStats)
+			adminGroup.POST("/system/queues/:name/pause", systemHealthSvc.PauseQueue)
+			adminGroup.POST("/system/queues/:name/unpause", systemHealthSvc.UnpauseQueue)
 			// 插件管理中心 (Plugin Center)
 			adminGroup.GET("/plugins", pluginHandler.ListAdminPlugins)
 			adminGroup.GET("/plugins/:id", pluginHandler.GetAdminPlugin)
