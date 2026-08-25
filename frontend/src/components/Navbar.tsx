@@ -29,7 +29,6 @@ import {
   Disc,
   Network,
   Sparkles,
-  Code2,
   BookOpen,
   Heart,
 } from "lucide-react";

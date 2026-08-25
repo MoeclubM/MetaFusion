@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Globe, ExternalLink, Sparkles, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Globe } from "lucide-react";
 import {
   fetchAdminExternalDatabases,
   createExternalDatabase,
@@ -14,7 +14,7 @@ import { DynamicNamesEditor, MultilingualBadges } from "@/components/common/Dyna
 import { Modal } from "@/components/ui/Modal";
 
 export function ExternalDatabasesTab() {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const [items, setItems] = useState<ExternalDatabaseDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingItem, setEditingItem] = useState<ExternalDatabaseDefinition | null>(null);

@@ -31,7 +31,9 @@ func NewSearchService(cfg *config.Config, db *gorm.DB) (*SearchService, error) {
 	osClient, err := opensearch.NewClient(opensearch.Config{
 		Addresses: []string{cfg.ElasticURL},
 		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			TLSClientConfig: &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			},
 		},
 	})
 	if err != nil {

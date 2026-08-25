@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { ArrowRight, FileCode2, Layers, CheckCircle2, Plus, Minus, Edit3 } from "lucide-react";
+import { FileCode2, Plus, Minus, Edit3 } from "lucide-react";
 
 interface Props {
   diff: Record<string, { old: any; new: any }>;

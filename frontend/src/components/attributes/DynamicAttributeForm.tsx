@@ -11,7 +11,6 @@ import {
   Hash,
   Calendar,
   Link as LinkIcon,
-  CheckSquare,
   List,
   Sparkles,
 } from "lucide-react";

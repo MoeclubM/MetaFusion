@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { useTheme, ACCENTS, ThemeMode, ThemeAccent } from "@/lib/themeContext";
+import { useTheme } from "@/lib/themeContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
  Sun,

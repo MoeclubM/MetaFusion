@@ -85,6 +85,10 @@ type InitiateUploadResponse struct {
 
 // InitiateUpload 初始化大文件上传 (支持独立 CAS 资产库与多态实体挂载，优先检查秒传)
 func (s *StorageService) InitiateUpload(ctx context.Context, req *InitiateUploadRequest) (*InitiateUploadResponse, error) {
+	if req.PartCount <= 0 || req.PartCount > 10000 {
+		return nil, fmt.Errorf("invalid part count: must be between 1 and 10000")
+	}
+
 	fileRole := req.FileRole
 	if fileRole == "" {
 		fileRole = "master_archive"

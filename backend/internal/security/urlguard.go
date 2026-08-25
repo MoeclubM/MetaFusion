@@ -1,11 +1,59 @@
 package security
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
+
+// NewSafeHTTPClient 创建具备 SSRF / DNS Rebinding 防护的安全 HTTP 客户端
+func NewSafeHTTPClient(timeout time.Duration) *http.Client {
+	dialer := &net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			host, port, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
+			host = strings.Trim(host, "[]")
+			if err := ValidateExternalURL("http://" + host); err != nil {
+				return nil, err
+			}
+			ips, err := net.DefaultResolver.LookupIP(ctx, "ip", host)
+			if err != nil {
+				return nil, err
+			}
+			var chosenIP net.IP
+			for _, ip := range ips {
+				if isFakeIP(ip) || !isBlockedIP(ip) {
+					chosenIP = ip
+					break
+				}
+			}
+			if chosenIP == nil {
+				return nil, fmt.Errorf("all resolved IPs for host %q are blocked", host)
+			}
+			return dialer.DialContext(ctx, network, net.JoinHostPort(chosenIP.String(), port))
+		},
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	return &http.Client{
+		Transport: transport,
+		Timeout:   timeout,
+	}
+}
 
 // ValidateExternalURL 校验服务端将要请求的 URL。
 // 约束：仅允许 http/https；拒绝 localhost、环回、私有和保留地址。

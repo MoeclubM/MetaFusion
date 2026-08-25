@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, GitMerge, AlertTriangle, ArrowRight, CheckCircle2, Lock, LogIn } from "lucide-react";
+import { X, GitMerge, AlertTriangle, CheckCircle2, Lock, LogIn } from "lucide-react";
 import Link from "next/link";
 import { mergeEntities } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";

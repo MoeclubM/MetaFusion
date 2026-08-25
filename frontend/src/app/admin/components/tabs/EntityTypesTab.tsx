@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, ShieldAlert, Sparkles, Tag, X } from "lucide-react";
+import { Plus, Edit2, Trash2, ShieldAlert, Sparkles, Tag } from "lucide-react";
 import { fetchApi } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DynamicNamesEditor, MultilingualBadges } from "@/components/common/DynamicNamesEditor";

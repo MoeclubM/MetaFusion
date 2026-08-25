@@ -16,7 +16,6 @@ import {
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { HomeShelvesConfigModal } from "@/components/home/HomeShelvesConfigModal";
-import { EntityCover } from "@/components/common/EntityCover";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { shelfRuleToExploreHref } from "@/lib/shelfQuery";

@@ -21,11 +21,7 @@ import {
   Barcode,
   Disc,
   Layers,
-  BookOpen,
-  Eye,
-  Sparkles,
   Filter,
-  ExternalLink,
 } from "lucide-react";
 
 interface ArtistReleasesTabProps {

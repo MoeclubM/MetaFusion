@@ -12,8 +12,6 @@ import DirectMessageModal from "@/components/community/DirectMessageModal";
 import { UserRoleBadge } from "@/lib/roles";
 import { DiffViewer } from "@/components/editor/DiffViewer";
 import {
-  Clock,
-  Shield,
   FileText,
   Disc,
   Users,
@@ -32,7 +30,6 @@ import {
   ChevronUp,
   ExternalLink,
   GitCommit,
-  Sparkles,
 } from "lucide-react";
 import { fetchFavorites, FavoriteItem } from "@/lib/api";
 

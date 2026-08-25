@@ -16,10 +16,10 @@ import (
 
 var (
 	mbidRegex         = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-	mbReleaseURLRegex = regexp.MustCompile(`musicbrainz\.org/release/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
-	mbRgURLRegex      = regexp.MustCompile(`musicbrainz\.org/release-group/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
-	mbArtistURLRegex  = regexp.MustCompile(`musicbrainz\.org/artist/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
-	mbLabelURLRegex   = regexp.MustCompile(`musicbrainz\.org/label/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
+	mbReleaseURLRegex = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?musicbrainz\.org/release/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:[/?#].*)?$`)
+	mbRgURLRegex      = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?musicbrainz\.org/release-group/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:[/?#].*)?$`)
+	mbArtistURLRegex  = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?musicbrainz\.org/artist/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:[/?#].*)?$`)
+	mbLabelURLRegex   = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?musicbrainz\.org/label/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:[/?#].*)?$`)
 )
 
 type mbArtistCredit struct {

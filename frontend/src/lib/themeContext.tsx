@@ -45,12 +45,12 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [resolvedMode, setResolvedMode] = useState<"dark" | "light">("dark");
 
   const applyTheme = (currentMode: ThemeMode, currentAccent: ThemeAccent) => {
-    let effectiveMode: "dark" | "light" = "dark";
-    if (currentMode === "system") {
-      effectiveMode = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    } else {
-      effectiveMode = currentMode;
-    }
+    const effectiveMode: "dark" | "light" =
+      currentMode === "system"
+        ? window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light"
+        : currentMode;
     setResolvedMode(effectiveMode);
 
     const root = document.documentElement;

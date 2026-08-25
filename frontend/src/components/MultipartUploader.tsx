@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { fetchApi, Artist } from "@/lib/api";
-import { X, UploadCloud, FileText, Loader2, AlertCircle, Check, ShieldCheck, Hash, Fingerprint } from "lucide-react";
+import { X, UploadCloud, FileText, Loader2, AlertCircle, Check, ShieldCheck, Fingerprint } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Select } from "@/components/ui/Select";
 

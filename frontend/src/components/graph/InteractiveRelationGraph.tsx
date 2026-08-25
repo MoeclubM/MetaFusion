@@ -181,12 +181,7 @@ const calculateEdgeBadgePosition = (
     }
   }
 
-  let t = 0.5;
-  if (tMin < tMax) {
-    t = (tMin + tMax) / 2;
-  } else {
-    t = 0.5;
-  }
+  const t = tMin < tMax ? (tMin + tMax) / 2 : 0.5;
 
   let posX = src.x + t * dx;
   let posY = src.y + t * dy;

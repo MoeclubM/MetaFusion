@@ -16,10 +16,10 @@ import (
 )
 
 var (
-	vndbVNRegex        = regexp.MustCompile(`(?:vndb\.org/)?v(\d+)`)
-	vndbStaffRegex     = regexp.MustCompile(`(?:vndb\.org/)?s(\d+)`)
-	vndbCharacterRegex = regexp.MustCompile(`(?:vndb\.org/)?c(\d+)`)
-	vndbProducerRegex  = regexp.MustCompile(`(?:vndb\.org/)?p(\d+)`)
+	vndbVNRegex        = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?(?:vndb\.org/)?v(\d+)(?:[/?#].*)?$`)
+	vndbStaffRegex     = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?(?:vndb\.org/)?s(\d+)(?:[/?#].*)?$`)
+	vndbCharacterRegex = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?(?:vndb\.org/)?c(\d+)(?:[/?#].*)?$`)
+	vndbProducerRegex  = regexp.MustCompile(`^(?:https?://)?(?:[a-zA-Z0-9-]+\.)?(?:vndb\.org/)?p(\d+)(?:[/?#].*)?$`)
 )
 
 // ParseVNDBID 提取 VNDB 实体类型与编号 (v17, s2, c12, p1 等)
