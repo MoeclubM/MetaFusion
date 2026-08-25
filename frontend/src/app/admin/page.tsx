@@ -20,6 +20,7 @@ import { HealthTab } from "./components/tabs/HealthTab";
 import { SettingsTab } from "./components/tabs/SettingsTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { EntityTypesTab } from "./components/tabs/EntityTypesTab";
+import { RelationTypesTab } from "./components/tabs/RelationTypesTab";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { PluginsTab } from "./components/tabs/PluginsTab";
 import { ArtistModal } from "./components/modals/ArtistModal";
@@ -50,6 +51,7 @@ function AdminContent() {
           {d.activeTab === "assets" && <AssetsTab loading={d.loading} filteredAssets={d.filteredAssets} handleRetryAsset={d.handleRetryAsset} />}
           {d.activeTab === "artists" && <AgentsTab loading={d.loading} filteredArtists={d.filteredArtists} artistsList={d.artistsList} selectedEntityType={d.selectedEntityType} setSelectedEntityType={d.setSelectedEntityType} handleOpenCreateArtist={d.handleOpenCreateArtist} handleOpenEditArtist={d.handleOpenEditArtist} handleDeleteArtist={d.handleDeleteArtist} />}
           {d.activeTab === "entity_types" && <EntityTypesTab />}
+          {d.activeTab === "relation_types" && <RelationTypesTab />}
           {d.activeTab === "external_databases" && <ExternalDatabasesTab />}
           {d.activeTab === "users" && <UsersTab loading={d.loading} filteredUsers={d.filteredUsers} roleUpdatingId={d.roleUpdatingId} user={d.user} handleUpdateRole={d.handleUpdateRole} handleUpdateUser={d.handleUpdateUser} />}
           {d.activeTab === "topics" && <TopicsTab loading={d.loading} topicsList={d.topicsList} handleDeleteTopic={d.handleDeleteTopic} />}
