@@ -95,6 +95,20 @@ func (s *AdminService) UpsertBoard(c *gin.Context) {
 	} else if input.NameZh != "" {
 		input.Names["en-US"] = input.NameZh
 	}
+	// Sync bilingual descriptions JSONB
+	input.Description = strings.TrimSpace(input.Description)
+	if input.Descriptions == nil {
+		input.Descriptions = make(models.JSONB)
+	}
+	if input.Description != "" && len(input.Descriptions) == 0 {
+		input.Descriptions["zh-CN"] = input.Description
+		input.Descriptions["en-US"] = input.Description
+	}
+	if zh, ok := input.Descriptions["zh-CN"].(string); ok && zh != "" {
+		input.Description = zh
+	} else if en, ok := input.Descriptions["en-US"].(string); ok && en != "" && input.Description == "" {
+		input.Description = en
+	}
 	input.UpdatedAt = time.Now()
 	// Preserve created_at on update: GORM Save will do upsert; ensure not zeroing it unintentionally
 	var existing models.ForumBoard
@@ -171,6 +185,23 @@ func (s *AdminService) UpdateBoard(c *gin.Context) {
 	if input.NameEn != "" {
 		input.Names["en-US"] = input.NameEn
 	}
+
+	// Sync descriptions JSONB
+	if input.Descriptions == nil {
+		input.Descriptions = make(models.JSONB)
+		for k, v := range existing.Descriptions {
+			input.Descriptions[k] = v
+		}
+	}
+	if input.Description != "" {
+		input.Descriptions["zh-CN"] = input.Description
+	}
+	if zh, ok := input.Descriptions["zh-CN"].(string); ok && zh != "" {
+		input.Description = zh
+	} else if en, ok := input.Descriptions["en-US"].(string); ok && en != "" && input.Description == "" {
+		input.Description = en
+	}
+
 	input.CreatedAt = existing.CreatedAt
 	input.UpdatedAt = time.Now()
 	// Preserve description if not set explicitly — detect via raw map
@@ -185,6 +216,7 @@ func (s *AdminService) UpdateBoard(c *gin.Context) {
 		"name_en":      input.NameEn,
 		"names":        input.Names,
 		"description":  input.Description,
+		"descriptions": input.Descriptions,
 		"color":        input.Color,
 		"icon":         input.Icon,
 		"sort_order":   input.SortOrder,
@@ -220,7 +252,7 @@ func (s *AdminService) PatchBoard(c *gin.Context) {
 	}
 	allowed := map[string]bool{
 		"name_zh": true, "name_en": true, "names": true,
-		"description": true, "color": true, "icon": true,
+		"description": true, "descriptions": true, "color": true, "icon": true,
 		"sort_order": true, "is_enabled": true, "show_in_feed": true,
 	}
 	updates := map[string]interface{}{}
@@ -267,6 +299,27 @@ func (s *AdminService) PatchBoard(c *gin.Context) {
 		if en, ok := updates["name_en"].(string); ok && strings.TrimSpace(en) != "" {
 			existing.Names["en-US"] = strings.TrimSpace(en)
 			updates["names"] = existing.Names
+		}
+	}
+	// Keep descriptions JSONB in sync when description patched
+	if _, hasDesc := updates["description"]; hasDesc {
+		if existing.Descriptions == nil {
+			existing.Descriptions = make(models.JSONB)
+		}
+		if desc, ok := updates["description"].(string); ok {
+			existing.Descriptions["zh-CN"] = strings.TrimSpace(desc)
+		}
+		updates["descriptions"] = existing.Descriptions
+	}
+	if descs, hasDescs := updates["descriptions"]; hasDescs {
+		if m, ok := descs.(map[string]interface{}); ok {
+			if zh, ok := m["zh-CN"].(string); ok && zh != "" {
+				updates["description"] = zh
+			} else if en, ok := m["en-US"].(string); ok && en != "" {
+				if _, hasDirectDesc := updates["description"]; !hasDirectDesc {
+					updates["description"] = en
+				}
+			}
 		}
 	}
 	updates["updated_at"] = time.Now()

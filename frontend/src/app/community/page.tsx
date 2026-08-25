@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
-import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, boardDisplayName } from "@/lib/api";
+import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, boardDisplayName, boardDisplayDesc } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
@@ -142,11 +142,14 @@ function CommunityContent() {
   const filteredBoards = boards.filter((b) => {
     if (!boardQuery.trim()) return true;
     const q = boardQuery.trim().toLowerCase();
+    const name = boardDisplayName(b, locale, t).toLowerCase();
+    const desc = boardDisplayDesc(b, locale, t).toLowerCase();
     return (
-      b.name.toLowerCase().includes(q) ||
+      name.includes(q) ||
+      desc.includes(q) ||
+      b.code.toLowerCase().includes(q) ||
       (b.name_en && b.name_en.toLowerCase().includes(q)) ||
-      (b.desc && b.desc.toLowerCase().includes(q)) ||
-      b.code.toLowerCase().includes(q)
+      (b.name_zh && b.name_zh.toLowerCase().includes(q))
     );
   });
 
@@ -271,9 +274,9 @@ function CommunityContent() {
  </span>
 	 <span className="flex-1 min-w-0">
 	 <span className={`block text-sm font-semibold leading-none truncate ${isActive ? "text-white" : "text-gray-300 group-hover:text-white"}`}>
-	 {boardDisplayName(board, locale)}
+	 {boardDisplayName(board, locale, t)}
 	 </span>
-	 <span className="block text-xs text-gray-500 truncate leading-tight mt-0.5">{board.desc}</span>
+	 <span className="block text-xs text-gray-500 truncate leading-tight mt-0.5">{boardDisplayDesc(board, locale, t)}</span>
 	 </span>
 	 {badge && (
 	 <span className={`shrink-0 px-2.5 py-1 rounded text-xs font-mono leading-none border ${isActive ? "bg-background border-surfaceBorder text-gray-300" : "bg-surface border-surfaceBorder text-gray-500"}`}>
@@ -342,8 +345,8 @@ function CommunityContent() {
 	 <Icon className={`w-4 h-4 ${board.color}`} />
 	 </span>
 	 <span className="flex-1 min-w-0">
-	 <span className="block text-sm font-semibold truncate">{boardDisplayName(board, locale)}</span>
-	 <span className="block text-xs text-gray-500 truncate">{board.desc}</span>
+	 <span className="block text-sm font-semibold truncate">{boardDisplayName(board, locale, t)}</span>
+	 <span className="block text-xs text-gray-500 truncate">{boardDisplayDesc(board, locale, t)}</span>
 	 </span>
 	 </button>
 	 );
@@ -430,7 +433,7 @@ function CommunityContent() {
 	              <span className="text-gray-400 font-normal">{t("community.searchCategoryFilter")}</span>
 	              <span className="text-gray-500 font-mono">&gt;</span>
 	              <span className="max-w-[130px] truncate">
-	                {selectedBoard === "all" ? t("community.allBoardsOption") : boardDisplayName(currentBoard, locale)}
+	                {selectedBoard === "all" ? t("community.allBoardsOption") : boardDisplayName(currentBoard, locale, t)}
 	              </span>
 	              <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${boardDropdownOpen ? "rotate-180" : ""}`} />
 	            </button>
@@ -492,7 +495,7 @@ function CommunityContent() {
 	                            <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${board.bgColor} ${board.borderColor} border`}>
 	                              <Icon className={`w-3 h-3 ${board.color}`} />
 	                            </span>
-	                            <span className="truncate">{boardDisplayName(board, locale)}</span>
+	                            <span className="truncate">{boardDisplayName(board, locale, t)}</span>
 	                          </span>
 	                          {isSelected && <span className="text-[10px]">✓</span>}
 	                        </button>
@@ -685,7 +688,7 @@ function CommunityContent() {
 
  {/* mobile header */}
  <div className="sm:hidden px-4 py-2 bg-background/60 border-b border-surfaceBorder text-sm font-mono text-gray-500 flex items-center justify-between">
- <span>{t("community.topic")} · {boardDisplayName(currentBoard, locale)}</span>
+ <span>{t("community.topic")} · {boardDisplayName(currentBoard, locale, t)}</span>
  <span>{t("community.topicItems", {count: topics.length})}</span>
  </div>
 
@@ -718,7 +721,7 @@ function CommunityContent() {
  <div className="flex items-center gap-2 flex-wrap">
  <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded border text-xs font-mono ${board.bgColor} ${board.borderColor} ${board.color}`}>
  <Icon className="w-4 h-4" />
- {boardDisplayName(board, locale)}
+ {boardDisplayName(board, locale, t)}
  </span>
  {topic.work && (
  <Link

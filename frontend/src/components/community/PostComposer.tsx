@@ -7,6 +7,7 @@ import {
   Tag,
   Work,
   boardDisplayName,
+  boardDisplayDesc,
   createTopic,
   createPost,
 } from "@/lib/api";
@@ -307,7 +308,9 @@ export default function PostComposer({
   const filteredBoards = boardOptions.filter((b) => {
     if (!boardQuery.trim()) return true;
     const q = boardQuery.toLowerCase();
-    return b.name.toLowerCase().includes(q) || b.desc.toLowerCase().includes(q) || b.code.toLowerCase().includes(q);
+    const name = boardDisplayName(b, locale, t).toLowerCase();
+    const desc = boardDisplayDesc(b, locale, t).toLowerCase();
+    return name.includes(q) || desc.includes(q) || b.code.toLowerCase().includes(q);
   });
   const selectedBoardObj =
     boards.find((b) => b.code === newBoardCode) || boardOptions[0] || boards[0] || null;
@@ -477,7 +480,7 @@ export default function PostComposer({
                   {selectedBoardObj ? (
                     <>
                       <span className={`w-2.5 h-2.5 rounded-full ${selectedBoardObj.bgColor} ${selectedBoardObj.borderColor} border`} />
-                      <span className="truncate font-medium">{boardDisplayName(selectedBoardObj, locale)}</span>
+                      <span className="truncate font-medium">{boardDisplayName(selectedBoardObj, locale, t)}</span>
                     </>
                   ) : (
                     <span className="truncate">{t("community.board")}</span>
@@ -524,9 +527,9 @@ export default function PostComposer({
                             </span>
                             <span className="flex-1 min-w-0">
                               <span className={`block text-xs font-semibold truncate ${active ? "text-white" : "text-gray-200"}`}>
-                                {boardDisplayName(b, locale)}
+                                {boardDisplayName(b, locale, t)}
                               </span>
-                              <span className="block text-[10px] text-gray-500 truncate">{b.desc}</span>
+                              <span className="block text-[10px] text-gray-500 truncate">{boardDisplayDesc(b, locale, t)}</span>
                             </span>
                             {active && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
                           </button>

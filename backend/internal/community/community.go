@@ -34,14 +34,19 @@ func (s *CommunityService) ListBoards(c *gin.Context) {
 		return
 	}
 	locale := backendi18n.LocaleFromContext(c)
-	// 在保留原始字段的同时，叠加本地化 name 回退字段，便于前端直接按 name 展示
+	// 在保留原始字段的同时，叠加本地化 name 与 desc 回退字段，便于前端直接展示
 	type boardOut struct {
 		models.ForumBoard
 		Name string `json:"name"`
+		Desc string `json:"desc"`
 	}
 	out := make([]boardOut, 0, len(boards))
 	for _, b := range boards {
-		out = append(out, boardOut{ForumBoard: b, Name: b.LocalizedName(locale)})
+		out = append(out, boardOut{
+			ForumBoard: b,
+			Name:       b.LocalizedName(locale),
+			Desc:       b.LocalizedDesc(locale),
+		})
 	}
 	c.JSON(http.StatusOK, out)
 }

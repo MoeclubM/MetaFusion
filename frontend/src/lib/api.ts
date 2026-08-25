@@ -797,6 +797,7 @@ export interface ForumBoard {
   names?: Record<string, string>;
   name: string;
   description?: string;
+  descriptions?: Record<string, string>;
   desc: string;
   /** i18n keys — 复用已存在的 board.* 翻译（board.all / board.announcement / ...） */
   nameKey: string;
@@ -829,10 +830,11 @@ export function normalizeBoard(raw: any, t?: (k: string) => string): ForumBoard 
   const nameEnFromT = t && raw.code ? (() => { try { const v = t(nameKey); return v !== nameKey ? v : ""; } catch { return ""; } })() : "";
   const nameZh = raw.name_zh || raw.name || raw.code;
   const nameEn = raw.name_en || nameEnFromT || "";
-  const names = raw.names as Record<string, string> | undefined;
+  const names = (raw.names as Record<string, string> | undefined) || undefined;
+  const descriptions = (raw.descriptions as Record<string, string> | undefined) || undefined;
   const resolvedName = raw.name && raw.name !== nameZh ? raw.name : (names ? (names["zh-CN"] || names["en-US"] || nameZh) : (nameZh || nameEn));
   const name = raw.name && typeof raw.name === "string" && raw.name.trim() !== "" && raw.name !== nameZh ? raw.name : (nameEnFromT || nameZh || nameEn || raw.code);
-  const desc = raw.description ?? raw.desc ?? "";
+  const desc = raw.desc ?? raw.description ?? (descriptions ? (descriptions["zh-CN"] || descriptions["en-US"] || "") : "");
   return {
     code: raw.code,
     nameKey,
@@ -841,7 +843,8 @@ export function normalizeBoard(raw: any, t?: (k: string) => string): ForumBoard 
     name_en: nameEn,
     names: names || (raw.names as Record<string, string>),
     name: name || resolvedName || nameZh,
-    description: desc,
+    description: raw.description ?? desc,
+    descriptions: descriptions || (raw.descriptions as Record<string, string>),
     desc,
     color: palette.color,
     bgColor: palette.bgColor,
@@ -855,32 +858,73 @@ export function normalizeBoard(raw: any, t?: (k: string) => string): ForumBoard 
 
 /**
  * 板块显示名：
- * - 若传入 t：以 t(board.code) 为权威（复用 messages 中 board.all / board.announcement 等既有词条），不渲染硬编码中文
- * - 否则按 locale 分支取后端 name_en / name，legacy name_zh 仅作最末兜底
+ * - 若传入 t：以 t(board.nameKey || board.code) 为权威（复用 messages 中既有词条）
+ * - 否则按 locale 回退链从 names JSONB / name_en / name_zh 获取
  */
 export function boardDisplayName(board: ForumBoard, locale?: string, t?: (k: string) => string): string {
   if (t) {
-    // t 分支已国际化，直接取翻译键；若 key 缺失则 t 会返回 key 本身，回落到 name_en / code
-    const translated = (() => { try { const v = t(board.nameKey || `board.${board.code}`); return v !== (board.nameKey || `board.${board.code}`) ? v : ""; } catch { return ""; } })();
+    const key = board.nameKey || `board.${board.code}`;
+    const translated = (() => { try { const v = t(key); return v !== key ? v : ""; } catch { return ""; } })();
     if (translated) return translated;
   }
-  if (locale === "en-US" && board.name_en) return board.name_en;
-  if (locale === "zh-CN") return board.name_zh;
-  // fallback 链：优先非中文的 name_en / name，再到 code；避免在 locale===en-US 时误回中文
+  const loc = locale || "zh-CN";
+  if (board.names && typeof board.names === "object") {
+    if (board.names[loc]) return board.names[loc];
+    const prefix = loc.slice(0, 2);
+    for (const [k, v] of Object.entries(board.names)) {
+      if (k.startsWith(prefix) && v) return v;
+    }
+    if (loc.startsWith("zh") && board.names["zh-CN"]) return board.names["zh-CN"];
+    if (board.names["en-US"]) return board.names["en-US"];
+    for (const v of Object.values(board.names)) {
+      if (v) return v;
+    }
+  }
+  if (loc === "en-US" && board.name_en) return board.name_en;
+  if (loc === "zh-CN" && board.name_zh) return board.name_zh;
   if (board.name_en) return board.name_en;
   if (board.name && board.name !== board.name_zh) return board.name;
   return board.name_zh || board.code;
+}
+
+/**
+ * 板块多语言描述：
+ * - 若传入 t：以 t(board.descKey || board.code + 'Desc') 为权威
+ * - 否则按 locale 回退链从 descriptions JSONB / desc / description 获取
+ */
+export function boardDisplayDesc(board: ForumBoard, locale?: string, t?: (k: string) => string): string {
+  if (t) {
+    const key = board.descKey || `board.${board.code}Desc`;
+    const translated = (() => { try { const v = t(key); return v !== key ? v : ""; } catch { return ""; } })();
+    if (translated) return translated;
+  }
+  const loc = locale || "zh-CN";
+  if (board.descriptions && typeof board.descriptions === "object") {
+    if (board.descriptions[loc]) return board.descriptions[loc];
+    const prefix = loc.slice(0, 2);
+    for (const [k, v] of Object.entries(board.descriptions)) {
+      if (k.startsWith(prefix) && v) return v;
+    }
+    if (loc.startsWith("zh") && board.descriptions["zh-CN"]) return board.descriptions["zh-CN"];
+    if (board.descriptions["en-US"]) return board.descriptions["en-US"];
+    for (const v of Object.values(board.descriptions)) {
+      if (v) return v;
+    }
+  }
+  if (board.desc) return board.desc;
+  return board.description || "";
 }
 
 const VIRTUAL_ALL_BOARD: ForumBoard = {
   code: "all",
   nameKey: "board.all",
   descKey: "board.allDesc",
-  // legacy offline fallbacks — 英文，不再直接渲染中文；中文由 t(board.all) 提供
-  name_zh: "All Boards",
+  name_zh: "全部分区",
   name: "All Boards",
   name_en: "All Boards",
-  description: "All forum boards overview",
+  names: { "zh-CN": "全部分区", "en-US": "All Boards" },
+  description: "全站论坛讨论总览",
+  descriptions: { "zh-CN": "全站论坛讨论总览", "en-US": "All forum boards overview" },
   desc: "All forum boards overview",
   color: "text-gray-300",
   bgColor: "bg-gray-500/20",
@@ -895,12 +939,120 @@ const BOARDS_TTL_MS = 5 * 60 * 1000;
 // nameKey/descKey 复用既有翻译：board.announcement / board.casual / board.qa / board.reviews / board.bug_report / board.comment
 const FALLBACK_BOARDS: ForumBoard[] = [
   VIRTUAL_ALL_BOARD,
-  { code: "announcement", nameKey: "board.announcement", descKey: "board.announcementDesc", name_zh: "站点公告", name: "Announcements", name_en: "Announcements", description: "站点公告与运营通知", desc: "Announcements & operations", color: "text-amber-400", bgColor: "bg-amber-500/15", borderColor: "border-amber-500/30", icon: "Megaphone", sort_order: 10, is_enabled: true, show_in_feed: true },
-  { code: "casual", nameKey: "board.casual", descKey: "board.casualDesc", name_zh: "闲聊杂谈", name: "Casual Chat", name_en: "Casual Chat", description: "轻松闲聊与站内日常交流", desc: "Casual chat & discussions", color: "text-purple-400", bgColor: "bg-purple-500/15", borderColor: "border-purple-500/30", icon: "Coffee", sort_order: 20, is_enabled: true, show_in_feed: true },
-  { code: "qa", nameKey: "board.qa", descKey: "board.qaDesc", name_zh: "求助答疑", name: "Q&A", name_en: "Q&A", description: "使用问题、编目与功能答疑", desc: "Questions, cataloging & help", color: "text-teal-400", bgColor: "bg-teal-500/15", borderColor: "border-teal-500/30", icon: "Hash", sort_order: 30, is_enabled: true, show_in_feed: true },
-  { code: "reviews", nameKey: "board.reviews", descKey: "board.reviewsDesc", name_zh: "考据评注", name: "Archive Reviews", name_en: "Archive Reviews", description: "版本考证、原盘评析与文献释读", desc: "Edition analysis & archive reviews", color: "text-emerald-400", bgColor: "bg-emerald-500/15", borderColor: "border-emerald-500/30", icon: "BookOpen", sort_order: 40, is_enabled: true, show_in_feed: true },
-  { code: "bug_report", nameKey: "board.bug_report", descKey: "board.bug_reportDesc", name_zh: "反馈与建议", name: "Feedback & Bug Reports", name_en: "Feedback & Bug Reports", description: "缺陷反馈、功能建议与复现信息", desc: "Bug reports & feature feedback", color: "text-rose-400", bgColor: "bg-rose-500/15", borderColor: "border-rose-500/30", icon: "Bug", sort_order: 50, is_enabled: true, show_in_feed: true },
-  { code: "comment", nameKey: "board.comment", descKey: "board.commentDesc", name_zh: "评论专用", name: "Comments", name_en: "Comments", description: "作品与讨论的评论承载区，不进入信息流与全站聚合", desc: "Comment carrier for works & topics, excluded from feeds", color: "text-sky-400", bgColor: "bg-sky-500/15", borderColor: "border-sky-500/30", icon: "MessageCircle", sort_order: 60, is_enabled: true, show_in_feed: false },
+  {
+    code: "announcement",
+    nameKey: "board.announcement",
+    descKey: "board.announcementDesc",
+    name_zh: "站点公告",
+    name: "Announcements",
+    name_en: "Announcements",
+    names: { "zh-CN": "站点公告", "en-US": "Announcements" },
+    description: "站点公告与运营通知",
+    descriptions: { "zh-CN": "站点公告与运营通知", "en-US": "Announcements & operations" },
+    desc: "Announcements & operations",
+    color: "text-amber-400",
+    bgColor: "bg-amber-500/15",
+    borderColor: "border-amber-500/30",
+    icon: "Megaphone",
+    sort_order: 10,
+    is_enabled: true,
+    show_in_feed: true,
+  },
+  {
+    code: "casual",
+    nameKey: "board.casual",
+    descKey: "board.casualDesc",
+    name_zh: "闲聊杂谈",
+    name: "Casual Chat",
+    name_en: "Casual Chat",
+    names: { "zh-CN": "闲聊杂谈", "en-US": "Casual Chat" },
+    description: "轻松闲聊与站内日常交流",
+    descriptions: { "zh-CN": "轻松闲聊与站内日常交流", "en-US": "Casual chat & discussions" },
+    desc: "Casual chat & discussions",
+    color: "text-purple-400",
+    bgColor: "bg-purple-500/15",
+    borderColor: "border-purple-500/30",
+    icon: "Coffee",
+    sort_order: 20,
+    is_enabled: true,
+    show_in_feed: true,
+  },
+  {
+    code: "qa",
+    nameKey: "board.qa",
+    descKey: "board.qaDesc",
+    name_zh: "求助答疑",
+    name: "Q&A",
+    name_en: "Q&A",
+    names: { "zh-CN": "求助答疑", "en-US": "Q&A" },
+    description: "使用问题、编目与功能答疑",
+    descriptions: { "zh-CN": "使用问题、编目与功能答疑", "en-US": "Questions, cataloging & help" },
+    desc: "Questions, cataloging & help",
+    color: "text-teal-400",
+    bgColor: "bg-teal-500/15",
+    borderColor: "border-teal-500/30",
+    icon: "Hash",
+    sort_order: 30,
+    is_enabled: true,
+    show_in_feed: true,
+  },
+  {
+    code: "reviews",
+    nameKey: "board.reviews",
+    descKey: "board.reviewsDesc",
+    name_zh: "考据评注",
+    name: "Archive Reviews",
+    name_en: "Archive Reviews",
+    names: { "zh-CN": "考据评注", "en-US": "Archive Reviews" },
+    description: "版本考证、原盘评析与文献释读",
+    descriptions: { "zh-CN": "版本考证、原盘评析与文献释读", "en-US": "Edition analysis & archive reviews" },
+    desc: "Edition analysis & archive reviews",
+    color: "text-emerald-400",
+    bgColor: "bg-emerald-500/15",
+    borderColor: "border-emerald-500/30",
+    icon: "BookOpen",
+    sort_order: 40,
+    is_enabled: true,
+    show_in_feed: true,
+  },
+  {
+    code: "bug_report",
+    nameKey: "board.bug_report",
+    descKey: "board.bug_reportDesc",
+    name_zh: "反馈与建议",
+    name: "Feedback & Bug Reports",
+    name_en: "Feedback & Bug Reports",
+    names: { "zh-CN": "反馈与建议", "en-US": "Feedback & Bug Reports" },
+    description: "缺陷反馈、功能建议与复现信息",
+    descriptions: { "zh-CN": "缺陷反馈、功能建议与复现信息", "en-US": "Bug reports & feature feedback" },
+    desc: "Bug reports & feature feedback",
+    color: "text-rose-400",
+    bgColor: "bg-rose-500/15",
+    borderColor: "border-rose-500/30",
+    icon: "Bug",
+    sort_order: 50,
+    is_enabled: true,
+    show_in_feed: true,
+  },
+  {
+    code: "comment",
+    nameKey: "board.comment",
+    descKey: "board.commentDesc",
+    name_zh: "评论专用",
+    name: "Comments",
+    name_en: "Comments",
+    names: { "zh-CN": "评论专用", "en-US": "Comments" },
+    description: "作品与讨论的评论承载区，不进入信息流与全站聚合",
+    descriptions: { "zh-CN": "作品与讨论的评论承载区，不进入信息流与全站聚合", "en-US": "Comment carrier for works & topics, excluded from feeds" },
+    desc: "Comment carrier for works & topics, excluded from feeds",
+    color: "text-sky-400",
+    bgColor: "bg-sky-500/15",
+    borderColor: "border-sky-500/30",
+    icon: "MessageCircle",
+    sort_order: 60,
+    is_enabled: true,
+    show_in_feed: false,
+  },
 ];
 
 export const FORUM_BOARDS: ForumBoard[] = FALLBACK_BOARDS;
