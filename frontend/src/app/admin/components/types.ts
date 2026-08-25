@@ -15,6 +15,7 @@ import {
   Inbox,
   Settings2,
   Puzzle,
+  Network,
 } from "lucide-react";
 
 export function formatBytes(bytes: number) {
@@ -34,6 +35,7 @@ export type Tab =
   | "assets"
   | "artists"
   | "entity_types"
+  | "relation_types"
   | "external_databases"
   | "shelves"
   | "users"
@@ -67,6 +69,7 @@ export const sidebarGroups: SidebarGroup[] = [
     items: [
       { id: "artists", labelKey: "admin.sidebar.itemAgents", icon: Users },
       { id: "entity_types", labelKey: "admin.sidebar.itemEntityTypes", icon: Settings2 },
+      { id: "relation_types", labelKey: "admin.sidebar.itemRelationTypes", icon: Network },
       { id: "external_databases", labelKey: "admin.sidebar.itemExternalDatabases", icon: Waypoints },
       { id: "shelves", labelKey: "admin.sidebar.itemShelves", icon: Layers },
     ],
