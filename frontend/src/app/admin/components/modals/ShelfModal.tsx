@@ -106,7 +106,6 @@ export function ShelfModal({
               { key: "原声", labelKey: "admin.shelfModal.preset.soundtrack" },
               { key: "古典", labelKey: "admin.shelfModal.preset.classical" },
               { key: "科幻", labelKey: "admin.shelfModal.preset.scifi" },
-              { key: "吉卜力", labelKey: "admin.shelfModal.preset.ghibli" },
             ] as const).map((preset) => (
               <button
                 key={preset.key}

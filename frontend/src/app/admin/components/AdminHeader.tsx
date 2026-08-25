@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Search, X, RefreshCw, LogOut, Shield } from "lucide-react";
+import { ArrowLeft, Search, X, RefreshCw, LogOut } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
+import { BrandMark } from "@/components/Logo";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { UserAvatar } from "@/components/UserAvatar";
 import { getUserRoleInfo } from "@/lib/roles";
@@ -47,20 +48,17 @@ export function AdminHeader({
 
         <div className="h-4 w-px bg-white/10" />
 
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-md bg-amber-500/10 border border-amber-500/30 grid place-items-center">
-            <Shield className="w-4 h-4 text-amber-400" />
-          </div>
-          <span className="font-display text-sm font-semibold tracking-tight text-white">MetaFusion</span>
-          <span className="px-2 py-0.5 rounded-full font-mono text-[10px] tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-300 font-medium">
-            {t("admin.header.consoleBadge")}
+        <Link href="/admin" className="flex items-center gap-2 group">
+          <BrandMark size={22} withGlow idSuffix="admin-header" />
+          <span className="font-display text-sm font-semibold tracking-tight text-white group-hover:text-amber-400 transition-colors">
+            MetaFusion
           </span>
-        </div>
+        </Link>
 
         {currentTabLabel && (
           <>
             <span className="text-gray-600 text-xs hidden md:inline">/</span>
-            <span className="text-xs text-gray-300 font-medium hidden md:inline">
+            <span className="text-xs text-gray-300 font-medium hidden md:inline font-mono">
               {currentTabLabel}
             </span>
           </>
