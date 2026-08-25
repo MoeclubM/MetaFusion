@@ -46,12 +46,13 @@ export function BoardsTab() {
 
   const startCreate=()=>{
     const nextOrder = items.length ? Math.max(...items.map(i=>i.sort_order ?? 0))+10 : 10;
-    setForm({ code:"", name_zh:"", name_en:"", names: { "zh-CN": "", "en-US": "" }, description:"", color:"emerald", icon:"BookOpen", sort_order: nextOrder, is_enabled:true, show_in_feed:true });
+    setForm({ code:"", name_zh:"", name_en:"", names: { "zh-CN": "", "en-US": "" }, description:"", descriptions: { "zh-CN": "", "en-US": "" }, color:"emerald", icon:"BookOpen", sort_order: nextOrder, is_enabled:true, show_in_feed:true });
     setEditing(null); setSaveErr(""); setCreating(true);
   };
   const startEdit=(b: BoardItem)=>{
     const names = b.names || { "zh-CN": b.name_zh || "", "en-US": b.name_en || "" };
-    setForm({ ...b, names });
+    const descriptions = b.descriptions || { "zh-CN": b.description || "", "en-US": "" };
+    setForm({ ...b, names, descriptions });
     setEditing(b);
     setSaveErr("");
     setCreating(true);
@@ -60,8 +61,11 @@ export function BoardsTab() {
   const save=async()=>{
     const code=(form.code||"").trim();
     const names = form.names || {};
+    const descriptions = form.descriptions || {};
     const nameZh = (names["zh-CN"] || form.name_zh || Object.values(names)[0] || "").trim();
     const nameEn = (names["en-US"] || form.name_en || nameZh).trim();
+    const descZh = (descriptions["zh-CN"] || form.description || Object.values(descriptions)[0] || "").trim();
+    const descEn = (descriptions["en-US"] || descZh).trim();
     if(!code || !nameZh){ setSaveErr(t("admin.boards.codeRequired")); return; }
     setSaveErr(""); setSaving(true);
     try{
@@ -71,6 +75,8 @@ export function BoardsTab() {
         name_zh: nameZh,
         name_en: nameEn,
         names: { ...names, "zh-CN": nameZh, "en-US": nameEn },
+        description: descZh,
+        descriptions: { ...descriptions, "zh-CN": descZh, "en-US": descEn },
       };
       if(editing){
         await fetchApi(`/admin/boards/${encodeURIComponent(code)}`,{ method:"PUT", body: JSON.stringify(payload) });
@@ -136,10 +142,17 @@ export function BoardsTab() {
             }}
             label={t("admin.boards.colName")}
           />
-          <div className="space-y-1">
-            <label className="text-[11px] font-mono text-gray-500">{t("admin.boards.descLabel")}</label>
-            <input value={form.description||""} onChange={e=>setForm({...form,description:e.target.value})} className="w-full px-3 py-2 rounded-lg bg-[#0a0a0c] border border-white/10 text-xs focus:outline-none" />
-          </div>
+          <DynamicNamesEditor
+            value={form.descriptions}
+            onChange={(nextDescs) => {
+              setForm({
+                ...form,
+                descriptions: nextDescs,
+                description: nextDescs["zh-CN"] || nextDescs["en-US"] || Object.values(nextDescs)[0] || "",
+              });
+            }}
+            label={t("admin.boards.descLabel")}
+          />
           <div className="space-y-1">
             <label className="text-[11px] font-mono text-gray-500">{t("admin.boards.colorLabel")}</label>
             <div className="flex flex-wrap gap-2">
@@ -189,7 +202,16 @@ export function BoardsTab() {
                       <MultilingualBadges names={b.names} fallbackZh={b.name_zh} fallbackEn={b.name_en} />
                     </div>
                   </td>
-                  <td className="p-2.5 text-gray-400 max-w-[220px] truncate" title={b.description}>{b.description}</td>
+                  <td className="p-2.5 max-w-[240px]">
+                    <div className="text-gray-300 truncate" title={b.description || b.desc}>
+                      {b.description || b.desc || "—"}
+                    </div>
+                    {b.descriptions && Object.keys(b.descriptions).length > 0 && (
+                      <div className="mt-1">
+                        <MultilingualBadges names={b.descriptions} fallbackZh={b.description} fallbackEn={b.descriptions?.["en-US"]} />
+                      </div>
+                    )}
+                  </td>
                   <td className="p-2.5 font-mono">{b.sort_order}</td>
                   <td className="p-2.5 font-mono text-gray-300">{typeof b.topic_count==="number" ? b.topic_count : "—"}</td>
                   <td className="p-2.5">{b.is_enabled? <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px]">{t("admin.boards.enableBadge")}</span> : <span className="px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/10 text-gray-500 text-[11px]">{t("admin.boards.disableBadge")}</span>}</td>

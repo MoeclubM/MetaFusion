@@ -48,10 +48,10 @@ ON CONFLICT (code) DO UPDATE SET
     url_pattern = EXCLUDED.url_pattern;
 
 -- 4. 社区公共板块 (Forum Boards)
-INSERT INTO forum_boards (code, name_zh, name_en, names, description, color, icon, sort_order, is_enabled, show_in_feed) VALUES
-('general', '综合讨论', 'General', '{"zh-CN": "综合讨论", "en-US": "General"}'::jsonb, '跨媒介作品探讨、平台使用交流与自由闲聊', 'emerald', 'MessageSquare', 10, true, true),
-('curation', '编目治理', 'Catalog Curation', '{"zh-CN": "编目治理", "en-US": "Catalog Curation"}'::jsonb, '元数据校勘、LRM 关系拓扑审议与规范制定', 'amber', 'BookOpen', 20, true, true),
-('announcements', '官方公告', 'Announcements', '{"zh-CN": "官方公告", "en-US": "Announcements"}'::jsonb, '系统版本更新、维护通知与开放计划', 'sky', 'Megaphone', 30, true, true)
+INSERT INTO forum_boards (code, name_zh, name_en, names, description, descriptions, color, icon, sort_order, is_enabled, show_in_feed) VALUES
+('general', '综合讨论', 'General', '{"zh-CN": "综合讨论", "en-US": "General"}'::jsonb, '跨媒介作品探讨、平台使用交流与自由闲聊', '{"zh-CN": "跨媒介作品探讨、平台使用交流与自由闲聊", "en-US": "Cross-media discussions, platform usage, and casual chat"}'::jsonb, 'emerald', 'MessageSquare', 10, true, true),
+('curation', '编目治理', 'Catalog Curation', '{"zh-CN": "编目治理", "en-US": "Catalog Curation"}'::jsonb, '元数据校勘、LRM 关系拓扑审议与规范制定', '{"zh-CN": "元数据校勘、LRM 关系拓扑审议与规范制定", "en-US": "Metadata curation, LRM topology review, and cataloging standards"}'::jsonb, 'amber', 'BookOpen', 20, true, true),
+('announcements', '官方公告', 'Announcements', '{"zh-CN": "官方公告", "en-US": "Announcements"}'::jsonb, '系统版本更新、维护通知与开放计划', '{"zh-CN": "系统版本更新、维护通知与开放计划", "en-US": "System updates, maintenance notices, and platform roadmap"}'::jsonb, 'sky', 'Megaphone', 30, true, true)
 ON CONFLICT (code) DO NOTHING;
 
 -- 5. 系统设置 (System Settings)

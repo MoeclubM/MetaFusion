@@ -23,6 +23,8 @@ func applySchemaPatches(db *gorm.DB) {
 		`ALTER TABLE virtual_shelves ADD COLUMN IF NOT EXISTS descriptions JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE user_custom_shelves ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE user_custom_shelves ADD COLUMN IF NOT EXISTS descriptions JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE forum_boards ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE forum_boards ADD COLUMN IF NOT EXISTS descriptions JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE entity_type_definitions ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE relation_types ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE external_database_definitions ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
@@ -527,5 +529,52 @@ func migrateMultilingualJSONBFields(db *gorm.DB) {
 		UPDATE external_database_definitions
 		SET names = jsonb_build_object('zh-CN', name_zh, 'en-US', COALESCE(NULLIF(name_en, ''), name_zh))
 		WHERE (names = '{}'::jsonb OR names IS NULL) AND name_zh NOT LIKE '%?%'
+	`).Error
+
+	// 修复与补齐 forum_boards 的 names 与 descriptions 多语言预设
+	type boardSeedData struct {
+		Code   string
+		NameZh string
+		NameEn string
+		DescZh string
+		DescEn string
+	}
+	standardBoards := []boardSeedData{
+		{Code: "general", NameZh: "综合讨论", NameEn: "General", DescZh: "跨媒介作品探讨、平台使用交流与自由闲聊", DescEn: "Cross-media discussions, platform usage, and casual chat"},
+		{Code: "curation", NameZh: "编目治理", NameEn: "Catalog Curation", DescZh: "元数据校勘、LRM 关系拓扑审议与规范制定", DescEn: "Metadata curation, LRM topology review, and cataloging standards"},
+		{Code: "announcements", NameZh: "官方公告", NameEn: "Announcements", DescZh: "系统版本更新、维护通知与开放计划", DescEn: "System updates, maintenance notices, and platform roadmap"},
+		{Code: "announcement", NameZh: "站点公告", NameEn: "Announcements", DescZh: "站点公告与运营通知", DescEn: "Announcements and operations"},
+		{Code: "casual", NameZh: "闲聊杂谈", NameEn: "Casual Chat", DescZh: "轻松闲聊与站内日常交流", DescEn: "Casual chat and daily discussions"},
+		{Code: "qa", NameZh: "求助答疑", NameEn: "Q&A", DescZh: "使用问题、编目与功能答疑", DescEn: "Questions, cataloging help, and Q&A"},
+		{Code: "reviews", NameZh: "考据评注", NameEn: "Archive Reviews", DescZh: "版本考证、原盘评析与文献释读", DescEn: "Edition analysis, disc reviews, and archive study"},
+		{Code: "bug_report", NameZh: "反馈与建议", NameEn: "Feedback & Bug Reports", DescZh: "缺陷反馈、功能建议与复现信息", DescEn: "Bug reports, feature requests, and reproduction info"},
+		{Code: "comment", NameZh: "评论专用", NameEn: "Comments", DescZh: "作品与讨论的评论承载区，不进入信息流与全站聚合", DescEn: "Comment carrier for works and topics, excluded from feeds"},
+	}
+	for _, b := range standardBoards {
+		namesMap := map[string]string{"zh-CN": b.NameZh, "en-US": b.NameEn}
+		descsMap := map[string]string{"zh-CN": b.DescZh, "en-US": b.DescEn}
+		namesJSON, _ := json.Marshal(namesMap)
+		descsJSON, _ := json.Marshal(descsMap)
+		_ = db.Exec(`
+			UPDATE forum_boards
+			SET name_zh = CASE WHEN name_zh LIKE '%?%' OR name_zh = '' THEN ? ELSE name_zh END,
+			    name_en = CASE WHEN name_en = '' THEN ? ELSE name_en END,
+			    names = CASE WHEN names = '{}'::jsonb OR names IS NULL OR (names->>'zh-CN') LIKE '%?%' THEN ?::jsonb ELSE names END,
+			    description = CASE WHEN description = '' THEN ? ELSE description END,
+			    descriptions = CASE WHEN descriptions = '{}'::jsonb OR descriptions IS NULL THEN ?::jsonb ELSE descriptions END
+			WHERE code = ?
+		`, b.NameZh, b.NameEn, string(namesJSON), b.DescZh, string(descsJSON), b.Code).Error
+	}
+
+	// 自动合并其他 forum_boards 的 names 与 descriptions
+	_ = db.Exec(`
+		UPDATE forum_boards
+		SET names = jsonb_build_object('zh-CN', name_zh, 'en-US', COALESCE(NULLIF(name_en, ''), name_zh))
+		WHERE (names = '{}'::jsonb OR names IS NULL) AND name_zh != ''
+	`).Error
+	_ = db.Exec(`
+		UPDATE forum_boards
+		SET descriptions = jsonb_build_object('zh-CN', description, 'en-US', description)
+		WHERE (descriptions = '{}'::jsonb OR descriptions IS NULL) AND description != ''
 	`).Error
 }

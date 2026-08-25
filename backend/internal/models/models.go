@@ -720,18 +720,19 @@ func (r RelationType) LocalizedReverseLabel(locale string) string {
 // ForumBoard represents a community partition manageable from admin
 // show_in_feed=false 的分区仅作评论承载，不进入 all/首页信息流
 type ForumBoard struct {
-	Code       string `gorm:"primaryKey;type:varchar(32)" json:"code"`
-	NameZh     string `gorm:"not null" json:"name_zh"`
-	NameEn     string `json:"name_en"`
-	Names      JSONB  `gorm:"type:jsonb;default:'{}'" json:"names"`
-	Description string `json:"description"`
-	Color      string `gorm:"default:'emerald';not null" json:"color"`
-	Icon       string `gorm:"default:'BookOpen';not null" json:"icon"`
-	SortOrder  int    `gorm:"default:0;not null" json:"sort_order"`
-	IsEnabled  bool   `gorm:"default:true;not null" json:"is_enabled"`
-	ShowInFeed bool   `gorm:"default:true;not null" json:"show_in_feed"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	Code         string    `gorm:"primaryKey;type:varchar(32)" json:"code"`
+	NameZh       string    `gorm:"not null" json:"name_zh"`
+	NameEn       string    `json:"name_en"`
+	Names        JSONB     `gorm:"type:jsonb;default:'{}'" json:"names"`
+	Description  string    `json:"description"`
+	Descriptions JSONB     `gorm:"type:jsonb;default:'{}'" json:"descriptions"`
+	Color        string    `gorm:"default:'emerald';not null" json:"color"`
+	Icon         string    `gorm:"default:'BookOpen';not null" json:"icon"`
+	SortOrder    int       `gorm:"default:0;not null" json:"sort_order"`
+	IsEnabled    bool      `gorm:"default:true;not null" json:"is_enabled"`
+	ShowInFeed   bool      `gorm:"default:true;not null" json:"show_in_feed"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 func (b ForumBoard) LocalizedName(locale string) string {
@@ -762,11 +763,53 @@ func (b ForumBoard) LocalizedName(locale string) string {
 				return s
 			}
 		}
+		for _, v := range b.Names {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
 	}
 	if loc == "en-US" && b.NameEn != "" {
 		return b.NameEn
 	}
 	return b.NameZh
+}
+
+func (b ForumBoard) LocalizedDesc(locale string) string {
+	loc := NormalizeLocale(locale)
+	if b.Descriptions != nil {
+		if v, ok := b.Descriptions[loc]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+		if len(loc) >= 2 {
+			prefix := loc[:2]
+			for k, v := range b.Descriptions {
+				if strings.HasPrefix(k, prefix) {
+					if s, ok := v.(string); ok && s != "" {
+						return s
+					}
+				}
+			}
+		}
+		if v, ok := b.Descriptions["zh-CN"]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+		if v, ok := b.Descriptions["en-US"]; ok {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+		for _, v := range b.Descriptions {
+			if s, ok := v.(string); ok && s != "" {
+				return s
+			}
+		}
+	}
+	return b.Description
 }
 
 var ValidBoardColors = map[string]bool{
