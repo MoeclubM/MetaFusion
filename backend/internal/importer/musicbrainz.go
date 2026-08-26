@@ -141,9 +141,7 @@ func FetchMusicBrainzPreview(ctx context.Context, input string) (*PreviewRespons
 		return nil, err
 	}
 
-	client := &http.Client{
-		Timeout: 15 * time.Second,
-	}
+	client := security.NewSafeHTTPClient(15 * time.Second)
 
 	targetReleaseID := mbid
 	if isRg {
@@ -487,7 +485,7 @@ func FetchMusicBrainzArtistPreview(ctx context.Context, mbid string) (*PreviewRe
 		return nil, fmt.Errorf("invalid MusicBrainz Artist MBID: %s", mbid)
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := security.NewSafeHTTPClient(15 * time.Second)
 	apiURL := fmt.Sprintf("https://musicbrainz.org/ws/2/artist/%s?fmt=json&inc=aliases+tags+genres+ratings+url-rels", cleanMBID)
 	if err := security.ValidateExternalURL(apiURL); err != nil {
 		return nil, fmt.Errorf("security check failed for MusicBrainz URL: %w", err)
@@ -636,7 +634,7 @@ func FetchMusicBrainzLabelPreview(ctx context.Context, mbid string) (*PreviewRes
 		return nil, fmt.Errorf("invalid MusicBrainz Label MBID: %s", mbid)
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := security.NewSafeHTTPClient(15 * time.Second)
 	apiURL := fmt.Sprintf("https://musicbrainz.org/ws/2/label/%s?fmt=json&inc=aliases+tags+genres+ratings+url-rels", cleanMBID)
 	if err := security.ValidateExternalURL(apiURL); err != nil {
 		return nil, fmt.Errorf("security check failed for MusicBrainz URL: %w", err)

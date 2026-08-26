@@ -15,6 +15,7 @@ import (
 
 	"github.com/metafusion/metafusion-app/internal/importer"
 	"github.com/metafusion/metafusion-app/internal/models"
+	"github.com/metafusion/metafusion-app/internal/security"
 )
 
 // ExternalHTTPPlugin 外部独立进程 / 微服务 / Webhook 驱动插件
@@ -33,9 +34,7 @@ func NewExternalHTTPPlugin(manifest Manifest, endpointURL string, secretToken st
 		endpointURL: strings.TrimRight(endpointURL, "/"),
 		secretToken: secretToken,
 		config:      make(map[string]interface{}),
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		client:      security.NewSafeHTTPClient(30 * time.Second),
 	}
 }
 

@@ -644,7 +644,7 @@ func extractPatRaw(c *gin.Context) string {
 	return ""
 }
 
-func tryJWTAuth(c *gin.Context, cfg *config.Config) bool {
+func tryJWTAuth(c *gin.Context, cfg *config.Config, db *gorm.DB) bool {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
 		return false
@@ -668,6 +668,19 @@ func tryJWTAuth(c *gin.Context, cfg *config.Config) bool {
 		if claims.TokenType == TokenTypeRefresh {
 			return false
 		}
+		if db != nil {
+			var user models.User
+			if err := db.Select("id, username, role").First(&user, "id = ?", claims.UserID).Error; err != nil {
+				return false
+			}
+			if user.Role == "banned" {
+				return false
+			}
+			c.Set("userID", user.ID)
+			c.Set("username", user.Username)
+			c.Set("role", user.Role)
+			return true
+		}
 		c.Set("userID", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
@@ -679,7 +692,7 @@ func tryJWTAuth(c *gin.Context, cfg *config.Config) bool {
 // UnifiedAuthMiddleware 支持 JWT 或 PAT 任意一种通过即放行，类似 MusicBrainz 允许 User-Agent + Token
 func UnifiedAuthMiddleware(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if tryJWTAuth(c, cfg) {
+		if tryJWTAuth(c, cfg, db) {
 			c.Next()
 			return
 		}
@@ -695,7 +708,7 @@ func UnifiedAuthMiddleware(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 // OptionalUnifiedAuthMiddleware 尝试解析 JWT 或 PAT，成功注入，失败放行
 func OptionalUnifiedAuthMiddleware(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if tryJWTAuth(c, cfg) {
+		if tryJWTAuth(c, cfg, db) {
 			c.Next()
 			return
 		}

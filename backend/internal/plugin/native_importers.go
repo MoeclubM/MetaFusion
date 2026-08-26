@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/metafusion/metafusion-app/internal/importer"
+	"github.com/metafusion/metafusion-app/internal/security"
 )
 
 var (
@@ -30,7 +31,7 @@ type MusicBrainzPlugin struct {
 func NewMusicBrainzPlugin() Plugin {
 	return &MusicBrainzPlugin{
 		config: make(map[string]interface{}),
-		client: &http.Client{Timeout: 20 * time.Second},
+		client: security.NewSafeHTTPClient(20 * time.Second),
 	}
 }
 
@@ -159,7 +160,7 @@ type TMDBPlugin struct {
 func NewTMDBPlugin() Plugin {
 	return &TMDBPlugin{
 		config: make(map[string]interface{}),
-		client: &http.Client{Timeout: 20 * time.Second},
+		client: security.NewSafeHTTPClient(20 * time.Second),
 	}
 }
 
@@ -294,7 +295,7 @@ type IMDbPlugin struct {
 func NewIMDbPlugin() Plugin {
 	return &IMDbPlugin{
 		config: make(map[string]interface{}),
-		client: &http.Client{Timeout: 20 * time.Second},
+		client: security.NewSafeHTTPClient(20 * time.Second),
 	}
 }
 
@@ -401,7 +402,7 @@ type BangumiPlugin struct {
 func NewBangumiPlugin() Plugin {
 	return &BangumiPlugin{
 		config: make(map[string]interface{}),
-		client: &http.Client{Timeout: 20 * time.Second},
+		client: security.NewSafeHTTPClient(20 * time.Second),
 	}
 }
 
@@ -533,7 +534,7 @@ type VNDBPlugin struct {
 func NewVNDBPlugin() Plugin {
 	return &VNDBPlugin{
 		config: make(map[string]interface{}),
-		client: &http.Client{Timeout: 25 * time.Second},
+		client: security.NewSafeHTTPClient(25 * time.Second),
 	}
 }
 
@@ -683,7 +684,7 @@ type DoubanPlugin struct {
 func NewDoubanPlugin() Plugin {
 	return &DoubanPlugin{
 		config: make(map[string]interface{}),
-		client: &http.Client{Timeout: 20 * time.Second},
+		client: security.NewSafeHTTPClient(20 * time.Second),
 	}
 }
 

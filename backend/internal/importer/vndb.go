@@ -55,7 +55,7 @@ func queryVNDBKana(ctx context.Context, endpoint string, payload map[string]inte
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := security.NewSafeHTTPClient(15 * time.Second)
 	req, err := http.NewRequestWithContext(ctx, "POST", apiURL, bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, err

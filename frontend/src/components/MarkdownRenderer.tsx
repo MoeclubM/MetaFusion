@@ -151,10 +151,18 @@ export default function MarkdownRenderer({
           th: ({ ...props }) => <th className="px-3 py-2 font-semibold text-gray-900 dark:text-white" {...props} />,
           td: ({ ...props }) => <td className="px-3 py-2 text-gray-800 dark:text-gray-200" {...props} />,
           a: ({ href, children, ...props }) => {
-            const isExternal = href?.startsWith("http://") || href?.startsWith("https://");
+            const rawHref = href ? href.trim() : "#";
+            const lowerHref = rawHref.toLowerCase();
+            const isUnsafe =
+              lowerHref.startsWith("javascript:") ||
+              lowerHref.startsWith("vbscript:") ||
+              lowerHref.startsWith("data:") ||
+              lowerHref.startsWith("file:");
+            const safeHref = isUnsafe ? "#" : rawHref;
+            const isExternal = safeHref.startsWith("http://") || safeHref.startsWith("https://");
             return (
               <a
-                href={href}
+                href={safeHref}
                 target={isExternal ? "_blank" : undefined}
                 rel={isExternal ? "noopener noreferrer" : undefined}
                 className="text-primary hover:underline underline-offset-2 font-medium transition-colors inline-flex items-center gap-0.5"

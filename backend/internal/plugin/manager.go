@@ -14,6 +14,7 @@ import (
 	"github.com/metafusion/metafusion-app/internal/config"
 	"github.com/metafusion/metafusion-app/internal/importer"
 	"github.com/metafusion/metafusion-app/internal/models"
+	"github.com/metafusion/metafusion-app/internal/security"
 	"gorm.io/gorm"
 )
 
@@ -484,6 +485,12 @@ func (m *Manager) RegisterExternalPlugin(ctx context.Context, input RegisterExte
 	id := strings.ToLower(strings.TrimSpace(input.ID))
 	if id == "" {
 		return nil, fmt.Errorf("plugin id is required")
+	}
+
+	if input.EndpointURL != "" {
+		if err := security.ValidateExternalURL(input.EndpointURL); err != nil {
+			return nil, fmt.Errorf("security check failed for endpoint_url: %w", err)
+		}
 	}
 
 	var count int64

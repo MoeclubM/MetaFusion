@@ -161,9 +161,13 @@ func (s *StorageService) InitiateUpload(ctx context.Context, req *InitiateUpload
 		}, nil
 	}
 
-	// 2. 未命中秒传：生成 S3 Key 并开启 S3 Multipart Upload
+	// 2. 未命中秒传：安全过滤文件名并生成 S3 Key
+	cleanFileName := filepath.Base(filepath.Clean(strings.TrimSpace(req.FileName)))
+	if cleanFileName == "." || cleanFileName == "/" || cleanFileName == "\\" || cleanFileName == "" {
+		cleanFileName = "file.bin"
+	}
 	now := time.Now()
-	s3Key := fmt.Sprintf("masters/%d/%02d/%s/%s", now.Year(), now.Month(), uuid.New().String(), req.FileName)
+	s3Key := fmt.Sprintf("masters/%d/%02d/%s/%s", now.Year(), now.Month(), uuid.New().String(), cleanFileName)
 
 	uploadID, err := s.coreClient.NewMultipartUpload(ctx, s.cfg.S3BucketMaster, s3Key, minio.PutObjectOptions{
 		ContentType: req.MimeType,
