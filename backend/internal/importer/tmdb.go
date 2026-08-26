@@ -160,9 +160,7 @@ func FetchTMDBPreview(ctx context.Context, input string, hint string, apiKey str
 		return nil, err
 	}
 
-	client := &http.Client{
-		Timeout: 15 * time.Second,
-	}
+	client := security.NewSafeHTTPClient(15 * time.Second)
 
 	// 1. 如果有 apiKey，优先使用官方 TMDB v3 API
 	effectiveKey := apiKey
@@ -955,7 +953,7 @@ func FetchTMDBPersonPreview(ctx context.Context, input string, apiKey string) (*
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := security.NewSafeHTTPClient(15 * time.Second)
 	personID := id
 
 	if isIMDb && apiKey != "" {
@@ -1131,7 +1129,7 @@ func FetchTMDBCompanyPreview(ctx context.Context, input string, apiKey string) (
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := security.NewSafeHTTPClient(15 * time.Second)
 
 	if apiKey != "" {
 		detailURL := fmt.Sprintf("https://api.themoviedb.org/3/company/%s?api_key=%s", companyID, apiKey)

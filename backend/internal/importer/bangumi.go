@@ -147,9 +147,7 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		return nil, err
 	}
 
-	client := &http.Client{
-		Timeout: 15 * time.Second,
-	}
+	client := security.NewSafeHTTPClient(15 * time.Second)
 
 	subjectURL := fmt.Sprintf("https://api.bgm.tv/v0/subjects/%s", subjectID)
 	if err := security.ValidateExternalURL(subjectURL); err != nil {
@@ -537,7 +535,7 @@ func FetchBangumiPersonPreview(ctx context.Context, input string) (*PreviewRespo
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := security.NewSafeHTTPClient(15 * time.Second)
 	apiURL := fmt.Sprintf("https://api.bgm.tv/v0/persons/%s", personID)
 	if err := security.ValidateExternalURL(apiURL); err != nil {
 		return nil, fmt.Errorf("security check failed for Bangumi Person URL: %w", err)
@@ -659,7 +657,7 @@ func FetchBangumiCharacterPreview(ctx context.Context, input string) (*PreviewRe
 		return nil, err
 	}
 
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := security.NewSafeHTTPClient(15 * time.Second)
 	apiURL := fmt.Sprintf("https://api.bgm.tv/v0/characters/%s", charID)
 	if err := security.ValidateExternalURL(apiURL); err != nil {
 		return nil, fmt.Errorf("security check failed for Bangumi Character URL: %w", err)

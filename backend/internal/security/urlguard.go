@@ -52,6 +52,15 @@ func NewSafeHTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Transport: transport,
 		Timeout:   timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("stopped after 10 redirects")
+			}
+			if err := ValidateExternalURL(req.URL.String()); err != nil {
+				return fmt.Errorf("redirect blocked by SSRF filter: %w", err)
+			}
+			return nil
+		},
 	}
 }
 

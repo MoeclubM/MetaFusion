@@ -37,11 +37,60 @@ func (l *Limiter) key(c *gin.Context) (string, bool) {
 			return "user:" + id.String(), true
 		}
 	}
-	// also check PAT token prefix as key
+	// also check PAT token prefix as key safely
 	if v := c.GetHeader("X-API-Key"); v != "" {
-		return "ip:" + c.ClientIP() + ":key:" + v[:8], false
+		keyPrefix := v
+		if len(keyPrefix) > 8 {
+			keyPrefix = keyPrefix[:8]
+		}
+		return "ip:" + c.ClientIP() + ":key:" + keyPrefix, false
 	}
 	return "ip:" + c.ClientIP(), false
+}
+
+// NewEndpointLimiter 创建针对特定高敏端点的专用限流器（如登录/注册防撞库）
+func NewEndpointLimiter(maxRequests int, window time.Duration) gin.HandlerFunc {
+	type epBucket struct {
+		count   int
+		resetAt time.Time
+	}
+	var mu sync.Mutex
+	buckets := make(map[string]*epBucket)
+
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		now := time.Now()
+
+		mu.Lock()
+		b, ok := buckets[ip]
+		if !ok || now.After(b.resetAt) {
+			b = &epBucket{count: 0, resetAt: now.Add(window)}
+			buckets[ip] = b
+		}
+		b.count++
+		count := b.count
+		reset := b.resetAt
+
+		// 惰性垃圾回收
+		if len(buckets) > 1000 {
+			for k, v := range buckets {
+				if now.After(v.resetAt) {
+					delete(buckets, k)
+				}
+			}
+		}
+		mu.Unlock()
+
+		if count > maxRequests {
+			c.Header("Retry-After", itoa(int(time.Until(reset).Seconds())))
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+				"error": "too many attempts, please try again later",
+				"code":  "TOO_MANY_REQUESTS",
+			})
+			return
+		}
+		c.Next()
+	}
 }
 
 func (l *Limiter) Middleware() gin.HandlerFunc {

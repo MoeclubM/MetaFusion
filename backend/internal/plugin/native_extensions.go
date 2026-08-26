@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/metafusion/metafusion-app/internal/models"
+	"github.com/metafusion/metafusion-app/internal/security"
 )
 
 // ── 1. Webhook Notifier 原生通知插件 ──
@@ -25,7 +26,7 @@ type WebhookNotifierPlugin struct {
 func NewWebhookNotifierPlugin() Plugin {
 	return &WebhookNotifierPlugin{
 		config: make(map[string]interface{}),
-		client: &http.Client{Timeout: 15 * time.Second},
+		client: security.NewSafeHTTPClient(15 * time.Second),
 	}
 }
 
@@ -408,7 +409,7 @@ type AcoustIDHelperPlugin struct {
 func NewAcoustIDHelperPlugin() Plugin {
 	return &AcoustIDHelperPlugin{
 		config: make(map[string]interface{}),
-		client: &http.Client{Timeout: 15 * time.Second},
+		client: security.NewSafeHTTPClient(15 * time.Second),
 	}
 }
 
@@ -615,7 +616,7 @@ type AIEnrichmentPlugin struct {
 func NewAIEnrichmentPlugin() Plugin {
 	return &AIEnrichmentPlugin{
 		config: make(map[string]interface{}),
-		client: &http.Client{Timeout: 30 * time.Second},
+		client: security.NewSafeHTTPClient(30 * time.Second),
 	}
 }
 

@@ -117,6 +117,11 @@ func main() {
 		c.Header("X-XSS-Protection", "1; mode=block")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		c.Header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+		c.Header("Cross-Origin-Opener-Policy", "same-origin")
+		c.Header("Cross-Origin-Resource-Policy", "cross-origin")
+		if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+			c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
+		}
 		c.Next()
 	})
 
@@ -141,6 +146,9 @@ func main() {
 	r.Use(auth.OptionalUnifiedAuthMiddleware(cfg, db))
 	limiter := ratelimit.New(60, 600)
 	r.Use(limiter.Middleware())
+
+	// 敏感认证接口高防限流（防止撞库/爆破/恶意批量注册，15次/分钟）
+	authBruteLimiter := ratelimit.NewEndpointLimiter(15, time.Minute)
 
 	// 生产健康检查探针体系 (Liveness & Readiness Probes)
 	healthHandler := func(c *gin.Context) {
@@ -216,7 +224,7 @@ func main() {
 			c.JSON(http.StatusOK, status)
 		})
 
-		api.POST("/system/setup", func(c *gin.Context) {
+		api.POST("/system/setup", authBruteLimiter, func(c *gin.Context) {
 			var input auth.InitialSetupInput
 			if err := c.ShouldBindJSON(&input); err != nil {
 				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -250,7 +258,7 @@ func main() {
 				c.JSON(http.StatusOK, status)
 			})
 
-			authGroup.POST("/setup", func(c *gin.Context) {
+			authGroup.POST("/setup", authBruteLimiter, func(c *gin.Context) {
 				var input auth.InitialSetupInput
 				if err := c.ShouldBindJSON(&input); err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -291,7 +299,7 @@ func main() {
 				})
 			})
 
-			authGroup.POST("/register", func(c *gin.Context) {
+			authGroup.POST("/register", authBruteLimiter, func(c *gin.Context) {
 				var input auth.RegisterInput
 				if err := c.ShouldBindJSON(&input); err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -312,7 +320,7 @@ func main() {
 				})
 			})
 
-			authGroup.POST("/login", func(c *gin.Context) {
+			authGroup.POST("/login", authBruteLimiter, func(c *gin.Context) {
 				var input auth.LoginInput
 				if err := c.ShouldBindJSON(&input); err != nil {
 					c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
