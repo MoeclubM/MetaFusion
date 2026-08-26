@@ -4,7 +4,7 @@ import React, { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
-import { fetchApi, fetchSetupStatus } from "@/lib/api";
+import { fetchApi, fetchSetupStatus, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { BrandMark } from "@/components/Logo";
 import { ThemePicker } from "@/components/ThemePicker";
@@ -34,12 +34,21 @@ function LoginInner() {
  const [error, setError] = useState<string | null>(null);
  const [submitting, setSubmitting] = useState(false);
  const [hasAdmin, setHasAdmin] = useState<boolean | null>(null);
+ const [authSettings, setAuthSettings] = useState<PublicAuthSettings | null>(null);
 
  useEffect(() => {
    fetchSetupStatus()
      .then((s) => setHasAdmin(s.has_admin))
      .catch(() => setHasAdmin(true));
- }, []);
+   fetchAuthSettings()
+     .then((s) => {
+       setAuthSettings(s);
+       if (s.registration_enabled === false && tabParam === "register") {
+         setIsRegister(false);
+       }
+     })
+     .catch(() => {});
+ }, [tabParam]);
 
  // 等鉴权状态初始化完成再判断，避免 /auth/me 未返回时误判为未登录而闪跳
  useEffect(() => {
@@ -148,6 +157,10 @@ function LoginInner() {
  <button
  type="button"
  onClick={() => {
+ if (authSettings?.registration_enabled === false) {
+   setError(t("auth.registrationClosed"));
+   return;
+ }
  setIsRegister(true);
  setError(null);
  }}
@@ -155,7 +168,7 @@ function LoginInner() {
  isRegister
  ? "bg-surface text-gray-900 dark:text-white shadow-xs font-semibold"
  : "text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
- }`}
+ } ${authSettings?.registration_enabled === false ? "opacity-50" : ""}`}
  >
  {t("auth.gate.genesisRegister")}
  </button>
@@ -227,13 +240,15 @@ function LoginInner() {
  <div className="space-y-1.5 animate-fade-in">
  <label className="font-mono text-xs sm:text-sm text-amber-600 dark:text-amber-300 flex items-center justify-between">
  <span>{t("auth.inviteCode")}</span>
- <span className="text-xs text-gray-500 font-normal">{t("auth.required")}</span>
+ <span className="text-xs text-gray-500 font-normal">
+   {authSettings?.invite_required === false ? t("auth.optional") : t("auth.required")}
+ </span>
  </label>
  <div className="relative">
  <KeyRound className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" strokeWidth={1.5} />
  <input
  type="text"
- required
+ required={authSettings?.invite_required !== false}
  placeholder={t("auth.inviteCodePlaceholder")}
  value={inviteCode}
  onChange={(e) => setInviteCode(e.target.value)}

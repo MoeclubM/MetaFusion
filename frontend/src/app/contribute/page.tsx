@@ -1,17 +1,23 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
-import { Layers, Users, Disc, Network, ArrowRight, Lock, LogIn, Sparkles, Zap, Disc3, Film, BookOpen } from "lucide-react";
+import { fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
+import { Layers, Users, Disc, Network, ArrowRight, Lock, LogIn, Sparkles, Zap, Disc3, Film, BookOpen, AlertCircle, Mail } from "lucide-react";
 import { OmniImportModal } from "@/components/importer/OmniImportModal";
 
 export default function ContributeHubPage() {
   const { user } = useAuth();
   const { t } = useI18n();
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [authSettings, setAuthSettings] = useState<PublicAuthSettings | null>(null);
+
+  useEffect(() => {
+    fetchAuthSettings().then(setAuthSettings).catch(() => {});
+  }, []);
 
   const cards = [
     {
@@ -86,6 +92,31 @@ export default function ContributeHubPage() {
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>{t("contribute.loginNow")}</span>
+            </Link>
+          </div>
+        )}
+
+        {user && user.role !== "admin" && user.role !== "archivist" && !user.is_email_verified && authSettings?.email_verification_enabled !== false && authSettings?.require_email_verification && (
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-amber-400/20 grid place-items-center shrink-0">
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+              </div>
+              <div>
+                <div className="font-semibold text-xs text-amber-600 dark:text-amber-200">
+                  {t("contribute.emailVerificationRequiredTitle")}
+                </div>
+                <div className="font-mono text-[11px] text-amber-700/80 dark:text-amber-300/80">
+                  {t("contribute.emailVerificationRequiredDesc")}
+                </div>
+              </div>
+            </div>
+            <Link
+              href="/settings"
+              className="px-3.5 h-8 rounded-lg bg-primary text-white font-semibold text-xs font-mono inline-flex items-center justify-center gap-1.5 shrink-0 transition-opacity hover:opacity-90 shadow-xs"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>{t("settings.verifyEmailBtn")}</span>
             </Link>
           </div>
         )}

@@ -56,6 +56,8 @@ func translateAuthError(c *gin.Context, msg string) string {
 		"验证码已过期或不存在，请重新发送":   backendi18n.T(c, "auth.verify_code_expired"),
 		"验证码不正确，请核对后重试":       backendi18n.T(c, "auth.verify_code_invalid"),
 		"验证码格式不正确，需为 6 位数字":   backendi18n.T(c, "auth.verify_code_invalid"),
+		"邮箱验证功能暂未开启，请联系管理员":    backendi18n.T(c, "auth.email_verification_disabled"),
+		"管理员已开启强制邮箱验证，请先前往个人设置完成邮箱验证": backendi18n.T(c, "auth.email_verification_required"),
 	}
 	if v, ok := m[msg]; ok {
 		return v
@@ -304,11 +306,13 @@ func main() {
 				if _, ok := m["email_verification_enabled"]; !ok {
 					m["email_verification_enabled"] = "true"
 				}
+				emailVerificationEnabled := m["email_verification_enabled"] != "false"
+				requireEmailVerification := emailVerificationEnabled && (m["require_email_verification"] == "true")
 				c.JSON(http.StatusOK, gin.H{
-					"registration_enabled":       m["registration_enabled"] == "true",
+					"registration_enabled":       m["registration_enabled"] != "false",
 					"invite_required":            m["invite_required"] == "true",
-					"require_email_verification": m["require_email_verification"] == "true",
-					"email_verification_enabled": m["email_verification_enabled"] == "true",
+					"require_email_verification": requireEmailVerification,
+					"email_verification_enabled": emailVerificationEnabled,
 					"rate_limit_enabled":         m["rate_limit_enabled"] != "false",
 					"auth_rate_limit_enabled":    m["auth_rate_limit_enabled"] != "false",
 				})
@@ -622,32 +626,32 @@ func main() {
 			catGroup.GET("/works/:id", catalogSvc.GetWorkDetail)
 			catGroup.GET("/works/:id/graph", catalogSvc.GetWorkGraph)
 			catGroup.GET("/works/:id/comments", communitySvc.ListWorkComments)
-			catGroup.POST("/works/:id/comments", auth.UnifiedAuthMiddleware(cfg, db), communitySvc.CreateWorkComment)
+			catGroup.POST("/works/:id/comments", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), communitySvc.CreateWorkComment)
 			catGroup.GET("/releases", catalogSvc.ListReleases)
 			catGroup.GET("/releases/:id", catalogSvc.GetReleaseDetail)
 			catGroup.GET("/releases/:id/graph", catalogSvc.GetReleaseGraph)
 			catGroup.GET("/canonical-entries", catalogSvc.ListCanonicalEntriesPublic)
 			catGroup.GET("/canonical-entries/:id", catalogSvc.GetCanonicalEntryDetail)
 			catGroup.GET("/canonical-entries/:id/graph", catalogSvc.GetCanonicalEntryGraph)
-			catGroup.PUT("/canonical-entries/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateCanonicalEntryForMember)
+			catGroup.PUT("/canonical-entries/:id", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.UpdateCanonicalEntryForMember)
 			catGroup.GET("/attributes", catalogSvc.ListAttributeSchemas)
 			catGroup.GET("/mediums/:id", catalogSvc.GetMediumDetail)
-			catGroup.POST("/artists", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateArtistForMember)
-			catGroup.PUT("/artists/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateArtistForMember)
-			catGroup.POST("/franchises", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateFranchiseForMember)
-			catGroup.PUT("/franchises/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateFranchiseForMember)
-			catGroup.POST("/works", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateWorkForMember)
-			catGroup.PUT("/works/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateWorkForMember)
-			catGroup.POST("/releases", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateReleaseForMember)
-			catGroup.PUT("/releases/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpdateReleaseForMember)
-			catGroup.POST("/mediums", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateMediumForMember)
-			catGroup.POST("/tracks", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateTrackForMember)
-			catGroup.PUT("/works/:id/relations", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpsertWorkRelationsForMember)
-			catGroup.PUT("/entity-relations", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.UpsertEntityRelationsForMember)
-			catGroup.DELETE("/entity-relations/:id", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.DeleteEntityRelationForMember)
+			catGroup.POST("/artists", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.CreateArtistForMember)
+			catGroup.PUT("/artists/:id", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.UpdateArtistForMember)
+			catGroup.POST("/franchises", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.CreateFranchiseForMember)
+			catGroup.PUT("/franchises/:id", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.UpdateFranchiseForMember)
+			catGroup.POST("/works", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.CreateWorkForMember)
+			catGroup.PUT("/works/:id", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.UpdateWorkForMember)
+			catGroup.POST("/releases", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.CreateReleaseForMember)
+			catGroup.PUT("/releases/:id", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.UpdateReleaseForMember)
+			catGroup.POST("/mediums", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.CreateMediumForMember)
+			catGroup.POST("/tracks", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.CreateTrackForMember)
+			catGroup.PUT("/works/:id/relations", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.UpsertWorkRelationsForMember)
+			catGroup.PUT("/entity-relations", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.UpsertEntityRelationsForMember)
+			catGroup.DELETE("/entity-relations/:id", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.DeleteEntityRelationForMember)
 			catGroup.GET("/revisions", catalogSvc.ListEntityRevisions)
-			catGroup.POST("/merge", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.MergeEntities)
-			catGroup.POST("/submit", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.SubmitComprehensiveArchive)
+			catGroup.POST("/merge", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.MergeEntities)
+			catGroup.POST("/submit", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.SubmitComprehensiveArchive)
 			// 用户自建推荐分组（私有默认，可设公开）
 			catGroup.GET("/shelves/custom", auth.OptionalUnifiedAuthMiddleware(cfg, db), catalogSvc.ListCustomShelves)
 			catGroup.POST("/shelves/custom", auth.UnifiedAuthMiddleware(cfg, db), catalogSvc.CreateCustomShelf)
@@ -676,7 +680,7 @@ func main() {
 		importerGroup := api.Group("/importer")
 		{
 			importerGroup.POST("/preview", auth.OptionalUnifiedAuthMiddleware(cfg, db), importerSvc.PreviewHandler)
-			importerGroup.POST("/import", auth.UnifiedAuthMiddleware(cfg, db), importerSvc.ImportHandler)
+			importerGroup.POST("/import", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), importerSvc.ImportHandler)
 		}
 
 		// ── 元数据项目公开定义（外部数据库定义与属性模式定义） ──
@@ -805,8 +809,8 @@ func main() {
 			communityGroup.GET("/topic-tags", communitySvc.ListTopicTags)
 			communityGroup.GET("/topics", communitySvc.ListTopics)
 			communityGroup.GET("/topics/:id", communitySvc.GetTopic)
-			communityGroup.POST("/topics", communitySvc.CreateTopic)
-			communityGroup.POST("/topics/:id/posts", communitySvc.CreatePost)
+			communityGroup.POST("/topics", auth.RequireEmailVerified(db), communitySvc.CreateTopic)
+			communityGroup.POST("/topics/:id/posts", auth.RequireEmailVerified(db), communitySvc.CreatePost)
 		}
 
 		// 全文与多维检索 — MusicBrainz 搜索对等，支持 inc 与多类型（开放检索）
