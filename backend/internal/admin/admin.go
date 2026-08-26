@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/metafusion/metafusion-app/internal/mailer"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/search"
 	"gorm.io/gorm"
@@ -15,12 +16,15 @@ import (
 type AdminService struct {
 	db     *gorm.DB
 	search *search.SearchService
+	mailer *mailer.Mailer
 }
 
-func NewAdminService(db *gorm.DB, searchSvc ...*search.SearchService) *AdminService {
-	svc := &AdminService{db: db}
-	if len(searchSvc) > 0 {
-		svc.search = searchSvc[0]
+func NewAdminService(db *gorm.DB, searchSvc *search.SearchService, mailerSvc ...*mailer.Mailer) *AdminService {
+	svc := &AdminService{db: db, search: searchSvc}
+	if len(mailerSvc) > 0 && mailerSvc[0] != nil {
+		svc.mailer = mailerSvc[0]
+	} else {
+		svc.mailer = mailer.NewMailer(db)
 	}
 	return svc
 }

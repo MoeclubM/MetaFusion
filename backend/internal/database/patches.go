@@ -43,6 +43,7 @@ func applySchemaPatches(db *gorm.DB) {
 		`ALTER TABLE system_plugins ADD COLUMN IF NOT EXISTS dependencies JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE works ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE artists ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT false NOT NULL`,
 		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE mediums ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,

@@ -29,6 +29,7 @@ import (
 	"github.com/metafusion/metafusion-app/internal/favorite"
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"github.com/metafusion/metafusion-app/internal/importer"
+	"github.com/metafusion/metafusion-app/internal/mailer"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/openapi"
 	"github.com/metafusion/metafusion-app/internal/plugin"
@@ -50,6 +51,11 @@ func translateAuthError(c *gin.Context, msg string) string {
 		"邀请码不能为空":            backendi18n.T(c, "auth.invite_empty"),
 		"无效的邀请码，请向已有成员索取邀请码": backendi18n.T(c, "auth.invite_invalid"),
 		"系统已完成初始化，初始管理员账号已存在": backendi18n.T(c, "auth.already_initialized"),
+		"邮箱已完成验证，无需重复操作":     backendi18n.T(c, "auth.email_already_verified"),
+		"验证邮件发送过于频繁，请稍候再试":   backendi18n.T(c, "auth.email_cooldown"),
+		"验证码已过期或不存在，请重新发送":   backendi18n.T(c, "auth.verify_code_expired"),
+		"验证码不正确，请核对后重试":       backendi18n.T(c, "auth.verify_code_invalid"),
+		"验证码格式不正确，需为 6 位数字":   backendi18n.T(c, "auth.verify_code_invalid"),
 	}
 	if v, ok := m[msg]; ok {
 		return v
@@ -80,12 +86,14 @@ func main() {
 		log.Printf("Search service warning: %v", err)
 	}
 
+	mailerSvc := mailer.NewMailer(db)
+
 	// 3. 初始化各模块服务
-	authSvc := auth.NewAuthService(db, cfg, redisClient)
+	authSvc := auth.NewAuthService(db, cfg, redisClient, mailerSvc)
 	catalogSvc := catalog.NewCatalogService(db)
 	communitySvc := community.NewCommunityService(db)
 	messageSvc := community.NewMessageService(db)
-	adminSvc := admin.NewAdminService(db, searchSvc)
+	adminSvc := admin.NewAdminService(db, searchSvc, mailerSvc)
 	systemHealthSvc := admin.NewSystemHealthService(db, cfg, searchSvc, redisClient)
 	apiKeySvc := apikey.NewService(db)
 
@@ -144,11 +152,11 @@ func main() {
 
 	// 限流必须在可选鉴权之后：否则 JWT/PAT 从未写入 userID，认证写入也会按匿名 60/分钟计。
 	r.Use(auth.OptionalUnifiedAuthMiddleware(cfg, db))
-	limiter := ratelimit.New(60, 600)
+	limiter := ratelimit.New(60, 600, db)
 	r.Use(limiter.Middleware())
 
 	// 敏感认证接口高防限流（防止撞库/爆破/恶意批量注册，15次/分钟）
-	authBruteLimiter := ratelimit.NewEndpointLimiter(15, time.Minute)
+	authBruteLimiter := ratelimit.NewEndpointLimiter(15, time.Minute, db)
 
 	// 生产健康检查探针体系 (Liveness & Readiness Probes)
 	healthHandler := func(c *gin.Context) {
@@ -293,9 +301,16 @@ func main() {
 				if _, ok := m["invite_required"]; !ok {
 					m["invite_required"] = "true"
 				}
+				if _, ok := m["email_verification_enabled"]; !ok {
+					m["email_verification_enabled"] = "true"
+				}
 				c.JSON(http.StatusOK, gin.H{
-					"registration_enabled": m["registration_enabled"] == "true",
-					"invite_required":      m["invite_required"] == "true",
+					"registration_enabled":       m["registration_enabled"] == "true",
+					"invite_required":            m["invite_required"] == "true",
+					"require_email_verification": m["require_email_verification"] == "true",
+					"email_verification_enabled": m["email_verification_enabled"] == "true",
+					"rate_limit_enabled":         m["rate_limit_enabled"] != "false",
+					"auth_rate_limit_enabled":    m["auth_rate_limit_enabled"] != "false",
 				})
 			})
 
@@ -418,6 +433,42 @@ func main() {
 					return
 				}
 				c.JSON(http.StatusOK, gin.H{"message": backendi18n.T(c, "password.changed")})
+			})
+
+			// 发送邮箱验证码 (带频率限制与防刷控制)
+			authGroup.POST("/send-verification-email", authBruteLimiter, auth.UnifiedAuthMiddleware(cfg, db), func(c *gin.Context) {
+				userID := c.MustGet("userID").(uuid.UUID)
+				locale := backendi18n.LocaleFromContext(c)
+				expiresIn, err := authSvc.SendVerificationEmail(userID, locale)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": translateAuthError(c, err.Error())})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"message":    backendi18n.T(c, "auth.verification_email_sent"),
+					"expires_in": expiresIn,
+				})
+			})
+
+			// 提交验证码完成邮箱验证
+			authGroup.POST("/verify-email", authBruteLimiter, auth.UnifiedAuthMiddleware(cfg, db), func(c *gin.Context) {
+				userID := c.MustGet("userID").(uuid.UUID)
+				var req struct {
+					Code string `json:"code" binding:"required"`
+				}
+				if err := c.ShouldBindJSON(&req); err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "auth.verify_code_invalid")})
+					return
+				}
+				user, err := authSvc.VerifyEmail(userID, req.Code)
+				if err != nil {
+					c.JSON(http.StatusBadRequest, gin.H{"error": translateAuthError(c, err.Error())})
+					return
+				}
+				c.JSON(http.StatusOK, gin.H{
+					"message": backendi18n.T(c, "auth.email_verified_success"),
+					"user":    user,
+				})
 			})
 
 			// 个人资料自助更新（昵称/简介/头像）
@@ -871,6 +922,7 @@ func main() {
 			// 站点开关：注册 / 邀请（后台可控）
 			adminGroup.GET("/settings", adminSvc.GetSystemSettings)
 			adminGroup.PUT("/settings", adminSvc.UpdateSystemSettings)
+			adminGroup.POST("/settings/test-email", adminSvc.TestSendEmail)
 			// 审计与系统健康 / 异步队列监控
 			adminGroup.GET("/audit-logs", adminSvc.ListAuditLogs)
 			adminGroup.GET("/system/health", systemHealthSvc.GetDetailedHealth)

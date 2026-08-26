@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/lib/themeContext";
-import { fetchApi, displayNameOf, ApiToken, listApiTokens, createApiToken, deleteApiToken, uploadAvatar, deleteAvatar } from "@/lib/api";
+import { fetchApi, displayNameOf, ApiToken, listApiTokens, createApiToken, deleteApiToken, uploadAvatar, deleteAvatar, sendVerificationEmail, verifyEmail } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -33,6 +33,8 @@ import {
   Eye,
   Heart,
   Mail,
+  Send,
+  X,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -62,6 +64,62 @@ export default function SettingsPage() {
   const [favoritesPublic, setFavoritesPublic] = useState(true);
   const [emailPublic, setEmailPublic] = useState(false);
   const [privacySaving, setPrivacySaving] = useState<string | null>(null);
+
+  // 邮箱验证弹窗状态
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [verifyCountdown, setVerifyCountdown] = useState(0);
+  const [verifyModalError, setVerifyModalError] = useState<string | null>(null);
+  const [verifyModalSuccess, setVerifyModalSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (verifyCountdown > 0) {
+      timer = setTimeout(() => setVerifyCountdown((c) => c - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [verifyCountdown]);
+
+  const handleSendVerificationEmail = async () => {
+    setVerifyModalError(null);
+    setVerifyModalSuccess(null);
+    setSendingEmail(true);
+    try {
+      const res = await sendVerificationEmail();
+      setVerifyModalSuccess(res.message || t("settings.verificationEmailSent"));
+      setVerifyCountdown(60);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setVerifyModalError(msg || t("settings.verificationEmailFail"));
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleVerifyEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verificationCode.trim()) {
+      setVerifyModalError(t("settings.verificationCodeRequired"));
+      return;
+    }
+    setVerifyModalError(null);
+    setVerifyModalSuccess(null);
+    setVerifyingEmail(true);
+    try {
+      const res = await verifyEmail(verificationCode.trim());
+      await refreshProfile();
+      setSuccess(res.message || t("settings.emailVerifiedSuccess"));
+      setShowVerifyModal(false);
+      setVerificationCode("");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setVerifyModalError(msg || t("settings.verificationCodeFail"));
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
 
   // PAT state
   const [tokens, setTokens] = useState<ApiToken[]>([]);
@@ -438,7 +496,36 @@ export default function SettingsPage() {
                       <span className="font-mono text-xs text-gray-500">@{user.username}</span>
                     )}
                   </div>
-                  <div className="font-mono text-xs text-gray-500 truncate">{user.email || t("settings.unboundEmail")}</div>
+                  <div className="flex items-center gap-2 flex-wrap font-mono text-xs text-gray-500">
+                    <span className="truncate">{user.email || t("settings.unboundEmail")}</span>
+                    {user.email && (
+                      user.is_email_verified ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-medium">
+                          <Check className="w-3 h-3" />
+                          <span>{t("settings.emailVerified")}</span>
+                        </span>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-mono font-medium">
+                            <AlertCircle className="w-3 h-3" />
+                            <span>{t("settings.emailUnverified")}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowVerifyModal(true);
+                              setVerifyModalError(null);
+                              setVerifyModalSuccess(null);
+                              setVerificationCode("");
+                            }}
+                            className="text-primary hover:underline text-[11px] font-semibold cursor-pointer"
+                          >
+                            {t("settings.verifyEmailBtn")}
+                          </button>
+                        </div>
+                      )
+                    )}
+                  </div>
                   <div className="font-mono text-[11px] text-gray-400 break-all flex items-center gap-2">
                     <span>UUID: {user.id}</span>
                     {!!avatarUrl && (
@@ -847,6 +934,111 @@ export default function SettingsPage() {
           )}
         </div>
       </main>
+
+      {/* 邮箱验证弹窗 */}
+      {showVerifyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-surface border border-surfaceBorder rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-black/5 dark:border-white/5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 text-primary grid place-items-center">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                    {t("settings.verifyEmailTitle")}
+                  </h3>
+                  <p className="text-xs text-gray-500 font-mono">
+                    {user.email}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVerifyModal(false)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {verifyModalError && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 font-mono text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+                <span>{verifyModalError}</span>
+              </div>
+            )}
+
+            {verifyModalSuccess && (
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs flex items-center gap-2">
+                <Check className="w-4 h-4 shrink-0" strokeWidth={1.5} />
+                <span>{verifyModalSuccess}</span>
+              </div>
+            )}
+
+            <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+              {t("settings.verifyEmailModalDesc")}
+            </p>
+
+            <form onSubmit={handleVerifyEmail} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="font-mono text-xs text-gray-500 dark:text-gray-400">
+                  {t("settings.verificationCodeLabel")}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder={t("settings.verificationCodePlaceholder")}
+                    className="flex-1 h-10 px-3.5 bg-background border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white font-mono text-sm tracking-widest placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendVerificationEmail}
+                    disabled={sendingEmail || verifyCountdown > 0}
+                    className="shrink-0 px-3.5 h-10 rounded-lg bg-black/[0.04] dark:bg-white/[0.08] hover:bg-black/[0.08] dark:hover:bg-white/[0.12] disabled:opacity-50 text-xs font-mono font-medium text-gray-700 dark:text-gray-200 border border-black/5 dark:border-white/5 transition-colors flex items-center gap-1.5"
+                  >
+                    {sendingEmail ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+                    <span>
+                      {verifyCountdown > 0
+                        ? t("settings.resendCountdown", { count: verifyCountdown })
+                        : (sendingEmail ? t("settings.sendingCode") : t("settings.sendCode"))}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-black/5 dark:border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setShowVerifyModal(false)}
+                  className="px-4 h-9 rounded-lg border border-black/10 dark:border-white/10 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                >
+                  {t("common.cancel")}
+                </button>
+                <button
+                  type="submit"
+                  disabled={verifyingEmail || verificationCode.length !== 6}
+                  className="px-5 h-9 rounded-lg bg-primary text-white keep-white font-semibold text-xs flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-50 shadow-xs"
+                >
+                  {verifyingEmail ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  <span>{verifyingEmail ? t("settings.verifying") : t("settings.confirmVerify")}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
