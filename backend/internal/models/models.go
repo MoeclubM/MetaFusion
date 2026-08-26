@@ -67,6 +67,7 @@ type User struct {
 	Bio              string     `json:"bio"`
 	FavoritesPublic  bool       `gorm:"default:true;not null" json:"favorites_public"`
 	EmailPublic      bool       `gorm:"default:false;not null" json:"email_public"`
+	IsEmailVerified  bool       `gorm:"default:false;not null" json:"is_email_verified"`
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 

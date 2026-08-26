@@ -20,6 +20,7 @@ export interface User {
   bio?: string;
   favorites_public?: boolean;
   email_public?: boolean;
+  is_email_verified?: boolean;
   created_at?: string;
   updated_at?: string;
   inviter?: User;
@@ -1957,6 +1958,29 @@ export function unpauseQueue(name: string): Promise<{ status: string; queue: str
     method: "POST",
   });
 }
+
+// ── 邮箱验证与 SMTP 接口 ──
+
+export function sendVerificationEmail(): Promise<{ message: string; expires_in: number }> {
+  return fetchApi<{ message: string; expires_in: number }>("/auth/send-verification-email", {
+    method: "POST",
+  });
+}
+
+export function verifyEmail(code: string): Promise<{ message: string; user: User }> {
+  return fetchApi<{ message: string; user: User }>("/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function testSendEmail(toEmail: string): Promise<{ message: string; to_email: string }> {
+  return fetchApi<{ message: string; to_email: string }>("/admin/settings/test-email", {
+    method: "POST",
+    body: JSON.stringify({ to_email: toEmail }),
+  });
+}
+
 
 
 

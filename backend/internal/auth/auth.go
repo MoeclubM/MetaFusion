@@ -7,8 +7,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/metafusion/metafusion-app/internal/config"
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
+	"github.com/metafusion/metafusion-app/internal/mailer"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
@@ -29,18 +32,32 @@ const (
 	TokenTypeRefresh     = "refresh"
 )
 
-type AuthService struct {
-	db  *gorm.DB
-	cfg *config.Config
-	rdb *redis.Client
+type memoryCodeEntry struct {
+	code      string
+	expiresAt time.Time
 }
 
-func NewAuthService(db *gorm.DB, cfg *config.Config, rdb ...*redis.Client) *AuthService {
-	var redisClient *redis.Client
-	if len(rdb) > 0 {
-		redisClient = rdb[0]
+type AuthService struct {
+	db       *gorm.DB
+	cfg      *config.Config
+	rdb      *redis.Client
+	mailer   *mailer.Mailer
+	memCodes sync.Map
+}
+
+func NewAuthService(db *gorm.DB, cfg *config.Config, rdb *redis.Client, mailerSvc ...*mailer.Mailer) *AuthService {
+	var m *mailer.Mailer
+	if len(mailerSvc) > 0 && mailerSvc[0] != nil {
+		m = mailerSvc[0]
+	} else {
+		m = mailer.NewMailer(db)
 	}
-	return &AuthService{db: db, cfg: cfg, rdb: redisClient}
+	return &AuthService{
+		db:     db,
+		cfg:    cfg,
+		rdb:    rdb,
+		mailer: m,
+	}
 }
 
 type Claims struct {
@@ -493,6 +510,123 @@ func (s *AuthService) UpdateProfile(userID uuid.UUID, input UpdateProfileInput) 
 		return nil, err
 	}
 	_ = s.db.First(&user, userID).Error
+	return &user, nil
+}
+
+func generateNumericCode(digits int) string {
+	max := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(digits)), nil)
+	n, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return "888888"
+	}
+	return fmt.Sprintf("%0*d", digits, n.Int64())
+}
+
+// SendVerificationEmail 生成并发送 6 位邮箱验证码
+func (s *AuthService) SendVerificationEmail(userID uuid.UUID, locale string) (int, error) {
+	var user models.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return 0, errors.New("用户不存在")
+	}
+
+	if user.IsEmailVerified {
+		return 0, errors.New("邮箱已完成验证，无需重复操作")
+	}
+
+	ctx := context.Background()
+	cooldownKey := fmt.Sprintf("email_cooldown:%s", userID.String())
+
+	// 频率检查 (60 秒冷却)
+	if s.rdb != nil {
+		if val, err := s.rdb.Get(ctx, cooldownKey).Result(); err == nil && val != "" {
+			return 0, errors.New("验证邮件发送过于频繁，请稍候再试")
+		}
+	}
+
+	code := generateNumericCode(6)
+	expiresIn := 15 * time.Minute
+
+	// 保存验证码到 Redis 或内存
+	codeKey := fmt.Sprintf("email_verify:%s", userID.String())
+	if s.rdb != nil {
+		if err := s.rdb.Set(ctx, codeKey, code, expiresIn).Err(); err != nil {
+			return 0, fmt.Errorf("failed to store verification code: %w", err)
+		}
+		_ = s.rdb.Set(ctx, cooldownKey, "1", 60*time.Second).Err()
+	} else {
+		s.memCodes.Store(codeKey, memoryCodeEntry{
+			code:      code,
+			expiresAt: time.Now().Add(expiresIn),
+		})
+	}
+
+	name := user.Username
+	if user.DisplayName != nil && *user.DisplayName != "" {
+		name = *user.DisplayName
+	}
+
+	if s.mailer != nil {
+		if err := s.mailer.SendVerificationEmail(user.Email, name, code, locale); err != nil {
+			return 0, fmt.Errorf("邮件发送失败: %w", err)
+		}
+	}
+
+	return int(expiresIn.Seconds()), nil
+}
+
+// VerifyEmail 校验邮箱验证码并标记用户为已验证
+func (s *AuthService) VerifyEmail(userID uuid.UUID, code string) (*models.User, error) {
+	code = strings.TrimSpace(code)
+	if len(code) != 6 {
+		return nil, errors.New("验证码格式不正确，需为 6 位数字")
+	}
+
+	var user models.User
+	if err := s.db.First(&user, userID).Error; err != nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	if user.IsEmailVerified {
+		return &user, nil
+	}
+
+	ctx := context.Background()
+	codeKey := fmt.Sprintf("email_verify:%s", userID.String())
+
+	var validCode string
+	if s.rdb != nil {
+		val, err := s.rdb.Get(ctx, codeKey).Result()
+		if err != nil || val == "" {
+			return nil, errors.New("验证码已过期或不存在，请重新发送")
+		}
+		validCode = val
+	} else {
+		if val, ok := s.memCodes.Load(codeKey); ok {
+			entry := val.(memoryCodeEntry)
+			if time.Now().Before(entry.expiresAt) {
+				validCode = entry.code
+			}
+		}
+		if validCode == "" {
+			return nil, errors.New("验证码已过期或不存在，请重新发送")
+		}
+	}
+
+	if validCode != code {
+		return nil, errors.New("验证码不正确，请核对后重试")
+	}
+
+	if err := s.db.Model(&models.User{}).Where("id = ?", userID).Update("is_email_verified", true).Error; err != nil {
+		return nil, err
+	}
+
+	if s.rdb != nil {
+		_ = s.rdb.Del(ctx, codeKey).Err()
+	} else {
+		s.memCodes.Delete(codeKey)
+	}
+
+	user.IsEmailVerified = true
 	return &user, nil
 }
 
