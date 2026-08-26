@@ -61,11 +61,14 @@ func (s *AdminService) GetSystemSettings(c *gin.Context) {
 		m[r.Key] = r.Value
 	}
 
+	emailVerificationEnabled := parseBoolDefault(m, "email_verification_enabled", true)
+	requireEmailVerification := emailVerificationEnabled && parseBoolDefault(m, "require_email_verification", false)
+
 	res := SystemSettingsResponse{
 		RegistrationEnabled:         parseBoolDefault(m, "registration_enabled", true),
 		InviteRequired:              parseBoolDefault(m, "invite_required", true),
-		RequireEmailVerification:    parseBoolDefault(m, "require_email_verification", false),
-		EmailVerificationEnabled:    parseBoolDefault(m, "email_verification_enabled", true),
+		RequireEmailVerification:    requireEmailVerification,
+		EmailVerificationEnabled:    emailVerificationEnabled,
 		RateLimitEnabled:            parseBoolDefault(m, "rate_limit_enabled", true),
 		AuthRateLimitEnabled:        parseBoolDefault(m, "auth_rate_limit_enabled", true),
 		RateLimitAnonPerMin:         parseIntDefault(m, "rate_limit_anon_per_min", 60),
@@ -193,6 +196,10 @@ func (s *AdminService) UpdateSystemSettings(c *gin.Context) {
 	if len(updates) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "no valid settings provided"})
 		return
+	}
+
+	if updates["email_verification_enabled"] == "false" {
+		updates["require_email_verification"] = "false"
 	}
 
 	for k, v := range updates {

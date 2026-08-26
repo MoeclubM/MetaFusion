@@ -266,6 +266,25 @@ func isInviteRequired(db *gorm.DB) bool {
 	return rec.Value == "true"
 }
 
+func isEmailVerificationEnabled(db *gorm.DB) bool {
+	var rec models.SystemSetting
+	if err := db.Where("key = ?", "email_verification_enabled").First(&rec).Error; err != nil {
+		return true
+	}
+	return rec.Value != "false"
+}
+
+func isRequireEmailVerification(db *gorm.DB) bool {
+	if !isEmailVerificationEnabled(db) {
+		return false
+	}
+	var rec models.SystemSetting
+	if err := db.Where("key = ?", "require_email_verification").First(&rec).Error; err != nil {
+		return false
+	}
+	return rec.Value == "true"
+}
+
 func resolveInviterID(db *gorm.DB, code string) (*uuid.UUID, error) {
 	code = strings.TrimSpace(code)
 	if code == "" {
@@ -524,6 +543,10 @@ func generateNumericCode(digits int) string {
 
 // SendVerificationEmail 生成并发送 6 位邮箱验证码
 func (s *AuthService) SendVerificationEmail(userID uuid.UUID, locale string) (int, error) {
+	if !isEmailVerificationEnabled(s.db) {
+		return 0, errors.New("邮箱验证功能暂未开启，请联系管理员")
+	}
+
 	var user models.User
 	if err := s.db.First(&user, userID).Error; err != nil {
 		return 0, errors.New("用户不存在")
@@ -576,6 +599,10 @@ func (s *AuthService) SendVerificationEmail(userID uuid.UUID, locale string) (in
 
 // VerifyEmail 校验邮箱验证码并标记用户为已验证
 func (s *AuthService) VerifyEmail(userID uuid.UUID, code string) (*models.User, error) {
+	if !isEmailVerificationEnabled(s.db) {
+		return nil, errors.New("邮箱验证功能暂未开启，请联系管理员")
+	}
+
 	code = strings.TrimSpace(code)
 	if len(code) != 6 {
 		return nil, errors.New("验证码格式不正确，需为 6 位数字")
@@ -717,6 +744,49 @@ func RequireRoles(allowedRoles ...string) gin.HandlerFunc {
 
 		c.JSON(http.StatusForbidden, gin.H{"error": backendi18n.T(c, "auth.forbidden")})
 		c.Abort()
+	}
+}
+
+// RequireEmailVerified 角色权限与邮箱强制验证复合中间件
+func RequireEmailVerified(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if !isEmailVerificationEnabled(db) || !isRequireEmailVerification(db) {
+			c.Next()
+			return
+		}
+
+		roleVal, exists := c.Get("role")
+		if exists {
+			if roleStr, ok := roleVal.(string); ok && (roleStr == "admin" || roleStr == "archivist") {
+				c.Next()
+				return
+			}
+		}
+
+		userIDVal, exists := c.Get("userID")
+		if !exists {
+			c.Next()
+			return
+		}
+		userID, ok := userIDVal.(uuid.UUID)
+		if !ok {
+			c.Next()
+			return
+		}
+
+		var user models.User
+		if err := db.Select("id, is_email_verified").First(&user, "id = ?", userID).Error; err != nil {
+			c.Next()
+			return
+		}
+
+		if !user.IsEmailVerified {
+			c.JSON(http.StatusForbidden, gin.H{"error": backendi18n.T(c, "auth.email_verification_required")})
+			c.Abort()
+			return
+		}
+
+		c.Next()
 	}
 }
 

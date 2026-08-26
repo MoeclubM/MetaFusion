@@ -284,15 +284,23 @@ export function SettingsTab() {
                 checked={settings.email_verification_enabled}
                 disabled={saving}
                 onChange={(v) =>
-                  setSettings((s) => (s ? { ...s, email_verification_enabled: v } : s))
+                  setSettings((s) =>
+                    s
+                      ? {
+                          ...s,
+                          email_verification_enabled: v,
+                          require_email_verification: v ? s.require_email_verification : false,
+                        }
+                      : s
+                  )
                 }
               />
               <ToggleRow
                 icon={<Shield className="w-4 h-4 text-amber-400" />}
                 title={t("admin.settings.requireEmailVerification")}
                 desc={t("admin.settings.requireEmailVerificationDesc")}
-                checked={settings.require_email_verification}
-                disabled={saving}
+                checked={settings.email_verification_enabled && settings.require_email_verification}
+                disabled={saving || !settings.email_verification_enabled}
                 onChange={(v) =>
                   setSettings((s) => (s ? { ...s, require_email_verification: v } : s))
                 }
@@ -339,7 +347,7 @@ export function SettingsTab() {
             <div className="p-4 rounded-xl bg-surface border border-surfaceBorder space-y-4 mt-2">
               <div className="text-xs font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-sky-400" />
-                <span>限流阈值参数设置</span>
+                <span>{t("admin.settings.rateLimitParamsTitle")}</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">

@@ -1878,6 +1878,19 @@ export function fetchSetupStatus(): Promise<SetupStatusResponse> {
   return fetchApi<SetupStatusResponse>("/system/setup-status");
 }
 
+export interface PublicAuthSettings {
+  registration_enabled: boolean;
+  invite_required: boolean;
+  require_email_verification: boolean;
+  email_verification_enabled: boolean;
+  rate_limit_enabled?: boolean;
+  auth_rate_limit_enabled?: boolean;
+}
+
+export function fetchAuthSettings(): Promise<PublicAuthSettings> {
+  return fetchApi<PublicAuthSettings>("/auth/settings");
+}
+
 export function performInitialSetup(payload: InitialSetupPayload): Promise<InitialSetupResult> {
   return fetchApi<InitialSetupResult>("/system/setup", {
     method: "POST",

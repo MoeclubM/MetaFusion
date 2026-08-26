@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/lib/themeContext";
-import { fetchApi, displayNameOf, ApiToken, listApiTokens, createApiToken, deleteApiToken, uploadAvatar, deleteAvatar, sendVerificationEmail, verifyEmail } from "@/lib/api";
+import { fetchApi, displayNameOf, ApiToken, listApiTokens, createApiToken, deleteApiToken, uploadAvatar, deleteAvatar, sendVerificationEmail, verifyEmail, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -65,7 +65,8 @@ export default function SettingsPage() {
   const [emailPublic, setEmailPublic] = useState(false);
   const [privacySaving, setPrivacySaving] = useState<string | null>(null);
 
-  // 邮箱验证弹窗状态
+  // 邮箱验证弹窗与配置状态
+  const [authSettings, setAuthSettings] = useState<PublicAuthSettings | null>(null);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verificationCode, setVerificationCode] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -73,6 +74,10 @@ export default function SettingsPage() {
   const [verifyCountdown, setVerifyCountdown] = useState(0);
   const [verifyModalError, setVerifyModalError] = useState<string | null>(null);
   const [verifyModalSuccess, setVerifyModalSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAuthSettings().then(setAuthSettings).catch(() => {});
+  }, []);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -83,6 +88,10 @@ export default function SettingsPage() {
   }, [verifyCountdown]);
 
   const handleSendVerificationEmail = async () => {
+    if (authSettings?.email_verification_enabled === false) {
+      setVerifyModalError(t("settings.emailVerificationDisabled"));
+      return;
+    }
     setVerifyModalError(null);
     setVerifyModalSuccess(null);
     setSendingEmail(true);
@@ -504,6 +513,10 @@ export default function SettingsPage() {
                           <Check className="w-3 h-3" />
                           <span>{t("settings.emailVerified")}</span>
                         </span>
+                      ) : authSettings?.email_verification_enabled === false ? (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.04] text-gray-500 border border-black/10 dark:border-white/10 text-[10px] font-mono font-medium">
+                          <span>{t("settings.emailVerificationDisabledTag")}</span>
+                        </span>
                       ) : (
                         <div className="flex items-center gap-1.5">
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-mono font-medium">
@@ -541,6 +554,27 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+
+              {user.email && !user.is_email_verified && authSettings?.email_verification_enabled !== false && authSettings?.require_email_verification && (
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-300 font-mono text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
+                    <span>{t("settings.emailVerificationNotice")}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowVerifyModal(true);
+                      setVerifyModalError(null);
+                      setVerifyModalSuccess(null);
+                      setVerificationCode("");
+                    }}
+                    className="px-3 h-7 rounded-lg bg-amber-500 text-white font-semibold text-[11px] hover:bg-amber-600 transition-colors shrink-0 cursor-pointer inline-flex items-center justify-center"
+                  >
+                    {t("settings.verifyEmailBtn")}
+                  </button>
+                </div>
+              )}
 
               <form onSubmit={handleProfileSave} className="space-y-3.5">
                 <div className="space-y-1">
