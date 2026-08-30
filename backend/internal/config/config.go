@@ -28,15 +28,18 @@ type Config struct {
 	TMDBAPIKey         string
 }
 
-func Load() *Config {
-	jwtSecret := getEnv("JWT_SECRET", "")
-	if jwtSecret == "" {
-		if os.Getenv("NODE_ENV") == "production" || os.Getenv("GIN_MODE") == "release" {
-			log.Println("CRITICAL SECURITY WARNING: JWT_SECRET is not set in production mode! Please configure JWT_SECRET.")
+	func Load() *Config {
+		jwtSecret := getEnv("JWT_SECRET", "")
+		isProd := os.Getenv("NODE_ENV") == "production" || os.Getenv("GIN_MODE") == "release"
+		if jwtSecret == "" {
+			if isProd {
+				log.Fatalf("CRITICAL SECURITY ERROR: JWT_SECRET environment variable is missing in production mode. Process aborting.")
+			}
+			// 开发环境回退默认值
+			jwtSecret = "metafusion-default-dev-secret-key-32bytes-min!!"
+		} else if isProd && len(jwtSecret) < 32 {
+			log.Fatalf("CRITICAL SECURITY ERROR: JWT_SECRET must be at least 32 characters in production mode. Process aborting.")
 		}
-		// 开发回退默认值，避免空 key 导致非法伪造
-		jwtSecret = "metafusion-default-dev-secret-key-32bytes-min!!"
-	}
 
 	return &Config{
 		Port:               getEnv("PORT", "8080"),

@@ -872,6 +872,12 @@ func tryJWTAuth(c *gin.Context, cfg *config.Config, db *gorm.DB) bool {
 		if claims.TokenType == TokenTypeRefresh {
 			return false
 		}
+		// 检查 Redis Token 吊销黑名单
+		if cfg != nil && cfg.RedisAddr != "" && claims.ID != "" {
+			if isTokenIDBlacklisted(cfg.RedisAddr, claims.ID) {
+				return false
+			}
+		}
 		if db != nil {
 			var user models.User
 			if err := db.Select("id, username, role").First(&user, "id = ?", claims.UserID).Error; err != nil {
@@ -1003,6 +1009,19 @@ func (s *AuthService) GetSetupStatus() (*SetupStatusResponse, error) {
 		SiteName:      siteName,
 		TotalUsers:    totalUsers,
 	}, nil
+}
+
+// isTokenIDBlacklisted 快捷检查 JTI 是否在 Redis 黑名单中
+func isTokenIDBlacklisted(redisAddr, jti string) bool {
+	if redisAddr == "" || jti == "" {
+		return false
+	}
+	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
+	defer rdb.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	exists, err := rdb.Exists(ctx, "auth:blacklist:"+jti).Result()
+	return err == nil && exists > 0
 }
 
 // PerformInitialSetup 在系统无管理员时执行 OOBE 首次初始化，创建超级管理员
