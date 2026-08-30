@@ -316,7 +316,7 @@ export function RelationTypesTab() {
                   value={form.code || ""}
                   onChange={(e) => setForm({ ...form, code: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
                   placeholder="e.g. prequel_of"
-                  className="w-full h-10 px-3 rounded-xl bg-black/30 border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-amber-400/50 disabled:opacity-50"
+                  className="w-full h-10 px-3 rounded-xl bg-surface border border-theme text-xs font-mono text-foreground focus:outline-none focus:border-amber-400/50 disabled:opacity-50"
                 />
               </div>
 
@@ -327,10 +327,10 @@ export function RelationTypesTab() {
                 <select
                   value={form.domain || "work_work"}
                   onChange={(e) => setForm({ ...form, domain: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-black/30 border border-white/10 text-xs font-mono text-white focus:outline-none focus:border-amber-400/50"
+                  className="w-full h-10 px-3 rounded-xl bg-surface border border-theme text-xs font-mono text-foreground focus:outline-none focus:border-amber-400/50"
                 >
                   {DOMAIN_OPTIONS.map((d) => (
-                    <option key={d.value} value={d.value} className="bg-[#121216] text-white">
+                    <option key={d.value} value={d.value} className="bg-surface text-foreground">
                       {d.label}
                     </option>
                   ))}
@@ -370,7 +370,7 @@ export function RelationTypesTab() {
                     value={form.forward_label_zh || ""}
                     onChange={(e) => setForm({ ...form, forward_label_zh: e.target.value })}
                     placeholder="例如: 改编自"
-                    className="w-full h-9 px-3 rounded-lg bg-black/30 border border-white/10 text-xs text-white focus:outline-none focus:border-amber-400/50"
+                    className="w-full h-9 px-3 rounded-lg bg-surface border border-theme text-xs text-foreground focus:outline-none focus:border-amber-400/50"
                   />
                 </div>
 
@@ -384,7 +384,7 @@ export function RelationTypesTab() {
                     value={form.reverse_label_zh || ""}
                     onChange={(e) => setForm({ ...form, reverse_label_zh: e.target.value })}
                     placeholder="例如: 被改编为"
-                    className="w-full h-9 px-3 rounded-lg bg-black/30 border border-white/10 text-xs text-white focus:outline-none focus:border-amber-400/50"
+                    className="w-full h-9 px-3 rounded-lg bg-surface border border-theme text-xs text-foreground focus:outline-none focus:border-amber-400/50"
                   />
                 </div>
 
@@ -398,7 +398,7 @@ export function RelationTypesTab() {
                     value={form.forward_label_en || ""}
                     onChange={(e) => setForm({ ...form, forward_label_en: e.target.value })}
                     placeholder="e.g. Adaptation of"
-                    className="w-full h-9 px-3 rounded-lg bg-black/30 border border-white/10 text-xs text-white focus:outline-none focus:border-amber-400/50"
+                    className="w-full h-9 px-3 rounded-lg bg-surface border border-theme text-xs text-foreground focus:outline-none focus:border-amber-400/50"
                   />
                 </div>
 
@@ -412,7 +412,7 @@ export function RelationTypesTab() {
                     value={form.reverse_label_en || ""}
                     onChange={(e) => setForm({ ...form, reverse_label_en: e.target.value })}
                     placeholder="e.g. Adapted as"
-                    className="w-full h-9 px-3 rounded-lg bg-black/30 border border-white/10 text-xs text-white focus:outline-none focus:border-amber-400/50"
+                    className="w-full h-9 px-3 rounded-lg bg-surface border border-theme text-xs text-foreground focus:outline-none focus:border-amber-400/50"
                   />
                 </div>
               </div>
@@ -427,7 +427,7 @@ export function RelationTypesTab() {
                 value={form.description || ""}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 placeholder={t("admin.relationTypes.fieldDescPlaceholder")}
-                className="w-full p-3 rounded-xl bg-black/30 border border-white/10 text-xs text-white focus:outline-none focus:border-amber-400/50"
+                className="w-full p-3 rounded-xl bg-surface border border-theme text-xs text-foreground focus:outline-none focus:border-amber-400/50"
               />
             </div>
 

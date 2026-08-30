@@ -85,7 +85,7 @@ export function Select({
         left,
         width,
         maxHeight: maxH,
-        zIndex: 80,
+        zIndex: 100,
         margin: 0,
         ...(openUp
           ? { top: "auto", bottom: vh - r.top + gap }

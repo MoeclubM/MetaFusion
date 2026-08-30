@@ -1966,5 +1966,8 @@
   "admin.settings.sendTestEmailBtn": "发送测试邮件",
   "admin.settings.sendingTestEmail": "正在测试发信…",
   "admin.settings.testEmailSuccess": "测试邮件已成功发出！请检查目标邮箱收件箱。",
-  "admin.settings.testEmailFail": "测试邮件发送失败"
+  "admin.settings.testEmailFail": "测试邮件发送失败",
+  "common.refresh": "刷新",
+  "common.delete": "删除",
+  "admin.fieldNames": "多语言名称"
 }
