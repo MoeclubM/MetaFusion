@@ -1966,5 +1966,8 @@
   "admin.settings.sendTestEmailBtn": "Send Test Email",
   "admin.settings.sendingTestEmail": "Sending test email…",
   "admin.settings.testEmailSuccess": "Test email sent successfully! Please check the recipient inbox.",
-  "admin.settings.testEmailFail": "Failed to send test email"
+  "admin.settings.testEmailFail": "Failed to send test email",
+  "common.refresh": "Refresh",
+  "common.delete": "Delete",
+  "admin.fieldNames": "Localized Names"
 }

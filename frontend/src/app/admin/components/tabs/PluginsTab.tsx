@@ -480,7 +480,7 @@ export function PluginsTab() {
             placeholder={t("admin.plugins.searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full sm:w-64 bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-lg px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none transition-all"
+            className="w-full sm:w-64 bg-surface border border-theme focus:border-amber-400/50 rounded-lg px-3 py-1.5 text-xs text-foreground placeholder-gray-500 outline-none transition-all"
           />
         </div>
       </div>
@@ -885,7 +885,7 @@ export function PluginsTab() {
                                 })
                               }
                               placeholder={field.description}
-                              className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none font-mono"
+                              className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none font-mono"
                             />
                           ) : field.type === "select" ? (
                             <select
@@ -896,13 +896,13 @@ export function PluginsTab() {
                                   [field.key]: e.target.value,
                                 })
                               }
-                              className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white outline-none"
+                              className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground outline-none"
                             >
                               {field.options?.map((opt) => (
                                 <option
                                   key={opt}
                                   value={opt}
-                                  className="bg-[#121216] text-white"
+                                  className="bg-surface text-foreground"
                                 >
                                   {opt}
                                 </option>
@@ -948,7 +948,7 @@ export function PluginsTab() {
                                   })
                                 }
                                 placeholder={field.description}
-                                className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none"
+                                className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none"
                               />
                               {isPassword && (
                                 <button
@@ -990,7 +990,7 @@ export function PluginsTab() {
                     rows={12}
                     value={configRawJson}
                     onChange={(e) => setConfigRawJson(e.target.value)}
-                    className="w-full bg-black/60 border border-white/[0.08] focus:border-amber-400/50 rounded-xl p-3 text-xs text-amber-300 font-mono outline-none"
+                    className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl p-3 text-xs text-amber-600 dark:text-amber-300 font-mono outline-none"
                     placeholder="{}"
                   />
                 </div>
@@ -1064,7 +1064,7 @@ export function PluginsTab() {
                     onChange={(e) =>
                       setRegisterForm({ ...registerForm, id: e.target.value })
                     }
-                    className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none font-mono"
+                    className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none font-mono"
                   />
                 </div>
 
@@ -1080,7 +1080,7 @@ export function PluginsTab() {
                     onChange={(e) =>
                       setRegisterForm({ ...registerForm, name: e.target.value })
                     }
-                    className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none"
+                    className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none"
                   />
                 </div>
               </div>
@@ -1100,7 +1100,7 @@ export function PluginsTab() {
                       endpoint_url: e.target.value,
                     })
                   }
-                  className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none font-mono"
+                  className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none font-mono"
                 />
               </div>
 
@@ -1113,7 +1113,7 @@ export function PluginsTab() {
                   placeholder='{"musicbrainz": ">=1.0.0"} 或逗号分隔插件 ID'
                   value={dependenciesInput}
                   onChange={(e) => setDependenciesInput(e.target.value)}
-                  className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none font-mono"
+                  className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none font-mono"
                 />
                 <p className="text-[10px] text-gray-500">
                   {t("admin.plugins.fieldDepsHint")}
@@ -1134,7 +1134,7 @@ export function PluginsTab() {
                       description: e.target.value,
                     })
                   }
-                  className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none"
+                  className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none"
                 />
               </div>
 
@@ -1153,7 +1153,7 @@ export function PluginsTab() {
                         author: e.target.value,
                       })
                     }
-                    className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none"
+                    className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none"
                   />
                 </div>
 
@@ -1171,7 +1171,7 @@ export function PluginsTab() {
                         version: e.target.value,
                       })
                     }
-                    className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none font-mono"
+                    className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none font-mono"
                   />
                 </div>
               </div>
@@ -1190,7 +1190,7 @@ export function PluginsTab() {
                       secret_token: e.target.value,
                     })
                   }
-                  className="w-full bg-black/40 border border-white/[0.08] focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-white placeholder-gray-500 outline-none"
+                  className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none"
                 />
               </div>
 

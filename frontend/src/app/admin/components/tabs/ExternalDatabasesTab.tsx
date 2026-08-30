@@ -293,7 +293,7 @@ export function ExternalDatabasesTab() {
                     code: e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""),
                   })
                 }
-                className="w-full bg-black/40 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:border-sky-400 outline-none disabled:opacity-50"
+                className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none disabled:opacity-50"
               />
             </div>
             <div>
@@ -303,7 +303,7 @@ export function ExternalDatabasesTab() {
               <select
                 value={form.category || "all"}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
-                className="w-full bg-black/40 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:border-sky-400 outline-none"
+                className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
               >
                 <option value="all">全实体通用 (All)</option>
                 <option value="work">作品 (Work)</option>
@@ -332,7 +332,7 @@ export function ExternalDatabasesTab() {
               placeholder="例如: https://musicbrainz.org/release/{id}"
               value={form.url_pattern || ""}
               onChange={(e) => setForm({ ...form, url_pattern: e.target.value })}
-              className="w-full bg-black/40 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:border-sky-400 outline-none"
+              className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
             />
             <p className="text-[10px] text-gray-500 mt-1 font-mono">
               支持在 URL 中使用 &#123;id&#125; 作为填入 ID 的插值占位符。
@@ -349,7 +349,7 @@ export function ExternalDatabasesTab() {
                 placeholder="例如: ^[0-9a-f-]{36}$"
                 value={form.validation_regex || ""}
                 onChange={(e) => setForm({ ...form, validation_regex: e.target.value })}
-                className="w-full bg-black/40 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:border-sky-400 outline-none"
+                className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
               />
             </div>
             <div>
@@ -361,7 +361,7 @@ export function ExternalDatabasesTab() {
                 placeholder="https://..."
                 value={form.icon_url || ""}
                 onChange={(e) => setForm({ ...form, icon_url: e.target.value })}
-                className="w-full bg-black/40 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:border-sky-400 outline-none"
+                className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
               />
             </div>
           </div>
@@ -376,7 +376,7 @@ export function ExternalDatabasesTab() {
                 placeholder="简要说明"
                 value={form.description || ""}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="w-full bg-black/40 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white focus:border-sky-400 outline-none"
+                className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground focus:border-sky-400 outline-none"
               />
             </div>
             <div>
@@ -389,7 +389,7 @@ export function ExternalDatabasesTab() {
                 onChange={(e) =>
                   setForm({ ...form, sort_order: parseInt(e.target.value) || 0 })
                 }
-                className="w-full bg-black/40 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white font-mono focus:border-sky-400 outline-none"
+                className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
               />
             </div>
           </div>
