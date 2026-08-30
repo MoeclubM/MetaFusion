@@ -946,12 +946,7 @@ func main() {
 				curationGroup.GET("/translations/artists/:id", adminSvc.ListArtistTranslations)
 				curationGroup.PUT("/translations/artists/:id", adminSvc.UpsertArtistTranslations)
 			}
-			adminGroup.PUT("/plugins/:id", pluginHandler.UpdatePlugin)
-			adminGroup.DELETE("/plugins/:id", pluginHandler.DeletePlugin)
-			adminGroup.POST("/plugins/:id/test", pluginHandler.TestPluginHealth)
-			adminGroup.POST("/plugins/test-notify", pluginHandler.TestNotify)
 		}
-	}
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
