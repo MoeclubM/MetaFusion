@@ -357,11 +357,11 @@ type Work struct {
 	Attributes      JSONB          `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 	CatalogMetadata JSONB          `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
 	CreatedBy       *uuid.UUID     `gorm:"type:uuid" json:"created_by,omitempty"`
-	CreatedAt       time.Time      `json:"created_at"`
-	UpdatedAt       time.Time      `json:"updated_at"`
+		CreatedAt       time.Time      `json:"created_at"`
+		UpdatedAt       time.Time      `json:"updated_at"`
 
-	Category        *Category            `gorm:"foreignKey:CategoryCode;references:Code" json:"category,omitempty"`
-	Tags            []Tag                `gorm:"many2many:work_tag_relations;" json:"tags,omitempty"`
+		Category        *Category            `gorm:"-" json:"category,omitempty"`
+		Tags            []Tag                `gorm:"many2many:work_tag_relations;" json:"tags,omitempty"`
 	ArtistRelations []WorkArtistRelation `gorm:"foreignKey:WorkID" json:"artist_relations,omitempty"`
 	Releases        []Release            `gorm:"foreignKey:WorkID" json:"releases,omitempty"`
 	Translations    []WorkTranslation    `gorm:"foreignKey:WorkID" json:"translations,omitempty"`
