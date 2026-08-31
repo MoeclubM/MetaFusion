@@ -18,8 +18,9 @@ import { MultipartUploader } from "@/components/MultipartUploader";
 import FavoriteButton from "@/components/FavoriteButton";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
-import { InteractiveRelationGraph } from "@/components/graph/InteractiveRelationGraph";
+import dynamic from "next/dynamic";
 import { fetchEntityGraph, GraphNode, GraphLink, pickLocalized } from "@/lib/api";
+const InteractiveRelationGraph = dynamic(() => import("@/components/graph/InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 
 type ReleaseWithWork = Release & { work?: Work };

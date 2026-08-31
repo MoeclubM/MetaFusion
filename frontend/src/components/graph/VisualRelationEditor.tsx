@@ -9,7 +9,8 @@ import {
   catalogHubOf,
   fetchApi,
 } from "@/lib/api";
-import { InteractiveRelationGraph } from "./InteractiveRelationGraph";
+import dynamic from "next/dynamic";
+const InteractiveRelationGraph = dynamic(() => import("./InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
 import { RelationRow } from "../editor/EditorRelationsField";
 import {
   Plus,
