@@ -16,7 +16,7 @@ func seedRelationTypes(db *gorm.DB) {
 			Description: "作品、子企划或主体归属于某跨媒介企划/世界观",
 			ForwardLabelZh: "属于企划", ReverseLabelZh: "企划包含",
 			ForwardLabelEn: "is part of franchise", ReverseLabelEn: "contains",
-			AllowedSourceTypes: pq.StringArray{"work", "franchise", "artist", "person", "group", "fictional_band", "virtual_character", "label", "studio", "publisher", "circle"},
+			AllowedSourceTypes: pq.StringArray{"work", "franchise", "artist", "person", "group", "virtual_character", "label", "studio", "publisher", "circle"},
 			AllowedTargetTypes: pq.StringArray{"franchise"},
 			IsHierarchical: true, Color: "indigo", Icon: "Layers", SortOrder: 306, IsSystem: true, IsEnabled: true,
 		},
@@ -151,15 +151,15 @@ func seedRelationTypes(db *gorm.DB) {
 	}
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "member_of").Updates(map[string]interface{}{
 		"allowed_source_types": pq.StringArray{"person", "virtual_character"},
-		"allowed_target_types": pq.StringArray{"group", "orchestra", "studio", "circle", "publisher", "fictional_band"},
+		"allowed_target_types": pq.StringArray{"group", "orchestra", "studio", "circle", "publisher"},
 	}).Error
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "character_in").Updates(map[string]interface{}{
 		"allowed_source_types": pq.StringArray{"virtual_character"},
 		"allowed_target_types": pq.StringArray{"work", "franchise"},
 	}).Error
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "collaborates_with").Updates(map[string]interface{}{
-		"allowed_source_types": pq.StringArray{"person", "group", "orchestra", "studio", "publisher", "circle", "label", "fictional_band", "virtual_character"},
-		"allowed_target_types": pq.StringArray{"person", "group", "orchestra", "studio", "publisher", "circle", "label", "fictional_band", "virtual_character"},
+		"allowed_source_types": pq.StringArray{"person", "group", "orchestra", "studio", "publisher", "circle", "label", "virtual_character"},
+		"allowed_target_types": pq.StringArray{"person", "group", "orchestra", "studio", "publisher", "circle", "label", "virtual_character"},
 	}).Error
 	_ = db.Exec(`UPDATE relation_types SET attribute_schema = $1::jsonb, updated_at = NOW() WHERE code = 'voice_actor_of'`,
 		`[{"key": "locale", "type": "string", "label": "配音语种"}, {"key": "region", "type": "string", "label": "地区"}, {"key": "character_name", "type": "string", "label": "角色全名"}, {"key": "is_original_cast", "type": "boolean", "label": "初代/原案声优"}]`).Error
@@ -167,11 +167,11 @@ func seedRelationTypes(db *gorm.DB) {
 		"allowed_source_types": pq.StringArray{"person", "studio", "publisher", "label"},
 	}).Error
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "performer").Updates(map[string]interface{}{
-		"allowed_source_types": pq.StringArray{"person", "group", "orchestra", "label", "fictional_band"},
+		"allowed_source_types": pq.StringArray{"person", "group", "orchestra", "label"},
 	}).Error
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "member_of").Updates(map[string]interface{}{
 		"allowed_source_types": pq.StringArray{"person", "virtual_character"},
-		"allowed_target_types": pq.StringArray{"group", "orchestra", "studio", "circle", "publisher", "fictional_band"},
+		"allowed_target_types": pq.StringArray{"group", "orchestra", "studio", "circle", "publisher"},
 	}).Error
 }
 
