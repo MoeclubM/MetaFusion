@@ -250,6 +250,7 @@ func buildMusicBrainzPreview(data *mbReleaseResponse, targetReleaseID string, ct
 		workTitle = strings.TrimSpace(data.Title)
 	}
 
+	var artists []ArtistPreview
 	artistNameParts := make([]string, 0)
 	for _, ac := range data.ArtistCredit {
 		name := strings.TrimSpace(ac.Name)
