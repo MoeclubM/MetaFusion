@@ -194,7 +194,7 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '现场实装对照', 'en-US', 'Real Live Counterpart', 'ja', 'リアルライブ実装'),
     '三次元声优实操现场乐队与二次元虚拟组合之间的跨次元映射 (如 Poppin Party 现场组 与 2D 原型)',
     '现场演奏实装为', '三次元现实对应为', 'is real live counterpart of', 'has real live counterpart',
-    ARRAY['group'], ARRAY['fictional_band'],
+    ARRAY['group'], ARRAY['group'],
     TRUE, FALSE, '[]'::jsonb,
     'amber', 'Sparkles', 36, TRUE, TRUE
 ),

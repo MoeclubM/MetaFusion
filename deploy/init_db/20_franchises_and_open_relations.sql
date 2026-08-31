@@ -115,7 +115,7 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '企划归属', 'en-US', 'Part of Franchise'),
     '作品、子企划或主体归属于某跨媒介企划/世界观',
     '属于企划', '企划包含', 'is part of franchise', 'contains',
-    ARRAY['work', 'franchise', 'artist', 'person', 'group', 'fictional_band', 'virtual_character', 'label', 'studio', 'publisher', 'circle'],
+    ARRAY['work', 'franchise', 'artist', 'person', 'group', 'virtual_character', 'label', 'studio', 'publisher', 'circle'],
     ARRAY['franchise'],
     FALSE, TRUE, '[]'::jsonb, 'indigo', 'Layers', 306, TRUE, TRUE
 ),
@@ -202,7 +202,7 @@ ON CONFLICT (code) DO UPDATE SET
 -- 放宽既有谓词
 UPDATE relation_types SET
     allowed_source_types = ARRAY['person', 'virtual_character'],
-    allowed_target_types = ARRAY['group', 'orchestra', 'studio', 'circle', 'publisher', 'fictional_band'],
+    allowed_target_types = ARRAY['group', 'orchestra', 'studio', 'circle', 'publisher'],
     updated_at = NOW()
 WHERE code = 'member_of';
 
@@ -213,8 +213,8 @@ UPDATE relation_types SET
 WHERE code = 'character_in';
 
 UPDATE relation_types SET
-    allowed_source_types = ARRAY['person', 'group', 'orchestra', 'studio', 'publisher', 'circle', 'label', 'fictional_band', 'virtual_character'],
-    allowed_target_types = ARRAY['person', 'group', 'orchestra', 'studio', 'publisher', 'circle', 'label', 'fictional_band', 'virtual_character'],
+    allowed_source_types = ARRAY['person', 'group', 'orchestra', 'studio', 'publisher', 'circle', 'label', 'virtual_character'],
+    allowed_target_types = ARRAY['person', 'group', 'orchestra', 'studio', 'publisher', 'circle', 'label', 'virtual_character'],
     updated_at = NOW()
 WHERE code = 'collaborates_with';
 
