@@ -79,10 +79,7 @@ INSERT INTO virtual_shelves (slug, parent_slug, name_zh, name_en, names, descrip
 -- 漫画画册
 ('comics', NULL, '漫画与画集', 'Comics & Visual Arts', '{"zh-CN": "漫画与画集", "en-US": "Comics & Visual Arts", "ja": "マンガ・画集"}'::jsonb, '连载漫画、艺术设定集与关键帧画册', 'Palette', 60, ARRAY['漫画', '画集', '设定集'], FALSE, '{}'),
 ('manga', 'comics', '连载漫画', 'Manga & Comics', '{"zh-CN": "连载漫画", "en-US": "Manga & Comics", "ja": "マンガ"}'::jsonb, '高分辨率完全版与典藏版连载漫画', 'Layers', 61, ARRAY['漫画'], FALSE, '{}'),
-('artbooks', 'comics', '原画与美术设定集', 'Artbooks & Gallery', '{"zh-CN": "原画与美术设定集", "en-US": "Artbooks & Gallery", "ja": "画集・設定資料集"}'::jsonb, '官方美术设定集、分镜稿与概念画册', 'Image', 62, ARRAY['画集', '设定集'], FALSE, '{}'),
-
--- 特色专题货架（内容标签，不是碟片规格）
-('special-ghibli', NULL, '吉卜力工作室专题', 'Studio Ghibli Archive', '{"zh-CN": "吉卜力工作室专题", "en-US": "Studio Ghibli Archive", "ja": "スタジオジブリ特集"}'::jsonb, '宫崎骏、高畑勋执导动画与久石让配乐全集', 'Heart', 70, ARRAY['吉卜力'], FALSE, '{}')
+('artbooks', 'comics', '原画与美术设定集', 'Artbooks & Gallery', '{"zh-CN": "原画与美术设定集", "en-US": "Artbooks & Gallery", "ja": "画集・設定資料集"}'::jsonb, '官方美术设定集、分镜稿与概念画册', 'Image', 62, ARRAY['画集', '设定集'], FALSE, '{}')
 ON CONFLICT (slug) DO UPDATE SET
     name_zh = EXCLUDED.name_zh,
     name_en = EXCLUDED.name_en,

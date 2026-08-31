@@ -10,6 +10,7 @@ import {
   Artist,
   Release,
   Franchise,
+  Tag,
   dictTermLabel,
   workFacetTagGroups,
   pickLocalized,
@@ -277,14 +278,20 @@ function ExploreContent() {
     router.push(activeType === "works" ? "/explore" : `/explore?type=${activeType}`);
   };
 
-  const tagGroupLabels: Record<string, string> = {
-    format: t("explore.tagGroup.format"),
-    medium: t("explore.tagGroup.medium"),
-    genre: t("explore.tagGroup.genre"),
-    theme: t("explore.tagGroup.theme"),
-    general: t("explore.tagGroup.general"),
-  };
-  const workTagGroups = workFacetTagGroups(tagGroups);
+  // 标签平铺展示：不按 group_type 分组（格式/题材/专题等分类标头废弃）
+  const workTags = (() => {
+    const seen = new Set<string>();
+    const out: Tag[] = [];
+    for (const [, tagsInGroup] of workFacetTagGroups(tagGroups)) {
+      for (const tg of tagsInGroup) {
+        if (!seen.has(tg.name)) {
+          seen.add(tg.name);
+          out.push(tg);
+        }
+      }
+    }
+    return out;
+  })();
 
   const placeholderByType =
     activeType === "artists"
@@ -380,33 +387,24 @@ function ExploreContent() {
                 )}
               </div>
 
-              <div className="space-y-4">
-                {workTagGroups.map(([groupKey, tagsInGroup]) => (
-                  <div key={groupKey} className="space-y-1.5">
-                    <div className="font-mono text-[11px] uppercase text-gray-400 font-bold tracking-wider">
-                      {tagGroupLabels[groupKey] || groupKey}
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {tagsInGroup.map((tg) => {
-                        const isChecked = selectedTags.includes(tg.name);
-                        return (
-                          <button
-                            key={tg.id}
-                            onClick={() => handleToggleTag(tg.name)}
-                            className={`px-2 py-0.5 rounded text-xs font-mono transition-all flex items-center gap-1 border ${
-                              isChecked
-                                ? "bg-primary text-white border-primary font-semibold shadow-2xs"
-                                : "bg-black/[0.02] dark:bg-white/[0.03] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:border-primary/40"
-                            }`}
-                          >
-                            <span>#{tg.name}</span>
-                            {isChecked && <Check className="w-2.5 h-2.5" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
+              <div className="flex flex-wrap gap-1.5">
+                {workTags.map((tg) => {
+                  const isChecked = selectedTags.includes(tg.name);
+                  return (
+                    <button
+                      key={tg.id}
+                      onClick={() => handleToggleTag(tg.name)}
+                      className={`px-2 py-0.5 rounded text-xs font-mono transition-all flex items-center gap-1 border ${
+                        isChecked
+                          ? "bg-primary text-white border-primary font-semibold shadow-2xs"
+                          : "bg-black/[0.02] dark:bg-white/[0.03] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:border-primary/40"
+                      }`}
+                    >
+                      <span>#{tg.name}</span>
+                      {isChecked && <Check className="w-2.5 h-2.5" />}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
