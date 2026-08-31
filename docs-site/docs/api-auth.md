@@ -11,7 +11,7 @@ group: "api"
 
 | 凭证 | 获取方式 | 有效期 | 用途 |
 |---|---|---|---|
-| JWT Bearer | `POST /auth/login` | 7 天 | 用户网页端会话 |
+| JWT Bearer | `POST /auth/login` | Access 2h + Refresh 7d | 用户网页端会话 |
 | API 密钥 (API Key) | `POST /auth/tokens`（需登录态） | 长期有效 | 外部程序、脚本与 Agent 调用平台 API |
 
 二者均可通过 HTTP 请求头携带：

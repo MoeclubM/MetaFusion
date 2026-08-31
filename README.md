@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-black?style=flat-square" alt="License"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-black?style=flat-square" alt="License"/></a>
   <img src="https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go"/>
   <img src="https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js&logoColor=white" alt="Next.js"/>
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
@@ -99,7 +99,7 @@
 
 - **后端核心 (Backend)**：Go 1.25, Gin, GORM, Asynq, Golang-JWT/v5, go-redis/v9
 - **前端系统 (Frontend)**：Next.js 15 (App Router, Standalone), React, Tailwind CSS, Lucide Icons, TypeScript
-- **文档站点 (Docs Site)**：Next.js 14 / VitePress SSG/SSR
+- **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
 - **数据库 (Storage & DB)**：PostgreSQL 16, Redis 7 (Alpine), RustFS (S3-compatible Object Storage)
 - **检索引擎 (Search Engine)**：OpenSearch 2.14.0
 - **媒体处理 (Media Pipeline)**：FFmpeg, libvips, mediainfo
@@ -200,6 +200,6 @@ MetaFusion 原生遵循 **API-First** 设计哲学，所有网页功能均具备
 
 ## 📄 开源许可证
 
-本项目基于 [AGPL-3.0 许可证](LICENSE) 开源发布。
+本项目基于 [Apache-2.0 许可证](LICENSE) 开源发布。
 
 <p align="center"><sub>Built for collectors and archivists, by the open community. — 守护人类文明中每一份不可磨灭的数字记忆。</sub></p>

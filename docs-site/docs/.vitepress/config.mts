@@ -113,7 +113,7 @@ export default defineConfig({
     ],
 
     footer: {
-      message: '基于 MIT 协议开放 · 社区共建开放元数据资源站',
+      message: '基于 Apache-2.0 协议开放 · 社区共建开放元数据资源站',
       copyright: 'Copyright © 2026 MoeClub Ltd · MetaFusion Resource Hub'
     },
 
