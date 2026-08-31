@@ -1170,28 +1170,52 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 
 		// 创建 Medium 与 Tracks / CanonicalEntries
 		for _, medPrev := range req.Mediums {
-			med := models.Medium{
-				ID:            uuid.New(),
-				ReleaseID:     release.ID,
-				Position:      medPrev.Position,
-				Name:          medPrev.Name,
-				Format:        medPrev.Format,
-				MediaCategory: medPrev.MediaCategory,
-				TrackCount:    len(medPrev.Tracks),
-			}
-			if med.Position <= 0 {
-				med.Position = importedMediumsCount + 1
-			}
-			if med.Format == "" {
-				med.Format = "Digital"
-			}
-			if med.MediaCategory == "" {
-				med.MediaCategory = "audio"
-			}
-			if err := tx.Create(&med).Error; err != nil {
-				log.Printf("[Importer] Create medium notice: %v", err)
-				continue
-			}
+				medCat := strings.ToLower(strings.TrimSpace(medPrev.MediaCategory))
+				switch medCat {
+				case "audio":
+					medCat = "music"
+				case "video":
+					if strings.Contains(strings.ToLower(req.MediaTypeHint), "anime") {
+						medCat = "anime"
+					} else if strings.Contains(strings.ToLower(req.MediaTypeHint), "tv") {
+						medCat = "tv_series"
+					} else {
+						medCat = "movie"
+					}
+				case "book":
+					if strings.Contains(strings.ToLower(req.MediaTypeHint), "comic") || strings.Contains(strings.ToLower(req.MediaTypeHint), "manga") {
+						medCat = "comic"
+					} else {
+						medCat = "novel"
+					}
+				case "":
+					medCat = "music"
+				}
+				var countMT int64
+				tx.Table("media_types").Where("code = ?", medCat).Count(&countMT)
+				if countMT == 0 {
+					medCat = "movie"
+				}
+
+				med := models.Medium{
+					ID:            uuid.New(),
+					ReleaseID:     release.ID,
+					Position:      medPrev.Position,
+					Name:          medPrev.Name,
+					Format:        medPrev.Format,
+					MediaCategory: medCat,
+					TrackCount:    len(medPrev.Tracks),
+				}
+				if med.Position <= 0 {
+					med.Position = importedMediumsCount + 1
+				}
+				if med.Format == "" {
+					med.Format = "Digital"
+				}
+				if err := tx.Create(&med).Error; err != nil {
+					log.Printf("[Importer] Create medium notice: %v", err)
+					continue
+				}
 			importedMediumsCount++
 
 			for _, trkPrev := range medPrev.Tracks {
