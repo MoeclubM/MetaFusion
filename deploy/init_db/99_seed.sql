@@ -167,26 +167,9 @@ INSERT INTO tags (name, group_type, category_scope) VALUES
 ('爵士嘻哈', 'genre', '{}'),
 ('电子舞曲', 'genre', '{}'),
 
--- 4) 专题与宇宙企划 (theme)
+-- 4) 专题与企划属性 (theme)——人物/工作室/作品名不属于标签，应为 Artist/Franchise 实体
 ('跨媒介', 'theme', '{}'),
-('吉卜力', 'theme', '{}'),
-('宫崎骏', 'theme', '{}'),
-('久石让', 'theme', '{}'),
-('EVA', 'theme', '{}'),
-('庵野秀明', 'theme', '{}'),
-('诺兰', 'theme', '{}'),
-('刘慈欣', 'theme', '{}'),
 ('奥斯卡', 'theme', '{}'),
-('刀剑神域', 'theme', '{}'),
-('葬送的芙莉莲', 'theme', '{}'),
-('孤独摇滚', 'theme', '{}'),
-('紫罗兰永恒花园', 'theme', '{}'),
-('Re:从零开始的异世界生活', 'theme', '{}'),
-('进击的巨人', 'theme', '{}'),
-('明日方舟', 'theme', '{}'),
-('BanG Dream', 'theme', '{}'),
-('Fate', 'theme', '{}'),
-('学园都市', 'theme', '{}'),
 ('Vocaloid', 'theme', '{}'),
 
 -- 5) 社区讨论与考据标签 (topic)
