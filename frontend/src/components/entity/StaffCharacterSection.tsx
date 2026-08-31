@@ -29,7 +29,7 @@ interface CharacterCardItem {
 export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSectionProps) {
   const { t } = useI18n();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<"key" | "characters" | "staff">("key");
+  const [activeTab, setActiveTab] = useState<"all" | "key" | "characters">("all");
 
   if (!relations || relations.length === 0) return null;
 
@@ -165,6 +165,22 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
   // 紧凑核心创作者徽章（未展开时展示在详情页头部）
   const displayedKey = keyStaff.length > 0 ? keyStaff.slice(0, 8) : relations.slice(0, 8);
 
+  // 页签：固定「全部」置顶，其余按实际存在的关系组自动生成（无数据的分组不出现）
+  const staffTabs = useMemo(() => {
+    const list: { key: "all" | "key" | "characters"; label: string; count: number }[] = [
+      { key: "all", label: t("work.detail.tabAll"), count: relations.length },
+    ];
+    if (keyStaff.length > 0) {
+      list.push({ key: "key", label: t("work.detail.tabKeyStaff"), count: keyStaff.length });
+    }
+    if (characterCards.length > 0) {
+      list.push({ key: "characters", label: t("work.detail.tabCharacters"), count: characterCards.length });
+    }
+    return list;
+  }, [relations, keyStaff, characterCards, t]);
+
+  const effectiveTab = staffTabs.some((tab) => tab.key === activeTab) ? activeTab : "all";
+
   // 格式化具体职务标签
   const formatRole = (rawRole: string) => {
     const trimmed = rawRole.trim();
@@ -212,50 +228,27 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
       {isExpanded && (
         <div className="p-3.5 sm:p-4 rounded-md border border-black/10 dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.02] space-y-3 mt-2 animate-fadeIn">
           <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2">
-            <div className="flex items-center gap-1.5 text-xs font-mono">
-              <button
-                type="button"
-                onClick={() => setActiveTab("key")}
-                className={`px-3 py-1 rounded-sm transition-all ${
-                  activeTab === "key"
-                    ? "bg-primary text-white font-medium shadow-xs"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                }`}
-              >
-                {t("work.detail.tabKeyStaff")} ({keyStaff.length})
-              </button>
-              {characterCards.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs font-mono flex-wrap">
+              {staffTabs.map((tab) => (
                 <button
+                  key={tab.key}
                   type="button"
-                  onClick={() => setActiveTab("characters")}
+                  onClick={() => setActiveTab(tab.key)}
                   className={`px-3 py-1 rounded-sm transition-all ${
-                    activeTab === "characters"
+                    effectiveTab === tab.key
                       ? "bg-primary text-white font-medium shadow-xs"
                       : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                   }`}
                 >
-                  {t("work.detail.tabCharacters")} ({characterCards.length})
+                  {tab.label} ({tab.count})
                 </button>
-              )}
-              {otherStaff.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("staff")}
-                  className={`px-3 py-1 rounded-sm transition-all ${
-                    activeTab === "staff"
-                      ? "bg-primary text-white font-medium shadow-xs"
-                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                  }`}
-                >
-                  {t("work.detail.tabAllStaff")} ({otherStaff.length})
-                </button>
-              )}
+              ))}
             </div>
             <span className="font-mono text-[11px] text-gray-400">TOTAL {relations.length} CREDITS</span>
           </div>
 
           {/* 渲染当前 Tab: 角色与声优专用双轨卡片 (Characters & Cast) */}
-          {activeTab === "characters" && (
+          {(effectiveTab === "characters" || effectiveTab === "all") && characterCards.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pr-1">
               {characterCards.map((item) => (
                 <div
@@ -345,9 +338,13 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
           )}
 
           {/* 渲染当前 Tab: 核心主创 (Key Staff) & 全部制作团队 (All Staff) */}
-          {activeTab !== "characters" && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[360px] overflow-y-auto pr-1">
-              {(activeTab === "key" ? keyStaff : otherStaff).map((rel) => (
+          {(effectiveTab === "key" || effectiveTab === "all") && otherStaff.length > 0 && (
+            <>
+              {effectiveTab === "all" && characterCards.length > 0 && (
+                <div className="font-mono text-[10px] uppercase tracking-wider text-gray-400 pt-1">{t("work.detail.tabAllStaff")}</div>
+              )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[360px] overflow-y-auto pr-1">
+                {(effectiveTab === "key" ? keyStaff : otherStaff).map((rel) => (
                 <Link
                   key={rel.id}
                   href={`/artists/${rel.artist_id}`}
@@ -375,7 +372,8 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
                   </div>
                 </Link>
               ))}
-            </div>
+              </div>
+            </>
           )}
         </div>
       )}

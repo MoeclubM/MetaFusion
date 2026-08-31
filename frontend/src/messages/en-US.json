@@ -239,6 +239,7 @@
   "work.detail.tabKeyStaff": "Key Staff",
   "work.detail.tabCharacters": "Characters & Cast",
   "work.detail.tabAllStaff": "All Production Crew",
+  "work.detail.tabAll": "All",
   "work.releases.backToWork": "Back to work",
   "work.releases.allReleases": "All releases",
   "work.releases.releaseCount": "Releases · {count} total",
