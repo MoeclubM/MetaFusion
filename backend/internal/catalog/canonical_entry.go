@@ -61,7 +61,6 @@ func (s *CatalogService) GetCanonicalEntryDetail(c *gin.Context) {
 		Preload("Work").
 		Preload("Work.Translations").
 		Preload("Work.Tags").
-		Preload("Work.ArtistRelations.Artist").
 		Where("id = ?", entryID).
 		First(&entry).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -70,6 +69,10 @@ func (s *CatalogService) GetCanonicalEntryDetail(c *gin.Context) {
 		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	// 署名单轨化：Work.ArtistRelations 由图边读时投影
+	if entry.Work != nil {
+		AttachWorkArtistRelationsPtr(s.db, []*models.Work{entry.Work})
 	}
 
 	// 查询引用此篇目的所有 Tracks 及对应的 Medium 与 Release

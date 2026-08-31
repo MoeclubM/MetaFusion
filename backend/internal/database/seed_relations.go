@@ -16,7 +16,7 @@ func seedRelationTypes(db *gorm.DB) {
 			Description: "作品、子企划或主体归属于某跨媒介企划/世界观",
 			ForwardLabelZh: "属于企划", ReverseLabelZh: "企划包含",
 			ForwardLabelEn: "is part of franchise", ReverseLabelEn: "contains",
-			AllowedSourceTypes: pq.StringArray{"work", "franchise", "artist", "person", "group", "virtual_character", "label", "studio", "publisher", "circle"},
+			AllowedSourceTypes: pq.StringArray{"work", "franchise", "artist", "person", "group", "virtual_character", "studio", "publisher"},
 			AllowedTargetTypes: pq.StringArray{"franchise"},
 			IsHierarchical: true, Color: "indigo", Icon: "Layers", SortOrder: 306, IsSystem: true, IsEnabled: true,
 		},
@@ -37,7 +37,7 @@ func seedRelationTypes(db *gorm.DB) {
 			Description: "音乐厂牌或子品牌隶属于某跨媒介企划",
 			ForwardLabelZh: "为该企划的厂牌/品牌", ReverseLabelZh: "旗下厂牌",
 			ForwardLabelEn: "is imprint of", ReverseLabelEn: "has imprint",
-			AllowedSourceTypes: pq.StringArray{"label", "publisher", "studio", "artist"},
+			AllowedSourceTypes: pq.StringArray{"publisher", "studio", "artist"},
 			AllowedTargetTypes: pq.StringArray{"franchise"},
 			IsHierarchical: true, Color: "teal", Icon: "Disc", SortOrder: 55, IsSystem: true, IsEnabled: true,
 		},
@@ -68,7 +68,7 @@ func seedRelationTypes(db *gorm.DB) {
 			Description: "作者或团队创立可被衍生的世界观/企划",
 			ForwardLabelZh: "创立了企划", ReverseLabelZh: "企划原作为",
 			ForwardLabelEn: "created franchise", ReverseLabelEn: "was created by",
-			AllowedSourceTypes: pq.StringArray{"person", "group", "studio", "circle", "artist"},
+			AllowedSourceTypes: pq.StringArray{"person", "group", "studio", "artist"},
 			AllowedTargetTypes: pq.StringArray{"franchise"},
 			Color: "emerald", Icon: "Award", SortOrder: 38, IsSystem: true, IsEnabled: true,
 		},
@@ -103,34 +103,24 @@ func seedRelationTypes(db *gorm.DB) {
 			Color: "emerald", Icon: "Music", SortOrder: 331, IsSystem: true, IsEnabled: true,
 		},
 		{
-			Code: "adaptation_of", Domain: "work_work",
-			NameZh: "改编自", NameEn: "Adaptation Of",
-			Names: models.JSONB{"zh-CN": "改编自", "en-US": "Adaptation Of"},
-			Description: "跨媒介改编作品（如小说改编为动画、漫画改编为真人电影）",
-			ForwardLabelZh: "改编自", ReverseLabelZh: "被改编为",
-			ForwardLabelEn: "is adaptation of", ReverseLabelEn: "has adaptation",
+			Code: "adapted_from", Domain: "work_work",
+			NameZh: "改编自 (原作)", NameEn: "Adapted From",
+			Names: models.JSONB{"zh-CN": "改编自", "en-US": "Adapted From"},
+			Description: "动画/影视改编自某小说/漫画，或漫画化改编",
+			ForwardLabelZh: "改编自原作", ReverseLabelZh: "被改编衍生为",
+			ForwardLabelEn: "is adapted from", ReverseLabelEn: "adapted into",
 			AllowedSourceTypes: pq.StringArray{"work"}, AllowedTargetTypes: pq.StringArray{"work"},
-			Color: "indigo", Icon: "Layers", SortOrder: 332, IsSystem: true, IsEnabled: true,
+			IsHierarchical: true, Color: "amber", Icon: "GitFork", SortOrder: 310, IsSystem: true, IsEnabled: true,
 		},
 		{
 			Code: "sequel_of", Domain: "work_work",
 			NameZh: "正统续作", NameEn: "Sequel Of",
 			Names: models.JSONB{"zh-CN": "正统续作", "en-US": "Sequel Of"},
 			Description: "按时间线或叙事主线的后续正传作品",
-			ForwardLabelZh: "为该作的续作", ReverseLabelZh: "拥有前作",
-			ForwardLabelEn: "is sequel of", ReverseLabelEn: "has prequel",
+			ForwardLabelZh: "为该作的续作", ReverseLabelZh: "拥有续作",
+			ForwardLabelEn: "is sequel of", ReverseLabelEn: "has sequel",
 			AllowedSourceTypes: pq.StringArray{"work"}, AllowedTargetTypes: pq.StringArray{"work"},
-			Color: "blue", Icon: "ArrowRight", SortOrder: 333, IsSystem: true, IsEnabled: true,
-		},
-		{
-			Code: "prequel_of", Domain: "work_work",
-			NameZh: "正统前传", NameEn: "Prequel Of",
-			Names: models.JSONB{"zh-CN": "正统前传", "en-US": "Prequel Of"},
-			Description: "故事时间线发生在前作之前的官方正统前传作品",
-			ForwardLabelZh: "为该作的前传", ReverseLabelZh: "拥有正统前传",
-			ForwardLabelEn: "is prequel of", ReverseLabelEn: "has prequel",
-			AllowedSourceTypes: pq.StringArray{"work"}, AllowedTargetTypes: pq.StringArray{"work"},
-			Color: "cyan", Icon: "ArrowLeft", SortOrder: 334, IsSystem: true, IsEnabled: true,
+			IsHierarchical: true, Color: "blue", Icon: "ArrowRight", SortOrder: 333, IsSystem: true, IsEnabled: true,
 		},
 		{
 			Code: "spin_off_of", Domain: "work_work",
@@ -140,7 +130,7 @@ func seedRelationTypes(db *gorm.DB) {
 			ForwardLabelZh: "为该作的外传/衍生", ReverseLabelZh: "拥有外传/衍生",
 			ForwardLabelEn: "is spin-off of", ReverseLabelEn: "has spin-off",
 			AllowedSourceTypes: pq.StringArray{"work"}, AllowedTargetTypes: pq.StringArray{"work"},
-			Color: "amber", Icon: "GitFork", SortOrder: 335, IsSystem: true, IsEnabled: true,
+			IsHierarchical: true, Color: "amber", Icon: "GitFork", SortOrder: 339, IsSystem: true, IsEnabled: true,
 		},
 	}
 	for _, row := range rows {
@@ -151,28 +141,34 @@ func seedRelationTypes(db *gorm.DB) {
 	}
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "member_of").Updates(map[string]interface{}{
 		"allowed_source_types": pq.StringArray{"person", "virtual_character"},
-		"allowed_target_types": pq.StringArray{"group", "orchestra", "studio", "circle", "publisher"},
+		"allowed_target_types": pq.StringArray{"group", "orchestra", "studio", "publisher"},
 	}).Error
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "character_in").Updates(map[string]interface{}{
 		"allowed_source_types": pq.StringArray{"virtual_character"},
 		"allowed_target_types": pq.StringArray{"work", "franchise"},
 	}).Error
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "collaborates_with").Updates(map[string]interface{}{
-		"allowed_source_types": pq.StringArray{"person", "group", "orchestra", "studio", "publisher", "circle", "label", "virtual_character"},
-		"allowed_target_types": pq.StringArray{"person", "group", "orchestra", "studio", "publisher", "circle", "label", "virtual_character"},
+		"allowed_source_types": pq.StringArray{"person", "group", "orchestra", "studio", "publisher", "virtual_character"},
+		"allowed_target_types": pq.StringArray{"person", "group", "orchestra", "studio", "publisher", "virtual_character"},
 	}).Error
 	_ = db.Exec(`UPDATE relation_types SET attribute_schema = $1::jsonb, updated_at = NOW() WHERE code = 'voice_actor_of'`,
 		`[{"key": "locale", "type": "string", "label": "配音语种"}, {"key": "region", "type": "string", "label": "地区"}, {"key": "character_name", "type": "string", "label": "角色全名"}, {"key": "is_original_cast", "type": "boolean", "label": "初代/原案声优"}]`).Error
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "producer").Updates(map[string]interface{}{
-		"allowed_source_types": pq.StringArray{"person", "studio", "publisher", "label"},
+		"allowed_source_types": pq.StringArray{"person", "studio", "publisher"},
 	}).Error
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "performer").Updates(map[string]interface{}{
-		"allowed_source_types": pq.StringArray{"person", "group", "orchestra", "label"},
+		"allowed_source_types": pq.StringArray{"person", "group", "orchestra"},
 	}).Error
 	_ = db.Model(&models.RelationType{}).Where("code = ?", "member_of").Updates(map[string]interface{}{
 		"allowed_source_types": pq.StringArray{"person", "virtual_character"},
-		"allowed_target_types": pq.StringArray{"group", "orchestra", "studio", "circle", "publisher"},
+		"allowed_target_types": pq.StringArray{"group", "orchestra", "studio", "publisher"},
 	}).Error
+	// 关系类型去重：停用已并入/重复的旧关系。
+	// work_work 保留 adapted_from（改编）、sequel_of（续作，reverse 表达前作）、part_of_franchise（企划归属）；
+	// 声优链路走 voice_actor_of + character_in，乐团演奏用 performer（orchestra 类型主体），制作用 producer。
+	_ = db.Model(&models.RelationType{}).
+		Where("code IN ?", []string{"adaptation_of", "prequel_of", "part_of_universe", "voice_actor", "orchestra", "studio"}).
+		Update("is_enabled", false).Error
 }
 
 func seedExternalDatabaseDefinitions(db *gorm.DB) {
@@ -777,8 +773,8 @@ func seedEntityTypeDefinitions(db *gorm.DB) {
 		{
 			Code: "group", NameZh: "团体 / 乐队组合", NameEn: "Group / Band",
 			Names: models.JSONB{"zh-CN": "团体 / 乐队组合", "en-US": "Group / Band", "ja": "グループ / バンド"},
-			DescZh: "多人音乐团体、企划组合、创作组合等",
-			DescEn: "Musical groups, idol units, creative collaborative units",
+			DescZh: "摇滚乐队、偶像团体、声优组合、室内乐、同人社团与企划内虚构乐队等演职团体",
+			DescEn: "Rock bands, idol groups, voice-actor units, chamber ensembles, doujin circles and in-universe franchise bands",
 			Color: "purple", BgColor: "bg-purple-500/10", BorderColor: "border-purple-500/30",
 			SortOrder: 20, IsSystem: true, IsEnabled: true,
 		},
@@ -799,28 +795,12 @@ func seedEntityTypeDefinitions(db *gorm.DB) {
 			SortOrder: 40, IsSystem: true, IsEnabled: true,
 		},
 		{
-			Code: "publisher", NameZh: "出版机构 / 发行商", NameEn: "Publisher / Distributor",
-			Names: models.JSONB{"zh-CN": "出版机构 / 发行商", "en-US": "Publisher / Distributor", "ja": "出版社 / 配給元"},
-			DescZh: "图书出版社、漫画杂志社、游戏/影视发行商等",
-			DescEn: "Book publishers, manga editorial departments, distributors",
+			Code: "publisher", NameZh: "出版机构 / 发行厂牌", NameEn: "Publisher / Label",
+			Names: models.JSONB{"zh-CN": "出版机构 / 发行厂牌", "en-US": "Publisher / Label", "ja": "出版社 / レーベル"},
+			DescZh: "出版机构、发行厂牌、唱片公司、独立厂牌与子品牌（imprint）等",
+			DescEn: "Publishing houses, distributors, record labels, imprints and sub-brands",
 			Color: "indigo", BgColor: "bg-indigo-500/10", BorderColor: "border-indigo-500/30",
 			SortOrder: 50, IsSystem: true, IsEnabled: true,
-		},
-		{
-			Code: "label", NameZh: "唱片厂牌 / 音像品牌", NameEn: "Record Label / Imprint",
-			Names: models.JSONB{"zh-CN": "唱片厂牌 / 音像品牌", "en-US": "Record Label / Imprint", "ja": "レコードレーベル"},
-			DescZh: "音乐唱片厂牌、声像制品品牌",
-			DescEn: "Record labels, audio-visual release imprints",
-			Color: "teal", BgColor: "bg-teal-500/10", BorderColor: "border-teal-500/30",
-			SortOrder: 60, IsSystem: true, IsEnabled: true,
-		},
-		{
-			Code: "circle", NameZh: "同人社团 / 独立团队", NameEn: "Doujin Circle / Indie Team",
-			Names: models.JSONB{"zh-CN": "同人社团 / 独立团队", "en-US": "Doujin Circle / Indie Team", "ja": "同人サークル"},
-			DescZh: "独立同人创作社团、非法人开发小组",
-			DescEn: "Independent doujin circles, non-corporate development teams",
-			Color: "rose", BgColor: "bg-rose-500/10", BorderColor: "border-rose-500/30",
-			SortOrder: 70, IsSystem: true, IsEnabled: true,
 		},
 		{
 			Code: "virtual_character", NameZh: "角色 / 人物", NameEn: "Character",
@@ -838,6 +818,11 @@ func seedEntityTypeDefinitions(db *gorm.DB) {
 			DoNothing: true,
 		}).Create(&d).Error
 	}
+	// 实体类型合并：独立厂牌(label)并入出版机构(publisher)，同人社团(circle)并入团体(group)。
+	// 先迁移存量主体再删除废弃字典项（fk_artists_entity_type 为 ON DELETE RESTRICT）。
+	_ = db.Model(&models.Artist{}).Where("entity_type = ?", "label").Update("entity_type", "publisher").Error
+	_ = db.Model(&models.Artist{}).Where("entity_type = ?", "circle").Update("entity_type", "group").Error
+	_ = db.Where("code IN ?", []string{"label", "circle"}).Delete(&models.EntityTypeDefinition{}).Error
 }
 
 func ApplyPatches(db *gorm.DB) {

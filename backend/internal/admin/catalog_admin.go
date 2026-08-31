@@ -709,38 +709,8 @@ func (s *AdminService) DeleteTrack(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 
-func (s *AdminService) ListCategoriesAdmin(c *gin.Context) {
-	var cats []models.Category
-	if err := s.db.Order("sort_order asc").Find(&cats).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, cats)
-}
-
-func (s *AdminService) UpsertCategory(c *gin.Context) {
-	var input models.Category
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	if err := s.db.Save(&input).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	writeAudit(s.db, c, "category.upsert", "category", input.Code, nil)
-	c.JSON(http.StatusOK, input)
-}
-
-func (s *AdminService) DeleteCategory(c *gin.Context) {
-	code := c.Param("code")
-	if err := s.db.Where("code = ?", code).Delete(&models.Category{}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	writeAudit(s.db, c, "category.delete", "category", code, nil)
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
-}
+// 旧分类法 categories 的管理端点（ListCategoriesAdmin / UpsertCategory / DeleteCategory）
+// 已随 categories 表废弃而移除；分类体系现由 tags + virtual_shelves 承担。
 
 func (s *AdminService) ListTagsAdmin(c *gin.Context) {
 	q := strings.TrimSpace(c.Query("q"))

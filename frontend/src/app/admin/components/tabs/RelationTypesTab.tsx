@@ -315,7 +315,7 @@ export function RelationTypesTab() {
                   disabled={!isCreating}
                   value={form.code || ""}
                   onChange={(e) => setForm({ ...form, code: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
-                  placeholder="e.g. prequel_of"
+                  placeholder="e.g. sequel_of"
                   className="w-full h-10 px-3 rounded-xl bg-surface border border-theme text-xs font-mono text-foreground focus:outline-none focus:border-amber-400/50 disabled:opacity-50"
                 />
               </div>

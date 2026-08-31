@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	catalogsvc "github.com/metafusion/metafusion-app/internal/catalog"
 	"github.com/metafusion/metafusion-app/internal/mailer"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/search"
@@ -197,7 +198,6 @@ func (s *AdminService) ListWorks(c *gin.Context) {
 	query := s.db.Model(&models.Work{}).
 		Preload("Releases.Mediums").
 		Preload("Releases.PublisherEntity").
-		Preload("ArtistRelations.Artist").
 		Preload("Tags")
 	if q != "" {
 		like := "%" + q + "%"
@@ -213,6 +213,8 @@ func (s *AdminService) ListWorks(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// 署名单轨化：artist_relations 由 entity_relationships 图边读时投影
+	catalogsvc.AttachWorkArtistRelations(s.db, works)
 	c.JSON(http.StatusOK, gin.H{"items": works, "total": total, "page": page, "page_size": pageSize})
 }
 

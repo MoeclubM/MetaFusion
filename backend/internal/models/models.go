@@ -151,33 +151,6 @@ type MediaType struct {
 
 func (MediaType) TableName() string { return "media_types" }
 
-// Category represents hierarchical media classifications
-type Category struct {
-	Code       string  `gorm:"primaryKey" json:"code"`
-	ParentCode *string `json:"parent_code,omitempty"`
-	NameZh     string  `gorm:"not null" json:"name_zh"`
-	NameEn     string  `gorm:"not null" json:"name_en"`
-	Names      JSONB   `gorm:"type:jsonb;default:'{}'" json:"names"`
-	MediaType  string  `gorm:"not null" json:"media_type"`
-	SortOrder  int     `gorm:"default:0;not null" json:"sort_order"`
-	CLCPrefix  string  `json:"clc_prefix,omitempty"`
-}
-
-func (c Category) LocalizedName(locale string) string {
-	loc := NormalizeLocale(locale)
-	if c.Names != nil {
-		if v, ok := c.Names[loc]; ok {
-			if s, ok := v.(string); ok && s != "" {
-				return s
-			}
-		}
-	}
-	if loc == "en-US" && c.NameEn != "" {
-		return c.NameEn
-	}
-	return c.NameZh
-}
-
 // VirtualShelf represents decoupled external classification and curated view rules
 type VirtualShelf struct {
 	Slug           string         `gorm:"primaryKey" json:"slug"`
@@ -291,8 +264,6 @@ const (
 	EntityTypeOrchestra        = "orchestra"
 	EntityTypeStudio           = "studio"
 	EntityTypePublisher        = "publisher"
-	EntityTypeCircle           = "circle"
-	EntityTypeLabel            = "label"
 	EntityTypeVirtualCharacter = "virtual_character"
 )
 
@@ -332,7 +303,6 @@ type WorkArtistRelation struct {
 // Work represents FRBR Work entity
 type Work struct {
 	ID              uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	CategoryCode    string         `gorm:"default:''" json:"category_code"`
 	Title           string         `gorm:"not null" json:"title"`
 	OriginalTitle   string         `json:"original_title"`
 	Aliases         pq.StringArray `gorm:"type:text[]" json:"aliases"`
@@ -360,7 +330,6 @@ type Work struct {
 		CreatedAt       time.Time      `json:"created_at"`
 		UpdatedAt       time.Time      `json:"updated_at"`
 
-		Category        *Category            `gorm:"-" json:"category,omitempty"`
 		Tags            []Tag                `gorm:"many2many:work_tag_relations;" json:"tags,omitempty"`
 	ArtistRelations []WorkArtistRelation `gorm:"foreignKey:WorkID" json:"artist_relations,omitempty"`
 	Releases        []Release            `gorm:"foreignKey:WorkID" json:"releases,omitempty"`

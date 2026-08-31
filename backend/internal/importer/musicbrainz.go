@@ -292,7 +292,7 @@ func buildMusicBrainzPreview(data *mbReleaseResponse, targetReleaseID string, ct
 			artists = append(artists, ArtistPreview{
 				Name:           pubName,
 				Role:           "Publisher / Label",
-				EntityType:     models.EntityTypeLabel,
+				EntityType:     models.EntityTypePublisher,
 				Disambiguation: data.LabelInfoList[0].Label.Disambiguation,
 				ExternalIDs: models.JSONB{
 					"musicbrainz": data.LabelInfoList[0].Label.ID,
@@ -753,7 +753,7 @@ func FetchMusicBrainzLabelPreview(ctx context.Context, mbid string) (*PreviewRes
 	artist := ArtistPreview{
 		Name:           data.Name,
 		OriginalName:   data.SortName,
-		EntityType:     models.EntityTypeLabel,
+		EntityType:     models.EntityTypePublisher,
 		Role:           "Record Label",
 		Country:        data.Country,
 		Biography:      bio,

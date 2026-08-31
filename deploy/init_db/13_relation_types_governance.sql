@@ -4,7 +4,7 @@
 
 -- 1) 动态关系类型定义表
 CREATE TABLE IF NOT EXISTS relation_types (
-    code VARCHAR(64) PRIMARY KEY,                  -- 唯一标识码，如 'signed_with', 'voice_actor', 'soundtrack_of'
+    code VARCHAR(64) PRIMARY KEY,                  -- 唯一标识码，如 'signed_with', 'voice_actor_of', 'soundtrack_of'
     domain VARCHAR(32) NOT NULL,                   -- 适用域: 'agent_agent'(主体间), 'agent_work'(制作角色), 'work_work'(作品间), 'agent_release'(发行承销)
     
     -- 多语言展示名称
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS relation_types (
     reverse_label_en VARCHAR(64) NOT NULL,         -- "has signed artist"
     
     -- 实体类型约束范围 (空数组表示不限制)
-    -- 可选: 'person', 'group', 'orchestra', 'studio', 'publisher', 'circle', 'label', 'work', 'release'
+    -- 可选: 'person', 'group', 'orchestra', 'studio', 'publisher', 'work', 'release'
     allowed_source_types VARCHAR(32)[] DEFAULT '{}',
     allowed_target_types VARCHAR(32)[] DEFAULT '{}',
     
@@ -63,7 +63,7 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '商业签约', 'en-US', 'Signed With', 'ja', '所属契約'),
     '创作者/团体与唱片公司、出版社或经纪机构建立的正式签约或代理关系',
     '签约于', '旗下签约创作者', 'is signed to', 'has signed artist',
-    ARRAY['person', 'group', 'orchestra', 'circle'], ARRAY['publisher', 'label', 'studio'],
+    ARRAY['person', 'group', 'orchestra'], ARRAY['publisher', 'studio'],
     FALSE, FALSE,
     '[{"key": "begin_date", "type": "date", "label": "签约开始日期"}, {"key": "end_date", "type": "date", "label": "签约终止日期"}, {"key": "contract_type", "type": "select", "label": "合约类型", "options": ["全约", "唱片约", "出版约", "海外代理", "周边授权"]}, {"key": "is_current", "type": "boolean", "label": "当前有效"}]'::jsonb,
     'amber', 'FileSignature', 10, TRUE, TRUE
@@ -73,7 +73,7 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '商务合作', 'en-US', 'Collaborates With', 'ja', 'コラボレーション'),
     '创作者之间、或创作者与厂商之间的联合企划、联名或单次商务合作',
     '合作方 / 联名伙伴', '合作方 / 联名伙伴', 'collaborates with', 'collaborates with',
-    ARRAY['person', 'group', 'orchestra', 'studio', 'publisher', 'circle', 'label'], ARRAY['person', 'group', 'orchestra', 'studio', 'publisher', 'circle', 'label'],
+    ARRAY['person', 'group', 'orchestra', 'studio', 'publisher'], ARRAY['person', 'group', 'orchestra', 'studio', 'publisher'],
     TRUE, FALSE,
     '[{"key": "project_name", "type": "string", "label": "合作项目/企划名"}, {"key": "year", "type": "string", "label": "合作年份"}]'::jsonb,
     'purple', 'Handshake', 20, TRUE, TRUE
@@ -83,7 +83,7 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '成员 / 隶属', 'en-US', 'Member Of', 'ja', 'メンバー・所属'),
     '自然人作为团队、乐团、社团的正式成员，或工作室/机构的全职员工',
     '隶属于 / 成员', '旗下成员 / 员工', 'is member of', 'has member',
-    ARRAY['person'], ARRAY['group', 'orchestra', 'studio', 'circle', 'publisher'],
+    ARRAY['person'], ARRAY['group', 'orchestra', 'studio', 'publisher'],
     FALSE, TRUE,
     '[{"key": "position", "type": "string", "label": "担任职位/乐器声部"}, {"key": "join_date", "type": "date", "label": "加入日期"}, {"key": "is_active", "type": "boolean", "label": "现役成员"}]'::jsonb,
     'emerald', 'Users', 30, TRUE, TRUE
@@ -103,7 +103,7 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '母子机构', 'en-US', 'Subsidiary Of', 'ja', '子会社・傘下レーベル'),
     '机构/厂牌之间的母子公司、投资控股或旗下独立子品牌关系',
     '隶属于母机构', '旗下子机构 / 厂牌', 'is subsidiary of', 'parent organization of',
-    ARRAY['studio', 'label', 'publisher'], ARRAY['publisher', 'studio'],
+    ARRAY['studio', 'publisher'], ARRAY['publisher', 'studio'],
     FALSE, TRUE,
     '[]'::jsonb,
     'cyan', 'Network', 50, TRUE, TRUE
@@ -113,7 +113,7 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '创始人', 'en-US', 'Founded By', 'ja', '創設者'),
     '机构、工作室或社团的创办人、发起人',
     '创办了', '创始人为', 'founded', 'was founded by',
-    ARRAY['studio', 'publisher', 'circle', 'label', 'group'], ARRAY['person'],
+    ARRAY['studio', 'publisher', 'group'], ARRAY['person'],
     FALSE, FALSE,
     '[{"key": "foundation_year", "type": "string", "label": "创办年份"}]'::jsonb,
     'rose', 'Award', 60, TRUE, TRUE
@@ -171,16 +171,6 @@ INSERT INTO relation_types (
     FALSE, FALSE, '[]'::jsonb, 'rose', 'Mic2', 150, TRUE, TRUE
 ),
 (
-    'voice_actor', 'agent_work', '声优 / 配音演员', 'Voice Actor / Cast',
-    jsonb_build_object('zh-CN', '声优/配音', 'en-US', 'Voice Actor', 'ja', '声優'),
-    '动画、广播剧、游戏的角色配音演出',
-    '参演配音了作品', '主要配音阵容', 'voiced characters in', 'voice cast',
-    ARRAY['person'], ARRAY['work'],
-    FALSE, FALSE,
-    '[{"key": "character_name", "type": "string", "label": "饰演/配音角色名"}]'::jsonb,
-    'amber', 'Sparkles', 160, TRUE, TRUE
-),
-(
     'voice_actor_of', 'agent_agent', '角色声优 / 角色配音 (CV)', 'Voice Actor Of',
     jsonb_build_object('zh-CN', '角色声优', 'en-US', 'Voice Actor Of', 'ja', 'CV担当・声優'),
     '真实声优为虚拟角色提供配音出演',
@@ -212,16 +202,8 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '插画/人设', 'en-US', 'Illustrator', 'ja', 'イラスト・原画'),
     '轻小说插画师、漫画作画、动画角色原案或画集原画师',
     '绘制了作品', '插画 / 原画', 'illustrated', 'illustrator',
-    ARRAY['person', 'circle'], ARRAY['work'],
+    ARRAY['person'], ARRAY['work'],
     FALSE, FALSE, '[]'::jsonb, 'purple', 'Palette', 170, TRUE, TRUE
-),
-(
-    'studio', 'agent_work', '制作公司 / 动画工作室', 'Production Studio',
-    jsonb_build_object('zh-CN', '制作工作室', 'en-US', 'Production Studio', 'ja', 'アニメーション制作・開発'),
-    '承接动画绘制、电影摄制、游戏开发的核心制作公司',
-    '承制出品了作品', '制作公司 / 工作室', 'produced / animated', 'production studio',
-    ARRAY['studio'], ARRAY['work'],
-    FALSE, FALSE, '[]'::jsonb, 'sky', 'Building2', 180, TRUE, TRUE
 ),
 (
     'producer', 'agent_work', '制作人 / 出品人', 'Producer',
@@ -230,14 +212,6 @@ INSERT INTO relation_types (
     '企划制作了作品', '制作人 / 制片', 'produced', 'producer',
     ARRAY['person', 'studio', 'publisher'], ARRAY['work'],
     FALSE, FALSE, '[]'::jsonb, 'emerald', 'BadgeCheck', 190, TRUE, TRUE
-),
-(
-    'orchestra', 'agent_work', '管弦乐团 / 演奏团体', 'Orchestra',
-    jsonb_build_object('zh-CN', '管弦乐团', 'en-US', 'Orchestra', 'ja', 'オーケストラ'),
-    '负责交响录音与配乐实录的交响乐团或室内乐团',
-    '实录演奏了作品', '演奏交响乐团', 'performed orchestral score for', 'orchestra',
-    ARRAY['orchestra', 'group'], ARRAY['work'],
-    FALSE, FALSE, '[]'::jsonb, 'indigo', 'Music2', 200, TRUE, TRUE
 ),
 (
     'vocaloid_tuner', 'agent_work', '调教 / 语音合成调音', 'Vocaloid / Synthesizer Tuner',
@@ -260,21 +234,12 @@ INSERT INTO relation_types (
     FALSE, FALSE, '[]'::jsonb, 'purple', 'Disc', 300, TRUE, TRUE
 ),
 (
-    'part_of_universe', 'work_work', '世界观 / 企划归属', 'Part of Franchise / Universe',
-    jsonb_build_object('zh-CN', '企划归属', 'en-US', 'Part of Universe', 'ja', 'プロジェクト・世界観所属'),
-    '游戏、动画、漫画、衍生专辑隶属于某跨媒体大企划世界观 (如 BanG Dream! / 明日方舟)',
-    '属于企划 / 世界观', '企划包含子作品', 'is part of franchise/universe', 'contains sub-work',
-    ARRAY['work'], ARRAY['work'],
-    FALSE, TRUE, '[]'::jsonb,
-    'indigo', 'Layers', 305, TRUE, TRUE
-),
-(
     'adapted_from', 'work_work', '改编自 (原作)', 'Adapted From',
     jsonb_build_object('zh-CN', '改编自', 'en-US', 'Adapted From', 'ja', '原作・コミカライズ'),
     '动画/影视改编自某小说/漫画，或漫画化改编',
     '改编自原作', '被改编衍生为', 'is adapted from', 'adapted into',
     ARRAY['work'], ARRAY['work'],
-    FALSE, FALSE, '[]'::jsonb, 'amber', 'GitFork', 310, TRUE, TRUE
+    FALSE, TRUE, '[]'::jsonb, 'amber', 'GitFork', 310, TRUE, TRUE
 ),
 (
     'sequel_of', 'work_work', '正统续作 / 下一部', 'Sequel Of',
@@ -282,7 +247,7 @@ INSERT INTO relation_types (
     '作品的剧情续集或第二季',
     '为前作的续篇', '拥有续篇作品', 'is sequel of', 'has sequel',
     ARRAY['work'], ARRAY['work'],
-    FALSE, FALSE, '[]'::jsonb, 'emerald', 'ChevronsRight', 320, TRUE, TRUE
+    FALSE, TRUE, '[]'::jsonb, 'emerald', 'ChevronsRight', 320, TRUE, TRUE
 ),
 (
     'spin_off_of', 'work_work', '外传 / 衍生作品', 'Spin-off Of',
@@ -290,7 +255,7 @@ INSERT INTO relation_types (
     '同一世界观下的支线角色外传或衍生作品',
     '为本篇的外传衍生', '拥有外传作品', 'is spin-off of', 'has spin-off',
     ARRAY['work'], ARRAY['work'],
-    FALSE, FALSE, '[]'::jsonb, 'cyan', 'Sparkle', 330, TRUE, TRUE
+    FALSE, TRUE, '[]'::jsonb, 'cyan', 'Sparkle', 339, TRUE, TRUE
 ),
 (
     'remake_of', 'work_work', '重制版 / 完全重制', 'Remake Of',

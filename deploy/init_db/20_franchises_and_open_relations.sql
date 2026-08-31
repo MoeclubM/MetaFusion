@@ -115,7 +115,7 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '企划归属', 'en-US', 'Part of Franchise'),
     '作品、子企划或主体归属于某跨媒介企划/世界观',
     '属于企划', '企划包含', 'is part of franchise', 'contains',
-    ARRAY['work', 'franchise', 'artist', 'person', 'group', 'virtual_character', 'label', 'studio', 'publisher', 'circle'],
+    ARRAY['work', 'franchise', 'artist', 'person', 'group', 'virtual_character', 'studio', 'publisher'],
     ARRAY['franchise'],
     FALSE, TRUE, '[]'::jsonb, 'indigo', 'Layers', 306, TRUE, TRUE
 ),
@@ -132,7 +132,7 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '企划子厂牌', 'en-US', 'Imprint Of'),
     '音乐厂牌或子品牌隶属于某跨媒介企划（如塞壬唱片）',
     '为该企划的厂牌/品牌', '旗下厂牌', 'is imprint of', 'has imprint',
-    ARRAY['label', 'publisher', 'studio', 'artist'], ARRAY['franchise'],
+    ARRAY['publisher', 'studio', 'artist'], ARRAY['franchise'],
     FALSE, TRUE, '[]'::jsonb, 'teal', 'Disc', 55, TRUE, TRUE
 ),
 (
@@ -158,7 +158,7 @@ INSERT INTO relation_types (
     jsonb_build_object('zh-CN', '创企划', 'en-US', 'Creator Of'),
     '作者或团队创立可被衍生的世界观/企划（与单部作品的 author 分工）',
     '创立了企划', '企划原作为', 'created franchise', 'was created by',
-    ARRAY['person', 'group', 'studio', 'circle', 'artist'], ARRAY['franchise'],
+    ARRAY['person', 'group', 'studio', 'artist'], ARRAY['franchise'],
     FALSE, FALSE, '[]'::jsonb, 'emerald', 'Award', 38, TRUE, TRUE
 ),
 (
@@ -202,7 +202,7 @@ ON CONFLICT (code) DO UPDATE SET
 -- 放宽既有谓词
 UPDATE relation_types SET
     allowed_source_types = ARRAY['person', 'virtual_character'],
-    allowed_target_types = ARRAY['group', 'orchestra', 'studio', 'circle', 'publisher'],
+    allowed_target_types = ARRAY['group', 'orchestra', 'studio', 'publisher'],
     updated_at = NOW()
 WHERE code = 'member_of';
 
@@ -213,8 +213,8 @@ UPDATE relation_types SET
 WHERE code = 'character_in';
 
 UPDATE relation_types SET
-    allowed_source_types = ARRAY['person', 'group', 'orchestra', 'studio', 'publisher', 'circle', 'label', 'virtual_character'],
-    allowed_target_types = ARRAY['person', 'group', 'orchestra', 'studio', 'publisher', 'circle', 'label', 'virtual_character'],
+    allowed_source_types = ARRAY['person', 'group', 'orchestra', 'studio', 'publisher', 'virtual_character'],
+    allowed_target_types = ARRAY['person', 'group', 'orchestra', 'studio', 'publisher', 'virtual_character'],
     updated_at = NOW()
 WHERE code = 'collaborates_with';
 

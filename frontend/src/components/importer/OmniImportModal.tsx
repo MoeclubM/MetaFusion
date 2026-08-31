@@ -696,7 +696,7 @@ export function OmniImportModal({
                               {m.title}
                             </div>
                             <div className="text-[11px] text-gray-500 truncate">
-                              {m.original_title || m.category_code || m.country}
+                              {m.original_title || m.country}
                             </div>
                           </div>
                           {isSelected && <Check className="w-4 h-4 text-amber-600 shrink-0" />}
