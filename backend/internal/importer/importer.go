@@ -133,18 +133,12 @@ func (s *ImporterService) PreviewHandler(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 25*time.Second)
 	defer cancel()
 
-	// 优先通过动态插件体系调度解析
+	// 优先通过动态插件体系调度解析（仅当插件成功返回时采纳，否则平滑降级至内置权威引擎）
 	if s.pluginResolver != nil {
 		pRes, pErr := s.pluginResolver.GetImporterPreview(ctx, &req)
 		if pErr == nil && pRes != nil {
 			s.enrichArtistMatches(pRes)
 			c.JSON(http.StatusOK, pRes)
-			return
-		}
-		if pErr != nil && !strings.Contains(pErr.Error(), "no enabled importer plugin found") {
-			c.JSON(http.StatusBadGateway, gin.H{
-				"error": fmt.Sprintf("Plugin importer error: %s", pErr.Error()),
-			})
 			return
 		}
 	}
