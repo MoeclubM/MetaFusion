@@ -166,23 +166,23 @@ export default function ContributeHubPage() {
           <div className="text-xs font-mono text-gray-400 uppercase tracking-wider font-semibold">
             {t("create.hub.manualSectionTitle")}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {cards.map((c) => {
               const Icon = c.icon;
               return (
                 <Link
                   key={c.href}
                   href={c.href}
-                  className={`group p-4.5 rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface hover:border-primary/40 transition-all space-y-2.5 shadow-2xs ${c.border}`}
+                  className={`group p-5 sm:p-6 rounded-2xl border border-black/10 dark:border-white/[0.08] bg-surface hover:border-primary/40 transition-all space-y-3 shadow-xs hover:shadow-md ${c.border}`}
                 >
-                  <div className={`w-8 h-8 rounded-lg border border-black/5 dark:border-white/10 grid place-items-center ${c.bg}`}>
-                    <Icon className={`w-4 h-4 ${c.accent}`} />
+                  <div className={`w-9 h-9 rounded-xl border border-black/5 dark:border-white/10 grid place-items-center ${c.bg}`}>
+                    <Icon className={`w-4.5 h-4.5 ${c.accent}`} />
                   </div>
-                  <div className="font-semibold text-gray-900 dark:text-white text-sm flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                  <div className="font-semibold text-gray-900 dark:text-white text-base flex items-center gap-1.5 group-hover:text-primary transition-colors">
                     <span>{c.title}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                   </div>
-                  <div className="font-mono text-[11px] leading-relaxed text-gray-500 dark:text-gray-400">
+                  <div className="font-mono text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                     {c.desc}
                   </div>
                 </Link>
