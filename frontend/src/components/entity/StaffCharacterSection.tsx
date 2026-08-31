@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { User, Users, ChevronDown, ChevronUp, Mic, Sparkles, Film, Building2 } from "lucide-react";
+import { User, Users, ChevronDown, ChevronUp, Mic, Building2 } from "lucide-react";
 import { WorkArtistRelation } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -33,42 +33,36 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
 
   if (!relations || relations.length === 0) return null;
 
+  // 出场角色与声优判定
   const isCastRole = (role: string, artistType?: string) => {
-    const r = role.toLowerCase();
+    const r = role.toLowerCase().trim();
     return (
       artistType === "character" ||
       artistType === "virtual_character" ||
-      r.includes("voice actor") ||
-      r.includes("character") ||
+      r === "主角" ||
+      r === "配角" ||
+      r === "客串" ||
+      r === "character" ||
+      r === "角色" ||
       r.includes("声优") ||
-      r.includes("配音") ||
-      r.includes("角色") ||
-      r.includes("主角") ||
-      r.includes("配角") ||
-      r.includes("客串") ||
-      r.includes("配演")
+      r.includes("voice actor") ||
+      r.includes("配演") ||
+      r.includes("配音")
     );
   };
 
+  // 核心主创判定：仅收录总领导与核心部门负责人（原作、导演/监督、编剧/系列构成、人设、音乐、动画制作、美术/音响/摄影监督、制片人/企划）
   const isKeyRole = (role: string) => {
-    const r = role.toLowerCase();
+    const r = role.toLowerCase().trim();
     return (
-      r.includes("author") ||
-      r.includes("director") ||
-      r.includes("composer") ||
-      r.includes("illustrator") ||
-      r.includes("studio") ||
-      r.includes("writer") ||
-      r.includes("screenplay") ||
-      r.includes("publisher") ||
-      r.includes("原作") ||
-      r.includes("监督") ||
-      r.includes("导演") ||
-      r.includes("音乐") ||
-      r.includes("作曲") ||
-      r.includes("系列构成") ||
-      r.includes("动画制作") ||
-      r.includes("人物设定")
+      r === "author" || r === "原作" || r === "作者" || r === "原案" ||
+      r === "director" || r === "导演" || r === "监督" || r === "总监督" || r === "总导演" ||
+      r === "screenplay / writer" || r === "系列构成" || r === "剧本" || r === "编剧" || r === "脚本" ||
+      r === "character design" || r === "人物设定" || r === "角色设计" || r === "人物原案" || r === "角色原案" ||
+      r === "composer" || r === "音乐" || r === "作曲" || r === "配乐" ||
+      r === "studio" || r === "动画制作" || r === "制作公司" ||
+      r === "美术监督" || r === "音响监督" || r === "摄影监督" || r === "色彩设计" || r === "总作画监督" ||
+      r === "企划" || r === "制片人" || r === "制作人" || r === "动画制片人"
     );
   };
 
@@ -78,7 +72,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
   }, [relations]);
 
   const otherStaff = useMemo(() => {
-    return relations.filter((r) => !isKeyRole(r.role) && !isCastRole(r.role, r.artist?.entity_type));
+    return relations.filter((r) => !isCastRole(r.role, r.artist?.entity_type));
   }, [relations]);
 
   // 结构化角色与声优双轨数据组装 (Bangumi Benchmark)
@@ -116,7 +110,6 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
       const isVA = r.includes("声优") || r.includes("Voice Actor") || r.includes("配演") || r.includes("配音");
 
       if (isVA && art) {
-        // 从 role 中提取角色名 (如 "声优 (配演: 逢坂大河 [主角])" 或 "Voice Actor (as Taiga Aisaka)")
         let charName = "";
         let roleBadge = "角色";
 
@@ -153,7 +146,6 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
             });
           }
         } else {
-          // 未标明特定角色的通用配音演员
           cardMap.set(art.name, {
             id: rel.id.toString(),
             character: {
@@ -173,6 +165,14 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
   // 紧凑核心创作者徽章（未展开时展示在详情页头部）
   const displayedKey = keyStaff.length > 0 ? keyStaff.slice(0, 8) : relations.slice(0, 8);
 
+  // 格式化具体职务标签
+  const formatRole = (rawRole: string) => {
+    const trimmed = rawRole.trim();
+    if (!trimmed) return "制作团队";
+    const mapped = roleLabel(trimmed);
+    return mapped || trimmed;
+  };
+
   return (
     <div className="space-y-3 pt-1">
       {/* 紧凑关键演职员徽章流 */}
@@ -190,7 +190,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
             ) : (
               <User className="w-3.5 h-3.5 text-primary shrink-0" strokeWidth={1.5} />
             )}
-            <span className="font-mono text-[11px] text-gray-400 dark:text-gray-500">{roleLabel(rel.role)}:</span>
+            <span className="font-mono text-[11px] text-gray-400 dark:text-gray-500">{formatRole(rel.role)}:</span>
             <span className="font-medium underline decoration-dotted underline-offset-2">{rel.artist?.name}</span>
           </Link>
         ))}
@@ -370,7 +370,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
                       {rel.artist?.name}
                     </div>
                     <div className="font-mono text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                      {roleLabel(rel.role)}
+                      {formatRole(rel.role)}
                     </div>
                   </div>
                 </Link>
