@@ -266,36 +266,40 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 			continue
 		}
 
-		role := "Creator"
-		switch {
-		case strings.Contains(rel, "原作") || strings.Contains(rel, "作者") || strings.Contains(rel, "原案"):
-			role = "Author"
-		case strings.Contains(rel, "导演") || strings.Contains(rel, "监督") || strings.Contains(rel, "总监督") || strings.Contains(rel, "副监督"):
-			role = "Director"
-		case strings.Contains(rel, "系列构成") || strings.Contains(rel, "剧本") || strings.Contains(rel, "编剧") || strings.Contains(rel, "脚本"):
-			role = "Screenplay / Writer"
-		case strings.Contains(rel, "人物原案") || strings.Contains(rel, "人物设定") || strings.Contains(rel, "角色设计") || strings.Contains(rel, "总作画监督") || strings.Contains(rel, "插画") || strings.Contains(rel, "作画"):
-			role = "Illustrator / Artist"
-		case strings.Contains(rel, "音乐") || strings.Contains(rel, "作曲") || strings.Contains(rel, "配乐") || strings.Contains(rel, "音乐制作"):
-			role = "Composer"
-		case strings.Contains(rel, "动画制作") || strings.Contains(rel, "制作") || strings.Contains(rel, "开发") || strings.Contains(rel, "制作公司"):
-			role = "Studio"
-		case strings.Contains(rel, "出版社") || strings.Contains(rel, "发行") || strings.Contains(rel, "出版") || strings.Contains(rel, "唱片"):
-			role = "Publisher"
-			if publisherName == "" {
-				publisherName = pName
+			role := "Creator"
+			switch {
+			case strings.Contains(rel, "原作") || strings.Contains(rel, "作者") || strings.Contains(rel, "原案"):
+				role = "Author"
+			case strings.Contains(rel, "系列构成") || strings.Contains(rel, "剧本") || strings.Contains(rel, "编剧") || strings.Contains(rel, "脚本"):
+				role = "Screenplay / Writer"
+			case strings.Contains(rel, "人物原案") || strings.Contains(rel, "人物设定") || strings.Contains(rel, "角色设计"):
+				role = "Character Design"
+			case strings.Contains(rel, "音乐") || strings.Contains(rel, "作曲") || strings.Contains(rel, "配乐") || strings.Contains(rel, "音乐制作"):
+				role = "Composer"
+			case strings.Contains(rel, "歌") || strings.Contains(rel, "演唱") || strings.Contains(rel, "演奏") || strings.Contains(rel, "主题歌"):
+				role = "Performer"
+			case strings.Contains(rel, "音响监督") || strings.Contains(rel, "美术监督") || strings.Contains(rel, "摄影监督") || strings.Contains(rel, "色彩设计") || strings.Contains(rel, "剪辑") || strings.Contains(rel, "作画监督") || strings.Contains(rel, "机械设定"):
+				role = rel
+			case strings.Contains(rel, "导演") || strings.Contains(rel, "总监督") || strings.Contains(rel, "副监督") || strings.Contains(rel, "系列监督") || rel == "监督":
+				role = "Director"
+			case strings.Contains(rel, "动画制作") || strings.Contains(rel, "制作公司") || (p.Type == 2 && strings.Contains(rel, "制作")):
+				role = "Studio"
+			case strings.Contains(rel, "出版社") || strings.Contains(rel, "发行") || strings.Contains(rel, "出版") || strings.Contains(rel, "唱片"):
+				role = "Publisher"
+				if publisherName == "" {
+					publisherName = pName
+				}
+			case strings.Contains(rel, "企划") || strings.Contains(rel, "制片人") || strings.Contains(rel, "制作人"):
+				role = rel
+			case strings.Contains(rel, "声优") || strings.Contains(rel, "配音") || strings.Contains(rel, "主演") || strings.Contains(rel, "CAST"):
+				role = "Voice Actor"
+			default:
+				// 仅收录具有明确职务的条目
+				if p.Type != 2 && !strings.Contains(rel, "制作") && !strings.Contains(rel, "监督") && !strings.Contains(rel, "设计") {
+					continue
+				}
+				role = rel
 			}
-		case strings.Contains(rel, "声优") || strings.Contains(rel, "配音") || strings.Contains(rel, "主演") || strings.Contains(rel, "CAST") || strings.Contains(rel, "演"):
-			role = "Voice Actor"
-		case strings.Contains(rel, "音响监督") || strings.Contains(rel, "美术监督") || strings.Contains(rel, "摄影监督") || strings.Contains(rel, "色彩设计") || strings.Contains(rel, "企划") || strings.Contains(rel, "制片人"):
-			role = rel
-		default:
-			// 仅收录具有明确重要职务的词条
-			if p.Type != 2 && !strings.Contains(rel, "制作") && !strings.Contains(rel, "监督") && !strings.Contains(rel, "设计") {
-				continue
-			}
-			role = rel
-		}
 
 		artistNameMap[pName] = true
 
