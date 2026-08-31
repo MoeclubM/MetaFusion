@@ -90,7 +90,18 @@ export function UniversalEntityEditor({
     if (isOpen) {
       initializeForm();
     }
-  }, [isOpen, initialData, targetType, taxonomy]);
+  }, [isOpen, initialData?.id, targetType, mode]);
+
+  useEffect(() => {
+    if (targetType === "artist" && taxonomy?.entity_types?.[0]?.id) {
+      setFormData((prev) => {
+        if (!prev.entity_type) {
+          return { ...prev, entity_type: taxonomy.entity_types[0].id };
+        }
+        return prev;
+      });
+    }
+  }, [targetType, taxonomy]);
 
   const initializeForm = () => {
     const d = { ...initialData };
