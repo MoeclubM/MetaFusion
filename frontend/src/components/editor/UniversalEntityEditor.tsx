@@ -93,13 +93,16 @@ export function UniversalEntityEditor({
   }, [isOpen, initialData?.id, targetType, mode]);
 
   useEffect(() => {
-    if (targetType === "artist" && taxonomy?.entity_types?.[0]?.id) {
-      setFormData((prev) => {
-        if (!prev.entity_type) {
-          return { ...prev, entity_type: taxonomy.entity_types[0].id };
-        }
-        return prev;
-      });
+    if (targetType === "artist" && taxonomy?.entity_types && taxonomy.entity_types.length > 0) {
+      const firstId = taxonomy.entity_types[0]?.id;
+      if (firstId) {
+        setFormData((prev) => {
+          if (!prev.entity_type) {
+            return { ...prev, entity_type: firstId };
+          }
+          return prev;
+        });
+      }
     }
   }, [targetType, taxonomy]);
 
