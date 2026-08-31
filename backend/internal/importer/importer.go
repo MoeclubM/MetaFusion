@@ -408,48 +408,43 @@ func (s *ImporterService) importSingleArtistHandler(c *gin.Context, userID uuid.
 			updates["original_name"] = artPrev.OriginalName
 			artist.OriginalName = artPrev.OriginalName
 		}
-		if artist.Country == "" && artPrev.Country != "" {
-			updates["country"] = artPrev.Country
-			artist.Country = artPrev.Country
-		}
-		if finalAvatarURL != "" {
-			if artist.Attributes == nil {
-				artist.Attributes = models.JSONB{}
+			if artist.Country == "" && artPrev.Country != "" {
+				updates["country"] = artPrev.Country
+				artist.Country = artPrev.Country
 			}
-			artist.Attributes["avatar_url"] = finalAvatarURL
-			updates["attributes"] = artist.Attributes
-		}
-		if artPrev.ExternalIDs != nil {
-			if artist.ExternalIDs == nil {
-				artist.ExternalIDs = models.JSONB{}
+			if finalAvatarURL != "" && (artist.AvatarURL == "" || !strings.HasPrefix(artist.AvatarURL, "/uploads/")) {
+				updates["avatar_url"] = finalAvatarURL
+				artist.AvatarURL = finalAvatarURL
 			}
-			for k, v := range artPrev.ExternalIDs {
-				artist.ExternalIDs[k] = v
+			if artPrev.ExternalIDs != nil {
+				if artist.ExternalIDs == nil {
+					artist.ExternalIDs = models.JSONB{}
+				}
+				for k, v := range artPrev.ExternalIDs {
+					artist.ExternalIDs[k] = v
+				}
+				updates["external_ids"] = artist.ExternalIDs
 			}
-			updates["external_ids"] = artist.ExternalIDs
-		}
-		if len(updates) > 0 {
-			_ = tx.Model(&artist).Updates(updates).Error
-		}
-	} else {
-		// 新建主体
-		attrs := models.JSONB{}
-		if finalAvatarURL != "" {
-			attrs["avatar_url"] = finalAvatarURL
-		}
-		artist = models.Artist{
-			ID:             uuid.New(),
-			Name:           strings.TrimSpace(artPrev.Name),
-			OriginalName:   strings.TrimSpace(artPrev.OriginalName),
-			Disambiguation: artPrev.Disambiguation,
-			EntityType:     entType,
-			Country:        artPrev.Country,
-			Biography:      artPrev.Biography,
-			Language:       artPrev.Language,
-			ExternalIDs:    artPrev.ExternalIDs,
-			Attributes:     attrs,
-			CreatedBy:      &userID,
-		}
+			if len(updates) > 0 {
+				_ = tx.Model(&artist).Updates(updates).Error
+			}
+		} else {
+			// 新建主体
+			attrs := models.JSONB{}
+			artist = models.Artist{
+				ID:             uuid.New(),
+				Name:           strings.TrimSpace(artPrev.Name),
+				OriginalName:   strings.TrimSpace(artPrev.OriginalName),
+				Disambiguation: artPrev.Disambiguation,
+				EntityType:     entType,
+				AvatarURL:      finalAvatarURL,
+				Country:        artPrev.Country,
+				Biography:      artPrev.Biography,
+				Language:       artPrev.Language,
+				ExternalIDs:    artPrev.ExternalIDs,
+				Attributes:     attrs,
+				CreatedBy:      &userID,
+			}
 		if artist.Language == "" {
 			artist.Language = "zh-CN"
 		}
@@ -980,50 +975,45 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				artist.Biography = assoc.Biography
 				updArtist["biography"] = assoc.Biography
 			}
-			if (artist.Attributes == nil || artist.Attributes["avatar_url"] == nil || artist.Attributes["avatar_url"] == "") && artAvatarURL != "" {
-				if artist.Attributes == nil {
-					artist.Attributes = models.JSONB{}
+				if (artist.AvatarURL == "" || !strings.HasPrefix(artist.AvatarURL, "/uploads/")) && artAvatarURL != "" {
+					artist.AvatarURL = artAvatarURL
+					updArtist["avatar_url"] = artAvatarURL
 				}
-				artist.Attributes["avatar_url"] = artAvatarURL
-				updArtist["attributes"] = artist.Attributes
-			}
-			if len(updArtist) > 0 {
-				updArtist["updated_at"] = time.Now()
-				_ = tx.Model(&artist).Updates(updArtist).Error
-			}
-		}
-
-		// 模式 3: 新建主体 (Create)
-		if !found {
-			entType := assoc.EntityType
-			if entType == "" {
-				entType = models.EntityTypePerson
-			}
-
-			// 头像下载
-			artAvatarURL := assoc.AvatarURL
-			if req.DownloadCover && artAvatarURL != "" && strings.HasPrefix(artAvatarURL, "http") {
-				if storedURL, err := s.downloadAndStoreCover(c.Request.Context(), artAvatarURL); err == nil && storedURL != "" {
-					artAvatarURL = storedURL
+				if len(updArtist) > 0 {
+					updArtist["updated_at"] = time.Now()
+					_ = tx.Model(&artist).Updates(updArtist).Error
 				}
 			}
 
-			attrs := models.JSONB{}
-			if artAvatarURL != "" {
-				attrs["avatar_url"] = artAvatarURL
-			}
+			// 模式 3: 新建主体 (Create)
+			if !found {
+				entType := assoc.EntityType
+				if entType == "" {
+					entType = models.EntityTypePerson
+				}
 
-			artist = models.Artist{
-				ID:           uuid.New(),
-				Name:         artName,
-				OriginalName: assoc.ParsedOriginal,
-				EntityType:   entType,
-				Country:      assoc.Country,
-				Biography:    assoc.Biography,
-				ExternalIDs:  assoc.ExternalIDs,
-				Attributes:   attrs,
-				CreatedBy:    &userID,
-			}
+				// 头像下载
+				artAvatarURL := assoc.AvatarURL
+				if req.DownloadCover && artAvatarURL != "" && strings.HasPrefix(artAvatarURL, "http") {
+					if storedURL, err := s.downloadAndStoreCover(c.Request.Context(), artAvatarURL); err == nil && storedURL != "" {
+						artAvatarURL = storedURL
+					}
+				}
+
+				attrs := models.JSONB{}
+
+				artist = models.Artist{
+					ID:           uuid.New(),
+					Name:         artName,
+					OriginalName: assoc.ParsedOriginal,
+					EntityType:   entType,
+					AvatarURL:    artAvatarURL,
+					Country:      assoc.Country,
+					Biography:    assoc.Biography,
+					ExternalIDs:  assoc.ExternalIDs,
+					Attributes:   attrs,
+					CreatedBy:    &userID,
+				}
 			if artist.Language == "" {
 				artist.Language = "zh-CN"
 			}

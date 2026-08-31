@@ -304,6 +304,7 @@ type Artist struct {
 	OriginalName   string     `json:"original_name"`
 	Disambiguation string     `json:"disambiguation"`
 	EntityType     string     `gorm:"default:'person';not null" json:"entity_type"`
+	AvatarURL      string     `gorm:"type:text;default:''" json:"avatar_url"`
 	Country        string     `json:"country"`
 	Biography      string     `json:"biography"`
 	BeginDate      string     `gorm:"type:varchar(16)" json:"begin_date"`
