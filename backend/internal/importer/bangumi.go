@@ -220,13 +220,29 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 	isbn := ""
 	for _, item := range data.Infobox {
 		k := strings.TrimSpace(item.Key)
-		vStr := fmt.Sprintf("%v", item.Value)
 		if k == "出版社" || k == "发行" {
-			publisherName = strings.TrimSpace(vStr)
+			publisherName = strings.TrimSpace(fmt.Sprintf("%v", item.Value))
 		} else if k == "ISBN" {
-			isbn = strings.TrimSpace(vStr)
+			isbn = strings.TrimSpace(fmt.Sprintf("%v", item.Value))
 		} else if k == "别名" {
-			aliases = append(aliases, strings.TrimSpace(vStr))
+			switch val := item.Value.(type) {
+			case string:
+				if s := strings.TrimSpace(val); s != "" {
+					aliases = append(aliases, s)
+				}
+			case []interface{}:
+				for _, sub := range val {
+					if subMap, ok := sub.(map[string]interface{}); ok {
+						if v, exists := subMap["v"]; exists {
+							if s := strings.TrimSpace(fmt.Sprintf("%v", v)); s != "" {
+								aliases = append(aliases, s)
+							}
+						}
+					} else if subStr := strings.TrimSpace(fmt.Sprintf("%v", sub)); subStr != "" {
+						aliases = append(aliases, subStr)
+					}
+				}
+			}
 		}
 	}
 

@@ -22,6 +22,7 @@ import { GroupedRelations } from "@/components/entity/RelationsList";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
 import { InteractiveRelationGraph } from "@/components/graph/InteractiveRelationGraph";
+import { StaffCharacterSection } from "@/components/entity/StaffCharacterSection";
 import { fetchEntityGraph, GraphNode, GraphLink } from "@/lib/api";
 export default function WorkDirectoryPage() {
  const params = useParams();
@@ -181,24 +182,25 @@ export default function WorkDirectoryPage() {
 	 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{localized.title}</h1>
 	 {isDistinctOriginalTitle(work.original_title, localized.title) && <p className="font-mono text-sm text-gray-500 dark:text-gray-400 mt-0.5">{work.original_title}</p>}
 	 {work.original_language && <p className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t("work.detail.originalLanguage", { value: t(`origLang.${work.original_language}`) })}</p>}
-	 {work.aliases && work.aliases.length > 0 && <p className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t("work.detail.alias", { value: work.aliases.join(" / ") })}</p>}
-	 </div>
-	 {work.artist_relations && work.artist_relations.length > 0 && (
-	 <div className="flex flex-wrap gap-2">
-	 {work.artist_relations.map((rel) => (
-	 <Link
-	 key={rel.id}
-	 href={`/artists/${rel.artist_id}`}
-	 className="inline-flex items-center gap-2 px-2.5 py-1 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 hover:border-primary/40 text-sm text-gray-700 dark:text-gray-200 transition-colors"
-	 >
-	 <User className="w-4 h-4 text-primary" strokeWidth={1.5} />
-	 <span className="font-mono text-xs text-gray-500">{roleLabel(rel.role)}:</span>
-	 <span className="underline decoration-dotted underline-offset-2">{rel.artist?.name}</span>
-	 </Link>
-	 ))}
-	 </div>
-	 )}
-	 {localized.body && <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl line-clamp-3">{localized.body}</p>}
+		 {work.aliases && work.aliases.length > 0 && (
+		   <p className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+		     {t("work.detail.alias", {
+		       value: work.aliases
+		         .map((a) => {
+		           if (typeof a === "string") {
+		             // 过滤并清洗 [map[v:...]] 或嵌套序列化噪音
+		             return a.replace(/\[?map\[v:([^\]]+)\]\]?/g, "$1").replace(/^[\[\s]+|[\]\s]+$/g, "").trim();
+		           }
+		           return String(a);
+		         })
+		         .filter(Boolean)
+		         .join(" / ")
+		     })}
+		   </p>
+		 )}
+		 </div>
+		 <StaffCharacterSection relations={work.artist_relations || []} roleLabel={roleLabel} />
+		 {localized.body && <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl line-clamp-3">{localized.body}</p>}
 	 {work.tags && work.tags.length > 0 && (
 	 <div className="flex flex-wrap gap-2 pt-0.5">
 	 {work.tags.map((tag) => (
