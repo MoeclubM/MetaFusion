@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
@@ -78,10 +78,31 @@ export default function ArtistDetailPage() {
   const releases = data.releases || [];
   const connectedEntities: ConnectedEntityItem[] = data.connected_entities || [];
   const extIds = artist.external_ids || {};
+  const avatarUrl = (artist.attributes?.avatar_url as string) || (artist as any).avatar_url;
+
+  // 过滤掉已经在头部专门作为头像渲染的 avatar_url，避免在扩展动态属性栏中冗余显示技术路径
+  const displayAttributes = useMemo(() => {
+    if (!artist.attributes) return {};
+    const filtered = { ...artist.attributes };
+    delete filtered.avatar_url;
+    return filtered;
+  }, [artist.attributes]);
 
   const getEntityTypeLabel = (type: string) => entityTypeLabel(type);
 
   const getEntityIcon = () => {
+    if (avatarUrl) {
+      return (
+        <img
+          src={avatarUrl}
+          alt={localized.title}
+          className="w-full h-full object-cover rounded-md"
+        />
+      );
+    }
+    if (artist.entity_type === "studio" || artist.entity_type === "publisher" || artist.entity_type === "label") {
+      return <Building className="w-8 h-8 text-amber-400" strokeWidth={1.4} />;
+    }
     return <User className="w-8 h-8 text-amber-400" strokeWidth={1.4} />;
   };
 
@@ -140,9 +161,9 @@ export default function ArtistDetailPage() {
               />
 
               {/* Dynamic Attributes */}
-              {artist.attributes && Object.keys(artist.attributes).length > 0 && (
+              {displayAttributes && Object.keys(displayAttributes).length > 0 && (
                 <div className="pt-2">
-                  <DynamicAttributeViewer attributes={artist.attributes} />
+                  <DynamicAttributeViewer attributes={displayAttributes} />
                 </div>
               )}
             </div>
