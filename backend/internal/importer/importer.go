@@ -827,18 +827,22 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			return
 		}
 
-		// 多语言标题与简介
-		for _, trans := range workPrev.Translations {
-			if trans.Locale != "" {
-				wt := models.WorkTranslation{
-					WorkID:  work.ID,
-					Locale:  models.NormalizeLocale(trans.Locale),
-					Title:   trans.Title,
-					Summary: trans.Summary,
+			// 多语言标题与简介
+			for _, trans := range workPrev.Translations {
+				if trans.Locale != "" {
+					normLocale := models.NormalizeLocale(trans.Locale)
+					var existingWT models.WorkTranslation
+					if err := tx.Where("work_id = ? AND locale = ?", work.ID, normLocale).First(&existingWT).Error; err != nil {
+						wt := models.WorkTranslation{
+							WorkID:  work.ID,
+							Locale:  normLocale,
+							Title:   trans.Title,
+							Summary: trans.Summary,
+						}
+						_ = tx.Create(&wt).Error
+					}
 				}
-				_ = tx.Create(&wt).Error
 			}
-		}
 	}
 
 	// 标签关联 (无论是新建还是合并)
@@ -976,111 +980,123 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				continue
 			}
 
-			for _, tr := range assoc.Translations {
-				if tr.Locale != "" {
-					at := models.ArtistTranslation{
-						ArtistID:  artist.ID,
-						Locale:    models.NormalizeLocale(tr.Locale),
-						Name:      tr.Title,
-						Biography: tr.Summary,
+				for _, tr := range assoc.Translations {
+					if tr.Locale != "" {
+						normLocale := models.NormalizeLocale(tr.Locale)
+						var existingTr models.ArtistTranslation
+						if err := tx.Where("artist_id = ? AND locale = ?", artist.ID, normLocale).First(&existingTr).Error; err != nil {
+							at := models.ArtistTranslation{
+								ArtistID:  artist.ID,
+								Locale:    normLocale,
+								Name:      tr.Title,
+								Biography: tr.Summary,
+							}
+							_ = tx.Create(&at).Error
+						}
 					}
-					_ = tx.Create(&at).Error
+				}
+
+				importedArtistsCount++
+			}
+
+			roleToAssign := assoc.CustomRole
+			if strings.TrimSpace(roleToAssign) == "" {
+				roleToAssign = assoc.ParsedRole
+			}
+			if strings.TrimSpace(roleToAssign) == "" {
+				roleToAssign = "Creator"
+			}
+
+			if strings.Contains(strings.ToLower(roleToAssign), "publisher") || strings.Contains(strings.ToLower(roleToAssign), "label") || strings.Contains(strings.ToLower(roleToAssign), "出版社") {
+				primaryPublisherID = &artist.ID
+			}
+
+			// 建立 WorkArtistRelation
+			var countRel int64
+			tx.Model(&models.WorkArtistRelation{}).Where("work_id = ? AND artist_id = ?", work.ID, artist.ID).Count(&countRel)
+			if countRel == 0 {
+				workArtRel := models.WorkArtistRelation{
+					WorkID:   work.ID,
+					ArtistID: artist.ID,
+					Role:     roleToAssign,
+				}
+				_ = tx.Create(&workArtRel).Error
+			}
+
+			// 挂载知识图谱动态语义边 (EntityRelationship)
+			relTypeCode := "creator"
+			roleLower := strings.ToLower(roleToAssign)
+			switch {
+			case strings.Contains(roleLower, "director") || strings.Contains(roleLower, "监督") || strings.Contains(roleLower, "导演"):
+				relTypeCode = "director"
+			case strings.Contains(roleLower, "composer") || strings.Contains(roleLower, "配乐") || strings.Contains(roleLower, "音乐"):
+				relTypeCode = "composer"
+			case strings.Contains(roleLower, "author") || strings.Contains(roleLower, "原作") || strings.Contains(roleLower, "作者") || strings.Contains(roleLower, "编剧") || strings.Contains(roleLower, "剧本"):
+				relTypeCode = "author"
+			case strings.Contains(roleLower, "publisher") || strings.Contains(roleLower, "出版社") || strings.Contains(roleLower, "发行"):
+				relTypeCode = "producer"
+			case strings.Contains(roleLower, "studio") || strings.Contains(roleLower, "制作") || strings.Contains(roleLower, "开发"):
+				relTypeCode = "producer"
+			case strings.Contains(roleLower, "performer") || strings.Contains(roleLower, "演奏") || strings.Contains(roleLower, "演唱"):
+				relTypeCode = "performer"
+			case strings.Contains(roleLower, "voice") || strings.Contains(roleLower, "声优") || strings.Contains(roleLower, "配音") || strings.Contains(roleLower, "actor") || strings.Contains(roleLower, "演员"):
+				relTypeCode = "voice_actor_of"
+			case strings.Contains(roleLower, "character") || strings.Contains(roleLower, "角色"):
+				relTypeCode = "character_in"
+			}
+
+			if ontology.IsEnabledRelationType(tx, relTypeCode) {
+				qualifier := roleToAssign
+				if assoc.CharacterName != "" {
+					qualifier = fmt.Sprintf("%s (as %s)", roleToAssign, assoc.CharacterName)
+				}
+				var existingEdge models.EntityRelationship
+				if err := tx.Where("source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
+					"artist", artist.ID, "work", work.ID, relTypeCode, qualifier).First(&existingEdge).Error; err != nil {
+					edge := models.EntityRelationship{
+						SourceType:       "artist",
+						SourceID:         artist.ID,
+						TargetType:       "work",
+						TargetID:         work.ID,
+						RelationshipType: relTypeCode,
+						Qualifier:        qualifier,
+					}
+					_ = tx.Create(&edge).Error
 				}
 			}
-
-			importedArtistsCount++
 		}
 
-		roleToAssign := assoc.CustomRole
-		if strings.TrimSpace(roleToAssign) == "" {
-			roleToAssign = assoc.ParsedRole
-		}
-		if strings.TrimSpace(roleToAssign) == "" {
-			roleToAssign = "Creator"
-		}
-
-		if strings.Contains(strings.ToLower(roleToAssign), "publisher") || strings.Contains(strings.ToLower(roleToAssign), "label") || strings.Contains(strings.ToLower(roleToAssign), "出版社") {
-			primaryPublisherID = &artist.ID
-		}
-
-		// 建立 WorkArtistRelation
-		var countRel int64
-		tx.Model(&models.WorkArtistRelation{}).Where("work_id = ? AND artist_id = ?", work.ID, artist.ID).Count(&countRel)
-		if countRel == 0 {
-			workArtRel := models.WorkArtistRelation{
-				WorkID:   work.ID,
-				ArtistID: artist.ID,
-				Role:     roleToAssign,
+		// 跨媒介语义关系建立 (当 link_mode 为 create_relation 时)
+		if isCreateRelation {
+			relTypeCode := strings.TrimSpace(req.RelationType)
+			if relTypeCode == "" {
+				switch strings.ToLower(req.MediaTypeHint) {
+				case "music":
+					relTypeCode = "soundtrack_of"
+				case "movie", "tv", "anime":
+					relTypeCode = "adaptation_of"
+				case "game":
+					relTypeCode = "spin_off_of"
+				default:
+					relTypeCode = "spin_off_of"
+				}
 			}
-			_ = tx.Create(&workArtRel).Error
-		}
-
-		// 挂载知识图谱动态语义边 (EntityRelationship)
-		relTypeCode := "creator"
-		roleLower := strings.ToLower(roleToAssign)
-		switch {
-		case strings.Contains(roleLower, "director") || strings.Contains(roleLower, "监督") || strings.Contains(roleLower, "导演"):
-			relTypeCode = "director"
-		case strings.Contains(roleLower, "composer") || strings.Contains(roleLower, "配乐") || strings.Contains(roleLower, "音乐"):
-			relTypeCode = "composer"
-		case strings.Contains(roleLower, "author") || strings.Contains(roleLower, "原作") || strings.Contains(roleLower, "作者") || strings.Contains(roleLower, "编剧") || strings.Contains(roleLower, "剧本"):
-			relTypeCode = "author"
-		case strings.Contains(roleLower, "publisher") || strings.Contains(roleLower, "出版社") || strings.Contains(roleLower, "发行"):
-			relTypeCode = "producer"
-		case strings.Contains(roleLower, "studio") || strings.Contains(roleLower, "制作") || strings.Contains(roleLower, "开发"):
-			relTypeCode = "producer"
-		case strings.Contains(roleLower, "performer") || strings.Contains(roleLower, "演奏") || strings.Contains(roleLower, "演唱"):
-			relTypeCode = "performer"
-		case strings.Contains(roleLower, "voice") || strings.Contains(roleLower, "声优") || strings.Contains(roleLower, "配音") || strings.Contains(roleLower, "actor") || strings.Contains(roleLower, "演员"):
-			relTypeCode = "voice_actor_of"
-		case strings.Contains(roleLower, "character") || strings.Contains(roleLower, "角色"):
-			relTypeCode = "character_in"
-		}
-
-		if ontology.IsEnabledRelationType(tx, relTypeCode) {
-			qualifier := roleToAssign
-			if assoc.CharacterName != "" {
-				qualifier = fmt.Sprintf("%s (as %s)", roleToAssign, assoc.CharacterName)
-			}
-			edge := models.EntityRelationship{
-				SourceType:       "artist",
-				SourceID:         artist.ID,
-				TargetType:       "work",
-				TargetID:         work.ID,
-				RelationshipType: relTypeCode,
-				Qualifier:        qualifier,
-			}
-			_ = tx.Create(&edge).Error
-		}
-	}
-
-	// 跨媒介语义关系建立 (当 link_mode 为 create_relation 时)
-	if isCreateRelation {
-		relTypeCode := strings.TrimSpace(req.RelationType)
-		if relTypeCode == "" {
-			switch strings.ToLower(req.MediaTypeHint) {
-			case "music":
-				relTypeCode = "soundtrack_of"
-			case "movie", "tv", "anime":
-				relTypeCode = "adaptation_of"
-			case "game":
-				relTypeCode = "spin_off_of"
-			default:
-				relTypeCode = "spin_off_of"
+			if ontology.IsEnabledRelationType(tx, relTypeCode) {
+				var existingEdge models.EntityRelationship
+				if err := tx.Where("source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
+					"work", work.ID, "work", *req.TargetWorkID, relTypeCode, "Cross-source auto link").First(&existingEdge).Error; err != nil {
+					edge := models.EntityRelationship{
+						SourceType:       "work",
+						SourceID:         work.ID,
+						TargetType:       "work",
+						TargetID:         *req.TargetWorkID,
+						RelationshipType: relTypeCode,
+						Qualifier:        "Cross-source auto link",
+					}
+					_ = tx.Create(&edge).Error
+				}
 			}
 		}
-		if ontology.IsEnabledRelationType(tx, relTypeCode) {
-			edge := models.EntityRelationship{
-				SourceType:       "work",
-				SourceID:         work.ID,
-				TargetType:       "work",
-				TargetID:         *req.TargetWorkID,
-				RelationshipType: relTypeCode,
-				Qualifier:        "Cross-source auto link",
-			}
-			_ = tx.Create(&edge).Error
-		}
-	}
 
 	// 4. 创建 Release 发行版与 Medium/Tracks (除 merge_translations 外均挂载 Release)
 	var release models.Release
