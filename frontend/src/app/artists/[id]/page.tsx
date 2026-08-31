@@ -73,7 +73,7 @@ export default function ArtistDetailPage() {
   }
 
   const artist = data.artist;
-  const localized = pickLocalized(locale, artist.translations, artist.name, artist.biography);
+  const localized = pickLocalized(locale, artist?.translations, artist?.name || "", artist?.biography);
   const works = (data.works || []).map((item: any) => {
     // 兼容后端返回的 ArtistWorkItem { work: Work, role: string } 或直接 Work
     if (item && item.work) {
@@ -83,16 +83,16 @@ export default function ArtistDetailPage() {
   });
   const releases = data.releases || [];
   const connectedEntities: ConnectedEntityItem[] = data.connected_entities || [];
-  const extIds = artist.external_ids || {};
-  const avatarUrl = (artist as any).avatar_url || (artist.attributes?.avatar_url as string);
+  const extIds = artist?.external_ids || {};
+  const avatarUrl = (artist as any)?.avatar_url || (artist?.attributes?.avatar_url as string);
 
   // 过滤掉已经在头部专门作为头像渲染的 avatar_url，避免在扩展动态属性栏中冗余显示技术路径
   const displayAttributes = useMemo(() => {
-    if (!artist.attributes) return {};
+    if (!artist?.attributes) return {};
     const filtered = { ...artist.attributes };
     delete filtered.avatar_url;
     return filtered;
-  }, [artist.attributes]);
+  }, [artist?.attributes]);
 
   const getEntityTypeLabel = (type: string) => entityTypeLabel(type);
 
