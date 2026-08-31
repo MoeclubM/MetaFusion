@@ -37,7 +37,6 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
   const isCastRole = (role: string, artistType?: string) => {
     const r = role.toLowerCase().trim();
     return (
-      artistType === "character" ||
       artistType === "virtual_character" ||
       r === "主角" ||
       r === "配角" ||
@@ -82,7 +81,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
     // 1. 提取所有 Character 实体
     for (const rel of relations) {
       const art = rel.artist;
-      const isChar = art?.entity_type === "character" || art?.entity_type === "virtual_character" ||
+      const isChar = art?.entity_type === "virtual_character" ||
         rel.role === "主角" || rel.role === "配角" || rel.role === "客串" || rel.role === "Character" ||
         (rel.role.startsWith("角色") && !rel.role.includes("配演"));
 

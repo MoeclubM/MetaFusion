@@ -307,7 +307,7 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 				artists = append(artists, ArtistPreview{
 					Name:        chName,
 					Role:        roleType,
-					EntityType:  models.EntityTypeCharacter,
+					EntityType:  models.EntityTypeVirtualCharacter,
 					Country:     "JP",
 					AvatarURL:   ch.Images.Large,
 					ExternalIDs: models.JSONB{
@@ -749,7 +749,7 @@ func FetchBangumiCharacterPreview(ctx context.Context, input string) (*PreviewRe
 	artist := ArtistPreview{
 		Name:         mainName,
 		OriginalName: origName,
-		EntityType:   models.EntityTypeCharacter,
+		EntityType:   models.EntityTypeVirtualCharacter,
 		Role:         "Character",
 		Country:      "JP",
 		Biography:    strings.Join(bioNotes, "\n\n"),
