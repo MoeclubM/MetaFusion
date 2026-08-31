@@ -1018,19 +1018,21 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			}
 
 			// 挂载知识图谱动态语义边 (EntityRelationship)
-			relTypeCode := "creator"
+			relTypeCode := "creator_of"
 			roleLower := strings.ToLower(roleToAssign)
 			switch {
 			case strings.Contains(roleLower, "director") || strings.Contains(roleLower, "监督") || strings.Contains(roleLower, "导演"):
 				relTypeCode = "director"
-			case strings.Contains(roleLower, "composer") || strings.Contains(roleLower, "配乐") || strings.Contains(roleLower, "音乐"):
+			case strings.Contains(roleLower, "composer") || strings.Contains(roleLower, "配乐") || strings.Contains(roleLower, "音乐") || strings.Contains(roleLower, "作曲"):
 				relTypeCode = "composer"
 			case strings.Contains(roleLower, "author") || strings.Contains(roleLower, "原作") || strings.Contains(roleLower, "作者") || strings.Contains(roleLower, "编剧") || strings.Contains(roleLower, "剧本"):
 				relTypeCode = "author"
+			case strings.Contains(roleLower, "illustrator") || strings.Contains(roleLower, "作画") || strings.Contains(roleLower, "原画") || strings.Contains(roleLower, "插画") || strings.Contains(roleLower, "人物设定"):
+				relTypeCode = "illustrator"
 			case strings.Contains(roleLower, "publisher") || strings.Contains(roleLower, "出版社") || strings.Contains(roleLower, "发行"):
 				relTypeCode = "producer"
 			case strings.Contains(roleLower, "studio") || strings.Contains(roleLower, "制作") || strings.Contains(roleLower, "开发"):
-				relTypeCode = "producer"
+				relTypeCode = "studio"
 			case strings.Contains(roleLower, "performer") || strings.Contains(roleLower, "演奏") || strings.Contains(roleLower, "演唱"):
 				relTypeCode = "performer"
 			case strings.Contains(roleLower, "voice") || strings.Contains(roleLower, "声优") || strings.Contains(roleLower, "配音") || strings.Contains(roleLower, "actor") || strings.Contains(roleLower, "演员"):
