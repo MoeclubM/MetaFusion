@@ -11,7 +11,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/minio/minio-go/v7 v7.3.0
 	github.com/opensearch-project/opensearch-go/v2 v2.3.0
-	github.com/redis/go-redis/v9 v9.14.1
+	github.com/redis/go-redis/v9 v9.22.0
 	golang.org/x/crypto v0.55.0
 	gorm.io/driver/postgres v1.6.2
 	gorm.io/gorm v1.31.2
@@ -23,7 +23,6 @@ require (
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
@@ -60,6 +59,7 @@ require (
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
+	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
