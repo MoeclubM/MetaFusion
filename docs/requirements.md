@@ -18,7 +18,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 | 邀请 = 身份门槛 / 付费墙替代 | 邀请 = 风控与合规缓冲层，可后台关闭 |
 | 元数据与媒体同等鉴权 | 元数据公开可索引，媒体二进制强制鉴权 |
 
-关联记忆：[[auth-open-registration]]、[[homepage-hero-footer-branding]]、[[forum-boards-three-default]]
+关联约定：开放注册（后台可关）、首页品牌区与页脚、论坛三大默认板块
 
 ---
 
@@ -79,8 +79,8 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 
 ### 3.4 社区与论坛
 
-- 读开放、写需登录；`comment` 分区 `show_in_feed=false` 不进入 `board_code=all` 信息流（见 [[forum-boards-three-default]]）。
-- 语种过滤 `language=zh-CN/en-US` 对游客同样生效（见 [[forum-language-i18n-multilingual]]）。
+- 读开放、写需登录；`comment` 分区 `show_in_feed=false` 不进入 `board_code=all` 信息流（comment 分区不进入信息流）。
+- 语种过滤 `language=zh-CN/en-US` 对游客同样生效（论坛按语种过滤）。
 
 ---
 

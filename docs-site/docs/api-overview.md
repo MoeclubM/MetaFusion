@@ -17,11 +17,6 @@ MetaFusion 提供 MusicBrainz WS/2 风格的开放编目 API，适合自建应�
 - **User-Agent 要求**：所有请求建议携带有意义的 `User-Agent: MyApp/1.0 (you@example.com)`，写入请求未设置将返回 400
 - **限流**：匿名 60/min，认证 600/min，响应头 `X-RateLimit-*`
 
-## 在线快速试玩
-
-```bash
-```
-
 ## 三元组
 
 | 能力 | 对应网页 | 认证 |
@@ -39,7 +34,7 @@ MetaFusion 提供 MusicBrainz WS/2 风格的开放编目 API，适合自建应�
 
 见 [认证与 PAT](/api-auth)：
 
-- **JWT Bearer**：`POST /auth/login` 获取，7 天有效
+- **JWT Bearer**：`POST /auth/login` 获取，Access Token 2h + Refresh Token 7d
 - **PAT `mfp_`**：登录后 `POST /auth/tokens` 创建，长期，支持 `scopes: read/write/edit/upload/community/admin`
 
 两种凭证均写入 `Authorization: Bearer <token>`，也支持 `X-API-Key: mfp_...`。
