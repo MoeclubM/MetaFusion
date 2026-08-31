@@ -9,7 +9,6 @@ import { ThemePicker } from "@/components/ThemePicker";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { GitHubIcon } from "@/components/Icons";
 import {
-  Library,
   LogIn,
   Compass,
   BookOpen,
@@ -77,30 +76,31 @@ function RootLandingInner() {
 
         {/* Action Buttons: Centered */}
         <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
-          <Link
-            href={user ? "/home" : "/explore"}
-            className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-primary text-white keep-white hover:opacity-90 font-semibold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all cursor-pointer"
-          >
-            <Library className="w-4 h-4" />
-            <span>{t("landing.enter")}</span>
-          </Link>
-
-          {!user ? (
-            <Link
-              href="/login?tab=register"
-              className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
-            >
-              <LogIn className="w-4 h-4 text-primary" />
-              <span>{t("landing.join")}</span>
-            </Link>
-          ) : (
+          {user ? (
             <Link
               href="/explore"
-              className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
+              className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-primary text-white keep-white hover:opacity-90 font-semibold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all cursor-pointer"
             >
-              <Compass className="w-4 h-4 text-primary" />
+              <Compass className="w-4 h-4" />
               <span>{t("landing.exploreArchive")}</span>
             </Link>
+          ) : (
+            <>
+              <Link
+                href="/explore"
+                className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-primary text-white keep-white hover:opacity-90 font-semibold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all cursor-pointer"
+              >
+                <Compass className="w-4 h-4" />
+                <span>{t("landing.exploreArchive")}</span>
+              </Link>
+              <Link
+                href="/login?tab=register"
+                className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
+              >
+                <LogIn className="w-4 h-4 text-primary" />
+                <span>{t("landing.join")}</span>
+              </Link>
+            </>
           )}
         </div>
 
