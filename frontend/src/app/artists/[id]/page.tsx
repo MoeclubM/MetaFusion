@@ -106,7 +106,7 @@ export default function ArtistDetailPage() {
         />
       );
     }
-    if (artist.entity_type === "studio" || artist.entity_type === "publisher" || artist.entity_type === "label") {
+    if (artist?.entity_type === "studio" || artist?.entity_type === "publisher" || artist?.entity_type === "label") {
       return <Building className="w-8 h-8 text-amber-400" strokeWidth={1.4} />;
     }
     return <User className="w-8 h-8 text-amber-400" strokeWidth={1.4} />;
@@ -220,7 +220,7 @@ export default function ArtistDetailPage() {
               onMerge={() => setIsMergeOpen(true)}
               entityTypeLabel={t("entity.toolbar.artist")}
             >
-              <FavoriteButton targetType="artist" targetId={artist.id} />
+              {artist?.id && <FavoriteButton targetType="artist" targetId={artist.id} />}
             </EntityActionToolbar>
           </div>
         </div>
