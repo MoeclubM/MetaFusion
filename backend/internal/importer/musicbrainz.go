@@ -193,30 +193,63 @@ func FetchMusicBrainzPreview(ctx context.Context, input string) (*PreviewRespons
 	req.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("MusicBrainz release request failed: %w", err)
-	}
-	defer resp.Body.Close()
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("MusicBrainz release request failed: %w", err)
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("MusicBrainz release API returned %d: %s", resp.StatusCode, string(body))
+		if resp.StatusCode == http.StatusNotFound && !isRg {
+			// 尝试作为 Release Group 检索
+			rgURL := fmt.Sprintf("https://musicbrainz.org/ws/2/release-group/%s?inc=artists+releases+tags+genres&fmt=json", mbid)
+			if errCheck := security.ValidateExternalURL(rgURL); errCheck == nil {
+				if rgReq, errReq := http.NewRequestWithContext(ctx, "GET", rgURL, nil); errReq == nil {
+					rgReq.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
+					rgReq.Header.Set("Accept", "application/json")
+					if rgResp, errDo := client.Do(rgReq); errDo == nil && rgResp.StatusCode == http.StatusOK {
+						defer rgResp.Body.Close()
+						var rgData mbReleaseGroupResponse
+						if json.NewDecoder(rgResp.Body).Decode(&rgData) == nil && len(rgData.Releases) > 0 {
+							targetReleaseID = rgData.Releases[0].ID
+							// 重新查询该 Release
+							apiURL = fmt.Sprintf("https://musicbrainz.org/ws/2/release/%s?inc=artists+recordings+release-groups+media+labels+url-rels+tags+genres&fmt=json", targetReleaseID)
+							if req2, errReq2 := http.NewRequestWithContext(ctx, "GET", apiURL, nil); errReq2 == nil {
+								req2.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
+								req2.Header.Set("Accept", "application/json")
+								if resp2, errDo2 := client.Do(req2); errDo2 == nil && resp2.StatusCode == http.StatusOK {
+									defer resp2.Body.Close()
+									var data mbReleaseResponse
+									if json.NewDecoder(resp2.Body).Decode(&data) == nil {
+										return buildMusicBrainzPreview(&data, targetReleaseID, ctx, client)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("MusicBrainz release API returned %d: %s", resp.StatusCode, string(body))
+		}
+
+		var data mbReleaseResponse
+		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+			return nil, fmt.Errorf("failed to decode MusicBrainz release JSON: %w", err)
+		}
+
+		return buildMusicBrainzPreview(&data, targetReleaseID, ctx, client)
 	}
 
-	var data mbReleaseResponse
-	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-		return nil, fmt.Errorf("failed to decode MusicBrainz release JSON: %w", err)
-	}
-
+func buildMusicBrainzPreview(data *mbReleaseResponse, targetReleaseID string, ctx context.Context, client *http.Client) (*PreviewResponse, error) {
 	// 提取母体 Work 纯净标题
 	workTitle := strings.TrimSpace(data.ReleaseGroup.Title)
 	if workTitle == "" {
 		workTitle = strings.TrimSpace(data.Title)
 	}
 
-	// 提取主创艺术家
-	var artists []ArtistPreview
 	artistNameParts := make([]string, 0)
 	for _, ac := range data.ArtistCredit {
 		name := strings.TrimSpace(ac.Name)
