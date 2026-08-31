@@ -1347,27 +1347,34 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			editNote = fmt.Sprintf("通过 OmniSource Importer 权威数据源 (%s) 快速一键导入入库", req.Source)
 		}
 	}
-	sourceURLs := req.SourceURLs
-	if len(sourceURLs) == 0 && req.URLOrID != "" {
-		sourceURLs = []string{req.URLOrID}
-	}
+		sourceURLs := pq.StringArray{}
+		if len(req.SourceURLs) > 0 {
+			sourceURLs = pq.StringArray(req.SourceURLs)
+		} else if req.URLOrID != "" {
+			sourceURLs = pq.StringArray{req.URLOrID}
+		} else if req.ExternalID != "" {
+			sourceURLs = pq.StringArray{fmt.Sprintf("%s:%s", req.Source, req.ExternalID)}
+		} else {
+			sourceURLs = pq.StringArray{req.Source}
+		}
 
-	workEditType := "create"
-	workSummary := fmt.Sprintf("一键导入作品: %s", work.Title)
-	if isMerge {
-		workEditType = "update"
-		workSummary = fmt.Sprintf("合并导入作品数据源 (%s): %s", req.Source, work.Title)
-	}
+		workEditType := "create"
+		workSummary := fmt.Sprintf("一键导入作品: %s", work.Title)
+		if isMerge {
+			workEditType = "update"
+			workSummary = fmt.Sprintf("合并导入作品数据源 (%s): %s", req.Source, work.Title)
+		}
 
-	revWork := models.EntityRevision{
-		TargetType:  "work",
-		TargetID:    work.ID,
-		EditorID:    &userID,
-		EditType:    workEditType,
-		Summary:     workSummary,
-		EditNote:    editNote,
-		SourceURLs:  sourceURLs,
-		AfterState: models.JSONB{
+		revWork := models.EntityRevision{
+			TargetType:  "work",
+			TargetID:    work.ID,
+			EditorID:    &userID,
+			EditType:    workEditType,
+			Summary:     workSummary,
+			EditNote:    editNote,
+			SourceURLs:  sourceURLs,
+			BeforeState: models.JSONB{},
+			AfterState: models.JSONB{
 			"title":           work.Title,
 			"original_title":  work.OriginalTitle,
 			"cover_image_url": work.CoverImageURL,
@@ -1386,16 +1393,17 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 	}
 	_ = tx.Create(&revWork).Error
 
-	if release.ID != uuid.Nil {
-		revRelease := models.EntityRevision{
-			TargetType:  "release",
-			TargetID:    release.ID,
-			EditorID:    &userID,
-			EditType:    "create",
-			Summary:     fmt.Sprintf("一键导入/挂载版本: %s", release.EditionName),
-			EditNote:    editNote,
-			SourceURLs:  sourceURLs,
-			AfterState: models.JSONB{
+		if release.ID != uuid.Nil {
+			revRelease := models.EntityRevision{
+				TargetType:  "release",
+				TargetID:    release.ID,
+				EditorID:    &userID,
+				EditType:    "create",
+				Summary:     fmt.Sprintf("一键导入/挂载版本: %s", release.EditionName),
+				EditNote:    editNote,
+				SourceURLs:  sourceURLs,
+				BeforeState: models.JSONB{},
+				AfterState: models.JSONB{
 				"edition_name": release.EditionName,
 				"publisher":    release.Publisher,
 				"packaging":    release.Packaging,
