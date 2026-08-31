@@ -239,6 +239,7 @@
   "work.detail.tabKeyStaff": "核心主创",
   "work.detail.tabCharacters": "出场角色与声优",
   "work.detail.tabAllStaff": "全量制作团队",
+  "work.detail.tabAll": "全部",
   "work.releases.backToWork": "返回作品",
   "work.releases.allReleases": "全部发行版",
   "work.releases.releaseCount": "发行版 · 共 {count} 版",
