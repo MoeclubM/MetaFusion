@@ -293,7 +293,6 @@ const (
 	EntityTypePublisher        = "publisher"
 	EntityTypeCircle           = "circle"
 	EntityTypeLabel            = "label"
-	EntityTypeCharacter        = "character"
 	EntityTypeVirtualCharacter = "virtual_character"
 )
 

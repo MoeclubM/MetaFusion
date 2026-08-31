@@ -481,7 +481,7 @@ func FetchVNDBCharacterPreview(ctx context.Context, charID string) (*PreviewResp
 	artist := ArtistPreview{
 		Name:         item.Name,
 		OriginalName: item.Original,
-		EntityType:   models.EntityTypeCharacter,
+		EntityType:   models.EntityTypeVirtualCharacter,
 		Role:         "Character",
 		Biography:    strings.Join(bioParts, "\n\n"),
 		AvatarURL:    item.Image.URL,

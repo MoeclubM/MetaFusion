@@ -823,20 +823,12 @@ func seedEntityTypeDefinitions(db *gorm.DB) {
 			SortOrder: 70, IsSystem: true, IsEnabled: true,
 		},
 		{
-			Code: "character", NameZh: "角色 / 虚拟角色", NameEn: "Character / Virtual Persona",
-			Names: models.JSONB{"zh-CN": "角色 / 虚拟角色", "en-US": "Character / Virtual Persona", "ja": "キャラクター / 仮想人物"},
-			DescZh: "虚构作品登场角色、虚拟歌姬、VTuber 或企划角色",
-			DescEn: "Fictional characters, virtual singers, VTubers, franchise characters",
-			Color: "pink", BgColor: "bg-pink-500/10", BorderColor: "border-pink-500/30",
-			SortOrder: 80, IsSystem: true, IsEnabled: true,
-		},
-		{
-			Code: "virtual_character", NameZh: "虚拟角色 (别名兼容)", NameEn: "Virtual Character",
-			Names: models.JSONB{"zh-CN": "虚拟角色", "en-US": "Virtual Character", "ja": "バーチャルキャラクター"},
-			DescZh: "虚拟角色实体类型别名兼容项",
-			DescEn: "Compatibility alias for virtual character type",
-			Color: "pink", BgColor: "bg-pink-500/10", BorderColor: "border-pink-500/30",
-			SortOrder: 81, IsSystem: true, IsEnabled: true,
+			Code: "virtual_character", NameZh: "虚拟角色 / 人物", NameEn: "Virtual Character",
+			Names: models.JSONB{"zh-CN": "虚拟角色 / 人物", "en-US": "Virtual Character", "ja": "バーチャルキャラクター"},
+			DescZh: "二次元动漫/游戏角色、Vtuber 形象、虚拟企划人物等",
+			DescEn: "Anime/Game fictional character, VTuber avatar, fictional persona, etc.",
+			Color: "rose", BgColor: "bg-rose-500/10", BorderColor: "border-rose-500/30",
+			SortOrder: 15, IsSystem: true, IsEnabled: true,
 		},
 	}
 

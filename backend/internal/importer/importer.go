@@ -366,7 +366,7 @@ func (s *ImporterService) importSingleArtistHandler(c *gin.Context, userID uuid.
 	if entType == "" {
 		switch entityType {
 		case "character":
-			entType = models.EntityTypeCharacter
+			entType = models.EntityTypeVirtualCharacter
 		case "organization", "studio":
 			entType = models.EntityTypeStudio
 		case "publisher":
@@ -930,8 +930,8 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			if entType == "" {
 				entType = models.EntityTypePerson
 			}
-			if entType == models.EntityTypeCharacter || entType == models.EntityTypeVirtualCharacter {
-				if err := tx.Where("name = ? AND entity_type IN (?, ?)", artName, models.EntityTypeCharacter, models.EntityTypeVirtualCharacter).First(&artist).Error; err == nil {
+			if entType == models.EntityTypeVirtualCharacter {
+				if err := tx.Where("name = ? AND entity_type = ?", artName, models.EntityTypeVirtualCharacter).First(&artist).Error; err == nil {
 					found = true
 				}
 			} else {
@@ -1089,7 +1089,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			relTypeCode = "performer"
 		case strings.Contains(roleLower, "voice") || strings.Contains(roleLower, "声优") || strings.Contains(roleLower, "配音") || strings.Contains(roleLower, "actor") || strings.Contains(roleLower, "演员") || assoc.CharacterName != "":
 			relTypeCode = "voice_actor_of"
-		case strings.Contains(roleLower, "character") || strings.Contains(roleLower, "角色") || strings.Contains(roleLower, "主角") || strings.Contains(roleLower, "配角") || strings.Contains(roleLower, "客串") || artist.EntityType == models.EntityTypeCharacter:
+		case strings.Contains(roleLower, "character") || strings.Contains(roleLower, "角色") || strings.Contains(roleLower, "主角") || strings.Contains(roleLower, "配角") || strings.Contains(roleLower, "客串") || artist.EntityType == models.EntityTypeVirtualCharacter:
 			relTypeCode = "character_in"
 		}
 
@@ -1116,7 +1116,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		// 当为声优时，自动建立 声优 -> 角色实体的图谱边 (voice_actor_of)
 		if assoc.CharacterName != "" {
 			var charEntity models.Artist
-			if err := tx.Where("name = ? AND entity_type IN (?, ?)", assoc.CharacterName, models.EntityTypeCharacter, models.EntityTypeVirtualCharacter).First(&charEntity).Error; err == nil {
+			if err := tx.Where("name = ? AND entity_type = ?", assoc.CharacterName, models.EntityTypeVirtualCharacter).First(&charEntity).Error; err == nil {
 				if ontology.IsEnabledRelationType(tx, "voice_actor_of") {
 					var existingCharRel models.EntityRelationship
 					if err := tx.Where("source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ?",
