@@ -313,6 +313,7 @@ export interface Artist {
   original_name?: string;
   disambiguation?: string;
   entity_type: string;
+  avatar_url?: string;
   country?: string;
   biography?: string;
   language?: string;
