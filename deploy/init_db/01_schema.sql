@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS users (
     bio TEXT,
     favorites_public BOOLEAN DEFAULT TRUE NOT NULL,-- 收藏夹公开隐私开关
     email_public BOOLEAN DEFAULT FALSE NOT NULL,   -- 邮箱公开隐私开关
+    is_email_verified BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -186,6 +187,7 @@ CREATE TABLE IF NOT EXISTS artists (
     original_name VARCHAR(255),
     disambiguation VARCHAR(255),
     entity_type VARCHAR(32) DEFAULT 'person' NOT NULL REFERENCES entity_type_definitions(code) ON UPDATE CASCADE ON DELETE RESTRICT,
+    avatar_url TEXT DEFAULT '' NOT NULL,           -- 一等公民头像/标识图（非 attributes）
     country VARCHAR(64),
     biography TEXT,
     begin_date VARCHAR(16),                        -- 出生日期 / 成立年份 (如 "1979-01-18" 或 "1994")
@@ -193,6 +195,7 @@ CREATE TABLE IF NOT EXISTS artists (
     ended BOOLEAN DEFAULT FALSE NOT NULL,          -- 是否已故 / 已解散
     language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL, -- 默认语种主码
     external_ids JSONB DEFAULT '{}'::jsonb NOT NULL,
+    attributes JSONB DEFAULT '{}'::jsonb NOT NULL, -- 仅承载纯物理/技术参数，头像与关系禁止入此
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
@@ -222,6 +225,7 @@ CREATE TABLE IF NOT EXISTS franchises (
     country VARCHAR(64) DEFAULT '',
     language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL,
     external_ids JSONB DEFAULT '{}'::jsonb NOT NULL,
+    attributes JSONB DEFAULT '{}'::jsonb NOT NULL,
     catalog_metadata JSONB DEFAULT '{}'::jsonb NOT NULL,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
@@ -261,6 +265,8 @@ CREATE TABLE IF NOT EXISTS works (
     content_rating VARCHAR(32) DEFAULT 'General',
     status VARCHAR(32) DEFAULT 'completed',
     view_count BIGINT DEFAULT 0 NOT NULL,
+    external_ids JSONB DEFAULT '{}'::jsonb NOT NULL,
+    attributes JSONB DEFAULT '{}'::jsonb NOT NULL,
     catalog_metadata JSONB DEFAULT '{}'::jsonb NOT NULL,
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
@@ -305,6 +311,8 @@ CREATE TABLE IF NOT EXISTS releases (
     country VARCHAR(64) DEFAULT '',
     language VARCHAR(64) DEFAULT '',
     distribution_channel VARCHAR(32) DEFAULT 'mixed' NOT NULL, -- retail, digital, comic_market, event, fanclub, mixed
+    external_ids JSONB DEFAULT '{}'::jsonb NOT NULL,
+    attributes JSONB DEFAULT '{}'::jsonb NOT NULL,
     catalog_metadata JSONB DEFAULT '{}'::jsonb NOT NULL,
     uploader_id UUID REFERENCES users(id) ON DELETE SET NULL,
     is_master_verified BOOLEAN DEFAULT FALSE,
@@ -319,7 +327,8 @@ CREATE TABLE IF NOT EXISTS mediums (
     name VARCHAR(128) NOT NULL,                    -- 碟片/分卷名 (如: "Disc 1: Original Soundtrack", "Booklet 设定集")
     format VARCHAR(64) NOT NULL,                   -- 'CD', 'SACD', 'Blu-ray', 'DVD', 'Vinyl', 'Book', 'Digital'
     media_category VARCHAR(32) NOT NULL REFERENCES media_types(code) ON UPDATE CASCADE ON DELETE RESTRICT,
-    track_count INT DEFAULT 0 NOT NULL
+    track_count INT DEFAULT 0 NOT NULL,
+    attributes JSONB DEFAULT '{}'::jsonb NOT NULL
 );
 
 -- ------------------------------------------------------------------------------
@@ -336,6 +345,7 @@ CREATE TABLE IF NOT EXISTS canonical_entries (
     recording_date VARCHAR(16),                    -- 录音/制作完成日期 (如 "2001-09-15" 或 "2001")
     work_id UUID REFERENCES works(id) ON DELETE SET NULL,
     external_ids JSONB DEFAULT '{}'::jsonb NOT NULL,
+    attributes JSONB DEFAULT '{}'::jsonb NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
@@ -349,7 +359,8 @@ CREATE TABLE IF NOT EXISTS tracks (
     title_override VARCHAR(255),                   -- 本发行版特有题名覆盖
     duration_seconds INT,
     isrc VARCHAR(32),
-    artist_credit VARCHAR(255)
+    artist_credit VARCHAR(255),
+    attributes JSONB DEFAULT '{}'::jsonb NOT NULL
 );
 
 -- ------------------------------------------------------------------------------
@@ -475,6 +486,7 @@ CREATE TABLE IF NOT EXISTS forum_boards (
     name_en VARCHAR(64) DEFAULT '',
     names JSONB DEFAULT '{}'::jsonb NOT NULL,
     description TEXT DEFAULT '',
+    descriptions JSONB DEFAULT '{}'::jsonb NOT NULL,
     color VARCHAR(16) DEFAULT 'emerald' NOT NULL CHECK (color IN ('emerald','amber','sky','purple','cyan','rose','indigo','teal')),
     icon VARCHAR(32) DEFAULT 'BookOpen' NOT NULL CHECK (icon IN ('BookOpen','Cpu','Archive','Coffee','Layers','Hash','Tag','Sparkles','Flame','Bookmark','MessageSquare','Globe','Megaphone','Bug','MessageCircle')),
     sort_order INT DEFAULT 0 NOT NULL,
@@ -617,6 +629,7 @@ CREATE INDEX IF NOT EXISTS idx_artists_entity_type ON artists(entity_type);
 CREATE INDEX IF NOT EXISTS idx_artists_created_by ON artists(created_by);
 CREATE INDEX IF NOT EXISTS idx_artists_temporal ON artists(ended, begin_date);
 CREATE INDEX IF NOT EXISTS idx_artists_external_ids_gin ON artists USING GIN (external_ids);
+CREATE INDEX IF NOT EXISTS idx_artists_attributes_gin ON artists USING GIN (attributes);
 CREATE INDEX IF NOT EXISTS idx_artist_translations_locale ON artist_translations(locale);
 
 -- 11.4 企划与世界观
@@ -641,6 +654,8 @@ CREATE INDEX IF NOT EXISTS idx_works_temporal ON works(ended, begin_date);
 CREATE INDEX IF NOT EXISTS idx_works_title_trgm ON works USING GIN (title gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_works_aliases_gin ON works USING GIN (aliases);
 CREATE INDEX IF NOT EXISTS idx_works_catalog_metadata ON works USING GIN (catalog_metadata);
+CREATE INDEX IF NOT EXISTS idx_works_external_ids_gin ON works USING GIN (external_ids);
+CREATE INDEX IF NOT EXISTS idx_works_attributes_gin ON works USING GIN (attributes);
 CREATE INDEX IF NOT EXISTS idx_work_translations_locale ON work_translations(locale);
 
 -- 11.6 发行版与载体
@@ -650,6 +665,8 @@ CREATE INDEX IF NOT EXISTS idx_releases_catalog_number ON releases(catalog_numbe
 CREATE INDEX IF NOT EXISTS idx_releases_barcode ON releases(barcode);
 CREATE INDEX IF NOT EXISTS idx_releases_edition_date ON releases(edition_date);
 CREATE INDEX IF NOT EXISTS idx_releases_catalog_metadata_gin ON releases USING GIN (catalog_metadata);
+CREATE INDEX IF NOT EXISTS idx_releases_external_ids_gin ON releases USING GIN (external_ids);
+CREATE INDEX IF NOT EXISTS idx_releases_attributes_gin ON releases USING GIN (attributes);
 CREATE INDEX IF NOT EXISTS idx_mediums_release ON mediums(release_id);
 CREATE INDEX IF NOT EXISTS idx_mediums_media_category ON mediums(media_category);
 
@@ -657,6 +674,7 @@ CREATE INDEX IF NOT EXISTS idx_mediums_media_category ON mediums(media_category)
 CREATE INDEX IF NOT EXISTS idx_canonical_entries_work ON canonical_entries(work_id);
 CREATE INDEX IF NOT EXISTS idx_canonical_entries_title_trgm ON canonical_entries USING GIN (title gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_canonical_entries_external_ids_gin ON canonical_entries USING GIN (external_ids);
+CREATE INDEX IF NOT EXISTS idx_canonical_entries_attributes_gin ON canonical_entries USING GIN (attributes);
 CREATE INDEX IF NOT EXISTS idx_tracks_medium ON tracks(medium_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_canonical_entry ON tracks(canonical_entry_id);
 CREATE INDEX IF NOT EXISTS idx_tracks_work ON tracks(work_id);

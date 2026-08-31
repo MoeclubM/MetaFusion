@@ -38,7 +38,8 @@ import FavoriteButton from "@/components/FavoriteButton";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
-import { InteractiveRelationGraph } from "@/components/graph/InteractiveRelationGraph";
+import dynamic from "next/dynamic";
+const InteractiveRelationGraph = dynamic(() => import("@/components/graph/InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
 import { GroupedRelations } from "@/components/entity/RelationsList";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 

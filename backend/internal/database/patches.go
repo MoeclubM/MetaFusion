@@ -33,30 +33,13 @@ func applySchemaPatches(db *gorm.DB) {
 		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS language VARCHAR(64) DEFAULT ''`,
 		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS distribution_channel VARCHAR(32) DEFAULT 'mixed' NOT NULL`,
 		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS catalog_metadata JSONB DEFAULT '{}'::jsonb NOT NULL`,
-		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS external_ids JSONB DEFAULT '{}'::jsonb NOT NULL`,
-			`ALTER TABLE works ALTER COLUMN category_code DROP NOT NULL`,
-			`ALTER TABLE works ALTER COLUMN category_code SET DEFAULT ''`,
-			`ALTER TABLE works DROP CONSTRAINT IF EXISTS fk_works_category`,
-			`ALTER TABLE works ADD COLUMN IF NOT EXISTS external_ids JSONB DEFAULT '{}'::jsonb NOT NULL`,
-			`ALTER TABLE artists ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '' NOT NULL`,
-			`ALTER TABLE artists ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
+		`ALTER TABLE works ALTER COLUMN category_code DROP NOT NULL`,
+		`ALTER TABLE works ALTER COLUMN category_code SET DEFAULT ''`,
+		`ALTER TABLE works DROP CONSTRAINT IF EXISTS fk_works_category`,
 		`ALTER TABLE franchises ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
 		`ALTER TABLE works ADD COLUMN IF NOT EXISTS cover_aspect VARCHAR(8) DEFAULT '' NOT NULL`,
 		`ALTER TABLE system_plugins ADD COLUMN IF NOT EXISTS dependencies JSONB DEFAULT '{}'::jsonb NOT NULL`,
-		`ALTER TABLE works ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
-		`ALTER TABLE artists ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
-		`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT false NOT NULL`,
-		`ALTER TABLE releases ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
-		`ALTER TABLE mediums ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
-		`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
-		`ALTER TABLE franchises ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
-		`ALTER TABLE canonical_entries ADD COLUMN IF NOT EXISTS attributes JSONB DEFAULT '{}'::jsonb NOT NULL`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_user_custom_shelves_owner_slug ON user_custom_shelves(owner_id, slug)`,
-		`CREATE INDEX IF NOT EXISTS idx_works_external_ids_gin ON works USING GIN (external_ids)`,
-		`CREATE INDEX IF NOT EXISTS idx_releases_external_ids_gin ON releases USING GIN (external_ids)`,
-		`CREATE INDEX IF NOT EXISTS idx_works_attributes_gin ON works USING GIN (attributes)`,
-		`CREATE INDEX IF NOT EXISTS idx_artists_attributes_gin ON artists USING GIN (attributes)`,
-		`CREATE INDEX IF NOT EXISTS idx_releases_attributes_gin ON releases USING GIN (attributes)`,
 	}
 	for _, s := range stmts {
 		if err := db.Exec(s).Error; err != nil {
@@ -113,15 +96,6 @@ END $$`).Error
 	EXCEPTION WHEN OTHERS THEN NULL;
 	END $$`).Error
 
-	// 将历史存储在 attributes->avatar_url 中的人物头像数据同步迁移至实体 avatar_url 字段
-	_ = db.Exec(`
-		UPDATE artists
-		SET avatar_url = attributes->>'avatar_url',
-		    attributes = attributes - 'avatar_url'
-		WHERE (avatar_url IS NULL OR avatar_url = '')
-		  AND attributes ? 'avatar_url'
-		  AND attributes->>'avatar_url' != '';
-	`).Error
 }
 
 func columnExists(db *gorm.DB, table, col string) bool {

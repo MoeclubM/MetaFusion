@@ -21,9 +21,10 @@ import { isDistinctOriginalTitle } from "@/lib/titles";
 import { GroupedRelations } from "@/components/entity/RelationsList";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
-import { InteractiveRelationGraph } from "@/components/graph/InteractiveRelationGraph";
+import dynamic from "next/dynamic";
 import { StaffCharacterSection } from "@/components/entity/StaffCharacterSection";
 import { fetchEntityGraph, GraphNode, GraphLink } from "@/lib/api";
+const InteractiveRelationGraph = dynamic(() => import("@/components/graph/InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
 export default function WorkDirectoryPage() {
  const params = useParams();
  const workId = params.id as string;
