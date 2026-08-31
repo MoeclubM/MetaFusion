@@ -38,7 +38,8 @@ func applySchemaPatches(db *gorm.DB) {
 			`ALTER TABLE works ALTER COLUMN category_code SET DEFAULT ''`,
 			`ALTER TABLE works DROP CONSTRAINT IF EXISTS fk_works_category`,
 			`ALTER TABLE works ADD COLUMN IF NOT EXISTS external_ids JSONB DEFAULT '{}'::jsonb NOT NULL`,
-		`ALTER TABLE artists ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
+			`ALTER TABLE artists ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '' NOT NULL`,
+			`ALTER TABLE artists ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
 		`ALTER TABLE franchises ADD COLUMN IF NOT EXISTS language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL`,
 		`ALTER TABLE works ADD COLUMN IF NOT EXISTS cover_aspect VARCHAR(8) DEFAULT '' NOT NULL`,
 		`ALTER TABLE system_plugins ADD COLUMN IF NOT EXISTS dependencies JSONB DEFAULT '{}'::jsonb NOT NULL`,
@@ -101,16 +102,26 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$`).Error
 
 	_ = db.Exec(`
-DO $$ BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conname = 'entity_relationships_edge_unique' AND conrelid = 'entity_relationships'::regclass
-    ) THEN
-        ALTER TABLE entity_relationships ADD CONSTRAINT entity_relationships_edge_unique
-            UNIQUE (source_type, source_id, target_type, target_id, relationship_type, qualifier);
-    END IF;
-EXCEPTION WHEN OTHERS THEN NULL;
-END $$`).Error
+	DO $$ BEGIN
+	    IF NOT EXISTS (
+	        SELECT 1 FROM pg_constraint
+	        WHERE conname = 'entity_relationships_edge_unique' AND conrelid = 'entity_relationships'::regclass
+	    ) THEN
+	        ALTER TABLE entity_relationships ADD CONSTRAINT entity_relationships_edge_unique
+	            UNIQUE (source_type, source_id, target_type, target_id, relationship_type, qualifier);
+	    END IF;
+	EXCEPTION WHEN OTHERS THEN NULL;
+	END $$`).Error
+
+	// 将历史存储在 attributes->avatar_url 中的人物头像数据同步迁移至实体 avatar_url 字段
+	_ = db.Exec(`
+		UPDATE artists
+		SET avatar_url = attributes->>'avatar_url',
+		    attributes = attributes - 'avatar_url'
+		WHERE (avatar_url IS NULL OR avatar_url = '')
+		  AND attributes ? 'avatar_url'
+		  AND attributes->>'avatar_url' != '';
+	`).Error
 }
 
 func columnExists(db *gorm.DB, table, col string) bool {
