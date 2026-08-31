@@ -23,8 +23,13 @@ import { ArtistReleasesTab } from "@/components/artist/ArtistReleasesTab";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
-import { InteractiveRelationGraph } from "@/components/graph/InteractiveRelationGraph";
+import dynamic from "next/dynamic";
 import { fetchEntityGraph, GraphNode, GraphLink } from "@/lib/api";
+
+const InteractiveRelationGraph = dynamic(
+  () => import("@/components/graph/InteractiveRelationGraph").then((mod) => mod.InteractiveRelationGraph),
+  { ssr: false }
+);
 
 export default function ArtistDetailPage() {
   const params = useParams();
