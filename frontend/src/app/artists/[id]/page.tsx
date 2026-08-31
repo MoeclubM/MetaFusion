@@ -232,19 +232,19 @@ export default function ArtistDetailPage() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
                 {works.map((item: any) => {
-                  const w = item.work || item;
-                  const role = item.role || w.role;
+                  const w = item && (item.work || item);
+                  const role = item?.role || w?.role;
                   if (!w || !w.id) return null;
                   return (
                     <Link key={w.id} href={`/works/${w.id}`} className="group relative overflow-hidden rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface flex flex-col shadow-2xs hover:shadow-elevated hover:border-primary/40 transition-all">
                       <div className="relative">
                         <AdaptiveCover
                           src={w.cover_image_url}
-                          alt={w.title}
-                          title={w.title}
+                          alt={w.title || ""}
+                          title={w.title || ""}
                           originalTitle={w.original_title}
                           id={w.id}
-                          tags={(w.tags || []).map((t: any) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
+                          tags={Array.isArray(w.tags) ? w.tags.map((t: any) => (t?.name ? t.name : typeof t === "string" ? t : "")) : []}
                           aspect={w.cover_aspect}
                           className="bg-black/5 dark:bg-black/40 group-hover:scale-105 transition-transform duration-300 origin-center"
                         />
