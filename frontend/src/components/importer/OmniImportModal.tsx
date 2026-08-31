@@ -437,10 +437,10 @@ export function OmniImportModal({
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {[
-                { id: "work", label: t("importer.typeWork"), icon: Film, desc: "Anime / Movie / Book / Music / Game" },
-                { id: "artist", label: t("importer.typeArtist"), icon: User, desc: "Creator / Voice Actor / Staff" },
-                { id: "organization", label: t("importer.typeOrganization"), icon: Building2, desc: "Studio / Publisher / Label" },
-                { id: "character", label: t("importer.typeCharacter"), icon: Palette, desc: "Virtual Role / Character" },
+                { id: "work", label: t("importer.typeWork"), icon: Film, desc: t("importer.typeWorkDesc") },
+                { id: "artist", label: t("importer.typeArtist"), icon: User, desc: t("importer.typeArtistDesc") },
+                { id: "organization", label: t("importer.typeOrganization"), icon: Building2, desc: t("importer.typeOrganizationDesc") },
+                { id: "character", label: t("importer.typeCharacter"), icon: Palette, desc: t("importer.typeCharacterDesc") },
               ].map((item) => {
                 const Icon = item.icon;
                 const active = entityType === item.id;

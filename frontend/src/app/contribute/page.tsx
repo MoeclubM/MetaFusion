@@ -127,7 +127,7 @@ export default function ContributeHubPage() {
             <div className="space-y-2 max-w-2xl">
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-primary/15 border border-primary/30 text-primary text-[11px] font-mono font-bold">
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>OmniSource Importer Suite</span>
+                <span>{t("create.hub.cardImportBadge")}</span>
               </div>
               <h2 className="font-display text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
                 {t("create.hub.cardImportTitle")}
