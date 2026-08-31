@@ -13,9 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/metafusion/metafusion-app/internal/catalog"
+		"github.com/gin-gonic/gin"
+		"github.com/google/uuid"
+		"github.com/lib/pq"
+		"github.com/metafusion/metafusion-app/internal/catalog"
 	"github.com/metafusion/metafusion-app/internal/config"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/ontology"
