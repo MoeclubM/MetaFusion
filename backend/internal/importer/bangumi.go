@@ -247,80 +247,47 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 	}
 
 	// 创作者与机构提取 (LRM 编目标准：提炼核心主创与制作机构，过滤底层数百名原画/补间/进行协力人员)
-	var artists []ArtistPreview
-	artistNameMap := make(map[string]bool)
+		var artists []ArtistPreview
+		artistNameMap := make(map[string]bool)
 
-	for _, p := range persons {
-		pName := strings.TrimSpace(p.Name)
-		if pName == "" || artistNameMap[pName] {
-			continue
-		}
+		for _, p := range persons {
+			pName := strings.TrimSpace(p.Name)
+			if pName == "" || artistNameMap[pName] {
+				continue
+			}
 
-		rel := strings.TrimSpace(p.Relation)
+			rel := strings.TrimSpace(p.Relation)
+			if rel == "" {
+				rel = "Creator"
+			}
 
-		// 过滤次要与临时外包工种（如数百名单集原画、第二原画、补间动画、制作进行等）
-		if strings.Contains(rel, "原画") || strings.Contains(rel, "第二原画") || strings.Contains(rel, "补间") ||
-			strings.Contains(rel, "制作进行") || strings.Contains(rel, "制作协力") || strings.Contains(rel, "动画检查") ||
-			strings.Contains(rel, "色彩指定") || strings.Contains(rel, "上色") || strings.Contains(rel, "背景") ||
-			strings.Contains(rel, "摄影助理") || strings.Contains(rel, "剪辑助理") {
-			continue
-		}
-
-			role := "Creator"
-			switch {
-			case strings.Contains(rel, "原作") || strings.Contains(rel, "作者") || strings.Contains(rel, "原案"):
-				role = "Author"
-			case strings.Contains(rel, "系列构成") || strings.Contains(rel, "剧本") || strings.Contains(rel, "编剧") || strings.Contains(rel, "脚本"):
-				role = "Screenplay / Writer"
-			case strings.Contains(rel, "人物原案") || strings.Contains(rel, "人物设定") || strings.Contains(rel, "角色设计"):
-				role = "Character Design"
-			case strings.Contains(rel, "音乐") || strings.Contains(rel, "作曲") || strings.Contains(rel, "配乐") || strings.Contains(rel, "音乐制作"):
-				role = "Composer"
-			case strings.Contains(rel, "歌") || strings.Contains(rel, "演唱") || strings.Contains(rel, "演奏") || strings.Contains(rel, "主题歌"):
-				role = "Performer"
-			case strings.Contains(rel, "音响监督") || strings.Contains(rel, "美术监督") || strings.Contains(rel, "摄影监督") || strings.Contains(rel, "色彩设计") || strings.Contains(rel, "剪辑") || strings.Contains(rel, "作画监督") || strings.Contains(rel, "机械设定"):
-				role = rel
-			case strings.Contains(rel, "导演") || strings.Contains(rel, "总监督") || strings.Contains(rel, "副监督") || strings.Contains(rel, "系列监督") || rel == "监督":
-				role = "Director"
-			case strings.Contains(rel, "动画制作") || strings.Contains(rel, "制作公司") || (p.Type == 2 && strings.Contains(rel, "制作")):
-				role = "Studio"
-			case strings.Contains(rel, "出版社") || strings.Contains(rel, "发行") || strings.Contains(rel, "出版") || strings.Contains(rel, "唱片"):
-				role = "Publisher"
+			role := rel
+			if strings.Contains(rel, "出版社") || strings.Contains(rel, "发行") || strings.Contains(rel, "出版") || strings.Contains(rel, "唱片") {
 				if publisherName == "" {
 					publisherName = pName
 				}
-			case strings.Contains(rel, "企划") || strings.Contains(rel, "制片人") || strings.Contains(rel, "制作人"):
-				role = rel
-			case strings.Contains(rel, "声优") || strings.Contains(rel, "配音") || strings.Contains(rel, "主演") || strings.Contains(rel, "CAST"):
-				role = "Voice Actor"
-			default:
-				// 仅收录具有明确职务的条目
-				if p.Type != 2 && !strings.Contains(rel, "制作") && !strings.Contains(rel, "监督") && !strings.Contains(rel, "设计") {
-					continue
-				}
-				role = rel
 			}
 
-		artistNameMap[pName] = true
+			artistNameMap[pName] = true
 
-		entType := models.EntityTypePerson
-		if p.Type == 2 || strings.Contains(rel, "制作") || strings.Contains(rel, "出版社") || strings.Contains(rel, "开发") {
-			entType = models.EntityTypeStudio
-		} else if p.Type == 3 {
-			entType = models.EntityTypeGroup
+			entType := models.EntityTypePerson
+			if p.Type == 2 || (p.Type == 0 && (rel == "动画制作" || rel == "制作公司" || rel == "出版社" || rel == "唱片公司" || rel == "开发商")) {
+				entType = models.EntityTypeStudio
+			} else if p.Type == 3 {
+				entType = models.EntityTypeGroup
+			}
+
+			artists = append(artists, ArtistPreview{
+				Name:         pName,
+				Role:         role,
+				EntityType:   entType,
+				Country:      "JP",
+				AvatarURL:    p.Images.Large,
+				ExternalIDs: models.JSONB{
+					"bangumi_person": strconv.Itoa(p.ID),
+				},
+			})
 		}
-
-		artists = append(artists, ArtistPreview{
-			Name:         pName,
-			Role:         role,
-			EntityType:   entType,
-			Country:      "JP",
-			AvatarURL:    p.Images.Large,
-			ExternalIDs: models.JSONB{
-				"bangumi_person": strconv.Itoa(p.ID),
-			},
-		})
-	}
 
 		// 角色与配音声优提取 (对标 Bangumi 完整收录并保留角色层级与声优双轨绑定)
 		for _, ch := range bgmChars {
