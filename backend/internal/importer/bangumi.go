@@ -318,43 +318,24 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		})
 	}
 
-	// 角色与配音声优提取
-	for _, ch := range bgmChars {
-		chName := strings.TrimSpace(ch.Name)
-		if chName == "" {
-			continue
-		}
-		if len(ch.Actors) > 0 {
-			for _, act := range ch.Actors {
-				actName := strings.TrimSpace(act.Name)
-				if actName == "" {
-					continue
-				}
-				key := actName + "_as_" + chName
-				if artistNameMap[key] {
-					continue
-				}
-				artistNameMap[key] = true
-				artists = append(artists, ArtistPreview{
-					Name:          actName,
-					Role:          "Voice Actor",
-					EntityType:    models.EntityTypePerson,
-					Country:       "JP",
-					AvatarURL:     act.Images.Large,
-					CharacterName: chName,
-					ExternalIDs: models.JSONB{
-						"bangumi_person":    strconv.Itoa(act.ID),
-						"bangumi_character": strconv.Itoa(ch.ID),
-					},
-				})
+		// 角色与配音声优提取 (对标 Bangumi 完整收录并保留角色层级与声优双轨绑定)
+		for _, ch := range bgmChars {
+			chName := strings.TrimSpace(ch.Name)
+			if chName == "" {
+				continue
 			}
-		} else {
-			key := "char_" + chName
-			if !artistNameMap[key] {
-				artistNameMap[key] = true
+			roleType := strings.TrimSpace(ch.Relation)
+			if roleType == "" {
+				roleType = "主角"
+			}
+
+			// 1. 角色本体实体 (Character 实体，记录出场定位：主角/配角/客串)
+			charKey := "char_" + chName
+			if !artistNameMap[charKey] {
+				artistNameMap[charKey] = true
 				artists = append(artists, ArtistPreview{
 					Name:        chName,
-					Role:        "Character",
+					Role:        roleType,
 					EntityType:  models.EntityTypeCharacter,
 					Country:     "JP",
 					AvatarURL:   ch.Images.Large,
@@ -363,8 +344,33 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 					},
 				})
 			}
+
+			// 2. 角色配音声优 (Voice Actor 自然人实体，记录“配演 角色”对应关系)
+			if len(ch.Actors) > 0 {
+				for _, act := range ch.Actors {
+					actName := strings.TrimSpace(act.Name)
+					if actName == "" {
+						continue
+					}
+					actorKey := actName + "_as_" + chName
+					if artistNameMap[actorKey] {
+						continue
+					}
+					artistNameMap[actorKey] = true
+					artists = append(artists, ArtistPreview{
+						Name:          actName,
+						Role:          "Voice Actor",
+						EntityType:    models.EntityTypePerson,
+						Country:       "JP",
+						AvatarURL:     act.Images.Large,
+						CharacterName: chName,
+						ExternalIDs: models.JSONB{
+							"bangumi_person": strconv.Itoa(act.ID),
+						},
+					})
+				}
+			}
 		}
-	}
 
 	// 媒体类型分类及封面比例
 	mediaType := "book"
