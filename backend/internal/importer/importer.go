@@ -372,7 +372,11 @@ func (s *ImporterService) importSingleArtistHandler(c *gin.Context, userID uuid.
 		case "publisher":
 			entType = models.EntityTypePublisher
 		case "label":
-			entType = models.EntityTypeLabel
+			// 独立厂牌已并入出版机构（publisher 覆盖 imprint / 子厂牌）
+			entType = models.EntityTypePublisher
+		case "circle":
+			// 同人社团已并入团体（group）
+			entType = models.EntityTypeGroup
 		default:
 			entType = models.EntityTypePerson
 		}
@@ -1084,7 +1088,8 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		case strings.Contains(roleLower, "publisher") || strings.Contains(roleLower, "出版社") || strings.Contains(roleLower, "发行"):
 			relTypeCode = "producer"
 		case strings.Contains(roleLower, "studio") || strings.Contains(roleLower, "制作") || strings.Contains(roleLower, "开发"):
-			relTypeCode = "studio"
+			// agent_work 域的 studio 关系已去重移除，制作链路统一走 producer
+			relTypeCode = "producer"
 		case strings.Contains(roleLower, "performer") || strings.Contains(roleLower, "演奏") || strings.Contains(roleLower, "演唱"):
 			relTypeCode = "performer"
 		case strings.Contains(roleLower, "voice") || strings.Contains(roleLower, "声优") || strings.Contains(roleLower, "配音") || strings.Contains(roleLower, "actor") || strings.Contains(roleLower, "演员") || assoc.CharacterName != "":
@@ -1109,7 +1114,19 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 					RelationshipType: relTypeCode,
 					Qualifier:        qualifier,
 				}
-				_ = tx.Create(&edge).Error
+				if verr := ontology.ValidateRelationEdge(tx, ontology.EdgeSpec{
+					SourceType:       "artist",
+					SourceID:         artist.ID,
+					TargetType:       "work",
+					TargetID:         work.ID,
+					RelationshipType: relTypeCode,
+					Qualifier:        qualifier,
+				}); verr != nil {
+					// 本体校验失败仅跳过该边，不中断整个导入事务
+					log.Printf("[Importer] skip invalid relationship %s (artist %s -> work %s): %v", relTypeCode, artist.ID, work.ID, verr)
+				} else {
+					_ = tx.Create(&edge).Error
+				}
 			}
 		}
 
@@ -1129,7 +1146,19 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 							RelationshipType: "voice_actor_of",
 							Qualifier:        "Voice Actor",
 						}
-						_ = tx.Create(&cEdge).Error
+						if verr := ontology.ValidateRelationEdge(tx, ontology.EdgeSpec{
+							SourceType:       "artist",
+							SourceID:         artist.ID,
+							TargetType:       "artist",
+							TargetID:         charEntity.ID,
+							RelationshipType: "voice_actor_of",
+							Qualifier:        "Voice Actor",
+						}); verr != nil {
+							// 本体校验失败仅跳过该边，不中断整个导入事务
+							log.Printf("[Importer] skip invalid relationship voice_actor_of (artist %s -> artist %s): %v", artist.ID, charEntity.ID, verr)
+						} else {
+							_ = tx.Create(&cEdge).Error
+						}
 					}
 				}
 			}
@@ -1144,7 +1173,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				case "music":
 					relTypeCode = "soundtrack_of"
 				case "movie", "tv", "anime":
-					relTypeCode = "adaptation_of"
+					relTypeCode = "adapted_from"
 				case "game":
 					relTypeCode = "spin_off_of"
 				default:
@@ -1163,7 +1192,19 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 						RelationshipType: relTypeCode,
 						Qualifier:        "Cross-source auto link",
 					}
-					_ = tx.Create(&edge).Error
+					if verr := ontology.ValidateRelationEdge(tx, ontology.EdgeSpec{
+						SourceType:       "work",
+						SourceID:         work.ID,
+						TargetType:       "work",
+						TargetID:         *req.TargetWorkID,
+						RelationshipType: relTypeCode,
+						Qualifier:        "Cross-source auto link",
+					}); verr != nil {
+						// 本体校验失败仅跳过该边，不中断整个导入事务
+						log.Printf("[Importer] skip invalid relationship %s (work %s -> work %s): %v", relTypeCode, work.ID, *req.TargetWorkID, verr)
+					} else {
+						_ = tx.Create(&edge).Error
+					}
 				}
 			}
 		}

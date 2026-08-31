@@ -98,16 +98,7 @@ export interface AdminStats {
   total_comments: number;
 }
 
-export interface Category {
-  code: string;
-  parent_code?: string;
-  name_zh: string;
-  name_en: string;
-  name?: string;
-  media_type: string;
-  sort_order: number;
-  clc_prefix?: string;
-}
+// 旧分类法 Category 接口已随 categories 词表废弃而移除（taxonomy 现用 tags + shelves）
 
 export interface VirtualShelf {
   id?: string;
@@ -160,7 +151,6 @@ export function workFacetTagGroups(groups: Record<string, Tag[]> | undefined): [
 }
 
 export interface TaxonomyResponse {
-  categories: Category[];
   shelves?: VirtualShelf[];
   tags?: Tag[];
   tag_groups?: Record<string, Tag[]>;
@@ -560,7 +550,6 @@ export interface Release {
 
 export interface Work {
   id: string;
-  category_code?: string;
   title: string;
   original_title?: string;
   aliases?: string[];
@@ -583,7 +572,6 @@ export interface Work {
   attributes?: Record<string, any>;
   external_links?: ExternalLinkDisplay[];
   catalog_metadata: Record<string, any>;
-  category?: Category;
   tags?: Tag[];
   artist_relations?: WorkArtistRelation[];
   releases?: Release[];

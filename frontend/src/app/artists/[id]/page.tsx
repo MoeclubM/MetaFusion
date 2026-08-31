@@ -111,7 +111,7 @@ export default function ArtistDetailPage() {
         />
       );
     }
-    if (artist?.entity_type === "studio" || artist?.entity_type === "publisher" || artist?.entity_type === "label") {
+    if (artist?.entity_type === "studio" || artist?.entity_type === "publisher") {
       return <Building className="w-8 h-8 text-amber-400" strokeWidth={1.4} />;
     }
     return <User className="w-8 h-8 text-amber-400" strokeWidth={1.4} />;
@@ -310,7 +310,7 @@ export default function ArtistDetailPage() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="w-8 h-8 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-emerald-500/30 grid place-items-center shrink-0">
-                                  {ent.entity_type === "studio" || ent.entity_type === "publisher" || ent.entity_type === "label" ? (
+                                  {ent.entity_type === "studio" || ent.entity_type === "publisher" ? (
                                     <Building className="w-4 h-4 text-emerald-500" />
                                   ) : (
                                     <User className="w-4 h-4 text-emerald-500" />
@@ -379,7 +379,7 @@ export default function ArtistDetailPage() {
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="w-8 h-8 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 grid place-items-center shrink-0">
-                                  {ent.entity_type === "studio" || ent.entity_type === "publisher" || ent.entity_type === "label" ? (
+                                  {ent.entity_type === "studio" || ent.entity_type === "publisher" ? (
                                     <Building className="w-4 h-4 text-gray-400" />
                                   ) : (
                                     <User className="w-4 h-4 text-gray-400" />

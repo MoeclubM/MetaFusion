@@ -93,17 +93,6 @@ CREATE TABLE IF NOT EXISTS media_types (
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS categories (
-    code VARCHAR(32) PRIMARY KEY,                  -- 传统分类法层级（兼容 CLC 映射，不作为硬隔离主逻辑）
-    parent_code VARCHAR(32) REFERENCES categories(code) ON DELETE SET NULL,
-    name_zh VARCHAR(64) NOT NULL,
-    name_en VARCHAR(64) NOT NULL,
-    names JSONB DEFAULT '{}'::jsonb NOT NULL,
-    media_type VARCHAR(32) NOT NULL REFERENCES media_types(code) ON UPDATE CASCADE ON DELETE RESTRICT,
-    sort_order INT DEFAULT 0 NOT NULL,
-    clc_prefix VARCHAR(16)
-);
-
 CREATE TABLE IF NOT EXISTS virtual_shelves (
     slug VARCHAR(64) PRIMARY KEY,
     parent_slug VARCHAR(64) REFERENCES virtual_shelves(slug) ON DELETE CASCADE,
@@ -165,7 +154,7 @@ CREATE TABLE IF NOT EXISTS tag_translations (
 -- 4. 创作者、机构与演职主体 (Artists / Creators / Studios / Labels / Characters)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS entity_type_definitions (
-    code VARCHAR(64) PRIMARY KEY,                  -- person, group, orchestra, studio, publisher, circle, label, virtual_character
+    code VARCHAR(64) PRIMARY KEY,                  -- person, group, orchestra, studio, publisher, virtual_character
     name_zh VARCHAR(64) NOT NULL,
     name_en VARCHAR(64) NOT NULL,
     names JSONB DEFAULT '{}'::jsonb NOT NULL,
@@ -248,7 +237,6 @@ CREATE TABLE IF NOT EXISTS franchise_tag_relations (
 
 CREATE TABLE IF NOT EXISTS works (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    category_code VARCHAR(64) DEFAULT '',          -- 兼容旧分类字段，无强限制
     title VARCHAR(255) NOT NULL,
     original_title VARCHAR(255),
     aliases VARCHAR(255)[] DEFAULT '{}',
@@ -420,7 +408,7 @@ CREATE TABLE IF NOT EXISTS asset_bindings (
 -- 9. 动态关系本体与知识图谱连线 (Dynamic Relation Types & Entity Relationships)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS relation_types (
-    code VARCHAR(64) PRIMARY KEY,                  -- 'signed_with', 'voice_actor', 'soundtrack_of', 'adapted_from', 'spin_off_of'
+    code VARCHAR(64) PRIMARY KEY,                  -- 'signed_with', 'voice_actor_of', 'soundtrack_of', 'adapted_from', 'spin_off_of'
     domain VARCHAR(32) NOT NULL,                   -- 'agent_agent', 'agent_work', 'work_work', 'agent_release', 'work_franchise'
     name_zh VARCHAR(64) NOT NULL,
     name_en VARCHAR(64) NOT NULL,
@@ -642,7 +630,6 @@ CREATE INDEX IF NOT EXISTS idx_franchises_catalog_metadata_gin ON franchises USI
 CREATE INDEX IF NOT EXISTS idx_franchise_translations_locale ON franchise_translations(locale);
 
 -- 11.5 作品
-CREATE INDEX IF NOT EXISTS idx_works_category ON works(category_code);
 CREATE INDEX IF NOT EXISTS idx_works_release_date ON works(release_date);
 CREATE INDEX IF NOT EXISTS idx_works_language ON works(language);
 CREATE INDEX IF NOT EXISTS idx_works_original_language ON works(original_language);
@@ -742,11 +729,9 @@ INSERT INTO entity_type_definitions (code, name_zh, name_en, names, desc_zh, des
 ('person',            '个人创作者',        'Individual Creator', '{"zh-CN":"个人创作者","en-US":"Individual Creator"}', '导演、著者、作曲家、编曲、作词、画师、声优等', 'Director, author, composer, arranger, lyricist, illustrator, voice actor, etc.', 'text-amber-400', 'bg-amber-500/10', 'border-amber-500/30', 10, TRUE, TRUE),
 ('virtual_character', '角色 / 人物',    'Character',  '{"zh-CN":"角色 / 人物","en-US":"Character"}', '动漫、游戏、影视等作品中的登场角色与人物形象（含 Vtuber、虚拟企划人物）', 'Fictional characters in anime, games, film and other works (incl. VTubers and franchise personas).', 'text-rose-400', 'bg-rose-500/10', 'border-rose-500/30', 15, TRUE, TRUE),
 ('studio',            '制作机构 / 工作室',  'Studio',             '{"zh-CN":"制作机构 / 工作室","en-US":"Studio"}',             '动画工作室、影视制作公司、开发组等', 'Animation studio, production company, dev team, etc.', 'text-purple-400', 'bg-purple-500/10', 'border-purple-500/30', 20, TRUE, TRUE),
-('publisher',         '出版社 / 发行厂牌',  'Publisher / Label',  '{"zh-CN":"出版社 / 发行厂牌","en-US":"Publisher / Label"}',  '图书出版社、影音发行商、唱片公司等', 'Book publisher, AV distributor, record label, etc.', 'text-sky-400', 'bg-sky-500/10', 'border-sky-500/30', 30, TRUE, TRUE),
+('publisher',         '出版社 / 发行厂牌',  'Publisher / Label',  '{"zh-CN":"出版社 / 发行厂牌","en-US":"Publisher / Label"}',  '出版机构、发行厂牌、唱片公司、独立厂牌与子品牌等', 'Publishing houses, distributors, record labels, imprints and sub-brands, etc.', 'text-sky-400', 'bg-sky-500/10', 'border-sky-500/30', 30, TRUE, TRUE),
 ('orchestra',         '管弦乐团 / 歌剧团',  'Orchestra',          '{"zh-CN":"管弦乐团 / 歌剧团","en-US":"Orchestra"}',          '交响乐团、室内乐团、爱乐乐团等', 'Symphony, chamber orchestra, philharmonic, etc.', 'text-emerald-400', 'bg-emerald-500/10', 'border-emerald-500/30', 40, TRUE, TRUE),
-('group',             '乐队 / 组合',        'Band / Group',       '{"zh-CN":"乐队 / 组合","en-US":"Band / Group"}',       '摇滚乐队、偶像团体、声优组合、室内乐组合与企划内虚构乐队等演职团体', 'Real or in-universe bands, idol groups, voice-actor units, chamber ensembles and performance groups.', 'text-rose-400', 'bg-rose-500/10', 'border-rose-500/30', 50, TRUE, TRUE),
-('circle',            '同人社团 / 独立组织', 'Circle',             '{"zh-CN":"同人社团 / 独立组织","en-US":"Circle"}',             '同人音乐社团、独立创作小组等', 'Doujin music circle, indie creative group, etc.', 'text-indigo-400', 'bg-indigo-500/10', 'border-indigo-500/30', 60, TRUE, TRUE),
-('label',             '独立厂牌 / 子品牌',  'Indie Label',        '{"zh-CN":"独立厂牌 / 子品牌","en-US":"Indie Label"}',        '出版子厂牌、专项音乐厂牌等', 'Imprint, sub-label, specialty music label, etc.', 'text-teal-400', 'bg-teal-500/10', 'border-teal-500/30', 70, TRUE, TRUE)
+('group',             '乐队 / 组合',        'Band / Group',       '{"zh-CN":"乐队 / 组合","en-US":"Band / Group"}',       '摇滚乐队、偶像团体、声优组合、室内乐、同人社团与企划内虚构乐队等演职团体', 'Rock bands, idol groups, voice-actor units, chamber ensembles, doujin circles and in-universe franchise bands.', 'text-rose-400', 'bg-rose-500/10', 'border-rose-500/30', 50, TRUE, TRUE)
 ON CONFLICT (code) DO UPDATE SET
     name_zh = EXCLUDED.name_zh,
     name_en = EXCLUDED.name_en,
@@ -757,6 +742,12 @@ ON CONFLICT (code) DO UPDATE SET
     bg_color = EXCLUDED.bg_color,
     border_color = EXCLUDED.border_color,
     sort_order = EXCLUDED.sort_order;
+
+-- 实体类型合并迁移：独立厂牌(label)并入出版机构(publisher)，同人社团(circle)并入团体(group)
+-- （对新库为空操作；对存量库将既有主体迁移后移除废弃字典项）
+UPDATE artists SET entity_type = 'publisher' WHERE entity_type = 'label';
+UPDATE artists SET entity_type = 'group' WHERE entity_type = 'circle';
+DELETE FROM entity_type_definitions WHERE code IN ('label', 'circle');
 
 INSERT INTO media_types (code, name_zh, name_en, names, description, icon, sort_order, is_enabled, clc_prefix) VALUES
 ('movie',       '电影',       'Movies',            '{"zh-CN":"电影","en-US":"Movies"}',            '院线长片、动画剧场版与纪录电影',        'Film',         10, TRUE, 'J9'),

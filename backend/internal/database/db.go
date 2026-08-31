@@ -41,10 +41,10 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	// 自动同步模型结构（若数据库已有表则跳过，独立迁移各表避免单一约束差异阻塞全库）
+	// 注：Category 旧分类法已废弃并删除 struct；categories 表保留在库中但不再迁移/写入
 	modelsToMigrate := []interface{}{
 		&models.User{},
 		&models.Invitation{},
-		&models.Category{},
 		&models.VirtualShelf{},
 		&models.Tag{},
 		&models.MediaType{},

@@ -534,7 +534,7 @@ func FetchVNDBProducerPreview(ctx context.Context, prodID string) (*PreviewRespo
 	if item.Type == "co" {
 		entType = models.EntityTypePublisher
 	} else if item.Type == "ng" {
-		entType = models.EntityTypeCircle
+		entType = models.EntityTypeGroup
 	}
 
 	artist := ArtistPreview{

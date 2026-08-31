@@ -90,32 +90,6 @@ func (s *CatalogService) persistEntityRelations(rows []entityRelInput) error {
 	return nil
 }
 
-func (s *CatalogService) mirrorArtistWorkEdge(artistID, workID uuid.UUID, role string) {
-	role = strings.ToLower(strings.TrimSpace(role))
-	if role == "" {
-		return
-	}
-	spec := ontology.EdgeSpec{
-		SourceType:       "artist",
-		SourceID:         artistID,
-		TargetType:       "work",
-		TargetID:         workID,
-		RelationshipType: role,
-	}
-	if err := ontology.ValidateRelationEdge(s.db, spec); err != nil {
-		return
-	}
-	rel := models.EntityRelationship{
-		SourceType:       "artist",
-		SourceID:         artistID,
-		TargetType:       "work",
-		TargetID:         workID,
-		RelationshipType: role,
-		Qualifier:        "",
-		Attributes:       models.JSONB{},
-	}
-	_ = s.db.Where(
-		"source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
-		rel.SourceType, rel.SourceID, rel.TargetType, rel.TargetID, rel.RelationshipType, rel.Qualifier,
-	).FirstOrCreate(&rel).Error
-}
+// mirrorArtistWorkEdge 已废弃并由 artist_relations.go 的 UpsertArtistWorkEdge 取代：
+// 署名写路径单轨化后不再存在「写 relation 行 + 镜像边」的双轨写入。
+// SubmitComprehensiveArchive 需要的静默容错写入改用 IgnoreRelationErrors 包装。

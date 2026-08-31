@@ -44,10 +44,10 @@ func (s *CatalogService) BrowseWorks(c *gin.Context) {
 	offset := (page - 1) * pageSize
 	query := s.db.Model(&models.Work{})
 
-	// 关联过滤
+	// 关联过滤（署名单轨化：artist 关联取自 entity_relationships 图边）
 	if artistIDStr != "" {
 		if aid, err := uuid.Parse(artistIDStr); err == nil {
-			query = query.Where("id IN (SELECT work_id FROM work_artist_relations WHERE artist_id = ?)", aid)
+			query = query.Where("id IN (SELECT target_id FROM entity_relationships WHERE source_type = 'artist' AND target_type = 'work' AND source_id = ?)", aid)
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid artist id", "code": "BAD_REQUEST"})
 			return
@@ -75,9 +75,6 @@ func (s *CatalogService) BrowseWorks(c *gin.Context) {
 
 	// 预加载按 inc 决定，避免匿名用户被拖慢
 	if withArtists || withTags {
-		if withArtists {
-			query = query.Preload("ArtistRelations.Artist")
-		}
 		if withTags {
 			query = query.Preload("Tags")
 		}
@@ -89,6 +86,10 @@ func (s *CatalogService) BrowseWorks(c *gin.Context) {
 	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&works).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	// 署名单轨化：artist_relations 由图边读时投影
+	if withArtists {
+		AttachWorkArtistRelations(s.db, works)
 	}
 
 	// 若需要返回更多关联，可在响应中附加，但为保持兼容仍以分页信封返回
@@ -133,8 +134,8 @@ func (s *CatalogService) BrowseReleases(c *gin.Context) {
 	}
 	if artistIDStr != "" {
 		if aid, err := uuid.Parse(artistIDStr); err == nil {
-			// 通过 work_artist_relations 关联到 work 再到 release，或直接按 publisher_id
-			query = query.Where("work_id IN (SELECT work_id FROM work_artist_relations WHERE artist_id = ?) OR publisher_id = ?", aid, aid)
+			// 署名单轨化：通过 entity_relationships 署名边关联到 work 再到 release，或直接按 publisher_id
+			query = query.Where("work_id IN (SELECT target_id FROM entity_relationships WHERE source_type = 'artist' AND target_type = 'work' AND source_id = ?) OR publisher_id = ?", aid, aid)
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid artist id"})
 			return
@@ -147,7 +148,7 @@ func (s *CatalogService) BrowseReleases(c *gin.Context) {
 
 	// inc 控制预加载
 	if inc["work"] || inc["works"] {
-		query = query.Preload("Work").Preload("Work.Translations").Preload("Work.Tags").Preload("Work.ArtistRelations").Preload("Work.ArtistRelations.Artist")
+		query = query.Preload("Work").Preload("Work.Translations").Preload("Work.Tags")
 	}
 	if inc["mediums"] || inc["medium"] {
 		query = query.Preload("Mediums")
@@ -160,6 +161,16 @@ func (s *CatalogService) BrowseReleases(c *gin.Context) {
 	if err := query.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&releases).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	// 署名单轨化：Work.ArtistRelations 由图边读时投影
+	if inc["work"] || inc["works"] {
+		browseWorkPtrs := make([]*models.Work, 0, len(releases))
+		for i := range releases {
+			if releases[i].Work != nil {
+				browseWorkPtrs = append(browseWorkPtrs, releases[i].Work)
+			}
+		}
+		AttachWorkArtistRelationsPtr(s.db, browseWorkPtrs)
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"items":     releases,
@@ -189,7 +200,8 @@ func (s *CatalogService) BrowseArtists(c *gin.Context) {
 
 	if workIDStr != "" {
 		if wid, err := uuid.Parse(workIDStr); err == nil {
-			query = query.Where("id IN (SELECT artist_id FROM work_artist_relations WHERE work_id = ?)", wid)
+			// 署名单轨化：取自 entity_relationships 署名图边
+			query = query.Where("id IN (SELECT source_id FROM entity_relationships WHERE source_type = 'artist' AND target_type = 'work' AND target_id = ?)", wid)
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid work id"})
 			return
@@ -197,8 +209,15 @@ func (s *CatalogService) BrowseArtists(c *gin.Context) {
 	}
 	if collabIDStr != "" {
 		if cid, err := uuid.Parse(collabIDStr); err == nil {
-			// 共同参与同一作品的创作者
-			query = query.Where("id IN (SELECT DISTINCT war2.artist_id FROM work_artist_relations war1 JOIN work_artist_relations war2 ON war1.work_id = war2.work_id WHERE war1.artist_id = ? AND war2.artist_id != ?)", cid, cid)
+			// 共同参与同一作品的创作者（同一 work 下的两条署名边）
+			query = query.Where(`id IN (
+				SELECT DISTINCT er2.source_id FROM entity_relationships er1
+				JOIN entity_relationships er2
+					ON er1.target_type = 'work' AND er2.target_type = 'work'
+					AND er1.target_id = er2.target_id
+				WHERE er1.source_type = 'artist' AND er2.source_type = 'artist'
+					AND er1.source_id = ? AND er2.source_id != ?
+			)`, cid, cid)
 		} else {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid collaborator id"})
 			return

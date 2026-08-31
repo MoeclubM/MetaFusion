@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
+	catalogsvc "github.com/metafusion/metafusion-app/internal/catalog"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/ontology"
 )
@@ -249,23 +250,25 @@ func (s *AdminService) UpsertWorkRelations(c *gin.Context) {
 
 	for _, r := range input.Relations {
 		var count int64
-		s.db.Model(&models.RelationType{}).Where("code = ? AND is_enabled = ?", r.Role, true).Count(&count)
+		s.db.Model(&models.RelationType{}).Where("code = ? AND is_enabled = ?", strings.ToLower(strings.TrimSpace(r.Role)), true).Count(&count)
 		if count == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "admin.invalid_role") + r.Role})
 			return
 		}
 	}
-	// 幂等：先清后插置
+	// 旧表清理（无害）：work_artist_relations 已退役，仅删除遗留行
 	if err := s.db.Where("work_id = ?", workID).Delete(&models.WorkArtistRelation{}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// 单轨化：只写 entity_relationships 署名图边（ValidateRelationEdge 校验 + 幂等 + 删除重建语义）
+	rows := make([]catalogsvc.WorkRelationInput, 0, len(input.Relations))
 	for _, r := range input.Relations {
-		rel := models.WorkArtistRelation{WorkID: workID, ArtistID: r.ArtistID, Role: r.Role}
-		if err := s.db.Create(&rel).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
+		rows = append(rows, catalogsvc.WorkRelationInput{ArtistID: r.ArtistID, Role: r.Role})
+	}
+	if err := catalogsvc.SyncWorkRelationEdges(s.db, workID, rows); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 	writeAudit(s.db, c, "work.relations.upsert", "work", workID.String(), map[string]interface{}{"count": len(input.Relations)})
 	c.JSON(http.StatusOK, gin.H{"status": "success", "count": len(input.Relations)})

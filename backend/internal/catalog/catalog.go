@@ -66,25 +66,6 @@ func NewCatalogService(db *gorm.DB) *CatalogService {
 	return &CatalogService{db: db}
 }
 
-// ListCategories 获取所有分类层级，按 locale 叠加本地化 name
-func (s *CatalogService) ListCategories(c *gin.Context) {
-	var categories []models.Category
-	if err := s.db.Order("sort_order asc").Find(&categories).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	locale := backendi18n.LocaleFromContext(c)
-	type outCat struct {
-		models.Category
-		Name string `json:"name"`
-	}
-	out := make([]outCat, 0, len(categories))
-	for _, cat := range categories {
-		out = append(out, outCat{Category: cat, Name: cat.LocalizedName(locale)})
-	}
-	c.JSON(http.StatusOK, out)
-}
-
 // ListShelves 获取所有虚拟分类与货架列表 (树状结构)
 func (s *CatalogService) ListShelves(c *gin.Context) {
 	var shelves []models.VirtualShelf
@@ -111,15 +92,10 @@ func (s *CatalogService) ListShelves(c *gin.Context) {
 	c.JSON(http.StatusOK, rootShelves)
 }
 
-// GetTaxonomy 获取全量分类层级、虚拟货架、多维标签、媒介大类、演职角色与物理规格词表。
+// GetTaxonomy 获取全量虚拟货架、多维标签、媒介大类、演职角色与物理规格词表。
 // tag_groups / tags 只含 Work 侧面相（形态/手法/流派/专题/通用）；规格不是标签，见 formats/packagings。
+// 旧分类法 categories 已废弃（taxonomy 现用 tags + shelves），不再查询与返回。
 func (s *CatalogService) GetTaxonomy(c *gin.Context) {
-	var categories []models.Category
-	if err := s.db.Order("sort_order asc").Find(&categories).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	var shelves []models.VirtualShelf
 	_ = s.db.Order("sort_order asc").Find(&shelves).Error
 
@@ -137,15 +113,6 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 	}
 
 	locale := backendi18n.LocaleFromContext(c)
-
-	type outCat struct {
-		models.Category
-		Name string `json:"name"`
-	}
-	outCats := make([]outCat, 0, len(categories))
-	for _, cat := range categories {
-		outCats = append(outCats, outCat{Category: cat, Name: cat.LocalizedName(locale)})
-	}
 
 	mediaTypes := make([]map[string]string, 0)
 	var mtRows []models.MediaType
@@ -235,7 +202,6 @@ func (s *CatalogService) GetTaxonomy(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"categories":       outCats,
 		"shelves":          rootShelves,
 		"tag_groups":       tagGroups,
 		"tags":             workTags,
@@ -294,7 +260,7 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 	}
 
 	offset := (page - 1) * pageSize
-	query := s.db.Model(&models.Work{}).Preload("Tags").Preload("ArtistRelations.Artist").Preload("Translations")
+	query := s.db.Model(&models.Work{}).Preload("Tags").Preload("Translations")
 
 	// 状态过滤：未登录/普通用户默认只能查 published/completed 作品
 	userRole, _ := c.Get("role")
@@ -409,6 +375,8 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// 署名单轨化：artist_relations 由 entity_relationships 图边读时投影
+	AttachWorkArtistRelations(s.db, works)
 
 	c.JSON(http.StatusOK, gin.H{
 		"items":     works,
@@ -465,7 +433,6 @@ func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 
 	var work models.Work
 	q := s.db.Preload("Tags").
-		Preload("ArtistRelations.Artist").
 		Preload("Translations").
 		Where("id = ?", workID)
 
@@ -477,6 +444,8 @@ func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// 署名单轨化：artist_relations 由 entity_relationships 图边读时投影（保持旧 JSON 形状）
+	work.ArtistRelations = ProjectWorkArtistRelations(s.db, work.ID)
 
 		s.db.Model(&work).UpdateColumn("view_count", gorm.Expr("view_count + 1"))
 		work.ViewCount++
@@ -563,9 +532,6 @@ func (s *CatalogService) ListReleases(c *gin.Context) {
 		Preload("Work").
 		Preload("Work.Translations").
 		Preload("Work.Tags").
-		Preload("Work.ArtistRelations").
-		Preload("Work.ArtistRelations.Artist").
-		Preload("Work.ArtistRelations.Artist.Translations").
 		Preload("Mediums").
 		Offset(offset).
 		Limit(pageSize).
@@ -573,6 +539,14 @@ func (s *CatalogService) ListReleases(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// 署名单轨化：Work.ArtistRelations 由图边读时投影
+	workPtrs := make([]*models.Work, 0, len(releases))
+	for i := range releases {
+		if releases[i].Work != nil {
+			workPtrs = append(workPtrs, releases[i].Work)
+		}
+	}
+	AttachWorkArtistRelationsPtr(s.db, workPtrs)
 
 	c.JSON(http.StatusOK, gin.H{
 		"items":     releases,
@@ -668,6 +642,12 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 	var includedWorks []models.Work
 	if len(allWorkIDs) > 0 {
 		_ = s.db.Preload("Translations").Preload("Tags").Where("id IN ?", allWorkIDs).Order("release_date asc, created_at asc").Find(&includedWorks).Error
+	}
+
+	// 署名单轨化：Release.Work.ArtistRelations 由图边读时投影（需在 JSON 序列化前填充）
+	if release.Work != nil {
+		wptrs := []*models.Work{release.Work}
+		AttachWorkArtistRelationsPtr(s.db, wptrs)
 	}
 
 	inc := parseInc(c.Query("inc"))
@@ -771,7 +751,7 @@ func (s *CatalogService) GetWorkGraph(c *gin.Context) {
 	}
 
 	var work models.Work
-	if err := s.db.Preload("ArtistRelations.Artist").Where("id = ?", workID).First(&work).Error; err != nil {
+	if err := s.db.Where("id = ?", workID).First(&work).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Work not found: " + err.Error()})
 		return
 	}
@@ -800,42 +780,64 @@ func (s *CatalogService) GetWorkGraph(c *gin.Context) {
 	nodeSet := map[string]bool{work.ID.String(): true}
 	links := []GraphLink{}
 
-	for _, rel := range work.ArtistRelations {
-		if rel.Artist != nil {
-			if !nodeSet[rel.Artist.ID.String()] {
-				nodeSet[rel.Artist.ID.String()] = true
-				nodes = append(nodes, GraphNode{
-					ID:             rel.Artist.ID.String(),
-					Name:           rel.Artist.Name,
-					OriginalName:   rel.Artist.OriginalName,
-					Type:           "artist",
-					Category:       rel.Artist.EntityType,
-					Role:           rel.Role,
-					Disambiguation: rel.Artist.Disambiguation,
-					Country:        rel.Artist.Country,
-					Level:          0,
-				})
-			}
-			roleLabel := rel.Role
-			color := "amber"
-			if rt, ok := relTypeMap[rel.Role]; ok {
-				roleLabel = rt.LocalizedReverseLabel(locale)
-				color = rt.Color
-			}
-			links = append(links, GraphLink{
-				Source:     rel.Artist.ID.String(),
-				Target:     work.ID.String(),
-				SourceType: "artist",
-				TargetType: "work",
-				Type:       rel.Role,
-				Label:      roleLabel,
-				Color:      color,
+	// 署名单轨化：演职节点/连线直接取自 entity_relationships 署名图边（agent_work 域 + 导入器兼容边）
+	creditEdges, err := artistWorkEdges(s.db, []uuid.UUID{workID}, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	artistMap := loadArtistsForEdges(s.db, creditEdges)
+	creditEdgeIDs := make([]uuid.UUID, 0, len(creditEdges))
+	for _, e := range creditEdges {
+		creditEdgeIDs = append(creditEdgeIDs, e.ID)
+		artist := artistMap[e.SourceID]
+		if artist == nil {
+			continue
+		}
+		if !nodeSet[artist.ID.String()] {
+			nodeSet[artist.ID.String()] = true
+			nodes = append(nodes, GraphNode{
+				ID:             artist.ID.String(),
+				Name:           artist.Name,
+				OriginalName:   artist.OriginalName,
+				Type:           "artist",
+				Category:       artist.EntityType,
+				Role:           EdgeDisplayRole(e),
+				Disambiguation: artist.Disambiguation,
+				Country:        artist.Country,
+				Level:          0,
 			})
 		}
+		roleLabel := EdgeDisplayRole(e)
+		color := "amber"
+		if rt, ok := relTypeMap[e.RelationshipType]; ok {
+			roleLabel = rt.LocalizedReverseLabel(locale)
+			color = rt.Color
+		}
+		links = append(links, GraphLink{
+			ID:         e.ID.String(),
+			Source:     artist.ID.String(),
+			Target:     work.ID.String(),
+			SourceType: "artist",
+			TargetType: "work",
+			Type:       e.RelationshipType,
+			Label:      roleLabel,
+			Qualifier:  e.Qualifier,
+			Color:      color,
+			Attributes: e.Attributes,
+			BeginDate:  e.BeginDate,
+			EndDate:    e.EndDate,
+			Ended:      e.Ended,
+		})
 	}
 
+	// 跨实体语义边（署名边已单独渲染，避免重复连线）
+	crossQuery := s.db.Where("source_id = ? OR target_id = ?", workID, workID)
+	if len(creditEdgeIDs) > 0 {
+		crossQuery = crossQuery.Where("id NOT IN ?", creditEdgeIDs)
+	}
 	var crossRels []models.EntityRelationship
-	s.db.Where("source_id = ? OR target_id = ?", workID, workID).Find(&crossRels)
+	crossQuery.Find(&crossRels)
 
 	for _, cr := range crossRels {
 		otherID := cr.TargetID
@@ -1374,7 +1376,7 @@ func (s *CatalogService) UpsertWorkRelationsForMember(c *gin.Context) {
 		return
 	}
 	for _, r := range input.Relations {
-		if !ontology.IsEnabledWorkRole(s.db, r.Role) {
+		if !ontology.IsEnabledWorkRole(s.db, strings.ToLower(strings.TrimSpace(r.Role))) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_role") + r.Role})
 			return
 		}
@@ -1385,17 +1387,19 @@ func (s *CatalogService) UpsertWorkRelationsForMember(c *gin.Context) {
 			return
 		}
 	}
+	// 旧表清理（无害）：work_artist_relations 已退役，仅删除遗留行
 	if err := s.db.Where("work_id = ?", workID).Delete(&models.WorkArtistRelation{}).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// 单轨化：只写 entity_relationships 署名图边（校验 + 幂等 + 删除重建语义）
+	rows := make([]WorkRelationInput, 0, len(input.Relations))
 	for _, r := range input.Relations {
-		rel := models.WorkArtistRelation{WorkID: workID, ArtistID: r.ArtistID, Role: r.Role}
-		if err := s.db.Create(&rel).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		s.mirrorArtistWorkEdge(r.ArtistID, workID, r.Role)
+		rows = append(rows, WorkRelationInput{ArtistID: r.ArtistID, Role: r.Role})
+	}
+	if err := SyncWorkRelationEdges(s.db, workID, rows); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "count": len(input.Relations)})
 }
@@ -1491,14 +1495,13 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 
 	locale := backendi18n.LocaleFromContext(c)
 
-	var relations []models.WorkArtistRelation
-	s.db.Where("artist_id = ?", artistID).Find(&relations)
-
-	var workIDs []uuid.UUID
+	// 署名单轨化：参演作品与角色直接取自 entity_relationships 署名图边
+	creditEdges, _ := artistWorkEdges(s.db, nil, &artistID)
+	workIDs := make([]uuid.UUID, 0, len(creditEdges))
 	roleMap := make(map[uuid.UUID]string)
-	for _, rel := range relations {
-		workIDs = append(workIDs, rel.WorkID)
-		roleMap[rel.WorkID] = rel.Role
+	for _, e := range creditEdges {
+		workIDs = append(workIDs, e.TargetID)
+		roleMap[e.TargetID] = EdgeDisplayRole(e)
 	}
 
 	works := make([]models.Work, 0)
@@ -1511,7 +1514,7 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 		}
 	}
 
-	// 图谱边中的作品（character_in / creator 等），并入作者枢纽列表
+	// 其余 artist<->work 图谱边（署名域之外的自定义关系类型），并入作者枢纽列表
 	var graphWorkRels []models.EntityRelationship
 	s.db.Where(
 		"(source_type = 'artist' AND source_id = ? AND target_type = 'work') OR (target_type = 'artist' AND target_id = ? AND source_type = 'work')",
@@ -1526,7 +1529,10 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 		if er.TargetType != "work" {
 			wid = er.SourceID
 		}
-		if seenWorks[wid] {
+		if _, isCredit := roleMap[wid]; isCredit || seenWorks[wid] {
+			if isCredit {
+				seenWorks[wid] = true
+			}
 			continue
 		}
 		var w models.Work
@@ -1534,7 +1540,7 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 		if err := wQ.First(&w).Error; err == nil {
 			works = append(works, w)
 			seenWorks[w.ID] = true
-			roleMap[w.ID] = er.RelationshipType
+			roleMap[w.ID] = EdgeDisplayRole(er)
 		}
 	}
 
@@ -1552,15 +1558,20 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 		Preload("Work").
 		Preload("Work.Translations").
 		Preload("Work.Tags").
-		Preload("Work.ArtistRelations").
-		Preload("Work.ArtistRelations.Artist").
-		Preload("Work.ArtistRelations.Artist.Translations").
 		Preload("Mediums").
 		Preload("PublisherEntity").
 		Preload("PublisherEntity.Translations").
 		Where("(publisher_id = ? OR (publisher_id IS NULL AND publisher ILIKE ?))", artist.ID, "%"+artist.Name+"%")
 	pubQ = applyReleaseVisibility(pubQ, uidPub)
 	pubQ.Order("edition_date desc, created_at desc").Find(&releases)
+	// 署名单轨化：Work.ArtistRelations 由图边读时投影
+	pubWorkPtrs := make([]*models.Work, 0, len(releases))
+	for i := range releases {
+		if releases[i].Work != nil {
+			pubWorkPtrs = append(pubWorkPtrs, releases[i].Work)
+		}
+	}
+	AttachWorkArtistRelationsPtr(s.db, pubWorkPtrs)
 
 	// 查询主体间关联 (签约、合作、隶属、代理、创始人等)
 	var entRels []models.EntityRelationship
@@ -1672,13 +1683,13 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 	nodeSet := map[string]bool{artist.ID.String(): true}
 	links := []GraphLink{}
 
-	// 1. 作品演职制作关联 (WorkArtistRelation)
-	var relations []models.WorkArtistRelation
-	s.db.Where("artist_id = ?", artistID).Find(&relations)
-
-	for _, rel := range relations {
+	// 1. 作品演职制作关联 — 署名单轨化：直接取 entity_relationships 署名图边
+	creditEdges, _ := artistWorkEdges(s.db, nil, &artistID)
+	creditEdgeIDs := make([]uuid.UUID, 0, len(creditEdges))
+	for _, e := range creditEdges {
+		creditEdgeIDs = append(creditEdgeIDs, e.ID)
 		var work models.Work
-		if err := s.db.Where("id = ?", rel.WorkID).First(&work).Error; err == nil {
+		if err := s.db.Where("id = ?", e.TargetID).First(&work).Error; err == nil {
 			if !nodeSet[work.ID.String()] {
 				nodeSet[work.ID.String()] = true
 				nodes = append(nodes, GraphNode{
@@ -1687,34 +1698,44 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 					OriginalName:  work.OriginalTitle,
 					Type:          "work",
 					Category:      "main_work",
-					Role:          rel.Role,
+					Role:          EdgeDisplayRole(e),
 					CoverImageURL: work.CoverImageURL,
 					Country:       work.Country,
 					Status:        work.Status,
 					Level:         1,
 				})
 			}
-			roleLabel := rel.Role
+			roleLabel := EdgeDisplayRole(e)
 			color := "amber"
-			if rt, ok := relTypeMap[rel.Role]; ok {
-				roleLabel = rt.LocalizedReverseLabel(locale)
+			if rt, ok := relTypeMap[e.RelationshipType]; ok {
+				roleLabel = rt.LocalizedForwardLabel(locale)
 				color = rt.Color
 			}
 			links = append(links, GraphLink{
-				Source:     artist.ID.String(),
+				ID:         e.ID.String(),
+				Source:     artistID.String(),
 				Target:     work.ID.String(),
 				SourceType: "artist",
 				TargetType: "work",
-				Type:       rel.Role,
+				Type:       e.RelationshipType,
 				Label:      roleLabel,
+				Qualifier:  e.Qualifier,
 				Color:      color,
+				Attributes: e.Attributes,
+				BeginDate:  e.BeginDate,
+				EndDate:    e.EndDate,
+				Ended:      e.Ended,
 			})
 		}
 	}
 
-	// 2. 主体间长效关联 (EntityRelationship: 签约、合作、隶属、代理、母子)
+	// 2. 主体间长效关联 (EntityRelationship: 签约、合作、隶属、代理、母子；署名边已单独渲染)
+	entQuery := s.db.Where("(source_type = 'artist' AND source_id = ?) OR (target_type = 'artist' AND target_id = ?)", artistID, artistID)
+	if len(creditEdgeIDs) > 0 {
+		entQuery = entQuery.Where("id NOT IN ?", creditEdgeIDs)
+	}
 	var entRels []models.EntityRelationship
-	s.db.Where("(source_type = 'artist' AND source_id = ?) OR (target_type = 'artist' AND target_id = ?)", artistID, artistID).Find(&entRels)
+	entQuery.Find(&entRels)
 
 	for _, er := range entRels {
 		var otherType string
@@ -1775,7 +1796,7 @@ func (s *CatalogService) GetArtistGraph(c *gin.Context) {
 	}
 
 	// 3. 如果是机构/厂牌/工作室，同时关联其出版的发行版
-	if artist.EntityType == models.EntityTypePublisher || artist.EntityType == models.EntityTypeStudio || artist.EntityType == models.EntityTypeLabel {
+	if artist.EntityType == models.EntityTypePublisher || artist.EntityType == models.EntityTypeStudio {
 		var pubReleases []models.Release
 		s.db.Where("publisher_id = ?", artistID).Find(&pubReleases)
 		for _, rel := range pubReleases {
@@ -2405,13 +2426,13 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_role") + role})
 			return
 		}
-		relation := models.WorkArtistRelation{
-			WorkID:   work.ID,
-			ArtistID: *relInput.ArtistID,
-			Role:     role,
+		// 单轨化：只写 entity_relationships 署名图边，不再落 work_artist_relations 行。
+		// "creator" 是历史别名，映射到 author 边保留署名可见性；无法解析的 role 静默跳过（与旧 mirror 行为一致）。
+		edgeRole := strings.ToLower(role)
+		if edgeRole == "creator" {
+			edgeRole = "author"
 		}
-		s.db.Create(&relation)
-		s.mirrorArtistWorkEdge(*relInput.ArtistID, work.ID, role)
+		_ = UpsertArtistWorkEdge(s.db, *relInput.ArtistID, work.ID, edgeRole)
 	}
 
 	// 发行版与载体/曲目录入

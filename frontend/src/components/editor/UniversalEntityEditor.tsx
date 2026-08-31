@@ -460,7 +460,6 @@ export function UniversalEntityEditor({
           {activeTab === "attributes" && (
             <DynamicAttributeForm
               entityType={targetType}
-              category={formData.category_code}
               value={formData.attributes || {}}
               onChange={(attrs) => updateField("attributes", attrs)}
             />

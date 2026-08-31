@@ -614,7 +614,6 @@ func main() {
 			catGroup.GET("/relation-types", catalogSvc.ListRelationTypes)
 			catGroup.GET("/external-databases", catalogSvc.ListExternalDatabases)
 			catGroup.GET("/shelves", catalogSvc.ListShelves)
-			catGroup.GET("/categories", catalogSvc.ListCategories)
 			catGroup.GET("/tags", catalogSvc.ListTags)
 			catGroup.GET("/artists", catalogSvc.ListArtists)
 			catGroup.GET("/artists/:id", catalogSvc.GetArtistDetail)
@@ -874,14 +873,11 @@ func main() {
 				curationGroup.DELETE("/mediums/:id", adminSvc.DeleteMedium)
 				curationGroup.POST("/tracks", adminSvc.CreateTrack)
 				curationGroup.DELETE("/tracks/:id", adminSvc.DeleteTrack)
-				// 虚拟货架 / 分类 / 标签 / 艺术家 / 母版
+				// 虚拟货架 / 标签 / 艺术家 / 母版（旧分类 categories 路由已随废弃分类法移除）
 				curationGroup.GET("/shelves", adminSvc.ListVirtualShelves)
 				curationGroup.POST("/shelves", adminSvc.CreateVirtualShelf)
 				curationGroup.PUT("/shelves/:slug", adminSvc.UpdateVirtualShelf)
 				curationGroup.DELETE("/shelves/:slug", adminSvc.DeleteVirtualShelf)
-				curationGroup.GET("/categories", adminSvc.ListCategoriesAdmin)
-				curationGroup.PUT("/categories", adminSvc.UpsertCategory)
-				curationGroup.DELETE("/categories/:code", adminSvc.DeleteCategory)
 				curationGroup.GET("/tags", adminSvc.ListTagsAdmin)
 				curationGroup.POST("/tags", adminSvc.CreateTag)
 				curationGroup.DELETE("/tags/:id", adminSvc.DeleteTag)
