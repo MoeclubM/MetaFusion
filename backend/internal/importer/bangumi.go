@@ -467,6 +467,67 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		editionName = fmt.Sprintf("%s（官方首发版）", workTitle)
 	}
 
+	// Infobox 人员兜底：v0 /subjects/{id}/persons 对书籍/音乐等类型经常为空，
+	// 作者/插画/艺术家等主创只存在于 infobox 键值对——按白名单解析补齐演职员，
+	// 实体类型与角色映射与 persons 链路对齐（作者→author、插画→illustrator、
+	// 音乐→composer、演唱/艺术家→performer、制作→producer、出版社/发行→publisher）。
+	infoboxStaffRoles := map[string][2]string{ // key -> {roleCode, entityType}
+		"作者": {"author", "person"}, "原作": {"author", "person"}, "脚本": {"author", "person"}, "编剧": {"author", "person"},
+		"插画": {"illustrator", "person"}, "插图": {"illustrator", "person"}, "作画": {"illustrator", "person"}, "人物设定": {"illustrator", "person"},
+		"音乐": {"composer", "person"}, "作曲": {"composer", "person"}, "编曲": {"composer", "person"},
+		"艺术家": {"performer", "person"}, "演唱": {"performer", "person"}, "歌手": {"performer", "person"}, "表演者": {"performer", "person"}, "主题歌演出": {"performer", "person"},
+		"导演": {"director", "person"}, "监督": {"director", "person"},
+		"动画制作": {"producer", "studio"}, "制作": {"producer", "studio"}, "开发商": {"producer", "studio"}, "制造商": {"producer", "studio"}, "厂商": {"producer", "studio"},
+		"出版社": {"publisher", "publisher"}, "发行": {"publisher", "publisher"}, "品牌": {"publisher", "publisher"}, "唱片公司": {"publisher", "publisher"},
+	}
+	seenArtistNames := map[string]bool{}
+	for _, a := range artists {
+		if n := strings.ToLower(strings.TrimSpace(a.Name)); n != "" {
+			seenArtistNames[n] = true
+		}
+	}
+	appendInfoboxStaff := func(name, roleCode, entType string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if seenArtistNames[strings.ToLower(name)] {
+			return
+		}
+		seenArtistNames[strings.ToLower(name)] = true
+		artists = append(artists, ArtistPreview{
+			Name:       name,
+			Role:       roleCode,
+			EntityType: entType,
+			Country:    "JP",
+		})
+	}
+	for _, item := range data.Infobox {
+		mapping, ok := infoboxStaffRoles[strings.TrimSpace(item.Key)]
+		if !ok {
+			continue
+		}
+		emitStaff := func(raw string) {
+			for _, part := range strings.Split(raw, "、") {
+				appendInfoboxStaff(strings.TrimSpace(part), mapping[0], mapping[1])
+			}
+		}
+		switch val := item.Value.(type) {
+		case string:
+			emitStaff(val)
+		case []interface{}:
+			for _, sub := range val {
+				if m, ok := sub.(map[string]interface{}); ok {
+					if v, exists := m["v"]; exists {
+						emitStaff(strings.TrimSpace(fmt.Sprintf("%v", v)))
+					}
+				} else {
+					emitStaff(strings.TrimSpace(fmt.Sprintf("%v", sub)))
+				}
+			}
+		}
+	}
+
 	// 多语言实体构建
 	translations := make([]TranslationItem, 0)
 	if data.NameCN != "" {
