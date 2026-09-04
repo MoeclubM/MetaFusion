@@ -572,7 +572,6 @@ func (s *AdminService) ListReleasesAdmin(c *gin.Context) {
 		Preload("Work").
 		Preload("PublisherEntity").
 		Preload("Mediums.Tracks").
-		Preload("AssetFiles").
 		Preload("Uploader")
 	if workIDStr != "" {
 		if wid, err := uuid.Parse(workIDStr); err == nil {
@@ -616,6 +615,9 @@ func (s *AdminService) ListReleasesAdmin(c *gin.Context) {
 	if err := query.Order("created_at desc").Offset(offset).Limit(pageSize).Find(&releases).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+	for i := range releases {
+		catalogsvc.AttachReleaseAssetProjections(s.db, &releases[i])
 	}
 	c.JSON(http.StatusOK, gin.H{"items": releases, "total": total, "page": page, "page_size": pageSize})
 }

@@ -27,12 +27,16 @@ type BindAssetRequest struct {
 // is the storage source of truth; legacy AssetFile rows cannot receive new
 // bindings.
 func (s *StorageService) BindAsset(req *BindAssetRequest) (*models.AssetBinding, error) {
+	return bindAssetDB(s.db, req)
+}
+
+func bindAssetDB(db *gorm.DB, req *BindAssetRequest) (*models.AssetBinding, error) {
 	if req == nil || req.AssetID == uuid.Nil || req.TargetEntityID == uuid.Nil {
 		return nil, ErrInvalidBindingTarget
 	}
 
 	var assetCount int64
-	if err := s.db.Model(&models.AssetRegistry{}).Where("id = ?", req.AssetID).Count(&assetCount).Error; err != nil {
+	if err := db.Model(&models.AssetRegistry{}).Where("id = ?", req.AssetID).Count(&assetCount).Error; err != nil {
 		return nil, err
 	}
 	if assetCount == 0 {
@@ -40,7 +44,7 @@ func (s *StorageService) BindAsset(req *BindAssetRequest) (*models.AssetBinding,
 	}
 
 	targetType := strings.ToLower(strings.TrimSpace(req.TargetEntityType))
-	if err := validateBindingTarget(s.db, targetType, req.TargetEntityID); err != nil {
+	if err := validateBindingTarget(db, targetType, req.TargetEntityID); err != nil {
 		return nil, err
 	}
 
@@ -58,7 +62,7 @@ func (s *StorageService) BindAsset(req *BindAssetRequest) (*models.AssetBinding,
 		TargetEntityID:   req.TargetEntityID,
 		BindingRole:      role,
 	}
-	if err := s.db.Where(
+	if err := db.Where(
 		"asset_id = ? AND target_entity_type = ? AND target_entity_id = ? AND binding_role = ?",
 		binding.AssetID, binding.TargetEntityType, binding.TargetEntityID, binding.BindingRole,
 	).FirstOrCreate(&binding).Error; err != nil {

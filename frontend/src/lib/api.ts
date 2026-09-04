@@ -457,6 +457,7 @@ export interface CanonicalEntryReleaseSummary {
 export interface CanonicalEntryDetailResponse extends CanonicalEntry {
   releases: CanonicalEntryReleaseSummary[];
   tracks: Track[];
+  asset_files?: AssetFile[];
   connected_entities?: ConnectedEntityItem[];
   external_links?: ExternalLinkDisplay[];
   relations?: EntityRelationship[];
@@ -496,6 +497,8 @@ export interface AssetFile {
   track_id?: string;
   canonical_entry_id?: string;
   file_role: string;
+  target_entity_type?: string;
+  target_entity_id?: string;
   file_name: string;
   s3_bucket: string;
   s3_key: string;
