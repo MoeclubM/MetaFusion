@@ -60,6 +60,9 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
   const [selectedTarget, setSelectedTarget] = useState<any | null>(null);
   const [selectedPredicate, setSelectedPredicate] = useState<string>("");
   const [qualifier, setQualifier] = useState<string>("");
+  const [beginDate, setBeginDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [ended, setEnded] = useState<boolean>(false);
 
   // 根据 relations 与 relationTypes 动态生成拓扑 Graph Nodes & Links
   const { nodes, links } = useMemo(() => {
@@ -194,11 +197,17 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
       selectedTarget.edition_name ||
       selectedTarget.id;
 
+    const rt = relationTypes.find((r) => r.code === selectedPredicate);
+    const temporal = rt?.is_temporal !== false && rt?.is_hierarchical !== true;
+
     onAddRelation({
       target_id: selectedTarget.id,
       target_type: searchType,
       relationship_type: selectedPredicate,
       qualifier: qualifier.trim() || undefined,
+      begin_date: temporal && beginDate.trim() ? beginDate.trim() : undefined,
+      end_date: temporal && endDate.trim() ? endDate.trim() : undefined,
+      ended: temporal ? ended : undefined,
       target_label: targetTitle,
     });
 
@@ -206,6 +215,9 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
     setSelectedTarget(null);
     setSearchQuery("");
     setQualifier("");
+    setBeginDate("");
+    setEndDate("");
+    setEnded(false);
   };
 
   const handleEdgeClick = (link: GraphLink) => {
@@ -469,6 +481,49 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
                 className="w-full px-3 py-2 text-xs rounded-lg bg-background border border-border focus:border-primary focus:outline-hidden"
               />
             </div>
+
+            {/* 5. 任期时间（仅 is_temporal 关系展示，层级边隐藏） */}
+            {(() => {
+              const rt = relationTypes.find((r) => r.code === selectedPredicate);
+              if (!rt || rt.is_temporal === false || rt.is_hierarchical === true) return null;
+              return (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">
+                      {t("editor.relations.beginPlaceholder")}
+                    </label>
+                    <input
+                      type="text"
+                      value={beginDate}
+                      onChange={(e) => setBeginDate(e.target.value)}
+                      placeholder={t("editor.relations.beginPlaceholder")}
+                      className="w-full px-3 py-2 text-xs rounded-lg bg-background border border-border focus:border-primary focus:outline-hidden font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-foreground">
+                      {t("editor.relations.endPlaceholder")}
+                    </label>
+                    <input
+                      type="text"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      placeholder={t("editor.relations.endPlaceholder")}
+                      className="w-full px-3 py-2 text-xs rounded-lg bg-background border border-border focus:border-primary focus:outline-hidden font-mono"
+                    />
+                  </div>
+                  <label className="col-span-2 flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={ended}
+                      onChange={(e) => setEnded(e.target.checked)}
+                      className="w-3.5 h-3.5 rounded"
+                    />
+                    {t("editor.relations.endedCheckbox")}
+                  </label>
+                </div>
+              );
+            })()}
 
             {/* 循环预警提示 */}
             {hasPotentialCycle && (

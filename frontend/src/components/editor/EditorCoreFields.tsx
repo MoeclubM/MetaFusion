@@ -373,6 +373,15 @@ export function EditorCoreFields({
               />
             </div>
             <div className="space-y-1.5">
+              <label className={labelClass}>{t("editor.core.editionDateLabel")}</label>
+              <input
+                type="date"
+                value={formData.edition_date || ""}
+                onChange={(e) => updateField("edition_date", e.target.value)}
+                className={`${fieldClass} font-mono`}
+              />
+            </div>
+            <div className="space-y-1.5">
               <label className={labelClass}>{t("editor.core.releaseLanguageLabel")}</label>
               <input
                 type="text"

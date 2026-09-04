@@ -12,6 +12,50 @@ interface Props {
 export function EditorTemporalFields({ formData, updateField, targetType }: Props) {
   const { t } = useI18n();
 
+  // Release 用 EditionDate 精确日（type=date），Canonical 用 recording_date 模糊串：
+  // 两者走各自独立输入，不复用 begin/end/ended 区间语义。
+  if (targetType === "release") {
+    return (
+      <div className="space-y-5">
+        <div className="p-3.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs text-sky-800 dark:text-sky-200 leading-relaxed">
+          {t("editor.temporal.releaseTip")}
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-xs sm:text-sm font-mono text-gray-600 dark:text-gray-300">
+            {t("editor.core.editionDateLabel")}
+          </label>
+          <input
+            type="date"
+            value={formData.edition_date || ""}
+            onChange={(e) => updateField("edition_date", e.target.value)}
+            className="w-full px-3.5 h-10 rounded-lg bg-background border border-black/10 dark:border-white/10 text-gray-900 dark:text-white font-mono text-sm focus:outline-none focus:border-primary"
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (targetType === "canonical_entry") {
+    return (
+      <div className="space-y-5">
+        <div className="p-3.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs text-sky-800 dark:text-sky-200 leading-relaxed">
+          {t("editor.temporal.tip")}
+        </div>
+        <div className="space-y-1.5">
+          <label className="block text-xs sm:text-sm font-mono text-gray-600 dark:text-gray-300">
+            {t("canonicalEntry.editor.recordingDate")}
+          </label>
+          <input
+            type="text"
+            value={formData.recording_date || ""}
+            onChange={(e) => updateField("recording_date", e.target.value)}
+            placeholder={t("editor.temporal.beginPlaceholder")}
+            className="w-full px-3.5 h-10 rounded-lg bg-background border border-black/10 dark:border-white/10 text-gray-900 dark:text-white font-mono text-sm focus:outline-none focus:border-primary"
+          />
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-5">
       <div className="p-3.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-xs text-sky-800 dark:text-sky-200 leading-relaxed">

@@ -263,7 +263,7 @@ export default function ArtistDetailPage() {
                           )}
                         </div>
                         <div className="pt-1.5 border-t border-black/5 dark:border-white/[0.06] flex items-center justify-between font-mono text-[10px] text-gray-500">
-                          <span>{w.release_date ? new Date(w.release_date).getFullYear() : "—"}</span>
+                          <span>{w.release_date ? String(w.release_date).slice(0, 4) : "—"}</span>
                           <span className="inline-flex items-center gap-0.5 tabular-nums">
                             <Eye className="w-3 h-3 text-gray-400" strokeWidth={1.5} /> {w.view_count || 0}
                           </span>

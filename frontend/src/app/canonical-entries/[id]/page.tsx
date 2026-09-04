@@ -206,7 +206,7 @@ export default function CanonicalEntryDetailPage() {
                   {data.recording_date && (
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
                       <Calendar className="w-3 h-3 text-amber-400" strokeWidth={1.5} />
-                      {new Date(data.recording_date).toLocaleDateString()}
+                      {data.recording_date}
                     </span>
                   )}
                 </div>
