@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/metafusion/metafusion-app/internal/config"
 	"github.com/metafusion/metafusion-app/internal/models"
@@ -23,6 +24,15 @@ type Processor struct {
 	db       *gorm.DB
 	cfg      *config.Config
 	s3Client *minio.Client
+}
+
+type processingAsset struct {
+	ID         uuid.UUID
+	FileName   string
+	S3Bucket   string
+	S3Key      string
+	Sha256Hash string
+	MimeType   string
 }
 
 func NewProcessor(db *gorm.DB, cfg *config.Config) (*Processor, error) {
@@ -48,13 +58,12 @@ func (p *Processor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 		return fmt.Errorf("invalid transcode payload: %w", err)
 	}
 
-	var asset models.AssetFile
-	if err := p.db.First(&asset, payload.AssetID).Error; err != nil {
-		return fmt.Errorf("asset not found: %w", err)
+	asset, err := p.loadProcessingAsset(payload.AssetID)
+	if err != nil {
+		return err
 	}
 
-	// 标记为正在处理中
-	p.db.Model(&asset).Update("transcode_status", "processing")
+	p.updateAssetState(asset, "processing", "", nil)
 
 	tempDir, err := os.MkdirTemp("", "metafusion-transcode-*")
 	if err != nil {
@@ -66,7 +75,7 @@ func (p *Processor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 	inputFilePath := filepath.Join(tempDir, asset.FileName)
 	err = p.s3Client.FGetObject(ctx, asset.S3Bucket, asset.S3Key, inputFilePath, minio.GetObjectOptions{})
 	if err != nil {
-		p.failAsset(&asset, fmt.Sprintf("Failed to download master asset from S3: %v", err))
+		p.failAsset(asset, fmt.Sprintf("Failed to download master asset from S3: %v", err))
 		return err
 	}
 
@@ -81,35 +90,23 @@ func (p *Processor) ProcessTask(ctx context.Context, t *asynq.Task) error {
 
 	// 3. 按媒介大类执行专用转码管线
 	if strings.HasPrefix(mime, "video/") || strings.HasSuffix(asset.FileName, ".mkv") || strings.HasSuffix(asset.FileName, ".mp4") {
-		err = p.transcodeVideo(ctx, inputFilePath, tempDir, &asset, specs)
+		err = p.transcodeVideo(ctx, inputFilePath, tempDir, asset, specs)
 	} else if strings.HasPrefix(mime, "audio/") || strings.HasSuffix(asset.FileName, ".flac") || strings.HasSuffix(asset.FileName, ".wav") || strings.HasSuffix(asset.FileName, ".dsf") {
-		err = p.transcodeAudio(ctx, inputFilePath, tempDir, &asset, specs)
+		err = p.transcodeAudio(ctx, inputFilePath, tempDir, asset, specs)
 	} else if strings.HasPrefix(mime, "image/") || strings.HasSuffix(asset.FileName, ".png") || strings.HasSuffix(asset.FileName, ".tiff") {
-		err = p.transcodeImage(ctx, inputFilePath, tempDir, &asset, specs)
+		err = p.transcodeImage(ctx, inputFilePath, tempDir, asset, specs)
 	} else {
 		// 电子书或通用文档
-		err = p.transcodeDocument(ctx, inputFilePath, tempDir, &asset, specs)
+		err = p.transcodeDocument(ctx, inputFilePath, tempDir, asset, specs)
 	}
 
 	if err != nil {
-		p.failAsset(&asset, err.Error())
+		p.failAsset(asset, err.Error())
 		return err
 	}
 
-	// 4. 更新数据库状态为完成 (同时同步 AssetFile 与 AssetRegistry)
-	asset.TechnicalSpecs = models.JSONB(specs)
-	asset.TranscodeStatus = "completed"
-	asset.TranscodeError = ""
-	p.db.Save(&asset)
-
-	// 同步更新独立 CAS 资产注册表 (AssetRegistry)
-	var reg models.AssetRegistry
-	if errReg := p.db.Where("id = ? OR sha256_hash = ?", asset.ID, asset.Sha256Hash).First(&reg).Error; errReg == nil {
-		reg.TechnicalSpecs = models.JSONB(specs)
-		reg.TranscodeStatus = "completed"
-		reg.TranscodeError = ""
-		p.db.Save(&reg)
-	}
+	// 4. AssetRegistry 是当前 CAS 事实源；同时同步旧 AssetFile 兼容行。
+	p.updateAssetState(asset, "completed", "", specs)
 
 	log.Printf("Successfully processed and transcoded asset: %s (%s)", asset.FileName, asset.ID)
 	return nil
@@ -131,7 +128,7 @@ func (p *Processor) extractMediaInfo(filePath string) (map[string]interface{}, e
 }
 
 // 视频转码管线：生成自适应 HLS 流与缩略图
-func (p *Processor) transcodeVideo(ctx context.Context, inputPath, tempDir string, asset *models.AssetFile, specs map[string]interface{}) error {
+func (p *Processor) transcodeVideo(ctx context.Context, inputPath, tempDir string, asset *processingAsset, specs map[string]interface{}) error {
 	outputHlsDir := filepath.Join(tempDir, "hls")
 	_ = os.MkdirAll(outputHlsDir, 0755)
 
@@ -175,7 +172,7 @@ func (p *Processor) transcodeVideo(ctx context.Context, inputPath, tempDir strin
 }
 
 // 音频转码管线：生成高质量 320k AAC 流 + 波形 JSON
-func (p *Processor) transcodeAudio(ctx context.Context, inputPath, tempDir string, asset *models.AssetFile, specs map[string]interface{}) error {
+func (p *Processor) transcodeAudio(ctx context.Context, inputPath, tempDir string, asset *processingAsset, specs map[string]interface{}) error {
 	outputAAC := filepath.Join(tempDir, "preview.m4a")
 
 	// 1. 转码生成 320k AAC 适合 Web 秒开流式播放
@@ -192,7 +189,7 @@ func (p *Processor) transcodeAudio(ctx context.Context, inputPath, tempDir strin
 }
 
 // 图像转码管线：使用 libvips 生成渐进式 WebP
-func (p *Processor) transcodeImage(ctx context.Context, inputPath, tempDir string, asset *models.AssetFile, specs map[string]interface{}) error {
+func (p *Processor) transcodeImage(ctx context.Context, inputPath, tempDir string, asset *processingAsset, specs map[string]interface{}) error {
 	outputWebP := filepath.Join(tempDir, "preview.webp")
 	_ = exec.Command("vips", "copy", inputPath, outputWebP+"[Q=85]").Run()
 
@@ -204,7 +201,7 @@ func (p *Processor) transcodeImage(ctx context.Context, inputPath, tempDir strin
 	return nil
 }
 
-func (p *Processor) transcodeDocument(ctx context.Context, inputPath, tempDir string, asset *models.AssetFile, specs map[string]interface{}) error {
+func (p *Processor) transcodeDocument(ctx context.Context, inputPath, tempDir string, asset *processingAsset, specs map[string]interface{}) error {
 	// 文档直接保留预览原文件或解压章节
 	specs["preview_ready"] = true
 	return nil
@@ -241,17 +238,58 @@ func (p *Processor) uploadDirectoryToS3(ctx context.Context, dirPath, bucket, pr
 	})
 }
 
-func (p *Processor) failAsset(asset *models.AssetFile, reason string) {
-	asset.TranscodeStatus = "failed"
-	asset.TranscodeError = reason
-	p.db.Save(asset)
-
+func (p *Processor) loadProcessingAsset(assetID uuid.UUID) (*processingAsset, error) {
 	var reg models.AssetRegistry
-	if errReg := p.db.Where("id = ? OR sha256_hash = ?", asset.ID, asset.Sha256Hash).First(&reg).Error; errReg == nil {
-		reg.TranscodeStatus = "failed"
-		reg.TranscodeError = reason
-		p.db.Save(&reg)
+	if err := p.db.First(&reg, assetID).Error; err == nil {
+		return &processingAsset{
+			ID:         reg.ID,
+			FileName:   reg.FileName,
+			S3Bucket:   reg.S3Bucket,
+			S3Key:      reg.S3Key,
+			Sha256Hash: reg.Sha256Hash,
+			MimeType:   reg.MimeType,
+		}, nil
 	}
 
+	// Compatibility fallback for assets created before the CAS registry migration.
+	var legacy models.AssetFile
+	if err := p.db.First(&legacy, assetID).Error; err != nil {
+		return nil, fmt.Errorf("asset not found in registry or legacy table: %w", err)
+	}
+	return &processingAsset{
+		ID:         legacy.ID,
+		FileName:   legacy.FileName,
+		S3Bucket:   legacy.S3Bucket,
+		S3Key:      legacy.S3Key,
+		Sha256Hash: legacy.Sha256Hash,
+		MimeType:   legacy.MimeType,
+	}, nil
+}
+
+func (p *Processor) updateAssetState(asset *processingAsset, status, reason string, specs map[string]interface{}) {
+	updates := map[string]interface{}{
+		"transcode_status": status,
+		"transcode_error":  reason,
+	}
+	if specs != nil {
+		updates["technical_specs"] = models.JSONB(specs)
+	}
+
+	registryQuery := p.db.Model(&models.AssetRegistry{}).Where("id = ?", asset.ID)
+	legacyQuery := p.db.Model(&models.AssetFile{}).Where("id = ?", asset.ID)
+	if asset.Sha256Hash != "" {
+		registryQuery = registryQuery.Or("sha256_hash = ?", asset.Sha256Hash)
+		legacyQuery = legacyQuery.Or("sha256_hash = ?", asset.Sha256Hash)
+	}
+	if err := registryQuery.Updates(updates).Error; err != nil {
+		log.Printf("Failed to update asset registry state for %s: %v", asset.ID, err)
+	}
+	if err := legacyQuery.Updates(updates).Error; err != nil {
+		log.Printf("Failed to update legacy asset state for %s: %v", asset.ID, err)
+	}
+}
+
+func (p *Processor) failAsset(asset *processingAsset, reason string) {
+	p.updateAssetState(asset, "failed", reason, nil)
 	log.Printf("Asset %s transcode failed: %s", asset.ID, reason)
 }
