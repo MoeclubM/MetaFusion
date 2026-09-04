@@ -198,6 +198,8 @@ function RelationEditorRow({
   const selectedRt = filteredTypes.find((rt) => rt.code === rel.relationship_type);
   const targetOptions = uniqueHubs(selectedRt?.allowed_target_types);
   const subtypeFilter = artistSearchEntityType(selectedRt?.allowed_target_types, rel.target_type);
+  // 层级派生边（sequel_of/adaptation_of 等）默认隐藏时间输入，仅 is_temporal 任期类展示。
+  const showTemporal = selectedRt?.is_temporal !== false && selectedRt?.is_hierarchical !== true;
 
   useEffect(() => {
     const term = q.trim();
@@ -346,32 +348,36 @@ function RelationEditorRow({
           placeholder={t("editor.relations.qualifierPlaceholder")}
           className="w-full px-3 h-9 rounded-lg bg-background border border-black/10 dark:border-white/10 text-gray-900 dark:text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary"
         />
-        <input
-          type="text"
-          value={rel.begin_date || ""}
-          onChange={(e) => updateRelationRow(idx, { begin_date: e.target.value })}
-          placeholder={t("editor.relations.beginPlaceholder")}
-          className="w-full px-3 h-9 rounded-lg bg-background border border-black/10 dark:border-white/10 text-gray-900 dark:text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary"
-        />
-        <input
-          type="text"
-          value={rel.end_date || ""}
-          onChange={(e) => updateRelationRow(idx, { end_date: e.target.value })}
-          placeholder={t("editor.relations.endPlaceholder")}
-          className="w-full px-3 h-9 rounded-lg bg-background border border-black/10 dark:border-white/10 text-gray-900 dark:text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary"
-        />
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id={`rel_ended_${idx}`}
-            checked={rel.ended || false}
-            onChange={(e) => updateRelationRow(idx, { ended: e.target.checked })}
-            className="w-4 h-4 rounded bg-background border-black/10 dark:border-white/10 text-primary focus:ring-0 cursor-pointer"
-          />
-          <label htmlFor={`rel_ended_${idx}`} className="text-xs text-gray-500 font-mono cursor-pointer">
-            {t("editor.relations.endedCheckbox")}
-          </label>
-        </div>
+        {showTemporal && (
+          <>
+            <input
+              type="text"
+              value={rel.begin_date || ""}
+              onChange={(e) => updateRelationRow(idx, { begin_date: e.target.value })}
+              placeholder={t("editor.relations.beginPlaceholder")}
+              className="w-full px-3 h-9 rounded-lg bg-background border border-black/10 dark:border-white/10 text-gray-900 dark:text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary"
+            />
+            <input
+              type="text"
+              value={rel.end_date || ""}
+              onChange={(e) => updateRelationRow(idx, { end_date: e.target.value })}
+              placeholder={t("editor.relations.endPlaceholder")}
+              className="w-full px-3 h-9 rounded-lg bg-background border border-black/10 dark:border-white/10 text-gray-900 dark:text-white font-mono text-xs sm:text-sm focus:outline-none focus:border-primary"
+            />
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id={`rel_ended_${idx}`}
+                checked={rel.ended || false}
+                onChange={(e) => updateRelationRow(idx, { ended: e.target.checked })}
+                className="w-4 h-4 rounded bg-background border-black/10 dark:border-white/10 text-primary focus:ring-0 cursor-pointer"
+              />
+              <label htmlFor={`rel_ended_${idx}`} className="text-xs text-gray-500 font-mono cursor-pointer">
+                {t("editor.relations.endedCheckbox")}
+              </label>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

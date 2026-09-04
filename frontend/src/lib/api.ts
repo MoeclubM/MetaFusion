@@ -389,6 +389,8 @@ export interface RelationType {
   allowed_target_types?: string[];
   is_symmetric: boolean;
   is_hierarchical: boolean;
+  // 是否具有时间语义（任期/隶属/合约期）：为 true 时编辑器展示 begin/end/ended 输入。
+  is_temporal?: boolean;
   attribute_schema?: { fields?: any[] } | any[];
   color: string;
   icon: string;
@@ -414,6 +416,10 @@ export interface WorkArtistRelation {
   work_id: string;
   artist_id: string;
   role: string;
+  // 署名时间投影自 entity_relationships 图边（后端 gorm:"-" 纯读）。
+  begin_date?: string;
+  end_date?: string;
+  ended?: boolean;
   artist?: Artist;
 }
 
