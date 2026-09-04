@@ -9,6 +9,7 @@ import (
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/ontology"
+	"gorm.io/gorm"
 )
 
 type entityRelInput struct {
@@ -44,50 +45,53 @@ func (s *CatalogService) UpsertEntityRelationsForMember(c *gin.Context) {
 }
 
 func (s *CatalogService) persistEntityRelations(rows []entityRelInput) error {
-	for _, r := range rows {
-		spec := ontology.EdgeSpec{
-			SourceType:       r.SourceType,
-			SourceID:         r.SourceID,
-			TargetType:       r.TargetType,
-			TargetID:         r.TargetID,
-			RelationshipType: r.RelationshipType,
-			Qualifier:        strings.TrimSpace(r.Qualifier),
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		for _, r := range rows {
+			spec := ontology.EdgeSpec{
+				SourceType:       r.SourceType,
+				SourceID:         r.SourceID,
+				TargetType:       r.TargetType,
+				TargetID:         r.TargetID,
+				RelationshipType: r.RelationshipType,
+				Qualifier:        strings.TrimSpace(r.Qualifier),
+			}
+			// Validate against the same transaction after each prior edge is written,
+			// so a single batch cannot hide a newly-created cycle.
+			if err := ontology.ValidateRelationEdge(tx, spec); err != nil {
+				return err
+			}
+
+			attrs := models.JSONB{}
+			if r.Attributes != nil {
+				attrs = models.JSONB(r.Attributes)
+			}
+			qual := strings.TrimSpace(r.Qualifier)
+			rel := models.EntityRelationship{
+				SourceType:       strings.ToLower(strings.TrimSpace(r.SourceType)),
+				SourceID:         r.SourceID,
+				TargetType:       strings.ToLower(strings.TrimSpace(r.TargetType)),
+				TargetID:         r.TargetID,
+				RelationshipType: strings.ToLower(strings.TrimSpace(r.RelationshipType)),
+				Qualifier:        qual,
+				BeginDate:        r.BeginDate,
+				EndDate:          r.EndDate,
+				Ended:            r.Ended,
+				Attributes:       attrs,
+			}
+			if err := tx.Where(
+				"source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
+				rel.SourceType, rel.SourceID, rel.TargetType, rel.TargetID, rel.RelationshipType, rel.Qualifier,
+			).Assign(models.EntityRelationship{
+				BeginDate:  r.BeginDate,
+				EndDate:    r.EndDate,
+				Ended:      r.Ended,
+				Attributes: attrs,
+			}).FirstOrCreate(&rel).Error; err != nil {
+				return err
+			}
 		}
-		if err := ontology.ValidateRelationEdge(s.db, spec); err != nil {
-			return err
-		}
-	}
-	for _, r := range rows {
-		attrs := models.JSONB{}
-		if r.Attributes != nil {
-			attrs = models.JSONB(r.Attributes)
-		}
-		qual := strings.TrimSpace(r.Qualifier)
-		rel := models.EntityRelationship{
-			SourceType:       strings.ToLower(strings.TrimSpace(r.SourceType)),
-			SourceID:         r.SourceID,
-			TargetType:       strings.ToLower(strings.TrimSpace(r.TargetType)),
-			TargetID:         r.TargetID,
-			RelationshipType: strings.ToLower(strings.TrimSpace(r.RelationshipType)),
-			Qualifier:        qual,
-			BeginDate:        r.BeginDate,
-			EndDate:          r.EndDate,
-			Ended:            r.Ended,
-			Attributes:       attrs,
-		}
-		if err := s.db.Where(
-			"source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
-			rel.SourceType, rel.SourceID, rel.TargetType, rel.TargetID, rel.RelationshipType, rel.Qualifier,
-		).Assign(models.EntityRelationship{
-			BeginDate:  r.BeginDate,
-			EndDate:    r.EndDate,
-			Ended:      r.Ended,
-			Attributes: attrs,
-		}).FirstOrCreate(&rel).Error; err != nil {
-			return err
-		}
-	}
-	return nil
+		return nil
+	})
 }
 
 // mirrorArtistWorkEdge 已废弃并由 artist_relations.go 的 UpsertArtistWorkEdge 取代：
