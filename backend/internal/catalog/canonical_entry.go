@@ -438,8 +438,13 @@ func (s *CatalogService) UpdateCanonicalEntryForMember(c *gin.Context) {
 		entry.ArtistCredit = strings.TrimSpace(input.ArtistCredit)
 	}
 	if input.RecordingDate != "" {
-		updates["recording_date"] = strings.TrimSpace(input.RecordingDate)
-		entry.RecordingDate = strings.TrimSpace(input.RecordingDate)
+		recordingDate, err := ontology.NormalizePartialDate(input.RecordingDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		updates["recording_date"] = recordingDate
+		entry.RecordingDate = recordingDate
 	}
 	if input.WorkID != nil {
 		updates["work_id"] = input.WorkID

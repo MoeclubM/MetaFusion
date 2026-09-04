@@ -3,7 +3,6 @@ package catalog
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -86,12 +85,29 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		work.Aliases = input.Aliases
 	}
 	if input.ReleaseDate != nil && *input.ReleaseDate != "" {
-		if t, err := time.Parse("2006-01-02", *input.ReleaseDate); err == nil {
-			work.ReleaseDate = &t
+		t, err := ontology.ParseExactDate(*input.ReleaseDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
+		work.ReleaseDate = t
 	}
-	work.BeginDate = input.BeginDate
-	work.EndDate = input.EndDate
+	beginDate, err := ontology.NormalizePartialDate(input.BeginDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	endDate, err := ontology.NormalizePartialDate(input.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := ontology.ValidateDateSpan(beginDate, endDate); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	work.BeginDate = beginDate
+	work.EndDate = endDate
 	work.Ended = input.Ended
 	work.Country = input.Country
 	work.OriginalLanguage = input.OriginalLanguage
@@ -231,8 +247,22 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 	}
 	artist.Country = input.Country
 	artist.Biography = input.Biography
-	artist.BeginDate = input.BeginDate
-	artist.EndDate = input.EndDate
+	beginDate, err := ontology.NormalizePartialDate(input.BeginDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	endDate, err := ontology.NormalizePartialDate(input.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := ontology.ValidateDateSpan(beginDate, endDate); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	artist.BeginDate = beginDate
+	artist.EndDate = endDate
 	artist.Ended = input.Ended
 	if input.ExternalIDs != nil {
 		artist.ExternalIDs = models.JSONB(input.ExternalIDs)
@@ -343,9 +373,12 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		release.PublisherID = nil
 	}
 	if input.EditionDate != nil && *input.EditionDate != "" {
-		if t, err := time.Parse("2006-01-02", *input.EditionDate); err == nil {
-			release.EditionDate = &t
+		t, err := ontology.ParseExactDate(*input.EditionDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
+		release.EditionDate = t
 	}
 	release.Country = strings.TrimSpace(input.Country)
 	release.Language = strings.TrimSpace(input.Language)

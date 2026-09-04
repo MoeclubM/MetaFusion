@@ -962,6 +962,9 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		EntityType     string                 `json:"entity_type"`
 		Country        string                 `json:"country"`
 		Biography      string                 `json:"biography"`
+		BeginDate      string                 `json:"begin_date"`
+		EndDate        string                 `json:"end_date"`
+		Ended          bool                   `json:"ended"`
 		Language       string                 `json:"language"`
 		ExternalIDs    map[string]interface{} `json:"external_ids"`
 		Attributes     map[string]interface{} `json:"attributes"`
@@ -975,6 +978,20 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		input.EntityType = models.EntityTypePerson
 	} else if !ontology.IsEnabledEntityType(s.db, input.EntityType) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.invalid_entity_type")})
+		return
+	}
+	beginDate, err := ontology.NormalizePartialDate(input.BeginDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	endDate, err := ontology.NormalizePartialDate(input.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := ontology.ValidateDateSpan(beginDate, endDate); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 	ext := models.JSONB{}
@@ -997,6 +1014,9 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		EntityType:     input.EntityType,
 		Country:        strings.TrimSpace(input.Country),
 		Biography:      input.Biography,
+		BeginDate:      beginDate,
+		EndDate:        endDate,
+		Ended:          input.Ended,
 		Language:       input.Language,
 		ExternalIDs:    ext,
 		Attributes:     attrs,
@@ -1039,9 +1059,30 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 	}
 	var releaseDate *time.Time
 	if input.ReleaseDate != nil && *input.ReleaseDate != "" {
-		if t, err := time.Parse("2006-01-02", *input.ReleaseDate); err == nil {
-			releaseDate = &t
+		t, err := ontology.ParseExactDate(*input.ReleaseDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
+		releaseDate = t
+	}
+	beginDate, err := ontology.NormalizePartialDate(input.BeginDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	endDate, err := ontology.NormalizePartialDate(input.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := ontology.ValidateDateSpan(beginDate, endDate); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// ReleaseDate 为发行点精确日，Begin 为连载/播出区间起点：两者同时给定时以精确日为准回填 Begin 空值。
+	if beginDate == "" && releaseDate != nil {
+		beginDate = releaseDate.Format("2006-01-02")
 	}
 	workStatus := models.WorkStatusPendingReview
 	roleStr, _ := c.Get("role")
@@ -1065,6 +1106,9 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		OriginalTitle:    strings.TrimSpace(input.OriginalTitle),
 		Aliases:          input.Aliases,
 		ReleaseDate:      releaseDate,
+		BeginDate:        beginDate,
+		EndDate:          endDate,
+		Ended:            input.Ended,
 		Country:          strings.TrimSpace(input.Country),
 		Language:         input.Language,
 		OriginalLanguage: input.OriginalLanguage,
@@ -1188,9 +1232,12 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 	}
 	var editionDate *time.Time
 	if input.EditionDate != nil && *input.EditionDate != "" {
-		if t, err := time.Parse("2006-01-02", *input.EditionDate); err == nil {
-			editionDate = &t
+		t, err := ontology.ParseExactDate(*input.EditionDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
+		editionDate = t
 	}
 	publisherName := input.Publisher
 	if input.PublisherID != nil && publisherName == "" {
@@ -1376,8 +1423,11 @@ func (s *CatalogService) UpsertWorkRelationsForMember(c *gin.Context) {
 	}
 	var input struct {
 		Relations []struct {
-			ArtistID uuid.UUID `json:"artist_id" binding:"required"`
-			Role     string    `json:"role" binding:"required"`
+			ArtistID  uuid.UUID `json:"artist_id" binding:"required"`
+			Role      string    `json:"role" binding:"required"`
+			BeginDate string    `json:"begin_date"`
+			EndDate   string    `json:"end_date"`
+			Ended     bool      `json:"ended"`
 		} `json:"relations" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -1404,7 +1454,7 @@ func (s *CatalogService) UpsertWorkRelationsForMember(c *gin.Context) {
 	// 单轨化：只写 entity_relationships 署名图边（校验 + 幂等 + 删除重建语义）
 	rows := make([]WorkRelationInput, 0, len(input.Relations))
 	for _, r := range input.Relations {
-		rows = append(rows, WorkRelationInput{ArtistID: r.ArtistID, Role: r.Role})
+		rows = append(rows, WorkRelationInput{ArtistID: r.ArtistID, Role: r.Role, BeginDate: r.BeginDate, EndDate: r.EndDate, Ended: r.Ended})
 	}
 	if err := SyncWorkRelationEdges(s.db, workID, rows); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -2196,6 +2246,9 @@ type CreateWorkInput struct {
 	OriginalTitle    string                 `json:"original_title"`
 	Aliases          []string               `json:"aliases"`
 	ReleaseDate      *string                `json:"release_date"`
+	BeginDate        string                 `json:"begin_date"`
+	EndDate          string                 `json:"end_date"`
+	Ended            bool                   `json:"ended"`
 	Country          string                 `json:"country"`
 	Language         string                 `json:"language"`
 	OriginalLanguage string                 `json:"original_language"`
@@ -2242,9 +2295,12 @@ func (s *CatalogService) CreateRelease(c *gin.Context) {
 
 	var editionDate *time.Time
 	if input.EditionDate != nil && *input.EditionDate != "" {
-		if t, err := time.Parse("2006-01-02", *input.EditionDate); err == nil {
-			editionDate = &t
+		t, err := ontology.ParseExactDate(*input.EditionDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
+		editionDate = t
 	}
 
 	publisherName := input.Publisher
@@ -2297,6 +2353,9 @@ type ComprehensiveArtistRelationInput struct {
 	ArtistID       *uuid.UUID `json:"artist_id"`
 	ArtistName     string     `json:"artist_name"`
 	Role           string     `json:"role"`
+	BeginDate      string     `json:"begin_date"`
+	EndDate        string     `json:"end_date"`
+	Ended          bool       `json:"ended"`
 	Disambiguation string     `json:"disambiguation"`
 }
 
@@ -2305,6 +2364,9 @@ type ComprehensiveSubmissionInput struct {
 	OriginalTitle    string                             `json:"original_title"`
 	Aliases          []string                           `json:"aliases"`
 	ReleaseDate      *string                            `json:"release_date"`
+	BeginDate        string                             `json:"begin_date"`
+	EndDate          string                             `json:"end_date"`
+	Ended            bool                               `json:"ended"`
 	Country          string                             `json:"country"`
 	Language         string                             `json:"language"`
 	OriginalLanguage string                             `json:"original_language"`
@@ -2342,9 +2404,29 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 	}
 	var releaseDate *time.Time
 	if input.ReleaseDate != nil && *input.ReleaseDate != "" {
-		if t, err := time.Parse("2006-01-02", *input.ReleaseDate); err == nil {
-			releaseDate = &t
+		t, err := ontology.ParseExactDate(*input.ReleaseDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
 		}
+		releaseDate = t
+	}
+	beginDate, err := ontology.NormalizePartialDate(input.BeginDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	endDate, err := ontology.NormalizePartialDate(input.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := ontology.ValidateDateSpan(beginDate, endDate); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if beginDate == "" && releaseDate != nil {
+		beginDate = releaseDate.Format("2006-01-02")
 	}
 
 	mergedMetadata := make(map[string]interface{})
@@ -2362,6 +2444,9 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 		OriginalTitle:    strings.TrimSpace(input.OriginalTitle),
 		Aliases:          input.Aliases,
 		ReleaseDate:      releaseDate,
+		BeginDate:        beginDate,
+		EndDate:          endDate,
+		Ended:            input.Ended,
 		Country:          input.Country,
 		Language:         input.Language,
 		OriginalLanguage: input.OriginalLanguage,
@@ -2441,16 +2526,22 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 		if edgeRole == "creator" {
 			edgeRole = "author"
 		}
-		_ = UpsertArtistWorkEdge(s.db, *relInput.ArtistID, work.ID, edgeRole)
+		if err := UpsertArtistWorkEdge(s.db, *relInput.ArtistID, work.ID, edgeRole, relInput.BeginDate, relInput.EndDate, relInput.Ended); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	// 发行版与载体/曲目录入
 	if input.EditionName != "" {
 		var editionDate *time.Time
 		if input.EditionDate != nil && *input.EditionDate != "" {
-			if t, err := time.Parse("2006-01-02", *input.EditionDate); err == nil {
-				editionDate = &t
+			t, err := ontology.ParseExactDate(*input.EditionDate)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+				return
 			}
+			editionDate = t
 		}
 
 		var publisherID *uuid.UUID

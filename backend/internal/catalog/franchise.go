@@ -298,6 +298,20 @@ func (s *CatalogService) CreateFranchiseForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	beginDate, err := ontology.NormalizePartialDate(input.BeginDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	endDate, err := ontology.NormalizePartialDate(input.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := ontology.ValidateDateSpan(beginDate, endDate); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	ext := models.JSONB{}
 	if input.ExternalIDs != nil {
 		ext = models.JSONB(input.ExternalIDs)
@@ -317,8 +331,8 @@ func (s *CatalogService) CreateFranchiseForMember(c *gin.Context) {
 		Disambiguation:  strings.TrimSpace(input.Disambiguation),
 		Summary:         input.Summary,
 		CoverImageURL:   input.CoverImageURL,
-		BeginDate:       input.BeginDate,
-		EndDate:         input.EndDate,
+		BeginDate:       beginDate,
+		EndDate:         endDate,
 		Ended:           input.Ended,
 		Country:         strings.TrimSpace(input.Country),
 		Language:        input.Language,
@@ -384,8 +398,22 @@ func (s *CatalogService) UpdateFranchiseForMember(c *gin.Context) {
 	fr.Disambiguation = strings.TrimSpace(input.Disambiguation)
 	fr.Summary = input.Summary
 	fr.CoverImageURL = input.CoverImageURL
-	fr.BeginDate = input.BeginDate
-	fr.EndDate = input.EndDate
+	beginDate, err := ontology.NormalizePartialDate(input.BeginDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	endDate, err := ontology.NormalizePartialDate(input.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := ontology.ValidateDateSpan(beginDate, endDate); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	fr.BeginDate = beginDate
+	fr.EndDate = endDate
 	fr.Ended = input.Ended
 	fr.Country = strings.TrimSpace(input.Country)
 	if input.ExternalIDs != nil {
