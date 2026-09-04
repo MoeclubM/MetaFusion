@@ -610,7 +610,7 @@ func (r EntityRelationship) DateSpan() string {
 	return r.BeginDate + " ~ " + r.EndDate
 }
 
-// RelationType represents dynamic relationship types and roles in knowledge graph ontology
+// RelationType represents dynamic relationship types and roles in the catalog relation graph
 type RelationType struct {
 	Code               string         `gorm:"primaryKey;type:varchar(64)" json:"code"`
 	Domain             string         `gorm:"type:varchar(32);not null;index" json:"domain"` // 'agent_agent', 'agent_work', 'work_work', 'agent_release'

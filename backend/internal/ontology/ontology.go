@@ -305,7 +305,7 @@ func LookupDisplay(db *gorm.DB, typ string, id uuid.UUID) (EntityLabel, bool) {
 
 func HubTypes() map[string]bool { return hubTypes }
 
-// NodeMeta contains visual metadata for knowledge graph nodes
+// NodeMeta contains visual metadata for catalog relation graph nodes
 type NodeMeta struct {
 	Name           string `json:"name"`
 	OriginalName   string `json:"original_name,omitempty"`

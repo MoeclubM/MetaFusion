@@ -1815,7 +1815,7 @@ export function deleteAttributeSchema(id: string): Promise<{ status: string }> {
   });
 }
 
-// ── 知识图谱拓扑与关系边 ──
+// ── 目录关系图谱拓扑与关系边 ──
 export function fetchEntityGraph(entityType: string, id: string): Promise<{ nodes: GraphNode[]; links: GraphLink[] }> {
   const hub = catalogHubOf(entityType);
   let endpoint = `/catalog/works/${id}/graph`;
