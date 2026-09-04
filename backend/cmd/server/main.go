@@ -801,15 +801,15 @@ func main() {
 			messagesGroup.GET("/unread-count", messageSvc.GetUnreadCount)
 		}
 
-		// 社区讨论与文献评注 (Discourse 论坛 - 统一鉴权)
-		communityGroup := api.Group("/community", auth.UnifiedAuthMiddleware(cfg, db))
+		// 社区讨论：公开读，登录并完成邮箱验证后可写。
+		communityGroup := api.Group("/community", auth.OptionalUnifiedAuthMiddleware(cfg, db))
 		{
 			communityGroup.GET("/boards", communitySvc.ListBoards)
 			communityGroup.GET("/topic-tags", communitySvc.ListTopicTags)
 			communityGroup.GET("/topics", communitySvc.ListTopics)
 			communityGroup.GET("/topics/:id", communitySvc.GetTopic)
-			communityGroup.POST("/topics", auth.RequireEmailVerified(db), communitySvc.CreateTopic)
-			communityGroup.POST("/topics/:id/posts", auth.RequireEmailVerified(db), communitySvc.CreatePost)
+			communityGroup.POST("/topics", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), communitySvc.CreateTopic)
+			communityGroup.POST("/topics/:id/posts", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), communitySvc.CreatePost)
 		}
 
 		// 全文与多维检索 — MusicBrainz 搜索对等，支持 inc 与多类型（开放检索）
