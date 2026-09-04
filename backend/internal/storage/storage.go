@@ -268,16 +268,28 @@ func (s *StorageService) CompleteUpload(ctx context.Context, req *CompleteUpload
 	return err
 }
 
-// GetDownloadURL 生成原档下载链接
+// GetDownloadURL 生成原档下载链接。AssetRegistry 是 CAS 事实源，AssetFile 仅兼容旧数据。
 func (s *StorageService) GetDownloadURL(ctx context.Context, assetID uuid.UUID) (string, error) {
-	var asset models.AssetFile
-	if err := s.db.First(&asset, assetID).Error; err != nil {
-		return "", err
+	var fileName, bucket, key string
+	var registry models.AssetRegistry
+	if err := s.db.First(&registry, assetID).Error; err == nil {
+		fileName = registry.FileName
+		bucket = registry.S3Bucket
+		key = registry.S3Key
+	} else {
+		var legacy models.AssetFile
+		if legacyErr := s.db.First(&legacy, assetID).Error; legacyErr != nil {
+			return "", legacyErr
+		}
+		fileName = legacy.FileName
+		bucket = legacy.S3Bucket
+		key = legacy.S3Key
 	}
-	reqParams := make(url.Values)
-	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=\"%s\"", asset.FileName))
 
-	u, err := s.client.PresignedGetObject(ctx, asset.S3Bucket, asset.S3Key, 2*time.Hour, reqParams)
+	reqParams := make(url.Values)
+	reqParams.Set("response-content-disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+
+	u, err := s.client.PresignedGetObject(ctx, bucket, key, 2*time.Hour, reqParams)
 	if err != nil {
 		return "", err
 	}
