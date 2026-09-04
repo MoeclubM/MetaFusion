@@ -115,9 +115,25 @@ func mergeArtist(tx *gorm.DB, sourceID, targetID, editorID uuid.UUID, input merg
 	}
 
 	target.ExternalIDs = mergeJSONBPreferTarget(source.ExternalIDs, target.ExternalIDs)
-	if err := tx.Model(&target).Update("external_ids", target.ExternalIDs).Error; err != nil {
+	// 时序回填：目标空区间从来源补齐。
+	mergedBegin := target.BeginDate
+	if mergedBegin == "" {
+		mergedBegin = source.BeginDate
+	}
+	mergedEnd := target.EndDate
+	if mergedEnd == "" {
+		mergedEnd = source.EndDate
+	}
+	mergedEnded := target.Ended || source.Ended
+	if err := tx.Model(&target).Updates(map[string]interface{}{
+		"external_ids": target.ExternalIDs,
+		"begin_date":   mergedBegin,
+		"end_date":     mergedEnd,
+		"ended":        mergedEnded,
+	}).Error; err != nil {
 		return err
 	}
+	target.BeginDate, target.EndDate, target.Ended = mergedBegin, mergedEnd, mergedEnded
 	if err := recordRevisionDB(tx, "artist", targetID, &editorID, "merge",
 		fmt.Sprintf("合并主体: 将 [%s] (%s) 合并至当前主体", source.Name, shortID(source.ID)),
 		input.MergeNote, input.SourceURLs,
@@ -173,12 +189,35 @@ func mergeWork(tx *gorm.DB, sourceID, targetID, editorID uuid.UUID, input mergeE
 
 	target.Aliases = mergeAliases(target.Aliases, append([]string{source.Title, source.OriginalTitle}, []string(source.Aliases)...)...)
 	target.ExternalIDs = mergeJSONBPreferTarget(source.ExternalIDs, target.ExternalIDs)
+	// 时序回填：目标空区间从来源补齐；发行点精确日同样回填，保证合并后可排序可查。
+	mergedBegin := target.BeginDate
+	if mergedBegin == "" {
+		mergedBegin = source.BeginDate
+	}
+	mergedEnd := target.EndDate
+	if mergedEnd == "" {
+		mergedEnd = source.EndDate
+	}
+	mergedEnded := target.Ended || source.Ended
+	mergedReleaseDate := target.ReleaseDate
+	if mergedReleaseDate == nil {
+		mergedReleaseDate = source.ReleaseDate
+	}
+	if mergedBegin == "" && mergedReleaseDate != nil {
+		mergedBegin = mergedReleaseDate.Format("2006-01-02")
+	}
 	if err := tx.Model(&target).Updates(map[string]interface{}{
 		"aliases":      target.Aliases,
 		"external_ids": target.ExternalIDs,
+		"begin_date":   mergedBegin,
+		"end_date":     mergedEnd,
+		"ended":        mergedEnded,
+		"release_date": mergedReleaseDate,
 	}).Error; err != nil {
 		return err
 	}
+	target.BeginDate, target.EndDate, target.Ended = mergedBegin, mergedEnd, mergedEnded
+	target.ReleaseDate = mergedReleaseDate
 	if err := recordRevisionDB(tx, "work", targetID, &editorID, "merge",
 		fmt.Sprintf("合并作品: 将 [%s] (%s) 合并至当前作品", source.Title, shortID(source.ID)),
 		input.MergeNote, input.SourceURLs,
@@ -225,12 +264,19 @@ func mergeRelease(tx *gorm.DB, sourceID, targetID, editorID uuid.UUID, input mer
 
 	target.ExternalIDs = mergeJSONBPreferTarget(source.ExternalIDs, target.ExternalIDs)
 	target.CatalogMetadata = mergeJSONBPreferTarget(source.CatalogMetadata, target.CatalogMetadata)
+	// 发行点精确日回填：目标空时从来源补齐。
+	mergedEditionDate := target.EditionDate
+	if mergedEditionDate == nil {
+		mergedEditionDate = source.EditionDate
+	}
 	if err := tx.Model(&target).Updates(map[string]interface{}{
 		"external_ids":     target.ExternalIDs,
 		"catalog_metadata": target.CatalogMetadata,
+		"edition_date":     mergedEditionDate,
 	}).Error; err != nil {
 		return err
 	}
+	target.EditionDate = mergedEditionDate
 	if err := recordRevisionDB(tx, "release", targetID, &editorID, "merge",
 		fmt.Sprintf("合并发行版: 将 [%s] (%s) 合并至当前发行版", source.EditionName, shortID(source.ID)),
 		input.MergeNote, input.SourceURLs,
@@ -267,12 +313,26 @@ func mergeFranchise(tx *gorm.DB, sourceID, targetID, editorID uuid.UUID, input m
 
 	target.Aliases = mergeAliases(target.Aliases, append([]string{source.Title, source.OriginalTitle}, []string(source.Aliases)...)...)
 	target.ExternalIDs = mergeJSONBPreferTarget(source.ExternalIDs, target.ExternalIDs)
+	// 时序回填：目标空区间从来源补齐。
+	mergedBegin := target.BeginDate
+	if mergedBegin == "" {
+		mergedBegin = source.BeginDate
+	}
+	mergedEnd := target.EndDate
+	if mergedEnd == "" {
+		mergedEnd = source.EndDate
+	}
+	mergedEnded := target.Ended || source.Ended
 	if err := tx.Model(&target).Updates(map[string]interface{}{
 		"aliases":      target.Aliases,
 		"external_ids": target.ExternalIDs,
+		"begin_date":   mergedBegin,
+		"end_date":     mergedEnd,
+		"ended":        mergedEnded,
 	}).Error; err != nil {
 		return err
 	}
+	target.BeginDate, target.EndDate, target.Ended = mergedBegin, mergedEnd, mergedEnded
 	if err := recordRevisionDB(tx, "franchise", targetID, &editorID, "merge",
 		fmt.Sprintf("合并企划: 将 [%s] (%s) 合并至当前企划", source.Title, shortID(source.ID)),
 		input.MergeNote, input.SourceURLs,
@@ -336,12 +396,29 @@ func mergeEntityRelationships(tx *gorm.DB, entityType string, sourceID, targetID
 			Ended:            edge.Ended,
 			Attributes:       edge.Attributes,
 		}
-		existing := candidate
+		var existing models.EntityRelationship
 		if err := tx.Where(
 			"source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
 			candidate.SourceType, candidate.SourceID, candidate.TargetType, candidate.TargetID, candidate.RelationshipType, candidate.Qualifier,
-		).FirstOrCreate(&existing).Error; err != nil {
-			return err
+		).First(&existing).Error; err == nil {
+			// 目标已存在同键边：时间区间取并集（begin 最早、end 最晚、任一边存续即存续），
+			// 避免合并丢弃任一来源的任期信息。
+			mergedBegin, mergedEnd, mergedEnded := ontology.MergeEdgeSpan(
+				existing.BeginDate, existing.EndDate, existing.Ended,
+				edge.BeginDate, edge.EndDate, edge.Ended,
+			)
+			if err := tx.Model(&existing).Updates(map[string]interface{}{
+				"begin_date": mergedBegin,
+				"end_date":   mergedEnd,
+				"ended":      mergedEnded,
+			}).Error; err != nil {
+				return err
+			}
+		} else {
+			existing = candidate
+			if err := tx.Create(&existing).Error; err != nil {
+				return err
+			}
 		}
 		if err := tx.Delete(&models.EntityRelationship{}, edge.ID).Error; err != nil {
 			return err

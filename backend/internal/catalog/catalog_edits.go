@@ -420,5 +420,7 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// Release 索引挂在 Work 文档下：发行点变更后刷新所属 Work 投影。
+	s.refreshWorkSearchIndex(c.Request.Context(), release.WorkID)
 	c.JSON(http.StatusOK, gin.H{"status": "success", "release": release})
 }

@@ -366,7 +366,10 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 	case "views":
 		query = query.Order("view_count desc")
 	case "release_date":
-		query = query.Order("release_date desc")
+		// 未知日期沉底：NULL 行排最后，其次按发行点精确日，精确日缺失时按 Begin 模糊串。
+		query = query.Order("release_date DESC NULLS LAST, begin_date DESC NULLS LAST, created_at DESC")
+	case "begin_date":
+		query = query.Order("begin_date DESC NULLS LAST, release_date DESC NULLS LAST, created_at DESC")
 	case "title":
 		query = query.Order("title asc")
 	default:
@@ -1295,6 +1298,7 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	s.refreshWorkSearchIndex(c.Request.Context(), release.WorkID)
 	c.JSON(http.StatusCreated, release)
 }
 
@@ -1460,6 +1464,7 @@ func (s *CatalogService) UpsertWorkRelationsForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	s.refreshWorkSearchIndex(c.Request.Context(), workID)
 	c.JSON(http.StatusOK, gin.H{"status": "success", "count": len(input.Relations)})
 }
 

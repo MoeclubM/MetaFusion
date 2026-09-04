@@ -41,6 +41,22 @@ func (s *CatalogService) UpsertEntityRelationsForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	// 边变更可能影响 Work 署名投影：收集涉及的 work 逐个刷新索引。
+	seen := make(map[uuid.UUID]bool)
+	for _, r := range input.Relations {
+		if strings.ToLower(strings.TrimSpace(r.TargetType)) == "work" {
+			if !seen[r.TargetID] {
+				seen[r.TargetID] = true
+				s.refreshWorkSearchIndex(c.Request.Context(), r.TargetID)
+			}
+		}
+		if strings.ToLower(strings.TrimSpace(r.SourceType)) == "work" {
+			if !seen[r.SourceID] {
+				seen[r.SourceID] = true
+				s.refreshWorkSearchIndex(c.Request.Context(), r.SourceID)
+			}
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "count": len(input.Relations)})
 }
 
