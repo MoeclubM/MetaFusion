@@ -26,7 +26,6 @@ import (
 	"github.com/metafusion/metafusion-app/internal/community"
 	"github.com/metafusion/metafusion-app/internal/config"
 	"github.com/metafusion/metafusion-app/internal/database"
-	"github.com/metafusion/metafusion-app/internal/favorite"
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"github.com/metafusion/metafusion-app/internal/importer"
 	"github.com/metafusion/metafusion-app/internal/mailer"
@@ -704,38 +703,7 @@ func main() {
 
 		registerStorageRoutes(api, cfg, db, storageSvc)
 
-		// 用户公开资料与贡献历史（开放浏览；处理器内部按隐私开关过滤邮箱/收藏）
-		api.GET("/users/:id", auth.OptionalUnifiedAuthMiddleware(cfg, db), community.GetUserProfile(db))
-		api.GET("/users/:id/contributions", auth.OptionalUnifiedAuthMiddleware(cfg, db), community.GetUserContributions(db))
-
-		// 用户收藏：切换 / 批量状态 / 本人列表 / 他人列表（尊重隐私开关）
-		favGroup := api.Group("/favorites")
-		{
-			favGroup.POST("/toggle", auth.UnifiedAuthMiddleware(cfg, db), favorite.Toggle(db))
-			favGroup.GET("/status", auth.UnifiedAuthMiddleware(cfg, db), favorite.Status(db))
-			favGroup.GET("/mine", auth.UnifiedAuthMiddleware(cfg, db), favorite.ListMy(db))
-		}
-		api.GET("/users/:id/favorites", auth.UnifiedAuthMiddleware(cfg, db), favorite.ListByUser(db))
-
-		// 用户私聊消息 (Direct Messaging)
-		messagesGroup := api.Group("/messages", auth.UnifiedAuthMiddleware(cfg, db))
-		{
-			messagesGroup.POST("/with/:user_id", messageSvc.SendMessage)
-			messagesGroup.GET("/with/:user_id", messageSvc.GetMessagesWithUser)
-			messagesGroup.GET("/conversations", messageSvc.ListConversations)
-			messagesGroup.GET("/unread-count", messageSvc.GetUnreadCount)
-		}
-
-		// 社区讨论：公开读，登录并完成邮箱验证后可写。
-		communityGroup := api.Group("/community", auth.OptionalUnifiedAuthMiddleware(cfg, db))
-		{
-			communityGroup.GET("/boards", communitySvc.ListBoards)
-			communityGroup.GET("/topic-tags", communitySvc.ListTopicTags)
-			communityGroup.GET("/topics", communitySvc.ListTopics)
-			communityGroup.GET("/topics/:id", communitySvc.GetTopic)
-			communityGroup.POST("/topics", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), communitySvc.CreateTopic)
-			communityGroup.POST("/topics/:id/posts", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), communitySvc.CreatePost)
-		}
+		registerSocialRoutes(api, cfg, db, communitySvc, messageSvc)
 
 		// 全文与多维检索 — MusicBrainz 搜索对等，支持 inc 与多类型（开放检索）
 		if searchSvc != nil {
