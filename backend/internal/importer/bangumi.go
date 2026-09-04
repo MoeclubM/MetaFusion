@@ -484,6 +484,34 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		})
 	}
 
+	// 标签过滤：人名/工作室/角色/作品名是 Artist/Franchise 实体，不是标签。
+	// 与本条目主体或任一演职员实体同名的标签在入库前剔除，避免实体词污染标签字典。
+	excludeNames := map[string]bool{}
+	addExcluded := func(names ...string) {
+		for _, n := range names {
+			if n = strings.ToLower(strings.TrimSpace(n)); n != "" {
+				excludeNames[n] = true
+			}
+		}
+	}
+	addExcluded(data.Name, data.NameCN, workTitle, origTitle)
+	for _, a := range artists {
+		addExcluded(a.Name, a.OriginalName, a.CharacterName)
+		for _, al := range a.Aliases {
+			addExcluded(al)
+		}
+	}
+	for _, al := range aliases {
+		addExcluded(al)
+	}
+	filteredTags := make([]string, 0, len(tags))
+	for _, tg := range tags {
+		if !excludeNames[strings.ToLower(strings.TrimSpace(tg))] {
+			filteredTags = append(filteredTags, tg)
+		}
+	}
+	tags = filteredTags
+
 	work := WorkPreview{
 		Title:            workTitle,
 		OriginalTitle:    origTitle,
