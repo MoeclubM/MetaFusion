@@ -586,8 +586,6 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 		Preload("Mediums.Tracks.CanonicalEntry").
 		Preload("Mediums.Tracks.CanonicalEntry.Work").
 		Preload("Mediums.Tracks.CanonicalEntry.Work.Translations").
-		Preload("Mediums.AssetFiles").
-		Preload("AssetFiles").
 		Where("id = ?", releaseID).
 		First(&release).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -597,6 +595,8 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	AttachReleaseAssetProjections(s.db, &release)
+
 	if !release.IsMasterVerified {
 		uidDet := currentUserID(c)
 		roleDet, _ := c.Get("role")
@@ -694,7 +694,6 @@ func (s *CatalogService) GetMediumDetail(c *gin.Context) {
 		Preload("Tracks.CanonicalEntry").
 		Preload("Tracks.CanonicalEntry.Work").
 		Preload("Tracks.CanonicalEntry.Work.Translations").
-		Preload("AssetFiles").
 		Where("id = ?", mediumID).
 		First(&medium).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -704,6 +703,8 @@ func (s *CatalogService) GetMediumDetail(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	AttachMediumAssetProjection(s.db, &medium)
 
 	// 附带 Release 与 Work 供面包屑
 	var release models.Release

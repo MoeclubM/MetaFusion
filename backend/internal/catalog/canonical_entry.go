@@ -20,6 +20,7 @@ type CanonicalEntryDetailResponse struct {
 	models.CanonicalEntry
 	Releases          []ReleaseSummaryItem         `json:"releases"`
 	Tracks            []models.Track               `json:"tracks"`
+	AssetFiles        []AssetResourceItem          `json:"asset_files,omitempty"`
 	ConnectedEntities []ConnectedEntityItem        `json:"connected_entities"`
 	ExternalLinks     []models.ExternalLinkItem    `json:"external_links"`
 	Relations         []models.EntityRelationship  `json:"relations,omitempty"`
@@ -90,7 +91,6 @@ func (s *CatalogService) GetCanonicalEntryDetail(c *gin.Context) {
 	var mediums []models.Medium
 	if len(mediumIDs) > 0 {
 		_ = s.db.
-			Preload("AssetFiles").
 			Where("id IN ?", mediumIDs).
 			Find(&mediums).Error
 	}
@@ -186,6 +186,7 @@ func (s *CatalogService) GetCanonicalEntryDetail(c *gin.Context) {
 		CanonicalEntry:    entry,
 		Releases:          releaseSummaries,
 		Tracks:            tracks,
+		AssetFiles:        ProjectAssetResourcesForTarget(s.db, "canonical_entry", entry.ID),
 		ConnectedEntities: connected,
 		ExternalLinks:     s.buildExternalLinks(locale, "canonical_entry", entry.ExternalIDs),
 	}
