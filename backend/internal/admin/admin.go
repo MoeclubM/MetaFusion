@@ -1,13 +1,14 @@
 package admin
 
 import (
-	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	catalogsvc "github.com/metafusion/metafusion-app/internal/catalog"
+	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"github.com/metafusion/metafusion-app/internal/mailer"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/search"
@@ -18,10 +19,11 @@ type AdminService struct {
 	db     *gorm.DB
 	search *search.SearchService
 	mailer *mailer.Mailer
+	queue  *asynq.Client
 }
 
-func NewAdminService(db *gorm.DB, searchSvc *search.SearchService, mailerSvc ...*mailer.Mailer) *AdminService {
-	svc := &AdminService{db: db, search: searchSvc}
+func NewAdminService(db *gorm.DB, searchSvc *search.SearchService, queue *asynq.Client, mailerSvc ...*mailer.Mailer) *AdminService {
+	svc := &AdminService{db: db, search: searchSvc, queue: queue}
 	if len(mailerSvc) > 0 && mailerSvc[0] != nil {
 		svc.mailer = mailerSvc[0]
 	} else {
@@ -33,7 +35,7 @@ func NewAdminService(db *gorm.DB, searchSvc *search.SearchService, mailerSvc ...
 // GetStats 获取全站运行指标统计
 func (s *AdminService) GetStats(c *gin.Context) {
 	var totalUsers, totalWorks, totalReleases, verifiedReleases int64
-	var totalMediums, totalTracks, totalAssetFiles, totalStorageBytes int64
+	var totalMediums, totalTracks, totalAssets, totalStorageBytes int64
 	var totalTopics, totalComments int64
 
 	s.db.Model(&models.User{}).Count(&totalUsers)
@@ -42,20 +44,10 @@ func (s *AdminService) GetStats(c *gin.Context) {
 	s.db.Model(&models.Release{}).Where("is_master_verified = true").Count(&verifiedReleases)
 	s.db.Model(&models.Medium{}).Count(&totalMediums)
 	s.db.Model(&models.Track{}).Count(&totalTracks)
-	s.db.Model(&models.AssetFile{}).Count(&totalAssetFiles)
 	s.db.Model(&models.DiscussionTopic{}).Count(&totalTopics)
 	s.db.Model(&models.Comment{}).Count(&totalComments)
 
-	type SumResult struct{ TotalSize int64 }
-	var sumRes SumResult
-	s.db.Model(&models.AssetFile{}).Select("COALESCE(SUM(file_size), 0) as total_size").Scan(&sumRes)
-	totalStorageBytes = sumRes.TotalSize
-
-	var pendingAssets, processingAssets, failedAssets, completedAssets int64
-	s.db.Model(&models.AssetFile{}).Where("transcode_status = 'pending'").Count(&pendingAssets)
-	s.db.Model(&models.AssetFile{}).Where("transcode_status = 'processing'").Count(&processingAssets)
-	s.db.Model(&models.AssetFile{}).Where("transcode_status = 'failed'").Count(&failedAssets)
-	s.db.Model(&models.AssetFile{}).Where("transcode_status = 'completed'").Count(&completedAssets)
+	totalAssets, totalStorageBytes, pendingAssets, processingAssets, failedAssets, completedAssets := s.assetStats()
 
 	var totalBoards, totalTags, totalGroups int64
 	s.db.Model(&models.ForumBoard{}).Count(&totalBoards)
@@ -69,7 +61,8 @@ func (s *AdminService) GetStats(c *gin.Context) {
 		"verified_releases":   verifiedReleases,
 		"total_mediums":       totalMediums,
 		"total_tracks":        totalTracks,
-		"total_asset_files":   totalAssetFiles,
+		"total_assets":        totalAssets,
+		"total_asset_files":   totalAssets, // compatibility key for existing admin clients
 		"total_storage_bytes": totalStorageBytes,
 		"total_topics":        totalTopics,
 		"total_comments":      totalComments,
@@ -267,64 +260,6 @@ func (s *AdminService) ToggleReleaseVerification(c *gin.Context) {
 	writeAudit(s.db, c, "release.verify.toggle", "release", releaseID.String(), map[string]interface{}{"is_master_verified": input.IsVerified})
 
 	c.JSON(http.StatusOK, gin.H{"status": "success", "is_master_verified": input.IsVerified})
-}
-
-// ListAssetFiles 获取物理资产与转码状态列表 (分页)
-func (s *AdminService) ListAssetFiles(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 20
-	}
-	status := c.Query("transcode_status")
-	q := c.Query("q")
-	query := s.db.Model(&models.AssetFile{})
-	if status != "" {
-		query = query.Where("transcode_status = ?", status)
-	}
-	if q != "" {
-		like := "%" + q + "%"
-		query = query.Where("file_name ILIKE ? OR sha256_hash ILIKE ?", like, like)
-	}
-	var total int64
-	query.Count(&total)
-	var assets []models.AssetFile
-	if err := query.Preload("Release.Work").Order("created_at desc").Offset((page-1)*pageSize).Limit(pageSize).Find(&assets).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"items": assets, "total": total, "page": page, "page_size": pageSize})
-}
-
-func (s *AdminService) GetAssetDetail(c *gin.Context) {
-	assetID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid asset ID"})
-		return
-	}
-	var asset models.AssetFile
-	if err := s.db.Preload("Release").Where("id = ?", assetID).First(&asset).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Asset not found"})
-		return
-	}
-	c.JSON(http.StatusOK, asset)
-}
-
-func (s *AdminService) RetryAsset(c *gin.Context) {
-	assetID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid asset ID"})
-		return
-	}
-	if err := s.db.Model(&models.AssetFile{}).Where("id = ?", assetID).Updates(map[string]interface{}{"transcode_status": "pending", "transcode_error": ""}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	writeAudit(s.db, c, "asset.retry", "asset", assetID.String(), nil)
-	c.JSON(http.StatusOK, gin.H{"status": "queued"})
 }
 
 // DeleteTopic 管理员删除不良或违规主题

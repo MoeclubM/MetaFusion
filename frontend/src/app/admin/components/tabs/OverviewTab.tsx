@@ -192,7 +192,7 @@ export function OverviewTab({
               <span>{t("admin.sidebar.itemAssets")}</span>
             </div>
             <div className="text-lg font-bold text-white font-mono">
-              {stats?.total_asset_files ?? assetsList.length}
+              {stats?.total_assets ?? stats?.total_asset_files ?? assetsList.length}
             </div>
             <div className="text-[10px] text-gray-500">
               {t("admin.overview.itemDesc", { bytes: formatBytes(stats?.total_storage_bytes ?? 0) })}

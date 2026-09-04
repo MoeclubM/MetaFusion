@@ -354,17 +354,17 @@ func (s *SystemHealthService) collectQueueStats() []QueueStatInfo {
 func (s *SystemHealthService) GetQueueStats(c *gin.Context) {
 	queues := s.collectQueueStats()
 	
-	// 同时查询数据库内 AssetFile 转码任务汇总
+	// 同时查询 CAS AssetRegistry 转码任务汇总
 	var transcodeSummary struct {
 		Pending    int64 `json:"pending"`
 		Processing int64 `json:"processing"`
 		Completed  int64 `json:"completed"`
 		Failed     int64 `json:"failed"`
 	}
-	s.db.Model(&models.AssetFile{}).Where("transcode_status = 'pending'").Count(&transcodeSummary.Pending)
-	s.db.Model(&models.AssetFile{}).Where("transcode_status = 'processing'").Count(&transcodeSummary.Processing)
-	s.db.Model(&models.AssetFile{}).Where("transcode_status = 'completed'").Count(&transcodeSummary.Completed)
-	s.db.Model(&models.AssetFile{}).Where("transcode_status = 'failed'").Count(&transcodeSummary.Failed)
+	s.db.Model(&models.AssetRegistry{}).Where("transcode_status = 'pending'").Count(&transcodeSummary.Pending)
+	s.db.Model(&models.AssetRegistry{}).Where("transcode_status = 'processing'").Count(&transcodeSummary.Processing)
+	s.db.Model(&models.AssetRegistry{}).Where("transcode_status = 'completed'").Count(&transcodeSummary.Completed)
+	s.db.Model(&models.AssetRegistry{}).Where("transcode_status = 'failed'").Count(&transcodeSummary.Failed)
 
 	c.JSON(http.StatusOK, gin.H{
 		"queues":            queues,
