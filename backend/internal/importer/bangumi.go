@@ -145,6 +145,50 @@ func fetchBangumiEpisodes(ctx context.Context, client *http.Client, subjectID st
 	return out
 }
 
+// bgmNormalizeDate 将 Bangumi 源日期统一为模糊日期规约（YYYY / YYYY-MM / YYYY-MM-DD）。
+// 接受 ISO 形（2009-04-05、发售日 1999-03）与中文形（2009年4月5日/2009年4月/2009年），
+// 空/非法返回 ""（调用方回退或保留 raw，不伪造）。
+func bgmNormalizeDate(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	if _, err := time.Parse("2006-01-02", s); err == nil {
+		return s
+	}
+	if len(s) == 7 {
+		if _, err := time.Parse("2006-01", s); err == nil {
+			return s
+		}
+	}
+	if len(s) == 4 {
+		if _, err := time.Parse("2006", s); err == nil {
+			return s
+		}
+	}
+	cnFull := regexp.MustCompile(`^(\d{4})年(\d{1,2})月(\d{1,2})日$`).FindStringSubmatch(s)
+	if len(cnFull) == 4 {
+		t, err := time.Parse("2006-1-2", fmt.Sprintf("%s-%s-%s", cnFull[1], cnFull[2], cnFull[3]))
+		if err == nil {
+			return t.Format("2006-01-02")
+		}
+		return ""
+	}
+	cnMonth := regexp.MustCompile(`^(\d{4})年(\d{1,2})月$`).FindStringSubmatch(s)
+	if len(cnMonth) == 3 {
+		t, err := time.Parse("2006-1", fmt.Sprintf("%s-%s", cnMonth[1], cnMonth[2]))
+		if err == nil {
+			return t.Format("2006-01")
+		}
+		return ""
+	}
+	cnYear := regexp.MustCompile(`^(\d{4})年$`).FindStringSubmatch(s)
+	if len(cnYear) == 2 {
+		return cnYear[1]
+	}
+	return ""
+}
+
 // bgmInfoboxText 提取 infobox 首个匹配键的文本值（支持 string / {v} / [{v}] 三种形状）。
 func bgmInfoboxText(infobox []bgmInfoboxItem, keys ...string) string {
 	want := map[string]bool{}
@@ -501,10 +545,14 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 	if formatTag != "" {
 		tagMap[formatTag] = true
 	}
-	// 形态细分：动画剧场版/连续剧/漫画/轻小说等，按源类型与条目特征补齐。
+	// 形态细分：单集/单卷条目（剧场版/电影/单行本）打细化形态标签，
+	// 连载/多集条目不打（形态由 format 标签承载，避免 TV 动画误标剧场版）。
+	singleItem := data.Eps <= 1 && data.TotalEpisodes <= 1 && data.Volumes <= 1
 	switch mediaType {
 	case "anime":
-		tagMap["动画剧场版"] = true
+		if singleItem {
+			tagMap["动画剧场版"] = true
+		}
 	case "tv":
 		tagMap["连续剧"] = true
 		mediumTag = "实拍"
@@ -656,10 +704,12 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 
 	// Work 起止日期：infobox 放送开始/结束优先（剧集/动画），回退发售日/发售日期，
 	// 最后回退顶层 date；结束缺失时 Ended 保持 false 不伪造。
-	workBegin := bgmInfoboxText(data.Infobox, "放送开始", "开始", "发售日", "发售日期", "发行日期", "出版日期")
-	workEnd := bgmInfoboxText(data.Infobox, "播放结束", "结束")
+	// infobox 中文日期（2009年4月5日/2009年4月/2009年）在此规范化为模糊日期，
+	// 非法值丢空（importer.go 共享链路还会二次校验并保留 raw，不静默污染）。
+	workBegin := bgmNormalizeDate(bgmInfoboxText(data.Infobox, "放送开始", "开始", "发售日", "发售日期", "发行日期", "出版日期"))
+	workEnd := bgmNormalizeDate(bgmInfoboxText(data.Infobox, "播放结束", "结束"))
 	if workBegin == "" {
-		workBegin = strings.TrimSpace(data.Date)
+		workBegin = bgmNormalizeDate(strings.TrimSpace(data.Date))
 	}
 
 	// Infobox 人员兜底：v0 /subjects/{id}/persons 对书籍/音乐等类型经常为空，
