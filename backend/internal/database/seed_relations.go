@@ -169,6 +169,22 @@ func seedRelationTypes(db *gorm.DB) {
 	_ = db.Model(&models.RelationType{}).
 		Where("code IN ?", []string{"adaptation_of", "prequel_of", "part_of_universe", "voice_actor", "orchestra", "studio"}).
 		Update("is_enabled", false).Error
+	// 时序语义标定：任期/隶属/合约类关系展示 begin/end/ended 输入，
+	// 层级派生类（改编/续作/外传/收录/扩展/联动/变体）保持隐藏。
+	_ = db.Model(&models.RelationType{}).
+		Where("code IN ?", []string{
+			"member_of", "voice_actor_of", "character_in", "performer", "producer",
+			"collaborates_with", "signed_with", "represented_by", "subsidiary_of",
+			"creator_of", "imprint_of",
+		}).
+		Update("is_temporal", true).Error
+	_ = db.Model(&models.RelationType{}).
+		Where("code IN ?", []string{
+			"adapted_from", "sequel_of", "spin_off_of", "unofficial_of", "expansion_of",
+			"soundtrack_of", "included_in", "crossover_with", "alternate_form_of",
+			"part_of_franchise",
+		}).
+		Update("is_temporal", false).Error
 }
 
 func seedExternalDatabaseDefinitions(db *gorm.DB) {
