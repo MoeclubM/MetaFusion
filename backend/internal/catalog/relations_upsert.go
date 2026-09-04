@@ -47,6 +47,17 @@ func (s *CatalogService) UpsertEntityRelationsForMember(c *gin.Context) {
 func (s *CatalogService) persistEntityRelations(rows []entityRelInput) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for _, r := range rows {
+			beginDate, err := ontology.NormalizePartialDate(r.BeginDate)
+			if err != nil {
+				return err
+			}
+			endDate, err := ontology.NormalizePartialDate(r.EndDate)
+			if err != nil {
+				return err
+			}
+			if err := ontology.ValidateDateSpan(beginDate, endDate); err != nil {
+				return err
+			}
 			spec := ontology.EdgeSpec{
 				SourceType:       r.SourceType,
 				SourceID:         r.SourceID,
@@ -54,6 +65,9 @@ func (s *CatalogService) persistEntityRelations(rows []entityRelInput) error {
 				TargetID:         r.TargetID,
 				RelationshipType: r.RelationshipType,
 				Qualifier:        strings.TrimSpace(r.Qualifier),
+				BeginDate:        beginDate,
+				EndDate:          endDate,
+				Ended:            r.Ended,
 			}
 			// Validate against the same transaction after each prior edge is written,
 			// so a single batch cannot hide a newly-created cycle.
@@ -73,8 +87,8 @@ func (s *CatalogService) persistEntityRelations(rows []entityRelInput) error {
 				TargetID:         r.TargetID,
 				RelationshipType: strings.ToLower(strings.TrimSpace(r.RelationshipType)),
 				Qualifier:        qual,
-				BeginDate:        r.BeginDate,
-				EndDate:          r.EndDate,
+				BeginDate:        beginDate,
+				EndDate:          endDate,
 				Ended:            r.Ended,
 				Attributes:       attrs,
 			}
@@ -82,8 +96,8 @@ func (s *CatalogService) persistEntityRelations(rows []entityRelInput) error {
 				"source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
 				rel.SourceType, rel.SourceID, rel.TargetType, rel.TargetID, rel.RelationshipType, rel.Qualifier,
 			).Assign(models.EntityRelationship{
-				BeginDate:  r.BeginDate,
-				EndDate:    r.EndDate,
+				BeginDate:  beginDate,
+				EndDate:    endDate,
 				Ended:      r.Ended,
 				Attributes: attrs,
 			}).FirstOrCreate(&rel).Error; err != nil {
