@@ -234,6 +234,7 @@ func (s *AdminService) UpdateWorkStatus(c *gin.Context) {
 		return
 	}
 	writeAudit(s.db, c, "work.status.update", "work", workID.String(), map[string]interface{}{"status": input.Status})
+	s.refreshWorkSearchIndex(c.Request.Context(), workID)
 	c.JSON(http.StatusOK, gin.H{"status": "success", "work_status": input.Status})
 }
 

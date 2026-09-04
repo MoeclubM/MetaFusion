@@ -60,7 +60,7 @@ func main() {
 
 	// 3. 初始化各模块服务
 	authSvc := auth.NewAuthService(db, cfg, redisClient, mailerSvc)
-	catalogSvc := catalog.NewCatalogService(db)
+	catalogSvc := catalog.NewCatalogService(db, searchSvc)
 	communitySvc := community.NewCommunityService(db)
 	messageSvc := community.NewMessageService(db)
 	adminSvc := admin.NewAdminService(db, searchSvc, asynqClient, mailerSvc)

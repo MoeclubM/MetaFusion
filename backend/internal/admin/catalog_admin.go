@@ -75,6 +75,7 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 			existingWork.CoverImageURL = input.CoverImageURL
 			existingWork.CoverAspect = catalogsvc.NormalizeCoverAspect(input.CoverAspect)
 		}
+		s.refreshWorkSearchIndex(c.Request.Context(), existingWork.ID)
 		c.JSON(http.StatusOK, existingWork)
 		return
 	}
@@ -105,6 +106,7 @@ func (s *AdminService) CreateWork(c *gin.Context) {
 	loc := "zh-CN"
 	_ = s.db.Create(&models.WorkTranslation{WorkID: work.ID, Locale: loc, Title: work.Title, Summary: work.Summary}).Error
 	writeAudit(s.db, c, "work.create", "work", work.ID.String(), map[string]interface{}{"title": work.Title})
+	s.refreshWorkSearchIndex(c.Request.Context(), work.ID)
 	c.JSON(http.StatusCreated, work)
 }
 
@@ -150,6 +152,7 @@ func (s *AdminService) UpdateWork(c *gin.Context) {
 		return
 	}
 	writeAudit(s.db, c, "work.update", "work", workID.String(), updates)
+	s.refreshWorkSearchIndex(c.Request.Context(), workID)
 	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }
 

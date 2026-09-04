@@ -16,6 +16,7 @@ import (
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/ontology"
+	"github.com/metafusion/metafusion-app/internal/search"
 	"github.com/metafusion/metafusion-app/internal/security"
 	"gorm.io/gorm"
 )
@@ -59,11 +60,16 @@ func validateCoverURL(raw string) error {
 }
 
 type CatalogService struct {
-	db *gorm.DB
+	db     *gorm.DB
+	search *search.SearchService
 }
 
-func NewCatalogService(db *gorm.DB) *CatalogService {
-	return &CatalogService{db: db}
+func NewCatalogService(db *gorm.DB, searchSvc ...*search.SearchService) *CatalogService {
+	svc := &CatalogService{db: db}
+	if len(searchSvc) > 0 {
+		svc.search = searchSvc[0]
+	}
+	return svc
 }
 
 // ListShelves 获取所有虚拟分类与货架列表 (树状结构)
@@ -1116,6 +1122,7 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 		}
 
 		_ = s.db.Preload("Tags").Preload("Translations").First(&existingWork, existingWork.ID).Error
+		s.refreshWorkSearchIndex(c.Request.Context(), existingWork.ID)
 		c.JSON(http.StatusOK, existingWork)
 		return
 	}
@@ -1149,6 +1156,7 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 	})
 
 	_ = s.db.Preload("Tags").Preload("Translations").First(&work, work.ID).Error
+	s.refreshWorkSearchIndex(c.Request.Context(), work.ID)
 	c.JSON(http.StatusCreated, work)
 }
 

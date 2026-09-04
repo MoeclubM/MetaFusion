@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -168,6 +169,9 @@ func (s *SearchService) IndexWorkDoc(ctx context.Context, work *models.Work) err
 		return err
 	}
 	defer res.Body.Close()
+	if res.IsError() {
+		return fmt.Errorf("opensearch index work %s failed with status %d", work.ID, res.StatusCode)
+	}
 	return nil
 }
 
@@ -183,6 +187,9 @@ func (s *SearchService) DeleteWorkDoc(ctx context.Context, workID uuid.UUID) err
 		return err
 	}
 	defer res.Body.Close()
+	if res.IsError() && res.StatusCode != http.StatusNotFound {
+		return fmt.Errorf("opensearch delete work %s failed with status %d", workID, res.StatusCode)
+	}
 	return nil
 }
 

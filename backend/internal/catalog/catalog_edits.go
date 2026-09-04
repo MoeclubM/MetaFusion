@@ -160,6 +160,7 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		return
 	}
 	_ = s.db.Preload("Tags").Preload("Translations").First(&work, work.ID).Error
+	s.refreshWorkSearchIndex(c.Request.Context(), work.ID)
 	c.JSON(http.StatusOK, gin.H{"status": "success", "work": work})
 }
 
