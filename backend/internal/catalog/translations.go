@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/metafusion/metafusion-app/internal/models"
+	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
@@ -193,6 +194,25 @@ func (s *CatalogService) upsertWorkTranslations(workID uuid.UUID, items []Locale
 	_ = q.Delete(&models.WorkTranslation{}).Error
 }
 
+func upsertWorkTranslationsDB(db *gorm.DB, workID uuid.UUID, items []LocaleTextInput) error {
+	keep := make([]string, 0, len(items))
+	for _, it := range items {
+		keep = append(keep, it.Locale)
+		row := models.WorkTranslation{WorkID: workID, Locale: it.Locale, Title: it.Title, Summary: it.Summary}
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "work_id"}, {Name: "locale"}},
+			DoUpdates: clause.AssignmentColumns([]string{"title", "summary"}),
+		}).Create(&row).Error; err != nil {
+			return err
+		}
+	}
+	q := db.Where("work_id = ?", workID)
+	if len(keep) > 0 {
+		q = q.Where("locale NOT IN ?", keep)
+	}
+	return q.Delete(&models.WorkTranslation{}).Error
+}
+
 func (s *CatalogService) upsertArtistTranslations(artistID uuid.UUID, items []LocaleTextInput) {
 	keep := make([]string, 0, len(items))
 	for _, it := range items {
@@ -216,6 +236,33 @@ func (s *CatalogService) upsertArtistTranslations(artistID uuid.UUID, items []Lo
 		q = q.Where("locale NOT IN ?", keep)
 	}
 	_ = q.Delete(&models.ArtistTranslation{}).Error
+}
+
+func upsertArtistTranslationsDB(db *gorm.DB, artistID uuid.UUID, items []LocaleTextInput) error {
+	keep := make([]string, 0, len(items))
+	for _, it := range items {
+		name := it.Name
+		if name == "" {
+			name = it.Title
+		}
+		bio := it.Biography
+		if bio == "" {
+			bio = it.Summary
+		}
+		keep = append(keep, it.Locale)
+		row := models.ArtistTranslation{ArtistID: artistID, Locale: it.Locale, Name: name, Biography: bio}
+		if err := db.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "artist_id"}, {Name: "locale"}},
+			DoUpdates: clause.AssignmentColumns([]string{"name", "biography"}),
+		}).Create(&row).Error; err != nil {
+			return err
+		}
+	}
+	q := db.Where("artist_id = ?", artistID)
+	if len(keep) > 0 {
+		q = q.Where("locale NOT IN ?", keep)
+	}
+	return q.Delete(&models.ArtistTranslation{}).Error
 }
 
 func (s *CatalogService) upsertFranchiseTranslations(fid uuid.UUID, items []LocaleTextInput) {
