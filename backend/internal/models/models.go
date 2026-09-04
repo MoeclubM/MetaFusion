@@ -290,11 +290,16 @@ type Artist struct {
 }
 
 // WorkArtistRelation represents structured creator roles (Composer, Director, Author, etc.)
+// 署名单轨化后为纯读投影：行数据来自 entity_relationships 图边，
+// Begin/End/Ended 同样投影自边（gorm:"-"，不落 work_artist_relations 旧表）。
 type WorkArtistRelation struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
 	WorkID    uuid.UUID `gorm:"type:uuid;not null" json:"work_id"`
 	ArtistID  uuid.UUID `gorm:"type:uuid;not null" json:"artist_id"`
 	Role      string    `gorm:"not null" json:"role"`
+	BeginDate string    `gorm:"-" json:"begin_date,omitempty"`
+	EndDate   string    `gorm:"-" json:"end_date,omitempty"`
+	Ended     bool      `gorm:"-" json:"ended,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 
 	Artist *Artist `gorm:"foreignKey:ArtistID" json:"artist,omitempty"`
@@ -552,6 +557,10 @@ type RelationType struct {
 	AllowedTargetTypes pq.StringArray `gorm:"type:text[]" json:"allowed_target_types"`
 	IsSymmetric        bool           `gorm:"default:false;not null" json:"is_symmetric"`
 	IsHierarchical     bool           `gorm:"default:false;not null" json:"is_hierarchical"`
+	// IsTemporal 标记该关系是否具有时间语义（任期/隶属/合约期）：
+	// 为 true 时编辑器展示 begin/end/ended 输入，为 false 的层级边
+	// （sequel_of/adaptation_of 等）默认隐藏时间输入。
+	IsTemporal         bool           `gorm:"default:false;not null" json:"is_temporal"`
 	AttributeSchema    JSONB          `gorm:"type:jsonb;default:'[]'" json:"attribute_schema"`
 	Color              string         `gorm:"type:varchar(32);default:'sky';not null" json:"color"`
 	Icon               string         `gorm:"type:varchar(64);default:'Link';not null" json:"icon"`

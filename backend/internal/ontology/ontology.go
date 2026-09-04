@@ -79,6 +79,9 @@ type EdgeSpec struct {
 	TargetID         uuid.UUID
 	RelationshipType string
 	Qualifier        string
+	BeginDate        string
+	EndDate          string
+	Ended            bool
 }
 
 func ValidateRelationEdge(db *gorm.DB, spec EdgeSpec) error {
@@ -122,6 +125,16 @@ func ValidateRelationEdge(db *gorm.DB, spec EdgeSpec) error {
 		if wouldCycle(db, spec) {
 			return fmt.Errorf("hierarchical relationship would create a cycle")
 		}
+	}
+	// 时间区间校验：模糊日期非法或起止倒挂直接报错，调用方以 400 返回。
+	if _, err := NormalizePartialDate(spec.BeginDate); err != nil {
+		return err
+	}
+	if _, err := NormalizePartialDate(spec.EndDate); err != nil {
+		return err
+	}
+	if err := ValidateDateSpan(spec.BeginDate, spec.EndDate); err != nil {
+		return err
 	}
 	return nil
 }
