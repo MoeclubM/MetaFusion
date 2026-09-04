@@ -102,6 +102,7 @@ type bgmEpisodesResponse struct {
 
 // fetchBangumiEpisodes 拉取 Bangumi 真实分集列表（/v0/episodes?subject_id=）。
 // 返回 nil 表示源无分集数据（音乐/书籍/游戏等类型常见），调用方回退诚实占位。
+// 以 API 返回的 total 为准翻页拉全（长番可达数百话），2000 条安全上限防失控。
 func fetchBangumiEpisodes(ctx context.Context, client *http.Client, subjectID string) []bgmEpisodeItem {
 	episodesURL := fmt.Sprintf("https://api.bgm.tv/v0/episodes?subject_id=%s&limit=100&offset=0", subjectID)
 	if err := security.ValidateExternalURL(episodesURL); err != nil {
@@ -109,7 +110,7 @@ func fetchBangumiEpisodes(ctx context.Context, client *http.Client, subjectID st
 	}
 	var out []bgmEpisodeItem
 	offset := 0
-	for len(out) < 200 {
+	for len(out) < 2000 {
 		pageURL := fmt.Sprintf("https://api.bgm.tv/v0/episodes?subject_id=%s&limit=100&offset=%d", subjectID, offset)
 		eReq, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
 		if err != nil {
@@ -148,10 +149,17 @@ func fetchBangumiEpisodes(ctx context.Context, client *http.Client, subjectID st
 // bgmNormalizeDate 将 Bangumi 源日期统一为模糊日期规约（YYYY / YYYY-MM / YYYY-MM-DD）。
 // 接受 ISO 形（2009-04-05、发售日 1999-03）与中文形（2009年4月5日/2009年4月/2009年），
 // 空/非法返回 ""（调用方回退或保留 raw，不伪造）。
+// 分集 airdate 另有两位年遗留形（09-07-04 = 2009-07-04，Bangumi 老数据常见），
+// 按 70 分界换算（>=70 归 19xx，否则 20xx）后归一化。
 func bgmNormalizeDate(raw string) string {
 	s := strings.TrimSpace(raw)
 	if s == "" {
 		return ""
+	}
+	if len(s) == 8 {
+		if t, err := time.Parse("06-01-02", s); err == nil {
+			return t.Format("2006-01-02")
+		}
 	}
 	if _, err := time.Parse("2006-01-02", s); err == nil {
 		return s
