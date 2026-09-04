@@ -1,13 +1,13 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/metafusion/metafusion-app/internal/auth"
 	"github.com/metafusion/metafusion-app/internal/config"
-	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/storage"
 	"gorm.io/gorm"
 )
@@ -60,31 +60,21 @@ func registerStorageRoutes(api *gin.RouterGroup, cfg *config.Config, db *gorm.DB
 	})
 
 	storageGroup.POST("/bind", func(c *gin.Context) {
-		var input struct {
-			AssetID          uuid.UUID `json:"asset_id" binding:"required"`
-			TargetEntityType string    `json:"target_entity_type" binding:"required"`
-			TargetEntityID   uuid.UUID `json:"target_entity_id" binding:"required"`
-			BindingRole      string    `json:"binding_role"`
-		}
-		if err := c.ShouldBindJSON(&input); err != nil {
+		var req storage.BindAssetRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		bindingRole := input.BindingRole
-		if bindingRole == "" {
-			bindingRole = "master_archive"
-		}
-		binding := models.AssetBinding{
-			AssetID:          input.AssetID,
-			TargetEntityType: input.TargetEntityType,
-			TargetEntityID:   input.TargetEntityID,
-			BindingRole:      bindingRole,
-		}
-		if err := db.Where(
-			"asset_id = ? AND target_entity_type = ? AND target_entity_id = ? AND binding_role = ?",
-			input.AssetID, input.TargetEntityType, input.TargetEntityID, bindingRole,
-		).FirstOrCreate(&binding).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		binding, err := storageSvc.BindAsset(&req)
+		if err != nil {
+			switch {
+			case errors.Is(err, storage.ErrInvalidBindingTarget):
+				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			case errors.Is(err, storage.ErrAssetNotFound), errors.Is(err, storage.ErrBindingTargetNotFound):
+				c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			default:
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			}
 			return
 		}
 		c.JSON(http.StatusOK, gin.H{"status": "bound", "binding": binding})
