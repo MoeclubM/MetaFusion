@@ -2553,60 +2553,6 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 	})
 }
 
-// recordRevision 记录实体变更快照与编辑附言。旧调用保持 best-effort；核心编辑事务使用 recordRevisionDB。
-func (s *CatalogService) recordRevision(
-	targetType string,
-	targetID uuid.UUID,
-	editorID *uuid.UUID,
-	editType string,
-	summary string,
-	editNote string,
-	sourceURLs []string,
-	beforeState map[string]interface{},
-	afterState map[string]interface{},
-) {
-	_ = recordRevisionDB(s.db, targetType, targetID, editorID, editType, summary, editNote, sourceURLs, beforeState, afterState)
-}
-
-func recordRevisionDB(
-	db *gorm.DB,
-	targetType string,
-	targetID uuid.UUID,
-	editorID *uuid.UUID,
-	editType string,
-	summary string,
-	editNote string,
-	sourceURLs []string,
-	beforeState map[string]interface{},
-	afterState map[string]interface{},
-) error {
-	diff := make(map[string]interface{})
-	for k, newV := range afterState {
-		oldV, exists := beforeState[k]
-		if !exists || fmt.Sprintf("%v", oldV) != fmt.Sprintf("%v", newV) {
-			diff[k] = map[string]interface{}{
-				"old": oldV,
-				"new": newV,
-			}
-		}
-	}
-	rev := models.EntityRevision{
-		TargetType:  targetType,
-		TargetID:    targetID,
-		EditorID:    editorID,
-		EditType:    editType,
-		Summary:     summary,
-		EditNote:    editNote,
-		SourceURLs:  sourceURLs,
-		BeforeState: models.JSONB(beforeState),
-		AfterState:  models.JSONB(afterState),
-		Diff:        models.JSONB(diff),
-		Status:      "applied",
-		CreatedAt:   time.Now(),
-	}
-	return db.Create(&rev).Error
-}
-
 // UpdateWorkForMember 社区成员/编目员编辑作品信息并记录修订快照
 func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 	userID, err := getUserID(c)
@@ -2981,28 +2927,6 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "release": release})
-}
-
-// ListEntityRevisions 获取实体的版本修订历史时间线
-func (s *CatalogService) ListEntityRevisions(c *gin.Context) {
-	targetType := c.Query("target_type")
-	targetIDStr := c.Query("target_id")
-	if targetType == "" || targetIDStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "target_type and target_id are required"})
-		return
-	}
-	targetID, err := uuid.Parse(targetIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid target_id UUID"})
-		return
-	}
-
-	var revisions []models.EntityRevision
-	s.db.Preload("Editor").Where("target_type = ? AND target_id = ?", targetType, targetID).
-		Order("created_at desc").
-		Find(&revisions)
-
-	c.JSON(http.StatusOK, gin.H{"items": revisions, "total": len(revisions)})
 }
 
 // MergeEntities 实体合并工作流 (Merge Source Entity into Target Entity)
