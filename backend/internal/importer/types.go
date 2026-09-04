@@ -36,6 +36,9 @@ type WorkPreview struct {
 	CoverAspect      string            `json:"cover_aspect"` // "1:1", "2:3", "3:4", "16:9"
 	ContentRating    string            `json:"content_rating"`
 	Tags             []string          `json:"tags"`
+	// TagGroups 标签名 -> 分组（format/medium/genre/theme/topic），仅携带导入器已知的
+	// 规范标签分组；原生源标签无分组（nil 键缺失），落库时回退 genre。
+	TagGroups        map[string]string `json:"tag_groups,omitempty"`
 	ExternalIDs      models.JSONB      `json:"external_ids"`
 	Translations     []TranslationItem `json:"translations"`
 	CatalogMetadata  models.JSONB      `json:"catalog_metadata"`
@@ -85,6 +88,10 @@ type TrackPreview struct {
 	ArtistCredit    string `json:"artist_credit"`
 	ISRC            string `json:"isrc"`
 	RecordingMBID   string `json:"recording_mbid,omitempty"`
+	// AirDate 单集播出/曲目发行日期（模糊日期规约，空串=源未提供）
+	AirDate string `json:"air_date,omitempty"`
+	// BangumiEpisodeID Bangumi 分集 ID（external_ids 去重与回链用，空串=合成条目）
+	BangumiEpisodeID string `json:"bangumi_episode_id,omitempty"`
 }
 
 // MediumPreview 盘片/卷册/介质载体
