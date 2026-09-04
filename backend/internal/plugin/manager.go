@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	catalogsvc "github.com/metafusion/metafusion-app/internal/catalog"
 	"github.com/metafusion/metafusion-app/internal/config"
 	"github.com/metafusion/metafusion-app/internal/importer"
 	"github.com/metafusion/metafusion-app/internal/models"
@@ -767,8 +768,7 @@ func (m *Manager) ExportWork(ctx context.Context, format string, workID uuid.UUI
 		return nil, "", "", fmt.Errorf("work not found: %w", err)
 	}
 
-	var artists []models.WorkArtistRelation
-	_ = m.db.Preload("Artist").Where("work_id = ?", workID).Find(&artists).Error
+	artists := catalogsvc.ProjectWorkArtistRelations(m.db, workID)
 
 	var releases []models.Release
 	_ = m.db.Preload("Mediums.Tracks").Where("work_id = ?", workID).Find(&releases).Error
