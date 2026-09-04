@@ -63,7 +63,7 @@ func main() {
 	catalogSvc := catalog.NewCatalogService(db)
 	communitySvc := community.NewCommunityService(db)
 	messageSvc := community.NewMessageService(db)
-	adminSvc := admin.NewAdminService(db, searchSvc, mailerSvc)
+	adminSvc := admin.NewAdminService(db, searchSvc, asynqClient, mailerSvc)
 	systemHealthSvc := admin.NewSystemHealthService(db, cfg, searchSvc, redisClient)
 	apiKeySvc := apikey.NewService(db)
 

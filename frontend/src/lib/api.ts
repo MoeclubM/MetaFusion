@@ -92,6 +92,7 @@ export interface AdminStats {
   verified_releases: number;
   total_mediums: number;
   total_tracks: number;
+  total_assets?: number;
   total_asset_files: number;
   total_storage_bytes: number;
   total_topics: number;
@@ -477,9 +478,20 @@ export interface Track {
   canonical_entry?: CanonicalEntry;
 }
 
+export interface AssetBinding {
+  id: string;
+  asset_id: string;
+  target_entity_type: "work" | "release" | "medium" | "track" | "canonical_entry" | string;
+  target_entity_id: string;
+  binding_role: string;
+  display_order: number;
+  metadata?: Record<string, any>;
+}
+
+// Admin/API compatibility name. Runtime data is backed by AssetRegistry + AssetBinding.
 export interface AssetFile {
   id: string;
-  release_id: string;
+  release_id?: string;
   medium_id?: string;
   track_id?: string;
   canonical_entry_id?: string;
@@ -490,9 +502,12 @@ export interface AssetFile {
   file_size: number;
   sha256_hash: string;
   mime_type: string;
+  storage_tier?: string;
   technical_specs: Record<string, any>;
+  derivatives?: Record<string, any>;
   transcode_status: string;
   transcode_error?: string;
+  bindings?: AssetBinding[];
   release?: Release;
 }
 
