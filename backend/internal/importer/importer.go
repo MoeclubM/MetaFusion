@@ -1073,7 +1073,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			_ = tx.Create(&workArtRel).Error
 		}
 
-		// 挂载知识图谱动态语义边 (EntityRelationship)
+		// 挂载目录关系图谱动态语义边 (EntityRelationship)
 		relTypeCode := "creator_of"
 		roleLower := strings.ToLower(roleToAssign)
 		switch {

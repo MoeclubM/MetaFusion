@@ -31,7 +31,7 @@
 - **技术栈**：Go (backend) + Next.js (frontend) + Postgres + RustFS (S3 兼容对象存储) + OpenSearch 2.x + FFmpeg Worker，`deploy/docker-compose.yml` 一键启动。
 - **核心模型**：LRM 混合 `Work / CanonicalEntry / Release / Medium / Track / AssetFile`。`CanonicalEntry` 作为通用的 LRM-E2 表现层（Expression），自适应对应跨媒介具体创作表达（音乐录音母版、图书正文/典范章节、影视正片剪辑/分集母版、漫画连载话、游戏本体战役），支持跨发行版本复用；实体必须保持纯净标题（Work 严禁混入季数/载体/规格），通过「标签 + 虚拟货架 + Release 规格 + 实体图谱边」自然表达，无 `media_type`（传统树状分类与硬编码形态已完全废弃）。
 - **插件架构与解耦治理**：核心实体层保持纯粹，外围抓取（Importers）、格式导出（Exporters）、通知外发（Notifiers）、媒体分析与 AI 增强全面采用插件化与 DAG 拓扑依赖治理（支持 Semver 约束、循环依赖检测与级联启停保护）。详见 [`docs/architecture/plugin-decoupling-blueprint.md`](docs/architecture/plugin-decoupling-blueprint.md)。
-- **实体图谱与拓扑**：通过 `adaptation_of`、`soundtrack_of`、`sequel_of`、`spin_off_of` 组织有向无环图谱（DAG），严禁循环边与自环；跨作品登场通过多条 `character_in` 边连接，严禁分裂实体。
+- **关系图谱与拓扑**：MetaFusion 的产品定位是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资源分享站，不以通用知识库为目标。通过 `adaptation_of`、`soundtrack_of`、`sequel_of`、`spin_off_of` 等关系组织跨作品与主体关联；需要层级/无环语义的关系必须拒绝循环边与自环，跨作品登场通过多条 `character_in` 边连接，严禁分裂实体。
 - **封面与多语言**：封面支持自适应自然宽高比与强制 `cover_aspect`（音乐 1:1、影视/动画 2:3、书籍 3:4），严禁风景图与占位图；多语言题名与简介基于 `work_translations` 本地化回退链。
 - **不可篡改审计流**：每次写操作必须附带 `source_urls`（权威考据源）与 `edit_note`（编辑动机说明），生成不可篡改版本快照。
 

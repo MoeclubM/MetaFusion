@@ -742,7 +742,7 @@ type GraphLink struct {
 	IsHierarchical bool         `json:"is_hierarchical,omitempty"`
 }
 
-// GetWorkGraph 获取作品的高级知识图谱网络
+// GetWorkGraph 获取作品的高级关系图谱网络
 func (s *CatalogService) GetWorkGraph(c *gin.Context) {
 	workID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
