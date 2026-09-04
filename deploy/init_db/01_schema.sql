@@ -348,6 +348,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     duration_seconds INT,
     isrc VARCHAR(32),
     artist_credit VARCHAR(255),
+    air_date VARCHAR(16),                          -- 单集播出/曲目发行日期 (模糊日期 YYYY / YYYY-MM / YYYY-MM-DD)
     attributes JSONB DEFAULT '{}'::jsonb NOT NULL
 );
 

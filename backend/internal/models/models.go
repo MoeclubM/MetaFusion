@@ -486,6 +486,8 @@ type Track struct {
 	DurationSeconds  int        `json:"duration_seconds"`
 	ISRC             string     `json:"isrc"`
 	ArtistCredit     string     `json:"artist_credit"`
+	// AirDate 单集/曲目播出或发行日期（模糊日期规约 YYYY / YYYY-MM / YYYY-MM-DD，空串=未知）
+	AirDate          string     `gorm:"type:varchar(16)" json:"air_date,omitempty"`
 	Attributes       JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 
 	Work           *Work           `gorm:"foreignKey:WorkID" json:"work,omitempty"`

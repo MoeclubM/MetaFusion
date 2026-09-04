@@ -475,6 +475,7 @@ export interface Track {
   duration_seconds?: number;
   isrc?: string;
   artist_credit?: string;
+  air_date?: string;
   work?: Work;
   canonical_entry?: CanonicalEntry;
 }

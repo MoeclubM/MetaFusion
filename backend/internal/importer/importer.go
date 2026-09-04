@@ -875,18 +875,27 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			}
 	}
 
-	// 标签关联 (无论是新建还是合并)
+	// 标签关联 (无论是新建还是合并)：分组优先取导入器声明的 TagGroups，
+	// 未声明的原生源标签回退 genre；非法分组同样回退 genre 不中断导入。
 	if len(workPrev.Tags) > 0 {
 		for _, tagName := range workPrev.Tags {
 			tName := strings.TrimSpace(tagName)
 			if tName == "" {
 				continue
 			}
+			group := models.TagGroupGenre
+			if g, ok := workPrev.TagGroups[tName]; ok {
+				switch strings.TrimSpace(strings.ToLower(g)) {
+				case models.TagGroupFormat, models.TagGroupMedium, models.TagGroupGenre,
+					models.TagGroupTheme, models.TagGroupTopic, models.TagGroupGeneral:
+					group = strings.TrimSpace(strings.ToLower(g))
+				}
+			}
 			var tag models.Tag
 			if err := tx.Where("name = ?", tName).First(&tag).Error; err != nil {
 				tag = models.Tag{
 					Name:      tName,
-					GroupType: models.TagGroupGenre,
+					GroupType: group,
 				}
 				_ = tx.Create(&tag).Error
 			}
@@ -1020,7 +1029,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 					updArtist["avatar_url"] = artAvatarURL
 				}
 				if len(updArtist) > 0 {
-					updArtist["updated_at"] = time.Now()
+					// artists 表无 updated_at 列（CreatedAt 唯一时间戳），禁止写入该键。
 					_ = tx.Model(&artist).Updates(updArtist).Error
 				}
 			}
@@ -1247,7 +1256,9 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		catalogNum := ""
 		barcode := ""
 		publisherStr := ""
-		packaging := "digital_release"
+		// 默认包装/渠道按作品形态给：书籍平装、音乐 jewel_case、游戏 digital；
+		// 未知形态回退 digital_release→digital 规范值（旧占位 digital_release 不再落库）。
+		packaging := "digital"
 		distChannel := "mixed"
 		var editionDate *time.Time = releaseDate
 
@@ -1258,11 +1269,13 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			catalogNum = relPrev.CatalogNumber
 			barcode = relPrev.Barcode
 			publisherStr = relPrev.Publisher
-			if relPrev.Packaging != "" {
-				packaging = relPrev.Packaging
+			if p := ontology.NormalizePackaging(relPrev.Packaging); p != "" {
+				packaging = p
 			}
 			if relPrev.DistributionChannel != "" {
-				distChannel = ontology.NormalizeDistributionChannel(relPrev.DistributionChannel)
+				if ch := ontology.NormalizeDistributionChannel(relPrev.DistributionChannel); ch != "" {
+					distChannel = ch
+				}
 			}
 			if relPrev.EditionDate != "" {
 				// 精确日进 EditionDate 列；月/年精度无法进 *time.Time，
@@ -1307,49 +1320,42 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			return
 		}
 
-		// 创建 Medium 与 Tracks / CanonicalEntries
+		// 创建 Medium 与 Tracks / CanonicalEntries。
+		// 介质归属分类经 ontology 共享归一化（聚合词按 hint 细化，未知回退 movie），
+		// 载体规格归一化失败时按作品形态回退（书 paperback / 音乐 cd / 影视 broadcast / 其他 digital）。
+		defaultCat := ontology.MediaCategoryFromHint("", req.MediaTypeHint, "movie")
+		defaultFormat := "digital"
+		hintLower := strings.ToLower(req.MediaTypeHint)
+		if strings.Contains(hintLower, "book") || strings.Contains(hintLower, "novel") || strings.Contains(hintLower, "comic") || strings.Contains(hintLower, "manga") {
+			defaultFormat = "paperback"
+		} else if strings.Contains(hintLower, "music") || strings.Contains(hintLower, "audio") {
+			defaultFormat = "cd"
+		} else if strings.Contains(hintLower, "anime") || strings.Contains(hintLower, "tv") || strings.Contains(hintLower, "movie") || strings.Contains(hintLower, "series") {
+			defaultFormat = "broadcast"
+		}
 		for _, medPrev := range req.Mediums {
-				medCat := strings.ToLower(strings.TrimSpace(medPrev.MediaCategory))
-				switch medCat {
-				case "audio":
-					medCat = "music"
-				case "video":
-					if strings.Contains(strings.ToLower(req.MediaTypeHint), "anime") {
-						medCat = "anime"
-					} else if strings.Contains(strings.ToLower(req.MediaTypeHint), "tv") {
-						medCat = "tv_series"
-					} else {
-						medCat = "movie"
-					}
-				case "book":
-					if strings.Contains(strings.ToLower(req.MediaTypeHint), "comic") || strings.Contains(strings.ToLower(req.MediaTypeHint), "manga") {
-						medCat = "comic"
-					} else {
-						medCat = "novel"
-					}
-				case "":
-					medCat = "music"
-				}
+				medCat := ontology.MediaCategoryFromHint(medPrev.MediaCategory, req.MediaTypeHint, defaultCat)
 				var countMT int64
 				tx.Table("media_types").Where("code = ?", medCat).Count(&countMT)
 				if countMT == 0 {
-					medCat = "movie"
+					medCat = defaultCat
 				}
 
+				medFormat := ontology.NormalizeMediumFormat(medPrev.Format)
+				if medFormat == "" {
+					medFormat = defaultFormat
+				}
 				med := models.Medium{
 					ID:            uuid.New(),
 					ReleaseID:     release.ID,
 					Position:      medPrev.Position,
 					Name:          medPrev.Name,
-					Format:        medPrev.Format,
+					Format:        medFormat,
 					MediaCategory: medCat,
 					TrackCount:    len(medPrev.Tracks),
 				}
 				if med.Position <= 0 {
 					med.Position = importedMediumsCount + 1
-				}
-				if med.Format == "" {
-					med.Format = "Digital"
 				}
 				if err := tx.Create(&med).Error; err != nil {
 					log.Printf("[Importer] Create medium notice: %v", err)
@@ -1358,7 +1364,8 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			importedMediumsCount++
 
 			for _, trkPrev := range medPrev.Tracks {
-				// 母版录音条目 CanonicalEntry
+				// 母版条目 CanonicalEntry：创建失败则跳过该曲目（不再写孤儿 canon，
+				// 旧逻辑忽略错误继续建 track 是线上 657 条孤儿的来源）。
 				canon := models.CanonicalEntry{
 					ID:              uuid.New(),
 					Title:           trkPrev.Title,
@@ -1374,9 +1381,19 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				if trkPrev.RecordingMBID != "" {
 					canon.ExternalIDs["musicbrainz_recording_id"] = trkPrev.RecordingMBID
 				}
-				_ = tx.Create(&canon).Error
+				if trkPrev.BangumiEpisodeID != "" {
+					canon.ExternalIDs["bangumi_episode"] = trkPrev.BangumiEpisodeID
+				}
+				if err := tx.Create(&canon).Error; err != nil {
+					log.Printf("[Importer] Create canonical entry notice: %v", err)
+					continue
+				}
 
 				// 实体曲目/单集 Track
+				trkAirDate, airErr := ontology.NormalizePartialDate(trkPrev.AirDate)
+				if airErr != nil {
+					trkAirDate = ""
+				}
 				trk := models.Track{
 					ID:               uuid.New(),
 					MediumID:         med.ID,
@@ -1387,6 +1404,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 					DurationSeconds:  trkPrev.DurationSeconds,
 					ISRC:             trkPrev.ISRC,
 					ArtistCredit:     trkPrev.ArtistCredit,
+					AirDate:          trkAirDate,
 				}
 				if trk.Position <= 0 {
 					trk.Position = importedTracksCount + 1

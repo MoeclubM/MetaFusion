@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -77,6 +78,107 @@ type bgmSubjectCharacterItem struct {
 			Large string `json:"large"`
 		} `json:"images"`
 	} `json:"actors"`
+}
+
+type bgmEpisodeItem struct {
+	ID              int    `json:"id"`
+	Name            string `json:"name"`
+	NameCN          string `json:"name_cn"`
+	Airdate         string `json:"airdate"`
+	DurationSeconds int    `json:"duration_seconds"`
+	Ep              int    `json:"ep"`
+	Sort            int    `json:"sort"`
+	SubjectID       int    `json:"subject_id"`
+	Disc            int    `json:"disc"`
+	Type            int    `json:"type"`
+}
+
+type bgmEpisodesResponse struct {
+	Data   []bgmEpisodeItem `json:"data"`
+	Total  int              `json:"total"`
+	Limit  int              `json:"limit"`
+	Offset int              `json:"offset"`
+}
+
+// fetchBangumiEpisodes 拉取 Bangumi 真实分集列表（/v0/episodes?subject_id=）。
+// 返回 nil 表示源无分集数据（音乐/书籍/游戏等类型常见），调用方回退诚实占位。
+func fetchBangumiEpisodes(ctx context.Context, client *http.Client, subjectID string) []bgmEpisodeItem {
+	episodesURL := fmt.Sprintf("https://api.bgm.tv/v0/episodes?subject_id=%s&limit=100&offset=0", subjectID)
+	if err := security.ValidateExternalURL(episodesURL); err != nil {
+		return nil
+	}
+	var out []bgmEpisodeItem
+	offset := 0
+	for len(out) < 200 {
+		pageURL := fmt.Sprintf("https://api.bgm.tv/v0/episodes?subject_id=%s&limit=100&offset=%d", subjectID, offset)
+		eReq, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
+		if err != nil {
+			break
+		}
+		eReq.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
+		eReq.Header.Set("Accept", "application/json")
+		eResp, err := client.Do(eReq)
+		if err != nil || eResp.StatusCode != http.StatusOK {
+			if eResp != nil {
+				eResp.Body.Close()
+			}
+			break
+		}
+		var page bgmEpisodesResponse
+		decErr := json.NewDecoder(eResp.Body).Decode(&page)
+		eResp.Body.Close()
+		if decErr != nil || len(page.Data) == 0 {
+			break
+		}
+		out = append(out, page.Data...)
+		offset += len(page.Data)
+		if page.Total > 0 && offset >= page.Total {
+			break
+		}
+		if len(page.Data) < 100 {
+			break
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// bgmInfoboxText 提取 infobox 首个匹配键的文本值（支持 string / {v} / [{v}] 三种形状）。
+func bgmInfoboxText(infobox []bgmInfoboxItem, keys ...string) string {
+	want := map[string]bool{}
+	for _, k := range keys {
+		want[k] = true
+	}
+	for _, item := range infobox {
+		if !want[strings.TrimSpace(item.Key)] {
+			continue
+		}
+		switch val := item.Value.(type) {
+		case string:
+			if s := strings.TrimSpace(val); s != "" {
+				return s
+			}
+		case []interface{}:
+			for _, sub := range val {
+				if m, ok := sub.(map[string]interface{}); ok {
+					if v, exists := m["v"]; exists {
+						if s := strings.TrimSpace(fmt.Sprintf("%v", v)); s != "" {
+							return s
+						}
+					}
+				} else if s := strings.TrimSpace(fmt.Sprintf("%v", sub)); s != "" {
+					return s
+				}
+			}
+		default:
+			if s := strings.TrimSpace(fmt.Sprintf("%v", val)); s != "" && s != "<nil>" {
+				return s
+			}
+		}
+	}
+	return ""
 }
 
 type bgmPersonDetail struct {
@@ -343,54 +445,81 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 			}
 		}
 
-	// 媒体类型分类及封面比例
+	// 媒体类型分类及封面比例（format/mediaCategory 均为规范词表 ID 小写，
+	// 落库前 importer.go 共享链路再经 ontology 归一化兜底）。
 	mediaType := "book"
 	coverAspect := "3:4"
-	format := "Paperback"
-	mediaCategory := "book"
+	format := "paperback"
+	mediaCategory := "novel"
 	switch data.Type {
 	case 1: // Book
 		mediaType = "book"
 		coverAspect = "3:4"
-		format = "Paperback"
-		mediaCategory = "book"
+		format = "paperback"
+		mediaCategory = "novel"
 	case 2: // Anime
 		mediaType = "anime"
 		coverAspect = "2:3"
-		format = "Blu-ray"
-		mediaCategory = "video"
+		format = "broadcast"
+		mediaCategory = "anime"
 	case 3: // Music
 		mediaType = "music"
 		coverAspect = "1:1"
-		format = "CD"
-		mediaCategory = "audio"
+		format = "cd"
+		mediaCategory = "music"
 	case 4: // Game
 		mediaType = "game"
 		coverAspect = "2:3"
-		format = "Digital"
+		format = "digital"
 		mediaCategory = "game"
 	case 6: // Real/Drama
 		mediaType = "tv"
 		coverAspect = "2:3"
-		format = "Digital"
-		mediaCategory = "video"
+		format = "broadcast"
+		mediaCategory = "tv_series"
 	}
 
-	// 标签提取
+	// 标签提取：先写与 media_types.code 对齐的规范 format 形态标签
+	// （货架 query_tags 命中用），再写手法 medium 标签，最后才是源原生 genre 标签。
 	tagMap := make(map[string]bool)
-	tagMap["ACG"] = true
+	formatTag := ""
+	mediumTag := ""
 	switch mediaType {
 	case "book":
-		tagMap["Book"] = true
-		tagMap["Manga"] = true
+		formatTag = "图书"
 	case "anime":
-		tagMap["Anime"] = true
-		tagMap["Animation"] = true
+		formatTag = "动画番剧"
+		mediumTag = "动画"
 	case "music":
-		tagMap["Music"] = true
-		tagMap["OST"] = true
+		formatTag = "专辑"
+		mediumTag = "原声"
 	case "game":
-		tagMap["Game"] = true
+		formatTag = "游戏"
+	case "tv":
+		formatTag = "剧集"
+	}
+	if formatTag != "" {
+		tagMap[formatTag] = true
+	}
+	// 形态细分：动画剧场版/连续剧/漫画/轻小说等，按源类型与条目特征补齐。
+	switch mediaType {
+	case "anime":
+		tagMap["动画剧场版"] = true
+	case "tv":
+		tagMap["连续剧"] = true
+		mediumTag = "实拍"
+	case "book":
+		mediumTag = ""
+	}
+	if mediumTag != "" {
+		tagMap[mediumTag] = true
+	}
+	tagGroups := map[string]string{}
+	if formatTag != "" {
+		tagGroups[formatTag] = "format"
+	}
+	if mediumTag != "" {
+		tagGroups[mediumTag] = "medium"
 	}
 	for _, t := range data.Tags {
 		if strings.TrimSpace(t.Name) != "" && t.Count >= 2 {
@@ -408,52 +537,110 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		coverURL = data.Images.Common
 	}
 
-	// 卷册 / 话数 / Mediums
+	// 真实分集：anime/tv/music 走 /v0/episodes?subject_id= 拉取真实话/曲目
+	// （标题/播出日/disc/时长）；书籍走 infobox 发售日诚实单卷；游戏/无分集源回退计数占位。
+	realEpisodes := fetchBangumiEpisodes(ctx, client, subjectID)
 	var mediums []MediumPreview
-	itemCount := data.Volumes
-	if itemCount <= 0 {
-		itemCount = data.Eps
-	}
-	if itemCount <= 0 {
-		itemCount = data.TotalEpisodes
-	}
-	if itemCount <= 0 {
-		itemCount = 1
-	}
-	if itemCount > 50 {
-		itemCount = 50 // 限制初始预览条目数
-	}
-
-	var tracks []TrackPreview
-	for i := 1; i <= itemCount; i++ {
-		trkTitle := ""
-		if mediaType == "book" {
-			trkTitle = fmt.Sprintf("%s 第 %d 卷", workTitle, i)
-		} else if mediaType == "anime" || mediaType == "tv" {
-			trkTitle = fmt.Sprintf("%s 第 %d 话", workTitle, i)
-		} else {
-			trkTitle = fmt.Sprintf("%s Track %d", workTitle, i)
+	if len(realEpisodes) > 0 {
+		// 按 disc 分介质（disc<=0 归入 Disc 1），介质内按 sort 排序。
+		discOrder := []int{}
+		discTracks := map[int][]TrackPreview{}
+		for _, ep := range realEpisodes {
+			disc := ep.Disc
+			if disc <= 0 {
+				disc = 1
+			}
+			if _, ok := discTracks[disc]; !ok {
+				discOrder = append(discOrder, disc)
+			}
+			epTitle := strings.TrimSpace(ep.NameCN)
+			if epTitle == "" {
+				epTitle = strings.TrimSpace(ep.Name)
+			}
+			sortNo := ep.Sort
+			if sortNo <= 0 {
+				sortNo = ep.Ep
+			}
+			if epTitle == "" {
+				epTitle = fmt.Sprintf("第 %d 话", sortNo)
+			}
+			discTracks[disc] = append(discTracks[disc], TrackPreview{
+				Position:         sortNo,
+				Title:            epTitle,
+				DurationSeconds:  ep.DurationSeconds,
+				AirDate:          strings.TrimSpace(ep.Airdate),
+				BangumiEpisodeID: strconv.Itoa(ep.ID),
+			})
 		}
-		tracks = append(tracks, TrackPreview{
-			Position:        i,
-			Title:           trkTitle,
-			DurationSeconds: 1440, // 默认 24 分钟
+		sort.Ints(discOrder)
+		for i, disc := range discOrder {
+			tks := discTracks[disc]
+			sort.Slice(tks, func(a, b int) bool { return tks[a].Position < tks[b].Position })
+			medName := ""
+			if len(discOrder) == 1 {
+				medName = "TV Broadcast / BD-BOX"
+				if mediaType == "music" {
+					medName = "Disc 1（原盘曲目）"
+				}
+			} else {
+				medName = fmt.Sprintf("Disc %d", disc)
+			}
+			mediums = append(mediums, MediumPreview{
+				Position:      i + 1,
+				Name:          medName,
+				Format:        format,
+				MediaCategory: mediaCategory,
+				Tracks:        tks,
+			})
+		}
+	} else {
+		// 诚实回退：书籍按 volumes 卷数列卷（无卷数则单卷），其他类型单介质零曲目。
+		medName := "Vol. 1（单行本）"
+		itemCount := data.Volumes
+		var tracks []TrackPreview
+		if mediaType == "book" && itemCount > 0 {
+			if itemCount > 100 {
+				itemCount = 100
+			}
+			for i := 1; i <= itemCount; i++ {
+				tracks = append(tracks, TrackPreview{
+					Position: i,
+					Title:    fmt.Sprintf("%s 第 %d 卷", workTitle, i),
+				})
+			}
+			if itemCount > 1 {
+				medName = fmt.Sprintf("全 %d 卷（单行本）", itemCount)
+			}
+		} else if mediaType == "anime" || mediaType == "tv" {
+			medName = "TV Broadcast / BD-BOX"
+		} else if mediaType == "music" {
+			medName = "Disc 1（原盘曲目）"
+		} else if mediaType == "game" {
+			medName = "Digital（数字版游戏本体）"
+		}
+		mediums = append(mediums, MediumPreview{
+			Position:      1,
+			Name:          medName,
+			Format:        format,
+			MediaCategory: mediaCategory,
+			Tracks:        tracks,
 		})
 	}
 
-	medName := "Vol. 1（单行本/剧集正片）"
-	if mediaType == "anime" {
-		medName = "TV Broadcast / BD-BOX"
+	// 发行版本名（LRM 规范）与包装/渠道：书籍按出版社+ISBN 走平装/精装，
+	// 动画走 broadcast+box_set，音乐走 physical+jewel_case，游戏走 digital。
+	packaging := "box_set"
+	distChannel := "physical"
+	if mediaType == "book" {
+		packaging = "paperback"
+	} else if mediaType == "music" {
+		packaging = "jewel_case"
+	} else if mediaType == "game" {
+		packaging = "digital"
+		distChannel = "digital"
+	} else if mediaType == "tv" {
+		distChannel = "mixed"
 	}
-	mediums = append(mediums, MediumPreview{
-		Position:      1,
-		Name:          medName,
-		Format:        format,
-		MediaCategory: mediaCategory,
-		Tracks:        tracks,
-	})
-
-	// 发行版本名（LRM 规范）
 	editionName := ""
 	if mediaType == "book" {
 		pubPart := publisherName
@@ -465,6 +652,14 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		editionName = fmt.Sprintf("%s（官方首播/初版）", workTitle)
 	} else {
 		editionName = fmt.Sprintf("%s（官方首发版）", workTitle)
+	}
+
+	// Work 起止日期：infobox 放送开始/结束优先（剧集/动画），回退发售日/发售日期，
+	// 最后回退顶层 date；结束缺失时 Ended 保持 false 不伪造。
+	workBegin := bgmInfoboxText(data.Infobox, "放送开始", "开始", "发售日", "发售日期", "发行日期", "出版日期")
+	workEnd := bgmInfoboxText(data.Infobox, "播放结束", "结束")
+	if workBegin == "" {
+		workBegin = strings.TrimSpace(data.Date)
 	}
 
 	// Infobox 人员兜底：v0 /subjects/{id}/persons 对书籍/音乐等类型经常为空，
@@ -566,9 +761,13 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		addExcluded(al)
 	}
 	filteredTags := make([]string, 0, len(tags))
+	filteredGroups := map[string]string{}
 	for _, tg := range tags {
 		if !excludeNames[strings.ToLower(strings.TrimSpace(tg))] {
 			filteredTags = append(filteredTags, tg)
+			if g, ok := tagGroups[tg]; ok {
+				filteredGroups[tg] = g
+			}
 		}
 	}
 	tags = filteredTags
@@ -578,7 +777,8 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		OriginalTitle:    origTitle,
 		Aliases:          aliases,
 		ReleaseDate:      data.Date,
-		BeginDate:        data.Date,
+		BeginDate:        workBegin,
+		EndDate:          workEnd,
 		Country:          "JP",
 		Language:         "zh-CN",
 		OriginalLanguage: "ja",
@@ -587,6 +787,7 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		CoverAspect:      coverAspect,
 		ContentRating:    "General",
 		Tags:             tags,
+		TagGroups:        filteredGroups,
 		ExternalIDs: models.JSONB{
 			"bangumi": strconv.Itoa(data.ID),
 		},
@@ -602,10 +803,10 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 	release := ReleasePreview{
 		EditionName:         editionName,
 		Publisher:           publisherName,
-		Packaging:           "standard_packaging",
+		Packaging:           packaging,
 		Country:             "JP",
 		Language:            "ja",
-		DistributionChannel: "physical",
+		DistributionChannel: distChannel,
 		EditionDate:         data.Date,
 		Barcode:             isbn,
 		Notes:               fmt.Sprintf("Imported from Bangumi subject %d", data.ID),

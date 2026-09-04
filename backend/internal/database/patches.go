@@ -58,6 +58,7 @@ func applySchemaPatches(db *gorm.DB) {
 		`CREATE INDEX IF NOT EXISTS idx_works_temporal ON works(ended, begin_date)`,
 		`CREATE INDEX IF NOT EXISTS idx_works_release_date ON works(release_date)`,
 		`CREATE INDEX IF NOT EXISTS idx_releases_edition_date ON releases(edition_date)`,
+		`ALTER TABLE tracks ADD COLUMN IF NOT EXISTS air_date VARCHAR(16)`,
 	}
 	for _, s := range stmts {
 		if err := db.Exec(s).Error; err != nil {

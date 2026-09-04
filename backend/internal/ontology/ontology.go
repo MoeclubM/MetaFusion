@@ -28,6 +28,90 @@ func NormalizeDistributionChannel(v string) string {
 	return ""
 }
 
+// validMediaCategories 介质归属分类白名单（与 media_types.code 治理词表对齐）。
+// audio/video 等聚合词仅做入口归一化，不直接落库（落库前按 hint 细化到 movie/anime/tv_series/novel/comic/music…）。
+var validMediaCategories = map[string]bool{
+	"movie": true, "tv_series": true, "anime": true, "music": true,
+	"audiobook": true, "novel": true, "comic": true, "gallery": true,
+	"game": true, "podcast": true, "software": true, "performance": true,
+}
+
+// NormalizeMediaCategory 归一化介质归属分类：未知或聚合词返回 ""（由调用方按 hint 细化或回退默认）。
+func NormalizeMediaCategory(v string) string {
+	v = strings.TrimSpace(strings.ToLower(v))
+	if validMediaCategories[v] {
+		return v
+	}
+	return ""
+}
+
+// MediaCategoryFromHint 按 media_type_hint 将聚合分类细化到 media_types.code。
+// hint 为空或无法判断时回退到 defaultCat（调用方传入与作品形态一致的默认，如 movie）。
+func MediaCategoryFromHint(cat, hint, defaultCat string) string {
+	cat = strings.TrimSpace(strings.ToLower(cat))
+	hint = strings.TrimSpace(strings.ToLower(hint))
+	switch cat {
+	case "audio":
+		return "music"
+	case "video":
+		if strings.Contains(hint, "anime") {
+			return "anime"
+		}
+		if strings.Contains(hint, "tv") || strings.Contains(hint, "series") || strings.Contains(hint, "drama") {
+			return "tv_series"
+		}
+		return "movie"
+	case "book":
+		if strings.Contains(hint, "comic") || strings.Contains(hint, "manga") {
+			return "comic"
+		}
+		if strings.Contains(hint, "gallery") || strings.Contains(hint, "artbook") {
+			return "gallery"
+		}
+		return "novel"
+	}
+	if validMediaCategories[cat] {
+		return cat
+	}
+	if defaultCat != "" && validMediaCategories[defaultCat] {
+		return defaultCat
+	}
+	return "movie"
+}
+
+// validMediumFormats 载体规格白名单（与 StandardMediumFormats 词表 ID 对齐，小写）。
+var validMediumFormats = map[string]bool{
+	"cd": true, "blu-ray": true, "4k ultra hd blu-ray": true, "dvd-video": true,
+	"vinyl": true, "sacd": true, "hi-res flac": true, "cassette": true,
+	"epub/pdf": true, "paperback": true, "hardcover": true, "digital": true,
+	"stream": true, "broadcast": true, "web": true,
+}
+
+// NormalizeMediumFormat 归一化载体规格：未知返回 ""（由调用方按作品形态回退默认）。
+func NormalizeMediumFormat(v string) string {
+	v = strings.TrimSpace(strings.ToLower(v))
+	if validMediumFormats[v] {
+		return v
+	}
+	return ""
+}
+
+// validPackagings 包装规格白名单（与 StandardPackagings 词表 ID 对齐，小写）。
+var validPackagings = map[string]bool{
+	"jewel_case": true, "digipak": true, "steelbook": true, "box_set": true,
+	"gatefold": true, "slipcase": true, "paperback": true, "hardcover": true,
+	"digital": true,
+}
+
+// NormalizePackaging 归一化包装规格：未知返回 ""（由调用方按作品形态回退默认）。
+func NormalizePackaging(v string) string {
+	v = strings.TrimSpace(strings.ToLower(v))
+	if validPackagings[v] {
+		return v
+	}
+	return ""
+}
+
 func IsEnabledEntityType(db *gorm.DB, code string) bool {
 	if code == "" {
 		return false
