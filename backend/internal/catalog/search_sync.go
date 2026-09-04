@@ -31,3 +31,14 @@ func (s *CatalogService) refreshWorkSearchIndex(ctx context.Context, workID uuid
 		log.Printf("[Catalog] search refresh failed for work %s: %v", workID, err)
 	}
 }
+
+func (s *CatalogService) deleteWorkSearchIndex(ctx context.Context, workID uuid.UUID) {
+	if s.search == nil {
+		return
+	}
+	indexCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if err := s.search.DeleteWorkDoc(indexCtx, workID); err != nil {
+		log.Printf("[Catalog] search delete failed for work %s: %v", workID, err)
+	}
+}
