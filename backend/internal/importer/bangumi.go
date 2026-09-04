@@ -624,7 +624,9 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 				Position:         sortNo,
 				Title:            epTitle,
 				DurationSeconds:  ep.DurationSeconds,
-				AirDate:          strings.TrimSpace(ep.Airdate),
+				// 分集播出日经 bgmNormalizeDate 归一化（中文零补齐形 2009年7月03日、
+				// 两位年遗留形 09-07-04 在此转 ISO；非法值丢空，不污染模糊日期规约）。
+				AirDate:          bgmNormalizeDate(ep.Airdate),
 				BangumiEpisodeID: strconv.Itoa(ep.ID),
 			})
 		}
