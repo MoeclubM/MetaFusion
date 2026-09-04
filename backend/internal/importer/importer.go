@@ -604,10 +604,44 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		}
 	}()
 
+	meta := models.JSONB{}
+	if workPrev.CatalogMetadata != nil {
+		meta = workPrev.CatalogMetadata
+	}
+	meta["imported_from"] = req.Source
+	meta["imported_at"] = time.Now().Format(time.RFC3339)
+
 	var releaseDate *time.Time
+	var releaseBegin string
 	if workPrev.ReleaseDate != "" {
-		if t, err := time.Parse("2006-01-02", workPrev.ReleaseDate); err == nil {
-			releaseDate = &t
+		// 外部源日期精度不一（MusicBrainz 年精度、Bangumi 年月）：完整日进 exact 列，
+		// 月/年精度进 Begin 模糊列，非法格式保留 raw 到 catalog_metadata 不再静默丢弃。
+		if exact, partial, ok := ontology.ParseFlexibleDate(workPrev.ReleaseDate); ok {
+			releaseDate = exact
+			releaseBegin = partial
+		} else {
+			meta["raw_release_date"] = workPrev.ReleaseDate
+		}
+	}
+	beginDate, dateErr := ontology.NormalizePartialDate(workPrev.BeginDate)
+	if dateErr != nil {
+		meta["raw_begin_date"] = workPrev.BeginDate
+		beginDate = ""
+	}
+	endDate, dateErr := ontology.NormalizePartialDate(workPrev.EndDate)
+	if dateErr != nil {
+		meta["raw_end_date"] = workPrev.EndDate
+		endDate = ""
+	}
+	if err := ontology.ValidateDateSpan(beginDate, endDate); err != nil {
+		meta["invalid_date_span"] = err.Error()
+		endDate = ""
+	}
+	// 导入源只给 ReleaseDate 时回填 Begin，保证连载/发行区间可查。
+	if beginDate == "" {
+		beginDate = releaseBegin
+		if beginDate == "" && releaseDate != nil {
+			beginDate = releaseDate.Format("2006-01-02")
 		}
 	}
 
@@ -616,13 +650,6 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 	if roleStr != "admin" && roleStr != "archivist" {
 		workStatus = models.WorkStatusPendingReview
 	}
-
-	meta := models.JSONB{}
-	if workPrev.CatalogMetadata != nil {
-		meta = workPrev.CatalogMetadata
-	}
-	meta["imported_from"] = req.Source
-	meta["imported_at"] = time.Now().Format(time.RFC3339)
 
 	workExtIDs := models.JSONB{}
 	if workPrev.ExternalIDs != nil {
@@ -785,6 +812,14 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			workUpdates["release_date"] = releaseDate
 			work.ReleaseDate = releaseDate
 		}
+		if work.BeginDate == "" && beginDate != "" {
+			workUpdates["begin_date"] = beginDate
+			work.BeginDate = beginDate
+		}
+		if work.EndDate == "" && endDate != "" {
+			workUpdates["end_date"] = endDate
+			work.EndDate = endDate
+		}
 
 		_ = tx.Model(&work).Updates(workUpdates).Error
 	} else {
@@ -795,7 +830,8 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			OriginalTitle:    strings.TrimSpace(workPrev.OriginalTitle),
 			Aliases:          workPrev.Aliases,
 			ReleaseDate:      releaseDate,
-			BeginDate:        workPrev.BeginDate,
+			BeginDate:        beginDate,
+			EndDate:          endDate,
 			Country:          workPrev.Country,
 			Language:         workPrev.Language,
 			OriginalLanguage: workPrev.OriginalLanguage,
@@ -1229,8 +1265,12 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				distChannel = ontology.NormalizeDistributionChannel(relPrev.DistributionChannel)
 			}
 			if relPrev.EditionDate != "" {
-				if t, err := time.Parse("2006-01-02", relPrev.EditionDate); err == nil {
-					editionDate = &t
+				// 精确日进 EditionDate 列；月/年精度无法进 *time.Time，
+				// 保留 raw 到 catalog_metadata，EditionDate 回退 work 级 releaseDate。
+				if exact, _, ok := ontology.ParseFlexibleDate(relPrev.EditionDate); ok && exact != nil {
+					editionDate = exact
+				} else {
+					meta["raw_edition_date"] = relPrev.EditionDate
 				}
 			}
 		}
