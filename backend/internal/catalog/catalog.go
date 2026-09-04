@@ -2553,7 +2553,7 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 	})
 }
 
-// recordRevision 记录实体变更快照与编辑附言
+// recordRevision 记录实体变更快照与编辑附言。旧调用保持 best-effort；核心编辑事务使用 recordRevisionDB。
 func (s *CatalogService) recordRevision(
 	targetType string,
 	targetID uuid.UUID,
@@ -2565,6 +2565,21 @@ func (s *CatalogService) recordRevision(
 	beforeState map[string]interface{},
 	afterState map[string]interface{},
 ) {
+	_ = recordRevisionDB(s.db, targetType, targetID, editorID, editType, summary, editNote, sourceURLs, beforeState, afterState)
+}
+
+func recordRevisionDB(
+	db *gorm.DB,
+	targetType string,
+	targetID uuid.UUID,
+	editorID *uuid.UUID,
+	editType string,
+	summary string,
+	editNote string,
+	sourceURLs []string,
+	beforeState map[string]interface{},
+	afterState map[string]interface{},
+) error {
 	diff := make(map[string]interface{})
 	for k, newV := range afterState {
 		oldV, exists := beforeState[k]
@@ -2589,7 +2604,7 @@ func (s *CatalogService) recordRevision(
 		Status:      "applied",
 		CreatedAt:   time.Now(),
 	}
-	_ = s.db.Create(&rev).Error
+	return db.Create(&rev).Error
 }
 
 // UpdateWorkForMember 社区成员/编目员编辑作品信息并记录修订快照
@@ -2705,12 +2720,6 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 			tagNames = append(tagNames, t.Name)
 		}
 	}
-	if err := s.db.Save(&work).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	s.replaceWorkTagsByName(&work, tagNames)
-
 	afterState := map[string]interface{}{
 		"title":             work.Title,
 		"original_title":    work.OriginalTitle,
@@ -2729,8 +2738,21 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		"catalog_metadata":  work.CatalogMetadata,
 	}
 
-	s.recordRevision("work", work.ID, &userID, "update", "更新作品元数据", input.EditNote, input.SourceURLs, beforeState, afterState)
-	s.upsertWorkTranslations(work.ID, localeItems)
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&work).Error; err != nil {
+			return err
+		}
+		if err := replaceWorkTagsByNameDB(tx, &work, tagNames); err != nil {
+			return err
+		}
+		if err := upsertWorkTranslationsDB(tx, work.ID, localeItems); err != nil {
+			return err
+		}
+		return recordRevisionDB(tx, "work", work.ID, &userID, "update", "更新作品元数据", input.EditNote, input.SourceURLs, beforeState, afterState)
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	_ = s.db.Preload("Tags").Preload("Translations").First(&work, work.ID).Error
 	c.JSON(http.StatusOK, gin.H{"status": "success", "work": work})
 }
@@ -2817,11 +2839,6 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 		return
 	}
 
-	if err := s.db.Save(&artist).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	afterState := map[string]interface{}{
 		"name":           artist.Name,
 		"original_name":  artist.OriginalName,
@@ -2836,8 +2853,18 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 		"attributes":     artist.Attributes,
 	}
 
-	s.recordRevision("artist", artist.ID, &userID, "update", "更新创作者/机构主体档案", input.EditNote, input.SourceURLs, beforeState, afterState)
-	s.upsertArtistTranslations(artist.ID, items)
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&artist).Error; err != nil {
+			return err
+		}
+		if err := upsertArtistTranslationsDB(tx, artist.ID, items); err != nil {
+			return err
+		}
+		return recordRevisionDB(tx, "artist", artist.ID, &userID, "update", "更新创作者/机构主体档案", input.EditNote, input.SourceURLs, beforeState, afterState)
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	_ = s.db.Preload("Translations").First(&artist, artist.ID).Error
 	c.JSON(http.StatusOK, gin.H{"status": "success", "artist": artist})
 }
@@ -2933,11 +2960,6 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		release.CatalogMetadata = models.JSONB(input.CatalogMetadata)
 	}
 
-	if err := s.db.Save(&release).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	afterState := map[string]interface{}{
 		"edition_name":   release.EditionName,
 		"catalog_number": release.CatalogNumber,
@@ -2949,7 +2971,15 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		"notes":          release.Notes,
 	}
 
-	s.recordRevision("release", release.ID, &userID, "update", "更新发行版信息", input.EditNote, input.SourceURLs, beforeState, afterState)
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&release).Error; err != nil {
+			return err
+		}
+		return recordRevisionDB(tx, "release", release.ID, &userID, "update", "更新发行版信息", input.EditNote, input.SourceURLs, beforeState, afterState)
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"status": "success", "release": release})
 }
 
