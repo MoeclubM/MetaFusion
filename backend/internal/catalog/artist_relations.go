@@ -117,11 +117,14 @@ func projectRelations(db *gorm.DB, edges []models.EntityRelationship, workID uui
 	out := make([]models.WorkArtistRelation, 0, len(edges))
 	for i, e := range edges {
 		rel := models.WorkArtistRelation{
-			ID:       uint(i + 1),
-			WorkID:   workID,
-			ArtistID: e.SourceID,
-			Role:     EdgeDisplayRole(e),
-			Artist:   artistMap[e.SourceID],
+			ID:        uint(i + 1),
+			WorkID:    workID,
+			ArtistID:  e.SourceID,
+			Role:      EdgeDisplayRole(e),
+			BeginDate: e.BeginDate,
+			EndDate:   e.EndDate,
+			Ended:     e.Ended,
+			Artist:    artistMap[e.SourceID],
 		}
 		out = append(out, rel)
 	}
@@ -171,20 +174,26 @@ func AttachWorkArtistRelationsPtr(db *gorm.DB, works []*models.Work) {
 		for _, e := range byWork[w.ID] {
 			seq++
 			w.ArtistRelations = append(w.ArtistRelations, models.WorkArtistRelation{
-				ID:       uint(seq),
-				WorkID:   w.ID,
-				ArtistID: e.SourceID,
-				Role:     EdgeDisplayRole(e),
-				Artist:   artistMap[e.SourceID],
+				ID:        uint(seq),
+				WorkID:    w.ID,
+				ArtistID:  e.SourceID,
+				Role:      EdgeDisplayRole(e),
+				BeginDate: e.BeginDate,
+				EndDate:   e.EndDate,
+				Ended:     e.Ended,
+				Artist:    artistMap[e.SourceID],
 			})
 		}
 	}
 }
 
-// WorkRelationInput 演职保存负载行（role 为 relation_types.code）
+// WorkRelationInput 演职保存负载行（role 为 relation_types.code，时间可选）
 type WorkRelationInput struct {
-	ArtistID uuid.UUID
-	Role     string
+	ArtistID  uuid.UUID
+	Role      string
+	BeginDate string
+	EndDate   string
+	Ended     bool
 }
 
 // SyncWorkRelationEdges 全量同步某作品的 agent_work 署名图边（单轨化写路径）。
@@ -201,7 +210,18 @@ func SyncWorkRelationEdges(db *gorm.DB, workID uuid.UUID, relations []WorkRelati
 			continue
 		}
 		desiredKeys[key] = true
-		desired = append(desired, WorkRelationInput{ArtistID: r.ArtistID, Role: role})
+		begin, err := ontology.NormalizePartialDate(r.BeginDate)
+		if err != nil {
+			return err
+		}
+		end, err := ontology.NormalizePartialDate(r.EndDate)
+		if err != nil {
+			return err
+		}
+		if err := ontology.ValidateDateSpan(begin, end); err != nil {
+			return err
+		}
+		desired = append(desired, WorkRelationInput{ArtistID: r.ArtistID, Role: role, BeginDate: begin, EndDate: end, Ended: r.Ended})
 	}
 
 	existing, err := artistWorkEdges(db, []uuid.UUID{workID}, nil)
@@ -216,7 +236,7 @@ func SyncWorkRelationEdges(db *gorm.DB, workID uuid.UUID, relations []WorkRelati
 		}
 	}
 	for _, r := range desired {
-		if err := UpsertArtistWorkEdge(db, r.ArtistID, workID, r.Role); err != nil {
+		if err := UpsertArtistWorkEdge(db, r.ArtistID, workID, r.Role, r.BeginDate, r.EndDate, r.Ended); err != nil {
 			return err
 		}
 	}
@@ -226,10 +246,21 @@ func SyncWorkRelationEdges(db *gorm.DB, workID uuid.UUID, relations []WorkRelati
 // UpsertArtistWorkEdge 严格写入一条 artist->work 署名边：
 // 先经 ontology.ValidateRelationEdge 校验（关系类型启用、端点存在、端点类型合法），
 // 再按 (source, target, type, qualifier) 先查后建，保证重复写入幂等。
-func UpsertArtistWorkEdge(db *gorm.DB, artistID, workID uuid.UUID, role string) error {
+// 时间参数遵循模糊日期规约（YYYY / YYYY-MM / YYYY-MM-DD），空串表示未知。
+func UpsertArtistWorkEdge(db *gorm.DB, artistID, workID uuid.UUID, role, begin, end string, ended bool) error {
 	role = strings.ToLower(strings.TrimSpace(role))
 	if role == "" {
 		return nil
+	}
+	var err error
+	if begin, err = ontology.NormalizePartialDate(begin); err != nil {
+		return err
+	}
+	if end, err = ontology.NormalizePartialDate(end); err != nil {
+		return err
+	}
+	if err := ontology.ValidateDateSpan(begin, end); err != nil {
+		return err
 	}
 	spec := ontology.EdgeSpec{
 		SourceType:       "artist",
@@ -248,10 +279,21 @@ func UpsertArtistWorkEdge(db *gorm.DB, artistID, workID uuid.UUID, role string) 
 		TargetID:         workID,
 		RelationshipType: role,
 		Qualifier:        "",
+		BeginDate:        begin,
+		EndDate:          end,
+		Ended:            ended,
 		Attributes:       models.JSONB{},
 	}
-	return db.Where(
+	if err := db.Where(
 		"source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
 		rel.SourceType, rel.SourceID, rel.TargetType, rel.TargetID, rel.RelationshipType, rel.Qualifier,
-	).FirstOrCreate(&rel).Error
+	).Assign(models.EntityRelationship{
+		BeginDate:  begin,
+		EndDate:    end,
+		Ended:      ended,
+		Attributes: models.JSONB{},
+	}).FirstOrCreate(&rel).Error; err != nil {
+		return err
+	}
+	return nil
 }

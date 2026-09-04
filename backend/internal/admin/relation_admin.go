@@ -45,6 +45,7 @@ func (s *AdminService) CreateRelationType(c *gin.Context) {
 		AllowedTargetTypes []string               `json:"allowed_target_types"`
 		IsSymmetric        bool                   `json:"is_symmetric"`
 		IsHierarchical     bool                   `json:"is_hierarchical"`
+		IsTemporal         bool                   `json:"is_temporal"`
 		AttributeSchema    []interface{}          `json:"attribute_schema"`
 		Color              string                 `json:"color"`
 		Icon               string                 `json:"icon"`
@@ -101,6 +102,7 @@ func (s *AdminService) CreateRelationType(c *gin.Context) {
 		AllowedTargetTypes: input.AllowedTargetTypes,
 		IsSymmetric:        input.IsSymmetric,
 		IsHierarchical:     input.IsHierarchical,
+		IsTemporal:         input.IsTemporal,
 		AttributeSchema:    attrSchema,
 		Color:              color,
 		Icon:               icon,
@@ -140,6 +142,7 @@ func (s *AdminService) UpdateRelationType(c *gin.Context) {
 		AllowedTargetTypes *[]string              `json:"allowed_target_types"`
 		IsSymmetric        *bool                  `json:"is_symmetric"`
 		IsHierarchical     *bool                  `json:"is_hierarchical"`
+		IsTemporal         *bool                  `json:"is_temporal"`
 		AttributeSchema    []interface{}          `json:"attribute_schema"`
 		Color              string                 `json:"color"`
 		Icon               string                 `json:"icon"`
@@ -185,6 +188,9 @@ func (s *AdminService) UpdateRelationType(c *gin.Context) {
 	}
 	if input.IsHierarchical != nil {
 		updates["is_hierarchical"] = *input.IsHierarchical
+	}
+	if input.IsTemporal != nil {
+		updates["is_temporal"] = *input.IsTemporal
 	}
 	if input.AttributeSchema != nil {
 		updates["attribute_schema"] = models.JSONB{"fields": input.AttributeSchema}
@@ -239,8 +245,11 @@ func (s *AdminService) UpsertWorkRelations(c *gin.Context) {
 	}
 	var input struct {
 		Relations []struct {
-			ArtistID uuid.UUID `json:"artist_id" binding:"required"`
-			Role     string    `json:"role" binding:"required"`
+			ArtistID  uuid.UUID `json:"artist_id" binding:"required"`
+			Role      string    `json:"role" binding:"required"`
+			BeginDate string    `json:"begin_date"`
+			EndDate   string    `json:"end_date"`
+			Ended     bool      `json:"ended"`
 		} `json:"relations" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -264,7 +273,7 @@ func (s *AdminService) UpsertWorkRelations(c *gin.Context) {
 	// 单轨化：只写 entity_relationships 署名图边（ValidateRelationEdge 校验 + 幂等 + 删除重建语义）
 	rows := make([]catalogsvc.WorkRelationInput, 0, len(input.Relations))
 	for _, r := range input.Relations {
-		rows = append(rows, catalogsvc.WorkRelationInput{ArtistID: r.ArtistID, Role: r.Role})
+		rows = append(rows, catalogsvc.WorkRelationInput{ArtistID: r.ArtistID, Role: r.Role, BeginDate: r.BeginDate, EndDate: r.EndDate, Ended: r.Ended})
 	}
 	if err := catalogsvc.SyncWorkRelationEdges(s.db, workID, rows); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -295,10 +304,25 @@ func (s *AdminService) UpsertEntityRelations(c *gin.Context) {
 		return
 	}
 	for _, r := range input.Relations {
+		beginDate, err := ontology.NormalizePartialDate(r.BeginDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		endDate, err := ontology.NormalizePartialDate(r.EndDate)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if err := ontology.ValidateDateSpan(beginDate, endDate); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		spec := ontology.EdgeSpec{
 			SourceType: r.SourceType, SourceID: r.SourceID,
 			TargetType: r.TargetType, TargetID: r.TargetID,
 			RelationshipType: r.RelationshipType, Qualifier: r.Qualifier,
+			BeginDate: beginDate, EndDate: endDate, Ended: r.Ended,
 		}
 		if err := ontology.ValidateRelationEdge(s.db, spec); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -311,21 +335,23 @@ func (s *AdminService) UpsertEntityRelations(c *gin.Context) {
 			attrs = models.JSONB(r.Attributes)
 		}
 		qual := strings.TrimSpace(r.Qualifier)
+		beginDate, _ := ontology.NormalizePartialDate(r.BeginDate)
+		endDate, _ := ontology.NormalizePartialDate(r.EndDate)
 		rel := models.EntityRelationship{
 			SourceType: r.SourceType, SourceID: r.SourceID,
 			TargetType: r.TargetType, TargetID: r.TargetID,
 			RelationshipType: r.RelationshipType,
 			Qualifier:        qual,
-			BeginDate:        r.BeginDate,
-			EndDate:          r.EndDate,
+			BeginDate:        beginDate,
+			EndDate:          endDate,
 			Ended:            r.Ended,
 			Attributes:       attrs,
 		}
 		if err := s.db.Where("source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
 			r.SourceType, r.SourceID, r.TargetType, r.TargetID, r.RelationshipType, qual).
 			Assign(models.EntityRelationship{
-				BeginDate:  r.BeginDate,
-				EndDate:    r.EndDate,
+				BeginDate:  beginDate,
+				EndDate:    endDate,
 				Ended:      r.Ended,
 				Attributes: attrs,
 			}).
