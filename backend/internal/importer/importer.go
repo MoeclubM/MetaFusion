@@ -1061,18 +1061,6 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			roleToAssign = fmt.Sprintf("声优 (配演: %s)", assoc.CharacterName)
 		}
 
-		// 建立 WorkArtistRelation
-		var countRel int64
-		tx.Model(&models.WorkArtistRelation{}).Where("work_id = ? AND artist_id = ?", work.ID, artist.ID).Count(&countRel)
-		if countRel == 0 {
-			workArtRel := models.WorkArtistRelation{
-				WorkID:   work.ID,
-				ArtistID: artist.ID,
-				Role:     roleToAssign,
-			}
-			_ = tx.Create(&workArtRel).Error
-		}
-
 		// 挂载目录关系图谱动态语义边 (EntityRelationship)
 		relTypeCode := "creator_of"
 		roleLower := strings.ToLower(roleToAssign)
