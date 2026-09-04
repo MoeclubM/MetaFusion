@@ -375,9 +375,6 @@ function HomeShowcaseContent() {
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full flex-1 space-y-5">
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {!user && !authLoading && (
-            <p className="font-mono text-[11px] text-gray-500 mr-auto">{t("home.shelves.guestPreviewHint")}</p>
-          )}
           {user ? (
             <button
               type="button"
@@ -419,7 +416,6 @@ function HomeShowcaseContent() {
             {user && copyFailed && (
               <p className="font-mono text-sm text-gray-400">{t("home.shelves.copyFailed")}</p>
             )}
-            {!user && <p className="font-mono text-sm text-gray-400">{t("home.shelves.guestPreviewHint")}</p>}
             {user ? (
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <button
