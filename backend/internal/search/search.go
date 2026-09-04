@@ -49,24 +49,35 @@ func NewSearchService(cfg *config.Config, db *gorm.DB) (*SearchService, error) {
 	return service, nil
 }
 
-// ReindexAll 将数据库中所有作品全量同步至 OpenSearch 索引
+// ReindexAll 将数据库中所有作品全量同步至 OpenSearch 索引（分页避免 OOM）
 func (s *SearchService) ReindexAll(ctx context.Context) error {
 	if s.db == nil {
 		return nil
 	}
-	var works []models.Work
-	if err := s.db.Preload("Translations").Preload("Tags").Find(&works).Error; err != nil {
-		log.Printf("Failed to load works for OpenSearch reindex: %v", err)
-		return err
-	}
-	count := 0
-	for _, w := range works {
-		workCopy := w
-		if err := s.IndexWorkDoc(ctx, &workCopy); err == nil {
-			count++
+	const batchSize = 500
+	offset := 0
+	total := 0
+	for {
+		var works []models.Work
+		if err := s.db.Preload("Translations").Preload("Tags").Offset(offset).Limit(batchSize).Find(&works).Error; err != nil {
+			log.Printf("Failed to load works for OpenSearch reindex: %v", err)
+			return err
 		}
+		if len(works) == 0 {
+			break
+		}
+		for _, w := range works {
+			workCopy := w
+			if err := s.IndexWorkDoc(ctx, &workCopy); err == nil {
+				total++
+			}
+		}
+		if len(works) < batchSize {
+			break
+		}
+		offset += batchSize
 	}
-	log.Printf("Successfully indexed %d/%d works into OpenSearch", count, len(works))
+	log.Printf("Successfully indexed %d works into OpenSearch", total)
 	return nil
 }
 
@@ -91,6 +102,9 @@ func (s *SearchService) ensureIndex(ctx context.Context) error {
 					"translated_titles": { "type": "text" },
 					"summary": { "type": "text" },
 					"release_year": { "type": "integer" },
+					"release_date": { "type": "date", "format": "yyyy-MM-dd||yyyy-MM||yyyy||strict_date_optional_time", "ignore_malformed": true },
+					"begin_date": { "type": "text" },
+					"begin_date_sort": { "type": "keyword" },
 					"tags": { "type": "keyword" },
 					"created_at": { "type": "date" }
 				}
@@ -118,8 +132,10 @@ func (s *SearchService) IndexWorkDoc(ctx context.Context, work *models.Work) err
 	}
 
 	year := 0
+	var releaseDateStr string
 	if work.ReleaseDate != nil {
 		year = work.ReleaseDate.Year()
+		releaseDateStr = work.ReleaseDate.Format("2006-01-02")
 	}
 
 	// 提取全部多语言标题与摘要
@@ -148,9 +164,17 @@ func (s *SearchService) IndexWorkDoc(ctx context.Context, work *models.Work) err
 		"aliases":           work.Aliases,
 		"translated_titles": translatedTitles,
 		"summary":           work.Summary,
-		"release_year":      year,
 		"tags":              tags,
 		"created_at":        work.CreatedAt,
+		"begin_date":        work.BeginDate,
+		"begin_date_sort":   work.BeginDate,
+	}
+	// 未知年份不再写 year=0 污染聚合；有精确日才写 release_year/release_date。
+	if year > 0 {
+		doc["release_year"] = year
+	}
+	if releaseDateStr != "" {
+		doc["release_date"] = releaseDateStr
 	}
 
 	data, err := json.Marshal(doc)
