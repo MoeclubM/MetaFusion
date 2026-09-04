@@ -164,6 +164,13 @@ func bgmNormalizeDate(raw string) string {
 	if _, err := time.Parse("2006-01-02", s); err == nil {
 		return s
 	}
+	// ISO 无零补齐变体（2024-2-12，Bangumi 老数据常见）：按 2006-1-2 解析后补齐。
+	if isoLoose := regexp.MustCompile(`^(\d{4})-(\d{1,2})-(\d{1,2})$`).FindStringSubmatch(s); len(isoLoose) == 4 {
+		if t, err := time.Parse("2006-1-2", fmt.Sprintf("%s-%s-%s", isoLoose[1], isoLoose[2], isoLoose[3])); err == nil {
+			return t.Format("2006-01-02")
+		}
+		return ""
+	}
 	if len(s) == 7 {
 		if _, err := time.Parse("2006-01", s); err == nil {
 			return s
