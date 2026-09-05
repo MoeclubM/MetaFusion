@@ -38,6 +38,10 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 		return nil, err
 	}
 	out := []Relation{}
+	d, err := s.Definitions(ctx)
+	if err != nil {
+		return nil, err
+	}
 	for _, r := range all {
 		if r.SourceID != id && r.TargetID != id {
 			continue
@@ -46,6 +50,9 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 			continue
 		}
 		if _, err := s.Get(ctx, r.TargetID, u); err != nil {
+			continue
+		}
+		if err := d.Document.attributes(d.Document.Relations[r.Type].Fields, r.Attributes, reference(ctx, s.DB, u), true); err != nil {
 			continue
 		}
 		out = append(out, r)
