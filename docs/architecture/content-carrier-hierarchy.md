@@ -20,7 +20,7 @@ Work（创作母体）
 - `Release` 保存带有发行日期、厂牌、ISBN/JAN/目录编号、包装和封面的具体版本。没有可靠发行证据时，作品可以只有 `Work + CanonicalEntry`，不创建占位发行版。
 - `Medium` 是发行版内真实存在的容器。多碟盒装、实体卷册、蓝光附盘和数字文件集都在这里表达；`role=primary|supplement` 区分主载体和附加载体。
 - `Track` 是载体中的位置，不再被当作作品目录。一个 Track 可以通过 `TrackContent` 收录多个内容表达，并在 `locator` 中保存页码、章节或时间段；单内容旧数据继续由 `canonical_entry_id` 兼容读取。
-- 所有层级的父节点都受数据库外键、同容器约束和循环检查保护，不能跨作品、跨发行版或跨介质挂接。
+- 所有层级的父节点都受数据库外键、同容器约束和循环检查保护，不能跨作品、跨发行版或跨介质挂接；Track 及 TrackContent 还由数据库触发器校验必须属于 Release 所属的 Work。
 
 ## 三类来源的推荐落库
 
@@ -54,4 +54,4 @@ Work（创作母体）
 
 ## 迁移与兼容
 
-`000004_content_hierarchy` 增加作品目录字段、同作品父子外键和循环触发器；`000005_carrier_hierarchy` 增加发行/介质/轨道字段、`track_contents` 表及同容器父子外键。旧的单一 `tracks.canonical_entry_id` 保留用于兼容存量数据，新代码读取时同时合并旧关联和 `TrackContent` 关联。
+`000004_content_hierarchy` 增加作品目录字段、同作品父子外键和循环触发器；`000005_carrier_hierarchy` 增加发行/介质/轨道字段、`track_contents` 表及同容器父子外键；`000006_carrier_content_integrity` 移除旧 `entry_number` 唯一约束，并为 Track/TrackContent 增加跨 Work 保护。旧的单一 `tracks.canonical_entry_id` 保留用于兼容存量数据，新代码读取时同时合并旧关联和 `TrackContent` 关联。
