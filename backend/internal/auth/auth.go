@@ -45,6 +45,12 @@ type AuthService struct {
 	memCodes sync.Map
 }
 
+var authRedisClient *redis.Client
+
+func SetRedisClient(rdb *redis.Client) {
+	authRedisClient = rdb
+}
+
 func NewAuthService(db *gorm.DB, cfg *config.Config, rdb *redis.Client, mailerSvc ...*mailer.Mailer) *AuthService {
 	var m *mailer.Mailer
 	if len(mailerSvc) > 0 && mailerSvc[0] != nil {
@@ -874,7 +880,7 @@ func tryJWTAuth(c *gin.Context, cfg *config.Config, db *gorm.DB) bool {
 		}
 		// 检查 Redis Token 吊销黑名单
 		if cfg != nil && cfg.RedisAddr != "" && claims.ID != "" {
-			if isTokenIDBlacklisted(cfg.RedisAddr, claims.ID) {
+			if isTokenIDBlacklisted(authRedisClient, claims.ID) {
 				return false
 			}
 		}
@@ -1012,12 +1018,10 @@ func (s *AuthService) GetSetupStatus() (*SetupStatusResponse, error) {
 }
 
 // isTokenIDBlacklisted 快捷检查 JTI 是否在 Redis 黑名单中
-func isTokenIDBlacklisted(redisAddr, jti string) bool {
-	if redisAddr == "" || jti == "" {
+func isTokenIDBlacklisted(rdb *redis.Client, jti string) bool {
+	if rdb == nil || jti == "" {
 		return false
 	}
-	rdb := redis.NewClient(&redis.Options{Addr: redisAddr})
-	defer rdb.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 	exists, err := rdb.Exists(ctx, "auth:blacklist:"+jti).Result()
@@ -1089,4 +1093,3 @@ func (s *AuthService) PerformInitialSetup(input *InitialSetupInput) (*models.Use
 	pair, err := s.GenerateTokenPair(adminUser)
 	return adminUser, pair, err
 }
-

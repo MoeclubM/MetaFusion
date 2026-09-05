@@ -49,6 +49,7 @@ func main() {
 	redisClient := redis.NewClient(&redis.Options{
 		Addr: cfg.RedisAddr,
 	})
+	auth.SetRedisClient(redisClient)
 	defer redisClient.Close()
 
 	searchSvc, err := search.NewSearchService(cfg, db)
