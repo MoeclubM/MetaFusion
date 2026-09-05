@@ -187,7 +187,28 @@ func mergeWork(tx *gorm.DB, sourceID, targetID, editorID uuid.UUID, input mergeE
 		return err
 	}
 
-	target.Aliases = mergeAliases(target.Aliases, append([]string{source.Title, source.OriginalTitle}, []string(source.Aliases)...)...)
+	// 合并后的翻译标题（含同语种并列标题）不再回流实体级 aliases：
+	// 来源主标题/原标题若已在目标翻译体系中出现，只保留真正的异名。
+	var targetTrans []models.WorkTranslation
+	_ = tx.Where("work_id = ?", targetID).Find(&targetTrans).Error
+	knownTitles := map[string]bool{}
+	for _, t := range targetTrans {
+		if v := strings.TrimSpace(t.Title); v != "" {
+			knownTitles[strings.ToLower(v)] = true
+		}
+		for _, a := range t.Aliases {
+			if v := strings.TrimSpace(a); v != "" {
+				knownTitles[strings.ToLower(v)] = true
+			}
+		}
+	}
+	aliasCandidates := make([]string, 0, len(source.Aliases)+1)
+	aliasCandidates = append(aliasCandidates, source.Aliases...)
+	if v := strings.TrimSpace(source.Title); v != "" && !knownTitles[strings.ToLower(v)] &&
+		!strings.EqualFold(v, strings.TrimSpace(target.Title)) {
+		aliasCandidates = append(aliasCandidates, v)
+	}
+	target.Aliases = mergeAliases(target.Aliases, aliasCandidates...)
 	target.ExternalIDs = mergeJSONBPreferTarget(source.ExternalIDs, target.ExternalIDs)
 	// 时序回填：目标空区间从来源补齐；发行点精确日同样回填，保证合并后可排序可查。
 	mergedBegin := target.BeginDate
@@ -311,7 +332,27 @@ func mergeFranchise(tx *gorm.DB, sourceID, targetID, editorID uuid.UUID, input m
 		return err
 	}
 
-	target.Aliases = mergeAliases(target.Aliases, append([]string{source.Title, source.OriginalTitle}, []string(source.Aliases)...)...)
+	// 同作品合并：翻译体系已接管的标题不再回流实体级 aliases。
+	var targetFrTrans []models.FranchiseTranslation
+	_ = tx.Where("franchise_id = ?", targetID).Find(&targetFrTrans).Error
+	knownFrTitles := map[string]bool{}
+	for _, t := range targetFrTrans {
+		if v := strings.TrimSpace(t.Title); v != "" {
+			knownFrTitles[strings.ToLower(v)] = true
+		}
+		for _, a := range t.Aliases {
+			if v := strings.TrimSpace(a); v != "" {
+				knownFrTitles[strings.ToLower(v)] = true
+			}
+		}
+	}
+	frAliasCandidates := make([]string, 0, len(source.Aliases)+1)
+	frAliasCandidates = append(frAliasCandidates, source.Aliases...)
+	if v := strings.TrimSpace(source.Title); v != "" && !knownFrTitles[strings.ToLower(v)] &&
+		!strings.EqualFold(v, strings.TrimSpace(target.Title)) {
+		frAliasCandidates = append(frAliasCandidates, v)
+	}
+	target.Aliases = mergeAliases(target.Aliases, frAliasCandidates...)
 	target.ExternalIDs = mergeJSONBPreferTarget(source.ExternalIDs, target.ExternalIDs)
 	// 时序回填：目标空区间从来源补齐。
 	mergedBegin := target.BeginDate
@@ -470,8 +511,8 @@ func mergeAssetBindings(tx *gorm.DB, entityType string, sourceID, targetID uuid.
 
 func mergeWorkTranslations(tx *gorm.DB, sourceID, targetID uuid.UUID) error {
 	if err := tx.Exec(`
-		INSERT INTO work_translations (work_id, locale, title, summary)
-		SELECT ?, locale, title, summary FROM work_translations WHERE work_id = ?
+		INSERT INTO work_translations (work_id, locale, title, summary, aliases)
+		SELECT ?, locale, title, summary, aliases FROM work_translations WHERE work_id = ?
 		ON CONFLICT (work_id, locale) DO NOTHING
 	`, targetID, sourceID).Error; err != nil {
 		return err
@@ -481,8 +522,8 @@ func mergeWorkTranslations(tx *gorm.DB, sourceID, targetID uuid.UUID) error {
 
 func mergeArtistTranslations(tx *gorm.DB, sourceID, targetID uuid.UUID) error {
 	if err := tx.Exec(`
-		INSERT INTO artist_translations (artist_id, locale, name, biography)
-		SELECT ?, locale, name, biography FROM artist_translations WHERE artist_id = ?
+		INSERT INTO artist_translations (artist_id, locale, name, biography, aliases)
+		SELECT ?, locale, name, biography, aliases FROM artist_translations WHERE artist_id = ?
 		ON CONFLICT (artist_id, locale) DO NOTHING
 	`, targetID, sourceID).Error; err != nil {
 		return err
@@ -492,8 +533,8 @@ func mergeArtistTranslations(tx *gorm.DB, sourceID, targetID uuid.UUID) error {
 
 func mergeFranchiseTranslations(tx *gorm.DB, sourceID, targetID uuid.UUID) error {
 	if err := tx.Exec(`
-		INSERT INTO franchise_translations (franchise_id, locale, title, summary)
-		SELECT ?, locale, title, summary FROM franchise_translations WHERE franchise_id = ?
+		INSERT INTO franchise_translations (franchise_id, locale, title, summary, aliases)
+		SELECT ?, locale, title, summary, aliases FROM franchise_translations WHERE franchise_id = ?
 		ON CONFLICT (franchise_id, locale) DO NOTHING
 	`, targetID, sourceID).Error; err != nil {
 		return err

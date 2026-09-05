@@ -395,7 +395,7 @@ func fetchTMDBMovieDetail(ctx context.Context, client *http.Client, tmdbID strin
 		Work: WorkPreview{
 			Title:            workTitle,
 			OriginalTitle:    data.OriginalTitle,
-			Aliases:          []string{data.OriginalTitle, enTitle},
+			Aliases:          []string{},
 			ReleaseDate:      data.ReleaseDate,
 			BeginDate:        data.ReleaseDate,
 			Country:          "USA",
@@ -410,6 +410,7 @@ func fetchTMDBMovieDetail(ctx context.Context, client *http.Client, tmdbID strin
 			Translations: []TranslationItem{
 				{Locale: "zh-CN", Title: workTitle, Summary: zhOverview},
 				{Locale: "en-US", Title: enTitle, Summary: enOverview},
+				{Locale: data.OriginalLanguage, Title: data.OriginalTitle},
 			},
 			CatalogMetadata: extIDs,
 		},
@@ -606,7 +607,7 @@ func fetchTMDBTVDetail(ctx context.Context, client *http.Client, tmdbID string, 
 		Work: WorkPreview{
 			Title:            workTitle,
 			OriginalTitle:    data.OriginalName,
-			Aliases:          []string{data.OriginalName, enTitle},
+			Aliases:          []string{},
 			ReleaseDate:      data.FirstAirDate,
 			BeginDate:        data.FirstAirDate,
 			EndDate:          data.LastAirDate,
@@ -622,6 +623,7 @@ func fetchTMDBTVDetail(ctx context.Context, client *http.Client, tmdbID string, 
 			Translations: []TranslationItem{
 				{Locale: "zh-CN", Title: workTitle, Summary: zhOverview},
 				{Locale: "en-US", Title: enTitle, Summary: enOverview},
+				{Locale: data.OriginalLanguage, Title: data.OriginalName},
 			},
 			CatalogMetadata: extIDs,
 		},

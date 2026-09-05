@@ -17,6 +17,7 @@ func applySchemaPatches(db *gorm.DB) {
 	migrateCarrierTagsOffWorks(db)
 	migrateLegacyExternalIDs(db)
 	migrateMultilingualJSONBFields(db)
+	migrateOriginalTitlesToTranslations(db)
 
 	stmts := []string{
 		`ALTER TABLE virtual_shelves ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
@@ -81,6 +82,9 @@ func applySchemaPatches(db *gorm.DB) {
 		`CREATE INDEX IF NOT EXISTS idx_tracks_parent ON tracks(medium_id, parent_id, position, id)`,
 		`ALTER TABLE mediums DROP CONSTRAINT IF EXISTS mediums_role_valid`,
 		`ALTER TABLE mediums ADD CONSTRAINT mediums_role_valid CHECK (role IN ('primary', 'supplement'))`,
+		`ALTER TABLE work_translations ADD COLUMN IF NOT EXISTS aliases TEXT[] NOT NULL DEFAULT '{}'`,
+		`ALTER TABLE artist_translations ADD COLUMN IF NOT EXISTS aliases TEXT[] NOT NULL DEFAULT '{}'`,
+		`ALTER TABLE franchise_translations ADD COLUMN IF NOT EXISTS aliases TEXT[] NOT NULL DEFAULT '{}'`,
 	}
 	for _, s := range stmts {
 		if err := db.Exec(s).Error; err != nil {
@@ -604,5 +608,99 @@ func migrateMultilingualJSONBFields(db *gorm.DB) {
 		UPDATE forum_boards
 		SET descriptions = jsonb_build_object('zh-CN', description, 'en-US', description)
 		WHERE (descriptions = '{}'::jsonb OR descriptions IS NULL) AND description != ''
+	`).Error
+}
+
+// migrateOriginalTitlesToTranslations 幂等回填：原语言标题归属对应语种翻译行，
+// 实体级 aliases 剔除已在任一翻译标题中出现的值。只补缺口、不覆盖人工编辑。
+func migrateOriginalTitlesToTranslations(db *gorm.DB) {
+	if !columnExists(db, "work_translations", "aliases") {
+		return
+	}
+	// 1. works：original_title 缺翻译行时按 original_language 补一行
+	_ = db.Exec(`
+		INSERT INTO work_translations (work_id, locale, title, summary)
+		SELECT w.id,
+			CASE
+				WHEN w.original_language IN ('zh', 'zh-CN', 'zh-Hans') THEN 'zh-CN'
+				WHEN w.original_language IN ('zh-TW', 'zh-HK', 'zh-Hant') THEN 'zh-TW'
+				WHEN w.original_language IN ('en', 'en-US', 'eng') THEN 'en-US'
+				WHEN w.original_language IN ('ja', 'jpn') THEN 'ja'
+				WHEN w.original_language IN ('ko', 'kor') THEN 'ko'
+				ELSE ''
+			END,
+			w.original_title, ''
+		FROM works w
+		WHERE btrim(COALESCE(w.original_title, '')) <> ''
+		  AND CASE
+				WHEN w.original_language IN ('zh', 'zh-CN', 'zh-Hans') THEN 'zh-CN'
+				WHEN w.original_language IN ('zh-TW', 'zh-HK', 'zh-Hant') THEN 'zh-TW'
+				WHEN w.original_language IN ('en', 'en-US', 'eng') THEN 'en-US'
+				WHEN w.original_language IN ('ja', 'jpn') THEN 'ja'
+				WHEN w.original_language IN ('ko', 'kor') THEN 'ko'
+				ELSE ''
+			END <> ''
+		  AND NOT EXISTS (
+			SELECT 1 FROM work_translations t
+			WHERE t.work_id = w.id AND btrim(COALESCE(t.title, '')) = btrim(w.original_title)
+		  )
+		ON CONFLICT (work_id, locale) DO NOTHING
+	`).Error
+	// 2. works：实体级 aliases 剔除已在翻译标题（含 title 与翻译行 aliases）中出现的值
+	_ = db.Exec(`
+		UPDATE works w
+		SET aliases = COALESCE((
+			SELECT ARRAY_AGG(a ORDER BY a)
+			FROM unnest(w.aliases) AS a
+			WHERE btrim(a) <> ''
+			  AND NOT EXISTS (
+				SELECT 1 FROM work_translations t
+				WHERE t.work_id = w.id
+				  AND (btrim(COALESCE(t.title, '')) = btrim(a) OR btrim(a) = ANY(COALESCE(t.aliases, '{}')))
+			  )
+			  AND btrim(a) <> btrim(COALESCE(w.title, ''))
+			  AND btrim(a) <> btrim(COALESCE(w.original_title, ''))
+		), '{}')
+		WHERE w.aliases IS NOT NULL AND w.aliases <> '{}'
+	`).Error
+	// 3. artists：original_name 缺翻译行时补 en-US 行（人名原文多为拉丁/原文拼写）
+	_ = db.Exec(`
+		INSERT INTO artist_translations (artist_id, locale, name, biography)
+		SELECT a.id, 'en-US', a.original_name, ''
+		FROM artists a
+		WHERE btrim(COALESCE(a.original_name, '')) <> ''
+		  AND NOT EXISTS (
+			SELECT 1 FROM artist_translations t
+			WHERE t.artist_id = a.id AND btrim(COALESCE(t.name, '')) = btrim(a.original_name)
+		  )
+		ON CONFLICT (artist_id, locale) DO NOTHING
+	`).Error
+	// 4. franchises：original_title 缺翻译行时补一行（沿用作品语言映射）
+	_ = db.Exec(`
+		INSERT INTO franchise_translations (franchise_id, locale, title, summary)
+		SELECT f.id, 'en-US', f.original_title, ''
+		FROM franchises f
+		WHERE btrim(COALESCE(f.original_title, '')) <> ''
+		  AND NOT EXISTS (
+			SELECT 1 FROM franchise_translations t
+			WHERE t.franchise_id = f.id AND btrim(COALESCE(t.title, '')) = btrim(f.original_title)
+		  )
+		ON CONFLICT (franchise_id, locale) DO NOTHING
+	`).Error
+	_ = db.Exec(`
+		UPDATE franchises f
+		SET aliases = COALESCE((
+			SELECT ARRAY_AGG(a ORDER BY a)
+			FROM unnest(f.aliases) AS a
+			WHERE btrim(a) <> ''
+			  AND NOT EXISTS (
+				SELECT 1 FROM franchise_translations t
+				WHERE t.franchise_id = f.id
+				  AND (btrim(COALESCE(t.title, '')) = btrim(a) OR btrim(a) = ANY(COALESCE(t.aliases, '{}')))
+			  )
+			  AND btrim(a) <> btrim(COALESCE(f.title, ''))
+			  AND btrim(a) <> btrim(COALESCE(f.original_title, ''))
+		), '{}')
+		WHERE f.aliases IS NOT NULL AND f.aliases <> '{}'
 	`).Error
 }

@@ -247,6 +247,109 @@ func (s *ImporterService) PreviewHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, res)
 }
 
+// mergeLocaleTitles 按语种归并多语言标题：同一语种的多个标题中，首个为主标题，
+// 其余进入该语种翻译行的 Aliases（同语种多标题）。返回归并后的翻译行与实体级
+// 别名（已剔除所有翻译标题中出现过的值——原语言标题归属翻译行，不进别名）。
+func mergeLocaleTitles(translations []TranslationItem, aliases []string) ([]TranslationItem, []string) {
+	byLocale := map[string]*TranslationItem{}
+	order := make([]string, 0)
+	seenTitle := map[string]bool{}
+	addTitle := func(locale, title, summary string) {
+		title = strings.TrimSpace(title)
+		if title == "" {
+			return
+		}
+		loc := models.NormalizeLocale(strings.TrimSpace(locale))
+		low := strings.ToLower(title)
+		if ex, ok := byLocale[loc]; ok {
+			if strings.EqualFold(strings.TrimSpace(ex.Title), title) {
+				return
+			}
+			for _, a := range ex.Aliases {
+				if strings.EqualFold(strings.TrimSpace(a), title) {
+					return
+				}
+			}
+			if summary != "" && ex.Summary == "" {
+				ex.Summary = summary
+			}
+			ex.Aliases = append(ex.Aliases, title)
+			seenTitle[loc+"\x00"+low] = true
+			return
+		}
+		byLocale[loc] = &TranslationItem{Locale: loc, Title: title, Summary: summary}
+		order = append(order, loc)
+		seenTitle[loc+"\x00"+low] = true
+	}
+	for _, tr := range translations {
+		addTitle(tr.Locale, tr.Title, tr.Summary)
+		for _, a := range tr.Aliases {
+			t := strings.TrimSpace(a)
+			if t == "" {
+				continue
+			}
+			loc := models.NormalizeLocale(strings.TrimSpace(tr.Locale))
+			if ex, ok := byLocale[loc]; ok {
+				dup := strings.EqualFold(strings.TrimSpace(ex.Title), t)
+				if !dup {
+					for _, e := range ex.Aliases {
+						if strings.EqualFold(strings.TrimSpace(e), t) {
+							dup = true
+							break
+						}
+					}
+				}
+				if !dup {
+					ex.Aliases = append(ex.Aliases, t)
+					seenTitle[loc+"\x00"+strings.ToLower(t)] = true
+				}
+			}
+		}
+	}
+	out := make([]TranslationItem, 0, len(order))
+	for _, loc := range order {
+		out = append(out, *byLocale[loc])
+	}
+	known := map[string]bool{}
+	for _, tr := range out {
+		if t := strings.ToLower(strings.TrimSpace(tr.Title)); t != "" {
+			known[t] = true
+		}
+		for _, a := range tr.Aliases {
+			if t := strings.ToLower(strings.TrimSpace(a)); t != "" {
+				known[t] = true
+			}
+		}
+	}
+	filtered := make([]string, 0, len(aliases))
+	for _, a := range aliases {
+		t := strings.TrimSpace(a)
+		if t == "" || known[strings.ToLower(t)] {
+			continue
+		}
+		filtered = append(filtered, t)
+	}
+	return out, filtered
+}
+
+// mergeLocaleAliasList 合并同一翻译行的并列标题：去重、剔除与主标题相同的项。
+func mergeLocaleAliasList(primary string, aliases []string) []string {
+	seen := map[string]bool{strings.ToLower(strings.TrimSpace(primary)): true}
+	out := make([]string, 0, len(aliases))
+	for _, a := range aliases {
+		t := strings.TrimSpace(a)
+		if t == "" {
+			continue
+		}
+		if seen[strings.ToLower(t)] {
+			continue
+		}
+		seen[strings.ToLower(t)] = true
+		out = append(out, t)
+	}
+	return out
+}
+
 // enrichArtistMatches 在 MetaFusion 数据库中自动检索同名或相同 external_id 的主体
 func (s *ImporterService) enrichArtistMatches(res *PreviewResponse) {
 	if res == nil {
@@ -461,7 +564,7 @@ func (s *ImporterService) importSingleArtistHandler(c *gin.Context, userID uuid.
 			return
 		}
 
-		// 多语言名称与简介
+		// 多语言名称与简介（含同语种并列名称）
 		for _, trans := range artPrev.Translations {
 			if trans.Locale != "" {
 				at := models.ArtistTranslation{
@@ -469,6 +572,7 @@ func (s *ImporterService) importSingleArtistHandler(c *gin.Context, userID uuid.
 					Locale:    models.NormalizeLocale(trans.Locale),
 					Name:      trans.Title,
 					Biography: trans.Summary,
+					Aliases:   pq.StringArray(trans.Aliases),
 				}
 				_ = tx.Create(&at).Error
 			}
@@ -589,6 +693,26 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		return
 	}
 
+	// 多语言标题归并：原语言标题归属对应语种翻译行（原始语言只是标记），
+	// 同语种多标题进翻译行 Aliases；实体级 Aliases 只留真正的跨语种异名/搜索别名。
+	// 默认显示语种的题名与主 Title 同步，保证 catalog 回退链一致。
+	mergedTranslations, mergedAliases := mergeLocaleTitles(workPrev.Translations, workPrev.Aliases)
+	if workPrev.Language != "" && workPrev.Title != "" {
+		mergedTranslations, _ = mergeLocaleTitles(append(mergedTranslations, TranslationItem{
+			Locale:  workPrev.Language,
+			Title:   workPrev.Title,
+			Summary: workPrev.Summary,
+		}), nil)
+	}
+	if workPrev.OriginalLanguage != "" && workPrev.OriginalTitle != "" {
+		mergedTranslations, _ = mergeLocaleTitles(append(mergedTranslations, TranslationItem{
+			Locale: workPrev.OriginalLanguage,
+			Title:  workPrev.OriginalTitle,
+		}), nil)
+	}
+	workPrev.Translations = mergedTranslations
+	workPrev.Aliases = mergedAliases
+
 	// 1. 封面下载与持久化至 RustFS/S3 预览桶
 	finalCoverURL := workPrev.CoverImageURL
 	if req.DownloadCover && workPrev.CoverImageURL != "" && strings.HasPrefix(workPrev.CoverImageURL, "http") {
@@ -677,11 +801,12 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			return
 		}
 
-		// 1. 合并多语言题名与简介
+		// 1. 合并多语言题名与简介（含同语种并列标题 aliases）
 		type transCandidate struct {
 			locale  string
 			title   string
 			summary string
+			aliases []string
 		}
 		var candidates []transCandidate
 		for _, tr := range workPrev.Translations {
@@ -690,6 +815,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 					locale:  models.NormalizeLocale(tr.Locale),
 					title:   strings.TrimSpace(tr.Title),
 					summary: strings.TrimSpace(tr.Summary),
+					aliases: tr.Aliases,
 				})
 			}
 		}
@@ -729,7 +855,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		}
 
 		for _, cand := range candidates {
-			if cand.locale == "" || (cand.title == "" && cand.summary == "") {
+			if cand.locale == "" || (cand.title == "" && cand.summary == "" && len(cand.aliases) == 0) {
 				continue
 			}
 			var existingWT models.WorkTranslation
@@ -739,6 +865,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 					Locale:  cand.locale,
 					Title:   cand.title,
 					Summary: cand.summary,
+					Aliases: pq.StringArray(cand.aliases),
 				}
 				_ = tx.Create(&newWT).Error
 			} else {
@@ -748,6 +875,10 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				}
 				if existingWT.Summary == "" && cand.summary != "" {
 					upd["summary"] = cand.summary
+				}
+				if len(cand.aliases) > 0 {
+					merged := append(append([]string{}, existingWT.Aliases...), cand.aliases...)
+					upd["aliases"] = pq.StringArray(mergeLocaleAliasList(existingWT.Title, merged))
 				}
 				if len(upd) > 0 {
 					_ = tx.Model(&existingWT).Updates(upd).Error
@@ -773,19 +904,16 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		aliasSet := make(map[string]bool)
 		for _, a := range work.Aliases {
 			if t := strings.TrimSpace(a); t != "" {
-				aliasSet[t] = true
+				aliasSet[strings.ToLower(t)] = true
 			}
 		}
 		for _, a := range workPrev.Aliases {
-			if t := strings.TrimSpace(a); t != "" && !aliasSet[t] {
-				aliasSet[t] = true
+			if t := strings.TrimSpace(a); t != "" && !aliasSet[strings.ToLower(t)] {
+				aliasSet[strings.ToLower(t)] = true
 				work.Aliases = append(work.Aliases, t)
 			}
 		}
-		if workPrev.OriginalTitle != "" && workPrev.OriginalTitle != work.Title && !aliasSet[workPrev.OriginalTitle] {
-			aliasSet[workPrev.OriginalTitle] = true
-			work.Aliases = append(work.Aliases, workPrev.OriginalTitle)
-		}
+		// OriginalTitle 归属翻译行，不再塞进实体级 aliases。
 
 		workUpdates := map[string]interface{}{
 			"external_ids": work.ExternalIDs,
@@ -865,7 +993,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			return
 		}
 
-		// 多语言标题与简介
+		// 多语言标题与简介（含同语种并列标题）
 		for _, trans := range workPrev.Translations {
 			if trans.Locale != "" {
 				normLocale := models.NormalizeLocale(trans.Locale)
@@ -876,6 +1004,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 						Locale:  normLocale,
 						Title:   trans.Title,
 						Summary: trans.Summary,
+						Aliases: pq.StringArray(trans.Aliases),
 					}
 					_ = tx.Create(&wt).Error
 				}
@@ -1095,6 +1224,7 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 							Locale:    normLocale,
 							Name:      tr.Title,
 							Biography: tr.Summary,
+							Aliases:   pq.StringArray(tr.Aliases),
 						}
 						_ = tx.Create(&at).Error
 					}

@@ -138,21 +138,27 @@ func (s *SearchService) IndexWorkDoc(ctx context.Context, work *models.Work) err
 		releaseDateStr = work.ReleaseDate.Format("2006-01-02")
 	}
 
-	// 提取全部多语言标题与摘要
+	// 提取全部多语言标题与摘要（含同语种并列标题 aliases）
 	var translatedTitles []string
+	collectTrans := func(title string, aliases []string) {
+		if strings.TrimSpace(title) != "" {
+			translatedTitles = append(translatedTitles, strings.TrimSpace(title))
+		}
+		for _, a := range aliases {
+			if strings.TrimSpace(a) != "" {
+				translatedTitles = append(translatedTitles, strings.TrimSpace(a))
+			}
+		}
+	}
 	if len(work.Translations) > 0 {
 		for _, tr := range work.Translations {
-			if strings.TrimSpace(tr.Title) != "" {
-				translatedTitles = append(translatedTitles, strings.TrimSpace(tr.Title))
-			}
+			collectTrans(tr.Title, tr.Aliases)
 		}
 	} else if s.db != nil {
 		var trs []models.WorkTranslation
 		if err := s.db.Where("work_id = ?", work.ID).Find(&trs).Error; err == nil {
 			for _, tr := range trs {
-				if strings.TrimSpace(tr.Title) != "" {
-					translatedTitles = append(translatedTitles, strings.TrimSpace(tr.Title))
-				}
+				collectTrans(tr.Title, tr.Aliases)
 			}
 		}
 	}
@@ -245,7 +251,7 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		like := "%" + q + "%"
 		dbq := s.db.Model(&models.Franchise{}).
 			Joins("LEFT JOIN franchise_translations ON franchise_translations.franchise_id = franchises.id").
-			Where("franchises.title ILIKE ? OR franchises.original_title ILIKE ? OR franchises.disambiguation ILIKE ? OR array_to_string(franchises.aliases, ' ') ILIKE ? OR franchise_translations.title ILIKE ?", like, like, like, like, like).
+			Where("franchises.title ILIKE ? OR franchises.original_title ILIKE ? OR franchises.disambiguation ILIKE ? OR array_to_string(franchises.aliases, ' ') ILIKE ? OR franchise_translations.title ILIKE ? OR array_to_string(franchise_translations.aliases, ' ') ILIKE ?", like, like, like, like, like, like).
 			Distinct()
 		var total int64
 		dbq.Count(&total)
@@ -258,7 +264,7 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		like := "%" + q + "%"
 		dbq := s.db.Model(&models.Artist{}).
 			Joins("LEFT JOIN artist_translations ON artist_translations.artist_id = artists.id").
-			Where("artists.name ILIKE ? OR artists.original_name ILIKE ? OR artists.disambiguation ILIKE ? OR artist_translations.name ILIKE ?", like, like, like, like).
+			Where("artists.name ILIKE ? OR artists.original_name ILIKE ? OR artists.disambiguation ILIKE ? OR artist_translations.name ILIKE ? OR array_to_string(artist_translations.aliases, ' ') ILIKE ?", like, like, like, like, like).
 			Distinct()
 		var total int64
 		dbq.Count(&total)
@@ -284,19 +290,19 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		var franchises []models.Franchise
 		s.db.Model(&models.Work{}).
 			Joins("LEFT JOIN work_translations ON work_translations.work_id = works.id").
-			Where("works.title ILIKE ? OR works.original_title ILIKE ? OR ? = ANY(works.aliases) OR work_translations.title ILIKE ?", like, like, q, like).
+			Where("works.title ILIKE ? OR works.original_title ILIKE ? OR ? = ANY(works.aliases) OR work_translations.title ILIKE ? OR ? = ANY(work_translations.aliases)", like, like, q, like, q).
 			Distinct().Preload("Translations").Preload("Tags").Limit(limit).Find(&works)
 
 		s.db.Model(&models.Artist{}).
 			Joins("LEFT JOIN artist_translations ON artist_translations.artist_id = artists.id").
-			Where("artists.name ILIKE ? OR artists.original_name ILIKE ? OR artist_translations.name ILIKE ?", like, like, like).
+			Where("artists.name ILIKE ? OR artists.original_name ILIKE ? OR artist_translations.name ILIKE ? OR array_to_string(artist_translations.aliases, ' ') ILIKE ?", like, like, like, like).
 			Distinct().Preload("Translations").Limit(limit).Find(&artists)
 
 		s.db.Where("edition_name ILIKE ? OR publisher ILIKE ?", like, like).Preload("Work").Preload("Work.Translations").Limit(limit).Find(&releases)
 
 		s.db.Model(&models.Franchise{}).
 			Joins("LEFT JOIN franchise_translations ON franchise_translations.franchise_id = franchises.id").
-			Where("franchises.title ILIKE ? OR franchises.original_title ILIKE ? OR array_to_string(franchises.aliases, ' ') ILIKE ? OR franchise_translations.title ILIKE ?", like, like, like, like).
+			Where("franchises.title ILIKE ? OR franchises.original_title ILIKE ? OR array_to_string(franchises.aliases, ' ') ILIKE ? OR franchise_translations.title ILIKE ? OR array_to_string(franchise_translations.aliases, ' ') ILIKE ?", like, like, like, like, like).
 			Distinct().Preload("Translations").Limit(limit).Find(&franchises)
 
 		c.JSON(http.StatusOK, gin.H{"type": "all", "works": works, "artists": artists, "releases": releases, "franchises": franchises, "query": q})
@@ -350,7 +356,7 @@ func (s *SearchService) SearchWorks(c *gin.Context) {
 		like := "%" + q + "%"
 		dbq := s.db.Model(&models.Work{}).
 			Joins("LEFT JOIN work_translations ON work_translations.work_id = works.id").
-			Where("works.title ILIKE ? OR works.original_title ILIKE ? OR ? = ANY(works.aliases) OR work_translations.title ILIKE ?", like, like, q, like).
+			Where("works.title ILIKE ? OR works.original_title ILIKE ? OR ? = ANY(works.aliases) OR work_translations.title ILIKE ? OR ? = ANY(work_translations.aliases)", like, like, q, like, q).
 			Distinct()
 		var total int64
 		dbq.Count(&total)

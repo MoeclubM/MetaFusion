@@ -579,11 +579,19 @@ func FetchMusicBrainzArtistPreview(ctx context.Context, mbid string) (*PreviewRe
 
 	aliases := make([]string, 0)
 	nameZh := ""
+	nameZhAliases := make([]string, 0)
+	seenZh := map[string]bool{}
 	for _, a := range data.Aliases {
 		if strings.TrimSpace(a.Name) != "" && a.Name != data.Name {
 			aliases = append(aliases, strings.TrimSpace(a.Name))
-			if (a.Locale == "zh" || a.Locale == "zh-Hans" || a.Locale == "zh-CN") && nameZh == "" {
-				nameZh = strings.TrimSpace(a.Name)
+			if a.Locale == "zh" || a.Locale == "zh-Hans" || a.Locale == "zh-CN" {
+				zh := strings.TrimSpace(a.Name)
+				if nameZh == "" {
+					nameZh = zh
+				} else if !seenZh[zh] {
+					nameZhAliases = append(nameZhAliases, zh)
+				}
+				seenZh[zh] = true
 			}
 		}
 	}
@@ -629,6 +637,7 @@ func FetchMusicBrainzArtistPreview(ctx context.Context, mbid string) (*PreviewRe
 			Locale:  "zh-CN",
 			Title:   nameZh,
 			Summary: bio,
+			Aliases: nameZhAliases,
 		})
 	}
 	if data.Name != "" {
