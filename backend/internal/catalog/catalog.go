@@ -1468,6 +1468,8 @@ type ConnectedEntityItem struct {
 	OriginalLanguage string                `json:"original_language,omitempty"`
 	Translations     []ontology.LocaleText `json:"translations,omitempty"`
 	EntityType       string                `json:"entity_type"`
+	CoverURL         string                `json:"cover_url,omitempty"`
+	CoverAspect      string                `json:"cover_aspect,omitempty"`
 	Country          string                `json:"country,omitempty"`
 	RelationshipType string                `json:"relationship_type"`
 	Qualifier        string                `json:"qualifier,omitempty"`
@@ -1639,6 +1641,8 @@ func (s *CatalogService) GetArtistDetail(c *gin.Context) {
 			OriginalLanguage: pack.OriginalLanguage,
 			Translations:     pack.Translations,
 			EntityType:       otherType,
+			CoverURL:         pack.CoverURL,
+			CoverAspect:      pack.CoverAspect,
 			RelationshipType: er.RelationshipType,
 			Qualifier:        er.Qualifier,
 			RelationshipName: relName,

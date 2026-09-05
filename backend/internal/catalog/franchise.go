@@ -480,6 +480,8 @@ func (s *CatalogService) connectedFromRels(locale string, rels []models.EntityRe
 			OriginalLanguage: pack.OriginalLanguage,
 			Translations:     pack.Translations,
 			EntityType:       otherType,
+			CoverURL:         pack.CoverURL,
+			CoverAspect:      pack.CoverAspect,
 			RelationshipType: er.RelationshipType,
 			Qualifier:        er.Qualifier,
 			RelationshipName: relName,
