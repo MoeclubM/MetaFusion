@@ -10,6 +10,9 @@ import {
   Artist,
   Release,
   Franchise,
+  CanonicalEntry,
+  MediumListItem,
+  fetchMediums,
   Tag,
   dictTermLabel,
   workFacetTagGroups,
@@ -36,19 +39,23 @@ import {
   Users,
   Disc,
   Network,
+  FileText,
+  HardDrive,
 } from "lucide-react";
 
-type ExploreType = "works" | "artists" | "releases" | "franchises";
+type ExploreType = "works" | "contents" | "releases" | "mediums" | "artists" | "franchises";
 
 function ExploreContent() {
   const { t, locale } = useI18n();
-  const { taxonomy, entityTypeLabel, packagingLabel } = useTaxonomy();
+  const { taxonomy, entityTypeLabel, packagingLabel, mediumFormatLabel, mediaCategoryLabel } = useTaxonomy();
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const typeParam = (searchParams.get("type") as ExploreType) || "works";
   const activeType: ExploreType =
-    typeParam === "artists" || typeParam === "releases" || typeParam === "franchises" ? typeParam : "works";
+    typeParam === "contents" || typeParam === "releases" || typeParam === "mediums" || typeParam === "artists" || typeParam === "franchises"
+      ? typeParam
+      : "works";
   const queryParam = searchParams.get("q") || "";
   const tagsParam = searchParams.get("tags") || "";
   const tagMatchParam = searchParams.get("tag_match") === "all" ? "all" : "any";
@@ -61,6 +68,8 @@ function ExploreContent() {
   const [works, setWorks] = useState<Work[]>([]);
   const [artists, setArtists] = useState<Artist[]>([]);
   const [releases, setReleases] = useState<Release[]>([]);
+  const [contents, setContents] = useState<CanonicalEntry[]>([]);
+  const [mediums, setMediums] = useState<MediumListItem[]>([]);
   const [franchises, setFranchises] = useState<Franchise[]>([]);
   const tagGroups = taxonomy?.tag_groups || {};
   const dynamicEntityTypes = taxonomy?.entity_types || [];
@@ -211,6 +220,42 @@ function ExploreContent() {
     }
   };
 
+  const loadContents = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (queryParam) params.set("q", queryParam);
+      params.set("page", String(pageParam));
+      params.set("page_size", String(pageSizeParam));
+      const res = await fetchApi<{ items: CanonicalEntry[]; total: number }>(`/catalog/canonical-entries?${params.toString()}`);
+      setContents(res.items || []);
+      setTotal(res.total ?? (res.items || []).length);
+    } catch {
+      setContents([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadMediums = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (queryParam) params.set("q", queryParam);
+      params.set("page", String(pageParam));
+      params.set("page_size", String(pageSizeParam));
+      const res = await fetchMediums(params);
+      setMediums(res.items || []);
+      setTotal(res.total ?? (res.items || []).length);
+    } catch {
+      setMediums([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadFranchises = async () => {
     setLoading(true);
     try {
@@ -231,7 +276,9 @@ function ExploreContent() {
 
   useEffect(() => {
     if (activeType === "works") loadWorks();
+    else if (activeType === "contents") loadContents();
     else if (activeType === "artists") loadArtists();
+    else if (activeType === "mediums") loadMediums();
     else if (activeType === "franchises") loadFranchises();
     else loadReleases();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -294,7 +341,11 @@ function ExploreContent() {
   })();
 
   const placeholderByType =
-    activeType === "artists"
+    activeType === "contents"
+      ? t("explore.searchPlaceholderContent")
+      : activeType === "mediums"
+      ? t("explore.searchPlaceholderMedium")
+      : activeType === "artists"
       ? t("explore.searchPlaceholderArtist")
       : activeType === "releases"
       ? t("explore.searchPlaceholderRelease")
@@ -313,7 +364,7 @@ function ExploreContent() {
       <div className="relative z-10 max-w-[1440px] mx-auto w-full flex-1 flex flex-col md:flex-row items-stretch">
         {/* ===================== Left Sidebar Filter ===================== */}
         <aside className="w-full md:w-64 lg:w-72 shrink-0 border-b md:border-b-0 md:border-r border-black/10 dark:border-white/[0.08] bg-surface/50 backdrop-blur-md p-4 sm:p-5 space-y-6 md:sticky md:top-12 md:h-[calc(100vh-3rem)] md:overflow-y-auto">
-          {/* Entity Type Navigation (作品 / 主体 / 发行版 / 企划) */}
+          {/* Entity Type Navigation follows the Work → Content → Release → Carrier model. */}
           <div className="space-y-2">
             <h2 className="text-xs font-mono font-bold tracking-widest text-gray-500 uppercase">
               {t("explore.title")}
@@ -342,6 +393,17 @@ function ExploreContent() {
                 <span className="truncate">{t("explore.typeArtists")}</span>
               </button>
               <button
+                onClick={() => handleSwitchType("contents")}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors text-left ${
+                  activeType === "contents"
+                    ? "bg-primary text-white shadow-xs"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                }`}
+              >
+                <FileText className="w-4 h-4 shrink-0" />
+                <span className="truncate">{t("explore.typeContents")}</span>
+              </button>
+              <button
                 onClick={() => handleSwitchType("releases")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors text-left ${
                   activeType === "releases"
@@ -351,6 +413,17 @@ function ExploreContent() {
               >
                 <Disc className="w-4 h-4 shrink-0" />
                 <span className="truncate">{t("explore.typeReleases")}</span>
+              </button>
+              <button
+                onClick={() => handleSwitchType("mediums")}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors text-left ${
+                  activeType === "mediums"
+                    ? "bg-primary text-white shadow-xs"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                }`}
+              >
+                <HardDrive className="w-4 h-4 shrink-0" />
+                <span className="truncate">{t("explore.typeMediums")}</span>
               </button>
               <button
                 onClick={() => handleSwitchType("franchises")}
@@ -467,6 +540,20 @@ function ExploreContent() {
               </p>
             </div>
           )}
+          {activeType === "contents" && (
+            <div className="pt-4 border-t border-black/5 dark:border-white/[0.06]">
+              <p className="text-xs text-gray-500 font-mono leading-relaxed">
+                {t("explore.contentHint")}
+              </p>
+            </div>
+          )}
+          {activeType === "mediums" && (
+            <div className="pt-4 border-t border-black/5 dark:border-white/[0.06]">
+              <p className="text-xs text-gray-500 font-mono leading-relaxed">
+                {t("explore.mediumHint")}
+              </p>
+            </div>
+          )}
           {activeType === "franchises" && (
             <div className="pt-4 border-t border-black/5 dark:border-white/[0.06]">
               <p className="text-xs text-gray-500 font-mono leading-relaxed">
@@ -559,8 +646,12 @@ function ExploreContent() {
                 <span className="font-semibold text-gray-700 dark:text-gray-300">
                   {activeType === "works"
                     ? t("explore.filterResult", { count: total })
+                    : activeType === "contents"
+                    ? t("explore.filterResultContents", { count: total })
                     : activeType === "artists"
                     ? t("explore.filterResultArtists", { count: total })
+                    : activeType === "mediums"
+                    ? t("explore.filterResultMediums", { count: total })
                     : activeType === "franchises"
                     ? t("explore.filterResultFranchises", { count: total })
                     : t("explore.filterResultReleases", { count: total })}
@@ -735,6 +826,114 @@ function ExploreContent() {
                       <ArrowRight className="w-4 h-4" />
                     </div>
                   </Link>
+                  );
+                })}
+              </div>
+            )
+          ) : activeType === "contents" ? (
+            loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-32 rounded-lg bg-black/[0.03] dark:bg-white/[0.03] animate-pulse border border-black/5 dark:border-white/5" />
+                ))}
+              </div>
+            ) : contents.length === 0 ? (
+              <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
+                <div className="w-10 h-10 rounded-sm bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 grid place-items-center mx-auto">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noContentMatchTitle")}</h3>
+                  <p className="font-mono text-sm text-gray-500 max-w-sm mx-auto">{t("explore.noContentMatchHint")}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {contents.map((entry) => {
+                  const workLoc = entry.work ? pickLocalized(locale, entry.work.translations, entry.work.title, entry.work.summary) : null;
+                  const duration = entry.duration_seconds ?? entry.duration ?? 0;
+                  return (
+                    <Link
+                      key={entry.id}
+                      href={`/canonical-entries/${entry.id}`}
+                      className="group p-4 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm hover:border-primary/40 hover:shadow-elevated transition-all space-y-2"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 grid place-items-center shrink-0">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-2 group-hover:text-primary transition-colors">
+                            {entry.localized_title || entry.title}
+                          </h3>
+                          {entry.localized_version_label && <p className="font-mono text-[11px] text-gray-500 truncate">{entry.localized_version_label}</p>}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 text-[11px] font-mono text-gray-500">
+                        <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/5">
+                          {t(`explore.contentRole.${entry.entry_role || "main"}`)}
+                        </span>
+                        {(entry.number || entry.position) && <span>{entry.number || `#${entry.position}`}</span>}
+                        {duration > 0 && <span>{t("explore.durationSeconds", { count: duration })}</span>}
+                      </div>
+                      {workLoc && <p className="text-xs text-gray-500 truncate border-t border-black/[0.04] dark:border-white/[0.04] pt-2">{workLoc.title}</p>}
+                    </Link>
+                  );
+                })}
+              </div>
+            )
+          ) : activeType === "mediums" ? (
+            loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-32 rounded-lg bg-black/[0.03] dark:bg-white/[0.03] animate-pulse border border-black/5 dark:border-white/5" />
+                ))}
+              </div>
+            ) : mediums.length === 0 ? (
+              <div className="p-8 sm:p-10 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-3">
+                <div className="w-10 h-10 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-500 grid place-items-center mx-auto">
+                  <HardDrive className="w-5 h-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <h3 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("explore.noMediumMatchTitle")}</h3>
+                  <p className="font-mono text-sm text-gray-500 max-w-sm mx-auto">{t("explore.noMediumMatchHint")}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {mediums.map((medium) => {
+                  const release = medium.release;
+                  const work = release?.work;
+                  const workLoc = work ? pickLocalized(locale, work.translations, work.title, work.summary) : null;
+                  return (
+                    <Link
+                      key={medium.id}
+                      href={`/mediums/${medium.id}`}
+                      className="group p-4 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm hover:border-primary/40 hover:shadow-elevated transition-all space-y-2"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-9 h-9 rounded-md bg-violet-500/10 border border-violet-500/20 text-violet-500 grid place-items-center shrink-0">
+                          <HardDrive className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-2 group-hover:text-primary transition-colors">
+                            {medium.localized_name || medium.name}
+                          </h3>
+                          <p className="font-mono text-[11px] text-gray-500 truncate">
+                            {medium.number || `#${medium.position}`} · {mediumFormatLabel(medium.format) || medium.format}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 text-[11px] font-mono text-gray-500">
+                        <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/5 dark:border-white/5">
+                          {t(`explore.mediumRole.${medium.role || "primary"}`)}
+                        </span>
+                        {medium.media_category && <span>{mediaCategoryLabel(medium.media_category) || medium.media_category}</span>}
+                        <span>{t("explore.trackCount", { count: medium.track_count || 0 })}</span>
+                      </div>
+                      {release && <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{release.localized_edition_name || release.edition_name}</p>}
+                      {workLoc && <p className="text-xs text-gray-500 truncate">{workLoc.title}</p>}
+                    </Link>
                   );
                 })}
               </div>

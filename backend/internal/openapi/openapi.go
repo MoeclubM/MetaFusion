@@ -47,7 +47,7 @@ const specJSON = `{
       "post": { "tags": ["catalog"], "summary": "Create a canonical content entry" }
     },
     "/catalog/canonical-entries/{id}": { "put": { "tags": ["catalog"], "summary": "Update a canonical content entry" } },
-    "/catalog/mediums": { "post": { "tags": ["catalog"], "summary": "Create a medium" } },
+    "/catalog/mediums": { "get": { "tags": ["lookup"], "summary": "List visible carriers" }, "post": { "tags": ["catalog"], "summary": "Create a medium" } },
     "/catalog/mediums/{id}": { "put": { "tags": ["catalog"], "summary": "Update a medium" } },
     "/catalog/tracks": { "post": { "tags": ["catalog"], "summary": "Create a carrier track" } },
     "/catalog/tracks/{id}": { "put": { "tags": ["catalog"], "summary": "Update a carrier track" } },
