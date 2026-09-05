@@ -207,6 +207,7 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 		Country        string                 `json:"country"`
 		Biography      string                 `json:"biography"`
 		Language       string                 `json:"language"`
+		OriginalLanguage string               `json:"original_language"`
 		BeginDate      string                 `json:"begin_date"`
 		EndDate        string                 `json:"end_date"`
 		Ended          bool                   `json:"ended"`
@@ -222,8 +223,9 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 	}
 
 	beforeState := map[string]interface{}{
-		"name":           artist.Name,
-		"original_name":  artist.OriginalName,
+		"name":             artist.Name,
+		"original_name":    artist.OriginalName,
+		"original_language": artist.OriginalLanguage,
 		"disambiguation": artist.Disambiguation,
 		"entity_type":    artist.EntityType,
 		"country":        artist.Country,
@@ -246,6 +248,7 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 		artist.EntityType = input.EntityType
 	}
 	artist.Country = input.Country
+	artist.OriginalLanguage = input.OriginalLanguage
 	artist.Biography = input.Biography
 	beginDate, err := ontology.NormalizePartialDate(input.BeginDate)
 	if err != nil {
@@ -277,8 +280,9 @@ func (s *CatalogService) UpdateArtistForMember(c *gin.Context) {
 	}
 
 	afterState := map[string]interface{}{
-		"name":           artist.Name,
-		"original_name":  artist.OriginalName,
+		"name":             artist.Name,
+		"original_name":    artist.OriginalName,
+		"original_language": artist.OriginalLanguage,
 		"disambiguation": artist.Disambiguation,
 		"entity_type":    artist.EntityType,
 		"country":        artist.Country,

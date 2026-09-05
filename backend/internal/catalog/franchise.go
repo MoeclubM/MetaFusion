@@ -25,6 +25,7 @@ type CreateFranchiseInput struct {
 	Ended           bool                   `json:"ended"`
 	Country         string                 `json:"country"`
 	Language        string                 `json:"language"`
+	OriginalLanguage string                `json:"original_language"`
 	ExternalIDs     map[string]interface{} `json:"external_ids"`
 	Attributes      map[string]interface{} `json:"attributes"`
 	CatalogMetadata map[string]interface{} `json:"catalog_metadata"`
@@ -336,6 +337,7 @@ func (s *CatalogService) CreateFranchiseForMember(c *gin.Context) {
 		Ended:           input.Ended,
 		Country:         strings.TrimSpace(input.Country),
 		Language:        input.Language,
+		OriginalLanguage: input.OriginalLanguage,
 		ExternalIDs:     ext,
 		Attributes:      attrs,
 		CatalogMetadata: meta,
@@ -389,7 +391,7 @@ func (s *CatalogService) UpdateFranchiseForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	before := map[string]interface{}{"title": fr.Title, "original_title": fr.OriginalTitle, "summary": fr.Summary, "attributes": fr.Attributes}
+	before := map[string]interface{}{"title": fr.Title, "original_title": fr.OriginalTitle, "original_language": fr.OriginalLanguage, "summary": fr.Summary, "attributes": fr.Attributes}
 	fr.Title = strings.TrimSpace(input.Title)
 	fr.OriginalTitle = strings.TrimSpace(input.OriginalTitle)
 	if input.Aliases != nil {
@@ -416,6 +418,7 @@ func (s *CatalogService) UpdateFranchiseForMember(c *gin.Context) {
 	fr.EndDate = endDate
 	fr.Ended = input.Ended
 	fr.Country = strings.TrimSpace(input.Country)
+	fr.OriginalLanguage = input.OriginalLanguage
 	if input.ExternalIDs != nil {
 		fr.ExternalIDs = models.JSONB(input.ExternalIDs)
 	}
@@ -434,7 +437,7 @@ func (s *CatalogService) UpdateFranchiseForMember(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	after := map[string]interface{}{"title": fr.Title, "original_title": fr.OriginalTitle, "summary": fr.Summary, "attributes": fr.Attributes}
+	after := map[string]interface{}{"title": fr.Title, "original_title": fr.OriginalTitle, "original_language": fr.OriginalLanguage, "summary": fr.Summary, "attributes": fr.Attributes}
 	s.recordRevision("franchise", fr.ID, &userID, "update", "更新企划", "", nil, before, after)
 	s.replaceFranchiseTagsByName(&fr, input.Tags)
 	s.upsertFranchiseTranslations(fr.ID, items)
