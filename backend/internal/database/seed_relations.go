@@ -849,7 +849,7 @@ func seedEntityTypeDefinitions(db *gorm.DB) {
 func ApplyPatches(db *gorm.DB) {
 	// Share idempotent migrations with runtime startup so existing volumes acquire
 	// the hierarchy constraints without waiting for a fresh database.
-	for _, name := range []string{"000004_content_hierarchy.up.sql", "000005_carrier_hierarchy.up.sql"} {
+	for _, name := range []string{"000004_content_hierarchy.up.sql", "000005_carrier_hierarchy.up.sql", "000006_carrier_content_integrity.up.sql"} {
 		if sql, err := migrations.FS.ReadFile(name); err != nil {
 			log.Printf("schema migration %s: %v", name, err)
 		} else if err := db.Exec(string(sql)).Error; err != nil {

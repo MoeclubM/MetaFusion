@@ -224,6 +224,36 @@ func normalizeTrackContents(track *models.Track) error {
 	return nil
 }
 
+func validateTrackContentWorks(tx *gorm.DB, releaseWorkID uuid.UUID, track *models.Track) error {
+	ids := map[uuid.UUID]bool{}
+	if track.CanonicalEntryID != nil {
+		ids[*track.CanonicalEntryID] = true
+	}
+	for _, content := range track.Contents {
+		ids[content.CanonicalEntryID] = true
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	var entries []models.CanonicalEntry
+	if err := tx.Select("id, work_id").Where("id IN ?", ids).Find(&entries).Error; err != nil {
+		return err
+	}
+	if len(entries) != len(ids) {
+		return errors.New("catalog.canonical_not_found")
+	}
+	for _, entry := range entries {
+		if entry.WorkID == nil || *entry.WorkID != releaseWorkID {
+			return errors.New("catalog.carrier_cross_work")
+		}
+	}
+	if track.WorkID != nil && *track.WorkID != releaseWorkID {
+		return errors.New("catalog.carrier_cross_work")
+	}
+	track.WorkID = &releaseWorkID
+	return nil
+}
+
 func carrierSnapshot(value interface{}) map[string]interface{} {
 	b, _ := json.Marshal(value)
 	var result map[string]interface{}
@@ -415,21 +445,8 @@ func (s *CatalogService) writeTrack(c *gin.Context, update bool) {
 		if err := validateCarrierParent(tx, "tracks", "medium_id", track.ID, track.MediumID, track.ParentID); err != nil {
 			return err
 		}
-		ids := map[uuid.UUID]bool{}
-		if track.CanonicalEntryID != nil {
-			ids[*track.CanonicalEntryID] = true
-		}
-		for _, content := range track.Contents {
-			ids[content.CanonicalEntryID] = true
-		}
-		for id := range ids {
-			var count int64
-			if err := tx.Model(&models.CanonicalEntry{}).Where("id = ?", id).Count(&count).Error; err != nil {
-				return err
-			}
-			if count != 1 {
-				return errors.New("catalog.canonical_not_found")
-			}
+		if err := validateTrackContentWorks(tx, release.WorkID, &track); err != nil {
+			return err
 		}
 		if strings.TrimSpace(track.Title) == "" {
 			if len(track.Contents) == 0 && track.CanonicalEntryID == nil {
@@ -446,18 +463,6 @@ func (s *CatalogService) writeTrack(c *gin.Context, update bool) {
 				return err
 			}
 			track.Title = canonical.Title
-		}
-		if track.WorkID != nil {
-			var count int64
-			if err := tx.Model(&models.Work{}).Where("id = ?", *track.WorkID).Count(&count).Error; err != nil {
-				return err
-			}
-			if count != 1 {
-				return errors.New("catalog.work_not_found")
-			}
-		}
-		if track.WorkID == nil && release.WorkID != uuid.Nil {
-			track.WorkID = &release.WorkID
 		}
 		if update {
 			if err := tx.Omit(clause.Associations).Save(&track).Error; err != nil {
