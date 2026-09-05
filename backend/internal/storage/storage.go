@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -50,13 +51,52 @@ func NewStorageService(cfg *config.Config, db *gorm.DB, asynqClient *asynq.Clien
 		return nil, err
 	}
 
-	return &StorageService{
+	svc := &StorageService{
 		client:      client,
 		coreClient:  coreClient,
 		cfg:         cfg,
 		db:          db,
 		asynqClient: asynqClient,
-	}, nil
+	}
+	svc.ensureBuckets()
+	return svc, nil
+}
+
+// ensureBuckets 启动时确保 S3 桶存在：preview 桶追加匿名只读策略（网关 /storage/preview/
+// 代理直接 GET，无需签名），master 桶保持私有（媒体走鉴权下载）。桶缺失时 PutObject 会
+// 静默走本地回退，而本地文件随容器重建丢失——线上图片全部 404 的根因即此。失败仅告警不阻断启动。
+func (s *StorageService) ensureBuckets() {
+	ctx := context.Background()
+	buckets := []struct {
+		name   string
+		public bool
+	}{
+		{s.cfg.S3BucketPreview, true},
+		{s.cfg.S3BucketMaster, false},
+	}
+	for _, b := range buckets {
+		if b.name == "" {
+			continue
+		}
+		exists, err := s.client.BucketExists(ctx, b.name)
+		if err != nil {
+			log.Printf("[Storage] bucket %s check failed: %v", b.name, err)
+			continue
+		}
+		if !exists {
+			if err := s.client.MakeBucket(ctx, b.name, minio.MakeBucketOptions{}); err != nil {
+				log.Printf("[Storage] create bucket %s failed: %v", b.name, err)
+				continue
+			}
+			log.Printf("[Storage] created bucket %s", b.name)
+		}
+		if b.public {
+			policy := fmt.Sprintf(`{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"AWS":["*"]},"Action":["s3:GetObject"],"Resource":["arn:aws:s3:::%s/*"]}]}`, b.name)
+			if err := s.client.SetBucketPolicy(ctx, b.name, policy); err != nil {
+				log.Printf("[Storage] set public-read policy on %s failed: %v", b.name, err)
+			}
+		}
+	}
 }
 
 type InitiateUploadRequest struct {

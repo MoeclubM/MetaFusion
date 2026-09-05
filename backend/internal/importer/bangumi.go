@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"regexp"
 	"sort"
@@ -21,6 +22,41 @@ var (
 	bgmPersonURLRegex    = regexp.MustCompile(`(?:bgm\.tv|bangumi\.tv|chii\.in)/(?:person|prsn)/(\d+)`)
 	bgmCharacterURLRegex = regexp.MustCompile(`(?:bgm\.tv|bangumi\.tv|chii\.in)/(?:character|crt)/(\d+)`)
 )
+
+// bgmFetchJSON 带重试地请求 Bangumi v0 API 并解码到 out。批量导入时 persons/characters
+// 偶发被限流，此前静默吞错会导致演职员整体缺失——重试 3 次（递增退避）并告警。
+func bgmFetchJSON(ctx context.Context, client *http.Client, url string, out interface{}) bool {
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return false
+			case <-time.After(time.Duration(attempt) * 2 * time.Second):
+			}
+		}
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		if err != nil {
+			return false
+		}
+		req.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
+		req.Header.Set("Accept", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			continue
+		}
+		decErr := json.NewDecoder(resp.Body).Decode(out)
+		resp.Body.Close()
+		if decErr == nil {
+			return true
+		}
+	}
+	log.Printf("[Importer] Bangumi fetch failed after retries: %s", url)
+	return false
+}
 
 type bgmInfoboxItem struct {
 	Key   string      `json:"key"`
@@ -112,23 +148,11 @@ func fetchBangumiEpisodes(ctx context.Context, client *http.Client, subjectID st
 	offset := 0
 	for len(out) < 2000 {
 		pageURL := fmt.Sprintf("https://api.bgm.tv/v0/episodes?subject_id=%s&limit=100&offset=%d", subjectID, offset)
-		eReq, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
-		if err != nil {
-			break
-		}
-		eReq.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
-		eReq.Header.Set("Accept", "application/json")
-		eResp, err := client.Do(eReq)
-		if err != nil || eResp.StatusCode != http.StatusOK {
-			if eResp != nil {
-				eResp.Body.Close()
-			}
-			break
-		}
 		var page bgmEpisodesResponse
-		decErr := json.NewDecoder(eResp.Body).Decode(&page)
-		eResp.Body.Close()
-		if decErr != nil || len(page.Data) == 0 {
+		if !bgmFetchJSON(ctx, client, pageURL, &page) {
+			break
+		}
+		if len(page.Data) == 0 {
 			break
 		}
 		out = append(out, page.Data...)
@@ -342,26 +366,14 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 	var persons []bgmPersonItem
 	personsURL := fmt.Sprintf("https://api.bgm.tv/v0/subjects/%s/persons", subjectID)
 	if err := security.ValidateExternalURL(personsURL); err == nil {
-		pReq, _ := http.NewRequestWithContext(ctx, "GET", personsURL, nil)
-		pReq.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
-		pReq.Header.Set("Accept", "application/json")
-		if pResp, err := client.Do(pReq); err == nil && pResp.StatusCode == http.StatusOK {
-			_ = json.NewDecoder(pResp.Body).Decode(&persons)
-			pResp.Body.Close()
-		}
+		bgmFetchJSON(ctx, client, personsURL, &persons)
 	}
 
 	// 2. 并发查询 Characters & Cast 声优/角色信息
 	var bgmChars []bgmSubjectCharacterItem
 	charsURL := fmt.Sprintf("https://api.bgm.tv/v0/subjects/%s/characters", subjectID)
 	if err := security.ValidateExternalURL(charsURL); err == nil {
-		cReq, _ := http.NewRequestWithContext(ctx, "GET", charsURL, nil)
-		cReq.Header.Set("User-Agent", "MetaFusion-OmniImporter/1.0 ( contact@metafusion.io )")
-		cReq.Header.Set("Accept", "application/json")
-		if cResp, err := client.Do(cReq); err == nil && cResp.StatusCode == http.StatusOK {
-			_ = json.NewDecoder(cResp.Body).Decode(&bgmChars)
-			cResp.Body.Close()
-		}
+		bgmFetchJSON(ctx, client, charsURL, &bgmChars)
 	}
 
 	// 标题处理
@@ -413,7 +425,7 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 
 		for _, p := range persons {
 			pName := strings.TrimSpace(p.Name)
-			if pName == "" || artistNameMap[pName] {
+			if pName == "" {
 				continue
 			}
 
@@ -422,14 +434,20 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 				rel = "Creator"
 			}
 
-			role := rel
+			// 去重键 = 姓名+职务：同一人多职务各建一条预览（导入链路按 external_ids/
+			// 姓名匹配复用同一实体，只会建一份 Artist，但每个职务各写一条关系边）。
+			dedupeKey := pName + "|" + rel
+			if artistNameMap[dedupeKey] {
+				continue
+			}
+
 			if strings.Contains(rel, "出版社") || strings.Contains(rel, "发行") || strings.Contains(rel, "出版") || strings.Contains(rel, "唱片") {
 				if publisherName == "" {
 					publisherName = pName
 				}
 			}
 
-			artistNameMap[pName] = true
+			artistNameMap[dedupeKey] = true
 
 			entType := models.EntityTypePerson
 			if p.Type == 2 || (p.Type == 0 && (rel == "动画制作" || rel == "制作公司" || rel == "出版社" || rel == "唱片公司" || rel == "开发商")) {
@@ -440,7 +458,7 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 
 			artists = append(artists, ArtistPreview{
 				Name:         pName,
-				Role:         role,
+				Role:         rel,
 				EntityType:   entType,
 				Country:      "JP",
 				AvatarURL:    p.Images.Large,

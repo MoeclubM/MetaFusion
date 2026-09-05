@@ -1109,30 +1109,32 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		// 挂载目录关系图谱动态语义边 (EntityRelationship)
 		// 默认 creator_of 仅允许指向 franchise（企划创立），对作品目标非法——
 		// 未命中任何已知制作分工时保持该默认并依赖本体校验跳过（不伪造边）。
+		// 分支次序敏感：performer 须先于 director（主题歌演出含「演出」），
+		// producer 须先于 illustrator（作画监督含「制作」的变体不冲突，但「美术监督」含「监督」）。
 		relTypeCode := "creator_of"
 		roleLower := strings.ToLower(roleToAssign)
 		isCharacterEntity := artist.EntityType == models.EntityTypeVirtualCharacter
 		switch {
-		case strings.Contains(roleLower, "director") || strings.Contains(roleLower, "监督") || strings.Contains(roleLower, "导演"):
-			relTypeCode = "director"
-		case strings.Contains(roleLower, "composer") || strings.Contains(roleLower, "配乐") || strings.Contains(roleLower, "音乐") || strings.Contains(roleLower, "作曲"):
+		case strings.Contains(roleLower, "composer") || strings.Contains(roleLower, "配乐") || strings.Contains(roleLower, "配樂") || strings.Contains(roleLower, "音乐") || strings.Contains(roleLower, "音樂") || strings.Contains(roleLower, "作曲") || strings.Contains(roleLower, "编曲") || strings.Contains(roleLower, "編曲"):
 			relTypeCode = "composer"
-		case strings.Contains(roleLower, "author") || strings.Contains(roleLower, "原作") || strings.Contains(roleLower, "作者") || strings.Contains(roleLower, "编剧") || strings.Contains(roleLower, "剧本") || strings.Contains(roleLower, "系列构成"):
+		case strings.Contains(roleLower, "author") || strings.Contains(roleLower, "原作") || strings.Contains(roleLower, "原案") || strings.Contains(roleLower, "作者") || strings.Contains(roleLower, "编剧") || strings.Contains(roleLower, "劇本") || strings.Contains(roleLower, "剧本") || strings.Contains(roleLower, "系列构成") || strings.Contains(roleLower, "系列構成"):
 			relTypeCode = "author"
-		case strings.Contains(roleLower, "illustrator") || strings.Contains(roleLower, "作画") || strings.Contains(roleLower, "原画") || strings.Contains(roleLower, "插画") || strings.Contains(roleLower, "人物设定"):
+		case strings.Contains(roleLower, "illustrator") || strings.Contains(roleLower, "作画") || strings.Contains(roleLower, "作畫") || strings.Contains(roleLower, "原画") || strings.Contains(roleLower, "原畫") || strings.Contains(roleLower, "插画") || strings.Contains(roleLower, "插畫") || strings.Contains(roleLower, "人物设定") || strings.Contains(roleLower, "人物設定") || strings.Contains(roleLower, "美术") || strings.Contains(roleLower, "美術") || strings.Contains(roleLower, "设定") || strings.Contains(roleLower, "設定"):
 			relTypeCode = "illustrator"
-		case strings.Contains(roleLower, "publisher") || strings.Contains(roleLower, "出版社") || strings.Contains(roleLower, "发行") || strings.Contains(roleLower, "厂牌") || strings.Contains(roleLower, "唱片"):
+		case strings.Contains(roleLower, "publisher") || strings.Contains(roleLower, "出版社") || strings.Contains(roleLower, "发行") || strings.Contains(roleLower, "發行") || strings.Contains(roleLower, "厂牌") || strings.Contains(roleLower, "唱片"):
 			relTypeCode = "producer"
-		case strings.Contains(roleLower, "studio") || strings.Contains(roleLower, "制作") || strings.Contains(roleLower, "开发") || strings.Contains(roleLower, "制片"):
-			// agent_work 域的 studio 关系已去重移除，制作链路统一走 producer
+		case strings.Contains(roleLower, "studio") || strings.Contains(roleLower, "制作") || strings.Contains(roleLower, "製作") || strings.Contains(roleLower, "开发") || strings.Contains(roleLower, "開發") || strings.Contains(roleLower, "制片") || strings.Contains(roleLower, "製片") || strings.Contains(roleLower, "企划") || strings.Contains(roleLower, "企畫") || strings.Contains(roleLower, "企劃") || strings.Contains(roleLower, "监制") || strings.Contains(roleLower, "監製"):
+			// agent_work 域的 studio 关系已去重移除，制作/企划链路统一走 producer
 			relTypeCode = "producer"
-		case !isCharacterEntity && (strings.Contains(roleLower, "performer") || strings.Contains(roleLower, "演奏") || strings.Contains(roleLower, "演唱") || strings.Contains(roleLower, "艺术家") || strings.Contains(roleLower, "歌手") || strings.Contains(roleLower, "主演") || strings.Contains(roleLower, "配角") || strings.Contains(roleLower, "主题歌") || strings.Contains(roleLower, "表演")):
+		case !isCharacterEntity && (strings.Contains(roleLower, "performer") || strings.Contains(roleLower, "演奏") || strings.Contains(roleLower, "演唱") || strings.Contains(roleLower, "艺术家") || strings.Contains(roleLower, "藝術家") || strings.Contains(roleLower, "歌手") || strings.Contains(roleLower, "主演") || strings.Contains(roleLower, "配角") || strings.Contains(roleLower, "主题歌") || strings.Contains(roleLower, "主題歌") || strings.Contains(roleLower, "主题曲") || strings.Contains(roleLower, "主題曲") || strings.Contains(roleLower, "表演")):
 			// 演唱/出演类统一走 performer；角色实体（主角/配角/主演定位）排除在外，
 			// 由后序 character_in 分支承接，避免 performer 源端点校验失败吞掉角色边。
 			relTypeCode = "performer"
-		case strings.Contains(roleLower, "voice") || strings.Contains(roleLower, "声优") || strings.Contains(roleLower, "配音") || strings.Contains(roleLower, "actor") || strings.Contains(roleLower, "演员") || assoc.CharacterName != "":
+		case strings.Contains(roleLower, "director") || strings.Contains(roleLower, "导演") || strings.Contains(roleLower, "導演") || strings.Contains(roleLower, "监督") || strings.Contains(roleLower, "監督") || strings.Contains(roleLower, "演出") || strings.Contains(roleLower, "分镜") || strings.Contains(roleLower, "分鏡") || strings.Contains(roleLower, "音响监督") || strings.Contains(roleLower, "音響監督"):
+			relTypeCode = "director"
+		case strings.Contains(roleLower, "voice") || strings.Contains(roleLower, "声优") || strings.Contains(roleLower, "聲優") || strings.Contains(roleLower, "配音") || strings.Contains(roleLower, "actor") || strings.Contains(roleLower, "演员") || assoc.CharacterName != "":
 			relTypeCode = "voice_actor_of"
-		case strings.Contains(roleLower, "character") || strings.Contains(roleLower, "角色") || strings.Contains(roleLower, "主角") || strings.Contains(roleLower, "主演") || strings.Contains(roleLower, "配角") || strings.Contains(roleLower, "客串") || isCharacterEntity:
+		case strings.Contains(roleLower, "character") || strings.Contains(roleLower, "角色") || strings.Contains(roleLower, "主角") || strings.Contains(roleLower, "配角") || strings.Contains(roleLower, "客串") || isCharacterEntity:
 			relTypeCode = "character_in"
 		}
 
