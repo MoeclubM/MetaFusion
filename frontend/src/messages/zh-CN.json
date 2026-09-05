@@ -2032,5 +2032,9 @@
   "work.detail.externalHeading": "外部资料",
   "work.detail.noSummary": "暂无作品简介。",
   "work.detail.previousPage": "上一页",
-  "work.detail.nextPage": "下一页"
+  "work.detail.nextPage": "下一页",
+  "relations.showAll": "展开全部 {count} 个关联",
+  "relations.collapse": "收起",
+  "relations.dateTail": "至今",
+  "relations.dateEnded": "已完结"
 }

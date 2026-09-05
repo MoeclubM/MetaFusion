@@ -2031,5 +2031,9 @@
   "work.detail.externalHeading": "External sources",
   "work.detail.noSummary": "No overview has been added yet.",
   "work.detail.previousPage": "Previous page",
-  "work.detail.nextPage": "Next page"
+  "work.detail.nextPage": "Next page",
+  "relations.showAll": "Show all {count} relations",
+  "relations.collapse": "Collapse",
+  "relations.dateTail": "present",
+  "relations.dateEnded": "ended"
 }
