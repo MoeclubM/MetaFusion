@@ -67,6 +67,17 @@ export default function ArtistDetailPage() {
       .catch((err) => console.error("Artist graph fetch failed:", err));
   }, [artistId]);
 
+  // 过滤掉已经在头部专门作为头像渲染的 avatar_url，避免在扩展动态属性栏中冗余显示技术路径。
+  // 必须挂在 loading/空态提前返回之前：hook 数量须与首帧一致，否则触发
+  // "Rendered more hooks than during the previous render" 使整个艺人页崩溃。
+  const artistAttributes = data?.artist?.attributes;
+  const displayAttributes = useMemo(() => {
+    if (!artistAttributes) return {};
+    const filtered = { ...artistAttributes };
+    delete filtered.avatar_url;
+    return filtered;
+  }, [artistAttributes]);
+
   if (loading) return <div className="min-h-screen bg-background grid place-items-center font-mono text-xs text-gray-500">{t("artist.detail.loading")}</div>;
   if (!data || !data.artist) {
     return (
@@ -90,14 +101,6 @@ export default function ArtistDetailPage() {
   const connectedEntities: ConnectedEntityItem[] = data.connected_entities || [];
   const extIds = artist?.external_ids || {};
   const avatarUrl = (artist as any)?.avatar_url || (artist?.attributes?.avatar_url as string);
-
-  // 过滤掉已经在头部专门作为头像渲染的 avatar_url，避免在扩展动态属性栏中冗余显示技术路径
-  const displayAttributes = useMemo(() => {
-    if (!artist?.attributes) return {};
-    const filtered = { ...artist.attributes };
-    delete filtered.avatar_url;
-    return filtered;
-  }, [artist?.attributes]);
 
   const getEntityTypeLabel = (type: string) => entityTypeLabel(type);
 
