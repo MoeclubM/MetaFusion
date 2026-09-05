@@ -219,6 +219,12 @@ func (s *AdminService) DeleteWork(c *gin.Context) {
 		}
 		// 10. 删除 CanonicalEntries 与剩余 Tracks
 		_ = tx.Where("work_id = ?", workID).Delete(&models.Track{}).Error
+		var contentIDs []uuid.UUID
+		tx.Model(&models.CanonicalEntry{}).Where("work_id = ?", workID).Pluck("id", &contentIDs)
+		if len(contentIDs) > 0 {
+			_ = tx.Where("canonical_entry_id IN ?", contentIDs).Delete(&models.TrackContent{}).Error
+		}
+		_ = tx.Model(&models.CanonicalEntry{}).Where("work_id = ?", workID).Update("parent_id", nil).Error
 		_ = tx.Where("work_id = ?", workID).Delete(&models.CanonicalEntry{}).Error
 
 		// 11. 删除主体 Work
@@ -886,7 +892,15 @@ func (s *AdminService) DeleteCanonicalEntry(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid canonical entry ID"})
 		return
 	}
-	if err := s.db.Where("id = ?", entryID).Delete(&models.CanonicalEntry{}).Error; err != nil {
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("canonical_entry_id = ?", entryID).Delete(&models.TrackContent{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&models.CanonicalEntry{}).Where("parent_id = ?", entryID).Update("parent_id", nil).Error; err != nil {
+			return err
+		}
+		return tx.Where("id = ?", entryID).Delete(&models.CanonicalEntry{}).Error
+	}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

@@ -87,7 +87,6 @@ type Favorite struct {
 
 func (Favorite) TableName() string { return "favorites" }
 
-
 // Invitation represents an invite code
 type Invitation struct {
 	ID        uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
@@ -307,35 +306,35 @@ type WorkArtistRelation struct {
 
 // Work represents FRBR Work entity
 type Work struct {
-	ID              uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Title           string         `gorm:"not null" json:"title"`
-	OriginalTitle   string         `json:"original_title"`
-	Aliases         pq.StringArray `gorm:"type:text[]" json:"aliases"`
-	ReleaseDate     *time.Time     `json:"release_date,omitempty"`
-	BeginDate       string         `gorm:"type:varchar(16)" json:"begin_date"`
-	EndDate         string         `gorm:"type:varchar(16)" json:"end_date"`
-	Ended           bool           `gorm:"default:false;not null" json:"ended"`
-	Country         string         `json:"country"`
-	Language        string         `gorm:"default:'zh-CN'" json:"language"`
+	ID            uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Title         string         `gorm:"not null" json:"title"`
+	OriginalTitle string         `json:"original_title"`
+	Aliases       pq.StringArray `gorm:"type:text[]" json:"aliases"`
+	ReleaseDate   *time.Time     `json:"release_date,omitempty"`
+	BeginDate     string         `gorm:"type:varchar(16)" json:"begin_date"`
+	EndDate       string         `gorm:"type:varchar(16)" json:"end_date"`
+	Ended         bool           `gorm:"default:false;not null" json:"ended"`
+	Country       string         `json:"country"`
+	Language      string         `gorm:"default:'zh-CN'" json:"language"`
 	// OriginalLanguage 作品内容本身的语言（ISO 639-1，如 zh/ja/en/ko）。
 	// Language 是默认显示语种（BCP-47），与 translations 中设为默认的那一组题名+简介对应。
 	OriginalLanguage string `gorm:"type:varchar(16);default:''" json:"original_language"`
 	Summary          string `json:"summary"`
-	CoverImageURL   string         `json:"cover_image_url"`
+	CoverImageURL    string `json:"cover_image_url"`
 	// CoverAspect 手动指定的封面显示比例（"1:1"/"2:3"/"3:4"），空串 = 自动推断
-	CoverAspect     string         `gorm:"type:varchar(8);default:''" json:"cover_aspect"`
-	ContentRating   string         `gorm:"default:'General'" json:"content_rating"`
-	Status          string         `gorm:"default:'completed'" json:"status"`
-	ViewCount       int64          `gorm:"default:0;not null" json:"view_count"`
-	FavoriteCount   int64          `gorm:"-" json:"favorite_count"`
-	ExternalIDs     JSONB          `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
-	Attributes      JSONB          `gorm:"type:jsonb;default:'{}'" json:"attributes"`
-	CatalogMetadata JSONB          `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
-	CreatedBy       *uuid.UUID     `gorm:"type:uuid" json:"created_by,omitempty"`
-		CreatedAt       time.Time      `json:"created_at"`
-		UpdatedAt       time.Time      `json:"updated_at"`
+	CoverAspect     string     `gorm:"type:varchar(8);default:''" json:"cover_aspect"`
+	ContentRating   string     `gorm:"default:'General'" json:"content_rating"`
+	Status          string     `gorm:"default:'completed'" json:"status"`
+	ViewCount       int64      `gorm:"default:0;not null" json:"view_count"`
+	FavoriteCount   int64      `gorm:"-" json:"favorite_count"`
+	ExternalIDs     JSONB      `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	Attributes      JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
+	CatalogMetadata JSONB      `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
+	CreatedBy       *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at"`
 
-		Tags            []Tag                `gorm:"many2many:work_tag_relations;" json:"tags,omitempty"`
+	Tags            []Tag                `gorm:"many2many:work_tag_relations;" json:"tags,omitempty"`
 	ArtistRelations []WorkArtistRelation `gorm:"foreignKey:WorkID" json:"artist_relations,omitempty"`
 	Releases        []Release            `gorm:"foreignKey:WorkID" json:"releases,omitempty"`
 	Translations    []WorkTranslation    `gorm:"foreignKey:WorkID" json:"translations,omitempty"`
@@ -343,13 +342,19 @@ type Work struct {
 
 // Release represents FRBR Manifestation / Commercial Release Boxset
 type Release struct {
-	ID               uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	WorkID           uuid.UUID  `gorm:"type:uuid;not null" json:"work_id"`
-	PublisherID      *uuid.UUID `gorm:"type:uuid" json:"publisher_id,omitempty"`
-	EditionName      string     `gorm:"not null" json:"edition_name"`
-	CatalogNumber    string     `json:"catalog_number"`
-	Barcode          string     `json:"barcode"`
-	Publisher        string     `json:"publisher"`
+	CoverImageURL        string     `json:"cover_image_url"`
+	CoverAspect          string     `json:"cover_aspect"`
+	OriginalLanguage     string     `json:"original_language"`
+	Translations         JSONB      `gorm:"type:jsonb;default:'{}'" json:"translations"`
+	LocalizedEditionName string     `gorm:"-" json:"localized_edition_name,omitempty"`
+	LocalizedNotes       string     `gorm:"-" json:"localized_notes,omitempty"`
+	ID                   uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	WorkID               uuid.UUID  `gorm:"type:uuid;not null" json:"work_id"`
+	PublisherID          *uuid.UUID `gorm:"type:uuid" json:"publisher_id,omitempty"`
+	EditionName          string     `gorm:"not null" json:"edition_name"`
+	CatalogNumber        string     `json:"catalog_number"`
+	Barcode              string     `json:"barcode"`
+	Publisher            string     `json:"publisher"`
 	Packaging            string     `gorm:"default:'box_set'" json:"packaging"`
 	EditionDate          *time.Time `json:"edition_date,omitempty"`
 	Country              string     `json:"country"`
@@ -372,14 +377,20 @@ type Release struct {
 
 // Medium represents physical discs or volumes within a release
 type Medium struct {
-	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	ReleaseID     uuid.UUID `gorm:"type:uuid;not null" json:"release_id"`
-	Position      int       `gorm:"not null" json:"position"`
-	Name          string    `gorm:"not null" json:"name"`
-	Format        string    `gorm:"not null" json:"format"`
-	MediaCategory string    `gorm:"not null" json:"media_category"`
-	TrackCount    int       `gorm:"default:0;not null" json:"track_count"`
-	Attributes    JSONB     `gorm:"type:jsonb;default:'{}'" json:"attributes"`
+	ParentID         *uuid.UUID `gorm:"type:uuid" json:"parent_id"`
+	Number           string     `json:"number"`
+	Role             string     `gorm:"default:'primary';not null" json:"role"`
+	OriginalLanguage string     `json:"original_language"`
+	Translations     JSONB      `gorm:"type:jsonb;default:'{}'" json:"translations"`
+	LocalizedName    string     `gorm:"-" json:"localized_name,omitempty"`
+	ID               uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ReleaseID        uuid.UUID  `gorm:"type:uuid;not null" json:"release_id"`
+	Position         int        `gorm:"not null" json:"position"`
+	Name             string     `gorm:"not null" json:"name"`
+	Format           string     `gorm:"not null" json:"format"`
+	MediaCategory    string     `gorm:"not null" json:"media_category"`
+	TrackCount       int        `gorm:"default:0;not null" json:"track_count"`
+	Attributes       JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 
 	Tracks     []Track     `gorm:"foreignKey:MediumID" json:"tracks,omitempty"`
 	AssetFiles []AssetFile `gorm:"foreignKey:MediumID" json:"asset_files,omitempty"`
@@ -431,8 +442,8 @@ type Franchise struct {
 	UpdatedAt       time.Time      `json:"updated_at"`
 	FavoriteCount   int64          `gorm:"-" json:"favorite_count"`
 
-	Tags         []Tag                   `gorm:"many2many:franchise_tag_relations;" json:"tags,omitempty"`
-	Translations []FranchiseTranslation  `gorm:"foreignKey:FranchiseID" json:"translations,omitempty"`
+	Tags         []Tag                  `gorm:"many2many:franchise_tag_relations;" json:"tags,omitempty"`
+	Translations []FranchiseTranslation `gorm:"foreignKey:FranchiseID" json:"translations,omitempty"`
 }
 
 func (Franchise) TableName() string { return "franchises" }
@@ -458,37 +469,53 @@ func (CanonicalEntry) TableName() string {
 // - Podcasts/Audio Dramas: Master Episode Audio (典范单集/声音母版)
 // - Games: Main Game Scenario / DLC Campaign (游戏本体剧情/战役篇章)
 type CanonicalEntry struct {
-	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Title         string     `gorm:"not null" json:"title"`
-	SortTitle     string     `json:"sort_title"`
-	Duration      int        `gorm:"column:duration_seconds" json:"duration_seconds"`
-	ISRC          string     `json:"isrc"`
-	ISBN          string     `json:"isbn"`
-	ArtistCredit  string     `json:"artist_credit"`
-	RecordingDate string     `gorm:"type:varchar(16)" json:"recording_date"`
-	WorkID        *uuid.UUID `gorm:"type:uuid" json:"work_id,omitempty"`
-	ExternalIDs   JSONB      `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
-	Attributes    JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
-	CreatedAt     time.Time  `json:"created_at"`
+	ParentID              *uuid.UUID `gorm:"type:uuid;index" json:"parent_id"`
+	Position              int        `gorm:"not null;default:0" json:"position"`
+	Number                string     `gorm:"not null;default:''" json:"number"`
+	EntryRole             string     `gorm:"not null;default:'main'" json:"entry_role"`
+	OriginalLanguage      string     `gorm:"not null;default:''" json:"original_language"`
+	VersionLabel          string     `gorm:"not null;default:''" json:"version_label"`
+	Translations          JSONB      `gorm:"type:jsonb;not null;default:'{}'" json:"translations"`
+	LocalizedTitle        string     `gorm:"-" json:"localized_title"`
+	LocalizedVersionLabel string     `gorm:"-" json:"localized_version_label"`
+	ID                    uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Title                 string     `gorm:"not null" json:"title"`
+	SortTitle             string     `json:"sort_title"`
+	Duration              int        `gorm:"column:duration_seconds" json:"duration_seconds"`
+	ISRC                  string     `json:"isrc"`
+	ISBN                  string     `json:"isbn"`
+	ArtistCredit          string     `json:"artist_credit"`
+	RecordingDate         string     `gorm:"type:varchar(16)" json:"recording_date"`
+	WorkID                *uuid.UUID `gorm:"type:uuid" json:"work_id,omitempty"`
+	ExternalIDs           JSONB      `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	Attributes            JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
+	CreatedAt             time.Time  `json:"created_at"`
 
 	Work *Work `gorm:"foreignKey:WorkID" json:"work,omitempty"`
 }
 
 // Track represents a physical position/offset reference to a CanonicalEntry (Expression) on a specific Medium
 type Track struct {
-	ID               uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	MediumID         uuid.UUID  `gorm:"type:uuid;not null" json:"medium_id"`
-	CanonicalEntryID *uuid.UUID `gorm:"type:uuid" json:"canonical_entry_id,omitempty"`
-	WorkID           *uuid.UUID `gorm:"type:uuid" json:"work_id,omitempty"`
-	Position         int        `gorm:"not null" json:"position"`
-	Title            string     `json:"title"`
-	TitleOverride    string     `json:"title_override"`
-	DurationSeconds  int        `json:"duration_seconds"`
-	ISRC             string     `json:"isrc"`
-	ArtistCredit     string     `json:"artist_credit"`
+	ParentID         *uuid.UUID     `gorm:"type:uuid" json:"parent_id"`
+	Number           string         `json:"number"`
+	OriginalLanguage string         `json:"original_language"`
+	Translations     JSONB          `gorm:"type:jsonb;default:'{}'" json:"translations"`
+	Locator          JSONB          `gorm:"type:jsonb;default:'{}'" json:"locator"`
+	LocalizedTitle   string         `gorm:"-" json:"localized_title,omitempty"`
+	Contents         []TrackContent `gorm:"foreignKey:TrackID" json:"contents"`
+	ID               uuid.UUID      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	MediumID         uuid.UUID      `gorm:"type:uuid;not null" json:"medium_id"`
+	CanonicalEntryID *uuid.UUID     `gorm:"type:uuid" json:"canonical_entry_id,omitempty"`
+	WorkID           *uuid.UUID     `gorm:"type:uuid" json:"work_id,omitempty"`
+	Position         int            `gorm:"not null" json:"position"`
+	Title            string         `json:"title"`
+	TitleOverride    string         `json:"title_override"`
+	DurationSeconds  int            `json:"duration_seconds"`
+	ISRC             string         `json:"isrc"`
+	ArtistCredit     string         `json:"artist_credit"`
 	// AirDate 单集/曲目播出或发行日期（模糊日期规约 YYYY / YYYY-MM / YYYY-MM-DD，空串=未知）
-	AirDate          string     `gorm:"type:varchar(16)" json:"air_date,omitempty"`
-	Attributes       JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
+	AirDate    string `gorm:"type:varchar(16)" json:"air_date,omitempty"`
+	Attributes JSONB  `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 
 	Work           *Work           `gorm:"foreignKey:WorkID" json:"work,omitempty"`
 	CanonicalEntry *CanonicalEntry `gorm:"foreignKey:CanonicalEntryID" json:"canonical_entry,omitempty"`
@@ -562,15 +589,15 @@ type RelationType struct {
 	// IsTemporal 标记该关系是否具有时间语义（任期/隶属/合约期）：
 	// 为 true 时编辑器展示 begin/end/ended 输入，为 false 的层级边
 	// （sequel_of/adaptation_of 等）默认隐藏时间输入。
-	IsTemporal         bool           `gorm:"default:false;not null" json:"is_temporal"`
-	AttributeSchema    JSONB          `gorm:"type:jsonb;default:'[]'" json:"attribute_schema"`
-	Color              string         `gorm:"type:varchar(32);default:'sky';not null" json:"color"`
-	Icon               string         `gorm:"type:varchar(64);default:'Link';not null" json:"icon"`
-	SortOrder          int            `gorm:"default:0;not null" json:"sort_order"`
-	IsSystem           bool           `gorm:"default:false;not null" json:"is_system"`
-	IsEnabled          bool           `gorm:"default:true;not null" json:"is_enabled"`
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
+	IsTemporal      bool      `gorm:"default:false;not null" json:"is_temporal"`
+	AttributeSchema JSONB     `gorm:"type:jsonb;default:'[]'" json:"attribute_schema"`
+	Color           string    `gorm:"type:varchar(32);default:'sky';not null" json:"color"`
+	Icon            string    `gorm:"type:varchar(64);default:'Link';not null" json:"icon"`
+	SortOrder       int       `gorm:"default:0;not null" json:"sort_order"`
+	IsSystem        bool      `gorm:"default:false;not null" json:"is_system"`
+	IsEnabled       bool      `gorm:"default:true;not null" json:"is_enabled"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 func (r RelationType) LocalizedName(locale string) string {
@@ -948,7 +975,7 @@ type UserGroup struct {
 }
 
 func (ForumBoard) TableName() string { return "forum_boards" }
-func (UserGroup) TableName() string { return "user_groups" }
+func (UserGroup) TableName() string  { return "user_groups" }
 
 // DiscussionTopic represents community threads and archive reviews
 type DiscussionTopic struct {
@@ -1077,10 +1104,10 @@ func (s UserCustomShelf) LocalizedName(locale string) string {
 
 // UserHomeLayout 个人首页布局：隐藏的系统预设 + 整体顺序
 type UserHomeLayout struct {
-	UserID             uuid.UUID `gorm:"type:uuid;primaryKey" json:"user_id"`
-	HiddenSystemSlugs  pq.StringArray `gorm:"type:text[]" json:"hidden_system_slugs"`
-	OrderJSON          JSONB       `gorm:"type:jsonb;default:'[]'" json:"order_json"`
-	UpdatedAt          time.Time   `json:"updated_at"`
+	UserID            uuid.UUID      `gorm:"type:uuid;primaryKey" json:"user_id"`
+	HiddenSystemSlugs pq.StringArray `gorm:"type:text[]" json:"hidden_system_slugs"`
+	OrderJSON         JSONB          `gorm:"type:jsonb;default:'[]'" json:"order_json"`
+	UpdatedAt         time.Time      `json:"updated_at"`
 }
 
 func (UserHomeLayout) TableName() string { return "user_home_layouts" }
@@ -1149,5 +1176,3 @@ type SystemPlugin struct {
 }
 
 func (SystemPlugin) TableName() string { return "system_plugins" }
-
-

@@ -3,6 +3,8 @@ package importer
 import (
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,13 +12,14 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
-		"github.com/gin-gonic/gin"
-		"github.com/google/uuid"
-		"github.com/lib/pq"
-		"github.com/metafusion/metafusion-app/internal/catalog"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"github.com/metafusion/metafusion-app/internal/catalog"
 	"github.com/metafusion/metafusion-app/internal/config"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/ontology"
@@ -412,43 +415,43 @@ func (s *ImporterService) importSingleArtistHandler(c *gin.Context, userID uuid.
 			updates["original_name"] = artPrev.OriginalName
 			artist.OriginalName = artPrev.OriginalName
 		}
-			if artist.Country == "" && artPrev.Country != "" {
-				updates["country"] = artPrev.Country
-				artist.Country = artPrev.Country
+		if artist.Country == "" && artPrev.Country != "" {
+			updates["country"] = artPrev.Country
+			artist.Country = artPrev.Country
+		}
+		if finalAvatarURL != "" && (artist.AvatarURL == "" || !strings.HasPrefix(artist.AvatarURL, "/uploads/")) {
+			updates["avatar_url"] = finalAvatarURL
+			artist.AvatarURL = finalAvatarURL
+		}
+		if artPrev.ExternalIDs != nil {
+			if artist.ExternalIDs == nil {
+				artist.ExternalIDs = models.JSONB{}
 			}
-			if finalAvatarURL != "" && (artist.AvatarURL == "" || !strings.HasPrefix(artist.AvatarURL, "/uploads/")) {
-				updates["avatar_url"] = finalAvatarURL
-				artist.AvatarURL = finalAvatarURL
+			for k, v := range artPrev.ExternalIDs {
+				artist.ExternalIDs[k] = v
 			}
-			if artPrev.ExternalIDs != nil {
-				if artist.ExternalIDs == nil {
-					artist.ExternalIDs = models.JSONB{}
-				}
-				for k, v := range artPrev.ExternalIDs {
-					artist.ExternalIDs[k] = v
-				}
-				updates["external_ids"] = artist.ExternalIDs
-			}
-			if len(updates) > 0 {
-				_ = tx.Model(&artist).Updates(updates).Error
-			}
-		} else {
-			// 新建主体
-			attrs := models.JSONB{}
-			artist = models.Artist{
-				ID:             uuid.New(),
-				Name:           strings.TrimSpace(artPrev.Name),
-				OriginalName:   strings.TrimSpace(artPrev.OriginalName),
-				Disambiguation: artPrev.Disambiguation,
-				EntityType:     entType,
-				AvatarURL:      finalAvatarURL,
-				Country:        artPrev.Country,
-				Biography:      artPrev.Biography,
-				Language:       artPrev.Language,
-				ExternalIDs:    artPrev.ExternalIDs,
-				Attributes:     attrs,
-				CreatedBy:      &userID,
-			}
+			updates["external_ids"] = artist.ExternalIDs
+		}
+		if len(updates) > 0 {
+			_ = tx.Model(&artist).Updates(updates).Error
+		}
+	} else {
+		// 新建主体
+		attrs := models.JSONB{}
+		artist = models.Artist{
+			ID:             uuid.New(),
+			Name:           strings.TrimSpace(artPrev.Name),
+			OriginalName:   strings.TrimSpace(artPrev.OriginalName),
+			Disambiguation: artPrev.Disambiguation,
+			EntityType:     entType,
+			AvatarURL:      finalAvatarURL,
+			Country:        artPrev.Country,
+			Biography:      artPrev.Biography,
+			Language:       artPrev.Language,
+			ExternalIDs:    artPrev.ExternalIDs,
+			Attributes:     attrs,
+			CreatedBy:      &userID,
+		}
 		if artist.Language == "" {
 			artist.Language = "zh-CN"
 		}
@@ -491,9 +494,9 @@ func (s *ImporterService) importSingleArtistHandler(c *gin.Context, userID uuid.
 		EditNote:   editNote,
 		SourceURLs: sourceURLs,
 		AfterState: models.JSONB{
-			"name":        artist.Name,
-			"entity_type": artist.EntityType,
-			"country":     artist.Country,
+			"name":         artist.Name,
+			"entity_type":  artist.EntityType,
+			"country":      artist.Country,
 			"external_ids": artist.ExternalIDs,
 		},
 		Diff: models.JSONB{
@@ -572,6 +575,11 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		req.Work = &preview.Work
 		req.Artists = preview.Artists
 		req.Release = &preview.Release
+		req.HasRelease = preview.HasRelease
+		req.CanonicalEntries = preview.CanonicalEntries
+		if preview.HasRelease != nil && !*preview.HasRelease {
+			req.Release = nil
+		}
 		req.Mediums = preview.Mediums
 	}
 
@@ -857,22 +865,22 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			return
 		}
 
-			// 多语言标题与简介
-			for _, trans := range workPrev.Translations {
-				if trans.Locale != "" {
-					normLocale := models.NormalizeLocale(trans.Locale)
-					var existingWT models.WorkTranslation
-					if err := tx.Where("work_id = ? AND locale = ?", work.ID, normLocale).First(&existingWT).Error; err != nil {
-						wt := models.WorkTranslation{
-							WorkID:  work.ID,
-							Locale:  normLocale,
-							Title:   trans.Title,
-							Summary: trans.Summary,
-						}
-						_ = tx.Create(&wt).Error
+		// 多语言标题与简介
+		for _, trans := range workPrev.Translations {
+			if trans.Locale != "" {
+				normLocale := models.NormalizeLocale(trans.Locale)
+				var existingWT models.WorkTranslation
+				if err := tx.Where("work_id = ? AND locale = ?", work.ID, normLocale).First(&existingWT).Error; err != nil {
+					wt := models.WorkTranslation{
+						WorkID:  work.ID,
+						Locale:  normLocale,
+						Title:   trans.Title,
+						Summary: trans.Summary,
 					}
+					_ = tx.Create(&wt).Error
 				}
 			}
+		}
 	}
 
 	// 标签关联 (无论是新建还是合并)：分组优先取导入器声明的 TagGroups，
@@ -1024,51 +1032,51 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				artist.Biography = assoc.Biography
 				updArtist["biography"] = assoc.Biography
 			}
-				// 头像更新：空值必填；非本地链路照常刷新；存量 /uploads/ 本地死链
-				// （容器重建即丢）在新链已成功落 S3 时迁移替换，避免永久 404。
-				shouldSetAvatar := artAvatarURL != "" &&
-					(artist.AvatarURL == "" ||
-						!strings.HasPrefix(artist.AvatarURL, "/uploads/") ||
-						strings.HasPrefix(artAvatarURL, "/storage/preview/"))
-				if shouldSetAvatar {
-					artist.AvatarURL = artAvatarURL
-					updArtist["avatar_url"] = artAvatarURL
-				}
-				if len(updArtist) > 0 {
-					// artists 表无 updated_at 列（CreatedAt 唯一时间戳），禁止写入该键。
-					_ = tx.Model(&artist).Updates(updArtist).Error
+			// 头像更新：空值必填；非本地链路照常刷新；存量 /uploads/ 本地死链
+			// （容器重建即丢）在新链已成功落 S3 时迁移替换，避免永久 404。
+			shouldSetAvatar := artAvatarURL != "" &&
+				(artist.AvatarURL == "" ||
+					!strings.HasPrefix(artist.AvatarURL, "/uploads/") ||
+					strings.HasPrefix(artAvatarURL, "/storage/preview/"))
+			if shouldSetAvatar {
+				artist.AvatarURL = artAvatarURL
+				updArtist["avatar_url"] = artAvatarURL
+			}
+			if len(updArtist) > 0 {
+				// artists 表无 updated_at 列（CreatedAt 唯一时间戳），禁止写入该键。
+				_ = tx.Model(&artist).Updates(updArtist).Error
+			}
+		}
+
+		// 模式 3: 新建主体 (Create)
+		if !found {
+			entType := assoc.EntityType
+			if entType == "" {
+				entType = models.EntityTypePerson
+			}
+
+			// 头像下载
+			artAvatarURL := assoc.AvatarURL
+			if req.DownloadCover && artAvatarURL != "" && strings.HasPrefix(artAvatarURL, "http") {
+				if storedURL, err := s.downloadAndStoreCover(c.Request.Context(), artAvatarURL); err == nil && storedURL != "" {
+					artAvatarURL = storedURL
 				}
 			}
 
-			// 模式 3: 新建主体 (Create)
-			if !found {
-				entType := assoc.EntityType
-				if entType == "" {
-					entType = models.EntityTypePerson
-				}
+			attrs := models.JSONB{}
 
-				// 头像下载
-				artAvatarURL := assoc.AvatarURL
-				if req.DownloadCover && artAvatarURL != "" && strings.HasPrefix(artAvatarURL, "http") {
-					if storedURL, err := s.downloadAndStoreCover(c.Request.Context(), artAvatarURL); err == nil && storedURL != "" {
-						artAvatarURL = storedURL
-					}
-				}
-
-				attrs := models.JSONB{}
-
-				artist = models.Artist{
-					ID:           uuid.New(),
-					Name:         artName,
-					OriginalName: assoc.ParsedOriginal,
-					EntityType:   entType,
-					AvatarURL:    artAvatarURL,
-					Country:      assoc.Country,
-					Biography:    assoc.Biography,
-					ExternalIDs:  assoc.ExternalIDs,
-					Attributes:   attrs,
-					CreatedBy:    &userID,
-				}
+			artist = models.Artist{
+				ID:           uuid.New(),
+				Name:         artName,
+				OriginalName: assoc.ParsedOriginal,
+				EntityType:   entType,
+				AvatarURL:    artAvatarURL,
+				Country:      assoc.Country,
+				Biography:    assoc.Biography,
+				ExternalIDs:  assoc.ExternalIDs,
+				Attributes:   attrs,
+				CreatedBy:    &userID,
+			}
 			if artist.Language == "" {
 				artist.Language = "zh-CN"
 			}
@@ -1209,58 +1217,83 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				}
 			}
 		}
-		}
+	}
 
-		// 跨媒介语义关系建立 (当 link_mode 为 create_relation 时)
-		if isCreateRelation {
-			relTypeCode := strings.TrimSpace(req.RelationType)
-			if relTypeCode == "" {
-				switch strings.ToLower(req.MediaTypeHint) {
-				case "music":
-					relTypeCode = "soundtrack_of"
-				case "movie", "tv", "anime":
-					relTypeCode = "adapted_from"
-				case "game":
-					relTypeCode = "spin_off_of"
-				default:
-					relTypeCode = "spin_off_of"
-				}
+	// 跨媒介语义关系建立 (当 link_mode 为 create_relation 时)
+	if isCreateRelation {
+		relTypeCode := strings.TrimSpace(req.RelationType)
+		if relTypeCode == "" {
+			switch strings.ToLower(req.MediaTypeHint) {
+			case "music":
+				relTypeCode = "soundtrack_of"
+			case "movie", "tv", "anime":
+				relTypeCode = "adapted_from"
+			case "game":
+				relTypeCode = "spin_off_of"
+			default:
+				relTypeCode = "spin_off_of"
 			}
-			if ontology.IsEnabledRelationType(tx, relTypeCode) {
-				var existingEdge models.EntityRelationship
-				if err := tx.Where("source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
-					"work", work.ID, "work", *req.TargetWorkID, relTypeCode, "Cross-source auto link").First(&existingEdge).Error; err != nil {
-					edge := models.EntityRelationship{
-						SourceType:       "work",
-						SourceID:         work.ID,
-						TargetType:       "work",
-						TargetID:         *req.TargetWorkID,
-						RelationshipType: relTypeCode,
-						Qualifier:        "Cross-source auto link",
-					}
-					if verr := ontology.ValidateRelationEdge(tx, ontology.EdgeSpec{
-						SourceType:       "work",
-						SourceID:         work.ID,
-						TargetType:       "work",
-						TargetID:         *req.TargetWorkID,
-						RelationshipType: relTypeCode,
-						Qualifier:        "Cross-source auto link",
-					}); verr != nil {
-						// 本体校验失败仅跳过该边，不中断整个导入事务
-						log.Printf("[Importer] skip invalid relationship %s (work %s -> work %s): %v", relTypeCode, work.ID, *req.TargetWorkID, verr)
-					} else {
-						_ = tx.Create(&edge).Error
-					}
+		}
+		if ontology.IsEnabledRelationType(tx, relTypeCode) {
+			var existingEdge models.EntityRelationship
+			if err := tx.Where("source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
+				"work", work.ID, "work", *req.TargetWorkID, relTypeCode, "Cross-source auto link").First(&existingEdge).Error; err != nil {
+				edge := models.EntityRelationship{
+					SourceType:       "work",
+					SourceID:         work.ID,
+					TargetType:       "work",
+					TargetID:         *req.TargetWorkID,
+					RelationshipType: relTypeCode,
+					Qualifier:        "Cross-source auto link",
+				}
+				if verr := ontology.ValidateRelationEdge(tx, ontology.EdgeSpec{
+					SourceType:       "work",
+					SourceID:         work.ID,
+					TargetType:       "work",
+					TargetID:         *req.TargetWorkID,
+					RelationshipType: relTypeCode,
+					Qualifier:        "Cross-source auto link",
+				}); verr != nil {
+					// 本体校验失败仅跳过该边，不中断整个导入事务
+					log.Printf("[Importer] skip invalid relationship %s (work %s -> work %s): %v", relTypeCode, work.ID, *req.TargetWorkID, verr)
+				} else {
+					_ = tx.Create(&edge).Error
 				}
 			}
 		}
+	}
+
+	// 内容目录不依赖发行存在；同一作品锁保证并发导入外部篇目不会重复创建。
+	if err := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?, 0))", work.ID.String()).Error; err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	createdEntries := []models.CanonicalEntry{}
+	for _, entry := range req.CanonicalEntries {
+		if strings.TrimSpace(entry.Title) == "" || entry.Position < 0 || entry.DurationSeconds < 0 {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid canonical entry"})
+			return
+		}
+		canon := models.CanonicalEntry{ID: uuid.New(), WorkID: &work.ID, Title: entry.Title, SortTitle: entry.Title, Position: entry.Position, Number: entry.Number, EntryRole: entry.EntryRole, OriginalLanguage: entry.OriginalLanguage, Translations: entry.Translations, Duration: entry.DurationSeconds, Attributes: entry.Attributes, ExternalIDs: entry.ExternalIDs}
+		created, err := importCanonicalEntry(tx, &canon)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		if created {
+			createdEntries = append(createdEntries, canon)
+		}
+	}
 
 	// 4. 创建 Release 发行版与 Medium/Tracks (除 merge_translations 外均挂载 Release)
 	var release models.Release
 	importedMediumsCount := 0
 	importedTracksCount := 0
 
-	if req.LinkMode != "merge_translations" {
+	if req.LinkMode != "merge_translations" && req.Release != nil && (req.HasRelease == nil || *req.HasRelease) {
 		relPrev := req.Release
 		editionName := fmt.Sprintf("%s（官方首发版）", work.Title)
 		if isMerge {
@@ -1347,46 +1380,50 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			defaultFormat = "broadcast"
 		}
 		for _, medPrev := range req.Mediums {
-				medCat := ontology.MediaCategoryFromHint(medPrev.MediaCategory, req.MediaTypeHint, defaultCat)
-				var countMT int64
-				tx.Table("media_types").Where("code = ?", medCat).Count(&countMT)
-				if countMT == 0 {
-					medCat = defaultCat
-				}
+			medCat := ontology.MediaCategoryFromHint(medPrev.MediaCategory, req.MediaTypeHint, defaultCat)
+			var countMT int64
+			tx.Table("media_types").Where("code = ?", medCat).Count(&countMT)
+			if countMT == 0 {
+				medCat = defaultCat
+			}
 
-				medFormat := ontology.NormalizeMediumFormat(medPrev.Format)
-				if medFormat == "" {
-					medFormat = defaultFormat
-				}
-				med := models.Medium{
-					ID:            uuid.New(),
-					ReleaseID:     release.ID,
-					Position:      medPrev.Position,
-					Name:          medPrev.Name,
-					Format:        medFormat,
-					MediaCategory: medCat,
-					TrackCount:    len(medPrev.Tracks),
-				}
-				if med.Position <= 0 {
-					med.Position = importedMediumsCount + 1
-				}
-				if err := tx.Create(&med).Error; err != nil {
-					log.Printf("[Importer] Create medium notice: %v", err)
-					continue
-				}
+			medFormat := ontology.NormalizeMediumFormat(medPrev.Format)
+			if medFormat == "" {
+				medFormat = defaultFormat
+			}
+			med := models.Medium{
+				ID:            uuid.New(),
+				ReleaseID:     release.ID,
+				Position:      medPrev.Position,
+				Name:          medPrev.Name,
+				Format:        medFormat,
+				MediaCategory: medCat,
+				TrackCount:    len(medPrev.Tracks),
+			}
+			if med.Position <= 0 {
+				med.Position = importedMediumsCount + 1
+			}
+			if err := tx.Create(&med).Error; err != nil {
+				log.Printf("[Importer] Create medium notice: %v", err)
+				continue
+			}
 			importedMediumsCount++
 
 			for _, trkPrev := range medPrev.Tracks {
 				// 母版条目 CanonicalEntry：创建失败则跳过该曲目（不再写孤儿 canon，
 				// 旧逻辑忽略错误继续建 track 是线上 657 条孤儿的来源）。
 				canon := models.CanonicalEntry{
-					ID:              uuid.New(),
-					Title:           trkPrev.Title,
-					SortTitle:       trkPrev.Title,
-					Duration:        trkPrev.DurationSeconds,
-					ISRC:            trkPrev.ISRC,
-					ArtistCredit:    trkPrev.ArtistCredit,
-					WorkID:          &work.ID,
+					ID:               uuid.New(),
+					Title:            trkPrev.Title,
+					SortTitle:        trkPrev.Title,
+					Position:         trkPrev.Position,
+					Number:           strconv.Itoa(trkPrev.Position),
+					EntryRole:        "main",
+					OriginalLanguage: work.OriginalLanguage,
+					Duration:         trkPrev.DurationSeconds,
+					ISRC:             trkPrev.ISRC,
+					ArtistCredit:     trkPrev.ArtistCredit,
+					WorkID:           &work.ID,
 					ExternalIDs: models.JSONB{
 						"source": req.Source,
 					},
@@ -1397,9 +1434,14 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				if trkPrev.BangumiEpisodeID != "" {
 					canon.ExternalIDs["bangumi_episode"] = trkPrev.BangumiEpisodeID
 				}
-				if err := tx.Create(&canon).Error; err != nil {
-					log.Printf("[Importer] Create canonical entry notice: %v", err)
-					continue
+				created, err := importCanonicalEntry(tx, &canon)
+				if err != nil {
+					tx.Rollback()
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+					return
+				}
+				if created {
+					createdEntries = append(createdEntries, canon)
 				}
 
 				// 实体曲目/单集 Track
@@ -1438,34 +1480,34 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			editNote = fmt.Sprintf("通过 OmniSource Importer 权威数据源 (%s) 快速一键导入入库", req.Source)
 		}
 	}
-		sourceURLs := pq.StringArray{}
-		if len(req.SourceURLs) > 0 {
-			sourceURLs = pq.StringArray(req.SourceURLs)
-		} else if req.URLOrID != "" {
-			sourceURLs = pq.StringArray{req.URLOrID}
-		} else if req.ExternalID != "" {
-			sourceURLs = pq.StringArray{fmt.Sprintf("%s:%s", req.Source, req.ExternalID)}
-		} else {
-			sourceURLs = pq.StringArray{req.Source}
-		}
+	sourceURLs := pq.StringArray{}
+	if len(req.SourceURLs) > 0 {
+		sourceURLs = pq.StringArray(req.SourceURLs)
+	} else if req.URLOrID != "" {
+		sourceURLs = pq.StringArray{req.URLOrID}
+	} else if req.ExternalID != "" {
+		sourceURLs = pq.StringArray{fmt.Sprintf("%s:%s", req.Source, req.ExternalID)}
+	} else {
+		sourceURLs = pq.StringArray{req.Source}
+	}
 
-		workEditType := "create"
-		workSummary := fmt.Sprintf("一键导入作品: %s", work.Title)
-		if isMerge {
-			workEditType = "update"
-			workSummary = fmt.Sprintf("合并导入作品数据源 (%s): %s", req.Source, work.Title)
-		}
+	workEditType := "create"
+	workSummary := fmt.Sprintf("一键导入作品: %s", work.Title)
+	if isMerge {
+		workEditType = "update"
+		workSummary = fmt.Sprintf("合并导入作品数据源 (%s): %s", req.Source, work.Title)
+	}
 
-		revWork := models.EntityRevision{
-			TargetType:  "work",
-			TargetID:    work.ID,
-			EditorID:    &userID,
-			EditType:    workEditType,
-			Summary:     workSummary,
-			EditNote:    editNote,
-			SourceURLs:  sourceURLs,
-			BeforeState: models.JSONB{},
-			AfterState: models.JSONB{
+	revWork := models.EntityRevision{
+		TargetType:  "work",
+		TargetID:    work.ID,
+		EditorID:    &userID,
+		EditType:    workEditType,
+		Summary:     workSummary,
+		EditNote:    editNote,
+		SourceURLs:  sourceURLs,
+		BeforeState: models.JSONB{},
+		AfterState: models.JSONB{
 			"title":           work.Title,
 			"original_title":  work.OriginalTitle,
 			"cover_image_url": work.CoverImageURL,
@@ -1484,17 +1526,17 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 	}
 	_ = tx.Create(&revWork).Error
 
-		if release.ID != uuid.Nil {
-			revRelease := models.EntityRevision{
-				TargetType:  "release",
-				TargetID:    release.ID,
-				EditorID:    &userID,
-				EditType:    "create",
-				Summary:     fmt.Sprintf("一键导入/挂载版本: %s", release.EditionName),
-				EditNote:    editNote,
-				SourceURLs:  sourceURLs,
-				BeforeState: models.JSONB{},
-				AfterState: models.JSONB{
+	if release.ID != uuid.Nil {
+		revRelease := models.EntityRevision{
+			TargetType:  "release",
+			TargetID:    release.ID,
+			EditorID:    &userID,
+			EditType:    "create",
+			Summary:     fmt.Sprintf("一键导入/挂载版本: %s", release.EditionName),
+			EditNote:    editNote,
+			SourceURLs:  sourceURLs,
+			BeforeState: models.JSONB{},
+			AfterState: models.JSONB{
 				"edition_name": release.EditionName,
 				"publisher":    release.Publisher,
 				"packaging":    release.Packaging,
@@ -1508,6 +1550,27 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			CreatedAt: time.Now(),
 		}
 		_ = tx.Create(&revRelease).Error
+	}
+
+	for _, canon := range createdEntries {
+		snapshot, err := json.Marshal(canon)
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		after := models.JSONB{}
+		if err := json.Unmarshal(snapshot, &after); err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		revision := models.EntityRevision{TargetType: "canonical_entry", TargetID: canon.ID, EditorID: &userID, EditType: "create", Summary: canon.Title, EditNote: editNote, SourceURLs: sourceURLs, BeforeState: models.JSONB{}, AfterState: after, Diff: models.JSONB{"action": "imported", "source": req.Source}, Status: "applied", CreatedAt: time.Now()}
+		if err := tx.Create(&revision).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	if err := tx.Commit().Error; err != nil {
@@ -1540,17 +1603,22 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 		}(work)
 	}
 
+	var responseRelease *models.Release
+	if release.ID != uuid.Nil {
+		responseRelease = &release
+	}
 	c.JSON(http.StatusOK, ImportResponse{
 		Success:    true,
 		EntityType: "work",
 		WorkID:     work.ID,
 		ReleaseID:  release.ID,
 		Work:       &work,
-		Release:    &release,
+		Release:    responseRelease,
 		ImportedCounts: map[string]int{
-			"artists": importedArtistsCount,
-			"mediums": importedMediumsCount,
-			"tracks":  importedTracksCount,
+			"canonical_entries": len(createdEntries),
+			"artists":           importedArtistsCount,
+			"mediums":           importedMediumsCount,
+			"tracks":            importedTracksCount,
 		},
 		RedirectURL: fmt.Sprintf("/works/%s", work.ID.String()),
 	})
@@ -1612,4 +1680,28 @@ func (s *ImporterService) downloadAndStoreCover(ctx context.Context, rawURL stri
 	}
 
 	return rawURL, nil
+}
+
+// importCanonicalEntry 仅以所属作品和来源标识复用内容；同名不代表同一表达。
+// 调用方持有作品级事务锁，避免两次并行导入同时通过存在性检查。
+func importCanonicalEntry(tx *gorm.DB, canon *models.CanonicalEntry) (bool, error) {
+	for _, key := range []string{"bangumi_episode", "musicbrainz_recording_id"} {
+		value, ok := canon.ExternalIDs[key].(string)
+		if !ok || value == "" {
+			continue
+		}
+		var existing models.CanonicalEntry
+		err := tx.Where("work_id = ? AND external_ids ->> ? = ?", canon.WorkID, key, value).First(&existing).Error
+		if err == nil {
+			*canon = existing
+			return false, nil
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, err
+		}
+	}
+	if err := tx.Create(canon).Error; err != nil {
+		return false, err
+	}
+	return true, nil
 }

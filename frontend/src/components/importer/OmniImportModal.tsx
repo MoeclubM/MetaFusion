@@ -56,7 +56,7 @@ export function OmniImportModal({
   initialEntityType = "work",
 }: Props) {
   const { user } = useAuth();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
 
   // 实体类型切换 (Work / Artist / Organization / Character)
@@ -277,8 +277,10 @@ export function OmniImportModal({
           url_or_id: previewData.external_url || inputVal,
           work: previewData.work,
           staff_associations: associations,
-          release: previewData.release,
-          mediums: previewData.mediums,
+          has_release: previewData.has_release,
+          canonical_entries: previewData.canonical_entries,
+          release: previewData.has_release === false ? null : previewData.release,
+          mediums: previewData.has_release === false ? [] : previewData.mediums,
           download_cover: downloadCover,
           edit_note: editNote.trim() || t("importer.defaultEditNote", { source: previewData.source.toUpperCase() }),
           source_urls: [previewData.external_url || inputVal],
@@ -755,6 +757,24 @@ export function OmniImportModal({
                   )}
                 </div>
               </div>
+
+              {previewData.has_release === false && (
+                <p className="p-3 rounded-lg bg-primary/5 text-sm text-gray-600 dark:text-gray-300">{t("catalog.contents.importWithoutRelease")}</p>
+              )}
+              {!!previewData.canonical_entries?.length && (
+                <section className="p-4 rounded-xl border border-black/10 dark:border-white/10 space-y-3">
+                  <h3 className="font-semibold">{t("catalog.contents.title")}</h3>
+                  <ol className="max-h-72 overflow-y-auto space-y-2 text-sm">
+                    {previewData.canonical_entries.map((entry, index) => (
+                      <li key={index} className="flex items-baseline gap-3">
+                        <span className="text-gray-500 font-mono">{entry.number || entry.position}</span>
+                        <span>{entry.translations?.[locale]?.title || entry.translations?.["en-US"]?.title || entry.translations?.[entry.original_language || ""]?.title || entry.title}</span>
+                        {entry.entry_role && <span className="text-xs text-gray-500">{t(`catalog.contents.role.${entry.entry_role}`)}</span>}
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
 
               {/* 3. 演职员与出版机构交互式关联审查工作台 (Staff & Publisher Association Workbench) */}
               <div className="space-y-3 p-4 rounded-xl bg-black/[0.015] dark:bg-white/[0.015] border border-black/10 dark:border-white/10">
