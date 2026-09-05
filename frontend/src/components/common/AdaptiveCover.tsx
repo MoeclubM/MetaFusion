@@ -23,6 +23,8 @@ interface AdaptiveCoverProps {
   /** 手动固定比例（works.cover_aspect，如 "1:1"），优先于推断与自然比例 */
   aspect?: string | null;
   loading?: "lazy" | "eager";
+  /** 固定外框比例，图片在外框内按自然比例完整显示 */
+  frameAspect?: number;
 }
 
 /**
@@ -43,10 +45,12 @@ export function AdaptiveCover({
   fallbackRatio,
   aspect,
   loading = "lazy",
+  frameAspect,
 }: AdaptiveCoverProps) {
   const manual = typeof aspect === "string" ? parseManualRatio(aspect) : null;
   const inferred = inferCoverRatio(tags);
   const initial = manual ?? fallbackRatio ?? inferred;
+  const frameRatio = frameAspect ? clampCoverRatio(frameAspect) : null;
   const [ratio, setRatio] = useState<number>(clampCoverRatio(initial));
   const [loaded, setLoaded] = useState(false);
 
@@ -66,7 +70,7 @@ export function AdaptiveCover({
   return (
     <div
       className={`relative w-full overflow-hidden ${className}`}
-      style={{ aspectRatio: `${ratio}` }}
+      style={{ aspectRatio: `${frameRatio ?? ratio}` }}
     >
       <EntityCover
         src={src}
@@ -76,10 +80,11 @@ export function AdaptiveCover({
         id={id}
         loading={loading}
         imgClassName={
-          loaded ? "w-full h-full object-contain" : imgClassName ?? "w-full h-full object-cover"
+          loaded || frameRatio !== null ? "w-full h-full object-contain" : imgClassName ?? "w-full h-full object-cover"
         }
         onLoad={handleLoad}
       />
     </div>
   );
 }
+
