@@ -383,10 +383,9 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 	}
 	origTitle := strings.TrimSpace(data.Name)
 
+	// 原语言标题归属 ja 翻译行（原始语言只是标记），不再塞进实体级 aliases；
+	// aliases 只收 infobox 别名中真正的异名（落库前还会再过滤翻译标题）。
 	aliases := make([]string, 0)
-	if data.NameCN != "" && data.NameCN != data.Name {
-		aliases = append(aliases, data.Name)
-	}
 
 	// 解析 Infobox 获取额外元数据
 	publisherName := ""
@@ -978,7 +977,6 @@ func FetchBangumiPersonPreview(ctx context.Context, input string) (*PreviewRespo
 	origName := data.Name
 	if nameCN != "" {
 		mainName = nameCN
-		aliases = append(aliases, data.Name)
 	}
 
 	entType := models.EntityTypePerson
@@ -1099,7 +1097,6 @@ func FetchBangumiCharacterPreview(ctx context.Context, input string) (*PreviewRe
 	origName := data.Name
 	if nameCN != "" {
 		mainName = nameCN
-		aliases = append(aliases, data.Name)
 	}
 
 	translations := make([]TranslationItem, 0)

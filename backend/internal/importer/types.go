@@ -13,11 +13,14 @@ type PreviewRequest struct {
 	MediaTypeHint string `json:"media_type_hint,omitempty"` // "music", "movie", "tv", "book", "anime", "game"
 }
 
-// TranslationItem 多语言题名与简介
+// TranslationItem 多语言题名与简介。
+// Aliases 为该语种下的并列标题（同语种多标题，如并列译名/异名），
+// Title 为该语种主标题。实体级 WorkPreview.Aliases 只收真正的跨语种异名/搜索别名。
 type TranslationItem struct {
-	Locale  string `json:"locale"`
-	Title   string `json:"title"`
-	Summary string `json:"summary"`
+	Locale  string   `json:"locale"`
+	Title   string   `json:"title"`
+	Summary string   `json:"summary"`
+	Aliases []string `json:"aliases,omitempty"`
 }
 
 // WorkPreview 解析出的母体作品预览

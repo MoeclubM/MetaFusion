@@ -194,6 +194,7 @@ CREATE TABLE IF NOT EXISTS artist_translations (
     locale VARCHAR(16) NOT NULL,
     name VARCHAR(255),
     biography TEXT,
+    aliases TEXT[] NOT NULL DEFAULT '{}',
     PRIMARY KEY (artist_id, locale)
 );
 
@@ -226,6 +227,7 @@ CREATE TABLE IF NOT EXISTS franchise_translations (
     locale VARCHAR(16) NOT NULL,
     title VARCHAR(255) DEFAULT '',
     summary TEXT DEFAULT '',
+    aliases TEXT[] NOT NULL DEFAULT '{}',
     PRIMARY KEY (franchise_id, locale)
 );
 
@@ -266,6 +268,7 @@ CREATE TABLE IF NOT EXISTS work_translations (
     locale VARCHAR(16) NOT NULL,
     title VARCHAR(255),
     summary TEXT,
+    aliases TEXT[] NOT NULL DEFAULT '{}',
     PRIMARY KEY (work_id, locale)
 );
 
