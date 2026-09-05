@@ -856,11 +856,11 @@ func bangumiContentHierarchy(episodes []bgmEpisodeItem, mediaType string, hasRel
 		if title == "" {
 			title = strings.TrimSpace(ep.NameCN)
 		}
-		// 编号取季内序号（ep）：跨季连续 sort（如第四季从 78 起）对单部作品页无意义，
-		// ep 缺失（SP/特典常见）回退 sort。position 仍按 sort 稳定排序后顺序生成。
-		number := ep.Ep
+		// 编号沿用源全局 sort：非第一季作品与系列连续话数一致（如第四季从 78 起）；
+		// sort 缺失（SP/特典常见）回退 ep。position 仍按 sort 稳定排序后顺序生成。
+		number := ep.Sort
 		if number <= 0 {
-			number = ep.Sort
+			number = ep.Ep
 		}
 		// 无标题篇目保留来源编号作为识别文本，展示标签由前端本地化。
 		if title == "" {
