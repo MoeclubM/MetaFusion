@@ -100,6 +100,13 @@ export default function WorkDirectoryPage() {
  .catch(() => {});
  }, [workId]);
 
+ // 详情页支持 /works/:id?edit=1 直达编辑器（编辑器「在新页面打开」的落点）
+ useEffect(() => {
+ if (typeof window !== "undefined" && window.location.search.includes("edit=1")) {
+ setIsEditorOpen(true);
+ }
+ }, []);
+
  useEffect(() => {
  if (!workId) return;
  loadReleases(page, q);

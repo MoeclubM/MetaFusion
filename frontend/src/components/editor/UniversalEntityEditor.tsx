@@ -16,6 +16,10 @@ import {
   Lock,
   LogIn,
   Layers,
+  Maximize2,
+  Minimize2,
+  BookOpen,
+  ExternalLink,
 } from "lucide-react";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -67,6 +71,7 @@ export function UniversalEntityEditor({
   const [activeTab, setActiveTab] = useState<"core" | "temporal" | "attributes" | "relations" | "external" | "note">("core");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [expanded, setExpanded] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -315,11 +320,15 @@ export function UniversalEntityEditor({
 
   const containerClasses = isFullPage
     ? "w-full max-w-4xl mx-auto rounded-lg border border-black/10 dark:border-white/10 bg-surface shadow-2xl overflow-hidden my-5"
-    : "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in";
+    : expanded
+      ? "fixed inset-0 z-50 flex items-stretch justify-stretch p-0 bg-black/80 backdrop-blur-sm animate-in fade-in"
+      : "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in";
 
   const modalInnerClasses = isFullPage
     ? "w-full flex flex-col"
-    : "w-full max-w-4xl max-h-[90vh] flex flex-col rounded-lg border border-black/10 dark:border-white/10 bg-surface shadow-2xl overflow-hidden";
+    : expanded
+      ? "w-full h-full flex flex-col rounded-none border-0 bg-surface shadow-2xl overflow-hidden"
+      : "w-full max-w-4xl max-h-[90vh] flex flex-col rounded-lg border border-black/10 dark:border-white/10 bg-surface shadow-2xl overflow-hidden";
 
   return (
     <div className={containerClasses}>
@@ -339,12 +348,46 @@ export function UniversalEntityEditor({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            {!isFullPage && (
+              <>
+                <a
+                  href="/docs/editing-guide"
+                  target="_blank"
+                  rel="noreferrer"
+                  title={t("editor.universal.editingGuide")}
+                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                >
+                  <BookOpen className="w-4 h-4" />
+                </a>
+                <button
+                  type="button"
+                  title={t("editor.universal.openInNewPage")}
+                  onClick={() => {
+                    const base = pathname || window.location.pathname;
+                    window.open(`${base}?edit=1`, "_blank");
+                  }}
+                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  title={expanded ? t("editor.universal.collapse") : t("editor.universal.expand")}
+                  onClick={() => setExpanded((v) => !v)}
+                  className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                >
+                  {expanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                </button>
+              </>
+            )}
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Auth Warning if not logged in */}
@@ -440,8 +483,11 @@ export function UniversalEntityEditor({
           </button>
         </div>
 
-        {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Scrollable Form Body —— 全屏时保持信息密度：内容限宽居中，不随视口拉伸 */}
+        <form
+          onSubmit={handleSubmit}
+          className={`flex-1 overflow-y-auto p-6 space-y-6 ${expanded && !isFullPage ? "max-w-5xl w-full mx-auto" : ""}`}
+        >
           {activeTab === "core" && (
             <EditorCoreFields
               targetType={targetType}
