@@ -41,6 +41,16 @@ const specJSON = `{
     },
     "/catalog/works": { "get": { "tags": ["lookup"], "summary": "List works" } },
     "/catalog/works/{id}": { "get": { "tags": ["lookup"], "summary": "Work detail inc=releases+relations" } },
+    "/catalog/works/{id}/contents": { "get": { "tags": ["lookup"], "summary": "Work content directory" } },
+    "/catalog/canonical-entries": {
+      "get": { "tags": ["lookup"], "summary": "List canonical content entries" },
+      "post": { "tags": ["catalog"], "summary": "Create a canonical content entry" }
+    },
+    "/catalog/canonical-entries/{id}": { "put": { "tags": ["catalog"], "summary": "Update a canonical content entry" } },
+    "/catalog/mediums": { "post": { "tags": ["catalog"], "summary": "Create a medium" } },
+    "/catalog/mediums/{id}": { "put": { "tags": ["catalog"], "summary": "Update a medium" } },
+    "/catalog/tracks": { "post": { "tags": ["catalog"], "summary": "Create a carrier track" } },
+    "/catalog/tracks/{id}": { "put": { "tags": ["catalog"], "summary": "Update a carrier track" } },
     "/browse/works": { "get": { "tags": ["browse"], "summary": "Browse works" } },
     "/search": { "get": { "tags": ["search"], "summary": "Search" } }
   }
