@@ -731,7 +731,15 @@ func (s *CatalogService) GetMediumDetail(c *gin.Context) {
 
 	// 附带 Release 与 Work 供面包屑
 	var release models.Release
-	_ = s.db.Where("id = ?", medium.ReleaseID).First(&release).Error
+	if err := applyReleaseVisibility(s.db.Model(&models.Release{}), currentUserID(c)).
+		Where("id = ?", medium.ReleaseID).First(&release).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusNotFound, gin.H{"error": backendi18n.T(c, "catalog.medium_not_found")})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	localizeRelease(&release, backendi18n.LocaleFromContext(c))
 
 	c.JSON(http.StatusOK, gin.H{

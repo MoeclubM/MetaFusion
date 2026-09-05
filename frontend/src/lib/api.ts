@@ -582,6 +582,10 @@ export interface Medium {
   asset_files?: AssetFile[];
 }
 
+export interface MediumListItem extends Medium {
+  release?: Release;
+}
+
 export interface Release {
   id: string;
   work_id: string;
@@ -1430,6 +1434,18 @@ export async function updateWork(id: string, payload: Record<string, any>): Prom
 
 export async function fetchWorkContents(id: string): Promise<WorkContentsResponse> {
   return fetchApi<WorkContentsResponse>(`/catalog/works/${id}/contents`);
+}
+
+export interface MediumListResponse {
+  items: MediumListItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export async function fetchMediums(params: URLSearchParams): Promise<MediumListResponse> {
+  const query = params.toString();
+  return fetchApi<MediumListResponse>(`/catalog/mediums${query ? `?${query}` : ""}`);
 }
 
 export async function updateArtist(id: string, payload: Record<string, any>): Promise<{ status: string; artist: Artist }> {

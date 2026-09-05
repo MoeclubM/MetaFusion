@@ -49,7 +49,10 @@ func (s *CatalogService) ListCanonicalEntriesPublic(c *gin.Context) {
 	if size < 1 || size > 100 {
 		size = 24
 	}
-	query := s.db.Model(&models.CanonicalEntry{}).Preload("Work").Preload("Work.Translations")
+	visibleWorks := applyWorkVisibility(s.db.Model(&models.Work{}), currentUserID(c)).Select("works.id")
+	query := s.db.Model(&models.CanonicalEntry{}).
+		Where("canonical_entries.work_id IN (?)", visibleWorks).
+		Preload("Work").Preload("Work.Translations")
 	if raw := c.Query("work_id"); raw != "" {
 		id, err := uuid.Parse(raw)
 		if err != nil {
@@ -98,7 +101,7 @@ func (s *CatalogService) GetWorkContents(c *gin.Context) {
 		return
 	}
 	var work models.Work
-	if err := s.db.Select("id").First(&work, "id = ?", id).Error; err != nil {
+	if err := applyWorkVisibility(s.db.Model(&models.Work{}), currentUserID(c)).Select("id").First(&work, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			c.JSON(404, gin.H{"error": backendi18n.T(c, "catalog.work_not_found")})
 		} else {

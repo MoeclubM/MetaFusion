@@ -49,6 +49,7 @@ func registerCatalogRoutes(
 	catGroup.POST("/canonical-entries", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.CreateCanonicalEntryForMember)
 	catGroup.PUT("/canonical-entries/:id", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.UpdateCanonicalEntryForMember)
 	catGroup.GET("/attributes", catalogSvc.ListAttributeSchemas)
+	catGroup.GET("/mediums", catalogSvc.ListMediumsPublic)
 	catGroup.GET("/mediums/:id", catalogSvc.GetMediumDetail)
 
 	catGroup.POST("/artists", auth.UnifiedAuthMiddleware(cfg, db), auth.RequireEmailVerified(db), catalogSvc.CreateArtistForMember)
