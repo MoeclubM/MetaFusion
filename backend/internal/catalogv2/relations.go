@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"sort"
 )
 
 func relations(ctx context.Context, q queryer) ([]Relation, error) {
@@ -49,6 +50,7 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 		}
 		out = append(out, r)
 	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Position < out[j].Position })
 	return out, nil
 }
 func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Relation, ref func(string, []string) error, historical bool) error {
@@ -58,6 +60,9 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 	}
 	if r.SourceID == r.TargetID || !contains(rt.SourceKinds, src.Kind) || !contains(rt.TargetKinds, tgt.Kind) {
 		return fmt.Errorf("invalid_endpoints")
+	}
+	if r.Position < 0 {
+		return fmt.Errorf("invalid_position")
 	}
 	matches := func(allowed, actual []string) bool {
 		if len(allowed) == 0 {
@@ -165,8 +170,17 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if u.Role != "admin" && (src.CreatedBy != u.ID || src.Status == "published") {
 			return fmt.Errorf("forbidden")
 		}
-		historical := old != nil && encode(old.Attributes) == encode(r.Attributes)
-		if err = validateRelation(v.Document, r, src, tgt, all, reference(ctx, tx, &u), historical); err != nil {
+		if err = validateRelation(v.Document, r, src, tgt, all, reference(ctx, tx, &u), true); err != nil {
+			return err
+		}
+		if !v.Document.Relations[r.Type].Enabled && old == nil {
+			return fmt.Errorf("disabled_relation_type")
+		}
+		var previous map[string]any
+		if old != nil {
+			previous = old.Attributes
+		}
+		if err = v.Document.retiredAttributes(r.Attributes, previous); err != nil {
 			return err
 		}
 		if _, err = tx.ExecContext(ctx, "INSERT INTO catalog_v2.relations(id,version,type,source_id,target_id,document) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO UPDATE SET version=EXCLUDED.version,document=EXCLUDED.document", r.ID, r.Version, r.Type, r.SourceID, r.TargetID, encode(r)); err != nil {
@@ -277,13 +291,13 @@ func (s *Store) Compare(ctx context.Context, ids []string, u *User) ([]map[strin
 			}
 		}
 		e.Attributes = attrs
-		media, err := s.List(ctx, ListOptions{ReleaseID: id, Limit: 100}, u)
+		media, err := s.ListAll(ctx, ListOptions{ReleaseID: id}, u)
 		if err != nil {
 			return nil, err
 		}
 		rows := []map[string]any{}
 		for _, m := range media {
-			tracks, err := s.List(ctx, ListOptions{MediumID: m.ID, Limit: 100}, u)
+			tracks, err := s.ListAll(ctx, ListOptions{MediumID: m.ID}, u)
 			if err != nil {
 				return nil, err
 			}

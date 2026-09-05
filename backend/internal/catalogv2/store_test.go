@@ -6,8 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
-	"os"
-	"strings"
+	"github.com/metafusion/metafusion-app/internal/testutil"
 	"sync"
 	"testing"
 )
@@ -59,19 +58,9 @@ func TestRelationCyclesAndContexts(t *testing.T) {
 }
 
 func TestPostgresCatalog(t *testing.T) {
-	dsn := os.Getenv("MF_V2_TEST_DSN")
-	if dsn == "" {
-		t.Skip("MF_V2_TEST_DSN must point to a dedicated empty test database")
-	}
-	if !strings.Contains(dsn, "mf_v2_test") {
-		t.Fatal("refusing a database without mf_v2_test in its name")
-	}
 	ctx := context.Background()
-	s, err := Open(ctx, dsn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer s.DB.Close()
+	s := &Store{DB: testutil.Database(t)}
+	var err error
 	if err = s.Initialize(ctx); err != nil {
 		t.Fatal(err)
 	}
