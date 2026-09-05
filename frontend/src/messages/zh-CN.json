@@ -1882,6 +1882,7 @@
   "catalog.contents.role.opening": "附加内容",
   "catalog.contents.role.ending": "附加内容",
   "catalog.contents.role.trailer": "附加内容",
+  "catalog.contents.role.other": "其他内容",
   "work.contents.title": "作品内容目录",
   "work.contents.count": "{count} 项",
   "work.contents.loading": "加载内容目录中…",
