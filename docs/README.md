@@ -5,7 +5,7 @@
 | 目录 / 文件 | 定位 | 读者 |
 |---|---|---|
 | [`requirements.md`](requirements.md) | 产品需求文档（PRD）：可见性边界、邀请制风控、功能需求与验收标准 | 产品 / 开发 |
-| [`architecture/plugin-decoupling-blueprint.md`](architecture/plugin-decoupling-blueprint.md) | 插件 DAG 依赖治理蓝图：Semver 约束、拓扑排序、级联启停 | 开发 |
+| [`architecture/plugin-decoupling-blueprint.md`](architecture/plugin-decoupling-blueprint.md) | 插件系统与 DAG 依赖拓扑架构规范：12 个原生内置插件集、Semver 约束、拓扑排序、级联启停 | 开发 |
 | [`../docs-site/`](../docs-site/) | 面向公众的文档站（VitePress）：LRM 模型、编目指南、API 全套文档、法务页 | 所有人 |
 | [`../AGENTS.md`](../AGENTS.md) | Agent / 贡献者协作准则（Git 规范、编目最高准则） | AI Agent / 贡献者 |
 | [metafusion-skills](https://github.com/MoeclubM/metafusion-skills) | 编目标准技能独立仓库（metafusion-curator + lrm-catalog-standards） | AI Agent |
