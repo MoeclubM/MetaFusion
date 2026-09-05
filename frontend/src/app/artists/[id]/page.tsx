@@ -21,6 +21,8 @@ import FavoriteButton from "@/components/FavoriteButton";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { ArtistReleasesTab } from "@/components/artist/ArtistReleasesTab";
 import { isDistinctOriginalTitle } from "@/lib/titles";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
+import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
 import dynamic from "next/dynamic";
@@ -36,6 +38,7 @@ export default function ArtistDetailPage() {
   const artistId = params.id as string;
   const { t, locale } = useI18n();
   const { entityTypeLabel } = useTaxonomy();
+  const titleOrder = useTitleDisplayOrder();
 
   const [data, setData] = useState<ArtistDetailResponse | null>(null);
   const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; links: GraphLink[] } | null>(null);
@@ -89,7 +92,9 @@ export default function ArtistDetailPage() {
   }
 
   const artist = data.artist;
-  const localized = pickLocalized(locale, artist?.translations, artist?.name || "", artist?.biography);
+  const localized = pickLocalized(locale, artist?.translations, artist?.name || "", artist?.biography, {
+    order: titleOrder,
+  });
   const works = (data.works || []).map((item: any) => {
     // 兼容后端返回的 ArtistWorkItem { work: Work, role: string } 或直接 Work
     if (item && item.work) {
@@ -162,6 +167,13 @@ export default function ArtistDetailPage() {
               <div>
                 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{localized.title}</h1>
                 {isDistinctOriginalTitle(artist.original_name, localized.title) && <p className="font-mono text-xs text-gray-500 dark:text-gray-400 mt-0.5">{artist.original_name}</p>}
+                <LocalizedTitleGroups
+                  translations={artist.translations}
+                  displayTitle={localized.title}
+                  extraKnown={[artist.name, artist.original_name]}
+                  className="mt-0.5 space-y-0.5"
+                  itemClassName="font-mono text-xs text-gray-500 dark:text-gray-400"
+                />
                 {artist.disambiguation && <p className="font-mono text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">{artist.disambiguation}</p>}
               </div>
               {localized.body && <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl line-clamp-3">{localized.body}</p>}

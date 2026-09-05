@@ -8,7 +8,28 @@ export const CATALOG_LOCALES = [
 
 export const CATALOG_LOCALE_CODES = CATALOG_LOCALES.map((l) => l.code);
 
-export type LocaleEntry = { title: string; summary: string };
+export type LocaleEntry = { title: string; summary: string; aliases?: string[] };
+
+/** 逗号/换行分隔的并列标题字符串 ↔ 数组互转（与实体级 aliasesStr 一致）。 */
+export function parseLocaleAliases(input?: string | null): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of String(input ?? "").split(/[,，\n]/)) {
+    const v = part.trim();
+    const low = v.toLocaleLowerCase();
+    if (!v || seen.has(low)) continue;
+    seen.add(low);
+    out.push(v);
+  }
+  return out;
+}
+
+function readRowAliases(row: Record<string, any>): string[] {
+  if (Array.isArray(row.aliases)) {
+    return parseLocaleAliases((row.aliases as unknown[]).map((a) => String(a ?? "")).join(","));
+  }
+  return [];
+}
 
 export function normalizeCatalogLocale(input?: string): string {
   if (!input) return "zh-CN";
@@ -44,6 +65,7 @@ export function seedLocaleForm(
     translations[loc] = {
       title: row.title || row.name || "",
       summary: row.summary || row.biography || "",
+      aliases: readRowAliases(row),
     };
   }
 
@@ -59,6 +81,7 @@ export function seedLocaleForm(
     translations[language] = {
       title: canonicalTitle,
       summary: String(d.summary || d.biography || "").trim(),
+      aliases: [],
     };
   }
 
@@ -67,12 +90,27 @@ export function seedLocaleForm(
 
 export function translationsPayload(translations: Record<string, LocaleEntry>) {
   return Object.entries(translations)
-    .filter(([, e]) => (e.title || "").trim() || (e.summary || "").trim())
-    .map(([locale, e]) => ({
+    .map(([locale, e]) => {
+      const title = (e.title || "").trim();
+      const summary = (e.summary || "").trim();
+      const seen = new Set([title.toLocaleLowerCase()]);
+      const aliases = ((e.aliases || []) as string[])
+        .map((a) => String(a ?? "").trim())
+        .filter((a) => {
+          const low = a.toLocaleLowerCase();
+          if (!a || seen.has(low)) return false;
+          seen.add(low);
+          return true;
+        });
+      return { locale, title, summary, aliases };
+    })
+    .filter((row) => row.title || row.summary || row.aliases.length > 0)
+    .map(({ locale, title, summary, aliases }) => ({
       locale,
-      title: (e.title || "").trim(),
-      name: (e.title || "").trim(),
-      summary: (e.summary || "").trim(),
-      biography: (e.summary || "").trim(),
+      title,
+      name: title,
+      summary,
+      biography: summary,
+      aliases,
     }));
 }

@@ -2035,5 +2035,18 @@
   "relations.showAll": "Show all {count} relations",
   "relations.collapse": "Collapse",
   "relations.dateTail": "present",
-  "relations.dateEnded": "ended"
+  "relations.dateEnded": "ended",
+  "entity.titles.group": "{locale}: {titles}",
+  "entity.titles.groupOriginal": "{locale} (original): {titles}",
+  "entity.titles.aliases": "Aliases: {value}",
+  "editor.core.localeAliasesLabel": "Parallel titles in this language",
+  "editor.core.localeAliasesPlaceholder": "Multiple titles in this language, separated by commas or newlines",
+  "editor.core.localeAliasesHint": "Each language can hold multiple titles: the first is the primary title and the rest are parallel titles. Put the original-language title in its own language group, not in the aliases below.",
+  "settings.titleDisplayOrder": "Title display language priority",
+  "settings.titleDisplayOrderDesc": "Titles and summaries pick their display language in this order; when unset the chain is UI language → English → original language.",
+  "settings.titleDisplayOrderReset": "Reset to default",
+  "settings.titleDisplayOrderMoveUp": "Move up",
+  "settings.titleDisplayOrderMoveDown": "Move down",
+  "settings.titleDisplayOrderRemove": "Remove from priority",
+  "editor.diff.fieldTranslations": "Localized titles / summaries"
 }
