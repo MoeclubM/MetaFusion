@@ -1333,6 +1333,24 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				}
 			}
 		}
+		releaseCoverURL := finalCoverURL
+		releaseCoverAspect := work.CoverAspect
+		releaseOriginalLanguage := work.OriginalLanguage
+		releaseTranslations := models.JSONB{}
+		if relPrev != nil {
+			if relPrev.CoverImageURL != "" {
+				releaseCoverURL = relPrev.CoverImageURL
+			}
+			if relPrev.CoverAspect != "" {
+				releaseCoverAspect = relPrev.CoverAspect
+			}
+			if relPrev.OriginalLanguage != "" {
+				releaseOriginalLanguage = relPrev.OriginalLanguage
+			}
+			if relPrev.Translations != nil {
+				releaseTranslations = relPrev.Translations
+			}
+		}
 
 		relExtIDs := models.JSONB{}
 		if relPrev != nil && relPrev.ExternalIDs != nil {
@@ -1359,6 +1377,10 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			UploaderID:          &userID,
 			IsMasterVerified:    req.IsMasterVerified,
 			Notes:               fmt.Sprintf("Auto-imported via OmniSource Importer from %s", req.Source),
+			CoverImageURL:       releaseCoverURL,
+			CoverAspect:         releaseCoverAspect,
+			OriginalLanguage:    releaseOriginalLanguage,
+			Translations:        releaseTranslations,
 		}
 		if err := tx.Create(&release).Error; err != nil {
 			tx.Rollback()
@@ -1391,17 +1413,32 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 			if medFormat == "" {
 				medFormat = defaultFormat
 			}
+			medRole := strings.TrimSpace(medPrev.Role)
+			if medRole == "" {
+				medRole = "primary"
+				formatLower := strings.ToLower(medFormat)
+				if strings.Contains(formatLower, "blu-ray") || strings.Contains(formatLower, "dvd") {
+					medRole = "supplement"
+				}
+			}
 			med := models.Medium{
-				ID:            uuid.New(),
-				ReleaseID:     release.ID,
-				Position:      medPrev.Position,
-				Name:          medPrev.Name,
-				Format:        medFormat,
-				MediaCategory: medCat,
-				TrackCount:    len(medPrev.Tracks),
+				ID:               uuid.New(),
+				ReleaseID:        release.ID,
+				Position:         medPrev.Position,
+				Number:           medPrev.Number,
+				Name:             medPrev.Name,
+				Format:           medFormat,
+				MediaCategory:    medCat,
+				Role:             medRole,
+				OriginalLanguage: medPrev.OriginalLanguage,
+				Translations:     medPrev.Translations,
+				TrackCount:       len(medPrev.Tracks),
 			}
 			if med.Position <= 0 {
 				med.Position = importedMediumsCount + 1
+			}
+			if med.Number == "" {
+				med.Number = strconv.Itoa(med.Position)
 			}
 			if err := tx.Create(&med).Error; err != nil {
 				log.Printf("[Importer] Create medium notice: %v", err)

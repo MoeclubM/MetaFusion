@@ -1588,13 +1588,21 @@ export interface ImporterTrackPreview {
 
 export interface ImporterMediumPreview {
   position: number;
+  number?: string;
   name: string;
   format: string;
   media_category: string;
+  role?: "primary" | "supplement" | string;
+  original_language?: string;
+  translations?: Record<string, { name?: string }>;
   tracks: ImporterTrackPreview[];
 }
 
 export interface ImporterReleasePreview {
+  cover_image_url?: string;
+  cover_aspect?: string;
+  original_language?: string;
+  translations?: Record<string, { edition_name?: string; notes?: string }>;
   edition_name: string;
   catalog_number?: string;
   barcode?: string;

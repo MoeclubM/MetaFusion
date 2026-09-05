@@ -109,15 +109,23 @@ type CanonicalEntryPreview struct {
 
 // MediumPreview 盘片/卷册/介质载体
 type MediumPreview struct {
-	Position      int            `json:"position"`
-	Name          string         `json:"name"`
-	Format        string         `json:"format"`         // "CD", "Digital", "Vinyl", "Blu-ray", "Paperback", etc.
-	MediaCategory string         `json:"media_category"` // "audio", "video", "book", "game"
-	Tracks        []TrackPreview `json:"tracks"`
+	Position         int            `json:"position"`
+	Number           string         `json:"number,omitempty"`
+	Name             string         `json:"name"`
+	Format           string         `json:"format"`         // "CD", "Digital", "Vinyl", "Blu-ray", "Paperback", etc.
+	MediaCategory    string         `json:"media_category"` // "audio", "video", "book", "game"
+	Role             string         `json:"role,omitempty"`
+	OriginalLanguage string         `json:"original_language,omitempty"`
+	Translations     models.JSONB   `json:"translations,omitempty"`
+	Tracks           []TrackPreview `json:"tracks"`
 }
 
 // ReleasePreview 发行版本规格
 type ReleasePreview struct {
+	CoverImageURL       string       `json:"cover_image_url,omitempty"`
+	CoverAspect         string       `json:"cover_aspect,omitempty"`
+	OriginalLanguage    string       `json:"original_language,omitempty"`
+	Translations        models.JSONB `json:"translations,omitempty"`
 	EditionName         string       `json:"edition_name"`
 	CatalogNumber       string       `json:"catalog_number"`
 	Barcode             string       `json:"barcode"`
