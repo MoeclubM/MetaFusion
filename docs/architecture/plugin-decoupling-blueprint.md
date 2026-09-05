@@ -1,164 +1,167 @@
-# MetaFusion 核心系统解耦与插件化演进蓝图 (Plugin Architecture & Decoupling Blueprint)
+# MetaFusion 插件系统与依赖拓扑架构规范 (Plugin System & DAG Architecture)
 
-本文档面向 MetaFusion 架构师、全栈开发团队与编目系统专家，详细阐明 MetaFusion 的**插件依赖关系治理架构**，以及**主系统功能向可扩展插件解耦迁移的演进清单与蓝图**。
-
----
-
-## 核心架构问题回答
-
-### 问题一："插件依赖关系做了吗？"
-**已全面落地并上线生产级依赖治理拓扑引擎**。
-
-在 MetaFusion 插件系统内核（`backend/internal/plugin/`）中，构建了完整的有向无环图（DAG）依赖拓扑分析与调度机制：
-1. **语义化依赖声明 (`Dependencies`)**：每个插件在 `Manifest` 与数据库实体中通过 `map[string]string` 声明前置依赖插件 ID 与 Semver 版本约束（如 `{"musicbrainz": ">=1.0.0"}`），支持精确匹配、`>=`、`<=`、`^`（语义兼顾）、`~`（次版本兼顾）与组合范围；
-2. **拓扑排序启动机制 (Topological Loading & Startup Order)**：系统在初始化与服务引导时，自动执行有向图拓扑排序，确保**前置依赖插件先于后置插件初始化与启动**（依赖插件 -> 被依赖插件），停用时逆序执行；
-3. **循环依赖冲突检测 (Cycle Detection)**：基于 DFS 着色检测（White-Gray-Black 状态标记），在注册外部插件或初始化时若存在回路（如 `A -> B -> C -> A`），立即拦截并返回具体回路追踪链；
-4. **级联启停安全保护 (Cascade Enable / Disable Protection)**：
-   - **启用保护**：当启用某插件而其前置依赖未就绪时，拦截并提示未激活依赖项，支持 `cascade=true` 按拓扑序一键级联拉起前置依赖链；
-   - **停用保护**：当停用某核心插件（如 `musicbrainz`）时，若存在运行中的被依赖项（如 `picard_exporter`、`acoustid_helper`），系统将拦截危险操作，支持 `cascade=true` 一键逆序级联停用所有后置插件；
-5. **前端可视化依赖拓扑**：在管理后台插件中心实时展示「前置依赖」与「被依赖」标签、依赖满足状态指示灯及加载拓扑序号（`#1`, `#2`）。
+本文档面向 MetaFusion 核心开发与系统架构人员，严格基于当前后端代码实现（`backend/internal/plugin/`），阐明 MetaFusion 的**插件系统实现机制**、**12 个原生内置插件矩阵**与 **DAG 依赖拓扑治理规范**。
 
 ---
 
-### 问题二："目前有哪些功能可以从主系统解耦挪到插件？"
+## 1. 架构定位与设计原则
 
-经过对 MetaFusion 核心主系统（`backend/` 与 `frontend/`）的深度架构梳理，确立了**「极简 LRM 实体内核 + 边缘业务全插件化」**的演进方针。以下 6 大业务领域与核心实体存储弱相关、演化频繁、具有高度多样性，已定义为可解耦插件化模块：
-
-```
-                             ┌───────────────────────────────────────┐
-                             │       MetaFusion LRM 实体内核         │
-                             │ (Work / Release / Medium / Track DAG) │
-                             └──────────────────┬────────────────────┘
-                                                │
-         ┌──────────────────┬───────────────────┼───────────────────┬──────────────────┐
-         ▼                  ▼                   ▼                   ▼                  ▼
-┌─────────────────┐┌─────────────────┐┌─────────────────┐┌─────────────────┐┌─────────────────┐
-│ 外部数据抓取导入 ││ 多格式数据导出 ││ 通知与协同外发 ││ 媒体分析/转码   ││ AI 增强与质检   │
-│ (Importers)     ││ (Exporters)     ││ (Notifiers)     ││ (Transcoders)   ││ (Enrichment)    │
-│                 ││                 ││                 ││                 ││                 │
-│ • MusicBrainz   ││ • Picard Tags   ││ • Webhook 广播  ││ • AcoustID 指纹 ││ • AI 多语言翻译 │
-│ • TMDB / IMDb   ││ • LRM JSON-LD   ││ • Discord 机器人││ • 歌词/字幕提取││ • ISRC/ISBN 查重│
-│ • Bangumi / VNDB││ • BibTeX / RIS  ││ • 飞书 / 企微   ││ • 封面调色盘    ││ • 实体别名推断  │
-│ • 豆瓣 / 读书   ││ • CSV / Excel   ││ • Telegram Bot  ││ • FFmpeg 扩展   ││ • 自动分类打标  │
-└─────────────────┘└─────────────────┘└─────────────────┘└─────────────────┘└─────────────────┘
-```
-
-#### 1. 外部元数据抓取与数据源导入 (Metadata Importers & Ingestion)
-- **解耦现状与收益**：各垂直领域的第三方 API 频繁调整反爬策略、数据格式和鉴权方式。剥离为主系统外部插件后，单个数据源变动无需重新发布 MetaFusion 核心服务端，且支持社区以独立微服务形式编写新数据源。
-- **解耦清单**：
-  - `importer_musicbrainz`：MBID 音乐实体与介质音轨解析；
-  - `importer_tmdb`：影视元数据、演职员表与剧集季数映射；
-  - `importer_bangumi`：ACG 动画、轻小说与条目关联导入；
-  - `importer_vndb`：视觉小说、开发商与角色标签导入；
-  - `importer_douban`：书籍与华语影视图文抓取；
-  - `importer_goodreads` / `importer_spotify` / `importer_steam`：未来社区扩展源。
-
-#### 2. 多格式数据导出与知识图谱外发 (Data Exporters & Semantic Formats)
-- **解耦现状与收益**：用户对数据消费格式各异（本地播放器打标、学术引用、知识图谱共享）。导出逻辑依赖主模型只读快照，解耦为插件后可动态增删支持格式，前端导出菜单自动根据已启用插件刷新。
-- **解耦清单**：
-  - `picard_exporter`：MusicBrainz Picard / Foobar2000 / Beets 音乐标签规范 JSON 导出；
-  - `jsonld_exporter`：W3C Schema.org 与 IFLA LRM 语义网 RDF 知识图谱导出；
-  - `bibtex_exporter`：图书文献 BibTeX 与 Zotero / EndNote RIS 引用格式导出；
-  - `csv_exporter`：馆藏实体与资产批量表格导出。
-
-#### 3. 通知与第三方协作推送 (Notifications & Webhooks)
-- **解耦现状与收益**：新条目入库、合并评审、版本快照发布需要向不同通讯平台广播。主系统仅负责触发通用 Domain Event，由各通知插件异步处理排版、鉴权与重试。
-- **解耦清单**：
-  - `webhook_notifier`：通用 HMAC 签名 Webhook 广播；
-  - `discord_bot`：Discord 频道富文本嵌入卡片推送；
-  - `feishu_notifier`：飞书群机器人互动卡片推送；
-  - `telegram_notifier`：Telegram 频道与管理员群播报；
-  - `slack_notifier` / `wecom_notifier`：企业办公平台接入。
-
-#### 4. 媒体处理与辅助转码钩子 (Transcoding & Media Fingerprinting)
-- **解耦现状与收益**：音视频特征提取通常依赖重型 C++ 绑定或外部二进制库（如 Chromaprint、libass）。插件化后可在轻量容器中按需启动或委托给边缘 Worker。
-- **解耦清单**：
-  - `acoustid_helper`：计算 Chromaprint 音频指纹并联动 MusicBrainz 录音库对齐；
-  - `lyrics_subtitle_extractor`：从 FLAC/MP4 内嵌流或外部文件提取 LRC/SRT/ASS 并生成时间轴注记；
-  - `palette_extractor`：从作品封面提取 Vibrant 主色调与主题渐变。
-
-#### 5. AI 智能辅助与元数据质检 (AI & LLM Enrichment / QA Plugins)
-- **解耦现状与收益**：大模型翻译、智能打标、题名本地化易随 Prompt 和模型升级而迭代，解耦为独立插件可自由配置 OpenAI、DeepSeek、Claude 或本地 Ollama 端点。
-- **解耦清单**：
-  - `ai_enrichment`：基于 LLM 自动推断多语言题名 (`work_translations`) 与简介；
-  - `deduplication_qa`：基于 ISRC / ISBN / 跨语言标题编辑距离执行实体查重审查；
-  - `tag_auto_classifier`：依据主题与流派自动建议本体论标签（Ontology Tags）。
-
-#### 6. 开放认证与第三方登录 (OAuth Providers)
-- **解耦现状与收益**：各平台 OAuth2 / OIDC 流程标准化，将其插件化后管理员可在后台一键开启特定登录渠道（如 Linux.do、Discord、GitHub、Google），动态扩展企业单点登录（SSO/SAML）。
+MetaFusion 插件系统遵循**「极简 LRM 实体内核 + 进程内原生插件化 (In-Process Native Plugins)」**设计：
+1. **实体内核纯粹性**：核心目录层（`Work` / `Release` / `Medium` / `Track` / `CanonicalEntry`）保持简洁标准，不内嵌任何特定第三方平台的抓取或私有格式导出逻辑；
+2. **进程内原生常驻**：当前系统内置的 **12 个核心插件全部以 Go 原生代码实现**，通过工厂注册表（`Registry`）在服务启动时注入，与主服务同进程运行，零进程间网络与 IPC 开销；
+3. **DAG 依赖拓扑治理**：引入有向无环图（DAG）调度引擎，支持插件间 Semver 版本依赖声明、DFS 循环依赖拦截、拓扑序启动与级联启停保护；
+4. **动态配置与状态持久化**：插件元数据、配置表单架构（`ConfigSchema`）及运行开关持久化于 PostgreSQL `system_plugins` 表，支持管理后台在线配置热更新。
 
 ---
 
-## 插件依赖治理体系技术规范
+## 2. 现有 12 个原生内置插件矩阵 (100% 代码对应)
 
-### 1. 依赖声明格式 (Manifest)
-
-```go
-type Manifest struct {
-    ID           string            `json:"id"`
-    Name         string            `json:"name"`
-    Version      string            `json:"version"`
-    Type         string            `json:"type"` // "native", "external_http", "webhook"
-    Capabilities []string          `json:"capabilities"`
-    // 显式声明前置依赖插件及语义版本范围
-    Dependencies map[string]string `json:"dependencies,omitempty"`
-}
-```
-
-示例：
-```json
-{
-  "id": "picard_exporter",
-  "name": "MusicBrainz Picard 音乐元数据导出器",
-  "version": "1.0.0",
-  "capabilities": ["export"],
-  "dependencies": {
-    "musicbrainz": ">=1.0.0"
-  }
-}
-```
-
-### 2. 拓扑调度生命周期 (DAG Lifecycle)
+当前代码库在 `backend/internal/plugin/manager.go` 中通过 `reg.RegisterFactory` 注册了以下 12 个原生内置插件：
 
 ```
-[系统引导/重载]
+                              ┌────────────────────────────────────────┐
+                              │       MetaFusion LRM 实体核心          │
+                              │ (Work / Release / Medium / Track / CE) │
+                              └───────────────────┬────────────────────┘
+                                                  │ (统一 Plugin 接口)
+         ┌──────────────────┬─────────────────────┼────────────────────┬──────────────────┐
+         ▼                  ▼                     ▼                    ▼                  ▼
+┌─────────────────┐┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐┌─────────────────┐
+│ 外部数据抓取导入 ││ 规范与格式导出 │  │ 媒体声学分析    │  │ AI 智能与增强   ││ 全域事件通知   │
+│ (Importers)     ││ (Exporters)     │  │ (Media Helper)  │  │ (AI Enrichment) ││ (Notifiers)     │
+│                 ││                 │  │                 │  │                 ││                 │
+│ • musicbrainz   ││ • picard_exporter│ │ • acoustid_helper│ │ • ai_enrichment ││•webhook_notifier│
+│ • tmdb          ││   (依赖 MBID)   │  │   (依赖 MBID)   │  │   (LLM 题名/标签)││ (Discord/飞书/ │
+│ • imdb          ││ • jsonld_exporter│ └─────────────────┘  └─────────────────┘│  通用 JSON)    │
+│ • bangumi       ││ • bibtex_exporter│                                         └─────────────────┘
+│ • vndb          │└─────────────────┘
+│ • douban        │
+└─────────────────┘
+```
+
+### 2.1 外部元数据抓取与导入插件 (Native Importers)
+实现 `ImporterPlugin` 与 `MetadataProviderPlugin` 接口（`backend/internal/plugin/native_importers.go`）：
+
+| 插件 ID | 版本 | 能力声明 (`Capabilities`) | 支持数据源 (`SupportedSources`) | 说明 |
+| :--- | :---: | :--- | :--- | :--- |
+| `musicbrainz` | `1.0.0` | `importer`, `metadata_provider` | `musicbrainz`, `mbid` | 抓取 MusicBrainz 权威音乐实体、Release 发行版、Medium 介质与录音母带，支持 MBID 精确解析 |
+| `tmdb` | `1.0.0` | `importer`, `metadata_provider` | `tmdb` | 抓取 The Movie Database 影视作品、海报剧照、季数/分集与演职员演变 |
+| `imdb` | `1.0.0` | `importer`, `metadata_provider` | `imdb` | 抓取 IMDb 权威影视元数据、评分与核心演职员关联 |
+| `bangumi` | `1.0.0` | `importer`, `metadata_provider` | `bangumi`, `bgm` | 抓取 Bangumi 番组计划动画、分集列表（正片/SP/OVA）、关联条目与轻小说 |
+| `vndb` | `1.0.0` | `importer`, `metadata_provider` | `vndb` | 抓取 Visual Novel Database 视觉小说/Galgame、制作公司、角色与标签体系 |
+| `douban` | `1.0.0` | `importer`, `metadata_provider` | `douban` | 抓取豆瓣华语电影、剧集、音乐及图书出版信息 |
+
+### 2.2 规范与多格式数据导出插件 (Native Exporters)
+实现 `ExportPlugin` 接口（`backend/internal/plugin/native_extensions.go`）：
+
+| 插件 ID | 版本 | 导出格式 | 文件扩展名 | 依赖项 (`Dependencies`) | 说明 |
+| :--- | :---: | :---: | :---: | :--- | :--- |
+| `picard_exporter` | `1.0.0` | `picard`, `json` | `.picard.json` | `musicbrainz: ">=1.0.0"` | 导出供 MusicBrainz Picard、Foobar2000、Beets 等播放器自动打标的标准音轨元数据包 |
+| `jsonld_exporter` | `1.0.0` | `jsonld`, `json` | `.jsonld` | 无 | 将作品、版本、演职员导出为符合 W3C Schema.org 与 IFLA LRM 语义网互操作标准的 JSON-LD |
+| `bibtex_exporter` | `1.0.0` | `bibtex`, `ris` | `.bib` | 无 | 将图书、典藏画册与期刊条目导出为学术文献 BibTeX 与 Zotero / EndNote RIS 引用格式 |
+
+### 2.3 媒体处理与声学指纹辅助插件 (Native Media Helper)
+实现 `Plugin` 与 `MetadataProviderPlugin` 接口（`backend/internal/plugin/native_extensions.go`）：
+
+| 插件 ID | 版本 | 能力声明 | 依赖项 (`Dependencies`) | 说明 |
+| :--- | :---: | :--- | :--- | :--- |
+| `acoustid_helper` | `1.0.0` | `transcoder_hook`, `metadata_provider` | `musicbrainz: ">=1.0.0"` | 计算 Chromaprint 音频指纹哈希，并在音频资产入库时与 MusicBrainz 录音库比对对齐 |
+
+### 2.4 AI 智能与多语言增强插件 (Native AI Enrichment)
+实现 `Plugin` 接口（`backend/internal/plugin/native_extensions.go`）：
+
+| 插件 ID | 版本 | 能力声明 | 说明 |
+| :--- | :---: | :--- | :--- |
+| `ai_enrichment` | `1.0.0` | `ai_enrichment` | 基于 LLM 大语言模型端点，针对录入实体推断多语言题名映射（`work_translations`）及本体分类标签 |
+
+### 2.5 全系统事件通知广播插件 (Native Notifiers)
+实现 `Plugin` 接口（`backend/internal/plugin/native_extensions.go`）：
+
+| 插件 ID | 版本 | 能力声明 | 支持事件 (`SupportedEvents`) | 说明 |
+| :--- | :---: | :--- | :--- | :--- |
+| `webhook_notifier` | `1.0.0` | `notification` | `work.created`, `work.updated`, `work.deleted`, `revision.applied`, `review.approved`, `import.completed` | 支持配置多个 Webhook 目标地址与 HMAC-SHA256 签名，内置通用 JSON、Discord 嵌入卡片、飞书机器人卡片渲染 |
+
+---
+
+## 3. DAG 依赖拓扑治理引擎规范
+
+插件内核调度引擎位于 `backend/internal/plugin/dependency.go`。
+
+### 3.1 语义化版本约束 (Semver Constraint)
+插件依赖通过 `Dependencies map[string]string` 声明，版本比对引擎（`ParseSemver` 与 `Semver.Matches`）支持：
+- 精确匹配：`1.0.0`
+- 下限约束：`>=1.0.0`、`>1.0.0`
+- 上限约束：`<=2.0.0`、`<2.0.0`
+- 语义兼容符：`^1.2.0`（允许非破坏性次版本与补丁升级：`>=1.2.0 <2.0.0`）
+- 次版本兼容符：`~1.2.0`（允许补丁升级：`>=1.2.0 <1.3.0`）
+- 组合区间：`>=1.0.0 <=2.0.0`
+
+### 3.2 拓扑排序启动流程 (Topological Sort)
+系统在引导初始化时，收集已启用的原生插件节点构建有向图（`DependencyGraph`），执行拓扑排序并确定加载序号：
+
+```
+[系统引导/启动]
        │
        ▼
-[收集所有插件 Manifest] ───► [构建全局有向图 DependencyGraph]
-                                      │
-                                      ▼
-                             [DFS 环形检测 (CheckCycles)]
-                                      │ (若有环: 报错并阻断)
-                                      ▼
-                             [Kahn/DFS 拓扑排序 (TopologicalSort)]
-                                      │
-                                      ▼
-                      [顺序启动: 依赖项 #1 -> 依赖项 #2 -> 被依赖项 #3]
+[收集已启用插件 Manifest] ───► [构建 DependencyGraph 有向图]
+                                         │
+                                         ▼
+                               [DFS 三色标记环路检测 (CheckCycles)]
+                                         │ (检测到环: 报错并阻断启动)
+                                         ▼
+                               [Kahn/DFS 拓扑排序 (TopologicalSort)]
+                                         │
+                                         ▼
+                 [按拓扑序逐个执行: 基础依赖插件先启动，后置依赖插件后启动]
+                 (例: #1 musicbrainz -> #2 picard_exporter / acoustid_helper)
 ```
 
-### 3. 级联启停规则 (Cascade Semantics)
+### 3.3 循环依赖检测机制 (Cycle Detection)
+基于深度优先搜索（DFS）和三色状态标记算法：
+- **White (未访问)**：节点尚未遍历；
+- **Gray (访问中)**：当前 DFS 递归调用栈上的节点。若在递归深入时再次命中 Gray 节点，即判定存在回路，立即提取回溯栈返回具体循环链（如 `A -> B -> C -> A`）；
+- **Black (已完成)**：节点及其所有下游邻接边已完整遍历且无回路。
 
-| 操作类型 | 场景条件 | 默认行为 (`cascade=false`) | 级联模式 (`cascade=true`) |
+### 3.4 级联启停保护规则 (Cascade Semantics)
+
+| 操作行为 | 触发前置条件 | 默认行为 (`cascade=false`) | 级联模式 (`cascade=true`) |
 | :--- | :--- | :--- | :--- |
-| **启用插件 A** | A 依赖的插件 B 处于停用状态 | 拦截请求，返回未激活依赖项提示 | 沿依赖链拓扑正序，自动一键拉起前置依赖 B，再启用 A |
-| **启用插件 A** | A 依赖的插件 B 缺失或版本不兼容 | 拒绝请求并提示缺失项 | 拒绝请求并提示缺失项 |
-| **停用插件 B** | 存在处于活跃运行状态的依赖项 A | 拦截请求，告警依赖于 B 的活跃插件 | 沿被依赖链逆拓扑序，先停用后置插件 A，再停用 B |
-| **删除插件 B** | 存在声明依赖于 B 的其他插件 | 拒绝删除，保护系统完整性 | 需先卸载后置插件或解除依赖关系 |
+| **启用插件 A** | A 所需的前置依赖 B 处于停用状态 | 拒绝启用，提示未激活的前置依赖项列表 | 沿依赖链正拓扑序，先自动启用前置依赖 B，再启用 A |
+| **启用插件 A** | A 所需的前置依赖 B 缺失或版本不满足 | 拒绝启用并明确报错 | 拒绝启用并明确报错 |
+| **停用插件 B** | 存在处于活跃运行状态的后置依赖项 A | 拒绝停用，告警依赖 B 的所有活跃插件 | 沿被依赖链逆拓扑序，先级联停用后置插件 A，再停用 B |
+| **删除插件 B** | 存在声明依赖于 B 的其他插件 | 拒绝删除，保护图拓扑完整性 | 需先解除依赖关系或停用依赖项 |
 
 ---
 
-## 前端可视化与多语言保障
+## 4. 数据库持久化与 HTTP 接口
 
-1. **依赖徽章呈现**：
-   - 绿色徽章：依赖插件已安装且正在运行；
-   - 黄色徽章：依赖插件已安装但处于停用状态；
-   - 红色徽章：依赖插件未安装或版本约束不满足。
-2. **零硬编码国际化规范**：
-   - 所有插件中心 UI 文本、弹窗说明与提示信息统一收敛至 `frontend/src/messages/{zh-CN,en-US}.json` 下的 `admin.plugins.*` 字典空间；
-   - 严格遵循 `i18n-localization-strict.mdc` 规则，严禁任何硬编码文案。
+### 4.1 数据模型 (`system_plugins` 表)
+定义于 `backend/internal/models/models.go`：
+```go
+type SystemPlugin struct {
+    ID           string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
+    Name         string         `gorm:"type:varchar(128);not null" json:"name"`
+    Version      string         `gorm:"type:varchar(32);not null" json:"version"`
+    Description  string         `gorm:"type:text;not null" json:"description"`
+    Author       string         `gorm:"type:varchar(128);not null" json:"author"`
+    Icon         string         `gorm:"type:varchar(64);default:'Puzzle';not null" json:"icon"`
+    Type         string         `gorm:"type:varchar(32);default:'native';not null" json:"type"`
+    EndpointURL  string         `gorm:"type:varchar(512);default:'';not null" json:"endpoint_url"`
+    SecretToken  string         `gorm:"type:varchar(255);default:'';not null" json:"secret_token,omitempty"`
+    Capabilities pq.StringArray `gorm:"type:text[];not null" json:"capabilities"`
+    Dependencies JSONB          `gorm:"type:jsonb;default:'{}'" json:"dependencies"`
+    ConfigSchema JSONB          `gorm:"type:jsonb;default:'{}'" json:"config_schema"`
+    Config       JSONB          `gorm:"type:jsonb;default:'{}'" json:"config"`
+    IsEnabled    bool           `gorm:"default:true;not null" json:"is_enabled"`
+    IsSystem     bool           `gorm:"default:false;not null" json:"is_system"`
+    CreatedAt    time.Time      `json:"created_at"`
+    UpdatedAt    time.Time      `json:"updated_at"`
+}
+```
 
----
-
-## 结论与演进路线
-
-通过引入依赖拓扑图治理、语义化版本约束以及 6 大解耦清单，MetaFusion 实现了**底层实体核心高度纯粹、外围生态无限扩展**的现代架构基石。未来新增的抓取源、格式转换器与 AI 工作流均可作为自包含插件无缝接入。
+### 4.2 API 路由接口清单 (`backend/internal/plugin/handler.go`)
+- `GET /api/v1/catalog/plugins`：公开接口，获取当前已启用的插件精简元数据（供前端渲染导入源选择框、导出按钮列表）；
+- `GET /api/v1/admin/plugins`：管理员接口，获取全量插件列表（含启停状态、健康检查结果、实时延迟、依赖评估及拓扑序号）；
+- `PATCH /api/v1/admin/plugins/:id`：管理员接口，切换插件开关（支持 `cascade=true` 级联生效）或更新配置字段；
+- `POST /api/v1/admin/plugins/test-notify`：管理员接口，向已启用的通知类插件广播测试事件验证 Webhook 链路；
+- `POST /api/v1/admin/plugins/register`：管理员接口，通过底层抽象驱动（`ExternalHTTPPlugin`）登记第三方自定义 HTTP Webhook 扩展端点。
