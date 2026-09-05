@@ -3,7 +3,6 @@ package catalogv2
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -48,6 +47,12 @@ func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u
 			}
 			e.RedirectID = target.ID
 			e.Status = "merged"
+			if target.ContentUnitID != e.ContentUnitID || target.Status != "published" {
+				return fmt.Errorf("invalid_merge_target")
+			}
+			if err = mergeReferences(ctx, tx, e, target, u, input); err != nil {
+				return err
+			}
 		}
 		stored := e
 		stored.WorkID = ""
@@ -116,5 +121,3 @@ func (s *Store) Resolve(ctx context.Context, id string, u *User) (Entity, error)
 	}
 	return Entity{}, fmt.Errorf("redirect_cycle")
 }
-
-var _ json.RawMessage

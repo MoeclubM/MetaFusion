@@ -230,9 +230,15 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if e.Status == "deleted" || e.Status == "merged" || e.RedirectID != "" {
 			return fmt.Errorf("use_lifecycle_endpoint")
 		}
+		if old.Status == "published" && e.Status != "published" {
+			return fmt.Errorf("use_lifecycle_endpoint")
+		}
 		e.Title = strings.TrimSpace(e.Title)
 		e.UpdatedAt = time.Now().UTC()
 		ref := reference(ctx, tx, &u)
+		if e.Status == "published" {
+			ref = reference(ctx, tx, nil)
+		}
 		if err = v.Document.validateEntity(e, ref, true); err != nil {
 			return err
 		}
