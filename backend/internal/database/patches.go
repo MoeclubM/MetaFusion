@@ -722,20 +722,26 @@ func migrateCJKAliasesToTranslations(db *gorm.DB) {
 		ID      uuid.UUID
 		Aliases pq.StringArray
 	}
-	type trRow struct {
-		Locale  string
-		Title   string
-		Aliases pq.StringArray
-	}
 	process := func(entityTable, trTable, fk string) {
-		var ents []entRow
-		if err := db.Table(entityTable).
-			Select("id, aliases").
-			Where("aliases IS NOT NULL AND array_length(aliases, 1) IS NOT NULL").
-			Scan(&ents).Error; err != nil {
+		// gorm Scan 对匿名 struct 中的 pq.StringArray 解析失败
+		// （unsupported data type），改走原生 rows 扫描。
+		rows, err := db.Raw(
+			"SELECT id, aliases FROM "+entityTable+" WHERE aliases IS NOT NULL AND array_length(aliases, 1) IS NOT NULL",
+		).Rows()
+		if err != nil {
 			log.Printf("cjk alias backfill scan %s skipped: %v", entityTable, err)
 			return
 		}
+		ents := make([]entRow, 0, 64)
+		for rows.Next() {
+			var e entRow
+			if err := rows.Scan(&e.ID, &e.Aliases); err != nil {
+				log.Printf("cjk alias backfill row %s skipped: %v", entityTable, err)
+				continue
+			}
+			ents = append(ents, e)
+		}
+		rows.Close()
 		for _, e := range ents {
 			var zhTw, ja, rest []string
 			for _, a := range e.Aliases {
@@ -762,12 +768,14 @@ func migrateCJKAliasesToTranslations(db *gorm.DB) {
 				if len(spec.titles) == 0 {
 					continue
 				}
-				var tr trRow
-				_ = db.Table(trTable).
-					Select("locale, title, aliases").
-					Where(fk+" = ? AND locale = ?", e.ID, spec.loc).
-					Scan(&tr).Error
-				if tr.Locale == "" {
+				var loc string
+				var title string
+				var trAliases pq.StringArray
+				err := db.Raw(
+					"SELECT locale, COALESCE(title, ''), aliases FROM "+trTable+" WHERE "+fk+" = ? AND locale = ?",
+					e.ID, spec.loc,
+				).Row().Scan(&loc, &title, &trAliases)
+				if err != nil {
 					if err := db.Exec(
 						"INSERT INTO "+trTable+" ("+fk+", locale, title, aliases) VALUES (?, ?, '', ?) ON CONFLICT ("+fk+", locale) DO NOTHING",
 						e.ID, spec.loc, pq.StringArray(spec.titles),
@@ -776,9 +784,9 @@ func migrateCJKAliasesToTranslations(db *gorm.DB) {
 					}
 					continue
 				}
-				seen := map[string]bool{strings.ToLower(strings.TrimSpace(tr.Title)): true}
-				merged := append([]string{}, tr.Aliases...)
-				for _, t := range tr.Aliases {
+				seen := map[string]bool{strings.ToLower(strings.TrimSpace(title)): true}
+				merged := append([]string{}, trAliases...)
+				for _, t := range trAliases {
 					seen[strings.ToLower(strings.TrimSpace(t))] = true
 				}
 				for _, t := range spec.titles {
@@ -787,15 +795,17 @@ func migrateCJKAliasesToTranslations(db *gorm.DB) {
 						merged = append(merged, t)
 					}
 				}
-				if err := db.Table(trTable).
-					Where(fk+" = ? AND locale = ?", e.ID, spec.loc).
-					Update("aliases", pq.StringArray(merged)).Error; err != nil {
+				if err := db.Exec(
+					"UPDATE "+trTable+" SET aliases = ? WHERE "+fk+" = ? AND locale = ?",
+					pq.StringArray(merged), e.ID, spec.loc,
+				).Error; err != nil {
 					log.Printf("cjk alias backfill update %s skipped: %v", trTable, err)
 				}
 			}
-			if err := db.Table(entityTable).
-				Where("id = ?", e.ID).
-				Update("aliases", pq.StringArray(rest)).Error; err != nil {
+			if err := db.Exec(
+				"UPDATE "+entityTable+" SET aliases = ? WHERE id = ?",
+				pq.StringArray(rest), e.ID,
+			).Error; err != nil {
 				log.Printf("cjk alias backfill shrink %s skipped: %v", entityTable, err)
 			}
 		}
