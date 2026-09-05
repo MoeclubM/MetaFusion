@@ -118,7 +118,7 @@ func (s *CatalogService) GetWorkContents(c *gin.Context) {
 }
 
 func validateContent(entry *models.CanonicalEntry) error {
-	if strings.TrimSpace(entry.Title) == "" || entry.Position < 0 || entry.Duration < 0 {
+	if entry.WorkID == nil || *entry.WorkID == uuid.Nil || strings.TrimSpace(entry.Title) == "" || entry.Position < 0 || entry.Duration < 0 {
 		return errors.New("catalog.content_invalid")
 	}
 	if entry.EntryRole != "main" && entry.EntryRole != "extra" && entry.EntryRole != "group" {
