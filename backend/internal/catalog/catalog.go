@@ -998,6 +998,7 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		EndDate        string                 `json:"end_date"`
 		Ended          bool                   `json:"ended"`
 		Language       string                 `json:"language"`
+		OriginalLanguage string               `json:"original_language"`
 		ExternalIDs    map[string]interface{} `json:"external_ids"`
 		Attributes     map[string]interface{} `json:"attributes"`
 		Translations   []LocaleTextInput      `json:"translations"`
@@ -1050,6 +1051,7 @@ func (s *CatalogService) CreateArtistForMember(c *gin.Context) {
 		EndDate:        endDate,
 		Ended:          input.Ended,
 		Language:       input.Language,
+		OriginalLanguage: input.OriginalLanguage,
 		ExternalIDs:    ext,
 		Attributes:     attrs,
 		CreatedBy:      uid,

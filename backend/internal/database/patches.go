@@ -85,6 +85,8 @@ func applySchemaPatches(db *gorm.DB) {
 		`ALTER TABLE work_translations ADD COLUMN IF NOT EXISTS aliases TEXT[] NOT NULL DEFAULT '{}'`,
 		`ALTER TABLE artist_translations ADD COLUMN IF NOT EXISTS aliases TEXT[] NOT NULL DEFAULT '{}'`,
 		`ALTER TABLE franchise_translations ADD COLUMN IF NOT EXISTS aliases TEXT[] NOT NULL DEFAULT '{}'`,
+		`ALTER TABLE artists ADD COLUMN IF NOT EXISTS original_language VARCHAR(16) DEFAULT '' NOT NULL`,
+		`ALTER TABLE franchises ADD COLUMN IF NOT EXISTS original_language VARCHAR(16) DEFAULT '' NOT NULL`,
 	}
 	for _, s := range stmts {
 		if err := db.Exec(s).Error; err != nil {

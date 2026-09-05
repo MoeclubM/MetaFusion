@@ -282,8 +282,10 @@ type Artist struct {
 	ExternalIDs    JSONB      `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
 	Attributes     JSONB      `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 	Language       string     `gorm:"type:varchar(16);default:'zh-CN'" json:"language"`
-	CreatedBy      *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
-	CreatedAt      time.Time  `json:"created_at"`
+	// OriginalLanguage 内容主语言（ISO 639-1）；原语言姓名归属对应语种翻译行。
+	OriginalLanguage string     `gorm:"type:varchar(16);default:''" json:"original_language"`
+	CreatedBy        *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
 
 	Translations []ArtistTranslation `gorm:"foreignKey:ArtistID" json:"translations,omitempty"`
 }
@@ -434,7 +436,9 @@ type Franchise struct {
 	Ended           bool           `gorm:"default:false;not null" json:"ended"`
 	Country         string         `json:"country"`
 	Language        string         `gorm:"type:varchar(16);default:'zh-CN'" json:"language"`
-	ExternalIDs     JSONB          `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
+	// OriginalLanguage 内容主语言（ISO 639-1）；原语言题名归属对应语种翻译行。
+	OriginalLanguage string `gorm:"type:varchar(16);default:''" json:"original_language"`
+	ExternalIDs      JSONB  `gorm:"type:jsonb;default:'{}'" json:"external_ids"`
 	Attributes      JSONB          `gorm:"type:jsonb;default:'{}'" json:"attributes"`
 	CatalogMetadata JSONB          `gorm:"type:jsonb;default:'{}'" json:"catalog_metadata"`
 	CreatedBy       *uuid.UUID     `gorm:"type:uuid" json:"created_by,omitempty"`

@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS artists (
     end_date VARCHAR(16),                          -- 逝世日期 / 解散年份 (如 "2011-05")
     ended BOOLEAN DEFAULT FALSE NOT NULL,          -- 是否已故 / 已解散
     language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL, -- 默认语种主码
+    original_language VARCHAR(16) DEFAULT '' NOT NULL, -- 内容主语言（ISO 639-1），原语言标题归属对应翻译行
     external_ids JSONB DEFAULT '{}'::jsonb NOT NULL,
     attributes JSONB DEFAULT '{}'::jsonb NOT NULL, -- 仅承载纯物理/技术参数，头像与关系禁止入此
     created_by UUID REFERENCES users(id) ON DELETE SET NULL,
@@ -214,6 +215,7 @@ CREATE TABLE IF NOT EXISTS franchises (
     ended BOOLEAN DEFAULT FALSE NOT NULL,
     country VARCHAR(64) DEFAULT '',
     language VARCHAR(16) DEFAULT 'zh-CN' NOT NULL,
+    original_language VARCHAR(16) DEFAULT '' NOT NULL, -- 内容主语言（ISO 639-1）
     external_ids JSONB DEFAULT '{}'::jsonb NOT NULL,
     attributes JSONB DEFAULT '{}'::jsonb NOT NULL,
     catalog_metadata JSONB DEFAULT '{}'::jsonb NOT NULL,

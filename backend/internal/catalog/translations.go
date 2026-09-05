@@ -215,6 +215,18 @@ func applyArtistLocaleDefaults(artist *models.Artist, translations []LocaleTextI
 		artist.Name = t
 	}
 	artist.Biography = localeBody(items, artist.Language)
+	// 原始语言是多语言标题体系中的一员：确保原语言姓名落在对应翻译行，
+	// 而不是实体级 aliases（OriginalName 保留为该行的镜像，供旧读取方使用）。
+	if origLoc := catalogLocaleFromContentLang(artist.OriginalLanguage); origLoc != "" {
+		if t := localeTitle(items, origLoc); t != "" {
+			artist.OriginalName = t
+		} else if strings.TrimSpace(artist.OriginalName) != "" {
+			items = ensureCanonicalPack(items, origLoc, artist.OriginalName, "")
+		}
+		if t := localeTitle(items, origLoc); t != "" {
+			artist.OriginalName = t
+		}
+	}
 	return items
 }
 
@@ -227,7 +239,18 @@ func applyFranchiseLocaleDefaults(fr *models.Franchise, translations []LocaleTex
 		fr.Title = t
 	}
 	fr.Summary = localeBody(items, fr.Language)
-	if strings.TrimSpace(fr.OriginalTitle) != "" {
+	// 原始语言是多语言标题体系中的一员：优先按 original_language 落行；
+	// 旧数据该字段为空时退回覆盖检查（原语言题名已被任一翻译行收录则不动）。
+	if origLoc := catalogLocaleFromContentLang(fr.OriginalLanguage); origLoc != "" {
+		if t := localeTitle(items, origLoc); t != "" {
+			fr.OriginalTitle = t
+		} else if strings.TrimSpace(fr.OriginalTitle) != "" {
+			items = ensureCanonicalPack(items, origLoc, fr.OriginalTitle, "")
+		}
+		if t := localeTitle(items, origLoc); t != "" {
+			fr.OriginalTitle = t
+		}
+	} else if strings.TrimSpace(fr.OriginalTitle) != "" {
 		covered := false
 		for _, it := range items {
 			for _, t := range append([]string{it.Title, it.Name}, it.Aliases...) {
