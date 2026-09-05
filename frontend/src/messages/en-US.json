@@ -2021,5 +2021,15 @@
   "admin.settings.testEmailFail": "Failed to send test email",
   "common.refresh": "Refresh",
   "common.delete": "Delete",
-  "admin.fieldNames": "Localized Names"
+  "admin.fieldNames": "Localized Names",
+  "work.detail.pageNavigation": "On this page",
+  "work.detail.overview": "Overview",
+  "work.detail.staffAndCharacters": "Staff & characters",
+  "work.detail.information": "Information",
+  "work.detail.isbn": "ISBN: {value}",
+  "work.detail.tagsHeading": "Tags",
+  "work.detail.externalHeading": "External sources",
+  "work.detail.noSummary": "No overview has been added yet.",
+  "work.detail.previousPage": "Previous page",
+  "work.detail.nextPage": "Next page"
 }

@@ -2022,5 +2022,15 @@
   "admin.settings.testEmailFail": "测试邮件发送失败",
   "common.refresh": "刷新",
   "common.delete": "删除",
-  "admin.fieldNames": "多语言名称"
+  "admin.fieldNames": "多语言名称",
+  "work.detail.pageNavigation": "页内导航",
+  "work.detail.overview": "作品简介",
+  "work.detail.staffAndCharacters": "演职人员与角色",
+  "work.detail.information": "作品资料",
+  "work.detail.isbn": "ISBN：{value}",
+  "work.detail.tagsHeading": "标签",
+  "work.detail.externalHeading": "外部资料",
+  "work.detail.noSummary": "暂无作品简介。",
+  "work.detail.previousPage": "上一页",
+  "work.detail.nextPage": "下一页"
 }

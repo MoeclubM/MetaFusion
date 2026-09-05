@@ -235,8 +235,12 @@ func validateTrackContentWorks(tx *gorm.DB, releaseWorkID uuid.UUID, track *mode
 	if len(ids) == 0 {
 		return nil
 	}
+	entryIDs := make([]uuid.UUID, 0, len(ids))
+	for id := range ids {
+		entryIDs = append(entryIDs, id)
+	}
 	var entries []models.CanonicalEntry
-	if err := tx.Select("id, work_id").Where("id IN ?", ids).Find(&entries).Error; err != nil {
+	if err := tx.Select("id, work_id").Where("id IN ?", entryIDs).Find(&entries).Error; err != nil {
 		return err
 	}
 	if len(entries) != len(ids) {
