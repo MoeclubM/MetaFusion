@@ -800,6 +800,9 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 	}
 
 	release := ReleasePreview{
+		CoverImageURL:       coverURL,
+		CoverAspect:         coverAspect,
+		OriginalLanguage:    "ja",
 		EditionName:         editionName,
 		Publisher:           publisherName,
 		Packaging:           packaging,
@@ -812,6 +815,13 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		ExternalIDs: models.JSONB{
 			"bangumi": strconv.Itoa(data.ID),
 		},
+		CatalogMetadata: models.JSONB{
+			"bangumi_subject_id": strconv.Itoa(data.ID),
+			"isbn":               isbn,
+		},
+	}
+	if isbn != "" {
+		release.ExternalIDs["isbn"] = isbn
 	}
 
 	return &PreviewResponse{
