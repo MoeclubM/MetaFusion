@@ -14,6 +14,7 @@ import {
   GraphNode,
   GraphLink,
 } from "@/lib/api";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import {
@@ -47,6 +48,7 @@ export default function CanonicalEntryDetailPage() {
   const params = useParams();
   const entryId = params.id as string;
   const { t, locale } = useI18n();
+  const titleOrder = useTitleDisplayOrder();
   const { roleLabel, mediumFormatLabel, mediaCategoryLabel } = useTaxonomy();
 
   const [data, setData] = useState<CanonicalEntryDetailResponse | null>(null);
@@ -122,7 +124,7 @@ export default function CanonicalEntryDetailPage() {
   }
 
   const work = data.work;
-  const workLocalized = work ? pickLocalized(locale, work.translations, work.title, work.summary) : null;
+  const workLocalized = work ? pickLocalized(locale, work.translations, work.title, work.summary, { order: titleOrder }) : null;
   const releases = data.releases || [];
   const connectedEntities: ConnectedEntityItem[] = data.connected_entities || [];
   const hasExternalLinks = Boolean(

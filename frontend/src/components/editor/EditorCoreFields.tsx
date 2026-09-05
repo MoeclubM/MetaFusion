@@ -322,6 +322,22 @@ export function EditorCoreFields({
                 options={entityTypeOptions}
               />
             </div>
+            <div className="space-y-1.5">
+              <label className={labelClass} title={t("editor.core.originalLangEntityHint")}>
+                {t("editor.core.originalLangEntityLabel")}
+              </label>
+              <Select
+                value={formData.original_language || ""}
+                onChange={(val) => updateField("original_language", val)}
+                options={[
+                  { value: "", label: t("editor.core.originalLangUnknown") },
+                  ...ORIGINAL_LANGUAGE_OPTIONS.map((opt) => ({
+                    value: opt.code,
+                    label: t(opt.labelKey),
+                  })),
+                ]}
+              />
+            </div>
 
             <div className="space-y-1.5">
               <label className={labelClass}>{t("editor.core.disambiguationLabel")}</label>
@@ -337,16 +353,34 @@ export function EditorCoreFields({
         )}
 
         {targetType === "franchise" && (
-          <div className="space-y-1.5">
-            <label className={labelClass}>{t("editor.core.disambiguationLabel")}</label>
-            <input
-              type="text"
-              value={formData.disambiguation || ""}
-              onChange={(e) => updateField("disambiguation", e.target.value)}
-              placeholder={t("editor.core.disambiguationPlaceholder")}
-              className={fieldClass}
-            />
-          </div>
+          <>
+            <div className="space-y-1.5">
+              <label className={labelClass}>{t("editor.core.disambiguationLabel")}</label>
+              <input
+                type="text"
+                value={formData.disambiguation || ""}
+                onChange={(e) => updateField("disambiguation", e.target.value)}
+                placeholder={t("editor.core.disambiguationPlaceholder")}
+                className={fieldClass}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className={labelClass} title={t("editor.core.originalLangEntityHint")}>
+                {t("editor.core.originalLangEntityLabel")}
+              </label>
+              <Select
+                value={formData.original_language || ""}
+                onChange={(val) => updateField("original_language", val)}
+                options={[
+                  { value: "", label: t("editor.core.originalLangUnknown") },
+                  ...ORIGINAL_LANGUAGE_OPTIONS.map((opt) => ({
+                    value: opt.code,
+                    label: t(opt.labelKey),
+                  })),
+                ]}
+              />
+            </div>
+          </>
         )}
 
         {targetType === "release" && (

@@ -2048,5 +2048,7 @@
   "settings.titleDisplayOrderMoveUp": "Move up",
   "settings.titleDisplayOrderMoveDown": "Move down",
   "settings.titleDisplayOrderRemove": "Remove from priority",
-  "editor.diff.fieldTranslations": "Localized titles / summaries"
+  "editor.diff.fieldTranslations": "Localized titles / summaries",
+  "editor.core.originalLangEntityLabel": "Content language (original)",
+  "editor.core.originalLangEntityHint": "Primary language of this entity's content; the original-language name/title lives in its own locale row and display follows the user's title language priority."
 }

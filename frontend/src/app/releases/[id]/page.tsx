@@ -20,6 +20,7 @@ import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLin
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
 import dynamic from "next/dynamic";
 import { fetchEntityGraph, GraphNode, GraphLink, pickLocalized } from "@/lib/api";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 const InteractiveRelationGraph = dynamic(() => import("@/components/graph/InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 
@@ -31,6 +32,7 @@ export default function ReleaseDetailPage() {
   const { user } = useAuth();
   const { playTrack } = usePlayer();
   const { t, locale } = useI18n();
+  const titleOrder = useTitleDisplayOrder();
   const { roleLabel, packagingLabel, mediumFormatLabel, mediaCategoryLabel } = useTaxonomy();
   const [release, setRelease] = useState<ReleaseWithWork | null>(null);
   const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; links: GraphLink[] } | null>(null);
@@ -200,7 +202,7 @@ export default function ReleaseDetailPage() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
                 {release.included_works.map((iw) => {
-                  const loc = pickLocalized(locale, iw.translations, iw.title, iw.summary);
+                  const loc = pickLocalized(locale, iw.translations, iw.title, iw.summary, { order: titleOrder });
                   return (
                     <Link
                       key={iw.id}
@@ -326,7 +328,7 @@ export default function ReleaseDetailPage() {
                               .map((tr) => {
                                 const displayTitle = tr.title_override || tr.canonical_entry?.title || tr.title;
                                 const trWork = tr.work || tr.canonical_entry?.work;
-                                const trWorkLoc = trWork ? pickLocalized(locale, trWork.translations, trWork.title, trWork.summary) : null;
+                                const trWorkLoc = trWork ? pickLocalized(locale, trWork.translations, trWork.title, trWork.summary, { order: titleOrder }) : null;
                                 const rawCandidateTitle = (trWorkLoc?.title || trWork?.title || "").trim();
                                 const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawCandidateTitle);
                                 const workBadgeTitle = !isUuid && rawCandidateTitle ? rawCandidateTitle : "";

@@ -310,6 +310,7 @@ export interface Artist {
   id: string;
   name: string;
   original_name?: string;
+  original_language?: string;
   disambiguation?: string;
   entity_type: string;
   avatar_url?: string;
@@ -671,6 +672,7 @@ export interface Franchise {
   title: string;
   original_title?: string;
   aliases?: string[];
+  original_language?: string;
   disambiguation?: string;
   summary?: string;
   cover_image_url?: string;

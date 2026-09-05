@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { fetchApi, Medium, Release, Track, Work, pickLocalized } from "@/lib/api";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { ArrowLeft, ArrowRight, FileText, HardDrive, Layers } from "lucide-react";
@@ -24,6 +25,7 @@ export default function MediumDetailPage() {
   const params = useParams();
   const mediumId = params.id as string;
   const { t, locale } = useI18n();
+  const titleOrder = useTitleDisplayOrder();
   const { mediumFormatLabel, mediaCategoryLabel } = useTaxonomy();
   const [data, setData] = useState<MediumDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +57,7 @@ export default function MediumDetailPage() {
   const medium = data.medium;
   const release = data.release;
   const work = release.work;
-  const workLoc = work ? pickLocalized(locale, work.translations, work.title, work.summary) : null;
+  const workLoc = work ? pickLocalized(locale, work.translations, work.title, work.summary, { order: titleOrder }) : null;
   const mediumTitle = medium.localized_name || medium.name;
   const tracks = medium.tracks || [];
 
