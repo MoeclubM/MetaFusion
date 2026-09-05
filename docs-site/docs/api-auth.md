@@ -22,18 +22,35 @@ Authorization: Bearer <token>
 X-API-Key: <api_key>
 ```
 
-## 注册与登录
+## 注册、登录与会话维护
+
+MetaFusion 采用 **短生命周期 Access Token (2h) + 可轮转 Refresh Token (7d)** 双令牌架构：
 
 ```http
-GET  /api/v1/auth/settings          # 公开：{ registration_enabled, invite_required }
-POST /api/v1/auth/register          # { username, email, password, invite_code? }
-POST /api/v1/auth/login             # { email_or_username, password } → { user, token }
-GET  /api/v1/auth/me                # 需认证
+GET  /api/v1/auth/settings          # 公开：{ registration_enabled, invite_required, email_verification_enabled... }
+POST /api/v1/auth/register          # { username, email, password, invite_code? } → 双令牌
+POST /api/v1/auth/login             # { email_or_username, password } → 双令牌
+POST /api/v1/auth/refresh           # { refresh_token } → 换发新令牌对
+POST /api/v1/auth/logout            # { refresh_token? } → 将当前 Token 与 Refresh Token 加入 Redis 实时黑名单
+GET  /api/v1/auth/me                # 需认证：获取当前登录用户信息
+GET  /api/v1/auth/invite            # 需认证：获取当前用户的邀请码与已邀请成员列表
 ```
 
-- `registration_enabled=false` 时注册关闭
-- `invite_required=true` 时必填邀请码
-- `invite_required=false` 时邀请码可选
+双令牌响应体结构：
+```json
+{
+  "user": { "id": "...", "username": "alice", "role": "member" },
+  "token": "eyJhbGciOi...",
+  "access_token": "eyJhbGciOi...",
+  "refresh_token": "eyJhbGciOi...",
+  "expires_in": 7200,
+  "token_type": "Bearer"
+}
+```
+
+- `registration_enabled=false` 时注册功能关闭；
+- `invite_required=true` 时注册表单必须携带有效邀请码；
+- 首次部署未初始化的新实例可调用 `GET /api/v1/system/setup-status` 检查状态，并通过 `POST /api/v1/system/setup` 创建超级管理员。
 
 ## API 密钥管理
 

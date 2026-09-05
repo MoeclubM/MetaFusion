@@ -12,12 +12,13 @@ group: "api"
 ## 新建
 
 ```http
-POST /api/v1/catalog/artists   { translations, language, entity_type, edit_note, source_urls }
-POST /api/v1/catalog/works     { title, translations, language, tags, cover_aspect, original_language, catalog_metadata, edit_note, source_urls }
-POST /api/v1/catalog/releases  { work_id, edition_name, catalog_number, release_date, packaging, edit_note }
-POST /api/v1/catalog/mediums   { release_id, position, name, format }
-POST /api/v1/catalog/tracks    { medium_id, canonical_entry_id, position }
-POST /api/v1/catalog/franchises { translations, language, aliases, edit_note, source_urls }
+POST /api/v1/catalog/artists           { translations, language, entity_type, edit_note, source_urls }
+POST /api/v1/catalog/works             { title, translations, language, tags, cover_aspect, original_language, catalog_metadata, edit_note, source_urls }
+POST /api/v1/catalog/canonical-entries { work_id, title, duration_seconds?, isrc?, isbn?, entry_role, number, position, parent_id?, translations, edit_note, source_urls }
+POST /api/v1/catalog/releases          { work_id, edition_name, catalog_number, release_date, packaging, edit_note }
+POST /api/v1/catalog/mediums           { release_id, position, name, format, role? }
+POST /api/v1/catalog/tracks            { medium_id, position, title?, contents?: [{ canonical_entry_id, locator }] }
+POST /api/v1/catalog/franchises        { translations, language, aliases, edit_note, source_urls }
 PUT  /api/v1/catalog/franchises/:id
 PUT  /api/v1/catalog/entity-relations  { relations: [{ source_type, source_id, target_type, target_id, relationship_type, qualifier }] }
 ```
@@ -29,10 +30,11 @@ PUT  /api/v1/catalog/entity-relations  { relations: [{ source_type, source_id, t
 ## 编辑
 
 ```http
-PUT /api/v1/catalog/works/:id            { title?, summary?, cover_image_url?, cover_aspect?, tags?, edit_note, source_urls }
-PUT /api/v1/catalog/artists/:id          { name?, biography?, edit_note }
-PUT /api/v1/catalog/releases/:id         { edition_name?, catalog_number?, edit_note }
-PUT /api/v1/catalog/works/:id/relations  { relations: [{ target_type, target_id, relation_type }] }
+PUT /api/v1/catalog/works/:id             { title?, summary?, cover_image_url?, cover_aspect?, tags?, edit_note, source_urls }
+PUT /api/v1/catalog/canonical-entries/:id { title?, duration_seconds?, isrc?, isbn?, entry_role?, number?, position?, translations?, edit_note, source_urls }
+PUT /api/v1/catalog/artists/:id           { name?, biography?, edit_note }
+PUT /api/v1/catalog/releases/:id          { edition_name?, catalog_number?, edit_note }
+PUT /api/v1/catalog/works/:id/relations   { relations: [{ target_type, target_id, relation_type }] }
 ```
 
 ## 一站式提交

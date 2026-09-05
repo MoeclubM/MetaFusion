@@ -33,7 +33,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 - 封面缩略图（支持自适应自然宽高比与 `cover_aspect` 属性控制，低分辨率预览封面可视为元数据的一部分，是否开放由 `system_settings.preview_requires_auth` 另行控制，默认开放）
 
 **L1 — 登录可见（需 `Authorization: Bearer <JWT>`，游客命中返回 401 并引导登录）**
-- 任何 `asset_files` 二进制：`GET /api/v1/storage/download/:asset_id` 预签名下载链接、`masters/*` 原档、`previews/*` HLS 切片（`index.m3u8` / `segment_*.ts`）、音频 `preview.m4a`、图像 `preview.webp`、波形/字幕/CUE/Log 附属文件
+- 任何媒体资产二进制（CAS / `asset_registry`）：`GET /api/v1/storage/download/:asset_id` 预签名下载链接、`masters/*` 原档、`previews/*` HLS 切片（`index.m3u8` / `segment_*.ts`）、音频 `preview.m4a`、图像 `preview.webp`、波形/字幕/CUE/Log 附属文件
 - 上传链路：`POST /api/v1/storage/upload/initiate`、`POST /api/v1/storage/upload/complete`、`POST /api/v1/catalog/submit`
 - 社区写入：发帖、回帖、评注
 - 个人数据：邀请信息、已邀请用户列表
@@ -86,7 +86,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 
 ## 4. 非功能与合规
 
-- **审计**：所有 `L1` 写入与 `asset_files` 访问经 `admin_audit_logs` 记录 `actor/target/ip/ua`。
+- **审计**：所有 `L1` 写入与媒体资产（CAS / `asset_registry`）访问经 `admin_audit_logs` 记录 `actor/target/ip/ua`。
 - **速率限制**：在后端中间件（`internal/ratelimit`）实现基于滑动窗口的全局限流（支持匿名与已登录用户差异化限额）与敏感认证端点防爆破限流（15次/分钟），限流阈值由后台 `system_settings` 动态控制，并返回标准 `X-RateLimit-*` 响应头。
 - **SEO**：元数据页 SSR 可被爬虫收录，媒体二进制 URL 必须带鉴权且 `robots.txt` 禁止直链索引。
 - **版权提示**：媒体预览/下载页需展示版权与合规提示，下载行为需二次确认。

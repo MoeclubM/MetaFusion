@@ -58,6 +58,6 @@ curl "/api/v1/browse/works?artist=<artist_id>&inc=artists" -H "User-Agent: MyApp
 - 401：未认证（L1 资源）
 - 400：参数错误 / 缺少 User-Agent
 - 429：限流
-- 所有 L1 写入与 `asset_files` 访问经 `admin_audit_logs` 记录 `actor/target/ip/ua`
+- 所有 L1 写入与媒体资产（CAS / AssetRegistry）访问经 `admin_audit_logs` 记录 `actor/target/ip/ua`
 
 下一节：[认证与 PAT](/api-auth)
