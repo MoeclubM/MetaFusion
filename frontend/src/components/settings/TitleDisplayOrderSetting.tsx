@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { ArrowUp, ArrowDown, RotateCcw, Languages, X } from "lucide-react";
+import { ArrowUp, ArrowDown, RotateCcw, Languages, Plus, X } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { CATALOG_LOCALES } from "@/components/editor/localeForm";
 import {
@@ -11,22 +11,33 @@ import {
   setTitleDisplayOrder,
 } from "@/lib/titles";
 
-const ALL_CODES = CATALOG_LOCALES.map((l) => l.code);
+const BASE_CODES = CATALOG_LOCALES.map((l) => l.code);
+
+// 后端 ValidLocales 开放的常见语种：可直接作为快速添加候选。
+const EXTRA_CODES = ["fr", "de", "es", "pt", "it", "ru", "th", "vi"];
+const LANG_CODE_RE = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
+
+const EXTRA_LABEL_KEYS: Record<string, string> = {
+  fr: "editor.core.origLangFr",
+  de: "editor.core.origLangDe",
+};
 
 /**
- * 标题/简介显示语言优先级：未设置时走默认回退链
- * （界面语言 → en-US → 原始语言 → 其余语种）。
- * 变更即时存入 localStorage 并广播事件，各详情页实时响应。
+ * 标题/简介显示语言优先级：基础编目语种之外支持添加任意 BCP-47 代码
+ * （后端翻译行白名单内的语种才能落库生效）。未设置时走默认回退链
+ * （界面语言 → en-US → 原始语言 → 其余语种）。变更即时存 localStorage 并广播。
  */
 export function TitleDisplayOrderSetting() {
   const { t } = useI18n();
   const [order, setOrder] = useState<string[]>([]);
   const [custom, setCustom] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [invalid, setInvalid] = useState(false);
 
   const reload = useCallback(() => {
     const saved = getTitleDisplayOrder();
     setCustom(saved.length > 0);
-    setOrder(saved.length > 0 ? saved : [...ALL_CODES]);
+    setOrder(saved.length > 0 ? saved : [...BASE_CODES]);
   }, []);
 
   useEffect(() => {
@@ -55,20 +66,36 @@ export function TitleDisplayOrderSetting() {
   };
 
   const add = (code: string) => {
-    if (order.includes(code)) return;
-    persist([...order, code]);
+    const clean = code.trim();
+    if (!LANG_CODE_RE.test(clean)) {
+      setInvalid(true);
+      return;
+    }
+    if (order.includes(clean)) {
+      setDraft("");
+      setInvalid(false);
+      return;
+    }
+    setInvalid(false);
+    setDraft("");
+    persist([...order, clean]);
   };
 
   const reset = () => {
     resetTitleDisplayOrder();
+    setDraft("");
+    setInvalid(false);
     reload();
   };
 
   const labelOf = (code: string) => {
     const found = CATALOG_LOCALES.find((l) => l.code === code);
-    return found ? t(found.labelKey) : code;
+    if (found) return t(found.labelKey);
+    const extra = EXTRA_LABEL_KEYS[code];
+    if (extra) return t(extra);
+    return code;
   };
-  const missing = ALL_CODES.filter((c) => !order.includes(c));
+  const missingBase = [...BASE_CODES, ...EXTRA_CODES].filter((c) => !order.includes(c));
 
   return (
     <div className="p-2.5 rounded-md bg-background border border-black/5 dark:border-white/[0.06] text-xs font-mono space-y-2">
@@ -129,9 +156,9 @@ export function TitleDisplayOrderSetting() {
           </li>
         ))}
       </ol>
-      {missing.length > 0 && (
+      {missingBase.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {missing.map((code) => (
+          {missingBase.map((code) => (
             <button
               key={code}
               type="button"
@@ -143,6 +170,40 @@ export function TitleDisplayOrderSetting() {
           ))}
         </div>
       )}
+      <div className="flex items-center gap-1.5 pt-1 border-t border-black/5 dark:border-white/[0.06]">
+        <input
+          type="text"
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setInvalid(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add(draft);
+            }
+          }}
+          placeholder={t("settings.titleDisplayOrderAddPlaceholder")}
+          className={`flex-1 h-8 px-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border text-xs font-mono text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary ${
+            invalid ? "border-rose-400" : "border-black/10 dark:border-white/10"
+          }`}
+        />
+        <button
+          type="button"
+          onClick={() => add(draft)}
+          className="inline-flex items-center gap-1 px-2.5 h-8 rounded-md border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>{t("settings.titleDisplayOrderAdd")}</span>
+        </button>
+      </div>
+      {invalid && (
+        <p className="text-[11px] text-rose-500 font-sans">{t("settings.titleDisplayOrderInvalid")}</p>
+      )}
+      <p className="text-[11px] leading-relaxed text-gray-500 font-sans">
+        {t("settings.titleDisplayOrderCustomHint")}
+      </p>
     </div>
   );
 }

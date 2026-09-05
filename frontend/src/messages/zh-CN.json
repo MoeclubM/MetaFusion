@@ -2051,5 +2051,13 @@
   "settings.titleDisplayOrderRemove": "移出优先级",
   "editor.diff.fieldTranslations": "多语言标题/简介",
   "editor.core.originalLangEntityLabel": "内容主语言（原始语言）",
-  "editor.core.originalLangEntityHint": "该实体内容本身的主语言；原语言姓名/题名将归入对应语种的翻译行，展示跟随用户显示语言优先级。"
+  "editor.core.originalLangEntityHint": "该实体内容本身的主语言；原语言姓名/题名将归入对应语种的翻译行，展示跟随用户显示语言优先级。",
+  "editor.universal.expand": "全屏编辑",
+  "editor.universal.collapse": "退出全屏",
+  "editor.universal.openInNewPage": "在新页面打开编辑器",
+  "editor.universal.editingGuide": "编辑教程",
+  "settings.titleDisplayOrderAdd": "添加",
+  "settings.titleDisplayOrderAddPlaceholder": "输入语言代码，如 fr、de、th",
+  "settings.titleDisplayOrderInvalid": "语言代码格式无效（示例：fr、de-AT、th）",
+  "settings.titleDisplayOrderCustomHint": "可添加任意 BCP-47 语言代码并排序；实体需已有该语种的翻译条目（导入或 API 写入）才会生效。"
 }

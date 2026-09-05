@@ -2050,5 +2050,13 @@
   "settings.titleDisplayOrderRemove": "Remove from priority",
   "editor.diff.fieldTranslations": "Localized titles / summaries",
   "editor.core.originalLangEntityLabel": "Content language (original)",
-  "editor.core.originalLangEntityHint": "Primary language of this entity's content; the original-language name/title lives in its own locale row and display follows the user's title language priority."
+  "editor.core.originalLangEntityHint": "Primary language of this entity's content; the original-language name/title lives in its own locale row and display follows the user's title language priority.",
+  "editor.universal.expand": "Expand editor",
+  "editor.universal.collapse": "Exit full screen",
+  "editor.universal.openInNewPage": "Open editor in a new page",
+  "editor.universal.editingGuide": "Editing guide",
+  "settings.titleDisplayOrderAdd": "Add",
+  "settings.titleDisplayOrderAddPlaceholder": "Enter a language code, e.g. fr, de, th",
+  "settings.titleDisplayOrderInvalid": "Invalid language code (examples: fr, de-AT, th)",
+  "settings.titleDisplayOrderCustomHint": "Add any BCP-47 language code and reorder; a locale only takes effect when the entity has a translation row in it (via importer or API)."
 }

@@ -53,6 +53,13 @@ export default function FranchiseDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [franchiseId]);
 
+  // 详情页支持 /franchises/:id?edit=1 直达编辑器（编辑器「在新页面打开」的落点）
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.search.includes("edit=1")) {
+      setIsEditorOpen(true);
+    }
+  }, []);
+
   const franchiseWorks = data?.works || [];
 
   if (loading) {

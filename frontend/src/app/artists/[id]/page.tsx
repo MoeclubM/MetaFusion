@@ -70,6 +70,13 @@ export default function ArtistDetailPage() {
       .catch((err) => console.error("Artist graph fetch failed:", err));
   }, [artistId]);
 
+  // 详情页支持 /artists/:id?edit=1 直达编辑器（编辑器「在新页面打开」的落点）
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location.search.includes("edit=1")) {
+      setIsEditorOpen(true);
+    }
+  }, []);
+
   // 过滤掉已经在头部专门作为头像渲染的 avatar_url，避免在扩展动态属性栏中冗余显示技术路径。
   // 必须挂在 loading/空态提前返回之前：hook 数量须与首帧一致，否则触发
   // "Rendered more hooks than during the previous render" 使整个艺人页崩溃。
