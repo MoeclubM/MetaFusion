@@ -36,7 +36,7 @@ import { EditorRelationsField } from "./EditorRelationsField";
 import { EditorExternalIds } from "./EditorExternalIds";
 import { EditorNotesField } from "./EditorNotesField";
 import { DynamicAttributeForm } from "@/components/attributes/DynamicAttributeForm";
-import { seedLocaleForm, translationsPayload } from "./localeForm";
+import { seedLocaleForm, translationsPayload, parseLocaleAliases, type LocaleEntry } from "./localeForm";
 
 export type EntityTypeTarget = "work" | "artist" | "release" | "franchise" | "canonical_entry";
 
@@ -198,9 +198,19 @@ export function UniversalEntityEditor({
       };
 
       if (targetType === "work" || targetType === "artist" || targetType === "franchise") {
-        const translations = (formData.translations || {}) as Record<string, { title: string; summary: string }>;
+        const translations = { ...(formData.translations || {}) } as Record<string, LocaleEntry>;
         const defaultLoc = formData.language || "zh-CN";
-        const def = translations[defaultLoc] || { title: "", summary: "" };
+        // 罗马音归属 ja 并列标题：不是独立语种，不进实体级 aliases。
+        const romaji = typeof formData.romaji === "string" ? formData.romaji.trim() : "";
+        if (romaji) {
+          const prev = translations["ja"] || { title: "", summary: "", aliases: [] };
+          const merged = [...(prev.aliases || [])];
+          if (!merged.some((a) => a.toLocaleLowerCase() === romaji.toLocaleLowerCase())) {
+            merged.push(romaji);
+          }
+          translations["ja"] = { ...prev, aliases: merged };
+        }
+        const def = translations[defaultLoc] || { title: "", summary: "", aliases: [] };
         payload.translations = translationsPayload(translations);
         payload.language = defaultLoc;
         delete payload.names;
@@ -211,12 +221,6 @@ export function UniversalEntityEditor({
         } else {
           payload.title = def.title || formData.title;
           payload.summary = def.summary || formData.summary;
-        }
-        const romaji = typeof formData.romaji === "string" ? formData.romaji.trim() : "";
-        if (romaji) {
-          const merged = [...(aliases || [])];
-          if (!merged.includes(romaji)) merged.push(romaji);
-          payload.aliases = merged;
         }
         if (targetType === "work" || targetType === "franchise") {
           payload.tags = Array.isArray(formData.tags)

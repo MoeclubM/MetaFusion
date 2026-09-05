@@ -19,6 +19,8 @@ import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
+import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { GroupedRelations } from "@/components/entity/RelationsList";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
@@ -33,6 +35,7 @@ export default function WorkDirectoryPage() {
  const { user } = useAuth();
  const { t, locale } = useI18n();
  const { roleLabel } = useTaxonomy();
+ const titleOrder = useTitleDisplayOrder();
 
  const [work, setWork] = useState<Work | null>(null);
  const [connected, setConnected] = useState<ConnectedEntityItem[]>([]);
@@ -127,7 +130,10 @@ export default function WorkDirectoryPage() {
  }
 
  const meta = work.catalog_metadata || {};
- const localized = pickLocalized(locale, work.translations, work.title, work.summary);
+ const localized = pickLocalized(locale, work.translations, work.title, work.summary, {
+   order: titleOrder,
+   originalLanguage: work.original_language,
+ });
 
  return (
  <div className="min-h-screen bg-background text-foreground">
@@ -172,8 +178,13 @@ export default function WorkDirectoryPage() {
        </div>
        <section className={styles.facts}>
          <h2>{t("work.detail.information")}</h2>
-         {work.original_language && <p>{t("work.detail.originalLanguage", { value: t(`origLang.${work.original_language}`) })}</p>}
-         {!!work.aliases?.length && <p>{t("work.detail.alias", { value: work.aliases.map(a => String(a).replace(/\[?map\[v:([^\]]+)\]\]?/g, "$1").replace(/^[\[\s]+|[\]\s]+$/g, "").trim()).filter(Boolean).join(" / ") })}</p>}
+         <LocalizedTitleGroups
+           translations={work.translations}
+           aliases={work.aliases}
+           originalLanguage={work.original_language}
+           displayTitle={localized.title}
+           extraKnown={[work.title, work.original_title]}
+         />
          {meta.isbn_13 && <p>{t("work.detail.isbn", { value: meta.isbn_13 })}</p>}
          {meta.clc_code && <p>{t("work.detail.clc", { code: meta.clc_code })}</p>}
          {work.attributes && Object.keys(work.attributes).length > 0 && <DynamicAttributeViewer attributes={work.attributes} />}

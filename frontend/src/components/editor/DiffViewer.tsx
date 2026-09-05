@@ -25,6 +25,7 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
       country: t("editor.diff.fieldCountry"),
       status: t("editor.diff.fieldStatus"),
       aliases: t("editor.diff.fieldAliases"),
+      translations: t("editor.diff.fieldTranslations"),
       tags: t("editor.diff.fieldTags"),
       source_urls: t("editor.diff.fieldSourceUrls"),
       relations: t("editor.diff.fieldRelations"),

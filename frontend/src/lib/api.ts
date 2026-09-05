@@ -1,3 +1,5 @@
+import { buildTitleChain } from "./titles";
+
 const getApiBase = () => {
   if (typeof window !== "undefined") {
     // 浏览器端：使用网关相对路径，自适应任何主机/域名/IP
@@ -225,21 +227,27 @@ export interface EntityTranslation {
   name?: string;
   summary?: string;
   biography?: string;
+  /** 同语种并列标题（与 title 同一语言的异名/并列译名） */
+  aliases?: string[];
 }
 
 export function pickLocalized(
   locale: string,
   translations: EntityTranslation[] | undefined,
   fallbackTitle: string,
-  fallbackBody?: string
+  fallbackBody?: string,
+  opts?: { order?: string[]; originalLanguage?: string | null }
 ): { title: string; body: string } {
   const rows = translations || [];
-  const exact = rows.find((r) => r.locale === locale);
-  if (exact) {
-    return {
-      title: (exact.title || exact.name || fallbackTitle || "").trim() || fallbackTitle,
-      body: (exact.summary || exact.biography || fallbackBody || "").trim() || (fallbackBody || ""),
-    };
+  const chain = buildTitleChain(locale, opts, rows.map((r) => r.locale));
+  for (const loc of chain) {
+    const row = rows.find((r) => r.locale === loc);
+    if (!row) continue;
+    const title = (row.title || row.name || "").trim();
+    const body = (row.summary || row.biography || "").trim();
+    if (title || body) {
+      return { title: title || fallbackTitle, body: body || fallbackBody || "" };
+    }
   }
   return {
     title: (fallbackTitle || "").trim(),
@@ -1577,6 +1585,8 @@ export interface ImporterTranslationItem {
   locale: string;
   title: string;
   summary: string;
+  /** 同语种并列标题（后端 translate-preview 的 TranslationItem.aliases） */
+  aliases?: string[];
 }
 
 export interface ImporterWorkPreview {

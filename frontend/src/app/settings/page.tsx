@@ -9,6 +9,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/lib/themeContext";
 import { fetchApi, displayNameOf, ApiToken, listApiTokens, createApiToken, deleteApiToken, uploadAvatar, deleteAvatar, sendVerificationEmail, verifyEmail, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
+import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -643,6 +644,8 @@ export default function SettingsPage() {
                     ]}
                   />
                 </div>
+
+                <TitleDisplayOrderSetting />
               </div>
 
               {/* 隐私设置：收藏列表与邮箱的公开范围 */}

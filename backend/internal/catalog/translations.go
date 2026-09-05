@@ -86,7 +86,8 @@ func parseLocaleInputs(items []LocaleTextInput) []LocaleTextInput {
 			it.Biography = it.Summary
 		}
 		it.Aliases = cleanLocaleAliases(it.Title, it.Aliases)
-		if it.Title == "" && it.Summary == "" {
+		// 仅并列标题的行也保留：同一语种允许多标题并存，主标题可后补。
+		if it.Title == "" && it.Summary == "" && len(it.Aliases) == 0 {
 			continue
 		}
 		by[loc] = it

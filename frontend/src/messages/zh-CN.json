@@ -2036,5 +2036,18 @@
   "relations.showAll": "展开全部 {count} 个关联",
   "relations.collapse": "收起",
   "relations.dateTail": "至今",
-  "relations.dateEnded": "已完结"
+  "relations.dateEnded": "已完结",
+  "entity.titles.group": "{locale}：{titles}",
+  "entity.titles.groupOriginal": "{locale}（原始语言）：{titles}",
+  "entity.titles.aliases": "别名：{value}",
+  "editor.core.localeAliasesLabel": "同语种并列标题",
+  "editor.core.localeAliasesPlaceholder": "同一语种的多个标题，以逗号或换行分隔",
+  "editor.core.localeAliasesHint": "同一语言可以填写多个标题：首个为该语种主标题，其余为并列标题。原语言标题请填在对应语种内，不要填入下方别名。",
+  "settings.titleDisplayOrder": "标题显示语言优先级",
+  "settings.titleDisplayOrderDesc": "标题与简介按此顺序选取显示语言；未调整时按界面语言 → English → 原始语言回退。",
+  "settings.titleDisplayOrderReset": "恢复默认",
+  "settings.titleDisplayOrderMoveUp": "上移",
+  "settings.titleDisplayOrderMoveDown": "下移",
+  "settings.titleDisplayOrderRemove": "移出优先级",
+  "editor.diff.fieldTranslations": "多语言标题/简介"
 }

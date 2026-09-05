@@ -23,6 +23,8 @@ import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
+import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { GroupedRelations } from "@/components/entity/RelationsList";
 
 export default function FranchiseDetailPage() {
@@ -30,6 +32,7 @@ export default function FranchiseDetailPage() {
   const franchiseId = params.id as string;
   const { t, locale } = useI18n();
   const { entityTypeLabel } = useTaxonomy();
+  const titleOrder = useTitleDisplayOrder();
   const [data, setData] = useState<FranchiseDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -72,7 +75,9 @@ export default function FranchiseDetailPage() {
   }
 
   const fr: Franchise = data.franchise;
-  const localized = pickLocalized(locale, fr.translations, fr.title, fr.summary);
+  const localized = pickLocalized(locale, fr.translations, fr.title, fr.summary, {
+    order: titleOrder,
+  });
   const parents = data.parents || [];
   const children = data.children || [];
   const agents: Artist[] = data.agents || [];
@@ -129,6 +134,14 @@ export default function FranchiseDetailPage() {
                 {isDistinctOriginalTitle(fr.original_title, localized.title) && (
                   <p className="font-mono text-sm text-gray-500 mt-0.5">{fr.original_title}</p>
                 )}
+                <LocalizedTitleGroups
+                  translations={fr.translations}
+                  aliases={fr.aliases}
+                  displayTitle={localized.title}
+                  extraKnown={[fr.title, fr.original_title]}
+                  className="mt-0.5 space-y-0.5"
+                  itemClassName="font-mono text-sm text-gray-500"
+                />
                 {fr.disambiguation && <p className="font-mono text-xs text-gray-400 mt-0.5">{fr.disambiguation}</p>}
               </div>
               {localized.body && <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl">{localized.body}</p>}

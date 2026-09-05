@@ -39,6 +39,7 @@ import {
   Work,
   Artist,
 } from "@/lib/api";
+import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 
 interface Props {
   isOpen: boolean;
@@ -628,6 +629,16 @@ export function OmniImportModal({
                       {previewData.artist.aliases.join(", ")}
                     </div>
                   )}
+                  {!!previewData.artist.translations?.length && (
+                    <LocalizedTitleGroups
+                      translations={previewData.artist.translations}
+                      aliases={[]}
+                      displayTitle={previewData.artist.name}
+                      extraKnown={[previewData.artist.name, previewData.artist.original_name]}
+                      className="space-y-0.5"
+                      itemClassName="text-xs text-gray-500 font-mono line-clamp-1"
+                    />
+                  )}
 
                   {previewData.artist.biography && (
                     <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-line line-clamp-3 bg-black/[0.02] dark:bg-white/[0.02] p-2.5 rounded-lg border border-black/5 dark:border-white/5 font-sans">
@@ -731,6 +742,17 @@ export function OmniImportModal({
                       <p className="text-xs text-gray-500 font-mono truncate">
                         {previewData.work.original_title}
                       </p>
+                    )}
+                    {!!previewData.work.translations?.length && (
+                      <LocalizedTitleGroups
+                        translations={previewData.work.translations}
+                        aliases={[]}
+                        originalLanguage={previewData.work.original_language}
+                        displayTitle={previewData.work.title}
+                        extraKnown={[previewData.work.title, previewData.work.original_title]}
+                        className="space-y-0.5"
+                        itemClassName="text-xs text-gray-500 font-mono"
+                      />
                     )}
                   </div>
 

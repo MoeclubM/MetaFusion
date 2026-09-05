@@ -5,7 +5,7 @@ import { Plus, X, Globe2, Tag as TagIcon, Sparkles } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fetchApi, isWorkTagGroup } from "@/lib/api";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
-import { CATALOG_LOCALES, LocaleEntry } from "./localeForm";
+import { CATALOG_LOCALES, LocaleEntry, parseLocaleAliases } from "./localeForm";
 import { Select } from "@/components/ui/Select";
 
 const fieldClass =
@@ -96,10 +96,11 @@ export function EditorCoreFields({
   };
 
   const handleUpdateTranslation = (loc: string, patch: Partial<LocaleEntry>) => {
-    const prev = translations[loc] || { title: "", summary: "" };
+    const prev = translations[loc] || { title: "", summary: "", aliases: [] };
     const nextEntry: LocaleEntry = {
       title: patch.title !== undefined ? patch.title : prev.title,
       summary: patch.summary !== undefined ? patch.summary : prev.summary,
+      aliases: patch.aliases !== undefined ? patch.aliases : prev.aliases || [],
     };
     updateField("translations", { ...translations, [loc]: nextEntry });
     if (loc === defaultLocale) syncCanonicalFromLocale(loc, nextEntry);
@@ -107,7 +108,7 @@ export function EditorCoreFields({
 
   const handleSetDefaultLocale = (loc: string) => {
     updateField("language", loc);
-    const entry = translations[loc] || { title: "", summary: "" };
+    const entry = translations[loc] || { title: "", summary: "", aliases: [] };
     syncCanonicalFromLocale(loc, entry);
   };
 
@@ -175,7 +176,7 @@ export function EditorCoreFields({
             </div>
             {CATALOG_LOCALES.map((opt) => {
               if (opt.code !== activeLocale) return null;
-              const entry = translations[opt.code] || { title: "", summary: "" };
+              const entry = translations[opt.code] || { title: "", summary: "", aliases: [] };
               const isDefault = defaultLocale === opt.code;
               return (
                 <div key={opt.code} className="space-y-3">
@@ -204,6 +205,17 @@ export function EditorCoreFields({
                     placeholder={t("editor.core.localeTitlePlaceholder")}
                     className={`${fieldClass} font-medium`}
                   />
+                  <div className="space-y-1.5">
+                    <label className={labelClass}>{t("editor.core.localeAliasesLabel")}</label>
+                    <input
+                      type="text"
+                      value={(entry.aliases || []).join(", ")}
+                      onChange={(e) => handleUpdateTranslation(opt.code, { aliases: parseLocaleAliases(e.target.value) })}
+                      placeholder={t("editor.core.localeAliasesPlaceholder")}
+                      className={fieldClass}
+                    />
+                    <p className="text-[11px] text-gray-500">{t("editor.core.localeAliasesHint")}</p>
+                  </div>
                   {opt.romaji && (
                     <div className="space-y-1.5">
                       <label className="block text-xs sm:text-sm font-mono text-gray-500">{t("editor.core.romaji")}</label>
