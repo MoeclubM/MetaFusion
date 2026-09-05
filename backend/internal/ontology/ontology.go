@@ -314,11 +314,14 @@ type LocaleText struct {
 }
 
 // EntityLabel is the default display name plus original + translation packs.
+// CoverURL 供关联卡片缩略图使用（artist 对应 avatar_url）。
 type EntityLabel struct {
 	Name             string
 	OriginalName     string
 	OriginalLanguage string
 	Translations     []LocaleText
+	CoverURL         string
+	CoverAspect      string
 }
 
 func LookupName(db *gorm.DB, typ string, id uuid.UUID) (name string, ok bool) {
@@ -363,7 +366,7 @@ func LookupDisplay(db *gorm.DB, typ string, id uuid.UUID) (EntityLabel, bool) {
 		for _, t := range w.Translations {
 			texts = append(texts, LocaleText{Locale: t.Locale, Title: t.Title, Summary: t.Summary})
 		}
-		return EntityLabel{Name: w.Title, OriginalName: w.OriginalTitle, OriginalLanguage: w.OriginalLanguage, Translations: texts}, true
+		return EntityLabel{Name: w.Title, OriginalName: w.OriginalTitle, OriginalLanguage: w.OriginalLanguage, Translations: texts, CoverURL: w.CoverImageURL, CoverAspect: w.CoverAspect}, true
 	case "artist":
 		var a models.Artist
 		if err := db.Preload("Translations").Where("id = ?", id).First(&a).Error; err != nil {
@@ -373,13 +376,13 @@ func LookupDisplay(db *gorm.DB, typ string, id uuid.UUID) (EntityLabel, bool) {
 		for _, t := range a.Translations {
 			texts = append(texts, LocaleText{Locale: t.Locale, Name: t.Name, Title: t.Name, Biography: t.Biography, Summary: t.Biography})
 		}
-		return EntityLabel{Name: a.Name, OriginalName: a.OriginalName, Translations: texts}, true
+		return EntityLabel{Name: a.Name, OriginalName: a.OriginalName, Translations: texts, CoverURL: a.AvatarURL}, true
 	case "release":
 		var r models.Release
-		if err := db.Select("edition_name").Where("id = ?", id).First(&r).Error; err != nil {
+		if err := db.Select("edition_name, cover_image_url").Where("id = ?", id).First(&r).Error; err != nil {
 			return EntityLabel{}, false
 		}
-		return EntityLabel{Name: r.EditionName}, true
+		return EntityLabel{Name: r.EditionName, CoverURL: r.CoverImageURL}, true
 	case "franchise":
 		var f models.Franchise
 		if err := db.Preload("Translations").Where("id = ?", id).First(&f).Error; err != nil {
@@ -389,7 +392,7 @@ func LookupDisplay(db *gorm.DB, typ string, id uuid.UUID) (EntityLabel, bool) {
 		for _, t := range f.Translations {
 			texts = append(texts, LocaleText{Locale: t.Locale, Title: t.Title, Summary: t.Summary})
 		}
-		return EntityLabel{Name: f.Title, OriginalName: f.OriginalTitle, Translations: texts}, true
+		return EntityLabel{Name: f.Title, OriginalName: f.OriginalTitle, Translations: texts, CoverURL: f.CoverImageURL}, true
 	case "canonical_entry":
 		var e models.CanonicalEntry
 		if err := db.Select("title").Where("id = ?", id).First(&e).Error; err != nil {
