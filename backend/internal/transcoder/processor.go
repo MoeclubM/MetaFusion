@@ -130,13 +130,17 @@ func (p *Processor) extractMediaInfo(filePath string) (map[string]interface{}, e
 // 视频转码管线：生成自适应 HLS 流与缩略图
 func (p *Processor) transcodeVideo(ctx context.Context, inputPath, tempDir string, asset *processingAsset, specs map[string]interface{}) error {
 	outputHlsDir := filepath.Join(tempDir, "hls")
-	_ = os.MkdirAll(outputHlsDir, 0755)
+	if err := os.MkdirAll(outputHlsDir, 0755); err != nil {
+		return err
+	}
 
 	m3u8Path := filepath.Join(outputHlsDir, "index.m3u8")
 	thumbPath := filepath.Join(tempDir, "thumbnail.webp")
 
 	// 1. 生成海报缩略图 (第 5 秒抽帧)
-	_ = exec.Command("ffmpeg", "-ss", "00:00:05", "-i", inputPath, "-vframes", "1", "-vf", "scale=1280:-1", "-c:v", "libwebp", "-q:v", "80", thumbPath).Run()
+	if err := exec.Command("ffmpeg", "-ss", "00:00:05", "-i", inputPath, "-vframes", "1", "-vf", "scale=1280:-1", "-c:v", "libwebp", "-q:v", "80", thumbPath).Run(); err != nil {
+		return fmt.Errorf("generate video thumbnail: %w", err)
+	}
 
 	// 2. 硬件检测与 HLS 转码
 	// 默认采用高兼容性 H.264 / AAC 快速分片
@@ -156,14 +160,18 @@ func (p *Processor) transcodeVideo(ctx context.Context, inputPath, tempDir strin
 	hlsCmd.Stderr = &errBuf
 	if err := hlsCmd.Run(); err != nil {
 		log.Printf("FFmpeg video transcode error: %s", errBuf.String())
-		// 若转码失败可继续降级处理
+		return fmt.Errorf("video transcode: %w", err)
 	}
 
 	// 3. 上传 HLS 切片与缩略图到 Preview S3
 	prefix := fmt.Sprintf("previews/%s", asset.ID)
-	_ = p.uploadDirectoryToS3(ctx, outputHlsDir, p.cfg.S3BucketPreview, prefix+"/hls")
+	if err := p.uploadDirectoryToS3(ctx, outputHlsDir, p.cfg.S3BucketPreview, prefix+"/hls"); err != nil {
+		return fmt.Errorf("upload video preview: %w", err)
+	}
 	if _, err := os.Stat(thumbPath); err == nil {
-		_ = p.uploadFileToS3(ctx, thumbPath, p.cfg.S3BucketPreview, prefix+"/thumbnail.webp", "image/webp")
+		if err := p.uploadFileToS3(ctx, thumbPath, p.cfg.S3BucketPreview, prefix+"/thumbnail.webp", "image/webp"); err != nil {
+			return fmt.Errorf("upload video thumbnail: %w", err)
+		}
 		specs["preview_thumbnail"] = fmt.Sprintf("/storage/preview/%s/thumbnail.webp", prefix)
 	}
 
@@ -177,13 +185,18 @@ func (p *Processor) transcodeAudio(ctx context.Context, inputPath, tempDir strin
 
 	// 1. 转码生成 320k AAC 适合 Web 秒开流式播放
 	cmd := exec.Command("ffmpeg", "-i", inputPath, "-c:a", "aac", "-b:a", "320k", "-movflags", "+faststart", outputAAC)
-	_ = cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("audio transcode: %w", err)
+	}
 
 	prefix := fmt.Sprintf("previews/%s", asset.ID)
-	if _, err := os.Stat(outputAAC); err == nil {
-		_ = p.uploadFileToS3(ctx, outputAAC, p.cfg.S3BucketPreview, prefix+"/preview.m4a", "audio/mp4")
-		specs["preview_audio_url"] = fmt.Sprintf("/storage/preview/%s/preview.m4a", prefix)
+	if _, err := os.Stat(outputAAC); err != nil {
+		return fmt.Errorf("audio preview was not generated: %w", err)
 	}
+	if err := p.uploadFileToS3(ctx, outputAAC, p.cfg.S3BucketPreview, prefix+"/preview.m4a", "audio/mp4"); err != nil {
+		return fmt.Errorf("upload audio preview: %w", err)
+	}
+	specs["preview_audio_url"] = fmt.Sprintf("/storage/preview/%s/preview.m4a", prefix)
 
 	return nil
 }
@@ -191,13 +204,18 @@ func (p *Processor) transcodeAudio(ctx context.Context, inputPath, tempDir strin
 // 图像转码管线：使用 libvips 生成渐进式 WebP
 func (p *Processor) transcodeImage(ctx context.Context, inputPath, tempDir string, asset *processingAsset, specs map[string]interface{}) error {
 	outputWebP := filepath.Join(tempDir, "preview.webp")
-	_ = exec.Command("vips", "copy", inputPath, outputWebP+"[Q=85]").Run()
+	if err := exec.Command("vips", "copy", inputPath, outputWebP+"[Q=85]").Run(); err != nil {
+		return fmt.Errorf("image transcode: %w", err)
+	}
 
 	prefix := fmt.Sprintf("previews/%s", asset.ID)
-	if _, err := os.Stat(outputWebP); err == nil {
-		_ = p.uploadFileToS3(ctx, outputWebP, p.cfg.S3BucketPreview, prefix+"/preview.webp", "image/webp")
-		specs["preview_image_url"] = fmt.Sprintf("/storage/preview/%s/preview.webp", prefix)
+	if _, err := os.Stat(outputWebP); err != nil {
+		return fmt.Errorf("image preview was not generated: %w", err)
 	}
+	if err := p.uploadFileToS3(ctx, outputWebP, p.cfg.S3BucketPreview, prefix+"/preview.webp", "image/webp"); err != nil {
+		return fmt.Errorf("upload image preview: %w", err)
+	}
+	specs["preview_image_url"] = fmt.Sprintf("/storage/preview/%s/preview.webp", prefix)
 	return nil
 }
 
