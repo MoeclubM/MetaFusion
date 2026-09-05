@@ -6,6 +6,7 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -53,6 +54,10 @@ func body(c *gin.Context, v any) bool {
 		c.JSON(400, gin.H{"error": "invalid_payload"})
 		return false
 	}
+	if dec.Decode(&struct{}{}) != io.EOF {
+		c.JSON(400, gin.H{"error": "invalid_payload"})
+		return false
+	}
 	return true
 }
 func user(c *gin.Context) *User {
@@ -81,6 +86,9 @@ func (h HTTP) Register(r *gin.Engine) {
 	api := r.Group("/api/v2")
 	api.Use(func(c *gin.Context) {
 		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+		if token == "" {
+			token, _ = c.Cookie("mf_v2_session")
+		}
 		if token != "" {
 			if u, err := s.User(c.Request.Context(), token); err == nil {
 				c.Set("catalog_user", u)
@@ -134,11 +142,20 @@ func (h HTTP) Register(r *gin.Engine) {
 			return
 		}
 		token, u, err := s.Login(c.Request.Context(), in.Username, in.Password)
+		if err == nil {
+			c.SetSameSite(http.SameSiteStrictMode)
+			c.SetCookie("mf_v2_session", token, 86400, "/api/v2", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
+		}
 		respond(c, gin.H{"token": token, "user": u}, err)
 	})
 	api.GET("/auth/me", required(false), func(c *gin.Context) { respond(c, user(c), nil) })
 	api.POST("/auth/logout", required(false), func(c *gin.Context) {
-		respond(c, gin.H{"ok": true}, s.Logout(c.Request.Context(), strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")))
+		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+		if token == "" {
+			token, _ = c.Cookie("mf_v2_session")
+		}
+		c.SetCookie("mf_v2_session", "", -1, "/api/v2", "", false, true)
+		respond(c, gin.H{"ok": true}, s.Logout(c.Request.Context(), token))
 	})
 	api.POST("/admin/users", required(true), func(c *gin.Context) {
 		var in credentials
@@ -153,7 +170,7 @@ func (h HTTP) Register(r *gin.Engine) {
 	cat.GET("/entities", func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		offset, _ := strconv.Atoi(c.Query("offset"))
-		items, err := s.List(c.Request.Context(), ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), WorkID: c.Query("work_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Limit: limit, Offset: offset}, user(c))
+		items, err := s.List(c.Request.Context(), ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Limit: limit, Offset: offset}, user(c))
 		respond(c, gin.H{"items": items}, err)
 	})
 	cat.GET("/entities/:id", func(c *gin.Context) { e, err := s.Get(c.Request.Context(), c.Param("id"), user(c)); respond(c, e, err) })

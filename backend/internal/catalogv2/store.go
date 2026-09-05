@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	_ "embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
@@ -234,9 +233,10 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		e.Title = strings.TrimSpace(e.Title)
 		e.UpdatedAt = time.Now().UTC()
 		ref := reference(ctx, tx, &u)
-		// Unchanged retired values remain editable, while new retired values are rejected.
-		historical := old.ID != "" && encode(old.Types) == encode(e.Types) && encode(old.Attributes) == encode(e.Attributes)
-		if err = v.Document.validateEntity(e, ref, historical); err != nil {
+		if err = v.Document.validateEntity(e, ref, true); err != nil {
+			return err
+		}
+		if err = v.Document.retiredEntity(e, old); err != nil {
 			return err
 		}
 		if e.WorkID != "" {
@@ -323,13 +323,13 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 }
 
 type ListOptions struct {
-	Kind, Query, Type, WorkID, ReleaseID, MediumID, ParentID, Field, Value string
-	Offset, Limit                                                          int
+	Kind, Query, Type, Status, WorkID, ContentUnitID, ReleaseID, MediumID, ParentID, Field, Value string
+	Offset, Limit                                                                                 int
 }
 
 func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, error) {
 	args := []any{}
-	parts := []string{"true"}
+	parts := []string{"status NOT IN ('deleted','merged')"}
 	add := func(clause string, value any) {
 		args = append(args, value)
 		parts = append(parts, fmt.Sprintf(clause, len(args)))
@@ -342,6 +342,9 @@ func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, err
 	if o.Kind != "" {
 		add("kind=$%d", o.Kind)
 	}
+	if o.Status != "" {
+		add("status=$%d", o.Status)
+	}
 	if o.Query != "" {
 		add("(title ILIKE $%[1]d OR (document->'translations')::text ILIKE $%[1]d)", "%"+o.Query+"%")
 	}
@@ -353,6 +356,9 @@ func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, err
 	}
 	if o.ReleaseID != "" {
 		add("id IN(SELECT id FROM catalog_v2.mediums WHERE release_id=$%d)", o.ReleaseID)
+	}
+	if o.ContentUnitID != "" {
+		add("id IN(SELECT id FROM catalog_v2.expressions WHERE content_unit_id=$%d)", o.ContentUnitID)
 	}
 	if o.MediumID != "" {
 		add("id IN(SELECT id FROM catalog_v2.tracks WHERE medium_id=$%d)", o.MediumID)
@@ -430,4 +436,19 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	return out, rows.Err()
 }
 
-var _ = errors.Is
+// ListAll is used for bounded entity directories, which must not silently truncate at 100.
+func (s *Store) ListAll(ctx context.Context, o ListOptions, u *User) ([]Entity, error) {
+	out := []Entity{}
+	o.Limit = 100
+	for {
+		items, err := s.List(ctx, o, u)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, items...)
+		if len(items) < o.Limit {
+			return out, nil
+		}
+		o.Offset += o.Limit
+	}
+}
