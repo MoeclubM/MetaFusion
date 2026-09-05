@@ -1881,6 +1881,7 @@
   "catalog.contents.role.opening": "Extra content",
   "catalog.contents.role.ending": "Extra content",
   "catalog.contents.role.trailer": "Extra content",
+  "catalog.contents.role.other": "Other content",
   "work.contents.title": "Work Content Directory",
   "work.contents.count": "{count} items",
   "work.contents.loading": "Loading content directory…",
