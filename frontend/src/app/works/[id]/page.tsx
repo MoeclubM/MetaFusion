@@ -1,5 +1,6 @@
 "use client";
 
+import styles from "./page.module.css";
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -9,7 +10,7 @@ import { fetchApi, Work, Release, DiscussionTopic, ConnectedEntityItem, pickLoca
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
-import { Layers, MessageSquare, User, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Eye, Bookmark, ArrowUpRight, Network, List } from "lucide-react";
+import { Layers, MessageSquare, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Eye, Bookmark, ArrowUpRight, Network, List } from "lucide-react";
 import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
@@ -36,7 +37,7 @@ export default function WorkDirectoryPage() {
  const [work, setWork] = useState<Work | null>(null);
  const [connected, setConnected] = useState<ConnectedEntityItem[]>([]);
  const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; links: GraphLink[] } | null>(null);
- const [relationViewMode, setRelationViewMode] = useState<"graph" | "list">("graph");
+ const [relationViewMode, setRelationViewMode] = useState<"graph" | "list">("list");
  const [releases, setReleases] = useState<Release[]>([]);
  const [total, setTotal] = useState(0);
  const [page, setPage] = useState(1);
@@ -110,7 +111,7 @@ export default function WorkDirectoryPage() {
  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
  if (loadingWork) {
- return <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center font-mono text-sm text-gray-500">{t("work.detail.loading")}</div></div>;
+ return <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center text-sm text-gray-500">{t("work.detail.loading")}</div></div>;
  }
 
  if (!work) {
@@ -120,7 +121,7 @@ export default function WorkDirectoryPage() {
  <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <Navbar />
- <div className="relative z-10 max-w-7xl mx-auto px-4 py-20 text-center font-mono text-sm text-gray-500">{t("common.notFoundWork")}</div>
+ <div className="relative z-10 max-w-7xl mx-auto px-4 py-20 text-center text-sm text-gray-500">{t("common.notFoundWork")}</div>
  </div>
  );
  }
@@ -129,136 +130,82 @@ export default function WorkDirectoryPage() {
  const localized = pickLocalized(locale, work.translations, work.title, work.summary);
 
  return (
- <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
- <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
- <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
- <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+ <div className="min-h-screen bg-background text-foreground">
  <Navbar onOpenUpload={() => setIsUploaderOpen(true)} />
- <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full space-y-5 flex-1">
- <div className="flex items-center gap-2 font-mono text-sm text-gray-500">
- <Link href="/explore" className="hover:text-primary transition-colors">{t("work.detail.explore")}</Link>
- <span className="text-gray-400 dark:text-white/20">/</span>
- <span className="text-gray-900 dark:text-white truncate max-w-[40ch]">{localized.title}</span>
- </div>
-
-	 <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden space-y-3">
-	 <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
-	 <div className="w-32 sm:w-40 shrink-0">
-	 <AdaptiveCover
-	 src={work.cover_image_url}
-	 alt={localized.title}
-	 title={localized.title}
-	 originalTitle={work.original_title}
-	 id={work.id}
-	 tags={(work.tags || []).map((t: any) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
-	 aspect={work.cover_aspect}
-	 className="rounded-md overflow-hidden border border-black/10 dark:border-white/10 bg-background shadow-xs"
-	 />
-	 </div>
-	 <div className="flex-1 space-y-3 min-w-0">
-	 <div className="flex flex-wrap items-center justify-between gap-2">
-	 <div className="flex flex-wrap items-center gap-2 font-mono text-xs tracking-wide">
-	 <span className="px-2.5 py-1 rounded-sm bg-primary text-white font-semibold">{t("work.detail.workBadge")}</span>
-	 <TemporalBadge
-	 beginDate={work.begin_date}
-	 endDate={work.end_date}
-	 ended={work.ended}
-	 activeLabel={t("entity.temporal.activeWork")}
-	 endedLabel={t("entity.temporal.endedWork")}
-	 />
-	 {meta.isbn_13 && <span className="text-gray-500">ISBN {meta.isbn_13}</span>}
-	 {meta.clc_code && <span className="text-gray-500">{t("work.detail.clc", { code: meta.clc_code })}</span>}
-	 </div>
-	 <div className="flex items-center gap-3 font-mono text-xs text-gray-500">
-	 <span className="inline-flex items-center gap-1.5" title={t("work.detail.viewCount", { count: work.view_count })}>
-	 <Eye className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
-	 <span>{t("work.detail.viewCount", { count: work.view_count })}</span>
-	 </span>
-	 <span className="inline-flex items-center gap-1.5" title={t("work.detail.favoriteCount", { count: work.favorite_count ?? 0 })}>
-	 <Bookmark className="w-3.5 h-3.5 text-amber-400/80" strokeWidth={1.5} />
-	 <span>{t("work.detail.favoriteCount", { count: work.favorite_count ?? 0 })}</span>
-	 </span>
-	 </div>
-	 </div>
-	 <div>
-	 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{localized.title}</h1>
-	 {isDistinctOriginalTitle(work.original_title, localized.title) && <p className="font-mono text-sm text-gray-500 dark:text-gray-400 mt-0.5">{work.original_title}</p>}
-	 {work.original_language && <p className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5">{t("work.detail.originalLanguage", { value: t(`origLang.${work.original_language}`) })}</p>}
-		 {work.aliases && work.aliases.length > 0 && (
-		   <p className="font-mono text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-		     {t("work.detail.alias", {
-		       value: work.aliases
-		         .map((a) => {
-		           if (typeof a === "string") {
-		             // 过滤并清洗 [map[v:...]] 或嵌套序列化噪音
-		             return a.replace(/\[?map\[v:([^\]]+)\]\]?/g, "$1").replace(/^[\[\s]+|[\]\s]+$/g, "").trim();
-		           }
-		           return String(a);
-		         })
-		         .filter(Boolean)
-		         .join(" / ")
-		     })}
-		   </p>
-		 )}
-		 </div>
-		 <StaffCharacterSection relations={work.artist_relations || []} roleLabel={roleLabel} />
-		 {localized.body && <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400 max-w-3xl line-clamp-3">{localized.body}</p>}
-	 {work.tags && work.tags.length > 0 && (
-	 <div className="flex flex-wrap gap-2 pt-0.5">
-	 {work.tags.map((tag) => (
-	 <Link
-	 key={tag.id}
-	 href={`/explore?tags=${encodeURIComponent(tag.name)}`}
-	 className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/5 dark:border-white/10 hover:border-primary/50 hover:text-primary transition-colors font-mono text-xs text-gray-600 dark:text-gray-400"
-	 >
-	 #{tag.name}
-	 </Link>
-	 ))}
-	 </div>
-	 )}
-
-	 {/* 外部权威数据库互联 */}
-	 {(work.external_links?.length || (work.external_ids && Object.keys(work.external_ids).length > 0)) && (
-	   <div className="pt-1">
-	     <ExternalAuthorityLinks
-	       externalIds={work.external_ids}
-	       externalLinks={work.external_links}
-	       category="work"
-	     />
-	   </div>
-	 )}
-
-	 {/* 实体扩展动态属性展示 (Dynamic Attributes) */}
-	 {work.attributes && Object.keys(work.attributes).length > 0 && (
-	   <div className="pt-1">
-	     <DynamicAttributeViewer attributes={work.attributes} />
-	   </div>
-	 )}
-
- {/* Action Toolbar */}
- <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
- <EntityActionToolbar
- onEdit={() => setIsEditorOpen(true)}
- onHistory={() => setIsHistoryOpen(true)}
- onMerge={() => setIsMergeOpen(true)}
- entityTypeLabel={t("entity.toolbar.work")}
- >
- <FavoriteButton targetType="work" targetId={work.id} />
- </EntityActionToolbar>
- </div>
- </div>
- </div>
- </section>
-
+ <main className={styles.page}>
+   <div className={styles.breadcrumb}>
+     <Link href="/explore">{t("work.detail.explore")}</Link><span>/</span><span>{localized.title}</span>
+   </div>
+   <header className={styles.header}>
+     <div className={styles.eyebrow}>
+       <span>{t("work.detail.workBadge")}</span>
+       <TemporalBadge beginDate={work.begin_date} endDate={work.end_date} ended={work.ended}
+         activeLabel={t("entity.temporal.activeWork")} endedLabel={t("entity.temporal.endedWork")} />
+     </div>
+     <h1>{localized.title}</h1>
+     {isDistinctOriginalTitle(work.original_title, localized.title) && <p className={styles.originalTitle}>{work.original_title}</p>}
+     <div className={styles.headerBottom}>
+       <EntityActionToolbar onEdit={() => setIsEditorOpen(true)} onHistory={() => setIsHistoryOpen(true)}
+         onMerge={() => setIsMergeOpen(true)} entityTypeLabel={t("entity.toolbar.work")}>
+         <FavoriteButton targetType="work" targetId={work.id} />
+       </EntityActionToolbar>
+       <div className={styles.stats}>
+         <span><Eye size={14} />{t("work.detail.viewCount", { count: work.view_count })}</span>
+         <span><Bookmark size={14} />{t("work.detail.favoriteCount", { count: work.favorite_count ?? 0 })}</span>
+       </div>
+     </div>
+   </header>
+   <nav className={styles.navigation} aria-label={t("work.detail.pageNavigation")}>
+     <a href="#overview">{t("work.detail.overview")}</a>
+     {!!work.artist_relations?.length && <a href="#staff">{t("work.detail.staffAndCharacters")}</a>}
+     <a href="#contents">{t("work.contents.title")}</a>
+     {(connected.length > 0 || (graphData && graphData.nodes.length > 1)) && <a href="#relations">{t("work.detail.relations")}</a>}
+     <a href="#releases">{t("work.detail.releaseCatalog")}</a>
+     <a href="#discussion">{t("work.detail.relatedTopics")}</a>
+   </nav>
+   <div className={styles.layout}>
+     <aside className={styles.sidebar}>
+       <div className={styles.cover}>
+         <AdaptiveCover src={work.cover_image_url} alt={localized.title} title={localized.title}
+           originalTitle={work.original_title} id={work.id} tags={(work.tags || []).map(tag => tag.name)}
+           aspect={work.cover_aspect} className="rounded-md overflow-hidden border border-black/10 dark:border-white/10" />
+       </div>
+       <section className={styles.facts}>
+         <h2>{t("work.detail.information")}</h2>
+         {work.original_language && <p>{t("work.detail.originalLanguage", { value: t(`origLang.${work.original_language}`) })}</p>}
+         {!!work.aliases?.length && <p>{t("work.detail.alias", { value: work.aliases.map(a => String(a).replace(/\[?map\[v:([^\]]+)\]\]?/g, "$1").replace(/^[\[\s]+|[\]\s]+$/g, "").trim()).filter(Boolean).join(" / ") })}</p>}
+         {meta.isbn_13 && <p>{t("work.detail.isbn", { value: meta.isbn_13 })}</p>}
+         {meta.clc_code && <p>{t("work.detail.clc", { code: meta.clc_code })}</p>}
+         {work.attributes && Object.keys(work.attributes).length > 0 && <DynamicAttributeViewer attributes={work.attributes} />}
+       </section>
+       {!!work.tags?.length && <section>
+         <h2>{t("work.detail.tagsHeading")}</h2>
+         <div className={styles.tags}>{work.tags.map(tag => <Link key={tag.id} href={`/explore?tags=${encodeURIComponent(tag.name)}`}>{tag.name}</Link>)}</div>
+       </section>}
+       {(!!work.external_links?.length || (work.external_ids && Object.keys(work.external_ids).length > 0)) && <section>
+         <h2>{t("work.detail.externalHeading")}</h2>
+         <ExternalAuthorityLinks externalIds={work.external_ids} externalLinks={work.external_links} category="work" />
+       </section>}
+     </aside>
+     <div className={styles.content}>
+       <section id="overview" className={styles.section}>
+         <h2 className={styles.sectionTitle}>{t("work.detail.overview")}</h2>
+         <p className={styles.summary}>{localized.body || t("work.detail.noSummary")}</p>
+       </section>
+       {!!work.artist_relations?.length && <section id="staff" className={styles.section}>
+         <h2 className={styles.sectionTitle}>{t("work.detail.staffAndCharacters")}</h2>
+         <StaffCharacterSection relations={work.artist_relations} roleLabel={roleLabel} />
+       </section>}
+       <div id="contents" className={styles.section}><WorkContentDirectory workId={work.id} /></div>
         {(connected.length > 0 || (graphData && graphData.nodes.length > 1)) && (
-          <div>
-            {relationViewMode === "graph" && graphData && graphData.nodes.length > 0 ? (
+          <div id="relations" className={styles.section}>
+            {(relationViewMode === "graph" || connected.length === 0) && graphData && graphData.nodes.length > 0 ? (
               <InteractiveRelationGraph
                 centerEntityId={work.id}
                 centerEntityType="work"
                 nodes={graphData.nodes}
                 links={graphData.links}
-                height={580}
+                height={400}
                 title={t("graph.titleWork")}
                 headerRightExtra={
                   connected.length > 0 ? (
@@ -284,7 +231,7 @@ export default function WorkDirectoryPage() {
                 }
               />
             ) : (
-              <section className="p-4 sm:p-5 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
+              <section className="p-4 sm:p-5 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface space-y-3">
                 <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2.5">
                   <h2 className="font-display text-sm font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
                     <Network className="w-4 h-4 text-primary" strokeWidth={1.5} />
@@ -317,16 +264,15 @@ export default function WorkDirectoryPage() {
           </div>
         )}
 
-        <WorkContentDirectory workId={work.id} />
 
- <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
+ <section id="releases" className={styles.section}>
  <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
  <div className="flex items-center gap-2">
  <span className="w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-md bg-sky-500/10 border border-sky-500/20">
  <Layers className="w-4 h-4 text-sky-500" strokeWidth={1.5} />
  </span>
  <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">{t("work.detail.releaseCatalog")}</h2>
- <span className="font-mono text-sm text-gray-500">{t("work.detail.totalReleases", { count: total })}</span>
+ <span className="text-sm text-gray-500">{t("work.detail.totalReleases", { count: total })}</span>
  </div>
  <div className="flex items-center gap-2">
  <form onSubmit={onSearch} className="relative w-full sm:w-auto">
@@ -334,6 +280,7 @@ export default function WorkDirectoryPage() {
  <input
  value={qInput}
  onChange={(e) => setQInput(e.target.value)}
+ aria-label={t("work.detail.searchPlaceholder")}
  placeholder={t("work.detail.searchPlaceholder")}
  className="pl-11 pr-3.5 h-9 max-sm:min-h-[44px] w-full sm:w-48 bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 rounded-md text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary/50 font-mono"
  />
@@ -348,14 +295,14 @@ export default function WorkDirectoryPage() {
  </div>
 
  {loadingReleases ? (
- <div className="p-8 text-center font-mono text-sm text-gray-500">{t("work.detail.loadingReleases")}</div>
+ <div className="p-8 text-center text-sm text-gray-500">{t("work.detail.loadingReleases")}</div>
  ) : releases.length === 0 ? (
- <div className="p-8 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center font-mono text-sm text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : user ? t("work.detail.beFirstUploader") : ""}</div>
+ <div className="p-8 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 text-center text-sm text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : user ? t("work.detail.beFirstUploader") : ""}</div>
  ) : (
  <>
  <div className="hidden sm:block overflow-x-auto">
  <table className="w-full text-left text-sm">
- <thead className="bg-black/[0.02] dark:bg-white/[0.02] border-b border-black/5 dark:border-white/[0.06] font-mono text-xs uppercase tracking-wider text-gray-500">
+ <thead className="bg-black/[0.02] dark:bg-white/[0.02] border-b border-black/5 dark:border-white/[0.06] text-xs uppercase tracking-wider text-gray-500">
  <tr>
  <th className="py-2.5 px-3.5 font-medium">{t("work.detail.tableRelease")}</th>
  <th className="py-2.5 px-3.5 font-medium">{t("work.detail.tablePublisher")}</th>
@@ -374,7 +321,7 @@ export default function WorkDirectoryPage() {
                {rel.edition_name} <ArrowUpRight className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.6} />
              </Link>
              {isBoxset && (
-               <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-[10px] font-mono font-medium shrink-0">
+               <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-[10px] font-medium shrink-0">
                  {t("work.detail.boxsetInclusion")}
                </span>
              )}
@@ -389,8 +336,8 @@ export default function WorkDirectoryPage() {
              rel.publisher || "—"
            )}
          </td>
-         <td className="py-2.5 px-3.5 font-mono text-gray-500">{rel.catalog_number || "—"}</td>
-         <td className="py-2.5 px-3.5 font-mono text-gray-500 text-right">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</td>
+         <td className="py-2.5 px-3.5 text-gray-500">{rel.catalog_number || "—"}</td>
+         <td className="py-2.5 px-3.5 text-gray-500 text-right">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</td>
        </tr>
      );
    })}
@@ -407,14 +354,14 @@ export default function WorkDirectoryPage() {
             <div className="font-semibold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2 inline-flex items-center gap-1.5 flex-wrap">
               <span>{rel.edition_name}</span>
               {isBoxset && (
-                <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-[10px] font-mono font-medium shrink-0">
+                <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 text-[10px] font-medium shrink-0">
                   {t("work.detail.boxsetInclusion")}
                 </span>
               )}
               <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 shrink-0" strokeWidth={1.6} />
             </div>
-            <div className="font-mono text-xs text-gray-500 truncate">{rel.publisher_entity ? rel.publisher_entity.name : rel.publisher || "—"} {rel.catalog_number ? "· " + rel.catalog_number : ""}</div>
-            <div className="font-mono text-xs text-gray-400">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</div>
+            <div className="text-xs text-gray-500 truncate">{rel.publisher_entity ? rel.publisher_entity.name : rel.publisher || "—"} {rel.catalog_number ? "· " + rel.catalog_number : ""}</div>
+            <div className="text-xs text-gray-400">{rel.edition_date ? new Date(rel.edition_date).toLocaleDateString() : "—"}</div>
           </div>
         </div>
       </a>
@@ -422,11 +369,12 @@ export default function WorkDirectoryPage() {
   })}
   </div>
  <div className="px-3.5 py-2.5 border-t border-black/5 dark:border-white/[0.06] bg-black/[0.01] dark:bg-white/[0.01] flex items-center justify-between">
- <span className="font-mono text-sm text-gray-500">
+ <span className="text-sm text-gray-500">
  {t("common.pagination", { page, total: totalPages })}
  </span>
  <div className="flex items-center gap-2">
  <button
+ aria-label={t("work.detail.previousPage")}
  disabled={page <= 1}
  onClick={() => setPage((p) => Math.max(1, p - 1))}
  className="w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 disabled:opacity-40 hover:bg-black/[0.06] dark:hover:bg-white/[0.10]"
@@ -434,13 +382,14 @@ export default function WorkDirectoryPage() {
  <ChevronLeft className="w-4 h-4" strokeWidth={1.6} />
  </button>
  <button
+ aria-label={t("work.detail.nextPage")}
  disabled={page >= totalPages}
  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
  className="w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 disabled:opacity-40 hover:bg-black/[0.06] dark:hover:bg-white/[0.10]"
  >
  <ChevronRight className="w-4 h-4" strokeWidth={1.6} />
  </button>
- <Link href={`/works/${workId}/releases`} className="ml-1 inline-flex items-center gap-2 h-9 max-sm:min-h-[44px] px-3.5 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm font-mono text-gray-700 dark:text-gray-300 hover:text-primary transition-colors">
+ <Link href={`/works/${workId}/releases`} className="ml-1 inline-flex items-center gap-2 h-9 max-sm:min-h-[44px] px-3.5 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-sm text-gray-700 dark:text-gray-300 hover:text-primary transition-colors">
  {t("work.detail.viewAll")} <ArrowRight className="w-4 h-4" strokeWidth={1.6} />
  </Link>
  </div>
@@ -449,31 +398,33 @@ export default function WorkDirectoryPage() {
  )}
  </section>
 
- <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft">
+ <section id="discussion" className={styles.section}>
  <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2">
  <h3 className="font-display text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
  <MessageSquare className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
  <span>{t("work.detail.relatedTopics")}</span>
- <span className="font-mono text-sm font-normal text-gray-500">({topics.length})</span>
+ <span className="text-sm font-normal text-gray-500">({topics.length})</span>
  </h3>
- <Link href="/community?board_code=comment" className="font-mono text-sm text-primary hover:underline inline-flex items-center gap-0.5">
+ <Link href="/community?board_code=comment" className="text-sm text-primary hover:underline inline-flex items-center gap-0.5">
  <span>{t("work.detail.enterForum")}</span>
  <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
  </Link>
  </div>
  {topics.length === 0 ? (
- <p className="font-mono text-sm text-gray-500 mt-2">{t("work.detail.noRelatedTopics")}</p>
+ <p className="text-sm text-gray-500 mt-2">{t("work.detail.noRelatedTopics")}</p>
  ) : (
  <div className="divide-y divide-black/5 dark:divide-white/[0.06] mt-2">
  {topics.slice(0, 3).map((t) => (
  <Link key={t.id} href={`/community/${t.id}`} className="py-2.5 flex items-center justify-between hover:bg-black/[0.02] dark:hover:bg-white/[0.02] px-2.5 rounded-md transition-colors">
  <span className="text-sm text-gray-800 dark:text-gray-200 truncate pr-4">{t.title}</span>
- <span className="font-mono text-xs text-gray-500 shrink-0">{new Date(t.created_at).toLocaleDateString()}</span>
+ <span className="text-xs text-gray-500 shrink-0">{new Date(t.created_at).toLocaleDateString()}</span>
  </Link>
  ))}
  </div>
  )}
  </section>
+     </div>
+   </div>
  </main>
  <MultipartUploader isOpen={isUploaderOpen} onClose={() => setIsUploaderOpen(false)} workId={work.id} onUploadSuccess={() => { loadReleases(1, q); setPage(1); }} />
 
