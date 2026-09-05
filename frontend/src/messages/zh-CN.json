@@ -2049,5 +2049,7 @@
   "settings.titleDisplayOrderMoveUp": "上移",
   "settings.titleDisplayOrderMoveDown": "下移",
   "settings.titleDisplayOrderRemove": "移出优先级",
-  "editor.diff.fieldTranslations": "多语言标题/简介"
+  "editor.diff.fieldTranslations": "多语言标题/简介",
+  "editor.core.originalLangEntityLabel": "内容主语言（原始语言）",
+  "editor.core.originalLangEntityHint": "该实体内容本身的主语言；原语言姓名/题名将归入对应语种的翻译行，展示跟随用户显示语言优先级。"
 }

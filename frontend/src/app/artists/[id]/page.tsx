@@ -94,6 +94,7 @@ export default function ArtistDetailPage() {
   const artist = data.artist;
   const localized = pickLocalized(locale, artist?.translations, artist?.name || "", artist?.biography, {
     order: titleOrder,
+    originalLanguage: artist?.original_language,
   });
   const works = (data.works || []).map((item: any) => {
     // 兼容后端返回的 ArtistWorkItem { work: Work, role: string } 或直接 Work
@@ -166,9 +167,9 @@ export default function ArtistDetailPage() {
               </div>
               <div>
                 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{localized.title}</h1>
-                {isDistinctOriginalTitle(artist.original_name, localized.title) && <p className="font-mono text-xs text-gray-500 dark:text-gray-400 mt-0.5">{artist.original_name}</p>}
                 <LocalizedTitleGroups
                   translations={artist.translations}
+                  originalLanguage={artist.original_language}
                   displayTitle={localized.title}
                   extraKnown={[artist.name, artist.original_name]}
                   className="mt-0.5 space-y-0.5"

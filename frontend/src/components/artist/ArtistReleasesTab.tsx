@@ -6,6 +6,7 @@ import {
   Release,
   pickLocalized,
 } from "@/lib/api";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
@@ -34,6 +35,7 @@ type SortOption = "date_desc" | "date_asc" | "title_asc" | "catalog_no";
 
 export function ArtistReleasesTab({ releases, artistName }: ArtistReleasesTabProps) {
   const { t, locale } = useI18n();
+  const titleOrder = useTitleDisplayOrder();
   const { packagingLabel, mediumFormatLabel } = useTaxonomy();
 
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -152,14 +154,14 @@ export function ArtistReleasesTab({ releases, artistName }: ArtistReleasesTabPro
       };
     }
 
-    const localized = pickLocalized(locale, w.translations, w.title, "");
+    const localized = pickLocalized(locale, w.translations, w.title, "", { order: titleOrder });
     const title = localized.title || w.title || rel.edition_name;
     const originalTitle = isDistinctOriginalTitle(w.original_title, title) ? w.original_title : undefined;
 
     const creators = (w.artist_relations || [])
       .filter((ar) => ar.artist?.name && ar.artist.name !== artistName)
       .map((ar) => {
-        const arLoc = pickLocalized(locale, ar.artist?.translations, ar.artist?.name || "", "");
+        const arLoc = pickLocalized(locale, ar.artist?.translations, ar.artist?.name || "", "", { order: titleOrder });
         return {
           id: ar.artist_id,
           name: arLoc.title || ar.artist?.name,

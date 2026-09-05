@@ -23,6 +23,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { EntityCover } from "@/components/common/EntityCover";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { Select } from "@/components/ui/Select";
 import { Pagination } from "@/components/ui/Pagination";
 import {
@@ -47,6 +48,7 @@ type ExploreType = "works" | "contents" | "releases" | "mediums" | "artists" | "
 
 function ExploreContent() {
   const { t, locale } = useI18n();
+  const titleOrder = useTitleDisplayOrder();
   const { taxonomy, entityTypeLabel, packagingLabel, mediumFormatLabel, mediaCategoryLabel } = useTaxonomy();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -730,7 +732,7 @@ function ExploreContent() {
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
                 {works.map((w) => {
-                  const loc = pickLocalized(locale, w.translations, w.title, w.summary);
+                  const loc = pickLocalized(locale, w.translations, w.title, w.summary, { order: titleOrder });
                   return (
                   <Link
                     key={w.id}
@@ -781,7 +783,7 @@ function ExploreContent() {
             ) : (
               <div className="rounded-lg border border-black/10 dark:border-white/10 bg-surface overflow-hidden shadow-2xs divide-y divide-black/[0.06] dark:divide-white/[0.06]">
                 {works.map((w) => {
-                  const loc = pickLocalized(locale, w.translations, w.title, w.summary);
+                  const loc = pickLocalized(locale, w.translations, w.title, w.summary, { order: titleOrder });
                   const showOriginal = isDistinctOriginalTitle(w.original_title, loc.title);
                   const dateLabel = w.release_date ? String(w.release_date).slice(0, 10) : "";
                   return (
@@ -851,7 +853,7 @@ function ExploreContent() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {contents.map((entry) => {
-                  const workLoc = entry.work ? pickLocalized(locale, entry.work.translations, entry.work.title, entry.work.summary) : null;
+                  const workLoc = entry.work ? pickLocalized(locale, entry.work.translations, entry.work.title, entry.work.summary, { order: titleOrder }) : null;
                   const duration = entry.duration_seconds ?? entry.duration ?? 0;
                   return (
                     <Link
@@ -905,7 +907,7 @@ function ExploreContent() {
                 {mediums.map((medium) => {
                   const release = medium.release;
                   const work = release?.work;
-                  const workLoc = work ? pickLocalized(locale, work.translations, work.title, work.summary) : null;
+                  const workLoc = work ? pickLocalized(locale, work.translations, work.title, work.summary, { order: titleOrder }) : null;
                   return (
                     <Link
                       key={medium.id}
@@ -966,7 +968,7 @@ function ExploreContent() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {artists.map((a) => {
-                  const loc = pickLocalized(locale, a.translations, a.name, a.biography);
+                  const loc = pickLocalized(locale, a.translations, a.name, a.biography, { order: titleOrder });
                   return (
                   <Link
                     key={a.id}
@@ -1024,7 +1026,7 @@ function ExploreContent() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {franchises.map((f) => {
-                  const loc = pickLocalized(locale, f.translations, f.title, f.summary);
+                  const loc = pickLocalized(locale, f.translations, f.title, f.summary, { order: titleOrder });
                   return (
                   <Link
                     key={f.id}

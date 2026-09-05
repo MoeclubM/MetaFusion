@@ -77,6 +77,7 @@ export default function FranchiseDetailPage() {
   const fr: Franchise = data.franchise;
   const localized = pickLocalized(locale, fr.translations, fr.title, fr.summary, {
     order: titleOrder,
+    originalLanguage: fr.original_language,
   });
   const parents = data.parents || [];
   const children = data.children || [];
@@ -131,12 +132,10 @@ export default function FranchiseDetailPage() {
                 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
                   {localized.title}
                 </h1>
-                {isDistinctOriginalTitle(fr.original_title, localized.title) && (
-                  <p className="font-mono text-sm text-gray-500 mt-0.5">{fr.original_title}</p>
-                )}
                 <LocalizedTitleGroups
                   translations={fr.translations}
                   aliases={fr.aliases}
+                  originalLanguage={fr.original_language}
                   displayTitle={localized.title}
                   extraKnown={[fr.title, fr.original_title]}
                   className="mt-0.5 space-y-0.5"

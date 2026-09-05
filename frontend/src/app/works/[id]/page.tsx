@@ -149,7 +149,15 @@ export default function WorkDirectoryPage() {
          activeLabel={t("entity.temporal.activeWork")} endedLabel={t("entity.temporal.endedWork")} />
      </div>
      <h1>{localized.title}</h1>
-     {isDistinctOriginalTitle(work.original_title, localized.title) && <p className={styles.originalTitle}>{work.original_title}</p>}
+     <LocalizedTitleGroups
+       translations={work.translations}
+       aliases={work.aliases}
+       originalLanguage={work.original_language}
+       displayTitle={localized.title}
+       extraKnown={[work.title, work.original_title]}
+       className="mt-1.5 space-y-0.5"
+       itemClassName="font-mono text-sm text-gray-500 dark:text-gray-400"
+     />
      <div className={styles.headerBottom}>
        <EntityActionToolbar onEdit={() => setIsEditorOpen(true)} onHistory={() => setIsHistoryOpen(true)}
          onMerge={() => setIsMergeOpen(true)} entityTypeLabel={t("entity.toolbar.work")}>
@@ -178,13 +186,6 @@ export default function WorkDirectoryPage() {
        </div>
        <section className={styles.facts}>
          <h2>{t("work.detail.information")}</h2>
-         <LocalizedTitleGroups
-           translations={work.translations}
-           aliases={work.aliases}
-           originalLanguage={work.original_language}
-           displayTitle={localized.title}
-           extraKnown={[work.title, work.original_title]}
-         />
          {meta.isbn_13 && <p>{t("work.detail.isbn", { value: meta.isbn_13 })}</p>}
          {meta.clc_code && <p>{t("work.detail.clc", { code: meta.clc_code })}</p>}
          {work.attributes && Object.keys(work.attributes).length > 0 && <DynamicAttributeViewer attributes={work.attributes} />}
