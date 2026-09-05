@@ -1024,7 +1024,13 @@ func (s *ImporterService) importWorkHandler(c *gin.Context, userID uuid.UUID, re
 				artist.Biography = assoc.Biography
 				updArtist["biography"] = assoc.Biography
 			}
-				if (artist.AvatarURL == "" || !strings.HasPrefix(artist.AvatarURL, "/uploads/")) && artAvatarURL != "" {
+				// 头像更新：空值必填；非本地链路照常刷新；存量 /uploads/ 本地死链
+				// （容器重建即丢）在新链已成功落 S3 时迁移替换，避免永久 404。
+				shouldSetAvatar := artAvatarURL != "" &&
+					(artist.AvatarURL == "" ||
+						!strings.HasPrefix(artist.AvatarURL, "/uploads/") ||
+						strings.HasPrefix(artAvatarURL, "/storage/preview/"))
+				if shouldSetAvatar {
 					artist.AvatarURL = artAvatarURL
 					updArtist["avatar_url"] = artAvatarURL
 				}
