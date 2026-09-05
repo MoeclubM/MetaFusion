@@ -1460,6 +1460,41 @@ export async function updateCanonicalEntry(id: string, payload: Record<string, a
   });
 }
 
+export async function createCanonicalEntry(payload: Record<string, any>): Promise<CanonicalEntry> {
+  return fetchApi<CanonicalEntry>("/catalog/canonical-entries", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createMedium(payload: Record<string, any>): Promise<Medium> {
+  return fetchApi<Medium>("/catalog/mediums", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateMedium(id: string, payload: Record<string, any>): Promise<Medium> {
+  return fetchApi<Medium>(`/catalog/mediums/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function createTrack(payload: Record<string, any>): Promise<Track> {
+  return fetchApi<Track>("/catalog/tracks", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateTrack(id: string, payload: Record<string, any>): Promise<Track> {
+  return fetchApi<Track>(`/catalog/tracks/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function mergeEntities(payload: {
   target_type: string;
   source_id: string;
