@@ -3,8 +3,6 @@ package catalog
 import (
 	"errors"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,34 +16,34 @@ import (
 // CanonicalEntryDetailResponse 典范篇目详情响应体
 type CanonicalEntryDetailResponse struct {
 	models.CanonicalEntry
-	Releases          []ReleaseSummaryItem         `json:"releases"`
-	Tracks            []models.Track               `json:"tracks"`
-	AssetFiles        []AssetResourceItem          `json:"asset_files,omitempty"`
-	ConnectedEntities []ConnectedEntityItem        `json:"connected_entities"`
-	ExternalLinks     []models.ExternalLinkItem    `json:"external_links"`
-	Relations         []models.EntityRelationship  `json:"relations,omitempty"`
-	Revisions         []models.EntityRevision      `json:"revisions,omitempty"`
+	Releases          []ReleaseSummaryItem        `json:"releases"`
+	Tracks            []models.Track              `json:"tracks"`
+	AssetFiles        []AssetResourceItem         `json:"asset_files,omitempty"`
+	ConnectedEntities []ConnectedEntityItem       `json:"connected_entities"`
+	ExternalLinks     []models.ExternalLinkItem   `json:"external_links"`
+	Relations         []models.EntityRelationship `json:"relations,omitempty"`
+	Revisions         []models.EntityRevision     `json:"revisions,omitempty"`
 }
 
 // ReleaseSummaryItem 篇目所收录的 Release 简要信息
 type ReleaseSummaryItem struct {
-	ReleaseID       uuid.UUID       `json:"release_id"`
-	EditionName     string          `json:"edition_name"`
-	CoverImageURL   string          `json:"cover_image_url,omitempty"`
-	CoverAspect     string          `json:"cover_aspect,omitempty"`
-	EditionDate     *time.Time      `json:"edition_date,omitempty"`
-	Country         string          `json:"country,omitempty"`
-	Publisher       string          `json:"publisher,omitempty"`
-	PublisherEntity *models.Artist  `json:"publisher_entity,omitempty"`
-	MediumName      string          `json:"medium_name"`
-	MediumFormat    string          `json:"medium_format"`
-	MediaCategory   string          `json:"media_category"`
-	MediumPosition  int             `json:"medium_position"`
-	TrackPosition   int             `json:"track_position"`
-	TrackTitle      string          `json:"track_title"`
-	DurationSeconds int             `json:"duration_seconds"`
-	ISRC            string          `json:"isrc,omitempty"`
-	ArtistCredit    string          `json:"artist_credit,omitempty"`
+	ReleaseID       uuid.UUID      `json:"release_id"`
+	EditionName     string         `json:"edition_name"`
+	CoverImageURL   string         `json:"cover_image_url,omitempty"`
+	CoverAspect     string         `json:"cover_aspect,omitempty"`
+	EditionDate     *time.Time     `json:"edition_date,omitempty"`
+	Country         string         `json:"country,omitempty"`
+	Publisher       string         `json:"publisher,omitempty"`
+	PublisherEntity *models.Artist `json:"publisher_entity,omitempty"`
+	MediumName      string         `json:"medium_name"`
+	MediumFormat    string         `json:"medium_format"`
+	MediaCategory   string         `json:"media_category"`
+	MediumPosition  int            `json:"medium_position"`
+	TrackPosition   int            `json:"track_position"`
+	TrackTitle      string         `json:"track_title"`
+	DurationSeconds int            `json:"duration_seconds"`
+	ISRC            string         `json:"isrc,omitempty"`
+	ArtistCredit    string         `json:"artist_credit,omitempty"`
 }
 
 // GetCanonicalEntryDetail 获取单典范篇目(LRM-E2 Expression)详情及收录的 Release、Tracks 与图谱关联
@@ -71,6 +69,7 @@ func (s *CatalogService) GetCanonicalEntryDetail(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	localizeContent(&entry, backendi18n.LocaleFromContext(c))
 	// 署名单轨化：Work.ArtistRelations 由图边读时投影
 	if entry.Work != nil {
 		AttachWorkArtistRelationsPtr(s.db, []*models.Work{entry.Work})
@@ -79,7 +78,10 @@ func (s *CatalogService) GetCanonicalEntryDetail(c *gin.Context) {
 	// 查询引用此篇目的所有 Tracks 及对应的 Medium 与 Release
 	var tracks []models.Track
 	_ = s.db.
-		Where("canonical_entry_id = ?", entryID).
+		Preload("Contents").
+		Preload("Contents.CanonicalEntry").
+		Preload("Contents.CanonicalEntry.Work").
+		Where("canonical_entry_id = ? OR id IN (SELECT track_id FROM track_contents WHERE canonical_entry_id = ?)", entryID, entryID).
 		Order("position asc").
 		Find(&tracks).Error
 
@@ -113,6 +115,10 @@ func (s *CatalogService) GetCanonicalEntryDetail(c *gin.Context) {
 			Where("id IN ?", releaseIDs).
 			Find(&releases).Error
 	}
+	locale := backendi18n.LocaleFromContext(c)
+	for i := range releases {
+		localizeRelease(&releases[i], locale)
+	}
 
 	releaseMap := make(map[uuid.UUID]models.Release)
 	for _, r := range releases {
@@ -129,11 +135,15 @@ func (s *CatalogService) GetCanonicalEntryDetail(c *gin.Context) {
 		if !hasRel {
 			continue
 		}
+		localizeMedium(&med, locale)
+		localizeTrack(&tr, locale)
 
-		coverURL := ""
-		coverAspect := ""
-		if rel.Work != nil {
+		coverURL := rel.CoverImageURL
+		coverAspect := rel.CoverAspect
+		if coverURL == "" && rel.Work != nil {
 			coverURL = rel.Work.CoverImageURL
+		}
+		if coverAspect == "" && rel.Work != nil {
 			coverAspect = rel.Work.CoverAspect
 		}
 
@@ -154,19 +164,19 @@ func (s *CatalogService) GetCanonicalEntryDetail(c *gin.Context) {
 
 		releaseSummaries = append(releaseSummaries, ReleaseSummaryItem{
 			ReleaseID:       rel.ID,
-			EditionName:     rel.EditionName,
+			EditionName:     rel.LocalizedEditionName,
 			CoverImageURL:   coverURL,
 			CoverAspect:     coverAspect,
 			EditionDate:     rel.EditionDate,
 			Country:         rel.Country,
 			Publisher:       rel.Publisher,
 			PublisherEntity: rel.PublisherEntity,
-			MediumName:      med.Name,
+			MediumName:      med.LocalizedName,
 			MediumFormat:    med.Format,
 			MediaCategory:   med.MediaCategory,
 			MediumPosition:  med.Position,
 			TrackPosition:   tr.Position,
-			TrackTitle:      tr.Title,
+			TrackTitle:      tr.LocalizedTitle,
 			DurationSeconds: dur,
 			ISRC:            isrc,
 			ArtistCredit:    artistCredit,
@@ -174,7 +184,6 @@ func (s *CatalogService) GetCanonicalEntryDetail(c *gin.Context) {
 	}
 
 	// 语义关系边
-	locale := backendi18n.LocaleFromContext(c)
 	var rels []models.EntityRelationship
 	s.db.Where("(source_type = 'canonical_entry' AND source_id = ?) OR (target_type = 'canonical_entry' AND target_id = ?)", entryID, entryID).
 		Order("created_at desc").Limit(50).Find(&rels)
@@ -331,156 +340,4 @@ func (s *CatalogService) GetCanonicalEntryGraph(c *gin.Context) {
 		"nodes": nodes,
 		"links": links,
 	})
-}
-
-// ListCanonicalEntriesPublic 供前台分页或条件筛选典范篇目列表
-func (s *CatalogService) ListCanonicalEntriesPublic(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "24"))
-	if page < 1 {
-		page = 1
-	}
-	if pageSize < 1 || pageSize > 100 {
-		pageSize = 24
-	}
-	workIDStr := c.Query("work_id")
-	q := c.Query("q")
-	query := s.db.Model(&models.CanonicalEntry{}).Preload("Work").Preload("Work.Translations")
-	if workIDStr != "" {
-		if wid, err := uuid.Parse(workIDStr); err == nil {
-			query = query.Where("work_id = ?", wid)
-		}
-	}
-	if q != "" {
-		like := "%" + q + "%"
-		query = query.Where("title ILIKE ? OR isrc ILIKE ? OR isbn ILIKE ? OR artist_credit ILIKE ?", like, like, like, like)
-	}
-	var total int64
-	query.Count(&total)
-	var entries []models.CanonicalEntry
-	offset := (page - 1) * pageSize
-	if err := query.Order("created_at desc").Offset(offset).Limit(pageSize).Find(&entries).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"items": entries, "total": total, "page": page, "page_size": pageSize})
-}
-
-// UpdateCanonicalEntryForMember 会员/编目员编辑典范篇目
-func (s *CatalogService) UpdateCanonicalEntryForMember(c *gin.Context) {
-	entryID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid canonical entry ID"})
-		return
-	}
-
-	var entry models.CanonicalEntry
-	if err := s.db.Where("id = ?", entryID).First(&entry).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Canonical entry not found"})
-		return
-	}
-
-	var input struct {
-		Title           string                 `json:"title"`
-		SortTitle       string                 `json:"sort_title"`
-		DurationSeconds int                    `json:"duration_seconds"`
-		ISRC            string                 `json:"isrc"`
-		ISBN            string                 `json:"isbn"`
-		ArtistCredit    string                 `json:"artist_credit"`
-		RecordingDate   string                 `json:"recording_date"`
-		WorkID          *uuid.UUID             `json:"work_id"`
-		ExternalIDs     map[string]interface{} `json:"external_ids"`
-		Attributes      map[string]interface{} `json:"attributes"`
-		EditNote        string                 `json:"edit_note"`
-		SourceURLs      []string               `json:"source_urls"`
-	}
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	beforeState := map[string]interface{}{
-		"title":            entry.Title,
-		"sort_title":       entry.SortTitle,
-		"duration_seconds": entry.Duration,
-		"isrc":             entry.ISRC,
-		"isbn":             entry.ISBN,
-		"artist_credit":    entry.ArtistCredit,
-		"recording_date":   entry.RecordingDate,
-		"work_id":          entry.WorkID,
-		"external_ids":     entry.ExternalIDs,
-		"attributes":       entry.Attributes,
-	}
-
-	updates := map[string]interface{}{}
-	if input.Title != "" {
-		updates["title"] = strings.TrimSpace(input.Title)
-		entry.Title = strings.TrimSpace(input.Title)
-	}
-	if input.SortTitle != "" {
-		updates["sort_title"] = strings.TrimSpace(input.SortTitle)
-		entry.SortTitle = strings.TrimSpace(input.SortTitle)
-	}
-	if input.DurationSeconds > 0 {
-		updates["duration_seconds"] = input.DurationSeconds
-		entry.Duration = input.DurationSeconds
-	}
-	if input.ISRC != "" {
-		updates["isrc"] = strings.TrimSpace(input.ISRC)
-		entry.ISRC = strings.TrimSpace(input.ISRC)
-	}
-	if input.ISBN != "" {
-		updates["isbn"] = strings.TrimSpace(input.ISBN)
-		entry.ISBN = strings.TrimSpace(input.ISBN)
-	}
-	if input.ArtistCredit != "" {
-		updates["artist_credit"] = strings.TrimSpace(input.ArtistCredit)
-		entry.ArtistCredit = strings.TrimSpace(input.ArtistCredit)
-	}
-	if input.RecordingDate != "" {
-		recordingDate, err := ontology.NormalizePartialDate(input.RecordingDate)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		updates["recording_date"] = recordingDate
-		entry.RecordingDate = recordingDate
-	}
-	if input.WorkID != nil {
-		updates["work_id"] = input.WorkID
-		entry.WorkID = input.WorkID
-	}
-	if input.ExternalIDs != nil {
-		updates["external_ids"] = models.JSONB(input.ExternalIDs)
-		entry.ExternalIDs = models.JSONB(input.ExternalIDs)
-	}
-	if input.Attributes != nil {
-		updates["attributes"] = models.JSONB(input.Attributes)
-		entry.Attributes = models.JSONB(input.Attributes)
-	}
-
-	if len(updates) > 0 {
-		if err := s.db.Model(&entry).Updates(updates).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-	}
-
-	afterState := map[string]interface{}{
-		"title":            entry.Title,
-		"sort_title":       entry.SortTitle,
-		"duration_seconds": entry.Duration,
-		"isrc":             entry.ISRC,
-		"isbn":             entry.ISBN,
-		"artist_credit":    entry.ArtistCredit,
-		"recording_date":   entry.RecordingDate,
-		"work_id":          entry.WorkID,
-		"external_ids":     entry.ExternalIDs,
-		"attributes":       entry.Attributes,
-	}
-
-	uid := currentUserID(c)
-	s.recordRevision("canonical_entry", entry.ID, uid, "update", "编辑典范篇目信息", input.EditNote, input.SourceURLs, beforeState, afterState)
-
-	c.JSON(http.StatusOK, entry)
 }

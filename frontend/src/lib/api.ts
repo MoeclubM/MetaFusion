@@ -425,6 +425,15 @@ export interface WorkArtistRelation {
 
 export interface CanonicalEntry {
   id: string;
+  parent_id?: string | null;
+  position?: number;
+  number?: string;
+  entry_role?: string;
+  original_language?: string;
+  version_label?: string;
+  translations?: Record<string, { title?: string; version_label?: string }>;
+  localized_title?: string;
+  localized_version_label?: string;
   title: string;
   sort_title?: string;
   duration?: number;
@@ -473,6 +482,8 @@ export interface CanonicalEntryDetailResponse extends CanonicalEntry {
 export interface Track {
   id: string;
   medium_id: string;
+  parent_id?: string | null;
+  number?: string;
   canonical_entry_id?: string;
   work_id?: string;
   position: number;
@@ -482,8 +493,27 @@ export interface Track {
   isrc?: string;
   artist_credit?: string;
   air_date?: string;
+  original_language?: string;
+  translations?: Record<string, { title?: string }>;
+  locator?: Record<string, any>;
+  localized_title?: string;
+  contents?: TrackContent[];
   work?: Work;
   canonical_entry?: CanonicalEntry;
+}
+
+export interface TrackContent {
+  id: string;
+  track_id: string;
+  canonical_entry_id: string;
+  position: number;
+  locator?: Record<string, any>;
+  canonical_entry?: CanonicalEntry;
+}
+
+export interface WorkContentsResponse {
+  items: CanonicalEntry[];
+  total: number;
 }
 
 export interface AssetBinding {
@@ -537,11 +567,17 @@ export interface AdminAuditLog {
 export interface Medium {
   id: string;
   release_id: string;
+  parent_id?: string | null;
   position: number;
+  number?: string;
+  role?: "primary" | "supplement" | string;
   name: string;
   format: string;
   media_category: string;
   track_count: number;
+  original_language?: string;
+  translations?: Record<string, { name?: string }>;
+  localized_name?: string;
   tracks?: Track[];
   asset_files?: AssetFile[];
 }
@@ -549,6 +585,12 @@ export interface Medium {
 export interface Release {
   id: string;
   work_id: string;
+  cover_image_url?: string;
+  cover_aspect?: string;
+  original_language?: string;
+  translations?: Record<string, { edition_name?: string; notes?: string }>;
+  localized_edition_name?: string;
+  localized_notes?: string;
   publisher_id?: string;
   edition_name: string;
   catalog_number?: string;
@@ -1386,6 +1428,10 @@ export async function updateWork(id: string, payload: Record<string, any>): Prom
   });
 }
 
+export async function fetchWorkContents(id: string): Promise<WorkContentsResponse> {
+  return fetchApi<WorkContentsResponse>(`/catalog/works/${id}/contents`);
+}
+
 export async function updateArtist(id: string, payload: Record<string, any>): Promise<{ status: string; artist: Artist }> {
   return fetchApi<{ status: string; artist: Artist }>(`/catalog/artists/${id}`, {
     method: "PUT",
@@ -1562,6 +1608,18 @@ export interface ImporterReleasePreview {
   catalog_metadata?: Record<string, any>;
 }
 
+export interface ImporterCanonicalEntryPreview {
+  title: string;
+  translations?: Record<string, { title?: string; summary?: string }>;
+  position: number;
+  number?: string;
+  entry_role?: string;
+  original_language?: string;
+  duration_seconds?: number;
+  attributes?: Record<string, any>;
+  external_ids?: Record<string, any>;
+}
+
 export interface ImporterPreviewResponse {
   source: string;
   entity_type?: string;
@@ -1571,7 +1629,9 @@ export interface ImporterPreviewResponse {
   work?: ImporterWorkPreview;
   artist?: ImporterArtistPreview;
   artists?: ImporterArtistPreview[];
-  release?: ImporterReleasePreview;
+  has_release?: boolean;
+  canonical_entries?: ImporterCanonicalEntryPreview[];
+  release?: ImporterReleasePreview | null;
   mediums?: ImporterMediumPreview[];
   tags: string[];
 }
@@ -1586,7 +1646,9 @@ export interface ImporterImportRequest {
   artist?: ImporterArtistPreview;
   artists?: ImporterArtistPreview[];
   staff_associations?: StaffAssociation[];
-  release?: ImporterReleasePreview;
+  has_release?: boolean;
+  canonical_entries?: ImporterCanonicalEntryPreview[];
+  release?: ImporterReleasePreview | null;
   mediums?: ImporterMediumPreview[];
   download_cover?: boolean;
   edit_note?: string;

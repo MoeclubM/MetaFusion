@@ -57,6 +57,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 		&models.Medium{},
 		&models.CanonicalEntry{},
 		&models.Track{},
+		&models.TrackContent{},
 		&models.AssetFile{},
 		&models.AssetRegistry{},
 		&models.AssetBinding{},

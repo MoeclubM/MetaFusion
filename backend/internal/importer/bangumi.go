@@ -64,14 +64,14 @@ type bgmInfoboxItem struct {
 }
 
 type bgmSubjectResponse struct {
-	ID            int              `json:"id"`
-	Type          int              `json:"type"` // 1: book, 2: anime, 3: music, 4: game, 6: real
-	Name          string           `json:"name"`
-	NameCN        string           `json:"name_cn"`
-	Summary       string           `json:"summary"`
-	Date          string           `json:"date"`
-	Platform      string           `json:"platform"`
-	Images        struct {
+	ID       int    `json:"id"`
+	Type     int    `json:"type"` // 1: book, 2: anime, 3: music, 4: game, 6: real
+	Name     string `json:"name"`
+	NameCN   string `json:"name_cn"`
+	Summary  string `json:"summary"`
+	Date     string `json:"date"`
+	Platform string `json:"platform"`
+	Images   struct {
 		Large  string `json:"large"`
 		Common string `json:"common"`
 		Medium string `json:"medium"`
@@ -91,7 +91,7 @@ type bgmSubjectResponse struct {
 type bgmPersonItem struct {
 	ID       int      `json:"id"`
 	Name     string   `json:"name"`
-	Type     int      `json:"type"` // 1: person, 2: company/studio, 3: group
+	Type     int      `json:"type"`     // 1: person, 2: company/studio, 3: group
 	Relation string   `json:"relation"` // "原作", "导演", "作者", "音乐", "动画制作", "出版社", etc.
 	Career   []string `json:"career"`
 	Images   struct {
@@ -265,11 +265,11 @@ func bgmInfoboxText(infobox []bgmInfoboxItem, keys ...string) string {
 }
 
 type bgmPersonDetail struct {
-	ID      int              `json:"id"`
-	Name    string           `json:"name"`
-	Type    int              `json:"type"` // 1: individual, 2: company, 3: group
-	Career  []string         `json:"career"`
-	Summary string           `json:"summary"`
+	ID      int      `json:"id"`
+	Name    string   `json:"name"`
+	Type    int      `json:"type"` // 1: individual, 2: company, 3: group
+	Career  []string `json:"career"`
+	Summary string   `json:"summary"`
 	Images  struct {
 		Large  string `json:"large"`
 		Medium string `json:"medium"`
@@ -278,15 +278,15 @@ type bgmPersonDetail struct {
 }
 
 type bgmCharacterDetail struct {
-	ID       int              `json:"id"`
-	Name     string           `json:"name"`
-	RoleName string           `json:"role_name"`
-	Summary  string           `json:"summary"`
+	ID       int    `json:"id"`
+	Name     string `json:"name"`
+	RoleName string `json:"role_name"`
+	Summary  string `json:"summary"`
 	Images   struct {
 		Large  string `json:"large"`
 		Medium string `json:"medium"`
 	} `json:"images"`
-	Infobox  []bgmInfoboxItem `json:"infobox"`
+	Infobox []bgmInfoboxItem `json:"infobox"`
 }
 
 // ParseBangumiID 从输入中提取 Bangumi Subject ID
@@ -420,107 +420,107 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 	}
 
 	// 创作者与机构提取 (LRM 编目标准：提炼核心主创与制作机构，过滤底层数百名原画/补间/进行协力人员)
-		var artists []ArtistPreview
-		artistNameMap := make(map[string]bool)
+	var artists []ArtistPreview
+	artistNameMap := make(map[string]bool)
 
-		for _, p := range persons {
-			pName := strings.TrimSpace(p.Name)
-			if pName == "" {
-				continue
+	for _, p := range persons {
+		pName := strings.TrimSpace(p.Name)
+		if pName == "" {
+			continue
+		}
+
+		rel := strings.TrimSpace(p.Relation)
+		if rel == "" {
+			rel = "Creator"
+		}
+
+		// 去重键 = 姓名+职务：同一人多职务各建一条预览（导入链路按 external_ids/
+		// 姓名匹配复用同一实体，只会建一份 Artist，但每个职务各写一条关系边）。
+		dedupeKey := pName + "|" + rel
+		if artistNameMap[dedupeKey] {
+			continue
+		}
+
+		if strings.Contains(rel, "出版社") || strings.Contains(rel, "发行") || strings.Contains(rel, "出版") || strings.Contains(rel, "唱片") {
+			if publisherName == "" {
+				publisherName = pName
 			}
+		}
 
-			rel := strings.TrimSpace(p.Relation)
-			if rel == "" {
-				rel = "Creator"
-			}
+		artistNameMap[dedupeKey] = true
 
-			// 去重键 = 姓名+职务：同一人多职务各建一条预览（导入链路按 external_ids/
-			// 姓名匹配复用同一实体，只会建一份 Artist，但每个职务各写一条关系边）。
-			dedupeKey := pName + "|" + rel
-			if artistNameMap[dedupeKey] {
-				continue
-			}
+		entType := models.EntityTypePerson
+		if p.Type == 2 || (p.Type == 0 && (rel == "动画制作" || rel == "制作公司" || rel == "出版社" || rel == "唱片公司" || rel == "开发商")) {
+			entType = models.EntityTypeStudio
+		} else if p.Type == 3 {
+			entType = models.EntityTypeGroup
+		}
 
-			if strings.Contains(rel, "出版社") || strings.Contains(rel, "发行") || strings.Contains(rel, "出版") || strings.Contains(rel, "唱片") {
-				if publisherName == "" {
-					publisherName = pName
-				}
-			}
+		artists = append(artists, ArtistPreview{
+			Name:       pName,
+			Role:       rel,
+			EntityType: entType,
+			Country:    "JP",
+			AvatarURL:  p.Images.Large,
+			ExternalIDs: models.JSONB{
+				"bangumi_person": strconv.Itoa(p.ID),
+			},
+		})
+	}
 
-			artistNameMap[dedupeKey] = true
+	// 角色与配音声优提取 (对标 Bangumi 完整收录并保留角色层级与声优双轨绑定)
+	for _, ch := range bgmChars {
+		chName := strings.TrimSpace(ch.Name)
+		if chName == "" {
+			continue
+		}
+		roleType := strings.TrimSpace(ch.Relation)
+		if roleType == "" {
+			roleType = "主角"
+		}
 
-			entType := models.EntityTypePerson
-			if p.Type == 2 || (p.Type == 0 && (rel == "动画制作" || rel == "制作公司" || rel == "出版社" || rel == "唱片公司" || rel == "开发商")) {
-				entType = models.EntityTypeStudio
-			} else if p.Type == 3 {
-				entType = models.EntityTypeGroup
-			}
-
+		// 1. 角色本体实体 (Character 实体，记录出场定位：主角/配角/客串)
+		charKey := "char_" + chName
+		if !artistNameMap[charKey] {
+			artistNameMap[charKey] = true
 			artists = append(artists, ArtistPreview{
-				Name:         pName,
-				Role:         rel,
-				EntityType:   entType,
-				Country:      "JP",
-				AvatarURL:    p.Images.Large,
+				Name:       chName,
+				Role:       roleType,
+				EntityType: models.EntityTypeVirtualCharacter,
+				Country:    "JP",
+				AvatarURL:  ch.Images.Large,
 				ExternalIDs: models.JSONB{
-					"bangumi_person": strconv.Itoa(p.ID),
+					"bangumi_character": strconv.Itoa(ch.ID),
 				},
 			})
 		}
 
-		// 角色与配音声优提取 (对标 Bangumi 完整收录并保留角色层级与声优双轨绑定)
-		for _, ch := range bgmChars {
-			chName := strings.TrimSpace(ch.Name)
-			if chName == "" {
-				continue
-			}
-			roleType := strings.TrimSpace(ch.Relation)
-			if roleType == "" {
-				roleType = "主角"
-			}
-
-			// 1. 角色本体实体 (Character 实体，记录出场定位：主角/配角/客串)
-			charKey := "char_" + chName
-			if !artistNameMap[charKey] {
-				artistNameMap[charKey] = true
+		// 2. 角色配音声优 (Voice Actor 自然人实体，记录“配演 角色”对应关系)
+		if len(ch.Actors) > 0 {
+			for _, act := range ch.Actors {
+				actName := strings.TrimSpace(act.Name)
+				if actName == "" {
+					continue
+				}
+				actorKey := actName + "_as_" + chName
+				if artistNameMap[actorKey] {
+					continue
+				}
+				artistNameMap[actorKey] = true
 				artists = append(artists, ArtistPreview{
-					Name:        chName,
-					Role:        roleType,
-					EntityType:  models.EntityTypeVirtualCharacter,
-					Country:     "JP",
-					AvatarURL:   ch.Images.Large,
+					Name:          actName,
+					Role:          "Voice Actor",
+					EntityType:    models.EntityTypePerson,
+					Country:       "JP",
+					AvatarURL:     act.Images.Large,
+					CharacterName: chName,
 					ExternalIDs: models.JSONB{
-						"bangumi_character": strconv.Itoa(ch.ID),
+						"bangumi_person": strconv.Itoa(act.ID),
 					},
 				})
 			}
-
-			// 2. 角色配音声优 (Voice Actor 自然人实体，记录“配演 角色”对应关系)
-			if len(ch.Actors) > 0 {
-				for _, act := range ch.Actors {
-					actName := strings.TrimSpace(act.Name)
-					if actName == "" {
-						continue
-					}
-					actorKey := actName + "_as_" + chName
-					if artistNameMap[actorKey] {
-						continue
-					}
-					artistNameMap[actorKey] = true
-					artists = append(artists, ArtistPreview{
-						Name:          actName,
-						Role:          "Voice Actor",
-						EntityType:    models.EntityTypePerson,
-						Country:       "JP",
-						AvatarURL:     act.Images.Large,
-						CharacterName: chName,
-						ExternalIDs: models.JSONB{
-							"bangumi_person": strconv.Itoa(act.ID),
-						},
-					})
-				}
-			}
 		}
+	}
 
 	// 媒体类型分类及封面比例（format/mediaCategory 均为规范词表 ID 小写，
 	// 落库前 importer.go 共享链路再经 ontology 归一化兜底）。
@@ -618,97 +618,11 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		coverURL = data.Images.Common
 	}
 
-	// 真实分集：anime/tv/music 走 /v0/episodes?subject_id= 拉取真实话/曲目
-	// （标题/播出日/disc/时长）；书籍走 infobox 发售日诚实单卷；游戏/无分集源回退计数占位。
+	// 篇目属于作品，只有明确发行资料才产生载体及收录项。
 	realEpisodes := fetchBangumiEpisodes(ctx, client, subjectID)
-	var mediums []MediumPreview
-	if len(realEpisodes) > 0 {
-		// 按 disc 分介质（disc<=0 归入 Disc 1），介质内按 sort 排序。
-		discOrder := []int{}
-		discTracks := map[int][]TrackPreview{}
-		for _, ep := range realEpisodes {
-			disc := ep.Disc
-			if disc <= 0 {
-				disc = 1
-			}
-			if _, ok := discTracks[disc]; !ok {
-				discOrder = append(discOrder, disc)
-			}
-			epTitle := strings.TrimSpace(ep.NameCN)
-			if epTitle == "" {
-				epTitle = strings.TrimSpace(ep.Name)
-			}
-			sortNo := ep.Sort
-			if sortNo <= 0 {
-				sortNo = ep.Ep
-			}
-			if epTitle == "" {
-				epTitle = fmt.Sprintf("第 %d 话", sortNo)
-			}
-			discTracks[disc] = append(discTracks[disc], TrackPreview{
-				Position:         sortNo,
-				Title:            epTitle,
-				DurationSeconds:  ep.DurationSeconds,
-				// 分集播出日经 bgmNormalizeDate 归一化（中文零补齐形 2009年7月03日、
-				// 两位年遗留形 09-07-04 在此转 ISO；非法值丢空，不污染模糊日期规约）。
-				AirDate:          bgmNormalizeDate(ep.Airdate),
-				BangumiEpisodeID: strconv.Itoa(ep.ID),
-			})
-		}
-		sort.Ints(discOrder)
-		for i, disc := range discOrder {
-			tks := discTracks[disc]
-			sort.Slice(tks, func(a, b int) bool { return tks[a].Position < tks[b].Position })
-			medName := ""
-			if len(discOrder) == 1 {
-				medName = "TV Broadcast / BD-BOX"
-				if mediaType == "music" {
-					medName = "Disc 1（原盘曲目）"
-				}
-			} else {
-				medName = fmt.Sprintf("Disc %d", disc)
-			}
-			mediums = append(mediums, MediumPreview{
-				Position:      i + 1,
-				Name:          medName,
-				Format:        format,
-				MediaCategory: mediaCategory,
-				Tracks:        tks,
-			})
-		}
-	} else {
-		// 诚实回退：书籍按 volumes 卷数列卷（无卷数则单卷），其他类型单介质零曲目。
-		medName := "Vol. 1（单行本）"
-		itemCount := data.Volumes
-		var tracks []TrackPreview
-		if mediaType == "book" && itemCount > 0 {
-			if itemCount > 100 {
-				itemCount = 100
-			}
-			for i := 1; i <= itemCount; i++ {
-				tracks = append(tracks, TrackPreview{
-					Position: i,
-					Title:    fmt.Sprintf("%s 第 %d 卷", workTitle, i),
-				})
-			}
-			if itemCount > 1 {
-				medName = fmt.Sprintf("全 %d 卷（单行本）", itemCount)
-			}
-		} else if mediaType == "anime" || mediaType == "tv" {
-			medName = "TV Broadcast / BD-BOX"
-		} else if mediaType == "music" {
-			medName = "Disc 1（原盘曲目）"
-		} else if mediaType == "game" {
-			medName = "Digital（数字版游戏本体）"
-		}
-		mediums = append(mediums, MediumPreview{
-			Position:      1,
-			Name:          medName,
-			Format:        format,
-			MediaCategory: mediaCategory,
-			Tracks:        tracks,
-		})
-	}
+	hasRelease := (mediaType == "music" && (data.Date != "" || bgmInfoboxText(data.Infobox, "品番", "目录编号") != "")) ||
+		(mediaType == "book" && isbn != "" && data.Volumes <= 1)
+	canonicalEntries, mediums := bangumiContentHierarchy(realEpisodes, mediaType, hasRelease, format, mediaCategory)
 
 	// 发行版本名（LRM 规范）与包装/渠道：书籍按出版社+ISBN 走平装/精装，
 	// 动画走 broadcast+box_set，音乐走 physical+jewel_case，游戏走 digital。
@@ -878,10 +792,10 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 		},
 		Translations: translations,
 		CatalogMetadata: models.JSONB{
-			"bangumi_id":       strconv.Itoa(data.ID),
-			"platform":         data.Platform,
-			"total_episodes":   data.TotalEpisodes,
-			"volumes":          data.Volumes,
+			"bangumi_id":     strconv.Itoa(data.ID),
+			"platform":       data.Platform,
+			"total_episodes": data.TotalEpisodes,
+			"volumes":        data.Volumes,
 		},
 	}
 
@@ -901,17 +815,88 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 	}
 
 	return &PreviewResponse{
-		Source:      "bangumi",
-		EntityType:  "work",
-		ExternalID:  strconv.Itoa(data.ID),
-		ExternalURL: fmt.Sprintf("https://bgm.tv/subject/%d", data.ID),
-		MediaType:   mediaType,
-		Work:        work,
-		Artists:     artists,
-		Release:     release,
-		Mediums:     mediums,
-		Tags:        tags,
+		Source:           "bangumi",
+		EntityType:       "work",
+		ExternalID:       strconv.Itoa(data.ID),
+		ExternalURL:      fmt.Sprintf("https://bgm.tv/subject/%d", data.ID),
+		MediaType:        mediaType,
+		Work:             work,
+		Artists:          artists,
+		HasRelease:       &hasRelease,
+		CanonicalEntries: canonicalEntries,
+		Release:          release,
+		Mediums:          mediums,
+		Tags:             tags,
 	}, nil
+}
+
+// bangumiContentHierarchy 保留来源篇目目录，禁止从卷数、集数推造盒装或技术章节。
+func bangumiContentHierarchy(episodes []bgmEpisodeItem, mediaType string, hasRelease bool, format, category string) ([]CanonicalEntryPreview, []MediumPreview) {
+	entries := []CanonicalEntryPreview{}
+	mediums := []MediumPreview{}
+	sort.SliceStable(episodes, func(i, j int) bool {
+		if episodes[i].Type != episodes[j].Type {
+			return episodes[i].Type < episodes[j].Type
+		}
+		return episodes[i].Sort < episodes[j].Sort
+	})
+	discTracks := map[int][]TrackPreview{}
+	for _, ep := range episodes {
+		title := strings.TrimSpace(ep.Name)
+		if title == "" {
+			title = strings.TrimSpace(ep.NameCN)
+		}
+		number := ep.Sort
+		if number <= 0 {
+			number = ep.Ep
+		}
+		// 无标题篇目保留来源编号作为识别文本，展示标签由前端本地化。
+		if title == "" {
+			title = strconv.Itoa(number)
+		}
+		translations := models.JSONB{}
+		if ep.Name != "" {
+			translations["ja-JP"] = models.JSONB{"title": ep.Name}
+		}
+		if ep.NameCN != "" {
+			translations["zh-CN"] = models.JSONB{"title": ep.NameCN}
+		}
+		role := "extra"
+		switch ep.Type {
+		case 0:
+			role = "main"
+		}
+		attrs := models.JSONB{"bangumi_episode_type": ep.Type}
+		airDate := bgmNormalizeDate(ep.Airdate)
+		if airDate != "" {
+			attrs["air_date"] = airDate
+		}
+		if mediaType != "music" || !hasRelease {
+			entries = append(entries, CanonicalEntryPreview{Title: title, Position: len(entries) + 1, Number: strconv.Itoa(number), EntryRole: role, OriginalLanguage: "ja", DurationSeconds: ep.DurationSeconds, Translations: translations, Attributes: attrs, ExternalIDs: models.JSONB{"bangumi_episode": strconv.Itoa(ep.ID)}})
+		} else {
+			disc := ep.Disc
+			if disc <= 0 {
+				disc = 1
+			}
+			discTracks[disc] = append(discTracks[disc], TrackPreview{Position: number, Title: title, DurationSeconds: ep.DurationSeconds, AirDate: airDate, BangumiEpisodeID: strconv.Itoa(ep.ID)})
+		}
+	}
+	if hasRelease {
+		discs := []int{}
+		for disc := range discTracks {
+			discs = append(discs, disc)
+		}
+		sort.Ints(discs)
+		for _, disc := range discs {
+			tracks := discTracks[disc]
+			sort.SliceStable(tracks, func(i, j int) bool { return tracks[i].Position < tracks[j].Position })
+			mediums = append(mediums, MediumPreview{Position: disc, Format: format, MediaCategory: category, Tracks: tracks})
+		}
+		if len(mediums) == 0 {
+			mediums = append(mediums, MediumPreview{Position: 1, Format: format, MediaCategory: category, Tracks: []TrackPreview{}})
+		}
+	}
+	return entries, mediums
 }
 
 // FetchBangumiPersonPreview 解析 Bangumi 人物/声优/创作者/制作公司

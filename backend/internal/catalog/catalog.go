@@ -18,6 +18,7 @@ import (
 	"github.com/metafusion/metafusion-app/internal/ontology"
 	"github.com/metafusion/metafusion-app/internal/search"
 	"github.com/metafusion/metafusion-app/internal/security"
+	"golang.org/x/text/language"
 	"gorm.io/gorm"
 )
 
@@ -394,6 +395,7 @@ func (s *CatalogService) ListWorks(c *gin.Context) {
 		"page_size": pageSize,
 	})
 }
+
 // applyWorkReleaseFilter 筛选与指定 Work 关联的所有 Release：
 // 1. releases.work_id = workID（母体作品直接发行版）
 // 2. 载体曲目关联（Track / CanonicalEntry 归属于该 workID）
@@ -407,6 +409,7 @@ func applyWorkReleaseFilter(db *gorm.DB, workID uuid.UUID) *gorm.DB {
 			JOIN tracks t ON t.medium_id = m.id 
 			WHERE t.work_id = ? 
 			   OR t.canonical_entry_id IN (SELECT ce.id FROM canonical_entries ce WHERE ce.work_id = ?)
+			   OR t.id IN (SELECT tc.track_id FROM track_contents tc JOIN canonical_entries ce ON ce.id = tc.canonical_entry_id WHERE ce.work_id = ?)
 		)
 		OR id IN (
 			SELECT er.source_id FROM entity_relationships er 
@@ -426,7 +429,7 @@ func applyWorkReleaseFilter(db *gorm.DB, workID uuid.UUID) *gorm.DB {
 			WHERE er.target_type = 'work' AND er.target_id = ? 
 			  AND er.relationship_type IN ('includes_work', 'compilation_of', 'anthology_of')
 		)
-	`, workID, workID, workID, workID, workID, workID, workID)
+	`, workID, workID, workID, workID, workID, workID, workID, workID)
 }
 
 // GetWorkDetail 获取作品概览（轻量，不再全量预加载 Release/Medium/Track）
@@ -456,12 +459,12 @@ func (s *CatalogService) GetWorkDetail(c *gin.Context) {
 	// 署名单轨化：artist_relations 由 entity_relationships 图边读时投影（保持旧 JSON 形状）
 	work.ArtistRelations = ProjectWorkArtistRelations(s.db, work.ID)
 
-		s.db.Model(&work).UpdateColumn("view_count", gorm.Expr("view_count + 1"))
-		work.ViewCount++
+	s.db.Model(&work).UpdateColumn("view_count", gorm.Expr("view_count + 1"))
+	work.ViewCount++
 
-		var favCount int64
-		_ = s.db.Table("favorites").Where("target_type = ? AND target_id = ?", "work", work.ID).Count(&favCount).Error
-		work.FavoriteCount = favCount
+	var favCount int64
+	_ = s.db.Table("favorites").Where("target_type = ? AND target_id = ?", "work", work.ID).Count(&favCount).Error
+	work.FavoriteCount = favCount
 
 	inc := parseInc(c.Query("inc"))
 	b, _ := json.Marshal(work)
@@ -551,6 +554,7 @@ func (s *CatalogService) ListReleases(c *gin.Context) {
 	// 署名单轨化：Work.ArtistRelations 由图边读时投影
 	workPtrs := make([]*models.Work, 0, len(releases))
 	for i := range releases {
+		localizeRelease(&releases[i], backendi18n.LocaleFromContext(c))
 		if releases[i].Work != nil {
 			workPtrs = append(workPtrs, releases[i].Work)
 		}
@@ -589,6 +593,9 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 		Preload("Mediums.Tracks.CanonicalEntry").
 		Preload("Mediums.Tracks.CanonicalEntry.Work").
 		Preload("Mediums.Tracks.CanonicalEntry.Work.Translations").
+		Preload("Mediums.Tracks.Contents").
+		Preload("Mediums.Tracks.Contents.CanonicalEntry").
+		Preload("Mediums.Tracks.Contents.CanonicalEntry.Work").
 		Where("id = ?", releaseID).
 		First(&release).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -598,6 +605,10 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	for i := range release.Mediums {
+		localizeMedium(&release.Mediums[i], backendi18n.LocaleFromContext(c))
+	}
+	localizeRelease(&release, backendi18n.LocaleFromContext(c))
 	AttachReleaseAssetProjections(s.db, &release)
 
 	if !release.IsMasterVerified {
@@ -622,6 +633,11 @@ func (s *CatalogService) GetReleaseDetail(c *gin.Context) {
 			}
 			if tr.CanonicalEntry != nil && tr.CanonicalEntry.WorkID != nil && *tr.CanonicalEntry.WorkID != uuid.Nil {
 				workIDMap[*tr.CanonicalEntry.WorkID] = true
+			}
+			for _, content := range tr.Contents {
+				if content.CanonicalEntry != nil && content.CanonicalEntry.WorkID != nil && *content.CanonicalEntry.WorkID != uuid.Nil {
+					workIDMap[*content.CanonicalEntry.WorkID] = true
+				}
 			}
 		}
 	}
@@ -697,6 +713,9 @@ func (s *CatalogService) GetMediumDetail(c *gin.Context) {
 		Preload("Tracks.CanonicalEntry").
 		Preload("Tracks.CanonicalEntry.Work").
 		Preload("Tracks.CanonicalEntry.Work.Translations").
+		Preload("Tracks.Contents").
+		Preload("Tracks.Contents.CanonicalEntry").
+		Preload("Tracks.Contents.CanonicalEntry.Work").
 		Where("id = ?", mediumID).
 		First(&medium).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -708,10 +727,12 @@ func (s *CatalogService) GetMediumDetail(c *gin.Context) {
 	}
 
 	AttachMediumAssetProjection(s.db, &medium)
+	localizeMedium(&medium, backendi18n.LocaleFromContext(c))
 
 	// 附带 Release 与 Work 供面包屑
 	var release models.Release
 	_ = s.db.Where("id = ?", medium.ReleaseID).First(&release).Error
+	localizeRelease(&release, backendi18n.LocaleFromContext(c))
 
 	c.JSON(http.StatusOK, gin.H{
 		"medium":  medium,
@@ -1192,15 +1213,15 @@ func (s *CatalogService) CreateWorkForMember(c *gin.Context) {
 
 	// 记录创建修订历史
 	s.recordRevision("work", work.ID, uid, "create", "创建作品元数据", "通过官方API创建作品初始档案", nil, nil, map[string]interface{}{
-		"title":             work.Title,
-		"original_title":    work.OriginalTitle,
-		"aliases":           work.Aliases,
-		"country":           work.Country,
-		"language":          work.Language,
-		"summary":           work.Summary,
-		"cover_image_url":   work.CoverImageURL,
-		"cover_aspect":      work.CoverAspect,
-		"catalog_metadata":  work.CatalogMetadata,
+		"title":            work.Title,
+		"original_title":   work.OriginalTitle,
+		"aliases":          work.Aliases,
+		"country":          work.Country,
+		"language":         work.Language,
+		"summary":          work.Summary,
+		"cover_image_url":  work.CoverImageURL,
+		"cover_aspect":     work.CoverAspect,
+		"catalog_metadata": work.CatalogMetadata,
 	})
 
 	_ = s.db.Preload("Tags").Preload("Translations").First(&work, work.ID).Error
@@ -1218,6 +1239,24 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if err := validateReleaseEvidence(input.EditNote, input.SourceURLs); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, err.Error())})
+		return
+	}
+	if err := validateCoverURL(input.CoverImageURL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateReleaseTranslations(models.JSONB(input.Translations)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, err.Error())})
+		return
+	}
+	if input.OriginalLanguage != "" {
+		if _, err := language.Parse(input.OriginalLanguage); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.release_invalid_translations")})
+			return
+		}
 	}
 	if input.PublisherID != nil {
 		var cnt int64
@@ -1273,6 +1312,10 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 	}
 
 	release := models.Release{
+		CoverImageURL:       strings.TrimSpace(input.CoverImageURL),
+		CoverAspect:         NormalizeCoverAspect(input.CoverAspect),
+		OriginalLanguage:    strings.TrimSpace(input.OriginalLanguage),
+		Translations:        models.JSONB(input.Translations),
 		WorkID:              input.WorkID,
 		PublisherID:         input.PublisherID,
 		EditionName:         input.EditionName,
@@ -1298,109 +1341,12 @@ func (s *CatalogService) CreateReleaseForMember(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	s.recordRevision("release", release.ID, uid, "create", "创建发行版档案", input.EditNote, input.SourceURLs, nil, map[string]interface{}{
+		"work_id": release.WorkID, "edition_name": release.EditionName, "catalog_number": release.CatalogNumber,
+		"cover_image_url": release.CoverImageURL, "cover_aspect": release.CoverAspect,
+	})
 	s.refreshWorkSearchIndex(c.Request.Context(), release.WorkID)
 	c.JSON(http.StatusCreated, release)
-}
-
-func (s *CatalogService) CreateMediumForMember(c *gin.Context) {
-	uid := currentUserID(c)
-	if uid == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": backendi18n.T(c, "catalog.not_logged_in")})
-		return
-	}
-	var input struct {
-		ReleaseID     uuid.UUID `json:"release_id" binding:"required"`
-		Position      int       `json:"position" binding:"required"`
-		Name          string    `json:"name" binding:"required"`
-		Format        string    `json:"format" binding:"required"`
-		MediaCategory string    `json:"media_category" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	var rel models.Release
-	if err := s.db.Where("id = ?", input.ReleaseID).First(&rel).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.release_not_found")})
-		return
-	}
-	if !rel.IsMasterVerified && (rel.UploaderID == nil || *rel.UploaderID != *uid) {
-		role, _ := c.Get("role")
-		if role != "admin" && role != "archivist" {
-			c.JSON(http.StatusForbidden, gin.H{"error": backendi18n.T(c, "catalog.forbidden_attach_pending")})
-			return
-		}
-	}
-	medium := models.Medium{ReleaseID: input.ReleaseID, Position: input.Position, Name: input.Name, Format: input.Format, MediaCategory: input.MediaCategory}
-	if err := s.db.Create(&medium).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusCreated, medium)
-}
-
-func (s *CatalogService) CreateTrackForMember(c *gin.Context) {
-	uid := currentUserID(c)
-	if uid == nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": backendi18n.T(c, "catalog.not_logged_in")})
-		return
-	}
-	var input struct {
-		MediumID         uuid.UUID  `json:"medium_id" binding:"required"`
-		WorkID           *uuid.UUID `json:"work_id"`
-		Position         int        `json:"position" binding:"required"`
-		Title            string     `json:"title"`
-		CanonicalEntryID *uuid.UUID `json:"canonical_entry_id"`
-		DurationSeconds  int        `json:"duration_seconds"`
-		ISRC             string     `json:"isrc"`
-		ArtistCredit     string     `json:"artist_credit"`
-	}
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	var med models.Medium
-	if err := s.db.Where("id = ?", input.MediumID).First(&med).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.medium_not_found")})
-		return
-	}
-	var rel models.Release
-	if err := s.db.Where("id = ?", med.ReleaseID).First(&rel).Error; err == nil {
-		if !rel.IsMasterVerified && (rel.UploaderID == nil || *rel.UploaderID != *uid) {
-			role, _ := c.Get("role")
-			if role != "admin" && role != "archivist" {
-				c.JSON(http.StatusForbidden, gin.H{"error": backendi18n.T(c, "catalog.forbidden_attach_pending")})
-				return
-			}
-		}
-	}
-	if input.CanonicalEntryID != nil {
-		var cnt int64
-		s.db.Model(&models.CanonicalEntry{}).Where("id = ?", *input.CanonicalEntryID).Count(&cnt)
-		if cnt == 0 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.canonical_not_found")})
-			return
-		}
-	}
-	targetWorkID := input.WorkID
-	if targetWorkID == nil && rel.WorkID != uuid.Nil {
-		targetWorkID = &rel.WorkID
-	}
-	track := models.Track{
-		MediumID:         input.MediumID,
-		WorkID:           targetWorkID,
-		CanonicalEntryID: input.CanonicalEntryID,
-		Position:         input.Position,
-		Title:            strings.TrimSpace(input.Title),
-		DurationSeconds:  input.DurationSeconds,
-		ISRC:             strings.TrimSpace(input.ISRC),
-		ArtistCredit:     strings.TrimSpace(input.ArtistCredit),
-	}
-	if err := s.db.Create(&track).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(http.StatusCreated, track)
 }
 
 func (s *CatalogService) UpsertWorkRelationsForMember(c *gin.Context) {
@@ -1536,10 +1482,10 @@ type ArtistWorkItem struct {
 }
 
 type ArtistDetailResponse struct {
-	Artist            models.Artist           `json:"artist"`
-	Works             []ArtistWorkItem        `json:"works"`
-	Releases          []models.Release        `json:"releases"`
-	ConnectedEntities []ConnectedEntityItem   `json:"connected_entities"`
+	Artist            models.Artist             `json:"artist"`
+	Works             []ArtistWorkItem          `json:"works"`
+	Releases          []models.Release          `json:"releases"`
+	ConnectedEntities []ConnectedEntityItem     `json:"connected_entities"`
 	ExternalLinks     []models.ExternalLinkItem `json:"external_links"`
 }
 
@@ -2270,6 +2216,10 @@ type CreateWorkInput struct {
 }
 
 type CreateReleaseInput struct {
+	CoverImageURL       string                 `json:"cover_image_url"`
+	CoverAspect         string                 `json:"cover_aspect"`
+	OriginalLanguage    string                 `json:"original_language"`
+	Translations        map[string]interface{} `json:"translations"`
 	WorkID              uuid.UUID              `json:"work_id" binding:"required"`
 	PublisherID         *uuid.UUID             `json:"publisher_id"`
 	EditionName         string                 `json:"edition_name" binding:"required"`
@@ -2285,6 +2235,8 @@ type CreateReleaseInput struct {
 	Attributes          map[string]interface{} `json:"attributes"`
 	CatalogMetadata     map[string]interface{} `json:"catalog_metadata"`
 	Notes               string                 `json:"notes"`
+	EditNote            string                 `json:"edit_note"`
+	SourceURLs          []string               `json:"source_urls"`
 }
 
 // CreateRelease 创建发行商品版本
@@ -2657,4 +2609,3 @@ func (s *CatalogService) SubmitComprehensiveArchive(c *gin.Context) {
 		"work":    work,
 	})
 }
-

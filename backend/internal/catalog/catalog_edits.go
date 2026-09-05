@@ -9,6 +9,7 @@ import (
 	backendi18n "github.com/metafusion/metafusion-app/internal/i18n"
 	"github.com/metafusion/metafusion-app/internal/models"
 	"github.com/metafusion/metafusion-app/internal/ontology"
+	"golang.org/x/text/language"
 	"gorm.io/gorm"
 )
 
@@ -60,7 +61,6 @@ func (s *CatalogService) UpdateWorkForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-
 	beforeState := map[string]interface{}{
 		"title":             work.Title,
 		"original_title":    work.OriginalTitle,
@@ -326,6 +326,10 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 	}
 
 	var input struct {
+		CoverImageURL       string                 `json:"cover_image_url"`
+		CoverAspect         string                 `json:"cover_aspect"`
+		OriginalLanguage    string                 `json:"original_language"`
+		Translations        map[string]interface{} `json:"translations"`
 		EditionName         string                 `json:"edition_name" binding:"required"`
 		CatalogNumber       string                 `json:"catalog_number"`
 		Barcode             string                 `json:"barcode"`
@@ -346,19 +350,47 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validateReleaseEvidence(input.EditNote, input.SourceURLs); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, err.Error())})
+		return
+	}
+	if err := validateCoverURL(input.CoverImageURL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateReleaseTranslations(models.JSONB(input.Translations)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, err.Error())})
+		return
+	}
+	if input.OriginalLanguage != "" {
+		if _, err := language.Parse(input.OriginalLanguage); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": backendi18n.T(c, "catalog.release_invalid_translations")})
+			return
+		}
+	}
 
 	beforeState := map[string]interface{}{
-		"edition_name":   release.EditionName,
-		"catalog_number": release.CatalogNumber,
-		"barcode":        release.Barcode,
-		"publisher_id":   release.PublisherID,
-		"packaging":      release.Packaging,
-		"external_ids":   release.ExternalIDs,
-		"attributes":     release.Attributes,
-		"notes":          release.Notes,
+		"edition_name":      release.EditionName,
+		"cover_image_url":   release.CoverImageURL,
+		"cover_aspect":      release.CoverAspect,
+		"original_language": release.OriginalLanguage,
+		"translations":      release.Translations,
+		"catalog_number":    release.CatalogNumber,
+		"barcode":           release.Barcode,
+		"publisher_id":      release.PublisherID,
+		"packaging":         release.Packaging,
+		"external_ids":      release.ExternalIDs,
+		"attributes":        release.Attributes,
+		"notes":             release.Notes,
 	}
 
 	release.EditionName = strings.TrimSpace(input.EditionName)
+	release.CoverImageURL = strings.TrimSpace(input.CoverImageURL)
+	release.CoverAspect = NormalizeCoverAspect(input.CoverAspect)
+	release.OriginalLanguage = strings.TrimSpace(input.OriginalLanguage)
+	if input.Translations != nil {
+		release.Translations = models.JSONB(input.Translations)
+	}
 	release.CatalogNumber = strings.TrimSpace(input.CatalogNumber)
 	release.Barcode = strings.TrimSpace(input.Barcode)
 	if input.Packaging != "" {
@@ -401,14 +433,18 @@ func (s *CatalogService) UpdateReleaseForMember(c *gin.Context) {
 	}
 
 	afterState := map[string]interface{}{
-		"edition_name":   release.EditionName,
-		"catalog_number": release.CatalogNumber,
-		"barcode":        release.Barcode,
-		"publisher_id":   release.PublisherID,
-		"packaging":      release.Packaging,
-		"external_ids":   release.ExternalIDs,
-		"attributes":     release.Attributes,
-		"notes":          release.Notes,
+		"edition_name":      release.EditionName,
+		"cover_image_url":   release.CoverImageURL,
+		"cover_aspect":      release.CoverAspect,
+		"original_language": release.OriginalLanguage,
+		"translations":      release.Translations,
+		"catalog_number":    release.CatalogNumber,
+		"barcode":           release.Barcode,
+		"publisher_id":      release.PublisherID,
+		"packaging":         release.Packaging,
+		"external_ids":      release.ExternalIDs,
+		"attributes":        release.Attributes,
+		"notes":             release.Notes,
 	}
 
 	if err := s.db.Transaction(func(tx *gorm.DB) error {
