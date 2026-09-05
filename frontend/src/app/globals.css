@@ -300,6 +300,9 @@ select option:checked, select option:hover {
     radial-gradient(ellipse 92% 68% at 50% -8%, rgba(59,130,246,0.10) 0%, transparent 62%),
     radial-gradient(ellipse 72% 58% at 82% 100%, rgba(245,158,11,0.055) 0%, transparent 58%),
     radial-gradient(ellipse 64% 52% at 8% 92%, rgba(59,130,246,0.05) 0%, transparent 55%);
+  /* 底部渐隐：角落光晕中心贴着容器底缘，在页脚分界线上硬切会形成横向断层 */
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 176px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 calc(100% - 176px), transparent 100%);
 }
 html.light .bg-radial-vignette {
   background:
