@@ -770,6 +770,13 @@ func FetchBangumiPreview(ctx context.Context, input string) (*PreviewResponse, e
 	}
 	tags = filteredTags
 
+	// 繁体/假名别名按字形归入对应语种翻译行（zh-TW/ja 的同语种并列标题），
+	// 实体级 aliases 只留无法识别语种的异名（拉丁转写、昵称等）。
+	restAliases, zhTwAliases, jaAliases := splitAliasesByScript(aliases)
+	translations = appendLocaleAliases(translations, "zh-TW", zhTwAliases)
+	translations = appendLocaleAliases(translations, "ja", jaAliases)
+	aliases = restAliases
+
 	work := WorkPreview{
 		Title:            workTitle,
 		OriginalTitle:    origTitle,
@@ -1002,6 +1009,11 @@ func FetchBangumiPersonPreview(ctx context.Context, input string) (*PreviewRespo
 		})
 	}
 
+	restAliases, zhTwAliases, jaAliases := splitAliasesByScript(aliases)
+	translations = appendLocaleAliases(translations, "zh-TW", zhTwAliases)
+	translations = appendLocaleAliases(translations, "ja", jaAliases)
+	aliases = restAliases
+
 	artist := ArtistPreview{
 		Name:         mainName,
 		OriginalName: origName,
@@ -1114,6 +1126,11 @@ func FetchBangumiCharacterPreview(ctx context.Context, input string) (*PreviewRe
 			Summary: "",
 		})
 	}
+
+	restAliases, zhTwAliases, jaAliases := splitAliasesByScript(aliases)
+	translations = appendLocaleAliases(translations, "zh-TW", zhTwAliases)
+	translations = appendLocaleAliases(translations, "ja", jaAliases)
+	aliases = restAliases
 
 	artist := ArtistPreview{
 		Name:         mainName,

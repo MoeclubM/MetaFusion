@@ -101,9 +101,12 @@ type Invitation struct {
 	User    *User `gorm:"foreignKey:UsedBy" json:"user,omitempty"`
 }
 
-// ValidLocales 允许的语种白名单（翻译表；未单独建 Nomen 的题名仍可用 original_title/aliases）
+// ValidLocales 允许的语种白名单（翻译表；未单独建 Nomen 的题名仍可用 original_title/aliases）。
+// 五个核心编目语种之外开放常见自然语种，供导入器/API 写入与用户显示优先级自定义。
 var ValidLocales = map[string]bool{
 	"zh-CN": true, "zh-TW": true, "en-US": true, "ja": true, "ko": true,
+	"fr": true, "de": true, "es": true, "pt": true, "it": true,
+	"ru": true, "th": true, "vi": true,
 }
 
 // NormalizeLocale maps inbound tags (Accept-Language, typed aliases) onto ValidLocales.
@@ -128,6 +131,22 @@ func NormalizeLocale(input string) string {
 			return "ja"
 		case "ko", "KO":
 			return "ko"
+		case "fr", "FR":
+			return "fr"
+		case "de", "DE":
+			return "de"
+		case "es", "ES":
+			return "es"
+		case "pt", "PT":
+			return "pt"
+		case "it", "IT":
+			return "it"
+		case "ru", "RU":
+			return "ru"
+		case "th", "TH":
+			return "th"
+		case "vi", "VI":
+			return "vi"
 		}
 	}
 	return "zh-CN"
