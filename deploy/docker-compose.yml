@@ -194,6 +194,8 @@ services:
     image: rustfs/rustfs:latest
     container_name: metafusion-rustfs
     restart: unless-stopped
+    ports:
+      - "${S3_PORT:-9000}:9000"
     environment:
       - RUSTFS_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
       - RUSTFS_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
