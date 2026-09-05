@@ -23,6 +23,7 @@ import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLin
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
 import dynamic from "next/dynamic";
 import { StaffCharacterSection } from "@/components/entity/StaffCharacterSection";
+import { WorkContentDirectory } from "@/components/work/WorkContentDirectory";
 import { fetchEntityGraph, GraphNode, GraphLink } from "@/lib/api";
 const InteractiveRelationGraph = dynamic(() => import("@/components/graph/InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
 export default function WorkDirectoryPage() {
@@ -315,6 +316,8 @@ export default function WorkDirectoryPage() {
             )}
           </div>
         )}
+
+        <WorkContentDirectory workId={work.id} />
 
  <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
  <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
