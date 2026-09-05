@@ -110,7 +110,7 @@ func validateCarrierEvidence(note string, sources []string) error {
 	}
 	for _, source := range sources {
 		u, err := url.Parse(source)
-		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		if err != nil || u.Host == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") {
 			return errors.New("catalog.carrier_evidence_required")
 		}
 	}
@@ -431,6 +431,22 @@ func (s *CatalogService) writeTrack(c *gin.Context, update bool) {
 				return errors.New("catalog.canonical_not_found")
 			}
 		}
+		if strings.TrimSpace(track.Title) == "" {
+			if len(track.Contents) == 0 && track.CanonicalEntryID == nil {
+				return errors.New("catalog.carrier_invalid_track")
+			}
+			canonicalID := uuid.Nil
+			if track.CanonicalEntryID != nil {
+				canonicalID = *track.CanonicalEntryID
+			} else {
+				canonicalID = track.Contents[0].CanonicalEntryID
+			}
+			var canonical models.CanonicalEntry
+			if err := tx.Select("title").First(&canonical, "id = ?", canonicalID).Error; err != nil {
+				return err
+			}
+			track.Title = canonical.Title
+		}
 		if track.WorkID != nil {
 			var count int64
 			if err := tx.Model(&models.Work{}).Where("id = ?", *track.WorkID).Count(&count).Error; err != nil {
@@ -439,6 +455,9 @@ func (s *CatalogService) writeTrack(c *gin.Context, update bool) {
 			if count != 1 {
 				return errors.New("catalog.work_not_found")
 			}
+		}
+		if track.WorkID == nil && release.WorkID != uuid.Nil {
+			track.WorkID = &release.WorkID
 		}
 		if update {
 			if err := tx.Omit(clause.Associations).Save(&track).Error; err != nil {
