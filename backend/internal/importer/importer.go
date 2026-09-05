@@ -303,6 +303,11 @@ func mergeLocaleTitles(translations []TranslationItem, aliases []string) ([]Tran
 					ex.Aliases = append(ex.Aliases, t)
 					seenTitle[loc+"\x00"+strings.ToLower(t)] = true
 				}
+			} else {
+				// 仅有并列标题的语种行（主标题可后补）也要保留，不能静默丢弃。
+				byLocale[loc] = &TranslationItem{Locale: loc, Aliases: []string{t}}
+				order = append(order, loc)
+				seenTitle[loc+"\x00"+strings.ToLower(t)] = true
 			}
 		}
 	}

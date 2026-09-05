@@ -5,8 +5,11 @@ import (
 	"log"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"gorm.io/gorm"
+
+	"github.com/metafusion/metafusion-app/internal/models"
 )
 
 // applySchemaPatches runs idempotent ALTERs so existing volumes pick up schema
@@ -18,6 +21,7 @@ func applySchemaPatches(db *gorm.DB) {
 	migrateLegacyExternalIDs(db)
 	migrateMultilingualJSONBFields(db)
 	migrateOriginalTitlesToTranslations(db)
+	migrateCJKAliasesToTranslations(db)
 
 	stmts := []string{
 		`ALTER TABLE virtual_shelves ADD COLUMN IF NOT EXISTS names JSONB DEFAULT '{}'::jsonb NOT NULL`,
@@ -705,4 +709,97 @@ func migrateOriginalTitlesToTranslations(db *gorm.DB) {
 		), '{}')
 		WHERE f.aliases IS NOT NULL AND f.aliases <> '{}'
 	`).Error
+}
+
+// migrateCJKAliasesToTranslations 幂等回填：实体级 aliases 中字形可识别的
+// 繁体/假名异名迁入 zh-TW/ja 翻译行（同语种并列标题，仅并列标题的行合法），
+// 实体 aliases 只留无法识别语种的异名。误判代价低：值仍作为标题展示与检索。
+func migrateCJKAliasesToTranslations(db *gorm.DB) {
+	if !columnExists(db, "work_translations", "aliases") {
+		return
+	}
+	type entRow struct {
+		ID      uuid.UUID
+		Aliases pq.StringArray
+	}
+	type trRow struct {
+		Locale  string
+		Title   string
+		Aliases pq.StringArray
+	}
+	process := func(entityTable, trTable, fk string) {
+		var ents []entRow
+		if err := db.Table(entityTable).
+			Select("id, aliases").
+			Where("aliases IS NOT NULL AND array_length(aliases, 1) IS NOT NULL").
+			Scan(&ents).Error; err != nil {
+			log.Printf("cjk alias backfill scan %s skipped: %v", entityTable, err)
+			return
+		}
+		for _, e := range ents {
+			var zhTw, ja, rest []string
+			for _, a := range e.Aliases {
+				a = strings.TrimSpace(a)
+				if a == "" {
+					continue
+				}
+				switch models.DetectCJKScript(a) {
+				case "zh-TW":
+					zhTw = append(zhTw, a)
+				case "ja":
+					ja = append(ja, a)
+				default:
+					rest = append(rest, a)
+				}
+			}
+			if len(zhTw) == 0 && len(ja) == 0 {
+				continue
+			}
+			for _, spec := range []struct {
+				loc    string
+				titles []string
+			}{{"zh-TW", zhTw}, {"ja", ja}} {
+				if len(spec.titles) == 0 {
+					continue
+				}
+				var tr trRow
+				_ = db.Table(trTable).
+					Select("locale, title, aliases").
+					Where(fk+" = ? AND locale = ?", e.ID, spec.loc).
+					Scan(&tr).Error
+				if tr.Locale == "" {
+					if err := db.Exec(
+						"INSERT INTO "+trTable+" ("+fk+", locale, title, aliases) VALUES (?, ?, '', ?) ON CONFLICT ("+fk+", locale) DO NOTHING",
+						e.ID, spec.loc, pq.StringArray(spec.titles),
+					).Error; err != nil {
+						log.Printf("cjk alias backfill insert %s skipped: %v", trTable, err)
+					}
+					continue
+				}
+				seen := map[string]bool{strings.ToLower(strings.TrimSpace(tr.Title)): true}
+				merged := append([]string{}, tr.Aliases...)
+				for _, t := range tr.Aliases {
+					seen[strings.ToLower(strings.TrimSpace(t))] = true
+				}
+				for _, t := range spec.titles {
+					if !seen[strings.ToLower(t)] {
+						seen[strings.ToLower(t)] = true
+						merged = append(merged, t)
+					}
+				}
+				if err := db.Table(trTable).
+					Where(fk+" = ? AND locale = ?", e.ID, spec.loc).
+					Update("aliases", pq.StringArray(merged)).Error; err != nil {
+					log.Printf("cjk alias backfill update %s skipped: %v", trTable, err)
+				}
+			}
+			if err := db.Table(entityTable).
+				Where("id = ?", e.ID).
+				Update("aliases", pq.StringArray(rest)).Error; err != nil {
+				log.Printf("cjk alias backfill shrink %s skipped: %v", entityTable, err)
+			}
+		}
+	}
+	process("works", "work_translations", "work_id")
+	process("franchises", "franchise_translations", "franchise_id")
 }
