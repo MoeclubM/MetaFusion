@@ -2024,8 +2024,15 @@ export interface InitialSetupResult {
   token_type: string;
 }
 
-export function fetchSetupStatus(): Promise<SetupStatusResponse> {
-  return fetchApi<SetupStatusResponse>("/system/setup-status");
+export async function fetchSetupStatus(): Promise<SetupStatusResponse> {
+  try {
+    const res = await fetch("/api/v2/setup", { credentials: "same-origin" });
+    if (res.ok) {
+      const data = await res.json();
+      return { is_initialized: !data.needed, has_admin: !data.needed, site_name: "MetaFusion", total_users: 1 };
+    }
+  } catch {}
+  return { is_initialized: true, has_admin: true, site_name: "MetaFusion", total_users: 1 };
 }
 
 export interface PublicAuthSettings {

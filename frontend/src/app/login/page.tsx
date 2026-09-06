@@ -77,14 +77,26 @@ function LoginInner() {
         login(res.access_token || res.token, res.user, res.refresh_token);
         router.replace(redirectUrl);
       } else {
-        const res = await fetchApi<{ user: any; token: string; access_token?: string; refresh_token?: string }>("/auth/login", {
+        const response = await fetch("/api/v2/auth/login", {
           method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email_or_username: username.trim() || email.trim(),
+            username: username.trim() || email.trim(),
             password,
           }),
         });
-        login(res.access_token || res.token, res.user, res.refresh_token);
+        const res = await response.json();
+        if (!response.ok) {
+          throw new Error(res.error || "invalid_credentials");
+        }
+        login(res.token, {
+          id: res.user.id,
+          username: res.user.username,
+          role: res.user.role,
+          email: `${res.user.username}@metafusion.local`,
+          display_name: res.user.username,
+        });
         router.replace(redirectUrl);
       }
  } catch (err: any) {
