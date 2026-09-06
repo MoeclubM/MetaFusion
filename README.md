@@ -59,39 +59,43 @@
 
 ---
 
-## 🏗️ 系统架构全景
+## 🏗️ 系统架构全景：元数据主项目与多子系统解耦矩阵
+
+MetaFusion 采用**「以元数据系统为主项目，多业务子系统物理与逻辑完全解耦」**的微服务化体系结构。各子项目拥有立项自治权、独立数据库存储与自洽生命周期，通过统一边缘网关与标准 OAuth2.0 / OIDC 协议对外提供服务。
+
+### 1. 多项目矩阵规划 (Multi-Project Ecosystem)
+
+| 项目代码 | 仓库规划 | 架构定位 | 核心职责 | 存储与基础设施依赖 |
+|---|---|---|---|---|
+| **`metafusion-catalog`** | `MoeclubM/MetaFusion` (主仓库) | **核心主项目** | 8大固定实体骨架（Agent, Work, Expression, Release...）、动态定义引擎、关系图谱、版本对比、协同审核与修订历史 | 仅依赖 PostgreSQL (单机高可用) |
+| **`metafusion-auth`** | `MoeclubM/metafusion-auth` | 独立身份中枢 | 统一用户中心、RBAC 角色权限、OAuth 2.0 / OIDC 认证服务器、JWT 令牌签发与吊销 (SSO) | PostgreSQL (Auth DB) + Redis |
+| **`metafusion-storage`** | `MoeclubM/metafusion-storage` | 独立资源服务 | 物理资产管理、S3/RustFS 分布式对象存储接入、SHA-256/ED2K 指纹校验、种子生成、下载配额与限速鉴权 | S3 兼容存储 (RustFS/MinIO) + Storage DB |
+| **`metafusion-community`** | `MoeclubM/metafusion-community` | 独立社区服务 | 讨论版块、主题帖 (Thread)、楼层回复 (Post)、动态评分、点赞与用户互动 | PostgreSQL (Community DB) + Redis |
+| **`metafusion-api`** | `MoeclubM/metafusion-api-gateway` | 边缘路由网关 | 统一单域名接入 (`findverse.cc`)、TLS/HTTPS 证书终止、反向代理路由分发、全域速率限制与统一 OpenAPI 聚合 | Nginx / Envoy / Cloudflare |
+| **`metafusion-docs`** | `MoeclubM/metafusion-docs` | 静态文档站点 | IFLA LRM 编目准则、开放 API 交互手册、智能体 Agent 接入协议、开发者指南与法务声明 | VitePress 静态工程 (Node/Bun) |
+
+### 2. 跨系统网络与通信拓扑
 
 ```
-[ 客户端 / 浏览器 / 移动端 / 自动化 Agent ]
-                     │  (HTTP / HTTPS)
-                     ▼
-         ┌──────────────────────┐
-         │  Edge Gateway Nginx  │ (宿主机暴露端口: 10100)
-         └──────────┬───────────┘
-                    │
-   ┌────────────────┼────────────────┬────────────────┐
-   ▼                ▼                ▼                ▼
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  Next.js 15  │ │  VitePress   │ │  Go Backend  │ │   RustFS     │
-│   Frontend   │ │  Docs Site   │ │  REST API    │ │ (S3 Storage) │
-│ (Port: 3000) │ │ (Port: 3001) │ │ (Port: 8080) │ │ (Port: 9000) │
-└──────────────┘ └──────────────┘ └──────┬───────┘ └──────────────┘
-                                         │
-                    ┌────────────────────┼────────────────────┐
-                    ▼                    ▼                    ▼
-             ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-             │ PostgreSQL 16│     │   Redis 7    │     │OpenSearch 2.x│
-             │  Relational  │     │ Cache/Queue/ │     │ Search/Facet │
-             │  & Metadata  │     │  Blacklist   │     │  Analytics   │
-             └──────────────┘     └──────┬───────┘     └──────────────┘
-                                         │ (Asynq Tasks)
-                                         ▼
-                                  ┌──────────────┐
-                                  │ Transcoder   │
-                                  │ Worker       │
-                                  │(FFmpeg/vips) │
-                                  └──────────────┘
+                                [ 客户端 / Web 前端 / 移动端 / 自动化 Agent ]
+                                                      │
+                                                      ▼
+                                         ┌──────────────────────────┐
+                                         │ metafusion-api (Gateway) │ (统一单域名: findverse.cc)
+                                         │  (反向代理 / TLS / 限流) │
+                                         └────────────┬─────────────┘
+          ┌─────────────────────┬─────────────────────┼─────────────────────┬─────────────────────┐
+          │ /api/catalog/*      │ /api/auth/*         │ /api/storage/*      │ /api/community/*    │ /docs/*
+          │ /catalog/*          │ /account/*          │ /downloads/*        │ /community/*        │
+          ▼                     ▼                     ▼                     ▼                     ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│  MetaFusion      │  │ metafusion-auth  │  │metafusion-storage│  │metafusion-       │  │ metafusion-docs  │
+│  (元数据主项目)  │  │ (账号与认证中心) │  │(资源存储与下载)  │  │community(社区论坛│  │ (独立技术文档站) │
+│ (PostgreSQL 16)  │  │(Postgres + Redis)│  │ (S3 CAS + DB)    │  │(Postgres + Redis)│  │ (VitePress SSG)  │
+└──────────────────┘  └──────────────────┘  └──────────────────┘  └──────────────────┘  └──────────────────┘
 ```
+
+> **解耦保障**：元数据核心数据库仅存放实体本体与关系图谱，**不反向持有物理文件路径或社区帖子**；外围系统通过单向只读引用实体 UUID 挂载业务。即使资源中心或论坛下线维护，元数据浏览、编辑与检索依然 100% 独立稳定可用。详细规格请参阅 [`docs/architecture/multi-project-decoupling-spec.md`](docs/architecture/multi-project-decoupling-spec.md)。
 
 ---
 
@@ -194,7 +198,8 @@ MetaFusion 原生遵循 **API-First** 设计哲学，所有网页功能均具备
 欢迎任何形式的代码贡献、文档完善与编目建议！
 - **代码规范**：所有新增业务需遵循全栈 i18n 零硬编码标准（`zh-CN.json` / `en-US.json`）；
 - **提交规范**：遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范；
-- **编目准则**：录入新作品与实体关系时请参考 [IFLA LRM Cataloging Standards](docs-site/docs/curation-guide.md)。
+- **编目准则**：录入新作品与实体关系时请参考 [IFLA LRM Cataloging Standards](docs-site/docs/curation-guide.md)；
+- **GitHub 工具准则**：所有远端仓库操作、分支推送、Issue 跟踪与 Pull Request 管理**统一通过 GitHub CLI (`gh`) 命令行工具执行**。
 
 ---
 
