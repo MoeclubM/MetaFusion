@@ -2065,5 +2065,6 @@
   "entity.detail.relCast": "Cast & Characters",
   "entity.detail.relMedia": "Themes & Media",
   "entity.detail.relIncludes": "Inclusions & Compilations",
-  "entity.detail.relAll": "All Relations"
+  "entity.detail.relAll": "All Relations",
+  "nav.catalog": "Catalog"
 }

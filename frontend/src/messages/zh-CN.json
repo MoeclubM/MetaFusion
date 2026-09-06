@@ -2065,5 +2065,6 @@
   "entity.detail.relCast": "角色声优 Cast",
   "entity.detail.relMedia": "衍生与音乐关联",
   "entity.detail.relIncludes": "收录与汇编关联",
-  "entity.detail.relAll": "全部关系"
+  "entity.detail.relAll": "全部关系",
+  "nav.catalog": "目录"
 }
