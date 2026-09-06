@@ -107,6 +107,7 @@ export type Entity = {
     locator: Record<string, any>;
   }[];
   subjects: { work_id: string; role: string; position: number }[];
+  updated_at?: string;
 };
 export type Source = { kind: string; citation: string; url?: string };
 export type Relation = {

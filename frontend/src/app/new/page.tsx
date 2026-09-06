@@ -8,7 +8,9 @@ export default function Page() {
     <>
       <Navbar />
       <CatalogProvider>
-        <EntityEditor />
+        <div className="catalog-v2 cv-main">
+          <EntityEditor />
+        </div>
       </CatalogProvider>
     </>
   );

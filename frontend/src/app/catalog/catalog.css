@@ -1,12 +1,12 @@
 .catalog-v2 {
-  --cv-bg: #10151e;
-  --cv-panel: #18202c;
-  --cv-line: #334052;
-  --cv-muted: #a8b5c7;
-  --cv-accent: #91d7cc;
-  color: #e9eef6;
-  background: var(--cv-bg);
-  min-height: 100vh;
+  --cv-bg: transparent;
+  --cv-panel: var(--surface-color, #121826);
+  --cv-line: var(--surface-border-color, rgba(255, 255, 255, 0.08));
+  --cv-muted: #94a3b8;
+  --cv-accent: var(--primary-color, #3b82f6);
+  color: rgb(var(--foreground-rgb, 240 243 246));
+  background: transparent;
+  min-height: auto;
   font-size: 15px;
   line-height: 1.65;
 }
@@ -31,7 +31,8 @@
 .cv-main {
   max-width: 1280px;
   margin: auto;
-  padding: 48px 32px 100px;
+  padding: 36px 24px 80px;
+  min-height: 80vh;
 }
 .catalog-v2 h1 {
   font-size: 34px;

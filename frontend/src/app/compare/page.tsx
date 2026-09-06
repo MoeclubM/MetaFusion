@@ -13,7 +13,9 @@ export default async function Page({
     <>
       <Navbar />
       <CatalogProvider>
-        <Compare ids={ids || ""} />
+        <div className="catalog-v2 cv-main">
+          <Compare ids={ids || ""} />
+        </div>
       </CatalogProvider>
     </>
   );
