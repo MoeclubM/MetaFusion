@@ -29,6 +29,7 @@ import {
   GitCompare,
   DownloadCloud,
   MessageSquare,
+  Sparkles,
 } from "lucide-react";
 
 export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }) => {
@@ -50,11 +51,12 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
   }, []);
 
   const navLinks = [
-    { href: "/about", label: t("browseHome.about"), icon: BookOpen },
     { href: "/", label: t("navigation.home"), icon: Library, exact: true },
     { href: "/explore", label: t("navigation.explore"), icon: Compass },
     { href: "/community", label: t("navigation.community"), icon: MessageSquare },
     { href: "/downloads", label: t("navigation.resources"), icon: DownloadCloud },
+    { href: "/compare", label: t("catalog.compare"), icon: GitCompare },
+    { href: "/landing", label: locale === "zh-CN" ? "平台介绍" : "About", icon: Sparkles },
     { href: "/docs/catalog", label: t("navigation.docs"), icon: BookOpen, external: true },
   ];
 
