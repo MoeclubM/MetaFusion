@@ -16,7 +16,9 @@ func TestOpenAPIRouteCoverage(t *testing.T) {
 	HTTP{Store: &Store{}}.Register(r)
 	paths := doc["paths"].(map[string]any)
 	for _, route := range r.Routes() {
-		if route.Path == "/api/v2/openapi.json" || route.Path == "/api/openapi.json" {
+		if route.Path == "/api/v2/openapi.json" || route.Path == "/api/openapi.json" ||
+			route.Path == "/api/v2/docs" || route.Path == "/api/docs" ||
+			route.Path == "/api/v2/swagger" || route.Path == "/api/swagger" {
 			continue
 		}
 		clean := strings.TrimPrefix(route.Path, "/api/v2")

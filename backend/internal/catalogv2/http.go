@@ -92,6 +92,14 @@ func (h HTTP) Register(r *gin.Engine) {
 func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	s := h.Store
 	api.GET("/openapi.json", func(c *gin.Context) { c.JSON(200, OpenAPI()) })
+	api.GET("/docs", func(c *gin.Context) {
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(200, docsHTML)
+	})
+	api.GET("/swagger", func(c *gin.Context) {
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(200, swaggerHTML)
+	})
 	api.Use(func(c *gin.Context) {
 		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
 		if token == "" {
@@ -466,3 +474,57 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, gin.H{"ok": true}, s.Publish(c.Request.Context(), id, *user(c), in.EditNote, in.Sources))
 	})
 }
+
+const docsHTML = `<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <title>MetaFusion API 交互式文档 (Scalar)</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      body { margin: 0; padding: 0; background: #0b0f19; }
+    </style>
+  </head>
+  <body>
+    <script
+      id="api-reference"
+      data-url="/api/openapi.json"
+      data-configuration='{"theme": "purple", "hideModels": false, "showSidebar": true}'>
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
+</html>`
+
+const swaggerHTML = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>MetaFusion API 文档 (Swagger UI)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+  <style>
+    body { margin: 0; padding: 0; background: #fafafa; }
+    .swagger-ui .topbar { display: none; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    window.onload = function() {
+      SwaggerUIBundle({
+        url: "/api/openapi.json",
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIBundle.SwaggerUIStandalonePreset
+        ],
+        layout: "BaseLayout"
+      });
+    };
+  </script>
+</body>
+</html>`

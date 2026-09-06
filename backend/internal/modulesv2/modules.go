@@ -209,7 +209,12 @@ func (m *Manager) entity(c *gin.Context, id string) bool {
 	return true
 }
 func (m *Manager) Register(r *gin.Engine) {
-	api := r.Group("/api/v2")
+	for _, prefix := range []string{"/api", "/api/v2"} {
+		m.registerGroup(r.Group(prefix))
+	}
+}
+
+func (m *Manager) registerGroup(api *gin.RouterGroup) {
 	m.registerMedia(api)
 	api.GET("/capabilities", func(c *gin.Context) { items := m.Manifests(); c.JSON(200, gin.H{"modules": items}) })
 	api.PUT("/admin/modules/:id", func(c *gin.Context) {
@@ -461,7 +466,7 @@ func (m *Manager) download(c *gin.Context) {
 		return
 	}
 	defer object.Close()
-	if strings.HasPrefix(c.FullPath(), "/api/v2/playback/") {
+	if strings.Contains(c.FullPath(), "/playback/") {
 		if !strings.HasPrefix(x.Mime, "audio/") && !strings.HasPrefix(x.Mime, "video/") && !contains([]string{"image/jpeg", "image/png", "image/webp", "image/gif"}, x.Mime) {
 			failure(c, 415, "preview_unsupported")
 			return

@@ -57,7 +57,28 @@ func OpenAPI() map[string]any {
 	schemas["DefinitionDraft"] = map[string]any{"type": "object", "required": []string{"document", "base_version", "edit_note", "sources"}, "properties": map[string]any{"document": schema(reflect.TypeOf(Definitions{})), "base_version": map[string]any{"type": "integer"}, "edit_note": map[string]any{"type": "string"}, "sources": schema(reflect.TypeOf([]Source{}))}}
 	paths := map[string]any{}
 	add := func(path, method, summary, request, response string, auth bool) {
-		op := map[string]any{"summary": summary, "responses": map[string]any{"200": map[string]any{"description": "Success", "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/" + response}}}}, "400": map[string]any{"description": "Invalid payload, source, definition or structural constraint"}, "401": map[string]any{"description": "Authentication required"}, "403": map[string]any{"description": "Insufficient edit or review permission"}, "404": map[string]any{"description": "Not found or not visible"}, "409": map[string]any{"description": "Version conflict; read current data before retrying"}}}
+		tag := "Catalog"
+	if strings.HasPrefix(path, "/auth") || strings.HasPrefix(path, "/setup") {
+		tag = "Auth"
+	} else if strings.HasPrefix(path, "/oauth") {
+		tag = "OAuth"
+	} else if strings.HasPrefix(path, "/admin/users") {
+		tag = "Users"
+	} else if strings.HasPrefix(path, "/admin/catalog-definitions") || path == "/catalog/definitions" {
+		tag = "Definitions"
+	}
+	op := map[string]any{
+		"tags":        []string{tag},
+		"summary":     summary,
+		"responses": map[string]any{
+			"200": map[string]any{"description": "Success", "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/" + response}}}},
+			"400": map[string]any{"description": "Invalid payload, source, definition or structural constraint"},
+			"401": map[string]any{"description": "Authentication required"},
+			"403": map[string]any{"description": "Insufficient edit or review permission"},
+			"404": map[string]any{"description": "Not found or not visible"},
+			"409": map[string]any{"description": "Version conflict; read current data before retrying"},
+		},
+	}
 		if auth {
 			op["security"] = []any{map[string]any{"session": []string{}}, map[string]any{"bearer": []string{}}}
 		}
@@ -90,5 +111,30 @@ func OpenAPI() map[string]any {
 	}
 	paths["/catalog/entities"].(map[string]any)["get"].(map[string]any)["parameters"] = params
 	paths["/catalog/compare"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{map[string]any{"name": "ids", "in": "query", "required": true, "description": "Two to six comma-separated release UUIDs", "schema": map[string]any{"type": "string"}}}
-	return map[string]any{"openapi": "3.0.3", "info": map[string]any{"title": "MetaFusion catalog", "version": "2.0.0"}, "servers": []any{map[string]any{"url": "/api"}}, "paths": paths, "components": map[string]any{"schemas": schemas, "securitySchemes": map[string]any{"session": map[string]any{"type": "apiKey", "in": "cookie", "name": "mf_v2_session"}, "bearer": map[string]any{"type": "http", "scheme": "bearer"}}}}
+	return map[string]any{
+		"openapi": "3.0.3",
+		"info": map[string]any{
+			"title":       "MetaFusion API",
+			"description": "MetaFusion 开放媒体元数据与资源共建平台标准 API。提供固定实体骨架（Work / Expression / Release / Medium / Track / ContentUnit / Agent / Collection）、动态类型与属性扩展、多版本发行对比、OAuth 2.0 / OIDC 统一认证与外围解耦模块接入能力。",
+			"version":     "1.0.0",
+		},
+		"servers": []any{
+			map[string]any{"url": "/api", "description": "标准统一主干 API"},
+		},
+		"tags": []any{
+			map[string]any{"name": "Catalog", "description": "核心实体编目与查询 (Work, Release, Medium, Track, ContentUnit, Agent, Collection)"},
+			map[string]any{"name": "Definitions", "description": "无代码动态元数据类型、属性与关系定义管理"},
+			map[string]any{"name": "OAuth", "description": "OAuth 2.0 / OIDC 开放认证与单点登录服务"},
+			map[string]any{"name": "Auth", "description": "用户身份认证与账号管理"},
+			map[string]any{"name": "Users", "description": "管理员用户权限与账号管理"},
+		},
+		"paths": paths,
+		"components": map[string]any{
+			"schemas": schemas,
+			"securitySchemes": map[string]any{
+				"session": map[string]any{"type": "apiKey", "in": "cookie", "name": "mf_session"},
+				"bearer":  map[string]any{"type": "http", "scheme": "bearer"},
+			},
+		},
+	}
 }

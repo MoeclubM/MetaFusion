@@ -31,7 +31,7 @@ MetaFusion 开放 API 为大语言模型（LLM）与自动化 Agent 提供了结
 
 ## 2. LLM 工具定义描述 (Tool Declarations / JSON Schema)
 
-可直接拉取 `GET /api/v1/openapi.json`，或向 LLM 注入以下原子与一站式编目工具定义：
+可直接拉取 `GET /api/openapi.json`，或向 LLM 注入以下原子与一站式编目工具定义：
 
 ```json
 {
