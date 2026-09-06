@@ -34,6 +34,9 @@ const nextConfig = {
     ],
   },
   output: "standalone",
+  async rewrites() {
+    return [{source:"/api/v2/:path*",destination:`${process.env.BACKEND_ORIGIN || "http://127.0.0.1:8080"}/api/v2/:path*`}];
+  },
   async redirects() {
     return [
       { source: "/upload", destination: "/contribute", permanent: true },

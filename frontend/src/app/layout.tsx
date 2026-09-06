@@ -1,12 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { AuthProvider } from "@/lib/authContext";
-import { AuthGate } from "@/components/AuthGate";
-import { PlayerProvider } from "@/lib/playerContext";
-import { GlobalAudioPlayer } from "@/components/GlobalAudioPlayer";
+import { ApplicationBoundary } from "@/components/ApplicationBoundary";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { ThemeProvider } from "@/lib/themeContext";
-import { ConditionalFooter } from "@/components/ConditionalFooter";
 
 export const metadata: Metadata = {
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
@@ -32,15 +28,7 @@ export default function RootLayout({
       <body className="font-sans min-h-screen bg-background text-gray-100 flex flex-col antialiased">
         <ThemeProvider>
           <I18nProvider>
-            <AuthProvider>
-              <AuthGate>
-                <PlayerProvider>
-                  {children}
-                  <GlobalAudioPlayer />
-                  <ConditionalFooter />
-                </PlayerProvider>
-              </AuthGate>
-            </AuthProvider>
+            <ApplicationBoundary>{children}</ApplicationBoundary>
           </I18nProvider>
         </ThemeProvider>
       </body>
