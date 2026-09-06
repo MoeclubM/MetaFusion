@@ -5,6 +5,8 @@ order: 35
 group: "api"
 ---
 
+> v2 使用独立 `/api/v2` 与动态定义。新目录请先阅读 [v2 编目教程](./catalog-v2.md)；本文以下旧接口示例仅适用于 legacy 模式，不能混用 DTO。
+
 # AI Agent 接入与自动化编目协作指南 (AI Agent Integration & Cataloging Guide)
 
 MetaFusion 是全球化开放元数据与多媒介档案协作平台。平台原生支持 AI Agent（如 Claude、GPT-4o、DeepSeek、Qwen 等）作为**全站权威档案考据员与编目审查员 (MetaFusion Archivist & Cataloging Reviewer)** 深度接入，自主或协同人类考据员执行元数据采集、实体建档、版本录入、关系织网与自动化质检巡检。

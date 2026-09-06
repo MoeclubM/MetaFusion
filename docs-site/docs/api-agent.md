@@ -5,6 +5,8 @@ order: 36
 group: "api"
 ---
 
+> v2 使用独立 `/api/v2` 与动态定义。新目录请先阅读 [v2 编目教程](./catalog-v2.md)；本文以下旧接口示例仅适用于 legacy 模式，不能混用 DTO。
+
 # AI Agent 自动化 API 与工具规范 (AI Agent API & Tool Specs)
 
 MetaFusion 开放 API 为大语言模型（LLM）与自动化 Agent 提供了结构化、原子化的编目写入端点。本规范提供标准 Function Calling / Tools JSON Schema 定义、原子写入端点规范以及错误自愈与安全红线。
