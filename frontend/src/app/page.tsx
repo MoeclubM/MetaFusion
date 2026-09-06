@@ -1,346 +1,78 @@
 "use client";
-
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { Search, ArrowRight, BookOpen } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
-import {
-  Search,
-  Disc,
-  BookOpen,
-  Film,
-  Tv,
-  Gamepad2,
-  Camera,
-  Plus,
-  ChevronRight,
-} from "lucide-react";
-
-interface EntityItem {
-  id: string;
-  kind: string;
-  title: string;
-  original_language?: string;
-  types?: string[];
-  pictures?: { url: string }[];
-  version?: number;
-}
-
-interface ShelfItem {
-  slug: string;
-  name_zh: string;
-  name_en: string;
-  icon: React.ElementType;
-  color: string;
-  border: string;
-  query_tags: string[];
-  types: string[];
-  exploreParam: string;
-}
-
-const DEFAULT_SHELVES: ShelfItem[] = [
-  {
-    slug: "music",
-    name_zh: "音乐与唱片",
-    name_en: "Music & Records",
-    icon: Disc,
-    color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-    border: "hover:border-amber-500/40",
-    query_tags: ["音乐", "专辑", "单曲", "原声"],
-    types: ["album", "single", "music", "song"],
-    exploreParam: "type=album",
-  },
-  {
-    slug: "anime",
-    name_zh: "动画与番剧",
-    name_en: "Anime & Shows",
-    icon: Tv,
-    color: "text-sky-400 bg-sky-500/10 border-sky-500/20",
-    border: "hover:border-sky-500/40",
-    query_tags: ["动画", "番剧", "剧集"],
-    types: ["animation", "series"],
-    exploreParam: "type=animation",
-  },
-  {
-    slug: "films",
-    name_zh: "电影与长片",
-    name_en: "Movies & Films",
-    icon: Film,
-    color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
-    border: "hover:border-purple-500/40",
-    query_tags: ["电影", "长片", "剧场版"],
-    types: ["film", "movie"],
-    exploreParam: "type=film",
-  },
-  {
-    slug: "novels",
-    name_zh: "文学与轻小说",
-    name_en: "Books & Literature",
-    icon: BookOpen,
-    color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-    border: "hover:border-emerald-500/40",
-    query_tags: ["小说", "轻小说", "图书"],
-    types: ["novel", "book"],
-    exploreParam: "type=novel",
-  },
-  {
-    slug: "games",
-    name_zh: "独立游戏与视觉小说",
-    name_en: "Indie Games",
-    icon: Gamepad2,
-    color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
-    border: "hover:border-indigo-500/40",
-    query_tags: ["游戏", "独立游戏", "视觉小说"],
-    types: ["game", "visual_novel", "indie_game"],
-    exploreParam: "type=game",
-  },
-  {
-    slug: "creations",
-    name_zh: "摄影写真与个人创作",
-    name_en: "Photobooks & Doujin",
-    icon: Camera,
-    color: "text-rose-400 bg-rose-500/10 border-rose-500/20",
-    border: "hover:border-rose-500/40",
-    query_tags: ["写真", "摄影", "同人", "翻唱"],
-    types: ["photobook", "doujin", "artbook", "personal"],
-    exploreParam: "type=photobook",
-  },
-];
-
+import { Definition, Entity, local, title } from "@/components/catalog-v2/api";
+type Shelf = { code: string; names: Record<string, string>; items: Entity[]; failed?: boolean };
 export default function HomePage() {
-  const { locale } = useI18n();
-  const router = useRouter();
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [entities, setEntities] = useState<EntityItem[]>([]);
+  const { t, locale } = useI18n();
+  const [shelves, setShelves] = useState<Shelf[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
-    fetch("/api/catalog/entities?limit=100", { credentials: "same-origin" })
-      .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((data) => {
-        setEntities(data.items || []);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      router.push("/explore?q=" + encodeURIComponent(searchQuery.trim()));
-    } else {
-      router.push("/explore");
+    const controller = new AbortController();
+    async function load() {
+      setLoading(true); setFailed(false);
+      try {
+        const response = await fetch("/api/catalog/definitions", { signal: controller.signal });
+        if (!response.ok) throw new Error();
+        const definitions: Definition = await response.json();
+        const types = Object.entries(definitions.document.types).filter(([, type]) => type.enabled && type.kinds.includes("work"));
+        const next: Shelf[] = [];
+        // Bound concurrency as administrators add more work types.
+        for (let i = 0; i < types.length; i += 4) {
+          next.push(...await Promise.all(types.slice(i, i + 4).map(async ([code, type]) => {
+            const query = new URLSearchParams({ kind: "work", type: code, status: "published", limit: "6" });
+            try {
+              const res = await fetch(`/api/catalog/entities?${query}`, { signal: controller.signal });
+              if (!res.ok) throw new Error();
+              const data = await res.json();
+              return { code, names: type.names, items: data.items || [] };
+            } catch (error) {
+              if (controller.signal.aborted) throw error;
+              return { code, names: type.names, items: [], failed: true };
+            }
+          })));
+        }
+        if (!controller.signal.aborted) setShelves(next);
+      } catch { if (!controller.signal.aborted) setFailed(true); }
+      finally { if (!controller.signal.aborted) setLoading(false); }
     }
-  };
-
-  const matchShelfItems = (shelf: ShelfItem) => {
-    return entities.filter((item) => {
-      const types = item.types || [];
-      const hasType = shelf.types.some((st) => types.includes(st));
-      if (hasType) return true;
-      const titleLower = (item.title || "").toLowerCase();
-      return shelf.query_tags.some((tag) => titleLower.includes(tag.toLowerCase()));
-    });
-  };
-
-  return (
-    <div className="min-h-screen flex flex-col bg-background text-gray-100">
-      <Navbar />
-
-      {/* Clean Utility Bar: Search & Shelf Jump Chips */}
-      <div className="border-b border-white/[0.06] bg-surface/40 backdrop-blur-sm sticky top-14 sm:top-15 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {/* Direct Search Input */}
-          <form onSubmit={handleSearch} className="relative flex-1 max-w-lg">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={
-                locale === "zh-CN"
-                  ? "搜索作品、发行版本、创作者或标签..."
-                  : "Search works, releases, agents or tags..."
-              }
-              className="w-full pl-9 pr-16 py-2 rounded-lg bg-white/[0.04] border border-white/10 hover:border-white/20 focus:border-primary focus:ring-1 focus:ring-primary text-white text-xs placeholder:text-gray-500 outline-none transition-all"
-            />
-            <button
-              type="submit"
-              className="absolute right-1 top-1/2 -translate-y-1/2 px-3 py-1 rounded-md bg-primary hover:bg-primary/90 text-white font-medium text-xs transition-colors"
-            >
-              {locale === "zh-CN" ? "搜索" : "Search"}
-            </button>
-          </form>
-
-          {/* Shelf Quick Navigation Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-xs">
-            {DEFAULT_SHELVES.map((shelf) => {
-              const Icon = shelf.icon;
-              return (
-                <a
-                  key={shelf.slug}
-                  href={"#shelf-" + shelf.slug}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 text-gray-300 hover:text-white text-xs font-medium whitespace-nowrap transition-colors"
-                >
-                  <Icon className="w-3.5 h-3.5 text-gray-400" />
-                  <span>{locale === "zh-CN" ? shelf.name_zh : shelf.name_en}</span>
-                </a>
-              );
-            })}
+    void load(); return () => controller.abort();
+  }, [attempt]);
+  return <div className="min-h-screen bg-background text-gray-100">
+    <Navbar />
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+      <h1 className="sr-only">{t("browseHome.title")}</h1>
+      <form action="/explore" className="relative max-w-2xl">
+        <Search className="absolute left-4 top-3.5 w-5 h-5 text-gray-500" aria-hidden="true" />
+        <input name="q" aria-label={t("browseHome.search")} placeholder={t("browseHome.search")} className="w-full bg-surface border border-white/10 rounded-xl py-3 pl-12 pr-24 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        <button className="absolute right-2 top-2 rounded-lg px-4 py-1.5 bg-primary text-white text-sm">{t("browseHome.searchAction")}</button>
+      </form>
+      {loading ? <div role="status" className="py-16 text-gray-400">{t("browseHome.loading")}</div> : failed ? <div role="alert" className="py-12 space-y-3"><p>{t("browseHome.failed")}</p><button onClick={() => setAttempt(attempt + 1)} className="text-primary">{t("browseHome.retry")}</button></div> : <>
+        <nav aria-label={t("browseHome.title")} className="flex flex-wrap gap-2">
+          {shelves.map(shelf => <a key={shelf.code} href={`#shelf-${shelf.code}`} className="rounded-full border border-white/10 px-4 py-2 text-sm text-gray-300 hover:border-primary hover:text-primary">{local(shelf.names, locale, "", shelf.code)}</a>)}
+        </nav>
+        {shelves.length === 0 && <p className="text-gray-400">{t("browseHome.noTypes")}</p>}
+        {shelves.map(shelf => <section key={shelf.code} id={`shelf-${shelf.code}`} className="scroll-mt-36 space-y-4">
+          <div className="flex items-center justify-between gap-4 border-b border-white/10 pb-3">
+            <h2 className="text-lg font-semibold">{local(shelf.names, locale, "", shelf.code)}</h2>
+            <Link href={`/explore?kind=work&type=${encodeURIComponent(shelf.code)}`} className="inline-flex items-center gap-1 text-sm text-gray-400 hover:text-primary">{t("browseHome.viewAll")}<ArrowRight className="w-4 h-4" /></Link>
           </div>
-        </div>
-      </div>
-
-      {/* Categorized Shelves Stream */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 space-y-10">
-        {DEFAULT_SHELVES.map((shelf) => {
-          const items = matchShelfItems(shelf);
-          const Icon = shelf.icon;
-
-          return (
-            <section key={shelf.slug} id={"shelf-" + shelf.slug} className="space-y-3.5 scroll-mt-28">
-              {/* Shelf Header */}
-              <div className="flex items-center justify-between border-b border-white/[0.06] pb-2.5">
-                <div className="flex items-center gap-3">
-                  <div className={"w-8 h-8 rounded-lg border flex items-center justify-center " + shelf.color}>
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="font-bold text-white text-base">
-                        {locale === "zh-CN" ? shelf.name_zh : shelf.name_en}
-                      </h2>
-                      <span className="px-2 py-0.5 rounded-full bg-white/[0.06] text-[11px] font-mono text-gray-400">
-                        {items.length} {locale === "zh-CN" ? "部作品" : "items"}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 mt-0.5">
-                      {shelf.query_tags.map((tag) => (
-                        <Link
-                          key={tag}
-                          href={"/explore?tag=" + encodeURIComponent(tag)}
-                          className="text-[11px] font-mono text-gray-500 hover:text-primary transition-colors"
-                        >
-                          #{tag}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <Link
-                  href={"/explore?" + shelf.exploreParam}
-                  className="inline-flex items-center gap-1 text-xs font-mono text-primary hover:text-primary/80 transition-colors group"
-                >
-                  <span>{locale === "zh-CN" ? "查看此货架全部 ↗" : "View All ↗"}</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </Link>
+          {shelf.failed ? <p role="alert" className="text-sm text-gray-400">{t("browseHome.failed")} <button className="text-primary" onClick={() => setAttempt(attempt + 1)}>{t("browseHome.retry")}</button></p> : shelf.items.length === 0 ? <p className="text-sm text-gray-500 py-5">{t("browseHome.empty")}</p> : <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-5">
+            {shelf.items.map(item => <Link key={item.id} href={`/catalog/${item.id}`} className="group min-w-0">
+              <div className="aspect-[3/4] rounded-xl overflow-hidden bg-surface border border-white/10 flex items-center justify-center group-hover:border-primary/60 transition-colors">
+                {item.pictures?.[0]?.url ? <img src={item.pictures[0].url} alt="" loading="lazy" className="w-full h-full object-contain" /> : <BookOpen className="w-9 h-9 text-gray-600" />}
               </div>
-
-              {/* Shelf Cards Grid */}
-              {loading ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
-                  {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="aspect-[3/4] rounded-xl bg-white/[0.02] border border-white/[0.06] animate-pulse" />
-                  ))}
-                </div>
-              ) : items.length === 0 ? (
-                <div className="p-6 rounded-xl border border-dashed border-white/10 bg-white/[0.01] text-center space-y-2">
-                  <p className="text-xs font-mono text-gray-500">
-                    {locale === "zh-CN"
-                      ? "当前【" + shelf.name_zh + "】分类暂无收录内容"
-                      : "No items in " + shelf.name_en + " shelf yet"}
-                  </p>
-                  <Link
-                    href="/new?kind=work"
-                    className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-medium"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{locale === "zh-CN" ? "录入该分类首部作品" : "Add Entry"}</span>
-                  </Link>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3.5">
-                  {items.slice(0, 5).map((item) => (
-                    <Link
-                      key={item.id}
-                      href={"/catalog/" + item.id}
-                      className={"group flex flex-col rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.06] " + shelf.border + " overflow-hidden transition-all shadow-sm"}
-                    >
-                      <div className="aspect-[3/4] bg-black/40 relative flex items-center justify-center overflow-hidden">
-                        {item.pictures && item.pictures[0]?.url ? (
-                          <img
-                            src={item.pictures[0].url}
-                            alt={item.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center gap-2 text-gray-600">
-                            <Icon className="w-8 h-8 opacity-40" />
-                            <span className="text-[10px] font-mono uppercase tracking-wider">
-                              {item.types?.[0] || item.kind}
-                            </span>
-                          </div>
-                        )}
-                        <span className="absolute top-2 left-2 px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-md text-[9px] font-mono text-gray-300 uppercase">
-                          {item.types?.[0] || item.kind}
-                        </span>
-                      </div>
-                      <div className="p-3 flex-1 flex flex-col justify-between">
-                        <div>
-                          <h3 className="font-semibold text-white group-hover:text-primary transition-colors text-xs line-clamp-1 mb-1">
-                            {item.title}
-                          </h3>
-                          {item.original_language && (
-                            <p className="font-mono text-[10px] text-gray-500 uppercase">
-                              [{item.original_language}]
-                            </p>
-                          )}
-                        </div>
-                        <div className="mt-2 pt-1.5 border-t border-white/[0.04] flex items-center justify-between text-[10px] text-gray-500 font-mono">
-                          <span>v{item.version || 1}</span>
-                          <span className="group-hover:text-gray-300 transition-colors flex items-center gap-0.5">
-                            {locale === "zh-CN" ? "查看详情" : "Details"} <ChevronRight className="w-3 h-3" />
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </section>
-          );
-        })}
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-white/[0.06] py-6 text-center text-xs font-mono text-gray-500">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <span>© 2026 MetaFusion · Open Metadata Platform</span>
-          <div className="flex items-center gap-4">
-            <Link href="/about" className="hover:text-gray-300 transition-colors">
-              {locale === "zh-CN" ? "关于平台与架构" : "About & Architecture"}
-            </Link>
-            <Link href="/explore" className="hover:text-gray-300 transition-colors">
-              {locale === "zh-CN" ? "探索中心" : "Explore"}
-            </Link>
-            <Link href="/community" className="hover:text-gray-300 transition-colors">
-              {locale === "zh-CN" ? "社区论坛" : "Community"}
-            </Link>
-            <Link href="/downloads" className="hover:text-gray-300 transition-colors">
-              {locale === "zh-CN" ? "资源中心" : "Downloads"}
-            </Link>
-            <a href="/docs/catalog" className="hover:text-gray-300 transition-colors">
-              {locale === "zh-CN" ? "编目指南" : "Docs"}
-            </a>
-            <a href="/api/docs" className="hover:text-gray-300 transition-colors">
-              {locale === "zh-CN" ? "API 文档" : "API Reference"}
-            </a>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
+              <h3 className="text-sm leading-6 font-medium mt-3 line-clamp-2 group-hover:text-primary">{title(item, locale)}</h3>
+            </Link>)}
+          </div>}
+        </section>)}
+      </>}
+    </main>
+    <footer className="max-w-7xl mx-auto px-4 sm:px-6 py-8 text-sm text-gray-500 border-t border-white/10 flex justify-between gap-4"><span>MetaFusion</span><Link href="/about" className="hover:text-primary">{t("browseHome.about")}</Link></footer>
+  </div>;
 }
