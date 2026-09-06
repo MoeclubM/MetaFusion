@@ -2048,11 +2048,40 @@ export function fetchAuthSettings(): Promise<PublicAuthSettings> {
   return fetchApi<PublicAuthSettings>("/auth/settings");
 }
 
-export function performInitialSetup(payload: InitialSetupPayload): Promise<InitialSetupResult> {
-  return fetchApi<InitialSetupResult>("/system/setup", {
+export async function performInitialSetup(payload: InitialSetupPayload): Promise<InitialSetupResult> {
+  const setupRes = await fetch("/api/setup", {
     method: "POST",
-    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: payload.username,
+      email: payload.email,
+      password: payload.password,
+    }),
   });
+  if (!setupRes.ok) {
+    const err = await setupRes.json().catch(() => ({}));
+    throw new Error(err.error || "setup_failed");
+  }
+  const user = await setupRes.json();
+  const loginRes = await fetch("/api/auth/login", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: payload.username,
+      password: payload.password,
+    }),
+  });
+  const loginData = loginRes.ok ? await loginRes.json() : {};
+  return {
+    message: "setup_success",
+    user: loginData.user || user,
+    token: loginData.token || "",
+    access_token: loginData.token || "",
+    refresh_token: "",
+    expires_in: 86400,
+    token_type: "Bearer",
+  };
 }
 
 // ── 系统健康监控与任务队列治理 (Health & Asynq Queues) ──

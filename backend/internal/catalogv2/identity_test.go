@@ -10,7 +10,7 @@ func TestIdentityManagement(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. Create a normal editor
-	editor, err := f.s.CreateUser(ctx, "test-editor", "password-123456", false, &f.u)
+	editor, err := f.s.CreateUser(ctx, "test-editor", "test-editor@example.com", "password-123456", false, &f.u)
 	if err != nil {
 		t.Fatalf("failed to create editor: %v", err)
 	}

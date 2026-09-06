@@ -1,8 +1,9 @@
 CREATE SCHEMA IF NOT EXISTS catalog;
 CREATE TABLE IF NOT EXISTS catalog.users (
- id uuid PRIMARY KEY, username text NOT NULL UNIQUE, password_hash text NOT NULL,
+ id uuid PRIMARY KEY, username text NOT NULL UNIQUE, email text NOT NULL DEFAULT '', password_hash text NOT NULL,
  role text NOT NULL CHECK (role IN ('editor','admin'))
 );
+ALTER TABLE catalog.users ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS catalog.sessions (
  token_hash text PRIMARY KEY, user_id uuid NOT NULL REFERENCES catalog.users(id), expires_at timestamptz NOT NULL
 );

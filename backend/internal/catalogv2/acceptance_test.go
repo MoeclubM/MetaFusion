@@ -25,7 +25,7 @@ func newFixture(t *testing.T) fixture {
 	if err := s.Initialize(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	u, err := s.CreateUser(context.Background(), "fixture-admin", "fixture-password-123", true, nil)
+	u, err := s.CreateUser(context.Background(), "fixture-admin", "fixture-admin@example.com", "fixture-password-123", true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestPostgresDynamicDefinitions(t *testing.T) {
 func TestPostgresEditReviewAndVersions(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	editor, err := f.s.CreateUser(ctx, "fixture-editor", "fixture-editor-pass", false, &f.u)
+	editor, err := f.s.CreateUser(ctx, "fixture-editor", "fixture-editor@example.com", "fixture-editor-pass", false, &f.u)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -18,11 +18,11 @@ import (
 func (s *Store) User(ctx context.Context, token string) (*User, error) {
 	hash := sha256.Sum256([]byte(token))
 	var u User
-	err := s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,u.role FROM catalog.sessions s JOIN catalog.users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()", hex.EncodeToString(hash[:])).Scan(&u.ID, &u.Username, &u.Role)
+	err := s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,COALESCE(u.email,''),u.role FROM catalog.sessions s JOIN catalog.users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()", hex.EncodeToString(hash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	if err == nil {
 		return &u, nil
 	}
-	err = s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,u.role FROM catalog.oauth_tokens t JOIN catalog.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(hash[:])).Scan(&u.ID, &u.Username, &u.Role)
+	err = s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,COALESCE(u.email,''),u.role FROM catalog.oauth_tokens t JOIN catalog.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(hash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	return &u, err
 }
 
@@ -32,8 +32,11 @@ func (s *Store) SetupNeeded(ctx context.Context) (bool, error) {
 	return n == 0, err
 }
 
-func (s *Store) CreateUser(ctx context.Context, username, password string, setup bool, actor *User) (User, error) {
-	u := User{ID: uuid.NewString(), Username: strings.TrimSpace(username), Role: "editor"}
+func (s *Store) CreateUser(ctx context.Context, username, email, password string, setup bool, actor *User) (User, error) {
+	u := User{ID: uuid.NewString(), Username: strings.TrimSpace(username), Email: strings.TrimSpace(email), Role: "editor"}
+	if u.Email == "" {
+		u.Email = fmt.Sprintf("%s@findverse.cc", u.Username)
+	}
 	if len(u.Username) < 2 || len(u.Username) > 80 || len(password) < 12 || len(password) > 72 {
 		return u, fmt.Errorf("invalid_credentials_format")
 	}
@@ -55,7 +58,7 @@ func (s *Store) CreateUser(ctx context.Context, username, password string, setup
 			}
 			u.Role = "admin"
 		}
-		_, err := tx.ExecContext(ctx, "INSERT INTO catalog.users(id,username,password_hash,role) VALUES($1,$2,$3,$4)", u.ID, u.Username, string(hash), u.Role)
+		_, err := tx.ExecContext(ctx, "INSERT INTO catalog.users(id,username,email,password_hash,role) VALUES($1,$2,$3,$4,$5)", u.ID, u.Username, u.Email, string(hash), u.Role)
 		return err
 	})
 	return u, err
@@ -64,7 +67,7 @@ func (s *Store) CreateUser(ctx context.Context, username, password string, setup
 func (s *Store) Login(ctx context.Context, username, password string) (string, User, error) {
 	var u User
 	var stored string
-	err := s.DB.QueryRowContext(ctx, "SELECT id,username,role,password_hash FROM catalog.users WHERE username=$1", strings.TrimSpace(username)).Scan(&u.ID, &u.Username, &u.Role, &stored)
+	err := s.DB.QueryRowContext(ctx, "SELECT id,username,COALESCE(email,''),role,password_hash FROM catalog.users WHERE username=$1 OR (email=$1 AND email<>'')", strings.TrimSpace(username)).Scan(&u.ID, &u.Username, &u.Email, &u.Role, &stored)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(stored), []byte(password)) != nil {
 		return "", u, fmt.Errorf("invalid_credentials")
 	}
@@ -177,14 +180,14 @@ func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, c
 		return "", nil, err
 	}
 	var u User
-	err = s.DB.QueryRowContext(ctx, "SELECT id, username, role FROM catalog.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Role)
+	err = s.DB.QueryRowContext(ctx, "SELECT id, username, role FROM catalog.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	return token, &u, err
 }
 
 func (s *Store) UserFromOAuthToken(ctx context.Context, token string) (*User, error) {
 	thash := sha256.Sum256([]byte(token))
 	var u User
-	err := s.DB.QueryRowContext(ctx, "SELECT u.id, u.username, u.role FROM catalog.oauth_tokens t JOIN catalog.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(thash[:])).Scan(&u.ID, &u.Username, &u.Role)
+	err := s.DB.QueryRowContext(ctx, "SELECT u.id, u.username, u.role FROM catalog.oauth_tokens t JOIN catalog.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(thash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +228,7 @@ func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
 	var out []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Email, &u.Role); err != nil {
 			return nil, err
 		}
 		out = append(out, u)
