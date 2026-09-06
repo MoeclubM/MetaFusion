@@ -201,7 +201,7 @@ function AdminInner() {
             : "This administrative panel is restricted to system administrators only."}
         </p>
         <Link
-          href="/catalog/account"
+          href="/account"
           className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-medium"
         >
           {locale === "zh-CN" ? "前往账号中心登录" : "Go to Login"}

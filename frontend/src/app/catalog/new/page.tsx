@@ -1,4 +1,13 @@
-import { EntityEditor } from "@/components/catalog-v2/EntityEditor";
-export default function Page() {
-  return <EntityEditor />;
+import { redirect } from "next/navigation";
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ kind?: string }>;
+}) {
+  const { kind } = await searchParams;
+  if (kind) {
+    redirect(`/new?kind=${encodeURIComponent(kind)}`);
+  }
+  redirect("/new");
 }
