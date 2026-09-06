@@ -99,7 +99,7 @@ func TestPostgresOptionalModuleIsolation(t *testing.T) {
 		t.Fatal("owner download failed")
 	}
 	target, event := uuid.NewString(), uuid.NewString()
-	if _, err = db.Exec("INSERT INTO modules_v2.records(owner_id,entity_id,document) VALUES($1,$2,'{\"rating\":8}')", catalog.owner, catalog.entity); err != nil {
+	if _, err = db.Exec("INSERT INTO modules.records(owner_id,entity_id,document) VALUES($1,$2,'{\"rating\":8}')", catalog.owner, catalog.entity); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 2; i++ {
@@ -108,14 +108,14 @@ func TestPostgresOptionalModuleIsolation(t *testing.T) {
 		}
 	}
 	var count int
-	db.QueryRow("SELECT count(*) FROM modules_v2.consumed WHERE event_id=$1", event).Scan(&count)
+	db.QueryRow("SELECT count(*) FROM modules.consumed WHERE event_id=$1", event).Scan(&count)
 	if count != 1 {
 		t.Fatal("event not idempotent")
 	}
 	if w = request("/api/v2/archive/entities/"+target+"/resources", "test-token"); !strings.Contains(w.Body.String(), rid) {
 		t.Fatal("merged resource missing")
 	}
-	db.QueryRow("SELECT count(*) FROM modules_v2.records WHERE entity_id=$1", target).Scan(&count)
+	db.QueryRow("SELECT count(*) FROM modules.records WHERE entity_id=$1", target).Scan(&count)
 	if count != 1 {
 		t.Fatal("personal record did not follow merge")
 	}

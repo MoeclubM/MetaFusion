@@ -16,12 +16,12 @@ import (
 )
 
 // Processing owns a queue and technical results; no metadata entity is changed.
-const mediaSchema = `CREATE SCHEMA IF NOT EXISTS media_v2;
- CREATE TABLE IF NOT EXISTS media_v2.jobs(id uuid PRIMARY KEY,resource_id uuid NOT NULL,owner_id uuid NOT NULL,operation text NOT NULL CHECK(operation IN ('analyze','preview')),status text NOT NULL DEFAULT 'queued',result jsonb NOT NULL DEFAULT '{}',error text NOT NULL DEFAULT '',lease_until timestamptz,created_at timestamptz NOT NULL DEFAULT now());`
+const mediaSchema = `CREATE SCHEMA IF NOT EXISTS media;
+ CREATE TABLE IF NOT EXISTS media.jobs(id uuid PRIMARY KEY,resource_id uuid NOT NULL,owner_id uuid NOT NULL,operation text NOT NULL CHECK(operation IN ('analyze','preview')),status text NOT NULL DEFAULT 'queued',result jsonb NOT NULL DEFAULT '{}',error text NOT NULL DEFAULT '',lease_until timestamptz,created_at timestamptz NOT NULL DEFAULT now());`
 
 func (m *Manager) readableResource(c *gin.Context, id string) (resource, bool) {
 	var x resource
-	err := m.db.QueryRowContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules_v2.resources WHERE id=$1", id).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
+	err := m.db.QueryRowContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE id=$1", id).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
 	p := m.principal(c)
 	if err != nil || !x.Public && (p == nil || p.ID != x.OwnerID) {
 		failure(c, 404, "not_found")
@@ -46,7 +46,7 @@ func (m *Manager) registerMedia(api *gin.RouterGroup) {
 			return
 		}
 		id := uuid.NewString()
-		_, err := m.db.ExecContext(c.Request.Context(), "INSERT INTO media_v2.jobs(id,resource_id,owner_id,operation) VALUES($1,$2,$3,$4)", id, x.ID, m.principal(c).ID, in.Operation)
+		_, err := m.db.ExecContext(c.Request.Context(), "INSERT INTO media.jobs(id,resource_id,owner_id,operation) VALUES($1,$2,$3,$4)", id, x.ID, m.principal(c).ID, in.Operation)
 		if err != nil {
 			failure(c, 503, "module_error")
 			return
@@ -56,7 +56,7 @@ func (m *Manager) registerMedia(api *gin.RouterGroup) {
 	api.GET("/media/jobs/:id", m.guard("media", false), func(c *gin.Context) {
 		var rid, status, operation, code string
 		var result json.RawMessage
-		err := m.db.QueryRowContext(c.Request.Context(), "SELECT resource_id,status,operation,result,error FROM media_v2.jobs WHERE id=$1", c.Param("id")).Scan(&rid, &status, &operation, &result, &code)
+		err := m.db.QueryRowContext(c.Request.Context(), "SELECT resource_id,status,operation,result,error FROM media.jobs WHERE id=$1", c.Param("id")).Scan(&rid, &status, &operation, &result, &code)
 		if err != nil {
 			failure(c, 404, "not_found")
 			return
@@ -68,7 +68,7 @@ func (m *Manager) registerMedia(api *gin.RouterGroup) {
 	})
 	api.GET("/media/jobs/:id/preview", m.guard("media", false), func(c *gin.Context) {
 		var rid, status, operation string
-		err := m.db.QueryRowContext(c.Request.Context(), "SELECT resource_id,status,operation FROM media_v2.jobs WHERE id=$1", c.Param("id")).Scan(&rid, &status, &operation)
+		err := m.db.QueryRowContext(c.Request.Context(), "SELECT resource_id,status,operation FROM media.jobs WHERE id=$1", c.Param("id")).Scan(&rid, &status, &operation)
 		if err != nil || status != "complete" || operation != "preview" {
 			failure(c, 404, "not_found")
 			return
@@ -102,7 +102,7 @@ func (m *Manager) processOne(ctx context.Context) {
 	jobCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	var id, rid, operation string
-	err := m.db.QueryRowContext(jobCtx, `UPDATE media_v2.jobs SET status='running',lease_until=now()+interval '6 minutes' WHERE id=(SELECT id FROM media_v2.jobs WHERE status='queued' OR (status='running' AND lease_until<now()) ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id,resource_id,operation`).Scan(&id, &rid, &operation)
+	err := m.db.QueryRowContext(jobCtx, `UPDATE media.jobs SET status='running',lease_until=now()+interval '6 minutes' WHERE id=(SELECT id FROM media.jobs WHERE status='queued' OR (status='running' AND lease_until<now()) ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING id,resource_id,operation`).Scan(&id, &rid, &operation)
 	if err == sql.ErrNoRows || err != nil {
 		return
 	}
@@ -113,11 +113,11 @@ func (m *Manager) processOne(ctx context.Context) {
 		code = "processing_failed"
 		result = json.RawMessage(`{}`)
 	}
-	_, _ = m.db.ExecContext(ctx, "UPDATE media_v2.jobs SET status=$2,result=$3,error=$4,lease_until=NULL WHERE id=$1", id, status, string(result), code)
+	_, _ = m.db.ExecContext(ctx, "UPDATE media.jobs SET status=$2,result=$3,error=$4,lease_until=NULL WHERE id=$1", id, status, string(result), code)
 }
 func (m *Manager) processResource(ctx context.Context, id, rid, operation string) (json.RawMessage, error) {
 	var hash string
-	if err := m.db.QueryRowContext(ctx, "SELECT hash FROM modules_v2.resources WHERE id=$1", rid).Scan(&hash); err != nil {
+	if err := m.db.QueryRowContext(ctx, "SELECT hash FROM modules.resources WHERE id=$1", rid).Scan(&hash); err != nil {
 		return nil, err
 	}
 	object, err := m.objectStorage().Open(ctx, hash)
