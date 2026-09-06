@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { DefinitionsEditor } from "@/components/catalog-v2/DefinitionsEditor";
-import { CatalogProvider } from "@/components/catalog-v2/CatalogProvider";
+import { DefinitionsEditor } from "@/components/catalog/DefinitionsEditor";
+import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import {
   Shield,
   LayoutDashboard,
@@ -49,7 +49,7 @@ function AdminInner() {
   const [userActionMsg, setUserActionMsg] = useState("");
 
   const loadOverview = () => {
-    fetch("/api/v2/catalog/entities?status=pending_review", { credentials: "same-origin" })
+    fetch("/api/catalog/entities?status=pending_review", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((d) => {
         setPendingItems(d.items || []);
@@ -57,7 +57,7 @@ function AdminInner() {
       })
       .catch(() => {});
 
-    fetch("/api/v2/capabilities", { credentials: "same-origin" })
+    fetch("/api/capabilities", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : { modules: [] }))
       .then((d) => setModules(d.modules || []))
       .catch(() => {});
@@ -69,7 +69,7 @@ function AdminInner() {
 
   const handleReviewAction = async (id: string, action: "published" | "draft") => {
     try {
-      const res = await fetch(`/api/v2/catalog/entities/${id}/lifecycle`, {
+      const res = await fetch(`/api/catalog/entities/${id}/lifecycle`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -93,7 +93,7 @@ function AdminInner() {
   const handleToggleModule = async (modId: string, currentEnabled: boolean) => {
     setLoadingModules(true);
     try {
-      const res = await fetch(`/api/v2/admin/modules/${modId}`, {
+      const res = await fetch(`/api/admin/modules/${modId}`, {
         method: "PUT",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -121,7 +121,7 @@ function AdminInner() {
     setMerging(true);
     setMergeMessage("");
     try {
-      const res = await fetch("/api/v2/admin/merge", {
+      const res = await fetch("/api/admin/merge", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
@@ -153,7 +153,7 @@ function AdminInner() {
     setCreatingUser(true);
     setUserActionMsg("");
     try {
-      const res = await fetch("/api/v2/admin/users", {
+      const res = await fetch("/api/admin/users", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },

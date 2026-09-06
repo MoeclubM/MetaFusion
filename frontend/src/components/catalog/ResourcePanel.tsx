@@ -40,20 +40,20 @@ export default function ResourcePanel({
   }, [entity.id, user?.id]);
   return (
     <section>
-      <h2>{t("catalogV2.module.archive")}</h2>
+      <h2>{t("catalog.module.archive")}</h2>
       <ErrorMessage error={error} />
       {items.map((r) => (
         <div key={r.id} className="cv-group">
           <p>
-            {r.name} · {r.size} {t("catalogV2.bytes")}
+            {r.name} · {r.size} {t("catalog.bytes")}
           </p>
-          <a href={`/api/v2/archive/resources/${r.id}/content`}>
-            {t("catalogV2.download")}
+          <a href={`/api/archive/resources/${r.id}/content`}>
+            {t("catalog.download")}
           </a>
           {playback &&
             /^(audio\/|video\/|image\/(jpeg|png|webp|gif)$)/.test(r.mime) && (
               <button onClick={() => setActive(active === r.id ? "" : r.id)}>
-                {t(active === r.id ? "catalogV2.close" : "catalogV2.preview")}
+                {t(active === r.id ? "catalog.close" : "catalog.preview")}
               </button>
             )}
           {user && media && (
@@ -70,7 +70,7 @@ export default function ResourcePanel({
                 }
               }}
             >
-              {t("catalogV2.analyze")}
+              {t("catalog.analyze")}
             </button>
           )}
           {active === r.id &&
@@ -78,24 +78,24 @@ export default function ResourcePanel({
             (r.mime.startsWith("audio/") ? (
               <audio
                 controls
-                src={`/api/v2/playback/resources/${r.id}/content`}
+                src={`/api/playback/resources/${r.id}/content`}
               />
             ) : r.mime.startsWith("video/") ? (
               <video
                 controls
-                src={`/api/v2/playback/resources/${r.id}/content`}
+                src={`/api/playback/resources/${r.id}/content`}
               />
             ) : (
               <img
                 alt={r.name}
-                src={`/api/v2/playback/resources/${r.id}/content`}
+                src={`/api/playback/resources/${r.id}/content`}
               />
             ))}
         </div>
       ))}
       {media && job && (
         <div className="cv-group">
-          <p>{t(`catalogV2.job.${job.status}`)}</p>
+          <p>{t(`catalog.job.${job.status}`)}</p>
           {job.status === "complete" && (
             <dl>
               {Object.entries(job.result?.format || {}).map(([key, value]) => (
@@ -130,14 +130,14 @@ export default function ResourcePanel({
           }}
         >
           <label>
-            {t("catalogV2.upload")}
+            {t("catalog.upload")}
             <input name="file" type="file" required />
           </label>
           <label className="cv-check">
             <input name="public" type="checkbox" />
-            {t("catalogV2.publicFile")}
+            {t("catalog.publicFile")}
           </label>
-          <button>{t("catalogV2.upload")}</button>
+          <button>{t("catalog.upload")}</button>
         </form>
       )}
     </section>

@@ -19,7 +19,7 @@ export function CommunityPanel({ entity }: { entity: Entity }) {
   }, [entity.id, user?.id]);
   return (
     <section>
-      <h2>{t("catalogV2.module.community")}</h2>
+      <h2>{t("catalog.module.community")}</h2>
       <ErrorMessage error={error} />
       {items.map((p) => (
         <article className="cv-group" key={p.id}>
@@ -36,7 +36,7 @@ export function CommunityPanel({ entity }: { entity: Entity }) {
                 }
               }}
             >
-              {t("catalogV2.remove")}
+              {t("catalog.remove")}
             </button>
           )}
         </article>
@@ -57,7 +57,7 @@ export function CommunityPanel({ entity }: { entity: Entity }) {
           }}
         >
           <label>
-            {t("catalogV2.comment")}
+            {t("catalog.comment")}
             <textarea
               required
               maxLength={20000}
@@ -65,7 +65,7 @@ export function CommunityPanel({ entity }: { entity: Entity }) {
               onChange={(e) => setBody(e.target.value)}
             />
           </label>
-          <button>{t("catalogV2.post")}</button>
+          <button>{t("catalog.post")}</button>
         </form>
       )}
     </section>
@@ -87,7 +87,7 @@ export function PersonalPanel({ entity }: { entity: Entity }) {
   }, [entity.id]);
   return (
     <section>
-      <h2>{t("catalogV2.module.records")}</h2>
+      <h2>{t("catalog.module.records")}</h2>
       <ErrorMessage error={error} />
       <form
         onSubmit={async (e) => {
@@ -107,11 +107,11 @@ export function PersonalPanel({ entity }: { entity: Entity }) {
               checked={v[k]}
               onChange={(e) => setV({ ...v, [k]: e.target.checked })}
             />
-            {t(`catalogV2.${k}`)}
+            {t(`catalog.${k}`)}
           </label>
         ))}
         <label>
-          {t("catalogV2.rating")}
+          {t("catalog.rating")}
           <input
             type="number"
             min="0"
@@ -121,14 +121,14 @@ export function PersonalPanel({ entity }: { entity: Entity }) {
           />
         </label>
         <label>
-          {t("catalogV2.progress")}
+          {t("catalog.progress")}
           <input
             maxLength={1000}
             value={v.progress}
             onChange={(e) => setV({ ...v, progress: e.target.value })}
           />
         </label>
-        <button>{t("catalogV2.save")}</button>
+        <button>{t("catalog.save")}</button>
       </form>
     </section>
   );

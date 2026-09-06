@@ -16,7 +16,7 @@ export function NamesEditor({
     <div className="cv-grid">
       {["zh-CN", "en-US"].map((loc) => (
         <label key={loc}>
-          {t(`catalogV2.${loc}`)}
+          {t(`catalog.${loc}`)}
           <input
             value={value?.[loc] || ""}
             onChange={(e) => onChange({ ...value, [loc]: e.target.value })}
@@ -85,30 +85,30 @@ export function EntityPicker({
   return (
     <div className="cv-picker">
       <input
-        aria-label={t("catalogV2.searchEntity")}
+        aria-label={t("catalog.searchEntity")}
         value={search}
         placeholder={
-          selected ? title(selected, locale) : t("catalogV2.searchEntity")
+          selected ? title(selected, locale) : t("catalog.searchEntity")
         }
         onChange={(e) => setSearch(e.target.value)}
       />
       <select
-        aria-label={t("catalogV2.selectEntity")}
+        aria-label={t("catalog.selectEntity")}
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
       >
-        <option value="">{t("catalogV2.none")}</option>
+        <option value="">{t("catalog.none")}</option>
         {selected && !items.some((x) => x.id === selected.id) && (
           <option value={selected.id}>{title(selected, locale)}</option>
         )}
         {items.map((x) => (
           <option key={x.id} value={x.id}>
-            {title(x, locale)} · {t(`catalogV2.kind.${x.kind}`)}
+            {title(x, locale)} · {t(`catalog.kind.${x.kind}`)}
           </option>
         ))}
       </select>
       {error && (
-        <small className="cv-error">{t("catalogV2.connectionError")}</small>
+        <small className="cv-error">{t("catalog.connectionError")}</small>
       )}
     </div>
   );
@@ -146,7 +146,7 @@ export function FieldInput({
   if (field.type === "enum")
     return (
       <select value={value || ""} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{t("catalogV2.none")}</option>
+        <option value="">{t("catalog.none")}</option>
         {Object.entries(
           definition.document.vocabularies[field.vocabulary || ""]?.terms || {},
         )
@@ -191,7 +191,7 @@ export function FieldInput({
                 onChange(value.filter((_: any, j: number) => i !== j))
               }
             >
-              {t("catalogV2.remove")}
+              {t("catalog.remove")}
             </button>
           </div>
         ))}
@@ -207,7 +207,7 @@ export function FieldInput({
             ])
           }
         >
-          {t("catalogV2.add")}
+          {t("catalog.add")}
         </button>
       </div>
     );
@@ -258,7 +258,7 @@ export function FieldValue({ field, value }: { field?: Field; value: any }) {
       </span>
     );
   if (typeof value === "boolean")
-    return <span>{t(value ? "catalogV2.yes" : "catalogV2.no")}</span>;
+    return <span>{t(value ? "catalog.yes" : "catalog.no")}</span>;
   if (Array.isArray(value))
     return (
       <ul>
@@ -310,7 +310,7 @@ export function EntityLink({ id }: { id: string }) {
   }, [id]);
   return (
     <Link href={`/catalog/${e?.id || id}`}>
-      {e ? title(e, locale) : t("catalogV2.entityReference")}
+      {e ? title(e, locale) : t("catalog.entityReference")}
     </Link>
   );
 }
@@ -328,9 +328,9 @@ export function Evidence({
   const { t } = useI18n();
   return (
     <fieldset>
-      <legend>{t("catalogV2.evidence")}</legend>
+      <legend>{t("catalog.evidence")}</legend>
       <label>
-        {t("catalogV2.editNote")}
+        {t("catalog.editNote")}
         <textarea
           required
           value={note}
@@ -340,7 +340,7 @@ export function Evidence({
       {sources.map((s, i) => (
         <div className="cv-group" key={i}>
           <select
-            aria-label={t("catalogV2.sourceKind")}
+            aria-label={t("catalog.sourceKind")}
             value={s.kind}
             onChange={(e) =>
               setSources(
@@ -352,14 +352,14 @@ export function Evidence({
           >
             {["self", "url", "publication"].map((k) => (
               <option key={k} value={k}>
-                {t(`catalogV2.source.${k}`)}
+                {t(`catalog.source.${k}`)}
               </option>
             ))}
           </select>
           <input
             required
-            aria-label={t("catalogV2.citation")}
-            placeholder={t("catalogV2.citation")}
+            aria-label={t("catalog.citation")}
+            placeholder={t("catalog.citation")}
             value={s.citation}
             onChange={(e) =>
               setSources(
@@ -371,8 +371,8 @@ export function Evidence({
           />
           <input
             type="url"
-            aria-label={t("catalogV2.sourceUrl")}
-            placeholder={t("catalogV2.sourceUrl")}
+            aria-label={t("catalog.sourceUrl")}
+            placeholder={t("catalog.sourceUrl")}
             required={s.kind === "url"}
             value={s.url || ""}
             onChange={(e) =>
@@ -388,7 +388,7 @@ export function Evidence({
               type="button"
               onClick={() => setSources(sources.filter((_, j) => i !== j))}
             >
-              {t("catalogV2.remove")}
+              {t("catalog.remove")}
             </button>
           )}
         </div>
@@ -397,7 +397,7 @@ export function Evidence({
         type="button"
         onClick={() => setSources([...sources, { kind: "url", citation: "" }])}
       >
-        {t("catalogV2.addSource")}
+        {t("catalog.addSource")}
       </button>
     </fieldset>
   );
@@ -406,7 +406,7 @@ export function ErrorMessage({ error }: { error: string }) {
   const { t } = useI18n();
   return error ? (
     <p role="alert" className="cv-error">
-      {t("catalogV2.requestError")} <code>{error}</code>
+      {t("catalog.requestError")} <code>{error}</code>
     </p>
   ) : null;
 }

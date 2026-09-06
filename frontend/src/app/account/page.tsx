@@ -1,5 +1,5 @@
-import { Account } from "@/components/catalog-v2/CatalogPages";
-import { CatalogProvider } from "@/components/catalog-v2/CatalogProvider";
+import { Account } from "@/components/catalog/CatalogPages";
+import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { Navbar } from "@/components/Navbar";
 import "../catalog/catalog.css";
 
@@ -8,7 +8,7 @@ export default function Page() {
     <>
       <Navbar />
       <CatalogProvider>
-        <div className="catalog-v2 cv-main">
+        <div className="catalog-root cv-main">
           <Account />
         </div>
       </CatalogProvider>

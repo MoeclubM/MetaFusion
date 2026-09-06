@@ -34,8 +34,8 @@ export function EntityEditor({
   const [busy, setBusy] = useState(false);
   const [newLocale, setNewLocale] = useState("");
   const [externalKey, setExternalKey] = useState("");
-  if (!definition) return <p>{t("catalogV2.loading")}</p>;
-  if (!user) return <p>{t("catalogV2.loginToEdit")}</p>;
+  if (!definition) return <p>{t("catalog.loading")}</p>;
+  if (!user) return <p>{t("catalog.loginToEdit")}</p>;
   const d = definition.document;
   const patch = (v: Partial<Entity>) => setE({ ...e, ...v });
   const fields = Array.from(
@@ -65,17 +65,17 @@ export function EntityEditor({
   return (
     <form onSubmit={save} className="cv-form">
       <div className="cv-heading">
-        <h1>{t(initial ? "catalogV2.edit" : "catalogV2.create")}</h1>
+        <h1>{t(initial ? "catalog.edit" : "catalog.create")}</h1>
         <button className="cv-primary" disabled={busy}>
-          {t(busy ? "catalogV2.saving" : "catalogV2.save")}
+          {t(busy ? "catalog.saving" : "catalog.save")}
         </button>
       </div>
       <ErrorMessage error={error} />
       <fieldset>
-        <legend>{t("catalogV2.identity")}</legend>
+        <legend>{t("catalog.identity")}</legend>
         <div className="cv-grid">
           <label>
-            {t("catalogV2.kindLabel")}
+            {t("catalog.kindLabel")}
             <select
               value={e.kind}
               disabled={!!e.id}
@@ -85,13 +85,13 @@ export function EntityEditor({
             >
               {kinds.map((k) => (
                 <option key={k} value={k}>
-                  {t(`catalogV2.kind.${k}`)}
+                  {t(`catalog.kind.${k}`)}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            {t("catalogV2.title")}
+            {t("catalog.title")}
             <input
               required
               value={e.title}
@@ -99,14 +99,14 @@ export function EntityEditor({
             />
           </label>
           <label>
-            {t("catalogV2.originalLanguage")}
+            {t("catalog.originalLanguage")}
             <input
               value={e.original_language}
               onChange={(x) => patch({ original_language: x.target.value })}
             />
           </label>
           <label>
-            {t("catalogV2.status")}
+            {t("catalog.status")}
             <select
               value={e.status}
               onChange={(x) => patch({ status: x.target.value })}
@@ -120,7 +120,7 @@ export function EntityEditor({
                   ]
               ).map((k) => (
                 <option key={k} value={k}>
-                  {t(`catalogV2.state.${k}`)}
+                  {t(`catalog.state.${k}`)}
                 </option>
               ))}
             </select>
@@ -150,12 +150,12 @@ export function EntityEditor({
         </div>
       </fieldset>
       <fieldset>
-        <legend>{t("catalogV2.translations")}</legend>
+        <legend>{t("catalog.translations")}</legend>
         {Object.entries(e.translations).map(([loc, tr]) => (
           <div key={loc} className="cv-group">
             <strong>{loc}</strong>
             <label>
-              {t("catalogV2.title")}
+              {t("catalog.title")}
               <input
                 required
                 value={tr.title}
@@ -170,7 +170,7 @@ export function EntityEditor({
               />
             </label>
             <label>
-              {t("catalogV2.summary")}
+              {t("catalog.summary")}
               <textarea
                 value={tr.summary || ""}
                 onChange={(x) =>
@@ -184,7 +184,7 @@ export function EntityEditor({
               />
             </label>
             <label>
-              {t("catalogV2.aliases")}
+              {t("catalog.aliases")}
               <textarea
                 value={(tr.aliases || []).join("\n")}
                 onChange={(x) =>
@@ -210,14 +210,14 @@ export function EntityEditor({
                 })
               }
             >
-              {t("catalogV2.remove")}
+              {t("catalog.remove")}
             </button>
           </div>
         ))}
         <div className="cv-row">
           <input
-            aria-label={t("catalogV2.localeCode")}
-            placeholder={t("catalogV2.localeCode")}
+            aria-label={t("catalog.localeCode")}
+            placeholder={t("catalog.localeCode")}
             value={newLocale}
             onChange={(x) => setNewLocale(x.target.value)}
           />
@@ -234,16 +234,16 @@ export function EntityEditor({
               setNewLocale("");
             }}
           >
-            {t("catalogV2.add")}
+            {t("catalog.add")}
           </button>
         </div>
       </fieldset>
       <fieldset>
-        <legend>{t("catalogV2.structure")}</legend>
+        <legend>{t("catalog.structure")}</legend>
         <div className="cv-grid">
           {(e.kind === "content_unit" || e.kind === "expression") && (
             <label>
-              {t("catalogV2.kind.work")}
+              {t("catalog.kind.work")}
               <EntityPicker
                 kinds={["work"]}
                 value={e.work_id || ""}
@@ -253,7 +253,7 @@ export function EntityEditor({
           )}
           {e.kind === "expression" && (
             <label>
-              {t("catalogV2.kind.content_unit")}
+              {t("catalog.kind.content_unit")}
               <EntityPicker
                 kinds={["content_unit"]}
                 query={e.work_id ? `&work_id=${e.work_id}` : ""}
@@ -264,7 +264,7 @@ export function EntityEditor({
           )}
           {e.kind === "medium" && (
             <label>
-              {t("catalogV2.kind.release")}
+              {t("catalog.kind.release")}
               <EntityPicker
                 kinds={["release"]}
                 value={e.release_id || ""}
@@ -274,7 +274,7 @@ export function EntityEditor({
           )}
           {e.kind === "track" && (
             <label>
-              {t("catalogV2.kind.medium")}
+              {t("catalog.kind.medium")}
               <EntityPicker
                 kinds={["medium"]}
                 value={e.medium_id || ""}
@@ -284,7 +284,7 @@ export function EntityEditor({
           )}
           {["content_unit", "medium", "track"].includes(e.kind) && (
             <label>
-              {t("catalogV2.parent")}
+              {t("catalog.parent")}
               <EntityPicker
                 kinds={[e.kind]}
                 query={
@@ -302,7 +302,7 @@ export function EntityEditor({
             </label>
           )}
           <label>
-            {t("catalogV2.position")}
+            {t("catalog.position")}
             <input
               type="number"
               min="0"
@@ -311,7 +311,7 @@ export function EntityEditor({
             />
           </label>
           <label>
-            {t("catalogV2.number")}
+            {t("catalog.number")}
             <input
               value={e.number}
               onChange={(x) => patch({ number: x.target.value })}
@@ -320,7 +320,7 @@ export function EntityEditor({
         </div>
         {e.kind === "release" && (
           <>
-            <h3>{t("catalogV2.subjects")}</h3>
+            <h3>{t("catalog.subjects")}</h3>
             {e.subjects.map((s, i) => (
               <div className="cv-row" key={i}>
                 <EntityPicker
@@ -358,7 +358,7 @@ export function EntityEditor({
                     patch({ subjects: e.subjects.filter((_, j) => i !== j) })
                   }
                 >
-                  {t("catalogV2.remove")}
+                  {t("catalog.remove")}
                 </button>
               </div>
             ))}
@@ -377,13 +377,13 @@ export function EntityEditor({
                 })
               }
             >
-              {t("catalogV2.addSubject")}
+              {t("catalog.addSubject")}
             </button>
           </>
         )}
         {e.kind === "track" && (
           <>
-            <h3>{t("catalogV2.contents")}</h3>
+            <h3>{t("catalog.contents")}</h3>
             {e.contents.map((c, i) => (
               <div className="cv-group" key={i}>
                 <EntityPicker
@@ -399,7 +399,7 @@ export function EntityEditor({
                 />
                 <div className="cv-grid">
                   <label>
-                    {t("catalogV2.position")}
+                    {t("catalog.position")}
                     <input
                       type="number"
                       min="0"
@@ -416,7 +416,7 @@ export function EntityEditor({
                     />
                   </label>
                   <label>
-                    {t("catalogV2.relativeTo")}
+                    {t("catalog.relativeTo")}
                     <select
                       value={c.locator.relative_to || ""}
                       onChange={(x) =>
@@ -435,10 +435,10 @@ export function EntityEditor({
                         })
                       }
                     >
-                      <option value="">{t("catalogV2.none")}</option>
+                      <option value="">{t("catalog.none")}</option>
                       {["track", "medium"].map((k) => (
                         <option key={k} value={k}>
-                          {t(`catalogV2.kind.${k}`)}
+                          {t(`catalog.kind.${k}`)}
                         </option>
                       ))}
                     </select>
@@ -452,7 +452,7 @@ export function EntityEditor({
                     "chapter",
                   ].map((k) => (
                     <label key={k}>
-                      {t(`catalogV2.locator.${k}`)}
+                      {t(`catalog.locator.${k}`)}
                       <input
                         value={c.locator[k] ?? ""}
                         type={
@@ -484,7 +484,7 @@ export function EntityEditor({
                     patch({ contents: e.contents.filter((_, j) => i !== j) })
                   }
                 >
-                  {t("catalogV2.remove")}
+                  {t("catalog.remove")}
                 </button>
               </div>
             ))}
@@ -503,14 +503,14 @@ export function EntityEditor({
                 })
               }
             >
-              {t("catalogV2.addContent")}
+              {t("catalog.addContent")}
             </button>
           </>
         )}
       </fieldset>
       {!!fields.length && (
         <fieldset>
-          <legend>{t("catalogV2.attributes")}</legend>
+          <legend>{t("catalog.attributes")}</legend>
           <div className="cv-grid">
             {fields.map((k) => (
               <label key={k}>
@@ -532,7 +532,7 @@ export function EntityEditor({
                       patch({ attributes });
                     }}
                   >
-                    {t("catalogV2.remove")}
+                    {t("catalog.remove")}
                   </button>
                 )}
               </label>
@@ -541,7 +541,7 @@ export function EntityEditor({
         </fieldset>
       )}
       <fieldset>
-        <legend>{t("catalogV2.externalIds")}</legend>
+        <legend>{t("catalog.externalIds")}</legend>
         {Object.entries(e.external_ids).map(([k, v]) => (
           <div key={k} className="cv-row">
             <label>
@@ -565,14 +565,14 @@ export function EntityEditor({
                 })
               }
             >
-              {t("catalogV2.remove")}
+              {t("catalog.remove")}
             </button>
           </div>
         ))}
         <div className="cv-row">
           <input
             value={externalKey}
-            aria-label={t("catalogV2.code")}
+            aria-label={t("catalog.code")}
             onChange={(x) => setExternalKey(x.target.value)}
           />
           <button
@@ -583,16 +583,16 @@ export function EntityEditor({
               setExternalKey("");
             }}
           >
-            {t("catalogV2.add")}
+            {t("catalog.add")}
           </button>
         </div>
       </fieldset>
       <fieldset>
-        <legend>{t("catalogV2.pictures")}</legend>
+        <legend>{t("catalog.pictures")}</legend>
         {e.pictures.map((p, i) => (
           <div className="cv-group" key={i}>
             <label>
-              {t("catalogV2.imageUrl")}
+              {t("catalog.imageUrl")}
               <input
                 type="url"
                 required
@@ -607,7 +607,7 @@ export function EntityEditor({
               />
             </label>
             <label>
-              {t("catalogV2.citation")}
+              {t("catalog.citation")}
               <input
                 required
                 value={p.source.citation}
@@ -631,7 +631,7 @@ export function EntityEditor({
                 patch({ pictures: e.pictures.filter((_, j) => i !== j) })
               }
             >
-              {t("catalogV2.remove")}
+              {t("catalog.remove")}
             </button>
           </div>
         ))}
@@ -650,7 +650,7 @@ export function EntityEditor({
             })
           }
         >
-          {t("catalogV2.add")}
+          {t("catalog.add")}
         </button>
       </fieldset>
       <Evidence
@@ -660,7 +660,7 @@ export function EntityEditor({
         setSources={setSources}
       />
       <button className="cv-primary" disabled={busy}>
-        {t("catalogV2.save")}
+        {t("catalog.save")}
       </button>
     </form>
   );

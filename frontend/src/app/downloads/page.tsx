@@ -41,11 +41,11 @@ function DownloadsInner() {
 
           <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white flex items-center justify-center gap-3">
             <DownloadCloud className="w-8 h-8 text-primary" />
-            <span>{t("catalogV2.resourceGatewayTitle")}</span>
+            <span>{t("catalog.resourceGatewayTitle")}</span>
           </h1>
 
           <p className="text-sm text-gray-400 mt-3 leading-relaxed">
-            {t("catalogV2.resourceGatewayDesc")}
+            {t("catalog.resourceGatewayDesc")}
           </p>
         </div>
 
@@ -105,7 +105,7 @@ function DownloadsInner() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl bg-primary hover:bg-primary/90 text-surface font-semibold text-sm transition-all shadow-lg hover:shadow-primary/20"
               >
-                <span>{t("catalogV2.resourceGatewayVisit")}</span>
+                <span>{t("catalog.resourceGatewayVisit")}</span>
                 <ArrowRight className="w-4 h-4" />
               </a>
 
