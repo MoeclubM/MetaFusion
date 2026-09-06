@@ -3,7 +3,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { Navbar } from "@/components/Navbar";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import FavoriteButton from "@/components/FavoriteButton";
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
@@ -405,7 +404,6 @@ export function EntityDetailView({ id }: { id: string }) {
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
         <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
-        <Navbar />
         <div className="relative z-10 min-h-[60vh] grid place-items-center font-mono text-xs text-gray-500 dark:text-gray-400">
           <div className="flex flex-col items-center gap-3">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -420,7 +418,6 @@ export function EntityDetailView({ id }: { id: string }) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
-        <Navbar />
         <main className="relative z-10 max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
           <div className="font-mono text-sm text-red-500 dark:text-red-400">{error || t("entity.detail.notFound")}</div>
           <Link
@@ -439,7 +436,6 @@ export function EntityDetailView({ id }: { id: string }) {
   if (editing) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
-        <Navbar />
         <div className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md border-b border-black/10 dark:border-white/10 px-4 py-2.5 flex items-center justify-between max-w-7xl mx-auto w-full">
           <div className="flex items-center gap-2">
             <button
@@ -517,7 +513,6 @@ export function EntityDetailView({ id }: { id: string }) {
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
-      <Navbar />
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full space-y-5 flex-1 pb-[max(2rem,env(safe-area-inset-bottom))]">
         {/* Breadcrumb Navigation */}
