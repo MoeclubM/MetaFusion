@@ -190,3 +190,94 @@ func (s *Store) UserFromOAuthToken(ctx context.Context, token string) (*User, er
 	}
 	return &u, nil
 }
+
+func (s *Store) ChangePassword(ctx context.Context, userID, oldPassword, newPassword string) error {
+	if len(newPassword) < 12 || len(newPassword) > 72 {
+		return fmt.Errorf("invalid_password_length")
+	}
+	var stored string
+	err := s.DB.QueryRowContext(ctx, "SELECT password_hash FROM catalog.users WHERE id=$1", userID).Scan(&stored)
+	if err != nil {
+		return fmt.Errorf("user_not_found")
+	}
+	if bcrypt.CompareHashAndPassword([]byte(stored), []byte(oldPassword)) != nil {
+		return fmt.Errorf("invalid_old_password")
+	}
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.ExecContext(ctx, "UPDATE catalog.users SET password_hash=$1 WHERE id=$2", string(newHash), userID)
+	return err
+}
+
+func (s *Store) LogoutAll(ctx context.Context, userID string) error {
+	_, err := s.DB.ExecContext(ctx, "DELETE FROM catalog.sessions WHERE user_id=$1", userID)
+	return err
+}
+
+func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
+	rows, err := s.DB.QueryContext(ctx, "SELECT id, username, role FROM catalog.users ORDER BY username ASC")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) UpdateUserRole(ctx context.Context, targetUserID, newRole string, actor *User) error {
+	if actor == nil || actor.Role != "admin" {
+		return fmt.Errorf("forbidden")
+	}
+	if newRole != "admin" && newRole != "editor" {
+		return fmt.Errorf("invalid_role")
+	}
+	if actor.ID == targetUserID && newRole != "admin" {
+		var adminCount int
+		if err := s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.users WHERE role='admin'").Scan(&adminCount); err != nil {
+			return err
+		}
+		if adminCount <= 1 {
+			return fmt.Errorf("cannot_demote_sole_admin")
+		}
+	}
+	res, err := s.DB.ExecContext(ctx, "UPDATE catalog.users SET role=$1 WHERE id=$2", newRole, targetUserID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("user_not_found")
+	}
+	return nil
+}
+
+func (s *Store) ResetUserPassword(ctx context.Context, targetUserID, newPassword string, actor *User) error {
+	if actor == nil || actor.Role != "admin" {
+		return fmt.Errorf("forbidden")
+	}
+	if len(newPassword) < 12 || len(newPassword) > 72 {
+		return fmt.Errorf("invalid_password_length")
+	}
+	newHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	res, err := s.DB.ExecContext(ctx, "UPDATE catalog.users SET password_hash=$1 WHERE id=$2", string(newHash), targetUserID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return fmt.Errorf("user_not_found")
+	}
+	_, _ = s.DB.ExecContext(ctx, "DELETE FROM catalog.sessions WHERE user_id=$1", targetUserID)
+	return nil
+}
+

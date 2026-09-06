@@ -258,50 +258,446 @@ export function Browse() {
   );
 }
 export function Account() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user, setup, refresh } = useCatalog();
   const router = useRouter();
+
+  // Login / setup state
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Active tab for logged-in user: "profile" | "oauth" | "admin"
+  const [activeTab, setActiveTab] = useState<"security" | "oauth" | "users">("security");
+
+  // Change password state
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  // Admin users list state
+  const [usersList, setUsersList] = useState<Array<{ id: string; username: string; role: string }>>([]);
+  const [newEditorUsername, setNewEditorUsername] = useState("");
+  const [newEditorPassword, setNewEditorPassword] = useState("");
+  const [resetTargetUser, setResetTargetUser] = useState<{ id: string; username: string } | null>(null);
+  const [resetNewPassword, setResetNewPassword] = useState("");
+
+  // OAuth clients list
+  const [oauthClients, setOauthClients] = useState<Array<{ client_id: string; name: string; redirect_uris: string[]; trusted: boolean }>>([]);
+
+  // Load admin users list
+  const loadUsers = () => {
+    if (user?.role === "admin") {
+      api<{ items: Array<{ id: string; username: string; role: string }> }>("/admin/users")
+        .then((r) => setUsersList(r.items || []))
+        .catch(() => {});
+    }
+  };
+
+  // Load oauth clients
+  const loadOAuth = () => {
+    api<{ clients: Array<{ client_id: string; name: string; redirect_uris: string[]; trusted: boolean }> }>("/oauth/clients")
+      .then((r) => setOauthClients(r.clients || []))
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    if (user) {
+      loadOAuth();
+      if (user.role === "admin") {
+        loadUsers();
+      }
+    }
+  }, [user]);
+
   return (
-    <div className="cv-narrow">
+    <div className="cv-narrow" style={{ maxWidth: 860 }}>
       <h1>{t(setup ? "catalogV2.setup" : "catalogV2.account")}</h1>
+
       {user ? (
         <>
-          <p>{user.username}</p>
-          <button
-            onClick={async () => {
-              await api("/auth/logout", "POST");
-              await refresh();
-            }}
-          >
-            {t("catalogV2.logout")}
-          </button>
-          {user.role === "admin" && (
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                try {
-                  await api("/admin/users", "POST", { username, password });
-                  setUsername("");
-                  setPassword("");
-                  setError("");
-                } catch (err) {
-                  setError((err as Error).message);
-                }
+          {/* User Profile Card */}
+          <section className="cv-group" style={{ margin: "16px 0 20px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 20, fontWeight: 700 }}>{user.username}</span>
+                  <span
+                    className="cv-badge"
+                    style={{
+                      background: user.role === "admin" ? "rgba(244, 63, 94, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                      color: user.role === "admin" ? "#fb7185" : "#34d399",
+                      borderColor: user.role === "admin" ? "rgba(244, 63, 94, 0.3)" : "rgba(16, 185, 129, 0.3)",
+                      textTransform: "uppercase",
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {user.role === "admin" ? (locale === "zh-CN" ? "管理员" : "ADMIN") : (locale === "zh-CN" ? "编目编辑者" : "EDITOR")}
+                  </span>
+                </div>
+                <small className="cv-muted" style={{ display: "block", marginTop: 4 }}>
+                  UUID: {user.id}
+                </small>
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await api("/auth/logout", "POST");
+                    await refresh();
+                  }}
+                  style={{ fontSize: 13, padding: "6px 14px" }}
+                >
+                  {t("catalogV2.logout")}
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (confirm(locale === "zh-CN" ? "确定注销该账号在全部设备上的登录会话？" : "Logout from all devices?")) {
+                      await api("/auth/logout-all", "POST");
+                      await refresh();
+                    }
+                  }}
+                  style={{
+                    fontSize: 13,
+                    padding: "6px 14px",
+                    background: "rgba(239, 68, 68, 0.1)",
+                    color: "#f87171",
+                    borderColor: "rgba(239, 68, 68, 0.25)",
+                  }}
+                >
+                  {locale === "zh-CN" ? "全部设备登出" : "Logout All Devices"}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* Navigation Tabs */}
+          <div style={{ display: "flex", gap: 8, borderBottom: "1px solid #283444", marginBottom: 20 }}>
+            <button
+              type="button"
+              onClick={() => { setActiveTab("security"); setError(""); setSuccess(""); }}
+              style={{
+                background: activeTab === "security" ? "#1e293b" : "transparent",
+                borderBottom: activeTab === "security" ? "2px solid #38bdf8" : "none",
+                borderRadius: "6px 6px 0 0",
+                fontWeight: activeTab === "security" ? 600 : 400,
+                padding: "8px 16px",
               }}
             >
-              <h2>{t("catalogV2.createEditor")}</h2>
-              <Credentials
-                username={username}
-                password={password}
-                setUsername={setUsername}
-                setPassword={setPassword}
-              />
-              <button>{t("catalogV2.create")}</button>
-            </form>
+              {locale === "zh-CN" ? "安全与密码" : "Security & Password"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setActiveTab("oauth"); setError(""); setSuccess(""); }}
+              style={{
+                background: activeTab === "oauth" ? "#1e293b" : "transparent",
+                borderBottom: activeTab === "oauth" ? "2px solid #38bdf8" : "none",
+                borderRadius: "6px 6px 0 0",
+                fontWeight: activeTab === "oauth" ? 600 : 400,
+                padding: "8px 16px",
+              }}
+            >
+              {locale === "zh-CN" ? "平台授权应用 (OAuth)" : "Connected Apps (OAuth)"}
+            </button>
+            {user.role === "admin" && (
+              <button
+                type="button"
+                onClick={() => { setActiveTab("users"); setError(""); setSuccess(""); loadUsers(); }}
+                style={{
+                  background: activeTab === "users" ? "#1e293b" : "transparent",
+                  borderBottom: activeTab === "users" ? "2px solid #38bdf8" : "none",
+                  borderRadius: "6px 6px 0 0",
+                  fontWeight: activeTab === "users" ? 600 : 400,
+                  padding: "8px 16px",
+                }}
+              >
+                {locale === "zh-CN" ? "用户与权限管理" : "User Management"}
+              </button>
+            )}
+          </div>
+
+          {success && (
+            <div style={{ padding: "10px 14px", background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: 6, color: "#34d399", marginBottom: 16 }}>
+              ✓ {success}
+            </div>
+          )}
+
+          {/* TAB 1: Security & Password */}
+          {activeTab === "security" && (
+            <section className="cv-group">
+              <h2>{locale === "zh-CN" ? "修改登录密码" : "Change Password"}</h2>
+              <p className="cv-muted" style={{ marginBottom: 16 }}>
+                {locale === "zh-CN" ? "新密码长度需在 12 至 72 位之间，更新后请妥善保存。" : "Password must be 12 to 72 characters long."}
+              </p>
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setError("");
+                  setSuccess("");
+                  if (newPassword !== confirmPassword) {
+                    setError(locale === "zh-CN" ? "两次输入的新密码不一致" : "New passwords do not match");
+                    return;
+                  }
+                  if (newPassword.length < 12) {
+                    setError(locale === "zh-CN" ? "新密码长度至少需要 12 位" : "New password must be at least 12 characters");
+                    return;
+                  }
+                  try {
+                    await api("/auth/password", "PUT", { old_password: oldPassword, new_password: newPassword });
+                    setSuccess(locale === "zh-CN" ? "密码修改成功！" : "Password updated successfully!");
+                    setOldPassword("");
+                    setNewPassword("");
+                    setConfirmPassword("");
+                  } catch (err) {
+                    setError((err as Error).message);
+                  }
+                }}
+              >
+                <label>
+                  {locale === "zh-CN" ? "当前原密码" : "Current Password"}
+                  <input
+                    type="password"
+                    required
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                  />
+                </label>
+                <label>
+                  {locale === "zh-CN" ? "新密码 (至少 12 位)" : "New Password (min 12 chars)"}
+                  <input
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </label>
+                <label>
+                  {locale === "zh-CN" ? "确认新密码" : "Confirm New Password"}
+                  <input
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  />
+                </label>
+                <button className="cv-primary" type="submit" style={{ marginTop: 12 }}>
+                  {locale === "zh-CN" ? "保存新密码" : "Update Password"}
+                </button>
+              </form>
+            </section>
+          )}
+
+          {/* TAB 2: OAuth 2.0 Clients */}
+          {activeTab === "oauth" && (
+            <section className="cv-group">
+              <h2>{locale === "zh-CN" ? "已登记的通行证授权应用" : "Authorized OAuth 2.0 Clients"}</h2>
+              <p className="cv-muted" style={{ marginBottom: 16 }}>
+                {locale === "zh-CN"
+                  ? "MetaFusion 账号中心作为统一身份认证源，支持以下外部及独立模块通过 OAuth 2.0 单点登录。"
+                  : "These external or detached modules use MetaFusion as the unified OAuth 2.0 identity provider."}
+              </p>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {oauthClients.map((c) => (
+                  <div
+                    key={c.client_id}
+                    style={{
+                      padding: 14,
+                      background: "#131b26",
+                      border: "1px solid #293749",
+                      borderRadius: 8,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontWeight: 650, fontSize: 15, color: "#93c5fd" }}>{c.name}</span>
+                      {c.trusted && (
+                        <span className="cv-badge" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.3)" }}>
+                          {locale === "zh-CN" ? "系统信任应用" : "Trusted App"}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 13, color: "#94a3b8" }}>
+                      <code>client_id: {c.client_id}</code>
+                    </div>
+                    <div style={{ fontSize: 12, color: "#64748b" }}>
+                      {locale === "zh-CN" ? "回调域名" : "Redirect URIs"}: {c.redirect_uris.join(", ")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* TAB 3: Admin Users Management */}
+          {activeTab === "users" && user.role === "admin" && (
+            <>
+              {/* Reset Password Modal / Form */}
+              {resetTargetUser && (
+                <div style={{ padding: 14, background: "#221919", border: "1px solid #7f1d1d", borderRadius: 8, marginBottom: 16 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontWeight: 600, color: "#fca5a5" }}>
+                      {locale === "zh-CN" ? `为用户 ${resetTargetUser.username} 重置密码` : `Reset password for ${resetTargetUser.username}`}
+                    </span>
+                    <button type="button" onClick={() => { setResetTargetUser(null); setResetNewPassword(""); }} style={{ minHeight: "auto", padding: "2px 8px" }}>
+                      ✕
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <input
+                      type="password"
+                      placeholder={locale === "zh-CN" ? "新密码 (至少 12 位)..." : "New password (min 12 chars)..."}
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      className="cv-primary"
+                      disabled={resetNewPassword.length < 12}
+                      onClick={async () => {
+                        try {
+                          await api(`/admin/users/${resetTargetUser.id}/password`, "PUT", { password: resetNewPassword });
+                          setSuccess(locale === "zh-CN" ? `用户 ${resetTargetUser.username} 的密码重置成功！` : `Password for ${resetTargetUser.username} reset!`);
+                          setResetTargetUser(null);
+                          setResetNewPassword("");
+                        } catch (err) {
+                          setError((err as Error).message);
+                        }
+                      }}
+                    >
+                      {locale === "zh-CN" ? "执行重置" : "Confirm Reset"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Users Table */}
+              <section className="cv-group" style={{ marginBottom: 20 }}>
+                <h2>{locale === "zh-CN" ? "全站用户与权限列表" : "Users & Roles"}</h2>
+                <div className="cv-table-scroll" style={{ marginTop: 10 }}>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>{locale === "zh-CN" ? "用户名" : "Username"}</th>
+                        <th>{locale === "zh-CN" ? "当前权限角色" : "Role"}</th>
+                        <th>{locale === "zh-CN" ? "用户标识" : "User ID"}</th>
+                        <th style={{ textAlign: "right" }}>{locale === "zh-CN" ? "操作" : "Actions"}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usersList.map((u) => (
+                        <tr key={u.id}>
+                          <td style={{ fontWeight: 600 }}>{u.username}</td>
+                          <td>
+                            <span
+                              className="cv-badge"
+                              style={{
+                                background: u.role === "admin" ? "rgba(244, 63, 94, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                                color: u.role === "admin" ? "#fb7185" : "#34d399",
+                                borderColor: u.role === "admin" ? "rgba(244, 63, 94, 0.3)" : "rgba(16, 185, 129, 0.3)",
+                              }}
+                            >
+                              {u.role}
+                            </span>
+                          </td>
+                          <td>
+                            <small className="cv-muted">{u.id}</small>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: 6 }}>
+                              {u.role === "editor" ? (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm(locale === "zh-CN" ? `确定将 ${u.username} 提升为管理员？` : `Promote ${u.username} to Admin?`)) {
+                                      try {
+                                        await api(`/admin/users/${u.id}/role`, "PUT", { role: "admin" });
+                                        loadUsers();
+                                      } catch (err) {
+                                        setError((err as Error).message);
+                                      }
+                                    }
+                                  }}
+                                  style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
+                                >
+                                  {locale === "zh-CN" ? "提为管理员" : "Make Admin"}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (confirm(locale === "zh-CN" ? `确定将 ${u.username} 降为编辑者？` : `Demote ${u.username} to Editor?`)) {
+                                      try {
+                                        await api(`/admin/users/${u.id}/role`, "PUT", { role: "editor" });
+                                        loadUsers();
+                                      } catch (err) {
+                                        setError((err as Error).message);
+                                      }
+                                    }
+                                  }}
+                                  style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
+                                >
+                                  {locale === "zh-CN" ? "设为编辑者" : "Set Editor"}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setResetTargetUser(u);
+                                  setResetNewPassword("");
+                                }}
+                                style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
+                              >
+                                {locale === "zh-CN" ? "重置密码" : "Reset Password"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              {/* Create Editor Form */}
+              <section className="cv-group">
+                <h2>{t("catalogV2.createEditor")}</h2>
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setError("");
+                    setSuccess("");
+                    try {
+                      await api("/admin/users", "POST", { username: newEditorUsername, password: newEditorPassword });
+                      setSuccess(locale === "zh-CN" ? `编辑者账号 ${newEditorUsername} 创建成功！` : `Editor ${newEditorUsername} created!`);
+                      setNewEditorUsername("");
+                      setNewEditorPassword("");
+                      loadUsers();
+                    } catch (err) {
+                      setError((err as Error).message);
+                    }
+                  }}
+                >
+                  <Credentials
+                    username={newEditorUsername}
+                    password={newEditorPassword}
+                    setUsername={setNewEditorUsername}
+                    setPassword={setNewEditorPassword}
+                  />
+                  <button className="cv-primary" type="submit" style={{ marginTop: 10 }}>
+                    {t("catalogV2.create")}
+                  </button>
+                </form>
+              </section>
+            </>
           )}
         </>
       ) : (
