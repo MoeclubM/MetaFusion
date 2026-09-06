@@ -1,1 +1,5 @@
-export { Browse as default } from "@/components/catalog-v2/CatalogPages";
+import { redirect } from "next/navigation";
+
+export default function CatalogIndexPage() {
+  redirect("/explore");
+}

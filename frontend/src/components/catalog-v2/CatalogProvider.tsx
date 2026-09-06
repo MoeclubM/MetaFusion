@@ -41,28 +41,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   return (
     <Context.Provider value={{ definition, user, modules, setup, refresh }}>
       <div className="catalog-v2">
-        <header className="cv-nav">
-          <Link href="/catalog" className="cv-brand">
-            MetaFusion
-          </Link>
-          <span className="cv-muted">{t("catalogV2.tagline")}</span>
-          <nav>
-            <Link href="/catalog/new">{t("catalogV2.create")}</Link>
-            {user?.role === "admin" && (
-              <Link href="/catalog/admin">{t("catalogV2.configure")}</Link>
-            )}
-            <Link href="/catalog/account">
-              {setup
-                ? t("catalogV2.setup")
-                : user?.username || t("catalogV2.login")}
-            </Link>
-            <button
-              onClick={() => setLocale(locale === "zh-CN" ? "en-US" : "zh-CN")}
-            >
-              {t("catalogV2.switchLanguage")}
-            </button>
-          </nav>
-        </header>
+        
         <main className="cv-main">
           {error && (
             <div role="alert" className="cv-error">
