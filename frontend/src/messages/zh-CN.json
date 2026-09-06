@@ -2249,5 +2249,16 @@
   "catalogV2.job.queued": "等待处理",
   "catalogV2.job.running": "正在处理",
   "catalogV2.job.complete": "处理完成",
-  "catalogV2.job.failed": "处理失败"
+  "catalogV2.job.failed": "处理失败",
+  "catalogV2.compareHint": "请选择 2 到 6 个发行版本进行横向对比",
+  "catalogV2.compareDesc": "横向对比同一作品的不同发行版本（如通常盘、限定盘、数字版、黑胶等）的介质构成、曲目/篇目差异、规格属性及独占内容。",
+  "catalogV2.compareSelectRelease": "添加发行版本到对比",
+  "catalogV2.compareSearchPlaceholder": "输入发行版标题搜索或输入关键词...",
+  "catalogV2.compareAdd": "加入对比",
+  "catalogV2.compareClear": "清空对比",
+  "catalogV2.compareDemoHint": "快速加入对比（从最近发行版本中选择）：",
+  "catalogV2.resourceGatewayTitle": "资源存储与下载管理中心",
+  "catalogV2.resourceGatewayDesc": "物理资源归档与下载管理已独立为外部专门系统。通过统一通行证（OAuth 2.0 SSO）实现无缝单点登录。",
+  "catalogV2.resourceGatewayVisit": "前往独立资源中心 ↗",
+  "catalogV2.resourceGatewaySearchItem": "在资源站检索该条目的物理文件与镜像 ↗"
 }

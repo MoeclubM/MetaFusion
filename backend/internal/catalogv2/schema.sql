@@ -90,3 +90,20 @@ DO $$ DECLARE t text; BEGIN
  END IF;
  END LOOP;
 END $$;
+
+CREATE TABLE IF NOT EXISTS catalog_v2.oauth_clients (
+ id text PRIMARY KEY, secret_hash text NOT NULL, name text NOT NULL,
+ redirect_uris text[] NOT NULL DEFAULT '{}', trusted boolean NOT NULL DEFAULT false,
+ created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS catalog_v2.oauth_codes (
+ code text PRIMARY KEY, client_id text NOT NULL REFERENCES catalog_v2.oauth_clients(id) ON DELETE CASCADE,
+ user_id uuid NOT NULL REFERENCES catalog_v2.users(id) ON DELETE CASCADE,
+ redirect_uri text NOT NULL, scope text NOT NULL DEFAULT 'profile',
+ expires_at timestamptz NOT NULL, used boolean NOT NULL DEFAULT false
+);
+CREATE TABLE IF NOT EXISTS catalog_v2.oauth_tokens (
+ token_hash text PRIMARY KEY, client_id text NOT NULL REFERENCES catalog_v2.oauth_clients(id) ON DELETE CASCADE,
+ user_id uuid NOT NULL REFERENCES catalog_v2.users(id) ON DELETE CASCADE,
+ scope text NOT NULL DEFAULT 'profile', expires_at timestamptz NOT NULL
+);

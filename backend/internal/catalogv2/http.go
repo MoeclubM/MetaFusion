@@ -7,7 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	"io"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -165,6 +167,115 @@ func (h HTTP) Register(r *gin.Engine) {
 		}
 		u, err := s.CreateUser(c.Request.Context(), in.Username, in.Password, false, user(c))
 		respond(c, u, err)
+	})
+	oauth := api.Group("/oauth")
+	oauth.GET("/clients", func(c *gin.Context) {
+		clients, err := s.ListOAuthClients(c.Request.Context())
+		respond(c, gin.H{"clients": clients}, err)
+	})
+	oauth.GET("/authorize", func(c *gin.Context) {
+		clientID := c.Query("client_id")
+		redirectURI := c.Query("redirect_uri")
+		responseType := c.Query("response_type")
+		state := c.Query("state")
+		scope := c.DefaultQuery("scope", "profile")
+		if responseType != "code" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported_response_type"})
+			return
+		}
+		client, err := s.GetOAuthClient(c.Request.Context(), clientID)
+		if err != nil || client == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_client"})
+			return
+		}
+		validURI := false
+		for _, uri := range client.RedirectURIs {
+			if uri == redirectURI {
+				validURI = true
+				break
+			}
+		}
+		if !validURI {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_redirect_uri"})
+			return
+		}
+		u := user(c)
+		if u == nil {
+			c.Redirect(http.StatusFound, "/catalog/account?return_to="+url.QueryEscape(c.Request.RequestURI))
+			return
+		}
+		code, err := s.CreateOAuthCode(c.Request.Context(), clientID, u.ID, redirectURI, scope)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+			return
+		}
+		sep := "?"
+		if strings.Contains(redirectURI, "?") {
+			sep = "&"
+		}
+		target := fmt.Sprintf("%s%scode=%s", redirectURI, sep, url.QueryEscape(code))
+		if state != "" {
+			target += "&state=" + url.QueryEscape(state)
+		}
+		c.Redirect(http.StatusFound, target)
+	})
+	oauth.POST("/token", func(c *gin.Context) {
+		grantType := c.PostForm("grant_type")
+		code := c.PostForm("code")
+		clientID := c.PostForm("client_id")
+		clientSecret := c.PostForm("client_secret")
+		redirectURI := c.PostForm("redirect_uri")
+		if grantType == "" {
+			var body struct {
+				GrantType    string `json:"grant_type"`
+				Code         string `json:"code"`
+				ClientID     string `json:"client_id"`
+				ClientSecret string `json:"client_secret"`
+				RedirectURI  string `json:"redirect_uri"`
+			}
+			if c.BindJSON(&body) == nil {
+				grantType = body.GrantType
+				code = body.Code
+				clientID = body.ClientID
+				clientSecret = body.ClientSecret
+				redirectURI = body.RedirectURI
+			}
+		}
+		if grantType != "authorization_code" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported_grant_type"})
+			return
+		}
+		token, u, err := s.ExchangeOAuthCode(c.Request.Context(), clientID, clientSecret, code, redirectURI)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"access_token": token,
+			"token_type":   "Bearer",
+			"expires_in":   86400 * 30,
+			"scope":        "profile",
+			"user":         u,
+		})
+	})
+	oauth.GET("/userinfo", func(c *gin.Context) {
+		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+		if token == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing_token"})
+			return
+		}
+		u, err := s.User(c.Request.Context(), token)
+		if err != nil || u == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_token"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"sub":      u.ID,
+			"id":       u.ID,
+			"username": u.Username,
+			"role":     u.Role,
+			"email":    fmt.Sprintf("%s@findverse.cc", u.Username),
+		})
 	})
 	cat := api.Group("/catalog")
 	cat.GET("/definitions", func(c *gin.Context) { v, err := s.Definitions(c.Request.Context()); respond(c, v, err) })
