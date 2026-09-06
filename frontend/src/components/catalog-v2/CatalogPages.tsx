@@ -1023,7 +1023,18 @@ export function Detail({ id }: { id: string }) {
           )}
           {!!children.length && (
             <section>
-              <h2>{t("catalogV2.directory")}</h2>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <h2 style={{ margin: 0 }}>{t("catalogV2.directory")}</h2>
+                {children.filter((x) => x.kind === "release").length >= 2 && (
+                  <Link
+                    href={`/compare?ids=${children.filter((x) => x.kind === "release").map((r) => r.id).slice(0, 6).join(",")}`}
+                    className="cv-badge"
+                    style={{ background: "rgba(145, 215, 204, 0.15)", color: "#91d7cc", borderColor: "rgba(145, 215, 204, 0.3)", padding: "4px 8px" }}
+                  >
+                    {locale === "zh-CN" ? "横向对比各发行版本 ↗" : "Compare all releases ↗"}
+                  </Link>
+                )}
+              </div>
               {tree("")}
               {children
                 .filter(
@@ -1239,7 +1250,18 @@ export function Detail({ id }: { id: string }) {
           </section>
           {!!occurrences.length && (
             <section>
-              <h2>{t("catalogV2.occurrences")}</h2>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <h2 style={{ margin: 0 }}>{t("catalogV2.occurrences")}</h2>
+                {Array.from(new Set(occurrences.map((o) => o.release?.id).filter(Boolean))).length >= 2 && (
+                  <Link
+                    href={`/compare?ids=${Array.from(new Set(occurrences.map((o) => o.release?.id).filter(Boolean))).slice(0, 6).join(",")}`}
+                    className="cv-badge"
+                    style={{ background: "rgba(145, 215, 204, 0.15)", color: "#91d7cc", borderColor: "rgba(145, 215, 204, 0.3)", padding: "4px 8px" }}
+                  >
+                    {locale === "zh-CN" ? "横向对比收录版本 ↗" : "Compare releases ↗"}
+                  </Link>
+                )}
+              </div>
               {occurrences.map((o, i) => (
                 <div className="cv-directory-row" key={i}>
                   <Link href={`/catalog/${o.release.id}`}>

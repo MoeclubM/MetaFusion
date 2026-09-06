@@ -51,7 +51,6 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
   const navLinks = [
     { href: "/", label: locale === "zh-CN" ? "首页" : "Home", icon: Library, exact: true },
     { href: "/explore", label: locale === "zh-CN" ? "探索中心" : "Explore", icon: Compass },
-    { href: "/compare", label: locale === "zh-CN" ? "多版本对比" : "Compare", icon: GitCompare },
     { href: "/community", label: locale === "zh-CN" ? "社区论坛" : "Community", icon: MessageSquare },
     { href: "/downloads", label: locale === "zh-CN" ? "资源中心 ↗" : "Resources ↗", icon: DownloadCloud },
     { href: "/docs/catalog", label: locale === "zh-CN" ? "编目指南" : "Docs", icon: BookOpen, external: true },
