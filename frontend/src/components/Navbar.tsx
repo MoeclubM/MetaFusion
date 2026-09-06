@@ -51,7 +51,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
   const navLinks = [
     { href: "/", label: locale === "zh-CN" ? "首页" : "Home", icon: Library, exact: true },
     { href: "/explore", label: locale === "zh-CN" ? "探索中心" : "Explore", icon: Compass },
-    { href: "/catalog/compare", label: locale === "zh-CN" ? "多版本对比" : "Compare", icon: GitCompare },
+    { href: "/compare", label: locale === "zh-CN" ? "多版本对比" : "Compare", icon: GitCompare },
     { href: "/community", label: locale === "zh-CN" ? "社区论坛" : "Community", icon: MessageSquare },
     { href: "/downloads", label: locale === "zh-CN" ? "资源中心 ↗" : "Resources ↗", icon: DownloadCloud },
     { href: "/docs/catalog", label: locale === "zh-CN" ? "编目指南" : "Docs", icon: BookOpen, external: true },
@@ -121,7 +121,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
           {/* Create dropdown */}
           <div className="relative group/create">
             <Link
-              href="/catalog/new"
+              href="/new"
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-white transition-all shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
@@ -132,28 +132,28 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
             <div className="absolute right-0 top-full pt-1.5 hidden group-hover/create:block z-40">
               <div className="w-48 rounded-xl border border-white/10 bg-surface shadow-elevated py-1.5 text-xs overflow-hidden">
                 <Link
-                  href="/catalog/new?kind=work"
+                  href="/new?kind=work"
                   className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.06] text-gray-200"
                 >
                   <Layers className="w-3.5 h-3.5 text-sky-400" />
                   <span>{locale === "zh-CN" ? "新建作品 (Work)" : "New Work"}</span>
                 </Link>
                 <Link
-                  href="/catalog/new?kind=release"
+                  href="/new?kind=release"
                   className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.06] text-gray-200"
                 >
                   <Disc className="w-3.5 h-3.5 text-emerald-400" />
                   <span>{locale === "zh-CN" ? "新建发行 (Release)" : "New Release"}</span>
                 </Link>
                 <Link
-                  href="/catalog/new?kind=agent"
+                  href="/new?kind=agent"
                   className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.06] text-gray-200"
                 >
                   <Users className="w-3.5 h-3.5 text-amber-400" />
                   <span>{locale === "zh-CN" ? "新建主体 (Agent)" : "New Agent"}</span>
                 </Link>
                 <Link
-                  href="/catalog/new?kind=collection"
+                  href="/new?kind=collection"
                   className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.06] text-gray-200"
                 >
                   <Network className="w-3.5 h-3.5 text-indigo-400" />
@@ -203,7 +203,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
 
                   <div className="py-1">
                     <Link
-                      href="/catalog/account"
+                      href="/account"
                       onClick={() => setIsUserMenuOpen(false)}
                       className="w-full px-3 py-2 text-left text-gray-300 hover:text-white hover:bg-white/[0.06] flex items-center gap-2 transition-colors font-medium"
                     >
@@ -241,7 +241,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
             </div>
           ) : (
             <Link
-              href="/catalog/account"
+              href="/account"
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs font-medium text-gray-200 transition-colors"
             >
               <UserIcon className="w-3.5 h-3.5" />

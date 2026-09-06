@@ -255,7 +255,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		u := user(c)
 		if u == nil {
-			c.Redirect(http.StatusFound, "/catalog/account?return_to="+url.QueryEscape(c.Request.RequestURI))
+			c.Redirect(http.StatusFound, "/account?return_to="+url.QueryEscape(c.Request.RequestURI))
 			return
 		}
 		code, err := s.CreateOAuthCode(c.Request.Context(), clientID, u.ID, redirectURI, scope)

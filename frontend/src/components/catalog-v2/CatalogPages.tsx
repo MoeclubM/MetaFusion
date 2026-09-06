@@ -67,7 +67,7 @@ export function Browse() {
           <h1>{t("catalogV2.catalog")}</h1>
           <p className="cv-muted">{t("catalogV2.intro")}</p>
         </div>
-        <Link className="cv-primary" href="/catalog/new">
+        <Link className="cv-primary" href="/new">
           {t("catalogV2.create")}
         </Link>
       </div>
@@ -160,7 +160,7 @@ export function Browse() {
       {selected.length > 1 && (
         <Link
           className="cv-primary"
-          href={`/catalog/compare?ids=${selected.join(",")}`}
+          href={`/compare?ids=${selected.join(",")}`}
         >
           {t("catalogV2.compare")}
         </Link>
@@ -1361,8 +1361,8 @@ export function Compare({ ids }: { ids: string }) {
     setSelectedIds(next);
     if (typeof window !== "undefined") {
       const url = next.length
-        ? `/catalog/compare?ids=${encodeURIComponent(next.join(","))}`
-        : "/catalog/compare";
+        ? `/compare?ids=${encodeURIComponent(next.join(","))}`
+        : "/compare";
       window.history.replaceState(null, "", url);
     }
   };

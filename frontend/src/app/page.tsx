@@ -195,7 +195,7 @@ export default function HomePage() {
             </Link>
 
             <Link
-              href="/catalog/new"
+              href="/new"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary/20 hover:bg-primary/30 border border-primary/40 text-primary hover:text-white text-sm font-medium transition-all"
             >
               <Plus className="w-4 h-4" />
@@ -203,7 +203,7 @@ export default function HomePage() {
             </Link>
 
             <Link
-              href="/catalog/compare"
+              href="/compare"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-300 text-sm font-medium transition-all"
             >
               <GitCompare className="w-4 h-4 text-amber-400" />
@@ -309,7 +309,7 @@ export default function HomePage() {
                 : "Catalog core is ready. No published entities yet. Create the first work or release!"}
             </p>
             <Link
-              href="/catalog/new"
+              href="/new"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-xs font-medium"
             >
               <Plus className="w-3.5 h-3.5" />

@@ -1,9 +1,13 @@
-import { Compare } from "@/components/catalog-v2/CatalogPages";
+import { redirect } from "next/navigation";
+
 export default async function Page({
   searchParams,
 }: {
   searchParams: Promise<{ ids?: string }>;
 }) {
   const { ids } = await searchParams;
-  return <Compare ids={ids || ""} />;
+  if (ids) {
+    redirect(`/compare?ids=${encodeURIComponent(ids)}`);
+  }
+  redirect("/compare");
 }

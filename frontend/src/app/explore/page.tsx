@@ -140,7 +140,7 @@ function ExploreInner() {
 
           <div className="flex items-center gap-2">
             <Link
-              href="/catalog/compare"
+              href="/compare"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs font-mono text-gray-300 transition-colors"
             >
               <GitCompare className="w-4 h-4 text-amber-400" />
@@ -148,7 +148,7 @@ function ExploreInner() {
             </Link>
 
             <Link
-              href="/catalog/new"
+              href="/new"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-xs font-medium text-white transition-colors"
             >
               <Plus className="w-4 h-4" />

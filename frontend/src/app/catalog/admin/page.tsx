@@ -1,1 +1,5 @@
-export { DefinitionsEditor as default } from "@/components/catalog-v2/DefinitionsEditor";
+import { redirect } from "next/navigation";
+
+export default function Page() {
+  redirect("/admin");
+}
