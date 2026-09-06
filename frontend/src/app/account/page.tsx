@@ -8,7 +8,9 @@ export default function Page() {
     <>
       <Navbar />
       <CatalogProvider>
-        <Account />
+        <div className="catalog-v2 cv-main">
+          <Account />
+        </div>
       </CatalogProvider>
     </>
   );
