@@ -118,7 +118,9 @@ func runCatalogV2() error {
 		modules.Register(r)
 		modules.Start(ctx)
 	} else {
-		r.GET("/api/v2/capabilities", func(c *gin.Context) { c.JSON(200, gin.H{"modules": []moduleapi.Manifest{}, "status": "unavailable"}) })
+		capHandler := func(c *gin.Context) { c.JSON(200, gin.H{"modules": []moduleapi.Manifest{}, "status": "unavailable"}) }
+		r.GET("/api/capabilities", capHandler)
+		r.GET("/api/v2/capabilities", capHandler)
 	}
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "live"}) })
 	r.GET("/ready", func(c *gin.Context) {

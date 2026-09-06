@@ -84,8 +84,13 @@ func required(admin bool) gin.HandlerFunc {
 	}
 }
 func (h HTTP) Register(r *gin.Engine) {
+	for _, prefix := range []string{"/api", "/api/v2"} {
+		h.registerGroup(r.Group(prefix))
+	}
+}
+
+func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	s := h.Store
-	api := r.Group("/api/v2")
 	api.GET("/openapi.json", func(c *gin.Context) { c.JSON(200, OpenAPI()) })
 	api.Use(func(c *gin.Context) {
 		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
@@ -147,7 +152,8 @@ func (h HTTP) Register(r *gin.Engine) {
 		token, u, err := s.Login(c.Request.Context(), in.Username, in.Password)
 		if err == nil {
 			c.SetSameSite(http.SameSiteStrictMode)
-			c.SetCookie("mf_v2_session", token, 86400, "/api/v2", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
+			c.SetCookie("mf_session", token, 86400, "/", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
+			c.SetCookie("mf_v2_session", token, 86400, "/", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
 		}
 		respond(c, gin.H{"token": token, "user": u}, err)
 	})
@@ -157,7 +163,8 @@ func (h HTTP) Register(r *gin.Engine) {
 		if token == "" {
 			token, _ = c.Cookie("mf_v2_session")
 		}
-		c.SetCookie("mf_v2_session", "", -1, "/api/v2", "", false, true)
+		c.SetCookie("mf_session", "", -1, "/", "", false, true)
+		c.SetCookie("mf_v2_session", "", -1, "/", "", false, true)
 		respond(c, gin.H{"ok": true}, s.Logout(c.Request.Context(), token))
 	})
 	api.POST("/admin/users", required(true), func(c *gin.Context) {

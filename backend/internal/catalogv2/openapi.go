@@ -90,5 +90,5 @@ func OpenAPI() map[string]any {
 	}
 	paths["/catalog/entities"].(map[string]any)["get"].(map[string]any)["parameters"] = params
 	paths["/catalog/compare"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{map[string]any{"name": "ids", "in": "query", "required": true, "description": "Two to six comma-separated release UUIDs", "schema": map[string]any{"type": "string"}}}
-	return map[string]any{"openapi": "3.0.3", "info": map[string]any{"title": "MetaFusion catalog", "version": "2.0.0"}, "servers": []any{map[string]any{"url": "/api/v2"}}, "paths": paths, "components": map[string]any{"schemas": schemas, "securitySchemes": map[string]any{"session": map[string]any{"type": "apiKey", "in": "cookie", "name": "mf_v2_session"}, "bearer": map[string]any{"type": "http", "scheme": "bearer"}}}}
+	return map[string]any{"openapi": "3.0.3", "info": map[string]any{"title": "MetaFusion catalog", "version": "2.0.0"}, "servers": []any{map[string]any{"url": "/api"}}, "paths": paths, "components": map[string]any{"schemas": schemas, "securitySchemes": map[string]any{"session": map[string]any{"type": "apiKey", "in": "cookie", "name": "mf_v2_session"}, "bearer": map[string]any{"type": "http", "scheme": "bearer"}}}}
 }

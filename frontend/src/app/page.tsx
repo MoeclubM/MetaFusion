@@ -53,7 +53,7 @@ export default function HomePage() {
   });
 
   useEffect(() => {
-    fetch("/api/v2/catalog/entities?limit=8", { credentials: "same-origin" })
+    fetch("/api/catalog/entities?limit=8", { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : { items: [] }))
       .then((data) => {
         const items: RecentItem[] = data.items || [];

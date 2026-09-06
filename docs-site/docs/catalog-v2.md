@@ -1,6 +1,6 @@
-# 元数据目录 v2
+# 元数据目录核心架构
 
-v2 使用 `/api/v2`，默认启动只连接 PostgreSQL。旧版 `/api/v1` 的 CanonicalEntry、单 Work 发行和资产可见性规则不适用于 v2。数据库中的旧表保留；启动不导入、不清空旧目录。
+MetaFusion 采用基于实体责任骨架与动态目录定义的纯净架构。核心统一入口为 `/api`，默认运行仅需依赖 PostgreSQL 即可提供完备的元数据建档、层级关联、多版本比对与协同审核能力。外围资源归档与下载中心完全解耦。
 
 ## 固定层级与可选结构
 
@@ -45,7 +45,7 @@ Track 的 `contents` 是实际收录的唯一来源：`expression_id`、`positio
 
 ## 写入与审核
 
-运行时结构见 `/api/v2/openapi.json`，动态代码见 `/api/v2/catalog/definitions`。先查询 `/api/v2/auth/me` 核对角色。
+运行时结构见 `/api/openapi.json`，动态代码见 `/api/catalog/definitions`。先查询 `/api/auth/me` 核对角色。
 
 ```json
 {
@@ -70,7 +70,7 @@ Track 的 `contents` 是实际收录的唯一来源：`expression_id`、`positio
 }
 ```
 
-提交到 `POST /api/v2/catalog/entities`。编辑前 GET 完整实体，保留未修改字段；PUT 带当前 `expected_version`。409 需要回读与合并，不能盲目覆盖或重试创建。创建后回读实体、关系、收录及修订历史。
+提交到 `POST /api/catalog/entities`。编辑前 GET 完整实体，保留未修改字段；PUT 带当前 `expected_version`。409 需要回读与合并，不能盲目覆盖或重试创建。创建后回读实体、关系、收录及修订历史。
 
 编辑者可管理自己未发布的条目并提交 `pending_review`；管理员审核后设为 `published`。公开实体不能引用未公开的核心实体。合并需要管理员、同固定种类、相容所属关系和已发布目标；引用迁移与受影响修订在同一事务提交。冲突的收录或关系必须先处理。停用保留墓碑，外围数据不级联删除。
 
@@ -78,7 +78,7 @@ Track 的 `contents` 是实际收录的唯一来源：`expression_id`、`positio
 
 ## 可选模块
 
-`GET /api/v2/capabilities` 只提供模块状态，不返回文件详情。归档、播放、媒体处理、社区、个人记录、导入提案与导出默认关闭；管理员可按依赖级联启停。
+`GET /api/capabilities` 只提供模块状态，不返回文件详情。归档、播放、媒体处理、社区、个人记录、导入提案与导出默认关闭；管理员可按依赖级联启停。
 
 | 模块 | API | 数据与行为 |
 | --- | --- | --- |

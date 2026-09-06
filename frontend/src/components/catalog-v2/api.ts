@@ -130,7 +130,7 @@ export async function api<T = any>(
   method = "GET",
   data?: any,
 ): Promise<T> {
-  const res = await fetch(`/api/v2${path}`, {
+  const res = await fetch(`/api${path}`, {
     method,
     credentials: "same-origin",
     headers:

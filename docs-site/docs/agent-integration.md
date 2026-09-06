@@ -5,7 +5,7 @@ order: 35
 group: "api"
 ---
 
-> v2 使用独立 `/api/v2` 与动态定义。新目录请先阅读 [v2 编目教程](./catalog-v2.md)；本文以下旧接口示例仅适用于 legacy 模式，不能混用 DTO。
+> 核心 API 统一使用 `/api` 与动态定义引擎。编目规范请阅读 [元数据目录教程](./catalog-v2.md)。
 
 # AI Agent 接入与自动化编目协作指南 (AI Agent Integration & Cataloging Guide)
 
