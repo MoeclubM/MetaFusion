@@ -1,601 +1,225 @@
 package catalog
 
 import (
-	"errors"
+	"context"
+	"database/sql"
 	"fmt"
-	"net/http"
-	"strings"
-
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/lib/pq"
-	"github.com/metafusion/metafusion-app/internal/models"
-	"github.com/metafusion/metafusion-app/internal/ontology"
-	"gorm.io/gorm"
+	"time"
 )
 
-var errUnsupportedMergeType = errors.New("unsupported merge target type")
-
-type mergeEntityInput struct {
-	TargetType string   `json:"target_type" binding:"required"`
-	SourceID   string   `json:"source_id" binding:"required"`
-	TargetID   string   `json:"target_id" binding:"required"`
-	MergeNote  string   `json:"merge_note" binding:"required"`
-	SourceURLs []string `json:"source_urls"`
-}
-
-// MergeEntities merges duplicate catalog entities while preserving references.
-// PostgreSQL remains the source of truth; the entire merge is one transaction.
-func (s *CatalogService) MergeEntities(c *gin.Context) {
-	userID, err := getUserID(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	var input mergeEntityInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	input.TargetType = strings.ToLower(strings.TrimSpace(input.TargetType))
-	input.MergeNote = strings.TrimSpace(input.MergeNote)
-
-	sourceID, sourceErr := uuid.Parse(input.SourceID)
-	targetID, targetErr := uuid.Parse(input.TargetID)
-	if sourceErr != nil || targetErr != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid UUID format"})
-		return
-	}
-	if sourceID == targetID {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot merge entity into itself"})
-		return
-	}
-
-	err = s.db.Transaction(func(tx *gorm.DB) error {
-		switch input.TargetType {
-		case "artist":
-			return mergeArtist(tx, sourceID, targetID, userID, input)
-		case "work":
-			return mergeWork(tx, sourceID, targetID, userID, input)
-		case "release":
-			return mergeRelease(tx, sourceID, targetID, userID, input)
-		case "franchise":
-			return mergeFranchise(tx, sourceID, targetID, userID, input)
-		default:
-			return fmt.Errorf("%w: %s", errUnsupportedMergeType, input.TargetType)
+// Only fields declared as references are rewritten; arbitrary text is evidence.
+func replaceReference(f Field, value any, source, target string) any {
+	switch f.Type {
+	case "entity":
+		if value == source {
+			return target
 		}
-	})
-	if err != nil {
-		switch {
-		case errors.Is(err, gorm.ErrRecordNotFound):
-			c.JSON(http.StatusNotFound, gin.H{"error": "Source or target entity not found"})
-		case errors.Is(err, errUnsupportedMergeType):
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		default:
-			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
-		}
-		return
-	}
-
-	if input.TargetType == "work" {
-		s.deleteWorkSearchIndex(c.Request.Context(), sourceID)
-		s.refreshWorkSearchIndex(c.Request.Context(), targetID)
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message":     "实体合并成功完成",
-		"target_type": input.TargetType,
-		"source_id":   sourceID,
-		"target_id":   targetID,
-	})
-}
-
-func mergeArtist(tx *gorm.DB, sourceID, targetID, editorID uuid.UUID, input mergeEntityInput) error {
-	var source, target models.Artist
-	if err := tx.Where("id = ?", sourceID).First(&source).Error; err != nil {
-		return err
-	}
-	if err := tx.Where("id = ?", targetID).First(&target).Error; err != nil {
-		return err
-	}
-
-	targetBefore := target
-	if err := mergeEntityRelationships(tx, "artist", sourceID, targetID); err != nil {
-		return err
-	}
-	if err := tx.Model(&models.Release{}).Where("publisher_id = ?", sourceID).Update("publisher_id", targetID).Error; err != nil {
-		return err
-	}
-	if err := mergeFavorites(tx, "artist", sourceID, targetID); err != nil {
-		return err
-	}
-	if err := mergeArtistTranslations(tx, sourceID, targetID); err != nil {
-		return err
-	}
-
-	target.ExternalIDs = mergeJSONBPreferTarget(source.ExternalIDs, target.ExternalIDs)
-	// 时序回填：目标空区间从来源补齐。
-	mergedBegin := target.BeginDate
-	if mergedBegin == "" {
-		mergedBegin = source.BeginDate
-	}
-	mergedEnd := target.EndDate
-	if mergedEnd == "" {
-		mergedEnd = source.EndDate
-	}
-	mergedEnded := target.Ended || source.Ended
-	if err := tx.Model(&target).Updates(map[string]interface{}{
-		"external_ids": target.ExternalIDs,
-		"begin_date":   mergedBegin,
-		"end_date":     mergedEnd,
-		"ended":        mergedEnded,
-	}).Error; err != nil {
-		return err
-	}
-	target.BeginDate, target.EndDate, target.Ended = mergedBegin, mergedEnd, mergedEnded
-	if err := recordRevisionDB(tx, "artist", targetID, &editorID, "merge",
-		fmt.Sprintf("合并主体: 将 [%s] (%s) 合并至当前主体", source.Name, shortID(source.ID)),
-		input.MergeNote, input.SourceURLs,
-		map[string]interface{}{"target_before": targetBefore, "merged_source": source},
-		map[string]interface{}{"target_id": targetID, "merged_source_id": sourceID, "external_ids": target.ExternalIDs},
-	); err != nil {
-		return err
-	}
-	return tx.Where("id = ?", sourceID).Delete(&models.Artist{}).Error
-}
-
-func mergeWork(tx *gorm.DB, sourceID, targetID, editorID uuid.UUID, input mergeEntityInput) error {
-	var source, target models.Work
-	if err := tx.Where("id = ?", sourceID).First(&source).Error; err != nil {
-		return err
-	}
-	if err := tx.Where("id = ?", targetID).First(&target).Error; err != nil {
-		return err
-	}
-
-	targetBefore := target
-	updates := []struct {
-		model interface{}
-		where string
-		column string
-	}{
-		{&models.Release{}, "work_id = ?", "work_id"},
-		{&models.CanonicalEntry{}, "work_id = ?", "work_id"},
-		{&models.Track{}, "work_id = ?", "work_id"},
-		{&models.DiscussionTopic{}, "work_id = ?", "work_id"},
-		{&models.Comment{}, "work_id = ?", "work_id"},
-	}
-	for _, update := range updates {
-		if err := tx.Model(update.model).Where(update.where, sourceID).Update(update.column, targetID).Error; err != nil {
-			return err
-		}
-	}
-	if err := mergeEntityRelationships(tx, "work", sourceID, targetID); err != nil {
-		return err
-	}
-	if err := mergeFavorites(tx, "work", sourceID, targetID); err != nil {
-		return err
-	}
-	if err := mergeAssetBindings(tx, "work", sourceID, targetID); err != nil {
-		return err
-	}
-	if err := mergeWorkTranslations(tx, sourceID, targetID); err != nil {
-		return err
-	}
-	if err := mergeTagJoin(tx, "work_tag_relations", "work_id", sourceID, targetID); err != nil {
-		return err
-	}
-
-	// 合并后的翻译标题（含同语种并列标题）不再回流实体级 aliases：
-	// 来源主标题/原标题若已在目标翻译体系中出现，只保留真正的异名。
-	var targetTrans []models.WorkTranslation
-	_ = tx.Where("work_id = ?", targetID).Find(&targetTrans).Error
-	knownTitles := map[string]bool{}
-	for _, t := range targetTrans {
-		if v := strings.TrimSpace(t.Title); v != "" {
-			knownTitles[strings.ToLower(v)] = true
-		}
-		for _, a := range t.Aliases {
-			if v := strings.TrimSpace(a); v != "" {
-				knownTitles[strings.ToLower(v)] = true
+	case "list":
+		if items, ok := value.([]any); ok && f.Items != nil {
+			for i, v := range items {
+				items[i] = replaceReference(*f.Items, v, source, target)
 			}
 		}
-	}
-	aliasCandidates := make([]string, 0, len(source.Aliases)+1)
-	aliasCandidates = append(aliasCandidates, source.Aliases...)
-	if v := strings.TrimSpace(source.Title); v != "" && !knownTitles[strings.ToLower(v)] &&
-		!strings.EqualFold(v, strings.TrimSpace(target.Title)) {
-		aliasCandidates = append(aliasCandidates, v)
-	}
-	target.Aliases = mergeAliases(target.Aliases, aliasCandidates...)
-	target.ExternalIDs = mergeJSONBPreferTarget(source.ExternalIDs, target.ExternalIDs)
-	// 时序回填：目标空区间从来源补齐；发行点精确日同样回填，保证合并后可排序可查。
-	mergedBegin := target.BeginDate
-	if mergedBegin == "" {
-		mergedBegin = source.BeginDate
-	}
-	mergedEnd := target.EndDate
-	if mergedEnd == "" {
-		mergedEnd = source.EndDate
-	}
-	mergedEnded := target.Ended || source.Ended
-	mergedReleaseDate := target.ReleaseDate
-	if mergedReleaseDate == nil {
-		mergedReleaseDate = source.ReleaseDate
-	}
-	if mergedBegin == "" && mergedReleaseDate != nil {
-		mergedBegin = mergedReleaseDate.Format("2006-01-02")
-	}
-	if err := tx.Model(&target).Updates(map[string]interface{}{
-		"aliases":      target.Aliases,
-		"external_ids": target.ExternalIDs,
-		"begin_date":   mergedBegin,
-		"end_date":     mergedEnd,
-		"ended":        mergedEnded,
-		"release_date": mergedReleaseDate,
-	}).Error; err != nil {
-		return err
-	}
-	target.BeginDate, target.EndDate, target.Ended = mergedBegin, mergedEnd, mergedEnded
-	target.ReleaseDate = mergedReleaseDate
-	if err := recordRevisionDB(tx, "work", targetID, &editorID, "merge",
-		fmt.Sprintf("合并作品: 将 [%s] (%s) 合并至当前作品", source.Title, shortID(source.ID)),
-		input.MergeNote, input.SourceURLs,
-		map[string]interface{}{"target_before": targetBefore, "merged_source": source},
-		map[string]interface{}{"target_id": targetID, "merged_source_id": sourceID, "aliases": target.Aliases, "external_ids": target.ExternalIDs},
-	); err != nil {
-		return err
-	}
-	return tx.Where("id = ?", sourceID).Delete(&models.Work{}).Error
-}
-
-func mergeRelease(tx *gorm.DB, sourceID, targetID, editorID uuid.UUID, input mergeEntityInput) error {
-	var source, target models.Release
-	if err := tx.Where("id = ?", sourceID).First(&source).Error; err != nil {
-		return err
-	}
-	if err := tx.Where("id = ?", targetID).First(&target).Error; err != nil {
-		return err
-	}
-
-	targetBefore := target
-	if err := tx.Model(&models.Medium{}).Where("release_id = ?", sourceID).Update("release_id", targetID).Error; err != nil {
-		return err
-	}
-	if err := tx.Model(&models.DiscussionTopic{}).Where("release_id = ?", sourceID).Update("release_id", targetID).Error; err != nil {
-		return err
-	}
-	if err := tx.Model(&models.Comment{}).Where("release_id = ?", sourceID).Update("release_id", targetID).Error; err != nil {
-		return err
-	}
-	// Historical rows only; new resource writes use AssetRegistry + AssetBinding.
-	if err := tx.Model(&models.AssetFile{}).Where("release_id = ?", sourceID).Update("release_id", targetID).Error; err != nil {
-		return err
-	}
-	if err := mergeEntityRelationships(tx, "release", sourceID, targetID); err != nil {
-		return err
-	}
-	if err := mergeFavorites(tx, "release", sourceID, targetID); err != nil {
-		return err
-	}
-	if err := mergeAssetBindings(tx, "release", sourceID, targetID); err != nil {
-		return err
-	}
-
-	target.ExternalIDs = mergeJSONBPreferTarget(source.ExternalIDs, target.ExternalIDs)
-	target.CatalogMetadata = mergeJSONBPreferTarget(source.CatalogMetadata, target.CatalogMetadata)
-	// 发行点精确日回填：目标空时从来源补齐。
-	mergedEditionDate := target.EditionDate
-	if mergedEditionDate == nil {
-		mergedEditionDate = source.EditionDate
-	}
-	if err := tx.Model(&target).Updates(map[string]interface{}{
-		"external_ids":     target.ExternalIDs,
-		"catalog_metadata": target.CatalogMetadata,
-		"edition_date":     mergedEditionDate,
-	}).Error; err != nil {
-		return err
-	}
-	target.EditionDate = mergedEditionDate
-	if err := recordRevisionDB(tx, "release", targetID, &editorID, "merge",
-		fmt.Sprintf("合并发行版: 将 [%s] (%s) 合并至当前发行版", source.EditionName, shortID(source.ID)),
-		input.MergeNote, input.SourceURLs,
-		map[string]interface{}{"target_before": targetBefore, "merged_source": source},
-		map[string]interface{}{"target_id": targetID, "merged_source_id": sourceID, "external_ids": target.ExternalIDs},
-	); err != nil {
-		return err
-	}
-	return tx.Where("id = ?", sourceID).Delete(&models.Release{}).Error
-}
-
-func mergeFranchise(tx *gorm.DB, sourceID, targetID, editorID uuid.UUID, input mergeEntityInput) error {
-	var source, target models.Franchise
-	if err := tx.Where("id = ?", sourceID).First(&source).Error; err != nil {
-		return err
-	}
-	if err := tx.Where("id = ?", targetID).First(&target).Error; err != nil {
-		return err
-	}
-
-	targetBefore := target
-	if err := mergeEntityRelationships(tx, "franchise", sourceID, targetID); err != nil {
-		return err
-	}
-	if err := mergeFavorites(tx, "franchise", sourceID, targetID); err != nil {
-		return err
-	}
-	if err := mergeFranchiseTranslations(tx, sourceID, targetID); err != nil {
-		return err
-	}
-	if err := mergeTagJoin(tx, "franchise_tag_relations", "franchise_id", sourceID, targetID); err != nil {
-		return err
-	}
-
-	// 同作品合并：翻译体系已接管的标题不再回流实体级 aliases。
-	var targetFrTrans []models.FranchiseTranslation
-	_ = tx.Where("franchise_id = ?", targetID).Find(&targetFrTrans).Error
-	knownFrTitles := map[string]bool{}
-	for _, t := range targetFrTrans {
-		if v := strings.TrimSpace(t.Title); v != "" {
-			knownFrTitles[strings.ToLower(v)] = true
-		}
-		for _, a := range t.Aliases {
-			if v := strings.TrimSpace(a); v != "" {
-				knownFrTitles[strings.ToLower(v)] = true
+	case "group":
+		if fields, ok := value.(map[string]any); ok {
+			for k, v := range fields {
+				fields[k] = replaceReference(f.Fields[k], v, source, target)
 			}
 		}
-	}
-	frAliasCandidates := make([]string, 0, len(source.Aliases)+1)
-	frAliasCandidates = append(frAliasCandidates, source.Aliases...)
-	if v := strings.TrimSpace(source.Title); v != "" && !knownFrTitles[strings.ToLower(v)] &&
-		!strings.EqualFold(v, strings.TrimSpace(target.Title)) {
-		frAliasCandidates = append(frAliasCandidates, v)
-	}
-	target.Aliases = mergeAliases(target.Aliases, frAliasCandidates...)
-	target.ExternalIDs = mergeJSONBPreferTarget(source.ExternalIDs, target.ExternalIDs)
-	// 时序回填：目标空区间从来源补齐。
-	mergedBegin := target.BeginDate
-	if mergedBegin == "" {
-		mergedBegin = source.BeginDate
-	}
-	mergedEnd := target.EndDate
-	if mergedEnd == "" {
-		mergedEnd = source.EndDate
-	}
-	mergedEnded := target.Ended || source.Ended
-	if err := tx.Model(&target).Updates(map[string]interface{}{
-		"aliases":      target.Aliases,
-		"external_ids": target.ExternalIDs,
-		"begin_date":   mergedBegin,
-		"end_date":     mergedEnd,
-		"ended":        mergedEnded,
-	}).Error; err != nil {
-		return err
-	}
-	target.BeginDate, target.EndDate, target.Ended = mergedBegin, mergedEnd, mergedEnded
-	if err := recordRevisionDB(tx, "franchise", targetID, &editorID, "merge",
-		fmt.Sprintf("合并企划: 将 [%s] (%s) 合并至当前企划", source.Title, shortID(source.ID)),
-		input.MergeNote, input.SourceURLs,
-		map[string]interface{}{"target_before": targetBefore, "merged_source": source},
-		map[string]interface{}{"target_id": targetID, "merged_source_id": sourceID, "aliases": target.Aliases, "external_ids": target.ExternalIDs},
-	); err != nil {
-		return err
-	}
-	return tx.Where("id = ?", sourceID).Delete(&models.Franchise{}).Error
-}
-
-func mergeEntityRelationships(tx *gorm.DB, entityType string, sourceID, targetID uuid.UUID) error {
-	var edges []models.EntityRelationship
-	if err := tx.Where(
-		"(source_type = ? AND source_id = ?) OR (target_type = ? AND target_id = ?)",
-		entityType, sourceID, entityType, sourceID,
-	).Find(&edges).Error; err != nil {
-		return err
-	}
-
-	for _, edge := range edges {
-		nextSourceID := edge.SourceID
-		nextTargetID := edge.TargetID
-		if edge.SourceType == entityType && edge.SourceID == sourceID {
-			nextSourceID = targetID
-		}
-		if edge.TargetType == entityType && edge.TargetID == sourceID {
-			nextTargetID = targetID
-		}
-
-		if edge.SourceType == edge.TargetType && nextSourceID == nextTargetID {
-			if err := tx.Delete(&models.EntityRelationship{}, edge.ID).Error; err != nil {
-				return err
-			}
-			continue
-		}
-
-		var relationType models.RelationType
-		if err := tx.Where("code = ?", edge.RelationshipType).First(&relationType).Error; err == nil && relationType.IsEnabled {
-			if err := ontology.ValidateRelationEdge(tx, ontology.EdgeSpec{
-				SourceType:       edge.SourceType,
-				SourceID:         nextSourceID,
-				TargetType:       edge.TargetType,
-				TargetID:         nextTargetID,
-				RelationshipType: edge.RelationshipType,
-				Qualifier:        edge.Qualifier,
-			}); err != nil {
-				return fmt.Errorf("merge would create invalid relation %s: %w", edge.RelationshipType, err)
-			}
-		}
-
-		candidate := models.EntityRelationship{
-			SourceType:       edge.SourceType,
-			SourceID:         nextSourceID,
-			TargetType:       edge.TargetType,
-			TargetID:         nextTargetID,
-			RelationshipType: edge.RelationshipType,
-			Qualifier:        edge.Qualifier,
-			BeginDate:        edge.BeginDate,
-			EndDate:          edge.EndDate,
-			Ended:            edge.Ended,
-			Attributes:       edge.Attributes,
-		}
-		var existing models.EntityRelationship
-		if err := tx.Where(
-			"source_type = ? AND source_id = ? AND target_type = ? AND target_id = ? AND relationship_type = ? AND qualifier = ?",
-			candidate.SourceType, candidate.SourceID, candidate.TargetType, candidate.TargetID, candidate.RelationshipType, candidate.Qualifier,
-		).First(&existing).Error; err == nil {
-			// 目标已存在同键边：时间区间取并集（begin 最早、end 最晚、任一边存续即存续），
-			// 避免合并丢弃任一来源的任期信息。
-			mergedBegin, mergedEnd, mergedEnded := ontology.MergeEdgeSpan(
-				existing.BeginDate, existing.EndDate, existing.Ended,
-				edge.BeginDate, edge.EndDate, edge.Ended,
-			)
-			if err := tx.Model(&existing).Updates(map[string]interface{}{
-				"begin_date": mergedBegin,
-				"end_date":   mergedEnd,
-				"ended":      mergedEnded,
-			}).Error; err != nil {
-				return err
-			}
-		} else {
-			existing = candidate
-			if err := tx.Create(&existing).Error; err != nil {
-				return err
-			}
-		}
-		if err := tx.Delete(&models.EntityRelationship{}, edge.ID).Error; err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func mergeFavorites(tx *gorm.DB, entityType string, sourceID, targetID uuid.UUID) error {
-	if err := tx.Exec(`
-		INSERT INTO favorites (user_id, target_type, target_id, created_at)
-		SELECT user_id, target_type, ?, created_at
-		FROM favorites
-		WHERE target_type = ? AND target_id = ?
-		ON CONFLICT (user_id, target_type, target_id) DO NOTHING
-	`, targetID, entityType, sourceID).Error; err != nil {
-		return err
-	}
-	return tx.Where("target_type = ? AND target_id = ?", entityType, sourceID).Delete(&models.Favorite{}).Error
-}
-
-func mergeAssetBindings(tx *gorm.DB, entityType string, sourceID, targetID uuid.UUID) error {
-	var bindings []models.AssetBinding
-	if err := tx.Where("target_entity_type = ? AND target_entity_id = ?", entityType, sourceID).Find(&bindings).Error; err != nil {
-		return err
-	}
-	for _, binding := range bindings {
-		candidate := models.AssetBinding{
-			AssetID:          binding.AssetID,
-			TargetEntityType: entityType,
-			TargetEntityID:   targetID,
-			BindingRole:      binding.BindingRole,
-			DisplayOrder:     binding.DisplayOrder,
-			Metadata:         binding.Metadata,
-		}
-		existing := candidate
-		if err := tx.Where(
-			"asset_id = ? AND target_entity_type = ? AND target_entity_id = ? AND binding_role = ?",
-			candidate.AssetID, candidate.TargetEntityType, candidate.TargetEntityID, candidate.BindingRole,
-		).FirstOrCreate(&existing).Error; err != nil {
-			return err
-		}
-		if err := tx.Delete(&models.AssetBinding{}, binding.ID).Error; err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func mergeWorkTranslations(tx *gorm.DB, sourceID, targetID uuid.UUID) error {
-	if err := tx.Exec(`
-		INSERT INTO work_translations (work_id, locale, title, summary, aliases)
-		SELECT ?, locale, title, summary, aliases FROM work_translations WHERE work_id = ?
-		ON CONFLICT (work_id, locale) DO NOTHING
-	`, targetID, sourceID).Error; err != nil {
-		return err
-	}
-	return tx.Where("work_id = ?", sourceID).Delete(&models.WorkTranslation{}).Error
-}
-
-func mergeArtistTranslations(tx *gorm.DB, sourceID, targetID uuid.UUID) error {
-	if err := tx.Exec(`
-		INSERT INTO artist_translations (artist_id, locale, name, biography, aliases)
-		SELECT ?, locale, name, biography, aliases FROM artist_translations WHERE artist_id = ?
-		ON CONFLICT (artist_id, locale) DO NOTHING
-	`, targetID, sourceID).Error; err != nil {
-		return err
-	}
-	return tx.Where("artist_id = ?", sourceID).Delete(&models.ArtistTranslation{}).Error
-}
-
-func mergeFranchiseTranslations(tx *gorm.DB, sourceID, targetID uuid.UUID) error {
-	if err := tx.Exec(`
-		INSERT INTO franchise_translations (franchise_id, locale, title, summary, aliases)
-		SELECT ?, locale, title, summary, aliases FROM franchise_translations WHERE franchise_id = ?
-		ON CONFLICT (franchise_id, locale) DO NOTHING
-	`, targetID, sourceID).Error; err != nil {
-		return err
-	}
-	return tx.Where("franchise_id = ?", sourceID).Delete(&models.FranchiseTranslation{}).Error
-}
-
-func mergeTagJoin(tx *gorm.DB, table, entityColumn string, sourceID, targetID uuid.UUID) error {
-	allowed := map[string]string{
-		"work_tag_relations":      "work_id",
-		"franchise_tag_relations": "franchise_id",
-	}
-	if allowed[table] != entityColumn {
-		return fmt.Errorf("unsupported tag join table %s", table)
-	}
-	query := fmt.Sprintf(`
-		INSERT INTO %s (%s, tag_id)
-		SELECT ?, tag_id FROM %s WHERE %s = ?
-		ON CONFLICT (%s, tag_id) DO NOTHING
-	`, table, entityColumn, table, entityColumn, entityColumn)
-	if err := tx.Exec(query, targetID, sourceID).Error; err != nil {
-		return err
-	}
-	return tx.Exec(fmt.Sprintf("DELETE FROM %s WHERE %s = ?", table, entityColumn), sourceID).Error
-}
-
-func mergeJSONBPreferTarget(source, target models.JSONB) models.JSONB {
-	merged := models.JSONB{}
-	for key, value := range source {
-		merged[key] = value
-	}
-	for key, value := range target {
-		merged[key] = value
-	}
-	return merged
-}
-
-func mergeAliases(existing pq.StringArray, values ...string) pq.StringArray {
-	out := make([]string, 0, len(existing)+len(values))
-	seen := make(map[string]bool, len(existing)+len(values))
-	appendValue := func(value string) {
-		value = strings.TrimSpace(value)
-		if value == "" || seen[value] {
-			return
-		}
-		seen[value] = true
-		out = append(out, value)
-	}
-	for _, value := range existing {
-		appendValue(value)
-	}
-	for _, value := range values {
-		appendValue(value)
-	}
-	return pq.StringArray(out)
-}
-
-func shortID(id uuid.UUID) string {
-	value := id.String()
-	if len(value) > 8 {
-		return value[:8]
 	}
 	return value
+}
+func rewriteAttributes(d Definitions, attrs map[string]any, source, target string) {
+	for k, v := range attrs {
+		attrs[k] = replaceReference(d.Fields[k], v, source, target)
+	}
+}
+
+// mergeReferences moves identity references atomically and audits every affected record.
+// Conflicting relationship cardinality and containment are rejected, never discarded.
+func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u User, in LifecycleEdit) error {
+	v, err := definitions(ctx, tx)
+	if err != nil {
+		return err
+	}
+	rows, err := tx.QueryContext(ctx, "SELECT id FROM catalog.entities WHERE status NOT IN ('deleted','merged') ORDER BY id")
+	if err != nil {
+		return err
+	}
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		ids = append(ids, id)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	changed := []Entity{}
+	for _, id := range ids {
+		if id == source.ID {
+			continue
+		}
+		e, err := get(ctx, tx, id)
+		if err != nil {
+			return err
+		}
+		before := encode(e)
+		for _, p := range []*string{&e.WorkID, &e.ContentUnitID, &e.ReleaseID, &e.MediumID, &e.ParentID} {
+			if *p == source.ID {
+				*p = target.ID
+			}
+		}
+		rewriteAttributes(v.Document, e.Attributes, source.ID, target.ID)
+		for i := range e.Contents {
+			if e.Contents[i].ExpressionID == source.ID {
+				e.Contents[i].ExpressionID = target.ID
+			}
+		}
+		for i := range e.Subjects {
+			if e.Subjects[i].WorkID == source.ID {
+				e.Subjects[i].WorkID = target.ID
+			}
+		}
+		if id == target.ID && source.Kind == "release" {
+			e.Subjects = append(e.Subjects, source.Subjects...)
+		}
+		if id == target.ID && source.Kind == "track" {
+			for _, c := range source.Contents {
+				found := false
+				for _, other := range e.Contents {
+					if c.Position == other.Position {
+						if encode(c) != encode(other) {
+							return fmt.Errorf("merge_content_conflict")
+						}
+						found = true
+					}
+				}
+				if !found {
+					e.Contents = append(e.Contents, c)
+				}
+			}
+		}
+		unique := []Subject{}
+		seen := map[string]bool{}
+		for _, subject := range e.Subjects {
+			key := subject.WorkID + ":" + subject.Role
+			if !seen[key] {
+				unique = append(unique, subject)
+				seen[key] = true
+			}
+		}
+		if len(e.Subjects) > 0 {
+			e.Subjects = unique
+		}
+		if before == encode(e) {
+			continue
+		}
+		e.Version++
+		e.UpdatedAt = time.Now().UTC()
+		changed = append(changed, e)
+	}
+	// Deferred composite foreign keys permit moving a complete logical subtree.
+	for _, e := range changed {
+		switch e.Kind {
+		case "content_unit":
+			_, err = tx.ExecContext(ctx, "UPDATE catalog.content_units SET work_id=$2,parent_id=$3 WHERE id=$1", e.ID, e.WorkID, nullable(e.ParentID))
+		case "expression":
+			_, err = tx.ExecContext(ctx, "UPDATE catalog.expressions SET work_id=$2,content_unit_id=$3 WHERE id=$1", e.ID, e.WorkID, nullable(e.ContentUnitID))
+		case "medium":
+			_, err = tx.ExecContext(ctx, "UPDATE catalog.mediums SET release_id=$2,parent_id=$3 WHERE id=$1", e.ID, e.ReleaseID, nullable(e.ParentID))
+		case "track":
+			_, err = tx.ExecContext(ctx, "UPDATE catalog.tracks SET medium_id=$2,parent_id=$3 WHERE id=$1", e.ID, e.MediumID, nullable(e.ParentID))
+			if err != nil {
+				return err
+			}
+			_, err = tx.ExecContext(ctx, "DELETE FROM catalog.track_contents WHERE track_id=$1", e.ID)
+			if err != nil {
+				return err
+			}
+			for _, c := range e.Contents {
+				_, err = tx.ExecContext(ctx, "INSERT INTO catalog.track_contents(track_id,expression_id,position,locator) VALUES($1,$2,$3,$4)", e.ID, c.ExpressionID, c.Position, encode(c.Locator))
+				if err != nil {
+					return err
+				}
+			}
+		case "release":
+			_, err = tx.ExecContext(ctx, "DELETE FROM catalog.release_subjects WHERE release_id=$1", e.ID)
+			if err != nil {
+				return err
+			}
+			for _, s := range e.Subjects {
+				_, err = tx.ExecContext(ctx, "INSERT INTO catalog.release_subjects(release_id,work_id,role,position) VALUES($1,$2,$3,$4)", e.ID, s.WorkID, s.Role, s.Position)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		if err != nil {
+			return err
+		}
+		stored := e
+		stored.WorkID = ""
+		stored.ContentUnitID = ""
+		stored.ReleaseID = ""
+		stored.MediumID = ""
+		stored.ParentID = ""
+		stored.Contents = nil
+		stored.Subjects = nil
+		_, err = tx.ExecContext(ctx, "UPDATE catalog.entities SET version=$2,document=$3,updated_at=$4 WHERE id=$1", e.ID, e.Version, encode(stored), e.UpdatedAt)
+		if err != nil {
+			return err
+		}
+		if err = audit(ctx, tx, e.ID, e.Version, u, in.EditNote, in.Sources, e, "entity.saved"); err != nil {
+			return err
+		}
+	}
+	all, err := relations(ctx, tx)
+	if err != nil {
+		return err
+	}
+	for i := range all {
+		r := &all[i]
+		before := encode(r)
+		if r.SourceID == source.ID {
+			r.SourceID = target.ID
+		}
+		if r.TargetID == source.ID {
+			r.TargetID = target.ID
+		}
+		rewriteAttributes(v.Document, r.Attributes, source.ID, target.ID)
+		if encode(r) == before {
+			continue
+		}
+		r.Version++
+		if r.SourceID == r.TargetID {
+			return fmt.Errorf("merge_relation_conflict")
+		}
+		_, err = tx.ExecContext(ctx, "UPDATE catalog.relations SET source_id=$2,target_id=$3,version=$4,document=$5 WHERE id=$1", r.ID, r.SourceID, r.TargetID, r.Version, encode(r))
+		if err != nil {
+			return err
+		}
+		if err = audit(ctx, tx, r.ID, r.Version, u, in.EditNote, in.Sources, r, "relation.saved"); err != nil {
+			return err
+		}
+	}
+	for _, r := range all {
+		src, err := get(ctx, tx, r.SourceID)
+		if err != nil {
+			return err
+		}
+		tgt, err := get(ctx, tx, r.TargetID)
+		if err != nil {
+			return err
+		}
+		if err = validateRelation(v.Document, r, src, tgt, all, reference(ctx, tx, &u), true); err != nil {
+			return fmt.Errorf("merge_relation_conflict: %w", err)
+		}
+	}
+	return nil
 }
