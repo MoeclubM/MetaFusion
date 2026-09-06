@@ -49,11 +49,12 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
   }, []);
 
   const navLinks = [
-    { href: "/", label: locale === "zh-CN" ? "首页" : "Home", icon: Library, exact: true },
-    { href: "/explore", label: locale === "zh-CN" ? "探索中心" : "Explore", icon: Compass },
-    { href: "/community", label: locale === "zh-CN" ? "社区论坛" : "Community", icon: MessageSquare },
-    { href: "/downloads", label: locale === "zh-CN" ? "资源中心 ↗" : "Resources ↗", icon: DownloadCloud },
-    { href: "/docs/catalog", label: locale === "zh-CN" ? "编目指南" : "Docs", icon: BookOpen, external: true },
+    { href: "/about", label: t("browseHome.about"), icon: BookOpen },
+    { href: "/", label: t("navigation.home"), icon: Library, exact: true },
+    { href: "/explore", label: t("navigation.explore"), icon: Compass },
+    { href: "/community", label: t("navigation.community"), icon: MessageSquare },
+    { href: "/downloads", label: t("navigation.resources"), icon: DownloadCloud },
+    { href: "/docs/catalog", label: t("navigation.docs"), icon: BookOpen, external: true },
   ];
 
   return (
@@ -63,7 +64,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
         <div className="flex items-center gap-3 sm:gap-4">
           <Link href="/" title="MetaFusion" className="flex items-center gap-2.5 shrink-0 group">
             <BrandMark size={26} withGlow={false} idSuffix="nav" />
-            <span className="flex flex-col leading-none">
+            <span className="hidden sm:flex flex-col leading-none">
               <span className="font-display text-[20px] leading-none tracking-[-0.03em] text-white group-hover:text-primary transition-colors">
                 MetaFusion
               </span>
@@ -73,7 +74,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
             </span>
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-1.5 ml-2">
+          <nav className="hidden xl:flex items-center gap-1.5 ml-2">
             {navLinks.map((tab) => {
               const Icon = tab.icon;
               const active = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
@@ -255,6 +256,9 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
           </div>
         </div>
       </div>
+      <nav aria-label={t("navigation.label")} className="xl:hidden flex gap-1 overflow-x-auto px-3 pb-2">
+        {navLinks.map(tab => <Link key={tab.href} href={tab.href} aria-current={pathname === tab.href ? "page" : undefined} className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm ${pathname === tab.href ? "bg-primary/10 text-primary" : "text-gray-400"}`}>{tab.label}</Link>)}
+      </nav>
     </header>
   );
 };

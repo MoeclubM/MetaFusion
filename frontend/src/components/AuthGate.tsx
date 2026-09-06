@@ -47,7 +47,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
         cachedSetupStatus = status;
         if (!status.is_initialized) {
           // 系统未初始化且当前不在 /setup，则强制跳转 /setup
-          if (pathname !== "/setup") {
+          if (pathname !== "/setup" && pathname !== "/about") {
             router.replace("/setup");
           }
         } else {
