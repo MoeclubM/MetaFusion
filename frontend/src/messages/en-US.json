@@ -2248,5 +2248,16 @@
   "catalogV2.job.queued": "Queued",
   "catalogV2.job.running": "Processing",
   "catalogV2.job.complete": "Complete",
-  "catalogV2.job.failed": "Processing failed"
+  "catalogV2.job.failed": "Processing failed",
+  "catalogV2.compareHint": "Select 2 to 6 releases to compare.",
+  "catalogV2.compareDesc": "Cross-compare media structures, track/chapter variations, format specifications, and exclusive contents across editions.",
+  "catalogV2.compareSelectRelease": "Add Release to Compare",
+  "catalogV2.compareSearchPlaceholder": "Search release by title or keyword...",
+  "catalogV2.compareAdd": "Add to Compare",
+  "catalogV2.compareClear": "Clear All",
+  "catalogV2.compareDemoHint": "Quick Add (choose from recent releases):",
+  "catalogV2.resourceGatewayTitle": "Resource & Download Hub",
+  "catalogV2.resourceGatewayDesc": "Physical storage and download delivery are decoupled into an independent system, authenticated via OAuth 2.0 SSO.",
+  "catalogV2.resourceGatewayVisit": "Go to Resource Station ↗",
+  "catalogV2.resourceGatewaySearchItem": "Search physical files and mirrors for this entity in Resource Station ↗"
 }

@@ -50,9 +50,11 @@ func (s *Store) Initialize(ctx context.Context) error {
 			if err := d.Validate(); err != nil {
 				return err
 			}
-			_, err := tx.ExecContext(ctx, "INSERT INTO catalog_v2.definitions(state,base_version,document) VALUES('published',0,$1)", encode(d))
-			return err
+			if _, err := tx.ExecContext(ctx, "INSERT INTO catalog_v2.definitions(state,base_version,document) VALUES('published',0,$1)", encode(d)); err != nil {
+				return err
+			}
 		}
+		_, _ = tx.ExecContext(ctx, "`\nINSERT INTO catalog_v2.oauth_clients(id, secret_hash, name, redirect_uris, trusted)\nVALUES\n ('metafusion-resources', '', 'MetaFusion 资源存储与下载管理中心', ARRAY['https://resources.findverse.cc/callback', 'http://localhost:3001/callback'], true),\n ('metafusion-forum', '', 'MetaFusion 社区论坛', ARRAY['https://forum.findverse.cc/auth/oauth2_basic/callback', 'http://localhost:4200/auth/callback'], true),\n ('metafusion-catalog', '', 'MetaFusion 元数据知识库', ARRAY['https://findverse.cc/auth/callback', 'http://localhost:3000/auth/callback'], true)\nON CONFLICT (id) DO NOTHING;\n`")
 		return nil
 	})
 }
