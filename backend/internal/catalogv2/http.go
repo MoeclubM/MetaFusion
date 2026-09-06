@@ -84,6 +84,7 @@ func required(admin bool) gin.HandlerFunc {
 func (h HTTP) Register(r *gin.Engine) {
 	s := h.Store
 	api := r.Group("/api/v2")
+	api.GET("/openapi.json", func(c *gin.Context) { c.JSON(200, OpenAPI()) })
 	api.Use(func(c *gin.Context) {
 		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
 		if token == "" {

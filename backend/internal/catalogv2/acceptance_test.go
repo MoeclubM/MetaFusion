@@ -140,9 +140,13 @@ func TestPostgresEditReviewAndVersions(t *testing.T) {
 		if _, err = f.s.Get(ctx, e.ID, nil); err != nil {
 			t.Fatal(err)
 		}
-		revisions, err := f.s.Revisions(ctx, e.ID, nil)
+		revisions, err := f.s.Revisions(ctx, e.ID, &f.u)
 		if err != nil || len(revisions) != 3 {
 			t.Fatalf("revision history: %v %d", err, len(revisions))
+		}
+		publicHistory, err := f.s.Revisions(ctx, e.ID, nil)
+		if err != nil || len(publicHistory) != 1 {
+			t.Fatal("unpublished revisions leaked to the public")
 		}
 	}
 	items, err := f.s.List(ctx, ListOptions{Status: "pending_review"}, &f.u)
