@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { fetchApi, fetchSetupStatus, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { getAuthLoginUrl, getAuthRegisterUrl, AUTH_SERVICE_URL } from "@/lib/services";
 import { BrandMark } from "@/components/Logo";
 import { ThemePicker } from "@/components/ThemePicker";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
@@ -23,7 +24,7 @@ function LoginInner() {
  const router = useRouter();
  const searchParams = useSearchParams();
  const { user, loading, login } = useAuth();
- const { t } = useI18n();
+ const { t, locale } = useI18n();
 
  const tabParam = searchParams.get("tab");
  const [isRegister, setIsRegister] = useState(tabParam === "register");
@@ -35,6 +36,31 @@ function LoginInner() {
  const [submitting, setSubmitting] = useState(false);
  const [hasAdmin, setHasAdmin] = useState<boolean | null>(null);
  const [authSettings, setAuthSettings] = useState<PublicAuthSettings | null>(null);
+
+  useEffect(() => {
+    const tokenParam = searchParams.get("token") || searchParams.get("auth_token");
+    if (tokenParam) {
+      fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${tokenParam}` },
+        credentials: "same-origin",
+      })
+        .then((r) => r.json())
+        .then((u) => {
+          if (u && u.id) {
+            login(tokenParam, {
+              id: u.id,
+              username: u.username,
+              role: u.role,
+              email: u.email || `${u.username}@metafusion.local`,
+              display_name: u.username,
+            });
+            const redirectUrl = searchParams.get("redirect") || "/";
+            router.replace(redirectUrl);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [searchParams, login, router]);
 
  useEffect(() => {
    fetchSetupStatus()
@@ -128,6 +154,15 @@ function LoginInner() {
 
  <main className="relative z-10 flex-1 min-h-0 grid place-items-center py-3">
  <div className="w-full max-w-md max-h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-3">
+ {AUTH_SERVICE_URL.startsWith("http") && (
+   <a
+     href={isRegister ? getAuthRegisterUrl(searchParams.get("redirect") || "/") : getAuthLoginUrl(searchParams.get("redirect") || "/")}
+     className="p-3.5 rounded-xl bg-primary text-white text-xs font-semibold flex items-center justify-between gap-2 hover:opacity-95 transition-all shadow-md"
+   >
+     <span>{locale === "zh-CN" ? "前往 FindVerse 统一账号中心进行操作" : "Continue to FindVerse Auth SSO"}</span>
+     <ArrowRight className="w-4 h-4" />
+   </a>
+ )}
  {hasAdmin === false && (
    <Link
      href="/setup"
