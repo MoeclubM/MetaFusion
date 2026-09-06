@@ -99,6 +99,6 @@ Track 的 `contents` 是实际收录的唯一来源：`expression_id`、`positio
 docker compose -p deploy -f deploy/docker-compose.metadata.yml up -d --build
 ```
 
-应用自动初始化独立 `catalog_v2` schema。只需 PostgreSQL 与应用即可运行；Compose 中网关和前端提供网页入口。Redis、OpenSearch、RustFS 和旧 worker 均不在最小启动集内。归档启用前不会读取 S3 凭据或连接对象存储。FFmpeg 在启用媒体模块后才执行。
+应用自动初始化独立 `catalog` schema。只需 PostgreSQL 与应用即可运行；Compose 中网关和前端提供网页入口。Redis、OpenSearch、RustFS 和旧 worker 均不在最小启动集内。归档启用前不会读取 S3 凭据或连接对象存储。FFmpeg 在启用媒体模块后才执行。
 
 全新数据库验收使用 `MF_V2_TEST_DSN=postgres://.../mf_v2_test?sslmode=disable`。测试会创建并仅删除本次生成的随机测试库，不清理指定的旧数据库或生产 schema。CI 配置 PostgreSQL 服务，防止集成测试被默认跳过。

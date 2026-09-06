@@ -34,13 +34,13 @@ type Manager struct {
 
 func New(ctx context.Context, db *sql.DB, catalog moduleapi.Catalog, root string) (*Manager, error) {
 	m := &Manager{db: db, catalog: catalog, root: root, manifests: map[string]moduleapi.Manifest{}}
-	_, err := db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS modules_v2;
- CREATE TABLE IF NOT EXISTS modules_v2.settings(id text PRIMARY KEY,enabled boolean NOT NULL);
- CREATE TABLE IF NOT EXISTS modules_v2.resources(id uuid PRIMARY KEY,entity_id uuid NOT NULL,owner_id uuid NOT NULL,public boolean NOT NULL DEFAULT false,name text NOT NULL,mime text NOT NULL,size bigint NOT NULL,hash text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
- CREATE TABLE IF NOT EXISTS modules_v2.posts(id uuid PRIMARY KEY,entity_id uuid NOT NULL,author_id uuid NOT NULL,body text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
- CREATE TABLE IF NOT EXISTS modules_v2.records(owner_id uuid NOT NULL,entity_id uuid NOT NULL,document jsonb NOT NULL,PRIMARY KEY(owner_id,entity_id));
- CREATE TABLE IF NOT EXISTS modules_v2.consumed(event_id uuid PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
- CREATE TABLE IF NOT EXISTS modules_v2.redirects(source_id uuid PRIMARY KEY,target_id uuid NOT NULL);
+	_, err := db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS modules;
+ CREATE TABLE IF NOT EXISTS modules.settings(id text PRIMARY KEY,enabled boolean NOT NULL);
+ CREATE TABLE IF NOT EXISTS modules.resources(id uuid PRIMARY KEY,entity_id uuid NOT NULL,owner_id uuid NOT NULL,public boolean NOT NULL DEFAULT false,name text NOT NULL,mime text NOT NULL,size bigint NOT NULL,hash text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+ CREATE TABLE IF NOT EXISTS modules.posts(id uuid PRIMARY KEY,entity_id uuid NOT NULL,author_id uuid NOT NULL,body text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+ CREATE TABLE IF NOT EXISTS modules.records(owner_id uuid NOT NULL,entity_id uuid NOT NULL,document jsonb NOT NULL,PRIMARY KEY(owner_id,entity_id));
+ CREATE TABLE IF NOT EXISTS modules.consumed(event_id uuid PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
+ CREATE TABLE IF NOT EXISTS modules.redirects(source_id uuid PRIMARY KEY,target_id uuid NOT NULL);
  `)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func New(ctx context.Context, db *sql.DB, catalog moduleapi.Catalog, root string
 			deps["archive"] = "^2.0.0"
 		}
 		var enabled bool
-		err = db.QueryRowContext(ctx, "SELECT enabled FROM modules_v2.settings WHERE id=$1", id).Scan(&enabled)
+		err = db.QueryRowContext(ctx, "SELECT enabled FROM modules.settings WHERE id=$1", id).Scan(&enabled)
 		if err != nil && err != sql.ErrNoRows {
 			return nil, err
 		}
@@ -148,7 +148,7 @@ func (m *Manager) Set(ctx context.Context, id string, enabled, cascade bool) err
 	}
 	defer tx.Rollback()
 	for _, key := range ids {
-		if _, err = tx.ExecContext(ctx, "INSERT INTO modules_v2.settings(id,enabled) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET enabled=EXCLUDED.enabled", key, enabled); err != nil {
+		if _, err = tx.ExecContext(ctx, "INSERT INTO modules.settings(id,enabled) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET enabled=EXCLUDED.enabled", key, enabled); err != nil {
 			return err
 		}
 	}
@@ -241,7 +241,7 @@ func (m *Manager) Register(r *gin.Engine) {
 		if !m.entity(c, id) {
 			return
 		}
-		rows, err := m.db.QueryContext(c.Request.Context(), "SELECT id,author_id,body,created_at FROM modules_v2.posts WHERE entity_id=$1 ORDER BY created_at DESC LIMIT 100", id)
+		rows, err := m.db.QueryContext(c.Request.Context(), "SELECT id,author_id,body,created_at FROM modules.posts WHERE entity_id=$1 ORDER BY created_at DESC LIMIT 100", id)
 		if err != nil {
 			failure(c, 500, "module_error")
 			return
@@ -270,7 +270,7 @@ func (m *Manager) Register(r *gin.Engine) {
 			failure(c, 400, "invalid_payload")
 			return
 		}
-		_, err := m.db.ExecContext(c.Request.Context(), "INSERT INTO modules_v2.posts(id,entity_id,author_id,body) VALUES($1,$2,$3,$4)", uuid.NewString(), id, m.principal(c).ID, in.Body)
+		_, err := m.db.ExecContext(c.Request.Context(), "INSERT INTO modules.posts(id,entity_id,author_id,body) VALUES($1,$2,$3,$4)", uuid.NewString(), id, m.principal(c).ID, in.Body)
 		if err != nil {
 			failure(c, 500, "module_error")
 			return
@@ -279,10 +279,10 @@ func (m *Manager) Register(r *gin.Engine) {
 	})
 	api.DELETE("/community/posts/:id", m.guard("community", true), func(c *gin.Context) {
 		p := m.principal(c)
-		query := "DELETE FROM modules_v2.posts WHERE id=$1 AND author_id=$2"
+		query := "DELETE FROM modules.posts WHERE id=$1 AND author_id=$2"
 		args := []any{c.Param("id"), p.ID}
 		if p.Role == "admin" {
-			query = "DELETE FROM modules_v2.posts WHERE id=$1"
+			query = "DELETE FROM modules.posts WHERE id=$1"
 			args = args[:1]
 		}
 		_, err := m.db.ExecContext(c.Request.Context(), query, args...)
@@ -297,7 +297,7 @@ func (m *Manager) Register(r *gin.Engine) {
 			return
 		}
 		var b json.RawMessage
-		err := m.db.QueryRowContext(c.Request.Context(), "SELECT document FROM modules_v2.records WHERE owner_id=$1 AND entity_id=$2", m.principal(c).ID, c.Param("id")).Scan(&b)
+		err := m.db.QueryRowContext(c.Request.Context(), "SELECT document FROM modules.records WHERE owner_id=$1 AND entity_id=$2", m.principal(c).ID, c.Param("id")).Scan(&b)
 		if err == sql.ErrNoRows {
 			c.JSON(200, gin.H{})
 			return
@@ -323,7 +323,7 @@ func (m *Manager) Register(r *gin.Engine) {
 			return
 		}
 		b, _ := json.Marshal(in)
-		_, err := m.db.ExecContext(c.Request.Context(), "INSERT INTO modules_v2.records(owner_id,entity_id,document) VALUES($1,$2,$3) ON CONFLICT(owner_id,entity_id) DO UPDATE SET document=EXCLUDED.document", m.principal(c).ID, c.Param("id"), string(b))
+		_, err := m.db.ExecContext(c.Request.Context(), "INSERT INTO modules.records(owner_id,entity_id,document) VALUES($1,$2,$3) ON CONFLICT(owner_id,entity_id) DO UPDATE SET document=EXCLUDED.document", m.principal(c).ID, c.Param("id"), string(b))
 		if err != nil {
 			failure(c, 500, "module_error")
 			return
@@ -375,7 +375,7 @@ func (m *Manager) resources(c *gin.Context) {
 	if p != nil {
 		owner = p.ID
 	}
-	rows, err := m.db.QueryContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules_v2.resources WHERE entity_id=$1 AND (public OR owner_id=$2) ORDER BY created_at DESC LIMIT 100", id, owner)
+	rows, err := m.db.QueryContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE entity_id=$1 AND (public OR owner_id=$2) ORDER BY created_at DESC LIMIT 100", id, owner)
 	if err != nil {
 		failure(c, 500, "module_error")
 		return
@@ -431,7 +431,7 @@ func (m *Manager) upload(c *gin.Context) {
 		return
 	}
 	rid := uuid.NewString()
-	_, err = m.db.ExecContext(c.Request.Context(), "INSERT INTO modules_v2.resources(id,entity_id,owner_id,public,name,mime,size,hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", rid, id, m.principal(c).ID, c.PostForm("public") == "true", filepath.Base(header.Filename), mime, size, digest)
+	_, err = m.db.ExecContext(c.Request.Context(), "INSERT INTO modules.resources(id,entity_id,owner_id,public,name,mime,size,hash) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", rid, id, m.principal(c).ID, c.PostForm("public") == "true", filepath.Base(header.Filename), mime, size, digest)
 	if err != nil {
 		failure(c, 500, "module_error")
 		return
@@ -440,7 +440,7 @@ func (m *Manager) upload(c *gin.Context) {
 }
 func (m *Manager) download(c *gin.Context) {
 	var x resource
-	err := m.db.QueryRowContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules_v2.resources WHERE id=$1", c.Param("id")).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
+	err := m.db.QueryRowContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE id=$1", c.Param("id")).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
 	if err != nil {
 		failure(c, 404, "not_found")
 		return
@@ -482,7 +482,7 @@ func (m *Manager) ConsumeMerge(ctx context.Context, eventID, source, target stri
 		return err
 	}
 	defer tx.Rollback()
-	result, err := tx.ExecContext(ctx, "INSERT INTO modules_v2.consumed(event_id) VALUES($1) ON CONFLICT DO NOTHING", eventID)
+	result, err := tx.ExecContext(ctx, "INSERT INTO modules.consumed(event_id) VALUES($1) ON CONFLICT DO NOTHING", eventID)
 	if err != nil {
 		return err
 	}
@@ -490,18 +490,18 @@ func (m *Manager) ConsumeMerge(ctx context.Context, eventID, source, target stri
 	if n == 0 {
 		return nil
 	}
-	if _, err = tx.ExecContext(ctx, "INSERT INTO modules_v2.redirects(source_id,target_id) VALUES($1,$2) ON CONFLICT(source_id) DO UPDATE SET target_id=EXCLUDED.target_id", source, target); err != nil {
+	if _, err = tx.ExecContext(ctx, "INSERT INTO modules.redirects(source_id,target_id) VALUES($1,$2) ON CONFLICT(source_id) DO UPDATE SET target_id=EXCLUDED.target_id", source, target); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "UPDATE modules_v2.resources SET entity_id=$2 WHERE entity_id=$1", source, target); err != nil {
+	if _, err = tx.ExecContext(ctx, "UPDATE modules.resources SET entity_id=$2 WHERE entity_id=$1", source, target); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "UPDATE modules_v2.posts SET entity_id=$2 WHERE entity_id=$1", source, target); err != nil {
+	if _, err = tx.ExecContext(ctx, "UPDATE modules.posts SET entity_id=$2 WHERE entity_id=$1", source, target); err != nil {
 		return err
 	}
 	// Keep conflicting personal records as history instead of silently choosing a rating.
-	if _, err = tx.ExecContext(ctx, `INSERT INTO modules_v2.records(owner_id,entity_id,document)
- SELECT owner_id,$2,document FROM modules_v2.records WHERE entity_id=$1
+	if _, err = tx.ExecContext(ctx, `INSERT INTO modules.records(owner_id,entity_id,document)
+ SELECT owner_id,$2,document FROM modules.records WHERE entity_id=$1
  ON CONFLICT(owner_id,entity_id) DO NOTHING`, source, target); err != nil {
 		return err
 	}
