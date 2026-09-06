@@ -7,7 +7,7 @@
 | [`requirements.md`](requirements.md) | 产品需求文档（PRD）：可见性边界、邀请制风控、功能需求与验收标准 | 产品 / 开发 |
 | [`architecture/multi-project-decoupling-spec.md`](architecture/multi-project-decoupling-spec.md) | **多项目解耦与微服务架构规范**：以元数据系统为主项目，解耦账号、论坛、资源、网关与文档站的边界契约 | 架构 / 全员 |
 | [`architecture/plugin-decoupling-blueprint.md`](architecture/plugin-decoupling-blueprint.md) | 插件系统与 DAG 依赖拓扑架构规范：12 个原生内置插件集、Semver 约束、拓扑排序、级联启停 | 开发 / 后端 |
-| [`architecture/catalog-v2-implementation.md`](architecture/catalog-v2-implementation.md) | 纯净元数据目录内核实现：固定实体骨架、动态定义引擎与数据不变量 | 开发 / 后端 |
+| [`architecture/catalog-core-implementation.md`](architecture/catalog-v2-implementation.md) | 纯净元数据目录内核实现：固定实体骨架、动态定义引擎与数据不变量 | 开发 / 后端 |
 | [`../docs-site/`](../docs-site/) | 面向公众的独立文档站（VitePress）：实体模型、编目指南、REST API 全套文档、法务页 | 所有人 / 外部开发者 |
 | [`../AGENTS.md`](../AGENTS.md) | Agent / 贡献者协作准则（Git 规范、编目最高准则、gh cli 流程） | AI Agent / 贡献者 |
 | [metafusion-skills](https://github.com/MoeclubM/metafusion-skills) | 编目标准技能独立仓库（metafusion-curator + lrm-catalog-standards） | AI Agent / 考据员 |
