@@ -15,7 +15,6 @@ services:
       - backend
       - frontend
       - docs-site
-      - rustfs
     networks:
       - metafusion-net
 
@@ -79,10 +78,6 @@ services:
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env}
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      opensearch:
         condition: service_healthy
     networks:
       - metafusion-net
@@ -195,7 +190,7 @@ services:
     container_name: metafusion-rustfs
     restart: unless-stopped
     ports:
-      - "${S3_PORT:-9000}:9000"
+      - "${S3_PORT:-19000}:9000"
     environment:
       - RUSTFS_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
       - RUSTFS_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
