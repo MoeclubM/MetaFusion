@@ -1,256 +1,148 @@
 "use client";
 
-import React, { Suspense, useState } from "react";
+import React, { Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { BrandMark } from "@/components/Logo";
-import { GitHubIcon } from "@/components/Icons";
 import { ThemePicker } from "@/components/ThemePicker";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { GitHubIcon } from "@/components/Icons";
 import {
-  ArrowRight,
-  Library,
   LogIn,
   Compass,
-  Disc,
-  Film,
-  Gamepad2,
   BookOpen,
-  Users,
-  Search,
-  Layers,
   Database,
-  Sparkles,
+  ArrowRight,
 } from "lucide-react";
 
-function LandingInner() {
+function RootLandingInner() {
   const { user } = useAuth();
-  const { t } = useI18n();
-  const router = useRouter();
-  const [quickQuery, setQuickQuery] = useState("");
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (quickQuery.trim()) {
-      router.push(`/explore?q=${encodeURIComponent(quickQuery.trim())}`);
-    } else {
-      router.push("/explore");
-    }
-  };
+  const { t, locale } = useI18n();
 
   return (
-    <div className="min-h-screen bg-background relative flex flex-col justify-between overflow-x-hidden selection:bg-primary selection:text-white">
-      {/* Background Graphic Elements */}
-      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" />
-      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" />
+    <div className="min-h-screen sm:h-screen sm:max-h-screen bg-background relative flex flex-col justify-between overflow-x-hidden sm:overflow-hidden selection:bg-primary selection:text-white">
+      {/* ── Background subtle ambient light ── */}
+      <div className="absolute inset-0 bg-radial-vignette opacity-60 pointer-events-none" aria-hidden />
+      <div className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-primary/8 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+      <div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] bg-sky-500/8 rounded-full blur-[140px] pointer-events-none" aria-hidden />
 
-      {/* Top Telemetry Header */}
-      <header className="relative z-20 w-full max-w-7xl mx-auto px-4 py-3 flex items-center justify-between border-b border-black/5 dark:border-white/[0.06]">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2 group">
-            <BrandMark size={24} withGlow={false} idSuffix="landing-nav" />
-            <span className="font-display text-lg tracking-tight text-gray-900 dark:text-white group-hover:text-primary transition-colors">
-              MetaFusion
-            </span>
-          </Link>
+      {/* Floating Top-Right Controls (Rounded Pills) */}
+      <aside aria-label="Page controls" className="absolute top-5 right-5 z-20 flex items-center gap-2">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors"
+        >
+          <span>{locale === "zh-CN" ? "返回主页" : "Home"}</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+        <a
+          href="/docs/catalog"
+          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors"
+          title={t("landing.docsTitle")}
+        >
+          <BookOpen className="w-3.5 h-3.5 text-primary" strokeWidth={1.8} />
+          <span>DOCS</span>
+        </a>
+        <a
+          href="https://github.com/MoeclubM/MetaFusion"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="GitHub — MoeclubM/MetaFusion"
+          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors"
+        >
+          <GitHubIcon className="w-3.5 h-3.5" />
+          <span>REPO</span>
+        </a>
+        <ThemePicker />
+        <LocaleSwitcher compact />
+      </aside>
+
+      {/* Hero Core: Perfectly Centered Stacked Layout */}
+      <main className="relative z-10 w-full max-w-4xl mx-auto px-6 py-10 sm:py-16 flex-1 flex flex-col items-center justify-center text-center">
+        {/* BrandMark Logo & Glowing Halo */}
+        <div className="mb-6 relative group">
+          <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl transform scale-125 group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
+          <BrandMark size={112} withGlow={true} idSuffix="landing-hero" className="relative z-10 drop-shadow-xl" />
         </div>
 
-        <div className="flex items-center gap-2 sm:gap-2">
-          <a
-            href="https://github.com/MoeclubM/MetaFusion"
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="GitHub — MoeclubM/MetaFusion"
-            className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-sm font-mono font-medium transition-colors"
+        {/* Tagline Badge */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-primary/10 border border-primary/20 font-mono text-xs uppercase tracking-widest text-primary font-semibold mb-4">
+          <Database className="w-3.5 h-3.5" />
+          <span>{t("landing.tagline")}</span>
+        </div>
+
+        {/* Main Brand Title */}
+        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-4 font-display">
+          MetaFusion
+        </h1>
+
+        {/* Subtitle */}
+        <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed mb-8">
+          {t("landing.heroSubtitle")}
+        </p>
+
+        {/* Action Buttons: Centered */}
+        <div className="flex flex-wrap items-center justify-center gap-4 mb-8">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-primary text-white keep-white hover:opacity-90 font-semibold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all cursor-pointer"
           >
-            <GitHubIcon className="w-4 h-4" />
-            <span className="hidden sm:inline">REPO</span>
-          </a>
-          <ThemePicker />
-          <LocaleSwitcher compact />
-          {user ? (
+            <Compass className="w-4 h-4" />
+            <span>{locale === "zh-CN" ? "浏览分类货架" : "Browse Shelves"}</span>
+          </Link>
+          <Link
+            href="/explore"
+            className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
+          >
+            <span>{t("landing.exploreArchive")}</span>
+          </Link>
+          {!user && (
             <Link
-              href="/account"
-              className="inline-flex items-center gap-2 px-3 h-9 max-sm:min-h-[44px] rounded-md bg-primary text-white keep-white hover:opacity-90 text-sm font-semibold shadow-xs transition-opacity"
+              href="/login?tab=register"
+              className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
             >
-              <Library className="w-4 h-4" />
-              <span>{user.username}</span>
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="inline-flex items-center gap-2 px-3 h-9 max-sm:min-h-[44px] rounded-md bg-primary text-white keep-white hover:opacity-90 text-sm font-semibold shadow-xs transition-opacity"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>{t("nav.login")}</span>
+              <LogIn className="w-4 h-4 text-primary" />
+              <span>{t("landing.join")}</span>
             </Link>
           )}
         </div>
-      </header>
 
-      {/* Main Terminal Center */}
-      <main className="relative z-10 w-full max-w-5xl mx-auto px-4 py-8 flex-1 flex flex-col justify-center space-y-6">
-        {/* Terminal Header & Search Console */}
-        <div className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md space-y-4 shadow-soft">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-primary">
-                <Database className="w-4 h-4" />
-                <span>OPEN METADATA ARCHIVE TERMINAL</span>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
-                MetaFusion Data Core
-              </h1>
-            </div>
-            <div className="flex items-center gap-2 font-mono text-sm text-gray-500 dark:text-gray-400">
-              <span className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.04] border border-black/10 dark:border-white/10">
-                LRM / ENTITY GRAPH ENGINE
-              </span>
-            </div>
-          </div>
-
-          {/* Quick Search Terminal Input */}
-          <form onSubmit={handleSearch} className="relative w-full">
-            <div className="relative flex items-center">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder={t("explore.searchPlaceholder")}
-                value={quickQuery}
-                onChange={(e) => setQuickQuery(e.target.value)}
-                className="w-full pl-11 pr-24 h-10 max-sm:min-h-[44px] rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 font-mono transition-all"
-              />
-              <button
-                type="submit"
-                className="absolute right-1.5 px-3 h-9 max-sm:min-h-[44px] rounded bg-primary text-white keep-white hover:opacity-90 font-mono text-sm font-semibold flex items-center gap-2 transition-all"
-              >
-                <span>SEARCH</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </form>
-
-          {/* Action Row */}
-          <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
-            <div className="flex items-center gap-2">
-              <Link
-                href="/explore"
-                className="inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-md bg-white text-black hover:bg-gray-100 border border-white/20 text-sm font-semibold transition-all shadow-xs"
-              >
-                <Compass className="w-4 h-4 text-primary" />
-                <span>进入分类货架</span>
-              </Link>
-              <Link
-                href="/docs/overview.html"
-                target="_blank"
-                className="inline-flex items-center gap-2 px-3.5 h-10 max-sm:min-h-[44px] rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-800 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white text-sm font-medium transition-all"
-              >
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <span>架构文档站</span>
-              </Link>
-            </div>
-
-            <div className="font-mono text-xs text-gray-500 flex items-center gap-3">
-              <span>AGENT · WORK · EXPRESSION · RELEASE</span>
-            </div>
-          </div>
-        </div>
-
-        {/* High-Density Media Channel Matrix */}
-        <div className="p-4 sm:p-5 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/70 backdrop-blur-md space-y-3 shadow-soft">
-          <div className="flex items-center justify-between">
-            <span className="font-mono text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-              <Layers className="w-4 h-4 text-primary" />
-              <span>快速探索矩阵</span>
-            </span>
-            <Link href="/explore" className="font-mono text-sm text-primary hover:underline flex items-center gap-2">
-              <span>全量档案检索</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-            <Link
-              href="/explore?kind=work&type=album"
-              className="p-4 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/[0.06] hover:border-amber-400/40 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition-all flex flex-col items-center gap-2 text-center group"
-            >
-              <div className="w-8 h-8 rounded-sm bg-amber-500/10 border border-amber-500/20 grid place-items-center group-hover:scale-105 transition-transform">
-                <Disc className="w-4 h-4 text-amber-400" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">音乐 & 唱片</div>
-                <div className="font-mono text-xs text-gray-500">Music / Album</div>
-              </div>
-            </Link>
-
-            <Link
-              href="/explore?kind=work&type=animation"
-              className="p-4 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/[0.06] hover:border-sky-400/40 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition-all flex flex-col items-center gap-2 text-center group"
-            >
-              <div className="w-8 h-8 rounded-sm bg-sky-500/10 border border-sky-500/20 grid place-items-center group-hover:scale-105 transition-transform">
-                <Film className="w-4 h-4 text-sky-400" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">动画 & 剧集</div>
-                <div className="font-mono text-xs text-gray-500">Anime / Series</div>
-              </div>
-            </Link>
-
-            <Link
-              href="/explore?kind=work&type=game"
-              className="p-4 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/[0.06] hover:border-purple-400/40 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition-all flex flex-col items-center gap-2 text-center group"
-            >
-              <div className="w-8 h-8 rounded-sm bg-purple-500/10 border border-purple-500/20 grid place-items-center group-hover:scale-105 transition-transform">
-                <Gamepad2 className="w-4 h-4 text-purple-400" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">独立游戏</div>
-                <div className="font-mono text-xs text-gray-500">Game / VN</div>
-              </div>
-            </Link>
-
-            <Link
-              href="/explore?kind=work&type=novel"
-              className="p-4 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/[0.06] hover:border-emerald-400/40 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition-all flex flex-col items-center gap-2 text-center group"
-            >
-              <div className="w-8 h-8 rounded-sm bg-emerald-500/10 border border-emerald-500/20 grid place-items-center group-hover:scale-105 transition-transform">
-                <BookOpen className="w-4 h-4 text-emerald-400" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">轻小说 & 图书</div>
-                <div className="font-mono text-xs text-gray-500">Novels / Books</div>
-              </div>
-            </Link>
-
-            <Link
-              href="/explore?kind=agent"
-              className="p-4 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/[0.06] hover:border-rose-400/40 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition-all flex flex-col items-center gap-2 text-center group col-span-2 sm:col-span-1"
-            >
-              <div className="w-8 h-8 rounded-sm bg-rose-500/10 border border-rose-500/20 grid place-items-center group-hover:scale-105 transition-transform">
-                <Users className="w-4 h-4 text-rose-400" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold text-gray-900 dark:text-white">主体图谱</div>
-                <div className="font-mono text-xs text-gray-500">Agents / Graph</div>
-              </div>
-            </Link>
-          </div>
+        {/* Architecture Highlights */}
+        <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono text-gray-500 dark:text-white/40">
+          <span className="px-2.5 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+            {t("landing.featureGraph")}
+          </span>
+          <span className="text-black/20 dark:text-white/20">·</span>
+          <span className="px-2.5 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+            {t("landing.featureCAS")}
+          </span>
+          <span className="text-black/20 dark:text-white/20">·</span>
+          <span className="px-2.5 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+            {t("landing.featureOpen")}
+          </span>
         </div>
       </main>
 
       {/* Docked Minimal Footer */}
-      <footer className="relative z-10 w-full max-w-5xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-black/5 dark:border-white/[0.06] font-mono text-xs text-gray-500 dark:text-white/35">
-        <span>© 2026 MetaFusion · Open Archival Engine</span>
+      <footer className="relative z-10 w-full max-w-5xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-black/5 dark:border-white/[0.06] font-mono text-xs text-gray-500 dark:text-white/35">
+        <div className="flex items-center gap-4 flex-wrap">
+          <span>© 2026 MoeClub Ltd · Open Metadata & Resource Platform</span>
+          <span className="hidden sm:inline text-black/20 dark:text-white/20">|</span>
+          <a href="/docs/catalog" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors">
+            {t("landing.docsCenter")}
+          </a>
+          <a href="/developers" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors">
+            Open API
+          </a>
+        </div>
         <a
           href="https://github.com/MoeclubM/MetaFusion"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
-          <GitHubIcon className="w-4 h-4" />
+          <GitHubIcon className="w-3.5 h-3.5" />
           <span>github.com/MoeclubM/MetaFusion</span>
         </a>
       </footer>
@@ -258,10 +150,10 @@ function LandingInner() {
   );
 }
 
-export default function LandingPage() {
+export default function RootLandingPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-background grid place-items-center font-mono text-sm text-gray-500">Loading…</div>}>
-      <LandingInner />
+      <RootLandingInner />
     </Suspense>
   );
 }
