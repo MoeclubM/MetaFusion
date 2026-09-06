@@ -37,7 +37,8 @@ func New(ctx context.Context, db *sql.DB, catalog moduleapi.Catalog, root string
 	_, err := db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS modules;
  CREATE TABLE IF NOT EXISTS modules.settings(id text PRIMARY KEY,enabled boolean NOT NULL);
  CREATE TABLE IF NOT EXISTS modules.resources(id uuid PRIMARY KEY,entity_id uuid NOT NULL,owner_id uuid NOT NULL,public boolean NOT NULL DEFAULT false,name text NOT NULL,mime text NOT NULL,size bigint NOT NULL,hash text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
- CREATE TABLE IF NOT EXISTS modules.posts(id uuid PRIMARY KEY,entity_id uuid NOT NULL,author_id uuid NOT NULL,body text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+ CREATE TABLE IF NOT EXISTS modules.posts(id uuid PRIMARY KEY,entity_id uuid NOT NULL,author_id uuid NOT NULL,author_name text NOT NULL DEFAULT '',body text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+ ALTER TABLE modules.posts ADD COLUMN IF NOT EXISTS author_name text NOT NULL DEFAULT '';
  CREATE TABLE IF NOT EXISTS modules.records(owner_id uuid NOT NULL,entity_id uuid NOT NULL,document jsonb NOT NULL,PRIMARY KEY(owner_id,entity_id));
  CREATE TABLE IF NOT EXISTS modules.consumed(event_id uuid PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS modules.redirects(source_id uuid PRIMARY KEY,target_id uuid NOT NULL);
@@ -246,7 +247,7 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 		if !m.entity(c, id) {
 			return
 		}
-		rows, err := m.db.QueryContext(c.Request.Context(), "SELECT id,author_id,body,created_at FROM modules.posts WHERE entity_id=$1 ORDER BY created_at DESC LIMIT 100", id)
+		rows, err := m.db.QueryContext(c.Request.Context(), "SELECT id,author_id,COALESCE(NULLIF(author_name, ''), 'Anonymous'),body,created_at FROM modules.posts WHERE entity_id=$1 ORDER BY created_at DESC LIMIT 100", id)
 		if err != nil {
 			failure(c, 500, "module_error")
 			return
@@ -254,12 +255,12 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 		defer rows.Close()
 		items := []map[string]any{}
 		for rows.Next() {
-			var id, author, body, at string
-			if rows.Scan(&id, &author, &body, &at) != nil {
+			var id, author, authorName, body, at string
+			if rows.Scan(&id, &author, &authorName, &body, &at) != nil {
 				failure(c, 500, "module_error")
 				return
 			}
-			items = append(items, map[string]any{"id": id, "author_id": author, "body": body, "created_at": at})
+			items = append(items, map[string]any{"id": id, "author_id": author, "author_name": authorName, "body": body, "created_at": at})
 		}
 		c.JSON(200, gin.H{"items": items})
 	})
@@ -275,12 +276,27 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 			failure(c, 400, "invalid_payload")
 			return
 		}
-		_, err := m.db.ExecContext(c.Request.Context(), "INSERT INTO modules.posts(id,entity_id,author_id,body) VALUES($1,$2,$3,$4)", uuid.NewString(), id, m.principal(c).ID, in.Body)
+		p := m.principal(c)
+		authorName := p.Username
+		if authorName == "" {
+			authorName = "User"
+		}
+		pid := uuid.NewString()
+		_, err := m.db.ExecContext(c.Request.Context(), "INSERT INTO modules.posts(id,entity_id,author_id,author_name,body) VALUES($1,$2,$3,$4,$5)", pid, id, p.ID, authorName, in.Body)
 		if err != nil {
 			failure(c, 500, "module_error")
 			return
 		}
-		c.JSON(200, gin.H{"ok": true})
+		c.JSON(200, gin.H{
+			"ok": true,
+			"item": map[string]any{
+				"id": pid,
+				"author_id": p.ID,
+				"author_name": authorName,
+				"body": in.Body,
+				"created_at": time.Now().Format(time.RFC3339),
+			},
+		})
 	})
 	api.DELETE("/community/posts/:id", m.guard("community", true), func(c *gin.Context) {
 		p := m.principal(c)
@@ -296,6 +312,38 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		c.JSON(200, gin.H{"ok": true})
+	})
+	api.GET("/community/entities/:id/collections", m.guard("community", false), func(c *gin.Context) {
+		id := c.Param("id")
+		if !m.entity(c, id) {
+			return
+		}
+		rows, err := m.db.QueryContext(c.Request.Context(), `
+			SELECT e.id, e.title, e.document
+			FROM catalog.relations r
+			JOIN catalog.entities e ON (CASE WHEN r.source_id = $1 THEN r.target_id ELSE r.source_id END = e.id)
+			WHERE (r.source_id = $1 OR r.target_id = $1) AND e.kind = 'collection' AND e.status = 'published'
+			LIMIT 20`, id)
+		if err != nil {
+			c.JSON(200, gin.H{"items": []any{}})
+			return
+		}
+		defer rows.Close()
+		items := []map[string]any{}
+		for rows.Next() {
+			var cid, title string
+			var docBytes []byte
+			if rows.Scan(&cid, &title, &docBytes) == nil {
+				var doc map[string]any
+				_ = json.Unmarshal(docBytes, &doc)
+				items = append(items, map[string]any{
+					"id": cid,
+					"title": title,
+					"document": doc,
+				})
+			}
+		}
+		c.JSON(200, gin.H{"items": items})
 	})
 	api.GET("/records/entities/:id", m.guard("records", true), func(c *gin.Context) {
 		if !m.entity(c, c.Param("id")) {

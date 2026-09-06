@@ -8,6 +8,7 @@ import (
 
 type Principal struct {
 	ID   string `json:"id"`
+	Username string `json:"username,omitempty"`
 	Role string `json:"role"`
 }
 type Entity struct {
