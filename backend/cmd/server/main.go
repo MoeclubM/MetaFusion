@@ -34,6 +34,12 @@ import (
 )
 
 func main() {
+	if os.Getenv("METAFUSION_MODE") != "legacy" {
+		if err := runCatalogV2(); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	cfg := config.Load()
 
 	// 1. 初始化数据库
@@ -202,7 +208,7 @@ func main() {
 		registerSocialRoutes(api, cfg, db, communitySvc, messageSvc)
 
 		registerAdminRoutes(api, cfg, db, adminSvc, systemHealthSvc, catalogSvc, pluginHandler)
-		}
+	}
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
