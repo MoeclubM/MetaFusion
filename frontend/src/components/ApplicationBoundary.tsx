@@ -1,16 +1,19 @@
 "use client";
-import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
-const LegacyApplication = dynamic(() => import("./LegacyApplication"));
+
+import React from "react";
+import { AuthProvider } from "@/lib/authContext";
+import { AuthGate } from "./AuthGate";
+
 export function ApplicationBoundary({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const path = usePathname();
-  return path === "/" || path === "/catalog" || path.startsWith("/catalog/") ? (
-    <>{children}</>
-  ) : (
-    <LegacyApplication>{children}</LegacyApplication>
+  return (
+    <AuthProvider>
+      <AuthGate>
+        {children}
+      </AuthGate>
+    </AuthProvider>
   );
 }
