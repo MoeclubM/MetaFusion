@@ -21,7 +21,7 @@
 
 ## 运行时与架构说明
 
-系统处于快速迭代开发阶段，采用单一、纯净、无历史包袱的标准元数据架构。核心应用统一入口为 `/api`（兼容 `/api/v2` 别名），实现位于 `backend/internal/catalogv2`，前端主体路由为 `/catalog`。系统使用固定实体骨架（Agent、Work、ContentUnit、Expression、Release、Medium、Track）、Release.subjects 和跨 Work TrackContent；详情见 [元数据目录教程](docs-site/docs/catalog-v2.md)。
+系统处于快速迭代开发阶段，采用单一、纯净、无历史包袱的标准元数据架构。核心应用统一入口为 `/api`（兼容 `/api/v2` 别名），实现位于 `backend/internal/catalogv2`，前端主体路由为 `/catalog`。系统使用固定实体骨架（Agent、Work、ContentUnit、Expression、Release、Medium、Track）、Release.subjects 和跨 Work TrackContent；详情见 [元数据目录教程](docs-site/docs/catalog.md)。
 
 ## 3. 项目导航与事实来源
 

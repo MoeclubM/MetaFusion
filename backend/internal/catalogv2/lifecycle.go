@@ -62,7 +62,7 @@ func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u
 		stored.ParentID = ""
 		stored.Contents = nil
 		stored.Subjects = nil
-		if _, err = tx.ExecContext(ctx, "UPDATE catalog_v2.entities SET version=$2,status=$3,redirect_id=$4,document=$5,updated_at=$6 WHERE id=$1", e.ID, e.Version, e.Status, nullable(e.RedirectID), encode(stored), e.UpdatedAt); err != nil {
+		if _, err = tx.ExecContext(ctx, "UPDATE catalog.entities SET version=$2,status=$3,redirect_id=$4,document=$5,updated_at=$6 WHERE id=$1", e.ID, e.Version, e.Status, nullable(e.RedirectID), encode(stored), e.UpdatedAt); err != nil {
 			return err
 		}
 		return audit(ctx, tx, e.ID, e.Version, u, input.EditNote, input.Sources, e, "entity."+e.Status)
@@ -72,7 +72,7 @@ func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u
 
 // Deliver acknowledges only successful callbacks. Callbacks must be idempotent by Event.ID.
 func (s *Store) Deliver(ctx context.Context, consumer string, handle func(context.Context, Event) error) error {
-	rows, err := s.DB.QueryContext(ctx, `SELECT id,type,entity_id,version,payload,created_at FROM catalog_v2.outbox o WHERE NOT EXISTS(SELECT 1 FROM catalog_v2.deliveries d WHERE d.consumer=$1 AND d.event_id=o.id) ORDER BY created_at,id LIMIT 100`, consumer)
+	rows, err := s.DB.QueryContext(ctx, `SELECT id,type,entity_id,version,payload,created_at FROM catalog.outbox o WHERE NOT EXISTS(SELECT 1 FROM catalog.deliveries d WHERE d.consumer=$1 AND d.event_id=o.id) ORDER BY created_at,id LIMIT 100`, consumer)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (s *Store) Deliver(ctx context.Context, consumer string, handle func(contex
 		if err = handle(ctx, e); err != nil {
 			return err
 		}
-		if _, err = s.DB.ExecContext(ctx, "INSERT INTO catalog_v2.deliveries(consumer,event_id) VALUES($1,$2) ON CONFLICT DO NOTHING", consumer, e.ID); err != nil {
+		if _, err = s.DB.ExecContext(ctx, "INSERT INTO catalog.deliveries(consumer,event_id) VALUES($1,$2) ON CONFLICT DO NOTHING", consumer, e.ID); err != nil {
 			return err
 		}
 	}

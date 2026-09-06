@@ -42,7 +42,7 @@ func (s *Store) Initialize(ctx context.Context) error {
 			return err
 		}
 		var n int
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM catalog_v2.definitions").Scan(&n); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definitions").Scan(&n); err != nil {
 			return err
 		}
 		if n == 0 {
@@ -50,12 +50,12 @@ func (s *Store) Initialize(ctx context.Context) error {
 			if err := d.Validate(); err != nil {
 				return err
 			}
-			if _, err := tx.ExecContext(ctx, "INSERT INTO catalog_v2.definitions(state,base_version,document) VALUES('published',0,$1)", encode(d)); err != nil {
+			if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.definitions(state,base_version,document) VALUES('published',0,$1)", encode(d)); err != nil {
 				return err
 			}
 		}
 		const seedOAuth = `
-INSERT INTO catalog_v2.oauth_clients(id, secret_hash, name, redirect_uris, trusted)
+INSERT INTO catalog.oauth_clients(id, secret_hash, name, redirect_uris, trusted)
 VALUES
  ('metafusion-resources', '', 'MetaFusion 资源存储与下载管理中心', ARRAY['https://resources.findverse.cc/callback', 'http://localhost:3001/callback'], true),
  ('metafusion-forum', '', 'MetaFusion 社区论坛', ARRAY['https://forum.findverse.cc/auth/oauth2_basic/callback', 'http://localhost:4200/auth/callback'], true),
@@ -91,7 +91,7 @@ func nullable(v string) any {
 func definitions(ctx context.Context, q queryer) (DefinitionVersion, error) {
 	var v DefinitionVersion
 	var b []byte
-	err := q.QueryRowContext(ctx, "SELECT id,state,base_version,document,created_at FROM catalog_v2.definitions WHERE state='published'").Scan(&v.ID, &v.State, &v.BaseVersion, &b, &v.CreatedAt)
+	err := q.QueryRowContext(ctx, "SELECT id,state,base_version,document,created_at FROM catalog.definitions WHERE state='published'").Scan(&v.ID, &v.State, &v.BaseVersion, &b, &v.CreatedAt)
 	if err == nil {
 		err = json.Unmarshal(b, &v.Document)
 	}
@@ -103,7 +103,7 @@ func (s *Store) Definitions(ctx context.Context) (DefinitionVersion, error) {
 func get(ctx context.Context, q queryer, id string) (Entity, error) {
 	var e Entity
 	var b []byte
-	err := q.QueryRowContext(ctx, "SELECT document FROM catalog_v2.entities WHERE id=$1", id).Scan(&b)
+	err := q.QueryRowContext(ctx, "SELECT document FROM catalog.entities WHERE id=$1", id).Scan(&b)
 	if err != nil {
 		return e, err
 	}
@@ -112,18 +112,18 @@ func get(ctx context.Context, q queryer, id string) (Entity, error) {
 	}
 	switch e.Kind {
 	case "content_unit":
-		err = q.QueryRowContext(ctx, "SELECT work_id,coalesce(parent_id::text,'') FROM catalog_v2.content_units WHERE id=$1", id).Scan(&e.WorkID, &e.ParentID)
+		err = q.QueryRowContext(ctx, "SELECT work_id,coalesce(parent_id::text,'') FROM catalog.content_units WHERE id=$1", id).Scan(&e.WorkID, &e.ParentID)
 	case "expression":
-		err = q.QueryRowContext(ctx, "SELECT work_id,coalesce(content_unit_id::text,'') FROM catalog_v2.expressions WHERE id=$1", id).Scan(&e.WorkID, &e.ContentUnitID)
+		err = q.QueryRowContext(ctx, "SELECT work_id,coalesce(content_unit_id::text,'') FROM catalog.expressions WHERE id=$1", id).Scan(&e.WorkID, &e.ContentUnitID)
 	case "medium":
-		err = q.QueryRowContext(ctx, "SELECT release_id,coalesce(parent_id::text,'') FROM catalog_v2.mediums WHERE id=$1", id).Scan(&e.ReleaseID, &e.ParentID)
+		err = q.QueryRowContext(ctx, "SELECT release_id,coalesce(parent_id::text,'') FROM catalog.mediums WHERE id=$1", id).Scan(&e.ReleaseID, &e.ParentID)
 	case "track":
-		err = q.QueryRowContext(ctx, "SELECT medium_id,coalesce(parent_id::text,'') FROM catalog_v2.tracks WHERE id=$1", id).Scan(&e.MediumID, &e.ParentID)
+		err = q.QueryRowContext(ctx, "SELECT medium_id,coalesce(parent_id::text,'') FROM catalog.tracks WHERE id=$1", id).Scan(&e.MediumID, &e.ParentID)
 		if err != nil {
 			return e, err
 		}
 		var rows *sql.Rows
-		rows, err = q.QueryContext(ctx, "SELECT expression_id,position,locator FROM catalog_v2.track_contents WHERE track_id=$1 ORDER BY position", id)
+		rows, err = q.QueryContext(ctx, "SELECT expression_id,position,locator FROM catalog.track_contents WHERE track_id=$1 ORDER BY position", id)
 		if err != nil {
 			return e, err
 		}
@@ -143,7 +143,7 @@ func get(ctx context.Context, q queryer, id string) (Entity, error) {
 		err = rows.Err()
 	case "release":
 		var rows *sql.Rows
-		rows, err = q.QueryContext(ctx, "SELECT work_id,role,position FROM catalog_v2.release_subjects WHERE release_id=$1 ORDER BY position,work_id", id)
+		rows, err = q.QueryContext(ctx, "SELECT work_id,role,position FROM catalog.release_subjects WHERE release_id=$1 ORDER BY position,work_id", id)
 		if err != nil {
 			return e, err
 		}
@@ -186,10 +186,10 @@ func reference(ctx context.Context, q queryer, u *User) func(string, []string) e
 	}
 }
 func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, note string, sources []Source, snapshot any, eventType string) error {
-	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog_v2.revisions(target_id,version,actor_id,edit_note,sources,snapshot) VALUES($1,$2,$3,$4,$5,$6)", id, version, u.ID, note, encode(sources), encode(snapshot)); err != nil {
+	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,edit_note,sources,snapshot) VALUES($1,$2,$3,$4,$5,$6)", id, version, u.ID, note, encode(sources), encode(snapshot)); err != nil {
 		return err
 	}
-	_, err := tx.ExecContext(ctx, "INSERT INTO catalog_v2.outbox(id,type,entity_id,version,payload) VALUES($1,$2,$3,$4,$5)", uuid.NewString(), eventType, id, version, encode(snapshot))
+	_, err := tx.ExecContext(ctx, "INSERT INTO catalog.outbox(id,type,entity_id,version,payload) VALUES($1,$2,$3,$4,$5)", uuid.NewString(), eventType, id, version, encode(snapshot))
 	return err
 }
 func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
@@ -289,36 +289,36 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		stored.ParentID = ""
 		stored.Contents = nil
 		stored.Subjects = nil
-		_, err = tx.ExecContext(ctx, `INSERT INTO catalog_v2.entities(id,kind,version,title,status,created_by,document,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO UPDATE SET version=EXCLUDED.version,title=EXCLUDED.title,status=EXCLUDED.status,document=EXCLUDED.document,updated_at=EXCLUDED.updated_at`, e.ID, e.Kind, e.Version, e.Title, e.Status, e.CreatedBy, encode(stored), e.UpdatedAt)
+		_, err = tx.ExecContext(ctx, `INSERT INTO catalog.entities(id,kind,version,title,status,created_by,document,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO UPDATE SET version=EXCLUDED.version,title=EXCLUDED.title,status=EXCLUDED.status,document=EXCLUDED.document,updated_at=EXCLUDED.updated_at`, e.ID, e.Kind, e.Version, e.Title, e.Status, e.CreatedBy, encode(stored), e.UpdatedAt)
 		if err != nil {
 			return err
 		}
 		switch e.Kind {
 		case "content_unit":
-			_, err = tx.ExecContext(ctx, "INSERT INTO catalog_v2.content_units(id,work_id,parent_id) VALUES($1,$2,$3) ON CONFLICT(id) DO UPDATE SET parent_id=EXCLUDED.parent_id", e.ID, e.WorkID, nullable(e.ParentID))
+			_, err = tx.ExecContext(ctx, "INSERT INTO catalog.content_units(id,work_id,parent_id) VALUES($1,$2,$3) ON CONFLICT(id) DO UPDATE SET parent_id=EXCLUDED.parent_id", e.ID, e.WorkID, nullable(e.ParentID))
 		case "expression":
-			_, err = tx.ExecContext(ctx, "INSERT INTO catalog_v2.expressions(id,work_id,content_unit_id) VALUES($1,$2,$3) ON CONFLICT(id) DO UPDATE SET content_unit_id=EXCLUDED.content_unit_id", e.ID, e.WorkID, nullable(e.ContentUnitID))
+			_, err = tx.ExecContext(ctx, "INSERT INTO catalog.expressions(id,work_id,content_unit_id) VALUES($1,$2,$3) ON CONFLICT(id) DO UPDATE SET content_unit_id=EXCLUDED.content_unit_id", e.ID, e.WorkID, nullable(e.ContentUnitID))
 		case "medium":
-			_, err = tx.ExecContext(ctx, "INSERT INTO catalog_v2.mediums(id,release_id,parent_id) VALUES($1,$2,$3) ON CONFLICT(id) DO UPDATE SET parent_id=EXCLUDED.parent_id", e.ID, e.ReleaseID, nullable(e.ParentID))
+			_, err = tx.ExecContext(ctx, "INSERT INTO catalog.mediums(id,release_id,parent_id) VALUES($1,$2,$3) ON CONFLICT(id) DO UPDATE SET parent_id=EXCLUDED.parent_id", e.ID, e.ReleaseID, nullable(e.ParentID))
 		case "track":
-			_, err = tx.ExecContext(ctx, "INSERT INTO catalog_v2.tracks(id,medium_id,parent_id) VALUES($1,$2,$3) ON CONFLICT(id) DO UPDATE SET parent_id=EXCLUDED.parent_id", e.ID, e.MediumID, nullable(e.ParentID))
+			_, err = tx.ExecContext(ctx, "INSERT INTO catalog.tracks(id,medium_id,parent_id) VALUES($1,$2,$3) ON CONFLICT(id) DO UPDATE SET parent_id=EXCLUDED.parent_id", e.ID, e.MediumID, nullable(e.ParentID))
 			if err != nil {
 				return err
 			}
-			if _, err = tx.ExecContext(ctx, "DELETE FROM catalog_v2.track_contents WHERE track_id=$1", e.ID); err != nil {
+			if _, err = tx.ExecContext(ctx, "DELETE FROM catalog.track_contents WHERE track_id=$1", e.ID); err != nil {
 				return err
 			}
 			for _, c := range e.Contents {
-				if _, err = tx.ExecContext(ctx, "INSERT INTO catalog_v2.track_contents(track_id,expression_id,position,locator) VALUES($1,$2,$3,$4)", e.ID, c.ExpressionID, c.Position, encode(c.Locator)); err != nil {
+				if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.track_contents(track_id,expression_id,position,locator) VALUES($1,$2,$3,$4)", e.ID, c.ExpressionID, c.Position, encode(c.Locator)); err != nil {
 					return err
 				}
 			}
 		case "release":
-			if _, err = tx.ExecContext(ctx, "DELETE FROM catalog_v2.release_subjects WHERE release_id=$1", e.ID); err != nil {
+			if _, err = tx.ExecContext(ctx, "DELETE FROM catalog.release_subjects WHERE release_id=$1", e.ID); err != nil {
 				return err
 			}
 			for _, x := range e.Subjects {
-				if _, err = tx.ExecContext(ctx, "INSERT INTO catalog_v2.release_subjects(release_id,work_id,role,position) VALUES($1,$2,$3,$4)", e.ID, x.WorkID, x.Role, x.Position); err != nil {
+				if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.release_subjects(release_id,work_id,role,position) VALUES($1,$2,$3,$4)", e.ID, x.WorkID, x.Role, x.Position); err != nil {
 					return err
 				}
 			}
@@ -327,7 +327,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			return err
 		}
 		var missing bool
-		err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM catalog_v2.track_contents c JOIN catalog_v2.tracks t ON t.id=c.track_id JOIN catalog_v2.mediums m ON m.id=t.medium_id JOIN catalog_v2.expressions x ON x.id=c.expression_id WHERE NOT EXISTS(SELECT 1 FROM catalog_v2.release_subjects s WHERE s.release_id=m.release_id AND s.work_id=x.work_id))`).Scan(&missing)
+		err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM catalog.track_contents c JOIN catalog.tracks t ON t.id=c.track_id JOIN catalog.mediums m ON m.id=t.medium_id JOIN catalog.expressions x ON x.id=c.expression_id WHERE NOT EXISTS(SELECT 1 FROM catalog.release_subjects s WHERE s.release_id=m.release_id AND s.work_id=x.work_id))`).Scan(&missing)
 		if err != nil {
 			return err
 		}
@@ -369,19 +369,19 @@ func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, err
 		add("document->'types' ? $%d", o.Type)
 	}
 	if o.WorkID != "" {
-		add("(id IN(SELECT id FROM catalog_v2.content_units WHERE work_id=$%[1]d) OR id IN(SELECT id FROM catalog_v2.expressions WHERE work_id=$%[1]d) OR id IN(SELECT release_id FROM catalog_v2.release_subjects WHERE work_id=$%[1]d))", o.WorkID)
+		add("(id IN(SELECT id FROM catalog.content_units WHERE work_id=$%[1]d) OR id IN(SELECT id FROM catalog.expressions WHERE work_id=$%[1]d) OR id IN(SELECT release_id FROM catalog.release_subjects WHERE work_id=$%[1]d))", o.WorkID)
 	}
 	if o.ReleaseID != "" {
-		add("id IN(SELECT id FROM catalog_v2.mediums WHERE release_id=$%d)", o.ReleaseID)
+		add("id IN(SELECT id FROM catalog.mediums WHERE release_id=$%d)", o.ReleaseID)
 	}
 	if o.ContentUnitID != "" {
-		add("id IN(SELECT id FROM catalog_v2.expressions WHERE content_unit_id=$%d)", o.ContentUnitID)
+		add("id IN(SELECT id FROM catalog.expressions WHERE content_unit_id=$%d)", o.ContentUnitID)
 	}
 	if o.MediumID != "" {
-		add("id IN(SELECT id FROM catalog_v2.tracks WHERE medium_id=$%d)", o.MediumID)
+		add("id IN(SELECT id FROM catalog.tracks WHERE medium_id=$%d)", o.MediumID)
 	}
 	if o.ParentID != "" {
-		add("id IN(SELECT id FROM catalog_v2.content_units WHERE parent_id=$%[1]d UNION ALL SELECT id FROM catalog_v2.mediums WHERE parent_id=$%[1]d UNION ALL SELECT id FROM catalog_v2.tracks WHERE parent_id=$%[1]d)", o.ParentID)
+		add("id IN(SELECT id FROM catalog.content_units WHERE parent_id=$%[1]d UNION ALL SELECT id FROM catalog.mediums WHERE parent_id=$%[1]d UNION ALL SELECT id FROM catalog.tracks WHERE parent_id=$%[1]d)", o.ParentID)
 	}
 	if o.Field != "" {
 		v, err := s.Definitions(ctx)
@@ -402,7 +402,7 @@ func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, err
 		o.Offset = 0
 	}
 	args = append(args, o.Limit, o.Offset)
-	rows, err := s.DB.QueryContext(ctx, "SELECT id FROM catalog_v2.entities WHERE "+strings.Join(parts, " AND ")+fmt.Sprintf(" ORDER BY (document->>'position')::int,updated_at DESC,id LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
+	rows, err := s.DB.QueryContext(ctx, "SELECT id FROM catalog.entities WHERE "+strings.Join(parts, " AND ")+fmt.Sprintf(" ORDER BY (document->>'position')::int,updated_at DESC,id LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +434,7 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	if _, err := s.Get(ctx, id, u); err != nil {
 		return nil, err
 	}
-	rows, err := s.DB.QueryContext(ctx, "SELECT version,edit_note,sources,snapshot,created_at FROM catalog_v2.revisions WHERE target_id=$1 ORDER BY id DESC LIMIT 100", id)
+	rows, err := s.DB.QueryContext(ctx, "SELECT version,edit_note,sources,snapshot,created_at FROM catalog.revisions WHERE target_id=$1 ORDER BY id DESC LIMIT 100", id)
 	if err != nil {
 		return nil, err
 	}

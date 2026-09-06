@@ -8,7 +8,7 @@ import (
 )
 
 func (s *Store) DefinitionVersions(ctx context.Context) ([]DefinitionVersion, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT id,state,base_version,document,created_at FROM catalog_v2.definitions ORDER BY id DESC LIMIT 100")
+	rows, err := s.DB.QueryContext(ctx, "SELECT id,state,base_version,document,created_at FROM catalog.definitions ORDER BY id DESC LIMIT 100")
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +46,7 @@ func (s *Store) Draft(ctx context.Context, d Definitions, base int64, u User, no
 		if base != v.ID {
 			return fmt.Errorf("version_conflict")
 		}
-		if err = tx.QueryRowContext(ctx, "INSERT INTO catalog_v2.definitions(state,base_version,document) VALUES('draft',$1,$2) RETURNING id", base, encode(d)).Scan(&id); err != nil {
+		if err = tx.QueryRowContext(ctx, "INSERT INTO catalog.definitions(state,base_version,document) VALUES('draft',$1,$2) RETURNING id", base, encode(d)).Scan(&id); err != nil {
 			return err
 		}
 		return audit(ctx, tx, fmt.Sprintf("definitions:%d", id), id, u, note, sources, d, "definitions.drafted")
@@ -57,7 +57,7 @@ func impact(ctx context.Context, q queryer, d Definitions) ([]string, error) {
 	if err := d.Validate(); err != nil {
 		return []string{err.Error()}, nil
 	}
-	rows, err := q.QueryContext(ctx, "SELECT id FROM catalog_v2.entities WHERE status NOT IN ('deleted','merged')")
+	rows, err := q.QueryContext(ctx, "SELECT id FROM catalog.entities WHERE status NOT IN ('deleted','merged')")
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func impact(ctx context.Context, q queryer, d Definitions) ([]string, error) {
 func (s *Store) Impact(ctx context.Context, id int64) ([]string, error) {
 	var b []byte
 	var d Definitions
-	if err := s.DB.QueryRowContext(ctx, "SELECT document FROM catalog_v2.definitions WHERE id=$1", id).Scan(&b); err != nil {
+	if err := s.DB.QueryRowContext(ctx, "SELECT document FROM catalog.definitions WHERE id=$1", id).Scan(&b); err != nil {
 		return nil, err
 	}
 	if err := json.Unmarshal(b, &d); err != nil {
@@ -127,7 +127,7 @@ func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sour
 		var b []byte
 		var base int64
 		var state string
-		if err := tx.QueryRowContext(ctx, "SELECT state,base_version,document FROM catalog_v2.definitions WHERE id=$1", id).Scan(&state, &base, &b); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT state,base_version,document FROM catalog.definitions WHERE id=$1", id).Scan(&state, &base, &b); err != nil {
 			return err
 		}
 		current, err := definitions(ctx, tx)
@@ -148,10 +148,10 @@ func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sour
 		if len(issues) > 0 {
 			return fmt.Errorf("definition_impact: %s", encode(issues))
 		}
-		if _, err = tx.ExecContext(ctx, "UPDATE catalog_v2.definitions SET state='superseded' WHERE state='published'"); err != nil {
+		if _, err = tx.ExecContext(ctx, "UPDATE catalog.definitions SET state='superseded' WHERE state='published'"); err != nil {
 			return err
 		}
-		if _, err = tx.ExecContext(ctx, "UPDATE catalog_v2.definitions SET state='published' WHERE id=$1", id); err != nil {
+		if _, err = tx.ExecContext(ctx, "UPDATE catalog.definitions SET state='published' WHERE id=$1", id); err != nil {
 			return err
 		}
 		return audit(ctx, tx, fmt.Sprintf("definitions:%d", id), id, u, note, sources, d, "definitions.published")

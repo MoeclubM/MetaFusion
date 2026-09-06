@@ -5,7 +5,7 @@ order: 36
 group: "api"
 ---
 
-> 核心 API 统一使用 `/api` 与动态定义引擎。编目规范请阅读 [元数据目录教程](./catalog-v2.md)。
+> 核心 API 统一使用 `/api` 与动态定义引擎。编目规范请阅读 [元数据目录教程](./catalog.md)。
 
 # AI Agent 自动化 API 与工具规范 (AI Agent API & Tool Specs)
 

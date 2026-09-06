@@ -10,7 +10,7 @@ import (
 )
 
 func relations(ctx context.Context, q queryer) ([]Relation, error) {
-	rows, err := q.QueryContext(ctx, "SELECT document FROM catalog_v2.relations ORDER BY id")
+	rows, err := q.QueryContext(ctx, "SELECT document FROM catalog.relations ORDER BY id")
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +190,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if err = v.Document.retiredAttributes(r.Attributes, previous); err != nil {
 			return err
 		}
-		if _, err = tx.ExecContext(ctx, "INSERT INTO catalog_v2.relations(id,version,type,source_id,target_id,document) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO UPDATE SET version=EXCLUDED.version,document=EXCLUDED.document", r.ID, r.Version, r.Type, r.SourceID, r.TargetID, encode(r)); err != nil {
+		if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.relations(id,version,type,source_id,target_id,document) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO UPDATE SET version=EXCLUDED.version,document=EXCLUDED.document", r.ID, r.Version, r.Type, r.SourceID, r.TargetID, encode(r)); err != nil {
 			return err
 		}
 		return audit(ctx, tx, r.ID, r.Version, u, input.EditNote, input.Sources, r, "relation.saved")
@@ -204,7 +204,7 @@ func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, n
 		}
 		var b []byte
 		var r Relation
-		if err := tx.QueryRowContext(ctx, "SELECT document FROM catalog_v2.relations WHERE id=$1", id).Scan(&b); err != nil {
+		if err := tx.QueryRowContext(ctx, "SELECT document FROM catalog.relations WHERE id=$1", id).Scan(&b); err != nil {
 			return err
 		}
 		if err := json.Unmarshal(b, &r); err != nil {
@@ -220,7 +220,7 @@ func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, n
 		if u.Role != "admin" && (src.CreatedBy != u.ID || src.Status == "published") {
 			return fmt.Errorf("forbidden")
 		}
-		if _, err = tx.ExecContext(ctx, "DELETE FROM catalog_v2.relations WHERE id=$1", id); err != nil {
+		if _, err = tx.ExecContext(ctx, "DELETE FROM catalog.relations WHERE id=$1", id); err != nil {
 			return err
 		}
 		return audit(ctx, tx, id, r.Version+1, u, note, sources, r, "relation.deleted")
@@ -231,7 +231,7 @@ func (s *Store) Occurrences(ctx context.Context, id string, u *User) ([]map[stri
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.DB.QueryContext(ctx, `SELECT c.track_id,m.id,m.release_id,c.expression_id,c.position,c.locator FROM catalog_v2.track_contents c JOIN catalog_v2.tracks t ON t.id=c.track_id JOIN catalog_v2.mediums m ON m.id=t.medium_id JOIN catalog_v2.expressions x ON x.id=c.expression_id WHERE x.id=$1 OR x.work_id=$1 OR x.content_unit_id=$1 ORDER BY m.release_id,c.position`, e.ID)
+	rows, err := s.DB.QueryContext(ctx, `SELECT c.track_id,m.id,m.release_id,c.expression_id,c.position,c.locator FROM catalog.track_contents c JOIN catalog.tracks t ON t.id=c.track_id JOIN catalog.mediums m ON m.id=t.medium_id JOIN catalog.expressions x ON x.id=c.expression_id WHERE x.id=$1 OR x.work_id=$1 OR x.content_unit_id=$1 ORDER BY m.release_id,c.position`, e.ID)
 	if err != nil {
 		return nil, err
 	}

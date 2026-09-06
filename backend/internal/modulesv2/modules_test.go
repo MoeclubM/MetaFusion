@@ -133,7 +133,7 @@ func TestPostgresOptionalModuleIsolation(t *testing.T) {
 		t.Fatal("invalid merge event accepted")
 	}
 	var coreTables int
-	db.QueryRow("SELECT count(*) FROM information_schema.tables WHERE table_schema='catalog_v2'").Scan(&coreTables)
+	db.QueryRow("SELECT count(*) FROM information_schema.tables WHERE table_schema='catalog'").Scan(&coreTables)
 	if coreTables != 0 {
 		t.Fatal("module created core tables")
 	}
