@@ -132,6 +132,7 @@ type RelationDefinition struct {
 	MaxOutgoing  int      `json:"max_outgoing"`
 	MaxIncoming  int      `json:"max_incoming"`
 	Group        string   `json:"group"`
+	GroupNames   Names    `json:"group_names,omitempty"`
 	Enabled      bool     `json:"enabled"`
 }
 type Section struct {

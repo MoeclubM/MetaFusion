@@ -437,6 +437,13 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 		if err = rows.Scan(&version, &note, &sources, &snapshot, &at); err != nil {
 			return nil, err
 		}
+		var historical Entity
+		if err = json.Unmarshal(snapshot, &historical); err != nil {
+			return nil, err
+		}
+		if !visible(historical, u) {
+			continue
+		}
 		out = append(out, map[string]any{"version": version, "edit_note": note, "sources": sources, "snapshot": snapshot, "created_at": at})
 	}
 	return out, rows.Err()
