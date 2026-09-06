@@ -37,7 +37,7 @@ func (a catalogAdapter) Authenticate(ctx context.Context, token string) (modulea
 	if err != nil {
 		return moduleapi.Principal{}, err
 	}
-	return moduleapi.Principal{ID: u.ID, Role: u.Role}, nil
+	return moduleapi.Principal{ID: u.ID, Username: u.Username, Role: u.Role}, nil
 }
 
 func (a catalogAdapter) Export(ctx context.Context, id string, p *moduleapi.Principal) (json.RawMessage, error) {
