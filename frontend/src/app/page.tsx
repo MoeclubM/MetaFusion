@@ -211,7 +211,7 @@ export default function HomePage() {
             </Link>
 
             <a
-              href="/docs/catalog-v2"
+              href="/docs/catalog"
               className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-400 hover:text-gray-200 text-sm font-medium transition-all"
             >
               <FileCode className="w-4 h-4" />

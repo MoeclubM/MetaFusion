@@ -167,6 +167,35 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		c.SetCookie("mf_v2_session", "", -1, "/", "", false, true)
 		respond(c, gin.H{"ok": true}, s.Logout(c.Request.Context(), token))
 	})
+	api.PUT("/auth/password", required(false), func(c *gin.Context) {
+		u := user(c)
+		if u == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		var in struct {
+			OldPassword string `json:"old_password"`
+			NewPassword string `json:"new_password"`
+		}
+		if !body(c, &in) {
+			return
+		}
+		respond(c, gin.H{"ok": true}, s.ChangePassword(c.Request.Context(), u.ID, in.OldPassword, in.NewPassword))
+	})
+	api.POST("/auth/logout-all", required(false), func(c *gin.Context) {
+		u := user(c)
+		if u == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+			return
+		}
+		c.SetCookie("mf_session", "", -1, "/", "", false, true)
+		c.SetCookie("mf_v2_session", "", -1, "/", "", false, true)
+		respond(c, gin.H{"ok": true}, s.LogoutAll(c.Request.Context(), u.ID))
+	})
+	api.GET("/admin/users", required(true), func(c *gin.Context) {
+		users, err := s.ListUsers(c.Request.Context())
+		respond(c, gin.H{"items": users}, err)
+	})
 	api.POST("/admin/users", required(true), func(c *gin.Context) {
 		var in credentials
 		if !body(c, &in) {
@@ -174,6 +203,24 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		u, err := s.CreateUser(c.Request.Context(), in.Username, in.Password, false, user(c))
 		respond(c, u, err)
+	})
+	api.PUT("/admin/users/:id/role", required(true), func(c *gin.Context) {
+		var in struct {
+			Role string `json:"role"`
+		}
+		if !body(c, &in) {
+			return
+		}
+		respond(c, gin.H{"ok": true}, s.UpdateUserRole(c.Request.Context(), c.Param("id"), in.Role, user(c)))
+	})
+	api.PUT("/admin/users/:id/password", required(true), func(c *gin.Context) {
+		var in struct {
+			Password string `json:"password"`
+		}
+		if !body(c, &in) {
+			return
+		}
+		respond(c, gin.H{"ok": true}, s.ResetUserPassword(c.Request.Context(), c.Param("id"), in.Password, user(c)))
 	})
 	oauth := api.Group("/oauth")
 	oauth.GET("/clients", func(c *gin.Context) {
