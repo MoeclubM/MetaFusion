@@ -41,9 +41,9 @@ export default function SetupPage() {
   const [loadingStatus, setLoadingStatus] = useState(true);
 
   // Form State
-  const [username, setUsername] = useState("admin");
+  const [username, setUsername] = useState("MoeCaa");
   const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("moecaa@findverse.cc");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -183,6 +183,10 @@ export default function SetupPage() {
             <div className="flex justify-between items-center text-gray-500">
               <span>Admin Username:</span>
               <span className="font-bold text-gray-900 dark:text-white">{successResult.user.username}</span>
+            </div>
+            <div className="flex justify-between items-center text-gray-500">
+              <span>Admin Email:</span>
+              <span className="font-bold text-gray-900 dark:text-white">{successResult.user.email || email}</span>
             </div>
             <div className="flex justify-between items-center text-gray-500">
               <span>Admin Role:</span>

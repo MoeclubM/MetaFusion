@@ -11,6 +11,7 @@ import { BrandMark } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
 import { displayNameOf } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
+import { getAuthLoginUrl, getAuthSettingsUrl, getAuthUsersAdminUrl } from "@/lib/services";
 import {
   Plus,
   LogOut,
@@ -202,16 +203,17 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
                   </div>
 
                   <div className="py-1">
-                    <Link
-                      href="/account"
+                    <a
+                      href={getAuthSettingsUrl()}
                       onClick={() => setIsUserMenuOpen(false)}
                       className="w-full px-3 py-2 text-left text-gray-300 hover:text-white hover:bg-white/[0.06] flex items-center gap-2 transition-colors font-medium"
                     >
                       <UserIcon className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
                       <span>{locale === "zh-CN" ? "个人中心与会话" : "Account & Sessions"}</span>
-                    </Link>
+                    </a>
 
                     {user.role === "admin" && (
+                      <>
                       <Link
                         href="/admin"
                         onClick={() => setIsUserMenuOpen(false)}
@@ -220,6 +222,15 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
                         <Shield className="w-3.5 h-3.5" strokeWidth={1.7} />
                         <span>{locale === "zh-CN" ? "管理控制台" : "Admin Console"}</span>
                       </Link>
+                      <a
+                        href={getAuthUsersAdminUrl()}
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="w-full px-3 py-2 text-left text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 flex items-center gap-2 transition-colors font-medium"
+                      >
+                        <Settings className="w-3.5 h-3.5" strokeWidth={1.7} />
+                        <span>{locale === "zh-CN" ? "账号管理" : "User Management"}</span>
+                      </a>
+                      </>
                     )}
                   </div>
 
@@ -240,13 +251,13 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
               )}
             </div>
           ) : (
-            <Link
-              href="/account"
+            <a
+              href={getAuthLoginUrl()}
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs font-medium text-gray-200 transition-colors"
             >
               <UserIcon className="w-3.5 h-3.5" />
               <span>{locale === "zh-CN" ? "登录 / 注册" : "Sign In"}</span>
-            </Link>
+            </a>
           )}
 
           {/* Controls: Theme & Locale */}
