@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DefinitionsEditor } from "@/components/catalog/DefinitionsEditor";
 import { CatalogProvider } from "@/components/catalog/CatalogProvider";
+import { useDefinitions, getTypeName } from "@/lib/definitions";
 import {
   Shield,
   LayoutDashboard,
@@ -18,22 +19,37 @@ import {
   ArrowLeft,
   RefreshCw,
   Power,
+  Layers,
+  Search,
+  Plus,
+  ArrowUpRight,
+  Trash2,
 } from "lucide-react";
 
-type AdminTab = "overview" | "definitions" | "reviews" | "merge" | "modules" | "users";
+type AdminTab = "overview" | "entities" | "definitions" | "reviews" | "merge" | "modules" | "users";
 
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
   const { t, locale } = useI18n();
   const router = useRouter();
 
+  const { definitions: defs } = useDefinitions();
+
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [stats, setStats] = useState({
     pending: 0,
+    totalEntities: 0,
   });
   const [modules, setModules] = useState<any[]>([]);
   const [pendingItems, setPendingItems] = useState<any[]>([]);
   const [loadingModules, setLoadingModules] = useState(false);
+
+  // Entities management state
+  const [entitiesList, setEntitiesList] = useState<any[]>([]);
+  const [entitiesLoading, setEntitiesLoading] = useState(false);
+  const [entitiesQ, setEntitiesQ] = useState("");
+  const [entitiesKind, setEntitiesKind] = useState("all");
+  const [entitiesStatus, setEntitiesStatus] = useState("all");
 
   // Merge form states
   const [mergeSource, setMergeSource] = useState("");
@@ -53,8 +69,12 @@ function AdminInner() {
       .then((r) => (r.ok ? r.json() : { items: [] }))
       .then((d) => {
         setPendingItems(d.items || []);
-        setStats({ pending: d.items?.length || 0 });
+        setStats((prev) => ({ ...prev, pending: (d.items || []).length }));
       })
+      .catch(() => {});
+
+    fetch("/api/catalog/entities?limit=1", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : { items: [] }))
       .catch(() => {});
 
     fetch("/api/capabilities", { credentials: "same-origin" })
@@ -63,18 +83,75 @@ function AdminInner() {
       .catch(() => {});
   };
 
-  useEffect(() => {
-    loadOverview();
-  }, []);
+  const loadEntities = () => {
+    setEntitiesLoading(true);
+    const params = new URLSearchParams();
+    if (entitiesKind !== "all") params.set("kind", entitiesKind);
+    if (entitiesStatus !== "all") params.set("status", entitiesStatus);
+    if (entitiesQ.trim()) params.set("q", entitiesQ.trim());
+    params.set("limit", "50");
 
-  const handleReviewAction = async (id: string, action: "published" | "draft") => {
+    fetch(`/api/catalog/entities?${params.toString()}`, { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((d) => setEntitiesList(d.items || []))
+      .catch(() => setEntitiesList([]))
+      .finally(() => setEntitiesLoading(false));
+  };
+
+  useEffect(() => {
+    if (user?.role === "admin") {
+      loadOverview();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (activeTab === "entities" && user?.role === "admin") {
+      loadEntities();
+    }
+  }, [activeTab, entitiesKind, entitiesStatus]);
+
+  const handleEntityLifecycle = async (id: string, newStatus: string) => {
     try {
-      const res = await fetch(`/api/catalog/entities/${id}/lifecycle`, {
-        method: "POST",
+      // Find current entity to get version
+      const target = entitiesList.find((e) => e.id === id);
+      const res = await fetch(`/api/catalog/entities/${id}`, {
+        method: "PUT",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action,
+          entity: {
+            ...target,
+            status: newStatus,
+          },
+          expected_version: target?.version || 1,
+          edit_note: `Admin lifecycle status changed to ${newStatus}`,
+          sources: [{ kind: "editorial", citation: "Admin Console Lifecycle" }],
+        }),
+      });
+      if (res.ok) {
+        loadEntities();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Action failed");
+      }
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  const handleReviewAction = async (id: string, action: "published" | "draft") => {
+    try {
+      const target = pendingItems.find((e) => e.id === id);
+      const res = await fetch(`/api/catalog/entities/${id}`, {
+        method: "PUT",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entity: {
+            ...target,
+            status: action,
+          },
+          expected_version: target?.version || 1,
           edit_note: action === "published" ? "Approved by admin" : "Rejected by admin",
           sources: [{ kind: "editorial", citation: "Admin Review Workbench" }],
         }),
@@ -121,13 +198,20 @@ function AdminInner() {
     setMerging(true);
     setMergeMessage("");
     try {
-      const res = await fetch("/api/admin/merge", {
+      // Find source entity version
+      const srcRes = await fetch(`/api/catalog/entities/${mergeSource.trim()}`, { credentials: "same-origin" });
+      if (!srcRes.ok) {
+        setMergeMessage("Source entity not found");
+        return;
+      }
+      const srcData = await srcRes.json();
+      const res = await fetch(`/api/catalog/entities/${mergeSource.trim()}/lifecycle`, {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          source_id: mergeSource.trim(),
           target_id: mergeTarget.trim(),
+          expected_version: srcData.version,
           edit_note: mergeNote.trim() || "Merged via Admin Console",
           sources: [{ kind: "editorial", citation: "Administrative Merge" }],
         }),
@@ -212,6 +296,7 @@ function AdminInner() {
 
   const navTabs = [
     { id: "overview", labelZh: "控制台概览", labelEn: "Overview", icon: LayoutDashboard },
+    { id: "entities", labelZh: t("admin.nav.entities"), labelEn: "Entities", icon: Layers },
     { id: "definitions", labelZh: "元数据定义设计器", labelEn: "Definitions Designer", icon: Sliders },
     { id: "reviews", labelZh: "编目审核工作台", labelEn: "Reviews", icon: CheckSquare },
     { id: "merge", labelZh: "实体版本与合并", labelEn: "Entity Merge", icon: GitMerge },
@@ -251,36 +336,30 @@ function AdminInner() {
         {/* Left Sidebar */}
         <aside className="w-full md:w-60 shrink-0">
           <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none sticky top-20">
-            {navTabs.map((t) => {
-              const Icon = t.icon;
-              const active = activeTab === t.id;
+            {navTabs.map((tItem) => {
+              const Icon = tItem.icon;
+              const active = activeTab === tItem.id;
               return (
                 <button
-                  key={t.id}
+                  key={tItem.id}
                   type="button"
-                  onClick={() => setActiveTab(t.id as AdminTab)}
-                  className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-xs font-medium text-left transition-all whitespace-nowrap cursor-pointer ${
+                  onClick={() => setActiveTab(tItem.id as AdminTab)}
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-left whitespace-nowrap ${
                     active
-                      ? "bg-primary text-white border border-primary font-semibold shadow-xs"
-                      : "bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.04] text-gray-400 hover:text-white"
+                      ? "bg-primary text-white shadow-xs font-semibold"
+                      : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
-                  <span className="flex-1">{locale === "zh-CN" ? t.labelZh : t.labelEn}</span>
-                  {t.id === "reviews" && stats.pending > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-bold">
-                      {stats.pending}
-                    </span>
-                  )}
+                  <span>{locale === "zh-CN" ? tItem.labelZh : tItem.labelEn}</span>
                 </button>
               );
             })}
           </nav>
         </aside>
 
-        {/* Right Main Content */}
+        {/* Right Main Workbench */}
         <main className="flex-1 min-w-0">
-          {/* TAB 1: OVERVIEW */}
           {activeTab === "overview" && (
             <div className="space-y-6">
               <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
@@ -289,8 +368,8 @@ function AdminInner() {
                 </h2>
                 <p className="text-xs text-gray-400 leading-relaxed">
                   {locale === "zh-CN"
-                    ? "当前系统运行在 MetaFusion v2 模块化单体架构之上。核心元数据基于 PostgreSQL 稳定运转；动态类型、属性、关系与模板完全由后台定义驱动。"
-                    : "The platform runs on MetaFusion v2 modular monolith. PostgreSQL powers the pure metadata core, with dynamic definitions driving types, relations, and templates."}
+                    ? "当前系统运行在 MetaFusion 模块化架构之上。核心元数据基于 PostgreSQL 稳定运转；动态类型、属性、关系与模板完全由后台定义驱动。"
+                    : "The platform runs on MetaFusion modular architecture. PostgreSQL powers the pure metadata core, with dynamic definitions driving types, relations, and templates."}
                 </p>
               </div>
 
@@ -320,127 +399,271 @@ function AdminInner() {
                   <div className="text-sm font-semibold text-sky-400">HTTP-Only Cookie</div>
                 </div>
               </div>
+            </div>
+          )}
 
-              {/* Quick Jump Links */}
-              <div className="p-5 rounded-xl border border-white/[0.06] bg-white/[0.02]">
-                <h3 className="text-sm font-semibold text-white mb-3">
-                  {locale === "zh-CN" ? "快速操作通道" : "Quick Operations"}
-                </h3>
-                <div className="flex flex-wrap gap-2.5">
+          {activeTab === "entities" && (
+            <div className="space-y-4">
+              {/* Entities Header & Search */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <div>
+                  <h2 className="text-base font-semibold text-white">
+                    {t("admin.entities.title")}
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {t("admin.entities.desc")}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setActiveTab("definitions")}
-                    className="px-3.5 py-2 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs text-white cursor-pointer"
+                    onClick={loadEntities}
+                    className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs text-gray-300 transition-colors cursor-pointer"
+                    title="Refresh"
                   >
-                    {locale === "zh-CN" ? "编辑元数据定义 (Types & Relations) →" : "Edit Definitions →"}
+                    <RefreshCw className={`w-4 h-4 ${entitiesLoading ? "animate-spin text-primary" : ""}`} />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("reviews")}
-                    className="px-3.5 py-2 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs text-white cursor-pointer"
+                  <Link
+                    href="/new"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-xs font-medium text-white transition-colors"
                   >
-                    {locale === "zh-CN" ? "进入审核工作台 →" : "Open Review Workbench →"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("modules")}
-                    className="px-3.5 py-2 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-xs text-white cursor-pointer"
-                  >
-                    {locale === "zh-CN" ? "管理外围能力启停 →" : "Manage Capabilities →"}
-                  </button>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{t("catalog.newEntity")}</span>
+                  </Link>
                 </div>
               </div>
+
+              {/* Filter Row */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    loadEntities();
+                  }}
+                  className="sm:col-span-5 relative flex items-center"
+                >
+                  <Search className="absolute left-3 w-4 h-4 text-gray-500" />
+                  <input
+                    type="text"
+                    value={entitiesQ}
+                    onChange={(e) => setEntitiesQ(e.target.value)}
+                    placeholder={t("admin.entities.search")}
+                    className="w-full pl-9 pr-14 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-500 focus:border-primary outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="absolute right-1 px-2.5 py-0.5 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[11px] font-medium transition-colors"
+                  >
+                    {t("catalog.searchAction")}
+                  </button>
+                </form>
+
+                <div className="sm:col-span-3">
+                  <select
+                    value={entitiesKind}
+                    onChange={(e) => setEntitiesKind(e.target.value)}
+                    className="w-full py-1.5 px-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-gray-300 focus:border-primary outline-none"
+                  >
+                    <option value="all">{t("catalog.kind.all")}</option>
+                    {["work", "release", "agent", "collection", "content_unit", "expression", "medium", "track"].map((k) => (
+                      <option key={k} value={k}>{t(`catalog.kind.${k}`) || k}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-4">
+                  <select
+                    value={entitiesStatus}
+                    onChange={(e) => setEntitiesStatus(e.target.value)}
+                    className="w-full py-1.5 px-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-gray-300 focus:border-primary outline-none"
+                  >
+                    <option value="all">{locale === "zh-CN" ? "全部状态" : "All Statuses"}</option>
+                    <option value="published">{t("catalog.status.published")}</option>
+                    <option value="pending_review">{t("catalog.status.pending_review")}</option>
+                    <option value="draft">{t("catalog.status.draft")}</option>
+                    <option value="deleted">{t("catalog.status.deleted")}</option>
+                    <option value="merged">{t("catalog.status.merged")}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Table */}
+              {entitiesLoading ? (
+                <div className="py-20 text-center text-xs text-gray-500 font-mono flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-primary" />
+                  <span>{t("catalog.loading")}</span>
+                </div>
+              ) : entitiesList.length === 0 ? (
+                <div className="p-8 rounded-xl border border-dashed border-white/10 text-center text-xs text-gray-500 font-mono">
+                  {t("catalog.emptyTitle")}
+                </div>
+              ) : (
+                <div className="rounded-xl border border-white/[0.06] overflow-hidden bg-surface/40">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-white/[0.06] bg-white/[0.02] text-gray-400 font-mono">
+                        <th className="py-2.5 px-3 font-medium">{t("admin.entities.colTitle")}</th>
+                        <th className="py-2.5 px-3 font-medium">{t("admin.entities.colKind")}</th>
+                        <th className="py-2.5 px-3 font-medium">{t("admin.entities.colStatus")}</th>
+                        <th className="py-2.5 px-3 font-medium">{t("admin.entities.colTypes")}</th>
+                        <th className="py-2.5 px-3 font-medium">{t("admin.entities.colVersion")}</th>
+                        <th className="py-2.5 px-3 font-medium text-right">{t("admin.entities.colActions")}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04]">
+                      {entitiesList.map((e) => (
+                        <tr key={e.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="py-2.5 px-3">
+                            <Link href={`/catalog/${e.id}`} className="font-semibold text-white hover:text-primary transition-colors line-clamp-1">
+                              {e.title}
+                            </Link>
+                            <div className="text-[10px] text-gray-500 font-mono">ID: {e.id}</div>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] font-mono">
+                              {t(`catalog.kind.${e.kind}`) || e.kind}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
+                              e.status === "published" ? "bg-emerald-500/20 text-emerald-400" :
+                              e.status === "pending_review" ? "bg-amber-500/20 text-amber-400" :
+                              e.status === "deleted" ? "bg-rose-500/20 text-rose-400" :
+                              e.status === "merged" ? "bg-purple-500/20 text-purple-400" :
+                              "bg-gray-500/20 text-gray-400"
+                            }`}>
+                              {t(`catalog.status.${e.status}`) || e.status}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <div className="flex flex-wrap gap-1">
+                              {(e.types || []).map((tCode: string) => (
+                                <span key={tCode} className="px-1 py-0.2 rounded bg-white/[0.04] text-[9px] text-gray-400 font-mono">
+                                  {getTypeName(defs, tCode, locale)}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 font-mono text-[11px] text-gray-400">
+                            v{e.version || 1}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Link
+                                href={`/catalog/${e.id}`}
+                                className="px-2 py-1 rounded bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 hover:text-white text-[11px] transition-colors"
+                              >
+                                {t("admin.entities.edit")}
+                              </Link>
+                              {e.status !== "published" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleEntityLifecycle(e.id, "published")}
+                                  className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-[11px] transition-colors cursor-pointer"
+                                >
+                                  {t("admin.entities.approve")}
+                                </button>
+                              )}
+                              {e.status === "published" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleEntityLifecycle(e.id, "draft")}
+                                  className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[11px] transition-colors cursor-pointer"
+                                >
+                                  {t("admin.entities.reject")}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveTab("merge");
+                                  setMergeSource(e.id);
+                                }}
+                                className="px-2 py-1 rounded bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 text-[11px] transition-colors cursor-pointer"
+                              >
+                                {t("admin.entities.merge")}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
-          {/* TAB 2: DEFINITIONS DESIGNER */}
           {activeTab === "definitions" && (
-            <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-              <div className="mb-4 pb-4 border-b border-white/[0.06]">
-                <h2 className="text-lg font-bold text-white">
-                  {locale === "zh-CN" ? "动态元数据定义设计器" : "Dynamic Definitions Designer"}
-                </h2>
-                <p className="text-xs text-gray-400 mt-1">
-                  {locale === "zh-CN"
-                    ? "可视化维护多类型、语义关系（支持上下文）、属性字段组、受控词表及展示模板。支持版本化草稿、全量数据冲突影响分析与平滑发布。"
-                    : "GUI configuration for types, contextual relations, attribute groups, vocabularies, and templates. Includes draft impact analysis."}
-                </p>
-              </div>
-
-              {/* Embed Definitions Editor inside CatalogProvider */}
-              <div className="catalog-admin-wrapper">
-                <CatalogProvider>
-                  <DefinitionsEditor />
-                </CatalogProvider>
-              </div>
-            </div>
+            <CatalogProvider>
+              <DefinitionsEditor />
+            </CatalogProvider>
           )}
 
-          {/* TAB 3: REVIEWS */}
           {activeTab === "reviews" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-white/[0.06]">
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-bold text-white">
-                    {locale === "zh-CN" ? "编目审核工作台" : "Editorial Review Workbench"}
+                  <h2 className="text-base font-semibold text-white">
+                    {locale === "zh-CN" ? "编目审核工作台" : "Review Workbench"}
                   </h2>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {locale === "zh-CN"
-                      ? "审批来自编目员和创作者提交的未公开草稿，核验编辑说明与来源"
-                      : "Approve or reject submissions pending editorial review"}
+                  <p className="text-xs text-gray-400">
+                    {locale === "zh-CN" ? "审核用户提交的元数据条目修改与草稿" : "Approve or reject catalog drafts"}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={loadOverview}
-                  className="p-2 rounded-lg border border-white/10 text-gray-400 hover:text-white cursor-pointer"
-                  title="Refresh"
+                  className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-xs text-gray-300"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
               </div>
 
               {pendingItems.length === 0 ? (
-                <div className="py-16 text-center rounded-xl border border-dashed border-white/10 text-gray-500 font-mono text-xs">
-                  {locale === "zh-CN" ? "当前没有待审核的条目提交。" : "No pending submissions to review."}
+                <div className="p-8 rounded-xl border border-dashed border-white/10 text-center text-xs text-gray-500 font-mono">
+                  {locale === "zh-CN" ? "当前无待审核条目" : "No pending reviews at this moment"}
                 </div>
               ) : (
-                <div className="divide-y divide-white/[0.06] border border-white/10 rounded-xl bg-white/[0.01] overflow-hidden">
+                <div className="space-y-3">
                   {pendingItems.map((item) => (
-                    <div key={item.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-mono uppercase">
+                    <div
+                      key={item.id}
+                      className="p-4 rounded-xl border border-white/[0.06] bg-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-[10px] font-mono uppercase">
                             {item.kind}
                           </span>
-                          <h3 className="font-semibold text-white text-sm">{item.title}</h3>
-                          <span className="text-xs font-mono text-gray-500">ID: {item.id.slice(0, 8)}...</span>
+                          <span className="font-semibold text-sm text-white">{item.title}</span>
                         </div>
-                        <div className="text-xs text-gray-400 font-mono">
-                          {item.types?.join(", ") || "No types assigned"}
+                        <div className="text-xs text-gray-500 font-mono">
+                          ID: {item.id} · v{item.version}
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 shrink-0">
                         <Link
                           href={`/catalog/${item.id}`}
-                          className="px-3 py-1.5 rounded-lg border border-white/10 text-xs text-gray-300 hover:text-white"
+                          className="px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-xs text-gray-300"
                         >
-                          {locale === "zh-CN" ? "审查详情" : "Inspect"}
+                          {locale === "zh-CN" ? "查看详情" : "Inspect"}
                         </Link>
                         <button
                           type="button"
                           onClick={() => handleReviewAction(item.id, "published")}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-semibold"
                         >
-                          {locale === "zh-CN" ? "批准发布" : "Approve"}
+                          {locale === "zh-CN" ? "通过发布" : "Approve"}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleReviewAction(item.id, "draft")}
-                          className="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-medium cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-xs font-semibold"
                         >
-                          {locale === "zh-CN" ? "退回草稿" : "Reject"}
+                          {locale === "zh-CN" ? "驳回草稿" : "Reject"}
                         </button>
                       </div>
                     </div>
@@ -450,67 +673,65 @@ function AdminInner() {
             </div>
           )}
 
-          {/* TAB 4: MERGE */}
           {activeTab === "merge" && (
-            <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] max-w-2xl">
-              <h2 className="text-lg font-bold text-white mb-2">
-                {locale === "zh-CN" ? "实体合并与版本管理" : "Entity Merge & Lifecycle"}
-              </h2>
-              <p className="text-xs text-gray-400 mb-6 leading-relaxed">
-                {locale === "zh-CN"
-                  ? "合并同类型的重复实体。源实体的收录位置、关系、表达引用与动态属性将自动重定向并写入目标实体，并保留完整的原子修订审计日志。"
-                  : "Atomically merge duplicate entities of the same kind. Rewrites references and records an audit log."}
-              </p>
+            <div className="space-y-6">
+              <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <h2 className="text-base font-semibold text-white mb-1">
+                  {locale === "zh-CN" ? "实体合并 (Entity Merge)" : "Entity Merge"}
+                </h2>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  {locale === "zh-CN"
+                    ? "将重复建档的源实体合并至目标权威实体。合并后源实体将重定向 (redirect_id) 至目标实体，历史修订与反向收录全部完整保留，满足 ACID 审计合规。"
+                    : "Merge duplicate source entity into target authority entity. Redirects source to target, preserving audit trail."}
+                </p>
+              </div>
 
-              <form onSubmit={handleMergeSubmit} className="space-y-4">
+              <form onSubmit={handleMergeSubmit} className="p-5 rounded-xl bg-black/20 border border-white/[0.06] space-y-4 max-w-xl">
                 <div>
-                  <label className="block text-xs font-mono text-gray-400 mb-1">
-                    {locale === "zh-CN" ? "源实体 UUID (Source ID - 将被合并并重定向)" : "Source Entity UUID"}
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    {locale === "zh-CN" ? "源实体 UUID (将被重定向)" : "Source Entity UUID"}
                   </label>
                   <input
                     type="text"
                     required
                     value={mergeSource}
                     onChange={(e) => setMergeSource(e.target.value)}
-                    placeholder="00000000-0000-0000-0000-000000000000"
-                    className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-xs font-mono text-white outline-none focus:border-primary"
+                    placeholder="e.g. 5d1211ef-afe5-46fb-bfcb-706d84cebaec"
+                    className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs font-mono text-white placeholder:text-gray-600 focus:border-primary outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-gray-400 mb-1">
-                    {locale === "zh-CN" ? "目标保留实体 UUID (Target ID - 保留的主体)" : "Target Entity UUID"}
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    {locale === "zh-CN" ? "目标实体 UUID (权威留存实体)" : "Target Entity UUID"}
                   </label>
                   <input
                     type="text"
                     required
                     value={mergeTarget}
                     onChange={(e) => setMergeTarget(e.target.value)}
-                    placeholder="00000000-0000-0000-0000-000000000000"
-                    className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-xs font-mono text-white outline-none focus:border-primary"
+                    placeholder="e.g. ea8c8cd1-c75b-4919-9f02-b61e9a082b44"
+                    className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs font-mono text-white placeholder:text-gray-600 focus:border-primary outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-gray-400 mb-1">
-                    {locale === "zh-CN" ? "合并原因与证据说明 (Edit Note)" : "Edit Note"}
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    {locale === "zh-CN" ? "合并说明 (Edit Note)" : "Merge Note"}
                   </label>
-                  <input
-                    type="text"
-                    required
+                  <textarea
+                    rows={2}
                     value={mergeNote}
                     onChange={(e) => setMergeNote(e.target.value)}
-                    placeholder={locale === "zh-CN" ? "例：合并重复创建的同张专辑条目" : "e.g., Merging duplicated entries"}
-                    className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white outline-none focus:border-primary"
+                    placeholder={locale === "zh-CN" ? "注明合并原因，如重复条目收敛..." : "Reason for merge..."}
+                    className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-600 focus:border-primary outline-none"
                   />
                 </div>
 
                 {mergeMessage && (
-                  <div
-                    className={`p-3 rounded-lg text-xs font-mono ${
-                      mergeMessage.startsWith("Error") ? "bg-rose-500/10 text-rose-400" : "bg-emerald-500/10 text-emerald-400"
-                    }`}
-                  >
+                  <div className={`p-3 rounded-lg text-xs font-mono ${
+                    mergeMessage.startsWith("Error") ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"
+                  }`}>
                     {mergeMessage}
                   </div>
                 )}
@@ -518,68 +739,69 @@ function AdminInner() {
                 <button
                   type="submit"
                   disabled={merging}
-                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-medium flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
                 >
-                  <GitMerge className="w-4 h-4" />
-                  <span>{merging ? "Merging..." : locale === "zh-CN" ? "执行原子合并" : "Perform Merge"}</span>
+                  {merging ? (locale === "zh-CN" ? "正在执行合并..." : "Merging...") : (locale === "zh-CN" ? "确认执行合并" : "Execute Merge")}
                 </button>
               </form>
             </div>
           )}
 
-          {/* TAB 5: MODULES */}
           {activeTab === "modules" && (
             <div className="space-y-4">
-              <div>
-                <h2 className="text-lg font-bold text-white">
-                  {locale === "zh-CN" ? "外围模块与能力启停" : "Peripheral Capabilities Management"}
-                </h2>
-                <p className="text-xs text-gray-400 mt-1">
-                  {locale === "zh-CN"
-                    ? "模块按 Semver 与 DAG 依赖编排，外围故障绝不拖垮核心元数据。支持在线级联启用或停用。"
-                    : "Manage decoupled modules safely with Semver and DAG cascade protection."}
-                </p>
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-white">
+                    {locale === "zh-CN" ? "外围解耦模块拓扑与启停" : "Peripheral Modules Governance"}
+                  </h2>
+                  <p className="text-xs text-gray-400">
+                    {locale === "zh-CN" ? "按需启用外围服务；核心元数据即使在所有模块停用时亦能 100% 独立运行" : "Core operates 100% standalone"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadOverview}
+                  className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-xs text-gray-300"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </button>
               </div>
 
-              <div className="divide-y divide-white/[0.06] border border-white/10 rounded-xl bg-white/[0.01] overflow-hidden">
-                {modules.map((m) => (
-                  <div key={m.id} className="p-4 flex items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-white text-sm font-mono">{m.id}</span>
-                        <span className="text-[11px] font-mono text-gray-500">v{m.version || "2.0.0"}</span>
-                        {m.healthy ? (
-                          <span className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-mono">
-                            HEALTHY
-                          </span>
-                        ) : (
-                          <span className="px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-400 text-[10px] font-mono">
-                            UNHEALTHY
-                          </span>
-                        )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {modules.map((mod) => (
+                  <div
+                    key={mod.id}
+                    className="p-4 rounded-xl border border-white/[0.06] bg-black/20 flex items-start justify-between gap-4"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white text-sm font-mono">{mod.id}</span>
+                        <span className="text-[10px] text-gray-500 font-mono">v{mod.version}</span>
                       </div>
-                      <div className="text-xs text-gray-400">
-                        {m.id === "archive" && (locale === "zh-CN" ? "物理文件归档与下载存储（CAS / S3）" : "File archive & CAS storage")}
-                        {m.id === "playback" && (locale === "zh-CN" ? "音频/视频在线流媒体播放与预览服务" : "Streaming playback & media previews")}
-                        {m.id === "media" && (locale === "zh-CN" ? "异步媒体技术分析（ffprobe、MP4 转码）" : "Asynchronous ffprobe & transcoding")}
-                        {m.id === "community" && (locale === "zh-CN" ? "条目评论与社群讨论板块" : "Discussion posts & community comments")}
-                        {m.id === "records" && (locale === "zh-CN" ? "用户个人收藏、评分、阅读与收听进度" : "Favorites, ratings, and progress tracking")}
-                        {m.id === "exchange" && (locale === "zh-CN" ? "元数据 JSON 导入导出与提案流水线" : "Metadata JSON import/export pipeline")}
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className={`w-2 h-2 rounded-full ${mod.enabled ? "bg-emerald-400" : "bg-gray-600"}`} />
+                        <span className="text-gray-400 font-mono text-[11px]">
+                          {mod.enabled ? (locale === "zh-CN" ? "已激活启用" : "Active") : (locale === "zh-CN" ? "已独立停用" : "Disabled")}
+                        </span>
                       </div>
+                      {Object.keys(mod.dependencies || {}).length > 0 && (
+                        <div className="text-[10px] text-gray-500 font-mono pt-1">
+                          Deps: {JSON.stringify(mod.dependencies)}
+                        </div>
+                      )}
                     </div>
 
                     <button
                       type="button"
                       disabled={loadingModules}
-                      onClick={() => handleToggleModule(m.id, m.enabled)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
-                        m.enabled
-                          ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                          : "bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                      onClick={() => handleToggleModule(mod.id, mod.enabled)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                        mod.enabled
+                          ? "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400"
+                          : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400"
                       }`}
                     >
-                      <Power className="w-3.5 h-3.5" />
-                      <span>{m.enabled ? (locale === "zh-CN" ? "停用模块" : "Disable") : (locale === "zh-CN" ? "启用模块" : "Enable")}</span>
+                      {mod.enabled ? (locale === "zh-CN" ? "停用模块" : "Disable") : (locale === "zh-CN" ? "启用模块" : "Enable")}
                     </button>
                   </div>
                 ))}
@@ -587,25 +809,25 @@ function AdminInner() {
             </div>
           )}
 
-          {/* TAB 6: USERS */}
           {activeTab === "users" && (
-            <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06] max-w-2xl">
-              <h2 className="text-lg font-bold text-white mb-2">
-                {locale === "zh-CN" ? "用户与角色权限" : "Users & Access Control"}
-              </h2>
-              <p className="text-xs text-gray-400 mb-6">
-                {locale === "zh-CN"
-                  ? "管理已注册账号及其角色权限 (Admin, Editor, User)。"
-                  : "Provision accounts and manage RBAC roles."}
-              </p>
+            <div className="space-y-6">
+              <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <h2 className="text-base font-semibold text-white mb-1">
+                  {locale === "zh-CN" ? "用户与权限分配" : "User Roles & Permissions"}
+                </h2>
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  {locale === "zh-CN"
+                    ? "元数据核心采用轻量 RBAC：admin 具备全局定义与审核权限，editor 具备条目编目与修订权限。"
+                    : "Role-based access: admin has schema/audit control, editor can edit and propose revisions."}
+                </p>
+              </div>
 
-              <form onSubmit={handleCreateUser} className="space-y-4">
-                <h3 className="text-sm font-semibold text-white">
-                  {locale === "zh-CN" ? "创建新编目员账号" : "Create Editor Account"}
+              <form onSubmit={handleCreateUser} className="p-5 rounded-xl bg-black/20 border border-white/[0.06] space-y-4 max-w-md">
+                <h3 className="font-semibold text-white text-xs">
+                  {locale === "zh-CN" ? "添加编目成员账号" : "Create Editor Account"}
                 </h3>
-
                 <div>
-                  <label className="block text-xs font-mono text-gray-400 mb-1">
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
                     {locale === "zh-CN" ? "用户名" : "Username"}
                   </label>
                   <input
@@ -613,32 +835,29 @@ function AdminInner() {
                     required
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value)}
-                    placeholder="editor_user"
-                    className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white outline-none focus:border-primary"
+                    placeholder="e.g. curator_01"
+                    className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-600 focus:border-primary outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-mono text-gray-400 mb-1">
-                    {locale === "zh-CN" ? "初始密码 (最少 12 位)" : "Initial Password (min 12 chars)"}
+                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                    {locale === "zh-CN" ? "初始密码" : "Password"}
                   </label>
                   <input
                     type="password"
                     required
-                    minLength={12}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="••••••••••••"
-                    className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white outline-none focus:border-primary"
+                    placeholder="••••••••"
+                    className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-600 focus:border-primary outline-none"
                   />
                 </div>
 
                 {userActionMsg && (
-                  <div
-                    className={`p-3 rounded-lg text-xs font-mono ${
-                      userActionMsg.startsWith("Error") ? "bg-rose-500/10 text-rose-400" : "bg-emerald-500/10 text-emerald-400"
-                    }`}
-                  >
+                  <div className={`p-3 rounded-lg text-xs font-mono ${
+                    userActionMsg.startsWith("Error") ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"
+                  }`}>
                     {userActionMsg}
                   </div>
                 )}
@@ -646,9 +865,9 @@ function AdminInner() {
                 <button
                   type="submit"
                   disabled={creatingUser}
-                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-medium cursor-pointer"
+                  className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
                 >
-                  {creatingUser ? "Creating..." : locale === "zh-CN" ? "创建编目账号" : "Create Account"}
+                  {creatingUser ? (locale === "zh-CN" ? "正在创建..." : "Creating...") : (locale === "zh-CN" ? "创建账号" : "Create User")}
                 </button>
               </form>
             </div>
@@ -661,7 +880,7 @@ function AdminInner() {
 
 export default function AdminPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background grid place-items-center text-xs font-mono text-gray-500">Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-background text-gray-500 font-mono text-xs grid place-items-center">Loading Admin...</div>}>
       <AdminInner />
     </Suspense>
   );
