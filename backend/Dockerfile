@@ -46,6 +46,10 @@ COPY --from=builder /app/bin/migrate /app/migrate
 EXPOSE 8080
 ENTRYPOINT ["/app/server"]
 
+# Optional media processing stays dormant until enabled in catalog configuration.
+FROM server AS catalog-server
+RUN apk add --no-cache ffmpeg
+
 # ==============================================================================
 # Stage 4: Worker Runtime (Transcoder with FFmpeg, Mediainfo, libvips)
 # ==============================================================================
