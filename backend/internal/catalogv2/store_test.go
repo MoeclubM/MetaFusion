@@ -68,9 +68,9 @@ func TestPostgresCatalog(t *testing.T) {
 	needed, _ := s.SetupNeeded(ctx)
 	var admin User
 	if needed {
-		admin, err = s.CreateUser(ctx, username, "test-password-12345", true, nil)
+		admin, err = s.CreateUser(ctx, username, username + "@example.com", "test-password-12345", true, nil)
 	} else {
-		err = s.DB.QueryRow("SELECT id,username,role FROM catalog.users WHERE role='admin' LIMIT 1").Scan(&admin.ID, &admin.Username, &admin.Role)
+		err = s.DB.QueryRow("SELECT id,username,COALESCE(email,''),role FROM catalog.users WHERE role='admin' LIMIT 1").Scan(&admin.ID, &admin.Username, &admin.Email, &admin.Role)
 	}
 	if err != nil {
 		t.Fatal(err)

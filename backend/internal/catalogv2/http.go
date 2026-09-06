@@ -112,12 +112,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		c.Next()
 	})
-	api.GET("/setup", func(c *gin.Context) {
+	setupGetHandler := func(c *gin.Context) {
 		needed, err := s.SetupNeeded(c.Request.Context())
-		respond(c, gin.H{"needed": needed}, err)
-	})
+		respond(c, gin.H{"needed": needed, "is_initialized": !needed, "has_admin": !needed}, err)
+	}
+	api.GET("/setup", setupGetHandler)
 	type credentials struct {
 		Username string `json:"username"`
+		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
 	var attempts sync.Map
@@ -149,7 +151,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		if !body(c, &in) {
 			return
 		}
-		u, err := s.CreateUser(c.Request.Context(), in.Username, in.Password, true, nil)
+		u, err := s.CreateUser(c.Request.Context(), in.Username, in.Email, in.Password, true, nil)
 		respond(c, u, err)
 	})
 	api.POST("/auth/login", limiter, func(c *gin.Context) {
@@ -209,7 +211,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		if !body(c, &in) {
 			return
 		}
-		u, err := s.CreateUser(c.Request.Context(), in.Username, in.Password, false, user(c))
+		u, err := s.CreateUser(c.Request.Context(), in.Username, in.Email, in.Password, false, user(c))
 		respond(c, u, err)
 	})
 	api.PUT("/admin/users/:id/role", required(true), func(c *gin.Context) {
@@ -336,7 +338,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			"id":       u.ID,
 			"username": u.Username,
 			"role":     u.Role,
-			"email":    fmt.Sprintf("%s@findverse.cc", u.Username),
+			"email":    u.Email,
 		})
 	})
 	cat := api.Group("/catalog")
