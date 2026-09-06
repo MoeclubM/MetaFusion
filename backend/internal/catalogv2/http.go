@@ -333,6 +333,23 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	})
 	cat := api.Group("/catalog")
 	cat.GET("/definitions", func(c *gin.Context) { v, err := s.Definitions(c.Request.Context()); respond(c, v, err) })
+	cat.GET("/shelves", func(c *gin.Context) {
+		shelves := []gin.H{
+			{"slug": "music", "name_zh": "音乐与唱片", "name_en": "Music & Records", "icon": "music", "sort_order": 1, "query_tags": []string{"音乐", "专辑", "原声"}, "require_all_tags": false, "types": []string{"album", "single"}},
+			{"slug": "anime-series", "name_zh": "TV 动画番剧", "name_en": "Anime Series", "icon": "tv", "sort_order": 2, "query_tags": []string{"剧集", "动画"}, "require_all_tags": false, "types": []string{"animation"}},
+			{"slug": "anime-movies", "name_zh": "动画剧场版与电影", "name_en": "Anime Movies", "icon": "film", "sort_order": 3, "query_tags": []string{"电影", "动画"}, "require_all_tags": false, "types": []string{"animation", "film"}},
+			{"slug": "books", "name_zh": "文学与轻小说", "name_en": "Books & Literature", "icon": "book", "sort_order": 4, "query_tags": []string{"图书", "小说", "轻小说"}, "require_all_tags": false, "types": []string{"novel", "book"}},
+			{"slug": "games", "name_zh": "独立游戏与视觉小说", "name_en": "Indie Games", "icon": "gamepad", "sort_order": 5, "query_tags": []string{"游戏", "独立游戏", "视觉小说"}, "require_all_tags": false, "types": []string{"game", "visual_novel"}},
+			{"slug": "photobooks", "name_zh": "摄影写真与同人创作", "name_en": "Photobooks & Creations", "icon": "special", "sort_order": 6, "query_tags": []string{"写真", "同人", "翻唱"}, "require_all_tags": false, "types": []string{"photobook", "doujin"}},
+		}
+		c.JSON(200, shelves)
+	})
+	cat.GET("/works", func(c *gin.Context) {
+		limit, _ := strconv.Atoi(c.DefaultQuery("limit", c.DefaultQuery("page_size", "20")))
+		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
+		items, err := s.List(c.Request.Context(), ListOptions{Kind: "work", Query: c.Query("q"), Limit: limit, Offset: offset}, user(c))
+		respond(c, gin.H{"items": items, "total": len(items)}, err)
+	})
 	cat.GET("/entities", func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		offset, _ := strconv.Atoi(c.Query("offset"))
