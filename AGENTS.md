@@ -19,9 +19,9 @@
 5. 默认在当前分支提交。真正的新功能从 `main` 建功能分支（默认 `codex/` 前缀），但不得为切分支丢弃已有改动。未经明确授权不 force push；获准推送时先确认远端状态。
 6. 检查失败时区分本次引入的问题与既有/环境问题；修复本次问题，无法验证的项目明确报告，不以“已通过”替代。提交后再次确认工作区范围。
 
-## v2 运行时优先说明
+## 运行时与架构说明
 
-默认应用入口为 `/api/v2`，实现位于 `backend/internal/catalogv2`，前端为 `/catalog`；只有显式 `METAFUSION_MODE=legacy` 才启动旧系统。下文 CanonicalEntry、单 Work 发行、000006 和 source_urls 规则仅适用于 v1。v2 使用 ContentUnit 与 Expression、Release.subjects 和跨 Work TrackContent；详情见 [v2 教程](docs-site/docs/catalog-v2.md)。不自动导入或清空旧数据。
+系统处于快速迭代开发阶段，采用单一、纯净、无历史包袱的标准元数据架构。核心应用统一入口为 `/api`（兼容 `/api/v2` 别名），实现位于 `backend/internal/catalogv2`，前端主体路由为 `/catalog`。系统使用固定实体骨架（Agent、Work、ContentUnit、Expression、Release、Medium、Track）、Release.subjects 和跨 Work TrackContent；详情见 [元数据目录教程](docs-site/docs/catalog-v2.md)。
 
 ## 3. 项目导航与事实来源
 

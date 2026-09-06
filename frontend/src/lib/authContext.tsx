@@ -28,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await fetch("/api/v2/auth/logout", {
+      await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "same-origin",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -41,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refreshProfile = async () => {
     try {
-      const res = await fetch("/api/v2/auth/me", {
+      const res = await fetch("/api/auth/me", {
         credentials: "same-origin",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -68,7 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (savedToken) {
       setToken(savedToken);
     }
-    fetch("/api/v2/auth/me", {
+    fetch("/api/auth/me", {
       credentials: "same-origin",
       headers: savedToken ? { Authorization: `Bearer ${savedToken}` } : {},
     })

@@ -2026,7 +2026,7 @@ export interface InitialSetupResult {
 
 export async function fetchSetupStatus(): Promise<SetupStatusResponse> {
   try {
-    const res = await fetch("/api/v2/setup", { credentials: "same-origin" });
+    const res = await fetch("/api/setup", { credentials: "same-origin" });
     if (res.ok) {
       const data = await res.json();
       return { is_initialized: !data.needed, has_admin: !data.needed, site_name: "MetaFusion", total_users: 1 };

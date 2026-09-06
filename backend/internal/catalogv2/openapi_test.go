@@ -16,10 +16,12 @@ func TestOpenAPIRouteCoverage(t *testing.T) {
 	HTTP{Store: &Store{}}.Register(r)
 	paths := doc["paths"].(map[string]any)
 	for _, route := range r.Routes() {
-		if route.Path == "/api/v2/openapi.json" {
+		if route.Path == "/api/v2/openapi.json" || route.Path == "/api/openapi.json" {
 			continue
 		}
-		path := strings.ReplaceAll(strings.TrimPrefix(route.Path, "/api/v2"), ":id", "{id}")
+		clean := strings.TrimPrefix(route.Path, "/api/v2")
+		clean = strings.TrimPrefix(clean, "/api")
+		path := strings.ReplaceAll(clean, ":id", "{id}")
 		p, ok := paths[path].(map[string]any)
 		if !ok || p[strings.ToLower(route.Method)] == nil {
 			t.Fatalf("undocumented endpoint: %s %s", route.Method, path)
