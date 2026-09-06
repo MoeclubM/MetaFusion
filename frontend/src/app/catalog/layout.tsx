@@ -1,4 +1,4 @@
-import { CatalogProvider } from "@/components/catalog-v2/CatalogProvider";
+import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { Navbar } from "@/components/Navbar";
 import "./catalog.css";
 

@@ -63,18 +63,18 @@ export function Browse() {
     <>
       <div className="cv-heading">
         <div>
-          <span className="cv-eyebrow">{t("catalogV2.tagline")}</span>
-          <h1>{t("catalogV2.catalog")}</h1>
-          <p className="cv-muted">{t("catalogV2.intro")}</p>
+          <span className="cv-eyebrow">{t("catalog.tagline")}</span>
+          <h1>{t("catalog.catalog")}</h1>
+          <p className="cv-muted">{t("catalog.intro")}</p>
         </div>
         <Link className="cv-primary" href="/new">
-          {t("catalogV2.create")}
+          {t("catalog.create")}
         </Link>
       </div>
       <div className="cv-filters">
         <input
-          aria-label={t("catalogV2.search")}
-          placeholder={t("catalogV2.search")}
+          aria-label={t("catalog.search")}
+          placeholder={t("catalog.search")}
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
@@ -82,29 +82,29 @@ export function Browse() {
           }}
         />
         <select
-          aria-label={t("catalogV2.kindLabel")}
+          aria-label={t("catalog.kindLabel")}
           value={kind}
           onChange={(e) => {
             setKind(e.target.value);
             setOffset(0);
           }}
         >
-          <option value="">{t("catalogV2.allKinds")}</option>
+          <option value="">{t("catalog.allKinds")}</option>
           {kinds.map((k) => (
             <option key={k} value={k}>
-              {t(`catalogV2.kind.${k}`)}
+              {t(`catalog.kind.${k}`)}
             </option>
           ))}
         </select>
         <select
-          aria-label={t("catalogV2.types")}
+          aria-label={t("catalog.types")}
           value={type}
           onChange={(e) => {
             setType(e.target.value);
             setOffset(0);
           }}
         >
-          <option value="">{t("catalogV2.allTypes")}</option>
+          <option value="">{t("catalog.allTypes")}</option>
           {Object.entries(definition?.document.types || {}).map(([k, v]) => (
             <option value={k} key={k}>
               {local(v.names, locale, "", k)}
@@ -113,30 +113,30 @@ export function Browse() {
         </select>
         {user && (
           <select
-            aria-label={t("catalogV2.status")}
+            aria-label={t("catalog.status")}
             value={status}
             onChange={(e) => {
               setStatus(e.target.value);
               setOffset(0);
             }}
           >
-            <option value="">{t("catalogV2.allStates")}</option>
+            <option value="">{t("catalog.allStates")}</option>
             {["draft", "pending_review", "published"].map((s) => (
               <option value={s} key={s}>
-                {t(`catalogV2.state.${s}`)}
+                {t(`catalog.state.${s}`)}
               </option>
             ))}
           </select>
         )}
         <select
-          aria-label={t("catalogV2.filterField")}
+          aria-label={t("catalog.filterField")}
           value={field}
           onChange={(e) => {
             setField(e.target.value);
             setOffset(0);
           }}
         >
-          <option value="">{t("catalogV2.filterField")}</option>
+          <option value="">{t("catalog.filterField")}</option>
           {Object.entries(definition?.document.fields || {})
             .filter(([, v]) => v.searchable)
             .map(([k, v]) => (
@@ -147,7 +147,7 @@ export function Browse() {
         </select>
         {field && (
           <input
-            aria-label={t("catalogV2.filterValue")}
+            aria-label={t("catalog.filterValue")}
             value={value}
             onChange={(e) => {
               setValue(e.target.value);
@@ -162,7 +162,7 @@ export function Browse() {
           className="cv-primary"
           href={`/compare?ids=${selected.join(",")}`}
         >
-          {t("catalogV2.compare")}
+          {t("catalog.compare")}
         </Link>
       )}
       <div className="cv-cards">
@@ -173,7 +173,7 @@ export function Browse() {
             )}
             <div className="cv-card-body">
               <span className="cv-eyebrow">
-                {t(`catalogV2.kind.${e.kind}`)}
+                {t(`catalog.kind.${e.kind}`)}
               </span>
               <h2>
                 <Link href={`/catalog/${e.id}`}>{title(e, locale)}</Link>
@@ -185,7 +185,7 @@ export function Browse() {
                   </span>
                 ))}
               </div>
-              <small>{t(`catalogV2.state.${e.status}`)}</small>
+              <small>{t(`catalog.state.${e.status}`)}</small>
               <dl>
                 {Array.from(
                   new Set(
@@ -230,7 +230,7 @@ export function Browse() {
                       )
                     }
                   />
-                  {t("catalogV2.compare")}
+                  {t("catalog.compare")}
                 </label>
               )}
             </div>
@@ -238,20 +238,20 @@ export function Browse() {
         ))}
       </div>
       {!items.length && !error && (
-        <p className="cv-empty">{t("catalogV2.empty")}</p>
+        <p className="cv-empty">{t("catalog.empty")}</p>
       )}
       <div className="cv-row">
         <button
           disabled={offset === 0}
           onClick={() => setOffset(Math.max(0, offset - 30))}
         >
-          {t("catalogV2.previous")}
+          {t("catalog.previous")}
         </button>
         <button
           disabled={items.length < 30}
           onClick={() => setOffset(offset + 30)}
         >
-          {t("catalogV2.next")}
+          {t("catalog.next")}
         </button>
       </div>
     </>
@@ -314,7 +314,7 @@ export function Account() {
 
   return (
     <div className="cv-narrow" style={{ maxWidth: 860 }}>
-      <h1>{t(setup ? "catalogV2.setup" : "catalogV2.account")}</h1>
+      <h1>{t(setup ? "catalog.setup" : "catalog.account")}</h1>
 
       {user ? (
         <>
@@ -352,7 +352,7 @@ export function Account() {
                   }}
                   style={{ fontSize: 13, padding: "6px 14px" }}
                 >
-                  {t("catalogV2.logout")}
+                  {t("catalog.logout")}
                 </button>
                 <button
                   type="button"
@@ -669,7 +669,7 @@ export function Account() {
 
               {/* Create Editor Form */}
               <section className="cv-group">
-                <h2>{t("catalogV2.createEditor")}</h2>
+                <h2>{t("catalog.createEditor")}</h2>
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -693,7 +693,7 @@ export function Account() {
                     setPassword={setNewEditorPassword}
                   />
                   <button className="cv-primary" type="submit" style={{ marginTop: 10 }}>
-                    {t("catalogV2.create")}
+                    {t("catalog.create")}
                   </button>
                 </form>
               </section>
@@ -724,7 +724,7 @@ export function Account() {
             setPassword={setPassword}
           />
           <button className="cv-primary" disabled={busy}>
-            {t(setup ? "catalogV2.setup" : "catalogV2.login")}
+            {t(setup ? "catalog.setup" : "catalog.login")}
           </button>
         </form>
       )}
@@ -747,7 +747,7 @@ function Credentials({
   return (
     <>
       <label>
-        {t("catalogV2.username")}
+        {t("catalog.username")}
         <input
           autoComplete="username"
           required
@@ -756,7 +756,7 @@ function Credentials({
         />
       </label>
       <label>
-        {t("catalogV2.password")}
+        {t("catalog.password")}
         <input
           type="password"
           autoComplete="current-password"
@@ -766,7 +766,7 @@ function Credentials({
           onChange={(e) => setPassword(e.target.value)}
         />
       </label>
-      <p className="cv-muted">{t("catalogV2.passwordHint")}</p>
+      <p className="cv-muted">{t("catalog.passwordHint")}</p>
     </>
   );
 }
@@ -827,7 +827,7 @@ export function Detail({ id }: { id: string }) {
     void load();
   }, [id, user?.id]);
   if (error && !e) return <ErrorMessage error={error} />;
-  if (!e || !definition) return <p>{t("catalogV2.loading")}</p>;
+  if (!e || !definition) return <p>{t("catalog.loading")}</p>;
   const d = definition.document;
   if (editing)
     return (
@@ -872,7 +872,7 @@ export function Detail({ id }: { id: string }) {
   const remaining = attributeKeys.filter((k) => !displayedFields.has(k));
   if (remaining.length)
     sections.push({
-      names: { [locale]: t("catalogV2.attributes") },
+      names: { [locale]: t("catalog.attributes") },
       fields: remaining,
     });
   const flatDirectory = selectedTemplates.some((x) => x.directory === "list");
@@ -894,7 +894,7 @@ export function Detail({ id }: { id: string }) {
           >
             <span>{x.number || x.position || "—"}</span>
             <Link href={`/catalog/${x.id}`}>{title(x, locale)}</Link>
-            <small>{t(`catalogV2.kind.${x.kind}`)}</small>
+            <small>{t(`catalog.kind.${x.kind}`)}</small>
             {x.contents?.map((c, i) => (
               <EntityLink key={i} id={c.expression_id} />
             ))}
@@ -906,18 +906,18 @@ export function Detail({ id }: { id: string }) {
     <>
       <div className="cv-heading">
         <div>
-          <span className="cv-eyebrow">{t(`catalogV2.kind.${e.kind}`)}</span>
+          <span className="cv-eyebrow">{t(`catalog.kind.${e.kind}`)}</span>
           <h1>{title(e, locale)}</h1>
           <p className="cv-muted">
             {e.title !== title(e, locale) && e.title} ·{" "}
-            {t(`catalogV2.state.${e.status}`)}
+            {t(`catalog.state.${e.status}`)}
           </p>
         </div>
         {user &&
           (user.role === "admin" ||
             (e.created_by === user.id && e.status !== "published")) && (
             <button onClick={() => setEditing(true)}>
-              {t("catalogV2.edit")}
+              {t("catalog.edit")}
             </button>
           )}
       </div>
@@ -976,12 +976,12 @@ export function Detail({ id }: { id: string }) {
         </aside>
         <div>
           <section>
-            <h2>{t("catalogV2.overview")}</h2>
+            <h2>{t("catalog.overview")}</h2>
             <p className="cv-summary">
               {e.translations?.[locale]?.summary ||
                 e.translations?.["en-US"]?.summary ||
                 e.translations?.[e.original_language]?.summary ||
-                t("catalogV2.noSummary")}
+                t("catalog.noSummary")}
             </p>
             {Object.entries(e.translations || {}).map(([loc, tr]) => (
               <p className="cv-muted" key={loc}>
@@ -991,7 +991,7 @@ export function Detail({ id }: { id: string }) {
           </section>
           {!!e.subjects?.length && (
             <section>
-              <h2>{t("catalogV2.subjects")}</h2>
+              <h2>{t("catalog.subjects")}</h2>
               {e.subjects.map((s, i) => (
                 <p key={i}>
                   <EntityLink id={s.work_id} /> ·{" "}
@@ -1007,14 +1007,14 @@ export function Detail({ id }: { id: string }) {
           )}
           {!!e.contents?.length && (
             <section>
-              <h2>{t("catalogV2.contents")}</h2>
+              <h2>{t("catalog.contents")}</h2>
               {e.contents.map((c, i) => (
                 <div className="cv-directory-row" key={i}>
                   <span>{c.position}</span>
                   <EntityLink id={c.expression_id} />
                   <span>
                     {Object.entries(c.locator || {})
-                      .map(([k, v]) => `${t(`catalogV2.locator.${k}`)}: ${v}`)
+                      .map(([k, v]) => `${t(`catalog.locator.${k}`)}: ${v}`)
                       .join(" · ")}
                   </span>
                 </div>
@@ -1024,7 +1024,7 @@ export function Detail({ id }: { id: string }) {
           {!!children.length && (
             <section>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <h2 style={{ margin: 0 }}>{t("catalogV2.directory")}</h2>
+                <h2 style={{ margin: 0 }}>{t("catalog.directory")}</h2>
                 {children.filter((x) => x.kind === "release").length >= 2 && (
                   <Link
                     href={`/compare?ids=${children.filter((x) => x.kind === "release").map((r) => r.id).slice(0, 6).join(",")}`}
@@ -1050,7 +1050,7 @@ export function Detail({ id }: { id: string }) {
           )}
           <section>
             <div className="cv-heading">
-              <h2>{t("catalogV2.relations")}</h2>
+              <h2>{t("catalog.relations")}</h2>
               {user && (
                 <button
                   onClick={() =>
@@ -1064,7 +1064,7 @@ export function Detail({ id }: { id: string }) {
                     })
                   }
                 >
-                  {t("catalogV2.add")}
+                  {t("catalog.add")}
                 </button>
               )}
             </div>
@@ -1114,7 +1114,7 @@ export function Detail({ id }: { id: string }) {
                       </dl>
                       {user && (
                         <button onClick={() => setRelation(r)}>
-                          {t("catalogV2.edit")}
+                          {t("catalog.edit")}
                         </button>
                       )}
                     </div>
@@ -1147,7 +1147,7 @@ export function Detail({ id }: { id: string }) {
                 }}
               >
                 <label>
-                  {t("catalogV2.relationType")}
+                  {t("catalog.relationType")}
                   <select
                     required
                     value={relation.type}
@@ -1160,7 +1160,7 @@ export function Detail({ id }: { id: string }) {
                       })
                     }
                   >
-                    <option value="">{t("catalogV2.select")}</option>
+                    <option value="">{t("catalog.select")}</option>
                     {Object.entries(d.relations)
                       .filter(
                         ([, v]) => v.enabled && v.source_kinds.includes(e.kind),
@@ -1173,7 +1173,7 @@ export function Detail({ id }: { id: string }) {
                   </select>
                 </label>
                 <label>
-                  {t("catalogV2.target")}
+                  {t("catalog.target")}
                   <EntityPicker
                     kinds={rt?.target_kinds}
                     value={relation.target_id}
@@ -1183,7 +1183,7 @@ export function Detail({ id }: { id: string }) {
                   />
                 </label>
                 <label>
-                  {t("catalogV2.position")}
+                  {t("catalog.position")}
                   <input
                     type="number"
                     value={relation.position}
@@ -1217,9 +1217,9 @@ export function Detail({ id }: { id: string }) {
                   sources={sources}
                   setSources={setSources}
                 />
-                <button>{t("catalogV2.save")}</button>
+                <button>{t("catalog.save")}</button>
                 <button type="button" onClick={() => setRelation(undefined)}>
-                  {t("catalogV2.cancel")}
+                  {t("catalog.cancel")}
                 </button>
                 {relation.id && (
                   <button
@@ -1242,7 +1242,7 @@ export function Detail({ id }: { id: string }) {
                       }
                     }}
                   >
-                    {t("catalogV2.remove")}
+                    {t("catalog.remove")}
                   </button>
                 )}
               </form>
@@ -1251,7 +1251,7 @@ export function Detail({ id }: { id: string }) {
           {!!occurrences.length && (
             <section>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <h2 style={{ margin: 0 }}>{t("catalogV2.occurrences")}</h2>
+                <h2 style={{ margin: 0 }}>{t("catalog.occurrences")}</h2>
                 {Array.from(new Set(occurrences.map((o) => o.release?.id).filter(Boolean))).length >= 2 && (
                   <Link
                     href={`/compare?ids=${Array.from(new Set(occurrences.map((o) => o.release?.id).filter(Boolean))).slice(0, 6).join(",")}`}
@@ -1290,7 +1290,7 @@ export function Detail({ id }: { id: string }) {
                 }
               }}
             >
-              {t("catalogV2.history")}
+              {t("catalog.history")}
             </button>
             {history.map((r, i) => (
               <details key={i}>
@@ -1313,7 +1313,7 @@ export function Detail({ id }: { id: string }) {
           </section>
           {user?.role === "admin" && (
             <details>
-              <summary>{t("catalogV2.lifecycle")}</summary>
+              <summary>{t("catalog.lifecycle")}</summary>
               <Evidence
                 note={note}
                 setNote={setNote}
@@ -1321,7 +1321,7 @@ export function Detail({ id }: { id: string }) {
                 setSources={setSources}
               />
               <label>
-                {t("catalogV2.mergeTarget")}
+                {t("catalog.mergeTarget")}
                 <EntityPicker
                   kinds={[e.kind]}
                   value={mergeTarget}
@@ -1349,7 +1349,7 @@ export function Detail({ id }: { id: string }) {
                   }
                 }}
               >
-                {t(mergeTarget ? "catalogV2.merge" : "catalogV2.retire")}
+                {t(mergeTarget ? "catalog.merge" : "catalog.retire")}
               </button>
             </details>
           )}
@@ -1478,12 +1478,12 @@ export function Compare({ ids }: { ids: string }) {
     <>
       <div className="cv-heading">
         <div>
-          <h1>{t("catalogV2.compare")}</h1>
-          <p className="cv-muted">{t("catalogV2.compareDesc")}</p>
+          <h1>{t("catalog.compare")}</h1>
+          <p className="cv-muted">{t("catalog.compareDesc")}</p>
         </div>
         {selectedIds.length > 0 && (
           <button type="button" onClick={clearAll}>
-            {t("catalogV2.compareClear")}
+            {t("catalog.compareClear")}
           </button>
         )}
       </div>
@@ -1552,11 +1552,11 @@ export function Compare({ ids }: { ids: string }) {
       {/* Release Search and Quick-Add Selector */}
       {selectedIds.length < 6 && (
         <section style={{ margin: "20px 0" }}>
-          <h2>{t("catalogV2.compareSelectRelease")}</h2>
+          <h2>{t("catalog.compareSelectRelease")}</h2>
           <div className="cv-row" style={{ alignItems: "flex-start" }}>
             <input
               type="text"
-              placeholder={t("catalogV2.compareSearchPlaceholder")}
+              placeholder={t("catalog.compareSearchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -1576,12 +1576,12 @@ export function Compare({ ids }: { ids: string }) {
                   setCustomIdInput("");
                 }}
               >
-                {t("catalogV2.compareAdd")}
+                {t("catalog.compareAdd")}
               </button>
             </div>
           </div>
 
-          {searching && <p className="cv-muted">{t("catalogV2.loading")}</p>}
+          {searching && <p className="cv-muted">{t("catalog.loading")}</p>}
 
           {searchResults.length > 0 && (
             <div style={{ margin: "16px 0", border: "1px solid #334052", borderRadius: 8, padding: 12, background: "#121a25" }}>
@@ -1620,7 +1620,7 @@ export function Compare({ ids }: { ids: string }) {
                         onClick={() => addId(r.id!)}
                         style={{ padding: "4px 10px", minHeight: 30, fontSize: 12 }}
                       >
-                        {isSelected ? (locale === "zh-CN" ? "已在对比" : "Added") : t("catalogV2.compareAdd")}
+                        {isSelected ? (locale === "zh-CN" ? "已在对比" : "Added") : t("catalog.compareAdd")}
                       </button>
                     </div>
                   );
@@ -1633,7 +1633,7 @@ export function Compare({ ids }: { ids: string }) {
           {selectedIds.length < 2 && searchResults.length === 0 && recentReleases.length > 0 && (
             <div style={{ marginTop: 16 }}>
               <p style={{ fontWeight: 600, fontSize: 13, color: "#94a3b8", marginBottom: 10 }}>
-                {t("catalogV2.compareDemoHint")}
+                {t("catalog.compareDemoHint")}
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 }}>
                 {recentReleases.slice(0, 8).map((r) => {
@@ -1678,7 +1678,7 @@ export function Compare({ ids }: { ids: string }) {
       )}
 
       <ErrorMessage error={error} />
-      {loading && <p className="cv-muted">{t("catalogV2.loading")}</p>}
+      {loading && <p className="cv-muted">{t("catalog.loading")}</p>}
 
       {/* Comparison Matrix Table */}
       {items.length >= 2 && !loading && (
@@ -1686,7 +1686,7 @@ export function Compare({ ids }: { ids: string }) {
           <table>
             <thead>
               <tr>
-                <th style={{ minWidth: 160 }}>{t("catalogV2.attributes")}</th>
+                <th style={{ minWidth: 160 }}>{t("catalog.attributes")}</th>
                 {items.map((x) => (
                   <th key={x.release.id} style={{ minWidth: 240, verticalAlign: "top" }}>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1744,7 +1744,7 @@ export function Compare({ ids }: { ids: string }) {
                 </tr>
               ))}
               <tr>
-                <th>{t("catalogV2.directory")}</th>
+                <th>{t("catalog.directory")}</th>
                 {items.map((x, index) => (
                   <td key={x.release.id} style={{ verticalAlign: "top" }}>
                     {x.media.map((m: any) => (
@@ -1772,7 +1772,7 @@ export function Compare({ ids }: { ids: string }) {
                                         className="cv-badge"
                                         style={{ marginLeft: 6, background: "rgba(145, 215, 204, 0.15)", color: "#91d7cc", borderColor: "rgba(145, 215, 204, 0.3)" }}
                                       >
-                                        {t("catalogV2.variantContent")}
+                                        {t("catalog.variantContent")}
                                       </span>
                                     )}
                                   </p>

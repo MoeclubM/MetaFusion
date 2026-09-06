@@ -47,8 +47,8 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     <Context.Provider value={{ definition, user, modules, setup, refresh }}>
       {error && (
         <div role="alert" className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono text-center">
-          {t("catalogV2.connectionError")}
-          <button onClick={refresh} className="ml-2 underline">{t("catalogV2.retry")}</button>
+          {t("catalog.connectionError")}
+          <button onClick={refresh} className="ml-2 underline">{t("catalog.retry")}</button>
         </div>
       )}
       {children}

@@ -77,7 +77,7 @@ function LoginInner() {
         login(res.access_token || res.token, res.user, res.refresh_token);
         router.replace(redirectUrl);
       } else {
-        const response = await fetch("/api/v2/auth/login", {
+        const response = await fetch("/api/auth/login", {
           method: "POST",
           credentials: "same-origin",
           headers: { "Content-Type": "application/json" },

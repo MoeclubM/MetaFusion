@@ -75,7 +75,7 @@ function ExploreInner() {
 
   // Load dynamic definitions for type filter
   useEffect(() => {
-    fetch("/api/v2/catalog/definitions", { credentials: "same-origin" })
+    fetch("/api/catalog/definitions", { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : null))
       .then((d) => setDefinitions(d?.document || null))
       .catch(() => {});
@@ -92,7 +92,7 @@ function ExploreInner() {
     params.set("limit", limit.toString());
     params.set("offset", offset.toString());
 
-    fetch(`/api/v2/catalog/entities?${params.toString()}`, { credentials: "same-origin" })
+    fetch(`/api/catalog/entities?${params.toString()}`, { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : { items: [] }))
       .then((data) => setItems(data.items || []))
       .catch(() => setItems([]))

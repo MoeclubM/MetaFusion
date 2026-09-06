@@ -93,7 +93,7 @@ function Dictionary<T extends { names: Names }>({
     <>
       <div className="cv-row">
         <label>
-          {t("catalogV2.code")}
+          {t("catalog.code")}
           <input
             value={code}
             onChange={(e) => setCode(e.target.value)}
@@ -108,7 +108,7 @@ function Dictionary<T extends { names: Names }>({
             setCode("");
           }}
         >
-          {t("catalogV2.add")}
+          {t("catalog.add")}
         </button>
       </div>
       {Object.entries(value).map(([key, v]) => (
@@ -125,7 +125,7 @@ function Dictionary<T extends { names: Names }>({
               onChange(next);
             }}
           >
-            {t("catalogV2.removeDefinition")}
+            {t("catalog.removeDefinition")}
           </button>
         </details>
       ))}
@@ -147,7 +147,7 @@ function FieldDefinition({
     <>
       <NamesEditor value={value.names} onChange={(names) => patch({ names })} />
       <label>
-        {t("catalogV2.fieldType")}
+        {t("catalog.fieldType")}
         <select
           value={value.type}
           onChange={(e) =>
@@ -176,7 +176,7 @@ function FieldDefinition({
             "group",
           ].map((k) => (
             <option key={k} value={k}>
-              {t(`catalogV2.fieldTypeNames.${k}`)}
+              {t(`catalog.fieldTypeNames.${k}`)}
             </option>
           ))}
         </select>
@@ -190,12 +190,12 @@ function FieldDefinition({
                 checked={!!value[k]}
                 onChange={(e) => patch({ [k]: e.target.checked })}
               />
-              {t(`catalogV2.${k}`)}
+              {t(`catalog.${k}`)}
             </label>
           ),
         )}
       </div>
-      <label>{t("catalogV2.unit")}</label>
+      <label>{t("catalog.unit")}</label>
       <NamesEditor
         value={value.unit || {}}
         onChange={(unit) => patch({ unit })}
@@ -203,7 +203,7 @@ function FieldDefinition({
       <div className="cv-grid">
         {(["min", "max"] as const).map((k) => (
           <label key={k}>
-            {t(`catalogV2.${k}`)}
+            {t(`catalog.${k}`)}
             <input
               type="number"
               step="any"
@@ -220,12 +220,12 @@ function FieldDefinition({
       </div>
       {value.type === "enum" && (
         <label>
-          {t("catalogV2.vocabulary")}
+          {t("catalog.vocabulary")}
           <select
             value={value.vocabulary || ""}
             onChange={(e) => patch({ vocabulary: e.target.value })}
           >
-            <option value="">{t("catalogV2.select")}</option>
+            <option value="">{t("catalog.select")}</option>
             {Object.entries(d.vocabularies).map(([k, v]) => (
               <option key={k} value={k}>
                 {local(v.names, locale, "", k)}
@@ -236,9 +236,9 @@ function FieldDefinition({
       )}
       {value.type === "entity" && (
         <Checks
-          label={t("catalogV2.allowedKinds")}
+          label={t("catalog.allowedKinds")}
           values={Object.fromEntries(
-            kinds.map((k) => [k, t(`catalogV2.kind.${k}`)]),
+            kinds.map((k) => [k, t(`catalog.kind.${k}`)]),
           )}
           selected={value.kinds || []}
           onChange={(kinds) => patch({ kinds })}
@@ -246,7 +246,7 @@ function FieldDefinition({
       )}{" "}
       {value.type === "list" && (
         <fieldset>
-          <legend>{t("catalogV2.listItem")}</legend>
+          <legend>{t("catalog.listItem")}</legend>
           <FieldDefinition
             value={value.items || newField()}
             onChange={(items) => patch({ items })}
@@ -294,8 +294,8 @@ export function DefinitionsEditor() {
         .then((r) => setVersions(r.items))
         .catch((e) => setError(e.message));
   }, [user, draft]);
-  if (user?.role !== "admin") return <p>{t("catalogV2.adminRequired")}</p>;
-  if (!d) return <p>{t("catalogV2.loading")}</p>;
+  if (user?.role !== "admin") return <p>{t("catalog.adminRequired")}</p>;
+  if (!d) return <p>{t("catalog.loading")}</p>;
   const change = (next: Definitions) => {
     setD(next);
     setDraft(0);
@@ -306,22 +306,22 @@ export function DefinitionsEditor() {
       Object.entries(items).map(([k, v]) => [k, local(v.names, locale, "", k)]),
     );
   const kindNames = Object.fromEntries(
-    kinds.map((k) => [k, t(`catalogV2.kind.${k}`)]),
+    kinds.map((k) => [k, t(`catalog.kind.${k}`)]),
   );
   return (
     <>
-      <h1>{t("catalogV2.configure")}</h1>
+      <h1>{t("catalog.configure")}</h1>
       <ErrorMessage error={error} />
-      <p className="cv-muted">{t("catalogV2.definitionHelp")}</p>
+      <p className="cv-muted">{t("catalog.definitionHelp")}</p>
       <section>
-        <h2>{t("catalogV2.modules")}</h2>
+        <h2>{t("catalog.modules")}</h2>
         <label className="cv-check">
           <input
             type="checkbox"
             checked={cascade}
             onChange={(e) => setCascade(e.target.checked)}
           />
-          {t("catalogV2.cascade")}
+          {t("catalog.cascade")}
         </label>
         {modules.map((m) => (
           <label className="cv-check" key={m.id}>
@@ -341,14 +341,14 @@ export function DefinitionsEditor() {
                 }
               }}
             />
-            {t(`catalogV2.module.${m.id}`)}{" "}
-            {!m.healthy && t("catalogV2.unavailable")}
+            {t(`catalog.module.${m.id}`)}{" "}
+            {!m.healthy && t("catalog.unavailable")}
           </label>
         ))}
       </section>
       <div className="cv-row">
         <label>
-          {t("catalogV2.definitionVersion")}
+          {t("catalog.definitionVersion")}
           <select
             value=""
             onChange={(e) => {
@@ -360,16 +360,16 @@ export function DefinitionsEditor() {
               }
             }}
           >
-            <option value="">{t("catalogV2.select")}</option>
+            <option value="">{t("catalog.select")}</option>
             {versions.map((v) => (
               <option key={v.id} value={v.id}>
-                {v.id} · {t(`catalogV2.state.${v.state}`)}
+                {v.id} · {t(`catalog.state.${v.state}`)}
               </option>
             ))}
           </select>
         </label>
         <span>
-          {t("catalogV2.baseVersion")}: {base}
+          {t("catalog.baseVersion")}: {base}
         </span>
       </div>
       <nav className="cv-tabs">
@@ -381,7 +381,7 @@ export function DefinitionsEditor() {
             className={tab === k ? "cv-primary" : ""}
             onClick={() => setTab(k)}
           >
-            {t(`catalogV2.${k}`)}
+            {t(`catalog.${k}`)}
           </button>
         ))}
       </nav>
@@ -408,27 +408,27 @@ export function DefinitionsEditor() {
                   checked={v.enabled}
                   onChange={(e) => set({ ...v, enabled: e.target.checked })}
                 />
-                {t("catalogV2.enabled")}
+                {t("catalog.enabled")}
               </label>
               <Checks
-                label={t("catalogV2.allowedKinds")}
+                label={t("catalog.allowedKinds")}
                 values={kindNames}
                 selected={v.kinds}
                 onChange={(kinds) => set({ ...v, kinds })}
               />
               <Checks
-                label={t("catalogV2.fields")}
+                label={t("catalog.fields")}
                 values={names(d.fields)}
                 selected={v.fields}
                 onChange={(fields) => set({ ...v, fields })}
               />
               <label>
-                {t("catalogV2.template")}
+                {t("catalog.template")}
                 <select
                   value={v.template}
                   onChange={(e) => set({ ...v, template: e.target.value })}
                 >
-                  <option value="">{t("catalogV2.none")}</option>
+                  <option value="">{t("catalog.none")}</option>
                   {Object.entries(names(d.templates)).map(([k, n]) => (
                     <option key={k} value={k}>
                       {n}
@@ -479,7 +479,7 @@ export function DefinitionsEditor() {
                           change({ ...term, enabled: e.target.checked })
                         }
                       />
-                      {t("catalogV2.enabled")}
+                      {t("catalog.enabled")}
                     </label>
                   </>
                 )}
@@ -513,7 +513,7 @@ export function DefinitionsEditor() {
                 value={v.names}
                 onChange={(names) => set({ ...v, names })}
               />
-              <label>{t("catalogV2.reverseNames")}</label>
+              <label>{t("catalog.reverseNames")}</label>
               <NamesEditor
                 value={v.reverse_names}
                 onChange={(reverse_names) => set({ ...v, reverse_names })}
@@ -529,7 +529,7 @@ export function DefinitionsEditor() {
               ).map((k) => (
                 <Checks
                   key={k}
-                  label={t(`catalogV2.${k}`)}
+                  label={t(`catalog.${k}`)}
                   values={
                     k.endsWith("kinds")
                       ? kindNames
@@ -549,13 +549,13 @@ export function DefinitionsEditor() {
                       checked={v[k]}
                       onChange={(e) => set({ ...v, [k]: e.target.checked })}
                     />
-                    {t(`catalogV2.${k}`)}
+                    {t(`catalog.${k}`)}
                   </label>
                 ))}
               </div>
               {(["max_outgoing", "max_incoming"] as const).map((k) => (
                 <label key={k}>
-                  {t(`catalogV2.${k}`)}
+                  {t(`catalog.${k}`)}
                   <input
                     type="number"
                     min="0"
@@ -565,7 +565,7 @@ export function DefinitionsEditor() {
                 </label>
               ))}
               <label>
-                {t("catalogV2.displayGroup")}
+                {t("catalog.displayGroup")}
                 <input
                   value={v.group}
                   onChange={(e) => set({ ...v, group: e.target.value })}
@@ -600,7 +600,7 @@ export function DefinitionsEditor() {
               {v.sections.map((s, i) => (
                 <fieldset key={i}>
                   <legend>
-                    {t("catalogV2.section")} {i + 1}
+                    {t("catalog.section")} {i + 1}
                   </legend>
                   <NamesEditor
                     value={s.names}
@@ -614,7 +614,7 @@ export function DefinitionsEditor() {
                     }
                   />
                   <TextList
-                    label={t("catalogV2.fieldOrder")}
+                    label={t("catalog.fieldOrder")}
                     value={s.fields}
                     onChange={(fields) =>
                       set({
@@ -634,7 +634,7 @@ export function DefinitionsEditor() {
                       })
                     }
                   >
-                    {t("catalogV2.remove")}
+                    {t("catalog.remove")}
                   </button>
                 </fieldset>
               ))}
@@ -647,35 +647,35 @@ export function DefinitionsEditor() {
                   })
                 }
               >
-                {t("catalogV2.addSection")}
+                {t("catalog.addSection")}
               </button>
               <TextList
-                label={t("catalogV2.columns")}
+                label={t("catalog.columns")}
                 value={v.columns}
                 onChange={(columns) => set({ ...v, columns })}
               />
               <TextList
-                label={t("catalogV2.relationGroups")}
+                label={t("catalog.relationGroups")}
                 value={v.relation_groups}
                 onChange={(relation_groups) => set({ ...v, relation_groups })}
               />
               <label>
-                {t("catalogV2.directoryMode")}
+                {t("catalog.directoryMode")}
                 <select
                   value={v.directory}
                   onChange={(e) => set({ ...v, directory: e.target.value })}
                 >
                   {["tree", "list", "none"].map((k) => (
                     <option key={k} value={k}>
-                      {t(`catalogV2.directoryModes.${k}`)}
+                      {t(`catalog.directoryModes.${k}`)}
                     </option>
                   ))}
                 </select>
               </label>
               <Checks
-                label={t("catalogV2.modules")}
+                label={t("catalog.modules")}
                 values={Object.fromEntries(
-                  modules.map((m) => [m.id, t(`catalogV2.module.${m.id}`)]),
+                  modules.map((m) => [m.id, t(`catalog.module.${m.id}`)]),
                 )}
                 selected={v.modules}
                 onChange={(modules) => set({ ...v, modules })}
@@ -710,7 +710,7 @@ export function DefinitionsEditor() {
             }
           }}
         >
-          {t("catalogV2.saveDraft")}
+          {t("catalog.saveDraft")}
         </button>
         {draft > 0 && (
           <button
@@ -725,7 +725,7 @@ export function DefinitionsEditor() {
               }
             }}
           >
-            {t("catalogV2.impact")}
+            {t("catalog.impact")}
           </button>
         )}
         {draft > 0 && issues?.length === 0 && (
@@ -750,13 +750,13 @@ export function DefinitionsEditor() {
               }
             }}
           >
-            {t("catalogV2.publish")}
+            {t("catalog.publish")}
           </button>
         )}
       </div>
       {issues && (
         <section>
-          <h2>{t("catalogV2.impact")}</h2>
+          <h2>{t("catalog.impact")}</h2>
           {issues.length ? (
             <ul>
               {issues.map((x) => (
@@ -764,7 +764,7 @@ export function DefinitionsEditor() {
               ))}
             </ul>
           ) : (
-            <p>{t("catalogV2.noIssues")}</p>
+            <p>{t("catalog.noIssues")}</p>
           )}
         </section>
       )}

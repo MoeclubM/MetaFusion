@@ -1,22 +1,5 @@
-import { Compare } from "@/components/catalog-v2/CatalogPages";
-import { CatalogProvider } from "@/components/catalog-v2/CatalogProvider";
-import { Navbar } from "@/components/Navbar";
-import "../catalog/catalog.css";
+import { redirect } from "next/navigation";
 
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ ids?: string }>;
-}) {
-  const { ids } = await searchParams;
-  return (
-    <>
-      <Navbar />
-      <CatalogProvider>
-        <div className="catalog-v2 cv-main">
-          <Compare ids={ids || ""} />
-        </div>
-      </CatalogProvider>
-    </>
-  );
+export default function ComparePage() {
+  redirect("/explore");
 }
