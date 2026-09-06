@@ -13,7 +13,15 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { GraphNode, GraphLink } from "@/lib/api";
 import {
+  getAuthLoginUrl,
+  getForumEntityUrl,
+  getForumCollectionUrl,
+  FORUM_SERVICE_URL,
+  STORAGE_SERVICE_URL,
+} from "@/lib/services";
+import {
   ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
   Barcode,
   Building2,
@@ -24,16 +32,19 @@ import {
   Disc,
   ExternalLink,
   Film,
+  FolderPlus,
   GitCompare,
   HardDrive,
   Hash,
   History,
   Layers,
   List,
+  MessageCircle,
   MessageSquare,
   Music,
   Network,
   Pencil,
+  Send,
   Share2,
   Sparkles,
   User,
@@ -43,6 +54,8 @@ import {
   Sliders,
   ChevronRight,
   BookOpen,
+  Bookmark,
+  Eye,
 } from "lucide-react";
 
 const InteractiveRelationGraph = dynamic(
@@ -78,14 +91,17 @@ export function EntityDetailView({ id }: { id: string }) {
   const [children, setChildren] = useState<Entity[]>([]);
   const [revisions, setRevisions] = useState<any[]>([]);
   const [subjectWorks, setSubjectWorks] = useState<Entity[]>([]);
+  const [communityPosts, setCommunityPosts] = useState<any[]>([]);
+  const [communityCollections, setCommunityCollections] = useState<any[]>([]);
+  const [newCommentBody, setNewCommentBody] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [commentError, setCommentError] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [activeTab, setActiveTab] = useState<
-    "occurrences" | "directory" | "credits" | "attributes" | "revisions" | "storage" | "community" | "graph"
-  >("occurrences");
   const [relationFilter, setRelationFilter] = useState<string>("all");
   const [relationViewMode, setRelationViewMode] = useState<"cards" | "graph">("cards");
 
@@ -96,11 +112,13 @@ export function EntityDetailView({ id }: { id: string }) {
       const e = await api<Entity>(`/catalog/entities/${id}/resolve`);
       setEntity(e);
 
-      // Fetch occurrences, relations, revisions in parallel
-      const [occRes, relRes, revRes] = await Promise.all([
+      // Fetch occurrences, relations, revisions, posts, collections in parallel
+      const [occRes, relRes, revRes, postRes, colRes] = await Promise.all([
         api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => ({ items: [] })),
         api<{ items: Relation[] }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] })),
         api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => ({ items: [] })),
+        api<{ items: any[] }>(`/community/entities/${e.id}/posts`).catch(() => ({ items: [] })),
+        api<{ items: any[] }>(`/community/entities/${e.id}/collections`).catch(() => ({ items: [] })),
       ]);
 
       const occItems = occRes.items || [];
@@ -109,6 +127,8 @@ export function EntityDetailView({ id }: { id: string }) {
       setOccurrences(occItems);
       setRelations(relItems);
       setRevisions(revItems);
+      setCommunityPosts(postRes.items || []);
+      setCommunityCollections(colRes.items || []);
 
       // Resolve parent references
       const parentPromises: Promise<any>[] = [];
@@ -145,7 +165,7 @@ export function EntityDetailView({ id }: { id: string }) {
         );
       }
 
-      // Also if occurrences have release subjects, fetch the primary subject work for cover inheritance
+      // If occurrences have release subjects, fetch the primary subject work for cover inheritance
       if (occItems.length > 0 && occItems[0]?.release?.subjects?.length > 0) {
         const primaryWorkId = occItems[0].release.subjects[0].work_id;
         parentPromises.push(
@@ -159,14 +179,14 @@ export function EntityDetailView({ id }: { id: string }) {
         );
       }
 
-      // Resolve entities for relations (first 25 to avoid overwhelming)
+      // Resolve entities for relations (first 30)
       const otherIds = Array.from(
         new Set(
           relItems
             .map((r) => (r.source_id === e.id ? r.target_id : r.source_id))
             .filter((x) => x && x !== e.id)
         )
-      ).slice(0, 25);
+      ).slice(0, 30);
 
       if (otherIds.length > 0) {
         parentPromises.push(
@@ -213,17 +233,6 @@ export function EntityDetailView({ id }: { id: string }) {
       }
 
       await Promise.all(parentPromises);
-
-      // Default active tab heuristic
-      if (e.kind === "release" || e.kind === "medium") {
-        setActiveTab("directory");
-      } else if (occItems.length > 0) {
-        setActiveTab("occurrences");
-      } else if (relItems.length > 0) {
-        setActiveTab("credits");
-      } else {
-        setActiveTab("attributes");
-      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -266,7 +275,6 @@ export function EntityDetailView({ id }: { id: string }) {
     const m = entity.external_ids?.metafusion_import || "";
     const match = m.match(/bgm:(?:subject|release):(\d+)/);
     if (match) return match[1];
-    // Check mother work or release
     if (motherWork?.external_ids?.bangumi) return motherWork.external_ids.bangumi;
     if (occurrences[0]?.release?.external_ids?.bangumi) return occurrences[0].release.external_ids.bangumi;
     if (subjectWorks[0]?.external_ids?.bangumi) return subjectWorks[0].external_ids.bangumi;
@@ -278,7 +286,6 @@ export function EntityDetailView({ id }: { id: string }) {
     if (!entity) return [];
     const direct = entity.attributes?.store_bonuses;
     if (Array.isArray(direct) && direct.length > 0) return direct;
-    // Check occurrence releases
     for (const occ of occurrences) {
       const b = occ.release?.attributes?.store_bonuses;
       if (Array.isArray(b) && b.length > 0) return b;
@@ -319,73 +326,36 @@ export function EntityDetailView({ id }: { id: string }) {
       },
     ];
     const links: GraphLink[] = [];
+    const seenNodes = new Set<string>([entity.id || id]);
 
-    // Mother work node
-    if (motherWork) {
-      nodes.push({
-        id: motherWork.id || "",
-        name: title(motherWork, locale),
-        original_name: motherWork.title,
-        type: "work",
-        category: "work",
-        level: 1,
-        cover_image_url: motherWork.pictures?.[0]?.url,
-      });
-      links.push({
-        source: entity.id || id,
-        target: motherWork.id || "",
-        type: "part_of",
-        label: t("entity.detail.partOfWork"),
-      });
-    }
-
-    // Occurrences releases
-    for (const occ of occurrences.slice(0, 8)) {
-      if (occ.release && !nodes.some((n) => n.id === occ.release.id)) {
-        nodes.push({
-          id: occ.release.id,
-          name: occ.release.title,
-          type: "release",
-          category: "release",
-          level: 1,
-          cover_image_url: occ.release.pictures?.[0]?.url,
-        });
-        links.push({
-          source: entity.id || id,
-          target: occ.release.id,
-          type: "included_in",
-          label: occ.medium?.title ? `${occ.medium.title} #${occ.position || occ.track?.number || ""}` : "Included",
-        });
-      }
-    }
-
-    // Relations
-    for (const rel of relations.slice(0, 15)) {
-      const otherId = rel.source_id === entity.id ? rel.target_id : rel.source_id;
+    for (const r of relations) {
+      const otherId = r.source_id === entity.id ? r.target_id : r.source_id;
       const targetEntity = relatedEntities[otherId];
-      if (otherId && !nodes.some((n) => n.id === otherId)) {
+      if (!seenNodes.has(otherId)) {
+        seenNodes.add(otherId);
         nodes.push({
           id: otherId,
           name: targetEntity ? title(targetEntity, locale) : otherId.slice(0, 8),
-          type: targetEntity?.kind || "relation",
-          category: targetEntity?.kind || "relation",
-          level: 2,
-          cover_image_url: targetEntity?.pictures?.[0]?.url,
+          original_name: targetEntity ? targetEntity.title : "",
+          type: targetEntity?.kind || "related",
+          category: targetEntity?.kind || "related",
+          level: 1,
+          cover_image_url: targetEntity?.pictures?.[0]?.url || undefined,
         });
       }
       links.push({
-        source: rel.source_id,
-        target: rel.target_id,
-        type: rel.type,
-        label: rel.type,
+        source: r.source_id,
+        target: r.target_id,
+        type: r.type,
+        label: r.type,
       });
     }
 
     return { graphNodes: nodes, graphLinks: links };
-  }, [entity, motherWork, occurrences, relations, relatedEntities, resolvedCover, locale, t]);
+  }, [entity, relations, relatedEntities, resolvedCover, locale, id]);
 
   const copyUuid = () => {
-    if (!entity?.id) return;
+    if (!entity || !entity.id) return;
     navigator.clipboard.writeText(entity.id);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
@@ -396,6 +366,39 @@ export function EntityDetailView({ id }: { id: string }) {
     navigator.clipboard.writeText(window.location.href);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handlePostComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommentBody.trim() || !entity) return;
+    if (!user) {
+      window.location.href = getAuthLoginUrl(window.location.href);
+      return;
+    }
+    setSubmittingComment(true);
+    setCommentError("");
+    try {
+      const res = await api<{ ok: boolean; item?: any }>(`/community/entities/${entity.id}/posts`, "POST", { body: newCommentBody.trim() });
+      if (res.item) {
+        setCommunityPosts((prev) => [res.item, ...prev]);
+      } else {
+        setCommunityPosts((prev) => [
+          {
+            id: String(Date.now()),
+            author_id: user.id,
+            author_name: user.username,
+            body: newCommentBody.trim(),
+            created_at: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      }
+      setNewCommentBody("");
+    } catch (err: any) {
+      setCommentError(err.message || "Failed to post comment");
+    } finally {
+      setSubmittingComment(false);
+    }
   };
 
   if (loading) {
@@ -441,7 +444,7 @@ export function EntityDetailView({ id }: { id: string }) {
             <button
               type="button"
               onClick={() => setEditing(false)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-black/10 dark:border-white/10 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5 transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-black/10 dark:border-white/10 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>{t("entity.detail.backToDetail")}</span>
@@ -471,22 +474,8 @@ export function EntityDetailView({ id }: { id: string }) {
 
   const localizedTitle = title(entity, locale);
   const showOriginal = isDistinctOriginalTitle(entity.title, localizedTitle);
-  const kindGradient =
-    entity.kind === "work"
-      ? "from-emerald-600 to-teal-600"
-      : entity.kind === "expression"
-      ? "from-indigo-600 to-teal-600"
-      : entity.kind === "release"
-      ? "from-amber-600 to-orange-600"
-      : entity.kind === "medium"
-      ? "from-cyan-600 to-blue-600"
-      : entity.kind === "track"
-      ? "from-sky-600 to-cyan-600"
-      : entity.kind === "agent"
-      ? "from-rose-600 to-pink-600"
-      : "from-purple-600 to-indigo-600";
 
-  // Group relations by category
+  // Categorize relations
   const categorizedRelations = relations.map((r) => {
     const otherId = r.source_id === entity.id ? r.target_id : r.source_id;
     const target = relatedEntities[otherId];
@@ -498,14 +487,66 @@ export function EntityDetailView({ id }: { id: string }) {
     };
   });
 
-  const filteredRelations = categorizedRelations.filter((r) => {
-    if (relationFilter === "all") return true;
-    if (relationFilter === "staff") return ["composed_by", "arranged_by", "lyrics_by", "directed_by", "written_by", "illustrated_by", "created_by"].includes(r.type);
-    if (relationFilter === "cast") return ["voiced_by", "performed_by", "character_in", "stars"].includes(r.type);
-    if (relationFilter === "media") return ["soundtrack_of", "theme_song_of", "adaptation_of", "spin_off_of", "sequel_of"].includes(r.type);
-    if (relationFilter === "includes") return ["includes", "included_in", "compilation"].includes(r.type);
-    return true;
-  });
+  const isStaffType = (type: string) =>
+    [
+      "composed_by",
+      "arranged_by",
+      "lyrics_by",
+      "directed_by",
+      "written_by",
+      "illustrated_by",
+      "created_by",
+      "produced_by",
+      "voiced_by",
+      "performed_by",
+      "character_in",
+      "stars",
+      "publisher",
+      "label",
+    ].includes(type);
+
+  const staffRelations = categorizedRelations.filter(
+    (r) => isStaffType(r.type) || (r.target && r.target.kind === "agent")
+  );
+
+  const mediaRelations = categorizedRelations.filter(
+    (r) => !isStaffType(r.type) && (!r.target || r.target.kind !== "agent")
+  );
+
+  const collectionRelations = categorizedRelations.filter(
+    (r) => r.target && r.target.kind === "collection"
+  );
+
+  // Combine collections from relations and community collections
+  const allDisplayCollections = [
+    ...collectionRelations.map((r) => ({
+      id: r.otherId,
+      title: r.target ? title(r.target, locale) : r.otherId,
+      curator: r.target?.created_by ? "Community" : "MetaFusion",
+    })),
+    ...communityCollections.filter(
+      (c) => !collectionRelations.some((r) => r.otherId === c.id)
+    ),
+  ];
+
+  // Group directory elements
+  const mediums = children.filter((c) => c.kind === "medium");
+  const tracksByMedium: Record<string, Entity[]> = {};
+  for (const m of mediums) {
+    if (!m.id) continue;
+    tracksByMedium[m.id] = children
+      .filter((c) => c.kind === "track" && c.medium_id === m.id)
+      .sort((a, b) => (a.position || 0) - (b.position || 0));
+  }
+  const unassignedTracks = children.filter((c) => c.kind === "track" && !c.medium_id);
+  const contentUnits = children.filter((c) => c.kind === "content_unit");
+  const expressions = children.filter((c) => c.kind === "expression");
+
+  const summaryText =
+    entity.translations?.[locale]?.summary ||
+    entity.attributes?.summary ||
+    entity.attributes?.description ||
+    "";
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
@@ -514,9 +555,9 @@ export function EntityDetailView({ id }: { id: string }) {
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
 
-      <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full space-y-5 flex-1 pb-[max(2rem,env(safe-area-inset-bottom))]">
-        {/* Breadcrumb Navigation */}
-        <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px] text-gray-500">
+      <main className="relative z-10 max-w-7xl mx-auto px-4 py-6 w-full space-y-6 flex-1 pb-[max(3rem,env(safe-area-inset-bottom))]">
+        {/* Top Breadcrumb Navigation */}
+        <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-gray-500 border-b border-black/5 dark:border-white/[0.06] pb-3">
           <div className="flex items-center gap-1.5 truncate">
             <Link href="/" className="hover:text-primary transition-colors inline-flex items-center gap-1">
               <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
@@ -551,7 +592,7 @@ export function EntityDetailView({ id }: { id: string }) {
               </>
             )}
             <span className="text-gray-400 dark:text-white/20">/</span>
-            <span className="text-gray-900 dark:text-white font-semibold truncate max-w-[260px]">
+            <span className="text-gray-900 dark:text-white font-semibold truncate max-w-[280px]">
               {localizedTitle}
             </span>
           </div>
@@ -560,114 +601,285 @@ export function EntityDetailView({ id }: { id: string }) {
             <button
               type="button"
               onClick={copyUuid}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-primary/50 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-all text-[10px]"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-primary/50 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-all text-xs font-mono cursor-pointer"
               title={entity.id}
             >
               {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
               <span>{copiedId ? t("entity.detail.idCopied") : t("entity.detail.copyId")}</span>
             </button>
 
-            <span className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 text-[10px] uppercase font-semibold">
+            <span className="px-2.5 py-1 rounded bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 text-xs uppercase font-semibold font-mono">
               {entity.status}
             </span>
           </div>
         </div>
 
-        {/* Hero Header Card */}
-        <section className="p-4 sm:p-6 rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-4">
-          <div className="flex flex-col sm:flex-row gap-5 sm:gap-7 items-start">
-            {/* Left: Cover Column */}
-            <div className="w-36 sm:w-44 shrink-0 space-y-3">
-              <div className="rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-background/50 shadow-sm">
-                <AdaptiveCover
-                  src={resolvedCover.src}
-                  alt={localizedTitle}
-                  title={localizedTitle}
-                  originalTitle={entity.title}
-                  id={entity.id}
-                  aspect={resolvedCover.aspect}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-
-              {/* External Authority Badges */}
-              <div className="flex flex-col gap-1.5 pt-1">
-                {bangumiId && (
-                  <a
-                    href={`https://bangumi.tv/subject/${bangumiId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-md bg-[#f09199]/10 text-[#f09199] border border-[#f09199]/25 hover:bg-[#f09199]/20 transition-all font-mono text-[11px] font-medium"
-                  >
-                    <span>{t("entity.detail.externalBangumi")}</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
-                <a
-                  href={`/api/catalog/entities/${entity.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-md border border-black/10 dark:border-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 transition-all font-mono text-[10px]"
-                >
-                  <span>{t("entity.detail.viewRawJson")}</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
+        {/* Master 2-Column Wiki Layout (Inspired by 2cd76d44) */}
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-8 items-start">
+          {/* ============================================================ */}
+          {/* LEFT SIDEBAR: Cover + Facts + External Authority             */}
+          {/* ============================================================ */}
+          <aside className="w-full space-y-6 shrink-0">
+            {/* 1. Cover Card */}
+            <div className="rounded-xl overflow-hidden border border-black/10 dark:border-white/[0.12] bg-surface shadow-md">
+              <AdaptiveCover
+                src={resolvedCover.src}
+                alt={localizedTitle}
+                title={localizedTitle}
+                originalTitle={entity.title}
+                id={entity.id}
+                aspect={resolvedCover.aspect}
+                className="w-full h-auto object-cover"
+              />
             </div>
 
-            {/* Right: Info Column */}
-            <div className="flex-1 space-y-3.5 min-w-0">
-              {/* Badges & Meta Pills */}
-              <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] sm:text-xs">
-                <span className={`px-2.5 py-0.5 rounded-sm bg-gradient-to-r ${kindGradient} text-white font-semibold shadow-xs uppercase tracking-wide`}>
+            {/* 2. External Authority Badges */}
+            <div className="flex flex-col gap-2">
+              {bangumiId && (
+                <a
+                  href={`https://bangumi.tv/subject/${bangumiId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-between px-3.5 py-2 rounded-lg bg-[#f09199]/10 text-[#f09199] border border-[#f09199]/25 hover:bg-[#f09199]/20 transition-all font-mono text-xs font-medium group"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Bangumi 番组计划</span>
+                  </span>
+                  <span className="text-[11px] opacity-75">#{bangumiId}</span>
+                </a>
+              )}
+
+              {entity.external_ids?.musicbrainz && (
+                <a
+                  href={`https://musicbrainz.org/release/${entity.external_ids.musicbrainz}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-between px-3.5 py-2 rounded-lg bg-[#ba478f]/10 text-[#ba478f] border border-[#ba478f]/25 hover:bg-[#ba478f]/20 transition-all font-mono text-xs font-medium group"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Music className="w-3.5 h-3.5" />
+                    <span>MusicBrainz</span>
+                  </span>
+                  <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
+                </a>
+              )}
+
+              {entity.external_ids?.vgmdb && (
+                <a
+                  href={`https://vgmdb.net/album/${entity.external_ids.vgmdb}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-between px-3.5 py-2 rounded-lg bg-[#007acc]/10 text-[#007acc] border border-[#007acc]/25 hover:bg-[#007acc]/20 transition-all font-mono text-xs font-medium group"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Disc className="w-3.5 h-3.5" />
+                    <span>VGMdb</span>
+                  </span>
+                  <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
+                </a>
+              )}
+
+              {entity.attributes?.official_website && (
+                <a
+                  href={String(entity.attributes.official_website)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-between px-3.5 py-2 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:text-primary transition-all font-mono text-xs font-medium group"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Globe className="w-3.5 h-3.5 text-primary" />
+                    <span>{locale === "zh-CN" ? "官方网站" : "Official Website"}</span>
+                  </span>
+                  <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
+                </a>
+              )}
+            </div>
+
+            {/* 3. Basic Facts & Information Card */}
+            <div className="p-4 sm:p-5 rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface shadow-soft space-y-4">
+              <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/[0.06] pb-2.5">
+                <Sliders className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                <h3 className="font-display text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white font-mono">
+                  {locale === "zh-CN" ? "条目基本信息" : "Information"}
+                </h3>
+              </div>
+
+              <dl className="space-y-3 text-xs">
+                <div>
+                  <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
+                    {locale === "zh-CN" ? "实体类型 (Kind)" : "Entity Kind"}
+                  </dt>
+                  <dd className="font-medium text-gray-900 dark:text-white capitalize flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-primary" />
+                    <span>{entity.kind}</span>
+                  </dd>
+                </div>
+
+                {(entity.attributes?.edition_date || entity.attributes?.release_date || entity.attributes?.begin_date) && (
+                  <div>
+                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
+                      {locale === "zh-CN" ? "发行 / 公开发表日期" : "Release Date"}
+                    </dt>
+                    <dd className="font-medium text-gray-900 dark:text-white font-mono flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                      <span>{String(entity.attributes.edition_date || entity.attributes.release_date || entity.attributes.begin_date)}</span>
+                    </dd>
+                  </div>
+                )}
+
+                {(entity.attributes?.format || entity.attributes?.packaging) && (
+                  <div>
+                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
+                      {locale === "zh-CN" ? "介质规格与包装" : "Format & Packaging"}
+                    </dt>
+                    <dd className="font-medium text-gray-900 dark:text-white uppercase font-mono">
+                      {[entity.attributes.format, entity.attributes.packaging].filter(Boolean).join(" · ")}
+                    </dd>
+                  </div>
+                )}
+
+                {(entity.attributes?.catalog_number || entity.attributes?.catalogue_number) && (
+                  <div>
+                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
+                      {locale === "zh-CN" ? "唱片编号 / Catalog No." : "Catalog Number"}
+                    </dt>
+                    <dd className="font-mono font-semibold text-primary">
+                      {String(entity.attributes.catalog_number || entity.attributes.catalogue_number)}
+                    </dd>
+                  </div>
+                )}
+
+                {(entity.attributes?.barcode || entity.attributes?.jan || entity.attributes?.ean) && (
+                  <div>
+                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
+                      {locale === "zh-CN" ? "条形码 (JAN / EAN)" : "Barcode"}
+                    </dt>
+                    <dd className="font-mono text-gray-900 dark:text-white">
+                      {String(entity.attributes.barcode || entity.attributes.jan || entity.attributes.ean)}
+                    </dd>
+                  </div>
+                )}
+
+                {entity.attributes?.publisher && (
+                  <div>
+                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
+                      {locale === "zh-CN" ? "出版 / 发行单位" : "Publisher / Label"}
+                    </dt>
+                    <dd className="font-medium text-gray-900 dark:text-white">
+                      {String(entity.attributes.publisher)}
+                    </dd>
+                  </div>
+                )}
+
+                {durationText && (
+                  <div>
+                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
+                      {locale === "zh-CN" ? "总时长" : "Total Duration"}
+                    </dt>
+                    <dd className="font-mono text-gray-900 dark:text-white flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" />
+                      <span>{durationText}</span>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+
+              {/* Dynamic Attributes */}
+              {entity.attributes && Object.keys(entity.attributes).length > 0 && (
+                <div className="pt-3 border-t border-black/5 dark:border-white/[0.06]">
+                  <DynamicAttributeViewer attributes={entity.attributes} />
+                </div>
+              )}
+
+              {/* Types & Tags */}
+              {((entity.types && entity.types.length > 0) || (entity.attributes?.tags && Array.isArray(entity.attributes.tags))) && (
+                <div className="pt-3 border-t border-black/5 dark:border-white/[0.06] space-y-2">
+                  <div className="flex items-center gap-1 text-[11px] font-mono text-gray-400">
+                    <TagIcon className="w-3 h-3" />
+                    <span>{locale === "zh-CN" ? "分类与标签" : "Types & Tags"}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {(entity.types || []).map((t: string, idx: number) => (
+                      <Link
+                        key={idx}
+                        href={`/catalog?kind=${encodeURIComponent(entity.kind)}&type=${encodeURIComponent(t)}`}
+                        className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 text-[11px] font-mono uppercase font-semibold transition-colors"
+                      >
+                        {t.replace(/_/g, " ")}
+                      </Link>
+                    ))}
+                    {(Array.isArray(entity.attributes?.tags) ? entity.attributes.tags : []).map((tag: any, idx: number) => {
+                      const tagName = typeof tag === "string" ? tag : tag?.name || String(tag);
+                      return (
+                        <Link
+                          key={idx}
+                          href={`/explore?tags=${encodeURIComponent(tagName)}`}
+                          className="px-2 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] hover:bg-primary/10 hover:text-primary text-gray-700 dark:text-gray-300 text-[11px] transition-colors"
+                        >
+                          {tagName}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 4. Decoupled Resource Station Quick Jump */}
+            <div className="p-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] dark:bg-sky-500/[0.08] space-y-2.5">
+              <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-semibold text-xs font-mono">
+                <HardDrive className="w-4 h-4" />
+                <span>{locale === "zh-CN" ? "解耦资源存储中心" : "Resource Station"}</span>
+              </div>
+              <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                {locale === "zh-CN"
+                  ? "元数据已与资源存储系统完全解耦。音视频、母带与无损镜像由独立资源中心托管。"
+                  : "Metadata is decoupled from storage. Media files are hosted by the independent Resource Station."}
+              </p>
+              <a
+                href="#storage"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline"
+              >
+                <span>{locale === "zh-CN" ? "查看关联资源与下载" : "View Resources"}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          </aside>
+
+          {/* ============================================================ */}
+          {/* RIGHT COLUMN: Main Content Flow (Wiki Standard)              */}
+          {/* ============================================================ */}
+          <div className="min-w-0 flex-1 space-y-8">
+            {/* Header Area */}
+            <header className="space-y-4 pb-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-bold uppercase tracking-wider">
                   {entity.kind}
                 </span>
 
-                {entity.types?.map((typeKey) => (
-                  <span
-                    key={typeKey}
-                    className="px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 font-medium"
-                  >
-                    {local(definition?.document.types[typeKey]?.names, locale, entity.original_language, typeKey)}
-                  </span>
-                ))}
-
-                {durationText && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
-                    <Clock className="w-3 h-3 text-emerald-500" strokeWidth={1.5} />
-                    <span>{durationText}</span>
-                  </span>
-                )}
-
-                {entity.original_language && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
-                    <Globe className="w-3 h-3 text-sky-400" strokeWidth={1.5} />
-                    <span>{entity.original_language}</span>
-                  </span>
-                )}
-
                 {(entity.attributes?.edition_date || entity.attributes?.release_date) && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 font-mono text-xs">
                     <Calendar className="w-3 h-3 text-amber-400" strokeWidth={1.5} />
                     <span>{entity.attributes.edition_date || entity.attributes.release_date}</span>
                   </span>
                 )}
 
                 {entity.attributes?.format && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 uppercase">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 font-mono text-xs uppercase">
                     <Disc className="w-3 h-3 text-primary" strokeWidth={1.5} />
                     <span>{entity.attributes.format}</span>
                   </span>
                 )}
               </div>
 
-              {/* Big Title */}
+              {/* Title & Original Title */}
               <div>
-                <h1 className="font-display text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 dark:text-white leading-tight">
+                <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-gray-900 dark:text-white leading-tight">
                   {localizedTitle}
                 </h1>
                 {showOriginal && (
-                  <p className="font-mono text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="font-mono text-sm sm:text-base text-gray-500 dark:text-gray-400 mt-1">
                     {entity.title}
                   </p>
                 )}
@@ -676,36 +888,144 @@ export function EntityDetailView({ id }: { id: string }) {
               {/* Aliases */}
               {entity.translations?.[locale]?.aliases && entity.translations[locale].aliases.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
-                  <span className="font-mono text-[10px] text-gray-400 uppercase tracking-wider">Aliases:</span>
+                  <span className="font-mono text-[10px] text-gray-400 uppercase tracking-wider">
+                    {locale === "zh-CN" ? "别名 / 译名: " : "Aliases: "}
+                  </span>
                   {entity.translations[locale].aliases.map((alias, idx) => (
-                    <span key={idx} className="px-1.5 py-0.5 rounded bg-black/[0.03] dark:bg-white/[0.04] text-gray-700 dark:text-gray-300">
+                    <span key={idx} className="px-2 py-0.5 rounded bg-black/[0.03] dark:bg-white/[0.04] text-gray-700 dark:text-gray-300 font-mono">
                       {alias}
                     </span>
                   ))}
                 </div>
               )}
 
-              {/* Summary */}
-              {(entity.translations?.[locale]?.summary || entity.attributes?.summary || entity.attributes?.description) && (
-                <div className="p-3 rounded-lg border border-black/5 dark:border-white/[0.06] bg-black/[0.015] dark:bg-white/[0.015] text-xs sm:text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line max-h-36 overflow-y-auto">
-                  {entity.translations?.[locale]?.summary || entity.attributes?.summary || entity.attributes?.description}
+              {/* Action Toolbar */}
+              <div className="pt-3 border-t border-black/5 dark:border-white/[0.06] flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-sm transition-all cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>{t("entity.detail.editEntity")}</span>
+                  </button>
+
+                  <Link
+                    href={`/compare?ids=${entity.id}`}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-xs font-medium text-gray-700 dark:text-gray-300 hover:border-primary/50 hover:text-primary transition-all shadow-2xs"
+                  >
+                    <GitCompare className="w-3.5 h-3.5" />
+                    <span>{t("entity.detail.compareAdd")}</span>
+                  </Link>
+
+                  <a
+                    href="#revisions"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-xs font-medium text-gray-700 dark:text-gray-300 hover:border-primary/50 hover:text-primary transition-all shadow-2xs"
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    <span>{locale === "zh-CN" ? "修订历史" : "Revisions"}</span>
+                  </a>
+
+                  <button
+                    type="button"
+                    onClick={copyShareLink}
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white transition-all shadow-2xs cursor-pointer"
+                    title="Share link"
+                  >
+                    {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
+                    <span>{copiedLink ? (locale === "zh-CN" ? "链接已复制" : "Copied") : (locale === "zh-CN" ? "分享" : "Share")}</span>
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <FavoriteButton
+                    targetType={
+                      (entity.kind === "expression"
+                        ? "canonical_entry"
+                        : entity.kind === "agent"
+                        ? "artist"
+                        : entity.kind === "release"
+                        ? "release"
+                        : "work") as any
+                    }
+                    targetId={entity.id || id}
+                  />
+                </div>
+              </div>
+
+              {/* Sticky / Smooth Anchor Navigation Bar */}
+              <nav className="flex items-center gap-4 border-b border-black/10 dark:border-white/[0.08] pt-2 overflow-x-auto text-xs font-mono">
+                <a href="#overview" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
+                  {locale === "zh-CN" ? "作品简介" : "Overview"}
+                </a>
+                {staffRelations.length > 0 && (
+                  <a href="#staff" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
+                    {locale === "zh-CN" ? "演职人员" : "Staff"} ({staffRelations.length})
+                  </a>
+                )}
+                {children.length > 0 && (
+                  <a href="#contents" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
+                    {locale === "zh-CN" ? "目录与曲目" : "Contents"} ({children.length})
+                  </a>
+                )}
+                {occurrences.length > 0 && (
+                  <a href="#releases" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
+                    {locale === "zh-CN" ? "发行版本" : "Releases"} ({occurrences.length})
+                  </a>
+                )}
+                {mediaRelations.length > 0 && (
+                  <a href="#relations" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
+                    {locale === "zh-CN" ? "关联作品" : "Relations"} ({mediaRelations.length})
+                  </a>
+                )}
+                <a href="#community" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary font-semibold text-primary">
+                  {locale === "zh-CN" ? "社区讨论与合集" : "Discussions & Collections"} ({communityPosts.length})
+                </a>
+                <a href="#storage" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
+                  {locale === "zh-CN" ? "资源下载" : "Storage"}
+                </a>
+                <a href="#revisions" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
+                  {locale === "zh-CN" ? "修订历史" : "Revisions"}
+                </a>
+              </nav>
+            </header>
+
+            {/* ============================================================ */}
+            {/* Section 1: Overview & Summary                                */}
+            {/* ============================================================ */}
+            <section id="overview" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+              <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
+                <BookOpen className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                  {locale === "zh-CN" ? "作品简介与说明" : "Overview & Summary"}
+                </h2>
+              </div>
+
+              {summaryText ? (
+                <div className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line">
+                  {summaryText}
+                </div>
+              ) : (
+                <div className="text-xs text-gray-400 italic">
+                  {locale === "zh-CN" ? "暂无文字简介，欢迎登录进行编辑补充。" : "No summary text provided yet."}
                 </div>
               )}
 
               {/* Mother Work Direct Card */}
               {motherWork && (
-                <div className="pt-1">
+                <div className="pt-2">
                   <Link
                     href={`/catalog/${motherWork.id}`}
-                    className="group inline-flex items-center gap-3 p-2.5 rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-primary/50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all max-w-xl w-full"
+                    className="group inline-flex items-center gap-3.5 p-3 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-primary/50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all w-full"
                   >
-                    <div className="w-10 h-10 rounded overflow-hidden bg-black/5 dark:bg-white/5 shrink-0">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-black/5 dark:bg-white/5 shrink-0 border border-black/10 dark:border-white/10">
                       <AdaptiveCover
                         src={motherWork.pictures?.[0]?.url || resolvedCover.src}
                         alt={title(motherWork, locale)}
                         title={title(motherWork, locale)}
                         id={motherWork.id}
-                        aspect="1:1"
+                        aspect="2:3"
                         className="w-full h-full object-cover"
                       />
                     </div>
@@ -713,11 +1033,11 @@ export function EntityDetailView({ id }: { id: string }) {
                       <div className="font-mono text-[10px] text-primary uppercase tracking-wider font-semibold">
                         {t("entity.detail.partOfWork")}
                       </div>
-                      <div className="font-display text-xs sm:text-sm font-bold text-gray-900 dark:text-white group-hover:text-primary truncate">
+                      <div className="font-display text-sm font-bold text-gray-900 dark:text-white group-hover:text-primary truncate">
                         {title(motherWork, locale)}
                       </div>
                       {isDistinctOriginalTitle(motherWork.title, title(motherWork, locale)) && (
-                        <div className="font-mono text-[10px] text-gray-400 truncate">
+                        <div className="font-mono text-xs text-gray-400 truncate">
                           {motherWork.title}
                         </div>
                       )}
@@ -729,15 +1049,15 @@ export function EntityDetailView({ id }: { id: string }) {
 
               {/* Store Bonuses Highlight */}
               {storeBonuses.length > 0 && (
-                <div className="p-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.05] dark:bg-amber-500/[0.08] space-y-1.5">
-                  <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                    <Sparkles className="w-3.5 h-3.5" />
+                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.05] dark:bg-amber-500/[0.08] space-y-2">
+                  <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-amber-600 dark:text-amber-400">
+                    <Sparkles className="w-4 h-4" />
                     <span>{t("entity.detail.storeBonuses")}</span>
                   </div>
-                  <div className="space-y-1 text-xs">
+                  <div className="space-y-1.5 text-xs">
                     {storeBonuses.map((bonus: any, idx: number) => (
                       <div key={idx} className="flex flex-wrap items-baseline gap-2 text-gray-800 dark:text-gray-200">
-                        <span className="font-semibold text-amber-700 dark:text-amber-300">
+                        <span className="font-semibold text-amber-700 dark:text-amber-300 font-mono">
                           {bonus.label?.["ja-JP"] || bonus.label?.["zh-CN"] || bonus.label?.["en-US"] || JSON.stringify(bonus.label || "")}
                         </span>
                         {bonus.condition && (
@@ -750,695 +1070,578 @@ export function EntityDetailView({ id }: { id: string }) {
                   </div>
                 </div>
               )}
+            </section>
 
-              {/* Action Toolbar */}
-              <div className="pt-3 border-t border-black/5 dark:border-white/[0.06] flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(true)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-xs transition-all"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                    <span>{t("entity.detail.editEntity")}</span>
-                  </button>
-
-                  <Link
-                    href={`/compare?ids=${entity.id}`}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-black/10 dark:border-white/10 bg-surface text-xs font-medium text-gray-700 dark:text-gray-300 hover:border-primary/50 hover:text-primary transition-all"
-                  >
-                    <GitCompare className="w-3.5 h-3.5" />
-                    <span>{t("entity.detail.compareAdd")}</span>
-                  </Link>
-
-                  <button
-                    type="button"
-                    onClick={copyShareLink}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-black/10 dark:border-white/10 bg-surface text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white transition-all"
-                    title="Share link"
-                  >
-                    {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
-                  </button>
+            {/* ============================================================ */}
+            {/* Section 2: Staff & Credits (演职人员与创作者)                 */}
+            {/* ============================================================ */}
+            {staffRelations.length > 0 && (
+              <section id="staff" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+                <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                    <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                      {locale === "zh-CN" ? "演职人员与主创人员" : "Staff & Credits"}
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                      {staffRelations.length}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <FavoriteButton
-    targetType={
-      (entity.kind === "expression"
-        ? "canonical_entry"
-        : entity.kind === "agent"
-        ? "artist"
-        : entity.kind === "release"
-        ? "release"
-        : "work") as any
-    }
-    targetId={entity.id || id}
-  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-2 border-b border-black/10 dark:border-white/[0.08] pb-1 overflow-x-auto font-mono text-xs">
-          <button
-            type="button"
-            onClick={() => setActiveTab("occurrences")}
-            className={`px-3.5 py-2 rounded-t-md font-semibold flex items-center gap-1.5 transition-all ${
-              activeTab === "occurrences"
-                ? "border-b-2 border-primary text-primary bg-primary/5"
-                : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            <Disc className="w-3.5 h-3.5" />
-            <span>{t("entity.detail.occurrencesTitle")}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-black/[0.05] dark:bg-white/[0.08] text-[10px]">
-              {occurrences.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("directory")}
-            className={`px-3.5 py-2 rounded-t-md font-semibold flex items-center gap-1.5 transition-all ${
-              activeTab === "directory"
-                ? "border-b-2 border-primary text-primary bg-primary/5"
-                : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            <List className="w-3.5 h-3.5" />
-            <span>{t("entity.detail.directoryTitle")}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-black/[0.05] dark:bg-white/[0.08] text-[10px]">
-              {children.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("credits")}
-            className={`px-3.5 py-2 rounded-t-md font-semibold flex items-center gap-1.5 transition-all ${
-              activeTab === "credits"
-                ? "border-b-2 border-primary text-primary bg-primary/5"
-                : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>{t("entity.detail.creditsRelationsTitle")}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-black/[0.05] dark:bg-white/[0.08] text-[10px]">
-              {relations.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("attributes")}
-            className={`px-3.5 py-2 rounded-t-md font-semibold flex items-center gap-1.5 transition-all ${
-              activeTab === "attributes"
-                ? "border-b-2 border-primary text-primary bg-primary/5"
-                : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            <Sliders className="w-3.5 h-3.5" />
-            <span>{t("entity.detail.attributesTitle")}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("revisions")}
-            className={`px-3.5 py-2 rounded-t-md font-semibold flex items-center gap-1.5 transition-all ${
-              activeTab === "revisions"
-                ? "border-b-2 border-primary text-primary bg-primary/5"
-                : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            <History className="w-3.5 h-3.5" />
-            <span>{t("entity.detail.revisionsTitle")}</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-black/[0.05] dark:bg-white/[0.08] text-[10px]">
-              {revisions.length}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("storage")}
-            className={`px-3.5 py-2 rounded-t-md font-semibold flex items-center gap-1.5 transition-all ${
-              activeTab === "storage"
-                ? "border-b-2 border-primary text-primary bg-primary/5"
-                : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            <HardDrive className="w-3.5 h-3.5" />
-            <span>{t("entity.detail.resourcesTitle")}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("community")}
-            className={`px-3.5 py-2 rounded-t-md font-semibold flex items-center gap-1.5 transition-all ${
-              activeTab === "community"
-                ? "border-b-2 border-primary text-primary bg-primary/5"
-                : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-            }`}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-            <span>{t("entity.detail.communityTitle")}</span>
-          </button>
-        </div>
-
-        {/* Tab Content 1: Occurrences & Releases */}
-        {activeTab === "occurrences" && (
-          <section className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
-            <div className="px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02]">
-              <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white">
-                  {t("entity.detail.occurrencesTitle")}
-                </h2>
-                <span className="font-mono text-xs text-gray-500">({occurrences.length})</span>
-              </div>
-              <p className="text-xs text-gray-500 hidden sm:block">
-                {t("entity.detail.occurrencesDesc")}
-              </p>
-            </div>
-
-            {occurrences.length === 0 ? (
-              <div className="p-10 text-center font-mono text-xs text-gray-500">
-                {t("entity.detail.noOccurrences")}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-black/[0.02] dark:bg-white/[0.02] border-b border-black/5 dark:border-white/[0.06] font-mono text-[10px] uppercase tracking-wider text-gray-500">
-                    <tr>
-                      <th className="py-2.5 px-3.5 w-14 font-medium">{t("entity.detail.tableCover")}</th>
-                      <th className="py-2.5 px-3.5 font-medium">{t("entity.detail.tableReleaseName")}</th>
-                      <th className="py-2.5 px-3.5 font-medium">{t("entity.detail.tableMedium")}</th>
-                      <th className="py-2.5 px-3.5 font-medium">{t("entity.detail.tableTrack")}</th>
-                      <th className="py-2.5 px-3.5 font-medium">{t("entity.detail.tableBonus")}</th>
-                      <th className="py-2.5 px-3.5 font-medium">{t("entity.detail.tableDate")}</th>
-                      <th className="py-2.5 px-3.5 text-right font-medium">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
-                    {occurrences.map((occ, idx) => {
-                      const rel = occ.release;
-                      const med = occ.medium;
-                      const trk = occ.track;
-                      const bonuses = rel?.attributes?.store_bonuses;
-                      return (
-                        <tr key={idx} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
-                          <td className="py-2.5 px-3.5">
-                            <div className="w-10 h-10 rounded overflow-hidden bg-black/5 dark:bg-white/5 shadow-xs">
-                              <AdaptiveCover
-                                src={rel?.pictures?.[0]?.url || resolvedCover.src}
-                                alt={rel?.title || "Release"}
-                                title={rel?.title || "Release"}
-                                id={rel?.id}
-                                aspect="1:1"
-                                className="w-full h-full object-cover"
-                              />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {staffRelations.map((r) => {
+                    const target = r.target;
+                    const targetTitle = target ? title(target, locale) : r.otherId;
+                    return (
+                      <Link
+                        key={r.id}
+                        href={`/catalog/${r.otherId}`}
+                        className="p-3 rounded-xl border border-black/5 dark:border-white/[0.06] bg-black/[0.015] dark:bg-white/[0.015] hover:border-primary/50 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all flex items-center gap-3 group"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary grid place-items-center font-bold text-xs shrink-0 overflow-hidden border border-primary/20">
+                          {target?.pictures?.[0]?.url ? (
+                            <img src={target.pictures[0].url} alt={targetTitle} className="w-full h-full object-cover" />
+                          ) : (
+                            <span>{targetTitle[0]?.toUpperCase() || "A"}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="text-[10px] font-mono font-semibold uppercase text-primary tracking-wider">
+                            {r.type.replace(/_/g, " ")}
+                          </div>
+                          <div className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-primary truncate">
+                            {targetTitle}
+                          </div>
+                          {target && isDistinctOriginalTitle(target.title, targetTitle) && (
+                            <div className="text-[10px] text-gray-400 font-mono truncate">
+                              {target.title}
                             </div>
-                          </td>
-                          <td className="py-2.5 px-3.5 font-medium text-gray-900 dark:text-white max-w-[260px]">
-                            {rel ? (
-                              <Link
-                                href={`/catalog/${rel.id}`}
-                                className="hover:text-primary transition-colors line-clamp-2"
-                                title={rel.title}
-                              >
-                                {rel.title}
-                              </Link>
-                            ) : (
-                              <span>—</span>
-                            )}
-                            {rel?.attributes?.edition_name && (
-                              <div className="font-mono text-[10px] text-gray-400 mt-0.5">
-                                {rel.attributes.edition_name}
-                              </div>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3.5 text-gray-700 dark:text-gray-300 font-mono text-[11px]">
-                            {med ? (
-                              <Link href={`/catalog/${med.id}`} className="hover:text-primary transition-colors">
-                                {med.title || `Disc ${med.position || 1}`}
-                                {med.attributes?.format && (
-                                  <span className="ml-1 text-gray-400 uppercase">({med.attributes.format})</span>
-                                )}
-                              </Link>
-                            ) : (
-                              <span>—</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3.5 text-gray-900 dark:text-white font-mono text-[11px]">
-                            {trk ? (
-                              <Link href={`/catalog/${trk.id}`} className="hover:text-primary transition-colors">
-                                #{trk.number || trk.position || occ.position || 1} {trk.title && trk.title !== entity.title ? `· ${trk.title}` : ""}
-                              </Link>
-                            ) : (
-                              <span>#{occ.position || 1}</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3.5 text-gray-600 dark:text-gray-400 max-w-[220px]">
-                            {Array.isArray(bonuses) && bonuses.length > 0 ? (
-                              <div className="space-y-0.5">
-                                {bonuses.map((b: any, bIdx: number) => (
-                                  <div key={bIdx} className="text-[11px] text-amber-600 dark:text-amber-400 truncate" title={b.condition || ""}>
-                                    ★ {b.label?.["ja-JP"] || b.label?.["zh-CN"] || b.label?.["en-US"] || JSON.stringify(b.label || "")}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400">—</span>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3.5 text-gray-500 font-mono text-[11px] whitespace-nowrap">
-                            {rel?.attributes?.edition_date || rel?.attributes?.release_date || "—"}
-                          </td>
-                          <td className="py-2.5 px-3.5 text-right whitespace-nowrap">
-                            {rel && (
-                              <Link
-                                href={`/catalog/${rel.id}`}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-black/10 dark:border-white/10 text-[11px] text-gray-600 dark:text-gray-300 hover:border-primary hover:text-primary transition-all font-medium"
-                              >
-                                <span>View</span>
-                                <ChevronRight className="w-3 h-3" />
-                              </Link>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          )}
+                        </div>
+                        <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors shrink-0" />
+                      </Link>
+                    );
+                  })}
+                </div>
+              </section>
             )}
-          </section>
-        )}
 
-        {/* Tab Content 2: Directory & Tracklist */}
-        {activeTab === "directory" && (
-          <section className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
-            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
-              <div className="flex items-center gap-2">
-                <List className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white">
-                  {t("entity.detail.directoryTitle")}
-                </h2>
-                <span className="font-mono text-xs text-gray-500">({children.length})</span>
-              </div>
-            </div>
+            {/* ============================================================ */}
+            {/* Section 3: Contents & Tracklist (内容目录与曲目结构)          */}
+            {/* ============================================================ */}
+            {children.length > 0 && (
+              <section id="contents" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+                <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
+                  <div className="flex items-center gap-2">
+                    <List className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                    <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                      {locale === "zh-CN" ? "内容目录与曲目结构" : "Contents & Tracklist"}
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                      {children.length}
+                    </span>
+                  </div>
+                </div>
 
-            {children.length === 0 ? (
-              <div className="p-10 text-center font-mono text-xs text-gray-500">
-                {t("entity.detail.noDirectory")}
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Group by Medium if release */}
-                {entity.kind === "release" ? (
-                  children
-                    .filter((c) => c.kind === "medium")
-                    .map((med) => {
-                      const tracks = children.filter((c) => c.kind === "track" && c.medium_id === med.id);
+                {/* Mediums & Tracks (for Releases) */}
+                {mediums.length > 0 ? (
+                  <div className="space-y-4">
+                    {mediums.map((m) => {
+                      const mTracks = (m.id ? tracksByMedium[m.id] : []) || [];
                       return (
-                        <div key={med.id} className="rounded-lg border border-black/10 dark:border-white/10 overflow-hidden">
-                          <div className="px-4 py-2.5 bg-black/[0.03] dark:bg-white/[0.03] border-b border-black/10 dark:border-white/10 flex items-center justify-between">
-                            <div className="flex items-center gap-2 font-display text-xs sm:text-sm font-bold text-gray-900 dark:text-white">
+                        <div key={m.id} className="rounded-xl border border-black/10 dark:border-white/10 overflow-hidden bg-black/[0.01] dark:bg-white/[0.01]">
+                          <div className="px-4 py-3 bg-black/[0.03] dark:bg-white/[0.04] border-b border-black/10 dark:border-white/10 flex items-center justify-between">
+                            <div className="flex items-center gap-2 font-mono text-xs font-bold text-gray-900 dark:text-white">
                               <Disc className="w-4 h-4 text-primary" />
-                              <Link href={`/catalog/${med.id}`} className="hover:text-primary transition-colors">
-                                {med.title || `Disc ${med.position || 1}`}
-                              </Link>
-                              {med.attributes?.format && (
-                                <span className="px-2 py-0.2 rounded text-[10px] font-mono uppercase bg-primary/10 text-primary">
-                                  {med.attributes.format}
+                              <span>{title(m, locale)}</span>
+                              {m.attributes?.format && (
+                                <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] uppercase">
+                                  {m.attributes.format}
                                 </span>
                               )}
                             </div>
-                            <span className="font-mono text-[11px] text-gray-500">{tracks.length} tracks</span>
+                            <span className="font-mono text-xs text-gray-400">
+                              {mTracks.length} {locale === "zh-CN" ? "首曲目 / 项" : "tracks"}
+                            </span>
                           </div>
 
                           <div className="divide-y divide-black/5 dark:divide-white/[0.06]">
-                            {tracks.map((trk) => (
-                              <div
-                                key={trk.id}
-                                className="px-4 py-2 text-xs flex items-center justify-between hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
-                              >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <span className="w-6 font-mono text-gray-400 text-[11px] text-right">
-                                    {trk.number || trk.position}
-                                  </span>
-                                  <Link
-                                    href={`/catalog/${trk.id}`}
-                                    className="font-medium text-gray-900 dark:text-white hover:text-primary transition-colors truncate"
-                                  >
-                                    {trk.title}
-                                  </Link>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  {trk.contents && trk.contents.length > 0 && (
+                            {mTracks.map((t: Entity, idx: number) => {
+                              const tDur = t.attributes?.duration_seconds || t.attributes?.duration;
+                              let durStr = "";
+                              if (typeof tDur === "number") {
+                                durStr = `${Math.floor(tDur / 60)}:${String(tDur % 60).padStart(2, "0")}`;
+                              }
+                              return (
+                                <div key={t.id} className="px-4 py-2.5 flex items-center justify-between gap-3 text-xs hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <span className="font-mono text-gray-400 w-6 text-right shrink-0">
+                                      {t.position || idx + 1}
+                                    </span>
                                     <Link
-                                      href={`/catalog/${trk.contents[0].expression_id}`}
-                                      className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                                      href={`/catalog/${t.id}`}
+                                      className="font-medium text-gray-900 dark:text-white hover:text-primary truncate"
                                     >
-                                      Expression
+                                      {title(t, locale)}
                                     </Link>
+                                  </div>
+                                  {durStr && (
+                                    <span className="font-mono text-gray-400 shrink-0">
+                                      {durStr}
+                                    </span>
                                   )}
                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       );
-                    })
+                    })}
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                    {children.map((child) => (
+                  /* Content Units & Expressions (for Works) */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {children.map((c) => (
                       <Link
-                        key={child.id}
-                        href={`/catalog/${child.id}`}
-                        className="p-3 rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-primary/50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all flex items-center justify-between"
+                        key={c.id}
+                        href={`/catalog/${c.id}`}
+                        className="p-3 rounded-xl border border-black/5 dark:border-white/[0.06] bg-black/[0.015] dark:bg-white/[0.015] hover:border-primary/50 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all flex items-center justify-between gap-3 group"
                       >
-                        <div className="min-w-0 flex-1">
-                          <span className="font-mono text-[9px] text-primary uppercase font-semibold">
-                            {child.kind}
+                        <div className="min-w-0 flex items-center gap-2.5">
+                          <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-mono uppercase font-semibold shrink-0">
+                            {c.kind.replace(/_/g, " ")}
                           </span>
-                          <div className="font-medium text-xs text-gray-900 dark:text-white truncate">
-                            {title(child, locale)}
-                          </div>
+                          <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-primary truncate">
+                            {title(c, locale)}
+                          </span>
                         </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                        <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors shrink-0" />
                       </Link>
                     ))}
                   </div>
                 )}
-              </div>
+              </section>
             )}
-          </section>
-        )}
 
-        {/* Tab Content 3: Credits & Relations */}
-        {activeTab === "credits" && (
-          <section className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black/5 dark:border-white/[0.06] pb-3">
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white">
-                  {t("entity.detail.creditsRelationsTitle")}
-                </h2>
-                <span className="font-mono text-xs text-gray-500">({relations.length})</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Filter Pills */}
-                <div className="flex items-center gap-1 font-mono text-[11px] overflow-x-auto">
-                  <button
-                    type="button"
-                    onClick={() => setRelationFilter("all")}
-                    className={`px-2.5 py-1 rounded-md transition-all ${
-                      relationFilter === "all" ? "bg-primary text-white font-semibold" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                  >
-                    {t("entity.detail.relAll")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRelationFilter("staff")}
-                    className={`px-2.5 py-1 rounded-md transition-all ${
-                      relationFilter === "staff" ? "bg-primary text-white font-semibold" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                  >
-                    {t("entity.detail.relStaff")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRelationFilter("cast")}
-                    className={`px-2.5 py-1 rounded-md transition-all ${
-                      relationFilter === "cast" ? "bg-primary text-white font-semibold" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                  >
-                    {t("entity.detail.relCast")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRelationFilter("media")}
-                    className={`px-2.5 py-1 rounded-md transition-all ${
-                      relationFilter === "media" ? "bg-primary text-white font-semibold" : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                  >
-                    {t("entity.detail.relMedia")}
-                  </button>
+            {/* ============================================================ */}
+            {/* Section 4: Releases & Occurrences (发行版本与收录情况)        */}
+            {/* ============================================================ */}
+            {occurrences.length > 0 && (
+              <section id="releases" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+                <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
+                  <div className="flex items-center gap-2">
+                    <Disc className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                    <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                      {locale === "zh-CN" ? "发行版本与收录情况" : "Releases & Editions"}
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                      {occurrences.length}
+                    </span>
+                  </div>
                 </div>
 
-                {/* View Mode Switcher */}
-                <div className="flex items-center bg-black/[0.04] dark:bg-white/[0.06] rounded-md p-0.5 border border-black/10 dark:border-white/10 font-mono text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setRelationViewMode("cards")}
-                    className={`px-2 py-0.5 rounded transition-all flex items-center gap-1 ${
-                      relationViewMode === "cards" ? "bg-surface text-foreground shadow-xs font-medium" : "text-gray-500 hover:text-foreground"
-                    }`}
-                  >
-                    <List className="w-3 h-3" />
-                    <span>{t("entity.detail.viewCards")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRelationViewMode("graph")}
-                    className={`px-2 py-0.5 rounded transition-all flex items-center gap-1 ${
-                      relationViewMode === "graph" ? "bg-surface text-foreground shadow-xs font-medium" : "text-gray-500 hover:text-foreground"
-                    }`}
-                  >
-                    <Network className="w-3 h-3" />
-                    <span>{t("entity.detail.viewGraph")}</span>
-                  </button>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-black/10 dark:border-white/10 text-gray-400">
+                        <th className="pb-2 font-medium">{locale === "zh-CN" ? "版本名称 / 发行" : "Edition / Release"}</th>
+                        <th className="pb-2 font-medium">{locale === "zh-CN" ? "格式" : "Format"}</th>
+                        <th className="pb-2 font-medium">{locale === "zh-CN" ? "唱片编号" : "Catalog No."}</th>
+                        <th className="pb-2 font-medium text-right">{locale === "zh-CN" ? "发行日期" : "Date"}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
+                      {occurrences.map((occ: any, idx: number) => {
+                        const rel = occ.release;
+                        if (!rel) return null;
+                        const isBoxset = occ.is_compilation || rel.attributes?.packaging?.toLowerCase()?.includes("box");
+                        return (
+                          <tr key={rel.id || idx} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                            <td className="py-2.5 pr-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Link
+                                  href={`/catalog/${rel.id}`}
+                                  className="font-semibold text-gray-900 dark:text-white hover:text-primary inline-flex items-center gap-1.5"
+                                >
+                                  {title(rel, locale)}
+                                  <ArrowUpRight className="w-3.5 h-3.5 text-gray-400" />
+                                </Link>
+                                {isBoxset && (
+                                  <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[10px] font-semibold">
+                                    BOXSET
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-3 uppercase text-gray-600 dark:text-gray-300">
+                              {rel.attributes?.format || "CD"}
+                            </td>
+                            <td className="py-2.5 px-3 text-primary font-semibold">
+                              {rel.attributes?.catalog_number || "—"}
+                            </td>
+                            <td className="py-2.5 pl-3 text-right text-gray-500">
+                              {rel.attributes?.edition_date || rel.attributes?.release_date || "—"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
-            </div>
+              </section>
+            )}
 
-            {filteredRelations.length === 0 ? (
-              <div className="p-10 text-center font-mono text-xs text-gray-500">
-                {t("entity.detail.noRelations")}
+            {/* ============================================================ */}
+            {/* Section 5: Relations & Graph (关联作品与图谱)                 */}
+            {/* ============================================================ */}
+            {mediaRelations.length > 0 && (
+              <section id="relations" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+                <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
+                  <div className="flex items-center gap-2">
+                    <Network className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                    <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                      {locale === "zh-CN" ? "关联实体与关系图谱" : "Related Works & Entities"}
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                      {mediaRelations.length}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.06] p-0.5 rounded-lg text-xs font-mono">
+                    <button
+                      type="button"
+                      onClick={() => setRelationViewMode("cards")}
+                      className={`px-2.5 py-1 rounded-md transition-all ${
+                        relationViewMode === "cards"
+                          ? "bg-surface text-gray-900 dark:text-white font-semibold shadow-xs"
+                          : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                      }`}
+                    >
+                      {locale === "zh-CN" ? "卡片列表" : "Cards"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRelationViewMode("graph")}
+                      className={`px-2.5 py-1 rounded-md transition-all ${
+                        relationViewMode === "graph"
+                          ? "bg-surface text-gray-900 dark:text-white font-semibold shadow-xs"
+                          : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                      }`}
+                    >
+                      {locale === "zh-CN" ? "知识图谱" : "Graph"}
+                    </button>
+                  </div>
+                </div>
+
+                {relationViewMode === "graph" ? (
+                  <div className="h-[360px] rounded-xl overflow-hidden border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02]">
+                    <InteractiveRelationGraph
+                      centerEntityId={entity.id || id}
+                      centerEntityType={entity.kind}
+                      nodes={graphNodes}
+                      links={graphLinks}
+                      onNodeClick={(n) => {
+                        if (n.id && n.id !== entity.id) {
+                          window.location.href = `/catalog/${n.id}`;
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {mediaRelations.map((r) => {
+                      const target = r.target;
+                      const targetTitle = target ? title(target, locale) : r.otherId;
+                      return (
+                        <Link
+                          key={r.id}
+                          href={`/catalog/${r.otherId}`}
+                          className="p-3 rounded-xl border border-black/5 dark:border-white/[0.06] bg-black/[0.015] dark:bg-white/[0.015] hover:border-primary/50 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all flex items-center justify-between gap-3 group"
+                        >
+                          <div className="min-w-0 space-y-1">
+                            <div className="text-[10px] font-mono font-semibold uppercase text-primary tracking-wider">
+                              {r.type.replace(/_/g, " ")}
+                            </div>
+                            <div className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-primary truncate">
+                              {targetTitle}
+                            </div>
+                            {target && isDistinctOriginalTitle(target.title, targetTitle) && (
+                              <div className="text-[10px] text-gray-400 font-mono truncate">
+                                {target.title}
+                              </div>
+                            )}
+                          </div>
+                          <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors shrink-0" />
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ============================================================ */}
+            {/* Section 6: Embedded Community Discussions & Collections      */}
+            {/* ============================================================ */}
+            <section id="community" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-6 shadow-soft scroll-mt-20">
+              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                  <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                    {locale === "zh-CN" ? "社区讨论、评论与合集" : "Discussions & Collections"}
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                    {communityPosts.length}
+                  </span>
+                </div>
+                <a
+                  href={getForumEntityUrl(entity.id || id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
+                >
+                  <span>{locale === "zh-CN" ? "前往论坛讨论区" : "Open in Forum"}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </a>
               </div>
-            ) : relationViewMode === "graph" ? (
-              <div className="rounded-lg overflow-hidden border border-black/10 dark:border-white/10">
-                <InteractiveRelationGraph
-                  centerEntityId={entity.id || id}
-                  centerEntityType={entity.kind}
-                  nodes={graphNodes}
-                  links={graphLinks}
-                  height={540}
-                  title={localizedTitle}
+
+              {/* Quick Comment Composer */}
+              <form onSubmit={handlePostComment} className="p-4 rounded-xl border border-black/10 dark:border-white/[0.08] bg-black/[0.015] dark:bg-white/[0.015] space-y-3">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span className="font-medium text-gray-700 dark:text-gray-300 font-mono">
+                    {locale === "zh-CN" ? "发表条目短评 / 讨论" : "Write a Quick Review or Comment"}
+                  </span>
+                  {user ? (
+                    <span className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                      @{user.username}
+                    </span>
+                  ) : (
+                    <a href={getAuthLoginUrl()} className="text-primary hover:underline font-medium">
+                      {locale === "zh-CN" ? "登录以发表评论" : "Sign in to comment"}
+                    </a>
+                  )}
+                </div>
+                <textarea
+                  value={newCommentBody}
+                  onChange={(e) => setNewCommentBody(e.target.value)}
+                  placeholder={
+                    user
+                      ? (locale === "zh-CN" ? "写下你对这部作品或发行的评价与感想..." : "Share your thoughts or discussion on this entity...")
+                      : (locale === "zh-CN" ? "请先登录账号后再参与讨论..." : "Please sign in to participate in the discussion...")
+                  }
+                  disabled={!user || submittingComment}
+                  rows={3}
+                  className="w-full p-3 rounded-lg bg-surface border border-black/10 dark:border-white/10 text-xs sm:text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 resize-y"
                 />
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {filteredRelations.map((r, idx) => {
-                  const target = r.target;
-                  const targetName = target ? title(target, locale) : r.otherId.slice(0, 8);
-                  return (
-                    <Link
-                      key={r.id || idx}
-                      href={`/catalog/${r.otherId}`}
-                      className="group p-3 rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-primary/50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all flex items-center gap-3"
+                {commentError && (
+                  <div className="text-xs text-rose-500 font-mono">{commentError}</div>
+                )}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-gray-400">
+                    {locale === "zh-CN" ? "内容将同步呈现于论坛微服务与讨论流" : "Syncs to forum discussion stream."}
+                  </span>
+                  {user ? (
+                    <button
+                      type="submit"
+                      disabled={submittingComment || !newCommentBody.trim()}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                     >
-                      <div className="w-10 h-10 rounded-full overflow-hidden bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                        {target?.pictures?.[0]?.url ? (
-                          <img src={target.pictures[0].url} alt={targetName} className="w-full h-full object-cover" />
-                        ) : (
-                          <User className="w-4 h-4 text-primary" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="font-mono text-[10px] text-gray-400 uppercase tracking-wider">
-                          {r.type}
-                        </div>
-                        <div className="font-medium text-xs text-gray-900 dark:text-white group-hover:text-primary truncate">
-                          {targetName}
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        )}
+                      <Send className="w-3.5 h-3.5" />
+                      <span>{submittingComment ? (locale === "zh-CN" ? "发表中..." : "Posting...") : (locale === "zh-CN" ? "发表短评" : "Post Comment")}</span>
+                    </button>
+                  ) : (
+                    <a
+                      href={getAuthLoginUrl()}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-all"
+                    >
+                      <span>{locale === "zh-CN" ? "登录后发送" : "Sign In"}</span>
+                    </a>
+                  )}
+                </div>
+              </form>
 
-        {/* Tab Content 4: Attributes & Authorities */}
-        {activeTab === "attributes" && (
-          <section className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-4 sm:p-5 space-y-6 shadow-soft">
-            <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
-              <Sliders className="w-4 h-4 text-primary" strokeWidth={1.5} />
-              <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white">
-                {t("entity.detail.attributesTitle")}
-              </h2>
-            </div>
-
-            {/* Dynamic Attributes Grid */}
-            <div>
-              <h3 className="font-mono text-xs uppercase tracking-wider text-gray-500 mb-3 font-semibold">
-                Entity Attributes
-              </h3>
-              <DynamicAttributeViewer attributes={entity.attributes} />
-            </div>
-
-            {/* External IDs */}
-            {entity.external_ids && Object.keys(entity.external_ids).length > 0 && (
-              <div className="pt-4 border-t border-black/5 dark:border-white/[0.06]">
-                <h3 className="font-mono text-xs uppercase tracking-wider text-gray-500 mb-3 font-semibold">
-                  External Authorities & Identifiers
+              {/* Embedded Comments Stream */}
+              <div className="space-y-3">
+                <h3 className="font-display text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                  {locale === "zh-CN" ? "讨论与评论列表" : "Discussion Stream"} ({communityPosts.length})
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                  {Object.entries(entity.external_ids).map(([key, val]) => (
-                    <div
-                      key={key}
-                      className="p-2.5 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] font-mono text-xs"
+                {communityPosts.length === 0 ? (
+                  <div className="p-8 rounded-xl border border-dashed border-black/10 dark:border-white/10 text-center space-y-2">
+                    <MessageSquare className="w-8 h-8 mx-auto text-gray-400 opacity-50" />
+                    <p className="text-xs text-gray-500">
+                      {locale === "zh-CN" ? "暂无相关讨论，欢迎成为第一个发起评论的编目成员！" : "No discussions yet. Be the first to share your thoughts!"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {communityPosts.map((post: any) => (
+                      <div key={post.id} className="p-4 rounded-xl border border-black/5 dark:border-white/[0.06] bg-black/[0.015] dark:bg-white/[0.015] space-y-2 hover:border-black/15 dark:hover:border-white/15 transition-colors">
+                        <div className="flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-primary/15 text-primary grid place-items-center font-mono text-[11px] font-bold">
+                              {(post.author_name || "U")[0].toUpperCase()}
+                            </div>
+                            <span className="font-semibold text-gray-900 dark:text-white font-mono text-xs">
+                              {post.author_name || "User"}
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-gray-400 font-mono">
+                            {post.created_at ? new Date(post.created_at).toLocaleDateString() : ""}
+                          </span>
+                        </div>
+                        <p className="text-xs sm:text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line pl-8">
+                          {post.body}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Embedded Collections (合集) */}
+              <div className="pt-4 border-t border-black/5 dark:border-white/[0.06] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FolderPlus className="w-4 h-4 text-indigo-500" />
+                    <h3 className="font-display text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                      {locale === "zh-CN" ? "收录本条目的社区合集" : "Collections Featuring This Entity"} ({allDisplayCollections.length})
+                    </h3>
+                  </div>
+                  <a
+                    href={`${FORUM_SERVICE_URL}/collections`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
+                  >
+                    <span>{locale === "zh-CN" ? "发现更多合集" : "Explore Collections"}</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+
+                {allDisplayCollections.length === 0 ? (
+                  <div className="p-6 rounded-xl border border-dashed border-black/10 dark:border-white/10 text-center text-xs text-gray-500">
+                    {locale === "zh-CN" ? "当前条目暂未被任何公开合集收录。" : "This entity is not yet featured in any public collection."}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {allDisplayCollections.map((col: any) => (
+                      <a
+                        key={col.id}
+                        href={getForumCollectionUrl(col.id)}
+                        className="p-3.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] hover:border-indigo-500/50 hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-all flex items-start gap-3 group cursor-pointer"
+                      >
+                        <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 grid place-items-center shrink-0">
+                          <FolderPlus className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate">
+                            {col.title}
+                          </div>
+                          <div className="text-[11px] text-gray-500 font-mono truncate">
+                            {locale === "zh-CN" ? "创建者: " : "Curator: "}{col.curator || "Community"}
+                          </div>
+                        </div>
+                        <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors shrink-0 mt-0.5" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* ============================================================ */}
+            {/* Section 7: Storage & Downloads (资源存储与下载)               */}
+            {/* ============================================================ */}
+            <section id="storage" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
+                <div className="flex items-center gap-2">
+                  <HardDrive className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                  <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                    {locale === "zh-CN" ? "资源存储与下载管理中心" : "Storage & Download Center"}
+                  </h2>
+                </div>
+                <a
+                  href={STORAGE_SERVICE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
+                >
+                  <span>{locale === "zh-CN" ? "前往资源分发站" : "Open Resource Station"}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </a>
+              </div>
+
+              <div className="p-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.03] dark:bg-sky-500/[0.06] flex items-start gap-3.5">
+                <HardDrive className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
+                <div className="text-xs space-y-1">
+                  <div className="font-bold text-gray-900 dark:text-white">
+                    {locale === "zh-CN" ? "独立资源服务运行中" : "Independent Storage Service Active"}
+                  </div>
+                  <div className="text-gray-600 dark:text-gray-400 leading-relaxed">
+                    {locale === "zh-CN"
+                      ? "元数据核心不直接承载大文件上传与下载流量。文件归档、镜像下载与播放转码均通过专用资源网关进行。"
+                      : "The metadata core does not directly handle large file transfers. Archiving, downloads and transcoding are handled by the dedicated Storage service."}
+                  </div>
+                  <div className="pt-2">
+                    <a
+                      href={STORAGE_SERVICE_URL}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-sky-600 text-white text-xs font-semibold hover:bg-sky-500 transition-all shadow-xs cursor-pointer"
                     >
-                      <div className="text-[10px] text-gray-400 uppercase font-semibold">{key}</div>
-                      <div className="text-gray-900 dark:text-white font-medium mt-0.5 truncate">{String(val)}</div>
+                      <HardDrive className="w-3.5 h-3.5" />
+                      <span>{locale === "zh-CN" ? "进入资源下载中心" : "Enter Download Center"}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* ============================================================ */}
+            {/* Section 8: Revisions (修订历史)                             */}
+            {/* ============================================================ */}
+            <section id="revisions" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                  <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                    {locale === "zh-CN" ? "修订版本历史" : "Revisions"}
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                    {revisions.length || 1}
+                  </span>
+                </div>
+              </div>
+
+              {revisions.length === 0 ? (
+                <div className="p-4 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] text-xs font-mono text-gray-500">
+                  {locale === "zh-CN" ? "当前版本为首个创建版本。" : "Current revision is the initial version."}
+                </div>
+              ) : (
+                <div className="space-y-2 font-mono text-xs">
+                  {revisions.map((rev: any, idx: number) => (
+                    <div
+                      key={rev.id || idx}
+                      className="p-3 rounded-lg border border-black/5 dark:border-white/[0.06] bg-black/[0.015] dark:bg-white/[0.015] flex items-center justify-between gap-3"
+                    >
+                      <div className="space-y-0.5">
+                        <div className="font-semibold text-gray-900 dark:text-white">
+                          v{rev.version || idx + 1} · {rev.summary || rev.edit_note || (locale === "zh-CN" ? "元数据更新" : "Catalog update")}
+                        </div>
+                        <div className="text-[11px] text-gray-400">
+                          {rev.created_at ? new Date(rev.created_at).toLocaleString() : ""}
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-gray-600 dark:text-gray-300 text-[10px] font-semibold uppercase">
+                        {rev.status || "published"}
+                      </span>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* System Info & Metadata */}
-            <div className="pt-4 border-t border-black/5 dark:border-white/[0.06] font-mono text-[11px] text-gray-500 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <span className="text-gray-400 block text-[10px]">Entity ID:</span>
-                <span className="text-gray-700 dark:text-gray-300 select-all">{entity.id}</span>
-              </div>
-              <div>
-                <span className="text-gray-400 block text-[10px]">Version:</span>
-                <span className="text-gray-700 dark:text-gray-300">v{entity.version}</span>
-              </div>
-              <div>
-                <span className="text-gray-400 block text-[10px]">Created By:</span>
-                <span className="text-gray-700 dark:text-gray-300 truncate block">{entity.created_by || "System"}</span>
-              </div>
-              <div>
-                <span className="text-gray-400 block text-[10px]">Updated At:</span>
-                <span className="text-gray-700 dark:text-gray-300">{entity.updated_at ? new Date(entity.updated_at).toLocaleString() : "—"}</span>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Tab Content 5: Revisions */}
-        {activeTab === "revisions" && (
-          <section className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
-            <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
-              <History className="w-4 h-4 text-primary" strokeWidth={1.5} />
-              <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white">
-                {t("entity.detail.revisionsTitle")}
-              </h2>
-              <span className="font-mono text-xs text-gray-500">({revisions.length})</span>
-            </div>
-
-            {revisions.length === 0 ? (
-              <div className="p-10 text-center font-mono text-xs text-gray-500">
-                {t("entity.detail.noRevisions")}
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {revisions.map((rev, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3.5 rounded-lg border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] space-y-2 text-xs"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-[11px]">
-                      <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-bold">
-                        v{rev.version || rev.snapshot?.version || idx + 1}
-                      </span>
-                      <span className="text-gray-500">
-                        {rev.created_at ? new Date(rev.created_at).toLocaleString() : "—"}
-                      </span>
-                    </div>
-
-                    {rev.edit_note && (
-                      <div className="text-gray-800 dark:text-gray-200">
-                        <span className="font-mono text-gray-400 mr-2 font-semibold">Note:</span>
-                        {rev.edit_note}
-                      </div>
-                    )}
-
-                    {rev.sources && rev.sources.length > 0 && (
-                      <div className="space-y-1 font-mono text-[10px] text-gray-500 pt-1 border-t border-black/5 dark:border-white/5">
-                        {rev.sources.map((s: any, sIdx: number) => (
-                          <div key={sIdx} className="flex items-center gap-1 truncate">
-                            <span className="uppercase text-primary font-semibold">[{s.kind}]</span>
-                            {s.url ? (
-                              <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:underline text-sky-500 truncate">
-                                {s.citation || s.url}
-                              </a>
-                            ) : (
-                              <span>{s.citation}</span>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Tab Content 6: Decoupled Storage */}
-        {activeTab === "storage" && (
-          <section className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
-            <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
-              <HardDrive className="w-4 h-4 text-primary" strokeWidth={1.5} />
-              <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white">
-                {t("entity.detail.resourcesTitle")}
-              </h2>
-            </div>
-
-            <div className="p-4 rounded-lg bg-sky-500/[0.05] dark:bg-sky-500/[0.08] border border-sky-500/20 text-xs text-gray-700 dark:text-gray-300 leading-relaxed space-y-2">
-              <p>{t("entity.detail.decoupledStorageNotice")}</p>
-            </div>
-
-            <div className="pt-2">
-              <a
-                href={`/download?entity_id=${entity.id}`}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 shadow-sm transition-all"
-              >
-                <HardDrive className="w-4 h-4" />
-                <span>{t("entity.detail.goToStorage")}</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </section>
-        )}
-
-        {/* Tab Content 7: Decoupled Community */}
-        {activeTab === "community" && (
-          <section className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
-            <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
-              <MessageSquare className="w-4 h-4 text-primary" strokeWidth={1.5} />
-              <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white">
-                {t("entity.detail.communityTitle")}
-              </h2>
-            </div>
-
-            <div className="p-4 rounded-lg bg-purple-500/[0.05] dark:bg-purple-500/[0.08] border border-purple-500/20 text-xs text-gray-700 dark:text-gray-300 leading-relaxed space-y-2">
-              <p>{t("entity.detail.decoupledForumNotice")}</p>
-            </div>
-
-            <div className="pt-2">
-              <a
-                href={`/community?entity_id=${entity.id}`}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-purple-600 text-white text-xs font-semibold hover:bg-purple-500 shadow-sm transition-all"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>{t("entity.detail.goToForum")}</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </section>
-        )}
+              )}
+            </section>
+          </div>
+        </div>
       </main>
     </div>
   );
