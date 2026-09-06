@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: metafusion-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-metafusion}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+      POSTGRES_DB: ${DB_NAME:-metafusion_db}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init_db:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U ${DB_USER:-metafusion} -d ${DB_NAME:-metafusion_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [metafusion-net]
+
+  backend:
+    image: metafusion-catalog-backend:${METAFUSION_TAG:-local}
+    build:
+      context: ../backend
+      target: catalog-server
+      labels:
+        io.metafusion.project: metafusion
+    container_name: metafusion-backend
+    restart: unless-stopped
+    environment:
+      METAFUSION_MODE: catalog
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: ${DB_USER:-metafusion}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+      DB_NAME: ${DB_NAME:-metafusion_db}
+      ARCHIVE_PATH: /app/module-data/archive
+      ARCHIVE_S3_ENDPOINT: ${ARCHIVE_S3_ENDPOINT:-}
+      ARCHIVE_S3_BUCKET: ${ARCHIVE_S3_BUCKET:-}
+      ARCHIVE_S3_TLS: ${ARCHIVE_S3_TLS:-true}
+      ARCHIVE_S3_ACCESS_KEY: ${ARCHIVE_S3_ACCESS_KEY:-}
+      ARCHIVE_S3_SECRET_KEY: ${ARCHIVE_S3_SECRET_KEY:-}
+    volumes: [catalog_archive:/app/module-data/archive]
+    depends_on:
+      postgres: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, curl, -fsS, http://localhost:8080/ready]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [metafusion-net]
+
+  frontend:
+    image: metafusion-catalog-frontend:${METAFUSION_TAG:-local}
+    build:
+      context: ../frontend
+      args: {BACKEND_ORIGIN: "http://backend:8080"}
+      labels:
+        io.metafusion.project: metafusion
+    container_name: metafusion-frontend
+    restart: unless-stopped
+    depends_on:
+      backend: {condition: service_healthy}
+    networks: [metafusion-net]
+
+  docs-site:
+    profiles: [docs]
+    image: metafusion-catalog-docs:${METAFUSION_TAG:-local}
+    build:
+      context: ../docs-site
+      labels:
+        io.metafusion.project: metafusion
+    container_name: metafusion-docs
+    restart: unless-stopped
+    environment: {PORT: "3001"}
+    networks: [metafusion-net]
+
+  gateway:
+    image: nginx:1.25-alpine
+    container_name: metafusion-gateway
+    restart: unless-stopped
+    ports: ["${HTTP_PORT:-10100}:80"]
+    volumes:
+      - ./nginx.metadata.conf:/etc/nginx/nginx.conf:ro
+      - nginx_logs:/var/log/nginx
+    depends_on: [frontend, backend]
+    networks: [metafusion-net]
+
+volumes:
+  pg_data:
+  catalog_archive:
+  nginx_logs:
+networks:
+  metafusion-net:
+    driver: bridge
