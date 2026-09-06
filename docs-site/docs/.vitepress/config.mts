@@ -14,7 +14,7 @@ export default defineConfig({
     logo: '/favicon.svg',
 
     nav: [
-      { text: '元数据目录', link: '/catalog-v2' },
+      { text: '元数据目录', link: '/catalog' },
       { text: '平台指南', link: '/overview' },
       { text: '编目指引', link: '/curation-guide' },
       { text: 'LRM 体系', link: '/frbr-model' },
@@ -40,7 +40,7 @@ export default defineConfig({
       {
         text: '🏛️ 数据体系与编目规范',
         items: [
-          { text: '固定层级与动态定义', link: '/catalog-v2' },
+          { text: '固定层级与动态定义', link: '/catalog' },
           { text: '权威编目与审查准则', link: '/curation-guide' },
           { text: 'IFLA LRM 增强版实体模型', link: '/frbr-model' },
           { text: '分类体系与动态标签', link: '/taxonomy' }

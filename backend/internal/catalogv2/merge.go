@@ -42,7 +42,7 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 	if err != nil {
 		return err
 	}
-	rows, err := tx.QueryContext(ctx, "SELECT id FROM catalog_v2.entities WHERE status NOT IN ('deleted','merged') ORDER BY id")
+	rows, err := tx.QueryContext(ctx, "SELECT id FROM catalog.entities WHERE status NOT IN ('deleted','merged') ORDER BY id")
 	if err != nil {
 		return err
 	}
@@ -128,33 +128,33 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 	for _, e := range changed {
 		switch e.Kind {
 		case "content_unit":
-			_, err = tx.ExecContext(ctx, "UPDATE catalog_v2.content_units SET work_id=$2,parent_id=$3 WHERE id=$1", e.ID, e.WorkID, nullable(e.ParentID))
+			_, err = tx.ExecContext(ctx, "UPDATE catalog.content_units SET work_id=$2,parent_id=$3 WHERE id=$1", e.ID, e.WorkID, nullable(e.ParentID))
 		case "expression":
-			_, err = tx.ExecContext(ctx, "UPDATE catalog_v2.expressions SET work_id=$2,content_unit_id=$3 WHERE id=$1", e.ID, e.WorkID, nullable(e.ContentUnitID))
+			_, err = tx.ExecContext(ctx, "UPDATE catalog.expressions SET work_id=$2,content_unit_id=$3 WHERE id=$1", e.ID, e.WorkID, nullable(e.ContentUnitID))
 		case "medium":
-			_, err = tx.ExecContext(ctx, "UPDATE catalog_v2.mediums SET release_id=$2,parent_id=$3 WHERE id=$1", e.ID, e.ReleaseID, nullable(e.ParentID))
+			_, err = tx.ExecContext(ctx, "UPDATE catalog.mediums SET release_id=$2,parent_id=$3 WHERE id=$1", e.ID, e.ReleaseID, nullable(e.ParentID))
 		case "track":
-			_, err = tx.ExecContext(ctx, "UPDATE catalog_v2.tracks SET medium_id=$2,parent_id=$3 WHERE id=$1", e.ID, e.MediumID, nullable(e.ParentID))
+			_, err = tx.ExecContext(ctx, "UPDATE catalog.tracks SET medium_id=$2,parent_id=$3 WHERE id=$1", e.ID, e.MediumID, nullable(e.ParentID))
 			if err != nil {
 				return err
 			}
-			_, err = tx.ExecContext(ctx, "DELETE FROM catalog_v2.track_contents WHERE track_id=$1", e.ID)
+			_, err = tx.ExecContext(ctx, "DELETE FROM catalog.track_contents WHERE track_id=$1", e.ID)
 			if err != nil {
 				return err
 			}
 			for _, c := range e.Contents {
-				_, err = tx.ExecContext(ctx, "INSERT INTO catalog_v2.track_contents(track_id,expression_id,position,locator) VALUES($1,$2,$3,$4)", e.ID, c.ExpressionID, c.Position, encode(c.Locator))
+				_, err = tx.ExecContext(ctx, "INSERT INTO catalog.track_contents(track_id,expression_id,position,locator) VALUES($1,$2,$3,$4)", e.ID, c.ExpressionID, c.Position, encode(c.Locator))
 				if err != nil {
 					return err
 				}
 			}
 		case "release":
-			_, err = tx.ExecContext(ctx, "DELETE FROM catalog_v2.release_subjects WHERE release_id=$1", e.ID)
+			_, err = tx.ExecContext(ctx, "DELETE FROM catalog.release_subjects WHERE release_id=$1", e.ID)
 			if err != nil {
 				return err
 			}
 			for _, s := range e.Subjects {
-				_, err = tx.ExecContext(ctx, "INSERT INTO catalog_v2.release_subjects(release_id,work_id,role,position) VALUES($1,$2,$3,$4)", e.ID, s.WorkID, s.Role, s.Position)
+				_, err = tx.ExecContext(ctx, "INSERT INTO catalog.release_subjects(release_id,work_id,role,position) VALUES($1,$2,$3,$4)", e.ID, s.WorkID, s.Role, s.Position)
 				if err != nil {
 					return err
 				}
@@ -171,7 +171,7 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 		stored.ParentID = ""
 		stored.Contents = nil
 		stored.Subjects = nil
-		_, err = tx.ExecContext(ctx, "UPDATE catalog_v2.entities SET version=$2,document=$3,updated_at=$4 WHERE id=$1", e.ID, e.Version, encode(stored), e.UpdatedAt)
+		_, err = tx.ExecContext(ctx, "UPDATE catalog.entities SET version=$2,document=$3,updated_at=$4 WHERE id=$1", e.ID, e.Version, encode(stored), e.UpdatedAt)
 		if err != nil {
 			return err
 		}
@@ -200,7 +200,7 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 		if r.SourceID == r.TargetID {
 			return fmt.Errorf("merge_relation_conflict")
 		}
-		_, err = tx.ExecContext(ctx, "UPDATE catalog_v2.relations SET source_id=$2,target_id=$3,version=$4,document=$5 WHERE id=$1", r.ID, r.SourceID, r.TargetID, r.Version, encode(r))
+		_, err = tx.ExecContext(ctx, "UPDATE catalog.relations SET source_id=$2,target_id=$3,version=$4,document=$5 WHERE id=$1", r.ID, r.SourceID, r.TargetID, r.Version, encode(r))
 		if err != nil {
 			return err
 		}
