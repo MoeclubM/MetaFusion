@@ -12,6 +12,7 @@ import { api, Entity, Relation, title, local } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { GraphNode, GraphLink } from "@/lib/api";
+import { useDefinitions, getTypeName, getRelationName, getFieldName, getTermName } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
   getForumEntityUrl,
@@ -80,6 +81,8 @@ async function allEntities(query: string): Promise<Entity[]> {
 export function EntityDetailView({ id }: { id: string }) {
   const { t, locale } = useI18n();
   const { definition, user } = useCatalog();
+  const { definitions: dynamicDefs } = useDefinitions();
+  const defs = definition?.document || dynamicDefs;
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [motherWork, setMotherWork] = useState<Entity | null>(null);
@@ -347,7 +350,7 @@ export function EntityDetailView({ id }: { id: string }) {
         source: r.source_id,
         target: r.target_id,
         type: r.type,
-        label: r.type,
+        label: getRelationName(defs, r.type, true, locale),
       });
     }
 
@@ -800,13 +803,13 @@ export function EntityDetailView({ id }: { id: string }) {
                     <span>{locale === "zh-CN" ? "分类与标签" : "Types & Tags"}</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {(entity.types || []).map((t: string, idx: number) => (
+                    {(entity.types || []).map((tCode: string, idx: number) => (
                       <Link
                         key={idx}
-                        href={`/catalog?kind=${encodeURIComponent(entity.kind)}&type=${encodeURIComponent(t)}`}
-                        className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 text-[11px] font-mono uppercase font-semibold transition-colors"
+                        href={`/explore?kind=${encodeURIComponent(entity.kind)}&type=${encodeURIComponent(tCode)}`}
+                        className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 text-[11px] font-mono font-semibold transition-colors"
                       >
-                        {t.replace(/_/g, " ")}
+                        {getTypeName(defs, tCode, locale)}
                       </Link>
                     ))}
                     {(Array.isArray(entity.attributes?.tags) ? entity.attributes.tags : []).map((tag: any, idx: number) => {
@@ -1107,8 +1110,8 @@ export function EntityDetailView({ id }: { id: string }) {
                           )}
                         </div>
                         <div className="min-w-0 flex-1 space-y-0.5">
-                          <div className="text-[10px] font-mono font-semibold uppercase text-primary tracking-wider">
-                            {r.type.replace(/_/g, " ")}
+                          <div className="text-[10px] font-mono font-semibold text-primary tracking-wider">
+                            {getRelationName(defs, r.type, r.source_id === entity.id, locale)}
                           </div>
                           <div className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-primary truncate">
                             {targetTitle}
@@ -1210,7 +1213,7 @@ export function EntityDetailView({ id }: { id: string }) {
                       >
                         <div className="min-w-0 flex items-center gap-2.5">
                           <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-mono uppercase font-semibold shrink-0">
-                            {c.kind.replace(/_/g, " ")}
+                            {t("catalog.kind." + c.kind) || c.kind}
                           </span>
                           <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-primary truncate">
                             {title(c, locale)}
@@ -1360,8 +1363,8 @@ export function EntityDetailView({ id }: { id: string }) {
                           className="p-3 rounded-xl border border-black/5 dark:border-white/[0.06] bg-black/[0.015] dark:bg-white/[0.015] hover:border-primary/50 hover:bg-black/[0.03] dark:hover:bg-white/[0.03] transition-all flex items-center justify-between gap-3 group"
                         >
                           <div className="min-w-0 space-y-1">
-                            <div className="text-[10px] font-mono font-semibold uppercase text-primary tracking-wider">
-                              {r.type.replace(/_/g, " ")}
+                            <div className="text-[10px] font-mono font-semibold text-primary tracking-wider">
+                              {getRelationName(defs, r.type, r.source_id === entity.id, locale)}
                             </div>
                             <div className="font-semibold text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-primary truncate">
                               {targetTitle}
