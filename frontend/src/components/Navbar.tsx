@@ -11,7 +11,7 @@ import { BrandMark } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
 import { displayNameOf } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
-import { getAuthLoginUrl, getAuthSettingsUrl, getAuthUsersAdminUrl } from "@/lib/services";
+import { getAuthLoginUrl, getAuthSettingsUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL } from "@/lib/services";
 import {
   Plus,
   LogOut,
@@ -54,7 +54,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
     { href: "/", label: t("navigation.home"), icon: Library, exact: true },
     { href: "/explore", label: t("navigation.explore"), icon: Compass },
     { href: "/community", label: t("navigation.community"), icon: MessageSquare },
-    { href: "/downloads", label: t("navigation.resources"), icon: DownloadCloud },
+    { href: STORAGE_SERVICE_URL, label: t("navigation.resources"), icon: DownloadCloud, external: true },
     { href: "/compare", label: t("catalog.compare"), icon: GitCompare },
     { href: "/docs/catalog", label: t("navigation.docs"), icon: BookOpen, external: true },
   ];

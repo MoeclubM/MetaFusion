@@ -2001,6 +2001,7 @@
   "catalog.resourceGatewayTitle": "资源存储与下载管理中心",
   "catalog.resourceGatewayDesc": "物理资源归档与下载管理已独立为外部专门系统。通过统一通行证（OAuth 2.0 SSO）实现无缝单点登录。",
   "catalog.resourceGatewayVisit": "前往独立资源中心 ↗",
+  "catalog.resourceGatewayRedirecting": "正在前往独立资源中心……如未自动跳转请点击下方按钮。",
   "catalog.resourceGatewaySearchItem": "在资源站检索该条目的物理文件与镜像 ↗",
   "browseHome.title": "分类货架",
   "browseHome.search": "搜索作品、创作者与发行版本",

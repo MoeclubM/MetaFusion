@@ -7,7 +7,7 @@ export const FORUM_SERVICE_URL =
 export const STORAGE_SERVICE_URL =
   process.env.NEXT_PUBLIC_RESOURCE_STATION_URL ||
   process.env.NEXT_PUBLIC_STORAGE_URL ||
-  "/downloads";
+  "https://resources.findverse.cc";
 
 export const DOCS_SERVICE_URL =
   process.env.NEXT_PUBLIC_DOCS_URL || "/docs";
@@ -64,9 +64,11 @@ export function getForumCollectionUrl(collectionId: string): string {
 }
 
 export function getStorageEntityUrl(entityId?: string): string {
-  const query = entityId ? `?subject_id=${encodeURIComponent(entityId)}` : "";
   if (STORAGE_SERVICE_URL.startsWith("http")) {
-    return `${STORAGE_SERVICE_URL}${query}`;
+    return entityId
+      ? `${STORAGE_SERVICE_URL}/subject/${encodeURIComponent(entityId)}`
+      : STORAGE_SERVICE_URL;
   }
+  const query = entityId ? `?subject_id=${encodeURIComponent(entityId)}` : "";
   return `/downloads${query}`;
 }
