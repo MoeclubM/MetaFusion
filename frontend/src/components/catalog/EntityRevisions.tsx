@@ -45,8 +45,8 @@ interface FieldDiff {
   type: "added" | "removed" | "modified";
 }
 
-function formatVal(v: any): string {
-  if (v === null || v === undefined) return "(空)";
+function formatVal(v: any, emptyLabel = "(空)"): string {
+  if (v === null || v === undefined) return emptyLabel;
   if (typeof v === "object") return JSON.stringify(v, null, 2);
   return String(v);
 }
@@ -66,10 +66,10 @@ function computeDiff(oldSnap: any = {}, newSnap: any = {}): FieldDiff[] {
     }
   };
 
-  checkField("title", "主标题 (Title)");
-  checkField("kind", "实体层级 (Kind)");
-  checkField("status", "发布状态 (Status)");
-  checkField("original_language", "原始语言 (Original Language)");
+  checkField("title", "field:title");
+  checkField("kind", "field:kind");
+  checkField("status", "field:status");
+  checkField("original_language", "field:original_language");
 
   // Types array
   const oldTypes: string[] = oldSnap.types || [];
@@ -77,9 +77,9 @@ function computeDiff(oldSnap: any = {}, newSnap: any = {}): FieldDiff[] {
   if (JSON.stringify(oldTypes) !== JSON.stringify(newTypes)) {
     diffs.push({
       key: "types",
-      label: "分类类型 (Types)",
-      oldVal: oldTypes.join(", ") || "(空)",
-      newVal: newTypes.join(", ") || "(空)",
+      label: "field:types",
+      oldVal: oldTypes.join(", ") || "\u0000",
+      newVal: newTypes.join(", ") || "\u0000",
       type: "modified",
     });
   }
@@ -93,11 +93,11 @@ function computeDiff(oldSnap: any = {}, newSnap: any = {}): FieldDiff[] {
     const nv = newAttr[k];
     if (JSON.stringify(ov) !== JSON.stringify(nv)) {
       if (ov === undefined) {
-        diffs.push({ key: "attributes." + k, label: "属性: " + k, oldVal: ov, newVal: nv, type: "added" });
+        diffs.push({ key: "attributes." + k, label: "attr:" + k, oldVal: ov, newVal: nv, type: "added" });
       } else if (nv === undefined) {
-        diffs.push({ key: "attributes." + k, label: "属性: " + k, oldVal: ov, newVal: nv, type: "removed" });
+        diffs.push({ key: "attributes." + k, label: "attr:" + k, oldVal: ov, newVal: nv, type: "removed" });
       } else {
-        diffs.push({ key: "attributes." + k, label: "属性: " + k, oldVal: ov, newVal: nv, type: "modified" });
+        diffs.push({ key: "attributes." + k, label: "attr:" + k, oldVal: ov, newVal: nv, type: "modified" });
       }
     }
   }
@@ -112,9 +112,9 @@ function computeDiff(oldSnap: any = {}, newSnap: any = {}): FieldDiff[] {
     if (JSON.stringify(ot) !== JSON.stringify(nt)) {
       diffs.push({
         key: "translations." + lang,
-        label: "多语言题名 (" + lang + ")",
-        oldVal: ot ? ot.title || JSON.stringify(ot) : "(未设置)",
-        newVal: nt ? nt.title || JSON.stringify(nt) : "(未设置)",
+        label: "trans:" + lang,
+        oldVal: ot ? ot.title || JSON.stringify(ot) : "\u0001",
+        newVal: nt ? nt.title || JSON.stringify(nt) : "\u0001",
         type: ot === undefined ? "added" : nt === undefined ? "removed" : "modified",
       });
     }
@@ -126,9 +126,9 @@ function computeDiff(oldSnap: any = {}, newSnap: any = {}): FieldDiff[] {
   if (JSON.stringify(oldPics) !== JSON.stringify(newPics)) {
     diffs.push({
       key: "pictures",
-      label: "封面与图片 (Pictures)",
-      oldVal: oldPics.join(", ") || "(无图片)",
-      newVal: newPics.join(", ") || "(无图片)",
+      label: "field:pictures",
+      oldVal: oldPics.join(", ") || "\u0002",
+      newVal: newPics.join(", ") || "\u0002",
       type: "modified",
     });
   }
@@ -168,7 +168,7 @@ export function EntityRevisions({
   revisions: RevisionItem[];
   currentEntity?: any;
 }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
 
   // Selected revision for snapshot viewing
   const [inspectingRev, setInspectingRev] = useState<RevisionItem | null>(null);
@@ -212,6 +212,31 @@ export function EntityRevisions({
     setDiffTarget({ base: prev, current: curr });
   };
 
+  const diffLabel = (label: string): string => {
+    if (label.startsWith("field:")) {
+      const field = label.slice("field:".length);
+      const known: Record<string, string> = {
+        title: t("revisions.fieldTitle"),
+        kind: t("revisions.fieldKind"),
+        status: t("revisions.fieldStatus"),
+        original_language: t("revisions.fieldOriginalLanguage"),
+        types: t("revisions.fieldTypes"),
+        pictures: t("revisions.fieldPictures"),
+      };
+      return known[field] || field;
+    }
+    if (label.startsWith("attr:")) return t("revisions.fieldAttr", { key: label.slice("attr:".length) });
+    if (label.startsWith("trans:")) return t("revisions.fieldTrans", { lang: label.slice("trans:".length) });
+    return label;
+  };
+
+  const diffVal = (v: any): string => {
+    if (v === "\u0000") return t("revisions.emptyValue");
+    if (v === "\u0001") return t("revisions.unsetValue");
+    if (v === "\u0002") return t("revisions.noPictures");
+    return formatVal(v, t("revisions.emptyValue"));
+  };
+
   // Compute diff fields if diffTarget is active
   const activeDiff = useMemo(() => {
     if (!diffTarget?.current) return null;
@@ -235,14 +260,14 @@ export function EntityRevisions({
           <div>
             <div className="flex items-center gap-2">
               <span className="font-semibold text-gray-900 dark:text-white text-sm">
-                {locale === "zh-CN" ? "主分支修订记录 (main)" : "Revision Log (main)"}
+                {t("revisions.mainLog")}
               </span>
               <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-mono font-bold">
-                {sortedRevisions.length} {locale === "zh-CN" ? "次提交" : "commits"}
+                {t("revisions.commitsUnit", { count: sortedRevisions.length })}
               </span>
             </div>
             <p className="text-xs text-gray-500 font-mono mt-0.5">
-              {locale === "zh-CN" ? "基于只读快照保证完整可审计性" : "Append-only verifiable snapshot provenance"}
+              {t("revisions.appendOnly")}
             </p>
           </div>
         </div>
@@ -250,13 +275,13 @@ export function EntityRevisions({
         {/* Contributors Avatars */}
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-mono text-gray-400 hidden md:inline">
-            {locale === "zh-CN" ? "贡献者:" : "Contributors:"}
+            {t("revisions.contributors")}
           </span>
           <div className="flex items-center -space-x-1.5 overflow-hidden">
             {contributorStats.map((c, idx) => (
               <div
                 key={idx}
-                title={c.name + " (" + c.count + " " + (locale === "zh-CN" ? "次贡献" : "commits") + ")"}
+                title={t("revisions.contribCountTitle", { name: c.name, count: c.count })}
                 className="w-7 h-7 rounded-full bg-surface border-2 border-surface flex items-center justify-center text-xs font-bold text-gray-700 dark:text-gray-200 shadow-xs cursor-default ring-1 ring-black/10 dark:ring-white/10"
               >
                 {c.name.slice(0, 1).toUpperCase()}
@@ -277,13 +302,13 @@ export function EntityRevisions({
               <GitCompare className="w-5 h-5 text-primary shrink-0" />
               <div>
                 <h3 className="font-semibold text-gray-900 dark:text-white text-sm flex items-center gap-2">
-                  <span>{locale === "zh-CN" ? "版本差异对比 (Git Diff)" : "Revision Diff Inspector"}</span>
+                  <span>{t("revisions.diffInspector")}</span>
                   <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-xs font-mono">
                     {activeDiff.oldLabel} → {activeDiff.newLabel}
                   </span>
                 </h3>
                 <p className="text-[11px] font-mono text-gray-500 mt-0.5">
-                  {locale === "zh-CN" ? "检测到 " + activeDiff.fields.length + " 项字段变更" : activeDiff.fields.length + " fields changed"}
+                  {t("revisions.fieldsChanged", { count: activeDiff.fields.length })}
                 </p>
               </div>
             </div>
@@ -295,14 +320,14 @@ export function EntityRevisions({
                   onClick={() => setDiffTab("visual")}
                   className={"px-2.5 py-1 rounded-md transition-all " + (diffTab === "visual" ? "bg-surface text-primary font-bold shadow-2xs" : "text-gray-500 hover:text-gray-900 dark:hover:text-white")}
                 >
-                  <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{locale === "zh-CN" ? "结构化对比" : "Visual"}</span>
+                  <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{t("revisions.visualView")}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setDiffTab("unified")}
                   className={"px-2.5 py-1 rounded-md transition-all " + (diffTab === "unified" ? "bg-surface text-primary font-bold shadow-2xs" : "text-gray-500 hover:text-gray-900 dark:hover:text-white")}
                 >
-                  <span className="flex items-center gap-1"><Code className="w-3.5 h-3.5" />Unified Diff</span>
+                  <span className="flex items-center gap-1"><Code className="w-3.5 h-3.5" />{t("revisions.unifiedView")}</span>
                 </button>
               </div>
 
@@ -311,7 +336,7 @@ export function EntityRevisions({
                 onClick={() => setDiffTarget(null)}
                 className="px-2.5 py-1 rounded-lg text-xs font-mono bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.1] text-gray-600 dark:text-gray-300 transition-colors"
               >
-                {locale === "zh-CN" ? "关闭对比" : "Close"}
+                {t("revisions.closeDiff")}
               </button>
             </div>
           </div>
@@ -319,7 +344,7 @@ export function EntityRevisions({
           {diffTab === "visual" ? (
             activeDiff.fields.length === 0 ? (
               <div className="p-6 text-center text-xs font-mono text-gray-500 bg-surface rounded-lg border border-black/5 dark:border-white/5">
-                {locale === "zh-CN" ? "两版本快照一致，未检测到核心元数据字段差异。" : "Snapshots are identical; no field changes detected."}
+                {t("revisions.noDiff")}
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-2.5 font-mono text-xs">
@@ -331,7 +356,7 @@ export function EntityRevisions({
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-primary" />
-                        {f.label}
+                        {diffLabel(f.label)}
                       </span>
                       <span className={"px-1.5 py-0.2 rounded text-[10px] uppercase font-bold " + (
                         f.type === "added"
@@ -346,12 +371,12 @@ export function EntityRevisions({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
                       <div className="p-2 rounded bg-rose-500/[0.06] dark:bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 break-all whitespace-pre-wrap">
-                        <div className="text-[9px] uppercase tracking-wider text-rose-500 font-bold mb-0.5">OLD (v{diffTarget.base?.version || 0})</div>
-                        {formatVal(f.oldVal)}
+                        <div className="text-[9px] uppercase tracking-wider text-rose-500 font-bold mb-0.5">{t("revisions.oldVersion", { version: diffTarget.base?.version || 0 })}</div>
+                        {diffVal(f.oldVal)}
                       </div>
                       <div className="p-2 rounded bg-emerald-500/[0.06] dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 break-all whitespace-pre-wrap">
-                        <div className="text-[9px] uppercase tracking-wider text-emerald-500 font-bold mb-0.5">NEW (v{diffTarget.current?.version})</div>
-                        {formatVal(f.newVal)}
+                        <div className="text-[9px] uppercase tracking-wider text-emerald-500 font-bold mb-0.5">{t("revisions.newVersion", { version: diffTarget.current?.version || 0 })}</div>
+                        {diffVal(f.newVal)}
                       </div>
                     </div>
                   </div>
@@ -367,7 +392,7 @@ export function EntityRevisions({
                 type="button"
                 onClick={() => handleCopy(activeDiff.unified, "diff-copy")}
                 className="absolute top-2 right-2 p-1.5 rounded-md bg-surface border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white shadow-xs text-xs flex items-center gap-1"
-                title="Copy unified diff"
+                title={t("revisions.copyDiffTitle")}
               >
                 {copiedId === "diff-copy" ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
@@ -383,7 +408,7 @@ export function EntityRevisions({
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-sky-500" />
               <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
-                {locale === "zh-CN" ? "快照检视 (Snapshot at v" + inspectingRev.version + ")" : "Entity Snapshot at v" + inspectingRev.version}
+                {t("revisions.snapshotAt", { version: inspectingRev.version })}
               </h3>
               <span className="text-xs font-mono text-gray-500">
                 ({new Date(inspectingRev.created_at).toLocaleString()})
@@ -396,14 +421,14 @@ export function EntityRevisions({
                 className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-xs font-mono text-gray-700 dark:text-gray-300 hover:text-primary transition-colors shadow-2xs"
               >
                 {copiedId === "snap-copy" ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
-                <span>{copiedId === "snap-copy" ? "已复制" : "复制 JSON"}</span>
+                <span>{copiedId === "snap-copy" ? t("revisions.copied") : t("revisions.copyJson")}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setInspectingRev(null)}
                 className="px-2.5 py-1 rounded-lg text-xs font-mono bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.1] text-gray-600 dark:text-gray-300 transition-colors"
               >
-                {locale === "zh-CN" ? "关闭" : "Close"}
+                {t("revisions.close")}
               </button>
             </div>
           </div>
@@ -420,7 +445,7 @@ export function EntityRevisions({
           const revKey = String(rev.id || idx);
           const author = rev.actor_name || "MoeCaa";
           const role = rev.actor_role || "editor";
-          const note = rev.edit_note || rev.summary || (idx === sortedRevisions.length - 1 ? (locale === "zh-CN" ? "初始条目建档与基础信息创建" : "Initial creation") : (locale === "zh-CN" ? "更新实体元数据" : "Update metadata"));
+          const note = rev.edit_note || rev.summary || (idx === sortedRevisions.length - 1 ? t("revisions.initialNote") : t("revisions.updateNote"));
           const sources = rev.sources || [];
           const isLatest = idx === 0;
 
@@ -493,7 +518,7 @@ export function EntityRevisions({
                       className="inline-flex items-center gap-1.5 text-[11px] font-mono text-primary hover:underline cursor-pointer"
                     >
                       <ExternalLink className="w-3 h-3" />
-                      <span>{locale === "zh-CN" ? "来源依据与查证记录" : "Evidence Sources"} ({sources.length})</span>
+                      <span>{t("revisions.evidenceSources", { count: sources.length })}</span>
                       {expandedSources[revKey] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                     </button>
 
@@ -531,7 +556,7 @@ export function EntityRevisions({
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/[0.04] dark:bg-white/[0.06] hover:bg-primary/15 hover:text-primary text-gray-700 dark:text-gray-300 transition-colors cursor-pointer shadow-2xs"
                       >
                         <GitCompare className="w-3 h-3 text-amber-500" />
-                        <span>{locale === "zh-CN" ? "与上一版差异 (Diff)" : "Diff vs prev"}</span>
+                        <span>{t("revisions.diffVsPrev")}</span>
                       </button>
                     )}
 
@@ -542,12 +567,12 @@ export function EntityRevisions({
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/[0.04] dark:bg-white/[0.06] hover:bg-sky-500/15 hover:text-sky-500 text-gray-700 dark:text-gray-300 transition-colors cursor-pointer shadow-2xs"
                     >
                       <Eye className="w-3 h-3 text-sky-500" />
-                      <span>{locale === "zh-CN" ? "快照检视" : "Snapshot"}</span>
+                      <span>{t("revisions.snapshot")}</span>
                     </button>
                   </div>
 
                   <span className="text-[10px] text-gray-400">
-                    {locale === "zh-CN" ? "ACID 只读保障" : "immutable"}
+                    {t("revisions.immutableBadge")}
                   </span>
                 </div>
               </div>
