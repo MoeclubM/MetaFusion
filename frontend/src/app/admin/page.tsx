@@ -8,6 +8,8 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { DefinitionsEditor } from "@/components/catalog/DefinitionsEditor";
 import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { useDefinitions, getTypeName } from "@/lib/definitions";
+import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
+import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import {
   Shield,
   LayoutDashboard,
@@ -24,9 +26,10 @@ import {
   Plus,
   ArrowUpRight,
   Trash2,
+  Globe,
 } from "lucide-react";
 
-type AdminTab = "overview" | "entities" | "definitions" | "reviews" | "merge" | "modules" | "users";
+type AdminTab = "overview" | "entities" | "definitions" | "reviews" | "merge" | "modules" | "users" | "extdb" | "shelves";
 
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
@@ -296,6 +299,8 @@ function AdminInner() {
     { id: "overview", labelZh: "控制台概览", labelEn: "Overview", icon: LayoutDashboard },
     { id: "entities", labelZh: t("admin.nav.entities"), labelEn: "Entities", icon: Layers },
     { id: "definitions", labelZh: "元数据定义设计器", labelEn: "Definitions Designer", icon: Sliders },
+    { id: "extdb", labelZh: "外部来源管理", labelEn: "External Sources", icon: Globe },
+    { id: "shelves", labelZh: "货架规则管理", labelEn: "Shelf Rules", icon: LayoutDashboard },
     { id: "reviews", labelZh: "编目审核工作台", labelEn: "Reviews", icon: CheckSquare },
     { id: "merge", labelZh: "实体版本与合并", labelEn: "Entity Merge", icon: GitMerge },
     { id: "modules", labelZh: "外围模块与能力", labelEn: "Peripheral Modules", icon: Cpu },
@@ -596,6 +601,10 @@ function AdminInner() {
               <DefinitionsEditor />
             </CatalogProvider>
           )}
+
+          {activeTab === "extdb" && <ExternalDatabasesTab />}
+
+          {activeTab === "shelves" && <ShelvesTab />}
 
           {activeTab === "reviews" && (
             <div className="space-y-4">

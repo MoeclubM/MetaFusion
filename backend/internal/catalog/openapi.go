@@ -50,7 +50,7 @@ func OpenAPI() map[string]any {
 			return map[string]any{}
 		}
 	}
-	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, Definitions{}, User{}, ExternalDatabase{}} {
+	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, Definitions{}, User{}, ExternalDatabase{}, Shelf{}} {
 		schema(reflect.TypeOf(v))
 	}
 	schemas["Credentials"] = map[string]any{"type": "object", "required": []string{"username", "password"}, "properties": map[string]any{"username": map[string]any{"type": "string"}, "password": map[string]any{"type": "string", "minLength": 12, "writeOnly": true}}}
@@ -99,7 +99,7 @@ func OpenAPI() map[string]any {
 		{"/auth/login", "post", "Sign in; return token and HttpOnly cookie", "Credentials", "Result", ""}, {"/auth/me", "get", "Current account", "", "User", "auth"}, {"/auth/logout", "post", "Revoke current session", "", "Result", "auth"}, {"/auth/password", "put", "Update account password", "Credentials", "Result", "auth"}, {"/auth/logout-all", "post", "Revoke all user sessions", "", "Result", "auth"}, {"/admin/users", "get", "List users (administrator only)", "", "Result", "auth"}, {"/admin/users", "post", "Create editor (administrator only)", "Credentials", "User", "auth"}, {"/admin/users/{id}/role", "put", "Update user role (administrator only)", "Result", "Result", "auth"}, {"/admin/users/{id}/password", "put", "Reset user password (administrator only)", "Credentials", "Result", "auth"}, {"/oauth/clients", "get", "List registered OAuth 2.0 clients", "", "Result", ""}, {"/oauth/authorize", "get", "OAuth 2.0 authorization endpoint", "", "Result", ""}, {"/oauth/token", "post", "OAuth 2.0 token endpoint", "", "Result", ""}, {"/oauth/userinfo", "get", "OAuth 2.0 / OIDC user info endpoint", "", "Result", "auth"},
 		{"/catalog/definitions", "get", "Published dynamic definitions", "", "DefinitionVersion", ""}, {"/catalog/works", "get", "Query works collection", "", "Result", ""}, {"/catalog/entities", "get", "Basic PostgreSQL search", "", "Result", ""}, {"/catalog/entities", "post", "Create entity with evidence", "Edit", "Entity", "auth"},
 		{"/catalog/entities/{id}", "get", "Read visible entity", "", "Entity", ""}, {"/catalog/entities/{id}", "put", "Replace entity with optimistic version check", "Edit", "Entity", "auth"}, {"/catalog/entities/{id}/resolve", "get", "Resolve merged identity", "", "Entity", ""}, {"/catalog/entities/{id}/lifecycle", "post", "Merge or retire (administrator only)", "LifecycleEdit", "Entity", "auth"},
-		{"/catalog/entities/{id}/revisions", "get", "Read visible revision history", "", "Result", ""}, {"/catalog/entities/{id}/relations", "get", "Read contextual forward and reverse relations", "", "Result", ""}, {"/catalog/entities/{id}/occurrences", "get", "Read complete reverse inclusions", "", "Result", ""}, {"/catalog/external-databases", "get", "List active external authority database definitions", "", "Result", ""},
+		{"/catalog/entities/{id}/revisions", "get", "Read visible revision history", "", "Result", ""}, {"/catalog/entities/{id}/relations", "get", "Read contextual forward and reverse relations", "", "Result", ""}, {"/catalog/entities/{id}/occurrences", "get", "Read complete reverse inclusions", "", "Result", ""}, {"/catalog/external-databases", "get", "List active external authority database definitions", "", "Result", ""}, {"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
 		{"/catalog/compare", "get", "Compare two to six releases", "", "Result", ""},
 		{"/catalog/relations", "post", "Create contextual relation", "RelationEdit", "Relation", "auth"}, {"/catalog/relations/{id}", "put", "Replace relation context", "RelationEdit", "Relation", "auth"}, {"/catalog/relations/{id}", "delete", "Remove relation with evidence", "LifecycleEdit", "Result", "auth"},
 		{"/admin/catalog-definitions", "get", "List definition versions (administrator only)", "", "Result", "auth"}, {"/admin/catalog-definitions", "post", "Save immutable draft (administrator only)", "DefinitionDraft", "Result", "auth"}, {"/admin/catalog-definitions/{id}/impact", "get", "Validate draft against all current data", "", "Result", "auth"}, {"/admin/catalog-definitions/{id}/publish", "post", "Publish compatible draft (administrator only)", "LifecycleEdit", "Result", "auth"},
@@ -107,6 +107,12 @@ func OpenAPI() map[string]any {
 		{"/admin/external-databases", "post", "Create external authority database (administrator only)", "ExternalDatabase", "Result", "auth"},
 		{"/admin/external-databases/{code}", "put", "Update external authority database (administrator only)", "ExternalDatabase", "Result", "auth"},
 		{"/admin/external-databases/{code}", "delete", "Delete external authority database (administrator only)", "", "Result", "auth"},
+		{"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
+		{"/admin/shelves", "get", "List shelf rules (administrator only)", "", "Result", "auth"},
+		{"/admin/shelves", "post", "Create shelf rule (administrator only)", "Shelf", "Result", "auth"},
+		{"/admin/shelves/{id}", "get", "Read shelf rule (administrator only)", "", "Result", "auth"},
+		{"/admin/shelves/{id}", "put", "Update shelf rule (administrator only)", "Shelf", "Result", "auth"},
+		{"/admin/shelves/{id}", "delete", "Delete shelf rule (administrator only)", "", "Result", "auth"},
 	} {
 		add(r[0], r[1], r[2], r[3], r[4], r[5] != "")
 	}

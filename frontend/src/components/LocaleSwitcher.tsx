@@ -7,6 +7,8 @@ import type { Locale } from "@/i18n/routing";
 
 export const LOCALES: { id: Locale; name: string; nativeName: string }[] = [
  { id: "zh-CN", name: "简体中文", nativeName: "简体中文" },
+ { id: "zh-TW", name: "繁體中文", nativeName: "繁體中文" },
+ { id: "ja-JP", name: "日本語", nativeName: "日本語" },
  { id: "en-US", name: "English", nativeName: "English (US)" },
 ];
 
@@ -42,7 +44,7 @@ export function LocaleSwitcher({ compact }: { compact?: boolean }) {
  }
  >
  <Languages className="w-4 h-4" strokeWidth={1.6} />
- {!compact && <span>{locale === "zh-CN" ? t("locale.chinese") : t("locale.englishLabel")}</span>}
+ {!compact && <span>{t("locale.currentLabel")}</span>}
  </button>
 
  {isOpen && (

@@ -400,6 +400,10 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.ListExternalDatabases(c.Request.Context(), c.Query("category"), true)
 		respond(c, gin.H{"items": v}, err)
 	})
+	cat.GET("/shelves", func(c *gin.Context) {
+		v, err := s.ListShelves(c.Request.Context(), true)
+		respond(c, gin.H{"items": v}, err)
+	})
 	cat.GET("/compare", func(c *gin.Context) {
 		v, err := s.Compare(c.Request.Context(), strings.Split(c.Query("ids"), ","), user(c))
 		respond(c, gin.H{"items": v}, err)
@@ -486,6 +490,37 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	})
 	ext.DELETE("/:code", func(c *gin.Context) {
 		respond(c, gin.H{"message": "deleted"}, s.DeleteExternalDatabase(c.Request.Context(), c.Param("code")))
+	})
+	shelves := api.Group("/admin/shelves", required(true))
+	shelves.GET("", func(c *gin.Context) {
+		v, err := s.ListShelves(c.Request.Context(), false)
+		respond(c, gin.H{"items": v}, err)
+	})
+	shelves.POST("", func(c *gin.Context) {
+		var in Shelf
+		if !body(c, &in) {
+			return
+		}
+		v, err := s.CreateShelf(c.Request.Context(), in)
+		respond(c, gin.H{"message": "created", "data": v}, err)
+	})
+	shelves.GET("/:id", func(c *gin.Context) {
+		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		v, err := s.GetShelf(c.Request.Context(), id)
+		respond(c, gin.H{"data": v}, err)
+	})
+	shelves.PUT("/:id", func(c *gin.Context) {
+		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		var in Shelf
+		if !body(c, &in) {
+			return
+		}
+		v, err := s.UpdateShelf(c.Request.Context(), id, in)
+		respond(c, gin.H{"message": "updated", "data": v}, err)
+	})
+	shelves.DELETE("/:id", func(c *gin.Context) {
+		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		respond(c, gin.H{"message": "deleted"}, s.DeleteShelf(c.Request.Context(), id))
 	})
 }
 

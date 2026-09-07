@@ -65,6 +65,9 @@ ON CONFLICT (id) DO NOTHING;`
 			return err
 		}
 		if err := seedExternalDatabases(ctx, tx); err != nil { 			return err 		}
+		if err := seedShelves(ctx, tx); err != nil {
+			return err
+		}
 		return nil
 	})
 }
