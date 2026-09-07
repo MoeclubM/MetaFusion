@@ -41,7 +41,7 @@ export function ExternalDatabasesTab() {
       const res = await fetchAdminExternalDatabases();
       setItems(res.items || []);
     } catch (err: any) {
-      setError(err.message || "加载外部数据库预设失败");
+      setError(err.message || t("admin.extdb.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -113,18 +113,18 @@ export function ExternalDatabasesTab() {
       }
       loadData();
     } catch (err: any) {
-      setError(err.message || (editingItem ? "更新配置失败" : "创建配置失败"));
+      setError(err.message || (editingItem ? t("admin.extdb.updateFailed") : t("admin.extdb.createFailed")));
     }
   };
 
   const handleDelete = async (code: string) => {
-    if (!confirm(`确定要删除外部数据库定义 [${code}] 吗？`)) return;
+    if (!confirm(t("admin.extdb.deleteConfirm", { code }))) return;
     setError(null);
     try {
       await deleteExternalDatabase(code);
       loadData();
     } catch (err: any) {
-      setError(err.message || "删除失败");
+      setError(err.message || t("admin.alert.deleteFailed"));
     }
   };
 
@@ -135,10 +135,10 @@ export function ExternalDatabasesTab() {
         <div>
           <h2 className="text-sm font-semibold text-white flex items-center gap-2">
             <Globe className="w-4 h-4 text-sky-400" />
-            <span>外部权威数据库预设管理 (External Authority Databases)</span>
+            <span>{t("admin.extdb.title")}</span>
           </h2>
           <p className="text-xs text-gray-400 font-mono mt-0.5">
-            动态定义与维护全站支持的权威外部数据库与外部标识符（如 MusicBrainz, Bangumi, IMDb, TMDB, VNDB 等）。实体关联外链与编辑校验完全由本表驱动，无需硬编码。
+            {t("admin.extdb.desc")}
           </p>
         </div>
 
@@ -147,7 +147,7 @@ export function ExternalDatabasesTab() {
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-semibold text-xs transition-colors shadow-xs"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>新建外部数据库</span>
+          <span>{t("admin.extdb.new")}</span>
         </button>
       </div>
 
@@ -162,13 +162,13 @@ export function ExternalDatabasesTab() {
         <table className="w-full text-left border-collapse text-xs">
           <thead>
             <tr className="border-b border-white/10 bg-white/[0.02] font-mono text-[11px] text-gray-400 uppercase tracking-wider">
-              <th className="py-3 px-4">数据库 / 代码</th>
-              <th className="py-3 px-4">多语言名称</th>
-              <th className="py-3 px-4">适用范围</th>
-              <th className="py-3 px-4">外链 URL 模板</th>
-              <th className="py-3 px-4">校验正则</th>
-              <th className="py-3 px-4 text-center">排序</th>
-              <th className="py-3 px-4 text-right">操作</th>
+              <th className="py-3 px-4">{t("admin.extdb.colDb")}</th>
+              <th className="py-3 px-4">{t("admin.extdb.colNames")}</th>
+              <th className="py-3 px-4">{t("admin.extdb.colScope")}</th>
+              <th className="py-3 px-4">{t("admin.extdb.colUrl")}</th>
+              <th className="py-3 px-4">{t("admin.extdb.colRegex")}</th>
+              <th className="py-3 px-4 text-center">{t("admin.extdb.colSort")}</th>
+              <th className="py-3 px-4 text-right">{t("admin.extdb.colActions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5 font-sans">
@@ -181,7 +181,7 @@ export function ExternalDatabasesTab() {
             ) : items.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-gray-500 font-mono">
-                  暂无外部数据库配置项
+                  {t("admin.extdb.noData")}
                 </td>
               </tr>
             ) : (
@@ -244,14 +244,14 @@ export function ExternalDatabasesTab() {
                     <div className="flex items-center justify-end gap-1.5">
                       <button
                         onClick={() => handleOpenEdit(item)}
-                        title="编辑配置"
+                        title={t("common.edit")}
                         className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleDelete(item.code)}
-                        title="删除此规则"
+                        title={t("common.delete")}
                         className="p-1.5 rounded-md hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -272,20 +272,20 @@ export function ExternalDatabasesTab() {
           setIsCreating(false);
           setEditingItem(null);
         }}
-        title={editingItem ? t("common.edit") : "新建外部数据库预设"}
+        title={editingItem ? t("common.edit") : t("admin.extdb.newPreset")}
         icon={<Globe className="w-4 h-4 text-sky-400" />}
       >
         <form onSubmit={handleSave} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                唯一代码标识 (Code) *
+                {t("admin.extdb.fieldCode")}
               </label>
               <input
                 type="text"
                 required
                 disabled={!!editingItem}
-                placeholder="例如: musicbrainz, bangumi..."
+                placeholder={t("admin.extdb.codePlaceholder")}
                 value={form.code || ""}
                 onChange={(e) =>
                   setForm({
@@ -298,25 +298,25 @@ export function ExternalDatabasesTab() {
             </div>
             <div>
               <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                适用实体范畴 (Category) *
+                {t("admin.extdb.fieldCategory")}
               </label>
               <select
                 value={form.category || "all"}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
                 className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
               >
-                <option value="all">全实体通用 (All)</option>
-                <option value="work">作品 (Work)</option>
-                <option value="artist">创作者与主体 (Artist)</option>
-                <option value="release">发行版本 (Release)</option>
-                <option value="franchise">企划世界观 (Franchise)</option>
-                <option value="canonical_entry">典范篇目 (Canonical Entry / Expression)</option>
+                <option value="all">{t("admin.extdb.catAll")}</option>
+                <option value="work">{t("admin.extdb.catWork")}</option>
+                <option value="artist">{t("admin.extdb.catArtist")}</option>
+                <option value="release">{t("admin.extdb.catRelease")}</option>
+                <option value="franchise">{t("admin.extdb.catFranchise")}</option>
+                <option value="canonical_entry">{t("admin.extdb.catCanonical")}</option>
               </select>
             </div>
           </div>
 
           <DynamicNamesEditor
-            label="多语言展示名 (Display Names)"
+            label={t("admin.extdb.fieldNames")}
             value={form.names}
             onChange={(names) => setForm({ ...form, names })}
             required
@@ -324,29 +324,29 @@ export function ExternalDatabasesTab() {
 
           <div>
             <label className="block text-gray-400 font-mono text-[11px] mb-1">
-              外链目标 URL 格式模版 (URL Pattern) *
+              {t("admin.extdb.fieldUrl")}
             </label>
             <input
               type="text"
               required
-              placeholder="例如: https://musicbrainz.org/release/{id}"
+              placeholder={t("admin.extdb.urlPlaceholder")}
               value={form.url_pattern || ""}
               onChange={(e) => setForm({ ...form, url_pattern: e.target.value })}
               className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
             />
             <p className="text-[10px] text-gray-500 mt-1 font-mono">
-              支持在 URL 中使用 &#123;id&#125; 作为填入 ID 的插值占位符。
+              {t("admin.extdb.urlHint")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                ID 校验正则表达式 (Validation Regex)
+                {t("admin.extdb.fieldRegex")}
               </label>
               <input
                 type="text"
-                placeholder="例如: ^[0-9a-f-]{36}$"
+                placeholder={t("admin.extdb.regexPlaceholder")}
                 value={form.validation_regex || ""}
                 onChange={(e) => setForm({ ...form, validation_regex: e.target.value })}
                 className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
@@ -354,7 +354,7 @@ export function ExternalDatabasesTab() {
             </div>
             <div>
               <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                图标 URL / SVG (Icon URL)
+                {t("admin.extdb.fieldIcon")}
               </label>
               <input
                 type="text"
@@ -369,11 +369,11 @@ export function ExternalDatabasesTab() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                描述说明 (Description)
+                {t("admin.extdb.fieldDesc")}
               </label>
               <input
                 type="text"
-                placeholder="简要说明"
+                placeholder={t("admin.extdb.descPlaceholder")}
                 value={form.description || ""}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
                 className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground focus:border-sky-400 outline-none"
@@ -381,7 +381,7 @@ export function ExternalDatabasesTab() {
             </div>
             <div>
               <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                排序权重 (Sort Order)
+                {t("admin.extdb.fieldSort")}
               </label>
               <input
                 type="number"

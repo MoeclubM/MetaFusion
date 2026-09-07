@@ -217,7 +217,7 @@ function AdminInner() {
         }),
       });
       if (res.ok) {
-        setMergeMessage(locale === "zh-CN" ? "实体合并成功完成！" : "Entity merged successfully!");
+        setMergeMessage(t("admin.console.mergeSuccess"));
         setMergeSource("");
         setMergeTarget("");
         setMergeNote("");
@@ -247,7 +247,7 @@ function AdminInner() {
         }),
       });
       if (res.ok) {
-        setUserActionMsg(locale === "zh-CN" ? "用户创建成功！" : "User created successfully!");
+        setUserActionMsg(t("admin.console.userCreated"));
         setNewUsername("");
         setNewPassword("");
       } else {
@@ -265,7 +265,7 @@ function AdminInner() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center text-gray-500 font-mono text-xs">
         <RefreshCw className="w-5 h-5 animate-spin text-primary mr-2" />
-        {locale === "zh-CN" ? "验证管理员权限..." : "Checking permissions..."}
+        {t("admin.console.checkingPerms")}
       </div>
     );
   }
@@ -277,18 +277,16 @@ function AdminInner() {
           <Shield className="w-6 h-6" />
         </div>
         <h1 className="text-xl font-bold text-white mb-2">
-          {locale === "zh-CN" ? "需要管理员权限" : "Admin Permission Required"}
+          {t("admin.console.permRequired")}
         </h1>
         <p className="text-sm text-gray-400 max-w-md mb-6">
-          {locale === "zh-CN"
-            ? "当前页面属于系统后台管理控制台，仅对管理员 (Admin) 开放。"
-            : "This administrative panel is restricted to system administrators only."}
+          {t("admin.console.permDesc")}
         </p>
         <Link
           href="/account"
           className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-medium"
         >
-          {locale === "zh-CN" ? "前往账号中心登录" : "Go to Login"}
+          {t("admin.console.goLogin")}
         </Link>
       </div>
     );
@@ -315,12 +313,12 @@ function AdminInner() {
               className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>{locale === "zh-CN" ? "返回主站" : "Back to Site"}</span>
+              <span>{t("admin.console.backToSite")}</span>
             </Link>
             <span className="text-white/20">/</span>
             <div className="flex items-center gap-2 font-semibold text-sm text-white">
               <Shield className="w-4 h-4 text-primary" />
-              <span>{locale === "zh-CN" ? "MetaFusion 后台管理控制台" : "MetaFusion Admin Console"}</span>
+              <span>{t("admin.console.consoleTitle")}</span>
             </div>
           </div>
 
@@ -364,37 +362,35 @@ function AdminInner() {
             <div className="space-y-6">
               <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
                 <h2 className="text-base font-semibold text-white mb-2">
-                  {locale === "zh-CN" ? "系统架构与运行概况" : "System Status Overview"}
+                  {t("admin.console.sysOverview")}
                 </h2>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  {locale === "zh-CN"
-                    ? "当前系统运行在 MetaFusion 模块化架构之上。核心元数据基于 PostgreSQL 稳定运转；动态类型、属性、关系与模板完全由后台定义驱动。"
-                    : "The platform runs on MetaFusion modular architecture. PostgreSQL powers the pure metadata core, with dynamic definitions driving types, relations, and templates."}
+                  {t("admin.console.sysOverviewDesc")}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="p-4 rounded-xl border border-white/[0.06] bg-black/20">
                   <div className="text-xs text-gray-400 font-mono mb-1">
-                    {locale === "zh-CN" ? "待审核提交" : "Pending Reviews"}
+                    {t("admin.console.pendingReviews")}
                   </div>
                   <div className="text-2xl font-bold text-amber-400">{stats.pending}</div>
                 </div>
                 <div className="p-4 rounded-xl border border-white/[0.06] bg-black/20">
                   <div className="text-xs text-gray-400 font-mono mb-1">
-                    {locale === "zh-CN" ? "外围模块总数" : "Total Modules"}
+                    {t("admin.console.totalModules")}
                   </div>
                   <div className="text-2xl font-bold text-white">{modules.length || 6}</div>
                 </div>
                 <div className="p-4 rounded-xl border border-white/[0.06] bg-black/20">
                   <div className="text-xs text-gray-400 font-mono mb-1">
-                    {locale === "zh-CN" ? "核心存储引擎" : "Core Engine"}
+                    {t("admin.console.coreEngine")}
                   </div>
                   <div className="text-sm font-semibold text-emerald-400">PostgreSQL 16</div>
                 </div>
                 <div className="p-4 rounded-xl border border-white/[0.06] bg-black/20">
                   <div className="text-xs text-gray-400 font-mono mb-1">
-                    {locale === "zh-CN" ? "会话模式" : "Auth Session"}
+                    {t("admin.console.authSession")}
                   </div>
                   <div className="text-sm font-semibold text-sky-400">HTTP-Only Cookie</div>
                 </div>
@@ -478,7 +474,7 @@ function AdminInner() {
                     onChange={(e) => setEntitiesStatus(e.target.value)}
                     className="w-full py-1.5 px-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-gray-300 focus:border-primary outline-none"
                   >
-                    <option value="all">{locale === "zh-CN" ? "全部状态" : "All Statuses"}</option>
+                    <option value="all">{t("catalog.allStates")}</option>
                     <option value="published">{t("catalog.status.published")}</option>
                     <option value="pending_review">{t("catalog.status.pending_review")}</option>
                     <option value="draft">{t("catalog.status.draft")}</option>
@@ -606,10 +602,10 @@ function AdminInner() {
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-white">
-                    {locale === "zh-CN" ? "编目审核工作台" : "Review Workbench"}
+                    {t("admin.console.reviewWorkbench")}
                   </h2>
                   <p className="text-xs text-gray-400">
-                    {locale === "zh-CN" ? "审核用户提交的元数据条目修改与草稿" : "Approve or reject catalog drafts"}
+                    {t("admin.console.reviewWorkbenchDesc")}
                   </p>
                 </div>
                 <button
@@ -623,7 +619,7 @@ function AdminInner() {
 
               {pendingItems.length === 0 ? (
                 <div className="p-8 rounded-xl border border-dashed border-white/10 text-center text-xs text-gray-500 font-mono">
-                  {locale === "zh-CN" ? "当前无待审核条目" : "No pending reviews at this moment"}
+                  {t("admin.console.noPending")}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -649,21 +645,21 @@ function AdminInner() {
                           href={`/catalog/${item.id}`}
                           className="px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-xs text-gray-300"
                         >
-                          {locale === "zh-CN" ? "查看详情" : "Inspect"}
+                          {t("admin.console.inspect")}
                         </Link>
                         <button
                           type="button"
                           onClick={() => handleReviewAction(item.id, "published")}
                           className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-semibold"
                         >
-                          {locale === "zh-CN" ? "通过发布" : "Approve"}
+                          {t("admin.reviews.approve")}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleReviewAction(item.id, "draft")}
                           className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-xs font-semibold"
                         >
-                          {locale === "zh-CN" ? "驳回草稿" : "Reject"}
+                          {t("admin.entities.reject")}
                         </button>
                       </div>
                     </div>
@@ -677,19 +673,17 @@ function AdminInner() {
             <div className="space-y-6">
               <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
                 <h2 className="text-base font-semibold text-white mb-1">
-                  {locale === "zh-CN" ? "实体合并 (Entity Merge)" : "Entity Merge"}
+                  {t("admin.console.mergeTitle")}
                 </h2>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  {locale === "zh-CN"
-                    ? "将重复建档的源实体合并至目标权威实体。合并后源实体将重定向 (redirect_id) 至目标实体，历史修订与反向收录全部完整保留，满足 ACID 审计合规。"
-                    : "Merge duplicate source entity into target authority entity. Redirects source to target, preserving audit trail."}
+                  {t("admin.console.mergeDesc")}
                 </p>
               </div>
 
               <form onSubmit={handleMergeSubmit} className="p-5 rounded-xl bg-black/20 border border-white/[0.06] space-y-4 max-w-xl">
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1">
-                    {locale === "zh-CN" ? "源实体 UUID (将被重定向)" : "Source Entity UUID"}
+                    {t("admin.console.sourceUuid")}
                   </label>
                   <input
                     type="text"
@@ -703,7 +697,7 @@ function AdminInner() {
 
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1">
-                    {locale === "zh-CN" ? "目标实体 UUID (权威留存实体)" : "Target Entity UUID"}
+                    {t("admin.console.targetUuid")}
                   </label>
                   <input
                     type="text"
@@ -717,13 +711,13 @@ function AdminInner() {
 
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1">
-                    {locale === "zh-CN" ? "合并说明 (Edit Note)" : "Merge Note"}
+                    {t("admin.console.mergeNote")}
                   </label>
                   <textarea
                     rows={2}
                     value={mergeNote}
                     onChange={(e) => setMergeNote(e.target.value)}
-                    placeholder={locale === "zh-CN" ? "注明合并原因，如重复条目收敛..." : "Reason for merge..."}
+                    placeholder={t("admin.console.mergeNotePlaceholder")}
                     className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-600 focus:border-primary outline-none"
                   />
                 </div>
@@ -741,7 +735,7 @@ function AdminInner() {
                   disabled={merging}
                   className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
                 >
-                  {merging ? (locale === "zh-CN" ? "正在执行合并..." : "Merging...") : (locale === "zh-CN" ? "确认执行合并" : "Execute Merge")}
+                  {merging ? t("admin.console.merging") : t("admin.console.executeMerge")}
                 </button>
               </form>
             </div>
@@ -752,10 +746,10 @@ function AdminInner() {
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-semibold text-white">
-                    {locale === "zh-CN" ? "外围解耦模块拓扑与启停" : "Peripheral Modules Governance"}
+                    {t("admin.console.modulesTitle")}
                   </h2>
                   <p className="text-xs text-gray-400">
-                    {locale === "zh-CN" ? "按需启用外围服务；核心元数据即使在所有模块停用时亦能 100% 独立运行" : "Core operates 100% standalone"}
+                    {t("admin.console.modulesDesc")}
                   </p>
                 </div>
                 <button
@@ -781,7 +775,7 @@ function AdminInner() {
                       <div className="flex items-center gap-2 text-xs">
                         <span className={`w-2 h-2 rounded-full ${mod.enabled ? "bg-emerald-400" : "bg-gray-600"}`} />
                         <span className="text-gray-400 font-mono text-[11px]">
-                          {mod.enabled ? (locale === "zh-CN" ? "已激活启用" : "Active") : (locale === "zh-CN" ? "已独立停用" : "Disabled")}
+                          {mod.enabled ? t("admin.console.active") : t("admin.console.disabled")}
                         </span>
                       </div>
                       {Object.keys(mod.dependencies || {}).length > 0 && (
@@ -801,7 +795,7 @@ function AdminInner() {
                           : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400"
                       }`}
                     >
-                      {mod.enabled ? (locale === "zh-CN" ? "停用模块" : "Disable") : (locale === "zh-CN" ? "启用模块" : "Enable")}
+                      {mod.enabled ? t("admin.console.disableMod") : t("admin.console.enableMod")}
                     </button>
                   </div>
                 ))}
@@ -813,22 +807,20 @@ function AdminInner() {
             <div className="space-y-6">
               <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
                 <h2 className="text-base font-semibold text-white mb-1">
-                  {locale === "zh-CN" ? "用户与权限分配" : "User Roles & Permissions"}
+                  {t("admin.console.usersTitle")}
                 </h2>
                 <p className="text-xs text-gray-400 leading-relaxed">
-                  {locale === "zh-CN"
-                    ? "元数据核心采用轻量 RBAC：admin 具备全局定义与审核权限，editor 具备条目编目与修订权限。"
-                    : "Role-based access: admin has schema/audit control, editor can edit and propose revisions."}
+                  {t("admin.console.usersDesc")}
                 </p>
               </div>
 
               <form onSubmit={handleCreateUser} className="p-5 rounded-xl bg-black/20 border border-white/[0.06] space-y-4 max-w-md">
                 <h3 className="font-semibold text-white text-xs">
-                  {locale === "zh-CN" ? "添加编目成员账号" : "Create Editor Account"}
+                  {t("admin.console.createEditorTitle")}
                 </h3>
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1">
-                    {locale === "zh-CN" ? "用户名" : "Username"}
+                    {t("catalog.username")}
                   </label>
                   <input
                     type="text"
@@ -842,7 +834,7 @@ function AdminInner() {
 
                 <div>
                   <label className="block text-xs font-medium text-gray-300 mb-1">
-                    {locale === "zh-CN" ? "初始密码" : "Password"}
+                    {t("admin.console.fieldPassword")}
                   </label>
                   <input
                     type="password"
@@ -867,7 +859,7 @@ function AdminInner() {
                   disabled={creatingUser}
                   className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
                 >
-                  {creatingUser ? (locale === "zh-CN" ? "正在创建..." : "Creating...") : (locale === "zh-CN" ? "创建账号" : "Create User")}
+                  {creatingUser ? t("admin.console.creating") : t("admin.console.createUser")}
                 </button>
               </form>
             </div>
