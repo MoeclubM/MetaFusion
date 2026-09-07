@@ -402,7 +402,11 @@ func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, err
 		o.Offset = 0
 	}
 	args = append(args, o.Limit, o.Offset)
-	rows, err := s.DB.QueryContext(ctx, "SELECT id FROM catalog.entities WHERE "+strings.Join(parts, " AND ")+fmt.Sprintf(" ORDER BY (document->>'position')::int,updated_at DESC,id LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
+	orderClause := "updated_at DESC, id"
+	if o.ReleaseID != "" || o.MediumID != "" || o.ParentID != "" || o.ContentUnitID != "" {
+		orderClause = "(document->>'position')::int, updated_at DESC, id"
+	}
+	rows, err := s.DB.QueryContext(ctx, "SELECT id FROM catalog.entities WHERE "+strings.Join(parts, " AND ")+fmt.Sprintf(" ORDER BY "+orderClause+" LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -434,18 +438,24 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	if _, err := s.Get(ctx, id, u); err != nil {
 		return nil, err
 	}
-	rows, err := s.DB.QueryContext(ctx, "SELECT version,edit_note,sources,snapshot,created_at FROM catalog.revisions WHERE target_id=$1 ORDER BY id DESC LIMIT 100", id)
+	rows, err := s.DB.QueryContext(ctx, `
+		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(u.username, 'system'), COALESCE(u.role, 'editor'), r.edit_note, r.sources, r.snapshot, r.created_at
+		FROM catalog.revisions r
+		LEFT JOIN catalog.users u ON u.id = r.actor_id
+		WHERE r.target_id = $1
+		ORDER BY r.version DESC, r.id DESC
+		LIMIT 100`, id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := []map[string]any{}
 	for rows.Next() {
-		var version int64
-		var note string
+		var revID, version int64
+		var actorID, actorName, actorRole, note string
 		var sources, snapshot json.RawMessage
 		var at time.Time
-		if err = rows.Scan(&version, &note, &sources, &snapshot, &at); err != nil {
+		if err = rows.Scan(&revID, &version, &actorID, &actorName, &actorRole, &note, &sources, &snapshot, &at); err != nil {
 			return nil, err
 		}
 		var historical Entity
@@ -455,7 +465,17 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 		if !visible(historical, u) {
 			continue
 		}
-		out = append(out, map[string]any{"version": version, "edit_note": note, "sources": sources, "snapshot": snapshot, "created_at": at})
+		out = append(out, map[string]any{
+			"id":         revID,
+			"version":    version,
+			"actor_id":   actorID,
+			"actor_name": actorName,
+			"actor_role": actorRole,
+			"edit_note":  note,
+			"sources":    sources,
+			"snapshot":   snapshot,
+			"created_at": at,
+		})
 	}
 	return out, rows.Err()
 }
