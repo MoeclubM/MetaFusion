@@ -12,6 +12,7 @@ import { api, Entity, Relation, title, local } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { GraphNode, GraphLink } from "@/lib/api";
+import { EntityRevisions } from "./EntityRevisions";
 import { useDefinitions, getTypeName, getRelationName, getFieldName, getTermName } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
@@ -1581,32 +1582,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 </div>
               </div>
 
-              {revisions.length === 0 ? (
-                <div className="p-4 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] text-xs font-mono text-gray-500">
-                  {locale === "zh-CN" ? "当前版本为首个创建版本。" : "Current revision is the initial version."}
-                </div>
-              ) : (
-                <div className="space-y-2 font-mono text-xs">
-                  {revisions.map((rev: any, idx: number) => (
-                    <div
-                      key={rev.id || idx}
-                      className="p-3 rounded-lg border border-black/5 dark:border-white/[0.06] bg-black/[0.015] dark:bg-white/[0.015] flex items-center justify-between gap-3"
-                    >
-                      <div className="space-y-0.5">
-                        <div className="font-semibold text-gray-900 dark:text-white">
-                          v{rev.version || idx + 1} · {rev.summary || rev.edit_note || (locale === "zh-CN" ? "元数据更新" : "Catalog update")}
-                        </div>
-                        <div className="text-[11px] text-gray-400">
-                          {rev.created_at ? new Date(rev.created_at).toLocaleString() : ""}
-                        </div>
-                      </div>
-                      <span className="px-2 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-gray-600 dark:text-gray-300 text-[10px] font-semibold uppercase">
-                        {rev.status || "published"}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
+<EntityRevisions revisions={revisions} currentEntity={entity} />
             </section>
           </div>
         </div>
