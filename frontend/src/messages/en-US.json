@@ -2120,5 +2120,20 @@
   "home.footerCommunity": "Community",
   "home.footerDownloads": "Downloads",
   "home.footerDocs": "Cataloging Docs",
-  "home.footerApi": "OpenAPI Specs"
+  "home.footerApi": "OpenAPI Specs",
+  "auth.error.invalid_credentials": "Invalid username or password, please try again.",
+  "auth.error.invalid_credentials_format": "Invalid credentials format (username must be 2-80 characters, password at least 12 characters).",
+  "auth.error.user_not_found": "User not found.",
+  "auth.error.user_already_exists": "Username or email is already in use.",
+  "auth.error.invalid_invite_code": "Invalid or expired invitation code.",
+  "auth.error.registration_closed": "Registration is currently closed.",
+  "auth.error.rate_limit_exceeded": "Too many requests, please try again later.",
+  "auth.error.unauthorized": "Unauthorized or session expired, please sign in again.",
+  "auth.error.authentication_required": "Authentication required, please sign in.",
+  "auth.error.forbidden": "Permission denied.",
+  "auth.error.invalid_payload": "Invalid request payload, please check your input.",
+  "auth.error.invalid_old_password": "Incorrect current password.",
+  "auth.error.invalid_password_length": "Password must be at least 12 characters.",
+  "auth.error.setup_complete": "System setup is already completed.",
+  "auth.error.setup_needed": "System setup is required."
 }

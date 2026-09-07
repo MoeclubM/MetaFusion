@@ -20,6 +20,19 @@ import {
  Sparkles,
 } from "lucide-react";
 
+function getAuthErrorMessage(code: string, t: (key: string) => string): string {
+  if (!code) return t("auth.requestFailed");
+  const key = `auth.error.${code}`;
+  const translated = t(key);
+  if (translated && translated !== key) {
+    return translated;
+  }
+  if (code.includes("invalid_credentials")) {
+    return t("auth.error.invalid_credentials");
+  }
+  return code;
+}
+
 function LoginInner() {
  const router = useRouter();
  const searchParams = useSearchParams();
@@ -126,7 +139,7 @@ function LoginInner() {
         router.replace(redirectUrl);
       }
  } catch (err: any) {
- setError(err.message || t("auth.requestFailed"));
+ setError(getAuthErrorMessage(err.message, t));
  } finally {
  setSubmitting(false);
  }
@@ -139,7 +152,7 @@ function LoginInner() {
  <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
 
  <header className="relative z-10 w-full max-w-5xl mx-auto flex items-center justify-between shrink-0">
- <Link href="/" className="flex items-center gap-2.5 group">
+ <Link href="/landing" title="MetaFusion" className="flex items-center gap-2.5 group">
  <BrandMark size={28} withGlow idSuffix="login" />
  <span className="flex flex-col leading-none">
  <span className="font-display text-xl tracking-[-0.03em] text-gray-900 dark:text-white">MetaFusion</span>

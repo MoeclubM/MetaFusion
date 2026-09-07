@@ -2120,5 +2120,20 @@
   "home.footerCommunity": "社区论坛",
   "home.footerDownloads": "资源中心",
   "home.footerDocs": "编目指南",
-  "home.footerApi": "OpenAPI 规范"
+  "home.footerApi": "OpenAPI 规范",
+  "auth.error.invalid_credentials": "用户名或密码错误，请重新输入",
+  "auth.error.invalid_credentials_format": "用户名或密码格式不正确（用户名需 2-80 字符，密码至少 12 位）",
+  "auth.error.user_not_found": "用户不存在",
+  "auth.error.user_already_exists": "用户名或邮箱已被占用",
+  "auth.error.invalid_invite_code": "邀请码无效或已失效",
+  "auth.error.registration_closed": "当前开放注册已关闭",
+  "auth.error.rate_limit_exceeded": "请求过于频繁，请稍候再试",
+  "auth.error.unauthorized": "未授权或登录已过期，请重新登录",
+  "auth.error.authentication_required": "未授权或登录已过期，请重新登录",
+  "auth.error.forbidden": "权限不足，禁止访问",
+  "auth.error.invalid_payload": "请求格式错误，请检查输入",
+  "auth.error.invalid_old_password": "原密码错误",
+  "auth.error.invalid_password_length": "密码长度至少需 12 位",
+  "auth.error.setup_complete": "系统已完成初始化设置",
+  "auth.error.setup_needed": "系统尚未完成初始化"
 }
