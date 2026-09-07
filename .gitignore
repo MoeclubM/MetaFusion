@@ -144,3 +144,6 @@ scripts/capture_diff.py
 scripts/inspect_entities.py
 scripts/enrich_meiro_hibi.js
 scripts/query_db.js
+
+scripts/capture_*.py
+scripts/deploy_remote.js
