@@ -22,6 +22,7 @@ func TestOpenAPIRouteCoverage(t *testing.T) {
 		clean := strings.TrimPrefix(route.Path, "/api")
 		clean = strings.TrimPrefix(clean, "/api")
 		path := strings.ReplaceAll(clean, ":id", "{id}")
+		path = strings.ReplaceAll(path, ":code", "{code}")
 		p, ok := paths[path].(map[string]any)
 		if !ok || p[strings.ToLower(route.Method)] == nil {
 			t.Fatalf("undocumented endpoint: %s %s", route.Method, path)

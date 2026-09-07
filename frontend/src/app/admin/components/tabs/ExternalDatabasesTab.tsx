@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Globe } from "lucide-react";
+import { Plus, Edit2, Trash2, Globe, Power } from "lucide-react";
 import {
   fetchAdminExternalDatabases,
   createExternalDatabase,
@@ -23,7 +23,7 @@ export function ExternalDatabasesTab() {
     code: "",
     name_zh: "",
     name_en: "",
-    names: { "zh-CN": "", "en-US": "" },
+    names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
     category: "all",
     url_pattern: "",
     icon: "Globe",
@@ -56,7 +56,7 @@ export function ExternalDatabasesTab() {
       code: "",
       name_zh: "",
       name_en: "",
-      names: { "zh-CN": "", "en-US": "" },
+      names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
       category: "all",
       url_pattern: "",
       icon: "Globe",
@@ -70,6 +70,9 @@ export function ExternalDatabasesTab() {
 
   const handleOpenEdit = (item: ExternalDatabaseDefinition) => {
     const initialNames: Record<string, string> = { ...(item.names || {}) };
+    for (const k of ["zh-CN", "zh-TW", "ja-JP", "en-US"]) {
+      if (!(k in initialNames)) initialNames[k] = "";
+    }
     if (!initialNames["zh-CN"] && item.name_zh) initialNames["zh-CN"] = item.name_zh;
     if (!initialNames["en-US"] && item.name_en) initialNames["en-US"] = item.name_en;
 
@@ -92,9 +95,14 @@ export function ExternalDatabasesTab() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    // names map 全语言回写：zh-CN/en-US 必填，zh-TW/ja-JP 选填；legacy 双列仅作回退。
     const names = { ...(form.names || {}) };
-    const nameZh = names["zh-CN"] || form.name_zh || Object.values(names)[0] || "";
-    const nameEn = names["en-US"] || form.name_en || nameZh;
+    const nameZh = (names["zh-CN"] || "").trim();
+    const nameEn = (names["en-US"] || "").trim();
+    if (!nameZh || !nameEn) {
+      setError(t("admin.shelves.required"));
+      return;
+    }
 
     const payload = {
       ...form,
@@ -125,6 +133,22 @@ export function ExternalDatabasesTab() {
       loadData();
     } catch (err: any) {
       setError(err.message || t("admin.alert.deleteFailed"));
+    }
+  };
+
+  // 系统预设只能停用不能删除：走更新接口翻转 is_enabled。
+  const handleToggleEnabled = async (item: ExternalDatabaseDefinition) => {
+    setError(null);
+    try {
+      const names = { ...(item.names || {}) };
+      await updateExternalDatabase(item.code, {
+        ...item,
+        names,
+        is_enabled: !item.is_enabled,
+      });
+      loadData();
+    } catch (err: any) {
+      setError(err.message || t("admin.extdb.updateFailed"));
     }
   };
 
@@ -250,13 +274,31 @@ export function ExternalDatabasesTab() {
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => handleDelete(item.code)}
-                        title={t("common.delete")}
-                        className="p-1.5 rounded-md hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors"
+                        onClick={() => handleToggleEnabled(item)}
+                        title={item.is_enabled ? t("admin.extdb.disable") : t("admin.extdb.enable")}
+                        className={`p-1.5 rounded-md transition-colors ${
+                          item.is_enabled
+                            ? "hover:bg-amber-500/10 text-gray-400 hover:text-amber-400"
+                            : "hover:bg-emerald-500/10 text-gray-500 hover:text-emerald-400"
+                        }`}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Power className="w-3.5 h-3.5" />
                       </button>
+                      {!item.is_system && (
+                        <button
+                          onClick={() => handleDelete(item.code)}
+                          title={t("common.delete")}
+                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
+                    {item.is_system && (
+                      <div className="text-[10px] text-gray-500 font-mono mt-1">
+                        {t("admin.extdb.systemProtected")}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))

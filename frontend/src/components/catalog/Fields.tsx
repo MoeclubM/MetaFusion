@@ -14,7 +14,7 @@ export function NamesEditor({
   const { t } = useI18n();
   return (
     <div className="cv-grid">
-      {["zh-CN", "en-US"].map((loc) => (
+      {["zh-CN", "zh-TW", "ja-JP", "en-US"].map((loc) => (
         <label key={loc}>
           {t(`catalog.${loc}`)}
           <input

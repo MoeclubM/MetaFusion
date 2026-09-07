@@ -282,6 +282,15 @@ export function DefinitionsEditor() {
   ]);
   const [tab, setTab] = useState<keyof Definitions>("types");
   const [cascade, setCascade] = useState(false);
+  // 冒烟验证：相对已发布版本的新增词表项，供发布前预演。
+  const [smokeVocab, setSmokeVocab] = useState("");
+  const [smokeTerm, setSmokeTerm] = useState("");
+  const publishedVocabs = definition?.document.vocabularies || {};
+  const newTerms = Object.entries(d?.vocabularies || {}).flatMap(([vk, v]) =>
+    Object.keys(v.terms || {})
+      .filter((tk) => !publishedVocabs[vk]?.terms?.[tk])
+      .map((tk) => ({ vocab: vk, term: tk })),
+  );
   useEffect(() => {
     if (definition && !d) {
       setD(structuredClone(definition.document));
@@ -571,6 +580,7 @@ export function DefinitionsEditor() {
                   onChange={(e) => set({ ...v, group: e.target.value })}
                 />
               </label>
+              <label>{t("catalog.groupNames")}</label>
               <NamesEditor
                 value={v.group_names || {}}
                 onChange={(group_names) => set({ ...v, group_names })}
@@ -665,7 +675,7 @@ export function DefinitionsEditor() {
                   value={v.directory}
                   onChange={(e) => set({ ...v, directory: e.target.value })}
                 >
-                  {["tree", "list", "none"].map((k) => (
+                  {["tree", "list", "discs"].map((k) => (
                     <option key={k} value={k}>
                       {t(`catalog.directoryModes.${k}`)}
                     </option>
@@ -768,6 +778,80 @@ export function DefinitionsEditor() {
           )}
         </section>
       )}
+      <section>
+        <h2>{t("catalog.smokeTitle")}</h2>
+        <p className="cv-muted">{t("catalog.smokeDesc")}</p>
+        {newTerms.length === 0 ? (
+          <p className="cv-muted">{t("catalog.smokeNoNew")}</p>
+        ) : (
+          <div className="cv-row">
+            <label>
+              {t("catalog.smokePickVocab")}
+              <select
+                value={smokeVocab}
+                onChange={(e) => {
+                  setSmokeVocab(e.target.value);
+                  setSmokeTerm("");
+                }}
+              >
+                <option value="">{t("catalog.select")}</option>
+                {Array.from(new Set(newTerms.map((x) => x.vocab))).map((vk) => (
+                  <option key={vk} value={vk}>
+                    {local(d?.vocabularies[vk]?.names, locale, "", vk)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("catalog.smokePickTerm")}
+              <select
+                value={smokeTerm}
+                onChange={(e) => setSmokeTerm(e.target.value)}
+              >
+                <option value="">{t("catalog.select")}</option>
+                {newTerms
+                  .filter((x) => !smokeVocab || x.vocab === smokeVocab)
+                  .map((x) => (
+                    <option key={`${x.vocab}:${x.term}`} value={x.term}>
+                      {local(
+                        d?.vocabularies[x.vocab]?.terms[x.term]?.names,
+                        locale,
+                        "",
+                        x.term,
+                      )}{" "}
+                      <small>({x.vocab}:{x.term})</small>
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button
+              disabled={draft <= 0 || !smokeTerm}
+              title={draft <= 0 ? t("catalog.smokeHint") : undefined}
+              onClick={async () => {
+                try {
+                  setIssues(
+                    (
+                      await api(
+                        `/admin/catalog-definitions/${draft}/impact`,
+                      )
+                    ).issues.filter((x: string) =>
+                      smokeTerm ? x.includes(smokeTerm) : true,
+                    ),
+                  );
+                  setError("");
+                } catch (err) {
+                  setError((err as Error).message);
+                }
+              }}
+            >
+              {t("catalog.smokeRun")}
+            </button>
+          </div>
+        )}
+        {draft <= 0 && newTerms.length > 0 && (
+          <p className="cv-muted">{t("catalog.smokeHint")}</p>
+        )}
+      </section>
     </>
   );
 }

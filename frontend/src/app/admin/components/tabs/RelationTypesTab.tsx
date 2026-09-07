@@ -49,7 +49,7 @@ export function RelationTypesTab() {
     domain: "work_work",
     name_zh: "",
     name_en: "",
-    names: { "zh-CN": "", "en-US": "" },
+    names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
     description: "",
     forward_label_zh: "",
     reverse_label_zh: "",
@@ -91,7 +91,7 @@ export function RelationTypesTab() {
       domain: "work_work",
       name_zh: "",
       name_en: "",
-      names: { "zh-CN": "", "en-US": "" },
+      names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
       description: "",
       forward_label_zh: "",
       reverse_label_zh: "",
@@ -111,9 +111,15 @@ export function RelationTypesTab() {
 
   const handleOpenEdit = (item: RelationTypeItem) => {
     setEditingItem(item);
+    const names: Record<string, string> = { ...(item.names || {}) };
+    for (const k of ["zh-CN", "zh-TW", "ja-JP", "en-US"]) {
+      if (!(k in names)) names[k] = "";
+    }
+    if (!names["zh-CN"] && item.name_zh) names["zh-CN"] = item.name_zh;
+    if (!names["en-US"] && item.name_en) names["en-US"] = item.name_en;
     setForm({
       ...item,
-      names: item.names || { "zh-CN": item.name_zh, "en-US": item.name_en },
+      names,
     });
   };
 
@@ -123,10 +129,19 @@ export function RelationTypesTab() {
     setError(null);
 
     try {
+      // names map 全语言回写：legacy 双列仅作回退，不再只写双列。
+      const names = { ...(form.names || {}) };
+      const nameZh = (names["zh-CN"] || "").trim();
+      const nameEn = (names["en-US"] || "").trim();
+      if (!nameZh || !nameEn) {
+        setError(t("admin.shelves.required"));
+        return;
+      }
       const payload = {
         ...form,
-        name_zh: form.names?.["zh-CN"] || form.name_zh,
-        name_en: form.names?.["en-US"] || form.name_en,
+        name_zh: nameZh,
+        name_en: nameEn,
+        names,
       };
 
       if (isCreating) {
