@@ -2157,5 +2157,13 @@
   "auth.error.invalid_old_password": "原密码错误",
   "auth.error.invalid_password_length": "密码长度至少需 12 位",
   "auth.error.setup_complete": "系统已完成初始化设置",
-  "auth.error.setup_needed": "系统尚未完成初始化"
+  "auth.error.setup_needed": "系统尚未完成初始化",
+  "navbar.about": "平台介绍",
+  "navbar.admin": "管理后台",
+  "navbar.createAgent": "新建主体",
+  "navbar.createCollection": "新建企划",
+  "navbar.accountSessions": "个人中心与会话",
+  "navbar.adminConsole": "管理控制台",
+  "navbar.userManagement": "账号管理",
+  "navbar.signIn": "登录 / 注册"
 }
