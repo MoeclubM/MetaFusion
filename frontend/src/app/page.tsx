@@ -38,6 +38,7 @@ interface ShelfItem {
   query_tags: string[];
   types: string[];
   exploreParam: string;
+  aspectClassName?: string;
 }
 
 const DEFAULT_SHELVES: ShelfItem[] = [
@@ -49,6 +50,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     query_tags: ["音乐", "专辑", "单曲", "原声"],
     types: ["album", "single", "music", "song"],
     exploreParam: "kind=work&type=album",
+    aspectClassName: "aspect-square",
   },
   {
     slug: "anime",
@@ -58,6 +60,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     query_tags: ["动画", "番剧", "剧集"],
     types: ["animation", "series", "tv"],
     exploreParam: "kind=work&type=animation",
+    aspectClassName: "aspect-[3/4]",
   },
   {
     slug: "films",
@@ -67,6 +70,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     query_tags: ["电影", "长片", "剧场版"],
     types: ["film", "movie"],
     exploreParam: "kind=work&type=film",
+    aspectClassName: "aspect-[3/4]",
   },
   {
     slug: "novels",
@@ -76,6 +80,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     query_tags: ["小说", "轻小说", "图书"],
     types: ["novel", "book"],
     exploreParam: "kind=work&type=novel",
+    aspectClassName: "aspect-[3/4]",
   },
   {
     slug: "games",
@@ -85,6 +90,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     query_tags: ["游戏", "独立游戏", "视觉小说"],
     types: ["game", "visual_novel", "indie_game"],
     exploreParam: "kind=work&type=game",
+    aspectClassName: "aspect-[4/3]",
   },
   {
     slug: "creations",
@@ -94,6 +100,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     query_tags: ["写真", "摄影", "同人", "翻唱"],
     types: ["photobook", "doujin", "artbook", "personal"],
     exploreParam: "kind=work&type=photobook",
+    aspectClassName: "aspect-[3/4]",
   },
 ];
 
@@ -295,6 +302,7 @@ export default function HomePage() {
                         <AdaptiveCardCover
                           src={item.pictures && item.pictures[0]?.url}
                           alt={displayTitle}
+                          aspectClassName={shelf.aspectClassName || "aspect-square"}
                           badge={
                             <span className="px-2 py-0.5 rounded-md bg-black/65 text-white keep-white backdrop-blur-md border border-white/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
                               <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
