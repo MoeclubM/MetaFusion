@@ -285,7 +285,7 @@ export function EntityDetailView({ id }: { id: string }) {
       return {
         id,
         url: isAgent ? `https://bangumi.tv/person/${id}` : `https://bangumi.tv/subject/${id}`,
-        label: isAgent ? (locale === "zh-CN" ? "Bangumi 创作者/人物" : "Bangumi Person") : "Bangumi 番组计划",
+        label: isAgent ? t("authority.bangumiPerson") : t("authority.bangumiSubject"),
         isDirect: true,
       };
     }
@@ -294,7 +294,7 @@ export function EntityDetailView({ id }: { id: string }) {
       return {
         id,
         url: `https://bangumi.tv/person/${id}`,
-        label: locale === "zh-CN" ? "Bangumi 创作者/人物" : "Bangumi Person",
+        label: t("authority.bangumiPerson"),
         isDirect: true,
       };
     }
@@ -303,7 +303,7 @@ export function EntityDetailView({ id }: { id: string }) {
       return {
         id,
         url: `https://bangumi.tv/character/${id}`,
-        label: locale === "zh-CN" ? "Bangumi 角色" : "Bangumi Character",
+        label: t("authority.bangumiCharacter"),
         isDirect: true,
       };
     }
@@ -312,7 +312,7 @@ export function EntityDetailView({ id }: { id: string }) {
       return {
         id,
         url: `https://bangumi.tv/ep/${id}`,
-        label: locale === "zh-CN" ? "Bangumi 单集" : "Bangumi Episode",
+        label: t("authority.bangumiEpisode"),
         isDirect: true,
       };
     }
@@ -330,7 +330,7 @@ export function EntityDetailView({ id }: { id: string }) {
       return {
         id,
         url,
-        label: kind === "person" ? (locale === "zh-CN" ? "Bangumi 人物" : "Bangumi Person") : "Bangumi 番组计划",
+        label: kind === "person" ? t("authority.bangumiPerson") : t("authority.bangumiSubject"),
         isDirect: true,
       };
     }
@@ -355,7 +355,7 @@ export function EntityDetailView({ id }: { id: string }) {
     if (rawUrl && typeof rawUrl === "string" && rawUrl.startsWith("http")) {
       return {
         url: rawUrl,
-        label: locale === "zh-CN" ? "官方网站" : "Official Website",
+        label: t("authority.officialWebsite"),
         isDirect: true,
       };
     }
@@ -364,7 +364,7 @@ export function EntityDetailView({ id }: { id: string }) {
       const bushiId = String(entity.external_ids.bushiroad || entity.external_ids.bushiroad_music).toLowerCase();
       return {
         url: `https://bushiroad-music.com/musics/${bushiId}/`,
-        label: locale === "zh-CN" ? "Bushiroad 官方唱片" : "Bushiroad Music Official",
+        label: t("authority.bushiroad"),
         isDirect: true,
       };
     }
@@ -755,14 +755,14 @@ export function EntityDetailView({ id }: { id: string }) {
               <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/[0.06] pb-2.5">
                 <Sliders className="w-4 h-4 text-primary" strokeWidth={1.5} />
                 <h3 className="font-display text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white font-mono">
-                  {locale === "zh-CN" ? "条目基本信息" : "Information"}
+                  {t("entity.page.basicInfo")}
                 </h3>
               </div>
 
               <dl className="space-y-3 text-xs">
                 <div>
                   <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                    {locale === "zh-CN" ? "实体类型 (Kind)" : "Entity Kind"}
+                    {t("entity.page.entityKind")}
                   </dt>
                   <dd className="font-medium text-gray-900 dark:text-white capitalize flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-primary" />
@@ -773,7 +773,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 {(entity.attributes?.edition_date || entity.attributes?.release_date || entity.attributes?.begin_date) && (
                   <div>
                     <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {locale === "zh-CN" ? "发行 / 公开发表日期" : "Release Date"}
+                      {t("entity.page.releaseDate")}
                     </dt>
                     <dd className="font-medium text-gray-900 dark:text-white font-mono flex items-center gap-1.5">
                       <Calendar className="w-3.5 h-3.5 text-amber-500" />
@@ -785,7 +785,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 {(entity.attributes?.format || entity.attributes?.packaging) && (
                   <div>
                     <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {locale === "zh-CN" ? "介质规格与包装" : "Format & Packaging"}
+                      {t("entity.page.formatPackaging")}
                     </dt>
                     <dd className="font-medium text-gray-900 dark:text-white uppercase font-mono">
                       {[entity.attributes.format, entity.attributes.packaging].filter(Boolean).join(" · ")}
@@ -796,7 +796,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 {(entity.attributes?.catalog_number || entity.attributes?.catalogue_number) && (
                   <div>
                     <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {locale === "zh-CN" ? "唱片编号 / Catalog No." : "Catalog Number"}
+                      {t("entity.page.catalogNumber")}
                     </dt>
                     <dd className="font-mono font-semibold text-primary">
                       {String(entity.attributes.catalog_number || entity.attributes.catalogue_number)}
@@ -807,7 +807,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 {(entity.attributes?.barcode || entity.attributes?.jan || entity.attributes?.ean) && (
                   <div>
                     <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {locale === "zh-CN" ? "条形码 (JAN / EAN)" : "Barcode"}
+                      {t("entity.page.barcode")}
                     </dt>
                     <dd className="font-mono text-gray-900 dark:text-white">
                       {String(entity.attributes.barcode || entity.attributes.jan || entity.attributes.ean)}
@@ -818,7 +818,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 {officialInfo && (
                   <div>
                     <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {locale === "zh-CN" ? "官方链接 / 出处" : "Official Link"}
+                      {t("entity.page.officialLink")}
                     </dt>
                     <dd className="font-mono text-emerald-600 dark:text-emerald-400 truncate">
                       <a
@@ -838,7 +838,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 {entity.attributes?.publisher && (
                   <div>
                     <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {locale === "zh-CN" ? "出版 / 发行单位" : "Publisher / Label"}
+                      {t("entity.page.publisher")}
                     </dt>
                     <dd className="font-medium text-gray-900 dark:text-white">
                       {String(entity.attributes.publisher)}
@@ -849,7 +849,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 {durationText && (
                   <div>
                     <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {locale === "zh-CN" ? "总时长" : "Total Duration"}
+                      {t("entity.page.totalDuration")}
                     </dt>
                     <dd className="font-mono text-gray-900 dark:text-white flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5 text-gray-400" />
@@ -871,7 +871,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 <div className="pt-3 border-t border-black/5 dark:border-white/[0.06] space-y-2">
                   <div className="flex items-center gap-1 text-[11px] font-mono text-gray-400">
                     <TagIcon className="w-3 h-3" />
-                    <span>{locale === "zh-CN" ? "分类与标签" : "Types & Tags"}</span>
+                    <span>{t("entity.page.typesTags")}</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {(entity.types || []).map((tCode: string, idx: number) => (
@@ -904,12 +904,10 @@ export function EntityDetailView({ id }: { id: string }) {
             <div className="p-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] dark:bg-sky-500/[0.08] space-y-2.5">
               <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-semibold text-xs font-mono">
                 <HardDrive className="w-4 h-4" />
-                <span>{locale === "zh-CN" ? "解耦资源存储中心" : "Resource Station"}</span>
+                <span>{t("entity.page.resourceStation")}</span>
               </div>
               <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
-                {locale === "zh-CN"
-                  ? "元数据已与资源存储系统完全解耦。本站仅展示规范化元信息，音视频、母带与下载文件由独立资源中心托管。"
-                  : "Metadata is decoupled from storage. Media files are hosted by the independent Resource Station."}
+{t("entity.page.resourceStationDesc")}
               </p>
               <a
                 href={getStorageEntityUrl(entity.id || id)}
@@ -917,7 +915,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
               >
-                <span>{locale === "zh-CN" ? "前往独立资源站获取" : "Open Resource Station"}</span>
+                <span>{t("entity.page.openResourceStation")}</span>
                 <ArrowUpRight className="w-3.5 h-3.5" />
               </a>
             </div>
@@ -965,7 +963,7 @@ export function EntityDetailView({ id }: { id: string }) {
               {resolvedAliases.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
                   <span className="font-mono text-[10px] text-gray-400 uppercase tracking-wider">
-                    {locale === "zh-CN" ? "别名 / 译名: " : "Aliases: "}
+                    {t("entity.page.aliases")}
                   </span>
                   {resolvedAliases.map((alias, idx) => (
                     <span key={idx} className="px-2 py-0.5 rounded bg-black/[0.03] dark:bg-white/[0.04] text-gray-700 dark:text-gray-300 font-mono">
@@ -1010,10 +1008,10 @@ export function EntityDetailView({ id }: { id: string }) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-sky-500/25 bg-sky-500/10 text-xs font-medium text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 hover:border-sky-500/40 transition-all shadow-2xs cursor-pointer"
-                    title={locale === "zh-CN" ? "前往独立资源下载中心" : "Open Resource Download Station"}
+                    title={t("entity.page.openResourceDownload")}
                   >
                     <HardDrive className="w-3.5 h-3.5" />
-                    <span>{locale === "zh-CN" ? "资源分发站" : "Resource Station"}</span>
+                    <span>{t("entity.page.resourceStation")}</span>
                     <ArrowUpRight className="w-3 h-3 opacity-70" />
                   </a>
 
@@ -1024,7 +1022,7 @@ export function EntityDetailView({ id }: { id: string }) {
                     title="Share link"
                   >
                     {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
-                    <span>{copiedLink ? (locale === "zh-CN" ? "链接已复制" : "Copied") : (locale === "zh-CN" ? "分享" : "Share")}</span>
+                    <span>{copiedLink ? t("entity.page.linkCopied") : t("entity.page.share")}</span>
                   </button>
                 </div>
 
@@ -1047,30 +1045,30 @@ export function EntityDetailView({ id }: { id: string }) {
               {/* Sticky / Smooth Anchor Navigation Bar */}
               <nav className="flex items-center gap-4 border-b border-black/10 dark:border-white/[0.08] pt-2 overflow-x-auto text-xs font-mono">
                 <a href="#overview" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                  {locale === "zh-CN" ? "作品简介" : "Overview"}
+                  {t("entity.page.navOverview")}
                 </a>
                 {staffRelations.length > 0 && (
                   <a href="#staff" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                    {locale === "zh-CN" ? "演职人员" : "Staff"} ({staffRelations.length})
+                    {t("entity.page.navStaff")} ({staffRelations.length})
                   </a>
                 )}
                 {children.length > 0 && (
                   <a href="#contents" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                    {locale === "zh-CN" ? "目录与曲目" : "Contents"} ({children.length})
+                    {t("entity.page.navContents")} ({children.length})
                   </a>
                 )}
                 {occurrences.length > 0 && (
                   <a href="#releases" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                    {locale === "zh-CN" ? "发行版本" : "Releases"} ({occurrences.length})
+                    {t("entity.page.navReleases")} ({occurrences.length})
                   </a>
                 )}
                 {mediaRelations.length > 0 && (
                   <a href="#relations" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                    {locale === "zh-CN" ? "关联作品" : "Relations"} ({mediaRelations.length})
+                    {t("entity.page.navRelations")} ({mediaRelations.length})
                   </a>
                 )}
                 <a href="#community" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary font-semibold text-primary">
-                  {locale === "zh-CN" ? "社区讨论与合集" : "Discussions & Collections"} ({communityPosts.length})
+                  {t("entity.page.navCommunity")} ({communityPosts.length})
                 </a>
                 <a href="#revisions" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
                   {t("entity.detail.revisionsTitle")}
@@ -1085,7 +1083,7 @@ export function EntityDetailView({ id }: { id: string }) {
               <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
                 <BookOpen className="w-4 h-4 text-primary" strokeWidth={1.5} />
                 <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
-                  {locale === "zh-CN" ? "作品简介与说明" : "Overview & Summary"}
+                  {t("entity.page.overviewTitle")}
                 </h2>
               </div>
 
@@ -1095,7 +1093,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 </div>
               ) : (
                 <div className="text-xs text-gray-400 italic">
-                  {locale === "zh-CN" ? "暂无文字简介，欢迎登录进行编辑补充。" : "No summary text provided yet."}
+                  {t("entity.page.noSummary")}
                 </div>
               )}
 
@@ -1168,7 +1166,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" strokeWidth={1.5} />
                     <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
-                      {locale === "zh-CN" ? "演职人员与主创人员" : "Staff & Credits"}
+                      {t("entity.page.staffTitle")}
                     </h2>
                     <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
                       {staffRelations.length}
@@ -1223,7 +1221,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   <div className="flex items-center gap-2">
                     <List className="w-4 h-4 text-primary" strokeWidth={1.5} />
                     <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
-                      {locale === "zh-CN" ? "内容目录与曲目结构" : "Contents & Tracklist"}
+                      {t("entity.page.contentsTitle")}
                     </h2>
                     <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
                       {children.length}
@@ -1249,7 +1247,7 @@ export function EntityDetailView({ id }: { id: string }) {
                               )}
                             </div>
                             <span className="font-mono text-xs text-gray-400">
-                              {mTracks.length} {locale === "zh-CN" ? "首曲目 / 项" : "tracks"}
+                              {mTracks.length} {t("entity.page.tracksUnit")}
                             </span>
                           </div>
 
@@ -1320,7 +1318,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   <div className="flex items-center gap-2">
                     <Disc className="w-4 h-4 text-primary" strokeWidth={1.5} />
                     <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
-                      {locale === "zh-CN" ? "发行版本与收录情况" : "Releases & Editions"}
+                      {t("entity.page.releasesTitle")}
                     </h2>
                     <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
                       {occurrences.length}
@@ -1332,10 +1330,10 @@ export function EntityDetailView({ id }: { id: string }) {
                   <table className="w-full text-left text-xs font-mono">
                     <thead>
                       <tr className="border-b border-black/10 dark:border-white/10 text-gray-400">
-                        <th className="pb-2 font-medium">{locale === "zh-CN" ? "版本名称 / 发行" : "Edition / Release"}</th>
-                        <th className="pb-2 font-medium">{locale === "zh-CN" ? "格式" : "Format"}</th>
-                        <th className="pb-2 font-medium">{locale === "zh-CN" ? "唱片编号" : "Catalog No."}</th>
-                        <th className="pb-2 font-medium text-right">{locale === "zh-CN" ? "发行日期" : "Date"}</th>
+                        <th className="pb-2 font-medium">{t("entity.page.colEdition")}</th>
+                        <th className="pb-2 font-medium">{t("entity.page.colFormat")}</th>
+                        <th className="pb-2 font-medium">{t("entity.page.colCatalogNo")}</th>
+                        <th className="pb-2 font-medium text-right">{t("entity.page.colDate")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
@@ -1388,7 +1386,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   <div className="flex items-center gap-2">
                     <Network className="w-4 h-4 text-primary" strokeWidth={1.5} />
                     <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
-                      {locale === "zh-CN" ? "关联实体与关系图谱" : "Related Works & Entities"}
+                      {t("entity.page.relationsTitle")}
                     </h2>
                     <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
                       {mediaRelations.length}
@@ -1405,7 +1403,7 @@ export function EntityDetailView({ id }: { id: string }) {
                           : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
                       }`}
                     >
-                      {locale === "zh-CN" ? "卡片列表" : "Cards"}
+                      {t("entity.page.viewCards")}
                     </button>
                     <button
                       type="button"
@@ -1416,7 +1414,7 @@ export function EntityDetailView({ id }: { id: string }) {
                           : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
                       }`}
                     >
-                      {locale === "zh-CN" ? "知识图谱" : "Graph"}
+                      {t("entity.page.viewGraph")}
                     </button>
                   </div>
                 </div>
@@ -1476,7 +1474,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-primary" strokeWidth={1.5} />
                   <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
-                    {locale === "zh-CN" ? "社区讨论、评论与合集" : "Discussions & Collections"}
+                    {t("entity.page.communityTitle")}
                   </h2>
                   <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
                     {communityPosts.length}
@@ -1488,7 +1486,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   rel="noopener noreferrer"
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
                 >
-                  <span>{locale === "zh-CN" ? "前往论坛讨论区" : "Open in Forum"}</span>
+                  <span>{t("entity.page.openInForum")}</span>
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </a>
               </div>
@@ -1497,7 +1495,7 @@ export function EntityDetailView({ id }: { id: string }) {
               <form onSubmit={handlePostComment} className="p-4 rounded-xl border border-black/10 dark:border-white/[0.08] bg-black/[0.015] dark:bg-white/[0.015] space-y-3">
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span className="font-medium text-gray-700 dark:text-gray-300 font-mono">
-                    {locale === "zh-CN" ? "发表条目短评 / 讨论" : "Write a Quick Review or Comment"}
+                    {t("entity.page.quickReview")}
                   </span>
                   {user ? (
                     <span className="font-mono text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -1505,7 +1503,7 @@ export function EntityDetailView({ id }: { id: string }) {
                     </span>
                   ) : (
                     <a href={getAuthLoginUrl()} className="text-primary hover:underline font-medium">
-                      {locale === "zh-CN" ? "登录以发表评论" : "Sign in to comment"}
+                      {t("entity.page.signInToComment")}
                     </a>
                   )}
                 </div>
@@ -1514,8 +1512,8 @@ export function EntityDetailView({ id }: { id: string }) {
                   onChange={(e) => setNewCommentBody(e.target.value)}
                   placeholder={
                     user
-                      ? (locale === "zh-CN" ? "写下你对这部作品或发行的评价与感想..." : "Share your thoughts or discussion on this entity...")
-                      : (locale === "zh-CN" ? "请先登录账号后再参与讨论..." : "Please sign in to participate in the discussion...")
+                      ? (t("entity.page.commentPlaceholderAuthed"))
+                      : (t("entity.page.commentPlaceholderGuest"))
                   }
                   disabled={!user || submittingComment}
                   rows={3}
@@ -1526,7 +1524,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 )}
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-[11px] text-gray-400">
-                    {locale === "zh-CN" ? "内容将同步呈现于论坛微服务与讨论流" : "Syncs to forum discussion stream."}
+                    {t("entity.page.syncNotice")}
                   </span>
                   {user ? (
                     <button
@@ -1535,14 +1533,14 @@ export function EntityDetailView({ id }: { id: string }) {
                       className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                     >
                       <Send className="w-3.5 h-3.5" />
-                      <span>{submittingComment ? (locale === "zh-CN" ? "发表中..." : "Posting...") : (locale === "zh-CN" ? "发表短评" : "Post Comment")}</span>
+                      <span>{submittingComment ? t("entity.page.posting") : t("entity.page.postComment")}</span>
                     </button>
                   ) : (
                     <a
                       href={getAuthLoginUrl()}
                       className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary/10 text-primary text-xs font-semibold hover:bg-primary/20 transition-all"
                     >
-                      <span>{locale === "zh-CN" ? "登录后发送" : "Sign In"}</span>
+                      <span>{t("entity.page.sendAfterLogin")}</span>
                     </a>
                   )}
                 </div>
@@ -1551,13 +1549,13 @@ export function EntityDetailView({ id }: { id: string }) {
               {/* Embedded Comments Stream */}
               <div className="space-y-3">
                 <h3 className="font-display text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
-                  {locale === "zh-CN" ? "讨论与评论列表" : "Discussion Stream"} ({communityPosts.length})
+                  {t("entity.page.discussionStream")} ({communityPosts.length})
                 </h3>
                 {communityPosts.length === 0 ? (
                   <div className="p-8 rounded-xl border border-dashed border-black/10 dark:border-white/10 text-center space-y-2">
                     <MessageSquare className="w-8 h-8 mx-auto text-gray-400 opacity-50" />
                     <p className="text-xs text-gray-500">
-                      {locale === "zh-CN" ? "暂无相关讨论，欢迎成为第一个发起评论的编目成员！" : "No discussions yet. Be the first to share your thoughts!"}
+                      {t("entity.page.noDiscussions")}
                     </p>
                   </div>
                 ) : (
@@ -1592,7 +1590,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   <div className="flex items-center gap-2">
                     <FolderPlus className="w-4 h-4 text-indigo-500" />
                     <h3 className="font-display text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
-                      {locale === "zh-CN" ? "收录本条目的社区合集" : "Collections Featuring This Entity"} ({allDisplayCollections.length})
+                      {t("entity.page.collectionsFeaturing")} ({allDisplayCollections.length})
                     </h3>
                   </div>
                   <a
@@ -1601,14 +1599,14 @@ export function EntityDetailView({ id }: { id: string }) {
                     rel="noopener noreferrer"
                     className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
                   >
-                    <span>{locale === "zh-CN" ? "发现更多合集" : "Explore Collections"}</span>
+                    <span>{t("entity.page.exploreCollections")}</span>
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </a>
                 </div>
 
                 {allDisplayCollections.length === 0 ? (
                   <div className="p-6 rounded-xl border border-dashed border-black/10 dark:border-white/10 text-center text-xs text-gray-500">
-                    {locale === "zh-CN" ? "当前条目暂未被任何公开合集收录。" : "This entity is not yet featured in any public collection."}
+                    {t("entity.page.noCollections")}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1626,7 +1624,7 @@ export function EntityDetailView({ id }: { id: string }) {
                             {col.title}
                           </div>
                           <div className="text-[11px] text-gray-500 font-mono truncate">
-                            {locale === "zh-CN" ? "创建者: " : "Curator: "}{col.curator || "Community"}
+                            {t("entity.page.curatorBy")}{col.curator || "Community"}
                           </div>
                         </div>
                         <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors shrink-0 mt-0.5" />
@@ -1645,7 +1643,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4 text-primary" strokeWidth={1.5} />
                   <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
-                    {locale === "zh-CN" ? "修订版本历史" : "Revisions"}
+                    {t("entity.page.revisionsHistory")}
                   </h2>
                   <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
                     {revisions.length || 1}
