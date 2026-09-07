@@ -29,12 +29,12 @@ export interface RelationTypeItem {
   is_enabled: boolean;
 }
 
-const DOMAIN_OPTIONS = [
-  { value: "work_work", label: "作品 ↔ 作品 (Work-Work)" },
-  { value: "work_franchise", label: "作品 ↔ 企划宇宙 (Work-Franchise)" },
-  { value: "work_artist", label: "作品 ↔ 创作者/机构 (Work-Artist)" },
-  { value: "artist_artist", label: "创作者 ↔ 创作者 (Artist-Artist)" },
-  { value: "character_work", label: "角色 ↔ 作品 (Character-Work)" },
+const getDomainOptions = (t: (key: string) => string) => [
+  { value: "work_work", label: t("admin.relationTypes.domainWorkWork") },
+  { value: "work_franchise", label: t("admin.relationTypes.domainWorkFranchise") },
+  { value: "work_artist", label: t("admin.relationTypes.domainWorkArtist") },
+  { value: "artist_artist", label: t("admin.relationTypes.domainArtistArtist") },
+  { value: "character_work", label: t("admin.relationTypes.domainCharacterWork") },
 ];
 
 export function RelationTypesTab() {
@@ -329,7 +329,7 @@ export function RelationTypesTab() {
                   onChange={(e) => setForm({ ...form, domain: e.target.value })}
                   className="w-full h-10 px-3 rounded-xl bg-surface border border-theme text-xs font-mono text-foreground focus:outline-none focus:border-amber-400/50"
                 >
-                  {DOMAIN_OPTIONS.map((d) => (
+                  {getDomainOptions(t).map((d) => (
                     <option key={d.value} value={d.value} className="bg-surface text-foreground">
                       {d.label}
                     </option>
@@ -369,7 +369,7 @@ export function RelationTypesTab() {
                     required
                     value={form.forward_label_zh || ""}
                     onChange={(e) => setForm({ ...form, forward_label_zh: e.target.value })}
-                    placeholder="例如: 改编自"
+                    placeholder={t("admin.relationTypes.forwardPlaceholder")}
                     className="w-full h-9 px-3 rounded-lg bg-surface border border-theme text-xs text-foreground focus:outline-none focus:border-amber-400/50"
                   />
                 </div>
@@ -383,7 +383,7 @@ export function RelationTypesTab() {
                     required
                     value={form.reverse_label_zh || ""}
                     onChange={(e) => setForm({ ...form, reverse_label_zh: e.target.value })}
-                    placeholder="例如: 被改编为"
+                    placeholder={t("admin.relationTypes.reversePlaceholder")}
                     className="w-full h-9 px-3 rounded-lg bg-surface border border-theme text-xs text-foreground focus:outline-none focus:border-amber-400/50"
                   />
                 </div>
