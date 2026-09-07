@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
+import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   useDefinitions,
@@ -375,43 +376,35 @@ function ExploreInner() {
                   href={"/catalog/" + item.id}
                   className="group flex flex-col rounded-xl bg-surface hover:shadow-elevated border border-black/10 dark:border-white/[0.08] hover:border-primary/50 dark:hover:border-primary/50 overflow-hidden transition-all duration-200"
                 >
-                  <div className="aspect-square bg-black/[0.03] dark:bg-black/30 relative flex items-center justify-center overflow-hidden border-b border-black/5 dark:border-white/5">
-                    {item.pictures && item.pictures[0]?.url ? (
-                      <img
-                        src={item.pictures[0].url}
-                        alt={displayTitle}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full relative overflow-hidden bg-linear-to-br from-primary/15 via-black/[0.02] to-primary/5 dark:from-primary/25 dark:via-surface dark:to-black/40 flex flex-col items-center justify-center p-3 text-center">
-                        <div className="w-11 h-11 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-1.5 shadow-2xs group-hover:scale-110 transition-transform">
-                          {item.kind === "work" && <Layers className="w-5 h-5" />}
-                          {item.kind === "release" && <Disc className="w-5 h-5" />}
-                          {item.kind === "agent" && <Users className="w-5 h-5" />}
-                          {item.kind === "collection" && <Network className="w-5 h-5" />}
-                          {item.kind === "content_unit" && <BookOpen className="w-5 h-5" />}
-                          {item.kind === "expression" && <Film className="w-5 h-5" />}
-                          {item.kind === "medium" && <Disc className="w-5 h-5" />}
-                          {item.kind === "track" && <Disc className="w-5 h-5" />}
-                        </div>
-                        <span className="text-[11px] font-medium text-gray-800 dark:text-gray-200 line-clamp-1 w-full px-1">
-                          {displayTitle}
-                        </span>
-                        <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider mt-0.5">
-                          {badgeLabel}
-                        </span>
-                      </div>
-                    )}
-                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/65 dark:bg-black/75 text-white keep-white backdrop-blur-md border border-white/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                      <span className="truncate max-w-[85px]">{badgeLabel}</span>
-                    </span>
-                    {item.status !== "published" && (
-                      <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-amber-500/90 text-black keep-white text-[9px] font-mono font-bold shadow-2xs">
-                        {t("catalog.status." + item.status) || item.status}
+                  <AdaptiveCardCover
+                    src={item.pictures && item.pictures[0]?.url}
+                    alt={displayTitle}
+                    badge={
+                      <span className="px-2 py-0.5 rounded-md bg-black/65 dark:bg-black/75 text-white keep-white backdrop-blur-md border border-white/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
+                        <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                        <span className="truncate max-w-[85px]">{badgeLabel}</span>
                       </span>
-                    )}
-                  </div>
+                    }
+                    statusBadge={
+                      item.status !== "published" && (
+                        <span className="px-1.5 py-0.5 rounded-md bg-amber-500/90 text-black keep-white text-[9px] font-mono font-bold shadow-2xs">
+                          {t("catalog.status." + item.status) || item.status}
+                        </span>
+                      )
+                    }
+                    fallbackIcon={
+                      item.kind === "work" ? <Layers className="w-5 h-5" /> :
+                      item.kind === "release" ? <Disc className="w-5 h-5" /> :
+                      item.kind === "agent" ? <Users className="w-5 h-5" /> :
+                      item.kind === "collection" ? <Network className="w-5 h-5" /> :
+                      item.kind === "content_unit" ? <BookOpen className="w-5 h-5" /> :
+                      item.kind === "expression" ? <Film className="w-5 h-5" /> :
+                      <Disc className="w-5 h-5" />
+                    }
+                    fallbackTitle={displayTitle}
+                    fallbackSubtitle={badgeLabel}
+                    className="border-b border-black/5 dark:border-white/5"
+                  />
 
                   <div className="p-3 flex-1 flex flex-col justify-between">
                     <div>

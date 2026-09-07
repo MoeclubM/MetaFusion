@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions, getTypeName } from "@/lib/definitions";
+import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   Search,
   Disc,
@@ -290,25 +291,19 @@ export default function HomePage() {
                         href={"/catalog/" + item.id}
                         className="group flex flex-col rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/20 overflow-hidden transition-all shadow-2xs hover:shadow-md"
                       >
-                        {/* Thumbnail frame */}
-                        <div className="aspect-square bg-black/40 relative flex items-center justify-center overflow-hidden">
-                          {item.pictures && item.pictures[0]?.url ? (
-                            <img
-                              src={item.pictures[0].url}
-                              alt={displayTitle}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
-                          ) : (
-                            <div className="flex flex-col items-center gap-1.5 text-gray-500 p-2 text-center">
-                              <Icon className="w-8 h-8 opacity-40 text-primary" />
-                              <span className="text-[10px] font-medium line-clamp-1">{displayTitle}</span>
-                            </div>
-                          )}
-                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/65 text-white keep-white backdrop-blur-md border border-white/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
-                            <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                            <span className="truncate max-w-[85px]">{badgeLabel}</span>
-                          </span>
-                        </div>
+                        {/* Thumbnail frame - 卡片整体尺寸固定，图像区域自适应真实图片比例 */}
+                        <AdaptiveCardCover
+                          src={item.pictures && item.pictures[0]?.url}
+                          alt={displayTitle}
+                          badge={
+                            <span className="px-2 py-0.5 rounded-md bg-black/65 text-white keep-white backdrop-blur-md border border-white/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
+                              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                              <span className="truncate max-w-[85px]">{badgeLabel}</span>
+                            </span>
+                          }
+                          fallbackIcon={<Icon className="w-8 h-8 opacity-40 text-primary" />}
+                          fallbackTitle={displayTitle}
+                        />
 
                         {/* Content meta */}
                         <div className="p-3 flex-1 flex flex-col justify-between">
