@@ -2157,5 +2157,13 @@
   "auth.error.invalid_old_password": "Incorrect current password.",
   "auth.error.invalid_password_length": "Password must be at least 12 characters.",
   "auth.error.setup_complete": "System setup is already completed.",
-  "auth.error.setup_needed": "System setup is required."
+  "auth.error.setup_needed": "System setup is required.",
+  "navbar.about": "About MetaFusion",
+  "navbar.admin": "Admin",
+  "navbar.createAgent": "New Agent",
+  "navbar.createCollection": "New Collection",
+  "navbar.accountSessions": "Account & Sessions",
+  "navbar.adminConsole": "Admin Console",
+  "navbar.userManagement": "User Management",
+  "navbar.signIn": "Sign In / Register"
 }

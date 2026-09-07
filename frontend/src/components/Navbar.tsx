@@ -34,7 +34,7 @@ import {
 
 export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }) => {
   const { user, logout } = useAuth();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const pathname = usePathname();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -64,7 +64,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
       <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 sm:h-15 flex items-center justify-between gap-3">
         {/* Left Brand + Navigation */}
         <div className="flex items-center gap-3 sm:gap-4">
-          <Link href="/landing" title={locale === "zh-CN" ? "平台介绍" : "About MetaFusion"} className="flex items-center gap-2.5 shrink-0 group">
+          <Link href="/landing" title={t("navbar.about")} className="flex items-center gap-2.5 shrink-0 group">
             <BrandMark size={26} withGlow={false} idSuffix="nav" />
             <span className="hidden sm:flex flex-col leading-none">
               <span className="font-display text-[20px] leading-none tracking-[-0.03em] text-white group-hover:text-primary transition-colors">
@@ -112,7 +112,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
                 }`}
               >
                 <Shield className="w-3.5 h-3.5" />
-                <span>{locale === "zh-CN" ? "管理后台" : "Admin"}</span>
+                <span>{t("navbar.admin")}</span>
               </Link>
             )}
           </nav>
@@ -127,7 +127,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-white transition-all shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
-              <span className="hidden sm:inline">{locale === "zh-CN" ? "新建条目" : "Create"}</span>
+              <span className="hidden sm:inline">{t("catalog.create")}</span>
               <ChevronDown className="w-3 h-3 opacity-60 group-hover/create:rotate-180 transition-transform" />
             </Link>
 
@@ -138,28 +138,28 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
                   className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.06] text-gray-200"
                 >
                   <Layers className="w-3.5 h-3.5 text-sky-400" />
-                  <span>{locale === "zh-CN" ? "新建作品 (Work)" : "New Work"}</span>
+                  <span>{t("nav.createWork")}</span>
                 </Link>
                 <Link
                   href="/new?kind=release"
                   className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.06] text-gray-200"
                 >
                   <Disc className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>{locale === "zh-CN" ? "新建发行 (Release)" : "New Release"}</span>
+                  <span>{t("nav.createRelease")}</span>
                 </Link>
                 <Link
                   href="/new?kind=agent"
                   className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.06] text-gray-200"
                 >
                   <Users className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{locale === "zh-CN" ? "新建主体 (Agent)" : "New Agent"}</span>
+                  <span>{t("navbar.createAgent")}</span>
                 </Link>
                 <Link
                   href="/new?kind=collection"
                   className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.06] text-gray-200"
                 >
                   <Network className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>{locale === "zh-CN" ? "新建企划 (Collection)" : "New Collection"}</span>
+                  <span>{t("navbar.createCollection")}</span>
                 </Link>
               </div>
             </div>
@@ -210,7 +210,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
                       className="w-full px-3 py-2 text-left text-gray-300 hover:text-white hover:bg-white/[0.06] flex items-center gap-2 transition-colors font-medium"
                     >
                       <UserIcon className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
-                      <span>{locale === "zh-CN" ? "个人中心与会话" : "Account & Sessions"}</span>
+                      <span>{t("navbar.accountSessions")}</span>
                     </a>
 
                     {user.role === "admin" && (
@@ -221,7 +221,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
                         className="w-full px-3 py-2 text-left text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 flex items-center gap-2 transition-colors font-medium"
                       >
                         <Shield className="w-3.5 h-3.5" strokeWidth={1.7} />
-                        <span>{locale === "zh-CN" ? "管理控制台" : "Admin Console"}</span>
+                        <span>{t("navbar.adminConsole")}</span>
                       </Link>
                       <a
                         href={getAuthUsersAdminUrl()}
@@ -229,7 +229,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
                         className="w-full px-3 py-2 text-left text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 flex items-center gap-2 transition-colors font-medium"
                       >
                         <Settings className="w-3.5 h-3.5" strokeWidth={1.7} />
-                        <span>{locale === "zh-CN" ? "账号管理" : "User Management"}</span>
+                        <span>{t("navbar.userManagement")}</span>
                       </a>
                       </>
                     )}
@@ -245,7 +245,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
                       className="w-full px-3 py-2 text-left text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" strokeWidth={1.7} />
-                      <span>{locale === "zh-CN" ? "退出登录" : "Sign Out"}</span>
+                      <span>{t("catalog.logout")}</span>
                     </button>
                   </div>
                 </div>
@@ -257,7 +257,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs font-medium text-gray-200 transition-colors"
             >
               <UserIcon className="w-3.5 h-3.5" />
-              <span>{locale === "zh-CN" ? "登录 / 注册" : "Sign In"}</span>
+              <span>{t("navbar.signIn")}</span>
             </a>
           )}
 
