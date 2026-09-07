@@ -7,6 +7,7 @@ import { api, Entity, local, title } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { FieldValue, EntityLink, ErrorMessage } from "./Fields";
 import { useDefinitions, getFieldName } from "@/lib/definitions";
+import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowRightLeft,
   Search,
@@ -263,17 +264,14 @@ export function Compare({ ids }: { ids: string }) {
                     </button>
                   </div>
 
-                  {/* Thumbnail / Disc Icon */}
-                  <div className="relative w-full aspect-square rounded-lg overflow-hidden mb-2 bg-muted/40 border border-border/60 flex items-center justify-center">
-                    {info.coverUrl ? (
-                      <img
-                        src={info.coverUrl}
-                        alt={info.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <Disc className="w-8 h-8 text-muted-foreground/50 group-hover:text-primary transition-colors" />
-                    )}
+                  {/* Adaptive Card Cover */}
+                  <div className="w-full aspect-square rounded-lg overflow-hidden mb-2 border border-border/60">
+                    <AdaptiveCardCover
+                      src={info.coverUrl}
+                      alt={info.title}
+                      fallbackIcon={<Disc className="w-7 h-7 text-muted-foreground/60" />}
+                      aspectClassName="w-full h-full"
+                    />
                   </div>
 
                   {/* Title & Metadata */}
@@ -424,12 +422,13 @@ export function Compare({ ids }: { ids: string }) {
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="w-10 h-10 rounded-lg bg-muted/40 border border-border/50 shrink-0 overflow-hidden flex items-center justify-center">
-                          {coverUrl ? (
-                            <img src={coverUrl} alt={releaseTitle} className="w-full h-full object-cover" />
-                          ) : (
-                            <Disc className="w-5 h-5 text-muted-foreground/60" />
-                          )}
+                        <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-border/60">
+                          <AdaptiveCardCover
+                            src={coverUrl}
+                            alt={releaseTitle}
+                            fallbackIcon={<Disc className="w-5 h-5 text-muted-foreground/60" />}
+                            aspectClassName="w-full h-full"
+                          />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors truncate">
@@ -493,12 +492,13 @@ export function Compare({ ids }: { ids: string }) {
                       }`}
                     >
                       <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className="w-10 h-10 rounded-lg bg-muted/40 border border-border/50 shrink-0 overflow-hidden flex items-center justify-center">
-                          {coverUrl ? (
-                            <img src={coverUrl} alt={releaseTitle} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                          ) : (
-                            <Disc className="w-5 h-5 text-muted-foreground/60 group-hover:text-primary transition-colors" />
-                          )}
+                        <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 border border-border/60">
+                          <AdaptiveCardCover
+                            src={coverUrl}
+                            alt={releaseTitle}
+                            fallbackIcon={<Disc className="w-5 h-5 text-muted-foreground/60 group-hover:text-primary transition-colors" />}
+                            aspectClassName="w-full h-full"
+                          />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors truncate">
@@ -587,19 +587,16 @@ export function Compare({ ids }: { ids: string }) {
                         className="p-4 min-w-[240px] max-w-[320px] align-top border-r border-border last:border-r-0 font-normal"
                       >
                         <div className="flex flex-col gap-3">
-                          {/* Cover Image */}
-                          <div className="relative w-full h-36 rounded-xl overflow-hidden bg-muted/40 border border-border/70 group shadow-xs">
-                            {coverUrl ? (
-                              <img
-                                src={coverUrl}
-                                alt={releaseTitle}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-muted-foreground/40">
-                                <Disc className="w-12 h-12" />
-                              </div>
-                            )}
+                          {/* Adaptive Card Cover */}
+                          <div className="w-full h-36 rounded-xl overflow-hidden border border-border/70 shadow-xs">
+                            <AdaptiveCardCover
+                              src={coverUrl}
+                              alt={releaseTitle}
+                              fallbackIcon={<Disc className="w-10 h-10 text-muted-foreground/50" />}
+                              fallbackTitle={releaseTitle}
+                              fallbackSubtitle={fmt || catNo}
+                              aspectClassName="w-full h-full"
+                            />
                           </div>
 
                           {/* Title & Remove */}
