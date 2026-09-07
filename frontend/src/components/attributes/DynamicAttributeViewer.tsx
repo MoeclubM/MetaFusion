@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { EntityAttributeSchema } from "@/lib/api";
+import { EntityAttributeSchema, pickLocalizedName } from "@/lib/api";
 import { Layers, CheckCircle2, XCircle, ExternalLink, Hash, Calendar, Tag as TagIcon } from "lucide-react";
 
 interface DynamicAttributeViewerProps {
@@ -126,14 +126,12 @@ export const DynamicAttributeViewer: React.FC<DynamicAttributeViewerProps> = ({
         {entries.map(([key, val]) => {
           const schema = schemaMap.get(key);
           const label =
-            (schema?.names && (schema.names[locale] || schema.names["en-US"])) ||
-            (locale.startsWith("zh") ? schema?.name_zh : schema?.name_en) ||
+            pickLocalizedName(locale, schema?.names, schema?.name_zh, schema?.name_en) ||
             schema?.name_zh ||
             key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
           const desc =
-            (schema?.descriptions && (schema.descriptions[locale] || schema.descriptions["en-US"])) ||
-            (locale.startsWith("zh") ? schema?.desc_zh : schema?.desc_en) ||
+            pickLocalizedName(locale, schema?.descriptions, schema?.desc_zh, schema?.desc_en) ||
             schema?.desc_zh;
 
           return (

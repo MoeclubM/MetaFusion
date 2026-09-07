@@ -7,19 +7,27 @@ export type ThemeAccent = "blue" | "emerald" | "amber" | "violet" | "rose" | "mo
 
 export interface AccentOption {
   id: ThemeAccent;
-  name: string;
-  enName: string;
+  /** 主题强调色名的 i18n 键（theme.accent.<id>），展示层经 t() 解析，不再维护 name/enName 双列。 */
+  labelKey: string;
   color: string;
 }
 
 export const ACCENTS: AccentOption[] = [
-  { id: "blue", name: "经典蓝", enName: "Ocean Blue", color: "#3b82f6" },
-  { id: "emerald", name: "翡翠绿", enName: "Emerald", color: "#10b981" },
-  { id: "amber", name: "琥珀金", enName: "Amber Gold", color: "#f59e0b" },
-  { id: "violet", name: "极光紫", enName: "Aurora Violet", color: "#8b5cf6" },
-  { id: "rose", name: "珊瑚红", enName: "Coral Rose", color: "#f43f5e" },
-  { id: "monochrome", name: "极简黑白", enName: "Monochrome", color: "#71717a" },
+  { id: "blue", labelKey: "theme.accent.blue", color: "#3b82f6" },
+  { id: "emerald", labelKey: "theme.accent.emerald", color: "#10b981" },
+  { id: "amber", labelKey: "theme.accent.amber", color: "#f59e0b" },
+  { id: "violet", labelKey: "theme.accent.violet", color: "#8b5cf6" },
+  { id: "rose", labelKey: "theme.accent.rose", color: "#f43f5e" },
+  { id: "monochrome", labelKey: "theme.accent.monochrome", color: "#71717a" },
 ];
+
+/** 主题强调色展示名：以 i18n 键为权威来源。 */
+export function accentLabel(id: ThemeAccent, t: (key: string) => string): string {
+  const found = ACCENTS.find((a) => a.id === id);
+  if (!found) return id;
+  const v = t(found.labelKey);
+  return v && v !== found.labelKey ? v : id;
+}
 
 interface ThemeContextType {
   mode: ThemeMode;

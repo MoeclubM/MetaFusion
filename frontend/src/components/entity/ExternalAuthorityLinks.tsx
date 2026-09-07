@@ -23,7 +23,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { fetchExternalDatabases, ExternalDatabaseDefinition, ExternalLinkDisplay } from "@/lib/api";
+import { fetchExternalDatabases, ExternalDatabaseDefinition, ExternalLinkDisplay, pickLocalizedName } from "@/lib/api";
 
 interface Props {
   entity?: {
@@ -169,7 +169,7 @@ export function ExternalAuthorityLinks({
       // 名称提取与多语言解析
       let name = "";
       if (def) {
-        name = (locale === "zh-CN" ? def.name_zh : def.name_en) || def.name_zh || def.code;
+        name = pickLocalizedName(locale, def.names, def.name_zh, def.name_en, def.code);
       } else {
         if (lookupKey === "official_website") name = t("authority.officialWebsite");
         else if (lookupKey === "bushiroad_music") name = t("authority.bushiroad");

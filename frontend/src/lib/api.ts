@@ -261,7 +261,9 @@ export function pickLocalizedName(
   names?: Record<string, string> | null,
   fallbackZh?: string,
   fallbackEn?: string,
-  defaultSlug?: string
+  defaultSlug?: string,
+  fallbackJa?: string,
+  fallbackZhTw?: string
 ): string {
   if (names && typeof names === "object") {
     // 1. 精确匹配当前语言，如 zh-CN, en-US, ja, ko
@@ -281,11 +283,25 @@ export function pickLocalizedName(
     if (names["zh-CN"] && typeof names["zh-CN"] === "string" && names["zh-CN"].trim()) {
       return names["zh-CN"].trim();
     }
-    // 4. 回退至 en-US
+    // 4. 回退至 zh-TW / zh-Hant（繁中与简中互为回退，不再直跳英文）
+    if (names["zh-TW"] && typeof names["zh-TW"] === "string" && names["zh-TW"].trim()) {
+      return names["zh-TW"].trim();
+    }
+    if (names["zh-Hant"] && typeof names["zh-Hant"] === "string" && names["zh-Hant"].trim()) {
+      return names["zh-Hant"].trim();
+    }
+    // 5. 回退至 ja / ja-JP
+    if (names["ja"] && typeof names["ja"] === "string" && names["ja"].trim()) {
+      return names["ja"].trim();
+    }
+    if (names["ja-JP"] && typeof names["ja-JP"] === "string" && names["ja-JP"].trim()) {
+      return names["ja-JP"].trim();
+    }
+    // 6. 回退至 en-US
     if (names["en-US"] && typeof names["en-US"] === "string" && names["en-US"].trim()) {
       return names["en-US"].trim();
     }
-    // 5. 任意非空值
+    // 7. 任意非空值
     for (const v of Object.values(names)) {
       if (typeof v === "string" && v.trim()) {
         return v.trim();
@@ -293,12 +309,18 @@ export function pickLocalizedName(
     }
   }
 
-  // 6. 回退到 legacy 静态字段
+  // 8. 回退到 legacy 静态字段
   if (locale === "en-US" && fallbackEn && fallbackEn.trim()) {
     return fallbackEn.trim();
   }
   if (fallbackZh && fallbackZh.trim() && !fallbackZh.includes("???")) {
     return fallbackZh.trim();
+  }
+  if (fallbackZhTw && fallbackZhTw.trim() && !fallbackZhTw.includes("???")) {
+    return fallbackZhTw.trim();
+  }
+  if (fallbackJa && fallbackJa.trim() && !fallbackJa.includes("???")) {
+    return fallbackJa.trim();
   }
   if (fallbackEn && fallbackEn.trim()) {
     return fallbackEn.trim();

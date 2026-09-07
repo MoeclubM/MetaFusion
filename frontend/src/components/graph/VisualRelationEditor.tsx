@@ -8,6 +8,7 @@ import {
   GraphLink,
   catalogHubOf,
   fetchApi,
+  pickLocalizedName,
 } from "@/lib/api";
 import dynamic from "next/dynamic";
 const InteractiveRelationGraph = dynamic(() => import("./InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
@@ -95,9 +96,7 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
       }
 
       const rt = relationTypes.find((r) => r.code === rel.relationship_type);
-      const label = locale.startsWith("zh")
-        ? rt?.name_zh || rt?.names?.["zh-CN"] || rel.relationship_type
-        : rt?.name_en || rt?.names?.["en-US"] || rt?.name_zh || rel.relationship_type;
+      const label = pickLocalizedName(locale, rt?.names, rt?.name_zh, rt?.name_en, rel.relationship_type);
 
       linkList.push({
         id: `link-${idx}`,
@@ -390,7 +389,7 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
                 <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5 pointer-events-none" />
                 {isSearching && (
                   <span className="absolute right-3 top-2.5 text-[10px] text-primary animate-pulse">
-                    搜索中...
+                    {t("graph.searching")}
                   </span>
                 )}
               </div>
@@ -428,7 +427,7 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
                 <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-between text-xs">
                   <div className="min-w-0">
                     <span className="text-[10px] uppercase font-mono px-1 rounded bg-primary/20 text-primary font-bold mr-1.5">
-                      已选择
+                      {t("graph.selectedBadge")}
                     </span>
                     <span className="font-semibold text-foreground">
                       {selectedTarget.title || selectedTarget.name || selectedTarget.edition_name}
@@ -456,9 +455,7 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
                 className="w-full px-3 py-2 text-xs rounded-lg bg-background border border-border focus:border-primary focus:outline-hidden font-mono"
               >
                 {availablePredicates.map((rt) => {
-                  const label = locale.startsWith("zh")
-                    ? rt.name_zh || rt.names?.["zh-CN"] || rt.code
-                    : rt.name_en || rt.names?.["en-US"] || rt.name_zh || rt.code;
+                  const label = pickLocalizedName(locale, rt.names, rt.name_zh, rt.name_en, rt.code);
                   return (
                     <option key={rt.code} value={rt.code}>
                       {label} ({rt.code})

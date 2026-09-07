@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Network, Sparkles, ArrowRight, ArrowLeftRight, Check, X, ShieldAlert } from "lucide-react";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, pickLocalizedName } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DynamicNamesEditor, MultilingualBadges } from "@/components/common/DynamicNamesEditor";
 import { Modal } from "@/components/ui/Modal";
@@ -218,9 +218,9 @@ export function RelationTypesTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((it) => {
             const displayName =
-              (locale === "en-US" ? it.name_en : it.name_zh) || it.name_zh || it.name_en || it.code;
-            const forwardLabel = (locale === "en-US" ? it.forward_label_en : it.forward_label_zh) || it.forward_label_zh;
-            const reverseLabel = (locale === "en-US" ? it.reverse_label_en : it.reverse_label_zh) || it.reverse_label_zh;
+              pickLocalizedName(locale, it.names, it.name_zh, it.name_en, it.code);
+            const forwardLabel = pickLocalizedName(locale, undefined, it.forward_label_zh, it.forward_label_en, it.forward_label_zh);
+            const reverseLabel = pickLocalizedName(locale, undefined, it.reverse_label_zh, it.reverse_label_en, it.reverse_label_zh);
 
             return (
               <div

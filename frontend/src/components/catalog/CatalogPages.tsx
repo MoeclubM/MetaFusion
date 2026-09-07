@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, Relation, Source, kinds, local, title } from "./api";
+import { pickRecordEntry } from "@/lib/titles";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useCatalog } from "./CatalogProvider";
 import { EntityEditor } from "./EntityEditor";
 import {
@@ -27,6 +29,7 @@ async function allEntities(query: string) {
 }
 export function Browse() {
   const { t, locale } = useI18n();
+  const titleOrder = useTitleDisplayOrder();
   const { definition, user } = useCatalog();
   const [items, setItems] = useState<Entity[]>([]);
   const [q, setQ] = useState("");
@@ -169,14 +172,14 @@ export function Browse() {
         {items.map((e) => (
           <article key={e.id} className="cv-card">
             {e.pictures?.[0] && (
-              <img src={e.pictures[0].url} alt={title(e, locale)} />
+              <img src={e.pictures[0].url} alt={title(e, locale, titleOrder)} />
             )}
             <div className="cv-card-body">
               <span className="cv-eyebrow">
                 {t(`catalog.kind.${e.kind}`)}
               </span>
               <h2>
-                <Link href={`/catalog/${e.id}`}>{title(e, locale)}</Link>
+                <Link href={`/catalog/${e.id}`}>{title(e, locale, titleOrder)}</Link>
               </h2>
               <div className="cv-tags">
                 {(e.types || []).map((k) => (
@@ -770,6 +773,7 @@ function Credentials({
 }
 export function Detail({ id }: { id: string }) {
   const { t, locale } = useI18n();
+  const titleOrder = useTitleDisplayOrder();
   const { definition, user } = useCatalog();
   const [e, setE] = useState<Entity>();
   const [children, setChildren] = useState<Entity[]>([]);
@@ -891,7 +895,7 @@ export function Detail({ id }: { id: string }) {
             style={{ paddingLeft: 16 + (flatDirectory ? 0 : depth * 20) }}
           >
             <span>{x.number || x.position || "—"}</span>
-            <Link href={`/catalog/${x.id}`}>{title(x, locale)}</Link>
+            <Link href={`/catalog/${x.id}`}>{title(x, locale, titleOrder)}</Link>
             <small>{t(`catalog.kind.${x.kind}`)}</small>
             {x.contents?.map((c, i) => (
               <EntityLink key={i} id={c.expression_id} />
@@ -905,9 +909,9 @@ export function Detail({ id }: { id: string }) {
       <div className="cv-heading">
         <div>
           <span className="cv-eyebrow">{t(`catalog.kind.${e.kind}`)}</span>
-          <h1>{title(e, locale)}</h1>
+          <h1>{title(e, locale, titleOrder)}</h1>
           <p className="cv-muted">
-            {e.title !== title(e, locale) && e.title} ·{" "}
+            {e.title !== title(e, locale, titleOrder) && e.title} ·{" "}
             {t(`catalog.state.${e.status}`)}
           </p>
         </div>
@@ -926,7 +930,7 @@ export function Detail({ id }: { id: string }) {
             <figure key={i}>
               <img
                 src={p.url}
-                alt={local(p.caption, locale, "", title(e, locale))}
+                alt={local(p.caption, locale, "", title(e, locale, titleOrder))}
               />
               <figcaption>
                 {local(p.caption, locale)} {p.source?.citation}
@@ -976,10 +980,7 @@ export function Detail({ id }: { id: string }) {
           <section>
             <h2>{t("catalog.overview")}</h2>
             <p className="cv-summary">
-              {e.translations?.[locale]?.summary ||
-                e.translations?.["en-US"]?.summary ||
-                e.translations?.[e.original_language]?.summary ||
-                t("catalog.noSummary")}
+              {pickRecordEntry(locale, e.translations, t("catalog.noSummary"), t("catalog.noSummary"), { order: titleOrder, originalLanguage: e.original_language }).body || t("catalog.noSummary")}
             </p>
             {Object.entries(e.translations || {}).map(([loc, tr]) => (
               <p className="cv-muted" key={loc}>
@@ -1041,7 +1042,7 @@ export function Detail({ id }: { id: string }) {
                 )
                 .map((x) => (
                   <p key={x.id}>
-                    <Link href={`/catalog/${x.id}`}>{title(x, locale)}</Link>
+                    <Link href={`/catalog/${x.id}`}>{title(x, locale, titleOrder)}</Link>
                   </p>
                 ))}
             </section>
@@ -1263,14 +1264,14 @@ export function Detail({ id }: { id: string }) {
               {occurrences.map((o, i) => (
                 <div className="cv-directory-row" key={i}>
                   <Link href={`/catalog/${o.release.id}`}>
-                    {title(o.release, locale)}
+                    {title(o.release, locale, titleOrder)}
                   </Link>
                   <Link href={`/catalog/${o.medium.id}`}>
-                    {title(o.medium, locale)}
+                    {title(o.medium, locale, titleOrder)}
                   </Link>
                   <Link href={`/catalog/${o.track.id}`}>
                     {o.track.number || o.track.position} ·{" "}
-                    {title(o.track, locale)}
+                    {title(o.track, locale, titleOrder)}
                   </Link>
                 </div>
               ))}

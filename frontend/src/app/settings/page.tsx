@@ -6,7 +6,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useTheme } from "@/lib/themeContext";
+import { useTheme, accentLabel } from "@/lib/themeContext";
 import { fetchApi, displayNameOf, ApiToken, listApiTokens, createApiToken, deleteApiToken, uploadAvatar, deleteAvatar, sendVerificationEmail, verifyEmail, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
@@ -635,12 +635,14 @@ export default function SettingsPage() {
                   </span>
                   <Select
                     value={locale}
-                    onChange={(val) => setLocale(val as "zh-CN" | "en-US")}
+                    onChange={(val) => setLocale(val as "zh-CN" | "zh-TW" | "ja-JP" | "en-US")}
                     fullWidth={false}
                     className="min-w-[10.5rem] h-8 px-2 text-xs"
                     options={[
-                      { value: "zh-CN", label: `${t("locale.chinese")} (Chinese)` },
-                      { value: "en-US", label: "English (US)" },
+                      { value: "zh-CN", label: t("locale.simplifiedChinese") },
+                      { value: "zh-TW", label: t("locale.traditionalChinese") },
+                      { value: "ja-JP", label: t("locale.japanese") },
+                      { value: "en-US", label: t("locale.englishUs") },
                     ]}
                   />
                 </div>
@@ -871,7 +873,7 @@ export default function SettingsPage() {
 
                 <div className="flex items-center justify-between pt-2.5 border-t border-black/[0.06] dark:border-white/[0.06]">
                   <span className="font-mono text-xs text-gray-500">{t("theme.accentLabel")}</span>
-                  <span className="font-mono text-[11px] font-semibold text-gray-900 dark:text-white">{(() => { const cur = accents.find((a) => a.id === accent); return locale === "en-US" ? (cur?.enName || cur?.name) : (cur?.name || cur?.enName); })()}</span>
+                  <span className="font-mono text-[11px] font-semibold text-gray-900 dark:text-white">{accentLabel(accent, t)}</span>
                 </div>
                 <div className="flex items-center gap-1.5 pt-1">
                   {accents.map((item) => {
@@ -881,7 +883,7 @@ export default function SettingsPage() {
                         key={item.id}
                         type="button"
                         onClick={() => setAccent(item.id)}
-                        title={locale === "en-US" ? item.enName : item.name}
+                        title={t(item.labelKey)}
                         className={`flex-1 py-2 rounded-md border flex flex-col items-center gap-1 transition-all ${
                           active ? "bg-black/[0.04] dark:bg-white/[0.08] border-primary/40 text-gray-900 dark:text-white" : "bg-black/[0.02] dark:bg-white/[0.02] border-black/5 dark:border-white/[0.06] text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
                         }`}
@@ -889,7 +891,7 @@ export default function SettingsPage() {
                         <div className={`w-5 h-5 rounded-full grid place-items-center shadow-2xs ${active ? "ring-2 ring-primary ring-offset-1 ring-offset-surface" : ""}`} style={{ backgroundColor: item.color }}>
                           {active && <Check className="w-3 h-3 text-white stroke-[3]" />}
                         </div>
-                        <span className="text-[10px] font-medium truncate">{locale === "en-US" ? item.enName : item.name}</span>
+                        <span className="text-[10px] font-medium truncate">{t(item.labelKey)}</span>
                       </button>
                     );
                   })}

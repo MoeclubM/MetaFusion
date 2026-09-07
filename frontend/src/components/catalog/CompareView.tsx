@@ -6,7 +6,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, local, title } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { FieldValue, EntityLink, ErrorMessage } from "./Fields";
-import { useDefinitions, getFieldName } from "@/lib/definitions";
+import { useDefinitions, getFieldName, getTermName } from "@/lib/definitions";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowRightLeft,
@@ -22,6 +22,23 @@ import {
   Layers,
 } from "lucide-react";
 
+export const COMPARE_MIN_SLOTS = 2;
+export const COMPARE_MAX_SLOTS = 6;
+const COMPARE_BASKET_KEY = "metafusion_compare_basket";
+
+function readBasket(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(COMPARE_BASKET_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x) => typeof x === "string" && x.trim() !== "");
+  } catch {
+    return [];
+  }
+}
+
 export function Compare({ ids }: { ids: string }) {
   const { t, locale } = useI18n();
   const { definition: catalogDef } = useCatalog();
@@ -29,10 +46,12 @@ export function Compare({ ids }: { ids: string }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const initialList = useMemo(() => {
-    return (ids || "")
+    const fromUrl = (ids || "")
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
+    if (fromUrl.length > 0) return Array.from(new Set(fromUrl)).slice(0, COMPARE_MAX_SLOTS);
+    return readBasket().slice(0, COMPARE_MAX_SLOTS);
   }, [ids]);
 
   const [selectedIds, setSelectedIds] = useState<string[]>(initialList);
@@ -46,8 +65,20 @@ export function Compare({ ids }: { ids: string }) {
   const [customIdInput, setCustomIdInput] = useState("");
   const [highlightDiff, setHighlightDiff] = useState(true);
 
-  const maxSlots = 6;
-  const slotIndices = useMemo(() => Array.from({ length: maxSlots }, (_, i) => i), []);
+  const maxSlots = COMPARE_MAX_SLOTS;
+  const slotIndices = useMemo(() => Array.from({ length: maxSlots }, (_, i) => i), [maxSlots]);
+
+  useEffect(() => {
+    setSelectedIds(initialList);
+  }, [initialList.join(",")]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(COMPARE_BASKET_KEY, JSON.stringify(selectedIds));
+    } catch {
+      /* ignore */
+    }
+  }, [selectedIds]);
 
   const updateSelected = (next: string[]) => {
     setSelectedIds(next);
@@ -88,14 +119,12 @@ export function Compare({ ids }: { ids: string }) {
     }
   };
 
-  // Load recent releases for quick addition
   useEffect(() => {
     api<{ items: Entity[] }>("/catalog/entities?kind=release&limit=12")
       .then((r) => setRecentReleases(r.items || []))
       .catch(() => {});
   }, []);
 
-  // Search releases by keyword or title
   useEffect(() => {
     const q = searchQuery.trim();
     if (!q) {
@@ -112,9 +141,8 @@ export function Compare({ ids }: { ids: string }) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Query comparison if 2 to 6 releases are selected
   useEffect(() => {
-    if (selectedIds.length < 2) {
+    if (selectedIds.length < COMPARE_MIN_SLOTS) {
       setItems([]);
       setError("");
       return;
@@ -135,13 +163,19 @@ export function Compare({ ids }: { ids: string }) {
         setError(e.message);
       })
       .finally(() => setLoading(false));
-  }, [selectedIds, t]);
+  }, [selectedIds, t, maxSlots]);
 
-  const fields = useMemo(() => {
-    return Array.from(
-      new Set(items.flatMap((x) => Object.keys(x.release.attributes || {}))),
-    );
-  }, [items]);
+  const comparableFields = useMemo(() => {
+    const defs = dynamicDefs || catalogDef?.document;
+    const allKeys = Array.from(new Set(items.flatMap((x) => Object.keys(x.release?.attributes || {}))));
+    return allKeys.filter((k) => {
+      const field = (defs as any)?.fields?.[k];
+      if (!field) return true;
+      if (typeof field.comparable === "boolean") return field.comparable;
+      if (typeof field.Comparable === "boolean") return field.Comparable;
+      return true;
+    });
+  }, [items, dynamicDefs, catalogDef]);
 
   const sets = useMemo(() => {
     return items.map(
@@ -149,12 +183,29 @@ export function Compare({ ids }: { ids: string }) {
         new Set<string>(
           x.media.flatMap((m: any) =>
             m.tracks.flatMap((tr: any) =>
-              (tr.contents || []).map((c: any) => c.expression_id),
-            ),
-          ),
-        ),
+              (tr.contents || []).map((c: any) => c.expression_id)
+            )
+          )
+        )
     );
   }, [items]);
+
+  const renderAttrValue = (key: string, value: unknown): string => {
+    if (value == null || value === "") return "—";
+    if (typeof value === "string" || typeof value === "number") {
+      if (key === "edition_type" || key === "format" || key === "packaging" || key === "role") {
+        const term = getTermName(dynamicDefs, key === "format" ? "format" : key, String(value), locale);
+        if (term !== String(value)) return term;
+      }
+      return String(value);
+    }
+    if (Array.isArray(value)) return t("release.detail.listCount", { count: value.length });
+    if (typeof value === "object") {
+      const rec = value as Record<string, string>;
+      return rec[locale] || rec[locale.split("-")[0]] || rec["zh-CN"] || rec["en-US"] || "—";
+    }
+    return String(value);
+  };
 
   const getReleaseSummary = (id: string) => {
     const matched = items.find((x) => x.release?.id === id) || recentReleases.find((x) => x.id === id);
@@ -168,7 +219,6 @@ export function Compare({ ids }: { ids: string }) {
 
   return (
     <div className="space-y-6">
-      {/* Heading & Clear Control */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
         <div>
           <div className="flex items-center gap-2.5 mb-1.5">
@@ -195,14 +245,12 @@ export function Compare({ ids }: { ids: string }) {
         )}
       </div>
 
-      {/* Comparison Slots Section */}
       <section className="bg-card border border-border rounded-2xl p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <span className="font-semibold text-sm text-foreground">
               {t("catalog.compareSlots")} ({selectedIds.length} / {maxSlots})
             </span>
-            {/* Slot indicators */}
             <div className="flex items-center gap-1.5">
               {slotIndices.map((i) => (
                 <span
@@ -218,13 +266,13 @@ export function Compare({ ids }: { ids: string }) {
           </div>
 
           <div>
-            {selectedIds.length < 2 && (
+            {selectedIds.length < COMPARE_MIN_SLOTS && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                 <AlertCircle className="w-3.5 h-3.5" />
-                {t("catalog.compareNeedMore", { count: 2 - selectedIds.length })}
+                {t("catalog.compareNeedMore", { count: COMPARE_MIN_SLOTS - selectedIds.length })}
               </span>
             )}
-            {selectedIds.length >= 2 && selectedIds.length < maxSlots && (
+            {selectedIds.length >= COMPARE_MIN_SLOTS && selectedIds.length < maxSlots && (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                 <Check className="w-3.5 h-3.5" />
                 {t("catalog.compareReady")}
@@ -239,7 +287,6 @@ export function Compare({ ids }: { ids: string }) {
           </div>
         </div>
 
-        {/* 6-Slots Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {slotIndices.map((index) => {
             const id = selectedIds[index];
@@ -264,7 +311,6 @@ export function Compare({ ids }: { ids: string }) {
                     </button>
                   </div>
 
-                  {/* Adaptive Card Cover */}
                   <div className="w-full aspect-square rounded-lg overflow-hidden mb-2 border border-border/60">
                     <AdaptiveCardCover
                       src={info.coverUrl}
@@ -274,26 +320,25 @@ export function Compare({ ids }: { ids: string }) {
                     />
                   </div>
 
-                  {/* Title & Metadata */}
                   <div className="min-w-0">
                     <Link
-                      href={`/catalog/${id}`}
+                      href={`/releases/${id}`}
                       className="text-xs font-semibold text-foreground hover:text-primary line-clamp-2 leading-snug transition-colors"
                       title={info.title}
                     >
                       {info.title}
                     </Link>
                     <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted-foreground">
-                      {info.format && (
+                      {info.format ? (
                         <span className="px-1.5 py-0.2 rounded bg-muted/60 font-medium truncate">
-                          {info.format}
+                          {String(info.format)}
                         </span>
-                      )}
-                      {info.catalogNo && (
+                      ) : null}
+                      {info.catalogNo ? (
                         <span className="truncate font-mono">
-                          {info.catalogNo}
+                          {String(info.catalogNo)}
                         </span>
-                      )}
+                      ) : null}
                       {!info.format && !info.catalogNo && (
                         <span className="font-mono">{id.slice(0, 8)}</span>
                       )}
@@ -303,7 +348,6 @@ export function Compare({ ids }: { ids: string }) {
               );
             }
 
-            // Empty Slot Placeholder
             return (
               <div
                 key={`empty-${index}`}
@@ -328,7 +372,6 @@ export function Compare({ ids }: { ids: string }) {
         </div>
       </section>
 
-      {/* Release Search & Add Controls */}
       {selectedIds.length < maxSlots && (
         <section className="bg-card border border-border rounded-2xl p-5 shadow-sm">
           <h2 className="text-base sm:text-lg font-bold text-foreground mb-4 flex items-center gap-2">
@@ -337,7 +380,6 @@ export function Compare({ ids }: { ids: string }) {
           </h2>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            {/* Search input */}
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -359,7 +401,6 @@ export function Compare({ ids }: { ids: string }) {
               )}
             </div>
 
-            {/* Direct UUID Input */}
             <div className="flex items-center gap-2">
               <input
                 type="text"
@@ -396,7 +437,6 @@ export function Compare({ ids }: { ids: string }) {
             </div>
           )}
 
-          {/* Search Results Grid */}
           {searchResults.length > 0 && (
             <div className="mt-4 pt-4 border-t border-border">
               <div className="flex items-center justify-between mb-3">
@@ -435,8 +475,8 @@ export function Compare({ ids }: { ids: string }) {
                             {releaseTitle}
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-                            {catNo ? `${catNo} · ` : ""}
-                            {fmt || "Release"}
+                            {catNo ? `${String(catNo)} · ` : ""}
+                            {fmt ? String(fmt) : "Release"}
                           </div>
                         </div>
                       </div>
@@ -463,7 +503,6 @@ export function Compare({ ids }: { ids: string }) {
             </div>
           )}
 
-          {/* Recent Releases Quick Pick */}
           {selectedIds.length < maxSlots && searchResults.length === 0 && recentReleases.length > 0 && (
             <div className="mt-5 pt-4 border-t border-border">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -505,8 +544,8 @@ export function Compare({ ids }: { ids: string }) {
                             {releaseTitle}
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-                            {catNo ? `${catNo} · ` : ""}
-                            {fmt || "Release"}
+                            {catNo ? `${String(catNo)} · ` : ""}
+                            {fmt ? String(fmt) : "Release"}
                           </div>
                         </div>
                       </div>
@@ -543,8 +582,7 @@ export function Compare({ ids }: { ids: string }) {
         </div>
       )}
 
-      {/* Comparison Matrix Table */}
-      {items.length >= 2 && !loading && (
+      {items.length >= COMPARE_MIN_SLOTS && !loading && (
         <section className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm mt-8">
           <div className="p-4 sm:p-5 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-muted/20">
             <div className="flex items-center gap-2">
@@ -570,7 +608,6 @@ export function Compare({ ids }: { ids: string }) {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[720px]">
-              {/* Header with Releases Cards */}
               <thead>
                 <tr className="border-b border-border bg-muted/30">
                   <th className="p-4 w-44 min-w-[176px] font-semibold text-xs uppercase tracking-wider text-muted-foreground border-r border-border align-top">
@@ -587,22 +624,20 @@ export function Compare({ ids }: { ids: string }) {
                         className="p-4 min-w-[240px] max-w-[320px] align-top border-r border-border last:border-r-0 font-normal"
                       >
                         <div className="flex flex-col gap-3">
-                          {/* Adaptive Card Cover */}
                           <div className="w-full h-36 rounded-xl overflow-hidden border border-border/70 shadow-xs">
                             <AdaptiveCardCover
                               src={coverUrl}
                               alt={releaseTitle}
                               fallbackIcon={<Disc className="w-10 h-10 text-muted-foreground/50" />}
                               fallbackTitle={releaseTitle}
-                              fallbackSubtitle={fmt || catNo}
+                              fallbackSubtitle={fmt ? String(fmt) : catNo ? String(catNo) : undefined}
                               aspectClassName="w-full h-full"
                             />
                           </div>
 
-                          {/* Title & Remove */}
                           <div className="flex items-start justify-between gap-2">
                             <Link
-                              href={`/catalog/${x.release.id}`}
+                              href={`/releases/${x.release.id}`}
                               className="text-sm font-bold text-foreground hover:text-primary transition-colors line-clamp-2 leading-snug"
                               title={releaseTitle}
                             >
@@ -618,18 +653,17 @@ export function Compare({ ids }: { ids: string }) {
                             </button>
                           </div>
 
-                          {/* Badge Meta */}
                           <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                            {fmt && (
+                            {fmt ? (
                               <span className="px-2 py-0.5 rounded-md bg-primary/10 text-primary font-medium">
-                                {fmt}
+                                {String(fmt)}
                               </span>
-                            )}
-                            {catNo && (
+                            ) : null}
+                            {catNo ? (
                               <span className="px-2 py-0.5 rounded-md bg-muted text-muted-foreground font-mono">
-                                {catNo}
+                                {String(catNo)}
                               </span>
-                            )}
+                            ) : null}
                           </div>
                         </div>
                       </th>
@@ -638,9 +672,20 @@ export function Compare({ ids }: { ids: string }) {
                 </tr>
               </thead>
 
-              {/* Attributes comparison rows */}
               <tbody className="divide-y divide-border">
-                {fields.map((k) => {
+                <tr className="hover:bg-muted/20 transition-colors">
+                  <th className="p-4 font-medium text-xs text-muted-foreground border-r border-border align-top bg-muted/10">
+                    {t("catalog.compareReleaseTitle")}
+                  </th>
+                  {items.map((x) => (
+                    <td key={x.release.id} className="p-4 text-xs text-foreground border-r border-border last:border-r-0 align-top">
+                      <Link href={`/releases/${x.release.id}`} className="hover:text-primary hover:underline">
+                        {title(x.release, locale)}
+                      </Link>
+                    </td>
+                  ))}
+                </tr>
+                {comparableFields.map((k) => {
                   const fieldName = getFieldName(dynamicDefs, k, locale) || local(catalogDef?.document.fields[k]?.names, locale, "", k);
                   const rawValues = items.map((x) => JSON.stringify(x.release.attributes?.[k] ?? null));
                   const isDiff = new Set(rawValues).size > 1;
@@ -669,17 +714,20 @@ export function Compare({ ids }: { ids: string }) {
                             highlightDiff && isDiff ? "font-medium" : ""
                           }`}
                         >
-                          <FieldValue
-                            field={catalogDef?.document.fields[k]}
-                            value={x.release.attributes?.[k]}
-                          />
+                          {(catalogDef?.document.fields as any)?.[k] ? (
+                            <FieldValue
+                              field={(catalogDef?.document.fields as any)[k]}
+                              value={x.release.attributes?.[k]}
+                            />
+                          ) : (
+                            <span>{renderAttrValue(k, x.release.attributes?.[k])}</span>
+                          )}
                         </td>
                       ))}
                     </tr>
                   );
                 })}
 
-                {/* Media & Track Content row */}
                 <tr className="bg-muted/20 border-t-2 border-border">
                   <th className="p-4 font-bold text-xs uppercase tracking-wider text-foreground border-r border-border align-top bg-muted/30">
                     <div className="flex items-center gap-1.5">
@@ -702,14 +750,13 @@ export function Compare({ ids }: { ids: string }) {
                               <h3 className="text-xs font-bold text-foreground m-0 truncate">
                                 {title(m.medium, locale)}
                               </h3>
-                              {m.medium.attributes?.format && (
+                              {m.medium.attributes?.format ? (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-medium">
-                                  {m.medium.attributes.format}
+                                  {String(m.medium.attributes.format)}
                                 </span>
-                              )}
+                              ) : null}
                             </div>
 
-                            {/* Tracks */}
                             <div className="space-y-1.5">
                               {m.tracks?.map((tr: Entity) => (
                                 <div
@@ -725,10 +772,9 @@ export function Compare({ ids }: { ids: string }) {
                                     </span>
                                   </div>
 
-                                  {/* Track Contents */}
                                   {tr.contents?.map((c: any, i: number) => {
                                     const isVariant = sets.some(
-                                      (s, j) => j !== index && !s.has(c.expression_id),
+                                      (s, j) => j !== index && !s.has(c.expression_id)
                                     );
                                     return (
                                       <div

@@ -10,7 +10,8 @@ import { EntityEditor } from "@/components/catalog/EntityEditor";
 import { useCatalog } from "@/components/catalog/CatalogProvider";
 import { api, Entity, Relation, title, local } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
-import { isDistinctOriginalTitle } from "@/lib/titles";
+import { isDistinctOriginalTitle, findRowForLocale, buildTitleChain } from "@/lib/titles";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { GraphNode, GraphLink } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
@@ -83,6 +84,7 @@ async function allEntities(query: string): Promise<Entity[]> {
 
 export function EntityDetailView({ id }: { id: string }) {
   const { t, locale } = useI18n();
+  const titleOrder = useTitleDisplayOrder();
   const { definition, user } = useCatalog();
   const { definitions: dynamicDefs } = useDefinitions();
   const defs = definition?.document || dynamicDefs;
@@ -408,7 +410,7 @@ export function EntityDetailView({ id }: { id: string }) {
     const nodes: GraphNode[] = [
       {
         id: entity.id || id,
-        name: title(entity, locale),
+        name: title(entity, locale, titleOrder),
         original_name: entity.title,
         type: entity.kind,
         category: entity.kind,
@@ -426,7 +428,7 @@ export function EntityDetailView({ id }: { id: string }) {
         seenNodes.add(otherId);
         nodes.push({
           id: otherId,
-          name: targetEntity ? title(targetEntity, locale) : otherId.slice(0, 8),
+          name: targetEntity ? title(targetEntity, locale, titleOrder) : otherId.slice(0, 8),
           original_name: targetEntity ? targetEntity.title : "",
           type: targetEntity?.kind || "related",
           category: targetEntity?.kind || "related",
@@ -542,7 +544,7 @@ export function EntityDetailView({ id }: { id: string }) {
             </button>
             <span className="font-mono text-xs text-gray-400">/</span>
             <span className="font-medium text-xs text-gray-900 dark:text-white truncate max-w-md">
-              {title(entity, locale)}
+              {title(entity, locale, titleOrder)}
             </span>
           </div>
           <span className="px-2 py-0.5 rounded-sm bg-primary/10 text-primary text-[10px] font-mono font-semibold uppercase">
@@ -563,7 +565,7 @@ export function EntityDetailView({ id }: { id: string }) {
     );
   }
 
-  const localizedTitle = title(entity, locale);
+  const localizedTitle = title(entity, locale, titleOrder);
   const showOriginal = isDistinctOriginalTitle(entity.title, localizedTitle);
 
   // Categorize relations
@@ -612,7 +614,7 @@ export function EntityDetailView({ id }: { id: string }) {
   const allDisplayCollections = [
     ...collectionRelations.map((r) => ({
       id: r.otherId,
-      title: r.target ? title(r.target, locale) : r.otherId,
+      title: r.target ? title(r.target, locale, titleOrder) : r.otherId,
       curator: r.target?.created_by ? "Community" : "MetaFusion",
     })),
     ...communityCollections.filter(
@@ -633,30 +635,35 @@ export function EntityDetailView({ id }: { id: string }) {
   const contentUnits = children.filter((c) => c.kind === "content_unit");
   const expressions = children.filter((c) => c.kind === "expression");
 
-  const shortLocale = locale.split("-")[0];
+  const rowLocales = Object.keys(entity.translations || {});
+  const chain = buildTitleChain(locale, { order: titleOrder, originalLanguage: entity.original_language }, rowLocales);
+  const summaryRow = (() => {
+    for (const loc of chain) {
+      const row = findRowForLocale(
+        Object.entries(entity.translations || {}).map(([l, r]) => ({ locale: l, summary: r?.summary })),
+        loc,
+      );
+      const s = (row?.summary || "").trim();
+      if (s) return s;
+    }
+    return "";
+  })();
   const summaryText =
-    entity.translations?.[locale]?.summary ||
-    entity.translations?.[shortLocale]?.summary ||
-    entity.translations?.["zh-CN"]?.summary ||
-    entity.translations?.["zh"]?.summary ||
-    entity.translations?.["ja"]?.summary ||
-    entity.translations?.["en-US"]?.summary ||
-    entity.translations?.["en"]?.summary ||
+    summaryRow ||
     entity.attributes?.summary ||
     entity.attributes?.description ||
     "";
 
-  const resolvedAliases: string[] = (
-    (entity.translations?.[locale]?.aliases && entity.translations[locale].aliases.length > 0)
-      ? entity.translations[locale].aliases
-      : (entity.translations?.[shortLocale]?.aliases && entity.translations[shortLocale].aliases.length > 0)
-      ? entity.translations[shortLocale].aliases
-      : (entity.translations?.["zh"]?.aliases && entity.translations["zh"].aliases.length > 0)
-      ? entity.translations["zh"].aliases
-      : (entity.translations?.["ja"]?.aliases && entity.translations["ja"].aliases.length > 0)
-      ? entity.translations["ja"].aliases
-      : []
-  ) || [];
+  const resolvedAliases: string[] = (() => {
+    for (const loc of chain) {
+      const row = findRowForLocale(
+        Object.entries(entity.translations || {}).map(([l, r]) => ({ locale: l, aliases: r?.aliases })),
+        loc,
+      );
+      if (row?.aliases && row.aliases.length > 0) return row.aliases;
+    }
+    return [];
+  })() || [];
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
@@ -683,9 +690,9 @@ export function EntityDetailView({ id }: { id: string }) {
                 <Link
                   href={`/catalog/${motherWork.id}`}
                   className="hover:text-primary transition-colors truncate max-w-[200px]"
-                  title={title(motherWork, locale)}
+                  title={title(motherWork, locale, titleOrder)}
                 >
-                  {title(motherWork, locale)}
+                  {title(motherWork, locale, titleOrder)}
                 </Link>
               </>
             )}
@@ -695,9 +702,9 @@ export function EntityDetailView({ id }: { id: string }) {
                 <Link
                   href={`/catalog/${motherRelease.id}`}
                   className="hover:text-primary transition-colors truncate max-w-[200px]"
-                  title={title(motherRelease, locale)}
+                  title={title(motherRelease, locale, titleOrder)}
                 >
-                  {title(motherRelease, locale)}
+                  {title(motherRelease, locale, titleOrder)}
                 </Link>
               </>
             )}
@@ -1107,8 +1114,8 @@ export function EntityDetailView({ id }: { id: string }) {
                     <div className="w-12 h-12 rounded-lg overflow-hidden bg-black/5 dark:bg-white/5 shrink-0 border border-black/10 dark:border-white/10">
                       <AdaptiveCover
                         src={motherWork.pictures?.[0]?.url || resolvedCover.src}
-                        alt={title(motherWork, locale)}
-                        title={title(motherWork, locale)}
+                        alt={title(motherWork, locale, titleOrder)}
+                        title={title(motherWork, locale, titleOrder)}
                         id={motherWork.id}
                         aspect="2:3"
                         className="w-full h-full object-cover"
@@ -1119,9 +1126,9 @@ export function EntityDetailView({ id }: { id: string }) {
                         {t("entity.detail.partOfWork")}
                       </div>
                       <div className="font-display text-sm font-bold text-gray-900 dark:text-white group-hover:text-primary truncate">
-                        {title(motherWork, locale)}
+                        {title(motherWork, locale, titleOrder)}
                       </div>
-                      {isDistinctOriginalTitle(motherWork.title, title(motherWork, locale)) && (
+                      {isDistinctOriginalTitle(motherWork.title, title(motherWork, locale, titleOrder)) && (
                         <div className="font-mono text-xs text-gray-400 truncate">
                           {motherWork.title}
                         </div>
@@ -1177,7 +1184,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {staffRelations.map((r) => {
                     const target = r.target;
-                    const targetTitle = target ? title(target, locale) : r.otherId;
+                    const targetTitle = target ? title(target, locale, titleOrder) : r.otherId;
                     return (
                       <Link
                         key={r.id}
@@ -1239,7 +1246,7 @@ export function EntityDetailView({ id }: { id: string }) {
                           <div className="px-4 py-3 bg-black/[0.03] dark:bg-white/[0.04] border-b border-black/10 dark:border-white/10 flex items-center justify-between">
                             <div className="flex items-center gap-2 font-mono text-xs font-bold text-gray-900 dark:text-white">
                               <Disc className="w-4 h-4 text-primary" />
-                              <span>{title(m, locale)}</span>
+                              <span>{title(m, locale, titleOrder)}</span>
                               {m.attributes?.format && (
                                 <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] uppercase">
                                   {m.attributes.format}
@@ -1268,7 +1275,7 @@ export function EntityDetailView({ id }: { id: string }) {
                                       href={`/catalog/${t.id}`}
                                       className="font-medium text-gray-900 dark:text-white hover:text-primary truncate"
                                     >
-                                      {title(t, locale)}
+                                      {title(t, locale, titleOrder)}
                                     </Link>
                                   </div>
                                   {durStr && (
@@ -1298,7 +1305,7 @@ export function EntityDetailView({ id }: { id: string }) {
                             {t("catalog.kind." + c.kind) || c.kind}
                           </span>
                           <span className="font-medium text-xs sm:text-sm text-gray-900 dark:text-white group-hover:text-primary truncate">
-                            {title(c, locale)}
+                            {title(c, locale, titleOrder)}
                           </span>
                         </div>
                         <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors shrink-0" />
@@ -1349,7 +1356,7 @@ export function EntityDetailView({ id }: { id: string }) {
                                   href={`/catalog/${rel.id}`}
                                   className="font-semibold text-gray-900 dark:text-white hover:text-primary inline-flex items-center gap-1.5"
                                 >
-                                  {title(rel, locale)}
+                                  {title(rel, locale, titleOrder)}
                                   <ArrowUpRight className="w-3.5 h-3.5 text-gray-400" />
                                 </Link>
                                 {isBoxset && (
@@ -1437,7 +1444,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {mediaRelations.map((r) => {
                       const target = r.target;
-                      const targetTitle = target ? title(target, locale) : r.otherId;
+                      const targetTitle = target ? title(target, locale, titleOrder) : r.otherId;
                       return (
                         <Link
                           key={r.id}

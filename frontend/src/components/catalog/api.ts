@@ -1,3 +1,5 @@
+import { pickRecordTitle } from "@/lib/titles";
+
 export const kinds = [
   "agent",
   "collection",
@@ -153,31 +155,31 @@ export function local(
   original = "",
   fallback = "",
 ) {
-  const short = locale.split("-")[0];
-  return (
-    names?.[locale] ||
-    names?.[short] ||
-    names?.["zh-CN"] ||
-    names?.["zh"] ||
-    names?.["en-US"] ||
-    names?.["en"] ||
-    names?.[original] ||
-    fallback
-  );
+  if (!names) return fallback;
+  const get = (code: string): string => {
+    const v = names[code];
+    return typeof v === "string" && v.trim() ? v.trim() : "";
+  };
+  if (get(locale)) return get(locale);
+  const low = locale.trim().toLowerCase();
+  const short = low.split("-")[0];
+  for (const [k, v] of Object.entries(names)) {
+    if (typeof v !== "string" || !v.trim()) continue;
+    const kl = k.trim().toLowerCase();
+    if (kl === short || kl.split("-")[0] === short) return v.trim();
+  }
+  if (get("zh-CN") || get("zh")) return get("zh-CN") || get("zh");
+  if (get("zh-TW") || get("zh-Hant")) return get("zh-TW") || get("zh-Hant");
+  if (get("ja") || get("ja-JP")) return get("ja") || get("ja-JP");
+  if (get("en-US") || get("en")) return get("en-US") || get("en");
+  if (original && get(original)) return get(original);
+  return fallback;
 }
-export function title(e: Entity, locale: string) {
-  const short = locale.split("-")[0];
-  return (
-    e.translations?.[locale]?.title ||
-    e.translations?.[short]?.title ||
-    e.translations?.["zh-CN"]?.title ||
-    e.translations?.["zh"]?.title ||
-    e.translations?.["ja"]?.title ||
-    e.translations?.["en-US"]?.title ||
-    e.translations?.["en"]?.title ||
-    e.translations?.[e.original_language]?.title ||
-    e.title
-  );
+export function title(e: Entity, locale: string, order: string[] = []) {
+  return pickRecordTitle(locale, e.translations, e.title, {
+    order,
+    originalLanguage: e.original_language,
+  });
 }
 export function emptyEntity(kind = "work"): Entity {
   return {

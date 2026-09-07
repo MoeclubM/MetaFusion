@@ -45,7 +45,7 @@ interface FieldDiff {
   type: "added" | "removed" | "modified";
 }
 
-function formatVal(v: any, emptyLabel = "(空)"): string {
+function formatVal(v: any, emptyLabel: string): string {
   if (v === null || v === undefined) return emptyLabel;
   if (typeof v === "object") return JSON.stringify(v, null, 2);
   return String(v);
@@ -186,17 +186,19 @@ export function EntityRevisions({
   }, [revisions]);
 
   // Contributors aggregate stats
+  const anonymousName = t("revisions.anonymousEditor");
+  const defaultRole = t("revisions.defaultRole");
   const contributorStats = useMemo(() => {
     const map = new Map<string, { name: string; role: string; count: number }>();
     for (const r of sortedRevisions) {
-      const name = r.actor_name || "MoeCaa";
-      const role = r.actor_role || "editor";
+      const name = r.actor_name || anonymousName;
+      const role = r.actor_role || defaultRole;
       const existing = map.get(name) || { name, role, count: 0 };
       existing.count += 1;
       map.set(name, existing);
     }
     return Array.from(map.values());
-  }, [sortedRevisions]);
+  }, [sortedRevisions, anonymousName, defaultRole]);
 
   const handleCopy = (text: string, id: string) => {
     if (typeof navigator !== "undefined" && navigator.clipboard) {
@@ -238,16 +240,18 @@ export function EntityRevisions({
   };
 
   // Compute diff fields if diffTarget is active
+  const systemActor = t("revisions.systemActor");
+  const initialLabel = t("revisions.initialVersion");
   const activeDiff = useMemo(() => {
     if (!diffTarget?.current) return null;
     const baseSnap = diffTarget.base ? diffTarget.base.snapshot || diffTarget.base : {};
     const currSnap = diffTarget.current.snapshot || diffTarget.current;
     const fields = computeDiff(baseSnap, currSnap);
-    const oldLabel = diffTarget.base ? "v" + diffTarget.base.version + " (" + (diffTarget.base.actor_name || "system") + ")" : "Initial";
-    const newLabel = "v" + diffTarget.current.version + " (" + (diffTarget.current.actor_name || "system") + ")";
+    const oldLabel = diffTarget.base ? "v" + diffTarget.base.version + " (" + (diffTarget.base.actor_name || systemActor) + ")" : initialLabel;
+    const newLabel = "v" + diffTarget.current.version + " (" + (diffTarget.current.actor_name || systemActor) + ")";
     const unified = generateUnifiedDiff(baseSnap, currSnap, oldLabel, newLabel);
     return { fields, unified, oldLabel, newLabel };
-  }, [diffTarget]);
+  }, [diffTarget, systemActor, initialLabel]);
 
   return (
     <div className="space-y-6">
@@ -443,8 +447,8 @@ export function EntityRevisions({
       <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-2.5 sm:before:left-3.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-linear-to-b before:from-primary before:via-primary/30 before:to-transparent">
         {sortedRevisions.map((rev, idx) => {
           const revKey = String(rev.id || idx);
-          const author = rev.actor_name || "MoeCaa";
-          const role = rev.actor_role || "editor";
+          const author = rev.actor_name || anonymousName;
+          const role = rev.actor_role || defaultRole;
           const note = rev.edit_note || rev.summary || (idx === sortedRevisions.length - 1 ? t("revisions.initialNote") : t("revisions.updateNote"));
           const sources = rev.sources || [];
           const isLatest = idx === 0;
@@ -527,7 +531,7 @@ export function EntityRevisions({
                         {sources.map((s: any, sIdx: number) => (
                           <div key={sIdx} className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
                             <span className="text-primary font-bold">[{s.kind || "url"}]</span>
-                            <span className="text-gray-800 dark:text-gray-200 font-medium">{s.citation || "Official Source"}</span>
+                            <span className="text-gray-800 dark:text-gray-200 font-medium">{s.citation || t("revisions.officialSource")}</span>
                             {s.url && (
                               <a
                                 href={s.url}

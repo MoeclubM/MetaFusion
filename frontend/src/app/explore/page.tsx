@@ -11,6 +11,8 @@ import {
   getTypeName,
   resolveLocalizedName,
 } from "@/lib/definitions";
+import { pickRecordTitle } from "@/lib/titles";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import {
   Search,
   LayoutGrid,
@@ -56,16 +58,15 @@ const KINDS = [
   { id: "track", icon: Disc },
 ];
 
-function getLocalizedTitle(item: EntityItem, locale: string): string {
-  const shortLocale = locale.split("-")[0];
-  return (
-    item.translations?.[locale]?.title ||
-    item.translations?.[shortLocale]?.title ||
-    item.translations?.["en-US"]?.title ||
-    item.translations?.["en"]?.title ||
-    item.translations?.[item.original_language || ""]?.title ||
-    item.title
-  );
+function getLocalizedTitle(
+  item: EntityItem,
+  locale: string,
+  order: string[] = [],
+): string {
+  return pickRecordTitle(locale, item.translations, item.title, {
+    order,
+    originalLanguage: item.original_language,
+  });
 }
 
 function ExploreInner() {
@@ -74,6 +75,7 @@ function ExploreInner() {
   const router = useRouter();
 
   const { definitions } = useDefinitions();
+  const titleOrder = useTitleDisplayOrder();
 
   const currentKind = searchParams.get("kind") || "all";
   const currentType = searchParams.get("type") || "";
@@ -367,7 +369,7 @@ function ExploreInner() {
             {items.map((item) => {
               const kindLabel = t("catalog.kind." + item.kind) || item.kind;
               const typeLabels = (item.types || []).map((tCode) => getTypeName(definitions, tCode, locale));
-              const displayTitle = getLocalizedTitle(item, locale);
+              const displayTitle = getLocalizedTitle(item, locale, titleOrder);
               const badgeLabel = typeLabels[0] || kindLabel;
 
               return (
@@ -444,7 +446,7 @@ function ExploreInner() {
             {items.map((item) => {
               const kindLabel = t("catalog.kind." + item.kind) || item.kind;
               const typeLabels = (item.types || []).map((tCode) => getTypeName(definitions, tCode, locale));
-              const displayTitle = getLocalizedTitle(item, locale);
+              const displayTitle = getLocalizedTitle(item, locale, titleOrder);
               const badgeLabel = typeLabels[0] || kindLabel;
 
               return (

@@ -296,15 +296,15 @@ function AdminInner() {
   }
 
   const navTabs = [
-    { id: "overview", labelZh: "控制台概览", labelEn: "Overview", icon: LayoutDashboard },
-    { id: "entities", labelZh: t("admin.nav.entities"), labelEn: "Entities", icon: Layers },
-    { id: "definitions", labelZh: "元数据定义设计器", labelEn: "Definitions Designer", icon: Sliders },
-    { id: "extdb", labelZh: "外部来源管理", labelEn: "External Sources", icon: Globe },
-    { id: "shelves", labelZh: "货架规则管理", labelEn: "Shelf Rules", icon: LayoutDashboard },
-    { id: "reviews", labelZh: "编目审核工作台", labelEn: "Reviews", icon: CheckSquare },
-    { id: "merge", labelZh: "实体版本与合并", labelEn: "Entity Merge", icon: GitMerge },
-    { id: "modules", labelZh: "外围模块与能力", labelEn: "Peripheral Modules", icon: Cpu },
-    { id: "users", labelZh: "用户与权限管理", labelEn: "Users & Roles", icon: Users },
+    { id: "overview", labelKey: "admin.tab.overview", icon: LayoutDashboard },
+    { id: "entities", labelKey: "admin.nav.entities", icon: Layers },
+    { id: "definitions", labelKey: "admin.tab.definitions", icon: Sliders },
+    { id: "extdb", labelKey: "admin.tab.extdb", icon: Globe },
+    { id: "shelves", labelKey: "admin.tab.shelves", icon: LayoutDashboard },
+    { id: "reviews", labelKey: "admin.tab.reviews", icon: CheckSquare },
+    { id: "merge", labelKey: "admin.tab.merge", icon: GitMerge },
+    { id: "modules", labelKey: "admin.tab.modules", icon: Cpu },
+    { id: "users", labelKey: "admin.tab.users", icon: Users },
   ];
 
   return (
@@ -354,7 +354,7 @@ function AdminInner() {
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
-                  <span>{locale === "zh-CN" ? tItem.labelZh : tItem.labelEn}</span>
+                  <span>{t(tItem.labelKey)}</span>
                 </button>
               );
             })}

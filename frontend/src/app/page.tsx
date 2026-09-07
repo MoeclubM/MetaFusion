@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions, getTypeName } from "@/lib/definitions";
+import { pickRecordTitle } from "@/lib/titles";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   Search,
@@ -35,7 +37,8 @@ interface ShelfItem {
   icon: React.ElementType;
   color: string;
   border: string;
-  query_tags: string[];
+  /** 货架标题匹配标签的 i18n 键（home.shelfTags.<slug>，逗号分隔），运行时解析。 */
+  tagsKey: string;
   types: string[];
   exploreParam: string;
   aspectClassName?: string;
@@ -47,7 +50,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     icon: Disc,
     color: "text-amber-400 bg-amber-500/10 border-amber-500/20",
     border: "hover:border-amber-500/40",
-    query_tags: ["音乐", "专辑", "单曲", "原声"],
+    tagsKey: "home.shelfTags.music",
     types: ["album", "single", "music", "song"],
     exploreParam: "kind=work&type=album",
     aspectClassName: "aspect-square",
@@ -57,7 +60,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     icon: Tv,
     color: "text-sky-400 bg-sky-500/10 border-sky-500/20",
     border: "hover:border-sky-500/40",
-    query_tags: ["动画", "番剧", "剧集"],
+    tagsKey: "home.shelfTags.anime",
     types: ["animation", "series", "tv"],
     exploreParam: "kind=work&type=animation",
     aspectClassName: "aspect-[3/4]",
@@ -67,7 +70,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     icon: Film,
     color: "text-purple-400 bg-purple-500/10 border-purple-500/20",
     border: "hover:border-purple-500/40",
-    query_tags: ["电影", "长片", "剧场版"],
+    tagsKey: "home.shelfTags.films",
     types: ["film", "movie"],
     exploreParam: "kind=work&type=film",
     aspectClassName: "aspect-[3/4]",
@@ -77,7 +80,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     icon: BookOpen,
     color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
     border: "hover:border-emerald-500/40",
-    query_tags: ["小说", "轻小说", "图书"],
+    tagsKey: "home.shelfTags.novels",
     types: ["novel", "book"],
     exploreParam: "kind=work&type=novel",
     aspectClassName: "aspect-[3/4]",
@@ -87,7 +90,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     icon: Gamepad2,
     color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20",
     border: "hover:border-indigo-500/40",
-    query_tags: ["游戏", "独立游戏", "视觉小说"],
+    tagsKey: "home.shelfTags.games",
     types: ["game", "visual_novel", "indie_game"],
     exploreParam: "kind=work&type=game",
     aspectClassName: "aspect-[4/3]",
@@ -97,7 +100,7 @@ const DEFAULT_SHELVES: ShelfItem[] = [
     icon: Camera,
     color: "text-rose-400 bg-rose-500/10 border-rose-500/20",
     border: "hover:border-rose-500/40",
-    query_tags: ["写真", "摄影", "同人", "翻唱"],
+    tagsKey: "home.shelfTags.creations",
     types: ["photobook", "doujin", "artbook", "personal"],
     exploreParam: "kind=work&type=photobook",
     aspectClassName: "aspect-[3/4]",
@@ -108,22 +111,13 @@ export default function HomePage() {
   const { t, locale } = useI18n();
   const router = useRouter();
   const { definitions } = useDefinitions();
+  const titleOrder = useTitleDisplayOrder();
 
-  const getDisplayTitle = (item: EntityItem, loc: string): string => {
-    const shortLocale = loc.split("-")[0];
-    const tr = item.translations || {};
-    return (
-      tr[loc]?.title ||
-      tr[shortLocale]?.title ||
-      tr["zh-CN"]?.title ||
-      tr["zh"]?.title ||
-      tr["ja"]?.title ||
-      tr["en-US"]?.title ||
-      tr["en"]?.title ||
-      (item.original_language ? tr[item.original_language]?.title : "") ||
-      item.title
-    );
-  };
+  const getDisplayTitle = (item: EntityItem, loc: string): string =>
+    pickRecordTitle(loc, item.translations, item.title, {
+      order: titleOrder,
+      originalLanguage: item.original_language,
+    });
 
   const getCardBadge = (item: EntityItem, defs: any, loc: string, translate: (k: string) => string): string => {
     if (item.types && item.types.length > 0) {
@@ -139,9 +133,9 @@ export default function HomePage() {
     if (translated && translated !== kindKey) {
       return translated;
     }
-    if (item.kind === "work") return loc === "zh-CN" ? "作品" : "Work";
-    if (item.kind === "release") return loc === "zh-CN" ? "发行" : "Release";
-    if (item.kind === "agent") return loc === "zh-CN" ? "主体" : "Agent";
+    if (item.kind === "work") return translate("home.kind.work");
+    if (item.kind === "release") return translate("home.kind.release");
+    if (item.kind === "agent") return translate("home.kind.agent");
     return item.kind;
   };
 
@@ -168,13 +162,20 @@ export default function HomePage() {
     }
   };
 
+  const shelfTagsOf = (shelf: ShelfItem): string[] =>
+    t(shelf.tagsKey)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
   const matchShelfItems = (shelf: ShelfItem) => {
+    const tags = shelfTagsOf(shelf);
     return entities.filter((item) => {
       const types = item.types || [];
       const hasType = shelf.types.some((st) => types.includes(st));
       if (hasType) return true;
       const titleLower = (item.title || "").toLowerCase();
-      return shelf.query_tags.some((tag) => titleLower.includes(tag.toLowerCase()));
+      return tags.some((tag) => titleLower.includes(tag.toLowerCase()));
     });
   };
 

@@ -190,14 +190,20 @@ export function MultilingualBadges({
   names,
   fallbackZh,
   fallbackEn,
+  fallbackJa,
+  fallbackZhTw,
 }: {
   names?: MultilingualNames;
   fallbackZh?: string;
   fallbackEn?: string;
+  fallbackJa?: string;
+  fallbackZhTw?: string;
 }) {
   const map: MultilingualNames = { ...names };
   if (Object.keys(map).length === 0) {
     if (fallbackZh) map["zh-CN"] = fallbackZh;
+    if (fallbackZhTw) map["zh-TW"] = fallbackZhTw;
+    if (fallbackJa) map["ja"] = fallbackJa;
     if (fallbackEn) map["en-US"] = fallbackEn;
   }
 
