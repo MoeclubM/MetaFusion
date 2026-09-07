@@ -136,3 +136,11 @@ deploy/batch_update_covers.sql
 
 # --- 前端本地静态资源（按需）---
 # frontend/public/covers/ 为种子数据，保持入库；如需本地生成大图请用 /tmp
+/.playwright-cli
+/output
+
+scripts/patch_*.js
+scripts/capture_diff.py
+scripts/inspect_entities.py
+scripts/enrich_meiro_hibi.js
+scripts/query_db.js
