@@ -62,3 +62,11 @@ export function getForumCollectionUrl(collectionId: string): string {
   }
   return `/catalog/${encodeURIComponent(collectionId)}`;
 }
+
+export function getStorageEntityUrl(entityId?: string): string {
+  const query = entityId ? `?subject_id=${encodeURIComponent(entityId)}` : "";
+  if (STORAGE_SERVICE_URL.startsWith("http")) {
+    return `${STORAGE_SERVICE_URL}${query}`;
+  }
+  return `/downloads${query}`;
+}

@@ -56,7 +56,6 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
     { href: "/community", label: t("navigation.community"), icon: MessageSquare },
     { href: "/downloads", label: t("navigation.resources"), icon: DownloadCloud },
     { href: "/compare", label: t("catalog.compare"), icon: GitCompare },
-    { href: "/landing", label: locale === "zh-CN" ? "平台介绍" : "About", icon: Sparkles },
     { href: "/docs/catalog", label: t("navigation.docs"), icon: BookOpen, external: true },
   ];
 
@@ -65,7 +64,7 @@ export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }
       <div className="max-w-7xl mx-auto px-3 sm:px-4 h-14 sm:h-15 flex items-center justify-between gap-3">
         {/* Left Brand + Navigation */}
         <div className="flex items-center gap-3 sm:gap-4">
-          <Link href="/" title="MetaFusion" className="flex items-center gap-2.5 shrink-0 group">
+          <Link href="/landing" title={locale === "zh-CN" ? "平台介绍" : "About MetaFusion"} className="flex items-center gap-2.5 shrink-0 group">
             <BrandMark size={26} withGlow={false} idSuffix="nav" />
             <span className="hidden sm:flex flex-col leading-none">
               <span className="font-display text-[20px] leading-none tracking-[-0.03em] text-white group-hover:text-primary transition-colors">
