@@ -1,22 +1,40 @@
 package catalog
 
-func names(zh, en string) Names { return Names{"zh-CN": zh, "en-US": en} }
+// names builds bilingual names with reserved fallback keys.
+//
+// zh-CN/en-US are required by Definitions.Validate; zh-TW, ja and ja-JP carry
+// the English text until proper translations land, so exact-locale and prefix
+// lookups (ja-JP -> ja) resolve instead of falling through to an unrelated entry.
+// Use names4 when Traditional Chinese or Japanese text is available.
+func names(zh, en string) Names {
+	return Names{"zh-CN": zh, "zh-TW": en, "ja": en, "ja-JP": en, "en-US": en}
+}
+
+// names4 builds names with explicit Traditional Chinese and Japanese text.
+// Reserve ja/ja-JP and zh-TW keys even when only an English fallback exists.
+func names4(zhCN, zhTW, ja, en string) Names {
+	return Names{"zh-CN": zhCN, "zh-TW": zhTW, "ja": ja, "ja-JP": ja, "en-US": en}
+}
 func Defaults() Definitions {
 	d := Definitions{Types: map[string]TypeDefinition{}, Fields: map[string]Field{}, Vocabularies: map[string]Vocabulary{}, Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
 	field := func(code, zh, en, typ string) {
 		d.Fields[code] = Field{Names: names(zh, en), Type: typ, Enabled: true, Searchable: true, Comparable: true}
 	}
-	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"platform", "平台", "Platform", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
+	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"edition_type", "版本类型", "Edition type", "enum"}, {"platform", "平台", "Platform", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
 		field(x[0], x[1], x[2], x[3])
 	}
+	// TODO: country/channel/region 保持 text 而未收敛为词表：
+	// 取值是开放集合（地区代码、渠道/店铺名、放送地区），硬编码词表会阻塞编目，
+	// 待 taxonomy 落定后再收敛为词表或格式校验，目前仅以字段说明约束。
 	for _, x := range []struct {
 		code, zh, en string
 		terms        [][3]string
 	}{
-		{"format", "载体格式", "Medium formats", [][3]string{{"cd", "CD", "CD"}, {"bd", "蓝光", "Blu-ray"}, {"dvd", "DVD", "DVD"}, {"vinyl", "黑胶", "Vinyl"}, {"paper", "纸质册", "Printed volume"}, {"digital", "数字文件集", "Digital collection"}}},
-		{"packaging", "包装", "Packaging", [][3]string{{"standard", "标准包装", "Standard"}, {"box", "盒装", "Box"}, {"digipak", "Digipak", "Digipak"}}},
-		{"role", "内容用途", "Content roles", [][3]string{{"primary", "主要内容", "Primary"}, {"supplement", "附加内容", "Supplement"}, {"side", "唱片面", "Side"}}},
+		{"format", "载体格式", "Medium formats", [][3]string{{"cd", "CD", "CD"}, {"bd", "蓝光", "Blu-ray"}, {"uhd_bd", "超高清蓝光", "Ultra HD Blu-ray"}, {"dvd", "DVD", "DVD"}, {"vinyl", "黑胶", "Vinyl"}, {"sacd", "SACD", "SACD"}, {"cassette", "磁带", "Cassette"}, {"paper", "纸质册", "Printed volume"}, {"digital", "数字文件集", "Digital collection"}, {"web", "网络配信", "Web distribution"}}},
+		{"packaging", "包装", "Packaging", [][3]string{{"standard", "标准包装", "Standard"}, {"jewel", "Jewel Case", "Jewel case"}, {"slipcase", "腰封 / 外封套", "Slipcase"}, {"box", "盒装", "Box"}, {"boxset", "套盒", "Box set"}, {"digipak", "Digipak", "Digipak"}}},
+		{"role", "内容用途", "Content roles", [][3]string{{"primary", "主要内容", "Primary"}, {"supplement", "附加内容", "Supplement"}, {"side", "唱片面", "Side"}, {"extra", "额外收录", "Extra"}, {"commentary", "解说音轨", "Commentary"}}},
 		{"release_role", "发行对象用途", "Release subject roles", [][3]string{{"primary", "主作品", "Primary"}, {"compilation", "汇编作品", "Compilation"}, {"supplement", "附加作品", "Supplement"}}},
+		{"edition_type", "版本类型", "Edition types", [][3]string{{"standard", "普通版", "Standard edition"}, {"limited", "限定版", "Limited edition"}, {"first_press", "初回版", "First press"}, {"regional", "地区版", "Regional edition"}, {"reissue", "再版", "Reissue"}, {"digital", "数字版", "Digital edition"}}},
 	} {
 		v := Vocabulary{Names: names(x.zh, x.en), Terms: map[string]Term{}}
 		for _, t := range x.terms {
@@ -24,7 +42,7 @@ func Defaults() Definitions {
 		}
 		d.Vocabularies[x.code] = v
 	}
-	for _, k := range []string{"format", "packaging", "role"} {
+	for _, k := range []string{"format", "packaging", "role", "edition_type"} {
 		f := d.Fields[k]
 		f.Vocabulary = k
 		d.Fields[k] = f
@@ -65,10 +83,15 @@ func Defaults() Definitions {
 		case "expression":
 			keys = []string{"language", "duration", "version_label", "isrc", "events"}
 		case "release":
-			keys = []string{"catalog_number", "barcode", "edition_date", "country", "publisher", "packaging", "platform", "attachments", "store_bonuses", "events"}
+			keys = []string{"catalog_number", "barcode", "edition_date", "edition_type", "country", "publisher", "packaging", "platform", "attachments", "store_bonuses", "events"}
 		case "medium":
-			keys = []string{"format", "role"}
+			// catalog_number 复用 release 级同名字段：多碟装各自品番落在 medium.attributes，
+			// release.attributes 只保留总品番/代表品番。
+			keys = []string{"catalog_number", "format", "role"}
 		case "track":
+			// Entity 无 title_override 列：同一 expression 在不同版本中的时长/署名差异
+			// 由各 pressing 下自建的 track.attributes（duration/role）承载，
+			// 通过 TrackContent 引用同一 CanonicalEntry/Expression 实现复用。
 			keys = []string{"duration", "role"}
 		}
 		zh := map[string]string{"collection": "集合", "content_unit": "内容单元", "expression": "内容表达", "release": "发行版", "medium": "载体", "track": "收录位置"}[k]
@@ -83,9 +106,12 @@ func Defaults() Definitions {
 	for _, x := range [][5]string{{"adaptation_of", "改编自", "Adaptation of", "被改编为", "Adapted as"}, {"sequel_of", "续作于", "Sequel of", "前作于", "Prequel of"}, {"soundtrack_of", "配乐用于", "Soundtrack of", "配乐作品", "Soundtrack"}} {
 		addRel(x[0], x[1], x[2], x[3], x[4], []string{"work"}, []string{"work"}, "creative", true)
 	}
-	for _, x := range [][5]string{{"translation_of", "翻译自", "Translation of", "被翻译为", "Translated as"}, {"revision_of", "修订自", "Revision of", "被修订为", "Revised as"}, {"cover_of", "翻唱自", "Cover of", "被翻唱为", "Covered as"}} {
+	for _, x := range [][5]string{{"translation_of", "翻译自", "Translation of", "被翻译为", "Translated as"}, {"revision_of", "修订自", "Revision of", "被修订为", "Revised as"}, {"cover_of", "翻唱自", "Cover of", "被翻唱为", "Covered as"}, {"alternate_take_of", "别版取自", "Alternate take of", "被用作别版", "Used as alternate take"}} {
 		addRel(x[0], x[1], x[2], x[3], x[4], []string{"expression"}, []string{"expression"}, "creative", true)
 	}
+	addRel("pressing_of", "再版自", "Pressing of", "被再版为", "Repressed as", []string{"release"}, []string{"release"}, "creative", true)
+	addRel("bonus_included_in", "特典收录于", "Bonus included in", "收录特典", "Includes bonus", []string{"expression"}, []string{"release", "medium"}, "membership", true)
+	addRel("store_bonus_for", "渠道特典归属", "Store bonus for", "拥有渠道特典", "Has store bonus", []string{"expression", "release"}, []string{"agent"}, "membership", true)
 	addRel("includes", "组成包含", "Includes", "组成属于", "Included in", []string{"collection", "work"}, []string{"work", "collection"}, "membership", true)
 	return d
 }

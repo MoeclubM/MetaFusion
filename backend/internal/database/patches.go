@@ -14,7 +14,8 @@ import (
 
 // applySchemaPatches runs idempotent ALTERs so existing volumes pick up schema
 // that AutoMigrate cannot express (CHECK drops, unique rebuilds).
-func applySchemaPatches(db *gorm.DB) {
+// 返回 error：核心 DDL 失败即硬失败，不再静默跳过（新项目立场）。
+func applySchemaPatches(db *gorm.DB) error {
 	migrateHardClassificationToTags(db)
 	restoreSeedShelfQueryTagsIfClobbered(db)
 	migrateCarrierTagsOffWorks(db)
@@ -94,7 +95,7 @@ func applySchemaPatches(db *gorm.DB) {
 	}
 	for _, s := range stmts {
 		if err := db.Exec(s).Error; err != nil {
-			log.Printf("schema patch skipped: %v", err)
+			return err
 		}
 	}
 
@@ -147,6 +148,7 @@ END $$`).Error
 	EXCEPTION WHEN OTHERS THEN NULL;
 	END $$`).Error
 
+	return nil
 }
 
 func columnExists(db *gorm.DB, table, col string) bool {
