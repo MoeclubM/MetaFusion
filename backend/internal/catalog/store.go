@@ -64,6 +64,7 @@ ON CONFLICT (id) DO NOTHING;`
 		if _, err := tx.ExecContext(ctx, seedOAuth); err != nil {
 			return err
 		}
+		if err := seedExternalDatabases(ctx, tx); err != nil { 			return err 		}
 		return nil
 	})
 }
