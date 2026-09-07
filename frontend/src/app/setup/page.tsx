@@ -82,7 +82,7 @@ export default function SetupPage() {
     const trimmedEmail = email.trim();
 
     if (!trimmedUser || !trimmedEmail) {
-      setError(t("setup.usernameLabel") + " / " + t("setup.emailLabel") + "不能为空");
+      setError(t("setup.requiredMissing", { fields: t("setup.usernameLabel") + " / " + t("setup.emailLabel") }));
       return;
     }
 
@@ -111,7 +111,7 @@ export default function SetupPage() {
       login(res.access_token || res.token, res.user, res.refresh_token);
       setSuccessResult(res);
     } catch (err: any) {
-      setError(err?.message || "初始化失败，请检查网络或后端日志");
+      setError(err?.message || t("setup.setupFailed"));
     } finally {
       setSubmitting(false);
     }

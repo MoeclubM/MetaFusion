@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Search, Network, List } from "lucide-react";
-import { fetchApi, RelationType, catalogHubOf, isCatalogHub } from "@/lib/api";
+import { fetchApi, RelationType, catalogHubOf, isCatalogHub, pickLocalizedName } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Select } from "@/components/ui/Select";
@@ -114,7 +114,7 @@ export function EditorRelationsField({
               }`}
             >
               <List className="w-3.5 h-3.5" />
-              列表表单
+              {t("editor.relations.listView")}
             </button>
           </div>
 
@@ -260,9 +260,7 @@ function RelationEditorRow({
             }}
             className="font-mono"
             options={filteredTypes.map((rt) => {
-              const label = locale.startsWith("zh")
-                ? rt.name_zh || rt.names?.["zh-CN"] || rt.code
-                : rt.name_en || rt.names?.["en-US"] || rt.name_zh || rt.code;
+              const label = pickLocalizedName(locale, rt.names, rt.name_zh, rt.name_en, rt.code);
               return { value: rt.code, label: `${label} (${rt.code})` };
             })}
           />

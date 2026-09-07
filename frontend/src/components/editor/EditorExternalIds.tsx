@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { fetchExternalDatabases, ExternalDatabaseDefinition } from "@/lib/api";
+import { fetchExternalDatabases, ExternalDatabaseDefinition, pickLocalizedName } from "@/lib/api";
 import { Plus, Trash2, Globe, ExternalLink, AlertCircle } from "lucide-react";
 
 interface Props {
@@ -81,7 +81,7 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
       <div className="space-y-3">
         {currentEntries.map(([code, val]) => {
           const def = defMap.get(code.toLowerCase());
-          const name = def ? (locale === "zh-CN" ? def.name_zh : def.name_en) || def.name_zh || def.code : code;
+          const name = def ? pickLocalizedName(locale, def.names, def.name_zh, def.name_en, def.code) : code;
           const strVal = String(val || "");
           
           let previewUrl = "";
@@ -182,7 +182,7 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
           <option value="">{t("editor.external.selectDb")}</option>
           {availableDefs.map((d) => (
             <option key={d.code} value={d.code}>
-              {(locale === "zh-CN" ? d.name_zh : d.name_en) || d.name_zh || d.code} ({d.code})
+              {pickLocalizedName(locale, d.names, d.name_zh, d.name_en, d.code)} ({d.code})
             </option>
           ))}
           <option value="custom">{t("editor.external.customDb")}</option>

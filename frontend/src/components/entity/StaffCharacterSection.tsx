@@ -28,6 +28,9 @@ interface CharacterCardItem {
 
 export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSectionProps) {
   const { t } = useI18n();
+  const defaultRole = t("work.detail.staffDefaultRole");
+  const voiceActorRole = t("work.detail.voiceActorRole");
+  const characterFallback = t("work.detail.relGroupCharacters");
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "key" | "characters">("all");
 
@@ -88,7 +91,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
       if (isChar && art) {
         let badge = rel.role;
         if (!badge || badge === "Character" || badge === "character") {
-          badge = "角色";
+          badge = characterFallback;
         }
         cardMap.set(art.name, {
           id: rel.id.toString(),
@@ -110,7 +113,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
 
       if (isVA && art) {
         let charName = "";
-        let roleBadge = "角色";
+        let roleBadge = characterFallback;
 
         const match = r.match(/(?:配演:\s*|as\s*)([^\]\)]+)/i);
         if (match && match[1]) {
@@ -149,7 +152,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
             id: rel.id.toString(),
             character: {
               name: art.name,
-              roleBadge: "声优 / 配音",
+              roleBadge: voiceActorRole,
               avatar_url: art.avatar_url,
               id: art.id,
             },
@@ -159,7 +162,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
     }
 
     return Array.from(cardMap.values());
-  }, [relations]);
+  }, [relations, characterFallback, voiceActorRole]);
 
   // 紧凑核心创作者徽章（未展开时展示在详情页头部）
   const displayedKey = keyStaff.length > 0 ? keyStaff.slice(0, 8) : relations.slice(0, 8);
@@ -183,7 +186,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
   // 格式化具体职务标签
   const formatRole = (rawRole: string) => {
     const trimmed = rawRole.trim();
-    if (!trimmed) return "制作团队";
+    if (!trimmed) return defaultRole;
     const mapped = roleLabel(trimmed);
     return mapped || trimmed;
   };

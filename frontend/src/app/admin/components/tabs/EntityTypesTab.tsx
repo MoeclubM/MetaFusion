@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, ShieldAlert, Sparkles, Tag } from "lucide-react";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, pickLocalizedName } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DynamicNamesEditor, MultilingualBadges } from "@/components/common/DynamicNamesEditor";
 import { Modal } from "@/components/ui/Modal";
@@ -217,7 +217,7 @@ export function EntityTypesTab() {
                     />
                   </td>
                   <td className="px-4 py-3 max-w-xs truncate text-[11px] text-gray-400 font-sans">
-                    {locale === "en-US" ? item.desc_en || item.desc_zh : item.desc_zh || item.desc_en}
+                    {pickLocalizedName(locale, undefined, item.desc_zh, item.desc_en, item.desc_zh || item.desc_en)}
                   </td>
                   <td className="px-4 py-3 text-center text-gray-400">{item.sort_order}</td>
                   <td className="px-4 py-3 text-right">

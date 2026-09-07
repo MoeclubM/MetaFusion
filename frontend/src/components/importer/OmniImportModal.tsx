@@ -40,6 +40,8 @@ import {
   Artist,
 } from "@/lib/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
+import { pickRecordTitle } from "@/lib/titles";
+import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 
 interface Props {
   isOpen: boolean;
@@ -59,6 +61,7 @@ export function OmniImportModal({
   const { user } = useAuth();
   const { t, locale } = useI18n();
   const router = useRouter();
+  const titleOrder = useTitleDisplayOrder();
 
   // 实体类型切换 (Work / Artist / Organization / Character)
   const [entityType, setEntityType] = useState<"work" | "artist" | "organization" | "character">(initialEntityType);
@@ -790,7 +793,7 @@ export function OmniImportModal({
                     {previewData.canonical_entries.map((entry, index) => (
                       <li key={index} className="flex items-baseline gap-3">
                         <span className="text-gray-500 font-mono">{entry.number || entry.position}</span>
-                        <span>{entry.translations?.[locale]?.title || entry.translations?.["en-US"]?.title || entry.translations?.[entry.original_language || ""]?.title || entry.title}</span>
+                        <span>{pickRecordTitle(locale, entry.translations, entry.title, { order: titleOrder, originalLanguage: entry.original_language })}</span>
                         {entry.entry_role && <span className="text-xs text-gray-500">{t(`catalog.contents.role.${entry.entry_role}`)}</span>}
                       </li>
                     ))}
