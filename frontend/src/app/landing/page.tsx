@@ -18,7 +18,7 @@ import {
 
 function RootLandingInner() {
   const { user } = useAuth();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
 
   return (
     <div className="min-h-screen sm:h-screen sm:max-h-screen bg-background relative flex flex-col justify-between overflow-x-hidden sm:overflow-hidden selection:bg-primary selection:text-white">
@@ -33,7 +33,7 @@ function RootLandingInner() {
           href="/"
           className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors"
         >
-          <span>{locale === "zh-CN" ? "返回主页" : "Home"}</span>
+          <span>{t("landing.enterHome")}</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
         <a
@@ -89,7 +89,7 @@ function RootLandingInner() {
             className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-primary text-white keep-white hover:opacity-90 font-semibold text-sm shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all cursor-pointer"
           >
             <Compass className="w-4 h-4" />
-            <span>{locale === "zh-CN" ? "浏览分类货架" : "Browse Shelves"}</span>
+            <span>{t("landing.enter")}</span>
           </Link>
           <Link
             href="/explore"

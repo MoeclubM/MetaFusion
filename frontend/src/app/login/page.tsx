@@ -37,7 +37,7 @@ function LoginInner() {
  const router = useRouter();
  const searchParams = useSearchParams();
  const { user, loading, login } = useAuth();
- const { t, locale } = useI18n();
+ const { t } = useI18n();
 
  const tabParam = searchParams.get("tab");
  const [isRegister, setIsRegister] = useState(tabParam === "register");
@@ -172,7 +172,7 @@ function LoginInner() {
      href={isRegister ? getAuthRegisterUrl(searchParams.get("redirect") || "/") : getAuthLoginUrl(searchParams.get("redirect") || "/")}
      className="p-3.5 rounded-xl bg-primary text-white text-xs font-semibold flex items-center justify-between gap-2 hover:opacity-95 transition-all shadow-md"
    >
-     <span>{locale === "zh-CN" ? "前往 FindVerse 统一账号中心进行操作" : "Continue to FindVerse Auth SSO"}</span>
+     <span>{t("auth.continueSso")}</span>
      <ArrowRight className="w-4 h-4" />
    </a>
  )}

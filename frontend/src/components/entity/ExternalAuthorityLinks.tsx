@@ -171,12 +171,12 @@ export function ExternalAuthorityLinks({
       if (def) {
         name = (locale === "zh-CN" ? def.name_zh : def.name_en) || def.name_zh || def.code;
       } else {
-        if (lookupKey === "official_website") name = locale === "zh-CN" ? "官方网站" : "Official Website";
-        else if (lookupKey === "bushiroad_music") name = locale === "zh-CN" ? "Bushiroad 官方唱片" : "Bushiroad Music";
-        else if (lookupKey === "bangumi") name = isAgent ? (locale === "zh-CN" ? "Bangumi 人物" : "Bangumi Person") : (locale === "zh-CN" ? "Bangumi 番组计划" : "Bangumi");
-        else if (lookupKey === "bangumi_person") name = locale === "zh-CN" ? "Bangumi 人物" : "Bangumi Person";
-        else if (lookupKey === "bangumi_character") name = locale === "zh-CN" ? "Bangumi 角色" : "Bangumi Character";
-        else if (lookupKey === "bangumi_ep") name = locale === "zh-CN" ? "Bangumi 单集" : "Bangumi Episode";
+        if (lookupKey === "official_website") name = t("authority.officialWebsite");
+        else if (lookupKey === "bushiroad_music") name = t("authority.bushiroad");
+        else if (lookupKey === "bangumi") name = isAgent ? t("authority.bangumiPerson") : t("authority.bangumiSubject");
+        else if (lookupKey === "bangumi_person") name = t("authority.bangumiPerson");
+        else if (lookupKey === "bangumi_character") name = t("authority.bangumiCharacter");
+        else if (lookupKey === "bangumi_ep") name = t("authority.bangumiEpisode");
         else name = key.toUpperCase();
       }
 

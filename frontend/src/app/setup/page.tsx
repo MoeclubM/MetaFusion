@@ -35,7 +35,7 @@ import {
 export default function SetupPage() {
   const router = useRouter();
   const { login } = useAuth();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
 
   const [status, setStatus] = useState<SetupStatusResponse | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
@@ -340,7 +340,7 @@ export default function SetupPage() {
                     minLength={12}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={locale === "zh-CN" ? "至少 12 位安全字符" : "Minimum 12 secure characters"}
+                    placeholder={t("setup.passwordPlaceholder12")}
                     className="w-full h-11 pl-10 pr-10 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <button

@@ -154,7 +154,7 @@ export function DynamicNamesEditor({
             <input
               type="text"
               autoFocus
-              placeholder="例如 ja, ko, fr, de..."
+              placeholder={t("multilingual.langCodePlaceholder")}
               value={newLangCode}
               onChange={(e) => setNewLangCode(e.target.value.toLowerCase())}
               onKeyDown={(e) => {
