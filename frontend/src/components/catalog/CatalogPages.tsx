@@ -335,7 +335,7 @@ export function Account() {
                       fontWeight: 600,
                     }}
                   >
-                    {user.role === "admin" ? (locale === "zh-CN" ? "管理员" : "ADMIN") : (locale === "zh-CN" ? "编目编辑者" : "EDITOR")}
+                    {user.role === "admin" ? t("account.roleAdmin") : t("account.roleEditor")}
                   </span>
                 </div>
                 <small className="cv-muted" style={{ display: "block", marginTop: 4 }}>
@@ -357,7 +357,7 @@ export function Account() {
                 <button
                   type="button"
                   onClick={async () => {
-                    if (confirm(locale === "zh-CN" ? "确定注销该账号在全部设备上的登录会话？" : "Logout from all devices?")) {
+                    if (confirm(t("account.logoutAllConfirm"))) {
                       await api("/auth/logout-all", "POST");
                       await refresh();
                     }
@@ -370,7 +370,7 @@ export function Account() {
                     borderColor: "rgba(239, 68, 68, 0.25)",
                   }}
                 >
-                  {locale === "zh-CN" ? "全部设备登出" : "Logout All Devices"}
+                  {t("account.logoutAllDevices")}
                 </button>
               </div>
             </div>
@@ -389,7 +389,7 @@ export function Account() {
                 padding: "8px 16px",
               }}
             >
-              {locale === "zh-CN" ? "安全与密码" : "Security & Password"}
+              {t("account.securityPassword")}
             </button>
             <button
               type="button"
@@ -402,7 +402,7 @@ export function Account() {
                 padding: "8px 16px",
               }}
             >
-              {locale === "zh-CN" ? "平台授权应用 (OAuth)" : "Connected Apps (OAuth)"}
+              {t("account.oauthApps")}
             </button>
             {user.role === "admin" && (
               <button
@@ -416,7 +416,7 @@ export function Account() {
                   padding: "8px 16px",
                 }}
               >
-                {locale === "zh-CN" ? "用户与权限管理" : "User Management"}
+                {t("account.usersTab")}
               </button>
             )}
           </div>
@@ -430,9 +430,9 @@ export function Account() {
           {/* TAB 1: Security & Password */}
           {activeTab === "security" && (
             <section className="cv-group">
-              <h2>{locale === "zh-CN" ? "修改登录密码" : "Change Password"}</h2>
+              <h2>{t("account.changePassword")}</h2>
               <p className="cv-muted" style={{ marginBottom: 16 }}>
-                {locale === "zh-CN" ? "新密码长度需在 12 至 72 位之间，更新后请妥善保存。" : "Password must be 12 to 72 characters long."}
+                {t("account.passwordHint")}
               </p>
               <form
                 onSubmit={async (e) => {
@@ -440,16 +440,16 @@ export function Account() {
                   setError("");
                   setSuccess("");
                   if (newPassword !== confirmPassword) {
-                    setError(locale === "zh-CN" ? "两次输入的新密码不一致" : "New passwords do not match");
+                    setError(t("account.pwMismatch"));
                     return;
                   }
                   if (newPassword.length < 12) {
-                    setError(locale === "zh-CN" ? "新密码长度至少需要 12 位" : "New password must be at least 12 characters");
+                    setError(t("account.pwTooShort"));
                     return;
                   }
                   try {
                     await api("/auth/password", "PUT", { old_password: oldPassword, new_password: newPassword });
-                    setSuccess(locale === "zh-CN" ? "密码修改成功！" : "Password updated successfully!");
+                    setSuccess(t("account.pwUpdated"));
                     setOldPassword("");
                     setNewPassword("");
                     setConfirmPassword("");
@@ -459,7 +459,7 @@ export function Account() {
                 }}
               >
                 <label>
-                  {locale === "zh-CN" ? "当前原密码" : "Current Password"}
+                  {t("account.currentPassword")}
                   <input
                     type="password"
                     required
@@ -468,7 +468,7 @@ export function Account() {
                   />
                 </label>
                 <label>
-                  {locale === "zh-CN" ? "新密码 (至少 12 位)" : "New Password (min 12 chars)"}
+                  {t("account.newPassword")}
                   <input
                     type="password"
                     required
@@ -477,7 +477,7 @@ export function Account() {
                   />
                 </label>
                 <label>
-                  {locale === "zh-CN" ? "确认新密码" : "Confirm New Password"}
+                  {t("account.confirmNewPassword")}
                   <input
                     type="password"
                     required
@@ -486,7 +486,7 @@ export function Account() {
                   />
                 </label>
                 <button className="cv-primary" type="submit" style={{ marginTop: 12 }}>
-                  {locale === "zh-CN" ? "保存新密码" : "Update Password"}
+                  {t("account.saveNewPassword")}
                 </button>
               </form>
             </section>
@@ -495,11 +495,9 @@ export function Account() {
           {/* TAB 2: OAuth 2.0 Clients */}
           {activeTab === "oauth" && (
             <section className="cv-group">
-              <h2>{locale === "zh-CN" ? "已登记的通行证授权应用" : "Authorized OAuth 2.0 Clients"}</h2>
+              <h2>{t("account.authorizedClients")}</h2>
               <p className="cv-muted" style={{ marginBottom: 16 }}>
-                {locale === "zh-CN"
-                  ? "MetaFusion 账号中心作为统一身份认证源，支持以下外部及独立模块通过 OAuth 2.0 单点登录。"
-                  : "These external or detached modules use MetaFusion as the unified OAuth 2.0 identity provider."}
+                {t("account.clientsDesc")}
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -520,7 +518,7 @@ export function Account() {
                       <span style={{ fontWeight: 650, fontSize: 15, color: "#93c5fd" }}>{c.name}</span>
                       {c.trusted && (
                         <span className="cv-badge" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.3)" }}>
-                          {locale === "zh-CN" ? "系统信任应用" : "Trusted App"}
+                          {t("account.trustedApp")}
                         </span>
                       )}
                     </div>
@@ -528,7 +526,7 @@ export function Account() {
                       <code>client_id: {c.client_id}</code>
                     </div>
                     <div style={{ fontSize: 12, color: "#64748b" }}>
-                      {locale === "zh-CN" ? "回调域名" : "Redirect URIs"}: {c.redirect_uris.join(", ")}
+                      {t("account.redirectUris")}: {c.redirect_uris.join(", ")}
                     </div>
                   </div>
                 ))}
@@ -544,7 +542,7 @@ export function Account() {
                 <div style={{ padding: 14, background: "#221919", border: "1px solid #7f1d1d", borderRadius: 8, marginBottom: 16 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <span style={{ fontWeight: 600, color: "#fca5a5" }}>
-                      {locale === "zh-CN" ? `为用户 ${resetTargetUser.username} 重置密码` : `Reset password for ${resetTargetUser.username}`}
+                      {t("account.resetPwFor", { username: resetTargetUser.username })}
                     </span>
                     <button type="button" onClick={() => { setResetTargetUser(null); setResetNewPassword(""); }} style={{ minHeight: "auto", padding: "2px 8px" }}>
                       ✕
@@ -553,7 +551,7 @@ export function Account() {
                   <div style={{ display: "flex", gap: 10 }}>
                     <input
                       type="password"
-                      placeholder={locale === "zh-CN" ? "新密码 (至少 12 位)..." : "New password (min 12 chars)..."}
+                      placeholder={t("account.newPwPlaceholder")}
                       value={resetNewPassword}
                       onChange={(e) => setResetNewPassword(e.target.value)}
                       style={{ flex: 1 }}
@@ -565,7 +563,7 @@ export function Account() {
                       onClick={async () => {
                         try {
                           await api(`/admin/users/${resetTargetUser.id}/password`, "PUT", { password: resetNewPassword });
-                          setSuccess(locale === "zh-CN" ? `用户 ${resetTargetUser.username} 的密码重置成功！` : `Password for ${resetTargetUser.username} reset!`);
+                          setSuccess(t("account.pwResetDone", { username: resetTargetUser.username }));
                           setResetTargetUser(null);
                           setResetNewPassword("");
                         } catch (err) {
@@ -573,7 +571,7 @@ export function Account() {
                         }
                       }}
                     >
-                      {locale === "zh-CN" ? "执行重置" : "Confirm Reset"}
+                      {t("account.confirmReset")}
                     </button>
                   </div>
                 </div>
@@ -581,15 +579,15 @@ export function Account() {
 
               {/* Users Table */}
               <section className="cv-group" style={{ marginBottom: 20 }}>
-                <h2>{locale === "zh-CN" ? "全站用户与权限列表" : "Users & Roles"}</h2>
+                <h2>{t("account.usersRoles")}</h2>
                 <div className="cv-table-scroll" style={{ marginTop: 10 }}>
                   <table>
                     <thead>
                       <tr>
-                        <th>{locale === "zh-CN" ? "用户名" : "Username"}</th>
-                        <th>{locale === "zh-CN" ? "当前权限角色" : "Role"}</th>
-                        <th>{locale === "zh-CN" ? "用户标识" : "User ID"}</th>
-                        <th style={{ textAlign: "right" }}>{locale === "zh-CN" ? "操作" : "Actions"}</th>
+                        <th>{t("account.colUsername")}</th>
+                        <th>{t("account.colRole")}</th>
+                        <th>{t("account.colUserId")}</th>
+                        <th style={{ textAlign: "right" }}>{t("account.colActions")}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -617,7 +615,7 @@ export function Account() {
                                 <button
                                   type="button"
                                   onClick={async () => {
-                                    if (confirm(locale === "zh-CN" ? `确定将 ${u.username} 提升为管理员？` : `Promote ${u.username} to Admin?`)) {
+                                    if (confirm(t("account.promoteConfirm", { username: u.username }))) {
                                       try {
                                         await api(`/admin/users/${u.id}/role`, "PUT", { role: "admin" });
                                         loadUsers();
@@ -628,13 +626,13 @@ export function Account() {
                                   }}
                                   style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
                                 >
-                                  {locale === "zh-CN" ? "提为管理员" : "Make Admin"}
+                                  {t("account.makeAdmin")}
                                 </button>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={async () => {
-                                    if (confirm(locale === "zh-CN" ? `确定将 ${u.username} 降为编辑者？` : `Demote ${u.username} to Editor?`)) {
+                                    if (confirm(t("account.demoteConfirm", { username: u.username }))) {
                                       try {
                                         await api(`/admin/users/${u.id}/role`, "PUT", { role: "editor" });
                                         loadUsers();
@@ -645,7 +643,7 @@ export function Account() {
                                   }}
                                   style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
                                 >
-                                  {locale === "zh-CN" ? "设为编辑者" : "Set Editor"}
+                                  {t("account.setEditor")}
                                 </button>
                               )}
                               <button
@@ -656,7 +654,7 @@ export function Account() {
                                 }}
                                 style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
                               >
-                                {locale === "zh-CN" ? "重置密码" : "Reset Password"}
+                                {t("account.resetPassword")}
                               </button>
                             </div>
                           </td>
@@ -677,7 +675,7 @@ export function Account() {
                     setSuccess("");
                     try {
                       await api("/admin/users", "POST", { username: newEditorUsername, password: newEditorPassword });
-                      setSuccess(locale === "zh-CN" ? `编辑者账号 ${newEditorUsername} 创建成功！` : `Editor ${newEditorUsername} created!`);
+                      setSuccess(t("account.editorCreated", { username: newEditorUsername }));
                       setNewEditorUsername("");
                       setNewEditorPassword("");
                       loadUsers();
@@ -1031,7 +1029,7 @@ export function Detail({ id }: { id: string }) {
                     className="cv-badge"
                     style={{ background: "rgba(145, 215, 204, 0.15)", color: "#91d7cc", borderColor: "rgba(145, 215, 204, 0.3)", padding: "4px 8px" }}
                   >
-                    {locale === "zh-CN" ? "横向对比各发行版本 ↗" : "Compare all releases ↗"}
+                    {t("account.compareReleases")}
                   </Link>
                 )}
               </div>
@@ -1258,7 +1256,7 @@ export function Detail({ id }: { id: string }) {
                     className="cv-badge"
                     style={{ background: "rgba(145, 215, 204, 0.15)", color: "#91d7cc", borderColor: "rgba(145, 215, 204, 0.3)", padding: "4px 8px" }}
                   >
-                    {locale === "zh-CN" ? "横向对比收录版本 ↗" : "Compare releases ↗"}
+                    {t("account.compareIncluded")}
                   </Link>
                 )}
               </div>
