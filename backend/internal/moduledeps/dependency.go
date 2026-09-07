@@ -46,6 +46,8 @@ func ParseSemver(v string) (Semver, error) {
 }
 
 // Compare 比较两个语义化版本 (-1: a < b, 0: a == b, 1: a > b)
+// Tag 语义遵循 Semver 预发布规则：MAJOR.MINOR.PATCH 相同时，不带 Tag 的正式版
+// 高于带 Tag 的预发布版；双方都带 Tag 时按 ASCII 字典序比较。
 func (s Semver) Compare(other Semver) int {
 	if s.Major != other.Major {
 		if s.Major < other.Major {
@@ -65,7 +67,18 @@ func (s Semver) Compare(other Semver) int {
 		}
 		return 1
 	}
-	return 0
+	switch {
+	case s.Tag == other.Tag:
+		return 0
+	case s.Tag == "":
+		return 1
+	case other.Tag == "":
+		return -1
+	case s.Tag < other.Tag:
+		return -1
+	default:
+		return 1
+	}
 }
 
 // String 转换为字符串
@@ -77,6 +90,8 @@ func (s Semver) String() string {
 }
 
 // CheckVersionConstraint 检查插件版本是否满足约束条件 (例如 ">=1.0.0", "^1.2.0", "~1.0", "*", "1.0.0")
+// 通配符语义："" / "*" / "latest" 表示接受任意版本，直接放行，不做版本比较。
+// 如需锁定版本，请使用显式约束（如 "=1.2.3"、">=1.0.0, <2.0.0"）。
 func CheckVersionConstraint(versionStr string, constraint string) (bool, error) {
 	constraint = strings.TrimSpace(constraint)
 	if constraint == "" || constraint == "*" || constraint == "latest" {
