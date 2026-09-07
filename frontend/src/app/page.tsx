@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useDefinitions, getTypeName } from "@/lib/definitions";
 import {
   Search,
   Disc,
@@ -22,6 +23,7 @@ interface EntityItem {
   kind: string;
   title: string;
   original_language?: string;
+  translations?: Record<string, { title?: string; summary?: string; aliases?: string[] }>;
   types?: string[];
   pictures?: { url: string }[];
   version?: number;
@@ -97,6 +99,43 @@ const DEFAULT_SHELVES: ShelfItem[] = [
 export default function HomePage() {
   const { t, locale } = useI18n();
   const router = useRouter();
+  const { definitions } = useDefinitions();
+
+  const getDisplayTitle = (item: EntityItem, loc: string): string => {
+    const shortLocale = loc.split("-")[0];
+    const tr = item.translations || {};
+    return (
+      tr[loc]?.title ||
+      tr[shortLocale]?.title ||
+      tr["zh-CN"]?.title ||
+      tr["zh"]?.title ||
+      tr["ja"]?.title ||
+      tr["en-US"]?.title ||
+      tr["en"]?.title ||
+      (item.original_language ? tr[item.original_language]?.title : "") ||
+      item.title
+    );
+  };
+
+  const getCardBadge = (item: EntityItem, defs: any, loc: string, translate: (k: string) => string): string => {
+    if (item.types && item.types.length > 0) {
+      for (const tCode of item.types) {
+        const typeName = getTypeName(defs, tCode, loc);
+        if (typeName && typeName !== tCode) {
+          return typeName;
+        }
+      }
+    }
+    const kindKey = "catalog.kind." + item.kind;
+    const translated = translate(kindKey);
+    if (translated && translated !== kindKey) {
+      return translated;
+    }
+    if (item.kind === "work") return loc === "zh-CN" ? "作品" : "Work";
+    if (item.kind === "release") return loc === "zh-CN" ? "发行" : "Release";
+    if (item.kind === "agent") return loc === "zh-CN" ? "主体" : "Agent";
+    return item.kind;
+  };
 
   const [searchQuery, setSearchQuery] = useState("");
   const [entities, setEntities] = useState<EntityItem[]>([]);
@@ -241,46 +280,59 @@ export default function HomePage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {items.slice(0, 12).map((item) => (
-                    <Link
-                      key={item.id}
-                      href={"/catalog/" + item.id}
-                      className="group flex flex-col rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/20 overflow-hidden transition-all shadow-2xs hover:shadow-md"
-                    >
-                      {/* Thumbnail frame */}
-                      <div className="aspect-square bg-black/40 relative flex items-center justify-center overflow-hidden">
-                        {item.pictures && item.pictures[0]?.url ? (
-                          <img
-                            src={item.pictures[0].url}
-                            alt={item.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="flex flex-col items-center gap-1.5 text-gray-500">
-                            <Icon className="w-8 h-8 opacity-40" />
-                            <span className="text-[9px] font-mono uppercase tracking-wider">{item.kind}</span>
-                          </div>
-                        )}
-                        <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-md text-[9px] font-mono text-gray-300 uppercase">
-                          {item.kind}
-                        </span>
-                      </div>
+                  {items.slice(0, 12).map((item) => {
+                    const displayTitle = getDisplayTitle(item, locale);
+                    const badgeLabel = getCardBadge(item, definitions, locale, t);
 
-                      {/* Content meta */}
-                      <div className="p-3 flex-1 flex flex-col justify-between">
-                        <h3 className="font-medium text-white group-hover:text-primary transition-colors text-xs sm:text-sm line-clamp-2 leading-snug mb-2">
-                          {item.title}
-                        </h3>
-
-                        <div className="pt-2 border-t border-white/[0.04] flex items-center justify-between text-[10px] text-gray-400 font-mono">
-                          <span>rev {item.version || 1}</span>
-                          <span className="text-gray-400 group-hover:text-primary transition-colors flex items-center gap-0.5">
-                            {t("home.details")} <ChevronRight className="w-3 h-3" />
+                    return (
+                      <Link
+                        key={item.id}
+                        href={"/catalog/" + item.id}
+                        className="group flex flex-col rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/20 overflow-hidden transition-all shadow-2xs hover:shadow-md"
+                      >
+                        {/* Thumbnail frame */}
+                        <div className="aspect-square bg-black/40 relative flex items-center justify-center overflow-hidden">
+                          {item.pictures && item.pictures[0]?.url ? (
+                            <img
+                              src={item.pictures[0].url}
+                              alt={displayTitle}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-1.5 text-gray-500 p-2 text-center">
+                              <Icon className="w-8 h-8 opacity-40 text-primary" />
+                              <span className="text-[10px] font-medium line-clamp-1">{displayTitle}</span>
+                            </div>
+                          )}
+                          <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/65 text-white keep-white backdrop-blur-md border border-white/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                            <span className="truncate max-w-[85px]">{badgeLabel}</span>
                           </span>
                         </div>
-                      </div>
-                    </Link>
-                  ))}
+
+                        {/* Content meta */}
+                        <div className="p-3 flex-1 flex flex-col justify-between">
+                          <div>
+                            <h3 className="font-medium text-white group-hover:text-primary transition-colors text-xs sm:text-sm line-clamp-2 leading-snug mb-1">
+                              {displayTitle}
+                            </h3>
+                            {item.title !== displayTitle && (
+                              <p className="text-[10px] text-gray-400 font-mono line-clamp-1 mb-1">
+                                {item.title}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="pt-2 border-t border-white/[0.04] flex items-center justify-between text-[10px] text-gray-400 font-mono">
+                            <span>rev {item.version || 1}</span>
+                            <span className="text-gray-400 group-hover:text-primary transition-colors flex items-center gap-0.5">
+                              {t("home.details")} <ChevronRight className="w-3 h-3" />
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </section>

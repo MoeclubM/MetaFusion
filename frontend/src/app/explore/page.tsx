@@ -367,6 +367,7 @@ function ExploreInner() {
               const kindLabel = t("catalog.kind." + item.kind) || item.kind;
               const typeLabels = (item.types || []).map((tCode) => getTypeName(definitions, tCode, locale));
               const displayTitle = getLocalizedTitle(item, locale);
+              const badgeLabel = typeLabels[0] || kindLabel;
 
               return (
                 <Link
@@ -397,15 +398,16 @@ function ExploreInner() {
                           {displayTitle}
                         </span>
                         <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider mt-0.5">
-                          {kindLabel}
+                          {badgeLabel}
                         </span>
                       </div>
                     )}
-                    <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded bg-black/60 dark:bg-black/75 backdrop-blur-md text-[10px] font-mono text-white font-medium">
-                      {kindLabel}
+                    <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/65 dark:bg-black/75 text-white keep-white backdrop-blur-md border border-white/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                      <span className="truncate max-w-[85px]">{badgeLabel}</span>
                     </span>
                     {item.status !== "published" && (
-                      <span className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded bg-amber-500/90 text-black text-[9px] font-mono font-bold">
+                      <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-md bg-amber-500/90 text-black keep-white text-[9px] font-mono font-bold shadow-2xs">
                         {t("catalog.status." + item.status) || item.status}
                       </span>
                     )}
@@ -450,6 +452,7 @@ function ExploreInner() {
               const kindLabel = t("catalog.kind." + item.kind) || item.kind;
               const typeLabels = (item.types || []).map((tCode) => getTypeName(definitions, tCode, locale));
               const displayTitle = getLocalizedTitle(item, locale);
+              const badgeLabel = typeLabels[0] || kindLabel;
 
               return (
                 <Link
@@ -468,7 +471,7 @@ function ExploreInner() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
                         <span className="px-2 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-gray-700 dark:text-gray-300 font-medium">
-                          {kindLabel}
+                          {badgeLabel}
                         </span>
                         <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-primary transition-colors text-sm truncate">
                           {displayTitle}
