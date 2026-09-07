@@ -273,18 +273,139 @@ export function EntityDetailView({ id }: { id: string }) {
     return { src: null, aspect: "1:1", sourceName: "procedural" };
   }, [entity, motherWork, subjectWorks, occurrences]);
 
-  // Extract Bangumi ID
-  const bangumiId = useMemo(() => {
+  // Extract Bangumi info with proper type routing
+  const bangumiInfo = useMemo(() => {
     if (!entity) return null;
-    if (entity.external_ids?.bangumi) return entity.external_ids.bangumi;
+    
+    // Direct ID check
+    if (entity.external_ids?.bangumi) {
+      const id = String(entity.external_ids.bangumi);
+      const isAgent = entity.kind === "agent";
+      return {
+        id,
+        url: isAgent ? `https://bangumi.tv/person/${id}` : `https://bangumi.tv/subject/${id}`,
+        label: isAgent ? (locale === "zh-CN" ? "Bangumi 创作者/人物" : "Bangumi Person") : "Bangumi 番组计划",
+        isDirect: true,
+      };
+    }
+    if (entity.external_ids?.bangumi_person) {
+      const id = String(entity.external_ids.bangumi_person);
+      return {
+        id,
+        url: `https://bangumi.tv/person/${id}`,
+        label: locale === "zh-CN" ? "Bangumi 创作者/人物" : "Bangumi Person",
+        isDirect: true,
+      };
+    }
+    if (entity.external_ids?.bangumi_character) {
+      const id = String(entity.external_ids.bangumi_character);
+      return {
+        id,
+        url: `https://bangumi.tv/character/${id}`,
+        label: locale === "zh-CN" ? "Bangumi 角色" : "Bangumi Character",
+        isDirect: true,
+      };
+    }
+    if (entity.external_ids?.bangumi_ep) {
+      const id = String(entity.external_ids.bangumi_ep);
+      return {
+        id,
+        url: `https://bangumi.tv/ep/${id}`,
+        label: locale === "zh-CN" ? "Bangumi 单集" : "Bangumi Episode",
+        isDirect: true,
+      };
+    }
     const m = entity.external_ids?.metafusion_import || "";
-    const match = m.match(/bgm:(?:subject|release):(\d+)/);
-    if (match) return match[1];
-    if (motherWork?.external_ids?.bangumi) return motherWork.external_ids.bangumi;
-    if (occurrences[0]?.release?.external_ids?.bangumi) return occurrences[0].release.external_ids.bangumi;
-    if (subjectWorks[0]?.external_ids?.bangumi) return subjectWorks[0].external_ids.bangumi;
+    const match = m.match(/bgm:(subject|release|person|character):(\d+)/);
+    if (match) {
+      const kind = match[1];
+      const id = match[2];
+      const url = kind === "person" ? `https://bangumi.tv/person/${id}` : kind === "character" ? `https://bangumi.tv/character/${id}` : `https://bangumi.tv/subject/${id}`;
+      return {
+        id,
+        url,
+        label: kind === "person" ? (locale === "zh-CN" ? "Bangumi 人物" : "Bangumi Person") : "Bangumi 番组计划",
+        isDirect: true,
+      };
+    }
+
+    // Contextual parent fallback - clearly labeled as parent work/release
+    if (motherWork?.external_ids?.bangumi) {
+      return {
+        id: String(motherWork.external_ids.bangumi),
+        url: `https://bangumi.tv/subject/${motherWork.external_ids.bangumi}`,
+        label: locale === "zh-CN" ? "所属作品 Bangumi" : "Parent Work Bangumi",
+        isDirect: false,
+      };
+    }
+    if (occurrences[0]?.release?.external_ids?.bangumi) {
+      return {
+        id: String(occurrences[0].release.external_ids.bangumi),
+        url: `https://bangumi.tv/subject/${occurrences[0].release.external_ids.bangumi}`,
+        label: locale === "zh-CN" ? "收录发行 Bangumi" : "Release Bangumi",
+        isDirect: false,
+      };
+    }
+    if (subjectWorks[0]?.external_ids?.bangumi) {
+      return {
+        id: String(subjectWorks[0].external_ids.bangumi),
+        url: `https://bangumi.tv/subject/${subjectWorks[0].external_ids.bangumi}`,
+        label: locale === "zh-CN" ? "主作品 Bangumi" : "Subject Bangumi",
+        isDirect: false,
+      };
+    }
     return null;
-  }, [entity, motherWork, occurrences, subjectWorks]);
+  }, [entity, motherWork, occurrences, subjectWorks, locale]);
+
+  // Extract official website and authority links
+  const officialInfo = useMemo(() => {
+    if (!entity) return null;
+
+    // 1. Direct website from attributes or external_ids
+    const rawUrl =
+      entity.attributes?.official_website ||
+      entity.attributes?.website ||
+      entity.attributes?.official_url ||
+      entity.attributes?.url ||
+      entity.external_ids?.official ||
+      entity.external_ids?.website ||
+      entity.external_ids?.official_website;
+
+    if (rawUrl && typeof rawUrl === "string" && rawUrl.startsWith("http")) {
+      return {
+        url: rawUrl,
+        label: locale === "zh-CN" ? "官方网站" : "Official Website",
+        isDirect: true,
+      };
+    }
+
+    // 2. Bushiroad catalog link
+    if (entity.external_ids?.bushiroad) {
+      const bushiId = String(entity.external_ids.bushiroad).toLowerCase();
+      return {
+        url: `https://bushiroad-music.com/musics/${bushiId}/`,
+        label: locale === "zh-CN" ? "Bushiroad 官方唱片" : "Bushiroad Music Official",
+        isDirect: true,
+      };
+    }
+
+    // 3. Fallback to motherWork or subjects
+    const parentUrl =
+      motherWork?.attributes?.official_website ||
+      motherWork?.external_ids?.official ||
+      subjectWorks[0]?.attributes?.official_website ||
+      subjectWorks[0]?.external_ids?.official;
+
+    if (parentUrl && typeof parentUrl === "string" && parentUrl.startsWith("http")) {
+      return {
+        url: parentUrl,
+        label: locale === "zh-CN" ? "所属企划官网" : "Project Official Website",
+        isDirect: false,
+      };
+    }
+
+    return null;
+  }, [entity, motherWork, subjectWorks, locale]);
 
   // Store bonuses
   const storeBonuses = useMemo(() => {
@@ -547,11 +668,30 @@ export function EntityDetailView({ id }: { id: string }) {
   const contentUnits = children.filter((c) => c.kind === "content_unit");
   const expressions = children.filter((c) => c.kind === "expression");
 
+  const shortLocale = locale.split("-")[0];
   const summaryText =
     entity.translations?.[locale]?.summary ||
+    entity.translations?.[shortLocale]?.summary ||
+    entity.translations?.["zh-CN"]?.summary ||
+    entity.translations?.["zh"]?.summary ||
+    entity.translations?.["ja"]?.summary ||
+    entity.translations?.["en-US"]?.summary ||
+    entity.translations?.["en"]?.summary ||
     entity.attributes?.summary ||
     entity.attributes?.description ||
     "";
+
+  const resolvedAliases: string[] = (
+    (entity.translations?.[locale]?.aliases && entity.translations[locale].aliases.length > 0)
+      ? entity.translations[locale].aliases
+      : (entity.translations?.[shortLocale]?.aliases && entity.translations[shortLocale].aliases.length > 0)
+      ? entity.translations[shortLocale].aliases
+      : (entity.translations?.["zh"]?.aliases && entity.translations["zh"].aliases.length > 0)
+      ? entity.translations["zh"].aliases
+      : (entity.translations?.["ja"]?.aliases && entity.translations["ja"].aliases.length > 0)
+      ? entity.translations["ja"].aliases
+      : []
+  ) || [];
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
@@ -638,20 +778,35 @@ export function EntityDetailView({ id }: { id: string }) {
               />
             </div>
 
-            {/* 2. External Authority Badges */}
+            {/* 2. External Authority & Official Badges */}
             <div className="flex flex-col gap-2">
-              {bangumiId && (
+              {officialInfo && (
                 <a
-                  href={`https://bangumi.tv/subject/${bangumiId}`}
+                  href={officialInfo.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-between px-3.5 py-2 rounded-lg bg-[#f09199]/10 text-[#f09199] border border-[#f09199]/25 hover:bg-[#f09199]/20 transition-all font-mono text-xs font-medium group"
+                  className="inline-flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/20 transition-all font-mono text-xs font-medium group shadow-2xs"
                 >
-                  <span className="flex items-center gap-1.5">
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Bangumi 番组计划</span>
+                  <span className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span className="font-sans font-semibold">{officialInfo.label}</span>
                   </span>
-                  <span className="text-[11px] opacity-75">#{bangumiId}</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                </a>
+              )}
+
+              {bangumiInfo && (
+                <a
+                  href={bangumiInfo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-[#f09199]/10 text-[#f09199] border border-[#f09199]/25 hover:bg-[#f09199]/20 transition-all font-mono text-xs font-medium group shadow-2xs"
+                >
+                  <span className="flex items-center gap-2">
+                    <ExternalLink className="w-4 h-4 shrink-0" />
+                    <span className="font-sans font-semibold">{bangumiInfo.label}</span>
+                  </span>
+                  <span className="text-[11px] opacity-75 font-mono">#{bangumiInfo.id}</span>
                 </a>
               )}
 
@@ -762,6 +917,26 @@ export function EntityDetailView({ id }: { id: string }) {
                     </dt>
                     <dd className="font-mono text-gray-900 dark:text-white">
                       {String(entity.attributes.barcode || entity.attributes.jan || entity.attributes.ean)}
+                    </dd>
+                  </div>
+                )}
+
+                {officialInfo && (
+                  <div>
+                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
+                      {locale === "zh-CN" ? "官方链接 / 出处" : "Official Link"}
+                    </dt>
+                    <dd className="font-mono text-emerald-600 dark:text-emerald-400 truncate">
+                      <a
+                        href={officialInfo.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 hover:underline truncate max-w-full text-[11px]"
+                      >
+                        <Globe className="w-3.5 h-3.5 shrink-0 text-emerald-500" />
+                        <span className="truncate">{officialInfo.url.replace(/^https?:\/\//, "")}</span>
+                        <ArrowUpRight className="w-3 h-3 shrink-0 opacity-70" />
+                      </a>
                     </dd>
                   </div>
                 )}
@@ -893,12 +1068,12 @@ export function EntityDetailView({ id }: { id: string }) {
               </div>
 
               {/* Aliases */}
-              {entity.translations?.[locale]?.aliases && entity.translations[locale].aliases.length > 0 && (
+              {resolvedAliases.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
                   <span className="font-mono text-[10px] text-gray-400 uppercase tracking-wider">
                     {locale === "zh-CN" ? "别名 / 译名: " : "Aliases: "}
                   </span>
-                  {entity.translations[locale].aliases.map((alias, idx) => (
+                  {resolvedAliases.map((alias, idx) => (
                     <span key={idx} className="px-2 py-0.5 rounded bg-black/[0.03] dark:bg-white/[0.04] text-gray-700 dark:text-gray-300 font-mono">
                       {alias}
                     </span>
@@ -925,6 +1100,20 @@ export function EntityDetailView({ id }: { id: string }) {
                     <GitCompare className="w-3.5 h-3.5" />
                     <span>{t("entity.detail.compareAdd")}</span>
                   </Link>
+
+                  {officialInfo && (
+                    <a
+                      href={officialInfo.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all shadow-2xs font-mono cursor-pointer"
+                      title={locale === "zh-CN" ? "访问官方认证主页/唱片发售站" : "Open Verified Official Page"}
+                    >
+                      <Globe className="w-3.5 h-3.5 text-emerald-500" />
+                      <span>{officialInfo.label}</span>
+                      <ArrowUpRight className="w-3 h-3 opacity-70" />
+                    </a>
+                  )}
 
                   <a
                     href="#revisions"

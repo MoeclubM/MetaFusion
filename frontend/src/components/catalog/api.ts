@@ -153,12 +153,28 @@ export function local(
   original = "",
   fallback = "",
 ) {
-  return names?.[locale] || names?.["en-US"] || names?.[original] || fallback;
+  const short = locale.split("-")[0];
+  return (
+    names?.[locale] ||
+    names?.[short] ||
+    names?.["zh-CN"] ||
+    names?.["zh"] ||
+    names?.["en-US"] ||
+    names?.["en"] ||
+    names?.[original] ||
+    fallback
+  );
 }
 export function title(e: Entity, locale: string) {
+  const short = locale.split("-")[0];
   return (
     e.translations?.[locale]?.title ||
+    e.translations?.[short]?.title ||
+    e.translations?.["zh-CN"]?.title ||
+    e.translations?.["zh"]?.title ||
+    e.translations?.["ja"]?.title ||
     e.translations?.["en-US"]?.title ||
+    e.translations?.["en"]?.title ||
     e.translations?.[e.original_language]?.title ||
     e.title
   );

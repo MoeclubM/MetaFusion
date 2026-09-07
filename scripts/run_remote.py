@@ -1,10 +1,11 @@
-import paramiko
+﻿import paramiko
 import sys
 
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+sys.stdin.reconfigure(encoding='utf-8', errors='replace')
 
 def get_cred():
-    with open(r'D:\NET\machine.md', encoding='utf-8') as f:
+    with open('D:/NET/machine.md', encoding='utf-8') as f:
         for line in f:
             if 'alice-slc' in line:
                 parts = line.strip().split()
@@ -22,5 +23,8 @@ def run(cmd):
     return out
 
 if __name__ == '__main__':
-    cmd = sys.argv[1] if len(sys.argv) > 1 else 'cd /root/metafusion && docker compose -f deploy/docker-compose.yml ps'
+    if len(sys.argv) > 1 and sys.argv[1] == '-':
+        cmd = sys.stdin.read().strip()
+    else:
+        cmd = sys.argv[1] if len(sys.argv) > 1 else 'cd /root/metafusion && docker compose -f deploy/docker-compose.yml ps'
     print(run(cmd))
