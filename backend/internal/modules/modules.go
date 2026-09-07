@@ -210,9 +210,7 @@ func (m *Manager) entity(c *gin.Context, id string) bool {
 	return true
 }
 func (m *Manager) Register(r *gin.Engine) {
-	for _, prefix := range []string{"/api", "/api/v2"} {
-		m.registerGroup(r.Group(prefix))
-	}
+	m.registerGroup(r.Group("/api"))
 }
 
 func (m *Manager) registerGroup(api *gin.RouterGroup) {

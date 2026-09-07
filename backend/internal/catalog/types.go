@@ -1,4 +1,4 @@
-// Package catalogv2 owns metadata only. Optional modules consume its DTOs and events.
+// Package catalog owns metadata only. Optional modules consume its DTOs and events.
 package catalog
 
 import (
