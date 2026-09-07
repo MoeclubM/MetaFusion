@@ -2001,6 +2001,7 @@
   "catalog.resourceGatewayTitle": "Resource & Download Hub",
   "catalog.resourceGatewayDesc": "Physical storage and download delivery are decoupled into an independent system, authenticated via OAuth 2.0 SSO.",
   "catalog.resourceGatewayVisit": "Go to Resource Station ↗",
+  "catalog.resourceGatewayRedirecting": "Redirecting to the Resource Station… click below if not redirected.",
   "catalog.resourceGatewaySearchItem": "Search physical files and mirrors for this entity in Resource Station ↗",
   "browseHome.title": "Shelves",
   "browseHome.search": "Search works, creators and releases",
