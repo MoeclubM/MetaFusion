@@ -1002,7 +1002,7 @@ export function EntityDetailView({ id }: { id: string }) {
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-xs font-medium text-gray-700 dark:text-gray-300 hover:border-primary/50 hover:text-primary transition-all shadow-2xs"
                   >
                     <History className="w-3.5 h-3.5" />
-                    <span>{locale === "zh-CN" ? "修订历史" : "Revisions"}</span>
+                    <span>{t("entity.detail.revisionsTitle")}</span>
                   </a>
 
                   <a
@@ -1073,7 +1073,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   {locale === "zh-CN" ? "社区讨论与合集" : "Discussions & Collections"} ({communityPosts.length})
                 </a>
                 <a href="#revisions" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                  {locale === "zh-CN" ? "修订历史" : "Revisions"}
+                  {t("entity.detail.revisionsTitle")}
                 </a>
               </nav>
             </header>
