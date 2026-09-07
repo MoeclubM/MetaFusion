@@ -159,9 +159,9 @@ function MarkdownToolbar({
       </button>
       <button
         type="button"
-        onClick={() => wrapSelection("$", "$", t("community.mathPlaceholder") || "E=mc^2")}
+        onClick={() => wrapSelection("$", "$", t("community.mathPlaceholder"))}
         className="p-1 hover:text-white rounded hover:bg-background"
-        title={t("community.math") || "LaTeX Formula"}
+        title={t("community.math")}
       >
         <Sigma className="w-3.5 h-3.5" />
       </button>
@@ -396,7 +396,7 @@ export default function PostComposer({
     e.preventDefault();
     if (!newContent.trim()) return;
     if (!topicId) {
-      alert("Missing topicId for reply");
+      alert(t("community.missingTopicId"));
       return;
     }
     setSubmitting(true);

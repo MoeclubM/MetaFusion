@@ -817,13 +817,7 @@ export function OmniImportModal({
                   {/* Summary counts badge */}
                   <div className="flex items-center gap-2 text-xs font-mono">
                     <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                      +{countCreate} 新建
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                      🔗{countLink} 关联
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-gray-500/10 text-gray-500 border border-gray-500/20">
-                      ✕{countSkip} 跳过
+                      {t("importer.staffCountSummary", { create: countCreate, link: countLink, skip: countSkip })}
                     </span>
                   </div>
                 </div>
@@ -924,19 +918,19 @@ export function OmniImportModal({
                                   className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 focus:outline-hidden focus:border-primary"
                                 >
                                   <option value={assoc.parsed_role}>{assoc.parsed_role}</option>
-                                  <option value="Author">原作 / 作者 (Author)</option>
-                                  <option value="Director">监督 / 导演 (Director)</option>
-                                  <option value="Screenplay">编剧 / 脚本 (Screenplay)</option>
-                                  <option value="Illustrator / Artist">作画 / 插图 (Illustrator)</option>
-                                  <option value="Composer">配乐 / 作曲 (Composer)</option>
-                                  <option value="Voice Actor">声优 / 配音 (Voice Actor)</option>
-                                  <option value="Actor">演员 / 出演 (Actor)</option>
-                                  <option value="Studio">动画制作 / 工作室 (Studio)</option>
-                                  <option value="Publisher">出版机构 / 发行商 (Publisher)</option>
-                                  <option value="Record Label">唱片厂牌 (Record Label)</option>
-                                  <option value="Circle">同人社团 (Circle)</option>
-                                  <option value="Producer">制作人 / 出品 (Producer)</option>
-                                  <option value="Character">登场角色 (Character)</option>
+                                  <option value="Author">{t("importer.role.roleAuthor")}</option>
+                                  <option value="Director">{t("importer.role.roleDirector")}</option>
+                                  <option value="Screenplay">{t("importer.role.roleScreenplay")}</option>
+                                  <option value="Illustrator / Artist">{t("importer.role.roleIllustrator")}</option>
+                                  <option value="Composer">{t("importer.role.roleComposer")}</option>
+                                  <option value="Voice Actor">{t("importer.role.roleVoiceActor")}</option>
+                                  <option value="Actor">{t("importer.role.roleActor")}</option>
+                                  <option value="Studio">{t("importer.role.roleStudio")}</option>
+                                  <option value="Publisher">{t("importer.role.rolePublisher")}</option>
+                                  <option value="Record Label">{t("importer.role.roleLabel")}</option>
+                                  <option value="Circle">{t("importer.role.roleCircle")}</option>
+                                  <option value="Producer">{t("importer.role.roleProducer")}</option>
+                                  <option value="Character">{t("importer.role.roleCharacter")}</option>
                                 </select>
 
                                 {/* Character name field if voice actor / cast */}
@@ -1107,7 +1101,7 @@ export function OmniImportModal({
                 type="text"
                 value={editNote}
                 onChange={(e) => setEditNote(e.target.value)}
-                placeholder={`编辑注记: ${t("importer.defaultEditNote", { source: previewData.source.toUpperCase() })}`}
+                placeholder={t("importer.editNotePlaceholder", { note: t("importer.defaultEditNote", { source: previewData.source.toUpperCase() }) })}
                 className="w-full px-3.5 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-hidden focus:border-primary font-mono"
               />
             </div>
