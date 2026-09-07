@@ -147,3 +147,4 @@ scripts/query_db.js
 
 scripts/capture_*.py
 scripts/deploy_remote.js
+scripts/.mygo_reimport_state.json
