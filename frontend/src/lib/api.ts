@@ -1914,30 +1914,60 @@ export interface ExternalLinkDisplay {
 
 export function fetchExternalDatabases(category?: string): Promise<{ items: ExternalDatabaseDefinition[] }> {
   const q = category ? `?category=${encodeURIComponent(category)}` : "";
-  return fetchApi<{ items: ExternalDatabaseDefinition[] }>(`/metadata/external-databases${q}`);
+  // 统一通过主系统 /api/catalog/external-databases 获取
+  return fetch(`/api/catalog/external-databases${q}`, { credentials: "same-origin" })
+    .then(async (res) => {
+      if (!res.ok) return { items: [] };
+      return res.json();
+    })
+    .catch(() => ({ items: [] }));
 }
 
 export function fetchAdminExternalDatabases(): Promise<{ items: ExternalDatabaseDefinition[] }> {
-  return fetchApi<{ items: ExternalDatabaseDefinition[] }>("/admin/external-databases");
+  return fetch("/api/admin/external-databases", { credentials: "same-origin" })
+    .then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      return res.json();
+    });
 }
 
 export function createExternalDatabase(data: Partial<ExternalDatabaseDefinition>): Promise<{ message: string; data: ExternalDatabaseDefinition }> {
-  return fetchApi<{ message: string; data: ExternalDatabaseDefinition }>("/admin/external-databases", {
+  return fetch("/api/admin/external-databases", {
     method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+  }).then(async (res) => {
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
   });
 }
 
 export function updateExternalDatabase(code: string, data: Partial<ExternalDatabaseDefinition>): Promise<{ message: string; data: ExternalDatabaseDefinition }> {
-  return fetchApi<{ message: string; data: ExternalDatabaseDefinition }>(`/admin/external-databases/${encodeURIComponent(code)}`, {
+  return fetch(`/api/admin/external-databases/${encodeURIComponent(code)}`, {
     method: "PUT",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+  }).then(async (res) => {
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
   });
 }
 
 export function deleteExternalDatabase(code: string): Promise<{ message: string }> {
-  return fetchApi<{ message: string }>(`/admin/external-databases/${encodeURIComponent(code)}`, {
+  return fetch(`/api/admin/external-databases/${encodeURIComponent(code)}`, {
     method: "DELETE",
+    credentials: "same-origin",
+  }).then(async (res) => {
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
   });
 }
 

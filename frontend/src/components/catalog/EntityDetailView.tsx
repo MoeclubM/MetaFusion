@@ -13,6 +13,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { GraphNode, GraphLink } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
+import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { useDefinitions, getTypeName, getRelationName, getFieldName, getTermName } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
@@ -273,14 +274,14 @@ export function EntityDetailView({ id }: { id: string }) {
     return { src: null, aspect: "1:1", sourceName: "procedural" };
   }, [entity, motherWork, subjectWorks, occurrences]);
 
-  // Extract Bangumi info with proper type routing
+  // Extract Bangumi info with proper type routing (Strictly entity-owned, never borrowed)
   const bangumiInfo = useMemo(() => {
     if (!entity) return null;
-    
-    // Direct ID check
+
+    const isAgent = entity.kind === "agent";
+
     if (entity.external_ids?.bangumi) {
       const id = String(entity.external_ids.bangumi);
-      const isAgent = entity.kind === "agent";
       return {
         id,
         url: isAgent ? `https://bangumi.tv/person/${id}` : `https://bangumi.tv/subject/${id}`,
@@ -320,7 +321,12 @@ export function EntityDetailView({ id }: { id: string }) {
     if (match) {
       const kind = match[1];
       const id = match[2];
-      const url = kind === "person" ? `https://bangumi.tv/person/${id}` : kind === "character" ? `https://bangumi.tv/character/${id}` : `https://bangumi.tv/subject/${id}`;
+      const url =
+        kind === "person"
+          ? `https://bangumi.tv/person/${id}`
+          : kind === "character"
+          ? `https://bangumi.tv/character/${id}`
+          : `https://bangumi.tv/subject/${id}`;
       return {
         id,
         url,
@@ -329,39 +335,14 @@ export function EntityDetailView({ id }: { id: string }) {
       };
     }
 
-    // Contextual parent fallback - clearly labeled as parent work/release
-    if (motherWork?.external_ids?.bangumi) {
-      return {
-        id: String(motherWork.external_ids.bangumi),
-        url: `https://bangumi.tv/subject/${motherWork.external_ids.bangumi}`,
-        label: locale === "zh-CN" ? "所属作品 Bangumi" : "Parent Work Bangumi",
-        isDirect: false,
-      };
-    }
-    if (occurrences[0]?.release?.external_ids?.bangumi) {
-      return {
-        id: String(occurrences[0].release.external_ids.bangumi),
-        url: `https://bangumi.tv/subject/${occurrences[0].release.external_ids.bangumi}`,
-        label: locale === "zh-CN" ? "收录发行 Bangumi" : "Release Bangumi",
-        isDirect: false,
-      };
-    }
-    if (subjectWorks[0]?.external_ids?.bangumi) {
-      return {
-        id: String(subjectWorks[0].external_ids.bangumi),
-        url: `https://bangumi.tv/subject/${subjectWorks[0].external_ids.bangumi}`,
-        label: locale === "zh-CN" ? "主作品 Bangumi" : "Subject Bangumi",
-        isDirect: false,
-      };
-    }
     return null;
-  }, [entity, motherWork, occurrences, subjectWorks, locale]);
+  }, [entity, locale]);
 
-  // Extract official website and authority links
+  // Extract official website and authority links (Strictly entity-owned, never borrowed)
   const officialInfo = useMemo(() => {
     if (!entity) return null;
 
-    // 1. Direct website from attributes or external_ids
+    // Direct website from attributes or external_ids
     const rawUrl =
       entity.attributes?.official_website ||
       entity.attributes?.website ||
@@ -379,9 +360,8 @@ export function EntityDetailView({ id }: { id: string }) {
       };
     }
 
-    // 2. Bushiroad catalog link
-    if (entity.external_ids?.bushiroad) {
-      const bushiId = String(entity.external_ids.bushiroad).toLowerCase();
+    if (entity.external_ids?.bushiroad || entity.external_ids?.bushiroad_music) {
+      const bushiId = String(entity.external_ids.bushiroad || entity.external_ids.bushiroad_music).toLowerCase();
       return {
         url: `https://bushiroad-music.com/musics/${bushiId}/`,
         label: locale === "zh-CN" ? "Bushiroad 官方唱片" : "Bushiroad Music Official",
@@ -389,23 +369,8 @@ export function EntityDetailView({ id }: { id: string }) {
       };
     }
 
-    // 3. Fallback to motherWork or subjects
-    const parentUrl =
-      motherWork?.attributes?.official_website ||
-      motherWork?.external_ids?.official ||
-      subjectWorks[0]?.attributes?.official_website ||
-      subjectWorks[0]?.external_ids?.official;
-
-    if (parentUrl && typeof parentUrl === "string" && parentUrl.startsWith("http")) {
-      return {
-        url: parentUrl,
-        label: locale === "zh-CN" ? "所属企划官网" : "Project Official Website",
-        isDirect: false,
-      };
-    }
-
     return null;
-  }, [entity, motherWork, subjectWorks, locale]);
+  }, [entity, locale]);
 
   // Store bonuses
   const storeBonuses = useMemo(() => {
@@ -778,83 +743,12 @@ export function EntityDetailView({ id }: { id: string }) {
               />
             </div>
 
-            {/* 2. External Authority & Official Badges */}
-            <div className="flex flex-col gap-2">
-              {officialInfo && (
-                <a
-                  href={officialInfo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/20 transition-all font-mono text-xs font-medium group shadow-2xs"
-                >
-                  <span className="flex items-center gap-2">
-                    <Globe className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span className="font-sans font-semibold">{officialInfo.label}</span>
-                  </span>
-                  <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
-                </a>
-              )}
-
-              {bangumiInfo && (
-                <a
-                  href={bangumiInfo.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-[#f09199]/10 text-[#f09199] border border-[#f09199]/25 hover:bg-[#f09199]/20 transition-all font-mono text-xs font-medium group shadow-2xs"
-                >
-                  <span className="flex items-center gap-2">
-                    <ExternalLink className="w-4 h-4 shrink-0" />
-                    <span className="font-sans font-semibold">{bangumiInfo.label}</span>
-                  </span>
-                  <span className="text-[11px] opacity-75 font-mono">#{bangumiInfo.id}</span>
-                </a>
-              )}
-
-              {entity.external_ids?.musicbrainz && (
-                <a
-                  href={`https://musicbrainz.org/release/${entity.external_ids.musicbrainz}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-between px-3.5 py-2 rounded-lg bg-[#ba478f]/10 text-[#ba478f] border border-[#ba478f]/25 hover:bg-[#ba478f]/20 transition-all font-mono text-xs font-medium group"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Music className="w-3.5 h-3.5" />
-                    <span>MusicBrainz</span>
-                  </span>
-                  <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
-                </a>
-              )}
-
-              {entity.external_ids?.vgmdb && (
-                <a
-                  href={`https://vgmdb.net/album/${entity.external_ids.vgmdb}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-between px-3.5 py-2 rounded-lg bg-[#007acc]/10 text-[#007acc] border border-[#007acc]/25 hover:bg-[#007acc]/20 transition-all font-mono text-xs font-medium group"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Disc className="w-3.5 h-3.5" />
-                    <span>VGMdb</span>
-                  </span>
-                  <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
-                </a>
-              )}
-
-              {entity.attributes?.official_website && (
-                <a
-                  href={String(entity.attributes.official_website)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-between px-3.5 py-2 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:text-primary transition-all font-mono text-xs font-medium group"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-primary" />
-                    <span>{locale === "zh-CN" ? "官方网站" : "Official Website"}</span>
-                  </span>
-                  <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
-                </a>
-              )}
-            </div>
+            {/* 2. External Authority & Official Links (官网与各权威数据源同级一体化呈现) */}
+            <ExternalAuthorityLinks
+              entity={entity}
+              category={entity.kind}
+              variant="list"
+            />
 
             {/* 3. Basic Facts & Information Card */}
             <div className="p-4 sm:p-5 rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface shadow-soft space-y-4">
@@ -1101,19 +995,7 @@ export function EntityDetailView({ id }: { id: string }) {
                     <span>{t("entity.detail.compareAdd")}</span>
                   </Link>
 
-                  {officialInfo && (
-                    <a
-                      href={officialInfo.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-all shadow-2xs font-mono cursor-pointer"
-                      title={locale === "zh-CN" ? "访问官方认证主页/唱片发售站" : "Open Verified Official Page"}
-                    >
-                      <Globe className="w-3.5 h-3.5 text-emerald-500" />
-                      <span>{officialInfo.label}</span>
-                      <ArrowUpRight className="w-3 h-3 opacity-70" />
-                    </a>
-                  )}
+                  
 
                   <a
                     href="#revisions"

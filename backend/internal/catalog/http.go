@@ -407,6 +407,10 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.Occurrences(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, gin.H{"items": v}, err)
 	})
+	cat.GET("/external-databases", func(c *gin.Context) {
+		v, err := s.ListExternalDatabases(c.Request.Context(), c.Query("category"), true)
+		respond(c, gin.H{"items": v}, err)
+	})
 	cat.GET("/compare", func(c *gin.Context) {
 		v, err := s.Compare(c.Request.Context(), strings.Split(c.Query("ids"), ","), user(c))
 		respond(c, gin.H{"items": v}, err)
@@ -469,6 +473,30 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		respond(c, gin.H{"ok": true}, s.Publish(c.Request.Context(), id, *user(c), in.EditNote, in.Sources))
+	})
+	ext := api.Group("/admin/external-databases", required(true))
+	ext.GET("", func(c *gin.Context) {
+		v, err := s.ListExternalDatabases(c.Request.Context(), c.Query("category"), false)
+		respond(c, gin.H{"items": v}, err)
+	})
+	ext.POST("", func(c *gin.Context) {
+		var in ExternalDatabase
+		if !body(c, &in) {
+			return
+		}
+		v, err := s.CreateExternalDatabase(c.Request.Context(), in)
+		respond(c, gin.H{"message": "created", "data": v}, err)
+	})
+	ext.PUT("/:code", func(c *gin.Context) {
+		var in ExternalDatabase
+		if !body(c, &in) {
+			return
+		}
+		v, err := s.UpdateExternalDatabase(c.Request.Context(), c.Param("code"), in)
+		respond(c, gin.H{"message": "updated", "data": v}, err)
+	})
+	ext.DELETE("/:code", func(c *gin.Context) {
+		respond(c, gin.H{"message": "deleted"}, s.DeleteExternalDatabase(c.Request.Context(), c.Param("code")))
 	})
 }
 

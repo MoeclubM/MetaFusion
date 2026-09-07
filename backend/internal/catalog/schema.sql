@@ -92,6 +92,22 @@ DO $$ DECLARE t text; BEGIN
  END LOOP;
 END $$;
 
+CREATE TABLE IF NOT EXISTS catalog.external_databases (
+ code text PRIMARY KEY CHECK (code ~ '^[a-z0-9_]{2,64}$'),
+ name_zh text NOT NULL CHECK (length(trim(name_zh))>0),
+ name_en text NOT NULL DEFAULT '',
+ names jsonb NOT NULL DEFAULT '{}',
+ category text NOT NULL DEFAULT 'all',
+ url_pattern text NOT NULL CHECK (length(trim(url_pattern))>0),
+ icon text NOT NULL DEFAULT 'Globe',
+ icon_url text NOT NULL DEFAULT '',
+ validation_regex text NOT NULL DEFAULT '',
+ description text NOT NULL DEFAULT '',
+ sort_order int NOT NULL DEFAULT 0,
+ is_enabled boolean NOT NULL DEFAULT true,
+ is_system boolean NOT NULL DEFAULT false
+);
+
 CREATE TABLE IF NOT EXISTS catalog.oauth_clients (
  id text PRIMARY KEY, secret_hash text NOT NULL, name text NOT NULL,
  redirect_uris text[] NOT NULL DEFAULT '{}', trusted boolean NOT NULL DEFAULT false,
