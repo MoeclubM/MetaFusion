@@ -3,10 +3,10 @@ import { buildTitleChain } from "./titles";
 const getApiBase = () => {
   if (typeof window !== "undefined") {
     // 浏览器端：使用网关相对路径，自适应任何主机/域名/IP
-    return "/api/v1";
+    return "/api";
   }
   // 服务端 (SSR)：使用容器内网
-  return process.env.INTERNAL_API_URL || "http://backend:8080/api/v1";
+  return process.env.INTERNAL_API_URL || "http://backend:8080/api";
 };
 
 export interface User {
