@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -123,12 +126,27 @@ func main() {
 		c.Header("X-Frame-Options", "SAMEORIGIN")
 		c.Next()
 	})
+	// requestID 透传 X-Request-ID：请求无则生成 crypto/rand hex，写入响应头与 gin 上下文。
+	r.Use(func(c *gin.Context) {
+		rid := c.GetHeader("X-Request-ID")
+		if rid == "" {
+			var b [16]byte
+			if _, err := rand.Read(b[:]); err != nil {
+				rid = fmt.Sprintf("%d", time.Now().UnixNano())
+			} else {
+				rid = hex.EncodeToString(b[:])
+			}
+		}
+		c.Set("request_id", rid)
+		c.Header("X-Request-ID", rid)
+		c.Next()
+	})
 
 	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
 		r.Use(cors.New(cors.Config{
 			AllowOrigins:     strings.Split(origins, ","),
 			AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-			AllowHeaders:     []string{"Authorization", "Content-Type", "Accept-Language"},
+			AllowHeaders:     []string{"Authorization", "Content-Type", "Accept-Language", "X-Request-ID", "Idempotency-Key"},
 			AllowCredentials: true,
 		}))
 	}
@@ -188,6 +206,8 @@ func main() {
 		Addr:              ":" + env("PORT", "8080"),
 		Handler:           r,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 

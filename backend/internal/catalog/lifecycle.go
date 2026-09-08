@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
+	"sync"
 	"time"
 )
 
@@ -70,7 +72,34 @@ func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u
 	return e, err
 }
 
+// deliverAttempts 是内存重试计数: consumer+"\x00"+eventID -> 连续失败次数。
+// 指数退避仅内存提示(日志中的下次建议延迟), 不改 deliveries 表结构。
+// TODO(三期): deliveries 表加 attempts/next_retry_at 持久列, 实现跨进程与
+// 重启可恢复的退避调度与死信队列; 当前进程重启后计数清零, 靠 outbox 全量
+// 未 ack 事件天然重试, 不丢事件。
+var (
+	deliverMu       sync.Mutex
+	deliverAttempts = map[string]int{}
+)
+
+// deliverBackoff 按连续失败次数给指数退避建议延迟, 上限 5 分钟。
+func deliverBackoff(n int) time.Duration {
+	if n <= 0 {
+		return 0
+	}
+	d := 5 * time.Second
+	for i := 1; i < n && d < 5*time.Minute; i++ {
+		d *= 2
+	}
+	if d > 5*time.Minute {
+		return 5 * time.Minute
+	}
+	return d
+}
+
 // Deliver acknowledges only successful callbacks. Callbacks must be idempotent by Event.ID.
+// 同批投递失败跳过继续: 记日志(含事件 ID+错误), 不中断整批; 失败事件不写
+// deliveries, 下次继续投递。批内有部分失败时返回汇总错误, 便于调用方重试整批。
 func (s *Store) Deliver(ctx context.Context, consumer string, handle func(context.Context, Event) error) error {
 	rows, err := s.DB.QueryContext(ctx, `SELECT id,type,entity_id,version,payload,created_at FROM catalog.outbox o WHERE NOT EXISTS(SELECT 1 FROM catalog.deliveries d WHERE d.consumer=$1 AND d.event_id=o.id) ORDER BY created_at,id LIMIT 100`, consumer)
 	if err != nil {
@@ -90,13 +119,32 @@ func (s *Store) Deliver(ctx context.Context, consumer string, handle func(contex
 	if err != nil {
 		return err
 	}
+	var failed []string
+	var firstErr error
 	for _, e := range events {
 		if err = handle(ctx, e); err != nil {
-			return err
+			key := consumer + "\x00" + e.ID
+			deliverMu.Lock()
+			deliverAttempts[key]++
+			n := deliverAttempts[key]
+			deliverMu.Unlock()
+			log.Printf("catalog deliver skip consumer=%s event=%s attempt=%d next_backoff=%s err=%v", consumer, e.ID, n, deliverBackoff(n), err)
+			failed = append(failed, e.ID)
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
 		}
+		key := consumer + "\x00" + e.ID
+		deliverMu.Lock()
+		delete(deliverAttempts, key)
+		deliverMu.Unlock()
 		if _, err = s.DB.ExecContext(ctx, "INSERT INTO catalog.deliveries(consumer,event_id) VALUES($1,$2) ON CONFLICT DO NOTHING", consumer, e.ID); err != nil {
 			return err
 		}
+	}
+	if firstErr != nil {
+		return fmt.Errorf("delivery_partial: %d/%d failed: %w", len(failed), len(events), firstErr)
 	}
 	return nil
 }

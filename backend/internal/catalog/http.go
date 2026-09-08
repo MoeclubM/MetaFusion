@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	"io"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -46,7 +46,9 @@ func respond(c *gin.Context, v any, err error) {
 	} else if code == "version_conflict" {
 		status = 409
 	}
-	c.JSON(status, gin.H{"error": code})
+	// 结构化错误：保留 error 字段兼容旧前端，新增 code+message；database_error
+	// 只透出固定 code，不附带 SQL 原文。
+	c.JSON(status, gin.H{"error": code, "code": code, "message": code})
 }
 func body(c *gin.Context, v any) bool {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2<<20)
@@ -82,6 +84,106 @@ func required(admin bool) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+// routeBucket 复用 setup/login 限流风格的内存固定窗口计数, key 为 IP+路由。
+type routeBucket struct {
+	mu    sync.Mutex
+	start time.Time
+	n     int
+}
+
+var routeAttempts sync.Map // string -> *routeBucket
+
+// routeLimiter 按 IP+路由限流重型 GET 接口, 超限返回 429 + Retry-After(秒)。
+func routeLimiter(perMinute int) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := c.ClientIP() + "|" + c.FullPath()
+		now := time.Now()
+		v, _ := routeAttempts.LoadOrStore(key, &routeBucket{start: now})
+		b := v.(*routeBucket)
+		b.mu.Lock()
+		if now.Sub(b.start) > time.Minute {
+			b.start = now
+			b.n = 0
+		}
+		b.n++
+		over := b.n > perMinute
+		retrySecs := int(time.Until(b.start.Add(time.Minute)).Seconds()) + 1
+		b.mu.Unlock()
+		if retrySecs < 1 {
+			retrySecs = 1
+		}
+		if over {
+			c.Header("Retry-After", strconv.Itoa(retrySecs))
+			c.AbortWithStatusJSON(429, gin.H{"error": "rate_limited", "code": "rate_limited", "message": "rate_limited"})
+			return
+		}
+		c.Next()
+	}
+}
+
+// idemEntry 写接口幂等缓存: Idempotency-Key -> 首创返回体, TTL 24h, 进程内存。
+// 命中直接返回原结果, 不建重复实体; 分布式/持久化幂等放三期。
+type idemEntry struct {
+	value any
+	exp   time.Time
+}
+
+var (
+	idemCache   sync.Map // string -> idemEntry
+	idemJanitor sync.Once
+)
+
+func idemSweep() {
+	idemJanitor.Do(func() {
+		go func() {
+			for range time.Tick(time.Hour) {
+				now := time.Now()
+				idemCache.Range(func(k, v any) bool {
+					if e, ok := v.(idemEntry); ok && now.After(e.exp) {
+						idemCache.Delete(k)
+					}
+					return true
+				})
+			}
+		}()
+	})
+}
+
+func idemCacheKey(c *gin.Context) (string, bool) {
+	key := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+	if key == "" {
+		return "", false
+	}
+	uid := ""
+	if u := user(c); u != nil {
+		uid = u.ID
+	}
+	return c.FullPath() + "|" + uid + "|" + key, true
+}
+
+func idemLookup(c *gin.Context) (any, bool) {
+	ck, ok := idemCacheKey(c)
+	if !ok {
+		return nil, false
+	}
+	if v, ok := idemCache.Load(ck); ok {
+		if e, ok := v.(idemEntry); ok && time.Now().Before(e.exp) {
+			return e.value, true
+		}
+		idemCache.Delete(ck)
+	}
+	return nil, false
+}
+
+func idemStore(c *gin.Context, value any) {
+	ck, ok := idemCacheKey(c)
+	if !ok {
+		return
+	}
+	idemSweep()
+	idemCache.Store(ck, idemEntry{value: value, exp: time.Now().Add(24 * time.Hour)})
 }
 func (h HTTP) Register(r *gin.Engine) {
 	h.registerGroup(r.Group("/api"))
@@ -341,14 +443,27 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	cat.GET("/works", func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.DefaultQuery("limit", c.DefaultQuery("page_size", "20")))
 		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-		items, err := s.List(c.Request.Context(), ListOptions{Kind: "work", Query: c.Query("q"), Limit: limit, Offset: offset}, user(c))
-		respond(c, gin.H{"items": items, "total": len(items)}, err)
+		o := ListOptions{Kind: "work", Query: c.Query("q"), Limit: limit, Offset: offset}
+		items, err := s.List(c.Request.Context(), o, user(c))
+		if err != nil {
+			respond(c, nil, err)
+			return
+		}
+		// 真实 COUNT total, 与 List 共用同一谓词(见 listFilter/Count)。
+		total, err := s.Count(c.Request.Context(), o, user(c))
+		respond(c, gin.H{"items": items, "total": total}, err)
 	})
-	cat.GET("/entities", func(c *gin.Context) {
+	cat.GET("/entities", routeLimiter(120), func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		offset, _ := strconv.Atoi(c.Query("offset"))
-		items, err := s.List(c.Request.Context(), ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Limit: limit, Offset: offset}, user(c))
-		respond(c, gin.H{"items": items}, err)
+		o := ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Limit: limit, Offset: offset}
+		items, err := s.List(c.Request.Context(), o, user(c))
+		if err != nil {
+			respond(c, nil, err)
+			return
+		}
+		total, err := s.Count(c.Request.Context(), o, user(c))
+		respond(c, gin.H{"items": items, "total": total}, err)
 	})
 	cat.GET("/entities/:id", func(c *gin.Context) { e, err := s.Get(c.Request.Context(), c.Param("id"), user(c)); respond(c, e, err) })
 	cat.GET("/entities/:id/resolve", func(c *gin.Context) {
@@ -356,6 +471,11 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, e, err)
 	})
 	cat.POST("/entities", required(false), func(c *gin.Context) {
+		// 幂等命中直接返回首创结果, 不建重复实体。
+		if cached, ok := idemLookup(c); ok {
+			c.JSON(200, cached)
+			return
+		}
 		var in Edit
 		if !body(c, &in) {
 			return
@@ -365,6 +485,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		e, err := s.Save(c.Request.Context(), in, *user(c))
+		if err == nil {
+			idemStore(c, e)
+		}
 		respond(c, e, err)
 	})
 	cat.PUT("/entities/:id", required(false), func(c *gin.Context) {
@@ -404,7 +527,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.ListShelves(c.Request.Context(), true)
 		respond(c, gin.H{"items": v}, err)
 	})
-	cat.GET("/compare", func(c *gin.Context) {
+	cat.GET("/compare", routeLimiter(10), func(c *gin.Context) {
 		v, err := s.Compare(c.Request.Context(), strings.Split(c.Query("ids"), ","), user(c))
 		respond(c, gin.H{"items": v}, err)
 	})
@@ -434,6 +557,11 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, v, err)
 	})
 	cat.POST("/relations", required(false), func(c *gin.Context) {
+		// 幂等命中直接返回首创结果, 不建重复关系。
+		if cached, ok := idemLookup(c); ok {
+			c.JSON(200, cached)
+			return
+		}
 		var in RelationEdit
 		if !body(c, &in) {
 			return
@@ -443,6 +571,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		v, err := s.SaveRelation(c.Request.Context(), in, *user(c))
+		if err == nil {
+			idemStore(c, v)
+		}
 		respond(c, v, err)
 	})
 	cat.PUT("/relations/:id", required(false), func(c *gin.Context) {
