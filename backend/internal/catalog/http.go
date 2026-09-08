@@ -408,6 +408,31 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.Compare(c.Request.Context(), strings.Split(c.Query("ids"), ","), user(c))
 		respond(c, gin.H{"items": v}, err)
 	})
+	imp := api.Group("/importer")
+	imp.POST("/preview", func(c *gin.Context) {
+		var in ImporterPreviewRequest
+		if !body(c, &in) {
+			return
+		}
+		if strings.TrimSpace(in.URLOrID) == "" {
+			c.JSON(400, gin.H{"error": "invalid_payload"})
+			return
+		}
+		v, err := s.Preview(c.Request.Context(), in.Source, in.URLOrID, in.EntityType)
+		if err == nil {
+			c.JSON(200, v)
+			return
+		}
+		respond(c, nil, err)
+	})
+	imp.POST("/import", required(false), func(c *gin.Context) {
+		var in ImporterImportRequest
+		if !body(c, &in) {
+			return
+		}
+		v, err := s.Import(c.Request.Context(), in, *user(c))
+		respond(c, v, err)
+	})
 	cat.POST("/relations", required(false), func(c *gin.Context) {
 		var in RelationEdit
 		if !body(c, &in) {
