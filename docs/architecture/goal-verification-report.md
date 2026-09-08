@@ -49,13 +49,20 @@
 - 外部来源 Tab 挂载已有 CRUD；EntityTypes/RelationTypes 四语回写；DefinitionsEditor 补 groupNames label、directory 对齐、词表冒烟面板；Fields NamesEditor 四语。
 - 验证：后端单测 + `tsc` 通过。
 
-## 8. 真人模拟 + person/45638（本轮：链路修复 + 映射验证；全量导入未执行）
+## 8. 真人模拟 + person/45638（2026-09-08 线上全流程已执行，数据已清理）
 
-- 断链修复：后端新增 `POST /importer/preview`（公开）与 `POST /importer/import`（需登录），Bangumi 公开 API 代抓（10s 超时），幂等键 `metafusion_import=bangumi:{kind}:{id}`；前端前缀对齐后链路可达（63eec77 + c30de5f）。
-- person/45638 身份确认：本地快照 `person_45638.json` 即 MyGO!!!!! 乐队主体，与旧重导四阶段脚本同一对象（state 计数 702/255 对得上）。
-- 验证：纯单测 `TestImporterPreviewValidation`、`TestImporterRefParsing` PASS；DB 集成（stubBangumi 三端点 + 幂等不建重复）本地无库 SKIP，CI 跑全；Bangumi 直连超时未做线上 preview。
-- 未执行：本地/线上全量导入（需 Postgres + 出站 + 管理员会话），四阶段脚本重跑（旧 state 系线上 UUID，本地库已重置，不可直用），`/setup` 首管理员创建，创建/编辑/合并全流程手工点击。
-- 下一步：备好本地栈（compose + `.env`）与出站后，按“单主体 preview → import → 回读 → 修 summary/别名 → 建 relation → occurrences 反查”走一遍真人链，再谈全量。
+- 部署：分支推送至 origin，生产机 `/root/metafusion` 拉取 `2d3a148`，增量构建 backend+frontend，
+  迁移 `000002_catalog_shelves` 已应用；`POST /api/importer/*` 路由注册成功。
+- 真人链（token 直发 MoeCaa admin，用后即删）：preview（Bangumi 实抓 MyGO!!!!!）→ import
+  建 agent `4327fef9` → 带 token 回读 draft 可见、匿名 404 符合可见性语义 → PUT 发布 v2 →
+  修 `original_language=ja` + zh-CN 翻译 v3 → 建 `performed_by`（动画 work→乐队）→
+  双侧 relations 反查命中 → revisions 审计可追溯 → DELETE 关系 → lifecycle 删实体（v4 deleted）。
+- 数据质量发现：Bangumi 快照 summary 含 GBK 混杂乱码，线上 ja 翻译行如实透传，需后续清洗；
+  草稿阶段匿名不可读符合 `store.go:165`，不是 bug。
+- 清理：验证关系已删，验证实体已 deleted，token 已删；库内 703 实体（含 1 条 deleted 审计残留）/ 255 关系归位。
+- 货架：`GET /api/catalog/shelves` 返回 DB 规则，四语 names 就绪。
+- 未做：Definitions 新版发布（线上仍 base_version=1 无 edition_type，需后台 impact 预演后发布）、
+  全量 702 重导（旧数据已在库，无需重跑）。
 
 ---
 
