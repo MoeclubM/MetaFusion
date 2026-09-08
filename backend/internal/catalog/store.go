@@ -64,7 +64,9 @@ ON CONFLICT (id) DO NOTHING;`
 		if _, err := tx.ExecContext(ctx, seedOAuth); err != nil {
 			return err
 		}
-		if err := seedExternalDatabases(ctx, tx); err != nil { 			return err 		}
+		if err := seedExternalDatabases(ctx, tx); err != nil {
+			return err
+		}
 		if err := seedShelves(ctx, tx); err != nil {
 			return err
 		}
@@ -348,12 +350,13 @@ type ListOptions struct {
 	Offset, Limit                                                                                 int
 }
 
-func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, error) {
-	args := []any{}
+// listFilter builds the shared WHERE clause for List and Count so the list
+// total is a real COUNT(*) over the same predicate set, not len(items).
+func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]any) ([]string, error) {
 	parts := []string{"status NOT IN ('deleted','merged')"}
 	add := func(clause string, value any) {
-		args = append(args, value)
-		parts = append(parts, fmt.Sprintf(clause, len(args)))
+		*args = append(*args, value)
+		parts = append(parts, fmt.Sprintf(clause, len(*args)))
 	}
 	if u == nil {
 		parts = append(parts, "status='published'")
@@ -396,8 +399,31 @@ func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, err
 		if !ok || !f.Searchable {
 			return nil, fmt.Errorf("field_not_searchable")
 		}
-		args = append(args, o.Field, o.Value)
-		parts = append(parts, fmt.Sprintf("document->'attributes'->>$%d=$%d", len(args)-1, len(args)))
+		*args = append(*args, o.Field, o.Value)
+		parts = append(parts, fmt.Sprintf("document->'attributes'->>$%d=$%d", len(*args)-1, len(*args)))
+	}
+	return parts, nil
+}
+
+// Count returns the real total for ListOptions over the same predicates List
+// uses. List endpoints use it instead of len(items) so pagination totals stay
+// exact as the dataset grows.
+func (s *Store) Count(ctx context.Context, o ListOptions, u *User) (int64, error) {
+	args := []any{}
+	parts, err := listFilter(ctx, s, o, u, &args)
+	if err != nil {
+		return 0, err
+	}
+	var n int64
+	err = s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.entities WHERE "+strings.Join(parts, " AND "), args...).Scan(&n)
+	return n, err
+}
+
+func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, error) {
+	args := []any{}
+	parts, err := listFilter(ctx, s, o, u, &args)
+	if err != nil {
+		return nil, err
 	}
 	if o.Limit <= 0 || o.Limit > 100 {
 		o.Limit = 50

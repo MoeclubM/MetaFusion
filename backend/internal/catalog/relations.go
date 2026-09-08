@@ -7,7 +7,190 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"sort"
+	"strconv"
+	"strings"
 )
+
+// entityPlaceholders 为 IN 批量查询生成 ($k,$k+1,...) 占位符, 复用字符串
+// UUID 绑定风格(PG 侧 uuid 列与文本参数可比), 不新增驱动依赖。
+func entityPlaceholders(ids []string, start int) string {
+	ph := make([]string, len(ids))
+	for i := range ids {
+		ph[i] = "$" + strconv.Itoa(start+i)
+	}
+	return strings.Join(ph, ",")
+}
+
+func entityArgs(ids []string) []any {
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	return args
+}
+
+// getMany 一次 IN 批量拉取实体并按 kind 批量补齐侧表, 替代逐行 Get 的 N+1。
+// 仅返回 visible 的实体; 不可见/缺失直接从 map 中省略, 调用方按“缺失即跳过”处理。
+func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]Entity, error) {
+	out := map[string]Entity{}
+	uniq := []string{}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		uniq = append(uniq, id)
+	}
+	if len(uniq) == 0 {
+		return out, nil
+	}
+	rows, err := s.DB.QueryContext(ctx, "SELECT id::text, document FROM catalog.entities WHERE id IN ("+entityPlaceholders(uniq, 1)+")", entityArgs(uniq)...)
+	if err != nil {
+		return nil, err
+	}
+	byKind := map[string][]string{}
+	for rows.Next() {
+		var id string
+		var b []byte
+		var e Entity
+		if err = rows.Scan(&id, &b); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if err = json.Unmarshal(b, &e); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if !visible(e, u) {
+			continue
+		}
+		out[id] = e
+		byKind[e.Kind] = append(byKind[e.Kind], id)
+	}
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	link2 := func(kind, query string, scan func(*sql.Rows) error) error {
+		sub := byKind[kind]
+		if len(sub) == 0 {
+			return nil
+		}
+		r, err := s.DB.QueryContext(ctx, query+" IN ("+entityPlaceholders(sub, 1)+")", entityArgs(sub)...)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		for r.Next() {
+			if err = scan(r); err != nil {
+				return err
+			}
+		}
+		return r.Err()
+	}
+	put := func(id string, e Entity) {
+		if _, ok := out[id]; ok {
+			out[id] = e
+		}
+	}
+	if err = link2("content_unit", "SELECT id::text, work_id::text, coalesce(parent_id::text,'') FROM catalog.content_units WHERE id", func(r *sql.Rows) error {
+		var id, work, parent string
+		if err := r.Scan(&id, &work, &parent); err != nil {
+			return err
+		}
+		cur := out[id]
+		cur.WorkID, cur.ParentID = work, parent
+		put(id, cur)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if err = link2("expression", "SELECT id::text, work_id::text, coalesce(content_unit_id::text,'') FROM catalog.expressions WHERE id", func(r *sql.Rows) error {
+		var id, work, unit string
+		if err := r.Scan(&id, &work, &unit); err != nil {
+			return err
+		}
+		cur := out[id]
+		cur.WorkID, cur.ContentUnitID = work, unit
+		put(id, cur)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if err = link2("medium", "SELECT id::text, release_id::text, coalesce(parent_id::text,'') FROM catalog.mediums WHERE id", func(r *sql.Rows) error {
+		var id, rel, parent string
+		if err := r.Scan(&id, &rel, &parent); err != nil {
+			return err
+		}
+		cur := out[id]
+		cur.ReleaseID, cur.ParentID = rel, parent
+		put(id, cur)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if err = link2("track", "SELECT id::text, medium_id::text, coalesce(parent_id::text,'') FROM catalog.tracks WHERE id", func(r *sql.Rows) error {
+		var id, med, parent string
+		if err := r.Scan(&id, &med, &parent); err != nil {
+			return err
+		}
+		cur := out[id]
+		cur.MediumID, cur.ParentID = med, parent
+		cur.Contents = []Inclusion{}
+		put(id, cur)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	if len(byKind["track"]) > 0 {
+		r, err := s.DB.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator FROM catalog.track_contents WHERE track_id IN ("+entityPlaceholders(byKind["track"], 1)+") ORDER BY track_id, position", entityArgs(byKind["track"])...)
+		if err != nil {
+			return nil, err
+		}
+		for r.Next() {
+			var tid string
+			var c Inclusion
+			var loc []byte
+			if err = r.Scan(&tid, &c.ExpressionID, &c.Position, &loc); err != nil {
+				r.Close()
+				return nil, err
+			}
+			if err = json.Unmarshal(loc, &c.Locator); err != nil {
+				r.Close()
+				return nil, err
+			}
+			if cur, ok := out[tid]; ok && cur.Kind == "track" {
+				cur.Contents = append(cur.Contents, c)
+				out[tid] = cur
+			}
+		}
+		if err = r.Err(); err != nil {
+			r.Close()
+			return nil, err
+		}
+		r.Close()
+	}
+	if err = link2("release", "SELECT release_id::text, work_id::text, role, position FROM catalog.release_subjects WHERE release_id", func(r *sql.Rows) error {
+		var rid string
+		var x Subject
+		if err := r.Scan(&rid, &x.WorkID, &x.Role, &x.Position); err != nil {
+			return err
+		}
+		if cur, ok := out[rid]; ok && cur.Kind == "release" {
+			if cur.Subjects == nil {
+				cur.Subjects = []Subject{}
+			}
+			cur.Subjects = append(cur.Subjects, x)
+			out[rid] = cur
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
 
 func relations(ctx context.Context, q queryer) ([]Relation, error) {
 	rows, err := q.QueryContext(ctx, "SELECT document FROM catalog.relations ORDER BY id")
@@ -255,17 +438,27 @@ func (s *Store) Occurrences(ctx context.Context, id string, u *User) ([]map[stri
 		return nil, err
 	}
 	out := []map[string]any{}
+	// 去 N+1: 收集全部 release/medium/track ID, 一次 IN 批量拉取(含侧表),
+	// 不可见/缺失的按原语义跳过该行。
+	need := []string{}
 	for _, r := range records {
-		rel, err := s.Get(ctx, r.release, u)
-		if err != nil {
+		need = append(need, r.release, r.medium, r.track)
+	}
+	got, err := s.getMany(ctx, need, u)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range records {
+		rel, ok := got[r.release]
+		if !ok {
 			continue
 		}
-		med, err := s.Get(ctx, r.medium, u)
-		if err != nil {
+		med, ok := got[r.medium]
+		if !ok {
 			continue
 		}
-		track, err := s.Get(ctx, r.track, u)
-		if err != nil {
+		track, ok := got[r.track]
+		if !ok {
 			continue
 		}
 		out = append(out, map[string]any{"release": rel, "medium": med, "track": track, "expression_id": r.expr, "position": r.pos, "locator": r.loc})
