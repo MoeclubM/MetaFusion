@@ -61,8 +61,13 @@
   草稿阶段匿名不可读符合 `store.go:165`，不是 bug。
 - 清理：验证关系已删，验证实体已 deleted，token 已删；库内 703 实体（含 1 条 deleted 审计残留）/ 255 关系归位。
 - 货架：`GET /api/catalog/shelves` 返回 DB 规则，四语 names 就绪。
-- 未做：Definitions 新版发布（线上仍 base_version=1 无 edition_type，需后台 impact 预演后发布）、
-  全量 702 重导（旧数据已在库，无需重跑）。
+- Definitions 新版发布（2026-09-08 线上执行）：以线上 published id=2 为 base 起草 id=3，
+  叠加 `edition_type` 字段词表、format（uhd_bd/sacd/cassette/web）、packaging（jewel/slipcase/boxset）、
+  role（extra/commentary）扩项、4 新关系；impact 零问题后发布成功，线上回读
+  `id=3 base=2 edition_type=true relations=27 pressing_of=true`。
+- 全量关联验证：subject/407397、subject/428735、character/127790 三实体 preview→import
+  全部成功，回读 work types 正确（animation），随后 lifecycle 删除；库内 702 published + 4 deleted
+  审计残留 / 255 关系归位，token 已删。
 
 ---
 
