@@ -29,7 +29,6 @@ import {
 const COMPARE_MIN_SLOTS = 2;
 const COMPARE_MAX_SLOTS = 6;
 const COMPARE_BASKET_KEY = "metafusion_compare_basket";
-const EDITION_TYPES = ["standard", "limited", "first_press", "regional", "reissue", "digital"] as const;
 
 function readBasket(): string[] {
   if (typeof window === "undefined") return [];
@@ -92,21 +91,11 @@ function localizedText(v: unknown, locale: string): string {
 }
 
 function workMediaType(work?: Entity | null): string {
-  const names = [
-    ...((work?.title || "") ? [work!.title] : []),
-    ...(work?.types || []),
-    ...Object.values(work?.translations || {}).map((x) => x?.title || ""),
-  ]
-    .join(" ")
-    .toLowerCase();
-  if (/anime|动画|animation/.test(names)) return "anime";
-  if (/movie|film|电影|映画/.test(names)) return "movie";
-  if (/(^|[^a-z])tv([^a-z]|$)|series|剧集|电视剧|drama/.test(names)) return "tv_series";
-  if (/novel|book|小说|轻小说|light novel/.test(names)) return "novel";
-  if (/comic|manga|漫画/.test(names)) return "comic";
-  if (/audiobook|有声书|朗读/.test(names)) return "audiobook";
-  if (/gallery|photobook|写真|画集|artbook/.test(names)) return "gallery";
-  if (/music|album|single|音乐|专辑|单曲|song|ost|原声/.test(names)) return "music";
+  // 载体/篇目用词走服务端 types，不再用标题正则猜测。
+  // types 为 definitions type code（music/song/album/novel/animation/film/…），
+  // mediaLabels 的 switch 直接消费；未知 code 回退空字符串走通用标签。
+  const types = (work?.types || []).map((x) => String(x).toLowerCase());
+  if (types.length > 0) return types[0];
   return "";
 }
 
@@ -168,12 +157,14 @@ export default function ReleaseDetailPage() {
   const [works, setWorks] = useState<Record<string, Entity>>({});
   const [expressions, setExpressions] = useState<Record<string, Entity>>({});
   const [occurrences, setOccurrences] = useState<Record<string, Occurrence[]>>({});
+  const [expressionCredits, setExpressionCredits] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<string>("all");
   const [showBonus, setShowBonus] = useState(false);
   const [basket, setBasket] = useState<string[]>([]);
   const [basketNotice, setBasketNotice] = useState("");
+  const [siblingReleases, setSiblingReleases] = useState<Entity[]>([]);
 
   useEffect(() => {
     setBasket(readBasket());
@@ -227,6 +218,30 @@ export default function ReleaseDetailPage() {
     };
   }, [releaseId]);
 
+  // 同 Work 其他版本：用主 subject work_id 查 release 列表，供版本横 rail 切换。
+  useEffect(() => {
+    const workId =
+      release?.subjects?.find((s) => s.role === "primary")?.work_id || release?.subjects?.[0]?.work_id;
+    if (!workId) {
+      setSiblingReleases([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api<{ items: Entity[] }>(
+          `/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}&limit=100`
+        );
+        if (!cancelled) setSiblingReleases(r.items || []);
+      } catch {
+        if (!cancelled) setSiblingReleases([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [release?.id]);
+
   const expressionIds = useMemo(() => {
     const ids = new Set<string>();
     for (const row of media) {
@@ -267,11 +282,32 @@ export default function ReleaseDetailPage() {
         })
       );
       if (!cancelled) setOccurrences(occMap);
+      // 逐轨艺人：取各 expression 首个 performed_by / voiced_by / created_by 目标标题，
+      // 供曲目表 credit 列显示；失败留空回退 ISRC。
+      const creditMap: Record<string, string> = {};
+      await Promise.all(
+        expressionIds.slice(0, 60).map(async (id) => {
+          try {
+            const r = await api<{ items: { type: string; target_id: string }[] }>(
+              `/catalog/entities/${id}/relations`
+            );
+            const rel = (r.items || []).find((x) =>
+              ["performed_by", "voiced_by", "created_by"].includes(x.type)
+            );
+            if (!rel) return;
+            const target = await api<Entity>(`/catalog/entities/${rel.target_id}`);
+            if (target) creditMap[id] = entityTitle(target, locale);
+          } catch {
+            /* ignore */
+          }
+        })
+      );
+      if (!cancelled) setExpressionCredits(creditMap);
     })();
     return () => {
       cancelled = true;
     };
-  }, [expressionIds.join(",")]);
+  }, [expressionIds.join(","), locale]);
 
   const crossDurations = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
@@ -346,6 +382,12 @@ export default function ReleaseDetailPage() {
         ? getTermName(dynamicDefs, "packaging", packaging, locale)
         : packaging
       : packaging;
+  const channelLabel =
+    channel && dynamicDefs
+      ? getTermName(dynamicDefs, "distribution_channel", channel, locale) !== channel
+        ? getTermName(dynamicDefs, "distribution_channel", channel, locale)
+        : channel
+      : channel;
 
   const formatGroups = useMemo(() => {
     const groups = new Map<string, typeof media>();
@@ -416,7 +458,7 @@ export default function ReleaseDetailPage() {
               <dl className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-gray-500">
                 {country && <div className="flex gap-1"><dt>{t("release.detail.countryLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{country}</dd></div>}
                 {language && <div className="flex gap-1"><dt>{t("release.detail.languageLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{language}</dd></div>}
-                {channel && <div className="flex gap-1"><dt>{t("release.detail.channelLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{channel}</dd></div>}
+                {channelLabel && <div className="flex gap-1"><dt>{t("release.detail.channelLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{channelLabel}</dd></div>}
                 {editionDate && <div className="flex gap-1"><dt>{t("release.detail.dateLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{editionDate}</dd></div>}
                 {publisherName && <div className="flex gap-1"><dt>{t("release.detail.publisherLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{publisherName}</dd></div>}
               </dl>
@@ -473,6 +515,47 @@ export default function ReleaseDetailPage() {
             </div>
           </div>
         </section>
+
+        {siblingReleases.length > 1 && (
+          <nav aria-label={t("release.detail.siblingVersions")} className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface px-3.5 sm:px-4 py-3 space-y-2">
+            <p className="font-mono text-[11px] text-gray-500">
+              {t("release.detail.siblingVersions")} · {siblingReleases.length}
+            </p>
+            <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+              {siblingReleases.map((sib) => {
+                const sibEdition = attrText(sib.attributes?.edition_type);
+                const sibEditionLabel = sibEdition
+                  ? dynamicDefs && getTermName(dynamicDefs, "edition_type", sibEdition, locale) !== sibEdition
+                    ? getTermName(dynamicDefs, "edition_type", sibEdition, locale)
+                    : t(`release.editionType.${sibEdition}`) !== `release.editionType.${sibEdition}`
+                      ? t(`release.editionType.${sibEdition}`)
+                      : sibEdition
+                  : "";
+                const sibCatalogNo = attrText(sib.attributes?.catalog_number);
+                const active = sib.id === release.id;
+                return (
+                  <Link
+                    key={sib.id}
+                    href={`/releases/${sib.id}`}
+                    aria-current={active ? "page" : undefined}
+                    className={`shrink-0 max-w-[220px] rounded-md border px-3 py-2 text-left transition-colors ${
+                      active
+                        ? "bg-primary text-white border-primary"
+                        : "bg-black/[0.02] dark:bg-white/[0.03] border-black/10 dark:border-white/10 hover:border-primary/40"
+                    }`}
+                  >
+                    <span className={`block text-xs font-semibold truncate ${active ? "" : "text-gray-900 dark:text-white"}`}>
+                      {entityTitle(sib, locale)}
+                    </span>
+                    <span className={`mt-0.5 block font-mono text-[10px] truncate ${active ? "text-white/80" : "text-gray-500"}`}>
+                      {[sibEditionLabel, sibCatalogNo].filter(Boolean).join(" · ") || "—"}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </nav>
+        )}
 
         {formatGroups.length > 1 && (
           <nav aria-label={t("release.detail.formatTabs")} className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 sm:flex-wrap">
@@ -631,7 +714,16 @@ export default function ReleaseDetailPage() {
                                       )}
                                     </td>
                                     <td className="py-2 px-3.5 text-gray-500">
-                                      {attrText(tr.attributes?.isrc) ? (
+                                      {firstExpr && expressionCredits[firstExpr] ? (
+                                        <span className="text-xs text-gray-700 dark:text-gray-300">
+                                          {expressionCredits[firstExpr]}
+                                          {attrText(tr.attributes?.isrc) && (
+                                            <span className="ml-1.5 font-mono text-[10px] text-gray-400">
+                                              {attrText(tr.attributes?.isrc)}
+                                            </span>
+                                          )}
+                                        </span>
+                                      ) : attrText(tr.attributes?.isrc) ? (
                                         <span className="font-mono text-[11px]">{attrText(tr.attributes?.isrc)}</span>
                                       ) : (
                                         <span className="text-gray-400">—</span>

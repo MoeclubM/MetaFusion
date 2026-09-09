@@ -2465,6 +2465,7 @@
   "release.detail.languageLabel": "言語:",
   "release.detail.channelLabel": "チャンネル:",
   "release.detail.formatTabs": "メディア形式別に表示",
+  "release.detail.siblingVersions": "同作品の他バージョン",
   "release.detail.tabAllFormats": "すべての媒体",
   "release.detail.mediumCount": "{count}枚の媒体",
   "release.detail.showBonusDiscs": "特典ディスクを表示",

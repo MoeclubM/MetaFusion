@@ -252,28 +252,30 @@ export function EntityDetailView({ id }: { id: string }) {
     void load();
   }, [id, user?.id]);
 
-  // Inherited cover decision
+  // Inherited cover decision. Aspect is left to AdaptiveCover (natural ratio
+  // first): the new-track Entity carries no cover_aspect field, so no kind
+  // based hardcoding here; entity-specific pages may pass their own aspect.
   const resolvedCover = useMemo(() => {
-    if (!entity) return { src: null, aspect: "1:1", sourceName: "" };
+    if (!entity) return { src: null, aspect: null as string | null, sourceName: "" };
 
     // 1. Direct picture
     if (entity.pictures && entity.pictures.length > 0 && entity.pictures[0]?.url) {
-      return { src: entity.pictures[0].url, aspect: entity.kind === "work" ? "2:3" : "1:1", sourceName: "entity" };
+      return { src: entity.pictures[0].url, aspect: null as string | null, sourceName: "entity" };
     }
     // 2. Mother work picture
     if (motherWork?.pictures && motherWork.pictures.length > 0 && motherWork.pictures[0]?.url) {
-      return { src: motherWork.pictures[0].url, aspect: "2:3", sourceName: "mother_work" };
+      return { src: motherWork.pictures[0].url, aspect: null as string | null, sourceName: "mother_work" };
     }
     // 3. Subject works from release or occurrences
     if (subjectWorks.length > 0 && subjectWorks[0]?.pictures?.[0]?.url) {
-      return { src: subjectWorks[0].pictures[0].url, aspect: "2:3", sourceName: "subject_work" };
+      return { src: subjectWorks[0].pictures[0].url, aspect: null as string | null, sourceName: "subject_work" };
     }
     // 4. Occurrences release pictures
     if (occurrences.length > 0 && occurrences[0]?.release?.pictures?.[0]?.url) {
-      return { src: occurrences[0].release.pictures[0].url, aspect: "1:1", sourceName: "release" };
+      return { src: occurrences[0].release.pictures[0].url, aspect: null as string | null, sourceName: "release" };
     }
 
-    return { src: null, aspect: "1:1", sourceName: "procedural" };
+    return { src: null, aspect: null as string | null, sourceName: "procedural" };
   }, [entity, motherWork, subjectWorks, occurrences]);
 
   // Extract Bangumi info with proper type routing (Strictly entity-owned, never borrowed)
@@ -1347,7 +1349,11 @@ export function EntityDetailView({ id }: { id: string }) {
                       {occurrences.map((occ: any, idx: number) => {
                         const rel = occ.release;
                         if (!rel) return null;
-                        const isBoxset = occ.is_compilation || rel.attributes?.packaging?.toLowerCase()?.includes("box");
+                        const editionType = rel.attributes?.edition_type ? String(rel.attributes.edition_type) : "";
+                        const isBoxset =
+                          editionType === "boxset" ||
+                          occ.is_compilation ||
+                          rel.attributes?.packaging?.toLowerCase()?.includes("box");
                         return (
                           <tr key={rel.id || idx} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                             <td className="py-2.5 pr-3">
@@ -1361,13 +1367,19 @@ export function EntityDetailView({ id }: { id: string }) {
                                 </Link>
                                 {isBoxset && (
                                   <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[10px] font-semibold">
-                                    BOXSET
+                                    {getTermName(defs, "edition_type", "boxset", locale) !== "boxset"
+                                      ? getTermName(defs, "edition_type", "boxset", locale)
+                                      : t("release.editionType.boxset")}
                                   </span>
                                 )}
                               </div>
                             </td>
                             <td className="py-2.5 px-3 uppercase text-gray-600 dark:text-gray-300">
-                              {rel.attributes?.format || "CD"}
+                              {rel.attributes?.format
+                                ? getTermName(defs, "format", String(rel.attributes.format), locale) !== String(rel.attributes.format)
+                                  ? getTermName(defs, "format", String(rel.attributes.format), locale)
+                                  : String(rel.attributes.format)
+                                : "—"}
                             </td>
                             <td className="py-2.5 px-3 text-primary font-semibold">
                               {rel.attributes?.catalog_number || "—"}
