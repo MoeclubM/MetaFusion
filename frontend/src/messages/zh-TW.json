@@ -2498,6 +2498,8 @@
   "release.editionType.regional": "地區版",
   "release.editionType.reissue": "再版",
   "release.editionType.digital": "數位版",
+  "release.editionType.deluxe": "豪華版",
+  "release.editionType.boxset": "套盒",
   "work.detail.tableEdition": "版本",
   "work.detail.tableRegion": "地區",
   "work.detail.tablePackaging": "包裝",

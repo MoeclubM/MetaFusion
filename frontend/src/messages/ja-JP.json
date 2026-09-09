@@ -2498,6 +2498,8 @@
   "release.editionType.regional": "地域版",
   "release.editionType.reissue": "再発版",
   "release.editionType.digital": "デジタル版",
+  "release.editionType.deluxe": "豪華版",
+  "release.editionType.boxset": "ボックスセット",
   "work.detail.tableEdition": "版",
   "work.detail.tableRegion": "地域",
   "work.detail.tablePackaging": "パッケージ",
