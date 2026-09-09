@@ -20,11 +20,12 @@ func Defaults() Definitions {
 	field := func(code, zh, en, typ string) {
 		d.Fields[code] = Field{Names: names(zh, en), Type: typ, Enabled: true, Searchable: true, Comparable: true}
 	}
-	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"edition_type", "版本类型", "Edition type", "enum"}, {"platform", "平台", "Platform", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
+	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"edition_type", "版本类型", "Edition type", "enum"}, {"distribution_channel", "发行渠道", "Distribution channel", "enum"}, {"platform", "平台", "Platform", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
 		field(x[0], x[1], x[2], x[3])
 	}
-	// TODO: country/channel/region 保持 text 而未收敛为词表：
-	// 取值是开放集合（地区代码、渠道/店铺名、放送地区），硬编码词表会阻塞编目，
+	// country/region 保持 text 而未收敛为词表：取值是开放集合（地区代码、
+	// 渠道/店铺名、放送地区），硬编码词表会阻塞编目。前端显示时优先查
+	// 对应词表（distribution_channel 等），无词表命中则原样显示，不虚构映射。
 	// 待 taxonomy 落定后再收敛为词表或格式校验，目前仅以字段说明约束。
 	for _, x := range []struct {
 		code, zh, en string
@@ -34,7 +35,8 @@ func Defaults() Definitions {
 		{"packaging", "包装", "Packaging", [][3]string{{"standard", "标准包装", "Standard"}, {"jewel", "Jewel Case", "Jewel case"}, {"slipcase", "腰封 / 外封套", "Slipcase"}, {"box", "盒装", "Box"}, {"boxset", "套盒", "Box set"}, {"digipak", "Digipak", "Digipak"}}},
 		{"role", "内容用途", "Content roles", [][3]string{{"primary", "主要内容", "Primary"}, {"supplement", "附加内容", "Supplement"}, {"side", "唱片面", "Side"}, {"extra", "额外收录", "Extra"}, {"commentary", "解说音轨", "Commentary"}}},
 		{"release_role", "发行对象用途", "Release subject roles", [][3]string{{"primary", "主作品", "Primary"}, {"compilation", "汇编作品", "Compilation"}, {"supplement", "附加作品", "Supplement"}}},
-		{"edition_type", "版本类型", "Edition types", [][3]string{{"standard", "普通版", "Standard edition"}, {"limited", "限定版", "Limited edition"}, {"first_press", "初回版", "First press"}, {"regional", "地区版", "Regional edition"}, {"reissue", "再版", "Reissue"}, {"digital", "数字版", "Digital edition"}}},
+		{"edition_type", "版本类型", "Edition types", [][3]string{{"standard", "普通版", "Standard edition"}, {"limited", "限定版", "Limited edition"}, {"first_press", "初回版", "First press"}, {"regional", "地区版", "Regional edition"}, {"reissue", "再版", "Reissue"}, {"digital", "数字版", "Digital edition"}, {"deluxe", "豪华版", "Deluxe edition"}, {"boxset", "套盒", "Box set"}}},
+		{"distribution_channel", "发行渠道", "Distribution channels", [][3]string{{"mixed", "混合", "Mixed"}, {"physical", "实体", "Physical"}, {"digital", "数字", "Digital"}, {"web", "网络配信", "Web distribution"}}},
 	} {
 		v := Vocabulary{Names: names(x.zh, x.en), Terms: map[string]Term{}}
 		for _, t := range x.terms {
@@ -42,7 +44,7 @@ func Defaults() Definitions {
 		}
 		d.Vocabularies[x.code] = v
 	}
-	for _, k := range []string{"format", "packaging", "role", "edition_type"} {
+	for _, k := range []string{"format", "packaging", "role", "edition_type", "distribution_channel"} {
 		f := d.Fields[k]
 		f.Vocabulary = k
 		d.Fields[k] = f
@@ -83,7 +85,7 @@ func Defaults() Definitions {
 		case "expression":
 			keys = []string{"language", "duration", "version_label", "isrc", "events"}
 		case "release":
-			keys = []string{"catalog_number", "barcode", "edition_date", "edition_type", "country", "publisher", "packaging", "platform", "attachments", "store_bonuses", "events"}
+			keys = []string{"catalog_number", "barcode", "edition_date", "edition_type", "country", "publisher", "packaging", "distribution_channel", "platform", "attachments", "store_bonuses", "events"}
 		case "medium":
 			// catalog_number 复用 release 级同名字段：多碟装各自品番落在 medium.attributes，
 			// release.attributes 只保留总品番/代表品番。

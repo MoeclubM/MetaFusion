@@ -2498,6 +2498,8 @@
   "release.editionType.regional": "Regional edition",
   "release.editionType.reissue": "Reissue",
   "release.editionType.digital": "Digital edition",
+  "release.editionType.deluxe": "Deluxe edition",
+  "release.editionType.boxset": "Box set",
   "work.detail.tableEdition": "Edition",
   "work.detail.tableRegion": "Territory",
   "work.detail.tablePackaging": "Packaging",
