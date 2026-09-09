@@ -40,7 +40,8 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	// 自动同步模型结构（若数据库已有表则跳过，独立迁移各表避免单一约束差异阻塞全库）
+	// 自动同步模型结构：核心 DDL 硬失败，不再静默跳过（新项目立场）。
+	// 数据回填类迁移（patches.go 内 migrate*/restore*/seed*）为尽力而为，仅日志注明，见 ApplyPatches 注释。
 	// 注：Category 旧分类法已废弃并删除 struct；categories 表保留在库中但不再迁移/写入
 	modelsToMigrate := []interface{}{
 		&models.User{},
@@ -87,7 +88,7 @@ func InitDB(cfg *config.Config) (*gorm.DB, error) {
 	}
 	for _, m := range modelsToMigrate {
 		if err := db.AutoMigrate(m); err != nil {
-			log.Printf("AutoMigrate [%T] notice: %v", m, err)
+			return nil, err
 		}
 	}
 	if err := ApplyPatches(db); err != nil {
