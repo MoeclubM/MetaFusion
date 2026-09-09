@@ -122,6 +122,9 @@ temp/
 .tmp/
 *.tmp
 *.temp
+# 本地数据库导出/核查 dump（不入库，如 db_works_dump.json）
+*_dump.json
+db_*.json
 deploy/cover_cache/
 deploy/*.json
 deploy/*.py

@@ -176,7 +176,7 @@ bash deploy/deploy.sh migrate down
   - 首席档案员：`archivist_prime` / `archivist@metafusion.internal`，默认密码：`AdminPassword2026!`
   - *生产环境登录后请立即进入「个人设置」修改初始密码。*
 - **开发与架构文档站**：`http://<您的IP>:10100/docs`
-- **后端 API 健康状态**：`http://<您的IP>:10100/api/v1/health`
+- **后端 API 健康状态**：`http://<您的IP>:10100/healthz`（就绪探针 `/ready`，标准 API 基址 `/api`，文档 `/api/docs`）
 
 ---
 
@@ -185,10 +185,10 @@ bash deploy/deploy.sh migrate down
 MetaFusion 原生遵循 **API-First** 设计哲学，所有网页功能均具备 100% 对应的 RESTful 接口。
 
 1. **生成访问凭证**：登录后在 **个人中心 → 设置 → 开发者** 页面生成个人访问令牌（PAT）。
-2. **MusicBrainz 风格接口**：
-   - `GET /api/v1/catalog/lookup?entity=work&id=<UUID>&inc=artists,releases`
-   - `GET /api/v1/catalog/browse?entity=release&artist=<UUID>`
-   - `GET /api/v1/search?q=<keyword>&type=all&page=1&limit=20`
+2. **标准接口（统一基址 `/api`，无版本前缀）**：
+   - `GET /api/catalog/entities?kind=work&id=<UUID>`
+   - `GET /api/catalog/entities?kind=release&limit=20`
+   - `GET /api/catalog/entities?q=<keyword>&limit=20`
 3. **Agent 自主协同**：支持 LLM 智能体通过标准 OpenAPI/Swagger 文档与认证协议自主完成元数据校验、批量抓取入库与自动修订。
 
 ---
