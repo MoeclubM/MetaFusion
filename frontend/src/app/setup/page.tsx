@@ -41,9 +41,9 @@ export default function SetupPage() {
   const [loadingStatus, setLoadingStatus] = useState(true);
 
   // Form State
-  const [username, setUsername] = useState("admin");
+  const [username, setUsername] = useState("MoeCaa");
   const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("moecaa@findverse.cc");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -82,11 +82,11 @@ export default function SetupPage() {
     const trimmedEmail = email.trim();
 
     if (!trimmedUser || !trimmedEmail) {
-      setError(t("setup.usernameLabel") + " / " + t("setup.emailLabel") + "不能为空");
+      setError(t("setup.requiredMissing", { fields: t("setup.usernameLabel") + " / " + t("setup.emailLabel") }));
       return;
     }
 
-    if (password.length < 8) {
+    if (password.length < 12) {
       setError(t("setup.passwordTooShort"));
       return;
     }
@@ -111,7 +111,7 @@ export default function SetupPage() {
       login(res.access_token || res.token, res.user, res.refresh_token);
       setSuccessResult(res);
     } catch (err: any) {
-      setError(err?.message || "初始化失败，请检查网络或后端日志");
+      setError(err?.message || t("setup.setupFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -183,6 +183,10 @@ export default function SetupPage() {
             <div className="flex justify-between items-center text-gray-500">
               <span>Admin Username:</span>
               <span className="font-bold text-gray-900 dark:text-white">{successResult.user.username}</span>
+            </div>
+            <div className="flex justify-between items-center text-gray-500">
+              <span>Admin Email:</span>
+              <span className="font-bold text-gray-900 dark:text-white">{successResult.user.email || email}</span>
             </div>
             <div className="flex justify-between items-center text-gray-500">
               <span>Admin Role:</span>
@@ -333,10 +337,10 @@ export default function SetupPage() {
                   <input
                     type={showPassword ? "text" : "password"}
                     required
-                    minLength={8}
+                    minLength={12}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder={t("setup.passwordPlaceholder")}
+                    placeholder={t("setup.passwordPlaceholder12")}
                     className="w-full h-11 pl-10 pr-10 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <button
@@ -358,7 +362,7 @@ export default function SetupPage() {
                   <input
                     type={showPassword ? "text" : "password"}
                     required
-                    minLength={8}
+                    minLength={12}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder={t("setup.confirmPasswordPlaceholder")}

@@ -29,6 +29,17 @@ MetaFusion 是一个**开放媒体资源站与元数据共建平台**，专注�
 - **开放 API**：PAT 认证、实体查询、全文检索与 Agent 自动化接入
 - **服务与合规**：服务条款、隐私政策、版权与 DMCA 处理机制
 
+## 多系统解耦生态架构
+
+MetaFusion 整体采用**「元数据系统为主项目，周边外围子系统解耦自治」**的架构矩阵：
+
+- **元数据核心系统 (metafusion-catalog)**：**主项目**，聚焦于固定实体骨架（Agent, Work, Expression, Release, Medium, Track）、动态定义引擎、关系图谱与审核修订历史。仅依赖 PostgreSQL 即可 100% 独立稳定运行。
+- **账号与身份认证中心 (metafusion-auth)**：独立身份微服务，提供统一用户注册/登录、RBAC 权限管理、OAuth 2.0 / OIDC 认证授权与 JWT 统一鉴权。
+- **资源存储与下载管理中枢 (metafusion-storage)**：独立物理文件归档、S3 分布式对象存储、哈希防篡改校验与种子/下载配额控制。
+- **社区交流与论坛系统 (metafusion-community)**：独立讨论版块、主题回复与条目动态评分。
+- **API 网关与边缘路由 (metafusion-api-gateway)**：统一单域名反向代理分发、TLS 证书终止与全域 OpenAPI 聚合。
+- **开发者文档站点 (metafusion-docs)**：独立 VitePress 文档工程，承载对外规范、API 文档与 Agent 接入指引。
+
 ## 访问与权限模型
 
 | 模块 | 权限要求 | 内容与能力 |

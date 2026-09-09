@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { EntityAttributeSchema, fetchAttributeSchemas } from "@/lib/api";
+import { EntityAttributeSchema, fetchAttributeSchemas, pickLocalizedName } from "@/lib/api";
 import {
   Layers,
   Plus,
@@ -165,13 +165,11 @@ export const DynamicAttributeForm: React.FC<DynamicAttributeFormProps> = ({
           {schemas.map((schema) => {
             const key = schema.attribute_key;
             const label =
-              (schema.names && (schema.names[locale] || schema.names["en-US"])) ||
-              (locale.startsWith("zh") ? schema.name_zh : schema.name_en) ||
+              pickLocalizedName(locale, schema.names, schema.name_zh, schema.name_en) ||
               schema.name_zh;
 
             const desc =
-              (schema.descriptions && (schema.descriptions[locale] || schema.descriptions["en-US"])) ||
-              (locale.startsWith("zh") ? schema.desc_zh : schema.desc_en) ||
+              pickLocalizedName(locale, schema.descriptions, schema.desc_zh, schema.desc_en) ||
               schema.desc_zh;
 
             const val = currentAttrs[key];

@@ -33,7 +33,7 @@ export function I18nProvider({
   children: React.ReactNode;
   initialLocale?: string | null;
 }) {
-  const [locale, setLocaleState] = useState<Locale>(() => normalizeLocale(initialLocale || readCookieLocale()));
+  const [locale, setLocaleState] = useState<Locale>(() => normalizeLocale(initialLocale));
 
   useEffect(() => {
     const c = readCookieLocale();

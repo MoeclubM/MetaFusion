@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, ShieldAlert, Sparkles, Tag } from "lucide-react";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, pickLocalizedName } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DynamicNamesEditor, MultilingualBadges } from "@/components/common/DynamicNamesEditor";
 import { Modal } from "@/components/ui/Modal";
@@ -30,7 +30,7 @@ export function EntityTypesTab() {
     code: "",
     name_zh: "",
     name_en: "",
-    names: { "zh-CN": "", "en-US": "" },
+    names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
     desc_zh: "",
     desc_en: "",
     color: "text-amber-400",
@@ -62,7 +62,7 @@ export function EntityTypesTab() {
       code: "",
       name_zh: "",
       name_en: "",
-      names: { "zh-CN": "", "en-US": "" },
+      names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
       desc_zh: "",
       desc_en: "",
       color: "text-amber-400",
@@ -75,6 +75,9 @@ export function EntityTypesTab() {
 
   const handleOpenEdit = (item: EntityTypeItem) => {
     const initialNames: Record<string, string> = { ...(item.names || {}) };
+    for (const k of ["zh-CN", "zh-TW", "ja-JP", "en-US"]) {
+      if (!(k in initialNames)) initialNames[k] = "";
+    }
     if (!initialNames["zh-CN"] && item.name_zh) initialNames["zh-CN"] = item.name_zh;
     if (!initialNames["en-US"] && item.name_en) initialNames["en-US"] = item.name_en;
 
@@ -96,9 +99,14 @@ export function EntityTypesTab() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    // names map 全语言回写：zh-CN/en-US 必填，zh-TW/ja-JP 选填；legacy 双列仅作回退。
     const names = { ...(form.names || {}) };
-    const nameZh = names["zh-CN"] || form.name_zh || Object.values(names)[0] || "";
-    const nameEn = names["en-US"] || form.name_en || nameZh;
+    const nameZh = (names["zh-CN"] || "").trim();
+    const nameEn = (names["en-US"] || "").trim();
+    if (!nameZh || !nameEn) {
+      setError(t("admin.shelves.required"));
+      return;
+    }
 
     const payload = {
       ...form,
@@ -209,7 +217,7 @@ export function EntityTypesTab() {
                     />
                   </td>
                   <td className="px-4 py-3 max-w-xs truncate text-[11px] text-gray-400 font-sans">
-                    {locale === "en-US" ? item.desc_en || item.desc_zh : item.desc_zh || item.desc_en}
+                    {pickLocalizedName(locale, undefined, item.desc_zh, item.desc_en, item.desc_zh || item.desc_en)}
                   </td>
                   <td className="px-4 py-3 text-center text-gray-400">{item.sort_order}</td>
                   <td className="px-4 py-3 text-right">

@@ -28,20 +28,29 @@ interface CharacterCardItem {
 
 export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSectionProps) {
   const { t } = useI18n();
+  const defaultRole = t("work.detail.staffDefaultRole");
+  const voiceActorRole = t("work.detail.voiceActorRole");
+  const characterFallback = t("work.detail.relGroupCharacters");
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "key" | "characters">("all");
 
   if (!relations || relations.length === 0) return null;
 
-  // 出场角色与声优判定
+  // 出场角色与声优判定：优先实体类型，其次英文 code，最后兼容中文自由文本（老数据 role 即中文）。
   const isCastRole = (role: string, artistType?: string) => {
     const r = role.toLowerCase().trim();
     return (
       artistType === "virtual_character" ||
+      r === "character" ||
+      r === "main_character" ||
+      r === "supporting_character" ||
+      r === "guest_character" ||
+      r === "voice_actor" ||
+      r === "voice_actor_of" ||
+      r === "character_in" ||
       r === "主角" ||
       r === "配角" ||
       r === "客串" ||
-      r === "character" ||
       r === "角色" ||
       r.includes("声优") ||
       r.includes("voice actor") ||
@@ -50,18 +59,18 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
     );
   };
 
-  // 核心主创判定：仅收录总领导与核心部门负责人（原作、导演/监督、编剧/系列构成、人设、音乐、动画制作、美术/音响/摄影监督、制片人/企划）
+  // 核心主创判定：英文 code 优先，中文自由文本兼容（老数据 role 即中文）。
   const isKeyRole = (role: string) => {
     const r = role.toLowerCase().trim();
     return (
-      r === "author" || r === "原作" || r === "作者" || r === "原案" ||
-      r === "director" || r === "导演" || r === "监督" || r === "总监督" || r === "总导演" ||
-      r === "screenplay / writer" || r === "系列构成" || r === "剧本" || r === "编剧" || r === "脚本" ||
-      r === "character design" || r === "人物设定" || r === "角色设计" || r === "人物原案" || r === "角色原案" ||
-      r === "composer" || r === "音乐" || r === "作曲" || r === "配乐" ||
-      r === "studio" || r === "动画制作" || r === "制作公司" ||
-      r === "美术监督" || r === "音响监督" || r === "摄影监督" || r === "色彩设计" || r === "总作画监督" ||
-      r === "企划" || r === "制片人" || r === "制作人" || r === "动画制片人"
+      r === "author" || r === "original_author" || r === "原作" || r === "作者" || r === "原案" ||
+      r === "director" || r === "chief_director" || r === "导演" || r === "监督" || r === "总监督" || r === "总导演" ||
+      r === "screenplay / writer" || r === "writer" || r === "screenwriter" || r === "series_composition" || r === "系列构成" || r === "剧本" || r === "编剧" || r === "脚本" ||
+      r === "character design" || r === "character_design" || r === "人物设定" || r === "角色设计" || r === "人物原案" || r === "角色原案" ||
+      r === "composer" || r === "music" || r === "音乐" || r === "作曲" || r === "配乐" ||
+      r === "studio" || r === "animation_studio" || r === "动画制作" || r === "制作公司" ||
+      r === "art_director" || r === "sound_director" || r === "photography_director" || r === "美术监督" || r === "音响监督" || r === "摄影监督" || r === "色彩设计" || r === "总作画监督" ||
+      r === "producer" || r === "planner" || r === "企划" || r === "制片人" || r === "制作人" || r === "动画制片人"
     );
   };
 
@@ -78,17 +87,19 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
   const characterCards = useMemo(() => {
     const cardMap = new Map<string, CharacterCardItem>();
 
-    // 1. 提取所有 Character 实体
+    // 1. 提取所有 Character 实体：实体类型优先，role 归一化后匹配（含英文 code 与中文兼容）
     for (const rel of relations) {
       const art = rel.artist;
+      const rn = (rel.role || "").toLowerCase().trim();
       const isChar = art?.entity_type === "virtual_character" ||
-        rel.role === "主角" || rel.role === "配角" || rel.role === "客串" || rel.role === "Character" ||
+        rn === "character" || rn === "main_character" || rn === "supporting_character" || rn === "guest_character" || rn === "character_in" ||
+        rel.role === "主角" || rel.role === "配角" || rel.role === "客串" ||
         (rel.role.startsWith("角色") && !rel.role.includes("配演"));
 
       if (isChar && art) {
         let badge = rel.role;
         if (!badge || badge === "Character" || badge === "character") {
-          badge = "角色";
+          badge = characterFallback;
         }
         cardMap.set(art.name, {
           id: rel.id.toString(),
@@ -102,15 +113,16 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
       }
     }
 
-    // 2. 提取声优 (Voice Actor) 并配对
+    // 2. 提取声优 (Voice Actor) 并配对：英文 code 与中文兼容，大小写无关
     for (const rel of relations) {
       const art = rel.artist;
       const r = rel.role;
-      const isVA = r.includes("声优") || r.includes("Voice Actor") || r.includes("配演") || r.includes("配音");
+      const rl = (r || "").toLowerCase();
+      const isVA = rl === "voice_actor" || rl === "voice_actor_of" || r.includes("声优") || rl.includes("voice actor") || r.includes("配演") || r.includes("配音");
 
       if (isVA && art) {
         let charName = "";
-        let roleBadge = "角色";
+        let roleBadge = characterFallback;
 
         const match = r.match(/(?:配演:\s*|as\s*)([^\]\)]+)/i);
         if (match && match[1]) {
@@ -149,7 +161,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
             id: rel.id.toString(),
             character: {
               name: art.name,
-              roleBadge: "声优 / 配音",
+              roleBadge: voiceActorRole,
               avatar_url: art.avatar_url,
               id: art.id,
             },
@@ -159,7 +171,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
     }
 
     return Array.from(cardMap.values());
-  }, [relations]);
+  }, [relations, characterFallback, voiceActorRole]);
 
   // 紧凑核心创作者徽章（未展开时展示在详情页头部）
   const displayedKey = keyStaff.length > 0 ? keyStaff.slice(0, 8) : relations.slice(0, 8);
@@ -183,7 +195,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
   // 格式化具体职务标签
   const formatRole = (rawRole: string) => {
     const trimmed = rawRole.trim();
-    if (!trimmed) return "制作团队";
+    if (!trimmed) return defaultRole;
     const mapped = roleLabel(trimmed);
     return mapped || trimmed;
   };

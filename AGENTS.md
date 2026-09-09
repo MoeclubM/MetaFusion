@@ -19,13 +19,21 @@
 5. 默认在当前分支提交。真正的新功能从 `main` 建功能分支（默认 `codex/` 前缀），但不得为切分支丢弃已有改动。未经明确授权不 force push；获准推送时先确认远端状态。
 6. 检查失败时区分本次引入的问题与既有/环境问题；修复本次问题，无法验证的项目明确报告，不以“已通过”替代。提交后再次确认工作区范围。
 
+## 规范驱动开发与架构基准
+
+本项目严格遵循 [规范驱动开发需求与架构基准](docs/architecture/spec-driven-requirements.md)。元数据主系统（首页货架、探索、详情、对比、管理后台）共用数据库一体化运行，动态类型/关系/字段走服务端 definitions 动态加载与多语言解析，外围论坛与存储系统独立解耦。全站严禁硬编码文案与夸张 Slogan。
+
+## 运行时与架构说明
+
+系统处于快速迭代开发阶段，采用单一、纯净、无历史包袱的标准元数据架构。核心应用统一入口为 `/api`（无版本前缀），实现位于 `backend/internal/catalog`，前端专用详情路由为 `/works`、`/releases`、`/mediums`，通用兜底为 `/catalog/[id]`。系统使用固定实体骨架（Agent、Collection、Work、ContentUnit、Expression、Release、Medium、Track）、Release.subjects 和跨 Work TrackContent；详情见 [元数据目录教程](docs-site/docs/catalog.md)。
+
 ## 3. 项目导航与事实来源
 
 MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资源分享站，不是通用知识库。
 
 | 任务 | 优先入口 |
 | --- | --- |
-| 后端 API / 数据模型 | `backend/cmd/server/routes_catalog.go`、`backend/internal/catalog/`、`backend/internal/models/` |
+| 后端 API / 数据模型 | `backend/internal/catalog/`（统一入口 `/api`，路由见 `http.go:Register`）、`backend/internal/models/`（旧 GORM 轨，只读兼容） |
 | 数据库与完整性约束 | `backend/migrations/`；只把已执行迁移视为目标实例能力 |
 | 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US}.json`、[i18n 规则](.cursor/rules/i18n-localization-strict.mdc) |
 | 插件与解耦 | `backend/internal/plugin/`、[插件架构](docs/architecture/plugin-decoupling-blueprint.md) |

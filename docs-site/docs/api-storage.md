@@ -12,7 +12,7 @@ group: "api"
 ## 初始化（秒传检测）
 
 ```http
-POST /api/v1/storage/upload/initiate
+POST /api/storage/upload/initiate
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -67,7 +67,7 @@ curl -X PUT "<presigned_url_1>" --data-binary @part_1.bin
 分片上传完毕后，调用 complete 接口触发 S3 分片合并与后台异步转码：
 
 ```http
-POST /api/v1/storage/upload/complete
+POST /api/storage/upload/complete
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -90,7 +90,7 @@ Content-Type: application/json
 已存在的独立 CAS 资产可自由绑定到其他实体：
 
 ```http
-POST /api/v1/storage/bind
+POST /api/storage/bind
 Authorization: Bearer <token>
 Content-Type: application/json
 
@@ -105,7 +105,7 @@ Content-Type: application/json
 ## 下载原档
 
 ```http
-GET /api/v1/storage/download/:asset_id
+GET /api/storage/download/:asset_id
 Authorization: Bearer <token>
 
 → { "download_url": "http://rustfs:9000/metafusion-master/masters/...?X-Amz-Signature=...&response-content-disposition=attachment%3B%20filename%3D..." }

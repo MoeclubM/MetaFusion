@@ -149,6 +149,15 @@ html.light .text-gray-500:not(.keep-white) {
   color: #94a3b8 !important;
 }
 
+/* Badges & text on dark overlays must remain crisp white in light mode */
+html.light .keep-white,
+html.light [class*="bg-black/"]:not(.no-keep-white),
+html.light [class*="bg-black/"] .text-white,
+html.light [class*="bg-black/"] .text-gray-200,
+html.light [class*="bg-black/"] .text-gray-300 {
+  color: #ffffff !important;
+}
+
 html.light .border-white\/10,
 html.light .border-white\/\[0\.06\],
 html.light .border-white\/\[0\.07\],

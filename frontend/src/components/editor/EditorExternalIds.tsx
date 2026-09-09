@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { fetchExternalDatabases, ExternalDatabaseDefinition } from "@/lib/api";
+import { fetchExternalDatabases, ExternalDatabaseDefinition, pickLocalizedName } from "@/lib/api";
 import { Plus, Trash2, Globe, ExternalLink, AlertCircle } from "lucide-react";
 
 interface Props {
@@ -74,14 +74,14 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
-        <p>{t("editor.external.tip") || "关联各大权威外部数据库（支持输入对应 ID 或完整网页链接，系统将自动解析与规范化外链）。"}</p>
+        <p>{t("editor.external.tip")}</p>
       </div>
 
       {/* 现有条目列表 */}
       <div className="space-y-3">
         {currentEntries.map(([code, val]) => {
           const def = defMap.get(code.toLowerCase());
-          const name = def ? (locale === "zh-CN" ? def.name_zh : def.name_en) || def.name_zh || def.code : code;
+          const name = def ? pickLocalizedName(locale, def.names, def.name_zh, def.name_en, def.code) : code;
           const strVal = String(val || "");
           
           let previewUrl = "";
@@ -100,7 +100,7 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
                 const reg = new RegExp(def.validation_regex);
                 isValid = reg.test(strVal);
                 if (!isValid) {
-                  validationMsg = `格式不符 (规则: ${def.validation_regex})`;
+                  validationMsg = t("editor.external.invalidFormat", { rule: def.validation_regex });
                 }
               } catch (e) {}
             }
@@ -130,7 +130,7 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
                   type="text"
                   value={strVal}
                   onChange={(e) => handleValueChange(code, e.target.value, def)}
-                  placeholder={def?.description || `输入 ${name} ID 或 URL...`}
+                  placeholder={def?.description || t("editor.external.idPlaceholder", { name })}
                   className={`w-full px-3 py-1.5 rounded-md bg-background border text-xs font-mono text-gray-900 dark:text-white focus:outline-none transition-colors ${
                     !isValid
                       ? "border-rose-500 focus:border-rose-500"
@@ -152,7 +152,7 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
                     href={previewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title={`测试外链预览: ${previewUrl}`}
+                    title={t("editor.external.previewLink", { url: previewUrl })}
                     className="p-1.5 rounded-md bg-black/[0.04] dark:bg-white/[0.06] hover:bg-sky-500/10 text-gray-600 dark:text-gray-300 hover:text-sky-500 border border-black/10 dark:border-white/10 transition-colors"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -161,7 +161,7 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
                 <button
                   type="button"
                   onClick={() => handleRemove(code)}
-                  title="移除此外部标识"
+                  title={t("editor.external.removeId")}
                   className="p-1.5 rounded-md hover:bg-rose-500/10 text-gray-400 hover:text-rose-500 transition-colors"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
@@ -179,13 +179,13 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
           onChange={(e) => setSelectedCodeToAdd(e.target.value)}
           className="px-3 py-1.5 rounded-lg bg-background border border-black/10 dark:border-white/10 text-xs font-mono text-gray-700 dark:text-gray-300 focus:outline-none focus:border-primary"
         >
-          <option value="">+ 选择要关联的外部数据库...</option>
+          <option value="">{t("editor.external.selectDb")}</option>
           {availableDefs.map((d) => (
             <option key={d.code} value={d.code}>
-              {(locale === "zh-CN" ? d.name_zh : d.name_en) || d.name_zh || d.code} ({d.code})
+              {pickLocalizedName(locale, d.names, d.name_zh, d.name_en, d.code)} ({d.code})
             </option>
           ))}
-          <option value="custom">-- 自定义其他数据库代码 (Custom ID) --</option>
+          <option value="custom">{t("editor.external.customDb")}</option>
         </select>
 
         {selectedCodeToAdd === "custom" && (
@@ -193,7 +193,7 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
             type="text"
             value={customKey}
             onChange={(e) => setCustomKey(e.target.value)}
-            placeholder="如: goodreads, douban..."
+            placeholder={t("editor.external.customDbPlaceholder")}
             className="px-3 py-1.5 rounded-lg bg-background border border-black/10 dark:border-white/10 text-xs font-mono text-gray-900 dark:text-white focus:outline-none focus:border-primary w-40"
           />
         )}
@@ -205,7 +205,7 @@ export function EditorExternalIds({ externalIds = {}, updateExternalId, category
           className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Plus className="w-3.5 h-3.5" />
-          <span>添加字段</span>
+          <span>{t("editor.external.addField")}</span>
         </button>
       </div>
     </div>

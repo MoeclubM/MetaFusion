@@ -1,9 +1,13 @@
 import { normalizeLocale, type Locale } from "./routing";
 import zhCN from "@/messages/zh-CN.json";
+import zhTW from "@/messages/zh-TW.json";
+import jaJP from "@/messages/ja-JP.json";
 import enUS from "@/messages/en-US.json";
 
 const catalog: Record<string, Record<string, string>> = {
   "zh-CN": zhCN as Record<string, string>,
+  "zh-TW": zhTW as Record<string, string>,
+  "ja-JP": jaJP as Record<string, string>,
   "en-US": enUS as Record<string, string>,
 };
 

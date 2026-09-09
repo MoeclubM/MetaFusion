@@ -3,10 +3,10 @@ import { buildTitleChain } from "./titles";
 const getApiBase = () => {
   if (typeof window !== "undefined") {
     // 浏览器端：使用网关相对路径，自适应任何主机/域名/IP
-    return "/api/v1";
+    return "/api";
   }
   // 服务端 (SSR)：使用容器内网
-  return process.env.INTERNAL_API_URL || "http://backend:8080/api/v1";
+  return process.env.INTERNAL_API_URL || "http://backend:8080/api";
 };
 
 export interface User {
@@ -261,7 +261,9 @@ export function pickLocalizedName(
   names?: Record<string, string> | null,
   fallbackZh?: string,
   fallbackEn?: string,
-  defaultSlug?: string
+  defaultSlug?: string,
+  fallbackJa?: string,
+  fallbackZhTw?: string
 ): string {
   if (names && typeof names === "object") {
     // 1. 精确匹配当前语言，如 zh-CN, en-US, ja, ko
@@ -281,11 +283,25 @@ export function pickLocalizedName(
     if (names["zh-CN"] && typeof names["zh-CN"] === "string" && names["zh-CN"].trim()) {
       return names["zh-CN"].trim();
     }
-    // 4. 回退至 en-US
+    // 4. 回退至 zh-TW / zh-Hant（繁中与简中互为回退，不再直跳英文）
+    if (names["zh-TW"] && typeof names["zh-TW"] === "string" && names["zh-TW"].trim()) {
+      return names["zh-TW"].trim();
+    }
+    if (names["zh-Hant"] && typeof names["zh-Hant"] === "string" && names["zh-Hant"].trim()) {
+      return names["zh-Hant"].trim();
+    }
+    // 5. 回退至 ja / ja-JP
+    if (names["ja"] && typeof names["ja"] === "string" && names["ja"].trim()) {
+      return names["ja"].trim();
+    }
+    if (names["ja-JP"] && typeof names["ja-JP"] === "string" && names["ja-JP"].trim()) {
+      return names["ja-JP"].trim();
+    }
+    // 6. 回退至 en-US
     if (names["en-US"] && typeof names["en-US"] === "string" && names["en-US"].trim()) {
       return names["en-US"].trim();
     }
-    // 5. 任意非空值
+    // 7. 任意非空值
     for (const v of Object.values(names)) {
       if (typeof v === "string" && v.trim()) {
         return v.trim();
@@ -293,12 +309,18 @@ export function pickLocalizedName(
     }
   }
 
-  // 6. 回退到 legacy 静态字段
+  // 8. 回退到 legacy 静态字段
   if (locale === "en-US" && fallbackEn && fallbackEn.trim()) {
     return fallbackEn.trim();
   }
   if (fallbackZh && fallbackZh.trim() && !fallbackZh.includes("???")) {
     return fallbackZh.trim();
+  }
+  if (fallbackZhTw && fallbackZhTw.trim() && !fallbackZhTw.includes("???")) {
+    return fallbackZhTw.trim();
+  }
+  if (fallbackJa && fallbackJa.trim() && !fallbackJa.includes("???")) {
+    return fallbackJa.trim();
   }
   if (fallbackEn && fallbackEn.trim()) {
     return fallbackEn.trim();
@@ -1914,30 +1936,60 @@ export interface ExternalLinkDisplay {
 
 export function fetchExternalDatabases(category?: string): Promise<{ items: ExternalDatabaseDefinition[] }> {
   const q = category ? `?category=${encodeURIComponent(category)}` : "";
-  return fetchApi<{ items: ExternalDatabaseDefinition[] }>(`/metadata/external-databases${q}`);
+  // 统一通过主系统 /api/catalog/external-databases 获取
+  return fetch(`/api/catalog/external-databases${q}`, { credentials: "same-origin" })
+    .then(async (res) => {
+      if (!res.ok) return { items: [] };
+      return res.json();
+    })
+    .catch(() => ({ items: [] }));
 }
 
 export function fetchAdminExternalDatabases(): Promise<{ items: ExternalDatabaseDefinition[] }> {
-  return fetchApi<{ items: ExternalDatabaseDefinition[] }>("/admin/external-databases");
+  return fetch("/api/admin/external-databases", { credentials: "same-origin" })
+    .then(async (res) => {
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `HTTP ${res.status}`);
+      }
+      return res.json();
+    });
 }
 
 export function createExternalDatabase(data: Partial<ExternalDatabaseDefinition>): Promise<{ message: string; data: ExternalDatabaseDefinition }> {
-  return fetchApi<{ message: string; data: ExternalDatabaseDefinition }>("/admin/external-databases", {
+  return fetch("/api/admin/external-databases", {
     method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+  }).then(async (res) => {
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
   });
 }
 
 export function updateExternalDatabase(code: string, data: Partial<ExternalDatabaseDefinition>): Promise<{ message: string; data: ExternalDatabaseDefinition }> {
-  return fetchApi<{ message: string; data: ExternalDatabaseDefinition }>(`/admin/external-databases/${encodeURIComponent(code)}`, {
+  return fetch(`/api/admin/external-databases/${encodeURIComponent(code)}`, {
     method: "PUT",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+  }).then(async (res) => {
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
   });
 }
 
 export function deleteExternalDatabase(code: string): Promise<{ message: string }> {
-  return fetchApi<{ message: string }>(`/admin/external-databases/${encodeURIComponent(code)}`, {
+  return fetch(`/api/admin/external-databases/${encodeURIComponent(code)}`, {
     method: "DELETE",
+    credentials: "same-origin",
+  }).then(async (res) => {
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    return body;
   });
 }
 
@@ -2024,8 +2076,15 @@ export interface InitialSetupResult {
   token_type: string;
 }
 
-export function fetchSetupStatus(): Promise<SetupStatusResponse> {
-  return fetchApi<SetupStatusResponse>("/system/setup-status");
+export async function fetchSetupStatus(): Promise<SetupStatusResponse> {
+  try {
+    const res = await fetch("/api/setup", { credentials: "same-origin" });
+    if (res.ok) {
+      const data = await res.json();
+      return { is_initialized: !data.needed, has_admin: !data.needed, site_name: "MetaFusion", total_users: 1 };
+    }
+  } catch {}
+  return { is_initialized: true, has_admin: true, site_name: "MetaFusion", total_users: 1 };
 }
 
 export interface PublicAuthSettings {
@@ -2041,11 +2100,40 @@ export function fetchAuthSettings(): Promise<PublicAuthSettings> {
   return fetchApi<PublicAuthSettings>("/auth/settings");
 }
 
-export function performInitialSetup(payload: InitialSetupPayload): Promise<InitialSetupResult> {
-  return fetchApi<InitialSetupResult>("/system/setup", {
+export async function performInitialSetup(payload: InitialSetupPayload): Promise<InitialSetupResult> {
+  const setupRes = await fetch("/api/setup", {
     method: "POST",
-    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: payload.username,
+      email: payload.email,
+      password: payload.password,
+    }),
   });
+  if (!setupRes.ok) {
+    const err = await setupRes.json().catch(() => ({}));
+    throw new Error(err.error || "setup_failed");
+  }
+  const user = await setupRes.json();
+  const loginRes = await fetch("/api/auth/login", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      username: payload.username,
+      password: payload.password,
+    }),
+  });
+  const loginData = loginRes.ok ? await loginRes.json() : {};
+  return {
+    message: "setup_success",
+    user: loginData.user || user,
+    token: loginData.token || "",
+    access_token: loginData.token || "",
+    refresh_token: "",
+    expires_in: 86400,
+    token_type: "Bearer",
+  };
 }
 
 // ── 系统健康监控与任务队列治理 (Health & Asynq Queues) ──
