@@ -14,7 +14,9 @@ import (
 
 // applySchemaPatches runs idempotent ALTERs so existing volumes pick up schema
 // that AutoMigrate cannot express (CHECK drops, unique rebuilds).
-// 返回 error：核心 DDL 失败即硬失败，不再静默跳过（新项目立场）。
+// 分级立场：核心 DDL（stmts + 约束整形）失败即硬失败返回 error，不再静默跳过；
+// 数据回填类迁移（migrate*/restore*/seed*，老数据恢复逻辑）为尽力而为，
+// 各函数内部仅日志注明继续，不阻塞新库启动。
 func applySchemaPatches(db *gorm.DB) error {
 	migrateHardClassificationToTags(db)
 	restoreSeedShelfQueryTagsIfClobbered(db)
@@ -99,7 +101,7 @@ func applySchemaPatches(db *gorm.DB) error {
 		}
 	}
 
-	_ = db.Exec(`
+	if err := db.Exec(`
 DO $$
 DECLARE r RECORD;
 BEGIN
@@ -110,20 +112,21 @@ BEGIN
     LOOP
         EXECUTE format('ALTER TABLE artists DROP CONSTRAINT IF EXISTS %I', r.conname);
     END LOOP;
-EXCEPTION WHEN OTHERS THEN NULL;
-END $$`).Error
-
-	_ = db.Exec(`
+END $$`).Error; err != nil {
+		return err
+	}
+	if err := db.Exec(`
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_artists_entity_type') THEN
         ALTER TABLE artists ADD CONSTRAINT fk_artists_entity_type
             FOREIGN KEY (entity_type) REFERENCES entity_type_definitions(code)
             ON UPDATE CASCADE ON DELETE RESTRICT;
     END IF;
-EXCEPTION WHEN OTHERS THEN NULL;
-END $$`).Error
+END $$`).Error; err != nil {
+		return err
+	}
 
-	_ = db.Exec(`
+	if err := db.Exec(`
 DO $$
 DECLARE r RECORD;
 BEGIN
@@ -133,27 +136,33 @@ BEGIN
     LOOP
         EXECUTE format('ALTER TABLE entity_relationships DROP CONSTRAINT IF EXISTS %I', r.conname);
     END LOOP;
-EXCEPTION WHEN OTHERS THEN NULL;
-END $$`).Error
+END $$`).Error; err != nil {
+		return err
+	}
 
-	_ = db.Exec(`
-	DO $$ BEGIN
-	    IF NOT EXISTS (
-	        SELECT 1 FROM pg_constraint
-	        WHERE conname = 'entity_relationships_edge_unique' AND conrelid = 'entity_relationships'::regclass
-	    ) THEN
-	        ALTER TABLE entity_relationships ADD CONSTRAINT entity_relationships_edge_unique
-	            UNIQUE (source_type, source_id, target_type, target_id, relationship_type, qualifier);
-	    END IF;
-	EXCEPTION WHEN OTHERS THEN NULL;
-	END $$`).Error
+	if err := db.Exec(`
+		DO $$ BEGIN
+		    IF NOT EXISTS (
+		        SELECT 1 FROM pg_constraint
+		        WHERE conname = 'entity_relationships_edge_unique' AND conrelid = 'entity_relationships'::regclass
+		    ) THEN
+		        ALTER TABLE entity_relationships ADD CONSTRAINT entity_relationships_edge_unique
+		            UNIQUE (source_type, source_id, target_type, target_id, relationship_type, qualifier);
+		    END IF;
+		END $$`).Error; err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func columnExists(db *gorm.DB, table, col string) bool {
 	var n int64
-	_ = db.Raw(`SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`, table, col).Scan(&n).Error
+	if err := db.Raw(`SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`, table, col).Scan(&n).Error; err != nil {
+		// 存在性探针失败时按列存在处理（保守），由后续 IF EXISTS DDL 幂等兜底，不误判跳过。
+		log.Printf("columnExists probe %s.%s failed, assuming exists: %v", table, col, err)
+		return true
+	}
 	return n > 0
 }
 
@@ -238,6 +247,8 @@ func mergeTagNames(existing []string, extra []string) []string {
 
 // migrateHardClassificationToTags copies works.media_type / shelf media_type
 // into work_tag_relations / query_tags, then drops those columns.
+// 老数据恢复逻辑：尽力而为，各步失败仅日志注明继续，不阻塞新库启动。
+// drops 全为 IF EXISTS 幂等语句，个别失败仅日志。
 func migrateHardClassificationToTags(db *gorm.DB) {
 	worksHas := columnExists(db, "works", "media_type")
 	shelfHas := columnExists(db, "virtual_shelves", "media_type")
