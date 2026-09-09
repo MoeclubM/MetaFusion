@@ -25,7 +25,7 @@
 
 ## 运行时与架构说明
 
-系统处于快速迭代开发阶段，采用单一、纯净、无历史包袱的标准元数据架构。核心应用统一入口为 `/api`（兼容 `/api/v2` 别名），实现位于 `backend/internal/catalogv2`，前端主体路由为 `/catalog`。系统使用固定实体骨架（Agent、Work、ContentUnit、Expression、Release、Medium、Track）、Release.subjects 和跨 Work TrackContent；详情见 [元数据目录教程](docs-site/docs/catalog.md)。
+系统处于快速迭代开发阶段，采用单一、纯净、无历史包袱的标准元数据架构。核心应用统一入口为 `/api`（无版本前缀），实现位于 `backend/internal/catalog`，前端专用详情路由为 `/works`、`/releases`、`/mediums`，通用兜底为 `/catalog/[id]`。系统使用固定实体骨架（Agent、Collection、Work、ContentUnit、Expression、Release、Medium、Track）、Release.subjects 和跨 Work TrackContent；详情见 [元数据目录教程](docs-site/docs/catalog.md)。
 
 ## 3. 项目导航与事实来源
 
@@ -33,7 +33,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 
 | 任务 | 优先入口 |
 | --- | --- |
-| 后端 API / 数据模型 | `backend/cmd/server/routes_catalog.go`、`backend/internal/catalog/`、`backend/internal/models/` |
+| 后端 API / 数据模型 | `backend/internal/catalog/`（统一入口 `/api`，路由见 `http.go:Register`）、`backend/internal/models/`（旧 GORM 轨，只读兼容） |
 | 数据库与完整性约束 | `backend/migrations/`；只把已执行迁移视为目标实例能力 |
 | 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US}.json`、[i18n 规则](.cursor/rules/i18n-localization-strict.mdc) |
 | 插件与解耦 | `backend/internal/plugin/`、[插件架构](docs/architecture/plugin-decoupling-blueprint.md) |
