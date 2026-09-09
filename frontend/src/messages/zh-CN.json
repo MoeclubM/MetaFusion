@@ -2465,6 +2465,7 @@
   "release.detail.languageLabel": "语言：",
   "release.detail.channelLabel": "渠道：",
   "release.detail.formatTabs": "按介质格式分组",
+  "release.detail.siblingVersions": "同作品其他版本",
   "release.detail.tabAllFormats": "全部介质",
   "release.detail.mediumCount": "共 {count} 张介质",
   "release.detail.showBonusDiscs": "显示特典盘",
