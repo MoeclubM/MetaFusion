@@ -216,7 +216,7 @@ export function PluginsTab() {
       try {
         finalConfig = JSON.parse(configRawJson);
       } catch (err: any) {
-        setError(`JSON 解析失败: ${err.message}`);
+        setError(t("admin.plugins.jsonParseFailed", { message: err.message }));
         setSavingConfig(false);
         return;
       }
@@ -595,10 +595,10 @@ export function PluginsTab() {
                               }`}
                               title={`${depId} (${constraint}) ${
                                 !depPlugin
-                                  ? "[缺失]"
+                                  ? t("admin.plugins.depMissingShort")
                                   : isDepActive
-                                  ? "[运行中]"
-                                  : "[未启用]"
+                                  ? t("admin.plugins.depRunningShort")
+                                  : t("admin.plugins.depInactiveShort")
                               }`}
                             >
                               {depId} {constraint !== "*" && constraint !== "" ? `(${constraint})` : ""}
@@ -922,7 +922,7 @@ export function PluginsTab() {
                                 className="w-4 h-4 rounded bg-black/40 border-white/[0.2] text-amber-400 focus:ring-0"
                               />
                               <span className="text-xs text-gray-300">
-                                {field.description || "开启此项"}
+                                {field.description || t("admin.plugins.enableField")}
                               </span>
                             </label>
                           ) : (
@@ -1075,7 +1075,7 @@ export function PluginsTab() {
                   <input
                     type="text"
                     required
-                    placeholder="自定义媒体元数据抓取器"
+                    placeholder={t("admin.plugins.fieldNamePlaceholder")}
                     value={registerForm.name}
                     onChange={(e) =>
                       setRegisterForm({ ...registerForm, name: e.target.value })
@@ -1110,7 +1110,7 @@ export function PluginsTab() {
                 </label>
                 <input
                   type="text"
-                  placeholder='{"musicbrainz": ">=1.0.0"} 或逗号分隔插件 ID'
+                  placeholder={t("admin.plugins.fieldDepsPlaceholder")}
                   value={dependenciesInput}
                   onChange={(e) => setDependenciesInput(e.target.value)}
                   className="w-full bg-surface border border-theme focus:border-amber-400/50 rounded-xl px-3 py-2 text-xs text-foreground placeholder-gray-500 outline-none font-mono"

@@ -33,7 +33,7 @@ const specJSON = `{
     "version": "1.0.0",
     "description": "MusicBrainz WS/2 inspired FRBR archive API. Metadata open, media authenticated. Full web parity for apps and agents."
   },
-  "servers": [{ "url": "/api/v1" }],
+  "servers": [{ "url": "/api" }],
   "paths": {
     "/auth/tokens": {
       "get": { "tags": ["auth"], "summary": "List PATs" },

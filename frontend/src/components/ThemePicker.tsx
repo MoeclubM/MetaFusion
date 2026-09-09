@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { useTheme } from "@/lib/themeContext";
+import { useTheme, accentLabel } from "@/lib/themeContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
  Sun,
@@ -13,7 +13,7 @@ import {
 
 export const ThemePicker: React.FC = () => {
  const { mode, accent, resolvedMode, setMode, setAccent, accents } = useTheme();
- const { t, locale } = useI18n();
+ const { t } = useI18n();
  const [isOpen, setIsOpen] = useState(false);
  const containerRef = useRef<HTMLDivElement>(null);
 
@@ -119,7 +119,7 @@ export const ThemePicker: React.FC = () => {
  <div className="flex items-center justify-between text-xs font-mono text-gray-500 dark:text-gray-400">
  <span>{t("theme.accentLabel")}</span>
  <span className="font-semibold text-gray-900 dark:text-white text-xs">
- {(() => { const cur = accents.find((a) => a.id === accent); return locale === "en-US" ? (cur?.enName || cur?.name) : (cur?.name || cur?.enName); })()}
+ {accentLabel(accent, t)}
  </span>
  </div>
  <div className="flex items-center justify-between gap-2 pt-0.5">
@@ -133,7 +133,7 @@ export const ThemePicker: React.FC = () => {
  e.stopPropagation();
  setAccent(item.id);
  }}
- title={locale === "en-US" ? item.enName : item.name}
+ title={t(item.labelKey)}
  className="group relative flex flex-col items-center p-0.5 rounded-md hover:bg-black/5 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
  >
  <div

@@ -21,7 +21,7 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
       summary: t("editor.diff.fieldSummary"),
       original_title: t("editor.diff.fieldOriginalTitle"),
       cover_aspect: t("editor.diff.fieldCoverAspect"),
-      cover_image_url: t("editor.diff.fieldCoverAspect") || "Cover URL",
+      cover_image_url: t("editor.diff.fieldCoverAspect"),
       country: t("editor.diff.fieldCountry"),
       status: t("editor.diff.fieldStatus"),
       aliases: t("editor.diff.fieldAliases"),
@@ -29,11 +29,11 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
       tags: t("editor.diff.fieldTags"),
       source_urls: t("editor.diff.fieldSourceUrls"),
       relations: t("editor.diff.fieldRelations"),
-      edition_name: "Edition / Release Name",
-      role: "Role",
-      disambiguation: "Disambiguation",
-      external_ids: "External IDs",
-      release_date: "Release Date",
+      edition_name: t("editor.diff.fieldEditionName"),
+      role: t("editor.diff.fieldRole"),
+      disambiguation: t("editor.diff.fieldDisambiguation"),
+      external_ids: t("editor.diff.fieldExternalIds"),
+      release_date: t("editor.diff.fieldReleaseDate"),
     };
     return map[key] ? `${map[key]} (${key})` : key;
   };
@@ -42,7 +42,7 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
     if (v === null || v === undefined) return "—";
     if (typeof v === "boolean") return v ? "true" : "false";
     if (Array.isArray(v)) {
-      if (v.length === 0) return "[] (空)";
+      if (v.length === 0) return t("editor.diff.emptyArray");
       return v.map((item) => (typeof item === "object" ? JSON.stringify(item) : String(item))).join("\n");
     }
     if (typeof v === "object") return JSON.stringify(v, null, 2);
@@ -69,7 +69,7 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
           className="text-primary hover:underline flex items-center gap-1 font-mono text-[10px]"
         >
           <FileCode2 className="w-3 h-3" />
-          <span>{showRaw ? "切换可视化对比" : "查看原始 JSON"}</span>
+          <span>{showRaw ? t("editor.diff.toggleVisual") : t("editor.diff.toggleRaw")}</span>
         </button>
       </div>
 
@@ -91,15 +91,15 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
                 </span>
                 {isAdded ? (
                   <span className="px-1.5 py-0.2 rounded text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5">
-                    <Plus className="w-2.5 h-2.5" /> 新增
+                    <Plus className="w-2.5 h-2.5" /> {t("editor.external.added")}
                   </span>
                 ) : isRemoved ? (
                   <span className="px-1.5 py-0.2 rounded text-[10px] bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex items-center gap-0.5">
-                    <Minus className="w-2.5 h-2.5" /> 移除
+                    <Minus className="w-2.5 h-2.5" /> {t("editor.external.removed")}
                   </span>
                 ) : (
                   <span className="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                    修改
+                    {t("editor.diff.modifiedBadge")}
                   </span>
                 )}
               </div>

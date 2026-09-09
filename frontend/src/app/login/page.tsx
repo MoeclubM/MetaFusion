@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { fetchApi, fetchSetupStatus, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { getAuthLoginUrl, getAuthRegisterUrl, AUTH_SERVICE_URL } from "@/lib/services";
 import { BrandMark } from "@/components/Logo";
 import { ThemePicker } from "@/components/ThemePicker";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
@@ -18,6 +19,19 @@ import {
  AlertCircle,
  Sparkles,
 } from "lucide-react";
+
+function getAuthErrorMessage(code: string, t: (key: string) => string): string {
+  if (!code) return t("auth.requestFailed");
+  const key = `auth.error.${code}`;
+  const translated = t(key);
+  if (translated && translated !== key) {
+    return translated;
+  }
+  if (code.includes("invalid_credentials")) {
+    return t("auth.error.invalid_credentials");
+  }
+  return code;
+}
 
 function LoginInner() {
  const router = useRouter();
@@ -35,6 +49,31 @@ function LoginInner() {
  const [submitting, setSubmitting] = useState(false);
  const [hasAdmin, setHasAdmin] = useState<boolean | null>(null);
  const [authSettings, setAuthSettings] = useState<PublicAuthSettings | null>(null);
+
+  useEffect(() => {
+    const tokenParam = searchParams.get("token") || searchParams.get("auth_token");
+    if (tokenParam) {
+      fetch("/api/auth/me", {
+        headers: { Authorization: `Bearer ${tokenParam}` },
+        credentials: "same-origin",
+      })
+        .then((r) => r.json())
+        .then((u) => {
+          if (u && u.id) {
+            login(tokenParam, {
+              id: u.id,
+              username: u.username,
+              role: u.role,
+              email: u.email || `${u.username}@metafusion.local`,
+              display_name: u.username,
+            });
+            const redirectUrl = searchParams.get("redirect") || "/";
+            router.replace(redirectUrl);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [searchParams, login, router]);
 
  useEffect(() => {
    fetchSetupStatus()
@@ -77,18 +116,30 @@ function LoginInner() {
         login(res.access_token || res.token, res.user, res.refresh_token);
         router.replace(redirectUrl);
       } else {
-        const res = await fetchApi<{ user: any; token: string; access_token?: string; refresh_token?: string }>("/auth/login", {
+        const response = await fetch("/api/auth/login", {
           method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            email_or_username: username.trim() || email.trim(),
+            username: username.trim() || email.trim(),
             password,
           }),
         });
-        login(res.access_token || res.token, res.user, res.refresh_token);
+        const res = await response.json();
+        if (!response.ok) {
+          throw new Error(res.error || "invalid_credentials");
+        }
+        login(res.token, {
+          id: res.user.id,
+          username: res.user.username,
+          role: res.user.role,
+          email: `${res.user.username}@metafusion.local`,
+          display_name: res.user.username,
+        });
         router.replace(redirectUrl);
       }
  } catch (err: any) {
- setError(err.message || t("auth.requestFailed"));
+ setError(getAuthErrorMessage(err.message, t));
  } finally {
  setSubmitting(false);
  }
@@ -101,7 +152,7 @@ function LoginInner() {
  <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
 
  <header className="relative z-10 w-full max-w-5xl mx-auto flex items-center justify-between shrink-0">
- <Link href="/" className="flex items-center gap-2.5 group">
+ <Link href="/landing" title="MetaFusion" className="flex items-center gap-2.5 group">
  <BrandMark size={28} withGlow idSuffix="login" />
  <span className="flex flex-col leading-none">
  <span className="font-display text-xl tracking-[-0.03em] text-gray-900 dark:text-white">MetaFusion</span>
@@ -116,6 +167,15 @@ function LoginInner() {
 
  <main className="relative z-10 flex-1 min-h-0 grid place-items-center py-3">
  <div className="w-full max-w-md max-h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-3">
+ {AUTH_SERVICE_URL.startsWith("http") && (
+   <a
+     href={isRegister ? getAuthRegisterUrl(searchParams.get("redirect") || "/") : getAuthLoginUrl(searchParams.get("redirect") || "/")}
+     className="p-3.5 rounded-xl bg-primary text-white text-xs font-semibold flex items-center justify-between gap-2 hover:opacity-95 transition-all shadow-md"
+   >
+     <span>{t("auth.continueSso")}</span>
+     <ArrowRight className="w-4 h-4" />
+   </a>
+ )}
  {hasAdmin === false && (
    <Link
      href="/setup"

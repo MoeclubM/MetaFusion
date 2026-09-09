@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Network, Sparkles, ArrowRight, ArrowLeftRight, Check, X, ShieldAlert } from "lucide-react";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, pickLocalizedName } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DynamicNamesEditor, MultilingualBadges } from "@/components/common/DynamicNamesEditor";
 import { Modal } from "@/components/ui/Modal";
@@ -29,12 +29,12 @@ export interface RelationTypeItem {
   is_enabled: boolean;
 }
 
-const DOMAIN_OPTIONS = [
-  { value: "work_work", label: "作品 ↔ 作品 (Work-Work)" },
-  { value: "work_franchise", label: "作品 ↔ 企划宇宙 (Work-Franchise)" },
-  { value: "work_artist", label: "作品 ↔ 创作者/机构 (Work-Artist)" },
-  { value: "artist_artist", label: "创作者 ↔ 创作者 (Artist-Artist)" },
-  { value: "character_work", label: "角色 ↔ 作品 (Character-Work)" },
+const getDomainOptions = (t: (key: string) => string) => [
+  { value: "work_work", label: t("admin.relationTypes.domainWorkWork") },
+  { value: "work_franchise", label: t("admin.relationTypes.domainWorkFranchise") },
+  { value: "work_artist", label: t("admin.relationTypes.domainWorkArtist") },
+  { value: "artist_artist", label: t("admin.relationTypes.domainArtistArtist") },
+  { value: "character_work", label: t("admin.relationTypes.domainCharacterWork") },
 ];
 
 export function RelationTypesTab() {
@@ -49,7 +49,7 @@ export function RelationTypesTab() {
     domain: "work_work",
     name_zh: "",
     name_en: "",
-    names: { "zh-CN": "", "en-US": "" },
+    names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
     description: "",
     forward_label_zh: "",
     reverse_label_zh: "",
@@ -91,7 +91,7 @@ export function RelationTypesTab() {
       domain: "work_work",
       name_zh: "",
       name_en: "",
-      names: { "zh-CN": "", "en-US": "" },
+      names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
       description: "",
       forward_label_zh: "",
       reverse_label_zh: "",
@@ -111,9 +111,15 @@ export function RelationTypesTab() {
 
   const handleOpenEdit = (item: RelationTypeItem) => {
     setEditingItem(item);
+    const names: Record<string, string> = { ...(item.names || {}) };
+    for (const k of ["zh-CN", "zh-TW", "ja-JP", "en-US"]) {
+      if (!(k in names)) names[k] = "";
+    }
+    if (!names["zh-CN"] && item.name_zh) names["zh-CN"] = item.name_zh;
+    if (!names["en-US"] && item.name_en) names["en-US"] = item.name_en;
     setForm({
       ...item,
-      names: item.names || { "zh-CN": item.name_zh, "en-US": item.name_en },
+      names,
     });
   };
 
@@ -123,10 +129,19 @@ export function RelationTypesTab() {
     setError(null);
 
     try {
+      // names map 全语言回写：legacy 双列仅作回退，不再只写双列。
+      const names = { ...(form.names || {}) };
+      const nameZh = (names["zh-CN"] || "").trim();
+      const nameEn = (names["en-US"] || "").trim();
+      if (!nameZh || !nameEn) {
+        setError(t("admin.shelves.required"));
+        return;
+      }
       const payload = {
         ...form,
-        name_zh: form.names?.["zh-CN"] || form.name_zh,
-        name_en: form.names?.["en-US"] || form.name_en,
+        name_zh: nameZh,
+        name_en: nameEn,
+        names,
       };
 
       if (isCreating) {
@@ -203,9 +218,9 @@ export function RelationTypesTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((it) => {
             const displayName =
-              (locale === "en-US" ? it.name_en : it.name_zh) || it.name_zh || it.name_en || it.code;
-            const forwardLabel = (locale === "en-US" ? it.forward_label_en : it.forward_label_zh) || it.forward_label_zh;
-            const reverseLabel = (locale === "en-US" ? it.reverse_label_en : it.reverse_label_zh) || it.reverse_label_zh;
+              pickLocalizedName(locale, it.names, it.name_zh, it.name_en, it.code);
+            const forwardLabel = pickLocalizedName(locale, undefined, it.forward_label_zh, it.forward_label_en, it.forward_label_zh);
+            const reverseLabel = pickLocalizedName(locale, undefined, it.reverse_label_zh, it.reverse_label_en, it.reverse_label_zh);
 
             return (
               <div
@@ -329,7 +344,7 @@ export function RelationTypesTab() {
                   onChange={(e) => setForm({ ...form, domain: e.target.value })}
                   className="w-full h-10 px-3 rounded-xl bg-surface border border-theme text-xs font-mono text-foreground focus:outline-none focus:border-amber-400/50"
                 >
-                  {DOMAIN_OPTIONS.map((d) => (
+                  {getDomainOptions(t).map((d) => (
                     <option key={d.value} value={d.value} className="bg-surface text-foreground">
                       {d.label}
                     </option>
@@ -369,7 +384,7 @@ export function RelationTypesTab() {
                     required
                     value={form.forward_label_zh || ""}
                     onChange={(e) => setForm({ ...form, forward_label_zh: e.target.value })}
-                    placeholder="例如: 改编自"
+                    placeholder={t("admin.relationTypes.forwardPlaceholder")}
                     className="w-full h-9 px-3 rounded-lg bg-surface border border-theme text-xs text-foreground focus:outline-none focus:border-amber-400/50"
                   />
                 </div>
@@ -383,7 +398,7 @@ export function RelationTypesTab() {
                     required
                     value={form.reverse_label_zh || ""}
                     onChange={(e) => setForm({ ...form, reverse_label_zh: e.target.value })}
-                    placeholder="例如: 被改编为"
+                    placeholder={t("admin.relationTypes.reversePlaceholder")}
                     className="w-full h-9 px-3 rounded-lg bg-surface border border-theme text-xs text-foreground focus:outline-none focus:border-amber-400/50"
                   />
                 </div>

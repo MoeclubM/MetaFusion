@@ -13,6 +13,8 @@ RUN --mount=type=cache,target=/root/.bun \
 
 FROM base AS builder
 WORKDIR /app
+ARG BACKEND_ORIGIN=http://backend:8080
+ENV BACKEND_ORIGIN=$BACKEND_ORIGIN
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1

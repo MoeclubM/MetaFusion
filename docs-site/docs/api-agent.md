@@ -5,6 +5,8 @@ order: 36
 group: "api"
 ---
 
+> 核心 API 统一使用 `/api` 与动态定义引擎。编目规范请阅读 [元数据目录教程](./catalog.md)。
+
 # AI Agent 自动化 API 与工具规范 (AI Agent API & Tool Specs)
 
 MetaFusion 开放 API 为大语言模型（LLM）与自动化 Agent 提供了结构化、原子化的编目写入端点。本规范提供标准 Function Calling / Tools JSON Schema 定义、原子写入端点规范以及错误自愈与安全红线。
@@ -21,7 +23,7 @@ MetaFusion 开放 API 为大语言模型（LLM）与自动化 Agent 提供了结
 2. **每次写入必带审计信息**：
    - 每次调用写入/更新 API，必须在 payload 中携带明确具体的 `edit_note`（修订动机说明，≥ 10 字符）与可访问核验的 `source_urls`（权威考据源列表）。
 3. **检索查重优先 (Search & Deduplication First)**：
-   - 严禁盲目直接创建。必须先调用 `GET /api/v1/search` 检索库内现有实体，优先复用或合并。
+   - 严禁盲目直接创建。必须先调用 `GET /api/search` 检索库内现有实体，优先复用或合并。
 4. **封面规范与真实性**：
    - 封面比例严格按照 `cover_aspect` 执行（音乐 `1:1`、影视/动画 `2:3`、书籍/漫画 `3:4`），且必须为官方原厂出品，禁止占位图。
 
@@ -29,7 +31,7 @@ MetaFusion 开放 API 为大语言模型（LLM）与自动化 Agent 提供了结
 
 ## 2. LLM 工具定义描述 (Tool Declarations / JSON Schema)
 
-可直接拉取 `GET /api/v1/openapi.json`，或向 LLM 注入以下原子与一站式编目工具定义：
+可直接拉取 `GET /api/openapi.json`，或向 LLM 注入以下原子与一站式编目工具定义：
 
 ```json
 {
@@ -177,14 +179,14 @@ MetaFusion 开放 API 为大语言模型（LLM）与自动化 Agent 提供了结
 
 ## 3. 核心写入端点规范
 
-### 3.1 一站式原子入库 (`POST /api/v1/catalog/submit`)
+### 3.1 一站式原子入库 (`POST /api/catalog/submit`)
 
 支持在单次请求中原子性创建逻辑作品（Work）、物理发行版（Release）、介质容器（Medium）、分轨/单集（Track）、创作者演职绑定（Artist Relationships）与多语言翻译（Translations）。任何一个环节校验失败（如 ISBN 校验位错误、题名命中污染黑名单），整个事务自动回滚。
 
 #### 请求示例
 
 ```http
-POST /api/v1/catalog/submit HTTP/1.1
+POST /api/catalog/submit HTTP/1.1
 Host: api.metafusion.local
 Authorization: Bearer mfp_your_personal_access_token
 User-Agent: MetaFusionCuratorBot/1.0

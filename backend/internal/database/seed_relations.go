@@ -3,10 +3,8 @@ package database
 import (
 	"github.com/lib/pq"
 	"github.com/metafusion/metafusion-app/internal/models"
-	"github.com/metafusion/metafusion-app/migrations"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
-	"log"
 )
 
 func seedRelationTypes(db *gorm.DB) {
@@ -846,20 +844,18 @@ func seedEntityTypeDefinitions(db *gorm.DB) {
 	_ = db.Where("code IN ?", []string{"label", "circle"}).Delete(&models.EntityTypeDefinition{}).Error
 }
 
-func ApplyPatches(db *gorm.DB) {
-	// Share idempotent migrations with runtime startup so existing volumes acquire
-	// the hierarchy constraints without waiting for a fresh database.
-	for _, name := range []string{"000004_content_hierarchy.up.sql", "000005_carrier_hierarchy.up.sql", "000006_carrier_content_integrity.up.sql"} {
-		if sql, err := migrations.FS.ReadFile(name); err != nil {
-			log.Printf("schema migration %s: %v", name, err)
-		} else if err := db.Exec(string(sql)).Error; err != nil {
-			log.Printf("schema migration %s: %v", name, err)
-		}
+func ApplyPatches(db *gorm.DB) error {
+	// 分级立场：核心 DDL（applySchemaPatches）硬失败返回；种子与数据回填
+	// （seed*/migrate*/restore*，均为 ON CONFLICT DO NOTHING 幂等或老数据恢复逻辑）
+	// 为尽力而为，单项失败仅函数内日志注明，不阻塞启动。
+	// 新项目立场：层级约束收归 catalog/schema.sql + store.go（undeclared_release_subject），
+	// 不再从 migrations/000004~000006 加载；缺约束即由 schema 初始化硬失败，不在此静默跳过。
+	if err := applySchemaPatches(db); err != nil {
+		return err
 	}
-
-	applySchemaPatches(db)
 	seedEntityTypeDefinitions(db)
 	seedRelationTypes(db)
 	seedExternalDatabaseDefinitions(db)
 	seedAttributeSchemas(db)
+	return nil
 }

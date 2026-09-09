@@ -5,6 +5,8 @@ order: 35
 group: "api"
 ---
 
+> 核心 API 统一使用 `/api` 与动态定义引擎。编目规范请阅读 [元数据目录教程](./catalog.md)。
+
 # AI Agent 接入与自动化编目协作指南 (AI Agent Integration & Cataloging Guide)
 
 MetaFusion 是全球化开放元数据与多媒介档案协作平台。平台原生支持 AI Agent（如 Claude、GPT-4o、DeepSeek、Qwen 等）作为**全站权威档案考据员与编目审查员 (MetaFusion Archivist & Cataloging Reviewer)** 深度接入，自主或协同人类考据员执行元数据采集、实体建档、版本录入、关系织网与自动化质检巡检。
@@ -61,12 +63,12 @@ AI Agent 在执行任何自动化编目任务时，必须严格按照以下 7 �
 
 ```mermaid
 flowchart TD
-    Step1[第 1 步：权威考据与全库检索防重<br>GET /api/v1/search] --> Step2[第 2 步：纯净题名清洗与多语言对齐<br>original_language + translations]
+    Step1[第 1 步：权威考据与全库检索防重<br>GET /api/search] --> Step2[第 2 步：纯净题名清洗与多语言对齐<br>original_language + translations]
     Step2 --> Step3[第 3 步：LRM 表现层分级与发行版树状建模<br>Work / Entry / Release / Medium / Track]
     Step3 --> Step4[第 4 步：多作品合集/盒装分碟映射<br>Mediums + Track.work_id 展开]
     Step4 --> Step5[第 5 步：典范篇目多发行复用<br>CanonicalEntry UUID 关联]
-    Step5 --> Step6[第 6 步：DAG 拓扑织网与 Qualifier 限定<br>PUT /api/v1/catalog/entity-relations]
-    Step6 --> Step7[第 7 步：不可篡改审计签名与原子提交<br>POST /api/v1/catalog/submit]
+    Step5 --> Step6[第 6 步：DAG 拓扑织网与 Qualifier 限定<br>PUT /api/catalog/entity-relations]
+    Step6 --> Step7[第 7 步：不可篡改审计签名与原子提交<br>POST /api/catalog/submit]
 ```
 
 ### 步骤详解
@@ -79,7 +81,7 @@ flowchart TD
   - 游戏：VNDB、IGDB、Steam、PlayStation Store。
 - **调用检索防重**：
   ```http
-  GET /api/v1/search?q={作品或条码}&type=all
+  GET /api/search?q={作品或条码}&type=all
   ```
   - 若已存在匹配 Work，**严禁二次创建**，仅在其下补充 Release、Medium、Track 或缺失的多语言译名。
 
@@ -107,7 +109,7 @@ flowchart TD
 - 校验封面宽高比（1:1 / 2:3 / 3:4）与分辨率；
 - 校验 ISBN-13 模 10 校验位；
 - 填充清晰的 `edit_note`（≥ 10 字符）与 `source_urls`；
-- 调用 `POST /api/v1/catalog/submit` 原子提交入库。
+- 调用 `POST /api/catalog/submit` 原子提交入库。
 
 ---
 
@@ -316,7 +318,7 @@ class MetaFusionCuratorClient:
 
 # ----------------- 使用示范 -----------------
 if __name__ == "__main__":
-    API_BASE = os.getenv("METAFUSION_API_BASE", "http://localhost:8080/api/v1")
+    API_BASE = os.getenv("METAFUSION_API_BASE", "http://localhost:8080/api")
     API_TOKEN = os.getenv("METAFUSION_API_TOKEN", "mfp_sample_token_here")
     client = MetaFusionCuratorClient(API_BASE, API_TOKEN)
 
@@ -444,12 +446,12 @@ export class MetaFusionAgent {
 
 ```bash
 # 1. 检索防重
-curl -X GET "https://api.metafusion.local/api/v1/search?q=攻壳机动队&type=work" \
+curl -X GET "https://api.metafusion.local/api/search?q=攻壳机动队&type=work" \
   -H "Authorization: Bearer mfp_your_token_here" \
   -H "User-Agent: MetaFusionCuratorBot/1.0"
 
 # 2. 一站式纯净入库
-curl -X POST "https://api.metafusion.local/api/v1/catalog/submit" \
+curl -X POST "https://api.metafusion.local/api/catalog/submit" \
   -H "Authorization: Bearer mfp_your_token_here" \
   -H "Content-Type: application/json" \
   -d '{
