@@ -12,15 +12,15 @@ group: "api"
 ## 新建
 
 ```http
-POST /api/v1/catalog/artists           { translations, language, entity_type, edit_note, source_urls }
-POST /api/v1/catalog/works             { title, translations, language, tags, cover_aspect, original_language, catalog_metadata, edit_note, source_urls }
-POST /api/v1/catalog/canonical-entries { work_id, title, duration_seconds?, isrc?, isbn?, entry_role, number, position, parent_id?, translations, edit_note, source_urls }
-POST /api/v1/catalog/releases          { work_id, edition_name, catalog_number, release_date, packaging, edit_note }
-POST /api/v1/catalog/mediums           { release_id, position, name, format, role? }
-POST /api/v1/catalog/tracks            { medium_id, position, title?, contents?: [{ canonical_entry_id, locator }] }
-POST /api/v1/catalog/franchises        { translations, language, aliases, edit_note, source_urls }
-PUT  /api/v1/catalog/franchises/:id
-PUT  /api/v1/catalog/entity-relations  { relations: [{ source_type, source_id, target_type, target_id, relationship_type, qualifier }] }
+POST /api/catalog/artists           { translations, language, entity_type, edit_note, source_urls }
+POST /api/catalog/works             { title, translations, language, tags, cover_aspect, original_language, catalog_metadata, edit_note, source_urls }
+POST /api/catalog/canonical-entries { work_id, title, duration_seconds?, isrc?, isbn?, entry_role, number, position, parent_id?, translations, edit_note, source_urls }
+POST /api/catalog/releases          { work_id, edition_name, catalog_number, release_date, packaging, edit_note }
+POST /api/catalog/mediums           { release_id, position, name, format, role? }
+POST /api/catalog/tracks            { medium_id, position, title?, contents?: [{ canonical_entry_id, locator }] }
+POST /api/catalog/franchises        { translations, language, aliases, edit_note, source_urls }
+PUT  /api/catalog/franchises/:id
+PUT  /api/catalog/entity-relations  { relations: [{ source_type, source_id, target_type, target_id, relationship_type, qualifier }] }
 ```
 
 `translations` 为多语言来源：`[{ locale, title|name, summary|biography }]`。`locale` 白名单：`zh-CN / zh-TW / en-US / ja / ko` 等。主表题名与简介等于 `language` 所指那一组。
@@ -30,17 +30,17 @@ PUT  /api/v1/catalog/entity-relations  { relations: [{ source_type, source_id, t
 ## 编辑
 
 ```http
-PUT /api/v1/catalog/works/:id             { title?, summary?, cover_image_url?, cover_aspect?, tags?, edit_note, source_urls }
-PUT /api/v1/catalog/canonical-entries/:id { title?, duration_seconds?, isrc?, isbn?, entry_role?, number?, position?, translations?, edit_note, source_urls }
-PUT /api/v1/catalog/artists/:id           { name?, biography?, edit_note }
-PUT /api/v1/catalog/releases/:id          { edition_name?, catalog_number?, edit_note }
-PUT /api/v1/catalog/works/:id/relations   { relations: [{ target_type, target_id, relation_type }] }
+PUT /api/catalog/works/:id             { title?, summary?, cover_image_url?, cover_aspect?, tags?, edit_note, source_urls }
+PUT /api/catalog/canonical-entries/:id { title?, duration_seconds?, isrc?, isbn?, entry_role?, number?, position?, translations?, edit_note, source_urls }
+PUT /api/catalog/artists/:id           { name?, biography?, edit_note }
+PUT /api/catalog/releases/:id          { edition_name?, catalog_number?, edit_note }
+PUT /api/catalog/works/:id/relations   { relations: [{ target_type, target_id, relation_type }] }
 ```
 
 ## 一站式提交
 
 ```http
-POST /api/v1/catalog/submit
+POST /api/catalog/submit
 {
   "work": { "title": "攻壳机动队", "tags": ["动画", "电影", "科幻"], "cover_aspect": "2:3" },
   "artists": [{ "artist_id": "...", "role": "director" }],
@@ -57,15 +57,15 @@ POST /api/v1/catalog/submit
 ## 修订历史
 
 ```http
-GET /api/v1/catalog/revisions?target_type=work&target_id=:id
-GET /api/v1/catalog/revisions?target_type=artist&target_id=:id
-GET /api/v1/catalog/revisions?target_type=franchise&target_id=:id
+GET /api/catalog/revisions?target_type=work&target_id=:id
+GET /api/catalog/revisions?target_type=artist&target_id=:id
+GET /api/catalog/revisions?target_type=franchise&target_id=:id
 ```
 
 ## 合并
 
 ```http
-POST /api/v1/catalog/merge
+POST /api/catalog/merge
 { "source_type": "work", "source_id": "<dup>", "target_id": "<keep>", "edit_note": "merge duplicate" }
 ```
 
@@ -80,7 +80,7 @@ POST /api/v1/catalog/merge
 ## 示例
 
 ```bash
-curl -X PUT /api/v1/catalog/works/<id> \
+curl -X PUT /api/catalog/works/<id> \
   -H "Authorization: Bearer mfp_..." \
   -H "User-Agent: MyApp/1.0 (you@example.com)" \
   -H "Content-Type: application/json" \

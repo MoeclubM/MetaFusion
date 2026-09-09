@@ -12,10 +12,10 @@ group: "api"
 ## 接口
 
 ```http
-GET /api/v1/search?q=keyword&type=work&limit=10&offset=0
-GET /api/v1/search?q=久石让&type=artist&limit=10
-GET /api/v1/search?q=VIZL&type=release
-GET /api/v1/search?q=keyword&type=all&limit=5
+GET /api/search?q=keyword&type=work&limit=10&offset=0
+GET /api/search?q=久石让&type=artist&limit=10
+GET /api/search?q=VIZL&type=release
+GET /api/search?q=keyword&type=all&limit=5
 ```
 
 参数：
@@ -30,10 +30,10 @@ GET /api/v1/search?q=keyword&type=all&limit=5
 ## 示例
 
 ```bash
-curl "/api/v1/search?q=blade+runner&type=work&limit=5" -H "User-Agent: MyApp/1.0 (you@example.com)"
+curl "/api/search?q=blade+runner&type=work&limit=5" -H "User-Agent: MyApp/1.0 (you@example.com)"
 
 # 中文
-curl "/api/v1/search?q=攻壳机动队&type=work&limit=3" -H "User-Agent: MyApp/1.0 (you@example.com)"
+curl "/api/search?q=攻壳机动队&type=work&limit=3" -H "User-Agent: MyApp/1.0 (you@example.com)"
 ```
 
 响应（示意）：
