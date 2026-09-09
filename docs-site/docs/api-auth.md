@@ -27,13 +27,13 @@ X-API-Key: <api_key>
 MetaFusion 采用 **短生命周期 Access Token (2h) + 可轮转 Refresh Token (7d)** 双令牌架构：
 
 ```http
-GET  /api/v1/auth/settings          # 公开：{ registration_enabled, invite_required, email_verification_enabled... }
-POST /api/v1/auth/register          # { username, email, password, invite_code? } → 双令牌
-POST /api/v1/auth/login             # { email_or_username, password } → 双令牌
-POST /api/v1/auth/refresh           # { refresh_token } → 换发新令牌对
-POST /api/v1/auth/logout            # { refresh_token? } → 将当前 Token 与 Refresh Token 加入 Redis 实时黑名单
-GET  /api/v1/auth/me                # 需认证：获取当前登录用户信息
-GET  /api/v1/auth/invite            # 需认证：获取当前用户的邀请码与已邀请成员列表
+GET  /api/auth/settings          # 公开：{ registration_enabled, invite_required, email_verification_enabled... }
+POST /api/auth/register          # { username, email, password, invite_code? } → 双令牌
+POST /api/auth/login             # { email_or_username, password } → 双令牌
+POST /api/auth/refresh           # { refresh_token } → 换发新令牌对
+POST /api/auth/logout            # { refresh_token? } → 将当前 Token 与 Refresh Token 加入 Redis 实时黑名单
+GET  /api/auth/me                # 需认证：获取当前登录用户信息
+GET  /api/auth/invite            # 需认证：获取当前用户的邀请码与已邀请成员列表
 ```
 
 双令牌响应体结构：
@@ -50,28 +50,28 @@ GET  /api/v1/auth/invite            # 需认证：获取当前用户的邀请码
 
 - `registration_enabled=false` 时注册功能关闭；
 - `invite_required=true` 时注册表单必须携带有效邀请码；
-- 首次部署未初始化的新实例可调用 `GET /api/v1/system/setup-status` 检查状态，并通过 `POST /api/v1/system/setup` 创建超级管理员。
+- 首次部署未初始化的新实例可调用 `GET /api/system/setup-status` 检查状态，并通过 `POST /api/system/setup` 创建超级管理员。
 
 ## API 密钥管理
 
 用户可在前台 `/settings?tab=tokens` 或通过接口管理自己的 API 密钥：
 
 ```http
-GET  /api/v1/auth/tokens            # 列出当前用户的 API 密钥
-POST /api/v1/auth/tokens            # 创建新 API 密钥，明文仅在创建时返回一次
-DELETE /api/v1/auth/tokens/:id      # 撤销指定的 API 密钥
+GET  /api/auth/tokens            # 列出当前用户的 API 密钥
+POST /api/auth/tokens            # 创建新 API 密钥，明文仅在创建时返回一次
+DELETE /api/auth/tokens/:id      # 撤销指定的 API 密钥
 ```
 
 ### 创建示例
 
 ```bash
 # 创建读写密钥 (默认)
-curl -X POST /api/v1/auth/tokens \
+curl -X POST /api/auth/tokens \
   -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
   -d '{"name":"my-script","scopes":["read","write"]}'
 
 # 创建只读密钥 (Read-Only)
-curl -X POST /api/v1/auth/tokens \
+curl -X POST /api/auth/tokens \
   -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
   -d '{"name":"readonly-agent","scopes":["read"]}'
 ```
@@ -82,7 +82,7 @@ curl -X POST /api/v1/auth/tokens \
 ## 邀请信息
 
 ```http
-GET /api/v1/auth/invite  # 需认证 → { invite_code, invited_count, invited_users }
+GET /api/auth/invite  # 需认证 → { invite_code, invited_count, invited_users }
 ```
 
 `InviteCode` 为 `MF-` 永久码。
@@ -91,10 +91,10 @@ GET /api/v1/auth/invite  # 需认证 → { invite_code, invited_count, invited_u
 
 ```bash
 # 读（开放，PAT 可选）
-curl "/api/v1/catalog/works?inc=artists&page=1" -H "User-Agent: MyApp/1.0 (you@example.com)"
+curl "/api/catalog/works?inc=artists&page=1" -H "User-Agent: MyApp/1.0 (you@example.com)"
 
 # 写（需 PAT/JWT）
-curl -X POST /api/v1/catalog/works \
+curl -X POST /api/catalog/works \
   -H "Authorization: Bearer mfp_..." \
   -H "User-Agent: MyApp/1.0 (you@example.com)" \
   -H "Content-Type: application/json" \
