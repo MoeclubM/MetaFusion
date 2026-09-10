@@ -15,6 +15,24 @@ func names(zh, en string) Names {
 func names4(zhCN, zhTW, ja, en string) Names {
 	return Names{"zh-CN": zhCN, "zh-TW": zhTW, "ja": ja, "ja-JP": ja, "en-US": en}
 }
+
+// floatPtr 便于在字段定义里声明 Min/Max 边界。
+func floatPtr(v float64) *float64 { return &v }
+
+// PrimaryDateField 返回某类型所属模板声明的主日期字段码（作品首发/发行日期）。
+// 代码不硬编码 edition_date：模板改 primary_date_field 即改变语义，
+// 未声明或类型未知时返回空，调用方不写日期（不虚构）。
+func (d Definitions) PrimaryDateField(typeCode string) string {
+	t, ok := d.Types[typeCode]
+	if !ok {
+		return ""
+	}
+	tpl, ok := d.Templates[t.Template]
+	if !ok {
+		return ""
+	}
+	return tpl.PrimaryDateField
+}
 func Defaults() Definitions {
 	d := Definitions{Types: map[string]TypeDefinition{}, Fields: map[string]Field{}, Vocabularies: map[string]Vocabulary{}, Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
 	field := func(code, zh, en, typ string) {
@@ -37,6 +55,7 @@ func Defaults() Definitions {
 		{"release_role", "发行对象用途", "Release subject roles", [][3]string{{"primary", "主作品", "Primary"}, {"compilation", "汇编作品", "Compilation"}, {"supplement", "附加作品", "Supplement"}}},
 		{"edition_type", "版本类型", "Edition types", [][3]string{{"standard", "普通版", "Standard edition"}, {"limited", "限定版", "Limited edition"}, {"first_press", "初回版", "First press"}, {"regional", "地区版", "Regional edition"}, {"reissue", "再版", "Reissue"}, {"digital", "数字版", "Digital edition"}, {"deluxe", "豪华版", "Deluxe edition"}, {"boxset", "套盒", "Box set"}}},
 		{"distribution_channel", "发行渠道", "Distribution channels", [][3]string{{"mixed", "混合", "Mixed"}, {"physical", "实体", "Physical"}, {"digital", "数字", "Digital"}, {"web", "网络配信", "Web distribution"}}},
+		{"locator_reference", "定位参照", "Locator reference", [][3]string{{"track", "整条音轨", "Whole track"}, {"medium", "整张载体", "Whole medium"}}},
 	} {
 		v := Vocabulary{Names: names(x.zh, x.en), Terms: map[string]Term{}}
 		for _, t := range x.terms {
@@ -70,8 +89,29 @@ func Defaults() Definitions {
 		}}
 		d.Fields[k] = f
 	}
+	// 记录级动态模式：收录位置（locator）与收录/发行对象的附加属性。
+	// 这些是**媒体差异最集中**的地方（书籍按页、音视频按时间码、文件按路径），
+	// 因此不定义专用 Go 字段/数据库列，而是与其他字段同机制走 definitions，
+	// 后台可增删子字段。种子值即历史硬编码的那几种定位方式，保证存量数据仍合法。
+	d.Fields["locator"] = Field{
+		Names: names("定位", "Locator"), Type: "group", Enabled: true, Searchable: true, Comparable: true,
+		AnchorKey: "relative_to",
+		Fields: map[string]Field{
+			"relative_to":   {Names: names("定位参照", "Relative to"), Type: "enum", Vocabulary: "locator_reference", Enabled: true},
+			"page_start":    {Names: names("起始页", "Start page"), Type: "number", Min: floatPtr(1), Enabled: true},
+			"page_end":      {Names: names("结束页", "End page"), Type: "number", Min: floatPtr(1), Enabled: true},
+			"time_start_ms": {Names: names("起始时间（毫秒）", "Start time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true},
+			"time_end_ms":   {Names: names("结束时间（毫秒）", "End time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true},
+			"path":          {Names: names("文件路径", "File path"), Type: "text", Enabled: true},
+			"chapter":       {Names: names("章节", "Chapter"), Type: "text", Enabled: true},
+		},
+	}
+	// 收录关系 / 发行对象的附加属性：默认不声明任何子字段（即不允许额外值），
+	// 需要时在后台加子字段即刻生效——这就是"其余全部动态"的落点。
+	d.Fields["inclusion_attributes"] = Field{Names: names("收录附加属性", "Inclusion attributes"), Type: "group", Enabled: true, Fields: map[string]Field{}}
+	d.Fields["subject_attributes"] = Field{Names: names("发行对象附加属性", "Subject attributes"), Type: "group", Enabled: true, Fields: map[string]Field{}}
 	for _, x := range [][3]string{{"music", "音乐", "Music"}, {"literature", "文学", "Literature"}, {"screen", "影视", "Screen"}, {"photography", "写真", "Photography"}, {"game", "游戏", "Games"}, {"generic", "通用", "General"}} {
-		d.Templates[x[0]] = Template{Names: names(x[1], x[2]), Directory: "tree", Sections: []Section{{Names: names("详细信息", "Details"), Fields: []string{"language", "version_label", "duration", "platform"}}}, Columns: []string{"edition_date", "catalog_number"}, RelationGroups: []string{"credits", "creative", "membership"}}
+		d.Templates[x[0]] = Template{Names: names(x[1], x[2]), Directory: "tree", Sections: []Section{{Names: names("详细信息", "Details"), Fields: []string{"language", "version_label", "duration", "platform"}}}, Columns: []string{"edition_date", "catalog_number"}, RelationGroups: []string{"credits", "creative", "membership"}, PrimaryDateField: "edition_date"}
 	}
 	for _, x := range [][4]string{{"music", "音乐作品", "Music work", "music"}, {"song", "歌曲", "Song", "music"}, {"album", "专辑", "Album", "music"}, {"novel", "小说", "Novel", "literature"}, {"animation", "动画", "Animation", "screen"}, {"film", "电影", "Film", "screen"}, {"photobook", "写真集", "Photobook", "photography"}, {"indie_game", "独立游戏", "Independent game", "game"}, {"visual_novel", "视觉小说", "Visual novel", "game"}, {"personal", "个人创作", "Personal creation", "generic"}} {
 		// edition_date 用于承载作品首发/出版日期（列表与详情展示）；发行版自身的日期仍在 release.edition_date。

@@ -1482,10 +1482,13 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview) (Entity, bool) {
 	if existing.Attributes == nil {
 		existing.Attributes = map[string]any{}
 	}
-	if _, ok := existing.Attributes["edition_date"]; !ok {
-		if d := cleanImporterDate(w.ReleaseDate); d != "" {
-			existing.Attributes["edition_date"] = d
-			changed = true
+	dateField := workTypeFromMetadata(w.CatalogMetadata)
+	if dateField != "" {
+		if _, ok := existing.Attributes[dateField]; !ok {
+			if d := cleanImporterDate(w.ReleaseDate); d != "" {
+				existing.Attributes[dateField] = d
+				changed = true
+			}
 		}
 	}
 	if v, ok := w.CatalogMetadata.(map[string]any); ok {
@@ -1527,7 +1530,10 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview) (Entity, bool) {
 	return existing, changed
 }
 
-func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID string, hasKey bool) (Entity, error) {
+// buildWorkEntity 组装 work 实体。dateField 为该类型模板声明的主日期字段码
+// （见 Definitions.PrimaryDateField），由调用方从 definitions 解析后传入，
+// 避免把 edition_date 这类字段码硬编码进代码。
+func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID string, hasKey bool, dateField string) (Entity, error) {
 	if w == nil || strings.TrimSpace(w.Title) == "" {
 		return Entity{}, fmt.Errorf("invalid_payload")
 	}
@@ -1546,10 +1552,10 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 		if lang := strings.TrimSpace(w.Language); lang != "" {
 			e.Attributes["language"] = lang
 		}
-		// 作品首发/出版日期：写入 work.edition_date，供列表与详情展示。
-		// 预览的 release_date 此前被丢弃，导致列表只能回退到 updated_at（时间显示错误）。
-		if d := cleanImporterDate(w.ReleaseDate); d != "" {
-			e.Attributes["edition_date"] = d
+		// 作品首发/出版日期：写入模板声明的主日期字段（默认 edition_date），
+		// 供列表与详情展示。字段码来自 definitions，不在代码里写死。
+		if d := cleanImporterDate(w.ReleaseDate); d != "" && dateField != "" {
+			e.Attributes[dateField] = d
 		}
 	}
 	if hasKey {
@@ -1958,7 +1964,11 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	}
 	if savedWork.ID == "" {
 		workType := workTypeFromMetadata(req.Work.CatalogMetadata)
-		work, err := buildWorkEntity(req.Work, workType, source, key, req.ExternalID, hasKey)
+		dateField := ""
+		if defs, derr := s.Definitions(ctx); derr == nil {
+			dateField = defs.Document.PrimaryDateField(workType)
+		}
+		work, err := buildWorkEntity(req.Work, workType, source, key, req.ExternalID, hasKey, dateField)
 		if err != nil {
 			return ImporterImportResponse{}, err
 		}

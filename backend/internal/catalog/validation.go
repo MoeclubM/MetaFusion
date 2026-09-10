@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"golang.org/x/text/language"
@@ -17,6 +18,103 @@ var reserved = map[string]bool{"id": true, "kind": true, "version": true, "statu
 func validURL(s string) bool {
 	u, e := url.Parse(s)
 	return e == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.User == nil
+}
+
+// toFloat 把数值统一为 float64：JSON 往返是 float64，而代码内部构造的属性
+// （如 track duration）可能是 int/int64，两者都必须接受。
+func toFloat(v any) (float64, bool) {
+	switch x := v.(type) {
+	case float64:
+		return x, true
+	case float32:
+		return float64(x), true
+	case int:
+		return float64(x), true
+	case int64:
+		return float64(x), true
+	case json.Number:
+		n, err := x.Float64()
+		return n, err == nil
+	}
+	return 0, false
+}
+
+// numericField 判断字段是否数值型（无词表、无枚举约束也可比较大小）。
+func numericField(f Field) bool { return f.Type == "number" }
+
+// validateGroupOrder 对命名成对的区间字段做通用顺序校验：
+// `X` 与 `X_end` / `X_end_ms` / `X_max` 同时存在时，前者不得大于后者。
+// 这套约定取代原先硬编码 page/time 的规则，新增成对字段无需改代码。
+// validateGroupOrder 对命名成对的区间字段做通用顺序校验：
+//   1) `X_start…` 与 `X_end…`（含 `_start_ms`/`_end_ms`）：替换 start→end 找配对；
+//   2) `X_begin` 与 `X_end`；
+//   3) `X` 与 `X_end` / `X_end_ms` / `X_max` / `X_until`（追加后缀）。
+// 同时存在时前者不得大于后者。这套约定取代原先硬编码 page/time 的规则，
+// 新增成对字段无需改代码，只要命名遵循上述约定即自动生效。
+func validateGroupOrder(m map[string]any, f Field) error {
+	pairs := [][2]string{}
+	has := func(k string) bool { _, ok := f.Fields[k]; return ok }
+	for key, child := range f.Fields {
+		if !numericField(child) {
+			continue
+		}
+		// 命名替换：start→end、begin→end
+		for _, marker := range [][2]string{{"start", "end"}, {"begin", "end"}} {
+			if idx := strings.Index(key, marker[0]); idx >= 0 {
+				cand := key[:idx] + marker[1] + key[idx+len(marker[0]):]
+				if cand != key && has(cand) {
+					pairs = append(pairs, [2]string{key, cand})
+				}
+				break
+			}
+		}
+		// 后缀追加
+		for _, suffix := range []string{"_end", "_end_ms", "_max", "_until"} {
+			if cand := key + suffix; has(cand) {
+				pairs = append(pairs, [2]string{key, cand})
+			}
+		}
+	}
+	for _, p := range pairs {
+		sv, sok := toFloat(m[p[0]])
+		ev, eok := toFloat(m[p[1]])
+		if sok && eok && sv > ev {
+			return fmt.Errorf("invalid_range: %s", p[0])
+		}
+	}
+	// 锚点规则：组内任一其它子字段有值，锚点子字段必须有值。
+	if f.AnchorKey != "" {
+		anchorSet := !isEmptyValue(m[f.AnchorKey])
+		anyOther := false
+		for k, v := range m {
+			if k == f.AnchorKey {
+				continue
+			}
+			if !isEmptyValue(v) {
+				anyOther = true
+				break
+			}
+		}
+		if anyOther && !anchorSet {
+			return fmt.Errorf("anchor_required: %s", f.AnchorKey)
+		}
+	}
+	return nil
+}
+
+// isEmptyValue 判断属性值是否"未提供"（nil、空串、空数组、空对象）。
+func isEmptyValue(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return true
+	case string:
+		return strings.TrimSpace(x) == ""
+	case []any:
+		return len(x) == 0
+	case map[string]any:
+		return len(x) == 0
+	}
+	return false
 }
 func validateSources(note string, sources []Source) error {
 	if strings.TrimSpace(note) == "" || len(sources) == 0 {
@@ -230,7 +328,7 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 			return fmt.Errorf("invalid_date")
 		}
 	case "number":
-		n, ok := v.(float64)
+		n, ok := toFloat(v)
 		if !ok || math.IsInf(n, 0) || math.IsNaN(n) || f.Min != nil && n < *f.Min || f.Max != nil && n > *f.Max {
 			return fmt.Errorf("invalid_number")
 		}
@@ -287,6 +385,9 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 			if e := d.value(c, m[k], reference, historical); e != nil {
 				return e
 			}
+		}
+		if e := validateGroupOrder(m, f); e != nil {
+			return e
 		}
 	}
 	return nil
@@ -382,6 +483,11 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		if err := reference(s.WorkID, []string{"work"}); err != nil {
 			return err
 		}
+		// 发行对象附加属性：由 definitions 的 subject_attributes 组字段校验，
+		// 后台可为其增删子字段，无需改代码或迁移。
+		if err := d.value(d.Fields["subject_attributes"], s.Attributes, reference, historical); err != nil {
+			return fmt.Errorf("subject_attributes: %w", err)
+		}
 	}
 	positions := map[int]bool{}
 	for _, c := range e.Contents {
@@ -392,21 +498,14 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		if err := reference(c.ExpressionID, []string{"expression"}); err != nil {
 			return err
 		}
-		if err := validateLocator(c.Locator); err != nil {
-			return err
+		// 定位方案（页码/时间码/路径/章节…）与收录附加属性同样走 definitions，
+		// 不再为每种媒体硬编码字段；locator 允许为空（如整轨收录）。
+		if err := d.value(d.Fields["locator"], map[string]any(c.Locator), reference, historical); err != nil {
+			return fmt.Errorf("locator: %w", err)
 		}
-	}
-	return nil
-}
-func validateLocator(l Locator) error {
-	if l.RelativeTo == "" && l.PageStart == nil && l.PageEnd == nil && l.TimeStart == nil && l.TimeEnd == nil && l.Path == "" && l.Chapter == "" {
-		return nil
-	}
-	if !contains([]string{"track", "medium"}, l.RelativeTo) {
-		return fmt.Errorf("locator_reference_required")
-	}
-	if l.PageStart != nil && *l.PageStart < 1 || l.PageEnd != nil && (l.PageStart == nil || *l.PageEnd < *l.PageStart) || l.TimeStart != nil && *l.TimeStart < 0 || l.TimeEnd != nil && (l.TimeStart == nil || *l.TimeEnd <= *l.TimeStart) {
-		return fmt.Errorf("invalid_locator")
+		if err := d.value(d.Fields["inclusion_attributes"], c.Attributes, reference, historical); err != nil {
+			return fmt.Errorf("inclusion_attributes: %w", err)
+		}
 	}
 	return nil
 }

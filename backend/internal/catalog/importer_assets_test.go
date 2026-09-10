@@ -106,7 +106,7 @@ func TestWorkTypeFromMetadataAcceptsIntAndFloat(t *testing.T) {
 // 否则校验会以 unknown_field 拒绝整条导入。
 func TestBuildWorkEntityOmitsAttributesWithoutType(t *testing.T) {
 	w := &ImporterWorkPreview{Title: "无类型作品", ReleaseDate: "2002-09-27"}
-	e, err := buildWorkEntity(w, "", "bangumi", "", "", false)
+	e, err := buildWorkEntity(w, "", "bangumi", "", "", false, "edition_date")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestBuildWorkEntityOmitsAttributesWithoutType(t *testing.T) {
 		t.Fatalf("attributes written without a type: %v", e.Attributes)
 	}
 
-	typed, err := buildWorkEntity(w, "animation", "bangumi", "", "", false)
+	typed, err := buildWorkEntity(w, "animation", "bangumi", "", "", false, "edition_date")
 	if err != nil {
 		t.Fatal(err)
 	}
