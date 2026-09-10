@@ -454,6 +454,56 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			"email":    u.Email,
 		})
 	})
+	// 用户收藏：详情页按钮与"我的收藏 / 用户收藏"列表。
+	favPage := func(c *gin.Context) (int, int) {
+		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+		size, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+		if page < 1 {
+			page = 1
+		}
+		if size < 1 || size > 100 {
+			size = 20
+		}
+		return page, size
+	}
+	api.POST("/favorites/toggle", required(true), func(c *gin.Context) {
+		var in struct {
+			TargetType string `json:"target_type"`
+			TargetID   string `json:"target_id"`
+		}
+		if err := c.ShouldBindJSON(&in); err != nil {
+			respond(c, nil, fmt.Errorf("invalid_payload"))
+			return
+		}
+		favorited, err := s.ToggleFavorite(c.Request.Context(), *user(c), in.TargetType, in.TargetID)
+		respond(c, gin.H{"favorited": favorited}, err)
+	})
+	api.GET("/favorites/status", func(c *gin.Context) {
+		u := user(c)
+		if u == nil {
+			respond(c, gin.H{"favorited": []string{}}, nil)
+			return
+		}
+		ids := []string{}
+		for _, id := range strings.Split(c.Query("target_ids"), ",") {
+			if id = strings.TrimSpace(id); id != "" {
+				ids = append(ids, id)
+			}
+		}
+		v, err := s.FavoriteStatus(c.Request.Context(), *u, c.Query("target_type"), ids)
+		respond(c, gin.H{"favorited": v}, err)
+	})
+	api.GET("/favorites/mine", required(true), func(c *gin.Context) {
+		u := user(c)
+		page, size := favPage(c)
+		items, total, err := s.ListFavorites(c.Request.Context(), u.ID, u, c.Query("target_type"), size, (page-1)*size)
+		respond(c, gin.H{"items": items, "total": total, "visible": true}, err)
+	})
+	api.GET("/users/:id/favorites", func(c *gin.Context) {
+		page, size := favPage(c)
+		items, total, err := s.ListFavorites(c.Request.Context(), c.Param("id"), user(c), c.Query("target_type"), size, (page-1)*size)
+		respond(c, gin.H{"items": items, "total": total, "visible": true}, err)
+	})
 	cat := api.Group("/catalog")
 	cat.GET("/definitions", func(c *gin.Context) { v, err := s.Definitions(c.Request.Context()); respond(c, v, err) })
 	cat.GET("/works", func(c *gin.Context) {
