@@ -93,6 +93,7 @@ type HomeWork = {
   cover_aspect?: string;
   release_date?: string;
   updated_at?: string;
+  attributes?: Record<string, any> | null;
   types?: string[] | null;
   pictures?: { url?: string }[] | null;
   tags?: { id?: string | number; name?: string }[] | null;
@@ -107,8 +108,12 @@ function coverOf(work: HomeWork): string | undefined {
   return work.cover_image_url || work.pictures?.[0]?.url || undefined;
 }
 
+// 列表展示作品首发/出版日期：优先实体 edition_date（导入与编辑写入），
+// 不缺省到 updated_at——那是记录更新时间，当成发售日显示是错的。
 function dateOf(work: HomeWork): string | undefined {
-  return work.release_date || work.updated_at;
+  const editionDate = work.attributes?.edition_date ?? work.attributes?.begin_date;
+  if (typeof editionDate === "string" && editionDate.trim()) return editionDate;
+  return work.release_date || undefined;
 }
 
 // 只有「无其它条件」或「纯类型条件」的货架能在客户端用已发布作品列表求值。
