@@ -8,6 +8,14 @@ updates:
       time: "03:00"
     open-pull-requests-limit: 10
     labels: ["dependencies", "go"]
+    # minor+patch 归组减少噪音，major 单独成 PR 便于逐个人工评估
+    groups:
+      gomod-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      gomod-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: "npm"
     directory: "/frontend"
@@ -17,6 +25,14 @@ updates:
       time: "03:00"
     open-pull-requests-limit: 10
     labels: ["dependencies", "frontend"]
+    # minor+patch 归组减少噪音，major 单独成 PR 便于逐个人工评估
+    groups:
+      npm-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      npm-major:
+        patterns: ["*"]
+        update-types: ["major"]
 
   - package-ecosystem: "docker"
     directory: "/deploy"
