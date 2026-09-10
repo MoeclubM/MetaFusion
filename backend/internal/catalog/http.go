@@ -453,6 +453,10 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		total, err := s.Count(c.Request.Context(), o, user(c))
 		respond(c, gin.H{"items": items, "total": total}, err)
 	})
+	// 旧前端 /works/[id] 页兼容路由：新轨 Work 实体映射为旧 JSON 形状（只读），见 works_compat.go。
+	cat.GET("/works/:id", h.worksDetail)
+	cat.GET("/works/:id/contents", h.worksContents)
+	cat.GET("/works/:id/graph", h.worksGraph)
 	cat.GET("/entities", routeLimiter(120), func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		offset, _ := strconv.Atoi(c.Query("offset"))
