@@ -15,7 +15,7 @@ package catalog
 //   |-----------------|-------------------------------------|------------------------------------------|------|
 //   | name            | OriginalName（与 Name 配对）         | translations[original_lang].title / 回填 | name_cn 为空时 Name=OriginalName=name |
 //   | name_cn（缺失） | Name=name（bangumiTitlePair 回退）   | title=name                               | 本快照无 name_cn，原名与标题相同 |
-//   | type=3          | EntityType="group"（bangumiAgentType）；外层 envelope 按 agentType 折叠为 "organization" | 落库 Types 按请求 EntityType 收敛（本回放用 organization → ["organization"]），预览 MediaType="group" | 1=person 2=organization 3=group |
+//   | type=3          | EntityType="group"（bangumiAgentType）；外层 envelope 按 agentType 折叠为 "organization" | 落库 Types 取预览的精确类型 → ["group"]（envelope 的 organization 是旧兼容折叠，精确类型优先），预览 MediaType="group" | 1=person 2=organization 3=group |
 //   | career[0]       | Role                                | 不落库（Entity 无 role 列）               | 本快照 career=["artist"] |
 //   | summary         | Biography + 翻译行 Summary          | translations 单行时回填 Summary           | 原语言为空且仅 1 行翻译时落 summary |
 //   | images.best()   | AvatarURL（large→common→medium…）   | 不落库（本阶段不下载图片）                | 只做预览透传 |
@@ -344,7 +344,8 @@ func runReplayImportFlowDB(t *testing.T, ctx context.Context, f fixture) {
 	if first.Artist.ExternalIDs["metafusion_import"] != "bangumi:person:45638" {
 		t.Fatalf("bad stored import key: %v", first.Artist.ExternalIDs)
 	}
-	if len(first.Artist.Types) != 1 || first.Artist.Types[0] != "organization" {
+	// 落库用预览的精确类型：type=3 是真乐队 → group，而非 envelope 折叠出的 organization。
+	if len(first.Artist.Types) != 1 || first.Artist.Types[0] != "group" {
 		t.Fatalf("bad stored agent types: %v", first.Artist.Types)
 	}
 
