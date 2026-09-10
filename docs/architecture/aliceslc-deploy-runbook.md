@@ -1,6 +1,18 @@
 # aliceslc 线上部署手册与状态（findverse.cc）
 
-> 更新时间：2026-09-10（UTC）。线上 `~/metafusion` 已到 `main` `b6c30dd`。
+> 更新时间：2026-09-10（UTC）。线上 `~/metafusion` 已到 `main` `8c673fe`。
+
+## 0.2 封面与关系扩展上线（2026-09-10 第三轮）
+
+- 修复导入器封面丢失：`buildWorkEntity` / `buildAgentEntity` / staff 关联此前完全不写 `Pictures`
+  （仅透传 URL 不落库），导致页面只剩程序占位图。新增 `pictureFromRemote` 把远端图 URL 透传为
+  `Picture`（`Source` 指向 Bangumi 条目页/角色页，满足 `validateSources` 证据规则；不抓取、不转存）。
+- 扩展分媒介署名关系（`Defaults()`，group=credits，目标 agent）：`composed_by` 作曲、`lyricist_of` 作词、
+  `arranged_by` 编曲、`directed_by` 导演、`written_by` 编剧、`illustrated_by` 插画、`narrated_by` 朗读。
+  线上 relations 由 17 增至 24，重播方式同 0.1（`DELETE definitions` + 重启 backend）。
+- 回填四个实体封面（Bangumi 官方图，透传远端 URL）：4114 / 3559 / 428735 / 200841，`pictures=1` 各一条。
+  页面确认作品页封面按自然比例渲染（1140×1540 原图，无拉伸）。
+- 说明：本机无 docker，无「本地测试部署」可清理；所谓清理按用户意图执行的是线上目录数据重建（见 0.0 节）。
 
 ## 0. 线上数据重建与 Bangumi 导入记录（2026-09-10 第二轮）
 
