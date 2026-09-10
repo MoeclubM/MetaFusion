@@ -861,6 +861,11 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 			e.Attributes["language"] = lang
 		}
 	}
+	// 作品首发/出版日期：写入 work.edition_date，供列表与详情展示。
+	// 预览的 release_date 此前被丢弃，导致列表只能回退到 updated_at（时间显示错误）。
+	if d := cleanImporterDate(w.ReleaseDate); d != "" {
+		e.Attributes["edition_date"] = d
+	}
 	if hasKey {
 		e.ExternalIDs["metafusion_import"] = key
 		if kind, id := splitDedupKey(key); kind == "subject" {
