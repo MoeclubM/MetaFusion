@@ -457,6 +457,15 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	cat.GET("/works/:id", h.worksDetail)
 	cat.GET("/works/:id/contents", h.worksContents)
 	cat.GET("/works/:id/graph", h.worksGraph)
+	// 旧前端其余详情页只读兼容路由（taxonomy/artists/franchises/mediums/canonical-entries），见 legacy_compat.go。
+	cat.GET("/taxonomy", h.taxonomyCompat)
+	cat.GET("/artists/:id", h.artistsCompat)
+	cat.GET("/franchises/:id", h.franchisesCompat)
+	cat.GET("/mediums/:id", h.mediumsCompat)
+	cat.GET("/canonical-entries/:id", h.canonicalEntriesCompat)
+	cat.GET("/tags", h.tagsCompat)
+	cat.GET("/relation-types", h.relationTypesCompat)
+	cat.GET("/works/:id/comments", h.worksCommentsCompat)
 	cat.GET("/entities", routeLimiter(120), func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		offset, _ := strconv.Atoi(c.Query("offset"))
