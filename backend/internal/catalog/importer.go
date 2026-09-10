@@ -817,6 +817,32 @@ func applyWorkSummary(e *Entity, summary string) {
 	}
 }
 
+// pictureFromRemote 把外部目录的远端图片 URL 透传为 Picture（不抓取、不转存）。
+// Source.URL 优先用对应条目的公开页面（可考据），取不到时回退图片 URL。
+func pictureFromRemote(imageURL, citation, key string, hasKey bool) (Picture, bool) {
+	imageURL = strings.TrimSpace(imageURL)
+	if imageURL == "" || !validURL(imageURL) {
+		return Picture{}, false
+	}
+	pageURL := imageURL
+	if hasKey {
+		if kind, id := splitDedupKey(key); id != "" {
+			switch kind {
+			case "subject":
+				pageURL = "https://bgm.tv/subject/" + id
+			case "character":
+				pageURL = "https://bgm.tv/character/" + id
+			case "person":
+				pageURL = "https://bgm.tv/person/" + id
+			}
+		}
+	}
+	if !validURL(pageURL) {
+		pageURL = imageURL
+	}
+	return Picture{URL: imageURL, Caption: Names{}, Source: Source{Kind: "url", Citation: citation, URL: pageURL}}, true
+}
+
 func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID string, hasKey bool) (Entity, error) {
 	if w == nil || strings.TrimSpace(w.Title) == "" {
 		return Entity{}, fmt.Errorf("invalid_payload")
@@ -846,6 +872,9 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 		e.ExternalIDs[source] = strings.TrimSpace(sourceID)
 	}
 	applyWorkSummary(&e, w.Summary)
+	if p, ok := pictureFromRemote(w.CoverImageURL, "Bangumi 条目封面", key, hasKey); ok {
+		e.Pictures = []Picture{p}
+	}
 	return e, nil
 }
 
@@ -880,7 +909,6 @@ func buildAgentEntity(name, originalName, biography, avatarURL, lang, entityType
 	if t := agentTypeForPreviewValue(entityType); t != "" {
 		agentType = t
 	}
-	_ = avatarURL // 头像只做预览透传：本阶段不下载图片，不写入 pictures（需可考据来源）。
 	e := Entity{
 		Kind:             "agent",
 		Title:            name,
@@ -889,6 +917,9 @@ func buildAgentEntity(name, originalName, biography, avatarURL, lang, entityType
 		Types:            []string{agentType},
 		ExternalIDs:      stringScalarMap(externalIDs),
 		Attributes:       map[string]any{},
+	}
+	if p, ok := pictureFromRemote(avatarURL, "Bangumi 头像", key, hasKey); ok {
+		e.Pictures = []Picture{p}
 	}
 	if strings.TrimSpace(originalName) != "" && strings.TrimSpace(originalName) != name {
 		if e.OriginalLanguage != "" {
@@ -1243,7 +1274,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		if name == "" {
 			continue
 		}
-		agent, aerr := s.importerSave(ctx, Entity{
+		staff := Entity{
 			Kind:             "agent",
 			Title:            name,
 			OriginalLanguage: originalLanguageOrEmpty(assoc.Country),
@@ -1251,7 +1282,11 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			Types:            []string{staffAgentType(assoc.EntityType)},
 			Attributes:       map[string]any{},
 			ExternalIDs:      stringScalarMap(assoc.ExternalIDs),
-		}, actor, note, sources)
+		}
+		if p, ok := pictureFromRemote(assoc.AvatarURL, "Bangumi 头像", "", false); ok {
+			staff.Pictures = []Picture{p}
+		}
+		agent, aerr := s.importerSave(ctx, staff, actor, note, sources)
 		if aerr != nil {
 			return ImporterImportResponse{}, aerr
 		}
