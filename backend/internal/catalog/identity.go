@@ -180,14 +180,14 @@ func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, c
 		return "", nil, err
 	}
 	var u User
-	err = s.DB.QueryRowContext(ctx, "SELECT id, username, role FROM catalog.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+	err = s.DB.QueryRowContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM catalog.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	return token, &u, err
 }
 
 func (s *Store) UserFromOAuthToken(ctx context.Context, token string) (*User, error) {
 	thash := sha256.Sum256([]byte(token))
 	var u User
-	err := s.DB.QueryRowContext(ctx, "SELECT u.id, u.username, u.role FROM catalog.oauth_tokens t JOIN catalog.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(thash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+	err := s.DB.QueryRowContext(ctx, "SELECT u.id, u.username, COALESCE(u.email,''), u.role FROM catalog.oauth_tokens t JOIN catalog.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(thash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +220,7 @@ func (s *Store) LogoutAll(ctx context.Context, userID string) error {
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT id, username, role FROM catalog.users ORDER BY username ASC")
+	rows, err := s.DB.QueryContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM catalog.users ORDER BY username ASC")
 	if err != nil {
 		return nil, err
 	}
