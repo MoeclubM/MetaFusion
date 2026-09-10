@@ -1,5 +1,9 @@
 # MetaFusion 多项目解耦与子系统拆分架构规范 (Multi-Project Decoupling Specification)
 
+> **状态：VISION（未实现，勿当运行时事实）**
+> 本文描述的是**尚未落地的多仓库拆分目标**。当前仓库为单一部署单元：元数据核心与认证、网关、前端、文档站同进程/同仓库运行（`backend/cmd/server` 统一 `/api`），外围能力以进程内可选模块（`backend/internal/modules`）而非独立微服务实现。
+> 文中出现的 `metafusion-auth` / `metafusion-storage` / `metafusion-community` / `metafusion-api-gateway` / `metafusion-docs` 独立仓库、独立数据库、`/api/{catalog,auth,storage,community}/*` 按域前缀、OAuth2 跨服务 SSO 等**均未实现**。仅作长期架构讨论，不作为当前接口或部署依据。现行为请以 AGENTS.md、`backend/internal/catalog/http.go` 与 `/api/openapi.json` 为准。
+
 本文档面向 MetaFusion 核心开发与架构运维团队，明确**元数据系统作为主项目（Core Project）**与周边外围子系统（账号、论坛、资源存储、API 网关、文档站）的**项目拆分边界、通信协议契约、数据库隔离方案与 GitHub 多仓库协同规范**。
 
 ---

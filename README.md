@@ -8,7 +8,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-black?style=flat-square" alt="License"/></a>
   <img src="https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go"/>
-  <img src="https://img.shields.io/badge/Next.js-15-black?style=flat-square&logo=next.js&logoColor=white" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js&logoColor=white" alt="Next.js"/>
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
   <img src="https://img.shields.io/badge/OpenSearch-2.14-005ECC?style=flat-square&logo=opensearch&logoColor=white" alt="OpenSearch"/>
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker"/>
@@ -36,21 +36,21 @@
 ## ✨ 核心特性
 
 ### 1. 🏛️ 国际图书馆级 LRM 混合编目模型
-- **五级层级结构**：采用 `Work（作品）→ CanonicalEntry（表现层典范）→ Release（发行版本）→ Medium（物理/数字载体）→ Track（单曲/分集/章节）→ AssetFile（CAS 资产）`。
+- **固定八实体骨架**：`Agent（责任者）· Collection（集合）· Work（作品）· ContentUnit（内容单元）· Expression（内容表达）· Release（发行版）· Medium（物理/数字载体）· Track（收录位置）`，资产文件（AssetFile）独立承载哈希与绑定。
 - **纯净实体题名**：作品主标题坚决剥离季数、介质、规格等非本质限定词；版本与载体规格由 Release / Medium 精确承载，杜绝重复冗余。
 - **多维标签与虚拟货架**：彻底废弃传统死板的单一树状分类，由「形态（Format）+ 制作媒介（Medium）+ 流派（Genre）+ 企划宇宙（Theme）」动态聚合生成虚拟货架。
 - **自适应封面与多语言回退链**：支持 1:1、2:3、3:4 自然宽高比封面与自适应渲染；基于 `work_translations` 构建多语言回退链（`User Locale → en-US → original_language → Default`）。
 
-### 2. 🔐 双 Token 认证与企业级安全风控
-- **双 Token 体系**：短生命周期 Access Token（2小时）搭配可轮转 Refresh Token（7天），前端实现 401 自动静默无感拦截与并发防抖重试。
-- **毫秒级 Token 撤销**：基于 Redis 维护黑名单，支持主动登出立即失效、全局会话吊销与跨设备安全风控。
-- **个人访问令牌 (PAT)**：为第三方开发者与自动化 AI Agent 提供长期、权限可收敛的独立访问密钥。
-- **媒体访问控制**：所有二进制资产（母盘原档、HLS 流分片、预览音频、图像缩略图）均通过短期预签名安全下发，保障版权与防盗链。
+### 2. 🔐 会话认证与访问控制
+- **服务端会话**：登录后签发随机会话令牌，写入 HttpOnly Cookie `mf_session`，会话记录存于 `catalog.sessions`（默认 24 小时），登出即删除；支持 `POST /api/auth/logout-all` 吊销该用户全部会话。
+- **OAuth 2.0 / OIDC 接入**：提供 `/api/oauth/authorize`、`/api/oauth/token`、`/api/oauth/userinfo` 与客户端注册管理。
+- **规划中（未实现）**：Access/Refresh 双 Token 轮转、基于 Redis 的令牌黑名单、个人访问令牌（PAT）——当前均无对应实现，请勿据此开发。
+- **媒体访问控制（可选模块）**：媒体内容由可选 `archive` / `playback` 模块经服务端鉴权转发（`GET /api/archive/resources/:id/content`），非对象存储预签名直链。
 
-### 3. 🚀 云原生高性能媒体中枢与搜索引擎
-- **S3 兼容对象存储 (RustFS)**：集成高性能 RustFS 引擎，支持基于 SHA-256 哈希的内容寻址存储（CAS）与秒传机制，客户端直传直取，不占用业务服务器带宽。
-- **全域毫秒级检索 (OpenSearch 2.x)**：支持多语言分词、模糊纠错、拼音/罗马音联想与 Facet 多维聚合，并在搜索引擎离线时无缝降级为数据库全文检索。
-- **异步分布式转码流水线**：基于 Go Asynq + Redis + FFmpeg 构建分布式转码 Worker，支持视频自适应码率 HLS 切片、雪碧图关键帧气泡、320k 预览音频提取与 WebP 图像无损压缩。
+### 3. 🚀 云原生媒体处理与存储
+- **S3 兼容对象存储 (RustFS)**：可选 `archive` 模块支持将资产写入本地目录或 S3 兼容存储（MinIO 客户端，`ARCHIVE_S3_*` 环境变量），元数据与物理资产分离。
+- **数据库检索**：`GET /api/catalog/entities?q=...` 由 PostgreSQL 匹配题名与多语言文档（`ILIKE` / 全文索引），OpenSearch 2.14 容器已随 Compose 部署，但**当前 Go 代码尚未接入客户端，规划中的多语言分词与 Facet 聚合未生效**。
+- **异步转码 Worker**：基于 Go Asynq + Redis + FFmpeg 的独立 `cmd/worker` 进程，处理转码任务队列。
 
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
 - **独立迁移引擎 (`mf-migrate`)**：自研 Go 原生数据库迁移工具，集成 PostgreSQL Advisory Lock 机制，彻底杜绝多副本部署时的并发迁移竞争。
@@ -59,54 +59,55 @@
 
 ---
 
-## 🏗️ 系统架构全景：元数据主项目与多子系统解耦矩阵
+## 🏗️ 系统架构全景：一体化元数据主系统 + 可选解耦模块
 
-MetaFusion 采用**「以元数据系统为主项目，多业务子系统物理与逻辑完全解耦」**的微服务化体系结构。各子项目拥有立项自治权、独立数据库存储与自洽生命周期，通过统一边缘网关与标准 OAuth2.0 / OIDC 协议对外提供服务。
+本仓库是**单一部署单元**：元数据主系统与前后端、网关、文档站共用一个 `cmd/server` 进程与统一 `/api` 前缀，通过数据库 schema 边界与可选模块（modules）实现外围能力解耦，而非按域拆分的多个微服务仓库。
 
-### 1. 多项目矩阵规划 (Multi-Project Ecosystem)
+### 1. 仓库内实际组件 (Repository Components)
 
-| 项目代码 | 仓库规划 | 架构定位 | 核心职责 | 存储与基础设施依赖 |
-|---|---|---|---|---|
-| **`metafusion-catalog`** | `MoeclubM/MetaFusion` (主仓库) | **核心主项目** | 8大固定实体骨架（Agent, Work, Expression, Release...）、动态定义引擎、关系图谱、版本对比、协同审核与修订历史 | 仅依赖 PostgreSQL (单机高可用) |
-| **`metafusion-auth`** | `MoeclubM/metafusion-auth` | 独立身份中枢 | 统一用户中心、RBAC 角色权限、OAuth 2.0 / OIDC 认证服务器、JWT 令牌签发与吊销 (SSO) | PostgreSQL (Auth DB) + Redis |
-| **`metafusion-storage`** | `MoeclubM/metafusion-storage` | 独立资源服务 | 物理资产管理、S3/RustFS 分布式对象存储接入、SHA-256/ED2K 指纹校验、种子生成、下载配额与限速鉴权 | S3 兼容存储 (RustFS/MinIO) + Storage DB |
-| **`metafusion-community`** | `MoeclubM/metafusion-community` | 独立社区服务 | 讨论版块、主题帖 (Thread)、楼层回复 (Post)、动态评分、点赞与用户互动 | PostgreSQL (Community DB) + Redis |
-| **`metafusion-api`** | `MoeclubM/metafusion-api-gateway` | 边缘路由网关 | 统一单域名接入 (`findverse.cc`)、TLS/HTTPS 证书终止、反向代理路由分发、全域速率限制与统一 OpenAPI 聚合 | Nginx / Envoy / Cloudflare |
-| **`metafusion-docs`** | `MoeclubM/metafusion-docs` | 静态文档站点 | IFLA LRM 编目准则、开放 API 交互手册、智能体 Agent 接入协议、开发者指南与法务声明 | VitePress 静态工程 (Node/Bun) |
+| 组件 | 实现位置 | 定位 | 核心职责 |
+|---|---|---|---|
+| **元数据核心** | `backend/internal/catalog`、`backend/cmd/server` | **主系统** | 八大固定实体骨架、动态定义引擎、关系图谱、版本对比、协同审核与修订历史 |
+| **可选模块** | `backend/internal/modules`（边界 `moduleapi` / `moduledeps`） | 进程内独立 schema | 资源归档、播放、媒体、社区、记录、交换等可选能力，独立于 catalog 表并支持依赖启停 |
+| **认证与网关** | `backend/internal/catalog/http.go`、`deploy/nginx.conf` | 进程内认证 + 单端口边缘网关 | 会话认证、OAuth 2.0 / OIDC 端点、统一 `/api` 路由与限流，Nginx 负责 TLS/反代 |
+| **前端与文档站** | `frontend/`、`docs-site/` | 展示层 | Next.js 主站与管理中台；VitePress 静态文档站 |
 
-### 2. 跨系统网络与通信拓扑
+> **解耦保障**：元数据核心数据库仅存放实体本体与关系图谱，**不反向持有物理文件路径或社区帖子**；外围能力通过稳定边界（`moduleapi.Catalog` 接口与领域事件）单向引用实体 UUID 挂载业务。即使资源或社区模块停用，元数据浏览、编辑与检索依然独立稳定可用。多仓库拆分仅为长期规划，详见下方 VISION 文档。
+
+### 2. 请求拓扑
 
 ```
-                                [ 客户端 / Web 前端 / 移动端 / 自动化 Agent ]
-                                                      │
-                                                      ▼
-                                         ┌──────────────────────────┐
-                                         │ metafusion-api (Gateway) │ (统一单域名: findverse.cc)
-                                         │  (反向代理 / TLS / 限流) │
-                                         └────────────┬─────────────┘
-          ┌─────────────────────┬─────────────────────┼─────────────────────┬─────────────────────┐
-          │ /api/catalog/*      │ /api/auth/*         │ /api/storage/*      │ /api/community/*    │ /docs/*
-          │ /catalog/*          │ /account/*          │ /downloads/*        │ /community/*        │
-          ▼                     ▼                     ▼                     ▼                     ▼
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  MetaFusion      │  │ metafusion-auth  │  │metafusion-storage│  │metafusion-       │  │ metafusion-docs  │
-│  (元数据主项目)  │  │ (账号与认证中心) │  │(资源存储与下载)  │  │community(社区论坛│  │ (独立技术文档站) │
-│ (PostgreSQL 16)  │  │(Postgres + Redis)│  │ (S3 CAS + DB)    │  │(Postgres + Redis)│  │ (VitePress SSG)  │
-└──────────────────┘  └──────────────────┘  └──────────────────┘  └──────────────────┘  └──────────────────┘
+                    [ 客户端 / Web 前端 / 移动端 / 自动化 Agent ]
+                                      │
+                                      ▼
+                          ┌────────────────────────┐
+                          │  Nginx 边缘网关 (单端口) │  TLS / 反代 / 限流
+                          └───────────┬────────────┘
+                                      │  /api/*
+                                      ▼
+                          ┌────────────────────────┐
+                          │  cmd/server (统一 /api) │
+                          │   catalog + modules     │
+                          └───────────┬────────────┘
+                                      │
+             ┌────────────┬───────────┼───────────┬────────────┐
+             ▼            ▼           ▼           ▼            ▼
+        PostgreSQL     Redis     OpenSearch    RustFS      FFmpeg Worker
+        (元数据真源)  (会话/队列) (已部署,未接入) (已部署,未接线) (异步转码)
 ```
 
-> **解耦保障**：元数据核心数据库仅存放实体本体与关系图谱，**不反向持有物理文件路径或社区帖子**；外围系统通过单向只读引用实体 UUID 挂载业务。即使资源中心或论坛下线维护，元数据浏览、编辑与检索依然 100% 独立稳定可用。详细规格请参阅 [`docs/architecture/multi-project-decoupling-spec.md`](docs/architecture/multi-project-decoupling-spec.md)。
+> 外围解耦的长期目标（独立 auth / storage / community / gateway 仓库）记录在 [`docs/architecture/multi-project-decoupling-spec.md`](docs/architecture/multi-project-decoupling-spec.md)，**尚未实现，请勿当作运行时事实**。
 
 ---
 
 ## 🛠️ 技术栈清单
 
-- **后端核心 (Backend)**：Go 1.25, Gin, GORM, Asynq, Golang-JWT/v5, go-redis/v9
-- **前端系统 (Frontend)**：Next.js 15 (App Router, Standalone), React, Tailwind CSS, Lucide Icons, TypeScript
+- **后端核心 (Backend)**：Go 1.25, Gin, GORM (旧轨只读兼容), Asynq, Golang-JWT/v5, go-redis/v9
+- **前端系统 (Frontend)**：Next.js 14 (App Router), React 18, Tailwind CSS, Lucide Icons, TypeScript
 - **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
 - **数据库 (Storage & DB)**：PostgreSQL 16, Redis 7 (Alpine), RustFS (S3-compatible Object Storage)
-- **检索引擎 (Search Engine)**：OpenSearch 2.14.0
-- **媒体处理 (Media Pipeline)**：FFmpeg, libvips, mediainfo
+- **检索引擎 (Search Engine)**：OpenSearch 2.14.0（Compose 已部署；Go 代码尚未接入，当前检索走 PostgreSQL）
+- **媒体处理 (Media Pipeline)**：FFmpeg, libvips, mediainfo（Worker 队列已接线；实际可用能力以模块与 `cmd/worker` 实现为准）
 - **容器与网关 (Infra)**：Docker, Docker Compose v2, Nginx 1.25 Alpine
 
 ---
@@ -182,14 +183,16 @@ bash deploy/deploy.sh migrate down
 
 ## 🤖 开放 API 与 Agent 集成
 
-MetaFusion 原生遵循 **API-First** 设计哲学，所有网页功能均具备 100% 对应的 RESTful 接口。
+MetaFusion 采用统一 `/api` 主干（无版本前缀），核心元数据读接口对游客开放，写入需登录会话。
 
-1. **生成访问凭证**：登录后在 **个人中心 → 设置 → 开发者** 页面生成个人访问令牌（PAT）。
-2. **标准接口（统一基址 `/api`，无版本前缀）**：
-   - `GET /api/catalog/entities?kind=work&id=<UUID>`
+1. **认证方式**：登录后使用会话令牌（`Authorization: Bearer <token>`）或 `mf_session` Cookie；第三方应用可经 `/api/oauth/*` 的 OAuth 2.0 / OIDC 流程接入。**个人访问令牌（PAT）当前未实现**。
+2. **标准接口（统一基址 `/api`）**：
+   - `GET /api/catalog/entities?kind=work&limit=20`
    - `GET /api/catalog/entities?kind=release&limit=20`
    - `GET /api/catalog/entities?q=<keyword>&limit=20`
-3. **Agent 自主协同**：支持 LLM 智能体通过标准 OpenAPI/Swagger 文档与认证协议自主完成元数据校验、批量抓取入库与自动修订。
+   - `GET /api/catalog/entities/<UUID>`、`GET /api/catalog/entities/<UUID>/relations`
+   - `POST /api/catalog/entities`、`PUT /api/catalog/entities/:id`（写入，请求体为 `{entity, expected_version, edit_note, sources}`）
+3. **Agent 自主协同**：支持 LLM 智能体通过 `/api/openapi.json`（OpenAPI 3.0.3）与 `/api/docs` 交互式文档了解契约。注意：当前**没有** MusicBrainz WS/2 兼容层、`/api/search`、`/api/browse/*` 或一站式 `POST /api/catalog/submit`；详见 [API 概览](docs-site/docs/api-overview.md)。
 
 ---
 

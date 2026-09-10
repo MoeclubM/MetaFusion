@@ -7,6 +7,12 @@ group: "guide"
 
 # MetaFusion 权威编目与元数据审查准则 (Curation & Review Guide)
 
+::: warning 文档与实现存在差异（一手提示）
+本准则的实体术语部分已过期：文中 **`CanonicalEntry` 实体不存在**，当前为固定八实体骨架 `agent / collection / work / content_unit / expression / release / medium / track`；`Artist` 应为 `agent` kind，`Franchise` 由 `collection` kind 与关系表达。可复用「表现」用 `Expression`，同作品目录用 `ContentUnit`，`Track` 经 `contents[].expression_id` 收录表达。
+
+**权威实体边界与发行版命名请以独立技能仓库 [metafusion-skills](https://github.com/MoeclubM/metafusion-skills)（metafusion-curator + lrm-catalog-standards）及 [元数据目录教程](/catalog) 为准**；本页保留编目哲学、纯净题名、盒装与复用、DAG 织网等原则讲解。
+:::
+
 MetaFusion 是面向 ACG、影音与文献的全球化开放元数据与多媒介档案协作平台。本准则确立 MetaFusion 作为开放资源共建站点的**唯一最高数据编目哲学与审查准则**。所有在此平台中进行实体创建、元数据录入、多源导入、词条编辑、关系连接与审核巡检的社区考据员（Archivists）与 AI Agent，均须严格遵循此标准。
 
 ---

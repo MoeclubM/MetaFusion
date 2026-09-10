@@ -7,7 +7,13 @@ group: "model"
 
 # IFLA LRM 增强版实体模型体系 (LRM-Enhanced Architecture)
 
-MetaFusion 彻底废弃传统树状分类与硬编码 `media_type` 枚举，采用国际图书馆学联合会（IFLA）制定的 **LRM (Library Reference Model 图书馆参考模型)** 规范，并深度融合 **MusicBrainz 录音母版复用哲学** 与 **现代多媒介流媒体体系**，构建了面向跨媒介（电影、音乐、剧集、文献、动漫、游戏）的 **五层混合实体模型 + 四大核心枢纽**。
+::: warning 文档与实现存在差异（一手提示）
+本页的 **CanonicalEntry（LRM-E2）实体在当前实现中不存在**，实际固定实体骨架为八类：`agent / collection / work / content_unit / expression / release / medium / track`（见 `backend/internal/catalog/types.go`）。可复用的「表达」由 `Expression` 承载，同作品内目录由 `ContentUnit` 承载，`Track` 通过 `contents[].expression_id` 收录 `Expression`；不存在 `Artist` / `Franchise` 独立实体（分别由 `agent` kind 与 `collection` kind + 关系表达）。
+
+本页保留 LRM 理论分层与建模哲学的讲解；落地字段与关系请以 [元数据目录教程](/catalog) 与 `/api/catalog/definitions` 为准。
+:::
+
+MetaFusion 彻底废弃传统树状分类与硬编码 `media_type` 枚举，采用国际图书馆学联合会（IFLA）制定的 **LRM (Library Reference Model 图书馆参考模型)** 规范，并深度融合 **MusicBrainz 录音母版复用哲学** 与 **现代多媒介流媒体体系**，构建了面向跨媒介（电影、音乐、剧集、文献、动漫、游戏）的 **实体模型 + 核心枢纽**。
 
 ---
 
