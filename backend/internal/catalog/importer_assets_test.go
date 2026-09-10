@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -279,5 +280,52 @@ func TestPreviewSubjectRelationsDegradeWhenAbsent(t *testing.T) {
 	}
 	if len(pv.Artists) != 0 {
 		t.Fatalf("expected no related artists, got %d", len(pv.Artists))
+	}
+}
+
+// infobox 解析：值既可能是标量字符串，也可能是 [{"v":...}] 列表；
+// 别名要去掉与主标题/原题名重复的项。
+func TestBangumiInfoboxParsing(t *testing.T) {
+	raw := `{
+		"id": 428735, "type": 2, "name": "BanG Dream! It's MyGO!!!!!", "name_cn": "",
+		"infobox": [
+			{"key": "别名", "value": [{"k": "大陆版权译", "v": "迷途之子!!!!!"}, {"v": "BanG Dream! 迷途之子!!!!!"}]},
+			{"key": "话数", "value": "13"},
+			{"key": "官方网站", "value": "https://anime.bang-dream.com/mygo/"},
+			{"key": "商品编号", "value": "KSLA-0004～0005"}
+		]
+	}`
+	var sub bangumiSubject
+	if err := json.Unmarshal([]byte(raw), &sub); err != nil {
+		t.Fatal(err)
+	}
+	if got := sub.infoboxString("话数"); got != "13" {
+		t.Errorf("scalar infobox: got %q", got)
+	}
+	if got := sub.infoboxString("官方网站"); got != "https://anime.bang-dream.com/mygo/" {
+		t.Errorf("website: got %q", got)
+	}
+	aliases := sub.bangumiInfoboxAliases("BanG Dream! It's MyGO!!!!!", "BanG Dream! It's MyGO!!!!!")
+	if len(aliases) != 2 || aliases[0] != "迷途之子!!!!!" {
+		t.Errorf("aliases: %v", aliases)
+	}
+	// 与主标题重复的别名应被剔除
+	if got := sub.bangumiInfoboxAliases("迷途之子!!!!!", ""); len(got) != 1 || got[0] != "BanG Dream! 迷途之子!!!!!" {
+		t.Errorf("alias dedup failed: %v", got)
+	}
+}
+
+// 假名是日文原文的可靠信号；纯汉字/拉丁不猜。
+func TestDetectJapaneseScript(t *testing.T) {
+	for in, want := range map[string]string{
+		"とある魔術の禁書目録":   "ja",
+		"BanG Dream! It's MyGO!!!!!": "",
+		"魔法禁书目录":            "",
+		"アイドルマスター":         "ja",
+		"":                  "",
+	} {
+		if got := detectJapaneseScript(in); got != want {
+			t.Errorf("%q: got %q want %q", in, got, want)
+		}
 	}
 }

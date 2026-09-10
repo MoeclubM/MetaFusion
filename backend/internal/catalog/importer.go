@@ -382,15 +382,76 @@ type bangumiTag struct {
 }
 
 type bangumiSubject struct {
-	ID       int           `json:"id"`
-	Type     int           `json:"type"`
-	Name     string        `json:"name"`
-	NameCN   string        `json:"name_cn"`
-	Summary  string        `json:"summary"`
-	Date     string        `json:"date"`
-	Platform string        `json:"platform"`
-	Images   bangumiImages `json:"images"`
-	Tags     []bangumiTag  `json:"tags"`
+	ID       int               `json:"id"`
+	Type     int               `json:"type"`
+	Name     string            `json:"name"`
+	NameCN   string            `json:"name_cn"`
+	Summary  string            `json:"summary"`
+	Date     string            `json:"date"`
+	Platform string            `json:"platform"`
+	Images   bangumiImages     `json:"images"`
+	Tags     []bangumiTag      `json:"tags"`
+	Infobox  []bangumiInfoItem `json:"infobox"`
+}
+
+// bangumiInfoItem 是 Bangumi infobox 的一行。value 既可能是标量字符串，
+// 也可能是 [{"v":"..."}] 形式的别名/版本列表（键名 k/v 或仅 v）。
+type bangumiInfoItem struct {
+	Key   string          `json:"key"`
+	Value json.RawMessage `json:"value"`
+}
+
+// infoboxStrings 把某键的值统一摊平为字符串列表；缺失返回空。
+func (s bangumiSubject) infoboxStrings(key string) []string {
+	for _, item := range s.Infobox {
+		if strings.TrimSpace(item.Key) != key {
+			continue
+		}
+		var single string
+		if err := json.Unmarshal(item.Value, &single); err == nil {
+			if v := strings.TrimSpace(single); v != "" {
+				return []string{v}
+			}
+			return nil
+		}
+		var list []map[string]any
+		if err := json.Unmarshal(item.Value, &list); err != nil {
+			return nil
+		}
+		out := []string{}
+		for _, m := range list {
+			for _, k := range []string{"v", "value"} {
+				if v, ok := m[k].(string); ok {
+					if v = strings.TrimSpace(v); v != "" {
+						out = append(out, v)
+						break
+					}
+				}
+			}
+		}
+		return out
+	}
+	return nil
+}
+
+// infoboxString 取某键的首个字符串值。
+func (s bangumiSubject) infoboxString(key string) string {
+	if v := s.infoboxStrings(key); len(v) > 0 {
+		return v[0]
+	}
+	return ""
+}
+
+// bangumiInfoboxAliases 取"别名"行并去掉与主标题重复的项。
+func (s bangumiSubject) bangumiInfoboxAliases(title, original string) []string {
+	out := []string{}
+	for _, v := range s.infoboxStrings("别名") {
+		if v == title || v == original {
+			continue
+		}
+		out = append(out, v)
+	}
+	return out
 }
 
 // persons 端点 type 字段存在 int 与 {id} 两种形态，做兼容解析。
@@ -737,6 +798,13 @@ func previewBangumiSubject(ctx context.Context, source string, id int) (Importer
 		mediaType = "unknown"
 	}
 	tags := bangumiTags(sub.Tags, 12)
+	// 原语言推断：以官方原名（name）的语言为准，含假名可判定日文；
+	// 无可靠信号时留空（不虚构），展示回退链仍可工作。
+	origLang := detectJapaneseScript(sub.Name)
+	// infobox 补充官方字段：官网、品番、别名、出版社等（键名随媒体类型不同）。
+	aliases := sub.bangumiInfoboxAliases(title, original)
+	website := firstNonEmpty(sub.infoboxString("官方网站"), sub.infoboxString("官方網站"), sub.infoboxString("官网"))
+	catalogNo := firstNonEmpty(sub.infoboxString("商品编号"), sub.infoboxString("商品編號"), sub.infoboxString("品番"))
 	return ImporterPreviewResponse{
 		Source:      source,
 		EntityType:  "work",
@@ -744,17 +812,21 @@ func previewBangumiSubject(ctx context.Context, source string, id int) (Importer
 		ExternalURL: "https://bgm.tv/subject/" + strconv.Itoa(sub.ID),
 		MediaType:   mediaType,
 		Work: &ImporterWorkPreview{
-			Title:         title,
-			OriginalTitle: original,
-			Aliases:       []string{},
-			ReleaseDate:   strings.TrimSpace(sub.Date),
-			Summary:       sub.Summary,
-			CoverImageURL: sub.Images.best(),
-			Tags:          tags,
-			Translations:  bangumiTranslationItems(sub.Name, sub.NameCN, sub.Summary),
+			Title:            title,
+			OriginalTitle:    original,
+			Aliases:          aliases,
+			ReleaseDate:      strings.TrimSpace(sub.Date),
+			Language:         origLang,
+			OriginalLanguage: origLang,
+			Summary:          sub.Summary,
+			CoverImageURL:    sub.Images.best(),
+			Tags:             tags,
+			Translations:     bangumiTranslationItems(sub.Name, sub.NameCN, sub.Summary),
 			CatalogMetadata: map[string]any{
 				"bangumi_type":     sub.Type,
 				"bangumi_platform": sub.Platform,
+				"official_website": website,
+				"catalog_number":   catalogNo,
 			},
 		},
 		Tags: tags,
@@ -762,6 +834,40 @@ func previewBangumiSubject(ctx context.Context, source string, id int) (Importer
 		// 落库时建 agent 实体并把关系挂到作品上。
 		Artists: previewBangumiSubjectRelations(ctx, sub.ID),
 	}, nil
+}
+
+// firstNonEmpty 返回第一个非空字符串。
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if s := strings.TrimSpace(v); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+// scalarString 宽松取标量字符串值（属性经 JSON 往返后形态不定）。
+func scalarString(v any) string {
+	switch x := v.(type) {
+	case string:
+		return strings.TrimSpace(x)
+	case nil:
+		return ""
+	default:
+		return strings.TrimSpace(fmt.Sprint(x))
+	}
+}
+
+// detectJapaneseScript 用假名判定日文原文（假名是日文的可靠信号）。
+// 纯汉字/拉丁文本存在简繁歧义，返回空而不猜，避免给条目写错原语言。
+func detectJapaneseScript(s string) string {
+	for _, r := range s {
+		// 平假名 3040-309F、片假名 30A0-30FF（含半角片假名 FF66-FF9D 另计）
+		if (r >= 0x3040 && r <= 0x30FF) || (r >= 0xFF66 && r <= 0xFF9D) {
+			return "ja"
+		}
+	}
+	return ""
 }
 
 func previewBangumiPerson(ctx context.Context, source string, id int) (ImporterPreviewResponse, error) {
@@ -960,6 +1066,23 @@ func (s *Store) findImported(ctx context.Context, key string, actor *User) (Enti
 	return e, true
 }
 
+// findAgentByTitle 按标题精确匹配已有可见 agent（无外部键的手工载荷去重用）。
+func (s *Store) findAgentByTitle(ctx context.Context, title string, actor *User) (Entity, bool) {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return Entity{}, false
+	}
+	var id string
+	if err := s.DB.QueryRowContext(ctx, `SELECT id FROM catalog.entities WHERE kind='agent' AND title=$1 AND status NOT IN ('deleted','merged') LIMIT 1`, title).Scan(&id); err != nil {
+		return Entity{}, false
+	}
+	e, err := s.Get(ctx, id, actor)
+	if err != nil {
+		return Entity{}, false
+	}
+	return e, true
+}
+
 func (s *Store) importerSave(ctx context.Context, e Entity, actor User, note string, sources []Source) (Entity, error) {
 	if e.Translations == nil {
 		e.Translations = map[string]Translation{}
@@ -1116,6 +1239,24 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 		}
 	} else if strings.TrimSpace(sourceID) != "" {
 		e.ExternalIDs[source] = strings.TrimSpace(sourceID)
+	}
+	// 官网来自 infobox，落 external_ids（前端 official_website 读这里，可考据且不占用类型字段）。
+	if v, ok := w.CatalogMetadata.(map[string]any); ok {
+		if site := scalarString(v["official_website"]); site != "" {
+			e.ExternalIDs["official_website"] = site
+		}
+		if no := scalarString(v["catalog_number"]); no != "" && workType != "" {
+			e.Attributes["catalog_number"] = no
+		}
+	}
+	// infobox 别名归入原语言翻译行（是原题名的异名，不是其它语种的正式标题）。
+	if lang := e.OriginalLanguage; lang != "" && len(w.Aliases) > 0 {
+		tr := e.Translations[lang]
+		if tr.Title == "" {
+			tr.Title = e.Title
+		}
+		tr.Aliases = append(tr.Aliases, w.Aliases...)
+		e.Translations[lang] = tr
 	}
 	applyWorkSummary(&e, w.Summary)
 	if p, ok := pictureFromRemote(w.CoverImageURL, "Bangumi 条目封面", key, hasKey); ok {
@@ -1480,24 +1621,24 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		return ImporterImportResponse{}, fmt.Errorf("invalid_payload")
 	}
 	key, hasKey := importDedupKey(source, req, entityType)
+	// 幂等：已导入过同一外部条目时复用该 work，但**不再提前返回**——
+	// 否则再次导入无法为已有作品补齐关联演职员/角色与关系（增量补录场景）。
+	var savedWork Entity
 	if hasKey {
 		if existing, ok := s.findImported(ctx, key, &actor); ok && existing.Kind == "work" {
-			return ImporterImportResponse{
-				Success: true, EntityType: "work",
-				WorkID:      existing.ID,
-				Work:        existing,
-				RedirectURL: "/works/" + existing.ID,
-			}, nil
+			savedWork = existing
 		}
 	}
-	workType := workTypeFromMetadata(req.Work.CatalogMetadata)
-	work, err := buildWorkEntity(req.Work, workType, source, key, req.ExternalID, hasKey)
-	if err != nil {
-		return ImporterImportResponse{}, err
-	}
-	savedWork, err := s.importerSave(ctx, work, actor, note, sources)
-	if err != nil {
-		return ImporterImportResponse{}, err
+	if savedWork.ID == "" {
+		workType := workTypeFromMetadata(req.Work.CatalogMetadata)
+		work, err := buildWorkEntity(req.Work, workType, source, key, req.ExternalID, hasKey)
+		if err != nil {
+			return ImporterImportResponse{}, err
+		}
+		savedWork, err = s.importerSave(ctx, work, actor, note, sources)
+		if err != nil {
+			return ImporterImportResponse{}, err
+		}
 	}
 	out := ImporterImportResponse{
 		Success: true, EntityType: "work",
@@ -1529,6 +1670,23 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			dedup = "name:" + strings.ToLower(name) + "|" + entityType
 		}
 		if _, ok := agentByKey[dedup]; ok {
+			continue
+		}
+		// 先按外部导入键复用已存在的 agent，避免重复导入产生同名副本。
+		if iKey := assocImportKey(assoc.ExternalIDs); iKey != "" {
+			if existing, ok := s.findImported(ctx, iKey, &actor); ok && existing.Kind == "agent" {
+				agentByKey[dedup] = existing
+				if strings.TrimSpace(assoc.RelationType) == "character_in" {
+					characterByName[strings.ToLower(name)] = existing
+				}
+				continue
+			}
+		} else if existing, ok := s.findAgentByTitle(ctx, name, &actor); ok {
+			// 无外部键的关联（手工载荷）按标题复用，避免重复导入产生同名 agent。
+			agentByKey[dedup] = existing
+			if strings.TrimSpace(assoc.RelationType) == "character_in" {
+				characterByName[strings.ToLower(name)] = existing
+			}
 			continue
 		}
 		staff := Entity{
