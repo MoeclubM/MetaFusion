@@ -71,10 +71,10 @@ func entityTranslationsArray(e Entity) []map[string]any {
 	return out
 }
 
-// resolveRelated 批量解析关系对端实体（上限 n），失败的对端跳过。
+// resolveRelated 批量解析关系对端实体（单次查询），失败的对端跳过。
 // u 用请求方身份，保证草稿实体的创建者/管理员能看到自己的关系对端。
-func (h HTTP) resolveRelated(ctx context.Context, selfID string, rels []Relation, n int, u *User) map[string]Entity {
-	out := map[string]Entity{}
+// 不设固定条数上限：真实条目（如动画）署名可达数百条，截断会让详情页缺数据。
+func (h HTTP) resolveRelated(ctx context.Context, selfID string, rels []Relation, u *User) map[string]Entity {
 	ids := make([]string, 0, len(rels))
 	seen := map[string]bool{selfID: true}
 	for _, r := range rels {
@@ -88,15 +88,11 @@ func (h HTTP) resolveRelated(ctx context.Context, selfID string, rels []Relation
 		seen[other] = true
 		ids = append(ids, other)
 	}
-	for i, id := range ids {
-		if i >= n {
-			break
-		}
-		if e, err := h.Store.Get(ctx, id, u); err == nil {
-			out[id] = e
-		}
+	got, err := h.Store.GetManyVisible(ctx, ids, u)
+	if err != nil {
+		return map[string]Entity{}
 	}
-	return out
+	return got
 }
 
 func (h HTTP) resolveWork(c *gin.Context) (Entity, bool) {
@@ -122,7 +118,7 @@ func (h HTTP) worksDetail(c *gin.Context) {
 		respond(c, nil, err)
 		return
 	}
-	others := h.resolveRelated(c.Request.Context(), e.ID, rels, 30, user(c))
+	others := h.resolveRelated(c.Request.Context(), e.ID, rels, user(c))
 	respond(c, workCompatPayload(e, rels, others, h.relationLabels(c.Request.Context(), requestLocale(c))), nil)
 }
 
@@ -285,7 +281,7 @@ func (h HTTP) worksGraph(c *gin.Context) {
 		respond(c, nil, err)
 		return
 	}
-	others := h.resolveRelated(c.Request.Context(), e.ID, rels, 30, user(c))
+	others := h.resolveRelated(c.Request.Context(), e.ID, rels, user(c))
 	labels := h.relationLabels(c.Request.Context(), requestLocale(c))
 
 	nodes := []map[string]any{
