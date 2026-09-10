@@ -212,6 +212,18 @@ func relations(ctx context.Context, q queryer) ([]Relation, error) {
 	}
 	return out, rows.Err()
 }
+
+// relationByID 按关系 ID 取单条关系；不存在时返回 sql.ErrNoRows。
+func relationByID(ctx context.Context, q queryer, id string) (Relation, error) {
+	var b []byte
+	var r Relation
+	if err := q.QueryRowContext(ctx, "SELECT document FROM catalog.relations WHERE id=$1", id).Scan(&b); err != nil {
+		return r, err
+	}
+	err := json.Unmarshal(b, &r)
+	return r, err
+}
+
 func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, error) {
 	if _, err := s.Get(ctx, id, u); err != nil {
 		return nil, err
