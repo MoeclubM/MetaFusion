@@ -329,3 +329,55 @@ func TestDetectJapaneseScript(t *testing.T) {
 		}
 	}
 }
+
+// 增量补录：只填补缺失元数据，绝不覆盖已有值（保护人工编辑）。
+func TestMergeWorkMetadataNoOverwrite(t *testing.T) {
+	existing := Entity{
+		Kind: "work", Title: "作品", Status: "published",
+		OriginalLanguage: "ja",
+		Types:            []string{"animation"},
+		Translations: map[string]Translation{
+			"ja": {Title: "自定日文名", Summary: "自定简介", Aliases: []string{"已有别名"}},
+		},
+		Attributes:  map[string]any{"edition_date": "2001-01-01"},
+		ExternalIDs: map[string]string{"official_website": "https://manual.example/"},
+		Pictures:    []Picture{{URL: "https://manual.example/cover.jpg"}},
+	}
+	w := &ImporterWorkPreview{
+		Title: "作品", OriginalTitle: "作品",
+		ReleaseDate:   "2023-06-29",
+		OriginalLanguage: "ja",
+		Aliases:       []string{"已有别名", "新别名"},
+		CoverImageURL: "https://lain.bgm.tv/pic/cover/l/new.jpg",
+		CatalogMetadata: map[string]any{
+			"bangumi_type": float64(2),
+			"official_website": "https://imported.example/",
+			"catalog_number":   "NEW-001",
+		},
+	}
+	got, changed := mergeWorkMetadata(existing, w)
+	// 已有值不得被覆盖
+	if got.Attributes["edition_date"] != "2001-01-01" {
+		t.Errorf("edition_date overwritten: %v", got.Attributes["edition_date"])
+	}
+	if got.ExternalIDs["official_website"] != "https://manual.example/" {
+		t.Errorf("official_website overwritten: %v", got.ExternalIDs["official_website"])
+	}
+	if len(got.Pictures) != 1 || got.Pictures[0].URL != "https://manual.example/cover.jpg" {
+		t.Errorf("picture overwritten: %v", got.Pictures)
+	}
+	if got.Translations["ja"].Title != "自定日文名" {
+		t.Errorf("translation title overwritten: %v", got.Translations["ja"])
+	}
+	// 缺失项必须补齐，且别名去重
+	if got.Attributes["catalog_number"] != "NEW-001" {
+		t.Errorf("catalog_number not backfilled: %v", got.Attributes)
+	}
+	aliases := got.Translations["ja"].Aliases
+	if len(aliases) != 2 { // 已有别名 + 新别名（重复项被跳过）
+		t.Errorf("aliases = %v", aliases)
+	}
+	if !changed {
+		t.Error("changed should be true when backfilling")
+	}
+}

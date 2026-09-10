@@ -1205,6 +1205,79 @@ func pictureFromRemote(imageURL, citation, key string, hasKey bool) (Picture, bo
 	return Picture{URL: imageURL, Caption: Names{}, Source: Source{Kind: "url", Citation: citation, URL: pageURL}}, true
 }
 
+// mergeWorkMetadata 为已存在的 work 补齐缺失元数据；返回合并结果与是否有变化。
+// 只在原值为空时填入，绝不覆盖已有值（保护人工编辑）。封面同理：无图才补。
+func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview) (Entity, bool) {
+	if w == nil {
+		return existing, false
+	}
+	changed := false
+	if existing.OriginalLanguage == "" {
+		if lang := originalLanguageOrEmpty(w.OriginalLanguage); lang != "" {
+			existing.OriginalLanguage = lang
+			changed = true
+		}
+	}
+	// 属性补齐：仅限类型已声明字段，且只在缺值时写入。
+	workType := workTypeFromMetadata(w.CatalogMetadata)
+	if workType != "" && len(existing.Types) == 0 {
+		existing.Types = []string{workType}
+		changed = true
+	}
+	if existing.Attributes == nil {
+		existing.Attributes = map[string]any{}
+	}
+	if _, ok := existing.Attributes["edition_date"]; !ok {
+		if d := cleanImporterDate(w.ReleaseDate); d != "" {
+			existing.Attributes["edition_date"] = d
+			changed = true
+		}
+	}
+	if v, ok := w.CatalogMetadata.(map[string]any); ok {
+		if _, ok := existing.Attributes["catalog_number"]; !ok && workType != "" {
+			if no := scalarString(v["catalog_number"]); no != "" {
+				existing.Attributes["catalog_number"] = no
+				changed = true
+			}
+		}
+	}
+	// 外部 ID：官网等只在缺失时补。
+	if existing.ExternalIDs == nil {
+		existing.ExternalIDs = map[string]string{}
+	}
+	if v, ok := w.CatalogMetadata.(map[string]any); ok {
+		if _, ok := existing.ExternalIDs["official_website"]; !ok {
+			if site := scalarString(v["official_website"]); site != "" {
+				existing.ExternalIDs["official_website"] = site
+				changed = true
+			}
+		}
+	}
+	// 翻译行：补原语言行标题与别名（去重），不覆盖已有标题/简介。
+	if lang := existing.OriginalLanguage; lang != "" {
+		tr := existing.Translations[lang]
+		if tr.Title == "" {
+			tr.Title = existing.Title
+			changed = true
+		}
+		for _, a := range w.Aliases {
+			if a == "" || a == tr.Title || contains(tr.Aliases, a) {
+				continue
+			}
+			tr.Aliases = append(tr.Aliases, a)
+			changed = true
+		}
+		existing.Translations[lang] = tr
+	}
+	if len(existing.Pictures) == 0 {
+		if p, ok := pictureFromRemote(w.CoverImageURL, "Bangumi 条目封面", "", false); ok {
+			existing.Pictures = []Picture{p}
+			changed = true
+		}
+	}
+	return existing, changed
+}
+
 func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID string, hasKey bool) (Entity, error) {
 	if w == nil || strings.TrimSpace(w.Title) == "" {
 		return Entity{}, fmt.Errorf("invalid_payload")
@@ -1626,7 +1699,18 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	var savedWork Entity
 	if hasKey {
 		if existing, ok := s.findImported(ctx, key, &actor); ok && existing.Kind == "work" {
-			savedWork = existing
+			// 已导入过：补齐**当时缺失**的元数据（原语言/别名/官网/品番/日期），
+			// 便于老条目增量补录；已有值一律不覆盖，避免抹掉人工编辑。
+			merged, changed := mergeWorkMetadata(existing, req.Work)
+			if changed {
+				updated, uerr := s.importerSave(ctx, merged, actor, note, sources)
+				if uerr != nil {
+					return ImporterImportResponse{}, uerr
+				}
+				savedWork = updated
+			} else {
+				savedWork = existing
+			}
 		}
 	}
 	if savedWork.ID == "" {
