@@ -26,12 +26,27 @@ func TestDefaultsAndDynamicFields(t *testing.T) {
 	}
 }
 func TestLocatorAndEvidence(t *testing.T) {
-	a, b := int64(0), int64(0)
-	if validateLocator(Locator{RelativeTo: "track", TimeStart: &a, TimeEnd: &b}) == nil {
-		t.Fatal("empty half-open range accepted")
+	d := Defaults()
+	ref := func(string, []string) error { return nil }
+	// 动态组校验：有定位键却缺锚点（relative_to）必须拒绝
+	if err := d.value(d.Fields["locator"], map[string]any{"page_start": float64(1)}, ref, false); err == nil {
+		t.Fatal("locator without anchor accepted")
 	}
-	if validateLocator(Locator{TimeStart: &a}) == nil {
-		t.Fatal("unscoped locator accepted")
+	// 起止顺序颠倒必须拒绝
+	if err := d.value(d.Fields["locator"], map[string]any{"relative_to": "track", "time_start_ms": float64(500), "time_end_ms": float64(100)}, ref, false); err == nil {
+		t.Fatal("reversed range accepted")
+	}
+	// 正常定位应通过
+	if err := d.value(d.Fields["locator"], map[string]any{"relative_to": "track", "time_start_ms": float64(0), "time_end_ms": float64(500)}, ref, false); err != nil {
+		t.Fatalf("valid locator rejected: %v", err)
+	}
+	// 空定位合法（整轨收录）
+	if err := d.value(d.Fields["locator"], map[string]any{}, ref, false); err != nil {
+		t.Fatalf("empty locator rejected: %v", err)
+	}
+	// 未声明的定位键必须拒绝（说明键集合由 definitions 决定，不是硬编码）
+	if err := d.value(d.Fields["locator"], map[string]any{"relative_to": "track", "no_such_key": float64(1)}, ref, false); err == nil {
+		t.Fatal("undeclared locator key accepted")
 	}
 	if validateSources("本人首次发布", []Source{{Kind: "self", Citation: "作者自述"}}) != nil {
 		t.Fatal("personal source rejected")
@@ -215,5 +230,71 @@ func TestPostgresCatalog(t *testing.T) {
 	})
 	if _, err = s.List(ctx, ListOptions{Query: "原创"}, nil); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// 定位方案与记录级属性全部由 definitions 决定，键集合不硬编码：
+// 后台给 locator 组加一个子字段后，无需改代码/迁移即可通过校验。
+func TestLocatorKeysAreDefinitionsDriven(t *testing.T) {
+	d := Defaults()
+	ref := func(string, []string) error { return nil }
+	// 默认不含 spindel 键 → 拒绝
+	if err := d.value(d.Fields["locator"], map[string]any{"relative_to": "track", "spindle": "A"}, ref, false); err == nil {
+		t.Fatal("undeclared locator key accepted before extending definitions")
+	}
+	// 在 definitions 里加子字段后即可通过（模拟后台扩展）
+	loc := d.Fields["locator"]
+	loc.Fields["spindle"] = Field{Names: names("盘面", "Spindle"), Type: "text", Enabled: true}
+	d.Fields["locator"] = loc
+	if err := d.value(d.Fields["locator"], map[string]any{"relative_to": "track", "spindle": "A"}, ref, false); err != nil {
+		t.Fatalf("extended locator key rejected: %v", err)
+	}
+}
+
+// 记录级附加属性：默认不允许未知字段，后台加子字段后放行。
+func TestStructuralAttributesAreDefinitionsDriven(t *testing.T) {
+	d := Defaults()
+	ref := func(string, []string) error { return nil }
+	if err := d.value(d.Fields["inclusion_attributes"], map[string]any{"note": "x"}, ref, false); err == nil {
+		t.Fatal("undeclared inclusion attribute accepted")
+	}
+	f := d.Fields["inclusion_attributes"]
+	f.Fields["note"] = Field{Names: names("备注", "Note"), Type: "text", Enabled: true}
+	d.Fields["inclusion_attributes"] = f
+	if err := d.value(d.Fields["inclusion_attributes"], map[string]any{"note": "x"}, ref, false); err != nil {
+		t.Fatalf("extended inclusion attribute rejected: %v", err)
+	}
+	// 发行对象附加属性同理
+	if err := d.value(d.Fields["subject_attributes"], map[string]any{"seq": float64(1)}, ref, false); err == nil {
+		t.Fatal("undeclared subject attribute accepted")
+	}
+}
+
+// number 校验必须同时接受 JSON 的 float64 与代码内部构造的 int/int64。
+func TestNumberAcceptsGoInts(t *testing.T) {
+	d := Defaults()
+	ref := func(string, []string) error { return nil }
+	f := Field{Names: names("数量", "Qty"), Type: "number", Enabled: true}
+	for _, v := range []any{float64(3), int(3), int64(3)} {
+		if err := d.value(f, v, ref, false); err != nil {
+			t.Errorf("%T value rejected: %v", v, err)
+		}
+	}
+}
+
+// 模板用 primary_date_field 声明主日期字段，取代代码里硬编码 edition_date。
+func TestTemplateDeclaresPrimaryDateField(t *testing.T) {
+	d := Defaults()
+	if got := d.Templates["music"].PrimaryDateField; got != "edition_date" {
+		t.Errorf("music primary date field = %q", got)
+	}
+	// 声明必须指向真实存在的字段，否则展示层会取到空值
+	for code, tpl := range d.Templates {
+		if tpl.PrimaryDateField == "" {
+			continue
+		}
+		if _, ok := d.Fields[tpl.PrimaryDateField]; !ok {
+			t.Errorf("template %s declares unknown field %q", code, tpl.PrimaryDateField)
+		}
 	}
 }

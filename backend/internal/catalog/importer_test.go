@@ -141,7 +141,7 @@ func TestImporterRefParsing(t *testing.T) {
 	if _, err := s.Import(ctx, ImporterImportRequest{EntityType: "work", Source: "bangumi", LinkMode: "append_release_to_work"}, me); err == nil {
 		t.Fatal("append without target accepted")
 	}
-	if _, err := buildWorkEntity(&ImporterWorkPreview{}, "", "bangumi", "", "", false); err == nil {
+	if _, err := buildWorkEntity(&ImporterWorkPreview{}, "", "bangumi", "", "", false, ""); err == nil {
 		t.Fatal("empty work title accepted")
 	}
 }

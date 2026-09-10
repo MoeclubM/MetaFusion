@@ -129,7 +129,7 @@ func get(ctx context.Context, q queryer, id string) (Entity, error) {
 			return e, err
 		}
 		var rows *sql.Rows
-		rows, err = q.QueryContext(ctx, "SELECT expression_id,position,locator FROM catalog.track_contents WHERE track_id=$1 ORDER BY position", id)
+		rows, err = q.QueryContext(ctx, "SELECT expression_id,position,locator,attributes FROM catalog.track_contents WHERE track_id=$1 ORDER BY position", id)
 		if err != nil {
 			return e, err
 		}
@@ -137,19 +137,26 @@ func get(ctx context.Context, q queryer, id string) (Entity, error) {
 		e.Contents = []Inclusion{}
 		for rows.Next() {
 			var c Inclusion
-			var loc []byte
-			if err = rows.Scan(&c.ExpressionID, &c.Position, &loc); err != nil {
+			var loc, attrs []byte
+			if err = rows.Scan(&c.ExpressionID, &c.Position, &loc, &attrs); err != nil {
 				return e, err
 			}
-			if err = json.Unmarshal(loc, &c.Locator); err != nil {
-				return e, err
+			if len(loc) > 0 {
+				if err = json.Unmarshal(loc, &c.Locator); err != nil {
+					return e, err
+				}
+			}
+			if len(attrs) > 0 {
+				if err = json.Unmarshal(attrs, &c.Attributes); err != nil {
+					return e, err
+				}
 			}
 			e.Contents = append(e.Contents, c)
 		}
 		err = rows.Err()
 	case "release":
 		var rows *sql.Rows
-		rows, err = q.QueryContext(ctx, "SELECT work_id,role,position FROM catalog.release_subjects WHERE release_id=$1 ORDER BY position,work_id", id)
+		rows, err = q.QueryContext(ctx, "SELECT work_id,role,position,attributes FROM catalog.release_subjects WHERE release_id=$1 ORDER BY position,work_id", id)
 		if err != nil {
 			return e, err
 		}
@@ -157,8 +164,14 @@ func get(ctx context.Context, q queryer, id string) (Entity, error) {
 		e.Subjects = []Subject{}
 		for rows.Next() {
 			var x Subject
-			if err = rows.Scan(&x.WorkID, &x.Role, &x.Position); err != nil {
+			var attrs []byte
+			if err = rows.Scan(&x.WorkID, &x.Role, &x.Position, &attrs); err != nil {
 				return e, err
+			}
+			if len(attrs) > 0 {
+				if err = json.Unmarshal(attrs, &x.Attributes); err != nil {
+					return e, err
+				}
 			}
 			e.Subjects = append(e.Subjects, x)
 		}
@@ -347,7 +360,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 				return err
 			}
 			for _, c := range e.Contents {
-				if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.track_contents(track_id,expression_id,position,locator) VALUES($1,$2,$3,$4)", e.ID, c.ExpressionID, c.Position, encode(c.Locator)); err != nil {
+				if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.track_contents(track_id,expression_id,position,locator,attributes) VALUES($1,$2,$3,$4,$5)", e.ID, c.ExpressionID, c.Position, encode(c.Locator), encode(c.Attributes)); err != nil {
 					return err
 				}
 			}
@@ -356,7 +369,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 				return err
 			}
 			for _, x := range e.Subjects {
-				if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.release_subjects(release_id,work_id,role,position) VALUES($1,$2,$3,$4)", e.ID, x.WorkID, x.Role, x.Position); err != nil {
+				if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.release_subjects(release_id,work_id,role,position,attributes) VALUES($1,$2,$3,$4,$5)", e.ID, x.WorkID, x.Role, x.Position, encode(x.Attributes)); err != nil {
 					return err
 				}
 			}

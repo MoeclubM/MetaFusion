@@ -43,12 +43,12 @@ CREATE TABLE IF NOT EXISTS catalog.tracks (
 );
 CREATE TABLE IF NOT EXISTS catalog.release_subjects (
  release_id uuid NOT NULL, release_kind text NOT NULL DEFAULT 'release' CHECK(release_kind='release'),
- work_id uuid NOT NULL, work_kind text NOT NULL DEFAULT 'work' CHECK(work_kind='work'), role text NOT NULL, position int NOT NULL CHECK(position>=0),
+ work_id uuid NOT NULL, work_kind text NOT NULL DEFAULT 'work' CHECK(work_kind='work'), role text NOT NULL, position int NOT NULL CHECK(position>=0), attributes jsonb NOT NULL DEFAULT '{}'::jsonb,
  PRIMARY KEY(release_id,work_id,role), FOREIGN KEY(release_id,release_kind) REFERENCES catalog.entities(id,kind), FOREIGN KEY(work_id,work_kind) REFERENCES catalog.entities(id,kind)
 );
 CREATE TABLE IF NOT EXISTS catalog.track_contents (
  track_id uuid NOT NULL REFERENCES catalog.tracks(id), expression_id uuid NOT NULL REFERENCES catalog.expressions(id),
- position int NOT NULL CHECK(position>=0), locator jsonb NOT NULL, PRIMARY KEY(track_id,position)
+ position int NOT NULL CHECK(position>=0), locator jsonb NOT NULL, attributes jsonb NOT NULL DEFAULT '{}'::jsonb, PRIMARY KEY(track_id,position)
 );
 CREATE INDEX IF NOT EXISTS contents_expression ON catalog.track_contents(expression_id);
 CREATE TABLE IF NOT EXISTS catalog.relations (
@@ -149,3 +149,6 @@ CREATE TABLE IF NOT EXISTS catalog.favorites (
 );
 CREATE INDEX IF NOT EXISTS favorites_target ON catalog.favorites(target_type, target_id);
 CREATE INDEX IF NOT EXISTS favorites_user_created ON catalog.favorites(user_id, created_at DESC);
+
+ALTER TABLE catalog.track_contents ADD COLUMN IF NOT EXISTS attributes jsonb NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE catalog.release_subjects ADD COLUMN IF NOT EXISTS attributes jsonb NOT NULL DEFAULT '{}'::jsonb;

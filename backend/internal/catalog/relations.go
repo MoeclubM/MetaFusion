@@ -145,21 +145,29 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 		return nil, err
 	}
 	if len(byKind["track"]) > 0 {
-		r, err := s.DB.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator FROM catalog.track_contents WHERE track_id IN ("+entityPlaceholders(byKind["track"], 1)+") ORDER BY track_id, position", entityArgs(byKind["track"])...)
+		r, err := s.DB.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator, attributes FROM catalog.track_contents WHERE track_id IN ("+entityPlaceholders(byKind["track"], 1)+") ORDER BY track_id, position", entityArgs(byKind["track"])...)
 		if err != nil {
 			return nil, err
 		}
 		for r.Next() {
 			var tid string
 			var c Inclusion
-			var loc []byte
-			if err = r.Scan(&tid, &c.ExpressionID, &c.Position, &loc); err != nil {
+			var loc, attrs []byte
+			if err = r.Scan(&tid, &c.ExpressionID, &c.Position, &loc, &attrs); err != nil {
 				r.Close()
 				return nil, err
 			}
-			if err = json.Unmarshal(loc, &c.Locator); err != nil {
-				r.Close()
-				return nil, err
+			if len(loc) > 0 {
+				if err = json.Unmarshal(loc, &c.Locator); err != nil {
+					r.Close()
+					return nil, err
+				}
+			}
+			if len(attrs) > 0 {
+				if err = json.Unmarshal(attrs, &c.Attributes); err != nil {
+					r.Close()
+					return nil, err
+				}
 			}
 			if cur, ok := out[tid]; ok && cur.Kind == "track" {
 				cur.Contents = append(cur.Contents, c)
@@ -456,19 +464,19 @@ func (s *Store) Occurrences(ctx context.Context, id string, u *User) ([]map[stri
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.DB.QueryContext(ctx, `SELECT c.track_id,m.id,m.release_id,c.expression_id,c.position,c.locator FROM catalog.track_contents c JOIN catalog.tracks t ON t.id=c.track_id JOIN catalog.mediums m ON m.id=t.medium_id JOIN catalog.expressions x ON x.id=c.expression_id WHERE x.id=$1 OR x.work_id=$1 OR x.content_unit_id=$1 ORDER BY m.release_id,c.position`, e.ID)
+	rows, err := s.DB.QueryContext(ctx, `SELECT c.track_id,m.id,m.release_id,c.expression_id,c.position,c.locator,c.attributes FROM catalog.track_contents c JOIN catalog.tracks t ON t.id=c.track_id JOIN catalog.mediums m ON m.id=t.medium_id JOIN catalog.expressions x ON x.id=c.expression_id WHERE x.id=$1 OR x.work_id=$1 OR x.content_unit_id=$1 ORDER BY m.release_id,c.position`, e.ID)
 	if err != nil {
 		return nil, err
 	}
 	type row struct {
 		track, medium, release, expr string
 		pos                          int
-		loc                          json.RawMessage
+		loc, attrs                   json.RawMessage
 	}
 	var records []row
 	for rows.Next() {
 		var r row
-		if err = rows.Scan(&r.track, &r.medium, &r.release, &r.expr, &r.pos, &r.loc); err != nil {
+		if err = rows.Scan(&r.track, &r.medium, &r.release, &r.expr, &r.pos, &r.loc, &r.attrs); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -503,7 +511,7 @@ func (s *Store) Occurrences(ctx context.Context, id string, u *User) ([]map[stri
 		if !ok {
 			continue
 		}
-		out = append(out, map[string]any{"release": rel, "medium": med, "track": track, "expression_id": r.expr, "position": r.pos, "locator": r.loc})
+		out = append(out, map[string]any{"release": rel, "medium": med, "track": track, "expression_id": r.expr, "position": r.pos, "locator": r.loc, "attributes": r.attrs})
 	}
 	return out, nil
 }

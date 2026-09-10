@@ -607,7 +607,7 @@ func TestImporterReplayImportMapping(t *testing.T) {
 	if err := json.Unmarshal(roundTrip, &workPayload); err != nil {
 		t.Fatal(err)
 	}
-	work, err := buildWorkEntity(&workPayload, workTypeFromMetadata(workPayload.CatalogMetadata), "bangumi", wkey, "", whas)
+	work, err := buildWorkEntity(&workPayload, workTypeFromMetadata(workPayload.CatalogMetadata), "bangumi", wkey, "", whas, "edition_date")
 	if err != nil {
 		t.Fatal(err)
 	}
