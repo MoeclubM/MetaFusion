@@ -17,10 +17,18 @@ permissions:
   packages: write
   id-token: write
 
+# 串行化所有发布运行：main push 与 tag 构建排队执行，避免互相打断或竞争 latest 标签
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   docker-publish:
     name: Build & Publish Container Images
     runs-on: ubuntu-latest
+    env:
+      # GHCR 要求镜像仓库路径全小写；此处为唯一来源，需与 deploy/docker-compose.prod.yml 一致
+      IMAGE_PREFIX: ghcr.io/moeclubm/metafusion
     strategy:
       fail-fast: false
       matrix:
@@ -29,27 +37,27 @@ jobs:
             context: ./backend
             dockerfile: ./backend/Dockerfile
             target: server
-            image: ghcr.io/${{ github.repository }}/backend
+            image_name: backend
           - name: backend-worker
             context: ./backend
             dockerfile: ./backend/Dockerfile
             target: worker
-            image: ghcr.io/${{ github.repository }}/worker
+            image_name: worker
           - name: backend-migrator
             context: ./backend
             dockerfile: ./backend/Dockerfile
             target: migrator
-            image: ghcr.io/${{ github.repository }}/migrator
+            image_name: migrator
           - name: frontend-app
             context: ./frontend
             dockerfile: ./frontend/Dockerfile
             target: ""
-            image: ghcr.io/${{ github.repository }}/frontend
+            image_name: frontend
           - name: docs-site
             context: ./docs-site
             dockerfile: ./docs-site/Dockerfile
             target: ""
-            image: ghcr.io/${{ github.repository }}/docs-site
+            image_name: docs-site
 
     steps:
       - name: Checkout repository
@@ -57,11 +65,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up QEMU (Multi-platform emulation)
-        uses: docker/setup-qemu-action@v4
-
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry (GHCR)
         uses: docker/login-action@v4
@@ -72,9 +77,9 @@ jobs:
 
       - name: Extract Docker metadata (Tags & Labels)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
-          images: ${{ matrix.image }}
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.image_name }}
           flavor: |
             latest=auto
           tags: |
@@ -84,7 +89,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event.inputs.publish_latest == 'true' }}
 
       - name: Build and push container image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
@@ -108,9 +113,9 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
-          go-version: "1.22"
+          go-version: "1.25"
 
       - name: Build Cross-Platform Migration Tools
         working-directory: backend
@@ -122,7 +127,7 @@ jobs:
           GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ../dist/mf-migrate-darwin-arm64 ./cmd/migrate
 
       - name: Generate Changelog & Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           draft: false
           prerelease: false
