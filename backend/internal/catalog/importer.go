@@ -1211,6 +1211,53 @@ func pictureFromRemote(imageURL, citation, key string, hasKey bool) (Picture, bo
 	return Picture{URL: imageURL, Caption: Names{}, Source: Source{Kind: "url", Citation: citation, URL: pageURL}}, true
 }
 
+// applyAliasesByScript 把异名按自身文字特征归入对应语种翻译行并返回是否有变化。
+// 假名 → ja；含汉字 → zh-CN；拉丁/无法判定 → 跳过（不硬塞进任何语种，遵循
+// AGENTS.md：不能把其它语种题名塞进原语言行）。已存在的标题与别名去重。
+func applyAliasesByScript(e *Entity, aliases []string) bool {
+	if e == nil || len(aliases) == 0 {
+		return false
+	}
+	if e.Translations == nil {
+		e.Translations = map[string]Translation{}
+	}
+	changed := false
+	for _, a := range aliases {
+		a = strings.TrimSpace(a)
+		if a == "" {
+			continue
+		}
+		loc := ""
+		switch {
+		case detectJapaneseScript(a) == "ja":
+			loc = "ja"
+		case hasHan(a):
+			loc = "zh-CN"
+		default:
+			continue // 拉丁等无法判定语种，丢弃而不猜
+		}
+		tr := e.Translations[loc]
+		// 与实体主标题、该语种标题、已有别名重复的一律跳过。
+		if a == e.Title || a == tr.Title || contains(tr.Aliases, a) {
+			continue
+		}
+		tr.Aliases = append(tr.Aliases, a)
+		e.Translations[loc] = tr
+		changed = true
+	}
+	return changed
+}
+
+// hasHan 判断是否含CJK统一表意文字（用于把纯汉字异名归入中文行）。
+func hasHan(s string) bool {
+	for _, r := range s {
+		if r >= 0x4E00 && r <= 0x9FFF {
+			return true
+		}
+	}
+	return false
+}
+
 // mergeWorkMetadata 为已存在的 work 补齐缺失元数据；返回合并结果与是否有变化。
 // 只在原值为空时填入，绝不覆盖已有值（保护人工编辑）。封面同理：无图才补。
 func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview) (Entity, bool) {
@@ -1259,22 +1306,16 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview) (Entity, bool) {
 			}
 		}
 	}
-	// 翻译行：补原语言行标题与别名（去重），不覆盖已有标题/简介。
+	// 翻译行：补原语言行标题；别名按语种分派（去重），不覆盖已有标题/简介。
 	if lang := existing.OriginalLanguage; lang != "" {
 		tr := existing.Translations[lang]
 		if tr.Title == "" {
 			tr.Title = existing.Title
 			changed = true
 		}
-		for _, a := range w.Aliases {
-			if a == "" || a == tr.Title || contains(tr.Aliases, a) {
-				continue
-			}
-			tr.Aliases = append(tr.Aliases, a)
-			changed = true
-		}
 		existing.Translations[lang] = tr
 	}
+	changed = applyAliasesByScript(&existing, w.Aliases) || changed
 	if len(existing.Pictures) == 0 {
 		if p, ok := pictureFromRemote(w.CoverImageURL, "Bangumi 条目封面", "", false); ok {
 			existing.Pictures = []Picture{p}
@@ -1328,15 +1369,9 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 			e.Attributes["catalog_number"] = no
 		}
 	}
-	// infobox 别名归入原语言翻译行（是原题名的异名，不是其它语种的正式标题）。
-	if lang := e.OriginalLanguage; lang != "" && len(w.Aliases) > 0 {
-		tr := e.Translations[lang]
-		if tr.Title == "" {
-			tr.Title = e.Title
-		}
-		tr.Aliases = append(tr.Aliases, w.Aliases...)
-		e.Translations[lang] = tr
-	}
+	// infobox 别名按**自身语种**归入对应翻译行：假名→ja，含汉字→中文行。
+	// 不能无差别塞进原语言行，否则会把中日异名混在同一语种（AGENTS.md 语义）。
+	applyAliasesByScript(&e, w.Aliases)
 	applyWorkSummary(&e, w.Summary)
 	if p, ok := pictureFromRemote(w.CoverImageURL, "Bangumi 条目封面", key, hasKey); ok {
 		e.Pictures = []Picture{p}
