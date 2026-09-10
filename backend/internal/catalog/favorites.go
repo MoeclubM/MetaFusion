@@ -130,7 +130,9 @@ func (s *Store) ListFavorites(ctx context.Context, ownerID string, viewer *User,
 		offset = 0
 	}
 	args = append(args, limit, offset)
-	rows, err := s.DB.QueryContext(ctx, fmt.Sprintf(`SELECT id::text, target_type, target_id::text, created_at
+	// 表主键是 (user_id,target_type,target_id)，没有独立 id 列；
+	// 前端需要稳定 id，用三元组拼一个合成 ID。
+	rows, err := s.DB.QueryContext(ctx, fmt.Sprintf(`SELECT target_type || ':' || target_id::text, target_type, target_id::text, created_at
 		FROM catalog.favorites WHERE %s ORDER BY created_at DESC, target_id LIMIT $%d OFFSET $%d`, where, len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, 0, err
