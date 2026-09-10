@@ -464,9 +464,28 @@ func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, err
 	}
 	return items, nil
 }
+// Revisions 返回某目标的修订历史。目标可以是实体，也可以是关系：
+// 关系修订的 target_id 就是关系 ID 本身（见 audit / SaveRelation），
+// 关系在 entities 表没有对应行，因此不能沿用实体的可见性判定。
 func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string]any, error) {
+	if _, err := uuid.Parse(id); err != nil {
+		return nil, fmt.Errorf("invalid_id")
+	}
+	// 实体修订逐行按实体可见性过滤；关系修订的可见性改由其两端实体验证，
+	// 所以需要区分本次查询的目标类型。
+	entityScoped := true
 	if _, err := s.Get(ctx, id, u); err != nil {
-		return nil, err
+		r, rerr := relationByID(ctx, s.DB, id)
+		if rerr != nil {
+			return nil, err
+		}
+		src, serr := get(ctx, s.DB, r.SourceID)
+		tgt, terr := get(ctx, s.DB, r.TargetID)
+		if serr != nil || terr != nil || !visible(src, u) || !visible(tgt, u) ||
+			src.Status == "deleted" || src.Status == "merged" || tgt.Status == "deleted" || tgt.Status == "merged" {
+			return nil, sql.ErrNoRows
+		}
+		entityScoped = false
 	}
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(u.username, 'system'), COALESCE(u.role, 'editor'), r.edit_note, r.sources, r.snapshot, r.created_at
@@ -488,12 +507,16 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 		if err = rows.Scan(&revID, &version, &actorID, &actorName, &actorRole, &note, &sources, &snapshot, &at); err != nil {
 			return nil, err
 		}
-		var historical Entity
-		if err = json.Unmarshal(snapshot, &historical); err != nil {
-			return nil, err
-		}
-		if !visible(historical, u) {
-			continue
+		// 实体修订的 snapshot 是 Entity，逐行按实体可见性过滤；
+		// 关系修订的 snapshot 是 Relation，授权已在查询前按两端实体完成，不再套实体判定。
+		if entityScoped {
+			var historical Entity
+			if err = json.Unmarshal(snapshot, &historical); err != nil {
+				return nil, err
+			}
+			if !visible(historical, u) {
+				continue
+			}
 		}
 		out = append(out, map[string]any{
 			"id":         revID,
