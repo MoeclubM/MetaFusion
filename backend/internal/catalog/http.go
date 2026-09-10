@@ -275,7 +275,21 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		c.SetCookie("mf_session", "", -1, "/", "", false, true)
 		respond(c, gin.H{"ok": true}, s.Logout(c.Request.Context(), token))
 	})
-	api.PUT("/auth/password", required(false), func(c *gin.Context) {
+	// GET /auth/settings 供未登录页面读取实例准入能力。后端目前没有注册、
+	// 邀请或邮件验证实现，因此如实返回关闭；这些值是真实能力而非可配置开关，
+	// 待实现对应流程后再按实际状态返回。
+	api.GET("/auth/settings", func(c *gin.Context) {
+		respond(c, gin.H{
+			"registration_enabled":       false,
+			"invite_required":            false,
+			"require_email_verification": false,
+			"email_verification_enabled": false,
+		}, nil)
+	})
+	// changePassword 是 PUT /auth/password 与 POST /auth/change-password 的共用
+	// 实现：两者语义相同（当前登录用户改自己密码），参数形状均为
+	// old_password/new_password，仅复用 Store.ChangePassword，不新增密码逻辑。
+	changePassword := func(c *gin.Context) {
 		u := user(c)
 		if u == nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -289,7 +303,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		respond(c, gin.H{"ok": true}, s.ChangePassword(c.Request.Context(), u.ID, in.OldPassword, in.NewPassword))
-	})
+	}
+	api.PUT("/auth/password", required(false), changePassword)
+	api.POST("/auth/change-password", required(false), changePassword)
 	api.POST("/auth/logout-all", required(false), func(c *gin.Context) {
 		u := user(c)
 		if u == nil {
