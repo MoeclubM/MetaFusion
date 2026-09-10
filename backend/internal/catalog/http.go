@@ -592,7 +592,16 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	})
 	cat.GET("/entities/:id/relations", func(c *gin.Context) {
 		v, err := s.Relations(c.Request.Context(), c.Param("id"), user(c))
-		respond(c, gin.H{"items": v}, err)
+		if err != nil {
+			respond(c, nil, err)
+			return
+		}
+		// 同一响应内返回关系对端实体（单次批量查询）：真实条目署名可达数百条，
+		// 前端逐条 Get 会因截断与限流丢失对端，详情页只能显示原始 UUID。
+		respond(c, gin.H{
+			"items":    v,
+			"entities": h.resolveRelated(c.Request.Context(), c.Param("id"), v, user(c)),
+		}, nil)
 	})
 	cat.GET("/entities/:id/occurrences", func(c *gin.Context) {
 		v, err := s.Occurrences(c.Request.Context(), c.Param("id"), user(c))
