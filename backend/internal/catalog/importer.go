@@ -1237,11 +1237,21 @@ func applyAliasesByScript(e *Entity, aliases []string) bool {
 			continue // 拉丁等无法判定语种，丢弃而不猜
 		}
 		tr := e.Translations[loc]
+		// 该语种即实体原语言时，实体标题就是它的主标题，别名不得顶替。
+		if strings.TrimSpace(tr.Title) == "" && loc == e.OriginalLanguage {
+			tr.Title = e.Title
+		}
 		// 与实体主标题、该语种标题、已有别名重复的一律跳过。
 		if a == e.Title || a == tr.Title || contains(tr.Aliases, a) {
 			continue
 		}
-		tr.Aliases = append(tr.Aliases, a)
+		// 校验要求每个语种行标题非空：该语种还没有标题时，用首个异名充当其主标题
+		//（Bangumi 别名里常含该语种的正式译名），否则整条校验会以 invalid_translation 拒绝。
+		if strings.TrimSpace(tr.Title) == "" {
+			tr.Title = a
+		} else {
+			tr.Aliases = append(tr.Aliases, a)
+		}
 		e.Translations[loc] = tr
 		changed = true
 	}
