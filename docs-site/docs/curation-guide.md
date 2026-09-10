@@ -38,9 +38,9 @@ MetaFusion 是面向 ACG、影音与文献的全球化开放元数据与多媒�
 MetaFusion 彻底废弃传统树状分类与硬编码 `media_type`，融合国际图书馆参考模型（IFLA LRM）与多媒介流媒体编目哲学，构建 **五层混合实体模型 + 四大核心枢纽**：
 
 ```
-[ Franchise (世界观/企划枢纽) ] ─── part_of_franchise ───┐
-                                                       ▼
-[ Artist (责任主体: 创作者/机构) ] ─── creator_of ───► [ Work (逻辑作品概念层: 纯净题名) ]
+[ Collection (世界观/企划枢纽) ] ─── includes ───┐
+                                                ▼
+[ Agent (责任主体: 创作者/机构) ] ─── credit_for / 精确职位码 ───► [ Work (逻辑作品概念层: 纯净题名) ]
                                                        │
                                                 1:N    │ 抽象创作演化为具体表现
                                                        ▼
@@ -116,16 +116,17 @@ classDiagram
 ```
 
 1. **Work 级创作关系**（抽象思想的原创作者）：
-   - `composer`（作曲者）、`lyricist`（作词者）、`author`（原著作者）、`scriptwriter`（剧作编剧）、`original_creator`（世界观企划人）；
+   - `composed_by`（作曲者）、`lyricist_of`（作词者）、`created_by`（创作者）、`written_by`（编剧）；其余精确职位不在种子内时用 `credit_for` 兜底；
    - **规则**：无论内容被谁演绎、翻唱或收录于何种载体，Work 的核心创作者恒定不变。
 2. **CanonicalEntry (Expression) 级演职与版权关系**（具体表现母版/篇目的实现者与权利人）：
-   - 音乐：`performer`（表演者/歌手/乐手）、`arranger`（编曲者）、`producer`（录音制作人）、`phonographic_copyright`（℗ 录音制品版权方）；
-   - 影视：`director`（剪辑/分集导演）、`sound_director`（音响监督）、`voice_actor`（配音演员）；
-   - 文学/漫画：`translator`（特定译本译者）、`editor`（分卷责任编辑）。
+   - 音乐：`performed_by`（表演者/歌手/乐手）、`arranged_by`（编曲者）、`composed_by`（作曲者）、`lyricist_of`（作词者）；
+   - 影视/动画：`directed_by`（导演/分集导演）、`written_by`（编剧）、`voiced_by`（配音演员，角色经 `character` 引用）；
+   - 文学/漫画：`illustrated_by`（插画者）、`narrated_by`（朗读/旁白）、`translation_of`（译本表达关系）；
+   - 无贴切关系码的职位（制片人、企画、分镜等）：`credit_for` 承载，职位原文落 `credit_role`。
 3. **跨发行复用 (Expression Reuse) 与「Appears on Releases」反查原理**：
    - 同一个具体的 `CanonicalEntry`（例如周杰伦《晴天》2001 原版母带、电影《千与千寻》院线正片母版、《三体》第一章正文）具有全局唯一 UUID；
    - 它可以被多个不同 Release 的 Track 节点同时引用（例如：同一篇小说正文被初版平装书、精装合订本、Kindle 电子书同时引用；同一首母版录音被首版专辑 CD、精选集、黑胶复刻版同时引用）；
-   - 系统通过 `tracks.canonical_entry_id` 反查该篇目/母版在全库所有 Release 中的收录记录（Appears on Releases），消除冗余录入，建立全生命周期的版本流变拓扑。
+   - 系统通过 `catalog.track_contents`（Track ↔ Expression）反查该篇目/母带在全库所有 Release 中的收录记录（Appears on Releases，API 为 `GET /api/catalog/entities/:id/occurrences`），消除冗余录入，建立全生命周期的版本流变拓扑。
 
 ---
 
@@ -153,8 +154,8 @@ classDiagram
 2. **盒装全展开 SOP**：
    - 建立汇编作品或聚合 Release（如《宮崎駿監督作品集》）；
    - 真实建立全部分盘 `Medium` 介质（Disc 1 至 Disc 13，各自标明格式 `Blu-ray`）；
-   - 各分碟的 `Track` 通过 `work_id` 与 `canonical_entry_id` 精准链接回各独立母体 `Work`；
-   - 在图谱中建立 `included_in` 边连接子作品与汇编盒装。
+   - 各分碟的 `Track` 通过 `contents[].expression_id` 精准链接回各独立母体 `Work`（被收录表达所属 Work 必须列入该 Release 的 `subjects`）；
+   - 在图谱中建立 `includes` 边连接汇编作品与各母作品（当前无 `included_in` 关系码）。
 
 ---
 
@@ -162,44 +163,51 @@ classDiagram
 
 ### 5.1 企划聚合原则与案例
 
+> 企划/世界观当前由 `collection` kind + `includes` 关系表达，无独立 `Franchise` 实体；下例中的 `Franchise` 字样仅沿用理论层称呼。
+
 以**《流浪地球》系列**与**《三体》系列**为例：
 
 ```mermaid
 graph TD
-    F1[Franchise: 流浪地球系列企划] -->|part_of_franchise| W1[Work: 流浪地球 原著中篇小说]
-    F1 -->|part_of_franchise| W2[Work: 流浪地球 电影第1部]
-    F1 -->|part_of_franchise| W3[Work: 流浪地球2 电影第2部]
-    F1 -->|part_of_franchise| W4[Work: 流浪地球 电影原声大碟]
+    F1[Collection: 流浪地球系列企划] -->|includes| W1[Work: 流浪地球 原著中篇小说]
+    F1 -->|includes| W2[Work: 流浪地球 电影第1部]
+    F1 -->|includes| W3[Work: 流浪地球2 电影第2部]
+    F1 -->|includes| W4[Work: 流浪地球 电影原声大碟]
     
     W2 -->|adaptation_of| W1
-    W3 -->|prequel_of| W2
+    W3 -->|sequel_of| W2
     W4 -->|soundtrack_of| W2
     
-    A1[Artist: 刘慈欣] -->|author| W1
-    A2[Artist: 郭帆] -->|director| W2
-    A2 -->|director| W3
-    A3[Artist: 阿鲲] -->|composer| W4
+    A1[Agent: 刘慈欣] -->|created_by| W1
+    A2[Agent: 郭帆] -->|directed_by| W2
+    A2 -->|directed_by| W3
+    A3[Agent: 阿鲲] -->|composed_by| W4
 ```
 
 ### 5.2 核心关系边矩阵 (Relationship Matrix)
 
-| 关系代码 (`relationship_type`) | 中文谓词 | 语义方向与定义 | 适用源/宿端 | 说明与约束 |
+> **关系码修正**：下表为当前 definitions 种子的实际关系码（见 `backend/internal/catalog/defaults.go`，运行时清单以 `GET /api/catalog/definitions` 为准）。旧版本页引用的 `part_of_franchise / creator_of / included_in / crossover_with / prequel_of / spin_off_of / expansion_of / remake_of / member_of / voice_actor_of / imprint_of / real_counterpart_of / alternate_form_of / phonographic_copyright` **均不存在**。
+
+| 关系代码 (`type`) | 中文谓词 | 语义方向与定义 | 实际源/宿端 kind | 说明与约束 |
 |---|---|---|---|---|
-| `part_of_franchise` | 企划归属 | Source 隶属于 Target 跨媒介企划/宇宙 | Work/Artist → Franchise | 层次聚合，构建宇宙树 |
-| `adaptation_of` | 改编自 | Source 为 Target 的跨媒介改编作品 | Work → Work | 漫改动画、小说改电影等 |
-| `sequel_of` | 续作 | Source 在故事时间线或发售顺序上为 Target 的续篇 | Work → Work | 严格单向，**严禁与 prequel_of 循环对连** |
-| `prequel_of` | 前作/前传 | Source 在剧情时间线上先于 Target 发售/发生 | Work → Work | 严格单向，保持 DAG |
-| `soundtrack_of` | 原声带/音乐集 | Source（音乐专辑 Work）为 Target（影视/游戏 Work）的官方 OST | Work → Work | 音乐专辑指向影视/游戏 |
-| `spin_off_of` | 外传/衍生 | Source 为 Target 的外传、旁支或衍生篇章 | Work → Work | 保持主次层次 |
-| `crossover_with` | 跨界联动 | Source 与 Target 开展限定剧情/角色联动 | Work ↔ Work | 对称边（`is_symmetric: true`） |
-| `included_in` | 收录于 | Source（单曲/短篇）被 Target（合辑/全集）收录 | Work/Entry → Work | 汇编收录关系 |
+| `includes` | 组成包含 / 组成属于 | Source 聚合或包含 Target | collection/work → work/collection | 企划聚合与嵌套，有向无环 |
+| `adaptation_of` | 改编自 | Source 为 Target 的跨媒介改编作品 | work → work | 漫改动画、小说改电影等，有向无环 |
+| `sequel_of` | 续作于 | Source 为 Target 的续篇 | work → work | 严格单向，有向无环 |
+| `soundtrack_of` | 配乐用于 | Source（音乐 Work）为 Target（影视/游戏 Work）的配乐 | work → work | 音乐专辑指向影视/游戏 |
+| `translation_of` / `revision_of` / `cover_of` / `alternate_take_of` | 翻译自 / 修订自 / 翻唱自 / 别版取自 | 表达层派生 | expression → expression | 译本、修订、翻唱、别版，均有向无环 |
+| `pressing_of` | 再版自 | Source 版次承自 Target | release → release | 版次链，有向无环 |
+| `character_in` | 角色登场 | Source 角色/团体登场于 Target | agent → work/collection | 与署名关系方向相反；番位落 `role`，原文落 `credit_role`；同一角色跨作品多条边 |
+| `credit_for` | 参与制作 | 通用署名兜底 | work/content_unit/expression/release → agent | 无贴切职位码时使用，职位原文落 `credit_role`；有精确码时不重复建边 |
+| `bonus_included_in` / `store_bonus_for` | 特典收录于 / 渠道特典归属 | 特典与渠道归属 | expression → release/medium；expression/release → agent | 有向无环 |
+
+署名类关系（`created_by / performed_by / composed_by / lyricist_of / arranged_by / directed_by / written_by / illustrated_by / narrated_by / voiced_by / photographed_by / modeled_by / developed_by`）统一为 work/content_unit/expression/release → agent。成员/团体、现实对照、角色形态变体等旧概念当前没有专用关系码；如需新增，应经 DefinitionsEditor 草稿→影响→发布添加，不改代码。
 
 ### 5.3 拓扑约束与多边区分
 
 1. **DAG 有向无环图**：全站作品关系图谱必须严格为 DAG，写操作前必须执行深度优先环路检测（DFS Cycle Detection），严禁自环与长回环。
-2. **多边语义限定 (`qualifier`)**：同一对实体间存在同类多条关系时，使用 `qualifier` 标注语种、版本或角色，严禁为此重复拆分实体：
-   - 声优配音：`voice_actor_of` (日配: `qualifier="ja"`, 中配: `qualifier="zh-CN"`);
-   - 角色变体：`alternate_form_of` (如 `qualifier="final_form"`).
+2. **多边语义限定**：同一对实体间存在同类多条关系时，用边属性标注语种、版本或角色，严禁为此重复拆分实体：
+   - 声优配音：多条 `voiced_by`（work → agent），`character` 引用角色实体，`language` / `context` 区分语种与适用篇目；
+   - 角色登场：同一角色跨作品用多条 `character_in`（agent → work），`role` 记主角/配角/客串，原文番位落 `credit_role`。
 
 ---
 
