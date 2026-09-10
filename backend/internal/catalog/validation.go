@@ -265,6 +265,9 @@ func (d Definitions) Validate() error {
 		if e := fields(t.BadgeFields); e != nil {
 			return e
 		}
+		if e := fields(t.FacetFields); e != nil {
+			return e
+		}
 	}
 	return nil
 }

@@ -155,6 +155,9 @@ type Template struct {
 	// BadgeFields 指定在详情页标题旁以徽章形式突出的字段码（如载体格式、平台）。
 	// 取代代码里硬编码 format/platform 的做法；顺序即展示顺序。
 	BadgeFields []string `json:"badge_fields,omitempty"`
+	// FacetFields 指定列表页可用于筛选的字段码（通常是枚举字段）。
+	// 取代代码里硬编码 edition_type/format/country 三个下拉；顺序即展示顺序。
+	FacetFields []string `json:"facet_fields,omitempty"`
 }
 type Definitions struct {
 	Types        map[string]TypeDefinition     `json:"types"`
