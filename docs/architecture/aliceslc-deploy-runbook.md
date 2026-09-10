@@ -1,14 +1,31 @@
 # aliceslc 线上部署手册与状态（findverse.cc）
 
-> 更新时间：2026-09-08（UTC）。分支 `codex/catalog-v2-modular`，11 commits ahead of origin。
+> 更新时间：2026-09-10（UTC）。线上 `~/metafusion` 已到 `main` `466e801`（含通用多媒体架构修复与残留收敛）。
+
+## 0. 部署记录（2026-09-10）
+
+- 认证：SSH `root` + 密码登录（凭据在 `D:\NET\machine.md` / `machine_credentials.md`；密码不进仓库）。
+  注意：用户名是 `root`，不是 `aliceslc`（`aliceslc` 只是机器别名）。
+- 步骤：`git pull origin main` → `bash deploy.sh fast backend` → `bash deploy.sh fast frontend` →
+  `bash deploy.sh restart backend frontend` → `bash deploy.sh migrate up`（000001/000002 均已 APPLIED，无 pending）。
+- 宿主机无 go/node/npm，构建全部在 Docker 多阶段构建内完成；`deploy.sh` 在服务器上无执行位，用 `bash deploy.sh` 调用。
+- 验证结果：首页 `HTTP/2 200`；`POST /api/importer/preview` **200**（此前 404）；
+  `GET /api/catalog/shelves` 返回 DB 规则 shape；`GET /api/catalog/definitions` 200。
+
+## 0.1 待办：线上 Definitions 词表升级
+
+线上 definitions 仍是旧已发布文档（`edition_type` 仅 6 词条，无 `deluxe/boxset`，无 `distribution_channel` 词表）。
+这是设计行为：`Defaults()` 种子只在 definitions 表为空时写入，代码新增词表不会自动覆盖已发布文档。
+升级路径（走规范流程，不改库）：admin 登录后台 → DefinitionsEditor 基于当前文档补
+`edition_type` 的 `deluxe/boxset` 与新增 `distribution_channel` 词表 → impact 影响预演 → 发布。
+前端在词表发布前用 `release.editionType.*` i18n 兜底显示，无裸 key。
 
 ## 1. 线上现状（只读探针证据）
 
 - 站点 `https://findverse.cc/`：200。
-- `GET /api/catalog/definitions`：200，`base_version=1`，27 types，**无 `edition_type`**，23 relations。
-- `GET /api/catalog/shelves`：200（旧硬编码端点仍在）。
-- `POST /api/importer/preview`：**404**（导入器后端未上线）。
-- 结论：线上跑的是本轮改动之前的版本，需部署以下提交：`b62d813`（版本类型学/去 v2 别名）、`8072e2d`（货架后台化/四语框架）、`c4e7fa5`（Semver）、`01f2f7f`（发行页/标题链）、`c30de5f`（去 v1 前缀）、`63eec77`（导入器）、`9cc997e`（文档）、`5dbc961`（回放测试）、`ada20aa`（企业级二期）、`706c3bc`（日繁 908 条）。
+- `GET /api/catalog/definitions`：200（旧发布文档，见 0.1 待办）。
+- `GET /api/catalog/shelves`：200（DB 规则 shape）。
+- `POST /api/importer/preview`：**200**（导入器后端已上线）。
 
 ## 2. 部署链路
 
@@ -28,13 +45,11 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-o
 
 网关：`deploy/nginx.conf`，`/api/*` 直通 backend:8080，无重写（前端已去 v1 前缀，直接对齐）。
 
-## 3. 阻塞点
+## 3. SSH 访问（已解决）
 
-本地 `~/.ssh` 只有 GitHub 用的 `id_ed25519`，SSH 握手确认服务端只接受 publickey，
-`QwQ` 及 `root/alice/ubuntu/debian/admin/deploy/metafusion` 均 `Permission denied (publickey,password)`。
-known_hosts 有该主机历史指纹，说明 historically 连过，但本机无对应私钥。
-**需用户提供：aliceslc 的 SSH 用户名 + 对应私钥（或把本地公钥加进 authorized_keys）。**
-在拿到之前不要反复重试密码/用户枚举。
+服务端接受 `publickey,password`。`root` + 密码可登录（凭据在 `D:\NET\machine.md`，更新时间 2026-09-01）。
+注意 `aliceslc` 不是 SSH 用户名，只是机器别名——用 `aliceslc` 登录会 `Permission denied`。
+本地 `id_ed25519` 公钥未加入服务器 `authorized_keys`，密码登录即可，勿做用户/密码枚举。
 
 ## 4. 部署后验证清单（上线后执行）
 
