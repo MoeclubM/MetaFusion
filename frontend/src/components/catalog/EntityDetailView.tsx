@@ -5,7 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import FavoriteButton from "@/components/FavoriteButton";
-import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
+import { TemplateAttributeSections } from "@/components/catalog/TemplateAttributeSections";
 import { EntityEditor } from "@/components/catalog/EntityEditor";
 import { useCatalog } from "@/components/catalog/CatalogProvider";
 import { api, Entity, Relation, title, local } from "@/components/catalog/api";
@@ -81,33 +81,6 @@ async function allEntities(query: string): Promise<Entity[]> {
     if (r.items.length < 100) return items;
   }
 }
-
-// 基本信息与头部徽章已结构化渲染的属性字段；从动态属性栏排除，避免同值出现两次。
-const STRUCTURED_ATTRIBUTE_KEYS = [
-  "edition_date",
-  "release_date",
-  "begin_date",
-  "end_date",
-  "format",
-  "packaging",
-  "catalog_number",
-  "catalogue_number",
-  "barcode",
-  "jan",
-  "ean",
-  "duration",
-  "duration_seconds",
-  "length",
-  "publisher",
-  "store_bonuses",
-  "official_url",
-  "official_website",
-  "website",
-  "url",
-  "tags",
-  "summary",
-  "description",
-];
 
 export function EntityDetailView({ id }: { id: string }) {
   const { t, locale } = useI18n();
@@ -415,23 +388,34 @@ export function EntityDetailView({ id }: { id: string }) {
     return [];
   }, [entity, occurrences]);
 
-  // Duration text
-  const durationText = useMemo(() => {
-    if (!entity) return null;
-    const s = entity.attributes?.duration_seconds || entity.attributes?.duration || entity.attributes?.length;
-    if (typeof s === "number" && s > 0) {
-      const m = Math.floor(s / 60);
-      const sec = Math.floor(s % 60);
-      if (m >= 60) {
-        const h = Math.floor(m / 60);
-        const remM = m % 60;
-        return `${h}:${String(remM).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-      }
-      return `${m}:${String(sec).padStart(2, "0")}`;
+  // 头部徽章：主日期 + 模板 badge_fields 声明的字段（默认含载体格式/平台）。
+  // 字段码全部来自服务端模板声明，不写死 edition_date/format。
+  const headerBadges = useMemo(() => {
+    const out: { icon: React.ReactNode; text: string }[] = [];
+    const attrs: Record<string, any> = entity?.attributes || {};
+    const typeCodes = entity?.types || [];
+    const templates = typeCodes
+      .map((c: string) => defs?.templates?.[defs?.types?.[c]?.template || ""])
+      .filter(Boolean) as any[];
+    const dateField = templates.map((tp) => tp.primary_date_field).find(Boolean) as string | undefined;
+    if (dateField && attrs[dateField]) {
+      out.push({
+        icon: <Calendar className="w-3 h-3 text-amber-400" strokeWidth={1.5} />,
+        text: String(attrs[dateField]),
+      });
     }
-    if (typeof s === "string" && s.trim()) return s.trim();
-    return null;
-  }, [entity]);
+    const badgeFields: string[] = Array.from(new Set(templates.flatMap((tp) => tp.badge_fields || [])));
+    for (const code of badgeFields) {
+      if (!attrs[code]) continue;
+      const def: any = defs?.fields?.[code];
+      const text =
+        def?.type === "enum" && def?.vocabulary
+          ? getTermName(defs, def.vocabulary, String(attrs[code]), locale)
+          : String(attrs[code]);
+      out.push({ icon: <Disc className="w-3 h-3 text-primary" strokeWidth={1.5} />, text });
+    }
+    return out;
+  }, [entity, defs, locale]);
 
   // Graph nodes & links
   const { graphNodes, graphLinks } = useMemo(() => {
@@ -806,51 +790,6 @@ export function EntityDetailView({ id }: { id: string }) {
                   </dd>
                 </div>
 
-                {(entity.attributes?.edition_date || entity.attributes?.release_date || entity.attributes?.begin_date) && (
-                  <div>
-                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {t("entity.page.releaseDate")}
-                    </dt>
-                    <dd className="font-medium text-gray-900 dark:text-white font-mono flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{String(entity.attributes.edition_date || entity.attributes.release_date || entity.attributes.begin_date)}</span>
-                    </dd>
-                  </div>
-                )}
-
-                {(entity.attributes?.format || entity.attributes?.packaging) && (
-                  <div>
-                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {t("entity.page.formatPackaging")}
-                    </dt>
-                    <dd className="font-medium text-gray-900 dark:text-white uppercase font-mono">
-                      {[entity.attributes.format, entity.attributes.packaging].filter(Boolean).join(" · ")}
-                    </dd>
-                  </div>
-                )}
-
-                {(entity.attributes?.catalog_number || entity.attributes?.catalogue_number) && (
-                  <div>
-                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {t("entity.page.catalogNumber")}
-                    </dt>
-                    <dd className="font-mono font-semibold text-primary">
-                      {String(entity.attributes.catalog_number || entity.attributes.catalogue_number)}
-                    </dd>
-                  </div>
-                )}
-
-                {(entity.attributes?.barcode || entity.attributes?.jan || entity.attributes?.ean) && (
-                  <div>
-                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {t("entity.page.barcode")}
-                    </dt>
-                    <dd className="font-mono text-gray-900 dark:text-white">
-                      {String(entity.attributes.barcode || entity.attributes.jan || entity.attributes.ean)}
-                    </dd>
-                  </div>
-                )}
-
                 {officialInfo && (
                   <div>
                     <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
@@ -870,42 +809,11 @@ export function EntityDetailView({ id }: { id: string }) {
                     </dd>
                   </div>
                 )}
-
-                {entity.attributes?.publisher && (
-                  <div>
-                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {t("entity.page.publisher")}
-                    </dt>
-                    <dd className="font-medium text-gray-900 dark:text-white">
-                      {String(entity.attributes.publisher)}
-                    </dd>
-                  </div>
-                )}
-
-                {durationText && (
-                  <div>
-                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
-                      {t("entity.page.totalDuration")}
-                    </dt>
-                    <dd className="font-mono text-gray-900 dark:text-white flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-gray-400" />
-                      <span>{durationText}</span>
-                    </dd>
-                  </div>
-                )}
               </dl>
 
-              {/* Dynamic Attributes：仅补充上面结构化区块未展示的字段，
-                  否则 edition_date / 品番 / 载体等会在此重复出现一次。 */}
-              {entity.attributes && Object.keys(entity.attributes).length > 0 && (
-                <div className="pt-3 border-t border-black/5 dark:border-white/[0.06]">
-                  <DynamicAttributeViewer
-                    attributes={entity.attributes}
-                    defs={defs}
-                    excludeKeys={STRUCTURED_ATTRIBUTE_KEYS}
-                  />
-                </div>
-              )}
+              {/* 其余属性全部分区渲染：字段、分区、次序、类型均来自服务端模板声明，
+                  新增媒体类型或字段无需修改本文件。 */}
+              <TemplateAttributeSections entity={entity} defs={defs} locale={locale} />
 
               {/* Types & Tags */}
               {((entity.types && entity.types.length > 0) || (entity.attributes?.tags && Array.isArray(entity.attributes.tags))) && (
@@ -973,19 +881,16 @@ export function EntityDetailView({ id }: { id: string }) {
                   {t(`catalog.kind.${entity.kind}`) || entity.kind}
                 </span>
 
-                {(entity.attributes?.edition_date || entity.attributes?.release_date) && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 font-mono text-xs">
-                    <Calendar className="w-3 h-3 text-amber-400" strokeWidth={1.5} />
-                    <span>{entity.attributes.edition_date || entity.attributes.release_date}</span>
+                {/* 头部徽章：主日期与载体格式的字段码由模板声明，不写死 edition_date/format */}
+                {headerBadges.map((b, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 font-mono text-xs"
+                  >
+                    {b.icon}
+                    <span>{b.text}</span>
                   </span>
-                )}
-
-                {entity.attributes?.format && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 font-mono text-xs uppercase">
-                    <Disc className="w-3 h-3 text-primary" strokeWidth={1.5} />
-                    <span>{entity.attributes.format}</span>
-                  </span>
-                )}
+                ))}
               </div>
 
               {/* Title & Original Title */}

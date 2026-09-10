@@ -152,6 +152,9 @@ type Template struct {
 	// PrimaryDateField 指定该模板下代表"作品首发/发行日期"的字段码，
 	// 供列表与排序使用。取代代码里硬编码 edition_date 的语义；为空则不展示日期。
 	PrimaryDateField string `json:"primary_date_field,omitempty"`
+	// BadgeFields 指定在详情页标题旁以徽章形式突出的字段码（如载体格式、平台）。
+	// 取代代码里硬编码 format/platform 的做法；顺序即展示顺序。
+	BadgeFields []string `json:"badge_fields,omitempty"`
 }
 type Definitions struct {
 	Types        map[string]TypeDefinition     `json:"types"`
