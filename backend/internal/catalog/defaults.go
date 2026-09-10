@@ -138,7 +138,27 @@ func Defaults() Definitions {
 			keys = []string{"duration", "role"}
 		}
 		zh := map[string]string{"collection": "集合", "content_unit": "内容单元", "expression": "内容表达", "release": "发行版", "medium": "载体", "track": "收录位置"}[k]
-		d.Types[k] = TypeDefinition{Names: names(zh, map[string]string{"collection": "Collection", "content_unit": "Content unit", "expression": "Expression", "release": "Release", "medium": "Medium", "track": "Track"}[k]), Kinds: []string{k}, Fields: keys, Template: "generic", Enabled: true}
+		en := map[string]string{"collection": "Collection", "content_unit": "Content unit", "expression": "Expression", "release": "Release", "medium": "Medium", "track": "Track"}[k]
+		// 发行版有专用模板：其"属性分区"与"列表列"是发行这一媒体特有的编排，
+		// 由模板声明（可在后台改），避免把 edition_type/country/packaging… 写进代码。
+		tpl := "generic"
+		if k == "release" {
+			d.Templates["release"] = Template{
+				Names: names("发行版", "Release"), Directory: "tree",
+				Sections: []Section{
+					{Names: names("版本信息", "Edition"), Fields: []string{"edition_type", "edition_date", "country", "distribution_channel", "platform"}},
+					{Names: names("载体与包装", "Carrier & packaging"), Fields: []string{"catalog_number", "barcode", "packaging", "publisher"}},
+					{Names: names("附加内容", "Extras"), Fields: []string{"attachments", "store_bonuses", "events"}},
+				},
+				Columns:          []string{"edition_type", "country", "packaging", "catalog_number", "edition_date"},
+				PrimaryDateField: "edition_date",
+				BadgeFields:      []string{"edition_type", "country"},
+				FacetFields:      []string{"edition_type", "format", "country"},
+				RelationGroups:   []string{"credits", "creative", "membership"},
+			}
+			tpl = "release"
+		}
+		d.Types[k] = TypeDefinition{Names: names(zh, en), Kinds: []string{k}, Fields: keys, Template: tpl, Enabled: true}
 	}
 	addRel := func(code, zh, en, rzh, ren string, src, tgt []string, group string, acyclic bool) {
 		d.Relations[code] = RelationDefinition{Names: names(zh, en), ReverseNames: names(rzh, ren), SourceKinds: src, TargetKinds: tgt, Fields: []string{"role", "credit_role", "context", "character", "language", "begin_date", "end_date", "scope"}, Group: group, GroupNames: names(map[string]string{"credits": "署名", "creative": "创作关系", "membership": "组成与成员"}[group], map[string]string{"credits": "Credits", "creative": "Creative relations", "membership": "Membership"}[group]), Acyclic: acyclic, Enabled: true}
