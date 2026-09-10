@@ -58,27 +58,27 @@ func OpenAPI() map[string]any {
 	paths := map[string]any{}
 	add := func(path, method, summary, request, response string, auth bool) {
 		tag := "Catalog"
-	if strings.HasPrefix(path, "/auth") || strings.HasPrefix(path, "/setup") {
-		tag = "Auth"
-	} else if strings.HasPrefix(path, "/oauth") {
-		tag = "OAuth"
-	} else if strings.HasPrefix(path, "/admin/users") {
-		tag = "Users"
-	} else if strings.HasPrefix(path, "/admin/catalog-definitions") || path == "/catalog/definitions" {
-		tag = "Definitions"
-	}
-	op := map[string]any{
-		"tags":        []string{tag},
-		"summary":     summary,
-		"responses": map[string]any{
-			"200": map[string]any{"description": "Success", "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/" + response}}}},
-			"400": map[string]any{"description": "Invalid payload, source, definition or structural constraint"},
-			"401": map[string]any{"description": "Authentication required"},
-			"403": map[string]any{"description": "Insufficient edit or review permission"},
-			"404": map[string]any{"description": "Not found or not visible"},
-			"409": map[string]any{"description": "Version conflict; read current data before retrying"},
-		},
-	}
+		if strings.HasPrefix(path, "/auth") || strings.HasPrefix(path, "/setup") {
+			tag = "Auth"
+		} else if strings.HasPrefix(path, "/oauth") {
+			tag = "OAuth"
+		} else if strings.HasPrefix(path, "/admin/users") {
+			tag = "Users"
+		} else if strings.HasPrefix(path, "/admin/catalog-definitions") || path == "/catalog/definitions" {
+			tag = "Definitions"
+		}
+		op := map[string]any{
+			"tags":    []string{tag},
+			"summary": summary,
+			"responses": map[string]any{
+				"200": map[string]any{"description": "Success", "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/" + response}}}},
+				"400": map[string]any{"description": "Invalid payload, source, definition or structural constraint"},
+				"401": map[string]any{"description": "Authentication required"},
+				"403": map[string]any{"description": "Insufficient edit or review permission"},
+				"404": map[string]any{"description": "Not found or not visible"},
+				"409": map[string]any{"description": "Version conflict; read current data before retrying"},
+			},
+		}
 		if auth {
 			op["security"] = []any{map[string]any{"session": []string{}}, map[string]any{"bearer": []string{}}}
 		}
@@ -99,6 +99,8 @@ func OpenAPI() map[string]any {
 		{"/auth/login", "post", "Sign in; return token and HttpOnly cookie", "Credentials", "Result", ""}, {"/auth/me", "get", "Current account", "", "User", "auth"}, {"/auth/logout", "post", "Revoke current session", "", "Result", "auth"}, {"/auth/password", "put", "Update account password", "Credentials", "Result", "auth"}, {"/auth/logout-all", "post", "Revoke all user sessions", "", "Result", "auth"}, {"/admin/users", "get", "List users (administrator only)", "", "Result", "auth"}, {"/admin/users", "post", "Create editor (administrator only)", "Credentials", "User", "auth"}, {"/admin/users/{id}/role", "put", "Update user role (administrator only)", "Result", "Result", "auth"}, {"/admin/users/{id}/password", "put", "Reset user password (administrator only)", "Credentials", "Result", "auth"}, {"/oauth/clients", "get", "List registered OAuth 2.0 clients", "", "Result", ""}, {"/oauth/authorize", "get", "OAuth 2.0 authorization endpoint", "", "Result", ""}, {"/oauth/token", "post", "OAuth 2.0 token endpoint", "", "Result", ""}, {"/oauth/userinfo", "get", "OAuth 2.0 / OIDC user info endpoint", "", "Result", "auth"},
 		{"/catalog/definitions", "get", "Published dynamic definitions", "", "DefinitionVersion", ""}, {"/catalog/works", "get", "Query works collection (items + real COUNT total)", "", "Result", ""}, {"/catalog/entities", "get", "Basic PostgreSQL search (items + real COUNT total; 120/min per IP)", "", "Result", ""}, {"/catalog/entities", "post", "Create entity with evidence (supports Idempotency-Key, 24h)", "Edit", "Entity", "auth"},
 		{"/catalog/works/{id}", "get", "Work detail in legacy frontend shape (read-only compat, prefer /catalog/entities/{id}/resolve)", "", "Result", ""}, {"/catalog/works/{id}/contents", "get", "Work content directory in legacy shape (read-only compat)", "", "Result", ""}, {"/catalog/works/{id}/graph", "get", "Work relation graph in legacy shape (read-only compat)", "", "Result", ""},
+		{"/catalog/taxonomy", "get", "Taxonomy dictionary derived from definitions (read-only legacy compat)", "", "Result", ""}, {"/catalog/tags", "get", "Empty tag dictionary placeholder (read-only legacy compat)", "", "Result", ""}, {"/catalog/relation-types", "get", "Relation types derived from definitions (read-only legacy compat)", "", "Result", ""}, {"/catalog/works/{id}/comments", "get", "Empty works comments placeholder (read-only legacy compat)", "", "Result", ""},
+		{"/catalog/artists/{id}", "get", "Agent artist detail in legacy frontend shape (read-only compat, prefer /catalog/entities/{id}/resolve)", "", "Result", ""}, {"/catalog/franchises/{id}", "get", "Collection franchise detail in legacy frontend shape (read-only compat)", "", "Result", ""}, {"/catalog/mediums/{id}", "get", "Medium detail with release context in legacy frontend shape (read-only compat)", "", "Result", ""}, {"/catalog/canonical-entries/{id}", "get", "ContentUnit/Expression canonical entry in legacy frontend shape (read-only compat)", "", "Result", ""},
 		{"/catalog/entities/{id}", "get", "Read visible entity", "", "Entity", ""}, {"/catalog/entities/{id}", "put", "Replace entity with optimistic version check", "Edit", "Entity", "auth"}, {"/catalog/entities/{id}/resolve", "get", "Resolve merged identity", "", "Entity", ""}, {"/catalog/entities/{id}/lifecycle", "post", "Merge or retire (administrator only)", "LifecycleEdit", "Entity", "auth"},
 		{"/catalog/entities/{id}/revisions", "get", "Read visible revision history", "", "Result", ""}, {"/catalog/entities/{id}/relations", "get", "Read contextual forward and reverse relations", "", "Result", ""}, {"/catalog/entities/{id}/occurrences", "get", "Read complete reverse inclusions", "", "Result", ""}, {"/catalog/external-databases", "get", "List active external authority database definitions", "", "Result", ""}, {"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
 		{"/catalog/compare", "get", "Compare two to six releases (10/min per IP)", "", "Result", ""},
