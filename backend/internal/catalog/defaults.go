@@ -105,6 +105,22 @@ func Defaults() Definitions {
 	for _, x := range [][5]string{{"created_by", "创作者", "Created by", "创作了", "Creator of"}, {"performed_by", "表演者", "Performed by", "表演了", "Performer of"}, {"photographed_by", "摄影者", "Photographed by", "拍摄了", "Photographer of"}, {"modeled_by", "出镜者", "Modeled by", "出镜于", "Model in"}, {"developed_by", "开发者", "Developed by", "开发了", "Developer of"}, {"voiced_by", "配音者", "Voiced by", "配音于", "Voice actor in"}} {
 		addRel(x[0], x[1], x[2], x[3], x[4], []string{"work", "content_unit", "expression", "release"}, []string{"agent"}, "credits", false)
 	}
+	// 分媒介署名关系：音乐（作曲/作词/编曲）、影视与动画（导演/编剧）、书籍（插画/朗读）。
+	// 均为 agent 目标、group=credits，后台 DefinitionsEditor 可继续增删改。
+	for _, x := range []struct {
+		code, zh, en, rzh, ren string
+		src                    []string
+	}{
+		{"composed_by", "作曲者", "Composed by", "作曲了", "Composer of", []string{"work", "content_unit", "expression"}},
+		{"lyricist_of", "作词者", "Lyricist of", "作词了", "Lyricist for", []string{"work", "content_unit", "expression"}},
+		{"arranged_by", "编曲者", "Arranged by", "编曲了", "Arranger of", []string{"work", "expression"}},
+		{"directed_by", "导演", "Directed by", "执导了", "Director of", []string{"work", "content_unit"}},
+		{"written_by", "编剧", "Written by", "编写了", "Writer of", []string{"work", "content_unit"}},
+		{"illustrated_by", "插画者", "Illustrated by", "绘制了", "Illustrator of", []string{"work", "content_unit", "release"}},
+		{"narrated_by", "朗读 / 旁白", "Narrated by", "朗读了", "Narrator of", []string{"expression", "release"}},
+	} {
+		addRel(x.code, x.zh, x.en, x.rzh, x.ren, x.src, []string{"agent"}, "credits", false)
+	}
 	for _, x := range [][5]string{{"adaptation_of", "改编自", "Adaptation of", "被改编为", "Adapted as"}, {"sequel_of", "续作于", "Sequel of", "前作于", "Prequel of"}, {"soundtrack_of", "配乐用于", "Soundtrack of", "配乐作品", "Soundtrack"}} {
 		addRel(x[0], x[1], x[2], x[3], x[4], []string{"work"}, []string{"work"}, "creative", true)
 	}
