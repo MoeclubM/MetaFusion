@@ -788,16 +788,24 @@ func (s *Store) importerSave(ctx context.Context, e Entity, actor User, note str
 
 // workTypeFromMetadata 从预览回带 catalog_metadata 还原 Bangumi 条目类型，
 // 手工拼装的载荷没有该字段时返回空（不虚构类型）。
+//
+// catalog_metadata 声明为 any：走 HTTP JSON 往返后数值是 float64，
+// 而同进程直接调用（预览结果原样传给 Import）保留 Go int。两种形态都要接受，
+// 否则会静默丢失类型、进而把该类型允许的字段判成未知字段。
 func workTypeFromMetadata(v any) string {
 	m, ok := v.(map[string]any)
 	if !ok {
 		return ""
 	}
-	f, ok := m["bangumi_type"].(float64)
-	if !ok {
-		return ""
+	switch t := m["bangumi_type"].(type) {
+	case float64:
+		return bangumiWorkType(int(t))
+	case int:
+		return bangumiWorkType(t)
+	case int64:
+		return bangumiWorkType(int(t))
 	}
-	return bangumiWorkType(int(f))
+	return ""
 }
 
 func applyWorkSummary(e *Entity, summary string) {
@@ -861,16 +869,18 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 		ExternalIDs:      map[string]string{},
 		Attributes:       map[string]any{},
 	}
+	// 属性只能落在类型声明的字段集内：类型未识别时保持属性为空，
+	// 否则校验会把未知字段判为错误、整条导入失败。
 	if workType != "" {
 		e.Types = []string{workType}
 		if lang := strings.TrimSpace(w.Language); lang != "" {
 			e.Attributes["language"] = lang
 		}
-	}
-	// 作品首发/出版日期：写入 work.edition_date，供列表与详情展示。
-	// 预览的 release_date 此前被丢弃，导致列表只能回退到 updated_at（时间显示错误）。
-	if d := cleanImporterDate(w.ReleaseDate); d != "" {
-		e.Attributes["edition_date"] = d
+		// 作品首发/出版日期：写入 work.edition_date，供列表与详情展示。
+		// 预览的 release_date 此前被丢弃，导致列表只能回退到 updated_at（时间显示错误）。
+		if d := cleanImporterDate(w.ReleaseDate); d != "" {
+			e.Attributes["edition_date"] = d
+		}
 	}
 	if hasKey {
 		e.ExternalIDs["metafusion_import"] = key
