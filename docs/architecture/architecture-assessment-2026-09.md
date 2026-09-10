@@ -79,3 +79,21 @@
 - 组成与特典（membership）：`bonus_included_in`、`store_bonus_for`、`includes`（collection/work → work/collection）。
 - 关系通用字段：`role`、`credit_role`、`context`、`character`、`language`、`begin_date`、`end_date`、`scope`（`defaults.go:104`）。
 - 不存在的关系码（文档中常被误引）：`part_of_franchise`、`creator_of`、`included_in`、`crossover_with`、`prequel_of`、`spin_off_of`、`expansion_of`、`remake_of`、`member_of`、`voice_actor_of`、`imprint_of`、`real_counterpart_of`、`alternate_form_of`、`phonographic_copyright`。
+
+## 4. 全动态化原则与落地（2026-09-11 第 2 轮）
+
+**原则**：仅保留"实体骨架 + 结构性引用"作为核心；**其余一切属性与编排由 definitions 声明**，后台 GUI 可增删改，不需要改代码、改迁移或发版。此前有多处"伪动态"——字段存在于 definitions，但代码/前端按固定字段码渲染，导致新增一种媒体或字段必须改代码。
+
+| 层面 | 改动前（硬编码） | 改动后（definitions 驱动） |
+| --- | --- | --- |
+| 收录定位（页/时间码/路径/章节） | Go 结构体 `Locator` 固定 7 个字段，`validateLocator` 硬编码 page/time 规则 | `Locator` 改为 `map[string]any`；键集合由 `fields.locator` 组字段声明（含 `anchor_key` 锚点语义与通用成对区间校验），后台可加"盘面/张/帧"等任意定位键（`types.go`、`defaults.go`、`validation.go`） |
+| 收录关系 / 发行对象的附加描述 | 无（要加就加专用列） | 新增 `catalog.track_contents.attributes` 与 `catalog.release_subjects.attributes`（JSONB），由 `fields.inclusion_attributes` / `fields.subject_attributes` 校验，默认无子字段、后台可扩展（`migrations/000004_*`、`schema.sql`） |
+| 作品"主日期"语义 | 代码写死写读 `edition_date` | 模板声明 `primary_date_field`，导入与展示按声明取值（`Defaults.PrimaryDateField`、`types.go`） |
+| 详情页属性分区 | `EntityDetailView` 为每种字段写一段 JSX（日期/格式/品番/条码/发行方/时长） | 按模板 `sections` 递归渲染（`TemplateAttributeSections.tsx`），未覆盖字段自动收尾；类型渲染支持 text/number/date/enum/entity/multilingual/list/group |
+| 详情页头部徽章 | 写死 `edition_date`/`format` | 模板声明 `primary_date_field` + `badge_fields` |
+| 发行版列表列与筛选 | works 页写死 版本/地区/包装/品番/日期 五列与三个下拉 | 模板声明 `columns` / `facet_fields`，列头与筛选项全部由声明生成 |
+| 编辑器定位字段 | 写死 `page_start`/`time_start_ms`… 与 track/medium 选项 | 按 `fields.locator` 声明递归生成，枚举走词表 |
+
+**保留为"核心"的部分**（有意不动态化）：八个实体 kind、实体表列（`id/kind/version/title/status/...`）、结构性外键（`work_id`/`release_id`/`medium_id`/`parent_id`/`content_unit_id`）、`track_contents`/`release_subjects` 的引用与次序、关系端点 kind 白名单、以及 `Relation` 的 source/target/type。这些是 LRM 骨架与引用完整性所必需，改它们等同于迁移模型本身。
+
+**顺带修复**：`number` 校验此前只接受 JSON 的 `float64`，代码内部构造的 `int/int64`（如时长）会被拒；统一走 `toFloat`。区间顺序校验改为通用命名约定（`X_start`↔`X_end`、`_end_ms`、`X_begin`↔`X_end`、`X`↔`X_end/_end_ms/_max/_until`），新增成对字段无需改代码。
