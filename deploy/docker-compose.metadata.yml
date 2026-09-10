@@ -27,7 +27,6 @@ services:
     container_name: metafusion-backend
     restart: unless-stopped
     environment:
-      METAFUSION_MODE: catalog
       DB_HOST: postgres
       DB_PORT: "5432"
       DB_USER: ${DB_USER:-metafusion}

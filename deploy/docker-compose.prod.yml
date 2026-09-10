@@ -12,20 +12,20 @@
 services:
   frontend:
     build: !reset null
-    image: ${IMAGE_PREFIX:-ghcr.io/metafusion/metafusion}/frontend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/frontend:${IMAGE_TAG:-latest}
     restart: always
 
   docs-site:
     build: !reset null
-    image: ${IMAGE_PREFIX:-ghcr.io/metafusion/metafusion}/docs-site:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/docs-site:${IMAGE_TAG:-latest}
     restart: always
 
   backend:
     build: !reset null
-    image: ${IMAGE_PREFIX:-ghcr.io/metafusion/metafusion}/backend:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/backend:${IMAGE_TAG:-latest}
     restart: always
 
   transcoder-worker:
     build: !reset null
-    image: ${IMAGE_PREFIX:-ghcr.io/metafusion/metafusion}/worker:${IMAGE_TAG:-latest}
+    image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/worker:${IMAGE_TAG:-latest}
     restart: always

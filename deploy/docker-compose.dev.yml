@@ -20,7 +20,6 @@ services:
       - ../frontend/next.config.mjs:/app/next.config.mjs:ro
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://backend:8080/api
       - WATCHPACK_POLLING=true
 
   backend:
@@ -34,12 +33,11 @@ services:
       target: deps
     container_name: metafusion-docs-dev
     command: npm run dev
+    # VitePress 项目：内容与配置都在 docs/ 下（docs/.vitepress/config.mts），
+    # 静态资源为 docs/public；无 Next.js 的 src/content/next.config.mjs，故不再挂载。
     volumes:
-      - ../docs-site/src:/app/src:ro
-      - ../docs-site/content:/app/content:ro
-      - ../docs-site/public:/app/public:ro
+      - ../docs-site/docs:/app/docs:ro
       - ../docs-site/package.json:/app/package.json:ro
-      - ../docs-site/next.config.mjs:/app/next.config.mjs:ro
     environment:
       - NODE_ENV=development
       - PORT=3001

@@ -7,12 +7,9 @@ node_modules/
 .pnp/
 .pnp.js
 .pnpm-store/
+# 现状：lock 文件被忽略（不入库）；pnpm-lock.yaml 未被忽略而保持跟踪
 yarn.lock
 package-lock.json
-# 保留 lock 文件用于可复现构建，如需忽略请取消注释下一行
-# package-lock.json
-# pnpm-lock.yaml
-# yarn.lock
 
 # --- 构建产物 ---
 .next/
@@ -30,7 +27,6 @@ build/
 tsconfig.tsbuildinfo
 
 # Next 自动生成（可按需提交，此处默认忽略以保持干净）
-next-env.d.ts
 **/next-env.d.ts
 
 # --- 环境变量与敏感信息 ---
