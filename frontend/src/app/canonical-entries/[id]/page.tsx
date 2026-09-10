@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import {
@@ -32,7 +32,6 @@ import {
   Hash,
   Sparkles,
 } from "lucide-react";
-import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
@@ -46,6 +45,7 @@ import { isDistinctOriginalTitle } from "@/lib/titles";
 
 export default function CanonicalEntryDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const entryId = params.id as string;
   const { t, locale } = useI18n();
   const titleOrder = useTitleDisplayOrder();
@@ -57,8 +57,7 @@ export default function CanonicalEntryDetailPage() {
   const [activeTab, setActiveTab] = useState<"releases" | "credits" | "external" | "graph">("releases");
   const [loading, setLoading] = useState(true);
 
-  // Modals
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  // Modals（编辑改为跳转通用编辑页 /catalog/:id?edit=1）
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
 
   const loadEntry = async () => {
@@ -292,7 +291,7 @@ export default function CanonicalEntryDetailPage() {
               {/* Action Toolbar */}
               <div className="pt-2.5 border-t border-black/5 dark:border-white/[0.06]">
                 <EntityActionToolbar
-                  onEdit={() => setIsEditorOpen(true)}
+                  onEdit={() => router.push(`/catalog/${data.id}?edit=1`)}
                   onHistory={() => setIsHistoryOpen(true)}
                   entityTypeLabel={t("entity.toolbar.canonical_entry")}
                 >
@@ -661,21 +660,6 @@ export default function CanonicalEntryDetailPage() {
           </div>
         )}
       </main>
-
-      {/* Universal Entity Editor Modal */}
-      {isEditorOpen && (
-        <UniversalEntityEditor
-          isOpen={isEditorOpen}
-          onClose={() => setIsEditorOpen(false)}
-          targetType="canonical_entry"
-          mode="edit"
-          initialData={data}
-          onSuccess={() => {
-            setIsEditorOpen(false);
-            loadEntry();
-          }}
-        />
-      )}
 
       {/* Revision History Modal */}
       {isHistoryOpen && (

@@ -1,93 +1,53 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
+import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, InviteInfoResponse } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
-import { Copy, Check, Link2 } from "lucide-react";
+import { KeyRound, ShieldAlert } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 
 export default function InvitesPage() {
   const { t } = useI18n();
   const { user } = useAuth();
-  const [inviteInfo, setInviteInfo] = useState<InviteInfoResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [copiedField, setCopiedField] = useState<"code" | "link" | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      fetchApi<InviteInfoResponse>("/auth/invite")
-        .then(setInviteInfo)
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    } else setLoading(false);
-  }, [user]);
-
-  const inviteCode = inviteInfo?.invite_code || (user as any)?.invite_code || t("invite.fallbackCode");
-  const invitedUsers = inviteInfo?.invited_users || [];
-
-  const copy = (type: "code" | "link") => {
-    const text = type === "code" ? inviteCode : `${typeof window !== "undefined" ? window.location.origin : ""}/login?invite=${encodeURIComponent(inviteCode)}`;
-    navigator.clipboard.writeText(text);
-    setCopiedField(type);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
+  // 后端目前没有邀请码查询/分发实现（GET /auth/invite 不存在），这里不伪造
+  // 邀请码或受邀列表，如实展示为暂未开放的占位页面。
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navbar />
+        <main className="max-w-2xl mx-auto px-4 py-16 w-full flex-1 flex flex-col items-center justify-center gap-4 text-center">
+          <div className="w-12 h-12 rounded-full bg-white/5 grid place-items-center">
+            <KeyRound className="w-6 h-6 text-gray-500" />
+          </div>
+          <p className="text-sm text-gray-500">{t("create.common.requiresLogin")}</p>
+          <Link href="/login?redirect=/invites" className="px-5 h-9 rounded-full bg-primary text-white keep-white inline-flex items-center text-sm font-semibold">
+            {t("nav.login")}
+          </Link>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
       <main className="max-w-2xl mx-auto px-4 py-5 w-full flex-1 space-y-4 sm:space-y-5">
-        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">{t("invite.title")}</h1>
+        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          {t("invite.title")}
+        </h1>
 
-        <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-soft">
-          <div>
-            <div className="font-mono text-lg font-bold tracking-widest text-gray-900 dark:text-white">{inviteCode}</div>
+        <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-6 sm:p-8 flex flex-col items-center gap-3 text-center shadow-soft">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 grid place-items-center">
+            <ShieldAlert className="w-6 h-6 text-amber-500" strokeWidth={1.6} />
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => copy("code")}
-              className="h-7 px-3 rounded-md bg-primary text-white keep-white hover:opacity-90 font-medium inline-flex items-center gap-1.5 text-xs transition-opacity shadow-xs"
-            >
-              {copiedField === "code" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedField === "code" ? t("common.copied") : t("common.copy")}</span>
-            </button>
-            <button
-              onClick={() => copy("link")}
-              className="h-7 px-3 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-200 hover:text-primary inline-flex items-center gap-1.5 text-xs transition-colors"
-            >
-              {copiedField === "link" ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
-              <span>{copiedField === "link" ? t("common.copied") : t("common.copyLink")}</span>
-            </button>
+          <div className="font-display text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+            {t("catalog.unavailable")}
           </div>
-        </div>
-
-        <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
-          <div className="px-3.5 py-2.5 border-b border-black/5 dark:border-white/[0.06] flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02]">
-            <span className="font-medium text-gray-900 dark:text-white text-xs">{t("invite.invitedMembers", { count: invitedUsers.length })}</span>
-            <span className="font-mono text-[10px] uppercase text-gray-500">{t("invite.invitedMembersShort")}</span>
-          </div>
-          {loading ? (
-            <div className="p-8 text-center font-mono text-xs text-gray-500">{t("invite.loading")}</div>
-          ) : invitedUsers.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-xs text-gray-900 dark:text-white font-medium">{t("invite.noMembers")}</p>
-              <p className="font-mono text-[11px] text-gray-500 mt-1">{t("invite.noMembersHint")}</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-black/5 dark:divide-white/[0.06]">
-              {invitedUsers.map((member) => (
-                <div key={member.id} className="px-3.5 py-2.5 flex items-center justify-between hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
-                  <div>
-                    <span className="text-xs font-medium text-gray-900 dark:text-white">{member.username}</span>
-                    <span className="block font-mono text-[10px] text-gray-500">{member.email}</span>
-                  </div>
-                  <span className="font-mono text-[10px] text-gray-500">
-                    {member.created_at ? new Date(member.created_at).toLocaleDateString() : "—"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed max-w-md">
+            {t("invite.noMembersHint")}
+          </p>
         </div>
       </main>
     </div>

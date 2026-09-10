@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import {
@@ -15,7 +15,6 @@ import {
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Layers, Network, Users, ArrowRight } from "lucide-react";
-import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { TemporalBadge } from "@/components/entity/TemporalBadge";
@@ -29,13 +28,14 @@ import { GroupedRelations } from "@/components/entity/RelationsList";
 
 export default function FranchiseDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const franchiseId = params.id as string;
   const { t, locale } = useI18n();
   const { entityTypeLabel } = useTaxonomy();
   const titleOrder = useTitleDisplayOrder();
   const [data, setData] = useState<FranchiseDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  // 编辑改为跳转通用编辑页 /catalog/:id?edit=1，弹层只保留修订历史与合并
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
 
@@ -52,13 +52,6 @@ export default function FranchiseDetailPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [franchiseId]);
-
-  // 详情页支持 /franchises/:id?edit=1 直达编辑器（编辑器「在新页面打开」的落点）
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.location.search.includes("edit=1")) {
-      setIsEditorOpen(true);
-    }
-  }, []);
 
   const franchiseWorks = data?.works || [];
 
@@ -165,7 +158,7 @@ export default function FranchiseDetailPage() {
                 </div>
               )}
               <EntityActionToolbar
-                onEdit={() => setIsEditorOpen(true)}
+                onEdit={() => router.push(`/catalog/${fr.id}?edit=1`)}
                 onHistory={() => setIsHistoryOpen(true)}
                 onMerge={() => setIsMergeOpen(true)}
                 entityTypeLabel={t("franchise.detail.badge")}
@@ -249,14 +242,6 @@ export default function FranchiseDetailPage() {
         )}
       </main>
 
-      <UniversalEntityEditor
-        isOpen={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
-        targetType="franchise"
-        mode="edit"
-        initialData={fr}
-        onSuccess={() => load()}
-      />
       <RevisionHistoryModal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}

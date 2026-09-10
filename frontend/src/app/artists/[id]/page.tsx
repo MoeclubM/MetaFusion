@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { fetchApi, ArtistDetailResponse, ConnectedEntityItem, catalogEntityHref, pickLocalized } from "@/lib/api";
@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
-import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { TemporalBadge } from "@/components/entity/TemporalBadge";
@@ -35,6 +34,7 @@ const InteractiveRelationGraph = dynamic(
 
 export default function ArtistDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const artistId = params.id as string;
   const { t, locale } = useI18n();
   const { entityTypeLabel } = useTaxonomy();
@@ -45,8 +45,7 @@ export default function ArtistDetailPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"works" | "releases" | "affiliations" | "graph">("works");
 
-  // Edit, Revision History, and Merge Modals
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  // Revision History, and Merge Modals（编辑改为跳转通用编辑页 /catalog/:id?edit=1）
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
 
@@ -69,13 +68,6 @@ export default function ArtistDetailPage() {
       .then((g) => setGraphData(g))
       .catch((err) => console.error("Artist graph fetch failed:", err));
   }, [artistId]);
-
-  // 详情页支持 /artists/:id?edit=1 直达编辑器（编辑器「在新页面打开」的落点）
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.location.search.includes("edit=1")) {
-      setIsEditorOpen(true);
-    }
-  }, []);
 
   // 过滤掉已经在头部专门作为头像渲染的 avatar_url，避免在扩展动态属性栏中冗余显示技术路径。
   // 必须挂在 loading/空态提前返回之前：hook 数量须与首帧一致，否则触发
@@ -243,7 +235,7 @@ export default function ArtistDetailPage() {
 
             {/* Action Toolbar */}
             <EntityActionToolbar
-              onEdit={() => setIsEditorOpen(true)}
+              onEdit={() => router.push(`/catalog/${artist.id}?edit=1`)}
               onHistory={() => setIsHistoryOpen(true)}
               onMerge={() => setIsMergeOpen(true)}
               entityTypeLabel={t("entity.toolbar.artist")}
@@ -461,21 +453,6 @@ export default function ArtistDetailPage() {
           </div>
         )}
       </main>
-
-      {/* Universal Entity Editor (Edit Mode) */}
-      <UniversalEntityEditor
-        isOpen={isEditorOpen}
-        onClose={() => setIsEditorOpen(false)}
-        targetType="artist"
-        mode="edit"
-        initialData={artist}
-        onSuccess={() => {
-          setLoading(true);
-          fetchApi<ArtistDetailResponse>(`/catalog/artists/${artistId}`)
-            .then((res) => setData(res))
-            .finally(() => setLoading(false));
-        }}
-      />
 
       {/* Revision History & Diff Modal */}
       <RevisionHistoryModal
