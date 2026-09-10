@@ -175,14 +175,28 @@ func TestBangumiCharacterRankRole(t *testing.T) {
 	}
 }
 
-// 关联项去重键：优先自有导入键，其次名称+类型；同人物跨职位应合并为一个 agent。
+// 关联项去重键：必须与落库的 metafusion_import 格式一致（否则 findImported 查不到
+// 已存在实体，重复导入会不断新建副本）；其次名称+类型。同人物跨职位应合并为一个 agent。
 func TestAssocAgentDedup(t *testing.T) {
+	// 预览自带 metafusion_import：直接采用，与落库键同格式
+	withMetaKey := ImporterStaffAssociation{
+		ParsedName: "北澤史隆", EntityType: "person",
+		ExternalIDs: map[string]any{"bangumi_person": 43041, "metafusion_import": "bangumi:person:43041"},
+	}
+	if got := assocImportKey(withMetaKey.ExternalIDs); got != "bangumi:person:43041" {
+		t.Fatalf("metafusion_import preferred: %q", got)
+	}
+	// 只有 bangumi_person 时也要拼成与落库一致的形式
 	withKey := ImporterStaffAssociation{
 		ParsedName: "北澤史隆", EntityType: "person",
 		ExternalIDs: map[string]any{"bangumi_person": 43041},
 	}
-	if got := assocAgentDedup(withKey); got != "bangumi_person:43041" {
-		t.Fatalf("keyed dedup: %q", got)
+	if got := assocImportKey(withKey.ExternalIDs); got != "bangumi:person:43041" {
+		t.Fatalf("keyed dedup must match stored format: %q", got)
+	}
+	// 中文角色条目用 character 键
+	if got := assocImportKey(map[string]any{"bangumi_character": 127790}); got != "bangumi:character:127790" {
+		t.Fatalf("character key: %q", got)
 	}
 	// 同一人物两个职位（导演 + 脚本）→ 同一去重键
 	same1 := ImporterStaffAssociation{ParsedName: "test", EntityType: "person", ExternalIDs: map[string]any{"bangumi_person": 7}}
