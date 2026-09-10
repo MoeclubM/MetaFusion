@@ -799,8 +799,12 @@ func previewBangumiSubject(ctx context.Context, source string, id int) (Importer
 	}
 	tags := bangumiTags(sub.Tags, 12)
 	// 原语言推断：以官方原名（name）的语言为准，含假名可判定日文；
-	// 无可靠信号时留空（不虚构），展示回退链仍可工作。
+	// 标题无可判定信号时，退一步看来源简介（同样是来源原文，仍属证据而非猜测）。
+	// 两者都无线索时留空（不虚构），展示回退链仍可工作。
 	origLang := detectJapaneseScript(sub.Name)
+	if origLang == "" {
+		origLang = detectJapaneseScript(sub.Summary)
+	}
 	// infobox 补充官方字段：官网、品番、别名、出版社等（键名随媒体类型不同）。
 	aliases := sub.bangumiInfoboxAliases(title, original)
 	website := firstNonEmpty(sub.infoboxString("官方网站"), sub.infoboxString("官方網站"), sub.infoboxString("官网"))
