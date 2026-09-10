@@ -345,12 +345,12 @@ func TestMergeWorkMetadataNoOverwrite(t *testing.T) {
 	}
 	w := &ImporterWorkPreview{
 		Title: "作品", OriginalTitle: "作品",
-		ReleaseDate:   "2023-06-29",
+		ReleaseDate:      "2023-06-29",
 		OriginalLanguage: "ja",
-		Aliases:       []string{"已有别名", "新别名"},
-		CoverImageURL: "https://lain.bgm.tv/pic/cover/l/new.jpg",
+		Aliases:          []string{"已有别名", "新别名"},
+		CoverImageURL:    "https://lain.bgm.tv/pic/cover/l/new.jpg",
 		CatalogMetadata: map[string]any{
-			"bangumi_type": float64(2),
+			"bangumi_type":     float64(2),
 			"official_website": "https://imported.example/",
 			"catalog_number":   "NEW-001",
 		},
@@ -369,15 +369,42 @@ func TestMergeWorkMetadataNoOverwrite(t *testing.T) {
 	if got.Translations["ja"].Title != "自定日文名" {
 		t.Errorf("translation title overwritten: %v", got.Translations["ja"])
 	}
-	// 缺失项必须补齐，且别名去重
+	// 缺失项必须补齐，且别名按自身语种分派
 	if got.Attributes["catalog_number"] != "NEW-001" {
 		t.Errorf("catalog_number not backfilled: %v", got.Attributes)
 	}
-	aliases := got.Translations["ja"].Aliases
-	if len(aliases) != 2 { // 已有别名 + 新别名（重复项被跳过）
-		t.Errorf("aliases = %v", aliases)
+	// "新别名" 是纯汉字 → zh-CN 行；ja 行只保留原有别名
+	if ja := got.Translations["ja"].Aliases; len(ja) != 1 || ja[0] != "已有别名" {
+		t.Errorf("ja aliases = %v, want [已有别名]", ja)
+	}
+	if zh := got.Translations["zh-CN"].Aliases; !contains(zh, "新别名") {
+		t.Errorf("zh-CN aliases = %v, want to contain 新别名", zh)
 	}
 	if !changed {
 		t.Error("changed should be true when backfilling")
+	}
+}
+
+// 别名按文字特征分派：假名→ja，含汉字→zh-CN，拉丁丢弃（不猜语种）。
+func TestApplyAliasesByScript(t *testing.T) {
+	e := Entity{Kind: "work", Title: "作品", Translations: map[string]Translation{"ja": {Title: "作品"}}}
+	if !applyAliasesByScript(&e, []string{"迷途之子", "バンドリ", "LatinAlias", "作品"}) {
+		t.Fatal("expected change")
+	}
+	if got := e.Translations["ja"].Aliases; len(got) != 1 || got[0] != "バンドリ" {
+		t.Errorf("ja aliases = %v, want [バンドリ]", got)
+	}
+	if got := e.Translations["zh-CN"].Aliases; len(got) != 1 || got[0] != "迷途之子" {
+		t.Errorf("zh-CN aliases = %v, want [迷途之子]", got)
+	}
+	for loc, tr := range e.Translations {
+		for _, a := range tr.Aliases {
+			if a == "LatinAlias" {
+				t.Errorf("latin alias leaked into %s", loc)
+			}
+			if a == "作品" {
+				t.Errorf("alias equal to title leaked into %s", loc)
+			}
+		}
 	}
 }
