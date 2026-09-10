@@ -143,7 +143,7 @@ export function EntityDetailView({ id }: { id: string }) {
       // Fetch occurrences, relations, revisions, posts, collections in parallel
       const [occRes, relRes, revRes, postRes, colRes] = await Promise.all([
         api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => ({ items: [] })),
-        api<{ items: Relation[] }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[] })),
+        api<{ items: Relation[]; entities?: Record<string, Entity> }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: undefined })),
         api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => ({ items: [] })),
         api<{ items: any[] }>(`/community/entities/${e.id}/posts`).catch(() => ({ items: [] })),
         api<{ items: any[] }>(`/community/entities/${e.id}/collections`).catch(() => ({ items: [] })),
@@ -151,6 +151,9 @@ export function EntityDetailView({ id }: { id: string }) {
 
       const occItems = occRes.items || [];
       const relItems = relRes.items || [];
+      // 关系对端实体由 relations 接口一并返回（单次批量查询），不再逐条 Get。
+      // 保留逐条回退，使前端部署不依赖后端是否已上线该字段。
+      if (relRes.entities) setRelatedEntities(relRes.entities);
       const revItems = revRes.items || [];
       setOccurrences(occItems);
       setRelations(relItems);
@@ -207,31 +210,36 @@ export function EntityDetailView({ id }: { id: string }) {
         );
       }
 
-      // Resolve entities for relations (first 30)
-      const otherIds = Array.from(
-        new Set(
-          relItems
-            .map((r) => (r.source_id === e.id ? r.target_id : r.source_id))
-            .filter((x) => x && x !== e.id)
-        )
-      ).slice(0, 30);
+      // 后端未内嵌对端实体时的回退：逐条取。默认并发 8 并限制条数，
+      // 避免数百条关系同时打满连接；上限内之外的条目会退回显示 UUID。
+      if (!relRes.entities) {
+        const otherIds = Array.from(
+          new Set(
+            relItems
+              .map((r) => (r.source_id === e.id ? r.target_id : r.source_id))
+              .filter((x) => x && x !== e.id)
+          )
+        ).slice(0, 30);
 
-      if (otherIds.length > 0) {
-        parentPromises.push(
-          Promise.all(
-            otherIds.map((targetId) =>
-              api<Entity>(`/catalog/entities/${targetId}`)
-                .then((target) => ({ [targetId]: target }))
-                .catch(() => ({ [targetId]: null }))
-            )
-          ).then((results) => {
-            const map: Record<string, Entity> = {};
-            for (const r of results) {
-              Object.assign(map, r);
-            }
-            setRelatedEntities(map);
-          })
-        );
+        if (otherIds.length > 0) {
+          parentPromises.push(
+            (async () => {
+              const map: Record<string, Entity> = {};
+              for (let i = 0; i < otherIds.length; i += 8) {
+                const batch = otherIds.slice(i, i + 8);
+                const results = await Promise.all(
+                  batch.map((targetId) =>
+                    api<Entity>(`/catalog/entities/${targetId}`).catch(() => null)
+                  )
+                );
+                results.forEach((target, idx) => {
+                  if (target) map[batch[idx]] = target;
+                });
+              }
+              setRelatedEntities(map);
+            })()
+          );
+        }
       }
 
       // Query children for work or release
