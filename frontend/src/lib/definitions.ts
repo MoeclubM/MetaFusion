@@ -16,6 +16,31 @@ export interface FieldDef {
   unit?: Record<string, string>;
   vocabulary?: string;
   enabled: boolean;
+  required?: boolean;
+  kinds?: string[];
+  fields?: Record<string, FieldDef>;
+  items?: FieldDef;
+  min?: number;
+  max?: number;
+  anchor_key?: string;
+}
+
+export interface SectionDef {
+  names: Record<string, string>;
+  fields: string[];
+}
+
+export interface TemplateDef {
+  names: Record<string, string>;
+  sections: SectionDef[];
+  columns?: string[];
+  relation_groups?: string[];
+  directory?: string;
+  modules?: string[];
+  /** 该模板下代表"作品首发/发行日期"的字段码；为空则不展示日期。 */
+  primary_date_field?: string;
+  /** 详情页标题旁以徽章突出的字段码（如载体格式、平台）；顺序即展示顺序。 */
+  badge_fields?: string[];
 }
 
 export interface VocabularyDef {
@@ -38,7 +63,7 @@ export interface DynamicDefinitions {
   fields: Record<string, FieldDef>;
   vocabularies: Record<string, VocabularyDef>;
   relations: Record<string, RelationDef>;
-  templates: Record<string, any>;
+  templates: Record<string, TemplateDef>;
 }
 
 let cachedDefinitions: DynamicDefinitions | null = null;

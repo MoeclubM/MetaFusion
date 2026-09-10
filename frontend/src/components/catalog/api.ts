@@ -76,6 +76,8 @@ export type Definitions = {
       relation_groups: string[];
       directory: string;
       modules: string[];
+      primary_date_field?: string;
+      badge_fields?: string[];
     }
   >;
 };

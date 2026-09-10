@@ -298,3 +298,28 @@ func TestTemplateDeclaresPrimaryDateField(t *testing.T) {
 		}
 	}
 }
+
+// 模板声明的 badge_fields / primary_date_field 必须指向真实字段，
+// 否则展示层静默取空；后台写错声明应在保存 draft 时就被拒绝。
+func TestTemplateFieldReferencesValidated(t *testing.T) {
+	d := Defaults()
+	if err := d.Validate(); err != nil {
+		t.Fatalf("defaults invalid: %v", err)
+	}
+	bad := Defaults()
+	bad.Templates["music"] = Template{
+		Names: names("音乐", "Music"), Directory: "tree",
+		BadgeFields: []string{"no_such_field"},
+	}
+	if err := bad.Validate(); err == nil {
+		t.Fatal("template with unknown badge field accepted")
+	}
+	bad2 := Defaults()
+	bad2.Templates["music"] = Template{
+		Names: names("音乐", "Music"), Directory: "tree",
+		PrimaryDateField: "no_such_field",
+	}
+	if err := bad2.Validate(); err == nil {
+		t.Fatal("template with unknown primary date field accepted")
+	}
+}

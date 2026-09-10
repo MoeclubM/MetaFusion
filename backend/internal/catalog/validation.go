@@ -256,6 +256,15 @@ func (d Definitions) Validate() error {
 				return e
 			}
 		}
+		// 模板声明的主日期/徽章字段必须真实存在，否则展示层会取到空值而不报错。
+		if t.PrimaryDateField != "" {
+			if _, ok := d.Fields[t.PrimaryDateField]; !ok {
+				return fmt.Errorf("unknown_field: %s", t.PrimaryDateField)
+			}
+		}
+		if e := fields(t.BadgeFields); e != nil {
+			return e
+		}
 	}
 	return nil
 }
