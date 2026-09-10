@@ -57,6 +57,17 @@ export default function FranchiseDetailPage() {
 
   const franchiseWorks = data?.works || [];
 
+  // 分节标签：概览之外的各分节独立面板，避免长页滚动。
+  // 必须在提前 return 之前调用 hook，否则 loading 分支少调用一次会破坏 hook 顺序。
+  const tabs: TabItem[] = [
+    { id: "overview", label: t("franchise.detail.badge") },
+    { id: "children", label: t("franchise.detail.children"), visible: (data?.children?.length || 0) > 0, badge: data?.children?.length || 0 },
+    { id: "works", label: t("franchise.detail.works"), visible: franchiseWorks.length > 0, badge: franchiseWorks.length },
+    { id: "agents", label: t("franchise.detail.agents"), visible: (data?.agents?.length || 0) > 0, badge: data?.agents?.length || 0 },
+    { id: "relations", label: t("franchise.detail.relations"), visible: (data?.connected_entities?.length || 0) > 0, badge: data?.connected_entities?.length || 0 },
+  ];
+  const { active, select } = useHashTab(tabs);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background grid place-items-center font-mono text-sm text-gray-500">
@@ -85,16 +96,6 @@ export default function FranchiseDetailPage() {
   const children = data.children || [];
   const agents: Artist[] = data.agents || [];
   const connected: ConnectedEntityItem[] = data.connected_entities || [];
-
-  // 分节标签：概览之外的各分节独立面板，避免长页滚动。
-  const tabs: TabItem[] = [
-    { id: "overview", label: t("franchise.detail.badge") },
-    { id: "children", label: t("franchise.detail.children"), visible: children.length > 0, badge: children.length },
-    { id: "works", label: t("franchise.detail.works"), visible: franchiseWorks.length > 0, badge: franchiseWorks.length },
-    { id: "agents", label: t("franchise.detail.agents"), visible: agents.length > 0, badge: agents.length },
-    { id: "relations", label: t("franchise.detail.relations"), visible: connected.length > 0, badge: connected.length },
-  ];
-  const { active, select } = useHashTab(tabs);
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">

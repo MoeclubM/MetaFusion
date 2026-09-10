@@ -22,6 +22,10 @@ export interface TabItem {
  */
 export function useHashTab(items: TabItem[]) {
   const shown = useMemo(() => items.filter((x) => x.visible !== false), [items]);
+  // 标签集合常随每轮渲染重建数组，用 id 签名做依赖，避免监听器反复重订阅。
+  const shownKey = shown.map((x) => x.id).join("|");
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
 
   const readHash = () =>
     typeof window === "undefined" ? "" : decodeURIComponent(window.location.hash.replace(/^#/, ""));
@@ -37,16 +41,18 @@ export function useHashTab(items: TabItem[]) {
       const h = readHash();
       setActive(h && shown.some((x) => x.id === h) ? h : shown[0].id);
     }
-  }, [shown, active]);
+    // shown 已由 shownKey 表达；仅当标签集合或当前值变化时才校正。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownKey, active]);
 
   useEffect(() => {
     const onHash = () => {
       const h = readHash();
-      if (h && shown.some((x) => x.id === h)) setActive(h);
+      if (h && shownRef.current.some((x) => x.id === h)) setActive(h);
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
-  }, [shown]);
+  }, [shownKey]);
 
   const select = useCallback((id: string) => {
     setActive(id);

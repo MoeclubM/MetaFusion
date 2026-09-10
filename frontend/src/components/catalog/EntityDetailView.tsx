@@ -73,6 +73,24 @@ const InteractiveRelationGraph = dynamic(
   { ssr: false }
 );
 
+/** 归入"演职人员"分组的关系类型；其余媒体关系走 relations 标签。 */
+const STAFF_RELATION_TYPES = [
+  "composed_by",
+  "arranged_by",
+  "lyrics_by",
+  "directed_by",
+  "written_by",
+  "illustrated_by",
+  "created_by",
+  "produced_by",
+  "voiced_by",
+  "performed_by",
+  "character_in",
+  "stars",
+  "publisher",
+  "label",
+];
+
 async function allEntities(query: string): Promise<Entity[]> {
   const items: Entity[] = [];
   for (let offset = 0; ; offset += 100) {
@@ -125,7 +143,7 @@ export function EntityDetailView({ id }: { id: string }) {
       // Fetch occurrences, relations, revisions, posts, collections in parallel
       const [occRes, relRes, revRes, postRes, colRes] = await Promise.all([
         api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => ({ items: [] })),
-        api<{ items: Relation[] }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] })),
+        api<{ items: Relation[] }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[] })),
         api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => ({ items: [] })),
         api<{ items: any[] }>(`/community/entities/${e.id}/posts`).catch(() => ({ items: [] })),
         api<{ items: any[] }>(`/community/entities/${e.id}/collections`).catch(() => ({ items: [] })),
@@ -510,6 +528,50 @@ export function EntityDetailView({ id }: { id: string }) {
     }
   };
 
+  // 关系分组与分节标签必须在提前 return 之前求值：loading/error/editing 分支
+  // 若少调用一次 hook，就会触发 "Rendered more hooks than during the previous render"。
+  const categorizedRelations = useMemo(
+    () =>
+      relations.map((r) => {
+        const otherId = r.source_id === entity?.id ? r.target_id : r.source_id;
+        return {
+          ...r,
+          otherId,
+          target: relatedEntities[otherId],
+          isOutgoing: r.source_id === entity?.id,
+        };
+      }),
+    [relations, relatedEntities, entity]
+  );
+
+  const staffRelations = useMemo(
+    () =>
+      categorizedRelations.filter(
+        (r) => STAFF_RELATION_TYPES.includes(r.type) || (r.target && r.target.kind === "agent")
+      ),
+    [categorizedRelations]
+  );
+
+  const mediaRelations = useMemo(
+    () =>
+      categorizedRelations.filter(
+        (r) => !STAFF_RELATION_TYPES.includes(r.type) && (!r.target || r.target.kind !== "agent")
+      ),
+    [categorizedRelations]
+  );
+
+  // 分节标签：与下方的条件渲染一一对应；标签集合随后数据到达再收窄。
+  const tabs: TabItem[] = [
+    { id: "overview", label: t("entity.page.navOverview"), icon: <BookOpen className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "staff", label: t("entity.page.navStaff"), badge: staffRelations.length, visible: staffRelations.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "contents", label: t("entity.page.navContents"), badge: children.length, visible: children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "community", label: t("entity.page.navCommunity"), badge: communityPosts.length, icon: <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "revisions", label: t("entity.detail.revisionsTitle"), badge: revisions.length || 1, icon: <History className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+  ];
+  const { active, select } = useHashTab(tabs);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
@@ -583,56 +645,6 @@ export function EntityDetailView({ id }: { id: string }) {
 
   const localizedTitle = title(entity, locale, titleOrder);
   const showOriginal = isDistinctOriginalTitle(entity.title, localizedTitle);
-
-  // Categorize relations
-  const categorizedRelations = relations.map((r) => {
-    const otherId = r.source_id === entity.id ? r.target_id : r.source_id;
-    const target = relatedEntities[otherId];
-    return {
-      ...r,
-      otherId,
-      target,
-      isOutgoing: r.source_id === entity.id,
-    };
-  });
-
-  const isStaffType = (type: string) =>
-    [
-      "composed_by",
-      "arranged_by",
-      "lyrics_by",
-      "directed_by",
-      "written_by",
-      "illustrated_by",
-      "created_by",
-      "produced_by",
-      "voiced_by",
-      "performed_by",
-      "character_in",
-      "stars",
-      "publisher",
-      "label",
-    ].includes(type);
-
-  const staffRelations = categorizedRelations.filter(
-    (r) => isStaffType(r.type) || (r.target && r.target.kind === "agent")
-  );
-
-  const mediaRelations = categorizedRelations.filter(
-    (r) => !isStaffType(r.type) && (!r.target || r.target.kind !== "agent")
-  );
-
-  // 分节标签：与下方的条件渲染一一对应；标签集合随后数据到达再收窄。
-  const tabs: TabItem[] = [
-    { id: "overview", label: t("entity.page.navOverview"), icon: <BookOpen className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "staff", label: t("entity.page.navStaff"), badge: staffRelations.length, visible: staffRelations.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "contents", label: t("entity.page.navContents"), badge: children.length, visible: children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "community", label: t("entity.page.navCommunity"), badge: communityPosts.length, icon: <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "revisions", label: t("entity.detail.revisionsTitle"), badge: revisions.length || 1, icon: <History className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-  ];
-  const { active, select } = useHashTab(tabs);
 
   const collectionRelations = categorizedRelations.filter(
     (r) => r.target && r.target.kind === "collection"
