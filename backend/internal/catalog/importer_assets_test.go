@@ -409,3 +409,90 @@ func TestApplyAliasesByScript(t *testing.T) {
 		}
 	}
 }
+
+// person type 判定：上游 type 为权威（2=公司 3=组合），type=1 时用自述文本纠正。
+func TestBangumiPersonAgentType(t *testing.T) {
+	orgSummary := "株式会社ブシロードは、東京都中野区に所在する企業。"
+	voiceSummary := "尾崎由香（おざき ゆか）は、日本の女性声優。研音所属。"
+	bandSummary := "现实与虚拟同步的全新乐队。"
+	cases := []struct {
+		name    string
+		typeID  int
+		summary string
+		want    string
+	}{
+		{"上游标公司", 2, "", "organization"},
+		{"上游标组合", 3, "", "group"},
+		{"企业自述('株式会社Xは、' 模式)", 1, orgSummary, "organization"},
+		{"企业自述('を主な事業内容とする')", 1, "アニメーションの企画・制作を主な事業内容とする日本の企業。", "organization"},
+		{"企业自述('是一家…公司')", 1, "于1990年成立，是日本一家专门从事动画美术背景的公司。", "organization"},
+		// 声优简介常出现"所属"，不得误判为公司
+		{"声优(含'所属')", 1, voiceSummary, "person"},
+		{"乐队描述但不是 type=3", 1, bandSummary, "person"},
+		{"空简介", 1, "", "person"},
+	}
+	for _, c := range cases {
+		if got := bangumiPersonAgentType(c.typeID, c.summary); got != c.want {
+			t.Errorf("%s: got %q want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// 语言推断：名称优先，名称无信号时看简介；都无信号留空。
+func TestDetectEntityLanguage(t *testing.T) {
+	cases := []struct{ name, summary, want string }{
+		{"とある魔術の禁書目録", "", "ja"},
+		{"BanG Dream! It's MyGO!!!!!", "现实与虚拟同步的乐队", ""},         // 标题拉丁、简介中文 → 不猜日文
+		{"AIR Original SoundTrack", "ゲーム中に使用されたＢＧＭ全23曲", "ja"}, // 标题拉丁、简介日文
+		{"魔法禁书目录", "", ""},                                    // 纯汉字不猜
+		{"ブシロード", "株式会社ブシロード", "ja"},
+	}
+	for _, c := range cases {
+		if got := detectEntityLanguage(c.name, c.summary); got != c.want {
+			t.Errorf("name=%q summary=%q: got %q want %q", c.name, c.summary, got, c.want)
+		}
+	}
+}
+
+// 已存在 agent 的补齐：纠正 person→organization、补简介/语言/封面，不覆盖已有值。
+func TestMergeAgentMetadata(t *testing.T) {
+	existing := Entity{
+		Kind: "agent", Title: "ブシロード", Status: "published",
+		Types:            []string{"person"},
+		OriginalLanguage: "",
+		Translations:     map[string]Translation{},
+	}
+	assoc := ImporterStaffAssociation{
+		ParsedName: "ブシロード",
+		EntityType: "organization",
+		Language:   "ja",
+		Biography:  "株式会社ブシロードは、東京都中野区に所在する企業。",
+		AvatarURL:  "https://lain.bgm.tv/pic/crt/l/71/12/10556_prsn_hlm7H.jpg",
+	}
+	got, changed := mergeAgentMetadata(existing, assoc)
+	if !changed {
+		t.Fatal("expected change")
+	}
+	if len(got.Types) != 1 || got.Types[0] != "organization" {
+		t.Errorf("type not corrected: %v", got.Types)
+	}
+	if got.OriginalLanguage != "ja" {
+		t.Errorf("language not filled: %q", got.OriginalLanguage)
+	}
+	if !agentHasSummary(got) {
+		t.Errorf("summary not applied: %v", got.Translations)
+	}
+	if len(got.Pictures) != 1 {
+		t.Errorf("picture not filled: %v", got.Pictures)
+	}
+	// 已有简介/语言时不得覆盖
+	keep := got
+	assoc2 := ImporterStaffAssociation{EntityType: "group", Language: "zh-CN", Biography: "另一个简介"}
+	got2, _ := mergeAgentMetadata(keep, assoc2)
+	if got2.OriginalLanguage != "ja" {
+		t.Errorf("language overwritten: %q", got2.OriginalLanguage)
+	}
+	if got2.Types[0] != "organization" {
+		t.Errorf("org must not be downgraded to group by title match: %v", got2.Types)
+	}
+}
