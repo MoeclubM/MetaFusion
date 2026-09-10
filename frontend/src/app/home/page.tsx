@@ -3,22 +3,12 @@
 import React, { useEffect, useState, Suspense, useCallback } from "react";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import {
-  fetchApi,
-  Work,
-  VirtualShelf,
-  UserCustomShelf,
-  UserHomeLayout,
-  resetDefaultShelves,
-  ensureDefaultShelves,
-  pickLocalizedName,
-} from "@/lib/api";
+import { fetchApi, pickLocalizedName } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { HomeShelvesConfigModal } from "@/components/home/HomeShelvesConfigModal";
+import { FORUM_SERVICE_URL } from "@/lib/services";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
-import { shelfRuleToExploreHref } from "@/lib/shelfQuery";
 import {
   Plus,
   Layers,
@@ -31,6 +21,8 @@ import {
   ChevronRight,
   MessageCircle,
   Settings2,
+  Info,
+  AlertCircle,
 } from "lucide-react";
 
 const SHELF_ICONS: Record<string, React.ElementType> = {
@@ -70,15 +62,40 @@ const SHELF_COLORS: Record<string, string> = {
   audiobooks: "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
 };
 
-type ChannelShelf = {
-  key: string;
+// /api/catalog/shelves 返回的是货架规则（query.types / fields / vocab_terms / relations），
+// 不是旧版 VirtualShelf（query_tags）。这里按真实契约建模，不再伪造 query_tags。
+type ShelfQuery = {
+  types?: string[] | null;
+  fields?: Record<string, string[]> | null;
+  vocab_terms?: Record<string, string[]> | null;
+  relations?: string[] | null;
+};
+
+type PublicShelf = {
+  id?: number | string;
   slug: string;
-  name_zh: string;
+  names?: Record<string, string> | null;
+  name_zh?: string;
   name_en?: string;
-  names?: Record<string, string>;
-  query_tags?: string[] | null;
-  require_all_tags?: boolean;
-  exclude_tags?: string[] | null;
+  name?: string;
+  icon?: string;
+  sort_order?: number;
+  query?: ShelfQuery | null;
+};
+
+// /api/catalog/works 返回新轨实体：有 types/pictures，旧字段可能缺失，读取时做兼容。
+type HomeWork = {
+  id: string;
+  title: string;
+  original_title?: string;
+  original_language?: string;
+  cover_image_url?: string;
+  cover_aspect?: string;
+  release_date?: string;
+  updated_at?: string;
+  types?: string[] | null;
+  pictures?: { url?: string }[] | null;
+  tags?: { id?: string | number; name?: string }[] | null;
 };
 
 function getShelfColor(key: string): string {
@@ -86,283 +103,66 @@ function getShelfColor(key: string): string {
   return "bg-primary/10 border-primary/20 text-primary";
 }
 
-function matchesShelfCriteria(
-  work: Work,
-  queryTags: string[],
-  requireAll: boolean,
-  excludeTags: string[]
-): boolean {
-  const wTags = (work.tags || []).map((t: any) => (t?.name ? t.name : typeof t === "string" ? t : ""));
-  if (excludeTags && excludeTags.some((ex) => wTags.includes(ex))) return false;
-  if (!queryTags || queryTags.length === 0) return true;
-  return requireAll ? queryTags.every((qt) => wTags.includes(qt)) : queryTags.some((qt) => wTags.includes(qt));
+function coverOf(work: HomeWork): string | undefined {
+  return work.cover_image_url || work.pictures?.[0]?.url || undefined;
 }
 
-function flattenSystemShelves(nodes: VirtualShelf[]): VirtualShelf[] {
-  const out: VirtualShelf[] = [];
-  const walk = (list: VirtualShelf[]) => {
-    list.forEach((s) => {
-      out.push(s);
-      if (s.children && s.children.length > 0) walk(s.children);
-    });
-  };
-  walk(nodes);
-  return out;
+function dateOf(work: HomeWork): string | undefined {
+  return work.release_date || work.updated_at;
 }
 
-function groupWorksForChannels(channels: ChannelShelf[], allWorks: Work[]): Record<string, Work[]> {
-  const grouped: Record<string, Work[]> = {};
-  channels.forEach((ch) => {
-    grouped[ch.key] = allWorks.filter((w) =>
-      matchesShelfCriteria(w, ch.query_tags || [], !!ch.require_all_tags, ch.exclude_tags || [])
-    );
-  });
-  return grouped;
+// 只有「无其它条件」或「纯类型条件」的货架能在客户端用已发布作品列表求值。
+// 含 fields / vocab_terms / relations 的规则由后端裁剪，这里不臆断结果，改展示占位说明。
+function shelfIsEvaluatable(shelf: PublicShelf): boolean {
+  const q = shelf.query || {};
+  const hasFields = Object.values(q.fields || {}).some((v) => (v || []).length > 0);
+  const hasVocab = Object.values(q.vocab_terms || {}).some((v) => (v || []).length > 0);
+  const hasRelations = (q.relations || []).filter(Boolean).length > 0;
+  return !hasFields && !hasVocab && !hasRelations;
 }
 
-function customKey(id: string): string {
-  return `custom:${id}`;
+function workMatchesShelf(work: HomeWork, shelf: PublicShelf): boolean {
+  const types = (shelf.query?.types || []).filter(Boolean);
+  if (types.length === 0) return true;
+  const workTypes = work.types || [];
+  // 数据缺少类型信息时不臆断过滤，保留展示。
+  if (workTypes.length === 0) return true;
+  return types.some((code) => workTypes.includes(code));
 }
 
 function HomeShowcaseContent() {
   const { t, locale } = useI18n();
   const { user, loading: authLoading } = useAuth();
 
-  const [guestShelves, setGuestShelves] = useState<VirtualShelf[]>([]);
-  const [customShelves, setCustomShelves] = useState<UserCustomShelf[]>([]);
-  const [orderKeys, setOrderKeys] = useState<string[]>([]);
-  const [worksByKey, setWorksByKey] = useState<Record<string, Work[]>>({});
-  const [topics, setTopics] = useState<any[]>([]);
+  const [shelves, setShelves] = useState<PublicShelf[]>([]);
+  const [works, setWorks] = useState<HomeWork[]>([]);
   const [loading, setLoading] = useState(true);
-  const [configOpen, setConfigOpen] = useState(false);
-  const [copyFailed, setCopyFailed] = useState(false);
-
-  const storageKey = user ? `mf_home_layout:${user.id}` : "mf_home_layout:guest";
-
-  const persistOrder = (order: string[]) => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify({ hidden: [], order }));
-    } catch {}
-  };
+  const [loadError, setLoadError] = useState(false);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    setCopyFailed(false);
+    setLoadError(false);
     try {
-      const worksPromise = fetchApi<{ items: Work[] }>("/catalog/works?page_size=100").catch(() => ({ items: [] }));
-      const topicsPromise = fetchApi<{ items: any[] }>("/community/topics?page_size=4").catch(() => ({ items: [] }));
-
-      let channels: ChannelShelf[] = [];
-      let nextOrder: string[] = [];
-      let nextCustom: UserCustomShelf[] = [];
-      let nextGuest: VirtualShelf[] = [];
-      let failedCopy = false;
-
-      if (user) {
-        try {
-          const ensured = await ensureDefaultShelves();
-          nextCustom = ensured.items || [];
-          nextOrder =
-            ensured.order && ensured.order.length > 0
-              ? ensured.order
-              : nextCustom.map((c) => customKey(c.id));
-        } catch (e) {
-          console.error("ensure default shelves failed", e);
-          failedCopy = true;
-          nextCustom = [];
-          nextOrder = [];
-        }
-        channels = nextCustom.map((c) => ({
-          key: customKey(c.id),
-          slug: c.slug,
-          name_zh: c.name_zh,
-          name_en: c.name_en,
-          names: c.names,
-          query_tags: c.query_tags,
-          require_all_tags: c.require_all_tags,
-          exclude_tags: c.exclude_tags,
-        }));
-      } else {
-        const shelvesRes = await fetchApi<VirtualShelf[]>("/catalog/shelves").catch(() => []);
-        nextGuest = flattenSystemShelves(Array.isArray(shelvesRes) ? shelvesRes : []);
-        nextOrder = nextGuest.map((s) => s.slug);
-        channels = nextGuest.map((s) => ({
-          key: s.slug,
-          slug: s.slug,
-          name_zh: s.name_zh,
-          name_en: s.name_en,
-          names: s.names,
-          query_tags: s.query_tags,
-          require_all_tags: s.require_all_tags,
-          exclude_tags: s.exclude_tags,
-        }));
-      }
-
-      const [worksRes, topicsRes] = await Promise.all([worksPromise, topicsPromise]);
-      setTopics(topicsRes?.items || []);
-      setCustomShelves(nextCustom);
-      setGuestShelves(nextGuest);
-      setOrderKeys(nextOrder);
-      setCopyFailed(failedCopy);
-      persistOrder(nextOrder);
-      setWorksByKey(groupWorksForChannels(channels, worksRes?.items || []));
+      const [shelvesRes, worksRes] = await Promise.all([
+        fetchApi<{ items: PublicShelf[] }>("/catalog/shelves"),
+        fetchApi<{ items: HomeWork[] }>("/catalog/works?page_size=100"),
+      ]);
+      setShelves((shelvesRes?.items || []).filter((s) => s && s.slug));
+      setWorks(worksRes?.items || []);
     } catch (err) {
       console.error("Failed to load home showcase data", err);
+      setShelves([]);
+      setWorks([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
-    // persistOrder uses storageKey; include it via user id
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, storageKey]);
+  }, []);
 
   useEffect(() => {
     if (authLoading) return;
     loadAll();
   }, [authLoading, loadAll]);
-
-  const handleSaveLayout = async (_hidden: string[], order: string[]) => {
-    setOrderKeys(order);
-    persistOrder(order);
-    if (user) {
-      try {
-        await fetchApi<UserHomeLayout>("/catalog/home/layout", {
-          method: "PUT",
-          body: JSON.stringify({ hidden_system_slugs: [], order_json: order }),
-        });
-      } catch (e) {
-        console.warn("save layout failed", e);
-      }
-    }
-  };
-
-  const refreshCustom = async () => {
-    try {
-      const res = await fetchApi<{ items: UserCustomShelf[] }>("/catalog/shelves/custom?scope=own");
-      const items = res.items || [];
-      setCustomShelves(items);
-      const worksRes = await fetchApi<{ items: Work[] }>("/catalog/works?page_size=100").catch(() => ({ items: [] }));
-      const channels: ChannelShelf[] = items.map((c) => ({
-        key: customKey(c.id),
-        slug: c.slug,
-        name_zh: c.name_zh,
-        name_en: c.name_en,
-        names: c.names,
-        query_tags: c.query_tags,
-        require_all_tags: c.require_all_tags,
-        exclude_tags: c.exclude_tags,
-      }));
-      setWorksByKey(groupWorksForChannels(channels, worksRes.items || []));
-      const known = new Set(orderKeys);
-      const nextOrder = [
-        ...orderKeys.filter((k) => items.some((c) => customKey(c.id) === k)),
-        ...items.map((c) => customKey(c.id)).filter((k) => !known.has(k)),
-      ];
-      setOrderKeys(nextOrder);
-      persistOrder(nextOrder);
-      if (user) {
-        fetchApi("/catalog/home/layout", {
-          method: "PUT",
-          body: JSON.stringify({ hidden_system_slugs: [], order_json: nextOrder }),
-        }).catch(() => {});
-      }
-    } catch {}
-  };
-
-  const handleCreateCustom = async (payload: Partial<UserCustomShelf> & { slug: string; name_zh: string }) => {
-    await fetchApi<UserCustomShelf>("/catalog/shelves/custom", { method: "POST", body: JSON.stringify(payload) });
-  };
-
-  const handleUpdateCustom = async (id: string, payload: Partial<UserCustomShelf>) => {
-    await fetchApi(`/catalog/shelves/custom/${id}`, { method: "PUT", body: JSON.stringify(payload) });
-  };
-
-  const handleDeleteCustom = async (id: string) => {
-    await fetchApi(`/catalog/shelves/custom/${id}`, { method: "DELETE" });
-    const key = customKey(id);
-    const nextOrder = orderKeys.filter((k) => k !== key);
-    setOrderKeys(nextOrder);
-    persistOrder(nextOrder);
-  };
-
-  const handleResetDefaults = async () => {
-    try {
-      const res = await resetDefaultShelves();
-      const items = res?.items || [];
-      const nextOrder = res?.order && res.order.length > 0 ? res.order : items.map((c) => customKey(c.id));
-      setCustomShelves(items);
-      setOrderKeys(nextOrder);
-      setCopyFailed(false);
-      persistOrder(nextOrder);
-      const worksRes = await fetchApi<{ items: Work[] }>("/catalog/works?page_size=100").catch(() => ({ items: [] }));
-      const channels: ChannelShelf[] = items.map((c) => ({
-        key: customKey(c.id),
-        slug: c.slug,
-        name_zh: c.name_zh,
-        name_en: c.name_en,
-        names: c.names,
-        query_tags: c.query_tags,
-        require_all_tags: c.require_all_tags,
-        exclude_tags: c.exclude_tags,
-      }));
-      setWorksByKey(groupWorksForChannels(channels, worksRes.items || []));
-    } catch (e) {
-      console.error("handleResetDefaults failed", e);
-      setCopyFailed(true);
-    }
-  };
-
-  const customMap = new Map<string, UserCustomShelf>(customShelves.map((c) => [customKey(c.id), c]));
-  const guestMap = new Map<string, VirtualShelf>(guestShelves.map((s) => [s.slug, s]));
-
-  const displayChannels: ChannelShelf[] = (() => {
-    const seen = new Set<string>();
-    const out: ChannelShelf[] = [];
-    const pushCustom = (c: UserCustomShelf) => {
-      const key = customKey(c.id);
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push({
-        key,
-        slug: c.slug,
-        name_zh: c.name_zh,
-        name_en: c.name_en,
-        names: c.names,
-        query_tags: c.query_tags,
-        require_all_tags: c.require_all_tags,
-        exclude_tags: c.exclude_tags,
-      });
-    };
-    const pushGuest = (s: VirtualShelf) => {
-      if (seen.has(s.slug)) return;
-      seen.add(s.slug);
-      out.push({
-        key: s.slug,
-        slug: s.slug,
-        name_zh: s.name_zh,
-        name_en: s.name_en,
-        names: s.names,
-        query_tags: s.query_tags,
-        require_all_tags: s.require_all_tags,
-        exclude_tags: s.exclude_tags,
-      });
-    };
-
-    if (user) {
-      orderKeys.forEach((k) => {
-        const c = customMap.get(k);
-        if (c) pushCustom(c);
-      });
-      customShelves.forEach(pushCustom);
-    } else {
-      const base = orderKeys.length > 0 ? orderKeys : guestShelves.map((s) => s.slug);
-      base.forEach((k) => {
-        const s = guestMap.get(k);
-        if (s) pushGuest(s);
-      });
-      guestShelves.forEach(pushGuest);
-    }
-    return out;
-  })();
 
   const showPageSkeleton = authLoading || loading;
 
@@ -374,28 +174,23 @@ function HomeShowcaseContent() {
       <Navbar />
 
       <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full flex-1 space-y-5">
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          {user ? (
-            <button
-              type="button"
-              onClick={() => setConfigOpen(true)}
-              className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md border border-dashed border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 text-sm font-medium whitespace-nowrap"
-            >
+        {/* 自定义布局 / 自定义货架依赖未实现的后端接口，降级为显式占位说明。 */}
+        {user && (
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="inline-flex items-center gap-2 px-3.5 h-9 rounded-md border border-dashed border-black/10 dark:border-white/10 bg-surface/50 text-gray-500 text-sm">
               <Settings2 className="w-4 h-4" />
               <span>{t("home.shelves.editMyList")}</span>
-            </button>
-          ) : (
-            !authLoading && (
-              <Link
-                href="/login?redirect=/home"
-                className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md border border-dashed border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 text-sm font-medium whitespace-nowrap"
-              >
-                <Settings2 className="w-4 h-4" />
-                <span>{t("home.shelves.loginToEdit")}</span>
-              </Link>
-            )
-          )}
-        </div>
+              <span className="font-mono text-xs text-amber-500">{t("catalog.unavailable")}</span>
+            </div>
+          </div>
+        )}
+
+        {loadError && (
+          <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300 text-xs font-mono flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" />
+            <span>{t("catalog.connectionError")}</span>
+          </div>
+        )}
 
         {showPageSkeleton ? (
           <div className="space-y-6">
@@ -410,44 +205,29 @@ function HomeShowcaseContent() {
               </div>
             ))}
           </div>
-        ) : displayChannels.length === 0 ? (
+        ) : shelves.length === 0 ? (
           <div className="p-8 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 text-center space-y-2.5">
             <p className="font-mono text-sm text-gray-500">{t("shelf.empty")}</p>
-            {user && copyFailed && (
-              <p className="font-mono text-sm text-gray-400">{t("home.shelves.copyFailed")}</p>
-            )}
-            {user ? (
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setConfigOpen(true)}
-                  className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md bg-primary text-white text-sm font-semibold"
-                >
-                  <Settings2 className="w-4 h-4" /> {t("home.shelves.editMyList")}
-                </button>
-              </div>
-            ) : (
-              <Link
-                href="/login?redirect=/home"
-                className="inline-flex items-center gap-2 px-3.5 h-9 max-sm:min-h-[44px] rounded-md bg-primary text-white text-sm font-semibold"
-              >
-                <Settings2 className="w-4 h-4" /> {t("home.shelves.loginToEdit")}
-              </Link>
-            )}
           </div>
         ) : (
           <div className="space-y-8">
-            {displayChannels.map((ch) => {
-              const shelfWorks = worksByKey[ch.key] || [];
-              const Icon = SHELF_ICONS[ch.slug] || Layers;
-              const shelfTitle = pickLocalizedName(locale, ch.names, ch.name_zh, ch.name_en, ch.slug);
-              const viewAllHref = shelfRuleToExploreHref(ch);
+            {shelves.map((shelf) => {
+              const evaluatable = shelfIsEvaluatable(shelf);
+              const shelfWorks = evaluatable ? works.filter((w) => workMatchesShelf(w, shelf)) : [];
+              const Icon = SHELF_ICONS[shelf.slug] || Layers;
+              const shelfTitle = pickLocalizedName(
+                locale,
+                shelf.names,
+                shelf.name_zh,
+                shelf.name_en || shelf.name,
+                shelf.slug
+              );
 
               return (
-                <section key={ch.key} id={`shelf-${ch.key}`} className="space-y-3 scroll-mt-16">
+                <section key={shelf.slug} id={`shelf-${shelf.slug}`} className="space-y-3 scroll-mt-16">
                   <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/[0.06] pb-2">
                     <div className="flex items-center gap-2">
-                      <div className={`w-8 h-8 rounded-sm grid place-items-center border ${getShelfColor(ch.slug)}`}>
+                      <div className={`w-8 h-8 rounded-sm grid place-items-center border ${getShelfColor(shelf.slug)}`}>
                         <Icon className="w-4 h-4" strokeWidth={1.8} />
                       </div>
                       <div>
@@ -455,14 +235,15 @@ function HomeShowcaseContent() {
                           {shelfTitle}
                         </h2>
                         <p className="font-mono text-sm text-gray-500">
-                          {t("home.channelWorksCount", { count: shelfWorks.length })}
-                          {ch.query_tags?.length ? ` · ${ch.query_tags.join(", ")}` : ""}
+                          {evaluatable
+                            ? t("home.channelWorksCount", { count: shelfWorks.length })
+                            : t("catalog.unavailable")}
                         </p>
                       </div>
                     </div>
 
                     <Link
-                      href={viewAllHref}
+                      href="/explore"
                       className="inline-flex items-center gap-0.5 font-mono text-sm text-primary hover:underline font-medium"
                     >
                       <span>{t("home.viewAll")}</span>
@@ -470,7 +251,14 @@ function HomeShowcaseContent() {
                     </Link>
                   </div>
 
-                  {shelfWorks.length === 0 ? (
+                  {!evaluatable ? (
+                    <div className="p-6 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-1.5">
+                      <p className="font-mono text-sm text-gray-500 inline-flex items-center justify-center gap-2">
+                        <Info className="w-4 h-4" />
+                        <span>{t("catalog.unavailable")}</span>
+                      </p>
+                    </div>
+                  ) : shelfWorks.length === 0 ? (
                     <div className="p-6 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 backdrop-blur-sm text-center space-y-1.5">
                       <p className="font-mono text-sm text-gray-500">{t("home.channelEmpty")}</p>
                       <Link
@@ -489,15 +277,15 @@ function HomeShowcaseContent() {
                           className="group relative rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-sm overflow-hidden shadow-2xs hover:shadow-elevated hover:border-primary/50 transition-all flex flex-col"
                         >
                           <AdaptiveCover
-                            src={w.cover_image_url}
+                            src={coverOf(w)}
                             alt={w.title}
                             title={w.title}
                             originalTitle={w.original_title}
                             id={w.id}
-                        tags={(w.tags || []).map((t) => (t?.name ? t.name : typeof t === "string" ? t : ""))}
-                        aspect={w.cover_aspect}
-                        className="bg-black/5 dark:bg-black/40 group-hover:scale-105 transition-transform duration-300 origin-center"
-                      />
+                            tags={(w.tags || []).map((tag) => (tag?.name ? tag.name : ""))}
+                            aspect={w.cover_aspect}
+                            className="bg-black/5 dark:bg-black/40 group-hover:scale-105 transition-transform duration-300 origin-center"
+                          />
                           <div className="p-4 space-y-1 flex-1 flex flex-col justify-between">
                             <div>
                               <h3 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-1 group-hover:text-primary transition-colors">
@@ -509,9 +297,9 @@ function HomeShowcaseContent() {
                             </div>
                             {w.tags && w.tags.length > 0 && (
                               <div className="flex flex-wrap gap-2 pt-0.5">
-                                {w.tags.slice(0, 2).map((tag) => (
+                                {w.tags.slice(0, 2).map((tag, i) => (
                                   <span
-                                    key={tag.id}
+                                    key={tag.id ?? `${w.id}-${i}`}
                                     className="px-2.5 py-1 rounded-sm bg-black/[0.04] dark:bg-white/[0.06] text-xs font-mono text-gray-500"
                                   >
                                     #{tag.name}
@@ -520,7 +308,9 @@ function HomeShowcaseContent() {
                               </div>
                             )}
                             <div className="pt-1.5 flex items-center justify-between font-mono text-xs text-gray-500 border-t border-black/[0.04] dark:border-white/[0.04]">
-                              <span className="truncate">{w.release_date ? String(w.release_date).slice(0, 10) : t("home.workFallback")}</span>
+                              <span className="truncate">
+                                {dateOf(w) ? String(dateOf(w)).slice(0, 10) : t("home.workFallback")}
+                              </span>
                               <span className="flex items-center gap-0.5 group-hover:text-primary transition-colors">
                                 {t("home.detail")} <ChevronRight className="w-4 h-4" />
                               </span>
@@ -536,57 +326,26 @@ function HomeShowcaseContent() {
           </div>
         )}
 
-        {topics.length > 0 && (
-          <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
-            <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2">
-              <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-primary">
-                <MessageCircle className="w-4 h-4" />
-                <span>COMMUNITY FORUM</span>
-              </div>
-              <Link href="/community" className="font-mono text-sm text-primary hover:underline flex items-center gap-2 font-medium">
-                <span>{t("home.enterForum")}</span>
-                <ChevronRight className="w-4 h-4" />
-              </Link>
+        {/* 社区入口跳转到独立论坛服务，不再请求本后端的社区讨论域接口。 */}
+        <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
+          <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2">
+            <div className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-primary">
+              <MessageCircle className="w-4 h-4" />
+              <span>{t("home.communityTitle")}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-display font-bold tracking-tight text-gray-900 dark:text-white text-sm">{t("home.communityTitle")}</h2>
-              <span className="font-mono text-sm text-gray-500">— {t("home.boardFallback")}</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-              {topics.map((tp) => (
-                <Link
-                  key={tp.id}
-                  href={`/community/${tp.id}`}
-                  className="p-4 rounded-md bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/[0.06] hover:border-primary/40 hover:bg-black/[0.04] dark:hover:bg-white/[0.05] transition-all space-y-1 block group"
-                >
-                  <h4 className="font-semibold text-sm text-gray-900 dark:text-white line-clamp-1 group-hover:text-primary transition-colors">
-                    {tp.title}
-                  </h4>
-                  <div className="flex items-center justify-between font-mono text-sm text-gray-500">
-                    <span>{tp.board_code || t("home.boardFallback")}</span>
-                    <span>{String(tp.created_at || "").slice(0, 10)}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
+            <Link
+              href={FORUM_SERVICE_URL}
+              className="font-mono text-sm text-primary hover:underline flex items-center gap-2 font-medium"
+            >
+              <span>{t("home.enterForum")}</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+          <p className="font-mono text-xs text-gray-500 leading-relaxed">
+            {t("entity.detail.decoupledForumNotice")}
+          </p>
+        </section>
       </main>
-
-      {user && (
-        <HomeShelvesConfigModal
-          open={configOpen}
-          onClose={() => setConfigOpen(false)}
-          customShelves={customShelves}
-          orderKeys={orderKeys}
-          onSaveLayout={handleSaveLayout}
-          onCreateCustom={handleCreateCustom}
-          onUpdateCustom={handleUpdateCustom}
-          onDeleteCustom={handleDeleteCustom}
-          onRefreshCustom={refreshCustom}
-          onResetDefaults={handleResetDefaults}
-        />
-      )}
     </div>
   );
 }

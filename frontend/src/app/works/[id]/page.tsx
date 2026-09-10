@@ -2,7 +2,7 @@
 
 import styles from "./page.module.css";
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { MultipartUploader } from "@/components/MultipartUploader";
@@ -13,7 +13,6 @@ import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { Layers, MessageSquare, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Eye, Bookmark, ArrowUpRight, Network, List, ArrowRightLeft, X } from "lucide-react";
-import { UniversalEntityEditor } from "@/components/editor/UniversalEntityEditor";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { TemporalBadge } from "@/components/entity/TemporalBadge";
@@ -33,6 +32,7 @@ import { fetchEntityGraph, GraphNode, GraphLink } from "@/lib/api";
 const InteractiveRelationGraph = dynamic(() => import("@/components/graph/InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
 export default function WorkDirectoryPage() {
  const params = useParams();
+ const router = useRouter();
  const workId = params.id as string;
  const { user } = useAuth();
  const { t, locale } = useI18n();
@@ -61,8 +61,7 @@ export default function WorkDirectoryPage() {
  const [loadingReleases, setLoadingReleases] = useState(true);
  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
 
- // Edit, Revision History, and Merge Modals
- const [isEditorOpen, setIsEditorOpen] = useState(false);
+ // Revision History, and Merge Modals（编辑改为跳转通用编辑页 /catalog/:id?edit=1）
  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
  const [isMergeOpen, setIsMergeOpen] = useState(false);
 
@@ -152,13 +151,6 @@ export default function WorkDirectoryPage() {
  .catch(() => {});
  }, [workId]);
 
- // 详情页支持 /works/:id?edit=1 直达编辑器（编辑器「在新页面打开」的落点）
- useEffect(() => {
- if (typeof window !== "undefined" && window.location.search.includes("edit=1")) {
- setIsEditorOpen(true);
- }
- }, []);
-
  useEffect(() => {
  if (!workId) return;
  loadReleases(page, q);
@@ -219,7 +211,7 @@ export default function WorkDirectoryPage() {
        itemClassName="font-mono text-sm text-gray-500 dark:text-gray-400"
      />
      <div className={styles.headerBottom}>
-       <EntityActionToolbar onEdit={() => setIsEditorOpen(true)} onHistory={() => setIsHistoryOpen(true)}
+       <EntityActionToolbar onEdit={() => router.push(`/catalog/${work.id}?edit=1`)} onHistory={() => setIsHistoryOpen(true)}
          onMerge={() => setIsMergeOpen(true)} entityTypeLabel={t("entity.toolbar.work")}>
          <FavoriteButton targetType="work" targetId={work.id} />
        </EntityActionToolbar>
@@ -536,16 +528,6 @@ export default function WorkDirectoryPage() {
    </div>
  </main>
  <MultipartUploader isOpen={isUploaderOpen} onClose={() => setIsUploaderOpen(false)} workId={work.id} onUploadSuccess={() => { loadReleases(1, q); setPage(1); }} />
-
- {/* Universal Entity Editor (Edit Mode) */}
- <UniversalEntityEditor
- isOpen={isEditorOpen}
- onClose={() => setIsEditorOpen(false)}
- targetType="work"
- mode="edit"
- initialData={work}
- onSuccess={() => loadWork()}
- />
 
  {/* Revision History & Diff Modal */}
  <RevisionHistoryModal

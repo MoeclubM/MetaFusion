@@ -14,22 +14,18 @@ import { BrandMark } from "@/components/Logo";
 import { ThemePicker } from "@/components/ThemePicker";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import {
-  ShieldCheck,
   Server,
   User,
   Mail,
   Lock,
   Eye,
   EyeOff,
-  Globe,
-  Users,
   KeyRound,
   CheckCircle2,
   AlertCircle,
   ArrowRight,
   Loader2,
   Sparkles,
-  Sliders,
 } from "lucide-react";
 
 export default function SetupPage() {
@@ -40,17 +36,13 @@ export default function SetupPage() {
   const [status, setStatus] = useState<SetupStatusResponse | null>(null);
   const [loadingStatus, setLoadingStatus] = useState(true);
 
-  // Form State
+  // Form State：POST /api/setup 只接受 username/email/password 三个字段，
+  // 站点名称与准入开关当前无对应实现，因此不再提供输入以免造成已生效的误解。
   const [username, setUsername] = useState("MoeCaa");
-  const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("moecaa@findverse.cc");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-
-  const [siteName, setSiteName] = useState("MetaFusion");
-  const [registrationEnabled, setRegistrationEnabled] = useState(true);
-  const [inviteRequired, setInviteRequired] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,12 +92,8 @@ export default function SetupPage() {
     try {
       const res = await performInitialSetup({
         username: trimmedUser,
-        display_name: displayName.trim() || undefined,
         email: trimmedEmail,
         password,
-        site_name: siteName.trim() || undefined,
-        registration_enabled: registrationEnabled,
-        invite_required: inviteRequired,
       });
 
       login(res.access_token || res.token, res.user, res.refresh_token);
@@ -191,10 +179,6 @@ export default function SetupPage() {
             <div className="flex justify-between items-center text-gray-500">
               <span>Admin Role:</span>
               <span className="text-primary font-bold">{successResult.user.role}</span>
-            </div>
-            <div className="flex justify-between items-center text-gray-500">
-              <span>Genesis Invite Code:</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold">{successResult.user.invite_code || "MF-ADMIN-2026"}</span>
             </div>
           </div>
 
@@ -298,19 +282,6 @@ export default function SetupPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  {t("setup.displayNameLabel")}
-                </label>
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder={t("setup.displayNamePlaceholder")}
-                  className="w-full h-11 px-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
-              </div>
-
               <div className="sm:col-span-2">
                 <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                   {t("setup.emailLabel")} <span className="text-rose-500">*</span>
@@ -373,65 +344,16 @@ export default function SetupPage() {
             </div>
           </div>
 
-          {/* Section 2: Instance Preferences */}
-          <div className="space-y-4">
-            <div className="border-b border-border pb-2.5 flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-primary" />
-              <h2 className="font-bold text-sm text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+          {/* 站点名称与注册/邀请开关暂无后端实现，如实说明而非提交会被忽略的字段 */}
+          <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10 flex items-start gap-3">
+            <AlertCircle className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+            <div className="text-xs space-y-0.5">
+              <div className="font-bold text-gray-900 dark:text-white">
                 {t("setup.siteSettingsTitle")}
-              </h2>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                {t("setup.siteNameLabel")}
-              </label>
-              <div className="relative">
-                <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={siteName}
-                  onChange={(e) => setSiteName(e.target.value)}
-                  placeholder={t("setup.siteNamePlaceholder")}
-                  className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-              <label className="p-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10 flex items-start gap-3 cursor-pointer hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors">
-                <input
-                  type="checkbox"
-                  checked={registrationEnabled}
-                  onChange={(e) => setRegistrationEnabled(e.target.checked)}
-                  className="mt-0.5 rounded text-primary focus:ring-primary h-4 w-4"
-                />
-                <div className="text-xs space-y-0.5">
-                  <div className="font-bold text-gray-900 dark:text-white">
-                    {t("setup.registrationLabel")}
-                  </div>
-                  <div className="text-gray-500">
-                    {t("setup.registrationDesc")}
-                  </div>
-                </div>
-              </label>
-
-              <label className="p-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10 flex items-start gap-3 cursor-pointer hover:bg-black/[0.04] dark:hover:bg-white/[0.04] transition-colors">
-                <input
-                  type="checkbox"
-                  checked={inviteRequired}
-                  onChange={(e) => setInviteRequired(e.target.checked)}
-                  className="mt-0.5 rounded text-primary focus:ring-primary h-4 w-4"
-                />
-                <div className="text-xs space-y-0.5">
-                  <div className="font-bold text-gray-900 dark:text-white">
-                    {t("setup.inviteLabel")}
-                  </div>
-                  <div className="text-gray-500">
-                    {t("setup.inviteDesc")}
-                  </div>
-                </div>
-              </label>
+              <div className="text-gray-500">
+                {t("catalog.unavailable")}
+              </div>
             </div>
           </div>
 

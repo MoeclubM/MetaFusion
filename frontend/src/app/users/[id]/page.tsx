@@ -22,6 +22,7 @@ import {
   Calendar,
   Heart,
   Lock,
+  AlertCircle,
   Trash2,
   Settings,
   Copy,
@@ -97,7 +98,10 @@ export default function UserDetailPage() {
     fetchApi<Profile>(`/users/${id}`).then(setProfile).catch((e) => setErr(e.message));
   }, [id]);
 
+  // 后端当前未注册 /users/* 与 /favorites/*：profile 拉取失败时不再触发后续
+  // 贡献/收藏请求，改为在下方渲染明确的「功能暂未开放」占位，避免连环 404。
   useEffect(() => {
+    if (!profile) return;
     if (tab !== "favorites") return;
     setLoading(true);
     fetchFavorites(id, { targetType: favFilter || undefined, page, pageSize: 20 })
@@ -108,9 +112,10 @@ export default function UserDetailPage() {
       })
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
-  }, [id, tab, favFilter, page]);
+  }, [id, profile, tab, favFilter, page]);
 
   useEffect(() => {
+    if (!profile) return;
     if (tab === "favorites") return;
     setLoading(true);
     fetchApi<{ items: any[]; total: number }>(`/users/${id}/contributions?tab=${tab}&page=${page}&page_size=20`)
@@ -120,7 +125,7 @@ export default function UserDetailPage() {
       })
       .catch((e) => setErr(e.message))
       .finally(() => setLoading(false));
-  }, [id, tab, page]);
+  }, [id, profile, tab, page]);
 
   const handleCopyId = () => {
     if (!profile) return;
@@ -159,9 +164,21 @@ export default function UserDetailPage() {
 
   if (err)
     return (
-      <div className="min-h-screen bg-background text-gray-900 dark:text-white p-6">
+      <div className="min-h-screen bg-background text-gray-900 dark:text-white flex flex-col">
         <Navbar />
-        <div className="max-w-5xl mx-auto pt-8 text-rose-500 text-sm">{err}</div>
+        <main className="max-w-5xl mx-auto w-full px-4 py-16 flex-1 flex flex-col items-center justify-center gap-3 text-center">
+          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 grid place-items-center">
+            <AlertCircle className="w-6 h-6 text-amber-500" strokeWidth={1.6} />
+          </div>
+          <h1 className="font-display text-lg font-bold">{t("nav.userProfile")}</h1>
+          <p className="text-sm text-gray-500 max-w-md">
+            {t("catalog.unavailable")}
+          </p>
+          <p className="font-mono text-[11px] text-gray-400 break-all max-w-md">{err}</p>
+          <Link href="/" className="mt-1 px-5 h-9 rounded-full bg-primary text-white keep-white inline-flex items-center text-sm font-semibold">
+            {t("common.back")}
+          </Link>
+        </main>
       </div>
     );
 
