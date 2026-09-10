@@ -348,7 +348,7 @@ img, video { max-width: 100%; }
 /* Fixed bottom bars should respect safe area */
 .fixed.bottom-0 { padding-bottom: env(safe-area-inset-bottom); }
 
-/* Player offset — when GlobalAudioPlayer is mounted, main content needs bottom padding */
+/* Bottom bar offset — main content needs bottom padding when a fixed bottom bar is mounted */
 body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 @media (max-width: 640px) { body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 112px; } }
 
