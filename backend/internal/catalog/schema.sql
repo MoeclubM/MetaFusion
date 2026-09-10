@@ -140,3 +140,12 @@ CREATE TABLE IF NOT EXISTS catalog.oauth_tokens (
  user_id uuid NOT NULL REFERENCES catalog.users(id) ON DELETE CASCADE,
  scope text NOT NULL DEFAULT 'profile', expires_at timestamptz NOT NULL
 );
+CREATE TABLE IF NOT EXISTS catalog.favorites (
+ user_id uuid NOT NULL REFERENCES catalog.users(id) ON DELETE CASCADE,
+ target_type text NOT NULL CHECK (target_type IN ('work','release','artist','franchise','canonical_entry')),
+ target_id uuid NOT NULL,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY (user_id, target_type, target_id)
+);
+CREATE INDEX IF NOT EXISTS favorites_target ON catalog.favorites(target_type, target_id);
+CREATE INDEX IF NOT EXISTS favorites_user_created ON catalog.favorites(user_id, created_at DESC);
