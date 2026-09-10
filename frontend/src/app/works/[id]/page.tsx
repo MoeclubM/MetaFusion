@@ -240,7 +240,7 @@ export default function WorkDirectoryPage() {
          <h2>{t("work.detail.information")}</h2>
          {meta.isbn_13 && <p>{t("work.detail.isbn", { value: meta.isbn_13 })}</p>}
          {meta.clc_code && <p>{t("work.detail.clc", { code: meta.clc_code })}</p>}
-         {work.attributes && Object.keys(work.attributes).length > 0 && <DynamicAttributeViewer attributes={work.attributes} />}
+         {work.attributes && Object.keys(work.attributes).length > 0 && <DynamicAttributeViewer attributes={work.attributes} defs={releaseDefs} excludeKeys={["begin_date", "end_date"]} />}
        </section>
        {!!work.tags?.length && <section>
          <h2>{t("work.detail.tagsHeading")}</h2>

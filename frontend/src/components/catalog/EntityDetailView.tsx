@@ -82,6 +82,33 @@ async function allEntities(query: string): Promise<Entity[]> {
   }
 }
 
+// 基本信息与头部徽章已结构化渲染的属性字段；从动态属性栏排除，避免同值出现两次。
+const STRUCTURED_ATTRIBUTE_KEYS = [
+  "edition_date",
+  "release_date",
+  "begin_date",
+  "end_date",
+  "format",
+  "packaging",
+  "catalog_number",
+  "catalogue_number",
+  "barcode",
+  "jan",
+  "ean",
+  "duration",
+  "duration_seconds",
+  "length",
+  "publisher",
+  "store_bonuses",
+  "official_url",
+  "official_website",
+  "website",
+  "url",
+  "tags",
+  "summary",
+  "description",
+];
+
 export function EntityDetailView({ id }: { id: string }) {
   const { t, locale } = useI18n();
   const titleOrder = useTitleDisplayOrder();
@@ -773,9 +800,9 @@ export function EntityDetailView({ id }: { id: string }) {
                   <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
                     {t("entity.page.entityKind")}
                   </dt>
-                  <dd className="font-medium text-gray-900 dark:text-white capitalize flex items-center gap-1.5">
+                  <dd className="font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-primary" />
-                    <span>{entity.kind}</span>
+                    <span>{t(`catalog.kind.${entity.kind}`) || entity.kind}</span>
                   </dd>
                 </div>
 
@@ -868,10 +895,15 @@ export function EntityDetailView({ id }: { id: string }) {
                 )}
               </dl>
 
-              {/* Dynamic Attributes */}
+              {/* Dynamic Attributes：仅补充上面结构化区块未展示的字段，
+                  否则 edition_date / 品番 / 载体等会在此重复出现一次。 */}
               {entity.attributes && Object.keys(entity.attributes).length > 0 && (
                 <div className="pt-3 border-t border-black/5 dark:border-white/[0.06]">
-                  <DynamicAttributeViewer attributes={entity.attributes} />
+                  <DynamicAttributeViewer
+                    attributes={entity.attributes}
+                    defs={defs}
+                    excludeKeys={STRUCTURED_ATTRIBUTE_KEYS}
+                  />
                 </div>
               )}
 
@@ -937,8 +969,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* Header Area */}
             <header className="space-y-4 pb-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-bold uppercase tracking-wider">
-                  {entity.kind}
+                <span className="px-2.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-bold tracking-wider">
+                  {t(`catalog.kind.${entity.kind}`) || entity.kind}
                 </span>
 
                 {(entity.attributes?.edition_date || entity.attributes?.release_date) && (
