@@ -208,19 +208,19 @@ func workCompatPayload(e Entity, rels []Relation, others map[string]Entity, labe
 
 	return map[string]any{
 		"id": e.ID, "title": e.Title, "status": e.Status,
-		"original_language": e.OriginalLanguage,
-		"summary":           entitySummary(e),
-		"cover_image_url":   entityCover(e),
-		"view_count":        0,
-		"external_ids":      e.ExternalIDs,
-		"attributes":        e.Attributes,
-		"catalog_metadata":  e.Attributes["catalog_metadata"],
-		"tags":              []any{},
-		"translations":      entityTranslationsArray(e),
-		"artist_relations":  artistRels,
+		"original_language":  e.OriginalLanguage,
+		"summary":            entitySummary(e),
+		"cover_image_url":    entityCover(e),
+		"view_count":         0,
+		"external_ids":       e.ExternalIDs,
+		"attributes":         e.Attributes,
+		"catalog_metadata":   e.Attributes["catalog_metadata"],
+		"tags":               []any{},
+		"translations":       entityTranslationsArray(e),
+		"artist_relations":   artistRels,
 		"connected_entities": connected,
-		"created_by":        e.CreatedBy,
-		"updated_at":        e.UpdatedAt,
+		"created_by":         e.CreatedBy,
+		"updated_at":         e.UpdatedAt,
 	}
 }
 

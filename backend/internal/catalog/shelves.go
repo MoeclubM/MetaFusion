@@ -14,16 +14,16 @@ import (
 // 字段取值、vocab_terms 按词表项、relations 按关系存在性），sort/icon/
 // enabled 描述“如何展示”。names 走四语 map，legacy name_zh/name_en 仅作回退。
 type Shelf struct {
-	ID      int64             `json:"id"`
-	Slug    string            `json:"slug"`
-	Names   map[string]string `json:"names"`
-	NameZh  string            `json:"name_zh"`
-	NameEn  string            `json:"name_en"`
-	Query   ShelfQuery        `json:"query"`
-	Sort    string            `json:"sort"`
-	Icon    string            `json:"icon"`
-	Enabled bool              `json:"enabled"`
-	SortOrder int             `json:"sort_order"`
+	ID        int64             `json:"id"`
+	Slug      string            `json:"slug"`
+	Names     map[string]string `json:"names"`
+	NameZh    string            `json:"name_zh"`
+	NameEn    string            `json:"name_en"`
+	Query     ShelfQuery        `json:"query"`
+	Sort      string            `json:"sort"`
+	Icon      string            `json:"icon"`
+	Enabled   bool              `json:"enabled"`
+	SortOrder int               `json:"sort_order"`
 }
 
 // ShelfQuery 描述货架收录规则。各子条件之间为 AND；同一数组内为 OR。

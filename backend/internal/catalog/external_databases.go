@@ -242,6 +242,7 @@ func (s *Store) DeleteExternalDatabase(ctx context.Context, code string) error {
 		return nil
 	})
 }
+
 // seedExternalDatabases 写入系统预设；已存在的 code 不覆盖（保留后台自定义），
 // 新增的 code 自动补齐。官网、Bangumi 单集、Bushiroad 与其它权威库同级存放。
 func seedExternalDatabases(ctx context.Context, tx *sql.Tx) error {
