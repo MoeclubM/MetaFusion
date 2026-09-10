@@ -1214,13 +1214,21 @@ func (s *Store) importerSaveVersioned(ctx context.Context, e Entity, expectedVer
 	return s.Save(ctx, Edit{Entity: e, ExpectedVersion: expectedVersion, EditNote: note, Sources: sources}, actor)
 }
 
-// assocImportKey 取关联项的自有导入键（bangumi_person / bangumi_character），
-// 供同一人物在多职位间去重；无键返回空。
+// assocImportKey 取关联项的导入键，**必须与落库的 external_ids.metafusion_import 格式一致**
+// （findImported 按该字段查询）。预览已带 metafusion_import 时直接用；否则由
+// bangumi_person/character 拼成 `bangumi:{kind}:{id}`（与落库格式一致）。
+// 曾因返回 `bangumi_person:{id}`（下划线）与落库的 `bangumi:person:{id}` 不匹配，
+// 导致重复导入每次都新建一份实体。
 func assocImportKey(externalIDs map[string]any) string {
+	if v, ok := externalIDs["metafusion_import"]; ok {
+		if s := strings.TrimSpace(fmt.Sprint(v)); s != "" {
+			return s
+		}
+	}
 	for _, k := range []string{"bangumi_character", "bangumi_person"} {
 		if v, ok := externalIDs[k]; ok {
 			if s := strings.TrimSpace(fmt.Sprint(v)); s != "" {
-				return k + ":" + s
+				return "bangumi:" + strings.TrimPrefix(k, "bangumi_") + ":" + s
 			}
 		}
 	}
