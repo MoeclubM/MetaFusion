@@ -83,6 +83,10 @@ type ImporterArtistPreview struct {
 	ExternalIDs    map[string]any            `json:"external_ids,omitempty"`
 	Translations   []ImporterTranslationItem `json:"translations,omitempty"`
 	MatchedArtist  any                       `json:"matched_artist,omitempty"`
+	// RelationType 是该关联应落到 definitions 的关系码（如 directed_by / voiced_by / character_in）；
+	// RelationRole 是角色番位的词表项（primary/supplement/extra，用于 character_in）。
+	RelationType string `json:"relation_type,omitempty"`
+	RelationRole string `json:"relation_role,omitempty"`
 }
 
 type ImporterStaffAssociation struct {
@@ -99,6 +103,8 @@ type ImporterStaffAssociation struct {
 	AvatarURL      string                    `json:"avatar_url,omitempty"`
 	ExternalIDs    map[string]any            `json:"external_ids,omitempty"`
 	Translations   []ImporterTranslationItem `json:"translations,omitempty"`
+	RelationType   string                    `json:"relation_type,omitempty"`
+	RelationRole   string                    `json:"relation_role,omitempty"`
 }
 
 type ImporterTrackPreview struct {
@@ -192,9 +198,10 @@ type ImporterImportRequest struct {
 }
 
 type ImporterImportedCounts struct {
-	Artists int `json:"artists"`
-	Mediums int `json:"mediums"`
-	Tracks  int `json:"tracks"`
+	Artists   int `json:"artists"`
+	Relations int `json:"relations"`
+	Mediums   int `json:"mediums"`
+	Tracks    int `json:"tracks"`
 }
 
 type ImporterImportResponse struct {
@@ -426,6 +433,183 @@ type bangumiCharacter struct {
 	Images  bangumiImages `json:"images"`
 }
 
+// /v0/subjects/{id}/persons：条目关联的演职人员（含公司/团体，type 2/3）。
+type bangumiSubjectPerson struct {
+	ID       int           `json:"id"`
+	Name     string        `json:"name"`
+	Type     int           `json:"type"`
+	Relation string        `json:"relation"`
+	Career   []string      `json:"career"`
+	Images   bangumiImages `json:"images"`
+}
+
+// /v0/subjects/{id}/characters：条目关联角色，actors 为其声优（可多个）。
+type bangumiSubjectCharacter struct {
+	ID       int                   `json:"id"`
+	Name     string                `json:"name"`
+	Type     int                   `json:"type"`
+	Relation string                `json:"relation"`
+	Summary  string                `json:"summary"`
+	Images   bangumiImages         `json:"images"`
+	Actors   []bangumiSubjectActor `json:"actors"`
+}
+
+type bangumiSubjectActor struct {
+	ID       int           `json:"id"`
+	Name     string        `json:"name"`
+	Type     int           `json:"type"`
+	Career   []string      `json:"career"`
+	Images   bangumiImages `json:"images"`
+	Locked   bool          `json:"locked"`
+	Summary  string        `json:"short_summary"`
+}
+
+// bangumiCreditRelation 把 Bangumi 的 relation 中文职位文本映射到 definitions 关系码。
+// 返回空表示没有贴切的既有关系码：调用方仍建 agent 实体并把原始职位写进
+// credit_role，而不是硬塞一个语义不符的关系码（不虚构）。
+func bangumiCreditRelation(relation string) string {
+	r := strings.TrimSpace(relation)
+	switch {
+	// 摄影/作画等复合职位要先于"监督/导演"判断，否则"摄影监督"会被
+	// 更宽的"监督"规则抢先命中成 directed_by。
+	case containsAny(r, "摄影", "攝影"):
+		return "photographed_by"
+	case containsAny(r, "作画", "作畫", "人物原案", "人物设定", "角色设计", "キャラクターデザイン", "插画", "插畫"):
+		return "illustrated_by"
+	case containsAny(r, "导演", "監督", "监督", "演出"):
+		return "directed_by"
+	case containsAny(r, "脚本", "编剧", "系列构成", "劇本"):
+		return "written_by"
+	case containsAny(r, "作词", "作詞"):
+		return "lyricist_of"
+	case containsAny(r, "作曲", "編曲", "编曲"):
+		return "composed_by"
+	case containsAny(r, "旁白", "ナレーション", "朗读", "朗読"):
+		return "narrated_by"
+	case containsAny(r, "配音", "声优", "声優", "CV"):
+		return "voiced_by"
+	}
+	return ""
+}
+
+// bangumiAvatarURL 从 images 里取最佳头像（large→common→medium→grid→small）。
+func bangumiAvatarURL(im bangumiImages) string {
+	return im.best()
+}
+
+func containsAny(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if sub != "" && strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
+}
+
+// bangumiPersonTypeAgent 把 /subjects/{id}/persons 的 type 映射到 agent 类型。
+// 1=个人 2=公司 3=组合；其余保守按个人。
+func bangumiPersonTypeAgent(t int) string {
+	switch t {
+	case 2:
+		return "organization"
+	case 3:
+		return "group"
+	default:
+		return "person"
+	}
+}
+
+// bangumiCharacterRankRole 把角色 relation 映射到 role 词表项。
+// 主角=primary、配角=supplement、客串/闲角=extra，其余为空（不虚构番位）。
+func bangumiCharacterRankRole(relation string) string {
+	r := strings.TrimSpace(relation)
+	switch {
+	case containsAny(r, "主角", "主人公"):
+		return "primary"
+	case containsAny(r, "配角", "配角", "副角"):
+		return "supplement"
+	case containsAny(r, "客串", "闲角", "閑角", "路人"):
+		return "extra"
+	}
+	return ""
+}
+
+// previewBangumiSubjectRelations 拉取条目的关联演职人员与角色，组装为可导入的
+// agent 预览（两层以内关联实体）。任一端点失败只返回已取到的部分——关联数据
+// 是增强项，不应让主条目导入失败。
+func previewBangumiSubjectRelations(ctx context.Context, subjectID int) []ImporterArtistPreview {
+	out := []ImporterArtistPreview{}
+
+	var persons []bangumiSubjectPerson
+	if err := fetchBangumi(ctx, "/v0/subjects/"+strconv.Itoa(subjectID)+"/persons", &persons); err == nil {
+		for _, p := range persons {
+			name := strings.TrimSpace(p.Name)
+			if name == "" {
+				continue
+			}
+			role := strings.TrimSpace(p.Relation)
+			// 语义明确时用精确关系码；否则落到通用署名关系并保留职位原文，
+			// 避免有职位却无关系（实体成孤儿）导致关联信息丢失。
+			rel := bangumiCreditRelation(role)
+			if rel == "" && role != "" {
+				rel = "credit_for"
+			}
+			out = append(out, ImporterArtistPreview{
+				Name:         name,
+				OriginalName: name,
+				Role:         role,
+				EntityType:   bangumiPersonTypeAgent(p.Type),
+				AvatarURL:    bangumiAvatarURL(p.Images),
+				ExternalIDs:  map[string]any{"bangumi_person": p.ID, "metafusion_import": "bangumi:person:" + strconv.Itoa(p.ID)},
+				// 职位文本保真：语义明确时给关系码，否则由 credit_role 承载原文。
+				RelationType: rel,
+			})
+		}
+	}
+
+	var chars []bangumiSubjectCharacter
+	if err := fetchBangumi(ctx, "/v0/subjects/"+strconv.Itoa(subjectID)+"/characters", &chars); err == nil {
+		for _, c := range chars {
+			name := strings.TrimSpace(c.Name)
+			if name == "" {
+				continue
+			}
+			rank := strings.TrimSpace(c.Relation)
+			// 角色本体：character_in → 作品。番位词表项（主角/配角/客串）进 relation_role，
+			// 原始文本（含"旁白""闲角"等词表未覆盖的）一律进 credit_role 保证无损。
+			out = append(out, ImporterArtistPreview{
+				Name:         name,
+				OriginalName: name,
+				Role:         rank,
+				EntityType:   bangumiCharacterAgentType(nil, c.Summary),
+				Biography:    strings.TrimSpace(c.Summary),
+				AvatarURL:    bangumiAvatarURL(c.Images),
+				ExternalIDs:  map[string]any{"bangumi_character": c.ID, "metafusion_import": "bangumi:character:" + strconv.Itoa(c.ID)},
+				RelationType: "character_in",
+				RelationRole: bangumiCharacterRankRole(rank),
+			})
+			// 声优：voiced_by → 作品，attributes.character 指向角色名（旧前端据此配对）。
+			for _, a := range c.Actors {
+				an := strings.TrimSpace(a.Name)
+				if an == "" {
+					continue
+				}
+				out = append(out, ImporterArtistPreview{
+					Name:          an,
+					OriginalName:  an,
+					Role:          "配音",
+					EntityType:    bangumiPersonTypeAgent(a.Type),
+					AvatarURL:     bangumiAvatarURL(a.Images),
+					CharacterName: name,
+					ExternalIDs:   map[string]any{"bangumi_person": a.ID, "metafusion_import": "bangumi:person:" + strconv.Itoa(a.ID)},
+					RelationType:  "voiced_by",
+				})
+			}
+		}
+	}
+	return out
+}
+
 // bangumiBandPattern 匹配简介中的乐队/组合类关键词；\b 限定英文 band 独立成词，
 // 避免 husband 等误命中。
 var bangumiBandPattern = regexp.MustCompile(`乐队|樂隊|バンド|\bband\b`)
@@ -574,6 +758,9 @@ func previewBangumiSubject(ctx context.Context, source string, id int) (Importer
 			},
 		},
 		Tags: tags,
+		// 两层以内的关联演职人员与角色：前端把 artists 转成 staff_associations 提交，
+		// 落库时建 agent 实体并把关系挂到作品上。
+		Artists: previewBangumiSubjectRelations(ctx, sub.ID),
 	}, nil
 }
 
@@ -784,6 +971,44 @@ func (s *Store) importerSave(ctx context.Context, e Entity, actor User, note str
 		e.ExternalIDs = map[string]string{}
 	}
 	return s.Save(ctx, Edit{Entity: e, ExpectedVersion: 0, EditNote: note, Sources: sources}, actor)
+}
+
+// assocImportKey 取关联项的自有导入键（bangumi_person / bangumi_character），
+// 供同一人物在多职位间去重；无键返回空。
+func assocImportKey(externalIDs map[string]any) string {
+	for _, k := range []string{"bangumi_character", "bangumi_person"} {
+		if v, ok := externalIDs[k]; ok {
+			if s := strings.TrimSpace(fmt.Sprint(v)); s != "" {
+				return k + ":" + s
+			}
+		}
+	}
+	return ""
+}
+
+// assocAgentDedup 复算第一趟使用的去重键，保证两趟指向同一 agent。
+func assocAgentDedup(a ImporterStaffAssociation) string {
+	if tid := strings.TrimSpace(a.TargetArtistID); tid != "" {
+		return "id:" + tid
+	}
+	if k := assocImportKey(a.ExternalIDs); k != "" {
+		return k
+	}
+	return "name:" + strings.ToLower(strings.TrimSpace(a.ParsedName)) + "|" + staffAgentType(a.EntityType)
+}
+
+// importerRelationSkippable 判断关系写入失败是否属于外部数据形态导致的既定跳过
+// （重复边、端点类型不出现在该关系定义内等），而非服务端故障。
+func importerRelationSkippable(err error) bool {
+	if err == nil {
+		return false
+	}
+	switch err.Error() {
+	case "duplicate_relation", "invalid_endpoint_types", "invalid_endpoints",
+		"invalid_relation_type", "cardinality_exceeded", "relation_cycle":
+		return true
+	}
+	return false
 }
 
 // workTypeFromMetadata 从预览回带 catalog_metadata 还原 Bangumi 条目类型，
@@ -1280,14 +1505,17 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		RedirectURL: "/works/" + savedWork.ID,
 	}
 	counts := ImporterImportedCounts{}
-	staffIDs := map[string]bool{}
+	// 两趟：先生成/复用全部 agent（按导入键与名称去重，同一人物多职位只建一个实体），
+	// 再建立关系。角色必须先建好，声优关系才能用它的实体 ID 填 character 引用。
+	agentByKey := map[string]Entity{} // 导入键 → agent 实体
+	characterByName := map[string]Entity{}
 	for _, assoc := range req.StaffAssociations {
 		if strings.ToLower(strings.TrimSpace(assoc.Action)) == "skip" {
 			continue
 		}
-		if strings.TrimSpace(assoc.TargetArtistID) != "" {
-			if !staffIDs[assoc.TargetArtistID] {
-				staffIDs[assoc.TargetArtistID] = true
+		if tid := strings.TrimSpace(assoc.TargetArtistID); tid != "" {
+			if e, gerr := s.Get(ctx, tid, &actor); gerr == nil && e.Kind == "agent" {
+				agentByKey["id:"+tid] = e
 			}
 			continue
 		}
@@ -1295,12 +1523,20 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		if name == "" {
 			continue
 		}
+		entityType := staffAgentType(assoc.EntityType)
+		dedup := assocImportKey(assoc.ExternalIDs)
+		if dedup == "" {
+			dedup = "name:" + strings.ToLower(name) + "|" + entityType
+		}
+		if _, ok := agentByKey[dedup]; ok {
+			continue
+		}
 		staff := Entity{
 			Kind:             "agent",
 			Title:            name,
 			OriginalLanguage: originalLanguageOrEmpty(assoc.Country),
 			Translations:     toEntityTranslations(assoc.Translations),
-			Types:            []string{staffAgentType(assoc.EntityType)},
+			Types:            []string{entityType},
 			Attributes:       map[string]any{},
 			ExternalIDs:      stringScalarMap(assoc.ExternalIDs),
 		}
@@ -1311,8 +1547,70 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		if aerr != nil {
 			return ImporterImportResponse{}, aerr
 		}
+		agentByKey[dedup] = agent
 		counts.Artists++
-		staffIDs[agent.ID] = true
+		if strings.TrimSpace(assoc.RelationType) == "character_in" {
+			characterByName[strings.ToLower(name)] = agent
+		}
+	}
+
+	// 第二趟：把关联落到关系上。方向按 definitions 判定（character_in 是 agent → work，
+	// 其余署名关系是 work → agent），因此不能写死。
+	relDefs, derr := s.Definitions(ctx)
+	if derr != nil {
+		return ImporterImportResponse{}, derr
+	}
+	created := map[string]bool{}
+	for _, assoc := range req.StaffAssociations {
+		if strings.ToLower(strings.TrimSpace(assoc.Action)) == "skip" {
+			continue
+		}
+		relType := strings.TrimSpace(assoc.RelationType)
+		if relType == "" {
+			continue
+		}
+		if _, ok := relDefs.Document.Relations[relType]; !ok {
+			continue // 无此关系定义：不虚构，跳过
+		}
+		agent, ok := agentByKey[assocAgentDedup(assoc)]
+		if !ok {
+			continue
+		}
+		attrs := map[string]any{}
+		if cr := strings.TrimSpace(assoc.ParsedRole); cr != "" {
+			attrs["credit_role"] = cr
+		}
+		if rr := strings.TrimSpace(assoc.RelationRole); rr != "" && relType == "character_in" {
+			attrs["role"] = rr
+		}
+		if ch := strings.TrimSpace(assoc.CharacterName); ch != "" && relType == "voiced_by" {
+			// character 是 entity 引用字段：填角色实体 ID，而非角色名。
+			if ce, ok := characterByName[strings.ToLower(ch)]; ok {
+				attrs["character"] = ce.ID
+			} else {
+				attrs["credit_role"] = "配音：" + ch
+			}
+		}
+		src, tgt := savedWork.ID, agent.ID
+		if contains(relDefs.Document.Relations[relType].SourceKinds, "agent") &&
+			!contains(relDefs.Document.Relations[relType].SourceKinds, "work") {
+			src, tgt = agent.ID, savedWork.ID
+		}
+		key := relType + "|" + src + "|" + tgt + "|" + encode(attrs)
+		if created[key] {
+			continue
+		}
+		created[key] = true
+		if _, rerr := s.SaveRelation(ctx, RelationEdit{
+			Relation: Relation{Type: relType, SourceID: src, TargetID: tgt, Attributes: attrs},
+			EditNote: note, Sources: sources,
+		}, actor); rerr != nil {
+			if importerRelationSkippable(rerr) {
+				continue
+			}
+			return ImporterImportResponse{}, rerr
+		}
+		counts.Relations++
 	}
 	out.ImportedCounts.Artists = counts.Artists
 	if len(req.Mediums) == 0 && len(req.CanonicalEntries) == 0 {
