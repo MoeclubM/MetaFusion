@@ -283,4 +283,3 @@ func (s *Store) ResetUserPassword(ctx context.Context, targetUserID, newPassword
 	_, _ = s.DB.ExecContext(ctx, "DELETE FROM catalog.sessions WHERE user_id=$1", targetUserID)
 	return nil
 }
-

@@ -49,7 +49,7 @@ func TestWorkCompatPayload(t *testing.T) {
 			"ja":    {Title: "BanG Dream! It's MyGO!!!!!", Summary: "バンドアニメ"},
 			"zh-CN": {Title: "BanG Dream! It's MyGO!!!!!", Summary: "乐队动画"},
 		},
-		Pictures:  []Picture{{URL: "https://example.com/cover.jpg"}},
+		Pictures:   []Picture{{URL: "https://example.com/cover.jpg"}},
 		Attributes: map[string]any{"edition_date": "2023-06-29"},
 	}
 	band := Entity{ID: "a1", Kind: "agent", Title: "MyGO!!!!!", Types: []string{"group"}}
