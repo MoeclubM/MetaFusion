@@ -14,6 +14,7 @@ import { isDistinctOriginalTitle, findRowForLocale, buildTitleChain } from "@/li
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { GraphNode, GraphLink } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
+import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { useDefinitions, getTypeName, getRelationName, getFieldName, getTermName } from "@/lib/definitions";
 import {
@@ -61,6 +62,7 @@ import {
   BookOpen,
   Bookmark,
   Eye,
+  ListTree,
 } from "lucide-react";
 
 const InteractiveRelationGraph = dynamic(
@@ -388,6 +390,7 @@ export function EntityDetailView({ id }: { id: string }) {
     return [];
   }, [entity, occurrences]);
 
+
   // 头部徽章：主日期 + 模板 badge_fields 声明的字段（默认含载体格式/平台）。
   // 字段码全部来自服务端模板声明，不写死 edition_date/format。
   const headerBadges = useMemo(() => {
@@ -618,6 +621,18 @@ export function EntityDetailView({ id }: { id: string }) {
   const mediaRelations = categorizedRelations.filter(
     (r) => !isStaffType(r.type) && (!r.target || r.target.kind !== "agent")
   );
+
+  // 分节标签：与下方的条件渲染一一对应；标签集合随后数据到达再收窄。
+  const tabs: TabItem[] = [
+    { id: "overview", label: t("entity.page.navOverview"), icon: <BookOpen className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "staff", label: t("entity.page.navStaff"), badge: staffRelations.length, visible: staffRelations.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "contents", label: t("entity.page.navContents"), badge: children.length, visible: children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "community", label: t("entity.page.navCommunity"), badge: communityPosts.length, icon: <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "revisions", label: t("entity.detail.revisionsTitle"), badge: revisions.length || 1, icon: <History className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+  ];
+  const { active, select } = useHashTab(tabs);
 
   const collectionRelations = categorizedRelations.filter(
     (r) => r.target && r.target.kind === "collection"
@@ -988,44 +1003,22 @@ export function EntityDetailView({ id }: { id: string }) {
                 </div>
               </div>
 
-              {/* Sticky / Smooth Anchor Navigation Bar */}
-              <nav className="flex items-center gap-4 border-b border-black/10 dark:border-white/[0.08] pt-2 overflow-x-auto text-xs font-mono">
-                <a href="#overview" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                  {t("entity.page.navOverview")}
-                </a>
-                {staffRelations.length > 0 && (
-                  <a href="#staff" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                    {t("entity.page.navStaff")} ({staffRelations.length})
-                  </a>
-                )}
-                {children.length > 0 && (
-                  <a href="#contents" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                    {t("entity.page.navContents")} ({children.length})
-                  </a>
-                )}
-                {occurrences.length > 0 && (
-                  <a href="#releases" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                    {t("entity.page.navReleases")} ({occurrences.length})
-                  </a>
-                )}
-                {mediaRelations.length > 0 && (
-                  <a href="#relations" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                    {t("entity.page.navRelations")} ({mediaRelations.length})
-                  </a>
-                )}
-                <a href="#community" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary font-semibold text-primary">
-                  {t("entity.page.navCommunity")} ({communityPosts.length})
-                </a>
-                <a href="#revisions" className="py-2 text-gray-600 dark:text-gray-300 hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary">
-                  {t("entity.detail.revisionsTitle")}
-                </a>
-              </nav>
+              {/* 分节标签栏：每节独立面板，不再整页滚动找内容 */}
+              <TabBar
+                ariaLabel={t("entity.page.sections")}
+                active={active}
+                onSelect={select}
+                items={tabs}
+                className="pt-2"
+              />
             </header>
 
             {/* ============================================================ */}
             {/* Section 1: Overview & Summary                                */}
             {/* ============================================================ */}
-            <section id="overview" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+            <div role="tabpanel" id={`panel-${active}`} aria-labelledby={`tab-${active}`} className="space-y-8">
+            {active === "overview" && (
+            <section id="overview" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
               <div className="flex items-center gap-2 border-b border-black/5 dark:border-white/[0.06] pb-3">
                 <BookOpen className="w-4 h-4 text-primary" strokeWidth={1.5} />
                 <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
@@ -1102,12 +1095,13 @@ export function EntityDetailView({ id }: { id: string }) {
                 </div>
               )}
             </section>
+            )}
 
             {/* ============================================================ */}
             {/* Section 2: Staff & Credits (演职人员与创作者)                 */}
             {/* ============================================================ */}
-            {staffRelations.length > 0 && (
-              <section id="staff" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+            {active === "staff" && staffRelations.length > 0 && (
+              <section id="staff" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
                 <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" strokeWidth={1.5} />
@@ -1161,8 +1155,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 3: Contents & Tracklist (内容目录与曲目结构)          */}
             {/* ============================================================ */}
-            {children.length > 0 && (
-              <section id="contents" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+            {active === "contents" && children.length > 0 && (
+              <section id="contents" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
                 <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
                   <div className="flex items-center gap-2">
                     <List className="w-4 h-4 text-primary" strokeWidth={1.5} />
@@ -1258,8 +1252,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 4: Releases & Occurrences (发行版本与收录情况)        */}
             {/* ============================================================ */}
-            {occurrences.length > 0 && (
-              <section id="releases" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+            {active === "releases" && occurrences.length > 0 && (
+              <section id="releases" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
                 <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
                   <div className="flex items-center gap-2">
                     <Disc className="w-4 h-4 text-primary" strokeWidth={1.5} />
@@ -1336,8 +1330,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 5: Relations & Graph (关联作品与图谱)                 */}
             {/* ============================================================ */}
-            {mediaRelations.length > 0 && (
-              <section id="relations" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+            {active === "relations" && mediaRelations.length > 0 && (
+              <section id="relations" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
                 <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
                   <div className="flex items-center gap-2">
                     <Network className="w-4 h-4 text-primary" strokeWidth={1.5} />
@@ -1425,7 +1419,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 6: Embedded Community Discussions & Collections      */}
             {/* ============================================================ */}
-            <section id="community" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-6 shadow-soft scroll-mt-20">
+            {active === "community" && (
+            <section id="community" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-6 shadow-soft">
               <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-primary" strokeWidth={1.5} />
@@ -1590,11 +1585,13 @@ export function EntityDetailView({ id }: { id: string }) {
                 )}
               </div>
             </section>
+            )}
 
             {/* ============================================================ */}
             {/* Section 7: Revisions (修订历史)                             */}
             {/* ============================================================ */}
-            <section id="revisions" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft scroll-mt-20">
+            {active === "revisions" && (
+            <section id="revisions" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
               <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4 text-primary" strokeWidth={1.5} />
@@ -1609,6 +1606,8 @@ export function EntityDetailView({ id }: { id: string }) {
 
 <EntityRevisions revisions={revisions} currentEntity={entity} />
             </section>
+            )}
+            </div>
           </div>
         </div>
       </main>
