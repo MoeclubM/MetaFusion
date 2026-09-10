@@ -59,14 +59,14 @@ func TestWorkCompatPayload(t *testing.T) {
 		{ID: "r2", Type: "voiced_by", SourceID: "w1", TargetID: "a2", Attributes: map[string]any{"character": "高松灯"}},
 	}
 	others := map[string]Entity{"a1": band, "a2": chara}
-	p := workCompatPayload(work, rels, others)
+	p := workCompatPayload(work, rels, others, map[string]string{"performed_by": "表演者", "voiced_by": "配音者"})
 
 	artistRels := p["artist_relations"].([]map[string]any)
 	if len(artistRels) != 2 {
 		t.Fatalf("artist_relations len = %d", len(artistRels))
 	}
-	if artistRels[0]["role"] != "performed_by" {
-		t.Errorf("band role = %v, want performed_by", artistRels[0]["role"])
+	if artistRels[0]["role"] != "表演者" {
+		t.Errorf("band role = %v, want 表演者 (localized)", artistRels[0]["role"])
 	}
 	if artistRels[0]["artist"].(map[string]any)["entity_type"] != "group" {
 		t.Errorf("band entity_type = %v, want group", artistRels[0]["artist"])
