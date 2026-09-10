@@ -123,17 +123,61 @@ func (h HTTP) worksDetail(c *gin.Context) {
 		return
 	}
 	others := h.resolveRelated(c.Request.Context(), e.ID, rels, 30, user(c))
-	respond(c, workCompatPayload(e, rels, others), nil)
+	respond(c, workCompatPayload(e, rels, others, h.relationLabels(c.Request.Context(), requestLocale(c))), nil)
+}
+
+// relationLabels 把关系 code 映射为服务端 definitions 的本地化名称，供旧前端展示；
+// 未命中保留 code（不虚构译名）。locale 精确匹配优先，再按 zh-CN/en-US 回退。
+func (h HTTP) relationLabels(ctx context.Context, locale string) map[string]string {
+	out := map[string]string{}
+	d, err := h.Store.Definitions(ctx)
+	if err != nil {
+		return out
+	}
+	pick := func(n Names) string {
+		for _, key := range []string{locale, "zh-CN", "en-US"} {
+			if key != "" {
+				if v := strings.TrimSpace(n[key]); v != "" {
+					return v
+				}
+			}
+		}
+		return ""
+	}
+	for code, r := range d.Document.Relations {
+		if name := pick(r.Names); name != "" {
+			out[code] = name
+		}
+	}
+	return out
+}
+
+// requestLocale 取 Accept-Language 主标签，如 "zh-CN,zh;q=0.9" → "zh-CN"。
+func requestLocale(c *gin.Context) string {
+	v := c.GetHeader("Accept-Language")
+	if i := strings.IndexAny(v, ",;"); i >= 0 {
+		v = v[:i]
+	}
+	return strings.TrimSpace(v)
 }
 
 // workCompatPayload 把新轨 Work 实体与关系映射为旧 Work JSON 形状（纯函数，便于测试）。
-func workCompatPayload(e Entity, rels []Relation, others map[string]Entity) map[string]any {
+// labels 为关系 code → 本地化名称；缺省回退 code。
+func workCompatPayload(e Entity, rels []Relation, others map[string]Entity, labels map[string]string) map[string]any {
+	relName := func(code string) string {
+		if labels != nil {
+			if n, ok := labels[code]; ok && n != "" {
+				return n
+			}
+		}
+		return code
+	}
 	artistRels := []map[string]any{}
 	connected := []map[string]any{}
 	for _, r := range rels {
 		if r.SourceID == e.ID {
 			if target, ok := others[r.TargetID]; ok && target.Kind == "agent" {
-				role := r.Type
+				role := relName(r.Type)
 				if r.Type == "voiced_by" {
 					if ch, _ := r.Attributes["character"].(string); strings.TrimSpace(ch) != "" {
 						// 旧前端 StaffCharacterSection 以 "配演: <角色>" 正则配对角色与声优
@@ -156,8 +200,8 @@ func workCompatPayload(e Entity, rels []Relation, others map[string]Entity) map[
 		if other, ok := others[otherID]; ok {
 			connected = append(connected, map[string]any{
 				"entity_id": otherID, "entity_name": other.Title, "entity_type": other.Kind,
-				"relationship_type": r.Type, "relationship_name": r.Type,
-				"direction": direction, "label": r.Type,
+				"relationship_type": r.Type, "relationship_name": relName(r.Type),
+				"direction": direction, "label": relName(r.Type),
 			})
 		}
 	}
@@ -191,6 +235,7 @@ func (h HTTP) worksGraph(c *gin.Context) {
 		return
 	}
 	others := h.resolveRelated(c.Request.Context(), e.ID, rels, 30, user(c))
+	labels := h.relationLabels(c.Request.Context(), requestLocale(c))
 
 	nodes := []map[string]any{
 		{"id": e.ID, "name": e.Title, "type": "work", "category": "work", "level": 0, "cover_image_url": entityCover(e), "status": e.Status},
@@ -213,8 +258,12 @@ func (h HTTP) worksGraph(c *gin.Context) {
 				"level": 1, "cover_image_url": entityCover(other), "status": other.Status,
 			})
 		}
+		label := r.Type
+		if n, ok := labels[r.Type]; ok && n != "" {
+			label = n
+		}
 		links = append(links, map[string]any{
-			"source": srcID, "target": tgtID, "type": r.Type, "label": r.Type,
+			"source": srcID, "target": tgtID, "type": r.Type, "label": label,
 			"source_type": "work", "target_type": other.Kind,
 		})
 	}
