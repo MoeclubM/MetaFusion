@@ -394,8 +394,9 @@ func TestApplyAliasesByScript(t *testing.T) {
 	if got := e.Translations["ja"].Aliases; len(got) != 1 || got[0] != "バンドリ" {
 		t.Errorf("ja aliases = %v, want [バンドリ]", got)
 	}
-	if got := e.Translations["zh-CN"].Aliases; len(got) != 1 || got[0] != "迷途之子" {
-		t.Errorf("zh-CN aliases = %v, want [迷途之子]", got)
+	// 新建语种行时首个别名充当标题（校验要求标题非空）
+	if got := e.Translations["zh-CN"].Title; got != "迷途之子" {
+		t.Errorf("zh-CN title = %q, want 迷途之子", got)
 	}
 	for loc, tr := range e.Translations {
 		for _, a := range tr.Aliases {
