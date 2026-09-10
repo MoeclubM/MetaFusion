@@ -1771,6 +1771,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		counts.Relations++
 	}
 	out.ImportedCounts.Artists = counts.Artists
+	out.ImportedCounts.Relations = counts.Relations
 	if len(req.Mediums) == 0 && len(req.CanonicalEntries) == 0 {
 		return out, nil
 	}
@@ -1784,7 +1785,9 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	if rerr != nil {
 		return ImporterImportResponse{}, rerr
 	}
+	// 发行链统计需保留已建的关联计数，否则响应会把关联上报成 0。
 	rcounts.Artists = counts.Artists
+	rcounts.Relations = counts.Relations
 	out.ReleaseID, out.Release = release.ID, release
 	out.ImportedCounts = rcounts
 	out.RedirectURL = "/releases/" + release.ID

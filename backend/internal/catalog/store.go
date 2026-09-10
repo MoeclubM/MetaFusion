@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 	"strings"
 	"time"
 )
@@ -168,6 +168,38 @@ func get(ctx context.Context, q queryer, id string) (Entity, error) {
 }
 func visible(e Entity, u *User) bool {
 	return e.Status == "published" || u != nil && (u.Role == "admin" || e.CreatedBy == u.ID)
+}
+
+// GetManyVisible 一次查询批量取实体，仅返回 u 可见者。
+// 用于关系对端解析：真实条目署名可达数百条，逐条 Get 会形成 N+1 且易被固定上限截断。
+func (s *Store) GetManyVisible(ctx context.Context, ids []string, u *User) (map[string]Entity, error) {
+	out := map[string]Entity{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := s.DB.QueryContext(ctx,
+		"SELECT id::text, document, status, created_by::text FROM catalog.entities WHERE id = ANY($1::uuid[])", pq.Array(ids))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, status, createdBy string
+		var b []byte
+		if err = rows.Scan(&id, &b, &status, &createdBy); err != nil {
+			return nil, err
+		}
+		var e Entity
+		if err = json.Unmarshal(b, &e); err != nil {
+			return nil, err
+		}
+		// 可见性以库列为准（document 里的 status 可能滞后）。
+		e.ID, e.Status, e.CreatedBy = id, status, createdBy
+		if visible(e, u) {
+			out[id] = e
+		}
+	}
+	return out, rows.Err()
 }
 func (s *Store) Get(ctx context.Context, id string, u *User) (Entity, error) {
 	if _, err := uuid.Parse(id); err != nil {

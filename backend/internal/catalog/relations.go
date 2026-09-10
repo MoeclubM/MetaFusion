@@ -228,23 +228,53 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 	if _, err := s.Get(ctx, id, u); err != nil {
 		return nil, err
 	}
-	all, err := relations(ctx, s.DB)
+	// 只取该实体为端点的边，避免全表加载；对端可见性用一次批量查询判定。
+	rows, err := s.DB.QueryContext(ctx, "SELECT document FROM catalog.relations WHERE source_id=$1 OR target_id=$1 ORDER BY id", id)
 	if err != nil {
 		return nil, err
 	}
-	out := []Relation{}
+	var all []Relation
+	for rows.Next() {
+		var b []byte
+		var r Relation
+		if err = rows.Scan(&b); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if err = json.Unmarshal(b, &r); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		all = append(all, r)
+	}
+	if err = rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
 	d, err := s.Definitions(ctx)
 	if err != nil {
 		return nil, err
 	}
+	peerIDs := make([]string, 0, len(all))
 	for _, r := range all {
-		if r.SourceID != id && r.TargetID != id {
-			continue
+		other := r.TargetID
+		if r.SourceID != id {
+			other = r.SourceID
 		}
-		if _, err := s.Get(ctx, r.SourceID, u); err != nil {
-			continue
+		peerIDs = append(peerIDs, other)
+	}
+	peers, err := s.GetManyVisible(ctx, peerIDs, u)
+	if err != nil {
+		return nil, err
+	}
+	out := []Relation{}
+	for _, r := range all {
+		other := r.TargetID
+		if r.SourceID != id {
+			other = r.SourceID
 		}
-		if _, err := s.Get(ctx, r.TargetID, u); err != nil {
+		if _, ok := peers[other]; !ok {
 			continue
 		}
 		if err := d.Document.attributes(d.Document.Relations[r.Type].Fields, r.Attributes, reference(ctx, s.DB, u), true); err != nil {
