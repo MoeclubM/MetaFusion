@@ -357,7 +357,7 @@ func (h HTTP) artistsCompat(c *gin.Context) {
 		respond(c, nil, err)
 		return
 	}
-	others := h.resolveRelated(ctx, e.ID, rels, 50, user(c))
+	others := h.resolveRelated(ctx, e.ID, rels, user(c))
 	labels := h.relationLabels(ctx, requestLocale(c))
 
 	works := []map[string]any{}
@@ -430,7 +430,7 @@ func (h HTTP) franchisesCompat(c *gin.Context) {
 		respond(c, nil, err)
 		return
 	}
-	others := h.resolveRelated(ctx, e.ID, rels, 50, user(c))
+	others := h.resolveRelated(ctx, e.ID, rels, user(c))
 	labels := h.relationLabels(ctx, requestLocale(c))
 
 	parents, children, works, agents, connected := []map[string]any{}, []map[string]any{}, []map[string]any{}, []map[string]any{}, []map[string]any{}
@@ -664,7 +664,7 @@ func (h HTTP) canonicalEntriesCompat(c *gin.Context) {
 		respond(c, nil, err)
 		return
 	}
-	others := h.resolveRelated(ctx, e.ID, relEntities, 50, user(c))
+	others := h.resolveRelated(ctx, e.ID, relEntities, user(c))
 	labels := h.relationLabels(ctx, requestLocale(c))
 	connected := []map[string]any{}
 	for _, r := range relEntities {
