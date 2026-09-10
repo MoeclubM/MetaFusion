@@ -25,6 +25,7 @@ import { isDistinctOriginalTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { GroupedRelations } from "@/components/entity/RelationsList";
+import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 
 export default function FranchiseDetailPage() {
   const params = useParams();
@@ -38,6 +39,7 @@ export default function FranchiseDetailPage() {
   // 编辑改为跳转通用编辑页 /catalog/:id?edit=1，弹层只保留修订历史与合并
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isMergeOpen, setIsMergeOpen] = useState(false);
+
 
   const load = () => {
     if (!franchiseId) return;
@@ -84,6 +86,16 @@ export default function FranchiseDetailPage() {
   const agents: Artist[] = data.agents || [];
   const connected: ConnectedEntityItem[] = data.connected_entities || [];
 
+  // 分节标签：概览之外的各分节独立面板，避免长页滚动。
+  const tabs: TabItem[] = [
+    { id: "overview", label: t("franchise.detail.badge") },
+    { id: "children", label: t("franchise.detail.children"), visible: children.length > 0, badge: children.length },
+    { id: "works", label: t("franchise.detail.works"), visible: franchiseWorks.length > 0, badge: franchiseWorks.length },
+    { id: "agents", label: t("franchise.detail.agents"), visible: agents.length > 0, badge: agents.length },
+    { id: "relations", label: t("franchise.detail.relations"), visible: connected.length > 0, badge: connected.length },
+  ];
+  const { active, select } = useHashTab(tabs);
+
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
       <Navbar />
@@ -104,6 +116,10 @@ export default function FranchiseDetailPage() {
           <span className="text-gray-900 dark:text-white truncate max-w-[40ch]">{localized.title}</span>
         </div>
 
+        <TabBar ariaLabel={t("entity.page.sections")} active={active} onSelect={select} items={tabs} />
+
+        <div role="tabpanel" id={`panel-${active}`} aria-labelledby={`tab-${active}`} className="space-y-3">
+        {active === "overview" && (
         <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
             <div className="w-32 sm:w-40 shrink-0">
@@ -168,8 +184,9 @@ export default function FranchiseDetailPage() {
             </div>
           </div>
         </section>
+        )}
 
-        {children.length > 0 && (
+        {active === "children" && children.length > 0 && (
           <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 p-4 space-y-3">
             <h2 className="font-display text-base font-bold flex items-center gap-2">
               <Network className="w-4 h-4 text-indigo-500" />
@@ -192,7 +209,7 @@ export default function FranchiseDetailPage() {
           </section>
         )}
 
-        {franchiseWorks.length > 0 && (
+        {active === "works" && franchiseWorks.length > 0 && (
           <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 p-4 space-y-4">
             <h2 className="font-display text-base font-bold flex items-center gap-2">
               <Layers className="w-4 h-4 text-sky-500" />
@@ -213,7 +230,7 @@ export default function FranchiseDetailPage() {
           </section>
         )}
 
-        {agents.length > 0 && (
+        {active === "agents" && agents.length > 0 && (
           <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 p-4 space-y-3">
             <h2 className="font-display text-base font-bold flex items-center gap-2">
               <Users className="w-4 h-4 text-amber-500" />
@@ -234,12 +251,13 @@ export default function FranchiseDetailPage() {
           </section>
         )}
 
-        {connected.length > 0 && (
+        {active === "relations" && connected.length > 0 && (
           <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 p-4 space-y-3">
             <h2 className="font-display text-base font-bold">{t("franchise.detail.relations")}</h2>
             <GroupedRelations items={connected} />
           </section>
         )}
+        </div>
       </main>
 
       <RevisionHistoryModal

@@ -23,6 +23,7 @@ import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
+import { DetailTabs, DetailTab } from "@/components/catalog/DetailTabs";
 import { GroupedRelations } from "@/components/entity/RelationsList";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
@@ -238,14 +239,6 @@ export default function WorkDirectoryPage() {
        </div>
      </div>
    </header>
-   <nav className={styles.navigation} aria-label={t("work.detail.pageNavigation")}>
-     <a href="#overview">{t("work.detail.overview")}</a>
-     {!!work.artist_relations?.length && <a href="#staff">{t("work.detail.staffAndCharacters")}</a>}
-     <a href="#contents">{t("work.contents.title")}</a>
-     {(connected.length > 0 || (graphData && graphData.nodes.length > 1)) && <a href="#relations">{t("work.detail.relations")}</a>}
-     <a href="#releases">{t("work.detail.releaseCatalog")}</a>
-     <a href="#discussion">{t("work.detail.relatedTopics")}</a>
-   </nav>
    <div className={styles.layout}>
      <aside className={styles.sidebar}>
        <div className={styles.cover}>
@@ -269,17 +262,45 @@ export default function WorkDirectoryPage() {
        </section>}
      </aside>
      <div className={styles.content}>
-       <section id="overview" className={styles.section}>
-         <h2 className={styles.sectionTitle}>{t("work.detail.overview")}</h2>
-         <p className={styles.summary}>{localized.body || t("work.detail.noSummary")}</p>
-       </section>
-       {!!work.artist_relations?.length && <section id="staff" className={styles.section}>
-         <h2 className={styles.sectionTitle}>{t("work.detail.staffAndCharacters")}</h2>
-         <StaffCharacterSection relations={work.artist_relations} roleLabel={roleLabel} />
-       </section>}
-       <div id="contents" className={styles.section}><WorkContentDirectory workId={work.id} /></div>
-        {(connected.length > 0 || (graphData && graphData.nodes.length > 1)) && (
-          <div id="relations" className={styles.section}>
+       <DetailTabs
+         ariaLabel={t("work.detail.pageNavigation")}
+         tabs={[
+           {
+             id: "overview",
+             label: t("work.detail.overview"),
+             content: (
+               <section className={styles.section}>
+       <h2 className={styles.sectionTitle}>{t("work.detail.overview")}</h2>
+       <p className={styles.summary}>{localized.body || t("work.detail.noSummary")}</p>
+               </section>
+             ),
+           },
+           {
+             id: "staff",
+             label: t("work.detail.staffAndCharacters"),
+             visible: !!work.artist_relations?.length,
+             content: (
+               <section className={styles.section}>
+       <h2 className={styles.sectionTitle}>{t("work.detail.staffAndCharacters")}</h2>
+       <StaffCharacterSection relations={work.artist_relations || []} roleLabel={roleLabel} />
+               </section>
+             ),
+           },
+           {
+             id: "contents",
+             label: t("work.contents.title"),
+             content: (
+               <section className={styles.section}>
+                 <WorkContentDirectory workId={work.id} />
+               </section>
+             ),
+           },
+           {
+             id: "relations",
+             label: t("work.detail.relations"),
+             visible: connected.length > 0 || !!(graphData && graphData.nodes.length > 1),
+             content: (
+             <section className={styles.section}>
             {(relationViewMode === "graph" || connected.length === 0) && graphData && graphData.nodes.length > 0 ? (
               <InteractiveRelationGraph
                 centerEntityId={work.id}
@@ -342,10 +363,14 @@ export default function WorkDirectoryPage() {
                 <GroupedRelations items={connected} />
               </section>
             )}
-          </div>
-        )}
-
-
+             </section>
+             ),
+           },
+           {
+             id: "releases",
+             label: t("work.detail.releaseCatalog"),
+             badge: total > 0 ? String(total) : undefined,
+             content: (
  <section id="releases" className={styles.section}>
  <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
  <div className="flex items-center gap-2">
@@ -469,7 +494,13 @@ export default function WorkDirectoryPage() {
  </>
  )}
  </section>
-
+             ),
+           },
+           {
+             id: "discussion",
+             label: t("work.detail.relatedTopics"),
+             badge: topics.length > 0 ? String(topics.length) : undefined,
+             content: (
  <section id="discussion" className={styles.section}>
  <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2">
  <h3 className="font-display text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -495,6 +526,10 @@ export default function WorkDirectoryPage() {
  </div>
  )}
  </section>
+             ),
+           },
+         ] as DetailTab[]}
+       />
      </div>
    </div>
  </main>
