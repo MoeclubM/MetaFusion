@@ -22,6 +22,7 @@ import { ArtistReleasesTab } from "@/components/artist/ArtistReleasesTab";
 import { isDistinctOriginalTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
+import { useDefinitions } from "@/lib/definitions";
 
 import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
 import dynamic from "next/dynamic";
@@ -39,6 +40,8 @@ export default function ArtistDetailPage() {
   const { t, locale } = useI18n();
   const { entityTypeLabel } = useTaxonomy();
   const titleOrder = useTitleDisplayOrder();
+  // 动态属性栏需要 definitions 才能把字段码显示为本地化名。
+  const { definitions: dynamicDefs } = useDefinitions();
 
   const [data, setData] = useState<ArtistDetailResponse | null>(null);
   const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; links: GraphLink[] } | null>(null);
@@ -189,7 +192,7 @@ export default function ArtistDetailPage() {
               {/* Dynamic Attributes */}
               {displayAttributes && Object.keys(displayAttributes).length > 0 && (
                 <div className="pt-2">
-                  <DynamicAttributeViewer attributes={displayAttributes} />
+                  <DynamicAttributeViewer attributes={displayAttributes} defs={dynamicDefs} excludeKeys={["avatar_url"]} />
                 </div>
               )}
             </div>

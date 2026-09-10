@@ -17,6 +17,7 @@ import {
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
+import { useDefinitions } from "@/lib/definitions";
 import {
   Disc,
   ArrowLeft,
@@ -50,6 +51,8 @@ export default function CanonicalEntryDetailPage() {
   const { t, locale } = useI18n();
   const titleOrder = useTitleDisplayOrder();
   const { roleLabel, mediumFormatLabel, mediaCategoryLabel } = useTaxonomy();
+  // 动态属性栏需要 definitions 才能把字段码显示为本地化名。
+  const { definitions: dynamicDefs } = useDefinitions();
 
   const [data, setData] = useState<CanonicalEntryDetailResponse | null>(null);
   const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; links: GraphLink[] } | null>(null);
@@ -284,7 +287,7 @@ export default function CanonicalEntryDetailPage() {
               {/* Dynamic Attributes */}
               {data.attributes && Object.keys(data.attributes).length > 0 && (
                 <div className="pt-1">
-                  <DynamicAttributeViewer attributes={data.attributes} />
+                  <DynamicAttributeViewer attributes={data.attributes} defs={dynamicDefs} />
                 </div>
               )}
 

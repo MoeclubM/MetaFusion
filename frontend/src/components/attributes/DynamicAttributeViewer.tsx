@@ -2,18 +2,31 @@
 
 import React from "react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { EntityAttributeSchema, pickLocalizedName } from "@/lib/api";
-import { Layers, CheckCircle2, XCircle, ExternalLink, Hash, Calendar, Tag as TagIcon } from "lucide-react";
+import { DynamicDefinitions, getFieldName, getTermName } from "@/lib/definitions";
+import { Layers, CheckCircle2, XCircle, ExternalLink, Hash, Calendar } from "lucide-react";
 
 interface DynamicAttributeViewerProps {
   attributes?: Record<string, any> | null;
-  schemas?: EntityAttributeSchema[];
+  /**
+   * 服务端 definitions：字段名与词表项的多语言名由此解析。
+   * 不传则退化为字段码的人性化文本——调用方应尽量传入，避免用户看到裸字段码。
+   */
+  defs?: DynamicDefinitions | null;
+  /** 已在页面结构化区块单独渲染过的字段码，避免同一信息重复出现两次。 */
+  excludeKeys?: string[];
   className?: string;
+}
+
+// 字段码兜底展示：edition_date → Edition date
+function humanizeField(key: string): string {
+  const s = key.replace(/_/g, " ").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 export const DynamicAttributeViewer: React.FC<DynamicAttributeViewerProps> = ({
   attributes,
-  schemas = [],
+  defs = null,
+  excludeKeys = [],
   className = "",
 }) => {
   const { t, locale } = useI18n();
@@ -22,20 +35,27 @@ export const DynamicAttributeViewer: React.FC<DynamicAttributeViewerProps> = ({
     return null;
   }
 
-  // 构建 schema 映射表
-  const schemaMap = new Map<string, EntityAttributeSchema>();
-  schemas.forEach((s) => schemaMap.set(s.attribute_key, s));
-
-  // 格式化展示属性条目
+  const excluded = new Set(excludeKeys);
   const entries = Object.entries(attributes).filter(
-    ([_, val]) => val !== undefined && val !== null && val !== ""
+    ([key, val]) => !excluded.has(key) && val !== undefined && val !== null && val !== ""
   );
 
   if (entries.length === 0) {
     return null;
   }
 
-  const formatValue = (key: string, val: any, schema?: EntityAttributeSchema) => {
+  const fieldDef = (key: string) => defs?.fields?.[key];
+
+  // 枚举值按字段声明的词表解析多语言项；无词表时原样展示。
+  const termLabel = (key: string, value: string): string => {
+    const vocab = fieldDef(key)?.vocabulary;
+    if (!vocab) return value;
+    return getTermName(defs, vocab, value, locale);
+  };
+
+  const formatValue = (key: string, val: any) => {
+    const def = fieldDef(key);
+
     if (typeof val === "boolean") {
       return (
         <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
@@ -50,16 +70,29 @@ export const DynamicAttributeViewer: React.FC<DynamicAttributeViewerProps> = ({
     if (Array.isArray(val)) {
       if (val.length === 0) return <span className="text-muted-foreground">-</span>;
       return (
-        <div className="flex flex-wrap gap-1.5">
-          {val.map((item, idx) => (
-            <span
-              key={idx}
-              className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-secondary/80 text-foreground border border-border/40 font-mono"
-            >
-              <TagIcon className="w-2.5 h-2.5 text-muted-foreground" />
-              {String(item)}
-            </span>
-          ))}
+        <div className="flex flex-col gap-1.5">
+          {val.map((item, idx) => {
+            // 结构化列表（events / attachments / store_bonuses）：优先展示记录里的 label 字段。
+            if (item && typeof item === "object") {
+              const label = item.label ?? item.name ?? item.title;
+              const rest = Object.entries(item)
+                .filter(([k, v]) => k !== "label" && k !== "name" && k !== "title" && v !== undefined && v !== null && v !== "")
+                .map(([k, v]) => `${humanizeField(k)}: ${String(v)}`);
+              return (
+                <div key={idx} className="rounded-md border border-border/40 bg-secondary/40 px-2 py-1 text-xs">
+                  <div className="font-medium text-foreground">{label ? String(label) : humanizeField("record")}</div>
+                  {rest.length > 0 && (
+                    <div className="font-mono text-[11px] text-muted-foreground">{rest.join(" · ")}</div>
+                  )}
+                </div>
+              );
+            }
+            return (
+              <span key={idx} className="text-xs font-medium text-foreground">
+                {termLabel(key, String(item))}
+              </span>
+            );
+          })}
         </div>
       );
     }
@@ -89,7 +122,7 @@ export const DynamicAttributeViewer: React.FC<DynamicAttributeViewerProps> = ({
       );
     }
 
-    if (schema?.data_type === "date") {
+    if (def?.type === "date") {
       return (
         <span className="inline-flex items-center gap-1 text-xs font-mono text-foreground">
           <Calendar className="w-3 h-3 text-muted-foreground" />
@@ -98,16 +131,18 @@ export const DynamicAttributeViewer: React.FC<DynamicAttributeViewerProps> = ({
       );
     }
 
-    if (schema?.data_type === "number") {
+    if (def?.type === "number") {
+      const unit = def.unit ? def.unit[locale] || def.unit["zh-CN"] || def.unit["en-US"] : "";
       return (
         <span className="inline-flex items-center gap-1 text-xs font-mono font-medium text-foreground">
           <Hash className="w-3 h-3 text-muted-foreground" />
           {strVal}
+          {unit ? <span className="text-muted-foreground">{unit}</span> : null}
         </span>
       );
     }
 
-    return <span className="text-xs font-medium text-foreground break-words">{strVal}</span>;
+    return <span className="text-xs font-medium text-foreground break-words">{termLabel(key, strVal)}</span>;
   };
 
   return (
@@ -122,31 +157,17 @@ export const DynamicAttributeViewer: React.FC<DynamicAttributeViewerProps> = ({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         {entries.map(([key, val]) => {
-          const schema = schemaMap.get(key);
-          const label =
-            pickLocalizedName(locale, schema?.names, schema?.name_zh, schema?.name_en) ||
-            schema?.name_zh ||
-            key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-
-          const desc =
-            pickLocalizedName(locale, schema?.descriptions, schema?.desc_zh, schema?.desc_en) ||
-            schema?.desc_zh;
-
+          const def = fieldDef(key);
+          const label = def ? getFieldName(defs, key, locale) : humanizeField(key);
           return (
             <div
               key={key}
               className="flex flex-col gap-1 p-2.5 rounded-lg bg-background/60 border border-border/30 hover:border-border/60 transition-colors"
-              title={desc || undefined}
             >
-              <div className="flex items-center justify-between gap-1 text-[11px] font-medium text-muted-foreground">
-                <span className="truncate">{label}</span>
-                <span className="text-[10px] font-mono text-muted-foreground/60 shrink-0">
-                  {key}
-                </span>
-              </div>
-              <div className="pt-0.5">{formatValue(key, val, schema)}</div>
+              <div className="text-[11px] font-medium text-muted-foreground">{label}</div>
+              <div className="pt-0.5 min-w-0">{formatValue(key, val)}</div>
             </div>
           );
         })}
