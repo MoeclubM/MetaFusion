@@ -160,6 +160,8 @@ export function OmniImportModal({
             avatar_url: a.avatar_url,
             external_ids: a.external_ids,
             translations: a.translations,
+            relation_type: a.relation_type,
+            relation_role: a.relation_role,
           };
         });
         setAssociations(initialAssocs);
@@ -236,6 +238,8 @@ export function OmniImportModal({
         avatar_url: a.avatar_url,
         external_ids: a.external_ids,
         translations: a.translations,
+        relation_type: a.relation_type,
+        relation_role: a.relation_role,
       };
     });
     setAssociations(initialAssocs);

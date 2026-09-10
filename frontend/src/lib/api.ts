@@ -770,29 +770,6 @@ export interface GraphLink {
   is_hierarchical?: boolean;
 }
 
-export interface EntityAttributeSchema {
-  id: string;
-  entity_type: string;
-  attribute_key: string;
-  name_zh: string;
-  name_en: string;
-  names?: Record<string, string>;
-  desc_zh?: string;
-  desc_en?: string;
-  descriptions?: Record<string, string>;
-  data_type: "text" | "number" | "select" | "multi_select" | "date" | "boolean" | "array" | "url" | "json";
-  options?: { fields?: any[] } | any[];
-  validation_rules?: Record<string, any>;
-  category_filter?: string;
-  display_order: number;
-  is_required: boolean;
-  is_searchable: boolean;
-  is_enabled: boolean;
-  is_system: boolean;
-  display_name?: string;
-  display_description?: string;
-}
-
 export interface ForumPost {
   id: string;
   topic_id: string;
@@ -1647,6 +1624,10 @@ export interface ImporterArtistPreview {
   external_ids?: Record<string, any>;
   translations?: ImporterTranslationItem[];
   matched_artist?: Artist;
+  /** 该关联应落到的 definitions 关系码（directed_by / voiced_by / character_in 等） */
+  relation_type?: string;
+  /** 角色番位词表项（primary / supplement / extra） */
+  relation_role?: string;
 }
 
 export interface StaffAssociation {
@@ -1663,6 +1644,8 @@ export interface StaffAssociation {
   avatar_url?: string;
   external_ids?: Record<string, any>;
   translations?: ImporterTranslationItem[];
+  relation_type?: string;
+  relation_role?: string;
 }
 
 export interface ImporterTrackPreview {
@@ -1990,41 +1973,6 @@ export function deleteExternalDatabase(code: string): Promise<{ message: string 
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
     return body;
-  });
-}
-
-// ── 实体可扩展动态属性 (Dynamic Attributes) ──
-export async function fetchAttributeSchemas(entityType?: string, category?: string): Promise<EntityAttributeSchema[]> {
-  const params = new URLSearchParams();
-  if (entityType) params.set("entity_type", entityType);
-  if (category) params.set("category", category);
-  const q = params.toString();
-  const res = await fetchApi<{ items: EntityAttributeSchema[]; total: number }>(`/catalog/attributes${q ? `?${q}` : ""}`);
-  return res.items || [];
-}
-
-export function fetchAttributeSchemasAdmin(entityType?: string): Promise<{ items: EntityAttributeSchema[]; total: number }> {
-  const q = entityType ? `?entity_type=${encodeURIComponent(entityType)}` : "";
-  return fetchApi<{ items: EntityAttributeSchema[]; total: number }>(`/admin/attributes${q}`);
-}
-
-export function createAttributeSchema(data: Partial<EntityAttributeSchema>): Promise<EntityAttributeSchema> {
-  return fetchApi<EntityAttributeSchema>("/admin/attributes", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-export function updateAttributeSchema(id: string, data: Partial<EntityAttributeSchema>): Promise<EntityAttributeSchema> {
-  return fetchApi<EntityAttributeSchema>(`/admin/attributes/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(data),
-  });
-}
-
-export function deleteAttributeSchema(id: string): Promise<{ status: string }> {
-  return fetchApi<{ status: string }>(`/admin/attributes/${id}`, {
-    method: "DELETE",
   });
 }
 
