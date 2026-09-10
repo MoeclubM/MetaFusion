@@ -14,6 +14,7 @@ group: "api"
 - `canonical_entry` / `CanonicalEntry` 实体（现为 `content_unit` + `expression`）；`franchise` 实体（由 `collection` kind + 关系表达）
 - `mfp_` PAT 前缀、`catalog:write` scope、`X-API-Key` 请求头（无 PAT 体系）
 - 固定 422 错误码集（`DirtyTitleError` / `InvalidBarcode` / `MissingAuditInfo` 等）：服务端并未实现这套按名拦截，写入以 400/401/403/404/409 为主
+- 关系码 `part_of_franchise` / `prequel_of` / `spin_off_of` / `crossover_with` / `included_in` / `voice_actor_of` 等：definitions 种子中不存在，实际关系见 `backend/internal/catalog/defaults.go`
 
 **真实写入模型**：`POST /api/catalog/entities`（`{entity, expected_version, edit_note, sources}`，支持 `Idempotency-Key`）、`PUT /api/catalog/entities/:id`（整实体替换 + 乐观锁）、`POST /api/catalog/relations`、`POST /api/catalog/entities/:id/lifecycle`（合并/退役）。复合作品结构需按层级多次调用，不存在单请求事务端点。以 [OpenAPI](/api/openapi.json) 与 `backend/internal/catalog/http.go` 为准。
 :::
@@ -172,7 +173,7 @@ MetaFusion 开放 API 为大语言模型（LLM）与自动化 Agent 提供了结
                 "source_id": { "type": "string", "format": "uuid" },
                 "target_type": { "type": "string", "enum": ["work", "artist", "franchise"] },
                 "target_id": { "type": "string", "format": "uuid" },
-                "relationship_type": { "type": "string", "enum": ["part_of_franchise", "adaptation_of", "soundtrack_of", "sequel_of", "prequel_of", "spin_off_of", "crossover_with", "included_in", "voice_actor_of", "character_in"] },
+                "relationship_type": { "type": "string", "enum": ["includes", "adaptation_of", "soundtrack_of", "sequel_of", "character_in", "credit_for", "translation_of", "revision_of", "cover_of", "alternate_take_of", "pressing_of"] },
                 "qualifier": { "type": "string" }
               },
               "required": ["source_type", "source_id", "target_type", "target_id", "relationship_type"]

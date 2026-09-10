@@ -69,6 +69,14 @@ PUT 是**整实体替换**而非局部 PATCH：必须先 GET 完整实体，按�
 
 **当前无 `POST /api/catalog/submit`。** 复合结构需通过多次 `POST /api/catalog/entities`（按 `content_unit / expression` → `release` → `medium` → `track` 层级）+ `POST /api/catalog/relations` 组合完成；外部条目可用 `POST /api/importer/preview` 预览后 `POST /api/importer/import` 导入。
 
+## 外部导入器能力
+
+导入器（`backend/internal/catalog/importer.go`）当前以 Bangumi 为来源，支持 `POST /api/importer/preview` 与 `POST /api/importer/import`，服务端在同一事务内创建条目链：
+
+- **条目 / Work**：题名、原语言、翻译、简介、封面、标签；发行链 Release → Medium → Track（轨道按 `contents[].expression_id` 关联 Expression）。
+- **关联演职员与角色**：会拉取 `/v0/subjects/{id}/persons` 与 `/v0/subjects/{id}/characters`，建 agent 实体与关系。语义明确的职位映射到精确关系码（如 `directed_by` / `photographed_by` / `voiced_by`），否则落到通用署名 `credit_for` 并把职位原文写入 `credit_role`；角色本体的番位落 `role`、原始文本落 `credit_role`，声优建 `voiced_by` 并以 `character` 引用角色实体。
+- **仍不导入**：infobox 派生字段、`/ep` 剧集树（ContentUnit 分集目录）、work↔work 关系网、发行版 `edition_type`，以及 `publisher` 实体引用（预览只有自由文本名称，不虚构）。这些需在导入后按层级手工或经 API 补齐。
+
 ## 修订历史
 
 ```http

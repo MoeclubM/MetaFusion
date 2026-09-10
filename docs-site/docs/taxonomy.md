@@ -7,7 +7,7 @@ group: "model"
 
 # 编目体系：标签 / 货架 / 封面 / 多语言
 
-MetaFusion 采用 **IFLA LRM 混合编目模型**。实体（Work / Release / Artist / Franchise）保持纯净标题与核心概念，形态与规格通过「**多维标签 + 虚拟货架 + Release 载体规格 + 实体图谱边**」自然表达，彻底淘汰了传统的硬编码 `media_type` 与僵化的单继承分类树。
+MetaFusion 采用 **IFLA LRM 混合编目模型**。固定实体骨架为八类（`agent / collection / work / content_unit / expression / release / medium / track`），保持纯净标题与核心概念，形态与规格通过「**多维标签 + 虚拟货架 + Release 载体规格 + 实体图谱边**」自然表达，彻底淘汰了传统的硬编码 `media_type` 与僵化的单继承分类树。
 
 ---
 

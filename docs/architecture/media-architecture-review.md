@@ -13,10 +13,10 @@
 - 结构归属不可变：`expression.work_id`、`medium.release_id`、`track.medium_id` 建后不许跨域移动；`content_unit.parent_id`、`medium.parent_id`、`track.parent_id` 只能同域自引用并带无环检查。
 - 多作品发行：`catalog.release_subjects(release_id, work_id, role, position)`，`role` 受 `release_role` 词表（`primary / compilation / supplement`）约束；曲目复用：`catalog.track_contents(track_id, expression_id, position, locator)`，`locator` 支持 `relative_to(track/medium)`、`time_start/end_ms`、`page_start/end`、`chapter`、`path`。
 - 通用图谱边 `catalog.relations(type, source_id, target_id, document)`，`type` 必须在已发布 Definitions 中，支持对称、无环、基数、端点 kind/type 双重校验。
-- 动态治理 `catalog.definitions(document)`：`Types / Fields / Vocabularies / Relations / Templates` 全量 JSON，`draft → published → superseded` 三态，发布前全量影响预演。种子见 `defaults.go`：字段 20 个、词表 `format / packaging / role / release_role`、关系含署名系 6 个与 `adaptation_of / sequel_of / soundtrack_of / translation_of / revision_of / cover_of / includes`。
+- 动态治理 `catalog.definitions(document)`：`Types / Fields / Vocabularies / Relations / Templates` 全量 JSON，`draft → published → superseded` 三态，发布前全量影响预演。种子见 `defaults.go`：词语表 `format / packaging / role / release_role / edition_type / distribution_channel`，关系含署名系 `created_by / performed_by / photographed_by / modeled_by / developed_by / voiced_by` 与分媒介 `composed_by / lyricist_of / arranged_by / directed_by / written_by / illustrated_by / narrated_by`，角色与兜底 `character_in`（agent → work/collection）、`credit_for`（work/content_unit/expression/release → agent，职位原文落 `credit_role`），创作系 `adaptation_of / sequel_of / soundtrack_of / translation_of / revision_of / cover_of / alternate_take_of / pressing_of`，组成系 `bonus_included_in / store_bonus_for / includes`。关系通用字段为 `role / credit_role / context / character / language / begin_date / end_date / scope`。完整清单以 `defaults.go` 为准（见 [架构评估结论](./architecture-assessment-2026-09.md) §3）。
 - 审计：`edit_note + sources` 强制、`revisions / outbox / deliveries` 同事务写；合并要求同 kind、同归属、目标已发布。
 
-旧轨残留（`backend/internal/models/` + `database/patches.go`）必须清理：`Release.work_id NOT NULL` 单作品归属与新 `subjects` 直接冲突，多作品盒装在旧轨只能伪造 Work 或走旁路边；`canonical_entries` 表与 `Track.canonical_entry_id` 单引用和新 `track_contents` 双写；`artists / artist_translations / entity_type_definitions / franchise` 独立体系与新 `agent / collection` 分裂；`AssetFile legacy` 与新 CAS 解耦存储分裂；`migrations/000004~000007` 文件缺失、`ApplyPatches` 空跳过，跨作品一致性实际靠 `store.go` 的 `undeclared_release_subject` 兜底（Track 引用的 Expression 所属 Work 必须在 Release subjects 中声明）。
+旧轨残留（`backend/internal/models/` + `database/patches.go`）必须清理。范围澄清：`cmd/server` 已不依赖旧轨，当前仅 `cmd/worker`（`internal/transcoder`）引用 `internal/database` + `internal/models`，因此不再是 API 写入路径的双写，但旧模型语义仍与新轨冲突——`Release.work_id NOT NULL` 单作品归属与新 `subjects` 直接冲突，多作品盒装在旧轨只能伪造 Work 或走旁路边；`canonical_entries` 表与 `Track.canonical_entry_id` 单引用和新 `track_contents` 双写；`artists / artist_translations / entity_type_definitions / franchise` 独立体系与新 `agent / collection` 分裂；`AssetFile legacy` 与新 CAS 解耦存储分裂；`migrations/000004~000007` 文件缺失、`ApplyPatches` 空跳过，跨作品一致性实际靠 `store.go` 的 `undeclared_release_subject` 兜底（Track 引用的 Expression 所属 Work 必须在 Release subjects 中声明）。
 
 ### 1.2 前端：能存，展示断裂
 
@@ -43,12 +43,12 @@
 - `release` 补 `edition_type` 枚举字段，词表 `edition_type`：`standard` 普通版、`limited` 限定版、`first_press` 初回版、`regional` 地区版、`reissue` 再版、`digital` 数字版；并把既有的 `country / language / platform / publisher / edition_date / catalog_number / barcode / attachments / store_bonuses / events` 列为发行页必展字段。
 - `packaging` 词表扩 `jewel / slipcase / boxset`；`format` 词表扩 `uhd_bd / sacd / cassette / web`，原有 `cd / bd / dvd / vinyl / paper / digital` 保留；`role`（`primary / supplement / side`）保留，限定盘附带 BD 记 `supplement`。
 - `medium` 补 `catalog_number` 字段，多碟各自品番放载体级，发行级保留总品番与条码；`track` 保留 `duration / role`，ISRC 只放 `expression.isrc`，不下沉到 Track。
-- 新增关系全部走后台：`pressing_of`（再版 Release 指向上代）、`bonus_included_in`（特典内容归属）、`store_bonus_for`（店铺特典归属渠道）、`alternate_take_of`（同一曲目录音版本链）。合辑盒装不需要新类型：`release_subjects(role=compilation) + packaging=box + Medium.parent_id` 碟组即盒装。
+- 新增关系全部走后台，现已落地（`defaults.go`）：`pressing_of`（再版 Release 指向上代）、`bonus_included_in`（特典内容归属）、`store_bonus_for`（店铺特典归属渠道）、`alternate_take_of`（同一曲目录音版本链），以及本次新增的 `character_in`（虚构角色/团体 → work/collection）与通用兜底 `credit_for`（无贴切职位码时的署名，职位原文落 `credit_role`）。合辑盒装不需要新类型：`release_subjects(role=compilation) + packaging=box + Medium.parent_id` 碟组即盒装；缺少显式汇编模型的风险见 [架构评估结论](./architecture-assessment-2026-09.md) §2 第 1 条。
 - 退役语义沿用 `retirement.go`：停用词表项保留历史显示、禁止新用、不阻断无关编辑。
 
 ## 4. 前端展示补强
 
-- 发行页：顶部版本徽标（版式、地区、包装）加介质 Tab（按 `format` 分组，特典盘折叠），加同曲跨介质时长与编码对照；曲目表保持编号、标题（`title_override` 优先并标已覆盖）、典范链、跨作品母体链、时长五列，新增同一录音各版本题名、署名、时长并排表。
+- 发行页：顶部版本徽标（版式、地区、包装）加介质 Tab（按 `format` 分组，特典盘折叠），加同曲跨介质时长与编码对照；曲目表保持编号、标题（Track 自带 Title，可与母带标题不同；实现无 `title_override` 列）、典范链、跨作品母体链、时长五列，新增同一录音各版本题名、署名、时长并排表。
 - 作品页：发行表加版本、地区、包装、规格列，加按版式、格式、地区过滤，加每行“加入对比”；把 `CompareView` 数据源迁到新顶层字段并按 `Comparable` 标记过滤；目录组件传入真实媒体类型，修复碟、曲、话、章行头。
 - 小说、漫画、动画、影视不需要新页面结构。卷、章、节、季、集全部是 `ContentUnit` 同作品树；单行本、文库版、BD-BOX、配信版全部是 `Release`；纸质册、光盘、数字集全部是 `Medium`；页码、章节、集号、时码全部是 `locator`。
 - 探索与货架二选一闭环：要么让 `/explore` 消费 `tags / tag_match / virtual_shelves`，要么宣布废弃并删除 `/home` 生产端，不允许生产无人消费。封面按官方来源与主图标记优先，比例保持自然不拉伸。
@@ -74,7 +74,7 @@
 ### 7.2 单曲即作品：单曲发行收录进多张专辑，介质含 CD 与黑胶
 
 - 单曲本身是 `Work(type=song)`，录音是其 `Expression`（持 ISRC）。
-- 单曲 CD `Release`、专辑 A `Release` 第 3 轨、精选集 `Release` 第 7 轨，三处 `TrackContent` 引用同一个 `expression_id`，各自保留 `title_override`、`artist_credit`、`duration`（重制版时长不同不污染母带）。
+- 单曲 CD `Release`、专辑 A `Release` 第 3 轨、精选集 `Release` 第 7 轨，三处 `TrackContent` 引用同一个 `expression_id`，各自保留 Track 级标题与 `track.attributes`（如 `duration`）；重制版时长差异落在各 Track/Expression 上，不污染母带。Track 无 `title_override`/`artist_credit` 专用列，署名差异表达限制见 [架构评估结论](./architecture-assessment-2026-09.md) §2 第 6 条。
 - 黑胶翻刻 `Release`（`edition_type=reissue`，`format=vinyl`，`pressing_of` 指向上代 CD 版）复用同一录音。
 - 展示：典范篇目页“收录于以下发行”反向列出单曲、专辑、精选、黑胶四处，含碟轨号与版本自定义标题对照；Bushiroad Music 式艺人页按发行日期列出同一录音的全部版本流。
 

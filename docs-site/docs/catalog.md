@@ -19,6 +19,8 @@ MetaFusion 采用基于实体责任骨架与动态目录定义的纯净架构。
 
 Track 的 `contents` 是实际收录的唯一来源：`expression_id`、`position`、`locator`。允许跨作品引用，但被收录表达的 Work 必须明确列入发行的 `subjects`。不要重复创建同一个录音。专辑的概念编排使用有序 `includes` 关系；实际版次顺序以载体和 TrackContent 为准。
 
+关系类型全部由服务端 definitions 驱动，运行时清单以 `GET /api/catalog/definitions` 为准（种子见 `backend/internal/catalog/defaults.go`）。署名类关系（work/content_unit/expression/release → agent）含 `created_by / performed_by / composed_by / lyricist_of / arranged_by / directed_by / written_by / illustrated_by / narrated_by / voiced_by / photographed_by / modeled_by / developed_by`；角色登场为 `character_in`（agent → work/collection，番位落 `role`，原始文本落 `credit_role`）；当来源职位没有贴切关系码时用通用兜底 `credit_for`（work/content_unit/expression/release → agent，职位原文落 `credit_role`），已有精确关系码时不再重复建边。关系通用可选字段为 `role`、`credit_role`、`context`、`character`、`language`、`begin_date`、`end_date`、`scope`。
+
 ## 七个编目例子
 
 1. **写真**：创建摄影师 Agent、写真 Work，添加 `photobook` 和 `personal` 类型；以作者自述为来源。没有文件、出版社或发行记录也能发布条目。
@@ -74,6 +76,8 @@ Track 的 `contents` 是实际收录的唯一来源：`expression_id`、`positio
 
 编辑者可管理自己未发布的条目并提交 `pending_review`；管理员审核后设为 `published`。公开实体不能引用未公开的核心实体。合并需要管理员、同固定种类、相容所属关系和已发布目标；引用迁移与受影响修订在同一事务提交。冲突的收录或关系必须先处理。停用保留墓碑，外围数据不级联删除。
 
+收藏是核心能力（表 `catalog.favorites`，迁移 `000003_catalog_favorites`）：`POST /api/favorites/toggle` 切换（需登录，返回 `favorited`）、`GET /api/favorites/status?target_type=&target_ids=a,b` 批量查询（匿名返回空集）、`GET /api/favorites/mine` 当前用户收藏、`GET /api/users/:id/favorites` 指定用户收藏（后两者支持 `target_type`、`page`、`page_size`）。`target_type` 沿用前端词表 `work/release/artist/franchise/canonical_entry`，服务端映射到新 kind（artist→agent、franchise→collection、canonical_entry→expression/content_unit），并复用实体可见性规则。
+
 来源支持 `url`（必须 HTTP(S) URL）、`publication` 和 `self`，都需要具体 `citation`。每次写入均要求 `edit_note` 和非空 `sources`，不再使用 v1 的 `source_urls` 字段。
 
 ## 可选模块
@@ -89,7 +93,7 @@ Track 的 `contents` 是实际收录的唯一来源：`expression_id`、`positio
 | records | `/records/entities/{id}` | 私有收藏、评分、进度和持有记录 |
 | exchange | `/exchange/entities/{id}`、`/exchange/proposals` | JSON 导出及通过核心校验提交的编辑提案 |
 
-新服务商导入器、AI、通知与 OpenSearch 适配器仍需实现模块；不能仅添加目录类型就获得新的执行能力。已有 v1 插件不会自动成为 v2 模块。SDK 在 `backend/internal/moduleapi`，依赖治理在 `moduledeps`，不引用旧 ORM。
+Bangumi 导入器（`POST /api/importer/preview`、`POST /api/importer/import`）是核心路由，不是受 `capabilities` 开关控制的模块；其抓取条目、发行链、演职员/角色/声优关系的能力与不导入项见 [新建与编辑](/api-edit) 的「外部导入器能力」。其余新服务商导入器、AI、通知与 OpenSearch 适配器仍需实现模块；不能仅添加目录类型就获得新的执行能力。已有 v1 插件不会自动成为 v2 模块。SDK 在 `backend/internal/moduleapi`，依赖治理在 `moduledeps`，不引用旧 ORM。
 
 ## 运行与验证
 

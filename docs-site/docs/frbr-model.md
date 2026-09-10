@@ -50,9 +50,9 @@ MetaFusion 彻底废弃传统树状分类与硬编码 `media_type` 枚举，采�
 同时，通过 **LRM-E5 Artist（责任主体）** 与 **Franchise（世界观/企划枢纽）** 构建横跨全生命周期的创作者与制作机构协作关系图谱：
 
 ```
-[ Franchise (世界观/企划枢纽) ] ─── part_of_franchise ───┐
-                                                       ▼
-[ Artist (责任主体: 创作者/机构) ] ─── creator_of ───► [ Work (逻辑作品概念层: 纯净题名) ]
+[ Collection (世界观/企划枢纽) ] ─── includes ───┐
+                                                ▼
+[ Agent (责任主体: 创作者/机构) ] ─── credit_for / 精确职位码 ───► [ Work (逻辑作品概念层: 纯净题名) ]
                                                        │
                                                 1:N    │ 抽象创作演化为具体表现
                                                        ▼
@@ -139,10 +139,11 @@ classDiagram
   - `lyricist`（作词者）：创作歌词的主体（如：方文山、林夕）；
   - `author`（原著作者）：文学创作者（如：刘慈欣、尾田荣一郎）；
   - `scriptwriter`（剧本原案）：剧作创作者。
-- **CanonicalEntry (Expression) 级表现制作关系**：
-  - 音乐：`performer`（演唱/演奏）、`arranger`（编曲）、`producer`（录音制作人）、`phonographic_copyright`（录音制品版权方 ℗）；
-  - 影视/动画：`director`（剪辑/分集导演）、`sound_director`（音响监督）、`voice_actor`（配音演员）；
-  - 文学/漫画：`translator`（特定译本译者）、`editor`（分卷责任编辑）。
+- **Expression 级表现制作关系**（当前实际关系码）：
+  - 音乐：`performed_by`（演唱/演奏）、`arranged_by`（编曲）、`composed_by`（作曲）、`lyricist_of`（作词）；
+  - 影视/动画：`directed_by`（导演/监督）、`written_by`（编剧）、`voiced_by`（配音演员，`character` 引用角色实体）；
+  - 文学/漫画：`illustrated_by`（插画者）、`narrated_by`（朗读/旁白）；
+  - 无贴切职位码的署名（录音制作人、音响监督等）用 `credit_for` 承载，职位原文落 `credit_role`。
 
 ### 3.2 表现篇目复用与「Appears on Releases」跨发行反查原理
 
@@ -185,7 +186,7 @@ classDiagram
   1. 《千与千寻》作品页挂载 `VWBS-1530` 单碟蓝光；
   2. 独立创建汇编作品《宮崎駿監督作品集》，其下挂载 `VWBS-1531` 发行版；
   3. 创建 13 个 Medium，Medium 8 的 Track 关联《千与千寻》电影母版；
-  4. 建立图谱边 `千与千寻 included_in 宮崎駿監督作品集`。
+  4. 建立图谱边 `宮崎駿監督作品集 includes 千与千寻`（当前无 `included_in` 关系码）。
 
 ---
 
@@ -193,15 +194,20 @@ classDiagram
 
 ### 5.1 实体连接矩阵与拓扑约束 (Graph Connectivity Matrix)
 
-| 源实体类型 (Source) | 目标实体类型 (Target) | 允许的关系类型 (`relationship_type`) | 语义约束与拓扑检测规则 |
+> **关系码修正**：下表为当前 definitions 种子的实际关系码（见 `backend/internal/catalog/defaults.go`，运行时清单以 `GET /api/catalog/definitions` 为准）。旧版本页引用的 `part_of_franchise / creator_of / included_in / crossover_with / prequel_of / spin_off_of / expansion_of / remake_of / member_of / voice_actor_of / imprint_of / real_counterpart_of / alternate_form_of / phonographic_copyright` **均不存在**，请勿据此写入。
+
+| 源实体 kind (Source) | 目标实体 kind (Target) | 实际关系码 (`type`) | 语义与拓扑约束 |
 |---|---|---|---|
-| **Franchise** | **Franchise** | `part_of_franchise` | 企划嵌套（如 `FGO` 属于 `Fate 系列`） |
-| **Work** | **Franchise** | `part_of_franchise` | 作品归属于企划 |
-| **Work** | **Work** | `adaptation_of` (改编自)<br>`soundtrack_of` (原声带)<br>`sequel_of` (续作)<br>`prequel_of` (前作)<br>`spin_off_of` (衍生作品)<br>`included_in` (收录于合集)<br>`expansion_of` (DLC/资料片)<br>`remake_of` (重制自)<br>`crossover_with` (跨界联动) | **严格保持有向无环 (DAG)**。<br>- 禁止自环（`source_id != target_id`）<br>- 禁止 `sequel_of` 与 `prequel_of` 双向闭环<br>- `crossover_with` 为对称边（无需循环检测） |
-| **Artist** | **Franchise** | `creator_of`, `imprint_of` | 企划创立者、旗下品牌/厂牌 |
-| **Artist** | **Work** | 演职职能 (`director`, `author`, `composer`, `lyricist`, `illustrator`, etc.) + `character_in` | 艺术创作关系与角色出场 |
-| **Artist** | **CanonicalEntry** | 表现制作与演职职能 (`performer`, `arranger`, `producer`, `director`, `voice_actor`, `translator`, `phonographic_copyright`) | 篇目/母版表现层制作关系 |
-| **Artist** | **Artist** | `voice_actor_of` (声优配音)<br>`member_of` (乐队/团体成员)<br>`real_counterpart_of` (现实对照乐队)<br>`alternate_form_of` (角色形态变体)<br>`imprint_of` (子厂牌) | 多边使用 `qualifier` 区分语种与版本 |
+| **collection / work** | **work / collection** | `includes`（组成包含 / 组成属于） | 企划聚合与嵌套（如系列包含子作品、FGO 属于 Fate 系列），有向无环 |
+| **work** | **work** | `adaptation_of`、`sequel_of`、`soundtrack_of` | 改编、续作、原声带；严格有向无环，禁止自环 |
+| **expression** | **expression** | `translation_of`、`revision_of`、`cover_of`、`alternate_take_of` | 表达层派生关系（译本、修订、翻唱、别版），有向无环 |
+| **release** | **release** | `pressing_of`（再版自） | 版次链，有向无环 |
+| **work / content_unit / expression / release** | **agent** | `created_by`、`performed_by`、`photographed_by`、`modeled_by`、`developed_by`、`voiced_by`、`composed_by`、`lyricist_of`、`arranged_by`、`directed_by`、`written_by`、`illustrated_by`、`narrated_by`；通用兜底 `credit_for` | 演职署名；`credit_for` 用于无贴切职位码的来源，职位原文落 `credit_role`；同一声优多角色用多条 `voiced_by` 并以 `character` 引用角色实体 |
+| **agent** | **work / collection** | `character_in`（角色登场 / 登场角色） | 虚构角色、团体登场；方向与署名关系相反；同一角色跨作品多条边，番位落 `role`，原始文本落 `credit_role` |
+| **expression** | **release / medium** | `bonus_included_in`（特典收录于） | 特典内容归属，有向无环 |
+| **expression / release** | **agent** | `store_bonus_for`（渠道特典归属） | 店铺特典归属渠道/主体，有向无环 |
+
+成员/团体、现实对照、角色形态变体等旧概念当前没有专用关系码；如需新增，应经 DefinitionsEditor 草稿→影响→发布添加，不改代码。
 
 ---
 
@@ -219,17 +225,17 @@ MetaFusion 坚决反对在主表强加 `media_type` 枚举。作品形态由四�
 3. **Release 载体规格**：
    - Medium `format`: `Paperback`, `Hardcover`, `CD`, `Vinyl`, `Blu-ray`, `UHD-BD`, `Digital Book`, `Digital Album`；
 4. **实体图谱边 (`entity_relationships`)**：
-   - 通过 `adaptation_of`、`soundtrack_of`、`spin_off_of` 自然表达媒介演变。
+   - 通过 `adaptation_of`、`sequel_of`、`soundtrack_of` 自然表达媒介演变（无 `spin_off_of`，衍生关系经后台 definitions 扩展）。
 
 ---
 
 ## 7. 典型编目案例实战
 
-- **明日方舟**：企划 = Franchise；游戏本体 = Work；国服/日服/国际服 = 同一 Work 下多条 Release（`country` + `catalog_metadata.server`）；终末地 = 另一 Game Work；官方漫画各为 Comic Work；塞壬唱片 = Agent `label` + `imprint_of`；OST = Music Work，通过 `soundtrack_of` 连接游戏。
-- **BanG Dream!**：企划 = Franchise；游戏与各季动画各为 Work；2D 乐队 = `fictional_band`，现场声优乐队 = `group` + `real_counterpart_of`；角色与 CV 必须是三条实体 + 两条边：`person --voice_actor_of--> virtual_character --character_in--> work/franchise`，`qualifier` 区分语种。
-- **Fate / FGO**：Fate 为父 Franchise，FGO 为子 Franchise；FSN 三条路线 = CanonicalEntry，不拆三部 Work；Saber / Saber Alter = 两个角色 + `alternate_form_of`；分服仍是 Release。
-- **魔禁 / 超电磁炮**：学园都市 = 父 Franchise；旧约 22 卷 = **一部** Novel Work + 22 条 Release；新约卷号重置 = 新 Work + `sequel_of`；超炮已跨媒介 → 子 Franchise；美琴跨作品登场 = 同一角色多条 `character_in`。
-- **个人创作者**：久石让 / wowaka 的枢纽是 Agent 页，不建「某某宇宙」Franchise。单曲 `included_in` 专辑；Vocaloid 曲指向虚拟歌手而非声库公司。
+- **明日方舟**：企划 = collection；游戏本体 = Work；国服/日服/国际服 = 同一 Work 下多条 Release（`country` + `attributes.catalog_metadata.server`）；终末地 = 另一 Game Work；官方漫画各为 Comic Work；塞壬唱片 = agent `organization`（厂牌归属当前无专用关系码，需后台 definitions 扩展）；OST = Music Work，通过 `soundtrack_of` 连接游戏。
+- **BanG Dream!**：企划 = collection（经 `includes` 聚合作品）；游戏与各季动画各为 Work；2D 乐队 = 角色/团体 agent，现场声优乐队 = `group` agent；角色与 CV 为多条边：`voiced_by`（work → agent，`character` 引用角色实体）与 `character_in`（agent → work），语言用 `language` / `context` 区分。
+- **Fate / FGO**：Fate 为父 collection，FGO 为子 collection（`includes`）；FSN 三条路线 = 同一 Work 下的 ContentUnit / Expression，不拆三部 Work；Saber / Saber Alter = 两个 agent（角色形态变体当前无专用关系码）；分服仍是 Release。
+- **魔禁 / 超电磁炮**：学园都市 = 父 collection；旧约 22 卷 = **一部** Novel Work + 22 条 Release；新约卷号重置 = 新 Work + `sequel_of`；超炮已跨媒介 → 子 collection；美琴跨作品登场 = 同一角色多条 `character_in`。
+- **个人创作者**：久石让 / wowaka 的枢纽是 agent 页，不建「某某宇宙」collection。单曲经 `includes` 归入专辑/精选集；Vocaloid 曲指向虚拟歌手 agent 而非声库公司。
 
 ---
 

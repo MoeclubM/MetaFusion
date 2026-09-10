@@ -14,6 +14,9 @@ group: "api"
 - `CanonicalEntry` / `canonical_entry_id`（现为 `ContentUnit` + `Expression`，Track 通过 `contents[].expression_id` 关联）
 - `Artist`（现为 `Agent` kind）、`Franchise` 实体（由 `collection` kind + 关系表达）
 - `mfp_` PAT 与 `catalog:write` scope（无 PAT 体系）
+- 关系码 `prequel_of` / `spin_off_of` / `part_of_franchise` / `included_in` / `composer` / `lyricist` / `author` / `performer` / `arranger` / `producer` / `phonographic_copyright` 等：**均不存在于 definitions 种子**。实际关系码与端点见 [元数据目录教程](./catalog.md) 或 `backend/internal/catalog/defaults.go`，运行时以 `GET /api/catalog/definitions` 为准。
+
+**导入器当前能力**（`POST /api/importer/preview` + `/import`，见 `backend/internal/catalog/importer.go`）：支持 Bangumi subject / person / character；抓取条目（Work）、发行链（Release → Medium → Track）、封面与头像，并会拉取 `/v0/subjects/{id}/persons` 与 `/v0/subjects/{id}/characters`，建 agent 实体与关系——语义明确的职位映射到精确关系码，否则落到通用署名 `credit_for` 并把职位原文写入 `credit_role`；角色本体的番位落 `role`、原文落 `credit_role`，声优建 `voiced_by` 并以 `character` 引用角色实体。**仍不导入**：infobox 派生字段、`/ep` 剧集树（ContentUnit 分集目录）、work↔work 关系网、发行版 `edition_type` 与 `publisher` 实体引用（预览仅有自由文本名称，不虚构）。
 
 编写正确的写入请求体请参照 [新建与编辑](/api-edit) 与 `backend/internal/catalog/types.go` 的 `Edit` DTO；编目规范请阅读 [元数据目录教程](./catalog.md)。
 :::
@@ -103,8 +106,8 @@ flowchart TD
 - 标注 `original_language`，并在 `translations` 中提供 `zh-CN`, `zh-TW`, `en-US`, `ja` 等多语言本地化题名与简介。
 
 #### 第 3 步：内容/表达分级与发行版树状建模 (Layer Hierarchy)
-- **Work 级创作关系**：绑定 `composer`（作曲）、`lyricist`（作词）、`author`（原著作者）、`scriptwriter`（剧本编剧）；
-- **ContentUnit / Expression 级内容与制作关系**：`ContentUnit` 承载篇目/目录结构，`Expression` 绑定 `performer`（演唱/演奏）、`arranger`（编曲）、`producer`（制作人）、`director`（导演/监督）、`phonographic_copyright`（℗ 录音版权）；
+- **Work 级创作关系**：绑定 `composed_by`（作曲）、`lyricist_of`（作词）、`created_by`（创作者）、`written_by`（编剧）；
+- **ContentUnit / Expression 级内容与制作关系**：`ContentUnit` 承载篇目/目录结构，`Expression` 可绑定 `performed_by`（演唱/演奏）、`arranged_by`（编曲）、`directed_by`（导演/监督）、`voiced_by`（配音，`character` 引用角色）；无精确职位码时用 `credit_for` + `credit_role` 保真；
 - **Release 级发行规格**：严格遵循命名规范（如书名卷号、ISBN-13、唱片编号）。
 
 #### 第 4 步：多作品合集与盒装展开 (Boxset Mapping)
@@ -114,9 +117,9 @@ flowchart TD
 - 提取或复用已有的 `Expression` UUID，使不同 Release 的 Track 通过 `contents[].expression_id` 指向同一表达/录音/章节，实现「Appears on Releases」全局反查。
 
 #### 第 6 步：DAG 拓扑织网与关系限定 (Graph Topology)
-- 将实体接入世界观企划（由 `collection` kind 与关系边表达，当前无独立 `Franchise` 实体）；
-- 建立 `adaptation_of`、`soundtrack_of`、`sequel_of`、`prequel_of`、`spin_off_of`、`character_in` 等语义边；
-- 运行 DFS 环路检测，严禁产生闭环；同一角色跨作品用多条 `character_in` 边。
+- 将实体接入世界观企划（由 `collection` kind 与 `includes` 关系边表达，当前无独立 `Franchise` 实体）；
+- 建立 `adaptation_of`、`sequel_of`、`soundtrack_of`、`character_in`、`credit_for` 等语义边（`prequel_of` / `spin_off_of` / `part_of_franchise` / `included_in` 不存在）；
+- 服务端对声明 `acyclic` 的关系执行环路检测，严禁产生闭环；同一角色跨作品用多条 `character_in` 边。
 
 #### 第 7 步：审计留痕与提交 (Audit & Submission)
 - 校验封面宽高比（1:1 / 2:3 / 3:4）与分辨率；
@@ -158,8 +161,8 @@ flowchart TD
    - 建立汇编 Work：《宮崎駿監督作品集》（Compilation Work）；
    - 在该汇编 Work 下创建 Release：《宮崎駿監督作品集（13BD 豪华限定盒装，VWBS-1531，Walt Disney Studios Japan）》；
    - 建立 13 个 Medium（Disc 1 ~ Disc 13，介质为 `Blu-ray`）；
-   - 每个 Medium 上的 Track 通过 `work_id` 精准链接回对应的单部 Work（如 Disc 8 Track 1 链接《千与千寻》）；
-3. **图谱收录关系**：建立图谱边 `Work(千与千寻) --included_in--> Work(宮崎駿監督作品集)`。
+   - 每个 Medium 上的 Track 通过 `contents[].expression_id` 关联对应母作品的下属 Expression（如 Disc 8 Track 1 链接《千与千寻》）；
+3. **图谱收录关系**：建立图谱边 `Work(宮崎駿監督作品集) --includes--> Work(千与千寻)`（当前无 `included_in` 关系码）。
 
 ---
 
@@ -170,7 +173,7 @@ flowchart TD
 | 属性维度 | Work 概念层 (抽象创作) | CanonicalEntry / Expression 层 (表现演职与版权) |
 |---|---|---|
 | **核心含义** | 抽象的词曲旋律、文学故事或剧作思想创作 | 具体的声音母带、正片剪辑、章节正文或单话篇章 |
-| **关联职能** | `composer`（作曲）、`lyricist`（作词）、`author`（原作者）、`scriptwriter`（编剧） | `performer`（演唱/演奏者）、`arranger`（编曲）、`producer`（制作人）、`director`（导演）、`voice_actor`（声优） |
+| **关联职能** | `composed_by`（作曲）、`lyricist_of`（作词）、`created_by`（创作者）、`written_by`（编剧） | `performed_by`（演唱/演奏者）、`arranged_by`（编曲）、`directed_by`（导演）、`voiced_by`（声优）；其余用 `credit_for` + `credit_role` |
 | **版权标识** | © 原著/词曲著作权 (Copyright) | ℗ 录音制品版权 (Phonographic Copyright) / 影视制版权 |
 | **唯一性** | 一部作品只有一个抽象 Work | 一部作品可以有多个 CanonicalEntry（原版母带、重制版、加长剪辑版、各分集） |
 

@@ -22,8 +22,8 @@ Work（创作母体）
 - `CanonicalEntry` 保存可被引用的内容表达：歌曲母版、动画分集、电影剪辑、漫画章节或书籍正文片段。`position`、`number`、`entry_role` 与 `parent_id` 表达作品目录，不表达包装。
 - `Release` 保存带有发行日期、厂牌、ISBN/JAN/目录编号、包装和封面的具体版本。没有可靠发行证据时，作品可以只有 `Work + CanonicalEntry`，不创建占位发行版。
 - `Medium` 是发行版内真实存在的容器。多碟盒装、实体卷册、蓝光附盘和数字文件集都在这里表达；`role=primary|supplement` 区分主载体和附加载体。
-- `Track` 是载体中的位置，不再被当作作品目录。一个 Track 可以通过 `TrackContent` 收录多个内容表达，并在 `locator` 中保存页码、章节或时间段；单内容旧数据继续由 `canonical_entry_id` 兼容读取。
-- 所有层级的父节点都受数据库外键、同容器约束和循环检查保护，不能跨作品、跨发行版或跨介质挂接；Track 及 TrackContent 还由数据库触发器校验必须属于 Release 所属的 Work。
+- `Track` 是载体中的位置，不再被当作作品目录。一个 Track 可以通过 `TrackContent` 收录多个内容表达，并在 `locator` 中保存页码、章节或时间段。当前 `catalog.tracks` 表已无 `canonical_entry_id` 列，收录关系只在 `catalog.track_contents`。
+- 所有层级的父节点都受数据库外键、同容器约束和延迟触发器无环检查保护，不能跨作品、跨发行版或跨介质挂接；Track 及 TrackContent 与 Release 的跨 Work 一致性由应用层 `store.go` 的 `undeclared_release_subject` 校验（非数据库触发器），其范围与风险见 [架构评估结论](./architecture-assessment-2026-09.md) §2 第 2 条。
 
 ## 三类来源的推荐落库
 
@@ -57,4 +57,4 @@ Work（创作母体）
 
 ## 迁移与兼容
 
-`000004_content_hierarchy` 增加作品目录字段、同作品父子外键和循环触发器；`000005_carrier_hierarchy` 增加发行/介质/轨道字段、`track_contents` 表及同容器父子外键；`000006_carrier_content_integrity` 移除旧 `entry_number` 唯一约束，并为 Track/TrackContent 增加跨 Work 保护。旧的单一 `tracks.canonical_entry_id` 保留用于兼容存量数据，新代码读取时同时合并旧关联和 `TrackContent` 关联。
+**迁移现状（以仓库实际文件为准）**：`backend/migrations/` 当前只有 `000001_catalog_core`、`000002_catalog_shelves`、`000003_catalog_favorites` 三个迁移；本文旧版引用的 `000004_content_hierarchy`、`000005_carrier_hierarchy`、`000006_carrier_content_integrity` 文件**不存在**，内容已收归 `backend/internal/catalog/schema.sql`（`Initialize` 幂等建表）与 `store.go` 应用层校验。因此：作品目录父子外键与延迟触发器无环检查、`track_contents` 表、发行/介质/轨道侧表都定义在 `schema.sql`；Track/TrackContent 的跨 Work 一致性是应用层 `undeclared_release_subject` 校验，不是数据库触发器。不存在 `tracks.canonical_entry_id` 兼容列。
