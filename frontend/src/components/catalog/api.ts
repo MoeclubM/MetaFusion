@@ -78,6 +78,7 @@ export type Definitions = {
       modules: string[];
       primary_date_field?: string;
       badge_fields?: string[];
+      facet_fields?: string[];
     }
   >;
 };

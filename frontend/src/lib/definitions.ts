@@ -41,6 +41,8 @@ export interface TemplateDef {
   primary_date_field?: string;
   /** 详情页标题旁以徽章突出的字段码（如载体格式、平台）；顺序即展示顺序。 */
   badge_fields?: string[];
+  /** 列表页可用于筛选的字段码（通常是枚举字段）；顺序即展示顺序。 */
+  facet_fields?: string[];
 }
 
 export interface VocabularyDef {
