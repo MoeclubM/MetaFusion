@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds, local, Source } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage } from "./Fields";
+import { getFieldName, getTermName } from "@/lib/definitions";
 export function EntityEditor({
   initial,
   onSaved,
@@ -15,6 +16,15 @@ export function EntityEditor({
   const { t, locale } = useI18n();
   const { definition, user } = useCatalog();
   const router = useRouter();
+  // definitions：定位字段等由它声明，避免编辑器写死字段码。
+  const defs = definition?.document;
+  // 定位子字段顺序即 definitions 中的声明顺序（relative_to 是锚点，放最前）。
+  const locatorFieldKeys = React.useMemo(() => {
+    const f: any = defs?.fields?.["locator"];
+    const keys = Object.keys(f?.fields || {});
+    const anchor = f?.anchor_key;
+    return anchor && keys.includes(anchor) ? [anchor, ...keys.filter((k) => k !== anchor)] : keys;
+  }, [defs]);
   const [e, setE] = useState<Entity>(() => ({
     ...emptyEntity(initial?.kind),
     ...initial,
@@ -415,68 +425,58 @@ export function EntityEditor({
                       }
                     />
                   </label>
-                  <label>
-                    {t("catalog.relativeTo")}
-                    <select
-                      value={c.locator.relative_to || ""}
-                      onChange={(x) =>
-                        patch({
-                          contents: e.contents.map((v, j) =>
-                            i === j
-                              ? {
-                                  ...v,
-                                  locator: {
-                                    ...v.locator,
-                                    relative_to: x.target.value,
-                                  },
-                                }
-                              : v,
-                          ),
-                        })
-                      }
-                    >
-                      <option value="">{t("catalog.none")}</option>
-                      {["track", "medium"].map((k) => (
-                        <option key={k} value={k}>
-                          {t(`catalog.kind.${k}`)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  {[
-                    "page_start",
-                    "page_end",
-                    "time_start_ms",
-                    "time_end_ms",
-                    "path",
-                    "chapter",
-                  ].map((k) => (
-                    <label key={k}>
-                      {t(`catalog.locator.${k}`)}
-                      <input
-                        value={c.locator[k] ?? ""}
-                        type={
-                          k.includes("page") || k.includes("time")
-                            ? "number"
-                            : "text"
-                        }
-                        onChange={(x) => {
-                          const locator = { ...c.locator };
-                          if (x.target.value === "") delete locator[k];
-                          else
-                            locator[k] =
-                              x.target.type === "number"
-                                ? Number(x.target.value)
-                                : x.target.value;
-                          patch({
-                            contents: e.contents.map((v, j) =>
-                              i === j ? { ...v, locator } : v,
-                            ),
-                          });
-                        }}
-                      />
-                    </label>
-                  ))}
+                  {/* 定位方案与参照选项由 definitions 的 locator 组字段声明，后台可扩展 */}
+                  {locatorFieldKeys.map((k) => {
+                    const def: any = defs?.fields?.locator?.fields?.[k];
+                    if (!def) return null;
+                    const isEnum = def.type === "enum";
+                    return (
+                      <label key={k}>
+                        {getFieldName(defs as any, k, locale) || k}
+                        {isEnum ? (
+                          <select
+                            value={c.locator[k] || ""}
+                            onChange={(x) => {
+                              const locator = { ...c.locator };
+                              if (x.target.value === "") delete locator[k];
+                              else locator[k] = x.target.value;
+                              patch({
+                                contents: e.contents.map((v, j) =>
+                                  i === j ? { ...v, locator } : v,
+                                ),
+                              });
+                            }}
+                          >
+                            <option value="">{t("catalog.none")}</option>
+                            {Object.keys(defs?.vocabularies?.[def.vocabulary]?.terms || {}).map((term) => (
+                              <option key={term} value={term}>
+                                {getTermName(defs as any, def.vocabulary, term, locale)}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            value={c.locator[k] ?? ""}
+                            type={def.type === "number" ? "number" : "text"}
+                            onChange={(x) => {
+                              const locator = { ...c.locator };
+                              if (x.target.value === "") delete locator[k];
+                              else
+                                locator[k] =
+                                  def.type === "number"
+                                    ? Number(x.target.value)
+                                    : x.target.value;
+                              patch({
+                                contents: e.contents.map((v, j) =>
+                                  i === j ? { ...v, locator } : v,
+                                ),
+                              });
+                            }}
+                          />
+                        )}
+                      </label>
+                    );
+                  })}
                 </div>
                 <button
                   type="button"
