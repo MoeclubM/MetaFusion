@@ -1641,6 +1641,7 @@ export interface StaffAssociation {
   character_name?: string;
   country?: string;
   biography?: string;
+  language?: string;
   avatar_url?: string;
   external_ids?: Record<string, any>;
   translations?: ImporterTranslationItem[];

@@ -18,6 +18,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/text/language"
@@ -100,6 +101,7 @@ type ImporterStaffAssociation struct {
 	CharacterName  string                    `json:"character_name,omitempty"`
 	Country        string                    `json:"country,omitempty"`
 	Biography      string                    `json:"biography,omitempty"`
+	Language       string                    `json:"language,omitempty"`
 	AvatarURL      string                    `json:"avatar_url,omitempty"`
 	ExternalIDs    map[string]any            `json:"external_ids,omitempty"`
 	Translations   []ImporterTranslationItem `json:"translations,omitempty"`
@@ -595,6 +597,70 @@ func bangumiCharacterRankRole(relation string) string {
 	return ""
 }
 
+// bangumiOrgSelfDescription 匹配"条目自述为公司/企业"的高精度模式。
+// 经 116 条真实数据校准：零误判（不会把"某某所属"的声优误判为公司），
+// 用于纠正 Bangumi 把企业 person 条目标成 type=1（个人）的情况。
+var bangumiOrgSelfDescription = regexp.MustCompile(
+	`^(株式会社|有限会社|合同会社)\S{1,40}(は|が)[、,。]` + // 日：株式会社Xは、…企業。
+		`|を主な事業内容とする` + // 日：…を主な事業内容とする
+		`|(企業|会社|法人)である` + // 日：…企業である
+		`|(是一家|是日本一家|一家).{0,30}(公司|企业)` + // 中：…(是)一家…公司
+		`|专门从事.{0,20}(公司|企业)`)
+
+// bangumiPersonAgentType 判定 person 条目的 agent 类型。
+// 上游 type 为权威：2=公司、3=组合；type=1（个人）时再用自述文本纠正
+// （Bangumi 有把企业标成个人的数据，如 ブシロード）。
+func bangumiPersonAgentType(typeID int, summary string) string {
+	switch typeID {
+	case 2:
+		return "organization"
+	case 3:
+		return "group"
+	}
+	if bangumiOrgSelfDescription.MatchString(summary) {
+		return "organization"
+	}
+	return "person"
+}
+
+// detectEntityLanguage 从名称与简介推断原语言。假名是日文的可靠信号，
+// 标题无信号时看简介（来源原文，同为证据）；都无信号则留空不猜。
+func detectEntityLanguage(name, summary string) string {
+	if l := detectJapaneseScript(name); l != "" {
+		return l
+	}
+	return detectJapaneseScript(summary)
+}
+
+// fetchBangumiPersonDetails 并发拉取 person 详情（含简介），带并发上限与失败降级。
+// 列表端点不返回简介，只有详情端点有；失败/超时的条目在返回 map 中缺失，调用方降级。
+func fetchBangumiPersonDetails(ctx context.Context, ids []int) map[int]bangumiPerson {
+	out := map[int]bangumiPerson{}
+	if len(ids) == 0 {
+		return out
+	}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 8) // 并发上限：避免打爆上游与拖长导入
+	for _, id := range ids {
+		wg.Add(1)
+		go func(pid int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			var p bangumiPerson
+			if err := fetchBangumi(ctx, "/v0/persons/"+strconv.Itoa(pid), &p); err != nil {
+				return // 降级：调用方用列表里的简化数据
+			}
+			mu.Lock()
+			out[pid] = p
+			mu.Unlock()
+		}(id)
+	}
+	wg.Wait()
+	return out
+}
+
 // previewBangumiSubjectRelations 拉取条目的关联演职人员与角色，组装为可导入的
 // agent 预览（两层以内关联实体）。任一端点失败只返回已取到的部分——关联数据
 // 是增强项，不应让主条目导入失败。
@@ -602,7 +668,32 @@ func previewBangumiSubjectRelations(ctx context.Context, subjectID int) []Import
 	out := []ImporterArtistPreview{}
 
 	var persons []bangumiSubjectPerson
-	if err := fetchBangumi(ctx, "/v0/subjects/"+strconv.Itoa(subjectID)+"/persons", &persons); err == nil {
+	var chars []bangumiSubjectCharacter
+	pErr := fetchBangumi(ctx, "/v0/subjects/"+strconv.Itoa(subjectID)+"/persons", &persons)
+	cErr := fetchBangumi(ctx, "/v0/subjects/"+strconv.Itoa(subjectID)+"/characters", &chars)
+
+	// 列表端点不含简介，而简介既是展示内容、也是"企业被误标为个人"的纠正依据、
+	// 还是推断原语言的证据；因此并发拉取一次详情（失败则降级用列表数据）。
+	personIDs := map[int]bool{}
+	if pErr == nil {
+		for _, p := range persons {
+			personIDs[p.ID] = true
+		}
+	}
+	if cErr == nil {
+		for _, c := range chars {
+			for _, a := range c.Actors {
+				personIDs[a.ID] = true
+			}
+		}
+	}
+	ids := make([]int, 0, len(personIDs))
+	for id := range personIDs {
+		ids = append(ids, id)
+	}
+	details := fetchBangumiPersonDetails(ctx, ids)
+
+	if pErr == nil {
 		for _, p := range persons {
 			name := strings.TrimSpace(p.Name)
 			if name == "" {
@@ -615,11 +706,20 @@ func previewBangumiSubjectRelations(ctx context.Context, subjectID int) []Import
 			if rel == "" && role != "" {
 				rel = "credit_for"
 			}
+			// 详情里的 type/summary 更权威：摘要能纠正被误标成个人的企业。
+			agentType := bangumiPersonTypeAgent(p.Type)
+			biography := ""
+			if d, ok := details[p.ID]; ok {
+				agentType = bangumiPersonAgentType(d.Type.ID, d.Summary)
+				biography = strings.TrimSpace(d.Summary)
+			}
 			out = append(out, ImporterArtistPreview{
 				Name:         name,
 				OriginalName: name,
 				Role:         role,
-				EntityType:   bangumiPersonTypeAgent(p.Type),
+				EntityType:   agentType,
+				Biography:    biography,
+				Language:     detectEntityLanguage(name, biography),
 				AvatarURL:    bangumiAvatarURL(p.Images),
 				ExternalIDs:  map[string]any{"bangumi_person": p.ID, "metafusion_import": "bangumi:person:" + strconv.Itoa(p.ID)},
 				// 职位文本保真：语义明确时给关系码，否则由 credit_role 承载原文。
@@ -628,8 +728,7 @@ func previewBangumiSubjectRelations(ctx context.Context, subjectID int) []Import
 		}
 	}
 
-	var chars []bangumiSubjectCharacter
-	if err := fetchBangumi(ctx, "/v0/subjects/"+strconv.Itoa(subjectID)+"/characters", &chars); err == nil {
+	if cErr == nil {
 		for _, c := range chars {
 			name := strings.TrimSpace(c.Name)
 			if name == "" {
@@ -644,6 +743,7 @@ func previewBangumiSubjectRelations(ctx context.Context, subjectID int) []Import
 				Role:         rank,
 				EntityType:   bangumiCharacterAgentType(nil, c.Summary),
 				Biography:    strings.TrimSpace(c.Summary),
+				Language:     detectEntityLanguage(name, c.Summary),
 				AvatarURL:    bangumiAvatarURL(c.Images),
 				ExternalIDs:  map[string]any{"bangumi_character": c.ID, "metafusion_import": "bangumi:character:" + strconv.Itoa(c.ID)},
 				RelationType: "character_in",
@@ -655,11 +755,19 @@ func previewBangumiSubjectRelations(ctx context.Context, subjectID int) []Import
 				if an == "" {
 					continue
 				}
+				agentType := bangumiPersonTypeAgent(a.Type)
+				biography := ""
+				if d, ok := details[a.ID]; ok {
+					agentType = bangumiPersonAgentType(d.Type.ID, d.Summary)
+					biography = strings.TrimSpace(d.Summary)
+				}
 				out = append(out, ImporterArtistPreview{
 					Name:          an,
 					OriginalName:  an,
 					Role:          "配音",
-					EntityType:    bangumiPersonTypeAgent(a.Type),
+					EntityType:    agentType,
+					Biography:     biography,
+					Language:      detectEntityLanguage(an, biography),
 					AvatarURL:     bangumiAvatarURL(a.Images),
 					CharacterName: name,
 					ExternalIDs:   map[string]any{"bangumi_person": a.ID, "metafusion_import": "bangumi:person:" + strconv.Itoa(a.ID)},
@@ -1272,6 +1380,48 @@ func hasHan(s string) bool {
 	return false
 }
 
+// mergeAgentMetadata 为已存在的 agent 补齐/纠正元数据，返回结果与是否有变化。
+// 只在原值为空时补齐；类型只做"person → organization/group"的纠正（上游把企业
+// 标成个人是已知数据问题），不把组织降级成个人。简介与语言同理只在缺失时写。
+func mergeAgentMetadata(existing Entity, assoc ImporterStaffAssociation) (Entity, bool) {
+	changed := false
+	// 类型纠正：现有是 person 且新判定更具体（organization/group）时覆盖。
+	want := staffAgentType(assoc.EntityType)
+	if want != "" && want != "person" && (len(existing.Types) == 0 || contains(existing.Types, "person")) && !contains(existing.Types, want) {
+		existing.Types = []string{want}
+		changed = true
+	}
+	if existing.OriginalLanguage == "" {
+		if lang := originalLanguageOrEmpty(assoc.Language); lang != "" {
+			existing.OriginalLanguage = lang
+			changed = true
+		}
+	}
+	if strings.TrimSpace(assoc.Biography) != "" {
+		if !agentHasSummary(existing) {
+			applyWorkSummary(&existing, assoc.Biography)
+			changed = true
+		}
+	}
+	if len(existing.Pictures) == 0 {
+		if p, ok := pictureFromRemote(assoc.AvatarURL, "Bangumi 头像", "", false); ok {
+			existing.Pictures = []Picture{p}
+			changed = true
+		}
+	}
+	return existing, changed
+}
+
+// agentHasSummary 判断 agent 是否已有任何简介（任一翻译行的 summary 非空）。
+func agentHasSummary(e Entity) bool {
+	for _, tr := range e.Translations {
+		if strings.TrimSpace(tr.Summary) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // mergeWorkMetadata 为已存在的 work 补齐缺失元数据；返回合并结果与是否有变化。
 // 只在原值为空时填入，绝不覆盖已有值（保护人工编辑）。封面同理：无图才补。
 func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview) (Entity, bool) {
@@ -1814,6 +1964,13 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		// 先按外部导入键复用已存在的 agent，避免重复导入产生同名副本。
 		if iKey := assocImportKey(assoc.ExternalIDs); iKey != "" {
 			if existing, ok := s.findImported(ctx, iKey, &actor); ok && existing.Kind == "agent" {
+				// 已知 agent 补齐缺失元数据（类型纠正/简介/语言/封面），不覆盖已有值。
+				if merged, changed := mergeAgentMetadata(existing, assoc); changed {
+					if updated, uerr := s.importerSaveVersioned(ctx, merged, existing.Version, actor, note, sources); uerr == nil {
+						existing = updated
+						counts.Artists++
+					}
+				}
 				agentByKey[dedup] = existing
 				if strings.TrimSpace(assoc.RelationType) == "character_in" {
 					characterByName[strings.ToLower(name)] = existing
@@ -1822,6 +1979,11 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			}
 		} else if existing, ok := s.findAgentByTitle(ctx, name, &actor); ok {
 			// 无外部键的关联（手工载荷）按标题复用，避免重复导入产生同名 agent。
+			if merged, changed := mergeAgentMetadata(existing, assoc); changed {
+				if updated, uerr := s.importerSaveVersioned(ctx, merged, existing.Version, actor, note, sources); uerr == nil {
+					existing = updated
+				}
+			}
 			agentByKey[dedup] = existing
 			if strings.TrimSpace(assoc.RelationType) == "character_in" {
 				characterByName[strings.ToLower(name)] = existing
@@ -1831,7 +1993,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		staff := Entity{
 			Kind:             "agent",
 			Title:            name,
-			OriginalLanguage: originalLanguageOrEmpty(assoc.Country),
+			OriginalLanguage: originalLanguageOrEmpty(assoc.Language),
 			Translations:     toEntityTranslations(assoc.Translations),
 			Types:            []string{entityType},
 			Attributes:       map[string]any{},
@@ -1839,6 +2001,9 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		}
 		if p, ok := pictureFromRemote(assoc.AvatarURL, "Bangumi 头像", "", false); ok {
 			staff.Pictures = []Picture{p}
+		}
+		if strings.TrimSpace(assoc.Biography) != "" {
+			applyWorkSummary(&staff, assoc.Biography)
 		}
 		agent, aerr := s.importerSave(ctx, staff, actor, note, sources)
 		if aerr != nil {
