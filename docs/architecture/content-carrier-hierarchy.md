@@ -1,8 +1,11 @@
 # 内容目录与发行载体层级
 
+> **状态：VISION（未实现，勿当运行时事实）**
+> 本文使用旧的 `CanonicalEntry` 模型描述层级，**该实体在当前实现中不存在**。现行为固定八实体骨架 `agent / collection / work / content_unit / expression / release / medium / track`：`Work → ContentUnit → Expression` 表达创作与可复用内容/表达，`Work → Release → Medium → Track` 表达发行承载，`Track` 通过 `contents[].expression_id` 关联 `Expression`。表结构与约束见 `backend/internal/catalog/schema.sql` 与 `store.go`；本文件仅保留建模讨论，请勿据此写入。
+
 MetaFusion 将“作品是什么”和“某个版本如何承载它”分开存储。这样同一首录音、同一集动画或同一章漫画可以被多个发行版复用，也不会因为一张盒装专辑、一本单行本或一套蓝光的包装差异而复制作品实体。
 
-## 层级关系
+## 层级关系（历史 VISION 示意，非当前实现）
 
 ```text
 Work（创作母体）

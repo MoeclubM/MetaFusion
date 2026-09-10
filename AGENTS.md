@@ -34,9 +34,9 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 | 任务 | 优先入口 |
 | --- | --- |
 | 后端 API / 数据模型 | `backend/internal/catalog/`（统一入口 `/api`，路由见 `http.go:Register`）、`backend/internal/models/`（旧 GORM 轨，只读兼容） |
-| 数据库与完整性约束 | `backend/migrations/`；只把已执行迁移视为目标实例能力 |
+| 数据库与完整性约束 | `backend/migrations/`（当前仅 `000001_catalog_core`、`000002_catalog_shelves`）；实际表结构与复合外键约束以 `backend/internal/catalog/schema.sql` 与 `store.go` 为准；只把已执行迁移视为目标实例能力 |
 | 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US}.json`、[i18n 规则](.cursor/rules/i18n-localization-strict.mdc) |
-| 插件与解耦 | `backend/internal/plugin/`、[插件架构](docs/architecture/plugin-decoupling-blueprint.md) |
+| 插件与解耦 | `backend/internal/{moduleapi,moduledeps,modules}`、[插件架构（VISION，未实现）](docs/architecture/plugin-decoupling-blueprint.md) |
 | 部署与 CI | `deploy/docker-compose.yml`、`.github/workflows/ci.yml` |
 | 用户 / LLM 编辑教程 | [Agent 接入](docs-site/docs/agent-integration.md)、[Agent API](docs-site/docs/api-agent.md) |
 
@@ -57,9 +57,9 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 
 ### 必须保持的边界
 
-- `Work → CanonicalEntry` 是创作母体与可复用表达/母版/篇目的关系；`Work → Release → Medium → Track → TrackContent` 表达发行承载，TrackContent 引用 CanonicalEntry。AssetFile 独立承载文件、哈希与绑定。
+- `Work → ContentUnit → Expression` 是创作母体与可复用内容单元/表达（母版、篇目、分集正文）的关系；`Work → Release → Medium → Track → TrackContent` 表达发行承载，TrackContent 引用 Expression。AssetFile 独立承载文件、哈希与绑定。
 - Work 保持纯净题名；季数、卷号、载体、规格、包装等放到适当层级。先按来源判断独立创作身份，不机械删去本就是正式题名一部分的词；不为凑齐层级虚构发行、容器或目录。
-- CanonicalEntry 的父子关系只能在同一 Work 内；Medium / Track 的父子关系不能跨所属 Release / Medium。当前 `000006_carrier_content_integrity` 要求 Track 及其内容与 Release 属于同一 Work；多作品盒装若缺少显式汇编模型，报告缺口，不用 SQL 或伪造 Work 绕过。
+- ContentUnit 的父子关系只能在同一 Work 内；Medium / Track 的父子关系不能跨所属 Release / Medium。当前由 `backend/internal/catalog/schema.sql` 的复合外键与 `store.go` 校验要求 Track 及其内容与 Release 属于同一 Work；多作品盒装若缺少显式汇编模型，报告缺口，不用 SQL 或伪造 Work 绕过。
 - 无 `media_type` 传统树状分类；通过标签、虚拟货架、Release 规格和实体图谱表达。关系、角色、介质格式等代码从 taxonomy / relation-types 及实现取得，不凭显示文案猜枚举。
 - `adaptation_of`、`soundtrack_of`、`sequel_of`、`spin_off_of` 等关系连接已有实体。需要层级/无环语义的关系拒绝自环和循环；同一角色跨作品用多条 `character_in` 边，不拆重复主体。
 - 外围抓取、导出、通知、媒体分析与 AI 增强保持插件化；依赖按 Semver 与 DAG 治理，保留循环检测和级联启停保护，不塞进核心实体层。
@@ -67,10 +67,10 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 ### 国际化、封面与审计
 
 - UI 文案必须通过 `useI18n()` 与中英字典管理，两种语言键同步；禁止硬编码文案或 `t(key) || "中文兜底"`。动态术语使用已有多语言数据和 helper。
-- Work / Artist / Franchise 翻译使用数组；字段以各实体实际 DTO 为准。当前 `000007_translation_aliases` 支持每个语种一个主标题及 `aliases`；原语言标题归属对应翻译行，不能把其他语种题名全塞进实体级 aliases。载体及 CanonicalEntry 的翻译是按 locale 分组的 JSON 对象，不能照搬数组。
+- 实体翻译以统一 DTO 的 `translations`（按 locale 分组的 JSON 对象）呈现，每个语种含 `title / summary / aliases`；字段以各实体实际 DTO 为准，不要凭旧文档假定为数组。`aliases` 能力由 `backend/internal/catalog/schema.sql` 与 `backend/internal/database/patches.go` 提供；原语言标题归属对应翻译行，不能把其他语种题名全塞进实体级 aliases。
 - 展示回退遵循请求语言 → en-US → original_language → 基础字段/系统兜底；读取和写入字段分离，不能把 `localized_*` 展示值回写为基础值。
 - 封面优先使用可考据的官方/授权图片，保留自然比例、不拉伸，不使用风景占位图。音乐 1:1、影视/动画 2:3、书籍 3:4 是常用展示建议；`cover_aspect` 实际支持值以接口为准，不把建议写成不存在的服务端拒绝规则。
-- 每次编目变更准备具体 `edit_note` 与相关 `source_urls`，目标是可追溯修订。不能宣称所有端点已强制证据、完整审计或 ACID 事务；当前 Work 创建、通用关系与兼容 `/catalog/submit` 有不同边界，按技能契约核实。缺少所需审计能力时报告缺口，禁止直接改数据库绕过。
+- 每次编目变更准备具体 `edit_note` 与相关 `source_urls`，目标是可追溯修订。不能宣称所有端点已强制证据、完整审计或 ACID 事务；当前通用实体创建（`POST /api/catalog/entities`）与关系写入（`/api/catalog/relations`）有不同校验边界，按技能契约核实。缺少所需审计能力时报告缺口，禁止直接改数据库绕过。
 - PUT 不等于局部 PATCH。先读取完整实体，按写入 DTO 保留无关字段；翻译、标签和 Track contents 可能整组替换。写后回读目标、关联与 revisions，并检查未请求修改的数据未丢失；响应不明时先核对状态，不盲重试创建或自动删除已成功的数据。
 
 ## 5. 按改动范围验证

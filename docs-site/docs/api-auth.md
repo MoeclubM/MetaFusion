@@ -5,104 +5,82 @@ order: 31
 group: "api"
 ---
 
+::: warning 文档与实现存在差异（一手提示）
+本页描述的多数认证端点**在当前后端不存在**（`backend/internal/catalog/http.go` 未注册）：
+
+- `GET /api/auth/settings`、`POST /api/auth/register`、`POST /api/auth/refresh`、`GET /api/auth/invite`：**不存在**（前端仍有调用，会得到 404；无公开自助注册与邀请端点）
+- `GET|POST|DELETE /api/auth/tokens` 与 `mfp_` 前缀 PAT、`X-API-Key` 请求头：**不存在**（没有个人访问令牌体系）
+- `GET /api/system/setup-status`、`POST /api/system/setup`：**不存在**，真实端点是不带 `system/` 前缀的 `GET|POST /api/setup`
+- Access/Refresh 双 Token 轮转与 Redis 黑名单：**未实现**；当前为会话令牌 + HttpOnly Cookie
+
+**真实端点**：`GET /api/setup`、`POST /api/setup`（首管初始化）、`POST /api/auth/login`、`GET /api/auth/me`、`POST /api/auth/logout`、`PUT /api/auth/password`、`POST /api/auth/logout-all`、`GET|POST /api/admin/users`、`PUT /api/admin/users/:id/role|password`，以及 OAuth 2.0 / OIDC 的 `/api/oauth/clients|authorize|token|userinfo`。以 [OpenAPI](/api/openapi.json) 为准。
+:::
+
 # 认证与 API 密钥
 
 ## 两种凭证
 
 | 凭证 | 获取方式 | 有效期 | 用途 |
 |---|---|---|---|
-| JWT Bearer | `POST /auth/login` | Access 2h + Refresh 7d | 用户网页端会话 |
-| API 密钥 (API Key) | `POST /auth/tokens`（需登录态） | 长期有效 | 外部程序、脚本与 Agent 调用平台 API |
+| 会话令牌 / Cookie | `POST /api/auth/login` | 服务端会话决定 | 网页端与 API 调用 |
+| OAuth 2.0 授权码 | `/api/oauth/authorize` + `POST /api/oauth/token` | 由客户端配置决定 | 第三方应用与 OIDC 接入 |
 
-二者均可通过 HTTP 请求头携带：
+二者均可通过请求头或 Cookie 携带：
 
 ```http
-Authorization: Bearer <token>
+Authorization: Bearer <session-token>
 # 或
-X-API-Key: <api_key>
+Cookie: mf_session=<session-token>
 ```
 
 ## 注册、登录与会话维护
 
-MetaFusion 采用 **短生命周期 Access Token (2h) + 可轮转 Refresh Token (7d)** 双令牌架构：
+::: danger 以下端点在当前实现中不存在
+```http
+GET  /api/auth/settings          # 不存在
+POST /api/auth/register          # 不存在（无公开自助注册）
+POST /api/auth/refresh           # 不存在（无双 Token 轮转）
+GET  /api/auth/invite            # 不存在
+```
+:::
+
+真实端点：
 
 ```http
-GET  /api/auth/settings          # 公开：{ registration_enabled, invite_required, email_verification_enabled... }
-POST /api/auth/register          # { username, email, password, invite_code? } → 双令牌
-POST /api/auth/login             # { email_or_username, password } → 双令牌
-POST /api/auth/refresh           # { refresh_token } → 换发新令牌对
-POST /api/auth/logout            # { refresh_token? } → 将当前 Token 与 Refresh Token 加入 Redis 实时黑名单
-GET  /api/auth/me                # 需认证：获取当前登录用户信息
-GET  /api/auth/invite            # 需认证：获取当前用户的邀请码与已邀请成员列表
+GET  /api/setup                  # 检查是否仍需初始化首管
+POST /api/setup                  # { username, password } 创建首个管理员
+POST /api/auth/login             # { username, password } → 用户信息 + 会话
+GET  /api/auth/me                # 需认证：当前账号
+POST /api/auth/logout            # 注销当前会话
+PUT  /api/auth/password          # 修改密码
+POST /api/auth/logout-all        # 吊销该用户全部会话
 ```
 
-双令牌响应体结构：
-```json
-{
-  "user": { "id": "...", "username": "alice", "role": "member" },
-  "token": "eyJhbGciOi...",
-  "access_token": "eyJhbGciOi...",
-  "refresh_token": "eyJhbGciOi...",
-  "expires_in": 7200,
-  "token_type": "Bearer"
-}
-```
+登录响应结构以实际实现为准（字段为 `user` / `token` 等，见 `backend/internal/catalog/http.go`），不要依赖本页旧示例中的 `access_token` / `refresh_token` / `expires_in`。
 
-- `registration_enabled=false` 时注册功能关闭；
-- `invite_required=true` 时注册表单必须携带有效邀请码；
-- 首次部署未初始化的新实例可调用 `GET /api/system/setup-status` 检查状态，并通过 `POST /api/system/setup` 创建超级管理员。
+- 账号由管理员通过 `POST /api/admin/users` 创建；不存在 `registration_enabled` / `invite_required` 注册开关端点
+- 首次部署未初始化时用 `GET /api/setup` 检查状态，`POST /api/setup` 创建超级管理员
 
 ## API 密钥管理
 
-用户可在前台 `/settings?tab=tokens` 或通过接口管理自己的 API 密钥：
+::: danger 未实现
+个人访问令牌（PAT）与 `/api/auth/tokens` 端点在当前实现中**不存在**；请使用会话令牌或 OAuth 2.0 客户端凭证。
+:::
 
-```http
-GET  /api/auth/tokens            # 列出当前用户的 API 密钥
-POST /api/auth/tokens            # 创建新 API 密钥，明文仅在创建时返回一次
-DELETE /api/auth/tokens/:id      # 撤销指定的 API 密钥
-```
-
-### 创建示例
+## 使用令牌调用
 
 ```bash
-# 创建读写密钥 (默认)
-curl -X POST /api/auth/tokens \
-  -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
-  -d '{"name":"my-script","scopes":["read","write"]}'
+# 读（开放）
+curl "/api/catalog/works?limit=10"
 
-# 创建只读密钥 (Read-Only)
-curl -X POST /api/auth/tokens \
-  -H "Authorization: Bearer $JWT" -H "Content-Type: application/json" \
-  -d '{"name":"readonly-agent","scopes":["read"]}'
-```
-
-- **只读密钥 (`scopes: ["read"]`)**：仅允许 GET 检索与查询实体，禁止任何创建、修改或删除操作。
-- **读写密钥 (`scopes: ["read", "write"]`)**：允许调用前台开放的所有检索与编目提交流程。
-
-## 邀请信息
-
-```http
-GET /api/auth/invite  # 需认证 → { invite_code, invited_count, invited_users }
-```
-
-`InviteCode` 为 `MF-` 永久码。
-
-## 使用 PAT 调用
-
-```bash
-# 读（开放，PAT 可选）
-curl "/api/catalog/works?inc=artists&page=1" -H "User-Agent: MyApp/1.0 (you@example.com)"
-
-# 写（需 PAT/JWT）
-curl -X POST /api/catalog/works \
-  -H "Authorization: Bearer mfp_..." \
-  -H "User-Agent: MyApp/1.0 (you@example.com)" \
+# 写（需登录会话）
+curl -X POST /api/catalog/entities \
+  -H "Authorization: Bearer <session-token>" \
   -H "Content-Type: application/json" \
-  -d '{"title":"新作品","tags":["动画","电影"],"cover_aspect":"2:3","edit_note":"initial import","source_urls":["https://..."]}'
+  -d '{"entity":{"kind":"work","title":"新作品","original_language":"ja","translations":{"zh-CN":{"title":"新作品"}},"attributes":{"cover_aspect":"2:3"}},"expected_version":0,"edit_note":"initial import per official source","sources":[{"kind":"official","citation":"官网","url":"https://example.com"}]}'
 ```
 
-## 限流与 User-Agent
+## 限流
 
-- 匿名 60/min，认证 600/min
-- 未设置有意义 `User-Agent` 的写入请求返回 400（MusicBrainz 同款要求，便于滥用溯源）
-- 响应头含 `X-RateLimit-Limit / Remaining / Reset`
+- 仅部分路由限流：`/api/catalog/entities` 120/min、`/api/catalog/compare` 10/min、`/api/setup` 与 `/api/auth/login` 有防爆破限制
+- 超限返回 429 与 `Retry-After`；**不存在全站 `X-RateLimit-*` 响应头，也不校验 User-Agent**

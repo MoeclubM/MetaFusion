@@ -1,5 +1,9 @@
 # MetaFusion 插件系统与依赖拓扑架构规范 (Plugin System & DAG Architecture)
 
+> **状态：VISION（未实现，勿当运行时事实）**
+> 本文声称“严格基于当前后端代码实现”，但其所指的 `backend/internal/plugin/` **目录不存在**，所描述的 **12 个内置插件**方案也未落地。当前实际实现是进程内**可选模块**：边界接口在 `backend/internal/moduleapi`，依赖/级联治理在 `backend/internal/moduledeps`，实现与 `modules.settings` 状态持久化在 `backend/internal/modules`（启用模块为 `archive / playback / media / community / records / exchange`），通过 `/api/capabilities` 与 `PUT /api/admin/modules/:id` 管理。
+> 本文件仅保留插件化长期目标，不作为当前接口或部署依据。
+
 本文档面向 MetaFusion 核心开发与系统架构人员，严格基于当前后端代码实现（`backend/internal/plugin/`），阐明 MetaFusion 的**插件系统实现机制**、**12 个原生内置插件矩阵**与 **DAG 依赖拓扑治理规范**。
 
 ---
@@ -160,8 +164,8 @@ type SystemPlugin struct {
 ```
 
 ### 4.2 API 路由接口清单 (`backend/internal/plugin/handler.go`)
-- `GET /api/v1/catalog/plugins`：公开接口，获取当前已启用的插件精简元数据（供前端渲染导入源选择框、导出按钮列表）；
-- `GET /api/v1/admin/plugins`：管理员接口，获取全量插件列表（含启停状态、健康检查结果、实时延迟、依赖评估及拓扑序号）；
-- `PATCH /api/v1/admin/plugins/:id`：管理员接口，切换插件开关（支持 `cascade=true` 级联生效）或更新配置字段；
-- `POST /api/v1/admin/plugins/test-notify`：管理员接口，向已启用的通知类插件广播测试事件验证 Webhook 链路；
-- `POST /api/v1/admin/plugins/register`：管理员接口，通过底层抽象驱动（`ExternalHTTPPlugin`）登记第三方自定义 HTTP Webhook 扩展端点。
+- `GET /api/catalog/plugins`：公开接口，获取当前已启用的插件精简元数据（供前端渲染导入源选择框、导出按钮列表）；
+- `GET /api/admin/plugins`：管理员接口，获取全量插件列表（含启停状态、健康检查结果、实时延迟、依赖评估及拓扑序号）；
+- `PATCH /api/admin/plugins/:id`：管理员接口，切换插件开关（支持 `cascade=true` 级联生效）或更新配置字段；
+- `POST /api/admin/plugins/test-notify`：管理员接口，向已启用的通知类插件广播测试事件验证 Webhook 链路；
+- `POST /api/admin/plugins/register`：管理员接口，通过底层抽象驱动（`ExternalHTTPPlugin`）登记第三方自定义 HTTP Webhook 扩展端点。

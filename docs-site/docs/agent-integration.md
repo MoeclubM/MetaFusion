@@ -5,6 +5,19 @@ order: 35
 group: "api"
 ---
 
+::: warning 文档与实现存在差异（一手提示）
+本指南的 SOP 与示例基于旧的「五层 LRM + CanonicalEntry + 一站式原子提交」模型，以下内容**在当前实现中不存在**，请勿直接执行：
+
+- `GET /api/search`（现为 `GET /api/catalog/entities?q=...`）
+- `PUT /api/catalog/entity-relations`（现为 `POST /api/catalog/relations` / `PUT|DELETE /api/catalog/relations/:id`）
+- `POST /api/catalog/submit`（一站式原子提交**不存在**；改为按层级多次 `POST /api/catalog/entities`）
+- `CanonicalEntry` / `canonical_entry_id`（现为 `ContentUnit` + `Expression`，Track 通过 `contents[].expression_id` 关联）
+- `Artist`（现为 `Agent` kind）、`Franchise` 实体（由 `collection` kind + 关系表达）
+- `mfp_` PAT 与 `catalog:write` scope（无 PAT 体系）
+
+编写正确的写入请求体请参照 [新建与编辑](/api-edit) 与 `backend/internal/catalog/types.go` 的 `Edit` DTO；编目规范请阅读 [元数据目录教程](./catalog.md)。
+:::
+
 > 核心 API 统一使用 `/api` 与动态定义引擎。编目规范请阅读 [元数据目录教程](./catalog.md)。
 
 # AI Agent 接入与自动化编目协作指南 (AI Agent Integration & Cataloging Guide)
@@ -63,12 +76,12 @@ AI Agent 在执行任何自动化编目任务时，必须严格按照以下 7 �
 
 ```mermaid
 flowchart TD
-    Step1[第 1 步：权威考据与全库检索防重<br>GET /api/search] --> Step2[第 2 步：纯净题名清洗与多语言对齐<br>original_language + translations]
-    Step2 --> Step3[第 3 步：LRM 表现层分级与发行版树状建模<br>Work / Entry / Release / Medium / Track]
-    Step3 --> Step4[第 4 步：多作品合集/盒装分碟映射<br>Mediums + Track.work_id 展开]
-    Step4 --> Step5[第 5 步：典范篇目多发行复用<br>CanonicalEntry UUID 关联]
-    Step5 --> Step6[第 6 步：DAG 拓扑织网与 Qualifier 限定<br>PUT /api/catalog/entity-relations]
-    Step6 --> Step7[第 7 步：不可篡改审计签名与原子提交<br>POST /api/catalog/submit]
+    Step1[第 1 步：权威考据与全库检索防重<br>GET /api/catalog/entities?q=...] --> Step2[第 2 步：纯净题名清洗与多语言对齐<br>original_language + translations]
+    Step2 --> Step3[第 3 步：层级分级与发行版建模<br>Work / ContentUnit / Expression / Release / Medium / Track]
+    Step3 --> Step4[第 4 步：多作品合集/盒装分碟映射<br>Mediums + Track contents 展开]
+    Step4 --> Step5[第 5 步：表达复用<br>Track.contents[].expression_id 关联]
+    Step5 --> Step6[第 6 步：DAG 拓扑织网<br>POST /api/catalog/relations]
+    Step6 --> Step7[第 7 步：审计留痕与提交<br>POST /api/catalog/entities]
 ```
 
 ### 步骤详解
@@ -81,7 +94,7 @@ flowchart TD
   - 游戏：VNDB、IGDB、Steam、PlayStation Store。
 - **调用检索防重**：
   ```http
-  GET /api/search?q={作品或条码}&type=all
+  GET /api/catalog/entities?q={作品或条码}&kind=all
   ```
   - 若已存在匹配 Work，**严禁二次创建**，仅在其下补充 Release、Medium、Track 或缺失的多语言译名。
 
@@ -89,27 +102,27 @@ flowchart TD
 - 提取作品核心概念主名，彻底清洗所有修饰词；
 - 标注 `original_language`，并在 `translations` 中提供 `zh-CN`, `zh-TW`, `en-US`, `ja` 等多语言本地化题名与简介。
 
-#### 第 3 步：LRM 表现层分级与发行版树状建模 (Layer Hierarchy)
+#### 第 3 步：内容/表达分级与发行版树状建模 (Layer Hierarchy)
 - **Work 级创作关系**：绑定 `composer`（作曲）、`lyricist`（作词）、`author`（原著作者）、`scriptwriter`（剧本编剧）；
-- **CanonicalEntry 级表现制作关系**：绑定 `performer`（演唱/演奏）、`arranger`（编曲）、`producer`（制作人）、`director`（导演/监督）、`phonographic_copyright`（℗ 录音版权）；
+- **ContentUnit / Expression 级内容与制作关系**：`ContentUnit` 承载篇目/目录结构，`Expression` 绑定 `performer`（演唱/演奏）、`arranger`（编曲）、`producer`（制作人）、`director`（导演/监督）、`phonographic_copyright`（℗ 录音版权）；
 - **Release 级发行规格**：严格遵循命名规范（如书名卷号、ISBN-13、唱片编号）。
 
 #### 第 4 步：多作品合集与盒装展开 (Boxset Mapping)
 - 对于收录多部独立作品的合集盒装，独立建立汇编 Work/Release，展开全部物理 Medium，并将各分碟 Track 准确指向各自独立的母体 Work。
 
-#### 第 5 步：典范篇目跨发行复用 (Expression Reuse)
-- 提取或复用已有的 `CanonicalEntry` UUID，使不同 Release 的 Track 均指向同一典范篇目/录音/章节，实现「Appears on Releases」全局反查。
+#### 第 5 步：表达跨发行复用 (Expression Reuse)
+- 提取或复用已有的 `Expression` UUID，使不同 Release 的 Track 通过 `contents[].expression_id` 指向同一表达/录音/章节，实现「Appears on Releases」全局反查。
 
 #### 第 6 步：DAG 拓扑织网与关系限定 (Graph Topology)
-- 将实体接入世界观企划（Franchise）；
+- 将实体接入世界观企划（由 `collection` kind 与关系边表达，当前无独立 `Franchise` 实体）；
 - 建立 `adaptation_of`、`soundtrack_of`、`sequel_of`、`prequel_of`、`spin_off_of`、`character_in` 等语义边；
-- 运行 DFS 环路检测，严禁产生闭环；对声优与角色同类多边使用 `qualifier` 标注。
+- 运行 DFS 环路检测，严禁产生闭环；同一角色跨作品用多条 `character_in` 边。
 
-#### 第 7 步：不可篡改审计留痕与提交 (Audit & Submission)
+#### 第 7 步：审计留痕与提交 (Audit & Submission)
 - 校验封面宽高比（1:1 / 2:3 / 3:4）与分辨率；
 - 校验 ISBN-13 模 10 校验位；
-- 填充清晰的 `edit_note`（≥ 10 字符）与 `source_urls`；
-- 调用 `POST /api/catalog/submit` 原子提交入库。
+- 填充清晰的 `edit_note`（≥ 10 字符）与 `sources`；
+- 按层级依次调用 `POST /api/catalog/entities` 提交入库（当前无一站式原子提交端点）。
 
 ---
 
@@ -219,6 +232,13 @@ flowchart TD
 
 ## 6. 完整接入代码示例 (Python / TypeScript / cURL)
 
+::: danger 以下脚本基于旧端点，不能直接运行
+示例里的 `/search`、`/catalog/submit`、`/catalog/entity-relations` 在真实后端不存在。请将：
+- `GET /search` → `GET /catalog/entities?q=...&kind=...`
+- `POST /catalog/submit` → 按层级多次 `POST /catalog/entities`（请求体为 `{entity, expected_version, edit_note, sources}`）
+- `PUT /catalog/entity-relations` → `POST /catalog/relations`
+:::
+
 ### 6.1 Python 完整接入脚本 (含防重、纯净化、质检校验与自愈重试)
 
 ```python
@@ -265,10 +285,10 @@ class MetaFusionCuratorClient:
         raise RuntimeError(f"请求失败，已达最大重试次数: {endpoint}")
 
     def search_dedup(self, query: str, entity_type: str = "all") -> List[Dict[str, Any]]:
-        """步骤 1：检索防重"""
-        resp = self._request_with_retry("GET", "/search", params={"q": query, "type": entity_type})
+        """步骤 1：检索防重（真实端点：/catalog/entities 返回 {items,total}）"""
+        resp = self._request_with_retry("GET", "/catalog/entities", params={"q": query, "kind": entity_type})
         data = resp.json()
-        return data.get("works", []) or data.get("results", [])
+        return data.get("items", [])
 
     def validate_pure_title(self, title: str) -> None:
         """步骤 2：纯净题名质检"""
@@ -303,17 +323,17 @@ class MetaFusionCuratorClient:
             if not self.validate_isbn13(barcode):
                 raise ValueError(f"[QA REJECTED] 无效的 ISBN-13 校验位: {barcode}")
 
-        resp = self._request_with_retry("POST", "/catalog/submit", json=payload)
+        resp = self._request_with_retry("POST", "/catalog/entities", json=payload)
         return resp.json()
 
     def update_entity_relations(self, relations: List[Dict[str, Any]], edit_note: str, source_urls: List[str]) -> Dict[str, Any]:
-        """步骤 6：织入 DAG 关系图谱"""
+        """步骤 6：织入 DAG 关系图谱（真实端点：POST /catalog/relations，逐个关系提交）"""
         payload = {
             "relations": relations,
             "edit_note": edit_note,
             "source_urls": source_urls
         }
-        resp = self._request_with_retry("PUT", "/catalog/entity-relations", json=payload)
+        resp = self._request_with_retry("POST", "/catalog/relations", json=payload)
         return resp.json()
 
 # ----------------- 使用示范 -----------------
@@ -436,7 +456,7 @@ export class MetaFusionAgent {
       throw new Error('[QA REJECTED] source_urls cannot be empty.');
     }
 
-    const resp = await this.client.post('/catalog/submit', payload);
+    const resp = await this.client.post('/catalog/entities', payload);
     return resp.data;
   }
 }
@@ -445,49 +465,30 @@ export class MetaFusionAgent {
 ### 6.3 cURL 命令行操作示例
 
 ```bash
-# 1. 检索防重
-curl -X GET "https://api.metafusion.local/api/search?q=攻壳机动队&type=work" \
-  -H "Authorization: Bearer mfp_your_token_here" \
-  -H "User-Agent: MetaFusionCuratorBot/1.0"
+# 1. 检索防重（真实端点）
+curl -X GET "https://api.metafusion.local/api/catalog/entities?q=攻壳机动队&kind=work" \
+  -H "Authorization: Bearer <session-token>"
 
-# 2. 一站式纯净入库
-curl -X POST "https://api.metafusion.local/api/catalog/submit" \
-  -H "Authorization: Bearer mfp_your_token_here" \
+# 2. 纯净化入库（真实端点，请求体为 Edit DTO）
+curl -X POST "https://api.metafusion.local/api/catalog/entities" \
+  -H "Authorization: Bearer <session-token>" \
   -H "Content-Type: application/json" \
   -d '{
-    "work": {
+    "entity": {
+      "kind": "work",
       "title": "攻壳机动队",
       "original_language": "ja",
-      "cover_aspect": "2:3",
-      "cover_image_url": "https://storage.metafusion.local/covers/gits_1995.webp",
-      "tags": ["动画", "电影", "科幻", "赛博朋克"],
-      "translations": [
-        { "locale": "zh-CN", "title": "攻壳机动队", "summary": "公元2029年，网络高度发达的信息化时代..." },
-        { "locale": "en-US", "title": "Ghost in the Shell", "summary": "A cyborg policewoman hunts the Puppet Master..." }
-      ]
+      "translations": { "zh-CN": { "title": "攻壳机动队", "summary": "公元2029年，网络高度发达的信息化时代..." } },
+      "attributes": { "cover_aspect": "2:3" },
+      "pictures": [{ "url": "https://storage.metafusion.local/covers/gits_1995.webp", "source": { "kind": "official", "citation": "官方海报", "url": "https://v-storage.bnarts.jp/" } }]
     },
-    "artists": [
-      { "artist_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d", "role": "director" }
-    ],
-    "release": {
-      "edition_name": "4K UHD 典藏限量铁盒版",
-      "catalog_number": "BCQA-0001",
-      "barcode": "4934569363015",
-      "release_date": "2018-06-22",
-      "country": "JPN"
-    },
-    "mediums": [
-      { "position": 1, "name": "Disc 1 (4K Feature)", "format": "UHD-BD" }
-    ],
-    "tracks": [
-      { "medium_position": 1, "position": 1, "title": "Main Feature", "duration": 4980 }
-    ],
+    "expected_version": 0,
     "edit_note": "根据 Bandai Visual 官方 4K UHD 档案录入出版物规格",
-    "source_urls": [
-      "https://v-storage.bnarts.jp/sp-site/ghost-in-the-shell/"
-    ]
+    "sources": [{ "kind": "official", "citation": "官方档案", "url": "https://v-storage.bnarts.jp/sp-site/ghost-in-the-shell/" }]
   }'
 ```
+
+> 旧示例中的 `work/artists/release/mediums/tracks` 扁平结构与 `mfp_` PAT 已不再适用；Release/Medium/Track 级实体需各自单独 `POST /api/catalog/entities` 并通过 `work_id` / `content_unit_id` / `release_id` / `medium_id` 挂载。
 
 ---
 

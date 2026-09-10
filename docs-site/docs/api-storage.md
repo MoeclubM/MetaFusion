@@ -5,7 +5,22 @@ order: 35
 group: "api"
 ---
 
+::: warning 状态：规划中（本页整体未实现）
+**`/api/storage/*` 命名空间在当前仓库中不存在**，本页所述上传/下载/绑定链路均为早期设计，请勿作为运行时事实：
+
+- `POST /api/storage/upload/initiate`、`POST /api/storage/upload/complete`、`POST /api/storage/bind`、`GET /api/storage/download/:asset_id`：**全部不存在**
+- 不存在 `asset_registry` 表；当前对象存储访问记录在可选模块的 `modules.resources` 表
+- 当前唯一可用的资产接口是可选 `archive` 模块：`GET /api/archive/entities/:id/resources`、`POST /api/archive/entities/:id/resources`、`GET /api/archive/resources/:id/content`（以及 `playback` 模块的 `GET /api/playback/resources/:id/content`），需相应模块已启用
+- 分片直传、SHA-256 秒传、异步转码投递的具体实现以模块源码为准，本页参数不可直接照搬
+
+元数据实体写入请见 [新建与编辑](/api-edit)。
+:::
+
 # 上传与下载
+
+::: danger 本节端点不存在
+以下小节展示的是**旧设计**，所有 `/api/storage/*` 端点均未实现，仅供了解原始规划意图。
+:::
 
 全部需认证，直传链路与前端上传器一致。基于内容寻址存储（CAS），文件经 SHA-256 去重，元数据与物理资产完全解耦。
 
