@@ -74,6 +74,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: docker compose config
+        env:
+          # docker-compose.yml 使用 :? 校验的必填变量，CI 中一律注入 test-only 假值
+          DB_PASSWORD: test-only-password
+          MINIO_ROOT_USER: test-only-user
+          MINIO_ROOT_PASSWORD: test-only-password
+          JWT_SECRET: test-only-jwt-secret
         run: docker compose -f deploy/docker-compose.yml config >/dev/null
       - name: metadata-only compose config
         env:

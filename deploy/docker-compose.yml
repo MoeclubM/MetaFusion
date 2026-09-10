@@ -29,7 +29,6 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://backend:8080/api
     depends_on:
       - backend
     networks:
@@ -203,7 +202,9 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 8. S3 存储桶初始化辅助容器 (自动创建桶与公开策略)
+  # 8. S3 存储桶占位容器 — 当前不做实际初始化（不创建桶、不配置公开策略）
+  #    仅等待 RustFS 启动后打印一行日志并退出，保持 depends_on 链与编排结构稳定。
+  #    桶与策略需由运维手动创建或后续接入真实初始化脚本。
   # --------------------------------------------------------------------------
   storage-init:
     image: curlimages/curl:latest
@@ -213,7 +214,7 @@ services:
     entrypoint: >
       /bin/sh -c "
       sleep 2;
-      echo 'RustFS initialized.';
+      echo 'RustFS placeholder: no bucket init performed.';
       exit 0;
       "
     networks:
