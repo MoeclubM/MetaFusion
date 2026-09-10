@@ -421,8 +421,27 @@ type bangumiCharacter struct {
 	ID      int           `json:"id"`
 	Name    string        `json:"name"`
 	NameCN  string        `json:"name_cn"`
+	Gender  *string       `json:"gender"`
 	Summary string        `json:"summary"`
 	Images  bangumiImages `json:"images"`
+}
+
+// bangumiBandPattern 匹配简介中的乐队/组合类关键词；\b 限定英文 band 独立成词，
+// 避免 husband 等误命中。
+var bangumiBandPattern = regexp.MustCompile(`乐队|樂隊|バンド|\bband\b`)
+
+// bangumiCharacterAgentType 把 Bangumi "角色"条目收敛到 agent 定义类型。
+// Bangumi 把乐队/组合等虚构团体也挂在角色列表（如 MyGO!!!!! 是 subject 428735
+// 角色表里的"配角"），API 没有类型字段；保守启发：无性别信息且简介含
+// 乐队/band 类关键词才判 group，其余保持 character。误判可在后台编辑器改类型。
+func bangumiCharacterAgentType(gender *string, summary string) string {
+	if gender != nil && strings.TrimSpace(*gender) != "" {
+		return "character"
+	}
+	if bangumiBandPattern.MatchString(strings.ToLower(summary)) {
+		return "group"
+	}
+	return "character"
 }
 
 // bangumiWorkType 把 subject type 映射到 definitions 现有 work 类型；
@@ -606,6 +625,9 @@ func previewBangumiCharacter(ctx context.Context, source string, id int) (Import
 		return ImporterPreviewResponse{}, fmt.Errorf("upstream_error")
 	}
 	name, original := bangumiTitlePair(ch.Name, ch.NameCN)
+	// 顶层 EntityType 保持 character：预览→导入回传与 dedup key 都以 URL 推断为准；
+	// 乐队型条目的类型细化落在 Artist.EntityType，导入侧据此建 group agent。
+	agentType := bangumiCharacterAgentType(ch.Gender, ch.Summary)
 	return ImporterPreviewResponse{
 		Source:      source,
 		EntityType:  "character",
@@ -616,7 +638,7 @@ func previewBangumiCharacter(ctx context.Context, source string, id int) (Import
 			Name:         name,
 			OriginalName: original,
 			Role:         "Character",
-			EntityType:   "character",
+			EntityType:   agentType,
 			Biography:    ch.Summary,
 			AvatarURL:    ch.Images.best(),
 			Aliases:      []string{},
@@ -1285,9 +1307,12 @@ func (s *Store) importNewAgent(ctx context.Context, actor User, note string, sou
 	if err != nil {
 		return ImporterImportResponse{}, err
 	}
-	if et := agentTypeForPreviewValue(a.EntityType); et == "character" {
-		agent.Types = []string{"character"}
-		entityType = "character"
+	// 预览侧细化类型优先于 URL 推断：乐队型"角色"（如 MyGO!!!!!）在预览时
+	// 识别为 group，导入保持 group agent；character 行为不变；
+	// person 不覆盖请求推断（URL 推断的 artist/organization 语义更具体）。
+	if et := agentTypeForPreviewValue(a.EntityType); et != "" && et != "person" {
+		agent.Types = []string{et}
+		entityType = et
 	}
 	saved, serr := s.importerSave(ctx, agent, actor, note, sources)
 	if serr != nil {
