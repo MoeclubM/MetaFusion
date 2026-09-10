@@ -1,6 +1,10 @@
 package catalog
 
-import "testing"
+import (
+	"context"
+	"strings"
+	"testing"
+)
 
 func TestPictureFromRemote(t *testing.T) {
 	// 正常远端封面：Kind=url、citation 非空、Source.URL 用条目页
@@ -118,5 +122,162 @@ func TestBuildWorkEntityOmitsAttributesWithoutType(t *testing.T) {
 	}
 	if typed.Attributes["edition_date"] != "2002-09-27" {
 		t.Fatalf("edition_date not kept for typed work: %v", typed.Attributes)
+	}
+}
+
+// Bangumi relation 中文职位文本 → definitions 关系码。无贴切码时返回空，
+// 由 credit_role 承载原文，避免硬塞语义不符的关系。
+func TestBangumiCreditRelationMapping(t *testing.T) {
+	cases := map[string]string{
+		"导演":   "directed_by",
+		"CG 导演": "directed_by",
+		"脚本":   "written_by",
+		"系列构成": "written_by",
+		"插入歌作词": "lyricist_of",
+		"插入歌作曲": "composed_by",
+		"人物设定":  "illustrated_by",
+		"摄影监督":  "photographed_by",
+		"旁白":    "narrated_by",
+		"配音":    "voiced_by",
+		// 无对应语义关系：保持为空，不虚构
+		"製片人": "",
+		"企画":  "",
+		"制作":  "",
+	}
+	for in, want := range cases {
+		if got := bangumiCreditRelation(in); got != want {
+			t.Errorf("%s: got %q want %q", in, got, want)
+		}
+	}
+}
+
+// persons 端点 type：1=个人 2=公司 3=组合。
+func TestBangumiPersonTypeAgent(t *testing.T) {
+	for in, want := range map[int]string{1: "person", 2: "organization", 3: "group", 9: "person"} {
+		if got := bangumiPersonTypeAgent(in); got != want {
+			t.Errorf("type %d: got %q want %q", in, got, want)
+		}
+	}
+}
+
+// 角色番位映射：主角=primary、配角=supplement、客串/闲角=extra，其余为空。
+func TestBangumiCharacterRankRole(t *testing.T) {
+	for in, want := range map[string]string{
+		"主角": "primary", "主人公": "primary",
+		"配角": "supplement",
+		"客串": "extra", "闲角": "extra",
+		"旁白": "",
+	} {
+		if got := bangumiCharacterRankRole(in); got != want {
+			t.Errorf("%s: got %q want %q", in, got, want)
+		}
+	}
+}
+
+// 关联项去重键：优先自有导入键，其次名称+类型；同人物跨职位应合并为一个 agent。
+func TestAssocAgentDedup(t *testing.T) {
+	withKey := ImporterStaffAssociation{
+		ParsedName: "北澤史隆", EntityType: "person",
+		ExternalIDs: map[string]any{"bangumi_person": 43041},
+	}
+	if got := assocAgentDedup(withKey); got != "bangumi_person:43041" {
+		t.Fatalf("keyed dedup: %q", got)
+	}
+	// 同一人物两个职位（导演 + 脚本）→ 同一去重键
+	same1 := ImporterStaffAssociation{ParsedName: "test", EntityType: "person", ExternalIDs: map[string]any{"bangumi_person": 7}}
+	same2 := ImporterStaffAssociation{ParsedName: "test", EntityType: "person", ExternalIDs: map[string]any{"bangumi_person": 7}}
+	if assocAgentDedup(same1) != assocAgentDedup(same2) {
+		t.Fatal("same person across roles must dedup to one agent")
+	}
+	noKey := ImporterStaffAssociation{ParsedName: "Somebody", EntityType: "person"}
+	if got := assocAgentDedup(noKey); got != "name:somebody|person" {
+		t.Fatalf("name dedup: %q", got)
+	}
+}
+
+// 关系写入的既定跳过集合应覆盖外部数据形态问题，但不得吞掉服务端故障。
+func TestImporterRelationSkippable(t *testing.T) {
+	for _, ok := range []string{"duplicate_relation", "invalid_endpoint_types", "cardinality_exceeded", "relation_cycle"} {
+		if !importerRelationSkippable(errString(ok)) {
+			t.Errorf("%s should be skippable", ok)
+		}
+	}
+	for _, bad := range []string{"forbidden", "invalid_field", "db down"} {
+		if importerRelationSkippable(errString(bad)) {
+			t.Errorf("%s must not be swallowed", bad)
+		}
+	}
+	if importerRelationSkippable(nil) {
+		t.Error("nil error must not be skippable")
+	}
+}
+
+type errString string
+
+func (e errString) Error() string { return string(e) }
+
+// subject 预览必须带出两层以内的关联 agent（演职人员 + 角色 + 声优），
+// 并为每个关联给出关系码；前端据此生成 staff_associations。
+func TestPreviewSubjectCollectsRelations(t *testing.T) {
+	dir := replaySnapshotDir(t)
+	stubBangumiReplay(t, dir)
+	ctx := context.Background()
+	s := &Store{}
+
+	pv, err := s.Preview(ctx, "bangumi", "https://bgm.tv/subject/428735", "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pv.Artists) == 0 {
+		t.Fatal("subject preview returned no related artists")
+	}
+
+	var persons, characters, actors, unmapped int
+	byType := map[string]int{}
+	for _, a := range pv.Artists {
+		byType[a.EntityType]++
+		switch {
+		case a.RelationType == "character_in":
+			characters++
+			// 词表番位可能为空（如"旁白"），但原始番位文本必须保留在 Role 里不丢。
+			if a.RelationRole == "" && strings.TrimSpace(a.Role) == "" {
+				t.Errorf("character %s lost its rank entirely", a.Name)
+			}
+		case a.RelationType == "voiced_by":
+			actors++
+			if a.CharacterName == "" {
+				t.Errorf("voice actor %s missing character link", a.Name)
+			}
+		case a.RelationType == "credit_for":
+			unmapped++
+		default:
+			persons++
+		}
+		if a.ExternalIDs["metafusion_import"] == nil {
+			t.Errorf("%s missing import key", a.Name)
+		}
+	}
+	if characters == 0 || actors == 0 {
+		t.Fatalf("expected characters and voice actors, got chars=%d actors=%d", characters, actors)
+	}
+	// 无贴切关系码的职位必须兜底到 credit_for，而不是留下无关系的孤儿实体。
+	if unmapped == 0 {
+		t.Errorf("expected fallback credit_for entries for unmapped roles; byType=%v", byType)
+	}
+	t.Logf("relations: credited=%d characters=%d voiceActors=%d fallback=%d types=%v",
+		persons, characters, actors, unmapped, byType)
+}
+
+// 关联端点缺失（如上游只提供主条目）时必须优雅降级为空，不得报错。
+func TestPreviewSubjectRelationsDegradeWhenAbsent(t *testing.T) {
+	stubBangumi(t) // 该桩只覆盖 /subjects/7 等三个端点，无关联端点
+	ctx := context.Background()
+	s := &Store{}
+	pv, err := s.Preview(ctx, "bangumi", "7", "work")
+	if err != nil {
+		t.Fatalf("preview must not fail when relation endpoints are absent: %v", err)
+	}
+	if len(pv.Artists) != 0 {
+		t.Fatalf("expected no related artists, got %d", len(pv.Artists))
 	}
 }

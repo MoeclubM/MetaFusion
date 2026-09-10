@@ -152,6 +152,31 @@ func (h HTTP) relationLabels(ctx context.Context, locale string) map[string]stri
 	return out
 }
 
+// characterRefName 解析 voiced_by 的 character 属性：新数据存的是角色实体 ID，
+// 需在已解析关系对端里换成角色名；历史数据里直接存名字时原样返回。
+func characterRefName(v any, others map[string]Entity) string {
+	s := stringOf(v)
+	if s == "" {
+		return ""
+	}
+	if e, ok := others[s]; ok && strings.TrimSpace(e.Title) != "" {
+		return strings.TrimSpace(e.Title)
+	}
+	return s
+}
+
+// stringOf 宽松取字符串值：属性经 JSON 往返后可能是 string，也可能是其它标量。
+func stringOf(v any) string {
+	switch x := v.(type) {
+	case string:
+		return strings.TrimSpace(x)
+	case nil:
+		return ""
+	default:
+		return strings.TrimSpace(fmt.Sprint(x))
+	}
+}
+
 // requestLocale 取 Accept-Language 主标签，如 "zh-CN,zh;q=0.9" → "zh-CN"。
 func requestLocale(c *gin.Context) string {
 	v := c.GetHeader("Accept-Language")
@@ -174,21 +199,47 @@ func workCompatPayload(e Entity, rels []Relation, others map[string]Entity, labe
 	}
 	artistRels := []map[string]any{}
 	connected := []map[string]any{}
+	// character_in 的番位词表项 → 旧前端可识别的角色卡标签。
+	rankLabel := map[string]string{"primary": "主角", "supplement": "配角", "extra": "客串"}
 	for _, r := range rels {
 		if r.SourceID == e.ID {
 			if target, ok := others[r.TargetID]; ok && target.Kind == "agent" {
 				role := relName(r.Type)
 				if r.Type == "voiced_by" {
-					if ch, _ := r.Attributes["character"].(string); strings.TrimSpace(ch) != "" {
+					if ch := characterRefName(r.Attributes["character"], others); ch != "" {
 						// 旧前端 StaffCharacterSection 以 "配演: <角色>" 正则配对角色与声优
 						role = "配音: 配演: " + ch
 					}
+				}
+				// 保留 Bangumi 原始职位文本（如"摄影监督""CG 导演"），供详情页精确展示。
+				if cr, _ := r.Attributes["credit_role"].(string); strings.TrimSpace(cr) != "" {
+					role = strings.TrimSpace(cr)
 				}
 				artistRels = append(artistRels, map[string]any{
 					"id": r.ID, "work_id": e.ID, "artist_id": r.TargetID, "role": role,
 					"artist": map[string]any{
 						"id": target.ID, "name": target.Title,
 						"avatar_url": entityCover(target), "entity_type": agentCompatType(target),
+					},
+				})
+			}
+		} else if r.Type == "character_in" {
+			// 角色登场：agent(角色) → work，方向与署名关系相反。
+			if src, ok := others[r.SourceID]; ok && src.Kind == "agent" {
+				// 词表番位 → 原始番位文本 → 关系名，逐级回退保证不丢信息
+				//（"旁白""闲角"等词表未覆盖的番位靠 credit_role 保留）。
+				role := rankLabel[stringOf(r.Attributes["role"])]
+				if role == "" {
+					role = stringOf(r.Attributes["credit_role"])
+				}
+				if role == "" {
+					role = relName(r.Type)
+				}
+				artistRels = append(artistRels, map[string]any{
+					"id": r.ID, "work_id": e.ID, "artist_id": r.SourceID, "role": role,
+					"artist": map[string]any{
+						"id": src.ID, "name": src.Title,
+						"avatar_url": entityCover(src), "entity_type": agentCompatType(src),
 					},
 				})
 			}

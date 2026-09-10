@@ -84,6 +84,16 @@ func readSnapshotRaw(t *testing.T, dir, name string) []byte {
 	return []byte(strings.ToValidUTF8(string(raw), "\uFFFD"))
 }
 
+// readSnapshotRawOr 读取可选快照；缺失时返回 fallback（关联数据是增强项，可缺省）。
+func readSnapshotRawOr(t *testing.T, dir, name string, fallback []byte) []byte {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(dir, name))
+	if err != nil {
+		return fallback
+	}
+	return []byte(strings.ToValidUTF8(string(raw), "\uFFFD"))
+}
+
 // stubBangumiReplay 用快照原文原样 serving 三端点：person/45638 + 2 个 subject + 1 个 character。
 // 附带 persons/p_32434（林鼓子，MyGO!!!!! 鼓手）供 Import flow 的 performed_by 反查对照。
 func stubBangumiReplay(t *testing.T, dir string) {
@@ -93,6 +103,9 @@ func stubBangumiReplay(t *testing.T, dir string) {
 	s428735 := readSnapshotRaw(t, dir, filepath.Join("subj", "s_428735.json"))
 	s440879 := readSnapshotRaw(t, dir, filepath.Join("subj", "s_440879.json"))
 	c127790 := readSnapshotRaw(t, dir, filepath.Join("chars", "c_127790.json"))
+	// 条目关联端点：演职人员与角色（含声优）。缺失时为空对象，供"无关联数据"用例。
+	s428735Persons := readSnapshotRawOr(t, dir, filepath.Join("subj", "s_428735_persons.json"), []byte("[]"))
+	s428735Chars := readSnapshotRawOr(t, dir, filepath.Join("subj", "s_428735_characters.json"), []byte("[]"))
 
 	serve := func(body []byte) http.HandlerFunc {
 		return func(w http.ResponseWriter, _ *http.Request) {
@@ -106,6 +119,8 @@ func stubBangumiReplay(t *testing.T, dir string) {
 	mux.HandleFunc("/v0/subjects/428735", serve(s428735))
 	mux.HandleFunc("/v0/subjects/440879", serve(s440879))
 	mux.HandleFunc("/v0/characters/127790", serve(c127790))
+	mux.HandleFunc("/v0/subjects/428735/persons", serve(s428735Persons))
+	mux.HandleFunc("/v0/subjects/428735/characters", serve(s428735Chars))
 	srv := httptest.NewServer(mux)
 	t.Cleanup(func() {
 		srv.Close()

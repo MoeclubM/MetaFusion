@@ -98,3 +98,32 @@ func TestWorkCompatPayload(t *testing.T) {
 		t.Errorf("cover = %v", p["cover_image_url"])
 	}
 }
+
+// character_in 方向是 agent → work，且 character 属性在新数据里存角色实体 ID，
+// 两者都必须正确解析，否则详情页角色卡与声优无法配对。
+func TestWorkCompatPayloadCharacterIn(t *testing.T) {
+	work := Entity{ID: "w1", Kind: "work", Title: "作品", Status: "published"}
+	chara := Entity{ID: "a2", Kind: "agent", Title: "高松灯", Types: []string{"character"}}
+	voice := Entity{ID: "a3", Kind: "agent", Title: "声优甲", Types: []string{"person"}}
+	rels := []Relation{
+		{ID: "r1", Type: "character_in", SourceID: "a2", TargetID: "w1", Attributes: map[string]any{"role": "primary"}},
+		{ID: "r2", Type: "voiced_by", SourceID: "w1", TargetID: "a3", Attributes: map[string]any{"character": "a2"}},
+	}
+	others := map[string]Entity{"a2": chara, "a3": voice}
+	p := workCompatPayload(work, rels, others, map[string]string{"character_in": "角色登场", "voiced_by": "配音者"})
+	artistRels := p["artist_relations"].([]map[string]any)
+	if len(artistRels) != 2 {
+		t.Fatalf("artist_relations len = %d: %v", len(artistRels), artistRels)
+	}
+	byArtist := map[string]map[string]any{}
+	for _, r := range artistRels {
+		byArtist[r["artist_id"].(string)] = r
+	}
+	if got := byArtist["a2"]["role"]; got != "主角" {
+		t.Errorf("character_in role = %v, want 主角", got)
+	}
+	// voiced_by 的 character=实体ID 必须解析成角色名再拼进 "配演: <名>"
+	if !strings.Contains(byArtist["a3"]["role"].(string), "配演: 高松灯") {
+		t.Errorf("voice role = %v, want 配演: 高松灯", byArtist["a3"]["role"])
+	}
+}
