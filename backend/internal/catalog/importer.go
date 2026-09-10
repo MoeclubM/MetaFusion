@@ -1287,7 +1287,10 @@ func applyWorkSummary(e *Entity, summary string) {
 	if summary == "" {
 		return
 	}
-	// Entity 没有简介列，简介只能落在翻译行；只在无歧义时填充，不猜语种。
+	// Entity 没有简介列，简介只能落在翻译行。
+	if e.Translations == nil {
+		e.Translations = map[string]Translation{}
+	}
 	if e.OriginalLanguage != "" {
 		tr := e.Translations[e.OriginalLanguage]
 		if tr.Title == "" {
@@ -1302,7 +1305,34 @@ func applyWorkSummary(e *Entity, summary string) {
 			tr.Summary = summary
 			e.Translations[k] = tr
 		}
+		return
 	}
+	// 实体原语言未知且没有可归属的翻译行时（常见于导入的 agent），
+	// 按简介**自身文字**选择语种行：假名→ja、汉字→zh-CN。
+	// 这里只决定简介存放在哪一行，不改写 original_language（不把"简介的语言"
+	// 冒充成实体原语言）；实在无法判定才放弃，避免丢失上游已有的简介。
+	loc := detectTextLocale(summary)
+	if loc == "" {
+		return
+	}
+	tr := e.Translations[loc]
+	if tr.Title == "" {
+		tr.Title = e.Title
+	}
+	tr.Summary = summary
+	e.Translations[loc] = tr
+}
+
+// detectTextLocale 按文本自身文字判断语种：含假名→ja，含汉字→zh-CN，其余为空。
+// 仅用于给简介找一个存放的翻译行，不代表实体原语言。
+func detectTextLocale(s string) string {
+	if detectJapaneseScript(s) == "ja" {
+		return "ja"
+	}
+	if hasHan(s) {
+		return "zh-CN"
+	}
+	return ""
 }
 
 // pictureFromRemote 把外部目录的远端图片 URL 透传为 Picture（不抓取、不转存）。

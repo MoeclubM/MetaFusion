@@ -510,3 +510,35 @@ func TestMergeAgentMetadata(t *testing.T) {
 		t.Errorf("org must not be downgraded to group by title match: %v", got2.Types)
 	}
 }
+
+// 简介不该因语言未知而丢失：agent 无原语言、无翻译行时，
+// 按简介自身文字选语种行存放（不改写 original_language）。
+func TestApplyWorkSummaryFallsBackByText(t *testing.T) {
+	// 中文简介 → 存 zh-CN 行
+	zh := Entity{Kind: "agent", Title: "小川浩太朗", Translations: map[string]Translation{}}
+	applyWorkSummary(&zh, "三次元所属。")
+	if zh.Translations["zh-CN"].Summary != "三次元所属。" {
+		t.Errorf("zh summary not stored: %v", zh.Translations)
+	}
+	if zh.OriginalLanguage != "" {
+		t.Errorf("must not fabricate original_language: %q", zh.OriginalLanguage)
+	}
+	// 日文简介 → 存 ja 行
+	ja := Entity{Kind: "agent", Title: "北澤史隆", Translations: map[string]Translation{}}
+	applyWorkSummary(&ja, "日本の男性プロデューサー。")
+	if ja.Translations["ja"].Summary == "" {
+		t.Errorf("ja summary not stored: %v", ja.Translations)
+	}
+	// 拉丁文本无法判定 → 不创建语种行，但不 panic
+	la := Entity{Kind: "agent", Title: "X", Translations: map[string]Translation{}}
+	applyWorkSummary(&la, "producer based in Tokyo")
+	if len(la.Translations) != 0 {
+		t.Errorf("undetectable text must not invent a locale: %v", la.Translations)
+	}
+	// 原语言已知时仍优先原语言行（不改变既有语义）
+	known := Entity{Kind: "work", Title: "作品", OriginalLanguage: "ja", Translations: map[string]Translation{}}
+	applyWorkSummary(&known, "あらすじ。")
+	if known.Translations["ja"].Summary == "" {
+		t.Errorf("original-language routing broken: %v", known.Translations)
+	}
+}
