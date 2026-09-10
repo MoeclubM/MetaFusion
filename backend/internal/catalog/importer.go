@@ -1084,6 +1084,12 @@ func (s *Store) findAgentByTitle(ctx context.Context, title string, actor *User)
 }
 
 func (s *Store) importerSave(ctx context.Context, e Entity, actor User, note string, sources []Source) (Entity, error) {
+	return s.importerSaveVersioned(ctx, e, 0, actor, note, sources)
+}
+
+// importerSaveVersioned 与 importerSave 相同，但显式带乐观锁版本。
+// 更新已存在实体时必须传其当前版本，否则 Save 会以 version_conflict 拒绝。
+func (s *Store) importerSaveVersioned(ctx context.Context, e Entity, expectedVersion int64, actor User, note string, sources []Source) (Entity, error) {
 	if e.Translations == nil {
 		e.Translations = map[string]Translation{}
 	}
@@ -1093,7 +1099,7 @@ func (s *Store) importerSave(ctx context.Context, e Entity, actor User, note str
 	if e.ExternalIDs == nil {
 		e.ExternalIDs = map[string]string{}
 	}
-	return s.Save(ctx, Edit{Entity: e, ExpectedVersion: 0, EditNote: note, Sources: sources}, actor)
+	return s.Save(ctx, Edit{Entity: e, ExpectedVersion: expectedVersion, EditNote: note, Sources: sources}, actor)
 }
 
 // assocImportKey 取关联项的自有导入键（bangumi_person / bangumi_character），
@@ -1703,7 +1709,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			// 便于老条目增量补录；已有值一律不覆盖，避免抹掉人工编辑。
 			merged, changed := mergeWorkMetadata(existing, req.Work)
 			if changed {
-				updated, uerr := s.importerSave(ctx, merged, actor, note, sources)
+				updated, uerr := s.importerSaveVersioned(ctx, merged, existing.Version, actor, note, sources)
 				if uerr != nil {
 					return ImporterImportResponse{}, uerr
 				}
