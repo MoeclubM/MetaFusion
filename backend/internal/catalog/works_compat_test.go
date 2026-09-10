@@ -127,3 +127,30 @@ func TestWorkCompatPayloadCharacterIn(t *testing.T) {
 		t.Errorf("voice role = %v, want 配演: 高松灯", byArtist["a3"]["role"])
 	}
 }
+
+// credit_role 覆盖必须让位于声优的 "配演: <角色>" 配对格式，
+// 否则前端 StaffCharacterSection 无法把角色与声优配对；其余署名仍保留原始职位文本。
+func TestWorkCompatPayloadCreditRolePrecedence(t *testing.T) {
+	work := Entity{ID: "w1", Kind: "work", Title: "作品", Status: "published"}
+	chara := Entity{ID: "a2", Kind: "agent", Title: "高松灯", Types: []string{"character"}}
+	voice := Entity{ID: "a3", Kind: "agent", Title: "声优甲", Types: []string{"person"}}
+	staff := Entity{ID: "a4", Kind: "agent", Title: "作监", Types: []string{"person"}}
+	rels := []Relation{
+		{ID: "r1", Type: "voiced_by", SourceID: "w1", TargetID: "a3",
+			Attributes: map[string]any{"character": "a2", "credit_role": "配音"}},
+		{ID: "r2", Type: "illustrated_by", SourceID: "w1", TargetID: "a4",
+			Attributes: map[string]any{"credit_role": "作画监督"}},
+	}
+	others := map[string]Entity{"a2": chara, "a3": voice, "a4": staff}
+	p := workCompatPayload(work, rels, others, map[string]string{"voiced_by": "配音者", "illustrated_by": "插画者"})
+	byArtist := map[string]map[string]any{}
+	for _, r := range p["artist_relations"].([]map[string]any) {
+		byArtist[r["artist_id"].(string)] = r
+	}
+	if got := byArtist["a3"]["role"]; !strings.Contains(got.(string), "配演: 高松灯") {
+		t.Errorf("voice actor role = %v, want 配演 pairing (credit_role must not override)", got)
+	}
+	if got := byArtist["a4"]["role"]; got != "作画监督" {
+		t.Errorf("staff role = %v, want original credit_role text", got)
+	}
+}

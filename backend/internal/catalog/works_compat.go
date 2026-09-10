@@ -203,13 +203,15 @@ func workCompatPayload(e Entity, rels []Relation, others map[string]Entity, labe
 				role := relName(r.Type)
 				if r.Type == "voiced_by" {
 					if ch := characterRefName(r.Attributes["character"], others); ch != "" {
-						// 旧前端 StaffCharacterSection 以 "配演: <角色>" 正则配对角色与声优
+						// 旧前端 StaffCharacterSection 以 "配演: <角色>" 正则配对角色与声优；
+						// 该格式优先级最高，不能被 credit_role 覆盖，否则角色与声优无法配对。
 						role = "配音: 配演: " + ch
+					} else if cr := stringOf(r.Attributes["credit_role"]); cr != "" {
+						role = cr
 					}
-				}
-				// 保留 Bangumi 原始职位文本（如"摄影监督""CG 导演"），供详情页精确展示。
-				if cr, _ := r.Attributes["credit_role"].(string); strings.TrimSpace(cr) != "" {
-					role = strings.TrimSpace(cr)
+				} else if cr := stringOf(r.Attributes["credit_role"]); cr != "" {
+					// 其余署名保留来源原始职位文本（如"摄影监督""CG 导演"），展示更精确。
+					role = cr
 				}
 				artistRels = append(artistRels, map[string]any{
 					"id": r.ID, "work_id": e.ID, "artist_id": r.TargetID, "role": role,
