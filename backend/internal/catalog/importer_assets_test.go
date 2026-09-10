@@ -47,3 +47,30 @@ func TestDefaultsCreditRelations(t *testing.T) {
 		}
 	}
 }
+
+// TestStringScalarMapKeepsIntIDs 回归：预览 DTO 用 Go int 装 ID，
+// stringScalarMap 若只认 float64 会静默丢弃外部 ID。
+func TestStringScalarMapKeepsIntIDs(t *testing.T) {
+	got := stringScalarMap(map[string]any{
+		"bangumi_person":    45638,
+		"bangumi_character": int64(200841),
+		"bangumi":           float64(428735),
+		"text":              "keep",
+		"flag":              true,
+	})
+	want := map[string]string{
+		"bangumi_person":    "45638",
+		"bangumi_character": "200841",
+		"bangumi":           "428735",
+		"text":              "keep",
+		"flag":              "true",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %v", got)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s: got %q want %q", k, got[k], v)
+		}
+	}
+}

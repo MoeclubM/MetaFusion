@@ -178,7 +178,8 @@ func TestImporterPreviewBangumi(t *testing.T) {
 	if person.Artist.Name != "约翰" || person.Artist.OriginalName != "John Doe" || person.Artist.EntityType != "person" {
 		t.Fatalf("bad person mapping: %+v", person.Artist)
 	}
-	if person.Artist.ExternalIDs["bangumi_person"] != float64(9) {
+	// 预览 DTO 直接装箱 Go 的 int ID；经 JSON 往返后为 float64。两种形态都应保留 ID。
+	if v := person.Artist.ExternalIDs["bangumi_person"]; replayNumEqual(v, 9) == false && v != "9" {
 		t.Fatalf("bad person external_ids: %v", person.Artist.ExternalIDs)
 	}
 

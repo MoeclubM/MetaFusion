@@ -696,6 +696,8 @@ func originalLanguageOrEmpty(v string) string {
 }
 
 // stringScalarMap 只收录标量值，保证 Entity.ExternalIDs 全为字符串。
+// int/int64 也收录：预览 DTO 以 Go 结构体构造时 ID 是 int，
+// 若只认 float64 会静默丢弃外部 ID（JSON 往返场景才会变成 float64）。
 func stringScalarMap(in map[string]any) map[string]string {
 	out := map[string]string{}
 	for k, v := range in {
@@ -704,6 +706,10 @@ func stringScalarMap(in map[string]any) map[string]string {
 			out[k] = x
 		case float64:
 			out[k] = strconv.FormatFloat(x, 'f', -1, 64)
+		case int:
+			out[k] = strconv.Itoa(x)
+		case int64:
+			out[k] = strconv.FormatInt(x, 10)
 		case bool:
 			out[k] = strconv.FormatBool(x)
 		}

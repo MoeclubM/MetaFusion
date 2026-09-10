@@ -62,13 +62,14 @@ import (
 	"testing"
 )
 
-// replaySnapshotDir 优先读环境变量 MF_REPLAY_SNAPSHOT_DIR，便于 CI 覆盖；默认任务指定的快照位置。
+// replaySnapshotDir 优先读环境变量 MF_REPLAY_SNAPSHOT_DIR；默认用仓库内 testdata，
+// 保证 CI 与全新 clone 也能跑回放（此前默认指向本机绝对临时路径，CI 必然缺失）。
 func replaySnapshotDir(t *testing.T) string {
 	t.Helper()
 	if dir := strings.TrimSpace(os.Getenv("MF_REPLAY_SNAPSHOT_DIR")); dir != "" {
 		return dir
 	}
-	return `C:\Users\QwQ\AppData\Local\Temp\mygo_survey`
+	return filepath.Join("testdata", "bangumi_replay")
 }
 
 // readSnapshotRaw 原文读取快照：无效字符替换（UTF-8 decode 容错），不中断。
