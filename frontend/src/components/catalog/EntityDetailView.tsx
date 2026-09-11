@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import FavoriteButton from "@/components/FavoriteButton";
 import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
+import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { EntityEditor } from "@/components/catalog/EntityEditor";
 import { useCatalog } from "@/components/catalog/CatalogProvider";
 import { api, Entity, Relation, title, local } from "@/components/catalog/api";
@@ -703,16 +704,19 @@ export function EntityDetailView({ id }: { id: string }) {
     entity.attributes?.description ||
     "";
 
-  const resolvedAliases: string[] = (() => {
-    for (const loc of chain) {
-      const row = findRowForLocale(
-        Object.entries(entity.translations || {}).map(([l, r]) => ({ locale: l, aliases: r?.aliases })),
-        loc,
-      );
-      if (row?.aliases && row.aliases.length > 0) return row.aliases;
-    }
-    return [];
-  })() || [];
+  // 别名/译名按语种分组展示（含主语言标记）：resolve DTO 的 translations 是
+  // 按 locale 分组的对象，转成 LocalizedTitleGroups 需要的行数组。
+  // 过去这里只取第一个有别名的语种拍平展示，其余语种别名全部丢失。
+  const translationRows = React.useMemo(
+    () =>
+      Object.entries(entity.translations || {}).map(([locale, row]) => ({
+        locale,
+        title: row?.title || "",
+        summary: row?.summary || "",
+        aliases: row?.aliases || [],
+      })),
+    [entity.translations],
+  );
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
@@ -943,19 +947,15 @@ export function EntityDetailView({ id }: { id: string }) {
                 )}
               </div>
 
-              {/* Aliases */}
-              {resolvedAliases.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5 text-xs text-gray-500">
-                  <span className="font-mono text-[10px] text-gray-400 uppercase tracking-wider">
-                    {t("entity.page.aliases")}
-                  </span>
-                  {resolvedAliases.map((alias, idx) => (
-                    <span key={idx} className="px-2 py-0.5 rounded bg-black/[0.03] dark:bg-white/[0.04] text-gray-700 dark:text-gray-300 font-mono">
-                      {alias}
-                    </span>
-                  ))}
-                </div>
-              )}
+              {/* Aliases：按语种分组的别名/译名，主语言行带"原始语言"标记 */}
+              <LocalizedTitleGroups
+                translations={translationRows}
+                originalLanguage={entity.original_language}
+                displayTitle={localizedTitle}
+                extraKnown={[entity.title]}
+                className="space-y-1"
+                itemClassName="text-xs text-gray-500 dark:text-gray-400"
+              />
 
               {/* Action Toolbar */}
               <div className="pt-3 border-t border-black/5 dark:border-white/[0.06] flex flex-wrap items-center justify-between gap-3">
