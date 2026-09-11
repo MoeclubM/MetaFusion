@@ -166,10 +166,13 @@ services:
 
   # --------------------------------------------------------------------------
   # 6. 全文与多维聚合搜索引擎 (OpenSearch 2.14)
+  #    当前后端无任何 OpenSearch 接线（检索走 PostgreSQL），默认不启动以节省资源；
+  #    需要全文搜索时用 --profile search 显式启用。存量 opensearch_data 卷保留。
   # --------------------------------------------------------------------------
   opensearch:
     image: opensearchproject/opensearch:2.14.0
     container_name: metafusion-opensearch
+    profiles: ["search"]
     restart: unless-stopped
     environment:
       - discovery.type=single-node
@@ -207,19 +210,23 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 8. S3 存储桶占位容器 — 当前不做实际初始化（不创建桶、不配置公开策略）
-  #    仅等待 RustFS 启动后打印一行日志并退出，保持 depends_on 链与编排结构稳定。
-  #    桶与策略需由运维手动创建或后续接入真实初始化脚本。
+  # 8. S3 存储桶初始化 — 用 mc 创建 master/preview 双桶（幂等），失败不阻塞主链。
+  #    桶策略保持私有（经后端签名/网关反代访问）；公开读需运维显式执行
+  #    mc anonymous set download 自动生成别名/metafusion-preview。
   # --------------------------------------------------------------------------
   storage-init:
-    image: curlimages/curl:latest
+    image: minio/mc:latest
     container_name: metafusion-storage-init
     depends_on:
       - rustfs
+    environment:
+      - S3_ROOT_USER=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
+      - S3_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
     entrypoint: >
       /bin/sh -c "
-      sleep 2;
-      echo 'RustFS placeholder: no bucket init performed.';
+      mc alias set local http://rustfs:9000 \"$${S3_ROOT_USER}\" \"$${S3_ROOT_PASSWORD}\" >/dev/null 2>&1 || exit 0;
+      mc mb --ignore-existing local/metafusion-master local/metafusion-preview;
+      echo 'storage-init: buckets ensured (metafusion-master, metafusion-preview).';
       exit 0;
       "
     networks:
