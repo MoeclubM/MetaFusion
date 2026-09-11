@@ -2391,7 +2391,7 @@
   "entity.page.signInToComment": "Sign in to comment",
   "entity.page.commentPlaceholderAuthed": "Share your thoughts or discussion on this entity...",
   "entity.page.commentPlaceholderGuest": "Please sign in to participate in the discussion...",
-  "entity.page.syncNotice": "Syncs to forum discussion stream.",
+  "entity.page.syncNotice": "Comments appear only on this entry and are separate from forum topics.",
   "entity.page.posting": "Posting...",
   "entity.page.postComment": "Post Comment",
   "entity.page.sendAfterLogin": "Sign In",

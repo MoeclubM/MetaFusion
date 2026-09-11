@@ -2391,7 +2391,7 @@
   "entity.page.signInToComment": "登入以發表評論",
   "entity.page.commentPlaceholderAuthed": "寫下你對這部作品或發行的評價與感想…",
   "entity.page.commentPlaceholderGuest": "請先登入帳號後再參與討論...",
-  "entity.page.syncNotice": "內容將同步呈現於論壇討論串。",
+  "entity.page.syncNotice": "評論僅顯示於該條目下，與論壇主題各自獨立。",
   "entity.page.posting": "發表中…",
   "entity.page.postComment": "發表短評",
   "entity.page.sendAfterLogin": "登入後傳送",

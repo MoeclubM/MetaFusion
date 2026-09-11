@@ -2391,7 +2391,7 @@
   "entity.page.signInToComment": "コメントにはサインインが必要",
   "entity.page.commentPlaceholderAuthed": "この作品・リリースへの感想や議論を書く…",
   "entity.page.commentPlaceholderGuest": "議論に参加するにはまずログインしてください…",
-  "entity.page.syncNotice": "フォーラムの議論に同期されます。",
+  "entity.page.syncNotice": "コメントはこのエントリ内のみに表示され、フォーラムのトピックとは独立しています。",
   "entity.page.posting": "投稿中…",
   "entity.page.postComment": "短評を投稿",
   "entity.page.sendAfterLogin": "サインイン",

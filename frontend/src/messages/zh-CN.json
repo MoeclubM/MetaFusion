@@ -2391,7 +2391,7 @@
   "entity.page.signInToComment": "登录以发表评论",
   "entity.page.commentPlaceholderAuthed": "写下你对这部作品或发行的评价与感想...",
   "entity.page.commentPlaceholderGuest": "请先登录账号后再参与讨论...",
-  "entity.page.syncNotice": "内容将同步呈现于论坛讨论流。",
+  "entity.page.syncNotice": "评论仅展示在该条目下，与论坛主题相互独立。",
   "entity.page.posting": "发表中...",
   "entity.page.postComment": "发表短评",
   "entity.page.sendAfterLogin": "登录后发送",
