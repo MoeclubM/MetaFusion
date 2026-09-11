@@ -176,6 +176,16 @@ export default function WorkDirectoryPage() {
  loadReleases(page, q);
  }, [workId, page, q]);
 
+ // 讨论分节已不在标签栏（id="discussion" 现在是普通锚点）。客户端渲染下浏览器
+ // 处理 hash 时元素还不存在，旧链接 #discussion 会停在页首；内容就绪后补一次滚动。
+ useEffect(() => {
+ if (loadingWork || typeof window === "undefined") return;
+ const h = decodeURIComponent(window.location.hash.replace(/^#/, ""));
+ if (!h) return;
+ const el = document.getElementById(h);
+ if (el) el.scrollIntoView({ block: "start" });
+ }, [loadingWork, topics.length]);
+
  const onSearch = (e: React.FormEvent) => {
  e.preventDefault();
  setPage(1);
