@@ -125,6 +125,17 @@ export type Relation = {
   attributes: Record<string, any>;
 };
 export type User = { id: string; username: string; role: string };
+// 社区短评（modules.posts）：按实体聚合，不是独立主题模型。
+export type CommunityPost = {
+  id: string;
+  entity_id?: string;
+  author_id: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+  entity_title?: string;
+  entity_kind?: string;
+};
 export type Capability = {
   id: string;
   enabled: boolean;

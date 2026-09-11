@@ -2557,5 +2557,11 @@
   "locale.simplifiedChinese": "简体中文",
   "locale.traditionalChinese": "繁體中文",
   "locale.japanese": "日本語",
-  "locale.englishUs": "英文（美国）"
+  "locale.englishUs": "英文（美国）",
+  "catalog.resourceStationNotReady": "资源存储中心尚未开放，敬请期待。",
+  "community.feedSubtitle": "汇总全站各条目下的最新短评与讨论。",
+  "community.feedEmpty": "还没有任何讨论。",
+  "community.feedEmptyHint": "进入任意条目详情页的「社区讨论」分节即可发表第一条短评。",
+  "community.feedLinkedEntity": "关联条目",
+  "community.moduleDisabled": "社区讨论功能当前未启用，请联系管理员开启。"
 }

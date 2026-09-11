@@ -2557,5 +2557,11 @@
   "locale.simplifiedChinese": "Simplified Chinese",
   "locale.traditionalChinese": "Traditional Chinese",
   "locale.japanese": "Japanese",
-  "locale.englishUs": "English (US)"
+  "locale.englishUs": "English (US)",
+  "catalog.resourceStationNotReady": "The resource storage center is not open yet. Stay tuned.",
+  "community.feedSubtitle": "The latest short reviews and discussions across all catalog entries.",
+  "community.feedEmpty": "No discussions yet.",
+  "community.feedEmptyHint": "Open any entry's Community tab to post the first review.",
+  "community.feedLinkedEntity": "Related entry",
+  "community.moduleDisabled": "Community discussions are currently disabled. Please ask an administrator to enable them."
 }
