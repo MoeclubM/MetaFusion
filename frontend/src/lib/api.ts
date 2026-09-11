@@ -102,59 +102,10 @@ export interface AdminStats {
 }
 
 // 旧分类法 Category 接口已随 categories 词表废弃而移除（taxonomy 现用 tags + shelves）
-
-export interface VirtualShelf {
-  id?: string;
-  slug: string;
-  parent_slug?: string;
-  name_zh: string;
-  name_en: string;
-  names?: Record<string, string>;
-  name?: string;
-  description?: string;
-  descriptions?: Record<string, string>;
-  icon?: string;
-  sort_order: number;
-  query_tags: string[];
-  require_all_tags: boolean;
-  exclude_tags: string[];
-  children?: VirtualShelf[];
-}
-
-export interface UserCustomShelf {
-  id: string;
-  owner_id: string;
-  slug: string;
-  name_zh: string;
-  name_en: string;
-  names?: Record<string, string>;
-  name?: string;
-  description: string;
-  descriptions?: Record<string, string>;
-  icon: string;
-  sort_order: number;
-  query_tags: string[];
-  require_all_tags: boolean;
-  exclude_tags: string[];
-  is_public: boolean;
-  view_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-/** Work browse/editor facets. spec (规格) is carrier-only and excluded. */
-export const WORK_TAG_GROUPS = ["format", "medium", "genre", "theme", "general"] as const;
-
-export function isWorkTagGroup(group: string): boolean {
-  return (WORK_TAG_GROUPS as readonly string[]).includes(group);
-}
-
-export function workFacetTagGroups(groups: Record<string, Tag[]> | undefined): [string, Tag[]][] {
-  return Object.entries(groups || {}).filter(([key, tags]) => isWorkTagGroup(key) && (tags?.length ?? 0) > 0);
-}
+// 旧 VirtualShelf / UserCustomShelf / UserHomeLayout 同步 2026-09-12 移除：
+// 后端 /catalog/shelves/custom/* 不存在，货架走 catalog.shelves + user_preferences。
 
 export interface TaxonomyResponse {
-  shelves?: VirtualShelf[];
   tags?: Tag[];
   tag_groups?: Record<string, Tag[]>;
   media_types: DictTerm[];
@@ -1379,36 +1330,6 @@ export async function deleteAvatar(): Promise<{ avatar_url: string; user: User; 
   });
 }
 
-
-export interface UserHomeLayout {
-  hidden_system_slugs: string[];
-  order_json: string[];
-}
-
-export function syncPresetShelves(overwrite: boolean = false): Promise<{ items: UserCustomShelf[]; order: string[] }> {
-  return fetchApi<{ items: UserCustomShelf[]; order: string[] }>("/catalog/shelves/custom/sync-presets", {
-    method: "POST",
-    body: JSON.stringify({ overwrite }),
-  });
-}
-
-export function forkPresetShelf(slug: string): Promise<{ shelf: UserCustomShelf; order: string[] }> {
-  return fetchApi<{ shelf: UserCustomShelf; order: string[] }>(`/catalog/shelves/custom/fork/${slug}`, {
-    method: "POST",
-  });
-}
-
-export function ensureDefaultShelves(): Promise<{ items: UserCustomShelf[]; order: string[] }> {
-  return fetchApi<{ items: UserCustomShelf[]; order: string[] }>("/catalog/shelves/custom/ensure-defaults", {
-    method: "POST",
-  });
-}
-
-export function resetDefaultShelves(): Promise<{ items: UserCustomShelf[]; order: string[] }> {
-  return fetchApi<{ items: UserCustomShelf[]; order: string[] }>("/catalog/shelves/custom/reset-defaults", {
-    method: "POST",
-  });
-}
 
 export function updateWorkStatus(id: string, status: string): Promise<{ status: string; work_status: string }> {
   return fetchApi<{ status: string; work_status: string }>(`/admin/works/${id}/status`, {
