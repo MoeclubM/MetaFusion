@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
+import { useSearchParams } from "next/navigation";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import FavoriteButton from "@/components/FavoriteButton";
 import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
@@ -109,6 +110,9 @@ export function EntityDetailView({ id }: { id: string }) {
   const { definition, user, modules } = useCatalog();
   const { definitions: dynamicDefs } = useDefinitions();
   const defs = definition?.document || dynamicDefs;
+  // ?edit=1 直达编辑模式（works 页"编辑"跳转的目标）。useSearchParams 必须
+  // 在任何早退 return 之前调用（hook 顺序），页面组件需提供 Suspense 边界。
+  const searchParams = useSearchParams();
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [motherWork, setMotherWork] = useState<Entity | null>(null);
@@ -128,7 +132,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(searchParams.get("edit") === "1");
   const [copiedId, setCopiedId] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [relationFilter, setRelationFilter] = useState<string>("all");

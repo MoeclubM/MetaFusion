@@ -2597,5 +2597,6 @@
   "editor.relation.reverse": "反向",
   "editor.relation.evidenceRequired": "请先在下方填写本次修改说明与来源，再维护关系。",
   "editor.relation.forbidden": "权限不足：他人或已发布条目的关系，需要条目创建者（editor）或管理员操作。",
-  "editor.relation.loadFailed": "关系加载失败"
+  "editor.relation.loadFailed": "关系加载失败",
+  "catalog.evidenceRequired": "请先填写本次修改说明与来源声明，再保存。"
 }
