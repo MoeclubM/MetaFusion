@@ -461,10 +461,26 @@ func (m *Manager) registerForum(api *gin.RouterGroup) {
 			return
 		}
 		defer tx.Rollback()
-		// post_number 在主题内单调递增；行锁避免并发下重号。
+		// post_number 在主题内单调递增。必须锁"主题行"而不是聚合查询：
+		// PostgreSQL 不允许 FOR UPDATE 与 MAX() 等聚合函数同时出现。
+		// 先锁住该主题即可把同一主题的回帖串行化，再取当前最大楼号。
+		var lockedNow bool
+		if err = tx.QueryRowContext(c.Request.Context(),
+			"SELECT is_locked FROM modules.forum_topics WHERE id=$1 FOR UPDATE", topicID).Scan(&lockedNow); err == sql.ErrNoRows {
+			// 主题在预检与开启事务之间被删除。
+			failure(c, 404, "not_found")
+			return
+		} else if err != nil {
+			failure(c, 500, "module_error")
+			return
+		}
+		if lockedNow {
+			failure(c, 403, "topic_locked")
+			return
+		}
 		var next int
 		if err = tx.QueryRowContext(c.Request.Context(),
-			"SELECT COALESCE(MAX(post_number),1)+1 FROM modules.forum_posts WHERE topic_id=$1 FOR UPDATE", topicID).Scan(&next); err != nil {
+			"SELECT COALESCE(MAX(post_number),1)+1 FROM modules.forum_posts WHERE topic_id=$1", topicID).Scan(&next); err != nil {
 			failure(c, 500, "module_error")
 			return
 		}
