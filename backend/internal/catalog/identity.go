@@ -120,12 +120,18 @@ func (s *Store) Logout(ctx context.Context, token string) error {
 
 // Refresh 校验现有令牌（无状态或查库），重新签发一个新令牌并清理旧会话行。
 // 用于访问令牌临近过期时的续期；refresh 本身也接受 Bearer 令牌，前端无需
-// 额外的 refresh_token 字段。
+// 额外的 refresh_token 字段。新令牌按库中最新身份签发：JWT 内 role 可能陈旧
+// （降权后旧令牌仍能验签通过），必须回表取最新行，否则降权会被续期续接。
 func (s *Store) Refresh(ctx context.Context, token string) (string, User, error) {
 	u, err := s.Authenticate(ctx, token)
 	if err != nil || u == nil {
 		return "", User{}, fmt.Errorf("invalid_token")
 	}
+	var fresh User
+	if ferr := s.DB.QueryRowContext(ctx, "SELECT id,username,COALESCE(email,''),role FROM auth.users WHERE id=$1", u.ID).Scan(&fresh.ID, &fresh.Username, &fresh.Email, &fresh.Role); ferr != nil {
+		return "", User{}, fmt.Errorf("invalid_token")
+	}
+	u = &fresh
 	if s.Tokens == nil {
 		return token, *u, nil // 纯查库模式无续期语义，原令牌继续有效
 	}
@@ -309,14 +315,21 @@ func (s *Store) ChangePassword(ctx context.Context, userID, oldPassword, newPass
 	if _, err = s.DB.ExecContext(ctx, "UPDATE auth.users SET password_hash=$1 WHERE id=$2", string(newHash), userID); err != nil {
 		return err
 	}
-	// 改密后作废该用户全部服务端会话：旧令牌验签成功会直接放行（15 分钟窗口），
-	// 必须删会话行才能让回退查库也失效。与 ResetUserPassword 行为对齐。
-	_, err = s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE user_id=$1", userID)
+	// 改密后作废该用户全部服务端会话与 OAuth 令牌：旧访问令牌验签成功会直接
+	// 放行（15 分钟窗口），必须删会话行才能让回退查库也失效；OAuth 行 30 天有效，
+	// 不删则第三方令牌继续可用。与 ResetUserPassword 行为对齐。
+	if _, err = s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE user_id=$1", userID); err != nil {
+		return err
+	}
+	_, err = s.DB.ExecContext(ctx, "DELETE FROM auth.oauth_tokens WHERE user_id=$1", userID)
 	return err
 }
 
 func (s *Store) LogoutAll(ctx context.Context, userID string) error {
-	_, err := s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE user_id=$1", userID)
+	if _, err := s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE user_id=$1", userID); err != nil {
+		return err
+	}
+	_, err := s.DB.ExecContext(ctx, "DELETE FROM auth.oauth_tokens WHERE user_id=$1", userID)
 	return err
 }
 
@@ -382,5 +395,6 @@ func (s *Store) ResetUserPassword(ctx context.Context, targetUserID, newPassword
 		return fmt.Errorf("user_not_found")
 	}
 	_, _ = s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE user_id=$1", targetUserID)
+	_, _ = s.DB.ExecContext(ctx, "DELETE FROM auth.oauth_tokens WHERE user_id=$1", targetUserID)
 	return nil
 }
