@@ -2576,5 +2576,20 @@
   "home.moveDown": "下移",
   "catalog.layer.creation": "創作",
   "catalog.layer.publication": "發行",
-  "catalog.layer.agents": "主體與合集"
+  "catalog.layer.agents": "主體與合集",
+  "community.scope": "討論範圍",
+  "community.allDiscussions": "全部討論",
+  "community.discussedEntities": "涉及的條目",
+  "community.scopedToEntity": "僅看該條目",
+  "community.clearScope": "查看全部",
+  "community.sortRecent": "最新",
+  "community.sortOldest": "最早",
+  "community.searchPlaceholder": "搜尋討論內容或條目名稱…",
+  "community.deleteConfirm": "確定刪除這則討論嗎？",
+  "community.markdownHint": "支援 Markdown 與 LaTeX",
+  "community.post": "發表",
+  "community.postPlaceholder": "寫下你的看法，支援 Markdown 與 LaTeX…",
+  "community.backToFeed": "返回社群",
+  "community.postNotFound": "找不到這則討論。",
+  "community.viewEntityDiscussion": "查看該條目的全部討論"
 }

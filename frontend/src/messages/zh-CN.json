@@ -2576,5 +2576,20 @@
   "home.moveDown": "下移",
   "catalog.layer.creation": "创作",
   "catalog.layer.publication": "发行",
-  "catalog.layer.agents": "主体与合集"
+  "catalog.layer.agents": "主体与合集",
+  "community.scope": "讨论范围",
+  "community.allDiscussions": "全部讨论",
+  "community.discussedEntities": "涉及的条目",
+  "community.scopedToEntity": "仅看该条目",
+  "community.clearScope": "查看全部",
+  "community.sortRecent": "最新",
+  "community.sortOldest": "最早",
+  "community.searchPlaceholder": "搜索讨论内容或条目名…",
+  "community.deleteConfirm": "确定删除这条讨论吗？",
+  "community.markdownHint": "支持 Markdown 与 LaTeX",
+  "community.post": "发表",
+  "community.postPlaceholder": "写下你的看法，支持 Markdown 与 LaTeX…",
+  "community.backToFeed": "返回社区",
+  "community.postNotFound": "未找到这条讨论。",
+  "community.viewEntityDiscussion": "查看该条目的全部讨论"
 }

@@ -2576,5 +2576,20 @@
   "home.moveDown": "下へ",
   "catalog.layer.creation": "創作",
   "catalog.layer.publication": "リリース",
-  "catalog.layer.agents": "主体とコレクション"
+  "catalog.layer.agents": "主体とコレクション",
+  "community.scope": "表示範囲",
+  "community.allDiscussions": "すべての議論",
+  "community.discussedEntities": "関連エントリ",
+  "community.scopedToEntity": "このエントリのみ",
+  "community.clearScope": "すべて表示",
+  "community.sortRecent": "新しい順",
+  "community.sortOldest": "古い順",
+  "community.searchPlaceholder": "議論内容またはエントリ名で検索…",
+  "community.deleteConfirm": "この投稿を削除しますか？",
+  "community.markdownHint": "Markdown と LaTeX に対応",
+  "community.post": "投稿",
+  "community.postPlaceholder": "感想を書き込む（Markdown / LaTeX 対応）…",
+  "community.backToFeed": "コミュニティへ戻る",
+  "community.postNotFound": "この投稿は見つかりませんでした。",
+  "community.viewEntityDiscussion": "このエントリの議論をすべて表示"
 }

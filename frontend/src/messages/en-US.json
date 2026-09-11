@@ -2576,5 +2576,20 @@
   "home.moveDown": "Move down",
   "catalog.layer.creation": "Creation",
   "catalog.layer.publication": "Publication",
-  "catalog.layer.agents": "Agents & Collections"
+  "catalog.layer.agents": "Agents & Collections",
+  "community.scope": "Scope",
+  "community.allDiscussions": "All discussions",
+  "community.discussedEntities": "Entities discussed",
+  "community.scopedToEntity": "This entity only",
+  "community.clearScope": "View all",
+  "community.sortRecent": "Newest",
+  "community.sortOldest": "Oldest",
+  "community.searchPlaceholder": "Search discussions or entity titles…",
+  "community.deleteConfirm": "Delete this discussion?",
+  "community.markdownHint": "Markdown and LaTeX supported",
+  "community.post": "Post",
+  "community.postPlaceholder": "Share your thoughts. Markdown and LaTeX supported…",
+  "community.backToFeed": "Back to community",
+  "community.postNotFound": "This discussion was not found.",
+  "community.viewEntityDiscussion": "View all discussions for this entity"
 }
