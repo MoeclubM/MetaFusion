@@ -113,6 +113,9 @@ type Field struct {
 	// AnchorKey 仅用于 group 字段：组内任一其它子字段有值时，该锚点子字段必须同时有值。
 	// 例：定位组声明 anchor=relative_to，避免出现"有页码却不知相对谁"的悬空定位。
 	AnchorKey string `json:"anchor_key,omitempty"`
+	// Hidden 表示该字段可写、可检索，但不进详情信息面板（存档/机器用途），
+	// 例如资料表原始条目与标签——它们由页面上的专用区块呈现，避免原文 JSON 直出。
+	Hidden bool `json:"hidden,omitempty"`
 }
 type Term struct {
 	Names   Names `json:"names"`

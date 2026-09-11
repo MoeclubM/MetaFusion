@@ -658,6 +658,8 @@ export interface Work {
   title: string;
   original_title?: string;
   aliases?: string[];
+  /** 作品类型码（如 animation/novel）；属性信息面板按它引用的模板渲染。 */
+  types?: string[];
   release_date?: string;
   begin_date?: string;
   end_date?: string;

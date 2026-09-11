@@ -275,6 +275,8 @@ func workCompatPayload(e Entity, rels []Relation, others map[string]Entity, labe
 
 	return map[string]any{
 		"id": e.ID, "title": e.Title, "status": e.Status,
+		// types 供前端按作品自身模板渲染属性分区；缺失会退回发行版模板导致错配。
+		"types":              e.Types,
 		"original_language":  e.OriginalLanguage,
 		"summary":            entitySummary(e),
 		"cover_image_url":    entityCover(e),

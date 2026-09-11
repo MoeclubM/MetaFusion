@@ -13,7 +13,7 @@ import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTaxonomy } from "@/hooks/useTaxonomy";
-import { Layers, MessageSquare, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Eye, Bookmark, ArrowUpRight, Network, List, ArrowRightLeft, X } from "lucide-react";
+import { Layers, MessageSquare, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Eye, Bookmark, ArrowUpRight, Network, List, ArrowRightLeft, X, Calendar, Tag } from "lucide-react";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { TemporalBadge } from "@/components/entity/TemporalBadge";
@@ -26,7 +26,7 @@ import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { DetailTabs, DetailTab } from "@/components/catalog/DetailTabs";
 import { GroupedRelations } from "@/components/entity/RelationsList";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
-import { DynamicAttributeViewer } from "@/components/attributes/DynamicAttributeViewer";
+import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
 import dynamic from "next/dynamic";
 import { StaffCharacterSection } from "@/components/entity/StaffCharacterSection";
 import { WorkContentDirectory } from "@/components/work/WorkContentDirectory";
@@ -116,15 +116,16 @@ export default function WorkDirectoryPage() {
 
  // 发行版列表的列与可筛选字段：均由发行版模板声明（columns / facet_fields），
  // 后台可改，代码不写死 edition_type/format/country 等字段码。
- const { definitions: releaseDefs } = useDefinitions();
+ // 作品自身的信息面板不在这里取字段码：WorkFacts 会按作品类型引用的模板渲染。
+ const { definitions: defs } = useDefinitions();
  const releaseColumns = useMemo(() => {
-   const tpl = releaseDefs?.templates?.[releaseDefs?.types?.["release"]?.template || ""];
-   return (tpl?.columns || []).filter((c: string) => !!releaseDefs?.fields?.[c]);
- }, [releaseDefs]);
+   const tpl = defs?.templates?.[defs?.types?.["release"]?.template || ""];
+   return (tpl?.columns || []).filter((c: string) => !!defs?.fields?.[c]);
+ }, [defs]);
  const releaseFacets = useMemo(() => {
-   const tpl = releaseDefs?.templates?.[releaseDefs?.types?.["release"]?.template || ""];
-   return (tpl?.facet_fields || []).filter((c: string) => !!releaseDefs?.fields?.[c]);
- }, [releaseDefs]);
+   const tpl = defs?.templates?.[defs?.types?.["release"]?.template || ""];
+   return (tpl?.facet_fields || []).filter((c: string) => !!defs?.fields?.[c]);
+ }, [defs]);
 
  const filteredReleases = useMemo(() => {
  return releasePageItems.filter((e) =>
@@ -215,6 +216,8 @@ export default function WorkDirectoryPage() {
    order: titleOrder,
    originalLanguage: work.original_language,
  });
+ // 标题旁的事实徽章（发行日期、平台、话数、放送电视台…）全部由模板声明决定。
+ const badges = entityBadges(work, defs, locale);
 
  return (
  <div className="min-h-screen bg-background text-foreground">
@@ -230,6 +233,16 @@ export default function WorkDirectoryPage() {
          activeLabel={t("entity.temporal.activeWork")} endedLabel={t("entity.temporal.endedWork")} />
      </div>
      <h1>{localized.title}</h1>
+     {badges.length > 0 && (
+       <div className={styles.badges}>
+         {badges.map((b, i) => (
+           <span key={i}>
+             {b.kind === "date" ? <Calendar size={12} /> : <Tag size={12} />}
+             {b.text}
+           </span>
+         ))}
+       </div>
+     )}
      <LocalizedTitleGroups
        translations={work.translations}
        aliases={work.aliases}
@@ -261,7 +274,9 @@ export default function WorkDirectoryPage() {
          <h2>{t("work.detail.information")}</h2>
          {meta.isbn_13 && <p>{t("work.detail.isbn", { value: meta.isbn_13 })}</p>}
          {meta.clc_code && <p>{t("work.detail.clc", { code: meta.clc_code })}</p>}
-         {work.attributes && Object.keys(work.attributes).length > 0 && <DynamicAttributeViewer attributes={work.attributes} defs={releaseDefs} excludeKeys={["begin_date", "end_date"]} />}
+         {/* 作品信息按作品自身类型引用的模板渲染；过去这里传的是发行版 definitions，
+             字段集合与次序都不匹配，导致作品字段显示错配或缺失。 */}
+         <WorkFacts entity={work} defs={defs} locale={locale} />
        </section>
        {!!work.tags?.length && <section>
          <h2>{t("work.detail.tagsHeading")}</h2>
@@ -421,12 +436,12 @@ export default function WorkDirectoryPage() {
  <div className="flex flex-wrap items-center gap-2">
  {releaseFacets.map((code) => (
  <label key={code} className="inline-flex items-center gap-1.5 text-xs text-gray-500">
- <span className="font-mono">{getFieldName(releaseDefs, code, locale)}</span>
+ <span className="font-mono">{getFieldName(defs, code, locale)}</span>
  <select value={facetValues[code] || ""} onChange={(e) => { setFacetValues((prev) => ({ ...prev, [code]: e.target.value })); setPage(1); }} className="h-9 max-sm:min-h-[44px] px-2 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-xs text-gray-800 dark:text-gray-200">
  <option value="">{t("common.all")}</option>
  {facetOptionsOf(code).map((o) => {
- const def: any = releaseDefs?.fields?.[code];
- const label = def?.type === "enum" && def?.vocabulary ? getTermName(releaseDefs, def.vocabulary, o, locale) : o;
+ const def: any = defs?.fields?.[code];
+ const label = def?.type === "enum" && def?.vocabulary ? getTermName(defs, def.vocabulary, o, locale) : o;
  return <option key={o} value={o}>{label}</option>;
  })}
  </select>
@@ -458,7 +473,7 @@ export default function WorkDirectoryPage() {
  <th className="py-2.5 px-3.5 font-medium">{t("work.detail.tableRelease")}</th>
  {releaseColumns.map((code) => (
  <th key={code} className="py-2.5 px-3.5 font-medium">
- {getFieldName(releaseDefs, code, locale)}
+ {getFieldName(defs, code, locale)}
  </th>
  ))}
  </tr>
@@ -477,7 +492,7 @@ export default function WorkDirectoryPage() {
  {releaseColumns.map((code) => (
  <td key={code} className="py-2.5 px-3.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
  {rel.attributes?.[code] ? (
- <FieldValue defs={releaseDefs} code={code} value={rel.attributes[code]} locale={locale} />
+ <FieldValue defs={defs} code={code} value={rel.attributes[code]} locale={locale} />
  ) : ("—")}
  </td>
  ))}
@@ -494,7 +509,7 @@ export default function WorkDirectoryPage() {
  <Link href={`/releases/${rel.id}`} className="min-w-0 flex-1 space-y-1">
  <div className="font-semibold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2">{entityTitle(rel, locale)}</div>
  <div className="text-xs text-gray-500 truncate">
- {releaseColumns.map((code) => attributeText(releaseDefs, code, rel.attributes?.[code])).filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}
+ {releaseColumns.map((code) => attributeText(defs, code, rel.attributes?.[code])).filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}
  </div>
  </Link>
  </div>

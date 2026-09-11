@@ -5,7 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import FavoriteButton from "@/components/FavoriteButton";
-import { TemplateAttributeSections } from "@/components/catalog/TemplateAttributeSections";
+import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
 import { EntityEditor } from "@/components/catalog/EntityEditor";
 import { useCatalog } from "@/components/catalog/CatalogProvider";
 import { api, Entity, Relation, title, local } from "@/components/catalog/api";
@@ -417,34 +417,21 @@ export function EntityDetailView({ id }: { id: string }) {
   }, [entity, occurrences]);
 
 
-  // 头部徽章：主日期 + 模板 badge_fields 声明的字段（默认含载体格式/平台）。
-  // 字段码全部来自服务端模板声明，不写死 edition_date/format。
-  const headerBadges = useMemo(() => {
-    const out: { icon: React.ReactNode; text: string }[] = [];
-    const attrs: Record<string, any> = entity?.attributes || {};
-    const typeCodes = entity?.types || [];
-    const templates = typeCodes
-      .map((c: string) => defs?.templates?.[defs?.types?.[c]?.template || ""])
-      .filter(Boolean) as any[];
-    const dateField = templates.map((tp) => tp.primary_date_field).find(Boolean) as string | undefined;
-    if (dateField && attrs[dateField]) {
-      out.push({
-        icon: <Calendar className="w-3 h-3 text-amber-400" strokeWidth={1.5} />,
-        text: String(attrs[dateField]),
-      });
-    }
-    const badgeFields: string[] = Array.from(new Set(templates.flatMap((tp) => tp.badge_fields || [])));
-    for (const code of badgeFields) {
-      if (!attrs[code]) continue;
-      const def: any = defs?.fields?.[code];
-      const text =
-        def?.type === "enum" && def?.vocabulary
-          ? getTermName(defs, def.vocabulary, String(attrs[code]), locale)
-          : String(attrs[code]);
-      out.push({ icon: <Disc className="w-3 h-3 text-primary" strokeWidth={1.5} />, text });
-    }
-    return out;
-  }, [entity, defs, locale]);
+  // 头部徽章：主日期 + 模板 badge_fields 声明的字段（默认含平台/话数/载体格式）。
+  // 取值逻辑与 /works/[id] 共用 entityBadges，字段码全部来自服务端模板声明。
+  const headerBadges = useMemo(
+    () =>
+      entityBadges(entity, defs, locale).map((b) => ({
+        icon:
+          b.kind === "date" ? (
+            <Calendar className="w-3 h-3 text-amber-400" strokeWidth={1.5} />
+          ) : (
+            <Disc className="w-3 h-3 text-primary" strokeWidth={1.5} />
+          ),
+        text: b.text,
+      })),
+    [entity, defs, locale],
+  );
 
   // Graph nodes & links
   const { graphNodes, graphLinks } = useMemo(() => {
@@ -860,9 +847,9 @@ export function EntityDetailView({ id }: { id: string }) {
                 )}
               </dl>
 
-              {/* 其余属性全部分区渲染：字段、分区、次序、类型均来自服务端模板声明，
-                  新增媒体类型或字段无需修改本文件。 */}
-              <TemplateAttributeSections entity={entity} defs={defs} locale={locale} />
+              {/* 其余属性按实体自身模板分区渲染，与 /works/[id] 共用同一实现。
+                  字段、分区、次序、类型均来自服务端声明，新增媒体类型无需改本文件。 */}
+              <WorkFacts entity={entity} defs={defs} locale={locale} />
 
               {/* Types & Tags */}
               {((entity.types && entity.types.length > 0) || (entity.attributes?.tags && Array.isArray(entity.attributes.tags))) && (
