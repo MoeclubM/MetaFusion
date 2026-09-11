@@ -35,6 +35,24 @@ func entityCover(e Entity) string {
 	return ""
 }
 
+// entityTags 把 attributes.tags（字符串列表）转成旧前端期望的 [{id,name}] 形状。
+// 新轨没有独立标签字典，id 用 name 自身充当稳定键，仅供前端做 React key。
+func entityTags(e Entity) []map[string]any {
+	raw, ok := e.Attributes["tags"].([]any)
+	if !ok {
+		return []map[string]any{}
+	}
+	out := make([]map[string]any, 0, len(raw))
+	for _, v := range raw {
+		name := strings.TrimSpace(fmt.Sprint(v))
+		if name == "" {
+			continue
+		}
+		out = append(out, map[string]any{"id": name, "name": name})
+	}
+	return out
+}
+
 // entitySummary 取原语言简介，缺失时回退任一非空简介；新轨没有顶层 summary。
 func entitySummary(e Entity) string {
 	if e.OriginalLanguage != "" {
@@ -264,7 +282,7 @@ func workCompatPayload(e Entity, rels []Relation, others map[string]Entity, labe
 		"external_ids":       e.ExternalIDs,
 		"attributes":         e.Attributes,
 		"catalog_metadata":   e.Attributes["catalog_metadata"],
-		"tags":               []any{},
+		"tags":               entityTags(e),
 		"translations":       entityTranslationsArray(e),
 		"artist_relations":   artistRels,
 		"connected_entities": connected,

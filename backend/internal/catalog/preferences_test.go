@@ -1,7 +1,11 @@
 package catalog
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -114,5 +118,82 @@ func TestTrimAll(t *testing.T) {
 	}
 	if got := trimAll([]string{"", "  "}); got != nil {
 		t.Fatalf("all-blank should return nil, got %v", got)
+	}
+}
+
+// infobox 原文摊平：保序、去空键、同名多值展开为多行。
+func TestBangumiInfoboxEntries(t *testing.T) {
+	s := bangumiSubject{Infobox: []bangumiInfoItem{
+		{Key: "话数", Value: json.RawMessage(`"12"`)},
+		{Key: "别名", Value: json.RawMessage(`[{"v":"A"},{"v":"B"}]`)},
+		{Key: "", Value: json.RawMessage(`"ignored"`)},
+		{Key: "Copyright", Value: json.RawMessage(`"© test"`)},
+	}}
+	got := s.infoboxEntries()
+	want := []string{"话数=12", "别名=A", "别名=B", "Copyright=© test"}
+	flat := make([]string, 0, len(got))
+	for _, e := range got {
+		flat = append(flat, fmt.Sprint(e["key"])+"="+fmt.Sprint(e["value"]))
+	}
+	if !reflect.DeepEqual(flat, want) {
+		t.Fatalf("got %v want %v", flat, want)
+	}
+}
+
+// infobox 键映射只产出有值的已声明字段码。
+func TestBangumiInfoboxValues(t *testing.T) {
+	s := bangumiSubject{Infobox: []bangumiInfoItem{
+		{Key: "话数", Value: json.RawMessage(`"24"`)},
+		{Key: "ISBN", Value: json.RawMessage(`"978-4-00-000000-0"`)},
+		{Key: "放送星期", Value: json.RawMessage(`"星期六"`)},
+	}}
+	got := s.infoboxValues()
+	if got["episodes"] != "24" || got["isbn"] != "978-4-00-000000-0" || got["broadcast_weekday"] != "星期六" {
+		t.Fatalf("got %v", got)
+	}
+	if _, ok := got["volume_count"]; ok {
+		t.Fatalf("absent key must not be produced: %v", got)
+	}
+}
+
+// 映射表里的字段码必须在 defaults 中已声明，否则写入会被校验拒绝（unknown_field）。
+func TestInfoboxFieldKeysAreDeclared(t *testing.T) {
+	d := Defaults()
+	for _, m := range infoboxFieldKeys {
+		if _, ok := d.Fields[m.field]; !ok {
+			t.Fatalf("infobox field %q is not declared in defaults", m.field)
+		}
+	}
+}
+
+// 标签过滤必须编译成 jsonb 容器包含（@>），才能命中 entities_attribute_tags
+// 函数索引；若退化为展开比较就等于全表扫描。
+func TestListFilterTagContainerMatch(t *testing.T) {
+	s := &Store{}
+	args := []any{}
+	parts, err := listFilter(context.Background(), s, ListOptions{Tags: []string{"动画", "音乐"}}, nil, &args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(parts, " AND ")
+	if !strings.Contains(joined, "@>") {
+		t.Fatalf("tag filter must use container match (@>), got: %s", joined)
+	}
+	if !strings.Contains(joined, " OR ") {
+		t.Fatalf("multiple tags must be OR-ed, got: %s", joined)
+	}
+	if len(args) != 2 {
+		t.Fatalf("expected 2 bound args, got %v", args)
+	}
+	// 空白标签被剔除后不应产生任何谓词。
+	args2 := []any{}
+	parts2, err := listFilter(context.Background(), s, ListOptions{Tags: []string{"", "  "}}, nil, &args2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range parts2 {
+		if strings.Contains(p, "@>") {
+			t.Fatalf("blank tags must add no tag predicate, got %v", parts2)
+		}
 	}
 }

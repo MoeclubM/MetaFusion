@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS catalog.entities (
 CREATE INDEX IF NOT EXISTS entities_kind_status ON catalog.entities(kind,status);
 CREATE INDEX IF NOT EXISTS entities_search ON catalog.entities USING gin (to_tsvector('simple',title));
 CREATE INDEX IF NOT EXISTS entities_document ON catalog.entities USING gin (document jsonb_path_ops);
+-- 标签按容器包含过滤（attributes.tags @> [...]）：函数索引让该查询走索引而非全表扫描。
+CREATE INDEX IF NOT EXISTS entities_attribute_tags ON catalog.entities USING gin ((document->'attributes'->'tags') jsonb_path_ops);
 CREATE TABLE IF NOT EXISTS catalog.content_units (
  id uuid PRIMARY KEY, kind text NOT NULL DEFAULT 'content_unit' CHECK(kind='content_unit'),
  work_id uuid NOT NULL, work_kind text NOT NULL DEFAULT 'work' CHECK(work_kind='work'), parent_id uuid,

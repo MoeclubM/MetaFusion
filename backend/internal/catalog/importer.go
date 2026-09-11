@@ -66,6 +66,10 @@ type ImporterWorkPreview struct {
 	Tags             []string                  `json:"tags"`
 	Translations     []ImporterTranslationItem `json:"translations"`
 	CatalogMetadata  any                       `json:"catalog_metadata,omitempty"`
+	// Fields 是按 infobox 映射出的动态字段值（键为已声明的字段码）；
+	// Infobox 是上游资料表的完整原文快照，用于追溯与后续补充映射。
+	Fields  map[string]any   `json:"fields,omitempty"`
+	Infobox []map[string]any `json:"infobox,omitempty"`
 }
 
 type ImporterArtistPreview struct {
@@ -452,6 +456,64 @@ func (s bangumiSubject) bangumiInfoboxAliases(title, original string) []string {
 			continue
 		}
 		out = append(out, v)
+	}
+	return out
+}
+
+// infoboxFieldKeys 把 infobox 的（多语言）键名映射到已声明的动态字段码。
+// 一个字段码可有多个上游键名；取第一个有值的。全部字段码都在 defaults.go 中声明，
+// 因此不会写入未声明属性被校验拒绝。
+var infoboxFieldKeys = []struct {
+	field string
+	keys  []string
+}{
+	{"episodes", []string{"话数", "集数", "話數"}},
+	{"volume_count", []string{"册数", "卷数", "冊數", "巻数"}},
+	{"broadcast_start", []string{"放送开始", "放送開始", "开始"}},
+	{"broadcast_weekday", []string{"放送星期", "放送日"}},
+	{"broadcast_end", []string{"放送结束", "放送結束", "播放结束"}},
+	{"air_network", []string{"播放电视台", "放送局", "播放电视台"}},
+	{"copyright", []string{"Copyright", "©"}},
+	{"isbn", []string{"ISBN"}},
+	{"author", []string{"作者"}},
+	{"magazine", []string{"连载杂志", "連載雜誌"}},
+	{"publisher_name", []string{"出版社"}},
+	{"imdb", []string{"IMDb", "IMDB", "imdb"}},
+	{"platform", []string{"平台"}},
+}
+
+// infoboxEntries 把上游 infobox 完整摊平为键值原文列表（保序、去空）。
+// 这是"全量落库"的载体：即便某键尚未映射为一等字段，原文也留在实体上可追溯。
+func (s bangumiSubject) infoboxEntries() []map[string]any {
+	out := []map[string]any{}
+	for _, item := range s.Infobox {
+		key := strings.TrimSpace(item.Key)
+		if key == "" {
+			continue
+		}
+		vals := s.infoboxStrings(key)
+		// 单值行也可能是标量字符串，infoboxStrings 已统一处理；逐行拆成
+		// 独立的 key/value 对，保持原始顺序与重复行。
+		for _, v := range vals {
+			if v = strings.TrimSpace(v); v == "" {
+				continue
+			}
+			out = append(out, map[string]any{"key": key, "value": v})
+		}
+	}
+	return out
+}
+
+// infoboxValues 收集映射表中所有字段的值，只返回有值的键。
+func (s bangumiSubject) infoboxValues() map[string]any {
+	out := map[string]any{}
+	for _, m := range infoboxFieldKeys {
+		for _, k := range m.keys {
+			if v := s.infoboxString(k); v != "" {
+				out[m.field] = v
+				break
+			}
+		}
 	}
 	return out
 }
@@ -940,6 +1002,8 @@ func previewBangumiSubject(ctx context.Context, source string, id int) (Importer
 				"official_website": website,
 				"catalog_number":   catalogNo,
 			},
+			Fields:  sub.infoboxValues(),
+			Infobox: sub.infoboxEntries(),
 		},
 		Tags: tags,
 		// 两层以内的关联演职人员与角色：前端把 artists 转成 staff_associations 提交，
@@ -968,6 +1032,15 @@ func scalarString(v any) string {
 	default:
 		return strings.TrimSpace(fmt.Sprint(x))
 	}
+}
+
+// toAnySlice 把类型化切片转成 []any，以便作为 JSONB 值参与属性校验与落库。
+func toAnySlice[T any](in []T) []any {
+	out := make([]any, len(in))
+	for i, v := range in {
+		out[i] = v
+	}
+	return out
 }
 
 // detectJapaneseScript 用假名判定日文原文（假名是日文的可靠信号）。
@@ -1499,6 +1572,26 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview) (Entity, bool) {
 			}
 		}
 	}
+	// 标签与 infobox 派生字段：只在缺失时补，绝不覆盖已编目的值。
+	if workType != "" {
+		if _, ok := existing.Attributes["tags"]; !ok && len(w.Tags) > 0 {
+			existing.Attributes["tags"] = toAnySlice(w.Tags)
+			changed = true
+		}
+		for k, v := range w.Fields {
+			if _, ok := existing.Attributes[k]; ok {
+				continue
+			}
+			if s := scalarString(v); s != "" {
+				existing.Attributes[k] = s
+				changed = true
+			}
+		}
+		if _, ok := existing.Attributes["infobox"]; !ok && len(w.Infobox) > 0 {
+			existing.Attributes["infobox"] = toAnySlice(w.Infobox)
+			changed = true
+		}
+	}
 	// 外部 ID：官网等只在缺失时补。
 	if existing.ExternalIDs == nil {
 		existing.ExternalIDs = map[string]string{}
@@ -1556,6 +1649,20 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 		// 供列表与详情展示。字段码来自 definitions，不在代码里写死。
 		if d := cleanImporterDate(w.ReleaseDate); d != "" && dateField != "" {
 			e.Attributes[dateField] = d
+		}
+		// 标签：以字符串列表落库，支持按标签检索（jsonb 容器包含走函数索引）。
+		if len(w.Tags) > 0 {
+			e.Attributes["tags"] = toAnySlice(w.Tags)
+		}
+		// infobox 映射出的动态字段：仅写入非空值，字段码均已在 defaults.go 声明。
+		for k, v := range w.Fields {
+			if s := scalarString(v); s != "" {
+				e.Attributes[k] = s
+			}
+		}
+		// infobox 原文快照：完整保留以便追溯，不参与展示分区。
+		if len(w.Infobox) > 0 {
+			e.Attributes["infobox"] = toAnySlice(w.Infobox)
 		}
 	}
 	if hasKey {
