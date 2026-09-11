@@ -43,11 +43,25 @@ func New(ctx context.Context, db *sql.DB, catalog moduleapi.Catalog, root string
  CREATE TABLE IF NOT EXISTS modules.records(owner_id uuid NOT NULL,entity_id uuid NOT NULL,document jsonb NOT NULL,PRIMARY KEY(owner_id,entity_id));
  CREATE TABLE IF NOT EXISTS modules.consumed(event_id uuid PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS modules.redirects(source_id uuid PRIMARY KEY,target_id uuid NOT NULL);
+ -- 论坛（本站自建的独立讨论系统）。板块是运营维度，主题是帖子容器，
+ -- 回复按 post_number 编号并支持引用楼号；主题可选择性关联目录实体。
+ CREATE TABLE IF NOT EXISTS modules.forum_boards(code text PRIMARY KEY,names jsonb NOT NULL DEFAULT '{}'::jsonb,descriptions jsonb NOT NULL DEFAULT '{}'::jsonb,color text NOT NULL DEFAULT 'emerald',icon text NOT NULL DEFAULT 'BookOpen',sort_order int NOT NULL DEFAULT 0,is_enabled boolean NOT NULL DEFAULT true,show_in_feed boolean NOT NULL DEFAULT true);
+ CREATE TABLE IF NOT EXISTS modules.forum_topics(id uuid PRIMARY KEY,board_code text NOT NULL REFERENCES modules.forum_boards(code),author_id uuid NOT NULL,author_name text NOT NULL DEFAULT '',title text NOT NULL,body text NOT NULL,language text NOT NULL DEFAULT '',entity_id uuid,is_pinned boolean NOT NULL DEFAULT false,is_locked boolean NOT NULL DEFAULT false,view_count int NOT NULL DEFAULT 0,reply_count int NOT NULL DEFAULT 0,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),last_activity_at timestamptz NOT NULL DEFAULT now());
+ CREATE TABLE IF NOT EXISTS modules.forum_posts(id uuid PRIMARY KEY,topic_id uuid NOT NULL REFERENCES modules.forum_topics(id) ON DELETE CASCADE,author_id uuid NOT NULL,author_name text NOT NULL DEFAULT '',body text NOT NULL,post_number int NOT NULL,reply_to_post_number int,created_at timestamptz NOT NULL DEFAULT now(),updated_at timestamptz NOT NULL DEFAULT now(),UNIQUE(topic_id,post_number));
+ CREATE TABLE IF NOT EXISTS modules.forum_tags(id bigserial PRIMARY KEY,name text NOT NULL,slug text NOT NULL UNIQUE);
+ CREATE TABLE IF NOT EXISTS modules.forum_topic_tags(topic_id uuid NOT NULL REFERENCES modules.forum_topics(id) ON DELETE CASCADE,tag_id bigint NOT NULL REFERENCES modules.forum_tags(id) ON DELETE CASCADE,PRIMARY KEY(topic_id,tag_id));
+ CREATE INDEX IF NOT EXISTS forum_topics_board ON modules.forum_topics(board_code,last_activity_at DESC);
+ CREATE INDEX IF NOT EXISTS forum_topics_entity ON modules.forum_topics(entity_id);
+ CREATE INDEX IF NOT EXISTS forum_posts_topic ON modules.forum_posts(topic_id,post_number);
  `)
 	if err != nil {
 		return nil, err
 	}
 	if _, err = db.ExecContext(ctx, mediaSchema); err != nil {
+		return nil, err
+	}
+	// 论坛板块是运营配置，首次运行播种；已存在的不覆盖，保留后台调整。
+	if err = seedForum(ctx, db); err != nil {
 		return nil, err
 	}
 	// defaultEnabled：无依赖、仅用本库即可工作的模块默认开启（社区短评与个人收藏）；
@@ -226,6 +240,7 @@ func (m *Manager) Register(r *gin.Engine) {
 
 func (m *Manager) registerGroup(api *gin.RouterGroup) {
 	m.registerMedia(api)
+	m.registerForum(api)
 	api.GET("/capabilities", func(c *gin.Context) { items := m.Manifests(); c.JSON(200, gin.H{"modules": items}) })
 	api.PUT("/admin/modules/:id", func(c *gin.Context) {
 		p := m.principal(c)
