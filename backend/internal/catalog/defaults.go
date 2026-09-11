@@ -44,10 +44,11 @@ func Defaults() Definitions {
 	// 标签：值域开放（上游标签随作品而定），故为字符串列表而非受控词表；
 	// 存于 attributes.tags，按容器包含（@>）过滤——schema.sql 为该 JSON 路径
 	// 建了函数 GIN 索引，保证按标签检索走索引而非全表扫描。
-	d.Fields["tags"] = Field{Names: names("标签", "Tags"), Type: "list", Enabled: true, Searchable: true, Items: &Field{Names: names("标签", "Tag"), Type: "text", Enabled: true}}
+	// Hidden：详情页有专用标签区块，不再进信息面板，避免与 JSON 原文重复。
+	d.Fields["tags"] = Field{Names: names("标签", "Tags"), Type: "list", Enabled: true, Searchable: true, Hidden: true, Items: &Field{Names: names("标签", "Tag"), Type: "text", Enabled: true}}
 	// infobox 原始条目：上游资料表的完整快照，保留键值原文以便追溯与后续映射。
-	// 不参与展示分区，避免把不规范的键名直接暴露给用户。
-	d.Fields["infobox"] = Field{Names: names("资料表原始条目", "Raw infobox entries"), Type: "list", Enabled: true, Searchable: true,
+	// Hidden：仅供检索与存档，不进信息面板，避免把不规范的键名直接暴露给用户。
+	d.Fields["infobox"] = Field{Names: names("资料表原始条目", "Raw infobox entries"), Type: "list", Enabled: true, Searchable: true, Hidden: true,
 		Items: &Field{Names: names("条目", "Entry"), Type: "group", Enabled: true, Fields: map[string]Field{
 			"key":   {Names: names("键", "Key"), Type: "text", Required: true, Enabled: true},
 			"value": {Names: names("值", "Value"), Type: "text", Required: true, Enabled: true},
@@ -127,8 +128,8 @@ func Defaults() Definitions {
 		d.Templates[x[0]] = Template{Names: names(x[1], x[2]), Directory: "tree", Sections: []Section{
 			{Names: names("基本信息", "Basics"), Fields: []string{"language", "platform", "episodes", "volume_count", "duration"}},
 			{Names: names("放送与发行", "Broadcast & release"), Fields: []string{"broadcast_start", "broadcast_weekday", "broadcast_end", "air_network", "edition_date", "catalog_number", "isbn"}},
-			{Names: names("创作信息", "Credits & rights"), Fields: []string{"author", "magazine", "publisher_name", "copyright", "imdb", "tags"}},
-		}, Columns: []string{"edition_date", "catalog_number"}, RelationGroups: []string{"credits", "creative", "membership"}, PrimaryDateField: "edition_date", BadgeFields: []string{"platform", "episodes"}}
+			{Names: names("创作信息", "Credits & rights"), Fields: []string{"author", "magazine", "publisher_name", "copyright", "imdb"}},
+			}, Columns: []string{"edition_date", "catalog_number"}, RelationGroups: []string{"credits", "creative", "membership"}, PrimaryDateField: "edition_date", BadgeFields: []string{"platform", "episodes", "volume_count", "air_network"}}
 	}
 	// 作品类型可写的字段集：与模板分区声明的字段保持一致，避免"声明了却没权限写"。
 	workFields := []string{"language", "platform", "episodes", "volume_count", "duration", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network", "edition_date", "catalog_number", "isbn", "author", "magazine", "publisher_name", "copyright", "imdb", "tags", "infobox", "events"}

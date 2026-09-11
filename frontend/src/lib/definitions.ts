@@ -23,6 +23,8 @@ export interface FieldDef {
   min?: number;
   max?: number;
   anchor_key?: string;
+  /** 可写、可检索，但不进详情信息面板（存档/机器用途，如资料表原始条目）。 */
+  hidden?: boolean;
 }
 
 export interface SectionDef {

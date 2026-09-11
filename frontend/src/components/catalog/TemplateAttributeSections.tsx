@@ -1,100 +1,13 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React from "react";
 import Link from "next/link";
-import { useI18n } from "@/i18n/I18nProvider";
-import { DynamicDefinitions, resolveLocalizedName, getFieldName, getTermName } from "@/lib/definitions";
+import { DynamicDefinitions, resolveLocalizedName, getTermName } from "@/lib/definitions";
 import { Calendar, Hash, Clock, ExternalLink, Link2 } from "lucide-react";
 
-// TemplateAttributeSections：按实体类型所属模板的 sections 声明，动态渲染属性分区。
-// 字段码、分区名、次序、分组**全部来自服务端 definitions**，前台不写死任何字段码；
-// 模板未声明或未覆盖的字段回落到末尾"其它信息"，保证数据永远可见。
-export function TemplateAttributeSections({
-  entity,
-  defs,
-  locale,
-}: {
-  entity: { kind?: string; types?: string[] | null; attributes?: Record<string, any> | null };
-  defs: DynamicDefinitions | null | undefined;
-  locale: string;
-}) {
-  const { t } = useI18n();
-
-  const { sections, covered } = useMemo(() => {
-    const attrs = entity.attributes || {};
-    const has = (k: string) => attrs[k] !== undefined && attrs[k] !== null && attrs[k] !== "";
-    const typeCodes = entity.types || [];
-    // 收集该实体全部类型引用的模板，去重后合并其 sections
-    const templates = Array.from(
-      new Set(typeCodes.map((c) => defs?.types?.[c]?.template).filter(Boolean) as string[]),
-    )
-      .map((code) => defs?.templates?.[code])
-      .filter(Boolean) as any[];
-    const seen = new Set<string>();
-    const out: { names: Record<string, string>; fields: string[] }[] = [];
-    for (const tpl of templates) {
-      for (const sec of tpl.sections || []) {
-        const fields = (sec.fields || []).filter((f: string) => !seen.has(f) && has(f));
-        if (!fields.length) continue;
-        fields.forEach((f: string) => seen.add(f));
-        out.push({ names: sec.names || {}, fields });
-      }
-    }
-    return { sections: out, covered: seen };
-  }, [entity, defs]);
-
-  // 未被模板覆盖的属性（含自定义字段）单独收尾，避免任何数据被隐藏
-  const restFields = useMemo(() => {
-    const attrs = entity.attributes || {};
-    return Object.keys(attrs).filter(
-      (k) => !covered.has(k) && attrs[k] !== undefined && attrs[k] !== null && attrs[k] !== "",
-    );
-  }, [entity, covered]);
-
-  if (!defs) return null;
-  if (!sections.length && !restFields.length) return null;
-
-  return (
-    <>
-      {sections.map((sec, i) => (
-        <Section key={`s${i}`} title={resolveLocalizedName(sec.names, locale, "")}>
-          {sec.fields.map((code) => (
-            <Row key={code} label={getFieldName(defs, code, locale)}>
-              <FieldValue code={code} value={(entity.attributes || {})[code]} defs={defs} locale={locale} />
-            </Row>
-          ))}
-        </Section>
-      ))}
-      {restFields.length > 0 && (
-        <Section title={t("catalog.attributes")}>
-          {restFields.map((code) => (
-            <Row key={code} label={getFieldName(defs, code, locale) || code}>
-              <FieldValue code={code} value={(entity.attributes || {})[code]} defs={defs} locale={locale} />
-            </Row>
-          ))}
-        </Section>
-      )}
-    </>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="pt-3 border-t border-black/5 dark:border-white/[0.06] space-y-2.5">
-      <h4 className="text-[11px] font-mono uppercase tracking-wider text-gray-400">{title}</h4>
-      <dl className="space-y-2.5 text-xs">{children}</dl>
-    </div>
-  );
-}
-
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <dt className="text-gray-400 font-mono text-[11px] mb-0.5">{label}</dt>
-      <dd className="font-medium text-gray-900 dark:text-white break-words">{children}</dd>
-    </div>
-  );
-}
+// 说明：属性分区渲染已统一到 @/components/work/WorkFacts（两个详情页共用）。
+// 本文件只保留按字段类型渲染取值的原子能力与时长字段查找，供 WorkFacts 与
+// 其它页面复用，避免同一套类型分发逻辑出现多份实现。
 
 // FieldValue 按 definitions 声明的字段类型渲染，未知类型退化为纯文本。
 export function FieldValue({
