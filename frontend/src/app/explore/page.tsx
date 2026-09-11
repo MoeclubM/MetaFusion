@@ -98,7 +98,7 @@ function getLocalizedTitle(
 }
 
 function ExploreInner() {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -432,7 +432,7 @@ function ExploreInner() {
                         statusBadge={
                           item.status !== "published" && (
                             <span className="px-1.5 py-0.5 rounded-md bg-amber-500/90 text-black keep-white text-[9px] font-mono font-bold shadow-2xs">
-                              {t("catalog.status." + item.status) || item.status}
+                              {tr("catalog.status." + item.status, item.status)}
                             </span>
                           )
                         }
@@ -510,7 +510,7 @@ function ExploreInner() {
                             )}
                             {item.status !== "published" && (
                               <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-mono font-medium">
-                                {t("catalog.status." + item.status) || item.status}
+                                {tr("catalog.status." + item.status, item.status)}
                               </span>
                             )}
                           </div>
@@ -574,9 +574,16 @@ function ExploreInner() {
   );
 }
 
+function ExploreFallback() {
+  const { t } = useI18n();
+  return (
+    <div className="min-h-screen bg-background text-gray-500 font-mono text-xs grid place-items-center">{t("common.loading")}</div>
+  );
+}
+
 export default function ExplorePage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background text-gray-500 font-mono text-xs grid place-items-center">Loading...</div>}>
+    <Suspense fallback={<ExploreFallback />}>
       <ExploreInner />
     </Suspense>
   );

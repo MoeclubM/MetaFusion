@@ -33,7 +33,7 @@ type AdminTab = "overview" | "entities" | "definitions" | "reviews" | "merge" | 
 
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
   const router = useRouter();
 
   const { definitions: defs } = useDefinitions();
@@ -468,7 +468,7 @@ function AdminInner() {
                   >
                     <option value="all">{t("catalog.kind.all")}</option>
                     {["work", "release", "agent", "collection", "content_unit", "expression", "medium", "track"].map((k) => (
-                      <option key={k} value={k}>{t(`catalog.kind.${k}`) || k}</option>
+                      <option key={k} value={k}>{tr(`catalog.kind.${k}`, k)}</option>
                     ))}
                   </select>
                 </div>
@@ -523,7 +523,7 @@ function AdminInner() {
                           </td>
                           <td className="py-2.5 px-3">
                             <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] font-mono">
-                              {t(`catalog.kind.${e.kind}`) || e.kind}
+                              {tr(`catalog.kind.${e.kind}`, e.kind)}
                             </span>
                           </td>
                           <td className="py-2.5 px-3">
@@ -534,7 +534,7 @@ function AdminInner() {
                               e.status === "merged" ? "bg-purple-500/20 text-purple-400" :
                               "bg-gray-500/20 text-gray-400"
                             }`}>
-                              {t(`catalog.status.${e.status}`) || e.status}
+                              {tr(`catalog.status.${e.status}`, e.status)}
                             </span>
                           </td>
                           <td className="py-2.5 px-3">

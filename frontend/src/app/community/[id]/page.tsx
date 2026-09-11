@@ -29,7 +29,7 @@ export default function TopicDetailPage() {
  const topicId = params.id as string;
 
  const { user } = useAuth();
- const { t, locale } = useI18n();
+ const { t, tr, locale } = useI18n();
  const [topic, setTopic] = useState<DiscussionTopic | null>(null);
  const [posts, setPosts] = useState<ForumPost[]>([]);
  const [loading, setLoading] = useState(true);
@@ -312,7 +312,7 @@ export default function TopicDetailPage() {
  {post.reply_to_post_number && (
  <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono">
  <span>↳</span>
- <span>{t("community.replyToPost", { n: post.reply_to_post_number }) || `Reply to #${post.reply_to_post_number}`}</span>
+ <span>{tr("community.replyToPost", `Reply to #${post.reply_to_post_number}`, { n: post.reply_to_post_number })}</span>
  </div>
  )}
  <div className="flex items-center justify-between border-b border-surfaceBorder/60 pb-2.5">

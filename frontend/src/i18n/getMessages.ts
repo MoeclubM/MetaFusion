@@ -30,3 +30,16 @@ export function translate(
   }
   return s;
 }
+
+// translateOr 缺键时返回后备值而非裸 key。
+// translate 缺键返回 key 本身（非空），`t(key) || fallback` 永不触发，
+// 动态拼接键（catalog.kind/status 等）缺键会直接把 key 显示出来。
+export function translateOr(
+  messages: Record<string, string>,
+  key: string,
+  fallback: string,
+  vars?: Record<string, string | number>
+): string {
+  if (messages[key] == null) return fallback;
+  return translate(messages, key, vars);
+}
