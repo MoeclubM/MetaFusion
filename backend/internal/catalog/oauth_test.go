@@ -2,6 +2,8 @@ package catalog
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -25,7 +27,7 @@ func TestOAuthFlow(t *testing.T) {
 	}
 
 	// Create code
-	code, err := f.s.CreateOAuthCode(ctx, "metafusion-forum", f.u.ID, "https://forum.findverse.cc/auth/oauth2_basic/callback", "profile")
+	code, err := f.s.CreateOAuthCode(ctx, "metafusion-forum", f.u.ID, "https://forum.findverse.cc/auth/oauth2_basic/callback", "profile", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +36,7 @@ func TestOAuthFlow(t *testing.T) {
 	}
 
 	// Exchange code
-	token, u, err := f.s.ExchangeOAuthCode(ctx, "metafusion-forum", "", code, "https://forum.findverse.cc/auth/oauth2_basic/callback")
+	token, u, err := f.s.ExchangeOAuthCode(ctx, "metafusion-forum", "", code, "https://forum.findverse.cc/auth/oauth2_basic/callback", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +45,7 @@ func TestOAuthFlow(t *testing.T) {
 	}
 
 	// Reusing same code should fail
-	if _, _, err := f.s.ExchangeOAuthCode(ctx, "metafusion-forum", "", code, "https://forum.findverse.cc/auth/oauth2_basic/callback"); err == nil {
+	if _, _, err := f.s.ExchangeOAuthCode(ctx, "metafusion-forum", "", code, "https://forum.findverse.cc/auth/oauth2_basic/callback", ""); err == nil {
 		t.Fatal("expected error on code reuse, got nil")
 	}
 
@@ -143,11 +145,11 @@ func TestOAuthExchangeIssuesJWT(t *testing.T) {
 	f := newFixture(t)
 	f.s.Tokens = testIssuer(t)
 	ctx := context.Background()
-	code, err := f.s.CreateOAuthCode(ctx, "metafusion-forum", f.u.ID, "https://forum.findverse.cc/auth/oauth2_basic/callback", "profile")
+	code, err := f.s.CreateOAuthCode(ctx, "metafusion-forum", f.u.ID, "https://forum.findverse.cc/auth/oauth2_basic/callback", "profile", "", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	token, u, err := f.s.ExchangeOAuthCode(ctx, "metafusion-forum", "", code, "https://forum.findverse.cc/auth/oauth2_basic/callback")
+	token, u, err := f.s.ExchangeOAuthCode(ctx, "metafusion-forum", "", code, "https://forum.findverse.cc/auth/oauth2_basic/callback", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,5 +162,36 @@ func TestOAuthExchangeIssuesJWT(t *testing.T) {
 	}
 	if back, err := f.s.UserFromOAuthToken(ctx, token); err != nil || back.ID != f.u.ID {
 		t.Fatalf("oauth token not resolvable from store: %v", err)
+	}
+}
+
+// PKCE：S256 正确 verifier 兑付成功，错误 verifier 拒绝；无 challenge 的历史码不受影响。
+func TestOAuthPKCE(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	cb := "https://forum.findverse.cc/auth/oauth2_basic/callback"
+
+	verifier := "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+	sum256 := func(s string) string {
+		h := sha256.Sum256([]byte(s))
+		return base64.RawURLEncoding.EncodeToString(h[:])
+	}
+
+	code, err := f.s.CreateOAuthCode(ctx, "metafusion-forum", f.u.ID, cb, "profile", sum256(verifier), "S256")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := f.s.ExchangeOAuthCode(ctx, "metafusion-forum", "", code, cb, "wrong-verifier"); err == nil {
+		t.Fatal("expected error on wrong verifier, got nil")
+	}
+	// 兑付失败不消耗授权码（原子 UPDATE 未命中），正确 verifier 仍可兑付。
+	token, _, err := f.s.ExchangeOAuthCode(ctx, "metafusion-forum", "", code, cb, verifier)
+	if err != nil || token == "" {
+		t.Fatalf("expected success with right verifier, got %v %q", err, token)
+	}
+
+	// 非法 method 拒绝。
+	if _, err := f.s.CreateOAuthCode(ctx, "metafusion-forum", f.u.ID, cb, "profile", "abc", "md5"); err == nil {
+		t.Fatal("expected error on bad method, got nil")
 	}
 }
