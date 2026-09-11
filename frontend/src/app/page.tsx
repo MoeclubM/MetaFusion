@@ -10,7 +10,7 @@ import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useAuth } from "@/lib/authContext";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
-import { api } from "@/components/catalog/api";
+import { fetchApi } from "@/lib/api";
 import {
   Search,
   Disc,
@@ -97,7 +97,9 @@ export default function HomePage() {
     setLoading(true);
     setFailed(false);
     try {
-      const r = await api<{ items: FeedSection[] }>("/catalog/shelves/feed?per_shelf=12");
+      // 必须用 fetchApi：登录态 token 存在 localStorage，只有它会带 Authorization。
+      // 用 components/catalog 的 api() 只会发 cookie，带身份的偏好不会被识别。
+      const r = await fetchApi<{ items: FeedSection[] }>("/catalog/shelves/feed?per_shelf=12");
       setSections(r.items || []);
     } catch {
       setSections([]);
@@ -136,7 +138,7 @@ export default function HomePage() {
     setCustomizing(true);
     if (!user) return;
     try {
-      const r = await api<HomePreferences>("/catalog/me/home-preferences");
+      const r = await fetchApi<HomePreferences>("/catalog/me/home-preferences");
       setPrefs({ order: r.order || [], hidden: r.hidden || [] });
     } catch {
       setPrefs({ order: [], hidden: [] });
@@ -170,7 +172,7 @@ export default function HomePage() {
     setSaving(true);
     setSaveError("");
     try {
-      await api("/catalog/me/home-preferences", "PUT", prefs);
+      await fetchApi("/catalog/me/home-preferences", { method: "PUT", body: JSON.stringify(prefs) });
       setCustomizing(false);
       await loadFeed();
     } catch (e) {
@@ -184,7 +186,7 @@ export default function HomePage() {
     setSaving(true);
     setSaveError("");
     try {
-      await api("/catalog/me/home-preferences", "PUT", { order: [], hidden: [] });
+      await fetchApi("/catalog/me/home-preferences", { method: "PUT", body: JSON.stringify({ order: [], hidden: [] }) });
       setPrefs({ order: [], hidden: [] });
       await loadFeed();
     } catch (e) {
