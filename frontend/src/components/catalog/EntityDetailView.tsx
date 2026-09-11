@@ -580,7 +580,6 @@ export function EntityDetailView({ id }: { id: string }) {
     { id: "contents", label: t("entity.page.navContents"), badge: children.length, visible: children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "community", label: t("entity.page.navCommunity"), badge: communityPosts.length, visible: communityEnabled, icon: <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "revisions", label: t("entity.detail.revisionsTitle"), badge: revisions.length || 1, icon: <History className="w-3.5 h-3.5" strokeWidth={1.5} /> },
   ];
   const { active, select } = useHashTab(tabs);
@@ -1435,11 +1434,34 @@ export function EntityDetailView({ id }: { id: string }) {
               </section>
             )}
 
+
             {/* ============================================================ */}
-            {/* Section 6: Embedded Community Discussions & Collections      */}
+            {/* Section 7: Revisions (修订历史)                             */}
             {/* ============================================================ */}
-            {active === "community" && (
-            <section id="community" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-6 shadow-soft">
+            {active === "revisions" && (
+            <section id="revisions" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
+              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-primary" strokeWidth={1.5} />
+                  <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+                    {t("entity.page.revisionsHistory")}
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                    {revisions.length || 1}
+                  </span>
+                </div>
+              </div>
+
+<EntityRevisions revisions={revisions} currentEntity={entity} />
+            </section>
+            )}
+            </div>
+
+            {/* ============================================================ */}
+            {/* Community discussions & collections (below the tabs, not a tab)      */}
+            {/* ============================================================ */}
+            {communityEnabled && (
+            <section id="community" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-6 shadow-soft mt-8">
               <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-primary" strokeWidth={1.5} />
@@ -1605,28 +1627,6 @@ export function EntityDetailView({ id }: { id: string }) {
               </div>
             </section>
             )}
-
-            {/* ============================================================ */}
-            {/* Section 7: Revisions (修订历史)                             */}
-            {/* ============================================================ */}
-            {active === "revisions" && (
-            <section id="revisions" className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
-              <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-3">
-                <div className="flex items-center gap-2">
-                  <History className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                  <h2 className="font-display text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider font-mono">
-                    {t("entity.page.revisionsHistory")}
-                  </h2>
-                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                    {revisions.length || 1}
-                  </span>
-                </div>
-              </div>
-
-<EntityRevisions revisions={revisions} currentEntity={entity} />
-            </section>
-            )}
-            </div>
           </div>
         </div>
       </main>

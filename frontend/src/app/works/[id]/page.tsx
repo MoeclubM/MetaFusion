@@ -497,12 +497,11 @@ export default function WorkDirectoryPage() {
  </section>
              ),
            },
-           {
-             id: "discussion",
-             label: t("work.detail.relatedTopics"),
-             badge: topics.length > 0 ? String(topics.length) : undefined,
-             content: (
- <section id="discussion" className={styles.section}>
+         ] as DetailTab[]}
+       />
+     </div>
+
+ <section id="discussion" className={`${styles.section} mt-8`}>
  <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2">
  <h3 className="font-display text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
  <MessageSquare className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
@@ -527,11 +526,6 @@ export default function WorkDirectoryPage() {
  </div>
  )}
  </section>
-             ),
-           },
-         ] as DetailTab[]}
-       />
-     </div>
    </div>
  </main>
  <MultipartUploader isOpen={isUploaderOpen} onClose={() => setIsUploaderOpen(false)} workId={work.id} onUploadSuccess={() => { loadReleases(1, q); setPage(1); }} />
