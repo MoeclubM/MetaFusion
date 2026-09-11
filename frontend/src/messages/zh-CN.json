@@ -1,7 +1,7 @@
 {
   "landing.tagline": "OPEN METADATA & RESOURCE PLATFORM",
   "landing.heroSubtitle": "开放编目 · 严选典藏 · 社区共建的多媒体元数据平台",
-  "landing.enter": "浏览分类货架",
+  "landing.enter": "开始浏览",
   "landing.join": "加入我们",
   "landing.exploreArchive": "探索",
   "landing.docsTitle": "MetaFusion 完整文档",
@@ -2017,7 +2017,7 @@
   "landing.description": "这里记录作品、创作者及其联系。你可以查找动画、音乐、书籍与个人创作，了解不同发行版本的内容，也可以依据来源补充资料。",
   "landing.start": "从这里开始",
   "landing.browse": "浏览作品",
-  "landing.browseDescription": "从分类货架发现作品，查看题名、简介与创作者。",
+  "landing.browseDescription": "按分类发现作品，查看题名、简介与创作者。",
   "landing.explore": "搜索与筛选",
   "landing.exploreDescription": "按类型寻找条目，沿着关联了解前作、改编与收录。",
   "landing.contribute": "补充资料",
@@ -2563,5 +2563,18 @@
   "community.feedEmpty": "还没有任何讨论。",
   "community.feedEmptyHint": "进入任意条目详情页的「社区讨论」分节即可发表第一条短评。",
   "community.feedLinkedEntity": "关联条目",
-  "community.moduleDisabled": "社区讨论功能当前未启用，请联系管理员开启。"
+  "community.moduleDisabled": "社区讨论功能当前未启用，请联系管理员开启。",
+  "home.recommended": "为你推荐",
+  "home.recommendEmpty": "还没有可推荐的内容。",
+  "home.itemCount": "{count} 部",
+  "home.customize": "自定义推荐",
+  "home.customizeTitle": "自定义首页推荐",
+  "home.customizeHint": "选择要展示的分区，并调整它们的顺序。",
+  "home.customizeReset": "恢复默认",
+  "home.toggleSection": "显示或隐藏该分区",
+  "home.moveUp": "上移",
+  "home.moveDown": "下移",
+  "catalog.layer.creation": "创作",
+  "catalog.layer.publication": "发行",
+  "catalog.layer.agents": "主体与合集"
 }

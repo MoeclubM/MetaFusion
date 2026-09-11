@@ -1,7 +1,7 @@
 {
   "landing.tagline": "OPEN METADATA & RESOURCE PLATFORM",
   "landing.heroSubtitle": "Open cataloging · Curated archive · Community-built multimedia metadata platform",
-  "landing.enter": "Browse shelves",
+  "landing.enter": "開始瀏覽",
   "landing.join": "Join Us",
   "landing.exploreArchive": "Explore",
   "landing.docsTitle": "MetaFusion Documentation",
@@ -2017,7 +2017,7 @@
   "landing.description": "A catalog of works, creators and their connections. Explore animation, music, books and personal creations, compare release contents, and contribute information with sources.",
   "landing.start": "Start here",
   "landing.browse": "Browse works",
-  "landing.browseDescription": "Discover works by category, with titles, descriptions and creators.",
+  "landing.browseDescription": "依分類探索作品，查看標題、簡介與創作者。",
   "landing.explore": "Search and filter",
   "landing.exploreDescription": "Find entries by type and explore prequels, adaptations and appearances.",
   "landing.contribute": "Contribute",
@@ -2563,5 +2563,18 @@
   "community.feedEmpty": "尚無任何討論。",
   "community.feedEmptyHint": "前往任一條目詳情頁的「社群討論」分節即可發表第一則短評。",
   "community.feedLinkedEntity": "關聯條目",
-  "community.moduleDisabled": "社群討論功能目前未啟用，請聯繫管理員開啟。"
+  "community.moduleDisabled": "社群討論功能目前未啟用，請聯繫管理員開啟。",
+  "home.recommended": "為你推薦",
+  "home.recommendEmpty": "尚無可推薦的內容。",
+  "home.itemCount": "{count} 部",
+  "home.customize": "自訂推薦",
+  "home.customizeTitle": "自訂首頁推薦",
+  "home.customizeHint": "選擇要顯示的分區，並調整它們的順序。",
+  "home.customizeReset": "恢復預設",
+  "home.toggleSection": "顯示或隱藏該分區",
+  "home.moveUp": "上移",
+  "home.moveDown": "下移",
+  "catalog.layer.creation": "創作",
+  "catalog.layer.publication": "發行",
+  "catalog.layer.agents": "主體與合集"
 }
