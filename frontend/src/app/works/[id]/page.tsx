@@ -6,8 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { MultipartUploader } from "@/components/MultipartUploader";
-import { fetchApi, Work, Release, DiscussionTopic, ConnectedEntityItem, pickLocalized } from "@/lib/api";
-import { api, Entity, title as entityTitle } from "@/components/catalog/api";
+import { fetchApi, Work, Release, ConnectedEntityItem, pickLocalized } from "@/lib/api";
+import { api, Entity, title as entityTitle, type CommunityPost } from "@/components/catalog/api";
 import { useDefinitions, getFieldName, getTermName } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useAuth } from "@/lib/authContext";
@@ -57,7 +57,7 @@ export default function WorkDirectoryPage() {
  const pageSize = 10;
  const [q, setQ] = useState("");
  const [qInput, setQInput] = useState("");
- const [topics, setTopics] = useState<DiscussionTopic[]>([]);
+ const [topics, setTopics] = useState<CommunityPost[]>([]);
  const [loadingWork, setLoadingWork] = useState(true);
  const [loadingReleases, setLoadingReleases] = useState(true);
  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
@@ -165,8 +165,9 @@ export default function WorkDirectoryPage() {
  useEffect(() => {
  if (!workId) return;
  loadWork();
- fetchApi<DiscussionTopic[]>(`/catalog/works/${workId}/comments`)
- .then((t) => setTopics(t || []))
+ // 讨论走社区模块的实体短评接口（此前请求 /catalog/works/:id/comments 占位恒返回空）。
+ fetchApi<{ items: CommunityPost[] }>(`/community/entities/${workId}/posts`)
+ .then((r) => setTopics(r.items || []))
  .catch(() => {});
  }, [workId]);
 
@@ -508,7 +509,7 @@ export default function WorkDirectoryPage() {
  <span>{t("work.detail.relatedTopics")}</span>
  <span className="text-sm font-normal text-gray-500">({topics.length})</span>
  </h3>
- <Link href="/community?board_code=comment" className="text-sm text-primary hover:underline inline-flex items-center gap-0.5">
+ <Link href={`/community?entity_id=${workId}`} className="text-sm text-primary hover:underline inline-flex items-center gap-0.5">
  <span>{t("work.detail.enterForum")}</span>
  <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
  </Link>
@@ -518,10 +519,10 @@ export default function WorkDirectoryPage() {
  ) : (
  <div className="divide-y divide-black/5 dark:divide-white/[0.06] mt-2">
  {topics.slice(0, 3).map((t) => (
- <Link key={t.id} href={`/community/${t.id}`} className="py-2.5 flex items-center justify-between hover:bg-black/[0.02] dark:hover:bg-white/[0.02] px-2.5 rounded-md transition-colors">
- <span className="text-sm text-gray-800 dark:text-gray-200 truncate pr-4">{t.title}</span>
- <span className="text-xs text-gray-500 shrink-0">{new Date(t.created_at).toLocaleDateString()}</span>
- </Link>
+ <div key={t.id} className="py-2.5 flex items-start justify-between gap-3 px-2.5">
+ <span className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2 min-w-0">{t.body}</span>
+ <span className="text-xs text-gray-500 shrink-0">{t.created_at ? new Date(t.created_at).toLocaleDateString() : ""}</span>
+ </div>
  ))}
  </div>
  )}

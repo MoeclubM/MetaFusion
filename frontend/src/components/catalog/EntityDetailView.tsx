@@ -23,7 +23,7 @@ import {
   getForumCollectionUrl,
   getStorageEntityUrl,
   FORUM_SERVICE_URL,
-  STORAGE_SERVICE_URL,
+  hasResourceStation,
 } from "@/lib/services";
 import {
   ArrowLeft,
@@ -105,7 +105,7 @@ async function allEntities(query: string): Promise<Entity[]> {
 export function EntityDetailView({ id }: { id: string }) {
   const { t, locale } = useI18n();
   const titleOrder = useTitleDisplayOrder();
-  const { definition, user } = useCatalog();
+  const { definition, user, modules } = useCatalog();
   const { definitions: dynamicDefs } = useDefinitions();
   const defs = definition?.document || dynamicDefs;
 
@@ -568,6 +568,11 @@ export function EntityDetailView({ id }: { id: string }) {
     [categorizedRelations]
   );
 
+  // 社区模块未启用时不展示该标签，避免出现永远为空的分节。
+  const communityEnabled = modules.some(
+    (m) => m.id === "community" && m.enabled && m.healthy,
+  );
+
   // 分节标签：与下方的条件渲染一一对应；标签集合随后数据到达再收窄。
   const tabs: TabItem[] = [
     { id: "overview", label: t("entity.page.navOverview"), icon: <BookOpen className="w-3.5 h-3.5" strokeWidth={1.5} /> },
@@ -575,7 +580,7 @@ export function EntityDetailView({ id }: { id: string }) {
     { id: "contents", label: t("entity.page.navContents"), badge: children.length, visible: children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "community", label: t("entity.page.navCommunity"), badge: communityPosts.length, icon: <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "community", label: t("entity.page.navCommunity"), badge: communityPosts.length, visible: communityEnabled, icon: <MessageSquare className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "revisions", label: t("entity.detail.revisionsTitle"), badge: revisions.length || 1, icon: <History className="w-3.5 h-3.5" strokeWidth={1.5} /> },
   ];
   const { active, select } = useHashTab(tabs);
@@ -884,25 +889,27 @@ export function EntityDetailView({ id }: { id: string }) {
               )}
             </div>
 
-            {/* 4. Decoupled Resource Station Quick Jump */}
-            <div className="p-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] dark:bg-sky-500/[0.08] space-y-2.5">
-              <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-semibold text-xs font-mono">
-                <HardDrive className="w-4 h-4" />
-                <span>{t("entity.page.resourceStation")}</span>
+            {/* 4. Decoupled Resource Station Quick Jump（资源站未接入时不显示） */}
+            {hasResourceStation() && (
+              <div className="p-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] dark:bg-sky-500/[0.08] space-y-2.5">
+                <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-semibold text-xs font-mono">
+                  <HardDrive className="w-4 h-4" />
+                  <span>{t("entity.page.resourceStation")}</span>
+                </div>
+                <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
+                  {t("entity.page.resourceStationDesc")}
+                </p>
+                <a
+                  href={getStorageEntityUrl(entity.id || id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
+                >
+                  <span>{t("entity.page.openResourceStation")}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </a>
               </div>
-              <p className="text-[11px] text-gray-600 dark:text-gray-400 leading-relaxed">
-{t("entity.page.resourceStationDesc")}
-              </p>
-              <a
-                href={getStorageEntityUrl(entity.id || id)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
-              >
-                <span>{t("entity.page.openResourceStation")}</span>
-                <ArrowUpRight className="w-3.5 h-3.5" />
-              </a>
-            </div>
+            )}
           </aside>
 
           {/* ============================================================ */}
@@ -974,27 +981,19 @@ export function EntityDetailView({ id }: { id: string }) {
                     <span>{t("entity.detail.compareAdd")}</span>
                   </Link>
 
-                  
-
-                  <a
-                    href="#revisions"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-xs font-medium text-gray-700 dark:text-gray-300 hover:border-primary/50 hover:text-primary transition-all shadow-2xs"
-                  >
-                    <History className="w-3.5 h-3.5" />
-                    <span>{t("entity.detail.revisionsTitle")}</span>
-                  </a>
-
-                  <a
-                    href={getStorageEntityUrl(entity.id || id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-sky-500/25 bg-sky-500/10 text-xs font-medium text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 hover:border-sky-500/40 transition-all shadow-2xs cursor-pointer"
-                    title={t("entity.page.openResourceDownload")}
-                  >
-                    <HardDrive className="w-3.5 h-3.5" />
-                    <span>{t("entity.page.resourceStation")}</span>
-                    <ArrowUpRight className="w-3 h-3 opacity-70" />
-                  </a>
+                  {hasResourceStation() && (
+                    <a
+                      href={getStorageEntityUrl(entity.id || id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-sky-500/25 bg-sky-500/10 text-xs font-medium text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 hover:border-sky-500/40 transition-all shadow-2xs cursor-pointer"
+                      title={t("entity.page.openResourceDownload")}
+                    >
+                      <HardDrive className="w-3.5 h-3.5" />
+                      <span>{t("entity.page.resourceStation")}</span>
+                      <ArrowUpRight className="w-3 h-3 opacity-70" />
+                    </a>
+                  )}
 
                   <button
                     type="button"

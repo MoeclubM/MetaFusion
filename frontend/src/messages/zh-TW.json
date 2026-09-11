@@ -2557,5 +2557,11 @@
   "locale.simplifiedChinese": "簡體中文",
   "locale.traditionalChinese": "繁體中文",
   "locale.japanese": "日本語",
-  "locale.englishUs": "英文（美國）"
+  "locale.englishUs": "英文（美國）",
+  "catalog.resourceStationNotReady": "資源儲存中心尚未開放，敬請期待。",
+  "community.feedSubtitle": "彙整全站各條目下的最新短評與討論。",
+  "community.feedEmpty": "尚無任何討論。",
+  "community.feedEmptyHint": "前往任一條目詳情頁的「社群討論」分節即可發表第一則短評。",
+  "community.feedLinkedEntity": "關聯條目",
+  "community.moduleDisabled": "社群討論功能目前未啟用，請聯繫管理員開啟。"
 }

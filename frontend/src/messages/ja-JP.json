@@ -2557,5 +2557,11 @@
   "locale.simplifiedChinese": "簡体字中国語",
   "locale.traditionalChinese": "繁体字中国語",
   "locale.japanese": "日本語",
-  "locale.englishUs": "英語（米国）"
+  "locale.englishUs": "英語（米国）",
+  "catalog.resourceStationNotReady": "リソースストレージセンターは未開放です。今しばらくお待ちください。",
+  "community.feedSubtitle": "全エントリの最新レビューと議論をまとめて表示します。",
+  "community.feedEmpty": "まだ議論はありません。",
+  "community.feedEmptyHint": "いずれかのエントリ詳細の「コミュニティ」セクションから最初のレビューを投稿できます。",
+  "community.feedLinkedEntity": "関連エントリ",
+  "community.moduleDisabled": "コミュニティ機能は現在無効です。管理者に有効化をご依頼ください。"
 }

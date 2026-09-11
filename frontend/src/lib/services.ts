@@ -4,10 +4,21 @@ export const AUTH_SERVICE_URL =
 export const FORUM_SERVICE_URL =
   process.env.NEXT_PUBLIC_FORUM_URL || "/community";
 
-export const STORAGE_SERVICE_URL =
+// 资源站是独立外部服务。未显式配置地址时视为尚未开放：不展示任何跳转入口，
+// 避免出现指向不存在域名的死链（曾硬编码 resources.findverse.cc，DNS 无此记录）。
+const CONFIGURED_STORAGE_URL =
   process.env.NEXT_PUBLIC_RESOURCE_STATION_URL ||
   process.env.NEXT_PUBLIC_STORAGE_URL ||
-  "https://resources.findverse.cc";
+  "";
+
+export const STORAGE_SERVICE_URL = /^https?:\/\//i.test(CONFIGURED_STORAGE_URL)
+  ? CONFIGURED_STORAGE_URL.replace(/\/+$/, "")
+  : "";
+
+/** 资源站是否已接入：为 false 时所有资源跳转入口都应隐藏。 */
+export function hasResourceStation(): boolean {
+  return STORAGE_SERVICE_URL !== "";
+}
 
 export const DOCS_SERVICE_URL =
   process.env.NEXT_PUBLIC_DOCS_URL || "/docs";
@@ -64,7 +75,7 @@ export function getForumCollectionUrl(collectionId: string): string {
 }
 
 export function getStorageEntityUrl(entityId?: string): string {
-  if (STORAGE_SERVICE_URL.startsWith("http")) {
+  if (STORAGE_SERVICE_URL) {
     return entityId
       ? `${STORAGE_SERVICE_URL}/subject/${encodeURIComponent(entityId)}`
       : STORAGE_SERVICE_URL;
