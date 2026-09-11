@@ -67,7 +67,7 @@ export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
           <span className="w-10 shrink-0 text-right font-mono text-xs text-gray-400">
             {entry.number || entry.position || "—"}
           </span>
-          <Link href={`/canonical-entries/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200 hover:text-primary">
+          <Link href={`/catalog/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200 hover:text-primary">
             {titleFor(entry)}
           </Link>
           <span className="shrink-0 rounded-sm border border-black/10 dark:border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">

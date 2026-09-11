@@ -11,10 +11,7 @@ const PROTECTED_PREFIXES = [
   "/settings",
   "/invites",
   "/contribute",
-  "/works/new",
-  "/releases/new",
-  "/artists/new",
-  "/franchises/new",
+  "/new",
 ];
 
 function isProtectedPath(pathname: string | null): boolean {

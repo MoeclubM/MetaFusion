@@ -211,23 +211,27 @@ function RelationEditorRow({
       setSearching(true);
       try {
         const hub = catalogHubOf(rel.target_type);
-        const path =
+        // 旧轨 /catalog/artists|works|releases|franchises 列表搜索不存在
+        // （后端仅有单体只读兼容），统一走新轨实体搜索；hub 映射到 8-kind。
+        const kind =
           hub === "artist"
-            ? "artists"
+            ? "agent"
             : hub === "work"
-            ? "works"
+            ? "work"
             : hub === "release"
-            ? "releases"
+            ? "release"
             : hub === "franchise"
-            ? "franchises"
+            ? "collection"
+            : hub === "canonical_entry"
+            ? "expression"
             : "";
-        if (!path) {
+        if (!kind) {
           setHits([]);
           return;
         }
-        const qs = new URLSearchParams({ q: term, page_size: "8" });
-        if (hub === "artist" && subtypeFilter) qs.set("entity_type", subtypeFilter);
-        const res = await fetchApi<{ items: any[] }>(`/catalog/${path}?${qs.toString()}`);
+        const qs = new URLSearchParams({ q: term, kind, limit: "8" });
+        if (hub === "artist" && subtypeFilter) qs.set("type", subtypeFilter);
+        const res = await fetchApi<{ items: any[] }>(`/catalog/entities?${qs.toString()}`);
         setHits(
           (res.items || []).map((it) => ({
             id: it.id,

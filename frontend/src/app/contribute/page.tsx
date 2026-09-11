@@ -21,7 +21,7 @@ export default function ContributeHubPage() {
 
   const cards = [
     {
-      href: "/works/new",
+      href: "/new?kind=work",
       icon: Layers,
       title: t("create.hub.cardWorkTitle"),
       desc: t("create.hub.cardWorkDesc"),
@@ -30,7 +30,7 @@ export default function ContributeHubPage() {
       bg: "bg-sky-500/10",
     },
     {
-      href: "/artists/new",
+      href: "/new?kind=agent",
       icon: Users,
       title: t("create.hub.cardArtistTitle"),
       desc: t("create.hub.cardArtistDesc"),
@@ -39,7 +39,7 @@ export default function ContributeHubPage() {
       bg: "bg-amber-500/10",
     },
     {
-      href: "/releases/new",
+      href: "/new?kind=release",
       icon: Disc,
       title: t("create.hub.cardReleaseTitle"),
       desc: t("create.hub.cardReleaseDesc"),
@@ -48,7 +48,7 @@ export default function ContributeHubPage() {
       bg: "bg-emerald-500/10",
     },
     {
-      href: "/franchises/new",
+      href: "/new?kind=collection",
       icon: Network,
       title: t("create.hub.cardFranchiseTitle"),
       desc: t("create.hub.cardFranchiseDesc"),

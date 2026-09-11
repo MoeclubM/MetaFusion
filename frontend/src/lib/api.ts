@@ -567,10 +567,6 @@ export interface Medium {
   asset_files?: AssetFile[];
 }
 
-export interface MediumListItem extends Medium {
-  release?: Release;
-}
-
 export interface Release {
   id: string;
   work_id: string;
@@ -676,19 +672,15 @@ export interface FranchiseDetailResponse {
 }
 
 export function catalogEntityHref(type: string, id: string): string {
+  // 旧轨详情页已退役：artist/collection 走通用兜底 /catalog/:id；
+  // work/release/medium 保留专用详情路由。
   switch (catalogHubOf(type)) {
     case "work":
       return `/works/${id}`;
-    case "artist":
-      return `/artists/${id}`;
     case "release":
       return `/releases/${id}`;
-    case "franchise":
-      return `/franchises/${id}`;
-    case "canonical_entry":
-      return `/canonical-entries/${id}`;
     default:
-      return `/artists/${id}`;
+      return `/catalog/${id}`;
   }
 }
 
@@ -1357,91 +1349,15 @@ export async function fetchEntityRevisions(targetType: string, targetId: string)
   return fetchApi<{ items: EntityRevision[]; total: number }>(`/catalog/revisions?target_type=${targetType}&target_id=${targetId}`);
 }
 
-export async function updateWork(id: string, payload: Record<string, any>): Promise<{ status: string; work: Work }> {
-  return fetchApi<{ status: string; work: Work }>(`/catalog/works/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
-
 export async function fetchWorkContents(id: string): Promise<WorkContentsResponse> {
   return fetchApi<WorkContentsResponse>(`/catalog/works/${id}/contents`);
 }
 
-export interface MediumListResponse {
-  items: MediumListItem[];
-  total: number;
-  page: number;
-  page_size: number;
-}
-
-export async function fetchMediums(params: URLSearchParams): Promise<MediumListResponse> {
-  const query = params.toString();
-  return fetchApi<MediumListResponse>(`/catalog/mediums${query ? `?${query}` : ""}`);
-}
-
-export async function updateArtist(id: string, payload: Record<string, any>): Promise<{ status: string; artist: Artist }> {
-  return fetchApi<{ status: string; artist: Artist }>(`/catalog/artists/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function updateRelease(id: string, payload: Record<string, any>): Promise<{ status: string; release: Release }> {
-  return fetchApi<{ status: string; release: Release }>(`/catalog/releases/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function updateFranchise(id: string, payload: Record<string, any>): Promise<{ status: string; franchise: Franchise }> {
-  return fetchApi<{ status: string; franchise: Franchise }>(`/catalog/franchises/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function updateCanonicalEntry(id: string, payload: Record<string, any>): Promise<CanonicalEntry> {
-  return fetchApi<CanonicalEntry>(`/catalog/canonical-entries/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function createCanonicalEntry(payload: Record<string, any>): Promise<CanonicalEntry> {
-  return fetchApi<CanonicalEntry>("/catalog/canonical-entries", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function createMedium(payload: Record<string, any>): Promise<Medium> {
-  return fetchApi<Medium>("/catalog/mediums", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function updateMedium(id: string, payload: Record<string, any>): Promise<Medium> {
-  return fetchApi<Medium>(`/catalog/mediums/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function createTrack(payload: Record<string, any>): Promise<Track> {
-  return fetchApi<Track>("/catalog/tracks", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function updateTrack(id: string, payload: Record<string, any>): Promise<Track> {
-  return fetchApi<Track>(`/catalog/tracks/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
+// 旧轨逐实体读写封装已随旧轨退役删除（updateWork/updateArtist/updateRelease/
+// updateFranchise/updateMedium/updateTrack/createMedium/createTrack/
+// updateCanonicalEntry/createCanonicalEntry/fetchMediums）：后端不存在
+// /catalog/works|artists|releases|franchises|mediums|tracks|canonical-entries
+// 写入端点，实体写入统一走 POST|PUT /api/catalog/entities。
 
 export async function mergeEntities(payload: {
   target_type: string;

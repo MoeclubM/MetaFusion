@@ -195,7 +195,8 @@ export function OmniImportModal({
     if (!q) return;
     setIsSearchingArtist(true);
     try {
-      const res = await fetchApi<{ items: Artist[] }>(`/catalog/artists?q=${encodeURIComponent(q)}&page_size=8`);
+      // 旧轨 /catalog/artists 列表搜索不存在（后端仅有单体兼容），改走新轨实体搜索。
+      const res = await fetchApi<{ items: Artist[] }>(`/catalog/entities?kind=agent&q=${encodeURIComponent(q)}&limit=8`);
       setArtistSearchResults(res?.items || []);
     } catch {
       setArtistSearchResults([]);
@@ -275,7 +276,7 @@ export function OmniImportModal({
         setImportSuccess(res);
         setTimeout(() => {
           if (res.artist_id) {
-            router.push(`/artists/${res.artist_id}`);
+            router.push(`/catalog/${res.artist_id}`);
             onClose();
           }
         }, 1200);

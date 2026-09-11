@@ -207,7 +207,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
         {displayedKey.map((rel) => (
           <Link
             key={rel.id}
-            href={`/artists/${rel.artist_id}`}
+            href={`/catalog/${rel.artist_id}`}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 hover:border-primary/40 text-xs text-gray-700 dark:text-gray-200 transition-colors"
           >
             {isCastRole(rel.role, rel.artist?.entity_type) ? (
@@ -269,7 +269,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
                   {/* 角色端 */}
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     {item.character.id ? (
-                      <Link href={`/artists/${item.character.id}`} className="flex items-center gap-2.5 min-w-0 group">
+                      <Link href={`/catalog/${item.character.id}`} className="flex items-center gap-2.5 min-w-0 group">
                         {item.character.avatar_url ? (
                           <img
                             src={item.character.avatar_url}
@@ -319,7 +319,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
                   {/* 声优端 */}
                   {item.voiceActor && (
                     <Link
-                      href={`/artists/${item.voiceActor.id}`}
+                      href={`/catalog/${item.voiceActor.id}`}
                       className="flex items-center gap-2 shrink-0 p-1.5 rounded bg-black/[0.02] dark:bg-white/[0.03] hover:bg-primary/5 border border-black/5 dark:border-white/5 hover:border-primary/30 transition-all text-right group"
                       title={`CV: ${item.voiceActor.name}`}
                     >
@@ -358,7 +358,7 @@ export function StaffCharacterSection({ relations, roleLabel }: StaffCharacterSe
                 {(effectiveTab === "key" ? keyStaff : otherStaff).map((rel) => (
                 <Link
                   key={rel.id}
-                  href={`/artists/${rel.artist_id}`}
+                  href={`/catalog/${rel.artist_id}`}
                   className="flex items-center gap-2 p-2 rounded border border-black/5 dark:border-white/[0.06] bg-background/60 hover:border-primary/40 hover:bg-background transition-all group shadow-xs"
                 >
                   {rel.artist?.avatar_url ? (
