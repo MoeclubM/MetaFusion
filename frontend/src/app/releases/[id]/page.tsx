@@ -325,6 +325,17 @@ export default function ReleaseDetailPage() {
     return map;
   }, [media]);
 
+  // 注意：全部 use* 必须在 early return 之前，保持每次渲染 Hook 顺序一致。
+  const formatGroups = useMemo(() => {
+    const groups = new Map<string, typeof media>();
+    for (const row of media) {
+      const fmt = attrText(row.medium.attributes?.format) || "unknown";
+      if (!groups.has(fmt)) groups.set(fmt, []);
+      groups.get(fmt)!.push(row);
+    }
+    return Array.from(groups.entries());
+  }, [media]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
@@ -388,16 +399,6 @@ export default function ReleaseDetailPage() {
         ? getTermName(dynamicDefs, "distribution_channel", channel, locale)
         : channel
       : channel;
-
-  const formatGroups = useMemo(() => {
-    const groups = new Map<string, typeof media>();
-    for (const row of media) {
-      const fmt = attrText(row.medium.attributes?.format) || "unknown";
-      if (!groups.has(fmt)) groups.set(fmt, []);
-      groups.get(fmt)!.push(row);
-    }
-    return Array.from(groups.entries());
-  }, [media]);
 
   const visibleGroups = activeTab === "all" ? formatGroups : formatGroups.filter(([fmt]) => fmt === activeTab);
   const bonusGroups = showBonus ? visibleGroups : visibleGroups.map(([fmt, rows]) => [fmt, rows.filter((r) => attrText(r.medium.attributes?.role) !== "supplement")] as [string, typeof media]);
