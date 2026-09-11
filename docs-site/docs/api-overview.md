@@ -49,7 +49,7 @@ MetaFusion 提供 MusicBrainz WS/2 风格的开放编目 API，适合自建应�
 
 见 [认证与 PAT](/api-auth)：
 
-- **会话**：`POST /api/auth/login` 返回令牌并写入 HttpOnly Cookie `mf_session`（当前实现无 Refresh Token 轮转端点）
+- **会话**：`POST /api/auth/login` 返回令牌并写入 HttpOnly Cookie `mf_session`（访问令牌 15 分钟有效，服务端会话兜底 24 小时；`POST /api/auth/refresh` 可换发新令牌）
 - **OAuth 2.0 / OIDC**：`/api/oauth/authorize`、`/api/oauth/token`、`/api/oauth/userinfo`
 
 凭证以 `Authorization: Bearer <token>` 或 Cookie 携带。**不存在 `mfp_` PAT、`X-API-Key` 或 `/api/auth/tokens`。**
