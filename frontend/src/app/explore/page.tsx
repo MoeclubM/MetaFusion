@@ -25,6 +25,7 @@ import {
   ChevronRight,
   RefreshCw,
   GitCompare,
+  Tag,
 } from "lucide-react";
 
 interface EntityItem {
@@ -107,6 +108,11 @@ function ExploreInner() {
   const currentKind = searchParams.get("kind") || "all";
   const currentStatus = searchParams.get("status") || "published";
   const currentQ = searchParams.get("q") || "";
+  // 标签筛选：可多选，命中任一即返回（与后端 tags 参数语义一致）。
+  const currentTags = useMemo(
+    () => searchParams.getAll("tags").flatMap((v) => v.split(",")).map((s) => s.trim()).filter(Boolean),
+    [searchParams],
+  );
   const currentPage = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
   const limit = 24;
   const offset = (currentPage - 1) * limit;
@@ -115,10 +121,19 @@ function ExploreInner() {
   const [items, setItems] = useState<EntityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [topTags, setTopTags] = useState<{ name: string; count: number }[]>([]);
 
   useEffect(() => {
     setQInput(currentQ);
   }, [currentQ]);
+
+  // 标签云：来自真实聚合（各实体 attributes.tags 的频次），按使用量取前若干。
+  useEffect(() => {
+    fetch("/api/catalog/tags?limit=40", { credentials: "same-origin" })
+      .then((res) => (res.ok ? res.json() : { items: [] }))
+      .then((data) => setTopTags(data.items || []))
+      .catch(() => setTopTags([]));
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -126,6 +141,7 @@ function ExploreInner() {
     if (currentKind !== "all") params.set("kind", currentKind);
     if (currentStatus) params.set("status", currentStatus);
     if (currentQ) params.set("q", currentQ);
+    currentTags.forEach((tag) => params.append("tags", tag));
     params.set("limit", limit.toString());
     params.set("offset", offset.toString());
 
@@ -134,7 +150,7 @@ function ExploreInner() {
       .then((data) => setItems(data.items || []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, [currentKind, currentStatus, currentQ, offset]);
+  }, [currentKind, currentStatus, currentQ, currentTags, offset]);
 
   const updateFilters = (updates: Record<string, string>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -149,6 +165,18 @@ function ExploreInner() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateFilters({ q: qInput.trim() });
+  };
+
+  // 标签多选：写回 URL 的 tags 参数（多个值），其余筛选保持不变。
+  const toggleTag = (name: string) => {
+    const next = new Set(currentTags);
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("tags");
+    next.forEach((tag) => params.append("tags", tag));
+    params.delete("page");
+    router.push("/explore?" + params.toString());
   };
 
   const kindLabel = (id: string) => t("catalog.kind." + id);
@@ -326,6 +354,40 @@ function ExploreInner() {
                 </button>
               </div>
             </div>
+
+            {/* 标签筛选：多选、命中任一；来源为真实标签聚合 */}
+            {topTags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
+                {topTags.map((tag) => {
+                  const active = currentTags.includes(tag.name);
+                  return (
+                    <button
+                      key={tag.name}
+                      type="button"
+                      onClick={() => toggleTag(tag.name)}
+                      className={
+                        "px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors cursor-pointer " +
+                        (active
+                          ? "bg-primary text-white font-semibold border border-primary"
+                          : "bg-surface text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-black/10 dark:border-white/10")
+                      }
+                    >
+                      #{tag.name}
+                    </button>
+                  );
+                })}
+                {currentTags.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => updateFilters({ tags: "" })}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-mono text-primary hover:underline cursor-pointer"
+                  >
+                    {t("catalog.emptyAction")}
+                  </button>
+                )}
+              </div>
+            )}
 
             {loading ? (
               <div className="py-24 text-center text-gray-500 font-mono text-xs flex flex-col items-center justify-center gap-3">
