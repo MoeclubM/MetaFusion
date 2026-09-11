@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -49,14 +50,24 @@ func New(ctx context.Context, db *sql.DB, catalog moduleapi.Catalog, root string
 	if _, err = db.ExecContext(ctx, mediaSchema); err != nil {
 		return nil, err
 	}
+	// defaultEnabled：无依赖、仅用本库即可工作的模块默认开启（社区短评与个人收藏）；
+	// 归档/播放/媒体依赖对象存储，交换依赖外部服务，保持默认关闭，由管理台按需开启。
+	defaultEnabled := map[string]bool{"community": true, "records": true}
 	for _, id := range []string{"archive", "playback", "media", "community", "records", "exchange"} {
 		deps := map[string]string{}
 		if id == "playback" || id == "media" {
 			deps["archive"] = "^2.0.0"
 		}
-		var enabled bool
+		enabled := defaultEnabled[id]
 		err = db.QueryRowContext(ctx, "SELECT enabled FROM modules.settings WHERE id=$1", id).Scan(&enabled)
-		if err != nil && err != sql.ErrNoRows {
+		if err == nil {
+			// 已有显式配置以配置为准。
+		} else if err == sql.ErrNoRows {
+			// 首次运行按默认值播种，使管理台与运行时口径一致。
+			if _, ierr := db.ExecContext(ctx, "INSERT INTO modules.settings(id,enabled) VALUES($1,$2) ON CONFLICT(id) DO NOTHING", id, enabled); ierr != nil {
+				return nil, ierr
+			}
+		} else {
 			return nil, err
 		}
 		m.manifests[id] = moduleapi.Manifest{ID: id, Version: "2.0.0", Dependencies: deps, Enabled: enabled, Healthy: true}
@@ -240,6 +251,43 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 	api.POST("/archive/entities/:id/resources", m.guard("archive", true), m.upload)
 	api.GET("/archive/resources/:id/content", m.guard("archive", false), m.download)
 	api.GET("/playback/resources/:id/content", m.guard("playback", false), m.download)
+	// 站点级讨论流：跨实体聚合最新短评，并带上被讨论条目的题名与封面，
+	// 供 /community 落地页展示。仅返回公开可见（published）条目下的讨论。
+	api.GET("/community/feed", m.guard("community", false), func(c *gin.Context) {
+		limit, _ := strconv.Atoi(c.Query("limit"))
+		if limit <= 0 || limit > 100 {
+			limit = 50
+		}
+		rows, err := m.db.QueryContext(c.Request.Context(), `
+			SELECT p.id, p.entity_id, p.author_id,
+			       COALESCE(NULLIF(p.author_name, ''), 'Anonymous'), p.body, p.created_at,
+			       e.title, COALESCE(e.document->>'kind', '')
+			FROM modules.posts p
+			LEFT JOIN catalog.entities e ON e.id = p.entity_id
+			WHERE e.id IS NULL OR e.status = 'published'
+			ORDER BY p.created_at DESC
+			LIMIT $1`, limit)
+		if err != nil {
+			failure(c, 500, "module_error")
+			return
+		}
+		defer rows.Close()
+		items := []map[string]any{}
+		for rows.Next() {
+			var id, entityID, author, authorName, body, at string
+			var title, kind sql.NullString
+			if rows.Scan(&id, &entityID, &author, &authorName, &body, &at, &title, &kind) != nil {
+				failure(c, 500, "module_error")
+				return
+			}
+			items = append(items, map[string]any{
+				"id": id, "entity_id": entityID, "author_id": author,
+				"author_name": authorName, "body": body, "created_at": at,
+				"entity_title": title.String, "entity_kind": kind.String,
+			})
+		}
+		c.JSON(200, gin.H{"items": items})
+	})
 	api.GET("/community/entities/:id/posts", m.guard("community", false), func(c *gin.Context) {
 		id := c.Param("id")
 		if !m.entity(c, id) {
