@@ -165,8 +165,8 @@ export default function WorkDirectoryPage() {
  useEffect(() => {
  if (!workId) return;
  loadWork();
- // 讨论走社区模块的实体短评接口（此前请求 /catalog/works/:id/comments 占位恒返回空）。
- fetchApi<{ items: CommunityPost[] }>(`/community/entities/${workId}/posts`)
+ // 关联讨论取该作品的论坛主题（论坛已恢复为本站自建的独立系统）。
+ fetchApi<{ items: CommunityPost[] }>(`/community/topics?entity_id=${workId}&limit=5`)
  .then((r) => setTopics(r.items || []))
  .catch(() => {});
  }, [workId]);
@@ -519,10 +519,10 @@ export default function WorkDirectoryPage() {
  ) : (
  <div className="divide-y divide-black/5 dark:divide-white/[0.06] mt-2">
  {topics.slice(0, 3).map((t) => (
- <div key={t.id} className="py-2.5 flex items-start justify-between gap-3 px-2.5">
+ <Link key={t.id} href={`/community/${t.id}`} className="py-2.5 flex items-start justify-between gap-3 px-2.5 rounded-md hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors">
  <span className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2 min-w-0">{t.body}</span>
  <span className="text-xs text-gray-500 shrink-0">{t.created_at ? new Date(t.created_at).toLocaleDateString() : ""}</span>
- </div>
+ </Link>
  ))}
  </div>
  )}
