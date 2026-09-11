@@ -6,14 +6,14 @@ group: "api"
 ---
 
 ::: warning 文档与实现存在差异（一手提示）
-本页描述的多数认证端点**在当前后端不存在**（`backend/internal/catalog/http.go` 未注册）：
+本页描述的部分认证端点**在当前后端不存在**（`backend/internal/catalog/http.go` 未注册）：
 
-- `GET /api/auth/settings`、`POST /api/auth/register`、`POST /api/auth/refresh`、`GET /api/auth/invite`：**不存在**（前端仍有调用，会得到 404；无公开自助注册与邀请端点）
+- `POST /api/auth/register`、`GET /api/auth/invite`：**不存在**（无公开自助注册与邀请端点）
 - `GET|POST|DELETE /api/auth/tokens` 与 `mfp_` 前缀 PAT、`X-API-Key` 请求头：**不存在**（没有个人访问令牌体系）
 - `GET /api/system/setup-status`、`POST /api/system/setup`：**不存在**，真实端点是不带 `system/` 前缀的 `GET|POST /api/setup`
-- Access/Refresh 双 Token 轮转与 Redis 黑名单：**未实现**；当前为会话令牌 + HttpOnly Cookie
+- Access/Refresh 双 Token 轮转与 Redis 黑名单：**未实现**；当前为 RS256 短期访问令牌（15 分钟）+ 服务端会话兜底（24 小时），吊销为单实例内存
 
-**真实端点**：`GET /api/setup`、`POST /api/setup`（首管初始化）、`POST /api/auth/login`、`GET /api/auth/me`、`POST /api/auth/logout`、`PUT /api/auth/password`、`POST /api/auth/logout-all`、`GET|POST /api/admin/users`、`PUT /api/admin/users/:id/role|password`，以及 OAuth 2.0 / OIDC 的 `/api/oauth/clients|authorize|token|userinfo`。以 [OpenAPI](/api/openapi.json) 为准。
+**真实端点**：`GET /api/setup`、`POST /api/setup`（首管初始化）、`POST /api/auth/login`、`POST /api/auth/refresh`（用当前令牌换发新令牌）、`GET /api/auth/me`、`GET /api/auth/settings`（实例准入能力）、`POST /api/auth/logout`、`PUT /api/auth/password`、`POST /api/auth/change-password`、`POST /api/auth/logout-all`、`GET|POST /api/admin/users`、`PUT /api/admin/users/:id/role|password`，以及 OAuth 2.0 / OIDC 的 `/api/oauth/clients|authorize|token|userinfo` 与 `/.well-known/openid-configuration|/oidc/jwks`。以 [OpenAPI](/api/openapi.json) 为准。
 :::
 
 # 认证与 API 密钥
@@ -37,9 +37,7 @@ Cookie: mf_session=<session-token>
 
 ::: danger 以下端点在当前实现中不存在
 ```http
-GET  /api/auth/settings          # 不存在
 POST /api/auth/register          # 不存在（无公开自助注册）
-POST /api/auth/refresh           # 不存在（无双 Token 轮转）
 GET  /api/auth/invite            # 不存在
 ```
 :::
@@ -50,9 +48,12 @@ GET  /api/auth/invite            # 不存在
 GET  /api/setup                  # 检查是否仍需初始化首管
 POST /api/setup                  # { username, password } 创建首个管理员
 POST /api/auth/login             # { username, password } → 用户信息 + 会话
+POST /api/auth/refresh           # 用当前 Bearer/Cookie 令牌换发新令牌
 GET  /api/auth/me                # 需认证：当前账号
+GET  /api/auth/settings          # 未登录可读：实例准入能力
 POST /api/auth/logout            # 注销当前会话
 PUT  /api/auth/password          # 修改密码
+POST /api/auth/change-password   # 修改密码（需旧密码）
 POST /api/auth/logout-all        # 吊销该用户全部会话
 ```
 

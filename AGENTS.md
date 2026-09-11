@@ -34,8 +34,8 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 | 任务 | 优先入口 |
 | --- | --- |
 | 后端 API / 数据模型 | `backend/internal/catalog/`（统一入口 `/api`，路由见 `http.go:Register`）、`backend/internal/models/`（旧 GORM 轨，只读兼容） |
-| 数据库与完整性约束 | `backend/migrations/`（当前仅 `000001_catalog_core`、`000002_catalog_shelves`）；实际表结构与复合外键约束以 `backend/internal/catalog/schema.sql` 与 `store.go` 为准；只把已执行迁移视为目标实例能力 |
-| 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US}.json`、[i18n 规则](.cursor/rules/i18n-localization-strict.mdc) |
+| 数据库与完整性约束 | `backend/migrations/`（当前 `000001_catalog_core` 到 `000007_auth_schema_split`，另有 `external_databases` 仅见于 `schema.sql`）；实际表结构与复合外键约束以 `backend/internal/catalog/schema.sql` 与 `store.go` 为准；只把已执行迁移视为目标实例能力 |
+| 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US,zh-TW,ja-JP}.json` |
 | 插件与解耦 | `backend/internal/{moduleapi,moduledeps,modules}`、[插件架构（VISION，未实现）](docs/architecture/plugin-decoupling-blueprint.md) |
 | 部署与 CI | `deploy/docker-compose.yml`、`.github/workflows/ci.yml` |
 | 用户 / LLM 编辑教程 | [Agent 接入](docs-site/docs/agent-integration.md)、[Agent API](docs-site/docs/api-agent.md) |
@@ -61,7 +61,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 - Work 保持纯净题名；季数、卷号、载体、规格、包装等放到适当层级。先按来源判断独立创作身份，不机械删去本就是正式题名一部分的词；不为凑齐层级虚构发行、容器或目录。
 - ContentUnit 的父子关系只能在同一 Work 内；Medium / Track 的父子关系不能跨所属 Release / Medium。当前由 `backend/internal/catalog/schema.sql` 的复合外键与 `store.go` 校验要求 Track 及其内容与 Release 属于同一 Work；多作品盒装若缺少显式汇编模型，报告缺口，不用 SQL 或伪造 Work 绕过。
 - 无 `media_type` 传统树状分类；通过标签、虚拟货架、Release 规格和实体图谱表达。关系、角色、介质格式等代码从 taxonomy / relation-types 及实现取得，不凭显示文案猜枚举。
-- `adaptation_of`、`soundtrack_of`、`sequel_of`、`spin_off_of` 等关系连接已有实体。需要层级/无环语义的关系拒绝自环和循环；同一角色跨作品用多条 `character_in` 边，不拆重复主体。
+- `adaptation_of`、`soundtrack_of`、`sequel_of` 等关系连接已有实体（可用码以 `defaults.go` 种子与 `/api/catalog/definitions` 为准，不要凭记忆引用未定义的码）。需要层级/无环语义的关系拒绝自环和循环；同一角色跨作品用多条 `character_in` 边，不拆重复主体。
 - 外围抓取、导出、通知、媒体分析与 AI 增强保持插件化；依赖按 Semver 与 DAG 治理，保留循环检测和级联启停保护，不塞进核心实体层。
 
 ### 国际化、封面与审计
