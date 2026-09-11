@@ -273,7 +273,8 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	})
 	// POST /auth/refresh 用当前 Bearer/Cookie 令牌换发新令牌（服务端轮转会话行）。
 	// 前端据此在访问令牌临近过期时续期，无需单独的 refresh_token 字段。
-	api.POST("/auth/refresh", func(c *gin.Context) {
+	// 与 login 共用 15/min/IP 限流，防止被盗令牌无限续命喷洒。
+	api.POST("/auth/refresh", limiter, func(c *gin.Context) {
 		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
 		if token == "" {
 			token, _ = c.Cookie("mf_session")
@@ -291,7 +292,8 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		if token == "" {
 			token, _ = c.Cookie("mf_session")
 		}
-		c.SetCookie("mf_session", "", -1, "/", "", false, true)
+		// 清 Cookie 的 Secure 必须与登录时一致，否则 HTTPS 下清不掉。
+		c.SetCookie("mf_session", "", -1, "/", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
 		respond(c, gin.H{"ok": true}, s.Logout(c.Request.Context(), token))
 	})
 	// GET /auth/settings 供未登录页面读取实例准入能力。后端目前没有注册、
@@ -331,7 +333,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 			return
 		}
-		c.SetCookie("mf_session", "", -1, "/", "", false, true)
+		c.SetCookie("mf_session", "", -1, "/", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
 		respond(c, gin.H{"ok": true}, s.LogoutAll(c.Request.Context(), u.ID))
 	})
 	api.GET("/admin/users", required(true), func(c *gin.Context) {
@@ -369,7 +371,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		clients, err := s.ListOAuthClients(c.Request.Context())
 		respond(c, gin.H{"clients": clients}, err)
 	})
-	oauth.GET("/authorize", func(c *gin.Context) {
+	oauth.GET("/authorize", limiter, func(c *gin.Context) {
 		clientID := c.Query("client_id")
 		redirectURI := c.Query("redirect_uri")
 		responseType := c.Query("response_type")
@@ -415,7 +417,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		c.Redirect(http.StatusFound, target)
 	})
-	oauth.POST("/token", func(c *gin.Context) {
+	oauth.POST("/token", limiter, func(c *gin.Context) {
 		grantType := c.PostForm("grant_type")
 		code := c.PostForm("code")
 		clientID := c.PostForm("client_id")

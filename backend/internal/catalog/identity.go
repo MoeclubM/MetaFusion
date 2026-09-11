@@ -213,19 +213,23 @@ func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, c
 	var userID string
 	var codeURI string
 	var scope string
-	var used bool
-	var expiresAt time.Time
-	err = s.DB.QueryRowContext(ctx, "SELECT user_id, redirect_uri, scope, used, expires_at FROM auth.oauth_codes WHERE code=$1 AND client_id=$2", strings.TrimSpace(code), clientID).Scan(&userID, &codeURI, &scope, &used, &expiresAt)
+	// 原子兑付：只有未使用且未过期的码才能标记成功，并发双兑只有一个成功。
+	// 注意不能复用 s.write（全局串行锁），此处用单条条件 UPDATE 即可。
+	res, err := s.DB.ExecContext(ctx, "UPDATE auth.oauth_codes SET used=true WHERE code=$1 AND client_id=$2 AND used=false AND expires_at>now()", strings.TrimSpace(code), clientID)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid_grant")
 	}
-	if used || expiresAt.Before(time.Now()) {
+	n, _ := res.RowsAffected()
+	if n == 0 {
 		return "", nil, fmt.Errorf("expired_or_used_code")
+	}
+	err = s.DB.QueryRowContext(ctx, "SELECT user_id, redirect_uri, scope FROM auth.oauth_codes WHERE code=$1 AND client_id=$2", strings.TrimSpace(code), clientID).Scan(&userID, &codeURI, &scope)
+	if err != nil {
+		return "", nil, fmt.Errorf("invalid_grant")
 	}
 	if redirectURI != "" && redirectURI != codeURI {
 		return "", nil, fmt.Errorf("redirect_uri_mismatch")
 	}
-	_, _ = s.DB.ExecContext(ctx, "UPDATE auth.oauth_codes SET used=true WHERE code=$1", strings.TrimSpace(code))
 	var u User
 	if err = s.DB.QueryRowContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM auth.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Email, &u.Role); err != nil {
 		return "", nil, err
@@ -302,7 +306,12 @@ func (s *Store) ChangePassword(ctx context.Context, userID, oldPassword, newPass
 	if err != nil {
 		return err
 	}
-	_, err = s.DB.ExecContext(ctx, "UPDATE auth.users SET password_hash=$1 WHERE id=$2", string(newHash), userID)
+	if _, err = s.DB.ExecContext(ctx, "UPDATE auth.users SET password_hash=$1 WHERE id=$2", string(newHash), userID); err != nil {
+		return err
+	}
+	// 改密后作废该用户全部服务端会话：旧令牌验签成功会直接放行（15 分钟窗口），
+	// 必须删会话行才能让回退查库也失效。与 ResetUserPassword 行为对齐。
+	_, err = s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE user_id=$1", userID)
 	return err
 }
 
