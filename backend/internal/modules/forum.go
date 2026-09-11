@@ -65,6 +65,11 @@ func seedForum(ctx context.Context, db *sql.DB) error {
 // 靠板块区分语义：评论锚定实体、无独立标题、不进信息流；主题有标题、可独立成文。
 const commentBoard = "comment"
 
+// feedScanCap 是带关键词搜索时的扫描上限。评论正文在 modules schema，而条目
+// 标题在 catalog schema，跨 schema 无法在一条 SQL 内完成匹配，因此取一个有界
+// 窗口在 Go 侧过滤，避免无上限地把整表读进内存。
+const feedScanCap = 500
+
 // migratePostsToComments 把历史表 modules.posts（实体短评）并入 forum_topics 的
 // 评论板块。modules schema 的表由本包内联 DDL 创建，不走 SQL 迁移文件，否则在全新
 // 数据库上会出现"迁移先于建表"的顺序问题；因此这里同样用内联、幂等的方式做。

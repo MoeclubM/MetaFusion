@@ -269,15 +269,15 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 	api.GET("/archive/resources/:id/content", m.guard("archive", false), m.download)
 	api.GET("/playback/resources/:id/content", m.guard("playback", false), m.download)
 	// 站点级评论流：跨实体聚合评论（评论板块），并带上被评论条目的题名。
-	// 支持 sort=recent（默认，最新在前）/ oldest；entity_id 限定单个条目；
-	// q 对正文与条目题名做模糊匹配。筛选下推到 SQL，避免前端拿全量再过滤。
+	// 条目元信息经 Catalog 接口批量获取，不直接 JOIN catalog 表（解耦边界）。
+	// 支持 sort=recent（默认，最新在前）/ oldest；entity_id 限定单个条目；q 匹配正文或条目标题。
 	api.GET("/community/feed", m.guard("community", false), func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		if limit <= 0 || limit > 100 {
 			limit = 50
 		}
 		args := []any{commentBoard}
-		where := []string{"t.board_code = $1", "(e.id IS NULL OR e.status = 'published')"}
+		where := []string{"t.board_code = $1"}
 		// entity_id 必须是合法 UUID，否则直接判为空结果，而不是把非法字面量送进查询。
 		if raw := strings.TrimSpace(c.Query("entity_id")); raw != "" {
 			if _, err := uuid.Parse(raw); err != nil {
@@ -287,43 +287,76 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 			args = append(args, raw)
 			where = append(where, fmt.Sprintf("t.entity_id = $%d", len(args)))
 		}
-		if q := strings.TrimSpace(c.Query("q")); q != "" {
-			args = append(args, "%"+q+"%")
-			where = append(where, fmt.Sprintf("(t.body ILIKE $%d OR e.title ILIKE $%d)", len(args), len(args)))
+		// q 需同时匹配正文与条目标题，而标题不属本 schema、无法在 SQL 内完成；
+		// 因此带 q 时取一个有界窗口后在 Go 侧过滤，无 q 时把 LIMIT 下推。
+		q := strings.TrimSpace(c.Query("q"))
+		scan := limit
+		if q != "" {
+			scan = feedScanCap
 		}
 		order := "DESC"
 		if c.Query("sort") == "oldest" {
 			order = "ASC"
 		}
-		args = append(args, limit)
-		q := `
+		args = append(args, scan)
+		rows, err := m.db.QueryContext(c.Request.Context(), `
 			SELECT t.id::text, t.entity_id::text, t.author_id::text,
-			       COALESCE(NULLIF(t.author_name, ''), 'Anonymous'), t.body, t.created_at,
-			       e.title, COALESCE(e.document->>'kind', '')
+			       COALESCE(NULLIF(t.author_name, ''), 'Anonymous'), t.body, t.created_at
 			FROM modules.forum_topics t
-			LEFT JOIN catalog.entities e ON e.id = t.entity_id
-			WHERE ` + strings.Join(where, " AND ") + `
-			ORDER BY t.created_at ` + order + `, t.id
-			LIMIT $` + strconv.Itoa(len(args))
-		rows, err := m.db.QueryContext(c.Request.Context(), q, args...)
+			WHERE `+strings.Join(where, " AND ")+`
+			ORDER BY t.created_at `+order+`, t.id
+			LIMIT $`+strconv.Itoa(len(args)), args...)
 		if err != nil {
 			failure(c, 500, "module_error")
 			return
 		}
-		defer rows.Close()
-		items := []map[string]any{}
+		type feedRow struct {
+			id, entityID, authorID, authorName, body string
+			at                                       time.Time
+		}
+		raw := []feedRow{}
+		ids := []string{}
+		seen := map[string]bool{}
 		for rows.Next() {
-			var id, entityID, author, authorName, body, at string
-			var title, kind sql.NullString
-			if rows.Scan(&id, &entityID, &author, &authorName, &body, &at, &title, &kind) != nil {
+			var r feedRow
+			if rows.Scan(&r.id, &r.entityID, &r.authorID, &r.authorName, &r.body, &r.at) != nil {
+				rows.Close()
 				failure(c, 500, "module_error")
 				return
 			}
+			raw = append(raw, r)
+			if r.entityID != "" && !seen[r.entityID] {
+				seen[r.entityID] = true
+				ids = append(ids, r.entityID)
+			}
+		}
+		rows.Close()
+		// 一次性批量取元信息与可见性；不可见或已删除的条目，其评论不再展示。
+		meta, _ := m.catalog.LookupMany(c.Request.Context(), ids, m.principal(c))
+		needle := strings.ToLower(q)
+		items := []map[string]any{}
+		for _, r := range raw {
+			title, kind := "", ""
+			if r.entityID != "" {
+				e, ok := meta[r.entityID]
+				if !ok {
+					continue
+				}
+				title, kind = e.Title, e.Kind
+			}
+			if needle != "" &&
+				!strings.Contains(strings.ToLower(r.body), needle) &&
+				!strings.Contains(strings.ToLower(title), needle) {
+				continue
+			}
 			items = append(items, map[string]any{
-				"id": id, "entity_id": entityID, "author_id": author,
-				"author_name": authorName, "body": body, "created_at": at,
-				"entity_title": title.String, "entity_kind": kind.String,
+				"id": r.id, "entity_id": r.entityID, "author_id": r.authorID,
+				"author_name": r.authorName, "body": r.body, "created_at": r.at,
+				"entity_title": title, "entity_kind": kind,
 			})
+			if len(items) >= limit {
+				break
+			}
 		}
 		c.JSON(200, gin.H{"items": items})
 	})
@@ -438,35 +471,26 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 			"entity_title": title, "entity_kind": kind,
 		})
 	})
+	// 关联合集：经 Catalog 接口取关系邻居，不直接 JOIN catalog 表（解耦边界）。
 	api.GET("/community/entities/:id/collections", m.guard("community", false), func(c *gin.Context) {
 		id := c.Param("id")
 		if !m.entity(c, id) {
 			return
 		}
-		rows, err := m.db.QueryContext(c.Request.Context(), `
-			SELECT e.id, e.title, e.document
-			FROM catalog.relations r
-			JOIN catalog.entities e ON (CASE WHEN r.source_id = $1 THEN r.target_id ELSE r.source_id END = e.id)
-			WHERE (r.source_id = $1 OR r.target_id = $1) AND e.kind = 'collection' AND e.status = 'published'
-			LIMIT 20`, id)
+		cols, err := m.catalog.RelatedEntities(c.Request.Context(), id, []string{"collection"}, m.principal(c))
 		if err != nil {
 			c.JSON(200, gin.H{"items": []any{}})
 			return
 		}
-		defer rows.Close()
+		if len(cols) > 20 {
+			cols = cols[:20]
+		}
 		items := []map[string]any{}
-		for rows.Next() {
-			var cid, title string
-			var docBytes []byte
-			if rows.Scan(&cid, &title, &docBytes) == nil {
-				var doc map[string]any
-				_ = json.Unmarshal(docBytes, &doc)
-				items = append(items, map[string]any{
-					"id": cid,
-					"title": title,
-					"document": doc,
-				})
+		for _, col := range cols {
+			if col.Status != "published" {
+				continue
 			}
+			items = append(items, map[string]any{"id": col.ID, "title": col.Title})
 		}
 		c.JSON(200, gin.H{"items": items})
 	})

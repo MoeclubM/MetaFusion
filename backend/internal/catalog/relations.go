@@ -557,3 +557,46 @@ func (s *Store) Compare(ctx context.Context, ids []string, u *User) ([]map[strin
 	}
 	return out, nil
 }
+
+// RelatedEntities 返回该实体的关系邻居中属于指定 kind 的实体（去重、仅可见者）。
+// 供外围系统（如论坛的"关联合集"）经接口获取，避免它们直接 JOIN catalog 表。
+// kinds 为空表示不限类型。
+func (s *Store) RelatedEntities(ctx context.Context, id string, kinds []string, u *User) ([]Entity, error) {
+	rels, err := s.Relations(ctx, id, u)
+	if err != nil {
+		return nil, err
+	}
+	want := map[string]bool{}
+	for _, k := range kinds {
+		want[k] = true
+	}
+	ids := []string{}
+	seen := map[string]bool{id: true}
+	for _, r := range rels {
+		other := r.TargetID
+		if r.SourceID != id {
+			other = r.SourceID
+		}
+		if other == "" || seen[other] {
+			continue
+		}
+		seen[other] = true
+		ids = append(ids, other)
+	}
+	got, err := s.GetManyVisible(ctx, ids, u)
+	if err != nil {
+		return nil, err
+	}
+	out := []Entity{}
+	for _, oid := range ids {
+		e, ok := got[oid]
+		if !ok {
+			continue
+		}
+		if len(want) > 0 && !want[e.Kind] {
+			continue
+		}
+		out = append(out, e)
+	}
+	return out, nil
+}

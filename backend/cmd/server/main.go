@@ -35,6 +35,38 @@ func (a catalogAdapter) Lookup(ctx context.Context, id string, p *moduleapi.Prin
 	return moduleapi.Entity{ID: e.ID, Kind: e.Kind, Title: e.Title, Status: e.Status, RedirectID: e.RedirectID}, err
 }
 
+func (a catalogAdapter) LookupMany(ctx context.Context, ids []string, p *moduleapi.Principal) (map[string]moduleapi.Entity, error) {
+	var u *catalog.User
+	if p != nil {
+		u = &catalog.User{ID: p.ID, Role: p.Role}
+	}
+	got, err := a.s.GetManyVisible(ctx, ids, u)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]moduleapi.Entity, len(got))
+	for id, e := range got {
+		out[id] = moduleapi.Entity{ID: e.ID, Kind: e.Kind, Title: e.Title, Status: e.Status, RedirectID: e.RedirectID}
+	}
+	return out, nil
+}
+
+func (a catalogAdapter) RelatedEntities(ctx context.Context, id string, kinds []string, p *moduleapi.Principal) ([]moduleapi.Entity, error) {
+	var u *catalog.User
+	if p != nil {
+		u = &catalog.User{ID: p.ID, Role: p.Role}
+	}
+	rels, err := a.s.RelatedEntities(ctx, id, kinds, u)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]moduleapi.Entity, 0, len(rels))
+	for _, e := range rels {
+		out = append(out, moduleapi.Entity{ID: e.ID, Kind: e.Kind, Title: e.Title, Status: e.Status, RedirectID: e.RedirectID})
+	}
+	return out, nil
+}
+
 func (a catalogAdapter) Authenticate(ctx context.Context, token string) (moduleapi.Principal, error) {
 	u, err := a.s.User(ctx, token)
 	if err != nil {
