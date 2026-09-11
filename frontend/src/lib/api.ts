@@ -1271,12 +1271,8 @@ export function clearAuthTokens(): void {
 }
 
 async function requestTokenRefresh(): Promise<string | null> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    clearAuthTokens();
-    return null;
-  }
-
+  // 后端 /auth/refresh 以 Bearer/Cookie 识别调用方，不读 body 里的 refresh_token；
+  // HttpOnly Cookie 会随同源请求自动携带，因此没有存储 refresh_token 也能续期。
   if (refreshPromise) {
     return refreshPromise;
   }
@@ -1286,8 +1282,9 @@ async function requestTokenRefresh(): Promise<string | null> {
       const baseUrl = getApiBase();
       const res = await fetch(`${baseUrl}/auth/refresh`, {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refreshToken }),
+        body: JSON.stringify({}),
       });
 
       if (!res.ok) {
@@ -1341,14 +1338,14 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     headers,
   });
 
-  // 处理 401 Unauthorized：尝试使用 Refresh Token 静默无感刷新
+  // 处理 401 Unauthorized：静默续期后重试一次（凭 HttpOnly Cookie，无需 refresh_token）。
   const isAuthEndpoint =
     endpoint.startsWith("/auth/login") ||
     endpoint.startsWith("/auth/register") ||
     endpoint.startsWith("/auth/refresh") ||
     endpoint.startsWith("/auth/logout");
 
-  if (res.status === 401 && !isAuthEndpoint && getRefreshToken()) {
+  if (res.status === 401 && !isAuthEndpoint && (getRefreshToken() || getAccessToken())) {
     const freshToken = await requestTokenRefresh();
     if (freshToken) {
       headers["Authorization"] = `Bearer ${freshToken}`;

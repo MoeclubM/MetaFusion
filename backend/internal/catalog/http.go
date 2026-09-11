@@ -201,13 +201,18 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		c.String(200, swaggerHTML)
 	})
 	api.Use(func(c *gin.Context) {
-		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
-		if token == "" {
-			token, _ = c.Cookie("mf_session")
-		}
-		if token != "" {
-			if u, err := s.User(c.Request.Context(), token); err == nil {
+		// 无状态 RS256 验签优先，失败回退查库：双模式并存。
+		// Bearer 与 Cookie 各试一次：前端可能带着刚过期的 Bearer 令牌，
+		// 而 HttpOnly Cookie 里是刷新后的新令牌（或反之），不能互相顶掉。
+		bearer := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+		cookie, _ := c.Cookie("mf_session")
+		for _, token := range []string{bearer, cookie} {
+			if token == "" {
+				continue
+			}
+			if u, err := s.Authenticate(c.Request.Context(), token); err == nil {
 				c.Set("catalog_user", u)
+				break
 			}
 		}
 		c.Next()
@@ -264,7 +269,21 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			c.SetSameSite(http.SameSiteStrictMode)
 			c.SetCookie("mf_session", token, 86400, "/", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
 		}
-		respond(c, gin.H{"token": token, "user": u}, err)
+		respond(c, gin.H{"token": token, "access_token": token, "token_type": "Bearer", "expires_in": int(AccessTokenTTL.Seconds()), "user": u}, err)
+	})
+	// POST /auth/refresh 用当前 Bearer/Cookie 令牌换发新令牌（服务端轮转会话行）。
+	// 前端据此在访问令牌临近过期时续期，无需单独的 refresh_token 字段。
+	api.POST("/auth/refresh", func(c *gin.Context) {
+		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+		if token == "" {
+			token, _ = c.Cookie("mf_session")
+		}
+		next, u, err := s.Refresh(c.Request.Context(), token)
+		if err == nil && next != "" {
+			c.SetSameSite(http.SameSiteStrictMode)
+			c.SetCookie("mf_session", next, 86400, "/", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
+		}
+		respond(c, gin.H{"token": next, "access_token": next, "token_type": "Bearer", "expires_in": int(AccessTokenTTL.Seconds()), "user": u}, err)
 	})
 	api.GET("/auth/me", required(false), func(c *gin.Context) { respond(c, user(c), nil) })
 	api.POST("/auth/logout", required(false), func(c *gin.Context) {
@@ -427,13 +446,20 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
+		ttl := int((30 * 24 * time.Hour).Seconds())
+		resp := gin.H{
 			"access_token": token,
 			"token_type":   "Bearer",
-			"expires_in":   86400 * 30,
+			"expires_in":   ttl,
 			"scope":        "profile",
 			"user":         u,
-		})
+		}
+		// OIDC：同密钥签发 id_token（aud 指向该客户端），客户端可用 JWKS 本地验签。
+		if idToken, exp, ierr := s.IDToken(*u, clientID); ierr == nil && idToken != "" {
+			resp["id_token"] = idToken
+			resp["id_token_expires_at"] = exp
+		}
+		c.JSON(http.StatusOK, resp)
 	})
 	oauth.GET("/userinfo", func(c *gin.Context) {
 		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
@@ -441,7 +467,8 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing_token"})
 			return
 		}
-		u, err := s.User(c.Request.Context(), token)
+		// 无状态验签优先（RS256 访问令牌），失败回退查库（不透明令牌）。
+		u, err := s.Authenticate(c.Request.Context(), token)
 		if err != nil || u == nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_token"})
 			return
@@ -453,6 +480,34 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			"role":     u.Role,
 			"email":    u.Email,
 		})
+	})
+	// OIDC 发现与 JWKS：外部服务可用公钥在本地验签访问令牌/id_token，无需回调本服务。
+	// issuer 与 discovery 地址同源（默认 https://findverse.cc/api）。
+	api.GET("/.well-known/openid-configuration", func(c *gin.Context) {
+		base := strings.TrimSuffix(s.TokenIssuerURL(), "/")
+		if base == "" {
+			base = strings.TrimSuffix(c.Request.URL.Scheme+c.Request.Host, "/")
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"issuer":                                base,
+			"authorization_endpoint":                base + "/oauth/authorize",
+			"token_endpoint":                        base + "/oauth/token",
+			"userinfo_endpoint":                     base + "/oauth/userinfo",
+			"jwks_uri":                              base + "/oidc/jwks",
+			"response_types_supported":              []string{"code"},
+			"grant_types_supported":                 []string{"authorization_code"},
+			"subject_types_supported":               []string{"public"},
+			"id_token_signing_alg_values_supported": []string{"RS256"},
+			"scopes_supported":                      []string{"profile", "email"},
+			"claims_supported":                      []string{"sub", "preferred_username", "email", "role"},
+		})
+	})
+	api.GET("/oidc/jwks", func(c *gin.Context) {
+		if s.Tokens == nil {
+			c.JSON(http.StatusOK, gin.H{"keys": []any{}})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"keys": []any{s.Tokens.PublicJWK()}})
 	})
 	// 用户收藏：详情页按钮与"我的收藏 / 用户收藏"列表。
 	favPage := func(c *gin.Context) (int, int) {

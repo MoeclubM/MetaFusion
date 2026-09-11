@@ -16,13 +16,13 @@ import (
 )
 
 func (s *Store) User(ctx context.Context, token string) (*User, error) {
-	hash := sha256.Sum256([]byte(token))
+	h := sessionHash(token)
 	var u User
-	err := s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,COALESCE(u.email,''),u.role FROM auth.sessions s JOIN auth.users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()", hex.EncodeToString(hash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+	err := s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,COALESCE(u.email,''),u.role FROM auth.sessions s JOIN auth.users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()", h).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	if err == nil {
 		return &u, nil
 	}
-	err = s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,COALESCE(u.email,''),u.role FROM auth.oauth_tokens t JOIN auth.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(hash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+	err = s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,COALESCE(u.email,''),u.role FROM auth.oauth_tokens t JOIN auth.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", h).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	return &u, err
 }
 
@@ -64,6 +64,9 @@ func (s *Store) CreateUser(ctx context.Context, username, email, password string
 	return u, err
 }
 
+// Login 校验口令，签发 RS256 访问令牌，并在服务端登记一条同哈希会话记录。
+// 双模式：JWT 让后续请求无需查库；会话记录保留可吊销性与 /auth/refresh 的续期
+// 依据（JWT 本身不可撤回，登出时靠 jti 注销集合 + 删除会话行）。
 func (s *Store) Login(ctx context.Context, username, password string) (string, User, error) {
 	var u User
 	var stored string
@@ -71,20 +74,74 @@ func (s *Store) Login(ctx context.Context, username, password string) (string, U
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(stored), []byte(password)) != nil {
 		return "", u, fmt.Errorf("invalid_credentials")
 	}
-	b := make([]byte, 32)
-	if _, err = rand.Read(b); err != nil {
+	token, _, err := s.issueSessionToken(u)
+	if err != nil {
 		return "", u, err
 	}
-	token := hex.EncodeToString(b)
-	hash := sha256.Sum256([]byte(token))
-	_, err = s.DB.ExecContext(ctx, "INSERT INTO auth.sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)", hex.EncodeToString(hash[:]), u.ID, time.Now().Add(24*time.Hour))
-	return token, u, err
+	// 会话行按既有语义保留 24 小时：JWT 过期后验签失败会回退查库，
+	// 这行记录就是"仍处于登录态"的事实来源，直到刷新或登出为止。
+	if _, err = s.DB.ExecContext(ctx, "INSERT INTO auth.sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)", sessionHash(token), u.ID, time.Now().Add(24*time.Hour)); err != nil {
+		return "", u, err
+	}
+	return token, u, nil
+}
+
+// issueSessionToken 在配置了签发器时返回 RS256 JWT（有效期 AccessTokenTTL），
+// 否则退回随机不透明令牌（纯查库模式，保持既有行为与测试可用）。
+func (s *Store) issueSessionToken(u User) (string, time.Duration, error) {
+	if s.Tokens == nil {
+		b := make([]byte, 32)
+		if _, err := rand.Read(b); err != nil {
+			return "", 0, err
+		}
+		return hex.EncodeToString(b), 24 * time.Hour, nil
+	}
+	token, _, exp, err := s.Tokens.Sign(u)
+	if err != nil {
+		return "", 0, err
+	}
+	return token, time.Until(exp), nil
+}
+
+// sessionHash 统一服务端会话的存储形式：无论令牌是 JWT 还是不透明随机串，
+// 都只落 SHA-256，避免数据库泄露即等于令牌泄露。
+func sessionHash(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
 }
 
 func (s *Store) Logout(ctx context.Context, token string) error {
-	hash := sha256.Sum256([]byte(token))
-	_, err := s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE token_hash=$1", hex.EncodeToString(hash[:]))
+	if s.Tokens != nil {
+		s.Tokens.RevokeToken(token)
+	}
+	_, err := s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE token_hash=$1", sessionHash(token))
 	return err
+}
+
+// Refresh 校验现有令牌（无状态或查库），重新签发一个新令牌并清理旧会话行。
+// 用于访问令牌临近过期时的续期；refresh 本身也接受 Bearer 令牌，前端无需
+// 额外的 refresh_token 字段。
+func (s *Store) Refresh(ctx context.Context, token string) (string, User, error) {
+	u, err := s.Authenticate(ctx, token)
+	if err != nil || u == nil {
+		return "", User{}, fmt.Errorf("invalid_token")
+	}
+	if s.Tokens == nil {
+		return token, *u, nil // 纯查库模式无续期语义，原令牌继续有效
+	}
+	next, _, err := s.issueSessionToken(*u)
+	if err != nil {
+		return "", User{}, err
+	}
+	s.Tokens.RevokeToken(token)
+	if _, err = s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE token_hash=$1", sessionHash(token)); err != nil {
+		return "", User{}, err
+	}
+	// 与 Login 一致：会话行保留 24 小时，作为 JWT 过期后的查库兜底事实来源。
+	if _, err = s.DB.ExecContext(ctx, "INSERT INTO auth.sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)", sessionHash(next), u.ID, time.Now().Add(24*time.Hour)); err != nil {
+		return "", User{}, err
+	}
+	return next, *u, nil
 }
 
 type OAuthClient struct {
@@ -169,25 +226,60 @@ func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, c
 		return "", nil, fmt.Errorf("redirect_uri_mismatch")
 	}
 	_, _ = s.DB.ExecContext(ctx, "UPDATE auth.oauth_codes SET used=true WHERE code=$1", strings.TrimSpace(code))
-	tb := make([]byte, 32)
-	if _, err := rand.Read(tb); err != nil {
+	var u User
+	if err = s.DB.QueryRowContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM auth.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Email, &u.Role); err != nil {
 		return "", nil, err
 	}
-	token := hex.EncodeToString(tb)
-	thash := sha256.Sum256([]byte(token))
-	_, err = s.DB.ExecContext(ctx, "INSERT INTO auth.oauth_tokens(token_hash, client_id, user_id, scope, expires_at) VALUES($1, $2, $3, $4, $5)", hex.EncodeToString(thash[:]), clientID, userID, scope, time.Now().Add(30*24*time.Hour))
+	// 签发 OIDC access_token：配置签发器时为 RS256 JWT（可被 JWKS 本地验签），
+	// 否则退回不透明随机串。无论哪种都只落 SHA-256 以便吊销。
+	token, _, _, err := s.signOAuthToken(u)
 	if err != nil {
 		return "", nil, err
 	}
-	var u User
-	err = s.DB.QueryRowContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM auth.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
-	return token, &u, err
+	_, err = s.DB.ExecContext(ctx, "INSERT INTO auth.oauth_tokens(token_hash, client_id, user_id, scope, expires_at) VALUES($1, $2, $3, $4, $5)", sessionHash(token), clientID, userID, scope, time.Now().Add(30*24*time.Hour))
+	if err != nil {
+		return "", nil, err
+	}
+	return token, &u, nil
+}
+
+// signOAuthToken 为 OAuth/OIDC 流程签发访问令牌：有签发器用 RS256 JWT，
+// 否则用 32 字节随机串。返回令牌与其有效期（用于响应 expires_in）。
+func (s *Store) signOAuthToken(u User) (string, time.Duration, int64, error) {
+	if s.Tokens == nil {
+		b := make([]byte, 32)
+		if _, err := rand.Read(b); err != nil {
+			return "", 0, 0, err
+		}
+		return hex.EncodeToString(b), 30 * 24 * time.Hour, 0, nil
+	}
+	token, _, exp, err := s.Tokens.Sign(u)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	return token, time.Until(exp), exp.Unix(), nil
+}
+
+// IDToken 为 OIDC 客户端签发 id_token：与访问令牌同密钥、同算法、同身份声明，
+// 额外把 aud 指向客户端。客户端可用 JWKS 公钥本地验签获得用户身份。
+func (s *Store) IDToken(u User, clientID string) (string, int64, error) {
+	if s.Tokens == nil {
+		return "", 0, nil
+	}
+	aud := clientID
+	if aud == "" {
+		aud = s.Tokens.Audience()
+	}
+	token, exp, err := s.Tokens.SignForAudience(u, aud)
+	if err != nil {
+		return "", 0, err
+	}
+	return token, exp.Unix(), nil
 }
 
 func (s *Store) UserFromOAuthToken(ctx context.Context, token string) (*User, error) {
-	thash := sha256.Sum256([]byte(token))
 	var u User
-	err := s.DB.QueryRowContext(ctx, "SELECT u.id, u.username, COALESCE(u.email,''), u.role FROM auth.oauth_tokens t JOIN auth.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(thash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+	err := s.DB.QueryRowContext(ctx, "SELECT u.id, u.username, COALESCE(u.email,''), u.role FROM auth.oauth_tokens t JOIN auth.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", sessionHash(token)).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	if err != nil {
 		return nil, err
 	}
