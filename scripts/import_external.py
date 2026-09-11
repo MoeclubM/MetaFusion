@@ -23,7 +23,7 @@ import urllib.error
 import urllib.parse
 from typing import Optional, Dict, Any, List
 
-API_BASE_DEFAULT = os.getenv("METAFUSION_API_BASE", "http://localhost:8080/api/v1")
+API_BASE_DEFAULT = os.getenv("METAFUSION_API_BASE", "http://localhost:8080/api")
 
 
 class TerminalColor:
@@ -270,7 +270,7 @@ def main():
             print(f"{TerminalColor.GREEN}{TerminalColor.BOLD}入库成功 (Import Success)!{TerminalColor.RESET}")
             print(f"  Work ID     : {TerminalColor.CYAN}{work_id}{TerminalColor.RESET}")
             print(f"  Release ID  : {import_res.get('release_id')}")
-            print(f"  详情页地址  : {args.api_base.replace('/api/v1', '')}{import_res.get('redirect_url')}")
+            print(f"  详情页地址  : {args.api_base.removesuffix('/api')}{import_res.get('redirect_url')}")
             print(f"  导入统计    : {counts.get('artists', 0)} 位创作者, {counts.get('mediums', 0)} 介质, {counts.get('tracks', 0)} 音轨/分集")
             success_count += 1
 
