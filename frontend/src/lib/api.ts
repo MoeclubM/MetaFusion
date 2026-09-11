@@ -1323,13 +1323,6 @@ export async function deleteAvatar(): Promise<{ avatar_url: string; user: User; 
 }
 
 
-export function updateWorkStatus(id: string, status: string): Promise<{ status: string; work_status: string }> {
-  return fetchApi<{ status: string; work_status: string }>(`/admin/works/${id}/status`, {
-    method: "PUT",
-    body: JSON.stringify({ status }),
-  });
-}
-
 export async function fetchDirectMessages(
   userId: string,
   page = 1,
