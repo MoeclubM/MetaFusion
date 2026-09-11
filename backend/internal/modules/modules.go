@@ -251,22 +251,45 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 	api.POST("/archive/entities/:id/resources", m.guard("archive", true), m.upload)
 	api.GET("/archive/resources/:id/content", m.guard("archive", false), m.download)
 	api.GET("/playback/resources/:id/content", m.guard("playback", false), m.download)
-	// 站点级讨论流：跨实体聚合最新短评，并带上被讨论条目的题名与封面，
-	// 供 /community 落地页展示。仅返回公开可见（published）条目下的讨论。
+	// 站点级讨论流：跨实体聚合短评，并带上被讨论条目的题名，供 /community 展示。
+	// 仅返回公开可见（published）条目下的讨论。
+	// 支持 sort=recent（默认，最新在前）/ oldest；entity_id 限定单个条目；
+	// q 对正文与条目题名做模糊匹配。筛选下推到 SQL，避免前端拿全量再过滤。
 	api.GET("/community/feed", m.guard("community", false), func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		if limit <= 0 || limit > 100 {
 			limit = 50
 		}
-		rows, err := m.db.QueryContext(c.Request.Context(), `
+		args := []any{}
+		where := []string{"(e.id IS NULL OR e.status = 'published')"}
+		// entity_id 必须是合法 UUID，否则直接判为空结果，而不是把非法字面量送进查询。
+		if raw := strings.TrimSpace(c.Query("entity_id")); raw != "" {
+			if _, err := uuid.Parse(raw); err != nil {
+				c.JSON(200, gin.H{"items": []any{}})
+				return
+			}
+			args = append(args, raw)
+			where = append(where, fmt.Sprintf("p.entity_id = $%d", len(args)))
+		}
+		if q := strings.TrimSpace(c.Query("q")); q != "" {
+			args = append(args, "%"+q+"%")
+			where = append(where, fmt.Sprintf("(p.body ILIKE $%d OR e.title ILIKE $%d)", len(args), len(args)))
+		}
+		order := "DESC"
+		if c.Query("sort") == "oldest" {
+			order = "ASC"
+		}
+		args = append(args, limit)
+		q := `
 			SELECT p.id, p.entity_id, p.author_id,
 			       COALESCE(NULLIF(p.author_name, ''), 'Anonymous'), p.body, p.created_at,
 			       e.title, COALESCE(e.document->>'kind', '')
 			FROM modules.posts p
 			LEFT JOIN catalog.entities e ON e.id = p.entity_id
-			WHERE e.id IS NULL OR e.status = 'published'
-			ORDER BY p.created_at DESC
-			LIMIT $1`, limit)
+			WHERE ` + strings.Join(where, " AND ") + `
+			ORDER BY p.created_at ` + order + `, p.id
+			LIMIT $` + strconv.Itoa(len(args))
+		rows, err := m.db.QueryContext(c.Request.Context(), q, args...)
 		if err != nil {
 			failure(c, 500, "module_error")
 			return
@@ -358,6 +381,37 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		c.JSON(200, gin.H{"ok": true})
+	})
+	// 单条短评：为讨论提供稳定的直达链接（permalink）。与 DELETE 同路径形状。
+	api.GET("/community/posts/:id", m.guard("community", false), func(c *gin.Context) {
+		id := c.Param("id")
+		if _, err := uuid.Parse(id); err != nil {
+			failure(c, 404, "not_found")
+			return
+		}
+		var postID, entityID, author, authorName, body, at string
+		var title, kind sql.NullString
+		err := m.db.QueryRowContext(c.Request.Context(), `
+			SELECT p.id, p.entity_id, p.author_id,
+			       COALESCE(NULLIF(p.author_name, ''), 'Anonymous'), p.body, p.created_at,
+			       e.title, COALESCE(e.document->>'kind', '')
+			FROM modules.posts p
+			LEFT JOIN catalog.entities e ON e.id = p.entity_id
+			WHERE p.id = $1 AND (e.id IS NULL OR e.status = 'published')`, id).
+			Scan(&postID, &entityID, &author, &authorName, &body, &at, &title, &kind)
+		if err == sql.ErrNoRows {
+			failure(c, 404, "not_found")
+			return
+		}
+		if err != nil {
+			failure(c, 500, "module_error")
+			return
+		}
+		c.JSON(200, gin.H{
+			"id": postID, "entity_id": entityID, "author_id": author,
+			"author_name": authorName, "body": body, "created_at": at,
+			"entity_title": title.String, "entity_kind": kind.String,
+		})
 	})
 	api.GET("/community/entities/:id/collections", m.guard("community", false), func(c *gin.Context) {
 		id := c.Param("id")
