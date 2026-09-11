@@ -488,7 +488,7 @@ func runReplayImportFlowDB(t *testing.T, ctx context.Context, f fixture) {
 		[]ImporterCanonicalEntryPreview{{Title: "第 1 话", Position: 1}},
 		&ImporterReleasePreview{EditionName: "初回版", EditionDate: "2023-06-29", Country: "JP"},
 		[]ImporterMediumPreview{{Position: 0, Name: "Disc 1", Format: "bd", Role: "primary",
-			Tracks: []ImporterTrackPreview{{Position: 1, Title: "第 1 话"}}}})
+			Tracks: []ImporterTrackPreview{{Position: 1, Title: "第 1 话"}}}}, "")
 	if err != nil {
 		t.Fatal(err)
 	}

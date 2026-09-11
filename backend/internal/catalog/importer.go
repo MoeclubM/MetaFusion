@@ -204,10 +204,11 @@ type ImporterImportRequest struct {
 }
 
 type ImporterImportedCounts struct {
-	Artists   int `json:"artists"`
-	Relations int `json:"relations"`
-	Mediums   int `json:"mediums"`
-	Tracks    int `json:"tracks"`
+	Artists          int `json:"artists"`
+	Relations        int `json:"relations"`
+	SkippedRelations int `json:"skipped_relations"`
+	Mediums          int `json:"mediums"`
+	Tracks           int `json:"tracks"`
 }
 
 type ImporterImportResponse struct {
@@ -1899,8 +1900,15 @@ func (s *Store) importExpressionsOnly(ctx context.Context, actor User, note stri
 
 // importReleaseChain 按 work → expression → release → medium → track 建链；
 // canonical_entries 先建成 expression，曲目按 position 复用，缺失时按曲目新建。
-func (s *Store) importReleaseChain(ctx context.Context, actor User, note string, sources []Source, workID, workTitle string, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview) (Entity, ImporterImportedCounts, error) {
+func (s *Store) importReleaseChain(ctx context.Context, actor User, note string, sources []Source, workID, workTitle string, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, releaseKey string) (Entity, ImporterImportedCounts, error) {
 	counts := ImporterImportedCounts{}
+	// 发行链幂等：同一外部条目重复导入时复用已建 release，不重建整链。
+	// releaseKey 由调用方按 work 幂等键派生（workKey + ":release"），无键时不复用。
+	if strings.TrimSpace(releaseKey) != "" {
+		if existing, ok := s.findImported(ctx, strings.TrimSpace(releaseKey), &actor); ok && existing.Kind == "release" {
+			return existing, counts, nil
+		}
+	}
 	links := map[int]canonicalLink{}
 	for i, ce := range entries {
 		title := strings.TrimSpace(ce.Title)
@@ -1942,12 +1950,16 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 	if releaseTitle == "" {
 		return Entity{}, counts, fmt.Errorf("invalid_payload")
 	}
+	releaseExternalIDs := map[string]string{}
+	if strings.TrimSpace(releaseKey) != "" {
+		releaseExternalIDs["metafusion_import"] = strings.TrimSpace(releaseKey)
+	}
 	release, err := s.importerSave(ctx, Entity{
 		Kind:        "release",
 		Title:       releaseTitle,
 		Types:       []string{"release"},
 		Attributes:  releaseAttrs,
-		ExternalIDs: map[string]string{},
+		ExternalIDs: releaseExternalIDs,
 		Subjects:    []Subject{{WorkID: workID, Role: "primary", Position: 0}},
 	}, actor, note, sources)
 	if err != nil {
@@ -2076,7 +2088,12 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 		if req.Work != nil && strings.TrimSpace(req.Work.Title) != "" {
 			workTitle = strings.TrimSpace(req.Work.Title)
 		}
-		release, counts, rerr := s.importReleaseChain(ctx, actor, note, sources, target.ID, buildReleaseTitle(workTitle, req.Release), req.CanonicalEntries, req.Release, req.Mediums)
+		// 挂靠已有 work 补发行链：幂等键从目标 work 的导入键派生，保证同一来源重复补链可复用。
+		appendReleaseKey := ""
+		if wk := strings.TrimSpace(target.ExternalIDs["metafusion_import"]); wk != "" {
+			appendReleaseKey = wk + ":release"
+		}
+		release, counts, rerr := s.importReleaseChain(ctx, actor, note, sources, target.ID, buildReleaseTitle(workTitle, req.Release), req.CanonicalEntries, req.Release, req.Mediums, appendReleaseKey)
 		if rerr != nil {
 			return ImporterImportResponse{}, rerr
 		}
@@ -2256,17 +2273,22 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	created := map[string]bool{}
 	for _, assoc := range req.StaffAssociations {
 		if strings.ToLower(strings.TrimSpace(assoc.Action)) == "skip" {
+			counts.SkippedRelations++
 			continue
 		}
 		relType := strings.TrimSpace(assoc.RelationType)
 		if relType == "" {
+			counts.SkippedRelations++
 			continue
 		}
 		if _, ok := relDefs.Document.Relations[relType]; !ok {
-			continue // 无此关系定义：不虚构，跳过
+			// 无此关系定义：不虚构，跳过并计数（响应不再静默丢边）。
+			counts.SkippedRelations++
+			continue
 		}
 		agent, ok := agentByKey[assocAgentDedup(assoc)]
 		if !ok {
+			counts.SkippedRelations++
 			continue
 		}
 		attrs := map[string]any{}
@@ -2299,6 +2321,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			EditNote: note, Sources: sources,
 		}, actor); rerr != nil {
 			if importerRelationSkippable(rerr) {
+				counts.SkippedRelations++
 				continue
 			}
 			return ImporterImportResponse{}, rerr
@@ -2307,6 +2330,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	}
 	out.ImportedCounts.Artists = counts.Artists
 	out.ImportedCounts.Relations = counts.Relations
+	out.ImportedCounts.SkippedRelations = counts.SkippedRelations
 	if len(req.Mediums) == 0 && len(req.CanonicalEntries) == 0 {
 		return out, nil
 	}
@@ -2316,13 +2340,18 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		}
 		return out, nil
 	}
-	release, rcounts, rerr := s.importReleaseChain(ctx, actor, note, sources, savedWork.ID, req.Work.Title, req.CanonicalEntries, req.Release, req.Mediums)
+	releaseKey := ""
+	if hasKey {
+		releaseKey = key + ":release"
+	}
+	release, rcounts, rerr := s.importReleaseChain(ctx, actor, note, sources, savedWork.ID, req.Work.Title, req.CanonicalEntries, req.Release, req.Mediums, releaseKey)
 	if rerr != nil {
 		return ImporterImportResponse{}, rerr
 	}
 	// 发行链统计需保留已建的关联计数，否则响应会把关联上报成 0。
 	rcounts.Artists = counts.Artists
 	rcounts.Relations = counts.Relations
+	rcounts.SkippedRelations = counts.SkippedRelations
 	out.ReleaseID, out.Release = release.ID, release
 	out.ImportedCounts = rcounts
 	out.RedirectURL = "/releases/" + release.ID
@@ -2346,6 +2375,20 @@ func (s *Store) importNewAgent(ctx context.Context, actor User, note string, sou
 	key, hasKey := importDedupKey(source, req, entityType)
 	if hasKey {
 		if existing, ok := s.findImported(ctx, key, &actor); ok && existing.Kind == "agent" {
+			// 顶层 agent 命中已存在：同样回填缺失元数据（简介/语言/封面/类型纠正），
+			// 与 work 导入关联路径的增量补录对齐；已有值不覆盖。
+			merged, changed := mergeAgentMetadata(existing, ImporterStaffAssociation{
+				EntityType:  a.EntityType,
+				Language:    a.Language,
+				Biography:   a.Biography,
+				AvatarURL:   a.AvatarURL,
+				ExternalIDs: a.ExternalIDs,
+			})
+			if changed {
+				if updated, uerr := s.importerSaveVersioned(ctx, merged, existing.Version, actor, note, sources); uerr == nil {
+					existing = updated
+				}
+			}
 			return ImporterImportResponse{
 				Success: true, EntityType: entityType,
 				ArtistID: existing.ID, Artist: existing,
