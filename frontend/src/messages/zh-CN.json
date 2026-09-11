@@ -2585,5 +2585,17 @@
   "community.postPlaceholder": "写下你的看法，支持 Markdown 与 LaTeX…",
   "community.backToFeed": "返回社区",
   "community.postNotFound": "未找到这条讨论。",
-  "community.viewEntityDiscussion": "查看该条目的全部讨论"
+  "community.viewEntityDiscussion": "查看该条目的全部讨论",
+  "editor.relation.needSave": "条目保存后即可在此维护关系。",
+  "editor.relation.addType": "关系类型",
+  "editor.relation.addTarget": "目标条目",
+  "editor.relation.pickType": "选择关系类型",
+  "editor.relation.add": "添加关系",
+  "editor.relation.none": "暂无关系。",
+  "editor.relation.remove": "删除",
+  "editor.relation.removeConfirm": "确认删除该关系？",
+  "editor.relation.reverse": "反向",
+  "editor.relation.evidenceRequired": "请先在下方填写本次修改说明与来源，再维护关系。",
+  "editor.relation.forbidden": "权限不足：他人或已发布条目的关系，需要条目创建者（editor）或管理员操作。",
+  "editor.relation.loadFailed": "关系加载失败"
 }

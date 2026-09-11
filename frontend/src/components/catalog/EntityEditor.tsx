@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds, local, Source } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage } from "./Fields";
+import { RelationEditorField } from "@/components/editor/RelationEditorField";
 import { getFieldName, getTermName } from "@/lib/definitions";
 export function EntityEditor({
   initial,
@@ -539,6 +540,8 @@ export function EntityEditor({
           </>
         )}
       </fieldset>
+      {/* 关系维护：独立资源逐条提交，不复用实体 PUT；词表来自服务端 definitions。 */}
+      <RelationEditorField entityId={e.id} entityKind={e.kind} note={note} sources={sources} />
       {!!fields.length && (
         <fieldset>
           <legend>{t("catalog.attributes")}</legend>

@@ -146,12 +146,15 @@ export async function api<T = any>(
   path: string,
   method = "GET",
   data?: any,
+  extraHeaders?: Record<string, string>,
 ): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
     credentials: "same-origin",
-    headers:
-      data instanceof FormData ? {} : { "Content-Type": "application/json" },
+    headers: {
+      ...(data instanceof FormData ? {} : { "Content-Type": "application/json" }),
+      ...extraHeaders,
+    },
     body:
       data === undefined
         ? undefined
