@@ -38,8 +38,6 @@ func New(ctx context.Context, db *sql.DB, catalog moduleapi.Catalog, root string
 	_, err := db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS modules;
  CREATE TABLE IF NOT EXISTS modules.settings(id text PRIMARY KEY,enabled boolean NOT NULL);
  CREATE TABLE IF NOT EXISTS modules.resources(id uuid PRIMARY KEY,entity_id uuid NOT NULL,owner_id uuid NOT NULL,public boolean NOT NULL DEFAULT false,name text NOT NULL,mime text NOT NULL,size bigint NOT NULL,hash text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
- CREATE TABLE IF NOT EXISTS modules.posts(id uuid PRIMARY KEY,entity_id uuid NOT NULL,author_id uuid NOT NULL,author_name text NOT NULL DEFAULT '',body text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
- ALTER TABLE modules.posts ADD COLUMN IF NOT EXISTS author_name text NOT NULL DEFAULT '';
  CREATE TABLE IF NOT EXISTS modules.records(owner_id uuid NOT NULL,entity_id uuid NOT NULL,document jsonb NOT NULL,PRIMARY KEY(owner_id,entity_id));
  CREATE TABLE IF NOT EXISTS modules.consumed(event_id uuid PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS modules.redirects(source_id uuid PRIMARY KEY,target_id uuid NOT NULL);
@@ -62,6 +60,10 @@ func New(ctx context.Context, db *sql.DB, catalog moduleapi.Catalog, root string
 	}
 	// 论坛板块是运营配置，首次运行播种；已存在的不覆盖，保留后台调整。
 	if err = seedForum(ctx, db); err != nil {
+		return nil, err
+	}
+	// 历史实体短评并入 forum_topics 评论板块（幂等，见 forum.go）。
+	if err = migratePostsToComments(ctx, db); err != nil {
 		return nil, err
 	}
 	// defaultEnabled：无依赖、仅用本库即可工作的模块默认开启（社区短评与个人收藏）；
@@ -266,8 +268,7 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 	api.POST("/archive/entities/:id/resources", m.guard("archive", true), m.upload)
 	api.GET("/archive/resources/:id/content", m.guard("archive", false), m.download)
 	api.GET("/playback/resources/:id/content", m.guard("playback", false), m.download)
-	// 站点级讨论流：跨实体聚合短评，并带上被讨论条目的题名，供 /community 展示。
-	// 仅返回公开可见（published）条目下的讨论。
+	// 站点级评论流：跨实体聚合评论（评论板块），并带上被评论条目的题名。
 	// 支持 sort=recent（默认，最新在前）/ oldest；entity_id 限定单个条目；
 	// q 对正文与条目题名做模糊匹配。筛选下推到 SQL，避免前端拿全量再过滤。
 	api.GET("/community/feed", m.guard("community", false), func(c *gin.Context) {
@@ -275,8 +276,8 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 		if limit <= 0 || limit > 100 {
 			limit = 50
 		}
-		args := []any{}
-		where := []string{"(e.id IS NULL OR e.status = 'published')"}
+		args := []any{commentBoard}
+		where := []string{"t.board_code = $1", "(e.id IS NULL OR e.status = 'published')"}
 		// entity_id 必须是合法 UUID，否则直接判为空结果，而不是把非法字面量送进查询。
 		if raw := strings.TrimSpace(c.Query("entity_id")); raw != "" {
 			if _, err := uuid.Parse(raw); err != nil {
@@ -284,11 +285,11 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 				return
 			}
 			args = append(args, raw)
-			where = append(where, fmt.Sprintf("p.entity_id = $%d", len(args)))
+			where = append(where, fmt.Sprintf("t.entity_id = $%d", len(args)))
 		}
 		if q := strings.TrimSpace(c.Query("q")); q != "" {
 			args = append(args, "%"+q+"%")
-			where = append(where, fmt.Sprintf("(p.body ILIKE $%d OR e.title ILIKE $%d)", len(args), len(args)))
+			where = append(where, fmt.Sprintf("(t.body ILIKE $%d OR e.title ILIKE $%d)", len(args), len(args)))
 		}
 		order := "DESC"
 		if c.Query("sort") == "oldest" {
@@ -296,13 +297,13 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 		}
 		args = append(args, limit)
 		q := `
-			SELECT p.id, p.entity_id, p.author_id,
-			       COALESCE(NULLIF(p.author_name, ''), 'Anonymous'), p.body, p.created_at,
+			SELECT t.id::text, t.entity_id::text, t.author_id::text,
+			       COALESCE(NULLIF(t.author_name, ''), 'Anonymous'), t.body, t.created_at,
 			       e.title, COALESCE(e.document->>'kind', '')
-			FROM modules.posts p
-			LEFT JOIN catalog.entities e ON e.id = p.entity_id
+			FROM modules.forum_topics t
+			LEFT JOIN catalog.entities e ON e.id = t.entity_id
 			WHERE ` + strings.Join(where, " AND ") + `
-			ORDER BY p.created_at ` + order + `, p.id
+			ORDER BY t.created_at ` + order + `, t.id
 			LIMIT $` + strconv.Itoa(len(args))
 		rows, err := m.db.QueryContext(c.Request.Context(), q, args...)
 		if err != nil {
@@ -326,12 +327,15 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 		}
 		c.JSON(200, gin.H{"items": items})
 	})
+	// 实体评论：语义上是"文章下的评论"，与论坛主题（独立成文的帖子）区分开。
+	// 存储复用 forum_topics 的评论板块：锚定实体、无独立标题、不进信息流。
+	// URL 契约沿用 /community/entities/:id/posts，前端无需改动。
 	api.GET("/community/entities/:id/posts", m.guard("community", false), func(c *gin.Context) {
 		id := c.Param("id")
 		if !m.entity(c, id) {
 			return
 		}
-		rows, err := m.db.QueryContext(c.Request.Context(), "SELECT id,author_id,COALESCE(NULLIF(author_name, ''), 'Anonymous'),body,created_at FROM modules.posts WHERE entity_id=$1 ORDER BY created_at DESC LIMIT 100", id)
+		rows, err := m.db.QueryContext(c.Request.Context(), `SELECT id::text,author_id::text,COALESCE(NULLIF(author_name, ''), 'Anonymous'),body,created_at FROM modules.forum_topics WHERE board_code=$1 AND entity_id=$2 ORDER BY created_at DESC LIMIT 100`, commentBoard, id)
 		if err != nil {
 			failure(c, 500, "module_error")
 			return
@@ -339,7 +343,8 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 		defer rows.Close()
 		items := []map[string]any{}
 		for rows.Next() {
-			var id, author, authorName, body, at string
+			var id, author, authorName, body string
+			var at time.Time
 			if rows.Scan(&id, &author, &authorName, &body, &at) != nil {
 				failure(c, 500, "module_error")
 				return
@@ -361,12 +366,8 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		p := m.principal(c)
-		authorName := p.Username
-		if authorName == "" {
-			authorName = "User"
-		}
 		pid := uuid.NewString()
-		_, err := m.db.ExecContext(c.Request.Context(), "INSERT INTO modules.posts(id,entity_id,author_id,author_name,body) VALUES($1,$2,$3,$4,$5)", pid, id, p.ID, authorName, in.Body)
+		_, err := m.db.ExecContext(c.Request.Context(), `INSERT INTO modules.forum_topics(id,board_code,author_id,author_name,title,body,entity_id) VALUES($1,$2,$3,$4,'',$5,$6)`, pid, commentBoard, p.ID, authorName(p), in.Body, id)
 		if err != nil {
 			failure(c, 500, "module_error")
 			return
@@ -376,19 +377,20 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 			"item": map[string]any{
 				"id": pid,
 				"author_id": p.ID,
-				"author_name": authorName,
+				"author_name": authorName(p),
 				"body": in.Body,
 				"created_at": time.Now().Format(time.RFC3339),
 			},
 		})
 	})
+	// 评论删除：只作用于评论板块，避免仅凭 id 误删论坛主题。
 	api.DELETE("/community/posts/:id", m.guard("community", true), func(c *gin.Context) {
 		p := m.principal(c)
-		query := "DELETE FROM modules.posts WHERE id=$1 AND author_id=$2"
-		args := []any{c.Param("id"), p.ID}
+		query := "DELETE FROM modules.forum_topics WHERE id=$1 AND board_code=$2 AND author_id=$3"
+		args := []any{c.Param("id"), commentBoard, p.ID}
 		if p.Role == "admin" {
-			query = "DELETE FROM modules.posts WHERE id=$1"
-			args = args[:1]
+			query = "DELETE FROM modules.forum_topics WHERE id=$1 AND board_code=$2"
+			args = args[:2]
 		}
 		_, err := m.db.ExecContext(c.Request.Context(), query, args...)
 		if err != nil {
@@ -397,23 +399,21 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 		}
 		c.JSON(200, gin.H{"ok": true})
 	})
-	// 单条短评：为讨论提供稳定的直达链接（permalink）。与 DELETE 同路径形状。
+	// 单条评论：为评论提供稳定的直达链接（permalink）。同样限定评论板块。
 	api.GET("/community/posts/:id", m.guard("community", false), func(c *gin.Context) {
 		id := c.Param("id")
 		if _, err := uuid.Parse(id); err != nil {
 			failure(c, 404, "not_found")
 			return
 		}
-		var postID, entityID, author, authorName, body, at string
-		var title, kind sql.NullString
+		var postID, entityID, author, authorName, body string
+		var at time.Time
 		err := m.db.QueryRowContext(c.Request.Context(), `
-			SELECT p.id, p.entity_id, p.author_id,
-			       COALESCE(NULLIF(p.author_name, ''), 'Anonymous'), p.body, p.created_at,
-			       e.title, COALESCE(e.document->>'kind', '')
-			FROM modules.posts p
-			LEFT JOIN catalog.entities e ON e.id = p.entity_id
-			WHERE p.id = $1 AND (e.id IS NULL OR e.status = 'published')`, id).
-			Scan(&postID, &entityID, &author, &authorName, &body, &at, &title, &kind)
+			SELECT t.id::text, COALESCE(t.entity_id::text,''), t.author_id::text,
+			       COALESCE(NULLIF(t.author_name, ''), 'Anonymous'), t.body, t.created_at
+			FROM modules.forum_topics t
+			WHERE t.id = $1 AND t.board_code = $2`, id, commentBoard).
+			Scan(&postID, &entityID, &author, &authorName, &body, &at)
 		if err == sql.ErrNoRows {
 			failure(c, 404, "not_found")
 			return
@@ -422,10 +422,20 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 			failure(c, 500, "module_error")
 			return
 		}
+		// 关联实体的可见性：匿名只应看到 published 条目的评论。
+		title, kind := "", ""
+		if entityID != "" {
+			meta, lerr := m.catalog.Lookup(c.Request.Context(), entityID, m.principal(c))
+			if lerr != nil {
+				failure(c, 404, "not_found")
+				return
+			}
+			title, kind = meta.Title, meta.Kind
+		}
 		c.JSON(200, gin.H{
 			"id": postID, "entity_id": entityID, "author_id": author,
 			"author_name": authorName, "body": body, "created_at": at,
-			"entity_title": title.String, "entity_kind": kind.String,
+			"entity_title": title, "entity_kind": kind,
 		})
 	})
 	api.GET("/community/entities/:id/collections", m.guard("community", false), func(c *gin.Context) {
@@ -664,7 +674,8 @@ func (m *Manager) ConsumeMerge(ctx context.Context, eventID, source, target stri
 	if _, err = tx.ExecContext(ctx, "UPDATE modules.resources SET entity_id=$2 WHERE entity_id=$1", source, target); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "UPDATE modules.posts SET entity_id=$2 WHERE entity_id=$1", source, target); err != nil {
+	// 评论与论坛主题都锚定实体，合并后必须一并改写，否则留下悬空引用。
+	if _, err = tx.ExecContext(ctx, "UPDATE modules.forum_topics SET entity_id=$2 WHERE entity_id=$1", source, target); err != nil {
 		return err
 	}
 	// Keep conflicting personal records as history instead of silently choosing a rating.
