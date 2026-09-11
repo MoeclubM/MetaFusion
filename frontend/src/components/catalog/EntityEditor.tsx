@@ -161,6 +161,37 @@ export function EntityEditor({
       </fieldset>
       <fieldset>
         <legend>{t("catalog.translations")}</legend>
+        {/* 主语言（原始语言）行：标题即基础题名（在"实体身份"区维护），
+            但别名必须能按语种维护——没有该语种翻译行时提供合成行，
+            输入别名时才真正创建 translations 行落库。 */}
+        {e.original_language && e.title && !e.translations[e.original_language] && (
+          <div className="cv-group">
+            <strong>{e.original_language}</strong>{" "}
+            <span className="text-xs opacity-60">{t("revisions.fieldOriginalLanguage")}</span>
+            <label>
+              {t("catalog.title")}
+              <input value={e.title} disabled />
+            </label>
+            <label>
+              {t("catalog.aliases")}
+              <textarea
+                value=""
+                onChange={(x) =>
+                  patch({
+                    translations: {
+                      ...e.translations,
+                      [e.original_language]: {
+                        title: e.title,
+                        summary: "",
+                        aliases: x.target.value.split("\n").filter(Boolean),
+                      },
+                    },
+                  })
+                }
+              />
+            </label>
+          </div>
+        )}
         {Object.entries(e.translations).map(([loc, tr]) => (
           <div key={loc} className="cv-group">
             <strong>{loc}</strong>
