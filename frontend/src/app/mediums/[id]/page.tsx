@@ -152,7 +152,7 @@ export default function MediumDetailPage() {
                         {linkedContents.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {linkedContents.map((entry) => (
-                              <Link key={entry!.id} href={`/canonical-entries/${entry!.id}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[11px] hover:bg-primary/15">
+                              <Link key={entry!.id} href={`/catalog/${entry!.id}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[11px] hover:bg-primary/15">
                                 {entry!.localized_title || entry!.title}
                                 <ArrowRight className="w-2.5 h-2.5" />
                               </Link>

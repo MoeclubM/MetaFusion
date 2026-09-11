@@ -41,6 +41,14 @@ const nextConfig = {
     return [
       { source: "/upload", destination: "/contribute", permanent: true },
       { source: "/submit", destination: "/contribute", permanent: true },
+      // 旧轨详情页已退役：统一到通用兜底 /catalog/:id（EntityDetailView 支持全 kind）。
+      { source: "/artists/:id", destination: "/catalog/:id", permanent: true },
+      { source: "/franchises/:id", destination: "/catalog/:id", permanent: true },
+      { source: "/canonical-entries/:id", destination: "/catalog/:id", permanent: true },
+      { source: "/artists/new", destination: "/new?kind=agent", permanent: true },
+      { source: "/franchises/new", destination: "/new?kind=collection", permanent: true },
+      { source: "/works/new", destination: "/new?kind=work", permanent: true },
+      { source: "/releases/new", destination: "/new?kind=release", permanent: true },
     ];
   },
 };
