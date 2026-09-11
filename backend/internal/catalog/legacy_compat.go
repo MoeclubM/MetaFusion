@@ -10,6 +10,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -288,8 +289,44 @@ func (h HTTP) taxonomyCompat(c *gin.Context) {
 }
 
 func (h HTTP) tagsCompat(c *gin.Context) {
-	// 新轨无标签字典；返回空集合，不造假数据。
-	respond(c, gin.H{"items": []any{}, "total": 0}, nil)
+	// 标签不是独立字典表，而是散落在各实体的 attributes.tags 中。这里就地聚合
+	// 出现次数，供前端做标签云与筛选建议；jsonb_array_elements_text 展开数组，
+	// 只统计已发布实体（与列表接口的匿名可见性口径一致）。
+	q := strings.TrimSpace(c.Query("q"))
+	args := []any{}
+	where := []string{"e.status='published'", "jsonb_typeof(e.document->'attributes'->'tags')='array'"}
+	if q != "" {
+		args = append(args, "%"+q+"%")
+		where = append(where, fmt.Sprintf("t.name ILIKE $%d", len(args)))
+	}
+	limit, _ := strconv.Atoi(c.Query("limit"))
+	if limit <= 0 || limit > 500 {
+		limit = 200
+	}
+	args = append(args, limit)
+	rows, err := h.Store.DB.QueryContext(c.Request.Context(), `
+		SELECT t.name, count(*) AS n
+		FROM catalog.entities e,
+		     jsonb_array_elements_text(e.document->'attributes'->'tags') AS t(name)
+		WHERE `+strings.Join(where, " AND ")+`
+		GROUP BY t.name
+		ORDER BY n DESC, t.name
+		LIMIT $`+strconv.Itoa(len(args)), args...)
+	if err != nil {
+		respond(c, gin.H{"items": []any{}, "total": 0}, nil)
+		return
+	}
+	defer rows.Close()
+	items := []map[string]any{}
+	for rows.Next() {
+		var name string
+		var n int
+		if err := rows.Scan(&name, &n); err != nil {
+			continue
+		}
+		items = append(items, map[string]any{"name": name, "count": n})
+	}
+	respond(c, gin.H{"items": items, "total": len(items)}, nil)
 }
 
 func (h HTTP) relationTypesCompat(c *gin.Context) {

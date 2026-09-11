@@ -392,7 +392,10 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 
 type ListOptions struct {
 	Kind, Query, Type, Status, WorkID, ContentUnitID, ReleaseID, MediumID, ParentID, Field, Value string
-	Offset, Limit                                                                                 int
+	// Tags 按"任一命中"（OR）过滤 attributes.tags，走 jsonb 容器包含，
+	// 由 entities_attribute_tags 函数索引支撑，避免全表扫描。
+	Tags          []string
+	Offset, Limit int
 }
 
 // listFilter builds the shared WHERE clause for List and Count so the list
@@ -446,6 +449,21 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 		}
 		*args = append(*args, o.Field, o.Value)
 		parts = append(parts, fmt.Sprintf("document->'attributes'->>$%d=$%d", len(*args)-1, len(*args)))
+	}
+	if len(o.Tags) > 0 {
+		// 任一标签命中即可。用容器包含（@>）而非展开比较，以命中
+		// entities_attribute_tags 函数 GIN 索引。
+		ors := make([]string, 0, len(o.Tags))
+		for _, tag := range o.Tags {
+			if strings.TrimSpace(tag) == "" {
+				continue
+			}
+			*args = append(*args, `["`+strings.ReplaceAll(tag, `"`, `\"`)+`"]`)
+			ors = append(ors, fmt.Sprintf("document->'attributes'->'tags' @> $%d::jsonb", len(*args)))
+		}
+		if len(ors) > 0 {
+			parts = append(parts, "("+strings.Join(ors, " OR ")+")")
+		}
 	}
 	return parts, nil
 }

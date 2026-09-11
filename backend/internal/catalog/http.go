@@ -536,6 +536,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		offset, _ := strconv.Atoi(c.Query("offset"))
 		o := ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Limit: limit, Offset: offset}
+		// tags 支持多次出现或逗号分隔，任一命中即返回。
+		for _, raw := range c.QueryArray("tags") {
+			for _, tag := range strings.Split(raw, ",") {
+				if t := strings.TrimSpace(tag); t != "" {
+					o.Tags = append(o.Tags, t)
+				}
+			}
+		}
 		items, err := s.List(c.Request.Context(), o, user(c))
 		if err != nil {
 			respond(c, nil, err)
