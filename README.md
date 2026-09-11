@@ -42,7 +42,8 @@
 - **自适应封面与多语言回退链**：支持 1:1、2:3、3:4 自然宽高比封面与自适应渲染；基于 `work_translations` 构建多语言回退链（`User Locale → en-US → original_language → Default`）。
 
 ### 2. 🔐 会话认证与访问控制
-- **服务端会话**：登录后签发随机会话令牌，写入 HttpOnly Cookie `mf_session`，会话记录存于独立的 `auth.sessions`（默认 24 小时），登出即删除；支持 `POST /api/auth/logout-all` 吊销该用户全部会话。账号、会话与 OAuth 客户端统一落在 `auth` schema，与元数据 `catalog` schema 分离，catalog 侧仅保留裸 UUID 引用、不跨 schema 建外键。
+- **服务端会话 + RS256 访问令牌**：登录后签发 RS256 JWT（默认 15 分钟）并写入 HttpOnly Cookie `mf_session`，鉴权中间件先本地验签（不查库），失败回退 `auth.sessions` 会话行（24 小时）；`POST /api/auth/refresh` 轮转令牌，`POST /api/auth/logout-all` 吊销该用户全部会话。账号、会话与 OAuth 客户端统一落在 `auth` schema，与元数据 `catalog` schema 分离，catalog 侧仅保留裸 UUID 引用、不跨 schema 建外键。
+- **令牌密钥（环境变量）**：`AUTH_JWT_PRIVATE_KEY` 为 PKCS#1/PKCS#8 PEM（或其 base64）RSA 私钥，未配置时生成进程内临时密钥（重启即失效，靠会话行兜底）；`AUTH_JWT_ISSUER`（默认 `https://findverse.cc/api`）与 `AUTH_JWT_AUDIENCE`（默认 `metafusion`）写入令牌声明。注意：无状态令牌在 `logout-all` 后仍有最长 15 分钟的验签残余窗口（会话行已删，纯验签路径不可枚举吊销），强吊销场景等待会话过期或更换密钥。
 - **OAuth 2.0 / OIDC 接入**：提供 `/api/oauth/authorize`、`/api/oauth/token`、`/api/oauth/userinfo` 与客户端注册管理。
 - **规划中（未实现）**：Access/Refresh 双 Token 轮转、基于 Redis 的令牌黑名单、个人访问令牌（PAT）——当前均无对应实现，请勿据此开发。
 - **媒体访问控制（可选模块）**：媒体内容由可选 `archive` / `playback` 模块经服务端鉴权转发（`GET /api/archive/resources/:id/content`），非对象存储预签名直链。

@@ -15,7 +15,12 @@ import (
 //go:embed schema.sql
 var schema string
 
-type Store struct{ DB *sql.DB }
+type Store struct {
+	DB *sql.DB
+	// Tokens 为可选的 RS256 令牌签发/验签器。为 nil 时鉴权只用服务端会话
+	// （纯查库模式），因此测试与未配置密钥的部署仍可正常工作。
+	Tokens *TokenIssuer
+}
 type queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
@@ -32,7 +37,23 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 		db.Close()
 		return nil, err
 	}
-	return &Store{db}, nil
+	return &Store{DB: db}, nil
+}
+
+// Authenticate 先做无状态 RS256 验签（不查库），失败再回退服务端会话/令牌查库。
+// 双模式的意义：无状态路径承担绝大多数请求，查库路径保证存量随机会话令牌与
+// 登出注销仍然有效，切换过程不会把已登录用户踢下线。
+func (s *Store) Authenticate(ctx context.Context, token string) (*User, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return nil, sql.ErrNoRows
+	}
+	if s.Tokens != nil {
+		if claims, err := s.Tokens.Verify(token); err == nil {
+			return ClaimsToUser(claims), nil
+		}
+	}
+	return s.User(ctx, token)
 }
 
 // Initialize touches only the new schema. Existing catalog and module data are untouched.

@@ -136,6 +136,17 @@ func main() {
 		log.Fatalf("catalog schema initialization failed: %v", err)
 	}
 
+	// 无状态访问令牌：配置 AUTH_JWT_PRIVATE_KEY 时用持久 RSA 私钥签发 RS256 JWT；
+	// 未配置则生成进程内临时密钥（重启即失效，靠查库兜底），保证系统仍可启动。
+	issuer, terr := catalog.NewTokenIssuerFromEnv(env("AUTH_JWT_ISSUER", "https://findverse.cc/api"), env("AUTH_JWT_AUDIENCE", "metafusion"))
+	if terr != nil {
+		log.Fatalf("auth token issuer initialization failed: %v", terr)
+	}
+	s.Tokens = issuer
+	if issuer.Ephemeral() {
+		log.Print("AUTH_JWT_PRIVATE_KEY is unset; using an in-process RSA key (tokens expire on restart)")
+	}
+
 	moduleDB, err := sql.Open("postgres", dsn)
 	var mods *modules.Manager
 	if err == nil {
