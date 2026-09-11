@@ -18,17 +18,17 @@ import (
 func (s *Store) User(ctx context.Context, token string) (*User, error) {
 	hash := sha256.Sum256([]byte(token))
 	var u User
-	err := s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,COALESCE(u.email,''),u.role FROM catalog.sessions s JOIN catalog.users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()", hex.EncodeToString(hash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+	err := s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,COALESCE(u.email,''),u.role FROM auth.sessions s JOIN auth.users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()", hex.EncodeToString(hash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	if err == nil {
 		return &u, nil
 	}
-	err = s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,COALESCE(u.email,''),u.role FROM catalog.oauth_tokens t JOIN catalog.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(hash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+	err = s.DB.QueryRowContext(ctx, "SELECT u.id,u.username,COALESCE(u.email,''),u.role FROM auth.oauth_tokens t JOIN auth.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(hash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	return &u, err
 }
 
 func (s *Store) SetupNeeded(ctx context.Context) (bool, error) {
 	var n int
-	err := s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.users").Scan(&n)
+	err := s.DB.QueryRowContext(ctx, "SELECT count(*) FROM auth.users").Scan(&n)
 	return n == 0, err
 }
 
@@ -50,7 +50,7 @@ func (s *Store) CreateUser(ctx context.Context, username, email, password string
 	err = s.write(ctx, func(tx *sql.Tx) error {
 		if setup {
 			var n int
-			if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM catalog.users").Scan(&n); err != nil {
+			if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM auth.users").Scan(&n); err != nil {
 				return err
 			}
 			if n != 0 {
@@ -58,7 +58,7 @@ func (s *Store) CreateUser(ctx context.Context, username, email, password string
 			}
 			u.Role = "admin"
 		}
-		_, err := tx.ExecContext(ctx, "INSERT INTO catalog.users(id,username,email,password_hash,role) VALUES($1,$2,$3,$4,$5)", u.ID, u.Username, u.Email, string(hash), u.Role)
+		_, err := tx.ExecContext(ctx, "INSERT INTO auth.users(id,username,email,password_hash,role) VALUES($1,$2,$3,$4,$5)", u.ID, u.Username, u.Email, string(hash), u.Role)
 		return err
 	})
 	return u, err
@@ -67,7 +67,7 @@ func (s *Store) CreateUser(ctx context.Context, username, email, password string
 func (s *Store) Login(ctx context.Context, username, password string) (string, User, error) {
 	var u User
 	var stored string
-	err := s.DB.QueryRowContext(ctx, "SELECT id,username,COALESCE(email,''),role,password_hash FROM catalog.users WHERE username=$1 OR (email=$1 AND email<>'')", strings.TrimSpace(username)).Scan(&u.ID, &u.Username, &u.Email, &u.Role, &stored)
+	err := s.DB.QueryRowContext(ctx, "SELECT id,username,COALESCE(email,''),role,password_hash FROM auth.users WHERE username=$1 OR (email=$1 AND email<>'')", strings.TrimSpace(username)).Scan(&u.ID, &u.Username, &u.Email, &u.Role, &stored)
 	if err != nil || bcrypt.CompareHashAndPassword([]byte(stored), []byte(password)) != nil {
 		return "", u, fmt.Errorf("invalid_credentials")
 	}
@@ -77,13 +77,13 @@ func (s *Store) Login(ctx context.Context, username, password string) (string, U
 	}
 	token := hex.EncodeToString(b)
 	hash := sha256.Sum256([]byte(token))
-	_, err = s.DB.ExecContext(ctx, "INSERT INTO catalog.sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)", hex.EncodeToString(hash[:]), u.ID, time.Now().Add(24*time.Hour))
+	_, err = s.DB.ExecContext(ctx, "INSERT INTO auth.sessions(token_hash,user_id,expires_at) VALUES($1,$2,$3)", hex.EncodeToString(hash[:]), u.ID, time.Now().Add(24*time.Hour))
 	return token, u, err
 }
 
 func (s *Store) Logout(ctx context.Context, token string) error {
 	hash := sha256.Sum256([]byte(token))
-	_, err := s.DB.ExecContext(ctx, "DELETE FROM catalog.sessions WHERE token_hash=$1", hex.EncodeToString(hash[:]))
+	_, err := s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE token_hash=$1", hex.EncodeToString(hash[:]))
 	return err
 }
 
@@ -97,7 +97,7 @@ type OAuthClient struct {
 }
 
 func (s *Store) ListOAuthClients(ctx context.Context) ([]OAuthClient, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT id, name, redirect_uris, trusted, created_at FROM catalog.oauth_clients ORDER BY id")
+	rows, err := s.DB.QueryContext(ctx, "SELECT id, name, redirect_uris, trusted, created_at FROM auth.oauth_clients ORDER BY id")
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (s *Store) GetOAuthClient(ctx context.Context, id string) (*OAuthClient, er
 	var c OAuthClient
 	var uris []string
 	var t time.Time
-	err := s.DB.QueryRowContext(ctx, "SELECT id, secret_hash, name, redirect_uris, trusted, created_at FROM catalog.oauth_clients WHERE id=$1", strings.TrimSpace(id)).Scan(&c.ID, &c.SecretHash, &c.Name, pq.Array(&uris), &c.Trusted, &t)
+	err := s.DB.QueryRowContext(ctx, "SELECT id, secret_hash, name, redirect_uris, trusted, created_at FROM auth.oauth_clients WHERE id=$1", strings.TrimSpace(id)).Scan(&c.ID, &c.SecretHash, &c.Name, pq.Array(&uris), &c.Trusted, &t)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +139,7 @@ func (s *Store) CreateOAuthCode(ctx context.Context, clientID string, userID str
 	if scope == "" {
 		scope = "profile"
 	}
-	_, err := s.DB.ExecContext(ctx, "INSERT INTO catalog.oauth_codes(code, client_id, user_id, redirect_uri, scope, expires_at) VALUES($1, $2, $3, $4, $5, $6)", code, clientID, userID, redirectURI, scope, time.Now().Add(10*time.Minute))
+	_, err := s.DB.ExecContext(ctx, "INSERT INTO auth.oauth_codes(code, client_id, user_id, redirect_uri, scope, expires_at) VALUES($1, $2, $3, $4, $5, $6)", code, clientID, userID, redirectURI, scope, time.Now().Add(10*time.Minute))
 	return code, err
 }
 
@@ -158,7 +158,7 @@ func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, c
 	var scope string
 	var used bool
 	var expiresAt time.Time
-	err = s.DB.QueryRowContext(ctx, "SELECT user_id, redirect_uri, scope, used, expires_at FROM catalog.oauth_codes WHERE code=$1 AND client_id=$2", strings.TrimSpace(code), clientID).Scan(&userID, &codeURI, &scope, &used, &expiresAt)
+	err = s.DB.QueryRowContext(ctx, "SELECT user_id, redirect_uri, scope, used, expires_at FROM auth.oauth_codes WHERE code=$1 AND client_id=$2", strings.TrimSpace(code), clientID).Scan(&userID, &codeURI, &scope, &used, &expiresAt)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid_grant")
 	}
@@ -168,26 +168,26 @@ func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, c
 	if redirectURI != "" && redirectURI != codeURI {
 		return "", nil, fmt.Errorf("redirect_uri_mismatch")
 	}
-	_, _ = s.DB.ExecContext(ctx, "UPDATE catalog.oauth_codes SET used=true WHERE code=$1", strings.TrimSpace(code))
+	_, _ = s.DB.ExecContext(ctx, "UPDATE auth.oauth_codes SET used=true WHERE code=$1", strings.TrimSpace(code))
 	tb := make([]byte, 32)
 	if _, err := rand.Read(tb); err != nil {
 		return "", nil, err
 	}
 	token := hex.EncodeToString(tb)
 	thash := sha256.Sum256([]byte(token))
-	_, err = s.DB.ExecContext(ctx, "INSERT INTO catalog.oauth_tokens(token_hash, client_id, user_id, scope, expires_at) VALUES($1, $2, $3, $4, $5)", hex.EncodeToString(thash[:]), clientID, userID, scope, time.Now().Add(30*24*time.Hour))
+	_, err = s.DB.ExecContext(ctx, "INSERT INTO auth.oauth_tokens(token_hash, client_id, user_id, scope, expires_at) VALUES($1, $2, $3, $4, $5)", hex.EncodeToString(thash[:]), clientID, userID, scope, time.Now().Add(30*24*time.Hour))
 	if err != nil {
 		return "", nil, err
 	}
 	var u User
-	err = s.DB.QueryRowContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM catalog.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+	err = s.DB.QueryRowContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM auth.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	return token, &u, err
 }
 
 func (s *Store) UserFromOAuthToken(ctx context.Context, token string) (*User, error) {
 	thash := sha256.Sum256([]byte(token))
 	var u User
-	err := s.DB.QueryRowContext(ctx, "SELECT u.id, u.username, COALESCE(u.email,''), u.role FROM catalog.oauth_tokens t JOIN catalog.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(thash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+	err := s.DB.QueryRowContext(ctx, "SELECT u.id, u.username, COALESCE(u.email,''), u.role FROM auth.oauth_tokens t JOIN auth.users u ON u.id=t.user_id WHERE t.token_hash=$1 AND t.expires_at>now()", hex.EncodeToString(thash[:])).Scan(&u.ID, &u.Username, &u.Email, &u.Role)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func (s *Store) ChangePassword(ctx context.Context, userID, oldPassword, newPass
 		return fmt.Errorf("invalid_password_length")
 	}
 	var stored string
-	err := s.DB.QueryRowContext(ctx, "SELECT password_hash FROM catalog.users WHERE id=$1", userID).Scan(&stored)
+	err := s.DB.QueryRowContext(ctx, "SELECT password_hash FROM auth.users WHERE id=$1", userID).Scan(&stored)
 	if err != nil {
 		return fmt.Errorf("user_not_found")
 	}
@@ -210,17 +210,17 @@ func (s *Store) ChangePassword(ctx context.Context, userID, oldPassword, newPass
 	if err != nil {
 		return err
 	}
-	_, err = s.DB.ExecContext(ctx, "UPDATE catalog.users SET password_hash=$1 WHERE id=$2", string(newHash), userID)
+	_, err = s.DB.ExecContext(ctx, "UPDATE auth.users SET password_hash=$1 WHERE id=$2", string(newHash), userID)
 	return err
 }
 
 func (s *Store) LogoutAll(ctx context.Context, userID string) error {
-	_, err := s.DB.ExecContext(ctx, "DELETE FROM catalog.sessions WHERE user_id=$1", userID)
+	_, err := s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE user_id=$1", userID)
 	return err
 }
 
 func (s *Store) ListUsers(ctx context.Context) ([]User, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM catalog.users ORDER BY username ASC")
+	rows, err := s.DB.QueryContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM auth.users ORDER BY username ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -245,14 +245,14 @@ func (s *Store) UpdateUserRole(ctx context.Context, targetUserID, newRole string
 	}
 	if actor.ID == targetUserID && newRole != "admin" {
 		var adminCount int
-		if err := s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.users WHERE role='admin'").Scan(&adminCount); err != nil {
+		if err := s.DB.QueryRowContext(ctx, "SELECT count(*) FROM auth.users WHERE role='admin'").Scan(&adminCount); err != nil {
 			return err
 		}
 		if adminCount <= 1 {
 			return fmt.Errorf("cannot_demote_sole_admin")
 		}
 	}
-	res, err := s.DB.ExecContext(ctx, "UPDATE catalog.users SET role=$1 WHERE id=$2", newRole, targetUserID)
+	res, err := s.DB.ExecContext(ctx, "UPDATE auth.users SET role=$1 WHERE id=$2", newRole, targetUserID)
 	if err != nil {
 		return err
 	}
@@ -273,13 +273,13 @@ func (s *Store) ResetUserPassword(ctx context.Context, targetUserID, newPassword
 	if err != nil {
 		return err
 	}
-	res, err := s.DB.ExecContext(ctx, "UPDATE catalog.users SET password_hash=$1 WHERE id=$2", string(newHash), targetUserID)
+	res, err := s.DB.ExecContext(ctx, "UPDATE auth.users SET password_hash=$1 WHERE id=$2", string(newHash), targetUserID)
 	if err != nil {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
 		return fmt.Errorf("user_not_found")
 	}
-	_, _ = s.DB.ExecContext(ctx, "DELETE FROM catalog.sessions WHERE user_id=$1", targetUserID)
+	_, _ = s.DB.ExecContext(ctx, "DELETE FROM auth.sessions WHERE user_id=$1", targetUserID)
 	return nil
 }
