@@ -2585,5 +2585,17 @@
   "community.postPlaceholder": "Share your thoughts. Markdown and LaTeX supported…",
   "community.backToFeed": "Back to community",
   "community.postNotFound": "This discussion was not found.",
-  "community.viewEntityDiscussion": "View all discussions for this entity"
+  "community.viewEntityDiscussion": "View all discussions for this entity",
+  "editor.relation.needSave": "Save the entry first, then manage its relations here.",
+  "editor.relation.addType": "Relation type",
+  "editor.relation.addTarget": "Target entity",
+  "editor.relation.pickType": "Pick a relation type",
+  "editor.relation.add": "Add relation",
+  "editor.relation.none": "No relations yet.",
+  "editor.relation.remove": "Remove",
+  "editor.relation.removeConfirm": "Remove this relation?",
+  "editor.relation.reverse": "reverse",
+  "editor.relation.evidenceRequired": "Fill in the edit note and sources below before managing relations.",
+  "editor.relation.forbidden": "Not allowed: relations of other people's or published entries require the entry creator (editor) or an admin.",
+  "editor.relation.loadFailed": "Failed to load relations"
 }

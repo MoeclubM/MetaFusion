@@ -2585,5 +2585,17 @@
   "community.postPlaceholder": "感想を書き込む（Markdown / LaTeX 対応）…",
   "community.backToFeed": "コミュニティへ戻る",
   "community.postNotFound": "この投稿は見つかりませんでした。",
-  "community.viewEntityDiscussion": "このエントリの議論をすべて表示"
+  "community.viewEntityDiscussion": "このエントリの議論をすべて表示",
+  "editor.relation.needSave": "エントリを保存すると、ここで関係を管理できます。",
+  "editor.relation.addType": "関係タイプ",
+  "editor.relation.addTarget": "対象エントリ",
+  "editor.relation.pickType": "関係タイプを選択",
+  "editor.relation.add": "関係を追加",
+  "editor.relation.none": "関係はまだありません。",
+  "editor.relation.remove": "削除",
+  "editor.relation.removeConfirm": "この関係を削除しますか？",
+  "editor.relation.reverse": "逆向き",
+  "editor.relation.evidenceRequired": "関係を管理する前に、下の修正説明と出典を入力してください。",
+  "editor.relation.forbidden": "権限がありません：他人のまたは公開済みエントリの関係は、作成者（editor）か管理者が操作してください。",
+  "editor.relation.loadFailed": "関係の読み込みに失敗しました"
 }
