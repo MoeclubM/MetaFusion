@@ -4,7 +4,7 @@ CREATE SCHEMA IF NOT EXISTS catalog;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE TABLE IF NOT EXISTS auth.users (
  id uuid PRIMARY KEY, username text NOT NULL UNIQUE, email text NOT NULL DEFAULT '', password_hash text NOT NULL,
- role text NOT NULL CHECK (role IN ('editor','admin'))
+ role text NOT NULL CHECK (role IN ('user','editor','admin'))
 );
 ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS auth.sessions (

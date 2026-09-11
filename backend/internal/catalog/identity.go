@@ -34,7 +34,16 @@ func (s *Store) SetupNeeded(ctx context.Context) (bool, error) {
 }
 
 func (s *Store) CreateUser(ctx context.Context, username, email, password string, setup bool, actor *User) (User, error) {
-	u := User{ID: uuid.NewString(), Username: strings.TrimSpace(username), Email: strings.TrimSpace(email), Role: "editor"}
+	return s.CreateUserWithRole(ctx, username, email, password, setup, "editor", actor)
+}
+
+// CreateUserWithRole 创建指定角色的账号。setup 忽略角色直接建首个 admin；
+// editor 由管理员在管理台创建；user（审核制普通用户）供将来的自助注册端点使用。
+func (s *Store) CreateUserWithRole(ctx context.Context, username, email, password string, setup bool, role string, actor *User) (User, error) {
+	if role != "user" && role != "editor" && role != "admin" {
+		return User{}, fmt.Errorf("invalid_role")
+	}
+	u := User{ID: uuid.NewString(), Username: strings.TrimSpace(username), Email: strings.TrimSpace(email), Role: role}
 	if u.Email == "" {
 		u.Email = fmt.Sprintf("%s@findverse.cc", u.Username)
 	}
@@ -393,7 +402,7 @@ func (s *Store) UpdateUserRole(ctx context.Context, targetUserID, newRole string
 	if actor == nil || actor.Role != "admin" {
 		return fmt.Errorf("forbidden")
 	}
-	if newRole != "admin" && newRole != "editor" {
+	if newRole != "admin" && newRole != "editor" && newRole != "user" {
 		return fmt.Errorf("invalid_role")
 	}
 	if actor.ID == targetUserID && newRole != "admin" {
