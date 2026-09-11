@@ -1,17 +1,20 @@
 CREATE SCHEMA IF NOT EXISTS catalog;
-CREATE TABLE IF NOT EXISTS catalog.users (
+-- 账号与会话落在独立 auth schema：账号服务可单独演进/迁移，catalog 只保留裸 UUID 引用，
+-- 不跨 schema 建外键（与 modules 的 author_id 做法一致），避免删号级联误删元数据。
+CREATE SCHEMA IF NOT EXISTS auth;
+CREATE TABLE IF NOT EXISTS auth.users (
  id uuid PRIMARY KEY, username text NOT NULL UNIQUE, email text NOT NULL DEFAULT '', password_hash text NOT NULL,
  role text NOT NULL CHECK (role IN ('editor','admin'))
 );
-ALTER TABLE catalog.users ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
-CREATE TABLE IF NOT EXISTS catalog.sessions (
- token_hash text PRIMARY KEY, user_id uuid NOT NULL REFERENCES catalog.users(id), expires_at timestamptz NOT NULL
+ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
+CREATE TABLE IF NOT EXISTS auth.sessions (
+ token_hash text PRIMARY KEY, user_id uuid NOT NULL REFERENCES auth.users(id), expires_at timestamptz NOT NULL
 );
 CREATE TABLE IF NOT EXISTS catalog.entities (
  id uuid PRIMARY KEY, kind text NOT NULL CHECK(kind IN ('agent','collection','work','content_unit','expression','release','medium','track')),
  version bigint NOT NULL CHECK(version>0), title text NOT NULL CHECK(length(trim(title))>0),
  status text NOT NULL CHECK(status IN ('draft','pending_review','published','deleted','merged')),
- created_by uuid NOT NULL REFERENCES catalog.users(id), redirect_id uuid REFERENCES catalog.entities(id),
+ created_by uuid NOT NULL, redirect_id uuid REFERENCES catalog.entities(id),
  document jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE(id,kind)
 );
 CREATE INDEX IF NOT EXISTS entities_kind_status ON catalog.entities(kind,status);
@@ -64,7 +67,7 @@ CREATE TABLE IF NOT EXISTS catalog.definitions (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS one_published_definition ON catalog.definitions(state) WHERE state='published';
 CREATE TABLE IF NOT EXISTS catalog.revisions (
- id bigserial PRIMARY KEY, target_id text NOT NULL, version bigint NOT NULL, actor_id uuid REFERENCES catalog.users(id),
+ id bigserial PRIMARY KEY, target_id text NOT NULL, version bigint NOT NULL, actor_id uuid,
  edit_note text NOT NULL, sources jsonb NOT NULL, snapshot jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS catalog.outbox (
@@ -126,24 +129,24 @@ CREATE TABLE IF NOT EXISTS catalog.shelves (
  sort_order int NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS catalog.oauth_clients (
+CREATE TABLE IF NOT EXISTS auth.oauth_clients (
  id text PRIMARY KEY, secret_hash text NOT NULL, name text NOT NULL,
  redirect_uris text[] NOT NULL DEFAULT '{}', trusted boolean NOT NULL DEFAULT false,
  created_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE TABLE IF NOT EXISTS catalog.oauth_codes (
- code text PRIMARY KEY, client_id text NOT NULL REFERENCES catalog.oauth_clients(id) ON DELETE CASCADE,
- user_id uuid NOT NULL REFERENCES catalog.users(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS auth.oauth_codes (
+ code text PRIMARY KEY, client_id text NOT NULL REFERENCES auth.oauth_clients(id) ON DELETE CASCADE,
+ user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
  redirect_uri text NOT NULL, scope text NOT NULL DEFAULT 'profile',
  expires_at timestamptz NOT NULL, used boolean NOT NULL DEFAULT false
 );
-CREATE TABLE IF NOT EXISTS catalog.oauth_tokens (
- token_hash text PRIMARY KEY, client_id text NOT NULL REFERENCES catalog.oauth_clients(id) ON DELETE CASCADE,
- user_id uuid NOT NULL REFERENCES catalog.users(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS auth.oauth_tokens (
+ token_hash text PRIMARY KEY, client_id text NOT NULL REFERENCES auth.oauth_clients(id) ON DELETE CASCADE,
+ user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
  scope text NOT NULL DEFAULT 'profile', expires_at timestamptz NOT NULL
 );
 CREATE TABLE IF NOT EXISTS catalog.favorites (
- user_id uuid NOT NULL REFERENCES catalog.users(id) ON DELETE CASCADE,
+ user_id uuid NOT NULL,
  target_type text NOT NULL CHECK (target_type IN ('work','release','artist','franchise','canonical_entry')),
  target_id uuid NOT NULL,
  created_at timestamptz NOT NULL DEFAULT now(),
@@ -157,7 +160,56 @@ ALTER TABLE catalog.release_subjects ADD COLUMN IF NOT EXISTS attributes jsonb N
 
 -- 用户首页推荐偏好：展示顺序与隐藏项，内容仍由 catalog.shelves 规则驱动。
 CREATE TABLE IF NOT EXISTS catalog.user_preferences (
- user_id uuid PRIMARY KEY REFERENCES catalog.users(id) ON DELETE CASCADE,
+ user_id uuid PRIMARY KEY,
  home_shelves jsonb NOT NULL DEFAULT '{}'::jsonb,
  updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- 账号表搬迁：catalog.* → auth.*（幂等）。
+-- 首次在既有部署上运行时，把账号/会话/OAuth 数据搬到 auth schema，并断开
+-- catalog 侧指向 catalog.users 的全部外键，然后删除遗留表；再次运行即为空操作。
+-- 放在 schema.sql 而非仅迁移文件，是因为 Initialize() 在启动时必执行本文件，
+-- 保证"代码已读 auth.* 但数据还在 catalog.*"的窗口不存在。
+DO $$
+DECLARE c record;
+BEGIN
+  IF to_regclass('catalog.users') IS NULL THEN
+    RETURN; -- 已搬迁过（或全新库），无需处理
+  END IF;
+  INSERT INTO auth.users(id, username, email, password_hash, role)
+    SELECT id, username, email, password_hash, role FROM catalog.users
+    ON CONFLICT (id) DO NOTHING;
+  IF to_regclass('catalog.sessions') IS NOT NULL THEN
+    INSERT INTO auth.sessions(token_hash, user_id, expires_at)
+      SELECT token_hash, user_id, expires_at FROM catalog.sessions
+      WHERE user_id IN (SELECT id FROM auth.users)
+      ON CONFLICT (token_hash) DO NOTHING;
+  END IF;
+  IF to_regclass('catalog.oauth_clients') IS NOT NULL THEN
+    INSERT INTO auth.oauth_clients(id, secret_hash, name, redirect_uris, trusted, created_at)
+      SELECT id, secret_hash, name, redirect_uris, trusted, created_at FROM catalog.oauth_clients
+      ON CONFLICT (id) DO NOTHING;
+  END IF;
+  IF to_regclass('catalog.oauth_codes') IS NOT NULL THEN
+    INSERT INTO auth.oauth_codes(code, client_id, user_id, redirect_uri, scope, expires_at, used)
+      SELECT code, client_id, user_id, redirect_uri, scope, expires_at, used FROM catalog.oauth_codes
+      WHERE user_id IN (SELECT id FROM auth.users)
+      ON CONFLICT (code) DO NOTHING;
+  END IF;
+  IF to_regclass('catalog.oauth_tokens') IS NOT NULL THEN
+    INSERT INTO auth.oauth_tokens(token_hash, client_id, user_id, scope, expires_at)
+      SELECT token_hash, client_id, user_id, scope, expires_at FROM catalog.oauth_tokens
+      WHERE user_id IN (SELECT id FROM auth.users)
+      ON CONFLICT (token_hash) DO NOTHING;
+  END IF;
+  -- 断开所有指向 catalog.users 的外键（entities/revisions/favorites/user_preferences）。
+  FOR c IN
+    SELECT conrelid::regclass AS tbl, conname
+    FROM pg_constraint
+    WHERE contype='f' AND confrelid = to_regclass('catalog.users')
+  LOOP
+    EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', c.tbl, c.conname);
+  END LOOP;
+  DROP TABLE IF EXISTS catalog.oauth_tokens, catalog.oauth_codes, catalog.oauth_clients,
+                       catalog.sessions, catalog.users CASCADE;
+END $$;

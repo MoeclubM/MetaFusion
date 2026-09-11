@@ -42,7 +42,7 @@
 - **自适应封面与多语言回退链**：支持 1:1、2:3、3:4 自然宽高比封面与自适应渲染；基于 `work_translations` 构建多语言回退链（`User Locale → en-US → original_language → Default`）。
 
 ### 2. 🔐 会话认证与访问控制
-- **服务端会话**：登录后签发随机会话令牌，写入 HttpOnly Cookie `mf_session`，会话记录存于 `catalog.sessions`（默认 24 小时），登出即删除；支持 `POST /api/auth/logout-all` 吊销该用户全部会话。
+- **服务端会话**：登录后签发随机会话令牌，写入 HttpOnly Cookie `mf_session`，会话记录存于独立的 `auth.sessions`（默认 24 小时），登出即删除；支持 `POST /api/auth/logout-all` 吊销该用户全部会话。账号、会话与 OAuth 客户端统一落在 `auth` schema，与元数据 `catalog` schema 分离，catalog 侧仅保留裸 UUID 引用、不跨 schema 建外键。
 - **OAuth 2.0 / OIDC 接入**：提供 `/api/oauth/authorize`、`/api/oauth/token`、`/api/oauth/userinfo` 与客户端注册管理。
 - **规划中（未实现）**：Access/Refresh 双 Token 轮转、基于 Redis 的令牌黑名单、个人访问令牌（PAT）——当前均无对应实现，请勿据此开发。
 - **媒体访问控制（可选模块）**：媒体内容由可选 `archive` / `playback` 模块经服务端鉴权转发（`GET /api/archive/resources/:id/content`），非对象存储预签名直链。
