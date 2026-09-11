@@ -24,7 +24,18 @@ type catalogStub struct {
 
 func (s *catalogStub) Lookup(_ context.Context, id string, _ *moduleapi.Principal) (moduleapi.Entity, error) {
 	s.calls++
-	return moduleapi.Entity{ID: id, Kind: "work", Status: "published"}, nil
+	return moduleapi.Entity{ID: id, Kind: "work", Title: "Stub " + id, Status: "published"}, nil
+}
+func (s *catalogStub) LookupMany(_ context.Context, ids []string, _ *moduleapi.Principal) (map[string]moduleapi.Entity, error) {
+	s.calls++
+	out := make(map[string]moduleapi.Entity, len(ids))
+	for _, id := range ids {
+		out[id] = moduleapi.Entity{ID: id, Kind: "work", Title: "Stub " + id, Status: "published"}
+	}
+	return out, nil
+}
+func (s *catalogStub) RelatedEntities(context.Context, string, []string, *moduleapi.Principal) ([]moduleapi.Entity, error) {
+	return nil, nil
 }
 func (s *catalogStub) Authenticate(_ context.Context, token string) (moduleapi.Principal, error) {
 	if token == "test-token" {
