@@ -584,6 +584,16 @@ export function EntityDetailView({ id }: { id: string }) {
   ];
   const { active, select } = useHashTab(tabs);
 
+  // 讨论分节已不在标签栏（id="community" 现在是普通锚点）。客户端渲染下浏览器
+  // 处理 hash 时元素还不存在，旧链接 #community 会停在页首；数据就绪后补一次滚动。
+  useEffect(() => {
+    if (loading || typeof window === "undefined") return;
+    const h = decodeURIComponent(window.location.hash.replace(/^#/, ""));
+    if (!h) return;
+    const el = document.getElementById(h);
+    if (el) el.scrollIntoView({ block: "start" });
+  }, [loading, communityEnabled, children.length, occurrences.length, mediaRelations.length]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
