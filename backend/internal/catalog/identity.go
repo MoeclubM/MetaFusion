@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -193,7 +194,9 @@ func (s *Store) GetOAuthClient(ctx context.Context, id string) (*OAuthClient, er
 	return &c, nil
 }
 
-func (s *Store) CreateOAuthCode(ctx context.Context, clientID string, userID string, redirectURI, scope string) (string, error) {
+// CreateOAuthCode 签发授权码。challenge 为 PKCE code_challenge（可空），
+// method 仅接受 S256/plain，其它值拒绝（避免降级绕过）。
+func (s *Store) CreateOAuthCode(ctx context.Context, clientID string, userID string, redirectURI, scope, challenge, method string) (string, error) {
 	b := make([]byte, 24)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -202,11 +205,39 @@ func (s *Store) CreateOAuthCode(ctx context.Context, clientID string, userID str
 	if scope == "" {
 		scope = "profile"
 	}
-	_, err := s.DB.ExecContext(ctx, "INSERT INTO auth.oauth_codes(code, client_id, user_id, redirect_uri, scope, expires_at) VALUES($1, $2, $3, $4, $5, $6)", code, clientID, userID, redirectURI, scope, time.Now().Add(10*time.Minute))
+	challenge = strings.TrimSpace(challenge)
+	method = strings.ToUpper(strings.TrimSpace(method))
+	if challenge == "" {
+		method = ""
+	} else if method != "S256" && method != "PLAIN" {
+		return "", fmt.Errorf("invalid_code_challenge_method")
+	}
+	_, err := s.DB.ExecContext(ctx, "INSERT INTO auth.oauth_codes(code, client_id, user_id, redirect_uri, scope, expires_at, code_challenge, code_challenge_method) VALUES($1, $2, $3, $4, $5, $6, $7, $8)", code, clientID, userID, redirectURI, scope, time.Now().Add(10*time.Minute), challenge, method)
 	return code, err
 }
 
-func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, code, redirectURI string) (string, *User, error) {
+// verifyPKCE 按 RFC 7636 校验 verifier：S256 比较 BASE64URL(SHA256(verifier))，
+// plain 直接比对。存量无 challenge 的码视为公开客户端历史行为，不强制。
+func verifyPKCE(method, challenge, verifier string) bool {
+	if challenge == "" {
+		return true
+	}
+	verifier = strings.TrimSpace(verifier)
+	if verifier == "" {
+		return false
+	}
+	switch method {
+	case "S256":
+		sum := sha256.Sum256([]byte(verifier))
+		return challenge == base64.RawURLEncoding.EncodeToString(sum[:])
+	case "PLAIN", "plain":
+		return challenge == verifier
+	default:
+		return false
+	}
+}
+
+func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, code, redirectURI, verifier string) (string, *User, error) {
 	client, err := s.GetOAuthClient(ctx, clientID)
 	if err != nil || client == nil {
 		return "", nil, fmt.Errorf("invalid_client")
@@ -215,10 +246,15 @@ func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, c
 		if clientSecret == "" || bcrypt.CompareHashAndPassword([]byte(client.SecretHash), []byte(clientSecret)) != nil {
 			return "", nil, fmt.Errorf("invalid_client_secret")
 		}
+	} else if !client.Trusted {
+		// 无密钥的非受信客户端一律拒绝：空密钥只能是预置受信第一方，
+		// 且第一方也应尽快配置密钥或改走 PKCE。
+		return "", nil, fmt.Errorf("invalid_client_secret")
 	}
 	var userID string
 	var codeURI string
 	var scope string
+	var challenge, challengeMethod string
 	// 原子兑付：只有未使用且未过期的码才能标记成功，并发双兑只有一个成功。
 	// 注意不能复用 s.write（全局串行锁），此处用单条条件 UPDATE 即可。
 	res, err := s.DB.ExecContext(ctx, "UPDATE auth.oauth_codes SET used=true WHERE code=$1 AND client_id=$2 AND used=false AND expires_at>now()", strings.TrimSpace(code), clientID)
@@ -229,12 +265,15 @@ func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, c
 	if n == 0 {
 		return "", nil, fmt.Errorf("expired_or_used_code")
 	}
-	err = s.DB.QueryRowContext(ctx, "SELECT user_id, redirect_uri, scope FROM auth.oauth_codes WHERE code=$1 AND client_id=$2", strings.TrimSpace(code), clientID).Scan(&userID, &codeURI, &scope)
+	err = s.DB.QueryRowContext(ctx, "SELECT user_id, redirect_uri, scope, COALESCE(code_challenge,''), COALESCE(code_challenge_method,'') FROM auth.oauth_codes WHERE code=$1 AND client_id=$2", strings.TrimSpace(code), clientID).Scan(&userID, &codeURI, &scope, &challenge, &challengeMethod)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid_grant")
 	}
 	if redirectURI != "" && redirectURI != codeURI {
 		return "", nil, fmt.Errorf("redirect_uri_mismatch")
+	}
+	if !verifyPKCE(challengeMethod, challenge, verifier) {
+		return "", nil, fmt.Errorf("invalid_code_verifier")
 	}
 	var u User
 	if err = s.DB.QueryRowContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM auth.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Email, &u.Role); err != nil {

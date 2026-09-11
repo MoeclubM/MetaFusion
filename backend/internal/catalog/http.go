@@ -402,9 +402,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			c.Redirect(http.StatusFound, "/account?return_to="+url.QueryEscape(c.Request.RequestURI))
 			return
 		}
-		code, err := s.CreateOAuthCode(c.Request.Context(), clientID, u.ID, redirectURI, scope)
+		code, err := s.CreateOAuthCode(c.Request.Context(), clientID, u.ID, redirectURI, scope, c.Query("code_challenge"), c.Query("code_challenge_method"))
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "server_error"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
 		sep := "?"
@@ -423,6 +423,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		clientID := c.PostForm("client_id")
 		clientSecret := c.PostForm("client_secret")
 		redirectURI := c.PostForm("redirect_uri")
+		verifier := c.PostForm("code_verifier")
 		if grantType == "" {
 			var body struct {
 				GrantType    string `json:"grant_type"`
@@ -430,6 +431,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 				ClientID     string `json:"client_id"`
 				ClientSecret string `json:"client_secret"`
 				RedirectURI  string `json:"redirect_uri"`
+				Verifier     string `json:"code_verifier"`
 			}
 			if c.BindJSON(&body) == nil {
 				grantType = body.GrantType
@@ -437,13 +439,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 				clientID = body.ClientID
 				clientSecret = body.ClientSecret
 				redirectURI = body.RedirectURI
+				verifier = body.Verifier
 			}
 		}
 		if grantType != "authorization_code" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported_grant_type"})
 			return
 		}
-		token, u, err := s.ExchangeOAuthCode(c.Request.Context(), clientID, clientSecret, code, redirectURI)
+		token, u, err := s.ExchangeOAuthCode(c.Request.Context(), clientID, clientSecret, code, redirectURI, verifier)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return

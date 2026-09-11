@@ -138,7 +138,8 @@ CREATE TABLE IF NOT EXISTS auth.oauth_codes (
  code text PRIMARY KEY, client_id text NOT NULL REFERENCES auth.oauth_clients(id) ON DELETE CASCADE,
  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
  redirect_uri text NOT NULL, scope text NOT NULL DEFAULT 'profile',
- expires_at timestamptz NOT NULL, used boolean NOT NULL DEFAULT false
+ expires_at timestamptz NOT NULL, used boolean NOT NULL DEFAULT false,
+ code_challenge text NOT NULL DEFAULT '', code_challenge_method text NOT NULL DEFAULT ''
 );
 CREATE TABLE IF NOT EXISTS auth.oauth_tokens (
  token_hash text PRIMARY KEY, client_id text NOT NULL REFERENCES auth.oauth_clients(id) ON DELETE CASCADE,
