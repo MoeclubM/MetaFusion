@@ -148,11 +148,49 @@ func TestBangumiInfoboxValues(t *testing.T) {
 		{Key: "放送星期", Value: json.RawMessage(`"星期六"`)},
 	}}
 	got := s.infoboxValues()
-	if got["episodes"] != "24" || got["isbn"] != "978-4-00-000000-0" || got["broadcast_weekday"] != "星期六" {
+	if got["episodes"] != 24 || got["isbn"] != "978-4-00-000000-0" || got["broadcast_weekday"] != "星期六" {
 		t.Fatalf("got %v", got)
 	}
 	if _, ok := got["volume_count"]; ok {
 		t.Fatalf("absent key must not be produced: %v", got)
+	}
+}
+
+// 上游数字/日期是自由文本，必须归一化为字段类型可接受的值，
+// 否则会被规格校验以 invalid_number / invalid_date 拒绝整次导入。
+func TestNormalizeInfoboxValue(t *testing.T) {
+	cases := []struct {
+		raw, kind string
+		want      any
+	}{
+		{"13", "number", 13},
+		{"24(22+2)卷完结", "number", 24},
+		{"全12话", "number", 12},
+		{"暂无", "number", nil},
+		{"2023年6月29日", "date", "2023-06-29"},
+		{"2023/6/9", "date", "2023-06-09"},
+		{"2023-06", "date", "2023-06"},
+		{"2023年", "date", "2023"},
+		{"待定", "date", nil},
+		{"TOKYO MX", "text", "TOKYO MX"},
+	}
+	for _, c := range cases {
+		if got := normalizeInfoboxValue(c.raw, c.kind); got != c.want {
+			t.Errorf("normalize(%q,%s) = %v (%T), want %v", c.raw, c.kind, got, got, c.want)
+		}
+	}
+}
+
+// 动态字段值必须保类型：整数不能被 stringify 成 "13"，否则 number 字段校验必失败。
+func TestDynamicFieldValueKeepsType(t *testing.T) {
+	if v, ok := dynamicFieldValue(13); !ok || v != 13 {
+		t.Fatalf("int must stay int, got %#v ok=%v", v, ok)
+	}
+	if v, ok := dynamicFieldValue("  2023-06-29  "); !ok || v != "2023-06-29" {
+		t.Fatalf("string must be trimmed, got %#v", v)
+	}
+	if _, ok := dynamicFieldValue("   "); ok {
+		t.Fatal("blank string must be dropped")
 	}
 }
 

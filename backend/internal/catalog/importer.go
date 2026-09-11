@@ -462,24 +462,74 @@ func (s bangumiSubject) bangumiInfoboxAliases(title, original string) []string {
 
 // infoboxFieldKeys 把 infobox 的（多语言）键名映射到已声明的动态字段码。
 // 一个字段码可有多个上游键名；取第一个有值的。全部字段码都在 defaults.go 中声明，
-// 因此不会写入未声明属性被校验拒绝。
+// 因此不会写入未声明属性被校验拒绝。kind 决定取值归一化方式：上游数字/日期是
+// 自由文本（如「13」「24(22+2)卷完结」「2023年6月29日」），直接落库会被
+// invalid_number / invalid_date 拒绝。
 var infoboxFieldKeys = []struct {
 	field string
+	kind  string
 	keys  []string
 }{
-	{"episodes", []string{"话数", "集数", "話數"}},
-	{"volume_count", []string{"册数", "卷数", "冊數", "巻数"}},
-	{"broadcast_start", []string{"放送开始", "放送開始", "开始"}},
-	{"broadcast_weekday", []string{"放送星期", "放送日"}},
-	{"broadcast_end", []string{"放送结束", "放送結束", "播放结束"}},
-	{"air_network", []string{"播放电视台", "放送局", "播放电视台"}},
-	{"copyright", []string{"Copyright", "©"}},
-	{"isbn", []string{"ISBN"}},
-	{"author", []string{"作者"}},
-	{"magazine", []string{"连载杂志", "連載雜誌"}},
-	{"publisher_name", []string{"出版社"}},
-	{"imdb", []string{"IMDb", "IMDB", "imdb"}},
-	{"platform", []string{"平台"}},
+	{"episodes", "number", []string{"话数", "集数", "話數"}},
+	{"volume_count", "number", []string{"册数", "卷数", "冊數", "巻数"}},
+	{"broadcast_start", "date", []string{"放送开始", "放送開始", "开始"}},
+	{"broadcast_weekday", "text", []string{"放送星期", "放送日"}},
+	{"broadcast_end", "date", []string{"放送结束", "放送結束", "播放结束"}},
+	{"air_network", "text", []string{"播放电视台", "放送局", "播放电视台"}},
+	{"copyright", "text", []string{"Copyright", "©"}},
+	{"isbn", "text", []string{"ISBN"}},
+	{"author", "text", []string{"作者"}},
+	{"magazine", "text", []string{"连载杂志", "連載雜誌"}},
+	{"publisher_name", "text", []string{"出版社"}},
+	{"imdb", "text", []string{"IMDb", "IMDB", "imdb"}},
+	{"platform", "text", []string{"平台"}},
+}
+
+var (
+	// 数字字段：取首个整数片段，「24(22+2)卷完结」→24。
+	infoboxIntRE = regexp.MustCompile(`\d+`)
+	// 日期字段：支持 2023-06-29 / 2023/6/29 / 2023年6月29日，可只到月或年。
+	infoboxDateRE = regexp.MustCompile(`(\d{4})\s*[-/年.]?\s*(\d{1,2})?\s*[-/月.]?\s*(\d{1,2})?`)
+)
+
+// normalizeInfoboxValue 把上游原文归一化为字段类型可接受的值；无法解析时
+// 返回 nil（丢弃该字段，但原文仍在 infobox 全量快照中可追溯）。
+func normalizeInfoboxValue(raw, kind string) any {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	switch kind {
+	case "number":
+		if m := infoboxIntRE.FindString(raw); m != "" {
+			if n, err := strconv.Atoi(m); err == nil {
+				return n
+			}
+		}
+		return nil
+	case "date":
+		m := infoboxDateRE.FindStringSubmatch(raw)
+		if m == nil {
+			return nil
+		}
+		year := m[1]
+		if m[2] == "" {
+			return year
+		}
+		month := m[2]
+		if len(month) == 1 {
+			month = "0" + month
+		}
+		if m[3] == "" {
+			return year + "-" + month
+		}
+		day := m[3]
+		if len(day) == 1 {
+			day = "0" + day
+		}
+		return year + "-" + month + "-" + day
+	}
+	return raw
 }
 
 // infoboxEntries 把上游 infobox 完整摊平为键值原文列表（保序、去空）。
@@ -504,13 +554,15 @@ func (s bangumiSubject) infoboxEntries() []map[string]any {
 	return out
 }
 
-// infoboxValues 收集映射表中所有字段的值，只返回有值的键。
+// infoboxValues 收集映射表中所有字段的值，只返回有值的键（已按字段类型归一化）。
 func (s bangumiSubject) infoboxValues() map[string]any {
 	out := map[string]any{}
 	for _, m := range infoboxFieldKeys {
 		for _, k := range m.keys {
 			if v := s.infoboxString(k); v != "" {
-				out[m.field] = v
+				if nv := normalizeInfoboxValue(v, m.kind); nv != nil {
+					out[m.field] = nv
+				}
 				break
 			}
 		}
@@ -1041,6 +1093,28 @@ func toAnySlice[T any](in []T) []any {
 		out[i] = v
 	}
 	return out
+}
+
+// dynamicFieldValue 判断动态字段值是否可落库，并保持原类型。
+// 数值/日期字段由规格校验按类型判定，因此不能像文本那样统一转成字符串，
+// 否则合法整数会被 stringify 成 "13" 而被 invalid_number 拒绝。
+func dynamicFieldValue(v any) (any, bool) {
+	switch x := v.(type) {
+	case nil:
+		return nil, false
+	case string:
+		if strings.TrimSpace(x) == "" {
+			return nil, false
+		}
+		return strings.TrimSpace(x), true
+	case []any:
+		if len(x) == 0 {
+			return nil, false
+		}
+		return x, true
+	default:
+		return v, true
+	}
 }
 
 // detectJapaneseScript 用假名判定日文原文（假名是日文的可靠信号）。
@@ -1581,8 +1655,8 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview, dateField string
 			if _, ok := existing.Attributes[k]; ok {
 				continue
 			}
-			if s := scalarString(v); s != "" {
-				existing.Attributes[k] = s
+			if val, ok := dynamicFieldValue(v); ok {
+				existing.Attributes[k] = val
 				changed = true
 			}
 		}
@@ -1653,12 +1727,12 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 		if len(w.Tags) > 0 {
 			e.Attributes["tags"] = toAnySlice(w.Tags)
 		}
-		// infobox 映射出的动态字段：仅写入非空值，字段码均已在 defaults.go 声明。
-		for k, v := range w.Fields {
-			if s := scalarString(v); s != "" {
-				e.Attributes[k] = s
+			// infobox 映射出的动态字段：仅写入非空值，字段码均已在 defaults.go 声明。
+			for k, v := range w.Fields {
+				if val, ok := dynamicFieldValue(v); ok {
+					e.Attributes[k] = val
+				}
 			}
-		}
 		// infobox 原文快照：完整保留以便追溯，不参与展示分区。
 		if len(w.Infobox) > 0 {
 			e.Attributes["infobox"] = toAnySlice(w.Infobox)
