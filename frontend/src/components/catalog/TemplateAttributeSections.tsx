@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { DynamicDefinitions, resolveLocalizedName, getTermName } from "@/lib/definitions";
-import { Calendar, Hash, Clock, ExternalLink, Link2 } from "lucide-react";
+import { Calendar, Hash, Clock, ExternalLink, Link2, Check, Minus } from "lucide-react";
 
 // 说明：属性分区渲染已统一到 @/components/work/WorkFacts（两个详情页共用）。
 // 本文件只保留按字段类型渲染取值的原子能力与时长字段查找，供 WorkFacts 与
@@ -52,7 +52,7 @@ export function FieldValue({
     );
   }
   if (type === "boolean") {
-    return <span>{value ? "✓" : "—"}</span>;
+    return <span>{value ? <Check className="w-3.5 h-3.5 inline-block" strokeWidth={2} /> : <Minus className="w-3.5 h-3.5 inline-block text-gray-400" strokeWidth={2} />}</span>;
   }
   if (type === "enum") {
     return <span className="font-mono">{getTermName(defs, def?.vocabulary || "", String(value), locale)}</span>;

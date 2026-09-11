@@ -22,6 +22,7 @@ import {
   Sparkles,
   Check,
   Network,
+  X,
 } from "lucide-react";
 
 interface VisualRelationEditorProps {
@@ -287,8 +288,9 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
                 type="button"
                 onClick={() => setSelectedEdge(null)}
                 className="text-xs text-muted-foreground hover:text-foreground"
+                aria-label="Close"
               >
-                ✕
+                <X className="w-3.5 h-3.5" strokeWidth={2} />
               </button>
             </div>
 
@@ -339,8 +341,9 @@ export const VisualRelationEditor: React.FC<VisualRelationEditorProps> = ({
                 type="button"
                 onClick={() => setShowAddModal(false)}
                 className="text-muted-foreground hover:text-foreground text-xs p-1 rounded hover:bg-secondary"
+                aria-label="Close"
               >
-                ✕
+                <X className="w-3.5 h-3.5" strokeWidth={2} />
               </button>
             </div>
 

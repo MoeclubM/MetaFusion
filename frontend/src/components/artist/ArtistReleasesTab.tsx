@@ -23,6 +23,7 @@ import {
   Disc,
   Layers,
   Filter,
+  X,
 } from "lucide-react";
 
 interface ArtistReleasesTabProps {
@@ -227,8 +228,9 @@ export function ArtistReleasesTab({ releases, artistName }: ArtistReleasesTabPro
               <button
                 onClick={() => setSearchQuery("")}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 font-mono"
+                aria-label="Clear search"
               >
-                ✕
+                <X className="w-3 h-3" strokeWidth={2} />
               </button>
             )}
           </div>

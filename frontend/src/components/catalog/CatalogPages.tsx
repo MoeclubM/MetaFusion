@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Check, X } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, Relation, Source, kinds, local, title } from "./api";
 import { pickRecordEntry } from "@/lib/titles";
@@ -425,7 +426,7 @@ export function Account() {
 
           {success && (
             <div style={{ padding: "10px 14px", background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: 6, color: "#34d399", marginBottom: 16 }}>
-              ✓ {success}
+              <Check className="w-4 h-4 inline-block" strokeWidth={2} /> {success}
             </div>
           )}
 
@@ -546,8 +547,8 @@ export function Account() {
                     <span style={{ fontWeight: 600, color: "#fca5a5" }}>
                       {t("account.resetPwFor", { username: resetTargetUser.username })}
                     </span>
-                    <button type="button" onClick={() => { setResetTargetUser(null); setResetNewPassword(""); }} style={{ minHeight: "auto", padding: "2px 8px" }}>
-                      ✕
+                    <button type="button" onClick={() => { setResetTargetUser(null); setResetNewPassword(""); }} style={{ minHeight: "auto", padding: "2px 8px" }} aria-label="Close">
+                      <X className="w-4 h-4" strokeWidth={2} />
                     </button>
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
