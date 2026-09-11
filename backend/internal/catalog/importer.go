@@ -1535,7 +1535,7 @@ func agentHasSummary(e Entity) bool {
 
 // mergeWorkMetadata 为已存在的 work 补齐缺失元数据；返回合并结果与是否有变化。
 // 只在原值为空时填入，绝不覆盖已有值（保护人工编辑）。封面同理：无图才补。
-func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview) (Entity, bool) {
+func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview, dateField string) (Entity, bool) {
 	if w == nil {
 		return existing, false
 	}
@@ -1555,7 +1555,6 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview) (Entity, bool) {
 	if existing.Attributes == nil {
 		existing.Attributes = map[string]any{}
 	}
-	dateField := workTypeFromMetadata(w.CatalogMetadata)
 	if dateField != "" {
 		if _, ok := existing.Attributes[dateField]; !ok {
 			if d := cleanImporterDate(w.ReleaseDate); d != "" {
@@ -2052,12 +2051,19 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	key, hasKey := importDedupKey(source, req, entityType)
 	// 幂等：已导入过同一外部条目时复用该 work，但**不再提前返回**——
 	// 否则再次导入无法为已有作品补齐关联演职员/角色与关系（增量补录场景）。
+	// 主日期字段码由模板声明（默认 edition_date）。过去这里误用"作品类型码"
+	// 当字段名，会把 attributes["animation"] 之类的非法键写进去，导致增量补录
+	// 被校验拒绝（unknown_field）。改为与新建路径同一来源。
+	dateField := ""
+	if defs, derr := s.Definitions(ctx); derr == nil {
+		dateField = defs.Document.PrimaryDateField(workTypeFromMetadata(req.Work.CatalogMetadata))
+	}
 	var savedWork Entity
 	if hasKey {
 		if existing, ok := s.findImported(ctx, key, &actor); ok && existing.Kind == "work" {
-			// 已导入过：补齐**当时缺失**的元数据（原语言/别名/官网/品番/日期），
-			// 便于老条目增量补录；已有值一律不覆盖，避免抹掉人工编辑。
-			merged, changed := mergeWorkMetadata(existing, req.Work)
+			// 已导入过：补齐**当时缺失**的元数据（原语言/别名/官网/品番/日期/标签/
+			// infobox 派生字段），便于老条目增量补录；已有值一律不覆盖。
+			merged, changed := mergeWorkMetadata(existing, req.Work, dateField)
 			if changed {
 				updated, uerr := s.importerSaveVersioned(ctx, merged, existing.Version, actor, note, sources)
 				if uerr != nil {
@@ -2071,10 +2077,6 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	}
 	if savedWork.ID == "" {
 		workType := workTypeFromMetadata(req.Work.CatalogMetadata)
-		dateField := ""
-		if defs, derr := s.Definitions(ctx); derr == nil {
-			dateField = defs.Document.PrimaryDateField(workType)
-		}
 		work, err := buildWorkEntity(req.Work, workType, source, key, req.ExternalID, hasKey, dateField)
 		if err != nil {
 			return ImporterImportResponse{}, err
