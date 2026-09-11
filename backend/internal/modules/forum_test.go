@@ -5,11 +5,13 @@ import (
 	"testing"
 )
 
-// 标签 slug 只保留 [a-z0-9-]，中文/符号不会被塞进 slug 造成唯一键冲突。
+// 标签 slug 只把 ASCII 字母数字规整成 kebab-case；非拉丁名称回退为原名，
+// 否则纯中文标签会因 slug 为空被静默丢弃（曾因此丢失全部中文标签）。
 func TestTagSlug(t *testing.T) {
 	cases := map[string]string{
 		"Music":        "music",
-		"考据 评注":       "",
+		"考据 评注":       "考据 评注",
+		"考据":           "考据",
 		"Hello World!": "hello-world",
 		"a--b":         "a-b",
 		"  Trim  ":     "trim",

@@ -96,9 +96,15 @@ func (m *Manager) listBoards(ctx context.Context) ([]forumBoard, error) {
 
 var slugPattern = regexp.MustCompile(`[^a-z0-9]+`)
 
+// tagSlug 生成标签的唯一键。仅把 ASCII 字母数字规整成 kebab-case；
+// 非拉丁标签（如中文）规范化后会变成空串，此时**回退为原名称**——
+// 否则纯中文标签会因 slug 为空被静默丢弃（曾因此丢失全部中文标签）。
 func tagSlug(name string) string {
-	s := slugPattern.ReplaceAllString(strings.ToLower(strings.TrimSpace(name)), "-")
-	return strings.Trim(s, "-")
+	name = strings.TrimSpace(name)
+	if s := strings.Trim(slugPattern.ReplaceAllString(strings.ToLower(name), "-"), "-"); s != "" {
+		return s
+	}
+	return name
 }
 
 // topicRow 是主题列表/详情的统一扫描结果。tags 由独立查询补齐。
