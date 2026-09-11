@@ -37,8 +37,15 @@ export function useHashTab(items: TabItem[]) {
 
   useEffect(() => {
     if (shown.length === 0) return;
+    // 标签集合可能异步增长（如社区标签等 modules 返回后才出现）。此时若当前
+    // active 仍在集合内，会被误判为"无需校正"而忽略 URL 里的深链接。因此优先
+    // 采用合法 hash：select() 切换时也会写回 hash，正常情况下两者一致。
+    const h = readHash();
+    if (h && h !== active && shown.some((x) => x.id === h)) {
+      setActive(h);
+      return;
+    }
     if (!shown.some((x) => x.id === active)) {
-      const h = readHash();
       setActive(h && shown.some((x) => x.id === h) ? h : shown[0].id);
     }
     // shown 已由 shownKey 表达；仅当标签集合或当前值变化时才校正。
