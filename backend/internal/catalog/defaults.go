@@ -202,7 +202,7 @@ func Defaults() Definitions {
 	} {
 		addRel(x.code, x.zh, x.en, x.rzh, x.ren, x.src, []string{"agent"}, "credits", false)
 	}
-	for _, x := range [][5]string{{"adaptation_of", "改编自", "Adaptation of", "被改编为", "Adapted as"}, {"sequel_of", "续作于", "Sequel of", "前作于", "Prequel of"}, {"soundtrack_of", "配乐用于", "Soundtrack of", "配乐作品", "Soundtrack"}} {
+	for _, x := range [][5]string{{"adaptation_of", "改编自", "Adaptation of", "被改编为", "Adapted as"}, {"sequel_of", "续作于", "Sequel of", "作为前作", "Prequel of"}, {"spin_off_of", "外传自", "Spin-off of", "衍生出", "Spun off as"}, {"soundtrack_of", "配乐用于", "Soundtrack of", "配乐作品", "Soundtrack"}} {
 		addRel(x[0], x[1], x[2], x[3], x[4], []string{"work"}, []string{"work"}, "creative", true)
 	}
 	for _, x := range [][5]string{{"translation_of", "翻译自", "Translation of", "被翻译为", "Translated as"}, {"revision_of", "修订自", "Revision of", "被修订为", "Revised as"}, {"cover_of", "翻唱自", "Cover of", "被翻唱为", "Covered as"}, {"alternate_take_of", "别版取自", "Alternate take of", "被用作别版", "Used as alternate take"}} {
