@@ -75,6 +75,11 @@ services:
       - S3_BUCKET_MASTER=metafusion-master
       - S3_BUCKET_PREVIEW=metafusion-preview
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env}
+      # RS256 签名私钥（PEM 或其 base64）。未设置时后端生成进程内临时密钥，
+      # 重启即失效（有会话行兜底）；生产建议在 .env 配置持久密钥。
+      - AUTH_JWT_PRIVATE_KEY=${AUTH_JWT_PRIVATE_KEY:-}
+      - AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER:-https://findverse.cc/api}
+      - AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE:-metafusion}
     depends_on:
       postgres:
         condition: service_healthy
