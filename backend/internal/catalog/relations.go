@@ -293,6 +293,23 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Position < out[j].Position })
 	return out, nil
 }
+
+// canWriteRelation 判定调用方能否写入以 src 为源实体的关系：
+//   - admin：全部可写；
+//   - editor：可写自己创建的条目（含已发布——与编辑器"editor 可直接发布/编辑
+//     自己条目"的权限对齐）；
+//   - user（审核制）：只能写自己创建且未发布的条目。
+func canWriteRelation(u User, src Entity) bool {
+	switch u.Role {
+	case "admin":
+		return true
+	case "editor":
+		return src.CreatedBy == u.ID
+	default:
+		return src.CreatedBy == u.ID && src.Status != "published"
+	}
+}
+
 func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Relation, ref func(string, []string) error, historical bool) error {
 	rt, ok := d.Relations[r.Type]
 	if !ok || !historical && !rt.Enabled {
@@ -407,7 +424,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if !visible(src, &u) || !visible(tgt, &u) || src.Status == "deleted" || src.Status == "merged" || tgt.Status == "deleted" || tgt.Status == "merged" {
 			return fmt.Errorf("forbidden")
 		}
-		if u.Role != "admin" && (src.CreatedBy != u.ID || src.Status == "published") {
+		if !canWriteRelation(u, src) {
 			return fmt.Errorf("forbidden")
 		}
 		if err = validateRelation(v.Document, r, src, tgt, all, reference(ctx, tx, &u), true); err != nil {
@@ -450,7 +467,7 @@ func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, n
 		if err != nil {
 			return err
 		}
-		if u.Role != "admin" && (src.CreatedBy != u.ID || src.Status == "published") {
+		if !canWriteRelation(u, src) {
 			return fmt.Errorf("forbidden")
 		}
 		if _, err = tx.ExecContext(ctx, "DELETE FROM catalog.relations WHERE id=$1", id); err != nil {

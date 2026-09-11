@@ -323,3 +323,85 @@ func TestTemplateFieldReferencesValidated(t *testing.T) {
 		t.Fatal("template with unknown primary date field accepted")
 	}
 }
+
+// 三层角色发布权限矩阵：user（审核制）/ editor（可发布自己条目）/ admin。
+func TestRolePublishMatrix(t *testing.T) {
+	ctx := context.Background()
+	s := &Store{DB: testutil.Database(t)}
+	if err := s.Initialize(ctx); err != nil {
+		t.Fatal(err)
+	}
+	sources := []Source{{Kind: "self", Citation: "role matrix fixture"}}
+	admin, err := s.CreateUserWithRole(ctx, "matrix-admin", "", "test-password-12345", true, "admin", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	editor, err := s.CreateUserWithRole(ctx, "matrix-editor", "", "test-password-12345", false, "editor", &admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	member, err := s.CreateUserWithRole(ctx, "matrix-user", "", "test-password-12345", false, "user", &admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mk := func(title string) Entity {
+		return Entity{Kind: "work", Types: []string{"novel"}, Title: title,
+			OriginalLanguage: "ja", Translations: map[string]Translation{"ja": {Title: title}}}
+	}
+
+	// user 新建只能 draft/pending_review，不能直接 published。
+	for _, st := range []string{"draft", "pending_review"} {
+		e := mk("user-" + st)
+		e.Status = st
+		if _, err := s.Save(ctx, Edit{Entity: e, EditNote: "n", Sources: sources}, member); err != nil {
+			t.Fatalf("user create %s: %v", st, err)
+		}
+	}
+	if _, err := s.Save(ctx, Edit{Entity: func() Entity { e := mk("user-published"); e.Status = "published"; return e }(), EditNote: "n", Sources: sources}, member); err == nil {
+		t.Fatal("user direct publish must be forbidden")
+	}
+
+	// editor 新建可直接 published。
+	pub := mk("editor-published")
+	pub.Status = "published"
+	saved, err := s.Save(ctx, Edit{Entity: pub, EditNote: "n", Sources: sources}, editor)
+	if err != nil {
+		t.Fatalf("editor direct publish: %v", err)
+	}
+
+	// editor 可继续编辑自己的已发布条目（version 递增），但不可降级状态。
+	saved.Title = "editor-published-v2"
+	if _, err := s.Save(ctx, Edit{Entity: saved, ExpectedVersion: saved.Version, EditNote: "n", Sources: sources}, editor); err != nil {
+		t.Fatalf("editor edit own published: %v", err)
+	}
+	demoted := saved
+	demoted.Status = "draft"
+	if _, err := s.Save(ctx, Edit{Entity: demoted, ExpectedVersion: saved.Version + 1, EditNote: "n", Sources: sources}, editor); err == nil {
+		t.Fatal("published demotion must hit use_lifecycle_endpoint")
+	}
+
+	// 他人条目：user/editor 均不可改（admin 除外）。
+	foreign := mk("foreign-entity")
+	foreign.Status = "draft"
+	foreignSaved, err := s.Save(ctx, Edit{Entity: foreign, EditNote: "n", Sources: sources}, editor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreignSaved.Title = "hijacked"
+	if _, err := s.Save(ctx, Edit{Entity: foreignSaved, ExpectedVersion: foreignSaved.Version, EditNote: "n", Sources: sources}, member); err == nil {
+		t.Fatal("user editing foreign entity must be forbidden")
+	}
+
+	// user 提交审核后，admin 可发布。
+	review := mk("user-submitted")
+	review.Status = "pending_review"
+	submitted, err := s.Save(ctx, Edit{Entity: review, EditNote: "n", Sources: sources}, member)
+	if err != nil {
+		t.Fatal(err)
+	}
+	submitted.Status = "published"
+	if _, err := s.Save(ctx, Edit{Entity: submitted, ExpectedVersion: submitted.Version, EditNote: "n", Sources: sources}, admin); err != nil {
+		t.Fatalf("admin publish pending_review: %v", err)
+	}
+}

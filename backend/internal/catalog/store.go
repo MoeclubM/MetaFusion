@@ -300,12 +300,20 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			e.Version = old.Version + 1
 		}
 		if u.Role != "admin" {
-			if old.ID != "" && old.CreatedBy != u.ID || old.Status == "published" {
+			// 他人条目一律不可改。
+			if old.ID != "" && old.CreatedBy != u.ID {
 				return fmt.Errorf("forbidden")
 			}
-			if e.Status != "draft" && e.Status != "pending_review" {
-				return fmt.Errorf("forbidden")
+			// 普通用户走审核制：只能存草稿或提交审核，且不可触碰已发布条目。
+			if u.Role == "user" {
+				if old.Status == "published" {
+					return fmt.Errorf("forbidden")
+				}
+				if e.Status != "draft" && e.Status != "pending_review" {
+					return fmt.Errorf("forbidden")
+				}
 			}
+			// editor：自己的条目可直接发布；已发布条目的降级/删除仍走 admin-only lifecycle。
 		}
 		if e.Status == "" {
 			e.Status = "draft"
