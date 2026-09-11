@@ -1,17 +1,19 @@
 "use client";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { defaultLocale, localeCookieName, normalizeLocale, type Locale } from "./routing";
-import { getMessages, translate } from "./getMessages";
+import { getMessages, translate, translateOr } from "./getMessages";
 
 type Ctx = {
   locale: Locale;
   t: (key: string, vars?: Record<string, string | number>) => string;
+  tr: (key: string, fallback: string, vars?: Record<string, string | number>) => string;
   setLocale: (next: Locale) => void;
 };
 
 const I18nContext = createContext<Ctx>({
   locale: defaultLocale,
   t: (k) => k,
+  tr: (_k, fb) => fb,
   setLocale: () => {},
 });
 
@@ -56,13 +58,19 @@ export function I18nProvider({
     [messages]
   );
 
+  const tr = useCallback(
+    (key: string, fallback: string, vars?: Record<string, string | number>) =>
+      translateOr(messages, key, fallback, vars),
+    [messages]
+  );
+
   const setLocale = useCallback((next: Locale) => {
     const n = normalizeLocale(next);
     setLocaleState(n);
     writeCookieLocale(n);
   }, []);
 
-  const value = useMemo<Ctx>(() => ({ locale, t, setLocale }), [locale, t, setLocale]);
+  const value = useMemo<Ctx>(() => ({ locale, t, tr, setLocale }), [locale, t, tr, setLocale]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }

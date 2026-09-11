@@ -103,7 +103,7 @@ async function allEntities(query: string): Promise<Entity[]> {
 }
 
 export function EntityDetailView({ id }: { id: string }) {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
   const titleOrder = useTitleDisplayOrder();
   const { definition, user, modules } = useCatalog();
   const { definitions: dynamicDefs } = useDefinitions();
@@ -822,7 +822,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   </dt>
                   <dd className="font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-primary" />
-                    <span>{t(`catalog.kind.${entity.kind}`) || entity.kind}</span>
+                    <span>{tr(`catalog.kind.${entity.kind}`, entity.kind)}</span>
                   </dd>
                 </div>
 
@@ -916,7 +916,7 @@ export function EntityDetailView({ id }: { id: string }) {
             <header className="space-y-4 pb-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-bold tracking-wider">
-                  {t(`catalog.kind.${entity.kind}`) || entity.kind}
+                  {tr(`catalog.kind.${entity.kind}`, entity.kind)}
                 </span>
 
                 {/* 头部徽章：主日期与载体格式的字段码由模板声明，不写死 edition_date/format */}

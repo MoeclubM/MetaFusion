@@ -49,15 +49,18 @@ function DownloadsInner() {
   );
 }
 
+function DownloadsFallback() {
+  const { t } = useI18n();
+  return (
+    <div className="min-h-screen bg-background grid place-items-center text-xs font-mono text-gray-500">
+      {t("common.loading")}
+    </div>
+  );
+}
+
 export default function DownloadsPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-background grid place-items-center text-xs font-mono text-gray-500">
-          Loading...
-        </div>
-      }
-    >
+    <Suspense fallback={<DownloadsFallback />}>
       <DownloadsInner />
     </Suspense>
   );
