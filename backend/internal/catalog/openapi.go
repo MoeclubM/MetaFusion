@@ -50,7 +50,7 @@ func OpenAPI() map[string]any {
 			return map[string]any{}
 		}
 	}
-	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, Definitions{}, User{}, ExternalDatabase{}, Shelf{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
+	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, Definitions{}, User{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
 		schema(reflect.TypeOf(v))
 	}
 	schemas["Credentials"] = map[string]any{"type": "object", "required": []string{"username", "password"}, "properties": map[string]any{"username": map[string]any{"type": "string"}, "password": map[string]any{"type": "string", "minLength": 12, "writeOnly": true}}}
@@ -114,6 +114,9 @@ func OpenAPI() map[string]any {
 		{"/admin/external-databases/{code}", "put", "Update external authority database (administrator only)", "ExternalDatabase", "Result", "auth"},
 		{"/admin/external-databases/{code}", "delete", "Delete external authority database (administrator only)", "", "Result", "auth"},
 		{"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
+		{"/catalog/shelves/feed", "get", "Evaluate shelf rules with their items, ordered by caller preferences", "", "Result", ""},
+		{"/catalog/me/home-preferences", "get", "Read caller homepage section preferences", "", "Result", "auth"},
+		{"/catalog/me/home-preferences", "put", "Replace caller homepage section preferences", "HomePreferences", "Result", "auth"},
 		{"/admin/shelves", "get", "List shelf rules (administrator only)", "", "Result", "auth"},
 		{"/admin/shelves", "post", "Create shelf rule (administrator only)", "Shelf", "Result", "auth"},
 		{"/admin/shelves/{id}", "get", "Read shelf rule (administrator only)", "", "Result", "auth"},

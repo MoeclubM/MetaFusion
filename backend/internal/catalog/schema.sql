@@ -152,3 +152,10 @@ CREATE INDEX IF NOT EXISTS favorites_user_created ON catalog.favorites(user_id, 
 
 ALTER TABLE catalog.track_contents ADD COLUMN IF NOT EXISTS attributes jsonb NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE catalog.release_subjects ADD COLUMN IF NOT EXISTS attributes jsonb NOT NULL DEFAULT '{}'::jsonb;
+
+-- 用户首页推荐偏好：展示顺序与隐藏项，内容仍由 catalog.shelves 规则驱动。
+CREATE TABLE IF NOT EXISTS catalog.user_preferences (
+ user_id uuid PRIMARY KEY REFERENCES catalog.users(id) ON DELETE CASCADE,
+ home_shelves jsonb NOT NULL DEFAULT '{}'::jsonb,
+ updated_at timestamptz NOT NULL DEFAULT now()
+);

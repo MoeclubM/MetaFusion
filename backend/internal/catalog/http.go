@@ -615,6 +615,53 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.ListShelves(c.Request.Context(), true)
 		respond(c, gin.H{"items": v}, err)
 	})
+	// /shelves/feed 一次返回每个货架及其求值后的条目，供首页直接渲染。
+	// 规则里的 fields/vocab_terms/relations 只有服务端能判定，放在这里避免前端近似匹配。
+	// 登录用户按个人偏好重排/隐藏；匿名与未设置偏好者按 sort_order 默认序。
+	cat.GET("/shelves/feed", routeLimiter(60), func(c *gin.Context) {
+		perShelf, _ := strconv.Atoi(c.Query("per_shelf"))
+		shelves, err := s.ListShelves(c.Request.Context(), true)
+		if err != nil {
+			respond(c, nil, err)
+			return
+		}
+		prefs := HomePreferences{}
+		if u := user(c); u != nil {
+			prefs, err = s.GetHomePreferences(c.Request.Context(), u.ID)
+			if err != nil {
+				respond(c, nil, err)
+				return
+			}
+		}
+		shelves = applyHomePreferences(shelves, prefs)
+		out := make([]gin.H, 0, len(shelves))
+		for _, sh := range shelves {
+			items, ierr := s.ListShelfItems(c.Request.Context(), sh, perShelf, user(c))
+			if ierr != nil {
+				respond(c, nil, ierr)
+				return
+			}
+			out = append(out, gin.H{"shelf": sh, "items": items})
+		}
+		c.JSON(200, gin.H{"items": out})
+	})
+	cat.GET("/me/home-preferences", func(c *gin.Context) {
+		u := user(c)
+		if u == nil {
+			respond(c, nil, sql.ErrNoRows)
+			return
+		}
+		v, err := s.GetHomePreferences(c.Request.Context(), u.ID)
+		respond(c, v, err)
+	})
+	cat.PUT("/me/home-preferences", required(true), func(c *gin.Context) {
+		var in HomePreferences
+		if !body(c, &in) {
+			return
+		}
+		v, err := s.SaveHomePreferences(c.Request.Context(), user(c).ID, in)
+		respond(c, v, err)
+	})
 	cat.GET("/compare", routeLimiter(10), func(c *gin.Context) {
 		v, err := s.Compare(c.Request.Context(), strings.Split(c.Query("ids"), ","), user(c))
 		respond(c, gin.H{"items": v}, err)

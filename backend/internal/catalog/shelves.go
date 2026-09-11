@@ -6,7 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
 // Shelf 是首页货架与探索页共用的聚合规则。
@@ -200,6 +203,118 @@ func (s *Store) DeleteShelf(ctx context.Context, id int64) error {
 		}
 		return nil
 	})
+}
+
+// trimAll 去掉空白项并保持原顺序，空数组返回 nil。
+func trimAll(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, v := range in {
+		if s := strings.TrimSpace(v); s != "" {
+			out = append(out, s)
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// sortedKeys 让 map 条件按固定顺序进入 SQL，保证语句可复现（也便于排查）。
+func sortedKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// shelfFilter 把货架规则编译成 WHERE 片段：子条件之间 AND，同一数组内 OR。
+// types 为空表示"收录全部作品"，与规则文档一致，因此回落到 kind='work'；
+// 否则按动态类型过滤（类型码本身已隐含所属 kind）。
+func shelfFilter(sh Shelf, args *[]any, alias string) []string {
+	parts := []string{}
+	if types := trimAll(sh.Query.Types); len(types) > 0 {
+		*args = append(*args, pq.Array(types))
+		parts = append(parts, fmt.Sprintf("%s.document->'types' ?| $%d", alias, len(*args)))
+	} else {
+		parts = append(parts, fmt.Sprintf("%s.kind='work'", alias))
+	}
+	// enum 词表项与普通字段一样落在 document.attributes 下，用同一比较方式。
+	for _, m := range []map[string][]string{sh.Query.Fields, sh.Query.VocabTerms} {
+		for _, field := range sortedKeys(m) {
+			vals := trimAll(m[field])
+			if len(vals) == 0 {
+				continue
+			}
+			*args = append(*args, field, pq.Array(vals))
+			parts = append(parts, fmt.Sprintf("%s.document->'attributes'->>$%d = ANY($%d)", alias, len(*args)-1, len(*args)))
+		}
+	}
+	if rels := trimAll(sh.Query.Relations); len(rels) > 0 {
+		*args = append(*args, pq.Array(rels))
+		parts = append(parts, fmt.Sprintf(
+			"EXISTS (SELECT 1 FROM catalog.relations r WHERE (r.source_id=%s.id OR r.target_id=%s.id) AND r.document->>'type' = ANY($%d))",
+			alias, alias, len(*args)))
+	}
+	return parts
+}
+
+// ListShelfItems 按货架规则求值出实体列表，返回顺序与 sort 一致。
+// 规则里的 fields/vocab_terms/relations 只有服务端能判定，故求值必须在此完成，
+// 前端不再自行近似匹配（那会把非作品实体和无关条目混进推荐）。
+func (s *Store) ListShelfItems(ctx context.Context, sh Shelf, limit int, u *User) ([]Entity, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 12
+	}
+	args := []any{}
+	// 可见性与列表接口保持一致：匿名仅 published，登录者另可见自己创建的草稿。
+	where := []string{}
+	if u == nil {
+		where = append(where, "e.status='published'")
+	} else if u.Role != "admin" {
+		args = append(args, u.ID)
+		where = append(where, fmt.Sprintf("(e.status='published' OR e.created_by=$%d)", len(args)))
+	}
+	where = append(where, "e.status NOT IN ('deleted','merged')")
+	where = append(where, shelfFilter(sh, &args, "e")...)
+
+	order := "e.updated_at DESC, e.id"
+	if sh.Sort == "title" {
+		order = "e.title ASC, e.id"
+	}
+	args = append(args, limit)
+	q := "SELECT e.id::text FROM catalog.entities e WHERE " + strings.Join(where, " AND ") +
+		" ORDER BY " + order + fmt.Sprintf(" LIMIT $%d", len(args))
+	rows, err := s.DB.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	got, err := s.GetManyVisible(ctx, ids, u)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Entity, 0, len(ids))
+	for _, id := range ids {
+		if e, ok := got[id]; ok {
+			out = append(out, e)
+		}
+	}
+	return out, nil
 }
 
 // seedShelves 写入首页货架默认规则；已存在的 slug 不覆盖（保留后台自定义），
