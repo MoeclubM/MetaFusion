@@ -369,7 +369,11 @@ func TestMergeWorkMetadataNoOverwrite(t *testing.T) {
 			"catalog_number":   "NEW-001",
 		},
 	}
-	got, changed := mergeWorkMetadata(existing, w)
+	got, changed := mergeWorkMetadata(existing, w, "edition_date")
+	// 回归：日期字段名必须来自模板的 PrimaryDateField，不得把作品类型码当字段名写入
+	if _, bad := got.Attributes["animation"]; bad {
+		t.Errorf("work type code written as attribute key: %v", got.Attributes)
+	}
 	// 已有值不得被覆盖
 	if got.Attributes["edition_date"] != "2001-01-01" {
 		t.Errorf("edition_date overwritten: %v", got.Attributes["edition_date"])
