@@ -88,19 +88,49 @@ func required(admin bool) gin.HandlerFunc {
 
 // routeBucket 复用 setup/login 限流风格的内存固定窗口计数, key 为 IP+路由。
 type routeBucket struct {
-	mu    sync.Mutex
-	start time.Time
-	n     int
+	mu       sync.Mutex
+	start    time.Time
+	n        int
+	lastSeen time.Time
 }
 
-var routeAttempts sync.Map // string -> *routeBucket
+var (
+	routeAttempts      sync.Map // string -> *routeBucket
+	routeJanitor       sync.Once
+	loginAttempts      sync.Map // string(IP) -> *routeBucket, setup/login 限流
+	loginAttemptsJanit sync.Once
+)
+
+// sweepStaleBuckets 每小时清理超 2 小时未见的限流桶，防止 sync.Map 无限增长。
+// 进程内存限流本就只防单机突发，多实例一致性放三期（Redis）。
+func sweepStaleBuckets(m *sync.Map, janitor *sync.Once) {
+	janitor.Do(func() {
+		go func() {
+			for range time.Tick(time.Hour) {
+				cutoff := time.Now().Add(-2 * time.Hour)
+				m.Range(func(k, v any) bool {
+					if b, ok := v.(*routeBucket); ok {
+						b.mu.Lock()
+						stale := !b.lastSeen.IsZero() && b.lastSeen.Before(cutoff)
+						b.mu.Unlock()
+						if stale {
+							m.Delete(k)
+						}
+					}
+					return true
+				})
+			}
+		}()
+	})
+}
 
 // routeLimiter 按 IP+路由限流重型 GET 接口, 超限返回 429 + Retry-After(秒)。
 func routeLimiter(perMinute int) gin.HandlerFunc {
+	sweepStaleBuckets(&routeAttempts, &routeJanitor)
 	return func(c *gin.Context) {
 		key := c.ClientIP() + "|" + c.FullPath()
 		now := time.Now()
-		v, _ := routeAttempts.LoadOrStore(key, &routeBucket{start: now})
+		v, _ := routeAttempts.LoadOrStore(key, &routeBucket{start: now, lastSeen: now})
 		b := v.(*routeBucket)
 		b.mu.Lock()
 		if now.Sub(b.start) > time.Minute {
@@ -108,6 +138,7 @@ func routeLimiter(perMinute int) gin.HandlerFunc {
 			b.n = 0
 		}
 		b.n++
+		b.lastSeen = now
 		over := b.n > perMinute
 		retrySecs := int(time.Until(b.start.Add(time.Minute)).Seconds()) + 1
 		b.mu.Unlock()
@@ -227,17 +258,12 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-	var attempts sync.Map
+	sweepStaleBuckets(&loginAttempts, &loginAttemptsJanit)
 	limiter := func(c *gin.Context) {
 		key := c.ClientIP()
 		now := time.Now()
-		type bucket struct {
-			mu    sync.Mutex
-			start time.Time
-			n     int
-		}
-		v, _ := attempts.LoadOrStore(key, &bucket{start: now})
-		b := v.(*bucket)
+		v, _ := loginAttempts.LoadOrStore(key, &routeBucket{start: now, lastSeen: now})
+		b := v.(*routeBucket)
 		b.mu.Lock()
 		defer b.mu.Unlock()
 		if now.Sub(b.start) > time.Minute {
@@ -245,6 +271,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			b.n = 0
 		}
 		b.n++
+		b.lastSeen = now
 		if b.n > 15 {
 			c.AbortWithStatusJSON(429, gin.H{"error": "rate_limited"})
 			return
