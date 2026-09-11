@@ -57,6 +57,20 @@ export function EntityEditor({
   );
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();
+    // 应用层证据校验：HTML required 的原生气泡在部分环境不可见，
+    // 曾表现为"点保存没反应"；noValidate 后统一在此给出明确提示。
+    const missingEvidence =
+      !note.trim() ||
+      sources.length === 0 ||
+      sources.some(
+        (s) =>
+          !s.citation.trim() ||
+          (s.kind === "url" && !/^https?:\/\/[^\s]+\.[^\s]+/i.test(s.url || "")),
+      );
+    if (missingEvidence || !e.title.trim()) {
+      setError(t("catalog.evidenceRequired"));
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -74,7 +88,7 @@ export function EntityEditor({
     }
   };
   return (
-    <form onSubmit={save} className="cv-form">
+    <form onSubmit={save} noValidate className="cv-form">
       <div className="cv-heading">
         <h1>{t(initial ? "catalog.edit" : "catalog.create")}</h1>
         <button className="cv-primary" disabled={busy}>
@@ -122,13 +136,21 @@ export function EntityEditor({
               value={e.status}
               onChange={(x) => patch({ status: x.target.value })}
             >
-              {(initial?.status === "published"
-                ? ["published"]
-                : [
-                    "draft",
-                    "pending_review",
-                    ...(user.role === "admin" ? ["published"] : []),
-                  ]
+              {(
+                initial?.status === "published"
+                  ? ["published"]
+                  : [
+                      "draft",
+                      "pending_review",
+                      // user 走审核制（草稿/待审）；editor/admin 可直接发布
+                      // 自己的条目（新建无 created_by 即视为自己）。
+                      ...((user.role === "admin" ||
+                        (user.role === "editor" &&
+                          (!initial?.created_by ||
+                            initial.created_by === user.id)))
+                        ? ["published"]
+                        : []),
+                    ]
               ).map((k) => (
                 <option key={k} value={k}>
                   {t(`catalog.state.${k}`)}
@@ -228,6 +250,7 @@ export function EntityEditor({
             <label>
               {t("catalog.aliases")}
               <textarea
+                aria-label={`${loc} · ${t("catalog.aliases")}`}
                 value={(tr.aliases || []).join("\n")}
                 onChange={(x) =>
                   patch({
@@ -280,6 +303,7 @@ export function EntityEditor({
           </button>
         </div>
       </fieldset>
+      {["content_unit", "expression", "release", "medium", "track"].includes(e.kind) && (
       <fieldset>
         <legend>{t("catalog.structure")}</legend>
         <div className="cv-grid">
@@ -343,22 +367,26 @@ export function EntityEditor({
               />
             </label>
           )}
-          <label>
-            {t("catalog.position")}
-            <input
-              type="number"
-              min="0"
-              value={e.position}
-              onChange={(x) => patch({ position: Number(x.target.value) })}
-            />
-          </label>
-          <label>
-            {t("catalog.number")}
-            <input
-              value={e.number}
-              onChange={(x) => patch({ number: x.target.value })}
-            />
-          </label>
+          {["content_unit", "expression", "release", "medium", "track"].includes(e.kind) && (
+            <>
+              <label>
+                {t("catalog.position")}
+                <input
+                  type="number"
+                  min="0"
+                  value={e.position}
+                  onChange={(x) => patch({ position: Number(x.target.value) })}
+                />
+              </label>
+              <label>
+                {t("catalog.number")}
+                <input
+                  value={e.number}
+                  onChange={(x) => patch({ number: x.target.value })}
+                />
+              </label>
+            </>
+          )}
         </div>
         {e.kind === "release" && (
           <>
@@ -540,6 +568,7 @@ export function EntityEditor({
           </>
         )}
       </fieldset>
+      )}
       {/* 关系维护：独立资源逐条提交，不复用实体 PUT；词表来自服务端 definitions。 */}
       <RelationEditorField entityId={e.id} entityKind={e.kind} note={note} sources={sources} />
       {!!fields.length && (
