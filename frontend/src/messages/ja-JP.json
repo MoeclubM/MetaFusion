@@ -1,7 +1,7 @@
 {
   "landing.tagline": "OPEN METADATA & RESOURCE PLATFORM",
   "landing.heroSubtitle": "Open cataloging · Curated archive · Community-built multimedia metadata platform",
-  "landing.enter": "Browse shelves",
+  "landing.enter": "閲覧をはじめる",
   "landing.join": "Join Us",
   "landing.exploreArchive": "Explore",
   "landing.docsTitle": "MetaFusion Documentation",
@@ -2017,7 +2017,7 @@
   "landing.description": "A catalog of works, creators and their connections. Explore animation, music, books and personal creations, compare release contents, and contribute information with sources.",
   "landing.start": "Start here",
   "landing.browse": "Browse works",
-  "landing.browseDescription": "Discover works by category, with titles, descriptions and creators.",
+  "landing.browseDescription": "カテゴリから作品を見つけ、タイトル・紹介・クリエイターを確認できます。",
   "landing.explore": "Search and filter",
   "landing.exploreDescription": "Find entries by type and explore prequels, adaptations and appearances.",
   "landing.contribute": "Contribute",
@@ -2563,5 +2563,18 @@
   "community.feedEmpty": "まだ議論はありません。",
   "community.feedEmptyHint": "いずれかのエントリ詳細の「コミュニティ」セクションから最初のレビューを投稿できます。",
   "community.feedLinkedEntity": "関連エントリ",
-  "community.moduleDisabled": "コミュニティ機能は現在無効です。管理者に有効化をご依頼ください。"
+  "community.moduleDisabled": "コミュニティ機能は現在無効です。管理者に有効化をご依頼ください。",
+  "home.recommended": "あなたへのおすすめ",
+  "home.recommendEmpty": "おすすめできるコンテンツがまだありません。",
+  "home.itemCount": "{count} 件",
+  "home.customize": "おすすめをカスタマイズ",
+  "home.customizeTitle": "ホームのおすすめをカスタマイズ",
+  "home.customizeHint": "表示するセクションを選び、順番を並べ替えられます。",
+  "home.customizeReset": "既定に戻す",
+  "home.toggleSection": "このセクションの表示を切り替え",
+  "home.moveUp": "上へ",
+  "home.moveDown": "下へ",
+  "catalog.layer.creation": "創作",
+  "catalog.layer.publication": "リリース",
+  "catalog.layer.agents": "主体とコレクション"
 }

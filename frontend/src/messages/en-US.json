@@ -1,7 +1,7 @@
 {
   "landing.tagline": "OPEN METADATA & RESOURCE PLATFORM",
   "landing.heroSubtitle": "Open cataloging · Curated archive · Community-built multimedia metadata platform",
-  "landing.enter": "Browse shelves",
+  "landing.enter": "Start browsing",
   "landing.join": "Join Us",
   "landing.exploreArchive": "Explore",
   "landing.docsTitle": "MetaFusion Documentation",
@@ -2563,5 +2563,18 @@
   "community.feedEmpty": "No discussions yet.",
   "community.feedEmptyHint": "Open any entry's Community tab to post the first review.",
   "community.feedLinkedEntity": "Related entry",
-  "community.moduleDisabled": "Community discussions are currently disabled. Please ask an administrator to enable them."
+  "community.moduleDisabled": "Community discussions are currently disabled. Please ask an administrator to enable them.",
+  "home.recommended": "Recommended for you",
+  "home.recommendEmpty": "Nothing to recommend yet.",
+  "home.itemCount": "{count} items",
+  "home.customize": "Customize",
+  "home.customizeTitle": "Customize recommendations",
+  "home.customizeHint": "Choose which sections to show, and reorder them.",
+  "home.customizeReset": "Reset to default",
+  "home.toggleSection": "Show or hide this section",
+  "home.moveUp": "Move up",
+  "home.moveDown": "Move down",
+  "catalog.layer.creation": "Creation",
+  "catalog.layer.publication": "Publication",
+  "catalog.layer.agents": "Agents & Collections"
 }
