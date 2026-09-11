@@ -707,15 +707,14 @@ export function EntityDetailView({ id }: { id: string }) {
   // 别名/译名按语种分组展示（含主语言标记）：resolve DTO 的 translations 是
   // 按 locale 分组的对象，转成 LocalizedTitleGroups 需要的行数组。
   // 过去这里只取第一个有别名的语种拍平展示，其余语种别名全部丢失。
-  const translationRows = React.useMemo(
-    () =>
-      Object.entries(entity.translations || {}).map(([locale, row]) => ({
-        locale,
-        title: row?.title || "",
-        summary: row?.summary || "",
-        aliases: row?.aliases || [],
-      })),
-    [entity.translations],
+  // 注意：不得写成 useMemo——本组件此位置之前存在条件 return，hook 顺序会违规。
+  const translationRows = Object.entries(entity.translations || {}).map(
+    ([locale, row]) => ({
+      locale,
+      title: row?.title || "",
+      summary: row?.summary || "",
+      aliases: row?.aliases || [],
+    }),
   );
 
   return (
