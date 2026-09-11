@@ -16,9 +16,9 @@ import (
 	"github.com/metafusion/metafusion-app/internal/moduleapi"
 )
 
-// 论坛（forum）是本站自建的独立讨论系统：板块（board）→ 主题（topic）→ 回复（post）。
-// 与 modules.posts（实体短评流）互补：短评锚定单个实体、轻量；论坛主题独立成立、
-// 可跨实体讨论，并可选关联一个目录实体。
+// 论坛是本站自建的独立讨论系统：板块（board）→ 主题（topic）→ 回复（post）。
+// 话题（主题）与"实体评论"共用 forum_topics 存储，靠板块区分语义：
+// 评论锚定实体、无独立标题、不进信息流；主题可独立成文、有标题、进信息流。
 //
 // 数据只落 modules schema，不触碰 catalog 实体表。
 
@@ -59,6 +59,53 @@ func seedForum(ctx context.Context, db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+// commentBoard 是承载"实体评论"的板块。评论与论坛主题共用 forum_topics 存储，
+// 靠板块区分语义：评论锚定实体、无独立标题、不进信息流；主题有标题、可独立成文。
+const commentBoard = "comment"
+
+// migratePostsToComments 把历史表 modules.posts（实体短评）并入 forum_topics 的
+// 评论板块。modules schema 的表由本包内联 DDL 创建，不走 SQL 迁移文件，否则在全新
+// 数据库上会出现"迁移先于建表"的顺序问题；因此这里同样用内联、幂等的方式做。
+// 复用原 uuid 作为 forum_topics.id，使既有 permalink 继续可用。
+func migratePostsToComments(ctx context.Context, db *sql.DB) error {
+	if _, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS modules.schema_migrations(name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`); err != nil {
+		return err
+	}
+	var done bool
+	if err := db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM modules.schema_migrations WHERE name='posts_to_comments')`).Scan(&done); err != nil {
+		return err
+	}
+	if done {
+		return nil
+	}
+	// 仅当历史表存在时才并轨；全新部署没有该表，直接标记完成。
+	var exists bool
+	if err := db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema='modules' AND table_name='posts')`).Scan(&exists); err != nil {
+		return err
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if exists {
+		if _, err = tx.ExecContext(ctx, `
+			INSERT INTO modules.forum_topics(id,board_code,author_id,author_name,title,body,entity_id,created_at,updated_at,last_activity_at)
+			SELECT p.id, $1, p.author_id, COALESCE(NULLIF(p.author_name,''),'Anonymous'), '', p.body, p.entity_id, p.created_at, p.created_at, p.created_at
+			FROM modules.posts p
+			WHERE NOT EXISTS (SELECT 1 FROM modules.forum_topics t WHERE t.id = p.id)`, commentBoard); err != nil {
+			return err
+		}
+		if _, err = tx.ExecContext(ctx, `DROP TABLE modules.posts`); err != nil {
+			return err
+		}
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO modules.schema_migrations(name) VALUES('posts_to_comments') ON CONFLICT DO NOTHING`); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 type forumBoard struct {
@@ -199,9 +246,14 @@ func (m *Manager) registerForum(api *gin.RouterGroup) {
 		}
 		args := []any{}
 		where := []string{"1=1"}
+		// 评论与主题共用存储但语义不同：默认只列"主题"（排除评论板块），
+		// 仅当显式按评论板块筛选时才返回评论。
 		if bc := strings.TrimSpace(c.Query("board_code")); bc != "" && bc != "all" {
 			args = append(args, bc)
 			where = append(where, fmt.Sprintf("t.board_code=$%d", len(args)))
+		} else {
+			args = append(args, commentBoard)
+			where = append(where, fmt.Sprintf("t.board_code<>$%d", len(args)))
 		}
 		if lang := strings.TrimSpace(c.Query("language")); lang != "" && lang != "all" {
 			args = append(args, lang)
@@ -306,8 +358,9 @@ func (m *Manager) registerForum(api *gin.RouterGroup) {
 			return
 		}
 		// 浏览量自增与读取合并：一次 UPDATE ... RETURNING 完成。
+		// 排除评论板块：评论不是"文章"，不应有主题详情页（应回到其锚定的条目）。
 		rows, err := m.db.QueryContext(c.Request.Context(),
-			"UPDATE modules.forum_topics t SET view_count=view_count+1 WHERE t.id=$1 RETURNING "+topicCols, id)
+			"UPDATE modules.forum_topics t SET view_count=view_count+1 WHERE t.id=$1 AND t.board_code<>$2 RETURNING "+topicCols, id, commentBoard)
 		if err != nil {
 			failure(c, 500, "module_error")
 			return

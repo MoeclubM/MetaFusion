@@ -73,7 +73,10 @@ function CommunityContent() {
  const searchParams = useSearchParams();
  const initialTag = searchParams.get("tag");
  const initialTagId = searchParams.get("tag_id");
- const [selectedBoard, setSelectedBoard] = useState<string>("all");
+ // 从条目页跳来时带 entity_id / board_code，用于锁定到该条目的评论或指定板块。
+ const entityFilter = searchParams.get("entity_id") || "";
+ const initialBoard = searchParams.get("board_code") || "all";
+ const [selectedBoard, setSelectedBoard] = useState<string>(initialBoard);
  const [activeTab, setActiveTab] = useState<"latest" | "top">("latest");
  const [topics, setTopics] = useState<DiscussionTopic[]>([]);
  const [loading, setLoading] = useState(true);
@@ -170,6 +173,9 @@ function CommunityContent() {
  const params = new URLSearchParams();
  if (selectedBoard && selectedBoard !== "all") {
  params.append("board_code", selectedBoard);
+ }
+ if (entityFilter) {
+ params.append("entity_id", entityFilter);
  }
  if (filterLanguage && filterLanguage !== "all") {
  params.append("language", filterLanguage);

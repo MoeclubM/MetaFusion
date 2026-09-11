@@ -165,9 +165,9 @@ export default function WorkDirectoryPage() {
  useEffect(() => {
  if (!workId) return;
  loadWork();
- // 关联讨论取该作品的论坛主题（论坛已恢复为本站自建的独立系统）。
- fetchApi<{ items: CommunityPost[] }>(`/community/topics?entity_id=${workId}&limit=5`)
- .then((r) => setTopics(r.items || []))
+ // 关联评论：展示该作品下的评论（与论坛主题区分——评论锚定条目，主题独立成文）。
+ fetchApi<{ items: CommunityPost[] }>(`/community/entities/${workId}/posts`)
+ .then((r) => setTopics((r.items || []).slice(0, 5)))
  .catch(() => {});
  }, [workId]);
 
@@ -518,7 +518,7 @@ export default function WorkDirectoryPage() {
  <span>{t("work.detail.relatedTopics")}</span>
  <span className="text-sm font-normal text-gray-500">({topics.length})</span>
  </h3>
- <Link href={`/community?entity_id=${workId}`} className="text-sm text-primary hover:underline inline-flex items-center gap-0.5">
+ <Link href={`/community?entity_id=${workId}&board_code=comment`} className="text-sm text-primary hover:underline inline-flex items-center gap-0.5">
  <span>{t("work.detail.enterForum")}</span>
  <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
  </Link>
@@ -527,11 +527,12 @@ export default function WorkDirectoryPage() {
  <p className="text-sm text-gray-500 mt-2">{t("work.detail.noRelatedTopics")}</p>
  ) : (
  <div className="divide-y divide-black/5 dark:divide-white/[0.06] mt-2">
- {topics.slice(0, 3).map((t) => (
- <Link key={t.id} href={`/community/${t.id}`} className="py-2.5 flex items-start justify-between gap-3 px-2.5 rounded-md hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors">
- <span className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2 min-w-0">{t.body}</span>
- <span className="text-xs text-gray-500 shrink-0">{t.created_at ? new Date(t.created_at).toLocaleDateString() : ""}</span>
- </Link>
+ {/* 评论就地展示，不跳"文章页"——评论与论坛主题是两类东西。 */}
+ {topics.slice(0, 3).map((c) => (
+ <div key={c.id} className="py-2.5 flex items-start justify-between gap-3 px-2.5">
+ <span className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2 min-w-0">{c.body}</span>
+ <span className="text-xs text-gray-500 shrink-0">{c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</span>
+ </div>
  ))}
  </div>
  )}

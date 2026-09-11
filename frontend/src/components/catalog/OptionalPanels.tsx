@@ -5,9 +5,6 @@ import { useCatalog } from "./CatalogProvider";
 import { getStorageEntityUrl } from "@/lib/services";
 import { useI18n } from "@/i18n/I18nProvider";
 const ResourcePanel = dynamic(() => import("./ResourcePanel"));
-const CommunityPanel = dynamic(() =>
-  import("./RecordPanels").then((m) => m.CommunityPanel),
-);
 const PersonalPanel = dynamic(() =>
   import("./RecordPanels").then((m) => m.PersonalPanel),
 );
@@ -27,7 +24,6 @@ export function OptionalPanels({ entity }: { entity: Entity }) {
           </a>
         </div>
       )}{" "}
-      {enabled("community") && <CommunityPanel entity={entity} />}{" "}
       {user && enabled("records") && <PersonalPanel entity={entity} />}
     </>
   );
