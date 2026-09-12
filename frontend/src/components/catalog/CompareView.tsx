@@ -7,6 +7,7 @@ import { api, Entity, mapLimit, local, title } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { FieldValue, EntityLink, ErrorMessage } from "./Fields";
 import { useDefinitions, getFieldName, getTermName } from "@/lib/definitions";
+import { computeAlignment } from "./compareAlignment";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowRightLeft,
@@ -229,74 +230,10 @@ export function Compare({ ids }: { ids: string }) {
     };
   }, [expressionIds.join(",")]);
 
-  const alignment = useMemo(() => {
-    const perExpr = new Map<string, { releaseIndex: number }[]>();
-    items.forEach((x, releaseIndex) => {
-      for (const m of x.media || []) {
-        for (const tr of m.tracks || []) {
-          for (const c of tr.contents || []) {
-            if (!c.expression_id) continue;
-            const list = perExpr.get(c.expression_id) || [];
-            list.push({ releaseIndex });
-            perExpr.set(c.expression_id, list);
-          }
-        }
-      }
-    });
-    const n = items.length;
-    const shared: string[] = [];
-    const partial: { id: string; in: number[] }[] = [];
-    const byWork = new Map<string, Set<string>>();
-    Array.from(perExpr.entries()).forEach(([id, occs]) => {
-      const inSet = Array.from(new Set(occs.map((o) => o.releaseIndex))).sort((a, b) => a - b);
-      if (inSet.length === n) shared.push(id);
-      else partial.push({ id, in: inSet });
-      const wid = exprEntities[id]?.work_id;
-      if (wid) {
-        const s = byWork.get(wid) || new Set<string>();
-        s.add(id);
-        byWork.set(wid, s);
-      }
-    });
-    const workVariants: { workId: string; ids: string[] }[] = [];
-    Array.from(byWork.entries()).forEach(([workId, ids]) => {
-      if (ids.size > 1) workVariants.push({ workId, ids: Array.from(ids) });
-    });
-    // 仅载体差异：收录的表达集合一致，但介质构成（格式/盘数/轨数）不同。
-    const fingerprintOf = (x: any) => {
-      const exprs = new Set<string>();
-      const formats: string[] = [];
-      let tracks = 0;
-      for (const m of x.media || []) {
-        formats.push(String(m.medium.attributes?.format || "").trim());
-        tracks += (m.tracks || []).length;
-        for (const tr of m.tracks || []) {
-          for (const c of tr.contents || []) {
-            if (c.expression_id) exprs.add(c.expression_id);
-          }
-        }
-      }
-      return { exprs, structure: `${formats.sort().join("+")}/${(x.media || []).length}M/${tracks}T` };
-    };
-    const carrierOnly: [number, number][] = [];
-    for (let i = 0; i < items.length; i++) {
-      for (let j = i + 1; j < items.length; j++) {
-        const a = fingerprintOf(items[i]);
-        const b = fingerprintOf(items[j]);
-        if (a.structure === b.structure || a.exprs.size !== b.exprs.size) continue;
-        let same = true;
-        Array.from(a.exprs).some((id) => {
-          if (!b.exprs.has(id)) {
-            same = false;
-            return true;
-          }
-          return false;
-        });
-        if (same) carrierOnly.push([i, j]);
-      }
-    }
-    return { perExpr, shared, partial, workVariants, carrierOnly };
-  }, [items, exprEntities]);
+  const alignment = useMemo(
+    () => computeAlignment(items, exprEntities),
+    [items, exprEntities],
+  );
 
   const renderAttrValue = (key: string, value: unknown): string => {
     if (value == null || value === "") return "—";
@@ -747,8 +684,8 @@ export function Compare({ ids }: { ids: string }) {
                     {t("catalog.compareWorkVariants")} · {alignment.workVariants.length}
                   </h3>
                   <ul className="space-y-1.5 m-0 p-0 list-none">
-                    {alignment.workVariants.map(({ workId, ids }) => (
-                      <li key={workId} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs">
+                    {alignment.workVariants.map(({ contentKey, ids }) => (
+                      <li key={contentKey} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs">
                         {ids.map((id) => (
                           <span key={id} className="inline-flex items-baseline gap-1">
                             <span className="font-medium text-foreground">
@@ -780,6 +717,26 @@ export function Compare({ ids }: { ids: string }) {
                     ))}
                   </ul>
                 </div>
+              )}
+              {/* 引用同一表达但收录范围/重复/顺序不同（如完整录音 vs 片段）：
+                  这不是"仅载体差异"，必须单独指出。 */}
+              {alignment.rangeDiffer.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.compareRangeDiffer")}
+                  </h3>
+                  <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
+                    {alignment.rangeDiffer.map(([i, j]) => (
+                      <li key={`${i}-${j}`}>
+                        {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {/* 身份元数据解析不全时不下结论，明确提示人工确认。 */}
+              {alignment.pendingConfirm && (
+                <p className="m-0 text-xs text-amber-700 dark:text-amber-300">{t("catalog.comparePendingConfirm")}</p>
               )}
             </div>
           )}
