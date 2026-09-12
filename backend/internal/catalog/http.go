@@ -702,10 +702,18 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.Occurrences(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, gin.H{"items": v}, err)
 	})
-	// 发行详情页批量上屏：一次取多条表达实体 + 收录 + 署名，替代逐条四类 N+1 请求。
-	cat.GET("/expressions/details", routeLimiter(120), func(c *gin.Context) {
+	// 发行详情页批量上屏：一次取多条表达实体 + 自身收录 + 同篇目兄弟收录 + 署名，
+	// 替代逐条四类 N+1 请求。用 POST + JSON body 传 ids：300 个 UUID 拼进 GET
+	// query 约 11KB，会超过 Nginx 默认 8KB 请求行限制。
+	cat.POST("/expressions/details", routeLimiter(120), func(c *gin.Context) {
+		var in struct {
+			IDs []string `json:"ids"`
+		}
+		if !body(c, &in) {
+			return
+		}
 		ids := []string{}
-		for _, id := range strings.Split(c.Query("ids"), ",") {
+		for _, id := range in.IDs {
 			if id = strings.TrimSpace(id); id != "" {
 				ids = append(ids, id)
 			}

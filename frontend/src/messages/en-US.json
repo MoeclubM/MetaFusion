@@ -2498,6 +2498,8 @@
   "release.detail.sameRecordingTrack": "Position",
   "release.detail.sameRecordingEmpty": "No reverse inclusion data",
   "release.detail.sameUnitSiblings": "{count} other inclusion(s) for the same entry",
+  "release.detail.moreOccurrences": "{count} more inclusion(s) not shown",
+  "release.detail.occurrencesLoadFailed": "Inclusion data failed to load for {count} expression(s).",
   "release.detail.attachments": "Package attachments",
   "release.detail.storeBonuses": "Retailer bonuses",
   "release.detail.releaseEvents": "Release events",
