@@ -24,6 +24,15 @@ func stubBangumi(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":11,"name":"小鸟游","name_cn":"","summary":"角色","images":{"large":""}}`))
 	})
+	// 分集端点：subject 7 有两话本篇。其它 subject 返回空列表，表示无分集。
+	mux.HandleFunc("/v0/episodes", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Query().Get("subject_id") != "7" {
+			_, _ = w.Write([]byte(`{"data":[],"total":0}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"data":[{"id":101,"type":0,"name":"第一话","name_cn":"第一话","sort":1,"ep":1,"duration":"24m"},{"id":102,"type":0,"name":"第二話","name_cn":"第二话","sort":2,"ep":2,"duration":"24m"}],"total":2}`))
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(func() {
 		srv.Close()
@@ -387,5 +396,85 @@ func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
 	}
 	if isrcOf["幕间映像"] != "JPB992600010" {
 		t.Fatalf("ISRC not stored on track attributes: %v", isrcOf)
+	}
+}
+
+// TestImporterPreviewEpisodes：动画条目预览应带分集 canonical entries
+// （entry_kind=content_unit、带官方集号与来源时长），无分集的条目为空。
+// Preview 只走上游 HTTP、不触库，因此无需数据库夹具。
+func TestImporterPreviewEpisodes(t *testing.T) {
+	stubBangumi(t)
+	s := &Store{}
+	ctx := context.Background()
+
+	work, err := s.Preview(ctx, "bangumi", "7", "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(work.CanonicalEntries) != 2 {
+		t.Fatalf("expected 2 episode entries, got %d", len(work.CanonicalEntries))
+	}
+	first := work.CanonicalEntries[0]
+	if first.EntryKind != "content_unit" || first.Number != "1" || first.Title != "第一话" {
+		t.Fatalf("bad episode entry: %+v", first)
+	}
+	if first.DurationSeconds != 24*60 {
+		t.Fatalf("episode duration not parsed: %v", first.DurationSeconds)
+	}
+	if work.CanonicalEntries[1].Number != "2" {
+		t.Fatalf("second episode number wrong: %+v", work.CanonicalEntries[1])
+	}
+}
+
+// TestImporterImportEpisodeTree：分集导入应落 ContentUnit 树并通过 work_id 归属，
+// 且曲目命中篇目标题时表达挂到该单元下；重复导入不重复建篇目。
+func TestImporterImportEpisodeTree(t *testing.T) {
+	stubBangumi(t)
+	f := newFixture(t)
+	ctx := context.Background()
+
+	work, err := f.s.Preview(ctx, "bangumi", "7", "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := ImporterImportRequest{
+		EntityType: "work",
+		Source:     "bangumi",
+		URLOrID:    "https://bgm.tv/subject/7",
+		Work: &ImporterWorkPreview{
+			Title: "测试作品", OriginalTitle: "テスト作品", OriginalLanguage: "ja",
+			CatalogMetadata: map[string]any{"bangumi_type": float64(2)},
+		},
+		// 无 Mediums：只建章节树，验证 content_unit 归属。
+		CanonicalEntries: work.CanonicalEntries,
+		EditNote:         "分集导入测试",
+		SourceURLs:       []string{"https://bgm.tv/subject/7"},
+	}
+	out, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.ImportedCounts.ContentUnits != 2 {
+		t.Fatalf("expected 2 content units, got %d", out.ImportedCounts.ContentUnits)
+	}
+	units := mustList(t, f, ListOptions{Kind: "content_unit", WorkID: out.WorkID})
+	if len(units) != 2 {
+		t.Fatalf("expected 2 content units in store, got %d", len(units))
+	}
+	for _, u := range units {
+		if u.WorkID != out.WorkID {
+			t.Fatalf("content unit not scoped to work: %+v", u)
+		}
+	}
+	// 重复导入：篇目按标题复用，不重复建。
+	again, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.WorkID != out.WorkID {
+		t.Fatalf("idempotency broken: %s != %s", again.WorkID, out.WorkID)
+	}
+	if n := len(mustList(t, f, ListOptions{Kind: "content_unit", WorkID: out.WorkID})); n != 2 {
+		t.Fatalf("duplicate content units created: %d", n)
 	}
 }
