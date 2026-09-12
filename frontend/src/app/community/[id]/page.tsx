@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
 import { UserRoleBadge } from "@/lib/roles";
-import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl } from "@/lib/api";
+import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), {
   loading: () => <div className="h-4 my-1.5 rounded bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />,
@@ -183,32 +183,20 @@ export default function TopicDetailPage() {
  {topic.title}
  </h1>
 
- {/* Linked Work Reference Banner */}
- {topic.work && (
+ {/* 锚定实体横幅：标题与 kind 由后端经模块边界补齐，未锚定则不渲染 */}
+ {topic.entity_id && topic.entity_title && (
  <div className="p-4 rounded-lg bg-surface border border-surfaceBorder flex items-center justify-between gap-4">
  <div className="flex items-center space-x-3 truncate">
- {topic.work.cover_image_url && (
- <img
- src={topic.work.cover_image_url}
- alt={topic.work.title}
- className="w-10 h-14 object-cover rounded border border-surfaceBorder flex-shrink-0"
- />
- )}
  <div className="truncate">
  <span className="text-xs font-mono text-emerald-400 block">
  {t("community.linkedWork")}
  </span>
- <strong className="text-white text-sm block truncate">{topic.work.title}</strong>
- {topic.work.tags && topic.work.tags.length > 0 && (
- <span className="text-xs text-gray-500 font-mono">
- {topic.work.tags.slice(0, 3).map((tg: { name: string }) => `#${tg.name}`).join(" ")}
- </span>
- )}
+ <strong className="text-white text-sm block truncate">{topic.entity_title}</strong>
  </div>
  </div>
 
  <Link
- href={`/works/${topic.work.id}`}
+ href={catalogEntityHref(topic.entity_kind || "work", topic.entity_id)}
  className="px-3 py-1.5 rounded bg-background hover:bg-surfaceBorder border border-surfaceBorder text-gray-300 hover:text-white flex items-center space-x-1 flex-shrink-0 transition-colors"
  >
  <span>{t("community.viewArchive")}</span>
