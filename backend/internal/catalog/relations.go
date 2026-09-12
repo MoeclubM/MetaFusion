@@ -180,10 +180,14 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 		}
 		r.Close()
 	}
-	if err = link2("release", "SELECT release_id::text, work_id::text, role, position FROM catalog.release_subjects WHERE release_id", func(r *sql.Rows) error {
+	if err = link2("release", "SELECT release_id::text, work_id::text, role, position, attributes FROM catalog.release_subjects WHERE release_id", func(r *sql.Rows) error {
 		var rid string
 		var x Subject
-		if err := r.Scan(&rid, &x.WorkID, &x.Role, &x.Position); err != nil {
+		var attrs []byte
+		if err := r.Scan(&rid, &x.WorkID, &x.Role, &x.Position, &attrs); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(attrs, &x.Attributes); err != nil {
 			return err
 		}
 		if cur, ok := out[rid]; ok && cur.Kind == "release" {
