@@ -1407,6 +1407,8 @@
   "importer.defaultEditNote": "透過 OmniSource Importer 權威資料來源 ({source}) 快速一鍵匯入入庫",
   "importer.matchExistingExpression": "匹配已有錄音/正文",
   "importer.matchNone": "不匹配（新建）",
+  "importer.matchSuggestion": "疑似同名：{title}",
+  "importer.matchSuggestionHint": "系統不再依標題自動合併；確認後才重用該表達，否則新建。",
   "importer.placeholderMusicbrainz": "輸入 Release / Release-Group / Artist / Label MBID 或完整連結…",
   "importer.placeholderTmdb": "輸入電影／劇集／人物／公司 ID 或 themoviedb.org 連結…",
   "importer.placeholderBangumi": "輸入 Bangumi 條目 ID (subject/...)、人物 ID (person/...) 或角色 ID (character/...)...",

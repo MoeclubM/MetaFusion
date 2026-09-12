@@ -50,3 +50,30 @@ func TestImporterReleaseAttrsOnlyKnownFields(t *testing.T) {
 		t.Fatalf("release attrs rejected: %v", err)
 	}
 }
+
+// 发行版本签名：同一份载荷重试必须得到同一子键（幂等补齐），
+// 追加另一个版本必须得到不同子键（不误并）。
+func TestImporterReleaseVariantKey(t *testing.T) {
+	base := "bangumi:subject:7:release"
+	rel := &ImporterReleasePreview{EditionName: "初回版"}
+	disc1 := []ImporterMediumPreview{{Position: 0, Name: "Disc 1", Format: "cd", Tracks: []ImporterTrackPreview{{Position: 1, Title: "第一话", ISRC: "JPX001"}}}}
+	disc2 := []ImporterMediumPreview{{Position: 0, Name: "Disc 2", Format: "dvd", Tracks: []ImporterTrackPreview{{Position: 1, Title: "第一话"}}}}
+
+	k1 := importerReleaseVariantKey(base, rel, disc1)
+	if k1 == "" || k1 == base {
+		t.Fatalf("variant key must be derived from base: %q", k1)
+	}
+	if again := importerReleaseVariantKey(base, rel, disc1); again != k1 {
+		t.Fatalf("same payload must yield same variant key: %q vs %q", again, k1)
+	}
+	if other := importerReleaseVariantKey(base, rel, disc2); other == k1 {
+		t.Fatalf("different medium payload must yield different key: %q", other)
+	}
+	if renamed := importerReleaseVariantKey(base, &ImporterReleasePreview{EditionName: "通常版"}, disc1); renamed == k1 {
+		t.Fatalf("different edition name must yield different key: %q", renamed)
+	}
+	// 无来源幂等键时不做幂等：返回空串。
+	if empty := importerReleaseVariantKey("", rel, disc1); empty != "" {
+		t.Fatalf("empty base must stay empty, got %q", empty)
+	}
+}

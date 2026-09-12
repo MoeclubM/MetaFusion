@@ -1407,6 +1407,8 @@
   "importer.defaultEditNote": "Imported via OmniSource Importer from {source}",
   "importer.matchExistingExpression": "Match existing recording/text",
   "importer.matchNone": "No match (create new)",
+  "importer.matchSuggestion": "Possible match: {title}",
+  "importer.matchSuggestionHint": "Titles no longer merge automatically; reuse only after you confirm, otherwise a new expression is created.",
   "importer.placeholderMusicbrainz": "Enter Release, Release-Group, Artist, or Label MBID or full URL...",
   "importer.placeholderTmdb": "Enter Movie, TV, Person, or Company ID or themoviedb.org URL...",
   "importer.placeholderBangumi": "Enter Bangumi Subject ID (subject/...), Person ID (person/...), or Character ID (character/...)...",

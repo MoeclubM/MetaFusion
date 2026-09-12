@@ -308,8 +308,8 @@ func mustList(t *testing.T, f fixture, o ListOptions) []Entity {
 }
 
 // TestImporterImportMultiDiscExpressionMatching：多盘发行的表达对齐。
-// 跨盘同轨号不再误判为同一内容（旧实现按 position 盲对齐）；
-// 同名曲跨盘复用同一表达；曲目携带的外部编号/ISRC 参与对齐并落库。
+// 跨盘同轨号不再误判为同一内容；同一份载荷内声明的 canonical 表达按唯一同名绑定；
+// 曲目携带的 ISRC 落录音本体（expression.external_ids），不写 track.attributes。
 func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
 	stubBangumi(t)
 	f := newFixture(t)
@@ -370,7 +370,6 @@ func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
 		t.Fatalf("expected 4 tracks, got %d", len(tracks))
 	}
 	exprOf := map[string]string{}
-	isrcOf := map[string]string{}
 	for _, tr := range tracks {
 		full, err := f.s.Get(ctx, tr.ID, &f.u)
 		if err != nil {
@@ -380,8 +379,9 @@ func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
 			t.Fatalf("track %q has %d contents, want 1", full.Title, len(full.Contents))
 		}
 		exprOf[full.Title] = full.Contents[0].ExpressionID
-		if v, ok := full.Attributes["isrc"]; ok {
-			isrcOf[full.Title] = v.(string)
+		// ISRC 属于录音本体，不再写进 track.attributes（track 定义只有 duration/role）。
+		if _, ok := full.Attributes["isrc"]; ok {
+			t.Fatalf("ISRC must not be stored on track.attributes: %v", full.Attributes)
 		}
 	}
 	// 跨盘同名曲复用同一表达。
@@ -394,8 +394,14 @@ func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
 	if exprOf["幕间映像"] != exprIDByTitle["幕间映像"] {
 		t.Fatalf("幕间映像 linked to unexpected expression: %q", exprOf["幕间映像"])
 	}
-	if isrcOf["幕间映像"] != "JPB992600010" {
-		t.Fatalf("ISRC not stored on track attributes: %v", isrcOf)
+	// ISRC 应落在新建表达的 external_ids 上，供后续权威匹配复用。
+	for _, e := range exprs {
+		if e.Title != "幕间映像" {
+			continue
+		}
+		if e.ExternalIDs["isrc"] != "JPB992600010" {
+			t.Fatalf("ISRC not stored on expression external_ids: %v", e.ExternalIDs)
+		}
 	}
 }
 

@@ -39,6 +39,7 @@ import {
   Work,
   Artist,
 } from "@/lib/api";
+import { fetchAllPages } from "@/components/catalog/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
@@ -63,6 +64,23 @@ function entryDepth(entries: { parent_index?: number }[], index: number): number
     cur = entries[cur]?.parent_index;
   }
   return depth;
+}
+
+// 标题规范化仅用于"建议"排序：后端不再按标题自动合并身份（同名录音室版/现场版
+// 会被误并），这里只把同名的既有表达排到前面供人工确认，不自动选中。
+function normalizeTitleKey(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// suggestExpression：在既有表达中按标题相等优先挑一个候选，供用户一键确认。
+function suggestExpression(
+  title: string,
+  expressions: { id: string; title: string }[],
+): { id: string; title: string } | null {
+  const key = normalizeTitleKey(title);
+  if (!key) return null;
+  const exact = expressions.find((ex) => normalizeTitleKey(ex.title) === key);
+  return exact || null;
 }
 
 export function OmniImportModal({
@@ -133,11 +151,13 @@ export function OmniImportModal({
       return;
     }
     let active = true;
-    fetchApi<{ items: { id: string; title: string }[] }>(
-      `/catalog/entities?kind=expression&work_id=${encodeURIComponent(workId)}&limit=200`,
+    // 用 fetchAllPages 翻页取全：列表端点的 limit 上限为 100，写死 limit=200 会被
+    // 收敛为 50，导致候选下拉只显示前 50 条。
+    fetchAllPages<{ id: string; title: string }>(
+      `/catalog/entities?kind=expression&work_id=${encodeURIComponent(workId)}`,
     )
-      .then((r) => {
-        if (active) setWorkExpressions(r?.items || []);
+      .then((items) => {
+        if (active) setWorkExpressions(items);
       })
       .catch(() => {
         if (active) setWorkExpressions([]);
@@ -872,21 +892,41 @@ export function OmniImportModal({
                             </span>
                           )}
                           {entry.entry_role && <span className="text-xs text-gray-500">{t(`catalog.contents.role.${entry.entry_role}`)}</span>}
-                          {!isUnit && workExpressions.length > 0 && (
-                            <select
-                              value={entryMatches[index] || ""}
-                              onChange={(e) =>
-                                setEntryMatches((prev) => ({ ...prev, [index]: e.target.value }))
-                              }
-                              aria-label={t("importer.matchExistingExpression")}
-                              className="ml-auto shrink-0 max-w-[46%] px-1.5 py-0.5 rounded border border-black/10 dark:border-white/15 bg-surface text-[11px] text-gray-700 dark:text-gray-300"
-                            >
-                              <option value="">{t("importer.matchNone")}</option>
-                              {workExpressions.map((ex) => (
-                                <option key={ex.id} value={ex.id}>{ex.title}</option>
-                              ))}
-                            </select>
-                          )}
+                          {!isUnit && workExpressions.length > 0 && (() => {
+                            const suggestion = suggestExpression(
+                              pickRecordTitle(locale, entry.translations, entry.title),
+                              workExpressions,
+                            );
+                            // 仅在用户尚未选择、且存在同名候选时给出建议；点击才写入绑定。
+                            const showSuggest = suggestion && !entryMatches[index] && suggestion.id !== entry.expression_id;
+                            return (
+                              <>
+                                {showSuggest && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEntryMatches((prev) => ({ ...prev, [index]: suggestion.id }))}
+                                    title={t("importer.matchSuggestionHint")}
+                                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+                                  >
+                                    <span>{t("importer.matchSuggestion", { title: suggestion.title })}</span>
+                                  </button>
+                                )}
+                                <select
+                                  value={entryMatches[index] || ""}
+                                  onChange={(e) =>
+                                    setEntryMatches((prev) => ({ ...prev, [index]: e.target.value }))
+                                  }
+                                  aria-label={t("importer.matchExistingExpression")}
+                                  className="ml-auto shrink-0 max-w-[46%] px-1.5 py-0.5 rounded border border-black/10 dark:border-white/15 bg-surface text-[11px] text-gray-700 dark:text-gray-300"
+                                >
+                                  <option value="">{t("importer.matchNone")}</option>
+                                  {workExpressions.map((ex) => (
+                                    <option key={ex.id} value={ex.id}>{ex.title}</option>
+                                  ))}
+                                </select>
+                              </>
+                            );
+                          })()}
                         </li>
                       );
                     })}

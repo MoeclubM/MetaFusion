@@ -1533,6 +1533,8 @@ export interface ImporterCanonicalEntryPreview {
   entry_kind?: string;
   /** 同一 canonical_entries 数组内父级下标（章节树），顶层省略或为 -1。 */
   parent_index?: number;
+  /** 手工匹配的既有表达（可跨 Work），优先于自动对齐。 */
+  expression_id?: string;
 }
 
 export interface ImporterPreviewResponse {
