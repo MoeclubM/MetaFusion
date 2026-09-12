@@ -21,8 +21,6 @@ export function ExternalDatabasesTab() {
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<Partial<ExternalDatabaseDefinition>>({
     code: "",
-    name_zh: "",
-    name_en: "",
     names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
     category: "all",
     url_pattern: "",
@@ -54,8 +52,6 @@ export function ExternalDatabasesTab() {
   const handleOpenCreate = () => {
     setForm({
       code: "",
-      name_zh: "",
-      name_en: "",
       names: { "zh-CN": "", "zh-TW": "", "ja-JP": "", "en-US": "" },
       category: "all",
       url_pattern: "",
@@ -73,14 +69,10 @@ export function ExternalDatabasesTab() {
     for (const k of ["zh-CN", "zh-TW", "ja-JP", "en-US"]) {
       if (!(k in initialNames)) initialNames[k] = "";
     }
-    if (!initialNames["zh-CN"] && item.name_zh) initialNames["zh-CN"] = item.name_zh;
-    if (!initialNames["en-US"] && item.name_en) initialNames["en-US"] = item.name_en;
 
     setEditingItem(item);
     setForm({
       code: item.code,
-      name_zh: item.name_zh,
-      name_en: item.name_en,
       names: initialNames,
       category: item.category,
       url_pattern: item.url_pattern,
@@ -95,7 +87,7 @@ export function ExternalDatabasesTab() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    // names map 全语言回写：zh-CN/en-US 必填，zh-TW/ja-JP 选填；legacy 双列仅作回退。
+    // names 全语言回写：zh-CN/en-US 必填，zh-TW/ja-JP 选填。
     const names = { ...(form.names || {}) };
     const nameZh = (names["zh-CN"] || "").trim();
     const nameEn = (names["en-US"] || "").trim();
@@ -104,12 +96,7 @@ export function ExternalDatabasesTab() {
       return;
     }
 
-    const payload = {
-      ...form,
-      name_zh: nameZh,
-      name_en: nameEn,
-      names,
-    };
+    const payload = { ...form, names };
 
     try {
       if (editingItem) {
@@ -230,11 +217,7 @@ export function ExternalDatabasesTab() {
 
                   {/* 多语言胶囊展示 */}
                   <td className="py-3 px-4">
-                    <MultilingualBadges
-                      names={item.names}
-                      fallbackZh={item.name_zh}
-                      fallbackEn={item.name_en}
-                    />
+                    <MultilingualBadges names={item.names} />
                   </td>
 
                   {/* 范畴 */}
@@ -347,12 +330,11 @@ export function ExternalDatabasesTab() {
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
                 className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
               >
-                <option value="all">{t("admin.extdb.catAll")}</option>
-                <option value="work">{t("admin.extdb.catWork")}</option>
-                <option value="artist">{t("admin.extdb.catArtist")}</option>
-                <option value="release">{t("admin.extdb.catRelease")}</option>
-                <option value="franchise">{t("admin.extdb.catFranchise")}</option>
-                <option value="canonical_entry">{t("admin.extdb.catCanonical")}</option>
+                {["all", "agent", "collection", "work", "content_unit", "expression", "release", "medium", "track"].map((k) => (
+                  <option key={k} value={k}>
+                    {t(`catalog.kind.${k}`)}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
