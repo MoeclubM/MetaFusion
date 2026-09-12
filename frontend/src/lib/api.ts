@@ -1551,6 +1551,8 @@ export interface ImporterPreviewResponse {
   release?: ImporterReleasePreview | null;
   mediums?: ImporterMediumPreview[];
   tags: string[];
+  /** 来源抓取不完整等告警（如分集 total 与实取不符），前端需提示而非当作完整。 */
+  warnings?: string[];
 }
 
 export interface ImporterImportRequest {

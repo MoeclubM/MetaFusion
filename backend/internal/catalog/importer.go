@@ -193,6 +193,9 @@ type ImporterPreviewResponse struct {
 	Release          *ImporterReleasePreview         `json:"release,omitempty"`
 	Mediums          []ImporterMediumPreview         `json:"mediums,omitempty"`
 	Tags             []string                        `json:"tags"`
+	// Warnings 记录来源抓取不完整等需要人工留意的情况（如分集总数与实取不符），
+	// 前端据此提示，避免把不完整预览当成完整清单落库。
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type ImporterImportRequest struct {
@@ -1055,60 +1058,87 @@ func bangumiDurationSeconds(raw string) float64 {
 // previewBangumiEpisodes 取分集列表并转换成 canonical entries（带 parent_index 树）。
 // 篇目类型（本篇）落 content_unit 且可挂下级；SP/OP/ED 等作为附加内容平铺。
 // 分集无名称时用"第N话"补齐（有来源编号，非虚构题名）。
-func previewBangumiEpisodes(ctx context.Context, subjectID int) []ImporterCanonicalEntryPreview {
+// bangumiEpisodeTypes 是 Bangumi 分集端点的 type 取值：0 本篇、1 特别篇、2 OP、
+// 3 ED、4 预告/宣传、5 MAD、6 其它。固定 type=0 会漏掉 SP/OP/ED 等，因此逐个抓取。
+var bangumiEpisodeTypes = []int{0, 1, 2, 3, 4, 5, 6}
+
+// previewBangumiEpisodes 抓取某条目的分集/篇目。遍历全部 type 并按 episode ID 去重
+// （同一 episode 只落一条，role 由 bangumiEpisodeRole 依 type 决定），
+// 某类抓取失败只跳过该类，不使整体失败。返回值第二项为抓取不完整时的告警。
+func previewBangumiEpisodes(ctx context.Context, subjectID int) ([]ImporterCanonicalEntryPreview, []string) {
 	out := []ImporterCanonicalEntryPreview{}
-	limit, offset := 100, 0
-	for {
-		var resp bangumiEpisodesResponse
-		path := "/v0/episodes?subject_id=" + strconv.Itoa(subjectID) + "&type=0&limit=" + strconv.Itoa(limit) + "&offset=" + strconv.Itoa(offset)
-		if err := fetchBangumi(ctx, path, &resp); err != nil {
-			return out
-		}
-		if len(resp.Data) == 0 {
-			break
-		}
-		for i, ep := range resp.Data {
-			title := strings.TrimSpace(ep.NameCN)
-			if title == "" {
-				title = strings.TrimSpace(ep.Name)
+	warnings := []string{}
+	seen := map[int]bool{}
+	for _, epType := range bangumiEpisodeTypes {
+		limit, offset := 100, 0
+		fetched := 0
+		expected := -1
+		failed := false
+		for {
+			var resp bangumiEpisodesResponse
+			path := "/v0/episodes?subject_id=" + strconv.Itoa(subjectID) + "&type=" + strconv.Itoa(epType) + "&limit=" + strconv.Itoa(limit) + "&offset=" + strconv.Itoa(offset)
+			if err := fetchBangumi(ctx, path, &resp); err != nil {
+				failed = true
+				break
 			}
-			number := ""
-			if ep.Ep > 0 {
-				number = strconv.FormatFloat(ep.Ep, 'f', -1, 64)
-			} else if ep.Sort > 0 {
-				number = strconv.FormatFloat(ep.Sort, 'f', -1, 64)
+			if expected < 0 {
+				expected = resp.Total
 			}
-			if title == "" {
-				if number == "" {
+			if len(resp.Data) == 0 {
+				break
+			}
+			for i, ep := range resp.Data {
+				if seen[ep.ID] {
 					continue
 				}
-				title = "第" + number + "话"
+				title := strings.TrimSpace(ep.NameCN)
+				if title == "" {
+					title = strings.TrimSpace(ep.Name)
+				}
+				number := ""
+				if ep.Ep > 0 {
+					number = strconv.FormatFloat(ep.Ep, 'f', -1, 64)
+				} else if ep.Sort > 0 {
+					number = strconv.FormatFloat(ep.Sort, 'f', -1, 64)
+				}
+				if title == "" {
+					if number == "" {
+						continue
+					}
+					title = "第" + number + "话"
+				}
+				pos := int(ep.Sort)
+				if pos <= 0 {
+					pos = offset + i + 1
+				}
+				entry := ImporterCanonicalEntryPreview{
+					Title:           title,
+					Translations:    bangumiTranslationItems(ep.Name, ep.NameCN, ""),
+					Position:        pos,
+					Number:          number,
+					EntryRole:       bangumiEpisodeRole(ep.Type),
+					EntryKind:       "content_unit",
+					DurationSeconds: bangumiDurationSeconds(ep.Duration),
+					ExternalIDs:     map[string]any{"bangumi_episode": ep.ID},
+				}
+				if strings.TrimSpace(ep.NameCN) != "" && strings.TrimSpace(ep.Name) != "" && ep.NameCN != ep.Name {
+					entry.OriginalLanguage = detectJapaneseScript(ep.Name)
+				}
+				seen[ep.ID] = true
+				fetched++
+				out = append(out, entry)
 			}
-			pos := int(ep.Sort)
-			if pos <= 0 {
-				pos = offset + i + 1
+			if len(resp.Data) < limit {
+				break
 			}
-			entry := ImporterCanonicalEntryPreview{
-				Title:           title,
-				Translations:    bangumiTranslationItems(ep.Name, ep.NameCN, ""),
-				Position:        pos,
-				Number:          number,
-				EntryRole:       bangumiEpisodeRole(ep.Type),
-				EntryKind:       "content_unit",
-				DurationSeconds: bangumiDurationSeconds(ep.Duration),
-				ExternalIDs:     map[string]any{"bangumi_episode": ep.ID},
-			}
-			if strings.TrimSpace(ep.NameCN) != "" && strings.TrimSpace(ep.Name) != "" && ep.NameCN != ep.Name {
-				entry.OriginalLanguage = detectJapaneseScript(ep.Name)
-			}
-			out = append(out, entry)
+			offset += limit
 		}
-		if len(resp.Data) < limit {
-			break
+		// 抓取数量与来源声明的 total 不符（含中途失败）→ 明确告警，不静默当作完整。
+		if failed || (expected >= 0 && fetched < expected) {
+			warnings = append(warnings, "bangumi_episodes_incomplete:type="+strconv.Itoa(epType))
 		}
-		offset += limit
 	}
-	return out
+	return out, warnings
 }
 
 func bangumiTitlePair(name, nameCN string) (title, original string) {
@@ -1183,6 +1213,7 @@ func previewBangumiSubject(ctx context.Context, source string, id int) (Importer
 	aliases := sub.bangumiInfoboxAliases(title, original)
 	website := firstNonEmpty(sub.infoboxString("官方网站"), sub.infoboxString("官方網站"), sub.infoboxString("官网"))
 	catalogNo := firstNonEmpty(sub.infoboxString("商品编号"), sub.infoboxString("商品編號"), sub.infoboxString("品番"))
+	canonicalEntries, warnings := previewBangumiEpisodes(ctx, sub.ID)
 	return ImporterPreviewResponse{
 		Source:      source,
 		EntityType:  "work",
@@ -1215,7 +1246,8 @@ func previewBangumiSubject(ctx context.Context, source string, id int) (Importer
 		Artists: previewBangumiSubjectRelations(ctx, sub.ID),
 		// 分集/篇目：动画、剧集类条目有独立分集端点，落 content_unit 树；
 		// 无分集（音乐/书籍等）时为空，前端不展示内容区，不用空数组造假。
-		CanonicalEntries: previewBangumiEpisodes(ctx, sub.ID),
+		CanonicalEntries: canonicalEntries,
+		Warnings:         warnings,
 	}, nil
 }
 
@@ -1389,6 +1421,157 @@ func toEntityTranslations(items []ImporterTranslationItem) map[string]Translatio
 		out[loc] = Translation{Title: title, Summary: it.Summary, Aliases: it.Aliases}
 	}
 	return out
+}
+
+// importerTranslationsFromAny 归一化 canonical entry / 载体预览里的 translations：
+// JSON 往返后可能是 []{locale,title,summary} 数组，也可能是 {locale:{title,summary}} 映射；
+// 两种形态都收敛为 Entity.Translations，非法 locale 与空标题丢弃。
+func importerTranslationsFromAny(v any) map[string]Translation {
+	out := map[string]Translation{}
+	add := func(loc, title, summary string) {
+		loc = strings.TrimSpace(loc)
+		title = strings.TrimSpace(title)
+		if loc == "" || title == "" {
+			return
+		}
+		if _, err := language.Parse(loc); err != nil {
+			return
+		}
+		if _, exists := out[loc]; exists {
+			return
+		}
+		out[loc] = Translation{Title: title, Summary: summary}
+	}
+	switch x := v.(type) {
+	case nil:
+		return out
+	case []ImporterTranslationItem:
+		for _, it := range x {
+			add(it.Locale, it.Title, it.Summary)
+		}
+	case []any:
+		for _, raw := range x {
+			if m, ok := raw.(map[string]any); ok {
+				add(scalarString(m["locale"]), scalarString(m["title"]), scalarString(m["summary"]))
+			}
+		}
+	case map[string]any:
+		for loc, raw := range x {
+			switch e := raw.(type) {
+			case map[string]any:
+				add(loc, scalarString(e["title"]), scalarString(e["summary"]))
+			case string:
+				add(loc, e, "")
+			}
+		}
+	case map[string]Translation:
+		for loc, tr := range x {
+			add(loc, tr.Title, tr.Summary)
+		}
+	}
+	return out
+}
+
+// importerContentUnitIndex 索引既有篇目，供导入复用。以外部标识（如 bangumi_episode）
+// 为第一身份；无来源 ID 时用 (父篇目, 规范化标题) 作键——不再整 Work 按标题去重，
+// 否则"上篇/第一章"与"下篇/第一章"会被误并。
+type importerContentUnitIndex struct {
+	byExternal map[string]string // 外部标识键 -> unit id
+	byParentTitle map[string]string
+	byParentNumber map[string]string
+}
+
+func newImporterContentUnitIndex(units []Entity) *importerContentUnitIndex {
+	idx := &importerContentUnitIndex{byExternal: map[string]string{}, byParentTitle: map[string]string{}, byParentNumber: map[string]string{}}
+	for _, u := range units {
+		for k, v := range u.ExternalIDs {
+			if v = strings.TrimSpace(v); v != "" {
+				idx.byExternal[strings.ToLower(k)+"|"+strings.ToLower(v)] = u.ID
+			}
+		}
+		if tk := normalizeImporterTitleKey(u.Title); tk != "" {
+			key := u.ParentID + "\x00" + tk
+			if _, ok := idx.byParentTitle[key]; !ok {
+				idx.byParentTitle[key] = u.ID
+			}
+		}
+		if num := strings.TrimSpace(u.Number); num != "" {
+			key := u.ParentID + "\x00" + num
+			if _, ok := idx.byParentNumber[key]; !ok {
+				idx.byParentNumber[key] = u.ID
+			}
+		}
+	}
+	return idx
+}
+
+// lookup 按来源 ID → (父, 标题) → (父, 编号) 依次匹配既有篇目。
+func (x *importerContentUnitIndex) lookup(ce ImporterCanonicalEntryPreview, parentID string) (string, bool) {
+	for k, v := range stringScalarMap(ce.ExternalIDs) {
+		if v = strings.TrimSpace(v); v == "" {
+			continue
+		}
+		if id, ok := x.byExternal[strings.ToLower(k)+"|"+strings.ToLower(v)]; ok {
+			return id, true
+		}
+	}
+	if tk := normalizeImporterTitleKey(ce.Title); tk != "" {
+		if id, ok := x.byParentTitle[parentID+"\x00"+tk]; ok {
+			return id, true
+		}
+	}
+	if num := strings.TrimSpace(ce.Number); num != "" {
+		if id, ok := x.byParentNumber[parentID+"\x00"+num]; ok {
+			return id, true
+		}
+	}
+	return "", false
+}
+
+func (x *importerContentUnitIndex) remember(ce ImporterCanonicalEntryPreview, parentID, id string) {
+	for k, v := range stringScalarMap(ce.ExternalIDs) {
+		if v = strings.TrimSpace(v); v != "" {
+			x.byExternal[strings.ToLower(k)+"|"+strings.ToLower(v)] = id
+		}
+	}
+	if tk := normalizeImporterTitleKey(ce.Title); tk != "" {
+		key := parentID + "\x00" + tk
+		if _, ok := x.byParentTitle[key]; !ok {
+			x.byParentTitle[key] = id
+		}
+	}
+	if num := strings.TrimSpace(ce.Number); num != "" {
+		key := parentID + "\x00" + num
+		if _, ok := x.byParentNumber[key]; !ok {
+			x.byParentNumber[key] = id
+		}
+	}
+}
+
+// validateImporterEntryTree 校验 canonical entries 的 parent_index：只允许指向
+// **前面**的条目（顺序即拓扑序，先父后子）。越界、负数、自指、指向后继都报错，
+// 不再静默把节点降为顶层（那会丢失层级且无告警）。
+func validateImporterEntryTree(entries []ImporterCanonicalEntryPreview) error {
+	for i, ce := range entries {
+		if ce.ParentIndex == nil {
+			continue
+		}
+		idx := *ce.ParentIndex
+		if idx < 0 {
+			continue // -1 表示顶层，合法
+		}
+		if idx >= len(entries) {
+			return fmt.Errorf("invalid_parent_index")
+		}
+		if idx >= i {
+			// 指向自身或后继：顺序不构成有效拓扑序（先子后父）。
+			return fmt.Errorf("invalid_parent_index")
+		}
+		if strings.TrimSpace(entries[idx].EntryKind) != "content_unit" {
+			return fmt.Errorf("invalid_parent_index")
+		}
+	}
+	return nil
 }
 
 func originalLanguageOrEmpty(v string) string {
@@ -2026,24 +2209,6 @@ func (s *Store) listWorkExpressions(ctx context.Context, workID string, u *User)
 	return s.ListAll(ctx, ListOptions{Kind: "expression", WorkID: workID}, u)
 }
 
-// attachExpressionToUnit 把既有表达改挂到指定篇目（同 Work 内，由复合外键保证），
-// 供导入时手工匹配后归位；已是目标单元则跳过。
-func (s *Store) attachExpressionToUnit(ctx context.Context, actor User, note string, sources []Source, expressionID, contentUnitID string) error {
-	e, err := s.Get(ctx, expressionID, &actor)
-	if err != nil {
-		return err
-	}
-	if e.Kind != "expression" {
-		return fmt.Errorf("invalid_expression_reference")
-	}
-	if e.ContentUnitID == contentUnitID {
-		return nil
-	}
-	e.ContentUnitID = contentUnitID
-	_, err = s.importerSaveVersioned(ctx, e, e.Version, actor, note, sources)
-	return err
-}
-
 // listWorkContentUnits 取全 work 下既有篇目，供导入按标题去重（同样走 ListAll，
 // 避免 List 的 Limit>100→50 收敛导致只看到前 50 条）。
 func (s *Store) listWorkContentUnits(ctx context.Context, workID string, u *User) ([]Entity, error) {
@@ -2069,6 +2234,30 @@ func (s *Store) createExpression(ctx context.Context, actor User, note string, s
 		Types:         exprTypes,
 		Attributes:    exprAttrs,
 		ExternalIDs:   stringScalarMap(externalIDs),
+	}, actor, note, sources)
+}
+
+// createExpressionWithMeta 从 canonical entry 建表达，除标题/编号/时长/外部编号外
+// 一并落多语言与原语言（旧实现漏掉这些字段，导致预览里已解析的翻译丢失）。
+func (s *Store) createExpressionWithMeta(ctx context.Context, actor User, note string, sources []Source, workID, contentUnitID, title string, ce ImporterCanonicalEntryPreview, pos int) (Entity, error) {
+	exprAttrs := map[string]any{}
+	var exprTypes []string
+	if ce.DurationSeconds > 0 {
+		exprTypes = []string{"expression"}
+		exprAttrs["duration"] = ce.DurationSeconds
+	}
+	return s.importerSave(ctx, Entity{
+		Kind:             "expression",
+		Title:            title,
+		WorkID:           workID,
+		ContentUnitID:    contentUnitID,
+		Number:           strings.TrimSpace(ce.Number),
+		Position:         pos,
+		Types:            exprTypes,
+		Attributes:       exprAttrs,
+		ExternalIDs:      stringScalarMap(ce.ExternalIDs),
+		Translations:     importerTranslationsFromAny(ce.Translations),
+		OriginalLanguage: originalLanguageOrEmpty(ce.OriginalLanguage),
 	}, actor, note, sources)
 }
 
@@ -2178,12 +2367,14 @@ func (s *Store) importerExplicitExpressions(ctx context.Context, actor User, ent
 }
 
 // importerPreflight 在写库前只读校验整份载荷，保证校验失败时零写入：
+//   - 章节树（parent_index）结构合法（顺序即拓扑序）；
 //   - 显式表达引用（canonical entries 与各轨）必须存在且 kind=expression；
 //   - 载荷声明的属性字段码、以及代码将写入的 release/medium/track 属性，
 //     必须属于对应类型字段集（unknown_field 提前暴露）。
-//
-// 章节树（parent_index）由 A5 的统一路径校验，此处不重复处理。
 func (s *Store) importerPreflight(ctx context.Context, actor User, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview) error {
+	if err := validateImporterEntryTree(entries); err != nil {
+		return err
+	}
 	if _, err := s.importerExplicitExpressions(ctx, actor, entries, mediums); err != nil {
 		return err
 	}
@@ -2218,8 +2409,17 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, entries []Imp
 
 // importExpressionsOnly 无发行版时只建表达，不建 release 链；entry_kind=content_unit
 // 的条目先建章节树（parent_index 指父级），下级表达挂到所属单元。
+// 与有发行路径同样先校验树、复用既有篇目（来源 ID/父+标题/父+编号），并写入多语言。
 func (s *Store) importExpressionsOnly(ctx context.Context, actor User, note string, sources []Source, workID string, entries []ImporterCanonicalEntryPreview) (ImporterImportedCounts, error) {
 	counts := ImporterImportedCounts{}
+	if err := validateImporterEntryTree(entries); err != nil {
+		return counts, err
+	}
+	existingUnits, err := s.listWorkContentUnits(ctx, workID, &actor)
+	if err != nil {
+		return counts, err
+	}
+	index := newImporterContentUnitIndex(existingUnits)
 	unitIDs := make([]string, len(entries))
 	for i, ce := range entries {
 		title := strings.TrimSpace(ce.Title)
@@ -2227,31 +2427,35 @@ func (s *Store) importExpressionsOnly(ctx context.Context, actor User, note stri
 			return counts, fmt.Errorf("invalid_payload")
 		}
 		pos := sanitizePosition(ce.Position, i)
+		parent := ""
+		if ce.ParentIndex != nil && *ce.ParentIndex >= 0 && *ce.ParentIndex < len(entries) {
+			parent = unitIDs[*ce.ParentIndex]
+		}
 		if strings.TrimSpace(ce.EntryKind) == "content_unit" {
-			parent := ""
-			if ce.ParentIndex != nil && *ce.ParentIndex >= 0 && *ce.ParentIndex < len(entries) {
-				parent = unitIDs[*ce.ParentIndex]
+			// 重复导入复用：来源 ID 优先，其次 (父篇目, 标题)/(父篇目, 编号)。
+			if existingID, ok := index.lookup(ce, parent); ok {
+				unitIDs[i] = existingID
+				continue
 			}
 			unit, err := s.importerSave(ctx, Entity{
-				Kind:        "content_unit",
-				Title:       title,
-				WorkID:      workID,
-				ParentID:    parent,
-				Number:      strings.TrimSpace(ce.Number),
-				Position:    pos,
-				Types:       []string{"content_unit"},
-				ExternalIDs: stringScalarMap(ce.ExternalIDs),
+				Kind:             "content_unit",
+				Title:            title,
+				WorkID:           workID,
+				ParentID:         parent,
+				Number:           strings.TrimSpace(ce.Number),
+				Position:         pos,
+				Types:            []string{"content_unit"},
+				ExternalIDs:      stringScalarMap(ce.ExternalIDs),
+				Translations:     importerTranslationsFromAny(ce.Translations),
+				OriginalLanguage: originalLanguageOrEmpty(ce.OriginalLanguage),
 			}, actor, note, sources)
 			if err != nil {
 				return counts, err
 			}
 			unitIDs[i] = unit.ID
+			index.remember(ce, parent, unit.ID)
 			counts.ContentUnits++
 			continue
-		}
-		contentUnitID := ""
-		if ce.ParentIndex != nil && *ce.ParentIndex >= 0 && *ce.ParentIndex < len(entries) {
-			contentUnitID = unitIDs[*ce.ParentIndex]
 		}
 		// 手工匹配优先：显式指定的既有表达直接引用（允许跨 Work），
 		// 只建立引用，不改动其原有章节归属。
@@ -2262,7 +2466,7 @@ func (s *Store) importExpressionsOnly(ctx context.Context, actor User, note stri
 			}
 			continue
 		}
-		if _, err := s.createExpression(ctx, actor, note, sources, workID, contentUnitID, title, ce.Number, pos, ce.DurationSeconds, ce.ExternalIDs); err != nil {
+		if _, err := s.createExpressionWithMeta(ctx, actor, note, sources, workID, parent, title, ce, pos); err != nil {
 			return counts, err
 		}
 	}
@@ -2301,6 +2505,10 @@ func importerReleaseVariantKey(base string, rel *ImporterReleasePreview, mediums
 // 交由预览中的候选选择或新建。多盘各自从 1 重排轨号，跨盘绝不按轨号对齐。
 func (s *Store) importReleaseChain(ctx context.Context, actor User, note string, sources []Source, workID, workTitle string, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, releaseKey string) (Entity, ImporterImportedCounts, error) {
 	counts := ImporterImportedCounts{}
+	// 章节树先整体校验（越界/自指/指向后继/父级非篇目都拒绝），再做任何写入。
+	if err := validateImporterEntryTree(entries); err != nil {
+		return Entity{}, counts, err
+	}
 	// 发行链幂等：把传入的基础键按"发行内容签名"具体化为本版本的键，再按它复用。
 	// 同一份载荷重试 → 同键 → 复用已建发行并继续补齐载体/曲目（上次可能中途失败）；
 	// 追加另一个版本（不同版名/载体/曲目）→ 不同键 → 新建发行，不误并。
@@ -2349,11 +2557,13 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 	for _, e := range existingExprs {
 		register(exprCandidate{id: e.ID, number: e.Number, externalIDs: e.ExternalIDs})
 	}
-	// 既有篇目按标题去重：同名篇目（如重复导入）复用，不重复建 ContentUnit。
+	// 既有篇目索引：来源 ID / (父, 标题) / (父, 编号)，与无发行路径同一套去重语义。
 	existingUnits, err := s.listWorkContentUnits(ctx, workID, &actor)
 	if err != nil {
 		return Entity{}, counts, err
 	}
+	unitIndex := newImporterContentUnitIndex(existingUnits)
+	// 曲目挂载只按"本 Work 已建/已复用篇目"的标题匹配（同 Work 内结构归属）。
 	unitByTitle := map[string]string{}
 	for _, u := range existingUnits {
 		if tk := normalizeImporterTitleKey(u.Title); tk != "" {
@@ -2361,14 +2571,6 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 				unitByTitle[tk] = u.ID
 			}
 		}
-	}
-	lookupTitleOnly := func(title string) (string, bool) {
-		if tk := normalizeImporterTitleKey(title); tk != "" {
-			if id, ok := unitByTitle[tk]; ok {
-				return id, true
-			}
-		}
-		return "", false
 	}
 	// 自动复用仅认权威标识：recording_mbid / isrc 等外部编号对得上才复用。
 	// 标题、时长、轨号相近不再自动合并身份（同名录音室版/现场版会被误并），
@@ -2408,7 +2610,7 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 	// （用户已声明"这一条就是那个表达"，属显式绑定而非猜测）。
 	boundByTitle := map[string]string{}
 	// canonical entries：entry_kind=content_unit 的先建章节树（parent_index 指父级），
-	// 其余条目仅在显式引用或权威外部编号命中时复用，否则新建。
+	// 其余条目仅在显式引用或权威外部编号命中时复用，否则新建。树已在进入前校验。
 	unitIDs := make([]string, len(entries))
 	for i, ce := range entries {
 		title := strings.TrimSpace(ce.Title)
@@ -2416,29 +2618,38 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 			return Entity{}, counts, fmt.Errorf("invalid_payload")
 		}
 		pos := sanitizePosition(ce.Position, i)
+		parent := ""
+		if ce.ParentIndex != nil && *ce.ParentIndex >= 0 && *ce.ParentIndex < len(entries) {
+			parent = unitIDs[*ce.ParentIndex]
+		}
 		if strings.TrimSpace(ce.EntryKind) == "content_unit" {
-			if existingID, ok := lookupTitleOnly(title); ok {
+			// 重复导入复用：来源 ID 优先，其次 (父篇目, 标题)/(父篇目, 编号)。
+			if existingID, ok := unitIndex.lookup(ce, parent); ok {
 				unitIDs[i] = existingID
+				if tk := normalizeImporterTitleKey(title); tk != "" {
+					if _, ok := unitByTitle[tk]; !ok {
+						unitByTitle[tk] = existingID
+					}
+				}
 				continue
 			}
-			parent := ""
-			if ce.ParentIndex != nil && *ce.ParentIndex >= 0 && *ce.ParentIndex < len(entries) {
-				parent = unitIDs[*ce.ParentIndex]
-			}
 			unit, err := s.importerSave(ctx, Entity{
-				Kind:        "content_unit",
-				Title:       title,
-				WorkID:      workID,
-				ParentID:    parent,
-				Number:      strings.TrimSpace(ce.Number),
-				Position:    pos,
-				Types:       []string{"content_unit"},
-				ExternalIDs: stringScalarMap(ce.ExternalIDs),
+				Kind:             "content_unit",
+				Title:            title,
+				WorkID:           workID,
+				ParentID:         parent,
+				Number:           strings.TrimSpace(ce.Number),
+				Position:         pos,
+				Types:            []string{"content_unit"},
+				ExternalIDs:      stringScalarMap(ce.ExternalIDs),
+				Translations:     importerTranslationsFromAny(ce.Translations),
+				OriginalLanguage: originalLanguageOrEmpty(ce.OriginalLanguage),
 			}, actor, note, sources)
 			if err != nil {
 				return Entity{}, counts, err
 			}
 			unitIDs[i] = unit.ID
+			unitIndex.remember(ce, parent, unit.ID)
 			if tk := normalizeImporterTitleKey(title); tk != "" {
 				if _, ok := unitByTitle[tk]; !ok {
 					unitByTitle[tk] = unit.ID
@@ -2447,10 +2658,7 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 			counts.ContentUnits++
 			continue
 		}
-		contentUnitID := ""
-		if ce.ParentIndex != nil && *ce.ParentIndex >= 0 && *ce.ParentIndex < len(entries) {
-			contentUnitID = unitIDs[*ce.ParentIndex]
-		}
+		contentUnitID := parent
 		// 手工绑定优先：显式 expression_id 命中既有表达即直接引用（允许跨 Work）。
 		// 只登记绑定，不改动被复用表达原有的章节归属（复用只应建立引用）。
 		if explicit := strings.TrimSpace(ce.ExpressionID); explicit != "" {
@@ -2469,7 +2677,7 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 			registerLocal(cand, title)
 			continue
 		}
-		saved, err := s.createExpression(ctx, actor, note, sources, workID, contentUnitID, title, ce.Number, pos, ce.DurationSeconds, ce.ExternalIDs)
+		saved, err := s.createExpressionWithMeta(ctx, actor, note, sources, workID, contentUnitID, title, ce, pos)
 		if err != nil {
 			return Entity{}, counts, err
 		}

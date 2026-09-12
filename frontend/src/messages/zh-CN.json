@@ -1409,6 +1409,8 @@
   "importer.matchNone": "不匹配（新建）",
   "importer.matchSuggestion": "疑似同名：{title}",
   "importer.matchSuggestionHint": "系统不再按标题自动合并；确认后才复用该表达，否则新建。",
+  "importer.sourceIncompleteEpisodes": "部分分集未能取全，导入内容可能不完整，请核对后再提交。",
+  "importer.sourceIncompleteGeneric": "来源数据可能不完整，请核对后再提交。",
   "importer.placeholderMusicbrainz": "输入 Release / Release-Group / Artist / Label MBID 或完整链接...",
   "importer.placeholderTmdb": "输入电影/剧集/人物/公司 ID 或 themoviedb.org 链接...",
   "importer.placeholderBangumi": "输入 Bangumi 条目 ID (subject/...)、人物 ID (person/...) 或 角色 ID (character/...)...",

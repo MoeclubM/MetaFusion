@@ -24,14 +24,22 @@ func stubBangumi(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":11,"name":"小鸟游","name_cn":"","summary":"角色","images":{"large":""}}`))
 	})
-	// 分集端点：subject 7 有两话本篇。其它 subject 返回空列表，表示无分集。
+	// 分集端点：subject 7 有两话本篇 + 一首 OP（type=2）。其它 subject 返回空列表。
+	// 按 type 分别返回，覆盖"遍历多类型并按 episode id 去重"的行为。
 	mux.HandleFunc("/v0/episodes", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Query().Get("subject_id") != "7" {
 			_, _ = w.Write([]byte(`{"data":[],"total":0}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"data":[{"id":101,"type":0,"name":"第一话","name_cn":"第一话","sort":1,"ep":1,"duration":"24m"},{"id":102,"type":0,"name":"第二話","name_cn":"第二话","sort":2,"ep":2,"duration":"24m"}],"total":2}`))
+		switch r.URL.Query().Get("type") {
+		case "0":
+			_, _ = w.Write([]byte(`{"data":[{"id":101,"type":0,"name":"第一话","name_cn":"第一话","sort":1,"ep":1,"duration":"24m"},{"id":102,"type":0,"name":"第二話","name_cn":"第二话","sort":2,"ep":2,"duration":"24m"}],"total":2}`))
+		case "2":
+			_, _ = w.Write([]byte(`{"data":[{"id":201,"type":2,"name":"オープニング","name_cn":"片头曲","sort":1,"ep":0,"duration":"1m30s"}],"total":1}`))
+		default:
+			_, _ = w.Write([]byte(`{"data":[],"total":0}`))
+		}
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(func() {
@@ -417,8 +425,8 @@ func TestImporterPreviewEpisodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(work.CanonicalEntries) != 2 {
-		t.Fatalf("expected 2 episode entries, got %d", len(work.CanonicalEntries))
+	if len(work.CanonicalEntries) != 3 {
+		t.Fatalf("expected 3 episode entries (2 main + 1 OP), got %d", len(work.CanonicalEntries))
 	}
 	first := work.CanonicalEntries[0]
 	if first.EntryKind != "content_unit" || first.Number != "1" || first.Title != "第一话" {
@@ -429,6 +437,19 @@ func TestImporterPreviewEpisodes(t *testing.T) {
 	}
 	if work.CanonicalEntries[1].Number != "2" {
 		t.Fatalf("second episode number wrong: %+v", work.CanonicalEntries[1])
+	}
+	// OP（type=2）不应被 type=0 的固定查询漏掉，role 应映射为非本篇。
+	var op *ImporterCanonicalEntryPreview
+	for i := range work.CanonicalEntries {
+		if work.CanonicalEntries[i].ExternalIDs["bangumi_episode"] == 201 {
+			op = &work.CanonicalEntries[i]
+		}
+	}
+	if op == nil {
+		t.Fatal("OP episode (type=2) missing from preview")
+	}
+	if op.EntryRole == "main" {
+		t.Fatalf("OP episode role should not be main: %+v", op)
 	}
 }
 
@@ -460,19 +481,19 @@ func TestImporterImportEpisodeTree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out.ImportedCounts.ContentUnits != 2 {
-		t.Fatalf("expected 2 content units, got %d", out.ImportedCounts.ContentUnits)
+	if out.ImportedCounts.ContentUnits != 3 {
+		t.Fatalf("expected 3 content units (2 main + 1 OP), got %d", out.ImportedCounts.ContentUnits)
 	}
 	units := mustList(t, f, ListOptions{Kind: "content_unit", WorkID: out.WorkID})
-	if len(units) != 2 {
-		t.Fatalf("expected 2 content units in store, got %d", len(units))
+	if len(units) != 3 {
+		t.Fatalf("expected 3 content units in store, got %d", len(units))
 	}
 	for _, u := range units {
 		if u.WorkID != out.WorkID {
 			t.Fatalf("content unit not scoped to work: %+v", u)
 		}
 	}
-	// 重复导入：篇目按标题复用，不重复建。
+	// 重复导入：篇目按来源 ID 复用，不重复建。
 	again, err := f.s.Import(ctx, req, f.u)
 	if err != nil {
 		t.Fatal(err)
@@ -480,7 +501,7 @@ func TestImporterImportEpisodeTree(t *testing.T) {
 	if again.WorkID != out.WorkID {
 		t.Fatalf("idempotency broken: %s != %s", again.WorkID, out.WorkID)
 	}
-	if n := len(mustList(t, f, ListOptions{Kind: "content_unit", WorkID: out.WorkID})); n != 2 {
+	if n := len(mustList(t, f, ListOptions{Kind: "content_unit", WorkID: out.WorkID})); n != 3 {
 		t.Fatalf("duplicate content units created: %d", n)
 	}
 }
