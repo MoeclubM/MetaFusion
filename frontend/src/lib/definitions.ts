@@ -57,6 +57,15 @@ export interface RelationDef {
   reverse_names: Record<string, string>;
   source_kinds: string[];
   target_kinds: string[];
+  /** 端点动态类型约束（type code）：为空表示不限。 */
+  source_types?: string[];
+  target_types?: string[];
+  /** 关系可携带的属性字段码（definitions.fields 引用）：后台声明后编辑表单即可填写。 */
+  fields?: string[];
+  symmetric?: boolean;
+  acyclic?: boolean;
+  max_outgoing?: number;
+  max_incoming?: number;
   group: string;
   group_names?: Record<string, string>;
   enabled: boolean;
