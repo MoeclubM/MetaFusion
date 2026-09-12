@@ -1474,7 +1474,9 @@ func importerTranslationsFromAny(v any) map[string]Translation {
 
 // importerContentUnitIndex 索引既有篇目，供导入复用。以外部标识（如 bangumi_episode）
 // 为第一身份；无来源 ID 时用 (父篇目, 规范化标题) 作键——不再整 Work 按标题去重，
-// 否则"上篇/第一章"与"下篇/第一章"会被误并。
+// 否则"上篇/第一章"与"下篇/第一章"会被误并。编号键只在**无 entry_role** 的条目间
+// 生效：本篇与 OP/ED 的集数各自从 1 起算，同父同号不同 role 会被误并（entry_role
+// 未持久化，无法对既有篇目取 role，故带 role 的条目只按外部 ID/标题复用）。
 type importerContentUnitIndex struct {
 	byExternal map[string]string // 外部标识键 -> unit id
 	byParentTitle map[string]string
@@ -1505,7 +1507,7 @@ func newImporterContentUnitIndex(units []Entity) *importerContentUnitIndex {
 	return idx
 }
 
-// lookup 按来源 ID → (父, 标题) → (父, 编号) 依次匹配既有篇目。
+// lookup 按来源 ID → (父, 标题) → (父, 编号，仅无 role 条目) 依次匹配既有篇目。
 func (x *importerContentUnitIndex) lookup(ce ImporterCanonicalEntryPreview, parentID string) (string, bool) {
 	for k, v := range stringScalarMap(ce.ExternalIDs) {
 		if v = strings.TrimSpace(v); v == "" {
@@ -1520,7 +1522,7 @@ func (x *importerContentUnitIndex) lookup(ce ImporterCanonicalEntryPreview, pare
 			return id, true
 		}
 	}
-	if num := strings.TrimSpace(ce.Number); num != "" {
+	if num := strings.TrimSpace(ce.Number); num != "" && strings.TrimSpace(ce.EntryRole) == "" {
 		if id, ok := x.byParentNumber[parentID+"\x00"+num]; ok {
 			return id, true
 		}
@@ -1540,7 +1542,7 @@ func (x *importerContentUnitIndex) remember(ce ImporterCanonicalEntryPreview, pa
 			x.byParentTitle[key] = id
 		}
 	}
-	if num := strings.TrimSpace(ce.Number); num != "" {
+	if num := strings.TrimSpace(ce.Number); num != "" && strings.TrimSpace(ce.EntryRole) == "" {
 		key := parentID + "\x00" + num
 		if _, ok := x.byParentNumber[key]; !ok {
 			x.byParentNumber[key] = id
