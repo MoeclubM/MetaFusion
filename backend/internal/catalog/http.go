@@ -727,7 +727,8 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		v, err := s.ExpressionDetailsBatch(c.Request.Context(), ids, user(c))
-		respond(c, gin.H{"items": v}, err)
+		// 响应含 items（按表达聚合，收录以引用 id 呈现）与共享 entities 表。
+		respond(c, v, err)
 	})
 	cat.GET("/external-databases", func(c *gin.Context) {
 		v, err := s.ListExternalDatabases(c.Request.Context(), c.Query("category"), true)

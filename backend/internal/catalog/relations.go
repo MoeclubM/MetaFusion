@@ -614,22 +614,54 @@ func (s *Store) Occurrences(ctx context.Context, id string, u *User) ([]map[stri
 	return out, nil
 }
 
+// OccurrenceRef 是收录行的引用形态：只带 release/medium/track 的 id，实体本身
+// 放在批量响应的共享 entities 表里。大目录下同一实体被大量收录重复引用，
+// 引用形态避免把完整 Release/Medium/Track 在每条收录里重复传输。
+type OccurrenceRef struct {
+	ReleaseID    string          `json:"release_id"`
+	MediumID     string          `json:"medium_id"`
+	TrackID      string          `json:"track_id"`
+	ExpressionID string          `json:"expression_id"`
+	Position     int             `json:"position"`
+	Locator      json.RawMessage `json:"locator,omitempty"`
+	Attributes   json.RawMessage `json:"attributes,omitempty"`
+}
+
+func occurrenceRef(r occurrenceRow) OccurrenceRef {
+	return OccurrenceRef{
+		ReleaseID:    r.release,
+		MediumID:     r.medium,
+		TrackID:      r.track,
+		ExpressionID: r.expr,
+		Position:     r.pos,
+		Locator:      r.loc,
+		Attributes:   r.attrs,
+	}
+}
+
 // ExpressionDetail 是发行详情页渲染一条表达所需的只读聚合：
 // 表达实体、该表达自身的收录（occurrences）、同篇目其它表达的收录（siblings）、
-// 首个署名（演出/配音/创作）目标标题。
+// 首个署名（演出/配音/创作）目标标题。收录以引用形态返回，实体在共享表中。
 type ExpressionDetail struct {
-	Entity      Entity           `json:"entity"`
-	Occurrences []map[string]any `json:"occurrences"`
-	Siblings    []map[string]any `json:"siblings"`
-	CreditTitle string           `json:"credit_title,omitempty"`
+	Entity      Entity          `json:"entity"`
+	Occurrences []OccurrenceRef `json:"occurrences"`
+	Siblings    []OccurrenceRef `json:"siblings"`
+	CreditTitle string          `json:"credit_title,omitempty"`
+}
+
+// ExpressionDetailsResult 是批量上屏的完整载荷：每条表达只带引用 id，
+// 实体（表达自身 + 收录引用的 release/medium/track）汇总在 Entities 表里。
+type ExpressionDetailsResult struct {
+	Items    map[string]ExpressionDetail `json:"items"`
+	Entities map[string]Entity           `json:"entities"`
 }
 
 // ExpressionDetailsBatch 一次取回多条表达的上屏数据，替代发行页对每条表达
 // 分别请求 entities/:id + occurrences + relations + 对端实体的四类 N+1 请求。
 // 语义与单条端点一致：occurrences 按 kind 解释为该实体自身的收录，
 // siblings 为同篇目兄弟表达的收录；仅返回可见数据。
-func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *User) (map[string]ExpressionDetail, error) {
-	out := map[string]ExpressionDetail{}
+func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *User) (ExpressionDetailsResult, error) {
+	out := ExpressionDetailsResult{Items: map[string]ExpressionDetail{}, Entities: map[string]Entity{}}
 	uniq := []string{}
 	seen := map[string]bool{}
 	for _, id := range ids {
@@ -643,7 +675,7 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 	}
 	ents, err := s.GetManyVisible(ctx, uniq, u)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	if len(ents) == 0 {
 		return out, nil
@@ -655,7 +687,7 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 	for id, e := range ents {
 		self, serr := s.occurrenceScopeExpressionIDs(ctx, e)
 		if serr != nil {
-			return nil, serr
+			return out, serr
 		}
 		selfScopes[id] = self
 		for _, x := range self {
@@ -663,7 +695,7 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 		}
 		sib, berr := s.siblingExpressionIDs(ctx, e)
 		if berr != nil {
-			return nil, berr
+			return out, berr
 		}
 		siblingScopes[id] = sib
 		for _, x := range sib {
@@ -673,7 +705,7 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 	candidateIDs := keysOf(allIDs)
 	rows, err := s.fetchOccurrenceRows(ctx, candidateIDs)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
 	// 批量解析收录行引用的 release/medium/track，不可见者按原语义跳过。
 	need := []string{}
@@ -682,24 +714,33 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 	}
 	got, err := s.getMany(ctx, need, u)
 	if err != nil {
-		return nil, err
+		return out, err
 	}
+	// 收录行只需引用 id；实体统一进共享表 Entities（同一 release/medium/track
+	// 可能被多条收录引用，避免重复传输）。got 已按可见性过滤，直接采用。
 	type matRow struct {
-		expr  string
-		entry map[string]any
+		expr string
+		ref  OccurrenceRef
 	}
 	mat := make([]matRow, 0, len(rows))
 	for _, r := range rows {
-		if entry, ok := occurrenceEntry(r, got); ok {
-			mat = append(mat, matRow{expr: r.expr, entry: entry})
+		if _, ok1 := got[r.release]; !ok1 {
+			continue
 		}
+		if _, ok2 := got[r.medium]; !ok2 {
+			continue
+		}
+		if _, ok3 := got[r.track]; !ok3 {
+			continue
+		}
+		mat = append(mat, matRow{expr: r.expr, ref: occurrenceRef(r)})
 	}
 	// 署名：一次取候选表达的相关关系，按请求表达过滤后取对端标题。
 	creditPeer := map[string]string{}
 	if len(candidateIDs) > 0 {
 		relRows, err := s.DB.QueryContext(ctx, `SELECT source_id::text,target_id::text FROM catalog.relations WHERE type IN ('performed_by','voiced_by','created_by') AND (source_id IN (`+entityPlaceholders(candidateIDs, 1)+`) OR target_id IN (`+entityPlaceholders(candidateIDs, len(candidateIDs)+1)+`)) ORDER BY id`, append(entityArgs(candidateIDs), entityArgs(candidateIDs)...)...)
 		if err != nil {
-			return nil, err
+			return out, err
 		}
 		type edge struct{ src, tgt string }
 		var edges []edge
@@ -707,13 +748,13 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 			var e edge
 			if err = relRows.Scan(&e.src, &e.tgt); err != nil {
 				relRows.Close()
-				return nil, err
+				return out, err
 			}
 			edges = append(edges, e)
 		}
 		if err = relRows.Err(); err != nil {
 			relRows.Close()
-			return nil, err
+			return out, err
 		}
 		relRows.Close()
 		// 对端解析：表达可能是 source 或 target，取另一侧且必须在候选集合内。
@@ -732,7 +773,7 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 		}
 		peers, err := s.GetManyVisible(ctx, peerIDs, u)
 		if err != nil {
-			return nil, err
+			return out, err
 		}
 		for _, e := range edges {
 			if candidate[e.src] {
@@ -751,8 +792,17 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 			}
 		}
 	}
+	// 共享实体表：请求的表达自身 + 收录行引用到的 release/medium/track。
 	for id, e := range ents {
-		detail := ExpressionDetail{Entity: e, Occurrences: []map[string]any{}, Siblings: []map[string]any{}}
+		out.Entities[id] = e
+	}
+	for _, e := range got {
+		if e.ID != "" {
+			out.Entities[e.ID] = e
+		}
+	}
+	for id, e := range ents {
+		detail := ExpressionDetail{Entity: e, Occurrences: []OccurrenceRef{}, Siblings: []OccurrenceRef{}}
 		self := map[string]bool{}
 		for _, x := range selfScopes[id] {
 			self[x] = true
@@ -763,14 +813,14 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 		}
 		for _, mr := range mat {
 			if self[mr.expr] {
-				detail.Occurrences = append(detail.Occurrences, mr.entry)
+				detail.Occurrences = append(detail.Occurrences, mr.ref)
 			}
 			if sib[mr.expr] {
-				detail.Siblings = append(detail.Siblings, mr.entry)
+				detail.Siblings = append(detail.Siblings, mr.ref)
 			}
 		}
 		detail.CreditTitle = creditPeer[id]
-		out[id] = detail
+		out.Items[id] = detail
 	}
 	return out, nil
 }

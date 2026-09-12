@@ -465,7 +465,7 @@ func TestExpressionDetailsBatch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d, ok := out[rec.ID]
+	d, ok := out.Items[rec.ID]
 	if !ok {
 		t.Fatalf("batch missing requested expression: %+v", out)
 	}
@@ -475,13 +475,17 @@ func TestExpressionDetailsBatch(t *testing.T) {
 	if len(d.Occurrences) != 1 {
 		t.Fatalf("expected 1 occurrence, got %d", len(d.Occurrences))
 	}
-	if d.Occurrences[0]["release"].(Entity).ID != rel.ID {
+	// 收录以引用形态返回：实体在共享表中。
+	if d.Occurrences[0].ReleaseID != rel.ID {
 		t.Fatalf("occurrence release mismatch: %+v", d.Occurrences[0])
+	}
+	if out.Entities[rel.ID].Kind != "release" {
+		t.Fatalf("shared entity table missing release: %+v", out.Entities)
 	}
 	if d.CreditTitle != "批量演唱者" {
 		t.Fatalf("credit not aggregated: %q", d.CreditTitle)
 	}
-	if _, present := out["00000000-0000-0000-0000-000000000000"]; present {
+	if _, present := out.Items["00000000-0000-0000-0000-000000000000"]; present {
 		t.Fatal("nonexistent id returned in batch")
 	}
 }
@@ -582,8 +586,8 @@ func TestOccurrencesScopeByKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := out[exprA1.ID]
-	if len(d.Occurrences) != 1 || d.Occurrences[0]["expression_id"].(string) != exprA1.ID {
+	d := out.Items[exprA1.ID]
+	if len(d.Occurrences) != 1 || d.Occurrences[0].ExpressionID != exprA1.ID {
 		t.Fatalf("batch own occurrences wrong: %+v", d.Occurrences)
 	}
 	if len(d.Siblings) != 0 {
@@ -604,11 +608,11 @@ func TestOccurrencesScopeByKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d = out[exprA1.ID]
+	d = out.Items[exprA1.ID]
 	if len(d.Occurrences) != 1 {
 		t.Fatalf("sibling inclusion leaked into own occurrences: %+v", d.Occurrences)
 	}
-	if len(d.Siblings) != 1 || d.Siblings[0]["expression_id"].(string) != exprA2.ID {
+	if len(d.Siblings) != 1 || d.Siblings[0].ExpressionID != exprA2.ID {
 		t.Fatalf("same-unit sibling not reported: %+v", d.Siblings)
 	}
 }
