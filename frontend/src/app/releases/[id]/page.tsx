@@ -192,6 +192,8 @@ export default function ReleaseDetailPage() {
   const [works, setWorks] = useState<Record<string, Entity>>({});
   const [expressions, setExpressions] = useState<Record<string, Entity>>({});
   const [occurrences, setOccurrences] = useState<Record<string, Occurrence[]>>({});
+  // 同篇目其它表达（如同一集的加长版/另一录音）的收录，与自身收录分开展示，避免误读。
+  const [expressionSiblings, setExpressionSiblings] = useState<Record<string, Occurrence[]>>({});
   const [expressionCredits, setExpressionCredits] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -295,8 +297,9 @@ export default function ReleaseDetailPage() {
     (async () => {
       const exprMap: Record<string, Entity> = {};
       const occMap: Record<string, Occurrence[]> = {};
+      const siblingMap: Record<string, Occurrence[]> = {};
       const creditMap: Record<string, string> = {};
-      // 一条批量请求取回表达实体 + 收录（同 Work/篇目）+ 首个署名，
+      // 一条批量请求取回表达实体 + 自身收录 + 同篇目兄弟收录 + 首个署名，
       // 替代原先逐条 entities/:id、occurrences、relations、对端实体四类 N+1 请求。
       // 超过单次上限时分片，仍显著少于逐条请求数。
       const CHUNK = 300;
@@ -304,11 +307,12 @@ export default function ReleaseDetailPage() {
         const slice = expressionIds.slice(i, i + CHUNK);
         try {
           const r = await api<{
-            items: Record<string, { entity: Entity; occurrences: Occurrence[]; credit_title?: string }>;
+            items: Record<string, { entity: Entity; occurrences: Occurrence[]; siblings?: Occurrence[]; credit_title?: string }>;
           }>(`/catalog/expressions/details?ids=${encodeURIComponent(slice.join(","))}`);
           for (const [id, d] of Object.entries(r.items || {})) {
             if (d?.entity) exprMap[id] = d.entity;
             occMap[id] = d?.occurrences || [];
+            siblingMap[id] = d?.siblings || [];
             if (d?.credit_title) creditMap[id] = d.credit_title;
           }
         } catch {
@@ -325,6 +329,7 @@ export default function ReleaseDetailPage() {
       if (cancelled) return;
       setExpressions(exprMap);
       setOccurrences(occMap);
+      setExpressionSiblings(siblingMap);
       setExpressionCredits(creditMap);
     })();
     return () => {
@@ -891,8 +896,9 @@ export default function ReleaseDetailPage() {
                 <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
                   {expressionIds.slice(0, 60).map((exprId) => {
                     const occ = occurrences[exprId] || [];
+                    const sibs = expressionSiblings[exprId] || [];
                     const expr = expressions[exprId];
-                    if (occ.length === 0) {
+                    if (occ.length === 0 && sibs.length === 0) {
                       return (
                         <tr key={exprId}>
                           <td className="py-2 pr-3 text-gray-900 dark:text-white">{expr ? entityTitle(expr, locale) : exprId.slice(0, 8)}</td>
@@ -900,27 +906,46 @@ export default function ReleaseDetailPage() {
                         </tr>
                       );
                     }
-                    return occ.slice(0, 8).map((o, i) => (
-                      <tr key={`${exprId}-${i}`}>
-                        {i === 0 ? (
-                          <td rowSpan={Math.min(occ.length, 8)} className="py-2 pr-3 text-gray-900 dark:text-white align-top">
-                            {expr ? entityTitle(expr, locale) : exprId.slice(0, 8)}
-                          </td>
-                        ) : null}
-                        <td className="py-2 pr-3">
-                          <Link href={`/releases/${o.release.id}`} className="text-primary hover:underline">
-                            {entityTitle(o.release, locale)}
-                          </Link>
-                        </td>
-                        <td className="py-2 pr-3 text-gray-500">{entityTitle(o.medium, locale)}</td>
-                        <td className="py-2 pr-3 font-mono text-gray-500">
-                          #{o.track.number || o.track.position} {entityTitle(o.track, locale)}
-                        </td>
-                        <td className="py-2 text-right font-mono text-gray-500 tabular-nums">
-                          {formatDuration(Number(o.track.attributes?.duration) || 0)}
-                        </td>
-                      </tr>
-                    ));
+                    const shown = occ.slice(0, 8);
+                    const rowSpan = shown.length + (sibs.length > 0 ? 1 : 0);
+                    return (
+                      <React.Fragment key={exprId}>
+                        {shown.map((o, i) => (
+                          <tr key={`${exprId}-${i}`}>
+                            {i === 0 ? (
+                              <td rowSpan={rowSpan} className="py-2 pr-3 text-gray-900 dark:text-white align-top">
+                                {expr ? entityTitle(expr, locale) : exprId.slice(0, 8)}
+                              </td>
+                            ) : null}
+                            <td className="py-2 pr-3">
+                              <Link href={`/releases/${o.release.id}`} className="text-primary hover:underline">
+                                {entityTitle(o.release, locale)}
+                              </Link>
+                            </td>
+                            <td className="py-2 pr-3 text-gray-500">{entityTitle(o.medium, locale)}</td>
+                            <td className="py-2 pr-3 font-mono text-gray-500">
+                              #{o.track.number || o.track.position} {entityTitle(o.track, locale)}
+                            </td>
+                            <td className="py-2 text-right font-mono text-gray-500 tabular-nums">
+                              {formatDuration(Number(o.track.attributes?.duration) || 0)}
+                            </td>
+                          </tr>
+                        ))}
+                        {/* 同篇目其它表达（加长版/另一录音）的收录单列一行，避免与自身收录混读。 */}
+                        {sibs.length > 0 && (
+                          <tr key={`${exprId}-sib`} className="bg-black/[0.015] dark:bg-white/[0.02]">
+                            <td colSpan={4} className="py-1.5 pr-3 text-[11px] text-gray-500">
+                              {t("release.detail.sameUnitSiblings", { count: sibs.length })}
+                              {sibs.slice(0, 3).map((o, i) => (
+                                <span key={`${exprId}-sib-${i}`} className="ml-2 inline-block">
+                                  <Link href={`/releases/${o.release.id}`} className="text-primary hover:underline">{entityTitle(o.release, locale)}</Link>
+                                </span>
+                              ))}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
                   })}
                 </tbody>
               </table>
