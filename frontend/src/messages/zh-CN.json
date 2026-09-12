@@ -2491,6 +2491,7 @@
   "release.detail.sameRecordingMedium": "介质",
   "release.detail.sameRecordingTrack": "位置",
   "release.detail.sameRecordingEmpty": "暂无反向收录数据",
+  "release.detail.sameUnitSiblings": "同篇目另有 {count} 条收录",
   "release.detail.attachments": "包装附件",
   "release.detail.storeBonuses": "渠道特典",
   "release.detail.releaseEvents": "发行事件",
