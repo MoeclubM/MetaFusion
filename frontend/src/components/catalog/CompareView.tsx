@@ -734,6 +734,20 @@ export function Compare({ ids }: { ids: string }) {
                   </ul>
                 </div>
               )}
+              {/* 目录不完整（缺曲目/内容引用）的发行单独列出：这种发行不参与
+                  "内容一致"结论，空内容集合不代表"已确认相同"。 */}
+              {alignment.incomplete.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.compareIncompleteCatalog")}
+                  </h3>
+                  <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
+                    {alignment.incomplete.map((i) => (
+                      <li key={`incomplete-${i}`}>{title(items[i]?.release, locale)}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {/* 身份元数据解析不全时不下结论，明确提示人工确认。 */}
               {alignment.pendingConfirm && (
                 <p className="m-0 text-xs text-amber-700 dark:text-amber-300">{t("catalog.comparePendingConfirm")}</p>
