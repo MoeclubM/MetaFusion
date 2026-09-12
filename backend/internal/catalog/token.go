@@ -57,6 +57,10 @@ type TokenIssuer struct {
 	// revoked 记录已注销的 jti 及其过期时刻。单实例内存实现；多实例部署时应
 	// 换成 Redis 集合，否则注销无法跨实例生效。条目随过期时间被惰性清理。
 	revoked map[string]int64
+	// audiences 是本签发器认可的受众集合：默认受众之外，OIDC id_token 以
+	// client_id 为受众（SignForAudience 签发时登记）。验签按集合判断，
+	// 未登记的受众一律拒绝，防止令牌在 relying party 之间混淆。
+	audiences map[string]bool
 }
 
 func (t *TokenIssuer) clock() time.Time {
@@ -70,7 +74,10 @@ func (t *TokenIssuer) clock() time.Time {
 // 其 base64 编码），支持 PKCS#1 与 PKCS#8。未配置时生成进程内临时密钥：系统
 // 仍可启动并签发/验签，但重启后旧令牌全部失效——双模式的查库兜底会接管。
 func NewTokenIssuerFromEnv(issuer, audience string) (*TokenIssuer, error) {
-	t := &TokenIssuer{issuer: issuer, audience: audience, revoked: map[string]int64{}}
+	t := &TokenIssuer{issuer: issuer, audience: audience, revoked: map[string]int64{}, audiences: map[string]bool{}}
+	if audience != "" {
+		t.audiences[audience] = true
+	}
 	raw := strings.TrimSpace(os.Getenv("AUTH_JWT_PRIVATE_KEY"))
 	if raw == "" {
 		key, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -128,7 +135,14 @@ func (t *TokenIssuer) Sign(u User) (string, string, time.Time, error) {
 }
 
 // SignForAudience 以指定 aud 签发令牌，用于 OIDC id_token（aud 指向客户端）。
+// 签发即登记该受众：Verify 只接受已登记受众，未登记的 aud 一律拒绝。
 func (t *TokenIssuer) SignForAudience(u User, audience string) (string, time.Time, error) {
+	if audience == "" {
+		return "", time.Time{}, errors.New("empty audience")
+	}
+	t.mu.Lock()
+	t.audiences[audience] = true
+	t.mu.Unlock()
 	token, _, exp, err := t.sign(u, audience)
 	return token, exp, err
 }
@@ -214,7 +228,12 @@ func (t *TokenIssuer) Verify(token string) (*Claims, error) {
 	if claims.Issuer != t.issuer {
 		return nil, errors.New("bad issuer")
 	}
-	if t.audience != "" && claims.Audience != t.audience {
+	// 受众按登记集合判断：默认受众之外，SignForAudience 签发的 id_token 受众
+	// （client_id）在签发时登记。未登记受众拒绝，防止令牌跨 relying party 混用。
+	t.mu.RLock()
+	audOK := t.audiences[claims.Audience]
+	t.mu.RUnlock()
+	if !audOK {
 		return nil, errors.New("bad audience")
 	}
 	if claims.Subject == "" {

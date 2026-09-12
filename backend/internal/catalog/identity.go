@@ -264,8 +264,20 @@ func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, c
 	var codeURI string
 	var scope string
 	var challenge, challengeMethod string
-	// 原子兑付：只有未使用且未过期的码才能标记成功，并发双兑只有一个成功。
-	// 注意不能复用 s.write（全局串行锁），此处用单条条件 UPDATE 即可。
+	// 先读码并完成全部校验，再原子标记已用：PKCE/redirect 校验失败**不得消耗**
+	// 授权码，否则一次错误 verifier 请求即可作废合法客户端刚拿到的码。
+	// 单次性由下方条件 UPDATE 保证：并发双兑只有一个成功，后到者按未命中
+	// 拿到 expired_or_used_code。
+	err = s.DB.QueryRowContext(ctx, "SELECT user_id, redirect_uri, scope, COALESCE(code_challenge,''), COALESCE(code_challenge_method,'') FROM auth.oauth_codes WHERE code=$1 AND client_id=$2 AND used=false AND expires_at>now()", strings.TrimSpace(code), clientID).Scan(&userID, &codeURI, &scope, &challenge, &challengeMethod)
+	if err != nil {
+		return "", nil, fmt.Errorf("expired_or_used_code")
+	}
+	if redirectURI != "" && redirectURI != codeURI {
+		return "", nil, fmt.Errorf("redirect_uri_mismatch")
+	}
+	if !verifyPKCE(challengeMethod, challenge, verifier) {
+		return "", nil, fmt.Errorf("invalid_code_verifier")
+	}
 	res, err := s.DB.ExecContext(ctx, "UPDATE auth.oauth_codes SET used=true WHERE code=$1 AND client_id=$2 AND used=false AND expires_at>now()", strings.TrimSpace(code), clientID)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid_grant")
@@ -273,16 +285,6 @@ func (s *Store) ExchangeOAuthCode(ctx context.Context, clientID, clientSecret, c
 	n, _ := res.RowsAffected()
 	if n == 0 {
 		return "", nil, fmt.Errorf("expired_or_used_code")
-	}
-	err = s.DB.QueryRowContext(ctx, "SELECT user_id, redirect_uri, scope, COALESCE(code_challenge,''), COALESCE(code_challenge_method,'') FROM auth.oauth_codes WHERE code=$1 AND client_id=$2", strings.TrimSpace(code), clientID).Scan(&userID, &codeURI, &scope, &challenge, &challengeMethod)
-	if err != nil {
-		return "", nil, fmt.Errorf("invalid_grant")
-	}
-	if redirectURI != "" && redirectURI != codeURI {
-		return "", nil, fmt.Errorf("redirect_uri_mismatch")
-	}
-	if !verifyPKCE(challengeMethod, challenge, verifier) {
-		return "", nil, fmt.Errorf("invalid_code_verifier")
 	}
 	var u User
 	if err = s.DB.QueryRowContext(ctx, "SELECT id, username, COALESCE(email,''), role FROM auth.users WHERE id=$1", userID).Scan(&u.ID, &u.Username, &u.Email, &u.Role); err != nil {
