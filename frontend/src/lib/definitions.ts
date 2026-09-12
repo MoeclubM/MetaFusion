@@ -80,26 +80,44 @@ export interface DynamicDefinitions {
 }
 
 let cachedDefinitions: DynamicDefinitions | null = null;
+// 已发布定义的版本行 id：后台发布新版本后 id 变化，据此失效缓存。
+let cachedVersion = "";
 let definitionsPromise: Promise<DynamicDefinitions | null> | null = null;
+let revalidating = false;
+// 订阅者：缓存按版本刷新后逐个通知，已挂载的组件立即拿到新定义，无需整页刷新。
+const listeners = new Set<(defs: DynamicDefinitions | null) => void>();
+
+async function loadDefinitions(): Promise<DynamicDefinitions | null> {
+  const data = await fetch("/api/catalog/definitions", { credentials: "same-origin" })
+    .then((res) => (res.ok ? res.json() : null))
+    .catch(() => null);
+  if (!data?.document) return null;
+  const version = String(data.id ?? "");
+  if (!cachedDefinitions || version !== cachedVersion) {
+    cachedVersion = version;
+    cachedDefinitions = data.document;
+    listeners.forEach((notify) => notify(cachedDefinitions));
+  }
+  return cachedDefinitions;
+}
 
 export async function fetchDefinitions(): Promise<DynamicDefinitions | null> {
-  if (cachedDefinitions) return cachedDefinitions;
-  if (definitionsPromise) return definitionsPromise;
-
-  definitionsPromise = fetch("/api/catalog/definitions", { credentials: "same-origin" })
-    .then((res) => (res.ok ? res.json() : null))
-    .then((data) => {
-      if (data?.document) {
-        cachedDefinitions = data.document;
-        return cachedDefinitions;
-      }
-      return null;
-    })
-    .catch(() => null)
-    .finally(() => {
+  if (cachedDefinitions) {
+    // stale-while-revalidate：先返回缓存，后台按版本校验；发布新版本后
+    // 下一次进入页面即刷新并通知订阅组件，不阻塞渲染。
+    if (!revalidating) {
+      revalidating = true;
+      loadDefinitions().finally(() => {
+        revalidating = false;
+      });
+    }
+    return cachedDefinitions;
+  }
+  if (!definitionsPromise) {
+    definitionsPromise = loadDefinitions().finally(() => {
       definitionsPromise = null;
     });
-
+  }
   return definitionsPromise;
 }
 
@@ -108,12 +126,23 @@ export function useDefinitions() {
   const [loading, setLoading] = useState<boolean>(!cachedDefinitions);
 
   useEffect(() => {
+    let mounted = true;
+    const listener = (d: DynamicDefinitions | null) => {
+      if (mounted) setDefs(d);
+    };
+    listeners.add(listener);
     if (!cachedDefinitions) {
       fetchDefinitions().then((d) => {
-        setDefs(d);
-        setLoading(false);
+        if (mounted) {
+          setDefs(d);
+          setLoading(false);
+        }
       });
     }
+    return () => {
+      mounted = false;
+      listeners.delete(listener);
+    };
   }, []);
 
   return { definitions: defs, loading };
