@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, Work } from "@/lib/api";
+import { fetchApi } from "@/lib/api";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/components/catalog/api";
 import { useDefinitions, getTermName } from "@/lib/definitions";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -15,7 +15,7 @@ export default function WorkReleasesPage() {
   const workId = params.id as string;
   const { t, locale } = useI18n();
   const { definitions } = useDefinitions();
-  const [work, setWork] = useState<Work | null>(null);
+  const [work, setWork] = useState<Entity | null>(null);
   const [entities, setEntities] = useState<Entity[]>([]);
   // 每个发行版的介质格式计数（按实际 Medium 聚合），供筛选与规格列展示。
   const [formatCounts, setFormatCounts] = useState<Record<string, Record<string, number>>>({});
@@ -32,7 +32,7 @@ export default function WorkReleasesPage() {
 
   useEffect(() => {
     if (!workId) return;
-    fetchApi<Work>(`/catalog/works/${workId}`).then(setWork).catch(()=>{});
+    fetchApi<Entity>(`/catalog/entities/${workId}`).then(setWork).catch(()=>{});
   }, [workId]);
 
   const load = async (keyword: string) => {

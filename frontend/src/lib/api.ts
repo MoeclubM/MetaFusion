@@ -322,8 +322,6 @@ export interface ConnectedEntityItem {
   is_current?: boolean;
   date_span?: string;
   attributes: Record<string, any>;
-  color: string;
-  icon: string;
 }
 
 export interface EntityRevision {
@@ -494,11 +492,6 @@ export interface TrackContent {
   position: number;
   locator?: Record<string, any>;
   canonical_entry?: CanonicalEntry;
-}
-
-export interface WorkContentsResponse {
-  items: CanonicalEntry[];
-  total: number;
 }
 
 export interface AssetBinding {
@@ -1338,12 +1331,55 @@ export async function sendDirectMessage(userId: string, content: string): Promis
   });
 }
 
+// 修订历史走实体端点 /catalog/entities/:id/revisions：返回 {id,version,actor_*,edit_note,
+// sources,snapshot,created_at}。编辑类型与字段级 diff 由前端对比相邻快照得出。
 export async function fetchEntityRevisions(targetType: string, targetId: string): Promise<{ items: EntityRevision[]; total: number }> {
-  return fetchApi<{ items: EntityRevision[]; total: number }>(`/catalog/revisions?target_type=${targetType}&target_id=${targetId}`);
+  const res = await fetchApi<{ items: Record<string, any>[] }>(`/catalog/entities/${targetId}/revisions`);
+  const rows = res.items || [];
+  const items: EntityRevision[] = rows.map((row, i) => {
+    const sources = Array.isArray(row.sources) ? row.sources : [];
+    const prev = i + 1 < rows.length ? rows[i + 1]?.snapshot : undefined;
+    return {
+      id: String(row.id ?? ""),
+      target_type: targetType,
+      target_id: targetId,
+      edit_type: Number(row.version) === 1 ? "create" : "update",
+      summary: "",
+      edit_note: row.edit_note || "",
+      source_urls: sources.map((s: any) => s?.url).filter(Boolean),
+      before_state: prev || {},
+      after_state: row.snapshot || {},
+      diff: diffSnapshots(prev, row.snapshot),
+      status: String(row.snapshot?.status ?? ""),
+      created_at: row.created_at,
+      editor: row.actor_id
+        ? { id: row.actor_id, username: row.actor_name || "system", role: row.actor_role || "editor" } as User
+        : undefined,
+    };
+  });
+  return { items, total: items.length };
 }
 
-export async function fetchWorkContents(id: string): Promise<WorkContentsResponse> {
-  return fetchApi<WorkContentsResponse>(`/catalog/works/${id}/contents`);
+// diffSnapshots 对相邻两个实体快照做字段级对比：标量与常用结构字段逐项比较，
+// attributes/translations 按键比较。值经 JSON 归一后比较，避免顺序差异误报。
+function diffSnapshots(before: any, after: any): Record<string, { old: any; new: any }> {
+  const diff: Record<string, { old: any; new: any }> = {};
+  const norm = (v: any) => JSON.stringify(v === undefined ? null : v);
+  const put = (key: string, o: any, n: any) => {
+    if (norm(o) !== norm(n)) diff[key] = { old: o ?? null, new: n ?? null };
+  };
+  const b = before || {};
+  const a = after || {};
+  for (const key of ["title", "status", "number", "position", "original_language", "summary"]) {
+    put(key, b[key], a[key]);
+  }
+  put("types", b.types, a.types);
+  put("external_ids", b.external_ids, a.external_ids);
+  const attrKeys = Array.from(new Set([...Object.keys(b.attributes || {}), ...Object.keys(a.attributes || {})]));
+  for (const k of attrKeys) put(`attributes.${k}`, b.attributes?.[k], a.attributes?.[k]);
+  const locales = Array.from(new Set([...Object.keys(b.translations || {}), ...Object.keys(a.translations || {})]));
+  for (const loc of locales) put(`translations.${loc}`, b.translations?.[loc], a.translations?.[loc]);
+  return diff;
 }
 
 // 旧轨逐实体读写封装已随旧轨退役删除（updateWork/updateArtist/updateRelease/
@@ -1352,6 +1388,8 @@ export async function fetchWorkContents(id: string): Promise<WorkContentsRespons
 // /catalog/works|artists|releases|franchises|mediums|tracks|canonical-entries
 // 写入端点，实体写入统一走 POST|PUT /api/catalog/entities。
 
+// 合并走实体生命周期端点：POST /catalog/entities/:id/lifecycle（action=merge 语义由
+// target_id 表达，服务端把 source 并入 target 并改写引用）。
 export async function mergeEntities(payload: {
   target_type: string;
   source_id: string;
@@ -1359,10 +1397,17 @@ export async function mergeEntities(payload: {
   merge_note: string;
   source_urls?: string[];
 }): Promise<{ message: string; target_id: string }> {
-  return fetchApi<{ message: string; target_id: string }>("/catalog/merge", {
+  const source = await fetchApi<{ version: number }>(`/catalog/entities/${payload.source_id}`);
+  await fetchApi(`/catalog/entities/${payload.source_id}/lifecycle`, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      expected_version: source.version,
+      target_id: payload.target_id,
+      edit_note: payload.merge_note,
+      sources: (payload.source_urls || []).map((u) => ({ kind: "url", citation: payload.merge_note, url: u })),
+    }),
   });
+  return { message: "merged", target_id: payload.target_id };
 }
 
 // ── MusicBrainz 风格 PAT 管理 ──
@@ -1821,25 +1866,6 @@ export function deleteExternalDatabase(code: string): Promise<{ message: string 
 }
 
 // ── 目录关系图谱拓扑与关系边 ──
-export function fetchEntityGraph(entityType: string, id: string): Promise<{ nodes: GraphNode[]; links: GraphLink[] }> {
-  const hub = catalogHubOf(entityType);
-  let endpoint = `/catalog/works/${id}/graph`;
-  if (hub === "artist") {
-    endpoint = `/catalog/artists/${id}/graph`;
-  } else if (hub === "franchise") {
-    endpoint = `/catalog/franchises/${id}/graph`;
-  } else if (hub === "release") {
-    endpoint = `/catalog/releases/${id}/graph`;
-  }
-  return fetchApi<{ nodes: GraphNode[]; links: GraphLink[] }>(endpoint);
-}
-
-export function deleteEntityRelation(id: string): Promise<{ status: string; id: string }> {
-  return fetchApi<{ status: string; id: string }>(`/catalog/entity-relations/${id}`, {
-    method: "DELETE",
-  });
-}
-
 // ── OOBE 开箱初始化设置 ──
 export interface SetupStatusResponse {
   is_initialized: boolean;

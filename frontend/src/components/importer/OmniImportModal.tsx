@@ -36,10 +36,9 @@ import {
   ImporterPreviewResponse,
   StaffAssociation,
   PluginItem,
-  Work,
   Artist,
 } from "@/lib/api";
-import { fetchAllPages } from "@/components/catalog/api";
+import { Entity, fetchAllPages } from "@/components/catalog/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
@@ -116,8 +115,8 @@ export function OmniImportModal({
   const [isSearchingArtist, setIsSearchingArtist] = useState<boolean>(false);
 
   // 智能查重与关联目标母体
-  const [duplicateMatches, setDuplicateMatches] = useState<Work[]>([]);
-  const [selectedTargetWork, setSelectedTargetWork] = useState<Work | null>(null);
+  const [duplicateMatches, setDuplicateMatches] = useState<Entity[]>([]);
+  const [selectedTargetWork, setSelectedTargetWork] = useState<Entity | null>(null);
   const [linkMode, setLinkMode] = useState<"append_release_to_work" | "merge_translations" | "create_relation" | "new_work">("new_work");
   const [relationType] = useState<string>("soundtrack_of");
 
@@ -238,11 +237,11 @@ export function OmniImportModal({
       if (queryType === "work" && res.work) {
         const searchTitle = res.work?.title || res.work?.original_title;
         if (searchTitle && searchTitle.trim()) {
-          fetchApi<{ items: Work[] }>(`/catalog/works?q=${encodeURIComponent(searchTitle.trim())}&page_size=5`)
-            .then((matchRes) => {
-              if (matchRes?.items && matchRes.items.length > 0) {
-                setDuplicateMatches(matchRes.items);
-                setSelectedTargetWork(matchRes.items[0]);
+          fetchAllPages<Entity>(`/catalog/entities?kind=work&q=${encodeURIComponent(searchTitle.trim())}&limit=5`)
+            .then((items) => {
+              if (items && items.length > 0) {
+                setDuplicateMatches(items);
+                setSelectedTargetWork(items[0]);
                 setLinkMode("append_release_to_work");
               }
             })
@@ -713,8 +712,7 @@ export function OmniImportModal({
                   )}
                   {!!previewData.artist.translations?.length && (
                     <LocalizedTitleGroups
-                      translations={previewData.artist.translations}
-                      aliases={[]}
+                      translations={Object.fromEntries((previewData.artist.translations || []).map((i) => [i.locale, i]))}
                       displayTitle={previewData.artist.name}
                       extraKnown={[previewData.artist.name, previewData.artist.original_name]}
                       className="space-y-0.5"
@@ -791,7 +789,7 @@ export function OmniImportModal({
                               {m.title}
                             </div>
                             <div className="text-[11px] text-gray-500 truncate">
-                              {m.original_title || m.country}
+                              {String(m.attributes?.country || "")}
                             </div>
                           </div>
                           {isSelected && <Check className="w-4 h-4 text-amber-600 shrink-0" />}
@@ -827,8 +825,7 @@ export function OmniImportModal({
                     )}
                     {!!previewData.work.translations?.length && (
                       <LocalizedTitleGroups
-                        translations={previewData.work.translations}
-                        aliases={[]}
+                        translations={Object.fromEntries((previewData.work.translations || []).map((i) => [i.locale, i]))}
                         originalLanguage={previewData.work.original_language}
                         displayTitle={previewData.work.title}
                         extraKnown={[previewData.work.title, previewData.work.original_title]}

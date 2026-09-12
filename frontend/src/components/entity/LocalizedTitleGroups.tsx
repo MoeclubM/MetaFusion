@@ -3,22 +3,20 @@
 import React from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import type { EntityTranslation } from "@/lib/api";
 import {
-  filterDisplayAliases,
   groupTitlesByLocale,
   titleLocaleLabelKey,
   visibleTitleGroups,
 } from "@/lib/titles";
 
 interface Props {
-  translations?: EntityTranslation[];
-  aliases?: string[];
+  /** 统一 DTO 的 translations：按 locale 分组的对象（{loc:{title,aliases}}）。 */
+  translations?: Record<string, { title?: string; name?: string; summary?: string; aliases?: string[] }>;
   /** 实体内容语言（ISO 639-1），用于标记原始语言分组 */
   originalLanguage?: string | null;
   /** 主标题行已展示的标题：分组内重复时自动隐藏 */
   displayTitle?: string | null;
-  /** 实体级基础字段（title/original_title 等），参与别名过滤 */
+  /** 实体级基础字段（title 等），参与组内去重 */
   extraKnown?: Array<string | null | undefined>;
   className?: string;
   itemClassName?: string;
@@ -26,13 +24,11 @@ interface Props {
 
 /**
  * 多语言标题按语种分组展示：`中文：A / B`、`日本語（原始语言）：C`。
- * 实体级 aliases 只展示翻译行未覆盖的真正异名。
  * 分组按"原始语言优先"排序；默认只展开首组（原始语言标题始终可见），
- * 其余语种与实体别名收起，点击切换——避免详情页头部被长标题列表撑开。
+ * 其余语种与并列别名收起，点击切换——避免详情页头部被长标题列表撑开。
  */
 export function LocalizedTitleGroups({
   translations,
-  aliases,
   originalLanguage,
   displayTitle,
   extraKnown,
@@ -45,15 +41,10 @@ export function LocalizedTitleGroups({
     () => visibleTitleGroups(groupTitlesByLocale(translations, originalLanguage), displayTitle),
     [translations, originalLanguage, displayTitle],
   );
-  const rest = React.useMemo(
-    () => filterDisplayAliases(aliases, translations, extraKnown),
-    [aliases, translations, extraKnown],
-  );
-  if (groups.length === 0 && rest.length === 0) return null;
+  if (groups.length === 0) return null;
   const cls = itemClassName ?? "text-gray-500";
-  const hiddenRows = groups.slice(1).length + (rest.length > 0 ? 1 : 0);
+  const hiddenRows = groups.slice(1).length;
   const visibleGroups = expanded ? groups : groups.slice(0, 1);
-  const visibleRest = expanded ? rest : [];
   // 组内去重：数据里别名常含与主标题相同的值（同一分组内逐字重复只展示一次）。
   const joinUnique = (values: string[]) => {
     const seen = new Set<string>();
@@ -83,9 +74,6 @@ export function LocalizedTitleGroups({
           </p>
         );
       })}
-      {visibleRest.length > 0 && (
-        <p className={cls}>{t("entity.titles.aliases", { value: visibleRest.join(" / ") })}</p>
-      )}
       {hiddenRows > 0 && (
         <button
           type="button"

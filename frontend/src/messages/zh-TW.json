@@ -2628,5 +2628,8 @@
   "release.detail.occurrencesLoadGapDetail": "其中 {entities} 條表達實體、{details} 條收錄與署名未能載入。",
   "release.detail.showAllOccurrences": "展開全部收錄",
   "release.detail.collapseOccurrences": "收起收錄",
-  "catalog.compareIncompleteCatalog": "資料不足：以下發行缺曲目或內容引用，暫不下內容一致性結論。"
+  "catalog.compareIncompleteCatalog": "資料不足：以下發行缺曲目或內容引用，暫不下內容一致性結論。",
+  "entity.characterRank.primary": "主角",
+  "entity.characterRank.supplement": "配角",
+  "entity.characterRank.extra": "客串"
 }
