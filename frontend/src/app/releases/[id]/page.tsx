@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { api, Entity, local, title as entityTitle } from "@/components/catalog/api";
+import { api, Entity, fetchAllPages, mapLimit, local, title as entityTitle } from "@/components/catalog/api";
 import { useCatalog } from "@/components/catalog/CatalogProvider";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
@@ -13,12 +13,15 @@ import {
   getTermName,
 } from "@/lib/definitions";
 import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
+import { RecordList } from "@/components/catalog/TemplateAttributeSections";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowLeft,
   ArrowRightLeft,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Disc,
   ExternalLink,
   Film,
@@ -100,13 +103,48 @@ function workMediaType(work?: Entity | null): string {
 }
 
 type Occurrence = {
-  release: Entity;
-  medium: Entity;
-  track: Entity;
+  /** 引用形态：实体在批量响应的共享 entities 表里，按 id 取。 */
+  release_id: string;
+  medium_id: string;
+  track_id: string;
   expression_id: string;
   position: number;
   locator?: Record<string, any> | null;
 };
+
+type MediumRow = { medium: Entity; tracks: Entity[] };
+
+// orderedTracksWithDepth：把曲目树（章/子轨）深度优先展开成"父轨后紧跟其子轨"的
+// 展示序列，子轨带层级深度供缩进；排序只看 position，不用曲号充当身份。
+function orderedTracksWithDepth(tracks: Entity[]): { track: Entity; depth: number }[] {
+  const byId = new Map<string, Entity>();
+  for (const tr of tracks) if (tr.id) byId.set(tr.id, tr);
+  const childrenOf = new Map<string, Entity[]>();
+  const roots: Entity[] = [];
+  for (const tr of tracks) {
+    const pid = tr.parent_id || "";
+    if (pid && byId.has(pid)) {
+      const list = childrenOf.get(pid) || [];
+      list.push(tr);
+      childrenOf.set(pid, list);
+    } else {
+      roots.push(tr);
+    }
+  }
+  const byPos = (a: Entity, b: Entity) => (a.position || 0) - (b.position || 0);
+  roots.sort(byPos);
+  childrenOf.forEach((list) => list.sort(byPos));
+  const out: { track: Entity; depth: number }[] = [];
+  const walk = (list: Entity[], depth: number) => {
+    for (const tr of list) {
+      out.push({ track: tr, depth });
+      const kids = childrenOf.get(tr.id!) || [];
+      if (kids.length > 0) walk(kids, depth + 1);
+    }
+  };
+  walk(roots, 0);
+  return out;
+}
 
 function Collapsible({
   title,
@@ -157,7 +195,11 @@ export default function ReleaseDetailPage() {
   const [works, setWorks] = useState<Record<string, Entity>>({});
   const [expressions, setExpressions] = useState<Record<string, Entity>>({});
   const [occurrences, setOccurrences] = useState<Record<string, Occurrence[]>>({});
+  // 同篇目其它表达（如同一集的加长版/另一录音）的收录，与自身收录分开展示，避免误读。
+  const [expressionSiblings, setExpressionSiblings] = useState<Record<string, Occurrence[]>>({});
   const [expressionCredits, setExpressionCredits] = useState<Record<string, string>>({});
+  // 收录引用的 release/medium/track 实体（批量响应的共享表）。
+  const [occurrenceEntities, setOccurrenceEntities] = useState<Record<string, Entity>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -165,6 +207,12 @@ export default function ReleaseDetailPage() {
   const [basket, setBasket] = useState<string[]>([]);
   const [basketNotice, setBasketNotice] = useState("");
   const [siblingReleases, setSiblingReleases] = useState<Entity[]>([]);
+  // 批量收录数据的加载失败数：非零时给出可重试的提示，而不是静默留空表。
+  const [expressionLoadFailures, setExpressionLoadFailures] = useState(0);
+  const [expressionReloadToken, setExpressionReloadToken] = useState(0);
+  // 收录表默认只展示部分行，避免大目录下表格过长；"显示更多"就地展开。
+  const [occPage, setOccPage] = useState(1);
+  const OCC_PAGE_SIZE = 20;
 
   useEffect(() => {
     setBasket(readBasket());
@@ -179,16 +227,16 @@ export default function ReleaseDetailPage() {
       try {
         const rel = await api<Entity>(`/catalog/entities/${releaseId}/resolve`);
         if (rel.kind !== "release") throw new Error("invalid_kind");
-        const mediums = await api<{ items: Entity[] }>(
-          `/catalog/entities?kind=medium&release_id=${encodeURIComponent(String(rel.id || ""))}&limit=100`
+        // 载体与曲目全量翻页获取：大型盒装/合集不受固定 limit 截断。
+        const mediums = await fetchAllPages<Entity>(
+          `/catalog/entities?kind=medium&release_id=${encodeURIComponent(String(rel.id || ""))}`
         );
-        const rows: { medium: Entity; tracks: Entity[] }[] = [];
-        for (const m of mediums.items || []) {
-          const tr = await api<{ items: Entity[] }>(
-            `/catalog/entities?kind=track&medium_id=${encodeURIComponent(m.id!)}&limit=100`
-          );
-          rows.push({ medium: m, tracks: tr.items || [] });
-        }
+        const rows: MediumRow[] = await mapLimit(mediums, 8, async (m) => ({
+          medium: m,
+          tracks: await fetchAllPages<Entity>(
+            `/catalog/entities?kind=track&medium_id=${encodeURIComponent(m.id!)}`
+          ),
+        }));
         rows.sort((a, b) => (a.medium.position || 0) - (b.medium.position || 0));
         rows.forEach((r) => r.tracks.sort((a, b) => (a.position || 0) - (b.position || 0)));
         const workIds = Array.from(new Set((rel.subjects || []).map((s) => s.work_id).filter(Boolean)));
@@ -229,10 +277,10 @@ export default function ReleaseDetailPage() {
     let cancelled = false;
     (async () => {
       try {
-        const r = await api<{ items: Entity[] }>(
-          `/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}&limit=100`
+        const r = await fetchAllPages<Entity>(
+          `/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}`
         );
-        if (!cancelled) setSiblingReleases(r.items || []);
+        if (!cancelled) setSiblingReleases(r);
       } catch {
         if (!cancelled) setSiblingReleases([]);
       }
@@ -259,55 +307,58 @@ export default function ReleaseDetailPage() {
     let cancelled = false;
     (async () => {
       const exprMap: Record<string, Entity> = {};
-      await Promise.all(
-        expressionIds.slice(0, 200).map(async (id) => {
-          try {
-            exprMap[id] = await api<Entity>(`/catalog/entities/${id}`);
-          } catch {
-            /* ignore */
+      const occMap: Record<string, Occurrence[]> = {};
+      const siblingMap: Record<string, Occurrence[]> = {};
+      const creditMap: Record<string, string> = {};
+      // 共享实体表：表达自身与收录引用到的 release/medium/track 都在这里，
+      // 避免同一实体在每条收录里重复传输。
+      const entityMap: Record<string, Entity> = {};
+      let failures = 0;
+      // 一条批量请求取回表达实体 + 自身收录 + 同篇目兄弟收录 + 首个署名，
+      // 替代原先逐条 entities/:id、occurrences、relations、对端实体四类 N+1 请求。
+      // 用 POST + JSON body：300 个 UUID 拼进 GET query 约 11KB，会超过常见 Nginx
+      // 默认 8KB 请求行限制；分片仍保留以控制单请求体大小。
+      const CHUNK = 300;
+      for (let i = 0; i < expressionIds.length; i += CHUNK) {
+        const slice = expressionIds.slice(i, i + CHUNK);
+        try {
+          const r = await api<{
+            items: Record<string, { entity: Entity; occurrences: Occurrence[]; siblings?: Occurrence[]; credit_title?: string }>;
+            entities?: Record<string, Entity>;
+          }>("/catalog/expressions/details", "POST", { ids: slice });
+          for (const [id, d] of Object.entries(r.items || {})) {
+            if (d?.entity) exprMap[id] = d.entity;
+            occMap[id] = d?.occurrences || [];
+            siblingMap[id] = d?.siblings || [];
+            if (d?.credit_title) creditMap[id] = d.credit_title;
           }
-        })
-      );
+          for (const [id, e] of Object.entries(r.entities || {})) {
+            if (e) entityMap[id] = e;
+          }
+        } catch {
+          // 批量失败时退化为逐条取实体，保证页面仍可用；无法恢复的条目计数，
+          // 交给页面上方的提示与重试入口，不再静默留空。
+          await mapLimit(slice, 8, async (id) => {
+            try {
+              exprMap[id] = await api<Entity>(`/catalog/entities/${id}`);
+            } catch {
+              failures += 1;
+            }
+          });
+        }
+      }
       if (cancelled) return;
       setExpressions(exprMap);
-      const occMap: Record<string, Occurrence[]> = {};
-      await Promise.all(
-        expressionIds.slice(0, 60).map(async (id) => {
-          try {
-            const r = await api<{ items: Occurrence[] }>(`/catalog/entities/${id}/occurrences`);
-            occMap[id] = r.items || [];
-          } catch {
-            occMap[id] = [];
-          }
-        })
-      );
-      if (!cancelled) setOccurrences(occMap);
-      // 逐轨艺人：取各 expression 首个 performed_by / voiced_by / created_by 目标标题，
-      // 供曲目表 credit 列显示；失败留空回退 ISRC。
-      const creditMap: Record<string, string> = {};
-      await Promise.all(
-        expressionIds.slice(0, 60).map(async (id) => {
-          try {
-            const r = await api<{ items: { type: string; target_id: string }[] }>(
-              `/catalog/entities/${id}/relations`
-            );
-            const rel = (r.items || []).find((x) =>
-              ["performed_by", "voiced_by", "created_by"].includes(x.type)
-            );
-            if (!rel) return;
-            const target = await api<Entity>(`/catalog/entities/${rel.target_id}`);
-            if (target) creditMap[id] = entityTitle(target, locale);
-          } catch {
-            /* ignore */
-          }
-        })
-      );
-      if (!cancelled) setExpressionCredits(creditMap);
+      setOccurrences(occMap);
+      setExpressionSiblings(siblingMap);
+      setExpressionCredits(creditMap);
+      setOccurrenceEntities(entityMap);
+      setExpressionLoadFailures(failures);
     })();
     return () => {
       cancelled = true;
     };
-  }, [expressionIds.join(","), locale]);
+  }, [expressionIds.join(","), locale, expressionReloadToken]);
 
   const crossDurations = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
@@ -326,15 +377,49 @@ export default function ReleaseDetailPage() {
   }, [media]);
 
   // 注意：全部 use* 必须在 early return 之前，保持每次渲染 Hook 顺序一致。
+  // 载体树：A/B 面等子载体挂在所属盘之下；格式分组与曲目计数都按顶层载体算，
+  // 子载体（面）不单独成组，避免同一张盘被拆成"主载体+未知格式"两份。
+  const mediumTree = useMemo(() => {
+    const byId = new Map<string, MediumRow>();
+    for (const r of media) if (r.medium.id) byId.set(r.medium.id, r);
+    const childrenOf = new Map<string, MediumRow[]>();
+    const roots: MediumRow[] = [];
+    for (const r of media) {
+      const pid = r.medium.parent_id || "";
+      if (pid && byId.has(pid)) {
+        const list = childrenOf.get(pid) || [];
+        list.push(r);
+        childrenOf.set(pid, list);
+      } else {
+        roots.push(r);
+      }
+    }
+    const byPos = (a: MediumRow, b: MediumRow) => (a.medium.position || 0) - (b.medium.position || 0);
+    roots.sort(byPos);
+    childrenOf.forEach((list) => list.sort(byPos));
+    const totalTracks = new Map<string, number>();
+    const totalOf = (r: MediumRow): number => {
+      const id = r.medium.id!;
+      const cached = totalTracks.get(id);
+      if (cached !== undefined) return cached;
+      totalTracks.set(id, 0); // 防御异常环状数据，先占位再回填
+      const n = r.tracks.length + (childrenOf.get(id) || []).reduce((s, c) => s + totalOf(c), 0);
+      totalTracks.set(id, n);
+      return n;
+    };
+    roots.forEach(totalOf);
+    return { roots, childrenOf, totalOf };
+  }, [media]);
+
   const formatGroups = useMemo(() => {
-    const groups = new Map<string, typeof media>();
-    for (const row of media) {
+    const groups = new Map<string, MediumRow[]>();
+    for (const row of mediumTree.roots) {
       const fmt = attrText(row.medium.attributes?.format) || "unknown";
       if (!groups.has(fmt)) groups.set(fmt, []);
       groups.get(fmt)!.push(row);
     }
     return Array.from(groups.entries());
-  }, [media]);
+  }, [mediumTree]);
 
   if (loading) {
     return (
@@ -417,6 +502,172 @@ export default function ReleaseDetailPage() {
   };
 
   const releaseTitle = entityTitle(release, locale);
+
+  // 单个载体（盘或面）的展示块：depth=0 为顶层盘，depth≥1 为嵌套的子载体（A/B 面）。
+  // 子载体在其父块的轨道表之后递归渲染；特典过滤同样作用于子载体。
+  const mediumBlock = (row: MediumRow, depth: number): React.ReactNode => {
+    const medium = row.medium;
+    const tracks = row.tracks;
+    const ownFmt = attrText(medium.attributes?.format) || "unknown";
+    const fmtLabel =
+      dynamicDefs && ownFmt !== "unknown" ? getTermName(dynamicDefs, "format", ownFmt, locale) : "";
+    const role = attrText(medium.attributes?.role);
+    const mediumTitle = entityTitle(medium, locale);
+    const kids = (mediumTree.childrenOf.get(medium.id!) || []).filter(
+      (r) => showBonus || attrText(r.medium.attributes?.role) !== "supplement"
+    );
+    const ordered = orderedTracksWithDepth(tracks);
+    return (
+      <section
+        key={medium.id}
+        id={`medium-${medium.id}`}
+        className={
+          depth === 0
+            ? "rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft"
+            : "bg-transparent"
+        }
+      >
+        <div
+          className={`px-3.5 sm:px-4 py-2.5 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+            depth === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""
+          } ${depth > 0 ? "sm:pl-8" : ""}`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-6.5 h-6.5 grid place-items-center rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
+              <Disc className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.5} />
+            </span>
+            <span className="font-display text-sm font-bold tracking-tight text-gray-900 dark:text-white truncate">
+              {depth === 0 && `${mLabel}${medium.position || ""} · `}
+              {mediumTitle}
+            </span>
+            {fmtLabel && ownFmt !== "unknown" && (
+              <span className="hidden sm:inline font-mono text-[11px] text-gray-500 shrink-0">{fmtLabel}</span>
+            )}
+            {role === "supplement" && (
+              <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono text-[10px] shrink-0">
+                {t("release.detail.bonusDisc")}
+              </span>
+            )}
+          </div>
+          <span className="font-mono text-[10px] text-gray-400">
+            #{String(medium.id).slice(0, 8)} · {t("release.detail.trackCount", { count: mediumTree.totalOf(row) })}
+          </span>
+        </div>
+        {ordered.length > 0 ? (
+          <div className="overflow-x-auto">
+            <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-gray-500">{entryRowHeader(mediaType, t)}</div>
+            <table className="w-full text-left text-xs min-w-[640px]">
+              <thead className="bg-black/[0.02] dark:bg-white/[0.02] border-y border-black/5 dark:border-white/[0.06] font-mono text-[10px] uppercase tracking-wider text-gray-500">
+                <tr>
+                  <th className="py-2 px-3.5 w-12 font-medium">{t("release.detail.tablePosition")}</th>
+                  <th className="py-2 px-3.5 font-medium">{t("release.detail.tableEntryTitle", { label: eLabel })}</th>
+                  <th className="py-2 px-3.5 font-medium">{t("release.detail.tableMasterEntry")}</th>
+                  <th className="py-2 px-3.5 font-medium">{t("release.detail.tableCredit")}</th>
+                  <th className="py-2 px-3.5 text-right font-medium">{t("release.detail.tableDuration")}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
+                {ordered.map(({ track: tr, depth: trDepth }) => {
+                  const contents = tr.contents || [];
+                  const firstExpr = contents[0]?.expression_id;
+                  const expr = firstExpr ? expressions[firstExpr] : undefined;
+                  const displayTitle =
+                    entityTitle(tr, locale) !== tr.title && entityTitle(tr, locale)
+                      ? entityTitle(tr, locale)
+                      : tr.title || (expr ? entityTitle(expr, locale) : "");
+                  const overridden =
+                    !!expr && !!displayTitle && displayTitle !== entityTitle(expr, locale);
+                  const cross = firstExpr ? crossDurations.get(firstExpr) : undefined;
+                  const trWorkId = (tr as Entity).work_id || expr?.work_id;
+                  const trWork = (trWorkId && works[trWorkId]) || null;
+                  const showWorkBadge = trWork && primaryWorkId && trWork.id !== primaryWorkId;
+                  const dur = Number(tr.attributes?.duration);
+                  return (
+                    <tr key={tr.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                      <td className="py-2 px-3.5 font-mono text-gray-500 tabular-nums whitespace-nowrap">{tr.number || tr.position}</td>
+                      <td className="py-2 px-3.5 font-medium text-gray-900 dark:text-white">
+                        <div
+                          className="flex flex-wrap items-center gap-1.5"
+                          style={trDepth > 0 ? { paddingLeft: `${trDepth * 14}px` } : undefined}
+                        >
+                          {trDepth > 0 && <span className="text-gray-400 font-mono text-[10px]">└</span>}
+                          <span>{displayTitle || t("release.detail.untitledTrack")}</span>
+                          {overridden && (
+                            <span className="text-amber-500 text-[10px]">[{t("release.detail.overridden")}]</span>
+                          )}
+                          {showWorkBadge && trWork && (
+                            <Link
+                              href={`/works/${trWork.id}`}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 text-[10px] hover:bg-sky-500/20 transition-colors font-mono"
+                            >
+                              <Film className="w-2.5 h-2.5" />
+                              <span className="truncate max-w-[22ch]">{entityTitle(trWork, locale)}</span>
+                            </Link>
+                          )}
+                        </div>
+                        {cross && cross.size > 1 && (
+                          <div className="mt-0.5 font-mono text-[10px] font-normal text-gray-500">
+                            {t("release.detail.crossMediumDuration")}:{" "}
+                            {Array.from(cross.values()).map((s) => formatDuration(s)).join(" / ")}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-2 px-3.5 text-gray-500 text-xs">
+                        {contents.length > 0 ? (
+                          <span className="inline-flex flex-wrap gap-1">
+                            {contents.map((c, i) => {
+                              const e = expressions[c.expression_id];
+                              return (
+                                <Link
+                                  key={`${tr.id}-${c.expression_id}-${i}`}
+                                  href={`/catalog/${c.expression_id}`}
+                                  className="text-gray-700 dark:text-gray-300 hover:text-primary hover:underline transition-colors"
+                                >
+                                  {e ? entityTitle(e, locale) : c.expression_id.slice(0, 8)}
+                                </Link>
+                              );
+                            })}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3.5 text-gray-500">
+                        {firstExpr && expressionCredits[firstExpr] ? (
+                          <span className="text-xs text-gray-700 dark:text-gray-300">
+                            {expressionCredits[firstExpr]}
+                            {attrText(tr.attributes?.isrc) && (
+                              <span className="ml-1.5 font-mono text-[10px] text-gray-400">
+                                {attrText(tr.attributes?.isrc)}
+                              </span>
+                            )}
+                          </span>
+                        ) : attrText(tr.attributes?.isrc) ? (
+                          <span className="font-mono text-[11px]">{attrText(tr.attributes?.isrc)}</span>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3.5 text-right font-mono text-gray-500 tabular-nums whitespace-nowrap">
+                        {formatDuration(dur > 0 ? dur : Number(expr?.attributes?.duration) || 0)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="px-3.5 py-4 font-mono text-[11px] text-gray-500">{t("release.detail.noTracks")}</div>
+        )}
+        {kids.length > 0 && (
+          <div className="border-t border-black/5 dark:border-white/[0.06]">
+            {kids.map((k) => mediumBlock(k, depth + 1))}
+          </div>
+        )}
+      </section>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
@@ -574,7 +825,7 @@ export default function ReleaseDetailPage() {
             </button>
             {formatGroups.map(([fmt, rows]) => {
               const label = dynamicDefs ? getTermName(dynamicDefs, "format", fmt, locale) : fmt;
-              const trackCount = rows.reduce((n, r) => n + r.tracks.length, 0);
+              const trackCount = rows.reduce((n, r) => n + mediumTree.totalOf(r), 0);
               return (
                 <button
                   key={fmt}
@@ -595,7 +846,7 @@ export default function ReleaseDetailPage() {
         )}
 
         <div className="flex items-center justify-between gap-2">
-          <p className="font-mono text-[11px] text-gray-500">{t("release.detail.mediumCount", { count: media.length })}</p>
+          <p className="font-mono text-[11px] text-gray-500">{t("release.detail.mediumCount", { count: mediumTree.roots.length })}</p>
           <label className="inline-flex items-center gap-2 font-mono text-[11px] text-gray-500 cursor-pointer select-none">
             <input
               type="checkbox"
@@ -613,138 +864,7 @@ export default function ReleaseDetailPage() {
           <div className="space-y-4 sm:space-y-5">
             {(showBonus ? visibleGroups : bonusGroups).map(([fmt, rows]) => (
               <div key={fmt} className="space-y-4">
-                {rows.map(({ medium, tracks }) => {
-                  const fmtLabel = dynamicDefs ? getTermName(dynamicDefs, "format", fmt, locale) : fmt;
-                  const role = attrText(medium.attributes?.role);
-                  const mediumTitle = entityTitle(medium, locale);
-                  const sorted = tracks.slice().sort((a, b) => (a.position || 0) - (b.position || 0));
-                  return (
-                    <section key={medium.id} id={`medium-${medium.id}`} className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
-                      <div className="px-3.5 sm:px-4 py-2.5 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-black/[0.02] dark:bg-white/[0.02]">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-6.5 h-6.5 grid place-items-center rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
-                            <Disc className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.5} />
-                          </span>
-                          <span className="font-display text-sm font-bold tracking-tight text-gray-900 dark:text-white truncate">
-                            {mLabel}{medium.position || ""} · {mediumTitle}
-                          </span>
-                          {fmtLabel && fmt !== "unknown" && (
-                            <span className="hidden sm:inline font-mono text-[11px] text-gray-500 shrink-0">{fmtLabel}</span>
-                          )}
-                          {role === "supplement" && (
-                            <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono text-[10px] shrink-0">
-                              {t("release.detail.bonusDisc")}
-                            </span>
-                          )}
-                        </div>
-                        <span className="font-mono text-[10px] text-gray-400">#{String(medium.id).slice(0, 8)} · {t("release.detail.trackCount", { count: tracks.length })}</span>
-                      </div>
-                      {sorted.length > 0 ? (
-                        <div className="overflow-x-auto">
-                          <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-gray-500">{entryRowHeader(mediaType, t)}</div>
-                          <table className="w-full text-left text-xs min-w-[640px]">
-                            <thead className="bg-black/[0.02] dark:bg-white/[0.02] border-y border-black/5 dark:border-white/[0.06] font-mono text-[10px] uppercase tracking-wider text-gray-500">
-                              <tr>
-                                <th className="py-2 px-3.5 w-12 font-medium">{t("release.detail.tablePosition")}</th>
-                                <th className="py-2 px-3.5 font-medium">{t("release.detail.tableEntryTitle", { label: eLabel })}</th>
-                                <th className="py-2 px-3.5 font-medium">{t("release.detail.tableMasterEntry")}</th>
-                                <th className="py-2 px-3.5 font-medium">{t("release.detail.tableCredit")}</th>
-                                <th className="py-2 px-3.5 text-right font-medium">{t("release.detail.tableDuration")}</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
-                              {sorted.map((tr) => {
-                                const contents = tr.contents || [];
-                                const firstExpr = contents[0]?.expression_id;
-                                const expr = firstExpr ? expressions[firstExpr] : undefined;
-                                const displayTitle =
-                                  entityTitle(tr, locale) !== tr.title && entityTitle(tr, locale)
-                                    ? entityTitle(tr, locale)
-                                    : tr.title || (expr ? entityTitle(expr, locale) : "");
-                                const overridden =
-                                  !!expr && !!displayTitle && displayTitle !== entityTitle(expr, locale);
-                                const cross = firstExpr ? crossDurations.get(firstExpr) : undefined;
-                                const trWorkId = (tr as Entity).work_id || expr?.work_id;
-                                const trWork = (trWorkId && works[trWorkId]) || null;
-                                const showWorkBadge = trWork && primaryWorkId && trWork.id !== primaryWorkId;
-                                const dur = Number(tr.attributes?.duration);
-                                return (
-                                  <tr key={tr.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
-                                    <td className="py-2 px-3.5 font-mono text-gray-500 tabular-nums whitespace-nowrap">{tr.number || tr.position}</td>
-                                    <td className="py-2 px-3.5 font-medium text-gray-900 dark:text-white">
-                                      <div className="flex flex-wrap items-center gap-1.5">
-                                        <span>{displayTitle || t("release.detail.untitledTrack")}</span>
-                                        {overridden && (
-                                          <span className="text-amber-500 text-[10px]">[{t("release.detail.overridden")}]</span>
-                                        )}
-                                        {showWorkBadge && trWork && (
-                                          <Link
-                                            href={`/works/${trWork.id}`}
-                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 text-[10px] hover:bg-sky-500/20 transition-colors font-mono"
-                                          >
-                                            <Film className="w-2.5 h-2.5" />
-                                            <span className="truncate max-w-[22ch]">{entityTitle(trWork, locale)}</span>
-                                          </Link>
-                                        )}
-                                      </div>
-                                      {cross && cross.size > 1 && (
-                                        <div className="mt-0.5 font-mono text-[10px] font-normal text-gray-500">
-                                          {t("release.detail.crossMediumDuration")}:{" "}
-                                          {Array.from(cross.values()).map((s) => formatDuration(s)).join(" / ")}
-                                        </div>
-                                      )}
-                                    </td>
-                                    <td className="py-2 px-3.5 text-gray-500 text-xs">
-                                      {contents.length > 0 ? (
-                                        <span className="inline-flex flex-wrap gap-1">
-                                          {contents.map((c, i) => {
-                                            const e = expressions[c.expression_id];
-                                            return (
-                                              <Link
-                                                key={`${tr.id}-${c.expression_id}-${i}`}
-                                                href={`/catalog/${c.expression_id}`}
-                                                className="text-gray-700 dark:text-gray-300 hover:text-primary hover:underline transition-colors"
-                                              >
-                                                {e ? entityTitle(e, locale) : c.expression_id.slice(0, 8)}
-                                              </Link>
-                                            );
-                                          })}
-                                        </span>
-                                      ) : (
-                                        <span className="text-gray-400">—</span>
-                                      )}
-                                    </td>
-                                    <td className="py-2 px-3.5 text-gray-500">
-                                      {firstExpr && expressionCredits[firstExpr] ? (
-                                        <span className="text-xs text-gray-700 dark:text-gray-300">
-                                          {expressionCredits[firstExpr]}
-                                          {attrText(tr.attributes?.isrc) && (
-                                            <span className="ml-1.5 font-mono text-[10px] text-gray-400">
-                                              {attrText(tr.attributes?.isrc)}
-                                            </span>
-                                          )}
-                                        </span>
-                                      ) : attrText(tr.attributes?.isrc) ? (
-                                        <span className="font-mono text-[11px]">{attrText(tr.attributes?.isrc)}</span>
-                                      ) : (
-                                        <span className="text-gray-400">—</span>
-                                      )}
-                                    </td>
-                                    <td className="py-2 px-3.5 text-right font-mono text-gray-500 tabular-nums whitespace-nowrap">
-                                      {formatDuration(dur > 0 ? dur : Number(expr?.attributes?.duration) || 0)}
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      ) : (
-                        <div className="px-3.5 py-4 font-mono text-[11px] text-gray-500">{t("release.detail.noTracks")}</div>
-                      )}
-                    </section>
-                  );
-                })}
+                {rows.map((row) => mediumBlock(row, 0))}
               </div>
             ))}
             {!showBonus && supplementGroups.some(([, rows]) => rows.length > 0) && (
@@ -785,6 +905,19 @@ export default function ReleaseDetailPage() {
 
         {expressionIds.length > 0 && (
           <Collapsible title={t("release.detail.sameRecordingTitle")} count={expressionIds.length}>
+            {/* 批量收录加载不完整时给出可重试提示，不静默留空表。 */}
+            {expressionLoadFailures > 0 && (
+              <div className="mx-3.5 sm:mx-4 mb-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                <span className="flex-1">{t("release.detail.occurrencesLoadFailed", { count: expressionLoadFailures })}</span>
+                <button
+                  type="button"
+                  onClick={() => setExpressionReloadToken((n) => n + 1)}
+                  className="shrink-0 px-2 py-0.5 rounded border border-amber-500/40 hover:bg-amber-500/20"
+                >
+                  {t("catalog.retry")}
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto -mx-3.5 sm:-mx-4 px-3.5 sm:px-4">
               <table className="w-full text-left text-xs min-w-[720px]">
                 <thead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 border-b border-black/5 dark:border-white/[0.06]">
@@ -797,10 +930,11 @@ export default function ReleaseDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
-                  {expressionIds.slice(0, 60).map((exprId) => {
+                  {expressionIds.slice((occPage - 1) * OCC_PAGE_SIZE, occPage * OCC_PAGE_SIZE).map((exprId) => {
                     const occ = occurrences[exprId] || [];
+                    const sibs = expressionSiblings[exprId] || [];
                     const expr = expressions[exprId];
-                    if (occ.length === 0) {
+                    if (occ.length === 0 && sibs.length === 0) {
                       return (
                         <tr key={exprId}>
                           <td className="py-2 pr-3 text-gray-900 dark:text-white">{expr ? entityTitle(expr, locale) : exprId.slice(0, 8)}</td>
@@ -808,74 +942,111 @@ export default function ReleaseDetailPage() {
                         </tr>
                       );
                     }
-                    return occ.slice(0, 8).map((o, i) => (
-                      <tr key={`${exprId}-${i}`}>
-                        {i === 0 ? (
-                          <td rowSpan={Math.min(occ.length, 8)} className="py-2 pr-3 text-gray-900 dark:text-white align-top">
-                            {expr ? entityTitle(expr, locale) : exprId.slice(0, 8)}
-                          </td>
-                        ) : null}
-                        <td className="py-2 pr-3">
-                          <Link href={`/releases/${o.release.id}`} className="text-primary hover:underline">
-                            {entityTitle(o.release, locale)}
-                          </Link>
-                        </td>
-                        <td className="py-2 pr-3 text-gray-500">{entityTitle(o.medium, locale)}</td>
-                        <td className="py-2 pr-3 font-mono text-gray-500">
-                          #{o.track.number || o.track.position} {entityTitle(o.track, locale)}
-                        </td>
-                        <td className="py-2 text-right font-mono text-gray-500 tabular-nums">
-                          {formatDuration(Number(o.track.attributes?.duration) || 0)}
-                        </td>
-                      </tr>
-                    ));
+                    // 单个表达可能被大量发行收录；此处不再硬截断到 8 条，
+                    // 由外层分页控制总行数，避免静默丢数据。
+                    const shown = occ.slice(0, OCC_PAGE_SIZE);
+                    const hiddenOcc = occ.length - shown.length;
+                    const rowSpan = shown.length + (sibs.length > 0 ? 1 : 0) + (hiddenOcc > 0 ? 1 : 0);
+                    return (
+                      <React.Fragment key={exprId}>
+                        {shown.map((o, i) => (
+                          <tr key={`${exprId}-${i}`}>
+                            {i === 0 ? (
+                              <td rowSpan={rowSpan} className="py-2 pr-3 text-gray-900 dark:text-white align-top">
+                                {expr ? entityTitle(expr, locale) : exprId.slice(0, 8)}
+                              </td>
+                            ) : null}
+                            <td className="py-2 pr-3">
+                              <Link href={`/releases/${o.release_id}`} className="text-primary hover:underline">
+                                {entityTitle(occurrenceEntities[o.release_id], locale)}
+                              </Link>
+                            </td>
+                            <td className="py-2 pr-3 text-gray-500">{entityTitle(occurrenceEntities[o.medium_id], locale)}</td>
+                            <td className="py-2 pr-3 font-mono text-gray-500">
+                              #{occurrenceEntities[o.track_id]?.number || occurrenceEntities[o.track_id]?.position} {entityTitle(occurrenceEntities[o.track_id], locale)}
+                            </td>
+                            <td className="py-2 text-right font-mono text-gray-500 tabular-nums">
+                              {formatDuration(Number(occurrenceEntities[o.track_id]?.attributes?.duration) || 0)}
+                            </td>
+                          </tr>
+                        ))}
+                        {/* 同篇目其它表达（加长版/另一录音）的收录单列一行，避免与自身收录混读。 */}
+                        {sibs.length > 0 && (
+                          <tr key={`${exprId}-sib`} className="bg-black/[0.015] dark:bg-white/[0.02]">
+                            <td colSpan={4} className="py-1.5 pr-3 text-[11px] text-gray-500">
+                              {t("release.detail.sameUnitSiblings", { count: sibs.length })}
+                              {sibs.slice(0, 3).map((o, i) => (
+                                <span key={`${exprId}-sib-${i}`} className="ml-2 inline-block">
+                                  <Link href={`/releases/${o.release_id}`} className="text-primary hover:underline">{entityTitle(occurrenceEntities[o.release_id], locale)}</Link>
+                                </span>
+                              ))}
+                            </td>
+                          </tr>
+                        )}
+                        {/* 单个表达的收录被截断时提示剩余数量，避免误以为只有这些。 */}
+                        {hiddenOcc > 0 && (
+                          <tr key={`${exprId}-more`}>
+                            <td colSpan={4} className="py-1.5 pr-3 text-[11px] text-gray-400">
+                              {t("release.detail.moreOccurrences", { count: hiddenOcc })}
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
                   })}
                 </tbody>
               </table>
             </div>
+            {/* 表达较多时分页，取代原先 slice(0, 60) 的静默截断。 */}
+            {expressionIds.length > OCC_PAGE_SIZE && (() => {
+              const occPages = Math.max(1, Math.ceil(expressionIds.length / OCC_PAGE_SIZE));
+              return (
+                <div className="px-3.5 sm:px-4 py-2.5 border-t border-black/5 dark:border-white/[0.06] flex items-center justify-end gap-2">
+                  <span className="font-mono text-[11px] text-gray-500">{t("common.pagination", { page: occPage, total: occPages })}</span>
+                  <button type="button" disabled={occPage <= 1} onClick={() => setOccPage((p) => Math.max(1, p - 1))} aria-label={t("pagination.prev")} className="w-7 h-7 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
+                    <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} />
+                  </button>
+                  <button type="button" disabled={occPage >= occPages} onClick={() => setOccPage((p) => Math.min(occPages, p + 1))} aria-label={t("pagination.next")} className="w-7 h-7 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
+                    <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.6} />
+                  </button>
+                </div>
+              );
+            })()}
           </Collapsible>
         )}
 
         <div className="space-y-3">
           {attachments.length > 0 && (
             <Collapsible title={t("release.detail.attachments")} count={attachments.length}>
-              <ul className="space-y-2">
-                {attachments.map((a, i) => (
-                  <li key={i} className="text-xs text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">{localizedText(a.label, locale) || t("release.detail.attachmentItem", { index: i + 1 })}</span>
-                    {a.quantity != null && a.quantity !== "" && <span className="font-mono text-gray-500"> × {String(a.quantity)}</span>}
-                    {attrText(a.condition) && <span className="block font-mono text-[11px] text-gray-500">{attrText(a.condition)}</span>}
-                  </li>
-                ))}
-              </ul>
+              <RecordList
+                items={attachments}
+                field={dynamicDefs?.fields?.attachments}
+                defs={dynamicDefs}
+                locale={locale}
+                fallbackLabel={(i) => t("release.detail.attachmentItem", { index: i + 1 })}
+              />
             </Collapsible>
           )}
           {storeBonuses.length > 0 && (
             <Collapsible title={t("release.detail.storeBonuses")} count={storeBonuses.length}>
-              <ul className="space-y-2">
-                {storeBonuses.map((b, i) => (
-                  <li key={i} className="text-xs text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">{localizedText(b.label, locale) || t("release.detail.attachmentItem", { index: i + 1 })}</span>
-                    <span className="ml-2 font-mono text-[11px] text-gray-500">
-                      {[attrText(b.channel), attrText(b.region), attrText(b.condition)].filter(Boolean).join(" · ")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <RecordList
+                items={storeBonuses}
+                field={dynamicDefs?.fields?.store_bonuses}
+                defs={dynamicDefs}
+                locale={locale}
+                fallbackLabel={(i) => t("release.detail.attachmentItem", { index: i + 1 })}
+              />
             </Collapsible>
           )}
           {events.length > 0 && (
             <Collapsible title={t("release.detail.releaseEvents")} count={events.length}>
-              <ul className="space-y-2">
-                {events.map((e, i) => (
-                  <li key={i} className="text-xs text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">{localizedText(e.label, locale) || t("release.detail.attachmentItem", { index: i + 1 })}</span>
-                    <span className="ml-2 font-mono text-[11px] text-gray-500">
-                      {[attrText(e.date), attrText(e.region), attrText(e.time_zone), attrText(e.channel)].filter(Boolean).join(" · ")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <RecordList
+                items={events}
+                field={dynamicDefs?.fields?.events}
+                defs={dynamicDefs}
+                locale={locale}
+                fallbackLabel={(i) => t("release.detail.attachmentItem", { index: i + 1 })}
+              />
             </Collapsible>
           )}
         </div>

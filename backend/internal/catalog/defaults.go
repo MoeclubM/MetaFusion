@@ -98,6 +98,16 @@ func Defaults() Definitions {
 			"region":    {Names: names("地区", "Region"), Type: "text", Enabled: true},
 			"time_zone": {Names: names("时区", "Time zone"), Type: "text", Enabled: true},
 			"condition": {Names: names("批次 / 随机规则 / 条件", "Batch / random rule / condition"), Type: "text", Enabled: true},
+			// 渠道特典与发行事件进一步结构化的落点（全部走 definitions，
+			// 不加硬编码列）：店铺/发行主体、随附内容引用、示意图、售价与来源。
+			// store 是实体引用（零售店/出版社等 Agent）；content 引用随附的
+			// 作品/表达（特典 CD 里的实际内容不能只剩"赠 CD"三个字）。
+			"store":      {Names: names("店铺 / 发行主体", "Store / distributor"), Type: "entity", Kinds: []string{"agent"}, Enabled: true},
+			"content":    {Names: names("随附内容", "Included content"), Type: "entity", Kinds: []string{"work", "expression", "content_unit", "release", "medium"}, Enabled: true},
+			"image":      {Names: names("示意图", "Image"), Type: "url", Enabled: true},
+			"amount":     {Names: names("金额", "Amount"), Type: "number", Min: floatPtr(0), Enabled: true},
+			"currency":   {Names: names("币种", "Currency"), Type: "text", Enabled: true},
+			"source_url": {Names: names("来源链接", "Source link"), Type: "url", Enabled: true},
 		}}
 		d.Fields[k] = f
 	}

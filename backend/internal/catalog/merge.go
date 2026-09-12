@@ -154,7 +154,7 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 				return err
 			}
 			for _, s := range e.Subjects {
-				_, err = tx.ExecContext(ctx, "INSERT INTO catalog.release_subjects(release_id,work_id,role,position) VALUES($1,$2,$3,$4)", e.ID, s.WorkID, s.Role, s.Position)
+				_, err = tx.ExecContext(ctx, "INSERT INTO catalog.release_subjects(release_id,work_id,role,position,attributes) VALUES($1,$2,$3,$4,$5)", e.ID, s.WorkID, s.Role, s.Position, encode(s.Attributes))
 				if err != nil {
 					return err
 				}

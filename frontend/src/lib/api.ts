@@ -1485,6 +1485,8 @@ export interface ImporterTrackPreview {
   artist_credit?: string;
   isrc?: string;
   recording_mbid?: string;
+  /** 手工匹配的既有表达（同 Work），优先于后端自动对齐。 */
+  expression_id?: string;
 }
 
 export interface ImporterMediumPreview {
@@ -1527,6 +1529,12 @@ export interface ImporterCanonicalEntryPreview {
   duration_seconds?: number;
   attributes?: Record<string, any>;
   external_ids?: Record<string, any>;
+  /** 落库层级：content_unit（篇目/分集）或 expression（默认，录音/正文）。 */
+  entry_kind?: string;
+  /** 同一 canonical_entries 数组内父级下标（章节树），顶层省略或为 -1。 */
+  parent_index?: number;
+  /** 手工匹配的既有表达（可跨 Work），优先于自动对齐。 */
+  expression_id?: string;
 }
 
 export interface ImporterPreviewResponse {
@@ -1543,6 +1551,8 @@ export interface ImporterPreviewResponse {
   release?: ImporterReleasePreview | null;
   mediums?: ImporterMediumPreview[];
   tags: string[];
+  /** 来源抓取不完整等告警（如分集 total 与实取不符），前端需提示而非当作完整。 */
+  warnings?: string[];
 }
 
 export interface ImporterImportRequest {
@@ -1581,6 +1591,8 @@ export interface ImporterImportResponse {
     artists: number;
     mediums: number;
     tracks: number;
+    /** 落库的篇目/分集数（ContentUnit）。 */
+    content_units?: number;
   };
   redirect_url: string;
 }

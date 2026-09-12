@@ -8,15 +8,27 @@ import (
 func TestPostgresMergeReferences(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
+	v, err := f.s.Definitions(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	field := v.Document.Fields["subject_attributes"]
+	// Field.Fields 带 omitempty：defaults 里的空子 map 经 DB JSON 往返后为 nil。
+	if field.Fields == nil {
+		field.Fields = map[string]Field{}
+	}
+	field.Fields["credit_note"] = Field{Names: names("署名说明", "Credit note"), Type: "text", Enabled: true}
+	v.Document.Fields["subject_attributes"] = field
+	f.publish(v.Document, v.ID)
 	old := f.save(Entity{Kind: "work", Title: "Duplicate song"})
 	target := f.save(Entity{Kind: "work", Title: "Song"})
 	unit := f.save(Entity{Kind: "content_unit", Title: "Part", WorkID: old.ID})
 	expression := f.save(Entity{Kind: "expression", Title: "Recording", WorkID: old.ID, ContentUnitID: unit.ID})
-	release := f.save(Entity{Kind: "release", Title: "Single", Subjects: []Subject{{WorkID: old.ID, Role: "primary"}}})
+	release := f.save(Entity{Kind: "release", Title: "Single", Subjects: []Subject{{WorkID: old.ID, Role: "primary", Attributes: map[string]any{"credit_note": "Original sleeve credit"}}}})
 	medium := f.save(Entity{Kind: "medium", Title: "CD", ReleaseID: release.ID})
 	track := f.save(Entity{Kind: "track", Title: "01", MediumID: medium.ID, Contents: []Inclusion{{ExpressionID: expression.ID}}})
 	actor := f.save(Entity{Kind: "agent", Title: "Singer"})
-	_, err := f.s.SaveRelation(ctx, RelationEdit{Relation: Relation{Type: "performed_by", SourceID: expression.ID, TargetID: actor.ID}, EditNote: "credit", Sources: fixtureSources()}, f.u)
+	_, err = f.s.SaveRelation(ctx, RelationEdit{Relation: Relation{Type: "performed_by", SourceID: expression.ID, TargetID: actor.ID}, EditNote: "credit", Sources: fixtureSources()}, f.u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,6 +47,14 @@ func TestPostgresMergeReferences(t *testing.T) {
 	occurrences, err := f.s.Occurrences(ctx, target.ID, nil)
 	if err != nil || len(occurrences) != 1 {
 		t.Fatalf("merged work occurrences: %d %v", len(occurrences), err)
+	}
+	readRelease, err := f.s.Get(ctx, release.ID, nil)
+	if err != nil || len(readRelease.Subjects) != 1 || readRelease.Subjects[0].Attributes["credit_note"] != "Original sleeve credit" {
+		t.Fatalf("merge lost subject attributes: %+v %v", readRelease.Subjects, err)
+	}
+	batchedRelease := occurrences[0]["release"].(Entity)
+	if len(batchedRelease.Subjects) != 1 || batchedRelease.Subjects[0].Attributes["credit_note"] != "Original sleeve credit" {
+		t.Fatalf("batched read lost subject attributes: %+v", batchedRelease.Subjects)
 	}
 	next := f.save(Entity{Kind: "expression", Title: "Same recording", WorkID: target.ID, ContentUnitID: unit.ID})
 	merge(got, next)

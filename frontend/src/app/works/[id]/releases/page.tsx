@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { fetchApi, Work } from "@/lib/api";
-import { api, Entity, title as entityTitle } from "@/components/catalog/api";
+import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/components/catalog/api";
 import { useDefinitions, getTermName } from "@/lib/definitions";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ArrowLeft, Search, ChevronLeft, ChevronRight, ArrowRightLeft, ArrowUpRight, X } from "lucide-react";
@@ -17,7 +17,8 @@ export default function WorkReleasesPage() {
   const { definitions } = useDefinitions();
   const [work, setWork] = useState<Work | null>(null);
   const [entities, setEntities] = useState<Entity[]>([]);
-  const [formats, setFormats] = useState<Record<string, string>>({});
+  // 每个发行版的介质格式计数（按实际 Medium 聚合），供筛选与规格列展示。
+  const [formatCounts, setFormatCounts] = useState<Record<string, Record<string, number>>>({});
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const pageSize = 20;
@@ -37,24 +38,28 @@ export default function WorkReleasesPage() {
   const load = async (keyword: string) => {
     setLoading(true);
     try {
-      const res = await api<{ items: Entity[] }>(`/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}&limit=100`);
-      let items = res.items || [];
+      const fetched = await fetchAllPages<Entity>(`/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}`);
+      let items = fetched;
       if (keyword.trim()) {
         const kw = keyword.trim().toLowerCase();
         items = items.filter((e) => (e.title || "").toLowerCase().includes(kw) || JSON.stringify(e.attributes || {}).toLowerCase().includes(kw));
       }
-      const fmtMap: Record<string, string> = {};
-      await Promise.all(
-        items.slice(0, 100).map(async (e) => {
-          try {
-            const m = await api<{ items: Entity[] }>(`/catalog/entities?kind=medium&release_id=${encodeURIComponent(e.id!)}&limit=10`);
-            const fmt = (m.items || []).map((x) => String(x.attributes?.format || "").trim()).filter(Boolean)[0] || "";
-            if (fmt) fmtMap[e.id!] = fmt;
-          } catch { /* ignore */ }
-        })
-      );
+      // 介质格式按实际 Medium 全量聚合（并发受控），不再截断首屏/首格式。
+      const counts = await mapLimit(items, 8, async (e) => {
+        try {
+          const ms = await fetchAllPages<Entity>(`/catalog/entities?kind=medium&release_id=${encodeURIComponent(e.id!)}`);
+          const c: Record<string, number> = {};
+          for (const m of ms) {
+            const f = String(m.attributes?.format || "").trim();
+            if (f) c[f] = (c[f] || 0) + 1;
+          }
+          return c;
+        } catch { return {}; }
+      });
+      const fmtMap: Record<string, Record<string, number>> = {};
+      items.forEach((e, i) => { fmtMap[e.id!] = counts[i] || {}; });
       setEntities(items);
-      setFormats(fmtMap);
+      setFormatCounts(fmtMap);
       setTotal(items.length);
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
@@ -62,19 +67,31 @@ export default function WorkReleasesPage() {
   useEffect(() => { if (!workId) return; load(q); }, [workId, q]);
 
   const onSearch = (e: React.FormEvent) => { e.preventDefault(); setPage(1); setQ(qInput); };
+  // format 候选来自实际 Medium 聚合：多介质发行版（CD＋BD）可被任一组成格式筛中。
+  const formatCodesOf = (e: Entity): string[] => Object.keys(formatCounts[e.id!] || {});
+  const formatSummaryOf = (e: Entity): string => {
+    const entries = Object.entries(formatCounts[e.id!] || {});
+    if (entries.length === 0) return "";
+    const joiner = locale.startsWith("zh") ? "＋" : " + ";
+    return entries
+      .map(([code, n]) => {
+        const label = getTermName(definitions, "format", code, locale);
+        return `${label !== code ? label : code}×${n}`;
+      })
+      .join(joiner);
+  };
   const filtered = useMemo(() => entities.filter((e) => {
     const edition = String(e.attributes?.edition_type || "").trim();
     const country = String(e.attributes?.country || "").trim();
-    const fmt = (formats[e.id!] || "").trim();
     if (editionFilter && edition !== editionFilter) return false;
-    if (formatFilter && fmt !== formatFilter) return false;
+    if (formatFilter && !formatCodesOf(e).includes(formatFilter)) return false;
     if (countryFilter && country !== countryFilter) return false;
     return true;
-  }), [entities, formats, editionFilter, formatFilter, countryFilter]);
+  }), [entities, formatCounts, editionFilter, formatFilter, countryFilter]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
   const editionOptions = useMemo(() => Array.from(new Set(entities.map((e) => String(e.attributes?.edition_type || "").trim()).filter(Boolean))), [entities]);
-  const formatOptions = useMemo(() => Array.from(new Set(Object.values(formats).map((v) => v.trim()).filter(Boolean))), [formats]);
+  const formatOptions = useMemo(() => Array.from(new Set(entities.flatMap(formatCodesOf).filter(Boolean))), [entities, formatCounts]);
   const countryOptions = useMemo(() => Array.from(new Set(entities.map((e) => String(e.attributes?.country || "").trim()).filter(Boolean))), [entities]);
 
   const toggleCompare = (id: string) => {
@@ -173,7 +190,7 @@ export default function WorkReleasesPage() {
                       const packaging = String(rel.attributes?.packaging || "").trim();
                       const catalogNo = String(rel.attributes?.catalog_number || "").trim();
                       const editionDate = String(rel.attributes?.edition_date || "").trim();
-                      const fmt = (formats[rel.id!] || "").trim();
+                      const fmt = formatSummaryOf(rel);
                       return (
                       <tr key={rel.id} className="hover:bg-white/[0.03] transition-colors">
                         <td className="py-3 px-2"><input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="w-4 h-4 rounded accent-primary cursor-pointer" /></td>
@@ -195,7 +212,7 @@ export default function WorkReleasesPage() {
                   const packaging = String(rel.attributes?.packaging || "").trim();
                   const catalogNo = String(rel.attributes?.catalog_number || "").trim();
                   const editionDate = String(rel.attributes?.edition_date || "").trim();
-                  const fmt = (formats[rel.id!] || "").trim();
+                  const fmt = formatSummaryOf(rel);
                   return (
                   <div key={rel.id} className="px-4 py-3.5 flex items-start gap-2.5">
                     <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="mt-1 w-5 h-5 rounded accent-primary cursor-pointer shrink-0" />

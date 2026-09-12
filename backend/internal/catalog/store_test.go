@@ -405,3 +405,214 @@ func TestRolePublishMatrix(t *testing.T) {
 		t.Fatalf("admin publish pending_review: %v", err)
 	}
 }
+
+// TestExpressionDetailsBatch：批量上屏端点与单条端点语义一致——
+// 表达实体、同 Work 收录、首个署名标题都应命中；不存在/不可见 ID 不返回。
+func TestExpressionDetailsBatch(t *testing.T) {
+	ctx := context.Background()
+	s := &Store{DB: testutil.Database(t)}
+	if err := s.Initialize(ctx); err != nil {
+		t.Fatal(err)
+	}
+	username := "batch_" + uuid.NewString()
+	if _, err := s.CreateUser(ctx, username, username+"@example.com", "test-password-12345", true, nil); err != nil {
+		t.Fatal(err)
+	}
+	var admin User
+	if err := s.DB.QueryRow("SELECT id,username,COALESCE(email,''),role FROM auth.users WHERE username=$1", username).Scan(&admin.ID, &admin.Username, &admin.Email, &admin.Role); err != nil {
+		t.Fatal(err)
+	}
+	sources := []Source{{Kind: "self", Citation: "batch fixture"}}
+	save := func(e Entity) Entity {
+		t.Helper()
+		if e.Status == "" {
+			e.Status = "published"
+		}
+		v, err := s.Save(ctx, Edit{Entity: e, ExpectedVersion: e.Version, EditNote: "batch fixture", Sources: sources}, admin)
+		if err != nil {
+			t.Fatalf("%s %s: %v", e.Kind, e.Title, err)
+		}
+		return v
+	}
+	entity := func(kind, title string) Entity {
+		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{}}
+	}
+	song := save(entity("work", "批量歌曲"))
+	album := save(entity("work", "批量专辑"))
+	rec := entity("expression", "批量录音")
+	rec.WorkID = song.ID
+	rec = save(rec)
+	rel := entity("release", "批量发行")
+	rel.Subjects = []Subject{{WorkID: album.ID, Role: "primary"}, {WorkID: song.ID, Role: "compilation", Position: 1}}
+	rel = save(rel)
+	med := entity("medium", "CD 1")
+	med.ReleaseID = rel.ID
+	med = save(med)
+	tr := entity("track", "01 批量歌曲")
+	tr.MediumID = med.ID
+	tr.Contents = []Inclusion{{ExpressionID: rec.ID}}
+	tr = save(tr)
+	// 署名：表达 → 人员。
+	actor := save(entity("agent", "批量演唱者"))
+	if _, err := s.SaveRelation(ctx, RelationEdit{
+		Relation: Relation{Type: "performed_by", SourceID: rec.ID, TargetID: actor.ID, Attributes: map[string]any{}},
+		EditNote: "batch fixture", Sources: sources,
+	}, admin); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := s.ExpressionDetailsBatch(ctx, []string{rec.ID, "00000000-0000-0000-0000-000000000000"}, &admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, ok := out.Items[rec.ID]
+	if !ok {
+		t.Fatalf("batch missing requested expression: %+v", out)
+	}
+	if d.Entity.Title != "批量录音" {
+		t.Fatalf("bad entity: %+v", d.Entity)
+	}
+	if len(d.Occurrences) != 1 {
+		t.Fatalf("expected 1 occurrence, got %d", len(d.Occurrences))
+	}
+	// 收录以引用形态返回：实体在共享表中。
+	if d.Occurrences[0].ReleaseID != rel.ID {
+		t.Fatalf("occurrence release mismatch: %+v", d.Occurrences[0])
+	}
+	if out.Entities[rel.ID].Kind != "release" {
+		t.Fatalf("shared entity table missing release: %+v", out.Entities)
+	}
+	if d.CreditTitle != "批量演唱者" {
+		t.Fatalf("credit not aggregated: %q", d.CreditTitle)
+	}
+	if _, present := out.Items["00000000-0000-0000-0000-000000000000"]; present {
+		t.Fatal("nonexistent id returned in batch")
+	}
+}
+
+// TestOccurrencesScopeByKind：收录必须按实体 kind 收敛——
+// 同 Work 的其它表达不再混入某表达自身的收录；同篇目兄弟表达单列 siblings。
+func TestOccurrencesScopeByKind(t *testing.T) {
+	ctx := context.Background()
+	s := &Store{DB: testutil.Database(t)}
+	if err := s.Initialize(ctx); err != nil {
+		t.Fatal(err)
+	}
+	username := "scope_" + uuid.NewString()
+	if _, err := s.CreateUser(ctx, username, username+"@example.com", "test-password-12345", true, nil); err != nil {
+		t.Fatal(err)
+	}
+	var admin User
+	if err := s.DB.QueryRow("SELECT id,username,COALESCE(email,''),role FROM auth.users WHERE username=$1", username).Scan(&admin.ID, &admin.Username, &admin.Email, &admin.Role); err != nil {
+		t.Fatal(err)
+	}
+	sources := []Source{{Kind: "self", Citation: "scope fixture"}}
+	save := func(e Entity) Entity {
+		t.Helper()
+		if e.Status == "" {
+			e.Status = "published"
+		}
+		v, err := s.Save(ctx, Edit{Entity: e, ExpectedVersion: e.Version, EditNote: "scope fixture", Sources: sources}, admin)
+		if err != nil {
+			t.Fatalf("%s %s: %v", e.Kind, e.Title, err)
+		}
+		return v
+	}
+	entity := func(kind, title string) Entity {
+		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{}}
+	}
+	// 同 Work 两集：各自独立收录，不应互相污染。
+	work := save(entity("work", "分集动画"))
+	unitA := entity("content_unit", "第一集")
+	unitA.WorkID = work.ID
+	unitA = save(unitA)
+	unitB := entity("content_unit", "第二集")
+	unitB.WorkID = work.ID
+	unitB = save(unitB)
+	// 同一篇目下的两个表达（如 TV 版与加长版）。
+	exprA1 := entity("expression", "第一集 TV 版")
+	exprA1.WorkID = work.ID
+	exprA1.ContentUnitID = unitA.ID
+	exprA1 = save(exprA1)
+	exprA2 := entity("expression", "第一集 加长版")
+	exprA2.WorkID = work.ID
+	exprA2.ContentUnitID = unitA.ID
+	exprA2 = save(exprA2)
+	exprB := entity("expression", "第二集正片")
+	exprB.WorkID = work.ID
+	exprB.ContentUnitID = unitB.ID
+	exprB = save(exprB)
+	relA := entity("release", "第一集发行")
+	relA.Subjects = []Subject{{WorkID: work.ID, Role: "primary"}}
+	relA = save(relA)
+	medA := entity("medium", "BD 1")
+	medA.ReleaseID = relA.ID
+	medA = save(medA)
+	trackA := entity("track", "S1E1")
+	trackA.MediumID = medA.ID
+	trackA.Contents = []Inclusion{{ExpressionID: exprA1.ID}}
+	save(trackA)
+	relB := entity("release", "第二集发行")
+	relB.Subjects = []Subject{{WorkID: work.ID, Role: "primary"}}
+	relB = save(relB)
+	medB := entity("medium", "BD 2")
+	medB.ReleaseID = relB.ID
+	medB = save(medB)
+	trackB := entity("track", "S1E2")
+	trackB.MediumID = medB.ID
+	trackB.Contents = []Inclusion{{ExpressionID: exprB.ID}}
+	save(trackB)
+
+	// expression 自身：只含本表达的收录。
+	occ, err := s.Occurrences(ctx, exprA1.ID, nil)
+	if err != nil || len(occ) != 1 {
+		t.Fatalf("expression own occurrences: %v %d", err, len(occ))
+	}
+	if occ[0]["expression_id"].(string) != exprA1.ID {
+		t.Fatalf("expression occurrence bled from another expression: %+v", occ[0])
+	}
+	// content_unit：该集下各表达的收录。
+	occ, err = s.Occurrences(ctx, unitA.ID, nil)
+	if err != nil || len(occ) != 1 {
+		t.Fatalf("content_unit occurrences: %v %d", err, len(occ))
+	}
+	// work：作品下全部表达的收录，两集都算。
+	occ, err = s.Occurrences(ctx, work.ID, nil)
+	if err != nil || len(occ) != 2 {
+		t.Fatalf("work occurrences: %v %d", err, len(occ))
+	}
+	// 批量：自身收录与同篇目兄弟分列，且不含同 Work 的其它篇目。
+	out, err := s.ExpressionDetailsBatch(ctx, []string{exprA1.ID}, &admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := out.Items[exprA1.ID]
+	if len(d.Occurrences) != 1 || d.Occurrences[0].ExpressionID != exprA1.ID {
+		t.Fatalf("batch own occurrences wrong: %+v", d.Occurrences)
+	}
+	if len(d.Siblings) != 0 {
+		t.Fatalf("exprA1 should have no recorded sibling inclusion, got %+v", d.Siblings)
+	}
+	// 给同篇目兄弟表达也建一条收录，siblings 应命中它而不污染自身。
+	relA2 := entity("release", "第一集加长版发行")
+	relA2.Subjects = []Subject{{WorkID: work.ID, Role: "primary"}}
+	relA2 = save(relA2)
+	medA2 := entity("medium", "BD 3")
+	medA2.ReleaseID = relA2.ID
+	medA2 = save(medA2)
+	trackA2 := entity("track", "S1E1 long")
+	trackA2.MediumID = medA2.ID
+	trackA2.Contents = []Inclusion{{ExpressionID: exprA2.ID}}
+	save(trackA2)
+	out, err = s.ExpressionDetailsBatch(ctx, []string{exprA1.ID}, &admin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d = out.Items[exprA1.ID]
+	if len(d.Occurrences) != 1 {
+		t.Fatalf("sibling inclusion leaked into own occurrences: %+v", d.Occurrences)
+	}
+	if len(d.Siblings) != 1 || d.Siblings[0].ExpressionID != exprA2.ID {
+		t.Fatalf("same-unit sibling not reported: %+v", d.Siblings)
+	}
+}

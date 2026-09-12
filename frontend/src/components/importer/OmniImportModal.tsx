@@ -39,6 +39,7 @@ import {
   Work,
   Artist,
 } from "@/lib/api";
+import { fetchAllPages } from "@/components/catalog/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
@@ -49,6 +50,37 @@ interface Props {
   initialSource?: string;
   initialURLOrID?: string;
   initialEntityType?: "work" | "artist" | "organization" | "character";
+}
+
+// entryDepth：按 parent_index 求 canonical entry 的层级（用于预览缩进），
+// 异常环状数据以访问集合兜底，最多展开 8 层避免死循环。
+function entryDepth(entries: { parent_index?: number }[], index: number): number {
+  let depth = 0;
+  let cur = entries[index]?.parent_index;
+  const seen = new Set<number>([index]);
+  while (typeof cur === "number" && cur >= 0 && cur < entries.length && !seen.has(cur) && depth < 8) {
+    seen.add(cur);
+    depth += 1;
+    cur = entries[cur]?.parent_index;
+  }
+  return depth;
+}
+
+// 标题规范化仅用于"建议"排序：后端不再按标题自动合并身份（同名录音室版/现场版
+// 会被误并），这里只把同名的既有表达排到前面供人工确认，不自动选中。
+function normalizeTitleKey(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// suggestExpression：在既有表达中按标题相等优先挑一个候选，供用户一键确认。
+function suggestExpression(
+  title: string,
+  expressions: { id: string; title: string }[],
+): { id: string; title: string } | null {
+  const key = normalizeTitleKey(title);
+  if (!key) return null;
+  const exact = expressions.find((ex) => normalizeTitleKey(ex.title) === key);
+  return exact || null;
 }
 
 export function OmniImportModal({
@@ -89,6 +121,11 @@ export function OmniImportModal({
   const [linkMode, setLinkMode] = useState<"append_release_to_work" | "merge_translations" | "create_relation" | "new_work">("new_work");
   const [relationType] = useState<string>("soundtrack_of");
 
+  // 既有表达匹配：选定目标母体后加载其既有表达（录音/正文），
+  // 供用户把预览条目手工绑定到已存在的表达，避免重复建录音。
+  const [workExpressions, setWorkExpressions] = useState<{ id: string; title: string }[]>([]);
+  const [entryMatches, setEntryMatches] = useState<Record<number, string>>({});
+
   const [downloadCover, setDownloadCover] = useState(true);
   const [editNote, setEditNote] = useState("");
   const [importing, setImporting] = useState(false);
@@ -105,6 +142,35 @@ export function OmniImportModal({
         .catch(() => {});
     }
   }, [isOpen]);
+
+  // 目标母体变化时拉取其既有表达；无目标母体（新建作品）时清空，不做匹配。
+  useEffect(() => {
+    const workId = selectedTargetWork?.id;
+    if (!workId) {
+      setWorkExpressions([]);
+      return;
+    }
+    let active = true;
+    // 用 fetchAllPages 翻页取全：列表端点的 limit 上限为 100，写死 limit=200 会被
+    // 收敛为 50，导致候选下拉只显示前 50 条。
+    fetchAllPages<{ id: string; title: string }>(
+      `/catalog/entities?kind=expression&work_id=${encodeURIComponent(workId)}`,
+    )
+      .then((items) => {
+        if (active) setWorkExpressions(items);
+      })
+      .catch(() => {
+        if (active) setWorkExpressions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedTargetWork?.id]);
+
+  // 新预览产生时重置手工匹配选择，避免上一次的绑定串到新条目上。
+  useEffect(() => {
+    setEntryMatches({});
+  }, [previewData]);
 
   if (!isOpen) return null;
 
@@ -282,6 +348,12 @@ export function OmniImportModal({
         }, 1200);
       } else {
         // 作品与演职员关联审查导入
+        // 把手工匹配结果并入提交载荷：canonical entries 按下标绑定既有表达。
+        const canonicalEntries = (previewData.canonical_entries || []).map((entry, index) =>
+          entryMatches[index]
+            ? { ...entry, expression_id: entryMatches[index] }
+            : entry,
+        );
         const res = await importExternalCatalog({
           entity_type: "work",
           source: previewData.source,
@@ -289,7 +361,7 @@ export function OmniImportModal({
           work: previewData.work,
           staff_associations: associations,
           has_release: previewData.has_release,
-          canonical_entries: previewData.canonical_entries,
+          canonical_entries: canonicalEntries,
           release: previewData.has_release === false ? null : previewData.release,
           mediums: previewData.has_release === false ? [] : previewData.mediums,
           download_cover: downloadCover,
@@ -793,17 +865,81 @@ export function OmniImportModal({
               {previewData.has_release === false && (
                 <p className="p-3 rounded-lg bg-primary/5 text-sm text-gray-600 dark:text-gray-300">{t("catalog.contents.importWithoutRelease")}</p>
               )}
+              {/* 来源抓取不完整（如分集 total 与实取不符）必须显式提示，不能静默当作完整清单落库。 */}
+              {!!previewData.warnings?.length && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                  {Array.from(new Set(previewData.warnings.map((w) =>
+                    w.startsWith("bangumi_episodes_incomplete") ? t("importer.sourceIncompleteEpisodes") : t("importer.sourceIncompleteGeneric"),
+                  ))).map((msg) => (
+                    <p key={msg}>{msg}</p>
+                  ))}
+                </div>
+              )}
               {!!previewData.canonical_entries?.length && (
                 <section className="p-4 rounded-xl border border-black/10 dark:border-white/10 space-y-3">
-                  <h3 className="font-semibold">{t("catalog.contents.title")}</h3>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h3 className="font-semibold">{t("catalog.contents.title")}</h3>
+                    <span className="text-xs text-gray-500 font-mono">{previewData.canonical_entries.length}</span>
+                  </div>
                   <ol className="max-h-72 overflow-y-auto space-y-2 text-sm">
-                    {previewData.canonical_entries.map((entry, index) => (
-                      <li key={index} className="flex items-baseline gap-3">
-                        <span className="text-gray-500 font-mono">{entry.number || entry.position}</span>
-                        <span>{pickRecordTitle(locale, entry.translations, entry.title, { order: titleOrder, originalLanguage: entry.original_language })}</span>
-                        {entry.entry_role && <span className="text-xs text-gray-500">{t(`catalog.contents.role.${entry.entry_role}`)}</span>}
-                      </li>
-                    ))}
+                    {previewData.canonical_entries.map((entry, index) => {
+                      const depth = entryDepth(previewData.canonical_entries || [], index);
+                      const isUnit = entry.entry_kind === "content_unit";
+                      return (
+                        <li
+                          key={index}
+                          className="flex items-baseline gap-2 sm:gap-3"
+                          style={depth > 0 ? { paddingLeft: `${depth * 16}px` } : undefined}
+                        >
+                          {depth > 0 && <span className="text-gray-400 font-mono text-xs">└</span>}
+                          <span className="text-gray-500 font-mono shrink-0">{entry.number || entry.position}</span>
+                          <span className={isUnit ? "font-medium" : ""}>
+                            {pickRecordTitle(locale, entry.translations, entry.title, { order: titleOrder, originalLanguage: entry.original_language })}
+                          </span>
+                          {isUnit && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-300 border border-sky-500/20 shrink-0">
+                              {t("catalog.contents.unitBadge")}
+                            </span>
+                          )}
+                          {entry.entry_role && <span className="text-xs text-gray-500">{t(`catalog.contents.role.${entry.entry_role}`)}</span>}
+                          {!isUnit && workExpressions.length > 0 && (() => {
+                            const suggestion = suggestExpression(
+                              pickRecordTitle(locale, entry.translations, entry.title),
+                              workExpressions,
+                            );
+                            // 仅在用户尚未选择、且存在同名候选时给出建议；点击才写入绑定。
+                            const showSuggest = suggestion && !entryMatches[index] && suggestion.id !== entry.expression_id;
+                            return (
+                              <>
+                                {showSuggest && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEntryMatches((prev) => ({ ...prev, [index]: suggestion.id }))}
+                                    title={t("importer.matchSuggestionHint")}
+                                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+                                  >
+                                    <span>{t("importer.matchSuggestion", { title: suggestion.title })}</span>
+                                  </button>
+                                )}
+                                <select
+                                  value={entryMatches[index] || ""}
+                                  onChange={(e) =>
+                                    setEntryMatches((prev) => ({ ...prev, [index]: e.target.value }))
+                                  }
+                                  aria-label={t("importer.matchExistingExpression")}
+                                  className="ml-auto shrink-0 max-w-[46%] px-1.5 py-0.5 rounded border border-black/10 dark:border-white/15 bg-surface text-[11px] text-gray-700 dark:text-gray-300"
+                                >
+                                  <option value="">{t("importer.matchNone")}</option>
+                                  {workExpressions.map((ex) => (
+                                    <option key={ex.id} value={ex.id}>{ex.title}</option>
+                                  ))}
+                                </select>
+                              </>
+                            );
+                          })()}
+                        </li>
+                      );
+                    })}
                   </ol>
                 </section>
               )}
