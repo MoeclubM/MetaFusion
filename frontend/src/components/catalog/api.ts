@@ -18,6 +18,8 @@ export type Field = {
   required?: boolean;
   searchable?: boolean;
   comparable?: boolean;
+  /** 存档/检索用途：可写可检索但不进详情面板与编辑器分组区。 */
+  hidden?: boolean;
   unit?: Names;
   vocabulary?: string;
   kinds?: string[];

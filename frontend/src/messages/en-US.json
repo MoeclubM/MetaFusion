@@ -2598,5 +2598,6 @@
   "editor.relation.evidenceRequired": "Fill in the edit note and sources below before managing relations.",
   "editor.relation.forbidden": "Not allowed: relations of other people's or published entries require the entry creator (editor) or an admin.",
   "editor.relation.loadFailed": "Failed to load relations",
-  "catalog.evidenceRequired": "Fill in the edit note and source citation before saving."
+  "catalog.evidenceRequired": "Fill in the edit note and source citation before saving.",
+  "catalog.otherInfo": "Other information"
 }

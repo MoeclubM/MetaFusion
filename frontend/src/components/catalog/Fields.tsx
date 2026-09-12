@@ -216,9 +216,11 @@ export function FieldInput({
       type={
         field.type === "number"
           ? "number"
-          : field.type === "url"
-            ? "url"
-            : "text"
+          : field.type === "date"
+            ? "date"
+            : field.type === "url"
+              ? "url"
+              : "text"
       }
       min={field.min}
       max={field.max}

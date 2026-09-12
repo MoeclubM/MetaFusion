@@ -55,6 +55,31 @@ export function EntityEditor({
       ...Object.keys(e.attributes),
     ]),
   );
+  // 动态结构：合并实体全部类型引用模板的 sections（保序去重）；
+  // hidden 字段（存档/检索用）不在编辑面板出现；剩余字段归入"其它信息"。
+  // 注意：此处位于条件 return 之后，必须用普通计算，不得改成 useMemo。
+  const sections: { names: Record<string, string>; fields: string[] }[] = [];
+  let restFields: string[] = [];
+  {
+    const declared = new Set(fields);
+    const seen = new Set<string>();
+    for (const tc of e.types) {
+      const tpl = d.templates?.[d.types[tc]?.template || ""];
+      for (const sec of tpl?.sections || []) {
+        const fs = (sec.fields || []).filter(
+          (f: string) =>
+            declared.has(f) &&
+            !seen.has(f) &&
+            !d.fields[f]?.hidden &&
+            d.fields[f],
+        );
+        if (!fs.length) continue;
+        fs.forEach((f: string) => seen.add(f));
+        sections.push({ names: sec.names || {}, fields: fs });
+      }
+    }
+    restFields = fields.filter((f) => !seen.has(f) && !d.fields[f]?.hidden);
+  }
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();
     // 应用层证据校验：HTML required 的原生气泡在部分环境不可见，
@@ -574,33 +599,75 @@ export function EntityEditor({
       {!!fields.length && (
         <fieldset>
           <legend>{t("catalog.attributes")}</legend>
-          <div className="cv-grid">
-            {fields.map((k) => (
-              <label key={k}>
-                {local(d.fields[k]?.names, locale, "", k)}
-                {d.fields[k]?.required && " *"}
-                <FieldInput
-                  field={d.fields[k]}
-                  value={e.attributes[k]}
-                  onChange={(v) =>
-                    patch({ attributes: { ...e.attributes, [k]: v } })
-                  }
-                />
-                {e.attributes[k] !== undefined && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const attributes = { ...e.attributes };
-                      delete attributes[k];
-                      patch({ attributes });
-                    }}
-                  >
-                    {t("catalog.remove")}
-                  </button>
-                )}
-              </label>
-            ))}
-          </div>
+          {/* 动态结构：字段按实体类型引用模板的 sections 分组（分区名/字段/次序
+              全部来自服务端 definitions）；模板未覆盖的字段落入末尾"其它信息"，
+              保证任何声明过的数据都可编辑。 */}
+          {sections.map((sec, i) => (
+            <div key={`sec${i}`} className="cv-section">
+              <h4 className="cv-section-title">
+                {local(sec.names, locale, "")}
+              </h4>
+              <div className="cv-grid">
+                {sec.fields.map((k) => (
+                  <label key={k}>
+                    {local(d.fields[k]?.names, locale, "", k)}
+                    {d.fields[k]?.required && " *"}
+                    <FieldInput
+                      field={d.fields[k]}
+                      value={e.attributes[k]}
+                      onChange={(v) =>
+                        patch({ attributes: { ...e.attributes, [k]: v } })
+                      }
+                    />
+                    {e.attributes[k] !== undefined && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const attributes = { ...e.attributes };
+                          delete attributes[k];
+                          patch({ attributes });
+                        }}
+                      >
+                        {t("catalog.remove")}
+                      </button>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+          {restFields.length > 0 && (
+            <div className="cv-section">
+              <h4 className="cv-section-title">{t("catalog.otherInfo")}</h4>
+              <div className="cv-grid">
+                {restFields.map((k) => (
+                  <label key={k}>
+                    {local(d.fields[k]?.names, locale, "", k)}
+                    {d.fields[k]?.required && " *"}
+                    <FieldInput
+                      field={d.fields[k]}
+                      value={e.attributes[k]}
+                      onChange={(v) =>
+                        patch({ attributes: { ...e.attributes, [k]: v } })
+                      }
+                    />
+                    {e.attributes[k] !== undefined && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const attributes = { ...e.attributes };
+                          delete attributes[k];
+                          patch({ attributes });
+                        }}
+                      >
+                        {t("catalog.remove")}
+                      </button>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </fieldset>
       )}
       <fieldset>
