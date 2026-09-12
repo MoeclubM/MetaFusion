@@ -2086,6 +2086,135 @@ func (s *Store) createExpression(ctx context.Context, actor User, note string, s
 	}, actor, note, sources)
 }
 
+// importerReleaseAttrs 从预览计算发行版属性（不含 publisher：自由文本无法解析为
+// Agent 引用；不含 edition_type：预览未携带，不虚构）。
+func importerReleaseAttrs(rel *ImporterReleasePreview) map[string]any {
+	out := map[string]any{}
+	if rel == nil {
+		return out
+	}
+	if v := strings.TrimSpace(rel.CatalogNumber); v != "" {
+		out["catalog_number"] = v
+	}
+	if v := strings.TrimSpace(rel.Barcode); v != "" {
+		out["barcode"] = v
+	}
+	if v := strings.TrimSpace(rel.Country); v != "" {
+		out["country"] = v
+	}
+	if v := cleanImporterDate(rel.EditionDate); v != "" {
+		out["edition_date"] = v
+	}
+	return out
+}
+
+// importerMediumAttrs 从预览计算载体属性（format 与 role 均须在词表内）。
+func importerMediumAttrs(m ImporterMediumPreview) map[string]any {
+	out := map[string]any{}
+	if f, ok := importerMediumFormats[strings.ToLower(strings.TrimSpace(m.Format))]; ok {
+		out["format"] = f
+	}
+	if r := importerEnum(m.Role, []string{"primary", "supplement", "side", "extra", "commentary"}); r != "" {
+		out["role"] = r
+	}
+	return out
+}
+
+// importerTrackAttrs 从预览计算曲目属性。注意 ISRC 不在此处：它属于录音本体，
+// 写入 expression.ExternalIDs；track 定义只声明 duration/role。
+func importerTrackAttrs(t ImporterTrackPreview) map[string]any {
+	out := map[string]any{}
+	if t.DurationSeconds > 0 {
+		out["duration"] = t.DurationSeconds
+	}
+	return out
+}
+
+// importerFieldSet 汇总某实体类型码声明的属性字段码白名单，用于写库前预检
+// unknown_field，避免先建发行/载体再在曲目处失败留下半成品。
+func importerFieldSet(defs Definitions, typeCode string) map[string]bool {
+	set := map[string]bool{}
+	if t, ok := defs.Types[typeCode]; ok {
+		for _, f := range t.Fields {
+			set[f] = true
+		}
+	}
+	return set
+}
+
+// importerCheckAttrs 校验属性键都属于目标类型字段集；键为空集时放行。
+func importerCheckAttrs(defs Definitions, typeCode string, attrs map[string]any) error {
+	set := importerFieldSet(defs, typeCode)
+	for k, v := range attrs {
+		if v == nil {
+			continue
+		}
+		if !set[k] {
+			return fmt.Errorf("unknown_field: %s", k)
+		}
+	}
+	return nil
+}
+
+// importerPreflight 在写库前只读校验整份载荷，保证校验失败时零写入：
+//   - 显式表达引用（canonical entries 与各轨）必须存在且 kind=expression；
+//   - 载荷声明的属性字段码、以及代码将写入的 release/medium/track 属性，
+//     必须属于对应类型字段集（unknown_field 提前暴露）。
+//
+// 章节树（parent_index）由 A5 的统一路径校验，此处不重复处理。
+func (s *Store) importerPreflight(ctx context.Context, actor User, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview) error {
+	checkExpr := func(raw string) error {
+		id := strings.TrimSpace(raw)
+		if id == "" {
+			return nil
+		}
+		e, err := s.Get(ctx, id, &actor)
+		if err != nil || e.Kind != "expression" {
+			return fmt.Errorf("invalid_expression_reference")
+		}
+		return nil
+	}
+	for _, ce := range entries {
+		if err := checkExpr(ce.ExpressionID); err != nil {
+			return err
+		}
+	}
+	for _, m := range mediums {
+		for _, t := range m.Tracks {
+			if err := checkExpr(t.ExpressionID); err != nil {
+				return err
+			}
+		}
+	}
+	defs, err := s.Definitions(ctx)
+	if err != nil {
+		return err
+	}
+	if err := importerCheckAttrs(defs.Document, "release", importerReleaseAttrs(rel)); err != nil {
+		return err
+	}
+	for _, ce := range entries {
+		kind := strings.TrimSpace(ce.EntryKind)
+		if kind == "" {
+			kind = "expression"
+		}
+		if err := importerCheckAttrs(defs.Document, kind, ce.Attributes); err != nil {
+			return err
+		}
+	}
+	for _, m := range mediums {
+		if err := importerCheckAttrs(defs.Document, "medium", importerMediumAttrs(m)); err != nil {
+			return err
+		}
+		for _, t := range m.Tracks {
+			if err := importerCheckAttrs(defs.Document, "track", importerTrackAttrs(t)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // importExpressionsOnly 无发行版时只建表达，不建 release 链；entry_kind=content_unit
 // 的条目先建章节树（parent_index 指父级），下级表达挂到所属单元。
 func (s *Store) importExpressionsOnly(ctx context.Context, actor User, note string, sources []Source, workID string, entries []ImporterCanonicalEntryPreview) (ImporterImportedCounts, error) {
@@ -2143,11 +2272,13 @@ func (s *Store) importExpressionsOnly(ctx context.Context, actor User, note stri
 // 同名曲跨盘/跨发行复用同一表达。多盘各自从 1 重排轨号，跨盘绝不按轨号对齐。
 func (s *Store) importReleaseChain(ctx context.Context, actor User, note string, sources []Source, workID, workTitle string, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, releaseKey string) (Entity, ImporterImportedCounts, error) {
 	counts := ImporterImportedCounts{}
-	// 发行链幂等：同一外部条目重复导入时复用已建 release，不重建整链。
+	// 发行链幂等：同一外部条目重复导入时复用已建 release，但不再直接返回——
+	// 上次可能只建了部分结构，需要继续补齐载体/曲目（见下方循环）。
 	// releaseKey 由调用方按 work 幂等键派生（workKey + ":release"），无键时不复用。
+	var existingRelease *Entity
 	if strings.TrimSpace(releaseKey) != "" {
 		if existing, ok := s.findImported(ctx, strings.TrimSpace(releaseKey), &actor); ok && existing.Kind == "release" {
-			return existing, counts, nil
+			existingRelease = &existing
 		}
 	}
 	type exprCandidate struct {
@@ -2307,28 +2438,10 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 		register(exprCandidate{id: saved.ID, number: saved.Number, titleKey: normalizeImporterTitleKey(title), pos: pos, externalIDs: saved.ExternalIDs})
 	}
 	releaseTitle := strings.TrimSpace(workTitle)
-	var releaseAttrs map[string]any
-	releaseAttrs = map[string]any{}
-	if rel != nil {
-		if strings.TrimSpace(rel.EditionName) != "" {
-			releaseTitle = strings.TrimSpace(rel.EditionName)
-		}
-		if v := strings.TrimSpace(rel.CatalogNumber); v != "" {
-			releaseAttrs["catalog_number"] = v
-		}
-		if v := strings.TrimSpace(rel.Barcode); v != "" {
-			releaseAttrs["barcode"] = v
-		}
-		if v := strings.TrimSpace(rel.Country); v != "" {
-			releaseAttrs["country"] = v
-		}
-		if v := cleanImporterDate(rel.EditionDate); v != "" {
-			releaseAttrs["edition_date"] = v
-		}
-		// publisher 为 entity 引用字段：预览只有自由文本名称，无法解析为 Agent，
-		// 不写入 attributes，避免 invalid_reference。预览未携带 edition_type，
-		// 不虚构版本类型。
+	if rel != nil && strings.TrimSpace(rel.EditionName) != "" {
+		releaseTitle = strings.TrimSpace(rel.EditionName)
 	}
+	releaseAttrs := importerReleaseAttrs(rel)
 	if releaseTitle == "" {
 		return Entity{}, counts, fmt.Errorf("invalid_payload")
 	}
@@ -2336,43 +2449,63 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 	if strings.TrimSpace(releaseKey) != "" {
 		releaseExternalIDs["metafusion_import"] = strings.TrimSpace(releaseKey)
 	}
-	release, err := s.importerSave(ctx, Entity{
-		Kind:        "release",
-		Title:       releaseTitle,
-		Types:       []string{"release"},
-		Attributes:  releaseAttrs,
-		ExternalIDs: releaseExternalIDs,
-		Subjects:    []Subject{{WorkID: workID, Role: "primary", Position: 0}},
-	}, actor, note, sources)
-	if err != nil {
-		return Entity{}, counts, err
+	var release Entity
+	if existingRelease != nil {
+		// 复用已建发行，但**继续走载体/曲目循环**：上次导入可能中途失败，
+		// 只建了部分结构，重试需要补齐，而不是整链跳过。
+		release = *existingRelease
+	} else {
+		created, cerr := s.importerSave(ctx, Entity{
+			Kind:        "release",
+			Title:       releaseTitle,
+			Types:       []string{"release"},
+			Attributes:  releaseAttrs,
+			ExternalIDs: releaseExternalIDs,
+			Subjects:    []Subject{{WorkID: workID, Role: "primary", Position: 0}},
+		}, actor, note, sources)
+		if cerr != nil {
+			return Entity{}, counts, cerr
+		}
+		release = created
 	}
 	for i, m := range mediums {
 		mediumTitle := strings.TrimSpace(m.Name)
 		if mediumTitle == "" {
 			mediumTitle = "Disc " + strconv.Itoa(i+1)
 		}
-		mediumAttrs := map[string]any{}
-		if f, ok := importerMediumFormats[strings.ToLower(strings.TrimSpace(m.Format))]; ok {
-			mediumAttrs["format"] = f
+		mediumAttrs := importerMediumAttrs(m)
+		medPos := sanitizePosition(m.Position, i)
+		mediumKey := ""
+		if rk := strings.TrimSpace(releaseKey); rk != "" {
+			mediumKey = rk + ":m" + strconv.Itoa(medPos)
 		}
-		if r := importerEnum(m.Role, []string{"primary", "supplement", "side", "extra", "commentary"}); r != "" {
-			mediumAttrs["role"] = r
+		mediumExternal := map[string]string{}
+		if mediumKey != "" {
+			mediumExternal["metafusion_import"] = mediumKey
 		}
-		medium, err := s.importerSave(ctx, Entity{
-			Kind:        "medium",
-			Title:       mediumTitle,
-			ReleaseID:   release.ID,
-			Number:      strings.TrimSpace(m.Number),
-			Position:    sanitizePosition(m.Position, i),
-			Types:       []string{"medium"},
-			Attributes:  mediumAttrs,
-			ExternalIDs: map[string]string{},
-		}, actor, note, sources)
-		if err != nil {
-			return Entity{}, counts, err
+		var medium Entity
+		if mediumKey != "" {
+			if ex, ok := s.findImported(ctx, mediumKey, &actor); ok && ex.Kind == "medium" && ex.ReleaseID == release.ID {
+				medium = ex
+			}
 		}
-		counts.Mediums++
+		if medium.ID == "" {
+			created, merr := s.importerSave(ctx, Entity{
+				Kind:        "medium",
+				Title:       mediumTitle,
+				ReleaseID:   release.ID,
+				Number:      strings.TrimSpace(m.Number),
+				Position:    medPos,
+				Types:       []string{"medium"},
+				Attributes:  mediumAttrs,
+				ExternalIDs: mediumExternal,
+			}, actor, note, sources)
+			if merr != nil {
+				return Entity{}, counts, merr
+			}
+			medium = created
+			counts.Mediums++
+		}
 		// 位置回退仅在单载体启用：多盘按轨号对齐会把不同盘的同轨号误判为同一内容。
 		allowPositionFallback := len(mediums) == 1
 		for j, t := range m.Tracks {
@@ -2417,16 +2550,26 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 				expressionID = expr.ID
 				register(exprCandidate{id: expr.ID, number: expr.Number, titleKey: normalizeImporterTitleKey(trackTitle), pos: pos, externalIDs: expr.ExternalIDs})
 			}
-			trackAttrs := map[string]any{}
-			if t.DurationSeconds > 0 {
-				trackAttrs["duration"] = t.DurationSeconds
-			}
-			if v := strings.TrimSpace(t.ISRC); v != "" {
-				trackAttrs["isrc"] = v
-			}
+			trackAttrs := importerTrackAttrs(t)
+			// ISRC 属于录音本体：已写入 expression.ExternalIDs（见上方 trackExternal），
+			// track 定义只声明 duration/role，不能再写 isrc（会 unknown_field 拒绝）。
 			trackNumber := number
 			if trackNumber == "" && pos > 0 {
 				trackNumber = strconv.Itoa(pos)
+			}
+			trackKey := ""
+			if mediumKey != "" {
+				trackKey = mediumKey + ":t" + strconv.Itoa(pos)
+			}
+			trackExternalIDs := map[string]string{}
+			if trackKey != "" {
+				trackExternalIDs["metafusion_import"] = trackKey
+			}
+			// 曲目级幂等：上次中断后重试时按轨位键复用，避免同一发行下重复建曲目。
+			if trackKey != "" {
+				if ex, ok := s.findImported(ctx, trackKey, &actor); ok && ex.Kind == "track" && ex.MediumID == medium.ID {
+					continue
+				}
 			}
 			if _, err := s.importerSave(ctx, Entity{
 				Kind:        "track",
@@ -2436,7 +2579,7 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 				Position:    pos,
 				Types:       []string{"track"},
 				Attributes:  trackAttrs,
-				ExternalIDs: map[string]string{},
+				ExternalIDs: trackExternalIDs,
 				Contents:    []Inclusion{{ExpressionID: expressionID, Position: 0}},
 			}, actor, note, sources); err != nil {
 				return Entity{}, counts, err
@@ -2474,10 +2617,23 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 	if err != nil {
 		return ImporterImportResponse{}, err
 	}
-	if mode == "append_release_to_work" || mode == "merge_translations" {
+	// 先做纯参数校验（不触库），保持"非法载荷在写库前失败"的既有约定。
+	switch mode {
+	case "append_release_to_work", "merge_translations":
 		if strings.TrimSpace(req.TargetWorkID) == "" {
 			return ImporterImportResponse{}, fmt.Errorf("invalid_payload")
 		}
+	case "create_relation":
+		if strings.TrimSpace(req.TargetWorkID) == "" || strings.TrimSpace(req.RelationType) == "" || req.Work == nil {
+			return ImporterImportResponse{}, fmt.Errorf("invalid_payload")
+		}
+	}
+	// 写库前整体预检：属性字段码与显式表达引用先校验，避免先建 work/release/medium
+	// 再在某条曲目处 unknown_field 失败，留下半成品结构。
+	if pfErr := s.importerPreflight(ctx, actor, req.CanonicalEntries, req.Release, req.Mediums); pfErr != nil {
+		return ImporterImportResponse{}, pfErr
+	}
+	if mode == "append_release_to_work" || mode == "merge_translations" {
 		target, gerr := s.Get(ctx, strings.TrimSpace(req.TargetWorkID), &actor)
 		if gerr != nil || target.Kind != "work" {
 			return ImporterImportResponse{}, fmt.Errorf("not_found")
@@ -2504,9 +2660,6 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 		}, nil
 	}
 	if mode == "create_relation" {
-		if strings.TrimSpace(req.TargetWorkID) == "" || strings.TrimSpace(req.RelationType) == "" || req.Work == nil {
-			return ImporterImportResponse{}, fmt.Errorf("invalid_payload")
-		}
 		target, gerr := s.Get(ctx, strings.TrimSpace(req.TargetWorkID), &actor)
 		if gerr != nil || target.Kind != "work" {
 			return ImporterImportResponse{}, fmt.Errorf("not_found")
