@@ -522,11 +522,23 @@ func (s *Store) occurrenceScopeExpressionIDs(ctx context.Context, e Entity) ([]s
 // siblingExpressionIDs 返回"同篇目兄弟表达"集合：仅当实体是归属于某 ContentUnit 的
 // 表达时，取该篇目下其它表达；否则空。用于把"本条收录"与"同篇目其它版本"分开，
 // 不再用整 Work 兜底（那会把同歌不同录音、同作品不同分集混在一起）。
+// 注意 content_unit_id 的权威在 catalog.expressions 侧表：document 落库时清空了
+// 结构字段（store.go Save），GetManyVisible 反序列化出的 Entity 带不上它。
 func (s *Store) siblingExpressionIDs(ctx context.Context, e Entity) ([]string, error) {
-	if e.Kind != "expression" || strings.TrimSpace(e.ContentUnitID) == "" {
+	if e.Kind != "expression" {
 		return []string{}, nil
 	}
-	rows, err := s.DB.QueryContext(ctx, "SELECT id::text FROM catalog.expressions WHERE content_unit_id=$1 AND id<>$2 ORDER BY id", e.ContentUnitID, e.ID)
+	var unitID string
+	if err := s.DB.QueryRowContext(ctx, "SELECT coalesce(content_unit_id::text,'') FROM catalog.expressions WHERE id=$1", e.ID).Scan(&unitID); err != nil {
+		if err == sql.ErrNoRows {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	if strings.TrimSpace(unitID) == "" {
+		return []string{}, nil
+	}
+	rows, err := s.DB.QueryContext(ctx, "SELECT id::text FROM catalog.expressions WHERE content_unit_id=$1 AND id<>$2 ORDER BY id", unitID, e.ID)
 	if err != nil {
 		return nil, err
 	}
