@@ -12,6 +12,7 @@ import {
   local,
 } from "./api";
 import { useCatalog } from "./CatalogProvider";
+import { refreshDefinitions } from "@/lib/definitions";
 import { Evidence, ErrorMessage, NamesEditor } from "./Fields";
 
 const newField = (): Field => ({ names: {}, type: "text", enabled: true });
@@ -682,6 +683,25 @@ export function DefinitionsEditor() {
                   ))}
                 </select>
               </label>
+              <TextList
+                label={t("catalog.badgeFields")}
+                value={v.badge_fields || []}
+                onChange={(badge_fields) => set({ ...v, badge_fields })}
+              />
+              <TextList
+                label={t("catalog.facetFields")}
+                value={v.facet_fields || []}
+                onChange={(facet_fields) => set({ ...v, facet_fields })}
+              />
+              <label>
+                {t("catalog.primaryDateField")}
+                <input
+                  value={v.primary_date_field || ""}
+                  onChange={(e) =>
+                    set({ ...v, primary_date_field: e.target.value })
+                  }
+                />
+              </label>
               <Checks
                 label={t("catalog.modules")}
                 values={Object.fromEntries(
@@ -748,7 +768,11 @@ export function DefinitionsEditor() {
                   "POST",
                   { edit_note: note, sources },
                 );
+                // 同时刷新 CatalogProvider 与 definitions.ts 模块缓存：
+                // 两者是独立状态（同一页面可能同时消费），只刷新其一会让部分组件
+                // 停留在旧定义，直到整页刷新。
                 await refresh();
+                await refreshDefinitions();
                 const current = await api<Definition>("/catalog/definitions");
                 setD(structuredClone(current.document));
                 setBase(current.id);

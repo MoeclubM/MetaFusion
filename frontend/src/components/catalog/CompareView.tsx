@@ -3,10 +3,11 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
-import { api, Entity, local, title } from "./api";
+import { api, Entity, mapLimit, local, title } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { FieldValue, EntityLink, ErrorMessage } from "./Fields";
 import { useDefinitions, getFieldName, getTermName } from "@/lib/definitions";
+import { computeAlignment } from "./compareAlignment";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowRightLeft,
@@ -189,6 +190,50 @@ export function Compare({ ids }: { ids: string }) {
         )
     );
   }, [items]);
+
+  // —— 语义对齐：以表达（录音/正文）为行对齐各版本收录情况，再派生
+  // "同曲不同录音"（按表达所属 Work 聚合）与"仅载体差异"（收录集合一致但介质构成不同）。 ——
+  const expressionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const x of items) {
+      for (const m of x.media || []) {
+        for (const tr of m.tracks || []) {
+          for (const c of tr.contents || []) {
+            if (c.expression_id) ids.add(c.expression_id);
+          }
+        }
+      }
+    }
+    return Array.from(ids);
+  }, [items]);
+
+  const [exprEntities, setExprEntities] = useState<Record<string, Entity>>({});
+  useEffect(() => {
+    if (expressionIds.length === 0) {
+      setExprEntities({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const map: Record<string, Entity> = {};
+      await mapLimit(expressionIds, 8, async (id) => {
+        try {
+          map[id] = await api<Entity>(`/catalog/entities/${id}/resolve`);
+        } catch {
+          /* ignore */
+        }
+      });
+      if (!cancelled) setExprEntities(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [expressionIds.join(",")]);
+
+  const alignment = useMemo(
+    () => computeAlignment(items, exprEntities),
+    [items, exprEntities],
+  );
 
   const renderAttrValue = (key: string, value: unknown): string => {
     if (value == null || value === "") return "—";
@@ -580,6 +625,122 @@ export function Compare({ ids }: { ids: string }) {
           <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <span>{t("catalog.loading")}</span>
         </div>
+      )}
+
+      {items.length >= COMPARE_MIN_SLOTS && !loading && (
+        <section className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm mt-8 space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h2 className="text-base sm:text-lg font-bold text-foreground m-0">
+              {t("catalog.compareContentAlignment")}
+            </h2>
+          </div>
+          {alignment.perExpr.size === 0 ? (
+            <p className="text-sm text-muted-foreground m-0">{t("catalog.compareNoContent")}</p>
+          ) : (
+            <div className="space-y-4 text-sm">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                  {t("catalog.compareSharedAll")} · {alignment.shared.length}
+                </h3>
+                {alignment.shared.length === 0 ? (
+                  <p className="text-xs text-muted-foreground m-0">—</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {alignment.shared.map((id) => (
+                      <span
+                        key={id}
+                        className="inline-flex items-center px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-foreground"
+                      >
+                        {exprEntities[id] ? title(exprEntities[id], locale) : <EntityLink id={id} />}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {alignment.partial.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.comparePartial")} · {alignment.partial.length}
+                  </h3>
+                  <ul className="space-y-1.5 m-0 p-0 list-none">
+                    {alignment.partial.map(({ id, in: inSet }) => (
+                      <li key={id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
+                        <span className="font-medium text-foreground">
+                          {exprEntities[id] ? title(exprEntities[id], locale) : <EntityLink id={id} />}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {t("catalog.compareIncludedIn")}{" "}
+                          {inSet.map((i) => title(items[i]?.release, locale)).join("、")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {alignment.workVariants.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.compareWorkVariants")} · {alignment.workVariants.length}
+                  </h3>
+                  <ul className="space-y-1.5 m-0 p-0 list-none">
+                    {alignment.workVariants.map(({ contentKey, ids }) => (
+                      <li key={contentKey} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs">
+                        {ids.map((id) => (
+                          <span key={id} className="inline-flex items-baseline gap-1">
+                            <span className="font-medium text-foreground">
+                              {exprEntities[id] ? title(exprEntities[id], locale) : id.slice(0, 8)}
+                            </span>
+                            <span className="text-muted-foreground">
+                              ({items
+                                .filter((_, i) => alignment.perExpr.get(id)?.some((o) => o.releaseIndex === i))
+                                .map((x) => title(x.release, locale))
+                                .join("、")})
+                            </span>
+                          </span>
+                        ))}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {alignment.carrierOnly.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.compareCarrierOnly")}
+                  </h3>
+                  <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
+                    {alignment.carrierOnly.map(([i, j]) => (
+                      <li key={`${i}-${j}`}>
+                        {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {/* 引用同一表达但收录范围/重复/顺序不同（如完整录音 vs 片段）：
+                  这不是"仅载体差异"，必须单独指出。 */}
+              {alignment.rangeDiffer.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.compareRangeDiffer")}
+                  </h3>
+                  <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
+                    {alignment.rangeDiffer.map(([i, j]) => (
+                      <li key={`${i}-${j}`}>
+                        {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {/* 身份元数据解析不全时不下结论，明确提示人工确认。 */}
+              {alignment.pendingConfirm && (
+                <p className="m-0 text-xs text-amber-700 dark:text-amber-300">{t("catalog.comparePendingConfirm")}</p>
+              )}
+            </div>
+          )}
+        </section>
       )}
 
       {items.length >= COMPARE_MIN_SLOTS && !loading && (

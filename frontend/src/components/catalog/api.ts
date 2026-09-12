@@ -168,6 +168,37 @@ export async function api<T = any>(
   if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
   return body;
 }
+
+// fetchAllPages：对列表端点按 offset 翻页直到取完（端点返回真实 total，长度不足一页即停），
+// 详情页的载体/曲目等完整目录依赖它，避免硬 limit 截断大型合集。
+export async function fetchAllPages<T = any>(query: string, pageSize = 100): Promise<T[]> {
+  const items: T[] = [];
+  const sep = query.includes("?") ? "&" : "?";
+  for (let offset = 0; ; offset += pageSize) {
+    const r = await api<{ items: T[] }>(`${query}${sep}offset=${offset}&limit=${pageSize}`);
+    items.push(...(r.items || []));
+    if ((r.items || []).length < pageSize) return items;
+  }
+}
+
+// mapLimit：带并发上限的顺序保底映射；详情页按实体逐个补取数据时防止请求风暴。
+export async function mapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= items.length) return;
+      out[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
 export function local(
   names: Names | undefined,
   locale: string,

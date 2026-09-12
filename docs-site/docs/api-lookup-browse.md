@@ -27,7 +27,7 @@ group: "api"
 GET /api/catalog/works/:id          # 兼容层：前端详情页形状
 GET /api/catalog/entities/:id       # 通用实体详情（推荐）
 GET /api/catalog/entities/:id/relations
-GET /api/catalog/entities/:id/occurrences
+GET /api/catalog/entities/:id/occurrences   # 按 kind 收敛：expression=自身，content_unit/work=其表达
 GET /api/catalog/entities/:id/revisions
 ```
 

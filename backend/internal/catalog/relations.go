@@ -180,10 +180,14 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 		}
 		r.Close()
 	}
-	if err = link2("release", "SELECT release_id::text, work_id::text, role, position FROM catalog.release_subjects WHERE release_id", func(r *sql.Rows) error {
+	if err = link2("release", "SELECT release_id::text, work_id::text, role, position, attributes FROM catalog.release_subjects WHERE release_id", func(r *sql.Rows) error {
 		var rid string
 		var x Subject
-		if err := r.Scan(&rid, &x.WorkID, &x.Role, &x.Position); err != nil {
+		var attrs []byte
+		if err := r.Scan(&rid, &x.WorkID, &x.Role, &x.Position, &attrs); err != nil {
+			return err
+		}
+		if err := json.Unmarshal(attrs, &x.Attributes); err != nil {
 			return err
 		}
 		if cur, ok := out[rid]; ok && cur.Kind == "release" {
@@ -476,61 +480,370 @@ func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, n
 		return audit(ctx, tx, id, r.Version+1, u, note, sources, r, "relation.deleted")
 	})
 }
+// occurrenceRow 是 track_contents 上的一行收录原语（不含 release/medium/track 实体）。
+type occurrenceRow struct {
+	track, medium, release, expr string
+	pos                          int
+	loc, attrs                   json.RawMessage
+}
+
+// occurrenceScopeExpressionIDs 按实体 kind 求值"该实体自身收录"指向的表达集合：
+//   - expression: 仅该表达本身（精确匹配，不再按 work/unit 泛化）；
+//   - content_unit: 该篇目下全部表达；
+//   - work: 该作品下全部表达（保留原有兼容行为）；
+//   - 其它 kind: 空。
+func (s *Store) occurrenceScopeExpressionIDs(ctx context.Context, e Entity) ([]string, error) {
+	switch e.Kind {
+	case "expression":
+		return []string{e.ID}, nil
+	case "content_unit", "work":
+		col := "content_unit_id"
+		if e.Kind == "work" {
+			col = "work_id"
+		}
+		rows, err := s.DB.QueryContext(ctx, "SELECT id::text FROM catalog.expressions WHERE "+col+"=$1 ORDER BY id", e.ID)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		ids := []string{}
+		for rows.Next() {
+			var id string
+			if err = rows.Scan(&id); err != nil {
+				return nil, err
+			}
+			ids = append(ids, id)
+		}
+		return ids, rows.Err()
+	}
+	return []string{}, nil
+}
+
+// siblingExpressionIDs 返回"同篇目兄弟表达"集合：仅当实体是归属于某 ContentUnit 的
+// 表达时，取该篇目下其它表达；否则空。用于把"本条收录"与"同篇目其它版本"分开，
+// 不再用整 Work 兜底（那会把同歌不同录音、同作品不同分集混在一起）。
+// 注意 content_unit_id 的权威在 catalog.expressions 侧表：document 落库时清空了
+// 结构字段（store.go Save），GetManyVisible 反序列化出的 Entity 带不上它。
+func (s *Store) siblingExpressionIDs(ctx context.Context, e Entity) ([]string, error) {
+	if e.Kind != "expression" {
+		return []string{}, nil
+	}
+	var unitID string
+	if err := s.DB.QueryRowContext(ctx, "SELECT coalesce(content_unit_id::text,'') FROM catalog.expressions WHERE id=$1", e.ID).Scan(&unitID); err != nil {
+		if err == sql.ErrNoRows {
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	if strings.TrimSpace(unitID) == "" {
+		return []string{}, nil
+	}
+	rows, err := s.DB.QueryContext(ctx, "SELECT id::text FROM catalog.expressions WHERE content_unit_id=$1 AND id<>$2 ORDER BY id", unitID, e.ID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	ids := []string{}
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// fetchOccurrenceRows 一次取回给定表达集合的收录行（去重后 IN 查询）。
+func (s *Store) fetchOccurrenceRows(ctx context.Context, expressionIDs []string) ([]occurrenceRow, error) {
+	uniq := []string{}
+	seen := map[string]bool{}
+	for _, id := range expressionIDs {
+		if id = strings.TrimSpace(id); id != "" && !seen[id] {
+			seen[id] = true
+			uniq = append(uniq, id)
+		}
+	}
+	if len(uniq) == 0 {
+		return nil, nil
+	}
+	q, err := s.DB.QueryContext(ctx, `SELECT c.track_id::text,m.id::text,m.release_id::text,c.expression_id::text,c.position,c.locator,c.attributes FROM catalog.track_contents c JOIN catalog.tracks t ON t.id=c.track_id JOIN catalog.mediums m ON m.id=t.medium_id WHERE c.expression_id IN (`+entityPlaceholders(uniq, 1)+`) ORDER BY m.release_id,c.position`, entityArgs(uniq)...)
+	if err != nil {
+		return nil, err
+	}
+	defer q.Close()
+	rows := []occurrenceRow{}
+	for q.Next() {
+		var r occurrenceRow
+		if err = q.Scan(&r.track, &r.medium, &r.release, &r.expr, &r.pos, &r.loc, &r.attrs); err != nil {
+			return nil, err
+		}
+		rows = append(rows, r)
+	}
+	return rows, q.Err()
+}
+
+// occurrenceEntry 用批量补齐的实体表组装一条收录；不可见/缺失返回 false。
+func occurrenceEntry(r occurrenceRow, got map[string]Entity) (map[string]any, bool) {
+	rel, ok1 := got[r.release]
+	med, ok2 := got[r.medium]
+	track, ok3 := got[r.track]
+	if !ok1 || !ok2 || !ok3 {
+		return nil, false
+	}
+	return map[string]any{"release": rel, "medium": med, "track": track, "expression_id": r.expr, "position": r.pos, "locator": r.loc, "attributes": r.attrs}, true
+}
+
 func (s *Store) Occurrences(ctx context.Context, id string, u *User) ([]map[string]any, error) {
 	e, err := s.Get(ctx, id, u)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.DB.QueryContext(ctx, `SELECT c.track_id,m.id,m.release_id,c.expression_id,c.position,c.locator,c.attributes FROM catalog.track_contents c JOIN catalog.tracks t ON t.id=c.track_id JOIN catalog.mediums m ON m.id=t.medium_id JOIN catalog.expressions x ON x.id=c.expression_id WHERE x.id=$1 OR x.work_id=$1 OR x.content_unit_id=$1 ORDER BY m.release_id,c.position`, e.ID)
+	ids, err := s.occurrenceScopeExpressionIDs(ctx, e)
 	if err != nil {
 		return nil, err
 	}
-	type row struct {
-		track, medium, release, expr string
-		pos                          int
-		loc, attrs                   json.RawMessage
-	}
-	var records []row
-	for rows.Next() {
-		var r row
-		if err = rows.Scan(&r.track, &r.medium, &r.release, &r.expr, &r.pos, &r.loc, &r.attrs); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		records = append(records, r)
-	}
-	err = rows.Err()
-	rows.Close()
+	rows, err := s.fetchOccurrenceRows(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
-	out := []map[string]any{}
-	// 去 N+1: 收集全部 release/medium/track ID, 一次 IN 批量拉取(含侧表),
-	// 不可见/缺失的按原语义跳过该行。
 	need := []string{}
-	for _, r := range records {
+	for _, r := range rows {
 		need = append(need, r.release, r.medium, r.track)
 	}
+	// 去 N+1: 收集全部 release/medium/track ID, 一次 IN 批量拉取(含侧表),
+	// 不可见/缺失的按原语义跳过该行。
 	got, err := s.getMany(ctx, need, u)
 	if err != nil {
 		return nil, err
 	}
-	for _, r := range records {
-		rel, ok := got[r.release]
-		if !ok {
-			continue
+	out := []map[string]any{}
+	for _, r := range rows {
+		if entry, ok := occurrenceEntry(r, got); ok {
+			out = append(out, entry)
 		}
-		med, ok := got[r.medium]
-		if !ok {
-			continue
-		}
-		track, ok := got[r.track]
-		if !ok {
-			continue
-		}
-		out = append(out, map[string]any{"release": rel, "medium": med, "track": track, "expression_id": r.expr, "position": r.pos, "locator": r.loc, "attributes": r.attrs})
 	}
 	return out, nil
+}
+
+// OccurrenceRef 是收录行的引用形态：只带 release/medium/track 的 id，实体本身
+// 放在批量响应的共享 entities 表里。大目录下同一实体被大量收录重复引用，
+// 引用形态避免把完整 Release/Medium/Track 在每条收录里重复传输。
+type OccurrenceRef struct {
+	ReleaseID    string          `json:"release_id"`
+	MediumID     string          `json:"medium_id"`
+	TrackID      string          `json:"track_id"`
+	ExpressionID string          `json:"expression_id"`
+	Position     int             `json:"position"`
+	Locator      json.RawMessage `json:"locator,omitempty"`
+	Attributes   json.RawMessage `json:"attributes,omitempty"`
+}
+
+func occurrenceRef(r occurrenceRow) OccurrenceRef {
+	return OccurrenceRef{
+		ReleaseID:    r.release,
+		MediumID:     r.medium,
+		TrackID:      r.track,
+		ExpressionID: r.expr,
+		Position:     r.pos,
+		Locator:      r.loc,
+		Attributes:   r.attrs,
+	}
+}
+
+// ExpressionDetail 是发行详情页渲染一条表达所需的只读聚合：
+// 表达实体、该表达自身的收录（occurrences）、同篇目其它表达的收录（siblings）、
+// 首个署名（演出/配音/创作）目标标题。收录以引用形态返回，实体在共享表中。
+type ExpressionDetail struct {
+	Entity      Entity          `json:"entity"`
+	Occurrences []OccurrenceRef `json:"occurrences"`
+	Siblings    []OccurrenceRef `json:"siblings"`
+	CreditTitle string          `json:"credit_title,omitempty"`
+}
+
+// ExpressionDetailsResult 是批量上屏的完整载荷：每条表达只带引用 id，
+// 实体（表达自身 + 收录引用的 release/medium/track）汇总在 Entities 表里。
+type ExpressionDetailsResult struct {
+	Items    map[string]ExpressionDetail `json:"items"`
+	Entities map[string]Entity           `json:"entities"`
+}
+
+// ExpressionDetailsBatch 一次取回多条表达的上屏数据，替代发行页对每条表达
+// 分别请求 entities/:id + occurrences + relations + 对端实体的四类 N+1 请求。
+// 语义与单条端点一致：occurrences 按 kind 解释为该实体自身的收录，
+// siblings 为同篇目兄弟表达的收录；仅返回可见数据。
+func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *User) (ExpressionDetailsResult, error) {
+	out := ExpressionDetailsResult{Items: map[string]ExpressionDetail{}, Entities: map[string]Entity{}}
+	uniq := []string{}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if id = strings.TrimSpace(id); id != "" && !seen[id] {
+			seen[id] = true
+			uniq = append(uniq, id)
+		}
+	}
+	if len(uniq) == 0 {
+		return out, nil
+	}
+	ents, err := s.GetManyVisible(ctx, uniq, u)
+	if err != nil {
+		return out, err
+	}
+	if len(ents) == 0 {
+		return out, nil
+	}
+	// 每个请求实体的自身收录集合与同篇目兄弟集合，并集一次取回全部候选收录行。
+	selfScopes := map[string][]string{}
+	siblingScopes := map[string][]string{}
+	allIDs := map[string]bool{}
+	for id, e := range ents {
+		self, serr := s.occurrenceScopeExpressionIDs(ctx, e)
+		if serr != nil {
+			return out, serr
+		}
+		selfScopes[id] = self
+		for _, x := range self {
+			allIDs[x] = true
+		}
+		sib, berr := s.siblingExpressionIDs(ctx, e)
+		if berr != nil {
+			return out, berr
+		}
+		siblingScopes[id] = sib
+		for _, x := range sib {
+			allIDs[x] = true
+		}
+	}
+	candidateIDs := keysOf(allIDs)
+	rows, err := s.fetchOccurrenceRows(ctx, candidateIDs)
+	if err != nil {
+		return out, err
+	}
+	// 批量解析收录行引用的 release/medium/track，不可见者按原语义跳过。
+	need := []string{}
+	for _, r := range rows {
+		need = append(need, r.release, r.medium, r.track)
+	}
+	got, err := s.getMany(ctx, need, u)
+	if err != nil {
+		return out, err
+	}
+	// 收录行只需引用 id；实体统一进共享表 Entities（同一 release/medium/track
+	// 可能被多条收录引用，避免重复传输）。got 已按可见性过滤，直接采用。
+	type matRow struct {
+		expr string
+		ref  OccurrenceRef
+	}
+	mat := make([]matRow, 0, len(rows))
+	for _, r := range rows {
+		if _, ok1 := got[r.release]; !ok1 {
+			continue
+		}
+		if _, ok2 := got[r.medium]; !ok2 {
+			continue
+		}
+		if _, ok3 := got[r.track]; !ok3 {
+			continue
+		}
+		mat = append(mat, matRow{expr: r.expr, ref: occurrenceRef(r)})
+	}
+	// 署名：一次取候选表达的相关关系，按请求表达过滤后取对端标题。
+	creditPeer := map[string]string{}
+	if len(candidateIDs) > 0 {
+		relRows, err := s.DB.QueryContext(ctx, `SELECT source_id::text,target_id::text FROM catalog.relations WHERE type IN ('performed_by','voiced_by','created_by') AND (source_id IN (`+entityPlaceholders(candidateIDs, 1)+`) OR target_id IN (`+entityPlaceholders(candidateIDs, len(candidateIDs)+1)+`)) ORDER BY id`, append(entityArgs(candidateIDs), entityArgs(candidateIDs)...)...)
+		if err != nil {
+			return out, err
+		}
+		type edge struct{ src, tgt string }
+		var edges []edge
+		for relRows.Next() {
+			var e edge
+			if err = relRows.Scan(&e.src, &e.tgt); err != nil {
+				relRows.Close()
+				return out, err
+			}
+			edges = append(edges, e)
+		}
+		if err = relRows.Err(); err != nil {
+			relRows.Close()
+			return out, err
+		}
+		relRows.Close()
+		// 对端解析：表达可能是 source 或 target，取另一侧且必须在候选集合内。
+		candidate := map[string]bool{}
+		for _, x := range candidateIDs {
+			candidate[x] = true
+		}
+		peerIDs := []string{}
+		for _, e := range edges {
+			if candidate[e.src] {
+				peerIDs = append(peerIDs, e.tgt)
+			}
+			if candidate[e.tgt] {
+				peerIDs = append(peerIDs, e.src)
+			}
+		}
+		peers, err := s.GetManyVisible(ctx, peerIDs, u)
+		if err != nil {
+			return out, err
+		}
+		for _, e := range edges {
+			if candidate[e.src] {
+				if _, seen := creditPeer[e.src]; !seen {
+					if p, ok := peers[e.tgt]; ok {
+						creditPeer[e.src] = p.Title
+					}
+				}
+			}
+			if candidate[e.tgt] {
+				if _, seen := creditPeer[e.tgt]; !seen {
+					if p, ok := peers[e.src]; ok {
+						creditPeer[e.tgt] = p.Title
+					}
+				}
+			}
+		}
+	}
+	// 共享实体表：请求的表达自身 + 收录行引用到的 release/medium/track。
+	for id, e := range ents {
+		out.Entities[id] = e
+	}
+	for _, e := range got {
+		if e.ID != "" {
+			out.Entities[e.ID] = e
+		}
+	}
+	for id, e := range ents {
+		detail := ExpressionDetail{Entity: e, Occurrences: []OccurrenceRef{}, Siblings: []OccurrenceRef{}}
+		self := map[string]bool{}
+		for _, x := range selfScopes[id] {
+			self[x] = true
+		}
+		sib := map[string]bool{}
+		for _, x := range siblingScopes[id] {
+			sib[x] = true
+		}
+		for _, mr := range mat {
+			if self[mr.expr] {
+				detail.Occurrences = append(detail.Occurrences, mr.ref)
+			}
+			if sib[mr.expr] {
+				detail.Siblings = append(detail.Siblings, mr.ref)
+			}
+		}
+		detail.CreditTitle = creditPeer[id]
+		out.Items[id] = detail
+	}
+	return out, nil
+}
+
+// keysOf 返回 set 的键（顺序无关，仅用于构造 IN 查询）。
+func keysOf(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	return out
 }
 
 // Compare returns exact release structure and only comparable metadata fields.

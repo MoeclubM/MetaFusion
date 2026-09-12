@@ -126,7 +126,7 @@ classDiagram
 3. **跨发行复用 (Expression Reuse) 与「Appears on Releases」反查原理**：
    - 同一个具体的 `CanonicalEntry`（例如周杰伦《晴天》2001 原版母带、电影《千与千寻》院线正片母版、《三体》第一章正文）具有全局唯一 UUID；
    - 它可以被多个不同 Release 的 Track 节点同时引用（例如：同一篇小说正文被初版平装书、精装合订本、Kindle 电子书同时引用；同一首母版录音被首版专辑 CD、精选集、黑胶复刻版同时引用）；
-   - 系统通过 `catalog.track_contents`（Track ↔ Expression）反查该篇目/母带在全库所有 Release 中的收录记录（Appears on Releases，API 为 `GET /api/catalog/entities/:id/occurrences`），消除冗余录入，建立全生命周期的版本流变拓扑。
+   - 系统通过 `catalog.track_contents`（Track ↔ Expression）反查该篇目/母带在全库所有 Release 中的收录记录（Appears on Releases，API 为 `GET /api/catalog/entities/:id/occurrences`），消除冗余录入，建立全生命周期的版本流变拓扑。收录按实体 kind 解释：`expression` 只返回该表达自身的收录，`content_unit` 返回该篇目下各表达的收录，`work` 返回该作品下全部表达的收录；同篇目其它表达（如加长版、另一录音）单列在批量端点的 `siblings`，不与自身收录混同。
 
 ---
 

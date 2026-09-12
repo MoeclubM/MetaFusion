@@ -24,6 +24,23 @@ func stubBangumi(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"id":11,"name":"小鸟游","name_cn":"","summary":"角色","images":{"large":""}}`))
 	})
+	// 分集端点：subject 7 有两话本篇 + 一首 OP（type=2）。其它 subject 返回空列表。
+	// 按 type 分别返回，覆盖"遍历多类型并按 episode id 去重"的行为。
+	mux.HandleFunc("/v0/episodes", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Query().Get("subject_id") != "7" {
+			_, _ = w.Write([]byte(`{"data":[],"total":0}`))
+			return
+		}
+		switch r.URL.Query().Get("type") {
+		case "0":
+			_, _ = w.Write([]byte(`{"data":[{"id":101,"type":0,"name":"第一话","name_cn":"第一话","sort":1,"ep":1,"duration":"24m"},{"id":102,"type":0,"name":"第二話","name_cn":"第二话","sort":2,"ep":2,"duration":"24m"}],"total":2}`))
+		case "2":
+			_, _ = w.Write([]byte(`{"data":[{"id":201,"type":2,"name":"オープニング","name_cn":"片头曲","sort":1,"ep":0,"duration":"1m30s"}],"total":1}`))
+		default:
+			_, _ = w.Write([]byte(`{"data":[],"total":0}`))
+		}
+	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(func() {
 		srv.Close()
@@ -296,4 +313,205 @@ func mustList(t *testing.T, f fixture, o ListOptions) []Entity {
 		t.Fatal(err)
 	}
 	return items
+}
+
+// TestImporterImportMultiDiscExpressionMatching：多盘发行的表达对齐。
+// 跨盘同轨号不再误判为同一内容；同一份载荷内声明的 canonical 表达按唯一同名绑定；
+// 曲目携带的 ISRC 落录音本体（expression.external_ids），不写 track.attributes。
+func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
+	stubBangumi(t)
+	f := newFixture(t)
+	ctx := context.Background()
+
+	req := ImporterImportRequest{
+		EntityType: "work",
+		Source:     "bangumi",
+		URLOrID:    "https://bgm.tv/subject/7",
+		Work: &ImporterWorkPreview{
+			Title:           "多盘作品",
+			OriginalTitle:   "テスト作品",
+			OriginalLanguage: "zh-CN",
+			CatalogMetadata: map[string]any{"bangumi_type": float64(2)},
+		},
+		CanonicalEntries: []ImporterCanonicalEntryPreview{
+			{Title: "夜航", Position: 1},
+			{Title: "星海", Position: 2},
+		},
+		Release: &ImporterReleasePreview{EditionName: "双盘限定"},
+		Mediums: []ImporterMediumPreview{
+			{Position: 0, Name: "Disc 1", Format: "cd", Tracks: []ImporterTrackPreview{
+				{Position: 1, Title: "夜航"},
+				{Position: 2, Title: "星海"},
+			}},
+			{Position: 1, Name: "Disc 2", Format: "bd", Tracks: []ImporterTrackPreview{
+				// 轨号与 Disc 1 Track 1 相同，但内容不同：不得复用"夜航"的表达。
+				{Position: 1, Title: "幕间映像", ISRC: "JPB992600010"},
+				// 同名曲跨盘收录：应复用"夜航"的既有表达。
+				{Position: 2, Title: "夜航", RecordingMBID: "rec-1"},
+			}},
+		},
+		EditNote:   "多盘对齐测试",
+		SourceURLs: []string{"https://bgm.tv/subject/7"},
+	}
+	out, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Success || out.ReleaseID == "" {
+		t.Fatalf("bad import result: %+v", out)
+	}
+	if out.ImportedCounts.Mediums != 2 || out.ImportedCounts.Tracks != 4 {
+		t.Fatalf("bad imported counts: %+v", out.ImportedCounts)
+	}
+
+	exprs := mustList(t, f, ListOptions{Kind: "expression", WorkID: out.WorkID})
+	if len(exprs) != 3 {
+		t.Fatalf("expected 3 expressions, got %d", len(exprs))
+	}
+	exprIDByTitle := map[string]string{}
+	for _, e := range exprs {
+		exprIDByTitle[e.Title] = e.ID
+	}
+
+	// track 属于 medium（release→medium→track 两级）：List 的 ReleaseID 过滤只命中
+	// mediums 表，须先列载体再按 MediumID 查曲目。
+	meds := mustList(t, f, ListOptions{Kind: "medium", ReleaseID: out.ReleaseID})
+	if len(meds) != 2 {
+		t.Fatalf("expected 2 mediums, got %d", len(meds))
+	}
+	var tracks []Entity
+	for _, m := range meds {
+		trs := mustList(t, f, ListOptions{Kind: "track", MediumID: m.ID})
+		tracks = append(tracks, trs...)
+	}
+	if len(tracks) != 4 {
+		t.Fatalf("expected 4 tracks, got %d", len(tracks))
+	}
+	exprOf := map[string]string{}
+	for _, tr := range tracks {
+		full, err := f.s.Get(ctx, tr.ID, &f.u)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(full.Contents) != 1 {
+			t.Fatalf("track %q has %d contents, want 1", full.Title, len(full.Contents))
+		}
+		exprOf[full.Title] = full.Contents[0].ExpressionID
+		// ISRC 属于录音本体，不再写进 track.attributes（track 定义只有 duration/role）。
+		if _, ok := full.Attributes["isrc"]; ok {
+			t.Fatalf("ISRC must not be stored on track.attributes: %v", full.Attributes)
+		}
+	}
+	// 跨盘同名曲复用同一表达。
+	if exprOf["夜航"] == "" || exprOf["夜航"] != exprIDByTitle["夜航"] {
+		t.Fatalf("Disc2 夜航 did not reuse canonical expression: %q vs %q", exprOf["夜航"], exprIDByTitle["夜航"])
+	}
+	if exprOf["幕间映像"] == exprIDByTitle["夜航"] {
+		t.Fatal("Disc2 Track 1 wrongly reused Disc1 Track 1 expression by position")
+	}
+	if exprOf["幕间映像"] != exprIDByTitle["幕间映像"] {
+		t.Fatalf("幕间映像 linked to unexpected expression: %q", exprOf["幕间映像"])
+	}
+	// ISRC 应落在新建表达的 external_ids 上，供后续权威匹配复用。
+	for _, e := range exprs {
+		if e.Title != "幕间映像" {
+			continue
+		}
+		if e.ExternalIDs["isrc"] != "JPB992600010" {
+			t.Fatalf("ISRC not stored on expression external_ids: %v", e.ExternalIDs)
+		}
+	}
+}
+
+// TestImporterPreviewEpisodes：动画条目预览应带分集 canonical entries
+// （entry_kind=content_unit、带官方集号与来源时长），无分集的条目为空。
+// Preview 只走上游 HTTP、不触库，因此无需数据库夹具。
+func TestImporterPreviewEpisodes(t *testing.T) {
+	stubBangumi(t)
+	s := &Store{}
+	ctx := context.Background()
+
+	work, err := s.Preview(ctx, "bangumi", "7", "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(work.CanonicalEntries) != 3 {
+		t.Fatalf("expected 3 episode entries (2 main + 1 OP), got %d", len(work.CanonicalEntries))
+	}
+	first := work.CanonicalEntries[0]
+	if first.EntryKind != "content_unit" || first.Number != "1" || first.Title != "第一话" {
+		t.Fatalf("bad episode entry: %+v", first)
+	}
+	if first.DurationSeconds != 24*60 {
+		t.Fatalf("episode duration not parsed: %v", first.DurationSeconds)
+	}
+	if work.CanonicalEntries[1].Number != "2" {
+		t.Fatalf("second episode number wrong: %+v", work.CanonicalEntries[1])
+	}
+	// OP（type=2）不应被 type=0 的固定查询漏掉，role 应映射为非本篇。
+	var op *ImporterCanonicalEntryPreview
+	for i := range work.CanonicalEntries {
+		if work.CanonicalEntries[i].ExternalIDs["bangumi_episode"] == 201 {
+			op = &work.CanonicalEntries[i]
+		}
+	}
+	if op == nil {
+		t.Fatal("OP episode (type=2) missing from preview")
+	}
+	if op.EntryRole == "main" {
+		t.Fatalf("OP episode role should not be main: %+v", op)
+	}
+}
+
+// TestImporterImportEpisodeTree：分集导入应落 ContentUnit 树并通过 work_id 归属，
+// 且曲目命中篇目标题时表达挂到该单元下；重复导入不重复建篇目。
+func TestImporterImportEpisodeTree(t *testing.T) {
+	stubBangumi(t)
+	f := newFixture(t)
+	ctx := context.Background()
+
+	work, err := f.s.Preview(ctx, "bangumi", "7", "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := ImporterImportRequest{
+		EntityType: "work",
+		Source:     "bangumi",
+		URLOrID:    "https://bgm.tv/subject/7",
+		Work: &ImporterWorkPreview{
+			Title: "测试作品", OriginalTitle: "テスト作品", OriginalLanguage: "ja",
+			CatalogMetadata: map[string]any{"bangumi_type": float64(2)},
+		},
+		// 无 Mediums：只建章节树，验证 content_unit 归属。
+		CanonicalEntries: work.CanonicalEntries,
+		EditNote:         "分集导入测试",
+		SourceURLs:       []string{"https://bgm.tv/subject/7"},
+	}
+	out, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.ImportedCounts.ContentUnits != 3 {
+		t.Fatalf("expected 3 content units (2 main + 1 OP), got %d", out.ImportedCounts.ContentUnits)
+	}
+	units := mustList(t, f, ListOptions{Kind: "content_unit", WorkID: out.WorkID})
+	if len(units) != 3 {
+		t.Fatalf("expected 3 content units in store, got %d", len(units))
+	}
+	for _, u := range units {
+		if u.WorkID != out.WorkID {
+			t.Fatalf("content unit not scoped to work: %+v", u)
+		}
+	}
+	// 重复导入：篇目按来源 ID 复用，不重复建。
+	again, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.WorkID != out.WorkID {
+		t.Fatalf("idempotency broken: %s != %s", again.WorkID, out.WorkID)
+	}
+	if n := len(mustList(t, f, ListOptions{Kind: "content_unit", WorkID: out.WorkID})); n != 3 {
+		t.Fatalf("duplicate content units created: %d", n)
+	}
 }

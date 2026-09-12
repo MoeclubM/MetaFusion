@@ -35,7 +35,7 @@ MetaFusion 提供 MusicBrainz WS/2 风格的开放编目 API，适合自建应�
 | 能力 | 真实端点 | 认证 |
 |---|---|---|
 | **实体查询** | `GET /api/catalog/entities`（`kind`/`q`/关联 id 过滤） | 开放 |
-| **实体详情** | `GET /api/catalog/entities/:id`、`/resolve`、`/relations`、`/occurrences`、`/revisions` | 开放 |
+| **实体详情** | `GET /api/catalog/entities/:id`、`/resolve`、`/relations`、`/occurrences`（收录按 kind：expression=自身，content_unit/work=其表达）、`/revisions` | 开放 |
 | **写入** | `POST|PUT /api/catalog/entities`、`/api/catalog/relations`、`/lifecycle` | 需登录/管理员 |
 | **对比** | `GET /api/catalog/compare?ids=a,b` | 开放 |
 | **收藏** | `POST /api/favorites/toggle`、`GET /api/favorites/status`、`/api/favorites/mine`、`/api/users/:id/favorites` | 切换/自列需登录 |

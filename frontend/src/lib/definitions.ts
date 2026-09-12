@@ -57,6 +57,15 @@ export interface RelationDef {
   reverse_names: Record<string, string>;
   source_kinds: string[];
   target_kinds: string[];
+  /** 端点动态类型约束（type code）：为空表示不限。 */
+  source_types?: string[];
+  target_types?: string[];
+  /** 关系可携带的属性字段码（definitions.fields 引用）：后台声明后编辑表单即可填写。 */
+  fields?: string[];
+  symmetric?: boolean;
+  acyclic?: boolean;
+  max_outgoing?: number;
+  max_incoming?: number;
   group: string;
   group_names?: Record<string, string>;
   enabled: boolean;
@@ -71,27 +80,68 @@ export interface DynamicDefinitions {
 }
 
 let cachedDefinitions: DynamicDefinitions | null = null;
+// 已发布定义的版本行 id：后台发布新版本后 id 变化，据此失效缓存。
+let cachedVersion = "";
 let definitionsPromise: Promise<DynamicDefinitions | null> | null = null;
+let revalidating = false;
+// 请求序号：只接受不早于已应用序号的响应，防止较早的请求晚到覆盖较新版本。
+let requestSeq = 0;
+let appliedSeq = 0;
+// 订阅者：缓存按版本刷新后逐个通知，已挂载的组件立即拿到新定义，无需整页刷新。
+const listeners = new Set<(defs: DynamicDefinitions | null) => void>();
+
+async function loadDefinitions(): Promise<DynamicDefinitions | null> {
+  const seq = ++requestSeq;
+  const data = await fetch("/api/catalog/definitions", { credentials: "same-origin" })
+    .then((res) => (res.ok ? res.json() : null))
+    .catch(() => null);
+  if (!data?.document) return null;
+  // 乱序响应防护：更早发出的请求（seq 更小）晚到且已被更新响应应用时丢弃。
+  if (seq < appliedSeq) return cachedDefinitions;
+  appliedSeq = seq;
+  const version = String(data.id ?? "");
+  if (!cachedDefinitions || version !== cachedVersion) {
+    cachedVersion = version;
+    cachedDefinitions = data.document;
+    listeners.forEach((notify) => notify(cachedDefinitions));
+  }
+  return cachedDefinitions;
+}
 
 export async function fetchDefinitions(): Promise<DynamicDefinitions | null> {
-  if (cachedDefinitions) return cachedDefinitions;
-  if (definitionsPromise) return definitionsPromise;
-
-  definitionsPromise = fetch("/api/catalog/definitions", { credentials: "same-origin" })
-    .then((res) => (res.ok ? res.json() : null))
-    .then((data) => {
-      if (data?.document) {
-        cachedDefinitions = data.document;
-        return cachedDefinitions;
-      }
-      return null;
-    })
-    .catch(() => null)
-    .finally(() => {
+  if (cachedDefinitions) {
+    // stale-while-revalidate：先返回缓存，后台按版本校验；发布新版本后
+    // 下一次进入页面即刷新并通知订阅组件，不阻塞渲染。
+    if (!revalidating) {
+      revalidating = true;
+      loadDefinitions().finally(() => {
+        revalidating = false;
+      });
+    }
+    return cachedDefinitions;
+  }
+  if (!definitionsPromise) {
+    definitionsPromise = loadDefinitions().finally(() => {
       definitionsPromise = null;
     });
-
+  }
   return definitionsPromise;
+}
+
+// 重新获得焦点时的节流校验：避免短暂切走再切回就连发请求。
+let lastFocusCheck = 0;
+function revalidateOnFocus() {
+  if (typeof window === "undefined") return;
+  const now = Date.now();
+  if (now - lastFocusCheck < 30_000) return;
+  lastFocusCheck = now;
+  void fetchDefinitions();
+}
+
+// refreshDefinitions 强制按版本重新拉取并等待结果（不走 stale-while-revalidate）。
+// 供后台发布成功后调用：必须立刻拿到新版本并通知，不能停在旧缓存上。
+export async function refreshDefinitions(): Promise<DynamicDefinitions | null> {
+  return loadDefinitions();
 }
 
 export function useDefinitions() {
@@ -99,12 +149,31 @@ export function useDefinitions() {
   const [loading, setLoading] = useState<boolean>(!cachedDefinitions);
 
   useEffect(() => {
-    if (!cachedDefinitions) {
-      fetchDefinitions().then((d) => {
+    let mounted = true;
+    const listener = (d: DynamicDefinitions | null) => {
+      if (mounted) {
         setDefs(d);
         setLoading(false);
-      });
-    }
+      }
+    };
+    listeners.add(listener);
+    // 挂载即校验：无论是否已有缓存都调用 fetchDefinitions()。已有缓存时它走
+    // stale-while-revalidate（后台按版本校验并通知），从而"重新进入页面即更新"；
+    // 旧实现只在无缓存时请求，发布新定义后已挂载页面永远看不到新版本。
+    fetchDefinitions().then((d) => {
+      if (mounted) {
+        setDefs(d);
+        setLoading(false);
+      }
+    });
+    window.addEventListener("focus", revalidateOnFocus);
+    document.addEventListener("visibilitychange", revalidateOnFocus);
+    return () => {
+      mounted = false;
+      listeners.delete(listener);
+      window.removeEventListener("focus", revalidateOnFocus);
+      document.removeEventListener("visibilitychange", revalidateOnFocus);
+    };
   }, []);
 
   return { definitions: defs, loading };
