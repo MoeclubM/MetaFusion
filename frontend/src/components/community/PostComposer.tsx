@@ -11,7 +11,7 @@ import {
   createTopic,
   createPost,
 } from "@/lib/api";
-import { Entity, fetchAllPages, title as entityTitle } from "@/components/catalog/api";
+import { Entity, fetchAllPages } from "@/components/catalog/api";
 import {
   Bold,
   Italic,

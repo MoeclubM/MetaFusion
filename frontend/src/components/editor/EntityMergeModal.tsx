@@ -3,9 +3,11 @@
 import React, { useState } from "react";
 import { X, GitMerge, AlertTriangle, CheckCircle2, Lock, LogIn } from "lucide-react";
 import Link from "next/link";
-import { catalogEntityHref, mergeEntities } from "@/lib/api";
+import { catalogEntityHref, isCatalogHub, mergeEntities } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
+
+const UUID_PATTERN = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 interface Props {
   isOpen: boolean;
@@ -60,7 +62,11 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
       if (onMergeSuccess) {
         onMergeSuccess(res.target_id);
       } else {
-        window.location.href = catalogEntityHref(targetType, res.target_id);
+        // 合并后目标实体可能已改为重定向行，硬跳转到它的详情页。kind 走 CATALOG_HUBS 白名单、
+        // id 必须是 UUID，二者都校验后再拼地址，不把接口返回值原样当 URL。
+        const kind = isCatalogHub(targetType) ? targetType : "work";
+        const id = String(res.target_id || "");
+        window.location.href = UUID_PATTERN.test(id) ? catalogEntityHref(kind, id) : "/";
       }
     } catch (err: any) {
       setError(err.message || t("editor.merge.failedMsg"));
