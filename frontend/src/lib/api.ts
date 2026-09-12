@@ -1487,6 +1487,8 @@ export interface ImporterTrackPreview {
   recording_mbid?: string;
   /** 手工匹配的既有表达（同 Work），优先于后端自动对齐。 */
   expression_id?: string;
+  /** 该曲目对应的 canonical_entries 下标：结构绑定到本次清单的稳定节点，不靠标题传递。 */
+  entry_index?: number;
 }
 
 export interface ImporterMediumPreview {
