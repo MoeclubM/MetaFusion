@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
-import { api, Entity, local, title } from "./api";
+import { api, Entity, mapLimit, local, title } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { FieldValue, EntityLink, ErrorMessage } from "./Fields";
 import { useDefinitions, getFieldName, getTermName } from "@/lib/definitions";
@@ -189,6 +189,114 @@ export function Compare({ ids }: { ids: string }) {
         )
     );
   }, [items]);
+
+  // —— 语义对齐：以表达（录音/正文）为行对齐各版本收录情况，再派生
+  // "同曲不同录音"（按表达所属 Work 聚合）与"仅载体差异"（收录集合一致但介质构成不同）。 ——
+  const expressionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const x of items) {
+      for (const m of x.media || []) {
+        for (const tr of m.tracks || []) {
+          for (const c of tr.contents || []) {
+            if (c.expression_id) ids.add(c.expression_id);
+          }
+        }
+      }
+    }
+    return Array.from(ids);
+  }, [items]);
+
+  const [exprEntities, setExprEntities] = useState<Record<string, Entity>>({});
+  useEffect(() => {
+    if (expressionIds.length === 0) {
+      setExprEntities({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const map: Record<string, Entity> = {};
+      await mapLimit(expressionIds, 8, async (id) => {
+        try {
+          map[id] = await api<Entity>(`/catalog/entities/${id}/resolve`);
+        } catch {
+          /* ignore */
+        }
+      });
+      if (!cancelled) setExprEntities(map);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [expressionIds.join(",")]);
+
+  const alignment = useMemo(() => {
+    const perExpr = new Map<string, { releaseIndex: number }[]>();
+    items.forEach((x, releaseIndex) => {
+      for (const m of x.media || []) {
+        for (const tr of m.tracks || []) {
+          for (const c of tr.contents || []) {
+            if (!c.expression_id) continue;
+            const list = perExpr.get(c.expression_id) || [];
+            list.push({ releaseIndex });
+            perExpr.set(c.expression_id, list);
+          }
+        }
+      }
+    });
+    const n = items.length;
+    const shared: string[] = [];
+    const partial: { id: string; in: number[] }[] = [];
+    const byWork = new Map<string, Set<string>>();
+    Array.from(perExpr.entries()).forEach(([id, occs]) => {
+      const inSet = Array.from(new Set(occs.map((o) => o.releaseIndex))).sort((a, b) => a - b);
+      if (inSet.length === n) shared.push(id);
+      else partial.push({ id, in: inSet });
+      const wid = exprEntities[id]?.work_id;
+      if (wid) {
+        const s = byWork.get(wid) || new Set<string>();
+        s.add(id);
+        byWork.set(wid, s);
+      }
+    });
+    const workVariants: { workId: string; ids: string[] }[] = [];
+    Array.from(byWork.entries()).forEach(([workId, ids]) => {
+      if (ids.size > 1) workVariants.push({ workId, ids: Array.from(ids) });
+    });
+    // 仅载体差异：收录的表达集合一致，但介质构成（格式/盘数/轨数）不同。
+    const fingerprintOf = (x: any) => {
+      const exprs = new Set<string>();
+      const formats: string[] = [];
+      let tracks = 0;
+      for (const m of x.media || []) {
+        formats.push(String(m.medium.attributes?.format || "").trim());
+        tracks += (m.tracks || []).length;
+        for (const tr of m.tracks || []) {
+          for (const c of tr.contents || []) {
+            if (c.expression_id) exprs.add(c.expression_id);
+          }
+        }
+      }
+      return { exprs, structure: `${formats.sort().join("+")}/${(x.media || []).length}M/${tracks}T` };
+    };
+    const carrierOnly: [number, number][] = [];
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = fingerprintOf(items[i]);
+        const b = fingerprintOf(items[j]);
+        if (a.structure === b.structure || a.exprs.size !== b.exprs.size) continue;
+        let same = true;
+        Array.from(a.exprs).some((id) => {
+          if (!b.exprs.has(id)) {
+            same = false;
+            return true;
+          }
+          return false;
+        });
+        if (same) carrierOnly.push([i, j]);
+      }
+    }
+    return { perExpr, shared, partial, workVariants, carrierOnly };
+  }, [items, exprEntities]);
 
   const renderAttrValue = (key: string, value: unknown): string => {
     if (value == null || value === "") return "—";
@@ -580,6 +688,102 @@ export function Compare({ ids }: { ids: string }) {
           <span className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           <span>{t("catalog.loading")}</span>
         </div>
+      )}
+
+      {items.length >= COMPARE_MIN_SLOTS && !loading && (
+        <section className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm mt-8 space-y-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h2 className="text-base sm:text-lg font-bold text-foreground m-0">
+              {t("catalog.compareContentAlignment")}
+            </h2>
+          </div>
+          {alignment.perExpr.size === 0 ? (
+            <p className="text-sm text-muted-foreground m-0">{t("catalog.compareNoContent")}</p>
+          ) : (
+            <div className="space-y-4 text-sm">
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                  {t("catalog.compareSharedAll")} · {alignment.shared.length}
+                </h3>
+                {alignment.shared.length === 0 ? (
+                  <p className="text-xs text-muted-foreground m-0">—</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {alignment.shared.map((id) => (
+                      <span
+                        key={id}
+                        className="inline-flex items-center px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs text-foreground"
+                      >
+                        {exprEntities[id] ? title(exprEntities[id], locale) : <EntityLink id={id} />}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {alignment.partial.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.comparePartial")} · {alignment.partial.length}
+                  </h3>
+                  <ul className="space-y-1.5 m-0 p-0 list-none">
+                    {alignment.partial.map(({ id, in: inSet }) => (
+                      <li key={id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs">
+                        <span className="font-medium text-foreground">
+                          {exprEntities[id] ? title(exprEntities[id], locale) : <EntityLink id={id} />}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {t("catalog.compareIncludedIn")}{" "}
+                          {inSet.map((i) => title(items[i]?.release, locale)).join("、")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {alignment.workVariants.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.compareWorkVariants")} · {alignment.workVariants.length}
+                  </h3>
+                  <ul className="space-y-1.5 m-0 p-0 list-none">
+                    {alignment.workVariants.map(({ workId, ids }) => (
+                      <li key={workId} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs">
+                        {ids.map((id) => (
+                          <span key={id} className="inline-flex items-baseline gap-1">
+                            <span className="font-medium text-foreground">
+                              {exprEntities[id] ? title(exprEntities[id], locale) : id.slice(0, 8)}
+                            </span>
+                            <span className="text-muted-foreground">
+                              ({items
+                                .filter((_, i) => alignment.perExpr.get(id)?.some((o) => o.releaseIndex === i))
+                                .map((x) => title(x.release, locale))
+                                .join("、")})
+                            </span>
+                          </span>
+                        ))}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {alignment.carrierOnly.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.compareCarrierOnly")}
+                  </h3>
+                  <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
+                    {alignment.carrierOnly.map(([i, j]) => (
+                      <li key={`${i}-${j}`}>
+                        {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
       )}
 
       {items.length >= COMPARE_MIN_SLOTS && !loading && (
