@@ -255,6 +255,7 @@ export default function WorkDirectoryPage() {
  target: r.target_id,
  type: r.type,
  label: relationName(r.type),
+ group: defs?.relations?.[r.type]?.group,
  source_type: relEntities[r.source_id]?.kind,
  target_type: relEntities[r.target_id]?.kind,
  });
@@ -467,6 +468,7 @@ export default function WorkDirectoryPage() {
               <InteractiveRelationGraph
                 centerEntityId={work.id!}
                 centerEntityType="work"
+                orientation="work"
                 nodes={graphData.nodes}
                 links={graphData.links}
                 height={400}
