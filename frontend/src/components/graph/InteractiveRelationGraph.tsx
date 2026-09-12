@@ -36,6 +36,8 @@ export interface InteractiveRelationGraphProps {
   className?: string;
   onNodeClick?: (node: GraphNode) => void;
   onEdgeClick?: (link: GraphLink) => void;
+  /** 中心实体的 kind：层级布局据此把 collection/work 归上、release 归下、agent 归左。 */
+  orientation?: "work" | "release" | "agent";
   showInspector?: boolean;
   title?: string;
   headerRightExtra?: React.ReactNode;
@@ -225,6 +227,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   className = "",
   onNodeClick,
   onEdgeClick,
+  orientation = "work",
   showInspector = true,
   title,
   headerRightExtra,
@@ -278,42 +281,19 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   // 过滤连线
   const filteredLinks = useMemo(() => {
     if (filterType === "all") return links;
+    // 三类筛选直接对齐 definitions 的关系分组（credits 署名 / membership 组成 /
+    // creative 改编翻唱），不在前端硬编码关系码。分组缺失时按端点 kind 兜底。
+    const byGroup = (g: string) => links.filter((l) => l.group === g);
     if (filterType === "hierarchy") {
-      return links.filter(
-        (l) =>
-          l.is_hierarchical ||
-          l.type.includes("sequel") ||
-          l.type.includes("prequel") ||
-          l.type.includes("parent") ||
-          l.type.includes("child") ||
-          l.type.includes("franchise") ||
-          l.type.includes("released_as") ||
-          l.type.includes("medium")
-      );
+      return links.filter((l) => l.group === "membership" || l.is_hierarchical);
     }
     if (filterType === "cast") {
       return links.filter(
-        (l) =>
-          l.source_type === "agent" ||
-          l.target_type === "agent" ||
-          l.type.includes("author") ||
-          l.type.includes("director") ||
-          l.type.includes("composer") ||
-          l.type.includes("publisher") ||
-          l.type.includes("staff") ||
-          l.type.includes("voice") ||
-          l.type.includes("actor")
+        (l) => l.group === "credits" || l.source_type === "agent" || l.target_type === "agent"
       );
     }
     if (filterType === "media") {
-      return links.filter(
-        (l) =>
-          l.type.includes("adapt") ||
-          l.type.includes("soundtrack") ||
-          l.type.includes("spin_off") ||
-          l.type.includes("remake") ||
-          l.type.includes("crossover")
-      );
+      return byGroup("creative");
     }
     return links;
   }, [links, filterType]);
@@ -424,14 +404,17 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       const rightOtherNodes: GraphNode[] = [];
 
       otherNodes.forEach((node) => {
-        if (node.level < 0 || node.type === "collection" || node.type === "work") {
-          topNodes.push(node);
+        if (node.id === centerEntityId) {
+          rightOtherNodes.push(node);
+        } else if (node.type === "agent") {
+          leftArtistNodes.push(node);
         } else if (node.type === "medium" || node.type === "track") {
           bottomMediumNodes.push(node);
         } else if (node.type === "release") {
-          bottomReleaseNodes.push(node);
-        } else if (node.type === "agent") {
-          leftArtistNodes.push(node);
+          // 以发行版为中心时，发行版本身在主区，其上层（work/collection）归上。
+          (orientation === "release" ? topNodes : bottomReleaseNodes).push(node);
+        } else if (node.type === "collection" || node.type === "work") {
+          (orientation === "work" ? topNodes : bottomReleaseNodes).push(node);
         } else {
           rightOtherNodes.push(node);
         }
@@ -1110,14 +1093,26 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               <stop offset="100%" stopColor={isDark ? "#818cf8" : "#4f46e5"} />
             </linearGradient>
 
-            {/* 节点通用渐变定义 */}
+            {/* 节点通用渐变定义（固定八实体骨架；主题色见 getEntityTypeTheme） */}
+            <linearGradient id="grad-agent" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#059669" />
+              <stop offset="100%" stopColor="#047857" />
+            </linearGradient>
+            <linearGradient id="grad-collection" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#4f46e5" />
+              <stop offset="100%" stopColor="#4338ca" />
+            </linearGradient>
             <linearGradient id="grad-work" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#0284c7" />
               <stop offset="100%" stopColor="#0369a1" />
             </linearGradient>
-            <linearGradient id="grad-artist" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#059669" />
-              <stop offset="100%" stopColor="#047857" />
+            <linearGradient id="grad-content_unit" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0d9488" />
+              <stop offset="100%" stopColor="#0f766e" />
+            </linearGradient>
+            <linearGradient id="grad-expression" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#db2777" />
+              <stop offset="100%" stopColor="#be185d" />
             </linearGradient>
             <linearGradient id="grad-release" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#d97706" />
@@ -1127,13 +1122,9 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               <stop offset="0%" stopColor="#9333ea" />
               <stop offset="100%" stopColor="#7e22ce" />
             </linearGradient>
-            <linearGradient id="grad-franchise" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#4f46e5" />
-              <stop offset="100%" stopColor="#4338ca" />
-            </linearGradient>
-            <linearGradient id="grad-canonical_entry" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#0d9488" />
-              <stop offset="100%" stopColor="#0f766e" />
+            <linearGradient id="grad-track" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ea580c" />
+              <stop offset="100%" stopColor="#c2410c" />
             </linearGradient>
             <linearGradient id="grad-default" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#64748b" />
