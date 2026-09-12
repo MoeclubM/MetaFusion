@@ -1757,6 +1757,8 @@
   "entity.titles.group": "{locale}：{titles}",
   "entity.titles.groupOriginal": "{locale}（原始语言）：{titles}",
   "entity.titles.aliases": "别名：{value}",
+  "entity.titles.expandMore": "展开其他标题（{count}）",
+  "entity.titles.collapse": "收起标题列表",
   "editor.core.localeAliasesLabel": "同语种并列标题",
   "editor.core.localeAliasesPlaceholder": "同一语种的多个标题，以逗号或换行分隔",
   "editor.core.localeAliasesHint": "同一语言可以填写多个标题：首个为该语种主标题，其余为并列标题。原语言标题请填在对应语种内，不要填入下方别名。",

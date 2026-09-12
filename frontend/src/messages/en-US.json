@@ -1757,6 +1757,8 @@
   "entity.titles.group": "{locale}: {titles}",
   "entity.titles.groupOriginal": "{locale} (original): {titles}",
   "entity.titles.aliases": "Aliases: {value}",
+  "entity.titles.expandMore": "Show {count} more titles",
+  "entity.titles.collapse": "Collapse titles",
   "editor.core.localeAliasesLabel": "Parallel titles in this language",
   "editor.core.localeAliasesPlaceholder": "Multiple titles in this language, separated by commas or newlines",
   "editor.core.localeAliasesHint": "Each language can hold multiple titles: the first is the primary title and the rest are parallel titles. Put the original-language title in its own language group, not in the aliases below.",
