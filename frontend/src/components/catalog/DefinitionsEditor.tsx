@@ -12,6 +12,7 @@ import {
   local,
 } from "./api";
 import { useCatalog } from "./CatalogProvider";
+import { refreshDefinitions } from "@/lib/definitions";
 import { Evidence, ErrorMessage, NamesEditor } from "./Fields";
 
 const newField = (): Field => ({ names: {}, type: "text", enabled: true });
@@ -767,7 +768,11 @@ export function DefinitionsEditor() {
                   "POST",
                   { edit_note: note, sources },
                 );
+                // 同时刷新 CatalogProvider 与 definitions.ts 模块缓存：
+                // 两者是独立状态（同一页面可能同时消费），只刷新其一会让部分组件
+                // 停留在旧定义，直到整页刷新。
                 await refresh();
+                await refreshDefinitions();
                 const current = await api<Definition>("/catalog/definitions");
                 setD(structuredClone(current.document));
                 setBase(current.id);
