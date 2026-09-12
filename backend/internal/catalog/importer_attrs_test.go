@@ -82,6 +82,31 @@ func TestImporterReleaseVariantKey(t *testing.T) {
 	}
 }
 
+// 发行身份不止版名：版名与曲目结构完全一致、但品番/条码/地区/发行日期不同的
+// 两个版本（如日本版 JP-001 与台湾版 TW-002）必须得到不同键，不能误并成同一发行。
+func TestImporterReleaseVariantKeyIdentityFields(t *testing.T) {
+	base := "bangumi:subject:9:release"
+	tracks := []ImporterMediumPreview{{
+		Position: 0, Name: "O.S.T.", Format: "cd",
+		Tracks: []ImporterTrackPreview{{Position: 1, Title: "夜航"}, {Position: 2, Title: "幕间映像"}},
+	}}
+	name := "原声集"
+	jp := importerReleaseVariantKey(base, &ImporterReleasePreview{EditionName: name, CatalogNumber: "JP-001", Country: "JP", Barcode: "4512345678901", EditionDate: "2024-05-20"}, tracks)
+	tw := importerReleaseVariantKey(base, &ImporterReleasePreview{EditionName: name, CatalogNumber: "TW-002", Country: "TW"}, tracks)
+	if jp == tw {
+		t.Fatalf("different region/catalog identity must not collide: %q", jp)
+	}
+	if again := importerReleaseVariantKey(base, &ImporterReleasePreview{EditionName: name, CatalogNumber: "JP-001", Country: "JP", Barcode: "4512345678901", EditionDate: "2024-05-20"}, tracks); again != jp {
+		t.Fatalf("identical identity payload must stay idempotent: %q vs %q", again, jp)
+	}
+	// 载荷未声明任何身份数据时（仅版名），签名仍应稳定可复现。
+	bare1 := importerReleaseVariantKey(base, &ImporterReleasePreview{EditionName: name}, tracks)
+	bare2 := importerReleaseVariantKey(base, &ImporterReleasePreview{EditionName: name}, tracks)
+	if bare1 == "" || bare1 != bare2 {
+		t.Fatalf("bare edition key must stay stable: %q vs %q", bare1, bare2)
+	}
+}
+
 // 章节树必须先是合法拓扑序：越界、自指、指向后继、父级非篇目都要拒绝，
 // 不能静默把节点降为顶层。
 func TestValidateImporterEntryTree(t *testing.T) {
