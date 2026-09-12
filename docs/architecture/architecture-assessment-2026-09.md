@@ -3,6 +3,14 @@
 > 范围声明：本文为只读架构评估，未修改任何代码、迁移或数据。所有结论以撰写时检出状态为准，证据为源码文件与行号。
 > 关联文档：[核心实现与模块边界](./catalog-core-implementation.md)、[通用多媒体架构与前端优化建议](./media-architecture-review.md)、[元数据目录教程](../../docs-site/docs/catalog.md)。
 
+::: tip 部分结论已于 2026-09-13 消解
+系统尚未上线、无需兼容旧数据，因此旧轨与兼容层被整段删除，下文相应条目仅作历史记录：
+
+- §0、§2.3、§4.4 提到的 `works_compat.go` / `legacy_compat.go` 及 11 条兼容路由（`/catalog/works`、`/works/:id`、`/works/:id/{contents,graph}`、`/taxonomy`、`/artists/:id`、`/franchises/:id`、`/mediums/:id`、`/canonical-entries/:id`、`/relation-types`、`/works/:id/comments`）已删除；前端对应调用与 `useTaxonomy`、`MultipartUploader` 一并移除，统一走 `/api/catalog/entities` 系。
+- §0、§2.3 提到的旧 GORM 轨 `internal/models`、`internal/database`、`internal/transcoder` 与 `cmd/worker` 已删除，`deploy/init_db` 旧 schema 与 compose 挂载、Dockerfile worker 阶段、CI worker 构建同步移除。
+- §2.3 提到的 `canonical_entry_id` 语义冲突随旧轨删除而消失。
+:::
+
 ## 0. 评估基线
 
 - 元数据主系统单一新轨：Go 服务 `backend/internal/catalog`，统一入口 `/api`（无版本前缀），前端 Next.js 14 App Router。

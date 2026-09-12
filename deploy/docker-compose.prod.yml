@@ -24,8 +24,3 @@ services:
     build: !reset null
     image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/backend:${IMAGE_TAG:-latest}
     restart: always
-
-  transcoder-worker:
-    build: !reset null
-    image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/worker:${IMAGE_TAG:-latest}
-    restart: always

@@ -79,7 +79,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 
 | 改动范围 | 目录 | 必要检查 |
 | --- | --- | --- |
-| 后端 | `backend/` | `go test ./...`、`go vet ./...`、`go build ./cmd/server ./cmd/worker ./cmd/migrate` |
+| 后端 | `backend/` | `go test ./...`、`go vet ./...`、`go build ./cmd/server ./cmd/migrate` |
 | 前端 | `frontend/` | `bunx tsc --noEmit`、`bun run build`；涉及 UI 时检查中英显示 |
 | 文档站 | `docs-site/` | `bun run build`；核对示例字段、路由和链接 |
 | Compose | 仓库根目录 | `docker compose -f deploy/docker-compose.yml config --quiet`；不要输出展开后的密钥 |
