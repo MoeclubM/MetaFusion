@@ -51,7 +51,7 @@
 ### 3. 🚀 云原生媒体处理与存储
 - **S3 兼容对象存储 (RustFS)**：可选 `archive` 模块支持将资产写入本地目录或 S3 兼容存储（MinIO 客户端，`ARCHIVE_S3_*` 环境变量），元数据与物理资产分离。
 - **数据库检索**：`GET /api/catalog/entities?q=...` 由 PostgreSQL 匹配题名与多语言文档（`ILIKE` / 全文索引），OpenSearch 2.14 容器已随 Compose 部署，但**当前 Go 代码尚未接入客户端，规划中的多语言分词与 Facet 聚合未生效**。
-- **异步转码 Worker**：基于 Go Asynq + Redis + FFmpeg 的独立 `cmd/worker` 进程，处理转码任务队列。
+- **媒体处理**：`ffmpeg` / `ffprobe` 由可选 `media` 模块在 `cmd/server` 进程内调用（探针与转码），没有独立的转码 Worker 进程。
 
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
 - **独立迁移引擎 (`mf-migrate`)**：自研 Go 原生数据库迁移工具，集成 PostgreSQL Advisory Lock 机制，彻底杜绝多副本部署时的并发迁移竞争。
@@ -91,10 +91,10 @@
                           │   catalog + modules     │
                           └───────────┬────────────┘
                                       │
-             ┌────────────┬───────────┼───────────┬────────────┐
-             ▼            ▼           ▼           ▼            ▼
-        PostgreSQL     Redis     OpenSearch    RustFS      FFmpeg Worker
-        (元数据真源)  (会话/队列) (已部署,未接入) (已部署,未接线) (异步转码)
+             ┌────────────┬───────────┼───────────┐
+             ▼            ▼           ▼           ▼
+        PostgreSQL     Redis     OpenSearch    RustFS
+        (元数据真源)  (已部署,未接入) (已部署,未接入) (已部署,未接线)
 ```
 
 > 外围解耦的长期目标（独立 auth / storage / community / gateway 仓库）记录在 [`docs/architecture/multi-project-decoupling-spec.md`](docs/architecture/multi-project-decoupling-spec.md)，**尚未实现，请勿当作运行时事实**。
@@ -103,12 +103,12 @@
 
 ## 🛠️ 技术栈清单
 
-- **后端核心 (Backend)**：Go 1.25, Gin, GORM (旧轨只读兼容), Asynq, Golang-JWT/v5, go-redis/v9
+- **后端核心 (Backend)**：Go 1.25, Gin, Golang-JWT/v5, MinIO Go SDK（S3 兼容对象存储）
 - **前端系统 (Frontend)**：Next.js 14 (App Router), React 18, Tailwind CSS, Lucide Icons, TypeScript
 - **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
-- **数据库 (Storage & DB)**：PostgreSQL 16, Redis 7 (Alpine), RustFS (S3-compatible Object Storage)
+- **数据库 (Storage & DB)**：PostgreSQL 16, Redis 7 (Alpine，Compose 已部署；Go 代码尚未接入), RustFS (S3-compatible Object Storage)
 - **检索引擎 (Search Engine)**：OpenSearch 2.14.0（Compose 已部署；Go 代码尚未接入，当前检索走 PostgreSQL）
-- **媒体处理 (Media Pipeline)**：FFmpeg, libvips, mediainfo（Worker 队列已接线；实际可用能力以模块与 `cmd/worker` 实现为准）
+- **媒体处理 (Media Pipeline)**：FFmpeg / ffprobe（由可选 `media` 模块在服务进程内调用）
 - **容器与网关 (Infra)**：Docker, Docker Compose v2, Nginx 1.25 Alpine
 
 ---

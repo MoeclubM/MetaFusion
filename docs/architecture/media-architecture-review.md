@@ -18,6 +18,8 @@
 
 旧轨残留（`backend/internal/models/` + `database/patches.go`）必须清理。范围澄清：`cmd/server` 已不依赖旧轨，当前仅 `cmd/worker`（`internal/transcoder`）引用 `internal/database` + `internal/models`，因此不再是 API 写入路径的双写，但旧模型语义仍与新轨冲突——`Release.work_id NOT NULL` 单作品归属与新 `subjects` 直接冲突，多作品盒装在旧轨只能伪造 Work 或走旁路边；`canonical_entries` 表与 `Track.canonical_entry_id` 单引用和新 `track_contents` 双写；`artists / artist_translations / entity_type_definitions / franchise` 独立体系与新 `agent / collection` 分裂；`AssetFile legacy` 与新 CAS 解耦存储分裂；`migrations/000004~000007` 文件缺失、`ApplyPatches` 空跳过，跨作品一致性实际靠 `store.go` 的 `undeclared_release_subject` 兜底（Track 引用的 Expression 所属 Work 必须在 Release subjects 中声明）。
 
+> **已消解（2026-09-13）**：系统未上线、无需兼容旧数据，上述旧轨已整段删除——`internal/models`、`internal/database`、`internal/transcoder`、`cmd/worker`、`deploy/init_db`、旧前端兼容层与 11 条旧路由全部移除，`subjects` 与 `track_contents` 成为唯一事实源。
+
 ### 1.2 前端：能存，展示断裂
 
 - 发行页把全部 `mediums` 纵向堆叠展示，无介质 Tab、无按 `CD / 黑胶 / BD / DVD / 数字` 筛选；版本仅显示品番、包装、条码文案，无普通 / 限定 / 首发 / 地区 / 再版类型徽标，`country / language / distribution_channel` 存而不展。

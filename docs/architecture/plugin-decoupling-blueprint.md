@@ -140,7 +140,7 @@ MetaFusion 插件系统遵循**「极简 LRM 实体内核 + 进程内原生插�
 ## 4. 数据库持久化与 HTTP 接口
 
 ### 4.1 数据模型 (`system_plugins` 表)
-定义于 `backend/internal/models/models.go`：
+拟议位置 `backend/internal/models/models.go`（该旧轨包已于 2026-09-13 随兼容层删除；本文未落地，请勿据此建表）：
 ```go
 type SystemPlugin struct {
     ID           string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
