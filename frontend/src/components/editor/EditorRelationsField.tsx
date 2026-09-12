@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, Search, Network, List } from "lucide-react";
 import { fetchApi, RelationType, catalogHubOf, isCatalogHub, pickLocalizedName } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useTaxonomy } from "@/hooks/useTaxonomy";
+import { useDefinitions } from "@/lib/definitions";
 import { Select } from "@/components/ui/Select";
 import { VisualRelationEditor } from "@/components/graph/VisualRelationEditor";
 
@@ -67,7 +67,18 @@ export function EditorRelationsField({
   updateRelationRow,
 }: Props) {
   const { t, locale } = useI18n();
-  const { entityTypeLabel } = useTaxonomy();
+  const { definitions } = useDefinitions();
+  // agent 子类型标签来自 definitions 的类型声明（person/organization/group/character）。
+  const entityTypeLabel = (code?: string | null) => {
+    if (!code) return "";
+    const names = definitions?.types?.[code]?.names as Record<string, string> | undefined;
+    if (names) {
+      for (const key of [locale, "zh-CN", "en-US"]) {
+        if (key && names[key]) return names[key];
+      }
+    }
+    return code;
+  };
   const sourceCodes = useMemo(() => {
     const codes: string[] = [sourceType];
     if (sourceType === "artist" && sourceEntityType) codes.push(sourceEntityType);

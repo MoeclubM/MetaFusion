@@ -2628,5 +2628,8 @@
   "release.detail.occurrencesLoadGapDetail": "{entities} expression records and {details} occurrence/credit sets could not be loaded.",
   "release.detail.showAllOccurrences": "Show all occurrences",
   "release.detail.collapseOccurrences": "Collapse occurrences",
-  "catalog.compareIncompleteCatalog": "Insufficient data: these releases have no tracks or content references, so no content-equivalence conclusion is drawn."
+  "catalog.compareIncompleteCatalog": "Insufficient data: these releases have no tracks or content references, so no content-equivalence conclusion is drawn.",
+  "entity.characterRank.primary": "Lead",
+  "entity.characterRank.supplement": "Supporting",
+  "entity.characterRank.extra": "Cameo"
 }

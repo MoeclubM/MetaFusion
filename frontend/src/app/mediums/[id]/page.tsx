@@ -1,19 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
-import { fetchApi, Medium, Release, Track, Work, pickLocalized } from "@/lib/api";
-import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
+import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/components/catalog/api";
+import { fetchApi } from "@/lib/api";
+import { useDefinitions, getTermName } from "@/lib/definitions";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useTaxonomy } from "@/hooks/useTaxonomy";
 import { ArrowLeft, ArrowRight, FileText, HardDrive, Layers } from "lucide-react";
-
-type MediumDetailResponse = {
-  medium: Medium;
-  release: Release;
-};
 
 function formatDuration(seconds?: number) {
   if (!seconds || seconds <= 0) return "";
@@ -21,29 +16,89 @@ function formatDuration(seconds?: number) {
   return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+type TrackRow = {
+  track: Entity;
+  duration: number;
+  contents: { id: string; title: string }[];
+};
+
+// 载体详情页：统一 DTO 数据源（/catalog/entities）。面包屑 作品 → 发行版 → 载体，
+// 曲目按 medium_id 列出，其收录内容（表达）逐条解析出标题。
 export default function MediumDetailPage() {
   const params = useParams();
   const mediumId = params.id as string;
   const { t, locale } = useI18n();
-  const titleOrder = useTitleDisplayOrder();
-  const { mediumFormatLabel, mediaCategoryLabel } = useTaxonomy();
-  const [data, setData] = useState<MediumDetailResponse | null>(null);
+  const { definitions: defs } = useDefinitions();
+  const [medium, setMedium] = useState<Entity | null>(null);
+  const [release, setRelease] = useState<Entity | null>(null);
+  const [work, setWork] = useState<Entity | null>(null);
+  const [tracks, setTracks] = useState<TrackRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     if (!mediumId) return;
+    let cancelled = false;
     setLoading(true);
-    fetchApi<MediumDetailResponse>(`/catalog/mediums/${mediumId}`)
-      .then(setData)
-      .catch(() => setData(null))
-      .finally(() => setLoading(false));
-  }, [mediumId]);
+    setNotFound(false);
+    (async () => {
+      try {
+        const m = await fetchApi<Entity>(`/catalog/entities/${mediumId}`);
+        if (cancelled) return;
+        setMedium(m);
+        if (m.release_id) {
+          const rel = await fetchApi<Entity>(`/catalog/entities/${m.release_id}`);
+          if (cancelled) return;
+          setRelease(rel);
+          const workId = rel.subjects?.[0]?.work_id;
+          if (workId) {
+            const w = await fetchApi<Entity>(`/catalog/entities/${workId}`);
+            if (!cancelled) setWork(w);
+          }
+        }
+        const trackEntities = await fetchAllPages<Entity>(`/catalog/entities?kind=track&medium_id=${encodeURIComponent(mediumId)}`);
+        // 曲目的收录（表达）标题解析：先收集唯一表达 id，再受控并发逐条取。
+        const exprIds = Array.from(new Set(trackEntities.flatMap((tr) => (tr.contents || []).map((c) => c.expression_id)).filter(Boolean) as string[]));
+        const exprTitles = new Map<string, string>();
+        await mapLimit(exprIds, 8, async (id) => {
+          try {
+            const e = await fetchApi<Entity>(`/catalog/entities/${id}`);
+            exprTitles.set(id, entityTitle(e, locale) || e.title || "");
+          } catch { /* 缺失的表达跳过 */ }
+        });
+        if (cancelled) return;
+        setTracks(trackEntities
+          .slice()
+          .sort((a, b) => (a.position || 0) - (b.position || 0))
+          .map((tr) => ({
+            track: tr,
+            duration: Number(tr.attributes?.duration) || 0,
+            contents: (tr.contents || [])
+              .map((c) => ({ id: c.expression_id, title: exprTitles.get(c.expression_id) || "" }))
+              .filter((c) => c.id && c.title),
+          })));
+      } catch {
+        if (!cancelled) setNotFound(true);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mediumId, locale]);
+
+  const mediumTitle = useMemo(() => (medium ? entityTitle(medium, locale) || medium.title || mediumId : ""), [medium, locale]);
+  const formatCode = String(medium?.attributes?.format || "");
+  const formatLabel = formatCode ? getTermName(defs, "format", formatCode, locale) : "";
+  const roleCode = String(medium?.attributes?.role || "");
+  const roleLabel = roleCode ? getTermName(defs, "role", roleCode, locale) : "";
 
   if (loading) {
     return <div className="min-h-screen bg-background grid place-items-center font-mono text-xs text-gray-500">{t("medium.detail.loading")}</div>;
   }
 
-  if (!data) {
+  if (notFound || !medium) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
         <Navbar />
@@ -54,13 +109,6 @@ export default function MediumDetailPage() {
     );
   }
 
-  const medium = data.medium;
-  const release = data.release;
-  const work = release.work;
-  const workLoc = work ? pickLocalized(locale, work.translations, work.title, work.summary, { order: titleOrder }) : null;
-  const mediumTitle = medium.localized_name || medium.name;
-  const tracks = medium.tracks || [];
-
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
@@ -69,19 +117,23 @@ export default function MediumDetailPage() {
         <Navbar />
         <main className="max-w-7xl mx-auto px-4 py-5 w-full space-y-5 pb-10">
           <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500 flex-wrap">
-            {work && workLoc && (
+            {work && work.id && (
               <>
                 <Link href={`/works/${work.id}`} className="hover:text-primary transition-colors inline-flex items-center gap-1">
                   <ArrowLeft className="w-3 h-3" />
-                  {workLoc.title}
+                  {entityTitle(work, locale) || work.title}
                 </Link>
                 <span>/</span>
               </>
             )}
-            <Link href={`/releases/${release.id}`} className="hover:text-primary transition-colors truncate max-w-[18rem]">
-              {release.localized_edition_name || release.edition_name}
-            </Link>
-            <span>/</span>
+            {release && release.id && (
+              <>
+                <Link href={`/releases/${release.id}`} className="hover:text-primary transition-colors truncate max-w-[18rem]">
+                  {entityTitle(release, locale) || release.title}
+                </Link>
+                <span>/</span>
+              </>
+            )}
             <span className="text-gray-900 dark:text-white truncate">{mediumTitle}</span>
           </div>
 
@@ -95,29 +147,29 @@ export default function MediumDetailPage() {
                   <span className="px-2 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-300 font-mono text-[10px] tracking-wider">
                     {t("medium.detail.badge")}
                   </span>
-                  <span className="text-xs font-mono text-gray-500">{t(`explore.mediumRole.${medium.role || "primary"}`)}</span>
+                  {roleLabel && <span className="text-xs font-mono text-gray-500">{roleLabel}</span>}
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-gray-900 dark:text-white break-words">{mediumTitle}</h1>
-                {workLoc && <p className="text-sm text-gray-500 mt-1">{workLoc.title}</p>}
+                {work && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    {entityTitle(work, locale) || work.title}
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-black/[0.06] dark:border-white/[0.06]">
+            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-black/[0.06] dark:border-white/[0.06]">
               <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
                 <p className="text-[10px] font-mono text-gray-500 uppercase">{t("medium.detail.format")}</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{mediumFormatLabel(medium.format) || medium.format}</p>
-              </div>
-              <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
-                <p className="text-[10px] font-mono text-gray-500 uppercase">{t("medium.detail.category")}</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{mediaCategoryLabel(medium.media_category) || medium.media_category}</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{formatLabel || formatCode || "—"}</p>
               </div>
               <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
                 <p className="text-[10px] font-mono text-gray-500 uppercase">{t("medium.detail.position")}</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{medium.number || `#${medium.position}`}</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{medium.number || `#${medium.position ?? 0}`}</p>
               </div>
               <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
                 <p className="text-[10px] font-mono text-gray-500 uppercase">{t("medium.detail.trackCount")}</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{medium.track_count || tracks.length}</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white mt-0.5">{tracks.length}</p>
               </div>
             </div>
           </section>
@@ -134,11 +186,8 @@ export default function MediumDetailPage() {
               <div className="p-8 text-center font-mono text-xs text-gray-500">{t("medium.detail.noTracks")}</div>
             ) : (
               <div className="divide-y divide-black/[0.06] dark:divide-white/[0.06]">
-                {tracks.map((track: Track) => {
-                  const trackTitle = track.localized_title || track.title || track.canonical_entry?.localized_title || track.canonical_entry?.title || t("medium.detail.untitledTrack");
-                  const contentLinks = (track.contents || []).map((content) => content.canonical_entry).filter(Boolean);
-                  const legacyContent = track.canonical_entry ? [track.canonical_entry] : [];
-                  const linkedContents = [...legacyContent, ...contentLinks].filter((entry, index, all) => entry && all.findIndex((item) => item?.id === entry.id) === index);
+                {tracks.map(({ track, duration, contents }) => {
+                  const trackTitle = entityTitle(track, locale) || track.title || t("medium.detail.untitledTrack");
                   return (
                     <div key={track.id} className="p-4 flex items-start gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
                       <span className="w-8 shrink-0 text-right font-mono text-xs text-gray-500 pt-0.5">{track.number || track.position}</span>
@@ -146,14 +195,13 @@ export default function MediumDetailPage() {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{trackTitle}</p>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 font-mono text-[11px] text-gray-500">
-                          {track.duration_seconds && <span>{formatDuration(track.duration_seconds)}</span>}
-                          {track.artist_credit && <span className="truncate max-w-[20rem]">{track.artist_credit}</span>}
+                          {duration > 0 && <span>{formatDuration(duration)}</span>}
                         </div>
-                        {linkedContents.length > 0 && (
+                        {contents.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
-                            {linkedContents.map((entry) => (
-                              <Link key={entry!.id} href={`/catalog/${entry!.id}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[11px] hover:bg-primary/15">
-                                {entry!.localized_title || entry!.title}
+                            {contents.map((entry) => (
+                              <Link key={entry.id} href={`/catalog/${entry.id}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[11px] hover:bg-primary/15">
+                                {entry.title}
                                 <ArrowRight className="w-2.5 h-2.5" />
                               </Link>
                             ))}

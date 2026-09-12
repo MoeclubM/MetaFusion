@@ -3,24 +3,20 @@
 import styles from "./page.module.css";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { MultipartUploader } from "@/components/MultipartUploader";
-import { fetchApi, Work, Release, ConnectedEntityItem, pickLocalized } from "@/lib/api";
+import Link from "next/link";
+import { fetchApi, ConnectedEntityItem, GraphNode, GraphLink } from "@/lib/api";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle, type CommunityPost } from "@/components/catalog/api";
 import { useDefinitions, getFieldName, getTermName } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useTaxonomy } from "@/hooks/useTaxonomy";
-import { Layers, MessageSquare, Search, ChevronLeft, ChevronRight, UploadCloud, ArrowRight, Eye, Bookmark, ArrowUpRight, Network, List, ArrowRightLeft, X, Calendar, Tag } from "lucide-react";
+import { Layers, MessageSquare, Search, ChevronLeft, ChevronRight, ArrowRight, ArrowUpRight, Network, List, ArrowRightLeft, X, Calendar, Tag } from "lucide-react";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
-import { TemporalBadge } from "@/components/entity/TemporalBadge";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
-import { isDistinctOriginalTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { DetailTabs, DetailTab } from "@/components/catalog/DetailTabs";
@@ -28,24 +24,32 @@ import { GroupedRelations } from "@/components/entity/RelationsList";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
 import dynamic from "next/dynamic";
-import { StaffCharacterSection } from "@/components/entity/StaffCharacterSection";
+import { StaffCharacterSection, StaffCredit } from "@/components/entity/StaffCharacterSection";
 import { WorkContentDirectory } from "@/components/work/WorkContentDirectory";
-import { fetchEntityGraph, GraphNode, GraphLink } from "@/lib/api";
 const InteractiveRelationGraph = dynamic(() => import("@/components/graph/InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
+
+// 关系条目（/catalog/entities/:id/relations 的 items）。
+type RelationItem = { id: string; type: string; source_id: string; target_id: string; attributes?: Record<string, any> };
+
+const attrText = (v: any): string => {
+  if (v === undefined || v === null) return "";
+  if (typeof v === "string") return v.trim();
+  return "";
+};
+
 export default function WorkDirectoryPage() {
  const params = useParams();
  const router = useRouter();
  const workId = params.id as string;
  const { user } = useAuth();
  const { t, locale } = useI18n();
- const { roleLabel } = useTaxonomy();
  const titleOrder = useTitleDisplayOrder();
 
- const [work, setWork] = useState<Work | null>(null);
- const [connected, setConnected] = useState<ConnectedEntityItem[]>([]);
- const [graphData, setGraphData] = useState<{ nodes: GraphNode[]; links: GraphLink[] } | null>(null);
+ const [work, setWork] = useState<Entity | null>(null);
+ const [relations, setRelations] = useState<RelationItem[]>([]);
+ const [relEntities, setRelEntities] = useState<Record<string, Entity>>({});
  const [relationViewMode, setRelationViewMode] = useState<"graph" | "list">("list");
- const [releases, setReleases] = useState<Release[]>([]);
+ const [releases, setReleases] = useState<Entity[]>([]);
  const [releaseEntities, setReleaseEntities] = useState<Entity[]>([]);
  // 每个发行版的介质格式计数（按实际 Medium 聚合）：CD+BD 组合不再被"首个格式"吞掉。
  const [releaseFormatCounts, setReleaseFormatCounts] = useState<Record<string, Record<string, number>>>({});
@@ -59,7 +63,6 @@ export default function WorkDirectoryPage() {
  const [topics, setTopics] = useState<CommunityPost[]>([]);
  const [loadingWork, setLoadingWork] = useState(true);
  const [loadingReleases, setLoadingReleases] = useState(true);
- const [isUploaderOpen, setIsUploaderOpen] = useState(false);
 
  // Revision History, and Merge Modals（编辑改为跳转通用编辑页 /catalog/:id?edit=1）
  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -68,13 +71,12 @@ export default function WorkDirectoryPage() {
  const loadWork = async () => {
  setLoadingWork(true);
  try {
- const data = await fetchApi<Work>(`/catalog/works/${workId}?inc=relations`);
+ const data = await fetchApi<Entity>(`/catalog/entities/${workId}`);
  setWork(data);
- setConnected(data.connected_entities || []);
-
- fetchEntityGraph("work", workId)
-   .then((g) => setGraphData(g))
-   .catch((err) => console.error("Graph fetch failed:", err));
+ // 关系与对端实体一次取回（服务端批量解析），前端不再逐条请求。
+ const r = await fetchApi<{ items: RelationItem[]; entities: Record<string, Entity> }>(`/catalog/entities/${workId}/relations`);
+ setRelations(r.items || []);
+ setRelEntities(r.entities || {});
  } catch (e) {
  console.error(e);
  } finally {
@@ -152,6 +154,113 @@ export default function WorkDirectoryPage() {
  })
  .join(joiner);
  };
+
+ // 关系类型本地化名：definitions 声明的名称按请求语言 → zh-CN → en-US 回退，缺失保留 code。
+ const relationName = (code: string): string => {
+ const r = defs?.relations?.[code] as any;
+ const names = r?.names;
+ if (names) {
+ for (const key of [locale, "zh-CN", "en-US"]) {
+ if (key && names[key]) return names[key];
+ }
+ }
+ return code;
+ };
+
+ // 关联条目列表（GroupedRelations 消费）。
+ const connected = useMemo<ConnectedEntityItem[]>(() => {
+ if (!work?.id) return [];
+ const out: ConnectedEntityItem[] = [];
+ for (const r of relations) {
+ const forward = r.source_id === work.id;
+ const otherId = forward ? r.target_id : r.source_id;
+ const other = relEntities[otherId];
+ if (!other) continue;
+ const name = relationName(r.type);
+ out.push({
+ entity_id: otherId,
+ entity_name: other.title,
+ entity_type: other.kind,
+ cover_url: other.pictures?.[0]?.url,
+ relationship_type: r.type,
+ relationship_name: name,
+ direction: forward ? "forward" : "reverse",
+ label: name,
+ attributes: r.attributes || {},
+ });
+ }
+ return out;
+ }, [work, relations, relEntities, defs, locale]);
+
+ // 演职员与角色（StaffCharacterSection 消费结构化条目，不再做字符串配对）。
+ const staffCredits = useMemo<StaffCredit[]>(() => {
+ if (!work?.id) return [];
+ const out: StaffCredit[] = [];
+ for (const r of relations) {
+ if (r.source_id === work.id) {
+ const target = relEntities[r.target_id];
+ if (!target || target.kind !== "agent") continue;
+ const credit: StaffCredit = {
+ id: r.id,
+ relationType: r.type,
+ relationLabel: relationName(r.type),
+ creditRole: attrText(r.attributes?.credit_role) || undefined,
+ agent: { id: target.id!, name: target.title || "", avatarUrl: target.pictures?.[0]?.url, types: target.types || [] },
+ };
+ if (r.type === "voiced_by") {
+ const chId = attrText(r.attributes?.character);
+ const ch = chId ? relEntities[chId] : undefined;
+ if (ch) {
+ credit.character = { id: ch.id, name: ch.title, avatarUrl: ch.pictures?.[0]?.url };
+ }
+ }
+ out.push(credit);
+ } else if (r.type === "character_in") {
+ // 登场角色：agent(角色) → work，方向与署名关系相反；番位优先 i18n 键（主角/配角/客串），
+ // 未覆盖的番位回退 definitions 词表名。
+ const src = relEntities[r.source_id];
+ if (!src || src.kind !== "agent") continue;
+ const rank = attrText(r.attributes?.role);
+ const rankKey = rank ? `entity.characterRank.${rank}` : "";
+ const rankLabel = rank && t(rankKey) !== rankKey ? t(rankKey) : rank ? getTermName(defs, "role", rank, locale) : "";
+ out.push({
+ id: r.id,
+ relationType: r.type,
+ relationLabel: relationName(r.type),
+ creditRole: attrText(r.attributes?.credit_role) || undefined,
+ agent: { id: src.id!, name: src.title || "", avatarUrl: src.pictures?.[0]?.url, types: src.types || [] },
+ character: { id: src.id!, name: src.title || "", avatarUrl: src.pictures?.[0]?.url, rankLabel: rankLabel && rankLabel !== rank ? rankLabel : undefined },
+ });
+ }
+ }
+ return out;
+ }, [work, relations, relEntities, defs, locale]);
+
+ // 关系图谱拓扑：中心作品 + 关系对端，本地构建（无需独立 graph 端点）。
+ const graphData = useMemo<{ nodes: GraphNode[]; links: GraphLink[] } | null>(() => {
+ if (!work) return null;
+ const nodes: GraphNode[] = [{ id: work.id!, name: work.title || "", type: "work", category: "work", level: 0, cover_image_url: work.pictures?.[0]?.url, status: work.status }];
+ const inGraph = new Set([work.id]);
+ const links: GraphLink[] = [];
+ for (const r of relations) {
+ const otherId = r.source_id === work.id ? r.target_id : r.source_id;
+ const other = relEntities[otherId];
+ if (!other) continue;
+ if (!inGraph.has(otherId)) {
+ inGraph.add(otherId);
+ nodes.push({ id: otherId, name: other.title, type: other.kind, category: other.kind, level: 1, cover_image_url: other.pictures?.[0]?.url, status: other.status });
+ }
+ links.push({
+ source: r.source_id,
+ target: r.target_id,
+ type: r.type,
+ label: relationName(r.type),
+ source_type: relEntities[r.source_id]?.kind,
+ target_type: relEntities[r.target_id]?.kind,
+ });
+ }
+ return { nodes, links };
+ }, [work, relations, relEntities, defs, locale]);
 
  // 关键词与 facet 都作用在完整候选集上，再对结果分页；关键词走本地过滤，不必每次输入都重拉全量。
  const filteredReleases = useMemo(() => {
@@ -238,28 +347,34 @@ export default function WorkDirectoryPage() {
  );
  }
 
- const meta = work.catalog_metadata || {};
- const localized = pickLocalized(locale, work.translations, work.title, work.summary, {
-   order: titleOrder,
-   originalLanguage: work.original_language,
- });
+ const meta = (work.attributes?.catalog_metadata as Record<string, any>) || {};
+ const title = entityTitle(work, locale);
+ // 简介取原语言行，缺失回退任一非空简介（统一 DTO 无顶层 summary）。
+ const summary = (() => {
+ const trs = work.translations || {};
+ if (work.original_language && attrText(trs[work.original_language]?.summary)) return attrText(trs[work.original_language].summary);
+ for (const tr of Object.values(trs)) {
+ if (attrText(tr?.summary)) return attrText(tr.summary);
+ }
+ return "";
+ })();
+ const tags = Array.isArray(work.attributes?.tags) ? (work.attributes?.tags as any[]).map((v) => String(v)).filter(Boolean) : [];
+ const coverUrl = work.pictures?.[0]?.url;
  // 标题旁的事实徽章（发行日期、平台、话数、放送电视台…）全部由模板声明决定。
  const badges = entityBadges(work, defs, locale);
 
  return (
  <div className="min-h-screen bg-background text-foreground">
- <Navbar onOpenUpload={() => setIsUploaderOpen(true)} />
+ <Navbar />
  <main className={styles.page}>
    <div className={styles.breadcrumb}>
-     <Link href="/explore">{t("work.detail.explore")}</Link><span>/</span><span>{localized.title}</span>
+     <Link href="/explore">{t("work.detail.explore")}</Link><span>/</span><span>{title}</span>
    </div>
    <header className={styles.header}>
      <div className={styles.eyebrow}>
        <span>{t("work.detail.workBadge")}</span>
-       <TemporalBadge beginDate={work.begin_date} endDate={work.end_date} ended={work.ended}
-         activeLabel={t("entity.temporal.activeWork")} endedLabel={t("entity.temporal.endedWork")} />
      </div>
-     <h1>{localized.title}</h1>
+     <h1>{title}</h1>
      {badges.length > 0 && (
        <div className={styles.badges}>
          {badges.map((b, i) => (
@@ -272,30 +387,24 @@ export default function WorkDirectoryPage() {
      )}
      <LocalizedTitleGroups
        translations={work.translations}
-       aliases={work.aliases}
        originalLanguage={work.original_language}
-       displayTitle={localized.title}
-       extraKnown={[work.title, work.original_title]}
+       displayTitle={title}
+       extraKnown={[work.title]}
        className="mt-1.5 space-y-0.5"
        itemClassName="font-mono text-sm text-gray-500 dark:text-gray-400"
      />
      <div className={styles.headerBottom}>
        <EntityActionToolbar onEdit={() => router.push(`/catalog/${work.id}?edit=1`)} onHistory={() => setIsHistoryOpen(true)}
          onMerge={() => setIsMergeOpen(true)} entityTypeLabel={t("entity.toolbar.work")}>
-         <FavoriteButton targetType="work" targetId={work.id} />
+         <FavoriteButton targetType="work" targetId={work.id!} />
        </EntityActionToolbar>
-       <div className={styles.stats}>
-         <span><Eye size={14} />{t("work.detail.viewCount", { count: work.view_count })}</span>
-         <span><Bookmark size={14} />{t("work.detail.favoriteCount", { count: work.favorite_count ?? 0 })}</span>
-       </div>
      </div>
    </header>
    <div className={styles.layout}>
      <aside className={styles.sidebar}>
        <div className={styles.cover}>
-         <AdaptiveCover src={work.cover_image_url} alt={localized.title} title={localized.title}
-           originalTitle={work.original_title} id={work.id} tags={(work.tags || []).map(tag => tag.name)}
-           aspect={work.cover_aspect} className="rounded-md overflow-hidden border border-black/10 dark:border-white/10" />
+         <AdaptiveCover src={coverUrl} alt={title} title={title}
+           id={work.id} tags={tags} className="rounded-md overflow-hidden border border-black/10 dark:border-white/10" />
        </div>
        <section className={styles.facts}>
          <h2>{t("work.detail.information")}</h2>
@@ -305,13 +414,13 @@ export default function WorkDirectoryPage() {
              字段集合与次序都不匹配，导致作品字段显示错配或缺失。 */}
          <WorkFacts entity={work} defs={defs} locale={locale} />
        </section>
-       {!!work.tags?.length && <section>
+       {tags.length > 0 && <section>
          <h2>{t("work.detail.tagsHeading")}</h2>
-         <div className={styles.tags}>{work.tags.map(tag => <Link key={tag.id} href={`/explore?tags=${encodeURIComponent(tag.name)}`}>{tag.name}</Link>)}</div>
+         <div className={styles.tags}>{tags.map(tag => <Link key={tag} href={`/explore?tags=${encodeURIComponent(tag)}`}>{tag}</Link>)}</div>
        </section>}
-       {(!!work.external_links?.length || (work.external_ids && Object.keys(work.external_ids).length > 0)) && <section>
+       {work.external_ids && Object.keys(work.external_ids).length > 0 && <section>
          <h2>{t("work.detail.externalHeading")}</h2>
-         <ExternalAuthorityLinks externalIds={work.external_ids} externalLinks={work.external_links} category="work" />
+         <ExternalAuthorityLinks externalIds={work.external_ids} category="work" />
        </section>}
      </aside>
      <div className={styles.content}>
@@ -324,18 +433,18 @@ export default function WorkDirectoryPage() {
              content: (
                <section className={styles.section}>
        <h2 className={styles.sectionTitle}>{t("work.detail.overview")}</h2>
-       <p className={styles.summary}>{localized.body || t("work.detail.noSummary")}</p>
+       <p className={styles.summary}>{summary || t("work.detail.noSummary")}</p>
                </section>
              ),
            },
            {
              id: "staff",
              label: t("work.detail.staffAndCharacters"),
-             visible: !!work.artist_relations?.length,
+             visible: staffCredits.length > 0,
              content: (
                <section className={styles.section}>
        <h2 className={styles.sectionTitle}>{t("work.detail.staffAndCharacters")}</h2>
-       <StaffCharacterSection relations={work.artist_relations || []} roleLabel={roleLabel} />
+       <StaffCharacterSection credits={staffCredits} />
                </section>
              ),
            },
@@ -344,7 +453,7 @@ export default function WorkDirectoryPage() {
              label: t("work.contents.title"),
              content: (
                <section className={styles.section}>
-                 <WorkContentDirectory workId={work.id} />
+                 <WorkContentDirectory workId={work.id!} />
                </section>
              ),
            },
@@ -356,7 +465,7 @@ export default function WorkDirectoryPage() {
              <section className={styles.section}>
             {(relationViewMode === "graph" || connected.length === 0) && graphData && graphData.nodes.length > 0 ? (
               <InteractiveRelationGraph
-                centerEntityId={work.id}
+                centerEntityId={work.id!}
                 centerEntityType="work"
                 nodes={graphData.nodes}
                 links={graphData.links}
@@ -433,7 +542,6 @@ export default function WorkDirectoryPage() {
  <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">{t("work.detail.releaseCatalog")}</h2>
  <span className="text-sm text-gray-500">{t("work.detail.totalReleases", { count: total })}</span>
  </div>
- <div className="flex items-center gap-2">
  <form onSubmit={onSearch} className="relative w-full sm:w-auto">
  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
  <input
@@ -444,19 +552,12 @@ export default function WorkDirectoryPage() {
  className="pl-11 pr-3.5 h-9 max-sm:min-h-[44px] w-full sm:w-48 bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 rounded-md text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary/50 font-mono"
  />
  </form>
- {user && (
- <button onClick={() => setIsUploaderOpen(true)} className="inline-flex items-center gap-2 h-9 max-sm:min-h-[44px] px-3 rounded-md bg-primary text-white text-sm font-semibold hover:opacity-90 transition-opacity">
- <UploadCloud className="w-4 h-4" strokeWidth={1.6} />
- <span>{t("work.detail.addRelease")}</span>
- </button>
- )}
- </div>
  </div>
 
  {loadingReleases ? (
  <div className="p-8 text-center text-sm text-gray-500">{t("work.detail.loadingReleases")}</div>
  ) : releaseEntities.length === 0 ? (
- <div className="p-8 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 text-center text-sm text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : user ? t("work.detail.beFirstUploader") : ""}</div>
+ <div className="p-8 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 text-center text-sm text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : ""}</div>
  ) : (
  <>
  <div className="px-3.5 sm:px-4 py-2.5 border-b border-black/5 dark:border-white/[0.06] flex flex-col lg:flex-row lg:items-center gap-2.5 bg-black/[0.01] dark:bg-white/[0.01]">
@@ -594,15 +695,14 @@ export default function WorkDirectoryPage() {
  </section>
    </div>
  </main>
- <MultipartUploader isOpen={isUploaderOpen} onClose={() => setIsUploaderOpen(false)} workId={work.id} onUploadSuccess={() => { loadReleases(); setPage(1); }} />
 
  {/* Revision History & Diff Modal */}
  <RevisionHistoryModal
  isOpen={isHistoryOpen}
  onClose={() => setIsHistoryOpen(false)}
  targetType="work"
- targetId={work.id}
- entityTitle={localized.title}
+ targetId={work.id!}
+ entityTitle={title}
  />
 
  {/* Entity Merge Modal */}
@@ -610,7 +710,7 @@ export default function WorkDirectoryPage() {
  isOpen={isMergeOpen}
  onClose={() => setIsMergeOpen(false)}
  targetType="work"
- sourceEntity={{ id: work.id, title: work.title }}
+ sourceEntity={{ id: work.id!, title: work.title || "" }}
  />
  </div>
  );

@@ -2628,5 +2628,8 @@
   "release.detail.occurrencesLoadGapDetail": "うち {entities} 件の表現エンティティと {details} 件の収録・クレジットを読み込めませんでした。",
   "release.detail.showAllOccurrences": "収録をすべて表示",
   "release.detail.collapseOccurrences": "収録を折りたたむ",
-  "catalog.compareIncompleteCatalog": "情報不足：以下のリリースはトラックまたは内容参照が未登録のため、内容の一致について結論を出しません。"
+  "catalog.compareIncompleteCatalog": "情報不足：以下のリリースはトラックまたは内容参照が未登録のため、内容の一致について結論を出しません。",
+  "entity.characterRank.primary": "主要キャラクター",
+  "entity.characterRank.supplement": "脇役",
+  "entity.characterRank.extra": "ゲスト"
 }
