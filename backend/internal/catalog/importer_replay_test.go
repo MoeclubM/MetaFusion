@@ -484,7 +484,7 @@ func runReplayImportFlowDB(t *testing.T, ctx context.Context, f fixture) {
 	// 再用 Occurrences 反查验证收录链可用；同时 List(WorkID) 可见发行版。
 	chainNote := "快照回放：subject/428735 发行链"
 	chainSources := []Source{{Kind: "url", Citation: "https://bgm.tv/subject/428735", URL: "https://bgm.tv/subject/428735"}}
-	release, counts, err := f.s.importReleaseChain(ctx, f.u, chainNote, chainSources, workOut.WorkID, workOut.Work.Title,
+	release, counts, err := f.s.importReleaseChain(ctx, f.u, chainNote, chainSources, workOut.WorkID, "", workOut.Work.Title,
 		[]ImporterCanonicalEntryPreview{{Title: "第 1 话", Position: 1}},
 		&ImporterReleasePreview{EditionName: "初回版", EditionDate: "2023-06-29", Country: "JP"},
 		[]ImporterMediumPreview{{Position: 0, Name: "Disc 1", Format: "bd", Role: "primary",
