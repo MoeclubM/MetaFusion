@@ -103,9 +103,10 @@ function workMediaType(work?: Entity | null): string {
 }
 
 type Occurrence = {
-  release: Entity;
-  medium: Entity;
-  track: Entity;
+  /** 引用形态：实体在批量响应的共享 entities 表里，按 id 取。 */
+  release_id: string;
+  medium_id: string;
+  track_id: string;
   expression_id: string;
   position: number;
   locator?: Record<string, any> | null;
@@ -197,6 +198,8 @@ export default function ReleaseDetailPage() {
   // 同篇目其它表达（如同一集的加长版/另一录音）的收录，与自身收录分开展示，避免误读。
   const [expressionSiblings, setExpressionSiblings] = useState<Record<string, Occurrence[]>>({});
   const [expressionCredits, setExpressionCredits] = useState<Record<string, string>>({});
+  // 收录引用的 release/medium/track 实体（批量响应的共享表）。
+  const [occurrenceEntities, setOccurrenceEntities] = useState<Record<string, Entity>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState<string>("all");
@@ -307,6 +310,9 @@ export default function ReleaseDetailPage() {
       const occMap: Record<string, Occurrence[]> = {};
       const siblingMap: Record<string, Occurrence[]> = {};
       const creditMap: Record<string, string> = {};
+      // 共享实体表：表达自身与收录引用到的 release/medium/track 都在这里，
+      // 避免同一实体在每条收录里重复传输。
+      const entityMap: Record<string, Entity> = {};
       let failures = 0;
       // 一条批量请求取回表达实体 + 自身收录 + 同篇目兄弟收录 + 首个署名，
       // 替代原先逐条 entities/:id、occurrences、relations、对端实体四类 N+1 请求。
@@ -318,12 +324,16 @@ export default function ReleaseDetailPage() {
         try {
           const r = await api<{
             items: Record<string, { entity: Entity; occurrences: Occurrence[]; siblings?: Occurrence[]; credit_title?: string }>;
+            entities?: Record<string, Entity>;
           }>("/catalog/expressions/details", "POST", { ids: slice });
           for (const [id, d] of Object.entries(r.items || {})) {
             if (d?.entity) exprMap[id] = d.entity;
             occMap[id] = d?.occurrences || [];
             siblingMap[id] = d?.siblings || [];
             if (d?.credit_title) creditMap[id] = d.credit_title;
+          }
+          for (const [id, e] of Object.entries(r.entities || {})) {
+            if (e) entityMap[id] = e;
           }
         } catch {
           // 批量失败时退化为逐条取实体，保证页面仍可用；无法恢复的条目计数，
@@ -342,6 +352,7 @@ export default function ReleaseDetailPage() {
       setOccurrences(occMap);
       setExpressionSiblings(siblingMap);
       setExpressionCredits(creditMap);
+      setOccurrenceEntities(entityMap);
       setExpressionLoadFailures(failures);
     })();
     return () => {
@@ -946,16 +957,16 @@ export default function ReleaseDetailPage() {
                               </td>
                             ) : null}
                             <td className="py-2 pr-3">
-                              <Link href={`/releases/${o.release.id}`} className="text-primary hover:underline">
-                                {entityTitle(o.release, locale)}
+                              <Link href={`/releases/${o.release_id}`} className="text-primary hover:underline">
+                                {entityTitle(occurrenceEntities[o.release_id], locale)}
                               </Link>
                             </td>
-                            <td className="py-2 pr-3 text-gray-500">{entityTitle(o.medium, locale)}</td>
+                            <td className="py-2 pr-3 text-gray-500">{entityTitle(occurrenceEntities[o.medium_id], locale)}</td>
                             <td className="py-2 pr-3 font-mono text-gray-500">
-                              #{o.track.number || o.track.position} {entityTitle(o.track, locale)}
+                              #{occurrenceEntities[o.track_id]?.number || occurrenceEntities[o.track_id]?.position} {entityTitle(occurrenceEntities[o.track_id], locale)}
                             </td>
                             <td className="py-2 text-right font-mono text-gray-500 tabular-nums">
-                              {formatDuration(Number(o.track.attributes?.duration) || 0)}
+                              {formatDuration(Number(occurrenceEntities[o.track_id]?.attributes?.duration) || 0)}
                             </td>
                           </tr>
                         ))}
@@ -966,7 +977,7 @@ export default function ReleaseDetailPage() {
                               {t("release.detail.sameUnitSiblings", { count: sibs.length })}
                               {sibs.slice(0, 3).map((o, i) => (
                                 <span key={`${exprId}-sib-${i}`} className="ml-2 inline-block">
-                                  <Link href={`/releases/${o.release.id}`} className="text-primary hover:underline">{entityTitle(o.release, locale)}</Link>
+                                  <Link href={`/releases/${o.release_id}`} className="text-primary hover:underline">{entityTitle(occurrenceEntities[o.release_id], locale)}</Link>
                                 </span>
                               ))}
                             </td>
