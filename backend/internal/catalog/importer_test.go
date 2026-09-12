@@ -297,3 +297,95 @@ func mustList(t *testing.T, f fixture, o ListOptions) []Entity {
 	}
 	return items
 }
+
+// TestImporterImportMultiDiscExpressionMatching：多盘发行的表达对齐。
+// 跨盘同轨号不再误判为同一内容（旧实现按 position 盲对齐）；
+// 同名曲跨盘复用同一表达；曲目携带的外部编号/ISRC 参与对齐并落库。
+func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
+	stubBangumi(t)
+	f := newFixture(t)
+	ctx := context.Background()
+
+	req := ImporterImportRequest{
+		EntityType: "work",
+		Source:     "bangumi",
+		URLOrID:    "https://bgm.tv/subject/7",
+		Work: &ImporterWorkPreview{
+			Title:           "多盘作品",
+			OriginalTitle:   "テスト作品",
+			OriginalLanguage: "zh-CN",
+			CatalogMetadata: map[string]any{"bangumi_type": float64(2)},
+		},
+		CanonicalEntries: []ImporterCanonicalEntryPreview{
+			{Title: "夜航", Position: 1},
+			{Title: "星海", Position: 2},
+		},
+		Release: &ImporterReleasePreview{EditionName: "双盘限定"},
+		Mediums: []ImporterMediumPreview{
+			{Position: 0, Name: "Disc 1", Format: "cd", Tracks: []ImporterTrackPreview{
+				{Position: 1, Title: "夜航"},
+				{Position: 2, Title: "星海"},
+			}},
+			{Position: 1, Name: "Disc 2", Format: "bd", Tracks: []ImporterTrackPreview{
+				// 轨号与 Disc 1 Track 1 相同，但内容不同：不得复用"夜航"的表达。
+				{Position: 1, Title: "幕间映像", ISRC: "JPB992600010"},
+				// 同名曲跨盘收录：应复用"夜航"的既有表达。
+				{Position: 2, Title: "夜航", RecordingMBID: "rec-1"},
+			}},
+		},
+		EditNote:   "多盘对齐测试",
+		SourceURLs: []string{"https://bgm.tv/subject/7"},
+	}
+	out, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Success || out.ReleaseID == "" {
+		t.Fatalf("bad import result: %+v", out)
+	}
+	if out.ImportedCounts.Mediums != 2 || out.ImportedCounts.Tracks != 4 {
+		t.Fatalf("bad imported counts: %+v", out.ImportedCounts)
+	}
+
+	exprs := mustList(t, f, ListOptions{Kind: "expression", WorkID: out.WorkID})
+	if len(exprs) != 3 {
+		t.Fatalf("expected 3 expressions, got %d", len(exprs))
+	}
+	exprIDByTitle := map[string]string{}
+	for _, e := range exprs {
+		exprIDByTitle[e.Title] = e.ID
+	}
+
+	tracks := mustList(t, f, ListOptions{Kind: "track", ReleaseID: out.ReleaseID})
+	if len(tracks) != 4 {
+		t.Fatalf("expected 4 tracks, got %d", len(tracks))
+	}
+	exprOf := map[string]string{}
+	isrcOf := map[string]string{}
+	for _, tr := range tracks {
+		full, err := f.s.Get(ctx, tr.ID, &f.u)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(full.Contents) != 1 {
+			t.Fatalf("track %q has %d contents, want 1", full.Title, len(full.Contents))
+		}
+		exprOf[full.Title] = full.Contents[0].ExpressionID
+		if v, ok := full.Attributes["isrc"]; ok {
+			isrcOf[full.Title] = v.(string)
+		}
+	}
+	// 跨盘同名曲复用同一表达。
+	if exprOf["夜航"] == "" || exprOf["夜航"] != exprIDByTitle["夜航"] {
+		t.Fatalf("Disc2 夜航 did not reuse canonical expression: %q vs %q", exprOf["夜航"], exprIDByTitle["夜航"])
+	}
+	if exprOf["幕间映像"] == exprIDByTitle["夜航"] {
+		t.Fatal("Disc2 Track 1 wrongly reused Disc1 Track 1 expression by position")
+	}
+	if exprOf["幕间映像"] != exprIDByTitle["幕间映像"] {
+		t.Fatalf("幕间映像 linked to unexpected expression: %q", exprOf["幕间映像"])
+	}
+	if isrcOf["幕间映像"] != "JPB992600010" {
+		t.Fatalf("ISRC not stored on track attributes: %v", isrcOf)
+	}
+}

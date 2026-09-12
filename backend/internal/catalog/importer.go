@@ -1859,9 +1859,25 @@ func importerEnum(v string, allowed []string) string {
 	return ""
 }
 
-type canonicalLink struct {
-	expressionID string
-	number       string
+// normalizeImporterTitleKey 表达对齐的标题键：小写并折叠空白（含全角空格），
+// 只用于匹配，不落库。
+func normalizeImporterTitleKey(s string) string {
+	return strings.Join(strings.Fields(strings.ToLower(s)), " ")
+}
+
+// listWorkExpressions 分页取全 work 下既有表达，供导入对齐复用，避免重复录音。
+func (s *Store) listWorkExpressions(ctx context.Context, workID string, u *User) ([]Entity, error) {
+	out := []Entity{}
+	for offset := 0; ; offset += 500 {
+		items, err := s.List(ctx, ListOptions{Kind: "expression", WorkID: workID, Limit: 500, Offset: offset}, u)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, items...)
+		if len(items) < 500 {
+			return out, nil
+		}
+	}
 }
 
 // createExpression 建单个 expression（canonical entry 或曲目回退）。
@@ -1898,8 +1914,10 @@ func (s *Store) importExpressionsOnly(ctx context.Context, actor User, note stri
 	return nil
 }
 
-// importReleaseChain 按 work → expression → release → medium → track 建链；
-// canonical_entries 先建成 expression，曲目按 position 复用，缺失时按曲目新建。
+// importReleaseChain 按 work → expression → release → medium → track 建链。
+// 表达对齐优先级：外部编号（recording_mbid/isrc）→ 规范化标题（同名多条取位置最近）
+// → 轨号回退（仅单载体）→ 新建；候选池含 canonical entries 与 work 下既有表达，
+// 同名曲跨盘/跨发行复用同一表达。多盘各自从 1 重排轨号，跨盘绝不按轨号对齐。
 func (s *Store) importReleaseChain(ctx context.Context, actor User, note string, sources []Source, workID, workTitle string, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, releaseKey string) (Entity, ImporterImportedCounts, error) {
 	counts := ImporterImportedCounts{}
 	// 发行链幂等：同一外部条目重复导入时复用已建 release，不重建整链。
@@ -1909,20 +1927,89 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 			return existing, counts, nil
 		}
 	}
-	links := map[int]canonicalLink{}
+	type exprCandidate struct {
+		id          string
+		number      string
+		titleKey    string
+		pos         int
+		externalIDs map[string]string
+	}
+	byID := map[string]exprCandidate{}
+	byExternal := map[string]string{}
+	byTitle := map[string][]exprCandidate{}
+	byPos := map[int]exprCandidate{}
+	register := func(c exprCandidate) {
+		byID[c.id] = c
+		for k, v := range c.externalIDs {
+			if v = strings.TrimSpace(v); v != "" {
+				byExternal[strings.ToLower(k)+"|"+strings.ToLower(v)] = c.id
+			}
+		}
+		if c.titleKey != "" {
+			byTitle[c.titleKey] = append(byTitle[c.titleKey], c)
+		}
+		if c.pos > 0 {
+			if _, ok := byPos[c.pos]; !ok {
+				byPos[c.pos] = c
+			}
+		}
+	}
+	existingExprs, err := s.listWorkExpressions(ctx, workID, &actor)
+	if err != nil {
+		return Entity{}, counts, err
+	}
+	for _, e := range existingExprs {
+		register(exprCandidate{id: e.ID, number: e.Number, titleKey: normalizeImporterTitleKey(e.Title), pos: e.Position, externalIDs: e.ExternalIDs})
+	}
+	lookup := func(title string, pos int, external map[string]string, allowPosition bool) (exprCandidate, bool) {
+		for k, v := range external {
+			if v = strings.TrimSpace(v); v == "" {
+				continue
+			}
+			if id, ok := byExternal[strings.ToLower(k)+"|"+strings.ToLower(v)]; ok {
+				return byID[id], true
+			}
+		}
+		if tk := normalizeImporterTitleKey(title); tk != "" {
+			if cands := byTitle[tk]; len(cands) > 0 {
+				best := cands[0]
+				for _, c := range cands[1:] {
+					d1, d2 := c.pos-pos, best.pos-pos
+					if d1 < 0 {
+						d1 = -d1
+					}
+					if d2 < 0 {
+						d2 = -d2
+					}
+					if d1 < d2 {
+						best = c
+					}
+				}
+				return best, true
+			}
+		}
+		if allowPosition {
+			if c, ok := byPos[pos]; ok {
+				return c, true
+			}
+		}
+		return exprCandidate{}, false
+	}
+	// canonical entries：先对齐既有表达，命中即复用（篇目与录音已存在，不重复建）。
 	for i, ce := range entries {
 		title := strings.TrimSpace(ce.Title)
 		if title == "" {
 			return Entity{}, counts, fmt.Errorf("invalid_payload")
 		}
 		pos := sanitizePosition(ce.Position, i)
+		if _, ok := lookup(title, pos, stringScalarMap(ce.ExternalIDs), false); ok {
+			continue
+		}
 		saved, err := s.createExpression(ctx, actor, note, sources, workID, title, ce.Number, pos, ce.DurationSeconds, ce.ExternalIDs)
 		if err != nil {
 			return Entity{}, counts, err
 		}
-		if _, ok := links[pos]; !ok {
-			links[pos] = canonicalLink{expressionID: saved.ID, number: saved.Number}
-		}
+		register(exprCandidate{id: saved.ID, number: saved.Number, titleKey: normalizeImporterTitleKey(title), pos: pos, externalIDs: saved.ExternalIDs})
 	}
 	releaseTitle := strings.TrimSpace(workTitle)
 	var releaseAttrs map[string]any
@@ -1991,40 +2078,43 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 			return Entity{}, counts, err
 		}
 		counts.Mediums++
+		// 位置回退仅在单载体启用：多盘按轨号对齐会把不同盘的同轨号误判为同一内容。
+		allowPositionFallback := len(mediums) == 1
 		for j, t := range m.Tracks {
 			trackTitle := strings.TrimSpace(t.Title)
 			if trackTitle == "" {
 				return Entity{}, counts, fmt.Errorf("invalid_payload")
 			}
 			pos := sanitizePosition(t.Position, j)
+			trackExternal := map[string]string{}
+			if v := strings.TrimSpace(t.RecordingMBID); v != "" {
+				trackExternal["recording_mbid"] = v
+			}
+			if v := strings.TrimSpace(t.ISRC); v != "" {
+				trackExternal["isrc"] = v
+			}
 			expressionID := ""
 			number := ""
-			if link, ok := links[pos]; ok {
-				expressionID, number = link.expressionID, link.number
+			if cand, ok := lookup(trackTitle, pos, trackExternal, allowPositionFallback); ok {
+				expressionID, number = cand.id, cand.number
 			} else {
-				exprAttrs := map[string]any{}
-				var exprTypes []string
-				if t.DurationSeconds > 0 {
-					exprTypes = []string{"expression"}
-					exprAttrs["duration"] = t.DurationSeconds
+				externalAny := make(map[string]any, len(trackExternal))
+				for k, v := range trackExternal {
+					externalAny[k] = v
 				}
-				expr, err := s.importerSave(ctx, Entity{
-					Kind:        "expression",
-					Title:       trackTitle,
-					WorkID:      workID,
-					Position:    pos,
-					Types:       exprTypes,
-					Attributes:  exprAttrs,
-					ExternalIDs: map[string]string{},
-				}, actor, note, sources)
+				expr, err := s.createExpression(ctx, actor, note, sources, workID, trackTitle, "", pos, t.DurationSeconds, externalAny)
 				if err != nil {
 					return Entity{}, counts, err
 				}
 				expressionID = expr.ID
+				register(exprCandidate{id: expr.ID, number: expr.Number, titleKey: normalizeImporterTitleKey(trackTitle), pos: pos, externalIDs: expr.ExternalIDs})
 			}
 			trackAttrs := map[string]any{}
 			if t.DurationSeconds > 0 {
 				trackAttrs["duration"] = t.DurationSeconds
+			}
+			if v := strings.TrimSpace(t.ISRC); v != "" {
+				trackAttrs["isrc"] = v
 			}
 			trackNumber := number
 			if trackNumber == "" && pos > 0 {
