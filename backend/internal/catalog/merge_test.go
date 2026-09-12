@@ -13,6 +13,10 @@ func TestPostgresMergeReferences(t *testing.T) {
 		t.Fatal(err)
 	}
 	field := v.Document.Fields["subject_attributes"]
+	// Field.Fields 带 omitempty：defaults 里的空子 map 经 DB JSON 往返后为 nil。
+	if field.Fields == nil {
+		field.Fields = map[string]Field{}
+	}
 	field.Fields["credit_note"] = Field{Names: names("署名说明", "Credit note"), Type: "text", Enabled: true}
 	v.Document.Fields["subject_attributes"] = field
 	f.publish(v.Document, v.ID)
