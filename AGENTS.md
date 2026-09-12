@@ -33,14 +33,14 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 
 | 任务 | 优先入口 |
 | --- | --- |
-| 后端 API / 数据模型 | `backend/internal/catalog/`（统一入口 `/api`，路由见 `http.go:Register`）、`backend/internal/models/`（旧 GORM 轨，只读兼容） |
-| 数据库与完整性约束 | `backend/migrations/`（当前 `000001_catalog_core` 到 `000007_auth_schema_split`，另有 `external_databases` 仅见于 `schema.sql`）；实际表结构与复合外键约束以 `backend/internal/catalog/schema.sql` 与 `store.go` 为准；只把已执行迁移视为目标实例能力 |
+| 后端 API / 数据模型 | `backend/internal/catalog/`（统一入口 `/api`，路由见 `http.go:Register`） |
+| 数据库与完整性约束 | `backend/migrations/`（版本化迁移，`000001_catalog_core` 起）；实际表结构与复合外键约束以 `backend/internal/catalog/schema.sql` 与 `store.go` 为准；只把已执行迁移视为目标实例能力 |
 | 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US,zh-TW,ja-JP}.json` |
 | 插件与解耦 | `backend/internal/{moduleapi,moduledeps,modules}`、[插件架构（VISION，未实现）](docs/architecture/plugin-decoupling-blueprint.md) |
 | 部署与 CI | `deploy/docker-compose.yml`、`.github/workflows/ci.yml` |
 | 用户 / LLM 编辑教程 | [Agent 接入](docs-site/docs/agent-integration.md)、[Agent API](docs-site/docs/api-agent.md) |
 
-技术栈：Go + Next.js / Bun + PostgreSQL + Redis + RustFS（S3）+ OpenSearch 2.x + FFmpeg Worker。
+技术栈：Go + Next.js / Bun + PostgreSQL + Redis + RustFS（S3）+ OpenSearch 2.x。
 
 涉及 API 或数据行为时，对照目标实例响应、实际处理器及已执行迁移，再核对 OpenAPI、技能与文档。发生矛盾时记录差异，暂停依赖该能力的写入；不能只改文案来掩盖实现缺口。接口变化应同步 OpenAPI、相关教程和技能契约，避免另造一套字段或枚举。
 
@@ -67,7 +67,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 ### 国际化、封面与审计
 
 - UI 文案必须通过 `useI18n()` 与中英字典管理，两种语言键同步；禁止硬编码文案或 `t(key) || "中文兜底"`。动态术语使用已有多语言数据和 helper。
-- 实体翻译以统一 DTO 的 `translations`（按 locale 分组的 JSON 对象）呈现，每个语种含 `title / summary / aliases`；字段以各实体实际 DTO 为准，不要凭旧文档假定为数组。`aliases` 能力由 `backend/internal/catalog/schema.sql` 与 `backend/internal/database/patches.go` 提供；原语言标题归属对应翻译行，不能把其他语种题名全塞进实体级 aliases。
+- 实体翻译以统一 DTO 的 `translations`（按 locale 分组的 JSON 对象）呈现，每个语种含 `title / summary / aliases`；字段以各实体实际 DTO 为准，不要凭旧文档假定为数组。`aliases` 能力由 `backend/internal/catalog/schema.sql` 提供（存于实体 document 的 translations 行内）；原语言标题归属对应翻译行，不能把其他语种题名全塞进实体级 aliases。
 - 展示回退遵循请求语言 → en-US → original_language → 基础字段/系统兜底；读取和写入字段分离，不能把 `localized_*` 展示值回写为基础值。
 - 封面优先使用可考据的官方/授权图片，保留自然比例、不拉伸，不使用风景占位图。音乐 1:1、影视/动画 2:3、书籍 3:4 是常用展示建议；`cover_aspect` 实际支持值以接口为准，不把建议写成不存在的服务端拒绝规则。
 - 每次编目变更准备具体 `edit_note` 与相关 `source_urls`，目标是可追溯修订。不能宣称所有端点已强制证据、完整审计或 ACID 事务；当前通用实体创建（`POST /api/catalog/entities`）与关系写入（`/api/catalog/relations`）有不同校验边界，按技能契约核实。缺少所需审计能力时报告缺口，禁止直接改数据库绕过。

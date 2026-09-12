@@ -1,6 +1,6 @@
 ---
 title: "Lookup 与 Browse"
-description: "实体详情的 inc 展开与按关联枚举的浏览接口。"
+description: "实体详情与按关联枚举的浏览接口。"
 order: 32
 group: "api"
 ---
@@ -12,21 +12,19 @@ group: "api"
 - `GET /api/ws/2/*` 全部别名（从未实现）
 - `GET /api/browse/*` 全部端点（用 `/api/catalog/entities` 的关联 id 过滤替代）
 - `inc=` 展开参数、`page` / `page_size` 分页、`fmt=json`（真实参数为 `q / kind / type / status / work_id / content_unit_id / release_id / medium_id / parent_id / field / value / limit / offset`）
-- `GET /api/catalog/artists/:id/graph`（仅存在 `GET /api/catalog/works/:id/graph`）
+- `GET /api/catalog/works`、`GET /api/catalog/works/:id`、`/works/:id/graph`、`/catalog/taxonomy`、`/catalog/relation-types`、`/catalog/artists/:id`、`/catalog/franchises/:id`、`/catalog/mediums/:id`、`/catalog/canonical-entries/:id`（旧兼容层已全部删除）
 
-**真实可用**：`GET /api/catalog/entities`（带过滤/分页）、`GET /api/catalog/entities/:id`、`/resolve`、`/relations`、`/occurrences`、`/revisions`；此外还有只读兼容路由 `GET /api/catalog/works/:id`、`/artists/:id`、`/franchises/:id`、`/mediums/:id`、`/canonical-entries/:id`、`/taxonomy`、`/tags`、`/relation-types`。以 [OpenAPI](/api/openapi.json) 为准。
+**真实可用**：`GET /api/catalog/entities`（带过滤/分页）、`GET /api/catalog/entities/:id`、`/resolve`、`/relations`、`/occurrences`、`/revisions`、`GET /api/catalog/tags`（标签频次聚合）。词表与类型请使用 `GET /api/catalog/definitions`。以 [OpenAPI](/api/openapi.json) 为准。
 :::
 
 # Lookup 与 Browse
 
 ## Lookup — 实体详情
 
-对应网页端详情页，支持 `inc` 与 `fmt=json`。
-
 ```http
-GET /api/catalog/works/:id          # 兼容层：前端详情页形状
-GET /api/catalog/entities/:id       # 通用实体详情（推荐）
-GET /api/catalog/entities/:id/relations
+GET /api/catalog/entities/:id       # 通用实体详情
+GET /api/catalog/entities/:id/resolve
+GET /api/catalog/entities/:id/relations   # 响应含关系对端实体表
 GET /api/catalog/entities/:id/occurrences   # 按 kind 收敛：expression=自身，content_unit/work=其表达
 GET /api/catalog/entities/:id/revisions
 ```
@@ -66,23 +64,18 @@ const works = await fetch("/api/catalog/entities?kind=work&q=" + encodeURICompon
 const releases = await fetch("/api/catalog/entities?kind=release&work_id=" + workId).then(r => r.json());
 ```
 
-## 作品列表的多维筛选（ListWorks）
+## 多维筛选
 
 ```http
-GET /api/catalog/works?q=keyword&limit=24&offset=0
+GET /api/catalog/entities?q=keyword&kind=work&limit=24&offset=0
 ```
 
-`/api/catalog/works` 为前端兼容层；完整筛选请使用 `/api/catalog/entities` 的 `kind / type / status / field / value / work_id / content_unit_id / release_id / medium_id / parent_id` 参数。见 [编目体系](/taxonomy)。
+完整筛选参数为 `kind / type / status / q / field / value / work_id / content_unit_id / release_id / medium_id / parent_id / tags`。见 [编目体系](/taxonomy)。
 
 ## 图谱
 
-```http
-GET /api/catalog/works/:id/graph
-```
-
-返回 `{ nodes: GraphNode[], links: GraphLink[] }`，用于可视化协作网络。**注意：Artist 图谱端点不存在。**
+独立 graph 端点不存在。用 `GET /api/catalog/entities/:id/relations` 的返回（关系边 + 对端实体表）在客户端构建 `{ nodes, links }` 拓扑。
 
 ## 分页
 
 - `limit` / `offset`（`/api/catalog/entities`，`limit` 有服务端上限）
-- `/api/catalog/works` 兼容层另有自身的分页字段
