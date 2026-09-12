@@ -537,6 +537,216 @@ func (s *Store) Occurrences(ctx context.Context, id string, u *User) ([]map[stri
 	return out, nil
 }
 
+// ExpressionDetail 是发行详情页渲染一条收录表达所需的只读聚合：
+// 表达实体、同录音在其他发行的收录、首个署名（演出/配音/创作）目标标题。
+type ExpressionDetail struct {
+	Entity      Entity           `json:"entity"`
+	Occurrences []map[string]any `json:"occurrences"`
+	CreditTitle string           `json:"credit_title,omitempty"`
+}
+
+// ExpressionDetailsBatch 一次取回多条表达的上屏数据，替代发行页对每条表达
+// 分别请求 entities/:id + occurrences + relations + 对端实体的四类 N+1 请求。
+// 语义与单条端点保持一致：occurrences 含同 Work、同篇目下的收录；仅返回可见数据。
+func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *User) (map[string]ExpressionDetail, error) {
+	out := map[string]ExpressionDetail{}
+	uniq := []string{}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if id = strings.TrimSpace(id); id != "" && !seen[id] {
+			seen[id] = true
+			uniq = append(uniq, id)
+		}
+	}
+	if len(uniq) == 0 {
+		return out, nil
+	}
+	ents, err := s.GetManyVisible(ctx, uniq, u)
+	if err != nil {
+		return nil, err
+	}
+	if len(ents) == 0 {
+		return out, nil
+	}
+	workSet, unitSet := map[string]bool{}, map[string]bool{}
+	for _, e := range ents {
+		if e.WorkID != "" {
+			workSet[e.WorkID] = true
+		}
+		if e.ContentUnitID != "" {
+			unitSet[e.ContentUnitID] = true
+		}
+	}
+	// 候选内容表达 = 请求表达自身 ∪ 同 Work/同篇目的兄弟表达（与单条端点 OR 语义一致）。
+	type exprScope struct{ work, unit string }
+	scope := map[string]exprScope{}
+	for id := range ents {
+		scope[id] = exprScope{}
+	}
+	if len(workSet) > 0 || len(unitSet) > 0 {
+		clauses := []string{}
+		args := []any{}
+		if len(workSet) > 0 {
+			wids := keysOf(workSet)
+			clauses = append(clauses, "work_id IN ("+entityPlaceholders(wids, 1)+")")
+			args = append(args, entityArgs(wids)...)
+		}
+		if len(unitSet) > 0 {
+			uids := keysOf(unitSet)
+			clauses = append(clauses, "content_unit_id IN ("+entityPlaceholders(uids, len(args)+1)+")")
+			args = append(args, entityArgs(uids)...)
+		}
+		rows, err := s.DB.QueryContext(ctx, "SELECT id::text, work_id::text, coalesce(content_unit_id::text,'') FROM catalog.expressions WHERE "+strings.Join(clauses, " OR "), args...)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			var id, work, unit string
+			if err = rows.Scan(&id, &work, &unit); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			scope[id] = exprScope{work: work, unit: unit}
+		}
+		if err = rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		rows.Close()
+	}
+	candidateIDs := make([]string, 0, len(scope))
+	for id := range scope {
+		candidateIDs = append(candidateIDs, id)
+	}
+	// 一次取回候选表达的收录行（含介质/轨道侧表所需的 ID）。
+	var rows []struct {
+		track, medium, release, expr string
+		pos                          int
+		loc, attrs                   json.RawMessage
+	}
+	if len(candidateIDs) > 0 {
+		q, err := s.DB.QueryContext(ctx, `SELECT c.track_id::text,m.id::text,m.release_id::text,c.expression_id::text,c.position,c.locator,c.attributes FROM catalog.track_contents c JOIN catalog.tracks t ON t.id=c.track_id JOIN catalog.mediums m ON m.id=t.medium_id WHERE c.expression_id IN (`+entityPlaceholders(candidateIDs, 1)+`) ORDER BY m.release_id,c.position`, entityArgs(candidateIDs)...)
+		if err != nil {
+			return nil, err
+		}
+		for q.Next() {
+			var r struct {
+				track, medium, release, expr string
+				pos                          int
+				loc, attrs                   json.RawMessage
+			}
+			if err = q.Scan(&r.track, &r.medium, &r.release, &r.expr, &r.pos, &r.loc, &r.attrs); err != nil {
+				q.Close()
+				return nil, err
+			}
+			rows = append(rows, r)
+		}
+		if err = q.Err(); err != nil {
+			q.Close()
+			return nil, err
+		}
+		q.Close()
+	}
+	// 批量解析收录行引用的 release/medium/track，不可见者按原语义跳过。
+	need := []string{}
+	for _, r := range rows {
+		need = append(need, r.release, r.medium, r.track)
+	}
+	got, err := s.getMany(ctx, need, u)
+	if err != nil {
+		return nil, err
+	}
+	// 署名：一次取候选表达的相关关系，按请求表达过滤后取对端标题。
+	creditPeer := map[string]string{}
+	if len(candidateIDs) > 0 {
+		relRows, err := s.DB.QueryContext(ctx, `SELECT source_id::text,target_id::text FROM catalog.relations WHERE type IN ('performed_by','voiced_by','created_by') AND (source_id IN (`+entityPlaceholders(candidateIDs, 1)+`) OR target_id IN (`+entityPlaceholders(candidateIDs, len(candidateIDs)+1)+`)) ORDER BY id`, append(entityArgs(candidateIDs), entityArgs(candidateIDs)...)...)
+		if err != nil {
+			return nil, err
+		}
+		type edge struct{ src, tgt string }
+		var edges []edge
+		for relRows.Next() {
+			var e edge
+			if err = relRows.Scan(&e.src, &e.tgt); err != nil {
+				relRows.Close()
+				return nil, err
+			}
+			edges = append(edges, e)
+		}
+		if err = relRows.Err(); err != nil {
+			relRows.Close()
+			return nil, err
+		}
+		relRows.Close()
+		// 对端解析：表达可能是 source 或 target，取另一侧且必须在候选集合内。
+		peerIDs := []string{}
+		for _, e := range edges {
+			if _, ok := scope[e.src]; ok {
+				peerIDs = append(peerIDs, e.tgt)
+			}
+			if _, ok := scope[e.tgt]; ok {
+				peerIDs = append(peerIDs, e.src)
+			}
+		}
+		peers, err := s.GetManyVisible(ctx, peerIDs, u)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range edges {
+			if _, ok := scope[e.src]; ok {
+				if _, seen := creditPeer[e.src]; !seen {
+					if p, ok := peers[e.tgt]; ok {
+						creditPeer[e.src] = p.Title
+					}
+				}
+			}
+			if _, ok := scope[e.tgt]; ok {
+				if _, seen := creditPeer[e.tgt]; !seen {
+					if p, ok := peers[e.src]; ok {
+						creditPeer[e.tgt] = p.Title
+					}
+				}
+			}
+		}
+	}
+	for id, e := range ents {
+		detail := ExpressionDetail{Entity: e, Occurrences: []map[string]any{}}
+		myScope := scope[id]
+		for _, r := range rows {
+			// 命中条件：同表达、或（同 Work / 同篇目且该行表达属于之）。
+			rs, ok := scope[r.expr]
+			if !ok {
+				continue
+			}
+			sameExpr := r.expr == id
+			sameWork := myScope.work != "" && rs.work == myScope.work
+			sameUnit := myScope.unit != "" && rs.unit == myScope.unit
+			if !sameExpr && !sameWork && !sameUnit {
+				continue
+			}
+			rel, ok1 := got[r.release]
+			med, ok2 := got[r.medium]
+			track, ok3 := got[r.track]
+			if !ok1 || !ok2 || !ok3 {
+				continue
+			}
+			detail.Occurrences = append(detail.Occurrences, map[string]any{"release": rel, "medium": med, "track": track, "expression_id": r.expr, "position": r.pos, "locator": r.loc, "attributes": r.attrs})
+		}
+		detail.CreditTitle = creditPeer[id]
+		out[id] = detail
+	}
+	return out, nil
+}
+
+// keysOf 返回 set 的键（顺序无关，仅用于构造 IN 查询）。
+func keysOf(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	return out
+}
+
 // Compare returns exact release structure and only comparable metadata fields.
 func (s *Store) Compare(ctx context.Context, ids []string, u *User) ([]map[string]any, error) {
 	if len(ids) < 2 || len(ids) > 6 {
