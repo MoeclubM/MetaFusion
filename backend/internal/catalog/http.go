@@ -702,6 +702,25 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.Occurrences(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, gin.H{"items": v}, err)
 	})
+	// 发行详情页批量上屏：一次取多条表达实体 + 收录 + 署名，替代逐条四类 N+1 请求。
+	cat.GET("/expressions/details", routeLimiter(120), func(c *gin.Context) {
+		ids := []string{}
+		for _, id := range strings.Split(c.Query("ids"), ",") {
+			if id = strings.TrimSpace(id); id != "" {
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) == 0 {
+			c.JSON(400, gin.H{"error": "invalid_payload"})
+			return
+		}
+		if len(ids) > 500 {
+			c.JSON(400, gin.H{"error": "too_many_ids"})
+			return
+		}
+		v, err := s.ExpressionDetailsBatch(c.Request.Context(), ids, user(c))
+		respond(c, gin.H{"items": v}, err)
+	})
 	cat.GET("/external-databases", func(c *gin.Context) {
 		v, err := s.ListExternalDatabases(c.Request.Context(), c.Query("category"), true)
 		respond(c, gin.H{"items": v}, err)
