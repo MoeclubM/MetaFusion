@@ -13,6 +13,7 @@ import {
   getTermName,
 } from "@/lib/definitions";
 import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
+import { RecordList } from "@/components/catalog/TemplateAttributeSections";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowLeft,
@@ -936,43 +937,35 @@ export default function ReleaseDetailPage() {
         <div className="space-y-3">
           {attachments.length > 0 && (
             <Collapsible title={t("release.detail.attachments")} count={attachments.length}>
-              <ul className="space-y-2">
-                {attachments.map((a, i) => (
-                  <li key={i} className="text-xs text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">{localizedText(a.label, locale) || t("release.detail.attachmentItem", { index: i + 1 })}</span>
-                    {a.quantity != null && a.quantity !== "" && <span className="font-mono text-gray-500"> × {String(a.quantity)}</span>}
-                    {attrText(a.condition) && <span className="block font-mono text-[11px] text-gray-500">{attrText(a.condition)}</span>}
-                  </li>
-                ))}
-              </ul>
+              <RecordList
+                items={attachments}
+                field={dynamicDefs?.fields?.attachments}
+                defs={dynamicDefs}
+                locale={locale}
+                fallbackLabel={(i) => t("release.detail.attachmentItem", { index: i + 1 })}
+              />
             </Collapsible>
           )}
           {storeBonuses.length > 0 && (
             <Collapsible title={t("release.detail.storeBonuses")} count={storeBonuses.length}>
-              <ul className="space-y-2">
-                {storeBonuses.map((b, i) => (
-                  <li key={i} className="text-xs text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">{localizedText(b.label, locale) || t("release.detail.attachmentItem", { index: i + 1 })}</span>
-                    <span className="ml-2 font-mono text-[11px] text-gray-500">
-                      {[attrText(b.channel), attrText(b.region), attrText(b.condition)].filter(Boolean).join(" · ")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <RecordList
+                items={storeBonuses}
+                field={dynamicDefs?.fields?.store_bonuses}
+                defs={dynamicDefs}
+                locale={locale}
+                fallbackLabel={(i) => t("release.detail.attachmentItem", { index: i + 1 })}
+              />
             </Collapsible>
           )}
           {events.length > 0 && (
             <Collapsible title={t("release.detail.releaseEvents")} count={events.length}>
-              <ul className="space-y-2">
-                {events.map((e, i) => (
-                  <li key={i} className="text-xs text-gray-700 dark:text-gray-300">
-                    <span className="font-medium">{localizedText(e.label, locale) || t("release.detail.attachmentItem", { index: i + 1 })}</span>
-                    <span className="ml-2 font-mono text-[11px] text-gray-500">
-                      {[attrText(e.date), attrText(e.region), attrText(e.time_zone), attrText(e.channel)].filter(Boolean).join(" · ")}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <RecordList
+                items={events}
+                field={dynamicDefs?.fields?.events}
+                defs={dynamicDefs}
+                locale={locale}
+                fallbackLabel={(i) => t("release.detail.attachmentItem", { index: i + 1 })}
+              />
             </Collapsible>
           )}
         </div>
