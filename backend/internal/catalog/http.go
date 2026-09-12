@@ -47,9 +47,9 @@ func respond(c *gin.Context, v any, err error) {
 	} else if code == "version_conflict" {
 		status = 409
 	}
-	// 结构化错误：保留 error 字段兼容旧前端，新增 code+message；database_error
-	// 只透出固定 code，不附带 SQL 原文。
-	c.JSON(status, gin.H{"error": code, "code": code, "message": code})
+	// 错误响应统一为单一 error 字段（值为稳定机器码）；database_error 只透出固定码，
+	// 不附带 SQL 原文。
+	c.JSON(status, gin.H{"error": code})
 }
 func body(c *gin.Context, v any) bool {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2<<20)
@@ -148,7 +148,7 @@ func routeLimiter(perMinute int) gin.HandlerFunc {
 		}
 		if over {
 			c.Header("Retry-After", strconv.Itoa(retrySecs))
-			c.AbortWithStatusJSON(429, gin.H{"error": "rate_limited", "code": "rate_limited", "message": "rate_limited"})
+			c.AbortWithStatusJSON(429, gin.H{"error": "rate_limited"})
 			return
 		}
 		c.Next()

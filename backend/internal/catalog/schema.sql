@@ -99,10 +99,9 @@ END $$;
 
 CREATE TABLE IF NOT EXISTS catalog.external_databases (
  code text PRIMARY KEY CHECK (code ~ '^[a-z0-9_]{2,64}$'),
- name_zh text NOT NULL CHECK (length(trim(name_zh))>0),
- name_en text NOT NULL DEFAULT '',
  names jsonb NOT NULL DEFAULT '{}',
- category text NOT NULL DEFAULT 'all',
+ category text NOT NULL DEFAULT 'all'
+  CHECK (category IN ('all','agent','collection','work','content_unit','expression','release','medium','track')),
  url_pattern text NOT NULL CHECK (length(trim(url_pattern))>0),
  icon text NOT NULL DEFAULT 'Globe',
  icon_url text NOT NULL DEFAULT '',
@@ -115,13 +114,11 @@ CREATE TABLE IF NOT EXISTS catalog.external_databases (
 
 -- 首页货架与探索页共用的聚合规则：前后端共用同一规则，不再各自硬编码。
 -- query 为收录规则（types/fields/vocab_terms/relations，AND 语义）；
--- sort/icon/enabled 描述展示方式。names 走四语 map，name_zh/name_en 仅作回退。
+-- sort/icon/enabled 描述展示方式。names 为四语名称映射（zh-CN/en-US/zh-TW/ja-JP）。
 CREATE TABLE IF NOT EXISTS catalog.shelves (
  id bigserial PRIMARY KEY,
  slug text NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9][a-z0-9_-]{1,63}$'),
  names jsonb NOT NULL DEFAULT '{}',
- name_zh text NOT NULL DEFAULT '',
- name_en text NOT NULL DEFAULT '',
  query jsonb NOT NULL DEFAULT '{}',
  sort text NOT NULL DEFAULT 'updated',
  icon text NOT NULL DEFAULT '',
@@ -148,7 +145,7 @@ CREATE TABLE IF NOT EXISTS auth.oauth_tokens (
 );
 CREATE TABLE IF NOT EXISTS catalog.favorites (
  user_id uuid NOT NULL,
- target_type text NOT NULL CHECK (target_type IN ('work','release','artist','franchise','canonical_entry')),
+ target_type text NOT NULL CHECK (target_type IN ('agent','collection','work','content_unit','expression','release','medium','track')),
  target_id uuid NOT NULL,
  created_at timestamptz NOT NULL DEFAULT now(),
  PRIMARY KEY (user_id, target_type, target_id)
@@ -165,6 +162,33 @@ CREATE TABLE IF NOT EXISTS catalog.user_preferences (
  home_shelves jsonb NOT NULL DEFAULT '{}'::jsonb,
  updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- 退役结构清理（幂等）：shelves/external_databases 早前以 name_zh/name_en 双列存名称，
+-- 收藏用旧的 work/release/artist/franchise/canonical_entry 词表。现名称只走 names 多语言
+-- 映射、target_type 即实体 kind。CREATE TABLE IF NOT EXISTS 不会改动既有表，这里显式删掉
+-- 残留列与旧约束，避免它们拦住新写入；不搬运任何数据。
+ALTER TABLE catalog.shelves DROP COLUMN IF EXISTS name_zh;
+ALTER TABLE catalog.shelves DROP COLUMN IF EXISTS name_en;
+ALTER TABLE catalog.external_databases DROP COLUMN IF EXISTS name_zh;
+ALTER TABLE catalog.external_databases DROP COLUMN IF EXISTS name_en;
+DELETE FROM catalog.favorites WHERE target_type NOT IN ('agent','collection','work','content_unit','expression','release','medium','track');
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'favorites_target_type_check' AND conrelid = 'catalog.favorites'::regclass
+      AND pg_get_constraintdef(oid) NOT LIKE '%content_unit%'
+  ) THEN
+    ALTER TABLE catalog.favorites DROP CONSTRAINT favorites_target_type_check;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'favorites_target_type_check' AND conrelid = 'catalog.favorites'::regclass
+  ) THEN
+    ALTER TABLE catalog.favorites ADD CONSTRAINT favorites_target_type_check
+      CHECK (target_type IN ('agent','collection','work','content_unit','expression','release','medium','track'));
+  END IF;
+END $$;
 
 -- 账号表搬迁：catalog.* → auth.*（幂等）。
 -- 首次在既有部署上运行时，把账号/会话/OAuth 数据搬到 auth schema，并断开
