@@ -169,9 +169,9 @@ MetaFusion 开放 API 为大语言模型（LLM）与自动化 Agent 提供了结
             "items": {
               "type": "object",
               "properties": {
-                "source_type": { "type": "string", "enum": ["work", "artist", "franchise"] },
+                "source_type": { "type": "string", "enum": ["agent", "collection", "work", "content_unit", "expression", "release", "medium", "track"] },
                 "source_id": { "type": "string", "format": "uuid" },
-                "target_type": { "type": "string", "enum": ["work", "artist", "franchise"] },
+                "target_type": { "type": "string", "enum": ["agent", "collection", "work", "content_unit", "expression", "release", "medium", "track"] },
                 "target_id": { "type": "string", "format": "uuid" },
                 "relationship_type": { "type": "string", "enum": ["includes", "adaptation_of", "soundtrack_of", "sequel_of", "character_in", "credit_for", "translation_of", "revision_of", "cover_of", "alternate_take_of", "pressing_of"] },
                 "qualifier": { "type": "string" }
