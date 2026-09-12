@@ -47,13 +47,11 @@ export default function WorkDirectoryPage() {
  const [relationViewMode, setRelationViewMode] = useState<"graph" | "list">("list");
  const [releases, setReleases] = useState<Release[]>([]);
  const [releaseEntities, setReleaseEntities] = useState<Entity[]>([]);
- const [releasePageItems, setReleasePageItems] = useState<Entity[]>([]);
  // 每个发行版的介质格式计数（按实际 Medium 聚合）：CD+BD 组合不再被"首个格式"吞掉。
  const [releaseFormatCounts, setReleaseFormatCounts] = useState<Record<string, Record<string, number>>>({});
  // 筛选条件：键为字段码，值选中项。字段集合由模板 facet_fields 声明。
  const [facetValues, setFacetValues] = useState<Record<string, string>>({});
  const [compareSelected, setCompareSelected] = useState<string[]>([]);
- const [total, setTotal] = useState(0);
  const [page, setPage] = useState(1);
  const pageSize = 10;
  const [q, setQ] = useState("");
@@ -84,15 +82,12 @@ export default function WorkDirectoryPage() {
  }
  };
 
- const loadReleases = async (p: number, keyword: string) => {
+ // 只负责拉全量发行与其介质格式汇总。关键词与 facet 过滤、分页都在渲染侧按完整候选集
+ // 求值：否则"先分页后筛选"会漏掉其它页的命中，总数也不会随筛选变化。
+ const loadReleases = async () => {
  setLoadingReleases(true);
  try {
- const rels = await fetchAllPages<Entity>(`/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}`);
- let entities = rels;
- if (keyword.trim()) {
- const kw = keyword.trim().toLowerCase();
- entities = entities.filter((e) => (e.title || "").toLowerCase().includes(kw) || JSON.stringify(e.attributes || {}).toLowerCase().includes(kw));
- }
+ const entities = await fetchAllPages<Entity>(`/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}`);
  // 载体格式从实际 Medium 全量聚合（受并发上限约束），不再截断在首屏 50 条。
  const counts = await mapLimit(entities, 8, async (e) => {
  try {
@@ -107,11 +102,8 @@ export default function WorkDirectoryPage() {
  });
  const fmtMap: Record<string, Record<string, number>> = {};
  entities.forEach((e, i) => { fmtMap[e.id!] = counts[i] || {}; });
- const start = (p - 1) * pageSize;
  setReleaseEntities(entities);
  setReleaseFormatCounts(fmtMap);
- setTotal(entities.length);
- setReleasePageItems(entities.slice(start, start + pageSize));
  } catch (e) {
  console.error(e);
  } finally {
@@ -132,18 +124,9 @@ export default function WorkDirectoryPage() {
    return (tpl?.facet_fields || []).filter((c: string) => !!defs?.fields?.[c]);
  }, [defs]);
 
- const filteredReleases = useMemo(() => {
- return releasePageItems.filter((e) =>
- releaseFacets.every((code) => {
- const want = facetValues[code];
- if (!want) return true;
- return facetCandidatesOf(code, e).includes(want);
- }),
- );
- }, [releasePageItems, facetValues, releaseFacets, releaseFormatCounts]);
-
  // facet 字段的候选值：先看发行版自身属性，format 再并入实际 Medium 聚合出的格式集合。
  // 多介质发行版（CD＋BD）应能被任一组成格式筛中，因此匹配按"候选列表包含"而不是全等。
+ // 必须先于 filteredReleases 声明：其回调在渲染阶段同步求值，引用后声明的 const 会命中 TDZ。
  const facetCandidatesOf = (code: string, e: Entity): string[] => {
  const own = e.attributes?.[code];
  const ownList = own !== undefined && own !== null && own !== "" ? [String(own).trim()] : [];
@@ -151,7 +134,7 @@ export default function WorkDirectoryPage() {
  const derived = Object.keys(releaseFormatCounts[e.id!] || {});
  return Array.from(new Set([...ownList, ...derived]));
  };
- // 某 facet 的全部候选值（来自当前发行版集合）。
+ // 某 facet 的全部候选值（来自全量发行版集合）。
  const facetOptionsOf = (code: string) =>
  Array.from(new Set(releaseEntities.flatMap((e) => facetCandidatesOf(code, e)).filter(Boolean)));
 
@@ -169,6 +152,25 @@ export default function WorkDirectoryPage() {
  })
  .join(joiner);
  };
+
+ // 关键词与 facet 都作用在完整候选集上，再对结果分页；关键词走本地过滤，不必每次输入都重拉全量。
+ const filteredReleases = useMemo(() => {
+ const kw = q.trim().toLowerCase();
+ return releaseEntities.filter((e) => {
+ if (kw && !((e.title || "").toLowerCase().includes(kw) || JSON.stringify(e.attributes || {}).toLowerCase().includes(kw))) return false;
+ return releaseFacets.every((code) => {
+ const want = facetValues[code];
+ if (!want) return true;
+ return facetCandidatesOf(code, e).includes(want);
+ });
+ });
+ }, [releaseEntities, q, facetValues, releaseFacets, releaseFormatCounts]);
+ const total = filteredReleases.length;
+ const totalPages = Math.max(1, Math.ceil(total / pageSize));
+ const pagedReleases = useMemo(
+ () => filteredReleases.slice((page - 1) * pageSize, page * pageSize),
+ [filteredReleases, page],
+ );
 
 
  const toggleCompare = (id: string) => {
@@ -196,8 +198,8 @@ export default function WorkDirectoryPage() {
 
  useEffect(() => {
  if (!workId) return;
- loadReleases(page, q);
- }, [workId, page, q]);
+ loadReleases();
+ }, [workId]);
 
  // 讨论分节已不在标签栏（id="discussion" 现在是普通锚点）。客户端渲染下浏览器
  // 处理 hash 时元素还不存在，旧链接 #discussion 会停在页首；内容就绪后补一次滚动。
@@ -215,7 +217,10 @@ export default function WorkDirectoryPage() {
  setQ(qInput);
  };
 
- const totalPages = Math.max(1, Math.ceil(total / pageSize));
+ // 筛选/搜索后总数变小可能让当前页越界，回退到最后一页，避免停在空白页。
+ useEffect(() => {
+ if (page > totalPages) setPage(totalPages);
+ }, [page, totalPages]);
 
  if (loadingWork) {
  return <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center text-sm text-gray-500">{t("work.detail.loading")}</div></div>;
@@ -501,7 +506,7 @@ export default function WorkDirectoryPage() {
  </tr>
  </thead>
  <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
- {filteredReleases.map((rel) => (
+ {pagedReleases.map((rel) => (
  <tr key={rel.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
  <td className="py-2.5 px-2">
  <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="w-4 h-4 rounded accent-primary cursor-pointer" />
@@ -527,7 +532,7 @@ export default function WorkDirectoryPage() {
  </div>
  )}
  <div className="sm:hidden divide-y divide-black/5 dark:divide-white/[0.06]">
- {filteredReleases.map((rel) => (
+ {pagedReleases.map((rel) => (
  <div key={rel.id} className="px-3.5 py-3 flex items-start gap-2.5">
  <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="mt-1 w-5 h-5 rounded accent-primary cursor-pointer shrink-0" />
  <Link href={`/releases/${rel.id}`} className="min-w-0 flex-1 space-y-1">
@@ -539,6 +544,17 @@ export default function WorkDirectoryPage() {
  </div>
  ))}
  </div>
+ {totalPages > 1 && (
+ <div className="px-3.5 sm:px-4 py-3 border-t border-black/5 dark:border-white/[0.06] flex items-center justify-end gap-2">
+ <span className="font-mono text-[11px] text-gray-500">{t("common.pagination", { page, total: totalPages })}</span>
+ <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label={t("pagination.prev")} className="w-8 h-8 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
+ <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} />
+ </button>
+ <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label={t("pagination.next")} className="w-8 h-8 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
+ <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.6} />
+ </button>
+ </div>
+ )}
  </>
  )}
  </>
@@ -578,7 +594,7 @@ export default function WorkDirectoryPage() {
  </section>
    </div>
  </main>
- <MultipartUploader isOpen={isUploaderOpen} onClose={() => setIsUploaderOpen(false)} workId={work.id} onUploadSuccess={() => { loadReleases(1, q); setPage(1); }} />
+ <MultipartUploader isOpen={isUploaderOpen} onClose={() => setIsUploaderOpen(false)} workId={work.id} onUploadSuccess={() => { loadReleases(); setPage(1); }} />
 
  {/* Revision History & Diff Modal */}
  <RevisionHistoryModal
