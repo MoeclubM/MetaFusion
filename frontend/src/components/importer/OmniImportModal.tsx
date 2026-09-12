@@ -865,6 +865,16 @@ export function OmniImportModal({
               {previewData.has_release === false && (
                 <p className="p-3 rounded-lg bg-primary/5 text-sm text-gray-600 dark:text-gray-300">{t("catalog.contents.importWithoutRelease")}</p>
               )}
+              {/* 来源抓取不完整（如分集 total 与实取不符）必须显式提示，不能静默当作完整清单落库。 */}
+              {!!previewData.warnings?.length && (
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                  {Array.from(new Set(previewData.warnings.map((w) =>
+                    w.startsWith("bangumi_episodes_incomplete") ? t("importer.sourceIncompleteEpisodes") : t("importer.sourceIncompleteGeneric"),
+                  ))).map((msg) => (
+                    <p key={msg}>{msg}</p>
+                  ))}
+                </div>
+              )}
               {!!previewData.canonical_entries?.length && (
                 <section className="p-4 rounded-xl border border-black/10 dark:border-white/10 space-y-3">
                   <div className="flex items-baseline justify-between gap-2">

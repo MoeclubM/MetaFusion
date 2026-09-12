@@ -1409,6 +1409,8 @@
   "importer.matchNone": "一致なし（新規作成）",
   "importer.matchSuggestion": "同名の可能性：{title}",
   "importer.matchSuggestionHint": "タイトルによる自動統合は行いません。確認した場合のみ既存の表現を再利用し、それ以外は新規作成します。",
+  "importer.sourceIncompleteEpisodes": "一部のエピソードを完全に取得できませんでした。取り込む内容が不完全な可能性があるため、確認してから送信してください。",
+  "importer.sourceIncompleteGeneric": "ソースデータが不完全な可能性があります。確認してから送信してください。",
   "importer.placeholderMusicbrainz": "Release / Release-Group / Artist / LabelのMBIDまたは完全なURLを入力…",
   "importer.placeholderTmdb": "映画・番組・人物・会社のIDまたはthemoviedb.orgのURLを入力…",
   "importer.placeholderBangumi": "Bangumiの作品ID(subject/...)・人物ID(person/...)・キャラクターID(character/...)を入力…",

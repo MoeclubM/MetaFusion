@@ -1409,6 +1409,8 @@
   "importer.matchNone": "No match (create new)",
   "importer.matchSuggestion": "Possible match: {title}",
   "importer.matchSuggestionHint": "Titles no longer merge automatically; reuse only after you confirm, otherwise a new expression is created.",
+  "importer.sourceIncompleteEpisodes": "Some episodes could not be fetched in full; the imported content may be incomplete. Please review before submitting.",
+  "importer.sourceIncompleteGeneric": "The source data may be incomplete. Please review before submitting.",
   "importer.placeholderMusicbrainz": "Enter Release, Release-Group, Artist, or Label MBID or full URL...",
   "importer.placeholderTmdb": "Enter Movie, TV, Person, or Company ID or themoviedb.org URL...",
   "importer.placeholderBangumi": "Enter Bangumi Subject ID (subject/...), Person ID (person/...), or Character ID (character/...)...",
