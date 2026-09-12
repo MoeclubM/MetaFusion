@@ -2624,5 +2624,9 @@
   "editor.relation.loadFailed": "关系加载失败",
   "editor.relation.requiredMissing": "必填关系字段未填写：{fields}",
   "catalog.evidenceRequired": "请先填写本次修改说明与来源声明，再保存。",
-  "catalog.otherInfo": "其它信息"
+  "catalog.otherInfo": "其它信息",
+  "release.detail.occurrencesLoadGapDetail": "其中 {entities} 条表达实体、{details} 条收录与署名未能加载。",
+  "release.detail.showAllOccurrences": "展开全部收录",
+  "release.detail.collapseOccurrences": "收起收录",
+  "catalog.compareIncompleteCatalog": "资料不足：以下发行缺曲目或内容引用，暂不下内容一致性结论。"
 }

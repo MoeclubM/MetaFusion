@@ -2624,5 +2624,9 @@
   "editor.relation.loadFailed": "関係の読み込みに失敗しました",
   "editor.relation.requiredMissing": "必須のリレーション項目が未入力です：{fields}",
   "catalog.evidenceRequired": "保存する前に、修正説明と出典を入力してください。",
-  "catalog.otherInfo": "その他の情報"
+  "catalog.otherInfo": "その他の情報",
+  "release.detail.occurrencesLoadGapDetail": "うち {entities} 件の表現エンティティと {details} 件の収録・クレジットを読み込めませんでした。",
+  "release.detail.showAllOccurrences": "収録をすべて表示",
+  "release.detail.collapseOccurrences": "収録を折りたたむ",
+  "catalog.compareIncompleteCatalog": "情報不足：以下のリリースはトラックまたは内容参照が未登録のため、内容の一致について結論を出しません。"
 }
