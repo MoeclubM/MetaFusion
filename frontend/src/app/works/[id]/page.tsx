@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { MultipartUploader } from "@/components/MultipartUploader";
 import { fetchApi, Work, Release, ConnectedEntityItem, pickLocalized } from "@/lib/api";
-import { api, Entity, title as entityTitle, type CommunityPost } from "@/components/catalog/api";
+import { Entity, fetchAllPages, mapLimit, title as entityTitle, type CommunityPost } from "@/components/catalog/api";
 import { useDefinitions, getFieldName, getTermName } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useAuth } from "@/lib/authContext";
@@ -48,7 +48,8 @@ export default function WorkDirectoryPage() {
  const [releases, setReleases] = useState<Release[]>([]);
  const [releaseEntities, setReleaseEntities] = useState<Entity[]>([]);
  const [releasePageItems, setReleasePageItems] = useState<Entity[]>([]);
- const [releaseFormats, setReleaseFormats] = useState<Record<string, string>>({});
+ // 每个发行版的介质格式计数（按实际 Medium 聚合）：CD+BD 组合不再被"首个格式"吞掉。
+ const [releaseFormatCounts, setReleaseFormatCounts] = useState<Record<string, Record<string, number>>>({});
  // 筛选条件：键为字段码，值选中项。字段集合由模板 facet_fields 声明。
  const [facetValues, setFacetValues] = useState<Record<string, string>>({});
  const [compareSelected, setCompareSelected] = useState<string[]>([]);
@@ -86,25 +87,29 @@ export default function WorkDirectoryPage() {
  const loadReleases = async (p: number, keyword: string) => {
  setLoadingReleases(true);
  try {
- const rels = await api<{ items: Entity[] }>(`/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}&limit=100`);
- let entities = rels.items || [];
+ const rels = await fetchAllPages<Entity>(`/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}`);
+ let entities = rels;
  if (keyword.trim()) {
  const kw = keyword.trim().toLowerCase();
  entities = entities.filter((e) => (e.title || "").toLowerCase().includes(kw) || JSON.stringify(e.attributes || {}).toLowerCase().includes(kw));
  }
- const formats: Record<string, string> = {};
- await Promise.all(
- entities.slice(0, 50).map(async (e) => {
+ // 载体格式从实际 Medium 全量聚合（受并发上限约束），不再截断在首屏 50 条。
+ const counts = await mapLimit(entities, 8, async (e) => {
  try {
- const m = await api<{ items: Entity[] }>(`/catalog/entities?kind=medium&release_id=${encodeURIComponent(e.id!)}&limit=10`);
- const fmt = (m.items || []).map((x) => String(x.attributes?.format || "").trim()).filter(Boolean)[0] || "";
- if (fmt) formats[e.id!] = fmt;
- } catch { /* ignore */ }
- })
- );
+ const ms = await fetchAllPages<Entity>(`/catalog/entities?kind=medium&release_id=${encodeURIComponent(e.id!)}`);
+ const c: Record<string, number> = {};
+ for (const m of ms) {
+ const f = String(m.attributes?.format || "").trim();
+ if (f) c[f] = (c[f] || 0) + 1;
+ }
+ return c;
+ } catch { return {}; }
+ });
+ const fmtMap: Record<string, Record<string, number>> = {};
+ entities.forEach((e, i) => { fmtMap[e.id!] = counts[i] || {}; });
  const start = (p - 1) * pageSize;
  setReleaseEntities(entities);
- setReleaseFormats(formats);
+ setReleaseFormatCounts(fmtMap);
  setTotal(entities.length);
  setReleasePageItems(entities.slice(start, start + pageSize));
  } catch (e) {
@@ -132,21 +137,38 @@ export default function WorkDirectoryPage() {
  releaseFacets.every((code) => {
  const want = facetValues[code];
  if (!want) return true;
- return facetValueOf(code, e) === want;
+ return facetCandidatesOf(code, e).includes(want);
  }),
  );
- }, [releasePageItems, facetValues, releaseFacets, releaseFormats]);
+ }, [releasePageItems, facetValues, releaseFacets, releaseFormatCounts]);
 
- // facet 字段的取值：先看发行版自身属性，再回落到结构派生的载体格式。
- const facetValueOf = (code: string, e: Entity) => {
+ // facet 字段的候选值：先看发行版自身属性，format 再并入实际 Medium 聚合出的格式集合。
+ // 多介质发行版（CD＋BD）应能被任一组成格式筛中，因此匹配按"候选列表包含"而不是全等。
+ const facetCandidatesOf = (code: string, e: Entity): string[] => {
  const own = e.attributes?.[code];
- if (own !== undefined && own !== null && own !== "") return String(own).trim();
- if (code === "format") return (releaseFormats[e.id!] || "").trim();
- return "";
+ const ownList = own !== undefined && own !== null && own !== "" ? [String(own).trim()] : [];
+ if (code !== "format") return ownList;
+ const derived = Object.keys(releaseFormatCounts[e.id!] || {});
+ return Array.from(new Set([...ownList, ...derived]));
  };
  // 某 facet 的全部候选值（来自当前发行版集合）。
  const facetOptionsOf = (code: string) =>
- Array.from(new Set(releaseEntities.map((e) => facetValueOf(code, e)).filter(Boolean)));
+ Array.from(new Set(releaseEntities.flatMap((e) => facetCandidatesOf(code, e)).filter(Boolean)));
+
+ // 介质格式汇总展示（"CD×1＋BD×1"）：仅当有实际 Medium 聚合结果时返回；
+ // 无载体数据时返回空串，由调用方回退发行版自身 format 属性的正常渲染。
+ const formatSummaryOf = (e: Entity): string => {
+ const counts = releaseFormatCounts[e.id!] || {};
+ const entries = Object.entries(counts);
+ if (entries.length === 0) return "";
+ const joiner = locale.startsWith("zh") ? "＋" : " + ";
+ return entries
+ .map(([code, n]) => {
+ const label = getTermName(defs, "format", code, locale);
+ return `${label !== code ? label : code}×${n}`;
+ })
+ .join(joiner);
+ };
 
 
  const toggleCompare = (id: string) => {
@@ -491,7 +513,9 @@ export default function WorkDirectoryPage() {
  </td>
  {releaseColumns.map((code) => (
  <td key={code} className="py-2.5 px-3.5 text-xs text-gray-600 dark:text-gray-400 whitespace-nowrap">
- {rel.attributes?.[code] ? (
+ {code === "format" && formatSummaryOf(rel) ? (
+ <span className="font-mono">{formatSummaryOf(rel)}</span>
+ ) : rel.attributes?.[code] ? (
  <FieldValue defs={defs} code={code} value={rel.attributes[code]} locale={locale} />
  ) : ("—")}
  </td>
@@ -508,8 +532,8 @@ export default function WorkDirectoryPage() {
  <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="mt-1 w-5 h-5 rounded accent-primary cursor-pointer shrink-0" />
  <Link href={`/releases/${rel.id}`} className="min-w-0 flex-1 space-y-1">
  <div className="font-semibold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2">{entityTitle(rel, locale)}</div>
- <div className="text-xs text-gray-500 truncate">
- {releaseColumns.map((code) => attributeText(defs, code, rel.attributes?.[code])).filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}
+                      <div className="text-xs text-gray-500 truncate">
+ {releaseColumns.map((code) => (code === "format" && formatSummaryOf(rel)) || attributeText(defs, code, rel.attributes?.[code])).filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}
  </div>
  </Link>
  </div>
