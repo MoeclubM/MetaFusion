@@ -171,6 +171,14 @@ ALTER TABLE catalog.shelves DROP COLUMN IF EXISTS name_zh;
 ALTER TABLE catalog.shelves DROP COLUMN IF EXISTS name_en;
 ALTER TABLE catalog.external_databases DROP COLUMN IF EXISTS name_zh;
 ALTER TABLE catalog.external_databases DROP COLUMN IF EXISTS name_en;
+-- 来源适用范围旧词表（artist/franchise/canonical_entry）归一到对应实体 kind；
+-- 旧值已不在新词表内，不归一会让这些来源在新 kind 的详情页永远筛不出来。
+UPDATE catalog.external_databases SET category = CASE category
+  WHEN 'artist' THEN 'agent'
+  WHEN 'franchise' THEN 'collection'
+  WHEN 'canonical_entry' THEN 'expression'
+  ELSE category END
+WHERE category IN ('artist','franchise','canonical_entry');
 DELETE FROM catalog.favorites WHERE target_type NOT IN ('agent','collection','work','content_unit','expression','release','medium','track');
 -- 收藏旧词表 CHECK 的约束名不固定（内联列约束由 PG 命名），按定义匹配而不按名字。
 DO $$
