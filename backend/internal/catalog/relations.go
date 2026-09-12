@@ -500,7 +500,7 @@ type occurrenceRow struct {
 // occurrenceScopeExpressionIDs 按实体 kind 求值"该实体自身收录"指向的表达集合：
 //   - expression: 仅该表达本身（精确匹配，不再按 work/unit 泛化）；
 //   - content_unit: 该篇目下全部表达；
-//   - work: 该作品下全部表达（保留原有兼容行为）；
+//   - work: 该作品下全部表达（母体级聚合）；
 //   - 其它 kind: 空。
 //
 // 批量路径要求实体已由 fillStructural 补齐结构字段——侧表查询与可见性过滤不能

@@ -611,7 +611,7 @@ func (s bangumiSubject) infoboxValues() map[string]any {
 	return out
 }
 
-// persons 端点 type 字段存在 int 与 {id} 两种形态，做兼容解析。
+// persons 端点 type 字段存在 int 与 {id} 两种形态，两种都接受。
 type bangumiPersonType struct {
 	ID int
 }
@@ -904,7 +904,7 @@ func previewBangumiSubjectRelations(ctx context.Context, subjectID int) []Import
 				RelationType: "character_in",
 				RelationRole: bangumiCharacterRankRole(rank),
 			})
-			// 声优：voiced_by → 作品，attributes.character 指向角色名（旧前端据此配对）。
+			// 声优：voiced_by → 作品，attributes.character 保留角色名，供前端把配音与登场角色配对展示。
 			for _, a := range c.Actors {
 				an := strings.TrimSpace(a.Name)
 				if an == "" {
