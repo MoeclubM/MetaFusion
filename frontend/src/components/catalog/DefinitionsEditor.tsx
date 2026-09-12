@@ -682,6 +682,25 @@ export function DefinitionsEditor() {
                   ))}
                 </select>
               </label>
+              <TextList
+                label={t("catalog.badgeFields")}
+                value={v.badge_fields || []}
+                onChange={(badge_fields) => set({ ...v, badge_fields })}
+              />
+              <TextList
+                label={t("catalog.facetFields")}
+                value={v.facet_fields || []}
+                onChange={(facet_fields) => set({ ...v, facet_fields })}
+              />
+              <label>
+                {t("catalog.primaryDateField")}
+                <input
+                  value={v.primary_date_field || ""}
+                  onChange={(e) =>
+                    set({ ...v, primary_date_field: e.target.value })
+                  }
+                />
+              </label>
               <Checks
                 label={t("catalog.modules")}
                 values={Object.fromEntries(
