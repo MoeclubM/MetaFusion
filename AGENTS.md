@@ -59,7 +59,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 
 - `Work → ContentUnit → Expression` 是创作母体与可复用内容单元/表达（母版、篇目、分集正文）的关系；`Work → Release → Medium → Track → TrackContent` 表达发行承载，TrackContent 引用 Expression。AssetFile 独立承载文件、哈希与绑定。
 - Work 保持纯净题名；季数、卷号、载体、规格、包装等放到适当层级。先按来源判断独立创作身份，不机械删去本就是正式题名一部分的词；不为凑齐层级虚构发行、容器或目录。
-- ContentUnit 的父子关系只能在同一 Work 内；Medium / Track 的父子关系不能跨所属 Release / Medium。当前由 `backend/internal/catalog/schema.sql` 的复合外键与 `store.go` 校验要求 Track 及其内容与 Release 属于同一 Work；多作品盒装若缺少显式汇编模型，报告缺口，不用 SQL 或伪造 Work 绕过。
+- ContentUnit 的父子关系只能在同一 Work 内；Medium / Track 的父子关系不能跨所属 Release / Medium，由 `backend/internal/catalog/schema.sql` 的复合外键保证。跨 Work 收录通过 `Release.subjects` 表达：Track 收录的表达所属 Work 必须声明在该发行的 `release_subjects` 中（`store.go` 的 `undeclared_release_subject` 校验），多作品发行是受支持的能力。多作品盒装若缺少显式汇编模型，报告缺口，不用 SQL 或伪造 Work 绕过。
 - 无 `media_type` 传统树状分类；通过标签、虚拟货架、Release 规格和实体图谱表达。关系、角色、介质格式等代码从 taxonomy / relation-types 及实现取得，不凭显示文案猜枚举。
 - `adaptation_of`、`soundtrack_of`、`sequel_of` 等关系连接已有实体（可用码以 `defaults.go` 种子与 `/api/catalog/definitions` 为准，不要凭记忆引用未定义的码）。需要层级/无环语义的关系拒绝自环和循环；同一角色跨作品用多条 `character_in` 边，不拆重复主体。
 - 外围抓取、导出、通知、媒体分析与 AI 增强保持插件化；依赖按 Semver 与 DAG 治理，保留循环检测和级联启停保护，不塞进核心实体层。
