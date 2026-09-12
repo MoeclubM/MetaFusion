@@ -2598,6 +2598,7 @@
   "editor.relation.evidenceRequired": "関係を管理する前に、下の修正説明と出典を入力してください。",
   "editor.relation.forbidden": "権限がありません：他人のまたは公開済みエントリの関係は、作成者（editor）か管理者が操作してください。",
   "editor.relation.loadFailed": "関係の読み込みに失敗しました",
+  "editor.relation.requiredMissing": "必須のリレーション項目が未入力です：{fields}",
   "catalog.evidenceRequired": "保存する前に、修正説明と出典を入力してください。",
   "catalog.otherInfo": "その他の情報"
 }
