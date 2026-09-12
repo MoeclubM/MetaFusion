@@ -373,7 +373,17 @@ func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
 		exprIDByTitle[e.Title] = e.ID
 	}
 
-	tracks := mustList(t, f, ListOptions{Kind: "track", ReleaseID: out.ReleaseID})
+	// track 属于 medium（release→medium→track 两级）：List 的 ReleaseID 过滤只命中
+	// mediums 表，须先列载体再按 MediumID 查曲目。
+	meds := mustList(t, f, ListOptions{Kind: "medium", ReleaseID: out.ReleaseID})
+	if len(meds) != 2 {
+		t.Fatalf("expected 2 mediums, got %d", len(meds))
+	}
+	var tracks []Entity
+	for _, m := range meds {
+		trs := mustList(t, f, ListOptions{Kind: "track", MediumID: m.ID})
+		tracks = append(tracks, trs...)
+	}
 	if len(tracks) != 4 {
 		t.Fatalf("expected 4 tracks, got %d", len(tracks))
 	}
