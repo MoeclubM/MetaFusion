@@ -430,7 +430,7 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 .cv-form button.cv-primary:disabled { opacity: 0.45; cursor: default; }
 .cv-form .cv-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
   gap: 0.5rem 0.7rem;
   align-items: start;
 }
@@ -540,6 +540,7 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 }
 /* 编辑器页面容器：居中留白，长表单不顶满 */
 .cv-page {
+  width: 100%;
   max-width: 72rem;
   margin: 0 auto;
   padding: 1.5rem 1rem 4rem;
