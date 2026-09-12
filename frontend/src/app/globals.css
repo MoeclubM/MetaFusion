@@ -540,7 +540,7 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 }
 /* 编辑器页面容器：居中留白，长表单不顶满 */
 .cv-page {
-  max-width: 64rem;
+  max-width: 72rem;
   margin: 0 auto;
   padding: 1.5rem 1rem 4rem;
 }
