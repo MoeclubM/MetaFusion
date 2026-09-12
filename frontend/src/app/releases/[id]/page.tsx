@@ -207,12 +207,16 @@ export default function ReleaseDetailPage() {
   const [basket, setBasket] = useState<string[]>([]);
   const [basketNotice, setBasketNotice] = useState("");
   const [siblingReleases, setSiblingReleases] = useState<Entity[]>([]);
-  // 批量收录数据的加载失败数：非零时给出可重试的提示，而不是静默留空表。
-  const [expressionLoadFailures, setExpressionLoadFailures] = useState(0);
+  // 批量数据的加载缺口按来源细分：实体查询与批量详情是两条路径，任一部分未恢复都要
+  // 保留重试提示。旧实现只在逐条实体也失败时计数，批量失败但实体补回时计数为 0，
+  // 提示不出现，用户看到的是"暂无反向收录数据"。署名与收录、兄弟收录同属批量详情响应。
+  const [expressionLoadGaps, setExpressionLoadGaps] = useState<{ entities: number; details: number }>({ entities: 0, details: 0 });
   const [expressionReloadToken, setExpressionReloadToken] = useState(0);
   // 收录表默认只展示部分行，避免大目录下表格过长；"显示更多"就地展开。
   const [occPage, setOccPage] = useState(1);
   const OCC_PAGE_SIZE = 20;
+  // 单个表达的收录可能很多：默认只显示前 OCC_PAGE_SIZE 条，可就地展开全部。
+  const [expandedOcc, setExpandedOcc] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setBasket(readBasket());
@@ -313,7 +317,10 @@ export default function ReleaseDetailPage() {
       // 共享实体表：表达自身与收录引用到的 release/medium/track 都在这里，
       // 避免同一实体在每条收录里重复传输。
       const entityMap: Record<string, Entity> = {};
-      let failures = 0;
+      // 已恢复的条目分两条路径记录：实体查询与批量详情互不包含（批量失败时实体可能
+      // 仍能逐条补回），因此必须分别统计缺口。
+      const gotEntities = new Set<string>();
+      const gotDetails = new Set<string>();
       // 一条批量请求取回表达实体 + 自身收录 + 同篇目兄弟收录 + 首个署名，
       // 替代原先逐条 entities/:id、occurrences、relations、对端实体四类 N+1 请求。
       // 用 POST + JSON body：300 个 UUID 拼进 GET query 约 11KB，会超过常见 Nginx
@@ -327,22 +334,31 @@ export default function ReleaseDetailPage() {
             entities?: Record<string, Entity>;
           }>("/catalog/expressions/details", "POST", { ids: slice });
           for (const [id, d] of Object.entries(r.items || {})) {
-            if (d?.entity) exprMap[id] = d.entity;
+            gotDetails.add(id);
+            if (d?.entity) {
+              exprMap[id] = d.entity;
+              gotEntities.add(id);
+            }
             occMap[id] = d?.occurrences || [];
             siblingMap[id] = d?.siblings || [];
             if (d?.credit_title) creditMap[id] = d.credit_title;
           }
           for (const [id, e] of Object.entries(r.entities || {})) {
-            if (e) entityMap[id] = e;
+            if (e) {
+              entityMap[id] = e;
+              if (!exprMap[id]) exprMap[id] = e;
+              gotEntities.add(id);
+            }
           }
         } catch {
-          // 批量失败时退化为逐条取实体，保证页面仍可用；无法恢复的条目计数，
-          // 交给页面上方的提示与重试入口，不再静默留空。
+          // 批量失败时退化为逐条取实体，保证页面仍可用；收录/署名无法由此恢复，
+          // 仍计入 details 缺口并提示重试，不再静默留空。
           await mapLimit(slice, 8, async (id) => {
             try {
               exprMap[id] = await api<Entity>(`/catalog/entities/${id}`);
+              gotEntities.add(id);
             } catch {
-              failures += 1;
+              // 计入下方缺口统计。
             }
           });
         }
@@ -353,7 +369,10 @@ export default function ReleaseDetailPage() {
       setExpressionSiblings(siblingMap);
       setExpressionCredits(creditMap);
       setOccurrenceEntities(entityMap);
-      setExpressionLoadFailures(failures);
+      setExpressionLoadGaps({
+        entities: expressionIds.filter((id) => !gotEntities.has(id)).length,
+        details: expressionIds.filter((id) => !gotDetails.has(id)).length,
+      });
     })();
     return () => {
       cancelled = true;
@@ -905,10 +924,18 @@ export default function ReleaseDetailPage() {
 
         {expressionIds.length > 0 && (
           <Collapsible title={t("release.detail.sameRecordingTitle")} count={expressionIds.length}>
-            {/* 批量收录加载不完整时给出可重试提示，不静默留空表。 */}
-            {expressionLoadFailures > 0 && (
+            {/* 批量加载不完整时给出可重试提示，不静默留空表：实体与收录/署名分别统计，
+                任一部分未恢复都提示（旧实现只看实体失败，收录缺失时误报成功）。 */}
+            {expressionLoadGaps.entities + expressionLoadGaps.details > 0 && (
               <div className="mx-3.5 sm:mx-4 mb-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2">
-                <span className="flex-1">{t("release.detail.occurrencesLoadFailed", { count: expressionLoadFailures })}</span>
+                <span className="flex-1">
+                  {t("release.detail.occurrencesLoadFailed", { count: expressionLoadGaps.entities + expressionLoadGaps.details })}
+                  {expressionLoadGaps.entities > 0 && expressionLoadGaps.details > 0 && (
+                    <span className="block mt-0.5 opacity-80">
+                      {t("release.detail.occurrencesLoadGapDetail", { entities: expressionLoadGaps.entities, details: expressionLoadGaps.details })}
+                    </span>
+                  )}
+                </span>
                 <button
                   type="button"
                   onClick={() => setExpressionReloadToken((n) => n + 1)}
@@ -942,9 +969,10 @@ export default function ReleaseDetailPage() {
                         </tr>
                       );
                     }
-                    // 单个表达可能被大量发行收录；此处不再硬截断到 8 条，
-                    // 由外层分页控制总行数，避免静默丢数据。
-                    const shown = occ.slice(0, OCC_PAGE_SIZE);
+                    // 单个表达可能被大量发行收录：默认展示前 OCC_PAGE_SIZE 条，
+                    // 可就地展开全部（不再只给一句"另有 N 条未展示"的文字而无入口）。
+                    const expanded = !!expandedOcc[exprId];
+                    const shown = expanded ? occ : occ.slice(0, OCC_PAGE_SIZE);
                     const hiddenOcc = occ.length - shown.length;
                     const rowSpan = shown.length + (sibs.length > 0 ? 1 : 0) + (hiddenOcc > 0 ? 1 : 0);
                     return (
@@ -983,11 +1011,18 @@ export default function ReleaseDetailPage() {
                             </td>
                           </tr>
                         )}
-                        {/* 单个表达的收录被截断时提示剩余数量，避免误以为只有这些。 */}
-                        {hiddenOcc > 0 && (
+                        {/* 单个表达的收录被截断时就地展开全部，不让用户以为只有这些。 */}
+                        {(hiddenOcc > 0 || (expanded && occ.length > OCC_PAGE_SIZE)) && (
                           <tr key={`${exprId}-more`}>
                             <td colSpan={4} className="py-1.5 pr-3 text-[11px] text-gray-400">
-                              {t("release.detail.moreOccurrences", { count: hiddenOcc })}
+                              {hiddenOcc > 0 ? t("release.detail.moreOccurrences", { count: hiddenOcc }) : null}
+                              <button
+                                type="button"
+                                onClick={() => setExpandedOcc((prev) => ({ ...prev, [exprId]: !prev[exprId] }))}
+                                className="ml-2 text-primary hover:underline"
+                              >
+                                {expanded ? t("release.detail.collapseOccurrences") : t("release.detail.showAllOccurrences")}
+                              </button>
                             </td>
                           </tr>
                         )}

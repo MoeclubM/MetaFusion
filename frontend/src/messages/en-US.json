@@ -2624,5 +2624,9 @@
   "editor.relation.loadFailed": "Failed to load relations",
   "editor.relation.requiredMissing": "Required relation fields missing: {fields}",
   "catalog.evidenceRequired": "Fill in the edit note and source citation before saving.",
-  "catalog.otherInfo": "Other information"
+  "catalog.otherInfo": "Other information",
+  "release.detail.occurrencesLoadGapDetail": "{entities} expression records and {details} occurrence/credit sets could not be loaded.",
+  "release.detail.showAllOccurrences": "Show all occurrences",
+  "release.detail.collapseOccurrences": "Collapse occurrences",
+  "catalog.compareIncompleteCatalog": "Insufficient data: these releases have no tracks or content references, so no content-equivalence conclusion is drawn."
 }
