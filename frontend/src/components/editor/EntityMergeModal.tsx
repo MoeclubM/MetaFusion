@@ -3,14 +3,15 @@
 import React, { useState } from "react";
 import { X, GitMerge, AlertTriangle, CheckCircle2, Lock, LogIn } from "lucide-react";
 import Link from "next/link";
-import { mergeEntities } from "@/lib/api";
+import { catalogEntityHref, mergeEntities } from "@/lib/api";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  targetType: "work" | "artist" | "release" | "franchise";
+  /** 实体 kind：决定合并后跳转的详情路由。 */
+  targetType: string;
   sourceEntity: {
     id: string;
     title: string;
@@ -49,7 +50,6 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
     setError("");
     try {
       const res = await mergeEntities({
-        target_type: targetType,
         source_id: sourceEntity.id,
         target_id: targetId.trim(),
         merge_note: mergeNote.trim(),
@@ -60,7 +60,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
       if (onMergeSuccess) {
         onMergeSuccess(res.target_id);
       } else {
-        window.location.href = `/${targetType === "artist" ? "artists" : targetType === "work" ? "works" : targetType === "franchise" ? "franchises" : "releases"}/${res.target_id}`;
+        window.location.href = catalogEntityHref(targetType, res.target_id);
       }
     } catch (err: any) {
       setError(err.message || t("editor.merge.failedMsg"));

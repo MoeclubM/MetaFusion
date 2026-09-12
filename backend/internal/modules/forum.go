@@ -190,7 +190,6 @@ func (t topicRow) toMap() map[string]any {
 	}
 	if t.EntityID.Valid {
 		out["entity_id"] = t.EntityID.String
-		out["work_id"] = t.EntityID.String
 	}
 	return out
 }
@@ -202,6 +201,37 @@ func scanTopic(rows *sql.Rows) (topicRow, error) {
 	err := rows.Scan(&t.ID, &t.BoardCode, &t.AuthorID, &t.AuthorName, &t.Title, &t.Body, &t.Language,
 		&t.EntityID, &t.IsPinned, &t.IsLocked, &t.ViewCount, &t.ReplyCount, &t.CreatedAt, &t.UpdatedAt, &t.LastActivity)
 	return t, err
+}
+
+// attachTopicEntities 经 Catalog 接口批量补齐主题锚定实体的标题与 kind，
+// 与评论信息流用同一边界取元信息，不直接 JOIN catalog 表。不可见或已删除的
+// 实体不注入字段，前端据此不渲染关联横幅。
+func attachTopicEntities(ctx context.Context, m *Manager, items []map[string]any, p *moduleapi.Principal) {
+	ids := []string{}
+	seen := map[string]bool{}
+	for _, it := range items {
+		id, _ := it["entity_id"].(string)
+		if id != "" && !seen[id] {
+			seen[id] = true
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	meta, err := m.catalog.LookupMany(ctx, ids, p)
+	if err != nil {
+		return
+	}
+	for _, it := range items {
+		id, _ := it["entity_id"].(string)
+		e, ok := meta[id]
+		if !ok {
+			continue
+		}
+		it["entity_title"] = e.Title
+		it["entity_kind"] = e.Kind
+	}
 }
 
 // topicTags 批量取主题标签，避免逐条查询。
@@ -325,6 +355,7 @@ func (m *Manager) registerForum(api *gin.RouterGroup) {
 				it["tags"] = []string{}
 			}
 		}
+		attachTopicEntities(c.Request.Context(), m, items, m.principal(c))
 		c.JSON(200, gin.H{"items": items, "total": total})
 	})
 
@@ -395,6 +426,8 @@ func (m *Manager) registerForum(api *gin.RouterGroup) {
 		} else {
 			out["tags"] = []string{}
 		}
+		single := []map[string]any{out}
+		attachTopicEntities(c.Request.Context(), m, single, m.principal(c))
 		c.JSON(200, out)
 	})
 

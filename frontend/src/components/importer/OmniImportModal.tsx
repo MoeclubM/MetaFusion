@@ -36,9 +36,8 @@ import {
   ImporterPreviewResponse,
   StaffAssociation,
   PluginItem,
-  Artist,
 } from "@/lib/api";
-import { Entity, fetchAllPages } from "@/components/catalog/api";
+import { Entity, fetchAllPages, title } from "@/components/catalog/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
@@ -111,7 +110,7 @@ export function OmniImportModal({
   const [staffFilter, setStaffFilter] = useState<string>("");
   const [activeSearchIndex, setActiveSearchIndex] = useState<number | null>(null);
   const [artistSearchQuery, setArtistSearchQuery] = useState<string>("");
-  const [artistSearchResults, setArtistSearchResults] = useState<Artist[]>([]);
+  const [artistSearchResults, setArtistSearchResults] = useState<Entity[]>([]);
   const [isSearchingArtist, setIsSearchingArtist] = useState<boolean>(false);
 
   // 智能查重与关联目标母体
@@ -210,14 +209,14 @@ export function OmniImportModal({
       // 初始化演职员交互式关联审查工作台列表
       if (res.artists && res.artists.length > 0) {
         const initialAssocs: StaffAssociation[] = res.artists.map((a) => {
-          const hasMatched = (a.matched_artist && a.matched_artist.id) || (a.id && a.id !== "");
+          const hasMatched = !!(a.id && a.id !== "");
           return {
             parsed_name: a.name,
             parsed_original: a.original_name,
             parsed_role: a.role || "Creator",
             entity_type: a.entity_type || "person",
             action: hasMatched ? "link" : "create",
-            target_artist_id: a.matched_artist?.id || a.id,
+            target_artist_id: a.id,
             custom_role: a.role || "Creator",
             character_name: a.character_name || "",
             country: a.country,
@@ -260,8 +259,8 @@ export function OmniImportModal({
     if (!q) return;
     setIsSearchingArtist(true);
     try {
-      // 旧轨 /catalog/artists 列表搜索不存在（后端仅有单体兼容），改走新轨实体搜索。
-      const res = await fetchApi<{ items: Artist[] }>(`/catalog/entities?kind=agent&q=${encodeURIComponent(q)}&limit=8`);
+      // 主体搜索走统一实体端点：/catalog/entities?kind=agent。
+      const res = await fetchApi<{ items: Entity[] }>(`/catalog/entities?kind=agent&q=${encodeURIComponent(q)}&limit=8`);
       setArtistSearchResults(res?.items || []);
     } catch {
       setArtistSearchResults([]);
@@ -290,14 +289,14 @@ export function OmniImportModal({
   const handleResetAssociations = () => {
     if (!previewData?.artists) return;
     const initialAssocs: StaffAssociation[] = previewData.artists.map((a) => {
-      const hasMatched = (a.matched_artist && a.matched_artist.id) || (a.id && a.id !== "");
+      const hasMatched = !!(a.id && a.id !== "");
       return {
         parsed_name: a.name,
         parsed_original: a.original_name,
         parsed_role: a.role || "Creator",
         entity_type: a.entity_type || "person",
         action: hasMatched ? "link" : "create",
-        target_artist_id: a.matched_artist?.id || a.id,
+        target_artist_id: a.id,
         custom_role: a.role || "Creator",
         character_name: a.character_name || "",
         country: a.country,
@@ -728,17 +727,6 @@ export function OmniImportModal({
                 </div>
               </div>
 
-              {/* Matched warning if already in DB */}
-              {previewData.artist.matched_artist && (
-                <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/25 text-blue-700 dark:text-blue-300 text-xs font-mono flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 shrink-0 text-blue-500" />
-                  <div>
-                    <span>{t("importer.staffMatchedWith")}: </span>
-                    <strong className="underline">{previewData.artist.matched_artist.name}</strong>
-                    <span className="opacity-75"> ({previewData.artist.matched_artist.entity_type})</span>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -1141,7 +1129,7 @@ export function OmniImportModal({
                               <UserCheck className="w-3.5 h-3.5" />
                               <span>{t("importer.staffMatchedWith")}:</span>
                               <strong className="underline">
-                                {previewData.artists?.[originalIndex]?.matched_artist?.name || assoc.parsed_name}
+                                {assoc.parsed_name}
                               </strong>
                             </div>
 
@@ -1199,10 +1187,10 @@ export function OmniImportModal({
                                   >
                                     <div className="truncate">
                                       <div className="font-bold text-gray-900 dark:text-white truncate">
-                                        {ar.name}
+                                        {title(ar, locale)}
                                       </div>
                                       <div className="text-[10px] text-gray-400 truncate">
-                                        {ar.entity_type} {ar.country ? `· ${ar.country}` : ""}
+                                        {t(`catalog.kind.${ar.kind}`)}{ar.types?.[0] ? ` · ${ar.types[0]}` : ""}
                                       </div>
                                     </div>
                                     <Check className="w-3.5 h-3.5 text-primary shrink-0 opacity-0 hover:opacity-100" />
