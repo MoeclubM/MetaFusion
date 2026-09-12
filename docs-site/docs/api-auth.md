@@ -72,7 +72,7 @@ POST /api/auth/logout-all        # 吊销该用户全部会话
 
 ```bash
 # 读（开放）
-curl "/api/catalog/works?limit=10"
+curl "/api/catalog/entities?kind=work&limit=10"
 
 # 写（需登录会话）
 curl -X POST /api/catalog/entities \

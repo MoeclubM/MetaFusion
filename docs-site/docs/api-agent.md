@@ -10,7 +10,7 @@ group: "api"
 
 - `GET /api/search`（改前缀）；`POST /api/catalog/submit`（一站式原子入库**不存在**）
 - `PUT /api/catalog/entity-relations`（不存在；关系为 `POST /api/catalog/relations`、`PUT|DELETE /api/catalog/relations/:id`）
-- `POST /api/catalog/{artists,works,canonical-entries,releases,mediums,tracks,franchises}`（逐实体 REST 端点不存在）
+- `POST /api/catalog/{artists,works,canonical-entries,releases,mediums,tracks,franchises}`（逐实体 REST 端点不存在，统一 `POST /api/catalog/entities`）
 - `canonical_entry` / `CanonicalEntry` 实体（现为 `content_unit` + `expression`）；`franchise` 实体（由 `collection` kind + 关系表达）
 - `mfp_` PAT 前缀、`catalog:write` scope、`X-API-Key` 请求头（无 PAT 体系）
 - 固定 422 错误码集（`DirtyTitleError` / `InvalidBarcode` / `MissingAuditInfo` 等）：服务端并未实现这套按名拦截，写入以 400/401/403/404/409 为主
