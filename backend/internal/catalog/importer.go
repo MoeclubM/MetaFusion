@@ -2478,6 +2478,8 @@ func (s *Store) importExpressionsOnly(ctx context.Context, actor User, note stri
 // importerReleaseVariantKey 在导入基础键上附加"发行内容签名"，用于区分
 // 同一来源下的不同版本：同一份载荷重试得到同一键（幂等补齐），
 // 追加另一个版本（不同版名/载体/曲目）则得到不同键（新建发行，不误并）。
+// 签名必须覆盖发行身份数据（品番/条码/地区/发行日期）：版名与曲目结构完全
+// 相同的两个地区版是两个发行，缺了这些字段会被误并成同一个。
 // base 为空（来源无幂等键）时返回空，不做幂等。
 func importerReleaseVariantKey(base string, rel *ImporterReleasePreview, mediums []ImporterMediumPreview) string {
 	base = strings.TrimSpace(base)
@@ -2485,11 +2487,20 @@ func importerReleaseVariantKey(base string, rel *ImporterReleasePreview, mediums
 		return ""
 	}
 	edition := ""
+	identity := ""
 	if rel != nil {
 		edition = strings.TrimSpace(rel.EditionName)
+		identity = strings.Join([]string{
+			strings.TrimSpace(rel.CatalogNumber),
+			strings.TrimSpace(rel.Barcode),
+			strings.TrimSpace(rel.Country),
+			cleanImporterDate(rel.EditionDate),
+		}, "\x1f")
 	}
 	sig := strings.Builder{}
 	sig.WriteString(edition)
+	sig.WriteByte('\n')
+	sig.WriteString(identity)
 	sig.WriteByte('\n')
 	for _, m := range mediums {
 		fmt.Fprintf(&sig, "%d|%s|%s|%s|%d\n", sanitizePosition(m.Position, -1), strings.TrimSpace(m.Format), strings.TrimSpace(m.Number), strings.TrimSpace(m.Name), len(m.Tracks))
@@ -2911,9 +2922,14 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 		if req.Work != nil && strings.TrimSpace(req.Work.Title) != "" {
 			workTitle = strings.TrimSpace(req.Work.Title)
 		}
-		// 挂靠已有 work 补发行链：幂等键从目标 work 的导入键派生，保证同一来源重复补链可复用。
+		// 挂靠已有 work 补发行链：幂等基础键优先取**本次载荷自身的来源身份**（如另一张
+		// 专辑/另一个地区版的 subject ID）。若一律沿用目标 work 的导入键，同一作品下
+		// 追加的不同地区同名版本会与首个发行共用基础键，内容签名稍有重叠即被误并。
+		// 来源身份不可解析（手工载荷无 url_or_id）时回退目标 work 的导入键。
 		appendReleaseKey := ""
-		if wk := strings.TrimSpace(target.ExternalIDs["metafusion_import"]); wk != "" {
+		if payloadKey, pok := importDedupKey(source, req, entityType); pok {
+			appendReleaseKey = payloadKey + ":release"
+		} else if wk := strings.TrimSpace(target.ExternalIDs["metafusion_import"]); wk != "" {
 			appendReleaseKey = wk + ":release"
 		}
 		release, counts, rerr := s.importReleaseChain(ctx, actor, note, sources, target.ID, buildReleaseTitle(workTitle, req.Release), req.CanonicalEntries, req.Release, req.Mediums, appendReleaseKey)
