@@ -294,44 +294,38 @@ export default function ReleaseDetailPage() {
     let cancelled = false;
     (async () => {
       const exprMap: Record<string, Entity> = {};
-      await mapLimit(expressionIds, 8, async (id) => {
+      const occMap: Record<string, Occurrence[]> = {};
+      const creditMap: Record<string, string> = {};
+      // 一条批量请求取回表达实体 + 收录（同 Work/篇目）+ 首个署名，
+      // 替代原先逐条 entities/:id、occurrences、relations、对端实体四类 N+1 请求。
+      // 超过单次上限时分片，仍显著少于逐条请求数。
+      const CHUNK = 300;
+      for (let i = 0; i < expressionIds.length; i += CHUNK) {
+        const slice = expressionIds.slice(i, i + CHUNK);
         try {
-          exprMap[id] = await api<Entity>(`/catalog/entities/${id}`);
+          const r = await api<{
+            items: Record<string, { entity: Entity; occurrences: Occurrence[]; credit_title?: string }>;
+          }>(`/catalog/expressions/details?ids=${encodeURIComponent(slice.join(","))}`);
+          for (const [id, d] of Object.entries(r.items || {})) {
+            if (d?.entity) exprMap[id] = d.entity;
+            occMap[id] = d?.occurrences || [];
+            if (d?.credit_title) creditMap[id] = d.credit_title;
+          }
         } catch {
-          /* ignore */
+          // 批量失败时退化为逐条取实体，保证页面仍可用（不引入新的静默空白）。
+          await mapLimit(slice, 8, async (id) => {
+            try {
+              exprMap[id] = await api<Entity>(`/catalog/entities/${id}`);
+            } catch {
+              /* ignore */
+            }
+          });
         }
-      });
+      }
       if (cancelled) return;
       setExpressions(exprMap);
-      const occMap: Record<string, Occurrence[]> = {};
-      await mapLimit(expressionIds, 8, async (id) => {
-        try {
-          const r = await api<{ items: Occurrence[] }>(`/catalog/entities/${id}/occurrences`);
-          occMap[id] = r.items || [];
-        } catch {
-          occMap[id] = [];
-        }
-      });
-      if (!cancelled) setOccurrences(occMap);
-      // 逐轨艺人：取各 expression 首个 performed_by / voiced_by / created_by 目标标题，
-      // 供曲目表 credit 列显示；失败留空回退 ISRC。
-      const creditMap: Record<string, string> = {};
-      await mapLimit(expressionIds, 8, async (id) => {
-        try {
-          const r = await api<{ items: { type: string; target_id: string }[] }>(
-            `/catalog/entities/${id}/relations`
-          );
-          const rel = (r.items || []).find((x) =>
-            ["performed_by", "voiced_by", "created_by"].includes(x.type)
-          );
-          if (!rel) return;
-          const target = await api<Entity>(`/catalog/entities/${rel.target_id}`);
-          if (target) creditMap[id] = entityTitle(target, locale);
-        } catch {
-          /* ignore */
-        }
-      });
-      if (!cancelled) setExpressionCredits(creditMap);
+      setOccurrences(occMap);
+      setExpressionCredits(creditMap);
     })();
     return () => {
       cancelled = true;
