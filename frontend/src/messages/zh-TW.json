@@ -2598,5 +2598,6 @@
   "editor.relation.evidenceRequired": "請先在下方填寫本次修改說明與來源，再維護關係。",
   "editor.relation.forbidden": "權限不足：他人或已發布條目的關係，需要條目建立者（editor）或管理員操作。",
   "editor.relation.loadFailed": "關係載入失敗",
-  "catalog.evidenceRequired": "請先填寫本次修改說明與來源聲明，再儲存。"
+  "catalog.evidenceRequired": "請先填寫本次修改說明與來源聲明，再儲存。",
+  "catalog.otherInfo": "其它資訊"
 }

@@ -371,3 +371,191 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   background: transparent;
 }
 
+
+/* ============================================================
+   通用实体编辑器（cv-*）：编辑与新建共用的动态表单体系。
+   全部走主题变量，自动适配亮/暗色与主色调；克制、无装饰。
+   ============================================================ */
+.cv-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  max-width: 60rem;
+  color: var(--foreground, #e5e7eb);
+}
+.cv-form fieldset {
+  border: 1px solid var(--surface-border-color);
+  border-radius: 0.75rem;
+  padding: 1rem 1.1rem 1.15rem;
+  background: rgb(var(--surface-rgb) / 0.55);
+}
+.cv-form legend,
+.cv-form fieldset > legend {
+  padding: 0 0.5rem;
+  margin-left: 0.25rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--primary-color);
+}
+.cv-form .cv-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--surface-border-color);
+  padding-bottom: 0.65rem;
+}
+.cv-form .cv-heading h1 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--foreground, currentColor);
+}
+.cv-form button.cv-primary {
+  padding: 0.45rem 1.1rem;
+  border-radius: 0.5rem;
+  background: var(--primary-color);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 0;
+  transition: opacity 0.15s ease;
+}
+.cv-form button.cv-primary:hover:not(:disabled) { opacity: 0.88; }
+.cv-form button.cv-primary:disabled { opacity: 0.45; cursor: default; }
+.cv-form .cv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.85rem 1rem;
+  align-items: start;
+}
+.cv-form .cv-group {
+  border: 1px dashed var(--surface-border-color);
+  border-radius: 0.6rem;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.cv-form .cv-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+  min-width: 0;
+}
+.cv-form .cv-row > :first-child { flex: 1 1 14rem; min-width: 0; }
+.cv-form .cv-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-top: 0.85rem;
+}
+.cv-form .cv-checks label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  opacity: 0.9;
+  cursor: pointer;
+}
+.cv-form .cv-checks input[type="checkbox"] { accent-color: var(--primary-color); }
+.cv-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: rgb(var(--surface-rgb) / 0.9);
+  min-width: 0;
+}
+.cv-form label > strong,
+.cv-form .cv-group > strong {
+  font-size: 0.8rem;
+  color: var(--foreground, currentColor);
+}
+.cv-form input:not([type="checkbox"]):not([type="radio"]),
+.cv-form select,
+.cv-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--surface-border-color);
+  background: rgb(var(--surface-rgb) / 0.9);
+  color: var(--foreground, currentColor);
+  font-size: 0.875rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.cv-form input:focus,
+.cv-form select:focus,
+.cv-form textarea:focus {
+  border-color: var(--primary-color);
+}
+.cv-form input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.cv-form textarea { min-height: 4.5rem; resize: vertical; }
+.cv-form textarea[rows] { min-height: 0; }
+.cv-form input[type="checkbox"] { width: auto; accent-color: var(--primary-color); }
+.cv-form input[type="date"] { font-family: var(--font-mono, ui-monospace, monospace); }
+.cv-form button:not(.cv-primary) {
+  padding: 0.4rem 0.8rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--surface-border-color);
+  background: rgb(var(--surface-rgb) / 0.8);
+  color: var(--foreground, currentColor);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, opacity 0.15s ease;
+}
+.cv-form button:not(.cv-primary):hover:not(:disabled) { border-color: var(--primary-color); }
+.cv-form button:not(.cv-primary):disabled { opacity: 0.4; cursor: default; }
+.cv-form .cv-error {
+  color: #ef4444;
+  font-size: 0.82rem;
+  margin: 0;
+}
+.cv-form code {
+  font-size: 0.78rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.3rem;
+  background: rgb(var(--surface-rgb) / 0.9);
+}
+.cv-form .cv-picker { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+.cv-form .cv-relation-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.cv-form .cv-relation-list li {
+  border: 1px solid var(--surface-border-color);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: rgb(var(--surface-rgb) / 0.6);
+}
+/* 编辑器页面容器：居中留白，长表单不顶满 */
+.cv-page {
+  max-width: 64rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 4rem;
+}
+/* 编辑器属性分区：模板 sections 的子分组标题 */
+.cv-form .cv-section { margin-top: 0.9rem; }
+.cv-form .cv-section:first-of-type { margin-top: 0.2rem; }
+.cv-form .cv-section-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: rgb(var(--surface-rgb) / 0.95);
+  opacity: 0.65;
+  margin: 0 0 0.55rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px dashed var(--surface-border-color);
+}
