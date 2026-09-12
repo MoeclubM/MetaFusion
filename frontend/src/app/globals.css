@@ -471,13 +471,13 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   flex-direction: column;
   gap: 0.3rem;
   font-size: 0.8rem;
-  color: rgb(var(--surface-rgb) / 0.9);
+  color: rgb(var(--foreground-rgb, 226 232 240) / 0.85);
   min-width: 0;
 }
 .cv-form label > strong,
 .cv-form .cv-group > strong {
   font-size: 0.8rem;
-  color: var(--foreground, currentColor);
+  color: rgb(var(--foreground-rgb, 226 232 240));
 }
 .cv-form input:not([type="checkbox"]):not([type="radio"]),
 .cv-form select,
@@ -553,8 +553,8 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   letter-spacing: 0.06em;
   text-transform: uppercase;
   font-family: var(--font-mono, ui-monospace, monospace);
-  color: rgb(var(--surface-rgb) / 0.95);
-  opacity: 0.65;
+  color: rgb(var(--foreground-rgb, 226 232 240));
+  opacity: 0.6;
   margin: 0 0 0.55rem;
   padding-bottom: 0.3rem;
   border-bottom: 1px dashed var(--surface-border-color);
