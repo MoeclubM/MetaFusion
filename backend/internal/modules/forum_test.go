@@ -1,6 +1,7 @@
 package modules
 
 import (
+	"context"
 	"reflect"
 	"testing"
 )
@@ -45,5 +46,33 @@ func TestDefaultBoardsShape(t *testing.T) {
 		if !inFeed[c] {
 			t.Fatalf("board %s should be in feed", c)
 		}
+	}
+}
+
+// 主题列表/详情的实体元信息必须经 Catalog 边界补齐，且不覆盖主题自身字段；
+// 未锚定实体或不可见的实体不注入 entity_title/entity_kind，供前端据此不渲染横幅。
+func TestAttachTopicEntities(t *testing.T) {
+	ctx := context.Background()
+	stub := &catalogStub{}
+	m := &Manager{catalog: stub}
+	items := []map[string]any{
+		{"id": "t1", "entity_id": "e1", "title": "主题一"},
+		{"id": "t2", "entity_id": "e2"},
+		{"id": "t3"}, // 未锚定实体
+	}
+	attachTopicEntities(ctx, m, items, nil)
+
+	if items[0]["entity_title"] != "Stub e1" || items[0]["entity_kind"] != "work" {
+		t.Fatalf("anchored topic not enriched: %v", items[0])
+	}
+	if items[0]["title"] != "主题一" {
+		t.Fatalf("topic title must not be overwritten: %v", items[0])
+	}
+	if _, ok := items[2]["entity_title"]; ok {
+		t.Fatalf("unanchored topic must not carry entity_title: %v", items[2])
+	}
+	// 批量一次取元信息，不按条查询。
+	if stub.calls != 1 {
+		t.Fatalf("expected one LookupMany call, got %d", stub.calls)
 	}
 }
