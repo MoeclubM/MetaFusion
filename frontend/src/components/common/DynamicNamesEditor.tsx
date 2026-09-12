@@ -186,28 +186,8 @@ export function DynamicNamesEditor({
   );
 }
 
-export function MultilingualBadges({
-  names,
-  fallbackZh,
-  fallbackEn,
-  fallbackJa,
-  fallbackZhTw,
-}: {
-  names?: MultilingualNames;
-  fallbackZh?: string;
-  fallbackEn?: string;
-  fallbackJa?: string;
-  fallbackZhTw?: string;
-}) {
-  const map: MultilingualNames = { ...names };
-  if (Object.keys(map).length === 0) {
-    if (fallbackZh) map["zh-CN"] = fallbackZh;
-    if (fallbackZhTw) map["zh-TW"] = fallbackZhTw;
-    if (fallbackJa) map["ja"] = fallbackJa;
-    if (fallbackEn) map["en-US"] = fallbackEn;
-  }
-
-  const entries = Object.entries(map).filter(([_, v]) => v && v.trim() !== "");
+export function MultilingualBadges({ names }: { names?: MultilingualNames }) {
+  const entries = Object.entries(names || {}).filter(([_, v]) => v && v.trim() !== "");
   if (entries.length === 0) {
     return <span className="text-gray-500 font-mono text-[11px]">—</span>;
   }
