@@ -172,18 +172,22 @@ ALTER TABLE catalog.shelves DROP COLUMN IF EXISTS name_en;
 ALTER TABLE catalog.external_databases DROP COLUMN IF EXISTS name_zh;
 ALTER TABLE catalog.external_databases DROP COLUMN IF EXISTS name_en;
 DELETE FROM catalog.favorites WHERE target_type NOT IN ('agent','collection','work','content_unit','expression','release','medium','track');
+-- 收藏旧词表 CHECK 的约束名不固定（内联列约束由 PG 命名），按定义匹配而不按名字。
 DO $$
+DECLARE c record;
 BEGIN
-  IF EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'favorites_target_type_check' AND conrelid = 'catalog.favorites'::regclass
+  FOR c IN
+    SELECT conname FROM pg_constraint
+    WHERE conrelid = 'catalog.favorites'::regclass AND contype = 'c'
+      AND pg_get_constraintdef(oid) LIKE '%target_type%'
       AND pg_get_constraintdef(oid) NOT LIKE '%content_unit%'
-  ) THEN
-    ALTER TABLE catalog.favorites DROP CONSTRAINT favorites_target_type_check;
-  END IF;
+  LOOP
+    EXECUTE format('ALTER TABLE catalog.favorites DROP CONSTRAINT %I', c.conname);
+  END LOOP;
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
-    WHERE conname = 'favorites_target_type_check' AND conrelid = 'catalog.favorites'::regclass
+    WHERE conrelid = 'catalog.favorites'::regclass AND contype = 'c'
+      AND pg_get_constraintdef(oid) LIKE '%content_unit%'
   ) THEN
     ALTER TABLE catalog.favorites ADD CONSTRAINT favorites_target_type_check
       CHECK (target_type IN ('agent','collection','work','content_unit','expression','release','medium','track'));
