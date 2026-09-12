@@ -49,7 +49,6 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 	if err != nil {
 		return nil, err
 	}
-	byKind := map[string][]string{}
 	for rows.Next() {
 		var id string
 		var b []byte
@@ -66,25 +65,36 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 			continue
 		}
 		out[id] = e
-		byKind[e.Kind] = append(byKind[e.Kind], id)
 	}
 	if err = rows.Err(); err != nil {
 		rows.Close()
 		return nil, err
 	}
 	rows.Close()
+	return fillStructural(ctx, s.DB, out)
+}
+
+// fillStructural 按 kind 批量补齐结构侧表字段（content_unit/expression 的 work 与父级、
+// medium/track 的所属与父子、track 的收录内容、release 的 subjects）。
+// document 里这些字段落库时被清空，只解 JSON 会拿到空值，因此任何要消费结构字段的
+// 读取路径都必须经此补齐；全部按 kind 一次 IN 查询，不逐条访问。
+func fillStructural(ctx context.Context, db *sql.DB, out map[string]Entity) (map[string]Entity, error) {
+	byKind := map[string][]string{}
+	for id, e := range out {
+		byKind[e.Kind] = append(byKind[e.Kind], id)
+	}
 	link2 := func(kind, query string, scan func(*sql.Rows) error) error {
 		sub := byKind[kind]
 		if len(sub) == 0 {
 			return nil
 		}
-		r, err := s.DB.QueryContext(ctx, query+" IN ("+entityPlaceholders(sub, 1)+")", entityArgs(sub)...)
-		if err != nil {
-			return err
+		r, qerr := db.QueryContext(ctx, query+" IN ("+entityPlaceholders(sub, 1)+")", entityArgs(sub)...)
+		if qerr != nil {
+			return qerr
 		}
 		defer r.Close()
 		for r.Next() {
-			if err = scan(r); err != nil {
+			if err := scan(r); err != nil {
 				return err
 			}
 		}
@@ -95,7 +105,7 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 			out[id] = e
 		}
 	}
-	if err = link2("content_unit", "SELECT id::text, work_id::text, coalesce(parent_id::text,'') FROM catalog.content_units WHERE id", func(r *sql.Rows) error {
+	if err := link2("content_unit", "SELECT id::text, work_id::text, coalesce(parent_id::text,'') FROM catalog.content_units WHERE id", func(r *sql.Rows) error {
 		var id, work, parent string
 		if err := r.Scan(&id, &work, &parent); err != nil {
 			return err
@@ -107,7 +117,7 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 	}); err != nil {
 		return nil, err
 	}
-	if err = link2("expression", "SELECT id::text, work_id::text, coalesce(content_unit_id::text,'') FROM catalog.expressions WHERE id", func(r *sql.Rows) error {
+	if err := link2("expression", "SELECT id::text, work_id::text, coalesce(content_unit_id::text,'') FROM catalog.expressions WHERE id", func(r *sql.Rows) error {
 		var id, work, unit string
 		if err := r.Scan(&id, &work, &unit); err != nil {
 			return err
@@ -119,7 +129,7 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 	}); err != nil {
 		return nil, err
 	}
-	if err = link2("medium", "SELECT id::text, release_id::text, coalesce(parent_id::text,'') FROM catalog.mediums WHERE id", func(r *sql.Rows) error {
+	if err := link2("medium", "SELECT id::text, release_id::text, coalesce(parent_id::text,'') FROM catalog.mediums WHERE id", func(r *sql.Rows) error {
 		var id, rel, parent string
 		if err := r.Scan(&id, &rel, &parent); err != nil {
 			return err
@@ -131,7 +141,7 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 	}); err != nil {
 		return nil, err
 	}
-	if err = link2("track", "SELECT id::text, medium_id::text, coalesce(parent_id::text,'') FROM catalog.tracks WHERE id", func(r *sql.Rows) error {
+	if err := link2("track", "SELECT id::text, medium_id::text, coalesce(parent_id::text,'') FROM catalog.tracks WHERE id", func(r *sql.Rows) error {
 		var id, med, parent string
 		if err := r.Scan(&id, &med, &parent); err != nil {
 			return err
@@ -145,7 +155,7 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 		return nil, err
 	}
 	if len(byKind["track"]) > 0 {
-		r, err := s.DB.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator, attributes FROM catalog.track_contents WHERE track_id IN ("+entityPlaceholders(byKind["track"], 1)+") ORDER BY track_id, position", entityArgs(byKind["track"])...)
+		r, err := db.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator, attributes FROM catalog.track_contents WHERE track_id IN ("+entityPlaceholders(byKind["track"], 1)+") ORDER BY track_id, position", entityArgs(byKind["track"])...)
 		if err != nil {
 			return nil, err
 		}
@@ -180,7 +190,7 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 		}
 		r.Close()
 	}
-	if err = link2("release", "SELECT release_id::text, work_id::text, role, position, attributes FROM catalog.release_subjects WHERE release_id", func(r *sql.Rows) error {
+	if err := link2("release", "SELECT release_id::text, work_id::text, role, position, attributes FROM catalog.release_subjects WHERE release_id", func(r *sql.Rows) error {
 		var rid string
 		var x Subject
 		var attrs []byte
@@ -492,6 +502,9 @@ type occurrenceRow struct {
 //   - content_unit: 该篇目下全部表达；
 //   - work: 该作品下全部表达（保留原有兼容行为）；
 //   - 其它 kind: 空。
+//
+// 批量路径要求实体已由 fillStructural 补齐结构字段——侧表查询与可见性过滤不能
+// 按实体逐条再做，否则一次批量请求会退化成 O(表达数) 次查询。
 func (s *Store) occurrenceScopeExpressionIDs(ctx context.Context, e Entity) ([]string, error) {
 	switch e.Kind {
 	case "expression":
@@ -538,20 +551,98 @@ func (s *Store) siblingExpressionIDs(ctx context.Context, e Entity) ([]string, e
 	if strings.TrimSpace(unitID) == "" {
 		return []string{}, nil
 	}
-	rows, err := s.DB.QueryContext(ctx, "SELECT id::text FROM catalog.expressions WHERE content_unit_id=$1 AND id<>$2 ORDER BY id", unitID, e.ID)
+	byUnit, err := s.expressionIDsByContentUnit(ctx, []string{unitID})
+	if err != nil {
+		return nil, err
+	}
+	ids := []string{}
+	for _, id := range byUnit[unitID] {
+		if id != e.ID {
+			ids = append(ids, id)
+		}
+	}
+	return ids, nil
+}
+
+// expressionIDsByContentUnit 一次批量解析若干篇目下的全部表达，供批量端点求兄弟集合。
+func (s *Store) expressionIDsByContentUnit(ctx context.Context, unitIDs []string) (map[string][]string, error) {
+	out := map[string][]string{}
+	uniq := []string{}
+	seen := map[string]bool{}
+	for _, id := range unitIDs {
+		if id = strings.TrimSpace(id); id != "" && !seen[id] {
+			seen[id] = true
+			uniq = append(uniq, id)
+		}
+	}
+	if len(uniq) == 0 {
+		return out, nil
+	}
+	rows, err := s.DB.QueryContext(ctx, "SELECT coalesce(content_unit_id::text,''), id::text FROM catalog.expressions WHERE content_unit_id IN ("+entityPlaceholders(uniq, 1)+") ORDER BY id", entityArgs(uniq)...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	ids := []string{}
 	for rows.Next() {
-		var id string
-		if err = rows.Scan(&id); err != nil {
+		var unit, id string
+		if err = rows.Scan(&unit, &id); err != nil {
 			return nil, err
 		}
-		ids = append(ids, id)
+		out[unit] = append(out[unit], id)
 	}
-	return ids, rows.Err()
+	return out, rows.Err()
+}
+
+// selfExpressionIDs 求"实体自身收录"指向的表达集合，不触库：要求实体已由
+// fillStructural 补齐结构字段（expression 的自身即其 id，work/content_unit 需组合
+// 其下属表达——批量路径另用一次 IN 查询求，见 occurrenceScopesForAggregates）。
+func selfExpressionIDs(e Entity) []string {
+	if e.Kind == "expression" {
+		return []string{e.ID}
+	}
+	return []string{}
+}
+
+// occurrenceScopesForAggregates 批量求 work/content_unit 实体的下属表达集合：
+// work 按 work_id 一次 IN 查询、content_unit 按 content_unit_id 一次 IN 查询，
+// 不逐实体访问数据库。
+func (s *Store) occurrenceScopesForAggregates(ctx context.Context, ents map[string]Entity, ids []string) (map[string][]string, error) {
+	out := map[string][]string{}
+	workIDs := []string{}
+	unitIDs := []string{}
+	for _, id := range ids {
+		switch ents[id].Kind {
+		case "work":
+			workIDs = append(workIDs, id)
+		case "content_unit":
+			unitIDs = append(unitIDs, id)
+		}
+	}
+	collect := func(col string, values []string) error {
+		if len(values) == 0 {
+			return nil
+		}
+		rows, err := s.DB.QueryContext(ctx, "SELECT "+col+"::text, id::text FROM catalog.expressions WHERE "+col+" IN ("+entityPlaceholders(values, 1)+") ORDER BY id", entityArgs(values)...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var parent, id string
+			if err = rows.Scan(&parent, &id); err != nil {
+				return err
+			}
+			out[parent] = append(out[parent], id)
+		}
+		return rows.Err()
+	}
+	if err := collect("work_id", workIDs); err != nil {
+		return nil, err
+	}
+	if err := collect("content_unit_id", unitIDs); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // fetchOccurrenceRows 一次取回给定表达集合的收录行（去重后 IN 查询）。
@@ -685,7 +776,13 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 	if len(uniq) == 0 {
 		return out, nil
 	}
+	// 请求实体经 fillStructural 补齐结构侧表：document 落库时清空了 work_id/content_unit_id，
+	// 只解 JSON 拿不到，前端据 content_unit_id 做章节级对齐会全部落到 work 级。
 	ents, err := s.GetManyVisible(ctx, uniq, u)
+	if err != nil {
+		return out, err
+	}
+	ents, err = fillStructural(ctx, s.DB, ents)
 	if err != nil {
 		return out, err
 	}
@@ -695,19 +792,44 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 	// 每个请求实体的自身收录集合与同篇目兄弟集合，并集一次取回全部候选收录行。
 	selfScopes := map[string][]string{}
 	siblingScopes := map[string][]string{}
-	allIDs := map[string]bool{}
-	for id, e := range ents {
-		self, serr := s.occurrenceScopeExpressionIDs(ctx, e)
-		if serr != nil {
-			return out, serr
+	// 兄弟篇目一次批量解析（同一 Work 内多个表达只会查一次），不再逐条访问数据库。
+	unitIDs := []string{}
+	for _, e := range ents {
+		if e.Kind == "expression" && strings.TrimSpace(e.ContentUnitID) != "" {
+			unitIDs = append(unitIDs, e.ContentUnitID)
 		}
-		selfScopes[id] = self
-		for _, x := range self {
+	}
+	siblingsByUnit, err := s.expressionIDsByContentUnit(ctx, unitIDs)
+	if err != nil {
+		return out, err
+	}
+	allIDs := map[string]bool{}
+	// 请求实体已是 expression 时自身收录即自身；work/content_unit 的聚合另走批量查询。
+	aggregateScopeIDs := []string{}
+	for _, e := range ents {
+		if e.Kind == "work" || e.Kind == "content_unit" {
+			aggregateScopeIDs = append(aggregateScopeIDs, e.ID)
+		}
+	}
+	aggScopes, err := s.occurrenceScopesForAggregates(ctx, ents, aggregateScopeIDs)
+	if err != nil {
+		return out, err
+	}
+	for id, e := range ents {
+		selfScopes[id] = selfExpressionIDs(e)
+		if agg := aggScopes[id]; e.Kind == "work" || e.Kind == "content_unit" {
+			selfScopes[id] = agg
+		}
+		for _, x := range selfScopes[id] {
 			allIDs[x] = true
 		}
-		sib, berr := s.siblingExpressionIDs(ctx, e)
-		if berr != nil {
-			return out, berr
+		sib := []string{}
+		if e.Kind == "expression" {
+			for _, x := range siblingsByUnit[e.ContentUnitID] {
+				if x != e.ID {
+					sib = append(sib, x)
+				}
+			}
 		}
 		siblingScopes[id] = sib
 		for _, x := range sib {
