@@ -379,14 +379,14 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 .cv-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  max-width: 60rem;
+  gap: 0.85rem;
+  max-width: none;
   color: var(--foreground, #e5e7eb);
 }
 .cv-form fieldset {
   border: 1px solid var(--surface-border-color);
-  border-radius: 0.75rem;
-  padding: 1rem 1.1rem 1.15rem;
+  border-radius: 0.65rem;
+  padding: 0.7rem 0.85rem 0.85rem;
   background: rgb(var(--surface-rgb) / 0.55);
 }
 .cv-form legend,
@@ -405,18 +405,18 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.6rem;
   border-bottom: 1px solid var(--surface-border-color);
-  padding-bottom: 0.65rem;
+  padding-bottom: 0.45rem;
 }
 .cv-form .cv-heading h1 {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--foreground, currentColor);
 }
 .cv-form button.cv-primary {
-  padding: 0.45rem 1.1rem;
+  padding: 0.34rem 0.95rem;
   border-radius: 0.5rem;
   background: var(--primary-color);
   color: #fff;
@@ -430,38 +430,38 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 .cv-form button.cv-primary:disabled { opacity: 0.45; cursor: default; }
 .cv-form .cv-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
-  gap: 0.85rem 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.5rem 0.7rem;
   align-items: start;
 }
 .cv-form .cv-group {
   border: 1px dashed var(--surface-border-color);
-  border-radius: 0.6rem;
-  padding: 0.75rem;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.55rem;
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  gap: 0.4rem;
   min-width: 0;
 }
 .cv-form .cv-row {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
-  gap: 0.6rem;
+  gap: 0.4rem;
   min-width: 0;
 }
 .cv-form .cv-row > :first-child { flex: 1 1 14rem; min-width: 0; }
 .cv-form .cv-checks {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 1rem;
-  margin-top: 0.85rem;
+  gap: 0.25rem 0.9rem;
+  margin-top: 0.55rem;
 }
 .cv-form .cv-checks label {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.85rem;
+  gap: 0.3rem;
+  font-size: 0.8rem;
   opacity: 0.9;
   cursor: pointer;
 }
@@ -469,9 +469,9 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 .cv-form label {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
-  font-size: 0.8rem;
-  color: rgb(var(--foreground-rgb, 226 232 240) / 0.85);
+  gap: 0.16rem;
+  font-size: 0.74rem;
+  color: rgb(var(--foreground-rgb, 226 232 240) / 0.75);
   min-width: 0;
 }
 .cv-form label > strong,
@@ -484,12 +484,12 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 .cv-form textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 0.45rem 0.6rem;
-  border-radius: 0.45rem;
+  padding: 0.28rem 0.5rem;
+  border-radius: 0.4rem;
   border: 1px solid var(--surface-border-color);
   background: rgb(var(--surface-rgb) / 0.9);
   color: var(--foreground, currentColor);
-  font-size: 0.875rem;
+  font-size: 0.82rem;
   font-family: inherit;
   outline: none;
   transition: border-color 0.15s ease;
@@ -503,12 +503,12 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   opacity: 0.55;
   cursor: not-allowed;
 }
-.cv-form textarea { min-height: 4.5rem; resize: vertical; }
+.cv-form textarea { min-height: 3rem; resize: vertical; }
 .cv-form textarea[rows] { min-height: 0; }
 .cv-form input[type="checkbox"] { width: auto; accent-color: var(--primary-color); }
 .cv-form input[type="date"] { font-family: var(--font-mono, ui-monospace, monospace); }
 .cv-form button:not(.cv-primary) {
-  padding: 0.4rem 0.8rem;
+  padding: 0.3rem 0.65rem;
   border-radius: 0.45rem;
   border: 1px solid var(--surface-border-color);
   background: rgb(var(--surface-rgb) / 0.8);
@@ -545,8 +545,8 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   padding: 1.5rem 1rem 4rem;
 }
 /* 编辑器属性分区：模板 sections 的子分组标题 */
-.cv-form .cv-section { margin-top: 0.9rem; }
-.cv-form .cv-section:first-of-type { margin-top: 0.2rem; }
+.cv-form .cv-section { margin-top: 0.55rem; }
+.cv-form .cv-section:first-of-type { margin-top: 0.1rem; }
 .cv-form .cv-section-title {
   font-size: 0.72rem;
   font-weight: 600;
@@ -555,7 +555,7 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   font-family: var(--font-mono, ui-monospace, monospace);
   color: rgb(var(--foreground-rgb, 226 232 240));
   opacity: 0.6;
-  margin: 0 0 0.55rem;
-  padding-bottom: 0.3rem;
+  margin: 0 0 0.35rem;
+  padding-bottom: 0.2rem;
   border-bottom: 1px dashed var(--surface-border-color);
 }
