@@ -2498,6 +2498,8 @@
   "release.detail.sameRecordingTrack": "位置",
   "release.detail.sameRecordingEmpty": "暂无反向收录数据",
   "release.detail.sameUnitSiblings": "同篇目另有 {count} 条收录",
+  "release.detail.moreOccurrences": "另有 {count} 条收录未展示",
+  "release.detail.occurrencesLoadFailed": "有 {count} 条表达的收录数据加载失败。",
   "release.detail.attachments": "包装附件",
   "release.detail.storeBonuses": "渠道特典",
   "release.detail.releaseEvents": "发行事件",

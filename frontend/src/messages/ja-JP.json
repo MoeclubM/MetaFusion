@@ -2498,6 +2498,8 @@
   "release.detail.sameRecordingTrack": "位置",
   "release.detail.sameRecordingEmpty": "逆方向の収録データがありません",
   "release.detail.sameUnitSiblings": "同じ篇目に他 {count} 件の収録",
+  "release.detail.moreOccurrences": "他 {count} 件の収録は非表示",
+  "release.detail.occurrencesLoadFailed": "{count} 件の表現で収録データの読み込みに失敗しました。",
   "release.detail.attachments": "パッケージの付属品",
   "release.detail.storeBonuses": "店舗特典",
   "release.detail.releaseEvents": "リリースイベント",

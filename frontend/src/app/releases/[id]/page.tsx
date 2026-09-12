@@ -20,6 +20,8 @@ import {
   ArrowRightLeft,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Disc,
   ExternalLink,
   Film,
@@ -202,6 +204,12 @@ export default function ReleaseDetailPage() {
   const [basket, setBasket] = useState<string[]>([]);
   const [basketNotice, setBasketNotice] = useState("");
   const [siblingReleases, setSiblingReleases] = useState<Entity[]>([]);
+  // 批量收录数据的加载失败数：非零时给出可重试的提示，而不是静默留空表。
+  const [expressionLoadFailures, setExpressionLoadFailures] = useState(0);
+  const [expressionReloadToken, setExpressionReloadToken] = useState(0);
+  // 收录表默认只展示部分行，避免大目录下表格过长；"显示更多"就地展开。
+  const [occPage, setOccPage] = useState(1);
+  const OCC_PAGE_SIZE = 20;
 
   useEffect(() => {
     setBasket(readBasket());
@@ -299,16 +307,18 @@ export default function ReleaseDetailPage() {
       const occMap: Record<string, Occurrence[]> = {};
       const siblingMap: Record<string, Occurrence[]> = {};
       const creditMap: Record<string, string> = {};
+      let failures = 0;
       // 一条批量请求取回表达实体 + 自身收录 + 同篇目兄弟收录 + 首个署名，
       // 替代原先逐条 entities/:id、occurrences、relations、对端实体四类 N+1 请求。
-      // 超过单次上限时分片，仍显著少于逐条请求数。
+      // 用 POST + JSON body：300 个 UUID 拼进 GET query 约 11KB，会超过常见 Nginx
+      // 默认 8KB 请求行限制；分片仍保留以控制单请求体大小。
       const CHUNK = 300;
       for (let i = 0; i < expressionIds.length; i += CHUNK) {
         const slice = expressionIds.slice(i, i + CHUNK);
         try {
           const r = await api<{
             items: Record<string, { entity: Entity; occurrences: Occurrence[]; siblings?: Occurrence[]; credit_title?: string }>;
-          }>(`/catalog/expressions/details?ids=${encodeURIComponent(slice.join(","))}`);
+          }>("/catalog/expressions/details", "POST", { ids: slice });
           for (const [id, d] of Object.entries(r.items || {})) {
             if (d?.entity) exprMap[id] = d.entity;
             occMap[id] = d?.occurrences || [];
@@ -316,12 +326,13 @@ export default function ReleaseDetailPage() {
             if (d?.credit_title) creditMap[id] = d.credit_title;
           }
         } catch {
-          // 批量失败时退化为逐条取实体，保证页面仍可用（不引入新的静默空白）。
+          // 批量失败时退化为逐条取实体，保证页面仍可用；无法恢复的条目计数，
+          // 交给页面上方的提示与重试入口，不再静默留空。
           await mapLimit(slice, 8, async (id) => {
             try {
               exprMap[id] = await api<Entity>(`/catalog/entities/${id}`);
             } catch {
-              /* ignore */
+              failures += 1;
             }
           });
         }
@@ -331,11 +342,12 @@ export default function ReleaseDetailPage() {
       setOccurrences(occMap);
       setExpressionSiblings(siblingMap);
       setExpressionCredits(creditMap);
+      setExpressionLoadFailures(failures);
     })();
     return () => {
       cancelled = true;
     };
-  }, [expressionIds.join(","), locale]);
+  }, [expressionIds.join(","), locale, expressionReloadToken]);
 
   const crossDurations = useMemo(() => {
     const map = new Map<string, Map<string, number>>();
@@ -882,6 +894,19 @@ export default function ReleaseDetailPage() {
 
         {expressionIds.length > 0 && (
           <Collapsible title={t("release.detail.sameRecordingTitle")} count={expressionIds.length}>
+            {/* 批量收录加载不完整时给出可重试提示，不静默留空表。 */}
+            {expressionLoadFailures > 0 && (
+              <div className="mx-3.5 sm:mx-4 mb-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2">
+                <span className="flex-1">{t("release.detail.occurrencesLoadFailed", { count: expressionLoadFailures })}</span>
+                <button
+                  type="button"
+                  onClick={() => setExpressionReloadToken((n) => n + 1)}
+                  className="shrink-0 px-2 py-0.5 rounded border border-amber-500/40 hover:bg-amber-500/20"
+                >
+                  {t("catalog.retry")}
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto -mx-3.5 sm:-mx-4 px-3.5 sm:px-4">
               <table className="w-full text-left text-xs min-w-[720px]">
                 <thead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 border-b border-black/5 dark:border-white/[0.06]">
@@ -894,7 +919,7 @@ export default function ReleaseDetailPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
-                  {expressionIds.slice(0, 60).map((exprId) => {
+                  {expressionIds.slice((occPage - 1) * OCC_PAGE_SIZE, occPage * OCC_PAGE_SIZE).map((exprId) => {
                     const occ = occurrences[exprId] || [];
                     const sibs = expressionSiblings[exprId] || [];
                     const expr = expressions[exprId];
@@ -906,8 +931,11 @@ export default function ReleaseDetailPage() {
                         </tr>
                       );
                     }
-                    const shown = occ.slice(0, 8);
-                    const rowSpan = shown.length + (sibs.length > 0 ? 1 : 0);
+                    // 单个表达可能被大量发行收录；此处不再硬截断到 8 条，
+                    // 由外层分页控制总行数，避免静默丢数据。
+                    const shown = occ.slice(0, OCC_PAGE_SIZE);
+                    const hiddenOcc = occ.length - shown.length;
+                    const rowSpan = shown.length + (sibs.length > 0 ? 1 : 0) + (hiddenOcc > 0 ? 1 : 0);
                     return (
                       <React.Fragment key={exprId}>
                         {shown.map((o, i) => (
@@ -944,12 +972,35 @@ export default function ReleaseDetailPage() {
                             </td>
                           </tr>
                         )}
+                        {/* 单个表达的收录被截断时提示剩余数量，避免误以为只有这些。 */}
+                        {hiddenOcc > 0 && (
+                          <tr key={`${exprId}-more`}>
+                            <td colSpan={4} className="py-1.5 pr-3 text-[11px] text-gray-400">
+                              {t("release.detail.moreOccurrences", { count: hiddenOcc })}
+                            </td>
+                          </tr>
+                        )}
                       </React.Fragment>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+            {/* 表达较多时分页，取代原先 slice(0, 60) 的静默截断。 */}
+            {expressionIds.length > OCC_PAGE_SIZE && (() => {
+              const occPages = Math.max(1, Math.ceil(expressionIds.length / OCC_PAGE_SIZE));
+              return (
+                <div className="px-3.5 sm:px-4 py-2.5 border-t border-black/5 dark:border-white/[0.06] flex items-center justify-end gap-2">
+                  <span className="font-mono text-[11px] text-gray-500">{t("common.pagination", { page: occPage, total: occPages })}</span>
+                  <button type="button" disabled={occPage <= 1} onClick={() => setOccPage((p) => Math.max(1, p - 1))} aria-label={t("pagination.prev")} className="w-7 h-7 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
+                    <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} />
+                  </button>
+                  <button type="button" disabled={occPage >= occPages} onClick={() => setOccPage((p) => Math.min(occPages, p + 1))} aria-label={t("pagination.next")} className="w-7 h-7 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
+                    <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.6} />
+                  </button>
+                </div>
+              );
+            })()}
           </Collapsible>
         )}
 
