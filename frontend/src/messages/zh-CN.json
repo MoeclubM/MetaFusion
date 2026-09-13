@@ -2617,6 +2617,8 @@
   "editor.relation.forbidden": "权限不足：他人或已发布条目的关系，需要条目创建者（editor）或管理员操作。",
   "editor.relation.loadFailed": "关系加载失败",
   "editor.relation.requiredMissing": "必填关系字段未填写：{fields}",
+"editor.relation.moveUp": "上移（调整署名次序）",
+"editor.relation.moveDown": "下移（调整署名次序）",
   "catalog.evidenceRequired": "请先填写本次修改说明与来源声明，再保存。",
   "catalog.otherInfo": "其它信息",
   "release.detail.occurrencesLoadGapDetail": "其中 {entities} 条表达实体、{details} 条收录与署名未能加载。",
