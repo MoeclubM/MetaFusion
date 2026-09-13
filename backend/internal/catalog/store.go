@@ -433,6 +433,125 @@ type ListOptions struct {
 
 // listFilter builds the shared WHERE clause for List and Count so the list
 // total is a real COUNT(*) over the same predicate set, not len(items).
+// listFilterNestedKey 供纯 SQL 构造（如单测）时在 ctx 中显式携带 Definitions
+// 快照：生产路径仍读已发布版本；携带快照时跳过 DB 查询，避免离线断言依赖数据库。
+type listFilterNestedKey struct{}
+
+// withListFilterDefinitions 把 Definitions 快照注入 ctx，供 listFilter 解析
+// field 点分路径时使用（同包测试用）。
+func withListFilterDefinitions(ctx context.Context, d Definitions) context.Context {
+	return context.WithValue(ctx, listFilterNestedKey{}, d)
+}
+
+// nestedQuoteKey 把已解析的字段码内联为 SQL 字面量：字段码受 codePattern
+// 约束，此处再转义单引号兜底；用户取值一律走绑定参数。
+func nestedQuoteKey(k string) string { return "'" + strings.ReplaceAll(k, "'", "''") + "'" }
+
+// compileNestedPath 把点分路径编译成谓词：group 节点用 -> 逐层下钻，
+// list 中途节点用 jsonb_array_elements 的 EXISTS 实现"任一元素命中"，
+// 叶子一律按现有等值语义做 ->> 文本比较。base 为叶子父级的 JSON 表达式，
+// lookup 为首段的查表域（实体属性表或某结构组的子字段表），seed 为链路上
+// 已确认的祖先字段（含入口本身）。
+func compileNestedPath(base string, lookup map[string]Field, seed []Field, path []string, value string, args *[]any) (string, error) {
+	parent := base
+	node := Field{}
+	chain := append([]Field{}, seed...)
+	froms := []string{}
+	for i, sg := range path {
+		var child Field
+		if i == 0 {
+			var ok bool
+			child, ok = lookup[sg]
+			if !ok {
+				return "", fmt.Errorf("unknown_field")
+			}
+		} else {
+			if node.Type != "group" {
+				return "", fmt.Errorf("unknown_field")
+			}
+			var ok bool
+			child, ok = node.Fields[sg]
+			if !ok {
+				return "", fmt.Errorf("unknown_field")
+			}
+		}
+		node = child
+		chain = append(chain, child)
+		if i < len(path)-1 {
+			if node.Type != "group" && node.Type != "list" {
+				return "", fmt.Errorf("unknown_field")
+			}
+			parent += "->" + nestedQuoteKey(sg)
+			for node.Type == "list" {
+				if node.Items == nil {
+					return "", fmt.Errorf("unknown_field")
+				}
+				alias := fmt.Sprintf("elem%d", len(froms)+1)
+				froms = append(froms, "jsonb_array_elements("+parent+") AS "+alias)
+				parent = alias
+				node = *node.Items
+				chain = append(chain, node)
+			}
+		}
+	}
+	for _, f := range chain {
+		if !f.Enabled {
+			return "", fmt.Errorf("field_not_searchable")
+		}
+	}
+	if !node.Searchable {
+		return "", fmt.Errorf("field_not_searchable")
+	}
+	*args = append(*args, value)
+	cond := fmt.Sprintf("%s->>%s=$%d", parent, nestedQuoteKey(path[len(path)-1]), len(*args))
+	if len(froms) == 0 {
+		return cond, nil
+	}
+	return "EXISTS(SELECT 1 FROM " + strings.Join(froms, ", ") + " WHERE " + cond + ")", nil
+}
+
+// nestedFieldPredicate 解析 field 点分路径并编译成 WHERE 谓词：
+// 结构属性伪字段 locator./inclusion_attributes./subject_attributes. 编译成
+// catalog.track_contents / catalog.release_subjects 的 EXISTS 子查询，
+// kind 显式不匹配时谓词恒假（返回空集）而不是报错；其余路径命中实体
+// document->'attributes'，group 逐层下钻、list 中途节点按任一元素命中。
+func nestedFieldPredicate(doc Definitions, o ListOptions, args *[]any) (string, error) {
+	segs := strings.Split(o.Field, ".")
+	for _, sg := range segs {
+		if sg == "" || !codePattern.MatchString(sg) {
+			return "", fmt.Errorf("unknown_field")
+		}
+	}
+	switch segs[0] {
+	case "locator", "inclusion_attributes", "subject_attributes":
+		root, ok := doc.Fields[segs[0]]
+		if !ok || root.Type != "group" {
+			return "", fmt.Errorf("unknown_field")
+		}
+		want := "track"
+		table, corr, base := "catalog.track_contents tc", "tc.track_id = catalog.entities.id", "tc.locator"
+		if segs[0] == "subject_attributes" {
+			want = "release"
+			table, corr, base = "catalog.release_subjects rs", "rs.release_id = catalog.entities.id", "rs.attributes"
+		} else if segs[0] == "inclusion_attributes" {
+			base = "tc.attributes"
+		}
+		cond, err := compileNestedPath(base, root.Fields, []Field{root}, segs[1:], o.Value, args)
+		if err != nil {
+			return "", err
+		}
+		if (o.Kind != "" && o.Kind != want) || (len(o.Kinds) > 0 && !contains(o.Kinds, want)) {
+			// kind 不匹配时恒假：已绑定的取值参数不再需要，弹出以保持
+			// 参数位置与谓词一一对应。
+			*args = (*args)[:len(*args)-1]
+			return "1=0", nil
+		}
+		return "EXISTS(SELECT 1 FROM " + table + " WHERE " + corr + " AND (" + cond + "))", nil
+	default:
+		return compileNestedPath("document->'attributes'", doc.Fields, nil, segs, o.Value, args)
+	}
+}
+
 func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]any) ([]string, error) {
 	parts := []string{"status NOT IN ('deleted','merged')"}
 	add := func(clause string, value any) {
@@ -479,16 +598,32 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 		add("id IN(SELECT id FROM catalog.content_units WHERE parent_id=$%[1]d UNION ALL SELECT id FROM catalog.mediums WHERE parent_id=$%[1]d UNION ALL SELECT id FROM catalog.tracks WHERE parent_id=$%[1]d)", o.ParentID)
 	}
 	if o.Field != "" {
-		v, err := s.Definitions(ctx)
-		if err != nil {
-			return nil, err
+		// definitions 快照默认读已发布版本；纯 SQL 构造（如单测）可经 ctx
+		// 显式携带快照（withListFilterDefinitions），避免离线断言依赖数据库。
+		var doc Definitions
+		if dd, ok := ctx.Value(listFilterNestedKey{}).(Definitions); ok && dd.Fields != nil {
+			doc = dd
+		} else {
+			v, err := s.Definitions(ctx)
+			if err != nil {
+				return nil, err
+			}
+			doc = v.Document
 		}
-		f, ok := v.Document.Fields[o.Field]
-		if !ok || !f.Searchable {
-			return nil, fmt.Errorf("field_not_searchable")
+		if !strings.Contains(o.Field, ".") {
+			f, ok := doc.Fields[o.Field]
+			if !ok || !f.Searchable {
+				return nil, fmt.Errorf("field_not_searchable")
+			}
+			*args = append(*args, o.Field, o.Value)
+			parts = append(parts, fmt.Sprintf("document->'attributes'->>$%d=$%d", len(*args)-1, len(*args)))
+		} else {
+			cond, ferr := nestedFieldPredicate(doc, o, args)
+			if ferr != nil {
+				return nil, ferr
+			}
+			parts = append(parts, cond)
 		}
-		*args = append(*args, o.Field, o.Value)
-		parts = append(parts, fmt.Sprintf("document->'attributes'->>$%d=$%d", len(*args)-1, len(*args)))
 	}
 	if len(o.Tags) > 0 {
 		// 任一标签命中即可。用容器包含（@>）而非展开比较，以命中
