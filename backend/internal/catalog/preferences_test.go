@@ -140,7 +140,8 @@ func TestBangumiInfoboxEntries(t *testing.T) {
 	}
 }
 
-// infobox 键映射只产出有值的已声明字段码。
+// infobox 键映射只产出有值的已声明字段码。ISBN 是产品标识，映射到发行层字段
+// barcode，不再产出作品层的 isbn（defaults 已不给 Work 声明该字段）。
 func TestBangumiInfoboxValues(t *testing.T) {
 	s := bangumiSubject{Infobox: []bangumiInfoItem{
 		{Key: "话数", Value: json.RawMessage(`"24"`)},
@@ -148,8 +149,11 @@ func TestBangumiInfoboxValues(t *testing.T) {
 		{Key: "放送星期", Value: json.RawMessage(`"星期六"`)},
 	}}
 	got := s.infoboxValues()
-	if got["episodes"] != 24 || got["isbn"] != "978-4-00-000000-0" || got["broadcast_weekday"] != "星期六" {
+	if got["episodes"] != 24 || got["barcode"] != "978-4-00-000000-0" || got["broadcast_weekday"] != "星期六" {
 		t.Fatalf("got %v", got)
+	}
+	if _, ok := got["isbn"]; ok {
+		t.Fatalf("isbn must not be produced for the work level: %v", got)
 	}
 	if _, ok := got["volume_count"]; ok {
 		t.Fatalf("absent key must not be produced: %v", got)
