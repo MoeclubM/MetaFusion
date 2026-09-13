@@ -1593,12 +1593,6 @@
   "graph.disambiguation": "Disambiguation",
   "graph.connectedEdges": "Connected Relations in Graph",
   "graph.noConnectedEdges": "No other direct connections in current graph",
-  "graph.type.work": "Work",
-  "graph.type.release": "Release",
-  "graph.type.artist": "Artist",
-  "graph.type.medium": "Medium",
-  "graph.type.franchise": "Franchise",
-  "graph.type.canonical_entry": "母版篇目",
   "graph.predicate": "Relation Predicate",
   "graph.targetEntity": "Target Entity",
   "graph.reselect": "Reselect",
@@ -2624,5 +2618,12 @@
   "editor.relation.loadFailed": "關係載入失敗",
   "editor.relation.requiredMissing": "必填關係欄位未填寫：{fields}",
   "catalog.evidenceRequired": "請先填寫本次修改說明與來源聲明，再儲存。",
-  "catalog.otherInfo": "其它資訊"
+  "catalog.otherInfo": "其它資訊",
+  "release.detail.occurrencesLoadGapDetail": "其中 {entities} 條表達實體、{details} 條收錄與署名未能載入。",
+  "release.detail.showAllOccurrences": "展開全部收錄",
+  "release.detail.collapseOccurrences": "收起收錄",
+  "catalog.compareIncompleteCatalog": "資料不足：以下發行缺曲目或內容引用，暫不下內容一致性結論。",
+  "entity.characterRank.primary": "主角",
+  "entity.characterRank.supplement": "配角",
+  "entity.characterRank.extra": "客串"
 }

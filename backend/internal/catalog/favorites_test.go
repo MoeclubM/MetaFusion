@@ -5,41 +5,27 @@ import (
 	"testing"
 )
 
-// 收藏目标类型 → 实体 kind 映射必须覆盖前端词表，且不把类型错配到别的 kind。
+// 收藏 target_type 就是实体 kind：覆盖固定八种骨架，不接受旧词表或未知类型。
 func TestFavoriteTargetKinds(t *testing.T) {
-	// 已知类型：kind 必须命中
-	for _, tt := range []struct{ targetType, kind string }{
-		{"work", "work"},
-		{"release", "release"},
-		{"artist", "agent"},
-		{"franchise", "collection"},
-		{"canonical_entry", "expression"},
-		{"canonical_entry", "content_unit"},
-	} {
-		kinds, known := favoriteTargetKinds[tt.targetType]
+	for _, kind := range []string{"agent", "collection", "work", "content_unit", "expression", "release", "medium", "track"} {
+		kinds, known := favoriteTargetKinds[kind]
 		if !known {
-			t.Errorf("%s: target type not registered", tt.targetType)
+			t.Errorf("%s: kind not registered", kind)
 			continue
 		}
-		if !contains(kinds, tt.kind) {
-			t.Errorf("%s: kind %s not accepted (%v)", tt.targetType, tt.kind, kinds)
+		if len(kinds) != 1 || kinds[0] != kind {
+			t.Errorf("%s: must map to itself, got %v", kind, kinds)
 		}
 	}
-	// 类型存在但 kind 不匹配，必须不在允许集合内
-	for _, tt := range []struct{ targetType, kind string }{
-		{"work", "agent"},
-		{"artist", "work"},
-		{"release", "expression"},
-		{"franchise", "work"},
-	} {
-		kinds := favoriteTargetKinds[tt.targetType]
-		if contains(kinds, tt.kind) {
-			t.Errorf("%s: kind %s must not be accepted", tt.targetType, tt.kind)
-		}
+	// 分类不匹配必须拒绝
+	if contains(favoriteTargetKinds["work"], "agent") {
+		t.Error("work must not accept agent")
 	}
-	// 未注册类型
-	if _, known := favoriteTargetKinds["unknown"]; known {
-		t.Error("unknown target type must not be registered")
+	// 旧词表与未知类型都不得注册
+	for _, legacy := range []string{"artist", "franchise", "canonical_entry", "unknown"} {
+		if _, known := favoriteTargetKinds[legacy]; known {
+			t.Errorf("%s: legacy/unknown target type must not be registered", legacy)
+		}
 	}
 }
 
@@ -70,7 +56,7 @@ func TestFavoritesStoreRoundtrip(t *testing.T) {
 	if total != 1 || len(items) != 1 {
 		t.Fatalf("list total=%d items=%d", total, len(items))
 	}
-	if items[0].ID == "" || items[0].Work == nil || items[0].Work.ID != work.ID {
+	if items[0].ID == "" || items[0].Entity == nil || items[0].Entity.ID != work.ID {
 		t.Fatalf("bad item: %+v", items[0])
 	}
 	// 关闭
@@ -81,8 +67,8 @@ func TestFavoritesStoreRoundtrip(t *testing.T) {
 	if ids, _ := f.s.FavoriteStatus(ctx, f.u, "work", []string{work.ID}); len(ids) != 0 {
 		t.Fatalf("status after off: %v", ids)
 	}
-	// 类型与目标 kind 不匹配必须拒绝
+	// 旧词表 target_type 不再被接受
 	if _, err := f.s.ToggleFavorite(ctx, f.u, "artist", work.ID); err == nil {
-		t.Fatal("mismatched target kind accepted")
+		t.Fatal("legacy target_type accepted")
 	}
 }

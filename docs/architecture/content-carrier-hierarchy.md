@@ -47,14 +47,16 @@ Work（创作母体）
 3. 当权威来源提供章节目录时，再把章节建立为 `CanonicalEntry` 并按卷或章节组设置 `parent_id`；同一章节被电子版、纸版或再版收录时，只新增发行版和 TrackContent 关系，不复制章节实体。
 4. 若某个来源把“卷”维护成独立创作实体，则把它作为独立 Work，并用受控图谱边表达 `part_of`/`version_of`；不要把卷号拼接进系列 Work 的标题。
 
-## 写入与读取接口
+## 写入与读取接口（当前实现）
 
-- `GET /catalog/works/:id/contents` 返回与发行库存无关的完整作品内容目录。
-- `GET /catalog/canonical-entries?work_id=...&parent_id=root` 支持按作品和父节点分页读取目录。
-- `POST/PUT /catalog/canonical-entries` 用于维护内容目录；已有篇目禁止迁移到其他 Work。
-- `POST/PUT /catalog/mediums` 与 `POST/PUT /catalog/tracks` 用于维护发行载体树；Track 的 `contents` 数组维护多对多收录和定位信息。
-- Release、Medium、Track 和 CanonicalEntry 的写入都要求 `edit_note` 与 HTTP(S) `source_urls`，并记录不可变修订快照。
+读写统一走 `/api/catalog/entities`，不存在 `/catalog/works/:id/contents`、`/catalog/canonical-entries`、`/catalog/mediums`、`/catalog/tracks` 等旧轨逐实体端点：
+
+- 内容目录：`GET /api/catalog/entities?kind=content_unit&work_id=...&parent_id=...` 按作品与父节点分页读取。
+- 可复用表达：`GET /api/catalog/entities?kind=expression&work_id=...&content_unit_id=...`。
+- 发行载体树：`GET /api/catalog/entities?kind=medium&release_id=...`、`GET /api/catalog/entities?kind=track&medium_id=...`；Track 的 `contents` 数组维护多对多收录和定位信息。
+- 写入：`POST|PUT /api/catalog/entities` 创建与更新实体（`PUT` 为整份替换，非局部 PATCH），收录关系随 Track 的 `contents` 一并提交。
+- ContentUnit / Expression / Release / Medium / Track 的写入都要求 `edit_note` 与 HTTP(S) `source_urls`，并记录不可变修订快照。
 
 ## 迁移与兼容
 
-**迁移现状（以仓库实际文件为准）**：`backend/migrations/` 当前只有 `000001_catalog_core`、`000002_catalog_shelves`、`000003_catalog_favorites` 三个迁移；本文旧版引用的 `000004_content_hierarchy`、`000005_carrier_hierarchy`、`000006_carrier_content_integrity` 文件**不存在**，内容已收归 `backend/internal/catalog/schema.sql`（`Initialize` 幂等建表）与 `store.go` 应用层校验。因此：作品目录父子外键与延迟触发器无环检查、`track_contents` 表、发行/介质/轨道侧表都定义在 `schema.sql`；Track/TrackContent 的跨 Work 一致性是应用层 `undeclared_release_subject` 校验，不是数据库触发器。不存在 `tracks.canonical_entry_id` 兼容列。
+**迁移现状（以仓库实际文件为准）**：`backend/migrations/` 当前只有 `000001_catalog_core` 到 `000007_auth_schema_split`；本文旧版引用的 `000004_content_hierarchy`、`000005_carrier_hierarchy`、`000006_carrier_content_integrity` 文件**不存在**，内容已收归 `backend/internal/catalog/schema.sql`（`Initialize` 幂等建表）与 `store.go` 应用层校验。因此：作品目录父子外键与延迟触发器无环检查、`track_contents` 表、发行/介质/轨道侧表都定义在 `schema.sql`；Track/TrackContent 的跨 Work 一致性是应用层 `undeclared_release_subject` 校验，不是数据库触发器。不存在 `tracks.canonical_entry_id` 兼容列，旧轨 `CanonicalEntry` 与 `internal/models` 已随兼容层整段删除。

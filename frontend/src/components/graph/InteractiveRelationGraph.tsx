@@ -36,6 +36,8 @@ export interface InteractiveRelationGraphProps {
   className?: string;
   onNodeClick?: (node: GraphNode) => void;
   onEdgeClick?: (link: GraphLink) => void;
+  /** 中心实体的 kind：层级布局据此把 collection/work 归上、release 归下、agent 归左。 */
+  orientation?: "work" | "release" | "agent";
   showInspector?: boolean;
   title?: string;
   headerRightExtra?: React.ReactNode;
@@ -49,12 +51,12 @@ interface LayoutNode extends GraphNode {
   radius: number;
 }
 
-// 实体类型视觉主题配置与本地化辅助（支持明暗双模式高保真渲染）
+// 实体类型视觉主题配置与本地化辅助（固定八实体骨架，支持明暗双模式高保真渲染）
 const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = false) => {
   switch (type) {
     case "work":
       return {
-        label: t("graph.type.work"),
+        label: t("catalog.kind.work"),
         primaryColor: isDark ? "#38bdf8" : "#0284c7",
         bgFill: isDark ? "#0c4a6e" : "#e0f2fe",
         textFill: isDark ? "#7dd3fc" : "#0369a1",
@@ -62,9 +64,9 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
         badgeBgClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
         icon: Film,
       };
-    case "artist":
+    case "agent":
       return {
-        label: t("graph.type.artist"),
+        label: t("catalog.kind.agent"),
         primaryColor: isDark ? "#34d399" : "#059669",
         bgFill: isDark ? "#064e3b" : "#dcfce7",
         textFill: isDark ? "#86efac" : "#15803d",
@@ -72,19 +74,9 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
         badgeBgClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
         icon: User,
       };
-    case "release":
+    case "collection":
       return {
-        label: t("graph.type.release"),
-        primaryColor: isDark ? "#fbbf24" : "#d97706",
-        bgFill: isDark ? "#78350f" : "#ffedd5",
-        textFill: isDark ? "#fed7aa" : "#c2410c",
-        stroke: isDark ? "#d97706" : "#fbbf24",
-        badgeBgClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
-        icon: Disc,
-      };
-    case "franchise":
-      return {
-        label: t("graph.type.franchise"),
+        label: t("catalog.kind.collection"),
         primaryColor: isDark ? "#818cf8" : "#4f46e5",
         bgFill: isDark ? "#312e81" : "#e0e7ff",
         textFill: isDark ? "#a5b4fc" : "#4338ca",
@@ -92,9 +84,39 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
         badgeBgClass: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
         icon: Layers,
       };
+    case "content_unit":
+      return {
+        label: t("catalog.kind.content_unit"),
+        primaryColor: isDark ? "#2dd4bf" : "#0d9488",
+        bgFill: isDark ? "#134e4a" : "#ccfbf1",
+        textFill: isDark ? "#5eead4" : "#0f766e",
+        stroke: isDark ? "#0d9488" : "#2dd4bf",
+        badgeBgClass: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
+        icon: Sparkles,
+      };
+    case "expression":
+      return {
+        label: t("catalog.kind.expression"),
+        primaryColor: isDark ? "#f472b6" : "#db2777",
+        bgFill: isDark ? "#831843" : "#fce7f3",
+        textFill: isDark ? "#f9a8d4" : "#be185d",
+        stroke: isDark ? "#db2777" : "#f472b6",
+        badgeBgClass: "bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30",
+        icon: Sparkles,
+      };
+    case "release":
+      return {
+        label: t("catalog.kind.release"),
+        primaryColor: isDark ? "#fbbf24" : "#d97706",
+        bgFill: isDark ? "#78350f" : "#ffedd5",
+        textFill: isDark ? "#fed7aa" : "#c2410c",
+        stroke: isDark ? "#d97706" : "#fbbf24",
+        badgeBgClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+        icon: Disc,
+      };
     case "medium":
       return {
-        label: t("graph.type.medium"),
+        label: t("catalog.kind.medium"),
         primaryColor: isDark ? "#c084fc" : "#9333ea",
         bgFill: isDark ? "#581c87" : "#f3e8ff",
         textFill: isDark ? "#d8b4fe" : "#7e22ce",
@@ -102,15 +124,15 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
         badgeBgClass: "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30",
         icon: Disc,
       };
-    case "canonical_entry":
+    case "track":
       return {
-        label: t("graph.type.canonical_entry"),
-        primaryColor: isDark ? "#2dd4bf" : "#0d9488",
-        bgFill: isDark ? "#134e4a" : "#ccfbf1",
-        textFill: isDark ? "#5eead4" : "#0f766e",
-        stroke: isDark ? "#0d9488" : "#2dd4bf",
-        badgeBgClass: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
-        icon: Sparkles,
+        label: t("catalog.kind.track"),
+        primaryColor: isDark ? "#fb923c" : "#ea580c",
+        bgFill: isDark ? "#7c2d12" : "#ffedd5",
+        textFill: isDark ? "#fdba74" : "#c2410c",
+        stroke: isDark ? "#ea580c" : "#fb923c",
+        badgeBgClass: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
+        icon: Tag,
       };
     default:
       return {
@@ -205,6 +227,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   className = "",
   onNodeClick,
   onEdgeClick,
+  orientation = "work",
   showInspector = true,
   title,
   headerRightExtra,
@@ -258,42 +281,19 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   // 过滤连线
   const filteredLinks = useMemo(() => {
     if (filterType === "all") return links;
+    // 三类筛选直接对齐 definitions 的关系分组（credits 署名 / membership 组成 /
+    // creative 改编翻唱），不在前端硬编码关系码。分组缺失时按端点 kind 兜底。
+    const byGroup = (g: string) => links.filter((l) => l.group === g);
     if (filterType === "hierarchy") {
-      return links.filter(
-        (l) =>
-          l.is_hierarchical ||
-          l.type.includes("sequel") ||
-          l.type.includes("prequel") ||
-          l.type.includes("parent") ||
-          l.type.includes("child") ||
-          l.type.includes("franchise") ||
-          l.type.includes("released_as") ||
-          l.type.includes("medium")
-      );
+      return links.filter((l) => l.group === "membership" || l.is_hierarchical);
     }
     if (filterType === "cast") {
       return links.filter(
-        (l) =>
-          l.source_type === "artist" ||
-          l.target_type === "artist" ||
-          l.type.includes("author") ||
-          l.type.includes("director") ||
-          l.type.includes("composer") ||
-          l.type.includes("publisher") ||
-          l.type.includes("staff") ||
-          l.type.includes("voice") ||
-          l.type.includes("actor")
+        (l) => l.group === "credits" || l.source_type === "agent" || l.target_type === "agent"
       );
     }
     if (filterType === "media") {
-      return links.filter(
-        (l) =>
-          l.type.includes("adapt") ||
-          l.type.includes("soundtrack") ||
-          l.type.includes("spin_off") ||
-          l.type.includes("remake") ||
-          l.type.includes("crossover")
-      );
+      return byGroup("creative");
     }
     return links;
   }, [links, filterType]);
@@ -404,19 +404,17 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       const rightOtherNodes: GraphNode[] = [];
 
       otherNodes.forEach((node) => {
-        if (
-          node.level < 0 ||
-          node.category === "parent_franchise" ||
-          node.category === "original_work" ||
-          node.type === "franchise"
-        ) {
-          topNodes.push(node);
-        } else if (node.type === "medium") {
-          bottomMediumNodes.push(node);
-        } else if (node.level > 0 || node.type === "release" || node.category === "release") {
-          bottomReleaseNodes.push(node);
-        } else if (node.type === "artist" || node.category === "artist") {
+        if (node.id === centerEntityId) {
+          rightOtherNodes.push(node);
+        } else if (node.type === "agent") {
           leftArtistNodes.push(node);
+        } else if (node.type === "medium" || node.type === "track") {
+          bottomMediumNodes.push(node);
+        } else if (node.type === "release") {
+          // 以发行版为中心时，发行版本身在主区，其上层（work/collection）归上。
+          (orientation === "release" ? topNodes : bottomReleaseNodes).push(node);
+        } else if (node.type === "collection" || node.type === "work") {
+          (orientation === "work" ? topNodes : bottomReleaseNodes).push(node);
         } else {
           rightOtherNodes.push(node);
         }
@@ -1095,14 +1093,26 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               <stop offset="100%" stopColor={isDark ? "#818cf8" : "#4f46e5"} />
             </linearGradient>
 
-            {/* 节点通用渐变定义 */}
+            {/* 节点通用渐变定义（固定八实体骨架；主题色见 getEntityTypeTheme） */}
+            <linearGradient id="grad-agent" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#059669" />
+              <stop offset="100%" stopColor="#047857" />
+            </linearGradient>
+            <linearGradient id="grad-collection" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#4f46e5" />
+              <stop offset="100%" stopColor="#4338ca" />
+            </linearGradient>
             <linearGradient id="grad-work" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#0284c7" />
               <stop offset="100%" stopColor="#0369a1" />
             </linearGradient>
-            <linearGradient id="grad-artist" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#059669" />
-              <stop offset="100%" stopColor="#047857" />
+            <linearGradient id="grad-content_unit" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0d9488" />
+              <stop offset="100%" stopColor="#0f766e" />
+            </linearGradient>
+            <linearGradient id="grad-expression" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#db2777" />
+              <stop offset="100%" stopColor="#be185d" />
             </linearGradient>
             <linearGradient id="grad-release" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#d97706" />
@@ -1112,13 +1122,9 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               <stop offset="0%" stopColor="#9333ea" />
               <stop offset="100%" stopColor="#7e22ce" />
             </linearGradient>
-            <linearGradient id="grad-franchise" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#4f46e5" />
-              <stop offset="100%" stopColor="#4338ca" />
-            </linearGradient>
-            <linearGradient id="grad-canonical_entry" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#0d9488" />
-              <stop offset="100%" stopColor="#0f766e" />
+            <linearGradient id="grad-track" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ea580c" />
+              <stop offset="100%" stopColor="#c2410c" />
             </linearGradient>
             <linearGradient id="grad-default" x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#64748b" />

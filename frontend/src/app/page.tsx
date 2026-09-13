@@ -45,8 +45,6 @@ type EntityItem = {
 type PublicShelf = {
   slug: string;
   names?: Record<string, string> | null;
-  name_zh?: string;
-  name_en?: string;
   icon?: string;
   query?: { types?: string[] | null } | null;
 };
@@ -74,7 +72,7 @@ function iconFor(shelf: PublicShelf): React.ElementType {
 }
 
 function shelfTitle(shelf: PublicShelf, locale: string): string {
-  return resolveLocalizedName(shelf.names || undefined, locale, shelf.name_en || shelf.name_zh || shelf.slug);
+  return resolveLocalizedName(shelf.names || undefined, locale, shelf.slug);
 }
 
 export default function HomePage() {

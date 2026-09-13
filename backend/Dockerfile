@@ -16,7 +16,6 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go mod tidy && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/server ./cmd/server && \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/worker ./cmd/worker && \
     CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/bin/migrate ./cmd/migrate
 
 # ==============================================================================
@@ -49,22 +48,3 @@ ENTRYPOINT ["/app/server"]
 # Optional media processing stays dormant until enabled in catalog configuration.
 FROM server AS catalog-server
 RUN apk add --no-cache ffmpeg
-
-# ==============================================================================
-# Stage 4: Worker Runtime (Transcoder with FFmpeg, Mediainfo, libvips)
-# ==============================================================================
-FROM alpine:3.19 AS worker
-
-WORKDIR /app
-RUN apk add --no-cache \
-    ca-certificates \
-    tzdata \
-    curl \
-    ffmpeg \
-    mediainfo \
-    vips-tools \
-    vips
-
-COPY --from=builder /app/bin/worker /app/worker
-
-ENTRYPOINT ["/app/worker"]

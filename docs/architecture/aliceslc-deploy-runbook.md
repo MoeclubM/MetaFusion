@@ -36,6 +36,7 @@
   （zh-CN「表演者」/ en-US「Performed by」）。
 - 顺带修复并上线：`catalog/works/:id`、`/contents`、`/graph` 旧前端兼容只读路由（`works_compat.go`）；
   兼容层按请求身份解析关系对端（草稿可见性）；关系名走服务端词表本地化。
+  > 该兼容层与下列路由已于 **2026-09-13 随旧轨整段删除**（系统未上线，无需兼容旧数据）：`/catalog/works`、`/catalog/works/:id`、`/works/:id/{contents,graph}`、`/taxonomy`、`/artists/:id`、`/franchises/:id`、`/mediums/:id`、`/canonical-entries/:id`、`/relation-types`、`/works/:id/comments`。现统一走 `/api/catalog/entities` 系；两个坑（关系端身份可见性、客户端关系名本地化）在 `/api/catalog/entities/:id/relations` + definitions 上仍然适用。
 
 ## 0.1 已消解：Definitions 词表升级
 

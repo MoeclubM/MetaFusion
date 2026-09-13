@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
-import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, boardDisplayName, boardDisplayDesc } from "@/lib/api";
+import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, boardDisplayName, boardDisplayDesc, catalogEntityHref } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
@@ -150,9 +150,7 @@ function CommunityContent() {
     return (
       name.includes(q) ||
       desc.includes(q) ||
-      b.code.toLowerCase().includes(q) ||
-      (b.name_en && b.name_en.toLowerCase().includes(q)) ||
-      (b.name_zh && b.name_zh.toLowerCase().includes(q))
+      b.code.toLowerCase().includes(q)
     );
   });
 
@@ -729,14 +727,14 @@ function CommunityContent() {
  <Icon className="w-4 h-4" />
  {boardDisplayName(board, locale, t)}
  </span>
- {topic.work && (
+ {topic.entity_id && topic.entity_title && (
  <Link
- href={`/works/${topic.work.id}`}
+ href={catalogEntityHref(topic.entity_kind || "work", topic.entity_id)}
  className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-background border border-surfaceBorder text-gray-300 hover:text-white text-xs font-mono hover:border-emerald-500/40 transition-colors max-w-[180px] truncate"
  onClick={(e) => e.stopPropagation()}
  >
  <BookOpen className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
- <span className="truncate">{topic.work.title}</span>
+ <span className="truncate">{topic.entity_title}</span>
  </Link>
  )}
  {topic.tags && topic.tags.length > 0 && topic.tags.map((tag) => (

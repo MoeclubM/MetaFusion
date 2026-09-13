@@ -1,4 +1,4 @@
-import { buildTitleChain } from "./titles";
+import type { Entity } from "@/components/catalog/api";
 
 const getApiBase = () => {
   if (typeof window !== "undefined") {
@@ -29,18 +29,24 @@ export interface User {
 }
 
 // ── 收藏 ──
-export type FavoriteTargetType = "work" | "release" | "artist" | "franchise" | "canonical_entry";
+// target_type 直接就是实体 kind（固定八种骨架），不再使用旧词表别名。
+export type FavoriteTargetType =
+  | "agent"
+  | "collection"
+  | "work"
+  | "content_unit"
+  | "expression"
+  | "release"
+  | "medium"
+  | "track";
 
 export interface FavoriteItem {
   id: string;
   target_type: FavoriteTargetType;
   target_id: string;
   created_at: string;
-  work?: { id: string; title: string; cover_image_url?: string };
-  release?: { id: string; work_id: string; edition_name: string };
-  artist?: { id: string; name: string; original_name?: string; entity_type?: string };
-  franchise?: { id: string; title: string; original_title?: string; cover_image_url?: string };
-  canonical_entry?: { id: string; work_id?: string; title: string; isrc?: string };
+  /** 被收藏实体本身；展示按 target_type 与实体的 translations/kind 渲染。 */
+  entity?: Entity;
 }
 
 /** 切换收藏状态，返回切换后是否已收藏 */
@@ -101,52 +107,20 @@ export interface AdminStats {
   total_comments: number;
 }
 
-// 旧分类法 Category 接口已随 categories 词表废弃而移除（taxonomy 现用 tags + shelves）
-// 旧 VirtualShelf / UserCustomShelf / UserHomeLayout 同步 2026-09-12 移除：
-// 后端 /catalog/shelves/custom/* 不存在，货架走 catalog.shelves + user_preferences。
+// 展示用词表已收敛：标签走 attributes.tags + /catalog/tags，货架走 /catalog/shelves。
+// 不存在自定义货架端点，用户偏好落 /catalog/me/home-preferences。
 
-export interface TaxonomyResponse {
-  tags?: Tag[];
-  tag_groups?: Record<string, Tag[]>;
-  media_types: DictTerm[];
-  media_categories?: DictTerm[];
-  entity_types?: DictTerm[];
-  roles: DictTerm[];
-  packagings: DictTerm[];
-  packaging_types?: DictTerm[];
-  formats: DictTerm[];
-  medium_formats?: DictTerm[];
-  languages: { code: string; name: string }[];
-}
-
-/** 词表条目。展示名以服务端按请求 locale 填好的 name 为准，不在前端维护类型译文。 */
-export type DictTerm = {
-  id: string;
-  name?: string;
-  name_zh?: string;
-  name_en?: string;
-  desc?: string;
-  desc_zh?: string;
-  desc_en?: string;
-  color?: string;
-  bg_color?: string;
-  border_color?: string;
-  forward?: string;
-  reverse?: string;
-};
-
-export function dictTermLabel(code: string | undefined | null, terms?: DictTerm[] | null): string {
-  if (!code) return '';
-  const trimmed = code.trim();
-  if (!trimmed) return '';
-  const lower = trimmed.toLowerCase();
-  const hit = terms?.find((t) => t.id === trimmed || t.id.toLowerCase() === lower);
-  if (!hit) return trimmed;
-  return (hit.name || hit.name_zh || hit.name_en || trimmed).trim() || trimmed;
-}
-
-/** 四类编目枢纽；其余 code 都是主体（artists）上的动态 entity_type。 */
-export const CATALOG_HUBS = ['work', 'artist', 'release', 'franchise', 'canonical_entry'] as const;
+/** 编目实体枢纽就是固定八种骨架，不再有"其余 code 是主体上的动态类型"这套旧分层。 */
+export const CATALOG_HUBS = [
+  "agent",
+  "collection",
+  "work",
+  "content_unit",
+  "expression",
+  "release",
+  "medium",
+  "track",
+] as const;
 export type CatalogHub = (typeof CATALOG_HUBS)[number];
 
 export function isCatalogHub(type: string): type is CatalogHub {
@@ -154,17 +128,11 @@ export function isCatalogHub(type: string): type is CatalogHub {
 }
 
 export function catalogHubOf(type: string): CatalogHub {
-  const normalized = (type || '').toLowerCase();
+  const normalized = (type || "").toLowerCase();
   if (isCatalogHub(normalized)) return normalized;
-  return 'artist';
+  return "work";
 }
 
-export function getBoardName(code: string, t: (k: string) => string): string {
-  return t(`board.${code}`);
-}
-export function getBoardDesc(code: string, t: (k: string) => string): string {
-  return t(`board.${code}Desc`);
-}
 
 export interface Tag {
   id: number;
@@ -172,49 +140,13 @@ export interface Tag {
   group_type: string;
 }
 
-export interface EntityTranslation {
-  locale: string;
-  title?: string;
-  name?: string;
-  summary?: string;
-  biography?: string;
-  /** 同语种并列标题（与 title 同一语言的异名/并列译名） */
-  aliases?: string[];
-}
 
-export function pickLocalized(
-  locale: string,
-  translations: EntityTranslation[] | undefined,
-  fallbackTitle: string,
-  fallbackBody?: string,
-  opts?: { order?: string[]; originalLanguage?: string | null }
-): { title: string; body: string } {
-  const rows = translations || [];
-  const chain = buildTitleChain(locale, opts, rows.map((r) => r.locale));
-  for (const loc of chain) {
-    const row = rows.find((r) => r.locale === loc);
-    if (!row) continue;
-    const title = (row.title || row.name || "").trim();
-    const body = (row.summary || row.biography || "").trim();
-    if (title || body) {
-      return { title: title || fallbackTitle, body: body || fallbackBody || "" };
-    }
-  }
-  return {
-    title: (fallbackTitle || "").trim(),
-    body: (fallbackBody || "").trim(),
-  };
-}
 
-/** 动态多语言字段映射解析辅助函数（支持 names: Record<string, string> / JSONB 结构与多层回退） */
+/** 动态多语言字段映射解析辅助函数（names: Record<string, string> / JSONB 结构，按语言链回退） */
 export function pickLocalizedName(
   locale: string,
   names?: Record<string, string> | null,
-  fallbackZh?: string,
-  fallbackEn?: string,
-  defaultSlug?: string,
-  fallbackJa?: string,
-  fallbackZhTw?: string
+  defaultSlug?: string
 ): string {
   if (names && typeof names === "object") {
     // 1. 精确匹配当前语言，如 zh-CN, en-US, ja, ko
@@ -260,48 +192,10 @@ export function pickLocalizedName(
     }
   }
 
-  // 8. 回退到 legacy 静态字段
-  if (locale === "en-US" && fallbackEn && fallbackEn.trim()) {
-    return fallbackEn.trim();
-  }
-  if (fallbackZh && fallbackZh.trim() && !fallbackZh.includes("???")) {
-    return fallbackZh.trim();
-  }
-  if (fallbackZhTw && fallbackZhTw.trim() && !fallbackZhTw.includes("???")) {
-    return fallbackZhTw.trim();
-  }
-  if (fallbackJa && fallbackJa.trim() && !fallbackJa.includes("???")) {
-    return fallbackJa.trim();
-  }
-  if (fallbackEn && fallbackEn.trim()) {
-    return fallbackEn.trim();
-  }
   return defaultSlug || "";
 }
 
-export interface Artist {
-  id: string;
-  name: string;
-  original_name?: string;
-  original_language?: string;
-  disambiguation?: string;
-  entity_type: string;
-  avatar_url?: string;
-  country?: string;
-  biography?: string;
-  language?: string;
-  begin_date?: string;
-  end_date?: string;
-  ended?: boolean;
-  external_ids: Record<string, any>;
-  attributes?: Record<string, any>;
-  translations?: EntityTranslation[];
-}
 
-export interface ArtistWorkItem {
-  work: Work;
-  role: string;
-}
 
 export interface ConnectedEntityItem {
   entity_id: string;
@@ -322,8 +216,6 @@ export interface ConnectedEntityItem {
   is_current?: boolean;
   date_span?: string;
   attributes: Record<string, any>;
-  color: string;
-  icon: string;
 }
 
 export interface EntityRevision {
@@ -362,14 +254,8 @@ export interface EntityRelationship {
 export interface RelationType {
   code: string;
   domain: string;
-  name_zh: string;
-  name_en: string;
   names?: Record<string, string>;
   description?: string;
-  forward_label_zh: string;
-  reverse_label_zh: string;
-  forward_label_en: string;
-  reverse_label_en: string;
   allowed_source_types?: string[];
   allowed_target_types?: string[];
   is_symmetric: boolean;
@@ -388,297 +274,31 @@ export interface RelationType {
   reverse_label?: string;
 }
 
-export interface ArtistDetailResponse {
-  artist: Artist;
-  works: ArtistWorkItem[];
-  releases: Release[];
-  connected_entities?: ConnectedEntityItem[];
-  external_links?: ExternalLinkDisplay[];
-}
 
-export interface WorkArtistRelation {
-  id: number;
-  work_id: string;
-  artist_id: string;
-  role: string;
-  // 署名时间投影自 entity_relationships 图边（后端 gorm:"-" 纯读）。
-  begin_date?: string;
-  end_date?: string;
-  ended?: boolean;
-  artist?: Artist;
-}
 
-export interface CanonicalEntry {
-  id: string;
-  parent_id?: string | null;
-  position?: number;
-  number?: string;
-  entry_role?: string;
-  original_language?: string;
-  version_label?: string;
-  translations?: Record<string, { title?: string; version_label?: string }>;
-  localized_title?: string;
-  localized_version_label?: string;
-  title: string;
-  sort_title?: string;
-  duration?: number;
-  duration_seconds?: number;
-  isrc?: string;
-  isbn?: string;
-  artist_credit?: string;
-  recording_date?: string;
-  work_id?: string;
-  work?: Work;
-  external_ids?: Record<string, any>;
-  attributes?: Record<string, any>;
-  created_at?: string;
-}
 
-export interface CanonicalEntryReleaseSummary {
-  release_id: string;
-  edition_name: string;
-  cover_image_url?: string;
-  cover_aspect?: string;
-  edition_date?: string;
-  country?: string;
-  publisher?: string;
-  publisher_entity?: Artist;
-  medium_name: string;
-  medium_format: string;
-  media_category: string;
-  medium_position: number;
-  track_position: number;
-  track_title: string;
-  duration_seconds: number;
-  isrc?: string;
-  artist_credit?: string;
-}
 
-export interface CanonicalEntryDetailResponse extends CanonicalEntry {
-  releases: CanonicalEntryReleaseSummary[];
-  tracks: Track[];
-  asset_files?: AssetFile[];
-  connected_entities?: ConnectedEntityItem[];
-  external_links?: ExternalLinkDisplay[];
-  relations?: EntityRelationship[];
-  revisions?: EntityRevision[];
-}
 
-export interface Track {
-  id: string;
-  medium_id: string;
-  parent_id?: string | null;
-  number?: string;
-  canonical_entry_id?: string;
-  work_id?: string;
-  position: number;
-  title: string;
-  title_override?: string;
-  duration_seconds?: number;
-  isrc?: string;
-  artist_credit?: string;
-  air_date?: string;
-  original_language?: string;
-  translations?: Record<string, { title?: string }>;
-  locator?: Record<string, any>;
-  localized_title?: string;
-  contents?: TrackContent[];
-  work?: Work;
-  canonical_entry?: CanonicalEntry;
-}
 
-export interface TrackContent {
-  id: string;
-  track_id: string;
-  canonical_entry_id: string;
-  position: number;
-  locator?: Record<string, any>;
-  canonical_entry?: CanonicalEntry;
-}
 
-export interface WorkContentsResponse {
-  items: CanonicalEntry[];
-  total: number;
-}
-
-export interface AssetBinding {
-  id: string;
-  asset_id: string;
-  target_entity_type: "work" | "release" | "medium" | "track" | "canonical_entry" | string;
-  target_entity_id: string;
-  binding_role: string;
-  display_order: number;
-  metadata?: Record<string, any>;
-}
 
 // Admin/API compatibility name. Runtime data is backed by AssetRegistry + AssetBinding.
-export interface AssetFile {
-  id: string;
-  release_id?: string;
-  medium_id?: string;
-  track_id?: string;
-  canonical_entry_id?: string;
-  file_role: string;
-  target_entity_type?: string;
-  target_entity_id?: string;
-  file_name: string;
-  s3_bucket: string;
-  s3_key: string;
-  file_size: number;
-  sha256_hash: string;
-  mime_type: string;
-  storage_tier?: string;
-  technical_specs: Record<string, any>;
-  derivatives?: Record<string, any>;
-  transcode_status: string;
-  transcode_error?: string;
-  bindings?: AssetBinding[];
-  release?: Release;
-}
 
-export interface AdminAuditLog {
-  id: string;
-  actor_id?: string;
-  actor_role: string;
-  action: string;
-  target_type: string;
-  target_id: string;
-  detail: Record<string, any>;
-  ip: string;
-  user_agent?: string;
-  created_at: string;
-}
 
-export interface Medium {
-  id: string;
-  release_id: string;
-  parent_id?: string | null;
-  position: number;
-  number?: string;
-  role?: "primary" | "supplement" | string;
-  name: string;
-  format: string;
-  media_category: string;
-  track_count: number;
-  original_language?: string;
-  translations?: Record<string, { name?: string }>;
-  localized_name?: string;
-  tracks?: Track[];
-  asset_files?: AssetFile[];
-}
 
-export interface Release {
-  id: string;
-  work_id: string;
-  cover_image_url?: string;
-  cover_aspect?: string;
-  original_language?: string;
-  translations?: Record<string, { edition_name?: string; notes?: string }>;
-  localized_edition_name?: string;
-  localized_notes?: string;
-  publisher_id?: string;
-  edition_name: string;
-  catalog_number?: string;
-  barcode?: string;
-  publisher?: string;
-  packaging?: string;
-  edition_date?: string;
-  country?: string;
-  language?: string;
-  distribution_channel?: string;
-  external_ids?: Record<string, any>;
-  attributes?: Record<string, any>;
-  external_links?: ExternalLinkDisplay[];
-  catalog_metadata?: Record<string, any>;
-  uploader?: User;
-  publisher_entity?: Artist;
-  work?: Work;
-  included_works?: Work[];
-  is_master_verified: boolean;
-  notes?: string;
-  mediums?: Medium[];
-  asset_files?: AssetFile[];
-}
 
-export interface Work {
-  id: string;
-  title: string;
-  original_title?: string;
-  aliases?: string[];
-  /** 作品类型码（如 animation/novel）；属性信息面板按它引用的模板渲染。 */
-  types?: string[];
-  release_date?: string;
-  begin_date?: string;
-  end_date?: string;
-  ended?: boolean;
-  country?: string;
-  language?: string;
-  original_language?: string;
-  summary?: string;
-  cover_image_url?: string;
-  /** 手动固定封面显示比例（"1:1"/"2:3"/"3:4"/"4:3"），空 = 自动 */
-  cover_aspect?: string;
-  content_rating?: string;
-  status: string;
-  view_count: number;
-  favorite_count?: number;
-  external_ids?: Record<string, any>;
-  attributes?: Record<string, any>;
-  external_links?: ExternalLinkDisplay[];
-  catalog_metadata: Record<string, any>;
-  tags?: Tag[];
-  artist_relations?: WorkArtistRelation[];
-  releases?: Release[];
-  connected_entities?: ConnectedEntityItem[];
-  relations?: EntityRelationship[];
-  translations?: EntityTranslation[];
-  created_by?: string;
-  creator?: User;
-  created_at?: string;
-  updated_at?: string;
-}
 
-export interface Franchise {
-  id: string;
-  title: string;
-  original_title?: string;
-  aliases?: string[];
-  original_language?: string;
-  disambiguation?: string;
-  summary?: string;
-  cover_image_url?: string;
-  begin_date?: string;
-  end_date?: string;
-  ended?: boolean;
-  country?: string;
-  language?: string;
-  external_ids?: Record<string, any>;
-  attributes?: Record<string, any>;
-  catalog_metadata?: Record<string, any>;
-  favorite_count?: number;
-  tags?: Tag[];
-  translations?: EntityTranslation[];
-  created_at?: string;
-}
 
-export interface FranchiseDetailResponse {
-  franchise: Franchise;
-  parents?: Franchise[];
-  children?: Franchise[];
-  works?: Work[];
-  agents?: Artist[];
-  connected_entities?: ConnectedEntityItem[];
-  relations?: EntityRelationship[];
-}
 
 export function catalogEntityHref(type: string, id: string): string {
-  // 旧轨详情页已退役：artist/collection 走通用兜底 /catalog/:id；
-  // work/release/medium 保留专用详情路由。
+  // 专用详情路由只覆盖 work / release / medium；其余 kind 走通用兜底 /catalog/:id。
   switch (catalogHubOf(type)) {
     case "work":
       return `/works/${id}`;
     case "release":
       return `/releases/${id}`;
+    case "medium":
+      return `/mediums/${id}`;
     default:
       return `/catalog/${id}`;
   }
@@ -706,6 +326,8 @@ export interface GraphLink {
   target_type?: string;
   type: string;
   label: string;
+  /** definitions 中的关系分组（credits/creative/membership），供图谱按语义筛选。 */
+  group?: string;
   qualifier?: string;
   color?: string;
   attributes?: Record<string, any>;
@@ -732,8 +354,10 @@ export interface DiscussionTopic { is_pinned?:boolean; pinned_at?:string;
   id: string;
   user_id: string;
   board_code: string;
-  work_id?: string;
-  release_id?: string;
+  /** 锚定的目录实体（若评论/主题挂在某个实体上）；标题与 kind 由后端补齐。 */
+  entity_id?: string;
+  entity_title?: string;
+  entity_kind?: string;
   title: string;
   content: string;
   view_count: number;
@@ -741,7 +365,6 @@ export interface DiscussionTopic { is_pinned?:boolean; pinned_at?:string;
   created_at: string;
   updated_at: string;
   user?: User;
-  work?: Work;
   comments?: Comment[];
   posts?: ForumPost[];
   tags?: Tag[];
@@ -802,21 +425,14 @@ export interface Invitation {
 }
 
 /**
- * i18n: 板块名称/描述以 translation key 为权威来源（board.<code> / board.<code>Desc）。
- * name/desc / name_zh / description 为 legacy offline fallback（英文），展示层应优先用:
- *   - getBoardName(code, t) / getBoardDesc(code, t) 或
- *   - getBoardName(code, t) / getBoardDesc(code, t) / boardDisplayName(board, locale, t) / normalizeBoard 增强
- * 后端已下发的 name_en / name_zh 若存在仍可作为次级回退，但不应直接渲染硬编码中文。
+ * 板块名称/描述为四语映射，展示用 boardDisplayName / boardDisplayDesc。
+ * nameKey/descKey 指向 messages 中的 board.* 词条，作为 translator 可用时的权威来源；
+ * names/descriptions 是服务端下发的同一份数据，也是离线兜底。
  */
 export interface ForumBoard {
   code: string;
-  name_zh: string;
-  name_en?: string;
   names?: Record<string, string>;
-  name: string;
-  description?: string;
   descriptions?: Record<string, string>;
-  desc: string;
   /** i18n keys — 复用已存在的 board.* 翻译（board.all / board.announcement / ...） */
   nameKey: string;
   descKey: string;
@@ -840,30 +456,14 @@ const BOARD_PALETTE: Record<string, { color: string; bgColor: string; borderColo
   teal: { color: "text-teal-400", bgColor: "bg-teal-500/15", borderColor: "border-teal-500/30" },
 };
 
-export function normalizeBoard(raw: any, t?: (k: string) => string): ForumBoard {
+export function normalizeBoard(raw: any): ForumBoard {
   const palette = BOARD_PALETTE[raw.color] || BOARD_PALETTE.emerald;
-  const nameKey = raw.nameKey || `board.${raw.code}`;
-  const descKey = raw.descKey || `board.${raw.code}Desc`;
-  // 若传入 t，优先以 i18n 键为准；否则以 name_en / name 作为英文 fallback，绝不回落硬编码中文
-  const nameEnFromT = t && raw.code ? (() => { try { const v = t(nameKey); return v !== nameKey ? v : ""; } catch { return ""; } })() : "";
-  const nameZh = raw.name_zh || raw.name || raw.code;
-  const nameEn = raw.name_en || nameEnFromT || "";
-  const names = (raw.names as Record<string, string> | undefined) || undefined;
-  const descriptions = (raw.descriptions as Record<string, string> | undefined) || undefined;
-  const resolvedName = raw.name && raw.name !== nameZh ? raw.name : (names ? (names["zh-CN"] || names["en-US"] || nameZh) : (nameZh || nameEn));
-  const name = raw.name && typeof raw.name === "string" && raw.name.trim() !== "" && raw.name !== nameZh ? raw.name : (nameEnFromT || nameZh || nameEn || raw.code);
-  const desc = raw.desc ?? raw.description ?? (descriptions ? (descriptions["zh-CN"] || descriptions["en-US"] || "") : "");
   return {
     code: raw.code,
-    nameKey,
-    descKey,
-    name_zh: nameZh,
-    name_en: nameEn,
-    names: names || (raw.names as Record<string, string>),
-    name: name || resolvedName || nameZh,
-    description: raw.description ?? desc,
-    descriptions: descriptions || (raw.descriptions as Record<string, string>),
-    desc,
+    nameKey: raw.nameKey || `board.${raw.code}`,
+    descKey: raw.descKey || `board.${raw.code}Desc`,
+    names: (raw.names as Record<string, string>) || undefined,
+    descriptions: (raw.descriptions as Record<string, string>) || undefined,
     color: palette.color,
     bgColor: palette.bgColor,
     borderColor: palette.borderColor,
@@ -874,76 +474,51 @@ export function normalizeBoard(raw: any, t?: (k: string) => string): ForumBoard 
   };
 }
 
-/**
- * 板块显示名：
- * - 若传入 t：以 t(board.nameKey || board.code) 为权威（复用 messages 中既有词条）
- * - 否则按 locale 回退链从 names JSONB / name_en / name_zh 获取
- */
+/** 板块显示名：有 translator 时以 board.* 词条为权威，否则走 names 的语言回退链。 */
 export function boardDisplayName(board: ForumBoard, locale?: string, t?: (k: string) => string): string {
-  if (t) {
-    const key = board.nameKey || `board.${board.code}`;
-    const translated = (() => { try { const v = t(key); return v !== key ? v : ""; } catch { return ""; } })();
-    if (translated) return translated;
-  }
-  const loc = locale || "zh-CN";
-  if (board.names && typeof board.names === "object") {
-    if (board.names[loc]) return board.names[loc];
-    const prefix = loc.slice(0, 2);
-    for (const [k, v] of Object.entries(board.names)) {
-      if (k.startsWith(prefix) && v) return v;
-    }
-    if (loc.startsWith("zh") && board.names["zh-CN"]) return board.names["zh-CN"];
-    if (board.names["en-US"]) return board.names["en-US"];
-    for (const v of Object.values(board.names)) {
-      if (v) return v;
-    }
-  }
-  if (loc === "en-US" && board.name_en) return board.name_en;
-  if (loc === "zh-CN" && board.name_zh) return board.name_zh;
-  if (board.name_en) return board.name_en;
-  if (board.name && board.name !== board.name_zh) return board.name;
-  return board.name_zh || board.code;
+  return localizedBoardText(board.nameKey, board.code, board.names, locale, t);
 }
 
-/**
- * 板块多语言描述：
- * - 若传入 t：以 t(board.descKey || board.code + 'Desc') 为权威
- * - 否则按 locale 回退链从 descriptions JSONB / desc / description 获取
- */
+/** 板块多语言描述：有 translator 时以 board.*Desc 词条为权威，否则走 descriptions 的语言回退链。 */
 export function boardDisplayDesc(board: ForumBoard, locale?: string, t?: (k: string) => string): string {
+  return localizedBoardText(board.descKey, board.code, board.descriptions, locale, t, "");
+}
+
+function localizedBoardText(
+  key: string,
+  code: string,
+  values: Record<string, string> | undefined,
+  locale?: string,
+  t?: (k: string) => string,
+  fallback = code
+): string {
   if (t) {
-    const key = board.descKey || `board.${board.code}Desc`;
     const translated = (() => { try { const v = t(key); return v !== key ? v : ""; } catch { return ""; } })();
     if (translated) return translated;
   }
   const loc = locale || "zh-CN";
-  if (board.descriptions && typeof board.descriptions === "object") {
-    if (board.descriptions[loc]) return board.descriptions[loc];
+  if (values) {
+    if (values[loc]) return values[loc];
     const prefix = loc.slice(0, 2);
-    for (const [k, v] of Object.entries(board.descriptions)) {
+    for (const [k, v] of Object.entries(values)) {
       if (k.startsWith(prefix) && v) return v;
     }
-    if (loc.startsWith("zh") && board.descriptions["zh-CN"]) return board.descriptions["zh-CN"];
-    if (board.descriptions["en-US"]) return board.descriptions["en-US"];
-    for (const v of Object.values(board.descriptions)) {
+    if (values["zh-CN"]) return values["zh-CN"];
+    if (values["en-US"]) return values["en-US"];
+    for (const v of Object.values(values)) {
       if (v) return v;
     }
   }
-  if (board.desc) return board.desc;
-  return board.description || "";
+  return fallback;
 }
+
 
 const VIRTUAL_ALL_BOARD: ForumBoard = {
   code: "all",
   nameKey: "board.all",
   descKey: "board.allDesc",
-  name_zh: "全部分区",
-  name: "All Boards",
-  name_en: "All Boards",
   names: { "zh-CN": "全部分区", "en-US": "All Boards" },
-  description: "全站论坛讨论总览",
   descriptions: { "zh-CN": "全站论坛讨论总览", "en-US": "All forum boards overview" },
-  desc: "All forum boards overview",
   color: "text-gray-300",
   bgColor: "bg-gray-500/20",
   borderColor: "border-gray-500/40",
@@ -961,13 +536,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
     code: "announcement",
     nameKey: "board.announcement",
     descKey: "board.announcementDesc",
-    name_zh: "站点公告",
-    name: "Announcements",
-    name_en: "Announcements",
     names: { "zh-CN": "站点公告", "en-US": "Announcements" },
-    description: "站点公告与运营通知",
     descriptions: { "zh-CN": "站点公告与运营通知", "en-US": "Announcements & operations" },
-    desc: "Announcements & operations",
     color: "text-amber-400",
     bgColor: "bg-amber-500/15",
     borderColor: "border-amber-500/30",
@@ -980,13 +550,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
     code: "casual",
     nameKey: "board.casual",
     descKey: "board.casualDesc",
-    name_zh: "闲聊杂谈",
-    name: "Casual Chat",
-    name_en: "Casual Chat",
     names: { "zh-CN": "闲聊杂谈", "en-US": "Casual Chat" },
-    description: "轻松闲聊与站内日常交流",
     descriptions: { "zh-CN": "轻松闲聊与站内日常交流", "en-US": "Casual chat & discussions" },
-    desc: "Casual chat & discussions",
     color: "text-purple-400",
     bgColor: "bg-purple-500/15",
     borderColor: "border-purple-500/30",
@@ -999,13 +564,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
     code: "qa",
     nameKey: "board.qa",
     descKey: "board.qaDesc",
-    name_zh: "求助答疑",
-    name: "Q&A",
-    name_en: "Q&A",
     names: { "zh-CN": "求助答疑", "en-US": "Q&A" },
-    description: "使用问题、编目与功能答疑",
     descriptions: { "zh-CN": "使用问题、编目与功能答疑", "en-US": "Questions, cataloging & help" },
-    desc: "Questions, cataloging & help",
     color: "text-teal-400",
     bgColor: "bg-teal-500/15",
     borderColor: "border-teal-500/30",
@@ -1018,13 +578,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
     code: "reviews",
     nameKey: "board.reviews",
     descKey: "board.reviewsDesc",
-    name_zh: "考据评注",
-    name: "Archive Reviews",
-    name_en: "Archive Reviews",
     names: { "zh-CN": "考据评注", "en-US": "Archive Reviews" },
-    description: "版本考证、原盘评析与文献释读",
     descriptions: { "zh-CN": "版本考证、原盘评析与文献释读", "en-US": "Edition analysis & archive reviews" },
-    desc: "Edition analysis & archive reviews",
     color: "text-emerald-400",
     bgColor: "bg-emerald-500/15",
     borderColor: "border-emerald-500/30",
@@ -1037,13 +592,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
     code: "bug_report",
     nameKey: "board.bug_report",
     descKey: "board.bug_reportDesc",
-    name_zh: "反馈与建议",
-    name: "Feedback & Bug Reports",
-    name_en: "Feedback & Bug Reports",
     names: { "zh-CN": "反馈与建议", "en-US": "Feedback & Bug Reports" },
-    description: "缺陷反馈、功能建议与复现信息",
     descriptions: { "zh-CN": "缺陷反馈、功能建议与复现信息", "en-US": "Bug reports & feature feedback" },
-    desc: "Bug reports & feature feedback",
     color: "text-rose-400",
     bgColor: "bg-rose-500/15",
     borderColor: "border-rose-500/30",
@@ -1056,13 +606,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
     code: "comment",
     nameKey: "board.comment",
     descKey: "board.commentDesc",
-    name_zh: "评论专用",
-    name: "Comments",
-    name_en: "Comments",
     names: { "zh-CN": "评论专用", "en-US": "Comments" },
-    description: "作品与讨论的评论承载区，不进入信息流与全站聚合",
     descriptions: { "zh-CN": "作品与讨论的评论承载区，不进入信息流与全站聚合", "en-US": "Comment carrier for works & topics, excluded from feeds" },
-    desc: "Comment carrier for works & topics, excluded from feeds",
     color: "text-sky-400",
     bgColor: "bg-sky-500/15",
     borderColor: "border-sky-500/30",
@@ -1338,31 +883,76 @@ export async function sendDirectMessage(userId: string, content: string): Promis
   });
 }
 
-export async function fetchEntityRevisions(targetType: string, targetId: string): Promise<{ items: EntityRevision[]; total: number }> {
-  return fetchApi<{ items: EntityRevision[]; total: number }>(`/catalog/revisions?target_type=${targetType}&target_id=${targetId}`);
+// 修订历史走实体端点 /catalog/entities/:id/revisions：返回 {id,version,actor_*,edit_note,
+// sources,snapshot,created_at}。编辑类型与字段级 diff 由前端对比相邻快照得出。
+export async function fetchEntityRevisions(targetId: string): Promise<{ items: EntityRevision[]; total: number }> {
+  const res = await fetchApi<{ items: Record<string, any>[] }>(`/catalog/entities/${targetId}/revisions`);
+  const rows = res.items || [];
+  const items: EntityRevision[] = rows.map((row, i) => {
+    const sources = Array.isArray(row.sources) ? row.sources : [];
+    const prev = i + 1 < rows.length ? rows[i + 1]?.snapshot : undefined;
+    return {
+      id: String(row.id ?? ""),
+      target_type: String(row.snapshot?.kind ?? ""),
+      target_id: targetId,
+      edit_type: Number(row.version) === 1 ? "create" : "update",
+      summary: "",
+      edit_note: row.edit_note || "",
+      source_urls: sources.map((s: any) => s?.url).filter(Boolean),
+      before_state: prev || {},
+      after_state: row.snapshot || {},
+      diff: diffSnapshots(prev, row.snapshot),
+      status: String(row.snapshot?.status ?? ""),
+      created_at: row.created_at,
+      editor: row.actor_id
+        ? { id: row.actor_id, username: row.actor_name || "system", role: row.actor_role || "editor" } as User
+        : undefined,
+    };
+  });
+  return { items, total: items.length };
 }
 
-export async function fetchWorkContents(id: string): Promise<WorkContentsResponse> {
-  return fetchApi<WorkContentsResponse>(`/catalog/works/${id}/contents`);
+// diffSnapshots 对相邻两个实体快照做字段级对比：标量与常用结构字段逐项比较，
+// attributes/translations 按键比较。值经 JSON 归一后比较，避免顺序差异误报。
+function diffSnapshots(before: any, after: any): Record<string, { old: any; new: any }> {
+  const diff: Record<string, { old: any; new: any }> = {};
+  const norm = (v: any) => JSON.stringify(v === undefined ? null : v);
+  const put = (key: string, o: any, n: any) => {
+    if (norm(o) !== norm(n)) diff[key] = { old: o ?? null, new: n ?? null };
+  };
+  const b = before || {};
+  const a = after || {};
+  for (const key of ["title", "status", "number", "position", "original_language", "summary"]) {
+    put(key, b[key], a[key]);
+  }
+  put("types", b.types, a.types);
+  put("external_ids", b.external_ids, a.external_ids);
+  const attrKeys = Array.from(new Set([...Object.keys(b.attributes || {}), ...Object.keys(a.attributes || {})]));
+  for (const k of attrKeys) put(`attributes.${k}`, b.attributes?.[k], a.attributes?.[k]);
+  const locales = Array.from(new Set([...Object.keys(b.translations || {}), ...Object.keys(a.translations || {})]));
+  for (const loc of locales) put(`translations.${loc}`, b.translations?.[loc], a.translations?.[loc]);
+  return diff;
 }
 
-// 旧轨逐实体读写封装已随旧轨退役删除（updateWork/updateArtist/updateRelease/
-// updateFranchise/updateMedium/updateTrack/createMedium/createTrack/
-// updateCanonicalEntry/createCanonicalEntry/fetchMediums）：后端不存在
-// /catalog/works|artists|releases|franchises|mediums|tracks|canonical-entries
-// 写入端点，实体写入统一走 POST|PUT /api/catalog/entities。
-
+// 合并走实体生命周期端点：POST /catalog/entities/:id/lifecycle（action=merge 语义由
+// target_id 表达，服务端把 source 并入 target 并改写引用）。
 export async function mergeEntities(payload: {
-  target_type: string;
   source_id: string;
   target_id: string;
   merge_note: string;
   source_urls?: string[];
 }): Promise<{ message: string; target_id: string }> {
-  return fetchApi<{ message: string; target_id: string }>("/catalog/merge", {
+  const source = await fetchApi<{ version: number }>(`/catalog/entities/${payload.source_id}`);
+  await fetchApi(`/catalog/entities/${payload.source_id}/lifecycle`, {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      expected_version: source.version,
+      target_id: payload.target_id,
+      edit_note: payload.merge_note,
+      sources: (payload.source_urls || []).map((u) => ({ kind: "url", citation: payload.merge_note, url: u })),
+    }),
   });
+  return { message: "merged", target_id: payload.target_id };
 }
 
 // ── MusicBrainz 风格 PAT 管理 ──
@@ -1452,7 +1042,7 @@ export interface ImporterArtistPreview {
   aliases?: string[];
   external_ids?: Record<string, any>;
   translations?: ImporterTranslationItem[];
-  matched_artist?: Artist;
+  matched_artist?: Entity;
   /** 该关联应落到的 definitions 关系码（directed_by / voiced_by / character_in 等） */
   relation_type?: string;
   /** 角色番位词表项（primary / supplement / extra） */
@@ -1487,6 +1077,8 @@ export interface ImporterTrackPreview {
   recording_mbid?: string;
   /** 手工匹配的既有表达（同 Work），优先于后端自动对齐。 */
   expression_id?: string;
+  /** 该曲目对应的 canonical_entries 下标：结构绑定到本次清单的稳定节点，不靠标题传递。 */
+  entry_index?: number;
 }
 
 export interface ImporterMediumPreview {
@@ -1584,9 +1176,10 @@ export interface ImporterImportResponse {
   work_id?: string;
   release_id?: string;
   artist_id?: string;
-  work?: Work;
-  release?: Release;
-  artist?: Artist;
+  /** 落库后返回的目标实体（work / release / agent 统一 DTO）。 */
+  work?: Entity;
+  release?: Entity;
+  artist?: Entity;
   imported_counts: {
     artists: number;
     mediums: number;
@@ -1733,11 +1326,10 @@ export function testPluginNotification(): Promise<{ message: string }> {
 // ── 外部权威数据库预设定义 ──
 export interface ExternalDatabaseDefinition {
   code: string;
-  name_zh: string;
-  name_en: string;
-  name?: string;
-  names?: Record<string, string>;
-  category: string; // "all" | "work" | "artist" | "release" | "franchise" | "canonical_entry"
+  /** 四语名称映射；zh-CN 为必填基准。 */
+  names: Record<string, string>;
+  /** 适用实体 kind："all" 或固定八实体 kind 之一。 */
+  category: string;
   url_pattern: string;
   icon: string;
   icon_url: string;
@@ -1819,25 +1411,6 @@ export function deleteExternalDatabase(code: string): Promise<{ message: string 
 }
 
 // ── 目录关系图谱拓扑与关系边 ──
-export function fetchEntityGraph(entityType: string, id: string): Promise<{ nodes: GraphNode[]; links: GraphLink[] }> {
-  const hub = catalogHubOf(entityType);
-  let endpoint = `/catalog/works/${id}/graph`;
-  if (hub === "artist") {
-    endpoint = `/catalog/artists/${id}/graph`;
-  } else if (hub === "franchise") {
-    endpoint = `/catalog/franchises/${id}/graph`;
-  } else if (hub === "release") {
-    endpoint = `/catalog/releases/${id}/graph`;
-  }
-  return fetchApi<{ nodes: GraphNode[]; links: GraphLink[] }>(endpoint);
-}
-
-export function deleteEntityRelation(id: string): Promise<{ status: string; id: string }> {
-  return fetchApi<{ status: string; id: string }>(`/catalog/entity-relations/${id}`, {
-    method: "DELETE",
-  });
-}
-
 // ── OOBE 开箱初始化设置 ──
 export interface SetupStatusResponse {
   is_initialized: boolean;

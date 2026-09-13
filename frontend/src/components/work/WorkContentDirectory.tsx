@@ -3,40 +3,68 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { ListTree } from "lucide-react";
-import { CanonicalEntry, fetchWorkContents } from "@/lib/api";
+import { Entity, title as entityTitle } from "@/components/catalog/api";
+import { fetchAllPages } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 
 type WorkContentDirectoryProps = {
   workId: string;
 };
 
+// 目录条目视图：作品下先取篇目树（content_unit）；无卷章树的作品（如 OST）回退
+// 列表达（expression），页面仍有内容可看。entry_role 是 definitions 声明的篇目类型。
+type DirectoryEntry = {
+  id: string;
+  parentId: string;
+  position: number;
+  number: string;
+  entryRole: string;
+  title: string;
+};
+
+function toEntry(e: Entity, locale: string): DirectoryEntry {
+  return {
+    id: e.id || "",
+    parentId: e.parent_id || "",
+    position: e.position || 0,
+    number: e.number || "",
+    entryRole: String(e.attributes?.entry_role || ""),
+    title: entityTitle(e, locale) || e.title || e.id || "",
+  };
+}
+
 export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
   const { t, locale } = useI18n();
-  const [items, setItems] = useState<CanonicalEntry[]>([]);
+  const [items, setItems] = useState<DirectoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
-    fetchWorkContents(workId)
-      .then((response) => {
-        if (active) setItems(response.items || []);
-      })
-      .catch(() => {
+    (async () => {
+      try {
+        const units = await fetchAllPages<Entity>(`/catalog/entities?kind=content_unit&work_id=${encodeURIComponent(workId)}`);
+        if (units.length > 0) {
+          if (active) setItems(units.map((e) => toEntry(e, locale)));
+          return;
+        }
+        const exprs = await fetchAllPages<Entity>(`/catalog/entities?kind=expression&work_id=${encodeURIComponent(workId)}`);
+        if (active) setItems(exprs.map((e) => toEntry(e, locale)));
+      } catch {
         if (active) setItems([]);
-      })
-      .finally(() => {
+      } finally {
         if (active) setLoading(false);
-      });
+      }
+    })();
     return () => {
       active = false;
     };
-  }, [workId]);
+  }, [workId, locale]);
 
   const children = useMemo(() => {
-    const grouped = new Map<string, CanonicalEntry[]>();
+    const grouped = new Map<string, DirectoryEntry[]>();
     for (const item of items) {
-      const key = item.parent_id || "root";
+      const key = item.parentId || "root";
       const list = grouped.get(key) || [];
       list.push(item);
       grouped.set(key, list);
@@ -44,20 +72,9 @@ export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
     return grouped;
   }, [items]);
 
-  const titleFor = (entry: CanonicalEntry) => {
-    const translations = entry.translations || {};
-    return (
-      entry.localized_title ||
-      translations[locale]?.title ||
-      translations["en-US"]?.title ||
-      translations[entry.original_language || ""]?.title ||
-      entry.title
-    );
-  };
-
   const renderEntries = (parentKey: string, depth: number): ReactNode[] => {
     return (children.get(parentKey) || []).flatMap((entry) => {
-      const role = entry.entry_role || "main";
+      const role = entry.entryRole || "main";
       return [
         <div
           key={entry.id}
@@ -68,7 +85,7 @@ export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
             {entry.number || entry.position || "—"}
           </span>
           <Link href={`/catalog/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200 hover:text-primary">
-            {titleFor(entry)}
+            {entry.title}
           </Link>
           <span className="shrink-0 rounded-sm border border-black/10 dark:border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
             {t(`catalog.contents.role.${role}`)}

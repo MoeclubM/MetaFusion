@@ -19,8 +19,6 @@ export interface ShelfItem {
   id: number;
   slug: string;
   names?: Record<string, string>;
-  name_zh: string;
-  name_en: string;
   query: ShelfQuery;
   sort: string;
   icon: string;
@@ -34,8 +32,6 @@ function emptyShelf(count: number): Partial<ShelfItem> {
   return {
     slug: "",
     names: { ...EMPTY_NAMES },
-    name_zh: "",
-    name_en: "",
     query: { types: [], fields: {}, vocab_terms: {}, relations: [] },
     sort: "updated",
     icon: "",
@@ -113,8 +109,6 @@ export function ShelvesTab() {
     for (const k of Object.keys(EMPTY_NAMES)) {
       if (!(k in names)) names[k] = "";
     }
-    if (!names["zh-CN"] && shelf.name_zh) names["zh-CN"] = shelf.name_zh;
-    if (!names["en-US"] && shelf.name_en) names["en-US"] = shelf.name_en;
     setForm({
       ...shelf,
       names,
@@ -148,8 +142,6 @@ export function ShelvesTab() {
     const payload = {
       slug: form.slug.trim().toLowerCase(),
       names,
-      name_zh: nameZh,
-      name_en: nameEn,
       query: {
         types: form.query?.types || [],
         fields: form.query?.fields || {},
@@ -306,11 +298,7 @@ export function ShelvesTab() {
                   <tr key={shelf.id} className="hover:bg-white/[0.02]">
                     <td className="py-3 px-4 font-mono text-emerald-300 font-bold">{shelf.slug}</td>
                     <td className="py-3 px-3">
-                      <MultilingualBadges
-                        names={shelf.names}
-                        fallbackZh={shelf.name_zh}
-                        fallbackEn={shelf.name_en}
-                      />
+                      <MultilingualBadges names={shelf.names} />
                     </td>
                     <td className="py-3 px-3">
                       <div className="flex flex-wrap gap-1 max-w-md">

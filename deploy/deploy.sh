@@ -61,7 +61,7 @@ case "$ACTION" in
             docker compose $COMPOSE_ENV up -d --no-deps "$TARGET"
         else
             echo "⚡ 增量构建并更新全部核心应用服务 (复用 BuildKit 缓存)..."
-            docker compose $COMPOSE_ENV build backend frontend transcoder-worker
+            docker compose $COMPOSE_ENV build backend frontend
             docker compose $COMPOSE_ENV up -d --remove-orphans
         fi
         echo "🔄 刷新网关 DNS 路由..."

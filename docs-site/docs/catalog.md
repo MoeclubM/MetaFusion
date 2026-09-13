@@ -76,7 +76,7 @@ Track 的 `contents` 是实际收录的唯一来源：`expression_id`、`positio
 
 编辑者可管理自己未发布的条目并提交 `pending_review`；管理员审核后设为 `published`。公开实体不能引用未公开的核心实体。合并需要管理员、同固定种类、相容所属关系和已发布目标；引用迁移与受影响修订在同一事务提交。冲突的收录或关系必须先处理。停用保留墓碑，外围数据不级联删除。
 
-收藏是核心能力（表 `catalog.favorites`，迁移 `000003_catalog_favorites`）：`POST /api/favorites/toggle` 切换（需登录，返回 `favorited`）、`GET /api/favorites/status?target_type=&target_ids=a,b` 批量查询（匿名返回空集）、`GET /api/favorites/mine` 当前用户收藏、`GET /api/users/:id/favorites` 指定用户收藏（后两者支持 `target_type`、`page`、`page_size`）。`target_type` 沿用前端词表 `work/release/artist/franchise/canonical_entry`，服务端映射到新 kind（artist→agent、franchise→collection、canonical_entry→expression/content_unit），并复用实体可见性规则。
+收藏是核心能力（表 `catalog.favorites`，迁移 `000003_catalog_favorites`）：`POST /api/favorites/toggle` 切换（需登录，返回 `favorited`）、`GET /api/favorites/status?target_type=&target_ids=a,b` 批量查询（匿名返回空集）、`GET /api/favorites/mine` 当前用户收藏、`GET /api/users/:id/favorites` 指定用户收藏（后两者支持 `target_type`、`page`、`page_size`）。`target_type` 直接是实体 kind（固定八实体骨架 `agent/collection/work/content_unit/expression/release/medium/track`），不做词表映射，并复用实体可见性规则。
 
 来源支持 `url`（必须 HTTP(S) URL）、`publication` 和 `self`，都需要具体 `citation`。每次写入均要求 `edit_note` 和非空 `sources`，不再使用 v1 的 `source_urls` 字段。
 

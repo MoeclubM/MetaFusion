@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -46,9 +47,9 @@ func respond(c *gin.Context, v any, err error) {
 	} else if code == "version_conflict" {
 		status = 409
 	}
-	// 结构化错误：保留 error 字段兼容旧前端，新增 code+message；database_error
-	// 只透出固定 code，不附带 SQL 原文。
-	c.JSON(status, gin.H{"error": code, "code": code, "message": code})
+	// 错误响应统一为单一 error 字段（值为稳定机器码）；database_error 只透出固定码，
+	// 不附带 SQL 原文。
+	c.JSON(status, gin.H{"error": code})
 }
 func body(c *gin.Context, v any) bool {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2<<20)
@@ -147,7 +148,7 @@ func routeLimiter(perMinute int) gin.HandlerFunc {
 		}
 		if over {
 			c.Header("Retry-After", strconv.Itoa(retrySecs))
-			c.AbortWithStatusJSON(429, gin.H{"error": "rate_limited", "code": "rate_limited", "message": "rate_limited"})
+			c.AbortWithStatusJSON(429, gin.H{"error": "rate_limited"})
 			return
 		}
 		c.Next()
@@ -593,32 +594,45 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	})
 	cat := api.Group("/catalog")
 	cat.GET("/definitions", func(c *gin.Context) { v, err := s.Definitions(c.Request.Context()); respond(c, v, err) })
-	cat.GET("/works", func(c *gin.Context) {
-		limit, _ := strconv.Atoi(c.DefaultQuery("limit", c.DefaultQuery("page_size", "20")))
-		offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
-		o := ListOptions{Kind: "work", Query: c.Query("q"), Limit: limit, Offset: offset}
-		items, err := s.List(c.Request.Context(), o, user(c))
+	// 标签聚合：标签不是独立字典表，而是散落在各实体的 attributes.tags 中。
+	// jsonb_array_elements_text 展开数组就地统计频次，供前端标签云与筛选建议；
+	// 只统计已发布实体（与列表接口的匿名可见性口径一致）。
+	cat.GET("/tags", routeLimiter(120), func(c *gin.Context) {
+		args := []any{}
+		where := []string{"e.status='published'", "jsonb_typeof(e.document->'attributes'->'tags')='array'"}
+		if q := strings.TrimSpace(c.Query("q")); q != "" {
+			args = append(args, "%"+q+"%")
+			where = append(where, fmt.Sprintf("t.name ILIKE $%d", len(args)))
+		}
+		limit, _ := strconv.Atoi(c.Query("limit"))
+		if limit <= 0 || limit > 500 {
+			limit = 200
+		}
+		args = append(args, limit)
+		rows, err := s.DB.QueryContext(c.Request.Context(), `
+		SELECT t.name, count(*) AS n
+		FROM catalog.entities e,
+		     jsonb_array_elements_text(e.document->'attributes'->'tags') AS t(name)
+		WHERE `+strings.Join(where, " AND ")+`
+		GROUP BY t.name
+		ORDER BY n DESC, t.name
+		LIMIT $`+strconv.Itoa(len(args)), args...)
 		if err != nil {
-			respond(c, nil, err)
+			respond(c, gin.H{"items": []any{}, "total": 0}, nil)
 			return
 		}
-		// 真实 COUNT total, 与 List 共用同一谓词(见 listFilter/Count)。
-		total, err := s.Count(c.Request.Context(), o, user(c))
-		respond(c, gin.H{"items": items, "total": total}, err)
+		defer rows.Close()
+		items := []map[string]any{}
+		for rows.Next() {
+			var name string
+			var n int
+			if err := rows.Scan(&name, &n); err != nil {
+				continue
+			}
+			items = append(items, map[string]any{"name": name, "count": n})
+		}
+		respond(c, gin.H{"items": items, "total": len(items)}, nil)
 	})
-	// 旧前端 /works/[id] 页兼容路由：新轨 Work 实体映射为旧 JSON 形状（只读），见 works_compat.go。
-	cat.GET("/works/:id", h.worksDetail)
-	cat.GET("/works/:id/contents", h.worksContents)
-	cat.GET("/works/:id/graph", h.worksGraph)
-	// 旧前端其余详情页只读兼容路由（taxonomy/artists/franchises/mediums/canonical-entries），见 legacy_compat.go。
-	cat.GET("/taxonomy", h.taxonomyCompat)
-	cat.GET("/artists/:id", h.artistsCompat)
-	cat.GET("/franchises/:id", h.franchisesCompat)
-	cat.GET("/mediums/:id", h.mediumsCompat)
-	cat.GET("/canonical-entries/:id", h.canonicalEntriesCompat)
-	cat.GET("/tags", h.tagsCompat)
-	cat.GET("/relation-types", h.relationTypesCompat)
-	cat.GET("/works/:id/comments", h.worksCommentsCompat)
 	cat.GET("/entities", routeLimiter(120), func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		offset, _ := strconv.Atoi(c.Query("offset"))
@@ -991,3 +1005,27 @@ const swaggerHTML = `<!DOCTYPE html>
   </script>
 </body>
 </html>`
+
+// resolveRelated 批量解析关系对端实体（单次查询），失败的对端跳过。
+// u 用请求方身份，保证草稿实体的创建者/管理员能看到自己的关系对端。
+// 不设固定条数上限：真实条目（如动画）署名可达数百条，截断会让详情页缺数据。
+func (h HTTP) resolveRelated(ctx context.Context, selfID string, rels []Relation, u *User) map[string]Entity {
+	ids := make([]string, 0, len(rels))
+	seen := map[string]bool{selfID: true}
+	for _, r := range rels {
+		other := r.TargetID
+		if r.SourceID != selfID {
+			other = r.SourceID
+		}
+		if other == "" || seen[other] {
+			continue
+		}
+		seen[other] = true
+		ids = append(ids, other)
+	}
+	got, err := h.Store.GetManyVisible(ctx, ids, u)
+	if err != nil {
+		return map[string]Entity{}
+	}
+	return got
+}

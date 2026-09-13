@@ -32,7 +32,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-export const Navbar: React.FC<{ onOpenUpload?: () => void }> = ({ onOpenUpload }) => {
+export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { t } = useI18n();
   const pathname = usePathname();

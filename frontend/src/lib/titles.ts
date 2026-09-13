@@ -1,4 +1,3 @@
-import type { EntityTranslation } from "./api";
 
 /** Show original_title only when it differs from the primary display title. */
 export function isDistinctOriginalTitle(
@@ -72,32 +71,32 @@ function normalizeOriginalLocale(originalLanguage?: string | null): string {
  * 将实体多语言标题按语种归并：每语种一组（主标题 + 同语种并列标题），
  * 原始语言仅作组内标记。调用方用 original_language 判定哪一组是原始语言，
  * 用 displayTitle 判定主标题行已展示过的标题不再重复。
+ * 输入为统一 DTO 的 translations（按 locale 分组的对象：{loc:{title,aliases}}）。
  */
 export function groupTitlesByLocale(
-  translations: EntityTranslation[] | undefined,
+  translations: Record<string, { title?: string; name?: string; aliases?: string[] }> | undefined,
   originalLanguage?: string | null,
 ): LocaleTitleGroup[] {
-  const rows = translations || [];
   const origLocale = normalizeOriginalLocale(originalLanguage);
   const groups: LocaleTitleGroup[] = [];
   const seen = new Set<string>();
-  for (const row of rows) {
-    const locale = (row.locale || "").trim() || "zh-CN";
-    const primary = (row.title || row.name || "").trim();
-    const aliases = Array.isArray(row.aliases)
-      ? row.aliases.map((a) => String(a ?? "").trim()).filter(Boolean)
+  for (const [locale, row] of Object.entries(translations || {})) {
+    const loc = (locale || "").trim() || "zh-CN";
+    const primary = (row?.title || row?.name || "").trim();
+    const aliases = Array.isArray(row?.aliases)
+      ? row!.aliases!.map((a) => String(a ?? "").trim()).filter(Boolean)
       : [];
     if (!primary && aliases.length === 0) continue;
-    const key = `${locale}\u0000${primary.toLocaleLowerCase()}`;
+    const key = `${loc}\u0000${primary.toLocaleLowerCase()}`;
     if (seen.has(key)) continue;
     seen.add(key);
     groups.push({
-      locale,
+      locale: loc,
       primary: primary || aliases[0] || "",
       aliases: primary ? aliases : aliases.slice(1),
       isOriginal:
         !!origLocale &&
-        (locale === origLocale || localeAliases(locale).includes(origLocale)),
+        (loc === origLocale || localeAliases(loc).includes(origLocale)),
     });
   }
   groups.sort((a, b) => {
@@ -314,30 +313,3 @@ export function visibleTitleGroups(groups: LocaleTitleGroup[], displayTitle?: st
  * 实体级 aliases 过滤：已在任一翻译标题（主标题或同语种并列标题）中
  * 出现过的值不再作为别名展示——原语言标题归属翻译行，不进别名。
  */
-export function filterDisplayAliases(
-  aliases: string[] | undefined,
-  translations: EntityTranslation[] | undefined,
-  extraKnown?: Array<string | null | undefined>,
-): string[] {
-  const known = new Set<string>();
-  for (const row of translations || []) {
-    for (const t of [row.title, row.name, ...(row.aliases || [])]) {
-      const v = (t ?? "").toString().trim().toLocaleLowerCase();
-      if (v) known.add(v);
-    }
-  }
-  for (const t of extraKnown || []) {
-    const v = (t ?? "").toString().trim().toLocaleLowerCase();
-    if (v) known.add(v);
-  }
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const a of aliases || []) {
-    const v = String(a ?? "").trim();
-    const low = v.toLocaleLowerCase();
-    if (!v || known.has(low) || seen.has(low)) continue;
-    seen.add(low);
-    out.push(v);
-  }
-  return out;
-}

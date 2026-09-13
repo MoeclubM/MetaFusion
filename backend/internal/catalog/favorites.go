@@ -1,8 +1,8 @@
 package catalog
 
 // 用户收藏：详情页收藏按钮与"我的收藏 / 用户收藏"列表。
-// 前端 target_type 为既有词表（work/release/artist/franchise/canonical_entry），
-// 落库/读取时映射到新轨实体 kind，并沿用实体可见性规则，避免收藏到不可见条目。
+// target_type 直接就是实体 kind（固定八种骨架），落库/读取不做词表映射，
+// 并沿用实体可见性规则，避免收藏到不可见条目。
 
 import (
 	"context"
@@ -14,14 +14,16 @@ import (
 	"github.com/lib/pq"
 )
 
-// favoriteTargetKinds 收藏目标类型 → 允许的新轨实体 kind。
-// canonical_entry 在新轨可能落在 expression 或 content_unit，两者都接受。
+// favoriteTargetKinds 收藏目标类型 → 实体 kind，键即八实体骨架本身。
 var favoriteTargetKinds = map[string][]string{
-	"work":            {"work"},
-	"release":         {"release"},
-	"artist":          {"agent"},
-	"franchise":       {"collection"},
-	"canonical_entry": {"expression", "content_unit"},
+	"agent":        {"agent"},
+	"collection":   {"collection"},
+	"work":         {"work"},
+	"content_unit": {"content_unit"},
+	"expression":   {"expression"},
+	"release":      {"release"},
+	"medium":       {"medium"},
+	"track":        {"track"},
 }
 
 // Favorite 是一条收藏记录，附带已解析的目标实体摘要（供列表展示）。
@@ -31,11 +33,8 @@ type Favorite struct {
 	TargetID   string    `json:"target_id"`
 	CreatedAt  time.Time `json:"created_at"`
 
-	Work           *Entity `json:"work,omitempty"`
-	Release        *Entity `json:"release,omitempty"`
-	Artist         *Entity `json:"artist,omitempty"`
-	Franchise      *Entity `json:"franchise,omitempty"`
-	CanonicalEntry *Entity `json:"canonical_entry,omitempty"`
+	// Entity 恒为被收藏实体本身；前端按 target_type 渲染，不再按 kind 分支出多种字段。
+	Entity *Entity `json:"entity,omitempty"`
 }
 
 // resolveFavoriteTarget 校验 target_type 合法、目标实体存在且对 u 可见。
@@ -148,18 +147,7 @@ func (s *Store) ListFavorites(ctx context.Context, ownerID string, viewer *User,
 		if gerr != nil {
 			continue // 目标不可见/已删除：跳过，不泄露存在性
 		}
-		switch f.TargetType {
-		case "work":
-			f.Work = &e
-		case "release":
-			f.Release = &e
-		case "artist":
-			f.Artist = &e
-		case "franchise":
-			f.Franchise = &e
-		case "canonical_entry":
-			f.CanonicalEntry = &e
-		}
+		f.Entity = &e
 		items = append(items, f)
 	}
 	return items, total, rows.Err()

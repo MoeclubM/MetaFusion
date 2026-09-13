@@ -38,7 +38,7 @@ func Defaults() Definitions {
 	field := func(code, zh, en, typ string) {
 		d.Fields[code] = Field{Names: names(zh, en), Type: typ, Enabled: true, Searchable: true, Comparable: true}
 	}
-	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"edition_type", "版本类型", "Edition type", "enum"}, {"distribution_channel", "发行渠道", "Distribution channel", "enum"}, {"platform", "平台", "Platform", "text"}, {"episodes", "话数", "Episodes", "number"}, {"volume_count", "卷数", "Volumes", "number"}, {"broadcast_start", "放送开始", "Broadcast start", "date"}, {"broadcast_weekday", "放送星期", "Broadcast weekday", "text"}, {"broadcast_end", "放送结束", "Broadcast end", "date"}, {"air_network", "放送电视台", "Broadcast network", "text"}, {"copyright", "版权标示", "Copyright", "text"}, {"isbn", "ISBN", "ISBN", "text"}, {"author", "作者", "Author", "text"}, {"magazine", "连载杂志", "Magazine", "text"}, {"publisher_name", "出版社", "Publisher name", "text"}, {"imdb", "IMDb", "IMDb", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"credit_role", "署名职位", "Credit role", "text"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
+	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"edition_type", "版本类型", "Edition type", "enum"}, {"distribution_channel", "发行渠道", "Distribution channel", "enum"}, {"platform", "平台", "Platform", "text"}, {"episodes", "话数", "Episodes", "number"}, {"volume_count", "卷数", "Volumes", "number"}, {"broadcast_start", "放送开始", "Broadcast start", "date"}, {"broadcast_weekday", "放送星期", "Broadcast weekday", "text"}, {"broadcast_end", "放送结束", "Broadcast end", "date"}, {"air_network", "放送电视台", "Broadcast network", "text"}, {"copyright", "版权标示", "Copyright", "text"}, {"isbn", "ISBN", "ISBN", "text"}, {"author", "作者", "Author", "text"}, {"magazine", "连载杂志", "Magazine", "text"}, {"publisher_name", "出版社", "Publisher name", "text"}, {"imdb", "IMDb", "IMDb", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"entry_role", "篇目类型", "Entry role", "enum"}, {"credit_role", "署名职位", "Credit role", "text"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
 		field(x[0], x[1], x[2], x[3])
 	}
 	// 标签：值域开放（上游标签随作品而定），故为字符串列表而非受控词表；
@@ -64,6 +64,9 @@ func Defaults() Definitions {
 		{"format", "载体格式", "Medium formats", [][3]string{{"cd", "CD", "CD"}, {"bd", "蓝光", "Blu-ray"}, {"uhd_bd", "超高清蓝光", "Ultra HD Blu-ray"}, {"dvd", "DVD", "DVD"}, {"vinyl", "黑胶", "Vinyl"}, {"sacd", "SACD", "SACD"}, {"cassette", "磁带", "Cassette"}, {"paper", "纸质册", "Printed volume"}, {"digital", "数字文件集", "Digital collection"}, {"web", "网络配信", "Web distribution"}}},
 		{"packaging", "包装", "Packaging", [][3]string{{"standard", "标准包装", "Standard"}, {"jewel", "Jewel Case", "Jewel case"}, {"slipcase", "腰封 / 外封套", "Slipcase"}, {"box", "盒装", "Box"}, {"boxset", "套盒", "Box set"}, {"digipak", "Digipak", "Digipak"}}},
 		{"role", "内容用途", "Content roles", [][3]string{{"primary", "主要内容", "Primary"}, {"supplement", "附加内容", "Supplement"}, {"side", "唱片面", "Side"}, {"extra", "额外收录", "Extra"}, {"commentary", "解说音轨", "Commentary"}}},
+		// 篇目类型：区分本篇与 OP/ED/预告等附加篇目。集数编号在本篇与 OP 各自从 1 起算，
+		// 仅凭编号/标题无法区分，必须单独记录。
+		{"entry_role", "篇目类型", "Entry roles", [][3]string{{"main", "本篇", "Main"}, {"opening", "片头曲", "Opening"}, {"ending", "片尾曲", "Ending"}, {"trailer", "预告 / 宣传", "Trailer"}, {"extra", "其它附加", "Extra"}, {"other", "其它", "Other"}}},
 		{"release_role", "发行对象用途", "Release subject roles", [][3]string{{"primary", "主作品", "Primary"}, {"compilation", "汇编作品", "Compilation"}, {"supplement", "附加作品", "Supplement"}}},
 		{"edition_type", "版本类型", "Edition types", [][3]string{{"standard", "普通版", "Standard edition"}, {"limited", "限定版", "Limited edition"}, {"first_press", "初回版", "First press"}, {"regional", "地区版", "Regional edition"}, {"reissue", "再版", "Reissue"}, {"digital", "数字版", "Digital edition"}, {"deluxe", "豪华版", "Deluxe edition"}, {"boxset", "套盒", "Box set"}}},
 		{"distribution_channel", "发行渠道", "Distribution channels", [][3]string{{"mixed", "混合", "Mixed"}, {"physical", "实体", "Physical"}, {"digital", "数字", "Digital"}, {"web", "网络配信", "Web distribution"}}},
@@ -75,7 +78,7 @@ func Defaults() Definitions {
 		}
 		d.Vocabularies[x.code] = v
 	}
-	for _, k := range []string{"format", "packaging", "role", "edition_type", "distribution_channel"} {
+	for _, k := range []string{"format", "packaging", "role", "edition_type", "distribution_channel", "entry_role"} {
 		f := d.Fields[k]
 		f.Vocabulary = k
 		d.Fields[k] = f
@@ -153,6 +156,10 @@ func Defaults() Definitions {
 	for _, k := range []string{"collection", "content_unit", "expression", "release", "medium", "track"} {
 		keys := []string{"language"}
 		switch k {
+		case "content_unit":
+			// entry_role 记录篇目类型（本篇/OP/ED/预告）：集数编号在各类型间各自起算，
+			// 不记录就无法区分"第1话"与"第1首片头曲"。
+			keys = []string{"language", "entry_role"}
 		case "expression":
 			keys = []string{"language", "duration", "version_label", "isrc", "events"}
 		case "release":
