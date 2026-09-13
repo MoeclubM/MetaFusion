@@ -1,21 +1,31 @@
 // 发行对比的内容对齐算法（纯函数，便于单点验证与复用）。
 //
-// 旧实现只按 work_id 聚合变体、并用"Expression 集合是否相等"判断仅载体差异，
-// 会产生两类错误结论：
-//   1) 同一作品下不同章节（不同 ContentUnit）各自有表达时，被误报为"同曲异录音"；
-//   2) 同一表达的收录范围不同（完整录音 vs 片段）被漏判，仍显示"仅载体不同"。
-//
-// 新算法按以下顺序对齐：
+// 三层语义必须分开，否则结论必然错：
 //   ① 内容身份：有 content_unit_id 用章节，否则用 work_id；
-//   ② 各发行实际引用的 Expression；
-//   ③ 收录范围（locator/position）与重复次数、顺序；
-//   ④ 载体结构（格式/盘数/轨数）。
-// 只有 ①②③ 全部一致、仅 ④ 不同，才显示"仅载体不同"；资料缺失时归为"待确认"。
+//   ② 各发行实际引用的 Expression（同一章节可能有原文/译文/不同录音）；
+//   ③ **内容选择范围**：引用整份表达，还是原文/原录音的某个片段；
+//   ④ **载体内位置**：该内容位于本版第几页、什么时间、文件路径/锚点；
+//   ⑤ 载体结构（格式/盘数/轨数）。
+//
+// ③ 与 ④ 的界线不能靠字段名或区间长度猜：完整章节换字体导致页数改变，不改变内容身份；
+// 原录音前 30 秒与后 30 秒长度相等，却不是同一个片段。因此本算法的规则**来自
+// definitions 声明**（Field.Semantics 闭集）：声明 "content" 的子字段参与 ③，
+// 其余 locator 子字段（默认）参与 ④。未声明的收录附加属性既不属于 ③ 也不属于 ④，
+// 一旦两侧不同只能归为"无法判断"，不得据此断言"仅载体不同"。
+//
+// 各类结论：
+//   ①②③ 全同、仅 ⑤ 不同 → 仅载体差异（carrierOnly）
+//   ①② 同、③ 不同        → 收录范围/顺序不同（rangeDiffer）
+//   ①②③ 同、④ 不同       → 仅本版定位不同（locatingDiffer）
+//   ①② 同、附加属性不同    → 无法判断（attributeDiffer）
+//   身份元数据解析不全      → 待确认（pendingConfirm）
 
 export interface CompareInclusionLike {
   expression_id?: string;
   position?: number;
   locator?: Record<string, any>;
+  /** 收录附加属性：子字段由 definitions 的 inclusion_attributes 声明。 */
+  attributes?: Record<string, any>;
 }
 
 export interface CompareTrackLike {
@@ -36,6 +46,33 @@ export interface CompareItemLike {
 export interface CompareExprEntityLike {
   work_id?: string;
   content_unit_id?: string;
+}
+
+/** 对比语义声明：由 definitions 的 locator / inclusion_attributes 子字段声明推导。 */
+export interface CompareSemantics {
+  /** 声明为"内容选择范围"的子字段码（Field.Semantics === "content"）。 */
+  content: string[];
+  /** 声明为"本版定位"的子字段码（Field.Semantics === "locating"）。 */
+  locating: string[];
+}
+
+// compareSemanticsOf 从 definitions 读出对比语义声明。locator 里的子字段默认为
+// "本版定位"（Field.Semantics 缺省语义即定位），因此未声明者按定位处理；
+// 收录附加属性里的未声明子字段无法归类，单独作为"其它属性"处理。
+export function compareSemanticsOf(defs: any): CompareSemantics {
+  const collect = (code: string) => {
+    const fields = defs?.fields?.[code]?.fields || {};
+    return Object.entries(fields)
+      .filter(([, f]: [string, any]) => f?.enabled !== false && !f?.hidden)
+      .map(([k, f]: [string, any]) => ({ code: k, semantics: String(f?.semantics || "") }));
+  };
+  const content: string[] = [];
+  const locating: string[] = [];
+  for (const item of [...collect("locator"), ...collect("inclusion_attributes")]) {
+    if (item.semantics === "content") content.push(item.code);
+    else if (item.semantics === "locating") locating.push(item.code);
+  }
+  return { content, locating };
 }
 
 /** 每个发行自身的目录完整性，用于区分"尚未编目"与"已确认相同"。 */
@@ -59,42 +96,63 @@ export interface AlignmentResult {
   workVariants: { contentKey: string; ids: string[] }[];
   /** 内容一致、仅载体结构不同。 */
   carrierOnly: [number, number][];
-  /** 引用表达一致，但收录范围/重复/顺序不同（实际内容截取变化）。 */
+  /** 引用表达一致，但内容选择范围/重复/顺序不同（真正的收录范围变化）。 */
   rangeDiffer: [number, number][];
-  /** 内容与范围一致，仅本版定位不同（如页码/时间码整体平移）。 */
+  /** 内容与范围一致，仅本版定位（页码/时间码/路径）不同。 */
   locatingDiffer: [number, number][];
+  /** 内容一致，但记录级附加属性不同，无法确认是否仅为载体差异。 */
+  attributeDiffer: [number, number][];
   /** 存在无法解析身份的表达（缺少 work/章节元数据），结论需人工确认。 */
   pendingConfirm: boolean;
   /** 目录不完整（缺曲目/内容引用）的发行下标：不得据此下内容一致性结论。 */
   incomplete: number[];
 }
 
-function locatorKey(loc?: Record<string, any>): string {
-  if (!loc || Object.keys(loc).length === 0) return "";
-  try {
-    return JSON.stringify(loc);
-  } catch {
-    return "";
+// keyOf 把一组子字段值序列化成稳定键（键名排序，值原样保留）。
+function keyOf(source: Record<string, any> | undefined, codes: string[]): string {
+  if (!source) return "";
+  const parts: string[] = [];
+  for (const code of [...codes].sort()) {
+    const v = source[code];
+    if (v === undefined || v === null || v === "") continue;
+    parts.push(`${code}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`);
   }
+  return parts.join(",");
 }
 
-// excerptExtentOf 只描述"实际截取了多少内容"，不含绝对起点：页区间长度、时间区间长度。
-// 同一份译文从第 20 页排到第 25 页，长度不变，属本版定位变化而非内容变化；
-// 完整 3 分钟 vs 前 30 秒则长度不同，才是真正的收录范围变化。
-function excerptExtentOf(loc?: Record<string, any>): string {
+// contentKeyOf 只描述"实际引用了多少内容"：由声明为 content 的子字段决定。
+// 完整引用（无任何 content 子字段取值）与片段引用会产生不同键，从而区分开。
+function contentRangeKeyOf(
+  loc: Record<string, any> | undefined,
+  attrs: Record<string, any> | undefined,
+  semantics: CompareSemantics,
+): string {
+  const fromLoc = semantics.content.filter((c) => loc && loc[c] !== undefined && loc[c] !== null);
+  const fromAttrs = semantics.content.filter((c) => attrs && attrs[c] !== undefined && attrs[c] !== null);
+  return keyOf(loc, fromLoc) + "|" + keyOf(attrs, fromAttrs);
+}
+
+// locatingKeyOf 只描述"本版如何定位"：定位语义子字段 + locator 中未声明者（默认定位）。
+function locatingKeyOf(
+  loc: Record<string, any> | undefined,
+  semantics: CompareSemantics,
+): string {
   if (!loc) return "";
-  const num = (v: any): number | null => {
-    const n = typeof v === "string" ? Number(v) : v;
-    return typeof n === "number" && Number.isFinite(n) ? n : null;
-  };
-  const parts: string[] = [];
-  const ps = num(loc.page_start);
-  const pe = num(loc.page_end);
-  if (ps !== null || pe !== null) parts.push(`p:${ps !== null && pe !== null ? pe - ps : "?"}`);
-  const ts = num(loc.time_start_ms);
-  const te = num(loc.time_end_ms);
-  if (ts !== null || te !== null) parts.push(`t:${ts !== null && te !== null ? te - ts : "?"}`);
-  return parts.join("|");
+  const declared = new Set(semantics.content);
+  const codes = Object.keys(loc).filter((k) => !declared.has(k) && loc[k] !== undefined && loc[k] !== null);
+  return keyOf(loc, codes);
+}
+
+// otherAttrsKeyOf 收拢"既非内容范围、也非定位"的收录附加属性：来源无法归类，
+// 两侧不同时只能提示人工核对，不能断言仅载体差异。
+function otherAttrsKeyOf(
+  attrs: Record<string, any> | undefined,
+  semantics: CompareSemantics,
+): string {
+  if (!attrs) return "";
+  const known = new Set([...semantics.content, ...semantics.locating]);
+  const codes = Object.keys(attrs).filter((k) => !known.has(k) && attrs[k] !== undefined && attrs[k] !== null);
+  return keyOf(attrs, codes);
 }
 
 function contentKeyOf(exprId: string, exprEntities: Record<string, CompareExprEntityLike | undefined>): string {
@@ -133,18 +191,19 @@ function orderedTracks(tracks: CompareTrackLike[]): CompareTrackLike[] {
   return out;
 }
 
-// 每条发行上按载体→轨道→收录顺序展开两份有序指纹（都保留顺序与重复次数）：
-//   seq   完整指纹（含绝对定位与轨内位置）；
-//   shape 只含"内容身份＋表达＋截取长度＋顺序"，不含绝对起点。
-// seq 相同＝完全相同；shape 相同而 seq 不同＝仅本版定位变化；shape 不同＝内容范围变化。
+// 按载体→轨道→收录顺序展开三类有序指纹（都保留顺序与重复次数）：
+//   content[].shape  内容身份 + 表达 + 内容选择范围（含重复与顺序）
+//   content[].locating 本版定位（仅在内容指纹一致时才有比较意义）
+//   content[].other  无法归类的附加属性
 function sequenceOf(
   item: CompareItemLike,
   exprEntities: Record<string, CompareExprEntityLike | undefined>,
-): { content: string[]; exprs: string[]; seq: string[]; shape: string[]; unknown: boolean } {
+  semantics: CompareSemantics,
+): { content: string[]; exprs: string[]; locating: string[]; other: string[]; unknown: boolean } {
   const content: string[] = [];
   const exprs: string[] = [];
-  const seq: string[] = [];
-  const shape: string[] = [];
+  const locating: string[] = [];
+  const other: string[] = [];
   let unknown = false;
   for (const m of item.media || []) {
     for (const tr of orderedTracks(m.tracks || [])) {
@@ -154,13 +213,13 @@ function sequenceOf(
         exprs.push(id);
         const ck = contentKeyOf(id, exprEntities);
         if (!ck) unknown = true;
-        content.push(ck);
-        seq.push(`${ck}|${id}|${locatorKey(c.locator)}|${c.position ?? ""}`);
-        shape.push(`${ck}|${id}|${excerptExtentOf(c.locator)}`);
+        content.push(`${ck}|${id}|${contentRangeKeyOf(c.locator, c.attributes, semantics)}`);
+        locating.push(`${locatingKeyOf(c.locator, semantics)}|${c.position ?? ""}`);
+        other.push(otherAttrsKeyOf(c.attributes, semantics));
       }
     }
   }
-  return { content, exprs, seq, shape, unknown };
+  return { content, exprs, locating, other, unknown };
 }
 
 function structureOf(item: CompareItemLike): string {
@@ -219,12 +278,13 @@ function arraysEqual(a: string[], b: string[]): boolean {
 export function computeAlignment(
   items: CompareItemLike[],
   exprEntities: Record<string, CompareExprEntityLike | undefined>,
+  semantics: CompareSemantics = { content: [], locating: [] },
 ): AlignmentResult {
   const perExpr = new Map<string, { releaseIndex: number }[]>();
   const n = items.length;
   let pendingConfirm = false;
 
-  const facts = items.map((item) => sequenceOf(item, exprEntities));
+  const facts = items.map((item) => sequenceOf(item, exprEntities, semantics));
   // 目录不完整（无载体/载体无曲目/曲目无内容引用）的发行：不参与内容一致性结论，
   // 单独列出让人工补录，而不是把空集合当成"已确认一致"。
   const incomplete: number[] = [];
@@ -271,6 +331,7 @@ export function computeAlignment(
   const carrierOnly: [number, number][] = [];
   const rangeDiffer: [number, number][] = [];
   const locatingDiffer: [number, number][] = [];
+  const attributeDiffer: [number, number][] = [];
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const a = facts[i];
@@ -278,21 +339,35 @@ export function computeAlignment(
       // 身份无法解析、或任一侧目录不完整时不给结论，交由 pendingConfirm/incomplete 提示。
       if (a.unknown || b.unknown) continue;
       if (!complete[i] || !complete[j]) continue;
-      const sameContent = arraysEqual(sortedUnique(a.content), sortedUnique(b.content));
-      const sameExprs = arraysEqual(sortedUnique(a.exprs), sortedUnique(b.exprs));
-      // ③ 收录范围/重复/顺序：序列完全相同才算一致。
-      const sameSeq = arraysEqual(a.seq, b.seq);
-      if (sameExprs && !sameSeq) {
-        // 截取长度与顺序一致、仅绝对定位不同 → 本版定位变化，不是内容范围变化。
-        if (arraysEqual(a.shape, b.shape)) locatingDiffer.push([i, j]);
-        else rangeDiffer.push([i, j]);
+      // ③ 内容身份 + 表达 + 内容选择范围（含顺序与重复）：完全一致才是同一份内容。
+      if (!arraysEqual(a.content, b.content)) {
+        rangeDiffer.push([i, j]);
         continue;
       }
-      if (sameContent && sameExprs && sameSeq) {
-        if (structureOf(items[i]) !== structureOf(items[j])) carrierOnly.push([i, j]);
+      // ④ 差异无法归类时不下"仅载体不同"的结论。
+      if (!arraysEqual(a.other, b.other)) {
+        attributeDiffer.push([i, j]);
+        continue;
       }
+      // ⑤ 定位不同：内容与范围一致，只是本版页码/时间码/路径不同。
+      if (!arraysEqual(a.locating, b.locating)) {
+        locatingDiffer.push([i, j]);
+        continue;
+      }
+      if (structureOf(items[i]) !== structureOf(items[j])) carrierOnly.push([i, j]);
     }
   }
 
-  return { perExpr, shared, partial, workVariants, carrierOnly, rangeDiffer, locatingDiffer, pendingConfirm, incomplete };
+  return {
+    perExpr,
+    shared,
+    partial,
+    workVariants,
+    carrierOnly,
+    rangeDiffer,
+    locatingDiffer,
+    attributeDiffer,
+    pendingConfirm,
+    incomplete,
+  };
 }

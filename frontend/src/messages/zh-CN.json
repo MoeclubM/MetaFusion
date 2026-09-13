@@ -2007,6 +2007,7 @@
   "catalog.compareRangeDiffer": "引用同一录音但收录范围/顺序不同",
 "catalog.compareLocatingDiffer": "内容与范围一致，仅本版定位（页码/时间码）不同",
   "catalog.comparePendingConfirm": "部分内容的身份元数据不完整，结论待确认。",
+  "catalog.compareAttributeDiffer": "内容一致，但记录级附加属性不同，无法确认是否仅载体差异",
   "catalog.resourceGatewayTitle": "资源存储与下载管理中心",
   "catalog.resourceGatewayDesc": "物理资源归档与下载管理已独立为外部专门系统。通过统一通行证（OAuth 2.0 SSO）实现无缝单点登录。",
   "catalog.resourceGatewayVisit": "前往独立资源中心 ↗",

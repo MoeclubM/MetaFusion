@@ -25,6 +25,8 @@ export interface FieldDef {
   anchor_key?: string;
   /** 可写、可检索，但不进详情信息面板（存档/机器用途，如资料表原始条目）。 */
   hidden?: boolean;
+  /** 对比语义（闭集）："content" 为内容选择范围，"locating" 为本版定位。 */
+  semantics?: string;
 }
 
 export interface SectionDef {
