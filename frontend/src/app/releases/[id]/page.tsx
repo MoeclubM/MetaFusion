@@ -13,7 +13,7 @@ import {
   getTermName,
 } from "@/lib/definitions";
 import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
-import { RecordList } from "@/components/catalog/TemplateAttributeSections";
+import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateAttributeSections";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowLeft,
@@ -110,6 +110,8 @@ type Occurrence = {
   expression_id: string;
   position: number;
   locator?: Record<string, any> | null;
+  /** 收录附加属性：键为 definitions 的 inclusion_attributes 子字段码。 */
+  attributes?: Record<string, any> | null;
 };
 
 type MediumRow = { medium: Entity; tracks: Entity[] };
@@ -745,13 +747,16 @@ export default function ReleaseDetailPage() {
                     const w = works[s.work_id];
                     if (!w) return null;
                     return (
-                      <Link
+                      <span
                         key={`${s.work_id}-${s.role}`}
-                        href={`/works/${s.work_id}`}
-                        className="px-1.5 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-[11px] text-gray-700 dark:text-gray-300 hover:text-primary"
+                        className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-[11px]"
                       >
-                        {entityTitle(w, locale)}
-                      </Link>
+                        <Link href={`/works/${s.work_id}`} className="text-gray-700 dark:text-gray-300 hover:text-primary">
+                          {entityTitle(w, locale)}
+                        </Link>
+                        {/* 发行对象附加属性（definitions 声明，未声明则不显示）。 */}
+                        <GroupAttributeInline defs={dynamicDefs} code="subject_attributes" value={s.attributes} locale={locale} />
+                      </span>
                     );
                   })}
                 </div>
@@ -995,6 +1000,8 @@ export default function ReleaseDetailPage() {
                             </td>
                             <td className="py-2 text-right font-mono text-gray-500 tabular-nums">
                               {formatDuration(Number(occurrenceEntities[o.track_id]?.attributes?.duration) || 0)}
+                              {/* 收录附加属性（definitions 声明，未声明则不显示）。 */}
+                              <GroupAttributeInline defs={dynamicDefs} code="inclusion_attributes" value={o.attributes || undefined} locale={locale} className="ml-2 text-[10px] font-sans" />
                             </td>
                           </tr>
                         ))}
