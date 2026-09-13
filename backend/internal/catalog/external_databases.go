@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/lib/pq"
 	"regexp"
 	"strings"
 )
@@ -112,6 +113,74 @@ func validateExternalDatabase(e ExternalDatabase) error {
 	if e.ValidationRegex != "" {
 		if _, err := regexp.Compile(e.ValidationRegex); err != nil {
 			return fmt.Errorf("invalid_validation_regex")
+		}
+	}
+	return nil
+}
+
+// validateExternalIDsAgainstDB 按 external_databases 预设复核实体的 external_ids：
+// 键必须已在预设表（含停用项——删除码后旧值读路径同样宽容，见 retirement.go 的
+// 关系端点注释）；值按预设 validation_regex 收敛（official_website 存完整 URL，
+// 走 validURL）。metafusion_import 内部键不在预设表，跳过（格式由
+// validateExternalIDs 管）。q 用事务内 queryer，保证与写入同快照。
+func validateExternalIDsAgainstDB(ctx context.Context, q queryer, e Entity) error {
+	if len(e.ExternalIDs) == 0 {
+		return nil
+	}
+	need := []string{}
+	for k := range e.ExternalIDs {
+		if importerInternalKeys[k] {
+			continue
+		}
+		need = append(need, k)
+	}
+	if len(need) == 0 {
+		return nil
+	}
+	rows, err := q.QueryContext(ctx, `SELECT code,validation_regex,category FROM catalog.external_databases WHERE code = ANY($1)`, pq.Array(need))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	found := map[string]struct {
+		regex, category string
+	}{}
+	for rows.Next() {
+		var code, rx, cat string
+		if err = rows.Scan(&code, &rx, &cat); err != nil {
+			return err
+		}
+		found[code] = struct {
+			regex, category string
+		}{rx, cat}
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	for k, v := range e.ExternalIDs {
+		if importerInternalKeys[k] {
+			continue
+		}
+		preset, ok := found[k]
+		if !ok {
+			return fmt.Errorf("invalid_external_key: %s", k)
+		}
+		// 分类收敛：all 通用，余下必须与实体 kind 一致（如 imdb 只收 work）。
+		if preset.category != "all" && preset.category != e.Kind {
+			return fmt.Errorf("invalid_external_category: %s", k)
+		}
+		v = strings.TrimSpace(v)
+		if k == "official_website" {
+			if !validURL(v) {
+				return fmt.Errorf("invalid_external_id: %s", k)
+			}
+			continue
+		}
+		if preset.regex != "" {
+			rx, rerr := regexp.Compile(preset.regex)
+			if rerr != nil || !rx.MatchString(v) {
+				return fmt.Errorf("invalid_external_id: %s", k)
+			}
 		}
 	}
 	return nil

@@ -16,6 +16,16 @@ type LifecycleEdit struct {
 	Sources         []Source `json:"sources"`
 }
 
+// 状态机语义（当前实现，无 archived）：
+//   - draft/pending_review：未发布，他人不可见（visible 仅主人/admin）；
+//   - published：公开展示；降级无路——已发布条目不可经 Save 改回 draft，
+//     必须经 admin-only Lifecycle 删除/合并（use_lifecycle_endpoint）；
+//   - deleted/merged：主人仍可经 Get 直读（visible 对主人放行），公开 List
+//     与匿名 Get 不可见；merged 经 Resolve 跟随 RedirectID。
+// archived 缺口：schema.sql/validation.go/lifecycle.go 均无 archived 状态
+// （全仓 grep archived 零命中）。归档语义（保留展示但冻结编辑）尚未设计，
+// 不私自加状态；需要时由主代理另立规格。
+
 func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u User) (Entity, error) {
 	var e Entity
 	err := s.write(ctx, func(tx *sql.Tx) error {
@@ -44,7 +54,10 @@ func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u
 			if err != nil {
 				return err
 			}
-			if target.Kind != e.Kind || target.ID == e.ID || target.Status == "deleted" || target.Status == "merged" || target.WorkID != e.WorkID || target.ReleaseID != e.ReleaseID || target.MediumID != e.MediumID {
+			// 合并目标必须同 kind、同归属（Work/Release/Medium/ContentUnitID 均相等，
+			// 含 ParentID）：跨父合并会撕裂层级，由复合外键在提交时拦截，
+			// 此处提前报 invalid_merge_target。目标必须 published。
+			if target.Kind != e.Kind || target.ID == e.ID || target.Status == "deleted" || target.Status == "merged" || target.WorkID != e.WorkID || target.ReleaseID != e.ReleaseID || target.MediumID != e.MediumID || target.ParentID != e.ParentID {
 				return fmt.Errorf("invalid_merge_target")
 			}
 			e.RedirectID = target.ID
@@ -100,6 +113,12 @@ func deliverBackoff(n int) time.Duration {
 // Deliver acknowledges only successful callbacks. Callbacks must be idempotent by Event.ID.
 // 同批投递失败跳过继续: 记日志(含事件 ID+错误), 不中断整批; 失败事件不写
 // deliveries, 下次继续投递。批内有部分失败时返回汇总错误, 便于调用方重试整批。
+// 保留策略: outbox/deliveries 暂不清, 因事件是审计与模块消费的唯一事实来源,
+// 删事件会断 deliveries 外键且丢审计。TODO(三期): 先给 deliveries 加
+// delivered_at 分区/保留期再清已全消费事件, 当前单消费方(见 cmd/server main
+// 的 optional-modules 轮询)下无堆积风险, 不做大重构。
+// 并发说明: 单进程单轮询, 无 SKIP LOCKED/FOR UPDATE; 若未来多副本消费,
+// 需按 consumer 分片或加领取列, 不在此先加。
 func (s *Store) Deliver(ctx context.Context, consumer string, handle func(context.Context, Event) error) error {
 	rows, err := s.DB.QueryContext(ctx, `SELECT id,type,entity_id,version,payload,created_at FROM catalog.outbox o WHERE NOT EXISTS(SELECT 1 FROM catalog.deliveries d WHERE d.consumer=$1 AND d.event_id=o.id) ORDER BY created_at,id LIMIT 100`, consumer)
 	if err != nil {

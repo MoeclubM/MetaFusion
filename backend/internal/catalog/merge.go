@@ -110,24 +110,67 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 			}
 		}
 		if id == target.ID && source.Kind == "release" {
-			e.Subjects = append(e.Subjects, source.Subjects...)
-		}
-		if id == target.ID && source.Kind == "track" {
-			for _, c := range source.Contents {
-				found := false
-				for _, other := range e.Contents {
-					if c.Position == other.Position {
-						if encode(c) != encode(other) {
-							return fmt.Errorf("merge_content_conflict")
-						}
-						found = true
+			// Subjects 按（work, role）合并键保留：目标已有同键时若 attributes
+			// 不同即冲突报错（merge_subject_conflict），不再静默丢弃一方；
+			// 同键同值视为重复，直接跳过。position 保留目标值。
+			for _, s := range source.Subjects {
+				hit := -1
+				for i, t := range e.Subjects {
+					if t.WorkID == s.WorkID && t.Role == s.Role {
+						hit = i
+						break
 					}
 				}
-				if !found {
-					e.Contents = append(e.Contents, c)
+				if hit < 0 {
+					e.Subjects = append(e.Subjects, s)
+					continue
+				}
+				if encode(e.Subjects[hit].Attributes) != encode(s.Attributes) {
+					return fmt.Errorf("merge_subject_conflict")
 				}
 			}
 		}
+		if id == target.ID && source.Kind == "track" {
+			// 同表达不同位置不得双留：合并键为 expression_id（与 validateEntity 的
+			// duplicate_content 同口径），源表达在目标已存在即冲突检查——
+			// locator/attributes 不同报 merge_content_conflict，同值视为重复跳过；
+			// 同 position 不同表达同样冲突。position 保留目标值。
+			for _, c := range source.Contents {
+				hit := -1
+				for i, other := range e.Contents {
+					if c.ExpressionID == other.ExpressionID || c.Position == other.Position {
+						hit = i
+						break
+					}
+				}
+				if hit < 0 {
+					e.Contents = append(e.Contents, c)
+					continue
+				}
+				hitRow, srcRow := e.Contents[hit], c
+				if hitRow.ExpressionID != srcRow.ExpressionID || hitRow.Position != srcRow.Position || encode(hitRow.Locator) != encode(srcRow.Locator) || encode(hitRow.Attributes) != encode(srcRow.Attributes) {
+					return fmt.Errorf("merge_content_conflict")
+				}
+			}
+		}
+		// ExternalIDs 合并：目标缺的键从源补齐（幂等——重复合并结果一致）；
+		// 同键不同值即冲突报错，不静默覆盖。metafusion_import 键冲突同样报错，
+		// 由调用方先手工去重（与 000013 唯一索引"存量重复即失败"同策略）。
+		if id == target.ID && len(source.ExternalIDs) > 0 {
+			if e.ExternalIDs == nil {
+				e.ExternalIDs = map[string]string{}
+			}
+			for k, v := range source.ExternalIDs {
+				if cur, ok := e.ExternalIDs[k]; ok && cur != v {
+					return fmt.Errorf("merge_external_conflict: %s", k)
+				}
+				if _, ok := e.ExternalIDs[k]; !ok {
+					e.ExternalIDs[k] = v
+				}
+			}
+		}
+		// Subjects 去重键与 validateEntity 同口径（work, role），position 不计入；
+		// 合并阶段冲突已在上面报错，此处只做幂等归一（重复合并结果一致）。
 		unique := []Subject{}
 		seen := map[string]bool{}
 		for _, subject := range e.Subjects {
@@ -202,7 +245,18 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 			return err
 		}
 	}
-	all, err := relations(ctx, tx)
+	// 收藏跟随：favorites 指向已合并身份的行改写到目标身份（幂等——目标已收藏则
+	// 删旧行，避免 (user_id,target_type,target_id) 主键冲突）。
+	// 不删数据：只是把"指向旧身份"的收藏重定向到存活身份，与 Resolve 语义一致。
+	if _, err = tx.ExecContext(ctx, `DELETE FROM catalog.favorites WHERE target_id=$1 AND EXISTS(SELECT 1 FROM catalog.favorites f2 WHERE f2.user_id=catalog.favorites.user_id AND f2.target_type=catalog.favorites.target_type AND f2.target_id=$2)`, source.ID, target.ID); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `UPDATE catalog.favorites SET target_id=$2 WHERE target_id=$1`, source.ID, target.ID); err != nil {
+		return err
+	}
+	// 合并只改写以旧身份为端点的边：按端点取候选而非全表加载
+	//（relations_endpoints 索引命中，避免关系量大时退化）。
+	all, err := relationsWithEndpoint(ctx, tx, source.ID)
 	if err != nil {
 		return err
 	}
@@ -231,17 +285,30 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 			return err
 		}
 	}
+	// 校验只复核被改写的边所在类型：validateRelation 的构图/计数/判重
+	// 只看同 type（异类跳过），同类全集按类型取，不再全表加载。
+	seenType := map[string]bool{}
 	for _, r := range all {
-		src, err := get(ctx, tx, r.SourceID)
+		if seenType[r.Type] {
+			continue
+		}
+		seenType[r.Type] = true
+		same, err := relationsByType(ctx, tx, r.Type)
 		if err != nil {
 			return err
 		}
-		tgt, err := get(ctx, tx, r.TargetID)
-		if err != nil {
-			return err
-		}
-		if err = validateRelation(v.Document, r, src, tgt, all, reference(ctx, tx, &u), true); err != nil {
-			return fmt.Errorf("merge_relation_conflict: %w", err)
+		for _, x := range same {
+			src, err := get(ctx, tx, x.SourceID)
+			if err != nil {
+				return err
+			}
+			tgt, err := get(ctx, tx, x.TargetID)
+			if err != nil {
+				return err
+			}
+			if err = validateRelation(v.Document, x, src, tgt, same, reference(ctx, tx, &u), true); err != nil {
+				return fmt.Errorf("merge_relation_conflict: %w", err)
+			}
 		}
 	}
 	return nil
