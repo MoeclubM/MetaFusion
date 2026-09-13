@@ -9,14 +9,18 @@ import { useI18n } from "@/i18n/I18nProvider";
 
 type WorkContentDirectoryProps = {
   workId: string;
+  /** 模板声明的目录形态（definitions.templates[*].directory）：tree 保留层级缩进，
+   *  list 拍平为单层编号列表。两者共用同一份数据，只改变呈现，不改变内容。 */
+  directory?: string;
 };
 
-// 目录条目视图：按三种形态依次回退，页面始终有内容可看。
+// 目录条目视图：三种形态**各自独立**成区块，不再互斥回退。
 //   ① 篇目树（content_unit）——小说章节、动画分集；
 //   ② 表达（expression）——无卷章树的作品（如 OST 的各个录音）；
-//   ③ includes 关联的组成作品——专辑由独立歌曲 Work 构成时（歌曲保持自己的
-//      创作身份与跨专辑复用，不把录音复制挂到专辑下），列出其组成作品。
-// entry_role 是 definitions 声明的篇目类型；组成作品用 kind 标签区分。
+//   ③ includes 关联的**组成作品**——专辑由独立歌曲 Work 构成时的正向关系；
+//   ④ includes 关联的**所属集合/作品**——歌曲在专辑之下的反向关系。
+// 情形 ①②③④ 可以同时存在：专辑既有自身表达，又由独立歌曲构成时，
+// 旧实现只显示其中一个，把其余内容全部隐藏。entry_role 是篇目类型，组成作品用 kind 标签区分。
 type DirectoryEntry = {
   id: string;
   parentId: string;
@@ -40,9 +44,10 @@ function toEntry(e: Entity, locale: string): DirectoryEntry {
   };
 }
 
-// componentEntries 从关系里取 includes 的组成作品：专辑页与歌曲页方向相反
-// （专辑→歌曲为正向，歌曲→专辑为反向），两侧都取，只保留 work 对端。
-// 顺序按关系 position，其次标题，保证曲序稳定。
+// componentEntries 从 includes 关系里取关联作品，并按**方向**区分语义：
+//   self 是包含方（source_id） → 对端是"组成内容"；
+//   self 是被包含方（target_id） → 对端是"所属集合/作品"。
+// 旧实现把两个方向都当"组成内容"，于是歌曲页会把所属专辑列进自己的内容目录。
 type RelationRow = {
   type: string;
   source_id: string;
@@ -55,17 +60,19 @@ function componentEntries(
   entities: Record<string, Entity>,
   selfId: string,
   locale: string,
-): DirectoryEntry[] {
-  const out: DirectoryEntry[] = [];
+): { includes: DirectoryEntry[]; includedIn: DirectoryEntry[] } {
+  const includes: DirectoryEntry[] = [];
+  const includedIn: DirectoryEntry[] = [];
   const seen = new Set<string>();
   for (const r of relations) {
     if (r.type !== "includes") continue;
-    const peerId = r.source_id === selfId ? r.target_id : r.source_id;
+    const outgoing = r.source_id === selfId;
+    const peerId = outgoing ? r.target_id : r.source_id;
     if (!peerId || peerId === selfId || seen.has(peerId)) continue;
     const peer = entities[peerId];
     if (!peer || peer.kind !== "work") continue;
     seen.add(peerId);
-    out.push({
+    const entry: DirectoryEntry = {
       id: peerId,
       parentId: "",
       position: r.position || 0,
@@ -73,15 +80,21 @@ function componentEntries(
       entryRole: "",
       kind: "work",
       title: entityTitle(peer, locale) || peer.title || peerId,
-    });
+    };
+    (outgoing ? includes : includedIn).push(entry);
   }
-  out.sort((a, b) => (a.position !== b.position ? a.position - b.position : a.title.localeCompare(b.title)));
-  return out;
+  const byOrder = (a: DirectoryEntry, b: DirectoryEntry) =>
+    a.position !== b.position ? a.position - b.position : a.title.localeCompare(b.title);
+  includes.sort(byOrder);
+  includedIn.sort(byOrder);
+  return { includes, includedIn };
 }
 
-export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
+export function WorkContentDirectory({ workId, directory = "tree" }: WorkContentDirectoryProps) {
   const { t, locale } = useI18n();
   const [items, setItems] = useState<DirectoryEntry[]>([]);
+  const [components, setComponents] = useState<DirectoryEntry[]>([]);
+  const [includedIn, setIncludedIn] = useState<DirectoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -89,28 +102,32 @@ export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
     setLoading(true);
     (async () => {
       try {
-        const units = await fetchAllPages<Entity>(`/catalog/entities?kind=content_unit&work_id=${encodeURIComponent(workId)}`);
-        if (units.length > 0) {
-          if (active) setItems(units.map((e) => toEntry(e, locale)));
-          return;
-        }
-        const exprs = await fetchAllPages<Entity>(`/catalog/entities?kind=expression&work_id=${encodeURIComponent(workId)}`);
-        if (exprs.length > 0) {
-          if (active) setItems(exprs.map((e) => toEntry(e, locale)));
-          return;
-        }
-        // 专辑的歌曲以独立 Work 通过 includes 关联：列出组成作品，
+        // 篇目与表达分开展示，各取各的；不再"有篇目就不看表达"。
+        const [units, exprs] = await Promise.all([
+          fetchAllPages<Entity>(`/catalog/entities?kind=content_unit&work_id=${encodeURIComponent(workId)}`),
+          fetchAllPages<Entity>(`/catalog/entities?kind=expression&work_id=${encodeURIComponent(workId)}`),
+        ]);
+        // 专辑的歌曲以独立 Work 通过 includes 关联：列出组成作品与所属作品，
         // 而不是把各歌曲的录音复制到专辑之下（那会丢掉歌曲的独立身份）。
         const rel = await fetch(`/api/catalog/entities/${encodeURIComponent(workId)}/relations`, {
           credentials: "same-origin",
         }).then((res) => (res.ok ? res.json() : { items: [], entities: {} }));
-        if (active) {
-          setItems(
-            componentEntries(rel.items || [], rel.entities || {}, workId, locale),
-          );
-        }
+        const { includes, includedIn: parents } = componentEntries(
+          rel.items || [],
+          rel.entities || {},
+          workId,
+          locale,
+        );
+        if (!active) return;
+        setItems([...units.map((e) => toEntry(e, locale)), ...exprs.map((e) => toEntry(e, locale))]);
+        setComponents(includes);
+        setIncludedIn(parents);
       } catch {
-        if (active) setItems([]);
+        if (active) {
+          setItems([]);
+          setComponents([]);
+          setIncludedIn([]);
+        }
       } finally {
         if (active) setLoading(false);
       }
@@ -142,11 +159,13 @@ export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
   const renderEntries = (parentKey: string, depth: number): ReactNode[] => {
     return (children.get(parentKey) || []).flatMap((entry) => {
       const role = entry.entryRole || "main";
+      // directory=list 时拍平为单层（仍保留原次序），tree 时按父子层级缩进。
+      const indent = directory === "list" ? 0 : depth * 22;
       return [
         <div
           key={entry.id}
           className="flex items-center gap-3 px-3.5 py-2.5 border-b border-black/5 dark:border-white/[0.06] last:border-b-0"
-          style={{ paddingLeft: `${14 + depth * 22}px` }}
+          style={{ paddingLeft: `${14 + indent}px` }}
         >
           <span className="w-10 shrink-0 text-right font-mono text-xs text-gray-400">
             {entry.number || entry.position || "—"}
@@ -158,29 +177,74 @@ export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
             {entry.kind === "work" ? t("catalog.kind.work") : t(`catalog.contents.role.${role}`)}
           </span>
         </div>,
-        ...renderEntries(entry.id, depth + 1),
+        ...(directory === "list" ? [] : renderEntries(entry.id, depth + 1)),
       ];
     });
   };
 
-  return (
-    <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
-      <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex items-center gap-2">
-        <span className="w-9 h-9 grid place-items-center rounded-md bg-primary/10 border border-primary/20">
-          <ListTree className="w-4 h-4 text-primary" strokeWidth={1.5} />
+  // 三个区块各自独立呈现：篇目/表达、组成内容（includes 正向）、
+  // 所属作品/集合（includes 反向）。同一页可同时出现多个，不再互斥回退。
+  const blocks: { key: string; title: string; entries: DirectoryEntry[] }[] = [];
+  if (items.length > 0) blocks.push({ key: "items", title: t("work.contents.title"), entries: items });
+  if (components.length > 0) blocks.push({ key: "components", title: t("work.contents.components"), entries: components });
+  if (includedIn.length > 0) blocks.push({ key: "includedIn", title: t("work.contents.includedIn"), entries: includedIn });
+
+  const renderSimple = (entries: DirectoryEntry[]) =>
+    entries.map((entry) => (
+      <div
+        key={entry.id}
+        className="flex items-center gap-3 px-3.5 py-2.5 border-b border-black/5 dark:border-white/[0.06] last:border-b-0"
+      >
+        <span className="w-10 shrink-0 text-right font-mono text-xs text-gray-400">{entry.number || entry.position || "—"}</span>
+        <Link href={`/catalog/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200 hover:text-primary">
+          {entry.title}
+        </Link>
+        <span className="shrink-0 rounded-sm border border-black/10 dark:border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
+          {t("catalog.kind.work")}
         </span>
-        <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">
-          {t("work.contents.title")}
-        </h2>
-        {!loading && <span className="font-mono text-sm text-gray-500">{t("work.contents.count", { count: items.length })}</span>}
       </div>
-      {loading ? (
-        <div className="p-6 text-center font-mono text-sm text-gray-500">{t("work.contents.loading")}</div>
-      ) : items.length === 0 ? (
-        <div className="p-6 text-center font-mono text-sm text-gray-500">{t("work.contents.empty")}</div>
-      ) : (
-        <div>{renderEntries("root", 0)}</div>
+    ));
+
+  return (
+    <div className="space-y-3">
+      {blocks.map((block) => (
+        <section
+          key={block.key}
+          className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden"
+        >
+          <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex items-center gap-2">
+            <span className="w-9 h-9 grid place-items-center rounded-md bg-primary/10 border border-primary/20">
+              <ListTree className="w-4 h-4 text-primary" strokeWidth={1.5} />
+            </span>
+            <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">
+              {block.title}
+            </h2>
+            {!loading && (
+              <span className="font-mono text-sm text-gray-500">{t("work.contents.count", { count: block.entries.length })}</span>
+            )}
+          </div>
+          {loading ? (
+            <div className="p-6 text-center font-mono text-sm text-gray-500">{t("work.contents.loading")}</div>
+          ) : block.key === "items" ? (
+            <div>{renderEntries("root", 0)}</div>
+          ) : (
+            <div>{renderSimple(block.entries)}</div>
+          )}
+        </section>
+      ))}
+      {!loading && blocks.length === 0 && (
+        <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
+          <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex items-center gap-2">
+            <span className="w-9 h-9 grid place-items-center rounded-md bg-primary/10 border border-primary/20">
+              <ListTree className="w-4 h-4 text-primary" strokeWidth={1.5} />
+            </span>
+            <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">
+              {t("work.contents.title")}
+            </h2>
+          </div>
+          <div className="p-6 text-center font-mono text-sm text-gray-500">{t("work.contents.empty")}</div>
+        </section>
       )}
-    </section>
+    </div>
   );
 }
