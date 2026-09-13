@@ -12,7 +12,7 @@ group: "api"
 - 不存在响应结构 `{ works, artists, releases, total }`；`/api/catalog/entities` 返回 `{ items, total }`
 - OpenSearch 容器虽在 `deploy/docker-compose.yml` 中部署并注入 `ELASTICSEARCH_URL`，但当前 Go 代码中没有任何 OpenSearch 客户端调用，不要把它当作已生效的检索路径
 
-**真实检索**：`GET /api/catalog/entities?q=<关键词>&kind=work&limit=10&offset=0`，以及兼容层 `GET /api/catalog/works?q=<关键词>`。
+**真实检索**：`GET /api/catalog/entities?q=<关键词>&kind=work&limit=10&offset=0`。
 :::
 
 # Search 检索
@@ -36,7 +36,6 @@ GET /api/search?q=keyword&type=all&limit=5
 GET /api/catalog/entities?q=keyword&kind=work&limit=10&offset=0
 GET /api/catalog/entities?q=久石让&kind=agent&limit=10
 GET /api/catalog/entities?q=VIZL&kind=release&limit=10
-GET /api/catalog/works?q=keyword&limit=5
 ```
 
 参数（`/api/catalog/entities`）：

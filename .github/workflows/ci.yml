@@ -47,10 +47,9 @@ jobs:
         run: go test ./...
       - name: go vet
         run: go vet ./...
-      - name: go build (server+worker+migrate)
+      - name: go build (server+migrate)
         run: |
           CGO_ENABLED=0 go build -o /tmp/mf-server ./cmd/server
-          CGO_ENABLED=0 go build -o /tmp/mf-worker ./cmd/worker
           CGO_ENABLED=0 go build -o /tmp/mf-migrate ./cmd/migrate
 
   frontend:

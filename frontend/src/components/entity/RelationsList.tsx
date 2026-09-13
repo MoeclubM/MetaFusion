@@ -80,7 +80,7 @@ function RelationCard({ row }: { row: Row }) {
           originalTitle={row.originalName}
           id={row.key}
           aspect={row.coverAspect || undefined}
-          fallbackRatio={row.entityType === "artist" ? 1 : 2 / 3}
+          fallbackRatio={row.entityType === "agent" ? 1 : 2 / 3}
         />
       </div>
       <div className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-gray-900 transition-colors group-hover:text-primary dark:text-white">

@@ -36,6 +36,16 @@ export interface CompareExprEntityLike {
   content_unit_id?: string;
 }
 
+/** 每个发行自身的目录完整性，用于区分"尚未编目"与"已确认相同"。 */
+export interface CompareItemCompleteness {
+  /** 有载体但没有任何曲目：结构已建、内容未录入。 */
+  mediaWithoutTracks: number;
+  /** 曲目存在但没有内容引用（expression）：收录未录入。 */
+  tracksWithoutContents: number;
+  /** 完全没有载体与曲目。 */
+  empty: boolean;
+}
+
 export interface AlignmentResult {
   /** 表达 → 出现于哪些发行下标（保留原渲染口径）。 */
   perExpr: Map<string, { releaseIndex: number }[]>;
@@ -51,6 +61,8 @@ export interface AlignmentResult {
   rangeDiffer: [number, number][];
   /** 存在无法解析身份的表达（缺少 work/章节元数据），结论需人工确认。 */
   pendingConfirm: boolean;
+  /** 目录不完整（缺曲目/内容引用）的发行下标：不得据此下内容一致性结论。 */
+  incomplete: number[];
 }
 
 function locatorKey(loc?: Record<string, any>): string {
@@ -103,6 +115,24 @@ function structureOf(item: CompareItemLike): string {
   return `${formats.sort().join("+")}/${(item.media || []).length}M/${tracks}T`;
 }
 
+// 目录完整性：空内容集合不能当成"已确认相同"。只有载体结构的发行（曲目未录入）
+// 或曲目存在但没有内容引用（收录未录入）都属资料不足，不能与其他发行比内容。
+function completenessOf(item: CompareItemLike): CompareItemCompleteness {
+  let mediaWithoutTracks = 0;
+  let tracksWithoutContents = 0;
+  let totalTracks = 0;
+  const media = item.media || [];
+  for (const m of media) {
+    const tracks = m.tracks || [];
+    if (tracks.length === 0) mediaWithoutTracks += 1;
+    for (const tr of tracks) {
+      totalTracks += 1;
+      if (!(tr.contents || []).some((c) => c.expression_id)) tracksWithoutContents += 1;
+    }
+  }
+  return { mediaWithoutTracks, tracksWithoutContents, empty: media.length === 0 && totalTracks === 0 };
+}
+
 function sortedUnique(values: string[]): string[] {
   return Array.from(new Set(values)).sort();
 }
@@ -124,6 +154,17 @@ export function computeAlignment(
   let pendingConfirm = false;
 
   const facts = items.map((item) => sequenceOf(item, exprEntities));
+  // 目录不完整（无载体/载体无曲目/曲目无内容引用）的发行：不参与内容一致性结论，
+  // 单独列出让人工补录，而不是把空集合当成"已确认一致"。
+  const incomplete: number[] = [];
+  const complete: boolean[] = items.map((item, i) => {
+    const c = completenessOf(item);
+    if (c.empty || c.mediaWithoutTracks > 0 || c.tracksWithoutContents > 0) {
+      incomplete.push(i);
+      return false;
+    }
+    return true;
+  });
   for (let i = 0; i < n; i++) {
     if (facts[i].unknown) pendingConfirm = true;
     for (const id of facts[i].exprs) {
@@ -162,8 +203,9 @@ export function computeAlignment(
     for (let j = i + 1; j < n; j++) {
       const a = facts[i];
       const b = facts[j];
-      // 身份无法解析时不给结论，交由 pendingConfirm 提示。
+      // 身份无法解析、或任一侧目录不完整时不给结论，交由 pendingConfirm/incomplete 提示。
       if (a.unknown || b.unknown) continue;
+      if (!complete[i] || !complete[j]) continue;
       const sameContent = arraysEqual(sortedUnique(a.content), sortedUnique(b.content));
       const sameExprs = arraysEqual(sortedUnique(a.exprs), sortedUnique(b.exprs));
       // ③ 收录范围/重复/顺序：序列完全相同才算一致。
@@ -178,5 +220,5 @@ export function computeAlignment(
     }
   }
 
-  return { perExpr, shared, partial, workVariants, carrierOnly, rangeDiffer, pendingConfirm };
+  return { perExpr, shared, partial, workVariants, carrierOnly, rangeDiffer, pendingConfirm, incomplete };
 }

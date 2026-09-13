@@ -12,10 +12,11 @@ MetaFusion **不是** MusicBrainz WS/2 风格 API，下列本页提及的端点/
 - `GET /api/search`（现为 `GET /api/catalog/entities?q=...`，服务端为 PostgreSQL 模糊/全文匹配）
 - `GET /api/browse/*`（现为 `GET /api/catalog/entities?kind=...&<关联 id 过滤>`）
 - `POST /api/auth/tokens`（PAT 管理端点缺失；当前仅有会话 Cookie + Bearer）
+- `GET /api/catalog/works`、`GET /api/catalog/works/:id`、`/works/:id/graph`、`/catalog/taxonomy`、`/catalog/relation-types`、`/catalog/artists/:id`、`/catalog/franchises/:id`、`/catalog/mediums/:id`、`/catalog/canonical-entries/:id`（旧兼容层已删除，统一走 `/api/catalog/entities` 系）
 - `inc=artists+releases+...` 展开参数与 `page` / `page_size` 分页（现为 `limit` / `offset` 与各实体独立字段）
 - `catalog` 写入并非 RESTful 逐实体端点，统一为 `POST|PUT /api/catalog/entities`
 
-**真实主干**：读 `GET /api/catalog/definitions`、`/api/catalog/entities`、`/api/catalog/entities/:id`、`/api/catalog/entities/:id/relations|revisions|occurrences`、`/api/catalog/compare`、`/api/catalog/works`（兼容层）、`/api/catalog/shelves`、`/api/catalog/external-databases`；写 `POST /api/catalog/entities`、`PUT /api/catalog/entities/:id`、`POST /api/catalog/relations`、`PUT|DELETE /api/catalog/relations/:id`、`POST /api/catalog/entities/:id/lifecycle`；收藏 `POST /api/favorites/toggle`、`GET /api/favorites/status`、`GET /api/favorites/mine`、`GET /api/users/:id/favorites`；导入 `POST /api/importer/preview`、`POST /api/importer/import`；认证 `/api/setup`、`/api/auth/*`、`/api/oauth/*`。以 [OpenAPI](/api/openapi.json) 与 `backend/internal/catalog/http.go` 为准。
+**真实主干**：读 `GET /api/catalog/definitions`、`/api/catalog/entities`、`/api/catalog/entities/:id`、`/api/catalog/entities/:id/relations|revisions|occurrences`、`/api/catalog/compare`、`/api/catalog/tags`（标签频次聚合）、`/api/catalog/shelves`、`/api/catalog/external-databases`；写 `POST /api/catalog/entities`、`PUT /api/catalog/entities/:id`、`POST /api/catalog/relations`、`PUT|DELETE /api/catalog/relations/:id`、`POST /api/catalog/entities/:id/lifecycle`；收藏 `POST /api/favorites/toggle`、`GET /api/favorites/status`、`GET /api/favorites/mine`、`GET /api/users/:id/favorites`；导入 `POST /api/importer/preview`、`POST /api/importer/import`；认证 `/api/setup`、`/api/auth/*`、`/api/oauth/*`。以 [OpenAPI](/api/openapi.json) 与 `backend/internal/catalog/http.go` 为准。
 :::
 
 # API 概览
@@ -57,7 +58,7 @@ MetaFusion 提供 MusicBrainz WS/2 风格的开放编目 API，适合自建应�
 ## 快速试玩（无需登录）
 
 ```bash
-curl "/api/catalog/works?limit=3" -H "User-Agent: MyApp/1.0 (you@example.com)"
+curl "/api/catalog/entities?kind=work&limit=3" -H "User-Agent: MyApp/1.0 (you@example.com)"
 curl "/api/catalog/entities?q=攻壳机动队&kind=work&limit=3" -H "User-Agent: MyApp/1.0 (you@example.com)"
 curl "/api/catalog/entities/<id>" -H "User-Agent: MyApp/1.0 (you@example.com)"
 ```
@@ -65,7 +66,6 @@ curl "/api/catalog/entities/<id>" -H "User-Agent: MyApp/1.0 (you@example.com)"
 ## 分页与展开
 
 - 分页：`limit`（默认 20）、`offset`；`/api/catalog/entities` 另有 `kind / type / status / q / field / value / work_id / content_unit_id / release_id / medium_id / parent_id`
-- `/api/catalog/works` 兼容层使用自身分页字段，含真实 `COUNT` 总数
 - **不存在 `inc` 展开参数与 `page` / `page_size`**；响应统一为 JSON
 
 ## 错误与审计

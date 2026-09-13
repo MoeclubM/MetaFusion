@@ -14,7 +14,7 @@ import { api, Entity, Relation, title, local } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle, findRowForLocale, buildTitleChain } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
-import { GraphNode, GraphLink } from "@/lib/api";
+import { GraphNode, GraphLink, FavoriteTargetType } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
@@ -475,6 +475,7 @@ export function EntityDetailView({ id }: { id: string }) {
         target: r.target_id,
         type: r.type,
         label: getRelationName(defs, r.type, true, locale),
+        group: defs?.relations?.[r.type]?.group,
       });
     }
 
@@ -712,14 +713,6 @@ export function EntityDetailView({ id }: { id: string }) {
   // 按 locale 分组的对象，转成 LocalizedTitleGroups 需要的行数组。
   // 过去这里只取第一个有别名的语种拍平展示，其余语种别名全部丢失。
   // 注意：不得写成 useMemo——本组件此位置之前存在条件 return，hook 顺序会违规。
-  const translationRows = Object.entries(entity.translations || {}).map(
-    ([locale, row]) => ({
-      locale,
-      title: row?.title || "",
-      summary: row?.summary || "",
-      aliases: row?.aliases || [],
-    }),
-  );
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
@@ -952,7 +945,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
               {/* Aliases：按语种分组的别名/译名，主语言行带"原始语言"标记 */}
               <LocalizedTitleGroups
-                translations={translationRows}
+                translations={entity.translations}
                 originalLanguage={entity.original_language}
                 displayTitle={localizedTitle}
                 extraKnown={[entity.title]}
@@ -1006,18 +999,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <FavoriteButton
-                    targetType={
-                      (entity.kind === "expression"
-                        ? "canonical_entry"
-                        : entity.kind === "agent"
-                        ? "artist"
-                        : entity.kind === "release"
-                        ? "release"
-                        : "work") as any
-                    }
-                    targetId={entity.id || id}
-                  />
+                  <FavoriteButton targetType={entity.kind as FavoriteTargetType} targetId={entity.id || id} />
                 </div>
               </div>
 
@@ -1392,6 +1374,13 @@ export function EntityDetailView({ id }: { id: string }) {
                     <InteractiveRelationGraph
                       centerEntityId={entity.id || id}
                       centerEntityType={entity.kind}
+                      orientation={
+                        entity.kind === "release" || entity.kind === "medium" || entity.kind === "track"
+                          ? "release"
+                          : entity.kind === "agent"
+                          ? "agent"
+                          : "work"
+                      }
                       nodes={graphNodes}
                       links={graphLinks}
                       onNodeClick={(n) => {

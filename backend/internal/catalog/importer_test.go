@@ -315,6 +315,17 @@ func mustList(t *testing.T, f fixture, o ListOptions) []Entity {
 	return items
 }
 
+// tracksOfRelease 先列载体再按 MediumID 查曲目：List 的 ReleaseID 过滤只命中
+// catalog.mediums，直接用它查 track 会得到 0 条。
+func tracksOfRelease(t *testing.T, f fixture, releaseID string) []Entity {
+	t.Helper()
+	var tracks []Entity
+	for _, m := range mustList(t, f, ListOptions{Kind: "medium", ReleaseID: releaseID}) {
+		tracks = append(tracks, mustList(t, f, ListOptions{Kind: "track", MediumID: m.ID})...)
+	}
+	return tracks
+}
+
 // TestImporterImportMultiDiscExpressionMatching：多盘发行的表达对齐。
 // 跨盘同轨号不再误判为同一内容；同一份载荷内声明的 canonical 表达按唯一同名绑定；
 // 曲目携带的 ISRC 落录音本体（expression.external_ids），不写 track.attributes。
@@ -513,5 +524,194 @@ func TestImporterImportEpisodeTree(t *testing.T) {
 	}
 	if n := len(mustList(t, f, ListOptions{Kind: "content_unit", WorkID: out.WorkID})); n != 3 {
 		t.Fatalf("duplicate content units created: %d", n)
+	}
+	// entry_role 必须真正落库：OP（bangumi_episode=201）应带 opening，而非被丢掉。
+	unitsAfter := mustList(t, f, ListOptions{Kind: "content_unit", WorkID: out.WorkID})
+	roleByExternal := map[string]string{}
+	for _, u := range unitsAfter {
+		full, gerr := f.s.Get(ctx, u.ID, &f.u)
+		if gerr != nil {
+			t.Fatal(gerr)
+		}
+		roleByExternal[scalarString(full.ExternalIDs["bangumi_episode"])] = scalarString(full.Attributes["entry_role"])
+	}
+	if roleByExternal["201"] != "opening" {
+		t.Fatalf("OP entry_role not persisted: %+v", roleByExternal)
+	}
+	if roleByExternal["101"] != "main" {
+		t.Fatalf("main entry_role not persisted: %+v", roleByExternal)
+	}
+}
+
+// TestImporterImportRepeatKeepsExpressionCount：重复导入不得重复建录音。
+// 旧实现先建 canonical 表达、之后才按轨位跳过已存在的曲目，重试会攒下一批
+// 无实际收录的孤儿表达；验收必须同时检查 Work/Release/Track 与 Expression 数量及引用。
+func TestImporterImportRepeatKeepsExpressionCount(t *testing.T) {
+	stubBangumi(t)
+	f := newFixture(t)
+	ctx := context.Background()
+
+	req := ImporterImportRequest{
+		EntityType: "work",
+		Source:     "bangumi",
+		URLOrID:    "https://bgm.tv/subject/7",
+		Work: &ImporterWorkPreview{
+			Title: "重试作品", OriginalTitle: "リトライ作品", OriginalLanguage: "ja",
+			CatalogMetadata: map[string]any{"bangumi_type": float64(2)},
+		},
+		// 无权威外部编号的曲目：最容易被重试重复建表达。
+		CanonicalEntries: []ImporterCanonicalEntryPreview{{Title: "片头曲A", Position: 1}, {Title: "片头曲B", Position: 2}},
+		Release:          &ImporterReleasePreview{EditionName: "通常版", CatalogNumber: "JP-001", Country: "JP"},
+		Mediums: []ImporterMediumPreview{{Position: 0, Name: "Disc 1", Format: "cd", Tracks: []ImporterTrackPreview{
+			{Position: 1, Title: "片头曲A"},
+			{Position: 2, Title: "片头曲B"},
+		}}},
+		EditNote:   "重复导入表达计数测试",
+		SourceURLs: []string{"https://bgm.tv/subject/7"},
+	}
+	first, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exprsFirst := mustList(t, f, ListOptions{Kind: "expression", WorkID: first.WorkID})
+	tracksFirst := tracksOfRelease(t, f, first.ReleaseID)
+	if len(exprsFirst) == 0 || len(tracksFirst) != 2 {
+		t.Fatalf("bad first import: exprs=%d tracks=%d", len(exprsFirst), len(tracksFirst))
+	}
+	refsFirst := map[string]string{}
+	for _, tr := range tracksFirst {
+		full, gerr := f.s.Get(ctx, tr.ID, &f.u)
+		if gerr != nil {
+			t.Fatal(gerr)
+		}
+		if len(full.Contents) != 1 {
+			t.Fatalf("track %q has %d contents", full.Title, len(full.Contents))
+		}
+		refsFirst[full.Title] = full.Contents[0].ExpressionID
+	}
+
+	second, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.ReleaseID != first.ReleaseID || second.WorkID != first.WorkID {
+		t.Fatalf("repeat import created new chain: %s/%s vs %s/%s", second.WorkID, second.ReleaseID, first.WorkID, first.ReleaseID)
+	}
+	exprsSecond := mustList(t, f, ListOptions{Kind: "expression", WorkID: first.WorkID})
+	tracksSecond := tracksOfRelease(t, f, first.ReleaseID)
+	if len(exprsSecond) != len(exprsFirst) {
+		t.Fatalf("repeat import duplicated expressions: %d -> %d", len(exprsFirst), len(exprsSecond))
+	}
+	if len(tracksSecond) != len(tracksFirst) {
+		t.Fatalf("repeat import duplicated tracks: %d -> %d", len(tracksFirst), len(tracksSecond))
+	}
+	// 引用必须完全不变。
+	for _, tr := range tracksSecond {
+		full, gerr := f.s.Get(ctx, tr.ID, &f.u)
+		if gerr != nil {
+			t.Fatal(gerr)
+		}
+		if len(full.Contents) != 1 || full.Contents[0].ExpressionID != refsFirst[full.Title] {
+			t.Fatalf("track %q binding changed on retry: %+v", full.Title, full.Contents)
+		}
+	}
+}
+
+// TestImporterRegionVariantsNotMerged：同作品下追加的不同地区同名发行是两个发行。
+// 版名/曲目结构一致但品番与地区不同（JP-001 vs TW-002）时不得被幂等键误并。
+func TestImporterRegionVariantsNotMerged(t *testing.T) {
+	stubBangumi(t)
+	f := newFixture(t)
+	ctx := context.Background()
+
+	base := ImporterImportRequest{
+		EntityType:       "work",
+		Source:           "bangumi",
+		URLOrID:          "https://bgm.tv/subject/7",
+		Work:             &ImporterWorkPreview{Title: "地区版作品", OriginalLanguage: "ja", CatalogMetadata: map[string]any{"bangumi_type": float64(2)}},
+		CanonicalEntries: []ImporterCanonicalEntryPreview{{Title: "主题曲", Position: 1}},
+		Mediums:          []ImporterMediumPreview{{Position: 0, Name: "Disc 1", Format: "cd", Tracks: []ImporterTrackPreview{{Position: 1, Title: "主题曲"}}}},
+		EditNote:         "地区版测试",
+		SourceURLs:       []string{"https://bgm.tv/subject/7"},
+	}
+	jpReq := base
+	jpReq.Release = &ImporterReleasePreview{EditionName: "原声集", CatalogNumber: "JP-001", Country: "JP"}
+	jp, err := f.s.Import(ctx, jpReq, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	twReq := base
+	twReq.LinkMode = "append_release_to_work"
+	twReq.TargetWorkID = jp.WorkID
+	twReq.Release = &ImporterReleasePreview{EditionName: "原声集", CatalogNumber: "TW-002", Country: "TW"}
+	tw, err := f.s.Import(ctx, twReq, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tw.ReleaseID == jp.ReleaseID {
+		t.Fatalf("different region/catalog variant merged into one release: %s", tw.ReleaseID)
+	}
+	if n := len(mustList(t, f, ListOptions{Kind: "release", WorkID: jp.WorkID})); n != 2 {
+		t.Fatalf("expected 2 releases for two region variants, got %d", n)
+	}
+}
+
+// TestImporterEntryIndexStructuralBinding：曲目按 entry_index 绑定清单内对应条目，
+// 标题相同也能区分（不再靠标题传递绑定）。
+func TestImporterEntryIndexStructuralBinding(t *testing.T) {
+	stubBangumi(t)
+	f := newFixture(t)
+	ctx := context.Background()
+
+	zero, one := 0, 1
+	req := ImporterImportRequest{
+		EntityType: "work",
+		Source:     "bangumi",
+		URLOrID:    "https://bgm.tv/subject/7",
+		Work:       &ImporterWorkPreview{Title: "结构绑定作品", OriginalLanguage: "ja", CatalogMetadata: map[string]any{"bangumi_type": float64(2)}},
+		// 两条同名条目（不同来源编号），曲目各自指向不同下标。
+		CanonicalEntries: []ImporterCanonicalEntryPreview{
+			{Title: "同名曲", Position: 1, ExternalIDs: map[string]any{"bangumi_episode": 301}},
+			{Title: "同名曲", Position: 2, ExternalIDs: map[string]any{"bangumi_episode": 302}},
+		},
+		Release: &ImporterReleasePreview{EditionName: "双版", CatalogNumber: "JP-9"},
+		Mediums: []ImporterMediumPreview{{Position: 0, Name: "Disc 1", Format: "cd", Tracks: []ImporterTrackPreview{
+			{Position: 1, Title: "同名曲", EntryIndex: &one},
+			{Position: 2, Title: "同名曲", EntryIndex: &zero},
+		}}},
+		EditNote:   "结构绑定测试",
+		SourceURLs: []string{"https://bgm.tv/subject/7"},
+	}
+	out, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	exprs := mustList(t, f, ListOptions{Kind: "expression", WorkID: out.WorkID})
+	byEpisode := map[string]string{}
+	for _, e := range exprs {
+		byEpisode[scalarString(e.ExternalIDs["bangumi_episode"])] = e.ID
+	}
+	if len(byEpisode) != 2 {
+		t.Fatalf("expected two distinct expressions for same-titled entries: %+v", byEpisode)
+	}
+	tracks := tracksOfRelease(t, f, out.ReleaseID)
+	if len(tracks) != 2 {
+		t.Fatalf("expected 2 tracks, got %d", len(tracks))
+	}
+	for _, tr := range tracks {
+		full, gerr := f.s.Get(ctx, tr.ID, &f.u)
+		if gerr != nil {
+			t.Fatal(gerr)
+		}
+		if len(full.Contents) != 1 {
+			t.Fatalf("track %q has %d contents", full.Title, len(full.Contents))
+		}
+		wantEpisode := "302" // Track 1 → 下标 1
+		if full.Position == 2 {
+			wantEpisode = "301" // Track 2 → 下标 0
+		}
+		if full.Contents[0].ExpressionID != byEpisode[wantEpisode] {
+			t.Fatalf("track pos %d bound wrong expression: got %s want %s(%s)", full.Position, full.Contents[0].ExpressionID, wantEpisode, byEpisode[wantEpisode])
+		}
 	}
 }

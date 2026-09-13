@@ -11,7 +11,8 @@ import { UserRoleBadge } from "@/lib/roles";
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  targetType: "work" | "artist" | "release" | "franchise" | "canonical_entry";
+  /** 实体 kind；仅用于标题栏显示。 */
+  targetType: string;
   targetId: string;
   entityTitle: string;
 }
@@ -31,7 +32,7 @@ export function RevisionHistoryModal({ isOpen, onClose, targetType, targetId, en
   const loadRevisions = async () => {
     setLoading(true);
     try {
-      const res = await fetchEntityRevisions(targetType, targetId);
+      const res = await fetchEntityRevisions(targetId);
       setRevisions(res.items || []);
       if (res.items && res.items.length > 0) {
         setSelectedRev(res.items[0]);

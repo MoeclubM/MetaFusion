@@ -33,7 +33,7 @@ interface Props {
   };
   externalIds?: Record<string, any>;
   externalLinks?: ExternalLinkDisplay[];
-  category?: string; // "work" | "artist" | "release" | "franchise"
+  category?: string; // 实体 kind（"work" | "agent" | "release" | ...），用于按适用范围筛选预设
   className?: string;
   label?: string;
   variant?: "chips" | "list"; // chips: 小徽标水平流; list: 左侧大边栏列表
@@ -169,7 +169,7 @@ export function ExternalAuthorityLinks({
       // 名称提取与多语言解析
       let name = "";
       if (def) {
-        name = pickLocalizedName(locale, def.names, def.name_zh, def.name_en, def.code);
+        name = pickLocalizedName(locale, def.names, def.code);
       } else {
         if (lookupKey === "official_website") name = t("authority.officialWebsite");
         else if (lookupKey === "bushiroad_music") name = t("authority.bushiroad");

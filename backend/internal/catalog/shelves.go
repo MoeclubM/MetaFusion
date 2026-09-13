@@ -15,13 +15,11 @@ import (
 // Shelf 是首页货架与探索页共用的聚合规则。
 // 前后端共用同一规则：query 描述“收录什么”（types 按动态类型、fields 按
 // 字段取值、vocab_terms 按词表项、relations 按关系存在性），sort/icon/
-// enabled 描述“如何展示”。names 走四语 map，legacy name_zh/name_en 仅作回退。
+// enabled 描述“如何展示”。names 为四语名称映射（zh-CN/en-US/zh-TW/ja-JP）。
 type Shelf struct {
 	ID        int64             `json:"id"`
 	Slug      string            `json:"slug"`
 	Names     map[string]string `json:"names"`
-	NameZh    string            `json:"name_zh"`
-	NameEn    string            `json:"name_en"`
 	Query     ShelfQuery        `json:"query"`
 	Sort      string            `json:"sort"`
 	Icon      string            `json:"icon"`
@@ -44,7 +42,7 @@ func scanShelf(row func(...any) error) (Shelf, error) {
 	var s Shelf
 	var names []byte
 	var query []byte
-	err := row(&s.ID, &s.Slug, &names, &s.NameZh, &s.NameEn, &query, &s.Sort, &s.Icon, &s.Enabled, &s.SortOrder)
+	err := row(&s.ID, &s.Slug, &names, &query, &s.Sort, &s.Icon, &s.Enabled, &s.SortOrder)
 	if err != nil {
 		return s, err
 	}
@@ -80,7 +78,7 @@ func validateShelf(s Shelf) error {
 	return nil
 }
 
-const shelfColumns = `id,slug,names,name_zh,name_en,query,sort,icon,is_enabled,sort_order`
+const shelfColumns = `id,slug,names,query,sort,icon,is_enabled,sort_order`
 
 // ListShelves 返回货架规则（按 sort_order 排序）。
 // enabledOnly 为 true 时只返回启用项，供首页/探索等公开入口使用。
@@ -140,8 +138,8 @@ func (s *Store) CreateShelf(ctx context.Context, in Shelf) (Shelf, error) {
 		if exists {
 			return fmt.Errorf("constraint_violation")
 		}
-		row := tx.QueryRowContext(ctx, `INSERT INTO catalog.shelves(slug,names,name_zh,name_en,query,sort,icon,is_enabled,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING `+shelfColumns,
-			in.Slug, string(names), in.Names["zh-CN"], in.Names["en-US"], string(query), in.Sort, in.Icon, in.Enabled, in.SortOrder)
+		row := tx.QueryRowContext(ctx, `INSERT INTO catalog.shelves(slug,names,query,sort,icon,is_enabled,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING `+shelfColumns,
+			in.Slug, string(names), string(query), in.Sort, in.Icon, in.Enabled, in.SortOrder)
 		e, err := scanShelf(row.Scan)
 		if err != nil {
 			return err
@@ -179,8 +177,8 @@ func (s *Store) UpdateShelf(ctx context.Context, id int64, in Shelf) (Shelf, err
 	query, _ := json.Marshal(in.Query)
 	var updated Shelf
 	err := s.write(ctx, func(tx *sql.Tx) error {
-		row := tx.QueryRowContext(ctx, `UPDATE catalog.shelves SET names=$2,name_zh=$3,name_en=$4,query=$5,sort=$6,icon=$7,is_enabled=$8,sort_order=$9 WHERE id=$1 RETURNING `+shelfColumns,
-			id, string(names), in.Names["zh-CN"], in.Names["en-US"], string(query), in.Sort, in.Icon, in.Enabled, in.SortOrder)
+		row := tx.QueryRowContext(ctx, `UPDATE catalog.shelves SET names=$2,query=$3,sort=$4,icon=$5,is_enabled=$6,sort_order=$7 WHERE id=$1 RETURNING `+shelfColumns,
+			id, string(names), string(query), in.Sort, in.Icon, in.Enabled, in.SortOrder)
 		e, err := scanShelf(row.Scan)
 		if err != nil {
 			return err
@@ -331,8 +329,8 @@ func seedShelves(ctx context.Context, tx *sql.Tx) error {
 	for _, d := range defs {
 		names, _ := json.Marshal(d.Names)
 		query, _ := json.Marshal(d.Query)
-		if _, err := tx.ExecContext(ctx, `INSERT INTO catalog.shelves(slug,names,name_zh,name_en,query,sort,icon,is_enabled,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (slug) DO NOTHING`,
-			d.Slug, string(names), d.Names["zh-CN"], d.Names["en-US"], string(query), d.Sort, d.Icon, d.Enabled, d.SortOrder); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO catalog.shelves(slug,names,query,sort,icon,is_enabled,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (slug) DO NOTHING`,
+			d.Slug, string(names), string(query), d.Sort, d.Icon, d.Enabled, d.SortOrder); err != nil {
 			return err
 		}
 	}

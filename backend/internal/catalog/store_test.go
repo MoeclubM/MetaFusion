@@ -472,6 +472,11 @@ func TestExpressionDetailsBatch(t *testing.T) {
 	if d.Entity.Title != "批量录音" {
 		t.Fatalf("bad entity: %+v", d.Entity)
 	}
+	// 批量返回的表达实体必须带结构归属：document 落库时清空了 work_id/content_unit_id，
+	// 只解 JSON 会让前端按章节对齐全部退化到 work 级。
+	if d.Entity.WorkID != song.ID {
+		t.Fatalf("batch entity missing work_id (structural parentage): %+v", d.Entity)
+	}
 	if len(d.Occurrences) != 1 {
 		t.Fatalf("expected 1 occurrence, got %d", len(d.Occurrences))
 	}

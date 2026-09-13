@@ -6,12 +6,12 @@ import {
   fetchApi,
   ForumBoard,
   Tag,
-  Work,
   boardDisplayName,
   boardDisplayDesc,
   createTopic,
   createPost,
 } from "@/lib/api";
+import { Entity, fetchAllPages } from "@/components/catalog/api";
 import {
   Bold,
   Italic,
@@ -213,8 +213,8 @@ export default function PostComposer({
   const [newBoardCode, setNewBoardCode] = useState(defaultBoardCode || "announcement");
   const [topicLanguage, setTopicLanguage] = useState<string>(locale || "zh-CN");
   const [workSearchQuery, setWorkSearchQuery] = useState("");
-  const [searchedWorks, setSearchedWorks] = useState<Work[]>([]);
-  const [selectedWork, setSelectedWork] = useState<Work | null>(null);
+  const [searchedWorks, setSearchedWorks] = useState<Entity[]>([]);
+  const [selectedWork, setSelectedWork] = useState<Entity | null>(null);
   const boardQueryRef = useRef<HTMLInputElement>(null);
 
   const [boardQuery, setBoardQuery] = useState("");
@@ -288,8 +288,8 @@ export default function PostComposer({
       return;
     }
     const timer = setTimeout(() => {
-      fetchApi<{ items: Work[] }>(`/catalog/works?q=${encodeURIComponent(workSearchQuery.trim())}`)
-        .then((res) => setSearchedWorks(res.items || []))
+      fetchAllPages<Entity>(`/catalog/entities?kind=work&q=${encodeURIComponent(workSearchQuery.trim())}&limit=10`)
+        .then((items) => setSearchedWorks(items || []))
         .catch(() => setSearchedWorks([]));
     }, 300);
     return () => clearTimeout(timer);
@@ -372,7 +372,7 @@ export default function PostComposer({
         title: newTitle.trim(),
         content: newContent.trim(),
         language: topicLanguage,
-        work_id: selectedWork ? selectedWork.id : undefined,
+        work_id: selectedWork?.id,
         tag_ids: selectedTagIds.length ? selectedTagIds : undefined,
         tag_names: customTagNames.length ? customTagNames : undefined,
       });

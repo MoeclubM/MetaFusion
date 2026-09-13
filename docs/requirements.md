@@ -66,7 +66,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 
 | ID | 需求 | 说明 |
 |---|---|---|
-| META-01 | 游客可浏览 | `GET /api/catalog/works`、`GET /api/catalog/works/:id`、`GET /api/catalog/entities?kind=release`、`GET /api/catalog/entities/:id`、`GET /api/community/entities/:id/posts`（需启用 community 模块）等无需鉴权 |
+| META-01 | 游客可浏览 | `GET /api/catalog/entities?kind=work`、`GET /api/catalog/entities/:id`、`GET /api/catalog/entities?kind=release`、`GET /api/community/entities/:id/posts`（需启用 community 模块）等无需鉴权 |
 | META-02 | 搜索开放 | `GET /api/catalog/entities?q=...` 对游客开放，OpenSearch 离线时降级为 SQL 全文检索，不得因鉴权导致搜索引擎无法收录 |
 | META-03 | 多语言开放 | `work_translations` 等翻译表随元数据一并开放，`?locale` 仅影响展示语言，不影响可见性 |
 

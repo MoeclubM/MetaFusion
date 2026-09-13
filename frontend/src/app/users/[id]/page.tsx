@@ -5,7 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
-import { fetchApi, displayNameOf, toggleFavorite, FavoriteTargetType } from "@/lib/api";
+import { fetchApi, displayNameOf, toggleFavorite, FavoriteTargetType, catalogEntityHref } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import DirectMessageModal from "@/components/community/DirectMessageModal";
@@ -341,10 +341,16 @@ export default function UserDetailPage() {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
             {[
               { id: "", label: t("users.profile.favFilterAll") },
-              { id: "work", label: t("users.profile.favFilterWork") },
-              { id: "release", label: t("users.profile.favFilterRelease") },
-              { id: "artist", label: t("users.profile.favFilterArtist") },
-              { id: "franchise", label: t("users.profile.favFilterFranchise") },
+              ...([
+                "work",
+                "release",
+                "medium",
+                "track",
+                "agent",
+                "collection",
+                "content_unit",
+                "expression",
+              ] as FavoriteTargetType[]).map((k) => ({ id: k, label: t(`catalog.kind.${k}`) })),
             ].map((f) => (
               <button
                 key={f.id}
@@ -379,23 +385,9 @@ export default function UserDetailPage() {
           ) : tab === "favorites" ? (
             <ul className="divide-y divide-black/5 dark:divide-white/[0.06]">
               {items.map((it: FavoriteItem) => {
-                const href =
-                  it.target_type === "work"
-                    ? `/works/${it.target_id}`
-                    : it.target_type === "release"
-                    ? `/releases/${it.target_id}`
-                    : it.target_type === "franchise"
-                    ? `/franchises/${it.target_id}`
-                    : `/artists/${it.target_id}`;
-                const title = it.work?.title || it.release?.edition_name || it.artist?.name || it.franchise?.title || it.target_id;
-                const typeLabel =
-                  it.target_type === "work"
-                    ? t("users.profile.tabs.works")
-                    : it.target_type === "release"
-                    ? t("users.profile.tabs.releases")
-                    : it.target_type === "franchise"
-                    ? t("explore.typeFranchises")
-                    : t("users.profile.tabs.artists");
+                const href = catalogEntityHref(it.target_type, it.target_id);
+                const title = it.entity?.title || it.target_id;
+                const typeLabel = t(`catalog.kind.${it.target_type}`);
                 return (
                   <li
                     key={it.id}
@@ -439,16 +431,13 @@ export default function UserDetailPage() {
                 // 实体链接解析
                 let entityHref = "#";
                 let entityDisplayName = it.target_title || it.title || it.edition_name || it.name || it.summary || "";
-                if (it.target_type === "work" || it.work_id || it.work?.id) {
-                  entityHref = `/works/${it.target_id || it.work_id || it.work?.id || it.id}`;
-                } else if (it.target_type === "release" || it.edition_name) {
-                  entityHref = `/releases/${it.target_id || it.id}`;
-                } else if (it.target_type === "artist" || it.name) {
-                  entityHref = `/artists/${it.target_id || it.id}`;
-                } else if (it.target_type === "franchise") {
-                  entityHref = `/franchises/${it.target_id || it.id}`;
+                const targetId = it.target_id || it.work_id || it.id;
+                if (it.target_type && targetId) {
+                  entityHref = catalogEntityHref(it.target_type, targetId);
+                } else if (it.kind && targetId) {
+                  entityHref = catalogEntityHref(it.kind, targetId);
                 } else if (it.id && it.title) {
-                  entityHref = `/works/${it.id}`;
+                  entityHref = catalogEntityHref("work", it.id);
                 }
 
                 if (!entityDisplayName && isRevision) {

@@ -1593,12 +1593,6 @@
   "graph.disambiguation": "Disambiguation",
   "graph.connectedEdges": "Connected Relations in Graph",
   "graph.noConnectedEdges": "No other direct connections in current graph",
-  "graph.type.work": "Work",
-  "graph.type.release": "Release",
-  "graph.type.artist": "Artist",
-  "graph.type.medium": "Medium",
-  "graph.type.franchise": "Franchise",
-  "graph.type.canonical_entry": "Master entry",
   "graph.predicate": "Relation Predicate",
   "graph.targetEntity": "Target Entity",
   "graph.reselect": "Reselect",
@@ -2624,5 +2618,12 @@
   "editor.relation.loadFailed": "Failed to load relations",
   "editor.relation.requiredMissing": "Required relation fields missing: {fields}",
   "catalog.evidenceRequired": "Fill in the edit note and source citation before saving.",
-  "catalog.otherInfo": "Other information"
+  "catalog.otherInfo": "Other information",
+  "release.detail.occurrencesLoadGapDetail": "{entities} expression records and {details} occurrence/credit sets could not be loaded.",
+  "release.detail.showAllOccurrences": "Show all occurrences",
+  "release.detail.collapseOccurrences": "Collapse occurrences",
+  "catalog.compareIncompleteCatalog": "Insufficient data: these releases have no tracks or content references, so no content-equivalence conclusion is drawn.",
+  "entity.characterRank.primary": "Lead",
+  "entity.characterRank.supplement": "Supporting",
+  "entity.characterRank.extra": "Cameo"
 }

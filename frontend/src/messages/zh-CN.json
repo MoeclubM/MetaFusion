@@ -1593,12 +1593,6 @@
   "graph.disambiguation": "消歧义说明",
   "graph.connectedEdges": "图谱中的关联关系",
   "graph.noConnectedEdges": "当前图中无其它直接连线",
-  "graph.type.work": "作品",
-  "graph.type.release": "发行版",
-  "graph.type.artist": "创作者",
-  "graph.type.medium": "分碟载体",
-  "graph.type.franchise": "企划世界观",
-  "graph.type.canonical_entry": "母版篇目",
   "graph.predicate": "关系谓词",
   "graph.targetEntity": "目标实体",
   "graph.reselect": "重选",
@@ -2624,5 +2618,12 @@
   "editor.relation.loadFailed": "关系加载失败",
   "editor.relation.requiredMissing": "必填关系字段未填写：{fields}",
   "catalog.evidenceRequired": "请先填写本次修改说明与来源声明，再保存。",
-  "catalog.otherInfo": "其它信息"
+  "catalog.otherInfo": "其它信息",
+  "release.detail.occurrencesLoadGapDetail": "其中 {entities} 条表达实体、{details} 条收录与署名未能加载。",
+  "release.detail.showAllOccurrences": "展开全部收录",
+  "release.detail.collapseOccurrences": "收起收录",
+  "catalog.compareIncompleteCatalog": "资料不足：以下发行缺曲目或内容引用，暂不下内容一致性结论。",
+  "entity.characterRank.primary": "主角",
+  "entity.characterRank.supplement": "配角",
+  "entity.characterRank.extra": "客串"
 }
