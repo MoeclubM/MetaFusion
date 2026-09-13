@@ -108,12 +108,20 @@ export type Entity = {
   parent_id?: string;
   position: number;
   number: string;
+  // 收录与发行对象的附加属性：键为 definitions 声明的子字段码
+  // （inclusion_attributes / subject_attributes），未声明时为空。
   contents: {
     expression_id: string;
     position: number;
     locator: Record<string, any>;
+    attributes?: Record<string, any>;
   }[];
-  subjects: { work_id: string; role: string; position: number }[];
+  subjects: {
+    work_id: string;
+    role: string;
+    position: number;
+    attributes?: Record<string, any>;
+  }[];
   updated_at?: string;
 };
 export type Source = { kind: string; citation: string; url?: string };

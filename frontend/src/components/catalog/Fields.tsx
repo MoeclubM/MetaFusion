@@ -123,6 +123,50 @@ export function EntityPicker({
     </div>
   );
 }
+// GroupFieldInput：按字段码渲染一个 group 字段的子字段表单（值形如 {子字段码: 值}）。
+// 专供"记录级附加属性"这类没有独立列、完全靠 definitions 声明的落点：
+// subject_attributes（发行对象附加属性）、inclusion_attributes（收录附加属性）。
+// 后台未声明任何子字段时不出表单——不发明字段，也不在前端写死子字段码。
+export function GroupFieldInput({
+  defs,
+  code,
+  value,
+  onChange,
+}: {
+  defs: any;
+  code: string;
+  value: Record<string, any> | undefined;
+  onChange: (v: Record<string, any>) => void;
+}) {
+  const { locale } = useI18n();
+  const field = defs?.fields?.[code];
+  if (!field || field.type !== "group") return null;
+  const entries = Object.entries(field.fields || {}).filter(
+    ([, f]: [string, any]) => f?.enabled !== false,
+  );
+  if (entries.length === 0) return null;
+  const current = value || {};
+  return (
+    <div className="cv-grid">
+      {entries.map(([k, f]: [string, any]) => (
+        <label key={k}>
+          {local(f.names, locale, "", k)}
+          <FieldInput
+            field={f}
+            value={current[k]}
+            onChange={(v) => {
+              const next = { ...current };
+              if (v === "" || v === undefined || v === null) delete next[k];
+              else next[k] = v;
+              onChange(next);
+            }}
+          />
+        </label>
+      ))}
+    </div>
+  );
+}
+
 export function FieldInput({
   field,
   value,
