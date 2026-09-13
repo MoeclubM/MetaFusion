@@ -19,6 +19,8 @@ export interface CompareInclusionLike {
 }
 
 export interface CompareTrackLike {
+  id?: string;
+  parent_id?: string;
   contents?: CompareInclusionLike[];
 }
 
@@ -80,6 +82,36 @@ function contentKeyOf(exprId: string, exprEntities: Record<string, CompareExprEn
   return e.content_unit_id || e.work_id || "";
 }
 
+// 把载体的轨道列表还原成"父在前、子紧随"的树序。接口返回的是按 position 排的
+// 扁平列表，而各层 position 各自起算；直接平铺会把子轨与相邻容器的子轨交错，
+// 让收录顺序（进而"仅顺序不同"的判定）失真。容器轨自身的内容排在子轨之前。
+function orderedTracks(tracks: CompareTrackLike[]): CompareTrackLike[] {
+  const byParent = new Map<string, CompareTrackLike[]>();
+  const ids = new Set<string>();
+  for (const tr of tracks) if (tr.id) ids.add(tr.id);
+  for (const tr of tracks) {
+    // 父轨不在本载体内的孤儿节点按顶层处理，避免整棵子树消失。
+    const key = tr.parent_id && ids.has(tr.parent_id) ? tr.parent_id : "";
+    const list = byParent.get(key) || [];
+    list.push(tr);
+    byParent.set(key, list);
+  }
+  const out: CompareTrackLike[] = [];
+  const walk = (parent: string) => {
+    for (const tr of byParent.get(parent) || []) {
+      out.push(tr);
+      if (tr.id) walk(tr.id);
+    }
+  };
+  walk("");
+  // 极端情况下（数据成环）未被走到的节点追加在末尾，保证不丢内容。
+  if (out.length < tracks.length) {
+    const seen = new Set(out);
+    for (const tr of tracks) if (!seen.has(tr)) out.push(tr);
+  }
+  return out;
+}
+
 // 每条发行上按载体→轨道→收录顺序展开一份有序指纹（保留顺序与重复次数）。
 function sequenceOf(
   item: CompareItemLike,
@@ -90,7 +122,7 @@ function sequenceOf(
   const seq: string[] = [];
   let unknown = false;
   for (const m of item.media || []) {
-    for (const tr of m.tracks || []) {
+    for (const tr of orderedTracks(m.tracks || [])) {
       for (const c of tr.contents || []) {
         const id = c.expression_id;
         if (!id) continue;
@@ -117,16 +149,29 @@ function structureOf(item: CompareItemLike): string {
 
 // 目录完整性：空内容集合不能当成"已确认相同"。只有载体结构的发行（曲目未录入）
 // 或曲目存在但没有内容引用（收录未录入）都属资料不足，不能与其他发行比内容。
+//
+// 导航节点不算漏录：黑胶 A/B 面、多盘装的总目轨这类容器轨只负责分组，内容挂在
+// 其子轨上，本身不需要直接引用 Expression。因此只对**叶子轨**要求内容引用。
 function completenessOf(item: CompareItemLike): CompareItemCompleteness {
   let mediaWithoutTracks = 0;
   let tracksWithoutContents = 0;
   let totalTracks = 0;
   const media = item.media || [];
+  // 载体内的父轨集合：任一被别的轨当作 parent 的轨即容器（导航节点）。
+  const containerIds = new Set<string>();
+  for (const m of media) {
+    for (const tr of m.tracks || []) {
+      if (tr.parent_id) containerIds.add(tr.parent_id);
+    }
+  }
   for (const m of media) {
     const tracks = m.tracks || [];
     if (tracks.length === 0) mediaWithoutTracks += 1;
     for (const tr of tracks) {
       totalTracks += 1;
+      // 容器轨（导航节点）不要求直接内容引用，其子轨各自受检。
+      const isContainer = !!tr.id && containerIds.has(tr.id);
+      if (isContainer) continue;
       if (!(tr.contents || []).some((c) => c.expression_id)) tracksWithoutContents += 1;
     }
   }
