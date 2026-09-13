@@ -7,7 +7,7 @@ import { useDefinitions, getFieldName, getRelationName } from "@/lib/definitions
 import { api, Entity, Source } from "@/components/catalog/api";
 import { EntityPicker, FieldInput } from "@/components/catalog/Fields";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
-import { Plus, Trash2, Pencil, ArrowLeftRight, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Pencil, ArrowLeftRight, AlertCircle, ChevronUp, ChevronDown } from "lucide-react";
 
 interface Relation {
   id: string;
@@ -28,7 +28,9 @@ interface Props {
   sources: Source[];
 }
 
-type TypeOption = { code: string; forward: boolean; targetKinds: string[] };
+// 选项同时携带对端可接受的 kind 与动态业务类型：服务的 invalid_endpoint_types
+// 校验按"两端类型命中其一"判定，选择器据此收敛候选，避免选到必被拒绝的对端。
+type TypeOption = { code: string; forward: boolean; targetKinds: string[]; targetTypes: string[] };
 
 // 选项值编码"关系＋方向"：两端同 kind 的关系（如 Work→Work）正向/反向是两个选项。
 const optionKey = (o: TypeOption) => `${o.code}|${o.forward ? "f" : "r"}`;
@@ -86,8 +88,9 @@ export function RelationEditorField({ entityId, entityKind, note, sources }: Pro
       if (!rel.enabled) continue;
       const inSource = rel.source_kinds?.includes(entityKind) ?? false;
       const inTarget = rel.target_kinds?.includes(entityKind) ?? false;
-      if (inSource) out.push({ code, forward: true, targetKinds: rel.target_kinds || [] });
-      if (inTarget) out.push({ code, forward: false, targetKinds: rel.source_kinds || [] });
+      // 正向：本实体为 source，对端是 target；反向反之。
+      if (inSource) out.push({ code, forward: true, targetKinds: rel.target_kinds || [], targetTypes: rel.target_types || [] });
+      if (inTarget) out.push({ code, forward: false, targetKinds: rel.source_kinds || [], targetTypes: rel.source_types || [] });
     }
     out.sort((a, b) => optionKey(a).localeCompare(optionKey(b)));
     return out;
@@ -124,6 +127,15 @@ export function RelationEditorField({ entityId, entityKind, note, sources }: Pro
       );
       return;
     }
+    // 追加到同类同向关系末尾：服务端按 position 稳定排序，写死 0 会让新关系
+    // 与已有关系并列、顺序不定，署名次序无法表达。
+    const siblings = items.filter(
+      (r) =>
+        r.type === selected.code &&
+        (r.source_id === entityId) === selected.forward,
+    );
+    const nextPosition =
+      siblings.reduce((max, r) => Math.max(max, r.position || 0), -1) + 1;
     setBusy(true);
     setError("");
     try {
@@ -135,7 +147,7 @@ export function RelationEditorField({ entityId, entityKind, note, sources }: Pro
             type: selected.code,
             source_id: selected.forward ? entityId : addTarget,
             target_id: selected.forward ? addTarget : entityId,
-            position: 0,
+            position: nextPosition,
             attributes: addAttrs,
           },
           expected_version: 0,
@@ -147,6 +159,45 @@ export function RelationEditorField({ entityId, entityKind, note, sources }: Pro
       setAddType("");
       setAddTarget("");
       setAddAttrs({});
+      await load();
+    } catch (e) {
+      setError(friendly((e as Error).message));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // move：与相邻的同类型同向关系交换 position，用于调整署名/展示次序。
+  // 逐条 PUT 只改 position，不动端点与属性（PUT 需要完整关系体与 version）。
+  const move = async (r: Relation, delta: -1 | 1) => {
+    const forwardOf = (x: Relation) => x.source_id === entityId;
+    const siblings = items.filter(
+      (x) => x.type === r.type && forwardOf(x) === forwardOf(r),
+    );
+    const idx = siblings.findIndex((x) => x.id === r.id);
+    const other = siblings[idx + delta];
+    if (!other) return;
+    setBusy(true);
+    setError("");
+    try {
+      const put = (x: Relation, position: number) =>
+        api(`/catalog/relations/${x.id}`, "PUT", {
+          relation: {
+            id: x.id,
+            type: x.type,
+            source_id: x.source_id,
+            target_id: x.target_id,
+            position,
+            attributes: x.attributes || {},
+          },
+          expected_version: x.version,
+          edit_note: note,
+          sources,
+        });
+      const [a, b] = [r.position || 0, other.position || 0];
+      // 两条 position 相同时（历史数据）用相邻值分开，保证次序真正改变。
+      await put(r, b === a ? a + delta : b);
+      await put(other, b === a ? a : a);
       await load();
     } catch (e) {
       setError(friendly((e as Error).message));
@@ -328,6 +379,27 @@ export function RelationEditorField({ entityId, entityKind, note, sources }: Pro
                     {attrSummary(r)}
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
+                    {/* 署名次序：与相邻同类型同向关系交换 position。 */}
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => move(r, -1)}
+                      className="inline-flex items-center opacity-60 hover:opacity-100 hover:text-primary disabled:opacity-30"
+                      title={t("editor.relation.moveUp")}
+                      aria-label={t("editor.relation.moveUp")}
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => move(r, 1)}
+                      className="inline-flex items-center opacity-60 hover:opacity-100 hover:text-primary disabled:opacity-30"
+                      title={t("editor.relation.moveDown")}
+                      aria-label={t("editor.relation.moveDown")}
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </button>
                     {defs?.relations?.[r.type] && (defs.relations[r.type].fields || []).length > 0 && (
                       <button
                         type="button"
@@ -412,6 +484,7 @@ export function RelationEditorField({ entityId, entityKind, note, sources }: Pro
             {selected && (
               <EntityPicker
                 kinds={selected.targetKinds}
+                types={selected.targetTypes}
                 value={addTarget}
                 onChange={setAddTarget}
               />
