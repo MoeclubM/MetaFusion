@@ -1,9 +1,26 @@
 package catalog
 
 import (
+	"regexp"
 	"sort"
 	"testing"
 )
+
+// 启动 SQL 只应"按需建表建索引 + 种子"：删列、删表、旧数据搬迁属一次性迁移，
+// 必须放到版本化迁移里执行。这里守住这条边界，避免有人再把破坏性语句塞回启动路径。
+func TestStartupSchemaHasNoDestructiveStatements(t *testing.T) {
+	destructive := []*regexp.Regexp{
+		regexp.MustCompile(`(?i)\bDROP\s+COLUMN\b`),
+		regexp.MustCompile(`(?i)\bDROP\s+TABLE\b`),
+		regexp.MustCompile(`(?i)\bDELETE\s+FROM\b`),
+		regexp.MustCompile(`(?i)\bTRUNCATE\b`),
+	}
+	for _, re := range destructive {
+		if loc := re.FindString(schema); loc != "" {
+			t.Errorf("启动 SQL 含破坏性语句 %q；一次性数据迁移应移入 backend/migrations/", loc)
+		}
+	}
+}
 
 // 默认定义必须自洽：类型的模板与字段、模板引用的字段、词表归属都要能通过校验，
 // 否则空库首次 Initialize 就会失败。

@@ -163,90 +163,9 @@ CREATE TABLE IF NOT EXISTS catalog.user_preferences (
  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- 退役结构清理（幂等）：shelves/external_databases 早前以 name_zh/name_en 双列存名称，
--- 收藏用旧的 work/release/artist/franchise/canonical_entry 词表。现名称只走 names 多语言
--- 映射、target_type 即实体 kind。CREATE TABLE IF NOT EXISTS 不会改动既有表，这里显式删掉
--- 残留列与旧约束，避免它们拦住新写入；不搬运任何数据。
-ALTER TABLE catalog.shelves DROP COLUMN IF EXISTS name_zh;
-ALTER TABLE catalog.shelves DROP COLUMN IF EXISTS name_en;
-ALTER TABLE catalog.external_databases DROP COLUMN IF EXISTS name_zh;
-ALTER TABLE catalog.external_databases DROP COLUMN IF EXISTS name_en;
--- 来源适用范围旧词表（artist/franchise/canonical_entry）归一到对应实体 kind；
--- 旧值已不在新词表内，不归一会让这些来源在新 kind 的详情页永远筛不出来。
-UPDATE catalog.external_databases SET category = CASE category
-  WHEN 'artist' THEN 'agent'
-  WHEN 'franchise' THEN 'collection'
-  WHEN 'canonical_entry' THEN 'expression'
-  ELSE category END
-WHERE category IN ('artist','franchise','canonical_entry');
-DELETE FROM catalog.favorites WHERE target_type NOT IN ('agent','collection','work','content_unit','expression','release','medium','track');
--- 收藏旧词表 CHECK 的约束名不固定（内联列约束由 PG 命名），按定义匹配而不按名字。
-DO $$
-DECLARE c record;
-BEGIN
-  FOR c IN
-    SELECT conname FROM pg_constraint
-    WHERE conrelid = 'catalog.favorites'::regclass AND contype = 'c'
-      AND pg_get_constraintdef(oid) LIKE '%target_type%'
-      AND pg_get_constraintdef(oid) NOT LIKE '%content_unit%'
-  LOOP
-    EXECUTE format('ALTER TABLE catalog.favorites DROP CONSTRAINT %I', c.conname);
-  END LOOP;
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conrelid = 'catalog.favorites'::regclass AND contype = 'c'
-      AND pg_get_constraintdef(oid) LIKE '%content_unit%'
-  ) THEN
-    ALTER TABLE catalog.favorites ADD CONSTRAINT favorites_target_type_check
-      CHECK (target_type IN ('agent','collection','work','content_unit','expression','release','medium','track'));
-  END IF;
-END $$;
+-- 本文件只做"按需建表/建索引 + 种子"：全部 CREATE/ALTER ADD 均幂等，
+-- 不含任何删列、删表或旧数据搬迁。历史结构退役与账号表搬迁属一次性数据迁移，
+-- 已移入版本化迁移（backend/migrations/，如 000007_auth_schema_split、
+-- 000011_retire_legacy_structures），由 `migrate up` 执行；启动只保证必要结构存在。
 
--- 账号表搬迁：catalog.* → auth.*（幂等）。
--- 首次在既有部署上运行时，把账号/会话/OAuth 数据搬到 auth schema，并断开
--- catalog 侧指向 catalog.users 的全部外键，然后删除遗留表；再次运行即为空操作。
--- 放在 schema.sql 而非仅迁移文件，是因为 Initialize() 在启动时必执行本文件，
--- 保证"代码已读 auth.* 但数据还在 catalog.*"的窗口不存在。
-DO $$
-DECLARE c record;
-BEGIN
-  IF to_regclass('catalog.users') IS NULL THEN
-    RETURN; -- 已搬迁过（或全新库），无需处理
-  END IF;
-  INSERT INTO auth.users(id, username, email, password_hash, role)
-    SELECT id, username, email, password_hash, role FROM catalog.users
-    ON CONFLICT (id) DO NOTHING;
-  IF to_regclass('catalog.sessions') IS NOT NULL THEN
-    INSERT INTO auth.sessions(token_hash, user_id, expires_at)
-      SELECT token_hash, user_id, expires_at FROM catalog.sessions
-      WHERE user_id IN (SELECT id FROM auth.users)
-      ON CONFLICT (token_hash) DO NOTHING;
-  END IF;
-  IF to_regclass('catalog.oauth_clients') IS NOT NULL THEN
-    INSERT INTO auth.oauth_clients(id, secret_hash, name, redirect_uris, trusted, created_at)
-      SELECT id, secret_hash, name, redirect_uris, trusted, created_at FROM catalog.oauth_clients
-      ON CONFLICT (id) DO NOTHING;
-  END IF;
-  IF to_regclass('catalog.oauth_codes') IS NOT NULL THEN
-    INSERT INTO auth.oauth_codes(code, client_id, user_id, redirect_uri, scope, expires_at, used)
-      SELECT code, client_id, user_id, redirect_uri, scope, expires_at, used FROM catalog.oauth_codes
-      WHERE user_id IN (SELECT id FROM auth.users)
-      ON CONFLICT (code) DO NOTHING;
-  END IF;
-  IF to_regclass('catalog.oauth_tokens') IS NOT NULL THEN
-    INSERT INTO auth.oauth_tokens(token_hash, client_id, user_id, scope, expires_at)
-      SELECT token_hash, client_id, user_id, scope, expires_at FROM catalog.oauth_tokens
-      WHERE user_id IN (SELECT id FROM auth.users)
-      ON CONFLICT (token_hash) DO NOTHING;
-  END IF;
-  -- 断开所有指向 catalog.users 的外键（entities/revisions/favorites/user_preferences）。
-  FOR c IN
-    SELECT conrelid::regclass AS tbl, conname
-    FROM pg_constraint
-    WHERE contype='f' AND confrelid = to_regclass('catalog.users')
-  LOOP
-    EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', c.tbl, c.conname);
-  END LOOP;
-  DROP TABLE IF EXISTS catalog.oauth_tokens, catalog.oauth_codes, catalog.oauth_clients,
-                       catalog.sessions, catalog.users CASCADE;
-END $$;
+-- 账号表搬迁（catalog.* → auth.*）已由迁移 000007_auth_schema_split 负责。

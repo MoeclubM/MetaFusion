@@ -54,6 +54,13 @@ GET /api/catalog/entities?kind=release&work_id=<work_id>&limit=24
 GET /api/catalog/entities?kind=medium&release_id=<release_id>
 ```
 
+多值过滤：`kinds` / `types` 可用逗号分隔或重复出现，命中任一即返回。用于关系编辑器的对端候选
+（`kind` 与动态业务类型同时约束），命中在服务端完成，不会因先取固定条数而被截断：
+
+```http
+GET /api/catalog/entities?kinds=work,collection&types=album,song&limit=24
+```
+
 JS 示例：
 
 ```js
