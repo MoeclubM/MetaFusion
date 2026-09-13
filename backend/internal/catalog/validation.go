@@ -380,7 +380,8 @@ func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string) [
 // Fields 过滤到并集、Required 按并集 required 设置；无匹配时回退全局组。
 // 入口缺失时返回零值 Field：调用方 value 的 default 分支报 unknown_field_type
 // 而非静默放过——入口缺失是固定契约被破坏，定义层由 structuralFieldsPresent
-// 在 Validate 拒绝；实体层此处同样失败（空数据已被 isEmptyValue 提前放行）。
+// 在 Validate 拒绝；实体层此处同样失败（空数据已被 isEmptyValue 提前放行，
+// 见 TestStructuralEntryMissingRejectsEntityData）。
 func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []string) Field {
 	group, ok := d.Fields[slot]
 	if !ok {
@@ -500,7 +501,8 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 	}
 	// value 无 default 分支时存量坏定义空转：未知 Type 在 validateField 已拒绝，
 	// 此处兜底 unknown_field_type，保证坏定义在运行期同样失败而非静默通过。
-	// （effectiveGroupField 入口缺失时返回零值 Field，同样落到此分支。）
+	// （effectiveGroupField 入口缺失时返回零值 Field，同样落到此分支；
+	// 空数据已被 isEmptyValue 提前放行，整轨收录的空定位不受影响。）
 	switch f.Type {
 	case "text":
 		s, ok := v.(string)
