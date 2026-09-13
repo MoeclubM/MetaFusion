@@ -303,6 +303,62 @@ func TestStructuralAttributeEntrypointsCannotBeRemoved(t *testing.T) {
 	}
 }
 
+// 入口定义被删后，实体层也不得放过未声明数据：effectiveGroupField 取到
+// 零值 Field 时 d.value 必须拒绝（unknown_field），而不是因 Type 无匹配
+// 分支返回 nil。定义层由 structuralFieldsPresent 在 Validate 拒绝，
+// 此处覆盖"定义已坏但实体仍在校验"的路径（隔离复现：删 locator 后
+// Track 带未知定位键仍通过 validateEntity）。
+func TestStructuralEntryMissingRejectsEntityData(t *testing.T) {
+	ref := func(string, []string) error { return nil }
+	mkTrack := func(locator Locator) Entity {
+		return Entity{Kind: "track", Title: "T", Status: "draft",
+			MediumID: "11111111-1111-4111-8111-111111111111",
+			Contents: []Inclusion{{ExpressionID: "22222222-2222-4222-8222-222222222222",
+				Locator: locator}}}
+	}
+	mkRelease := func(attrs map[string]any) Entity {
+		return Entity{Kind: "release", Title: "R", Status: "draft",
+			Subjects: []Subject{{WorkID: "44444444-4444-4444-8444-444444444444",
+				Role: "primary", Attributes: attrs}}}
+	}
+	// 三个入口逐个删除：带数据的实体必须被拒绝，空数据仍放行（整轨收录）。
+	for _, code := range []string{"locator", "inclusion_attributes", "subject_attributes"} {
+		d := Defaults()
+		delete(d.Fields, code)
+		withData := mkTrack(Locator{"relative_to": "medium", "no_such_key": "x"})
+		if code != "locator" {
+			withData = mkTrack(Locator{"relative_to": "medium"})
+			withData.Contents[0].Attributes = map[string]any{"no_such_key": "x"}
+			if code == "subject_attributes" {
+				withData = mkTrack(Locator{"relative_to": "medium"})
+				withData.Subjects = nil
+				rel := mkRelease(map[string]any{"no_such_key": "x"})
+				if err := d.validateEntity(rel, ref, false); err == nil {
+					t.Errorf("entity data accepted with %s entry deleted", code)
+				}
+				continue
+			}
+		}
+		if err := d.validateEntity(withData, ref, false); err == nil {
+			t.Errorf("entity data accepted with %s entry deleted", code)
+		}
+		empty := mkTrack(Locator{})
+		if code != "locator" {
+			empty = mkTrack(Locator{"relative_to": "medium"})
+			empty.Contents[0].Attributes = nil
+			if code == "subject_attributes" {
+				if err := d.validateEntity(mkRelease(nil), ref, false); err != nil {
+					t.Errorf("empty attributes rejected with %s entry deleted: %v", code, err)
+				}
+				continue
+			}
+		}
+		if err := d.validateEntity(empty, ref, false); err != nil {
+			t.Errorf("empty locator rejected with %s entry deleted: %v", code, err)
+		}
+	}
+}
+
 // 对比语义是闭集：只接受系统真正实现的规则，自由填写一律拒绝。
 func TestCompareSemanticsIsClosedSet(t *testing.T) {
 	ok := Defaults()

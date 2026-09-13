@@ -378,8 +378,15 @@ func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string) [
 
 // effectiveGroupField 用"并集 fields"构造有效组定义：拷贝全局组定义、
 // Fields 过滤到并集、Required 按并集 required 设置；无匹配时回退全局组。
+// 入口缺失（零值 Field）时直接返回零值：调用方 d.value 对零值 Type
+// 无匹配分支，返回 nil 会放过未声明数据——入口缺失是固定契约被破坏，
+// 必须由 structuralFieldsPresent 在 Validate 阶段拒绝；实体层此处
+// 不再静默放过，见 TestStructuralEntryMissingRejectsEntityData。
 func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []string) Field {
-	group := d.Fields[slot]
+	group, ok := d.Fields[slot]
+	if !ok {
+		return Field{}
+	}
 	matched := d.matchSchemes(slot, ownerKind, ownerTypes)
 	if len(matched) == 0 {
 		return group
@@ -482,6 +489,24 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 			return fmt.Errorf("required_field")
 		}
 		return nil
+	}
+	// 结构属性入口缺失时 effectiveGroupField 返回零值 Field：Type 为空，
+	// 若无此分支会落到 switch 无匹配而返回 nil，放过未声明数据。
+	// 入口缺失是固定契约被破坏：有数据时必须拒绝（unknown_field），
+	// 无数据（nil/空串/空组）仍放行——整轨收录的空定位、空附加属性
+	// 不应因定义坏掉而连带无法保存。定义层由 structuralFieldsPresent
+	// 在 Validate 阶段拒绝。
+	if f.Type == "" {
+		switch v.(type) {
+		case nil, string, map[string]any:
+			if v == nil || v == "" {
+				return nil
+			}
+			if m, ok := v.(map[string]any); ok && len(m) == 0 {
+				return nil
+			}
+		}
+		return fmt.Errorf("unknown_field")
 	}
 	switch f.Type {
 	case "text":
