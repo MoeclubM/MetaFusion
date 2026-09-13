@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds, local, Source } from "./api";
 import { useCatalog } from "./CatalogProvider";
-import { EntityPicker, Evidence, FieldInput, ErrorMessage } from "./Fields";
+import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField } from "@/components/editor/RelationEditorField";
 import { getFieldName, getTermName } from "@/lib/definitions";
 export function EntityEditor({
@@ -447,6 +447,20 @@ export function EntityEditor({
                       </option>
                     ))}
                 </select>
+                {/* 发行对象附加属性：子字段由 definitions 的 subject_attributes 声明，
+                    后台加子字段即出现表单；未声明时不出（不发明字段）。 */}
+                <GroupFieldInput
+                  defs={defs}
+                  code="subject_attributes"
+                  value={s.attributes}
+                  onChange={(attrs) =>
+                    patch({
+                      subjects: e.subjects.map((v, j) =>
+                        i === j ? { ...v, attributes: attrs } : v,
+                      ),
+                    })
+                  }
+                />
                 <button
                   type="button"
                   onClick={() =>
@@ -563,6 +577,19 @@ export function EntityEditor({
                     );
                   })}
                 </div>
+                {/* 收录附加属性：子字段由 definitions 的 inclusion_attributes 声明。 */}
+                <GroupFieldInput
+                  defs={defs}
+                  code="inclusion_attributes"
+                  value={c.attributes}
+                  onChange={(attrs) =>
+                    patch({
+                      contents: e.contents.map((v, j) =>
+                        i === j ? { ...v, attributes: attrs } : v,
+                      ),
+                    })
+                  }
+                />
                 <button
                   type="button"
                   onClick={() =>
