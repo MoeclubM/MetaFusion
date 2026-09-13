@@ -2038,14 +2038,7 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview, dateField string
 			}
 		}
 	}
-	if v, ok := w.CatalogMetadata.(map[string]any); ok {
-		if _, ok := existing.Attributes["catalog_number"]; !ok && workType != "" {
-			if no := scalarString(v["catalog_number"]); no != "" {
-				existing.Attributes["catalog_number"] = no
-				changed = true
-			}
-		}
-	}
+	// 品番（catalog_number）是发行层标识，不写作品层；由发行属性改写补入 Release。
 	// 标签与 infobox 派生字段：只在缺失时补，绝不覆盖已编目的值。
 	if workType != "" {
 		if _, ok := existing.Attributes["tags"]; !ok && len(w.Tags) > 0 {
@@ -2158,12 +2151,10 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 		e.ExternalIDs[source] = strings.TrimSpace(sourceID)
 	}
 	// 官网来自 infobox，落 external_ids（前端 official_website 读这里，可考据且不占用类型字段）。
+	// 品番不写作品层：它是发行标识，由发行属性改写补入 Release。
 	if v, ok := w.CatalogMetadata.(map[string]any); ok {
 		if site := scalarString(v["official_website"]); site != "" {
 			e.ExternalIDs["official_website"] = site
-		}
-		if no := scalarString(v["catalog_number"]); no != "" && workType != "" {
-			e.Attributes["catalog_number"] = no
 		}
 	}
 	// infobox 别名按**自身语种**归入对应翻译行：假名→ja，含汉字→中文行。
@@ -2342,23 +2333,47 @@ func (s *Store) createExpressionWithMeta(ctx context.Context, actor User, note s
 	}, actor, note, sources)
 }
 
-// releaseLevelFromWork 列出"上游放在作品条目里、但语义属于发行层"的字段键。
-// 这些键仍由 infobox 映射产出（键名与发行层同名），落库时改写到 Release。
-var releaseLevelFromWork = []string{"barcode"}
+// releaseLevelFromWork 列出"上游放在作品条目里、但语义属于发行层"的字段键：
+// 品番（catalog_number）与条码/ISBN（barcode）都是**具体产品标识**，按元数据模型
+// 归 Release/Medium（同一个作品的不同发行各有品番）。上游资料表以作品为主表，
+// 这些值会跟着作品条目进来，落库时改写到 Release，作品层不再保留。
+var releaseLevelFromWork = []string{"catalog_number", "barcode"}
 
 // isReleaseLevelField 判定某 infobox 派生键是否应改写发行层而非留在作品上。
 func isReleaseLevelField(code string) bool {
 	return slices.Contains(releaseLevelFromWork, code)
 }
 
+// releaseLevelValues 收集同一载荷里属于发行层、需要改写的产品标识值。
+// catalog_number 来自作品预览的 catalog_metadata，条码/ISBN 来自 infobox 派生字段。
+func releaseLevelValues(work *ImporterWorkPreview) map[string]any {
+	if work == nil {
+		return nil
+	}
+	out := map[string]any{}
+	for _, k := range releaseLevelFromWork {
+		if val, ok := dynamicFieldValue(work.Fields[k]); ok {
+			out[k] = val
+		}
+	}
+	if cm, ok := work.CatalogMetadata.(map[string]any); ok {
+		if _, ok := out["catalog_number"]; !ok {
+			if no := scalarString(cm["catalog_number"]); no != "" {
+				out["catalog_number"] = no
+			}
+		}
+	}
+	return out
+}
+
 // importerReleaseAttrs 从预览计算发行版属性（不含 publisher：自由文本无法解析为
 // Agent 引用；不含 edition_type：预览未携带，不虚构）。
 //
-// workFields 是同一载荷里作品当前**已声明**的动态字段值。产品标识（条码/ISBN）
-// 属于发行层，上游资料表却常把它们放在作品条目里，因此这里把发行层缺的值补进来：
-// 只补发行层字段集内的键、且发行已有值时不覆盖。这样书本的 ISBN 落到发行 barcode，
-// 而不是留在作品层（defaults 已不再给 Work 声明 isbn/publisher_name）。
-func importerReleaseAttrs(rel *ImporterReleasePreview, workFields map[string]any) map[string]any {
+// work 是同一载荷的作品预览：产品标识（品番/条码/ISBN）语义属发行层，上游却常把
+// 它们放在作品条目里，因此这里把发行层缺的值补进来——只补发行层字段集内的键、
+// 发行已有值时不覆盖。这样书本 ISBN 落到发行 barcode、专辑品番落到发行
+// catalog_number，而不是留在作品层（defaults 已不再给 Work 声明这些字段）。
+func importerReleaseAttrs(rel *ImporterReleasePreview, work *ImporterWorkPreview) map[string]any {
 	out := map[string]any{}
 	if rel != nil {
 		if v := strings.TrimSpace(rel.CatalogNumber); v != "" {
@@ -2374,13 +2389,11 @@ func importerReleaseAttrs(rel *ImporterReleasePreview, workFields map[string]any
 			out["edition_date"] = v
 		}
 	}
-	for _, k := range releaseLevelFromWork {
+	for k, v := range releaseLevelValues(work) {
 		if _, ok := out[k]; ok {
 			continue
 		}
-		if val, ok := dynamicFieldValue(workFields[k]); ok {
-			out[k] = val
-		}
+		out[k] = v
 	}
 	return out
 }
@@ -2491,14 +2504,7 @@ func (s *Store) importerExplicitExpressions(ctx context.Context, actor User, ent
 //   - 显式表达引用（canonical entries 与各轨）必须存在且 kind=expression；
 //   - 载荷声明的属性字段码、以及代码将写入的 release/medium/track 属性，
 //     必须属于对应类型字段集（unknown_field 提前暴露）。
-func importerWorkFields(w *ImporterWorkPreview) map[string]any {
-	if w == nil {
-		return nil
-	}
-	return w.Fields
-}
-
-func (s *Store) importerPreflight(ctx context.Context, actor User, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, workFields map[string]any) error {
+func (s *Store) importerPreflight(ctx context.Context, actor User, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, work *ImporterWorkPreview) error {
 	if err := validateImporterEntryTree(entries); err != nil {
 		return err
 	}
@@ -2509,7 +2515,7 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, entries []Imp
 	if err != nil {
 		return err
 	}
-	if err := importerCheckAttrs(defs.Document, "release", importerReleaseAttrs(rel, workFields)); err != nil {
+	if err := importerCheckAttrs(defs.Document, "release", importerReleaseAttrs(rel, work)); err != nil {
 		return err
 	}
 	for _, ce := range entries {
@@ -2714,7 +2720,7 @@ func releaseDeclaresWork(release Entity, workID string) bool {
 // 外部编号；标题、时长、轨号相近不再自动合并身份（同名录音室版/现场版会被误并），
 // 交由预览中的候选选择或新建。多盘各自从 1 重排轨号，跨盘绝不按轨号对齐。
 // workKey 是 work 的导入幂等键，用于条目级表达复用；可为空（无来源幂等键）。
-func (s *Store) importReleaseChain(ctx context.Context, actor User, note string, sources []Source, workID, workKey, workTitle string, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, releaseKey string, workFields map[string]any) (Entity, ImporterImportedCounts, error) {
+func (s *Store) importReleaseChain(ctx context.Context, actor User, note string, sources []Source, workID, workKey, workTitle string, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, releaseKey string, work *ImporterWorkPreview) (Entity, ImporterImportedCounts, error) {
 	counts := ImporterImportedCounts{}
 	// 章节树先整体校验（越界/自指/指向后继/父级非篇目都拒绝），再做任何写入。
 	if err := validateImporterEntryTree(entries); err != nil {
@@ -2953,7 +2959,7 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 		releaseTitle = strings.TrimSpace(rel.EditionName)
 	}
 	// 作品载荷里属于发行层的字段（条码/ISBN）作为发行属性的兜底来源。
-	releaseAttrs := importerReleaseAttrs(rel, workFields)
+	releaseAttrs := importerReleaseAttrs(rel, work)
 	if releaseTitle == "" {
 		return Entity{}, counts, fmt.Errorf("invalid_payload")
 	}
@@ -3201,7 +3207,7 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 	}
 	// 写库前整体预检：属性字段码与显式表达引用先校验，避免先建 work/release/medium
 	// 再在某条曲目处 unknown_field 失败，留下半成品结构。
-	if pfErr := s.importerPreflight(ctx, actor, req.CanonicalEntries, req.Release, req.Mediums, importerWorkFields(req.Work)); pfErr != nil {
+	if pfErr := s.importerPreflight(ctx, actor, req.CanonicalEntries, req.Release, req.Mediums, req.Work); pfErr != nil {
 		return ImporterImportResponse{}, pfErr
 	}
 	if mode == "append_release_to_work" || mode == "merge_translations" {
@@ -3223,7 +3229,7 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 		} else if wk := strings.TrimSpace(target.ExternalIDs["metafusion_import"]); wk != "" {
 			appendReleaseKey = wk + ":release"
 		}
-		release, counts, rerr := s.importReleaseChain(ctx, actor, note, sources, target.ID, strings.TrimSpace(target.ExternalIDs["metafusion_import"]), buildReleaseTitle(workTitle, req.Release), req.CanonicalEntries, req.Release, req.Mediums, appendReleaseKey, importerWorkFields(req.Work))
+		release, counts, rerr := s.importReleaseChain(ctx, actor, note, sources, target.ID, strings.TrimSpace(target.ExternalIDs["metafusion_import"]), buildReleaseTitle(workTitle, req.Release), req.CanonicalEntries, req.Release, req.Mediums, appendReleaseKey, req.Work)
 		if rerr != nil {
 			return ImporterImportResponse{}, rerr
 		}
@@ -3474,7 +3480,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	if hasKey {
 		releaseKey = key + ":release"
 	}
-	release, rcounts, rerr := s.importReleaseChain(ctx, actor, note, sources, savedWork.ID, key, req.Work.Title, req.CanonicalEntries, req.Release, req.Mediums, releaseKey, importerWorkFields(req.Work))
+	release, rcounts, rerr := s.importReleaseChain(ctx, actor, note, sources, savedWork.ID, key, req.Work.Title, req.CanonicalEntries, req.Release, req.Mediums, releaseKey, req.Work)
 	if rerr != nil {
 		return ImporterImportResponse{}, rerr
 	}
