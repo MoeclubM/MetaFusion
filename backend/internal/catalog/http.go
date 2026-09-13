@@ -217,6 +217,22 @@ func idemStore(c *gin.Context, value any) {
 	idemSweep()
 	idemCache.Store(ck, idemEntry{value: value, exp: time.Now().Add(24 * time.Hour)})
 }
+// queryList 读取可重复/逗号分隔的多值查询参数（与 tags 同一约定），去空去重后返回，
+// 供 kinds/types 这类多值过滤使用。
+func queryList(c *gin.Context, name string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, raw := range c.QueryArray(name) {
+		for _, v := range strings.Split(raw, ",") {
+			if v = strings.TrimSpace(v); v != "" && !seen[v] {
+				seen[v] = true
+				out = append(out, v)
+			}
+		}
+	}
+	return out
+}
+
 func (h HTTP) Register(r *gin.Engine) {
 	h.registerGroup(r.Group("/api"))
 }
@@ -637,6 +653,10 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		offset, _ := strconv.Atoi(c.Query("offset"))
 		o := ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Limit: limit, Offset: offset}
+		// kinds / types 支持多次出现或逗号分隔：多值命中在 SQL 侧完成，
+		// 供关系编辑器按"kind + 业务类型"收敛候选，避免前端先取固定条数再过滤而漏候选。
+		o.Kinds = queryList(c, "kinds")
+		o.Types = queryList(c, "types")
 		// tags 支持多次出现或逗号分隔，任一命中即返回。
 		for _, raw := range c.QueryArray("tags") {
 			for _, tag := range strings.Split(raw, ",") {

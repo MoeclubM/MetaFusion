@@ -66,8 +66,12 @@ export function EntityPicker({
   useEffect(() => {
     let active = true;
     const timer = setTimeout(() => {
+      // kind / 业务类型约束下沉到查询：多值命中由服务端完成，避免"先取 30 条
+      // 再在前端过滤"把合法候选截断丢弃（关系编辑器对端选择即受此影响）。
       const qs = new URLSearchParams({ q: search, limit: "30" });
       if (kinds?.length === 1) qs.set("kind", kinds[0]);
+      else if (kinds && kinds.length > 1) qs.set("kinds", kinds.join(","));
+      if (types?.length) qs.set("types", types.join(","));
       api<{ items: Entity[] }>(`/catalog/entities?${qs}${query}`)
         .then((r) => {
           if (active) {

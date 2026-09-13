@@ -239,3 +239,32 @@ func TestListFilterTagContainerMatch(t *testing.T) {
 		}
 	}
 }
+
+// 关系编辑器对端的候选约束必须落在 SQL 侧：kinds 用 = ANY、types 用 jsonb ?|，
+// 否则前端先取固定条数再过滤会把合法候选截断丢弃。
+func TestListFilterSupportsMultiValueKindAndType(t *testing.T) {
+	args := []any{}
+	parts, err := listFilter(context.Background(), &Store{}, ListOptions{
+		Kinds: []string{"work", "collection"},
+		Types: []string{"album", "song"},
+	}, nil, &args)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.Join(parts, " AND ")
+	if !strings.Contains(joined, "kind = ANY(") {
+		t.Fatalf("multi-kind filter missing: %s", joined)
+	}
+	if !strings.Contains(joined, "document->'types' ?| ") {
+		t.Fatalf("multi-type filter missing jsonb ?|: %s", joined)
+	}
+	// 空切片不应产生任何谓词。
+	empty := []any{}
+	parts, err = listFilter(context.Background(), &Store{}, ListOptions{}, nil, &empty)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if joined := strings.Join(parts, " AND "); strings.Contains(joined, "ANY(") || strings.Contains(joined, "?|") {
+		t.Fatalf("empty kinds/types must add no predicate, got %s", joined)
+	}
+}

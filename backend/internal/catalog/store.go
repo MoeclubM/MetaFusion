@@ -421,6 +421,10 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 
 type ListOptions struct {
 	Kind, Query, Type, Status, WorkID, ContentUnitID, ReleaseID, MediumID, ParentID, Field, Value string
+	// Kinds / Types 是多值版本：Kinds 命中任一 kind，Types 命中任一动态业务类型。
+	// 关系编辑器的对端选择器需要"kind 与业务类型同时约束"，命中必须在 SQL 侧完成；
+	// 否则先取固定条数再在前端过滤，会把合法候选截断丢弃。
+	Kinds, Types []string
 	// Tags 按"任一命中"（OR）过滤 attributes.tags，走 jsonb 容器包含，
 	// 由 entities_attribute_tags 函数索引支撑，避免全表扫描。
 	Tags          []string
@@ -443,6 +447,9 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 	if o.Kind != "" {
 		add("kind=$%d", o.Kind)
 	}
+	if len(o.Kinds) > 0 {
+		add("kind = ANY($%d)", pq.Array(o.Kinds))
+	}
 	if o.Status != "" {
 		add("status=$%d", o.Status)
 	}
@@ -451,6 +458,10 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 	}
 	if o.Type != "" {
 		add("document->'types' ? $%d", o.Type)
+	}
+	if len(o.Types) > 0 {
+		// ?| 是 jsonb "任一键存在"，与前端 EntityPicker 的业务类型白名单同口径。
+		add("document->'types' ?| $%d", pq.Array(o.Types))
 	}
 	if o.WorkID != "" {
 		add("(id IN(SELECT id FROM catalog.content_units WHERE work_id=$%[1]d) OR id IN(SELECT id FROM catalog.expressions WHERE work_id=$%[1]d) OR id IN(SELECT release_id FROM catalog.release_subjects WHERE work_id=$%[1]d))", o.WorkID)
