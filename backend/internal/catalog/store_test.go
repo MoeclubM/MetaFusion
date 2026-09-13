@@ -835,3 +835,72 @@ func TestOccurrencesScopeByKind(t *testing.T) {
 		t.Fatalf("same-unit sibling not reported: %+v", d.Siblings)
 	}
 }
+
+// 统一递归分发契约（缺口3）：后端 value() 必须覆盖全部 Field.Type，
+// group 逐子字段递归、list 逐元素递归——这是前端 FieldValue 递归渲染与
+// FieldInput 全类型分发的服务端镜像。报告断言"定位编辑器只处理枚举/
+// 数字/文本"、"group/list 输出原始 JSON"的旧形态在此失败：
+// 后台新增布尔值、实体引用或嵌套结构时，校验层必须同样按类型递归，
+// 否则编辑器能填的数据会在保存时被拒（或反之，脏数据显示出来）。
+// 前端 jiti 隔离复现（7 项：递归渲染/EntityLink/编辑分发/定位通用输入/
+// 后台控件/模板消费/medium 属性区）已验证展示侧；此处以后端契约钉死
+// 同一套类型分发，保证两端不漂移。
+func TestUnifiedRecursiveDispatchContract(t *testing.T) {
+	d := Defaults()
+	ref := func(string, []string) error { return nil }
+	mk := func(typ string, extra map[string]Field) Field {
+		f := Field{Names: names("测", "T"), Type: typ, Enabled: true}
+		for k, v := range extra {
+			if f.Fields == nil {
+				f.Fields = map[string]Field{}
+			}
+			f.Fields[k] = v
+		}
+		return f
+	}
+	text := Field{Names: names("文", "T"), Type: "text", Enabled: true}
+	num := Field{Names: names("数", "N"), Type: "number", Enabled: true}
+	boolean := Field{Names: names("布", "B"), Type: "boolean", Enabled: true}
+	entity := Field{Names: names("引", "R"), Type: "entity", Kinds: []string{"agent"}, Enabled: true}
+	// group 递归：子字段逐个按类型校验，未声明键拒绝。
+	g := mk("group", map[string]Field{"title": text, "flag": boolean, "peer": entity})
+	if err := d.value(g, map[string]any{"title": "a", "flag": true, "peer": "x"}, ref, false); err != nil {
+		t.Fatalf("group recursion rejected: %v", err)
+	}
+	if err := d.value(g, map[string]any{"title": "a", "flag": "not-bool"}, ref, false); err == nil {
+		t.Fatal("group nested boolean mistype accepted")
+	}
+	if err := d.value(g, map[string]any{"title": "a", "no_such": 1}, ref, false); err == nil {
+		t.Fatal("group undeclared key accepted")
+	}
+	// list 递归：逐元素按 items 定义校验（报告"音轨列表→语言、声道"形态）。
+	l := Field{Names: names("表", "L"), Type: "list", Enabled: true,
+		Items: &Field{Names: names("项", "I"), Type: "group", Enabled: true,
+			Fields: map[string]Field{"lang": text, "channels": num}}}
+	good := []any{
+		map[string]any{"lang": "zh", "channels": float64(2)},
+		map[string]any{"lang": "ja", "channels": float64(6)},
+	}
+	if err := d.value(l, good, ref, false); err != nil {
+		t.Fatalf("list recursion rejected: %v", err)
+	}
+	bad := []any{map[string]any{"lang": "zh", "channels": "stereo"}}
+	if err := d.value(l, bad, ref, false); err == nil {
+		t.Fatal("list nested mistype accepted")
+	}
+	// 嵌套 group 里再套 list：三层递归不断。
+	deep := mk("group", map[string]Field{"tracks": l})
+	nested := map[string]any{"tracks": good}
+	if err := d.value(deep, nested, ref, false); err != nil {
+		t.Fatalf("deep recursion rejected: %v", err)
+	}
+	// 实体引用直通 reference 回调（合并改写与标题解析的前置条件）。
+	called := ""
+	ref2 := func(id string, kinds []string) error { called = id; return nil }
+	if err := d.value(entity, "agent-1", ref2, false); err != nil {
+		t.Fatalf("entity reference rejected: %v", err)
+	}
+	if called != "agent-1" {
+		t.Fatalf("entity reference not passed through: %q", called)
+	}
+}
