@@ -123,17 +123,22 @@ func Defaults() Definitions {
 	// 这些是**媒体差异最集中**的地方（书籍按页、音视频按时间码、文件按路径），
 	// 因此不定义专用 Go 字段/数据库列，而是与其他字段同机制走 definitions，
 	// 后台可增删子字段。种子值即历史硬编码的那几种定位方式，保证存量数据仍合法。
+	//
+	// semantics 声明子字段在对比中的语义（闭集，见 Field.Semantics）：
+	// 页码/路径/章节是**本版定位**（同一正文换排版页数会变，不能据此判断内容变化）；
+	// 时间码是**内容范围**（同一份录音的固定时长内的截取范围，长度变化即内容变化）。
+	// 对比不再按字段名或区间长度猜测，只认这份声明。
 	d.Fields["locator"] = Field{
 		Names: names("定位", "Locator"), Type: "group", Enabled: true, Searchable: true, Comparable: true,
 		AnchorKey: "relative_to",
 		Fields: map[string]Field{
-			"relative_to":   {Names: names("定位参照", "Relative to"), Type: "enum", Vocabulary: "locator_reference", Enabled: true},
-			"page_start":    {Names: names("起始页", "Start page"), Type: "number", Min: floatPtr(1), Enabled: true},
-			"page_end":      {Names: names("结束页", "End page"), Type: "number", Min: floatPtr(1), Enabled: true},
-			"time_start_ms": {Names: names("起始时间（毫秒）", "Start time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true},
-			"time_end_ms":   {Names: names("结束时间（毫秒）", "End time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true},
-			"path":          {Names: names("文件路径", "File path"), Type: "text", Enabled: true},
-			"chapter":       {Names: names("章节", "Chapter"), Type: "text", Enabled: true},
+			"relative_to":   {Names: names("定位参照", "Relative to"), Type: "enum", Vocabulary: "locator_reference", Enabled: true, Semantics: "locating"},
+			"page_start":    {Names: names("起始页", "Start page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating"},
+			"page_end":      {Names: names("结束页", "End page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating"},
+			"time_start_ms": {Names: names("起始时间（毫秒）", "Start time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content"},
+			"time_end_ms":   {Names: names("结束时间（毫秒）", "End time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content"},
+			"path":          {Names: names("文件路径", "File path"), Type: "text", Enabled: true, Semantics: "locating"},
+			"chapter":       {Names: names("章节", "Chapter"), Type: "text", Enabled: true, Semantics: "locating"},
 		},
 	}
 	// 收录关系 / 发行对象的附加属性：默认不声明任何子字段（即不允许额外值），

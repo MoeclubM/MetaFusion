@@ -15,6 +15,26 @@ import (
 var codePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 var reserved = map[string]bool{"id": true, "kind": true, "version": true, "status": true, "created_by": true, "work_id": true, "parent_id": true, "release_id": true, "medium_id": true, "content_unit_id": true, "contents": true, "subjects": true, "redirect_id": true}
 
+// StructuralAttributeFields 是"记录级动态结构"的入口字段码：收录位置（locator）、
+// 收录附加属性、发行对象附加属性。它们不是普通实体属性，没有独立 Go 字段或数据库列，
+// 全靠 definitions 声明子字段。因此入口本身属于固定契约：允许删除或改成非 group 类型，
+// 会让校验空转——取不到定义时未声明的数据反而被放过。入口常驻，内部子字段仍由后台扩展。
+var StructuralAttributeFields = []string{"locator", "inclusion_attributes", "subject_attributes"}
+
+// structuralFieldsPresent 校验结构属性入口存在且仍为 group 类型。
+func (d Definitions) structuralFieldsPresent() error {
+	for _, code := range StructuralAttributeFields {
+		f, ok := d.Fields[code]
+		if !ok {
+			return fmt.Errorf("structural_field_required: %s", code)
+		}
+		if f.Type != "group" {
+			return fmt.Errorf("structural_field_type: %s", code)
+		}
+	}
+	return nil
+}
+
 func validURL(s string) bool {
 	u, e := url.Parse(s)
 	return e == nil && (u.Scheme == "https" || u.Scheme == "http") && u.Host != "" && u.User == nil
@@ -161,6 +181,10 @@ func (d Definitions) Validate() error {
 		}
 		return nil
 	}
+	// 结构属性入口属于固定契约：常驻且必须仍是 group，否则校验会因取不到定义而空转。
+	if err := d.structuralFieldsPresent(); err != nil {
+		return err
+	}
 	for code, v := range d.Vocabularies {
 		if !codePattern.MatchString(code) {
 			return fmt.Errorf("invalid_code")
@@ -280,6 +304,11 @@ func (d Definitions) validateField(f Field, depth int) error {
 	}
 	if f.Min != nil && f.Max != nil && *f.Min > *f.Max {
 		return fmt.Errorf("invalid_range")
+	}
+	// 对比语义是有限声明的闭集：后台只能选择系统真正支持的规则，
+	// 不允许自由填写（避免出现"配置了但没有任何运行时效果"的选项）。
+	if f.Semantics != "" && f.Semantics != "content" && f.Semantics != "locating" {
+		return fmt.Errorf("invalid_semantics")
 	}
 	switch f.Type {
 	case "text", "multilingual", "number", "date", "boolean", "url":

@@ -35,6 +35,29 @@ func rewriteAttributes(d Definitions, attrs map[string]any, source, target strin
 	}
 }
 
+// rewriteGroupRefs 改写一个"记录级结构属性"（值形如 {子字段码: 值}）里的实体引用。
+// 子字段不在顶层 fields 里，而是声明在 group 字段自己的 Fields 下，因此必须先取
+// group 定义再逐子字段递归——用顶层 rewriteAttributes 会全部漏掉。
+func rewriteGroupRefs(group Field, attrs map[string]any, source, target string) {
+	for k, v := range attrs {
+		attrs[k] = replaceReference(group.Fields[k], v, source, target)
+	}
+}
+
+// rewriteEntityRefs 覆盖实体的**全部**动态属性落点：普通属性、发行对象附加属性、
+// 收录附加属性与定位组。这些落点由同一套 definitions 声明，合并时若只改普通属性，
+// 结构属性里引用的实体就会留下指向已合并身份的悬空引用。
+func rewriteEntityRefs(d Definitions, e *Entity, source, target string) {
+	rewriteAttributes(d, e.Attributes, source, target)
+	for i := range e.Subjects {
+		rewriteGroupRefs(d.Fields["subject_attributes"], e.Subjects[i].Attributes, source, target)
+	}
+	for i := range e.Contents {
+		rewriteGroupRefs(d.Fields["locator"], map[string]any(e.Contents[i].Locator), source, target)
+		rewriteGroupRefs(d.Fields["inclusion_attributes"], e.Contents[i].Attributes, source, target)
+	}
+}
+
 // mergeReferences moves identity references atomically and audits every affected record.
 // Conflicting relationship cardinality and containment are rejected, never discarded.
 func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u User, in LifecycleEdit) error {
@@ -75,7 +98,7 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 				*p = target.ID
 			}
 		}
-		rewriteAttributes(v.Document, e.Attributes, source.ID, target.ID)
+		rewriteEntityRefs(v.Document, &e, source.ID, target.ID)
 		for i := range e.Contents {
 			if e.Contents[i].ExpressionID == source.ID {
 				e.Contents[i].ExpressionID = target.ID

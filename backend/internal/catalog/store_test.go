@@ -282,6 +282,89 @@ func TestNumberAcceptsGoInts(t *testing.T) {
 	}
 }
 
+// 结构属性入口是固定契约：删除或改成非 group 会让校验取不到定义而空转，
+// 必须在校验阶段就被拒绝，而不是放任未声明数据通过。
+func TestStructuralAttributeEntrypointsCannotBeRemoved(t *testing.T) {
+	base := Defaults()
+	if err := base.Validate(); err != nil {
+		t.Fatalf("defaults invalid: %v", err)
+	}
+	for _, code := range []string{"locator", "inclusion_attributes", "subject_attributes"} {
+		deleted := Defaults()
+		delete(deleted.Fields, code)
+		if err := deleted.Validate(); err == nil {
+			t.Errorf("definitions without %s accepted", code)
+		}
+		retyped := Defaults()
+		retyped.Fields[code] = Field{Names: names("坏定义", "Bad"), Type: "text", Enabled: true}
+		if err := retyped.Validate(); err == nil {
+			t.Errorf("non-group %s accepted", code)
+		}
+	}
+}
+
+// 对比语义是闭集：只接受系统真正实现的规则，自由填写一律拒绝。
+func TestCompareSemanticsIsClosedSet(t *testing.T) {
+	ok := Defaults()
+	loc := ok.Fields["locator"]
+	loc.Fields["time_start_ms"] = Field{Names: names("起始", "Start"), Type: "number", Enabled: true, Semantics: "content"}
+	ok.Fields["locator"] = loc
+	if err := ok.Validate(); err != nil {
+		t.Fatalf("declared semantics rejected: %v", err)
+	}
+	bad := Defaults()
+	loc = bad.Fields["locator"]
+	loc.Fields["page_start"] = Field{Names: names("起始页", "Start page"), Type: "number", Enabled: true, Semantics: "guess_by_length"}
+	bad.Fields["locator"] = loc
+	if err := bad.Validate(); err == nil {
+		t.Fatal("free-form semantics accepted")
+	}
+}
+
+// 停用子字段后：存量数据仍可原样保存，新增使用必须被拒绝——结构属性落点也要覆盖。
+func TestRetirementCoversStructuralAttributes(t *testing.T) {
+	d := Defaults()
+	loc := d.Fields["locator"]
+	page := loc.Fields["page_start"]
+	page.Enabled = false
+	loc.Fields["page_start"] = page
+	d.Fields["locator"] = loc
+	prior := Entity{Contents: []Inclusion{{ExpressionID: "e1", Position: 0, Locator: Locator{"relative_to": "medium", "page_start": float64(5)}}}}
+	// 未改动：放行
+	same := prior
+	if err := d.retiredEntity(same, prior); err != nil {
+		t.Fatalf("unchanged retired locator rejected: %v", err)
+	}
+	// 改了页码（新增/变更使用停用字段）：拒绝
+	changed := Entity{Contents: []Inclusion{{ExpressionID: "e1", Position: 0, Locator: Locator{"relative_to": "medium", "page_start": float64(9)}}}}
+	if err := d.retiredEntity(changed, prior); err == nil {
+		t.Fatal("new use of disabled locator subfield accepted")
+	}
+}
+
+// 实体合并要改写**全部**动态属性位置里的实体引用，包括结构属性。
+func TestMergeRewritesStructuralAttributeReferences(t *testing.T) {
+	d := Defaults()
+	inc := d.Fields["inclusion_attributes"]
+	inc.Fields["translator"] = Field{Names: names("译者", "Translator"), Type: "entity", Kinds: []string{"agent"}, Enabled: true}
+	d.Fields["inclusion_attributes"] = inc
+	loc := d.Fields["locator"]
+	loc.Fields["anchor_entity"] = Field{Names: names("锚点实体", "Anchor entity"), Type: "entity", Kinds: []string{"agent"}, Enabled: true}
+	d.Fields["locator"] = loc
+	e := Entity{Contents: []Inclusion{{
+		ExpressionID: "e1",
+		Locator:      Locator{"relative_to": "medium", "anchor_entity": "source-id"},
+		Attributes:   map[string]any{"translator": "source-id"},
+	}}}
+	rewriteEntityRefs(d, &e, "source-id", "target-id")
+	if e.Contents[0].Attributes["translator"] != "target-id" {
+		t.Errorf("inclusion attribute reference not rewritten: %v", e.Contents[0].Attributes)
+	}
+	if e.Contents[0].Locator["anchor_entity"] != "target-id" {
+		t.Errorf("locator reference not rewritten: %v", e.Contents[0].Locator)
+	}
+}
+
 // 模板用 primary_date_field 声明主日期字段，取代代码里硬编码 edition_date。
 func TestTemplateDeclaresPrimaryDateField(t *testing.T) {
 	d := Defaults()
