@@ -7,6 +7,7 @@ import { Navbar } from "@/components/Navbar";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/components/catalog/api";
 import { fetchApi } from "@/lib/api";
 import { useDefinitions, getTermName } from "@/lib/definitions";
+import { WorkFacts } from "@/components/work/WorkFacts";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ArrowLeft, ArrowRight, FileText, HardDrive, Layers } from "lucide-react";
 
@@ -173,6 +174,10 @@ export default function MediumDetailPage() {
               </div>
             </div>
           </section>
+
+          {/* 载体自身的动态属性（黑胶转速/尺寸等由后台声明）：走通用分区渲染，
+              不为每种媒体另写面板；无可用字段时组件返回 null。 */}
+          <WorkFacts entity={medium} defs={defs} locale={locale} className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft p-4 sm:p-5" />
 
           <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-black/[0.06] dark:border-white/[0.06] flex items-center justify-between gap-3">

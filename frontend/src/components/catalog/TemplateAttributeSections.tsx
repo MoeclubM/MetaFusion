@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { DynamicDefinitions, resolveLocalizedName, getTermName } from "@/lib/definitions";
+import { EntityLink } from "./Fields";
 import { Calendar, Hash, Clock, ExternalLink, Link2, Check, Minus } from "lucide-react";
 
 // 说明：属性分区渲染已统一到 @/components/work/WorkFacts（两个详情页共用）。
@@ -61,28 +62,74 @@ export function FieldValue({
     return <span className="font-mono">{getTermName(defs, def?.vocabulary || "", String(value), locale)}</span>;
   }
   if (type === "entity") {
-    // 已解析的引用（含标题）优先，否则退化为 ID 链接
+    // 已解析的引用（含标题）优先，否则按 id 异步解析出真实标题。
+    // 嵌套在 list/group 里的引用拿到的是裸 id，必须走 EntityLink，
+    // 否则深层引用只能显示一串 UUID。
     const v: any = value;
     const id = typeof v === "string" ? v : v?.id;
     const label = typeof v === "object" ? v?.title || v?.name : "";
     if (!id) return <span>—</span>;
-    return (
-      <Link href={`/catalog/${id}`} className="text-primary hover:underline inline-flex items-center gap-1">
-        <Link2 className="w-3 h-3" />
-        {label || id}
-      </Link>
-    );
+    if (label) {
+      return (
+        <Link href={`/catalog/${id}`} className="text-primary hover:underline inline-flex items-center gap-1">
+          <Link2 className="w-3 h-3" />
+          {label}
+        </Link>
+      );
+    }
+    return <EntityLink id={id} />;
   }
   if (type === "multilingual") {
     const m: any = value;
     const text = typeof m === "object" && m ? resolveLocalizedName(m, locale, "") : String(m);
     return <span>{text}</span>;
   }
-  if (type === "list" || type === "group" || Array.isArray(value) || (value && typeof value === "object")) {
+  // list / group 按 definitions 递归渲染成有标签的结构，而不是直出原始 JSON。
+  // 子字段名从字段定义取（含 items.fields / fields），后台增删子字段即刻生效。
+  if (type === "list") {
+    const items: any[] = Array.isArray(value) ? value : [];
+    if (items.length === 0) return <span className="text-gray-400">—</span>;
     return (
-      <pre className="text-[11px] font-mono bg-muted/60 p-2 rounded border border-border/50 max-h-40 overflow-auto whitespace-pre-wrap">
-        {JSON.stringify(value, null, 2)}
-      </pre>
+      <ul className="space-y-1 list-none pl-0">
+        {items.map((item, i) => (
+          <li key={i} className="flex items-start gap-1.5">
+            <span className="shrink-0 text-gray-400 font-mono text-[10px] leading-5">{i + 1}.</span>
+            <span className="min-w-0">
+              <FieldValue code={code} value={item} defs={defs} locale={locale} field={def.items} />
+            </span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  if (type === "group" || (value && typeof value === "object" && !Array.isArray(value))) {
+    const entries = Object.entries(value as Record<string, any>).filter(
+      ([, v]) => v !== undefined && v !== null && v !== "",
+    );
+    if (entries.length === 0) return <span className="text-gray-400">—</span>;
+    return (
+      <dl className="flex flex-wrap gap-x-3 gap-y-0.5 m-0">
+        {entries.map(([k, v]) => (
+          <div key={k} className="flex items-baseline gap-1">
+            <dt className="text-[11px] text-gray-500">{resolveLocalizedName(def?.fields?.[k]?.names, locale, k)}</dt>
+            <dd className="m-0">
+              <FieldValue code={k} value={v} defs={defs} locale={locale} field={def?.fields?.[k]} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+    );
+  }
+  // 数组兜底：没有 list 字段定义时也按条目递归，不直出 JSON。
+  if (Array.isArray(value)) {
+    return (
+      <ul className="space-y-1 list-none pl-0">
+        {value.map((item, i) => (
+          <li key={i}>
+            <FieldValue code={code} value={item} defs={defs} locale={locale} field={def?.items} />
+          </li>
+        ))}
+      </ul>
     );
   }
   return <span>{String(value)}</span>;
