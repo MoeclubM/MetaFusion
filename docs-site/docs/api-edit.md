@@ -94,6 +94,12 @@ POST /api/catalog/entities/:id/lifecycle
 
 合并后源实体写入 `redirect_id`，可用 `GET /api/catalog/entities/:id/resolve` 解析到目标实体。
 
+## 结构附加属性与场景方案
+
+`locator`（收录位置）、`subject_attributes`（发行对象附加属性）、`inclusion_attributes`（收录附加属性）是固定契约入口：definitions 校验拒绝删除或改成非 group 类型，但允许后台扩展其内部子字段。写入、停用检查与合并改写覆盖与普通属性相同的数据位置——停用子字段不可再新增使用，合并自动改写这些位置的实体引用。
+
+按使用场景收敛子字段走 `definitions.schemes` 声明（槽位三选一：`locator` / `inclusion_attributes` / `subject_attributes`）：kinds/types 白名单（空为不限）、可用子字段（顺序即展示编辑顺序）、必填子集、仅 locator 的 `require_range`（要求至少一个 `semantics=content` 的内容语义子字段有值）。无匹配场景时回退全局组；旧文档无 `schemes` 键时同样回退。子字段的对比语义走闭集 `semantics`（`content`=内容选择范围，`locating`=本版位置，默认 locating）：完整章节换字体致页数变化不算内容变化，前 30 秒与后 30 秒长度相等也不是同一片段。
+
 ## 成员级约束
 
 - 责任者通过 `agent` kind 实体 + `relations` 表达，不用 `Member` 概念
