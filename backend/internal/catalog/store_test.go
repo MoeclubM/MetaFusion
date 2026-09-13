@@ -377,6 +377,28 @@ func TestCompareSemanticsIsClosedSet(t *testing.T) {
 	}
 }
 
+// 默认种子的语义划分是对比算法的输入契约：time_* 为内容范围（content），
+// page_*/path/chapter/relative_to 为本版位置（locating）。此测试把该契约
+// 钉死——若有人把 page_* 改成 content（或反之），报告 Table-1/2 的判定
+// 会静默反转（排版变化被判内容变化），必须在此失败而不是在线上被发现。
+// 前端 compareAlignment.ts 的 A/B 复现用例与此同源（jiti 隔离复现已验证）。
+func TestDefaultSeedSemanticsContract(t *testing.T) {
+	loc := Defaults().Fields["locator"]
+	for code, want := range map[string]string{
+		"time_start_ms": "content", "time_end_ms": "content",
+		"page_start": "locating", "page_end": "locating",
+		"path": "locating", "chapter": "locating", "relative_to": "locating",
+	} {
+		f, ok := loc.Fields[code]
+		if !ok {
+			t.Fatalf("seed locator missing %s", code)
+		}
+		if f.Semantics != want {
+			t.Errorf("seed locator.%s semantics = %q, want %q", code, f.Semantics, want)
+		}
+	}
+}
+
 // 停用子字段后：存量数据仍可原样保存，新增使用必须被拒绝——结构属性落点也要覆盖。
 func TestRetirementCoversStructuralAttributes(t *testing.T) {
 	d := Defaults()
