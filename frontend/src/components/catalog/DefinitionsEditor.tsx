@@ -183,7 +183,7 @@ function FieldDefinition({
         </select>
       </label>
       <div className="cv-checks">
-        {(["enabled", "required", "searchable", "comparable"] as const).map(
+        {(["enabled", "required", "searchable", "comparable", "hidden"] as const).map(
           (k) => (
             <label key={k}>
               <input
@@ -196,6 +196,35 @@ function FieldDefinition({
           ),
         )}
       </div>
+      {/* 对比语义：闭集选择，只提供系统真正实现的规则，避免自由填写出不生效的配置。 */}
+      <label>
+        {t("catalog.semantics")}
+        <select
+          value={value.semantics || ""}
+          onChange={(e) => patch({ semantics: e.target.value || undefined })}
+        >
+          <option value="">{t("catalog.semanticsDefault")}</option>
+          <option value="content">{t("catalog.semanticsContent")}</option>
+          <option value="locating">{t("catalog.semanticsLocating")}</option>
+        </select>
+      </label>
+      {/* 锚点子字段：仅 group 字段有意义——组内其它子字段有值时该子字段必填。 */}
+      {value.type === "group" && Object.keys(value.fields || {}).length > 0 && (
+        <label>
+          {t("catalog.anchorKey")}
+          <select
+            value={value.anchor_key || ""}
+            onChange={(e) => patch({ anchor_key: e.target.value || undefined })}
+          >
+            <option value="">{t("catalog.none")}</option>
+            {Object.keys(value.fields || {}).map((k) => (
+              <option key={k} value={k}>
+                {local(value.fields?.[k]?.names, locale, "", k)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label>{t("catalog.unit")}</label>
       <NamesEditor
         value={value.unit || {}}

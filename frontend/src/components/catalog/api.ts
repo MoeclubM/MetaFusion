@@ -29,6 +29,8 @@ export type Field = {
   items?: Field;
   min?: number;
   max?: number;
+  /** 仅 group 字段：组内任一其它子字段有值时该锚点子字段必填。 */
+  anchor_key?: string;
 };
 export type Definition = {
   id: number;

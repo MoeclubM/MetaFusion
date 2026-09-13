@@ -6,7 +6,7 @@ import { api, Entity, emptyEntity, kinds, local, Source } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField } from "@/components/editor/RelationEditorField";
-import { getFieldName, getTermName } from "@/lib/definitions";
+import { getFieldName } from "@/lib/definitions";
 export function EntityEditor({
   initial,
   onSaved,
@@ -524,55 +524,29 @@ export function EntityEditor({
                       }
                     />
                   </label>
-                  {/* 定位方案与参照选项由 definitions 的 locator 组字段声明，后台可扩展 */}
+                  {/* 定位方案与参照选项由 definitions 的 locator 组字段声明，后台可扩展。
+                      用通用 FieldInput 递归渲染：枚举、数字、文本、布尔、实体引用与
+                      嵌套结构一律由字段类型决定，不在这里按类型另写一份分支。 */}
                   {locatorFieldKeys.map((k) => {
                     const def: any = defs?.fields?.locator?.fields?.[k];
                     if (!def) return null;
-                    const isEnum = def.type === "enum";
                     return (
                       <label key={k}>
                         {getFieldName(defs as any, k, locale) || k}
-                        {isEnum ? (
-                          <select
-                            value={c.locator[k] || ""}
-                            onChange={(x) => {
-                              const locator = { ...c.locator };
-                              if (x.target.value === "") delete locator[k];
-                              else locator[k] = x.target.value;
-                              patch({
-                                contents: e.contents.map((v, j) =>
-                                  i === j ? { ...v, locator } : v,
-                                ),
-                              });
-                            }}
-                          >
-                            <option value="">{t("catalog.none")}</option>
-                            {Object.keys(defs?.vocabularies?.[def.vocabulary]?.terms || {}).map((term) => (
-                              <option key={term} value={term}>
-                                {getTermName(defs as any, def.vocabulary, term, locale)}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            value={c.locator[k] ?? ""}
-                            type={def.type === "number" ? "number" : "text"}
-                            onChange={(x) => {
-                              const locator = { ...c.locator };
-                              if (x.target.value === "") delete locator[k];
-                              else
-                                locator[k] =
-                                  def.type === "number"
-                                    ? Number(x.target.value)
-                                    : x.target.value;
-                              patch({
-                                contents: e.contents.map((v, j) =>
-                                  i === j ? { ...v, locator } : v,
-                                ),
-                              });
-                            }}
-                          />
-                        )}
+                        <FieldInput
+                          field={def}
+                          value={c.locator[k]}
+                          onChange={(value) => {
+                            const locator = { ...c.locator };
+                            if (value === "" || value === undefined || value === null) delete locator[k];
+                            else locator[k] = value;
+                            patch({
+                              contents: e.contents.map((v, j) =>
+                                i === j ? { ...v, locator } : v,
+                              ),
+                            });
+                          }}
+                        />
                       </label>
                     );
                   })}
