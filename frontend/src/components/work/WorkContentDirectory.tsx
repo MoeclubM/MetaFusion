@@ -48,14 +48,16 @@ function toEntry(e: Entity, locale: string): DirectoryEntry {
 //   self 是包含方（source_id） → 对端是"组成内容"；
 //   self 是被包含方（target_id） → 对端是"所属集合/作品"。
 // 旧实现把两个方向都当"组成内容"，于是歌曲页会把所属专辑列进自己的内容目录。
-type RelationRow = {
+// 报告复现场景的回归锚点：歌曲无 Expression 时所属专辑不得进组成内容，
+// 专辑有自身表达时组成歌曲不得被隐藏（三区块独立成段，见下方 blocks）。
+export type RelationRow = {
   type: string;
   source_id: string;
   target_id: string;
   position?: number;
 };
 
-function componentEntries(
+export function componentEntries(
   relations: RelationRow[],
   entities: Record<string, Entity>,
   selfId: string,

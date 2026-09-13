@@ -72,6 +72,37 @@ func TestRelationCyclesAndContexts(t *testing.T) {
 	}
 }
 
+// includes 方向语义契约（缺口5）：专辑→歌曲是"组成内容"，歌曲→专辑是
+// "所属集合"，方向由 source/target 端点决定。前端 componentEntries
+// （WorkContentDirectory.tsx，已导出供回归）按此划分三区块独立成段：
+// 报告复现"歌曲页把所属专辑列进内容目录"与"专辑有自身表达时组成歌曲
+// 被隐藏"在此失败。前端 jiti 隔离复现（A/B/C 三场景）已验证展示侧。
+func TestIncludesDirectionContract(t *testing.T) {
+	d := Defaults()
+	ref := func(string, []string) error { return nil }
+	album := Entity{ID: "album", Kind: "work"}
+	song := Entity{ID: "song", Kind: "work"}
+	// 正向：专辑包含歌曲，端点 work→work 合法。
+	fwd := Relation{ID: "1", Type: "includes", SourceID: "album", TargetID: "song"}
+	if err := validateRelation(d, fwd, album, song, nil, ref, false); err != nil {
+		t.Fatalf("album includes song rejected: %v", err)
+	}
+	// 反向查询是展示层按 source_id 判定的事：歌曲页读到"以自己为 target"
+	// 的 includes 边时归入"所属集合"，不进"组成内容"。此处锁定正向边
+	// 合法、非法端点被拒；反向归属划分由前端 componentEntries 回归覆盖
+	// （jiti 隔离复现 A/B/C 已验证），此处不重复断言方向展示。
+	other := Entity{ID: "other", Kind: "work"}
+	rev := Relation{ID: "2", Type: "includes", SourceID: "other", TargetID: "album"}
+	if err := validateRelation(d, rev, other, album, []Relation{fwd}, ref, false); err != nil {
+		t.Fatalf("other collection includes album rejected: %v", err)
+	}
+	// 非 work/collection 端点不得用 includes（如歌曲直接包含录音）。
+	bad := Relation{ID: "3", Type: "includes", SourceID: "song", TargetID: "expr"}
+	if err := validateRelation(d, bad, song, Entity{ID: "expr", Kind: "expression"}, nil, ref, false); err == nil {
+		t.Fatal("includes to expression accepted")
+	}
+}
+
 func TestPostgresCatalog(t *testing.T) {
 	ctx := context.Background()
 	s := &Store{DB: testutil.Database(t)}
