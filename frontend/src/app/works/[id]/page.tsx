@@ -116,8 +116,17 @@ export default function WorkDirectoryPage() {
  // 发行版列表的列与可筛选字段：均由发行版模板声明（columns / facet_fields），
  // 后台可改，代码不写死 edition_type/format/country 等字段码。
  // 作品自身的信息面板不在这里取字段码：WorkFacts 会按作品类型引用的模板渲染。
- const { definitions: defs } = useDefinitions();
- const releaseColumns = useMemo(() => {
+const { definitions: defs } = useDefinitions();
+// 作品自身类型引用的模板：目录形态（tree/list）等展示声明从这里取，代码不写死。
+const workTemplate = useMemo(() => {
+  const codes = work?.types || [];
+  for (const code of codes) {
+    const tpl = defs?.templates?.[defs?.types?.[code]?.template || ""];
+    if (tpl) return tpl as any;
+  }
+  return undefined;
+}, [defs, work]);
+const releaseColumns = useMemo(() => {
    const tpl = defs?.templates?.[defs?.types?.["release"]?.template || ""];
    return (tpl?.columns || []).filter((c: string) => !!defs?.fields?.[c]);
  }, [defs]);
@@ -456,7 +465,7 @@ export default function WorkDirectoryPage() {
              label: t("work.contents.title"),
              content: (
                <section className={styles.section}>
-                 <WorkContentDirectory workId={work.id!} />
+                 <WorkContentDirectory workId={work.id!} directory={workTemplate?.directory} />
                </section>
              ),
            },
