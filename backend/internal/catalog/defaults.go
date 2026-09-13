@@ -38,7 +38,7 @@ func Defaults() Definitions {
 	field := func(code, zh, en, typ string) {
 		d.Fields[code] = Field{Names: names(zh, en), Type: typ, Enabled: true, Searchable: true, Comparable: true}
 	}
-	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"edition_type", "版本类型", "Edition type", "enum"}, {"distribution_channel", "发行渠道", "Distribution channel", "enum"}, {"platform", "平台", "Platform", "text"}, {"episodes", "话数", "Episodes", "number"}, {"volume_count", "卷数", "Volumes", "number"}, {"broadcast_start", "放送开始", "Broadcast start", "date"}, {"broadcast_weekday", "放送星期", "Broadcast weekday", "text"}, {"broadcast_end", "放送结束", "Broadcast end", "date"}, {"air_network", "放送电视台", "Broadcast network", "text"}, {"copyright", "版权标示", "Copyright", "text"}, {"isbn", "ISBN", "ISBN", "text"}, {"author", "作者", "Author", "text"}, {"magazine", "连载杂志", "Magazine", "text"}, {"publisher_name", "出版社", "Publisher name", "text"}, {"imdb", "IMDb", "IMDb", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"entry_role", "篇目类型", "Entry role", "enum"}, {"credit_role", "署名职位", "Credit role", "text"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
+	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"edition_type", "版本类别", "Edition category", "enum"}, {"edition_batch", "发行批次", "Edition batch", "enum"}, {"distribution_channel", "发行渠道", "Distribution channel", "enum"}, {"platform", "平台", "Platform", "text"}, {"episodes", "话数", "Episodes", "number"}, {"volume_count", "卷数", "Volumes", "number"}, {"broadcast_start", "放送开始", "Broadcast start", "date"}, {"broadcast_weekday", "放送星期", "Broadcast weekday", "text"}, {"broadcast_end", "放送结束", "Broadcast end", "date"}, {"air_network", "放送电视台", "Broadcast network", "text"}, {"copyright", "版权标示", "Copyright", "text"}, {"isbn", "ISBN", "ISBN", "text"}, {"author", "作者", "Author", "text"}, {"magazine", "连载杂志", "Magazine", "text"}, {"publisher_name", "出版社", "Publisher name", "text"}, {"imdb", "IMDb", "IMDb", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"entry_role", "篇目类型", "Entry role", "enum"}, {"credit_role", "署名职位", "Credit role", "text"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
 		field(x[0], x[1], x[2], x[3])
 	}
 	// 标签：值域开放（上游标签随作品而定），故为字符串列表而非受控词表；
@@ -68,7 +68,12 @@ func Defaults() Definitions {
 		// 仅凭编号/标题无法区分，必须单独记录。
 		{"entry_role", "篇目类型", "Entry roles", [][3]string{{"main", "本篇", "Main"}, {"opening", "片头曲", "Opening"}, {"ending", "片尾曲", "Ending"}, {"trailer", "预告 / 宣传", "Trailer"}, {"extra", "其它附加", "Extra"}, {"other", "其它", "Other"}}},
 		{"release_role", "发行对象用途", "Release subject roles", [][3]string{{"primary", "主作品", "Primary"}, {"compilation", "汇编作品", "Compilation"}, {"supplement", "附加作品", "Supplement"}}},
-		{"edition_type", "版本类型", "Edition types", [][3]string{{"standard", "普通版", "Standard edition"}, {"limited", "限定版", "Limited edition"}, {"first_press", "初回版", "First press"}, {"regional", "地区版", "Regional edition"}, {"reissue", "再版", "Reissue"}, {"digital", "数字版", "Digital edition"}, {"deluxe", "豪华版", "Deluxe edition"}, {"boxset", "套盒", "Box set"}}},
+		// 版本维度按"可同时成立"拆开：类别（普通/限定/豪华/套盒）、批次（通常/初回/再版/重印）
+		// 是各自独立的维度，地区归 country、渠道归 distribution_channel。
+		// 原先把限定/初回/地区/再版/数字塞进一个互斥枚举，导致"日本初回限定再版"
+		// 这类真实组合无法表达——只能三选一，丢掉另外两个维度。
+		{"edition_type", "版本类别", "Edition categories", [][3]string{{"standard", "普通版", "Standard edition"}, {"limited", "限定版", "Limited edition"}, {"deluxe", "豪华版", "Deluxe edition"}, {"boxset", "套盒", "Box set"}}},
+		{"edition_batch", "发行批次", "Edition batches", [][3]string{{"regular", "通常发行", "Regular release"}, {"first_press", "初回发行", "First press"}, {"reissue", "再版 / 重发", "Reissue"}, {"reprint", "重印", "Reprint"}}},
 		{"distribution_channel", "发行渠道", "Distribution channels", [][3]string{{"mixed", "混合", "Mixed"}, {"physical", "实体", "Physical"}, {"digital", "数字", "Digital"}, {"web", "网络配信", "Web distribution"}}},
 		{"locator_reference", "定位参照", "Locator reference", [][3]string{{"track", "整条音轨", "Whole track"}, {"medium", "整张载体", "Whole medium"}}},
 	} {
@@ -78,7 +83,7 @@ func Defaults() Definitions {
 		}
 		d.Vocabularies[x.code] = v
 	}
-	for _, k := range []string{"format", "packaging", "role", "edition_type", "distribution_channel", "entry_role"} {
+	for _, k := range []string{"format", "packaging", "role", "edition_type", "edition_batch", "distribution_channel", "entry_role"} {
 		f := d.Fields[k]
 		f.Vocabulary = k
 		d.Fields[k] = f
@@ -135,20 +140,59 @@ func Defaults() Definitions {
 	// 需要时在后台加子字段即刻生效——这就是"其余全部动态"的落点。
 	d.Fields["inclusion_attributes"] = Field{Names: names("收录附加属性", "Inclusion attributes"), Type: "group", Enabled: true, Fields: map[string]Field{}}
 	d.Fields["subject_attributes"] = Field{Names: names("发行对象附加属性", "Subject attributes"), Type: "group", Enabled: true, Fields: map[string]Field{}}
-	for _, x := range [][3]string{{"music", "音乐", "Music"}, {"literature", "文学", "Literature"}, {"screen", "影视", "Screen"}, {"photography", "写真", "Photography"}, {"game", "游戏", "Games"}, {"generic", "通用", "General"}} {
-		// 作品展示分区：按"检索/浏览时最常看"的顺序组织，全部为 declarations 里的
-		// 动态字段；infobox 原始条目故意不进分区（仅存档与检索用）。
-		d.Templates[x[0]] = Template{Names: names(x[1], x[2]), Directory: "tree", Sections: []Section{
-			{Names: names("基本信息", "Basics"), Fields: []string{"language", "platform", "episodes", "volume_count", "duration"}},
-			{Names: names("放送与发行", "Broadcast & release"), Fields: []string{"broadcast_start", "broadcast_weekday", "broadcast_end", "air_network", "edition_date", "catalog_number", "isbn"}},
-			{Names: names("创作信息", "Credits & rights"), Fields: []string{"author", "magazine", "publisher_name", "copyright", "imdb"}},
-			}, Columns: []string{"edition_date", "catalog_number"}, RelationGroups: []string{"credits", "creative", "membership"}, PrimaryDateField: "edition_date", BadgeFields: []string{"platform", "episodes", "volume_count", "air_network"}}
+	// 作品展示分区：每个媒体场景各自声明，只列该场景真实会写、且用户会看的字段。
+	// 全部为 definitions 里的动态字段；infobox 原始条目故意不进分区（仅存档与检索用）。
+	// 若某场景写了分区未列的字段，WorkFacts 会在"其它信息"兜底展示，不会丢数据。
+	commonSections := func(extra ...Section) []Section {
+		return append(append([]Section{}, extra...),
+			Section{Names: names("创作与权利", "Credits & rights"), Fields: []string{"author", "copyright", "imdb"}},
+			Section{Names: names("首发与收录", "Premiere & inclusion"), Fields: []string{"edition_date", "events"}},
+		)
 	}
-	// 作品类型可写的字段集：与模板分区声明的字段保持一致，避免"声明了却没权限写"。
-	workFields := []string{"language", "platform", "episodes", "volume_count", "duration", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network", "edition_date", "catalog_number", "isbn", "author", "magazine", "publisher_name", "copyright", "imdb", "tags", "infobox", "events"}
+	for _, x := range []struct {
+		code, zh, en string
+		sections     []Section
+	}{
+		{"music", "音乐", "Music", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "duration"}})},
+		{"literature", "文学", "Literature", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "volume_count", "magazine"}})},
+		{"screen", "影视", "Screen", commonSections(
+			Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "episodes", "platform"}},
+			Section{Names: names("放送信息", "Broadcast"), Fields: []string{"broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"}},
+		)},
+		{"photography", "写真", "Photography", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "volume_count"}})},
+		{"game", "游戏", "Games", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "platform", "episodes", "volume_count"}})},
+		{"generic", "通用", "General", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "duration"}})},
+	} {
+		d.Templates[x.code] = Template{Names: names(x.zh, x.en), Directory: "tree", Sections: x.sections,
+			Columns: []string{"edition_date"}, RelationGroups: []string{"credits", "creative", "membership"}, PrimaryDateField: "edition_date", BadgeFields: []string{"platform", "episodes", "volume_count", "air_network"}}
+	}
+	// 作品类型可写的字段集：与所属模板分区声明的字段保持一致，避免"声明了却没权限写"。
+	// 按媒体场景分别声明，而不是一份大字段集全类型共用——否则歌曲编辑页会出现
+	// ISBN/出版社这类出版字段，制片信息也会出现在专辑上。
+	// 归属原则：作品层只写"创作身份"（语言、时长、连载/放送信息、原始署名）；
+	// 品番、条码、ISBN、发行日期、出版社等**具体产品标识**归 Release/Medium。
+	commonWorkFields := []string{"language", "edition_date", "copyright", "imdb", "tags", "infobox", "events"}
+	workFieldsByType := map[string][]string{
+		// 音乐作品：时长与词曲署名；专辑/歌曲不写出版与放送字段。
+		"music": {"duration", "author"},
+		"song":  {"duration", "author"},
+		"album": {"duration", "author"},
+		// 文学：卷数、连载杂志、原始署名文本。
+		"novel": {"volume_count", "magazine", "author"},
+		// 影视动画：话数、放送周期与电视台、平台。
+		"animation": {"episodes", "platform", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"},
+		"film":      {"duration", "platform"},
+		// 写真集：卷数 + 摄影署名（作者文本字段承载原始署名）。
+		"photobook": {"volume_count", "author"},
+		// 游戏：平台与话数/卷数均可能。
+		"indie_game":   {"platform", "episodes"},
+		"visual_novel": {"platform", "episodes", "volume_count"},
+		"personal":     {"duration"},
+	}
 	for _, x := range [][4]string{{"music", "音乐作品", "Music work", "music"}, {"song", "歌曲", "Song", "music"}, {"album", "专辑", "Album", "music"}, {"novel", "小说", "Novel", "literature"}, {"animation", "动画", "Animation", "screen"}, {"film", "电影", "Film", "screen"}, {"photobook", "写真集", "Photobook", "photography"}, {"indie_game", "独立游戏", "Independent game", "game"}, {"visual_novel", "视觉小说", "Visual novel", "game"}, {"personal", "个人创作", "Personal creation", "generic"}} {
 		// edition_date 用于承载作品首发/出版日期（列表与详情展示）；发行版自身的日期仍在 release.edition_date。
-		d.Types[x[0]] = TypeDefinition{Names: names(x[1], x[2]), Kinds: []string{"work"}, Fields: append([]string{}, workFields...), Template: x[3], Enabled: true}
+		fields := append(append([]string{}, workFieldsByType[x[0]]...), commonWorkFields...)
+		d.Types[x[0]] = TypeDefinition{Names: names(x[1], x[2]), Kinds: []string{"work"}, Fields: fields, Template: x[3], Enabled: true}
 	}
 	for _, x := range [][3]string{{"person", "个人", "Person"}, {"organization", "组织", "Organization"}, {"group", "团体", "Group"}, {"character", "虚构角色", "Fictional character"}} {
 		d.Types[x[0]] = TypeDefinition{Names: names(x[1], x[2]), Kinds: []string{"agent"}, Fields: []string{}, Template: "generic", Enabled: true}
@@ -163,7 +207,7 @@ func Defaults() Definitions {
 		case "expression":
 			keys = []string{"language", "duration", "version_label", "isrc", "events"}
 		case "release":
-			keys = []string{"catalog_number", "barcode", "edition_date", "edition_type", "country", "publisher", "packaging", "distribution_channel", "platform", "attachments", "store_bonuses", "events"}
+			keys = []string{"catalog_number", "barcode", "edition_date", "edition_type", "edition_batch", "country", "publisher", "packaging", "distribution_channel", "platform", "attachments", "store_bonuses", "events"}
 		case "medium":
 			// catalog_number 复用 release 级同名字段：多碟装各自品番落在 medium.attributes，
 			// release.attributes 只保留总品番/代表品番。
@@ -183,14 +227,14 @@ func Defaults() Definitions {
 			d.Templates["release"] = Template{
 				Names: names("发行版", "Release"), Directory: "tree",
 				Sections: []Section{
-					{Names: names("版本信息", "Edition"), Fields: []string{"edition_type", "edition_date", "country", "distribution_channel", "platform"}},
+					{Names: names("版本信息", "Edition"), Fields: []string{"edition_type", "edition_batch", "edition_date", "country", "distribution_channel", "platform"}},
 					{Names: names("载体与包装", "Carrier & packaging"), Fields: []string{"catalog_number", "barcode", "packaging", "publisher"}},
 					{Names: names("附加内容", "Extras"), Fields: []string{"attachments", "store_bonuses", "events"}},
 				},
-				Columns:          []string{"edition_type", "country", "packaging", "catalog_number", "edition_date"},
+				Columns:          []string{"edition_type", "edition_batch", "country", "packaging", "catalog_number", "edition_date"},
 				PrimaryDateField: "edition_date",
-				BadgeFields:      []string{"edition_type", "country"},
-				FacetFields:      []string{"edition_type", "format", "country"},
+				BadgeFields:      []string{"edition_type", "edition_batch", "country"},
+				FacetFields:      []string{"edition_type", "edition_batch", "format", "country"},
 				RelationGroups:   []string{"credits", "creative", "membership"},
 			}
 			tpl = "release"
