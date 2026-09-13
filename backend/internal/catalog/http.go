@@ -126,6 +126,9 @@ func sweepStaleBuckets(m *sync.Map, janitor *sync.Once) {
 }
 
 // routeLimiter 按 IP+路由限流重型 GET 接口, 超限返回 429 + Retry-After(秒)。
+// 口径说明（最小一致化，不做 Redis 大重构）：内存固定窗口，只防单机突发；
+// 写接口（POST entities/relations 等）暂无独立重型限流，与 setup/login 的 15/min/IP
+// 限流不互通；多实例一致性与写接口重型限流放三期（Redis）。
 func routeLimiter(perMinute int) gin.HandlerFunc {
 	sweepStaleBuckets(&routeAttempts, &routeJanitor)
 	return func(c *gin.Context) {
@@ -157,6 +160,9 @@ func routeLimiter(perMinute int) gin.HandlerFunc {
 
 // idemEntry 写接口幂等缓存: Idempotency-Key -> 首创返回体, TTL 24h, 进程内存。
 // 命中直接返回原结果, 不建重复实体; 分布式/持久化幂等放三期。
+// 口径说明（最小一致化）：仅覆盖 POST /catalog/entities 与 POST /catalog/relations；
+// 缓存键为 路由|用户|Idempotency-Key，不做载荷哈希；并发同键双建需调用方重试确认，
+// 不保证单飞（singleflight）语义。
 type idemEntry struct {
 	value any
 	exp   time.Time
@@ -217,6 +223,7 @@ func idemStore(c *gin.Context, value any) {
 	idemSweep()
 	idemCache.Store(ck, idemEntry{value: value, exp: time.Now().Add(24 * time.Hour)})
 }
+
 // queryList 读取可重复/逗号分隔的多值查询参数（与 tags 同一约定），去空去重后返回，
 // 供 kinds/types 这类多值过滤使用。
 func queryList(c *gin.Context, name string) []string {
@@ -411,7 +418,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, gin.H{"ok": true}, s.ResetUserPassword(c.Request.Context(), c.Param("id"), in.Password, user(c)))
 	})
 	oauth := api.Group("/oauth")
-	oauth.GET("/clients", func(c *gin.Context) {
+	// 客户端列表不含密钥哈希（SecretHash json:"-"），但仍需登录后可读，
+	// 避免匿名枚举 client_id/redirect_uris；账号页已登录用户可查看。
+	oauth.GET("/clients", required(false), func(c *gin.Context) {
 		clients, err := s.ListOAuthClients(c.Request.Context())
 		respond(c, gin.H{"clients": clients}, err)
 	})
@@ -559,6 +568,8 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		c.JSON(http.StatusOK, gin.H{"keys": []any{s.Tokens.PublicJWK()}})
 	})
 	// 用户收藏：详情页按钮与"我的收藏 / 用户收藏"列表。
+	// 分页约定（与 List/ListFavorites 对齐的静默收敛口径）：page<1 收敛为 1；
+	// page_size 越界（<1 或 >100）收敛为 20，不硬拒绝，避免前端翻页参数抖动直接 400。
 	favPage := func(c *gin.Context) (int, int) {
 		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 		size, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
@@ -570,13 +581,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		return page, size
 	}
-	api.POST("/favorites/toggle", required(true), func(c *gin.Context) {
+	// 收藏切换需登录、不限管理员：普通用户与编辑均可收藏可见实体。
+	api.POST("/favorites/toggle", required(false), func(c *gin.Context) {
 		var in struct {
 			TargetType string `json:"target_type"`
 			TargetID   string `json:"target_id"`
 		}
-		if err := c.ShouldBindJSON(&in); err != nil {
-			respond(c, nil, fmt.Errorf("invalid_payload"))
+		// 统一 body 解析：2MB 上限 + 拒绝未知字段，与其他写接口一致。
+		if !body(c, &in) {
 			return
 		}
 		favorited, err := s.ToggleFavorite(c.Request.Context(), *user(c), in.TargetType, in.TargetID)
@@ -597,12 +609,15 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.FavoriteStatus(c.Request.Context(), *u, c.Query("target_type"), ids)
 		respond(c, gin.H{"favorited": v}, err)
 	})
-	api.GET("/favorites/mine", required(true), func(c *gin.Context) {
+	// 我的收藏需登录、不限管理员：普通用户可列出自己的收藏。
+	api.GET("/favorites/mine", required(false), func(c *gin.Context) {
 		u := user(c)
 		page, size := favPage(c)
 		items, total, err := s.ListFavorites(c.Request.Context(), u.ID, u, c.Query("target_type"), size, (page-1)*size)
 		respond(c, gin.H{"items": items, "total": total, "visible": true}, err)
 	})
+	// 指定用户收藏列表：公开读，但目标实体仍按请求方可见性过滤。
+	// 无收藏公开开关：只返回请求方可见的目标实体摘要，不可见/已删跳过不泄露。
 	api.GET("/users/:id/favorites", func(c *gin.Context) {
 		page, size := favPage(c)
 		items, total, err := s.ListFavorites(c.Request.Context(), c.Param("id"), user(c), c.Query("target_type"), size, (page-1)*size)
@@ -613,6 +628,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 标签聚合：标签不是独立字典表，而是散落在各实体的 attributes.tags 中。
 	// jsonb_array_elements_text 展开数组就地统计频次，供前端标签云与筛选建议；
 	// 只统计已发布实体（与列表接口的匿名可见性口径一致）。
+	// 分页口径：limit 越界（<=0 或 >500）静默收敛为 200，与 List 的静默收敛风格一致，
+	// 不硬拒绝；与 expressions/details 的 ids 硬拒绝（400）差异是刻意的：
+	// 后者是 POST body 批量参数，超限直接拒绝避免大查询拖库。
 	cat.GET("/tags", routeLimiter(120), func(c *gin.Context) {
 		args := []any{}
 		where := []string{"e.status='published'", "jsonb_typeof(e.document->'attributes'->'tags')='array'"}
@@ -802,16 +820,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		c.JSON(200, gin.H{"items": out})
 	})
-	cat.GET("/me/home-preferences", func(c *gin.Context) {
-		u := user(c)
-		if u == nil {
-			respond(c, nil, sql.ErrNoRows)
-			return
-		}
-		v, err := s.GetHomePreferences(c.Request.Context(), u.ID)
+	// 个人首页偏好读：需登录，未登录返回 401（与 required(false) 语义一致，
+	// 不再用匿名 404 误导前端走“未找到”分支）。
+	cat.GET("/me/home-preferences", required(false), func(c *gin.Context) {
+		v, err := s.GetHomePreferences(c.Request.Context(), user(c).ID)
 		respond(c, v, err)
 	})
-	cat.PUT("/me/home-preferences", required(true), func(c *gin.Context) {
+	// 个人首页偏好写：需登录、不限管理员，与读端对称。
+	cat.PUT("/me/home-preferences", required(false), func(c *gin.Context) {
 		var in HomePreferences
 		if !body(c, &in) {
 			return
