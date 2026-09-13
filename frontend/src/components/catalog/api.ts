@@ -38,6 +38,16 @@ export type Definition = {
   base_version: number;
   document: Definitions;
 };
+export type Scheme = {
+  names: Names;
+  slot: string;
+  kinds?: string[];
+  types?: string[];
+  fields: string[];
+  required?: string[];
+  require_range?: boolean;
+  enabled: boolean;
+};
 export type Definitions = {
   types: Record<
     string,
@@ -49,6 +59,7 @@ export type Definitions = {
       enabled: boolean;
     }
   >;
+  schemes?: Record<string, Scheme>;
   fields: Record<string, Field>;
   vocabularies: Record<
     string,

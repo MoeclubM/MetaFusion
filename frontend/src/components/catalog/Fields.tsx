@@ -136,18 +136,22 @@ export function GroupFieldInput({
   code,
   value,
   onChange,
+  codes,
 }: {
   defs: any;
   code: string;
   value: Record<string, any> | undefined;
   onChange: (v: Record<string, any>) => void;
+  /** 可选收敛：只显示这些子字段码（顺序即展示顺序）；缺省显示全部全局子字段。 */
+  codes?: string[];
 }) {
   const { locale } = useI18n();
   const field = defs?.fields?.[code];
   if (!field || field.type !== "group") return null;
-  const entries = Object.entries(field.fields || {}).filter(
-    ([, f]: [string, any]) => f?.enabled !== false,
-  );
+  const order = codes && codes.length > 0 ? codes : Object.keys(field.fields || {});
+  const entries = order
+    .map((k): [string, any] => [k, (field.fields || {})[k]])
+    .filter(([, f]: [string, any]) => f && f?.enabled !== false);
   if (entries.length === 0) return null;
   const current = value || {};
   return (

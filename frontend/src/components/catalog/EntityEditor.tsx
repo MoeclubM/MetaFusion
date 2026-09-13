@@ -6,7 +6,7 @@ import { api, Entity, emptyEntity, kinds, local, Source } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField } from "@/components/editor/RelationEditorField";
-import { getFieldName } from "@/lib/definitions";
+import { effectiveSchemeFields, getFieldName, matchSchemes } from "@/lib/definitions";
 export function EntityEditor({
   initial,
   onSaved,
@@ -19,13 +19,6 @@ export function EntityEditor({
   const router = useRouter();
   // definitions：定位字段等由它声明，避免编辑器写死字段码。
   const defs = definition?.document;
-  // 定位子字段顺序即 definitions 中的声明顺序（relative_to 是锚点，放最前）。
-  const locatorFieldKeys = React.useMemo(() => {
-    const f: any = defs?.fields?.["locator"];
-    const keys = Object.keys(f?.fields || {});
-    const anchor = f?.anchor_key;
-    return anchor && keys.includes(anchor) ? [anchor, ...keys.filter((k) => k !== anchor)] : keys;
-  }, [defs]);
   const [e, setE] = useState<Entity>(() => ({
     ...emptyEntity(initial?.kind),
     ...initial,
@@ -37,6 +30,28 @@ export function EntityEditor({
     contents: initial?.contents || [],
     subjects: initial?.subjects || [],
   }));
+  // 结构属性按 scheme 收敛：与后端同一匹配规则；无匹配 scheme 时显示
+  // 全部全局子字段（向后兼容）。定位子字段顺序：有匹配时按 scheme 并集
+  // 顺序（relative_to 锚点置前），无匹配时按全局声明顺序（锚点置前）。
+  const kindKey = e.kind;
+  const typesKey = JSON.stringify(e.types);
+  const locatorFieldKeys = React.useMemo(() => {
+    const matched = matchSchemes(defs as any, "locator", kindKey, JSON.parse(typesKey));
+    const union = effectiveSchemeFields(matched);
+    const f: any = defs?.fields?.["locator"];
+    const keys = union.length > 0 ? union.filter((k) => f?.fields?.[k]) : Object.keys(f?.fields || {});
+    const anchor = f?.anchor_key;
+    return anchor && keys.includes(anchor) ? [anchor, ...keys.filter((k) => k !== anchor)] : keys;
+  }, [defs, kindKey, typesKey]);
+  // 两个 GroupFieldInput 的收敛码：无匹配时传 undefined（显示全部全局子字段）。
+  const subjectCodes = React.useMemo(() => {
+    const union = effectiveSchemeFields(matchSchemes(defs as any, "subject_attributes", kindKey, JSON.parse(typesKey)));
+    return union.length > 0 ? union : undefined;
+  }, [defs, kindKey, typesKey]);
+  const inclusionCodes = React.useMemo(() => {
+    const union = effectiveSchemeFields(matchSchemes(defs as any, "inclusion_attributes", kindKey, JSON.parse(typesKey)));
+    return union.length > 0 ? union : undefined;
+  }, [defs, kindKey, typesKey]);
   const [note, setNote] = useState("");
   const [sources, setSources] = useState<Source[]>([
     { kind: "self", citation: "" },
@@ -447,11 +462,11 @@ export function EntityEditor({
                       </option>
                     ))}
                 </select>
-                {/* 发行对象附加属性：子字段由 definitions 的 subject_attributes 声明，
-                    后台加子字段即出现表单；未声明时不出（不发明字段）。 */}
+                {/* 发行对象附加属性：按 scheme 收敛（无匹配显示全部全局子字段）。 */}
                 <GroupFieldInput
                   defs={defs}
                   code="subject_attributes"
+                  codes={subjectCodes}
                   value={s.attributes}
                   onChange={(attrs) =>
                     patch({
@@ -551,10 +566,11 @@ export function EntityEditor({
                     );
                   })}
                 </div>
-                {/* 收录附加属性：子字段由 definitions 的 inclusion_attributes 声明。 */}
+                {/* 收录附加属性：按 scheme 收敛（无匹配显示全部全局子字段）。 */}
                 <GroupFieldInput
                   defs={defs}
                   code="inclusion_attributes"
+                  codes={inclusionCodes}
                   value={c.attributes}
                   onChange={(attrs) =>
                     patch({

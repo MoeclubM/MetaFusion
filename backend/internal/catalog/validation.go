@@ -259,6 +259,11 @@ func (d Definitions) Validate() error {
 			}
 		}
 	}
+	for code, s := range d.Schemes {
+		if err := d.validateScheme(code, s); err != nil {
+			return err
+		}
+	}
 	for code, t := range d.Templates {
 		if !codePattern.MatchString(code) {
 			return fmt.Errorf("invalid_code")
@@ -295,6 +300,140 @@ func (d Definitions) Validate() error {
 	}
 	return nil
 }
+
+// validateScheme 校验单个场景声明：码合规、slot 命中结构入口、
+// fields 全部已在全局组声明、required ⊆ fields、names 双语；类型错一律拒绝。
+func (d Definitions) validateScheme(code string, s Scheme) error {
+	if !codePattern.MatchString(code) {
+		return fmt.Errorf("invalid_code")
+	}
+	if !contains(StructuralAttributeFields, s.Slot) {
+		return fmt.Errorf("%s: %w", code, fmt.Errorf("invalid_slot"))
+	}
+	if err := validateNames(s.Names); err != nil {
+		return fmt.Errorf("%s: %w", code, err)
+	}
+	for _, k := range s.Kinds {
+		if !contains(Kinds, k) {
+			return fmt.Errorf("%s: %w", code, fmt.Errorf("invalid_kind"))
+		}
+	}
+	for _, t := range s.Types {
+		if _, ok := d.Types[t]; !ok {
+			return fmt.Errorf("%s: %w", code, fmt.Errorf("unknown_type"))
+		}
+	}
+	group, ok := d.Fields[s.Slot]
+	if !ok || group.Type != "group" {
+		return fmt.Errorf("%s: %w", code, fmt.Errorf("structural_field_type: %s", s.Slot))
+	}
+	declared := map[string]bool{}
+	for k := range group.Fields {
+		declared[k] = true
+	}
+	for _, k := range s.Fields {
+		if !declared[k] {
+			return fmt.Errorf("%s: %w", code, fmt.Errorf("unknown_field: %s", k))
+		}
+	}
+	allowed := map[string]bool{}
+	for _, k := range s.Fields {
+		allowed[k] = true
+	}
+	for _, k := range s.Required {
+		if !allowed[k] {
+			return fmt.Errorf("%s: %w", code, fmt.Errorf("required_outside_fields: %s", k))
+		}
+	}
+	return nil
+}
+
+// matchSchemes 找出与拥有者匹配的场景：slot 相同、kinds 命中拥有者 kind
+// （空=命中）、types 与拥有者 types 有交集（空=命中）且 enabled。
+func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string) []Scheme {
+	var out []Scheme
+	for _, s := range d.Schemes {
+		if !s.Enabled || s.Slot != slot {
+			continue
+		}
+		if len(s.Kinds) > 0 && !contains(s.Kinds, ownerKind) {
+			continue
+		}
+		if len(s.Types) > 0 {
+			hit := false
+			for _, t := range ownerTypes {
+				if contains(s.Types, t) {
+					hit = true
+					break
+				}
+			}
+			if !hit {
+				continue
+			}
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+// effectiveGroupField 用"并集 fields"构造有效组定义：拷贝全局组定义、
+// Fields 过滤到并集、Required 按并集 required 设置；无匹配时回退全局组。
+func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []string) Field {
+	group := d.Fields[slot]
+	matched := d.matchSchemes(slot, ownerKind, ownerTypes)
+	if len(matched) == 0 {
+		return group
+	}
+	union := map[string]bool{}
+	required := map[string]bool{}
+	order := []string{}
+	for _, s := range matched {
+		for _, k := range s.Fields {
+			if !union[k] {
+				union[k] = true
+				order = append(order, k)
+			}
+		}
+		for _, k := range s.Required {
+			required[k] = true
+		}
+	}
+	eff := group
+	eff.Fields = map[string]Field{}
+	for k, c := range group.Fields {
+		if union[k] {
+			if required[k] {
+				c.Required = true
+			} else {
+				c.Required = false
+			}
+			eff.Fields[k] = c
+		}
+	}
+	_ = order
+	return eff
+}
+
+// requireRangeSchemes 返回匹配场景中 require_range 为 true 的那些（仅 locator 有意义）。
+func requireRangeSchemes(matched []Scheme) bool {
+	for _, s := range matched {
+		if s.RequireRange {
+			return true
+		}
+	}
+	return false
+}
+
+// checkRangeRequired 要求 locator 至少一个 semantics=content 的子字段非空。
+func checkRangeRequired(group Field, m map[string]any) error {
+	for k, c := range group.Fields {
+		if c.Semantics == "content" && !isEmptyValue(m[k]) {
+			return nil
+		}
+	}
+	return fmt.Errorf("range_required")
+}
+
 func (d Definitions) validateField(f Field, depth int) error {
 	if depth > 4 {
 		return fmt.Errorf("field_nesting_limit")
@@ -524,9 +663,9 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		if err := reference(s.WorkID, []string{"work"}); err != nil {
 			return err
 		}
-		// 发行对象附加属性：由 definitions 的 subject_attributes 组字段校验，
-		// 后台可为其增删子字段，无需改代码或迁移。
-		if err := d.value(d.Fields["subject_attributes"], s.Attributes, reference, historical); err != nil {
+		// 发行对象附加属性：有匹配 scheme 时按并集收敛到场景子集，
+		// 无匹配时回退全局组（旧文档无 schemes 键时 nil map 即回退）。
+		if err := d.value(d.effectiveGroupField("subject_attributes", e.Kind, e.Types), s.Attributes, reference, historical); err != nil {
 			return fmt.Errorf("subject_attributes: %w", err)
 		}
 	}
@@ -541,10 +680,18 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		}
 		// 定位方案（页码/时间码/路径/章节…）与收录附加属性同样走 definitions，
 		// 不再为每种媒体硬编码字段；locator 允许为空（如整轨收录）。
-		if err := d.value(d.Fields["locator"], map[string]any(c.Locator), reference, historical); err != nil {
+		// 有匹配 scheme 时按场景并集收敛，无匹配回退全局组；匹配场景任一
+		// require_range 时 locator 至少一个 content 语义子字段非空。
+		locatorField := d.effectiveGroupField("locator", e.Kind, e.Types)
+		if err := d.value(locatorField, map[string]any(c.Locator), reference, historical); err != nil {
 			return fmt.Errorf("locator: %w", err)
 		}
-		if err := d.value(d.Fields["inclusion_attributes"], c.Attributes, reference, historical); err != nil {
+		if requireRangeSchemes(d.matchSchemes("locator", e.Kind, e.Types)) {
+			if err := checkRangeRequired(d.Fields["locator"], map[string]any(c.Locator)); err != nil {
+				return fmt.Errorf("locator: %w", err)
+			}
+		}
+		if err := d.value(d.effectiveGroupField("inclusion_attributes", e.Kind, e.Types), c.Attributes, reference, historical); err != nil {
 			return fmt.Errorf("inclusion_attributes: %w", err)
 		}
 	}

@@ -310,7 +310,7 @@ export function DefinitionsEditor() {
   const [sources, setSources] = useState<Source[]>([
     { kind: "self", citation: "" },
   ]);
-  const [tab, setTab] = useState<keyof Definitions>("types");
+  const [tab, setTab] = useState<keyof Definitions | "schemes">("types");
   const [cascade, setCascade] = useState(false);
   // 冒烟验证：相对已发布版本的新增词表项，供发布前预演。
   const [smokeVocab, setSmokeVocab] = useState("");
@@ -413,7 +413,7 @@ export function DefinitionsEditor() {
       </div>
       <nav className="cv-tabs">
         {(
-          ["types", "fields", "vocabularies", "relations", "templates"] as const
+          ["types", "fields", "vocabularies", "relations", "templates", "schemes"] as const
         ).map((k) => (
           <button
             key={k}
@@ -741,6 +741,95 @@ export function DefinitionsEditor() {
               />
             </>
           )}
+        />
+      )}
+      {tab === "schemes" && (
+        <Dictionary
+          value={d.schemes || {}}
+          onChange={(schemes) => change({ ...d, schemes })}
+          create={() => ({
+            names: {},
+            slot: "locator",
+            kinds: [],
+            types: [],
+            fields: [],
+            required: [],
+            require_range: false,
+            enabled: true,
+          })}
+          render={(v, set) => {
+            // 子字段候选：所选 slot 全局组已声明的子字段（顺序即全局声明顺序）。
+            const groupFields: Record<string, string> = Object.fromEntries(
+              Object.entries((d.fields as any)?.[v.slot]?.fields || {}).map(
+                ([k, f]: [string, any]) => [k, local((f as any)?.names, locale, "", k)],
+              ),
+            );
+            return (
+              <>
+                <NamesEditor
+                  value={v.names}
+                  onChange={(names) => set({ ...v, names })}
+                />
+                <label>
+                  {t("catalog.schemeSlot")}
+                  <select
+                    value={v.slot}
+                    onChange={(e) =>
+                      set({ ...v, slot: e.target.value, fields: [], required: [] })
+                    }
+                  >
+                    {["locator", "inclusion_attributes", "subject_attributes"].map((k) => (
+                      <option key={k} value={k}>
+                        {t(`catalog.schemeSlotNames.${k}`)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Checks
+                  label={t("catalog.allowedKinds")}
+                  values={kindNames}
+                  selected={v.kinds || []}
+                  onChange={(kinds) => set({ ...v, kinds })}
+                />
+                <Checks
+                  label={t("catalog.schemeTypes")}
+                  values={names(d.types)}
+                  selected={v.types || []}
+                  onChange={(types) => set({ ...v, types })}
+                />
+                <Checks
+                  label={t("catalog.schemeFields")}
+                  values={groupFields}
+                  selected={v.fields || []}
+                  onChange={(fields) =>
+                    set({
+                      ...v,
+                      fields,
+                      required: (v.required || []).filter((k) => fields.includes(k)),
+                    })
+                  }
+                />
+                <Checks
+                  label={t("catalog.schemeRequired")}
+                  values={groupFields}
+                  selected={v.required || []}
+                  onChange={(required) => set({ ...v, required })}
+                />
+                <div className="cv-checks">
+                  {(["require_range", "enabled"] as const).map((k) => (
+                    <label key={k}>
+                      <input
+                        type="checkbox"
+                        checked={!!(v as any)[k]}
+                        onChange={(e) => set({ ...v, [k]: e.target.checked } as any)}
+                      />
+                      {t(`catalog.${k}`)}
+                    </label>
+                  ))}
+                </div>
+              </>
+            );
+          }}
         />
       )}
       <Evidence
