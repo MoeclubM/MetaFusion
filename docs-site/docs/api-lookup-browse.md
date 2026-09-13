@@ -77,7 +77,35 @@ const releases = await fetch("/api/catalog/entities?kind=release&work_id=" + wor
 GET /api/catalog/entities?q=keyword&kind=work&limit=24&offset=0
 ```
 
-完整筛选参数为 `kind / type / status / q / field / value / work_id / content_unit_id / release_id / medium_id / parent_id / tags`。见 [编目体系](/taxonomy)。
+完整筛选参数为 `kind / kinds / type / types / status / q / field / value / work_id / content_unit_id / release_id / medium_id / parent_id / tags / limit / offset`。见 [编目体系](/taxonomy)。
+
+### 嵌套字段筛选（field 点分路径）
+
+`field` 支持点分路径，沿 definitions 递归解析：`group` 逐层下钻，`list` 中途节点按"任一元素命中"
+（`jsonb_array_elements` 的 `EXISTS`）比较，叶子保持与单层一致的等值语义（`->>` 文本比较）。
+要求叶子 `searchable` 为 true 且链路上所有字段 `enabled`，否则返回 `field_not_searchable`；
+未知路径返回 `unknown_field`。单层 `field=value` 行为不变。
+
+```http
+GET /api/catalog/entities?field=attachments.store&value=<agent_id>
+GET /api/catalog/entities?field=store_bonuses.channel&value=animate&kind=release
+```
+
+结构属性伪字段命中收录/发行对象表而非实体 attributes，编译成 `EXISTS` 子查询：
+
+- `locator.<子字段>`：收录位置（`catalog.track_contents.locator`），列表语境 `kind=track`
+- `inclusion_attributes.<子字段>`：收录附加属性（`catalog.track_contents.attributes`），`kind=track`
+- `subject_attributes.<子字段>`：发行对象附加属性（`catalog.release_subjects.attributes`），`kind=release`
+
+```http
+GET /api/catalog/entities?kind=track&field=locator.path&value=/disc1/chapter01
+GET /api/catalog/entities?kind=track&field=inclusion_attributes.translator&value=<agent_id>
+GET /api/catalog/entities?kind=release&field=subject_attributes.seq&value=1
+```
+
+`kind` 与伪字段归属显式不匹配时（如 `kind=release` 配 `locator.path`）谓词恒假、返回空集，
+而不是报错；不传 `kind` 时按 `EXISTS` 自然过滤。子字段是否可用以
+`GET /api/catalog/definitions` 为准（含后台新增的子字段）。
 
 ## 图谱
 
