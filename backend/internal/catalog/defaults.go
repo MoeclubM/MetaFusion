@@ -38,7 +38,7 @@ func Defaults() Definitions {
 	field := func(code, zh, en, typ string) {
 		d.Fields[code] = Field{Names: names(zh, en), Type: typ, Enabled: true, Searchable: true, Comparable: true}
 	}
-	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"edition_type", "版本类别", "Edition category", "enum"}, {"edition_batch", "发行批次", "Edition batch", "enum"}, {"distribution_channel", "发行渠道", "Distribution channel", "enum"}, {"platform", "平台", "Platform", "text"}, {"episodes", "话数", "Episodes", "number"}, {"volume_count", "卷数", "Volumes", "number"}, {"broadcast_start", "放送开始", "Broadcast start", "date"}, {"broadcast_weekday", "放送星期", "Broadcast weekday", "text"}, {"broadcast_end", "放送结束", "Broadcast end", "date"}, {"air_network", "放送电视台", "Broadcast network", "text"}, {"copyright", "版权标示", "Copyright", "text"}, {"author", "作者", "Author", "text"}, {"magazine", "连载杂志", "Magazine", "text"}, {"imdb", "IMDb", "IMDb", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"entry_role", "篇目类型", "Entry role", "enum"}, {"credit_role", "署名职位", "Credit role", "text"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
+	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"isbn", "ISBN", "ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"edition_type", "版本类别", "Edition category", "enum"}, {"edition_batch", "发行批次", "Edition batch", "enum"}, {"distribution_channel", "发行渠道", "Distribution channel", "enum"}, {"platform", "平台", "Platform", "text"}, {"episodes", "话数", "Episodes", "number"}, {"volume_count", "卷数", "Volumes", "number"}, {"broadcast_start", "放送开始", "Broadcast start", "date"}, {"broadcast_weekday", "放送星期", "Broadcast weekday", "text"}, {"broadcast_end", "放送结束", "Broadcast end", "date"}, {"air_network", "放送电视台", "Broadcast network", "text"}, {"copyright", "版权标示", "Copyright", "text"}, {"author", "作者", "Author", "text"}, {"magazine", "连载杂志", "Magazine", "text"}, {"imdb", "IMDb", "IMDb", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"entry_role", "篇目类型", "Entry role", "enum"}, {"credit_role", "署名职位", "Credit role", "text"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
 		field(x[0], x[1], x[2], x[3])
 	}
 	// 标签：值域开放（上游标签随作品而定），故为字符串列表而非受控词表；
@@ -96,6 +96,10 @@ func Defaults() Definitions {
 	f := d.Fields["context"]
 	f.Kinds = []string{"work", "content_unit", "expression", "release"}
 	d.Fields["context"] = f
+	// duration_source：该时长来自哪份录音（实体引用，仅 expression 可写）。
+	// 含义=同一 expression 在不同版本中的时长差异由引用来源解释，
+	// 不在 duration 数值旁另立口径。
+	d.Fields["duration_source"] = Field{Names: names("时长来源", "Duration source"), Type: "entity", Kinds: []string{"expression"}, Enabled: true}
 	for _, k := range []string{"attachments", "store_bonuses", "events"} {
 		f := d.Fields[k]
 		f.Items = &Field{Names: names("记录", "Record"), Type: "group", Enabled: true, Fields: map[string]Field{
@@ -158,7 +162,7 @@ func Defaults() Definitions {
 		code, zh, en string
 		sections     []Section
 	}{
-		{"music", "音乐", "Music", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "duration"}})},
+		{"music", "音乐", "Music", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "duration", "duration_source"}})},
 		{"literature", "文学", "Literature", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "volume_count", "magazine"}})},
 		{"screen", "影视", "Screen", commonSections(
 			Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "episodes", "platform"}},
@@ -178,10 +182,10 @@ func Defaults() Definitions {
 	// 品番、条码、ISBN、发行日期、出版社等**具体产品标识**归 Release/Medium。
 	commonWorkFields := []string{"language", "edition_date", "copyright", "imdb", "tags", "infobox", "events"}
 	workFieldsByType := map[string][]string{
-		// 音乐作品：时长与词曲署名；专辑/歌曲不写出版与放送字段。
-		"music": {"duration", "author"},
-		"song":  {"duration", "author"},
-		"album": {"duration", "author"},
+		// 音乐作品：时长、时长来源与词曲署名；专辑/歌曲不写出版与放送字段。
+		"music": {"duration", "duration_source", "author"},
+		"song":  {"duration", "duration_source", "author"},
+		"album": {"duration", "duration_source", "author"},
 		// 文学：卷数、连载杂志、原始署名文本。
 		"novel": {"volume_count", "magazine", "author"},
 		// 影视动画：话数、放送周期与电视台、平台。
@@ -212,7 +216,7 @@ func Defaults() Definitions {
 		case "expression":
 			keys = []string{"language", "duration", "version_label", "isrc", "events"}
 		case "release":
-			keys = []string{"catalog_number", "barcode", "edition_date", "edition_type", "edition_batch", "country", "publisher", "packaging", "distribution_channel", "platform", "attachments", "store_bonuses", "events"}
+			keys = []string{"catalog_number", "barcode", "isbn", "edition_date", "edition_type", "edition_batch", "country", "publisher", "packaging", "distribution_channel", "platform", "attachments", "store_bonuses", "events"}
 		case "medium":
 			// catalog_number 复用 release 级同名字段：多碟装各自品番落在 medium.attributes，
 			// release.attributes 只保留总品番/代表品番。
@@ -233,7 +237,7 @@ func Defaults() Definitions {
 				Names: names("发行版", "Release"), Directory: "tree",
 				Sections: []Section{
 					{Names: names("版本信息", "Edition"), Fields: []string{"edition_type", "edition_batch", "edition_date", "country", "distribution_channel", "platform"}},
-					{Names: names("载体与包装", "Carrier & packaging"), Fields: []string{"catalog_number", "barcode", "packaging", "publisher"}},
+					{Names: names("载体与包装", "Carrier & packaging"), Fields: []string{"catalog_number", "barcode", "isbn", "packaging", "publisher"}},
 					{Names: names("附加内容", "Extras"), Fields: []string{"attachments", "store_bonuses", "events"}},
 				},
 				Columns:          []string{"edition_type", "edition_batch", "country", "packaging", "catalog_number", "edition_date"},
@@ -285,5 +289,30 @@ func Defaults() Definitions {
 	// 制片人等），用它承载"谁参与了这部作品"，职位原文落在 credit_role。
 	// 有精确关系码时不使用，避免同一署名重复两条边。
 	addRel("credit_for", "参与制作", "Credited in", "署名人员", "Credits", []string{"work", "content_unit", "expression", "release"}, []string{"agent"}, "credits", false)
+	// 译者关系：若默认信用关系里缺译者（translated_by 或等价）则补一个，
+	// group=credits，翻译作品的译者署名不再挤进通用兜底。
+	if _, ok := d.Relations["translated_by"]; !ok {
+		hasTranslator := false
+		for code := range d.Relations {
+			if code == "translator_of" || code == "translate_by" {
+				hasTranslator = true
+				break
+			}
+		}
+		if !hasTranslator {
+			addRel("translated_by", "译者", "Translated by", "翻译了", "Translator of", []string{"work", "content_unit", "expression"}, []string{"agent"}, "credits", false)
+		}
+	}
+	// 场景示例（纯示范，可被后台删除）：黑胶上下文 locator 只收敛到唱片面相关子集。
+	// kinds=["track"]、types 为空（不限业务类型）、require_range=false，
+	// fields 为现有 locator 子字段子集，顺序即展示编辑顺序。
+	d.Schemes = map[string]Scheme{
+		"vinyl_track_locator": {
+			Names: names("黑胶定位", "Vinyl locator"), Slot: "locator",
+			Kinds:   []string{"track"},
+			Fields:  []string{"relative_to", "chapter", "path"},
+			Enabled: true,
+		},
+	}
 	return d
 }

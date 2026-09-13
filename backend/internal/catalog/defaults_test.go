@@ -104,6 +104,54 @@ func TestDefaultsWorkFieldsArePerMediaType(t *testing.T) {
 	}
 }
 
+// Scheme 非法必须被 Validate 拒绝：slot 非法、字段未在全局组声明、
+// required 越界；类型错一律拒绝。
+func TestSchemesRejectedWhenInvalid(t *testing.T) {
+	mk := func() Definitions {
+		d := Defaults()
+		d.Schemes = map[string]Scheme{
+			"paper_pages": {
+				Names: names("纸书页码", "Paper pages"), Slot: "locator",
+				Kinds:    []string{"track"},
+				Fields:   []string{"relative_to", "page_start", "page_end"},
+				Required: []string{"page_start"},
+			},
+		}
+		return d
+	}
+	if err := mk().Validate(); err != nil {
+		t.Fatalf("valid scheme rejected: %v", err)
+	}
+	badSlot := mk()
+	s := badSlot.Schemes["paper_pages"]
+	s.Slot = "no_such_slot"
+	badSlot.Schemes["paper_pages"] = s
+	if err := badSlot.Validate(); err == nil {
+		t.Fatal("scheme with invalid slot accepted")
+	}
+	unDeclared := mk()
+	s = unDeclared.Schemes["paper_pages"]
+	s.Fields = []string{"relative_to", "no_such_subfield"}
+	unDeclared.Schemes["paper_pages"] = s
+	if err := unDeclared.Validate(); err == nil {
+		t.Fatal("scheme with undeclared field accepted")
+	}
+	outside := mk()
+	s = outside.Schemes["paper_pages"]
+	s.Required = []string{"chapter"}
+	outside.Schemes["paper_pages"] = s
+	if err := outside.Validate(); err == nil {
+		t.Fatal("scheme with required outside fields accepted")
+	}
+	badKind := mk()
+	s = badKind.Schemes["paper_pages"]
+	s.Kinds = []string{"no_such_kind"}
+	badKind.Schemes["paper_pages"] = s
+	if err := badKind.Validate(); err == nil {
+		t.Fatal("scheme with invalid kind accepted")
+	}
+}
+
 // 词表必须包含编目常用的作品间关系；反向名需成对声明。
 func TestDefaultsWorkRelations(t *testing.T) {
 	d := Defaults()

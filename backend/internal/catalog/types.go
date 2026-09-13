@@ -167,12 +167,33 @@ type Template struct {
 	// 取代代码里硬编码 edition_type/format/country 三个下拉；顺序即展示顺序。
 	FacetFields []string `json:"facet_fields,omitempty"`
 }
+// Scheme 是"按使用场景配置"的有限声明式规则：locator / inclusion_attributes /
+// subject_attributes 是全局结构，纸书要页码、EPUB 要路径锚点、黑胶要唱片面，
+// 必填、排序、范围约束与展示收敛都由它声明，不新增核心实体种类。
+//   - Slot 闭集三选一：locator / inclusion_attributes / subject_attributes；
+//   - Kinds 拥有者 kind 白名单，空=不限；Types 拥有者动态业务类型白名单，空=不限；
+//   - Fields 该上下文可用子字段码（必须已在全局组声明），顺序即展示编辑顺序；
+//   - Required ⊆ Fields；RequireRange 仅 locator 有意义，要求至少一个
+//     semantics=content 的子字段有值；Enabled 关闭即不参与匹配，可被后台删除。
+type Scheme struct {
+	Names        Names    `json:"names"`
+	Slot         string   `json:"slot"`
+	Kinds        []string `json:"kinds,omitempty"`
+	Types        []string `json:"types,omitempty"`
+	Fields       []string `json:"fields"`
+	Required     []string `json:"required,omitempty"`
+	RequireRange bool     `json:"require_range,omitempty"`
+	Enabled      bool     `json:"enabled"`
+}
 type Definitions struct {
 	Types        map[string]TypeDefinition     `json:"types"`
 	Fields       map[string]Field              `json:"fields"`
 	Vocabularies map[string]Vocabulary         `json:"vocabularies"`
 	Relations    map[string]RelationDefinition `json:"relations"`
 	Templates    map[string]Template           `json:"templates"`
+	// Schemes 可缺省：旧已发布定义文档没有该键时解码为 nil，实体校验回退全局组，
+	// 保持向后兼容；新文档即使空 map 也合法。
+	Schemes map[string]Scheme `json:"schemes,omitempty"`
 }
 type DefinitionVersion struct {
 	ID          int64       `json:"id"`

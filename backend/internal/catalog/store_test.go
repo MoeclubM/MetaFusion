@@ -407,6 +407,74 @@ func TestTemplateFieldReferencesValidated(t *testing.T) {
 	}
 }
 
+// 有匹配 scheme 时超集子字段被实体校验拒绝，无匹配时回退全局组通过；
+// require_range 缺范围被拒绝。参考 TestStructural* 风格，不连数据库。
+func TestSchemeConvergenceInEntityValidation(t *testing.T) {
+	ref := func(string, []string) error { return nil }
+	mkTrack := func(locator Locator) Entity {
+		return Entity{
+			Kind: "track", Title: "A1", Status: "draft",
+			MediumID: "11111111-1111-4111-8111-111111111111",
+			Contents: []Inclusion{{
+				ExpressionID: "22222222-2222-4222-8222-222222222222",
+				Locator:      locator,
+			}},
+		}
+	}
+	// 有匹配 scheme（默认种子的 vinyl_track_locator，kinds=[track]）：
+	// 并集内字段通过，并集外超集字段被拒绝。
+	d := Defaults()
+	if err := d.Validate(); err != nil {
+		t.Fatalf("defaults invalid: %v", err)
+	}
+	ok := mkTrack(Locator{"relative_to": "track", "chapter": "A1"})
+	if err := d.validateEntity(ok, ref, false); err != nil {
+		t.Fatalf("in-scheme locator rejected: %v", err)
+	}
+	superset := mkTrack(Locator{"relative_to": "track", "chapter": "A1", "page_start": float64(1)})
+	if err := d.validateEntity(superset, ref, false); err == nil {
+		t.Fatal("superset locator beyond matched scheme accepted")
+	}
+	// 无匹配时回退全局组：同一定位在 medium 拥有者（无 track scheme）下通过。
+	medium := Entity{
+		Kind: "medium", Title: "CD1", Status: "draft",
+		ReleaseID:  "33333333-3333-4333-8333-333333333333",
+		Attributes: map[string]any{},
+	}
+	_ = medium
+	release := Entity{
+		Kind: "release", Title: "R", Status: "draft",
+		Subjects: []Subject{{
+			WorkID: "44444444-4444-4444-8444-444444444444", Role: "primary",
+			Attributes: map[string]any{},
+		}},
+	}
+	if err := d.validateEntity(release, ref, false); err != nil {
+		t.Fatalf("fallback without matched scheme rejected: %v", err)
+	}
+	pageOnTrack := mkTrack(Locator{"relative_to": "track", "page_start": float64(3), "page_end": float64(5)})
+	plain := Defaults()
+	plain.Schemes = nil
+	if err := plain.validateEntity(pageOnTrack, ref, false); err != nil {
+		t.Fatalf("nil schemes should fall back to global group: %v", err)
+	}
+	// require_range：匹配场景要求内容范围时，缺 content 语义子字段被拒绝。
+	ranged := Defaults()
+	ranged.Schemes["paper_range"] = Scheme{
+		Names: names("纸书范围", "Paper range"), Slot: "locator",
+		Kinds: []string{"track"}, Fields: []string{"relative_to", "time_start_ms", "time_end_ms"},
+		RequireRange: true, Enabled: true,
+	}
+	withoutRange := mkTrack(Locator{"relative_to": "track"})
+	if err := ranged.validateEntity(withoutRange, ref, false); err == nil {
+		t.Fatal("locator without content range accepted under require_range")
+	}
+	withRange := mkTrack(Locator{"relative_to": "track", "time_start_ms": float64(0), "time_end_ms": float64(500)})
+	if err := ranged.validateEntity(withRange, ref, false); err != nil {
+		t.Fatalf("locator with content range rejected: %v", err)
+	}
+}
+
 // 三层角色发布权限矩阵：user（审核制）/ editor（可发布自己条目）/ admin。
 func TestRolePublishMatrix(t *testing.T) {
 	ctx := context.Background()

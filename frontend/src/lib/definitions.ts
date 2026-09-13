@@ -73,12 +73,70 @@ export interface RelationDef {
   enabled: boolean;
 }
 
+export interface SchemeDef {
+  names: Record<string, string>;
+  /** 闭集三选一：locator / inclusion_attributes / subject_attributes。 */
+  slot: string;
+  /** 拥有者 kind 白名单，空=不限。 */
+  kinds?: string[];
+  /** 拥有者动态业务类型白名单，空=不限。 */
+  types?: string[];
+  /** 该上下文可用子字段码，顺序即展示编辑顺序。 */
+  fields: string[];
+  /** 必填子集（⊆fields）。 */
+  required?: string[];
+  /** 仅 locator 有意义：要求至少一个 semantics=content 的子字段有值。 */
+  require_range?: boolean;
+  enabled: boolean;
+}
+
 export interface DynamicDefinitions {
   types: Record<string, TypeDef>;
   fields: Record<string, FieldDef>;
   vocabularies: Record<string, VocabularyDef>;
   relations: Record<string, RelationDef>;
   templates: Record<string, TemplateDef>;
+  /** 按使用场景配置的结构属性方案；缺省（旧文档无该键）时回退全局组。 */
+  schemes?: Record<string, SchemeDef>;
+}
+
+/**
+ * matchSchemes：与后端 matchSchemes 同一口径——slot 相同、kinds 命中拥有者
+ * kind（空=命中）、types 与拥有者 types 有交集（空=命中）且 enabled。
+ */
+export function matchSchemes(
+  defs: DynamicDefinitions | null | undefined,
+  slot: string,
+  ownerKind: string,
+  ownerTypes: string[]
+): SchemeDef[] {
+  const schemes = defs?.schemes || {};
+  return Object.values(schemes).filter((s) => {
+    if (!s || s.enabled === false || s.slot !== slot) return false;
+    if ((s.kinds || []).length > 0 && !s.kinds!.includes(ownerKind)) return false;
+    if ((s.types || []).length > 0) {
+      if (!(ownerTypes || []).some((t) => s.types!.includes(t))) return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * effectiveSchemeFields：匹配 scheme 的并集 fields（保序去重），顺序即展示
+ * 编辑顺序；无匹配时返回空数组，调用方回退显示全部全局子字段。
+ */
+export function effectiveSchemeFields(matched: SchemeDef[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const s of matched) {
+    for (const k of s.fields || []) {
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push(k);
+      }
+    }
+  }
+  return out;
 }
 
 let cachedDefinitions: DynamicDefinitions | null = null;
