@@ -748,6 +748,22 @@ export function Compare({ ids }: { ids: string }) {
                   </ul>
                 </div>
               )}
+              {/* 内容与范围一致、仅本版定位（页码/时间码）不同：如同一译文换了排版位置。
+                  这不是内容变化，也不是收录范围变化，单独一类避免误报。 */}
+              {alignment.locatingDiffer.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.compareLocatingDiffer")}
+                  </h3>
+                  <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
+                    {alignment.locatingDiffer.map(([i, j]) => (
+                      <li key={`${i}-${j}`}>
+                        {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {/* 身份元数据解析不全时不下结论，明确提示人工确认。 */}
               {alignment.pendingConfirm && (
                 <p className="m-0 text-xs text-amber-700 dark:text-amber-300">{t("catalog.comparePendingConfirm")}</p>

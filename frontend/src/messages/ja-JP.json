@@ -2005,6 +2005,7 @@
   "catalog.compareWorkVariants": "同内容の別録音/別表現（篇目単位で整合）",
   "catalog.compareCarrierOnly": "収録内容は同一で媒体構成のみ異なる",
   "catalog.compareRangeDiffer": "同じ録音を参照するが収録範囲/順序が異なる",
+"catalog.compareLocatingDiffer": "内容・範囲は同一で、本版の位置（ページ/タイムコード）のみ異なる",
   "catalog.comparePendingConfirm": "一部コンテンツの識別情報が不完全なため、結論は要確認です。",
   "catalog.resourceGatewayTitle": "リソース・ダウンロードセンター",
   "catalog.resourceGatewayDesc": "物理ストレージとダウンロード提供は独立システムに分離され、OAuth 2.0によるシングルサインオンで連携します。",
