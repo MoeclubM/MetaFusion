@@ -25,10 +25,23 @@ export interface StaffCredit {
   agent: StaffCreditAgent;
   /** 配音关系指向的角色，或登场角色（character_in）自身。 */
   character?: { id?: string; name: string; avatarUrl?: string; rankLabel?: string };
+  /** 配音语言（关系属性），同一角色的多版配音据此区分。 */
+  language?: string;
+  /** 适用篇目/版本（关系属性 context 的展示名），多版配音据此区分。 */
+  contextLabel?: string;
 }
 
 interface StaffCharacterSectionProps {
   credits: StaffCredit[];
+}
+
+/** 同一角色可有多条配音：不同演员、语言、适用篇目各自保留，不互相覆盖。 */
+interface CharacterVoice {
+  id: string;
+  name: string;
+  avatar_url?: string;
+  /** 语言 / 适用篇目等上下文，仅在存在时展示，用于区分多版配音。 */
+  context?: string;
 }
 
 interface CharacterCardItem {
@@ -39,11 +52,7 @@ interface CharacterCardItem {
     avatar_url?: string;
     roleBadge: string;
   };
-  voiceActor?: {
-    id: string;
-    name: string;
-    avatar_url?: string;
-  };
+  voices: CharacterVoice[];
 }
 
 export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
@@ -69,39 +78,51 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   const keyStaff = useMemo(() => credits.filter((c) => isKeyStaff(c)), [credits, defs]);
   const otherStaff = useMemo(() => credits.filter((c) => !isCast(c)), [credits, defs]);
 
-  // 角色与声优双轨卡片：登场角色直接成卡，配音按其角色成卡并与声优配对。
+  // 角色与声优双轨卡片：登场角色直接成卡，配音挂到其角色卡上。
+  // 卡片按**角色 ID**归并（角色名会因语种/重名而误并），且配音保留为列表——
+  // 同一角色在不同语言/篇目下由不同演员配音是常态，只留第一位会丢数据。
   const characterCards = useMemo(() => {
     const cardMap = new Map<string, CharacterCardItem>();
     const badgeOf = (c: StaffCredit) =>
       c.character?.rankLabel || c.creditRole || c.relationLabel || characterFallback;
     for (const c of credits) {
       if (!c.character) continue;
-      const badge = badgeOf(c);
-      const key = c.character.name;
-      const existing = cardMap.get(key);
-      if (existing) {
-        // 同名角色已有卡片：配音补声优端，登场补角色实体信息。
-        if (c.relationType === "voiced_by") {
-          if (!existing.voiceActor) {
-            existing.voiceActor = { id: c.agent.id, name: c.agent.name, avatar_url: c.agent.avatarUrl };
-          }
-        } else if (c.relationType === "character_in") {
-          if (!existing.character.id && c.character.id) existing.character.id = c.character.id;
-          if (!existing.character.avatar_url && c.character.avatarUrl) existing.character.avatar_url = c.character.avatarUrl;
-        }
-        continue;
+      // 有角色实体 ID 用 ID 成卡；导入/手工数据缺 ID 时退回名称，避免全部并进一张空卡。
+      const key = c.character.id || `name:${c.character.name}`;
+      if (!key) continue;
+      let card = cardMap.get(key);
+      if (!card) {
+        card = {
+          id: c.id,
+          character: {
+            id: c.character.id,
+            name: c.character.name,
+            avatar_url: c.character.avatarUrl,
+            roleBadge: badgeOf(c),
+          },
+          voices: [],
+        };
+        cardMap.set(key, card);
       }
-      cardMap.set(key, {
-        id: c.id,
-        character: {
-          id: c.character.id,
-          name: c.character.name,
-          avatar_url: c.character.avatarUrl,
-          roleBadge: badge,
-        },
-      });
       if (c.relationType === "voiced_by") {
-        cardMap.get(key)!.voiceActor = { id: c.agent.id, name: c.agent.name, avatar_url: c.agent.avatarUrl };
+        const context = [c.language, c.contextLabel].filter(Boolean).join(" · ");
+        // 同一演员在同一上下文的重复关系只留一条；不同语言/篇目各自保留。
+        const dup = card.voices.some(
+          (v) => v.id === c.agent.id && (v.context || "") === context,
+        );
+        if (!dup) {
+          card.voices.push({
+            id: c.agent.id,
+            name: c.agent.name,
+            avatar_url: c.agent.avatarUrl,
+            context: context || undefined,
+          });
+        }
+      } else if (c.relationType === "character_in") {
+        if (!card.character.id && c.character.id) card.character.id = c.character.id;
+        if (!card.character.avatar_url && c.character.avatarUrl) card.character.avatar_url = c.character.avatarUrl;
+        // 登场关系带番位（主角/配角），比配音关系声明的职位更能代表角色定位。
+        if (c.character.rankLabel) card.character.roleBadge = c.character.rankLabel;
       }
     }
     return Array.from(cardMap.values());
@@ -194,7 +215,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[420px] overflow-y-auto pr-1">
               {characterCards.map((item) => (
                 <div
-                  key={item.id + item.character.name}
+                  key={item.character.id || item.id}
                   className="flex items-center justify-between gap-3 p-2.5 rounded-md border border-black/10 dark:border-white/[0.08] bg-background/80 hover:border-primary/40 transition-all shadow-xs"
                 >
                   {/* 角色端 */}
@@ -245,32 +266,42 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                     )}
                   </div>
 
-                  {/* 声优端 */}
-                  {item.voiceActor && (
-                    <Link
-                      href={`/catalog/${item.voiceActor.id}`}
-                      className="flex items-center gap-2 shrink-0 p-1.5 rounded bg-black/[0.02] dark:bg-white/[0.03] hover:bg-primary/5 border border-black/5 dark:border-white/5 hover:border-primary/30 transition-all text-right group"
-                      title={`CV: ${item.voiceActor.name}`}
-                    >
-                      <div className="min-w-0 text-right">
-                        <div className="text-[10px] font-mono text-gray-400 dark:text-gray-500">CV</div>
-                        <div className="text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-primary transition-colors truncate max-w-[90px]">
-                          {item.voiceActor.name}
-                        </div>
-                      </div>
-                      {item.voiceActor.avatar_url ? (
-                        <img
-                          src={item.voiceActor.avatar_url}
-                          alt={item.voiceActor.name}
-                          className="w-8 h-8 rounded-full object-cover shrink-0 border border-black/10 dark:border-white/10"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-mono text-[10px] shrink-0">
-                          <Mic className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                    </Link>
+                  {/* 声优端：同一角色可有多个演员（不同语言/篇目），逐条列出 */}
+                  {item.voices.length > 0 && (
+                    <div className="flex flex-col gap-1.5 shrink-0 items-end">
+                      {item.voices.map((voice) => (
+                        <Link
+                          key={`${voice.id}-${voice.context || ""}`}
+                          href={`/catalog/${voice.id}`}
+                          className="flex items-center gap-2 p-1.5 rounded bg-black/[0.02] dark:bg-white/[0.03] hover:bg-primary/5 border border-black/5 dark:border-white/5 hover:border-primary/30 transition-all text-right group"
+                          title={voice.context ? `CV: ${voice.name} (${voice.context})` : `CV: ${voice.name}`}
+                        >
+                          <div className="min-w-0 text-right">
+                            <div className="text-[10px] font-mono text-gray-400 dark:text-gray-500">CV</div>
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-primary transition-colors truncate max-w-[90px]">
+                              {voice.name}
+                            </div>
+                            {voice.context && (
+                              <div className="font-mono text-[10px] text-gray-400 dark:text-gray-500 truncate max-w-[110px]">
+                                {voice.context}
+                              </div>
+                            )}
+                          </div>
+                          {voice.avatar_url ? (
+                            <img
+                              src={voice.avatar_url}
+                              alt={voice.name}
+                              className="w-8 h-8 rounded-full object-cover shrink-0 border border-black/10 dark:border-white/10"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-mono text-[10px] shrink-0">
+                              <Mic className="w-3.5 h-3.5" />
+                            </div>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
                   )}
                 </div>
               ))}
