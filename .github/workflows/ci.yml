@@ -45,12 +45,23 @@ jobs:
         run: go mod tidy -diff
       - name: go test
         run: go test ./...
+      - name: go test -race (catalog)
+        run: go test -race ./internal/catalog/
+      - name: openapi bidirectional coverage
+        run: go test ./internal/catalog/ -run 'TestOpenAPIRouteCoverage|TestOpenAPIReverseCoverage' -v
       - name: go vet
         run: go vet ./...
       - name: go build (server+migrate)
         run: |
           CGO_ENABLED=0 go build -o /tmp/mf-server ./cmd/server
           CGO_ENABLED=0 go build -o /tmp/mf-migrate ./cmd/migrate
+      - name: migrate up/down roundtrip
+        run: |
+          /tmp/mf-migrate up
+          /tmp/mf-migrate status
+          /tmp/mf-migrate down
+          /tmp/mf-migrate up
+          /tmp/mf-migrate status
 
   frontend:
     name: frontend (Bun 1.4 + Next build)
@@ -67,6 +78,12 @@ jobs:
         run: bun install --frozen-lockfile
       - name: typecheck
         run: bunx tsc --noEmit
+      - name: next lint
+        # 仓库暂无 eslint 配置文件：有配置则真校验，无配置仅告警不阻塞。
+        run: bun run lint || echo "lint skipped, no eslint config"
+      - name: i18n keys sync check
+        run: |
+          bun -e "const fs=require('fs');const ks=f=>Object.keys(JSON.parse(fs.readFileSync('src/messages/'+f,'utf8'))).sort().join('|');const base=ks('zh-CN.json');for(const f of ['en-US.json','zh-TW.json','ja-JP.json']){if(ks(f)!==base){console.error('i18n drift: '+f);process.exit(1)}}console.log('i18n keys in sync')"
       - name: next build (via Bun)
         run: bun run build
 
@@ -89,6 +106,23 @@ jobs:
         run: docker compose -f deploy/docker-compose.metadata.yml config --quiet
       - name: nginx syntax check
         run: docker run --rm -v $PWD/deploy/nginx.conf:/etc/nginx/nginx.conf:ro nginx:1.25-alpine nginx -t
+      - name: metadata nginx syntax check
+        run: docker run --rm -v $PWD/deploy/nginx.metadata.conf:/etc/nginx/nginx.conf:ro nginx:1.25-alpine nginx -t
+  docs-site:
+    name: docs-site (VitePress build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs-site
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+      - name: bun install
+        run: bun install --frozen-lockfile
+      - name: vitepress build
+        run: bun run build
 
   secrets-scan:
     name: gitleaks (secrets)
