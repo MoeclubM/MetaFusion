@@ -406,10 +406,14 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if err = v.Document.validateEntity(e, ref, true); err != nil {
 			return err
 		}
-		// ExternalIDs 预设复核（需读库，validation.go 只做格式兜底）：
-		// 键必须已在 external_databases 预设（含停用——读路径同样宽容历史值），
-		// 值按预设 validation_regex 收敛；official_website 存完整 URL 走 validURL。
-		// metafusion_import 内部键不在预设表，由 validateExternalIDs 管格式。
+		// ExternalIDs 两层复核：先格式层（键合规、值非空收敛、metafusion_import
+		// 内部键格式），再预设层（键必须已在 external_databases 预设，值按
+		// validation_regex 收敛；official_website 存完整 URL 走 validURL；
+		// 内部键不在预设表，预设层跳过）。两层缺一不可：格式层拦手工伪造的
+		// 非法键（如 forged:::key），预设层拦格式合法但无预设的键。
+		if err = v.Document.validateExternalIDs(e); err != nil {
+			return err
+		}
 		if err = validateExternalIDsAgainstDB(ctx, tx, e); err != nil {
 			return err
 		}
