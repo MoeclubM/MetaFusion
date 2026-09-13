@@ -2106,6 +2106,7 @@
   "catalog.status.merged": "Merged",
   "catalog.searchPlaceholder": "Search by title or identifier...",
   "catalog.searchAction": "Search",
+"catalog.typeAll": "All types",
   "catalog.emptyTitle": "No matching metadata entities found",
   "catalog.emptyAction": "Clear filters",
   "catalog.viewDetail": "View",

@@ -108,6 +108,9 @@ function ExploreInner() {
   const currentKind = searchParams.get("kind") || "all";
   const currentStatus = searchParams.get("status") || "published";
   const currentQ = searchParams.get("q") || "";
+  // 动态业务类型（album/novel/animation…）筛选：选项来自 definitions，
+  // 后台新增类型即自动出现在这里，前端不写死类型清单。
+  const currentType = searchParams.get("type") || "";
   // 标签筛选：可多选，命中任一即返回（与后端 tags 参数语义一致）。
   const currentTags = useMemo(
     () => searchParams.getAll("tags").flatMap((v) => v.split(",")).map((s) => s.trim()).filter(Boolean),
@@ -141,6 +144,7 @@ function ExploreInner() {
     if (currentKind !== "all") params.set("kind", currentKind);
     if (currentStatus) params.set("status", currentStatus);
     if (currentQ) params.set("q", currentQ);
+    if (currentType) params.set("type", currentType);
     currentTags.forEach((tag) => params.append("tags", tag));
     params.set("limit", limit.toString());
     params.set("offset", offset.toString());
@@ -150,7 +154,22 @@ function ExploreInner() {
       .then((data) => setItems(data.items || []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, [currentKind, currentStatus, currentQ, currentTags, offset]);
+  }, [currentKind, currentStatus, currentQ, currentType, currentTags, offset]);
+
+  // 可选类型：来自 definitions 的 enabled 类型；已选具体 kind 时只保留该 kind 的类型。
+  const typeOptions = useMemo(() => {
+    const types = definitions?.types || {};
+    return Object.keys(types)
+      .filter((code) => {
+        const t = types[code];
+        if (!t || t.enabled === false) return false;
+        if (currentKind === "all") return true;
+        return (t.kinds || []).includes(currentKind);
+      })
+      .sort((a, b) =>
+        getTypeName(definitions, a, locale).localeCompare(getTypeName(definitions, b, locale)),
+      );
+  }, [definitions, currentKind, locale]);
 
   const updateFilters = (updates: Record<string, string>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -306,6 +325,24 @@ function ExploreInner() {
                   {t("catalog.searchAction")}
                 </button>
               </form>
+
+              {/* 类型筛选：选项来自 definitions 里 enabled 的类型；选中 kind 时只列该 kind 的类型。 */}
+              {typeOptions.length > 0 && (
+                <div className="sm:col-span-2 flex items-center">
+                  <select
+                    value={currentType}
+                    onChange={(e) => updateFilters({ type: e.target.value })}
+                    className="w-full py-2 px-2.5 rounded-lg bg-surface dark:bg-[#18181b] border border-black/10 dark:border-white/10 text-xs text-gray-800 dark:text-gray-200 focus:border-primary outline-none cursor-pointer"
+                  >
+                    <option value="">{t("catalog.typeAll")}</option>
+                    {typeOptions.map((code) => (
+                      <option key={code} value={code}>
+                        {getTypeName(definitions, code, locale)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="sm:col-span-2 flex items-center">
                 <select

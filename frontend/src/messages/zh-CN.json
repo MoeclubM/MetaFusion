@@ -2106,6 +2106,7 @@
   "catalog.status.merged": "已合并",
   "catalog.searchPlaceholder": "按实体题名或标识检索...",
   "catalog.searchAction": "搜索",
+"catalog.typeAll": "全部类型",
   "catalog.emptyTitle": "未找到匹配的元数据实体",
   "catalog.emptyAction": "清除筛选条件",
   "catalog.viewDetail": "查看",
