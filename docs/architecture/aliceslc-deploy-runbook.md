@@ -66,6 +66,10 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
 ```
 
+**`fast` 不会自动执行迁移**（只有 `prod` / `pull` 会）。历史结构退役、账号表搬迁等一次性数据迁移
+现在都在 `backend/migrations/`（启动 `schema.sql` 只剩幂等建表与种子），因此拉取含新迁移的代码后
+必须补跑一次 `./deploy.sh migrate up`，否则这些变更不会生效。
+
 网关：`deploy/nginx.conf`，`/api/*` 直通 backend:8080，无重写（前端已去 v1 前缀，直接对齐）。
 
 ## 3. SSH 访问（已解决）
