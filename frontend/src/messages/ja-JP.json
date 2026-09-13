@@ -2007,6 +2007,7 @@
   "catalog.compareRangeDiffer": "同じ録音を参照するが収録範囲/順序が異なる",
 "catalog.compareLocatingDiffer": "内容・範囲は同一で、本版の位置（ページ/タイムコード）のみ異なる",
   "catalog.comparePendingConfirm": "一部コンテンツの識別情報が不完全なため、結論は要確認です。",
+  "catalog.compareAttributeDiffer": "内容は同一ですが、レコード単位の付加属性が異なるため、媒体のみの差異とは断定できません",
   "catalog.resourceGatewayTitle": "リソース・ダウンロードセンター",
   "catalog.resourceGatewayDesc": "物理ストレージとダウンロード提供は独立システムに分離され、OAuth 2.0によるシングルサインオンで連携します。",
   "catalog.resourceGatewayVisit": "独立リソースセンターへ ↗",

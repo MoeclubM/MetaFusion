@@ -2007,6 +2007,7 @@
   "catalog.compareRangeDiffer": "Same recording referenced, but inclusion range/order differs",
 "catalog.compareLocatingDiffer": "Same content and extent; only this edition’s positioning (page/timecode) differs",
   "catalog.comparePendingConfirm": "Some content identity metadata is incomplete; conclusion needs confirmation.",
+  "catalog.compareAttributeDiffer": "Content matches, but record-level attributes differ; cannot confirm a carrier-only difference",
   "catalog.resourceGatewayTitle": "Resource & Download Hub",
   "catalog.resourceGatewayDesc": "Physical storage and download delivery are decoupled into an independent system, authenticated via OAuth 2.0 SSO.",
   "catalog.resourceGatewayVisit": "Go to Resource Station ↗",

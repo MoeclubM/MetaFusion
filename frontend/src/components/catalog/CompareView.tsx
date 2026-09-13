@@ -7,7 +7,7 @@ import { api, Entity, mapLimit, local, title } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { FieldValue, EntityLink, ErrorMessage } from "./Fields";
 import { useDefinitions, getFieldName, getTermName } from "@/lib/definitions";
-import { computeAlignment } from "./compareAlignment";
+import { computeAlignment, compareSemanticsOf } from "./compareAlignment";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowRightLeft,
@@ -231,8 +231,8 @@ export function Compare({ ids }: { ids: string }) {
   }, [expressionIds.join(",")]);
 
   const alignment = useMemo(
-    () => computeAlignment(items, exprEntities),
-    [items, exprEntities],
+    () => computeAlignment(items, exprEntities, compareSemanticsOf(dynamicDefs || catalogDef?.document)),
+    [items, exprEntities, dynamicDefs, catalogDef],
   );
 
   const renderAttrValue = (key: string, value: unknown): string => {
@@ -760,6 +760,21 @@ export function Compare({ ids }: { ids: string }) {
                   </h3>
                   <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
                     {alignment.locatingDiffer.map(([i, j]) => (
+                      <li key={`${i}-${j}`}>
+                        {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {/* 记录级附加属性差异无法归类为内容或定位：不能断言仅载体不同，提示人工核对。 */}
+              {alignment.attributeDiffer.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                    {t("catalog.compareAttributeDiffer")}
+                  </h3>
+                  <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
+                    {alignment.attributeDiffer.map(([i, j]) => (
                       <li key={`${i}-${j}`}>
                         {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
                       </li>
