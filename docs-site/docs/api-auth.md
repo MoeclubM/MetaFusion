@@ -59,7 +59,7 @@ POST /api/auth/logout-all        # 吊销该用户全部会话
 
 登录响应结构以实际实现为准（字段为 `user` / `token` 等，见 `backend/internal/catalog/http.go`），不要依赖本页旧示例中的 `access_token` / `refresh_token` / `expires_in`。
 
-- 账号由管理员通过 `POST /api/admin/users` 创建；不存在 `registration_enabled` / `invite_required` 注册开关端点
+- 账号由管理员通过 `POST /api/admin/users` 创建（请求体 `{username, email, password}`，默认角色 `editor`；改角色 `PUT /api/admin/users/:id/role` 请求体 `{role}`，取值 `user / editor / admin`）；不存在 `registration_enabled` / `invite_required` 注册开关端点（`GET /api/auth/settings` 仅返回能力标识，当前均为 `false`）
 - 首次部署未初始化时用 `GET /api/setup` 检查状态，`POST /api/setup` 创建超级管理员
 
 ## API 密钥管理
@@ -78,7 +78,7 @@ curl "/api/catalog/entities?kind=work&limit=10"
 curl -X POST /api/catalog/entities \
   -H "Authorization: Bearer <session-token>" \
   -H "Content-Type: application/json" \
-  -d '{"entity":{"kind":"work","title":"新作品","original_language":"ja","translations":{"zh-CN":{"title":"新作品"}},"attributes":{"cover_aspect":"2:3"}},"expected_version":0,"edit_note":"initial import per official source","sources":[{"kind":"official","citation":"官网","url":"https://example.com"}]}'
+  -d '{"entity":{"kind":"work","title":"新作品","original_language":"ja","translations":{"zh-CN":{"title":"新作品"}},"attributes":{"cover_aspect":"2:3"}},"expected_version":0,"edit_note":"initial import per official source","sources":[{"kind":"url","citation":"官网","url":"https://example.com"}]}'
 ```
 
 ## 限流

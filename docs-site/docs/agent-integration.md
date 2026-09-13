@@ -483,11 +483,11 @@ curl -X POST "https://api.metafusion.local/api/catalog/entities" \
       "original_language": "ja",
       "translations": { "zh-CN": { "title": "攻壳机动队", "summary": "公元2029年，网络高度发达的信息化时代..." } },
       "attributes": { "cover_aspect": "2:3" },
-      "pictures": [{ "url": "https://storage.metafusion.local/covers/gits_1995.webp", "source": { "kind": "official", "citation": "官方海报", "url": "https://v-storage.bnarts.jp/" } }]
+      "pictures": [{ "url": "https://storage.metafusion.local/covers/gits_1995.webp", "source": { "kind": "url", "citation": "官方海报", "url": "https://v-storage.bnarts.jp/" } }]
     },
     "expected_version": 0,
     "edit_note": "根据 Bandai Visual 官方 4K UHD 档案录入出版物规格",
-    "sources": [{ "kind": "official", "citation": "官方档案", "url": "https://v-storage.bnarts.jp/sp-site/ghost-in-the-shell/" }]
+    "sources": [{ "kind": "url", "citation": "官方档案", "url": "https://v-storage.bnarts.jp/sp-site/ghost-in-the-shell/" }]
   }'
 ```
 
