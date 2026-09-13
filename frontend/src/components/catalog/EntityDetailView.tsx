@@ -18,7 +18,7 @@ import { GraphNode, GraphLink, FavoriteTargetType } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
-import { useDefinitions, getTypeName, getRelationName, getFieldName, getTermName } from "@/lib/definitions";
+import { useDefinitions, getTypeName, getRelationName, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
   getForumEntityUrl,
@@ -75,23 +75,11 @@ const InteractiveRelationGraph = dynamic(
   { ssr: false }
 );
 
-/** 归入"演职人员"分组的关系类型；其余媒体关系走 relations 标签。 */
-const STAFF_RELATION_TYPES = [
-  "composed_by",
-  "arranged_by",
-  "lyrics_by",
-  "directed_by",
-  "written_by",
-  "illustrated_by",
-  "created_by",
-  "produced_by",
-  "voiced_by",
-  "performed_by",
-  "character_in",
-  "stars",
-  "publisher",
-  "label",
-];
+/** 关系分组只允许来自服务端 definitions：group=credits 的进"演职人员"区，
+ * 其余按各自 group 分组展示，分组标题用 group_names 本地化。后台改分组后
+ * 前端即刻跟随，不在本文件另维护一份名单。 */
+const relationGroupOf = (defs: any, type: string): string =>
+  defs?.relations?.[type]?.group || "";
 
 async function allEntities(query: string): Promise<Entity[]> {
   const items: Entity[] = [];
@@ -548,18 +536,49 @@ export function EntityDetailView({ id }: { id: string }) {
   const staffRelations = useMemo(
     () =>
       categorizedRelations.filter(
-        (r) => STAFF_RELATION_TYPES.includes(r.type) || (r.target && r.target.kind === "agent")
+        (r) => relationGroupOf(defs, r.type) === "credits"
       ),
-    [categorizedRelations]
+    [categorizedRelations, defs]
   );
 
   const mediaRelations = useMemo(
     () =>
       categorizedRelations.filter(
-        (r) => !STAFF_RELATION_TYPES.includes(r.type) && (!r.target || r.target.kind !== "agent")
+        (r) => relationGroupOf(defs, r.type) !== "credits"
       ),
-    [categorizedRelations]
+    [categorizedRelations, defs]
   );
+
+  // 其余关系按各自 group 分组：顺序按实体自身类型引用模板的 relation_groups
+  // 声明合并排序，声明外的组排最后；定义缺失时归入空组兜底展示，保证不丢数据。
+  const groupedMediaRelations = useMemo(() => {
+    const groups = new Map<string, typeof mediaRelations>();
+    for (const r of mediaRelations) {
+      const key = relationGroupOf(defs, r.type);
+      const list = groups.get(key) || [];
+      list.push(r);
+      groups.set(key, list);
+    }
+    const ordered: string[] = [];
+    for (const tc of entity?.types || []) {
+      const tpl = (defs as any)?.templates?.[(defs as any)?.types?.[tc]?.template || ""];
+      for (const g of tpl?.relation_groups || []) {
+        if (groups.has(g) && !ordered.includes(g)) ordered.push(g);
+      }
+    }
+    for (const key of Array.from(groups.keys())) {
+      if (!ordered.includes(key)) ordered.push(key);
+    }
+    return ordered.map((key) => ({ key, items: groups.get(key) || [] }));
+  }, [mediaRelations, defs, entity]);
+
+  // 分组标题：取组内首个关系定义的 group_names 本地化，缺失时回退通用关系标签。
+  const relationGroupTitle = (group: { key: string; items: typeof mediaRelations }): string => {
+    const rel = (defs as any)?.relations?.[group.items[0]?.type];
+    const name = resolveLocalizedName(rel?.group_names, locale, "");
+    if (name) return name;
+    return t("entity.page.relationsTitle");
+  };
 
   // 社区模块未启用时不展示该标签，避免出现永远为空的分节。
   const communityEnabled = modules.some(
@@ -1389,8 +1408,14 @@ export function EntityDetailView({ id }: { id: string }) {
                     />
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {mediaRelations.map((r) => {
+                  <div className="space-y-4">
+                    {groupedMediaRelations.map((group) => (
+                      <div key={group.key || "ungrouped"}>
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">
+                          {relationGroupTitle(group)}
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {group.items.map((r) => {
                       const target = r.target;
                       const targetTitle = target ? title(target, locale, titleOrder) : r.otherId;
                       return (
@@ -1415,7 +1440,10 @@ export function EntityDetailView({ id }: { id: string }) {
                           <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors shrink-0" />
                         </Link>
                       );
-                    })}
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </section>
