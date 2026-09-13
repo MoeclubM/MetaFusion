@@ -353,7 +353,6 @@ export default function WorkDirectoryPage() {
  );
  }
 
- const meta = (work.attributes?.catalog_metadata as Record<string, any>) || {};
  const title = entityTitle(work, locale);
  // 简介取原语言行，缺失回退任一非空简介（统一 DTO 无顶层 summary）。
  const summary = (() => {
@@ -414,8 +413,6 @@ export default function WorkDirectoryPage() {
        </div>
        <section className={styles.facts}>
          <h2>{t("work.detail.information")}</h2>
-         {meta.isbn_13 && <p>{t("work.detail.isbn", { value: meta.isbn_13 })}</p>}
-         {meta.clc_code && <p>{t("work.detail.clc", { code: meta.clc_code })}</p>}
          {/* 作品信息按作品自身类型引用的模板渲染；过去这里传的是发行版 definitions，
              字段集合与次序都不匹配，导致作品字段显示错配或缺失。 */}
          <WorkFacts entity={work} defs={defs} locale={locale} />
