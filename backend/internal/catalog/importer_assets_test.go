@@ -387,9 +387,10 @@ func TestMergeWorkMetadataNoOverwrite(t *testing.T) {
 	if got.Translations["ja"].Title != "自定日文名" {
 		t.Errorf("translation title overwritten: %v", got.Translations["ja"])
 	}
-	// 缺失项必须补齐，且别名按自身语种分派
-	if got.Attributes["catalog_number"] != "NEW-001" {
-		t.Errorf("catalog_number not backfilled: %v", got.Attributes)
+	// 品番是发行层标识，不写作品层（由发行属性改写补入 Release）；
+	// 作品层只补齐创作身份字段。别名按自身语种分派。
+	if v, bad := got.Attributes["catalog_number"]; bad {
+		t.Errorf("catalog_number must not be written on the work: %v", v)
 	}
 	// "新别名" 是纯汉字 → zh-CN 行；ja 行只保留原有别名
 	if ja := got.Translations["ja"].Aliases; len(ja) != 1 || ja[0] != "已有别名" {

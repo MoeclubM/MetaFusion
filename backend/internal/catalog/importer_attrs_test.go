@@ -55,27 +55,40 @@ func TestImporterReleaseAttrsOnlyKnownFields(t *testing.T) {
 	}
 }
 
-// 产品标识（ISBN→barcode）语义属发行层：上游把它放在作品条目里，落库要改写
-// 到 Release，且不覆盖发行已声明的值；作品类型本身不再声明 isbn/barcode。
+// 产品标识（品番/ISBN）语义属发行层：上游把它们放在作品条目里，落库要改写到
+// Release，且不覆盖发行已声明的值；作品类型本身不再声明 catalog_number/barcode/isbn。
 func TestImporterReleaseAttrsAbsorbsWorkProductIDs(t *testing.T) {
 	defs := Defaults()
-	for _, f := range defs.Types["novel"].Fields {
-		if f == "isbn" || f == "barcode" {
-			t.Fatalf("novel work type must not declare product identifier %q", f)
+	for _, typeCode := range []string{"novel", "album", "song", "music"} {
+		for _, f := range defs.Types[typeCode].Fields {
+			switch f {
+			case "isbn", "barcode", "catalog_number", "publisher_name":
+				t.Fatalf("work type %q must not declare product identifier %q", typeCode, f)
+			}
 		}
 	}
-	// 作品载荷里的 barcode 被补进发行属性。
-	attrs := importerReleaseAttrs(nil, map[string]any{"barcode": "978-4-00-000000-0"})
+	// 作品载荷里的 ISBN 落到发行 barcode；品番落到发行 catalog_number。
+	work := &ImporterWorkPreview{
+		Fields:          map[string]any{"barcode": "978-4-00-000000-0"},
+		CatalogMetadata: map[string]any{"catalog_number": "KSLA-0004～0005"},
+	}
+	attrs := importerReleaseAttrs(nil, work)
 	if attrs["barcode"] != "978-4-00-000000-0" {
 		t.Fatalf("work-level ISBN should surface as release barcode: %#v", attrs)
+	}
+	if attrs["catalog_number"] != "KSLA-0004～0005" {
+		t.Fatalf("work-level catalog number should surface on the release: %#v", attrs)
 	}
 	if err := importerCheckAttrs(defs, "release", attrs); err != nil {
 		t.Fatalf("absorbed release attrs rejected: %v", err)
 	}
-	// 发行自身已声明的条码优先，不被作品载荷覆盖。
-	attrs = importerReleaseAttrs(&ImporterReleasePreview{Barcode: "REAL-1"}, map[string]any{"barcode": "978-4-00-000000-0"})
-	if attrs["barcode"] != "REAL-1" {
-		t.Fatalf("release barcode must win over work-level value: %#v", attrs)
+	// 发行自身已声明的值优先，不被作品载荷覆盖。
+	attrs = importerReleaseAttrs(
+		&ImporterReleasePreview{Barcode: "REAL-1", CatalogNumber: "REAL-CAT"},
+		work,
+	)
+	if attrs["barcode"] != "REAL-1" || attrs["catalog_number"] != "REAL-CAT" {
+		t.Fatalf("release values must win over work-level ones: %#v", attrs)
 	}
 }
 
