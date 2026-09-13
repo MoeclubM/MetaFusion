@@ -213,6 +213,11 @@ export default function WorkDirectoryPage() {
  if (ch) {
  credit.character = { id: ch.id, name: ch.title, avatarUrl: ch.pictures?.[0]?.url };
  }
+ // 配音上下文：language 是自由文本字段（非受控词表），context 是实体引用，
+ // 两者共同区分同一角色在不同语言/篇目下的多版配音。
+ credit.language = attrText(r.attributes?.language) || undefined;
+ const ctxId = attrText(r.attributes?.context);
+ credit.contextLabel = (ctxId ? relEntities[ctxId]?.title : "") || undefined;
  }
  out.push(credit);
  } else if (r.type === "character_in") {
