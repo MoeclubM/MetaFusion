@@ -43,7 +43,7 @@ func TestImporterReleaseAttrsOnlyKnownFields(t *testing.T) {
 		Country:       "JP",
 		EditionDate:   "2024-01-05",
 		Publisher:     "某出版社",
-	})
+	}, nil)
 	if _, ok := attrs["publisher"]; ok {
 		t.Fatalf("free-text publisher must not be written as attribute: %#v", attrs)
 	}
@@ -52,6 +52,30 @@ func TestImporterReleaseAttrsOnlyKnownFields(t *testing.T) {
 	}
 	if err := importerCheckAttrs(Defaults(), "release", attrs); err != nil {
 		t.Fatalf("release attrs rejected: %v", err)
+	}
+}
+
+// 产品标识（ISBN→barcode）语义属发行层：上游把它放在作品条目里，落库要改写
+// 到 Release，且不覆盖发行已声明的值；作品类型本身不再声明 isbn/barcode。
+func TestImporterReleaseAttrsAbsorbsWorkProductIDs(t *testing.T) {
+	defs := Defaults()
+	for _, f := range defs.Types["novel"].Fields {
+		if f == "isbn" || f == "barcode" {
+			t.Fatalf("novel work type must not declare product identifier %q", f)
+		}
+	}
+	// 作品载荷里的 barcode 被补进发行属性。
+	attrs := importerReleaseAttrs(nil, map[string]any{"barcode": "978-4-00-000000-0"})
+	if attrs["barcode"] != "978-4-00-000000-0" {
+		t.Fatalf("work-level ISBN should surface as release barcode: %#v", attrs)
+	}
+	if err := importerCheckAttrs(defs, "release", attrs); err != nil {
+		t.Fatalf("absorbed release attrs rejected: %v", err)
+	}
+	// 发行自身已声明的条码优先，不被作品载荷覆盖。
+	attrs = importerReleaseAttrs(&ImporterReleasePreview{Barcode: "REAL-1"}, map[string]any{"barcode": "978-4-00-000000-0"})
+	if attrs["barcode"] != "REAL-1" {
+		t.Fatalf("release barcode must win over work-level value: %#v", attrs)
 	}
 }
 
