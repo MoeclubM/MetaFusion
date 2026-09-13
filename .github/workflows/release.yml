@@ -38,11 +38,6 @@ jobs:
             dockerfile: ./backend/Dockerfile
             target: server
             image_name: backend
-          - name: backend-worker
-            context: ./backend
-            dockerfile: ./backend/Dockerfile
-            target: worker
-            image_name: worker
           - name: backend-migrator
             context: ./backend
             dockerfile: ./backend/Dockerfile
