@@ -22,6 +22,13 @@ CREATE INDEX IF NOT EXISTS entities_search ON catalog.entities USING gin (to_tsv
 CREATE INDEX IF NOT EXISTS entities_document ON catalog.entities USING gin (document jsonb_path_ops);
 -- 标签按容器包含过滤（attributes.tags @> [...]）：函数索引让该查询走索引而非全表扫描。
 CREATE INDEX IF NOT EXISTS entities_attribute_tags ON catalog.entities USING gin ((document->'attributes'->'tags') jsonb_path_ops);
+-- 导入幂等键唯一护栏：external_ids.metafusion_import 并发可双插（先查后建竞态）。
+-- 有键行唯一，空键/无键行不受约束（手工载荷无键本就不幂等）。迁移 000013 起建，
+-- 此处与终态保持一致；存量重复键会导致迁移失败，须先手工合并去重。
+CREATE UNIQUE INDEX IF NOT EXISTS entities_metafusion_import_key
+  ON catalog.entities ((document->'external_ids'->>'metafusion_import'))
+  WHERE (document->'external_ids'->>'metafusion_import') IS NOT NULL
+    AND (document->'external_ids'->>'metafusion_import') <> '';
 CREATE TABLE IF NOT EXISTS catalog.content_units (
  id uuid PRIMARY KEY, kind text NOT NULL DEFAULT 'content_unit' CHECK(kind='content_unit'),
  work_id uuid NOT NULL, work_kind text NOT NULL DEFAULT 'work' CHECK(work_kind='work'), parent_id uuid,
@@ -43,6 +50,10 @@ CREATE TABLE IF NOT EXISTS catalog.mediums (
 );
 CREATE TABLE IF NOT EXISTS catalog.tracks (
  id uuid PRIMARY KEY, kind text NOT NULL DEFAULT 'track' CHECK(kind='track'), medium_id uuid NOT NULL REFERENCES catalog.mediums(id), parent_id uuid,
+ -- medium_id 故意单列引用 mediums(id) 而非 (medium_id,medium_kind) 复合引用
+ -- entities(id,kind)：medium 有独立侧表，直接引用侧表主键比引用 entities 更紧
+ --（侧表行缺失也能拦住）。work/release 无侧表才用复合引用，故风格不对称是
+ -- 有意的，不统一。
  UNIQUE(id,medium_id), FOREIGN KEY(id,kind) REFERENCES catalog.entities(id,kind),
  FOREIGN KEY(parent_id,medium_id) REFERENCES catalog.tracks(id,medium_id) DEFERRABLE INITIALLY DEFERRED
 );
@@ -61,6 +72,24 @@ CREATE TABLE IF NOT EXISTS catalog.relations (
  target_id uuid NOT NULL REFERENCES catalog.entities(id), document jsonb NOT NULL, CHECK(source_id<>target_id)
 );
 CREATE INDEX IF NOT EXISTS relations_endpoints ON catalog.relations(source_id,target_id,type);
+-- relations 去重只拦"完全重复边"（端点+类型+属性相同）：应用层
+-- validateRelation 以同口径判重并处理对称边反向同义；声明式索引无法表达
+-- 对称语义，故此处只做最后一道拦网。position 不计入，与应用层同口径。
+-- attributes 直接比 jsonb 逻辑值（jsonb 有 btree 支持）：缺键按 'null'
+-- 归一，与 validateRelation 里 encode(nil map)="null" 同口径。
+-- 存量若有完全重复边，迁移 000012 会失败：属数据问题，需先手工合并去重，
+-- 不得为通过迁移而删数据。
+CREATE UNIQUE INDEX IF NOT EXISTS relations_no_exact_dup
+ ON catalog.relations(source_id, target_id, type, (COALESCE(document->'attributes', 'null'::jsonb)));
+-- 结构侧表反向索引：外键只建约束不建索引，List 的 WorkID/ReleaseID/MediumID/
+-- ContentUnitID 子查询与收录归属校验此前全走全表扫描。迁移 000012 起建，
+-- 此处与终态保持一致；表很小，无需 CONCURRENTLY。
+CREATE INDEX IF NOT EXISTS content_units_work ON catalog.content_units(work_id);
+CREATE INDEX IF NOT EXISTS expressions_work ON catalog.expressions(work_id);
+CREATE INDEX IF NOT EXISTS expressions_content_unit ON catalog.expressions(content_unit_id);
+CREATE INDEX IF NOT EXISTS mediums_release ON catalog.mediums(release_id);
+CREATE INDEX IF NOT EXISTS tracks_medium ON catalog.tracks(medium_id);
+CREATE INDEX IF NOT EXISTS release_subjects_work ON catalog.release_subjects(work_id);
 CREATE TABLE IF NOT EXISTS catalog.definitions (
  id bigserial PRIMARY KEY, state text NOT NULL CHECK(state IN ('draft','published','superseded')),
  base_version bigint NOT NULL, document jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
