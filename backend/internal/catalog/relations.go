@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"sort"
 	"strconv"
 	"strings"
@@ -246,6 +247,54 @@ func relationByID(ctx context.Context, q queryer, id string) (Relation, error) {
 	return r, err
 }
 
+// relationsByType 只取同类边：validateRelation 的构图/计数/判重只看同 type
+// （异类直接跳过），Save 时全表加载在关系量大时会退化为全表扫描+全量反序列化。
+// 更新时的旧版本按 ID 单行取（relationByID），不混在集合里。
+func relationsByType(ctx context.Context, q queryer, typ string) ([]Relation, error) {
+	rows, err := q.QueryContext(ctx, "SELECT document FROM catalog.relations WHERE type=$1 ORDER BY id", typ)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Relation{}
+	for rows.Next() {
+		var b []byte
+		var r Relation
+		if err = rows.Scan(&b); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(b, &r); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// relationsWithEndpoint 取以某实体为任一端点的全部边：合并改写引用时用，
+// 命中 relations_endpoints 索引前两列。校验阶段仍需同类全集（构图/计数），
+// 由调用方在改写后按涉及类型取 relationsByType。
+func relationsWithEndpoint(ctx context.Context, q queryer, id string) ([]Relation, error) {
+	rows, err := q.QueryContext(ctx, "SELECT document FROM catalog.relations WHERE source_id=$1 OR target_id=$1 ORDER BY id", id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Relation{}
+	for rows.Next() {
+		var b []byte
+		var r Relation
+		if err = rows.Scan(&b); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(b, &r); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, error) {
 	if _, err := s.Get(ctx, id, u); err != nil {
 		return nil, err
@@ -299,7 +348,16 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 		if _, ok := peers[other]; !ok {
 			continue
 		}
-		if err := d.Document.attributes(d.Document.Relations[r.Type].Fields, r.Attributes, reference(ctx, s.DB, u), true); err != nil {
+		// 删除码后旧边读路径宽容：Relations 读路径只做"字段仍声明+引用可达"
+		// 校验（historical=true），停用/删除的码不断读（与 impact 的 historical
+		// 宽容同口径）。关系码本身已删除（!ok）时同样保留——删除码不断读，
+		// 停用才由 retiredAttributes 在写入时拦截新增使用。
+		rt, ok := d.Document.Relations[r.Type]
+		if !ok {
+			out = append(out, r)
+			continue
+		}
+		if err := d.Document.attributes(rt.Fields, r.Attributes, reference(ctx, s.DB, u), true); err != nil {
 			continue
 		}
 		out = append(out, r)
@@ -308,7 +366,9 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 	return out, nil
 }
 
-// canWriteRelation 判定调用方能否写入以 src 为源实体的关系：
+// canWriteRelation 判定调用方能否写入以 src 为源实体、tgt 为目标实体的关系。
+// 目标端也有否决权：editor 不得向他人已发布条目挂边（SaveRelation/DeleteRelation
+// 在源端检查之外另做目标端检查，见下）。此处只判源端，供单测与调用方复用。
 //   - admin：全部可写；
 //   - editor：可写自己创建的条目（含已发布——与编辑器"editor 可直接发布/编辑
 //     自己条目"的权限对齐）；
@@ -322,6 +382,20 @@ func canWriteRelation(u User, src Entity) bool {
 	default:
 		return src.CreatedBy == u.ID && src.Status != "published"
 	}
+}
+
+// canAttachToTarget 判定调用方能否把边挂到目标端 tgt 上（目标端否决权）：
+// admin 恒可；editor/user 挂到"他人已发布"条目时拒绝——他人条目一旦发布即受保护，
+// 即使源端是自己的条目也不得单方面加边（需对方或管理员操作）。
+// 未发布/自己创建的目标不受此限（审核协作仍可进行）。
+func canAttachToTarget(u User, tgt Entity) bool {
+	if u.Role == "admin" {
+		return true
+	}
+	if tgt.Status == "published" && tgt.CreatedBy != u.ID {
+		return false
+	}
+	return true
 }
 
 func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Relation, ref func(string, []string) error, historical bool) error {
@@ -353,6 +427,14 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 		return err
 	}
 	incoming, outgoing := 0, 0
+	// 去重键为（端点，类型，属性，position）：position 是边的排序身份，
+	// 同端点同属性但 position 不同是两条合法边（如同一演员的两个角色位），
+	// 不能因 encode 比较不含 position 而误判重复。编码差异按 encode 归一：
+	// nil 与空 map 视为不同值，与 000012 唯一索引（COALESCE 缺键为 null）同口径。
+	// 注意 DB 唯一索引 relations_no_exact_dup 是（端点+类型+属性）口径、不含
+	// position：同一端点同属性不同 position 的两条边会撞唯一索引而报
+	// constraint_violation（23505）。应用层此处先按 version/position 判重，
+	// 语义与 DB 索引的差异见 SaveRelation 的注释。
 	graph := map[string][]string{}
 	for _, x := range existing {
 		if x.ID == r.ID || x.Type != r.Type {
@@ -365,13 +447,20 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 		if x.TargetID == r.TargetID {
 			incoming++
 		}
-		if (x.SourceID == r.SourceID && x.TargetID == r.TargetID || rt.Symmetric && x.SourceID == r.TargetID && x.TargetID == r.SourceID) && encode(x.Attributes) == encode(r.Attributes) {
+		if (x.SourceID == r.SourceID && x.TargetID == r.TargetID || rt.Symmetric && x.SourceID == r.TargetID && x.TargetID == r.SourceID) && x.Position == r.Position && encode(x.Attributes) == encode(r.Attributes) {
 			return fmt.Errorf("duplicate_relation")
 		}
 	}
+	// 基数语义：MaxOutgoing/MaxIncoming 为 0 表示不限（Definitions.Validate
+	// 只拒绝负数，不拒绝全零），>0 才计数比较；全零即两侧不限，无死代码。
 	if rt.MaxOutgoing > 0 && outgoing >= rt.MaxOutgoing || rt.MaxIncoming > 0 && incoming >= rt.MaxIncoming {
 		return fmt.Errorf("cardinality_exceeded")
 	}
+	// 无环检查：existing 是同 Type 全集（SaveRelation 按 relationsByType 取），
+	// 本函数只看同类边。deleted/merged 实体的历史边由调用方在取 existing 前排除
+	// （SaveRelation 拒绝端点已删除/已合并；impact 只看存活实体），不混入构图。
+	// 跨码循环（如 sequel_of/adaptation_of 互指）在单类型构图下不可见：
+	// 需要跨码语义时调用方应显式传入多类型边集，本函数不静默放过。
 	if rt.Acyclic {
 		stack := []string{r.TargetID}
 		seen := map[string]bool{}
@@ -399,7 +488,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if err != nil {
 			return err
 		}
-		all, err := relations(ctx, tx)
+		all, err := relationsByType(ctx, tx, r.Type)
 		if err != nil {
 			return err
 		}
@@ -411,14 +500,13 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 			r.ID = uuid.NewString()
 			r.Version = 1
 		} else {
-			for i := range all {
-				if all[i].ID == r.ID {
-					old = &all[i]
-				}
+			// 更新行的旧版本按 ID 单行取：同类集合只用于判重/计数/构图，
+			// 不把旧版本混进去（否则 immutable_scope 自比较恒过且计数多算自己）。
+			prev, perr := relationByID(ctx, tx, r.ID)
+			if perr != nil {
+				return perr
 			}
-			if old == nil {
-				return sql.ErrNoRows
-			}
+			old = &prev
 			if old.Version != input.ExpectedVersion {
 				return fmt.Errorf("version_conflict")
 			}
@@ -439,6 +527,12 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 			return fmt.Errorf("forbidden")
 		}
 		if !canWriteRelation(u, src) {
+			return fmt.Errorf("forbidden")
+		}
+		// 目标端否决权：editor 不得向他人已发布条目挂边（canAttachToTarget）。
+		// 删除码后旧边读路径与此无关——Relations 读路径按对端可见性过滤，
+		// 不在此做停用/删除码判断。
+		if !canAttachToTarget(u, tgt) {
 			return fmt.Errorf("forbidden")
 		}
 		if err = validateRelation(v.Document, r, src, tgt, all, reference(ctx, tx, &u), true); err != nil {
@@ -484,12 +578,21 @@ func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, n
 		if !canWriteRelation(u, src) {
 			return fmt.Errorf("forbidden")
 		}
+		// 删除同样受目标端否决权约束：他人已发布条目上的边不得单方面拆除。
+		tgt, err := get(ctx, tx, r.TargetID)
+		if err != nil {
+			return err
+		}
+		if !canAttachToTarget(u, tgt) {
+			return fmt.Errorf("forbidden")
+		}
 		if _, err = tx.ExecContext(ctx, "DELETE FROM catalog.relations WHERE id=$1", id); err != nil {
 			return err
 		}
 		return audit(ctx, tx, id, r.Version+1, u, note, sources, r, "relation.deleted")
 	})
 }
+
 // occurrenceRow 是 track_contents 上的一行收录原语（不含 release/medium/track 实体）。
 type occurrenceRow struct {
 	track, medium, release, expr string
@@ -870,12 +973,21 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 		mat = append(mat, matRow{expr: r.expr, ref: occurrenceRef(r)})
 	}
 	// 署名：一次取候选表达的相关关系，按请求表达过滤后取对端标题。
+	// 署名码按 definitions group=credits 动态取，不硬编码名单。
 	creditPeer := map[string]string{}
 	if len(candidateIDs) > 0 {
-		relRows, err := s.DB.QueryContext(ctx, `SELECT source_id::text,target_id::text FROM catalog.relations WHERE type IN ('performed_by','voiced_by','created_by') AND (source_id IN (`+entityPlaceholders(candidateIDs, 1)+`) OR target_id IN (`+entityPlaceholders(candidateIDs, len(candidateIDs)+1)+`)) ORDER BY id`, append(entityArgs(candidateIDs), entityArgs(candidateIDs)...)...)
-		if err != nil {
-			return out, err
+		dv, derr := s.Definitions(ctx)
+		if derr != nil {
+			return out, derr
 		}
+		creditCodes := creditRelationTypes(dv.Document)
+		if len(creditCodes) > 0 {
+			// pq.Array 保证 text[] 绑定；IN 占位符拼接在候选量大时 SQL 过长，
+			// 且与 Save 路径的 pq.Array 风格不一致。
+			relRows, err := s.DB.QueryContext(ctx, `SELECT source_id::text,target_id::text FROM catalog.relations WHERE type = ANY($1) AND (source_id = ANY($2) OR target_id = ANY($2)) ORDER BY id`, pq.Array(creditCodes), pq.Array(candidateIDs))
+			if err != nil {
+				return out, err
+			}
 		type edge struct{ src, tgt string }
 		var edges []edge
 		for relRows.Next() {
@@ -910,17 +1022,18 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 			return out, err
 		}
 		for _, e := range edges {
-			if candidate[e.src] {
-				if _, seen := creditPeer[e.src]; !seen {
-					if p, ok := peers[e.tgt]; ok {
-						creditPeer[e.src] = p.Title
+				if candidate[e.src] {
+					if _, seen := creditPeer[e.src]; !seen {
+						if p, ok := peers[e.tgt]; ok {
+							creditPeer[e.src] = p.Title
+						}
 					}
 				}
-			}
-			if candidate[e.tgt] {
-				if _, seen := creditPeer[e.tgt]; !seen {
-					if p, ok := peers[e.src]; ok {
-						creditPeer[e.tgt] = p.Title
+				if candidate[e.tgt] {
+					if _, seen := creditPeer[e.tgt]; !seen {
+						if p, ok := peers[e.src]; ok {
+							creditPeer[e.tgt] = p.Title
+						}
 					}
 				}
 			}
@@ -957,6 +1070,21 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 		out.Items[id] = detail
 	}
 	return out, nil
+}
+
+// creditRelationTypes 返回 definitions 中 group=credits 的关系码集合：
+// 批量署名聚合（ExpressionDetailsBatch 的 CreditTitle）与展示分组都以它为准，
+// 后台改名/增删署名码时自动跟随，不再因硬编码名单静默漏数。
+// 返回排序后的码，保证 SQL 占位符顺序稳定。
+func creditRelationTypes(d Definitions) []string {
+	out := []string{}
+	for code, rt := range d.Relations {
+		if rt.Group == "credits" && rt.Enabled {
+			out = append(out, code)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // keysOf 返回 set 的键（顺序无关，仅用于构造 IN 查询）。

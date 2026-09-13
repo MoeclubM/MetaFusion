@@ -378,8 +378,14 @@ func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string) [
 
 // effectiveGroupField 用"并集 fields"构造有效组定义：拷贝全局组定义、
 // Fields 过滤到并集、Required 按并集 required 设置；无匹配时回退全局组。
+// 入口缺失时返回零值 Field：调用方 value 的 default 分支报 unknown_field_type
+// 而非静默放过——入口缺失是固定契约被破坏，定义层由 structuralFieldsPresent
+// 在 Validate 拒绝；实体层此处同样失败（空数据已被 isEmptyValue 提前放行）。
 func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []string) Field {
-	group := d.Fields[slot]
+	group, ok := d.Fields[slot]
+	if !ok {
+		return Field{}
+	}
 	matched := d.matchSchemes(slot, ownerKind, ownerTypes)
 	if len(matched) == 0 {
 		return group
@@ -476,21 +482,37 @@ func (d Definitions) validateField(f Field, depth int) error {
 	}
 	return nil
 }
+// text/url 长度上限：标题外最长的自由文本（简介、引用、URL）统一截断口径，
+// 防止超大载荷进 JSONB 拖慢索引与 revisions 快照。数值/日期走各自格式校验。
+const (
+	maxTextLen = 20000
+	maxURLLen  = 4000
+)
+
 func (d Definitions) value(f Field, v any, reference func(string, []string) error, historical bool) error {
-	if v == nil || v == "" {
+	// Required 对空数组/空对象同样生效：isEmptyValue 覆盖 nil、空串、空数组、
+	// 空对象四种"未提供"形态；group/list 的递归 value 对缺键传 nil，同样落到此分支。
+	if isEmptyValue(v) {
 		if f.Required {
 			return fmt.Errorf("required_field")
 		}
 		return nil
 	}
+	// value 无 default 分支时存量坏定义空转：未知 Type 在 validateField 已拒绝，
+	// 此处兜底 unknown_field_type，保证坏定义在运行期同样失败而非静默通过。
+	// （effectiveGroupField 入口缺失时返回零值 Field，同样落到此分支。）
 	switch f.Type {
 	case "text":
-		if _, ok := v.(string); !ok {
+		s, ok := v.(string)
+		if !ok {
 			return fmt.Errorf("expected_text")
+		}
+		if len(s) > maxTextLen {
+			return fmt.Errorf("text_too_long")
 		}
 	case "url":
 		s, ok := v.(string)
-		if !ok || !validURL(s) {
+		if !ok || len(s) > maxURLLen || !validURL(s) {
 			return fmt.Errorf("invalid_url")
 		}
 	case "date":
@@ -508,6 +530,8 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 			return fmt.Errorf("invalid_date")
 		}
 	case "number":
+		// Number 无 Min/Max 时仍校验：非数值、Inf/NaN 一律拒绝（toFloat 覆盖
+		// JSON float64 与 Go int/int64），Min/Max 只在声明时额外收敛。
 		n, ok := toFloat(v)
 		if !ok || math.IsInf(n, 0) || math.IsNaN(n) || f.Min != nil && n < *f.Min || f.Max != nil && n > *f.Max {
 			return fmt.Errorf("invalid_number")
@@ -521,12 +545,18 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 		if !ok {
 			return fmt.Errorf("expected_object")
 		}
+		// multilingual 空 map 视为未提供：Required 时上面已拒绝；非 Required
+		// 时空 map 无意义但允许（与空串同口径，不在此报错）。
 		for k, x := range m {
 			if _, e := language.Parse(k); e != nil {
 				return fmt.Errorf("invalid_locale")
 			}
-			if _, ok := x.(string); !ok {
+			s, ok := x.(string)
+			if !ok {
 				return fmt.Errorf("expected_text")
+			}
+			if len(s) > maxTextLen {
+				return fmt.Errorf("text_too_long")
 			}
 		}
 	case "enum":
@@ -569,6 +599,8 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 		if e := validateGroupOrder(m, f); e != nil {
 			return e
 		}
+	default:
+		return fmt.Errorf("unknown_field_type: %s", f.Type)
 	}
 	return nil
 }
@@ -592,6 +624,47 @@ func (d Definitions) attributes(keys []string, values map[string]any, reference 
 	}
 	return nil
 }
+// importerInternalKeys 是仅 importer 内部写的键：手工 POST/PUT 携带一律拒绝，
+// 防止伪造幂等键劫持他人条目。C 路若已做同口径校验则复用此处错误码，不重复建表。
+var importerInternalKeys = map[string]bool{"metafusion_import": true}
+
+// validImportKey 校验幂等键格式：bangumi:{subject|person|character}:{数字id}
+// 允许派生后缀（:release、:m{n}、:t{n}、:r{hash}），与 importer.go 的
+// importDedupKey/importReleaseChain 键格式一致。
+var importKeyPattern = regexp.MustCompile(`^bangumi:(subject|person|character):[1-9][0-9]*(:release(:m[0-9]+(:t[0-9]+)?)?|:r[0-9a-f]+)?$`)
+
+func validImportKey(s string) bool { return importKeyPattern.MatchString(strings.TrimSpace(s)) }
+
+// validateExternalIDs 校验 external_ids：
+//   - 键必须符合 codePattern（与 external_databases.code 的库约束同口径）；
+//     具体"是否存在+正则+分类"由 Store.Save 经 validateExternalIDsAgainstDB
+//     按预设表复核（需读库，此处无库）；
+//   - 值非空、长度收敛；metafusion_import 内部键只验格式（invalid_import_key）。
+func (d Definitions) validateExternalIDs(e Entity) error {
+	if len(e.ExternalIDs) == 0 {
+		return nil
+	}
+	for k, v := range e.ExternalIDs {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return fmt.Errorf("invalid_external_id: %s", k)
+		}
+		if len(k) > 64 || len(v) > 2000 {
+			return fmt.Errorf("invalid_external_id: %s", k)
+		}
+		if importerInternalKeys[k] {
+			if !validImportKey(v) {
+				return fmt.Errorf("invalid_import_key")
+			}
+			continue
+		}
+		if !codePattern.MatchString(k) {
+			return fmt.Errorf("invalid_external_key: %s", k)
+		}
+	}
+	return nil
+}
+
 func (d Definitions) validateEntity(e Entity, reference func(string, []string) error, historical bool) error {
 	if !contains(Kinds, e.Kind) || strings.TrimSpace(e.Title) == "" || len(e.Title) > 2000 || e.Position < 0 {
 		return fmt.Errorf("invalid_entity")
@@ -608,7 +681,17 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		if _, err := language.Parse(loc); err != nil || strings.TrimSpace(tr.Title) == "" {
 			return fmt.Errorf("invalid_translation")
 		}
+		if len(tr.Title) > 2000 || len(tr.Summary) > maxTextLen {
+			return fmt.Errorf("translation_too_long")
+		}
+		for _, a := range tr.Aliases {
+			if len(a) > 500 {
+				return fmt.Errorf("translation_too_long")
+			}
+		}
 	}
+	// 零翻译发布由 Store.Save 显式拦截（translation_required），此处不重复：
+	// validateEntity 统一 historical=true（存量/impact 宽容）。保留注释以防回退。
 	var keys []string
 	seen := map[string]bool{}
 	for _, code := range e.Types {
@@ -652,10 +735,19 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 	if e.Kind != "release" && len(e.Subjects) > 0 || e.Kind != "track" && len(e.Contents) > 0 {
 		return fmt.Errorf("invalid_structural_field")
 	}
+	// Subjects 应用层去重键为（work, role）：同一作品同一角色只允许一条，
+	// position 不同也不行（position 是展示序，不是身份）。DB 主键
+	// release_subjects(release_id,work_id,role) 同口径，应用层先拦。
+	seenSubject := map[string]bool{}
 	for _, s := range e.Subjects {
 		if s.Position < 0 {
 			return fmt.Errorf("invalid_position")
 		}
+		key := s.WorkID + "\x00" + s.Role
+		if seenSubject[key] {
+			return fmt.Errorf("duplicate_subject")
+		}
+		seenSubject[key] = true
 		term, ok := d.Vocabularies["release_role"].Terms[s.Role]
 		if !ok || !historical && !term.Enabled {
 			return fmt.Errorf("invalid_term")
@@ -670,11 +762,20 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		}
 	}
 	positions := map[int]bool{}
+	// Contents 同 expression 多 position 重复：同一表达在同一 track 下只允许
+	// 出现一次（position 是轨内序号不是身份），重复引用同一 expression 即
+	// duplicate_content。DB 主键 track_contents(track_id,position) 只拦同位，
+	// 同表达异位由应用层拦。
+	seenExpr := map[string]bool{}
 	for _, c := range e.Contents {
 		if c.Position < 0 || positions[c.Position] {
 			return fmt.Errorf("duplicate_position")
 		}
 		positions[c.Position] = true
+		if seenExpr[c.ExpressionID] {
+			return fmt.Errorf("duplicate_content")
+		}
+		seenExpr[c.ExpressionID] = true
 		if err := reference(c.ExpressionID, []string{"expression"}); err != nil {
 			return err
 		}

@@ -303,6 +303,47 @@ func TestStructuralAttributeEntrypointsCannotBeRemoved(t *testing.T) {
 	}
 }
 
+// 入口定义被删后，实体层也不得放过未声明数据：effectiveGroupField 取到
+// 零值 Field 时 value 的 default 分支报 unknown_field_type（空数据已被
+// isEmptyValue 提前放行，整轨收录的空定位不受影响）。
+// 隔离复现：删 locator 后 Track 带未知定位键仍通过 validateEntity。
+func TestStructuralEntryMissingRejectsEntityData(t *testing.T) {
+	ref := func(string, []string) error { return nil }
+	mkTrack := func(locator Locator, attrs map[string]any) Entity {
+		return Entity{Kind: "track", Title: "T", Status: "draft",
+			MediumID: "11111111-1111-4111-8111-111111111111",
+			Contents: []Inclusion{{ExpressionID: "22222222-2222-4222-8222-222222222222",
+				Locator: locator, Attributes: attrs}}}
+	}
+	mkRelease := func(attrs map[string]any) Entity {
+		return Entity{Kind: "release", Title: "R", Status: "draft",
+			Subjects: []Subject{{WorkID: "44444444-4444-4444-8444-444444444444",
+				Role: "primary", Attributes: attrs}}}
+	}
+	for _, code := range []string{"locator", "inclusion_attributes", "subject_attributes"} {
+		d := Defaults()
+		delete(d.Fields, code)
+		var withData, empty Entity
+		switch code {
+		case "locator":
+			withData = mkTrack(Locator{"relative_to": "medium", "no_such_key": "x"}, nil)
+			empty = mkTrack(Locator{}, nil)
+		case "inclusion_attributes":
+			withData = mkTrack(Locator{"relative_to": "medium"}, map[string]any{"no_such_key": "x"})
+			empty = mkTrack(Locator{"relative_to": "medium"}, nil)
+		default:
+			withData = mkRelease(map[string]any{"no_such_key": "x"})
+			empty = mkRelease(nil)
+		}
+		if err := d.validateEntity(withData, ref, false); err == nil {
+			t.Errorf("entity data accepted with %s entry deleted", code)
+		}
+		if err := d.validateEntity(empty, ref, false); err != nil {
+			t.Errorf("empty structural data rejected with %s entry deleted: %v", code, err)
+		}
+	}
+}
+
 // 对比语义是闭集：只接受系统真正实现的规则，自由填写一律拒绝。
 func TestCompareSemanticsIsClosedSet(t *testing.T) {
 	ok := Defaults()
@@ -318,6 +359,28 @@ func TestCompareSemanticsIsClosedSet(t *testing.T) {
 	bad.Fields["locator"] = loc
 	if err := bad.Validate(); err == nil {
 		t.Fatal("free-form semantics accepted")
+	}
+}
+
+// 默认种子的语义划分是对比算法的输入契约：time_* 为内容范围（content），
+// page_*/path/chapter/relative_to 为本版位置（locating）。此测试把该契约
+// 钉死——若有人把 page_* 改成 content（或反之），报告 Table-1/2 的判定
+// 会静默反转（排版变化被判内容变化），必须在此失败而不是在线上被发现。
+// 前端 compareAlignment.ts 的 A/B 复现用例与此同源（jiti 隔离复现已验证）。
+func TestDefaultSeedSemanticsContract(t *testing.T) {
+	loc := Defaults().Fields["locator"]
+	for code, want := range map[string]string{
+		"time_start_ms": "content", "time_end_ms": "content",
+		"page_start": "locating", "page_end": "locating",
+		"path": "locating", "chapter": "locating", "relative_to": "locating",
+	} {
+		f, ok := loc.Fields[code]
+		if !ok {
+			t.Fatalf("seed locator missing %s", code)
+		}
+		if f.Semantics != want {
+			t.Errorf("seed locator.%s semantics = %q, want %q", code, f.Semantics, want)
+		}
 	}
 }
 
