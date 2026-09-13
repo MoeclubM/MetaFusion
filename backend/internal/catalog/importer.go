@@ -157,6 +157,8 @@ type ImporterReleasePreview struct {
 	Country             string `json:"country,omitempty"`
 	Language            string `json:"language,omitempty"`
 	DistributionChannel string `json:"distribution_channel,omitempty"`
+	EditionType         string `json:"edition_type,omitempty"`
+	EditionBatch        string `json:"edition_batch,omitempty"`
 	EditionDate         string `json:"edition_date,omitempty"`
 	Notes               string `json:"notes,omitempty"`
 	CatalogMetadata     any    `json:"catalog_metadata,omitempty"`
@@ -691,6 +693,9 @@ type bangumiSubjectActor struct {
 // bangumiCreditRelation 把 Bangumi 的 relation 中文职位文本映射到 definitions 关系码。
 // 返回空表示没有贴切的既有关系码：调用方仍建 agent 实体并把原始职位写进
 // credit_role，而不是硬塞一个语义不符的关系码（不虚构）。
+//
+// 作曲与编曲是不同关系码：作曲→composed_by，编曲（含日文アレンジ）→arranged_by。
+// 两者在同一原子里的先后顺序敏感——"編曲"含"曲"但绝不能落到 composed_by。
 func bangumiCreditRelation(relation string) string {
 	r := strings.TrimSpace(relation)
 	switch {
@@ -706,7 +711,9 @@ func bangumiCreditRelation(relation string) string {
 		return "written_by"
 	case containsAny(r, "作词", "作詞"):
 		return "lyricist_of"
-	case containsAny(r, "作曲", "編曲", "编曲"):
+	case containsAny(r, "编曲", "編曲", "アレンジ"):
+		return "arranged_by"
+	case containsAny(r, "作曲"):
 		return "composed_by"
 	case containsAny(r, "旁白", "ナレーション", "朗读", "朗読"):
 		return "narrated_by"
@@ -1008,12 +1015,16 @@ func bangumiTags(tags []bangumiTag, limit int) []string {
 
 // bangumiEpisodeType 判定分集类型：0=本篇、1=SP、2=OP、3=ED、4=预告/其他。
 // 本篇走 content_unit，其余作为附加内容同样保留层级，但标 entry_role。
+// entry_role 取值必须是 definitions entry_role 词表项：OP→opening、ED→ending
+//（词表另有 ending 项，见 defaults.go），不能把 ED 并入 opening。
 func bangumiEpisodeRole(epType int) string {
 	switch epType {
 	case 0:
 		return "main"
-	case 2, 3:
+	case 2:
 		return "opening"
+	case 3:
+		return "ending"
 	case 4:
 		return "trailer"
 	default:
@@ -1714,7 +1725,91 @@ func splitDedupKey(key string) (kind, id string) {
 	return parts[1], parts[2]
 }
 
+// ImportedCleanup 是单次导入中途失败后"按 work+release 为单位"的失败清理建议实现：
+// 调用方传入本次已建的 workID（可空）与 releaseID（可空），本函数把两者名下
+// 本次导入键前缀的后代（content_unit/expression/medium/track/release）列出来，
+// 逐个经 Lifecycle 删除（delete 级联保护由外键保证：父级仍在时子级先删）。
+// 只删"本次导入键前缀"的实体：复用的既有实体（无本次键）不受影响。
+// 返回实际删除的实体 ID 列表；清理本身失败只记录首错并继续，不覆盖原始导入错误。
+// 注意：需要 admin 权限（Lifecycle 要求）；非 admin 调用返回 forbidden 由调用方处理。
+func (s *Store) importerCleanup(ctx context.Context, actor User, note string, sources []Source, workID, releaseID, keyPrefix string) ([]string, error) {
+	removed := []string{}
+	keyPrefix = strings.TrimSpace(keyPrefix)
+	if keyPrefix == "" || (strings.TrimSpace(workID) == "" && strings.TrimSpace(releaseID) == "") {
+		return removed, nil
+	}
+	collect := func(kind, col, parent string) []Entity {
+		if strings.TrimSpace(parent) == "" {
+			return nil
+		}
+		var out []Entity
+		switch kind {
+		case "content_unit":
+			out, _ = s.ListAll(ctx, ListOptions{Kind: "content_unit", WorkID: parent}, &actor)
+		case "expression":
+			out, _ = s.ListAll(ctx, ListOptions{Kind: "expression", WorkID: parent}, &actor)
+		case "medium":
+			out, _ = s.ListAll(ctx, ListOptions{Kind: "medium", ReleaseID: parent}, &actor)
+		case "track":
+			out, _ = s.ListAll(ctx, ListOptions{Kind: "track", MediumID: parent}, &actor)
+		}
+		return out
+	}
+	// 删除顺序：track → medium → expression → content_unit（子先父后）→ release → work。
+	// medium/track 需先按 release/medium 列出；expression/content_unit 按 work 列出。
+	candidates := []Entity{}
+	if strings.TrimSpace(releaseID) != "" {
+		for _, m := range collect("medium", "release_id", releaseID) {
+			for _, t := range collect("track", "medium_id", m.ID) {
+				candidates = append(candidates, t)
+			}
+			candidates = append(candidates, m)
+		}
+	}
+	if strings.TrimSpace(workID) != "" {
+		for _, e := range collect("expression", "work_id", workID) {
+			candidates = append(candidates, e)
+		}
+		for _, u := range collect("content_unit", "work_id", workID) {
+			candidates = append(candidates, u)
+		}
+	}
+	if strings.TrimSpace(releaseID) != "" {
+		if r, gerr := s.Get(ctx, strings.TrimSpace(releaseID), &actor); gerr == nil && r.Kind == "release" {
+			candidates = append(candidates, r)
+		}
+	}
+	if strings.TrimSpace(workID) != "" {
+		if w, gerr := s.Get(ctx, strings.TrimSpace(workID), &actor); gerr == nil && w.Kind == "work" {
+			candidates = append(candidates, w)
+		}
+	}
+	var firstErr error
+	for _, e := range candidates {
+		imp := strings.TrimSpace(e.ExternalIDs["metafusion_import"])
+		if imp == "" || !strings.HasPrefix(imp, keyPrefix) {
+			continue
+		}
+		cur, gerr := s.Get(ctx, e.ID, &actor)
+		if gerr != nil {
+			continue
+		}
+		if _, derr := s.Lifecycle(ctx, cur.ID, LifecycleEdit{ExpectedVersion: cur.Version, EditNote: note, Sources: sources}, actor); derr != nil {
+			if firstErr == nil {
+				firstErr = derr
+			}
+			continue
+		}
+		removed = append(removed, e.ID)
+	}
+	return removed, firstErr
+}
+
 func (s *Store) findImported(ctx context.Context, key string, actor *User) (Entity, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return Entity{}, false
+	}
 	var id string
 	if err := s.DB.QueryRowContext(ctx, `SELECT id FROM catalog.entities WHERE document->'external_ids'->>'metafusion_import'=$1 AND status NOT IN ('deleted','merged') LIMIT 1`, key).Scan(&id); err != nil {
 		return Entity{}, false
@@ -1723,17 +1818,31 @@ func (s *Store) findImported(ctx context.Context, key string, actor *User) (Enti
 	if err != nil {
 		return Entity{}, false
 	}
+	// 合并后重导：命中已合入他处的旧身份时跟随重定向到存活实体，
+	// 避免在旧 ID 旁新建一份重复（Resolve 只跟 merged 链，不改可见性语义）。
+	if e.Status == "merged" {
+		if r, rerr := s.Resolve(ctx, e.ID, actor); rerr == nil {
+			return r, true
+		}
+		return Entity{}, false
+	}
 	return e, true
 }
 
 // findAgentByTitle 按标题精确匹配已有可见 agent（无外部键的手工载荷去重用）。
+// 只做大小写不敏感的精确匹配：normalizeImporterTitleKey 折叠空白与大小写，
+// SQL 侧用 lower(title)=lower($1) 命中后再由调用方按折叠键确认。
+// 不同大小写/空白变体命中同一行即复用，避免"MyGO!!!!!"与"mygo!!!!!"各建一份。
 func (s *Store) findAgentByTitle(ctx context.Context, title string, actor *User) (Entity, bool) {
 	title = strings.TrimSpace(title)
 	if title == "" {
 		return Entity{}, false
 	}
-	var id string
-	if err := s.DB.QueryRowContext(ctx, `SELECT id FROM catalog.entities WHERE kind='agent' AND title=$1 AND status NOT IN ('deleted','merged') LIMIT 1`, title).Scan(&id); err != nil {
+	var id, dbTitle string
+	if err := s.DB.QueryRowContext(ctx, `SELECT id, title FROM catalog.entities WHERE kind='agent' AND lower(title)=lower($1) AND status NOT IN ('deleted','merged') LIMIT 1`, title).Scan(&id, &dbTitle); err != nil {
+		return Entity{}, false
+	}
+	if normalizeImporterTitleKey(dbTitle) != normalizeImporterTitleKey(title) {
 		return Entity{}, false
 	}
 	e, err := s.Get(ctx, id, actor)
@@ -1749,6 +1858,11 @@ func (s *Store) importerSave(ctx context.Context, e Entity, actor User, note str
 
 // importerSaveVersioned 与 importerSave 相同，但显式带乐观锁版本。
 // 更新已存在实体时必须传其当前版本，否则 Save 会以 version_conflict 拒绝。
+//
+// 并发双插兜底：幂等键唯一索引（entities_metafusion_import_key，迁移 000013）
+// 会让后到者在 Save 提交时拿到 23505（constraint_violation）。此处不吞该错误——
+// 调用方（Import 重试）应按幂等键复用已建实体再继续补齐，而不是静默成功掩盖
+// "本次新建未发生"的事实。直接返回错误即保留该语义。
 func (s *Store) importerSaveVersioned(ctx context.Context, e Entity, expectedVersion int64, actor User, note string, sources []Source) (Entity, error) {
 	if e.Translations == nil {
 		e.Translations = map[string]Translation{}
@@ -1794,15 +1908,21 @@ func assocAgentDedup(a ImporterStaffAssociation) string {
 	return "name:" + strings.ToLower(strings.TrimSpace(a.ParsedName)) + "|" + staffAgentType(a.EntityType)
 }
 
-// importerRelationSkippable 判断关系写入失败是否属于外部数据形态导致的既定跳过
-// （重复边、端点类型不出现在该关系定义内等），而非服务端故障。
+// importerRelationSkippable 判断关系写入失败是否属于外部数据形态导致的既定跳过。
+// 只收窄到"重复/端点不匹配"这类明确的外部形态问题：
+//   - duplicate_relation：同一载荷内重复边（去重键已尽力，残留的由服务端判重）；
+//   - invalid_endpoint_types / invalid_endpoints：关联端点类型不在该关系定义内
+//     （如把组织挂到只收个人的关系上），属上游数据形态问题。
+// 以下一律不吞（调用方直接返回错误，避免掩盖真实完整性冲突）：
+//   - invalid_relation_type：关系码本身不存在/被禁用，须由预检提前暴露；
+//   - cardinality_exceeded / relation_cycle：基数与无环是数据完整性约束，
+//     吞掉会静默丢边且让用户以为导入成功，必须显式失败。
 func importerRelationSkippable(err error) bool {
 	if err == nil {
 		return false
 	}
 	switch err.Error() {
-	case "duplicate_relation", "invalid_endpoint_types", "invalid_endpoints",
-		"invalid_relation_type", "cardinality_exceeded", "relation_cycle":
+	case "duplicate_relation", "invalid_endpoint_types", "invalid_endpoints":
 		return true
 	}
 	return false
@@ -2250,6 +2370,12 @@ var importerMediumFormats = map[string]string{
 	"digital": "digital", "mp3": "digital", "flac": "digital", "web": "web",
 }
 
+// importerMediumRoles 是载体 role 属性的允许值收敛：与 definitions 的 role 词表
+// 同口径（见 defaults.go 的 role terms：primary/supplement/side/extra/commentary）。
+// importerMediumAttrs 只从这份白名单取值；后台若改动词表，前置校验
+// （importerPreflightCodeCheck）会先报错而不是落库时才报 unknown_term。
+var importerMediumRoles = []string{"primary", "supplement", "side", "extra", "commentary"}
+
 func importerEnum(v string, allowed []string) string {
 	v = strings.ToLower(strings.TrimSpace(v))
 	if contains(allowed, v) {
@@ -2366,8 +2492,10 @@ func releaseLevelValues(work *ImporterWorkPreview) map[string]any {
 	return out
 }
 
-// importerReleaseAttrs 从预览计算发行版属性（不含 publisher：自由文本无法解析为
-// Agent 引用；不含 edition_type：预览未携带，不虚构）。
+// importerReleaseAttrs 从预览计算发行版属性。publisher 是自由文本、无法解析为
+// Agent 引用（entity 类型），仍不写入；edition_type/edition_batch/packaging/
+// distribution_channel 只有命中词表才写（未命中则丢弃该维度、不虚构），
+// 命中后它们同时进入发行版本签名（importerReleaseVariantKey），互为表里。
 //
 // work 是同一载荷的作品预览：产品标识（品番/条码/ISBN）语义属发行层，上游却常把
 // 它们放在作品条目里，因此这里把发行层缺的值补进来——只补发行层字段集内的键、
@@ -2388,6 +2516,20 @@ func importerReleaseAttrs(rel *ImporterReleasePreview, work *ImporterWorkPreview
 		if v := cleanImporterDate(rel.EditionDate); v != "" {
 			out["edition_date"] = v
 		}
+		// 版本维度只写词表命中的值：未命中的自由文本不虚构映射，
+		// 由发行版本签名保留区分度（签名用原文，属性用词表项）。
+		if v := importerEnum(rel.EditionType, []string{"standard", "limited", "deluxe", "boxset"}); v != "" {
+			out["edition_type"] = v
+		}
+		if v := importerEnum(rel.EditionBatch, []string{"regular", "first_press", "reissue", "reprint"}); v != "" {
+			out["edition_batch"] = v
+		}
+		if v := importerEnum(rel.Packaging, []string{"standard", "jewel", "slipcase", "box", "boxset", "digipak"}); v != "" {
+			out["packaging"] = v
+		}
+		if v := importerEnum(rel.DistributionChannel, []string{"mixed", "physical", "digital", "web"}); v != "" {
+			out["distribution_channel"] = v
+		}
 	}
 	for k, v := range releaseLevelValues(work) {
 		if _, ok := out[k]; ok {
@@ -2399,12 +2541,13 @@ func importerReleaseAttrs(rel *ImporterReleasePreview, work *ImporterWorkPreview
 }
 
 // importerMediumAttrs 从预览计算载体属性（format 与 role 均须在词表内）。
+// role 白名单见 importerMediumRoles，与 definitions 的 role 词表同口径。
 func importerMediumAttrs(m ImporterMediumPreview) map[string]any {
 	out := map[string]any{}
 	if f, ok := importerMediumFormats[strings.ToLower(strings.TrimSpace(m.Format))]; ok {
 		out["format"] = f
 	}
-	if r := importerEnum(m.Role, []string{"primary", "supplement", "side", "extra", "commentary"}); r != "" {
+	if r := importerEnum(m.Role, importerMediumRoles); r != "" {
 		out["role"] = r
 	}
 	return out
@@ -2499,12 +2642,104 @@ func (s *Store) importerExplicitExpressions(ctx context.Context, actor User, ent
 	return out, nil
 }
 
+// importerPreflightCodeCheck 在写库前校验"代码写死映射仍被当前已发布定义支持"：
+//   - bangumiCreditRelation/character_in/voiced_by 等导入可能写的关系码必须存在且启用；
+//   - importerMediumFormats/importerMediumRoles 的输出值必须仍在对应词表内且启用；
+//   - bangumiEpisodeRole 的 entry_role 输出必须仍在 entry_role 词表内且启用。
+//
+// 背景：后台改码（如禁用某关系/词表项）后，旧的导入载荷与写死映射会在 Save/关系
+// 落库阶段才报 invalid_relation_type/unknown_term，前面已建的 work/release/medium
+// 变成半成品。本检查把这类失败提前到零写入阶段，错误码为 importer_mapping_stale:*。
+// 只读已发布定义快照，无写入。
+func importerPreflightCodeCheck(doc Definitions) error {
+	for _, code := range []string{
+		"photographed_by", "illustrated_by", "directed_by", "written_by",
+		"lyricist_of", "composed_by", "arranged_by", "narrated_by", "voiced_by",
+		"character_in", "credit_for",
+	} {
+		rel, ok := doc.Relations[code]
+		if !ok {
+			return fmt.Errorf("importer_mapping_stale:relation=%s", code)
+		}
+		if !rel.Enabled {
+			return fmt.Errorf("importer_mapping_stale:relation_disabled=%s", code)
+		}
+	}
+	termEnabled := func(vocab, term string) bool {
+		v, ok := doc.Vocabularies[vocab]
+		if !ok {
+			return false
+		}
+		t, ok := v.Terms[term]
+		return ok && t.Enabled
+	}
+	seen := map[string]bool{}
+	for _, f := range importerMediumFormats {
+		if seen[f] {
+			continue
+		}
+		seen[f] = true
+		if !termEnabled("format", f) {
+			return fmt.Errorf("importer_mapping_stale:vocab=format term=%s", f)
+		}
+	}
+	for _, r := range importerMediumRoles {
+		if !termEnabled("role", r) {
+			return fmt.Errorf("importer_mapping_stale:vocab=role term=%s", r)
+		}
+	}
+	for _, role := range []string{"main", "opening", "ending", "trailer", "extra"} {
+		if !termEnabled("entry_role", role) {
+			return fmt.Errorf("importer_mapping_stale:vocab=entry_role term=%s", role)
+		}
+	}
+	return nil
+}
+
+// importerPreflightAssociations 校验导入关联的关系码与词表项：
+// 空关系码跳过（落库侧计入 SkippedRelations，不在这里拒绝）；
+// 非空关系码必须存在且启用，character_in 的番位（relation_role）非空时必须仍在
+// role 词表内且启用。voiced_by 的 character 名是引用配对线索（落库时按名找角色
+// 实体，找不到则降级为 credit_role 文本），不是词表项，不在这里校验。
+// 错误码与 importerPreflightCodeCheck 同系列，便于前端区分"载荷映射过期"。
+func importerPreflightAssociations(doc Definitions, assocs []ImporterStaffAssociation) error {
+	for i, a := range assocs {
+		if strings.ToLower(strings.TrimSpace(a.Action)) == "skip" {
+			continue
+		}
+		code := strings.TrimSpace(a.RelationType)
+		if code == "" {
+			continue
+		}
+		rel, ok := doc.Relations[code]
+		if !ok {
+			return fmt.Errorf("importer_mapping_stale:association[%d].relation=%s", i, code)
+		}
+		if !rel.Enabled {
+			return fmt.Errorf("importer_mapping_stale:association[%d].relation_disabled=%s", i, code)
+		}
+		if rr := strings.TrimSpace(a.RelationRole); rr != "" && code == "character_in" {
+			v, ok := doc.Vocabularies["role"]
+			if !ok {
+				return fmt.Errorf("importer_mapping_stale:association[%d].vocab=role", i)
+			}
+			t, ok := v.Terms[rr]
+			if !ok || !t.Enabled {
+				return fmt.Errorf("importer_mapping_stale:association[%d].role=%s", i, rr)
+			}
+		}
+	}
+	return nil
+}
+
 // importerPreflight 在写库前只读校验整份载荷，保证校验失败时零写入：
 //   - 章节树（parent_index）结构合法（顺序即拓扑序）；
 //   - 显式表达引用（canonical entries 与各轨）必须存在且 kind=expression；
 //   - 载荷声明的属性字段码、以及代码将写入的 release/medium/track 属性，
-//     必须属于对应类型字段集（unknown_field 提前暴露）。
-func (s *Store) importerPreflight(ctx context.Context, actor User, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, work *ImporterWorkPreview) error {
+//     必须属于对应类型字段集（unknown_field 提前暴露）；
+//   - 写死映射（关系码/词表输出）仍被当前已发布定义支持（importer_mapping_stale
+//     提前暴露，避免后台改码后在 Save 阶段才报 invalid_relation_type 留半成品）。
+func (s *Store) importerPreflight(ctx context.Context, actor User, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, work *ImporterWorkPreview, assocs []ImporterStaffAssociation) error {
 	if err := validateImporterEntryTree(entries); err != nil {
 		return err
 	}
@@ -2514,6 +2749,35 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, entries []Imp
 	defs, err := s.Definitions(ctx)
 	if err != nil {
 		return err
+	}
+	// 写死映射先验：后台改码/禁用词表后，旧映射在 Save 阶段才报
+	// invalid_relation_type/unknown_term 会留下半成品；此处零写入提前暴露。
+	if err := importerPreflightCodeCheck(defs.Document); err != nil {
+		return err
+	}
+	if err := importerPreflightAssociations(defs.Document, assocs); err != nil {
+		return err
+	}
+	// 载荷自带的类型推断（作品 bangumi_type、关联 agent 类型）同样可能随后台改码过期：
+	// 类型被删除/禁用后，Save 阶段才报 invalid_type 会留下半成品，此处提前暴露。
+	if work != nil {
+		if wt := workTypeFromMetadata(work.CatalogMetadata); wt != "" {
+			t, ok := defs.Document.Types[wt]
+			if !ok || !t.Enabled || !contains(t.Kinds, "work") {
+				return fmt.Errorf("importer_mapping_stale:work_type=%s", wt)
+			}
+		}
+	}
+	for i, a := range assocs {
+		if strings.ToLower(strings.TrimSpace(a.Action)) == "skip" || strings.TrimSpace(a.TargetArtistID) != "" || strings.TrimSpace(a.ParsedName) == "" {
+			continue
+		}
+		if et := staffAgentType(a.EntityType); et != "" {
+			t, ok := defs.Document.Types[et]
+			if !ok || !t.Enabled || !contains(t.Kinds, "agent") {
+				return fmt.Errorf("importer_mapping_stale:association[%d].entity_type=%s", i, et)
+			}
+		}
 	}
 	if err := importerCheckAttrs(defs.Document, "release", importerReleaseAttrs(rel, work)); err != nil {
 		return err
@@ -2683,11 +2947,21 @@ func importerReleaseVariantKey(base string, rel *ImporterReleasePreview, mediums
 	identity := ""
 	if rel != nil {
 		edition = strings.TrimSpace(rel.EditionName)
+		// 发行身份签名必须覆盖全部"版本区分维度"：品番/条码/地区/日期之外，
+		// 发行主体（publisher 自由文本）、包装（packaging 词表项）、渠道
+		// （distribution_channel 词表项）、版本类别/批次（edition_type/batch）
+		// 与语言（language）同样区分版本，缺了会被误并成同一发行。
 		identity = strings.Join([]string{
 			strings.TrimSpace(rel.CatalogNumber),
 			strings.TrimSpace(rel.Barcode),
 			strings.TrimSpace(rel.Country),
 			cleanImporterDate(rel.EditionDate),
+			strings.TrimSpace(rel.Publisher),
+			strings.ToLower(strings.TrimSpace(rel.Packaging)),
+			strings.ToLower(strings.TrimSpace(rel.DistributionChannel)),
+			strings.ToLower(strings.TrimSpace(rel.EditionType)),
+			strings.ToLower(strings.TrimSpace(rel.EditionBatch)),
+			strings.TrimSpace(rel.Language),
 		}, "\x1f")
 	}
 	sig := strings.Builder{}
@@ -2698,7 +2972,13 @@ func importerReleaseVariantKey(base string, rel *ImporterReleasePreview, mediums
 	for _, m := range mediums {
 		fmt.Fprintf(&sig, "%d|%s|%s|%s|%d\n", sanitizePosition(m.Position, -1), strings.TrimSpace(m.Format), strings.TrimSpace(m.Number), strings.TrimSpace(m.Name), len(m.Tracks))
 		for _, t := range m.Tracks {
-			fmt.Fprintf(&sig, "  %d|%s|%s\n", sanitizePosition(t.Position, -1), strings.TrimSpace(t.Title), strings.TrimSpace(t.ISRC))
+			// 曲目签名覆盖全部身份维度：标题之外，recording_mbid/isrc 是权威
+			// 外部编号，duration 区分同名不同录音版本（如单曲版/专辑版），
+			// artist_credit 区分同名翻唱/合作版本。缺了会被误并。
+			fmt.Fprintf(&sig, "  %d|%s|%s|%s|%v|%s\n",
+				sanitizePosition(t.Position, -1), strings.TrimSpace(t.Title),
+				strings.TrimSpace(t.ISRC), strings.TrimSpace(t.RecordingMBID),
+				t.DurationSeconds, strings.TrimSpace(t.ArtistCredit))
 		}
 	}
 	sum := sha256.Sum256([]byte(sig.String()))
@@ -3205,9 +3485,9 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 			return ImporterImportResponse{}, fmt.Errorf("invalid_payload")
 		}
 	}
-	// 写库前整体预检：属性字段码与显式表达引用先校验，避免先建 work/release/medium
-	// 再在某条曲目处 unknown_field 失败，留下半成品结构。
-	if pfErr := s.importerPreflight(ctx, actor, req.CanonicalEntries, req.Release, req.Mediums, req.Work); pfErr != nil {
+	// 写库前整体预检：属性字段码、显式表达引用、写死映射与关联关系码先校验，
+	// 避免先建 work/release/medium 再在某条曲目/关系处失败，留下半成品结构。
+	if pfErr := s.importerPreflight(ctx, actor, req.CanonicalEntries, req.Release, req.Mediums, req.Work, req.StaffAssociations); pfErr != nil {
 		return ImporterImportResponse{}, pfErr
 	}
 	if mode == "append_release_to_work" || mode == "merge_translations" {
@@ -3265,6 +3545,14 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 }
 
 // importNewWork 新建 work（或 agent）并按需建发行链与演职员。
+//
+// 非原子说明：导入是"循环逐个 Save"，预检只读，Save 阶段仍可中途失败留下半成品
+// （例如发行链建到一半、关系建到一半）。不做跨多次 Save 的大事务重构（Save 内部
+// 各自独立事务 + 审计，合并事务会改变审计/版本语义），补偿策略如下：
+//   - 同一份载荷重试即补齐：work/release/medium/track/expression 都有导入幂等键，
+//     重试会复用已建部分并继续补齐（见 importerReleaseVariantKey/importerEntryExprKey）；
+//   - 明确不要半成品时，调用方可用 importerCleanup(workID, releaseID, keyPrefix)
+//     按 work+release 为单位删除本次键前缀的实体（只删新建、不碰复用），再重新导入。
 func (s *Store) importNewWork(ctx context.Context, actor User, note string, sources []Source, source string, req ImporterImportRequest, entityType string) (ImporterImportResponse, error) {
 	if entityType != "work" {
 		return s.importNewAgent(ctx, actor, note, sources, source, req, entityType)
@@ -3307,7 +3595,18 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		}
 		savedWork, err = s.importerSave(ctx, work, actor, note, sources)
 		if err != nil {
-			return ImporterImportResponse{}, err
+			// 并发双插：唯一索引让后到者失败，此处按幂等键复用胜者实体
+			// 并继续补齐（与重试语义一致），而不是报重复错误。
+			// 无键载荷（hasKey=false）没有复用依据，直接返回原错。
+			if hasKey {
+				if existing, ok := s.findImported(ctx, key, &actor); ok && existing.Kind == "work" {
+					savedWork = existing
+				} else {
+					return ImporterImportResponse{}, err
+				}
+			} else {
+				return ImporterImportResponse{}, err
+			}
 		}
 	}
 	out := ImporterImportResponse{
@@ -3388,6 +3687,17 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		}
 		agent, aerr := s.importerSave(ctx, staff, actor, note, sources)
 		if aerr != nil {
+			// 并发双插：有键时按导入键复用胜者（与 work 路径一致）；
+			// 无键手工载荷无复用依据，直接返回原错（空键零幂等的明确语义）。
+			if iKey := assocImportKey(assoc.ExternalIDs); iKey != "" {
+				if existing, ok := s.findImported(ctx, iKey, &actor); ok && existing.Kind == "agent" {
+					agentByKey[dedup] = existing
+					if strings.TrimSpace(assoc.RelationType) == "character_in" {
+						characterByName[strings.ToLower(name)] = existing
+					}
+					continue
+				}
+			}
 			return ImporterImportResponse{}, aerr
 		}
 		agentByKey[dedup] = agent
@@ -3403,7 +3713,19 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	if derr != nil {
 		return ImporterImportResponse{}, derr
 	}
+	// 关系去重键：同一载荷内同一（类型|源|目标|属性）只建一次。服务端判重
+	// （duplicate_relation）是最后一道网：并发双写时仍可能一方判重失败，
+	// 此时按 importerRelationSkippable 计入跳过，不视为导入失败。
 	created := map[string]bool{}
+	// 已存在边预查：Import 建关系无去重键、过去靠吞 duplicate_relation 幂等——
+	// 重试每次都尝试重建，错误计数与审计噪音都大。此处按（类型|源|目标|属性）
+	// 先查一次已存在边，命中直接跳过；查不到仍走 SaveRelation，判重失败兜底。
+	existingRels := map[string]bool{}
+	if rels, rerr := s.Relations(ctx, savedWork.ID, &actor); rerr == nil {
+		for _, r := range rels {
+			existingRels[r.Type+"|"+r.SourceID+"|"+r.TargetID+"|"+encode(r.Attributes)] = true
+		}
+	}
 	for _, assoc := range req.StaffAssociations {
 		if strings.ToLower(strings.TrimSpace(assoc.Action)) == "skip" {
 			counts.SkippedRelations++
@@ -3445,7 +3767,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			src, tgt = agent.ID, savedWork.ID
 		}
 		key := relType + "|" + src + "|" + tgt + "|" + encode(attrs)
-		if created[key] {
+		if created[key] || existingRels[key] {
 			continue
 		}
 		created[key] = true

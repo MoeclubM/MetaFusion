@@ -99,6 +99,13 @@ func impact(ctx context.Context, q queryer, d Definitions) ([]string, error) {
 		if !sok || !tok {
 			continue
 		}
+		// 删除与停用宽容度对齐：impact 用 historical=true 回放存量，关系码删除
+		// （!ok）与停用（Enabled=false）都不报 invalid_relation_type——与 Relations
+		// 读路径"删除码不断读"同口径。删除码后新建由 SaveRelation 的
+		// disabled_relation_type 拦截；停用码的新增使用由 retiredAttributes 拦截。
+		if _, ok := d.Relations[r.Type]; !ok {
+			continue
+		}
 		if err = validateRelation(d, r, src, tgt, all, ref, true); err != nil {
 			issues = append(issues, r.ID+": "+err.Error())
 		}
@@ -117,7 +124,11 @@ func (s *Store) Impact(ctx context.Context, id int64) ([]string, error) {
 	return impact(ctx, s.DB, d)
 }
 func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sources []Source) error {
-	return s.write(ctx, func(tx *sql.Tx) error {
+	// 长事务说明：impact 全量校验（逐实体+逐关系）在本事务内执行，发布期间持有
+	// advisory 锁（见 write），大库上发布会阻塞其它写事务。这是刻意trade-off：
+	// 定义发布是低频管理操作，正确性（校验看到的快照与发布原子）优先于并发。
+	// 事务内一律用 definitions(ctx, tx) 直读，不走进程内 Definitions 缓存。
+	err := s.write(ctx, func(tx *sql.Tx) error {
 		if u.Role != "admin" {
 			return fmt.Errorf("forbidden")
 		}
@@ -156,4 +167,8 @@ func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sour
 		}
 		return audit(ctx, tx, fmt.Sprintf("definitions:%d", id), id, u, note, sources, d, "definitions.published")
 	})
+	if err == nil {
+		InvalidateDefinitionsCache()
+	}
+	return err
 }

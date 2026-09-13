@@ -130,12 +130,13 @@ func TestBuildWorkEntityOmitsAttributesWithoutType(t *testing.T) {
 // 由 credit_role 承载原文，避免硬塞语义不符的关系。
 func TestBangumiCreditRelationMapping(t *testing.T) {
 	cases := map[string]string{
-		"导演":   "directed_by",
+		"导演":    "directed_by",
 		"CG 导演": "directed_by",
-		"脚本":   "written_by",
-		"系列构成": "written_by",
+		"脚本":    "written_by",
+		"系列构成":  "written_by",
 		"插入歌作词": "lyricist_of",
 		"插入歌作曲": "composed_by",
+		"編曲":    "arranged_by",
 		"人物设定":  "illustrated_by",
 		"摄影监督":  "photographed_by",
 		"旁白":    "narrated_by",
@@ -210,14 +211,15 @@ func TestAssocAgentDedup(t *testing.T) {
 	}
 }
 
-// 关系写入的既定跳过集合应覆盖外部数据形态问题，但不得吞掉服务端故障。
+// 关系写入的既定跳过集合只覆盖明确的外部数据形态问题（重复边/端点不匹配），
+// 不得吞掉服务端故障与真实完整性冲突（关系码未知/基数超限/成环须显式失败）。
 func TestImporterRelationSkippable(t *testing.T) {
-	for _, ok := range []string{"duplicate_relation", "invalid_endpoint_types", "cardinality_exceeded", "relation_cycle"} {
+	for _, ok := range []string{"duplicate_relation", "invalid_endpoint_types", "invalid_endpoints"} {
 		if !importerRelationSkippable(errString(ok)) {
 			t.Errorf("%s should be skippable", ok)
 		}
 	}
-	for _, bad := range []string{"forbidden", "invalid_field", "db down"} {
+	for _, bad := range []string{"invalid_relation_type", "cardinality_exceeded", "relation_cycle", "forbidden", "invalid_field", "db down"} {
 		if importerRelationSkippable(errString(bad)) {
 			t.Errorf("%s must not be swallowed", bad)
 		}
@@ -332,11 +334,11 @@ func TestBangumiInfoboxParsing(t *testing.T) {
 // 假名是日文原文的可靠信号；纯汉字/拉丁不猜。
 func TestDetectJapaneseScript(t *testing.T) {
 	for in, want := range map[string]string{
-		"とある魔術の禁書目録":   "ja",
+		"とある魔術の禁書目録":                 "ja",
 		"BanG Dream! It's MyGO!!!!!": "",
-		"魔法禁书目录":            "",
-		"アイドルマスター":         "ja",
-		"":                  "",
+		"魔法禁书目录":                     "",
+		"アイドルマスター":                   "ja",
+		"":                           "",
 	} {
 		if got := detectJapaneseScript(in); got != want {
 			t.Errorf("%q: got %q want %q", in, got, want)
@@ -461,9 +463,9 @@ func TestBangumiPersonAgentType(t *testing.T) {
 func TestDetectEntityLanguage(t *testing.T) {
 	cases := []struct{ name, summary, want string }{
 		{"とある魔術の禁書目録", "", "ja"},
-		{"BanG Dream! It's MyGO!!!!!", "现实与虚拟同步的乐队", ""},         // 标题拉丁、简介中文 → 不猜日文
+		{"BanG Dream! It's MyGO!!!!!", "现实与虚拟同步的乐队", ""},       // 标题拉丁、简介中文 → 不猜日文
 		{"AIR Original SoundTrack", "ゲーム中に使用されたＢＧＭ全23曲", "ja"}, // 标题拉丁、简介日文
-		{"魔法禁书目录", "", ""},                                    // 纯汉字不猜
+		{"魔法禁书目录", "", ""},                                     // 纯汉字不猜
 		{"ブシロード", "株式会社ブシロード", "ja"},
 	}
 	for _, c := range cases {
