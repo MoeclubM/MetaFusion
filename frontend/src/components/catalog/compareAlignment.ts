@@ -59,8 +59,10 @@ export interface AlignmentResult {
   workVariants: { contentKey: string; ids: string[] }[];
   /** 内容一致、仅载体结构不同。 */
   carrierOnly: [number, number][];
-  /** 引用表达一致，但收录范围/重复/顺序不同。 */
+  /** 引用表达一致，但收录范围/重复/顺序不同（实际内容截取变化）。 */
   rangeDiffer: [number, number][];
+  /** 内容与范围一致，仅本版定位不同（如页码/时间码整体平移）。 */
+  locatingDiffer: [number, number][];
   /** 存在无法解析身份的表达（缺少 work/章节元数据），结论需人工确认。 */
   pendingConfirm: boolean;
   /** 目录不完整（缺曲目/内容引用）的发行下标：不得据此下内容一致性结论。 */
@@ -74,6 +76,25 @@ function locatorKey(loc?: Record<string, any>): string {
   } catch {
     return "";
   }
+}
+
+// excerptExtentOf 只描述"实际截取了多少内容"，不含绝对起点：页区间长度、时间区间长度。
+// 同一份译文从第 20 页排到第 25 页，长度不变，属本版定位变化而非内容变化；
+// 完整 3 分钟 vs 前 30 秒则长度不同，才是真正的收录范围变化。
+function excerptExtentOf(loc?: Record<string, any>): string {
+  if (!loc) return "";
+  const num = (v: any): number | null => {
+    const n = typeof v === "string" ? Number(v) : v;
+    return typeof n === "number" && Number.isFinite(n) ? n : null;
+  };
+  const parts: string[] = [];
+  const ps = num(loc.page_start);
+  const pe = num(loc.page_end);
+  if (ps !== null || pe !== null) parts.push(`p:${ps !== null && pe !== null ? pe - ps : "?"}`);
+  const ts = num(loc.time_start_ms);
+  const te = num(loc.time_end_ms);
+  if (ts !== null || te !== null) parts.push(`t:${ts !== null && te !== null ? te - ts : "?"}`);
+  return parts.join("|");
 }
 
 function contentKeyOf(exprId: string, exprEntities: Record<string, CompareExprEntityLike | undefined>): string {
@@ -112,14 +133,18 @@ function orderedTracks(tracks: CompareTrackLike[]): CompareTrackLike[] {
   return out;
 }
 
-// 每条发行上按载体→轨道→收录顺序展开一份有序指纹（保留顺序与重复次数）。
+// 每条发行上按载体→轨道→收录顺序展开两份有序指纹（都保留顺序与重复次数）：
+//   seq   完整指纹（含绝对定位与轨内位置）；
+//   shape 只含"内容身份＋表达＋截取长度＋顺序"，不含绝对起点。
+// seq 相同＝完全相同；shape 相同而 seq 不同＝仅本版定位变化；shape 不同＝内容范围变化。
 function sequenceOf(
   item: CompareItemLike,
   exprEntities: Record<string, CompareExprEntityLike | undefined>,
-): { content: string[]; exprs: string[]; seq: string[]; unknown: boolean } {
+): { content: string[]; exprs: string[]; seq: string[]; shape: string[]; unknown: boolean } {
   const content: string[] = [];
   const exprs: string[] = [];
   const seq: string[] = [];
+  const shape: string[] = [];
   let unknown = false;
   for (const m of item.media || []) {
     for (const tr of orderedTracks(m.tracks || [])) {
@@ -131,10 +156,11 @@ function sequenceOf(
         if (!ck) unknown = true;
         content.push(ck);
         seq.push(`${ck}|${id}|${locatorKey(c.locator)}|${c.position ?? ""}`);
+        shape.push(`${ck}|${id}|${excerptExtentOf(c.locator)}`);
       }
     }
   }
-  return { content, exprs, seq, unknown };
+  return { content, exprs, seq, shape, unknown };
 }
 
 function structureOf(item: CompareItemLike): string {
@@ -244,6 +270,7 @@ export function computeAlignment(
 
   const carrierOnly: [number, number][] = [];
   const rangeDiffer: [number, number][] = [];
+  const locatingDiffer: [number, number][] = [];
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
       const a = facts[i];
@@ -256,7 +283,9 @@ export function computeAlignment(
       // ③ 收录范围/重复/顺序：序列完全相同才算一致。
       const sameSeq = arraysEqual(a.seq, b.seq);
       if (sameExprs && !sameSeq) {
-        rangeDiffer.push([i, j]);
+        // 截取长度与顺序一致、仅绝对定位不同 → 本版定位变化，不是内容范围变化。
+        if (arraysEqual(a.shape, b.shape)) locatingDiffer.push([i, j]);
+        else rangeDiffer.push([i, j]);
         continue;
       }
       if (sameContent && sameExprs && sameSeq) {
@@ -265,5 +294,5 @@ export function computeAlignment(
     }
   }
 
-  return { perExpr, shared, partial, workVariants, carrierOnly, rangeDiffer, pendingConfirm, incomplete };
+  return { perExpr, shared, partial, workVariants, carrierOnly, rangeDiffer, locatingDiffer, pendingConfirm, incomplete };
 }
