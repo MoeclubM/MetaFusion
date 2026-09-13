@@ -75,5 +75,65 @@ func (d Definitions) retiredEntity(e, old Entity) error {
 			return fmt.Errorf("disabled_term")
 		}
 	}
+	// 记录级结构属性与普通属性同源（都由 definitions 声明），停用检查必须一致覆盖，
+	// 否则"停用某子字段后仍能新增使用"会在这些落点上漏掉。
+	for _, subject := range e.Subjects {
+		if err := d.retiredValue(d.Fields["subject_attributes"], subject.Attributes, priorSubjectAttributes(old.Subjects, subject)); err != nil {
+			return fmt.Errorf("subject_attributes: %w", err)
+		}
+	}
+	for _, c := range e.Contents {
+		prior := priorContent(old.Contents, c)
+		if err := d.retiredValue(d.Fields["locator"], map[string]any(c.Locator), priorLocator(prior)); err != nil {
+			return fmt.Errorf("locator: %w", err)
+		}
+		if err := d.retiredValue(d.Fields["inclusion_attributes"], c.Attributes, priorAttributes(prior)); err != nil {
+			return fmt.Errorf("inclusion_attributes: %w", err)
+		}
+	}
 	return d.retiredAttributes(e.Attributes, old.Attributes)
+}
+
+// 记录级属性的"旧值"按对应条目定位：发行对象按（作品，角色），收录按表达，
+// 找不到时退回位置。找不到旧值即视为新增，停用字段/词表会被拒绝。
+func priorSubjectAttributes(list []Subject, s Subject) any {
+	for _, x := range list {
+		if x.WorkID == s.WorkID && x.Role == s.Role {
+			return x.Attributes
+		}
+	}
+	for i, x := range list {
+		if i == s.Position {
+			return x.Attributes
+		}
+	}
+	return nil
+}
+
+func priorContent(list []Inclusion, c Inclusion) *Inclusion {
+	for i := range list {
+		if list[i].ExpressionID != "" && list[i].ExpressionID == c.ExpressionID {
+			return &list[i]
+		}
+	}
+	for i := range list {
+		if list[i].Position == c.Position {
+			return &list[i]
+		}
+	}
+	return nil
+}
+
+func priorLocator(c *Inclusion) any {
+	if c == nil {
+		return nil
+	}
+	return map[string]any(c.Locator)
+}
+
+func priorAttributes(c *Inclusion) any {
+	if c == nil {
+		return nil
+	}
+	return c.Attributes
 }

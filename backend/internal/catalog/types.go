@@ -116,6 +116,11 @@ type Field struct {
 	// Hidden 表示该字段可写、可检索，但不进详情信息面板（存档/机器用途），
 	// 例如资料表原始条目与标签——它们由页面上的专用区块呈现，避免原文 JSON 直出。
 	Hidden bool `json:"hidden,omitempty"`
+	// Semantics 声明子字段在"对比"中的语义，取值受限于系统支持的规则集合（闭集）：
+	//   "content" 描述"实际引用的内容片段范围"（如截取的页段/时间段），参与内容身份对齐；
+	//   空值（默认）表示"本版定位"（页码、时间码、文件路径、EPUB 锚点），只反映排版与载体差异。
+	// 对比规则据此判定，不按字段名或区间长度猜测内容是否变化。
+	Semantics string `json:"semantics,omitempty"`
 }
 type Term struct {
 	Names   Names `json:"names"`
