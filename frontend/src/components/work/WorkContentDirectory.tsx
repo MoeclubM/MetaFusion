@@ -69,6 +69,14 @@ export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
       list.push(item);
       grouped.set(key, list);
     }
+    // 服务端列表默认按 updated_at 倒序，不排序会让新建/修改章节改变目录次序。
+    // 在每个父节点内按结构位置稳定排序，编号仅作同位次时的次序兜底。
+    for (const list of Array.from(grouped.values())) {
+      list.sort((a, b) => {
+        if (a.position !== b.position) return a.position - b.position;
+        return a.number.localeCompare(b.number, undefined, { numeric: true });
+      });
+    }
     return grouped;
   }, [items]);
 
