@@ -10,6 +10,17 @@ import { useDefinitions, getTermName } from "@/lib/definitions";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ArrowLeft, Search, ChevronLeft, ChevronRight, ArrowRightLeft, ArrowUpRight, X } from "lucide-react";
 
+// vocabLabel：枚举字段值按 definitions 声明的词表本地化（不写死字段码清单），
+// 缺词表命中时原样返回。用于版本类别/批次/包装等所有枚举属性列。
+function vocabLabel(definitions: any, code: string, value: unknown, locale: string): string {
+  const v = String(value ?? "").trim();
+  if (!v) return "";
+  const vocab = definitions?.fields?.[code]?.vocabulary;
+  if (!vocab) return v;
+  const label = getTermName(definitions, vocab, v, locale);
+  return label || v;
+}
+
 export default function WorkReleasesPage() {
   const params = useParams();
   const workId = params.id as string;
@@ -205,9 +216,9 @@ export default function WorkReleasesPage() {
                       <tr key={rel.id} className="hover:bg-white/[0.03] transition-colors">
                         <td className="py-3 px-2"><input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="w-4 h-4 rounded accent-primary cursor-pointer" /></td>
                         <td className="py-3 px-4"><Link href={`/releases/${rel.id}`} className="font-semibold text-white hover:text-sky-200 inline-flex items-center gap-1">{entityTitle(rel, locale)} <ArrowUpRight className="w-3 h-3 text-gray-500" strokeWidth={1.5} /></Link></td>
-                        <td className="py-3 px-4 text-gray-400">{edition ? (getTermName(definitions, "edition_type", edition, locale) !== edition ? getTermName(definitions, "edition_type", edition, locale) : edition) : "—"}</td>
+                        <td className="py-3 px-4 text-gray-400">{vocabLabel(definitions, "edition_type", edition, locale) || "—"}</td>
                         <td className="py-3 px-4 text-gray-400">{country || "—"}</td>
-                        <td className="py-3 px-4 text-gray-400">{packaging || "—"}</td>
+                        <td className="py-3 px-4 text-gray-400">{vocabLabel(definitions, "packaging", packaging, locale) || "—"}</td>
                         <td className="py-3 px-4 font-mono text-gray-500">{[fmt, catalogNo].filter(Boolean).join(" · ") || "—"}</td>
                         <td className="py-3 px-4 font-mono text-gray-400 text-right whitespace-nowrap">{editionDate || "—"}</td>
                       </tr>
@@ -228,7 +239,7 @@ export default function WorkReleasesPage() {
                     <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="mt-1 w-5 h-5 rounded accent-primary cursor-pointer shrink-0" />
                     <Link href={`/releases/${rel.id}`} className="min-w-0 flex-1 space-y-1">
                       <div className="font-semibold text-white text-sm line-clamp-2">{entityTitle(rel, locale)}</div>
-                      <div className="font-mono text-[11px] text-gray-400 truncate">{[edition, country, packaging].filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}</div>
+                      <div className="font-mono text-[11px] text-gray-400 truncate">{[vocabLabel(definitions, "edition_type", edition, locale), country, vocabLabel(definitions, "packaging", packaging, locale)].filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}</div>
                       <div className="font-mono text-[11px] text-gray-500 truncate">{[fmt, catalogNo, editionDate].filter(Boolean).join(" · ") || "—"}</div>
                     </Link>
                   </div>

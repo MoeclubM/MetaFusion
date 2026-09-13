@@ -7,7 +7,7 @@ import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { fetchApi, ConnectedEntityItem, GraphNode, GraphLink } from "@/lib/api";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle, type CommunityPost } from "@/components/catalog/api";
-import { useDefinitions, getFieldName, getTermName } from "@/lib/definitions";
+import { useDefinitions, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -643,7 +643,7 @@ export default function WorkDirectoryPage() {
  <Link href={`/releases/${rel.id}`} className="min-w-0 flex-1 space-y-1">
  <div className="font-semibold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2">{entityTitle(rel, locale)}</div>
                       <div className="text-xs text-gray-500 truncate">
- {releaseColumns.map((code) => (code === "format" && formatSummaryOf(rel)) || attributeText(defs, code, rel.attributes?.[code])).filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}
+ {releaseColumns.map((code) => (code === "format" && formatSummaryOf(rel)) || attributeText(defs, code, rel.attributes?.[code], locale)).filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}
  </div>
  </Link>
  </div>
@@ -720,13 +720,14 @@ export default function WorkDirectoryPage() {
  );
 }
 
-// attributeText：把某属性的值转成纯文本（枚举走词表、实体取标题），供移动端摘要拼接。
-function attributeText(defs: any, code: string, value: any): string {
+// attributeText：把某属性的值转成纯文本（枚举按词表本地化、实体取标题），供移动端摘要拼接。
+// 枚举名必须按请求语言解析，不能写死 zh-CN——否则日/英界面会显示中文词条。
+function attributeText(defs: any, code: string, value: any, locale: string): string {
   if (value === undefined || value === null || value === "") return "";
   const def: any = defs?.fields?.[code];
   if (def?.type === "enum" && def?.vocabulary) {
     const term = defs?.vocabularies?.[def.vocabulary]?.terms?.[String(value)];
-    return term?.names?.["zh-CN"] || String(value);
+    return resolveLocalizedName(term?.names, locale, String(value));
   }
   if (def?.type === "entity") {
     if (typeof value === "object" && value) return value.title || value.name || value.id || "";
