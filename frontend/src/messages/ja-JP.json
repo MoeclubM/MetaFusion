@@ -2106,6 +2106,7 @@
   "catalog.status.merged": "統合済み",
   "catalog.searchPlaceholder": "タイトルまたは識別子で検索…",
   "catalog.searchAction": "検索",
+"catalog.typeAll": "すべてのタイプ",
   "catalog.emptyTitle": "一致するメタデータエンティティが見つかりません",
   "catalog.emptyAction": "フィルタをクリア",
   "catalog.viewDetail": "表示",
