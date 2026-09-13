@@ -238,8 +238,11 @@ export function Compare({ ids }: { ids: string }) {
   const renderAttrValue = (key: string, value: unknown): string => {
     if (value == null || value === "") return "—";
     if (typeof value === "string" || typeof value === "number") {
-      if (key === "edition_type" || key === "format" || key === "packaging" || key === "role") {
-        const term = getTermName(dynamicDefs, key === "format" ? "format" : key, String(value), locale);
+      // 枚举值按 definitions 声明的词表本地化：不写死字段码清单，
+      // 后台新增枚举字段（如发行批次）自动生效，缺词表命中则原样显示。
+      const vocab = (dynamicDefs as any)?.fields?.[key]?.vocabulary;
+      if (vocab) {
+        const term = getTermName(dynamicDefs, vocab, String(value), locale);
         if (term !== String(value)) return term;
       }
       return String(value);
