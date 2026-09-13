@@ -8,12 +8,17 @@ import (
 
 // 启动 SQL 只应"按需建表建索引 + 种子"：删列、删表、旧数据搬迁属一次性迁移，
 // 必须放到版本化迁移里执行。这里守住这条边界，避免有人再把破坏性语句塞回启动路径。
+// 例外：幂等的 ADD COLUMN IF NOT EXISTS 加列（如 auth.users.email、结构属性
+// attributes 补列）允许留在启动 SQL——它们是"缺列补齐"而非破坏，且带 IF NOT
+// EXISTS 可重入；真正的删/改/数据搬迁一律走 backend/migrations/。
 func TestStartupSchemaHasNoDestructiveStatements(t *testing.T) {
 	destructive := []*regexp.Regexp{
 		regexp.MustCompile(`(?i)\bDROP\s+COLUMN\b`),
 		regexp.MustCompile(`(?i)\bDROP\s+TABLE\b`),
 		regexp.MustCompile(`(?i)\bDELETE\s+FROM\b`),
 		regexp.MustCompile(`(?i)\bTRUNCATE\b`),
+		regexp.MustCompile(`(?i)\bALTER\s+TABLE\b[^;]*\bDROP\b`),
+		regexp.MustCompile(`(?i)\bALTER\s+TABLE\b[^;]*\bALTER\s+COLUMN\b`),
 	}
 	for _, re := range destructive {
 		if loc := re.FindString(schema); loc != "" {
