@@ -11,14 +11,20 @@ type WorkContentDirectoryProps = {
   workId: string;
 };
 
-// 目录条目视图：作品下先取篇目树（content_unit）；无卷章树的作品（如 OST）回退
-// 列表达（expression），页面仍有内容可看。entry_role 是 definitions 声明的篇目类型。
+// 目录条目视图：按三种形态依次回退，页面始终有内容可看。
+//   ① 篇目树（content_unit）——小说章节、动画分集；
+//   ② 表达（expression）——无卷章树的作品（如 OST 的各个录音）；
+//   ③ includes 关联的组成作品——专辑由独立歌曲 Work 构成时（歌曲保持自己的
+//      创作身份与跨专辑复用，不把录音复制挂到专辑下），列出其组成作品。
+// entry_role 是 definitions 声明的篇目类型；组成作品用 kind 标签区分。
 type DirectoryEntry = {
   id: string;
   parentId: string;
   position: number;
   number: string;
   entryRole: string;
+  /** 条目对应的实体 kind：组成作品列为 "work"，其余为篇目/表达本身。 */
+  kind: string;
   title: string;
 };
 
@@ -29,8 +35,48 @@ function toEntry(e: Entity, locale: string): DirectoryEntry {
     position: e.position || 0,
     number: e.number || "",
     entryRole: String(e.attributes?.entry_role || ""),
+    kind: e.kind || "",
     title: entityTitle(e, locale) || e.title || e.id || "",
   };
+}
+
+// componentEntries 从关系里取 includes 的组成作品：专辑页与歌曲页方向相反
+// （专辑→歌曲为正向，歌曲→专辑为反向），两侧都取，只保留 work 对端。
+// 顺序按关系 position，其次标题，保证曲序稳定。
+type RelationRow = {
+  type: string;
+  source_id: string;
+  target_id: string;
+  position?: number;
+};
+
+function componentEntries(
+  relations: RelationRow[],
+  entities: Record<string, Entity>,
+  selfId: string,
+  locale: string,
+): DirectoryEntry[] {
+  const out: DirectoryEntry[] = [];
+  const seen = new Set<string>();
+  for (const r of relations) {
+    if (r.type !== "includes") continue;
+    const peerId = r.source_id === selfId ? r.target_id : r.source_id;
+    if (!peerId || peerId === selfId || seen.has(peerId)) continue;
+    const peer = entities[peerId];
+    if (!peer || peer.kind !== "work") continue;
+    seen.add(peerId);
+    out.push({
+      id: peerId,
+      parentId: "",
+      position: r.position || 0,
+      number: "",
+      entryRole: "",
+      kind: "work",
+      title: entityTitle(peer, locale) || peer.title || peerId,
+    });
+  }
+  out.sort((a, b) => (a.position !== b.position ? a.position - b.position : a.title.localeCompare(b.title)));
+  return out;
 }
 
 export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
@@ -49,7 +95,20 @@ export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
           return;
         }
         const exprs = await fetchAllPages<Entity>(`/catalog/entities?kind=expression&work_id=${encodeURIComponent(workId)}`);
-        if (active) setItems(exprs.map((e) => toEntry(e, locale)));
+        if (exprs.length > 0) {
+          if (active) setItems(exprs.map((e) => toEntry(e, locale)));
+          return;
+        }
+        // 专辑的歌曲以独立 Work 通过 includes 关联：列出组成作品，
+        // 而不是把各歌曲的录音复制到专辑之下（那会丢掉歌曲的独立身份）。
+        const rel = await fetch(`/api/catalog/entities/${encodeURIComponent(workId)}/relations`, {
+          credentials: "same-origin",
+        }).then((res) => (res.ok ? res.json() : { items: [], entities: {} }));
+        if (active) {
+          setItems(
+            componentEntries(rel.items || [], rel.entities || {}, workId, locale),
+          );
+        }
       } catch {
         if (active) setItems([]);
       } finally {
@@ -96,7 +155,7 @@ export function WorkContentDirectory({ workId }: WorkContentDirectoryProps) {
             {entry.title}
           </Link>
           <span className="shrink-0 rounded-sm border border-black/10 dark:border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
-            {t(`catalog.contents.role.${role}`)}
+            {entry.kind === "work" ? t("catalog.kind.work") : t(`catalog.contents.role.${role}`)}
           </span>
         </div>,
         ...renderEntries(entry.id, depth + 1),
