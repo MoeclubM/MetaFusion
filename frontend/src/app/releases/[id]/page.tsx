@@ -484,13 +484,13 @@ export default function ReleaseDetailPage() {
   const eLabel = entryLabel(mediaType, t);
   const mLabel = mediumLabel(mediaType, t);
 
-  const editionLabel = editionType
-    ? getTermName(dynamicDefs, "edition_type", editionType, locale) !== editionType
-      ? getTermName(dynamicDefs, "edition_type", editionType, locale)
-      : t(`release.editionType.${editionType}`) !== `release.editionType.${editionType}`
-        ? t(`release.editionType.${editionType}`)
-        : editionType
-    : "";
+  // 版本类别与发行批次是两个独立维度（可同时成立，如"限定版 + 初回发行"），
+  // 词表名一律取自 definitions，不在代码/前端字典里另存一份枚举。
+  const editionBatch = attrText(attrs.edition_batch);
+  const vocabLabel = (vocab: string, code: string) =>
+    code ? getTermName(dynamicDefs, vocab, code, locale) : "";
+  const editionLabel = vocabLabel("edition_type", editionType);
+  const editionBatchLabel = vocabLabel("edition_batch", editionBatch);
   const packagingLabel =
     packaging && dynamicDefs
       ? getTermName(dynamicDefs, "packaging", packaging, locale) !== packaging
@@ -716,6 +716,11 @@ export default function ReleaseDetailPage() {
                     {editionLabel}
                   </span>
                 )}
+                {editionBatchLabel && (
+                  <span className="px-2 py-0.5 rounded-sm bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300 border border-fuchsia-500/25 font-semibold">
+                    {editionBatchLabel}
+                  </span>
+                )}
                 {country && (
                   <span className="px-2 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">{country}</span>
                 )}
@@ -794,14 +799,9 @@ export default function ReleaseDetailPage() {
             </p>
             <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
               {siblingReleases.map((sib) => {
-                const sibEdition = attrText(sib.attributes?.edition_type);
-                const sibEditionLabel = sibEdition
-                  ? dynamicDefs && getTermName(dynamicDefs, "edition_type", sibEdition, locale) !== sibEdition
-                    ? getTermName(dynamicDefs, "edition_type", sibEdition, locale)
-                    : t(`release.editionType.${sibEdition}`) !== `release.editionType.${sibEdition}`
-                      ? t(`release.editionType.${sibEdition}`)
-                      : sibEdition
-                  : "";
+                // 兄弟版本同样按两个维度展示：限定版 + 初回发行 之类组合不能降级成一项。
+                const sibEditionLabel = vocabLabel("edition_type", attrText(sib.attributes?.edition_type));
+                const sibBatchLabel = vocabLabel("edition_batch", attrText(sib.attributes?.edition_batch));
                 const sibCatalogNo = attrText(sib.attributes?.catalog_number);
                 const active = sib.id === release.id;
                 return (
@@ -819,7 +819,7 @@ export default function ReleaseDetailPage() {
                       {entityTitle(sib, locale)}
                     </span>
                     <span className={`mt-0.5 block font-mono text-[10px] truncate ${active ? "text-white/80" : "text-gray-500"}`}>
-                      {[sibEditionLabel, sibCatalogNo].filter(Boolean).join(" · ") || "—"}
+                      {[sibEditionLabel, sibBatchLabel, sibCatalogNo].filter(Boolean).join(" · ") || "—"}
                     </span>
                   </Link>
                 );

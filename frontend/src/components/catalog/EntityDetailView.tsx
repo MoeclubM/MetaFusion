@@ -1298,9 +1298,7 @@ export function EntityDetailView({ id }: { id: string }) {
                                 </Link>
                                 {isBoxset && (
                                   <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[10px] font-semibold">
-                                    {getTermName(defs, "edition_type", "boxset", locale) !== "boxset"
-                                      ? getTermName(defs, "edition_type", "boxset", locale)
-                                      : t("release.editionType.boxset")}
+                                    {getTermName(defs, "edition_type", "boxset", locale)}
                                   </span>
                                 )}
                               </div>

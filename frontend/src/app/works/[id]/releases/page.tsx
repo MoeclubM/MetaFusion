@@ -25,6 +25,7 @@ export default function WorkReleasesPage() {
   const [q, setQ] = useState("");
   const [qInput, setQInput] = useState("");
   const [editionFilter, setEditionFilter] = useState("");
+  const [batchFilter, setBatchFilter] = useState("");
   const [formatFilter, setFormatFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
   const [compareSelected, setCompareSelected] = useState<string[]>([]);
@@ -84,13 +85,15 @@ export default function WorkReleasesPage() {
     const edition = String(e.attributes?.edition_type || "").trim();
     const country = String(e.attributes?.country || "").trim();
     if (editionFilter && edition !== editionFilter) return false;
+    if (batchFilter && String(e.attributes?.edition_batch || "").trim() !== batchFilter) return false;
     if (formatFilter && !formatCodesOf(e).includes(formatFilter)) return false;
     if (countryFilter && country !== countryFilter) return false;
     return true;
-  }), [entities, formatCounts, editionFilter, formatFilter, countryFilter]);
+  }), [entities, formatCounts, editionFilter, batchFilter, formatFilter, countryFilter]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
   const editionOptions = useMemo(() => Array.from(new Set(entities.map((e) => String(e.attributes?.edition_type || "").trim()).filter(Boolean))), [entities]);
+  const batchOptions = useMemo(() => Array.from(new Set(entities.map((e) => String(e.attributes?.edition_batch || "").trim()).filter(Boolean))), [entities]);
   const formatOptions = useMemo(() => Array.from(new Set(entities.flatMap(formatCodesOf).filter(Boolean))), [entities, formatCounts]);
   const countryOptions = useMemo(() => Array.from(new Set(entities.map((e) => String(e.attributes?.country || "").trim()).filter(Boolean))), [entities]);
 
@@ -139,6 +142,13 @@ export default function WorkReleasesPage() {
               </select>
             </label>
             <label className="inline-flex items-center gap-1.5 text-xs text-gray-400">
+              <span className="font-mono">{t("release.detail.batchLabel")}</span>
+              <select value={batchFilter} onChange={(e) => { setBatchFilter(e.target.value); setPage(1); }} className="h-9 px-2 rounded-md bg-white/[0.04] border border-white/10 text-xs text-white">
+                <option value="">{t("common.all")}</option>
+                {batchOptions.map((o) => <option key={o} value={o}>{getTermName(definitions, "edition_batch", o, locale) !== o ? getTermName(definitions, "edition_batch", o, locale) : o}</option>)}
+              </select>
+            </label>
+            <label className="inline-flex items-center gap-1.5 text-xs text-gray-400">
               <span className="font-mono">{t("work.detail.filterFormat")}</span>
               <select value={formatFilter} onChange={(e) => { setFormatFilter(e.target.value); setPage(1); }} className="h-9 px-2 rounded-md bg-white/[0.04] border border-white/10 text-xs text-white">
                 <option value="">{t("common.all")}</option>
@@ -152,8 +162,8 @@ export default function WorkReleasesPage() {
                 {countryOptions.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
             </label>
-            {(editionFilter || formatFilter || countryFilter) && (
-              <button onClick={() => { setEditionFilter(""); setFormatFilter(""); setCountryFilter(""); setPage(1); }} className="inline-flex items-center gap-1 h-9 px-2.5 rounded-md text-xs text-gray-400 hover:text-primary">
+            {(editionFilter || batchFilter || formatFilter || countryFilter) && (
+              <button onClick={() => { setEditionFilter(""); setBatchFilter(""); setFormatFilter(""); setCountryFilter(""); setPage(1); }} className="inline-flex items-center gap-1 h-9 px-2.5 rounded-md text-xs text-gray-400 hover:text-primary">
                 <X className="w-3.5 h-3.5" strokeWidth={1.6} /><span>{t("work.detail.clearFilters")}</span>
               </button>
             )}
