@@ -104,7 +104,9 @@ export function RecordList({
   locale: string;
   fallbackLabel?: (index: number) => string;
 }) {
-  const fields: Record<string, any> = field?.fields || {};
+  // 列表字段的子字段声明在 items.fields（即 fields[*].items），而不是列表字段自身的
+  // fields——调用方传进来的正是列表字段定义。读错层级会让子字段全部消失、只剩 label。
+  const fields: Record<string, any> = field?.items?.fields || field?.fields || {};
   const codes = Object.keys(fields).filter((c) => c !== "label" && fields[c]?.enabled !== false && !fields[c]?.hidden);
   return (
     <ul className="space-y-2">
