@@ -339,10 +339,10 @@ func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
 		Source:     "bangumi",
 		URLOrID:    "https://bgm.tv/subject/7",
 		Work: &ImporterWorkPreview{
-			Title:           "多盘作品",
-			OriginalTitle:   "テスト作品",
+			Title:            "多盘作品",
+			OriginalTitle:    "テスト作品",
 			OriginalLanguage: "zh-CN",
-			CatalogMetadata: map[string]any{"bangumi_type": float64(2)},
+			CatalogMetadata:  map[string]any{"bangumi_type": float64(2)},
 		},
 		CanonicalEntries: []ImporterCanonicalEntryPreview{
 			{Title: "夜航", Position: 1},

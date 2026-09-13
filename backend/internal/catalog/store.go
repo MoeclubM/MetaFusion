@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -57,16 +58,28 @@ func (s *Store) Authenticate(ctx context.Context, token string) (*User, error) {
 }
 
 // Initialize touches only the new schema. Existing catalog and module data are untouched.
+// 其写入职责与 mf-migrate up 分工：migrate 只负责结构迁移（backend/migrations），
+// 定义/OAuth/货架/外部库四类"内容种子"只在这里逐行 ON CONFLICT DO NOTHING 补齐，
+// 因种子会随版本新增条目（如货架新增 slug），不属于一次性结构迁移。
+// 任一轨道先执行都安全：种子用 ON CONFLICT 保护已有行（后台自定义不被覆盖）。
+//
+// 定义种子语义（只空库播种、存量不迁移）：catalog.definitions 非空时直接跳过，
+// 存量实例的已发布定义不会被 Defaults() 覆盖——后台改过的关系/词表/字段
+// （如禁用某关系码、entry_role 降级）全部保留。这是有意的：自动迁移存量定义
+// 会覆盖人工编目决策；新字段/新关系只对新库生效，存量实例的缺口由导入预检
+// （importer_mapping_stale）与 entry_role 降级写入等显式兼容逻辑承接，
+// 而不是静默改写已发布定义。见 TestDefinitionsSeedOnlyWhenEmpty。
 func (s *Store) Initialize(ctx context.Context) error {
 	return s.write(ctx, func(tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, schema); err != nil {
 			return err
 		}
-		var n int
-		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definitions").Scan(&n); err != nil {
+		// 只判空表：逐行种子无需全表计数。
+		var seeded bool
+		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM catalog.definitions)").Scan(&seeded); err != nil {
 			return err
 		}
-		if n == 0 {
+		if !seeded {
 			d := Defaults()
 			if err := d.Validate(); err != nil {
 				return err
@@ -100,6 +113,11 @@ func (s *Store) write(ctx context.Context, fn func(*sql.Tx) error) error {
 		return err
 	}
 	defer tx.Rollback()
+	// 写入串行化锁：与 check_parent_cycle 触发器共用同一会话级键（740202），
+	// 并发重定父时触发器内的递归检查才能看到本次事务的写入。
+	// 与 migrator.go LockID 88481001 无互斥：migrate 是独立进程的一次性操作，
+	// 用会话级 pg_advisory_lock；此处是事务级 xact 锁，两者键与粒度都不同。
+	// 若未来需要部署期互斥，应在编排层串行（先 migrate 后启动），不在此加锁。
 	if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(740202)"); err != nil {
 		return err
 	}
@@ -124,8 +142,57 @@ func definitions(ctx context.Context, q queryer) (DefinitionVersion, error) {
 	}
 	return v, err
 }
+
+// definitionsCache 是已发布定义的进程内小缓存：导入/校验等热路径每次读库
+// 取同一份 published 行，缓存按（id + base_version）失效。
+//   - 只缓存读 published 行：Draft/Publish 写路径不走缓存，发布后版本号变化
+//     即失效，不会读到旧定义；
+//   - 事务内读取（*sql.Tx）不走缓存：Publish 的 impact 全量校验在长事务内必须
+//     看到本事务的写入（tx），缓存是进程级、跨事务，会读脏旧版本；
+//   - 多实例/多进程不一致窗口：缓存只在本进程有效，发布后其它进程最多滞后到
+//     下一次版本号变化（下一次 Definitions 调用即刷新），不做跨进程广播；
+//   - 测试与 Store{} 空实例：DB 为 nil 时直接回退读库（返回原始错误），
+//     不因缓存引入新失败形态。
+var (
+	definitionsCacheMu sync.Mutex
+	definitionsCache   DefinitionVersion
+	definitionsCacheDB *sql.DB
+	definitionsCacheOK bool
+)
+
 func (s *Store) Definitions(ctx context.Context) (DefinitionVersion, error) {
-	return definitions(ctx, s.DB)
+	// 空 DB（纯映射单测的 Store{}）直接回退读库，保持原有错误语义。
+	if s.DB == nil {
+		return definitions(ctx, s.DB)
+	}
+	definitionsCacheMu.Lock()
+	cached, cachedDB, ok := definitionsCache, definitionsCacheDB, definitionsCacheOK
+	definitionsCacheMu.Unlock()
+	// 缓存按 *sql.DB 区分：测试夹具为每个用例建隔离库（同 id/base_version
+	// 但不同 document），跨库复用会串定义。生产单库进程内则命中同一指针。
+	if ok && cachedDB == s.DB {
+		// 轻量失效检查：只读 id/base_version，不反序列化整份 document。
+		var id, base int64
+		if err := s.DB.QueryRowContext(ctx, "SELECT id,base_version FROM catalog.definitions WHERE state='published'").Scan(&id, &base); err == nil && id == cached.ID && base == cached.BaseVersion {
+			return cached, nil
+		}
+	}
+	v, err := definitions(ctx, s.DB)
+	if err != nil {
+		return v, err
+	}
+	definitionsCacheMu.Lock()
+	definitionsCache, definitionsCacheDB, definitionsCacheOK = v, s.DB, true
+	definitionsCacheMu.Unlock()
+	return v, err
+}
+
+// InvalidateDefinitionsCache 清空进程内定义缓存，供测试在改动定义后强制刷新。
+// 生产路径靠版本号失效，不需要调用。
+func InvalidateDefinitionsCache() {
+	definitionsCacheMu.Lock()
+	definitionsCache, definitionsCacheDB, definitionsCacheOK = DefinitionVersion{}, nil, false
+	definitionsCacheMu.Unlock()
 }
 func get(ctx context.Context, q queryer, id string) (Entity, error) {
 	var e Entity
@@ -330,7 +397,20 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if e.Status == "published" {
 			ref = reference(ctx, tx, nil)
 		}
+		// 零翻译可发布：published 要求至少一条翻译（含原文语种行），否则多语言
+		// 展示无回退依据。validateEntity 统一 historical=true（存量/impact 宽容），
+		// 此处显式拦截——只影响本次写入，不追溯存量。
+		if e.Status == "published" && len(e.Translations) == 0 {
+			return fmt.Errorf("translation_required")
+		}
 		if err = v.Document.validateEntity(e, ref, true); err != nil {
+			return err
+		}
+		// ExternalIDs 预设复核（需读库，validation.go 只做格式兜底）：
+		// 键必须已在 external_databases 预设（含停用——读路径同样宽容历史值），
+		// 值按预设 validation_regex 收敛；official_website 存完整 URL 走 validURL。
+		// metafusion_import 内部键不在预设表，由 validateExternalIDs 管格式。
+		if err = validateExternalIDsAgainstDB(ctx, tx, e); err != nil {
 			return err
 		}
 		if err = v.Document.retiredEntity(e, old); err != nil {
@@ -406,8 +486,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if err != nil {
 			return err
 		}
-		var missing bool
-		err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM catalog.track_contents c JOIN catalog.tracks t ON t.id=c.track_id JOIN catalog.mediums m ON m.id=t.medium_id JOIN catalog.expressions x ON x.id=c.expression_id WHERE NOT EXISTS(SELECT 1 FROM catalog.release_subjects s WHERE s.release_id=m.release_id AND s.work_id=x.work_id))`).Scan(&missing)
+		missing, err := undeclaredReleaseSubject(ctx, tx, e)
 		if err != nil {
 			return err
 		}
@@ -417,6 +496,36 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		return audit(ctx, tx, e.ID, e.Version, u, input.EditNote, input.Sources, e, "entity.saved")
 	})
 	return e, err
+}
+
+// undeclaredReleaseSubject 只复核本次写入可能打破的收录归属：release 重写
+// subjects、track 重写 contents，均只涉及其所在发行；medium 改动不触及映射表，
+// 限定其发行复核；其余 kind 不触及映射表且归属字段在 Save 内不可变
+// （immutable_scope），跳过复核。语义与原全表 EXISTS 一致——任一发行存在
+// 未声明收录即拒绝，只是不再为一次单实体写入扫描全库。
+func undeclaredReleaseSubject(ctx context.Context, tx *sql.Tx, e Entity) (bool, error) {
+	var releaseID, trackID any
+	switch e.Kind {
+	case "release":
+		releaseID = e.ID
+	case "track":
+		trackID = e.ID
+	case "medium":
+		releaseID = e.ReleaseID
+	default:
+		return false, nil
+	}
+	var missing bool
+	err := tx.QueryRowContext(ctx, `SELECT EXISTS(
+	 SELECT 1 FROM catalog.track_contents c
+	 JOIN catalog.tracks t ON t.id=c.track_id
+	 JOIN catalog.mediums m ON m.id=t.medium_id
+	 JOIN catalog.expressions x ON x.id=c.expression_id
+	 WHERE ($1::uuid IS NULL OR m.release_id=$1)
+	 AND ($2::uuid IS NULL OR t.id=$2)
+	 AND NOT EXISTS(SELECT 1 FROM catalog.release_subjects s
+	 WHERE s.release_id=m.release_id AND s.work_id=x.work_id))`, releaseID, trackID).Scan(&missing)
+	return missing, err
 }
 
 type ListOptions struct {
@@ -573,6 +682,10 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 		add("status=$%d", o.Status)
 	}
 	if o.Query != "" {
+		// 翻译搜索走 (document->'translations')::text ILIKE：整 JSON 转文本匹配，
+		// 无索引支撑，大库上是顺序扫描。这是刻意的最小口径——精确的多语言标题
+		// 检索应走专用全文/三元组索引（三期），此处保留"能搜到"的降级语义，
+		// 不为单个 LIKE 建昂贵的表达式索引。title 列有 entities_search GIN。
 		add("(title ILIKE $%[1]d OR (document->'translations')::text ILIKE $%[1]d)", "%"+o.Query+"%")
 	}
 	if o.Type != "" {
@@ -672,7 +785,10 @@ func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, err
 	args = append(args, o.Limit, o.Offset)
 	orderClause := "updated_at DESC, id"
 	if o.ReleaseID != "" || o.MediumID != "" || o.ParentID != "" || o.ContentUnitID != "" {
-		orderClause = "(document->>'position')::int, updated_at DESC, id"
+		// 结构子项按 position 排序：Go 落库恒为数字（types.go Position int），
+		// 正则守卫只防直接 SQL 写入的脏串（PG 无 TRY_CAST，裸 ::int 会报 22P02
+		// 导致整页 500；脏串按 0 排而不中断列表）。
+		orderClause = "CASE WHEN document->>'position' ~ '^-?[0-9]+$' THEN (document->>'position')::int ELSE 0 END, updated_at DESC, id"
 	}
 	rows, err := s.DB.QueryContext(ctx, "SELECT id FROM catalog.entities WHERE "+strings.Join(parts, " AND ")+fmt.Sprintf(" ORDER BY "+orderClause+" LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
 	if err != nil {
@@ -692,16 +808,26 @@ func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, err
 	if err != nil {
 		return nil, err
 	}
-	items := []Entity{}
+	// 批量取回：先查 ID 再逐个 Get 的 N+1 改为一次 getMany（IN + 按 kind 批量
+	// 补侧表），顺序按 ids 回填。getMany 只返回可见者：IDs 与返回的差集是
+	// "状态翻转/不可见"的并发竞态，直接跳过（不整页失败）。
+	// 分页总数仍由 Count 的真实 COUNT(*) 保证，不用 len(items) 代替。
+	if len(ids) == 0 {
+		return []Entity{}, nil
+	}
+	got, err := s.getMany(ctx, ids, u)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]Entity, 0, len(ids))
 	for _, id := range ids {
-		e, err := s.Get(ctx, id, u)
-		if err != nil {
-			return nil, err
+		if e, ok := got[id]; ok {
+			items = append(items, e)
 		}
-		items = append(items, e)
 	}
 	return items, nil
 }
+
 // Revisions 返回某目标的修订历史。目标可以是实体，也可以是关系：
 // 关系修订的 target_id 就是关系 ID 本身（见 audit / SaveRelation），
 // 关系在 entities 表没有对应行，因此不能沿用实体的可见性判定。
