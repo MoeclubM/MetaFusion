@@ -63,10 +63,15 @@
 
 ## 5. 迁移阶段与验收
 
+> **进度**：P0 已完成（本文冻结 + 网关路由矩阵按状态重排）；P1 已完成
+> （metafusion-storage 实现 `/api/storage/*`：内容寻址、秒传与分片预签名直传、`binding_role` 用途绑定、
+> 统一读取可见性、哈希校验；网关已把 `/api/storage/*` 指向 storage，旧 `/api/archive|playback|media` 仍指单体）。
+> P2-P5 未开始。文档站 `api-storage.md` 仍标"未实现"，属于 P5 去重时要一并更新的内容。
+
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
 | P0 | 冻结契约（本文 + 各服务 README 对齐路由与数据归属） | 网关路由表与本文逐条一致 |
-| P1 | storage：实现 `/api/storage/*`（CAS、秒传、分片预签名、绑定角色、下载、预览、哈希校验） | 新仓库 `go build/vet/test` 通过；本仓库 archive/media 端点保持可用，未切流 |
+| P1 | storage：实现 `/api/storage/*`（CAS、秒传、分片预签名、绑定角色、下载、预览、哈希校验） | ✅ 新仓库 `go build/vet/test` 通过；本仓库 archive/media 端点保持可用，未切流 |
 | P2 | community：迁移论坛/短评/收藏/记录，**保留现有 `/topics`、`/boards` 契约与请求/响应形状** | 前端零改动即可在新服务上跑通；旧端点灰度保留 |
 | P3 | auth：迁出 setup/auth/admin/oauth；catalog 改为只验签 | 登录/刷新/登出/角色变更回归通过；令牌跨服务可用 |
 | P4 | catalog 瘦身 + 网关切流：下线 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` 与 `modules` 包 | 网关逐前缀切换可回退；主仓库只剩目录职责 |
@@ -80,10 +85,10 @@
 | --- | --- | --- |
 | metafusion-community | 路由写成 `/threads`、`/categories`、`/entities/:id/rate`；模型用 `Category/Thread/Post(floor)` | 改为现有契约 `/boards`、`/topics`、`/topic-tags`、`community_post_number`，模型含双语板块名与标签 |
 | metafusion-auth | discovery 在根路径、JWKS 路径 `/.well-known/jwks.json`、issuer 无 `/api`；缺 `/api/setup`、`/api/admin/users`、OAuth 客户端管理 | 与第 2 节路径一致；issuer 与 catalog 现值一致 |
-| metafusion-storage | 模型用 GORM；路由 `/api/storage/entities/:id/bindings` 与文档的 `/api/storage/bind` 不一致 | 用与主仓库一致的 `database/sql`；路由以 `docs-site/docs/api-storage.md` 的契约为准 |
-| metafusion-storage / -auth / -community | 无 `go.sum`，`go build` 直接失败 | 补齐依赖锁（`go mod tidy`）并纳入提交 |
+| metafusion-storage | ~~模型用 GORM；路由与文档的 `/api/storage/bind` 不一致~~ | ✅ 已改为 `database/sql`，路由以 `docs-site/docs/api-storage.md` 的契约为准 |
+| metafusion-auth / -community | 无 `go.sum`，`go build` 直接失败 | 补齐依赖锁（`GOPROXY=https://goproxy.cn,direct go mod tidy`）；storage 已完成 |
 | metafusion-docs | 26 篇 md 与本仓库 `docs-site` 重复，其中 14 篇已分叉 | P5 去重，先确认唯一源 |
-| metafusion-api-gateway | 缺 `/.well-known/` 路由；`/api/storage/*` 指向未实现服务 | 切流前补齐；未实现的服务不接线上流量 |
+| metafusion-api-gateway | ~~缺 `/.well-known/` 路由；`/api/storage/*` 指向未实现服务~~ | ✅ 已重排：每个前缀一行上游、补齐 discovery/setup/oauth/oidc、未实现的服务不接线上流量 |
 
 ## 7. 回滚
 
