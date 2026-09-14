@@ -104,7 +104,6 @@ services:
       # ELASTICSEARCH_URL；检索默认走 PostgreSQL，opensearch 默认不启动
       # （--profile search 显式启用），此变量仅在启用搜索时生效。
       - ELASTICSEARCH_URL=http://opensearch:9200
-      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env}
       # /api/capabilities 是"部署态"视图：能力是否可用取决于上游地址是否配置
       # （capabilities/subsystems 的 envKey），backend 按 /health 探测，故必须给出内部地址。
       # 不配 community/records 会被判为未部署，前端按 enabled 隐藏社区入口。
