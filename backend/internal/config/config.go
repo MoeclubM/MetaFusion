@@ -1,7 +1,7 @@
 // Package config 只服务 cmd/migrate（版本化数据库迁移工具）。
 //
-// 运行中的服务不读这里：cmd/server 直接读环境变量，存储、媒体转码、Redis、OpenSearch
-// 等配置随子系统拆分迁到了对应服务（storage 服务读 STORAGE_S3_*）。因此这里只保留
+// 运行中的服务不读这里：cmd/server 直接读环境变量，存储等配置随子系统拆分迁到了
+// 对应服务（storage 服务读 STORAGE_S3_*，对象存储是 RustFS）。因此这里只保留
 // 迁移真正需要的数据库连接信息，避免留下"文档里写着、代码里没人读"的死配置。
 package config
 
