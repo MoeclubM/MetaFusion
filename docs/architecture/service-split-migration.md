@@ -66,13 +66,16 @@
 > **进度**：P0 已完成（本文冻结 + 网关路由矩阵按状态重排）；P1 已完成
 > （metafusion-storage 实现 `/api/storage/*`：内容寻址、秒传与分片预签名直传、`binding_role` 用途绑定、
 > 统一读取可见性、哈希校验；网关已把 `/api/storage/*` 指向 storage，旧 `/api/archive|playback|media` 仍指单体）。
-> P2-P5 未开始。文档站 `api-storage.md` 仍标"未实现"，属于 P5 去重时要一并更新的内容。
+> **P2 已完成**（metafusion-community 承接论坛/短评/互动记录，路径与请求响应形状与单体逐字一致，
+> 附幂等导入工具 `cmd/migrate`；切流仍需在 P4 执行）。
+> **P2 遗留**：个人收藏仍在 `catalog.favorites`（表带 `auth.users` 外键），随 P3 账号拆分一并迁入互动服务。
+> P3-P5 未开始。文档站 `api-storage.md` 仍标"未实现"，属于 P5 去重时要一并更新的内容。
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
 | P0 | 冻结契约（本文 + 各服务 README 对齐路由与数据归属） | 网关路由表与本文逐条一致 |
 | P1 | storage：实现 `/api/storage/*`（CAS、秒传、分片预签名、绑定角色、下载、预览、哈希校验） | ✅ 新仓库 `go build/vet/test` 通过；本仓库 archive/media 端点保持可用，未切流 |
-| P2 | community：迁移论坛/短评/收藏/记录，**保留现有 `/topics`、`/boards` 契约与请求/响应形状** | 前端零改动即可在新服务上跑通；旧端点灰度保留 |
+| P2 | community：迁移论坛/短评/收藏/记录，**保留现有 `/topics`、`/boards` 契约与请求/响应形状** | ✅ 论坛/短评/记录已迁（16 条路由与单体逐字一致，`go build/vet/test` 通过）；收藏随 P3 迁移 |
 | P3 | auth：迁出 setup/auth/admin/oauth；catalog 改为只验签 | 登录/刷新/登出/角色变更回归通过；令牌跨服务可用 |
 | P4 | catalog 瘦身 + 网关切流：下线 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` 与 `modules` 包 | 网关逐前缀切换可回退；主仓库只剩目录职责 |
 | P5 | 文档去重：`metafusion-docs` 为唯一源，本仓库 `docs-site` 移除/compose 收敛 | 只有一份 md；`docker compose config` 通过 |
