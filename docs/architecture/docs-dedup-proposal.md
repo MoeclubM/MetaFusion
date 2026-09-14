@@ -30,9 +30,21 @@
 | overview.md | 39（09-14） | 39 | 2 | 2 |
 | taxonomy.md | 55（09-14） | 58 | 12 | 15 |
 
-"仅在主仓库有"的行数普遍远大于反向：主仓库是更新的一侧。少数文件反向行数不少（`api-auth.md` 54 行、
-`agent-integration.md` 48 行），但这些多是**旧草案的整段文字**（例如旧端点表、旧层级术语），
-合并时应逐段确认而不是机械取并集。
+"仅在主仓库有"的行数普遍远大于反向：主仓库是更新的一侧。
+
+**抽样核对结论（逐条看过"仅在新仓库"的内容）**：反向独有的行**全部是旧架构草案**，不是遗漏的新内容。
+证据（原文摘录）：
+
+| 文件 | 仅在新仓库的典型行 | 判定 |
+| --- | --- | --- |
+| api-auth.md | `POST /api/v1/auth/refresh`、`X-API-Key`、`POST /auth/tokens`、"Access 2h + Refresh 7d 双令牌 + Redis 黑名单" | 旧草案：本项目**没有** `/api/v1` 前缀，也没有 PAT/API Key 与 Redis 黑名单（主仓库那份已明确标注"未实现"） |
+| api-edit.md | `POST /api/v1/catalog/works|artists|canonical-entries|releases|mediums|tracks|franchises`、`PUT /api/v1/catalog/entity-relations` | 旧草案：v2 已收敛为统一实体入口 `POST /api/catalog/entities` + 动态定义 |
+| agent-integration.md | 流程图画布里的 `GET /api/v1/search`、`CanonicalEntry`、`phonographic_copyright` | 旧草案：`CanonicalEntry` 已退役为 `content_unit`/`expression` |
+| api-storage.md | `POST /api/v1/storage/upload/initiate` 等 | 旧草案：前缀错，且当前契约已在 metafusion-storage 落地 |
+| catalog.md / overview.md / editing-guide.md | `metafusion-catalog` 命名、`CanonicalEntry` 层级表 | 旧术语 |
+
+因此合并时**不需要逐段取舍**：以主仓库内容为准整篇覆盖即可，新仓库的独有行直接丢弃。
+下面这张表因此只用于"确认没有意外删掉东西"，不再作为取舍依据。
 
 ## 建议方案
 
