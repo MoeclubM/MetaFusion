@@ -118,6 +118,11 @@ func priorSubjectAttributes(list []Subject, s Subject) any {
 
 func priorContent(list []Inclusion, c Inclusion) *Inclusion {
 	for i := range list {
+		if list[i].ExpressionID != "" && list[i].ExpressionID == c.ExpressionID && list[i].Position == c.Position {
+			return &list[i]
+		}
+	}
+	for i := range list {
 		if list[i].ExpressionID != "" && list[i].ExpressionID == c.ExpressionID {
 			return &list[i]
 		}

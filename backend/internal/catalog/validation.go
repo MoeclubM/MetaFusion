@@ -336,16 +336,21 @@ func (d Definitions) validateScheme(code string, s Scheme) error {
 			return fmt.Errorf("%s: %w", code, fmt.Errorf("unknown_field: %s", k))
 		}
 	}
-	allowed := map[string]bool{}
-	for _, k := range s.Fields {
-		allowed[k] = true
-	}
-	for _, k := range s.Required {
-		if !allowed[k] {
-			return fmt.Errorf("%s: %w", code, fmt.Errorf("required_outside_fields: %s", k))
+		allowed := map[string]bool{}
+		for _, k := range s.Fields {
+			allowed[k] = true
 		}
-	}
-	return nil
+		for _, k := range s.Required {
+			if !allowed[k] {
+				return fmt.Errorf("%s: %w", code, fmt.Errorf("required_outside_fields: %s", k))
+			}
+		}
+		// 若全局组声明了 AnchorKey（如 relative_to），方案字段集必须包含该锚点，
+		// 否则录入时会陷入“不填报缺锚点、填了报未知字段”的死锁。
+		if group.AnchorKey != "" && !allowed[group.AnchorKey] {
+			return fmt.Errorf("%s: %w", code, fmt.Errorf("scheme_missing_anchor: %s", group.AnchorKey))
+		}
+		return nil
 }
 
 // matchSchemes 找出与拥有者匹配的场景：slot 相同、kinds 命中拥有者 kind
@@ -394,18 +399,23 @@ func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []st
 	union := map[string]bool{}
 	required := map[string]bool{}
 	order := []string{}
-	for _, s := range matched {
-		for _, k := range s.Fields {
-			if !union[k] {
-				union[k] = true
-				order = append(order, k)
+		for _, s := range matched {
+			for _, k := range s.Fields {
+				if !union[k] {
+					union[k] = true
+					order = append(order, k)
+				}
+			}
+			for _, k := range s.Required {
+				required[k] = true
 			}
 		}
-		for _, k := range s.Required {
-			required[k] = true
+		// 若全局组有 AnchorKey，自动确保 effectiveGroup 包含该锚点字段定义，双重保障
+		if group.AnchorKey != "" && group.Fields[group.AnchorKey].Enabled && !union[group.AnchorKey] {
+			union[group.AnchorKey] = true
+			order = append(order, group.AnchorKey)
 		}
-	}
-	eff := group
+		eff := group
 	eff.Fields = map[string]Field{}
 	for k, c := range group.Fields {
 		if union[k] {
@@ -491,36 +501,66 @@ const (
 )
 
 func (d Definitions) value(f Field, v any, reference func(string, []string) error, historical bool) error {
-	// Required 对空数组/空对象同样生效：isEmptyValue 覆盖 nil、空串、空数组、
-	// 空对象四种"未提供"形态；group/list 的递归 value 对缺键传 nil，同样落到此分支。
-	if isEmptyValue(v) {
+	// nil 视为未提供：仅在必填或 group 包含必填子字段时拒绝，其余类型非必填放行。
+	if v == nil {
 		if f.Required {
 			return fmt.Errorf("required_field")
 		}
+		if f.Type == "group" {
+			for _, c := range f.Fields {
+				if c.Required {
+					return fmt.Errorf("required_field")
+				}
+			}
+		}
 		return nil
 	}
-	// value 无 default 分支时存量坏定义空转：未知 Type 在 validateField 已拒绝，
-	// 此处兜底 unknown_field_type，保证坏定义在运行期同样失败而非静默通过。
-	// （effectiveGroupField 入口缺失时返回零值 Field，同样落到此分支；
-	// 空数据已被 isEmptyValue 提前放行，整轨收录的空定位不受影响。）
+	// 零值 Field（如 effectiveGroupField 入口缺失）：空数据放行（整轨收录不受影响），
+	// 携带数据则落入 default 报 unknown_field_type 拦截。
+	if f.Type == "" && isEmptyValue(v) {
+		return nil
+	}
+	// 先验类型（Type-check first）：绝不能在类型判断前将空数组 [] 或空对象 {}
+	// 误判为数值、布尔等类型的空值放行（防止数字字段接受 []、列表字段接受 {} 导致前端崩溃）。
 	switch f.Type {
 	case "text":
 		s, ok := v.(string)
 		if !ok {
 			return fmt.Errorf("expected_text")
 		}
+		if strings.TrimSpace(s) == "" {
+			if f.Required {
+				return fmt.Errorf("required_field")
+			}
+			return nil
+		}
 		if len(s) > maxTextLen {
 			return fmt.Errorf("text_too_long")
 		}
 	case "url":
 		s, ok := v.(string)
-		if !ok || len(s) > maxURLLen || !validURL(s) {
+		if !ok {
+			return fmt.Errorf("invalid_url")
+		}
+		if strings.TrimSpace(s) == "" {
+			if f.Required {
+				return fmt.Errorf("required_field")
+			}
+			return nil
+		}
+		if len(s) > maxURLLen || !validURL(s) {
 			return fmt.Errorf("invalid_url")
 		}
 	case "date":
 		s, ok := v.(string)
 		if !ok {
 			return fmt.Errorf("invalid_date")
+		}
+		if strings.TrimSpace(s) == "" {
+			if f.Required {
+				return fmt.Errorf("required_field")
+			}
+			return nil
 		}
 		layout := "2006-01-02"
 		if len(s) == 4 {
@@ -532,8 +572,7 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 			return fmt.Errorf("invalid_date")
 		}
 	case "number":
-		// Number 无 Min/Max 时仍校验：非数值、Inf/NaN 一律拒绝（toFloat 覆盖
-		// JSON float64 与 Go int/int64），Min/Max 只在声明时额外收敛。
+		// Number 必须能转为合法数值（拒绝 []、{}、非数值字符串等）
 		n, ok := toFloat(v)
 		if !ok || math.IsInf(n, 0) || math.IsNaN(n) || f.Min != nil && n < *f.Min || f.Max != nil && n > *f.Max {
 			return fmt.Errorf("invalid_number")
@@ -547,8 +586,12 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 		if !ok {
 			return fmt.Errorf("expected_object")
 		}
-		// multilingual 空 map 视为未提供：Required 时上面已拒绝；非 Required
-		// 时空 map 无意义但允许（与空串同口径，不在此报错）。
+		if len(m) == 0 {
+			if f.Required {
+				return fmt.Errorf("required_field")
+			}
+			return nil
+		}
 		for k, x := range m {
 			if _, e := language.Parse(k); e != nil {
 				return fmt.Errorf("invalid_locale")
@@ -563,8 +606,17 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 		}
 	case "enum":
 		s, ok := v.(string)
+		if !ok {
+			return fmt.Errorf("invalid_term")
+		}
+		if strings.TrimSpace(s) == "" {
+			if f.Required {
+				return fmt.Errorf("required_field")
+			}
+			return nil
+		}
 		t, exists := d.Vocabularies[f.Vocabulary].Terms[s]
-		if !ok || !exists || !historical && !t.Enabled {
+		if !exists || !historical && !t.Enabled {
 			return fmt.Errorf("invalid_term")
 		}
 	case "entity":
@@ -572,10 +624,25 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 		if !ok {
 			return fmt.Errorf("invalid_reference")
 		}
+		if strings.TrimSpace(s) == "" {
+			if f.Required {
+				return fmt.Errorf("required_field")
+			}
+			return nil
+		}
 		return reference(s, f.Kinds)
 	case "list":
 		items, ok := v.([]any)
-		if !ok || len(items) > 1000 {
+		if !ok {
+			return fmt.Errorf("invalid_list")
+		}
+		if len(items) == 0 {
+			if f.Required {
+				return fmt.Errorf("required_field")
+			}
+			return nil
+		}
+		if len(items) > 1000 {
 			return fmt.Errorf("invalid_list")
 		}
 		for _, x := range items {
@@ -587,6 +654,9 @@ func (d Definitions) value(f Field, v any, reference func(string, []string) erro
 		m, ok := v.(map[string]any)
 		if !ok {
 			return fmt.Errorf("expected_object")
+		}
+		if len(m) == 0 && f.Required {
+			return fmt.Errorf("required_field")
 		}
 		for k := range m {
 			if _, ok := f.Fields[k]; !ok {
@@ -631,9 +701,9 @@ func (d Definitions) attributes(keys []string, values map[string]any, reference 
 var importerInternalKeys = map[string]bool{"metafusion_import": true}
 
 // validImportKey 校验幂等键格式：bangumi:{subject|person|character}:{数字id}
-// 允许派生后缀（:release、:m{n}、:t{n}、:r{hash}），与 importer.go 的
-// importDedupKey/importReleaseChain 键格式一致。
-var importKeyPattern = regexp.MustCompile(`^bangumi:(subject|person|character):[1-9][0-9]*(:release(:m[0-9]+(:t[0-9]+)?)?|:r[0-9a-f]+)?$`)
+// 允许派生后缀（:release、:r{hash}、:m{n}、:t{n}、:e{hash}），与 importer.go 的
+// importDedupKey/importReleaseChain/importerEntryExprKey 键格式一致。
+var importKeyPattern = regexp.MustCompile(`^bangumi:(subject|person|character):[1-9][0-9]*(:e[0-9a-f]+|(:release)?(:r[0-9a-f]+)?(:m[0-9]+(:t[0-9]+)?)?)?$`)
 
 func validImportKey(s string) bool { return importKeyPattern.MatchString(strings.TrimSpace(s)) }
 
@@ -764,20 +834,19 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		}
 	}
 	positions := map[int]bool{}
-	// Contents 同 expression 多 position 重复：同一表达在同一 track 下只允许
-	// 出现一次（position 是轨内序号不是身份），重复引用同一 expression 即
-	// duplicate_content。DB 主键 track_contents(track_id,position) 只拦同位，
-	// 同表达异位由应用层拦。
-	seenExpr := map[string]bool{}
+	// 同一 Track 允许多次引用同一 Expression（如混音轨分别引用 0-30 秒与 60-90 秒切片）；
+	// 仅当 ExpressionID 与 Locator 定位切片完全相同时，才判定为无意义的重复收录报 duplicate_content。
+	seenExprLoc := map[string]bool{}
 	for _, c := range e.Contents {
 		if c.Position < 0 || positions[c.Position] {
 			return fmt.Errorf("duplicate_position")
 		}
 		positions[c.Position] = true
-		if seenExpr[c.ExpressionID] {
+		exprLocKey := c.ExpressionID + "\x00" + encode(c.Locator)
+		if seenExprLoc[exprLocKey] {
 			return fmt.Errorf("duplicate_content")
 		}
-		seenExpr[c.ExpressionID] = true
+		seenExprLoc[exprLocKey] = true
 		if err := reference(c.ExpressionID, []string{"expression"}); err != nil {
 			return err
 		}

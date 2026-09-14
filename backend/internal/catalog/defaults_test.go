@@ -148,13 +148,22 @@ func TestSchemesRejectedWhenInvalid(t *testing.T) {
 	if err := outside.Validate(); err == nil {
 		t.Fatal("scheme with required outside fields accepted")
 	}
-	badKind := mk()
-	s = badKind.Schemes["paper_pages"]
-	s.Kinds = []string{"no_such_kind"}
-	badKind.Schemes["paper_pages"] = s
-	if err := badKind.Validate(); err == nil {
-		t.Fatal("scheme with invalid kind accepted")
-	}
+		badKind := mk()
+		s = badKind.Schemes["paper_pages"]
+		s.Kinds = []string{"no_such_kind"}
+		badKind.Schemes["paper_pages"] = s
+		if err := badKind.Validate(); err == nil {
+			t.Fatal("scheme with invalid kind accepted")
+		}
+		// 方案未包含全局组声明的 AnchorKey 必须被拒绝（防止录入时出现缺锚点死锁）
+		missingAnchor := mk()
+		s = missingAnchor.Schemes["paper_pages"]
+		s.Fields = []string{"page_start", "page_end"}
+		s.Required = []string{"page_start"}
+		missingAnchor.Schemes["paper_pages"] = s
+		if err := missingAnchor.Validate(); err == nil {
+			t.Fatal("scheme missing anchor key relative_to must be rejected")
+		}
 }
 
 // 词表必须包含编目常用的作品间关系；反向名需成对声明。

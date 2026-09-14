@@ -303,16 +303,15 @@ func Defaults() Definitions {
 			addRel("translated_by", "译者", "Translated by", "翻译了", "Translator of", []string{"work", "content_unit", "expression"}, []string{"agent"}, "credits", false)
 		}
 	}
-	// 场景示例（纯示范，可被后台删除）：黑胶上下文 locator 只收敛到唱片面相关子集。
-	// kinds=["track"]、types 为空（不限业务类型）、require_range=false，
-	// fields 为现有 locator 子字段子集，顺序即展示编辑顺序。
-	d.Schemes = map[string]Scheme{
-		"vinyl_track_locator": {
-			Names: names("黑胶定位", "Vinyl locator"), Slot: "locator",
-			Kinds:   []string{"track"},
-			Fields:  []string{"relative_to", "chapter", "path"},
-			Enabled: true,
-		},
-	}
+		// 场景示例（纯示范，默认关闭，供后台按需启用或扩展）：黑胶上下文 locator 只收敛到唱片面相关子集。
+		// 默认设为 Enabled: false，避免未经 Medium 介质格式细分前误伤其他媒体（如纸书页码、音视频时间码）。
+		d.Schemes = map[string]Scheme{
+			"vinyl_track_locator": {
+				Names: names("黑胶定位", "Vinyl locator"), Slot: "locator",
+				Kinds:   []string{"track"},
+				Fields:  []string{"relative_to", "chapter", "path"},
+				Enabled: false,
+			},
+		}
 	return d
 }

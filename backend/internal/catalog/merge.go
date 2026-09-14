@@ -169,20 +169,26 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 				}
 			}
 		}
-		// Subjects 去重键与 validateEntity 同口径（work, role），position 不计入；
-		// 合并阶段冲突已在上面报错，此处只做幂等归一（重复合并结果一致）。
-		unique := []Subject{}
-		seen := map[string]bool{}
-		for _, subject := range e.Subjects {
-			key := subject.WorkID + ":" + subject.Role
-			if !seen[key] {
+			// Subjects 去重键与 validateEntity 同口径（work, role），position 不计入；
+			// 凡属性不同直接报 merge_subject_conflict（涵盖 Work 合并导致下游 Release
+			// 内两条记录 WorkID 改写收敛碰撞，以及 Release 实体合并碰撞），
+			// 属性完全相同视为重复幂等跳过，绝不静默丢弃任何附加属性。
+			unique := []Subject{}
+			seen := map[string]Subject{}
+			for _, subject := range e.Subjects {
+				key := subject.WorkID + ":" + subject.Role
+				if prev, ok := seen[key]; ok {
+					if encode(prev.Attributes) != encode(subject.Attributes) {
+						return fmt.Errorf("merge_subject_conflict")
+					}
+					continue
+				}
+				seen[key] = subject
 				unique = append(unique, subject)
-				seen[key] = true
 			}
-		}
-		if len(e.Subjects) > 0 {
-			e.Subjects = unique
-		}
+			if len(e.Subjects) > 0 {
+				e.Subjects = unique
+			}
 		if before == encode(e) {
 			continue
 		}

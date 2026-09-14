@@ -515,12 +515,15 @@ func TestSchemeConvergenceInEntityValidation(t *testing.T) {
 			}},
 		}
 	}
-	// 有匹配 scheme（默认种子的 vinyl_track_locator，kinds=[track]）：
-	// 并集内字段通过，并集外超集字段被拒绝。
-	d := Defaults()
-	if err := d.Validate(); err != nil {
-		t.Fatalf("defaults invalid: %v", err)
-	}
+		// 显式启用测试方案（或单独构造测试 scheme）：
+		// 并集内字段通过，并集外超集字段被拒绝。
+		d := Defaults()
+		vinyl := d.Schemes["vinyl_track_locator"]
+		vinyl.Enabled = true
+		d.Schemes["vinyl_track_locator"] = vinyl
+		if err := d.Validate(); err != nil {
+			t.Fatalf("defaults invalid: %v", err)
+		}
 	ok := mkTrack(Locator{"relative_to": "track", "chapter": "A1"})
 	if err := d.validateEntity(ok, ref, false); err != nil {
 		t.Fatalf("in-scheme locator rejected: %v", err)
