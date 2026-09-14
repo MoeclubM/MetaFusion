@@ -124,6 +124,14 @@ export function OmniImportModal({
   const [workExpressions, setWorkExpressions] = useState<{ id: string; title: string }[]>([]);
   const [entryMatches, setEntryMatches] = useState<Record<number, string>>({});
 
+  // 跨作品录音搜索：全库查表达并手工绑定到 canonical 条目；标题相近只展示不自动选中，
+  // 人工在下拉中确认后才写入 entryMatches，后端自动补 release_subjects 声明。
+  const [crossWorkOpen, setCrossWorkOpen] = useState(false);
+  const [crossWorkQuery, setCrossWorkQuery] = useState("");
+  const [crossWorkResults, setCrossWorkResults] = useState<Entity[]>([]);
+  const [crossWorkSearching, setCrossWorkSearching] = useState(false);
+  const [crossWorkError, setCrossWorkError] = useState("");
+
   const [downloadCover, setDownloadCover] = useState(true);
   const [editNote, setEditNote] = useState("");
   const [importing, setImporting] = useState(false);
@@ -166,9 +174,45 @@ export function OmniImportModal({
   }, [selectedTargetWork?.id]);
 
   // 新预览产生时重置手工匹配选择，避免上一次的绑定串到新条目上。
+  // 跨作品搜索结果保留（与预览无关），仅重置绑定。
   useEffect(() => {
     setEntryMatches({});
   }, [previewData]);
+
+  // 跨作品录音搜索防抖：输入稳定约 300ms 后查全库表达，timer 卸载/更新时清理。
+  useEffect(() => {
+    const q = crossWorkQuery.trim();
+    if (!q) {
+      setCrossWorkResults([]);
+      setCrossWorkError("");
+      setCrossWorkSearching(false);
+      return;
+    }
+    setCrossWorkSearching(true);
+    let active = true;
+    const timer = setTimeout(() => {
+      fetchApi<{ items: Entity[] }>(`/catalog/entities?kind=expression&q=${encodeURIComponent(q)}&limit=20`)
+        .then((res) => {
+          if (active) {
+            setCrossWorkResults(res?.items || []);
+            setCrossWorkError("");
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setCrossWorkResults([]);
+            setCrossWorkError(t("importer.crossWork.searchFailed"));
+          }
+        })
+        .finally(() => {
+          if (active) setCrossWorkSearching(false);
+        });
+    }, 300);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [crossWorkQuery, t]);
 
   if (!isOpen) return null;
 
@@ -928,6 +972,128 @@ export function OmniImportModal({
                   </ol>
                 </section>
               )}
+              {!!previewData.canonical_entries?.length && (() => {
+                const bindable = (previewData.canonical_entries || [])
+                  .map((entry, index) => ({ entry, index }))
+                  .filter(({ entry }) => entry.entry_kind !== "content_unit");
+                if (bindable.length === 0) return null;
+                // 已绑标题只从当前目标母体表达或本次搜索结果解析，不另起请求。
+                const resolveBoundTitle = (exprId: string): string => {
+                  const local = workExpressions.find((ex) => ex.id === exprId);
+                  if (local?.title) return local.title;
+                  const hit = crossWorkResults.find((r) => r.id === exprId);
+                  if (hit) return title(hit, locale);
+                  return exprId;
+                };
+                const boundRows = Object.entries(entryMatches)
+                  .map(([k, v]) => ({ index: Number(k), exprId: v }))
+                  .filter(
+                    ({ index, exprId }) =>
+                      Number.isInteger(index) && !!exprId && bindable.some((b) => b.index === index),
+                  );
+                return (
+                  <section className="p-4 rounded-xl border border-black/10 dark:border-white/10 space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setCrossWorkOpen((v) => !v)}
+                      className="flex w-full items-center justify-between gap-2 text-left cursor-pointer"
+                    >
+                      <span className="flex items-baseline gap-2 min-w-0">
+                        <span className="font-semibold text-gray-900 dark:text-white truncate">{t("importer.crossWork.title")}</span>
+                        <span className="text-xs text-gray-500 font-mono shrink-0">{crossWorkResults.length}</span>
+                      </span>
+                      <span className="text-xs text-gray-400 font-mono shrink-0">{crossWorkOpen ? "−" : "+"}</span>
+                    </button>
+                    {crossWorkOpen && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                          {t("importer.crossWork.subtitle")}
+                        </p>
+                        <input
+                          type="text"
+                          value={crossWorkQuery}
+                          onChange={(e) => setCrossWorkQuery(e.target.value)}
+                          placeholder={t("importer.crossWork.searchPlaceholder")}
+                          className="w-full px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-hidden focus:border-primary font-mono"
+                        />
+                        {crossWorkSearching && (
+                          <p className="flex items-center gap-1.5 text-xs text-gray-500 font-mono">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>{t("importer.crossWork.searching")}</span>
+                          </p>
+                        )}
+                        {crossWorkError && (
+                          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-mono flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <div className="flex-1">{crossWorkError}</div>
+                          </div>
+                        )}
+                        {!crossWorkSearching && !crossWorkError && crossWorkQuery.trim() && crossWorkResults.length === 0 && (
+                          <p className="text-[11px] text-gray-400 font-mono">
+                            {t("importer.crossWork.noResults")}
+                          </p>
+                        )}
+                        {!crossWorkSearching && !crossWorkError && crossWorkResults.length > 0 && (
+                          <ul className="max-h-64 overflow-y-auto space-y-2 text-sm">
+                            {crossWorkResults.map((item) => {
+                              const itemId = item.id || "";
+                              return (
+                                <li
+                                  key={itemId || title(item, locale)}
+                                  className="flex items-center gap-2 p-2 rounded-lg border border-black/5 dark:border-white/5"
+                                >
+                                  <span className="flex-1 min-w-0 truncate text-gray-900 dark:text-white">
+                                    {title(item, locale)}
+                                  </span>
+                                  <select
+                                    value=""
+                                    disabled={!itemId}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      if (v === "" || !itemId) return;
+                                      setEntryMatches((prev) => ({ ...prev, [Number(v)]: itemId }));
+                                    }}
+                                    aria-label={t("importer.crossWork.bindLabel")}
+                                    className="shrink-0 max-w-[52%] px-1.5 py-0.5 rounded border border-black/10 dark:border-white/15 bg-surface text-[11px] text-gray-700 dark:text-gray-300"
+                                  >
+                                    <option value="">{t("importer.crossWork.bindPlaceholder")}</option>
+                                    {bindable.map(({ entry, index }) => {
+                                      const label = `${entry.number || entry.position} · ${pickRecordTitle(locale, entry.translations, entry.title, { order: titleOrder, originalLanguage: entry.original_language })}`;
+                                      const boundId = entryMatches[index];
+                                      return (
+                                        <option key={index} value={String(index)}>
+                                          {boundId ? `${label} → ${resolveBoundTitle(boundId)}` : label}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                        {boundRows.length > 0 && (
+                          <ul className="space-y-1 text-xs text-gray-500 dark:text-gray-400 font-mono">
+                            {boundRows.map(({ index, exprId }) => {
+                              const target = bindable.find((b) => b.index === index);
+                              if (!target) return null;
+                              return (
+                                <li key={index}>
+                                  {t("importer.crossWork.boundEntry", {
+                                    number: String(target.entry.number || target.entry.position),
+                                    title: pickRecordTitle(locale, target.entry.translations, target.entry.title, { order: titleOrder, originalLanguage: target.entry.original_language }),
+                                    expression: resolveBoundTitle(exprId),
+                                  })}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </section>
+                );
+              })()}
 
               {/* 3. 演职员与出版机构交互式关联审查工作台 (Staff & Publisher Association Workbench) */}
               <div className="space-y-3 p-4 rounded-xl bg-black/[0.015] dark:bg-white/[0.015] border border-black/10 dark:border-white/10">
