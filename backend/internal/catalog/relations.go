@@ -366,36 +366,14 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 	return out, nil
 }
 
-// canWriteRelation 判定调用方能否写入以 src 为源实体、tgt 为目标实体的关系。
-// 目标端也有否决权：editor 不得向他人已发布条目挂边（SaveRelation/DeleteRelation
-// 在源端检查之外另做目标端检查，见下）。此处只判源端，供单测与调用方复用。
-//   - admin：全部可写；
-//   - editor：可写自己创建的条目（含已发布——与编辑器"editor 可直接发布/编辑
-//     自己条目"的权限对齐）；
-//   - user（审核制）：只能写自己创建且未发布的条目。
-func canWriteRelation(u User, src Entity) bool {
-	switch u.Role {
-	case "admin":
-		return true
-	case "editor":
-		return src.CreatedBy == u.ID
-	default:
-		return src.CreatedBy == u.ID && src.Status != "published"
-	}
-}
+// 关系源端遵循实体编辑权限；公开目标可由受信任编辑员建立关系。
+// 两端的实际可见性与生命周期仍在 SaveRelation 中复核。
+func canWriteRelation(u User, src Entity) bool { return canEditEntity(u, src) }
 
-// canAttachToTarget 判定调用方能否把边挂到目标端 tgt 上（目标端否决权）：
-// admin 恒可；editor/user 挂到"他人已发布"条目时拒绝——他人条目一旦发布即受保护，
-// 即使源端是自己的条目也不得单方面加边（需对方或管理员操作）。
-// 未发布/自己创建的目标不受此限（审核协作仍可进行）。
 func canAttachToTarget(u User, tgt Entity) bool {
-	if u.Role == "admin" {
-		return true
-	}
-	if tgt.Status == "published" && tgt.CreatedBy != u.ID {
-		return false
-	}
-	return true
+    if u.Role == "admin" { return true }
+    if tgt.Status == "deleted" || tgt.Status == "merged" { return false }
+    return tgt.CreatedBy == u.ID || u.Role == "editor" && tgt.Status == "published"
 }
 
 func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Relation, ref func(string, []string) error, historical bool) error {
@@ -529,7 +507,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if !canWriteRelation(u, src) {
 			return fmt.Errorf("forbidden")
 		}
-		// 目标端否决权：editor 不得向他人已发布条目挂边（canAttachToTarget）。
+		// 目标端沿用角色检查，普通用户仍不能修改他人的公开关系。
 		// 删除码后旧边读路径与此无关——Relations 读路径按对端可见性过滤，
 		// 不在此做停用/删除码判断。
 		if !canAttachToTarget(u, tgt) {

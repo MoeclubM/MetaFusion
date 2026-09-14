@@ -1,3 +1,4 @@
+import { revisionChanges } from "@/components/catalog/revisionData";
 import type { Entity } from "@/components/catalog/api";
 
 const getApiBase = () => {
@@ -914,23 +915,7 @@ export async function fetchEntityRevisions(targetId: string): Promise<{ items: E
 // diffSnapshots 对相邻两个实体快照做字段级对比：标量与常用结构字段逐项比较，
 // attributes/translations 按键比较。值经 JSON 归一后比较，避免顺序差异误报。
 function diffSnapshots(before: any, after: any): Record<string, { old: any; new: any }> {
-  const diff: Record<string, { old: any; new: any }> = {};
-  const norm = (v: any) => JSON.stringify(v === undefined ? null : v);
-  const put = (key: string, o: any, n: any) => {
-    if (norm(o) !== norm(n)) diff[key] = { old: o ?? null, new: n ?? null };
-  };
-  const b = before || {};
-  const a = after || {};
-  for (const key of ["title", "status", "number", "position", "original_language", "summary"]) {
-    put(key, b[key], a[key]);
-  }
-  put("types", b.types, a.types);
-  put("external_ids", b.external_ids, a.external_ids);
-  const attrKeys = Array.from(new Set([...Object.keys(b.attributes || {}), ...Object.keys(a.attributes || {})]));
-  for (const k of attrKeys) put(`attributes.${k}`, b.attributes?.[k], a.attributes?.[k]);
-  const locales = Array.from(new Set([...Object.keys(b.translations || {}), ...Object.keys(a.translations || {})]));
-  for (const loc of locales) put(`translations.${loc}`, b.translations?.[loc], a.translations?.[loc]);
-  return diff;
+  return revisionChanges(before, after);
 }
 
 // 合并走实体生命周期端点：POST /catalog/entities/:id/lifecycle（action=merge 语义由

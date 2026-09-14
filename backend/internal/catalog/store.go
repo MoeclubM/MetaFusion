@@ -367,8 +367,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			e.Version = old.Version + 1
 		}
 		if u.Role != "admin" {
-			// 他人条目一律不可改。
-			if old.ID != "" && old.CreatedBy != u.ID {
+			if old.ID != "" && !canEditEntity(u, old) {
 				return fmt.Errorf("forbidden")
 			}
 			// 普通用户走审核制：只能存草稿或提交审核，且不可触碰已发布条目。
@@ -380,7 +379,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 					return fmt.Errorf("forbidden")
 				}
 			}
-			// editor：自己的条目可直接发布；已发布条目的降级/删除仍走 admin-only lifecycle。
+			// editor 可维护公开条目；发布他人的草稿、降级和删除仍由管理员处理。
 		}
 		if e.Status == "" {
 			e.Status = "draft"

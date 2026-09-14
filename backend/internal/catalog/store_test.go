@@ -629,7 +629,7 @@ func TestRolePublishMatrix(t *testing.T) {
 		t.Fatal("published demotion must hit use_lifecycle_endpoint")
 	}
 
-	// 他人条目：user/editor 均不可改（admin 除外）。
+	// 他人的未发布条目仍受保护。
 	foreign := mk("foreign-entity")
 	foreign.Status = "draft"
 	foreignSaved, err := s.Save(ctx, Edit{Entity: foreign, EditNote: "n", Sources: sources}, editor)
@@ -649,8 +649,17 @@ func TestRolePublishMatrix(t *testing.T) {
 		t.Fatal(err)
 	}
 	submitted.Status = "published"
-	if _, err := s.Save(ctx, Edit{Entity: submitted, ExpectedVersion: submitted.Version, EditNote: "n", Sources: sources}, admin); err != nil {
+	published, err := s.Save(ctx, Edit{Entity: submitted, ExpectedVersion: submitted.Version, EditNote: "n", Sources: sources}, admin)
+	if err != nil {
 		t.Fatalf("admin publish pending_review: %v", err)
+	}
+	published.Title = "shared correction"
+	corrected, err := s.Save(ctx, Edit{Entity: published, ExpectedVersion: published.Version, EditNote: "shared correction", Sources: sources}, editor)
+	if err != nil || corrected.CreatedBy != member.ID || corrected.Version != published.Version+1 {
+		t.Fatalf("shared edit must preserve owner and advance version: %v", err)
+	}
+	if _, err = s.Save(ctx, Edit{Entity: published, ExpectedVersion: published.Version, EditNote: "stale", Sources: sources}, editor); err == nil {
+		t.Fatal("shared edits must still reject stale versions")
 	}
 }
 

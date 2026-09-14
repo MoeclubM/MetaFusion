@@ -10,9 +10,13 @@ import { effectiveSchemeFields, getFieldName, matchSchemes } from "@/lib/definit
 export function EntityEditor({
   initial,
   onSaved,
+  initialEditNote = "",
+  initialSources,
 }: {
   initial?: Entity;
   onSaved?: (e: Entity) => void;
+  initialEditNote?: string;
+  initialSources?: Source[];
 }) {
   const { t, locale } = useI18n();
   const { definition, user } = useCatalog();
@@ -52,8 +56,8 @@ export function EntityEditor({
     const union = effectiveSchemeFields(matchSchemes(defs as any, "inclusion_attributes", kindKey, JSON.parse(typesKey)));
     return union.length > 0 ? union : undefined;
   }, [defs, kindKey, typesKey]);
-  const [note, setNote] = useState("");
-  const [sources, setSources] = useState<Source[]>([
+  const [note, setNote] = useState(initialEditNote);
+  const [sources, setSources] = useState<Source[]>(initialSources || [
     { kind: "self", citation: "" },
   ]);
   const [error, setError] = useState("");

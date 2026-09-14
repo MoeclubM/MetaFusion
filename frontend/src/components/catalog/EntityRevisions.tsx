@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { api, Entity } from "./api";
+import { useCatalog } from "./CatalogProvider";
+import { EntityEditor } from "./EntityEditor";
+import { canEditRevision, prepareRevisionRestore, revisionChanges } from "./revisionData";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   GitCommit,
@@ -52,88 +56,14 @@ function formatVal(v: any, emptyLabel: string): string {
 }
 
 function computeDiff(oldSnap: any = {}, newSnap: any = {}): FieldDiff[] {
-  const diffs: FieldDiff[] = [];
-
-  // Top level primitive fields
-  const checkField = (key: string, label: string) => {
-    const o = oldSnap[key];
-    const n = newSnap[key];
-    if (o === undefined && n === undefined) return;
-    if (JSON.stringify(o) !== JSON.stringify(n)) {
-      if (o === undefined) diffs.push({ key, label, oldVal: o, newVal: n, type: "added" });
-      else if (n === undefined) diffs.push({ key, label, oldVal: o, newVal: n, type: "removed" });
-      else diffs.push({ key, label, oldVal: o, newVal: n, type: "modified" });
-    }
-  };
-
-  checkField("title", "field:title");
-  checkField("kind", "field:kind");
-  checkField("status", "field:status");
-  checkField("original_language", "field:original_language");
-
-  // Types array
-  const oldTypes: string[] = oldSnap.types || [];
-  const newTypes: string[] = newSnap.types || [];
-  if (JSON.stringify(oldTypes) !== JSON.stringify(newTypes)) {
-    diffs.push({
-      key: "types",
-      label: "field:types",
-      oldVal: oldTypes.join(", ") || "\u0000",
-      newVal: newTypes.join(", ") || "\u0000",
-      type: "modified",
-    });
-  }
-
-  // Attributes map
-  const oldAttr: Record<string, any> = oldSnap.attributes || {};
-  const newAttr: Record<string, any> = newSnap.attributes || {};
-  const allAttrKeys = Array.from(new Set([...Object.keys(oldAttr), ...Object.keys(newAttr)]));
-  for (const k of allAttrKeys) {
-    const ov = oldAttr[k];
-    const nv = newAttr[k];
-    if (JSON.stringify(ov) !== JSON.stringify(nv)) {
-      if (ov === undefined) {
-        diffs.push({ key: "attributes." + k, label: "attr:" + k, oldVal: ov, newVal: nv, type: "added" });
-      } else if (nv === undefined) {
-        diffs.push({ key: "attributes." + k, label: "attr:" + k, oldVal: ov, newVal: nv, type: "removed" });
-      } else {
-        diffs.push({ key: "attributes." + k, label: "attr:" + k, oldVal: ov, newVal: nv, type: "modified" });
-      }
-    }
-  }
-
-  // Translations map
-  const oldTrans: Record<string, any> = oldSnap.translations || {};
-  const newTrans: Record<string, any> = newSnap.translations || {};
-  const allTransKeys = Array.from(new Set([...Object.keys(oldTrans), ...Object.keys(newTrans)]));
-  for (const lang of allTransKeys) {
-    const ot = oldTrans[lang];
-    const nt = newTrans[lang];
-    if (JSON.stringify(ot) !== JSON.stringify(nt)) {
-      diffs.push({
-        key: "translations." + lang,
-        label: "trans:" + lang,
-        oldVal: ot ? ot.title || JSON.stringify(ot) : "\u0001",
-        newVal: nt ? nt.title || JSON.stringify(nt) : "\u0001",
-        type: ot === undefined ? "added" : nt === undefined ? "removed" : "modified",
-      });
-    }
-  }
-
-  // Pictures
-  const oldPics = (oldSnap.pictures || []).map((p: any) => p.url).filter(Boolean);
-  const newPics = (newSnap.pictures || []).map((p: any) => p.url).filter(Boolean);
-  if (JSON.stringify(oldPics) !== JSON.stringify(newPics)) {
-    diffs.push({
-      key: "pictures",
-      label: "field:pictures",
-      oldVal: oldPics.join(", ") || "\u0002",
-      newVal: newPics.join(", ") || "\u0002",
-      type: "modified",
-    });
-  }
-
-  return diffs;
+  return Object.entries(revisionChanges(oldSnap, newSnap)).map(([key, values]) => ({
+    key,
+    label: key.startsWith("attributes.") ? "attr:" + key.slice(11)
+      : key.startsWith("translations.") ? "trans:" + key.slice(13) : "field:" + key,
+    oldVal: values.old,
+    newVal: values.new,
+    type: values.old === undefined ? "added" : values.new === undefined ? "removed" : "modified",
+  }));
 }
 
 function generateUnifiedDiff(oldObj: any, newObj: any, oldLabel: string, newLabel: string): string {
@@ -169,6 +99,24 @@ export function EntityRevisions({
   currentEntity?: any;
 }) {
   const { t } = useI18n();
+  const { user } = useCatalog();
+  const [restore, setRestore] = useState<{ entity: Entity; revision: RevisionItem } | null>(null);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreError, setRestoreError] = useState("");
+  const beginRestore = async (revision: RevisionItem) => {
+    if (!currentEntity?.id) return;
+    setRestoreBusy(true);
+    setRestoreError("");
+    try {
+      const current = await api<Entity>(`/catalog/entities/${currentEntity.id}`);
+      if (!canEditRevision(current, user)) throw new Error("forbidden");
+      setRestore({ entity: prepareRevisionRestore(current, revision.snapshot), revision });
+    } catch {
+      setRestoreError(t("revisions.restoreFailed"));
+    } finally {
+      setRestoreBusy(false);
+    }
+  };
 
   // Selected revision for snapshot viewing
   const [inspectingRev, setInspectingRev] = useState<RevisionItem | null>(null);
@@ -224,6 +172,16 @@ export function EntityRevisions({
         original_language: t("revisions.fieldOriginalLanguage"),
         types: t("revisions.fieldTypes"),
         pictures: t("revisions.fieldPictures"),
+        contents: t("catalog.contents"),
+        subjects: t("catalog.subjects"),
+        external_ids: t("catalog.externalIds"),
+        position: t("catalog.position"),
+        number: t("catalog.number"),
+        parent_id: t("catalog.parent"),
+        work_id: t("catalog.kind.work"),
+        release_id: t("catalog.kind.release"),
+        medium_id: t("catalog.kind.medium"),
+        content_unit_id: t("catalog.kind.content_unit"),
       };
       return known[field] || field;
     }
@@ -255,6 +213,22 @@ export function EntityRevisions({
 
   return (
     <div className="space-y-6">
+      {restoreError && <p role="alert" className="text-sm text-red-500">{restoreError}</p>}
+      {restore && (
+        <section className="rounded-lg border border-primary/30 p-4 space-y-3">
+          <p className="text-sm">{t("revisions.restoreReview", { version: restore.revision.version })}</p>
+          <button type="button" onClick={() => setRestore(null)} className="text-sm text-primary hover:underline">
+            {t("revisions.close")}
+          </button>
+          <EntityEditor
+            key={`${restore.revision.id}:${restore.entity.version}`}
+            initial={restore.entity}
+            initialEditNote={t("revisions.restoreNote", { version: restore.revision.version, id: String(restore.revision.id) })}
+            initialSources={[{ kind: "publication", citation: `catalog:${restore.entity.id}/revisions/${restore.revision.id}` }]}
+            onSaved={() => window.location.reload()}
+          />
+        </section>
+      )}
       {/* Top Header & Contributor Summary (Git Insights Style) */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/[0.06]">
         <div className="flex items-center gap-3">
@@ -481,7 +455,7 @@ export function EntityRevisions({
 
                     {isLatest && (
                       <span className="px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold">
-                        HEAD / LATEST
+                        {t("revisions.latest")}
                       </span>
                     )}
 
@@ -564,6 +538,13 @@ export function EntityRevisions({
                       </button>
                     )}
 
+                    {currentEntity && canEditRevision(currentEntity, user) && rev.id && rev.snapshot &&
+                      rev.version < currentEntity.version && !["deleted", "merged"].includes(rev.snapshot.status) && (
+                      <button type="button" disabled={restoreBusy} onClick={() => beginRestore(rev)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-primary hover:bg-primary/10 disabled:opacity-50">
+                        <History className="w-3 h-3" />{t("revisions.restore")}
+                      </button>
+                    )}
                     {/* View full snapshot */}
                     <button
                       type="button"

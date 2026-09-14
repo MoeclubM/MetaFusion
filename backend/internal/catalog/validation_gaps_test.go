@@ -74,21 +74,21 @@ func TestCanAttachToTargetVeto(t *testing.T) {
 	other := User{ID: "other", Role: "editor"}
 	admin := User{ID: "admin", Role: "admin"}
 	foreignPublished := Entity{ID: "x", Kind: "work", Status: "published", CreatedBy: "owner"}
-	// editor 不得向他人已发布条目挂边。
-	if canAttachToTarget(other, foreignPublished) {
-		t.Fatal("editor attaching to foreign published target must be vetoed")
+	// 受信任 editor 可在公开条目之间建立关系。
+	if !canAttachToTarget(other, foreignPublished) {
+		t.Fatal("editor attaching to published target must pass")
 	}
 	// 主人自己可挂；admin 恒可。
 	if !canAttachToTarget(owner, foreignPublished) {
 		t.Fatal("owner attaching to own published target must pass")
 	}
-	if !canAttachToTarget(other, foreignPublished) && !canAttachToTarget(admin, foreignPublished) {
+	if !canAttachToTarget(admin, foreignPublished) {
 		t.Fatal("admin must always pass")
 	}
-	// 未发布目标不受限（审核协作仍可进行）。
+	// 其它人的未发布内容仍受保护。
 	draft := Entity{ID: "y", Kind: "work", Status: "draft", CreatedBy: "owner"}
-	if !canAttachToTarget(other, draft) {
-		t.Fatal("draft target must not be vetoed")
+	if canAttachToTarget(other, draft) {
+		t.Fatal("foreign draft target must be protected")
 	}
 }
 
