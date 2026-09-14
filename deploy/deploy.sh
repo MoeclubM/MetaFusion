@@ -81,7 +81,7 @@ case "$ACTION" in
         echo "🏗️  构建全部服务镜像..."
         docker compose $COMPOSE_ENV -f docker-compose.yml build
         echo "🚀 启动基础设施 (Postgres / Redis / RustFS + 桶初始化)..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml up -d postgres redis rustfs storage-init
+        docker compose $COMPOSE_ENV -f docker-compose.yml up -d postgres redis rustfs
         echo "🚀 启动各子系统 (账号 / 互动 / 存储 / 目录)..."
         docker compose $COMPOSE_ENV -f docker-compose.yml up -d auth community storage backend
         echo "🗄️  执行目录库版本化迁移..."

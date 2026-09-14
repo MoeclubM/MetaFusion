@@ -261,9 +261,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      # 桶没建好就启动，首次上传会被判对象存储故障，故等初始化跑完。
-      storage-init:
-        condition: service_completed_successfully
+      # 桶由存储服务在启动时自己建（internal/objects ensureBucket），
+      # 因此不再需要一次性初始化容器，也就没有"桶没建好就启动"这一类顺序故障。
     networks:
       - metafusion-net
 
@@ -334,9 +333,8 @@ services:
   # --------------------------------------------------------------------------
   # 10. S3 兼容对象存储 (RustFS) — 只在 metafusion-net 内可达，不发布宿主机端口
   # --------------------------------------------------------------------------
-  # 镜像 pin 备忘（最小收敛：注释先行，行为不动）：rustfs/mc 当前 :latest 浮动，
-  # 待运维确认可用 digest/tag 后再 pin（如 rustfs 某稳定版、mc 某 RELEASE），
-  # pin 时同步改两处并验证 storage-init 仍幂等。未确认前不虚构“已验证”版本号。
+  # 镜像 pin 备忘：rustfs/rustfs 当前 :latest 浮动，待运维确认可用 digest/tag 后再
+  # pin（并验证存储服务仍能连上、桶仍能自动创建）。未确认前不虚构"已验证"版本号。
   rustfs:
     image: rustfs/rustfs:latest
     container_name: metafusion-rustfs
@@ -349,31 +347,6 @@ services:
       - RUSTFS_STORAGE_DIR=/data
     volumes:
       - s3_data:/data
-    networks:
-      - metafusion-net
-
-  # --------------------------------------------------------------------------
-  # 11. S3 存储桶初始化。文件经存储服务鉴权后读取，桶保持私有。
-  # --------------------------------------------------------------------------
-  storage-init:
-    image: minio/mc:latest
-    container_name: metafusion-storage-init
-    depends_on:
-      - rustfs
-    environment:
-      - S3_ROOT_USER=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
-      - S3_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
-    entrypoint: >
-      /bin/sh -c "
-      attempts=0;
-      until mc alias set local http://rustfs:9000 \"$${S3_ROOT_USER}\" \"$${S3_ROOT_PASSWORD}\" >/dev/null 2>&1 &&
-        mc mb --ignore-existing local/metafusion-master >/dev/null 2>&1; do
-        attempts=$$((attempts + 1));
-        if [ $$attempts -ge 30 ]; then echo 'storage-init: bucket initialization failed' >&2; exit 1; fi;
-        sleep 2;
-      done;
-      echo 'storage-init: private archive bucket ready';
-      "
     networks:
       - metafusion-net
 
