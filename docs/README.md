@@ -8,7 +8,7 @@
 | [`architecture/multi-project-decoupling-spec.md`](architecture/multi-project-decoupling-spec.md) | 多项目解耦规范：以元数据系统为主项目，账号、论坛、资源、网关与文档站的解耦边界（**P1–P4 已落地**） | 架构 / 全员 |
 | [`architecture/plugin-decoupling-blueprint.md`](architecture/plugin-decoupling-blueprint.md) | 插件系统与 DAG 依赖拓扑规范（**VISION，未实现**）：规划 12 个原生内置插件集；当前实际为独立子系统 + 部署态能力清单（进程内模块层已退役） | 开发 / 后端 |
 | [`architecture/catalog-core-implementation.md`](architecture/catalog-core-implementation.md) | 纯净元数据目录内核实现：固定实体骨架、动态定义引擎与数据不变量 | 开发 / 后端 |
-| [`../docs-site/`](../docs-site/) | 面向公众的独立文档站（VitePress）：实体模型、编目指南、REST API 全套文档、法务页 | 所有人 / 外部开发者 |
+| [metafusion-docs](https://github.com/MoeclubM/metafusion-docs) | 面向公众的文档站（VitePress，唯一源）：实体模型、编目指南、REST API 全套文档、法务页 | 所有人 / 外部开发者 |
 | [`../AGENTS.md`](../AGENTS.md) | Agent / 贡献者协作准则（Git 规范、编目最高准则、gh cli 流程） | AI Agent / 贡献者 |
 | [metafusion-skills](https://github.com/MoeclubM/metafusion-skills) | 编目标准技能独立仓库（metafusion-curator + lrm-catalog-standards） | AI Agent / 考据员 |
 
@@ -32,7 +32,7 @@
    自有 `storage` schema，桶由服务启动时自建。
 5. **边缘网关 (`metafusion-api-gateway`)**：按前缀把 `/api/*` 分流到各服务，只对外暴露一个端口；
    路由矩阵与主仓库 `deploy/nginx.conf` 一致。
-6. **文档站**：VitePress 静态工程（本仓库 `docs-site/`）；另有独立仓库 `metafusion-docs` 待与主仓库收敛。
+6. **文档站（`metafusion-docs`）**：VitePress 静态工程，独立仓库即唯一源；主仓库不再存放 doc 页面，编排从兄弟目录构建该服务。
 
 **单体侧已完成收敛**：`catalog/identity.go`、`favorites.go` 与账号路由全部删除，`token.go` 只剩验签
 （只持公钥、没有签发路径），并且不再创建或写入 `auth` schema（含第一方 OAuth 客户端种子）；
@@ -41,4 +41,4 @@
 ## 协作与工具准则
 
 - 所有远端 GitHub 仓库管理、Issue 跟踪与 Pull Request 流程**必须通过 GitHub CLI (`gh`) 命令行工具执行**。
-- 文档与代码同 PR 更新；架构与实体行为变化先同步更新本文档与 docs-site 对应章节。
+- 文档与代码同批更新；架构与实体行为变化先同步更新本文档与 `metafusion-docs` 对应章节（两个仓库各自提交）。

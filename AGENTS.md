@@ -33,7 +33,7 @@
 
 ## 运行时与架构说明
 
-系统处于快速迭代开发阶段，采用单一、纯净、无历史包袱的标准元数据架构。核心应用统一入口为 `/api`（无版本前缀），实现位于 `backend/internal/catalog`，前端专用详情路由为 `/works`、`/releases`、`/mediums`，通用兜底为 `/catalog/[id]`。系统使用固定实体骨架（Agent、Collection、Work、ContentUnit、Expression、Release、Medium、Track）、Release.subjects 和跨 Work TrackContent；详情见 [元数据目录教程](docs-site/docs/catalog.md)。
+系统处于快速迭代开发阶段，采用单一、纯净、无历史包袱的标准元数据架构。核心应用统一入口为 `/api`（无版本前缀），实现位于 `backend/internal/catalog`，前端专用详情路由为 `/works`、`/releases`、`/mediums`，通用兜底为 `/catalog/[id]`。系统使用固定实体骨架（Agent、Collection、Work、ContentUnit、Expression、Release、Medium、Track）、Release.subjects 和跨 Work TrackContent；详情见 [元数据目录教程](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/catalog.md)。
 
 ## 3. 项目导航与事实来源
 
@@ -46,7 +46,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 | 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US,zh-TW,ja-JP}.json` |
 | 子系统边界与迁移 | [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)、[切流手册](docs/architecture/cutover-runbook.md)、[资源存储运行约定](docs/architecture/storage-operations.md)；账号 / 互动 / 存储分别在 `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`（原 `internal/modules` 已退役） |
 | 部署与 CI | `deploy/docker-compose.yml`、`.github/workflows/ci.yml` |
-| 用户 / LLM 编辑教程 | [Agent 接入](docs-site/docs/agent-integration.md)、[Agent API](docs-site/docs/api-agent.md) |
+| 用户 / LLM 编辑教程 | [Agent 接入](../metafusion-docs/docs/agent-integration.md)、[Agent API](../metafusion-docs/docs/api-agent.md)（文档站是独立仓库 `metafusion-docs`，本仓库不再存放 doc 页面） |
 
 技术栈：Go + Next.js / Bun + PostgreSQL + Redis + RustFS（S3）+ OpenSearch 2.x。
 
@@ -70,7 +70,8 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 - ContentUnit 的父子关系只能在同一 Work 内；Medium / Track 的父子关系不能跨所属 Release / Medium，由 `backend/migrations/000001_catalog_core.up.sql` 的复合外键保证。跨 Work 收录通过 `Release.subjects` 表达：Track 收录的表达所属 Work 必须声明在该发行的 `release_subjects` 中（`store.go` 的 `undeclared_release_subject` 校验），多作品发行是受支持的能力。多作品盒装若缺少显式汇编模型，报告缺口，不用 SQL 或伪造 Work 绕过。
 - 无 `media_type` 传统树状分类；通过标签、虚拟货架、Release 规格和实体图谱表达。关系、角色、介质格式等代码从 taxonomy / relation-types 及实现取得，不凭显示文案猜枚举。
 - `adaptation_of`、`soundtrack_of`、`sequel_of` 等关系连接已有实体（可用码以 `defaults.go` 种子与 `/api/catalog/definitions` 为准，不要凭记忆引用未定义的码）。需要层级/无环语义的关系拒绝自环和循环；同一角色跨作品用多条 `character_in` 边，不拆重复主体。
-- 外围抓取、导出、通知、媒体分析与 AI 增强保持插件化；依赖按 Semver 与 DAG 治理，保留循环检测和级联启停保护，不塞进核心实体层。
+- 外围抓取、导出、通知与 AI 增强保持插件化；依赖按 Semver 与 DAG 治理，保留循环检测和级联启停保护，不塞进核心实体层。
+- **不做转码**：不生成 HLS 切片、预览音频、波形图或缩略图，存储服务只收原始文件、按权限分发（见 [资源上传与下载](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/upload-download.md)）。
 
 ### 国际化、封面与审计
 
@@ -89,7 +90,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 | --- | --- | --- |
 | 后端 | `backend/` | `go test ./...`、`go vet ./...`、`go build ./cmd/server ./cmd/migrate` |
 | 前端 | `frontend/` | `bunx tsc --noEmit`、`bun run build`；涉及 UI 时检查中英显示 |
-| 文档站 | `docs-site/` | `bun run build`；核对示例字段、路由和链接 |
+| 文档站 | `../metafusion-docs/`（独立仓库，唯一源） | `bun run build`；侧栏链接与示例字段核对；改完在那边提交 |
 | Compose | 仓库根目录 | `docker compose -f deploy/docker-compose.yml config --quiet`；不要输出展开后的密钥 |
 | AGENTS / 技能 | 所属仓库 | 检查路径、Markdown/代码块、契约一致性；有技能验证器或脚本测试时运行 |
 

@@ -85,8 +85,9 @@
 >   提交历史里的 000002–000015 只对"需要从旧库升级"的实例有意义，测试实例直接重建即可。
 > - **遗留**：收藏"是否公开"仍只有前端只读占位（`settings/page.tsx` 的开关是 `disabled readOnly`，
 >   目录侧无字段），迁移后的接口恒返回 `visible: true`；实现该开关时归互动服务。
-> - **P5 未开始**：`metafusion-docs` 与主仓库 `docs-site` 仍是两份；主仓库 `docs-site/docs/api-storage.md`
->   已于 2026-09 改写为真实契约，去重时以哪一份为唯一源仍需拍板。
+> - **P5 已完成（2026-09-14）**：以主仓库 `docs-site` 的最新内容为准同步进 `metafusion-docs`，
+>   后者成为唯一源；主仓库删除 `docs-site/`，`deploy/docker-compose.yml` 的构建上下文改为 `../../metafusion-docs`，
+>   CI 的 docs job 与 release 的 docs 镜像随之从本仓库移除（改由文档仓库自己的 CI 承担）。
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
@@ -95,7 +96,7 @@
 | P2 | community：迁移论坛/短评/收藏/记录，**保留现有 `/topics`、`/boards` 契约与请求/响应形状** | ✅ 论坛/短评/记录已迁（16 条路由与单体逐字一致，`go build/vet/test` 通过）；收藏随 P3 迁移 |
 | P3 | auth：迁出 setup/auth/admin/oauth；catalog 改为只验签 | ✅ 服务侧完成（30 条路径与单体一致 + OIDC 标准根路径；`go build/vet/test` 通过，含令牌闭环与 PKCE 单测）。切流与单体只验签在 P4 执行 |
 | P4 | catalog 瘦身 + 网关切流：下线 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` 与 `modules` 包 | ✅ 全部完成：已切流并逐前缀验证；旧 schema/表已删；**账号实现与路由已从单体删除，目录只剩验签** |
-| P5 | 文档去重：`metafusion-docs` 为唯一源，本仓库 `docs-site` 移除/compose 收敛 | 只有一份 md；`docker compose config` 通过 |
+| P5 | 文档去重：`metafusion-docs` 为唯一源，本仓库 `docs-site` 移除/compose 收敛 | ✅ 已完成：主仓库 docs-site 的最新内容同步进 `metafusion-docs` 并删除本仓库副本，编排改为从兄弟目录构建；`docker compose config` 通过 |
 
 每个阶段独立提交、独立可回退；不回滚别人的改动，也不做双向写入。
 
@@ -105,9 +106,9 @@
 | --- | --- | --- |
 | metafusion-community | 路由写成 `/threads`、`/categories`、`/entities/:id/rate`；模型用 `Category/Thread/Post(floor)` | 改为现有契约 `/boards`、`/topics`、`/topic-tags`、`community_post_number`，模型含双语板块名与标签 |
 | metafusion-auth | discovery 在根路径、JWKS 路径 `/.well-known/jwks.json`、issuer 无 `/api`；缺 `/api/setup`、`/api/admin/users`、OAuth 客户端管理 | 与第 2 节路径一致；issuer 与 catalog 现值一致 |
-| metafusion-storage | ~~模型用 GORM；路由与文档的 `/api/storage/bind` 不一致~~ | ✅ 已改为 `database/sql`，路由以 `docs-site/docs/api-storage.md` 的契约为准 |
+| metafusion-storage | ~~模型用 GORM；路由与文档的 `/api/storage/bind` 不一致~~ | ✅ 已改为 `database/sql`，路由以 `metafusion-docs` 的 `docs/api-storage.md` 契约为准 |
 | metafusion-auth / -community | 无 `go.sum`，`go build` 直接失败 | 补齐依赖锁（`GOPROXY=https://goproxy.cn,direct go mod tidy`）；storage 已完成 |
-| metafusion-docs | 26 篇 md 与本仓库 `docs-site` 重复，其中 14 篇已分叉 | P5 去重，先确认唯一源 |
+| metafusion-docs | ~~26 篇 md 与本仓库 `docs-site` 重复，其中 14 篇已分叉~~ | ✅ 已收敛：以主仓库内容为基准同步过去，本仓库副本删除 |
 | metafusion-api-gateway | ~~缺 `/.well-known/` 路由；`/api/storage/*` 指向未实现服务~~ | ✅ 已重排：每个前缀一行上游、补齐 discovery/setup/oauth/oidc、未实现的服务不接线上流量 |
 
 ## 7. 回滚

@@ -55,8 +55,8 @@
 - **S3 兼容对象存储 (RustFS)**：由存储服务写入 RustFS（`STORAGE_S3_*`），按 sha256 内容寻址与秒传去重，
   支持分片预签名直传与服务端流式上传兜底；元数据与物理资产分离，目录侧不保存物理路径。
 - **数据库检索**：`GET /api/catalog/entities?q=...` 由 PostgreSQL 匹配题名与多语言文档（`ILIKE` / 全文索引），OpenSearch 2.14 容器已随 Compose 部署，但**当前 Go 代码尚未接入客户端，规划中的多语言分词与 Facet 聚合未生效**。
-- **媒体处理（已知缺口）**：原 `media` 模块（`ffprobe` 探针、预览转码）随模块层退役，**尚未迁入存储服务**，
-  当前不可用；迁移后归存储服务（对象内容在那里）。
+- **不做转码（明确取舍）**：不生成 HLS 切片、预览音频、波形图或缩略图；存储服务只收原始文件、做内容寻址与受控下载。
+  原 `media` 模块（`ffprobe` 探针、预览转码）随模块层退役，不再补。
 
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
 - **独立迁移引擎 (`mf-migrate`)**：自研 Go 原生数据库迁移工具，集成 PostgreSQL Advisory Lock 机制，彻底杜绝多副本部署时的并发迁移竞争。
@@ -76,7 +76,8 @@
 | 组件 | 实现位置 | 定位 | 核心职责 |
 |---|---|---|---|
 | **元数据目录** | `backend/internal/catalog`、`backend/cmd/server` | **主系统** | 八大固定实体骨架、动态定义引擎、关系图谱、版本对比、修订历史、`/api/exchange/*` 导入导出 |
-| **前端与文档站** | `frontend/`、`docs-site/` | 展示层 | Next.js 主站与管理中台；VitePress 静态文档站 |
+| **前端** | `frontend/` | 展示层 | Next.js 主站与管理中台 |
+| **文档站** | 独立仓库 `../metafusion-docs` | 展示层 | VitePress 静态文档站（唯一源，本仓库不再存放 doc 页面） |
 | **部署编排** | `deploy/`（`docker-compose.yml`、`nginx.conf`、`deploy.sh`、`sql/`） | 一键部署 | 单端口边缘网关、全部服务编排、切流/回滚与遗留结构清理 |
 | **独立子系统** | `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`、`../metafusion-api-gateway` | 兄弟仓库 | 账号与 RS256 令牌、论坛与互动记录、文件与内容寻址直传、路由矩阵 |
 
@@ -113,12 +114,12 @@
 
 ## 🛠️ 技术栈清单
 
-- **后端核心 (Backend)**：Go 1.25, Gin, Golang-JWT/v5, MinIO Go SDK（S3 兼容对象存储）
+- **后端核心 (Backend)**：Go 1.25, Gin, Golang-JWT/v5（对象存储走 S3 协议，客户端库为 minio-go——它只是 S3 SDK，服务端是 RustFS）
 - **前端系统 (Frontend)**：Next.js 14 (App Router), React 18, Tailwind CSS, Lucide Icons, TypeScript
 - **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
 - **数据库 (Storage & DB)**：PostgreSQL 16, Redis 7 (Alpine，Compose 已部署；Go 代码尚未接入), RustFS (S3-compatible Object Storage)
 - **检索引擎 (Search Engine)**：OpenSearch 2.14.0（Compose 已部署；Go 代码尚未接入，当前检索走 PostgreSQL）
-- **媒体处理 (Media Pipeline)**：FFmpeg / ffprobe（原进程内 `media` 模块已随模块层退役；媒体分析尚未迁进存储服务，属既有缺口，见 [切流手册](docs/architecture/cutover-runbook.md) 第 4 节）
+- **媒体处理**：不做转码（无 FFmpeg 依赖）；上传/下载契约见 [资源上传与下载](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/upload-download.md)
 - **容器与网关 (Infra)**：Docker, Docker Compose v2, Nginx 1.25 Alpine
 
 ---
@@ -147,7 +148,7 @@ cd MetaFusion
 # 从模板创建环境变量
 cp .env.example .env
 
-# 编辑 .env 配置生产级随机密钥 (DB_PASSWORD, MINIO_ROOT_PASSWORD, AUTH_JWT_PRIVATE_KEY；
+# 编辑 .env 配置生产级随机密钥 (DB_PASSWORD, RUSTFS_ROOT_PASSWORD, AUTH_JWT_PRIVATE_KEY；
 # AUTH_JWT_PRIVATE_KEY 必须在目录服务与账号服务之间共用同一把 RSA 私钥，否则登录后立刻掉线)
 ```
 

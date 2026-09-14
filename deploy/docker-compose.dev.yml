@@ -28,7 +28,7 @@ services:
 
   docs-site:
     build:
-      context: ../docs-site
+      context: ../../metafusion-docs
       dockerfile: Dockerfile
       target: deps
     container_name: metafusion-docs-dev
@@ -36,8 +36,8 @@ services:
     # VitePress 项目：内容与配置都在 docs/ 下（docs/.vitepress/config.mts），
     # 静态资源为 docs/public；无 Next.js 的 src/content/next.config.mjs，故不再挂载。
     volumes:
-      - ../docs-site/docs:/app/docs:ro
-      - ../docs-site/package.json:/app/package.json:ro
+      - ../../metafusion-docs/docs:/app/docs:ro
+      - ../../metafusion-docs/package.json:/app/package.json:ro
     environment:
       - NODE_ENV=development
       - PORT=3001

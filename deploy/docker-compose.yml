@@ -59,11 +59,12 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 2. 独立全量文档站 (VitePress SSG + sirv-cli)，经网关 /docs 反代
+  # 2. 全量文档站 (VitePress SSG + sirv-cli)，经网关 /docs 反代
+  #    内容在独立仓库 metafusion-docs（唯一源），与主仓库并列检出；主仓库不再存放 doc 页面。
   # --------------------------------------------------------------------------
   docs-site:
     build:
-      context: ../docs-site
+      context: ../../metafusion-docs
       dockerfile: Dockerfile
     container_name: metafusion-docs
     restart: unless-stopped
@@ -241,8 +242,9 @@ services:
       - STORAGE_ROOT=/app/storage-data
       - STORAGE_S3_ENDPOINT=http://rustfs:9000
       - STORAGE_S3_TLS=false
-      - STORAGE_S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
-      - STORAGE_S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
+      # 对象存储凭据（RustFS 的 root 用户/口令）；服务侧只认 S3 协议，与具体实现无关。
+      - STORAGE_S3_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
+      - STORAGE_S3_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
       - STORAGE_S3_BUCKET=metafusion-master
       # 预签名直传的地址必须浏览器可达（SigV4 覆盖 Host）；本编排不把对象存储
       # 端口发到宿主机，留空即沿用内部端点，此时浏览器直传改走
@@ -344,10 +346,10 @@ services:
     container_name: metafusion-rustfs
     restart: unless-stopped
     environment:
-      - RUSTFS_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
-      - RUSTFS_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
-      - RUSTFS_ROOT_USER=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
-      - RUSTFS_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
+      - RUSTFS_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
+      - RUSTFS_ROOT_USER=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
+      - RUSTFS_ROOT_PASSWORD=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
       - RUSTFS_STORAGE_DIR=/data
     volumes:
       - s3_data:/data

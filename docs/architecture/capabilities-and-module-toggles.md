@@ -36,7 +36,7 @@
 
 ## 3. 拆分后的语义问题
 
-拆分后 `archive/playback/media` 由 metafusion-storage 承载、`community/records` 由 metafusion-community 承载，
+拆分后文件与下载由 metafusion-storage 承载（能力 id 统一为 `storage`；原 `archive`/`playback`/`media` 三项里的后两项是转码与媒体分析，已明确不做）、`community/records` 由 metafusion-community 承载，
 它们不再是"进程内可开关的模块"，而是**独立部署单元**：服务没部署就没有该能力，服务挂了能力就不可用。
 
 继续保留"运行时开关"会产生双重语义：把 `community` 关掉只关掉了单体里那份实现，

@@ -37,14 +37,14 @@ type subsystem struct {
 	local  bool
 }
 
-// 固定顺序即前端展示顺序；id 与拆分前保持一致，避免前端与 i18n 键一起改。
+// 固定顺序即前端展示顺序。这里的 id 就是**当前真实存在的子系统**，不再有历史包袱：
+// 旧的 archive / playback / media 三项是单体模块层的名字（归档 / 预览转码 / 媒体分析），
+// 拆分后只剩一个存储服务，转码与媒体分析不做，因此统一成一个 `storage`。
 var subsystems = []subsystem{
 	{id: "exchange", version: "2.0.0", deps: map[string]string{}, local: true},
 	{id: "community", version: "2.0.0", deps: map[string]string{}, envKey: "COMMUNITY_URL"},
 	{id: "records", version: "2.0.0", deps: map[string]string{}, envKey: "COMMUNITY_URL"},
-	{id: "archive", version: "2.0.0", deps: map[string]string{}, envKey: "STORAGE_URL"},
-	{id: "playback", version: "2.0.0", deps: map[string]string{"archive": "^2.0.0"}, envKey: "STORAGE_URL"},
-	{id: "media", version: "2.0.0", deps: map[string]string{"archive": "^2.0.0"}, envKey: "STORAGE_URL"},
+	{id: "storage", version: "2.0.0", deps: map[string]string{}, envKey: "STORAGE_URL"},
 }
 
 // Registry 持有能力清单与上游健康状态的缓存。

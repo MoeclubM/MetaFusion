@@ -27,8 +27,16 @@ func TestUndeployedSubsystemsAreDisabled(t *testing.T) {
 	if c := find(t, items, "community"); c.Enabled || c.Healthy {
 		t.Fatalf("未部署社区服务时应为未启用: %+v", c)
 	}
-	if c := find(t, items, "archive"); c.Enabled {
+	if c := find(t, items, "storage"); c.Enabled {
 		t.Fatalf("未部署存储服务时应为未启用: %+v", c)
+	}
+	// 转码与媒体分析不做，清单里不应再出现 playback / media 这类历史能力 id。
+	for _, gone := range []string{"playback", "media", "archive"} {
+		for _, it := range items {
+			if it.ID == gone {
+				t.Fatalf("已退役的能力 id 仍在清单里: %s", gone)
+			}
+		}
 	}
 	// exchange 仍由目录自身提供：恒定可用，避免导入导出入口被误隐藏。
 	if c := find(t, items, "exchange"); !c.Enabled || !c.Healthy {
