@@ -183,6 +183,40 @@ export function RecordList({
   );
 }
 
+// LocatorInline：把收录定位（页码 / 时间码 / 路径 / 章节…）按 definitions 声明的子字段
+// 紧凑渲染成一行。子字段由后台声明，未声明的定位方式不会凭空出现；
+// 键与名称一律取自 definitions，代码不写死任何定位字段码。
+export function LocatorInline({
+  defs,
+  value,
+  locale,
+  className = "",
+}: {
+  defs: DynamicDefinitions | null | undefined;
+  value: Record<string, any> | undefined;
+  locale: string;
+  className?: string;
+}) {
+  const fields: Record<string, any> = (defs as any)?.fields?.["locator"]?.fields || {};
+  if (!value) return null;
+  const present = Object.keys(fields).filter(
+    (c) => value[c] !== undefined && value[c] !== null && value[c] !== "",
+  );
+  if (present.length === 0) return null;
+  return (
+    <span className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}>
+      {present.map((c) => (
+        <span key={c} className="inline-flex items-baseline gap-0.5">
+          <span className="text-gray-400 dark:text-gray-500">
+            {resolveLocalizedName(fields[c]?.names, locale, c)}:
+          </span>
+          <FieldValue code={c} value={value[c]} defs={defs} locale={locale} field={fields[c]} />
+        </span>
+      ))}
+    </span>
+  );
+}
+
 // GroupAttributeInline：把"记录级附加属性"（subject_attributes / inclusion_attributes）
 // 按 definitions 声明的子字段紧凑渲染成一行。子字段由后台声明，未声明时不渲染任何内容；
 // 键一律取自 definitions，代码不写死子字段码。

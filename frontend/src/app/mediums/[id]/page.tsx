@@ -8,6 +8,8 @@ import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/compone
 import { fetchApi } from "@/lib/api";
 import { useDefinitions, getTermName } from "@/lib/definitions";
 import { WorkFacts } from "@/components/work/WorkFacts";
+import { GroupAttributeInline, LocatorInline } from "@/components/catalog/TemplateAttributeSections";
+import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ArrowLeft, ArrowRight, FileText, HardDrive, Layers } from "lucide-react";
 
@@ -19,8 +21,17 @@ function formatDuration(seconds?: number) {
 
 type TrackRow = {
   track: Entity;
+  /** 树内层级：0 为根轨，>0 为章/子轨，按 depth 缩进呈现。 */
+  depth: number;
   duration: number;
-  contents: { id: string; title: string }[];
+  contents: {
+    key: string;
+    id: string;
+    /** 表达标题；取不回来时为空串，渲染占位而不是丢弃该条收录。 */
+    title: string;
+    locator: Record<string, any>;
+    attributes: Record<string, any>;
+  }[];
 };
 
 // 载体详情页：统一 DTO 数据源（/catalog/entities）。面包屑 作品 → 发行版 → 载体，
@@ -68,16 +79,23 @@ export default function MediumDetailPage() {
           } catch { /* 缺失的表达跳过 */ }
         });
         if (cancelled) return;
-        setTracks(trackEntities
-          .slice()
-          .sort((a, b) => (a.position || 0) - (b.position || 0))
-          .map((tr) => ({
+        // 与发行页共用同一棵曲目树：保留父子层级与 position 次序，
+        // 不再拍平成一层列表。收录条目保留定位与附加属性；
+        // 表达取不回来（缺权限/已删除）时保留占位，不能整条丢掉映射关系。
+        setTracks(
+          orderedTracksWithDepth(trackEntities).map(({ track: tr, depth }) => ({
             track: tr,
+            depth,
             duration: Number(tr.attributes?.duration) || 0,
-            contents: (tr.contents || [])
-              .map((c) => ({ id: c.expression_id, title: exprTitles.get(c.expression_id) || "" }))
-              .filter((c) => c.id && c.title),
-          })));
+            contents: (tr.contents || []).map((c, i) => ({
+              key: `${c.expression_id}-${i}`,
+              id: c.expression_id,
+              title: exprTitles.get(c.expression_id) || "",
+              locator: c.locator || {},
+              attributes: c.attributes || {},
+            })),
+          })),
+        );
       } catch {
         if (!cancelled) setNotFound(true);
       } finally {
@@ -191,27 +209,45 @@ export default function MediumDetailPage() {
               <div className="p-8 text-center font-mono text-xs text-gray-500">{t("medium.detail.noTracks")}</div>
             ) : (
               <div className="divide-y divide-black/[0.06] dark:divide-white/[0.06]">
-                {tracks.map(({ track, duration, contents }) => {
+                {tracks.map(({ track, depth, duration, contents }) => {
                   const trackTitle = entityTitle(track, locale) || track.title || t("medium.detail.untitledTrack");
                   return (
-                    <div key={track.id} className="p-4 flex items-start gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                    <div
+                      key={track.id}
+                      className="p-4 flex items-start gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors"
+                      style={depth > 0 ? { paddingLeft: `${16 + depth * 18}px` } : undefined}
+                    >
                       <span className="w-8 shrink-0 text-right font-mono text-xs text-gray-500 pt-0.5">{track.number || track.position}</span>
                       <FileText className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{trackTitle}</p>
+                        <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">
+                          {depth > 0 && <span className="mr-1 font-mono text-[10px] text-gray-400">└</span>}
+                          {trackTitle}
+                        </p>
                         <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 font-mono text-[11px] text-gray-500">
                           {duration > 0 && <span>{formatDuration(duration)}</span>}
                         </div>
-                        {contents.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 mt-2">
-                            {contents.map((entry) => (
-                              <Link key={entry.id} href={`/catalog/${entry.id}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 text-[11px] hover:bg-primary/15">
-                                {entry.title}
-                                <ArrowRight className="w-2.5 h-2.5" />
-                              </Link>
-                            ))}
+                        {contents.map((entry) => (
+                          <div key={entry.key} className="mt-2 space-y-1">
+                            <Link
+                              href={`/catalog/${entry.id}`}
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] ${
+                                entry.title
+                                  ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/15"
+                                  : "bg-black/[0.03] dark:bg-white/[0.04] text-gray-500 border-dashed border-black/15 dark:border-white/15"
+                              }`}
+                            >
+                              {entry.title || `${entry.id.slice(0, 8)}…`}
+                              <ArrowRight className="w-2.5 h-2.5" />
+                            </Link>
+                            {/* 收录定位与附加属性：全部由 definitions 声明的子字段渲染，
+                                后台新增定位方式/属性即刻显示，代码不写死字段码。 */}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 font-mono text-[10px]">
+                              <LocatorInline defs={defs} value={entry.locator} locale={locale} />
+                              <GroupAttributeInline defs={defs} code="inclusion_attributes" value={entry.attributes} locale={locale} />
+                            </div>
                           </div>
-                        )}
+                        ))}
                       </div>
                     </div>
                   );
