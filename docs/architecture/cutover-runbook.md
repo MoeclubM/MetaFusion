@@ -13,6 +13,22 @@
 | 数据库可达 | 三个服务与单体连同一个 PostgreSQL 实例（各用自有 schema） |
 | 导入演练 | `go run cmd/migrate -dry-run`（metafusion-community）能打印各源表行数，且不写入 |
 | 回滚路径可用 | 网关配置可改（每前缀一行 `set $x_backend`），并能重启 gateway 容器 |
+| 服务身份可辨 | 三个服务会在响应头返回 `X-MetaFusion-Service`；切流自检据此确认前缀切到了目标上游 |
+
+### 第 0.5 步：切换前基线（两条命令，建议每次切流都跑）
+
+```bash
+# 1) 真实数据库回归（三个服务仓库各跑一次；未设置 *_TEST_DSN 时自动跳过）
+cd metafusion-community && COMMUNITY_TEST_DSN="postgres://…/metafusion_community_test" go test ./...
+cd metafusion-auth      && AUTH_TEST_DSN="postgres://…/metafusion_auth_test"           go test ./...
+cd metafusion-storage   && STORAGE_TEST_DSN="postgres://…/metafusion_storage_test"     go test ./...
+
+# 2) 切流自检（metafusion-api-gateway 仓库；逐项打印 PASS/FAIL/SKIP）
+GATEWAY=https://<host> DSNS="postgres://…/metafusion_db" ./scripts/cutover-check.sh
+```
+
+自检脚本靠响应头 `X-MetaFusion-Service` 判断前缀究竟由哪个上游答复（单体没有这个头，会显示 `catalog(无标记)`），
+并对 `topics/posts/boards/records/favorites` 五张表做新旧行数对比。**切换瞬间这五个差值应为 0。**
 
 ## 1. 切流顺序与逐步操作
 
