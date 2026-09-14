@@ -282,7 +282,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			respond(c, nil, err)
 			return
 		}
-		respond(c, gin.H{"id": v.ID, "state": v.State, "base_version": v.BaseVersion, "document": v.Document, "created_at": v.CreatedAt, "kinds": KindNames()}, nil)
+		respond(c, gin.H{"id": v.ID, "state": v.State, "base_version": v.BaseVersion, "document": v.Document, "created_at": v.CreatedAt, "kinds": KindNameRecords()}, nil)
 	})
 	// 标签聚合：标签不是独立字典表，而是散落在各实体的 attributes.tags 中。
 	// jsonb_array_elements_text 展开数组就地统计频次，供前端标签云与筛选建议；

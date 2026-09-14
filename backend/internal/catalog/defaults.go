@@ -41,6 +41,22 @@ func (d Definitions) PrimaryDateField(typeCode string) string {
 // 前端字典只保留兜底，服务端给了就以服务端为准。
 //
 // 四语齐备（zh-CN / zh-TW / ja-JP / en-US）：缺哪一语都会让该语种用户看到英文占位。
+//
+// KindRecord 是对外载荷形状：与 definitions 里其它名称对象一致，统一放在 names 键下，
+// 以后要加 icon/order 之类字段也有位置（前端 KindDef 与之对应）。
+type KindRecord struct {
+	Names Names `json:"names"`
+}
+
+// KindNameRecords 把骨架名称包成对外形状，供 /api/catalog/definitions 的 kinds 字段使用。
+func KindNameRecords() map[string]KindRecord {
+	out := map[string]KindRecord{}
+	for k, n := range KindNames() {
+		out[k] = KindRecord{Names: n}
+	}
+	return out
+}
+
 func KindNames() map[string]Names {
 	out := map[string]Names{}
 	for _, x := range [][5]string{

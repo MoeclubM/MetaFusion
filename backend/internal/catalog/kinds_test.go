@@ -42,18 +42,24 @@ func TestDefinitionsEndpointExposesKinds(t *testing.T) {
 	HTTP{Store: &Store{}}.Register(r)
 	// 该路由要查库，用未连接的 Store 会 500；这里只验证路由存在与响应契约由上面的单测覆盖，
 	// 因此用一个桩 Store 不可行——改为直接断言 KindNames 的序列化形状。
-	b, err := json.Marshal(gin.H{"kinds": KindNames()})
+	b, err := json.Marshal(gin.H{"kinds": KindNameRecords()})
 	if err != nil {
 		t.Fatal(err)
 	}
+	// 载荷形状必须与前端 KindDef 一致：{ kind: { names: { locale: text } } }
 	var doc struct {
-		Kinds map[string]map[string]string `json:"kinds"`
+		Kinds map[string]struct {
+			Names map[string]string `json:"names"`
+		} `json:"kinds"`
 	}
 	if err := json.Unmarshal(b, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc.Kinds["work"]["ja-JP"] != "作品" {
+	if doc.Kinds["work"].Names["ja-JP"] != "作品" {
 		t.Fatalf("kinds 键或取值不符: %+v", doc.Kinds["work"])
+	}
+	if doc.Kinds["medium"].Names["zh-TW"] != "載體" {
+		t.Fatalf("medium 繁中名不符: %+v", doc.Kinds["medium"])
 	}
 	// 路由必须仍挂在 /api/catalog/definitions 上（前端与其他客户端按此取）。
 	found := false
