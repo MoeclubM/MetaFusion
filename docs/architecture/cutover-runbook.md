@@ -27,8 +27,16 @@ cd metafusion-storage   && STORAGE_TEST_DSN="postgres://…/metafusion_storage_t
 GATEWAY=https://<host> DSNS="postgres://…/metafusion_db" ./scripts/cutover-check.sh
 ```
 
-自检脚本靠响应头 `X-MetaFusion-Service` 判断前缀究竟由哪个上游答复（单体没有这个头，会显示 `catalog(无标记)`），
+自检脚本靠响应头 `X-MetaFusion-Service` 判断前缀究竟由哪个上游答复（单体也有同名标记 `metafusion-catalog`），
 并对 `topics/posts/boards/records/favorites` 五张表做新旧行数对比。**切换瞬间这五个差值应为 0。**
+
+**表结构等价性已有测试保证**（不需要数据库即可运行）：
+- 互动服务：`internal/store/schema_parity_test.go` 冻结了老表六张表的逐列定义（名称/类型/约束/默认值），
+  搬运过来的 handler SQL 按老表结构编写，任何漂移都会让该用例失败；
+- 账号服务：`internal/store/schema_parity_test.go` 冻结了主仓库 `auth` schema 的终态（含迁移 000009 的 PKCE 列），
+  保证全新库上建出来的表与线上一致。
+
+因此切流前只需要跑 `go test ./...` 就能确认"新库能承受老代码的 SQL"，不必等真实请求报错。
 
 ## 1. 切流顺序与逐步操作
 
