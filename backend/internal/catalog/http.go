@@ -273,7 +273,17 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		c.Next()
 	})
 	cat := api.Group("/catalog")
-	cat.GET("/definitions", func(c *gin.Context) { v, err := s.Definitions(c.Request.Context()); respond(c, v, err) })
+	// 发布的定义文档 + 固定骨架的多语言名称。kinds 放在文档**外面**：它是骨架的显示名，
+	// 不是可编辑的动态定义（放进 document 会被后台保存时当成未知键处理），但同样必须由服务端
+	// 提供多语言，前端不硬编码。
+	cat.GET("/definitions", func(c *gin.Context) {
+		v, err := s.Definitions(c.Request.Context())
+		if err != nil {
+			respond(c, nil, err)
+			return
+		}
+		respond(c, gin.H{"id": v.ID, "state": v.State, "base_version": v.BaseVersion, "document": v.Document, "created_at": v.CreatedAt, "kinds": KindNames()}, nil)
+	})
 	// 标签聚合：标签不是独立字典表，而是散落在各实体的 attributes.tags 中。
 	// jsonb_array_elements_text 展开数组就地统计频次，供前端标签云与筛选建议；
 	// 只统计已发布实体（与列表接口的匿名可见性口径一致）。

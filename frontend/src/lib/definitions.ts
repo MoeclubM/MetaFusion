@@ -92,6 +92,14 @@ export interface SchemeDef {
   enabled: boolean;
 }
 
+/** 固定八实体骨架的多语言名称（服务端 /api/catalog/definitions 的 kinds 字段）。
+ *  kind 是领域模型的一部分，名称由服务端提供；前端字典只做兜底，不再自带一份名称表。 */
+export interface KindDef {
+  names: Record<string, string>;
+}
+
+export type KindMap = Record<string, KindDef>;
+
 export interface DynamicDefinitions {
   types: Record<string, TypeDef>;
   fields: Record<string, FieldDef>;
@@ -142,6 +150,8 @@ export function effectiveSchemeFields(matched: SchemeDef[]): string[] {
 }
 
 let cachedDefinitions: DynamicDefinitions | null = null;
+// 骨架名称与定义文档同批缓存：两者一起随版本刷新，避免出现"文档换了名字没换"。
+let cachedKinds: KindMap = {};
 // 已发布定义的版本行 id：后台发布新版本后 id 变化，据此失效缓存。
 let cachedVersion = "";
 let definitionsPromise: Promise<DynamicDefinitions | null> | null = null;
@@ -158,6 +168,7 @@ async function loadDefinitions(): Promise<DynamicDefinitions | null> {
     .then((res) => (res.ok ? res.json() : null))
     .catch(() => null);
   if (!data?.document) return null;
+  if (data.kinds && typeof data.kinds === "object") cachedKinds = data.kinds as KindMap;
   // 乱序响应防护：更早发出的请求（seq 更小）晚到且已被更新响应应用时丢弃。
   if (seq < appliedSeq) return cachedDefinitions;
   appliedSeq = seq;
@@ -208,6 +219,7 @@ export async function refreshDefinitions(): Promise<DynamicDefinitions | null> {
 
 export function useDefinitions() {
   const [defs, setDefs] = useState<DynamicDefinitions | null>(cachedDefinitions);
+  const [kinds, setKinds] = useState<KindMap>(cachedKinds);
   const [loading, setLoading] = useState<boolean>(!cachedDefinitions);
 
   useEffect(() => {
@@ -215,6 +227,7 @@ export function useDefinitions() {
     const listener = (d: DynamicDefinitions | null) => {
       if (mounted) {
         setDefs(d);
+        setKinds(cachedKinds);
         setLoading(false);
       }
     };
@@ -225,6 +238,7 @@ export function useDefinitions() {
     fetchDefinitions().then((d) => {
       if (mounted) {
         setDefs(d);
+        setKinds(cachedKinds);
         setLoading(false);
       }
     });
@@ -238,7 +252,7 @@ export function useDefinitions() {
     };
   }, []);
 
-  return { definitions: defs, loading };
+  return { definitions: defs, kinds, loading };
 }
 
 /**
@@ -270,6 +284,24 @@ export function resolveLocalizedName(
   if (get("en-US") || get("en")) return get("en-US") || get("en");
   const values = Object.values(names).filter((v) => typeof v === "string" && (v as string).trim());
   return values.length > 0 ? (values[0] as string).trim() : fallback;
+}
+
+/**
+ * getKindName：实体类型（八骨架 kind）的显示名。
+ *
+ * 取服务端 kinds 的多语言名，缺失时回退调用方给的兜底文案（通常是前端字典的同名键）。
+ * 卡片角标、筛选器、详情页类型徽标都应走这里——不允许各处自己维护一份 kind 名称表，
+ * 更不允许把"业务分类"当成类型展示（分类由货架/类型承担，不是 kind）。
+ */
+export function getKindName(
+  kinds: KindMap | null | undefined,
+  kind: string,
+  locale: string,
+  fallback = ""
+): string {
+  const names = kinds?.[kind]?.names;
+  const resolved = resolveLocalizedName(names, locale, "");
+  return resolved || fallback || kind;
 }
 
 export function getTypeName(

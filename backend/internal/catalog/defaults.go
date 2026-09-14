@@ -33,6 +33,30 @@ func (d Definitions) PrimaryDateField(typeCode string) string {
 	}
 	return tpl.PrimaryDateField
 }
+
+// KindNames 是固定八实体骨架的**多语言显示名**（服务端唯一来源）。
+//
+// 为什么不放在前端字典里：kind 是领域模型的组成部分（不是界面装饰），它的名称属于"服务端定义的名称"，
+// 必须和类型/字段/关系名一样可多语言、可被任何客户端（Web / Agent / 第三方）取用；
+// 前端字典只保留兜底，服务端给了就以服务端为准。
+//
+// 四语齐备（zh-CN / zh-TW / ja-JP / en-US）：缺哪一语都会让该语种用户看到英文占位。
+func KindNames() map[string]Names {
+	out := map[string]Names{}
+	for _, x := range [][5]string{
+		{"agent", "主体", "主體", "主体", "Agents"},
+		{"collection", "集合", "集合", "コレクション", "Collections"},
+		{"work", "作品", "作品", "作品", "Works"},
+		{"content_unit", "内容单元", "內容單元", "コンテンツ単位", "Content units"},
+		{"expression", "内容表达", "內容表達", "内容表現", "Expressions"},
+		{"release", "发行版本", "發行版本", "リリース", "Releases"},
+		{"medium", "载体", "載體", "キャリア", "Media (carrier)"},
+		{"track", "收录位置", "收錄位置", "収録位置", "Tracks"},
+	} {
+		out[x[0]] = names4(x[1], x[2], x[3], x[4])
+	}
+	return out
+}
 func Defaults() Definitions {
 	d := Definitions{Types: map[string]TypeDefinition{}, Fields: map[string]Field{}, Vocabularies: map[string]Vocabulary{}, Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
 	field := func(code, zh, en, typ string) {
@@ -303,15 +327,15 @@ func Defaults() Definitions {
 			addRel("translated_by", "译者", "Translated by", "翻译了", "Translator of", []string{"work", "content_unit", "expression"}, []string{"agent"}, "credits", false)
 		}
 	}
-		// 场景示例（纯示范，默认关闭，供后台按需启用或扩展）：黑胶上下文 locator 只收敛到唱片面相关子集。
-		// 默认设为 Enabled: false，避免未经 Medium 介质格式细分前误伤其他媒体（如纸书页码、音视频时间码）。
-		d.Schemes = map[string]Scheme{
-			"vinyl_track_locator": {
-				Names: names("黑胶定位", "Vinyl locator"), Slot: "locator",
-				Kinds:   []string{"track"},
-				Fields:  []string{"relative_to", "chapter", "path"},
-				Enabled: false,
-			},
-		}
+	// 场景示例（纯示范，默认关闭，供后台按需启用或扩展）：黑胶上下文 locator 只收敛到唱片面相关子集。
+	// 默认设为 Enabled: false，避免未经 Medium 介质格式细分前误伤其他媒体（如纸书页码、音视频时间码）。
+	d.Schemes = map[string]Scheme{
+		"vinyl_track_locator": {
+			Names: names("黑胶定位", "Vinyl locator"), Slot: "locator",
+			Kinds:   []string{"track"},
+			Fields:  []string{"relative_to", "chapter", "path"},
+			Enabled: false,
+		},
+	}
 	return d
 }

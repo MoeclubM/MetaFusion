@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useDefinitions, getTypeName } from "@/lib/definitions";
+import { useDefinitions, getTypeName, getKindName } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import {
@@ -102,7 +102,7 @@ function ExploreInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const { definitions } = useDefinitions();
+  const { definitions, kinds } = useDefinitions();
   const titleOrder = useTitleDisplayOrder();
 
   const currentKind = searchParams.get("kind") || "all";
@@ -198,7 +198,9 @@ function ExploreInner() {
     router.push("/explore?" + params.toString());
   };
 
-  const kindLabel = (id: string) => t("catalog.kind." + id);
+  // 实体类型（八骨架 kind）显示名：服务端 definitions 的 kinds 优先，前端字典兜底。
+  // 左栏筛选与卡片角标都用它——"分类"不在这里，分类由货架承担。
+  const kindLabel = (id: string) => getKindName(kinds, id, locale, tr("catalog.kind." + id, id));
 
   // 当前所在层：用于左栏高亮，未选中具体 kind 时不强调任何层。
   const activeLayer = useMemo(
@@ -446,10 +448,10 @@ function ExploreInner() {
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
                 {items.map((item) => {
                   const KindIcon = KIND_ICONS[item.kind] || Layers;
-                  const kindText = kindLabel(item.kind);
                   const typeLabels = (item.types || []).map((tCode) => getTypeName(definitions, tCode, locale));
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
-                  const badgeLabel = typeLabels[0] || kindText;
+                  // 角标 = 实体类型（kind）；业务类型留在正文的类型标签里，不做成"分类"角标。
+                  const badgeLabel = kindLabel(item.kind);
 
                   return (
                     <Link
@@ -498,8 +500,7 @@ function ExploreInner() {
                             ))}
                           </div>
                         </div>
-                        <div className="mt-2.5 pt-1.5 border-t border-black/5 dark:border-white/[0.04] flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 font-mono">
-                          <span>{kindText}</span>
+                        <div className="mt-2.5 pt-1.5 border-t border-black/5 dark:border-white/[0.04] flex items-center justify-end text-[10px] text-gray-500 dark:text-gray-400 font-mono">
                           <span className="group-hover:text-primary flex items-center gap-0.5">
                             {t("catalog.viewDetail")}
                           </span>
@@ -513,10 +514,10 @@ function ExploreInner() {
               <div className="rounded-xl border border-black/10 dark:border-white/[0.06] bg-surface overflow-hidden divide-y divide-black/5 dark:divide-white/[0.04] shadow-soft">
                 {items.map((item) => {
                   const KindIcon = KIND_ICONS[item.kind] || Layers;
-                  const kindText = kindLabel(item.kind);
                   const typeLabels = (item.types || []).map((tCode) => getTypeName(definitions, tCode, locale));
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
-                  const badgeLabel = typeLabels[0] || kindText;
+                  // 角标 = 实体类型（kind）；业务类型留在正文的类型标签里，不做成"分类"角标。
+                  const badgeLabel = kindLabel(item.kind);
 
                   return (
                     <Link
@@ -552,7 +553,7 @@ function ExploreInner() {
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 font-mono">
-                            <span>{kindText}</span>
+                            <span>{kindLabel(item.kind)}</span>
                             {typeLabels.length > 0 && (
                               <>
                                 <span>•</span>

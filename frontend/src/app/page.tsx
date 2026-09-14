@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useDefinitions, getTypeName, resolveLocalizedName } from "@/lib/definitions";
+import { useDefinitions, getKindName, resolveLocalizedName, type KindMap } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useAuth } from "@/lib/authContext";
@@ -76,9 +76,9 @@ function shelfTitle(shelf: PublicShelf, locale: string): string {
 }
 
 export default function HomePage() {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
   const router = useRouter();
-  const { definitions } = useDefinitions();
+  const { kinds } = useDefinitions();
   const titleOrder = useTitleDisplayOrder();
   const { user, loading: authLoading } = useAuth();
 
@@ -313,7 +313,9 @@ export default function HomePage() {
                       order: titleOrder,
                       originalLanguage: item.original_language,
                     });
-                    const badge = badgeFor(item, definitions, locale, t);
+                    // 角标显示**实体类型**（八骨架 kind），不是业务分类：
+                    // 分类由货架（catalog.shelves）承担，业务类型在卡片正文里另行展示。
+                    const badge = badgeFor(item.kind, kinds, locale, tr);
                     return (
                       <Link
                         key={item.id}
@@ -492,23 +494,16 @@ function shelfExploreParam(shelf: PublicShelf): string {
   return first ? `kind=work&type=${encodeURIComponent(first)}` : "kind=work";
 }
 
+// 卡片左上角角标 = 实体类型（八骨架 kind），名称取服务端 definitions 的多语言 kinds，
+// 缺失时回退前端字典的同名键。**不再**用业务类型当"分类"角标：
+//   * 业务类型（album/song/动画…）是动态类型，本就该在卡片正文里以类型标签呈现；
+//   * "分类"这件事只由货架（catalog.shelves，数据驱动、后台可配、名称多语言）承担。
+// 这样页面不再出现"系统自己发明一套固定分类"的东西。
 function badgeFor(
-  item: EntityItem,
-  defs: any,
+  kind: string,
+  kinds: KindMap | null,
   loc: string,
-  translate: (k: string) => string,
+  translate: (k: string, f: string) => string,
 ): string {
-  if (item.types && item.types.length > 0) {
-    for (const code of item.types) {
-      const name = getTypeName(defs, code, loc);
-      if (name && name !== code) return name;
-    }
-  }
-  const kindKey = "catalog.kind." + item.kind;
-  const translated = translate(kindKey);
-  if (translated && translated !== kindKey) return translated;
-  if (item.kind === "work") return translate("home.kind.work");
-  if (item.kind === "release") return translate("home.kind.release");
-  if (item.kind === "agent") return translate("home.kind.agent");
-  return item.kind;
+  return getKindName(kinds, kind, loc, translate("catalog.kind." + kind, kind));
 }

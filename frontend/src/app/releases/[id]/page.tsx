@@ -10,9 +10,9 @@ import { useI18n } from "@/i18n/I18nProvider";
 import {
   useDefinitions,
   getFieldName,
+  getKindName,
   getTermName,
 } from "@/lib/definitions";
-import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateAttributeSections";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
@@ -94,14 +94,6 @@ function localizedText(v: unknown, locale: string): string {
   return "";
 }
 
-function workMediaType(work?: Entity | null): string {
-  // 载体/篇目用词走服务端 types，不再用标题正则猜测。
-  // types 为 definitions type code（music/song/album/novel/animation/film/…），
-  // mediaLabels 的 switch 直接消费；未知 code 回退空字符串走通用标签。
-  const types = (work?.types || []).map((x) => String(x).toLowerCase());
-  if (types.length > 0) return types[0];
-  return "";
-}
 
 type Occurrence = {
   /** 引用形态：实体在批量响应的共享 entities 表里，按 id 取。 */
@@ -159,7 +151,7 @@ export default function ReleaseDetailPage() {
   const releaseId = params.id as string;
   const { t, locale } = useI18n();
   const { definition: catalogDef } = useCatalog();
-  const { definitions: dynamicDefs } = useDefinitions();
+  const { definitions: dynamicDefs, kinds } = useDefinitions();
 
   const [release, setRelease] = useState<Entity | null>(null);
   const [media, setMedia] = useState<{ medium: Entity; tracks: Entity[] }[]>([]);
@@ -451,9 +443,11 @@ export default function ReleaseDetailPage() {
 
   const primaryWorkId = release.subjects?.find((s) => s.role === "primary")?.work_id || release.subjects?.[0]?.work_id;
   const primaryWork = (primaryWorkId && works[primaryWorkId]) || null;
-  const mediaType = workMediaType(primaryWork);
-  const eLabel = entryLabel(mediaType, t);
-  const mLabel = mediumLabel(mediaType, t);
+  // 载体与篇目的用词一律取自服务端 definitions 的骨架名称：
+  // 旧的 mediaLabels 按遗留媒体类型（movie/anime/novel…）硬编码一套标签，
+  // 与本项目"无 media_type 传统分类"的设计相冲，且对真实 type code（album/song/film…）
+  // 基本全部落到默认分支——是只剩噪音的冗余。
+  const entryKindLabel = getKindName(kinds, "track", locale, t("catalog.kind.track"));
 
   // 版本类别与发行批次是两个独立维度（可同时成立，如"限定版 + 初回发行"），
   // 词表名一律取自 definitions，不在代码/前端字典里另存一份枚举。
@@ -527,7 +521,7 @@ export default function ReleaseDetailPage() {
               <Disc className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.5} />
             </span>
             <span className="font-display text-sm font-bold tracking-tight text-gray-900 dark:text-white truncate">
-              {depth === 0 && `${mLabel}${medium.position || ""} · `}
+              {depth === 0 && medium.position ? `${medium.position} · ` : ""}
               {mediumTitle}
             </span>
             {fmtLabel && ownFmt !== "unknown" && (
@@ -545,12 +539,14 @@ export default function ReleaseDetailPage() {
         </div>
         {ordered.length > 0 ? (
           <div className="overflow-x-auto">
-            <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-gray-500">{entryRowHeader(mediaType, t)}</div>
+            <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-gray-500">
+              {t("media.entryRow", { label: entryKindLabel })}
+            </div>
             <table className="w-full text-left text-xs min-w-[640px]">
               <thead className="bg-black/[0.02] dark:bg-white/[0.02] border-y border-black/5 dark:border-white/[0.06] font-mono text-[10px] uppercase tracking-wider text-gray-500">
                 <tr>
                   <th className="py-2 px-3.5 w-12 font-medium">{t("release.detail.tablePosition")}</th>
-                  <th className="py-2 px-3.5 font-medium">{t("release.detail.tableEntryTitle", { label: eLabel })}</th>
+                  <th className="py-2 px-3.5 font-medium">{entryKindLabel}</th>
                   <th className="py-2 px-3.5 font-medium">{t("release.detail.tableMasterEntry")}</th>
                   <th className="py-2 px-3.5 font-medium">{t("release.detail.tableCredit")}</th>
                   <th className="py-2 px-3.5 text-right font-medium">{t("release.detail.tableDuration")}</th>
