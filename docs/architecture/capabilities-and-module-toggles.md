@@ -1,5 +1,16 @@
 # 能力清单与模块开关的归宿（P4 决策稿）
 
+## 0. 落地结果（已完成，2026-09）
+
+采用**方案 A**，已在切流时落地：
+
+- `GET /api/capabilities` 保留原响应形状，数据来源改为「上游是否配置（`COMMUNITY_URL` / `STORAGE_URL`）+ 后台 `/health` 探测」，
+  实现从 `modules.Manager` 移到 `backend/internal/capabilities`；前端只需继续读同一个 id（当前唯一门控是 `community`）。
+- `PUT /api/admin/modules/:id` 退役，返回 `409 module_toggle_retired`；运行时开关与 `modules.settings` 表一并消失。
+- `modules` / `moduleapi` / `moduledeps` 三个包与 `modules` schema 已删除（schema 由 `./deploy.sh retire` 清理）。
+
+下面是当时的决策过程，保留以便追溯「为什么这样改」。
+
 切流前必须回答的问题：单体里的 `/api/capabilities` 与 `PUT /api/admin/modules/:id` 在拆分后代表什么。
 本文只描述现状、消费者与候选方案，**不改动运行时行为**。
 
@@ -55,11 +66,11 @@
 最干净，但必须同步改造前端（CatalogProvider 的 `modules` 退化、管理台面板报错），
 属于"破坏性变更"，与当前"不破坏既有契约"的约束冲突。
 
-## 5. 建议的落地顺序
+## 5. 落地顺序（全部已完成）
 
-1. P4 切流完成后，catalog 的 `Manifests()` 改为聚合实现（README/OpenAPI 同步）；
-2. 管理台模块面板改为只读健康视图（前端一个小改动，可独立提交）；
-3. 单体删除 `modules`/`moduleapi`/`moduledeps` 三个包与 `modules.settings` 表。
+1. ~~P4 切流完成后，catalog 的 `Manifests()` 改为聚合实现（README/OpenAPI 同步）~~ —— 已完成（`internal/capabilities`）；
+2. ~~管理台模块面板改为只读健康视图~~ —— 未改前端：面板沿用同一份清单数据，写入路径返回 409 后按错误提示处理；
+3. ~~单体删除 `modules`/`moduleapi`/`moduledeps` 三个包与 `modules.settings` 表~~ —— 已完成（三个包删除，表由 `./deploy.sh retire` 清理）。
 
 ## 6. 需要拍板
 

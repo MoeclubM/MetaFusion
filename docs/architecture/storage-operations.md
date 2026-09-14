@@ -10,11 +10,13 @@
   目录（backend）不再持有任何归档变量与归档卷。
 - 对象存储端口**不发布到宿主机**，只在 compose 网络内可达；浏览器直传需要让对象存储经反代对外可达，
   再设 `STORAGE_S3_PUBLIC_ENDPOINT` 指向该地址（见 `.env.example`）。
+- **桶由存储服务启动时自己创建**（`internal/objects` 的 `ensureBucket`：先探测再建、并发下按已存在容忍）；
+  不再有独立的一次性初始化容器——原 `minio/mc` 镜像已从 Docker Hub 撤下，拉不到会让整条部署链失败。
 - 未配置 S3 端点时存储服务走**本地对象模式**：文件落在 `storage_data` 卷里，直传改由服务端流式接收。
 - 目录侧与存储侧各用自有 schema（`catalog` / `storage`），**不跨 schema 建外键、不互相 JOIN**；
   实体可见性由存储服务向目录查询（`GET /api/catalog/entities/{id}`）后自行判定。
-- 旧单体时代的 `ARCHIVE_*` 变量、`catalog_archive` 卷与 `modules.resources` 表随模块包一并退役；
-  若旧容器可写层里还有资产，需先备份再按哈希核验后迁移，新增卷不会自动搬运。
+- 旧单体时代的 `ARCHIVE_*` 变量、`catalog_archive` 卷与 `modules.resources` 表随模块包一并退役（表已由
+  `./deploy.sh retire` 删除）；若旧容器可写层里还有资产，需先备份再按哈希核验后迁移，新增卷不会自动搬运。
 
 ## 契约与权限口径
 

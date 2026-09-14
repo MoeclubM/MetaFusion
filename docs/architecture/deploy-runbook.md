@@ -1,6 +1,11 @@
 # <prod-host> 线上部署手册与状态（findverse.cc）
 
-> 更新时间：2026-09-10（UTC）。线上 `~/metafusion` 已到 `main` `8c673fe`。
+> 更新时间：2026-09-14（UTC）。线上 `/root/metafusion` 已在 `codex/storage-history-cleanup` 上完成子系统切流
+> （账号 / 互动 / 存储三服务 + 网关，`./deploy.sh cutover`）并清掉拆分前的遗留结构（`./deploy.sh retire`）。
+>
+> **运维事实不在本文**：机器、连接方式、服务器注意事项等只在本机（不进版本库）的 `docs-local/` 里；
+> 本文只保留**已经发生过的部署动作记录**与验证清单，避免与 `docs-local/` 重复维护。
+
 
 ## 0.2 封面与关系扩展上线（2026-09-10 第三轮）
 
@@ -52,25 +57,38 @@
 
 ## 2. 部署链路
 
-生产机 `<prod-host>`（22 端口开放，IPv6 可达，仅 publickey 认证）。
+生产机 `<prod-host>`（22 端口开放，密码或密钥认证；连接信息只记录在不进库的 `docs-local/`）。
 CI（`.github/workflows/ci.yml`）只有构建+测试，无部署步骤；仓库 secrets 为空。
-`deploy/` 支持两种生产更新方式（均需机器 SSH 权限）：
+`deploy/` 支持下面几种更新方式（均需机器 SSH 权限）：
 
 ```bash
 # A. 源码构建更新（需 Go/Node 环境，有构建耗时）
-./deploy.sh fast backend frontend
-./deploy.sh migrate up   # 000002_catalog_shelves 等迁移
+./deploy.sh fast backend frontend     # 也可只给一个服务名
+./deploy.sh migrate up               # 有新的目录库迁移时必须补跑
 
-# B. 预构建镜像更新（生产推荐，需 GHCR 可达，先合入 main 触发 release.yml 构建）
+# B. 预构建镜像更新（需 GHCR 可达，先合入 main 触发 release.yml 构建）
 docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+
+# C. 首次切换到拆分后的架构（只走一次）与遗留结构清理
+./deploy.sh cutover    # 构建 → 起基础设施与各子系统 → 目录库迁移 → 搬运旧表 → 最后拉起网关
+./deploy.sh retire     # 切流验证通过后：删 modules / media schema、catalog.favorites、临时备份表
 ```
+
+拆分后部署需要**三个子仓库与主仓库并列检出**（`/root/metafusion-auth`、`-community`、`-storage`），
+否则 compose 的跨仓库构建上下文不存在、这三个服务拉不起来。
 
 **`fast` 不会自动执行迁移**（只有 `prod` / `pull` 会）。历史结构退役、账号表搬迁等一次性数据迁移
 现在都在 `backend/migrations/`（启动 `schema.sql` 只剩幂等建表与种子），因此拉取含新迁移的代码后
 必须补跑一次 `./deploy.sh migrate up`，否则这些变更不会生效。
 
-网关：`deploy/nginx.conf`，`/api/*` 直通 backend:8080，无重写（前端已去 v1 前缀，直接对齐）。
+网关：`deploy/nginx.conf`，按前缀分流——`/api/catalog|capabilities|exchange|importer|openapi.json` 与 `/api/*` 兜底走
+`backend:8080`，`/api/setup`、`/api/auth/`、`/api/admin/users`、`/api/oauth/`、`/api/oidc/`、`/api/.well-known/` 走 `auth:8081`，
+`/api/community/`、`/api/favorites/`、`/api/records/`、`^/api/users/[^/]+/favorites$` 走 `community:8083`，
+`/api/storage/` 走 `storage:8082`，`/docs` 走 `docs-site:3001`，其余走 `frontend:3000`。
+判定分流是否生效看响应头 `X-MetaFusion-Service`（`metafusion-catalog` / `-auth` / `-community` / `-storage`）。
+**改完 `nginx.conf` 必须重载网关**（文件挂载，compose 不会因文件内容变化重建容器）：
+`docker exec metafusion-gateway nginx -t && docker exec metafusion-gateway nginx -s reload`。
 
 ## 3. SSH 访问（已解决）
 
@@ -93,6 +111,15 @@ curl -sI https://findverse.cc/ | head -n 1                                    # 
 回读 work/agent → 建 `voiced_by/performed_by` → occurrences 反查 → 四语标题检查
 （ja-JP / zh-TW / en-US 切换无裸 key）。
 
+切流后的分流自检（逐条打印前缀落到了哪个上游）：
+
+```bash
+for p in /api/catalog/definitions /api/setup /api/auth/settings /api/community/boards /api/favorites/status /api/storage/stats; do
+  printf '%-32s %s\n' "$p" "$(curl -s -o /dev/null -D - http://127.0.0.1:10100$p | tr -d '\r' | awk -F': ' 'tolower($1)=="x-metafusion-service"{print $2}')"
+done
+# 期望：catalog / auth / auth / community / community / storage
+```
+
 ## 5. 回滚
 
 ```bash
@@ -100,3 +127,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-o
 ```
 
 迁移 `000002_catalog_shelves` 有 down SQL；Definitions 发布走后台 impact 预演，可退回旧版。
+
+**切流后的回滚边界**：`./deploy.sh retire` 执行之后，旧表（`modules.*`、`catalog.favorites`）已经不存在，
+互动与存储不再有"搬回单体"的回滚路径，回滚只剩"改网关上游 + 用上一版镜像重建那一个服务"；
+切流前的 `pg_dump` 备份在同机 `/root/metafusion-backups/` 下。

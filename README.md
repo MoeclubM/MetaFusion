@@ -65,20 +65,25 @@
 
 ---
 
-## 🏗️ 系统架构全景：一体化元数据主系统 + 可选解耦模块
+## 🏗️ 系统架构全景：元数据目录主系统 + 独立子系统
 
-本仓库是**单一部署单元**：元数据主系统与前后端、网关、文档站共用一个 `cmd/server` 进程与统一 `/api` 前缀，通过数据库 schema 边界与可选模块（modules）实现外围能力解耦，而非按域拆分的多个微服务仓库。
+本仓库收敛为**元数据目录 + 前端 + 文档站 + 一键部署编排**。账号、互动、存储已拆成独立服务仓库，
+由边缘网关按 `/api/*` 前缀分流；各服务各自持有自己的 schema，不建跨 schema 外键、不 JOIN 别人的表，
+跨服务只按实体 UUID 走 HTTP 契约。
 
 ### 1. 仓库内实际组件 (Repository Components)
 
 | 组件 | 实现位置 | 定位 | 核心职责 |
 |---|---|---|---|
-| **元数据核心** | `backend/internal/catalog`、`backend/cmd/server` | **主系统** | 八大固定实体骨架、动态定义引擎、关系图谱、版本对比、协同审核与修订历史 |
-| **可选模块** | `backend/internal/modules`（边界 `moduleapi` / `moduledeps`） | 进程内独立 schema | 资源归档、播放、媒体、社区、记录、交换等可选能力，独立于 catalog 表并支持依赖启停 |
-| **认证与网关** | `backend/internal/catalog/http.go`、`deploy/nginx.conf` | 进程内认证 + 单端口边缘网关 | 会话认证、OAuth 2.0 / OIDC 端点、统一 `/api` 路由与限流，Nginx 负责 TLS/反代 |
+| **元数据目录** | `backend/internal/catalog`、`backend/cmd/server` | **主系统** | 八大固定实体骨架、动态定义引擎、关系图谱、版本对比、修订历史、`/api/exchange/*` 导入导出 |
 | **前端与文档站** | `frontend/`、`docs-site/` | 展示层 | Next.js 主站与管理中台；VitePress 静态文档站 |
+| **部署编排** | `deploy/`（`docker-compose.yml`、`nginx.conf`、`deploy.sh`、`sql/`） | 一键部署 | 单端口边缘网关、全部服务编排、切流/回滚与遗留结构清理 |
+| **独立子系统** | `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`、`../metafusion-api-gateway` | 兄弟仓库 | 账号与 RS256 令牌、论坛与互动记录、文件与内容寻址直传、路由矩阵 |
 
-> **解耦保障**：元数据核心数据库仅存放实体本体与关系图谱，**不反向持有物理文件路径或社区帖子**；外围能力通过稳定边界（`moduleapi.Catalog` 接口与领域事件）单向引用实体 UUID 挂载业务。即使资源或社区模块停用，元数据浏览、编辑与检索依然独立稳定可用。多仓库拆分仅为长期规划，详见下方 VISION 文档。
+> **解耦保障**：目录库只存实体本体与关系图谱，**不持有物理文件路径或社区帖子**；各服务的表在自己的 schema 里，
+> 互相只按实体 UUID 走 HTTP。目录服务停摆不影响互动/存储自身数据的完整性，反之亦然。
+> 边界与迁移顺序见 [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)，
+> 切流与回滚见 [切流手册](docs/architecture/cutover-runbook.md)。
 
 ### 2. 请求拓扑
 
@@ -86,23 +91,23 @@
                     [ 客户端 / Web 前端 / 移动端 / 自动化 Agent ]
                                       │
                                       ▼
-                          ┌────────────────────────┐
-                          │  Nginx 边缘网关 (单端口) │  TLS / 反代 / 限流
-                          └───────────┬────────────┘
-                                      │  /api/*
-                                      ▼
-                          ┌────────────────────────┐
-                          │  cmd/server (统一 /api) │
-                          │   catalog + modules     │
-                          └───────────┬────────────┘
-                                      │
-             ┌────────────┬───────────┼───────────┐
-             ▼            ▼           ▼           ▼
-        PostgreSQL     Redis     OpenSearch    RustFS
-        (元数据真源)  (已部署,未接入) (已部署,未接入) (已部署,未接线)
+                          ┌─────────────────────────┐
+                          │  Nginx 边缘网关 (单端口) │  按前缀分流；TLS 由外层反代接管
+                          └────────────┬────────────┘
+        ┌───────────────┬──────────────┼───────────────┬────────────────┐
+        ▼               ▼              ▼               ▼                ▼
+  /api/catalog/*   /api/auth/*  /api/community/*  /api/storage/*    前端 / 文档站
+   元数据目录        账号服务        互动服务         存储服务        Next.js / VitePress
+        │               │              │               │
+        └───────────────┴──── PostgreSQL 16 ────┬──────┘
+                          catalog / auth / community / storage 四个 schema
+                                                ├──── RustFS (S3 兼容，仅内网可达；桶由存储服务启动时自建)
+                                                └──── Redis / OpenSearch (常驻但尚未接线，见切流手册第 4 节)
 ```
 
-> 外围解耦的长期目标（独立 auth / storage / community / gateway 仓库）记录在 [`docs/architecture/multi-project-decoupling-spec.md`](docs/architecture/multi-project-decoupling-spec.md)，**尚未实现，请勿当作运行时事实**。
+> 各服务仓库的当前落地状态与「子项目各司其职」的边界，见
+> [子系统拆分与迁移契约](docs/architecture/service-split-migration.md) 与
+> [多项目解耦规范](docs/architecture/multi-project-decoupling-spec.md)。
 
 ---
 
@@ -113,7 +118,7 @@
 - **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
 - **数据库 (Storage & DB)**：PostgreSQL 16, Redis 7 (Alpine，Compose 已部署；Go 代码尚未接入), RustFS (S3-compatible Object Storage)
 - **检索引擎 (Search Engine)**：OpenSearch 2.14.0（Compose 已部署；Go 代码尚未接入，当前检索走 PostgreSQL）
-- **媒体处理 (Media Pipeline)**：FFmpeg / ffprobe（由可选 `media` 模块在服务进程内调用）
+- **媒体处理 (Media Pipeline)**：FFmpeg / ffprobe（原进程内 `media` 模块已随模块层退役；媒体分析尚未迁进存储服务，属既有缺口，见 [切流手册](docs/architecture/cutover-runbook.md) 第 4 节）
 - **容器与网关 (Infra)**：Docker, Docker Compose v2, Nginx 1.25 Alpine
 
 ---
@@ -128,14 +133,22 @@
 ### 2. 获取代码与配置环境
 
 ```bash
-# 克隆仓库
+# 克隆主仓库
 git clone https://github.com/MoeclubM/MetaFusion.git
+cd MetaFusion
+
+# 账号 / 互动 / 存储三个子系统的构建上下文在兄弟目录（compose 里的 ../../metafusion-*），
+# 部署机上必须与主仓库并列检出，否则这三个服务拉不起来。
+cd .. && for r in metafusion-auth metafusion-community metafusion-storage; do
+  git clone https://github.com/MoeclubM/$r.git
+done
 cd MetaFusion
 
 # 从模板创建环境变量
 cp .env.example .env
 
-# 编辑 .env 配置生产级随机密钥 (DB_PASSWORD, MINIO_ROOT_PASSWORD, AUTH_JWT_PRIVATE_KEY)
+# 编辑 .env 配置生产级随机密钥 (DB_PASSWORD, MINIO_ROOT_PASSWORD, AUTH_JWT_PRIVATE_KEY；
+# AUTH_JWT_PRIVATE_KEY 必须在目录服务与账号服务之间共用同一把 RSA 私钥，否则登录后立刻掉线)
 ```
 
 ### 3. 一键启动部署
@@ -171,6 +184,17 @@ bash deploy/deploy.sh migrate status
 bash deploy/deploy.sh migrate up
 bash deploy/deploy.sh migrate down
 ```
+
+#### 选项 E：首次从单体切到拆分后的服务 (只走一次)
+```bash
+# 构建全部镜像 → 起基础设施与各子系统 → 目录库迁移 → 搬运旧表数据 → 最后拉起网关
+bash deploy/deploy.sh cutover
+
+# 切流验证通过后，清掉拆分前的遗留 schema 与临时表（不可逆，先自动核对搬运行数）
+bash deploy/deploy.sh retire
+```
+
+两者都在部署机（开发服务器）上执行，不在本机跑；步骤、判据与回滚见 [切流手册](docs/architecture/cutover-runbook.md)。
 
 ### 4. 访问服务与初始开箱 (OOBE)
 

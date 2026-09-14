@@ -6,7 +6,7 @@
 
 `cmd/server/main.go` 作为纯净的单一启动入口：核心仅依赖 PostgreSQL。核心不强制初始化 Redis、S3 或 OpenSearch。外围初始化失败只影响能力接口和外围路由，目录仍可正常启动与编辑。
 
-`moduleapi` 为稳定 DTO 接口，`moduledeps` 为独立 Semver/DAG 库。模块表没有指向核心表的外键，模块只能通过 Catalog 接口查询实体和提交提案。合并事件包含旧 ID 和目标 ID；outbox 与修订同事务，消费采用至少一次投递和事件 ID 去重。
+`moduleapi`（稳定 DTO 接口）与 `moduledeps`（Semver/DAG 依赖库）**已随子系统拆分退役**：原先以进程内模块承载的能力现在由独立服务承担，它们同样不持有指向核心表的外键，只能通过 HTTP 契约查询实体与提交提案。合并事件包含旧 ID 和目标 ID；outbox 与修订同事务，消费采用至少一次投递和事件 ID 去重。
 
 前端 `/catalog` 使用独立 CatalogProvider，根布局不挂载全局播放器。资源、社区与个人记录组件动态导入，先检查能力再请求自己的 API。外部图片以带来源的核心引用保存，文件模块关闭不影响封面。
 

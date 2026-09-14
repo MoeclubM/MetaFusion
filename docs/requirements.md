@@ -2,7 +2,7 @@
 
 > 最后更新：2026-08-20 | 状态：已确认 | 维护人：MoeClubM
 
-> **⚠️ 接口示例已过期（旧模型已废弃）**：本文档成文于统一 `/api` 主干与固定八实体骨架落地之前，文中出现的 `Artist` / `CanonicalEntry` / `/api/v1/*`、`/auth/register`、`/api/search`、`/storage/*`、`/catalog/submit` 等均为旧设计，**当前实现并不存在这些端点或实体**。现行为：读走 `GET /api/catalog/entities*`、`GET /api/catalog/definitions`、`GET /api/catalog/compare`；写入统一为 `POST|PUT /api/catalog/entities`、`/api/catalog/relations`、`/api/catalog/entities/:id/lifecycle`；媒体资产走可选 `archive` / `playback` 模块的 `/api/archive/*`、`/api/playback/*`；认证为 `/api/auth/*` 与 `/api/oauth/*`。本文档保留其产品边界与风控意图，接口细节以 OpenAPI（`/api/openapi.json`）与 `backend/internal/catalog/http.go` 为准。
+> **⚠️ 接口示例已过期（旧模型已废弃）**：本文档成文于统一 `/api` 主干与固定八实体骨架落地之前，文中出现的 `Artist` / `CanonicalEntry` / `/api/v1/*`、`/auth/register`、`/api/search`、`/storage/*`、`/catalog/submit` 等均为旧设计，**当前实现并不存在这些端点或实体**。现行为：读走 `GET /api/catalog/entities*`、`GET /api/catalog/definitions`、`GET /api/catalog/compare`；写入统一为 `POST|PUT /api/catalog/entities`、`/api/catalog/relations`、`/api/catalog/entities/:id/lifecycle`；媒体资产走存储服务的 `/api/storage/*`（旧的 `/api/archive/*`、`/api/playback/*`、`/api/media/*` 前缀已随拆分退役）；认证为账号服务的 `/api/auth/*` 与 `/api/oauth/*`。本文档保留其产品边界与风控意图，接口细节以 OpenAPI（`/api/openapi.json`）与 `backend/internal/catalog/http.go` 为准。
 
 ## 0. 摘要
 

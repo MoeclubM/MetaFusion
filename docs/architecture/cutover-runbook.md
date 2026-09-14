@@ -70,21 +70,23 @@ GATEWAY=https://<host> DSNS="postgres://…/metafusion_db" ./scripts/cutover-che
 
 按"风险从低到高"排序：先切前端完全没在用的存储，最后切最关键、有实时数据的互动。
 
+> **已用 `./deploy.sh cutover` 一次性切完的实例不需要再逐步执行这一步；
+> 下面三步保留给「有在线数据、必须按前缀分批切」的实例，以及未来回滚演练时的参照。**
+
 ### 第 1 步：storage（前端不调用，风险最低）
 
+存储契约是 `/api/storage/*`，网关矩阵里这几处 location 从 P1 起就指向 `http://storage:8082`，
+所以这一步**没有「切流」动作**，只需要确认服务健康：
+
 ```bash
-# 网关：/api/storage/ 的 3 处 upstream 已是 storage:8082（P1 起就是），无需改动。
-# 真正要切的是旧的 archive/playback/media 前缀（当前指单体）：
-#   把 /api/archive/、/api/playback/、/api/media/ 三处 upstream 改为 http://storage:8082
-docker compose -f deploy/docker-compose.yml up -d --force-recreate gateway
+curl -s -o /dev/null -w '%{http_code}\n' http://<host>/api/storage/stats   # 401 = 已在鉴权，符合预期
 ```
 
-验证：`curl -fsS -H "Authorization: Bearer <token>" https://<host>/api/storage/stats` 返回 JSON；
-前端**无感**（确认过：前端源码里没有任何 `/archive/`、`/playback/`、`/media/`、`/storage/` 调用）。
-
-回滚：把三处 upstream 指回 `http://catalog:8080`。
-数据：单体写 `modules.resources/resource_bindings`，服务写 `storage.assets/bindings`，**两者不互通**；
-切流前若单体已有资源行，需先确认这些行是否仍需可见——当前前端不消费，属历史数据。
+- 单体从来没有 `/api/storage/*`，因此不存在「切回单体」的回滚路径；真要退就是停掉这些 location。
+- 旧的 `/api/archive/`、`/api/playback/`、`/api/media/` 前缀已退役：网关不再为它们单列 location
+  （落到 `/api/` 兜底），前端也从不调用它们（已核对源码）。
+- 媒体分析（ffprobe 探针、预览转码）没有迁进存储服务，属既有缺口，见第 4 节。
+- `modules.resources` / `resource_bindings` 当时为空，且已随 `./deploy.sh retire` 删除，没有数据要搬。
 
 ### 第 2 步：auth（零数据迁移，回滚成本最低）
 
@@ -131,7 +133,7 @@ docker compose --env-file ../.env -f docker-compose.yml run --rm community-migra
 docker compose --env-file ../.env -f docker-compose.yml run --rm community-migrate -direction back
 # 然后网关四处 upstream 指回 http://catalog:8080
 ```
-顺序不能颠倒：先改网关再搬数据，会让回滚窗口内的新帖在单体侧"消失"。
+顺序不能颠倒：先改网关再搬数据，会让回滚窗口内的新帖在单体侧消失。
 
 ### 第 4 步：下线遗留结构（切流验证通过后，一条命令）
 

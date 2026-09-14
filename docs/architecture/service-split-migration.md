@@ -63,18 +63,26 @@
 
 ## 5. 迁移阶段与验收
 
-> **进度**：P0 已完成（本文冻结 + 网关路由矩阵按状态重排）；P1 已完成
-> （metafusion-storage 实现 `/api/storage/*`：内容寻址、秒传与分片预签名直传、`binding_role` 用途绑定、
-> 统一读取可见性、哈希校验；网关已把 `/api/storage/*` 指向 storage，旧 `/api/archive|playback|media` 仍指单体）。
-> **P2 已完成**（metafusion-community 承接论坛/短评/互动记录，路径与请求响应形状与单体逐字一致，
-> 附幂等导入工具 `cmd/migrate`；切流仍需在 P4 执行）。
-> **P3 已完成服务侧**（metafusion-auth 承接账号/会话/OAuth2.0/OIDC 与 RS256 令牌签发验签，
-> 表位于既有独立 `auth` schema，因此**无需数据搬运**；切流与"单体只验签"仍在 P4）。
-> **P2/P3 收藏已归位**：`community.favorites` 承接 `/api/favorites/*` 与 `/api/users/{id}/favorites`，
-> 导入工具按 `catalog.favorites → community.favorites` 一次性搬运。
-> **遗留**：收藏"是否公开"仍只有前端只读占位（`settings/page.tsx` 的开关是 `disabled readOnly`，
-> 目录侧无字段），迁移后的接口恒返回 `visible: true`；实现该开关时归互动服务。
-> P4-P5 未开始。文档站 `api-storage.md` 仍标"未实现"，属于 P5 去重时要一并更新的内容。
+> **进度**：P0–P4 已在开发实例上落地；P5（文档去重）未开始。
+>
+> - **P1 已完成**：metafusion-storage 实现 `/api/storage/*`（内容寻址、秒传与分片预签名直传、`binding_role` 绑定、
+>   统一读取可见性、哈希校验）；网关把 `/api/storage/*` 指向 storage。存储桶改由服务启动时自建，
+>   不再依赖 `minio/mc` 初始化容器（该镜像已从 Docker Hub 撤下）。
+> - **P2 已完成**：metafusion-community 承接论坛/短评/互动记录/收藏，路径与请求响应形状与单体逐字一致；
+>   幂等搬运工具 `cmd/migrate` 与互动服务共用镜像，切流时由编排直接调用。
+> - **P3 已完成**：metafusion-auth 承接账号/会话/OAuth2.0/OIDC 与 RS256 签发验签，表在既有独立 `auth` schema，
+>   **无需数据搬运**。
+> - **P4 已完成（2026-09-14，开发实例）**：`./deploy.sh cutover` 一次完成构建 → 起服务 → 目录库迁移 →
+>   搬运旧表（forward 全量核对）→ 拉起网关；网关矩阵 18 条 location 逐前缀验证 `X-MetaFusion-Service`
+>   分别落到 catalog/auth/community/storage；随后 `./deploy.sh retire` 删除 `modules` / `media` schema、
+>   `catalog.favorites` 与手工迁移遗留的临时备份表。库里最终只剩 `catalog` / `auth` / `community` / `storage`。
+> - **P4 代码侧只做了前半段**：`modules`/`moduleapi`/`moduledeps` 三个包、模块装配与路由已删；
+>   单体里 `catalog/identity.go`、`token.go`、`favorites.go`（约 859 行）**仍在**，路由已切走但未删代码，
+>   收敛为"只保留 RS256 验签"是下一步独立代码单元。
+> - **遗留**：收藏"是否公开"仍只有前端只读占位（`settings/page.tsx` 的开关是 `disabled readOnly`，
+>   目录侧无字段），迁移后的接口恒返回 `visible: true`；实现该开关时归互动服务。
+> - **P5 未开始**：`metafusion-docs` 与主仓库 `docs-site` 仍是两份；主仓库 `docs-site/docs/api-storage.md`
+>   已于 2026-09 改写为真实契约，去重时以哪一份为唯一源仍需拍板。
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
@@ -82,7 +90,7 @@
 | P1 | storage：实现 `/api/storage/*`（CAS、秒传、分片预签名、绑定角色、下载、预览、哈希校验） | ✅ 新仓库 `go build/vet/test` 通过；本仓库 archive/media 端点保持可用，未切流 |
 | P2 | community：迁移论坛/短评/收藏/记录，**保留现有 `/topics`、`/boards` 契约与请求/响应形状** | ✅ 论坛/短评/记录已迁（16 条路由与单体逐字一致，`go build/vet/test` 通过）；收藏随 P3 迁移 |
 | P3 | auth：迁出 setup/auth/admin/oauth；catalog 改为只验签 | ✅ 服务侧完成（30 条路径与单体一致 + OIDC 标准根路径；`go build/vet/test` 通过，含令牌闭环与 PKCE 单测）。切流与单体只验签在 P4 执行 |
-| P4 | catalog 瘦身 + 网关切流：下线 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` 与 `modules` 包 | 网关逐前缀切换可回退；主仓库只剩目录职责 |
+| P4 | catalog 瘦身 + 网关切流：下线 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` 与 `modules` 包 | ✅ 服务端已切流并验证（网关逐前缀可回退）；`modules` 包与旧 schema 已删；**单体账号代码待收敛为只验签** |
 | P5 | 文档去重：`metafusion-docs` 为唯一源，本仓库 `docs-site` 移除/compose 收敛 | 只有一份 md；`docker compose config` 通过 |
 
 每个阶段独立提交、独立可回退；不回滚别人的改动，也不做双向写入。
