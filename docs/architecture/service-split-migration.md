@@ -78,7 +78,7 @@
 
 | 仓库 | 偏差 | 修正 |
 | --- | --- | --- |
-| metafusion-community | 路由写成 `/threads`、`/categories`、`/entities/:id/rate`；模型用 `Category/Thread/Post(floor)` | 改为现有契约 `/boards`、`/topics`、`/topic-tags`、`post_number`，模型含双语板块名与标签 \
+| metafusion-community | 路由写成 `/threads`、`/categories`、`/entities/:id/rate`；模型用 `Category/Thread/Post(floor)` | 改为现有契约 `/boards`、`/topics`、`/topic-tags`、`community_post_number`，模型含双语板块名与标签 |
 | metafusion-auth | discovery 在根路径、JWKS 路径 `/.well-known/jwks.json`、issuer 无 `/api`；缺 `/api/setup`、`/api/admin/users`、OAuth 客户端管理 | 与第 2 节路径一致；issuer 与 catalog 现值一致 |
 | metafusion-storage | 模型用 GORM；路由 `/api/storage/entities/:id/bindings` 与文档的 `/api/storage/bind` 不一致 | 用与主仓库一致的 `database/sql`；路由以 `docs-site/docs/api-storage.md` 的契约为准 |
 | metafusion-storage / -auth / -community | 无 `go.sum`，`go build` 直接失败 | 补齐依赖锁（`go mod tidy`）并纳入提交 |
