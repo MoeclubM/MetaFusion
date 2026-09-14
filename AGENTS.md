@@ -4,8 +4,9 @@
 
 ## 0. 项目级技能与本地开发日志
 
-- 动手前先读 `.cursor/skills/metafusion-dev/SKILL.md`（项目级开发技能）：本地敏感开发日志的要求、
-  开发规范（注释精简、单文件不过长、模块并行用子代理、改代码同步文档）与项目理念/需求边界。
+- 动手前先读 `skills/metafusion-dev/SKILL.md`（项目级开发技能）：本地敏感开发日志的要求、提交纪律、
+  开发规范（注释精简、单文件不过长、模块并行用子代理、改代码同步文档）、多语言零硬编码铁律与项目理念/需求边界。
+  技能放仓库根的 `skills/`（厂商中立），**不要放进 `.cursor/`、`.claude/` 这类单一编辑器私有目录**。
 - `docs-local/` 是不进 git 的本地开发日志（部署信息、子项目路径、服务器注意事项、已知坑）。
   **任务开始读它，任务结束把新信息写回去**；口令与私钥只记录来源，不复制进仓库。
 
@@ -43,7 +44,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 | 后端 API / 数据模型 | `backend/internal/catalog/`（统一入口 `/api`，路由见 `http.go:Register`） |
 | 数据库与完整性约束 | `backend/migrations/`（版本化迁移，`000001_catalog_core` 起）；实际表结构与复合外键约束以 `backend/internal/catalog/schema.sql` 与 `store.go` 为准；只把已执行迁移视为目标实例能力 |
 | 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US,zh-TW,ja-JP}.json` |
-| 插件与解耦 | `backend/internal/{moduleapi,moduledeps,modules}`、[插件架构（VISION，未实现）](docs/architecture/plugin-decoupling-blueprint.md) |
+| 子系统边界与迁移 | [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)、[切流手册](docs/architecture/cutover-runbook.md)、[资源存储运行约定](docs/architecture/storage-operations.md)；账号 / 互动 / 存储分别在 `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`（原 `internal/modules` 已退役） |
 | 部署与 CI | `deploy/docker-compose.yml`、`.github/workflows/ci.yml` |
 | 用户 / LLM 编辑教程 | [Agent 接入](docs-site/docs/agent-integration.md)、[Agent API](docs-site/docs/api-agent.md) |
 
@@ -60,7 +61,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 - [metafusion-curator](https://github.com/MoeclubM/metafusion-skills/blob/main/skills/metafusion-curator/SKILL.md)：操作流程、证据、API 写入与回读。
 - [lrm-catalog-standards](https://github.com/MoeclubM/metafusion-skills/blob/main/skills/lrm-catalog-standards/SKILL.md)：实体边界、发行版命名与内容复用。
 
-优先使用已经安装的技能；可从同级 `../metafusion-skills/skills/` 读取源码，或将两个技能目录一起安装到 `.cursor/skills/`。主仓库并不保证已经安装技能。不要把整个技能仓库误放成单个技能，也不要同时维护多份规范；修改技能源码时在其独立仓库检查并提交。技能不可读时，先报告缺失，暂停真实编目写入；普通代码/文档任务不因此要求安装技能。
+优先使用已经安装的技能；可从同级 `../metafusion-skills/skills/` 读取源码，或把技能目录复制到本仓库根的 `skills/`（厂商中立，各 agent 都能读）。主仓库并不保证已经安装技能。不要把整个技能仓库误放成单个技能，也不要同时维护多份规范；修改技能源码时在其独立仓库检查并提交。技能不可读时，先报告缺失，暂停真实编目写入；普通代码/文档任务不因此要求安装技能。
 
 ### 必须保持的边界
 

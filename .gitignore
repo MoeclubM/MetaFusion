@@ -74,15 +74,14 @@ Desktop.ini
 # 目录内含部署信息、子项目路径、服务器注意事项等敏感本地上下文，规则见 docs-local/README.md
 docs-local/
 
-# --- AI / 协作工具产物（不入库）---
+# --- 各编辑器的私有工作区状态（不入库）---
+# 项目技能与规则放在仓库根的 skills/（厂商中立），不要放进任何单一编辑器目录。
 .mimosa/
 **/.mimosa/
 .zcode/
 .muse/
 .claude/
-.cursor/*
-!.cursor/skills/
-!.cursor/rules/
+.cursor/
 .trae/
 
 # --- 缓存 ---
