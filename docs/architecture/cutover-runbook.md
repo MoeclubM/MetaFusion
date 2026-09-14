@@ -3,6 +3,21 @@
 配套文档：[子系统拆分与迁移契约](./service-split-migration.md)。本手册描述**如何把流量从单体切到各服务**，
 以及**每一步怎么验、怎么退**。所有命令都在有数据库访问权的运维机上执行。
 
+## 一次性切流（已脚本化）
+
+首次把实例切到拆分后的架构，在部署机（开发服务器）上一条命令即可：
+
+```bash
+cd deploy && ./deploy.sh cutover
+```
+
+它按本手册第 1 章的顺序执行：构建全部镜像 → 起基础设施与账号/互动/存储/目录 →
+目录库版本化迁移 → `community-migrate -direction forward` 搬运旧表数据 →
+最后拉起网关（网关以各上游 `/ready` 为健康门控，上游没就绪就不开门）。
+
+本手册其余部分说明每一步的判据、数据方向与回滚方式；手工逐步操作时按章节顺序执行，
+结论与脚本化路径一致。
+
 ## 0. 切流前的硬前提
 
 | 前提 | 判据 |
@@ -11,7 +26,7 @@
 | **RSA 私钥一致** | auth 与 catalog 的 `AUTH_JWT_PRIVATE_KEY` 必须同一把密钥：否则切到 auth 后登录签发的令牌在 catalog 侧验签失败，用户会立刻掉线 |
 | issuer/audience 一致 | 两处 `AUTH_JWT_ISSUER=https://findverse.cc/api`、`AUTH_JWT_AUDIENCE=metafusion` |
 | 数据库可达 | 三个服务与单体连同一个 PostgreSQL 实例（各用自有 schema） |
-| 导入演练 | `go run cmd/migrate -dry-run`（metafusion-community）能打印各源表行数，且不写入 |
+| 导入演练 | `docker compose run --rm community-migrate -direction forward -dry-run` 能打印各源表行数，且不写入 |
 | 回滚路径可用 | 网关配置可改（每前缀一行 `set $x_backend`），并能重启 gateway 容器 |
 | 服务身份可辨 | 三个服务会在响应头返回 `X-MetaFusion-Service`；切流自检据此确认前缀切到了目标上游 |
 
@@ -79,8 +94,11 @@ docker compose -f deploy/docker-compose.yml up -d --force-recreate gateway
 
 ```bash
 # 1) 切换前立刻补增量（此刻单体仍是唯一写入方）
-cd metafusion-community && go run cmd/migrate -direction forward -dry-run   # 先看行数
-cd metafusion-community && go run cmd/migrate -direction forward             # 再搬
+#    搬运工具与互动服务共用同一镜像，因此搬运用的一定是当前部署的代码；
+#    它幂等且只读源表，可以随时重跑补增量。
+cd deploy
+docker compose --env-file ../.env -f docker-compose.yml run --rm community-migrate -direction forward -dry-run
+docker compose --env-file ../.env -f docker-compose.yml run --rm community-migrate -direction forward
 
 # 2) 网关：把 /api/community/、/api/records/、/api/favorites/、/api/users/{id}/favorites
 #    四处 upstream 改为 http://community:8083
@@ -95,8 +113,9 @@ docker compose -f deploy/docker-compose.yml up -d --force-recreate gateway
 
 **回滚（关键）**：先把服务期间写入的行搬回单体，再改网关。
 ```bash
-cd metafusion-community && go run cmd/migrate -direction back -dry-run
-cd metafusion-community && go run cmd/migrate -direction back
+cd deploy
+docker compose --env-file ../.env -f docker-compose.yml run --rm community-migrate -direction back -dry-run
+docker compose --env-file ../.env -f docker-compose.yml run --rm community-migrate -direction back
 # 然后网关四处 upstream 指回 http://catalog:8080
 ```
 顺序不能颠倒：先改网关再搬数据，会让回滚窗口内的新帖在单体侧"消失"。

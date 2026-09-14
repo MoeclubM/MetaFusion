@@ -34,6 +34,7 @@ function print_usage() {
     echo ""
     echo "操作模式 (Actions):"
     echo "  fast [service]  - 增量极速更新指定服务 (默认)，自动复用构建缓存 (几秒内完成)"
+    echo "  cutover         - 首次从单体切到拆分后的服务 (搬数据 → 换网关，只走一次)"
     echo "  dev             - 启动热重载开发模式 (源码挂载，修改代码免构建秒级生效)"
     echo "  prod            - 完整生产模式冷启动"
     echo "  pull            - 直接拉取 GHCR 预构建生产镜像并启动 (免本地编译)"
@@ -69,6 +70,28 @@ case "$ACTION" in
         echo "🧹 自动清理悬空层..."
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 极速部署完成！"
+        ;;
+
+    cutover)
+        # 首次把实例从单体切到拆分后的服务：搬数据在前、换网关在后，顺序不可颠倒
+        # （搬运必须在单体仍是唯一写入方时完成，见 docs/architecture/cutover-runbook.md）。
+        # 日常迭代仍用 ./deploy.sh fast；本动作只走一次，回滚见手册第 1 章。
+        export DOCKER_BUILDKIT=1
+        echo "🏗️  构建全部服务镜像..."
+        docker compose $COMPOSE_ENV -f docker-compose.yml build
+        echo "🚀 启动基础设施 (Postgres / Redis / RustFS + 桶初始化)..."
+        docker compose $COMPOSE_ENV -f docker-compose.yml up -d postgres redis rustfs storage-init
+        echo "🚀 启动各子系统 (账号 / 互动 / 存储 / 目录)..."
+        docker compose $COMPOSE_ENV -f docker-compose.yml up -d auth community storage backend
+        echo "🗄️  执行目录库版本化迁移..."
+        docker compose $COMPOSE_ENV -f docker-compose.yml exec -T -e DB_HOST=postgres backend /app/migrate up
+        echo "📦 把主仓库旧表搬进 community schema（幂等，可重复运行补增量）..."
+        docker compose $COMPOSE_ENV -f docker-compose.yml run --rm community-migrate -direction forward
+        echo "🌐 拉起前端 / 文档站 / 网关（网关等各上游 /ready 通过后才开门）..."
+        docker compose $COMPOSE_ENV -f docker-compose.yml up -d --remove-orphans
+        echo "🧹 自动清理悬空层..."
+        docker image prune -f >/dev/null 2>&1 || true
+        echo "✅ 切流完成；自检：GATEWAY=https://<host> ../metafusion-api-gateway/scripts/cutover-check.sh"
         ;;
 
     prod)

@@ -190,6 +190,35 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
+  # 5b. 互动数据搬运工具（一次性）— 把主仓库旧表搬进 community.*
+  #     forward：modules.forum_* / modules.records / catalog.favorites → community.*
+  #     back   ：反向搬运，仅用于"切流后还要退回单体"的回滚窗口。
+  #     幂等（全部 ON CONFLICT DO NOTHING）、只读源表，可重复运行补增量。
+  #     常驻编排不启动它（profiles: tools），只在切流窗口显式调用：
+  #       docker compose run --rm community-migrate -direction forward -dry-run
+  #       docker compose run --rm community-migrate -direction forward
+  #     与 community 共用同一镜像，保证搬运逻辑与被部署的代码是同一份。
+  # --------------------------------------------------------------------------
+  community-migrate:
+    build:
+      context: ../../metafusion-community
+      dockerfile: Dockerfile
+    image: metafusion-community:${METAFUSION_TAG:-local}
+    profiles: ["tools"]
+    entrypoint: ["/app/community-migrate"]
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-metafusion}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      - DB_NAME=${DB_NAME:-metafusion_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
   # 6. 存储服务 (metafusion-storage) — 物理文件、内容寻址、去重、绑定与下载
   #    自有 storage schema；元数据不落在这里（只按实体 id 问目录服务可见性）。
   # --------------------------------------------------------------------------
