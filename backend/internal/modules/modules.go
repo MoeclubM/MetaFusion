@@ -38,6 +38,8 @@ func New(ctx context.Context, db *sql.DB, catalog moduleapi.Catalog, root string
 	_, err := db.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS modules;
  CREATE TABLE IF NOT EXISTS modules.settings(id text PRIMARY KEY,enabled boolean NOT NULL);
  CREATE TABLE IF NOT EXISTS modules.resources(id uuid PRIMARY KEY,entity_id uuid NOT NULL,owner_id uuid NOT NULL,public boolean NOT NULL DEFAULT false,name text NOT NULL,mime text NOT NULL,size bigint NOT NULL,hash text NOT NULL,created_at timestamptz NOT NULL DEFAULT now());
+ -- resource_bindings：多实体文件绑定（单文件可挂多实体）。modules 表沿用 New() 建表、无独立迁移文件（P3 统一迁移职责另行处理）。
+ CREATE TABLE IF NOT EXISTS modules.resource_bindings(resource_id uuid NOT NULL REFERENCES modules.resources(id) ON DELETE CASCADE, entity_id uuid NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(resource_id, entity_id));
  CREATE TABLE IF NOT EXISTS modules.records(owner_id uuid NOT NULL,entity_id uuid NOT NULL,document jsonb NOT NULL,PRIMARY KEY(owner_id,entity_id));
  CREATE TABLE IF NOT EXISTS modules.consumed(event_id uuid PRIMARY KEY,created_at timestamptz NOT NULL DEFAULT now());
  CREATE TABLE IF NOT EXISTS modules.redirects(source_id uuid PRIMARY KEY,target_id uuid NOT NULL);
@@ -266,6 +268,8 @@ func (m *Manager) registerGroup(api *gin.RouterGroup) {
 	})
 	api.GET("/archive/entities/:id/resources", m.guard("archive", false), m.resources)
 	api.POST("/archive/entities/:id/resources", m.guard("archive", true), m.upload)
+	api.POST("/archive/resources/:id/bindings", m.guard("archive", true), m.bindResource)
+	api.DELETE("/archive/resources/:id/bindings/:entityId", m.guard("archive", true), m.unbindResource)
 	api.GET("/archive/resources/:id/content", m.guard("archive", false), m.download)
 	api.GET("/playback/resources/:id/content", m.guard("playback", false), m.download)
 	// 站点级评论流：跨实体聚合评论（评论板块），并带上被评论条目的题名。
@@ -577,7 +581,9 @@ func (m *Manager) resources(c *gin.Context) {
 	if p != nil {
 		owner = p.ID
 	}
-	rows, err := m.db.QueryContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE entity_id=$1 AND (public OR owner_id=$2) ORDER BY created_at DESC LIMIT 100", id, owner)
+	// 主归属（resources.entity_id）与绑定表（resource_bindings.entity_id）的并集，
+	// 按 created_at 倒序去重；条目保持 resource 形状不变（兼容前端）。
+	rows, err := m.db.QueryContext(c.Request.Context(), `SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE (entity_id=$1 OR id IN (SELECT resource_id FROM modules.resource_bindings WHERE entity_id=$1)) AND (public OR owner_id=$2) ORDER BY created_at DESC LIMIT 100`, id, owner)
 	if err != nil {
 		failure(c, 500, "module_error")
 		return
@@ -652,7 +658,11 @@ func (m *Manager) download(c *gin.Context) {
 		failure(c, 404, "not_found")
 		return
 	}
-	if !m.entity(c, x.EntityID) {
+	// 下载可见性：主归属可见即放行；否则任一绑定实体可见也可下载。
+	// 用 Lookup 直查避免 m.entity 的提前 404 写回，保证"任一通过即可"的或语义。
+	// media.go readableResource 仅作只读参考，不在此改动。
+	if !m.entityAllowed(c.Request.Context(), x.EntityID, p) && !m.anyBindingVisible(c.Request.Context(), x.ID, p) {
+		failure(c, 404, "not_found")
 		return
 	}
 	c.Header("X-Content-Type-Options", "nosniff")
@@ -677,6 +687,117 @@ func (m *Manager) download(c *gin.Context) {
 	}
 }
 
+// entityAllowed 与 entity 同语义（经 Catalog 可见性检查），但不写 HTTP 响应，
+// 供下载鉴权的"主归属或任一绑定"或语义使用。
+func (m *Manager) entityAllowed(ctx context.Context, id string, p *moduleapi.Principal) bool {
+	if _, err := m.catalog.Lookup(ctx, id, p); err != nil {
+		return false
+	}
+	return true
+}
+
+// anyBindingVisible 任一绑定实体经 Catalog 可见性检查通过即为真。
+func (m *Manager) anyBindingVisible(ctx context.Context, resourceID string, p *moduleapi.Principal) bool {
+	rows, err := m.db.QueryContext(ctx, "SELECT entity_id FROM modules.resource_bindings WHERE resource_id=$1", resourceID)
+	if err != nil {
+		return false
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var eid string
+		if rows.Scan(&eid) != nil {
+			return false
+		}
+		if m.entityAllowed(ctx, eid, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// canManageResource 绑定/解绑的权限谓词（纯函数）：仅资源 owner 或 admin 可操作。
+func canManageResource(p *moduleapi.Principal, ownerID string) bool {
+	return p != nil && (p.ID == ownerID || p.Role == "admin")
+}
+
+// isPrimaryBinding 解绑目标是否主归属（纯函数）：主归属不许经解绑接口删除。
+func isPrimaryBinding(resourceEntityID, target string) bool {
+	return resourceEntityID == target
+}
+
+// bindResource 将资源绑定到另一实体：仅资源 owner 或 admin 可绑，目标实体须可见。
+func (m *Manager) bindResource(c *gin.Context) {
+	p := m.principal(c)
+	if p == nil {
+		failure(c, 401, "authentication_required")
+		return
+	}
+	var x resource
+	err := m.db.QueryRowContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE id=$1", c.Param("id")).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
+	if err != nil {
+		failure(c, 404, "not_found")
+		return
+	}
+	if p.ID != x.OwnerID && p.Role != "admin" {
+		failure(c, 403, "forbidden")
+		return
+	}
+	var in struct {
+		EntityID string `json:"entity_id"`
+	}
+	if c.ShouldBindJSON(&in) != nil || in.EntityID == "" {
+		failure(c, 400, "invalid_payload")
+		return
+	}
+	if _, err := uuid.Parse(in.EntityID); err != nil {
+		failure(c, 400, "invalid_payload")
+		return
+	}
+	if !m.entity(c, in.EntityID) {
+		return
+	}
+	if _, err = m.db.ExecContext(c.Request.Context(), "INSERT INTO modules.resource_bindings(resource_id,entity_id) VALUES($1,$2) ON CONFLICT DO NOTHING", x.ID, in.EntityID); err != nil {
+		failure(c, 500, "module_error")
+		return
+	}
+	c.JSON(200, gin.H{"ok": true})
+}
+
+// unbindResource 解除绑定：同 bindResource 权限；主归属不许经此解绑。
+// 当前仓库无资源删除流程，故删主归属在此明确拒绝（primary_binding_immutable）。
+func (m *Manager) unbindResource(c *gin.Context) {
+	p := m.principal(c)
+	if p == nil {
+		failure(c, 401, "authentication_required")
+		return
+	}
+	var x resource
+	err := m.db.QueryRowContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE id=$1", c.Param("id")).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
+	if err != nil {
+		failure(c, 404, "not_found")
+		return
+	}
+	if p.ID != x.OwnerID && p.Role != "admin" {
+		failure(c, 403, "forbidden")
+		return
+	}
+	target := c.Param("entityId")
+	if _, err := uuid.Parse(target); err != nil {
+		failure(c, 400, "invalid_payload")
+		return
+	}
+	// 主归属只能走资源删除流程；本仓库尚无该流程，故明确拒绝并注释。
+	if isPrimaryBinding(x.EntityID, target) {
+		failure(c, 409, "primary_binding_immutable")
+		return
+	}
+	if _, err = m.db.ExecContext(c.Request.Context(), "DELETE FROM modules.resource_bindings WHERE resource_id=$1 AND entity_id=$2", x.ID, target); err != nil {
+		failure(c, 500, "module_error")
+		return
+	}
+	c.JSON(200, gin.H{"ok": true})
+}
+
 // ConsumeMerge uses its own transaction and inbox, without joining catalog data.
 func (m *Manager) ConsumeMerge(ctx context.Context, eventID, source, target string) error {
 	tx, err := m.db.BeginTx(ctx, nil)
@@ -696,6 +817,15 @@ func (m *Manager) ConsumeMerge(ctx context.Context, eventID, source, target stri
 		return err
 	}
 	if _, err = tx.ExecContext(ctx, "UPDATE modules.resources SET entity_id=$2 WHERE entity_id=$1", source, target); err != nil {
+		return err
+	}
+	// 合并同步改写绑定表 source→target，冲突 DO NOTHING（保留现有主归属/论坛/记录逻辑）。
+	if _, err = tx.ExecContext(ctx, `INSERT INTO modules.resource_bindings(resource_id,entity_id,created_at)
+	 SELECT resource_id,$2,min(created_at) FROM modules.resource_bindings WHERE entity_id=$1 GROUP BY resource_id
+	 ON CONFLICT(resource_id,entity_id) DO NOTHING`, source, target); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, "DELETE FROM modules.resource_bindings WHERE entity_id=$1", source); err != nil {
 		return err
 	}
 	// 评论与论坛主题都锚定实体，合并后必须一并改写，否则留下悬空引用。
