@@ -74,11 +74,13 @@ export function EntityEditor({
       ...Object.keys(e.attributes),
     ]),
   );
-  // 动态结构：合并实体全部类型引用模板的 sections（保序去重）；
-  // hidden 字段（存档/检索用）不在编辑面板出现；剩余字段归入"其它信息"。
+  // 动态结构：合并实体全部类型引用模板的 sections（保序去重）；剩余字段归入"其它信息"。
+  // hidden 只表示"不进详情信息面板"，不代表不可编辑：这类字段（存档/检索用）
+  // 收进折叠区仍可维护，否则 hidden + required 会变成填不出、存不下的死锁。
   // 注意：此处位于条件 return 之后，必须用普通计算，不得改成 useMemo。
   const sections: { names: Record<string, string>; fields: string[] }[] = [];
   let restFields: string[] = [];
+  let foldedFields: string[] = [];
   {
     const declared = new Set(fields);
     const seen = new Set<string>();
@@ -98,6 +100,10 @@ export function EntityEditor({
       }
     }
     restFields = fields.filter((f) => !seen.has(f) && (!d.fields[f]?.hidden || f === "tags"));
+    // 折叠区：hidden 字段（tags 已有专用编辑入口，不重复列出）。
+    foldedFields = fields.filter(
+      (f) => !seen.has(f) && !!d.fields[f]?.hidden && f !== "tags",
+    );
   }
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();
@@ -688,6 +694,38 @@ export function EntityEditor({
                 ))}
               </div>
             </div>
+          )}
+          {foldedFields.length > 0 && (
+            <details className="cv-section">
+              <summary className="cv-section-title">{t("catalog.hiddenFields")}</summary>
+              <div className="cv-grid">
+                {foldedFields.map((k) => (
+                  <label key={k}>
+                    {local(d.fields[k]?.names, locale, "", k)}
+                    {d.fields[k]?.required && " *"}
+                    <FieldInput
+                      field={d.fields[k]}
+                      value={e.attributes[k]}
+                      onChange={(v) =>
+                        patch({ attributes: { ...e.attributes, [k]: v } })
+                      }
+                    />
+                    {e.attributes[k] !== undefined && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const attributes = { ...e.attributes };
+                          delete attributes[k];
+                          patch({ attributes });
+                        }}
+                      >
+                        {t("catalog.remove")}
+                      </button>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </details>
           )}
         </fieldset>
       )}

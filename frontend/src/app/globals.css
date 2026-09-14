@@ -506,7 +506,7 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 .cv-form textarea { min-height: 3rem; resize: vertical; }
 .cv-form textarea[rows] { min-height: 0; }
 .cv-form input[type="checkbox"] { width: auto; accent-color: var(--primary-color); }
-.cv-form input[type="date"] { font-family: var(--font-mono, ui-monospace, monospace); }
+.cv-form input.cv-date { font-family: var(--font-mono, ui-monospace, monospace); }
 .cv-form button:not(.cv-primary) {
   padding: 0.3rem 0.65rem;
   border-radius: 0.45rem;

@@ -149,9 +149,11 @@ export function GroupFieldInput({
   const field = defs?.fields?.[code];
   if (!field || field.type !== "group") return null;
   const order = codes && codes.length > 0 ? codes : Object.keys(field.fields || {});
+  // 不按 hidden 过滤：hidden 只控制详情面板展示，编辑面必须能维护
+  // hidden + required 的子字段，否则该实体永远无法保存。
   const entries = order
     .map((k): [string, any] => [k, (field.fields || {})[k]])
-    .filter(([, f]: [string, any]) => f && f?.enabled !== false && !f?.hidden);
+    .filter(([, f]: [string, any]) => f && f?.enabled !== false);
   if (entries.length === 0) return null;
   const current = value || {};
   return (
@@ -172,6 +174,47 @@ export function GroupFieldInput({
         </label>
       ))}
     </div>
+  );
+}
+
+// 日期字段允许三种精度：年、年-月、年-月-日，与后端 catalog.Value 的 date 校验同一口径。
+// 原生 date 控件只接受完整年月日，会把"2026"补成"2026-01-01"——日期精度会被就地改写，
+// 因此这里用带格式校验的文本控件，未知月份/日期不再被凭空补造。
+const DATE_PATTERN = /^\d{4}(-\d{2}(-\d{2})?)?$/;
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/** isValidDateValue 判断字符串是否为合法的年 / 年-月 / 年-月-日。 */
+export function isValidDateValue(v: string): boolean {
+  const s = v.trim();
+  if (!DATE_PATTERN.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  if (y < 1) return false;
+  if (m !== undefined && (m < 1 || m > 12)) return false;
+  if (d !== undefined) {
+    let last = DAYS_IN_MONTH[m - 1];
+    if (m === 2 && ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0)) last = 29;
+    if (d < 1 || d > last) return false;
+  }
+  return true;
+}
+
+function DateInput({ value, onChange }: { value: any; onChange: (v: any) => void }) {
+  const { t } = useI18n();
+  const text = value === null || value === undefined ? "" : String(value);
+  const invalid = text.trim() !== "" && !isValidDateValue(text);
+  return (
+    <>
+      <input
+        className="cv-date"
+        type="text"
+        inputMode="numeric"
+        placeholder={t("catalog.datePlaceholder")}
+        aria-invalid={invalid || undefined}
+        value={text}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      {invalid && <small className="cv-error">{t("catalog.dateInvalid")}</small>}
+    </>
   );
 }
 
@@ -223,8 +266,9 @@ export function FieldInput({
   if (field.type === "group")
     return (
       <div className="cv-group">
+        {/* 同 GroupFieldInput：hidden 只影响详情面板，嵌套编辑不隐藏字段。 */}
         {Object.entries(field.fields || {})
-          .filter(([, f]) => f?.enabled !== false && !f?.hidden)
+          .filter(([, f]) => f?.enabled !== false)
           .map(([k, f]) => (
             <label key={k}>
               {local(f.names, locale, "", k)}
@@ -275,16 +319,11 @@ export function FieldInput({
         </button>
       </div>
     );
+  if (field.type === "date") return <DateInput value={value} onChange={onChange} />;
   return (
     <input
       type={
-        field.type === "number"
-          ? "number"
-          : field.type === "date"
-            ? "date"
-            : field.type === "url"
-              ? "url"
-              : "text"
+        field.type === "number" ? "number" : field.type === "url" ? "url" : "text"
       }
       min={field.min}
       max={field.max}
