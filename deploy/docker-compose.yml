@@ -78,12 +78,12 @@ services:
       # ELASTICSEARCH_URL；检索默认走 PostgreSQL，opensearch 默认不启动
       # （--profile search 显式启用），此变量仅在启用搜索时生效。
       - ELASTICSEARCH_URL=http://opensearch:9200
-      - S3_ENDPOINT=http://rustfs:9000
-      - S3_PUBLIC_ENDPOINT=${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
-      - S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
-      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
-      - S3_BUCKET_MASTER=metafusion-master
-      - S3_BUCKET_PREVIEW=metafusion-preview
+      - ARCHIVE_PATH=/app/module-data/archive
+      - ARCHIVE_S3_ENDPOINT=rustfs:9000
+      - ARCHIVE_S3_TLS=false
+      - ARCHIVE_S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
+      - ARCHIVE_S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
+      - ARCHIVE_S3_BUCKET=metafusion-master
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env}
       # RS256 签名私钥（PEM 或其 base64）。未设置时后端生成进程内临时密钥，
       # 重启即失效（有会话行兜底，已签发的无状态 JWT 重启后需重新登录）；
@@ -94,6 +94,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      storage-init:
+        condition: service_completed_successfully
+    volumes:
+      - catalog_archive:/app/module-data/archive
     networks:
       - metafusion-net
 
@@ -186,9 +190,7 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 8. S3 存储桶初始化 — 用 mc 创建 master/preview 双桶（幂等），失败不阻塞主链。
-  #    桶策略保持私有（经后端签名/网关反代访问）；公开读需运维显式执行
-  #    mc anonymous set download 自动生成别名/metafusion-preview。
+  # 8. S3 存储桶初始化。资源通过后端鉴权读取，桶保持私有。
   # --------------------------------------------------------------------------
   storage-init:
     image: minio/mc:latest
@@ -198,15 +200,17 @@ services:
     environment:
       - S3_ROOT_USER=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
       - S3_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
-    # storage-init 尾部 exit 0 使桶创建失败也不阻塞主链（容忍对象存储未就绪），
-    # 仅 alias 设置行用 || exit 0 忽略幂等别名冲突；桶策略保持私有，
-    # 经后端签名/网关反代访问。需强一致时改 entrypoint 去掉尾部 exit 0。
+    # 等待对象存储就绪后再启动后端，避免已启用 archive 在首次探测时被判故障。
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://rustfs:9000 \"$${S3_ROOT_USER}\" \"$${S3_ROOT_PASSWORD}\" >/dev/null 2>&1 || exit 0;
-      mc mb --ignore-existing local/metafusion-master local/metafusion-preview;
-      echo 'storage-init: buckets ensured (metafusion-master, metafusion-preview).';
-      exit 0;
+      attempts=0;
+      until mc alias set local http://rustfs:9000 \"$${S3_ROOT_USER}\" \"$${S3_ROOT_PASSWORD}\" >/dev/null 2>&1 &&
+        mc mb --ignore-existing local/metafusion-master >/dev/null 2>&1; do
+        attempts=$$((attempts + 1));
+        if [ $$attempts -ge 30 ]; then echo 'storage-init: bucket initialization failed' >&2; exit 1; fi;
+        sleep 2;
+      done;
+      echo 'storage-init: private archive bucket ready';
       "
     networks:
       - metafusion-net
@@ -220,4 +224,5 @@ volumes:
   redis_data:
   opensearch_data:
   s3_data:
+  catalog_archive:
   nginx_logs:
