@@ -48,31 +48,60 @@ export interface CompareExprEntityLike {
   content_unit_id?: string;
 }
 
-/** 对比语义声明：由 definitions 的 locator / inclusion_attributes 子字段声明推导。 */
-export interface CompareSemantics {
-  /** 声明为"内容选择范围"的子字段码（Field.Semantics === "content"）。 */
+export interface SlotSemantics {
+  /** 声明为"内容选择范围"的点分路径（Field.Semantics === "content"）。 */
   content: string[];
-  /** 声明为"本版定位"的子字段码（Field.Semantics === "locating"）。 */
+  /** 声明为"本版定位"的点分路径（Field.Semantics === "locating"）。 */
   locating: string[];
 }
 
-// compareSemanticsOf 从 definitions 读出对比语义声明。locator 里的子字段默认为
-// "本版定位"（Field.Semantics 缺省语义即定位），因此未声明者按定位处理；
-// 收录附加属性里的未声明子字段无法归类，单独作为"其它属性"处理。
-export function compareSemanticsOf(defs: any): CompareSemantics {
-  const collect = (code: string) => {
-    const fields = defs?.fields?.[code]?.fields || {};
-    return Object.entries(fields)
-      .filter(([, f]: [string, any]) => f?.enabled !== false && !f?.hidden)
-      .map(([k, f]: [string, any]) => ({ code: k, semantics: String(f?.semantics || "") }));
-  };
-  const content: string[] = [];
-  const locating: string[] = [];
-  for (const item of [...collect("locator"), ...collect("inclusion_attributes")]) {
-    if (item.semantics === "content") content.push(item.code);
-    else if (item.semantics === "locating") locating.push(item.code);
+/** 对比语义声明：分别推导 locator 与 inclusion_attributes 的点分语义路径。 */
+export interface CompareSemantics {
+  locator: SlotSemantics;
+  inclusion_attributes: SlotSemantics;
+  /** 向前兼容旧顶层数组 */
+  content?: string[];
+  locating?: string[];
+}
+
+function collectSlotPaths(groupDef: any, prefix = ""): { path: string; semantics: string }[] {
+  const fields = groupDef?.fields || {};
+  const out: { path: string; semantics: string }[] = [];
+  for (const [k, f] of Object.entries(fields as Record<string, any>)) {
+    if (f?.enabled === false) continue; // 绝不能过滤 hidden：hidden 仅为 UI 表现层，业务对比语义必须保留
+    const path = prefix ? `${prefix}.${k}` : k;
+    const sem = String(f?.semantics || "").trim();
+    if (sem === "content" || sem === "locating") {
+      out.push({ path, semantics: sem });
+    }
+    if (f?.type === "group" && f?.fields) {
+      out.push(...collectSlotPaths(f, path));
+    }
   }
-  return { content, locating };
+  return out;
+}
+
+// compareSemanticsOf 从 definitions 分别读出 locator 与 inclusion_attributes 的对比语义声明。
+// 递归收集包括嵌套 group 在内的点分路径，且严格隔离两个槽位，不互相污染。
+export function compareSemanticsOf(defs: any): CompareSemantics {
+  const buildSlot = (code: string): SlotSemantics => {
+    const list = collectSlotPaths(defs?.fields?.[code]);
+    const content: string[] = [];
+    const locating: string[] = [];
+    for (const item of list) {
+      if (item.semantics === "content") content.push(item.path);
+      else if (item.semantics === "locating") locating.push(item.path);
+    }
+    return { content, locating };
+  };
+  const locSlot = buildSlot("locator");
+  const incSlot = buildSlot("inclusion_attributes");
+  return {
+    locator: locSlot,
+    inclusion_attributes: incSlot,
+    content: [...locSlot.content, ...incSlot.content],
+    locating: [...locSlot.locating, ...incSlot.locating],
+  };
 }
 
 /** 每个发行自身的目录完整性，用于区分"尚未编目"与"已确认相同"。 */
@@ -108,51 +137,108 @@ export interface AlignmentResult {
   incomplete: number[];
 }
 
-// keyOf 把一组子字段值序列化成稳定键（键名排序，值原样保留）。
-function keyOf(source: Record<string, any> | undefined, codes: string[]): string {
+function getPathValue(obj: any, path: string): any {
+  if (!obj || typeof obj !== "object") return undefined;
+  const parts = path.split(".");
+  let cur = obj;
+  for (const p of parts) {
+    if (cur === undefined || cur === null || typeof cur !== "object") return undefined;
+    cur = cur[p];
+  }
+  return cur;
+}
+
+function flattenLeafPaths(obj: any, prefix = ""): { path: string; value: any }[] {
+  if (!obj || typeof obj !== "object") return [];
+  const out: { path: string; value: any }[] = [];
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined || v === null || v === "") continue;
+    const path = prefix ? `${prefix}.${k}` : k;
+    if (typeof v === "object" && !Array.isArray(v)) {
+      const children = flattenLeafPaths(v, path);
+      if (children.length > 0) {
+        out.push(...children);
+      } else {
+        out.push({ path, value: v });
+      }
+    } else {
+      out.push({ path, value: v });
+    }
+  }
+  return out;
+}
+
+// keyOfPaths 按指定点分路径提取对象中的值并稳定序列化。
+function keyOfPaths(source: Record<string, any> | undefined, paths: string[]): string {
   if (!source) return "";
   const parts: string[] = [];
-  for (const code of [...codes].sort()) {
-    const v = source[code];
+  for (const p of [...paths].sort()) {
+    const v = getPathValue(source, p);
     if (v === undefined || v === null || v === "") continue;
-    parts.push(`${code}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`);
+    parts.push(`${p}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`);
   }
   return parts.join(",");
 }
 
-// contentKeyOf 只描述"实际引用了多少内容"：由声明为 content 的子字段决定。
-// 完整引用（无任何 content 子字段取值）与片段引用会产生不同键，从而区分开。
+// contentRangeKeyOf 只描述"实际引用了多少内容"：
+// 分别从 locator 与 inclusion_attributes 中按各自声明为 content 的点分路径提取值。
 function contentRangeKeyOf(
   loc: Record<string, any> | undefined,
   attrs: Record<string, any> | undefined,
   semantics: CompareSemantics,
 ): string {
-  const fromLoc = semantics.content.filter((c) => loc && loc[c] !== undefined && loc[c] !== null);
-  const fromAttrs = semantics.content.filter((c) => attrs && attrs[c] !== undefined && attrs[c] !== null);
-  return keyOf(loc, fromLoc) + "|" + keyOf(attrs, fromAttrs);
+  const locPaths = semantics.locator?.content || [];
+  const attrPaths = semantics.inclusion_attributes?.content || [];
+  return keyOfPaths(loc, locPaths) + "|" + keyOfPaths(attrs, attrPaths);
 }
 
-// locatingKeyOf 只描述"本版如何定位"：定位语义子字段 + locator 中未声明者（默认定位）。
+// locatingKeyOf 描述"本版如何定位"：
+// 1. locator 中所有非 content 语义的叶子路径（未声明者默认作为定位处理）；
+// 2. inclusion_attributes 中显式声明为 locating 的点分路径。
 function locatingKeyOf(
   loc: Record<string, any> | undefined,
+  attrs: Record<string, any> | undefined,
   semantics: CompareSemantics,
 ): string {
-  if (!loc) return "";
-  const declared = new Set(semantics.content);
-  const codes = Object.keys(loc).filter((k) => !declared.has(k) && loc[k] !== undefined && loc[k] !== null);
-  return keyOf(loc, codes);
+  const parts: string[] = [];
+  if (loc) {
+    const locContentSet = new Set(semantics.locator?.content || []);
+    const leaves = flattenLeafPaths(loc).filter((x) => !locContentSet.has(x.path));
+    leaves.sort((a, b) => a.path.localeCompare(b.path));
+    for (const leaf of leaves) {
+      parts.push(`loc:${leaf.path}=${typeof leaf.value === "object" ? JSON.stringify(leaf.value) : String(leaf.value)}`);
+    }
+  }
+  if (attrs) {
+    const incLocating = semantics.inclusion_attributes?.locating || [];
+    for (const p of [...incLocating].sort()) {
+      const v = getPathValue(attrs, p);
+      if (v !== undefined && v !== null && v !== "") {
+        parts.push(`inc:${p}=${typeof v === "object" ? JSON.stringify(v) : String(v)}`);
+      }
+    }
+  }
+  return parts.join(",");
 }
 
-// otherAttrsKeyOf 收拢"既非内容范围、也非定位"的收录附加属性：来源无法归类，
-// 两侧不同时只能提示人工核对，不能断言仅载体差异。
+// otherAttrsKeyOf 收拢"既非内容范围、也非定位"的收录附加属性：
+// 排除 inclusion_attributes 内部已声明为 content 和 locating 的字段，其余若有差异则提示 attributeDiffer。
 function otherAttrsKeyOf(
   attrs: Record<string, any> | undefined,
   semantics: CompareSemantics,
 ): string {
   if (!attrs) return "";
-  const known = new Set([...semantics.content, ...semantics.locating]);
-  const codes = Object.keys(attrs).filter((k) => !known.has(k) && attrs[k] !== undefined && attrs[k] !== null);
-  return keyOf(attrs, codes);
+  const known = new Set([
+    ...(semantics.inclusion_attributes?.content || []),
+    ...(semantics.inclusion_attributes?.locating || []),
+  ]);
+  const leaves = flattenLeafPaths(attrs).filter((x) => !known.has(x.path));
+  leaves.sort((a, b) => a.path.localeCompare(b.path));
+  const parts: string[] = [];
+  for (const leaf of leaves) {
+    parts.push(`${leaf.path}=${typeof leaf.value === "object" ? JSON.stringify(leaf.value) : String(leaf.value)}`);
+  }
+  return parts.join(",");
 }
 
 function contentKeyOf(exprId: string, exprEntities: Record<string, CompareExprEntityLike | undefined>): string {
@@ -214,7 +300,7 @@ function sequenceOf(
         const ck = contentKeyOf(id, exprEntities);
         if (!ck) unknown = true;
         content.push(`${ck}|${id}|${contentRangeKeyOf(c.locator, c.attributes, semantics)}`);
-        locating.push(`${locatingKeyOf(c.locator, semantics)}|${c.position ?? ""}`);
+        locating.push(`${locatingKeyOf(c.locator, c.attributes, semantics)}|${c.position ?? ""}`);
         other.push(otherAttrsKeyOf(c.attributes, semantics));
       }
     }
@@ -278,7 +364,10 @@ function arraysEqual(a: string[], b: string[]): boolean {
 export function computeAlignment(
   items: CompareItemLike[],
   exprEntities: Record<string, CompareExprEntityLike | undefined>,
-  semantics: CompareSemantics = { content: [], locating: [] },
+  semantics: CompareSemantics = {
+    locator: { content: [], locating: [] },
+    inclusion_attributes: { content: [], locating: [] },
+  },
 ): AlignmentResult {
   const perExpr = new Map<string, { releaseIndex: number }[]>();
   const n = items.length;

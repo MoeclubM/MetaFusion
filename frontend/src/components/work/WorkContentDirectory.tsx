@@ -33,9 +33,13 @@ type DirectoryEntry = {
 };
 
 function toEntry(e: Entity, locale: string): DirectoryEntry {
+  // 表达（expression）通过 content_unit_id 挂载到所属章节，章节（content_unit）通过 parent_id 支持树形层级
+  const parentId = e.kind === "expression"
+    ? (e.content_unit_id || e.parent_id || "")
+    : (e.parent_id || "");
   return {
     id: e.id || "",
-    parentId: e.parent_id || "",
+    parentId,
     position: e.position || 0,
     number: e.number || "",
     entryRole: String(e.attributes?.entry_role || ""),
@@ -72,7 +76,7 @@ export function componentEntries(
     const peerId = outgoing ? r.target_id : r.source_id;
     if (!peerId || peerId === selfId || seen.has(peerId)) continue;
     const peer = entities[peerId];
-    if (!peer || peer.kind !== "work") continue;
+    if (!peer || (peer.kind !== "work" && peer.kind !== "collection")) continue;
     seen.add(peerId);
     const entry: DirectoryEntry = {
       id: peerId,
@@ -80,7 +84,7 @@ export function componentEntries(
       position: r.position || 0,
       number: "",
       entryRole: "",
-      kind: "work",
+      kind: peer.kind || "work",
       title: entityTitle(peer, locale) || peer.title || peerId,
     };
     (outgoing ? includes : includedIn).push(entry);
@@ -161,8 +165,9 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
   const renderEntries = (parentKey: string, depth: number): ReactNode[] => {
     return (children.get(parentKey) || []).flatMap((entry) => {
       const role = entry.entryRole || "main";
-      // directory=list 时拍平为单层（仍保留原次序），tree 时按父子层级缩进。
+      // directory=list 时拍平为单层（仍保留原次序并完整展开子章节），tree 时按父子层级缩进。
       const indent = directory === "list" ? 0 : depth * 22;
+      const isCollectionOrWork = entry.kind === "work" || entry.kind === "collection";
       return [
         <div
           key={entry.id}
@@ -176,10 +181,10 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
             {entry.title}
           </Link>
           <span className="shrink-0 rounded-sm border border-black/10 dark:border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
-            {entry.kind === "work" ? t("catalog.kind.work") : t(`catalog.contents.role.${role}`)}
+            {isCollectionOrWork ? t(`catalog.kind.${entry.kind}`) : t(`catalog.contents.role.${role}`)}
           </span>
         </div>,
-        ...(directory === "list" ? [] : renderEntries(entry.id, depth + 1)),
+        ...renderEntries(entry.id, depth + 1),
       ];
     });
   };
@@ -202,7 +207,7 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
           {entry.title}
         </Link>
         <span className="shrink-0 rounded-sm border border-black/10 dark:border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
-          {t("catalog.kind.work")}
+          {t(`catalog.kind.${entry.kind}`)}
         </span>
       </div>
     ));

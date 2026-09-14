@@ -104,7 +104,7 @@ export function FieldValue({
   }
   if (type === "group" || (value && typeof value === "object" && !Array.isArray(value))) {
     const entries = Object.entries(value as Record<string, any>).filter(
-      ([, v]) => v !== undefined && v !== null && v !== "",
+      ([k, v]) => v !== undefined && v !== null && v !== "" && !def?.fields?.[k]?.hidden,
     );
     if (entries.length === 0) return <span className="text-gray-400">—</span>;
     return (
