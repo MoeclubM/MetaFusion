@@ -55,15 +55,16 @@ func main() {
 		log.Fatalf("catalog schema initialization failed: %v", err)
 	}
 
-	// 无状态访问令牌：配置 AUTH_JWT_PRIVATE_KEY 时用持久 RSA 私钥签发 RS256 JWT；
-	// 未配置则生成进程内临时密钥（重启即失效，靠查库兜底），保证系统仍可启动。
-	issuer, terr := catalog.NewTokenIssuerFromEnv(env("AUTH_JWT_ISSUER", "https://findverse.cc/api"), env("AUTH_JWT_AUDIENCE", "metafusion"))
+	// 目录侧只验签，不签发：用与账号服务同一把 RSA 私钥派生出公钥（签发路径在账号服务）。
+	// 未配置时验签器不可用，需要身份的写接口会按未登录处理——这是有意的 fail closed，
+	// 只影响写与个性化，公开读不受影响。
+	verifier, terr := catalog.NewTokenVerifierFromEnv(env("AUTH_JWT_ISSUER", "https://findverse.cc/api"), env("AUTH_JWT_AUDIENCE", "metafusion"))
 	if terr != nil {
-		log.Fatalf("auth token issuer initialization failed: %v", terr)
+		log.Fatalf("token verifier initialization failed: %v", terr)
 	}
-	s.Tokens = issuer
-	if issuer.Ephemeral() {
-		log.Print("AUTH_JWT_PRIVATE_KEY is unset; using an in-process RSA key (tokens expire on restart)")
+	s.Verifier = verifier
+	if verifier.Ephemeral() {
+		log.Print("AUTH_JWT_PRIVATE_KEY is unset: catalog cannot verify tokens, authenticated writes will be rejected as anonymous")
 	}
 
 	r := gin.New()

@@ -18,9 +18,9 @@ var schema string
 
 type Store struct {
 	DB *sql.DB
-	// Tokens 为可选的 RS256 令牌签发/验签器。为 nil 时鉴权只用服务端会话
-	// （纯查库模式），因此测试与未配置密钥的部署仍可正常工作。
-	Tokens *TokenIssuer
+	// Verifier 是账号服务令牌的验签器（只有公钥）。为 nil 或未配置密钥时，
+	// 需要身份的接口按匿名处理——目录不再有"查库兜底"这条路径。
+	Verifier *TokenVerifier
 }
 type queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
@@ -41,25 +41,25 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 	return &Store{DB: db}, nil
 }
 
-// Authenticate 先做无状态 RS256 验签（不查库），失败再回退服务端会话/令牌查库。
-// 双模式的意义：无状态路径承担绝大多数请求，查库路径保证存量随机会话令牌与
-// 登出注销仍然有效，切换过程不会把已登录用户踢下线。
-func (s *Store) Authenticate(ctx context.Context, token string) (*User, error) {
+// Authenticate 只做无状态 RS256 验签：目录侧不再回退查 auth.sessions / auth.oauth_tokens。
+// 那两张表归账号服务所有，跨系统读对方的表会让"各司其职"名存实亡，因此这里连 ctx 都不需要。
+// 验签器缺失或验签失败一律按匿名处理（fail closed），不会静默放行。
+func (s *Store) Authenticate(token string) (*User, error) {
 	token = strings.TrimSpace(token)
-	if token == "" {
+	if token == "" || s.Verifier == nil {
 		return nil, sql.ErrNoRows
 	}
-	if s.Tokens != nil {
-		if claims, err := s.Tokens.Verify(token); err == nil {
-			return ClaimsToUser(claims), nil
-		}
+	claims, err := s.Verifier.Verify(token)
+	if err != nil {
+		return nil, err
 	}
-	return s.User(ctx, token)
+	return ClaimsToUser(claims), nil
 }
 
 // Initialize touches only the new schema. Existing catalog and module data are untouched.
 // 其写入职责与 mf-migrate up 分工：migrate 只负责结构迁移（backend/migrations），
-// 定义/OAuth/货架/外部库四类"内容种子"只在这里逐行 ON CONFLICT DO NOTHING 补齐，
+// 定义/货架/外部库三类"内容种子"只在这里逐行 ON CONFLICT DO NOTHING 补齐
+// （第一方 OAuth 客户端随账号拆分归账号服务），
 // 因种子会随版本新增条目（如货架新增 slug），不属于一次性结构迁移。
 // 任一轨道先执行都安全：种子用 ON CONFLICT 保护已有行（后台自定义不被覆盖）。
 //
@@ -88,16 +88,8 @@ func (s *Store) Initialize(ctx context.Context) error {
 				return err
 			}
 		}
-		const seedOAuth = `
-INSERT INTO auth.oauth_clients(id, secret_hash, name, redirect_uris, trusted)
-VALUES
- ('metafusion-resources', '', 'MetaFusion 资源存储与下载管理中心', ARRAY['https://resources.findverse.cc/callback', 'http://localhost:3001/callback'], true),
- ('metafusion-forum', '', 'MetaFusion 社区论坛', ARRAY['https://forum.findverse.cc/auth/oauth2_basic/callback', 'http://localhost:4200/auth/callback'], true),
- ('metafusion-catalog', '', 'MetaFusion 元数据知识库', ARRAY['https://findverse.cc/auth/callback', 'http://localhost:3000/auth/callback'], true)
-ON CONFLICT (id) DO NOTHING;`
-		if _, err := tx.ExecContext(ctx, seedOAuth); err != nil {
-			return err
-		}
+		// 已迁到账号服务（auth store 的 Init 幂等播种）：auth schema 不归目录服务所有，
+		// 目录侧不再往里面写任何一行。
 		if err := seedExternalDatabases(ctx, tx); err != nil {
 			return err
 		}
@@ -325,7 +317,9 @@ func reference(ctx context.Context, q queryer, u *User) func(string, []string) e
 	}
 }
 func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, note string, sources []Source, snapshot any, eventType string) error {
-	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,edit_note,sources,snapshot) VALUES($1,$2,$3,$4,$5,$6)", id, version, u.ID, note, encode(sources), encode(snapshot)); err != nil {
+	// actor_name/actor_role 与 actor_id 一起落库：读取修订历史不再需要 JOIN auth.users
+	// （账号表归账号服务，跨 schema 读会让两个系统在数据层重新耦合）。
+	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,actor_name,actor_role,edit_note,sources,snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", id, version, u.ID, u.Username, u.Role, note, encode(sources), encode(snapshot)); err != nil {
 		return err
 	}
 	_, err := tx.ExecContext(ctx, "INSERT INTO catalog.outbox(id,type,entity_id,version,payload) VALUES($1,$2,$3,$4,$5)", uuid.NewString(), eventType, id, version, encode(snapshot))
@@ -854,10 +848,12 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 		}
 		entityScoped = false
 	}
+	// 身份取自修订行里的快照列，**不 JOIN auth.users**：账号表归账号服务，目录侧读它
+	// 就等于把两个系统的数据层重新绑在一起（也挡住了将来换库/换实例的可能）。
+	// 迁移 000015 之前的存量行没有快照，回退为 system/editor，只影响显示名。
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(u.username, 'system'), COALESCE(u.role, 'editor'), r.edit_note, r.sources, r.snapshot, r.created_at
+		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), COALESCE(NULLIF(r.actor_role, ''), 'editor'), r.edit_note, r.sources, r.snapshot, r.created_at
 		FROM catalog.revisions r
-		LEFT JOIN auth.users u ON u.id = r.actor_id
 		WHERE r.target_id = $1
 		ORDER BY r.version DESC, r.id DESC
 		LIMIT 100`, id)

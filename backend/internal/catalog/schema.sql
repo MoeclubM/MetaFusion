@@ -1,15 +1,7 @@
-CREATE SCHEMA IF NOT EXISTS catalog;
--- 账号与会话落在独立 auth schema：账号服务可单独演进/迁移，catalog 只保留裸 UUID 引用，
--- 不跨 schema 建外键（与 modules 的 author_id 做法一致），避免删号级联误删元数据。
-CREATE SCHEMA IF NOT EXISTS auth;
-CREATE TABLE IF NOT EXISTS auth.users (
- id uuid PRIMARY KEY, username text NOT NULL UNIQUE, email text NOT NULL DEFAULT '', password_hash text NOT NULL,
- role text NOT NULL CHECK (role IN ('user','editor','admin'))
-);
-ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS email text NOT NULL DEFAULT '';
-CREATE TABLE IF NOT EXISTS auth.sessions (
- token_hash text PRIMARY KEY, user_id uuid NOT NULL REFERENCES auth.users(id), expires_at timestamptz NOT NULL
-);
+-- 目录服务只建自己的 catalog schema。
+-- 账号（auth schema）与互动（community schema）的表由各自的服务在启动时幂等建立：
+-- 目录不再创建、也不再写入别人的 schema（这是子系统拆分的一条硬边界）。
+-- 目录侧的 created_by / user_id 都是裸 UUID，不与 auth 建外键，因此这里没有依赖顺序。
 CREATE TABLE IF NOT EXISTS catalog.entities (
  id uuid PRIMARY KEY, kind text NOT NULL CHECK(kind IN ('agent','collection','work','content_unit','expression','release','medium','track')),
  version bigint NOT NULL CHECK(version>0), title text NOT NULL CHECK(length(trim(title))>0),
@@ -95,8 +87,12 @@ CREATE TABLE IF NOT EXISTS catalog.definitions (
  base_version bigint NOT NULL, document jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS one_published_definition ON catalog.definitions(state) WHERE state='published';
+-- actor_name / actor_role 是写入时的身份快照：账号数据归账号服务，目录不再『查对方的表』
+-- 换显示名（跨 schema JOIN 会破坏子系统边界），改为在写修订行时把当时的用户名与角色一起落下来。
+-- 这也是审计记录该有的语义：改名人之后，历史修订仍应显示当时是谁改的。
 CREATE TABLE IF NOT EXISTS catalog.revisions (
  id bigserial PRIMARY KEY, target_id text NOT NULL, version bigint NOT NULL, actor_id uuid,
+ actor_name text NOT NULL DEFAULT '', actor_role text NOT NULL DEFAULT '',
  edit_note text NOT NULL, sources jsonb NOT NULL, snapshot jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS catalog.outbox (
@@ -155,33 +151,6 @@ CREATE TABLE IF NOT EXISTS catalog.shelves (
  sort_order int NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS auth.oauth_clients (
- id text PRIMARY KEY, secret_hash text NOT NULL, name text NOT NULL,
- redirect_uris text[] NOT NULL DEFAULT '{}', trusted boolean NOT NULL DEFAULT false,
- created_at timestamptz NOT NULL DEFAULT now()
-);
-CREATE TABLE IF NOT EXISTS auth.oauth_codes (
- code text PRIMARY KEY, client_id text NOT NULL REFERENCES auth.oauth_clients(id) ON DELETE CASCADE,
- user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
- redirect_uri text NOT NULL, scope text NOT NULL DEFAULT 'profile',
- expires_at timestamptz NOT NULL, used boolean NOT NULL DEFAULT false,
- code_challenge text NOT NULL DEFAULT '', code_challenge_method text NOT NULL DEFAULT ''
-);
-CREATE TABLE IF NOT EXISTS auth.oauth_tokens (
- token_hash text PRIMARY KEY, client_id text NOT NULL REFERENCES auth.oauth_clients(id) ON DELETE CASCADE,
- user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
- scope text NOT NULL DEFAULT 'profile', expires_at timestamptz NOT NULL
-);
-CREATE TABLE IF NOT EXISTS catalog.favorites (
- user_id uuid NOT NULL,
- target_type text NOT NULL CHECK (target_type IN ('agent','collection','work','content_unit','expression','release','medium','track')),
- target_id uuid NOT NULL,
- created_at timestamptz NOT NULL DEFAULT now(),
- PRIMARY KEY (user_id, target_type, target_id)
-);
-CREATE INDEX IF NOT EXISTS favorites_target ON catalog.favorites(target_type, target_id);
-CREATE INDEX IF NOT EXISTS favorites_user_created ON catalog.favorites(user_id, created_at DESC);
-
 ALTER TABLE catalog.track_contents ADD COLUMN IF NOT EXISTS attributes jsonb NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE catalog.release_subjects ADD COLUMN IF NOT EXISTS attributes jsonb NOT NULL DEFAULT '{}'::jsonb;
 
@@ -193,8 +162,10 @@ CREATE TABLE IF NOT EXISTS catalog.user_preferences (
 );
 
 -- 本文件只做"按需建表/建索引 + 种子"：全部 CREATE/ALTER ADD 均幂等，
--- 不含任何删列、删表或旧数据搬迁。历史结构退役与账号表搬迁属一次性数据迁移，
+-- 不含任何删列、删表或旧数据搬迁。历史结构退役属一次性数据迁移，
 -- 已移入版本化迁移（backend/migrations/，如 000007_auth_schema_split、
--- 000011_retire_legacy_structures），由 `migrate up` 执行；启动只保证必要结构存在。
+-- 000011_retire_legacy_structures、000014_retire_split_owned_objects），
+-- 由 `migrate up` 执行；启动只保证目录自己的必要结构存在。
 
--- 账号表搬迁（catalog.* → auth.*）已由迁移 000007_auth_schema_split 负责。
+-- 建表顺序无关紧要：本文件不再有指向 auth.* 的外键（账号表搬迁见迁移 000007，
+-- 收藏迁往 community.favorites 见迁移 000014）。

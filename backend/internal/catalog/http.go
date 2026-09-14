@@ -10,7 +10,6 @@ import (
 	"github.com/lib/pq"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -87,7 +86,7 @@ func required(admin bool) gin.HandlerFunc {
 	}
 }
 
-// routeBucket 复用 setup/login 限流风格的内存固定窗口计数, key 为 IP+路由。
+// routeBucket 是内存固定窗口计数, key 为 IP+完整路由。账号侧的登录限流归账号服务，
 type routeBucket struct {
 	mu       sync.Mutex
 	start    time.Time
@@ -96,10 +95,8 @@ type routeBucket struct {
 }
 
 var (
-	routeAttempts      sync.Map // string -> *routeBucket
-	routeJanitor       sync.Once
-	loginAttempts      sync.Map // string(IP) -> *routeBucket, setup/login 限流
-	loginAttemptsJanit sync.Once
+	routeAttempts sync.Map // string -> *routeBucket
+	routeJanitor  sync.Once
 )
 
 // sweepStaleBuckets 每小时清理超 2 小时未见的限流桶，防止 sync.Map 无限增长。
@@ -127,8 +124,8 @@ func sweepStaleBuckets(m *sync.Map, janitor *sync.Once) {
 
 // routeLimiter 按 IP+路由限流重型 GET 接口, 超限返回 429 + Retry-After(秒)。
 // 口径说明（最小一致化，不做 Redis 大重构）：内存固定窗口，只防单机突发；
-// 写接口（POST entities/relations 等）暂无独立重型限流，与 setup/login 的 15/min/IP
-// 限流不互通；多实例一致性与写接口重型限流放三期（Redis）。
+// 写接口（POST entities/relations 等）暂无独立重型限流；多实例一致性与写接口重型限流
+// 放三期（Redis）。
 func routeLimiter(perMinute int) gin.HandlerFunc {
 	sweepStaleBuckets(&routeAttempts, &routeJanitor)
 	return func(c *gin.Context) {
@@ -257,373 +254,23 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		c.Header("Content-Type", "text/html; charset=utf-8")
 		c.String(200, swaggerHTML)
 	})
+	// 身份只来自账号服务签发的 RS256 令牌：目录侧**只验签、不查库、不签发**。
+	// 因此这里不再有"会话表兜底"分支——账号数据归账号服务，目录不读它的表。
+	// Bearer 与 Cookie 各试一次：前端可能带着刚过期的 Bearer 令牌，
+	// 而 HttpOnly Cookie 里是刷新后的新令牌（或反之），不能互相顶掉。
 	api.Use(func(c *gin.Context) {
-		// 无状态 RS256 验签优先，失败回退查库：双模式并存。
-		// Bearer 与 Cookie 各试一次：前端可能带着刚过期的 Bearer 令牌，
-		// 而 HttpOnly Cookie 里是刷新后的新令牌（或反之），不能互相顶掉。
 		bearer := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
 		cookie, _ := c.Cookie("mf_session")
 		for _, token := range []string{bearer, cookie} {
 			if token == "" {
 				continue
 			}
-			if u, err := s.Authenticate(c.Request.Context(), token); err == nil {
+			if u, err := s.Authenticate(token); err == nil {
 				c.Set("catalog_user", u)
 				break
 			}
 		}
 		c.Next()
-	})
-	setupGetHandler := func(c *gin.Context) {
-		needed, err := s.SetupNeeded(c.Request.Context())
-		respond(c, gin.H{"needed": needed, "is_initialized": !needed, "has_admin": !needed}, err)
-	}
-	api.GET("/setup", setupGetHandler)
-	type credentials struct {
-		Username string `json:"username"`
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-	sweepStaleBuckets(&loginAttempts, &loginAttemptsJanit)
-	limiter := func(c *gin.Context) {
-		key := c.ClientIP()
-		now := time.Now()
-		v, _ := loginAttempts.LoadOrStore(key, &routeBucket{start: now, lastSeen: now})
-		b := v.(*routeBucket)
-		b.mu.Lock()
-		defer b.mu.Unlock()
-		if now.Sub(b.start) > time.Minute {
-			b.start = now
-			b.n = 0
-		}
-		b.n++
-		b.lastSeen = now
-		if b.n > 15 {
-			c.AbortWithStatusJSON(429, gin.H{"error": "rate_limited"})
-			return
-		}
-		c.Next()
-	}
-	api.POST("/setup", limiter, func(c *gin.Context) {
-		var in credentials
-		if !body(c, &in) {
-			return
-		}
-		u, err := s.CreateUser(c.Request.Context(), in.Username, in.Email, in.Password, true, nil)
-		respond(c, u, err)
-	})
-	api.POST("/auth/login", limiter, func(c *gin.Context) {
-		var in credentials
-		if !body(c, &in) {
-			return
-		}
-		token, u, err := s.Login(c.Request.Context(), in.Username, in.Password)
-		if err == nil {
-			c.SetSameSite(http.SameSiteStrictMode)
-			c.SetCookie("mf_session", token, 86400, "/", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
-		}
-		respond(c, gin.H{"token": token, "access_token": token, "token_type": "Bearer", "expires_in": int(AccessTokenTTL.Seconds()), "user": u}, err)
-	})
-	// POST /auth/refresh 用当前 Bearer/Cookie 令牌换发新令牌（服务端轮转会话行）。
-	// 前端据此在访问令牌临近过期时续期，无需单独的 refresh_token 字段。
-	// 与 login 共用 15/min/IP 限流，防止被盗令牌无限续命喷洒。
-	api.POST("/auth/refresh", limiter, func(c *gin.Context) {
-		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
-		if token == "" {
-			token, _ = c.Cookie("mf_session")
-		}
-		next, u, err := s.Refresh(c.Request.Context(), token)
-		if err == nil && next != "" {
-			c.SetSameSite(http.SameSiteStrictMode)
-			c.SetCookie("mf_session", next, 86400, "/", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
-		}
-		respond(c, gin.H{"token": next, "access_token": next, "token_type": "Bearer", "expires_in": int(AccessTokenTTL.Seconds()), "user": u}, err)
-	})
-	api.GET("/auth/me", required(false), func(c *gin.Context) { respond(c, user(c), nil) })
-	api.POST("/auth/logout", required(false), func(c *gin.Context) {
-		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
-		if token == "" {
-			token, _ = c.Cookie("mf_session")
-		}
-		// 清 Cookie 的 Secure 必须与登录时一致，否则 HTTPS 下清不掉。
-		c.SetCookie("mf_session", "", -1, "/", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
-		respond(c, gin.H{"ok": true}, s.Logout(c.Request.Context(), token))
-	})
-	// GET /auth/settings 供未登录页面读取实例准入能力。后端目前没有注册、
-	// 邀请或邮件验证实现，因此如实返回关闭；这些值是真实能力而非可配置开关，
-	// 待实现对应流程后再按实际状态返回。
-	api.GET("/auth/settings", func(c *gin.Context) {
-		respond(c, gin.H{
-			"registration_enabled":       false,
-			"invite_required":            false,
-			"require_email_verification": false,
-			"email_verification_enabled": false,
-		}, nil)
-	})
-	// changePassword 是 PUT /auth/password 与 POST /auth/change-password 的共用
-	// 实现：两者语义相同（当前登录用户改自己密码），参数形状均为
-	// old_password/new_password，仅复用 Store.ChangePassword，不新增密码逻辑。
-	changePassword := func(c *gin.Context) {
-		u := user(c)
-		if u == nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-		var in struct {
-			OldPassword string `json:"old_password"`
-			NewPassword string `json:"new_password"`
-		}
-		if !body(c, &in) {
-			return
-		}
-		respond(c, gin.H{"ok": true}, s.ChangePassword(c.Request.Context(), u.ID, in.OldPassword, in.NewPassword))
-	}
-	api.PUT("/auth/password", required(false), changePassword)
-	api.POST("/auth/change-password", required(false), changePassword)
-	api.POST("/auth/logout-all", required(false), func(c *gin.Context) {
-		u := user(c)
-		if u == nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-		c.SetCookie("mf_session", "", -1, "/", "", c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https", true)
-		respond(c, gin.H{"ok": true}, s.LogoutAll(c.Request.Context(), u.ID))
-	})
-	api.GET("/admin/users", required(true), func(c *gin.Context) {
-		users, err := s.ListUsers(c.Request.Context())
-		respond(c, gin.H{"items": users}, err)
-	})
-	api.POST("/admin/users", required(true), func(c *gin.Context) {
-		var in credentials
-		if !body(c, &in) {
-			return
-		}
-		u, err := s.CreateUser(c.Request.Context(), in.Username, in.Email, in.Password, false, user(c))
-		respond(c, u, err)
-	})
-	api.PUT("/admin/users/:id/role", required(true), func(c *gin.Context) {
-		var in struct {
-			Role string `json:"role"`
-		}
-		if !body(c, &in) {
-			return
-		}
-		respond(c, gin.H{"ok": true}, s.UpdateUserRole(c.Request.Context(), c.Param("id"), in.Role, user(c)))
-	})
-	api.PUT("/admin/users/:id/password", required(true), func(c *gin.Context) {
-		var in struct {
-			Password string `json:"password"`
-		}
-		if !body(c, &in) {
-			return
-		}
-		respond(c, gin.H{"ok": true}, s.ResetUserPassword(c.Request.Context(), c.Param("id"), in.Password, user(c)))
-	})
-	oauth := api.Group("/oauth")
-	// 客户端列表不含密钥哈希（SecretHash json:"-"），但仍需登录后可读，
-	// 避免匿名枚举 client_id/redirect_uris；账号页已登录用户可查看。
-	oauth.GET("/clients", required(false), func(c *gin.Context) {
-		clients, err := s.ListOAuthClients(c.Request.Context())
-		respond(c, gin.H{"clients": clients}, err)
-	})
-	oauth.GET("/authorize", limiter, func(c *gin.Context) {
-		clientID := c.Query("client_id")
-		redirectURI := c.Query("redirect_uri")
-		responseType := c.Query("response_type")
-		state := c.Query("state")
-		scope := c.DefaultQuery("scope", "profile")
-		if responseType != "code" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported_response_type"})
-			return
-		}
-		client, err := s.GetOAuthClient(c.Request.Context(), clientID)
-		if err != nil || client == nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_client"})
-			return
-		}
-		validURI := false
-		for _, uri := range client.RedirectURIs {
-			if uri == redirectURI {
-				validURI = true
-				break
-			}
-		}
-		if !validURI {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid_redirect_uri"})
-			return
-		}
-		u := user(c)
-		if u == nil {
-			c.Redirect(http.StatusFound, "/account?return_to="+url.QueryEscape(c.Request.RequestURI))
-			return
-		}
-		code, err := s.CreateOAuthCode(c.Request.Context(), clientID, u.ID, redirectURI, scope, c.Query("code_challenge"), c.Query("code_challenge_method"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		sep := "?"
-		if strings.Contains(redirectURI, "?") {
-			sep = "&"
-		}
-		target := fmt.Sprintf("%s%scode=%s", redirectURI, sep, url.QueryEscape(code))
-		if state != "" {
-			target += "&state=" + url.QueryEscape(state)
-		}
-		c.Redirect(http.StatusFound, target)
-	})
-	oauth.POST("/token", limiter, func(c *gin.Context) {
-		grantType := c.PostForm("grant_type")
-		code := c.PostForm("code")
-		clientID := c.PostForm("client_id")
-		clientSecret := c.PostForm("client_secret")
-		redirectURI := c.PostForm("redirect_uri")
-		verifier := c.PostForm("code_verifier")
-		if grantType == "" {
-			var body struct {
-				GrantType    string `json:"grant_type"`
-				Code         string `json:"code"`
-				ClientID     string `json:"client_id"`
-				ClientSecret string `json:"client_secret"`
-				RedirectURI  string `json:"redirect_uri"`
-				Verifier     string `json:"code_verifier"`
-			}
-			if c.BindJSON(&body) == nil {
-				grantType = body.GrantType
-				code = body.Code
-				clientID = body.ClientID
-				clientSecret = body.ClientSecret
-				redirectURI = body.RedirectURI
-				verifier = body.Verifier
-			}
-		}
-		if grantType != "authorization_code" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported_grant_type"})
-			return
-		}
-		token, u, err := s.ExchangeOAuthCode(c.Request.Context(), clientID, clientSecret, code, redirectURI, verifier)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		ttl := int((30 * 24 * time.Hour).Seconds())
-		resp := gin.H{
-			"access_token": token,
-			"token_type":   "Bearer",
-			"expires_in":   ttl,
-			"scope":        "profile",
-			"user":         u,
-		}
-		// OIDC：同密钥签发 id_token（aud 指向该客户端），客户端可用 JWKS 本地验签。
-		if idToken, exp, ierr := s.IDToken(*u, clientID); ierr == nil && idToken != "" {
-			resp["id_token"] = idToken
-			resp["id_token_expires_at"] = exp
-		}
-		c.JSON(http.StatusOK, resp)
-	})
-	oauth.GET("/userinfo", func(c *gin.Context) {
-		token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
-		if token == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing_token"})
-			return
-		}
-		// 无状态验签优先（RS256 访问令牌），失败回退查库（不透明令牌）。
-		u, err := s.Authenticate(c.Request.Context(), token)
-		if err != nil || u == nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid_token"})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"sub":      u.ID,
-			"id":       u.ID,
-			"username": u.Username,
-			"role":     u.Role,
-			"email":    u.Email,
-		})
-	})
-	// OIDC 发现与 JWKS：外部服务可用公钥在本地验签访问令牌/id_token，无需回调本服务。
-	// issuer 与 discovery 地址同源（默认 https://findverse.cc/api）。
-	api.GET("/.well-known/openid-configuration", func(c *gin.Context) {
-		base := strings.TrimSuffix(s.TokenIssuerURL(), "/")
-		if base == "" {
-			base = strings.TrimSuffix(c.Request.URL.Scheme+c.Request.Host, "/")
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"issuer":                                base,
-			"authorization_endpoint":                base + "/oauth/authorize",
-			"token_endpoint":                        base + "/oauth/token",
-			"userinfo_endpoint":                     base + "/oauth/userinfo",
-			"jwks_uri":                              base + "/oidc/jwks",
-			"response_types_supported":              []string{"code"},
-			"grant_types_supported":                 []string{"authorization_code"},
-			"subject_types_supported":               []string{"public"},
-			"id_token_signing_alg_values_supported": []string{"RS256"},
-			"scopes_supported":                      []string{"profile", "email"},
-			"claims_supported":                      []string{"sub", "preferred_username", "email", "role"},
-		})
-	})
-	api.GET("/oidc/jwks", func(c *gin.Context) {
-		if s.Tokens == nil {
-			c.JSON(http.StatusOK, gin.H{"keys": []any{}})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"keys": []any{s.Tokens.PublicJWK()}})
-	})
-	// 用户收藏：详情页按钮与"我的收藏 / 用户收藏"列表。
-	// 分页约定（与 List/ListFavorites 对齐的静默收敛口径）：page<1 收敛为 1；
-	// page_size 越界（<1 或 >100）收敛为 20，不硬拒绝，避免前端翻页参数抖动直接 400。
-	favPage := func(c *gin.Context) (int, int) {
-		page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-		size, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
-		if page < 1 {
-			page = 1
-		}
-		if size < 1 || size > 100 {
-			size = 20
-		}
-		return page, size
-	}
-	// 收藏切换需登录、不限管理员：普通用户与编辑均可收藏可见实体。
-	api.POST("/favorites/toggle", required(false), func(c *gin.Context) {
-		var in struct {
-			TargetType string `json:"target_type"`
-			TargetID   string `json:"target_id"`
-		}
-		// 统一 body 解析：2MB 上限 + 拒绝未知字段，与其他写接口一致。
-		if !body(c, &in) {
-			return
-		}
-		favorited, err := s.ToggleFavorite(c.Request.Context(), *user(c), in.TargetType, in.TargetID)
-		respond(c, gin.H{"favorited": favorited}, err)
-	})
-	api.GET("/favorites/status", func(c *gin.Context) {
-		u := user(c)
-		if u == nil {
-			respond(c, gin.H{"favorited": []string{}}, nil)
-			return
-		}
-		ids := []string{}
-		for _, id := range strings.Split(c.Query("target_ids"), ",") {
-			if id = strings.TrimSpace(id); id != "" {
-				ids = append(ids, id)
-			}
-		}
-		v, err := s.FavoriteStatus(c.Request.Context(), *u, c.Query("target_type"), ids)
-		respond(c, gin.H{"favorited": v}, err)
-	})
-	// 我的收藏需登录、不限管理员：普通用户可列出自己的收藏。
-	api.GET("/favorites/mine", required(false), func(c *gin.Context) {
-		u := user(c)
-		page, size := favPage(c)
-		items, total, err := s.ListFavorites(c.Request.Context(), u.ID, u, c.Query("target_type"), size, (page-1)*size)
-		respond(c, gin.H{"items": items, "total": total, "visible": true}, err)
-	})
-	// 指定用户收藏列表：公开读，但目标实体仍按请求方可见性过滤。
-	// 无收藏公开开关：只返回请求方可见的目标实体摘要，不可见/已删跳过不泄露。
-	api.GET("/users/:id/favorites", func(c *gin.Context) {
-		page, size := favPage(c)
-		items, total, err := s.ListFavorites(c.Request.Context(), c.Param("id"), user(c), c.Query("target_type"), size, (page-1)*size)
-		respond(c, gin.H{"items": items, "total": total, "visible": true}, err)
 	})
 	cat := api.Group("/catalog")
 	cat.GET("/definitions", func(c *gin.Context) { v, err := s.Definitions(c.Request.Context()); respond(c, v, err) })

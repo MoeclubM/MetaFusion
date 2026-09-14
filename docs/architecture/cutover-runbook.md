@@ -152,9 +152,11 @@ cd deploy && ./deploy.sh retire
 | `modules`、`moduleapi`、`moduledeps` 三个包（约 2900 行） | 模块装配与论坛/资源层，功能已由互动与存储服务承载 | 拆分期随目录包收敛删除 |
 | `modules` / `media` schema、`catalog.favorites`、临时备份表 | 已无代码读写 | `./deploy.sh retire` |
 
-**代码侧还剩一步（未完成）**：单体里 `catalog/identity.go`、`token.go`、`favorites.go` 及对应路由已经
-不再被网关路由到，但代码仍在。收敛为「只保留 RS256 验签」是独立代码单元：删掉账号实现（约 859 行）
-与 `auth.sessions` 查库兜底，只留验签与权限判定，改完用 `./deploy.sh fast` 部署。
+**代码侧已完成（2026-09-14）**：删掉 `catalog/identity.go` / `favorites.go` 与全部账号/收藏路由；
+`token.go` 收敛为**只持公钥的验签器**（没有签发、续期、注销入口）；`Store.Authenticate` 不再回退查
+`auth.sessions`；`schema.sql` 不再建 `auth.*` 与 `catalog.favorites`（后者由迁移 000014 下线），
+第一方 OAuth 客户端种子随 auth schema 搬进账号服务；修订历史的作者名改为写入时快照
+（迁移 000015），因此目录侧不再有跨 schema 的 JOIN。部署方式：`./deploy.sh migrate up`（新迁移）后 `./deploy.sh fast`。
 
 ## 2. 为什么每步都可回滚
 
@@ -184,7 +186,7 @@ cd deploy && ./deploy.sh retire
 
 | 问题 | 现状 | 影响 |
 | --- | --- | --- |
-| 单体账号代码 | 路由已切到账号服务，但 `identity.go` / `token.go` / `favorites.go` 仍在单体里 | 见第 4 步末尾：收敛为只验签是下一步代码单元 |
+| ~~单体账号代码~~ | 已完成：账号实现与路由删除，`token.go` 只剩验签，目录不再建/写 `auth` schema | 不需要再处理 |
 | `/api/media/*` | ffprobe 探针与预览转码没有迁进存储服务，网关也没有这个前缀 | 该能力当前不可用（既有缺口，不是切流引入） |
 | 浏览器预签名直传 | 对象存储不发布宿主机端口，当前走服务端流式上传 | 恢复直传要给对象存储一个独立对外域名并设 `STORAGE_S3_PUBLIC_ENDPOINT`（SigV4 覆盖 Host，只加路径前缀不行） |
 | Redis | 常驻但已无代码读取（`REDIS_ADDR` 已从后端配置移除） | 可以从常驻服务里去掉，省一份常驻内存 |

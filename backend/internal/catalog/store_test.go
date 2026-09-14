@@ -106,21 +106,10 @@ func TestIncludesDirectionContract(t *testing.T) {
 func TestPostgresCatalog(t *testing.T) {
 	ctx := context.Background()
 	s := &Store{DB: testutil.Database(t)}
-	var err error
-	if err = s.Initialize(ctx); err != nil {
+	if err := s.Initialize(ctx); err != nil {
 		t.Fatal(err)
 	}
-	username := "admin_" + uuid.NewString()
-	needed, _ := s.SetupNeeded(ctx)
-	var admin User
-	if needed {
-		admin, err = s.CreateUser(ctx, username, username+"@example.com", "test-password-12345", true, nil)
-	} else {
-		err = s.DB.QueryRow("SELECT id,username,COALESCE(email,''),role FROM auth.users WHERE role='admin' LIMIT 1").Scan(&admin.ID, &admin.Username, &admin.Email, &admin.Role)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	admin := fixtureUser("admin")
 	sources := []Source{{Kind: "self", Citation: "isolated test fixture"}}
 	save := func(e Entity) Entity {
 		t.Helper()
@@ -515,15 +504,15 @@ func TestSchemeConvergenceInEntityValidation(t *testing.T) {
 			}},
 		}
 	}
-		// 显式启用测试方案（或单独构造测试 scheme）：
-		// 并集内字段通过，并集外超集字段被拒绝。
-		d := Defaults()
-		vinyl := d.Schemes["vinyl_track_locator"]
-		vinyl.Enabled = true
-		d.Schemes["vinyl_track_locator"] = vinyl
-		if err := d.Validate(); err != nil {
-			t.Fatalf("defaults invalid: %v", err)
-		}
+	// 显式启用测试方案（或单独构造测试 scheme）：
+	// 并集内字段通过，并集外超集字段被拒绝。
+	d := Defaults()
+	vinyl := d.Schemes["vinyl_track_locator"]
+	vinyl.Enabled = true
+	d.Schemes["vinyl_track_locator"] = vinyl
+	if err := d.Validate(); err != nil {
+		t.Fatalf("defaults invalid: %v", err)
+	}
 	ok := mkTrack(Locator{"relative_to": "track", "chapter": "A1"})
 	if err := d.validateEntity(ok, ref, false); err != nil {
 		t.Fatalf("in-scheme locator rejected: %v", err)
@@ -580,18 +569,7 @@ func TestRolePublishMatrix(t *testing.T) {
 		t.Fatal(err)
 	}
 	sources := []Source{{Kind: "self", Citation: "role matrix fixture"}}
-	admin, err := s.CreateUserWithRole(ctx, "matrix-admin", "", "test-password-12345", true, "admin", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	editor, err := s.CreateUserWithRole(ctx, "matrix-editor", "", "test-password-12345", false, "editor", &admin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	member, err := s.CreateUserWithRole(ctx, "matrix-user", "", "test-password-12345", false, "user", &admin)
-	if err != nil {
-		t.Fatal(err)
-	}
+	admin, editor, member := fixtureUser("admin"), fixtureUser("editor"), fixtureUser("user")
 
 	mk := func(title string) Entity {
 		return Entity{Kind: "work", Types: []string{"novel"}, Title: title,
@@ -671,14 +649,7 @@ func TestExpressionDetailsBatch(t *testing.T) {
 	if err := s.Initialize(ctx); err != nil {
 		t.Fatal(err)
 	}
-	username := "batch_" + uuid.NewString()
-	if _, err := s.CreateUser(ctx, username, username+"@example.com", "test-password-12345", true, nil); err != nil {
-		t.Fatal(err)
-	}
-	var admin User
-	if err := s.DB.QueryRow("SELECT id,username,COALESCE(email,''),role FROM auth.users WHERE username=$1", username).Scan(&admin.ID, &admin.Username, &admin.Email, &admin.Role); err != nil {
-		t.Fatal(err)
-	}
+	admin := fixtureUser("admin")
 	sources := []Source{{Kind: "self", Citation: "batch fixture"}}
 	save := func(e Entity) Entity {
 		t.Helper()
@@ -760,14 +731,7 @@ func TestOccurrencesScopeByKind(t *testing.T) {
 	if err := s.Initialize(ctx); err != nil {
 		t.Fatal(err)
 	}
-	username := "scope_" + uuid.NewString()
-	if _, err := s.CreateUser(ctx, username, username+"@example.com", "test-password-12345", true, nil); err != nil {
-		t.Fatal(err)
-	}
-	var admin User
-	if err := s.DB.QueryRow("SELECT id,username,COALESCE(email,''),role FROM auth.users WHERE username=$1", username).Scan(&admin.ID, &admin.Username, &admin.Email, &admin.Role); err != nil {
-		t.Fatal(err)
-	}
+	admin := fixtureUser("admin")
 	sources := []Source{{Kind: "self", Citation: "scope fixture"}}
 	save := func(e Entity) Entity {
 		t.Helper()

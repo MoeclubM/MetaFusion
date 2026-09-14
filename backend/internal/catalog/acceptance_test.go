@@ -25,11 +25,8 @@ func newFixture(t *testing.T) fixture {
 	if err := s.Initialize(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	u, err := s.CreateUser(context.Background(), "fixture-admin", "fixture-admin@example.com", "fixture-password-123", true, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return fixture{t, s, u}
+	// 夹具用户不落库：账号归账号服务，目录表没有指向 auth 的外键，见 users_test.go。
+	return fixture{t, s, fixtureUser("admin")}
 }
 func (f fixture) save(e Entity) Entity {
 	f.t.Helper()
@@ -117,10 +114,7 @@ func TestPostgresDynamicDefinitions(t *testing.T) {
 func TestPostgresEditReviewAndVersions(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	editor, err := f.s.CreateUser(ctx, "fixture-editor", "fixture-editor@example.com", "fixture-editor-pass", false, &f.u)
-	if err != nil {
-		t.Fatal(err)
-	}
+	editor := fixtureUser("editor")
 	for _, typ := range []string{"photobook", "indie_game", "song"} {
 		e, err := f.s.Save(ctx, Edit{Entity: Entity{Kind: "work", Title: typ, Status: "draft", Types: []string{typ, "personal"}}, EditNote: "author draft", Sources: fixtureSources()}, editor)
 		if err != nil {
@@ -196,40 +190,47 @@ func TestPostgresReleaseComparisonAndReuse(t *testing.T) {
 	}
 }
 
-func TestPostgresHTTPSession(t *testing.T) {
+// 账号与收藏路由已随子系统拆分离开目录服务：这里只剩目录自己的契约。
+// 网关按前缀把它们分流到账号/互动服务，因此目录侧必须**不再注册**这些路由
+// （否则网关配置失误时会出现两个实现同时在线的假象）。
+func TestPostgresAccountRoutesAreGone(t *testing.T) {
 	f := newFixture(t)
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	HTTP{Store: f.s}.Register(r)
-	request := func(method, path, body string, cookie *http.Cookie) *httptest.ResponseRecorder {
+	request := func(method, path, body, token string) *httptest.ResponseRecorder {
 		t.Helper()
 		req := httptest.NewRequest(method, path, strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		if cookie != nil {
-			req.AddCookie(cookie)
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
 		}
 		res := httptest.NewRecorder()
 		r.ServeHTTP(res, req)
 		return res
 	}
-	login := request("POST", "/api/auth/login", `{"username":"fixture-admin","password":"fixture-password-123"}`, nil)
-	if login.Code != 200 {
-		t.Fatal(login.Body.String())
+
+	// 已迁出的前缀在目录服务上必须 404。
+	for _, tc := range []struct{ method, path, body string }{
+		{http.MethodPost, "/api/auth/login", `{"username":"x","password":"y"}`},
+		{http.MethodGet, "/api/auth/me", ""},
+		{http.MethodPost, "/api/setup", `{"username":"x"}`},
+		{http.MethodGet, "/api/admin/users", ""},
+		{http.MethodGet, "/api/oidc/jwks", ""},
+		{http.MethodPost, "/api/favorites/toggle", `{"target_type":"work"}`},
+	} {
+		if res := request(tc.method, tc.path, tc.body, ""); res.Code != http.StatusNotFound {
+			t.Fatalf("%s %s = %d, want 404（该前缀已归子系统）", tc.method, tc.path, res.Code)
+		}
 	}
-	cookies := login.Result().Cookies()
-	if len(cookies) != 1 || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteStrictMode {
-		t.Fatal("session cookie protection missing")
+
+	// 目录自己的写接口仍然要求身份，且身份只来自账号服务签发的 RS256 令牌。
+	key := testKey(t)
+	f.s.Verifier = testVerifier(t, key)
+	if res := request(http.MethodPost, "/api/catalog/entities", `{"kind":"work","title":"匿名写入"}`, ""); res.Code != http.StatusUnauthorized {
+		t.Fatalf("anonymous write = %d, want 401", res.Code)
 	}
-	if res := request("GET", "/api/auth/me", "", cookies[0]); res.Code != 200 {
-		t.Fatal(res.Body.String())
-	}
-	if res := request("POST", "/api/auth/logout", `{}`, cookies[0]); res.Code != 200 {
-		t.Fatal(res.Body.String())
-	}
-	if res := request("GET", "/api/auth/me", "", cookies[0]); res.Code != 401 {
-		t.Fatal("logged-out session accepted")
-	}
-	if res := request("POST", "/api/auth/login", `{"username":"fixture-admin","password":"fixture-password-123"} {}`, nil); res.Code != 400 {
-		t.Fatal("trailing JSON accepted")
+	if res := request(http.MethodPost, "/api/catalog/entities", `{"kind":"work","title":"验签写入"}`, signTestToken(t, key, nil)); res.Code != http.StatusOK {
+		t.Fatalf("authenticated write = %d: %s", res.Code, res.Body.String())
 	}
 }

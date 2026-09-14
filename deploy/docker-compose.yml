@@ -175,6 +175,8 @@ services:
       - DB_NAME=${DB_NAME:-metafusion_db}
       # auth 是唯一签发方，JWKS 指向账号服务（不再回指目录服务）。
       - COMMUNITY_JWKS_URL=http://auth:8081/api/oidc/jwks
+      # 存量不透明会话令牌的兜底解析：身份问题只问账号服务（不查目录服务）。
+      - AUTH_URL=http://auth:8081
       - CATALOG_URL=http://backend:8080
       - AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER:-https://findverse.cc/api}
       - AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE:-metafusion}
@@ -247,6 +249,8 @@ services:
       # PUT /api/storage/upload/stream/{asset_id} 的服务端流式上传。
       - STORAGE_S3_PUBLIC_ENDPOINT=${STORAGE_S3_PUBLIC_ENDPOINT:-}
       - STORAGE_JWKS_URL=http://auth:8081/api/oidc/jwks
+      # 存量不透明会话令牌的兜底解析：身份问题只问账号服务（不查目录服务）。
+      - AUTH_URL=http://auth:8081
       - CATALOG_URL=http://backend:8080
       - AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER:-https://findverse.cc/api}
       - AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE:-metafusion}

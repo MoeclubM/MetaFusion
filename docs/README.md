@@ -34,8 +34,9 @@
    路由矩阵与主仓库 `deploy/nginx.conf` 一致。
 6. **文档站**：VitePress 静态工程（本仓库 `docs-site/`）；另有独立仓库 `metafusion-docs` 待与主仓库收敛。
 
-**单体里仍留着的账号实现代码**（`catalog/identity.go`、`token.go`、`favorites.go`）路由已切走但代码未删，
-收敛为「只保留 RS256 验签」是下一步代码单元，见切流手册第 4 步。
+**单体侧已完成收敛**：`catalog/identity.go`、`favorites.go` 与账号路由全部删除，`token.go` 只剩验签
+（只持公钥、没有签发路径），并且不再创建或写入 `auth` schema（含第一方 OAuth 客户端种子）；
+`catalog.favorites` 由迁移 000014 下线。目录服务只剩实体、关系、定义、检索与货架。
 
 ## 协作与工具准则
 

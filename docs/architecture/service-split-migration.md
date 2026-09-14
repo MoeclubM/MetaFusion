@@ -57,8 +57,9 @@
 - 只有 auth 签发令牌；其余服务**只验签**（RS256，JWKS）。验签只信 `sub`/`preferred_username`/`role`。
 - issuer 保持 `https://findverse.cc/api`、audience 保持 `metafusion`，避免存量令牌全部失效。
 - 各服务的 JWKS 地址用环境变量注入（迁移期指向 catalog 的 `/api/oidc/jwks`，auth 上线后指向 auth）。
-- 主仓库当前 `Store.Authenticate` 是 "JWT 优先 + `auth.sessions` 兜底"；auth 迁出后兜底路径取消，
-  必须同时保证 refresh 换发可用（短期访问令牌，否则用户会被强制下线）。
+- 主仓库 `Store.Authenticate` **只做 RS256 验签**（已于 2026-09-14 取消 `auth.sessions` 查库兜底）：
+  目录不读账号服务的表。存量不透明令牌的兜底由各服务问账号服务（`AUTH_URL`），
+  续期仍走账号服务的 `/api/auth/refresh`（短期访问令牌，否则用户会被强制下线）。
 - 业务权限（谁能编辑哪个实体）仍由 catalog 自己判断，auth 不介入。
 
 ## 5. 迁移阶段与验收
@@ -76,9 +77,11 @@
 >   搬运旧表（forward 全量核对）→ 拉起网关；网关矩阵 18 条 location 逐前缀验证 `X-MetaFusion-Service`
 >   分别落到 catalog/auth/community/storage；随后 `./deploy.sh retire` 删除 `modules` / `media` schema、
 >   `catalog.favorites` 与手工迁移遗留的临时备份表。库里最终只剩 `catalog` / `auth` / `community` / `storage`。
-> - **P4 代码侧只做了前半段**：`modules`/`moduleapi`/`moduledeps` 三个包、模块装配与路由已删；
->   单体里 `catalog/identity.go`、`token.go`、`favorites.go`（约 859 行）**仍在**，路由已切走但未删代码，
->   收敛为"只保留 RS256 验签"是下一步独立代码单元。
+> - **P4 代码侧已完成**：`modules`/`moduleapi`/`moduledeps` 三个包、账号实现（`identity.go`/`favorites.go`、
+>   账号与收藏路由、`token.go` 的签发侧，约 900 行）全部删除；目录侧只剩 RS256 验签（只持公钥）。
+>   `schema.sql` 不再创建 `auth.*` 与 `catalog.favorites`，也不再播种第一方 OAuth 客户端
+>   （种子随 auth schema 归账号服务）；收藏表由迁移 000014 下线，修订作者名改为写入快照
+>   （迁移 000015），目录侧不再有任何跨 schema 的 JOIN 或写入。
 > - **遗留**：收藏"是否公开"仍只有前端只读占位（`settings/page.tsx` 的开关是 `disabled readOnly`，
 >   目录侧无字段），迁移后的接口恒返回 `visible: true`；实现该开关时归互动服务。
 > - **P5 未开始**：`metafusion-docs` 与主仓库 `docs-site` 仍是两份；主仓库 `docs-site/docs/api-storage.md`
@@ -90,7 +93,7 @@
 | P1 | storage：实现 `/api/storage/*`（CAS、秒传、分片预签名、绑定角色、下载、预览、哈希校验） | ✅ 新仓库 `go build/vet/test` 通过；本仓库 archive/media 端点保持可用，未切流 |
 | P2 | community：迁移论坛/短评/收藏/记录，**保留现有 `/topics`、`/boards` 契约与请求/响应形状** | ✅ 论坛/短评/记录已迁（16 条路由与单体逐字一致，`go build/vet/test` 通过）；收藏随 P3 迁移 |
 | P3 | auth：迁出 setup/auth/admin/oauth；catalog 改为只验签 | ✅ 服务侧完成（30 条路径与单体一致 + OIDC 标准根路径；`go build/vet/test` 通过，含令牌闭环与 PKCE 单测）。切流与单体只验签在 P4 执行 |
-| P4 | catalog 瘦身 + 网关切流：下线 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` 与 `modules` 包 | ✅ 服务端已切流并验证（网关逐前缀可回退）；`modules` 包与旧 schema 已删；**单体账号代码待收敛为只验签** |
+| P4 | catalog 瘦身 + 网关切流：下线 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` 与 `modules` 包 | ✅ 全部完成：已切流并逐前缀验证；旧 schema/表已删；**账号实现与路由已从单体删除，目录只剩验签** |
 | P5 | 文档去重：`metafusion-docs` 为唯一源，本仓库 `docs-site` 移除/compose 收敛 | 只有一份 md；`docker compose config` 通过 |
 
 每个阶段独立提交、独立可回退；不回滚别人的改动，也不做双向写入。
