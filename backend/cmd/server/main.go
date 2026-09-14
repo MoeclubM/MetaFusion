@@ -167,6 +167,9 @@ func main() {
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		c.Header("X-Frame-Options", "SAMEORIGIN")
+		// 切流自检用：标明本次响应来自哪个上游，便于确认网关前缀是否已切到目标服务
+		// （metafusion-auth / -community / -storage 返回同名头，拆分后能逐前缀核对）。
+		c.Header("X-MetaFusion-Service", "metafusion-catalog")
 		c.Next()
 	})
 	// requestID 透传 X-Request-ID：请求无则生成 crypto/rand hex，写入响应头与 gin 上下文。
