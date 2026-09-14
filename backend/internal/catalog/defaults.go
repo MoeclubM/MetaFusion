@@ -138,9 +138,9 @@ func Defaults() Definitions {
 		Fields: map[string]Field{
 			"relative_to":   {Names: names("定位参照", "Relative to"), Type: "enum", Vocabulary: "locator_reference", Enabled: true, Semantics: "locating"},
 			"page_start":    {Names: names("起始页", "Start page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating"},
-			"page_end":      {Names: names("结束页", "End page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating"},
+			"page_end":      {Names: names("结束页", "End page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating", RangeStart: "page_start"},
 			"time_start_ms": {Names: names("起始时间（毫秒）", "Start time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content"},
-			"time_end_ms":   {Names: names("结束时间（毫秒）", "End time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content"},
+			"time_end_ms":   {Names: names("结束时间（毫秒）", "End time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content", RangeStart: "time_start_ms"},
 			"path":          {Names: names("文件路径", "File path"), Type: "text", Enabled: true, Semantics: "locating"},
 			"chapter":       {Names: names("章节", "Chapter"), Type: "text", Enabled: true, Semantics: "locating"},
 		},

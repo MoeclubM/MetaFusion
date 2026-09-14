@@ -1866,6 +1866,7 @@
   "catalog.hiddenFields": "存档与检索字段",
   "catalog.datePlaceholder": "年 / 年-月 / 年-月-日",
   "catalog.dateInvalid": "日期需为年、年-月或年-月-日",
+  "catalog.rangeStart": "区间起点字段",
   "catalog.semantics": "对比语义",
   "catalog.semanticsDefault": "本版定位（页码/时间码/路径）",
   "catalog.semanticsContent": "内容选择范围（引用片段）",

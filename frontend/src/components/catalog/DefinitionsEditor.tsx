@@ -86,7 +86,7 @@ function Dictionary<T extends { names: Names }>({
   value: Record<string, T>;
   onChange: (v: Record<string, T>) => void;
   create: () => T;
-  render: (item: T, change: (v: T) => void) => React.ReactNode;
+  render: (item: T, change: (v: T) => void, key: string) => React.ReactNode;
 }) {
   const { t, locale } = useI18n();
   const [code, setCode] = useState("");
@@ -117,7 +117,7 @@ function Dictionary<T extends { names: Names }>({
           <summary>
             {local(v.names, locale, "", key)} <small>({key})</small>
           </summary>
-          {render(v, (x) => onChange({ ...value, [key]: x }))}
+          {render(v, (x) => onChange({ ...value, [key]: x }), key)}
           <button
             type="button"
             onClick={() => {
@@ -137,10 +137,16 @@ function FieldDefinition({
   value,
   onChange,
   d,
+  code = "",
+  groupFields,
 }: {
   value: Field;
   onChange: (v: Field) => void;
   d: Definitions;
+  /** 本字段在所属组/字典中的码，用于排除"自己当自己的起点"。 */
+  code?: string;
+  /** 所属 group 的子字段集合：number 子字段可从中选区间起点。 */
+  groupFields?: Record<string, Field>;
 }) {
   const { t, locale } = useI18n();
   const patch = (v: Partial<Field>) => onChange({ ...value, ...v });
@@ -225,6 +231,28 @@ function FieldDefinition({
           </select>
         </label>
       )}
+      {/* 区间顺序只认显式声明：number 子字段指定同组起点字段后才校验大小关系，
+          后台新增数字字段不会因命名碰巧相似而触发隐含规则。 */}
+      {value.type === "number" &&
+        groupFields &&
+        Object.keys(groupFields).filter((k) => k !== code).length > 0 && (
+          <label>
+            {t("catalog.rangeStart")}
+            <select
+              value={value.range_start || ""}
+              onChange={(e) => patch({ range_start: e.target.value || undefined })}
+            >
+              <option value="">{t("catalog.none")}</option>
+              {Object.keys(groupFields)
+                .filter((k) => k !== code)
+                .map((k) => (
+                  <option key={k} value={k}>
+                    {local(groupFields[k]?.names, locale, "", k)}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
       <label>{t("catalog.unit")}</label>
       <NamesEditor
         value={value.unit || {}}
@@ -289,8 +317,14 @@ function FieldDefinition({
           value={value.fields || {}}
           onChange={(fields) => patch({ fields })}
           create={newField}
-          render={(f, change) => (
-            <FieldDefinition value={f} onChange={change} d={d} />
+          render={(f, change, key) => (
+            <FieldDefinition
+              value={f}
+              onChange={change}
+              d={d}
+              code={key}
+              groupFields={value.fields}
+            />
           )}
         />
       )}

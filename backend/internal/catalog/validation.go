@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/url"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -62,44 +63,59 @@ func toFloat(v any) (float64, bool) {
 // numericField 判断字段是否数值型（无词表、无枚举约束也可比较大小）。
 func numericField(f Field) bool { return f.Type == "number" }
 
-// validateGroupOrder 对命名成对的区间字段做通用顺序校验：
-// `X` 与 `X_end` / `X_end_ms` / `X_max` 同时存在时，前者不得大于后者。
-// 这套约定取代原先硬编码 page/time 的规则，新增成对字段无需改代码。
-// validateGroupOrder 对命名成对的区间字段做通用顺序校验：
-//   1) `X_start…` 与 `X_end…`（含 `_start_ms`/`_end_ms`）：替换 start→end 找配对；
-//   2) `X_begin` 与 `X_end`；
-//   3) `X` 与 `X_end` / `X_end_ms` / `X_max` / `X_until`（追加后缀）。
-// 同时存在时前者不得大于后者。这套约定取代原先硬编码 page/time 的规则，
-// 新增成对字段无需改代码，只要命名遵循上述约定即自动生效。
-func validateGroupOrder(m map[string]any, f Field) error {
-	pairs := [][2]string{}
-	has := func(k string) bool { _, ok := f.Fields[k]; return ok }
-	for key, child := range f.Fields {
-		if !numericField(child) {
+// sortedFieldKeys 返回组内子字段码的字典序，用于让校验报错稳定可复现。
+func sortedFieldKeys(f Field) []string {
+	keys := make([]string, 0, len(f.Fields))
+	for k := range f.Fields {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// validateGroupRanges 校验显式区间声明：range_start 只能写在 number 子字段上，
+// 必须指向同组另一个 number 子字段，且两者不能再各自声明区间（拒绝链式与自环）。
+func validateGroupRanges(f Field) error {
+	for _, key := range sortedFieldKeys(f) {
+		child := f.Fields[key]
+		if child.RangeStart == "" {
 			continue
 		}
-		// 命名替换：start→end、begin→end
-		for _, marker := range [][2]string{{"start", "end"}, {"begin", "end"}} {
-			if idx := strings.Index(key, marker[0]); idx >= 0 {
-				cand := key[:idx] + marker[1] + key[idx+len(marker[0]):]
-				if cand != key && has(cand) {
-					pairs = append(pairs, [2]string{key, cand})
-				}
-				break
-			}
+		if child.Type != "number" {
+			return fmt.Errorf("range_start_not_number: %s", key)
 		}
-		// 后缀追加
-		for _, suffix := range []string{"_end", "_end_ms", "_max", "_until"} {
-			if cand := key + suffix; has(cand) {
-				pairs = append(pairs, [2]string{key, cand})
-			}
+		if child.RangeStart == key {
+			return fmt.Errorf("range_start_self: %s", key)
+		}
+		start, ok := f.Fields[child.RangeStart]
+		if !ok {
+			return fmt.Errorf("range_start_unknown: %s", child.RangeStart)
+		}
+		if start.Type != "number" {
+			return fmt.Errorf("range_start_not_number: %s", child.RangeStart)
+		}
+		if start.RangeStart != "" {
+			return fmt.Errorf("range_start_chain: %s", key)
 		}
 	}
-	for _, p := range pairs {
-		sv, sok := toFloat(m[p[0]])
-		ev, eok := toFloat(m[p[1]])
+	return nil
+}
+
+// validateGroupOrder 校验组内声明的区间顺序与锚点：range_start 显式声明
+// "终点子字段 → 起点子字段"的配对，只有显式声明的区间才比较大小。
+// 不再按字段名（start/end、begin/end、_max…）猜测配对：那会让后台新加的两个
+// 数字字段在没有任何配置的情况下触发隐含规则，规则来源不可见也不可控。
+// 子字段码按字典序遍历，保证多条违规时报错稳定。
+func validateGroupOrder(m map[string]any, f Field) error {
+	for _, key := range sortedFieldKeys(f) {
+		child := f.Fields[key]
+		if child.RangeStart == "" {
+			continue
+		}
+		sv, sok := toFloat(m[child.RangeStart])
+		ev, eok := toFloat(m[key])
 		if sok && eok && sv > ev {
-			return fmt.Errorf("invalid_range: %s", p[0])
+			return fmt.Errorf("invalid_range: %s", child.RangeStart)
 		}
 	}
 	// 锚点规则：组内任一其它子字段有值，锚点子字段必须有值。
@@ -487,6 +503,9 @@ func (d Definitions) validateField(f Field, depth int) error {
 			if e := d.validateField(c, depth+1); e != nil {
 				return e
 			}
+		}
+		if e := validateGroupRanges(f); e != nil {
+			return e
 		}
 	default:
 		return fmt.Errorf("invalid_field_type")

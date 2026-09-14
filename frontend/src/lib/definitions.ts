@@ -23,6 +23,8 @@ export interface FieldDef {
   min?: number;
   max?: number;
   anchor_key?: string;
+  /** 仅 group 内的 number 子字段：声明本字段是同组该子字段的区间终点。 */
+  range_start?: string;
   /** 可写、可检索，但不进详情信息面板（存档/机器用途，如资料表原始条目）。 */
   hidden?: boolean;
   /** 对比语义（闭集）："content" 为内容选择范围，"locating" 为本版定位。 */

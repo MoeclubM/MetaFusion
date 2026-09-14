@@ -1866,6 +1866,7 @@
   "catalog.hiddenFields": "保存・検索用フィールド",
   "catalog.datePlaceholder": "年 / 年-月 / 年-月-日",
   "catalog.dateInvalid": "年、年-月、年-月-日のいずれかで入力してください",
+  "catalog.rangeStart": "区間の開始フィールド",
   "catalog.semantics": "比較セマンティクス",
   "catalog.semanticsDefault": "本版の位置（ページ／タイムコード／パス）",
   "catalog.semanticsContent": "内容の選択範囲（抜粋）",

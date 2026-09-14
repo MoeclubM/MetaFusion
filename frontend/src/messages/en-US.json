@@ -1866,6 +1866,7 @@
   "catalog.hiddenFields": "Archive & search fields",
   "catalog.datePlaceholder": "YYYY / YYYY-MM / YYYY-MM-DD",
   "catalog.dateInvalid": "Use a year, year-month, or full date",
+  "catalog.rangeStart": "Range start field",
   "catalog.semantics": "Comparison semantics",
   "catalog.semanticsDefault": "Edition positioning (page/timecode/path)",
   "catalog.semanticsContent": "Content selection range (excerpt)",
