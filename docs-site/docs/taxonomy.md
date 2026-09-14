@@ -1,30 +1,27 @@
 ---
 title: "编目体系：标签 / 货架 / 封面 / 多语言"
-description: "MetaFusion LRM 编目模型、多维标签体系、虚拟货架规则与多语言本地化体系。"
+description: "MetaFusion LRM 编目模型、自由标签体系、虚拟货架规则与多语言本地化体系。"
 order: 11
 group: "model"
 ---
 
 # 编目体系：标签 / 货架 / 封面 / 多语言
 
-MetaFusion 采用 **IFLA LRM 混合编目模型**。固定实体骨架为八类（`agent / collection / work / content_unit / expression / release / medium / track`），保持纯净标题与核心概念，形态与规格通过「**多维标签 + 虚拟货架 + Release 载体规格 + 实体图谱边**」自然表达，彻底淘汰了传统的硬编码 `media_type` 与僵化的单继承分类树。
+MetaFusion 采用 **IFLA LRM 混合编目模型**。固定实体骨架为八类（`agent / collection / work / content_unit / expression / release / medium / track`），保持纯净标题与核心概念，业务形态由服务端动态 definitions 的 `types` 表达，规格由 Release / Medium 载体表达，检索特征通过「**自由标签 + 虚拟货架 + 实体图谱边**」自然呈现，彻底淘汰传统的硬编码 `media_type` 与僵化的单继承分类树。
 
 ---
 
-## 1. 多维标签体系 (Tag Ontology)
+## 1. 自由标签体系 (Tags)
 
-标签是 MetaFusion 描述作品形态、风格、题材与媒介属性的核心载体，划分为清晰的分组类型（`group_type`）：
+标签（`attributes.tags`）是平铺、自由的字符串列表，专用于流派、题材、风格与大众特色检索词（如 `J-Pop`、`科幻`、`机甲`、`治愈`、`摇滚`、`同人`）：
 
-| 分组 (`group_type`) | 说明 | 示例 | 适用实体 |
-|---|---|---|---|
-| `format` | 作品宏观形态（替代旧 `media_type`） | 动画、电影、剧集、专辑、单曲、原声带、轻小说、漫画、画集、游戏 | Work |
-| `medium` | 表现载体介质与形态 | 剧场版、TV动画、OVA、广播剧、分轨、网络连载 | Work |
-| `genre` | 音乐/影视/文学流派风格 | J-Pop、Rock、Jazz、Cyberpunk、科幻、奇幻、悬疑、摇滚 | Work |
-| `theme` | 作品主题与受众定位 | 校园、机甲、日常、治愈、后日谈、冒险 | Work |
-| `general` | 自由通用标签 | 萌系、大奖得主、年度精选、现象级 | Work |
-| `topic` | 社区专属话题标签 | 考据、技术交流、资源分享 | Topic |
+- **平铺无分类**：标签不设立人为的 `group_type` 或分类树，保持纯粹的自由检索与群众标注属性；
+- **职责解耦**：
+  - **业务类型（Types）**：作品宏观业务类型（如 `animation`、`album`、`single`、`novel` 等）通过 `Entity.types` 挂载，并自动引用服务端 definitions 的动态字段方案（Inclusion Scheme）与展示模板；
+  - **载体规格（Medium Format）**：物理与分发规格（如 `CD`、`BD`、`Vinyl`、`DVD`、`Paper`、`Web`）归属于发行版（Release）及载体介质（Medium），不作为概念层 Work 的标签；
+  - **自由标签（Tags）**：记录题材、流派与风格，底层通过 GIN 路径索引支持高效包含匹配，由 `GET /api/catalog/tags` 提供实时频次聚合。
 
-> **注**：Release 规格（如 `4K UHD`、`Hi-Res FLAC`、`SACD`、`EPUB`）属于发行版与物理 Medium 属性，不再作为 Work 标签，避免概念层与实物层混淆。
+> **注**：发行规格（如 `4K UHD`、`Hi-Res FLAC`、`SACD`、`EPUB`）属于发行版与物理 Medium 属性，不再作为 Work 标签，避免概念层与实物层混淆。
 
 ---
 
@@ -74,10 +71,10 @@ MetaFusion 具备完整的国际化编目支持，所有主实体均通过 `_tra
 
 ## 5. 探索页与组合筛选指南
 
-在探索页面（`/explore`），你可以利用多维编目体系快速发现感兴趣的内容：
+在探索页面（`/explore`），你可以利用动态类型与标签体系快速发现感兴趣的内容：
 
 - **货架切换**：在页面顶部可直接切换不同的预设虚拟货架（如“剧场版动画”、“高解析音频专区”）或自己的自定义货架；
-- **多标签组合筛选**：点击标签栏选择一个或多个标签，支持切换「同时满足（全部匹配）」或「满足其一（任一匹配）」模式；
+- **标签组合筛选**：点击标签栏选择一个或多个标签，支持切换「同时满足（全部匹配）」或「满足其一（任一匹配）」模式；
 - **关键词搜索**：在搜索栏输入原名、中文名、外文别名或创作者名称，系统提供即时联想与全文检索；
 - **灵活排序**：支持按收录时间、浏览热度、首字母标题、发行日期等维度进行排序；
 - **开发者调用**：如需通过外部程序自动化检索或批量拉取货架与标签数据，请参阅专门的 [API 检索与浏览指引](/api-lookup-browse)。
