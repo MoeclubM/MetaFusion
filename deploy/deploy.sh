@@ -40,6 +40,14 @@ function reload_gateway() {
     fi
 }
 
+# 迁移必须用**当前镜像里**的迁移器：迁移是编译进二进制的（embed），用运行中的旧容器
+# 执行会报"已是最新"而漏掉新迁移。--entrypoint 覆盖服务入口（镜像是 /app/server，
+# 直接 run 会把参数交给它而不是迁移器）；--no-deps 不连带拉起依赖，只跑这一个一次性容器。
+function run_migrate() {
+    local cmd=${1:-up}
+    docker compose $COMPOSE_ENV -f docker-compose.yml run --rm --no-deps --entrypoint /app/migrate backend "$cmd"
+}
+
 function print_usage() {
     echo "================================================================="
     echo "  MetaFusion 极速部署与运维脚本"
@@ -76,8 +84,10 @@ case "$ACTION" in
             docker compose $COMPOSE_ENV build "$TARGET"
             docker compose $COMPOSE_ENV up -d --no-deps "$TARGET"
         else
-            echo "⚡ 增量构建并更新全部核心应用服务 (复用 BuildKit 缓存)..."
-            docker compose $COMPOSE_ENV build backend frontend
+            echo "⚡ 增量构建并更新全部服务 (复用 BuildKit 缓存)..."
+            # 不带服务名即构建**所有**带 build 段的服务：拆分后子系统在兄弟仓库，
+            # 只写 backend frontend 会让互动/存储/账号停留在旧镜像。
+            docker compose $COMPOSE_ENV build
             docker compose $COMPOSE_ENV up -d --remove-orphans
         fi
         reload_gateway
@@ -126,8 +136,7 @@ case "$ACTION" in
         echo "🚀 启动数据库与核心基础设施 (Postgres / Redis / RustFS)..."
         docker compose $COMPOSE_ENV up -d postgres redis rustfs
         echo "🗄️ 执行数据库版本化迁移 (Pre-deployment Migrate Up)..."
-        docker compose $COMPOSE_ENV exec -T -e DB_HOST=postgres backend /app/migrate up || \
-        docker compose $COMPOSE_ENV run --rm backend /app/migrate up
+        run_migrate up
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
         reload_gateway
         docker image prune -f >/dev/null 2>&1 || true
@@ -149,8 +158,7 @@ case "$ACTION" in
     migrate)
         CMD=${TARGET:-"up"}
         echo "🗄️ 执行数据库版本化迁移 (mf-migrate $CMD)..."
-        docker compose $COMPOSE_ENV exec -T -e DB_HOST=postgres backend /app/migrate "$CMD" || \
-        docker compose $COMPOSE_ENV run --rm backend /app/migrate "$CMD"
+        run_migrate "$CMD"
         ;;
 
     restart)
