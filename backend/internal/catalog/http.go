@@ -246,6 +246,8 @@ func (h HTTP) Register(r *gin.Engine) {
 
 func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	s := h.Store
+	// 实例间导入导出：原属模块层，随子系统拆分迁入目录包（见 exchange.go）。
+	h.registerExchange(api)
 	api.GET("/openapi.json", func(c *gin.Context) { c.JSON(200, OpenAPI()) })
 	api.GET("/docs", func(c *gin.Context) {
 		c.Header("Content-Type", "text/html; charset=utf-8")
