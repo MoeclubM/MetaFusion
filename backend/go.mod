@@ -1,6 +1,6 @@
 module github.com/metafusion/metafusion-app
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/gin-contrib/cors v1.7.8
@@ -8,8 +8,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
 	github.com/minio/minio-go/v7 v7.3.0
-	golang.org/x/crypto v0.55.0
-	golang.org/x/text v0.41.0
+	golang.org/x/crypto v0.57.0
+	golang.org/x/text v0.42.0
 )
 
 require (
@@ -49,7 +49,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.29.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/ini.v1 v1.67.3 // indirect
 )
