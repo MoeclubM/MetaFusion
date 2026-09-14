@@ -42,7 +42,7 @@ func Defaults() Definitions {
 		field(x[0], x[1], x[2], x[3])
 	}
 	// 标签：值域开放（上游标签随作品而定），故为字符串列表而非受控词表；
-	// 存于 attributes.tags，按容器包含（@>）过滤——schema.sql 为该 JSON 路径
+	// 存于 attributes.tags，按容器包含（@>）过滤——结构基线为该 JSON 路径
 	// 建了函数 GIN 索引，保证按标签检索走索引而非全表扫描。
 	// Hidden：详情页有专用标签区块，不再进信息面板，避免与 JSON 原文重复。
 	d.Fields["tags"] = Field{Names: names("标签", "Tags"), Type: "list", Enabled: true, Searchable: true, Hidden: true, Items: &Field{Names: names("标签", "Tag"), Type: "text", Enabled: true}}

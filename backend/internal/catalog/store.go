@@ -3,18 +3,31 @@ package catalog
 import (
 	"context"
 	"database/sql"
-	_ "embed"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/lib/pq"
+	"io/fs"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+
+	"github.com/metafusion/metafusion-app/migrations"
 )
 
-//go:embed schema.sql
-var schema string
+// baseline 是目录库的结构来源：与 `mf-migrate up` 执行的是**同一份文件**（迁移 000001）。
+// 以前这里 //go:embed 了一份 schema.sql 终态快照，与迁移文件各存一份、靠一致性测试盯着同步；
+// 数据不再需要历史迁移后合并成单一基线，两边读同一份，冗余与漂移一起消失。
+const baselineFile = "000001_catalog_core.up.sql"
+
+func catalogBaseline() (string, error) {
+	b, err := fs.ReadFile(migrations.FS, baselineFile)
+	if err != nil {
+		return "", fmt.Errorf("read catalog baseline %s: %w", baselineFile, err)
+	}
+	return string(b), nil
+}
 
 type Store struct {
 	DB *sql.DB
@@ -70,8 +83,12 @@ func (s *Store) Authenticate(token string) (*User, error) {
 // （importer_mapping_stale）与 entry_role 降级写入等显式兼容逻辑承接，
 // 而不是静默改写已发布定义。见 TestDefinitionsSeedOnlyWhenEmpty。
 func (s *Store) Initialize(ctx context.Context) error {
+	baseline, err := catalogBaseline()
+	if err != nil {
+		return err
+	}
 	return s.write(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, schema); err != nil {
+		if _, err := tx.ExecContext(ctx, baseline); err != nil {
 			return err
 		}
 		// 只判空表：逐行种子无需全表计数。
@@ -850,7 +867,7 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	}
 	// 身份取自修订行里的快照列，**不 JOIN auth.users**：账号表归账号服务，目录侧读它
 	// 就等于把两个系统的数据层重新绑在一起（也挡住了将来换库/换实例的可能）。
-	// 迁移 000015 之前的存量行没有快照，回退为 system/editor，只影响显示名。
+	// 老库迁移过来的存量行可能没有快照，回退为 system/editor，只影响显示名。
 	rows, err := s.DB.QueryContext(ctx, `
 		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), COALESCE(NULLIF(r.actor_role, ''), 'editor'), r.edit_note, r.sources, r.snapshot, r.created_at
 		FROM catalog.revisions r

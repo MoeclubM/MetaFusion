@@ -59,4 +59,4 @@ Work（创作母体）
 
 ## 迁移与兼容
 
-**迁移现状（以仓库实际文件为准）**：`backend/migrations/` 当前只有 `000001_catalog_core` 到 `000007_auth_schema_split`；本文旧版引用的 `000004_content_hierarchy`、`000005_carrier_hierarchy`、`000006_carrier_content_integrity` 文件**不存在**，内容已收归 `backend/internal/catalog/schema.sql`（`Initialize` 幂等建表）与 `store.go` 应用层校验。因此：作品目录父子外键与延迟触发器无环检查、`track_contents` 表、发行/介质/轨道侧表都定义在 `schema.sql`；Track/TrackContent 的跨 Work 一致性是应用层 `undeclared_release_subject` 校验，不是数据库触发器。不存在 `tracks.canonical_entry_id` 兼容列，旧轨 `CanonicalEntry` 与 `internal/models` 已随兼容层整段删除。
+**结构现状（以仓库实际文件为准）**：`backend/migrations/` 只有**单一基线** `000001_catalog_core`（历史 000002–000015 已合并进它）；`mf-migrate up` 与目录服务启动（`Initialize`）执行的是同一份文件。本文旧版引用的 `000004_content_hierarchy`、`000005_carrier_hierarchy`、`000006_carrier_content_integrity` 文件**不存在**。因此：作品目录父子外键与延迟触发器无环检查、`track_contents` 表、发行/介质/轨道侧表都定义在该基线里；Track/TrackContent 的跨 Work 一致性是应用层 `undeclared_release_subject` 校验，不是数据库触发器。不存在 `tracks.canonical_entry_id` 兼容列，旧轨 `CanonicalEntry` 与 `internal/models` 已随兼容层整段删除。

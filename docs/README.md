@@ -36,7 +36,7 @@
 
 **单体侧已完成收敛**：`catalog/identity.go`、`favorites.go` 与账号路由全部删除，`token.go` 只剩验签
 （只持公钥、没有签发路径），并且不再创建或写入 `auth` schema（含第一方 OAuth 客户端种子）；
-`catalog.favorites` 由迁移 000014 下线。目录服务只剩实体、关系、定义、检索与货架。
+`catalog.favorites` 已从结构基线中移除（收藏归 `community.favorites`）。目录服务只剩实体、关系、定义、检索与货架。
 
 ## 协作与工具准则
 

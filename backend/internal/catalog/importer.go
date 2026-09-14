@@ -1859,7 +1859,7 @@ func (s *Store) importerSave(ctx context.Context, e Entity, actor User, note str
 // importerSaveVersioned 与 importerSave 相同，但显式带乐观锁版本。
 // 更新已存在实体时必须传其当前版本，否则 Save 会以 version_conflict 拒绝。
 //
-// 并发双插兜底：幂等键唯一索引（entities_metafusion_import_key，迁移 000013）
+// 并发双插兜底：幂等键唯一索引（entities_metafusion_import_key，见结构基线）
 // 会让后到者在 Save 提交时拿到 23505（constraint_violation）。此处不吞该错误——
 // 调用方（Import 重试）应按幂等键复用已建实体再继续补齐，而不是静默成功掩盖
 // "本次新建未发生"的事实。直接返回错误即保留该语义。

@@ -79,7 +79,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-o
 否则 compose 的跨仓库构建上下文不存在、这三个服务拉不起来。
 
 **`fast` 不会自动执行迁移**（只有 `prod` / `pull` 会）。历史结构退役、账号表搬迁等一次性数据迁移
-现在都在 `backend/migrations/`（启动 `schema.sql` 只剩幂等建表与种子），因此拉取含新迁移的代码后
+现在都在 `backend/migrations/`（结构只剩单一基线 `000001_catalog_core`，启动与迁移读同一份），因此拉取含新迁移的代码后
 必须补跑一次 `./deploy.sh migrate up`，否则这些变更不会生效。
 
 网关：`deploy/nginx.conf`，按前缀分流——`/api/catalog|capabilities|exchange|importer|openapi.json` 与 `/api/*` 兜底走

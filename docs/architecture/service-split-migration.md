@@ -79,9 +79,10 @@
 >   `catalog.favorites` 与手工迁移遗留的临时备份表。库里最终只剩 `catalog` / `auth` / `community` / `storage`。
 > - **P4 代码侧已完成**：`modules`/`moduleapi`/`moduledeps` 三个包、账号实现（`identity.go`/`favorites.go`、
 >   账号与收藏路由、`token.go` 的签发侧，约 900 行）全部删除；目录侧只剩 RS256 验签（只持公钥）。
->   `schema.sql` 不再创建 `auth.*` 与 `catalog.favorites`，也不再播种第一方 OAuth 客户端
->   （种子随 auth schema 归账号服务）；收藏表由迁移 000014 下线，修订作者名改为写入快照
->   （迁移 000015），目录侧不再有任何跨 schema 的 JOIN 或写入。
+>   结构基线不再创建 `auth.*` 与 `catalog.favorites`，也不再播种第一方 OAuth 客户端
+>   （种子随 auth schema 归账号服务）；修订作者名改为写入快照，目录侧不再有任何跨 schema 的 JOIN 或写入。
+> - **迁移收敛（2026-09-14）**：历史 15 个迁移合并为单一基线 `000001_catalog_core`，与目录服务启动读同一份文件；
+>   提交历史里的 000002–000015 只对"需要从旧库升级"的实例有意义，测试实例直接重建即可。
 > - **遗留**：收藏"是否公开"仍只有前端只读占位（`settings/page.tsx` 的开关是 `disabled readOnly`，
 >   目录侧无字段），迁移后的接口恒返回 `visible: true`；实现该开关时归互动服务。
 > - **P5 未开始**：`metafusion-docs` 与主仓库 `docs-site` 仍是两份；主仓库 `docs-site/docs/api-storage.md`

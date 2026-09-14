@@ -154,7 +154,7 @@ cd deploy && ./deploy.sh retire
 
 **代码侧已完成（2026-09-14）**：删掉 `catalog/identity.go` / `favorites.go` 与全部账号/收藏路由；
 `token.go` 收敛为**只持公钥的验签器**（没有签发、续期、注销入口）；`Store.Authenticate` 不再回退查
-`auth.sessions`；`schema.sql` 不再建 `auth.*` 与 `catalog.favorites`（后者由迁移 000014 下线），
+`auth.sessions`；结构基线不再建 `auth.*` 与 `catalog.favorites`（收藏归 `community.favorites`），
 第一方 OAuth 客户端种子随 auth schema 搬进账号服务；修订历史的作者名改为写入时快照
 （迁移 000015），因此目录侧不再有跨 schema 的 JOIN。部署方式：`./deploy.sh migrate up`（新迁移）后 `./deploy.sh fast`。
 
