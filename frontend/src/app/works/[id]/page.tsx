@@ -197,9 +197,11 @@ const releaseFacets = useMemo(
  };
 
  // 关系类型本地化名：definitions 声明的名称按请求语言 → zh-CN → en-US 回退，缺失保留 code。
- const relationName = (code: string): string => {
+ // reverse=true 取 reverse_names：当前实体是关系终点时必须用反向名，否则
+ // "改编自/被改编为""翻唱自/被翻唱为"这类成对关系会显示反。
+ const relationName = (code: string, reverse = false): string => {
  const r = defs?.relations?.[code] as any;
- const names = r?.names;
+ const names = reverse ? r?.reverse_names || r?.names : r?.names;
  if (names) {
  for (const key of [locale, "zh-CN", "en-US"]) {
  if (key && names[key]) return names[key];
@@ -217,6 +219,9 @@ const releaseFacets = useMemo(
  const otherId = forward ? r.target_id : r.source_id;
  const other = relEntities[otherId];
  if (!other) continue;
+ // 正向名标识关系类型本身；label 按方向取正向/反向名——反向关系沿用正向文案
+ // 会把"改编自/被改编为""翻唱自/被翻唱为"显示反。relation_id 保留边身份，
+ // 同一对端多条署名边（适用章节/语言/职务不同）才区分得开。
  const name = relationName(r.type);
  out.push({
  entity_id: otherId,
@@ -226,7 +231,8 @@ const releaseFacets = useMemo(
  relationship_type: r.type,
  relationship_name: name,
  direction: forward ? "forward" : "reverse",
- label: name,
+ label: forward ? name : relationName(r.type, true),
+ relation_id: r.id,
  attributes: r.attributes || {},
  });
  }

@@ -5,6 +5,8 @@ import Link from "next/link";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { catalogEntityHref, ConnectedEntityItem, EntityRelationship } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { getFieldName, useDefinitions } from "@/lib/definitions";
+import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 
 type Row = {
   href: string;
@@ -14,11 +16,17 @@ type Row = {
   coverAspect?: string;
   entityType: string;
   label: string;
+  /** 关系类型码与方向：正向名的本地化文案不能代表反向关系。 */
   type: string;
+  direction?: "forward" | "reverse";
+  /** 关系附加属性：键为 definitions 声明的字段码（适用章节、语言、职务等）。 */
+  attributes?: Record<string, any>;
   beginDate?: string;
   endDate?: string;
   ended?: boolean;
   key: string;
+  /** 关系行 id：同一对端存在多条边时用它做稳定 key，而不是靠类型字符串拼接。 */
+  relationId?: string;
 };
 
 const COLLAPSED_COUNT = 12;
@@ -37,10 +45,15 @@ function toRows(items: ConnectedEntityItem[] | EntityRelationship[]): Row[] {
         entityType: it.entity_type,
         label: it.label || it.relationship_name || it.relationship_type,
         type: it.relationship_type,
+        direction: it.direction,
+        attributes: it.attributes,
         beginDate: it.begin_date,
         endDate: it.end_date,
         ended: it.ended,
-        key: `${it.entity_id}-${it.relationship_type}-${it.qualifier || ""}`,
+        relationId: it.relation_id,
+        key:
+          it.relation_id ||
+          `${it.entity_id}-${it.relationship_type}-${it.direction || "forward"}-${it.qualifier || ""}`,
       });
     } else {
       const it = raw as EntityRelationship;
@@ -50,10 +63,14 @@ function toRows(items: ConnectedEntityItem[] | EntityRelationship[]): Row[] {
         entityType: it.target_type,
         label: it.relationship_type,
         type: it.relationship_type,
+        attributes: it.attributes,
         beginDate: it.begin_date,
         endDate: it.end_date,
         ended: it.ended,
-        key: `${it.source_id}-${it.target_id}-${it.relationship_type}-${it.qualifier || ""}`,
+        relationId: it.id,
+        key:
+          it.id ||
+          `${it.source_id}-${it.target_id}-${it.relationship_type}-${it.qualifier || ""}`,
       });
     }
   }
@@ -61,7 +78,13 @@ function toRows(items: ConnectedEntityItem[] | EntityRelationship[]): Row[] {
 }
 
 function RelationCard({ row }: { row: Row }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
+  const { definitions: defs } = useDefinitions();
+  // 关系附加属性（适用章节、语言、职务…）：字段码与名称都取自 definitions，
+  // 未声明的键不渲染，代码不写死任何关系属性字段。
+  const attrEntries = Object.entries(row.attributes || {}).filter(
+    ([, v]) => v !== undefined && v !== null && v !== "",
+  );
   let date = "";
   if (row.beginDate || row.endDate) {
     const tail = row.endDate || (row.ended ? t("relations.dateEnded") : t("relations.dateTail"));
@@ -87,6 +110,18 @@ function RelationCard({ row }: { row: Row }) {
         {row.name}
       </div>
       {date && <div className="mt-0.5 font-mono text-[11px] text-gray-500 dark:text-gray-400">{date}</div>}
+      {attrEntries.length > 0 && (
+        <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[10px] text-gray-500 dark:text-gray-400">
+          {attrEntries.map(([code, value]) => (
+            <span key={code} className="inline-flex items-baseline gap-0.5">
+              <span className="text-gray-400 dark:text-gray-500">
+                {getFieldName(defs, code, locale)}:
+              </span>
+              <FieldValue code={code} value={value} defs={defs} locale={locale} />
+            </span>
+          ))}
+        </div>
+      )}
     </Link>
   );
 }

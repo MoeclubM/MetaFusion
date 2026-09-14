@@ -207,6 +207,8 @@ export interface ConnectedEntityItem {
   country?: string;
   relationship_type: string;
   relationship_name: string;
+  /** 关系行 id：同一类型同一对端存在多条边（多次署名）时用它区分身份。 */
+  relation_id?: string;
   qualifier?: string;
   direction: 'forward' | 'reverse';
   label: string;
