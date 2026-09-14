@@ -870,12 +870,13 @@ export function EntityDetailView({ id }: { id: string }) {
                   字段、分区、次序、类型均来自服务端声明，新增媒体类型无需改本文件。 */}
               <WorkFacts entity={entity} defs={defs} locale={locale} />
 
-              {/* Types & Tags */}
-              {((entity.types && entity.types.length > 0) || (entity.attributes?.tags && Array.isArray(entity.attributes.tags))) && (
+              {/* 业务类型决定字段方案；标签是独立的自由检索词。 */}
+              {(entity.types?.length > 0 || (Array.isArray(entity.attributes?.tags) && entity.attributes.tags.length > 0)) && (
                 <div className="pt-3 border-t border-black/5 dark:border-white/[0.06] space-y-2">
+                  {entity.types?.length > 0 && <>
                   <div className="flex items-center gap-1 text-[11px] font-mono text-gray-400">
-                    <TagIcon className="w-3 h-3" />
-                    <span>{t("entity.page.typesTags")}</span>
+                    <Layers className="w-3 h-3" />
+                    <span>{t("catalog.types")}</span>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {(entity.types || []).map((tCode: string, idx: number) => (
@@ -887,6 +888,14 @@ export function EntityDetailView({ id }: { id: string }) {
                         {getTypeName(defs, tCode, locale)}
                       </Link>
                     ))}
+                  </div>
+                  </>}
+                  {Array.isArray(entity.attributes?.tags) && entity.attributes.tags.length > 0 && <>
+                  <div className="flex items-center gap-1 text-[11px] font-mono text-gray-400">
+                    <TagIcon className="w-3 h-3" />
+                    <span>{t("work.detail.tagsHeading")}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
                     {(Array.isArray(entity.attributes?.tags) ? entity.attributes.tags : []).map((tag: any, idx: number) => {
                       const tagName = typeof tag === "string" ? tag : tag?.name || String(tag);
                       return (
@@ -900,6 +909,7 @@ export function EntityDetailView({ id }: { id: string }) {
                       );
                     })}
                   </div>
+                  </>}
                 </div>
               )}
             </div>

@@ -85,7 +85,7 @@ export function EntityEditor({
           (f: string) =>
             declared.has(f) &&
             !seen.has(f) &&
-            !d.fields[f]?.hidden &&
+            (!d.fields[f]?.hidden || f === "tags") &&
             d.fields[f],
         );
         if (!fs.length) continue;
@@ -93,7 +93,7 @@ export function EntityEditor({
         sections.push({ names: sec.names || {}, fields: fs });
       }
     }
-    restFields = fields.filter((f) => !seen.has(f) && !d.fields[f]?.hidden);
+    restFields = fields.filter((f) => !seen.has(f) && (!d.fields[f]?.hidden || f === "tags"));
   }
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();

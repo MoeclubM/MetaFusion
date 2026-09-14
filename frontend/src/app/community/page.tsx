@@ -162,7 +162,7 @@ function CommunityContent() {
  const currentSelectedTagObj = filterTagId
    ? availableTags.find((t) => t.id === filterTagId)
    : filterTagName
-   ? availableTags.find((t) => t.name === filterTagName) || { id: -1, name: filterTagName, group_type: "topic" }
+   ? availableTags.find((t) => t.name === filterTagName) || { id: -1, name: filterTagName }
    : null;
 
  const loadTopics = async () => {

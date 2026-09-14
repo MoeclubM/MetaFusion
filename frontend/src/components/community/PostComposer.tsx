@@ -668,7 +668,6 @@ export default function PostComposer({
                           <TagIcon className="w-3 h-3 text-gray-500" />
                           {ftag.name}
                         </span>
-                        <span className="text-[10px] text-gray-500 font-mono">{ftag.group_type}</span>
                       </button>
                     ))}
                     {tagInput.trim() && !availableTags.some((entry) => entry.name === tagInput.trim()) && (

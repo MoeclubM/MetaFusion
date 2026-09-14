@@ -2394,7 +2394,6 @@
   "entity.page.officialLink": "官方連結",
   "entity.page.publisher": "出版發行單位",
   "entity.page.totalDuration": "總時長",
-  "entity.page.typesTags": "分類與標籤",
   "entity.page.resourceStation": "解耦資源儲存中心",
   "entity.page.resourceStationDesc": "元資料已與資源儲存系統完全解耦，本站僅展示正規化元資訊，影音與下載檔案由獨立資源中心託管。",
   "entity.page.openResourceStation": "前往獨立資源站取得",

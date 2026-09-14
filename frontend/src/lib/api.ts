@@ -137,7 +137,6 @@ export function catalogHubOf(type: string): CatalogHub {
 export interface Tag {
   id: number;
   name: string;
-  group_type: string;
 }
 
 
@@ -1594,7 +1593,6 @@ export function testSendEmail(toEmail: string): Promise<{ message: string; to_em
     body: JSON.stringify({ to_email: toEmail }),
   });
 }
-
 
 
 

@@ -2394,7 +2394,6 @@
   "entity.page.officialLink": "Official Link",
   "entity.page.publisher": "Publisher / Label",
   "entity.page.totalDuration": "Total Duration",
-  "entity.page.typesTags": "Types & Tags",
   "entity.page.resourceStation": "Resource Station",
   "entity.page.resourceStationDesc": "Metadata is decoupled from storage. Media files are hosted by the independent Resource Station.",
   "entity.page.openResourceStation": "Open Resource Station",
