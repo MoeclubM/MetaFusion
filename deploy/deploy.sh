@@ -35,6 +35,7 @@ function print_usage() {
     echo "操作模式 (Actions):"
     echo "  fast [service]  - 增量极速更新指定服务 (默认)，自动复用构建缓存 (几秒内完成)"
     echo "  cutover         - 首次从单体切到拆分后的服务 (搬数据 → 换网关，只走一次)"
+    echo "  retire          - 清理拆分前的遗留 schema 与临时表 (切流稳定后跑一次)"
     echo "  dev             - 启动热重载开发模式 (源码挂载，修改代码免构建秒级生效)"
     echo "  prod            - 完整生产模式冷启动"
     echo "  pull            - 直接拉取 GHCR 预构建生产镜像并启动 (免本地编译)"
@@ -92,6 +93,16 @@ case "$ACTION" in
         echo "🧹 自动清理悬空层..."
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 切流完成；自检：GATEWAY=https://<host> ../metafusion-api-gateway/scripts/cutover-check.sh"
+        ;;
+
+    retire)
+        # 切流稳定后执行一次：清掉拆分前的遗留 schema 与手工迁移的临时表。
+        # 删除前由 SQL 自身核对"目标行数不少于源表行数"，搬不全就中止并回滚整个事务。
+        echo "🧹 清理拆分前的遗留结构 (modules / media / catalog.favorites / 临时备份表)..."
+        docker compose $COMPOSE_ENV exec -T postgres sh -c \
+            'PGPASSWORD="$POSTGRES_PASSWORD" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -f -' \
+            < sql/retire-legacy-schemas.sql
+        echo "✅ 清理完成（剩余 schema 见上面的核对输出）"
         ;;
 
     prod)
