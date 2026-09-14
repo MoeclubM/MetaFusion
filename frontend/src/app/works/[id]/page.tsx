@@ -126,14 +126,46 @@ const workTemplate = useMemo(() => {
   }
   return undefined;
 }, [defs, work]);
-const releaseColumns = useMemo(() => {
-   const tpl = defs?.templates?.[defs?.types?.["release"]?.template || ""];
-   return (tpl?.columns || []).filter((c: string) => !!defs?.fields?.[c]);
- }, [defs]);
- const releaseFacets = useMemo(() => {
-   const tpl = defs?.templates?.[defs?.types?.["release"]?.template || ""];
-   return (tpl?.facet_fields || []).filter((c: string) => !!defs?.fields?.[c]);
- }, [defs]);
+// 发行版列表的列与筛选字段由**实际发行类型**引用的模板解析（多类型取并集），
+// 后台新增或替换发行类型即刻生效；列表未加载时回退到声明 kind=release 的启用类型。
+// 不再写死业务类型码 "release"：类型码可被后台改名，模板必须跟着实际类型走。
+const releaseTypeCodes = useMemo(() => {
+  const used = new Set<string>();
+  for (const e of releaseEntities) {
+    for (const c of e.types || []) if (defs?.types?.[c]) used.add(c);
+  }
+  if (used.size === 0) {
+    for (const [code, type] of Object.entries(defs?.types || {})) {
+      if (type?.enabled !== false && (type?.kinds || []).includes("release")) used.add(code);
+    }
+  }
+  return Array.from(used);
+}, [defs, releaseEntities]);
+const releaseTemplates = useMemo(
+  () =>
+    (Array.from(
+      new Set(
+        releaseTypeCodes
+          .map((c) => defs?.types?.[c]?.template)
+          .filter(Boolean) as string[]
+      )
+    ).map((code) => defs?.templates?.[code]).filter(Boolean) as any[]),
+  [defs, releaseTypeCodes]
+);
+const releaseColumns = useMemo(
+  () =>
+    Array.from(new Set(releaseTemplates.flatMap((tpl: any) => tpl.columns || []))).filter(
+      (c) => !!defs?.fields?.[c]
+    ),
+  [defs, releaseTemplates]
+);
+const releaseFacets = useMemo(
+  () =>
+    Array.from(new Set(releaseTemplates.flatMap((tpl: any) => tpl.facet_fields || []))).filter(
+      (c) => !!defs?.fields?.[c]
+    ),
+  [defs, releaseTemplates]
+);
 
  // facet 字段的候选值：先看发行版自身属性，format 再并入实际 Medium 聚合出的格式集合。
  // 多介质发行版（CD＋BD）应能被任一组成格式筛中，因此匹配按"候选列表包含"而不是全等。

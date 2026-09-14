@@ -6,6 +6,7 @@ import { ListTree } from "lucide-react";
 import { Entity, title as entityTitle } from "@/components/catalog/api";
 import { fetchAllPages } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { getTermName, useDefinitions } from "@/lib/definitions";
 
 type WorkContentDirectoryProps = {
   workId: string;
@@ -97,7 +98,8 @@ export function componentEntries(
 }
 
 export function WorkContentDirectory({ workId, directory = "tree" }: WorkContentDirectoryProps) {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
+  const { definitions: defs } = useDefinitions();
   const [items, setItems] = useState<DirectoryEntry[]>([]);
   const [components, setComponents] = useState<DirectoryEntry[]>([]);
   const [includedIn, setIncludedIn] = useState<DirectoryEntry[]>([]);
@@ -162,6 +164,13 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
     return grouped;
   }, [items]);
 
+  // 篇目用途名称以 definitions 的 entry_role 词表为准（后台新增用途即刻显示）；
+  // 词表未声明该用途时回退内置文案，仍缺失则显示原始码。
+  const roleLabel = (role: string): string => {
+    const name = getTermName(defs, "entry_role", role, locale);
+    return name !== role ? name : tr(`catalog.contents.role.${role}`, role);
+  };
+
   const renderEntries = (parentKey: string, depth: number): ReactNode[] => {
     return (children.get(parentKey) || []).flatMap((entry) => {
       const role = entry.entryRole || "main";
@@ -181,7 +190,7 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
             {entry.title}
           </Link>
           <span className="shrink-0 rounded-sm border border-black/10 dark:border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
-            {isCollectionOrWork ? t(`catalog.kind.${entry.kind}`) : t(`catalog.contents.role.${role}`)}
+            {isCollectionOrWork ? t(`catalog.kind.${entry.kind}`) : roleLabel(role)}
           </span>
         </div>,
         ...renderEntries(entry.id, depth + 1),
