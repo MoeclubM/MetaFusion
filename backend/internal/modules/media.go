@@ -19,15 +19,12 @@ import (
 const mediaSchema = `CREATE SCHEMA IF NOT EXISTS media;
  CREATE TABLE IF NOT EXISTS media.jobs(id uuid PRIMARY KEY,resource_id uuid NOT NULL,owner_id uuid NOT NULL,operation text NOT NULL CHECK(operation IN ('analyze','preview')),status text NOT NULL DEFAULT 'queued',result jsonb NOT NULL DEFAULT '{}',error text NOT NULL DEFAULT '',lease_until timestamptz,created_at timestamptz NOT NULL DEFAULT now());`
 
+// readableResource 复用存储侧唯一可见性判定（visibleResource），
+// 保证媒体预览/分析的口径与下载完全一致。
 func (m *Manager) readableResource(c *gin.Context, id string) (resource, bool) {
-	var x resource
-	err := m.db.QueryRowContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE id=$1", id).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
-	p := m.principal(c)
-	if err != nil || !x.Public && (p == nil || p.ID != x.OwnerID) {
+	x, ok := m.visibleResource(c.Request.Context(), id, m.principal(c))
+	if !ok {
 		failure(c, 404, "not_found")
-		return x, false
-	}
-	if !m.entity(c, x.EntityID) {
 		return x, false
 	}
 	return x, true

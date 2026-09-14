@@ -647,21 +647,8 @@ func (m *Manager) upload(c *gin.Context) {
 	c.JSON(200, gin.H{"id": rid, "hash": digest, "size": size})
 }
 func (m *Manager) download(c *gin.Context) {
-	var x resource
-	err := m.db.QueryRowContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE id=$1", c.Param("id")).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
-	if err != nil {
-		failure(c, 404, "not_found")
-		return
-	}
-	p := m.principal(c)
-	if !x.Public && (p == nil || p.ID != x.OwnerID) {
-		failure(c, 404, "not_found")
-		return
-	}
-	// 下载可见性：主归属可见即放行；否则任一绑定实体可见也可下载。
-	// 用 Lookup 直查避免 m.entity 的提前 404 写回，保证"任一通过即可"的或语义。
-	// media.go readableResource 仅作只读参考，不在此改动。
-	if !m.entityAllowed(c.Request.Context(), x.EntityID, p) && !m.anyBindingVisible(c.Request.Context(), x.ID, p) {
+	x, ok := m.visibleResource(c.Request.Context(), c.Param("id"), m.principal(c))
+	if !ok {
 		failure(c, 404, "not_found")
 		return
 	}
@@ -687,8 +674,32 @@ func (m *Manager) download(c *gin.Context) {
 	}
 }
 
+// loadResource 读取资源行本身，不写任何 HTTP 响应。
+func (m *Manager) loadResource(ctx context.Context, id string) (resource, error) {
+	var x resource
+	err := m.db.QueryRowContext(ctx, "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE id=$1", id).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
+	return x, err
+}
+
+// visibleResource 是资源读取权限的唯一判定入口：资源自身可读（public 或 owner）
+// 且结构可见（主归属可见，或任一绑定实体可见）。
+// 下载、媒体预览与媒体任务分析全部复用此处，避免出现"能下载但不能预览"的口径差异。
+func (m *Manager) visibleResource(ctx context.Context, id string, p *moduleapi.Principal) (resource, bool) {
+	x, err := m.loadResource(ctx, id)
+	if err != nil {
+		return resource{}, false
+	}
+	if !x.Public && (p == nil || p.ID != x.OwnerID) {
+		return resource{}, false
+	}
+	if !m.entityAllowed(ctx, x.EntityID, p) && !m.anyBindingVisible(ctx, x.ID, p) {
+		return resource{}, false
+	}
+	return x, true
+}
+
 // entityAllowed 与 entity 同语义（经 Catalog 可见性检查），但不写 HTTP 响应，
-// 供下载鉴权的"主归属或任一绑定"或语义使用。
+// 供"主归属或任一绑定"的或语义使用。
 func (m *Manager) entityAllowed(ctx context.Context, id string, p *moduleapi.Principal) bool {
 	if _, err := m.catalog.Lookup(ctx, id, p); err != nil {
 		return false
@@ -732,13 +743,12 @@ func (m *Manager) bindResource(c *gin.Context) {
 		failure(c, 401, "authentication_required")
 		return
 	}
-	var x resource
-	err := m.db.QueryRowContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE id=$1", c.Param("id")).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
+	x, err := m.loadResource(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		failure(c, 404, "not_found")
 		return
 	}
-	if p.ID != x.OwnerID && p.Role != "admin" {
+	if !canManageResource(p, x.OwnerID) {
 		failure(c, 403, "forbidden")
 		return
 	}
@@ -771,13 +781,12 @@ func (m *Manager) unbindResource(c *gin.Context) {
 		failure(c, 401, "authentication_required")
 		return
 	}
-	var x resource
-	err := m.db.QueryRowContext(c.Request.Context(), "SELECT id,entity_id,owner_id,public,name,mime,size,hash FROM modules.resources WHERE id=$1", c.Param("id")).Scan(&x.ID, &x.EntityID, &x.OwnerID, &x.Public, &x.Name, &x.Mime, &x.Size, &x.Hash)
+	x, err := m.loadResource(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		failure(c, 404, "not_found")
 		return
 	}
-	if p.ID != x.OwnerID && p.Role != "admin" {
+	if !canManageResource(p, x.OwnerID) {
 		failure(c, 403, "forbidden")
 		return
 	}
