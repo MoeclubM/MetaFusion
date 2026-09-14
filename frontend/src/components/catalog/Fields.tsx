@@ -151,7 +151,7 @@ export function GroupFieldInput({
   const order = codes && codes.length > 0 ? codes : Object.keys(field.fields || {});
   const entries = order
     .map((k): [string, any] => [k, (field.fields || {})[k]])
-    .filter(([, f]: [string, any]) => f && f?.enabled !== false);
+    .filter(([, f]: [string, any]) => f && f?.enabled !== false && !f?.hidden);
   if (entries.length === 0) return null;
   const current = value || {};
   return (
@@ -223,16 +223,18 @@ export function FieldInput({
   if (field.type === "group")
     return (
       <div className="cv-group">
-        {Object.entries(field.fields || {}).map(([k, f]) => (
-          <label key={k}>
-            {local(f.names, locale, "", k)}
-            <FieldInput
-              field={f}
-              value={value?.[k]}
-              onChange={(v) => onChange({ ...value, [k]: v })}
-            />
-          </label>
-        ))}
+        {Object.entries(field.fields || {})
+          .filter(([, f]) => f?.enabled !== false && !f?.hidden)
+          .map(([k, f]) => (
+            <label key={k}>
+              {local(f.names, locale, "", k)}
+              <FieldInput
+                field={f}
+                value={value?.[k]}
+                onChange={(v) => onChange({ ...value, [k]: v })}
+              />
+            </label>
+          ))}
       </div>
     );
   if (field.type === "list" && field.items)
