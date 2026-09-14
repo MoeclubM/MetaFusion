@@ -21,6 +21,13 @@ services:
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-10100}:80"
+    # nginx.conf 声明 worker_connections 4096，而容器默认 nofile 只有 1024：并发一上来
+    # nginx 拿不到 socket，直接以 503（rt=0.000）拒掉新连接——压力下表现为"服务偶发不可用"。
+    # 把软硬上限抬到与 worker_connections 匹配，并在 nginx -t 时不再有 ulimit 警告。
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - nginx_logs:/var/log/nginx
