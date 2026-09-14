@@ -26,6 +26,20 @@ else
   echo "   请执行: cp ../.env.example ../.env 并填入真实密钥"
 fi
 
+# 网关的 nginx.conf 是以文件挂载进容器的：compose 只看服务定义，不看被挂载文件的
+# 内容，所以改完路由矩阵后 `up -d` 不会重建网关，必须显式 reload 才生效。
+# 用 nginx -t 先校验再 reload，配置写错时保留旧配置继续服务，不会把入口打挂。
+function reload_gateway() {
+    if ! docker exec metafusion-gateway true >/dev/null 2>&1; then
+        return 0
+    fi
+    if docker exec metafusion-gateway nginx -t >/dev/null 2>&1; then
+        docker exec metafusion-gateway nginx -s reload >/dev/null 2>&1 && echo "🔄 网关已重载路由矩阵"
+    else
+        echo "⚠️  网关配置校验失败：保留旧配置（运行 docker exec metafusion-gateway nginx -t 查看原因）"
+    fi
+}
+
 function print_usage() {
     echo "================================================================="
     echo "  MetaFusion 极速部署与运维脚本"
@@ -66,8 +80,7 @@ case "$ACTION" in
             docker compose $COMPOSE_ENV build backend frontend
             docker compose $COMPOSE_ENV up -d --remove-orphans
         fi
-        echo "🔄 刷新网关 DNS 路由..."
-        docker exec metafusion-gateway nginx -s reload >/dev/null 2>&1 || true
+        reload_gateway
         echo "🧹 自动清理悬空层..."
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 极速部署完成！"
@@ -90,6 +103,7 @@ case "$ACTION" in
         docker compose $COMPOSE_ENV -f docker-compose.yml run --rm community-migrate -direction forward
         echo "🌐 拉起前端 / 文档站 / 网关（网关等各上游 /ready 通过后才开门）..."
         docker compose $COMPOSE_ENV -f docker-compose.yml up -d --remove-orphans
+        reload_gateway
         echo "🧹 自动清理悬空层..."
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 切流完成；自检：GATEWAY=https://<host> ../metafusion-api-gateway/scripts/cutover-check.sh"
@@ -115,6 +129,7 @@ case "$ACTION" in
         docker compose $COMPOSE_ENV exec -T -e DB_HOST=postgres backend /app/migrate up || \
         docker compose $COMPOSE_ENV run --rm backend /app/migrate up
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
+        reload_gateway
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 生产环境已启动！"
         ;;

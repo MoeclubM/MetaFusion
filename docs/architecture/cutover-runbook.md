@@ -18,6 +18,19 @@ cd deploy && ./deploy.sh cutover
 本手册其余部分说明每一步的判据、数据方向与回滚方式；手工逐步操作时按章节顺序执行，
 结论与脚本化路径一致。
 
+**脚本化路径一次切换全部前缀，前提是目标实例没有需要保住的存量互动数据**（开发/测试实例即如此，
+旧表数据由 `community-migrate` 一次搬全）。有在线数据、需要按前缀分批切的实例，按第 1 章逐步执行。
+
+### 网关必须显式重载
+
+`deploy/nginx.conf` 是以**文件**挂载进网关容器的，Compose 只比对服务定义、不比对被挂载文件的内容，
+因此改完路由矩阵后 `up -d` 不会重建网关，配置改了却不生效。`deploy.sh` 的每个部署动作末尾都会先
+`nginx -t` 校验再 `nginx -s reload`；手工操作时也要补这一步：
+
+```bash
+docker exec metafusion-gateway nginx -t && docker exec metafusion-gateway nginx -s reload
+```
+
 ## 0. 切流前的硬前提
 
 | 前提 | 判据 |
@@ -120,30 +133,26 @@ docker compose --env-file ../.env -f docker-compose.yml run --rm community-migra
 ```
 顺序不能颠倒：先改网关再搬数据，会让回滚窗口内的新帖在单体侧"消失"。
 
-### 第 4 步：单体下线（切流稳定 24 小时后）
+### 第 4 步：下线遗留结构（切流验证通过后，一条命令）
 
-| 移除对象 | 说明 | 代码位置 |
+```bash
+cd deploy && ./deploy.sh retire
+```
+
+删除对象、删除理由与「先核对目标行数再删」的守卫都在 `deploy/sql/retire-legacy-schemas.sql`：
+`modules` / `media` 两个 schema、`catalog.favorites`，以及 2026-09-11 手工迁移留下的临时备份表。
+执行后库里只应剩下 `catalog` / `auth` / `community` / `storage` 四个业务 schema（脚本末尾会打印核对结果）。
+
+已经下线的对象：
+
+| 移除对象 | 说明 | 时机 |
 | --- | --- | --- |
-| forum / 评论 / 记录 / 收藏 路由 | 约 20 条，已由互动服务承载 | `backend/internal/modules/forum.go`、`modules.go` 与 `backend/internal/catalog/favorites.go` |
-| auth / setup / admin / oauth / oidc 路由 | 约 20 条，已由账号服务承载 | `backend/internal/catalog/http.go` 与 `identity.go`、`token.go` |
-| `modules`、`moduleapi`、`moduledeps` 三个包 | 约 2600 行 | 见下表 |
-| `modules` schema 与 `catalog.favorites` 表 | 仅在确认不再回滚后删除；建议先留观察期 | `backend/migrations` |
+| `modules`、`moduleapi`、`moduledeps` 三个包（约 2900 行） | 模块装配与论坛/资源层，功能已由互动与存储服务承载 | 拆分期随目录包收敛删除 |
+| `modules` / `media` schema、`catalog.favorites`、临时备份表 | 已无代码读写 | `./deploy.sh retire` |
 
-待删包清单（已核对 import 引用点）：
-
-| 包 | 文件 | 行数 | 引用点 |
-| --- | --- | --- | --- |
-| `internal/modules` | `modules.go` | 836 | `cmd/server/main.go` |
-| | `forum.go` | 698 | 同上 |
-| | `media.go` | 162 | 同上 |
-| | `objectstore.go` | 73 | 同上 |
-| | `forum_test.go` / `modules_test.go` | 405 | 测试 |
-| `internal/moduleapi` | `module.go` | 37 | `cmd/server/main.go`、`internal/modules` |
-| `internal/moduledeps` | `dependency.go` | 412 | `internal/modules` |
-| `internal/catalog` | `identity.go` / `token.go` / `favorites.go` | 859 | `http.go`（验签中间件保留 `Authenticate` 的无状态分支） |
-
-单体在下线后仍需保留的能力：**验签**（`Store.Authenticate` 的 RS256 分支）与业务权限判定。
-会话表兜底可保留到存量令牌自然过期，再决定是否移除。
+**代码侧还剩一步（未完成）**：单体里 `catalog/identity.go`、`token.go`、`favorites.go` 及对应路由已经
+不再被网关路由到，但代码仍在。收敛为「只保留 RS256 验签」是独立代码单元：删掉账号实现（约 859 行）
+与 `auth.sessions` 查库兜底，只留验签与权限判定，改完用 `./deploy.sh fast` 部署。
 
 ## 2. 为什么每步都可回滚
 
@@ -156,6 +165,10 @@ docker compose --env-file ../.env -f docker-compose.yml run --rm community-migra
 **单一写入方规则**：任何时刻只允许一侧写入。切流前单体写、服务不接流量；切流后服务写、单体前缀不再被路由到。
 跨过窗口不补增量就会出现"看不见的新数据"，这正是 `cmd/migrate` 两个方向都要存在的原因。
 
+> 执行 `./deploy.sh retire` 之后，`modules` / `media` schema 与 `catalog.favorites` 已被删除，
+> 互动与存储的「搬回单体」回滚路径随之失效，回滚只剩「改网关 + 恢复上一版镜像」。
+> 这也是把这一步放在切流验证通过之后、而不是切流之中的原因。
+
 ## 3. 前端为什么不用改
 
 - 所有 API 调用都走同源 `/api/*`（`fetchApi` 前缀），由网关按前缀分流，因此服务切换对前端透明。
@@ -165,11 +178,15 @@ docker compose --env-file ../.env -f docker-compose.yml run --rm community-migra
   这也是存储可以先切、且风险最低的原因。
 - 页面级外链（账号页、资源站、文档站）由 `frontend/src/lib/services.ts` 的 `NEXT_PUBLIC_*` 控制，与本次切流无关。
 
-## 4. 未决问题（切流前应拍板）
+## 4. 还没处理的问题
 
 | 问题 | 现状 | 影响 |
 | --- | --- | --- |
-| 收藏"是否公开" | 前端只读占位，接口恒 `visible: true` | 不影响切流；实现时归互动服务 |
-| `/api/capabilities`、`/api/admin/modules/:id` | 单体按进程内模块开关实现，拆分后模块概念消失 | 切流后管理台的模块开关要么改造成"服务健康探测"，要么下线；需先决定前端怎么显示 |
-| `/api/exchange/*` | 仍在单体，写入经 catalog Submit | 归属元数据侧，可随 P4 一起保留在单体，不阻塞切流 |
-| `modules` schema 删除时机 | 建议观察 24-48 小时 | 删表不可逆 |
+| 单体账号代码 | 路由已切到账号服务，但 `identity.go` / `token.go` / `favorites.go` 仍在单体里 | 见第 4 步末尾：收敛为只验签是下一步代码单元 |
+| `/api/media/*` | ffprobe 探针与预览转码没有迁进存储服务，网关也没有这个前缀 | 该能力当前不可用（既有缺口，不是切流引入） |
+| 浏览器预签名直传 | 对象存储不发布宿主机端口，当前走服务端流式上传 | 恢复直传要给对象存储一个独立对外域名并设 `STORAGE_S3_PUBLIC_ENDPOINT`（SigV4 覆盖 Host，只加路径前缀不行） |
+| Redis | 常驻但已无代码读取（`REDIS_ADDR` 已从后端配置移除） | 可以从常驻服务里去掉，省一份常驻内存 |
+| 收藏「是否公开」 | 前端只读占位，接口恒 `visible: true` | 实现该开关时归互动服务 |
+
+已完成、不再待办：`/api/capabilities` 改为「上游是否配置 + /health 探测」的部署态视图，
+`PUT /api/admin/modules/:id` 返回 `409 module_toggle_retired`；`/api/exchange/*` 已随目录包收敛留在单体。
