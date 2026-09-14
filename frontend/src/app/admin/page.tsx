@@ -45,7 +45,6 @@ function AdminInner() {
   });
   const [modules, setModules] = useState<any[]>([]);
   const [pendingItems, setPendingItems] = useState<any[]>([]);
-  const [loadingModules, setLoadingModules] = useState(false);
 
   // Entities management state
   const [entitiesList, setEntitiesList] = useState<any[]>([]);
@@ -170,31 +169,9 @@ function AdminInner() {
     }
   };
 
-  const handleToggleModule = async (modId: string, currentEnabled: boolean) => {
-    setLoadingModules(true);
-    try {
-      const res = await fetch(`/api/admin/modules/${modId}`, {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          enabled: !currentEnabled,
-          cascade: true,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setModules(data.modules || []);
-      } else {
-        const err = await res.json();
-        alert(err.error || "Module update failed");
-      }
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setLoadingModules(false);
-    }
-  };
+  // 这里刻意没有"启停"动作：运行时模块开关已随子系统拆分退役，
+  // 能力是否可用由部署决定（服务在不在、配置没配置），后端 PUT /api/admin/modules/:id
+  // 恒定返回 409 module_toggle_retired。面板只呈现事实，不提供会必然失败的按钮。
 
   const handleMergeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -794,18 +771,15 @@ function AdminInner() {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={loadingModules}
-                      onClick={() => handleToggleModule(mod.id, mod.enabled)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        mod.enabled
-                          ? "bg-rose-500/20 hover:bg-rose-500/30 text-rose-400"
-                          : "bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400"
+                    <span
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                        mod.healthy
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : "bg-rose-500/15 text-rose-400"
                       }`}
                     >
-                      {mod.enabled ? t("admin.console.disableMod") : t("admin.console.enableMod")}
-                    </button>
+                      {mod.healthy ? t("admin.console.healthy") : t("admin.console.unreachable")}
+                    </span>
                   </div>
                 ))}
               </div>
