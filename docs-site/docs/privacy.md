@@ -24,7 +24,7 @@ group: "legal"
 
 ## 3. 存储与保护
 
-- 密码仅存储哈希，`JWT_SECRET` 等敏感值通过环境变量注入，不落库明文
+- 密码仅存储哈希，令牌签名私钥（`AUTH_JWT_PRIVATE_KEY`）等敏感值通过环境变量注入，不落库明文
 - 原档与预览分桶存储，预签名 URL 2 小时过期
 - ES 默认 `xpack.security.enabled=false` 仅适用于本地；公网部署需开启认证或置于内网
 

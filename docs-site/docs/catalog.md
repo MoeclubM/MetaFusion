@@ -91,20 +91,26 @@ Track 的 `contents` 是实际收录的唯一来源：`expression_id`、`positio
 
 来源支持 `url`（必须 HTTP(S) URL）、`publication` 和 `self`，都需要具体 `citation`。每次写入均要求 `edit_note` 和非空 `sources`，不再使用 v1 的 `source_urls` 字段。
 
-## 可选模块
+## 能力清单（部署态）
 
-`GET /api/capabilities` 只提供模块状态，不返回文件详情。归档、播放、媒体处理、社区、个人记录、导入提案与导出默认关闭；管理员可按依赖级联启停。
+`GET /api/capabilities` 保留原有响应形状 `{modules:[{id,version,dependencies,enabled,healthy}]}`，
+但含义已从"进程内模块开关"变为**部署态**：`enabled` 取决于是否配置了对应上游地址，
+`healthy` 来自后台每 30 秒一次的 `/health` 探测缓存（请求路径只读缓存，不被上游拖慢）。
 
-| 模块 | API | 数据与行为 |
+运行时开关已退役：`PUT /api/admin/modules/:id` 恒定返回 `409 module_toggle_retired`——能力由部署决定（服务在不在），
+不再由后台开关决定。
+
+| 能力 | 由谁提供 | 说明 |
 | --- | --- | --- |
-| archive | `/archive/entities/{id}/resources`、`/archive/resources/{id}/content` | SHA-256 文件绑定，公开或所有者权限，本地对象目录或 S3 |
-| playback | `/playback/resources/{id}/content` | 按权限播放浏览器支持的音视频和图片 |
-| media | `/media/resources/{id}/jobs`、`/media/jobs/{id}` | PostgreSQL 队列，ffprobe 分析；`preview` 操作生成 MP4，结果只在媒体模块 |
-| community | `/community/entities/{id}/posts` | 条目讨论，作者和管理员可删除 |
-| records | `/records/entities/{id}` | 私有收藏、评分、进度和持有记录 |
-| exchange | `/exchange/entities/{id}`、`/exchange/proposals` | JSON 导出及通过核心校验提交的编辑提案 |
+| archive / playback / media | `metafusion-storage` | 文件与绑定、内容寻址直传、下载；**媒体分析与预览转码尚未迁移，属已知缺口** |
+| community / records | `metafusion-community` | 论坛、短评、收藏、互动记录（自有 `community` schema） |
+| exchange | 元数据目录自身 | `GET /api/exchange/entities/{id}` 导出快照；`POST /api/exchange/proposals` 提交编辑提案（一律落 `pending_review`） |
+| 账号与令牌 | `metafusion-auth` | 登录、会话、OAuth 2.0 / OIDC、JWKS；目录侧只验签，不保存账号数据 |
 
-Bangumi 导入器（`POST /api/importer/preview`、`POST /api/importer/import`）是核心路由，不是受 `capabilities` 开关控制的模块；其抓取条目、发行链、演职员/角色/声优关系的能力与不导入项见 [新建与编辑](/api-edit) 的「外部导入器能力」。其余新服务商导入器、AI、通知与 OpenSearch 适配器仍需实现模块；不能仅添加目录类型就获得新的执行能力。已有 v1 插件不会自动成为 v2 模块。SDK 在 `backend/internal/moduleapi`，依赖治理在 `moduledeps`，不引用旧 ORM。
+子系统之间只通过 HTTP 契约交互：存储与互动服务判定实体可见性时调用目录的 `GET /api/catalog/entities/{id}`，
+**不跨库 JOIN、不复制对方的数据表**。
+
+Bangumi 导入器（`POST /api/importer/preview`、`POST /api/importer/import`）是目录自身的核心路由，不受能力清单影响；其抓取条目、发行链、演职员/角色/声优关系的能力与不导入项见 [新建与编辑](/api-edit) 的「外部导入器能力」。其余导入器、AI、通知与 OpenSearch 适配器仍属未实现能力；不能仅添加目录类型就获得新的执行能力。模块 SDK（`moduleapi`）与依赖治理（`moduledeps`）已随模块层退役。
 
 ## 运行与验证
 
@@ -114,6 +120,6 @@ Bangumi 导入器（`POST /api/importer/preview`、`POST /api/importer/import`�
 docker compose -p deploy -f deploy/docker-compose.metadata.yml up -d --build
 ```
 
-应用自动初始化独立 `catalog` schema。只需 PostgreSQL 与应用即可运行；Compose 中网关和前端提供网页入口。Redis、OpenSearch、RustFS 和旧 worker 均不在最小启动集内。归档启用前不会读取 S3 凭据或连接对象存储。FFmpeg 在启用媒体模块后才执行。
+应用自动初始化独立 `catalog` schema。只需 PostgreSQL 与应用即可运行；Compose 中网关和前端提供网页入口。Redis、OpenSearch、RustFS 不在最小启动集内。对象存储凭据由存储服务读取（`STORAGE_S3_*`），目录侧不再持有归档配置；媒体处理（FFmpeg）属未迁移缺口。
 
 全新数据库验收使用 `MF_V2_TEST_DSN=postgres://.../mf_v2_test?sslmode=disable`。测试会创建并仅删除本次生成的随机测试库，不清理指定的旧数据库或生产 schema。CI 配置 PostgreSQL 服务，防止集成测试被默认跳过。
