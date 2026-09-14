@@ -323,7 +323,10 @@ func Defaults() Definitions {
 	addRel("store_bonus_for", "渠道特典归属", "Store bonus for", "拥有渠道特典", "Has store bonus", []string{"expression", "release"}, []string{"agent"}, "membership", true)
 	addRel("includes", "组成包含", "Includes", "组成属于", "Included in", []string{"collection", "work"}, []string{"work", "collection"}, "membership", true)
 	// 角色登场：虚构角色/团体 → 作品或集合。方向为 agent → work，
-	// 同一角色跨作品算多条边（AGENTS.md 语义），role 记主角/配角等番位。
+	// 同一角色跨作品算多条边（AGENTS.md 语义）。
+	// 番位（主角/配角）目前用 credit_role（自由文本）承载：role 字段绑的是内容用途词表
+	// （primary/supplement/side/extra/commentary），里面没有番位词项，写"main"会被判 invalid_term。
+	// 若要结构化番位，应在后台为它单开一个词表，而不是借用 role。
 	addRel("character_in", "角色登场", "Character in", "登场角色", "Characters in", []string{"agent"}, []string{"work", "collection"}, "credits", false)
 	// 通用署名兜底：外部来源的职位文本没有贴切既有关系码时（分镜、企画、制作、
 	// 制片人等），用它承载"谁参与了这部作品"，职位原文落在 credit_role。

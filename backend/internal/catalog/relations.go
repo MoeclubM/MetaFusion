@@ -371,9 +371,13 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 func canWriteRelation(u User, src Entity) bool { return canEditEntity(u, src) }
 
 func canAttachToTarget(u User, tgt Entity) bool {
-    if u.Role == "admin" { return true }
-    if tgt.Status == "deleted" || tgt.Status == "merged" { return false }
-    return tgt.CreatedBy == u.ID || u.Role == "editor" && tgt.Status == "published"
+	if u.Role == "admin" {
+		return true
+	}
+	if tgt.Status == "deleted" || tgt.Status == "merged" {
+		return false
+	}
+	return tgt.CreatedBy == u.ID || u.Role == "editor" && tgt.Status == "published"
 }
 
 func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Relation, ref func(string, []string) error, historical bool) error {
@@ -425,7 +429,7 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 		if x.TargetID == r.TargetID {
 			incoming++
 		}
-		if (x.SourceID == r.SourceID && x.TargetID == r.TargetID || rt.Symmetric && x.SourceID == r.TargetID && x.TargetID == r.SourceID) && x.Position == r.Position && encode(x.Attributes) == encode(r.Attributes) {
+		if (x.SourceID == r.SourceID && x.TargetID == r.TargetID || rt.Symmetric && x.SourceID == r.TargetID && x.TargetID == r.SourceID) && x.Position == r.Position && encode(attrsOrEmpty(x.Attributes)) == encode(attrsOrEmpty(r.Attributes)) {
 			return fmt.Errorf("duplicate_relation")
 		}
 	}
@@ -456,8 +460,20 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 	}
 	return nil
 }
+
+// attrsOrEmpty 把"没有属性"与"空属性对象"归一：两者是同一条边的同一属性集。
+// 不归一就会绕过判重——同一个 payload 少写一个 "attributes" 键，就能把同一逻辑边存成两行；
+// DB 唯一索引 relations_no_exact_dup 也把缺键与 {} 当两个值，归一后两边口径才一致。
+func attrsOrEmpty(m map[string]any) map[string]any {
+	if m == nil {
+		return map[string]any{}
+	}
+	return m
+}
+
 func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (Relation, error) {
 	r := input.Relation
+	r.Attributes = attrsOrEmpty(r.Attributes)
 	err := s.write(ctx, func(tx *sql.Tx) error {
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
@@ -966,40 +982,40 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 			if err != nil {
 				return out, err
 			}
-		type edge struct{ src, tgt string }
-		var edges []edge
-		for relRows.Next() {
-			var e edge
-			if err = relRows.Scan(&e.src, &e.tgt); err != nil {
+			type edge struct{ src, tgt string }
+			var edges []edge
+			for relRows.Next() {
+				var e edge
+				if err = relRows.Scan(&e.src, &e.tgt); err != nil {
+					relRows.Close()
+					return out, err
+				}
+				edges = append(edges, e)
+			}
+			if err = relRows.Err(); err != nil {
 				relRows.Close()
 				return out, err
 			}
-			edges = append(edges, e)
-		}
-		if err = relRows.Err(); err != nil {
 			relRows.Close()
-			return out, err
-		}
-		relRows.Close()
-		// 对端解析：表达可能是 source 或 target，取另一侧且必须在候选集合内。
-		candidate := map[string]bool{}
-		for _, x := range candidateIDs {
-			candidate[x] = true
-		}
-		peerIDs := []string{}
-		for _, e := range edges {
-			if candidate[e.src] {
-				peerIDs = append(peerIDs, e.tgt)
+			// 对端解析：表达可能是 source 或 target，取另一侧且必须在候选集合内。
+			candidate := map[string]bool{}
+			for _, x := range candidateIDs {
+				candidate[x] = true
 			}
-			if candidate[e.tgt] {
-				peerIDs = append(peerIDs, e.src)
+			peerIDs := []string{}
+			for _, e := range edges {
+				if candidate[e.src] {
+					peerIDs = append(peerIDs, e.tgt)
+				}
+				if candidate[e.tgt] {
+					peerIDs = append(peerIDs, e.src)
+				}
 			}
-		}
-		peers, err := s.GetManyVisible(ctx, peerIDs, u)
-		if err != nil {
-			return out, err
-		}
-		for _, e := range edges {
+			peers, err := s.GetManyVisible(ctx, peerIDs, u)
+			if err != nil {
+				return out, err
+			}
+			for _, e := range edges {
 				if candidate[e.src] {
 					if _, seen := creditPeer[e.src]; !seen {
 						if p, ok := peers[e.tgt]; ok {

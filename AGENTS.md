@@ -4,19 +4,17 @@
 
 ## 0. 项目级技能与本地开发日志
 
-- 动手前先读 `skills/metafusion-dev/SKILL.md`（项目级开发技能）：本地敏感开发日志的要求、提交纪律、
-  开发规范（注释精简、单文件不过长、模块并行用子代理、改代码同步文档）、多语言零硬编码铁律与项目理念/需求边界。
-  技能放仓库根的 `skills/`（厂商中立），**不要放进 `.cursor/`、`.claude/` 这类单一编辑器私有目录**。
+- 动手前先读 `.agents/skills/metafusion-dev/SKILL.md`（docs-local 维护、提交纪律、开发规范、多语言约定）。
 - `docs-local/` 是不进 git 的本地开发日志（部署信息、子项目路径、服务器注意事项、已知坑）。
-  **任务开始读它，任务结束把新信息写回去**；口令与私钥只记录来源，不复制进仓库。
+  任务开始读它，结束把新信息写回去；口令与私钥只记来源，不复制进仓库。
 
 ## 1. 协作与任务边界
 
 - 使用中文回复；不使用 CodeTool MCP。
-- 开始前运行 `git status --short --branch`，确认当前分支和已有改动。只处理本任务文件，不覆盖、暂存、回滚或提交他人的改动；禁止为获得干净工作区而自动执行 reset、clean 或 stash。
+- 开始前运行 `git status --short --branch`，确认分支与改动。只动本任务文件，不碰他人的改动；不为求干净工作区而 reset、clean 或 stash。
 - 先定位代码、契约与相关规则，再做最小必要修改。代码开发、只读编目审查和对实例的数据写入是不同任务；修改教程不代表获准操作真实目录。
-- 未获明确授权，不推送、发布、部署、写入远程实例，或删除/覆盖用户数据。存在破坏性操作、实体身份歧义或范围变化时，暂停相关操作并说明原因；不阻塞无关的安全工作。
-- 不读取或输出与任务无关的 `.env`、密钥、PAT、数据库导出；示例使用占位符，凭证从环境变量读取，不能进日志、文档或提交。
+- 未获明确授权，不推送、发布、部署、写入远程实例，不删除/覆盖用户数据。破坏性操作、身份歧义或范围变化时先暂停说明；不阻塞无关的安全工作。
+- 不读取或输出与任务无关的 `.env`、密钥、PAT、数据库导出；示例用占位符，凭证走环境变量，不进日志、文档或提交。
 
 ## 2. Git 工作流：每个逻辑单元校验后立即提交
 
@@ -27,11 +25,9 @@
 5. 默认在当前分支提交。真正的新功能从 `main` 建功能分支（默认 `codex/` 前缀），但不得为切分支丢弃已有改动。未经明确授权不 force push；获准推送时先确认远端状态。
 6. 检查失败时区分本次引入的问题与既有/环境问题；修复本次问题，无法验证的项目明确报告，不以“已通过”替代。提交后再次确认工作区范围。
 
-## 规范驱动开发与架构基准
+## 架构基准与运行时
 
 本项目严格遵循 [规范驱动开发需求与架构基准](docs/architecture/spec-driven-requirements.md)。元数据主系统（首页货架、探索、详情、对比、管理后台）共用数据库一体化运行，动态类型/关系/字段走服务端 definitions 动态加载与多语言解析，外围论坛与存储系统独立解耦。全站严禁硬编码文案与夸张 Slogan。
-
-## 运行时与架构说明
 
 系统处于快速迭代开发阶段，采用单一、纯净、无历史包袱的标准元数据架构。核心应用统一入口为 `/api`（无版本前缀），实现位于 `backend/internal/catalog`，前端专用详情路由为 `/works`、`/releases`、`/mediums`，通用兜底为 `/catalog/[id]`。系统使用固定实体骨架（Agent、Collection、Work、ContentUnit、Expression、Release、Medium、Track）、Release.subjects 和跨 Work TrackContent；详情见 [元数据目录教程](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/catalog.md)。
 
@@ -44,9 +40,9 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 | 后端 API / 数据模型 | `backend/internal/catalog/`（统一入口 `/api`，路由见 `http.go:Register`） |
 | 数据库与完整性约束 | `backend/migrations/000001_catalog_core.up.sql` 是目录库结构的**唯一来源**（`mf-migrate up` 与目录服务启动执行同一份文件）；复合外键与校验逻辑见 `backend/internal/catalog/store.go`；只把已执行迁移视为目标实例能力 |
 | 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US,zh-TW,ja-JP}.json` |
-| 子系统边界与迁移 | [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)、[切流手册](docs/architecture/cutover-runbook.md)、[资源存储运行约定](docs/architecture/storage-operations.md)；账号 / 互动 / 存储分别在 `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`（原 `internal/modules` 已退役） |
+| 子系统边界与迁移 | [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)、[切流手册](docs/architecture/cutover-runbook.md)、[资源存储运行约定](docs/architecture/storage-operations.md)；账号 / 互动 / 存储分别在 `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage` |
 | 部署与 CI | `deploy/docker-compose.yml`、`.github/workflows/ci.yml` |
-| 用户 / LLM 编辑教程 | [Agent 接入](../metafusion-docs/docs/agent-integration.md)、[Agent API](../metafusion-docs/docs/api-agent.md)（文档站是独立仓库 `metafusion-docs`，本仓库不再存放 doc 页面） |
+| 用户 / LLM 编辑教程 | [Agent 接入](../metafusion-docs/docs/agent-integration.md)、[Agent API](../metafusion-docs/docs/api-agent.md)（文档站是独立仓库 `metafusion-docs`） |
 
 技术栈：Go + Next.js / Bun + PostgreSQL + Redis + RustFS（S3）+ OpenSearch 2.x。
 
@@ -61,7 +57,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 - [metafusion-curator](https://github.com/MoeclubM/metafusion-skills/blob/main/skills/metafusion-curator/SKILL.md)：操作流程、证据、API 写入与回读。
 - [lrm-catalog-standards](https://github.com/MoeclubM/metafusion-skills/blob/main/skills/lrm-catalog-standards/SKILL.md)：实体边界、发行版命名与内容复用。
 
-优先使用已经安装的技能；可从同级 `../metafusion-skills/skills/` 读取源码，或把技能目录复制到本仓库根的 `skills/`（厂商中立，各 agent 都能读）。主仓库并不保证已经安装技能。不要把整个技能仓库误放成单个技能，也不要同时维护多份规范；修改技能源码时在其独立仓库检查并提交。技能不可读时，先报告缺失，暂停真实编目写入；普通代码/文档任务不因此要求安装技能。
+优先使用已经安装的技能；可从同级 `../metafusion-skills/skills/` 读取源码。主仓库并不保证已经安装技能。修改技能源码时在其独立仓库检查并提交。技能不可读时，先报告缺失，暂停真实编目写入；普通代码/文档任务不因此要求安装技能。
 
 ### 必须保持的边界
 
@@ -75,7 +71,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 
 ### 国际化、封面与审计
 
-- UI 文案必须通过 `useI18n()` 与中英字典管理，两种语言键同步；禁止硬编码文案或 `t(key) || "中文兜底"`。动态术语使用已有多语言数据和 helper。
+- UI 文案必须通过 `useI18n()` 与四语字典（zh-CN / en-US / zh-TW / ja-JP）管理，各语种键同步；禁止硬编码文案或 `t(key) || "中文兜底"`。动态术语使用已有多语言数据和 helper。
 - 实体翻译以统一 DTO 的 `translations`（按 locale 分组的 JSON 对象）呈现，每个语种含 `title / summary / aliases`；字段以各实体实际 DTO 为准，不要凭旧文档假定为数组。`aliases` 能力由结构基线（`backend/migrations/000001_catalog_core.up.sql`）提供（存于实体 document 的 translations 行内）；原语言标题归属对应翻译行，不能把其他语种题名全塞进实体级 aliases。
 - 展示回退遵循请求语言 → en-US → original_language → 基础字段/系统兜底；读取和写入字段分离，不能把 `localized_*` 展示值回写为基础值。
 - 封面优先使用可考据的官方/授权图片，保留自然比例、不拉伸，不使用风景占位图。音乐 1:1、影视/动画 2:3、书籍 3:4 是常用展示建议；`cover_aspect` 实际支持值以接口为准，不把建议写成不存在的服务端拒绝规则。
