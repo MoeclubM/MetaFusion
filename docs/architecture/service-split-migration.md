@@ -31,7 +31,7 @@
 | auth | `/api/oauth/clients|authorize|token|userinfo`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration` | 同上 |
 | catalog | `/api/catalog/*`（definitions、tags、entities、relations、shelves、compare、importer、me/home-preferences 等） | 同上，保留 |
 | community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id） | `modules/forum.go`、`modules/modules.go` |
-| community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | `catalog/favorites.go`（收藏属用户行为，不属目录元数据） |
+| community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | 已迁入 metafusion-community（`community.favorites`）；主仓库 `catalog/favorites.go` 待 P4 下线 |
 | community | `/api/records/entities/:id` | `modules/modules.go` |
 | storage | `/api/storage/*`（见 `docs-site/docs/api-storage.md` 的设计契约） | 不存在；现状是 `/api/archive/*`、`/api/playback/*`、`/api/media/*` |
 | 待定 | `/api/exchange/*`（导入/导出提案） | `modules/modules.go`；归属元数据侧写入能力，迁移期留在本仓库 |
@@ -70,9 +70,10 @@
 > 附幂等导入工具 `cmd/migrate`；切流仍需在 P4 执行）。
 > **P3 已完成服务侧**（metafusion-auth 承接账号/会话/OAuth2.0/OIDC 与 RS256 令牌签发验签，
 > 表位于既有独立 `auth` schema，因此**无需数据搬运**；切流与"单体只验签"仍在 P4）。
-> **P3 遗留**：个人收藏仍在 `catalog.favorites`，且"收藏是否公开"当前只有前端只读占位
-> （`frontend/src/app/settings/page.tsx` 的开关是 `disabled readOnly`，后端无对应字段），
-> 迁移收藏时需一并决定该字段的归属（建议落在互动服务的用户偏好里）。
+> **P2/P3 收藏已归位**：`community.favorites` 承接 `/api/favorites/*` 与 `/api/users/{id}/favorites`，
+> 导入工具按 `catalog.favorites → community.favorites` 一次性搬运。
+> **遗留**：收藏"是否公开"仍只有前端只读占位（`settings/page.tsx` 的开关是 `disabled readOnly`，
+> 目录侧无字段），迁移后的接口恒返回 `visible: true`；实现该开关时归互动服务。
 > P4-P5 未开始。文档站 `api-storage.md` 仍标"未实现"，属于 P5 去重时要一并更新的内容。
 
 | 阶段 | 内容 | 验收 |
