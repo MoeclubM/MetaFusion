@@ -68,15 +68,19 @@
 > 统一读取可见性、哈希校验；网关已把 `/api/storage/*` 指向 storage，旧 `/api/archive|playback|media` 仍指单体）。
 > **P2 已完成**（metafusion-community 承接论坛/短评/互动记录，路径与请求响应形状与单体逐字一致，
 > 附幂等导入工具 `cmd/migrate`；切流仍需在 P4 执行）。
-> **P2 遗留**：个人收藏仍在 `catalog.favorites`（表带 `auth.users` 外键），随 P3 账号拆分一并迁入互动服务。
-> P3-P5 未开始。文档站 `api-storage.md` 仍标"未实现"，属于 P5 去重时要一并更新的内容。
+> **P3 已完成服务侧**（metafusion-auth 承接账号/会话/OAuth2.0/OIDC 与 RS256 令牌签发验签，
+> 表位于既有独立 `auth` schema，因此**无需数据搬运**；切流与"单体只验签"仍在 P4）。
+> **P3 遗留**：个人收藏仍在 `catalog.favorites`，且"收藏是否公开"当前只有前端只读占位
+> （`frontend/src/app/settings/page.tsx` 的开关是 `disabled readOnly`，后端无对应字段），
+> 迁移收藏时需一并决定该字段的归属（建议落在互动服务的用户偏好里）。
+> P4-P5 未开始。文档站 `api-storage.md` 仍标"未实现"，属于 P5 去重时要一并更新的内容。
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
 | P0 | 冻结契约（本文 + 各服务 README 对齐路由与数据归属） | 网关路由表与本文逐条一致 |
 | P1 | storage：实现 `/api/storage/*`（CAS、秒传、分片预签名、绑定角色、下载、预览、哈希校验） | ✅ 新仓库 `go build/vet/test` 通过；本仓库 archive/media 端点保持可用，未切流 |
 | P2 | community：迁移论坛/短评/收藏/记录，**保留现有 `/topics`、`/boards` 契约与请求/响应形状** | ✅ 论坛/短评/记录已迁（16 条路由与单体逐字一致，`go build/vet/test` 通过）；收藏随 P3 迁移 |
-| P3 | auth：迁出 setup/auth/admin/oauth；catalog 改为只验签 | 登录/刷新/登出/角色变更回归通过；令牌跨服务可用 |
+| P3 | auth：迁出 setup/auth/admin/oauth；catalog 改为只验签 | ✅ 服务侧完成（30 条路径与单体一致 + OIDC 标准根路径；`go build/vet/test` 通过，含令牌闭环与 PKCE 单测）。切流与单体只验签在 P4 执行 |
 | P4 | catalog 瘦身 + 网关切流：下线 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` 与 `modules` 包 | 网关逐前缀切换可回退；主仓库只剩目录职责 |
 | P5 | 文档去重：`metafusion-docs` 为唯一源，本仓库 `docs-site` 移除/compose 收敛 | 只有一份 md；`docker compose config` 通过 |
 
