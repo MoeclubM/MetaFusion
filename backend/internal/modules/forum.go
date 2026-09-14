@@ -234,14 +234,21 @@ func attachTopicEntities(ctx context.Context, m *Manager, items []map[string]any
 	}
 }
 
+// forumTag 是主题标签的对外形状，与 /community/topic-tags（标签清单）一致：
+// 前端按 {id,name} 渲染标签并按 id 筛选，后端不得退回裸字符串数组。
+type forumTag struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
 // topicTags 批量取主题标签，避免逐条查询。
-func (m *Manager) topicTags(ctx context.Context, ids []string) (map[string][]string, error) {
-	out := map[string][]string{}
+func (m *Manager) topicTags(ctx context.Context, ids []string) (map[string][]forumTag, error) {
+	out := map[string][]forumTag{}
 	if len(ids) == 0 {
 		return out, nil
 	}
 	rows, err := m.db.QueryContext(ctx, `
-		SELECT tt.topic_id::text, g.name
+		SELECT tt.topic_id::text, g.id, g.name
 		FROM modules.forum_topic_tags tt JOIN modules.forum_tags g ON g.id = tt.tag_id
 		WHERE tt.topic_id = ANY($1::uuid[])
 		ORDER BY g.name`, pq.Array(ids))
@@ -250,11 +257,12 @@ func (m *Manager) topicTags(ctx context.Context, ids []string) (map[string][]str
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var tid, name string
-		if err = rows.Scan(&tid, &name); err != nil {
+		var tid string
+		var tg forumTag
+		if err = rows.Scan(&tid, &tg.ID, &tg.Name); err != nil {
 			return out, err
 		}
-		out[tid] = append(out[tid], name)
+		out[tid] = append(out[tid], tg)
 	}
 	return out, rows.Err()
 }
@@ -352,7 +360,7 @@ func (m *Manager) registerForum(api *gin.RouterGroup) {
 			if tg, ok := tags[it["id"].(string)]; ok {
 				it["tags"] = tg
 			} else {
-				it["tags"] = []string{}
+				it["tags"] = []forumTag{}
 			}
 		}
 		attachTopicEntities(c.Request.Context(), m, items, m.principal(c))
@@ -424,7 +432,7 @@ func (m *Manager) registerForum(api *gin.RouterGroup) {
 		if tg, ok := tags[id]; ok {
 			out["tags"] = tg
 		} else {
-			out["tags"] = []string{}
+			out["tags"] = []forumTag{}
 		}
 		single := []map[string]any{out}
 		attachTopicEntities(c.Request.Context(), m, single, m.principal(c))
