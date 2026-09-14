@@ -1,6 +1,6 @@
 # ==============================================================================
 # MetaFusion 极速部署与智能运维脚本 (PowerShell / Windows / WSL)
-# 用法: .\deploy.ps1 [fast|dev|prod|restart|prune|status|logs] [service_name]
+# 用法: .\deploy.ps1 [fast|cutover|retire|dev|prod|pull|migrate|restart|prune|status|logs] [service_name]
 # ==============================================================================
 
 param (
@@ -18,6 +18,8 @@ function Show-Usage {
     Write-Host ""
     Write-Host "操作模式:"
     Write-Host "  fast [service]  - 增量极速构建并更新指定服务 (默认)"
+    Write-Host "  cutover         - 首次从单体切到拆分后的服务 (搬数据 -> 换网关，只走一次)"
+    Write-Host "  retire          - 清理拆分前的遗留 schema 与临时表 (切流稳定后跑一次)"
     Write-Host "  dev             - 启动热重载开发模式 (源码直接挂载，免构建秒级热重载)"
     Write-Host "  prod            - 完整生产模式启动"
     Write-Host "  restart [svc]   - 快速重启服务"
@@ -47,6 +49,14 @@ switch ($Action.ToLower()) {
     "fast" {
         Write-Host "⚡ 增量极速更新部署..." -ForegroundColor Green
         if ($Target) { Invoke-DeploySh "fast $Target" } else { Invoke-DeploySh "fast" }
+    }
+    "cutover" {
+        Write-Host "🚚 首次切换到拆分后的子系统..." -ForegroundColor Magenta
+        Invoke-DeploySh "cutover"
+    }
+    "retire" {
+        Write-Host "🧹 清理拆分前的遗留结构..." -ForegroundColor Yellow
+        Invoke-DeploySh "retire"
     }
     "prod" {
         Write-Host "🏭 启动生产集群模式..." -ForegroundColor Green
