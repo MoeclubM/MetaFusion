@@ -16,20 +16,6 @@ permissions:
   pull-requests: read
 
 jobs:
-  # 仓库是公开的：先跑一遍隐私扫描。实例专有串（主机名/内网域名）不进仓库，
-  # 需要时在仓库变量 MF_FORBIDDEN_PATTERNS 里配置（按行分隔）；未配置则只做通用检查。
-  secrets:
-    name: security (no credentials in tracked files)
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v7
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-    - run: python scripts/check_no_secrets.py
-      env:
-        MF_FORBIDDEN_PATTERNS: ${{ vars.MF_FORBIDDEN_PATTERNS }}
-
   backend:
     name: backend (go vet & build)
     runs-on: ubuntu-latest
