@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds, local, Source } from "./api";
 import { canPublishEntity } from "@/lib/permissions";
+import { localizeCatalogError } from "@/lib/catalogErrors";
 import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
@@ -168,7 +169,7 @@ export function EntityEditor({
       if (onSaved) onSaved(out);
       else router.push(`/catalog/${out.id}`);
     } catch (err) {
-      setError((err as Error).message);
+      setError(localizeCatalogError((err as Error).message, t));
     } finally {
       setBusy(false);
     }
