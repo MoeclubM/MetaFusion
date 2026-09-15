@@ -174,7 +174,14 @@ function AdminInner() {
             action === "published"
               ? t("admin.reviews.approveNote")
               : t("admin.reviews.rejectNote"),
-          sources: [{ kind: "editorial", citation: t("admin.reviews.sourceCitation") }],
+          // 来源必须是 { kind: "url", url, citation }：kind: "editorial" 且缺 url 会被服务端拒为 invalid_source
+          sources: [
+            {
+              kind: "url",
+              url: `${window.location.origin}/catalog/${id}`,
+              citation: t("admin.reviews.sourceCitation"),
+            },
+          ],
         }),
       });
       setPendingItems((prev) => prev.filter((i) => i.id !== id));
