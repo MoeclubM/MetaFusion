@@ -23,7 +23,7 @@ async function runAgent(n) {
   // 每次波次一个独立日志文件：多波次并发写同一文件会让失败原因互相覆盖
   const log = fs.createWriteStream(OUT + "run-" + WAVE + "-" + agent + ".jsonl", { flags: "a" });
   const { browser, page, problems } = await makeBrowser();
-  let ok = 0, fail = 0, created = [];
+  let ok = 0, fail = 0, created = [], createdTitles = [];
   try {
     const url = await login(page, agent, PASS);
     if (String(url).startsWith("LOGIN_FAILED")) { log.write(JSON.stringify({ action: "login-failed", url }) + "\n"); console.log("[" + agent + "] 登录失败 " + url); log.end(); await browser.close(); return { agent, ok, fail, login: false }; }
@@ -36,12 +36,12 @@ async function runAgent(n) {
       // 混合负载：约 1/4 的操作是"修改已有实体"（更接近真人的编辑分布，也能覆盖编辑入口与 PUT 路径）
       const useUpdate = i % 4 === 3 && created.length > 0;
       // 约 1/5 的操作建关系：目标用同批已建的作品标题去搜（覆盖关系链路与实体选择器）
-      const useRel = i % 5 === 0 && created.length > 2;
+      const useRel = i % 5 === 0 && createdTitles.length > 2 && created.length > 2;
       let r = { status: 0, url: "", body: "" };
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           r = useRel
-            ? await addRelation(page, created[(i * 3) % created.length], null, agent + "-work-" + ((i % 9) + 1), agent)
+            ? await addRelation(page, created[(i * 3) % created.length], null, createdTitles[(i * 3) % createdTitles.length], agent)
             : useUpdate
               ? await updateEntity(page, created[(i * 7) % created.length], "u" + i, agent)
               : await createEntity(page, { kind, typeLabel, title, lang: "ja", status: "draft", note: "仿真：" + agent + " 新建第 " + i + " 条（" + kind + "）", source: "https://example.org/sim/" + agent + "/" + i });
@@ -50,7 +50,7 @@ async function runAgent(n) {
         await page.waitForTimeout(2000);
       }
       const id = r.id || "";
-      if (r.status === 200 || r.status === 201) { ok++; created.push(id); }
+      if (r.status === 200 || r.status === 201) { ok++; created.push(id); if (!useUpdate && !useRel) createdTitles.push(title); }
       else {
         fail++;
         // 401 = 会话失效（令牌过期且续期失败、或被登出）：真人会重新登录后继续，

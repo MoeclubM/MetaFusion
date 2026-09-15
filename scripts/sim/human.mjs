@@ -80,7 +80,8 @@ export async function updateEntity(page, id, tag, agent) {
   await page.goto(BASE + "/catalog/" + id, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForTimeout(1400);
   const editBtn = page.locator("button", { hasText: "编辑" }).first();
-  if (!(await editBtn.count())) return { status: 0, body: "没有编辑入口（权限或条目状态不允许）" };
+  // 等入口出现：详情页要先加载实体与权限判定，立刻 count 会误判成"没权限"
+  try { await editBtn.waitFor({ state: "visible", timeout: 12000 }); } catch { return { status: 0, body: "没有编辑入口（权限或条目状态不允许）" }; }
   await editBtn.click();
   const title = page.locator('label:has-text("基础题名")').locator("input").first();
   try { await title.waitFor({ state: "visible", timeout: 30000 }); } catch { return { status: 0, body: "编辑表单未出现" }; }
