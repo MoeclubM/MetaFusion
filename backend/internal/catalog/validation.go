@@ -75,6 +75,27 @@ func sortedFieldKeys(f Field) []string {
 
 // validateGroupRanges 校验显式区间声明：range_start 只能写在 number 子字段上，
 // 必须指向同组另一个 number 子字段，且两者不能再各自声明区间（拒绝链式与自环）。
+// validPictureTime 校验图片时间：允许空（老数据或来源未注明），
+// 允许部分书目日期（YYYY / YYYY-MM / YYYY-MM-DD，与动态 date 字段同一口径）或 RFC3339 时刻。
+func validPictureTime(s string) bool {
+	v := strings.TrimSpace(s)
+	if v == "" {
+		return true
+	}
+	layout := "2006-01-02"
+	switch len(v) {
+	case 4:
+		layout = "2006"
+	case 7:
+		layout = "2006-01"
+	}
+	if _, err := time.Parse(layout, v); err == nil {
+		return true
+	}
+	_, err := time.Parse(time.RFC3339, v)
+	return err == nil
+}
+
 func validateGroupRanges(f Field) error {
 	for _, key := range sortedFieldKeys(f) {
 		child := f.Fields[key]
@@ -805,6 +826,9 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 	for _, p := range e.Pictures {
 		if !validURL(p.URL) {
 			return fmt.Errorf("invalid_picture")
+		}
+		if !validPictureTime(p.TakenAt) {
+			return fmt.Errorf("invalid_picture_time")
 		}
 		if err := validateSources("picture", []Source{p.Source}); err != nil {
 			return err

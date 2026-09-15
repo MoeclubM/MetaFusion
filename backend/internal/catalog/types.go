@@ -22,6 +22,9 @@ type Source struct {
 type Picture struct {
 	URL     string `json:"url"`
 	Caption Names  `json:"caption"`
+	// TakenAt 这张图自身的时间（拍摄/发布/改版时刻），部分书目日期或 RFC3339。
+	// 同一实体的多张图（封面改版、剧照、活动现场）按它排序展示，空值排最后。
+	TakenAt string `json:"taken_at,omitempty"`
 	Source  Source `json:"source"`
 }
 
