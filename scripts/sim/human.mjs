@@ -97,7 +97,10 @@ export async function createEntity(page, opts) {
   return { status: res ? res.status() : 0, url: page.url(), body: res ? (await res.text().catch(() => "")).slice(0, 160) : alert };
 }
 export async function makeBrowser() {
-  const browser = await pw.chromium.launch({ channel: "chrome", headless: true });
+  // 本机用系统 Chrome；Playwright 容器里只有自带 Chromium，故回退到默认通道。
+  let browser;
+  try { browser = await pw.chromium.launch({ channel: "chrome", headless: true }); }
+  catch { browser = await pw.chromium.launch({ headless: true }); }
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 950 }, locale: "zh-CN" });
   const page = await ctx.newPage();
   const problems = [];
