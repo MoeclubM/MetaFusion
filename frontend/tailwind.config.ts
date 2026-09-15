@@ -84,7 +84,6 @@ const config: Config = {
         "3xl": "28px",
         card: "16px",
         panel: "20px",
-        hero: "24px",
         control: "12px",
         chip: "8px",
         tech: "12px",
@@ -95,10 +94,9 @@ const config: Config = {
       maxWidth: {
         page: "80rem",
         narrow: "48rem",
-        form: "26rem",
       },
       // 动效统一：时长与缓动固定，组件不再各写 duration-150/200/300。
-      transitionDuration: { fast: "120ms", base: "200ms", slow: "320ms" },
+      transitionDuration: { fast: "120ms", base: "200ms" },
       transitionTimingFunction: { soft: "cubic-bezier(0.16, 1, 0.3, 1)" },
       boxShadow: {
         soft: "0 8px 24px -8px rgba(0,0,0,0.4)",
@@ -109,7 +107,6 @@ const config: Config = {
       animation: {
         "fade-in": "fadeIn 0.35s cubic-bezier(0.16,1,0.3,1)",
         "slide-up": "slideUp 0.4s cubic-bezier(0.16,1,0.3,1)",
-        "rise-in": "riseIn 0.32s cubic-bezier(0.16,1,0.3,1)",
         "scale-in": "scaleIn 0.18s cubic-bezier(0.16,1,0.3,1)",
         shimmer: "shimmer 1.6s ease-in-out infinite",
       },
@@ -120,10 +117,6 @@ const config: Config = {
         },
         slideUp: {
           from: { opacity: "0", transform: "translateY(10px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
-        },
-        riseIn: {
-          from: { opacity: "0", transform: "translateY(6px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
         scaleIn: {

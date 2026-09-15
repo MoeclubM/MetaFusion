@@ -4,7 +4,7 @@
 // 生成物一并提交：主题是静态资产，构建期不依赖脚本再次运行。
 import fs from "fs";
 import path from "path";
-import { ACCENTS, TONES, BASE_DARK, BASE_LIGHT } from "./theme-palette.mjs";
+import { ACCENTS, TONES, BASE_DARK, BASE_LIGHT, DEFAULT_ACCENT, DEFAULT_TONE } from "./theme-palette.mjs";
 
 const ROOT = process.cwd();
 const CSS_OUT = path.join(ROOT, "src/app/theme.generated.css");
@@ -161,3 +161,35 @@ fs.writeFileSync(TS_OUT, ts);
 console.log("已生成 " + ACCENTS.length + " 套配色 × " + TONES.length + " 种表面色调：");
 console.log("  " + path.relative(ROOT, CSS_OUT));
 console.log("  " + path.relative(ROOT, TS_OUT));
+// —— 生成首帧引导脚本（public/theme-boot.js）——
+// 为什么生成而不是手写：文件里要用到配色 id 列表与默认值，手写就等于把它们抄了第二遍，
+// 新增配色时容易忘记同步（表现是"选了新配色，首帧又闪回默认"）。
+const BOOT_OUT = path.join(ROOT, "public/theme-boot.js");
+const bootJs = `// 由 scripts/gen-theme.mjs 生成，勿手改：改配色请看 scripts/theme-palette.mjs。
+// 首帧同步执行：把 localStorage 里的主题选择写到 <html> 上，避免加载瞬间闪默认配色。
+// 不校验取值——CSS 里没有对应变量块时会自动回落到默认配色（ThemeProvider 挂载后再校验一次）。
+(function () {
+  try {
+    var m = localStorage.getItem("metafusion_theme_mode") || "dark";
+    var a = localStorage.getItem("metafusion_theme_accent") || "${DEFAULT_ACCENT}";
+    var t = localStorage.getItem("metafusion_theme_tone") || "${DEFAULT_TONE}";
+    if (ACCENTS.indexOf(a) < 0) a = "${DEFAULT_ACCENT}";
+    if (TONES.indexOf(t) < 0) t = "${DEFAULT_TONE}";
+    var e = m === "system"
+      ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+      : (m === "light" ? "light" : "dark");
+    var r = document.documentElement;
+    r.setAttribute("data-theme-mode", e);
+    r.setAttribute("data-theme-accent", a);
+    r.setAttribute("data-theme-tone", t);
+    r.classList.remove("dark", "light");
+    r.classList.add(e);
+    r.style.colorScheme = e;
+  } catch (_) {}
+})();
+`.replace("ACCENTS", JSON.stringify(ACCENTS.map((x) => x.id)))
+ .replace("TONES", JSON.stringify(TONES.map((x) => x.id)))
+ .replace("__DEFAULT_ACCENT__", DEFAULT_ACCENT)
+ .replace("__DEFAULT_TONE__", DEFAULT_TONE);
+fs.writeFileSync(BOOT_OUT, bootJs);
+console.log("  " + path.relative(ROOT, BOOT_OUT));

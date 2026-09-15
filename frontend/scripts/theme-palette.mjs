@@ -46,3 +46,6 @@ export const BASE_LIGHT = {
   line: "rgba(15,23,42,0.12)", lineSubtle: "rgba(15,23,42,0.07)", lineStrong: "rgba(15,23,42,0.22)",
   textStrong: "#0f172a", textBody: "#334155", textMuted: "#64748b", textFaint: "#94a3b8",
 };
+/** 默认配色与表面色调（首次访问、未做选择时的取值）。 */
+export const DEFAULT_ACCENT = "blue";
+export const DEFAULT_TONE = "neutral";

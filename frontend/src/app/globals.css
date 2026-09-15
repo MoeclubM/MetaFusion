@@ -532,4 +532,11 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   margin: 0 0 0.35rem;
   padding-bottom: 0.2rem;
   border-bottom: 1px dashed var(--surface-border-color);
+@layer components {
+  /* 焦点可见性：键盘导航必须看得见，鼠标点击不打扰。 */
+  .mf-focus {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-color)];
+  }
+}
+
 }
