@@ -15,6 +15,11 @@ export const CATALOG_SHELVES_MANAGE = "catalog.shelves.manage";
 export const AUTH_USERS_MANAGE = "auth.users.manage";
 export const AUTH_GROUPS_MANAGE = "auth.groups.manage";
 export const AUTH_SETTINGS_MANAGE = "auth.settings.manage";
+// 论坛权限码，与 metafusion-community/internal/auth/permission.go 一致。
+export const COMMUNITY_POST_CREATE = "community.post.create";
+export const COMMUNITY_POST_MODERATE = "community.post.moderate";
+export const COMMUNITY_TOPIC_PIN = "community.topic.pin";
+export const COMMUNITY_BOARD_MANAGE = "community.board.manage";
 
 type AnyUser = Pick<User, "id" | "role"> & Partial<Pick<User, "permissions" | "groups">>;
 

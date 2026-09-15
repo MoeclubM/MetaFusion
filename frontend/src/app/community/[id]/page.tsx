@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
 import { UserRoleBadge } from "@/lib/roles";
-import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref } from "@/lib/api";
+import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref, ApiError } from "@/lib/api";
+import { can, COMMUNITY_POST_MODERATE } from "@/lib/permissions";
 import PostComposer from "@/components/community/PostComposer";
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), {
   loading: () => <div className="h-4 my-1.5 rounded bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />,
@@ -22,10 +23,12 @@ import {
   Reply,
   Check,
   Tag as TagIcon,
+  Trash2,
 } from "lucide-react";
 
 export default function TopicDetailPage() {
  const params = useParams();
+ const router = useRouter();
  const topicId = params.id as string;
 
  const { user } = useAuth();
@@ -39,6 +42,10 @@ export default function TopicDetailPage() {
  const [isComposerOpen, setIsComposerOpen] = useState(false);
  const [composerExpanded, setComposerExpanded] = useState(false);
  const [replyTo, setReplyTo] = useState<{ post_number: number; username?: string; content: string } | null>(null);
+ const [deletingTarget, setDeletingTarget] = useState<string | null>(null);
+ const [moderationError, setModerationError] = useState<{ target: string; text: string } | null>(null);
+ // 治理入口只对持有 community.post.moderate 的人存在；鉴权仍在服务端，这里不渲染禁用态。
+ const canModeratePosts = can(user, COMMUNITY_POST_MODERATE);
 
  useEffect(() => { fetchBoards().then(setBoards).catch(()=>{}); }, []);
 
@@ -108,6 +115,39 @@ export default function TopicDetailPage() {
  const openTopicReply = () => {
  setReplyTo(null);
  setIsComposerOpen(true);
+ };
+
+ // 失败如实提示：403 说明缺治理码（网关/服务端拒绝），其余按通用失败文案，不静默。
+ const moderationErrorText = (err: unknown) =>
+ err instanceof ApiError && err.status === 403
+ ? t("community.moderateForbidden")
+ : t("community.moderateFailed");
+
+ const deleteTopic = async () => {
+ if (!window.confirm(t("community.deleteTopicConfirm"))) return;
+ setDeletingTarget("topic");
+ setModerationError(null);
+ try {
+ await fetchApi(`/community/topics/${topicId}`, { method: "DELETE" });
+ router.push("/community");
+ } catch (err) {
+ setModerationError({ target: "topic", text: moderationErrorText(err) });
+ setDeletingTarget(null);
+ }
+ };
+
+ const deleteReply = async (post: ForumPost) => {
+ if (!window.confirm(t("community.deleteReplyConfirm"))) return;
+ setDeletingTarget(post.id);
+ setModerationError(null);
+ try {
+ await fetchApi(`/community/topics/${topicId}/posts/${post.id}`, { method: "DELETE" });
+ await loadTopic();
+ } catch (err) {
+ setModerationError({ target: post.id, text: moderationErrorText(err) });
+ } finally {
+ setDeletingTarget(null);
+ }
  };
 
  if (loading) {
@@ -243,8 +283,23 @@ export default function TopicDetailPage() {
  </div>
  </div>
 
+ <div className="flex items-center space-x-2.5">
+ {canModeratePosts && (
+ <button
+ onClick={deleteTopic}
+ disabled={deletingTarget === "topic"}
+ className="flex items-center space-x-1 text-gray-500 hover:text-rose-400 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
+ >
+ <Trash2 className="w-4 h-4" />
+ <span>{deletingTarget === "topic" ? t("community.deleting") : t("community.deleteTopic")}</span>
+ </button>
+ )}
  <span className="text-gray-500 font-mono text-sm">#{opPost?.post_number ?? 1}</span>
  </div>
+ </div>
+ {moderationError?.target === "topic" && (
+ <p className="text-xs text-rose-400 font-mono">{moderationError.text}</p>
+ )}
 
    {/* Post Body */}
    <div className="py-1">
@@ -337,8 +392,24 @@ export default function TopicDetailPage() {
  </div>
  </div>
 
+ <div className="flex items-center space-x-2.5">
+ {/* 自己的楼层沿用原有通道，治理按钮只用于处置他人回复 */}
+ {canModeratePosts && replyUserId && replyUserId !== user?.id && (
+ <button
+ onClick={() => deleteReply(post)}
+ disabled={deletingTarget === post.id}
+ className="flex items-center space-x-1 text-gray-500 hover:text-rose-400 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
+ >
+ <Trash2 className="w-4 h-4" />
+ <span>{deletingTarget === post.id ? t("community.deleting") : t("community.deleteReply")}</span>
+ </button>
+ )}
  <span className="text-gray-500 font-mono text-sm">#{post.post_number}</span>
  </div>
+ </div>
+ {moderationError?.target === post.id && (
+ <p className="text-xs text-rose-400 font-mono">{moderationError.text}</p>
+ )}
 
    <div className="py-1">
      <MarkdownRenderer content={post.content} />
