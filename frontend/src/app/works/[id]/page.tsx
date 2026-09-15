@@ -254,7 +254,7 @@ const releaseFacets = useMemo(
  creditRole: attrText(r.attributes?.credit_role) || undefined,
  agent: { id: target.id!, name: target.title || "", avatarUrl: target.pictures?.[0]?.url, types: target.types || [] },
  };
- if (r.type === "voiced_by") {
+ if (attrText(r.attributes?.character)) {
  const chId = attrText(r.attributes?.character);
  const ch = chId ? relEntities[chId] : undefined;
  if (ch) {
@@ -267,7 +267,7 @@ const releaseFacets = useMemo(
  credit.contextLabel = (ctxId ? relEntities[ctxId]?.title : "") || undefined;
  }
  out.push(credit);
- } else if (r.type === "character_in") {
+ } else if (r.source_id !== work.id) {
  // 登场角色：agent(角色) → work，方向与署名关系相反；番位优先 i18n 键（主角/配角/客串），
  // 未覆盖的番位回退 definitions 词表名。
  const src = relEntities[r.source_id];

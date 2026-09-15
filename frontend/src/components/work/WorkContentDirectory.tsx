@@ -67,12 +67,14 @@ export function componentEntries(
   entities: Record<string, Entity>,
   selfId: string,
   locale: string,
+  /** 由调用方按关系定义判定"这条关系是否表达组成/聚合"，避免写死关系码。 */
+  isAggregate: (code: string) => boolean = () => false,
 ): { includes: DirectoryEntry[]; includedIn: DirectoryEntry[] } {
   const includes: DirectoryEntry[] = [];
   const includedIn: DirectoryEntry[] = [];
   const seen = new Set<string>();
   for (const r of relations) {
-    if (r.type !== "includes") continue;
+    if (!isAggregate(r.type)) continue;
     const outgoing = r.source_id === selfId;
     const peerId = outgoing ? r.target_id : r.source_id;
     if (!peerId || peerId === selfId || seen.has(peerId)) continue;
@@ -125,6 +127,8 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
           rel.entities || {},
           workId,
           locale,
+          // 组成关系由定义声明（aggregate），新增聚合类关系不用改这里。
+          (code) => defs?.relations?.[code]?.aggregate === true,
         );
         if (!active) return;
         setItems([...units.map((e) => toEntry(e, locale)), ...exprs.map((e) => toEntry(e, locale))]);

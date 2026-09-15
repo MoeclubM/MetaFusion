@@ -70,6 +70,8 @@ export interface RelationDef {
   acyclic?: boolean;
   max_outgoing?: number;
   max_incoming?: number;
+  /** 声明这条关系表达"组成/聚合"（集合→作品、专辑→曲目等）：页面据此算组成列表，不写死关系码。 */
+  aggregate?: boolean;
   group: string;
   group_names?: Record<string, string>;
   enabled: boolean;

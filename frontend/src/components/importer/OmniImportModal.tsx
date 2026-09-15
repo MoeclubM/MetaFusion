@@ -117,7 +117,8 @@ export function OmniImportModal({
   const [duplicateMatches, setDuplicateMatches] = useState<Entity[]>([]);
   const [selectedTargetWork, setSelectedTargetWork] = useState<Entity | null>(null);
   const [linkMode, setLinkMode] = useState<"append_release_to_work" | "merge_translations" | "create_relation" | "new_work">("new_work");
-  const [relationType] = useState<string>("soundtrack_of");
+  // 不预设关系码：关系类型来自服务端 definitions，未选则不提交该字段（避免写死某个码）。
+  const [relationType] = useState<string>("");
 
   // 既有表达匹配：选定目标母体后加载其既有表达（录音/正文），
   // 供用户把预览条目手工绑定到已存在的表达，避免重复建录音。
@@ -411,7 +412,7 @@ export function OmniImportModal({
           source_urls: [previewData.external_url || inputVal],
           target_work_id: selectedTargetWork?.id,
           link_mode: selectedTargetWork ? linkMode : "new_work",
-          relation_type: linkMode === "create_relation" ? relationType : undefined,
+          relation_type: linkMode === "create_relation" && relationType ? relationType : undefined,
         });
 
         setImportSuccess(res);

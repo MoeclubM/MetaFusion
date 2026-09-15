@@ -67,11 +67,10 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
 
   const relationGroup = (code: string) => defs?.relations?.[code]?.group || "";
   // cast：配音与登场角色关系；登场的角色实体类型兜底判定。
-  const isCast = (c: StaffCredit) =>
-    c.relationType === "voiced_by" ||
-    c.relationType === "character_in" ||
-    !!c.character ||
-    c.agent.types.includes("character");
+  // 是否属于"角色/配音"这一类：由关系定义自己声明（声明了 character 字段的关系，或数据里已带角色）。
+  // 不写死关系码，也不写死动态类型码 —— 新增配音类关系不用改这里。
+  const declaresCharacter = (code: string) => (defs?.relations?.[code]?.fields || []).includes("character");
+  const isCast = (c: StaffCredit) => !!c.character || declaresCharacter(c.relationType);
   // 核心主创：definitions 把创作类关系（编剧/导演/作曲…）归入 creative 组，分组可配。
   const isKeyStaff = (c: StaffCredit) => !isCast(c) && relationGroup(c.relationType) === "creative";
 
@@ -104,7 +103,8 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
         };
         cardMap.set(key, card);
       }
-      if (c.relationType === "voiced_by") {
+      const selfIsCharacter = !!c.character && !!c.agent.id && c.agent.id === c.character.id;
+      if (!selfIsCharacter) {
         const context = [c.language, c.contextLabel].filter(Boolean).join(" · ");
         // 同一演员在同一上下文的重复关系只留一条；不同语言/篇目各自保留。
         const dup = card.voices.some(
@@ -118,7 +118,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
             context: context || undefined,
           });
         }
-      } else if (c.relationType === "character_in") {
+      } else {
         if (!card.character.id && c.character.id) card.character.id = c.character.id;
         if (!card.character.avatar_url && c.character.avatarUrl) card.character.avatar_url = c.character.avatarUrl;
         // 登场关系带番位（主角/配角），比配音关系声明的职位更能代表角色定位。
