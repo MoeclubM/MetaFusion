@@ -2854,5 +2854,8 @@
   "admin.reviews.approveNote": "Approved and published (review workbench)",
   "admin.reviews.rejectNote": "Rejected: returned to draft (review workbench)",
   "admin.reviews.sourceCitation": "Review workbench action log",
-  "admin.reviews.approved": "Approved and published"
+  "admin.reviews.approved": "Approved and published",
+  "catalog.imageTakenAt": "Taken / published (optional, YYYY-MM-DD)",
+  "catalog.pictureGallery": "Images (by time)",
+  "catalog.imageTimeUnknown": "Time not stated"
 }

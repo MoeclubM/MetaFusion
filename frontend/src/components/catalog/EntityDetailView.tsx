@@ -1072,6 +1072,53 @@ export function EntityDetailView({ id }: { id: string }) {
                 </div>
               )}
 
+              {/* 图片（按时间）：同一实体的多张图按 taken_at 升序，未注明时间的保持录入顺序排在最后。
+                  封面改版、剧照、活动现场都靠这里的顺序表达，不再只展示第一张。 */}
+              {(entity.pictures?.length || 0) > 0 && (
+                <div id="pictures" className="pt-2 space-y-3 border-t border-line-subtle">
+                  <div className="flex items-center gap-2 pt-3">
+                    <h3 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
+                      {t("catalog.pictureGallery")}
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                      {entity.pictures!.length}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {entity
+                      .pictures!.map((p, i) => ({ p, i }))
+                      .sort((a, b) => {
+                        const av = (a.p.taken_at || "").trim();
+                        const bv = (b.p.taken_at || "").trim();
+                        if (!av && !bv) return a.i - b.i;
+                        if (!av) return 1;
+                        if (!bv) return -1;
+                        return av < bv ? -1 : av > bv ? 1 : a.i - b.i;
+                      })
+                      .map(({ p, i }) => (
+                        <a
+                          key={i}
+                          href={p.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="group block space-y-1.5"
+                          title={p.source?.citation || ""}
+                        >
+                          <div className="aspect-[3/4] rounded-lg overflow-hidden border border-line bg-surfaceSubtle">
+                            <img
+                              src={p.url}
+                              alt={p.caption?.[locale] || entity.title}
+                              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-fast ease-soft"
+                            />
+                          </div>
+                          <div className="font-mono text-[10px] text-gray-500">
+                            {p.taken_at?.trim() || t("catalog.imageTimeUnknown")}
+                          </div>
+                        </a>
+                      ))}
+                  </div>
+                </div>
+              )}
               {/* Mother Work Direct Card */}
               {motherWork && (
                 <div className="pt-2">

@@ -2854,5 +2854,8 @@
   "admin.reviews.approveNote": "审核通过并发布（审核工作台）",
   "admin.reviews.rejectNote": "审核驳回：退回草稿（审核工作台）",
   "admin.reviews.sourceCitation": "审核工作台操作记录",
-  "admin.reviews.approved": "已通过发布"
+  "admin.reviews.approved": "已通过发布",
+  "catalog.imageTakenAt": "拍摄／发布时刻（可选，YYYY-MM-DD）",
+  "catalog.pictureGallery": "图片（按时间）",
+  "catalog.imageTimeUnknown": "时间未注明"
 }

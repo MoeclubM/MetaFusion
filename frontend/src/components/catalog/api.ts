@@ -118,7 +118,8 @@ export type Entity = {
   types: string[];
   attributes: Record<string, any>;
   external_ids: Record<string, string>;
-  pictures: { url: string; caption: Names; source: Source }[];
+  // taken_at：图片自身的时间（拍摄/发布/改版），多图按它排序展示
+  pictures: { url: string; caption: Names; taken_at?: string; source: Source }[];
   work_id?: string;
   content_unit_id?: string;
   release_id?: string;

@@ -836,6 +836,20 @@ export function EntityEditor({
               />
             </label>
             <label>
+              {t("catalog.imageTakenAt")}
+              <input
+                placeholder="2020-08-07"
+                value={p.taken_at || ""}
+                onChange={(x) =>
+                  patch({
+                    pictures: e.pictures.map((v, j) =>
+                      i === j ? { ...v, taken_at: x.target.value } : v,
+                    ),
+                  })
+                }
+              />
+            </label>
+            <label>
               {t("catalog.citation")}
               <input
                 required
@@ -873,6 +887,7 @@ export function EntityEditor({
                 {
                   url: "",
                   caption: {},
+                  taken_at: "",
                   source: { kind: "self", citation: "" },
                 },
               ],

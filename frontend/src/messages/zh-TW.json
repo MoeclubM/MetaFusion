@@ -2854,5 +2854,8 @@
   "admin.reviews.approveNote": "審核通過並發佈（審核工作台）",
   "admin.reviews.rejectNote": "審核駁回：退回草稿（審核工作台）",
   "admin.reviews.sourceCitation": "審核工作台操作記錄",
-  "admin.reviews.approved": "已通過發佈"
+  "admin.reviews.approved": "已通過發佈",
+  "catalog.imageTakenAt": "拍攝／發佈時刻（可選，YYYY-MM-DD）",
+  "catalog.pictureGallery": "圖片（依時間）",
+  "catalog.imageTimeUnknown": "時間未註明"
 }

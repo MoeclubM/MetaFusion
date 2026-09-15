@@ -2854,5 +2854,8 @@
   "admin.reviews.approveNote": "承認して公開（レビュー作業台）",
   "admin.reviews.rejectNote": "差戻し：下書きに戻す（レビュー作業台）",
   "admin.reviews.sourceCitation": "レビュー作業台の操作記録",
-  "admin.reviews.approved": "承認して公開しました"
+  "admin.reviews.approved": "承認して公開しました",
+  "catalog.imageTakenAt": "撮影・公開日（任意、YYYY-MM-DD）",
+  "catalog.pictureGallery": "画像（時系列）",
+  "catalog.imageTimeUnknown": "日付不明"
 }
