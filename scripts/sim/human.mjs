@@ -126,7 +126,7 @@ export async function updateEntity(page, id, tag, agent) {
 }
 // 加关系：编辑态关系区 → 选「关系＋方向」→ 搜索框输入 → 从**实体下拉**里选 → 添加关系。
 // 注意：候选是原生 <select> 的 option（搜索框只负责查询），不是浮层列表。
-export async function addRelation(page, id, relType, targetQuery, agent) {
+export async function addRelation(page, id, relType, targetQuery, agent, attrs) {
   await page.goto(BASE + "/catalog/" + id, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForTimeout(1400);
   const editBtn = page.locator("button", { hasText: "编辑" }).first();
@@ -166,9 +166,9 @@ export async function addRelation(page, id, relType, targetQuery, agent) {
   if (!chosen) return { status: 200, skipped: true, body: "无匹配目标，跳过该关系" };
   try { await entitySelect.selectOption(chosen); } catch { return { status: 200, skipped: true, body: "选择目标失败，跳过" }; }
   await page.waitForTimeout(900);
-  // 关系定义声明的动态属性字段（role / credit_role / character / language…）：编辑器按 definitions 渲染，
-  // 之前仿真只选类型与目标，这些字段一直没被覆盖。这里尽量填上：下拉取第一个可用项，文本填一个可考据的值。
-  const attrFields = await rel.evaluate((f) => {
+  // 指定了 attrs 就按字段名精确填；否则退化成"尽量填几个"的探索模式。
+  if (attrs) { await fillRelationAttrs(page, rel, attrs); }
+  const attrFields = attrs ? [] : await rel.evaluate((f) => {
     const out = [];
     Array.from(f.querySelectorAll("label")).forEach((l, idx) => {
       const sel = l.querySelector("select");
@@ -220,4 +220,34 @@ export async function makeBrowser() {
   page.on("pageerror", (e) => problems.push("pageerror: " + String(e).slice(0, 130)));
   page.on("response", (r) => { if (r.status() >= 500) problems.push("http " + r.status() + " " + r.url().replace(BASE, "").slice(0, 60)); });
   return { browser, ctx, page, problems };
+}
+// 关系属性按字段名精确填写：attrs = { "所饰角色": "ドラえもん", "番位": "主角", "语言": "ja" }。
+// 标签名来自 definitions 的字段多语言名，所以调用方传的是界面上能看到的名字。
+export async function fillRelationAttrs(page, relFieldset, attrs) {
+  let filled = 0;
+  for (const [labelText, value] of Object.entries(attrs || {})) {
+    const lab = relFieldset.locator("label", { hasText: labelText }).first();
+    if (!(await lab.count())) continue;
+    const sel = lab.locator("select").first();
+    const picker = lab.locator('input[placeholder*="搜索实体"]').first();
+    const text = lab.locator('input:not([type=checkbox]):not([type=radio])').first();
+    if (await picker.count()) {
+      // 实体引用：输入标题 → 等下拉出候选 → 选中
+      await picker.fill(String(value));
+      let chosen = "";
+      for (let w = 0; w < 10 && !chosen; w++) {
+        await page.waitForTimeout(700);
+        const vals = await sel.locator("option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: o.textContent || "" })).filter((x) => x.v));
+        if (vals.length) chosen = (vals.find((x) => x.t.includes(String(value))) || vals[0]).v;
+      }
+      if (chosen) { await sel.selectOption(chosen); filled++; }
+    } else if (await sel.count()) {
+      const vals = await sel.locator("option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: (o.textContent || "").trim() })).filter((x) => x.v));
+      const hit = vals.find((x) => x.t === String(value) || x.v === String(value) || x.t.includes(String(value))) || vals[0];
+      if (hit) { await sel.selectOption(hit.v); filled++; }
+    } else if (await text.count()) {
+      await text.fill(String(value)); filled++;
+    }
+  }
+  return filled;
 }
