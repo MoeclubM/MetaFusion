@@ -94,7 +94,10 @@ export async function createEntity(page, opts) {
       return msg + " | note=" + JSON.stringify((ta && ta.value || "").slice(0, 18)) + " cite=" + JSON.stringify((cite && cite.value || "").slice(0, 18)) + " title=" + JSON.stringify((titleInput && titleInput.value || "").slice(0, 16)) + " types=" + JSON.stringify(checked) + " disabled=" + JSON.stringify(disabled);
     }).catch((e) => "诊断失败: " + String(e).slice(0, 60));
   }
-  return { status: res ? res.status() : 0, url: page.url(), body: res ? (await res.text().catch(() => "")).slice(0, 160) : alert };
+  const text = res ? await res.text().catch(() => "") : "";
+  // 新建成功的 id 从响应体里取（比解析跳转 URL 稳）
+  const id = (text.match(/\"id\":\"([0-9a-f-]{36})\"/) || [])[1] || (page.url().match(/\/catalog\/([0-9a-f-]{36})/) || [])[1] || "";
+  return { status: res ? res.status() : 0, url: page.url(), id, body: text.slice(0, 160) || alert };
 }
 export async function makeBrowser() {
   // 本机用系统 Chrome；Playwright 容器里只有自带 Chromium，故回退到默认通道。

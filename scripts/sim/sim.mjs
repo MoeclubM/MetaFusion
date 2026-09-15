@@ -1,7 +1,7 @@
 // 分波仿真：node sim2.mjs <agents> <opsPerAgent> [startIndex]
 // 并发 3、错峰启动、每次操作带重试，结果写 JSONL 便于跨波次统计。
 import fs from "fs";
-import { login, createEntity, makeBrowser } from "./human.mjs";
+import { login, createEntity, updateEntity, makeBrowser } from "./human.mjs";
 
 const AGENTS = Number(process.argv[2] || 3);
 const OPS = Number(process.argv[3] || 40);
@@ -29,15 +29,21 @@ async function runAgent(n) {
       const types = TYPES[kind] || [];
       const typeLabel = types.length ? types[i % types.length] : undefined;
       const title = agent + "-" + kind + "-" + i;
+      // 混合负载：约 1/4 的操作是"修改已有实体"（更接近真人的编辑分布，也能覆盖编辑入口与 PUT 路径）
+      const useUpdate = i % 4 === 3 && created.length > 0;
       let r = { status: 0, url: "", body: "" };
       for (let attempt = 0; attempt < 2; attempt++) {
-        try { r = await createEntity(page, { kind, typeLabel, title, lang: "ja", status: "draft", note: "仿真：" + agent + " 新建第 " + i + " 条（" + kind + "）", source: "https://example.org/sim/" + agent + "/" + i }); } catch (e) { r = { status: 0, url: page.url(), body: String(e).slice(0, 80) }; }
+        try {
+          r = useUpdate
+            ? await updateEntity(page, created[(i * 7) % created.length], "u" + i, agent)
+            : await createEntity(page, { kind, typeLabel, title, lang: "ja", status: "draft", note: "仿真：" + agent + " 新建第 " + i + " 条（" + kind + "）", source: "https://example.org/sim/" + agent + "/" + i });
+        } catch (e) { r = { status: 0, url: page.url(), body: String(e).slice(0, 80) }; }
         if (r.status === 200 || r.status === 201) break;
         await page.waitForTimeout(2000);
       }
-      const id = (r.url.match(/\/catalog\/([0-9a-f-]{36})/) || [])[1] || "";
+      const id = r.id || "";
       if (r.status === 200 || r.status === 201) { ok++; created.push(id); } else fail++;
-      log.write(JSON.stringify({ wave: WAVE, i, kind, title, status: r.status, id, body: String(r.body).slice(0, 110) }) + "\n");
+      log.write(JSON.stringify({ wave: WAVE, i, action: useUpdate ? "update" : "create", kind, title, status: r.status, id, body: String(r.body).slice(0, 110) }) + "\n");
       if (i % 10 === 0) console.log("[" + agent + "] " + i + "/" + OPS + " ok=" + ok + " fail=" + fail);
     }
   } catch (e) {
