@@ -69,6 +69,12 @@ export async function createEntity(page, opts) {
         const vals = await psel.locator("option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: o.textContent || "" })).filter((x) => x.v));
         if (vals.length) chosen = (vals.find((x) => x.t.includes(String(opts.parent.query))) || vals[0]).v;
       }
+    } else {
+      // 有些父级字段是普通下拉（无搜索框，如 medium 的「同域父节点」）：直接按文案匹配
+      const vals = await psel.locator("option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: o.textContent || "" })).filter((x) => x.v));
+      const hit = vals.find((x) => x.t.includes(String(opts.parent.query)));
+      chosen = hit ? hit.v : "";
+      if (!chosen) console.log("父级下拉候选: " + JSON.stringify(vals.map((x) => x.t.slice(0, 40))));
     }
     if (chosen) await psel.selectOption(chosen);
     else return { status: 0, url: page.url(), body: "父级未选中（" + opts.parent.query + "）" };
