@@ -79,9 +79,14 @@ export async function createEntity(page, opts) {
 export async function updateEntity(page, id, tag, agent) {
   await page.goto(BASE + "/catalog/" + id, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForTimeout(1400);
-  const editBtn = page.locator("button", { hasText: "编辑" }).first();
-  // 等入口出现：详情页要先加载实体与权限判定，立刻 count 会误判成"没权限"
-  try { await editBtn.waitFor({ state: "visible", timeout: 12000 }); } catch { return { status: 0, body: "没有编辑入口（权限或条目状态不允许）" }; }
+  // 等入口出现：详情页要先加载实体与权限判定；并发下更慢，所以等 25 秒，失败再整页重载试一次
+  let editBtn = page.locator("button", { hasText: "编辑" }).first();
+  try { await editBtn.waitFor({ state: "visible", timeout: 25000 }); } catch {
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
+    await page.waitForTimeout(2000);
+    editBtn = page.locator("button", { hasText: "编辑" }).first();
+    try { await editBtn.waitFor({ state: "visible", timeout: 25000 }); } catch { return { status: 0, body: "没有编辑入口（权限或条目状态不允许）" }; }
+  }
   await editBtn.click();
   const title = page.locator('label:has-text("基础题名")').locator("input").first();
   try { await title.waitFor({ state: "visible", timeout: 30000 }); } catch { return { status: 0, body: "编辑表单未出现" }; }
@@ -121,10 +126,21 @@ export async function addRelation(page, id, relType, targetQuery, agent) {
   await page.waitForTimeout(1600);
   const search = rel.locator('input[placeholder*="搜索实体"]').first();
   if (!(await search.count())) return { status: 0, body: "目标搜索框未出现" };
-  await search.fill(targetQuery);
-  const entitySelect = rel.locator("select").nth(1);
+  // 目标候选为空通常是"这个标题的类型不符合该关系要求"：换标题重试，别让整条操作算失败
+  const entitySelect0 = rel.locator("select").nth(1);
+  const tries = Array.isArray(targetQuery) ? targetQuery : [targetQuery];
   let chosen = "";
-  for (let w = 0; w < 12 && !chosen; w++) {
+  for (const q of tries) {
+    await search.fill(String(q));
+    for (let w = 0; w < 8 && !chosen; w++) {
+      await page.waitForTimeout(600);
+      const vs = await entitySelect0.locator("option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: (o.textContent || "") })).filter((x) => x.v));
+      if (vs.length) { const hit = vs.find((x) => x.t.includes(String(q))) || vs[0]; chosen = hit.v; }
+    }
+    if (chosen) break;
+  }
+  const entitySelect = entitySelect0;
+  for (let w = 0; w < 0 && !chosen; w++) {
     await page.waitForTimeout(700);
     const vals = await entitySelect.locator("option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: (o.textContent || "") })).filter((x) => x.v));
     if (vals.length) { const hit = vals.find((x) => x.t.includes(targetQuery)) || vals[0]; chosen = hit.v; }

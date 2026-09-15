@@ -41,7 +41,7 @@ async function runAgent(n) {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           r = useRel
-            ? await addRelation(page, created[(i * 3) % created.length], null, createdTitles[(i * 3) % createdTitles.length], agent)
+            ? await addRelation(page, created[(i * 3) % created.length], null, createdTitles.slice().sort(() => Math.random() - 0.5).slice(0, 3), agent)
             : useUpdate
               ? await updateEntity(page, created[(i * 7) % created.length], "u" + i, agent)
               : await createEntity(page, { kind, typeLabel, title, lang: "ja", status: "draft", note: "仿真：" + agent + " 新建第 " + i + " 条（" + kind + "）", source: "https://example.org/sim/" + agent + "/" + i });
