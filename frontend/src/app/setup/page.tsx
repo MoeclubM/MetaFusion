@@ -38,8 +38,10 @@ export default function SetupPage() {
 
   // Form State：POST /api/setup 只接受 username/email/password 三个字段，
   // 站点名称与准入开关当前无对应实现，因此不再提供输入以免造成已生效的误解。
-  const [username, setUsername] = useState("MoeCaa");
-  const [email, setEmail] = useState("moecaa@findverse.cc");
+  // 不在表单里预填任何具体账号：默认值是站点所有者的用户名/邮箱，写死等于把个人信息
+  // 随公开前端一起发布，也会让新实例误以为"这个名字是保留的"。
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
