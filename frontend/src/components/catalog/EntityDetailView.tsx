@@ -18,6 +18,7 @@ import { GraphNode, GraphLink, FavoriteTargetType } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
+import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
 import { useDefinitions, getTypeName, getRelationName, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
@@ -80,6 +81,10 @@ const InteractiveRelationGraph = dynamic(
  * 前端即刻跟随，不在本文件另维护一份名单。 */
 const relationGroupOf = (defs: any, type: string): string =>
   defs?.relations?.[type]?.group || "";
+
+// 资源文件区块只挂在这三种"承载层"实体上：存储侧约定的用途码
+// （master_archive / disc_image / track_audio …）指向的都是它们，而不是作品或作者。
+const RESOURCE_FILE_KINDS = ["medium", "track", "expression"];
 
 async function allEntities(query: string): Promise<Entity[]> {
   const items: Entity[] = [];
@@ -592,6 +597,8 @@ export function EntityDetailView({ id }: { id: string }) {
     { id: "contents", label: t("entity.page.navContents"), badge: children.length, visible: children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    // entity 在数据到达前为 null，这里只能安全取值；分节本身的可见性由 kind 决定。
+    { id: "resources", label: t("entity.detail.resourcesTitle"), visible: RESOURCE_FILE_KINDS.indexOf(String(entity?.kind || "")) >= 0, icon: <HardDrive className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "revisions", label: t("entity.detail.revisionsTitle"), badge: revisions.length || 1, icon: <History className="w-3.5 h-3.5" strokeWidth={1.5} /> },
   ];
   const { active, select } = useHashTab(tabs);
@@ -1479,6 +1486,13 @@ export function EntityDetailView({ id }: { id: string }) {
 
 <EntityRevisions revisions={revisions} currentEntity={entity} />
             </section>
+            )}
+
+            {/* ============================================================ */}
+            {/* Section 8: Resource files (资源文件与上传)                    */}
+            {/* ============================================================ */}
+            {active === "resources" && RESOURCE_FILE_KINDS.indexOf(String(entity.kind || "")) >= 0 && (
+              <EntityResourceFiles entityId={entity.id || id} />
             )}
             </div>
 

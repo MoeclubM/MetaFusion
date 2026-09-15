@@ -169,6 +169,30 @@ export async function addRelation(page, id, relType, targetQuery, agent) {
   if (!chosen) return { status: 0, body: "实体下拉没有候选（查询=" + targetQuery + "）" };
   await entitySelect.selectOption(chosen);
   await page.waitForTimeout(900);
+  // 关系定义声明的动态属性字段（role / credit_role / character / language…）：编辑器按 definitions 渲染，
+  // 之前仿真只选类型与目标，这些字段一直没被覆盖。这里尽量填上：下拉取第一个可用项，文本填一个可考据的值。
+  const attrFields = await rel.evaluate((f) => {
+    const out = [];
+    Array.from(f.querySelectorAll("label")).forEach((l, idx) => {
+      const sel = l.querySelector("select");
+      const txt = l.querySelector('input:not([type=checkbox]):not([type=radio])');
+      const name = (l.textContent || "").replace(/\s+/g, " ").slice(0, 16);
+      if (sel) out.push({ kind: "select", idx, name });
+      else if (txt && !(txt.getAttribute("placeholder") || "").includes("搜索实体")) out.push({ kind: "text", idx, name });
+    });
+    return out;
+  });
+  let filled = 0;
+  for (const fdef of attrFields.slice(0, 2)) {
+    const lab = rel.locator("label").nth(fdef.idx);
+    if (fdef.kind === "select") {
+      const opts = await lab.locator("select").first().locator("option").evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
+      if (opts.length) { try { await lab.locator("select").first().selectOption(opts[0]); filled++; } catch {} }
+    } else {
+      const val = fdef.name.includes("职位") || fdef.name.includes("role") ? "仿真属性值" : "sim-" + agent;
+      try { await lab.locator('input:not([type=checkbox])').first().fill(val); filled++; } catch {}
+    }
+  }
   const ev = page.locator("fieldset", { hasText: "编辑说明与来源" }).first();
   const note = ev.locator("textarea").first();
   if (await note.count() && !(await note.inputValue())) await note.fill("仿真关系：" + agent + " 建立 " + pick);

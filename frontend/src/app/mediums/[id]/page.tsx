@@ -8,6 +8,7 @@ import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/compone
 import { fetchApi } from "@/lib/api";
 import { useDefinitions, getTermName } from "@/lib/definitions";
 import { WorkFacts } from "@/components/work/WorkFacts";
+import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
 import { GroupAttributeInline, LocatorInline } from "@/components/catalog/TemplateAttributeSections";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -196,6 +197,10 @@ export default function MediumDetailPage() {
           {/* 载体自身的动态属性（黑胶转速/尺寸等由后台声明）：走通用分区渲染，
               不为每种媒体另写面板；无可用字段时组件返回 null。 */}
           <WorkFacts entity={medium} defs={defs} locale={locale} className="rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft p-4 sm:p-5" />
+
+          {/* 资源文件：文件本体由存储服务托管，绑定用途由 binding_role 表达；
+              载体是"整碟镜像/分轨音频/扫描件"最大的落点，放在曲目表之前。 */}
+          <EntityResourceFiles entityId={mediumId} />
 
           <section className="rounded-lg border border-line bg-surface/80 backdrop-blur-md overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-line-subtle flex items-center justify-between gap-3">
