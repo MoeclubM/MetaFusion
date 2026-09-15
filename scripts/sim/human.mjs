@@ -86,7 +86,8 @@ export async function createEntity(page, opts) {
   if ((await note.inputValue()) !== opts.note) await note.fill(opts.note);
   const resp = page.waitForResponse((r) => r.url().includes("/api/catalog/entities") && r.request().method() === "POST", { timeout: 30000 }).catch(() => null);
   const save = page.locator("button", { hasText: "保存" }).first();
-  if (await save.count()) await save.click(); else await page.locator("button[type=submit]").first().click();
+  try { await save.waitFor({ state: "visible", timeout: 15000 }); } catch {}
+  if (await save.count()) await save.click({ timeout: 15000 }).catch(() => {}); else await page.locator("button[type=submit]").first().click().catch(() => {});
   const res = await resp;
   await page.waitForTimeout(1100);
   let alert = "";
@@ -113,7 +114,10 @@ export async function updateEntity(page, id, tag, agent) {
   const cite = page.locator('input[placeholder*="来源声明"]').last();
   if (await cite.count() && !(await cite.inputValue())) await cite.fill("https://example.org/sim/" + agent + "-upd");
   const resp = page.waitForResponse((r) => /\/api\/catalog\/entities\//.test(r.url()) && r.request().method() === "PUT", { timeout: 30000 }).catch(() => null);
-  await page.locator("button", { hasText: "保存" }).first().click();
+  // 并发下保存按钮可能被重渲染：先等它可见可点再点，避免 click 超时
+  const saveBtn = page.locator("button", { hasText: "保存" }).first();
+  try { await saveBtn.waitFor({ state: "visible", timeout: 15000 }); } catch {}
+  await saveBtn.click({ timeout: 15000 }).catch(() => {});
   const res = await resp;
   await page.waitForTimeout(1200);
   let body = "";
