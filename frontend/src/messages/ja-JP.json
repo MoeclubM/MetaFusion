@@ -602,7 +602,7 @@
   "admin.reviews.subtitle": "User submissions enter review queue; approved works are published and attached to virtual shelves.",
   "admin.reviews.pending": "Pending",
   "admin.reviews.published": "Published",
-  "admin.reviews.rejected": "Rejected",
+  "admin.reviews.rejected": "下書きに差戻しました",
   "admin.reviews.all": "All",
   "admin.reviews.colTitle": "Title / Original Title",
   "admin.reviews.colMedia": "Media Type",
@@ -2850,5 +2850,9 @@
   "catalog.error.useLifecycle": "停止・統合はライフサイクル操作で行ってください。",
   "catalog.error.idMustBeEmpty": "作成時に id を指定しないでください。",
   "catalog.error.forbidden": "権限が不足しています。",
-  "catalog.error.authenticationRequired": "ログインが切れました。再ログインしてください。"
+  "catalog.error.authenticationRequired": "ログインが切れました。再ログインしてください。",
+  "admin.reviews.approveNote": "承認して公開（レビュー作業台）",
+  "admin.reviews.rejectNote": "差戻し：下書きに戻す（レビュー作業台）",
+  "admin.reviews.sourceCitation": "レビュー作業台の操作記録",
+  "admin.reviews.approved": "承認して公開しました"
 }

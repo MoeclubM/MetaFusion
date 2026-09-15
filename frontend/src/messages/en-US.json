@@ -602,7 +602,7 @@
   "admin.reviews.subtitle": "User submissions enter review queue; approved works are published and attached to virtual shelves.",
   "admin.reviews.pending": "Pending",
   "admin.reviews.published": "Published",
-  "admin.reviews.rejected": "Rejected",
+  "admin.reviews.rejected": "Rejected back to draft",
   "admin.reviews.all": "All",
   "admin.reviews.colTitle": "Title / Original Title",
   "admin.reviews.colMedia": "Media Type",
@@ -2850,5 +2850,9 @@
   "catalog.error.useLifecycle": "Use the lifecycle action for delete/merge.",
   "catalog.error.idMustBeEmpty": "Creating must not carry an entity id.",
   "catalog.error.forbidden": "You do not have permission for this action.",
-  "catalog.error.authenticationRequired": "Your session expired — sign in again."
+  "catalog.error.authenticationRequired": "Your session expired — sign in again.",
+  "admin.reviews.approveNote": "Approved and published (review workbench)",
+  "admin.reviews.rejectNote": "Rejected: returned to draft (review workbench)",
+  "admin.reviews.sourceCitation": "Review workbench action log",
+  "admin.reviews.approved": "Approved and published"
 }

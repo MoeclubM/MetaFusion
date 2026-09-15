@@ -12,6 +12,7 @@ import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
 import { canEnterAdmin } from "@/lib/permissions";
+import { fetchApi } from "@/lib/api";
 import {
   Shield,
   LayoutDashboard,
@@ -58,6 +59,8 @@ function AdminInner() {
   });
   const [modules, setModules] = useState<any[]>([]);
   const [pendingItems, setPendingItems] = useState<any[]>([]);
+  // 审核动作的反馈：原来用 alert()，既不本地化也打断操作
+  const [reviewNotice, setReviewNotice] = useState("");
 
   // Entities management state
   const [entitiesList, setEntitiesList] = useState<any[]>([]);
@@ -155,30 +158,29 @@ function AdminInner() {
   };
 
   const handleReviewAction = async (id: string, action: "published" | "draft") => {
+    setReviewNotice("");
     try {
-      const target = pendingItems.find((e) => e.id === id);
-      const res = await fetch(`/api/catalog/entities/${id}`, {
+      // PUT 是整份替换：必须先把实体读全再改状态。
+      // 之前直接提交待审列表里的摘要对象（且用不带 Authorization 的裸 fetch），
+      // 服务端会因缺字段/校验失败返回 400，按钮点了等于没反应。
+      const full = await fetchApi<Record<string, any>>(`/catalog/entities/${id}`);
+      const { updated_at: _updatedAt, ...doc } = full;
+      await fetchApi(`/catalog/entities/${id}`, {
         method: "PUT",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          entity: {
-            ...target,
-            status: action,
-          },
-          expected_version: target?.version || 1,
-          edit_note: action === "published" ? "Approved by admin" : "Rejected by admin",
-          sources: [{ kind: "editorial", citation: "Admin Review Workbench" }],
+          entity: { ...doc, id, status: action },
+          expected_version: full.version || 1,
+          edit_note:
+            action === "published"
+              ? t("admin.reviews.approveNote")
+              : t("admin.reviews.rejectNote"),
+          sources: [{ kind: "editorial", citation: t("admin.reviews.sourceCitation") }],
         }),
       });
-      if (res.ok) {
-        setPendingItems((prev) => prev.filter((i) => i.id !== id));
-      } else {
-        const err = await res.json();
-        alert(err.error || "Review action failed");
-      }
-    } catch (e: any) {
-      alert(e.message);
+      setPendingItems((prev) => prev.filter((i) => i.id !== id));
+      setReviewNotice(action === "published" ? t("admin.reviews.approved") : t("admin.reviews.rejected"));
+    } catch (e) {
+      setReviewNotice(String((e as Error).message || e));
     }
   };
 
@@ -618,6 +620,12 @@ function AdminInner() {
                   <RefreshCw className="w-4 h-4" />
                 </button>
               </div>
+
+              {reviewNotice && (
+                <div className="p-3 rounded-xl border border-primary/30 bg-primary/[0.08] text-xs text-text-body">
+                  {reviewNotice}
+                </div>
+              )}
 
               {pendingItems.length === 0 ? (
                 <div className="p-8 rounded-xl border border-dashed border-white/10 text-center text-xs text-gray-500 font-mono">

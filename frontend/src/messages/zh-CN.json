@@ -602,7 +602,7 @@
   "admin.reviews.subtitle": "普通用户录入的所有媒体作品默认进入待审队列。审核通过后将正式转入发布状态并挂载至外挂虚拟货架。",
   "admin.reviews.pending": "待审核",
   "admin.reviews.published": "已发布",
-  "admin.reviews.rejected": "已驳回",
+  "admin.reviews.rejected": "已驳回为草稿",
   "admin.reviews.all": "全部",
   "admin.reviews.colTitle": "作品主标题 / 外文原名",
   "admin.reviews.colMedia": "媒介类型",
@@ -2850,5 +2850,9 @@
   "catalog.error.useLifecycle": "停用/合并需要通过生命周期操作，不能在编辑里直接改状态。",
   "catalog.error.idMustBeEmpty": "创建时不应带实体 id。",
   "catalog.error.forbidden": "权限不足：该操作需要更高权限（详见权限组配置）。",
-  "catalog.error.authenticationRequired": "登录已失效，请重新登录后重试。"
+  "catalog.error.authenticationRequired": "登录已失效，请重新登录后重试。",
+  "admin.reviews.approveNote": "审核通过并发布（审核工作台）",
+  "admin.reviews.rejectNote": "审核驳回：退回草稿（审核工作台）",
+  "admin.reviews.sourceCitation": "审核工作台操作记录",
+  "admin.reviews.approved": "已通过发布"
 }

@@ -602,7 +602,7 @@
   "admin.reviews.subtitle": "User submissions enter review queue; approved works are published and attached to virtual shelves.",
   "admin.reviews.pending": "Pending",
   "admin.reviews.published": "Published",
-  "admin.reviews.rejected": "Rejected",
+  "admin.reviews.rejected": "已駁回為草稿",
   "admin.reviews.all": "All",
   "admin.reviews.colTitle": "Title / Original Title",
   "admin.reviews.colMedia": "Media Type",
@@ -2850,5 +2850,9 @@
   "catalog.error.useLifecycle": "停用／合併需透過生命週期操作。",
   "catalog.error.idMustBeEmpty": "建立時不應帶實體 id。",
   "catalog.error.forbidden": "權限不足：該操作需要更高權限。",
-  "catalog.error.authenticationRequired": "登入已失效，請重新登入。"
+  "catalog.error.authenticationRequired": "登入已失效，請重新登入。",
+  "admin.reviews.approveNote": "審核通過並發佈（審核工作台）",
+  "admin.reviews.rejectNote": "審核駁回：退回草稿（審核工作台）",
+  "admin.reviews.sourceCitation": "審核工作台操作記錄",
+  "admin.reviews.approved": "已通過發佈"
 }
