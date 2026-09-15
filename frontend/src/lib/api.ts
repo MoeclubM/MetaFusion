@@ -88,10 +88,66 @@ export function displayNameOf(u: Pick<User, "username" | "display_name">): strin
   return u.username;
 }
 
-export interface InviteInfoResponse {
-  invite_code: string;
-  invited_count: number;
-  invited_users: User[];
+// ── 自助注册与个人邀请码（账号服务 /api/auth/*）──
+
+/** POST /auth/register 的响应：成功即签发登录令牌，前端可直接进入登录态。 */
+export interface AuthSessionResponse {
+  token: string;
+  access_token?: string;
+  token_type?: string;
+  expires_in?: number;
+  user: User;
+}
+
+/**
+ * 自助注册。是否需要邀请码由实例设置决定（GET /auth/settings 的 invite_required），
+ * 服务端在注册事务里校验并消耗次数；前端只透传，不做本地判定。
+ */
+export function registerAccount(payload: {
+  username: string;
+  email?: string;
+  password: string;
+  invite_code?: string;
+}): Promise<AuthSessionResponse> {
+  return fetchApi<AuthSessionResponse>("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** 邀请码：带次数上限与可选过期时间；used_count 由服务端在注册事务里累加。 */
+export interface InviteCode {
+  code: string;
+  created_by: string;
+  creator?: string;
+  note: string;
+  max_uses: number;
+  used_count: number;
+  revoked: boolean;
+  expires_at?: string;
+  created_at: string;
+}
+
+/** GET /auth/invite：我的邀请码台账 + 由我邀请进来的人 + 当前是否可签发。 */
+export interface InviteLedger {
+  items: InviteCode[];
+  members: User[];
+  can_create: boolean;
+}
+
+export function fetchInviteLedger(): Promise<InviteLedger> {
+  return fetchApi<InviteLedger>("/auth/invite");
+}
+
+export function createInviteCode(payload: {
+  note?: string;
+  max_uses?: number;
+  expires_in_days?: number;
+}): Promise<InviteCode> {
+  return fetchApi<InviteCode>("/auth/invite", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export interface AdminStats {
