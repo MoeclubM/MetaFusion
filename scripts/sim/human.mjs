@@ -158,7 +158,9 @@ export async function addRelation(page, id, relType, targetQuery, agent, attrs, 
   const search = targetBlock.locator('input[placeholder*="搜索实体"]').first().or(rel.locator('input[placeholder*="搜索实体"]').first());
   if (!(await search.count())) return { status: 200, skipped: true, body: "目标搜索框未出现，跳过" };
   // 目标候选为空通常是"这个标题的类型不符合该关系要求"：换标题重试，别让整条操作算失败
-  const entitySelect0 = rel.locator("select").nth(1);
+  // 目标实体下拉：用 aria-label 定位（EntityPicker 的固定标记）。
+  // 按 nth(1) 猜会和提交时用的下拉不是同一个，导致"选了却提交失败"。
+  const entitySelect0 = rel.locator("select[aria-label]").first();
   const tries = Array.isArray(targetQuery) ? targetQuery : [targetQuery];
   let chosen = "";
   for (const q of tries) {
@@ -170,7 +172,7 @@ export async function addRelation(page, id, relType, targetQuery, agent, attrs, 
     }
     if (chosen) break;
   }
-  const entitySelect = targetBlock.locator("select").first().or(entitySelect0);
+  const entitySelect = entitySelect0;
   // 指定了目标 id 就按 id 选中。题名子串会同时命中多条候选（例如剧场版与题名里含同串的原声集专辑），
   // 先取第一个候选就会连错——真实编目里为此返工过两次，所以 id 优先于题名匹配。
   if (targetId) {
