@@ -137,11 +137,11 @@ function LoginInner() {
  <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
  <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
 
- <header className="relative z-10 w-full max-w-5xl mx-auto flex items-center justify-between shrink-0">
+ <header className="relative z-10 w-full max-w-narrow mx-auto flex items-center justify-between shrink-0">
  <Link href="/landing" title="MetaFusion" className="flex items-center gap-2.5 group">
  <BrandMark size={28} withGlow idSuffix="login" />
  <span className="flex flex-col leading-none">
- <span className="font-display text-xl tracking-[-0.03em] text-gray-900 dark:text-white">MetaFusion</span>
+ <span className="font-display text-xl tracking-[-0.03em] text-text-strong">MetaFusion</span>
  <span className="font-mono text-[8px] tracking-[0.16em] text-gray-500 dark:text-white/35 mt-[2px]">SINCE 2026</span>
  </span>
  </Link>
@@ -151,7 +151,7 @@ function LoginInner() {
  </div>
  </header>
 
- <main className="relative z-10 flex-1 min-h-0 grid place-items-center py-3">
+ <main className="mf-enter relative z-10 flex-1 min-h-0 grid place-items-center py-3">
  <div className="w-full max-w-md max-h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-3">
  {AUTH_SERVICE_URL.startsWith("http") && (
    <a
@@ -171,28 +171,28 @@ function LoginInner() {
        <Sparkles className="w-4 h-4 shrink-0 text-primary animate-pulse" />
        <span className="truncate">{t("login.oobeBanner")}</span>
      </div>
-     <ArrowRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+     <ArrowRight className="w-4 h-4 shrink-0 group-hover:translate-x-0.5 transition-transform duration-base ease-soft" />
    </Link>
  )}
- <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden animate-scale-in">
-	 <div className="p-4 sm:p-5 pb-3 border-b border-black/[0.06] dark:border-white/[0.06]">
+ <div className="rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden animate-scale-in">
+	 <div className="p-4 sm:p-5 pb-3 border-b border-line-subtle">
 	 <div className="min-w-0">
-	 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+	 <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong">
 	 {t("auth.welcomeBack")}
 	 </h1>
-	 <p className="font-mono text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+	 <p className="font-mono text-sm text-text-muted mt-0.5">
 	 {t("auth.loginSubtitle")}
 	 </p>
 	 </div>
 
- <div className="flex gap-2 mt-3.5 bg-black/[0.04] dark:bg-white/[0.04] p-1 rounded-lg border border-black/[0.06] dark:border-white/[0.06]">
- <div className="flex-1 py-2 rounded-md text-sm font-medium text-center bg-surface text-gray-900 dark:text-white shadow-xs font-semibold">
+ <div className="flex gap-2 mt-3.5 bg-black/[0.04] dark:bg-white/[0.04] p-1 rounded-lg border border-line-subtle">
+ <div className="flex-1 py-2 rounded-md text-sm font-medium text-center bg-surface text-text-strong shadow-xs font-semibold">
  {t("nav.login")}
  </div>
  <button
  type="button"
  onClick={handleRegisterClick}
- className="flex-1 py-2 rounded-md text-sm font-medium transition-all text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white opacity-60"
+ className="flex-1 py-2 rounded-md text-sm font-medium transition-all text-text-muted hover:text-gray-900 dark:hover:text-white opacity-60"
  >
  {t("auth.gate.genesisRegister")}
  </button>
@@ -226,7 +226,7 @@ function LoginInner() {
  placeholder={t("auth.gate.usernamePlaceholderLogin")}
  value={username}
  onChange={(e) => setUsername(e.target.value)}
- className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
+ className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-line rounded-lg text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
  />
  </div>
  </div>
@@ -243,7 +243,7 @@ function LoginInner() {
  placeholder="••••••••"
  value={password}
  onChange={(e) => setPassword(e.target.value)}
- className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-black/10 dark:border-white/10 rounded-lg text-gray-900 dark:text-white text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
+ className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-line rounded-lg text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
  />
  </div>
  </div>

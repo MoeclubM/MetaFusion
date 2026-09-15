@@ -58,7 +58,7 @@ export function EntityActionToolbar({
       <button
         type="button"
         onClick={onHistory}
-        className="inline-flex items-center gap-1.5 px-3 h-7 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 hover:bg-black/[0.06] dark:hover:bg-white/10 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-all active:scale-95"
+        className="inline-flex items-center gap-1.5 px-3 h-7 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-line hover:bg-black/[0.06] dark:hover:bg-white/10 text-text-body hover:text-gray-900 dark:hover:text-white transition-all active:scale-95"
       >
         <History className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
         {t("entity.toolbar.history")}

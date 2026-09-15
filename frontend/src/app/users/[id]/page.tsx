@@ -164,9 +164,9 @@ export default function UserDetailPage() {
 
   if (err)
     return (
-      <div className="min-h-screen bg-background text-gray-900 dark:text-white flex flex-col">
+      <div className="min-h-screen bg-background text-text-strong flex flex-col">
         <Navbar />
-        <main className="max-w-5xl mx-auto w-full px-4 py-16 flex-1 flex flex-col items-center justify-center gap-3 text-center">
+        <main className="mf-enter max-w-narrow mx-auto w-full px-4 py-16 flex-1 flex flex-col items-center justify-center gap-3 text-center">
           <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 grid place-items-center">
             <AlertCircle className="w-6 h-6 text-amber-500" strokeWidth={1.6} />
           </div>
@@ -184,9 +184,9 @@ export default function UserDetailPage() {
 
   if (!profile)
     return (
-      <div className="min-h-screen bg-background text-gray-900 dark:text-white">
+      <div className="min-h-screen bg-background text-text-strong">
         <Navbar />
-        <div className="max-w-5xl mx-auto p-6 text-gray-500 text-sm font-mono">{t("common.loading")}</div>
+        <div className="max-w-narrow mx-auto p-6 text-gray-500 text-sm font-mono">{t("common.loading")}</div>
       </div>
     );
 
@@ -219,19 +219,19 @@ export default function UserDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-gray-900 dark:text-white flex flex-col">
+    <div className="min-h-screen bg-background text-text-strong flex flex-col">
       <Navbar />
-      <main className="max-w-5xl mx-auto w-full px-4 py-5 flex-1 space-y-4 sm:space-y-5">
+      <main className="mf-enter max-w-narrow mx-auto w-full px-4 py-5 flex-1 space-y-4 sm:space-y-5">
         {/* User Card Header */}
-        <div className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface p-4 sm:p-5 flex flex-col sm:flex-row gap-3.5 sm:items-center justify-between shadow-soft">
+        <div className="rounded-xl border border-line bg-surface p-4 sm:p-5 flex flex-col sm:flex-row gap-3.5 sm:items-center justify-between shadow-soft">
           <div className="flex gap-3.5 items-start min-w-0">
             <UserAvatar user={u} size="xl" shape="rounded" ring className="shadow-md" />
             <div className="min-w-0 flex-1 space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white">{displayNameOf(u as any)}</h1>
+                <h1 className="text-lg font-bold text-text-strong">{displayNameOf(u as any)}</h1>
                 {displayNameOf(u as any) !== u.username && <span className="text-xs text-gray-500 font-mono">@{u.username}</span>}
                 <UserRoleBadge role={u.role} t={t} showIcon />
-                <span className="text-[11px] text-gray-500 font-mono flex items-center gap-1 px-2 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/5 border border-black/10 dark:border-white/10">
+                <span className="text-[11px] text-gray-500 font-mono flex items-center gap-1 px-2 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/5 border border-line">
                   <Calendar className="w-3 h-3 text-emerald-500" />
                   <span>
                     {t("users.profile.registeredAt")}:{" "}
@@ -243,7 +243,7 @@ export default function UserDetailPage() {
                   </span>
                 </span>
               </div>
-              {u.bio && <p className="text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap line-clamp-2">{u.bio}</p>}
+              {u.bio && <p className="text-xs text-text-body whitespace-pre-wrap line-clamp-2">{u.bio}</p>}
               {u.email && (
                 <div className="text-xs text-gray-500 flex items-center gap-1">
                   <Mail className="w-3 h-3" />
@@ -252,13 +252,13 @@ export default function UserDetailPage() {
               )}
               <div className="text-[11px] font-mono text-gray-400 flex items-center gap-2 flex-wrap">
                 <span>
-                  ID: <span className="text-gray-600 dark:text-gray-300 font-medium">{u.id}</span>
+                  ID: <span className="text-text-body font-medium">{u.id}</span>
                 </span>
                 <button
                   type="button"
                   onClick={handleCopyId}
                   title={t("users.profile.copyId")}
-                  className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors flex items-center gap-1"
+                  className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-fast ease-soft flex items-center gap-1"
                 >
                   {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                   <span className="text-[10px]">{copiedId ? t("users.profile.copied") : t("users.profile.copyId")}</span>
@@ -286,7 +286,7 @@ export default function UserDetailPage() {
             ) : (
               <Link
                 href="/settings"
-                className="px-3.5 h-8 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 hover:border-primary/50 text-gray-700 dark:text-gray-200 hover:text-primary text-xs font-medium flex items-center gap-1.5 transition-colors shadow-2xs"
+                className="px-3.5 h-8 rounded-lg bg-black/[0.04] dark:bg-white/[0.06] border border-line hover:border-primary/50 text-gray-700 dark:text-gray-200 hover:text-primary text-xs font-medium flex items-center gap-1.5 transition-colors duration-fast ease-soft shadow-2xs"
               >
                 <Settings className="w-3.5 h-3.5" />
                 <span>{t("users.profile.editSettings")}</span>
@@ -307,12 +307,12 @@ export default function UserDetailPage() {
             { id: "comments", label: t("users.profile.stats.comments"), v: s.comments_created, icon: MessageSquare },
             { id: "invited", label: t("users.profile.stats.invited"), v: s.invited_count, icon: Users },
           ].map((it) => (
-            <div key={it.id} className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface p-2.5 text-center shadow-2xs">
+            <div key={it.id} className="rounded-lg border border-line bg-surface p-2.5 text-center shadow-2xs">
               <div className="text-[10px] text-gray-500 font-mono flex items-center justify-center gap-1">
                 <it.icon className="w-3 h-3" />
                 <span>{it.label}</span>
               </div>
-              <div className="text-base font-bold text-gray-900 dark:text-white mt-0.5">{it.v}</div>
+              <div className="text-base font-bold text-text-strong mt-0.5">{it.v}</div>
             </div>
           ))}
         </div>
@@ -326,10 +326,10 @@ export default function UserDetailPage() {
                 setTab(tabItem.id);
                 setPage(1);
               }}
-              className={`px-3 h-7 rounded-md text-xs font-medium border shrink-0 transition-colors ${
+              className={`px-3 h-7 rounded-md text-xs font-medium border shrink-0 transition-colors duration-fast ease-soft ${
                 tab === tabItem.id
                   ? "bg-primary text-white keep-white border-primary shadow-xs"
-                  : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                  : "bg-black/[0.03] dark:bg-white/[0.04] border-line text-text-body hover:text-gray-900 dark:hover:text-white"
               }`}
             >
               {tabItem.label}
@@ -358,10 +358,10 @@ export default function UserDetailPage() {
                   setFavFilter(f.id as FavoriteTargetType | "");
                   setPage(1);
                 }}
-                className={`px-2.5 h-6.5 rounded-full text-[11px] font-medium border transition-colors ${
+                className={`px-2.5 h-6.5 rounded-full text-[11px] font-medium border transition-colors duration-fast ease-soft ${
                   favFilter === f.id
                     ? "bg-rose-500/10 text-rose-500 border-rose-500/30 font-semibold"
-                    : "bg-black/[0.02] dark:bg-white/[0.03] border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                    : "bg-surfaceSubtle border-line text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                 }`}
               >
                 {f.label}
@@ -371,13 +371,13 @@ export default function UserDetailPage() {
         )}
 
         {/* Content Box */}
-        <div className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft">
+        <div className="rounded-xl border border-line bg-surface overflow-hidden shadow-soft">
           {loading ? (
             <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("common.loading")}</div>
           ) : tab === "favorites" && !favVisible ? (
             <div className="p-10 text-center space-y-2">
               <Lock className="w-6 h-6 text-gray-400 mx-auto" strokeWidth={1.5} />
-              <div className="text-sm text-gray-600 dark:text-gray-300 font-medium">{t("users.profile.favoritesPrivate")}</div>
+              <div className="text-sm text-text-body font-medium">{t("users.profile.favoritesPrivate")}</div>
               <div className="text-xs text-gray-500 font-mono">{t("users.profile.favoritesPrivateHint")}</div>
             </div>
           ) : tab === "favorites" && items.length === 0 ? (
@@ -391,12 +391,12 @@ export default function UserDetailPage() {
                 return (
                   <li
                     key={it.id}
-                    className="p-3 flex items-center justify-between gap-3 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors group"
+                    className="p-3 flex items-center justify-between gap-3 hover:bg-surfaceSubtle transition-colors duration-fast ease-soft group"
                   >
                     <Link href={href} className="flex items-center gap-2.5 min-w-0 flex-1">
                       <Heart className="w-3.5 h-3.5 shrink-0 text-rose-500" fill="currentColor" strokeWidth={0} />
                       <div className="min-w-0 flex-1">
-                        <div className="text-xs text-gray-900 dark:text-white font-medium truncate group-hover:text-primary transition-colors">
+                        <div className="text-xs text-text-strong font-medium truncate group-hover:text-primary transition-colors duration-fast ease-soft">
                           {title}
                         </div>
                         <div className="text-[10px] text-gray-500 font-mono mt-0.5">
@@ -447,7 +447,7 @@ export default function UserDetailPage() {
                 const actionBadge = isRevision ? getRevisionActionLabel(it.edit_type) : null;
 
                 return (
-                  <li key={itemId} className="p-3.5 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors space-y-2">
+                  <li key={itemId} className="p-3.5 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors duration-fast ease-soft space-y-2">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-2.5 min-w-0 flex-1">
                         {isRevision ? (
@@ -463,7 +463,7 @@ export default function UserDetailPage() {
                                 {actionBadge.label}
                               </span>
                             )}
-                            <Link href={entityHref} className="font-semibold text-gray-900 dark:text-white hover:text-primary transition-colors truncate">
+                            <Link href={entityHref} className="font-semibold text-text-strong hover:text-primary transition-colors duration-fast ease-soft truncate">
                               {entityDisplayName || it.action || it.content?.slice(0, 60)}
                             </Link>
                             {it.target_type && (
@@ -474,7 +474,7 @@ export default function UserDetailPage() {
                           </div>
 
                           {it.edit_note && (
-                            <p className="text-xs text-gray-600 dark:text-gray-300 font-sans">
+                            <p className="text-xs text-text-body font-sans">
                               {it.edit_note}
                             </p>
                           )}
@@ -511,7 +511,7 @@ export default function UserDetailPage() {
                         <button
                           type="button"
                           onClick={() => toggleDiff(itemId)}
-                          className="shrink-0 px-2.5 py-1 rounded-md bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/10 border border-black/10 dark:border-white/10 text-[11px] font-mono text-gray-700 dark:text-gray-300 flex items-center gap-1 transition-colors"
+                          className="shrink-0 px-2.5 py-1 rounded-md bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/10 border border-line text-[11px] font-mono text-text-body flex items-center gap-1 transition-colors duration-fast ease-soft"
                         >
                           <span>{isDiffExpanded ? t("users.profile.hideDiff") : t("users.profile.viewDiff")}</span>
                           {isDiffExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -521,7 +521,7 @@ export default function UserDetailPage() {
 
                     {/* Collapsible Field-by-Field Diff */}
                     {isRevision && isDiffExpanded && (
-                      <div className="pt-2 border-t border-black/5 dark:border-white/[0.06] pl-6">
+                      <div className="pt-2 border-t border-line-subtle pl-6">
                         <DiffViewer diff={it.diff} editType={it.edit_type} />
                       </div>
                     )}
@@ -539,7 +539,7 @@ export default function UserDetailPage() {
             <button
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-2.5 h-6.5 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:text-primary transition-colors text-xs"
+              className="px-2.5 h-6.5 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-line disabled:opacity-40 hover:text-primary transition-colors duration-fast ease-soft text-xs"
             >
               {t("users.profile.prevPage")}
             </button>

@@ -166,10 +166,10 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
           <Link
             key={rel.id}
             href={`/catalog/${rel.agent.id}`}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 hover:border-primary/40 text-xs text-gray-700 dark:text-gray-200 transition-colors"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-line hover:border-primary/40 text-xs text-gray-700 dark:text-gray-200 transition-colors duration-fast ease-soft"
           >
             {agentIcon(rel)}
-            <span className="font-mono text-[11px] text-gray-400 dark:text-gray-500">{formatRole(rel)}:</span>
+            <span className="font-mono text-[11px] text-text-muted">{formatRole(rel)}:</span>
             <span className="font-medium underline decoration-dotted underline-offset-2">{rel.agent.name}</span>
           </Link>
         ))}
@@ -189,8 +189,8 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
 
       {/* 展开后的结构化演职团队与角色看板 (Bangumi / LRM 风格) */}
       {isExpanded && (
-        <div className="p-3.5 sm:p-4 rounded-md border border-black/10 dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.02] space-y-3 mt-2 animate-fadeIn">
-          <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2">
+        <div className="p-3.5 sm:p-4 rounded-md border border-line bg-surfaceSubtle space-y-3 mt-2 animate-fadeIn">
+          <div className="flex items-center justify-between border-b border-line-subtle pb-2">
             <div className="flex items-center gap-1.5 text-xs font-mono flex-wrap">
               {staffTabs.map((tab) => (
                 <button
@@ -216,7 +216,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
               {characterCards.map((item) => (
                 <div
                   key={item.character.id || item.id}
-                  className="flex items-center justify-between gap-3 p-2.5 rounded-md border border-black/10 dark:border-white/[0.08] bg-background/80 hover:border-primary/40 transition-all shadow-xs"
+                  className="flex items-center justify-between gap-3 p-2.5 rounded-md border border-line bg-background/80 hover:border-primary/40 transition-all shadow-xs"
                 >
                   {/* 角色端 */}
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
@@ -226,7 +226,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                           <img
                             src={item.character.avatar_url}
                             alt={item.character.name}
-                            className="w-10 h-10 rounded-md object-cover shrink-0 border border-black/10 dark:border-white/10 group-hover:scale-105 transition-transform"
+                            className="w-10 h-10 rounded-md object-cover shrink-0 border border-line group-hover:scale-105 transition-transform duration-base ease-soft"
                             loading="lazy"
                           />
                         ) : (
@@ -235,7 +235,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                          <div className="text-xs font-semibold text-text-strong truncate group-hover:text-primary transition-colors duration-fast ease-soft">
                             {item.character.name}
                           </div>
                           <span
@@ -255,7 +255,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                           {item.character.name.charAt(0)}
                         </div>
                         <div className="min-w-0">
-                          <div className="text-xs font-semibold text-gray-900 dark:text-white truncate">{item.character.name}</div>
+                          <div className="text-xs font-semibold text-text-strong truncate">{item.character.name}</div>
                           {item.character.roleBadge && (
                             <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono tracking-wide bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium">
                               {item.character.roleBadge}
@@ -273,16 +273,16 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                         <Link
                           key={`${voice.id}-${voice.context || ""}`}
                           href={`/catalog/${voice.id}`}
-                          className="flex items-center gap-2 p-1.5 rounded bg-black/[0.02] dark:bg-white/[0.03] hover:bg-primary/5 border border-black/5 dark:border-white/5 hover:border-primary/30 transition-all text-right group"
+                          className="flex items-center gap-2 p-1.5 rounded bg-surfaceSubtle hover:bg-primary/5 border border-line-subtle hover:border-primary/30 transition-all text-right group"
                           title={voice.context ? `CV: ${voice.name} (${voice.context})` : `CV: ${voice.name}`}
                         >
                           <div className="min-w-0 text-right">
-                            <div className="text-[10px] font-mono text-gray-400 dark:text-gray-500">CV</div>
-                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-primary transition-colors truncate max-w-[90px]">
+                            <div className="text-[10px] font-mono text-text-muted">CV</div>
+                            <div className="text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-primary transition-colors duration-fast ease-soft truncate max-w-[90px]">
                               {voice.name}
                             </div>
                             {voice.context && (
-                              <div className="font-mono text-[10px] text-gray-400 dark:text-gray-500 truncate max-w-[110px]">
+                              <div className="font-mono text-[10px] text-text-muted truncate max-w-[110px]">
                                 {voice.context}
                               </div>
                             )}
@@ -291,7 +291,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                             <img
                               src={voice.avatar_url}
                               alt={voice.name}
-                              className="w-8 h-8 rounded-full object-cover shrink-0 border border-black/10 dark:border-white/10"
+                              className="w-8 h-8 rounded-full object-cover shrink-0 border border-line"
                               loading="lazy"
                             />
                           ) : (
@@ -319,13 +319,13 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                 <Link
                   key={rel.id}
                   href={`/catalog/${rel.agent.id}`}
-                  className="flex items-center gap-2 p-2 rounded border border-black/5 dark:border-white/[0.06] bg-background/60 hover:border-primary/40 hover:bg-background transition-all group shadow-xs"
+                  className="flex items-center gap-2 p-2 rounded border border-line-subtle bg-background/60 hover:border-primary/40 hover:bg-background transition-all group shadow-xs"
                 >
                   {rel.agent.avatarUrl ? (
                     <img
                       src={rel.agent.avatarUrl}
                       alt={rel.agent.name}
-                      className="w-8 h-8 rounded-full object-cover shrink-0 border border-black/10 dark:border-white/10"
+                      className="w-8 h-8 rounded-full object-cover shrink-0 border border-line"
                       loading="lazy"
                     />
                   ) : (
@@ -334,10 +334,10 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <div className="text-xs font-medium text-gray-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                    <div className="text-xs font-medium text-text-strong truncate group-hover:text-primary transition-colors duration-fast ease-soft">
                       {rel.agent.name}
                     </div>
-                    <div className="font-mono text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                    <div className="font-mono text-[10px] text-text-muted truncate">
                       {formatRole(rel)}
                     </div>
                   </div>

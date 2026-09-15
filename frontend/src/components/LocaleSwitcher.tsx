@@ -39,8 +39,8 @@ export function LocaleSwitcher({ compact }: { compact?: boolean }) {
  title={t("locale.switchTitle")}
  className={
  compact
- ? "w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-full bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 transition-colors"
- : "inline-flex items-center gap-2 h-10 max-sm:min-h-[44px] px-3 rounded-full bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-black/10 dark:border-white/10 text-sm font-mono text-gray-700 dark:text-gray-300 transition-colors"
+ ? "w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-full bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-line text-text-body transition-colors duration-fast ease-soft"
+ : "inline-flex items-center gap-2 h-10 max-sm:min-h-[44px] px-3 rounded-full bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-line text-sm font-mono text-text-body transition-colors duration-fast ease-soft"
  }
  >
  <Languages className="w-4 h-4" strokeWidth={1.6} />
@@ -50,9 +50,9 @@ export function LocaleSwitcher({ compact }: { compact?: boolean }) {
  {isOpen && (
  <div
  onClick={(e) => e.stopPropagation()}
- className="absolute right-0 mt-2 w-48 rounded-card border border-black/10 dark:border-white/10 bg-surface shadow-elevated p-1.5 z-50 animate-slide-up text-sm"
+ className="absolute right-0 mt-2 w-48 rounded-card border border-line bg-surface shadow-elevated p-1.5 z-50 animate-slide-up text-sm"
  >
- <div className="px-3.5 py-2 font-mono text-xs tracking-[0.14em] text-gray-500 dark:text-gray-400 border-b border-black/[0.06] dark:border-white/[0.06] mb-1">
+ <div className="px-3.5 py-2 font-mono text-xs tracking-[0.14em] text-text-muted border-b border-line-subtle mb-1">
  {t("locale.languageChoice")}
  </div>
  <div className="space-y-0.5">
@@ -67,10 +67,10 @@ export function LocaleSwitcher({ compact }: { compact?: boolean }) {
  setLocale(l.id);
  setIsOpen(false);
  }}
- className={`w-full px-3.5 py-2.5 rounded-lg flex items-center justify-between transition-colors cursor-pointer ${
+ className={`w-full px-3.5 py-2.5 rounded-lg flex items-center justify-between transition-colors duration-fast ease-soft cursor-pointer ${
  active
  ? "bg-primary text-white keep-white font-semibold shadow-soft"
- : "text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/[0.06]"
+ : "text-text-body hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-surfaceHover"
  }`}
  >
  <span className="text-[13px]">{l.nativeName}</span>

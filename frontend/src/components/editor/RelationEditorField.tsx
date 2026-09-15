@@ -435,7 +435,7 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
                   </span>
                 </li>
                 {editingId === r.id && (
-                  <li className="cv-row rounded border border-black/10 p-2.5 dark:border-white/10">
+                  <li className="cv-row rounded border p-2.5 border-line">
                     {attrInputs(r.type, editAttrs, setEditAttrs)}
                     <div className="mt-2 flex gap-2">
                       <button

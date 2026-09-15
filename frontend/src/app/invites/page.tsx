@@ -17,7 +17,7 @@ export default function InvitesPage() {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />
-        <main className="max-w-2xl mx-auto px-4 py-16 w-full flex-1 flex flex-col items-center justify-center gap-4 text-center">
+        <main className="mf-enter max-w-narrow mx-auto px-4 py-16 w-full flex-1 flex flex-col items-center justify-center gap-4 text-center">
           <div className="w-12 h-12 rounded-full bg-white/5 grid place-items-center">
             <KeyRound className="w-6 h-6 text-gray-500" />
           </div>
@@ -33,8 +33,8 @@ export default function InvitesPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      <main className="max-w-2xl mx-auto px-4 py-5 w-full flex-1 space-y-4 sm:space-y-5">
-        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+      <main className="mf-enter max-w-narrow mx-auto px-4 py-5 w-full flex-1 space-y-4 sm:space-y-5">
+        <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong">
           {t("invite.title")}
         </h1>
 
@@ -42,7 +42,7 @@ export default function InvitesPage() {
           <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 grid place-items-center">
             <ShieldAlert className="w-6 h-6 text-amber-500" strokeWidth={1.6} />
           </div>
-          <div className="font-display text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+          <div className="font-display text-base sm:text-lg font-bold text-text-strong">
             {t("catalog.unavailable")}
           </div>
           <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed max-w-md">

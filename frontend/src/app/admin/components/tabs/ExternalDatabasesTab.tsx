@@ -155,7 +155,7 @@ export function ExternalDatabasesTab() {
 
         <button
           onClick={handleOpenCreate}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-semibold text-xs transition-colors shadow-xs"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-black font-semibold text-xs transition-colors duration-fast ease-soft shadow-xs"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>{t("admin.extdb.new")}</span>
@@ -197,7 +197,7 @@ export function ExternalDatabasesTab() {
               </tr>
             ) : (
               items.map((item) => (
-                <tr key={item.code} className="hover:bg-white/[0.02] transition-colors">
+                <tr key={item.code} className="hover:bg-white/[0.02] transition-colors duration-fast ease-soft">
                   {/* 名称与图标 */}
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2.5">
@@ -252,14 +252,14 @@ export function ExternalDatabasesTab() {
                       <button
                         onClick={() => handleOpenEdit(item)}
                         title={t("common.edit")}
-                        className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                        className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => handleToggleEnabled(item)}
                         title={item.is_enabled ? t("admin.extdb.disable") : t("admin.extdb.enable")}
-                        className={`p-1.5 rounded-md transition-colors ${
+                        className={`p-1.5 rounded-md transition-colors duration-fast ease-soft ${
                           item.is_enabled
                             ? "hover:bg-amber-500/10 text-gray-400 hover:text-amber-400"
                             : "hover:bg-emerald-500/10 text-gray-500 hover:text-emerald-400"
@@ -271,7 +271,7 @@ export function ExternalDatabasesTab() {
                         <button
                           onClick={() => handleDelete(item.code)}
                           title={t("common.delete")}
-                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors"
+                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors duration-fast ease-soft"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -431,7 +431,7 @@ export function ExternalDatabasesTab() {
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded bg-sky-500 text-black text-xs font-bold font-mono hover:bg-sky-400 transition-colors"
+              className="px-4 py-1.5 rounded bg-sky-500 text-black text-xs font-bold font-mono hover:bg-sky-400 transition-colors duration-fast ease-soft"
             >
               {t("common.save")}
             </button>

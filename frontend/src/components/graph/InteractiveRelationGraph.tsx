@@ -867,7 +867,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   return (
     <div
       ref={containerRef}
-      className={`relative flex flex-col overflow-hidden select-none transition-all duration-200 ${
+      className={`relative flex flex-col overflow-hidden select-none transition-all duration-base ease-soft ${
         isFullscreen
           ? "fixed top-14 sm:top-[3.75rem] left-0 right-0 bottom-0 z-30 w-full h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-3.75rem)] max-w-none max-h-none m-0 rounded-none border-t border-border/60 bg-background/98 backdrop-blur-md text-foreground shadow-2xl"
           : `rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md shadow-sm ${className}`
@@ -993,7 +993,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               type="button"
               onClick={() => handleZoomAnchor(1.25)}
               title={t("graph.zoomIn")}
-              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors duration-fast ease-soft"
             >
               <ZoomIn className="w-4 h-4" />
             </button>
@@ -1004,7 +1004,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               type="button"
               onClick={() => handleZoomAnchor(1 / 1.25)}
               title={t("graph.zoomOut")}
-              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors duration-fast ease-soft"
             >
               <ZoomOut className="w-4 h-4" />
             </button>
@@ -1012,7 +1012,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               type="button"
               onClick={() => fitToView()}
               title={t("graph.fitView")}
-              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors duration-fast ease-soft"
             >
               <Scan className="w-4 h-4" />
             </button>
@@ -1467,7 +1467,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                       stroke={isHovered ? colorHex : edgeBadgeStroke}
                       strokeWidth={isHovered ? 1.5 : 1}
                       filter="url(#badge-drop-shadow)"
-                      className="transition-all"
+                      className="transition-all duration-base ease-soft"
                     />
                     <circle cx={-badgeWidth / 2 + 10} cy={0} r={3} fill={colorHex} />
                     <text
@@ -1526,7 +1526,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             <button
               type="button"
               onClick={() => setSelectedNode(null)}
-              className="text-muted-foreground hover:text-foreground text-xs p-1.5 rounded-lg hover:bg-secondary transition-colors"
+              className="text-muted-foreground hover:text-foreground text-xs p-1.5 rounded-lg hover:bg-secondary transition-colors duration-fast ease-soft"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1621,7 +1621,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           <div className="pt-2.5 border-t border-border/60 flex items-center justify-end gap-2">
             <Link
               href={catalogEntityHref(selectedNode.type, selectedNode.id)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:bg-primary/90 transition-colors duration-fast ease-soft shadow-xs"
             >
               <span>{t("graph.inspectEntity")}</span>
               <ExternalLink className="w-3.5 h-3.5" />

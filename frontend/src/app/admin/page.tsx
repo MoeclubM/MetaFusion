@@ -288,11 +288,11 @@ function AdminInner() {
     <div className="min-h-screen flex flex-col bg-background text-gray-100">
       {/* Admin Topbar */}
       <header className="border-b border-white/[0.08] bg-surface/90 backdrop-blur sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        <div className="max-w-page mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>{t("admin.console.backToSite")}</span>
@@ -312,7 +312,7 @@ function AdminInner() {
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 w-full flex-1 flex flex-col md:flex-row gap-6">
+      <div className="max-w-page mx-auto px-4 sm:px-6 py-6 w-full flex-1 flex flex-col md:flex-row gap-6">
         {/* Left Sidebar */}
         <aside className="w-full md:w-60 shrink-0">
           <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none sticky top-20">
@@ -327,7 +327,7 @@ function AdminInner() {
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-left whitespace-nowrap ${
                     active
                       ? "bg-primary text-white shadow-xs font-semibold"
-                      : "text-gray-400 hover:text-white hover:bg-white/[0.04]"
+                      : "text-gray-400 hover:text-white hover:bg-surfaceHover"
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -339,7 +339,7 @@ function AdminInner() {
         </aside>
 
         {/* Right Main Workbench */}
-        <main className="flex-1 min-w-0">
+        <main className="mf-enter flex-1 min-w-0">
           {activeTab === "overview" && (
             <div className="space-y-6">
               <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
@@ -397,14 +397,14 @@ function AdminInner() {
                   <button
                     type="button"
                     onClick={loadEntities}
-                    className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs text-gray-300 transition-colors cursor-pointer"
+                    className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs text-gray-300 transition-colors duration-fast ease-soft cursor-pointer"
                     title="Refresh"
                   >
                     <RefreshCw className={`w-4 h-4 ${entitiesLoading ? "animate-spin text-primary" : ""}`} />
                   </button>
                   <Link
                     href="/new"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-xs font-medium text-white transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-xs font-medium text-white transition-colors duration-fast ease-soft"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>{t("catalog.newEntity")}</span>
@@ -431,7 +431,7 @@ function AdminInner() {
                   />
                   <button
                     type="submit"
-                    className="absolute right-1 px-2.5 py-0.5 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[11px] font-medium transition-colors"
+                    className="absolute right-1 px-2.5 py-0.5 rounded bg-primary/20 hover:bg-primary/30 text-primary text-[11px] font-medium transition-colors duration-fast ease-soft"
                   >
                     {t("catalog.searchAction")}
                   </button>
@@ -491,9 +491,9 @@ function AdminInner() {
                     </thead>
                     <tbody className="divide-y divide-white/[0.04]">
                       {entitiesList.map((e) => (
-                        <tr key={e.id} className="hover:bg-white/[0.02] transition-colors">
+                        <tr key={e.id} className="hover:bg-white/[0.02] transition-colors duration-fast ease-soft">
                           <td className="py-2.5 px-3">
-                            <Link href={`/catalog/${e.id}`} className="font-semibold text-white hover:text-primary transition-colors line-clamp-1">
+                            <Link href={`/catalog/${e.id}`} className="font-semibold text-white hover:text-primary transition-colors duration-fast ease-soft line-clamp-1">
                               {e.title}
                             </Link>
                             <div className="text-[10px] text-gray-500 font-mono">ID: {e.id}</div>
@@ -530,7 +530,7 @@ function AdminInner() {
                             <div className="flex items-center justify-end gap-1.5">
                               <Link
                                 href={`/catalog/${e.id}`}
-                                className="px-2 py-1 rounded bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 hover:text-white text-[11px] transition-colors"
+                                className="px-2 py-1 rounded bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 hover:text-white text-[11px] transition-colors duration-fast ease-soft"
                               >
                                 {t("admin.entities.edit")}
                               </Link>
@@ -538,7 +538,7 @@ function AdminInner() {
                                 <button
                                   type="button"
                                   onClick={() => handleEntityLifecycle(e.id, "published")}
-                                  className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-[11px] transition-colors cursor-pointer"
+                                  className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
                                 >
                                   {t("admin.entities.approve")}
                                 </button>
@@ -547,7 +547,7 @@ function AdminInner() {
                                 <button
                                   type="button"
                                   onClick={() => handleEntityLifecycle(e.id, "draft")}
-                                  className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[11px] transition-colors cursor-pointer"
+                                  className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
                                 >
                                   {t("admin.entities.reject")}
                                 </button>
@@ -558,7 +558,7 @@ function AdminInner() {
                                   setActiveTab("merge");
                                   setMergeSource(e.id);
                                 }}
-                                className="px-2 py-1 rounded bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 text-[11px] transition-colors cursor-pointer"
+                                className="px-2 py-1 rounded bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
                               >
                                 {t("admin.entities.merge")}
                               </button>

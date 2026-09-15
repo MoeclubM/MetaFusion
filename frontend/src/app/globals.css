@@ -10,6 +10,16 @@
   --surface-rgb: 18 24 38;
   --surface-hover-rgb: 26 35 54;
   --surface-border-color: rgba(255, 255, 255, 0.08);
+  /* 语义色板：组件只引用这几个，深/浅色差异全部收敛在这里 */
+  --line-color: rgba(255, 255, 255, 0.10);
+  --line-subtle-color: rgba(255, 255, 255, 0.06);
+  --line-strong-color: rgba(255, 255, 255, 0.18);
+  --surface-subtle-color: rgba(255, 255, 255, 0.03);
+  --text-strong-color: #f0f3f6;
+  --text-body-color: #cbd5e1;
+  --text-muted-color: #94a3b8;
+  --text-faint-color: #64748b;
+  --ring-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
   --bg-color: #0b0f17;
   --surface-color: #121826;
   --surface-hover-color: #1a2336;
@@ -30,6 +40,15 @@
   --surface-rgb: 255 255 255;
   --surface-hover-rgb: 241 245 249;
   --surface-border-color: rgba(0, 0, 0, 0.08);
+  --line-color: rgba(15, 23, 42, 0.12);
+  --line-subtle-color: rgba(15, 23, 42, 0.07);
+  --line-strong-color: rgba(15, 23, 42, 0.22);
+  --surface-subtle-color: rgba(15, 23, 42, 0.035);
+  --text-strong-color: #0f172a;
+  --text-body-color: #334155;
+  --text-muted-color: #64748b;
+  --text-faint-color: #94a3b8;
+  --ring-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
   --bg-color: #f8fafc;
   --surface-color: #ffffff;
   --surface-hover-color: #f1f5f9;
@@ -98,6 +117,61 @@ html.light[data-theme-accent="monochrome"] {
   --primary-light-color: #52525b;
 }
 
+@layer components {
+  /* 页面骨架：所有主内容页共用同一条宽度与内边距，不再各写 max-w-7xl/5xl/2xl。 */
+  .mf-page {
+    @apply mx-auto w-full max-w-page px-4 sm:px-6 lg:px-8;
+  }
+  .mf-page-narrow {
+    @apply mx-auto w-full max-w-narrow px-4 sm:px-6;
+  }
+  /* 卡片：内容块与列表行的统一外壳（圆角、描边、底色、悬浮反馈一次到位）。 */
+  .mf-card {
+    @apply rounded-card border border-line bg-surface transition-colors duration-base ease-soft;
+  }
+  .mf-card-hover {
+    @apply hover:border-primary/40 hover:bg-surfaceHover;
+  }
+  .mf-panel {
+    @apply rounded-panel border border-line bg-surface;
+  }
+  /* 控件：按钮与输入框同一圆角与焦点环。 */
+  .mf-control {
+    @apply rounded-control border border-line bg-surfaceSubtle text-sm text-text-body transition-colors duration-fast ease-soft;
+  }
+  .mf-chip {
+    @apply rounded-chip border border-line-subtle bg-surfaceSubtle px-2 py-0.5 text-[11px] text-text-muted;
+  }
+  /* 焦点可见性：键盘导航必须看得见，鼠标点击不打扰。 */
+  .mf-focus {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-color)];
+  }
+  .mf-divider {
+    @apply border-t border-line-subtle;
+  }
+}
+
+/* 入场动效：页面与列表统一用同一组，避免每处各写 duration。 */
+@keyframes mfRise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.mf-enter {
+  animation: mfRise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -149,12 +223,10 @@ html.light .text-gray-500:not(.keep-white) {
   color: #94a3b8 !important;
 }
 
-/* Badges & text on dark overlays must remain crisp white in light mode */
-html.light .keep-white,
-html.light [class*="bg-black/"]:not(.no-keep-white),
-html.light [class*="bg-black/"] .text-white,
-html.light [class*="bg-black/"] .text-gray-200,
-html.light [class*="bg-black/"] .text-gray-300 {
+/* 覆盖在深色图上的徽章要保持白字：只认显式声明的 .keep-white。
+   以前这里还按 `[class*="bg-black/"]` 整段刷白，结果是任何带 `hover:bg-black/…` 的元素在浅色下
+   也变白字（白底白字直接看不见）。语义色接管后，这类子串匹配不再需要。 */
+html.light .keep-white {
   color: #ffffff !important;
 }
 

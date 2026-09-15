@@ -105,7 +105,7 @@ export function TabBar({
       role="tablist"
       aria-label={ariaLabel}
       onKeyDown={onKeyDown}
-      className={`flex items-center gap-1.5 overflow-x-auto border-b border-black/10 dark:border-white/[0.08] pb-2.5 ${className}`}
+      className={`flex items-center gap-1.5 overflow-x-auto border-b border-line pb-2.5 ${className}`}
     >
       {shown.map((tb) => {
         const on = tb.id === active;
@@ -120,10 +120,10 @@ export function TabBar({
             aria-controls={`panel-${tb.id}`}
             tabIndex={on ? 0 : -1}
             onClick={() => onSelect(tb.id)}
-            className={`shrink-0 px-3 h-8 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors ${
+            className={`shrink-0 px-3 h-8 rounded-md text-xs font-semibold inline-flex items-center gap-1.5 border transition-colors duration-fast ease-soft ${
               on
                 ? "bg-primary text-white keep-white border-primary shadow-xs"
-                : "bg-black/[0.03] dark:bg-white/[0.04] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                : "bg-black/[0.03] dark:bg-white/[0.04] border-line text-gray-700 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
             }`}
           >
             {tb.icon}

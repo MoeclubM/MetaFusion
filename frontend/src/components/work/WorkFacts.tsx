@@ -85,7 +85,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section>
       {title && (
-        <h3 className="text-[11px] font-mono uppercase tracking-wider text-gray-400 pb-1.5 mb-2 border-b border-black/5 dark:border-white/[0.06]">
+        <h3 className="text-[11px] font-mono uppercase tracking-wider text-gray-400 pb-1.5 mb-2 border-b border-line-subtle">
           {title}
         </h3>
       )}
@@ -101,7 +101,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   return (
     <>
       <dt className="text-gray-400 text-[11px] leading-5 text-right">{label}</dt>
-      <dd className="text-gray-900 dark:text-white leading-5 break-words min-w-0">{children}</dd>
+      <dd className="text-text-strong leading-5 break-words min-w-0">{children}</dd>
     </>
   );
 }

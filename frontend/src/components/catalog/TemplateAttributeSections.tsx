@@ -160,7 +160,7 @@ export function RecordList({
       {items.map((rec, i) => {
         const extras = codes.filter((c) => rec[c] !== undefined && rec[c] !== null && rec[c] !== "");
         return (
-          <li key={i} className="text-xs text-gray-700 dark:text-gray-300">
+          <li key={i} className="text-xs text-text-body">
             <span className="font-medium">
               {localizedValue(rec.label, locale) || fallbackLabel?.(i) || ""}
             </span>
@@ -207,7 +207,7 @@ export function LocatorInline({
     <span className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}>
       {present.map((c) => (
         <span key={c} className="inline-flex items-baseline gap-0.5">
-          <span className="text-gray-400 dark:text-gray-500">
+          <span className="text-text-muted">
             {resolveLocalizedName(fields[c]?.names, locale, c)}:
           </span>
           <FieldValue code={c} value={value[c]} defs={defs} locale={locale} field={fields[c]} />
@@ -244,7 +244,7 @@ export function GroupAttributeInline({
     <span className={`inline-flex flex-wrap items-center gap-1.5 ${className}`}>
       {present.map((c) => (
         <span key={c} className="inline-flex items-baseline gap-0.5">
-          <span className="text-gray-400 dark:text-gray-500">{resolveLocalizedName(fields[c]?.names, locale, c)}:</span>
+          <span className="text-text-muted">{resolveLocalizedName(fields[c]?.names, locale, c)}:</span>
           <FieldValue code={c} value={value[c]} defs={defs} locale={locale} field={fields[c]} />
         </span>
       ))}

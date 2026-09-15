@@ -59,10 +59,10 @@ export default function FavoriteButton({
       onClick={handleToggle}
       disabled={busy}
       title={favorited ? t("favorite.remove") : t("favorite.add")}
-      className={`shrink-0 inline-flex items-center gap-1.5 rounded-md border font-medium transition-colors disabled:opacity-60 ${h} ${
+      className={`shrink-0 inline-flex items-center gap-1.5 rounded-md border font-medium transition-colors duration-fast ease-soft disabled:opacity-60 ${h} ${
         favorited
           ? "bg-rose-500/10 border-rose-500/30 text-rose-500 hover:bg-rose-500/15"
-          : "bg-black/[0.03] dark:bg-white/[0.05] border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:text-rose-500 hover:border-rose-500/40"
+          : "bg-black/[0.03] dark:bg-white/[0.05] border-line text-text-body hover:text-rose-500 hover:border-rose-500/40"
       }`}
     >
       <Heart className={size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4"} strokeWidth={2} fill={favorited ? "currentColor" : "none"} />

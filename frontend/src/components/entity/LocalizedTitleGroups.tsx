@@ -79,7 +79,7 @@ export function LocalizedTitleGroups({
           type="button"
           aria-expanded={expanded}
           onClick={() => setExpanded((v) => !v)}
-          className={`inline-flex cursor-pointer items-center gap-1 transition-colors hover:text-primary ${cls}`}
+          className={`inline-flex cursor-pointer items-center gap-1 transition-colors duration-fast ease-soft hover:text-primary ${cls}`}
         >
           {expanded
             ? t("entity.titles.collapse")

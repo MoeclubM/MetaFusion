@@ -31,14 +31,14 @@ function RootLandingInner() {
       <aside aria-label="Page controls" className="absolute top-5 right-5 z-20 flex items-center gap-2">
         <Link
           href="/"
-          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors"
+          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full dark:bg-white/[0.04] border border-line text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors duration-fast ease-soft"
         >
           <span>{t("landing.enterHome")}</span>
           <ArrowRight className="w-3.5 h-3.5" />
         </Link>
         <a
           href="/docs/catalog"
-          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors"
+          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full dark:bg-white/[0.04] border border-line text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors duration-fast ease-soft"
           title={t("landing.docsTitle")}
         >
           <BookOpen className="w-3.5 h-3.5 text-primary" strokeWidth={1.8} />
@@ -49,7 +49,7 @@ function RootLandingInner() {
           target="_blank"
           rel="noopener noreferrer"
           aria-label="GitHub — MoeclubM/MetaFusion"
-          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full bg-black/5 dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors"
+          className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full dark:bg-white/[0.04] border border-line text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors duration-fast ease-soft"
         >
           <GitHubIcon className="w-3.5 h-3.5" />
           <span>REPO</span>
@@ -59,7 +59,7 @@ function RootLandingInner() {
       </aside>
 
       {/* Hero Core: Perfectly Centered Stacked Layout */}
-      <main className="relative z-10 w-full max-w-4xl mx-auto px-6 py-10 sm:py-16 flex-1 flex flex-col items-center justify-center text-center">
+      <main className="mf-enter relative z-10 w-full max-w-narrow mx-auto px-6 py-10 sm:py-16 flex-1 flex flex-col items-center justify-center text-center">
         {/* BrandMark Logo & Glowing Halo */}
         <div className="mb-6 relative group">
           <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl transform scale-125 group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
@@ -73,12 +73,12 @@ function RootLandingInner() {
         </div>
 
         {/* Main Brand Title */}
-        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-4 font-display">
+        <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-text-strong mb-4 font-display">
           MetaFusion
         </h1>
 
         {/* Subtitle */}
-        <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed mb-8">
+        <p className="text-base sm:text-lg md:text-xl text-text-body max-w-narrow mx-auto leading-relaxed mb-8">
           {t("landing.heroSubtitle")}
         </p>
 
@@ -93,14 +93,14 @@ function RootLandingInner() {
           </Link>
           <Link
             href="/explore"
-            className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
+            className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-line text-text-strong hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
           >
             <span>{t("landing.exploreArchive")}</span>
           </Link>
           {!user && (
             <Link
               href="/login?tab=register"
-              className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
+              className="inline-flex items-center gap-2.5 px-8 h-12 rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-line text-text-strong hover:bg-black/[0.08] dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
             >
               <LogIn className="w-4 h-4 text-primary" />
               <span>{t("landing.join")}</span>
@@ -110,29 +110,29 @@ function RootLandingInner() {
 
         {/* Architecture Highlights */}
         <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono text-gray-500 dark:text-white/40">
-          <span className="px-2.5 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+          <span className="px-2.5 py-1 rounded-md bg-surfaceSubtle border border-line-subtle">
             {t("landing.featureGraph")}
           </span>
           <span className="text-black/20 dark:text-white/20">·</span>
-          <span className="px-2.5 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+          <span className="px-2.5 py-1 rounded-md bg-surfaceSubtle border border-line-subtle">
             {t("landing.featureCAS")}
           </span>
           <span className="text-black/20 dark:text-white/20">·</span>
-          <span className="px-2.5 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.03] border border-black/5 dark:border-white/5">
+          <span className="px-2.5 py-1 rounded-md bg-surfaceSubtle border border-line-subtle">
             {t("landing.featureOpen")}
           </span>
         </div>
       </main>
 
       {/* Docked Minimal Footer */}
-      <footer className="relative z-10 w-full max-w-5xl mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-black/5 dark:border-white/[0.06] font-mono text-xs text-gray-500 dark:text-white/35">
+      <footer className="relative z-10 w-full max-w-narrow mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-line-subtle font-mono text-xs text-gray-500 dark:text-white/35">
         <div className="flex items-center gap-4 flex-wrap">
           <span>© 2026 MoeClub Ltd · Open Metadata & Resource Platform</span>
           <span className="hidden sm:inline text-black/20 dark:text-white/20">|</span>
-          <a href="/docs/catalog" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors">
+          <a href="/docs/catalog" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors duration-fast ease-soft">
             {t("landing.docsCenter")}
           </a>
-          <a href="/developers" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors">
+          <a href="/developers" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-colors duration-fast ease-soft">
             Open API
           </a>
         </div>
@@ -140,7 +140,7 @@ function RootLandingInner() {
           href="https://github.com/MoeclubM/MetaFusion"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 hover:text-gray-900 dark:hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 hover:text-gray-900 dark:hover:text-white transition-colors duration-fast ease-soft"
         >
           <GitHubIcon className="w-3.5 h-3.5" />
           <span>github.com/MoeclubM/MetaFusion</span>

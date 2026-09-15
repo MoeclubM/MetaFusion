@@ -37,7 +37,7 @@ export const ThemePicker: React.FC = () => {
  type="button"
  onClick={() => setIsOpen(!isOpen)}
  title={t("settings.appearanceTitle")}
- className="w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-full bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 transition-colors"
+ className="w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-full dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-line text-text-body transition-colors duration-fast ease-soft"
  >
  {resolvedMode === "dark" ? (
  <Moon className="w-4 h-4 text-sky-400" strokeWidth={1.7} />
@@ -49,11 +49,11 @@ export const ThemePicker: React.FC = () => {
  {isOpen && (
  <div
  onClick={(e) => e.stopPropagation()}
- className="absolute right-0 mt-1.5 w-60 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface shadow-elevated p-4 z-50 animate-slide-up text-sm space-y-3"
+ className="absolute right-0 mt-1.5 w-60 rounded-lg border border-line bg-surface shadow-elevated p-4 z-50 animate-slide-up text-sm space-y-3"
  >
  {/* Header */}
- <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-white/[0.06] pb-2 font-mono text-xs text-gray-500 dark:text-gray-400">
- <span className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+ <div className="flex items-center justify-between border-b border-line-subtle pb-2 font-mono text-xs text-text-muted">
+ <span className="flex items-center gap-2 font-semibold text-text-strong">
  <Palette className="w-4 h-4 text-primary" />
  <span>{t("settings.appearanceTitle")}</span>
  </span>
@@ -62,8 +62,8 @@ export const ThemePicker: React.FC = () => {
 
  {/* Mode Switch (Dark / Light / System) */}
  <div className="space-y-1">
- <div className="text-xs font-mono text-gray-500 dark:text-gray-400">{t("theme.displayMode")}</div>
- <div className="grid grid-cols-3 gap-0.5 bg-black/[0.04] dark:bg-white/[0.04] p-0.5 rounded-md border border-black/[0.06] dark:border-white/[0.06]">
+ <div className="text-xs font-mono text-text-muted">{t("theme.displayMode")}</div>
+ <div className="grid grid-cols-3 gap-0.5 bg-black/[0.04] dark:bg-white/[0.04] p-0.5 rounded-md border border-line-subtle">
  <button
  type="button"
  onClick={(e) => {
@@ -115,10 +115,10 @@ export const ThemePicker: React.FC = () => {
  </div>
 
  {/* Accent Color Selection */}
- <div className="space-y-1 border-t border-black/[0.06] dark:border-white/[0.06] pt-2">
- <div className="flex items-center justify-between text-xs font-mono text-gray-500 dark:text-gray-400">
+ <div className="space-y-1 border-t border-line-subtle pt-2">
+ <div className="flex items-center justify-between text-xs font-mono text-text-muted">
  <span>{t("theme.accentLabel")}</span>
- <span className="font-semibold text-gray-900 dark:text-white text-xs">
+ <span className="font-semibold text-text-strong text-xs">
  {accentLabel(accent, t)}
  </span>
  </div>
@@ -134,10 +134,10 @@ export const ThemePicker: React.FC = () => {
  setAccent(item.id);
  }}
  title={t(item.labelKey)}
- className="group relative flex flex-col items-center p-0.5 rounded-md hover:bg-black/5 dark:hover:bg-white/[0.04] transition-colors cursor-pointer"
+ className="group relative flex flex-col items-center p-0.5 rounded-md hover:bg-black/5 hover:bg-surfaceSubtle transition-colors duration-fast ease-soft cursor-pointer"
  >
  <div
- className={`w-5 h-5 rounded-full grid place-items-center shadow-2xs transition-transform group-hover:scale-105 ${
+ className={`w-5 h-5 rounded-full grid place-items-center shadow-2xs transition-transform duration-base ease-soft group-hover:scale-105 ${
  isSelected ? "ring-2 ring-primary ring-offset-1 ring-offset-surface" : ""
  }`}
  style={{ backgroundColor: item.color }}

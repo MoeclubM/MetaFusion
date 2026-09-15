@@ -47,8 +47,8 @@ export function RevisionHistoryModal({ isOpen, onClose, targetType, targetId, en
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
       <div role="dialog" aria-modal="true" aria-labelledby="revision-dialog-title"
-        className="w-full max-w-5xl max-h-[88vh] flex flex-col rounded-xl border border-black/10 dark:border-white/10 bg-surface shadow-2xl text-gray-900 dark:text-white">
-        <div className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10">
+        className="w-full max-w-5xl max-h-[88vh] flex flex-col rounded-xl border border-line bg-surface shadow-2xl text-text-strong">
+        <div className="flex items-center justify-between p-4 border-b border-line">
           <div>
             <h2 id="revision-dialog-title" className="text-sm font-bold">{t("editor.history.title")}</h2>
             <p className="text-xs text-gray-500">{entityTitle} · {t(`catalog.kind.${targetType}`)}</p>

@@ -125,7 +125,7 @@ export default function WorkReleasesPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      <main className="max-w-7xl mx-auto px-4 py-6 w-full space-y-5 flex-1">
+      <main className="mf-enter max-w-page mx-auto px-4 py-6 w-full space-y-5 flex-1">
         <div className="flex items-center gap-2 font-mono text-[11px] text-gray-500">
           <Link href={`/works/${workId}`} className="hover:text-white inline-flex items-center gap-1">
             <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
@@ -213,7 +213,7 @@ export default function WorkReleasesPage() {
                       const editionDate = String(rel.attributes?.edition_date || "").trim();
                       const fmt = formatSummaryOf(rel);
                       return (
-                      <tr key={rel.id} className="hover:bg-white/[0.03] transition-colors">
+                      <tr key={rel.id} className="hover:bg-white/[0.03] transition-colors duration-fast ease-soft">
                         <td className="py-3 px-2"><input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="w-4 h-4 rounded accent-primary cursor-pointer" /></td>
                         <td className="py-3 px-4"><Link href={`/releases/${rel.id}`} className="font-semibold text-white hover:text-sky-200 inline-flex items-center gap-1">{entityTitle(rel, locale)} <ArrowUpRight className="w-3 h-3 text-gray-500" strokeWidth={1.5} /></Link></td>
                         <td className="py-3 px-4 text-gray-400">{vocabLabel(definitions, "edition_type", edition, locale) || "—"}</td>

@@ -92,10 +92,10 @@ function RelationCard({ row }: { row: Row }) {
   }
   return (
     <Link href={row.href} className="group block min-w-0">
-      <div className="mb-1 truncate text-[11px] text-gray-500 dark:text-gray-400" title={row.label}>
+      <div className="mb-1 truncate text-[11px] text-text-muted" title={row.label}>
         {row.label}
       </div>
-      <div className="overflow-hidden rounded-md border border-black/10 bg-black/[0.03] transition-all duration-200 group-hover:-translate-y-0.5 group-hover:shadow-sm dark:border-white/[0.08] dark:bg-white/[0.04]">
+      <div className="overflow-hidden rounded-md border bg-black/[0.03] transition-all duration-base ease-soft group-hover:-translate-y-0.5 group-hover:shadow-sm border-line dark:bg-white/[0.04]">
         <AdaptiveCover
           src={row.coverUrl}
           alt={row.name}
@@ -106,15 +106,15 @@ function RelationCard({ row }: { row: Row }) {
           fallbackRatio={row.entityType === "agent" ? 1 : 2 / 3}
         />
       </div>
-      <div className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-gray-900 transition-colors group-hover:text-primary dark:text-white">
+      <div className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-gray-900 transition-colors duration-fast ease-soft group-hover:text-primary dark:text-white">
         {row.name}
       </div>
-      {date && <div className="mt-0.5 font-mono text-[11px] text-gray-500 dark:text-gray-400">{date}</div>}
+      {date && <div className="mt-0.5 font-mono text-[11px] text-text-muted">{date}</div>}
       {attrEntries.length > 0 && (
-        <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[10px] text-gray-500 dark:text-gray-400">
+        <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 font-mono text-[10px] text-text-muted">
           {attrEntries.map(([code, value]) => (
             <span key={code} className="inline-flex items-baseline gap-0.5">
-              <span className="text-gray-400 dark:text-gray-500">
+              <span className="text-text-muted">
                 {getFieldName(defs, code, locale)}:
               </span>
               <FieldValue code={code} value={value} defs={defs} locale={locale} />

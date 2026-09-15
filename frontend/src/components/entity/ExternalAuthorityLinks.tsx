@@ -226,11 +226,11 @@ export function ExternalAuthorityLinks({
   // 样式 A: 竖直大列表（专为详情页左侧边栏设计，与基本信息卡片完美呼应）
   if (variant === "list") {
     return (
-      <div className={`p-4 sm:p-5 rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface shadow-soft space-y-3 ${className}`}>
-        <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2.5">
+      <div className={`p-4 sm:p-5 rounded-xl border border-line bg-surface shadow-soft space-y-3 ${className}`}>
+        <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
           <div className="flex items-center gap-2">
             <Globe className="w-4 h-4 text-primary" strokeWidth={1.5} />
-            <h3 className="font-display text-xs font-bold uppercase tracking-wider text-gray-900 dark:text-white font-mono">
+            <h3 className="font-display text-xs font-bold uppercase tracking-wider text-text-strong font-mono">
               {displayLabel}
             </h3>
           </div>
@@ -247,7 +247,7 @@ export function ExternalAuthorityLinks({
 
             // 针对官方与 Bangumi 等高频数据源优化色彩，突出同级权威感
             let badgeClass =
-              "bg-black/[0.04] dark:bg-white/[0.06] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:border-primary/40 hover:text-primary";
+              "bg-black/[0.04] dark:bg-white/[0.06] border-line text-text-body hover:border-primary/40 hover:text-primary";
             if (isOfficial) {
               badgeClass =
                 "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/20";
@@ -275,7 +275,7 @@ export function ExternalAuthorityLinks({
                 </span>
                 <span className="flex items-center gap-1 shrink-0 ml-2 font-mono text-[11px] opacity-75">
                   <span className="truncate max-w-[90px]">{item.id.replace(/^https?:\/\//, "")}</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                  <ArrowUpRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-base ease-soft" />
                 </span>
               </a>
             );
@@ -295,7 +295,7 @@ export function ExternalAuthorityLinks({
         const isBangumi = item.isBangumi;
 
         let badgeClass =
-          "bg-black/[0.04] dark:bg-white/[0.06] hover:bg-sky-500/10 border-black/10 dark:border-white/10 hover:border-sky-500/40 text-gray-700 dark:text-gray-200 hover:text-sky-600 dark:hover:text-sky-300";
+          "bg-black/[0.04] dark:bg-white/[0.06] hover:bg-sky-500/10 border-line hover:border-sky-500/40 text-gray-700 dark:text-gray-200 hover:text-sky-600 dark:hover:text-sky-300";
         if (isOfficial) {
           badgeClass =
             "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/20";

@@ -230,14 +230,14 @@ export function EntityRevisions({
         </section>
       )}
       {/* Top Header & Contributor Summary (Git Insights Style) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/[0.06]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-surfaceSubtle border border-line-subtle">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0 shadow-2xs">
             <GitBranch className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-gray-900 dark:text-white text-sm">
+              <span className="font-semibold text-text-strong text-sm">
                 {t("revisions.mainLog")}
               </span>
               <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary text-[10px] font-mono font-bold">
@@ -266,7 +266,7 @@ export function EntityRevisions({
               </div>
             ))}
           </div>
-          <span className="text-xs font-mono font-medium text-gray-700 dark:text-gray-300 ml-1">
+          <span className="text-xs font-mono font-medium text-text-body ml-1">
             {contributorStats.map(c => "@" + c.name).join(", ")}
           </span>
         </div>
@@ -279,7 +279,7 @@ export function EntityRevisions({
             <div className="flex items-center gap-2.5">
               <GitCompare className="w-5 h-5 text-primary shrink-0" />
               <div>
-                <h3 className="font-semibold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+                <h3 className="font-semibold text-text-strong text-sm flex items-center gap-2">
                   <span>{t("revisions.diffInspector")}</span>
                   <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-xs font-mono">
                     {activeDiff.oldLabel} → {activeDiff.newLabel}
@@ -292,7 +292,7 @@ export function EntityRevisions({
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex items-center bg-black/[0.04] dark:bg-white/[0.06] p-0.5 rounded-lg border border-black/5 dark:border-white/10 text-xs">
+              <div className="flex items-center bg-black/[0.04] dark:bg-white/[0.06] p-0.5 rounded-lg border border-line text-xs">
                 <button
                   type="button"
                   onClick={() => setDiffTab("visual")}
@@ -312,7 +312,7 @@ export function EntityRevisions({
               <button
                 type="button"
                 onClick={() => setDiffTarget(null)}
-                className="px-2.5 py-1 rounded-lg text-xs font-mono bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.1] text-gray-600 dark:text-gray-300 transition-colors"
+                className="px-2.5 py-1 rounded-lg text-xs font-mono bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.1] text-text-body transition-colors duration-fast ease-soft"
               >
                 {t("revisions.closeDiff")}
               </button>
@@ -321,7 +321,7 @@ export function EntityRevisions({
 
           {diffTab === "visual" ? (
             activeDiff.fields.length === 0 ? (
-              <div className="p-6 text-center text-xs font-mono text-gray-500 bg-surface rounded-lg border border-black/5 dark:border-white/5">
+              <div className="p-6 text-center text-xs font-mono text-gray-500 bg-surface rounded-lg border border-line-subtle">
                 {t("revisions.noDiff")}
               </div>
             ) : (
@@ -329,10 +329,10 @@ export function EntityRevisions({
                 {activeDiff.fields.map((f, i) => (
                   <div
                     key={i}
-                    className="p-3 rounded-lg border border-black/10 dark:border-white/10 bg-surface shadow-2xs space-y-1.5"
+                    className="p-3 rounded-lg border border-line bg-surface shadow-2xs space-y-1.5"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5">
+                      <span className="font-bold text-text-strong flex items-center gap-1.5">
                         <span className="w-2 h-2 rounded-full bg-primary" />
                         {diffLabel(f.label)}
                       </span>
@@ -363,13 +363,13 @@ export function EntityRevisions({
             )
           ) : (
             <div className="relative">
-              <pre className="p-3.5 rounded-lg bg-black/[0.04] dark:bg-black/50 border border-black/10 dark:border-white/10 font-mono text-[11px] text-gray-800 dark:text-gray-200 overflow-x-auto max-h-96 leading-relaxed">
+              <pre className="p-3.5 rounded-lg bg-black/[0.04] dark:bg-black/50 border border-line font-mono text-[11px] text-text-strong overflow-x-auto max-h-96 leading-relaxed">
                 {activeDiff.unified}
               </pre>
               <button
                 type="button"
                 onClick={() => handleCopy(activeDiff.unified, "diff-copy")}
-                className="absolute top-2 right-2 p-1.5 rounded-md bg-surface border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white shadow-xs text-xs flex items-center gap-1"
+                className="absolute top-2 right-2 p-1.5 rounded-md bg-surface border border-line text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white shadow-xs text-xs flex items-center gap-1"
                 title={t("revisions.copyDiffTitle")}
               >
                 {copiedId === "diff-copy" ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
@@ -385,7 +385,7 @@ export function EntityRevisions({
           <div className="flex items-center justify-between border-b border-sky-500/20 pb-3">
             <div className="flex items-center gap-2">
               <FileText className="w-4 h-4 text-sky-500" />
-              <h3 className="font-semibold text-gray-900 dark:text-white text-sm">
+              <h3 className="font-semibold text-text-strong text-sm">
                 {t("revisions.snapshotAt", { version: inspectingRev.version })}
               </h3>
               <span className="text-xs font-mono text-gray-500">
@@ -396,7 +396,7 @@ export function EntityRevisions({
               <button
                 type="button"
                 onClick={() => handleCopy(JSON.stringify(inspectingRev.snapshot || inspectingRev, null, 2), "snap-copy")}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-xs font-mono text-gray-700 dark:text-gray-300 hover:text-primary transition-colors shadow-2xs"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-line bg-surface text-xs font-mono text-text-body hover:text-primary transition-colors duration-fast ease-soft shadow-2xs"
               >
                 {copiedId === "snap-copy" ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                 <span>{copiedId === "snap-copy" ? t("revisions.copied") : t("revisions.copyJson")}</span>
@@ -404,14 +404,14 @@ export function EntityRevisions({
               <button
                 type="button"
                 onClick={() => setInspectingRev(null)}
-                className="px-2.5 py-1 rounded-lg text-xs font-mono bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.1] text-gray-600 dark:text-gray-300 transition-colors"
+                className="px-2.5 py-1 rounded-lg text-xs font-mono bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.1] text-text-body transition-colors duration-fast ease-soft"
               >
                 {t("revisions.close")}
               </button>
             </div>
           </div>
 
-          <pre className="p-3.5 rounded-lg bg-black/[0.04] dark:bg-black/50 border border-black/10 dark:border-white/10 font-mono text-[11px] text-gray-800 dark:text-gray-200 overflow-x-auto max-h-80 leading-relaxed">
+          <pre className="p-3.5 rounded-lg bg-black/[0.04] dark:bg-black/50 border border-line font-mono text-[11px] text-text-strong overflow-x-auto max-h-80 leading-relaxed">
             {JSON.stringify(inspectingRev.snapshot || inspectingRev, null, 2)}
           </pre>
         </div>
@@ -431,7 +431,7 @@ export function EntityRevisions({
             <div key={revKey} className="relative group">
               {/* Commit Node Icon */}
               <div
-                className={"absolute -left-6 sm:-left-8 top-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shadow-xs transition-transform group-hover:scale-110 " + (
+                className={"absolute -left-6 sm:-left-8 top-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shadow-xs transition-transform duration-base ease-soft group-hover:scale-110 " + (
                   isLatest
                     ? "border-primary bg-primary text-white"
                     : "border-black/20 dark:border-white/20 bg-surface text-gray-500 group-hover:border-primary group-hover:text-primary"
@@ -441,14 +441,14 @@ export function EntityRevisions({
               </div>
 
               {/* Commit Card */}
-              <div className="p-4 rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface hover:shadow-soft transition-all space-y-3">
+              <div className="p-4 rounded-xl border border-line bg-surface hover:shadow-soft transition-all space-y-3">
                 {/* Commit Top Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/5 dark:border-white/[0.06] pb-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line-subtle pb-2.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={"px-2 py-0.5 rounded-md text-[11px] font-mono font-bold uppercase " + (
                       isLatest
                         ? "bg-primary/15 text-primary border border-primary/30"
-                        : "bg-black/[0.04] dark:bg-white/[0.06] text-gray-700 dark:text-gray-300 border border-black/10 dark:border-white/10"
+                        : "bg-black/[0.04] dark:bg-white/[0.06] text-text-body border border-line"
                     )}>
                       v{rev.version || sortedRevisions.length - idx}
                     </span>
@@ -465,11 +465,11 @@ export function EntityRevisions({
 
                     <span className="text-gray-300 dark:text-gray-600">•</span>
 
-                    <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+                    <div className="flex items-center gap-1.5 text-xs text-text-body">
                       <div className="w-4 h-4 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[9px]">
                         {author.slice(0, 1).toUpperCase()}
                       </div>
-                      <span className="font-semibold text-gray-900 dark:text-white">@{author}</span>
+                      <span className="font-semibold text-text-strong">@{author}</span>
                       <span className="px-1 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-gray-500 uppercase">
                         {role}
                       </span>
@@ -483,7 +483,7 @@ export function EntityRevisions({
                 </div>
 
                 {/* Commit Message (edit_note) */}
-                <div className="text-sm font-medium text-gray-900 dark:text-white leading-relaxed">
+                <div className="text-sm font-medium text-text-strong leading-relaxed">
                   {note}
                 </div>
 
@@ -501,11 +501,11 @@ export function EntityRevisions({
                     </button>
 
                     {expandedSources[revKey] && (
-                      <div className="mt-2 p-2.5 rounded-lg bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5 space-y-1.5 text-xs font-mono animate-fade-in">
+                      <div className="mt-2 p-2.5 rounded-lg bg-surfaceSubtle border border-line-subtle space-y-1.5 text-xs font-mono animate-fade-in">
                         {sources.map((s: any, sIdx: number) => (
                           <div key={sIdx} className="flex items-start gap-2 text-gray-600 dark:text-gray-400">
                             <span className="text-primary font-bold">[{s.kind || "url"}]</span>
-                            <span className="text-gray-800 dark:text-gray-200 font-medium">{s.citation || t("revisions.officialSource")}</span>
+                            <span className="text-text-strong font-medium">{s.citation || t("revisions.officialSource")}</span>
                             {s.url && (
                               <a
                                 href={s.url}
@@ -524,14 +524,14 @@ export function EntityRevisions({
                 )}
 
                 {/* Revision Action Tools */}
-                <div className="pt-2 border-t border-black/5 dark:border-white/[0.04] flex items-center justify-between text-xs font-mono">
+                <div className="pt-2 border-t border-line-subtle flex items-center justify-between text-xs font-mono">
                   <div className="flex items-center gap-2">
                     {/* Compare with previous */}
                     {idx < sortedRevisions.length - 1 && (
                       <button
                         type="button"
                         onClick={() => handleCompareWithPrev(rev, idx)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/[0.04] dark:bg-white/[0.06] hover:bg-primary/15 hover:text-primary text-gray-700 dark:text-gray-300 transition-colors cursor-pointer shadow-2xs"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/[0.04] dark:bg-white/[0.06] hover:bg-primary/15 hover:text-primary text-text-body transition-colors duration-fast ease-soft cursor-pointer shadow-2xs"
                       >
                         <GitCompare className="w-3 h-3 text-amber-500" />
                         <span>{t("revisions.diffVsPrev")}</span>
@@ -549,7 +549,7 @@ export function EntityRevisions({
                     <button
                       type="button"
                       onClick={() => setInspectingRev(rev)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/[0.04] dark:bg-white/[0.06] hover:bg-sky-500/15 hover:text-sky-500 text-gray-700 dark:text-gray-300 transition-colors cursor-pointer shadow-2xs"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-black/[0.04] dark:bg-white/[0.06] hover:bg-sky-500/15 hover:text-sky-500 text-text-body transition-colors duration-fast ease-soft cursor-pointer shadow-2xs"
                     >
                       <Eye className="w-3 h-3 text-sky-500" />
                       <span>{t("revisions.snapshot")}</span>

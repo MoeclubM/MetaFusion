@@ -95,7 +95,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
           </div>
           <button
             onClick={onClose}
-            className="w-7 h-7 grid place-items-center rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            className="w-7 h-7 grid place-items-center rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
           >
             <X className="w-4 h-4" />
           </button>
@@ -204,14 +204,14 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 h-7 rounded-md border border-white/10 text-xs text-gray-300 hover:bg-white/10 transition-colors"
+                className="px-3 h-7 rounded-md border border-white/10 text-xs text-gray-300 hover:bg-white/10 transition-colors duration-fast ease-soft"
               >
                 {t("editor.universal.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={submitting || !user}
-                className="px-3.5 h-7 rounded-md bg-purple-500 hover:bg-purple-400 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                className="px-3.5 h-7 rounded-md bg-purple-500 hover:bg-purple-400 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors duration-fast ease-soft disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
               >
                 <GitMerge className="w-3.5 h-3.5" />
                 <span>{submitting ? t("editor.merge.submitting") : t("editor.merge.submitBtn")}</span>

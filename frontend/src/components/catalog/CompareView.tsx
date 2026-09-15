@@ -303,7 +303,7 @@ export function Compare({ ids }: { ids: string }) {
               {slotIndices.map((i) => (
                 <span
                   key={i}
-                  className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  className={`w-2 h-2 rounded-full transition-all duration-base ease-soft ${
                     i < selectedIds.length
                       ? "bg-primary scale-110 shadow-xs"
                       : "bg-muted-foreground/20 border border-border"
@@ -352,7 +352,7 @@ export function Compare({ ids }: { ids: string }) {
                     <button
                       type="button"
                       onClick={() => removeId(id)}
-                      className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors cursor-pointer"
+                      className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors duration-fast ease-soft cursor-pointer"
                       title={t("catalog.compareRemove")}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -371,7 +371,7 @@ export function Compare({ ids }: { ids: string }) {
                   <div className="min-w-0">
                     <Link
                       href={`/releases/${id}`}
-                      className="text-xs font-semibold text-foreground hover:text-primary line-clamp-2 leading-snug transition-colors"
+                      className="text-xs font-semibold text-foreground hover:text-primary line-clamp-2 leading-snug transition-colors duration-fast ease-soft"
                       title={info.title}
                     >
                       {info.title}
@@ -402,16 +402,16 @@ export function Compare({ ids }: { ids: string }) {
                 onClick={focusSearch}
                 className="border-2 border-dashed border-border/70 hover:border-primary/60 hover:bg-primary/5 rounded-xl p-3 flex flex-col items-center justify-center min-h-[160px] text-center transition-all cursor-pointer group"
               >
-                <div className="w-9 h-9 rounded-full bg-muted/50 group-hover:bg-primary/10 text-muted-foreground group-hover:text-primary flex items-center justify-center mb-2 transition-all duration-200 group-hover:scale-110">
+                <div className="w-9 h-9 rounded-full bg-muted/50 group-hover:bg-primary/10 text-muted-foreground group-hover:text-primary flex items-center justify-center mb-2 transition-all duration-base ease-soft group-hover:scale-110">
                   <Plus className="w-4 h-4" />
                 </div>
-                <span className="text-xs font-semibold text-foreground/80 group-hover:text-primary transition-colors">
+                <span className="text-xs font-semibold text-foreground/80 group-hover:text-primary transition-colors duration-fast ease-soft">
                   {t("catalog.compareSlotIndex")} #{index + 1}
                 </span>
-                <span className="text-[11px] text-muted-foreground mt-0.5 group-hover:text-foreground/70 transition-colors">
+                <span className="text-[11px] text-muted-foreground mt-0.5 group-hover:text-foreground/70 transition-colors duration-fast ease-soft">
                   {t("catalog.compareSlotEmpty")}
                 </span>
-                <span className="text-[10px] text-muted-foreground/60 mt-2 px-1.5 py-0.5 rounded bg-muted/30 group-hover:bg-primary/10 group-hover:text-primary transition-colors line-clamp-1">
+                <span className="text-[10px] text-muted-foreground/60 mt-2 px-1.5 py-0.5 rounded bg-muted/30 group-hover:bg-primary/10 group-hover:text-primary transition-colors duration-fast ease-soft line-clamp-1">
                   {t("catalog.compareSlotClickToAdd")}
                 </span>
               </div>
@@ -436,7 +436,7 @@ export function Compare({ ids }: { ids: string }) {
                 placeholder={t("catalog.compareSearchPlaceholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-10 py-2.5 bg-background border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                className="w-full pl-10 pr-10 py-2.5 bg-background border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-base ease-soft"
               />
               {searchQuery && (
                 <button
@@ -461,7 +461,7 @@ export function Compare({ ids }: { ids: string }) {
                     setCustomIdInput("");
                   }
                 }}
-                className="w-full sm:w-64 px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all"
+                className="w-full sm:w-64 px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm font-mono text-foreground placeholder:text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all duration-base ease-soft"
               />
               <button
                 type="button"
@@ -519,7 +519,7 @@ export function Compare({ ids }: { ids: string }) {
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                          <div className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors duration-fast ease-soft truncate">
                             {releaseTitle}
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate mt-0.5">
@@ -572,7 +572,7 @@ export function Compare({ ids }: { ids: string }) {
                     <div
                       key={r.id}
                       onClick={() => !isSelected && addId(r.id!)}
-                      className={`group rounded-xl p-3 border transition-all duration-200 flex items-center justify-between gap-3 ${
+                      className={`group rounded-xl p-3 border transition-all duration-base ease-soft flex items-center justify-between gap-3 ${
                         isSelected
                           ? "bg-surface/50 border-border/70 opacity-60 cursor-default"
                           : "bg-surface hover:bg-surface-hover/70 border-border hover:border-primary/50 shadow-2xs hover:shadow-md cursor-pointer"
@@ -583,12 +583,12 @@ export function Compare({ ids }: { ids: string }) {
                           <AdaptiveCardCover
                             src={coverUrl}
                             alt={releaseTitle}
-                            fallbackIcon={<Disc className="w-5 h-5 text-muted-foreground/60 group-hover:text-primary transition-colors" />}
+                            fallbackIcon={<Disc className="w-5 h-5 text-muted-foreground/60 group-hover:text-primary transition-colors duration-fast ease-soft" />}
                             aspectClassName="w-full h-full"
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <div className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                          <div className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors duration-fast ease-soft truncate">
                             {releaseTitle}
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate mt-0.5">
@@ -847,7 +847,7 @@ export function Compare({ ids }: { ids: string }) {
                           <div className="flex items-start justify-between gap-2">
                             <Link
                               href={`/releases/${x.release.id}`}
-                              className="text-sm font-bold text-foreground hover:text-primary transition-colors line-clamp-2 leading-snug"
+                              className="text-sm font-bold text-foreground hover:text-primary transition-colors duration-fast ease-soft line-clamp-2 leading-snug"
                               title={releaseTitle}
                             >
                               {releaseTitle}
@@ -882,7 +882,7 @@ export function Compare({ ids }: { ids: string }) {
               </thead>
 
               <tbody className="divide-y divide-border">
-                <tr className="hover:bg-muted/20 transition-colors">
+                <tr className="hover:bg-muted/20 transition-colors duration-fast ease-soft">
                   <th className="p-4 font-medium text-xs text-muted-foreground border-r border-border align-top bg-muted/10">
                     {t("catalog.compareReleaseTitle")}
                   </th>
@@ -902,7 +902,7 @@ export function Compare({ ids }: { ids: string }) {
                   return (
                     <tr
                       key={k}
-                      className={`hover:bg-muted/20 transition-colors ${
+                      className={`hover:bg-muted/20 transition-colors duration-fast ease-soft ${
                         highlightDiff && isDiff ? "bg-amber-500/[0.03] dark:bg-amber-500/[0.05]" : ""
                       }`}
                     >
