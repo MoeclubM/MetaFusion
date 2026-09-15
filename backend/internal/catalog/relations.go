@@ -299,8 +299,30 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 	if _, err := s.Get(ctx, id, u); err != nil {
 		return nil, err
 	}
-	// 只取该实体为端点的边，避免全表加载；对端可见性用一次批量查询判定。
-	rows, err := s.DB.QueryContext(ctx, "SELECT document FROM catalog.relations WHERE source_id=$1 OR target_id=$1 ORDER BY id", id)
+	d, err := s.Definitions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// 取两类边：
+	//  1) 该实体是端点的边；
+	//  2) 该实体作为**实体型属性值**被引用的边 —— 例如角色 C 不是"配音"关系的端点，
+	//     而是关系属性 character 的取值。不查第二类，角色详情页就永远看不到
+	//     "谁为它配音、在哪些作品里"，这正是"数据存得下但读不出来"的缺口。
+	entityFields := []string{}
+	for code, f := range d.Document.Fields {
+		if f.Type == "entity" && f.Enabled {
+			entityFields = append(entityFields, code)
+		}
+	}
+	sort.Strings(entityFields)
+	args := []any{id}
+	conds := []string{"source_id = $1", "target_id = $1"}
+	for _, code := range entityFields {
+		payload, _ := json.Marshal(map[string]string{code: id})
+		args = append(args, string(payload))
+		conds = append(conds, fmt.Sprintf("document->'attributes' @> $%d::jsonb", len(args)))
+	}
+	rows, err := s.DB.QueryContext(ctx, "SELECT document FROM catalog.relations WHERE "+strings.Join(conds, " OR ")+" ORDER BY id", args...)
 	if err != nil {
 		return nil, err
 	}
@@ -323,10 +345,6 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 		return nil, err
 	}
 	rows.Close()
-	d, err := s.Definitions(ctx)
-	if err != nil {
-		return nil, err
-	}
 	peerIDs := make([]string, 0, len(all))
 	for _, r := range all {
 		other := r.TargetID

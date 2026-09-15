@@ -183,3 +183,9 @@ CREATE TABLE IF NOT EXISTS catalog.user_preferences (
 
 -- 建表顺序无关紧要：本文件没有指向 auth.* / community.* / storage.* 的外键。
 -- 目录侧的 created_by / user_id 都是裸 UUID——收藏归 community.favorites，账号归 auth.users。
+
+-- 关系属性里的实体引用（character / context / store 等）需要按值反查：
+-- 例如角色 C 不是配音关系的端点，而是 character 属性的取值；
+-- 没有这个索引，查「谁为这个角色配音、在哪些作品里」只能顺序扫描整张关系表。
+CREATE INDEX IF NOT EXISTS relations_document_attributes_gin
+    ON catalog.relations USING gin ((document->'attributes'));
