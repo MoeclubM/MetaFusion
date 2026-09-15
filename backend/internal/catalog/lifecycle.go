@@ -28,7 +28,8 @@ type LifecycleEdit struct {
 
 func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u User) (Entity, error) {
 	var e Entity
-	err := s.write(ctx, func(tx *sql.Tx) error {
+	// 合并会改写关系端点与结构引用，必须与关系/结构写串行。
+	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
 		if u.Role != "admin" {
 			return fmt.Errorf("forbidden")
 		}

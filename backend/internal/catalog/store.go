@@ -116,24 +116,67 @@ func (s *Store) Initialize(ctx context.Context) error {
 		return nil
 	})
 }
+
+// write 执行一次写事务（不加全局锁）。
+//
+// 十万/百万级时“所有写都串行”只是慢；到亿级就是吞吐天花板：一个 advisory 锁把整个目录
+// （含互不相干的 agent/work/expression）压成单写通道。因此默认路径不再取锁，只有可能触碰
+// 受结构约束的表（content_units/mediums/tracks 的父子环检查）或关系无环校验的写，
+// 才走 writeStructural。
 func (s *Store) write(ctx context.Context, fn func(*sql.Tx) error) error {
+	return s.tx(ctx, fn, false)
+}
+
+// writeStructural 执行需要与结构校验串行的写事务。
+//
+// 锁键与 check_parent_cycle 触发器共用（740202）：并发重定父时，触发器内的递归检查才能
+// 看到别的事务刚提交的父子关系，环检测不会两边同时通过。代价是这些写彼此串行——
+// 它们只是结构编辑（篇目/载体/轨道/关系），不是目录主体。
+// 与 migrator.go LockID 88481001 无互斥：migrate 是独立进程的一次性操作，用会话级
+// pg_advisory_lock；此处是事务级 xact 锁，键与粒度都不同。需要部署期互斥时应在编排层
+// 串行（先 migrate 后启动），不在此加锁。
+func (s *Store) writeStructural(ctx context.Context, fn func(*sql.Tx) error) error {
+	return s.tx(ctx, fn, true)
+}
+
+func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error, structural bool) error {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	// 写入串行化锁：与 check_parent_cycle 触发器共用同一会话级键（740202），
-	// 并发重定父时触发器内的递归检查才能看到本次事务的写入。
-	// 与 migrator.go LockID 88481001 无互斥：migrate 是独立进程的一次性操作，
-	// 用会话级 pg_advisory_lock；此处是事务级 xact 锁，两者键与粒度都不同。
-	// 若未来需要部署期互斥，应在编排层串行（先 migrate 后启动），不在此加锁。
-	if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(740202)"); err != nil {
-		return err
+	if structural {
+		if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(740202)"); err != nil {
+			return err
+		}
 	}
 	if err = fn(tx); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+// structuralKind 判断该 kind 的写入是否可能触碰受结构约束的表：
+// content_units/mediums/tracks 上有 check_parent_cycle 触发器，必须与环检查串行。
+// 其它 kind（agent/collection/work/expression/release）不写这三张表，无需全局锁。
+func structuralKind(kind string) bool {
+	switch kind {
+	case "content_unit", "medium", "track":
+		return true
+	}
+	return false
+}
+
+// newID 生成时间有序的 UUIDv7 作为主键。
+//
+// 随机 UUIDv4 做主键时插入点散落整棵 B-tree：亿级下页分裂、索引膨胀与缓存命中都会明显变差，
+// 且按时间范围扫描（导出/同步/分区裁剪）没有局部性。v7 前缀是毫秒时间戳，插入集中在最右侧。
+// 代价是 ID 泄漏创建时间（毫秒级，与 created_at 同级信息）；生成失败退回 v4，不返回空 ID。
+func newID() string {
+	if id, err := uuid.NewV7(); err == nil {
+		return id.String()
+	}
+	return uuid.NewString()
 }
 func encode(v any) string { b, _ := json.Marshal(v); return string(b) }
 func nullable(v string) any {
@@ -344,7 +387,12 @@ func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, no
 }
 func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 	e := input.Entity
-	err := s.write(ctx, func(tx *sql.Tx) error {
+	// 结构类实体（篇目/载体/轨道）走串行写通道，其余 kind 并行写。
+	commit := s.write
+	if structuralKind(e.Kind) {
+		commit = s.writeStructural
+	}
+	err := commit(ctx, func(tx *sql.Tx) error {
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
 		}
@@ -357,7 +405,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			if input.ExpectedVersion != 0 {
 				return fmt.Errorf("version_conflict")
 			}
-			e.ID = uuid.NewString()
+			e.ID = newID()
 			e.Version = 1
 			e.CreatedBy = u.ID
 		} else {

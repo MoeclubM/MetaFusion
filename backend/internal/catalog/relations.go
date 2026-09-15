@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
+
 	"github.com/lib/pq"
 	"sort"
 	"strconv"
@@ -474,7 +474,8 @@ func attrsOrEmpty(m map[string]any) map[string]any {
 func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (Relation, error) {
 	r := input.Relation
 	r.Attributes = attrsOrEmpty(r.Attributes)
-	err := s.write(ctx, func(tx *sql.Tx) error {
+	// 无环校验依赖"同类型边全集"的读一致性：并发写入必须串行，否则两边都能通过环检测。
+	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
 		}
@@ -491,7 +492,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 			if input.ExpectedVersion != 0 {
 				return fmt.Errorf("version_conflict")
 			}
-			r.ID = uuid.NewString()
+			r.ID = newID()
 			r.Version = 1
 		} else {
 			// 更新行的旧版本按 ID 单行取：同类集合只用于判重/计数/构图，

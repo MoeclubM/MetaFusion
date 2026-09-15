@@ -22,6 +22,14 @@ CREATE INDEX IF NOT EXISTS entities_search ON catalog.entities USING gin (to_tsv
 CREATE INDEX IF NOT EXISTS entities_document ON catalog.entities USING gin (document jsonb_path_ops);
 -- 标签按容器包含过滤（attributes.tags @> [...]）：函数索引让该查询走索引而非全表扫描。
 CREATE INDEX IF NOT EXISTS entities_attribute_tags ON catalog.entities USING gin ((document->'attributes'->'tags') jsonb_path_ops);
+-- 类型筛选（探索页/货架规则）用的是 jsonb 的 ? 与 ?|（数组元素存在性），
+-- 而 entities_document 是 jsonb_path_ops —— 它只支持 @> / @? / @@，**用不上** ?|，
+-- 十亿级下这类查询会退化成顺序扫描。这里补一个 jsonb_ops 的表达式索引（默认即是 jsonb_ops）。
+CREATE INDEX IF NOT EXISTS entities_types ON catalog.entities USING gin ((document->'types'));
+-- 列表页统一 ORDER BY updated_at DESC, id，且几乎都带 kind（+status）过滤。
+-- 只有 (kind,status) 索引时，排序列仍要排序；这条复合索引让"最新一批"直接走索引扫描，
+-- 也让后续 keyset 分页（WHERE (updated_at,id) < (...)) 有索引可用。
+CREATE INDEX IF NOT EXISTS entities_recent ON catalog.entities(kind,status,updated_at DESC,id);
 -- 导入幂等键唯一护栏：external_ids.metafusion_import 并发可双插（先查后建竞态）。
 -- 有键行唯一，空键/无键行不受约束（手工载荷无键本就不幂等）。存量存在重复键时，
 -- 建索引会失败：那属于数据问题，需先合并去重（系统未上线，重建库更省事）。

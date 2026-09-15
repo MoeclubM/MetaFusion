@@ -1016,7 +1016,7 @@ func bangumiTags(tags []bangumiTag, limit int) []string {
 // bangumiEpisodeType 判定分集类型：0=本篇、1=SP、2=OP、3=ED、4=预告/其他。
 // 本篇走 content_unit，其余作为附加内容同样保留层级，但标 entry_role。
 // entry_role 取值必须是 definitions entry_role 词表项：OP→opening、ED→ending
-//（词表另有 ending 项，见 defaults.go），不能把 ED 并入 opening。
+// （词表另有 ending 项，见 defaults.go），不能把 ED 并入 opening。
 func bangumiEpisodeRole(epType int) string {
 	switch epType {
 	case 0:
@@ -1913,6 +1913,7 @@ func assocAgentDedup(a ImporterStaffAssociation) string {
 //   - duplicate_relation：同一载荷内重复边（去重键已尽力，残留的由服务端判重）；
 //   - invalid_endpoint_types / invalid_endpoints：关联端点类型不在该关系定义内
 //     （如把组织挂到只收个人的关系上），属上游数据形态问题。
+//
 // 以下一律不吞（调用方直接返回错误，避免掩盖真实完整性冲突）：
 //   - invalid_relation_type：关系码本身不存在/被禁用，须由预检提前暴露；
 //   - cardinality_exceeded / relation_cycle：基数与无环是数据完整性约束，

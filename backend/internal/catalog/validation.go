@@ -352,21 +352,21 @@ func (d Definitions) validateScheme(code string, s Scheme) error {
 			return fmt.Errorf("%s: %w", code, fmt.Errorf("unknown_field: %s", k))
 		}
 	}
-		allowed := map[string]bool{}
-		for _, k := range s.Fields {
-			allowed[k] = true
+	allowed := map[string]bool{}
+	for _, k := range s.Fields {
+		allowed[k] = true
+	}
+	for _, k := range s.Required {
+		if !allowed[k] {
+			return fmt.Errorf("%s: %w", code, fmt.Errorf("required_outside_fields: %s", k))
 		}
-		for _, k := range s.Required {
-			if !allowed[k] {
-				return fmt.Errorf("%s: %w", code, fmt.Errorf("required_outside_fields: %s", k))
-			}
-		}
-		// 若全局组声明了 AnchorKey（如 relative_to），方案字段集必须包含该锚点，
-		// 否则录入时会陷入“不填报缺锚点、填了报未知字段”的死锁。
-		if group.AnchorKey != "" && !allowed[group.AnchorKey] {
-			return fmt.Errorf("%s: %w", code, fmt.Errorf("scheme_missing_anchor: %s", group.AnchorKey))
-		}
-		return nil
+	}
+	// 若全局组声明了 AnchorKey（如 relative_to），方案字段集必须包含该锚点，
+	// 否则录入时会陷入“不填报缺锚点、填了报未知字段”的死锁。
+	if group.AnchorKey != "" && !allowed[group.AnchorKey] {
+		return fmt.Errorf("%s: %w", code, fmt.Errorf("scheme_missing_anchor: %s", group.AnchorKey))
+	}
+	return nil
 }
 
 // matchSchemes 找出与拥有者匹配的场景：slot 相同、kinds 命中拥有者 kind
@@ -415,23 +415,23 @@ func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []st
 	union := map[string]bool{}
 	required := map[string]bool{}
 	order := []string{}
-		for _, s := range matched {
-			for _, k := range s.Fields {
-				if !union[k] {
-					union[k] = true
-					order = append(order, k)
-				}
-			}
-			for _, k := range s.Required {
-				required[k] = true
+	for _, s := range matched {
+		for _, k := range s.Fields {
+			if !union[k] {
+				union[k] = true
+				order = append(order, k)
 			}
 		}
-		// 若全局组有 AnchorKey，自动确保 effectiveGroup 包含该锚点字段定义，双重保障
-		if group.AnchorKey != "" && group.Fields[group.AnchorKey].Enabled && !union[group.AnchorKey] {
-			union[group.AnchorKey] = true
-			order = append(order, group.AnchorKey)
+		for _, k := range s.Required {
+			required[k] = true
 		}
-		eff := group
+	}
+	// 若全局组有 AnchorKey，自动确保 effectiveGroup 包含该锚点字段定义，双重保障
+	if group.AnchorKey != "" && group.Fields[group.AnchorKey].Enabled && !union[group.AnchorKey] {
+		union[group.AnchorKey] = true
+		order = append(order, group.AnchorKey)
+	}
+	eff := group
 	eff.Fields = map[string]Field{}
 	for k, c := range group.Fields {
 		if union[k] {
@@ -512,6 +512,7 @@ func (d Definitions) validateField(f Field, depth int) error {
 	}
 	return nil
 }
+
 // text/url 长度上限：标题外最长的自由文本（简介、引用、URL）统一截断口径，
 // 防止超大载荷进 JSONB 拖慢索引与 revisions 快照。数值/日期走各自格式校验。
 const (
@@ -715,6 +716,7 @@ func (d Definitions) attributes(keys []string, values map[string]any, reference 
 	}
 	return nil
 }
+
 // importerInternalKeys 是仅 importer 内部写的键：手工 POST/PUT 携带一律拒绝，
 // 防止伪造幂等键劫持他人条目。C 路若已做同口径校验则复用此处错误码，不重复建表。
 var importerInternalKeys = map[string]bool{"metafusion_import": true}

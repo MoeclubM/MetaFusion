@@ -24,6 +24,7 @@ type Picture struct {
 	Caption Names  `json:"caption"`
 	Source  Source `json:"source"`
 }
+
 // Locator 描述"该内容位于载体的何处"：页码、时间码、文件路径、章节……
 // 不同媒体的定位方式差异极大（书籍按页、音视频按时间、文件按路径），
 // 因此键集合**不硬编码**：由 definitions 的 locator 组字段声明，后台可增删。
@@ -172,6 +173,7 @@ type Template struct {
 	// 取代代码里硬编码 edition_type/format/country 三个下拉；顺序即展示顺序。
 	FacetFields []string `json:"facet_fields,omitempty"`
 }
+
 // Scheme 是"按使用场景配置"的有限声明式规则：locator / inclusion_attributes /
 // subject_attributes 是全局结构，纸书要页码、EPUB 要路径锚点、黑胶要唱片面，
 // 必填、排序、范围约束与展示收敛都由它声明，不新增核心实体种类。

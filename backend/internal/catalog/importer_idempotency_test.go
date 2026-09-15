@@ -12,10 +12,10 @@ import (
 // 不能被"作曲"规则抢先；作曲仍落 composed_by。
 func TestBangumiCreditRelationDistinguishesArrange(t *testing.T) {
 	for in, want := range map[string]string{
-		"編曲": "arranged_by",
-		"编曲": "arranged_by",
+		"編曲":    "arranged_by",
+		"编曲":    "arranged_by",
 		"アレンジ":  "arranged_by",
-		"作曲":   "composed_by",
+		"作曲":    "composed_by",
 		"作曲・編曲": "arranged_by", // 复合职位含编曲即按编曲（更具体维度优先）
 		"插入歌作曲": "composed_by",
 	} {
@@ -166,7 +166,7 @@ func TestImporterPreflightAssociations(t *testing.T) {
 	ok := []ImporterStaffAssociation{
 		{ParsedName: "甲", RelationType: "directed_by", ParsedRole: "导演"},
 		{ParsedName: "乙", RelationType: "character_in", RelationRole: "primary"},
-		{ParsedName: "丙"},                            // 空关系码：落库侧计数跳过，预检不拒绝
+		{ParsedName: "丙"}, // 空关系码：落库侧计数跳过，预检不拒绝
 		{ParsedName: "丁", Action: "skip", RelationType: "bogus"}, // skip 不校验
 	}
 	if err := importerPreflightAssociations(doc, ok); err != nil {
