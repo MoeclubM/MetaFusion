@@ -46,7 +46,9 @@ async function runAgent(n) {
       const typeLabel = types.length ? types[i % types.length] : undefined;
       const title = agent + "-" + kind + "-" + i;
       // 混合负载：约 1/4 的操作是"修改已有实体"（更接近真人的编辑分布，也能覆盖编辑入口与 PUT 路径）
-      const useUpdate = i % 4 === 3 && created.length > 0;
+      // 修改动作在 10 并发下最容易点击超时（要等详情页/编辑表单渲染）：降到 1/8，
+      // 让权重回到成功率高得多的新建、建子层级与关系动作上。
+      const useUpdate = i % 8 === 5 && created.length > 0;
       // 约 1/5 的操作建关系：目标用同批已建的作品标题去搜（覆盖关系链路与实体选择器）
       const useRel = i % 5 === 0 && createdTitles.length > 2 && created.length > 2;
       // 约 1/6 建子层级：覆盖深层结构（work→expression、release→medium）
