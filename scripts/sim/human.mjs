@@ -76,7 +76,7 @@ export async function createEntity(page, opts) {
   // 证据必须按 fieldset 语义定位：页面里还有「多语言题名与别名」的简介/别名 textarea，
   // 用 textarea.first() 会把修改说明写进"别名"，而证据区仍为空 → 客户端校验直接拦下提交。
   const ev = page.locator("fieldset", { hasText: "编辑说明与来源" }).first();
-  const note = ev.locator("textarea").first();
+  const note = ev.locator('label:has-text("本次修改说明")').locator("textarea").first();
   await note.waitFor({ state: "visible", timeout: 12000 });
   await note.fill(opts.note);
   const cite = page.locator('input[placeholder*="来源声明"]').last();
@@ -108,7 +108,7 @@ export async function updateEntity(page, id, tag, agent) {
   const before = await title.inputValue();
   await title.fill(before.replace(/ \[[^\]]*\]$/, "") + " [" + tag + "]");
   const ev = page.locator("fieldset", { hasText: "编辑说明与来源" }).first();
-  const note = ev.locator("textarea").first();
+  const note = ev.locator('label:has-text("本次修改说明")').locator("textarea").first();
   await note.waitFor({ state: "visible", timeout: 15000 }).catch(() => {});
   await note.fill("仿真修订：" + agent + " 更新题名标记 " + tag);
   const cite = page.locator('input[placeholder*="来源声明"]').last();
@@ -134,14 +134,17 @@ export async function addRelation(page, id, relType, targetQuery, agent, attrs) 
   await editBtn.click();
   const rel = page.locator("fieldset", { hasText: "关系与署名" }).first();
   try { await rel.waitFor({ state: "visible", timeout: 35000 }); } catch { return { status: 0, body: "关系区未出现" }; }
-  const typeSelect = rel.locator("select").first();
+  // 按文案定位，别按下标猜：关系区里除了类型与目标还有属性下拉
+  const typeSelect = rel.locator('label:has-text("关系类型")').locator("select").first().or(rel.locator("select").first());
   const opts = await typeSelect.locator("option").evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
   // 未指定时随机挑一个可用关系类型：只取第一个会让 adaptation_of 独占，覆盖不到其它关系语义
   const pick = relType && opts.includes(relType) ? relType : opts[Math.floor(Math.random() * opts.length)];
   if (!pick) return { status: 0, body: "无可用关系类型" };
   try { await typeSelect.selectOption(pick); } catch { return { status: 200, skipped: true, body: "关系类型未选中，跳过" }; }
   await page.waitForTimeout(1600);
-  const search = rel.locator('input[placeholder*="搜索实体"]').first();
+  // 目标选择器：在「目标条目」那一块里找搜索框与实体下拉
+  const targetBlock = rel.locator('label:has-text("目标条目"), div:has-text("目标条目")').first();
+  const search = targetBlock.locator('input[placeholder*="搜索实体"]').first().or(rel.locator('input[placeholder*="搜索实体"]').first());
   if (!(await search.count())) return { status: 200, skipped: true, body: "目标搜索框未出现，跳过" };
   // 目标候选为空通常是"这个标题的类型不符合该关系要求"：换标题重试，别让整条操作算失败
   const entitySelect0 = rel.locator("select").nth(1);
@@ -156,7 +159,7 @@ export async function addRelation(page, id, relType, targetQuery, agent, attrs) 
     }
     if (chosen) break;
   }
-  const entitySelect = entitySelect0;
+  const entitySelect = targetBlock.locator("select").first().or(entitySelect0);
   for (let w = 0; w < 0 && !chosen; w++) {
     await page.waitForTimeout(700);
     const vals = await entitySelect.locator("option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: (o.textContent || "") })).filter((x) => x.v));
@@ -191,7 +194,7 @@ export async function addRelation(page, id, relType, targetQuery, agent, attrs) 
     }
   }
   const ev = page.locator("fieldset", { hasText: "编辑说明与来源" }).first();
-  const note = ev.locator("textarea").first();
+  const note = ev.locator('label:has-text("本次修改说明")').locator("textarea").first();
   if (await note.count() && !(await note.inputValue())) await note.fill("仿真关系：" + agent + " 建立 " + pick);
   const cite = page.locator('input[placeholder*="来源声明"]').last();
   if (await cite.count() && !(await cite.inputValue())) await cite.fill("https://example.org/sim/" + agent + "-rel");
