@@ -71,9 +71,11 @@ async function runAgent(n) {
         await page.waitForTimeout(2000);
       }
       const id = r.id || "";
-      if (r.status === 200 || r.status === 201) { ok++; created.push(id); if (!useUpdate && !useRel) createdTitles.push(title);
+      // 跳过类结果没有 id：不要污染 created 列表，否则后续修改会拿空 id 去请求
+      if ((r.status === 200 || r.status === 201) && (!id || id.length === 36)) { ok++; if (id) created.push(id); if (!useUpdate && !useRel) createdTitles.push(title);
         const madeKind = childPlan ? childPlan.kind : kind;
         if (byKind[madeKind]) byKind[madeKind].push(title); }
+      else if (r.status === 200 || r.status === 201) { ok++; }
       else {
         fail++;
         // 401 = 会话失效（令牌过期且续期失败、或被登出）：真人会重新登录后继续，
