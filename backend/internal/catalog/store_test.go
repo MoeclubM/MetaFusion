@@ -123,7 +123,8 @@ func TestPostgresCatalog(t *testing.T) {
 		return v
 	}
 	entity := func(kind, title string) Entity {
-		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{}}
+		// 发布态要求至少一条翻译：夹具给一条，语义上与真实写入一致。
+		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{"en": {Title: title}}}
 	}
 	song := save(entity("work", "原创歌曲"))
 	album := save(entity("work", "个人专辑"))
@@ -663,7 +664,8 @@ func TestExpressionDetailsBatch(t *testing.T) {
 		return v
 	}
 	entity := func(kind, title string) Entity {
-		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{}}
+		// 发布态要求至少一条翻译：夹具给一条，语义上与真实写入一致。
+		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{"en": {Title: title}}}
 	}
 	song := save(entity("work", "批量歌曲"))
 	album := save(entity("work", "批量专辑"))
@@ -745,7 +747,8 @@ func TestOccurrencesScopeByKind(t *testing.T) {
 		return v
 	}
 	entity := func(kind, title string) Entity {
-		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{}}
+		// 发布态要求至少一条翻译：夹具给一条，语义上与真实写入一致。
+		return Entity{Kind: kind, Title: title, Types: []string{}, Attributes: map[string]any{}, Translations: map[string]Translation{"en": {Title: title}}}
 	}
 	// 同 Work 两集：各自独立收录，不应互相污染。
 	work := save(entity("work", "分集动画"))

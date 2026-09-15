@@ -33,6 +33,10 @@ func (f fixture) save(e Entity) Entity {
 	if e.Status == "" {
 		e.Status = "published"
 	}
+	// 发布态要求至少一条翻译（真实契约）：在这里补齐，免得每个调用点各自记这件事。
+	if e.Status == "published" && len(e.Translations) == 0 {
+		e.Translations = map[string]Translation{"en": {Title: e.Title}}
+	}
 	// Match HTTP decoding for dynamic JSON values.
 	var copy Entity
 	if err := json.Unmarshal([]byte(encode(e)), &copy); err != nil {
@@ -230,7 +234,13 @@ func TestPostgresAccountRoutesAreGone(t *testing.T) {
 	if res := request(http.MethodPost, "/api/catalog/entities", `{"kind":"work","title":"匿名写入"}`, ""); res.Code != http.StatusUnauthorized {
 		t.Fatalf("anonymous write = %d, want 401", res.Code)
 	}
-	if res := request(http.MethodPost, "/api/catalog/entities", `{"kind":"work","title":"验签写入"}`, signTestToken(t, key, nil)); res.Code != http.StatusOK {
+	// 写入必须用真实信封（entity + expected_version + edit_note + sources）：
+	// 裸 entity 会被严格解析拒掉，这正是这一条要守住的行为。
+	body := `{"entity":{"kind":"work","title":"验签写入","translations":{"en":{"title":"verified write"}}},"expected_version":0,"edit_note":"acceptance fixture","sources":[{"kind":"self","citation":"acceptance fixture"}]}`
+	if res := request(http.MethodPost, "/api/catalog/entities", body, signTestToken(t, key, nil)); res.Code != http.StatusOK {
 		t.Fatalf("authenticated write = %d: %s", res.Code, res.Body.String())
+	}
+	if res := request(http.MethodPost, "/api/catalog/entities", `{"kind":"work","title":"裸实体"}`, signTestToken(t, key, nil)); res.Code != http.StatusBadRequest {
+		t.Fatalf("bare entity payload = %d, want 400", res.Code)
 	}
 }
