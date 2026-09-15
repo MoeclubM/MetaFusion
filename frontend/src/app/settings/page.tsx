@@ -10,6 +10,7 @@ import { useTheme, accentLabel } from "@/lib/themeContext";
 import { displayNameOf, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
+import { ThemeControls } from "@/components/ThemeControls";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -392,74 +393,8 @@ export default function SettingsPage() {
           )}
 
           {activeTab === "appearance" && (
-            <div className="p-4 sm:p-5 space-y-3.5">
-              <div className="p-3.5 rounded-md bg-background border border-line-subtle space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs text-gray-500 flex items-center gap-1.5">
-                    <Palette className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
-                    <span>{t("theme.displayMode")}</span>
-                  </span>
-                  <span className="font-mono text-[10px] text-gray-400">{t("theme.themeLabel")}</span>
-                </div>
-                <div className="grid grid-cols-3 gap-1 bg-black/[0.04] dark:bg-white/[0.04] p-0.5 rounded-md border border-line-subtle">
-                  <button
-                    type="button"
-                    onClick={() => setMode("dark")}
-                    className={`py-2 rounded-md flex flex-col items-center gap-1 transition-all ${
-                      mode === "dark" ? "bg-primary text-white keep-white shadow-xs font-semibold" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                  >
-                    <Moon className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium">{t("theme.dark")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode("light")}
-                    className={`py-2 rounded-md flex flex-col items-center gap-1 transition-all ${
-                      mode === "light" ? "bg-primary text-white keep-white shadow-xs font-semibold" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                  >
-                    <Sun className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium">{t("theme.light")}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMode("system")}
-                    className={`py-2 rounded-md flex flex-col items-center gap-1 transition-all ${
-                      mode === "system" ? "bg-primary text-white keep-white shadow-xs font-semibold" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                    }`}
-                  >
-                    <Laptop className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium">{t("theme.system")}</span>
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between pt-2.5 border-t border-line-subtle">
-                  <span className="font-mono text-xs text-gray-500">{t("theme.accentLabel")}</span>
-                  <span className="font-mono text-[11px] font-semibold text-text-strong">{accentLabel(accent, t)}</span>
-                </div>
-                <div className="flex items-center gap-1.5 pt-1">
-                  {accents.map((item) => {
-                    const active = accent === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setAccent(item.id)}
-                        title={t(item.labelKey)}
-                        className={`flex-1 py-2 rounded-md border flex flex-col items-center gap-1 transition-all ${
-                          active ? "bg-black/[0.04] dark:bg-white/[0.08] border-primary/40 text-text-strong" : "bg-surfaceSubtle border-line-subtle text-gray-500 hover:text-gray-700 dark:hover:text-gray-200"
-                        }`}
-                      >
-                        <div className={`w-5 h-5 rounded-full grid place-items-center shadow-2xs ${active ? "ring-2 ring-primary ring-offset-1 ring-offset-surface" : ""}`} style={{ backgroundColor: item.color }}>
-                          {active && <Check className="w-3 h-3 text-white stroke-[3]" />}
-                        </div>
-                        <span className="text-[10px] font-medium truncate">{t(item.labelKey)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+            <div className="p-4 sm:p-5">
+              <ThemeControls />
             </div>
           )}
 

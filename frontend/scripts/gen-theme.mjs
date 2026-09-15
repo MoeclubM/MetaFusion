@@ -1,0 +1,163 @@
+// 由 scripts/theme-palette.mjs 生成：
+//   src/app/theme.generated.css  —— 每套配色在深/浅两种模式下的 CSS 变量块（静态，无 JS 也能生效）
+//   src/lib/theme.generated.ts   —— 前端需要的配色目录（id / 名称键 / 色卡）
+// 生成物一并提交：主题是静态资产，构建期不依赖脚本再次运行。
+import fs from "fs";
+import path from "path";
+import { ACCENTS, TONES, BASE_DARK, BASE_LIGHT } from "./theme-palette.mjs";
+
+const ROOT = process.cwd();
+const CSS_OUT = path.join(ROOT, "src/app/theme.generated.css");
+const TS_OUT = path.join(ROOT, "src/lib/theme.generated.ts");
+
+// —— 颜色工具：按色相/明度推导，保证 16 套配色的派生规则一致 ——
+function hexToRgb(hex) {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+function rgbToHsl([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let h = 0, s = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) h = ((b - r) / d + 2) / 6;
+    else h = ((r - g) / d + 4) / 6;
+  }
+  return [h * 360, s * 100, l * 100];
+}
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360; s = Math.max(0, Math.min(100, s)) / 100; l = Math.max(0, Math.min(100, l)) / 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l - c / 2;
+  let rgb = [0, 0, 0];
+  if (h < 60) rgb = [c, x, 0]; else if (h < 120) rgb = [x, c, 0]; else if (h < 180) rgb = [0, c, x];
+  else if (h < 240) rgb = [0, x, c]; else if (h < 300) rgb = [x, 0, c]; else rgb = [c, 0, x];
+  return "#" + rgb.map((v) => Math.round((v + m) * 255).toString(16).padStart(2, "0")).join("");
+}
+function shift(hex, { dh = 0, ds = 0, dl = 0 }) {
+  const [h, s, l] = rgbToHsl(hexToRgb(hex));
+  return hslToHex(h + dh, s + ds, l + dl);
+}
+// 相对亮度决定"主色上的文字"用什么颜色：亮主色（黄/柠檬）配深字，其余配白字。
+function luminance(hex) {
+  const [r, g, b] = hexToRgb(hex).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+const contrastOn = (hex) => (luminance(hex) > 0.45 ? "#0b0f17" : "#ffffff");
+
+// 每个配色在两套模式下的五个变量：主色 / 悬停 / 亮色 / 主色上的文字 / 第二强调色
+function accentVars(a) {
+  const dark = {
+    primary: shift(a.base, { dl: 4 }),
+    hover: shift(a.base, { dl: -6 }),
+    light: shift(a.base, { dl: 16 }),
+    accent: a.accent,
+  };
+  const light = {
+    primary: shift(a.base, { dl: -6 }),
+    hover: shift(a.base, { dl: -14 }),
+    light: shift(a.base, { dl: 10 }),
+    accent: a.accent,
+  };
+  return {
+    dark: { ...dark, contrast: contrastOn(dark.primary) },
+    light: { ...light, contrast: contrastOn(light.primary) },
+  };
+}
+
+// 表面色调：在中性基准上做色相偏移（暖/冷）与对比缩放（deep 提升线与文字对比）
+function toneVars(tone, base, mode) {
+  const out = { ...base };
+  const hueTint = (hex) => {
+    if (tone.hue === null) return hex;
+    const [, , l] = rgbToHsl(hexToRgb(hex));
+    // 直接换到目标色相并给一档低饱和：暖/冷要"看得见"，但仍然是灰底不是彩色底。
+    const sat = mode === "dark" ? 13 : 22;
+    return hslToHex(tone.hue, sat, l);
+  };
+  for (const key of ["bg", "surface", "surfaceHover"]) out[key] = hueTint(base[key]);
+  if (tone.contrast !== 1) {
+    const bump = (rgba, factor) => rgba.replace(/([0-9.]+)\)$/, (m, n) => `${Math.min(1, Number(n) * factor).toFixed(3)})`);
+    out.line = bump(base.line, tone.contrast);
+    out.lineSubtle = bump(base.lineSubtle, tone.contrast);
+    out.lineStrong = bump(base.lineStrong, tone.contrast);
+    out.surfaceSubtle = bump(base.surfaceSubtle, 1);
+  }
+  return out;
+}
+
+// —— 生成 CSS ——
+const lines = [];
+lines.push("/* 由 scripts/gen-theme.mjs 生成，勿手改：改配色请看 scripts/theme-palette.mjs。 */");
+lines.push("");
+for (const a of ACCENTS) {
+  const v = accentVars(a);
+  // 两个属性一起写，特异性(0,2,0)高于 html.dark / [data-theme-mode="dark"] 的默认值块，
+  // 否则深色模式下默认主色会盖住所选配色。
+  lines.push(`[data-theme-accent="${a.id}"][data-theme-mode="dark"] {`);
+  lines.push(`  --primary-color: ${v.dark.primary};`);
+  lines.push(`  --primary-hover-color: ${v.dark.hover};`);
+  lines.push(`  --primary-light-color: ${v.dark.light};`);
+  lines.push(`  --primary-contrast-color: ${v.dark.contrast};`);
+  lines.push(`  --accent-color: ${v.dark.accent};`);
+  lines.push("}");
+  lines.push(`[data-theme-accent="${a.id}"][data-theme-mode="light"] {`);
+  lines.push(`  --primary-color: ${v.light.primary};`);
+  lines.push(`  --primary-hover-color: ${v.light.hover};`);
+  lines.push(`  --primary-light-color: ${v.light.light};`);
+  lines.push(`  --primary-contrast-color: ${v.light.contrast};`);
+  lines.push(`  --accent-color: ${v.light.accent};`);
+  lines.push("}");
+  lines.push("");
+}
+for (const tone of TONES) {
+  for (const [mode, base] of [["dark", BASE_DARK], ["light", BASE_LIGHT]]) {
+    const t = toneVars(tone, base, mode);
+    lines.push(`[data-theme-tone="${tone.id}"][data-theme-mode="${mode}"] {`);
+    lines.push(`  --bg-color: ${t.bg};`);
+    lines.push(`  --surface-color: ${t.surface};`);
+    lines.push(`  --surface-hover-color: ${t.surfaceHover};`);
+    lines.push(`  --surface-subtle-color: ${t.surfaceSubtle};`);
+    lines.push(`  --line-color: ${t.line};`);
+    lines.push(`  --line-subtle-color: ${t.lineSubtle};`);
+    lines.push(`  --line-strong-color: ${t.lineStrong};`);
+    lines.push(`  --text-strong-color: ${t.textStrong};`);
+    lines.push(`  --text-body-color: ${t.textBody};`);
+    lines.push(`  --text-muted-color: ${t.textMuted};`);
+    lines.push(`  --text-faint-color: ${t.textFaint};`);
+    lines.push("}");
+    lines.push("");
+  }
+}
+fs.writeFileSync(CSS_OUT, lines.join("\n"));
+
+// —— 生成前端目录 ——
+const ts = [
+  "// 由 scripts/gen-theme.mjs 生成，勿手改：新增配色请看 scripts/theme-palette.mjs 后重跑 npm run theme:build。",
+  "",
+  "export interface AccentEntry { id: string; labelKey: string; swatch: string; }",
+  "export interface ToneEntry { id: string; labelKey: string; }",
+  "",
+  "export const ACCENTS: AccentEntry[] = [",
+  ...ACCENTS.map((a) => `  { id: ${JSON.stringify(a.id)}, labelKey: ${JSON.stringify(a.labelKey)}, swatch: ${JSON.stringify(a.base)} },`),
+  "];",
+  "",
+  "export const TONES: ToneEntry[] = [",
+  ...TONES.map((t) => `  { id: ${JSON.stringify(t.id)}, labelKey: ${JSON.stringify(t.labelKey)} },`),
+  "];",
+  "",
+  "export const ACCENT_IDS = ACCENTS.map((a) => a.id);",
+  "export const TONE_IDS = TONES.map((t) => t.id);",
+  "export type ThemeAccent = (typeof ACCENT_IDS)[number];",
+  "export type ThemeTone = (typeof TONE_IDS)[number];",
+  "export const DEFAULT_ACCENT: ThemeAccent = \"blue\";",
+  "export const DEFAULT_TONE: ThemeTone = \"neutral\";",
+  "",
+].join("\n");
+fs.writeFileSync(TS_OUT, ts);
+console.log("已生成 " + ACCENTS.length + " 套配色 × " + TONES.length + " 种表面色调：");
+console.log("  " + path.relative(ROOT, CSS_OUT));
+console.log("  " + path.relative(ROOT, TS_OUT));

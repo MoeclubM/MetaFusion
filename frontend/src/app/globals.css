@@ -1,3 +1,6 @@
+/* 配色与表面色调的变量块由 scripts/gen-theme.mjs 生成（唯一来源见 scripts/theme-palette.mjs） */
+@import "./theme.generated.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -60,120 +63,18 @@
   --primary: #2563eb;
 }
 
-/* Accents */
-:root, [data-theme-accent="blue"] {
-  --primary-color: #3b82f6;
-  --primary-hover-color: #2563eb;
-  --primary-light-color: #60a5fa;
-  --accent-color: #f59e0b;
-}
-
-[data-theme-accent="emerald"] {
-  --primary-color: #10b981;
-  --primary-hover-color: #059669;
-  --primary-light-color: #34d399;
-  --accent-color: #38bdf8;
-}
-
-[data-theme-accent="amber"] {
-  --primary-color: #f59e0b;
-  --primary-hover-color: #d97706;
-  --primary-light-color: #fbbf24;
-  --accent-color: #f97316;
-}
-
-[data-theme-accent="violet"] {
-  --primary-color: #8b5cf6;
-  --primary-hover-color: #7c3aed;
-  --primary-light-color: #a78bfa;
-  --accent-color: #ec4899;
-}
-
-[data-theme-accent="rose"] {
-  --primary-color: #f43f5e;
-  --primary-hover-color: #e11d48;
-  --primary-light-color: #fb7185;
-  --accent-color: #fb923c;
-}
-
-[data-theme-accent="monochrome"] {
-  --primary-color: #71717a;
-  --primary-hover-color: #52525b;
-  --primary-light-color: #a1a1aa;
-  --accent-color: #71717a;
-}
-
-[data-theme-mode="dark"][data-theme-accent="monochrome"],
-html.dark[data-theme-accent="monochrome"] {
-  --primary-color: #ffffff;
-  --primary-hover-color: #e4e4e7;
-  --primary-light-color: #a1a1aa;
-}
-
-[data-theme-mode="light"][data-theme-accent="monochrome"],
-html.light[data-theme-accent="monochrome"] {
-  --primary-color: #18181b;
-  --primary-hover-color: #27272a;
-  --primary-light-color: #52525b;
-}
-
-@layer components {
-  /* 页面骨架：所有主内容页共用同一条宽度与内边距，不再各写 max-w-7xl/5xl/2xl。 */
-  .mf-page {
-    @apply mx-auto w-full max-w-page px-4 sm:px-6 lg:px-8;
-  }
-  .mf-page-narrow {
-    @apply mx-auto w-full max-w-narrow px-4 sm:px-6;
-  }
-  /* 卡片：内容块与列表行的统一外壳（圆角、描边、底色、悬浮反馈一次到位）。 */
-  .mf-card {
-    @apply rounded-card border border-line bg-surface transition-colors duration-base ease-soft;
-  }
-  .mf-card-hover {
-    @apply hover:border-primary/40 hover:bg-surfaceHover;
-  }
-  .mf-panel {
-    @apply rounded-panel border border-line bg-surface;
-  }
-  /* 控件：按钮与输入框同一圆角与焦点环。 */
-  .mf-control {
-    @apply rounded-control border border-line bg-surfaceSubtle text-sm text-text-body transition-colors duration-fast ease-soft;
-  }
-  .mf-chip {
-    @apply rounded-chip border border-line-subtle bg-surfaceSubtle px-2 py-0.5 text-[11px] text-text-muted;
-  }
-  /* 焦点可见性：键盘导航必须看得见，鼠标点击不打扰。 */
-  .mf-focus {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-color)];
-  }
-  .mf-divider {
-    @apply border-t border-line-subtle;
-  }
-}
-
-/* 入场动效：页面与列表统一用同一组，避免每处各写 duration。 */
-@keyframes mfRise {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.mf-enter {
-  animation: mfRise 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
 html {
   scroll-behavior: smooth;
+}
+
+/* 主色只在 :root 给默认值（无 JS / 未选配色时），具体配色由生成的属性块覆盖；
+   不要写进 html.dark 这类选择器，否则会盖住 [data-theme-accent] 块。 */
+:root {
+  --primary-color: #4f8ef7;
+  --primary-hover-color: #1e6ff5;
+  --primary-light-color: #89b4fa;
+  --primary-contrast-color: #ffffff;
+  --accent-color: #22d3ee;
 }
 
 html.dark {
