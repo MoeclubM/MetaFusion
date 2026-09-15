@@ -68,7 +68,7 @@
   ```json
   {
     "sub": "user-uuid-1234",
-    "username": "MoeCaa",
+    "username": "admin",
     "roles": ["curator", "uploader"],
     "scopes": ["catalog:read", "catalog:edit", "storage:download", "community:post"],
     "exp": 1780000000

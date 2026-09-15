@@ -11,6 +11,7 @@
 | [metafusion-docs](https://github.com/MoeclubM/metafusion-docs) | 面向公众的文档站（VitePress，唯一源）：实体模型、编目指南、REST API 全套文档、法务页 | 所有人 / 外部开发者 |
 | [`../AGENTS.md`](../AGENTS.md) | Agent / 贡献者协作准则（Git 规范、编目最高准则、gh cli 流程） | AI Agent / 贡献者 |
 | [metafusion-skills](https://github.com/MoeclubM/metafusion-skills) | 编目标准技能独立仓库（metafusion-curator + lrm-catalog-standards） | AI Agent / 考据员 |
+| 本地 `docs-local/`（**不进版本库**） | 部署手册与实例状态、服务器连接信息、开发日志与一次性执行报告 | 维护者 / 运维 |
 
 ---
 
