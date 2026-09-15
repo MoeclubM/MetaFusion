@@ -8,7 +8,8 @@ try { pw = require("playwright"); } catch { pw = require(process.env.APPDATA + "
 export const BASE = process.env.MF_BASE || "https://findverse.cc";
 
 export async function login(page, user, pass) {
-  for (let attempt = 0; attempt < 3; attempt++) {
+  // 10 个账号同时起跑会撞上账号服务的限流（5 r/s）：多试几次、退避拉长
+  for (let attempt = 0; attempt < 5; attempt++) {
     await page.goto(BASE + "/login", { waitUntil: "domcontentloaded", timeout: 60000 });
     await page.waitForTimeout(1500);
     try {
@@ -16,7 +17,7 @@ export async function login(page, user, pass) {
       await page.locator("input[type=password]").first().fill(pass, { timeout: 15000 });
       await page.locator("button[type=submit]").first().click({ timeout: 15000 });
     } catch { await page.waitForTimeout(3000); continue; }
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(3000 + attempt * 2000);
     const who = await page.evaluate(async () => { try { const r = await fetch("/api/auth/me"); if (!r.ok) return ""; const j = await r.json(); return j.username || ""; } catch { return ""; } });
     if (who === user) return page.url();
     await page.waitForTimeout(2000);
