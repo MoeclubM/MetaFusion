@@ -7,7 +7,8 @@ const AGENTS = Number(process.argv[2] || 3);
 const OPS = Number(process.argv[3] || 40);
 const START = Number(process.argv[4] || 1);
 const PASS = process.env.MF_USER_PASS;
-const OUT = "C:/Users/QwQ/AppData/Local/Temp/mf-ui/";
+const OUT = (process.env.MF_LOG_DIR || "C:/Users/QwQ/AppData/Local/Temp/mf-ui") + "/";
+if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
 const WAVE = process.argv[5] || "w" + Date.now();
 // 只创建可独立存在的层级：content_unit/expression 必须有 work_id、medium 必须有 release_id、
   // track 必须有 medium_id（服务端 parent_required），在"新建"表单里没有父级可选的场景下先不建它们。
