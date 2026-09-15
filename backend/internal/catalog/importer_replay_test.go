@@ -2,7 +2,7 @@ package catalog
 
 // person/45638 真人全流程快照回放验证（只读快照 + httptest 桩，无出站、无 Postgres 也可跑映射部分）。
 //
-// 快照目录：C:/Users/QwQ/AppData/Local/Temp/mygo_survey/
+// 快照目录：由 MF_SNAPSHOT_DIR 指定（默认用系统临时目录下的 mygo_survey/，不进版本库）
 //   - person_45638.json      Bangumi 人物 45638（MyGO!!!!!，type=3 组合，career=["artist"]）
 //   - persons/p_*.json       关联人物（如 p_32434 林鼓子）
 //   - subj/s_*.json          关联条目（如 s_428735、s_440879，均 type=2 动画）
