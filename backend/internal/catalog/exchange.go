@@ -25,7 +25,7 @@ func (h HTTP) registerExchange(api *gin.RouterGroup) {
 		}
 		c.Data(http.StatusOK, "application/json", b)
 	})
-	api.POST("/exchange/proposals", required(false), func(c *gin.Context) {
+	api.POST("/exchange/proposals", required(""), func(c *gin.Context) {
 		var in Edit
 		if !body(c, &in) {
 			return

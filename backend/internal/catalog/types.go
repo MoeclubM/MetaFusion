@@ -217,7 +217,11 @@ type User struct {
 	ID       string `json:"id"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
-	Role     string `json:"role"`
+	// Role 是账号服务的历史角色，只在令牌没带 permissions 时由 User.Can 兜底；
+	// 授权判定一律走权限码。Groups 供展示与审计，不参与判定（见 permission.go）。
+	Role        string   `json:"role"`
+	Groups      []string `json:"groups,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
 }
 type Event struct {
 	ID        string          `json:"id"`

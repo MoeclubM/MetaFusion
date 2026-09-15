@@ -270,7 +270,8 @@ func (s *Store) ListShelfItems(ctx context.Context, sh Shelf, limit int, u *User
 	where := []string{}
 	if u == nil {
 		where = append(where, "e.status='published'")
-	} else if u.Role != "admin" {
+	} else if !u.Can(PermissionShelvesManage) {
+		// 持货架管理权者（旧 admin）在求值里可见未发布条目，便于配置后预览。
 		args = append(args, u.ID)
 		where = append(where, fmt.Sprintf("(e.status='published' OR e.created_by=$%d)", len(args)))
 	}

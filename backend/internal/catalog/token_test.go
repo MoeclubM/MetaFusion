@@ -245,6 +245,49 @@ func TestStoreAuthenticateIsVerifyOnly(t *testing.T) {
 	}
 }
 
+// 账号服务签发的 groups/permissions 必须逐字落到 User 上：授权只看 permissions，
+// groups 只作展示与审计。
+func TestClaimsCarryGroupsAndPermissions(t *testing.T) {
+	key := testKey(t)
+	v := testVerifier(t, key)
+	token := signTestToken(t, key, func(c Claims) Claims {
+		c.Groups = []string{"catalog_editor"}
+		c.Permissions = []string{PermissionEntityEdit, PermissionRelationEdit}
+		return c
+	})
+	claims, err := v.Verify(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := ClaimsToUser(claims)
+	if !u.Can(PermissionEntityEdit) || u.Can(PermissionLifecycleManage) {
+		t.Fatalf("token permissions not honoured: %+v", u)
+	}
+	if len(u.Groups) != 1 || u.Groups[0] != "catalog_editor" || len(u.Permissions) != 2 {
+		t.Fatalf("groups/permissions not restored: %+v", u)
+	}
+	// 载荷键名与账号服务的签发侧逐字一致：改名会让目录读不到权限。
+	payload, err := base64.RawURLEncoding.DecodeString(strings.Split(token, ".")[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := map[string]any{}
+	if err = json.Unmarshal(payload, &raw); err != nil {
+		t.Fatal(err)
+	}
+	for _, field := range []string{"groups", "permissions"} {
+		if _, ok := raw[field]; !ok {
+			t.Fatalf("%s claim key drifted from the account service", field)
+		}
+	}
+	// Store.Authenticate 走同一条还原路径（目录不查库，身份只来自令牌）。
+	s := &Store{Verifier: v}
+	authed, err := s.Authenticate(token)
+	if err != nil || authed == nil || !authed.Can(PermissionEntityEdit) || authed.Can(PermissionDefinitionsManage) {
+		t.Fatalf("authenticate must carry permissions: %v %+v", err, authed)
+	}
+}
+
 // PublicJWK 只暴露公钥参数，不得包含任何私钥材料。
 func TestPublicJWKHasNoPrivateMaterial(t *testing.T) {
 	v := testVerifier(t, testKey(t))

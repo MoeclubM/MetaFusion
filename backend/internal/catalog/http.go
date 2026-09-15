@@ -71,14 +71,17 @@ func user(c *gin.Context) *User {
 	}
 	return v.(*User)
 }
-func required(admin bool) gin.HandlerFunc {
+
+// required 是路由级闸门：code 为空只要求已登录，否则要求令牌带对应权限码。
+// 角色兜底集中在 User.Can 里，这里不再比角色字符串（见 permission.go）。
+func required(code string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u := user(c)
 		if u == nil {
 			c.AbortWithStatusJSON(401, gin.H{"error": "authentication_required"})
 			return
 		}
-		if admin && u.Role != "admin" {
+		if code != "" && !u.Can(code) {
 			c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
 			return
 		}
@@ -355,7 +358,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		e, err := s.Resolve(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, e, err)
 	})
-	cat.POST("/entities", required(false), func(c *gin.Context) {
+	cat.POST("/entities", required(""), func(c *gin.Context) {
 		// 幂等命中直接返回首创结果, 不建重复实体。
 		if cached, ok := idemLookup(c); ok {
 			c.JSON(200, cached)
@@ -375,7 +378,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		respond(c, e, err)
 	})
-	cat.PUT("/entities/:id", required(false), func(c *gin.Context) {
+	cat.PUT("/entities/:id", required(""), func(c *gin.Context) {
 		var in Edit
 		if !body(c, &in) {
 			return
@@ -384,7 +387,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		e, err := s.Save(c.Request.Context(), in, *user(c))
 		respond(c, e, err)
 	})
-	cat.POST("/entities/:id/lifecycle", required(true), func(c *gin.Context) {
+	cat.POST("/entities/:id/lifecycle", required(PermissionLifecycleManage), func(c *gin.Context) {
 		var in LifecycleEdit
 		if !body(c, &in) {
 			return
@@ -479,14 +482,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		c.JSON(200, gin.H{"items": out})
 	})
-	// 个人首页偏好读：需登录，未登录返回 401（与 required(false) 语义一致，
+	// 个人首页偏好读：需登录，未登录返回 401（与 required("") 语义一致，
 	// 不再用匿名 404 误导前端走“未找到”分支）。
-	cat.GET("/me/home-preferences", required(false), func(c *gin.Context) {
+	cat.GET("/me/home-preferences", required(""), func(c *gin.Context) {
 		v, err := s.GetHomePreferences(c.Request.Context(), user(c).ID)
 		respond(c, v, err)
 	})
 	// 个人首页偏好写：需登录、不限管理员，与读端对称。
-	cat.PUT("/me/home-preferences", required(false), func(c *gin.Context) {
+	cat.PUT("/me/home-preferences", required(""), func(c *gin.Context) {
 		var in HomePreferences
 		if !body(c, &in) {
 			return
@@ -515,7 +518,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		respond(c, nil, err)
 	})
-	imp.POST("/import", required(false), func(c *gin.Context) {
+	imp.POST("/import", required(""), func(c *gin.Context) {
 		var in ImporterImportRequest
 		if !body(c, &in) {
 			return
@@ -523,7 +526,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.Import(c.Request.Context(), in, *user(c))
 		respond(c, v, err)
 	})
-	cat.POST("/relations", required(false), func(c *gin.Context) {
+	cat.POST("/relations", required(""), func(c *gin.Context) {
 		// 幂等命中直接返回首创结果, 不建重复关系。
 		if cached, ok := idemLookup(c); ok {
 			c.JSON(200, cached)
@@ -543,7 +546,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		respond(c, v, err)
 	})
-	cat.PUT("/relations/:id", required(false), func(c *gin.Context) {
+	cat.PUT("/relations/:id", required(""), func(c *gin.Context) {
 		var in RelationEdit
 		if !body(c, &in) {
 			return
@@ -552,14 +555,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.SaveRelation(c.Request.Context(), in, *user(c))
 		respond(c, v, err)
 	})
-	cat.DELETE("/relations/:id", required(false), func(c *gin.Context) {
+	cat.DELETE("/relations/:id", required(""), func(c *gin.Context) {
 		var in LifecycleEdit
 		if !body(c, &in) {
 			return
 		}
 		respond(c, gin.H{"ok": true}, s.DeleteRelation(c.Request.Context(), c.Param("id"), in.ExpectedVersion, in.EditNote, in.Sources, *user(c)))
 	})
-	defs := api.Group("/admin/catalog-definitions", required(true))
+	defs := api.Group("/admin/catalog-definitions", required(PermissionDefinitionsManage))
 	defs.GET("", func(c *gin.Context) {
 		v, err := s.DefinitionVersions(c.Request.Context())
 		respond(c, gin.H{"items": v}, err)
@@ -590,7 +593,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		respond(c, gin.H{"ok": true}, s.Publish(c.Request.Context(), id, *user(c), in.EditNote, in.Sources))
 	})
-	ext := api.Group("/admin/external-databases", required(true))
+	ext := api.Group("/admin/external-databases", required(PermissionDefinitionsManage))
 	ext.GET("", func(c *gin.Context) {
 		v, err := s.ListExternalDatabases(c.Request.Context(), c.Query("category"), false)
 		respond(c, gin.H{"items": v}, err)
@@ -614,7 +617,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	ext.DELETE("/:code", func(c *gin.Context) {
 		respond(c, gin.H{"message": "deleted"}, s.DeleteExternalDatabase(c.Request.Context(), c.Param("code")))
 	})
-	shelves := api.Group("/admin/shelves", required(true))
+	shelves := api.Group("/admin/shelves", required(PermissionShelvesManage))
 	shelves.GET("", func(c *gin.Context) {
 		v, err := s.ListShelves(c.Request.Context(), false)
 		respond(c, gin.H{"items": v}, err)

@@ -91,7 +91,7 @@ func OpenAPI() map[string]any {
 	for _, r := range [][6]string{
 		{"/catalog/definitions", "get", "Published dynamic definitions plus the fixed entity-skeleton names (multilingual kinds)", "", "DefinitionVersion", ""}, {"/catalog/entities", "get", "Entity search (kind/kinds/q/type/types/status/work_id/content_unit_id/release_id/medium_id/parent_id/field/value/tags; field supports dotted paths like attachments.store or locator.path, structural locator./inclusion_attributes./subject_attributes. compile to track_contents/release_subjects EXISTS; items + real COUNT total; 120/min per IP)", "", "Result", ""}, {"/catalog/entities", "post", "Create entity with evidence (supports Idempotency-Key, 24h)", "Edit", "Entity", "auth"},
 		{"/catalog/tags", "get", "Tag frequency aggregation over published entities' attributes.tags (q filter, limit<=500)", "", "Result", ""},
-		{"/catalog/entities/{id}", "get", "Read visible entity", "", "Entity", ""}, {"/catalog/entities/{id}", "put", "Replace entity with optimistic version check", "Edit", "Entity", "auth"}, {"/catalog/entities/{id}/resolve", "get", "Resolve merged identity", "", "Entity", ""}, {"/catalog/entities/{id}/lifecycle", "post", "Merge or retire (administrator only)", "LifecycleEdit", "Entity", "auth"},
+		{"/catalog/entities/{id}", "get", "Read visible entity", "", "Entity", ""}, {"/catalog/entities/{id}", "put", "Replace entity with optimistic version check", "Edit", "Entity", "auth"}, {"/catalog/entities/{id}/resolve", "get", "Resolve merged identity", "", "Entity", ""}, {"/catalog/entities/{id}/lifecycle", "post", "Merge or retire (requires catalog.lifecycle.manage)", "LifecycleEdit", "Entity", "auth"},
 		{"/catalog/entities/{id}/revisions", "get", "Read visible revision history", "", "Result", ""}, {"/catalog/entities/{id}/relations", "get", "Read contextual forward and reverse relations", "", "Result", ""}, {"/catalog/entities/{id}/occurrences", "get", "Read own reverse inclusions, scoped by entity kind (expression=itself, content_unit=its expressions, work=its expressions)", "", "Result", ""}, {"/catalog/expressions/details", "post", "Batch expression details (entity + own inclusions + same-content-unit siblings + credit) for release pages; JSON body {ids:[...]}", "Result", "Result", ""}, {"/catalog/external-databases", "get", "List active external authority database definitions", "", "Result", ""}, {"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
 		{"/catalog/compare", "get", "Compare two to six releases (10/min per IP)", "", "Result", ""},
 		{"/exchange/entities/{id}", "get", "Export an entity snapshot for another instance", "", "Entity", ""},
@@ -99,20 +99,20 @@ func OpenAPI() map[string]any {
 		{"/importer/preview", "post", "Preview external catalog entry (Bangumi public API)", "ImporterPreviewRequest", "ImporterPreviewResponse", ""},
 		{"/importer/import", "post", "Import previewed entry with evidence", "ImporterImportRequest", "ImporterImportResponse", "auth"},
 		{"/catalog/relations", "post", "Create contextual relation (supports Idempotency-Key, 24h)", "RelationEdit", "Relation", "auth"}, {"/catalog/relations/{id}", "put", "Replace relation context", "RelationEdit", "Relation", "auth"}, {"/catalog/relations/{id}", "delete", "Remove relation with evidence", "LifecycleEdit", "Result", "auth"},
-		{"/admin/catalog-definitions", "get", "List definition versions (administrator only)", "", "Result", "auth"}, {"/admin/catalog-definitions", "post", "Save immutable draft (administrator only)", "DefinitionDraft", "Result", "auth"}, {"/admin/catalog-definitions/{id}/impact", "get", "Validate draft against all current data", "", "Result", "auth"}, {"/admin/catalog-definitions/{id}/publish", "post", "Publish compatible draft (administrator only)", "LifecycleEdit", "Result", "auth"},
-		{"/admin/external-databases", "get", "List external authority databases (administrator only)", "", "Result", "auth"},
-		{"/admin/external-databases", "post", "Create external authority database (administrator only)", "ExternalDatabase", "Result", "auth"},
-		{"/admin/external-databases/{code}", "put", "Update external authority database (administrator only)", "ExternalDatabase", "Result", "auth"},
-		{"/admin/external-databases/{code}", "delete", "Delete external authority database (administrator only)", "", "Result", "auth"},
+		{"/admin/catalog-definitions", "get", "List definition versions (requires catalog.definitions.manage)", "", "Result", "auth"}, {"/admin/catalog-definitions", "post", "Save immutable draft (requires catalog.definitions.manage)", "DefinitionDraft", "Result", "auth"}, {"/admin/catalog-definitions/{id}/impact", "get", "Validate draft against all current data", "", "Result", "auth"}, {"/admin/catalog-definitions/{id}/publish", "post", "Publish compatible draft (requires catalog.definitions.manage)", "LifecycleEdit", "Result", "auth"},
+		{"/admin/external-databases", "get", "List external authority databases (requires catalog.definitions.manage)", "", "Result", "auth"},
+		{"/admin/external-databases", "post", "Create external authority database (requires catalog.definitions.manage)", "ExternalDatabase", "Result", "auth"},
+		{"/admin/external-databases/{code}", "put", "Update external authority database (requires catalog.definitions.manage)", "ExternalDatabase", "Result", "auth"},
+		{"/admin/external-databases/{code}", "delete", "Delete external authority database (requires catalog.definitions.manage)", "", "Result", "auth"},
 		{"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
 		{"/catalog/shelves/feed", "get", "Evaluate shelf rules with their items, ordered by caller preferences", "", "Result", ""},
 		{"/catalog/me/home-preferences", "get", "Read caller homepage section preferences", "", "Result", "auth"},
 		{"/catalog/me/home-preferences", "put", "Replace caller homepage section preferences", "HomePreferences", "Result", "auth"},
-		{"/admin/shelves", "get", "List shelf rules (administrator only)", "", "Result", "auth"},
-		{"/admin/shelves", "post", "Create shelf rule (administrator only)", "Shelf", "Result", "auth"},
-		{"/admin/shelves/{id}", "get", "Read shelf rule (administrator only)", "", "Result", "auth"},
-		{"/admin/shelves/{id}", "put", "Update shelf rule (administrator only)", "Shelf", "Result", "auth"},
-		{"/admin/shelves/{id}", "delete", "Delete shelf rule (administrator only)", "", "Result", "auth"},
+		{"/admin/shelves", "get", "List shelf rules (requires catalog.shelves.manage)", "", "Result", "auth"},
+		{"/admin/shelves", "post", "Create shelf rule (requires catalog.shelves.manage)", "Shelf", "Result", "auth"},
+		{"/admin/shelves/{id}", "get", "Read shelf rule (requires catalog.shelves.manage)", "", "Result", "auth"},
+		{"/admin/shelves/{id}", "put", "Update shelf rule (requires catalog.shelves.manage)", "Shelf", "Result", "auth"},
+		{"/admin/shelves/{id}", "delete", "Delete shelf rule (requires catalog.shelves.manage)", "", "Result", "auth"},
 	} {
 		add(r[0], r[1], r[2], r[3], r[4], r[5] != "")
 	}
@@ -152,8 +152,9 @@ func OpenAPI() map[string]any {
 	paths["/catalog/shelves/feed"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
 		qp("per_shelf", "Items per shelf, default 12, max 100", false),
 	}
-	// 权限级别说明：OpenAPI security 只区分匿名/登录；admin-only 在 summary 标注
-	// （见各 admin/* 与 lifecycle 行），与 http.go required(true) 对应，不另加字段。
+	// 权限级别说明：OpenAPI security 只区分匿名/登录；管理端点的权限码在 summary 标注
+	// （见各 admin/* 与 lifecycle 行），与 http.go required(<code>) 对应，不另加字段。
+	// 老令牌（无 permissions 声明）按角色兜底（见 permission.go 的 User.Can）。
 	return map[string]any{
 		"openapi": "3.0.3",
 		"info": map[string]any{

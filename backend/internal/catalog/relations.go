@@ -366,18 +366,20 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 	return out, nil
 }
 
-// 关系源端遵循实体编辑权限；公开目标可由受信任编辑员建立关系。
+// 关系源端遵循实体编辑权限（catalog.entity.edit）；公开目标可由受信任编辑员建立关系。
 // 两端的实际可见性与生命周期仍在 SaveRelation 中复核。
 func canWriteRelation(u User, src Entity) bool { return canEditEntity(u, src) }
 
 func canAttachToTarget(u User, tgt Entity) bool {
-	if u.Role == "admin" {
+	// 审核/生命周期权（旧 admin）不受目标端否决权约束。
+	if u.Can(PermissionLifecycleManage) {
 		return true
 	}
 	if tgt.Status == "deleted" || tgt.Status == "merged" {
 		return false
 	}
-	return tgt.CreatedBy == u.ID || u.Role == "editor" && tgt.Status == "published"
+	// 目标端否决权：自己的条目，或持实体编辑权时对公开条目建边/拆边（旧 editor）。
+	return ownedBy(tgt, u) || tgt.Status == "published" && u.Can(PermissionEntityEdit)
 }
 
 func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Relation, ref func(string, []string) error, historical bool) error {

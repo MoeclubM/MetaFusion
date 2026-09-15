@@ -54,13 +54,16 @@
 
 ## 4. 认证边界
 
-- 只有 auth 签发令牌；其余服务**只验签**（RS256，JWKS）。验签只信 `sub`/`preferred_username`/`role`。
+- 只有 auth 签发令牌；其余服务**只验签**（RS256，JWKS）。验签信 `sub`/`preferred_username`/`role`，
+  以及授权用的 `groups`/`permissions`（auth 按组展开后的权限码集合，admin 组带 `*` 通配）。
 - issuer 保持 `https://findverse.cc/api`、audience 保持 `metafusion`，避免存量令牌全部失效。
 - 各服务的 JWKS 地址用环境变量注入（迁移期指向 catalog 的 `/api/oidc/jwks`，auth 上线后指向 auth）。
 - 主仓库 `Store.Authenticate` **只做 RS256 验签**（已于 2026-09-14 取消 `auth.sessions` 查库兜底）：
   目录不读账号服务的表。存量不透明令牌的兜底由各服务问账号服务（`AUTH_URL`），
   续期仍走账号服务的 `/api/auth/refresh`（短期访问令牌，否则用户会被强制下线）。
-- 业务权限（谁能编辑哪个实体）仍由 catalog 自己判断，auth 不介入。
+- 业务权限（谁能编辑哪个实体）仍由 catalog 自己判断：auth 只负责把权限码装进组、随令牌下发
+  `permissions`；目录侧按码判定（`backend/internal/catalog/permission.go`），令牌没带
+  `permissions` 时按历史 `role` 兜底。auth 不介入具体判定。
 
 ## 5. 迁移阶段与验收
 

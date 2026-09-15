@@ -320,7 +320,8 @@ func get(ctx context.Context, q queryer, id string) (Entity, error) {
 	return e, err
 }
 func visible(e Entity, u *User) bool {
-	return e.Status == "published" || u != nil && (u.Role == "admin" || e.CreatedBy == u.ID)
+	// 未发布条目只有创建者与持审核/生命周期权者（旧 admin）可见。
+	return e.Status == "published" || u != nil && (u.Can(PermissionLifecycleManage) || ownedBy(e, *u))
 }
 
 // GetManyVisible 一次查询批量取实体，仅返回 u 可见者。
@@ -425,12 +426,12 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			e.CreatedBy = old.CreatedBy
 			e.Version = old.Version + 1
 		}
-		if u.Role != "admin" {
+		if !u.Can(PermissionLifecycleManage) {
 			if old.ID != "" && !canEditEntity(u, old) {
 				return fmt.Errorf("forbidden")
 			}
-			// 普通用户走审核制：只能存草稿或提交审核，且不可触碰已发布条目。
-			if u.Role == "user" {
+			// 无实体编辑权者走审核制：只能存草稿或提交审核，不能发布，也不可触碰已发布条目。
+			if !u.Can(PermissionEntityEdit) {
 				if old.Status == "published" {
 					return fmt.Errorf("forbidden")
 				}
@@ -438,7 +439,8 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 					return fmt.Errorf("forbidden")
 				}
 			}
-			// editor 可维护公开条目；发布他人的草稿、降级和删除仍由管理员处理。
+			// 持实体编辑权者（旧 editor）可维护公开条目；发布他人的草稿、降级与删除
+			// 仍由 catalog.lifecycle.manage（旧 admin-only）处理。
 		}
 		if e.Status == "" {
 			e.Status = "draft"
@@ -731,7 +733,8 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 	}
 	if u == nil {
 		parts = append(parts, "status='published'")
-	} else if u.Role != "admin" {
+	} else if !u.Can(PermissionLifecycleManage) {
+		// 未发布条目只有创建者能列；持审核/生命周期权者与旧 admin 同口径，看全量。
 		add("(status='published' OR created_by=$%d)", u.ID)
 	}
 	if o.Kind != "" {

@@ -30,7 +30,7 @@ func (s *Store) DefinitionVersions(ctx context.Context) ([]DefinitionVersion, er
 func (s *Store) Draft(ctx context.Context, d Definitions, base int64, u User, note string, sources []Source) (int64, error) {
 	var id int64
 	err := s.write(ctx, func(tx *sql.Tx) error {
-		if u.Role != "admin" {
+		if !u.Can(PermissionDefinitionsManage) {
 			return fmt.Errorf("forbidden")
 		}
 		if err := validateSources(note, sources); err != nil {
@@ -76,8 +76,9 @@ func impact(ctx context.Context, q queryer, d Definitions) ([]string, error) {
 		return nil, err
 	}
 	issues := []string{}
-	admin := &User{Role: "admin"}
-	ref := reference(ctx, q, admin)
+	// impact 以系统上下文回放存量数据：显式持通配权限，不依赖角色兜底。
+	system := &User{Role: "admin", Permissions: []string{permissionWildcard}}
+	ref := reference(ctx, q, system)
 	entities := map[string]Entity{}
 	for _, id := range ids {
 		e, err := get(ctx, q, id)
@@ -129,7 +130,7 @@ func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sour
 	// 定义发布是低频管理操作，正确性（校验看到的快照与发布原子）优先于并发。
 	// 事务内一律用 definitions(ctx, tx) 直读，不走进程内 Definitions 缓存。
 	err := s.write(ctx, func(tx *sql.Tx) error {
-		if u.Role != "admin" {
+		if !u.Can(PermissionDefinitionsManage) {
 			return fmt.Errorf("forbidden")
 		}
 		if err := validateSources(note, sources); err != nil {

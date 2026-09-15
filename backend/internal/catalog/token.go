@@ -33,11 +33,15 @@ type Claims struct {
 	Username string `json:"preferred_username"`
 	Email    string `json:"email,omitempty"`
 	Role     string `json:"role"`
-	Issuer   string `json:"iss"`
-	Audience string `json:"aud"`
-	IssuedAt int64  `json:"iat"`
-	Expires  int64  `json:"exp"`
-	JTI      string `json:"jti"`
+	// Groups/Permissions 与账号服务的签发侧逐字一致（见 metafusion-auth 的 Claims）：
+	// groups 是组码（展示与审计用），permissions 是展开后的权限码集合——授权只看它。
+	Groups      []string `json:"groups,omitempty"`
+	Permissions []string `json:"permissions,omitempty"`
+	Issuer      string   `json:"iss"`
+	Audience    string   `json:"aud"`
+	IssuedAt    int64    `json:"iat"`
+	Expires     int64    `json:"exp"`
+	JTI         string   `json:"jti"`
 }
 
 // TokenVerifier 只持公钥：零值不可用，需经 NewTokenVerifierFromEnv。
@@ -176,12 +180,12 @@ func (t *TokenVerifier) PublicJWK() map[string]any {
 	}
 }
 
-// ClaimsToUser 把已验签的载荷还原为 User（只含身份与角色，不查库）。
+// ClaimsToUser 把已验签的载荷还原为 User（身份、角色与权限集合，不查库）。
 func ClaimsToUser(c *Claims) *User {
 	if c == nil {
 		return nil
 	}
-	return &User{ID: c.Subject, Username: c.Username, Email: c.Email, Role: c.Role}
+	return &User{ID: c.Subject, Username: c.Username, Email: c.Email, Role: c.Role, Groups: c.Groups, Permissions: c.Permissions}
 }
 
 func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
