@@ -33,8 +33,14 @@ function reload_gateway() {
     if ! docker exec metafusion-gateway true >/dev/null 2>&1; then
         return 0
     fi
+    # nginx.conf 是**单文件 bind mount**：绑的是 inode。git pull/reset 会用新文件替换旧文件，
+    # 容器里挂的仍是旧 inode，此时 nginx -s reload 只会重新读旧内容——表现为"改了路由却不生效"。
+    # 因此先按新文件重建容器，再做语法检查与重载。
+    if [ -f "$(dirname "$0")/nginx.conf" ]; then
+        docker compose $COMPOSE_ENV -f docker-compose.yml up -d --force-recreate --no-deps gateway >/dev/null 2>&1 || true
+    fi
     if docker exec metafusion-gateway nginx -t >/dev/null 2>&1; then
-        docker exec metafusion-gateway nginx -s reload >/dev/null 2>&1 && echo "🔄 网关已重载路由矩阵"
+        docker exec metafusion-gateway nginx -s reload >/dev/null 2>&1 && echo "🔄 网关已重建并重载路由矩阵"
     else
         echo "⚠️  网关配置校验失败：保留旧配置（运行 docker exec metafusion-gateway nginx -t 查看原因）"
     fi
