@@ -181,13 +181,7 @@ export function Browse() {
               <h2>
                 <Link href={`/catalog/${e.id}`}>{title(e, locale, titleOrder)}</Link>
               </h2>
-              <div className="cv-tags">
-                {(e.types || []).map((k) => (
-                  <span key={k}>
-                    {local(definition?.document.types[k]?.names, locale, "", k)}
-                  </span>
-                ))}
-              </div>
+              {/* 业务类型不再作为标签铺在卡片上 */}
               <small>{t(`catalog.state.${e.status}`)}</small>
               <dl>
                 {Array.from(

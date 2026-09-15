@@ -448,7 +448,6 @@ function ExploreInner() {
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
                 {items.map((item) => {
                   const KindIcon = KIND_ICONS[item.kind] || Layers;
-                  const typeLabels = (item.types || []).map((tCode) => getTypeName(definitions, tCode, locale));
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
                   // 角标 = 实体类型（kind）；业务类型留在正文的类型标签里，不做成"分类"角标。
                   const badgeLabel = kindLabel(item.kind);
@@ -489,16 +488,7 @@ function ExploreInner() {
                           {item.title !== displayTitle && (
                             <p className="text-[10px] text-gray-500 font-mono line-clamp-1 mb-1">{item.title}</p>
                           )}
-                          <div className="flex flex-wrap gap-1">
-                            {typeLabels.slice(0, 2).map((label, idx) => (
-                              <span
-                                key={idx}
-                                className="px-1.5 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] text-text-body font-mono border border-line-subtle"
-                              >
-                                {label}
-                              </span>
-                            ))}
-                          </div>
+                          {/* 业务类型不再当标签显示（types 仍决定渲染哪些动态字段，只是在界面上不铺标签） */}
                         </div>
                         <div className="mt-2.5 pt-1.5 border-t border-line-subtle flex items-center justify-end text-[10px] text-text-muted font-mono">
                           <span className="group-hover:text-primary flex items-center gap-0.5">
@@ -514,7 +504,6 @@ function ExploreInner() {
               <div className="rounded-xl border border-line bg-surface overflow-hidden divide-y dark:divide-white/[0.04] shadow-soft">
                 {items.map((item) => {
                   const KindIcon = KIND_ICONS[item.kind] || Layers;
-                  const typeLabels = (item.types || []).map((tCode) => getTypeName(definitions, tCode, locale));
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
                   // 角标 = 实体类型（kind）；业务类型留在正文的类型标签里，不做成"分类"角标。
                   const badgeLabel = kindLabel(item.kind);
@@ -554,12 +543,6 @@ function ExploreInner() {
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-text-muted font-mono">
                             <span>{kindLabel(item.kind)}</span>
-                            {typeLabels.length > 0 && (
-                              <>
-                                <span>•</span>
-                                <span>{typeLabels.join(", ")}</span>
-                              </>
-                            )}
                           </div>
                         </div>
                       </div>

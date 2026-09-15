@@ -885,17 +885,7 @@ export function EntityDetailView({ id }: { id: string }) {
                     <Layers className="w-3 h-3" />
                     <span>{t("catalog.types")}</span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(entity.types || []).map((tCode: string, idx: number) => (
-                      <Link
-                        key={idx}
-                        href={`/explore?kind=${encodeURIComponent(entity.kind)}&type=${encodeURIComponent(tCode)}`}
-                        className="px-2 py-0.5 rounded bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 text-[11px] font-mono font-semibold transition-colors duration-fast ease-soft"
-                      >
-                        {getTypeName(defs, tCode, locale)}
-                      </Link>
-                    ))}
-                  </div>
+                  {/* 业务类型不在身份区铺标签：它决定字段渲染，不当作分类展示 */}
                   </>}
                   {Array.isArray(entity.attributes?.tags) && entity.attributes.tags.length > 0 && <>
                   <div className="flex items-center gap-1 text-[11px] font-mono text-gray-400">
