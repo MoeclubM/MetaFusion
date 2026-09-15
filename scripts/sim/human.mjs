@@ -137,7 +137,7 @@ export async function updateEntity(page, id, tag, agent) {
 }
 // 加关系：编辑态关系区 → 选「关系＋方向」→ 搜索框输入 → 从**实体下拉**里选 → 添加关系。
 // 注意：候选是原生 <select> 的 option（搜索框只负责查询），不是浮层列表。
-export async function addRelation(page, id, relType, targetQuery, agent, attrs) {
+export async function addRelation(page, id, relType, targetQuery, agent, attrs, targetId) {
   await page.goto(BASE + "/catalog/" + id, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForTimeout(1400);
   const editBtn = page.locator("button", { hasText: "编辑" }).first();
@@ -171,6 +171,15 @@ export async function addRelation(page, id, relType, targetQuery, agent, attrs) 
     if (chosen) break;
   }
   const entitySelect = targetBlock.locator("select").first().or(entitySelect0);
+  // 指定了目标 id 就按 id 选中。题名子串会同时命中多条候选（例如剧场版与题名里含同串的原声集专辑），
+  // 先取第一个候选就会连错——真实编目里为此返工过两次，所以 id 优先于题名匹配。
+  if (targetId) {
+    for (let w = 0; w < 6 && chosen !== targetId; w++) {
+      const vals = await entitySelect.locator("option").evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
+      if (vals.includes(targetId)) chosen = targetId;
+      else await page.waitForTimeout(600);
+    }
+  }
   for (let w = 0; w < 0 && !chosen; w++) {
     await page.waitForTimeout(700);
     const vals = await entitySelect.locator("option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: (o.textContent || "") })).filter((x) => x.v));
