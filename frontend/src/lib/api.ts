@@ -860,6 +860,22 @@ async function requestTokenRefresh(): Promise<string | null> {
   return refreshPromise;
 }
 
+/**
+ * API 错误：保留 HTTP 状态码。
+ * 调用方据此区分 403/404/503（提示"权限不足/不存在/上游不可用"），而不是去解析错误文案。
+ * 继承 Error 且 message 与旧实现一致，既有 `err.message` 用法不受影响。
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    // 目标为 ES5 时 Error 子类的原型链会断开，显式接回，保证 instanceof 判断仍可用。
+    Object.setPrototypeOf(this, ApiError.prototype);
+  }
+}
+
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   let token = getAccessToken();
   const locale = typeof window !== "undefined" ? readLocaleCookie() : null;
@@ -904,7 +920,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({ error: "Request failed" }));
-    throw new Error(errorData.error || `HTTP ${res.status}`);
+    throw new ApiError(errorData.error || `HTTP ${res.status}`, res.status);
   }
 
   return res.json();

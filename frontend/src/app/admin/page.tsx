@@ -10,6 +10,7 @@ import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { useDefinitions, getTypeName } from "@/lib/definitions";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
+import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
 import {
   Shield,
   LayoutDashboard,
@@ -27,9 +28,20 @@ import {
   ArrowUpRight,
   Trash2,
   Globe,
+  ShieldCheck,
 } from "lucide-react";
 
-type AdminTab = "overview" | "entities" | "definitions" | "reviews" | "merge" | "modules" | "users" | "extdb" | "shelves";
+type AdminTab =
+  | "overview"
+  | "entities"
+  | "definitions"
+  | "reviews"
+  | "merge"
+  | "modules"
+  | "users"
+  | "extdb"
+  | "shelves"
+  | "accounts";
 
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
@@ -282,6 +294,7 @@ function AdminInner() {
     { id: "merge", labelKey: "admin.tab.merge", icon: GitMerge },
     { id: "modules", labelKey: "admin.tab.modules", icon: Cpu },
     { id: "users", labelKey: "admin.tab.users", icon: Users },
+    { id: "accounts", labelKey: "admin.tab.accounts", icon: ShieldCheck },
   ];
 
   return (
@@ -582,6 +595,8 @@ function AdminInner() {
           {activeTab === "extdb" && <ExternalDatabasesTab />}
 
           {activeTab === "shelves" && <ShelvesTab />}
+
+          {activeTab === "accounts" && <AccountAccessTab />}
 
           {activeTab === "reviews" && (
             <div className="space-y-4">
