@@ -98,19 +98,12 @@ export async function createEntity(page, opts) {
 
 // 修改已有实体：详情页 → 编辑条目 → 改题名 → 写说明/来源 → 保存（PUT）。
 export async function updateEntity(page, id, tag, agent) {
-  await page.goto(BASE + "/catalog/" + id, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.waitForTimeout(1400);
-  // 等入口出现：详情页要先加载实体与权限判定；并发下更慢，所以等 25 秒，失败再整页重载试一次
-  let editBtn = page.locator("button", { hasText: "编辑" }).first();
-  try { await editBtn.waitFor({ state: "visible", timeout: 40000 }); } catch {
-    await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
-    await page.waitForTimeout(2500);
-    editBtn = page.locator("button", { hasText: "编辑" }).first();
-    try { await editBtn.waitFor({ state: "visible", timeout: 40000 }); } catch { return { status: 0, body: "没有编辑入口（权限或条目状态不允许）" }; }
-  }
-  await editBtn.click();
+  // 直接进编辑态（?edit=1）：这正是界面上「编辑作品」按钮跳转的目标路径，
+  // 省掉"先渲染详情页、再等编辑按钮出现"这一跳——并发下那一步最容易超时。
+  await page.goto(BASE + "/catalog/" + id + "?edit=1", { waitUntil: "domcontentloaded", timeout: 60000 });
   const title = page.locator('label:has-text("基础题名")').locator("input").first();
-  try { await title.waitFor({ state: "visible", timeout: 30000 }); } catch { return { status: 0, body: "编辑表单未出现" }; }
+  try { await title.waitFor({ state: "visible", timeout: 40000 }); } catch { return { status: 0, body: "编辑表单未出现（?edit=1 未生效或权限不足）" }; }
+  await page.waitForTimeout(1200);
   const before = await title.inputValue();
   await title.fill(before.replace(/ \[[^\]]*\]$/, "") + " [" + tag + "]");
   const ev = page.locator("fieldset", { hasText: "编辑说明与来源" }).first();
@@ -127,7 +120,6 @@ export async function updateEntity(page, id, tag, agent) {
   if (!res) body = await page.evaluate(() => { const el = document.querySelector("[role=alert], .cv-error"); return el ? (el.textContent || "").trim().slice(0, 110) : "未提交"; }).catch(() => "");
   return { status: res ? res.status() : 0, body };
 }
-
 // 加关系：编辑态关系区 → 选「关系＋方向」→ 搜索框输入 → 从**实体下拉**里选 → 添加关系。
 // 注意：候选是原生 <select> 的 option（搜索框只负责查询），不是浮层列表。
 export async function addRelation(page, id, relType, targetQuery, agent) {
