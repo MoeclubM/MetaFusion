@@ -24,6 +24,7 @@ type Picture struct {
 	Caption Names  `json:"caption"`
 	Source  Source `json:"source"`
 }
+
 // Locator 描述"该内容位于载体的何处"：页码、时间码、文件路径、章节……
 // 不同媒体的定位方式差异极大（书籍按页、音视频按时间、文件按路径），
 // 因此键集合**不硬编码**：由 definitions 的 locator 组字段声明，后台可增删。
@@ -113,6 +114,11 @@ type Field struct {
 	// AnchorKey 仅用于 group 字段：组内任一其它子字段有值时，该锚点子字段必须同时有值。
 	// 例：定位组声明 anchor=relative_to，避免出现"有页码却不知相对谁"的悬空定位。
 	AnchorKey string `json:"anchor_key,omitempty"`
+	// RangeStart 仅用于 group 内的 number 子字段：声明"本字段是同组 <RangeStart>
+	// 子字段的区间终点"，只有显式声明的区间才校验大小关系。
+	// 取代按字段名猜测配对（start/end、begin/end、_max…）的隐式约定：管理员新增
+	// 两个数字字段时，不会在没有配置的情况下触发隐含规则。
+	RangeStart string `json:"range_start,omitempty"`
 	// Hidden 表示该字段可写、可检索，但不进详情信息面板（存档/机器用途），
 	// 例如资料表原始条目与标签——它们由页面上的专用区块呈现，避免原文 JSON 直出。
 	Hidden bool `json:"hidden,omitempty"`
@@ -167,6 +173,7 @@ type Template struct {
 	// 取代代码里硬编码 edition_type/format/country 三个下拉；顺序即展示顺序。
 	FacetFields []string `json:"facet_fields,omitempty"`
 }
+
 // Scheme 是"按使用场景配置"的有限声明式规则：locator / inclusion_attributes /
 // subject_attributes 是全局结构，纸书要页码、EPUB 要路径锚点、黑胶要唱片面，
 // 必填、排序、范围约束与展示收敛都由它声明，不新增核心实体种类。

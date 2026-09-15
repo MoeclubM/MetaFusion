@@ -98,7 +98,7 @@ export function TitleDisplayOrderSetting() {
   const missingBase = [...BASE_CODES, ...EXTRA_CODES].filter((c) => !order.includes(c));
 
   return (
-    <div className="p-2.5 rounded-md bg-background border border-black/5 dark:border-white/[0.06] text-xs font-mono space-y-2">
+    <div className="p-2.5 rounded-md bg-background border border-line-subtle text-xs font-mono space-y-2">
       <div className="flex items-center justify-between gap-2">
         <span className="text-gray-500 flex items-center gap-1.5">
           <Languages className="w-3.5 h-3.5 text-violet-500" strokeWidth={1.5} />
@@ -122,10 +122,10 @@ export function TitleDisplayOrderSetting() {
         {order.map((code, i) => (
           <li
             key={code}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/[0.06]"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-line-subtle"
           >
             <span className="w-5 text-center text-gray-400">{i + 1}</span>
-            <span className="flex-1 text-gray-900 dark:text-white font-sans">{labelOf(code)}</span>
+            <span className="flex-1 text-text-strong font-sans">{labelOf(code)}</span>
             <span className="text-gray-400">{code}</span>
             <button
               type="button"
@@ -163,14 +163,14 @@ export function TitleDisplayOrderSetting() {
               key={code}
               type="button"
               onClick={() => add(code)}
-              className="px-2 py-0.5 rounded-full border border-black/10 dark:border-white/10 text-gray-500 hover:text-gray-900 dark:hover:text-white"
+              className="px-2 py-0.5 rounded-full border border-line text-gray-500 hover:text-gray-900 dark:hover:text-white"
             >
               + {labelOf(code)}
             </button>
           ))}
         </div>
       )}
-      <div className="flex items-center gap-1.5 pt-1 border-t border-black/5 dark:border-white/[0.06]">
+      <div className="flex items-center gap-1.5 pt-1 border-t border-line-subtle">
         <input
           type="text"
           value={draft}
@@ -185,14 +185,14 @@ export function TitleDisplayOrderSetting() {
             }
           }}
           placeholder={t("settings.titleDisplayOrderAddPlaceholder")}
-          className={`flex-1 h-8 px-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border text-xs font-mono text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary ${
-            invalid ? "border-rose-400" : "border-black/10 dark:border-white/10"
+          className={`flex-1 h-8 px-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border text-xs font-mono text-text-strong placeholder:text-gray-400 focus:outline-none focus:border-primary ${
+            invalid ? "border-rose-400" : "border-line"
           }`}
         />
         <button
           type="button"
           onClick={() => add(draft)}
-          className="inline-flex items-center gap-1 px-2.5 h-8 rounded-md border border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+          className="inline-flex items-center gap-1 px-2.5 h-8 rounded-md border border-line text-text-body hover:text-gray-900 dark:hover:text-white"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>{t("settings.titleDisplayOrderAdd")}</span>

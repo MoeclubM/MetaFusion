@@ -36,7 +36,7 @@ export default function GlobalError({
           </p>
           <button
             onClick={() => reset()}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors duration-fast ease-soft"
           >
             {t("globalError.reload")}
           </button>

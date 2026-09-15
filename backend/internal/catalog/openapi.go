@@ -50,25 +50,15 @@ func OpenAPI() map[string]any {
 			return map[string]any{}
 		}
 	}
-	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, Definitions{}, User{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
+	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
 		schema(reflect.TypeOf(v))
 	}
-	schemas["Credentials"] = map[string]any{"type": "object", "required": []string{"username", "password"}, "properties": map[string]any{"username": map[string]any{"type": "string"}, "password": map[string]any{"type": "string", "minLength": 12, "writeOnly": true}}}
 	schemas["DefinitionDraft"] = map[string]any{"type": "object", "required": []string{"document", "base_version", "edit_note", "sources"}, "properties": map[string]any{"document": schema(reflect.TypeOf(Definitions{})), "base_version": map[string]any{"type": "integer"}, "edit_note": map[string]any{"type": "string"}, "sources": schema(reflect.TypeOf([]Source{}))}}
-	// PUT /admin/users/{id}/role 请求体 {role}：取值为 user/editor/admin（见 UpdateUserRole）。
-	schemas["UserRoleUpdate"] = map[string]any{"type": "object", "required": []string{"role"}, "properties": map[string]any{"role": map[string]any{"type": "string", "enum": []string{"user", "editor", "admin"}}}}
-	// POST /favorites/toggle 请求体 {target_type,target_id}：target_type 即实体 kind。
-	schemas["FavoriteToggle"] = map[string]any{"type": "object", "required": []string{"target_type", "target_id"}, "properties": map[string]any{"target_type": map[string]any{"type": "string", "enum": []string{"agent", "collection", "work", "content_unit", "expression", "release", "medium", "track"}}, "target_id": map[string]any{"type": "string", "format": "uuid"}}}
 	paths := map[string]any{}
 	add := func(path, method, summary, request, response string, auth bool) {
+		// 账号/收藏前缀已归子系统，本服务只剩目录自己的三类路径。
 		tag := "Catalog"
-		if strings.HasPrefix(path, "/auth") || strings.HasPrefix(path, "/setup") {
-			tag = "Auth"
-		} else if strings.HasPrefix(path, "/oauth") {
-			tag = "OAuth"
-		} else if strings.HasPrefix(path, "/admin/users") {
-			tag = "Users"
-		} else if strings.HasPrefix(path, "/admin/catalog-definitions") || path == "/catalog/definitions" {
+		if strings.HasPrefix(path, "/admin/catalog-definitions") || path == "/catalog/definitions" {
 			tag = "Definitions"
 		}
 		op := map[string]any{
@@ -99,14 +89,13 @@ func OpenAPI() map[string]any {
 	}
 	schemas["Result"] = map[string]any{"type": "object", "additionalProperties": true}
 	for _, r := range [][6]string{
-		{"/setup", "get", "Check first administrator setup", "", "Result", ""}, {"/setup", "post", "Create the first administrator", "Credentials", "User", ""},
-		{"/auth/login", "post", "Sign in; return RS256 access token and HttpOnly cookie", "Credentials", "Result", ""}, {"/auth/refresh", "post", "Rotate the current access token and server session", "", "Result", "auth"}, {"/auth/me", "get", "Current account", "", "User", "auth"}, {"/auth/logout", "post", "Revoke current session", "", "Result", "auth"}, {"/auth/password", "put", "Update account password", "Credentials", "Result", "auth"}, {"/auth/settings", "get", "Public instance auth capabilities", "", "Result", ""}, {"/auth/change-password", "post", "Change current account password", "Credentials", "Result", "auth"}, {"/auth/logout-all", "post", "Revoke all user sessions", "", "Result", "auth"}, {"/admin/users", "get", "List users (administrator only)", "", "Result", "auth"}, {"/admin/users", "post", "Create editor (administrator only)", "Credentials", "User", "auth"}, {"/admin/users/{id}/role", "put", "Update user role (administrator only)", "UserRoleUpdate", "Result", "auth"}, {"/admin/users/{id}/password", "put", "Reset user password (administrator only)", "Credentials", "Result", "auth"}, {"/oauth/clients", "get", "List registered OAuth 2.0 clients (login required)", "", "Result", "auth"}, {"/oauth/authorize", "get", "OAuth 2.0 authorization endpoint", "", "Result", ""}, {"/oauth/token", "post", "OAuth 2.0 token endpoint", "", "Result", ""}, {"/oauth/userinfo", "get", "OAuth 2.0 / OIDC user info endpoint", "", "Result", "auth"}, {"/.well-known/openid-configuration", "get", "OIDC discovery document", "", "Result", ""}, {"/oidc/jwks", "get", "JSON Web Key Set for local RS256 token verification", "", "Result", ""},
-		{"/catalog/definitions", "get", "Published dynamic definitions", "", "DefinitionVersion", ""}, {"/catalog/entities", "get", "Entity search (kind/kinds/q/type/types/status/work_id/content_unit_id/release_id/medium_id/parent_id/field/value/tags; field supports dotted paths like attachments.store or locator.path, structural locator./inclusion_attributes./subject_attributes. compile to track_contents/release_subjects EXISTS; items + real COUNT total; 120/min per IP)", "", "Result", ""}, {"/catalog/entities", "post", "Create entity with evidence (supports Idempotency-Key, 24h)", "Edit", "Entity", "auth"},
+		{"/catalog/definitions", "get", "Published dynamic definitions plus the fixed entity-skeleton names (multilingual kinds)", "", "DefinitionVersion", ""}, {"/catalog/entities", "get", "Entity search (kind/kinds/q/type/types/status/work_id/content_unit_id/release_id/medium_id/parent_id/field/value/tags; field supports dotted paths like attachments.store or locator.path, structural locator./inclusion_attributes./subject_attributes. compile to track_contents/release_subjects EXISTS; items + real COUNT total; 120/min per IP)", "", "Result", ""}, {"/catalog/entities", "post", "Create entity with evidence (supports Idempotency-Key, 24h)", "Edit", "Entity", "auth"},
 		{"/catalog/tags", "get", "Tag frequency aggregation over published entities' attributes.tags (q filter, limit<=500)", "", "Result", ""},
 		{"/catalog/entities/{id}", "get", "Read visible entity", "", "Entity", ""}, {"/catalog/entities/{id}", "put", "Replace entity with optimistic version check", "Edit", "Entity", "auth"}, {"/catalog/entities/{id}/resolve", "get", "Resolve merged identity", "", "Entity", ""}, {"/catalog/entities/{id}/lifecycle", "post", "Merge or retire (administrator only)", "LifecycleEdit", "Entity", "auth"},
 		{"/catalog/entities/{id}/revisions", "get", "Read visible revision history", "", "Result", ""}, {"/catalog/entities/{id}/relations", "get", "Read contextual forward and reverse relations", "", "Result", ""}, {"/catalog/entities/{id}/occurrences", "get", "Read own reverse inclusions, scoped by entity kind (expression=itself, content_unit=its expressions, work=its expressions)", "", "Result", ""}, {"/catalog/expressions/details", "post", "Batch expression details (entity + own inclusions + same-content-unit siblings + credit) for release pages; JSON body {ids:[...]}", "Result", "Result", ""}, {"/catalog/external-databases", "get", "List active external authority database definitions", "", "Result", ""}, {"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
 		{"/catalog/compare", "get", "Compare two to six releases (10/min per IP)", "", "Result", ""},
-		{"/favorites/toggle", "post", "Toggle favorite for a target entity", "FavoriteToggle", "Result", "auth"}, {"/favorites/status", "get", "Batch favorite status for the current user", "", "Result", ""}, {"/favorites/mine", "get", "List current user's favorites", "", "Result", "auth"}, {"/users/{id}/favorites", "get", "List a user's favorites", "", "Result", ""},
+		{"/exchange/entities/{id}", "get", "Export an entity snapshot for another instance", "", "Entity", ""},
+		{"/exchange/proposals", "post", "Submit an external edit proposal (always lands in pending_review)", "Edit", "Entity", "auth"},
 		{"/importer/preview", "post", "Preview external catalog entry (Bangumi public API)", "ImporterPreviewRequest", "ImporterPreviewResponse", ""},
 		{"/importer/import", "post", "Import previewed entry with evidence", "ImporterImportRequest", "ImporterImportResponse", "auth"},
 		{"/catalog/relations", "post", "Create contextual relation (supports Idempotency-Key, 24h)", "RelationEdit", "Relation", "auth"}, {"/catalog/relations/{id}", "put", "Replace relation context", "RelationEdit", "Relation", "auth"}, {"/catalog/relations/{id}", "delete", "Remove relation with evidence", "LifecycleEdit", "Result", "auth"},
@@ -151,21 +140,11 @@ func OpenAPI() map[string]any {
 	paths["/catalog/entities"].(map[string]any)["get"].(map[string]any)["parameters"] = params
 	paths["/catalog/compare"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{map[string]any{"name": "ids", "in": "query", "required": true, "description": "Two to six comma-separated release UUIDs", "schema": map[string]any{"type": "string"}}}
 	// 查询参数补齐（与 http.go 实际读取一致）：收藏分页/过滤、标签聚合、货架 feed、
-	// OAuth 授权端点。只做文档补齐，不改变路由行为。
+	// 查询参数补齐（与 http.go 实际读取一致）：标签聚合与货架 feed。
 	qp := func(name, desc string, required bool) map[string]any {
 		return map[string]any{"name": name, "in": "query", "required": required, "description": desc, "schema": map[string]any{"type": "string"}}
 	}
-	favParams := []any{
-		qp("target_type", "Filter by entity kind (agent/collection/work/content_unit/expression/release/medium/track)", false),
-		qp("page", "Page number, default 1", false),
-		qp("page_size", "Page size, default 20, max 100", false),
-	}
-	paths["/favorites/mine"].(map[string]any)["get"].(map[string]any)["parameters"] = favParams
-	paths["/users/{id}/favorites"].(map[string]any)["get"].(map[string]any)["parameters"] = favParams
-	paths["/favorites/status"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
-		qp("target_type", "Entity kind to check", true),
-		qp("target_ids", "Comma-separated entity UUIDs", true),
-	}
+
 	paths["/catalog/tags"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
 		qp("q", "Substring filter on tag name", false),
 		qp("limit", "Max tags, default 200, max 500", false),
@@ -173,22 +152,13 @@ func OpenAPI() map[string]any {
 	paths["/catalog/shelves/feed"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
 		qp("per_shelf", "Items per shelf, default 12, max 100", false),
 	}
-	paths["/oauth/authorize"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
-		qp("client_id", "Registered client id", true),
-		qp("redirect_uri", "Must exactly match a registered redirect URI", true),
-		qp("response_type", "Must be code", true),
-		qp("scope", "Default profile", false),
-		qp("state", "Opaque client state, echoed back", false),
-		qp("code_challenge", "PKCE challenge (S256/plain)", false),
-		qp("code_challenge_method", "PKCE method (S256/plain)", false),
-	}
 	// 权限级别说明：OpenAPI security 只区分匿名/登录；admin-only 在 summary 标注
 	// （见各 admin/* 与 lifecycle 行），与 http.go required(true) 对应，不另加字段。
 	return map[string]any{
 		"openapi": "3.0.3",
 		"info": map[string]any{
 			"title":       "MetaFusion API",
-			"description": "MetaFusion 开放媒体元数据与资源共建平台标准 API。提供固定实体骨架（Work / Expression / Release / Medium / Track / ContentUnit / Agent / Collection）、动态类型与属性扩展、多版本发行对比、OAuth 2.0 / OIDC 统一认证与外围解耦模块接入能力。",
+			"description": "MetaFusion 元数据目录服务 API：固定实体骨架（Work / Expression / Release / Medium / Track / ContentUnit / Agent / Collection）、动态类型与属性扩展、多版本发行对比、外部库导入与实例间导入导出。账号（/auth、/oauth、/oidc）与收藏（/favorites）已由独立子系统提供，不在本服务。",
 			"version":     "1.0.0",
 		},
 		// servers 保持相对路径 /api：网关/直连后端均同源，不硬编码域名；
@@ -200,9 +170,6 @@ func OpenAPI() map[string]any {
 			map[string]any{"name": "Catalog", "description": "核心实体编目与查询 (Work, Release, Medium, Track, ContentUnit, Agent, Collection)"},
 			map[string]any{"name": "Definitions", "description": "无代码动态元数据类型、属性与关系定义管理"},
 			map[string]any{"name": "ExternalDatabases", "description": "外部权威数据库与官方渠道配置"},
-			map[string]any{"name": "OAuth", "description": "OAuth 2.0 / OIDC 开放认证与单点登录服务"},
-			map[string]any{"name": "Auth", "description": "用户身份认证与账号管理"},
-			map[string]any{"name": "Users", "description": "管理员用户权限与账号管理"},
 		},
 		"paths": paths,
 		"components": map[string]any{

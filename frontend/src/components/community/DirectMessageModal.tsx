@@ -148,7 +148,7 @@ export default function DirectMessageModal({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
             title={t("users.profile.closeChat")}
           >
             <X className="w-5 h-5" />

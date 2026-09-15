@@ -59,13 +59,13 @@ function CodeBlockWrapper({
   };
 
   return (
-    <div className="relative group my-3 rounded-lg overflow-hidden border border-black/10 dark:border-white/10 bg-[#0d1117] shadow-xs">
+    <div className="relative group my-3 rounded-lg overflow-hidden border border-line bg-[#0d1117] shadow-xs">
       <div className="flex items-center justify-between px-3 py-1.5 bg-[#161b22] border-b border-white/5 text-xs text-gray-400 font-mono select-none">
         <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{language || "code"}</span>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 text-gray-300 hover:text-white transition-colors cursor-pointer text-[11px]"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer text-[11px]"
           title={t("common.copy")}
         >
           {copied ? (
@@ -97,7 +97,7 @@ export default function MarkdownRenderer({
 
   return (
     <div
-      className={`markdown-body text-gray-800 dark:text-gray-200 break-words leading-relaxed text-sm ${
+      className={`markdown-body text-text-strong break-words leading-relaxed text-sm ${
         compact ? "compact-markdown space-y-1.5" : "space-y-2.5"
       } ${className}`}
     >
@@ -107,21 +107,21 @@ export default function MarkdownRenderer({
         components={{
           h1: ({ ...props }) => (
             <h1
-              className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mt-4 mb-2 pb-1.5 border-b border-black/10 dark:border-white/10 tracking-tight"
+              className="text-lg sm:text-xl font-bold text-text-strong mt-4 mb-2 pb-1.5 border-b border-line tracking-tight"
               {...props}
             />
           ),
           h2: ({ ...props }) => (
             <h2
-              className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mt-3.5 mb-1.5 pb-1 border-b border-black/5 dark:border-white/5 tracking-tight"
+              className="text-base sm:text-lg font-bold text-text-strong mt-3.5 mb-1.5 pb-1 border-b border-line-subtle tracking-tight"
               {...props}
             />
           ),
           h3: ({ ...props }) => (
-            <h3 className="text-sm sm:text-base font-semibold text-gray-900 dark:text-white mt-3 mb-1" {...props} />
+            <h3 className="text-sm sm:text-base font-semibold text-text-strong mt-3 mb-1" {...props} />
           ),
           h4: ({ ...props }) => (
-            <h4 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white mt-2 mb-1" {...props} />
+            <h4 className="text-xs sm:text-sm font-semibold text-text-strong mt-2 mb-1" {...props} />
           ),
           p: ({ ...props }) => <p className="my-1.5 leading-relaxed" {...props} />,
           ul: ({ ...props }) => <ul className="list-disc list-outside pl-5 my-2 space-y-1" {...props} />,
@@ -129,27 +129,27 @@ export default function MarkdownRenderer({
           li: ({ ...props }) => <li className="leading-relaxed" {...props} />,
           blockquote: ({ ...props }) => (
             <blockquote
-              className="border-l-3 border-emerald-500/70 dark:border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10 px-3.5 py-1.5 my-2 rounded-r text-gray-700 dark:text-gray-300 italic"
+              className="border-l-3 border-emerald-500/70 dark:border-emerald-500/50 bg-emerald-500/5 dark:bg-emerald-500/10 px-3.5 py-1.5 my-2 rounded-r text-text-body italic"
               {...props}
             />
           ),
-          hr: ({ ...props }) => <hr className="my-3.5 border-black/10 dark:border-white/10" {...props} />,
+          hr: ({ ...props }) => <hr className="my-3.5 border-line" {...props} />,
           table: ({ ...props }) => (
-            <div className="overflow-x-auto my-3 rounded-lg border border-black/10 dark:border-white/10">
+            <div className="overflow-x-auto my-3 rounded-lg border border-line">
               <table className="min-w-full divide-y divide-black/10 dark:divide-white/10 text-left text-xs sm:text-sm" {...props} />
             </div>
           ),
           thead: ({ ...props }) => (
-            <thead className="bg-black/5 dark:bg-white/5 font-semibold text-gray-900 dark:text-white" {...props} />
+            <thead className="bg-black/5 dark:bg-white/5 font-semibold text-text-strong" {...props} />
           ),
           tbody: ({ ...props }) => (
             <tbody className="divide-y divide-black/5 dark:divide-white/5 bg-transparent" {...props} />
           ),
           tr: ({ ...props }) => (
-            <tr className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors" {...props} />
+            <tr className="hover:bg-surfaceSubtle transition-colors duration-fast ease-soft" {...props} />
           ),
-          th: ({ ...props }) => <th className="px-3 py-2 font-semibold text-gray-900 dark:text-white" {...props} />,
-          td: ({ ...props }) => <td className="px-3 py-2 text-gray-800 dark:text-gray-200" {...props} />,
+          th: ({ ...props }) => <th className="px-3 py-2 font-semibold text-text-strong" {...props} />,
+          td: ({ ...props }) => <td className="px-3 py-2 text-text-strong" {...props} />,
           a: ({ href, children, ...props }) => {
             const rawHref = href ? href.trim() : "#";
             const lowerHref = rawHref.toLowerCase();
@@ -165,7 +165,7 @@ export default function MarkdownRenderer({
                 href={safeHref}
                 target={isExternal ? "_blank" : undefined}
                 rel={isExternal ? "noopener noreferrer" : undefined}
-                className="text-primary hover:underline underline-offset-2 font-medium transition-colors inline-flex items-center gap-0.5"
+                className="text-primary hover:underline underline-offset-2 font-medium transition-colors duration-fast ease-soft inline-flex items-center gap-0.5"
                 {...props}
               >
                 <span>{children}</span>
@@ -175,12 +175,12 @@ export default function MarkdownRenderer({
           },
           img: ({ ...props }) => (
             <img
-              className="rounded-lg max-h-96 max-w-full object-contain my-2.5 border border-black/10 dark:border-white/10 shadow-xs"
+              className="rounded-lg max-h-96 max-w-full object-contain my-2.5 border border-line shadow-xs"
               loading="lazy"
               {...props}
             />
           ),
-          del: ({ ...props }) => <del className="line-through text-gray-400 dark:text-gray-500" {...props} />,
+          del: ({ ...props }) => <del className="line-through text-text-muted" {...props} />,
           code: ({ node, className, children, ...props }: any) => {
             const match = /language-(\w+)/.exec(className || "");
             const isMultiLine = String(children).includes("\n");
@@ -199,7 +199,7 @@ export default function MarkdownRenderer({
             }
             return (
               <code
-                className="px-1.5 py-0.5 rounded bg-black/5 dark:bg-white/10 text-amber-600 dark:text-amber-400 font-mono text-[0.875em] break-all border border-black/5 dark:border-white/5"
+                className="px-1.5 py-0.5 rounded dark:bg-white/10 text-amber-600 dark:text-amber-400 font-mono text-[0.875em] break-all border border-line-subtle"
                 {...props}
               >
                 {children}

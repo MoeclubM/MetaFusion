@@ -1,7 +1,8 @@
 # MetaFusion 插件系统与依赖拓扑架构规范 (Plugin System & DAG Architecture)
 
 > **状态：VISION（未实现，勿当运行时事实）**
-> 本文声称“严格基于当前后端代码实现”，但其所指的 `backend/internal/plugin/` **目录不存在**，所描述的 **12 个内置插件**方案也未落地。当前实际实现是进程内**可选模块**：边界接口在 `backend/internal/moduleapi`，依赖/级联治理在 `backend/internal/moduledeps`，实现与 `modules.settings` 状态持久化在 `backend/internal/modules`（启用模块为 `archive / playback / media / community / records / exchange`），通过 `/api/capabilities` 与 `PUT /api/admin/modules/:id` 管理。
+> 本文声称“严格基于当前后端代码实现”，但其所指的 `backend/internal/plugin/` **目录不存在**，所描述的 **12 个内置插件**方案也未落地。
+> 拆分前曾以进程内**可选模块**（`moduleapi` / `moduledeps` / `modules.settings`，通过 `/api/capabilities` 与 `PUT /api/admin/modules/:id` 管理）实现过同类意图，该模块层**已随子系统拆分退役**；现在的能力由独立服务承担，`/api/capabilities` 退化为「上游是否配置 + /health 探测」的部署态清单。
 > 本文件仅保留插件化长期目标，不作为当前接口或部署依据。
 
 本文档面向 MetaFusion 核心开发与系统架构人员，严格基于当前后端代码实现（`backend/internal/plugin/`），阐明 MetaFusion 的**插件系统实现机制**、**12 个原生内置插件矩阵**与 **DAG 依赖拓扑治理规范**。

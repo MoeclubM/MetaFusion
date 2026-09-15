@@ -38,8 +38,8 @@ export default function SetupPage() {
 
   // Form State：POST /api/setup 只接受 username/email/password 三个字段，
   // 站点名称与准入开关当前无对应实现，因此不再提供输入以免造成已生效的误解。
-  // 不预填任何具体账号：默认值是站点所有者的用户名/邮箱，写死在公开前端里等于发布个人信息，
-  // 也会让新实例误以为这个名字是保留的。
+  // 不在表单里预填任何具体账号：默认值是站点所有者的用户名/邮箱，写死等于把个人信息
+  // 随公开前端一起发布，也会让新实例误以为"这个名字是保留的"。
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -122,7 +122,7 @@ export default function SetupPage() {
       <div className="min-h-screen bg-background relative flex flex-col items-center justify-center p-6 selection:bg-primary selection:text-white">
         <div className="w-full max-w-md p-8 rounded-2xl bg-card border border-border shadow-2xl text-center space-y-6 animate-fade-in">
           <div className="space-y-2">
-            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white font-mono">
+            <h1 className="text-2xl font-extrabold text-text-strong font-mono">
               {t("setup.notFoundTitle")}
             </h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
@@ -161,22 +161,22 @@ export default function SetupPage() {
               <Sparkles className="w-3.5 h-3.5" />
               <span>OOBE READY</span>
             </div>
-            <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+            <h1 className="text-3xl font-extrabold text-text-strong tracking-tight">
               {t("setup.successTitle")}
             </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed max-w-md mx-auto">
+            <p className="text-sm text-text-body leading-relaxed max-w-md mx-auto">
               {t("setup.successDesc")}
             </p>
           </div>
 
-          <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10 font-mono text-xs text-left space-y-2">
+          <div className="p-4 rounded-2xl bg-surfaceSubtle border border-line font-mono text-xs text-left space-y-2">
             <div className="flex justify-between items-center text-gray-500">
               <span>Admin Username:</span>
-              <span className="font-bold text-gray-900 dark:text-white">{successResult.user.username}</span>
+              <span className="font-bold text-text-strong">{successResult.user.username}</span>
             </div>
             <div className="flex justify-between items-center text-gray-500">
               <span>Admin Email:</span>
-              <span className="font-bold text-gray-900 dark:text-white">{successResult.user.email || email}</span>
+              <span className="font-bold text-text-strong">{successResult.user.email || email}</span>
             </div>
             <div className="flex justify-between items-center text-gray-500">
               <span>Admin Role:</span>
@@ -194,7 +194,7 @@ export default function SetupPage() {
             </Link>
             <Link
               href="/home"
-              className="flex-1 inline-flex items-center justify-center gap-2 h-12 rounded-xl bg-black/5 dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-gray-900 dark:text-white hover:bg-black/10 dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
+              className="flex-1 inline-flex items-center justify-center gap-2 h-12 rounded-xl dark:bg-white/[0.06] border border-line text-text-strong hover:bg-black/10 dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
             >
               <span>{t("setup.enterHome")}</span>
             </Link>
@@ -217,7 +217,7 @@ export default function SetupPage() {
       </aside>
 
       {/* Header */}
-      <header className="relative z-10 w-full max-w-2xl mx-auto pt-6 text-center space-y-4">
+      <header className="relative z-10 w-full max-w-narrow mx-auto pt-6 text-center space-y-4">
         <div className="inline-block relative">
           <BrandMark size={56} withGlow={true} idSuffix="setup-header" className="mx-auto drop-shadow-md" />
         </div>
@@ -226,7 +226,7 @@ export default function SetupPage() {
             <Server className="w-3.5 h-3.5" />
             <span>{t("setup.tagline")}</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
+          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-text-strong">
             {t("setup.title")}
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 max-w-lg mx-auto">
@@ -236,7 +236,7 @@ export default function SetupPage() {
       </header>
 
       {/* Main Form Box */}
-      <main className="relative z-10 w-full max-w-2xl mx-auto my-8">
+      <main className="mf-enter relative z-10 w-full max-w-narrow mx-auto my-8">
         <form
           onSubmit={handleSubmit}
           className="p-6 sm:p-8 rounded-3xl bg-card border border-border shadow-2xl space-y-8"
@@ -245,10 +245,10 @@ export default function SetupPage() {
           <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 flex items-start gap-3.5">
             <Server className="w-5 h-5 text-primary shrink-0 mt-0.5" />
             <div className="text-xs space-y-0.5">
-              <div className="font-bold text-gray-900 dark:text-white">
+              <div className="font-bold text-text-strong">
                 {t("setup.instanceHealthy")}
               </div>
-              <div className="text-gray-500 dark:text-gray-400">
+              <div className="text-text-muted">
                 {t("setup.instanceHealthyDesc")}
               </div>
             </div>
@@ -258,7 +258,7 @@ export default function SetupPage() {
           <div className="space-y-4">
             <div className="border-b border-border pb-2.5 flex items-center gap-2">
               <KeyRound className="w-4 h-4 text-primary" />
-              <h2 className="font-bold text-sm text-gray-900 dark:text-white uppercase tracking-wider font-mono">
+              <h2 className="font-bold text-sm text-text-strong uppercase tracking-wider font-mono">
                 {t("setup.adminSectionTitle")}
               </h2>
             </div>
@@ -268,7 +268,7 @@ export default function SetupPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-xs font-semibold text-text-body mb-1.5">
                   {t("setup.usernameLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -279,13 +279,13 @@ export default function SetupPage() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder={t("setup.usernamePlaceholder")}
-                    className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </div>
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-xs font-semibold text-text-body mb-1.5">
                   {t("setup.emailLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -296,13 +296,13 @@ export default function SetupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t("setup.emailPlaceholder")}
-                    className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-xs font-semibold text-text-body mb-1.5">
                   {t("setup.passwordLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -314,7 +314,7 @@ export default function SetupPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t("setup.passwordPlaceholder12")}
-                    className="w-full h-11 pl-10 pr-10 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full h-11 pl-10 pr-10 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <button
                     type="button"
@@ -327,7 +327,7 @@ export default function SetupPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-xs font-semibold text-text-body mb-1.5">
                   {t("setup.confirmPasswordLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -339,7 +339,7 @@ export default function SetupPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder={t("setup.confirmPasswordPlaceholder")}
-                    className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full h-11 pl-10 pr-3.5 rounded-xl bg-black/[0.02] dark:bg-white/[0.04] border border-line text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>
               </div>
@@ -347,10 +347,10 @@ export default function SetupPage() {
           </div>
 
           {/* 站点名称与注册/邀请开关暂无后端实现，如实说明而非提交会被忽略的字段 */}
-          <div className="p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10 flex items-start gap-3">
+          <div className="p-4 rounded-2xl bg-surfaceSubtle border border-line flex items-start gap-3">
             <AlertCircle className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
             <div className="text-xs space-y-0.5">
-              <div className="font-bold text-gray-900 dark:text-white">
+              <div className="font-bold text-text-strong">
                 {t("setup.siteSettingsTitle")}
               </div>
               <div className="text-gray-500">
@@ -389,7 +389,7 @@ export default function SetupPage() {
       </main>
 
       {/* Minimal Footer */}
-      <footer className="relative z-10 w-full max-w-2xl mx-auto text-center font-mono text-xs text-gray-400 dark:text-white/30 py-4">
+      <footer className="relative z-10 w-full max-w-narrow mx-auto text-center font-mono text-xs text-gray-400 dark:text-white/30 py-4">
         © 2026 MetaFusion · Out-of-Box Initialization Wizard
       </footer>
     </div>

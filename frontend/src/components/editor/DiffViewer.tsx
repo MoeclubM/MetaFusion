@@ -51,7 +51,7 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
 
   if (!diff || Object.keys(diff).length === 0) {
     return (
-      <div className={`p-4 rounded-lg border border-black/10 dark:border-white/[0.08] bg-black/[0.02] dark:bg-white/[0.02] text-center font-mono text-xs text-gray-500 ${className}`}>
+      <div className={`p-4 rounded-lg border border-line bg-surfaceSubtle text-center font-mono text-xs text-gray-500 ${className}`}>
         {editType === "create" ? t("editor.diff.initialSnapshot") : t("editor.diff.noChanges")}
       </div>
     );
@@ -74,7 +74,7 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
       </div>
 
       {showRaw ? (
-        <pre className="p-3 rounded-lg bg-black/80 dark:bg-black/60 border border-black/10 dark:border-white/10 text-emerald-400 text-[11px] overflow-x-auto max-h-72">
+        <pre className="p-3 rounded-lg dark:bg-black/60 border border-line text-emerald-400 text-[11px] overflow-x-auto max-h-72">
           {JSON.stringify(diff, null, 2)}
         </pre>
       ) : (
@@ -83,8 +83,8 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
           const isRemoved = change.old && (change.new === null || change.new === undefined || change.new === "");
 
           return (
-            <div key={key} className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-2xs">
-              <div className="px-3 py-1.5 bg-black/[0.03] dark:bg-white/[0.04] border-b border-black/10 dark:border-white/[0.06] text-gray-700 dark:text-gray-300 font-semibold text-[11px] flex items-center justify-between">
+            <div key={key} className="rounded-lg border border-line bg-surface overflow-hidden shadow-2xs">
+              <div className="px-3 py-1.5 bg-black/[0.03] dark:bg-white/[0.04] border-b border-line text-text-body font-semibold text-[11px] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Edit3 className="w-3 h-3 text-amber-500" />
                   {getFieldLabel(key)}

@@ -7,7 +7,9 @@ node_modules/
 .pnp/
 .pnp.js
 .pnpm-store/
-# 现状：lock 文件被忽略（不入库）；pnpm-lock.yaml 未被忽略而保持跟踪
+# 现状：lock 文件不入库；只用 bun（见 frontend/package.json packageManager）
+bun.lockb
+bun.lock
 yarn.lock
 package-lock.json
 
@@ -40,6 +42,9 @@ tsconfig.tsbuildinfo
 .env.production.local
 .env.*.local
 !.env.example
+# 本地生成的密钥（.env.example 教用 openssl 生成 jwt.pem，此类文件不要入库）
+*.pem
+*.key
 
 # --- 日志 ---
 logs/
@@ -70,15 +75,17 @@ Desktop.ini
 *.sw?
 *~
 
-# --- AI / 协作工具产物（不入库）---
+# --- 本地开发日志（只在本机有意义，绝不入库）---
+# 目录内含部署信息、子项目路径、服务器注意事项等敏感本地上下文，规则见 docs-local/README.md
+docs-local/
+
+# --- 各编辑器的私有工作区状态（不入库）---
 .mimosa/
 **/.mimosa/
 .zcode/
 .muse/
 .claude/
-.cursor/*
-!.cursor/skills/
-!.cursor/rules/
+.cursor/
 .trae/
 
 # --- 缓存 ---
@@ -121,28 +128,10 @@ temp/
 # 本地数据库导出/核查 dump（不入库，如 db_works_dump.json）
 *_dump.json
 db_*.json
-deploy/cover_cache/
-deploy/*.json
-deploy/*.py
 deploy/*.sql.bak
-batch_update_covers.sql
-deploy/batch_update_covers.sql
 
-
-# --- 文档站点临时构建缓存 ---
-.docs-site/
 
 # --- 前端本地静态资源（按需）---
 # frontend/public/covers/ 为种子数据，保持入库；如需本地生成大图请用 /tmp
 /.playwright-cli
 /output
-
-scripts/patch_*.js
-scripts/capture_diff.py
-scripts/inspect_entities.py
-scripts/enrich_meiro_hibi.js
-scripts/query_db.js
-
-scripts/capture_*.py
-scripts/deploy_remote.js
-scripts/.mygo_reimport_state.json

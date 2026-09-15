@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
+
 	"github.com/lib/pq"
 	"sort"
 	"strconv"
@@ -366,36 +366,18 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 	return out, nil
 }
 
-// canWriteRelation 判定调用方能否写入以 src 为源实体、tgt 为目标实体的关系。
-// 目标端也有否决权：editor 不得向他人已发布条目挂边（SaveRelation/DeleteRelation
-// 在源端检查之外另做目标端检查，见下）。此处只判源端，供单测与调用方复用。
-//   - admin：全部可写；
-//   - editor：可写自己创建的条目（含已发布——与编辑器"editor 可直接发布/编辑
-//     自己条目"的权限对齐）；
-//   - user（审核制）：只能写自己创建且未发布的条目。
-func canWriteRelation(u User, src Entity) bool {
-	switch u.Role {
-	case "admin":
-		return true
-	case "editor":
-		return src.CreatedBy == u.ID
-	default:
-		return src.CreatedBy == u.ID && src.Status != "published"
-	}
-}
+// 关系源端遵循实体编辑权限；公开目标可由受信任编辑员建立关系。
+// 两端的实际可见性与生命周期仍在 SaveRelation 中复核。
+func canWriteRelation(u User, src Entity) bool { return canEditEntity(u, src) }
 
-// canAttachToTarget 判定调用方能否把边挂到目标端 tgt 上（目标端否决权）：
-// admin 恒可；editor/user 挂到"他人已发布"条目时拒绝——他人条目一旦发布即受保护，
-// 即使源端是自己的条目也不得单方面加边（需对方或管理员操作）。
-// 未发布/自己创建的目标不受此限（审核协作仍可进行）。
 func canAttachToTarget(u User, tgt Entity) bool {
 	if u.Role == "admin" {
 		return true
 	}
-	if tgt.Status == "published" && tgt.CreatedBy != u.ID {
+	if tgt.Status == "deleted" || tgt.Status == "merged" {
 		return false
 	}
-	return true
+	return tgt.CreatedBy == u.ID || u.Role == "editor" && tgt.Status == "published"
 }
 
 func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Relation, ref func(string, []string) error, historical bool) error {
@@ -447,7 +429,7 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 		if x.TargetID == r.TargetID {
 			incoming++
 		}
-		if (x.SourceID == r.SourceID && x.TargetID == r.TargetID || rt.Symmetric && x.SourceID == r.TargetID && x.TargetID == r.SourceID) && x.Position == r.Position && encode(x.Attributes) == encode(r.Attributes) {
+		if (x.SourceID == r.SourceID && x.TargetID == r.TargetID || rt.Symmetric && x.SourceID == r.TargetID && x.TargetID == r.SourceID) && x.Position == r.Position && encode(attrsOrEmpty(x.Attributes)) == encode(attrsOrEmpty(r.Attributes)) {
 			return fmt.Errorf("duplicate_relation")
 		}
 	}
@@ -478,9 +460,22 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 	}
 	return nil
 }
+
+// attrsOrEmpty 把"没有属性"与"空属性对象"归一：两者是同一条边的同一属性集。
+// 不归一就会绕过判重——同一个 payload 少写一个 "attributes" 键，就能把同一逻辑边存成两行；
+// DB 唯一索引 relations_no_exact_dup 也把缺键与 {} 当两个值，归一后两边口径才一致。
+func attrsOrEmpty(m map[string]any) map[string]any {
+	if m == nil {
+		return map[string]any{}
+	}
+	return m
+}
+
 func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (Relation, error) {
 	r := input.Relation
-	err := s.write(ctx, func(tx *sql.Tx) error {
+	r.Attributes = attrsOrEmpty(r.Attributes)
+	// 无环校验依赖"同类型边全集"的读一致性：并发写入必须串行，否则两边都能通过环检测。
+	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
 		}
@@ -497,7 +492,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 			if input.ExpectedVersion != 0 {
 				return fmt.Errorf("version_conflict")
 			}
-			r.ID = uuid.NewString()
+			r.ID = newID()
 			r.Version = 1
 		} else {
 			// 更新行的旧版本按 ID 单行取：同类集合只用于判重/计数/构图，
@@ -529,7 +524,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if !canWriteRelation(u, src) {
 			return fmt.Errorf("forbidden")
 		}
-		// 目标端否决权：editor 不得向他人已发布条目挂边（canAttachToTarget）。
+		// 目标端沿用角色检查，普通用户仍不能修改他人的公开关系。
 		// 删除码后旧边读路径与此无关——Relations 读路径按对端可见性过滤，
 		// 不在此做停用/删除码判断。
 		if !canAttachToTarget(u, tgt) {
@@ -988,40 +983,40 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 			if err != nil {
 				return out, err
 			}
-		type edge struct{ src, tgt string }
-		var edges []edge
-		for relRows.Next() {
-			var e edge
-			if err = relRows.Scan(&e.src, &e.tgt); err != nil {
+			type edge struct{ src, tgt string }
+			var edges []edge
+			for relRows.Next() {
+				var e edge
+				if err = relRows.Scan(&e.src, &e.tgt); err != nil {
+					relRows.Close()
+					return out, err
+				}
+				edges = append(edges, e)
+			}
+			if err = relRows.Err(); err != nil {
 				relRows.Close()
 				return out, err
 			}
-			edges = append(edges, e)
-		}
-		if err = relRows.Err(); err != nil {
 			relRows.Close()
-			return out, err
-		}
-		relRows.Close()
-		// 对端解析：表达可能是 source 或 target，取另一侧且必须在候选集合内。
-		candidate := map[string]bool{}
-		for _, x := range candidateIDs {
-			candidate[x] = true
-		}
-		peerIDs := []string{}
-		for _, e := range edges {
-			if candidate[e.src] {
-				peerIDs = append(peerIDs, e.tgt)
+			// 对端解析：表达可能是 source 或 target，取另一侧且必须在候选集合内。
+			candidate := map[string]bool{}
+			for _, x := range candidateIDs {
+				candidate[x] = true
 			}
-			if candidate[e.tgt] {
-				peerIDs = append(peerIDs, e.src)
+			peerIDs := []string{}
+			for _, e := range edges {
+				if candidate[e.src] {
+					peerIDs = append(peerIDs, e.tgt)
+				}
+				if candidate[e.tgt] {
+					peerIDs = append(peerIDs, e.src)
+				}
 			}
-		}
-		peers, err := s.GetManyVisible(ctx, peerIDs, u)
-		if err != nil {
-			return out, err
-		}
-		for _, e := range edges {
+			peers, err := s.GetManyVisible(ctx, peerIDs, u)
+			if err != nil {
+				return out, err
+			}
+			for _, e := range edges {
 				if candidate[e.src] {
 					if _, seen := creditPeer[e.src]; !seen {
 						if p, ok := peers[e.tgt]; ok {

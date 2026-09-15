@@ -5,14 +5,18 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds, local, Source } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
-import { RelationEditorField } from "@/components/editor/RelationEditorField";
+import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
 import { effectiveSchemeFields, getFieldName, matchSchemes } from "@/lib/definitions";
 export function EntityEditor({
   initial,
   onSaved,
+  initialEditNote = "",
+  initialSources,
 }: {
   initial?: Entity;
   onSaved?: (e: Entity) => void;
+  initialEditNote?: string;
+  initialSources?: Source[];
 }) {
   const { t, locale } = useI18n();
   const { definition, user } = useCatalog();
@@ -52,8 +56,10 @@ export function EntityEditor({
     const union = effectiveSchemeFields(matchSchemes(defs as any, "inclusion_attributes", kindKey, JSON.parse(typesKey)));
     return union.length > 0 ? union : undefined;
   }, [defs, kindKey, typesKey]);
-  const [note, setNote] = useState("");
-  const [sources, setSources] = useState<Source[]>([
+  const [note, setNote] = useState(initialEditNote);
+  // 新建条目时关系先入队：条目拿到 id 之后再逐条写入（见 save）。
+  const [pendingRelations, setPendingRelations] = useState<RelationDraft[]>([]);
+  const [sources, setSources] = useState<Source[]>(initialSources || [
     { kind: "self", citation: "" },
   ]);
   const [error, setError] = useState("");
@@ -70,11 +76,13 @@ export function EntityEditor({
       ...Object.keys(e.attributes),
     ]),
   );
-  // 动态结构：合并实体全部类型引用模板的 sections（保序去重）；
-  // hidden 字段（存档/检索用）不在编辑面板出现；剩余字段归入"其它信息"。
+  // 动态结构：合并实体全部类型引用模板的 sections（保序去重）；剩余字段归入"其它信息"。
+  // hidden 只表示"不进详情信息面板"，不代表不可编辑：这类字段（存档/检索用）
+  // 收进折叠区仍可维护，否则 hidden + required 会变成填不出、存不下的死锁。
   // 注意：此处位于条件 return 之后，必须用普通计算，不得改成 useMemo。
   const sections: { names: Record<string, string>; fields: string[] }[] = [];
   let restFields: string[] = [];
+  let foldedFields: string[] = [];
   {
     const declared = new Set(fields);
     const seen = new Set<string>();
@@ -85,7 +93,7 @@ export function EntityEditor({
           (f: string) =>
             declared.has(f) &&
             !seen.has(f) &&
-            !d.fields[f]?.hidden &&
+            (!d.fields[f]?.hidden || f === "tags") &&
             d.fields[f],
         );
         if (!fs.length) continue;
@@ -93,7 +101,11 @@ export function EntityEditor({
         sections.push({ names: sec.names || {}, fields: fs });
       }
     }
-    restFields = fields.filter((f) => !seen.has(f) && !d.fields[f]?.hidden);
+    restFields = fields.filter((f) => !seen.has(f) && (!d.fields[f]?.hidden || f === "tags"));
+    // 折叠区：hidden 字段（tags 已有专用编辑入口，不重复列出）。
+    foldedFields = fields.filter(
+      (f) => !seen.has(f) && !!d.fields[f]?.hidden && f !== "tags",
+    );
   }
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();
@@ -119,6 +131,39 @@ export function EntityEditor({
         e.id ? "PUT" : "POST",
         { entity: e, expected_version: e.version, edit_note: note, sources },
       );
+      // 新建时排队的关系：条目已在，逐条写入。失败不静默——列出失败项让用户决定重试哪条。
+      if (!e.id && pendingRelations.length > 0) {
+        const failures: string[] = [];
+        for (const d of pendingRelations) {
+          try {
+            await api(
+              "/catalog/relations",
+              "POST",
+              {
+                relation: {
+                  type: d.type,
+                  source_id: d.forward ? out.id : d.targetId,
+                  target_id: d.forward ? d.targetId : out.id,
+                  position: d.position,
+                  attributes: d.attributes,
+                },
+                expected_version: 0,
+                edit_note: note,
+                sources,
+              },
+              { "Idempotency-Key": crypto.randomUUID() },
+            );
+          } catch (err) {
+            failures.push(`${d.type}: ${(err as Error).message}`);
+          }
+        }
+        setPendingRelations([]);
+        if (failures.length > 0) {
+          setError(t("editor.relation.flushFailed", { list: failures.join("；") }));
+          setBusy(false);
+          return;
+        }
+      }
       if (onSaved) onSaved(out);
       else router.push(`/catalog/${out.id}`);
     } catch (err) {
@@ -612,7 +657,15 @@ export function EntityEditor({
       </fieldset>
       )}
       {/* 关系维护：独立资源逐条提交，不复用实体 PUT；词表来自服务端 definitions。 */}
-      <RelationEditorField entityId={e.id} entityKind={e.kind} entityTypes={e.types} note={note} sources={sources} />
+      <RelationEditorField
+        entityId={e.id}
+        entityKind={e.kind}
+        entityTypes={e.types}
+        note={note}
+        sources={sources}
+        drafts={pendingRelations}
+        onDraftsChange={setPendingRelations}
+      />
       {!!fields.length && (
         <fieldset>
           <legend>{t("catalog.attributes")}</legend>
@@ -684,6 +737,38 @@ export function EntityEditor({
                 ))}
               </div>
             </div>
+          )}
+          {foldedFields.length > 0 && (
+            <details className="cv-section">
+              <summary className="cv-section-title">{t("catalog.hiddenFields")}</summary>
+              <div className="cv-grid">
+                {foldedFields.map((k) => (
+                  <label key={k}>
+                    {local(d.fields[k]?.names, locale, "", k)}
+                    {d.fields[k]?.required && " *"}
+                    <FieldInput
+                      field={d.fields[k]}
+                      value={e.attributes[k]}
+                      onChange={(v) =>
+                        patch({ attributes: { ...e.attributes, [k]: v } })
+                      }
+                    />
+                    {e.attributes[k] !== undefined && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const attributes = { ...e.attributes };
+                          delete attributes[k];
+                          patch({ attributes });
+                        }}
+                      >
+                        {t("catalog.remove")}
+                      </button>
+                    )}
+                  </label>
+                ))}
+              </div>
+            </details>
           )}
         </fieldset>
       )}

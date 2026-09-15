@@ -48,11 +48,8 @@ jobs:
             dockerfile: ./frontend/Dockerfile
             target: ""
             image_name: frontend
-          - name: docs-site
-            context: ./docs-site
-            dockerfile: ./docs-site/Dockerfile
-            target: ""
-            image_name: docs-site
+          # 文档站镜像由 metafusion-docs 仓库自己构建发布（内容与构建配置都在那边），
+          # 本仓库只构建目录/前端与迁移器镜像。
 
     steps:
       - name: Checkout repository

@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -19,88 +17,9 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/metafusion/metafusion-app/internal/capabilities"
 	"github.com/metafusion/metafusion-app/internal/catalog"
-	"github.com/metafusion/metafusion-app/internal/moduleapi"
-	"github.com/metafusion/metafusion-app/internal/modules"
 )
-
-type catalogAdapter struct{ s *catalog.Store }
-
-func (a catalogAdapter) Lookup(ctx context.Context, id string, p *moduleapi.Principal) (moduleapi.Entity, error) {
-	var u *catalog.User
-	if p != nil {
-		u = &catalog.User{ID: p.ID, Role: p.Role}
-	}
-	e, err := a.s.Resolve(ctx, id, u)
-	return moduleapi.Entity{ID: e.ID, Kind: e.Kind, Title: e.Title, Status: e.Status, RedirectID: e.RedirectID}, err
-}
-
-func (a catalogAdapter) LookupMany(ctx context.Context, ids []string, p *moduleapi.Principal) (map[string]moduleapi.Entity, error) {
-	var u *catalog.User
-	if p != nil {
-		u = &catalog.User{ID: p.ID, Role: p.Role}
-	}
-	got, err := a.s.GetManyVisible(ctx, ids, u)
-	if err != nil {
-		return nil, err
-	}
-	out := make(map[string]moduleapi.Entity, len(got))
-	for id, e := range got {
-		out[id] = moduleapi.Entity{ID: e.ID, Kind: e.Kind, Title: e.Title, Status: e.Status, RedirectID: e.RedirectID}
-	}
-	return out, nil
-}
-
-func (a catalogAdapter) RelatedEntities(ctx context.Context, id string, kinds []string, p *moduleapi.Principal) ([]moduleapi.Entity, error) {
-	var u *catalog.User
-	if p != nil {
-		u = &catalog.User{ID: p.ID, Role: p.Role}
-	}
-	rels, err := a.s.RelatedEntities(ctx, id, kinds, u)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]moduleapi.Entity, 0, len(rels))
-	for _, e := range rels {
-		out = append(out, moduleapi.Entity{ID: e.ID, Kind: e.Kind, Title: e.Title, Status: e.Status, RedirectID: e.RedirectID})
-	}
-	return out, nil
-}
-
-func (a catalogAdapter) Authenticate(ctx context.Context, token string) (moduleapi.Principal, error) {
-	u, err := a.s.User(ctx, token)
-	if err != nil {
-		return moduleapi.Principal{}, err
-	}
-	return moduleapi.Principal{ID: u.ID, Username: u.Username, Role: u.Role}, nil
-}
-
-func (a catalogAdapter) Export(ctx context.Context, id string, p *moduleapi.Principal) (json.RawMessage, error) {
-	var u *catalog.User
-	if p != nil {
-		u = &catalog.User{ID: p.ID, Role: p.Role}
-	}
-	e, err := a.s.Get(ctx, id, u)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(e)
-}
-
-func (a catalogAdapter) Submit(ctx context.Context, b json.RawMessage, p moduleapi.Principal) (json.RawMessage, error) {
-	var input catalog.Edit
-	dec := json.NewDecoder(strings.NewReader(string(b)))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&input); err != nil {
-		return nil, err
-	}
-	input.Entity.Status = "pending_review"
-	e, err := a.s.Save(ctx, input, catalog.User{ID: p.ID, Role: p.Role})
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(e)
-}
 
 func main() {
 	env := func(k, v string) string {
@@ -136,28 +55,16 @@ func main() {
 		log.Fatalf("catalog schema initialization failed: %v", err)
 	}
 
-	// 无状态访问令牌：配置 AUTH_JWT_PRIVATE_KEY 时用持久 RSA 私钥签发 RS256 JWT；
-	// 未配置则生成进程内临时密钥（重启即失效，靠查库兜底），保证系统仍可启动。
-	issuer, terr := catalog.NewTokenIssuerFromEnv(env("AUTH_JWT_ISSUER", "https://findverse.cc/api"), env("AUTH_JWT_AUDIENCE", "metafusion"))
+	// 目录侧只验签，不签发：用与账号服务同一把 RSA 私钥派生出公钥（签发路径在账号服务）。
+	// 未配置时验签器不可用，需要身份的写接口会按未登录处理——这是有意的 fail closed，
+	// 只影响写与个性化，公开读不受影响。
+	verifier, terr := catalog.NewTokenVerifierFromEnv(env("AUTH_JWT_ISSUER", "https://findverse.cc/api"), env("AUTH_JWT_AUDIENCE", "metafusion"))
 	if terr != nil {
-		log.Fatalf("auth token issuer initialization failed: %v", terr)
+		log.Fatalf("token verifier initialization failed: %v", terr)
 	}
-	s.Tokens = issuer
-	if issuer.Ephemeral() {
-		log.Print("AUTH_JWT_PRIVATE_KEY is unset; using an in-process RSA key (tokens expire on restart)")
-	}
-
-	moduleDB, err := sql.Open("postgres", dsn)
-	var mods *modules.Manager
-	if err == nil {
-		defer moduleDB.Close()
-		moduleDB.SetMaxOpenConns(5)
-		initCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		mods, err = modules.New(initCtx, moduleDB, catalogAdapter{s}, env("ARCHIVE_PATH", "./module-data/archive"))
-		cancel()
-	}
-	if err != nil {
-		log.Print("Optional modules unavailable; metadata remains online")
+	s.Verifier = verifier
+	if verifier.Ephemeral() {
+		log.Print("AUTH_JWT_PRIVATE_KEY is unset: catalog cannot verify tokens, authenticated writes will be rejected as anonymous")
 	}
 
 	r := gin.New()
@@ -167,6 +74,9 @@ func main() {
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		c.Header("X-Frame-Options", "SAMEORIGIN")
+		// 切流自检用：标明本次响应来自哪个上游，便于确认网关前缀是否已切到目标服务
+		// （metafusion-auth / -community / -storage 返回同名头，拆分后能逐前缀核对）。
+		c.Header("X-MetaFusion-Service", "metafusion-catalog")
 		c.Next()
 	})
 	// requestID 透传 X-Request-ID：请求无则生成 crypto/rand hex，写入响应头与 gin 上下文。
@@ -196,13 +106,11 @@ func main() {
 
 	catalog.HTTP{Store: s}.Register(r)
 
-	if mods != nil {
-		mods.Register(r)
-		mods.Start(ctx)
-	} else {
-		capHandler := func(c *gin.Context) { c.JSON(200, gin.H{"modules": []moduleapi.Manifest{}, "status": "unavailable"}) }
-		r.GET("/api/capabilities", capHandler)
-	}
+	// 能力清单改为"部署态"视图：子系统拆出去之后，能力由服务是否部署/健康决定，
+	// 运行时开关退役（PUT /api/admin/modules/:id 返回 409，见 capabilities 包）。
+	caps := capabilities.New(os.Getenv)
+	caps.Start(ctx)
+	caps.Register(r)
 
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "live"}) })
 	r.GET("/ready", func(c *gin.Context) {
@@ -214,36 +122,6 @@ func main() {
 		}
 		c.JSON(200, gin.H{"status": "ready", "dependencies": []string{"postgres"}})
 	})
-
-	go func() {
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				if mods == nil {
-					continue
-				}
-				delivery, cancel := context.WithTimeout(ctx, 5*time.Second)
-				err := s.Deliver(delivery, "optional-modules", func(ctx context.Context, e catalog.Event) error {
-					if e.Type != "entity.merged" {
-						return nil
-					}
-					var entity catalog.Entity
-					if err := json.Unmarshal(e.Payload, &entity); err != nil {
-						return err
-					}
-					return mods.ConsumeMerge(ctx, e.ID, entity.ID, entity.RedirectID)
-				})
-				cancel()
-				if err != nil && !errors.Is(err, context.Canceled) {
-					log.Print("Optional module event delivery will retry")
-				}
-			}
-		}
-	}()
 
 	server := &http.Server{
 		Addr:              ":" + env("PORT", "8080"),

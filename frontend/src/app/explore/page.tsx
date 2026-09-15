@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useDefinitions, getTypeName } from "@/lib/definitions";
+import { useDefinitions, getTypeName, getKindName } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import {
@@ -102,7 +102,7 @@ function ExploreInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const { definitions } = useDefinitions();
+  const { definitions, kinds } = useDefinitions();
   const titleOrder = useTitleDisplayOrder();
 
   const currentKind = searchParams.get("kind") || "all";
@@ -198,7 +198,9 @@ function ExploreInner() {
     router.push("/explore?" + params.toString());
   };
 
-  const kindLabel = (id: string) => t("catalog.kind." + id);
+  // 实体类型（八骨架 kind）显示名：服务端 definitions 的 kinds 优先，前端字典兜底。
+  // 左栏筛选与卡片角标都用它——"分类"不在这里，分类由货架承担。
+  const kindLabel = (id: string) => getKindName(kinds, id, locale, tr("catalog.kind." + id, id));
 
   // 当前所在层：用于左栏高亮，未选中具体 kind 时不强调任何层。
   const activeLayer = useMemo(
@@ -207,13 +209,13 @@ function ExploreInner() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen flex flex-col bg-background text-text-strong">
       <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full flex-1">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-black/10 dark:border-white/[0.06]">
+      <main className="mf-enter max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-line">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2.5 font-display">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-strong flex items-center gap-2.5 font-display">
               <Layers className="w-7 h-7 text-primary" />
               <span>{t("catalog.exploreTitle")}</span>
             </h1>
@@ -225,7 +227,7 @@ function ExploreInner() {
           <div className="flex items-center gap-2">
             <Link
               href="/compare"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface hover:bg-black/[0.04] dark:hover:bg-white/[0.08] border border-black/10 dark:border-white/10 text-xs font-mono text-gray-700 dark:text-gray-300 transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface hover:bg-black/[0.04] dark:hover:bg-white/[0.08] border border-line text-xs font-mono text-text-body transition-colors duration-fast ease-soft shadow-2xs"
             >
               <GitCompare className="w-4 h-4 text-amber-500 dark:text-amber-400" />
               <span>{t("catalog.compare")}</span>
@@ -233,7 +235,7 @@ function ExploreInner() {
 
             <Link
               href="/new"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-xs font-medium text-white transition-colors shadow-2xs"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-xs font-medium text-white transition-colors duration-fast ease-soft shadow-2xs"
             >
               <Plus className="w-4 h-4" />
               <span>{t("catalog.newEntity")}</span>
@@ -244,8 +246,8 @@ function ExploreInner() {
         {/* 双栏：左侧按实体层级导航，右侧结果区 */}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-5">
           <aside className="space-y-4">
-            <div className="rounded-xl border border-black/10 dark:border-white/[0.08] bg-surface shadow-soft overflow-hidden">
-              <div className="px-3.5 py-2.5 border-b border-black/[0.06] dark:border-white/[0.06]">
+            <div className="rounded-xl border border-line bg-surface shadow-soft overflow-hidden">
+              <div className="px-3.5 py-2.5 border-b border-line-subtle">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
                   {t("catalog.kindLabel")}
                 </span>
@@ -255,10 +257,10 @@ function ExploreInner() {
                   type="button"
                   onClick={() => updateFilters({ kind: "" })}
                   className={
-                    "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors " +
+                    "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors duration-fast ease-soft " +
                     (currentKind === "all"
                       ? "bg-primary/10 text-primary border border-primary/25 font-semibold"
-                      : "text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-transparent")
+                      : "text-text-body hover:bg-black/[0.04] dark:hover:bg-surfaceHover border border-transparent")
                   }
                 >
                   <Layers className="w-3.5 h-3.5" />
@@ -288,10 +290,10 @@ function ExploreInner() {
                             type="button"
                             onClick={() => updateFilters({ kind: k.id })}
                             className={
-                              "w-full flex items-center gap-2 pl-5 pr-2.5 py-1.5 rounded-lg text-xs transition-colors " +
+                              "w-full flex items-center gap-2 pl-5 pr-2.5 py-1.5 rounded-lg text-xs transition-colors duration-fast ease-soft " +
                               (active
                                 ? "bg-primary/10 text-primary border border-primary/25 font-semibold"
-                                : "text-gray-600 dark:text-gray-400 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] hover:text-gray-900 dark:hover:text-white border border-transparent")
+                                : "text-gray-600 dark:text-gray-400 hover:bg-black/[0.04] dark:hover:bg-surfaceHover hover:text-gray-900 dark:hover:text-white border border-transparent")
                             }
                           >
                             <Icon className="w-3.5 h-3.5" />
@@ -308,19 +310,19 @@ function ExploreInner() {
 
           <div className="min-w-0 space-y-5">
             {/* 检索与状态：仅保留面向用户的检索条件，类型不再单列 */}
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-4 rounded-xl bg-surface border border-black/10 dark:border-white/[0.08] shadow-soft">
+            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-4 rounded-xl bg-surface border border-line shadow-soft">
               <form onSubmit={handleSearchSubmit} className="sm:col-span-8 relative flex items-center">
-                <Search className="absolute left-3.5 w-4 h-4 text-gray-400 dark:text-gray-500 pointer-events-none" />
+                <Search className="absolute left-3.5 w-4 h-4 text-text-muted pointer-events-none" />
                 <input
                   type="text"
                   value={qInput}
                   onChange={(e) => setQInput(e.target.value)}
                   placeholder={t("catalog.searchPlaceholder")}
-                  className="w-full pl-10 pr-20 py-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-xs text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary focus:bg-surface outline-none transition-all"
+                  className="w-full pl-10 pr-20 py-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.04] border border-line text-xs text-text-strong placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary focus:bg-surface outline-none transition-all duration-base ease-soft"
                 />
                 <button
                   type="submit"
-                  className="absolute right-1.5 px-3 py-1 rounded bg-primary/15 hover:bg-primary/25 text-primary text-xs font-semibold transition-colors cursor-pointer"
+                  className="absolute right-1.5 px-3 py-1 rounded bg-primary/15 hover:bg-primary/25 text-primary text-xs font-semibold transition-colors duration-fast ease-soft cursor-pointer"
                 >
                   {t("catalog.searchAction")}
                 </button>
@@ -332,7 +334,7 @@ function ExploreInner() {
                   <select
                     value={currentType}
                     onChange={(e) => updateFilters({ type: e.target.value })}
-                    className="w-full py-2 px-2.5 rounded-lg bg-surface dark:bg-[#18181b] border border-black/10 dark:border-white/10 text-xs text-gray-800 dark:text-gray-200 focus:border-primary outline-none cursor-pointer"
+                    className="w-full py-2 px-2.5 rounded-lg bg-surface dark:bg-[#18181b] border border-line text-xs text-text-strong focus:border-primary outline-none cursor-pointer"
                   >
                     <option value="">{t("catalog.typeAll")}</option>
                     {typeOptions.map((code) => (
@@ -348,15 +350,15 @@ function ExploreInner() {
                 <select
                   value={currentStatus}
                   onChange={(e) => updateFilters({ status: e.target.value })}
-                  className="w-full py-2 px-2.5 rounded-lg bg-surface dark:bg-[#18181b] border border-black/10 dark:border-white/10 text-xs text-gray-800 dark:text-gray-200 focus:border-primary outline-none cursor-pointer"
+                  className="w-full py-2 px-2.5 rounded-lg bg-surface dark:bg-[#18181b] border border-line text-xs text-text-strong focus:border-primary outline-none cursor-pointer"
                 >
-                  <option value="published" className="bg-surface dark:bg-[#18181b] text-gray-900 dark:text-gray-100">
+                  <option value="published" className="bg-surface dark:bg-[#18181b] text-text-strong">
                     {t("catalog.status.published")}
                   </option>
-                  <option value="pending_review" className="bg-surface dark:bg-[#18181b] text-gray-900 dark:text-gray-100">
+                  <option value="pending_review" className="bg-surface dark:bg-[#18181b] text-text-strong">
                     {t("catalog.status.pending_review")}
                   </option>
-                  <option value="draft" className="bg-surface dark:bg-[#18181b] text-gray-900 dark:text-gray-100">
+                  <option value="draft" className="bg-surface dark:bg-[#18181b] text-text-strong">
                     {t("catalog.status.draft")}
                   </option>
                 </select>
@@ -367,10 +369,10 @@ function ExploreInner() {
                   type="button"
                   onClick={() => setViewMode("grid")}
                   className={
-                    "p-2 rounded-lg border text-xs transition-colors shadow-2xs cursor-pointer " +
+                    "p-2 rounded-lg border text-xs transition-colors duration-fast ease-soft shadow-2xs cursor-pointer " +
                     (viewMode === "grid"
                       ? "bg-primary/15 border-primary/40 text-primary font-bold"
-                      : "bg-surface border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")
+                      : "bg-surface border-line text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")
                   }
                   title={t("catalog.gridView")}
                 >
@@ -380,10 +382,10 @@ function ExploreInner() {
                   type="button"
                   onClick={() => setViewMode("list")}
                   className={
-                    "p-2 rounded-lg border text-xs transition-colors shadow-2xs cursor-pointer " +
+                    "p-2 rounded-lg border text-xs transition-colors duration-fast ease-soft shadow-2xs cursor-pointer " +
                     (viewMode === "list"
                       ? "bg-primary/15 border-primary/40 text-primary font-bold"
-                      : "bg-surface border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")
+                      : "bg-surface border-line text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white")
                   }
                   title={t("catalog.listView")}
                 >
@@ -395,7 +397,7 @@ function ExploreInner() {
             {/* 标签筛选：多选、命中任一；来源为真实标签聚合 */}
             {topTags.length > 0 && (
               <div className="flex flex-wrap items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500 shrink-0" />
+                <Tag className="w-3.5 h-3.5 text-text-muted shrink-0" />
                 {topTags.map((tag) => {
                   const active = currentTags.includes(tag.name);
                   return (
@@ -404,10 +406,10 @@ function ExploreInner() {
                       type="button"
                       onClick={() => toggleTag(tag.name)}
                       className={
-                        "px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors cursor-pointer " +
+                        "px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors duration-fast ease-soft cursor-pointer " +
                         (active
                           ? "bg-primary text-white font-semibold border border-primary"
-                          : "bg-surface text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-white/[0.06] border border-black/10 dark:border-white/10")
+                          : "bg-surface text-text-body hover:text-gray-900 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-surfaceHover border border-line")
                       }
                     >
                       #{tag.name}
@@ -432,7 +434,7 @@ function ExploreInner() {
                 <span>{t("catalog.loading")}</span>
               </div>
             ) : items.length === 0 ? (
-              <div className="py-20 rounded-xl border border-dashed border-black/15 dark:border-white/10 text-center bg-surface/50 shadow-2xs">
+              <div className="py-20 rounded-xl border border-dashed border-line text-center bg-surface/50 shadow-2xs">
                 <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">{t("catalog.emptyTitle")}</p>
                 <button
                   type="button"
@@ -446,16 +448,16 @@ function ExploreInner() {
               <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
                 {items.map((item) => {
                   const KindIcon = KIND_ICONS[item.kind] || Layers;
-                  const kindText = kindLabel(item.kind);
                   const typeLabels = (item.types || []).map((tCode) => getTypeName(definitions, tCode, locale));
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
-                  const badgeLabel = typeLabels[0] || kindText;
+                  // 角标 = 实体类型（kind）；业务类型留在正文的类型标签里，不做成"分类"角标。
+                  const badgeLabel = kindLabel(item.kind);
 
                   return (
                     <Link
                       key={item.id}
                       href={"/catalog/" + item.id}
-                      className="group flex flex-col rounded-xl bg-surface hover:shadow-elevated border border-black/10 dark:border-white/[0.08] hover:border-primary/50 dark:hover:border-primary/50 overflow-hidden transition-all duration-200"
+                      className="group flex flex-col rounded-xl bg-surface hover:shadow-elevated border border-line hover:border-primary/50 dark:hover:border-primary/50 overflow-hidden transition-all duration-base ease-soft"
                     >
                       <AdaptiveCardCover
                         src={item.pictures && item.pictures[0]?.url}
@@ -476,12 +478,12 @@ function ExploreInner() {
                         fallbackIcon={<KindIcon className="w-5 h-5" />}
                         fallbackTitle={displayTitle}
                         fallbackSubtitle={badgeLabel}
-                        className="border-b border-black/5 dark:border-white/5"
+                        className="border-b border-line-subtle"
                       />
 
                       <div className="p-3 flex-1 flex flex-col justify-between">
                         <div>
-                          <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-primary transition-colors text-xs sm:text-sm line-clamp-1 mb-1">
+                          <h3 className="font-semibold text-text-strong group-hover:text-primary transition-colors duration-fast ease-soft text-xs sm:text-sm line-clamp-1 mb-1">
                             {displayTitle}
                           </h3>
                           {item.title !== displayTitle && (
@@ -491,15 +493,14 @@ function ExploreInner() {
                             {typeLabels.slice(0, 2).map((label, idx) => (
                               <span
                                 key={idx}
-                                className="px-1.5 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] text-gray-600 dark:text-gray-300 font-mono border border-black/5 dark:border-white/5"
+                                className="px-1.5 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] text-text-body font-mono border border-line-subtle"
                               >
                                 {label}
                               </span>
                             ))}
                           </div>
                         </div>
-                        <div className="mt-2.5 pt-1.5 border-t border-black/5 dark:border-white/[0.04] flex items-center justify-between text-[10px] text-gray-500 dark:text-gray-400 font-mono">
-                          <span>{kindText}</span>
+                        <div className="mt-2.5 pt-1.5 border-t border-line-subtle flex items-center justify-end text-[10px] text-text-muted font-mono">
                           <span className="group-hover:text-primary flex items-center gap-0.5">
                             {t("catalog.viewDetail")}
                           </span>
@@ -510,34 +511,34 @@ function ExploreInner() {
                 })}
               </div>
             ) : (
-              <div className="rounded-xl border border-black/10 dark:border-white/[0.06] bg-surface overflow-hidden divide-y divide-black/5 dark:divide-white/[0.04] shadow-soft">
+              <div className="rounded-xl border border-line bg-surface overflow-hidden divide-y dark:divide-white/[0.04] shadow-soft">
                 {items.map((item) => {
                   const KindIcon = KIND_ICONS[item.kind] || Layers;
-                  const kindText = kindLabel(item.kind);
                   const typeLabels = (item.types || []).map((tCode) => getTypeName(definitions, tCode, locale));
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
-                  const badgeLabel = typeLabels[0] || kindText;
+                  // 角标 = 实体类型（kind）；业务类型留在正文的类型标签里，不做成"分类"角标。
+                  const badgeLabel = kindLabel(item.kind);
 
                   return (
                     <Link
                       key={item.id}
                       href={"/catalog/" + item.id}
-                      className="p-3.5 flex items-center justify-between gap-4 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition-colors group"
+                      className="p-3.5 flex items-center justify-between gap-4 hover:bg-surfaceSubtle transition-colors duration-fast ease-soft group"
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-11 h-11 rounded-lg bg-black/[0.03] dark:bg-black/40 border border-black/10 dark:border-white/10 shrink-0 overflow-hidden flex items-center justify-center">
+                        <div className="w-11 h-11 rounded-lg bg-black/[0.03] dark:bg-black/40 border border-line shrink-0 overflow-hidden flex items-center justify-center">
                           {item.pictures && item.pictures[0]?.url ? (
                             <img src={item.pictures[0].url} alt={displayTitle} className="w-full h-full object-cover" />
                           ) : (
-                            <KindIcon className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+                            <KindIcon className="w-5 h-5 text-text-muted" />
                           )}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
-                            <span className="px-2 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-gray-700 dark:text-gray-300 font-medium">
+                            <span className="px-2 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-text-body font-medium">
                               {badgeLabel}
                             </span>
-                            <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-primary transition-colors text-sm truncate">
+                            <h3 className="font-semibold text-text-strong group-hover:text-primary transition-colors duration-fast ease-soft text-sm truncate">
                               {displayTitle}
                             </h3>
                             {item.title !== displayTitle && (
@@ -551,8 +552,8 @@ function ExploreInner() {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 font-mono">
-                            <span>{kindText}</span>
+                          <div className="flex items-center gap-1.5 text-xs text-text-muted font-mono">
+                            <span>{kindLabel(item.kind)}</span>
                             {typeLabels.length > 0 && (
                               <>
                                 <span>•</span>
@@ -563,9 +564,9 @@ function ExploreInner() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 shrink-0 text-xs font-mono text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center gap-4 shrink-0 text-xs font-mono text-text-muted">
                         <span>rev {item.version || 1}</span>
-                        <ArrowRight className="w-4 h-4 text-gray-400 dark:text-gray-600 group-hover:text-primary transition-colors" />
+                        <ArrowRight className="w-4 h-4 text-text-faint group-hover:text-primary transition-colors duration-fast ease-soft" />
                       </div>
                     </Link>
                   );
@@ -573,7 +574,7 @@ function ExploreInner() {
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-black/10 dark:border-white/[0.06] pt-4 text-xs font-mono text-gray-600 dark:text-gray-400">
+            <div className="flex items-center justify-between border-t border-line pt-4 text-xs font-mono text-gray-600 dark:text-gray-400">
               <div>
                 <span>
                   {t("catalog.showingPage", {
@@ -587,7 +588,7 @@ function ExploreInner() {
                   type="button"
                   disabled={currentPage <= 1}
                   onClick={() => updateFilters({ page: (currentPage - 1).toString() })}
-                  className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-surface hover:bg-black/[0.04] dark:hover:bg-white/[0.06] disabled:opacity-40 disabled:pointer-events-none text-gray-800 dark:text-white transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                  className="px-3 py-1.5 rounded-lg border border-line bg-surface hover:bg-black/[0.04] dark:hover:bg-surfaceHover disabled:opacity-40 disabled:pointer-events-none text-gray-800 dark:text-white transition-colors duration-fast ease-soft flex items-center gap-1 cursor-pointer shadow-2xs"
                 >
                   <ChevronLeft className="w-3.5 h-3.5" />
                   <span>{t("catalog.prevPage")}</span>
@@ -597,7 +598,7 @@ function ExploreInner() {
                   type="button"
                   disabled={items.length < limit}
                   onClick={() => updateFilters({ page: (currentPage + 1).toString() })}
-                  className="px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-surface hover:bg-black/[0.04] dark:hover:bg-white/[0.06] disabled:opacity-40 disabled:pointer-events-none text-gray-800 dark:text-white transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                  className="px-3 py-1.5 rounded-lg border border-line bg-surface hover:bg-black/[0.04] dark:hover:bg-surfaceHover disabled:opacity-40 disabled:pointer-events-none text-gray-800 dark:text-white transition-colors duration-fast ease-soft flex items-center gap-1 cursor-pointer shadow-2xs"
                 >
                   <span>{t("catalog.nextPage")}</span>
                   <ChevronRight className="w-3.5 h-3.5" />

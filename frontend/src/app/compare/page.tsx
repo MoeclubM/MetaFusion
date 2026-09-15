@@ -13,7 +13,7 @@ function CompareContent() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Navbar />
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+      <main className="mf-enter flex-1 max-w-page w-full mx-auto px-4 py-8">
         <Compare ids={ids} />
       </main>
     </div>

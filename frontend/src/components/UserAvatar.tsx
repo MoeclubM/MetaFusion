@@ -83,7 +83,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   if (avatarUrl && !imgError) {
     return (
       <div
-        className={`relative shrink-0 overflow-hidden select-none bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 ${sizeClass} ${shapeClass} ${ringClass} ${className}`}
+        className={`relative shrink-0 overflow-hidden select-none dark:bg-white/5 border border-line ${sizeClass} ${shapeClass} ${ringClass} ${className}`}
       >
         <img
           src={avatarUrl}

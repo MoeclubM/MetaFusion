@@ -38,20 +38,25 @@
 ### 1. 🏛️ 国际图书馆级 LRM 混合编目模型
 - **固定八实体骨架**：`Agent（责任者）· Collection（集合）· Work（作品）· ContentUnit（内容单元）· Expression（内容表达）· Release（发行版）· Medium（物理/数字载体）· Track（收录位置）`，资产文件（AssetFile）独立承载哈希与绑定。
 - **纯净实体题名**：作品主标题坚决剥离季数、介质、规格等非本质限定词；版本与载体规格由 Release / Medium 精确承载，杜绝重复冗余。
-- **多维标签与虚拟货架**：彻底废弃传统死板的单一树状分类，由「形态（Format）+ 制作媒介（Medium）+ 流派（Genre）+ 企划宇宙（Theme）」动态聚合生成虚拟货架。
+- **自由标签与虚拟货架**：彻底废弃传统死板的单一树状分类，由「形态（Format）+ 制作媒介（Medium）+ 流派（Genre）+ 企划宇宙（Theme）」动态聚合生成虚拟货架。
 - **自适应封面与多语言回退链**：支持 1:1、2:3、3:4 自然宽高比封面与自适应渲染；基于 `work_translations` 构建多语言回退链（`User Locale → en-US → original_language → Default`）。
 
 ### 2. 🔐 会话认证与访问控制
-- **服务端会话 + RS256 访问令牌**：登录后签发 RS256 JWT（默认 15 分钟）并写入 HttpOnly Cookie `mf_session`，鉴权中间件先本地验签（不查库），失败回退 `auth.sessions` 会话行（24 小时）；`POST /api/auth/refresh` 轮转令牌，`POST /api/auth/logout-all` 吊销该用户全部会话。账号、会话与 OAuth 客户端统一落在 `auth` schema，与元数据 `catalog` schema 分离，catalog 侧仅保留裸 UUID 引用、不跨 schema 建外键。
-- **令牌密钥（环境变量）**：`AUTH_JWT_PRIVATE_KEY` 为 PKCS#1/PKCS#8 PEM（或其 base64）RSA 私钥，未配置时生成进程内临时密钥（重启即失效，靠会话行兜底）；`AUTH_JWT_ISSUER`（默认 `https://findverse.cc/api`）与 `AUTH_JWT_AUDIENCE`（默认 `metafusion`）写入令牌声明。注意：无状态令牌在 `logout-all` 后仍有最长 15 分钟的验签残余窗口（会话行已删，纯验签路径不可枚举吊销），强吊销场景等待会话过期或更换密钥。
-- **OAuth 2.0 / OIDC 接入**：提供 `/api/oauth/authorize`、`/api/oauth/token`、`/api/oauth/userinfo` 与客户端注册管理。
+- **服务端会话 + RS256 访问令牌**：账号与令牌由独立服务 `metafusion-auth`（`auth` schema）负责——登录签发 RS256 JWT（默认 15 分钟）并写入 HttpOnly Cookie `mf_session`，`POST /api/auth/refresh` 轮转会话，`POST /api/auth/logout-all` 吊销全部会话；目录侧只做**验签**，不保存账号数据、不查对方表。
+- **令牌密钥（环境变量）**：`AUTH_JWT_PRIVATE_KEY` 为 PKCS#1/PKCS#8 PEM（或其 base64）RSA 私钥，**目录与账号服务共用同一把**（切流后由账号服务签发、其余服务只验签），未配置时生成进程内临时密钥（重启即失效）；`AUTH_JWT_ISSUER`（默认 `https://findverse.cc/api`）与 `AUTH_JWT_AUDIENCE`（默认 `metafusion`）写入令牌声明。注意：无状态令牌在 `logout-all` 后仍有最长 15 分钟的验签残余窗口，强吊销场景等待会话过期或更换密钥。
+- **OAuth 2.0 / OIDC 接入**：由账号服务提供 `/api/oauth/authorize`、`/api/oauth/token`、`/api/oauth/userinfo`、
+  `/.well-known/openid-configuration` 与 `/api/oidc/jwks`（其他服务用 JWKS 本地验签）。
 - **规划中（未实现）**：Access/Refresh 双 Token 轮转、基于 Redis 的令牌黑名单、个人访问令牌（PAT）——当前均无对应实现，请勿据此开发。
-- **媒体访问控制（可选模块）**：媒体内容由可选 `archive` / `playback` 模块经服务端鉴权转发（`GET /api/archive/resources/:id/content`），非对象存储预签名直链。
+- **文件访问控制**：文件与绑定由独立服务 `metafusion-storage` 负责（`/api/storage/*`）；
+  读取口径只有一条——上传者本人或管理员直通，其余人只要任一绑定目标实体可见即可读，
+  下载、元数据读取与哈希校验共用该判定。
 
 ### 3. 🚀 云原生媒体处理与存储
-- **S3 兼容对象存储 (RustFS)**：可选 `archive` 模块支持将资产写入本地目录或 S3 兼容存储（MinIO 客户端，`ARCHIVE_S3_*` 环境变量），元数据与物理资产分离。
+- **S3 兼容对象存储 (RustFS)**：由存储服务写入 RustFS（`STORAGE_S3_*`），按 sha256 内容寻址与秒传去重，
+  支持分片预签名直传与服务端流式上传兜底；元数据与物理资产分离，目录侧不保存物理路径。
 - **数据库检索**：`GET /api/catalog/entities?q=...` 由 PostgreSQL 匹配题名与多语言文档（`ILIKE` / 全文索引），OpenSearch 2.14 容器已随 Compose 部署，但**当前 Go 代码尚未接入客户端，规划中的多语言分词与 Facet 聚合未生效**。
-- **媒体处理**：`ffmpeg` / `ffprobe` 由可选 `media` 模块在 `cmd/server` 进程内调用（探针与转码），没有独立的转码 Worker 进程。
+- **不做转码（明确取舍）**：不生成 HLS 切片、预览音频、波形图或缩略图；存储服务只收原始文件、做内容寻址与受控下载。
+  原 `media` 模块（`ffprobe` 探针、预览转码）随模块层退役，不再补。
 
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
 - **独立迁移引擎 (`mf-migrate`)**：自研 Go 原生数据库迁移工具，集成 PostgreSQL Advisory Lock 机制，彻底杜绝多副本部署时的并发迁移竞争。
@@ -60,20 +65,26 @@
 
 ---
 
-## 🏗️ 系统架构全景：一体化元数据主系统 + 可选解耦模块
+## 🏗️ 系统架构全景：元数据目录主系统 + 独立子系统
 
-本仓库是**单一部署单元**：元数据主系统与前后端、网关、文档站共用一个 `cmd/server` 进程与统一 `/api` 前缀，通过数据库 schema 边界与可选模块（modules）实现外围能力解耦，而非按域拆分的多个微服务仓库。
+本仓库收敛为**元数据目录 + 前端 + 文档站 + 一键部署编排**。账号、互动、存储已拆成独立服务仓库，
+由边缘网关按 `/api/*` 前缀分流；各服务各自持有自己的 schema，不建跨 schema 外键、不 JOIN 别人的表，
+跨服务只按实体 UUID 走 HTTP 契约。
 
 ### 1. 仓库内实际组件 (Repository Components)
 
 | 组件 | 实现位置 | 定位 | 核心职责 |
 |---|---|---|---|
-| **元数据核心** | `backend/internal/catalog`、`backend/cmd/server` | **主系统** | 八大固定实体骨架、动态定义引擎、关系图谱、版本对比、协同审核与修订历史 |
-| **可选模块** | `backend/internal/modules`（边界 `moduleapi` / `moduledeps`） | 进程内独立 schema | 资源归档、播放、媒体、社区、记录、交换等可选能力，独立于 catalog 表并支持依赖启停 |
-| **认证与网关** | `backend/internal/catalog/http.go`、`deploy/nginx.conf` | 进程内认证 + 单端口边缘网关 | 会话认证、OAuth 2.0 / OIDC 端点、统一 `/api` 路由与限流，Nginx 负责 TLS/反代 |
-| **前端与文档站** | `frontend/`、`docs-site/` | 展示层 | Next.js 主站与管理中台；VitePress 静态文档站 |
+| **元数据目录** | `backend/internal/catalog`、`backend/cmd/server` | **主系统** | 八大固定实体骨架、动态定义引擎、关系图谱、版本对比、修订历史、`/api/exchange/*` 导入导出 |
+| **前端** | `frontend/` | 展示层 | Next.js 主站与管理中台 |
+| **文档站** | 独立仓库 `../metafusion-docs` | 展示层 | VitePress 静态文档站（唯一源，本仓库不再存放 doc 页面） |
+| **部署编排** | `deploy/`（`docker-compose.yml`、`nginx.conf`、`deploy.sh`、`sql/`） | 一键部署 | 单端口边缘网关、全部服务编排、切流/回滚与遗留结构清理 |
+| **独立子系统** | `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`、`../metafusion-api-gateway` | 兄弟仓库 | 账号与 RS256 令牌、论坛与互动记录、文件与内容寻址直传、路由矩阵 |
 
-> **解耦保障**：元数据核心数据库仅存放实体本体与关系图谱，**不反向持有物理文件路径或社区帖子**；外围能力通过稳定边界（`moduleapi.Catalog` 接口与领域事件）单向引用实体 UUID 挂载业务。即使资源或社区模块停用，元数据浏览、编辑与检索依然独立稳定可用。多仓库拆分仅为长期规划，详见下方 VISION 文档。
+> **解耦保障**：目录库只存实体本体与关系图谱，**不持有物理文件路径或社区帖子**；各服务的表在自己的 schema 里，
+> 互相只按实体 UUID 走 HTTP。目录服务停摆不影响互动/存储自身数据的完整性，反之亦然。
+> 边界与迁移顺序见 [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)，
+> 切流与回滚见 [切流手册](docs/architecture/cutover-runbook.md)。
 
 ### 2. 请求拓扑
 
@@ -81,34 +92,34 @@
                     [ 客户端 / Web 前端 / 移动端 / 自动化 Agent ]
                                       │
                                       ▼
-                          ┌────────────────────────┐
-                          │  Nginx 边缘网关 (单端口) │  TLS / 反代 / 限流
-                          └───────────┬────────────┘
-                                      │  /api/*
-                                      ▼
-                          ┌────────────────────────┐
-                          │  cmd/server (统一 /api) │
-                          │   catalog + modules     │
-                          └───────────┬────────────┘
-                                      │
-             ┌────────────┬───────────┼───────────┐
-             ▼            ▼           ▼           ▼
-        PostgreSQL     Redis     OpenSearch    RustFS
-        (元数据真源)  (已部署,未接入) (已部署,未接入) (已部署,未接线)
+                          ┌─────────────────────────┐
+                          │  Nginx 边缘网关 (单端口) │  按前缀分流；TLS 由外层反代接管
+                          └────────────┬────────────┘
+        ┌───────────────┬──────────────┼───────────────┬────────────────┐
+        ▼               ▼              ▼               ▼                ▼
+  /api/catalog/*   /api/auth/*  /api/community/*  /api/storage/*    前端 / 文档站
+   元数据目录        账号服务        互动服务         存储服务        Next.js / VitePress
+        │               │              │               │
+        └───────────────┴──── PostgreSQL 16 ────┬──────┘
+                          catalog / auth / community / storage 四个 schema
+                                                ├──── RustFS (S3 兼容，仅内网可达；桶由存储服务启动时自建)
+                                                └──── Redis / OpenSearch (常驻但尚未接线，见切流手册第 4 节)
 ```
 
-> 外围解耦的长期目标（独立 auth / storage / community / gateway 仓库）记录在 [`docs/architecture/multi-project-decoupling-spec.md`](docs/architecture/multi-project-decoupling-spec.md)，**尚未实现，请勿当作运行时事实**。
+> 各服务仓库的当前落地状态与「子项目各司其职」的边界，见
+> [子系统拆分与迁移契约](docs/architecture/service-split-migration.md) 与
+> [多项目解耦规范](docs/architecture/multi-project-decoupling-spec.md)。
 
 ---
 
 ## 🛠️ 技术栈清单
 
-- **后端核心 (Backend)**：Go 1.25, Gin, Golang-JWT/v5, MinIO Go SDK（S3 兼容对象存储）
+- **后端核心 (Backend)**：Go 1.25, Gin, Golang-JWT/v5（对象存储走 S3 协议，客户端库为 minio-go——它只是 S3 SDK，服务端是 RustFS）
 - **前端系统 (Frontend)**：Next.js 14 (App Router), React 18, Tailwind CSS, Lucide Icons, TypeScript
 - **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
 - **数据库 (Storage & DB)**：PostgreSQL 16, Redis 7 (Alpine，Compose 已部署；Go 代码尚未接入), RustFS (S3-compatible Object Storage)
 - **检索引擎 (Search Engine)**：OpenSearch 2.14.0（Compose 已部署；Go 代码尚未接入，当前检索走 PostgreSQL）
-- **媒体处理 (Media Pipeline)**：FFmpeg / ffprobe（由可选 `media` 模块在服务进程内调用）
+- **媒体处理**：不做转码（无 FFmpeg 依赖）；上传/下载契约见 [资源上传与下载](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/upload-download.md)
 - **容器与网关 (Infra)**：Docker, Docker Compose v2, Nginx 1.25 Alpine
 
 ---
@@ -123,14 +134,22 @@
 ### 2. 获取代码与配置环境
 
 ```bash
-# 克隆仓库
+# 克隆主仓库
 git clone https://github.com/MoeclubM/MetaFusion.git
+cd MetaFusion
+
+# 账号 / 互动 / 存储三个子系统的构建上下文在兄弟目录（compose 里的 ../../metafusion-*），
+# 部署机上必须与主仓库并列检出，否则这三个服务拉不起来。
+cd .. && for r in metafusion-auth metafusion-community metafusion-storage; do
+  git clone https://github.com/MoeclubM/$r.git
+done
 cd MetaFusion
 
 # 从模板创建环境变量
 cp .env.example .env
 
-# 编辑 .env 配置生产级随机密钥 (JWT_SECRET, DB_PASSWORD, MINIO_ROOT_PASSWORD)
+# 编辑 .env 配置生产级随机密钥 (DB_PASSWORD, RUSTFS_ROOT_PASSWORD, AUTH_JWT_PRIVATE_KEY；
+# AUTH_JWT_PRIVATE_KEY 必须在目录服务与账号服务之间共用同一把 RSA 私钥，否则登录后立刻掉线)
 ```
 
 ### 3. 一键启动部署
@@ -166,6 +185,17 @@ bash deploy/deploy.sh migrate status
 bash deploy/deploy.sh migrate up
 bash deploy/deploy.sh migrate down
 ```
+
+#### 选项 E：首次从单体切到拆分后的服务 (只走一次)
+```bash
+# 构建全部镜像 → 起基础设施与各子系统 → 目录库迁移 → 搬运旧表数据 → 最后拉起网关
+bash deploy/deploy.sh cutover
+
+# 切流验证通过后，清掉拆分前的遗留 schema 与临时表（不可逆，先自动核对搬运行数）
+bash deploy/deploy.sh retire
+```
+
+两者都在部署机（开发服务器）上执行，不在本机跑；步骤、判据与回滚见 [切流手册](docs/architecture/cutover-runbook.md)。
 
 ### 4. 访问服务与初始开箱 (OOBE)
 

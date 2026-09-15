@@ -31,6 +31,8 @@ export type Field = {
   max?: number;
   /** 仅 group 字段：组内任一其它子字段有值时该锚点子字段必填。 */
   anchor_key?: string;
+  /** 仅 group 内的 number 子字段：声明本字段是同组该子字段的区间终点（起点不得大于终点）。 */
+  range_start?: string;
 };
 export type Definition = {
   id: number;

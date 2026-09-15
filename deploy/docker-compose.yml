@@ -1,6 +1,19 @@
+# ==============================================================================
+# MetaFusion 全系统编排：一条命令拉起网关 + 前端 + 文档站 + 元数据目录 + 账号 +
+# 互动 + 存储，以及基础设施 (PostgreSQL / Redis / RustFS)。
+#
+#   docker compose -f deploy/docker-compose.yml up -d
+#
+# 账号 / 互动 / 存储三个服务与主仓库并列检出（deploy/../.. 下的 metafusion-*），
+# 因此这里用跨仓库构建上下文；只检出主仓库的机器需改用预构建镜像。
+#
+# 唯一对外端口是网关 (HTTP_PORT)，其余服务只在 metafusion-net 内可达，避免重复暴露。
+# 路由归属以 docs/architecture/service-split-migration.md 第 2 节为准。
+# ==============================================================================
 services:
   # --------------------------------------------------------------------------
-  # 0. 边缘网关与反向代理 (Nginx) — 统一入口 /api/* -> backend, /* -> frontend
+  # 0. 边缘网关 (Nginx) — 统一入口：按前缀分流到各自治服务
+  #    路由矩阵在 ./nginx.conf，与 metafusion-api-gateway/nginx.conf 一致。
   # --------------------------------------------------------------------------
   gateway:
     image: nginx:1.25-alpine
@@ -8,18 +21,36 @@ services:
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-10100}:80"
+    # nginx.conf 声明 worker_connections 4096，而容器默认 nofile 只有 1024：并发一上来
+    # nginx 拿不到 socket，直接以 503（rt=0.000）拒掉新连接——压力下表现为"服务偶发不可用"。
+    # 把软硬上限抬到与 worker_connections 匹配，并在 nginx -t 时不再有 ulimit 警告。
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - nginx_logs:/var/log/nginx
     depends_on:
-      - backend
-      - frontend
-      - docs-site
+      # 等 /ready 通过再开门：上游没起来时网关直接 502，会掩盖真实故障点。
+      backend:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+      community:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+      docs-site:
+        condition: service_started
     networks:
       - metafusion-net
 
   # --------------------------------------------------------------------------
   # 1. 前端应用 (Next.js 14 — 见 frontend/package.json，含 /admin 管理后台)
+  #    调用都是同源 /api/*，由网关分流，前端不感知服务拆分。
   # --------------------------------------------------------------------------
   frontend:
     build:
@@ -35,11 +66,12 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 1.5 独立全量文档站 (VitePress SSG + sirv-cli)
+  # 2. 全量文档站 (VitePress SSG + sirv-cli)，经网关 /docs 反代
+  #    内容在独立仓库 metafusion-docs（唯一源），与主仓库并列检出；主仓库不再存放 doc 页面。
   # --------------------------------------------------------------------------
   docs-site:
     build:
-      context: ../docs-site
+      context: ../../metafusion-docs
       dockerfile: Dockerfile
     container_name: metafusion-docs
     restart: unless-stopped
@@ -50,15 +82,17 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 2. 后端业务核心 API (Go 模块化单体)
+  # 3. 元数据目录 (Go) — 收紧为只负责实体/关系/检索等目录职责
+  #    账号、互动、存储已由独立服务承载，因此这里不再持有 ARCHIVE_*/S3 变量与
+  #    归档卷：职责与数据都不复制（迁移基准第 3 节）。
   # --------------------------------------------------------------------------
-  # backend 健康检查：/ready 需 postgres 可达（见 cmd/server/main.go），
-  # 与 metadata 栈的 backend 健康检查对齐。
+  # backend 健康检查：/ready 需 postgres 可达（见 cmd/server/main.go）。
   backend:
     build:
       context: ../backend
       dockerfile: Dockerfile
       target: server
+    image: metafusion-backend:${METAFUSION_TAG:-local}
     container_name: metafusion-backend
     restart: unless-stopped
     healthcheck:
@@ -78,16 +112,14 @@ services:
       # ELASTICSEARCH_URL；检索默认走 PostgreSQL，opensearch 默认不启动
       # （--profile search 显式启用），此变量仅在启用搜索时生效。
       - ELASTICSEARCH_URL=http://opensearch:9200
-      - S3_ENDPOINT=http://rustfs:9000
-      - S3_PUBLIC_ENDPOINT=${S3_PUBLIC_ENDPOINT:-http://localhost:9000}
-      - S3_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
-      - S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
-      - S3_BUCKET_MASTER=metafusion-master
-      - S3_BUCKET_PREVIEW=metafusion-preview
-      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET must be set in .env}
-      # RS256 签名私钥（PEM 或其 base64）。未设置时后端生成进程内临时密钥，
-      # 重启即失效（有会话行兜底，已签发的无状态 JWT 重启后需重新登录）；
-      # 生产建议在 .env 配置持久密钥。警告：为空时重启会掉线，仅开发可接受。
+      # /api/capabilities 是"部署态"视图：能力是否可用取决于上游地址是否配置
+      # （capabilities/subsystems 的 envKey），backend 按 /health 探测，故必须给出内部地址。
+      # 不配 community/records 会被判为未部署，前端按 enabled 隐藏社区入口。
+      - COMMUNITY_URL=http://community:8083
+      - STORAGE_URL=http://storage:8082
+      # 与账号服务共用同一把 RS256 私钥（PEM 或其 base64）：切流后由 auth 签发、
+      # 其余服务只验签，私钥不一致会让已登录用户立刻掉线；为空则退化进程内临时密钥，
+      # 重启即失效（仅开发可接受）。
       - AUTH_JWT_PRIVATE_KEY=${AUTH_JWT_PRIVATE_KEY:-}
       - AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER:-https://findverse.cc/api}
       - AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE:-metafusion}
@@ -98,7 +130,157 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 3. 主关系数据库 (PostgreSQL 16)
+  # 4. 账号服务 (metafusion-auth) — 注册/登录、会话、RS256 令牌签发与吊销、OAuth2/OIDC
+  #    自有 auth schema；issuer/audience/私钥必须与目录侧完全一致，否则存量令牌全部失效。
+  # --------------------------------------------------------------------------
+  auth:
+    build:
+      context: ../../metafusion-auth
+      dockerfile: Dockerfile
+    image: metafusion-auth:${METAFUSION_TAG:-local}
+    container_name: metafusion-auth
+    restart: unless-stopped
+    environment:
+      - PORT=8081
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-metafusion}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      - DB_NAME=${DB_NAME:-metafusion_db}
+      - AUTH_JWT_PRIVATE_KEY=${AUTH_JWT_PRIVATE_KEY:-}
+      - AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER:-https://findverse.cc/api}
+      - AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE:-metafusion}
+    # 服务镜像基于 alpine，只有 busybox wget 没有 curl；/ready 会 ping postgres，
+    # 数据库不可达时返回 503，正好当健康判据。
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8081/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 5. 互动服务 (metafusion-community) — 论坛、短评、收藏、互动记录
+  #    自有 community schema；实体可见性问目录服务，不直连目录库。
+  # --------------------------------------------------------------------------
+  community:
+    build:
+      context: ../../metafusion-community
+      dockerfile: Dockerfile
+    image: metafusion-community:${METAFUSION_TAG:-local}
+    container_name: metafusion-community
+    restart: unless-stopped
+    environment:
+      - PORT=8083
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-metafusion}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      - DB_NAME=${DB_NAME:-metafusion_db}
+      # auth 是唯一签发方，JWKS 指向账号服务（不再回指目录服务）。
+      - COMMUNITY_JWKS_URL=http://auth:8081/api/oidc/jwks
+      # 存量不透明会话令牌的兜底解析：身份问题只问账号服务（不查目录服务）。
+      - AUTH_URL=http://auth:8081
+      - CATALOG_URL=http://backend:8080
+      - AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER:-https://findverse.cc/api}
+      - AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE:-metafusion}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8083/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 5b. 互动数据搬运工具（一次性）— 把主仓库旧表搬进 community.*
+  #     forward：modules.forum_* / modules.records / catalog.favorites → community.*
+  #     back   ：反向搬运，仅用于"切流后还要退回单体"的回滚窗口。
+  #     幂等（全部 ON CONFLICT DO NOTHING）、只读源表，可重复运行补增量。
+  #     常驻编排不启动它（profiles: tools），只在切流窗口显式调用：
+  #       docker compose run --rm community-migrate -direction forward -dry-run
+  #       docker compose run --rm community-migrate -direction forward
+  #     与 community 共用同一镜像，保证搬运逻辑与被部署的代码是同一份。
+  # --------------------------------------------------------------------------
+  community-migrate:
+    build:
+      context: ../../metafusion-community
+      dockerfile: Dockerfile
+    image: metafusion-community:${METAFUSION_TAG:-local}
+    profiles: ["tools"]
+    entrypoint: ["/app/community-migrate"]
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-metafusion}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      - DB_NAME=${DB_NAME:-metafusion_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 6. 存储服务 (metafusion-storage) — 物理文件、内容寻址、去重、绑定与下载
+  #    自有 storage schema；元数据不落在这里（只按实体 id 问目录服务可见性）。
+  # --------------------------------------------------------------------------
+  storage:
+    build:
+      context: ../../metafusion-storage
+      dockerfile: Dockerfile
+    image: metafusion-storage:${METAFUSION_TAG:-local}
+    container_name: metafusion-storage
+    restart: unless-stopped
+    environment:
+      - PORT=8082
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-metafusion}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      - DB_NAME=${DB_NAME:-metafusion_db}
+      - STORAGE_ROOT=/app/storage-data
+      - STORAGE_S3_ENDPOINT=http://rustfs:9000
+      - STORAGE_S3_TLS=false
+      # 对象存储凭据（RustFS 的 root 用户/口令）；服务侧只认 S3 协议，与具体实现无关。
+      - STORAGE_S3_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
+      - STORAGE_S3_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
+      - STORAGE_S3_BUCKET=metafusion-master
+      # 预签名直传的地址必须浏览器可达（SigV4 覆盖 Host）；本编排不把对象存储
+      # 端口发到宿主机，留空即沿用内部端点，此时浏览器直传改走
+      # PUT /api/storage/upload/stream/{asset_id} 的服务端流式上传。
+      - STORAGE_S3_PUBLIC_ENDPOINT=${STORAGE_S3_PUBLIC_ENDPOINT:-}
+      - STORAGE_JWKS_URL=http://auth:8081/api/oidc/jwks
+      # 存量不透明会话令牌的兜底解析：身份问题只问账号服务（不查目录服务）。
+      - AUTH_URL=http://auth:8081
+      - CATALOG_URL=http://backend:8080
+      - AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER:-https://findverse.cc/api}
+      - AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE:-metafusion}
+    volumes:
+      # 本地对象模式根目录与直传暂存目录，与目录侧的归档卷无关。
+      - storage_data:/app/storage-data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8082/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # 桶由存储服务在启动时自己建（internal/objects ensureBucket），
+      # 因此不再需要一次性初始化容器，也就没有"桶没建好就启动"这一类顺序故障。
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 7. 主关系数据库 (PostgreSQL 16) — 各服务共用实例、独立 schema
   # --------------------------------------------------------------------------
   postgres:
     image: postgres:16-alpine
@@ -108,37 +290,36 @@ services:
       - POSTGRES_USER=${DB_USER:-metafusion}
       - POSTGRES_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
       - POSTGRES_DB=${DB_NAME:-metafusion_db}
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-    # postgres 健康检查重试与 metadata 栈对齐为 10 次，避免慢盘上后端误判。
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-metafusion} -d ${DB_NAME:-metafusion_db}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    volumes:
+      - pg_data:/var/lib/postgresql/data
     networks:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 5. 分布式缓存与任务队列 (Redis 7)
+  # 8. 分布式缓存与任务队列 (Redis 7)
   # --------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
     container_name: metafusion-redis
     restart: unless-stopped
     command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 5
+    volumes:
+      - redis_data:/data
     networks:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 6. 全文与多维聚合搜索引擎 (OpenSearch 2.14)
+  # 9. 全文与多维聚合搜索引擎 (OpenSearch 2.14)
   #    当前后端无任何 OpenSearch 接线（检索走 PostgreSQL），默认不启动以节省资源；
   #    需要全文搜索时用 --profile search 显式启用。存量 opensearch_data 卷保留。
   # --------------------------------------------------------------------------
@@ -163,51 +344,22 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 7. S3 兼容对象存储 (RustFS)
+  # 10. S3 兼容对象存储 (RustFS) — 只在 metafusion-net 内可达，不发布宿主机端口
   # --------------------------------------------------------------------------
-  # 镜像 pin 备忘（最小收敛：注释先行，行为不动）：rustfs/mc 当前 :latest 浮动，
-  # 待运维确认可用 digest/tag 后再 pin（如 rustfs 某稳定版、mc 某 RELEASE），
-  # pin 时同步改两处并验证 storage-init 仍幂等。未确认前不虚构“已验证”版本号。
+  # 镜像 pin 备忘：rustfs/rustfs 当前 :latest 浮动，待运维确认可用 digest/tag 后再
+  # pin（并验证存储服务仍能连上、桶仍能自动创建）。未确认前不虚构"已验证"版本号。
   rustfs:
     image: rustfs/rustfs:latest
     container_name: metafusion-rustfs
     restart: unless-stopped
-    ports:
-      - "${S3_PORT:-19000}:9000"
     environment:
-      - RUSTFS_ACCESS_KEY=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
-      - RUSTFS_SECRET_KEY=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
-      - RUSTFS_ROOT_USER=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
-      - RUSTFS_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
+      - RUSTFS_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
+      - RUSTFS_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
+      - RUSTFS_ROOT_USER=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
+      - RUSTFS_ROOT_PASSWORD=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
       - RUSTFS_STORAGE_DIR=/data
     volumes:
       - s3_data:/data
-    networks:
-      - metafusion-net
-
-  # --------------------------------------------------------------------------
-  # 8. S3 存储桶初始化 — 用 mc 创建 master/preview 双桶（幂等），失败不阻塞主链。
-  #    桶策略保持私有（经后端签名/网关反代访问）；公开读需运维显式执行
-  #    mc anonymous set download 自动生成别名/metafusion-preview。
-  # --------------------------------------------------------------------------
-  storage-init:
-    image: minio/mc:latest
-    container_name: metafusion-storage-init
-    depends_on:
-      - rustfs
-    environment:
-      - S3_ROOT_USER=${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set in .env}
-      - S3_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set in .env}
-    # storage-init 尾部 exit 0 使桶创建失败也不阻塞主链（容忍对象存储未就绪），
-    # 仅 alias 设置行用 || exit 0 忽略幂等别名冲突；桶策略保持私有，
-    # 经后端签名/网关反代访问。需强一致时改 entrypoint 去掉尾部 exit 0。
-    entrypoint: >
-      /bin/sh -c "
-      mc alias set local http://rustfs:9000 \"$${S3_ROOT_USER}\" \"$${S3_ROOT_PASSWORD}\" >/dev/null 2>&1 || exit 0;
-      mc mb --ignore-existing local/metafusion-master local/metafusion-preview;
-      echo 'storage-init: buckets ensured (metafusion-master, metafusion-preview).';
-      exit 0;
-      "
     networks:
       - metafusion-net
 
@@ -218,6 +370,8 @@ networks:
 volumes:
   pg_data:
   redis_data:
+  # opensearch 只在 --profile search 下启用，卷保留以免存量索引数据丢失。
   opensearch_data:
   s3_data:
+  storage_data:
   nginx_logs:

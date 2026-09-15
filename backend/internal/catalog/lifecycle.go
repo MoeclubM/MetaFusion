@@ -22,13 +22,14 @@ type LifecycleEdit struct {
 //     必须经 admin-only Lifecycle 删除/合并（use_lifecycle_endpoint）；
 //   - deleted/merged：主人仍可经 Get 直读（visible 对主人放行），公开 List
 //     与匿名 Get 不可见；merged 经 Resolve 跟随 RedirectID。
-// archived 缺口：schema.sql/validation.go/lifecycle.go 均无 archived 状态
+// archived 缺口：结构基线/validation.go/lifecycle.go 均无 archived 状态
 // （全仓 grep archived 零命中）。归档语义（保留展示但冻结编辑）尚未设计，
 // 不私自加状态；需要时由主代理另立规格。
 
 func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u User) (Entity, error) {
 	var e Entity
-	err := s.write(ctx, func(tx *sql.Tx) error {
+	// 合并会改写关系端点与结构引用，必须与关系/结构写串行。
+	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
 		if u.Role != "admin" {
 			return fmt.Errorf("forbidden")
 		}

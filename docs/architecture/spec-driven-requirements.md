@@ -24,7 +24,10 @@
 ## 2. i18n 国际化与动态 Schema 驱动原则
 
 1. **双轨多语言分工体系**：
-   - **系统级固定前端字段**：全站界面按钮、表单占位符、固定实体骨架（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）、状态标签、空状态提示等，**必须严格通过前端 i18n 字典管理**（`frontend/src/messages/zh-CN.json` 与 `en-US.json`），禁止任何硬编码中文或英文，禁止中英文混杂。
+   - **系统级固定前端字段**：全站界面按钮、表单占位符、状态标签、空状态提示等**必须严格通过前端 i18n 字典管理**（`frontend/src/messages/{zh-CN,zh-TW,ja-JP,en-US}.json`），禁止任何硬编码中文或英文，禁止中英文混杂。
+   - **固定实体骨架（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）的名称属于领域名称，不再由前端字典自带**：
+     服务端在 `GET /api/catalog/definitions` 的 `kinds` 字段给出四语名称（`catalog.KindNames()`），前端用 `getKindName()` 取；
+     前端字典里的 `catalog.kind.*` 只作为"服务端未给"时的兜底，不得作为唯一来源。
    - **业务级动态元数据定义**：
      - 动态类型（如 `animation` 动画、`novel` 小说、`album` 专辑、`indie_game` 独立游戏、`photobook` 写真集等）、
      - 图谱关系（如 `adaptation_of` 改编自、`soundtrack_of` 配乐、`sequel_of` 续作、`performed_by` 表演者等）、
@@ -34,8 +37,20 @@
      - 前端展示时根据当前用户 `locale` 动态读取（`def.names[locale] || def.names['zh-CN'] || def.names['en-US'] || code`），**严禁前端写死类型或字典映射**。
 
 2. **探索中心 (`/explore`) 规范**：
-   - 实体骨架筛选器（Kinds）按结构化规范呈现，多语言文本走前端字典。
+   - 实体骨架筛选器（Kinds）按结构化规范呈现，名称走服务端 `definitions.kinds`（四语）。
    - 类型筛选器（Types）完全基于当前选中 Kind 从服务端 `definitions.types` 动态计算，分类标签由服务端 `typeDef.names[locale]` 直出，保证后台新增类型无需发版即可在前端自动生效并正确本地化。
+
+3. **命名四语铁律（无例外）**：
+   - 任何"名称"（实体的 kind/type/字段/关系/词表项/模板/分区/货架）必须在 `zh-CN`、`zh-TW`、`ja-JP`、`en-US` 四语下都能取到真实译文；
+     把英文填进 `zh-TW`/`ja-JP` 当占位属于未完成（`names()` 的历史占位是待还的债，新增一律用 `names4()`）。
+   - 前端 `t(key) || "中文兜底"` 这类写法一律禁止；缺键要么补字典，要么走服务端多语言数据。
+
+4. **分类与标签的红线**：
+   - **分类只由货架（`catalog.shelves`）实现**：货架是数据驱动、后台可配、名称四语的收录规则。
+   - **严禁创建"固定分类 tag"**：不得在代码、种子数据、字典或前端映射里预置一套分类标签来给内容归类；
+     实体标签（`attributes.tags`）只能是上游来源或用户贡献的开放标签，不能充当分类体系。
+   - **浏览卡片左上角角标显示的是实体类型（kind），不是"分类"**：业务类型（`types`）在卡片正文以标签呈现，
+     分类入口只在货架/探索筛选里出现。任何"再发明一套分类"的实现都按设计错误处理。
 
 ---
 

@@ -527,20 +527,20 @@ export function OmniImportModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in overflow-y-auto">
       <div
-        className="relative w-full max-w-4xl rounded-2xl border border-black/10 dark:border-white/10 bg-surface shadow-2xl overflow-hidden flex flex-col max-h-[94vh]"
+        className="relative w-full max-w-4xl rounded-2xl border border-line bg-surface shadow-2xl overflow-hidden flex flex-col max-h-[94vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="p-4 sm:p-5 border-b border-black/5 dark:border-white/10 flex items-center justify-between bg-black/[0.02] dark:bg-white/[0.02]">
+        <div className="p-4 sm:p-5 border-b border-line flex items-center justify-between bg-surfaceSubtle">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/25 grid place-items-center text-primary shadow-xs">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="font-display font-bold text-base sm:text-lg text-gray-900 dark:text-white">
+              <h2 className="font-display font-bold text-base sm:text-lg text-text-strong">
                 {t("importer.modalTitle")}
               </h2>
-              <p className="text-xs font-mono text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs font-mono text-text-muted mt-0.5">
                 {t("importer.modalSubtitle")}
               </p>
             </div>
@@ -548,7 +548,7 @@ export function OmniImportModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 grid place-items-center transition-colors"
+            className="w-8 h-8 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 grid place-items-center transition-colors duration-fast ease-soft"
           >
             <X className="w-4 h-4" />
           </button>
@@ -558,7 +558,7 @@ export function OmniImportModal({
         <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1">
           {/* Top Entity Type Switcher (实体导入类型切换) */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 font-mono flex items-center gap-1.5">
+            <label className="text-xs font-semibold text-text-body font-mono flex items-center gap-1.5">
               <Layers className="w-3.5 h-3.5 text-primary" />
               <span>{t("importer.entityTypeLabel")}</span>
             </label>
@@ -584,14 +584,14 @@ export function OmniImportModal({
                     className={`flex flex-col items-start p-3 rounded-xl border text-left transition-all ${
                       active
                         ? "bg-primary/10 border-primary text-primary shadow-xs ring-1 ring-primary/30"
-                        : "bg-black/[0.02] dark:bg-white/[0.02] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.04]"
+                        : "bg-surfaceSubtle border-line text-text-body hover:bg-black/[0.04] hover:bg-surfaceSubtle"
                     }`}
                   >
                     <div className="flex items-center gap-2 font-bold text-xs">
                       <Icon className={`w-4 h-4 ${active ? "text-primary" : "text-gray-400"}`} />
                       <span>{item.label}</span>
                     </div>
-                    <span className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 line-clamp-1 font-mono">
+                    <span className="text-[10px] text-text-muted mt-1 line-clamp-1 font-mono">
                       {item.desc}
                     </span>
                   </button>
@@ -601,7 +601,7 @@ export function OmniImportModal({
           </div>
 
           {/* Source Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-black/5 dark:bg-white/[0.04] border border-black/5 dark:border-white/[0.06] text-xs font-mono">
+          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl dark:bg-white/[0.04] border border-line-subtle text-xs font-mono">
             {getSourceTabs().map((tab) => {
               const Icon = tab.icon;
               const active = source === tab.id;
@@ -612,7 +612,7 @@ export function OmniImportModal({
                   onClick={() => setSource(tab.id)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
                     active
-                      ? "bg-surface text-primary font-semibold shadow-xs border border-black/10 dark:border-white/10"
+                      ? "bg-surface text-primary font-semibold shadow-xs border border-line"
                       : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                   }`}
                 >
@@ -637,7 +637,7 @@ export function OmniImportModal({
                     }
                   }}
                   placeholder={getPlaceholder()}
-                  className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-hidden focus:border-primary transition-all font-mono"
+                  className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-line bg-surfaceSubtle text-sm text-text-strong placeholder:text-gray-400 focus:outline-hidden focus:border-primary transition-all font-mono"
                 />
                 {inputVal && (
                   <button
@@ -695,9 +695,9 @@ export function OmniImportModal({
           {/* 预览结果分支 1: 单一主体实体解析结果 (Artist / Org / Char) */}
           {/* ========================================================================= */}
           {previewData && (entityType !== "work" || (previewData.artist && !previewData.work?.title)) && previewData.artist && (
-            <div className="space-y-4 animate-fade-in border-t border-black/5 dark:border-white/10 pt-4">
+            <div className="space-y-4 animate-fade-in border-t border-line pt-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-display font-bold text-sm text-gray-900 dark:text-white">
+                <div className="flex items-center gap-2 font-display font-bold text-sm text-text-strong">
                   <UserCheck className="w-4 h-4 text-primary" />
                   <span>{t("importer.entityPreviewTitle")}</span>
                 </div>
@@ -707,12 +707,12 @@ export function OmniImportModal({
               </div>
 
               {/* Entity Main Card */}
-              <div className="p-4 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10 flex flex-col sm:flex-row gap-4">
+              <div className="p-4 rounded-xl bg-surfaceSubtle border border-line flex flex-col sm:flex-row gap-4">
                 {previewData.artist.avatar_url ? (
                   <img
                     src={previewData.artist.avatar_url}
                     alt={previewData.artist.name}
-                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover border border-black/10 dark:border-white/10 shrink-0 bg-black/5"
+                    className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover border border-line shrink-0"
                   />
                 ) : (
                   <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-primary/10 border border-primary/20 grid place-items-center text-primary shrink-0">
@@ -721,7 +721,7 @@ export function OmniImportModal({
                 )}
                 <div className="flex-1 min-w-0 space-y-2">
                   <div>
-                    <h3 className="font-display font-bold text-base sm:text-lg text-gray-900 dark:text-white">
+                    <h3 className="font-display font-bold text-base sm:text-lg text-text-strong">
                       {previewData.artist.name}
                     </h3>
                     {previewData.artist.original_name && previewData.artist.original_name !== previewData.artist.name && (
@@ -732,11 +732,11 @@ export function OmniImportModal({
                   </div>
 
                   <div className="flex flex-wrap gap-2 text-xs font-mono">
-                    <span className="px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                    <span className="px-2 py-0.5 rounded-md dark:bg-white/5 border border-line text-text-body">
                       {t("importer.entityTypeLabel")}: {previewData.artist.entity_type}
                     </span>
                     {previewData.artist.country && (
-                      <span className="px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                      <span className="px-2 py-0.5 rounded-md dark:bg-white/5 border border-line text-text-body">
                         {t("importer.entityCountry")}: {previewData.artist.country}
                       </span>
                     )}
@@ -764,7 +764,7 @@ export function OmniImportModal({
                   )}
 
                   {previewData.artist.biography && (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-line line-clamp-3 bg-black/[0.02] dark:bg-white/[0.02] p-2.5 rounded-lg border border-black/5 dark:border-white/5 font-sans">
+                    <p className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-line line-clamp-3 bg-surfaceSubtle p-2.5 rounded-lg border border-line-subtle font-sans">
                       {previewData.artist.biography}
                     </p>
                   )}
@@ -778,7 +778,7 @@ export function OmniImportModal({
           {/* 预览结果分支 2: 作品母体、关联审查工作台、发行版规格 (Work) */}
           {/* ========================================================================= */}
           {previewData && entityType === "work" && previewData.work && (
-            <div className="space-y-5 animate-fade-in border-t border-black/5 dark:border-white/10 pt-4">
+            <div className="space-y-5 animate-fade-in border-t border-line pt-4">
               {/* 1. 智能查重关联已有作品提示 */}
               {duplicateMatches.length > 0 && (
                 <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs font-mono space-y-2">
@@ -817,7 +817,7 @@ export function OmniImportModal({
                           }`}
                         >
                           <div className="flex-1 min-w-0">
-                            <div className="font-bold truncate text-gray-900 dark:text-white">
+                            <div className="font-bold truncate text-text-strong">
                               {m.title}
                             </div>
                             <div className="text-[11px] text-gray-500 truncate">
@@ -833,21 +833,21 @@ export function OmniImportModal({
               )}
 
               {/* 2. Work Master Preview Card */}
-              <div className="p-4 rounded-xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/10 dark:border-white/10 flex flex-col sm:flex-row gap-4">
+              <div className="p-4 rounded-xl bg-surfaceSubtle border border-line flex flex-col sm:flex-row gap-4">
                 {previewData.work.cover_image_url ? (
                   <img
                     src={previewData.work.cover_image_url}
                     alt={previewData.work.title}
-                    className="w-24 h-32 sm:w-28 sm:h-36 rounded-lg object-cover border border-black/10 dark:border-white/10 shrink-0 bg-black/5"
+                    className="w-24 h-32 sm:w-28 sm:h-36 rounded-lg object-cover border border-line shrink-0"
                   />
                 ) : (
-                  <div className="w-24 h-32 sm:w-28 sm:h-36 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 grid place-items-center text-gray-400 shrink-0">
+                  <div className="w-24 h-32 sm:w-28 sm:h-36 rounded-lg dark:bg-white/5 border border-line grid place-items-center text-gray-400 shrink-0">
                     <Film className="w-8 h-8" />
                   </div>
                 )}
                 <div className="flex-1 min-w-0 space-y-2">
                   <div>
-                    <h3 className="font-display font-bold text-base sm:text-lg text-gray-900 dark:text-white truncate">
+                    <h3 className="font-display font-bold text-base sm:text-lg text-text-strong truncate">
                       {previewData.work.title}
                     </h3>
                     {previewData.work.original_title && previewData.work.original_title !== previewData.work.title && (
@@ -872,12 +872,12 @@ export function OmniImportModal({
                       {previewData.source.toUpperCase()}
                     </span>
                     {previewData.work.release_date && (
-                      <span className="px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                      <span className="px-2 py-0.5 rounded-md dark:bg-white/5 border border-line text-text-body">
                         {previewData.work.release_date}
                       </span>
                     )}
                     {previewData.work.country && (
-                      <span className="px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300">
+                      <span className="px-2 py-0.5 rounded-md dark:bg-white/5 border border-line text-text-body">
                         {previewData.work.country}
                       </span>
                     )}
@@ -892,7 +892,7 @@ export function OmniImportModal({
               </div>
 
               {previewData.has_release === false && (
-                <p className="p-3 rounded-lg bg-primary/5 text-sm text-gray-600 dark:text-gray-300">{t("catalog.contents.importWithoutRelease")}</p>
+                <p className="p-3 rounded-lg bg-primary/5 text-sm text-text-body">{t("catalog.contents.importWithoutRelease")}</p>
               )}
               {/* 来源抓取不完整（如分集 total 与实取不符）必须显式提示，不能静默当作完整清单落库。 */}
               {!!previewData.warnings?.length && (
@@ -905,7 +905,7 @@ export function OmniImportModal({
                 </div>
               )}
               {!!previewData.canonical_entries?.length && (
-                <section className="p-4 rounded-xl border border-black/10 dark:border-white/10 space-y-3">
+                <section className="p-4 rounded-xl border border-line space-y-3">
                   <div className="flex items-baseline justify-between gap-2">
                     <h3 className="font-semibold">{t("catalog.contents.title")}</h3>
                     <span className="text-xs text-gray-500 font-mono">{previewData.canonical_entries.length}</span>
@@ -956,7 +956,7 @@ export function OmniImportModal({
                                     setEntryMatches((prev) => ({ ...prev, [index]: e.target.value }))
                                   }
                                   aria-label={t("importer.matchExistingExpression")}
-                                  className="ml-auto shrink-0 max-w-[46%] px-1.5 py-0.5 rounded border border-black/10 dark:border-white/15 bg-surface text-[11px] text-gray-700 dark:text-gray-300"
+                                  className="ml-auto shrink-0 max-w-[46%] px-1.5 py-0.5 rounded border dark:border-white/15 bg-surface text-[11px] text-text-body"
                                 >
                                   <option value="">{t("importer.matchNone")}</option>
                                   {workExpressions.map((ex) => (
@@ -992,21 +992,21 @@ export function OmniImportModal({
                       Number.isInteger(index) && !!exprId && bindable.some((b) => b.index === index),
                   );
                 return (
-                  <section className="p-4 rounded-xl border border-black/10 dark:border-white/10 space-y-3">
+                  <section className="p-4 rounded-xl border border-line space-y-3">
                     <button
                       type="button"
                       onClick={() => setCrossWorkOpen((v) => !v)}
                       className="flex w-full items-center justify-between gap-2 text-left cursor-pointer"
                     >
                       <span className="flex items-baseline gap-2 min-w-0">
-                        <span className="font-semibold text-gray-900 dark:text-white truncate">{t("importer.crossWork.title")}</span>
+                        <span className="font-semibold text-text-strong truncate">{t("importer.crossWork.title")}</span>
                         <span className="text-xs text-gray-500 font-mono shrink-0">{crossWorkResults.length}</span>
                       </span>
                       <span className="text-xs text-gray-400 font-mono shrink-0">{crossWorkOpen ? "−" : "+"}</span>
                     </button>
                     {crossWorkOpen && (
                       <div className="space-y-2">
-                        <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                        <p className="text-xs text-text-muted font-mono">
                           {t("importer.crossWork.subtitle")}
                         </p>
                         <input
@@ -1014,7 +1014,7 @@ export function OmniImportModal({
                           value={crossWorkQuery}
                           onChange={(e) => setCrossWorkQuery(e.target.value)}
                           placeholder={t("importer.crossWork.searchPlaceholder")}
-                          className="w-full px-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-hidden focus:border-primary font-mono"
+                          className="w-full px-3 py-1.5 rounded-lg border border-line bg-surface text-xs text-text-strong placeholder:text-gray-400 focus:outline-hidden focus:border-primary font-mono"
                         />
                         {crossWorkSearching && (
                           <p className="flex items-center gap-1.5 text-xs text-gray-500 font-mono">
@@ -1040,9 +1040,9 @@ export function OmniImportModal({
                               return (
                                 <li
                                   key={itemId || title(item, locale)}
-                                  className="flex items-center gap-2 p-2 rounded-lg border border-black/5 dark:border-white/5"
+                                  className="flex items-center gap-2 p-2 rounded-lg border border-line-subtle"
                                 >
-                                  <span className="flex-1 min-w-0 truncate text-gray-900 dark:text-white">
+                                  <span className="flex-1 min-w-0 truncate text-text-strong">
                                     {title(item, locale)}
                                   </span>
                                   <select
@@ -1054,7 +1054,7 @@ export function OmniImportModal({
                                       setEntryMatches((prev) => ({ ...prev, [Number(v)]: itemId }));
                                     }}
                                     aria-label={t("importer.crossWork.bindLabel")}
-                                    className="shrink-0 max-w-[52%] px-1.5 py-0.5 rounded border border-black/10 dark:border-white/15 bg-surface text-[11px] text-gray-700 dark:text-gray-300"
+                                    className="shrink-0 max-w-[52%] px-1.5 py-0.5 rounded border dark:border-white/15 bg-surface text-[11px] text-text-body"
                                   >
                                     <option value="">{t("importer.crossWork.bindPlaceholder")}</option>
                                     {bindable.map(({ entry, index }) => {
@@ -1073,7 +1073,7 @@ export function OmniImportModal({
                           </ul>
                         )}
                         {boundRows.length > 0 && (
-                          <ul className="space-y-1 text-xs text-gray-500 dark:text-gray-400 font-mono">
+                          <ul className="space-y-1 text-xs text-text-muted font-mono">
                             {boundRows.map(({ index, exprId }) => {
                               const target = bindable.find((b) => b.index === index);
                               if (!target) return null;
@@ -1096,17 +1096,17 @@ export function OmniImportModal({
               })()}
 
               {/* 3. 演职员与出版机构交互式关联审查工作台 (Staff & Publisher Association Workbench) */}
-              <div className="space-y-3 p-4 rounded-xl bg-black/[0.015] dark:bg-white/[0.015] border border-black/10 dark:border-white/10">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-black/5 dark:border-white/10 pb-3">
+              <div className="space-y-3 p-4 rounded-xl bg-black/[0.015] dark:bg-white/[0.015] border border-line">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line pb-3">
                   <div>
-                    <div className="flex items-center gap-2 font-display font-bold text-sm text-gray-900 dark:text-white">
+                    <div className="flex items-center gap-2 font-display font-bold text-sm text-text-strong">
                       <Users className="w-4 h-4 text-primary" />
                       <span>{t("importer.staffWorkbenchTitle")}</span>
                       <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                         {associations.length}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    <p className="text-xs text-text-muted mt-0.5">
                       {t("importer.staffWorkbenchSubtitle")}
                     </p>
                   </div>
@@ -1128,7 +1128,7 @@ export function OmniImportModal({
                       value={staffFilter}
                       onChange={(e) => setStaffFilter(e.target.value)}
                       placeholder={t("importer.staffFilterPlaceholder")}
-                      className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-black/10 dark:border-white/10 bg-surface text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-hidden focus:border-primary"
+                      className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-line bg-surface text-xs text-text-strong placeholder:text-gray-400 focus:outline-hidden focus:border-primary"
                     />
                   </div>
 
@@ -1136,21 +1136,21 @@ export function OmniImportModal({
                     <button
                       type="button"
                       onClick={() => handleBatchSetAction("create")}
-                      className="px-2.5 py-1 rounded-md bg-black/5 dark:bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-600 border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 transition-colors"
+                      className="px-2.5 py-1 rounded-md dark:bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-600 border border-line text-text-body transition-colors duration-fast ease-soft"
                     >
                       {t("importer.staffActionCreateAll")}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleBatchSetAction("skip")}
-                      className="px-2.5 py-1 rounded-md bg-black/5 dark:bg-white/5 hover:bg-rose-500/10 hover:text-rose-600 border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 transition-colors"
+                      className="px-2.5 py-1 rounded-md dark:bg-white/5 hover:bg-rose-500/10 hover:text-rose-600 border border-line text-text-body transition-colors duration-fast ease-soft"
                     >
                       {t("importer.staffActionSkipAll")}
                     </button>
                     <button
                       type="button"
                       onClick={handleResetAssociations}
-                      className="px-2.5 py-1 rounded-md bg-black/5 dark:bg-white/5 hover:bg-black/10 border border-black/10 dark:border-white/10 text-gray-500 transition-colors flex items-center gap-1"
+                      className="px-2.5 py-1 rounded-md dark:bg-white/5 hover:bg-black/10 border border-line text-gray-500 transition-colors duration-fast ease-soft flex items-center gap-1"
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span>{t("importer.staffActionReset")}</span>
@@ -1172,10 +1172,10 @@ export function OmniImportModal({
                         key={`${assoc.parsed_name}_${idx}`}
                         className={`p-3 rounded-xl border transition-all ${
                           isSkipped
-                            ? "bg-black/[0.01] dark:bg-white/[0.01] border-black/5 dark:border-white/5 opacity-60"
+                            ? "bg-black/[0.01] dark:bg-white/[0.01] border-line-subtle opacity-60"
                             : isLinked
                             ? "bg-blue-500/[0.03] dark:bg-blue-500/[0.04] border-blue-500/30"
-                            : "bg-surface border-black/10 dark:border-white/10 shadow-xs"
+                            : "bg-surface border-line shadow-xs"
                         }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1185,10 +1185,10 @@ export function OmniImportModal({
                               <img
                                 src={assoc.avatar_url}
                                 alt={assoc.parsed_name}
-                                className="w-10 h-10 rounded-lg object-cover border border-black/10 dark:border-white/10 shrink-0 bg-black/5"
+                                className="w-10 h-10 rounded-lg object-cover border border-line shrink-0"
                               />
                             ) : (
-                              <div className="w-10 h-10 rounded-lg bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 grid place-items-center text-gray-400 shrink-0">
+                              <div className="w-10 h-10 rounded-lg dark:bg-white/5 border border-line grid place-items-center text-gray-400 shrink-0">
                                 {assoc.entity_type === "studio" || assoc.entity_type === "publisher" ? (
                                   <Building2 className="w-5 h-5" />
                                 ) : (
@@ -1198,7 +1198,7 @@ export function OmniImportModal({
                             )}
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="font-bold text-xs text-gray-900 dark:text-white truncate">
+                                <span className="font-bold text-xs text-text-strong truncate">
                                   {assoc.parsed_name}
                                 </span>
                                 {assoc.parsed_original && assoc.parsed_original !== assoc.parsed_name && (
@@ -1212,7 +1212,7 @@ export function OmniImportModal({
                                 <select
                                   value={assoc.custom_role || assoc.parsed_role}
                                   onChange={(e) => updateAssociation(originalIndex, { custom_role: e.target.value })}
-                                  className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-300 focus:outline-hidden focus:border-primary"
+                                  className="text-[11px] font-mono px-2 py-0.5 rounded-md dark:bg-white/5 border border-line text-text-body focus:outline-hidden focus:border-primary"
                                 >
                                   <option value={assoc.parsed_role}>{assoc.parsed_role}</option>
                                   <option value="Author">{t("importer.role.roleAuthor")}</option>
@@ -1237,7 +1237,7 @@ export function OmniImportModal({
                                     value={assoc.character_name || ""}
                                     onChange={(e) => updateAssociation(originalIndex, { character_name: e.target.value })}
                                     placeholder={t("importer.staffCharacterRole")}
-                                    className="text-[11px] font-mono px-2 py-0.5 rounded-md border border-black/10 dark:border-white/10 bg-surface text-gray-700 dark:text-gray-300 w-28 focus:outline-hidden focus:border-primary"
+                                    className="text-[11px] font-mono px-2 py-0.5 rounded-md border border-line bg-surface text-text-body w-28 focus:outline-hidden focus:border-primary"
                                   />
                                 )}
                               </div>
@@ -1326,7 +1326,7 @@ export function OmniImportModal({
                                 onChange={(e) => setArtistSearchQuery(e.target.value)}
                                 onKeyDown={(e) => e.key === "Enter" && handleSearchArtistInDB(artistSearchQuery)}
                                 placeholder={t("importer.staffSearchAndPick")}
-                                className="w-full px-2.5 py-1 rounded-md border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] text-xs"
+                                className="w-full px-2.5 py-1 rounded-md border border-line bg-surfaceSubtle text-xs"
                               />
                               <button
                                 type="button"
@@ -1349,10 +1349,10 @@ export function OmniImportModal({
                                       });
                                       setActiveSearchIndex(null);
                                     }}
-                                    className="p-2 rounded-md border border-black/5 dark:border-white/5 hover:border-primary/40 hover:bg-primary/5 cursor-pointer flex items-center justify-between text-xs"
+                                    className="p-2 rounded-md border border-line-subtle hover:border-primary/40 hover:bg-primary/5 cursor-pointer flex items-center justify-between text-xs"
                                   >
                                     <div className="truncate">
-                                      <div className="font-bold text-gray-900 dark:text-white truncate">
+                                      <div className="font-bold text-text-strong truncate">
                                         {title(ar, locale)}
                                       </div>
                                       <div className="text-[10px] text-gray-400 truncate">
@@ -1382,8 +1382,8 @@ export function OmniImportModal({
 
           {/* Persistent Options & Notes */}
           {previewData && (
-            <div className="space-y-3 border-t border-black/5 dark:border-white/10 pt-4 text-xs font-mono">
-              <label className="flex items-center gap-2 text-gray-700 dark:text-gray-300 cursor-pointer">
+            <div className="space-y-3 border-t border-line pt-4 text-xs font-mono">
+              <label className="flex items-center gap-2 text-text-body cursor-pointer">
                 <input
                   type="checkbox"
                   checked={downloadCover}
@@ -1399,18 +1399,18 @@ export function OmniImportModal({
                 value={editNote}
                 onChange={(e) => setEditNote(e.target.value)}
                 placeholder={t("importer.editNotePlaceholder", { note: t("importer.defaultEditNote", { source: previewData.source.toUpperCase() }) })}
-                className="w-full px-3.5 py-2 rounded-xl border border-black/10 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] text-xs text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-hidden focus:border-primary font-mono"
+                className="w-full px-3.5 py-2 rounded-xl border border-line bg-surfaceSubtle text-xs text-text-strong placeholder:text-gray-400 focus:outline-hidden focus:border-primary font-mono"
               />
             </div>
           )}
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 sm:p-5 border-t border-black/5 dark:border-white/10 bg-black/[0.02] dark:bg-white/[0.02] flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-t border-line bg-surfaceSubtle flex items-center justify-between">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-black/10 dark:border-white/10 hover:bg-black/5 dark:hover:bg-white/5 text-gray-700 dark:text-gray-300 text-xs font-mono font-semibold transition-colors cursor-pointer"
+            className="px-4 py-2 rounded-xl border border-line hover:bg-black/5 dark:hover:bg-white/5 text-text-body text-xs font-mono font-semibold transition-colors duration-fast ease-soft cursor-pointer"
           >
             {t("common.cancel")}
           </button>

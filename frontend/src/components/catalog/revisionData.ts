@@ -1,0 +1,60 @@
+import type { Entity } from "./api";
+
+function canonical(value: any): any {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+  }
+  return value;
+}
+
+// 完整比较实体字段，属性和翻译按键展开；对象键顺序不构成修订。
+export function revisionChanges(before: any = {}, after: any = {}) {
+  const changes: Record<string, { old: any; new: any }> = {};
+  const put = (key: string, old: any, next: any) => {
+    if (JSON.stringify(canonical(old)) !== JSON.stringify(canonical(next))) {
+      changes[key] = { old, new: next };
+    }
+  };
+  const ignored = new Set(["id", "version", "created_by", "created_at", "updated_at"]);
+  const left = before || {};
+  const right = after || {};
+  for (const key of Array.from(new Set([...Object.keys(left), ...Object.keys(right)]))) {
+    if (ignored.has(key) || key.startsWith("localized_")) continue;
+    if (key === "attributes" || key === "translations") {
+      for (const child of Array.from(new Set([...Object.keys(left[key] || {}), ...Object.keys(right[key] || {})]))) {
+        put(`${key}.${child}`, left[key]?.[child], right[key]?.[child]);
+      }
+    } else put(key, left[key], right[key]);
+  }
+  return changes;
+}
+
+export function canEditRevision(entity: Entity, user?: { id: string; role: string }): boolean {
+  if (!user || ["deleted", "merged"].includes(entity.status)) return false;
+  return user.role === "admin" || (user.role === "editor" && entity.status === "published") || (entity.created_by === user.id &&
+    (user.role === "editor" || entity.status !== "published"));
+}
+
+// 载入历史内容，保留当前版本锁、实体身份与生命周期。仍由普通 PUT 执行权限、
+// definitions、引用和审计校验；不修改旧修订、不直接写库或另建还原接口。
+export function prepareRevisionRestore(current: Entity, snapshot: Entity): Entity {
+  if (!snapshot || snapshot.id !== current.id || snapshot.kind !== current.kind ||
+      ["deleted", "merged"].includes(current.status) || ["deleted", "merged"].includes(snapshot.status)) {
+    throw new Error("revision_incompatible");
+  }
+  for (const key of ["work_id", "release_id", "medium_id"] as const) {
+    if ((snapshot[key] || "") !== (current[key] || "")) throw new Error("revision_incompatible");
+  }
+  const result = structuredClone(current);
+  const contentFields = ["title", "original_language", "translations", "types", "attributes",
+    "external_ids", "pictures", "content_unit_id", "parent_id", "position", "number", "contents", "subjects"] as const;
+  for (const key of contentFields) {
+    if (Object.prototype.hasOwnProperty.call(snapshot, key)) {
+      (result as any)[key] = structuredClone(snapshot[key]);
+    } else if (key === "parent_id" || key === "content_unit_id") {
+      delete result[key];
+    }
+  }
+  return result;
+}

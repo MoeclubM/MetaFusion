@@ -10,9 +10,10 @@ import { useI18n } from "@/i18n/I18nProvider";
 import {
   useDefinitions,
   getFieldName,
+  getKindName,
   getTermName,
 } from "@/lib/definitions";
-import { entryLabel, mediumLabel, entryRowHeader } from "@/lib/mediaLabels";
+import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateAttributeSections";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
@@ -93,14 +94,6 @@ function localizedText(v: unknown, locale: string): string {
   return "";
 }
 
-function workMediaType(work?: Entity | null): string {
-  // 载体/篇目用词走服务端 types，不再用标题正则猜测。
-  // types 为 definitions type code（music/song/album/novel/animation/film/…），
-  // mediaLabels 的 switch 直接消费；未知 code 回退空字符串走通用标签。
-  const types = (work?.types || []).map((x) => String(x).toLowerCase());
-  if (types.length > 0) return types[0];
-  return "";
-}
 
 type Occurrence = {
   /** 引用形态：实体在批量响应的共享 entities 表里，按 id 取。 */
@@ -116,38 +109,6 @@ type Occurrence = {
 
 type MediumRow = { medium: Entity; tracks: Entity[] };
 
-// orderedTracksWithDepth：把曲目树（章/子轨）深度优先展开成"父轨后紧跟其子轨"的
-// 展示序列，子轨带层级深度供缩进；排序只看 position，不用曲号充当身份。
-function orderedTracksWithDepth(tracks: Entity[]): { track: Entity; depth: number }[] {
-  const byId = new Map<string, Entity>();
-  for (const tr of tracks) if (tr.id) byId.set(tr.id, tr);
-  const childrenOf = new Map<string, Entity[]>();
-  const roots: Entity[] = [];
-  for (const tr of tracks) {
-    const pid = tr.parent_id || "";
-    if (pid && byId.has(pid)) {
-      const list = childrenOf.get(pid) || [];
-      list.push(tr);
-      childrenOf.set(pid, list);
-    } else {
-      roots.push(tr);
-    }
-  }
-  const byPos = (a: Entity, b: Entity) => (a.position || 0) - (b.position || 0);
-  roots.sort(byPos);
-  childrenOf.forEach((list) => list.sort(byPos));
-  const out: { track: Entity; depth: number }[] = [];
-  const walk = (list: Entity[], depth: number) => {
-    for (const tr of list) {
-      out.push({ track: tr, depth });
-      const kids = childrenOf.get(tr.id!) || [];
-      if (kids.length > 0) walk(kids, depth + 1);
-    }
-  };
-  walk(roots, 0);
-  return out;
-}
-
 function Collapsible({
   title,
   count,
@@ -160,14 +121,14 @@ function Collapsible({
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   return (
-    <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden">
+    <section className="rounded-lg border border-line bg-surface overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="w-full px-3.5 sm:px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors min-h-[44px]"
+        className="w-full px-3.5 sm:px-4 py-2.5 flex items-center justify-between gap-2 hover:bg-surfaceSubtle transition-colors duration-fast ease-soft min-h-[44px]"
       >
-        <span className="flex items-center gap-2 text-xs font-semibold text-gray-900 dark:text-white">
+        <span className="flex items-center gap-2 text-xs font-semibold text-text-strong">
           <span>{title}</span>
           {typeof count === "number" && (
             <span className="px-1.5 py-0.5 rounded-sm bg-primary/10 text-primary font-mono text-[10px] font-bold">
@@ -177,10 +138,10 @@ function Collapsible({
         </span>
         <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
           <span className="hidden sm:inline">{open ? t("common.collapse") : t("common.expand")}</span>
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} strokeWidth={1.6} />
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-base ease-soft ${open ? "rotate-180" : ""}`} strokeWidth={1.6} />
         </span>
       </button>
-      {open && <div className="px-3.5 sm:px-4 py-3 border-t border-black/5 dark:border-white/[0.06]">{children}</div>}
+      {open && <div className="px-3.5 sm:px-4 py-3 border-t border-line-subtle">{children}</div>}
     </section>
   );
 }
@@ -190,7 +151,7 @@ export default function ReleaseDetailPage() {
   const releaseId = params.id as string;
   const { t, locale } = useI18n();
   const { definition: catalogDef } = useCatalog();
-  const { definitions: dynamicDefs } = useDefinitions();
+  const { definitions: dynamicDefs, kinds } = useDefinitions();
 
   const [release, setRelease] = useState<Entity | null>(null);
   const [media, setMedia] = useState<{ medium: Entity; tracks: Entity[] }[]>([]);
@@ -457,7 +418,7 @@ export default function ReleaseDetailPage() {
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <Navbar />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 py-20 text-center font-mono text-xs text-gray-500">
+        <div className="relative z-10 max-w-page mx-auto px-4 py-20 text-center font-mono text-xs text-gray-500">
           {error || t("common.notFoundRelease")}
         </div>
       </div>
@@ -482,9 +443,11 @@ export default function ReleaseDetailPage() {
 
   const primaryWorkId = release.subjects?.find((s) => s.role === "primary")?.work_id || release.subjects?.[0]?.work_id;
   const primaryWork = (primaryWorkId && works[primaryWorkId]) || null;
-  const mediaType = workMediaType(primaryWork);
-  const eLabel = entryLabel(mediaType, t);
-  const mLabel = mediumLabel(mediaType, t);
+  // 载体与篇目的用词一律取自服务端 definitions 的骨架名称：
+  // 旧的 mediaLabels 按遗留媒体类型（movie/anime/novel…）硬编码一套标签，
+  // 与本项目"无 media_type 传统分类"的设计相冲，且对真实 type code（album/song/film…）
+  // 基本全部落到默认分支——是只剩噪音的冗余。
+  const entryKindLabel = getKindName(kinds, "track", locale, t("catalog.kind.track"));
 
   // 版本类别与发行批次是两个独立维度（可同时成立，如"限定版 + 初回发行"），
   // 词表名一律取自 definitions，不在代码/前端字典里另存一份枚举。
@@ -544,21 +507,21 @@ export default function ReleaseDetailPage() {
         id={`medium-${medium.id}`}
         className={
           depth === 0
-            ? "rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface overflow-hidden shadow-soft"
+            ? "rounded-lg border border-line bg-surface overflow-hidden shadow-soft"
             : "bg-transparent"
         }
       >
         <div
-          className={`px-3.5 sm:px-4 py-2.5 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
-            depth === 0 ? "bg-black/[0.02] dark:bg-white/[0.02]" : ""
+          className={`px-3.5 sm:px-4 py-2.5 border-b border-line-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+            depth === 0 ? "bg-surfaceSubtle" : ""
           } ${depth > 0 ? "sm:pl-8" : ""}`}
         >
           <div className="flex items-center gap-2 min-w-0">
             <span className="w-6.5 h-6.5 grid place-items-center rounded-md bg-sky-500/10 border border-sky-500/20 shrink-0">
               <Disc className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.5} />
             </span>
-            <span className="font-display text-sm font-bold tracking-tight text-gray-900 dark:text-white truncate">
-              {depth === 0 && `${mLabel}${medium.position || ""} · `}
+            <span className="font-display text-sm font-bold tracking-tight text-text-strong truncate">
+              {depth === 0 && medium.position ? `${medium.position} · ` : ""}
               {mediumTitle}
             </span>
             {fmtLabel && ownFmt !== "unknown" && (
@@ -576,12 +539,14 @@ export default function ReleaseDetailPage() {
         </div>
         {ordered.length > 0 ? (
           <div className="overflow-x-auto">
-            <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-gray-500">{entryRowHeader(mediaType, t)}</div>
+            <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-gray-500">
+              {t("media.entryRow", { label: entryKindLabel })}
+            </div>
             <table className="w-full text-left text-xs min-w-[640px]">
-              <thead className="bg-black/[0.02] dark:bg-white/[0.02] border-y border-black/5 dark:border-white/[0.06] font-mono text-[10px] uppercase tracking-wider text-gray-500">
+              <thead className="bg-surfaceSubtle border-y border-line-subtle font-mono text-[10px] uppercase tracking-wider text-gray-500">
                 <tr>
                   <th className="py-2 px-3.5 w-12 font-medium">{t("release.detail.tablePosition")}</th>
-                  <th className="py-2 px-3.5 font-medium">{t("release.detail.tableEntryTitle", { label: eLabel })}</th>
+                  <th className="py-2 px-3.5 font-medium">{entryKindLabel}</th>
                   <th className="py-2 px-3.5 font-medium">{t("release.detail.tableMasterEntry")}</th>
                   <th className="py-2 px-3.5 font-medium">{t("release.detail.tableCredit")}</th>
                   <th className="py-2 px-3.5 text-right font-medium">{t("release.detail.tableDuration")}</th>
@@ -604,9 +569,9 @@ export default function ReleaseDetailPage() {
                   const showWorkBadge = trWork && primaryWorkId && trWork.id !== primaryWorkId;
                   const dur = Number(tr.attributes?.duration);
                   return (
-                    <tr key={tr.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+                    <tr key={tr.id} className="hover:bg-surfaceSubtle transition-colors duration-fast ease-soft">
                       <td className="py-2 px-3.5 font-mono text-gray-500 tabular-nums whitespace-nowrap">{tr.number || tr.position}</td>
-                      <td className="py-2 px-3.5 font-medium text-gray-900 dark:text-white">
+                      <td className="py-2 px-3.5 font-medium text-text-strong">
                         <div
                           className="flex flex-wrap items-center gap-1.5"
                           style={trDepth > 0 ? { paddingLeft: `${trDepth * 14}px` } : undefined}
@@ -619,7 +584,7 @@ export default function ReleaseDetailPage() {
                           {showWorkBadge && trWork && (
                             <Link
                               href={`/works/${trWork.id}`}
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 text-[10px] hover:bg-sky-500/20 transition-colors font-mono"
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 text-[10px] hover:bg-sky-500/20 transition-colors duration-fast ease-soft font-mono"
                             >
                               <Film className="w-2.5 h-2.5" />
                               <span className="truncate max-w-[22ch]">{entityTitle(trWork, locale)}</span>
@@ -642,7 +607,7 @@ export default function ReleaseDetailPage() {
                                 <Link
                                   key={`${tr.id}-${c.expression_id}-${i}`}
                                   href={`/catalog/${c.expression_id}`}
-                                  className="text-gray-700 dark:text-gray-300 hover:text-primary hover:underline transition-colors"
+                                  className="text-text-body hover:text-primary hover:underline transition-colors duration-fast ease-soft"
                                 >
                                   {e ? entityTitle(e, locale) : c.expression_id.slice(0, 8)}
                                 </Link>
@@ -655,7 +620,7 @@ export default function ReleaseDetailPage() {
                       </td>
                       <td className="py-2 px-3.5 text-gray-500">
                         {firstExpr && expressionCredits[firstExpr] ? (
-                          <span className="text-xs text-gray-700 dark:text-gray-300">
+                          <span className="text-xs text-text-body">
                             {expressionCredits[firstExpr]}
                             {attrText(tr.attributes?.isrc) && (
                               <span className="ml-1.5 font-mono text-[10px] text-gray-400">
@@ -682,7 +647,7 @@ export default function ReleaseDetailPage() {
           <div className="px-3.5 py-4 font-mono text-[11px] text-gray-500">{t("release.detail.noTracks")}</div>
         )}
         {kids.length > 0 && (
-          <div className="border-t border-black/5 dark:border-white/[0.06]">
+          <div className="border-t border-line-subtle">
             {kids.map((k) => mediumBlock(k, depth + 1))}
           </div>
         )}
@@ -694,21 +659,21 @@ export default function ReleaseDetailPage() {
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
       <Navbar />
-      <main className="relative z-10 max-w-7xl mx-auto px-4 py-5 w-full space-y-5 flex-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main className="mf-enter relative z-10 max-w-page mx-auto px-4 py-5 w-full space-y-5 flex-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
           {primaryWork && (
             <>
-              <Link href={`/works/${primaryWork.id}`} className="hover:text-primary transition-colors inline-flex items-center gap-1">
+              <Link href={`/works/${primaryWork.id}`} className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
                 <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
                 {entityTitle(primaryWork, locale)}
               </Link>
               <span className="text-gray-400 dark:text-white/20">/</span>
             </>
           )}
-          <span className="text-gray-900 dark:text-white truncate">{releaseTitle}</span>
+          <span className="text-text-strong truncate">{releaseTitle}</span>
         </div>
 
-        <section className="p-4 sm:p-6 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
+        <section className="p-4 sm:p-6 rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">
@@ -732,13 +697,13 @@ export default function ReleaseDetailPage() {
                 {catalogNo && <span className="text-gray-500 font-mono">{catalogNo}</span>}
                 {barcode && <span className="text-gray-500">{t("release.detail.barcode", { code: barcode })}</span>}
               </div>
-              <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white leading-tight">{releaseTitle}</h1>
+              <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong leading-tight">{releaseTitle}</h1>
               <dl className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-gray-500">
-                {country && <div className="flex gap-1"><dt>{t("release.detail.countryLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{country}</dd></div>}
-                {language && <div className="flex gap-1"><dt>{t("release.detail.languageLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{language}</dd></div>}
-                {channelLabel && <div className="flex gap-1"><dt>{t("release.detail.channelLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{channelLabel}</dd></div>}
-                {editionDate && <div className="flex gap-1"><dt>{t("release.detail.dateLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{editionDate}</dd></div>}
-                {publisherName && <div className="flex gap-1"><dt>{t("release.detail.publisherLabel")}</dt><dd className="text-gray-700 dark:text-gray-300">{publisherName}</dd></div>}
+                {country && <div className="flex gap-1"><dt>{t("release.detail.countryLabel")}</dt><dd className="text-text-body">{country}</dd></div>}
+                {language && <div className="flex gap-1"><dt>{t("release.detail.languageLabel")}</dt><dd className="text-text-body">{language}</dd></div>}
+                {channelLabel && <div className="flex gap-1"><dt>{t("release.detail.channelLabel")}</dt><dd className="text-text-body">{channelLabel}</dd></div>}
+                {editionDate && <div className="flex gap-1"><dt>{t("release.detail.dateLabel")}</dt><dd className="text-text-body">{editionDate}</dd></div>}
+                {publisherName && <div className="flex gap-1"><dt>{t("release.detail.publisherLabel")}</dt><dd className="text-text-body">{publisherName}</dd></div>}
               </dl>
               {(release.subjects || []).length > 1 && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -749,9 +714,9 @@ export default function ReleaseDetailPage() {
                     return (
                       <span
                         key={`${s.work_id}-${s.role}`}
-                        className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 text-[11px]"
+                        className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/[0.04] border border-line text-[11px]"
                       >
-                        <Link href={`/works/${s.work_id}`} className="text-gray-700 dark:text-gray-300 hover:text-primary">
+                        <Link href={`/works/${s.work_id}`} className="text-text-body hover:text-primary">
                           {entityTitle(w, locale)}
                         </Link>
                         {/* 发行对象附加属性（definitions 声明，未声明则不显示）。 */}
@@ -764,7 +729,7 @@ export default function ReleaseDetailPage() {
             </div>
             <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
               {release.pictures?.[0]?.url && (
-                <div className="w-24 aspect-square rounded-md overflow-hidden border border-black/10 dark:border-white/10">
+                <div className="w-24 aspect-square rounded-md overflow-hidden border border-line">
                   <AdaptiveCardCover src={release.pictures[0].url} alt={releaseTitle} fallbackIcon={<Disc className="w-6 h-6 text-gray-400" />} aspectClassName="w-full h-full" />
                 </div>
               )}
@@ -774,10 +739,10 @@ export default function ReleaseDetailPage() {
                   onClick={onToggleBasket}
                   disabled={basketFull}
                   aria-pressed={inBasket}
-                  className={`inline-flex items-center gap-1.5 h-8 max-sm:min-h-[44px] px-3 rounded-md border text-xs font-mono transition-colors ${
+                  className={`inline-flex items-center gap-1.5 h-8 max-sm:min-h-[44px] px-3 rounded-md border text-xs font-mono transition-colors duration-fast ease-soft ${
                     inBasket
                       ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-300"
-                      : "bg-black/[0.03] dark:bg-white/[0.06] border-black/10 dark:border-white/10 text-gray-700 dark:text-gray-200 hover:text-primary hover:border-primary/40 disabled:opacity-40"
+                      : "bg-black/[0.03] dark:bg-white/[0.06] border-line text-gray-700 dark:text-gray-200 hover:text-primary hover:border-primary/40 disabled:opacity-40"
                   }`}
                 >
                   {inBasket ? <Check className="w-3.5 h-3.5" strokeWidth={1.6} /> : <ArrowRightLeft className="w-3.5 h-3.5" strokeWidth={1.6} />}
@@ -798,7 +763,7 @@ export default function ReleaseDetailPage() {
         </section>
 
         {siblingReleases.length > 1 && (
-          <nav aria-label={t("release.detail.siblingVersions")} className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface px-3.5 sm:px-4 py-3 space-y-2">
+          <nav aria-label={t("release.detail.siblingVersions")} className="rounded-lg border border-line bg-surface px-3.5 sm:px-4 py-3 space-y-2">
             <p className="font-mono text-[11px] text-gray-500">
               {t("release.detail.siblingVersions")} · {siblingReleases.length}
             </p>
@@ -814,13 +779,13 @@ export default function ReleaseDetailPage() {
                     key={sib.id}
                     href={`/releases/${sib.id}`}
                     aria-current={active ? "page" : undefined}
-                    className={`shrink-0 max-w-[220px] rounded-md border px-3 py-2 text-left transition-colors ${
+                    className={`shrink-0 max-w-[220px] rounded-md border px-3 py-2 text-left transition-colors duration-fast ease-soft ${
                       active
                         ? "bg-primary text-white border-primary"
-                        : "bg-black/[0.02] dark:bg-white/[0.03] border-black/10 dark:border-white/10 hover:border-primary/40"
+                        : "bg-surfaceSubtle border-line hover:border-primary/40"
                     }`}
                   >
-                    <span className={`block text-xs font-semibold truncate ${active ? "" : "text-gray-900 dark:text-white"}`}>
+                    <span className={`block text-xs font-semibold truncate ${active ? "" : "text-text-strong"}`}>
                       {entityTitle(sib, locale)}
                     </span>
                     <span className={`mt-0.5 block font-mono text-[10px] truncate ${active ? "text-white/80" : "text-gray-500"}`}>
@@ -839,10 +804,10 @@ export default function ReleaseDetailPage() {
               type="button"
               onClick={() => setActiveTab("all")}
               aria-pressed={activeTab === "all"}
-              className={`shrink-0 h-9 max-sm:min-h-[44px] px-3 rounded-md border font-mono text-xs transition-colors ${
+              className={`shrink-0 h-9 max-sm:min-h-[44px] px-3 rounded-md border font-mono text-xs transition-colors duration-fast ease-soft ${
                 activeTab === "all"
                   ? "bg-primary text-white border-primary"
-                  : "bg-surface border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary/40 hover:text-primary"
+                  : "bg-surface border-line text-text-body hover:border-primary/40 hover:text-primary"
               }`}
             >
               {t("release.detail.tabAllFormats")}
@@ -856,10 +821,10 @@ export default function ReleaseDetailPage() {
                   type="button"
                   onClick={() => setActiveTab(fmt)}
                   aria-pressed={activeTab === fmt}
-                  className={`shrink-0 h-9 max-sm:min-h-[44px] px-3 rounded-md border font-mono text-xs transition-colors ${
+                  className={`shrink-0 h-9 max-sm:min-h-[44px] px-3 rounded-md border font-mono text-xs transition-colors duration-fast ease-soft ${
                     activeTab === fmt
                       ? "bg-primary text-white border-primary"
-                      : "bg-surface border-black/10 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary/40 hover:text-primary"
+                      : "bg-surface border-line text-text-body hover:border-primary/40 hover:text-primary"
                   }`}
                 >
                   {label} · {trackCount}
@@ -883,7 +848,7 @@ export default function ReleaseDetailPage() {
         </div>
 
         {media.length === 0 ? (
-          <div className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface p-8 text-center font-mono text-xs text-gray-500">{t("release.detail.noMedium")}</div>
+          <div className="rounded-lg border border-line bg-surface p-8 text-center font-mono text-xs text-gray-500">{t("release.detail.noMedium")}</div>
         ) : (
           <div className="space-y-4 sm:space-y-5">
             {(showBonus ? visibleGroups : bonusGroups).map(([fmt, rows]) => (
@@ -898,8 +863,8 @@ export default function ReleaseDetailPage() {
                     rows.map(({ medium, tracks }) => {
                       const fmtLabel = dynamicDefs ? getTermName(dynamicDefs, "format", fmt, locale) : fmt;
                       return (
-                        <div key={medium.id} className="rounded-md border border-black/10 dark:border-white/10 p-3">
-                          <div className="flex items-center gap-2 text-xs font-semibold text-gray-900 dark:text-white">
+                        <div key={medium.id} className="rounded-md border border-line p-3">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-text-strong">
                             <Disc className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
                             <span className="truncate">{entityTitle(medium, locale)}</span>
                             {fmtLabel && fmt !== "unknown" && <span className="font-mono text-[10px] font-normal text-gray-500">{fmtLabel}</span>}
@@ -909,7 +874,7 @@ export default function ReleaseDetailPage() {
                             {tracks.slice().sort((a, b) => (a.position || 0) - (b.position || 0)).map((tr) => (
                               <div key={tr.id} className="flex items-center gap-2 text-xs">
                                 <span className="font-mono text-gray-500 w-8 shrink-0">{tr.number || tr.position}</span>
-                                <span className="text-gray-800 dark:text-gray-200 truncate">{entityTitle(tr, locale) || tr.title}</span>
+                                <span className="text-text-strong truncate">{entityTitle(tr, locale) || tr.title}</span>
                                 <span className="ml-auto font-mono text-[11px] text-gray-500 shrink-0">{formatDuration(Number(tr.attributes?.duration) || 0)}</span>
                               </div>
                             ))}
@@ -952,7 +917,7 @@ export default function ReleaseDetailPage() {
             )}
             <div className="overflow-x-auto -mx-3.5 sm:-mx-4 px-3.5 sm:px-4">
               <table className="w-full text-left text-xs min-w-[720px]">
-                <thead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 border-b border-black/5 dark:border-white/[0.06]">
+                <thead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 border-b border-line-subtle">
                   <tr>
                     <th className="py-2 pr-3 font-medium">{t("release.detail.sameRecordingExpr")}</th>
                     <th className="py-2 pr-3 font-medium">{t("release.detail.sameRecordingRelease")}</th>
@@ -969,7 +934,7 @@ export default function ReleaseDetailPage() {
                     if (occ.length === 0 && sibs.length === 0) {
                       return (
                         <tr key={exprId}>
-                          <td className="py-2 pr-3 text-gray-900 dark:text-white">{expr ? entityTitle(expr, locale) : exprId.slice(0, 8)}</td>
+                          <td className="py-2 pr-3 text-text-strong">{expr ? entityTitle(expr, locale) : exprId.slice(0, 8)}</td>
                           <td colSpan={4} className="py-2 font-mono text-[11px] text-gray-400">{t("release.detail.sameRecordingEmpty")}</td>
                         </tr>
                       );
@@ -985,7 +950,7 @@ export default function ReleaseDetailPage() {
                         {shown.map((o, i) => (
                           <tr key={`${exprId}-${i}`}>
                             {i === 0 ? (
-                              <td rowSpan={rowSpan} className="py-2 pr-3 text-gray-900 dark:text-white align-top">
+                              <td rowSpan={rowSpan} className="py-2 pr-3 text-text-strong align-top">
                                 {expr ? entityTitle(expr, locale) : exprId.slice(0, 8)}
                               </td>
                             ) : null}
@@ -1007,7 +972,7 @@ export default function ReleaseDetailPage() {
                         ))}
                         {/* 同篇目其它表达（加长版/另一录音）的收录单列一行，避免与自身收录混读。 */}
                         {sibs.length > 0 && (
-                          <tr key={`${exprId}-sib`} className="bg-black/[0.015] dark:bg-white/[0.02]">
+                          <tr key={`${exprId}-sib`} className="bg-black/[0.015] bg-surfaceSubtle">
                             <td colSpan={4} className="py-1.5 pr-3 text-[11px] text-gray-500">
                               {t("release.detail.sameUnitSiblings", { count: sibs.length })}
                               {sibs.slice(0, 3).map((o, i) => (
@@ -1043,12 +1008,12 @@ export default function ReleaseDetailPage() {
             {expressionIds.length > OCC_PAGE_SIZE && (() => {
               const occPages = Math.max(1, Math.ceil(expressionIds.length / OCC_PAGE_SIZE));
               return (
-                <div className="px-3.5 sm:px-4 py-2.5 border-t border-black/5 dark:border-white/[0.06] flex items-center justify-end gap-2">
+                <div className="px-3.5 sm:px-4 py-2.5 border-t border-line-subtle flex items-center justify-end gap-2">
                   <span className="font-mono text-[11px] text-gray-500">{t("common.pagination", { page: occPage, total: occPages })}</span>
-                  <button type="button" disabled={occPage <= 1} onClick={() => setOccPage((p) => Math.max(1, p - 1))} aria-label={t("pagination.prev")} className="w-7 h-7 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
+                  <button type="button" disabled={occPage <= 1} onClick={() => setOccPage((p) => Math.max(1, p - 1))} aria-label={t("pagination.prev")} className="w-7 h-7 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-line disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
                     <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} />
                   </button>
-                  <button type="button" disabled={occPage >= occPages} onClick={() => setOccPage((p) => Math.min(occPages, p + 1))} aria-label={t("pagination.next")} className="w-7 h-7 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
+                  <button type="button" disabled={occPage >= occPages} onClick={() => setOccPage((p) => Math.min(occPages, p + 1))} aria-label={t("pagination.next")} className="w-7 h-7 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-line disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
                     <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.6} />
                   </button>
                 </div>
@@ -1094,7 +1059,7 @@ export default function ReleaseDetailPage() {
         </div>
 
         {(catalogDef || dynamicDefs) && (
-          <details className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface px-3.5 sm:px-4 py-2.5">
+          <details className="rounded-lg border border-line bg-surface px-3.5 sm:px-4 py-2.5">
             <summary className="cursor-pointer font-mono text-[11px] text-gray-500 hover:text-primary min-h-[32px] flex items-center">
               {t("release.detail.comparableFields")}
             </summary>
@@ -1113,7 +1078,7 @@ export default function ReleaseDetailPage() {
                 return (
                   <div key={k} className="flex gap-2 min-w-0">
                     <dt className="font-mono text-gray-500 shrink-0">{name}</dt>
-                    <dd className="text-gray-800 dark:text-gray-200 truncate">{text}</dd>
+                    <dd className="text-text-strong truncate">{text}</dd>
                   </div>
                 );
               })}
@@ -1123,7 +1088,7 @@ export default function ReleaseDetailPage() {
 
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
           <Plus className="w-3 h-3" strokeWidth={1.6} />
-          <Link href={`/catalog/${release.id}`} className="hover:text-primary transition-colors inline-flex items-center gap-1">
+          <Link href={`/catalog/${release.id}`} className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
             {t("release.detail.openInCatalog")} <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
           </Link>
         </div>

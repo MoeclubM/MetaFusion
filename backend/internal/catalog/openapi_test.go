@@ -57,32 +57,25 @@ func TestOpenAPIReverseCoverage(t *testing.T) {
 			}
 		}
 	}
-	// 关键 schema 回归：role 更新请求体不得再写成 Result。
-	schemas := doc["components"].(map[string]any)["schemas"].(map[string]any)
-	roleOp := paths["/admin/users/{id}/role"].(map[string]any)["put"].(map[string]any)
-	rb := roleOp["requestBody"].(map[string]any)["content"].(map[string]any)["application/json"].(map[string]any)["schema"].(map[string]any)["$ref"]
-	if rb != "#/components/schemas/UserRoleUpdate" {
-		t.Fatalf("role requestBody ref = %v, want UserRoleUpdate", rb)
+
+	// 账号与收藏前缀已随子系统拆分离开本服务：文档里不得再出现它们，
+	// 否则前端/Agent 会以为目录服务仍然接受这些请求。
+	for _, p := range []string{"/setup", "/auth/login", "/auth/me", "/auth/settings", "/admin/users", "/oauth/clients", "/oauth/authorize", "/oauth/token", "/oidc/jwks", "/.well-known/openid-configuration", "/favorites/toggle", "/favorites/mine", "/users/{id}/favorites"} {
+		if _, ok := paths[p]; ok {
+			t.Fatalf("%s 已归子系统，不应再出现在目录服务的 OpenAPI 文档里", p)
+		}
 	}
-	if _, ok := schemas["UserRoleUpdate"]; !ok {
-		t.Fatal("UserRoleUpdate schema missing")
-	}
-	toggleOp := paths["/favorites/toggle"].(map[string]any)["post"].(map[string]any)
-	trb := toggleOp["requestBody"].(map[string]any)["content"].(map[string]any)["application/json"].(map[string]any)["schema"].(map[string]any)["$ref"]
-	if trb != "#/components/schemas/FavoriteToggle" {
-		t.Fatalf("toggle requestBody ref = %v, want FavoriteToggle", trb)
-	}
-	// 收藏/偏好/OAuth 的登录口径：文档 security 必须与 http.go 中间件一致。
+
+	// 登录口径：目录侧只剩自己的写接口需要身份（token 由账号服务签发）。
 	for _, p := range []struct {
 		path, method string
 		wantAuth     bool
 	}{
-		{"/favorites/toggle", "post", true},
-		{"/favorites/mine", "get", true},
-		{"/oauth/clients", "get", true},
-		{"/users/{id}/favorites", "get", false},
+		{"/catalog/entities", "post", true},
+		{"/catalog/entities", "get", false},
 		{"/catalog/me/home-preferences", "get", true},
 		{"/catalog/me/home-preferences", "put", true},
+		{"/exchange/proposals", "post", true},
 	} {
 		op := paths[p.path].(map[string]any)[p.method].(map[string]any)
 		_, hasSec := op["security"]
@@ -90,14 +83,12 @@ func TestOpenAPIReverseCoverage(t *testing.T) {
 			t.Fatalf("%s %s security=%v, want auth=%v", p.method, p.path, hasSec, p.wantAuth)
 		}
 	}
-	// 查询参数回归：收藏分页、status、tags、feed、authorize 不得缺失。
+
+	// 查询参数回归：标签聚合与货架 feed 的参数不得缺失。
 	for _, p := range []struct{ path, method, param string }{
-		{"/favorites/mine", "get", "page_size"},
-		{"/users/{id}/favorites", "get", "page"},
-		{"/favorites/status", "get", "target_ids"},
 		{"/catalog/tags", "get", "limit"},
 		{"/catalog/shelves/feed", "get", "per_shelf"},
-		{"/oauth/authorize", "get", "redirect_uri"},
+		{"/catalog/entities", "get", "field"},
 	} {
 		op := paths[p.path].(map[string]any)[p.method].(map[string]any)
 		params, _ := op["parameters"].([]any)

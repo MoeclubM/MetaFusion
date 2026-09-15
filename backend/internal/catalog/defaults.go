@@ -33,6 +33,46 @@ func (d Definitions) PrimaryDateField(typeCode string) string {
 	}
 	return tpl.PrimaryDateField
 }
+
+// KindNames 是固定八实体骨架的**多语言显示名**（服务端唯一来源）。
+//
+// 为什么不放在前端字典里：kind 是领域模型的组成部分（不是界面装饰），它的名称属于"服务端定义的名称"，
+// 必须和类型/字段/关系名一样可多语言、可被任何客户端（Web / Agent / 第三方）取用；
+// 前端字典只保留兜底，服务端给了就以服务端为准。
+//
+// 四语齐备（zh-CN / zh-TW / ja-JP / en-US）：缺哪一语都会让该语种用户看到英文占位。
+//
+// KindRecord 是对外载荷形状：与 definitions 里其它名称对象一致，统一放在 names 键下，
+// 以后要加 icon/order 之类字段也有位置（前端 KindDef 与之对应）。
+type KindRecord struct {
+	Names Names `json:"names"`
+}
+
+// KindNameRecords 把骨架名称包成对外形状，供 /api/catalog/definitions 的 kinds 字段使用。
+func KindNameRecords() map[string]KindRecord {
+	out := map[string]KindRecord{}
+	for k, n := range KindNames() {
+		out[k] = KindRecord{Names: n}
+	}
+	return out
+}
+
+func KindNames() map[string]Names {
+	out := map[string]Names{}
+	for _, x := range [][5]string{
+		{"agent", "主体", "主體", "主体", "Agents"},
+		{"collection", "集合", "集合", "コレクション", "Collections"},
+		{"work", "作品", "作品", "作品", "Works"},
+		{"content_unit", "内容单元", "內容單元", "コンテンツ単位", "Content units"},
+		{"expression", "内容表达", "內容表達", "内容表現", "Expressions"},
+		{"release", "发行版本", "發行版本", "リリース", "Releases"},
+		{"medium", "载体", "載體", "キャリア", "Media (carrier)"},
+		{"track", "收录位置", "收錄位置", "収録位置", "Tracks"},
+	} {
+		out[x[0]] = names4(x[1], x[2], x[3], x[4])
+	}
+	return out
+}
 func Defaults() Definitions {
 	d := Definitions{Types: map[string]TypeDefinition{}, Fields: map[string]Field{}, Vocabularies: map[string]Vocabulary{}, Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
 	field := func(code, zh, en, typ string) {
@@ -42,7 +82,7 @@ func Defaults() Definitions {
 		field(x[0], x[1], x[2], x[3])
 	}
 	// 标签：值域开放（上游标签随作品而定），故为字符串列表而非受控词表；
-	// 存于 attributes.tags，按容器包含（@>）过滤——schema.sql 为该 JSON 路径
+	// 存于 attributes.tags，按容器包含（@>）过滤——结构基线为该 JSON 路径
 	// 建了函数 GIN 索引，保证按标签检索走索引而非全表扫描。
 	// Hidden：详情页有专用标签区块，不再进信息面板，避免与 JSON 原文重复。
 	d.Fields["tags"] = Field{Names: names("标签", "Tags"), Type: "list", Enabled: true, Searchable: true, Hidden: true, Items: &Field{Names: names("标签", "Tag"), Type: "text", Enabled: true}}
@@ -138,9 +178,9 @@ func Defaults() Definitions {
 		Fields: map[string]Field{
 			"relative_to":   {Names: names("定位参照", "Relative to"), Type: "enum", Vocabulary: "locator_reference", Enabled: true, Semantics: "locating"},
 			"page_start":    {Names: names("起始页", "Start page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating"},
-			"page_end":      {Names: names("结束页", "End page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating"},
+			"page_end":      {Names: names("结束页", "End page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating", RangeStart: "page_start"},
 			"time_start_ms": {Names: names("起始时间（毫秒）", "Start time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content"},
-			"time_end_ms":   {Names: names("结束时间（毫秒）", "End time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content"},
+			"time_end_ms":   {Names: names("结束时间（毫秒）", "End time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content", RangeStart: "time_start_ms"},
 			"path":          {Names: names("文件路径", "File path"), Type: "text", Enabled: true, Semantics: "locating"},
 			"chapter":       {Names: names("章节", "Chapter"), Type: "text", Enabled: true, Semantics: "locating"},
 		},
@@ -283,7 +323,10 @@ func Defaults() Definitions {
 	addRel("store_bonus_for", "渠道特典归属", "Store bonus for", "拥有渠道特典", "Has store bonus", []string{"expression", "release"}, []string{"agent"}, "membership", true)
 	addRel("includes", "组成包含", "Includes", "组成属于", "Included in", []string{"collection", "work"}, []string{"work", "collection"}, "membership", true)
 	// 角色登场：虚构角色/团体 → 作品或集合。方向为 agent → work，
-	// 同一角色跨作品算多条边（AGENTS.md 语义），role 记主角/配角等番位。
+	// 同一角色跨作品算多条边（AGENTS.md 语义）。
+	// 番位（主角/配角）目前用 credit_role（自由文本）承载：role 字段绑的是内容用途词表
+	// （primary/supplement/side/extra/commentary），里面没有番位词项，写"main"会被判 invalid_term。
+	// 若要结构化番位，应在后台为它单开一个词表，而不是借用 role。
 	addRel("character_in", "角色登场", "Character in", "登场角色", "Characters in", []string{"agent"}, []string{"work", "collection"}, "credits", false)
 	// 通用署名兜底：外部来源的职位文本没有贴切既有关系码时（分镜、企画、制作、
 	// 制片人等），用它承载"谁参与了这部作品"，职位原文落在 credit_role。
@@ -303,15 +346,15 @@ func Defaults() Definitions {
 			addRel("translated_by", "译者", "Translated by", "翻译了", "Translator of", []string{"work", "content_unit", "expression"}, []string{"agent"}, "credits", false)
 		}
 	}
-		// 场景示例（纯示范，默认关闭，供后台按需启用或扩展）：黑胶上下文 locator 只收敛到唱片面相关子集。
-		// 默认设为 Enabled: false，避免未经 Medium 介质格式细分前误伤其他媒体（如纸书页码、音视频时间码）。
-		d.Schemes = map[string]Scheme{
-			"vinyl_track_locator": {
-				Names: names("黑胶定位", "Vinyl locator"), Slot: "locator",
-				Kinds:   []string{"track"},
-				Fields:  []string{"relative_to", "chapter", "path"},
-				Enabled: false,
-			},
-		}
+	// 场景示例（纯示范，默认关闭，供后台按需启用或扩展）：黑胶上下文 locator 只收敛到唱片面相关子集。
+	// 默认设为 Enabled: false，避免未经 Medium 介质格式细分前误伤其他媒体（如纸书页码、音视频时间码）。
+	d.Schemes = map[string]Scheme{
+		"vinyl_track_locator": {
+			Names: names("黑胶定位", "Vinyl locator"), Slot: "locator",
+			Kinds:   []string{"track"},
+			Fields:  []string{"relative_to", "chapter", "path"},
+			Enabled: false,
+		},
+	}
 	return d
 }

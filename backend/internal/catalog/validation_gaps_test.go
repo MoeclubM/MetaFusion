@@ -74,21 +74,21 @@ func TestCanAttachToTargetVeto(t *testing.T) {
 	other := User{ID: "other", Role: "editor"}
 	admin := User{ID: "admin", Role: "admin"}
 	foreignPublished := Entity{ID: "x", Kind: "work", Status: "published", CreatedBy: "owner"}
-	// editor 不得向他人已发布条目挂边。
-	if canAttachToTarget(other, foreignPublished) {
-		t.Fatal("editor attaching to foreign published target must be vetoed")
+	// 受信任 editor 可在公开条目之间建立关系。
+	if !canAttachToTarget(other, foreignPublished) {
+		t.Fatal("editor attaching to published target must pass")
 	}
 	// 主人自己可挂；admin 恒可。
 	if !canAttachToTarget(owner, foreignPublished) {
 		t.Fatal("owner attaching to own published target must pass")
 	}
-	if !canAttachToTarget(other, foreignPublished) && !canAttachToTarget(admin, foreignPublished) {
+	if !canAttachToTarget(admin, foreignPublished) {
 		t.Fatal("admin must always pass")
 	}
-	// 未发布目标不受限（审核协作仍可进行）。
+	// 其它人的未发布内容仍受保护。
 	draft := Entity{ID: "y", Kind: "work", Status: "draft", CreatedBy: "owner"}
-	if !canAttachToTarget(other, draft) {
-		t.Fatal("draft target must not be vetoed")
+	if canAttachToTarget(other, draft) {
+		t.Fatal("foreign draft target must be protected")
 	}
 }
 
@@ -116,22 +116,22 @@ func TestValidationGaps(t *testing.T) {
 	if err := d.value(f("multilingual"), map[string]any{}, ref, false); err != nil {
 		t.Fatalf("optional empty multilingual rejected: %v", err)
 	}
-		// Number 无 Min/Max 时仍拒绝非数值（包括空数组 []、空对象 {} 等）
-		if err := d.value(f("number"), "NaN-string", ref, false); err == nil {
-			t.Fatal("non-numeric number accepted")
-		}
-		if err := d.value(f("number"), []any{}, ref, false); err == nil {
-			t.Fatal("empty array accepted for number field")
-		}
-		if err := d.value(f("number"), map[string]any{}, ref, false); err == nil {
-			t.Fatal("empty object accepted for number field")
-		}
-		// List 字段拒绝空对象 {} 传透
-		listField := Field{Names: names("l", "L"), Type: "list", Enabled: true, Items: &Field{Names: names("i", "I"), Type: "text", Enabled: true}}
-		if err := d.value(listField, map[string]any{}, ref, false); err == nil {
-			t.Fatal("empty object accepted for list field")
-		}
-		// value 无 default 分支不再空转。
+	// Number 无 Min/Max 时仍拒绝非数值（包括空数组 []、空对象 {} 等）
+	if err := d.value(f("number"), "NaN-string", ref, false); err == nil {
+		t.Fatal("non-numeric number accepted")
+	}
+	if err := d.value(f("number"), []any{}, ref, false); err == nil {
+		t.Fatal("empty array accepted for number field")
+	}
+	if err := d.value(f("number"), map[string]any{}, ref, false); err == nil {
+		t.Fatal("empty object accepted for number field")
+	}
+	// List 字段拒绝空对象 {} 传透
+	listField := Field{Names: names("l", "L"), Type: "list", Enabled: true, Items: &Field{Names: names("i", "I"), Type: "text", Enabled: true}}
+	if err := d.value(listField, map[string]any{}, ref, false); err == nil {
+		t.Fatal("empty object accepted for list field")
+	}
+	// value 无 default 分支不再空转。
 	if err := d.value(Field{Names: names("x", "X"), Type: "no_such_type", Enabled: true}, "v", ref, false); err == nil {
 		t.Fatal("unknown field type silently passed")
 	}
@@ -149,21 +149,21 @@ func TestValidateEntityStructuralDedup(t *testing.T) {
 	if err := d.validateEntity(rel, ref, true); err == nil || !strings.Contains(err.Error(), "duplicate_subject") {
 		t.Fatalf("duplicate subject must be rejected, got %v", err)
 	}
-		// Contents 同 expression 相同 locator（如均为空 locator）多 position 重复 → 拒绝。
-		tr := Entity{Kind: "track", Title: "T", Status: "draft", MediumID: mid,
-			Contents: []Inclusion{{ExpressionID: eid, Position: 0}, {ExpressionID: eid, Position: 1}}}
-		if err := d.validateEntity(tr, ref, true); err == nil || !strings.Contains(err.Error(), "duplicate_content") {
-			t.Fatalf("duplicate content must be rejected, got %v", err)
-		}
-		// 同 expression 但不同 locator 切片（如不同时间区间）→ 合法放行。
-		okTr := Entity{Kind: "track", Title: "T", Status: "draft", MediumID: mid,
-			Contents: []Inclusion{
-				{ExpressionID: eid, Position: 0, Locator: Locator{"relative_to": "track", "time_start_ms": float64(0), "time_end_ms": float64(30000)}},
-				{ExpressionID: eid, Position: 1, Locator: Locator{"relative_to": "track", "time_start_ms": float64(60000), "time_end_ms": float64(90000)}},
-			}}
-		if err := d.validateEntity(okTr, ref, false); err != nil {
-			t.Fatalf("different locator slice for same expression must be allowed, got %v", err)
-		}
+	// Contents 同 expression 相同 locator（如均为空 locator）多 position 重复 → 拒绝。
+	tr := Entity{Kind: "track", Title: "T", Status: "draft", MediumID: mid,
+		Contents: []Inclusion{{ExpressionID: eid, Position: 0}, {ExpressionID: eid, Position: 1}}}
+	if err := d.validateEntity(tr, ref, true); err == nil || !strings.Contains(err.Error(), "duplicate_content") {
+		t.Fatalf("duplicate content must be rejected, got %v", err)
+	}
+	// 同 expression 但不同 locator 切片（如不同时间区间）→ 合法放行。
+	okTr := Entity{Kind: "track", Title: "T", Status: "draft", MediumID: mid,
+		Contents: []Inclusion{
+			{ExpressionID: eid, Position: 0, Locator: Locator{"relative_to": "track", "time_start_ms": float64(0), "time_end_ms": float64(30000)}},
+			{ExpressionID: eid, Position: 1, Locator: Locator{"relative_to": "track", "time_start_ms": float64(60000), "time_end_ms": float64(90000)}},
+		}}
+	if err := d.validateEntity(okTr, ref, false); err != nil {
+		t.Fatalf("different locator slice for same expression must be allowed, got %v", err)
+	}
 }
 
 func TestValidateExternalIDs(t *testing.T) {
@@ -181,25 +181,25 @@ func TestValidateExternalIDs(t *testing.T) {
 	if err := d.validateExternalIDs(Entity{ExternalIDs: map[string]string{"metafusion_import": "bangumi:subject:123"}}); err != nil {
 		t.Fatalf("valid import key rejected: %v", err)
 	}
-		if err := d.validateExternalIDs(Entity{ExternalIDs: map[string]string{"metafusion_import": "bangumi:subject:123:release"}}); err != nil {
-			t.Fatalf("valid derived import key rejected: %v", err)
+	if err := d.validateExternalIDs(Entity{ExternalIDs: map[string]string{"metafusion_import": "bangumi:subject:123:release"}}); err != nil {
+		t.Fatalf("valid derived import key rejected: %v", err)
+	}
+	// 校验导入器实际生成的所有派生形态均合法放行：
+	// 表达键、发行变体键、载体键、曲目键
+	importerGeneratedKeys := []string{
+		"bangumi:subject:633836:e7a8b9c0d",
+		"bangumi:subject:633836:release:r1a2b3c4d",
+		"bangumi:subject:633836:release:r1a2b3c4d:m0",
+		"bangumi:subject:633836:release:r1a2b3c4d:m0:t1",
+		"bangumi:subject:633836:release:m0:t1",
+		"bangumi:person:9999",
+		"bangumi:character:8888",
+	}
+	for _, key := range importerGeneratedKeys {
+		if err := d.validateExternalIDs(Entity{ExternalIDs: map[string]string{"metafusion_import": key}}); err != nil {
+			t.Fatalf("importer generated key %q must be valid, got %v", key, err)
 		}
-		// 校验导入器实际生成的所有派生形态均合法放行：
-		// 表达键、发行变体键、载体键、曲目键
-		importerGeneratedKeys := []string{
-			"bangumi:subject:633836:e7a8b9c0d",
-			"bangumi:subject:633836:release:r1a2b3c4d",
-			"bangumi:subject:633836:release:r1a2b3c4d:m0",
-			"bangumi:subject:633836:release:r1a2b3c4d:m0:t1",
-			"bangumi:subject:633836:release:m0:t1",
-			"bangumi:person:9999",
-			"bangumi:character:8888",
-		}
-		for _, key := range importerGeneratedKeys {
-			if err := d.validateExternalIDs(Entity{ExternalIDs: map[string]string{"metafusion_import": key}}); err != nil {
-				t.Fatalf("importer generated key %q must be valid, got %v", key, err)
-			}
-		}
+	}
 }
 
 func TestMergeConflictKeys(t *testing.T) {
@@ -217,41 +217,41 @@ func TestMergeConflictKeys(t *testing.T) {
 	if err := d.validateEntity(dup, ref, true); err == nil || !strings.Contains(err.Error(), "duplicate_subject") {
 		t.Fatalf("merge subject key must match validateEntity duplicate_subject, got %v", err)
 	}
-		// 同角色不同作品不是冲突（键含 work）。
-		ok := Entity{Kind: "release", Title: "R", Status: "draft",
-			Subjects: []Subject{{WorkID: wid, Role: "primary"}, {WorkID: "22222222-2222-4222-8222-222222222222", Role: "primary", Position: 1}}}
-		if err := d.validateEntity(ok, ref, true); err != nil {
-			t.Fatalf("different works same role wrongly rejected: %v", err)
-		}
-		// 校验 Work 合并导致下游 Release Subjects 改写收敛时的冲突检测逻辑：
-		// 属性不同报 merge_subject_conflict，属性相同幂等保留。
-		dedupSubjects := func(subs []Subject) ([]Subject, error) {
-			unique := []Subject{}
-			seen := map[string]Subject{}
-			for _, subject := range subs {
-				key := subject.WorkID + ":" + subject.Role
-				if prev, ok := seen[key]; ok {
-					if encode(prev.Attributes) != encode(subject.Attributes) {
-						return nil, fmt.Errorf("merge_subject_conflict")
-					}
-					continue
-				}
-				seen[key] = subject
-				unique = append(unique, subject)
-			}
-			return unique, nil
-		}
-		s1 := Subject{WorkID: wid, Role: "primary", Attributes: map[string]any{"note": "A"}}
-		s2 := Subject{WorkID: wid, Role: "primary", Attributes: map[string]any{"note": "B"}}
-		if _, err := dedupSubjects([]Subject{s1, s2}); err == nil || err.Error() != "merge_subject_conflict" {
-			t.Fatalf("different attributes on same (work,role) must conflict, got %v", err)
-		}
-		s3 := Subject{WorkID: wid, Role: "primary", Attributes: map[string]any{"note": "A"}}
-		res, err := dedupSubjects([]Subject{s1, s3})
-		if err != nil || len(res) != 1 {
-			t.Fatalf("identical attributes on same (work,role) must dedup cleanly, got %v, err %v", res, err)
-		}
+	// 同角色不同作品不是冲突（键含 work）。
+	ok := Entity{Kind: "release", Title: "R", Status: "draft",
+		Subjects: []Subject{{WorkID: wid, Role: "primary"}, {WorkID: "22222222-2222-4222-8222-222222222222", Role: "primary", Position: 1}}}
+	if err := d.validateEntity(ok, ref, true); err != nil {
+		t.Fatalf("different works same role wrongly rejected: %v", err)
 	}
+	// 校验 Work 合并导致下游 Release Subjects 改写收敛时的冲突检测逻辑：
+	// 属性不同报 merge_subject_conflict，属性相同幂等保留。
+	dedupSubjects := func(subs []Subject) ([]Subject, error) {
+		unique := []Subject{}
+		seen := map[string]Subject{}
+		for _, subject := range subs {
+			key := subject.WorkID + ":" + subject.Role
+			if prev, ok := seen[key]; ok {
+				if encode(prev.Attributes) != encode(subject.Attributes) {
+					return nil, fmt.Errorf("merge_subject_conflict")
+				}
+				continue
+			}
+			seen[key] = subject
+			unique = append(unique, subject)
+		}
+		return unique, nil
+	}
+	s1 := Subject{WorkID: wid, Role: "primary", Attributes: map[string]any{"note": "A"}}
+	s2 := Subject{WorkID: wid, Role: "primary", Attributes: map[string]any{"note": "B"}}
+	if _, err := dedupSubjects([]Subject{s1, s2}); err == nil || err.Error() != "merge_subject_conflict" {
+		t.Fatalf("different attributes on same (work,role) must conflict, got %v", err)
+	}
+	s3 := Subject{WorkID: wid, Role: "primary", Attributes: map[string]any{"note": "A"}}
+	res, err := dedupSubjects([]Subject{s1, s3})
+	if err != nil || len(res) != 1 {
+		t.Fatalf("identical attributes on same (work,role) must dedup cleanly, got %v, err %v", res, err)
+	}
+}
 
 func TestLifecycleSemanticsLocked(t *testing.T) {
 	// archived 缺口锁定：全仓无 archived 状态，私自加状态必须先改这三处。

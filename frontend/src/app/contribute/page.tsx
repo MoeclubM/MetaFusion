@@ -61,9 +61,9 @@ export default function ContributeHubPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-gray-100">
       <Navbar />
-      <main className="max-w-5xl mx-auto px-4 py-6 w-full flex-1 space-y-5 sm:space-y-6">
+      <main className="mf-enter max-w-narrow mx-auto px-4 py-6 w-full flex-1 space-y-5 sm:space-y-6">
         <div className="space-y-1">
-          <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+          <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong">
             {t("create.hub.title")}
           </h1>
           <p className="font-mono text-xs text-gray-500 max-w-3xl">
@@ -129,13 +129,13 @@ export default function ContributeHubPage() {
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{t("create.hub.cardImportBadge")}</span>
               </div>
-              <h2 className="font-display text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
+              <h2 className="font-display text-lg sm:text-xl font-bold text-text-strong">
                 {t("create.hub.cardImportTitle")}
               </h2>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-mono leading-relaxed">
+              <p className="text-xs sm:text-sm text-text-body font-mono leading-relaxed">
                 {t("create.hub.cardImportDesc")}
               </p>
-              <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-mono text-gray-500 dark:text-gray-400">
+              <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-mono text-text-muted">
                 <span className="inline-flex items-center gap-1.5">
                   <Disc3 className="w-3.5 h-3.5 text-sky-500" /> MusicBrainz
                 </span>
@@ -173,16 +173,16 @@ export default function ContributeHubPage() {
                 <Link
                   key={c.href}
                   href={c.href}
-                  className={`group p-5 sm:p-6 rounded-2xl border border-black/10 dark:border-white/[0.08] bg-surface hover:border-primary/40 transition-all space-y-3 shadow-xs hover:shadow-md ${c.border}`}
+                  className={`group p-5 sm:p-6 rounded-2xl border border-line bg-surface hover:border-primary/40 transition-all space-y-3 shadow-xs hover:shadow-md ${c.border}`}
                 >
-                  <div className={`w-9 h-9 rounded-xl border border-black/5 dark:border-white/10 grid place-items-center ${c.bg}`}>
+                  <div className={`w-9 h-9 rounded-xl border border-line grid place-items-center ${c.bg}`}>
                     <Icon className={`w-4.5 h-4.5 ${c.accent}`} />
                   </div>
-                  <div className="font-semibold text-gray-900 dark:text-white text-base flex items-center gap-1.5 group-hover:text-primary transition-colors">
+                  <div className="font-semibold text-text-strong text-base flex items-center gap-1.5 group-hover:text-primary transition-colors duration-fast ease-soft">
                     <span>{c.title}</span>
-                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-base ease-soft" />
                   </div>
-                  <div className="font-mono text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                  <div className="font-mono text-xs leading-relaxed text-text-muted">
                     {c.desc}
                   </div>
                 </Link>

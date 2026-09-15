@@ -64,12 +64,12 @@ export function AdaptiveCardCover({
         /* 3. 兜底占位层 */
         <div className="w-full h-full relative overflow-hidden bg-linear-to-br from-primary/10 via-black/[0.02] to-primary/5 dark:from-primary/20 dark:via-surface dark:to-black/40 flex flex-col items-center justify-center p-3 text-center">
           {fallbackIcon && (
-            <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-1.5 shadow-2xs group-hover:scale-110 transition-transform">
+            <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mb-1.5 shadow-2xs group-hover:scale-110 transition-transform duration-base ease-soft">
               {fallbackIcon}
             </div>
           )}
           {fallbackTitle && (
-            <span className="text-[11px] font-medium text-gray-800 dark:text-gray-200 line-clamp-1 w-full px-1">
+            <span className="text-[11px] font-medium text-text-strong line-clamp-1 w-full px-1">
               {fallbackTitle}
             </span>
           )}

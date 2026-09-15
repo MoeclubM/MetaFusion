@@ -126,14 +126,46 @@ const workTemplate = useMemo(() => {
   }
   return undefined;
 }, [defs, work]);
-const releaseColumns = useMemo(() => {
-   const tpl = defs?.templates?.[defs?.types?.["release"]?.template || ""];
-   return (tpl?.columns || []).filter((c: string) => !!defs?.fields?.[c]);
- }, [defs]);
- const releaseFacets = useMemo(() => {
-   const tpl = defs?.templates?.[defs?.types?.["release"]?.template || ""];
-   return (tpl?.facet_fields || []).filter((c: string) => !!defs?.fields?.[c]);
- }, [defs]);
+// 发行版列表的列与筛选字段由**实际发行类型**引用的模板解析（多类型取并集），
+// 后台新增或替换发行类型即刻生效；列表未加载时回退到声明 kind=release 的启用类型。
+// 不再写死业务类型码 "release"：类型码可被后台改名，模板必须跟着实际类型走。
+const releaseTypeCodes = useMemo(() => {
+  const used = new Set<string>();
+  for (const e of releaseEntities) {
+    for (const c of e.types || []) if (defs?.types?.[c]) used.add(c);
+  }
+  if (used.size === 0) {
+    for (const [code, type] of Object.entries(defs?.types || {})) {
+      if (type?.enabled !== false && (type?.kinds || []).includes("release")) used.add(code);
+    }
+  }
+  return Array.from(used);
+}, [defs, releaseEntities]);
+const releaseTemplates = useMemo(
+  () =>
+    (Array.from(
+      new Set(
+        releaseTypeCodes
+          .map((c) => defs?.types?.[c]?.template)
+          .filter(Boolean) as string[]
+      )
+    ).map((code) => defs?.templates?.[code]).filter(Boolean) as any[]),
+  [defs, releaseTypeCodes]
+);
+const releaseColumns = useMemo(
+  () =>
+    Array.from(new Set(releaseTemplates.flatMap((tpl: any) => tpl.columns || []))).filter(
+      (c) => !!defs?.fields?.[c]
+    ),
+  [defs, releaseTemplates]
+);
+const releaseFacets = useMemo(
+  () =>
+    Array.from(new Set(releaseTemplates.flatMap((tpl: any) => tpl.facet_fields || []))).filter(
+      (c) => !!defs?.fields?.[c]
+    ),
+  [defs, releaseTemplates]
+);
 
  // facet 字段的候选值：先看发行版自身属性，format 再并入实际 Medium 聚合出的格式集合。
  // 多介质发行版（CD＋BD）应能被任一组成格式筛中，因此匹配按"候选列表包含"而不是全等。
@@ -165,9 +197,11 @@ const releaseColumns = useMemo(() => {
  };
 
  // 关系类型本地化名：definitions 声明的名称按请求语言 → zh-CN → en-US 回退，缺失保留 code。
- const relationName = (code: string): string => {
+ // reverse=true 取 reverse_names：当前实体是关系终点时必须用反向名，否则
+ // "改编自/被改编为""翻唱自/被翻唱为"这类成对关系会显示反。
+ const relationName = (code: string, reverse = false): string => {
  const r = defs?.relations?.[code] as any;
- const names = r?.names;
+ const names = reverse ? r?.reverse_names || r?.names : r?.names;
  if (names) {
  for (const key of [locale, "zh-CN", "en-US"]) {
  if (key && names[key]) return names[key];
@@ -185,6 +219,9 @@ const releaseColumns = useMemo(() => {
  const otherId = forward ? r.target_id : r.source_id;
  const other = relEntities[otherId];
  if (!other) continue;
+ // 正向名标识关系类型本身；label 按方向取正向/反向名——反向关系沿用正向文案
+ // 会把"改编自/被改编为""翻唱自/被翻唱为"显示反。relation_id 保留边身份，
+ // 同一对端多条署名边（适用章节/语言/职务不同）才区分得开。
  const name = relationName(r.type);
  out.push({
  entity_id: otherId,
@@ -194,7 +231,8 @@ const releaseColumns = useMemo(() => {
  relationship_type: r.type,
  relationship_name: name,
  direction: forward ? "forward" : "reverse",
- label: name,
+ label: forward ? name : relationName(r.type, true),
+ relation_id: r.id,
  attributes: r.attributes || {},
  });
  }
@@ -357,7 +395,7 @@ const releaseColumns = useMemo(() => {
  <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <Navbar />
- <div className="relative z-10 max-w-7xl mx-auto px-4 py-20 text-center text-sm text-gray-500">{t("common.notFoundWork")}</div>
+ <div className="relative z-10 max-w-page mx-auto px-4 py-20 text-center text-sm text-gray-500">{t("common.notFoundWork")}</div>
  </div>
  );
  }
@@ -405,7 +443,7 @@ const releaseColumns = useMemo(() => {
        displayTitle={title}
        extraKnown={[work.title]}
        className="mt-1.5 space-y-0.5"
-       itemClassName="font-mono text-sm text-gray-500 dark:text-gray-400"
+       itemClassName="font-mono text-sm text-text-muted"
      />
      <div className={styles.headerBottom}>
        <EntityActionToolbar onEdit={() => router.push(`/catalog/${work.id}?edit=1`)} onHistory={() => setIsHistoryOpen(true)}
@@ -418,7 +456,7 @@ const releaseColumns = useMemo(() => {
      <aside className={styles.sidebar}>
        <div className={styles.cover}>
          <AdaptiveCover src={coverUrl} alt={title} title={title}
-           id={work.id} tags={tags} className="rounded-md overflow-hidden border border-black/10 dark:border-white/10" />
+           id={work.id} tags={tags} className="rounded-md overflow-hidden border border-line" />
        </div>
        <section className={styles.facts}>
          <h2>{t("work.detail.information")}</h2>
@@ -508,9 +546,9 @@ const releaseColumns = useMemo(() => {
                 }
               />
             ) : (
-              <section className="p-4 sm:p-5 rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface space-y-3">
-                <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2.5">
-                  <h2 className="font-display text-sm font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-2">
+              <section className="p-4 sm:p-5 rounded-lg border border-line bg-surface space-y-3">
+                <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
+                  <h2 className="font-display text-sm font-bold tracking-tight text-text-strong flex items-center gap-2">
                     <Network className="w-4 h-4 text-primary" strokeWidth={1.5} />
                     <span>{t("work.detail.relations")}</span>
                   </h2>
@@ -547,12 +585,12 @@ const releaseColumns = useMemo(() => {
              badge: total > 0 ? String(total) : undefined,
              content: (
  <section id="releases" className={styles.section}>
- <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+ <div className="px-3.5 sm:px-4 py-3 border-b border-line-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
  <div className="flex items-center gap-2">
  <span className="w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-md bg-sky-500/10 border border-sky-500/20">
  <Layers className="w-4 h-4 text-sky-500" strokeWidth={1.5} />
  </span>
- <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">{t("work.detail.releaseCatalog")}</h2>
+ <h2 className="font-display text-base font-bold tracking-tight text-text-strong">{t("work.detail.releaseCatalog")}</h2>
  <span className="text-sm text-gray-500">{t("work.detail.totalReleases", { count: total })}</span>
  </div>
  <form onSubmit={onSearch} className="relative w-full sm:w-auto">
@@ -562,7 +600,7 @@ const releaseColumns = useMemo(() => {
  onChange={(e) => setQInput(e.target.value)}
  aria-label={t("work.detail.searchPlaceholder")}
  placeholder={t("work.detail.searchPlaceholder")}
- className="pl-11 pr-3.5 h-9 max-sm:min-h-[44px] w-full sm:w-48 bg-black/[0.03] dark:bg-white/[0.04] border border-black/10 dark:border-white/10 rounded-md text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:border-primary/50 font-mono"
+ className="pl-11 pr-3.5 h-9 max-sm:min-h-[44px] w-full sm:w-48 bg-black/[0.03] dark:bg-white/[0.04] border border-line rounded-md text-sm text-text-strong placeholder:text-gray-400 focus:outline-none focus:border-primary/50 font-mono"
  />
  </form>
  </div>
@@ -570,15 +608,15 @@ const releaseColumns = useMemo(() => {
  {loadingReleases ? (
  <div className="p-8 text-center text-sm text-gray-500">{t("work.detail.loadingReleases")}</div>
  ) : releaseEntities.length === 0 ? (
- <div className="p-8 rounded-lg border border-dashed border-black/10 dark:border-white/10 bg-surface/50 text-center text-sm text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : ""}</div>
+ <div className="p-8 rounded-lg border border-dashed border-line bg-surface/50 text-center text-sm text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : ""}</div>
  ) : (
  <>
- <div className="px-3.5 sm:px-4 py-2.5 border-b border-black/5 dark:border-white/[0.06] flex flex-col lg:flex-row lg:items-center gap-2.5 bg-black/[0.01] dark:bg-white/[0.01]">
+ <div className="px-3.5 sm:px-4 py-2.5 border-b border-line-subtle flex flex-col lg:flex-row lg:items-center gap-2.5 bg-black/[0.01] dark:bg-white/[0.01]">
  <div className="flex flex-wrap items-center gap-2">
  {releaseFacets.map((code) => (
  <label key={code} className="inline-flex items-center gap-1.5 text-xs text-gray-500">
  <span className="font-mono">{getFieldName(defs, code, locale)}</span>
- <select value={facetValues[code] || ""} onChange={(e) => { setFacetValues((prev) => ({ ...prev, [code]: e.target.value })); setPage(1); }} className="h-9 max-sm:min-h-[44px] px-2 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 text-xs text-gray-800 dark:text-gray-200">
+ <select value={facetValues[code] || ""} onChange={(e) => { setFacetValues((prev) => ({ ...prev, [code]: e.target.value })); setPage(1); }} className="h-9 max-sm:min-h-[44px] px-2 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-line text-xs text-text-strong">
  <option value="">{t("common.all")}</option>
  {facetOptionsOf(code).map((o) => {
  const def: any = defs?.fields?.[code];
@@ -608,7 +646,7 @@ const releaseColumns = useMemo(() => {
  {releaseColumns.length > 0 && (
  <div className="hidden sm:block overflow-x-auto">
  <table className="w-full text-left text-sm">
- <thead className="bg-black/[0.02] dark:bg-white/[0.02] border-b border-black/5 dark:border-white/[0.06] text-xs uppercase tracking-wider text-gray-500">
+ <thead className="bg-surfaceSubtle border-b border-line-subtle text-xs uppercase tracking-wider text-gray-500">
  <tr>
  <th className="py-2.5 px-2 font-medium w-10" aria-label={t("work.detail.compareSelect")} />
  <th className="py-2.5 px-3.5 font-medium">{t("work.detail.tableRelease")}</th>
@@ -621,12 +659,12 @@ const releaseColumns = useMemo(() => {
  </thead>
  <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">
  {pagedReleases.map((rel) => (
- <tr key={rel.id} className="hover:bg-black/[0.02] dark:hover:bg-white/[0.02] transition-colors">
+ <tr key={rel.id} className="hover:bg-surfaceSubtle transition-colors duration-fast ease-soft">
  <td className="py-2.5 px-2">
  <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="w-4 h-4 rounded accent-primary cursor-pointer" />
  </td>
  <td className="py-2.5 px-3.5">
- <Link href={`/releases/${rel.id}`} className="font-semibold text-gray-900 dark:text-white hover:text-primary inline-flex items-center gap-1.5">
+ <Link href={`/releases/${rel.id}`} className="font-semibold text-text-strong hover:text-primary inline-flex items-center gap-1.5">
  {entityTitle(rel, locale)} <ArrowUpRight className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.6} />
  </Link>
  </td>
@@ -650,7 +688,7 @@ const releaseColumns = useMemo(() => {
  <div key={rel.id} className="px-3.5 py-3 flex items-start gap-2.5">
  <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="mt-1 w-5 h-5 rounded accent-primary cursor-pointer shrink-0" />
  <Link href={`/releases/${rel.id}`} className="min-w-0 flex-1 space-y-1">
- <div className="font-semibold text-gray-900 dark:text-white text-sm leading-tight line-clamp-2">{entityTitle(rel, locale)}</div>
+ <div className="font-semibold text-text-strong text-sm leading-tight line-clamp-2">{entityTitle(rel, locale)}</div>
                       <div className="text-xs text-gray-500 truncate">
  {releaseColumns.map((code) => (code === "format" && formatSummaryOf(rel)) || attributeText(defs, code, rel.attributes?.[code], locale)).filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}
  </div>
@@ -659,12 +697,12 @@ const releaseColumns = useMemo(() => {
  ))}
  </div>
  {totalPages > 1 && (
- <div className="px-3.5 sm:px-4 py-3 border-t border-black/5 dark:border-white/[0.06] flex items-center justify-end gap-2">
+ <div className="px-3.5 sm:px-4 py-3 border-t border-line-subtle flex items-center justify-end gap-2">
  <span className="font-mono text-[11px] text-gray-500">{t("common.pagination", { page, total: totalPages })}</span>
- <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label={t("pagination.prev")} className="w-8 h-8 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
+ <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label={t("pagination.prev")} className="w-8 h-8 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-line disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
  <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} />
  </button>
- <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label={t("pagination.next")} className="w-8 h-8 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-black/10 dark:border-white/10 disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
+ <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} aria-label={t("pagination.next")} className="w-8 h-8 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-line disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
  <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.6} />
  </button>
  </div>
@@ -681,8 +719,8 @@ const releaseColumns = useMemo(() => {
      </div>
 
  <section id="discussion" className={`${styles.section} mt-8`}>
- <div className="flex items-center justify-between border-b border-black/5 dark:border-white/[0.06] pb-2">
- <h3 className="font-display text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+ <div className="flex items-center justify-between border-b border-line-subtle pb-2">
+ <h3 className="font-display text-sm font-bold text-text-strong flex items-center gap-2">
  <MessageSquare className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
  <span>{t("work.detail.relatedTopics")}</span>
  <span className="text-sm font-normal text-gray-500">({topics.length})</span>
@@ -699,7 +737,7 @@ const releaseColumns = useMemo(() => {
  {/* 评论就地展示，不跳"文章页"——评论与论坛主题是两类东西。 */}
  {topics.slice(0, 3).map((c) => (
  <div key={c.id} className="py-2.5 flex items-start justify-between gap-3 px-2.5">
- <span className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2 min-w-0">{c.body}</span>
+ <span className="text-sm text-text-strong line-clamp-2 min-w-0">{c.body}</span>
  <span className="text-xs text-gray-500 shrink-0">{c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</span>
  </div>
  ))}

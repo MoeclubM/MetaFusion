@@ -1,3 +1,6 @@
+/* 配色与表面色调的变量块由 scripts/gen-theme.mjs 生成（唯一来源见 scripts/theme-palette.mjs） */
+@import "./theme.generated.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,6 +13,16 @@
   --surface-rgb: 18 24 38;
   --surface-hover-rgb: 26 35 54;
   --surface-border-color: rgba(255, 255, 255, 0.08);
+  /* 语义色板：组件只引用这几个，深/浅色差异全部收敛在这里 */
+  --line-color: rgba(255, 255, 255, 0.10);
+  --line-subtle-color: rgba(255, 255, 255, 0.06);
+  --line-strong-color: rgba(255, 255, 255, 0.18);
+  --surface-subtle-color: rgba(255, 255, 255, 0.03);
+  --text-strong-color: #f0f3f6;
+  --text-body-color: #cbd5e1;
+  --text-muted-color: #94a3b8;
+  --text-faint-color: #64748b;
+  --ring-color: color-mix(in srgb, var(--primary-color) 55%, transparent);
   --bg-color: #0b0f17;
   --surface-color: #121826;
   --surface-hover-color: #1a2336;
@@ -30,6 +43,15 @@
   --surface-rgb: 255 255 255;
   --surface-hover-rgb: 241 245 249;
   --surface-border-color: rgba(0, 0, 0, 0.08);
+  --line-color: rgba(15, 23, 42, 0.12);
+  --line-subtle-color: rgba(15, 23, 42, 0.07);
+  --line-strong-color: rgba(15, 23, 42, 0.22);
+  --surface-subtle-color: rgba(15, 23, 42, 0.035);
+  --text-strong-color: #0f172a;
+  --text-body-color: #334155;
+  --text-muted-color: #64748b;
+  --text-faint-color: #94a3b8;
+  --ring-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
   --bg-color: #f8fafc;
   --surface-color: #ffffff;
   --surface-hover-color: #f1f5f9;
@@ -41,65 +63,18 @@
   --primary: #2563eb;
 }
 
-/* Accents */
-:root, [data-theme-accent="blue"] {
-  --primary-color: #3b82f6;
-  --primary-hover-color: #2563eb;
-  --primary-light-color: #60a5fa;
-  --accent-color: #f59e0b;
-}
-
-[data-theme-accent="emerald"] {
-  --primary-color: #10b981;
-  --primary-hover-color: #059669;
-  --primary-light-color: #34d399;
-  --accent-color: #38bdf8;
-}
-
-[data-theme-accent="amber"] {
-  --primary-color: #f59e0b;
-  --primary-hover-color: #d97706;
-  --primary-light-color: #fbbf24;
-  --accent-color: #f97316;
-}
-
-[data-theme-accent="violet"] {
-  --primary-color: #8b5cf6;
-  --primary-hover-color: #7c3aed;
-  --primary-light-color: #a78bfa;
-  --accent-color: #ec4899;
-}
-
-[data-theme-accent="rose"] {
-  --primary-color: #f43f5e;
-  --primary-hover-color: #e11d48;
-  --primary-light-color: #fb7185;
-  --accent-color: #fb923c;
-}
-
-[data-theme-accent="monochrome"] {
-  --primary-color: #71717a;
-  --primary-hover-color: #52525b;
-  --primary-light-color: #a1a1aa;
-  --accent-color: #71717a;
-}
-
-[data-theme-mode="dark"][data-theme-accent="monochrome"],
-html.dark[data-theme-accent="monochrome"] {
-  --primary-color: #ffffff;
-  --primary-hover-color: #e4e4e7;
-  --primary-light-color: #a1a1aa;
-}
-
-[data-theme-mode="light"][data-theme-accent="monochrome"],
-html.light[data-theme-accent="monochrome"] {
-  --primary-color: #18181b;
-  --primary-hover-color: #27272a;
-  --primary-light-color: #52525b;
-}
-
 html {
   scroll-behavior: smooth;
+}
+
+/* 主色只在 :root 给默认值（无 JS / 未选配色时），具体配色由生成的属性块覆盖；
+   不要写进 html.dark 这类选择器，否则会盖住 [data-theme-accent] 块。 */
+:root {
+  --primary-color: #4f8ef7;
+  --primary-hover-color: #1e6ff5;
+  --primary-light-color: #89b4fa;
+  --primary-contrast-color: #ffffff;
+  --accent-color: #22d3ee;
 }
 
 html.dark {
@@ -149,12 +124,10 @@ html.light .text-gray-500:not(.keep-white) {
   color: #94a3b8 !important;
 }
 
-/* Badges & text on dark overlays must remain crisp white in light mode */
-html.light .keep-white,
-html.light [class*="bg-black/"]:not(.no-keep-white),
-html.light [class*="bg-black/"] .text-white,
-html.light [class*="bg-black/"] .text-gray-200,
-html.light [class*="bg-black/"] .text-gray-300 {
+/* 覆盖在深色图上的徽章要保持白字：只认显式声明的 .keep-white。
+   以前这里还按 `[class*="bg-black/"]` 整段刷白，结果是任何带 `hover:bg-black/…` 的元素在浅色下
+   也变白字（白底白字直接看不见）。语义色接管后，这类子串匹配不再需要。 */
+html.light .keep-white {
   color: #ffffff !important;
 }
 
@@ -506,7 +479,7 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 .cv-form textarea { min-height: 3rem; resize: vertical; }
 .cv-form textarea[rows] { min-height: 0; }
 .cv-form input[type="checkbox"] { width: auto; accent-color: var(--primary-color); }
-.cv-form input[type="date"] { font-family: var(--font-mono, ui-monospace, monospace); }
+.cv-form input.cv-date { font-family: var(--font-mono, ui-monospace, monospace); }
 .cv-form button:not(.cv-primary) {
   padding: 0.3rem 0.65rem;
   border-radius: 0.45rem;
@@ -559,4 +532,11 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   margin: 0 0 0.35rem;
   padding-bottom: 0.2rem;
   border-bottom: 1px dashed var(--surface-border-color);
+@layer components {
+  /* 焦点可见性：键盘导航必须看得见，鼠标点击不打扰。 */
+  .mf-focus {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring-color)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-color)];
+  }
+}
+
 }

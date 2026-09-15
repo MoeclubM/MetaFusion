@@ -94,7 +94,7 @@ export function DynamicNamesEditor({
             return (
               <div
                 key={code}
-                className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-1.5 focus-within:border-primary/50 transition-colors"
+                className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-1.5 focus-within:border-primary/50 transition-colors duration-fast ease-soft"
               >
                 <span className="px-2 py-0.5 rounded bg-white/[0.06] text-gray-300 text-[11px] font-mono shrink-0 min-w-[64px] text-center">
                   {code}
@@ -114,7 +114,7 @@ export function DynamicNamesEditor({
                 <button
                   type="button"
                   onClick={() => handleRemove(code)}
-                  className="p-1 text-gray-500 hover:text-rose-400 rounded transition-colors"
+                  className="p-1 text-gray-500 hover:text-rose-400 rounded transition-colors duration-fast ease-soft"
                   title={t("multilingual.removeLang", { code })}
                 >
                   <X className="w-3.5 h-3.5" />
@@ -132,7 +132,7 @@ export function DynamicNamesEditor({
             key={lang.code}
             type="button"
             onClick={() => handleAdd(lang.code)}
-            className="px-2 py-0.5 rounded bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 hover:text-white border border-white/10 text-[10px] font-mono flex items-center gap-1 transition-colors"
+            className="px-2 py-0.5 rounded bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 hover:text-white border border-white/10 text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft"
           >
             <Plus className="w-2.5 h-2.5" />
             <span>+{lang.code}</span>
@@ -144,7 +144,7 @@ export function DynamicNamesEditor({
           <button
             type="button"
             onClick={() => setShowCustomInput(true)}
-            className="px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[10px] font-mono flex items-center gap-1 transition-colors"
+            className="px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft"
           >
             <Plus className="w-2.5 h-2.5" />
             <span>{t("multilingual.addOtherLang")}</span>

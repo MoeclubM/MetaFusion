@@ -1016,7 +1016,7 @@ func bangumiTags(tags []bangumiTag, limit int) []string {
 // bangumiEpisodeType 判定分集类型：0=本篇、1=SP、2=OP、3=ED、4=预告/其他。
 // 本篇走 content_unit，其余作为附加内容同样保留层级，但标 entry_role。
 // entry_role 取值必须是 definitions entry_role 词表项：OP→opening、ED→ending
-//（词表另有 ending 项，见 defaults.go），不能把 ED 并入 opening。
+// （词表另有 ending 项，见 defaults.go），不能把 ED 并入 opening。
 func bangumiEpisodeRole(epType int) string {
 	switch epType {
 	case 0:
@@ -1859,7 +1859,7 @@ func (s *Store) importerSave(ctx context.Context, e Entity, actor User, note str
 // importerSaveVersioned 与 importerSave 相同，但显式带乐观锁版本。
 // 更新已存在实体时必须传其当前版本，否则 Save 会以 version_conflict 拒绝。
 //
-// 并发双插兜底：幂等键唯一索引（entities_metafusion_import_key，迁移 000013）
+// 并发双插兜底：幂等键唯一索引（entities_metafusion_import_key，见结构基线）
 // 会让后到者在 Save 提交时拿到 23505（constraint_violation）。此处不吞该错误——
 // 调用方（Import 重试）应按幂等键复用已建实体再继续补齐，而不是静默成功掩盖
 // "本次新建未发生"的事实。直接返回错误即保留该语义。
@@ -1913,6 +1913,7 @@ func assocAgentDedup(a ImporterStaffAssociation) string {
 //   - duplicate_relation：同一载荷内重复边（去重键已尽力，残留的由服务端判重）；
 //   - invalid_endpoint_types / invalid_endpoints：关联端点类型不在该关系定义内
 //     （如把组织挂到只收个人的关系上），属上游数据形态问题。
+//
 // 以下一律不吞（调用方直接返回错误，避免掩盖真实完整性冲突）：
 //   - invalid_relation_type：关系码本身不存在/被禁用，须由预检提前暴露；
 //   - cardinality_exceeded / relation_cycle：基数与无环是数据完整性约束，

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useDefinitions, getTypeName, resolveLocalizedName } from "@/lib/definitions";
+import { useDefinitions, getKindName, resolveLocalizedName, type KindMap } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useAuth } from "@/lib/authContext";
@@ -76,9 +76,9 @@ function shelfTitle(shelf: PublicShelf, locale: string): string {
 }
 
 export default function HomePage() {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
   const router = useRouter();
-  const { definitions } = useDefinitions();
+  const { kinds } = useDefinitions();
   const titleOrder = useTitleDisplayOrder();
   const { user, loading: authLoading } = useAuth();
 
@@ -213,7 +213,7 @@ export default function HomePage() {
       <Navbar />
 
       <div className="border-b border-white/[0.06] bg-surface/60 backdrop-blur-xl sticky top-14 sm:top-15 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex justify-center">
+        <div className="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-center">
           <form onSubmit={handleSearch} className="relative w-full max-w-3xl">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input
@@ -221,11 +221,11 @@ export default function HomePage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("home.searchPlaceholder")}
-              className="w-full pl-12 pr-24 py-3.5 rounded-xl bg-white/[0.04] border border-white/10 hover:border-white/20 focus:border-primary focus:ring-1 focus:ring-primary text-white text-sm placeholder:text-gray-500 outline-none transition-all"
+              className="w-full pl-12 pr-24 py-3.5 rounded-xl bg-white/[0.04] border border-white/10 hover:border-white/20 focus:border-primary focus:ring-1 focus:ring-primary text-white text-sm placeholder:text-gray-500 outline-none transition-all duration-base ease-soft"
             />
             <button
               type="submit"
-              className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium text-sm transition-colors shadow-2xs cursor-pointer"
+              className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium text-sm transition-colors duration-fast ease-soft shadow-2xs cursor-pointer"
             >
               {t("home.search")}
             </button>
@@ -233,7 +233,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 w-full flex-1 space-y-10 relative z-10">
+      <main className="mf-enter max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-10 relative z-10">
         {user && (
           <div className="flex items-center justify-between gap-3">
             <h1 className="font-display text-lg font-bold tracking-tight text-white">
@@ -242,7 +242,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => void openCustomize()}
-              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] text-xs font-medium text-gray-300 hover:text-white transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] text-xs font-medium text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
             >
               <Sliders className="w-3.5 h-3.5" />
               <span>{t("home.customize")}</span>
@@ -261,7 +261,7 @@ export default function HomePage() {
             {[1, 2].map((i) => (
               <div key={i} className="space-y-4">
                 <div className="h-5 w-40 bg-white/[0.04] rounded-md animate-pulse" />
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(158px,1fr))]">
                   {Array.from({ length: 6 }).map((_, j) => (
                     <div key={j} className="aspect-square rounded-xl bg-white/[0.02] border border-white/[0.04] animate-pulse" />
                   ))}
@@ -275,7 +275,7 @@ export default function HomePage() {
             <p className="text-sm text-gray-400">{t("home.recommendEmpty")}</p>
             <Link
               href="/new"
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors duration-fast ease-soft"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>{t("home.addFirst")}</span>
@@ -307,18 +307,20 @@ export default function HomePage() {
                   </Link>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(158px,1fr))]">
                   {items.map((item) => {
                     const displayTitle = pickRecordTitle(locale, item.translations, item.title, {
                       order: titleOrder,
                       originalLanguage: item.original_language,
                     });
-                    const badge = badgeFor(item, definitions, locale, t);
+                    // 角标显示**实体类型**（八骨架 kind），不是业务分类：
+                    // 分类由货架（catalog.shelves）承担，业务类型在卡片正文里另行展示。
+                    const badge = badgeFor(item.kind, kinds, locale, tr);
                     return (
                       <Link
                         key={item.id}
                         href={"/catalog/" + item.id}
-                        className="group flex flex-col rounded-xl bg-white/[0.02] hover:bg-white/[0.06] border border-white/[0.06] hover:border-white/20 overflow-hidden transition-all shadow-2xs hover:shadow-md"
+                        className="group flex flex-col rounded-xl bg-white/[0.02] hover:bg-surfaceHover border border-white/[0.06] hover:border-white/20 overflow-hidden transition-all shadow-2xs hover:shadow-md"
                       >
                         <AdaptiveCardCover
                           src={item.pictures && item.pictures[0]?.url}
@@ -335,7 +337,7 @@ export default function HomePage() {
                         />
                         <div className="p-3 flex-1 flex flex-col justify-between">
                           <div>
-                            <h3 className="font-medium text-white group-hover:text-primary transition-colors text-xs sm:text-sm line-clamp-2 leading-snug mb-1">
+                            <h3 className="font-medium text-white group-hover:text-primary transition-colors duration-fast ease-soft text-xs sm:text-sm line-clamp-2 leading-snug mb-1">
                               {displayTitle}
                             </h3>
                             {item.title !== displayTitle && (
@@ -343,7 +345,7 @@ export default function HomePage() {
                             )}
                           </div>
                           <div className="pt-2 border-t border-white/[0.04] flex items-center justify-end text-[10px] text-gray-400 font-mono">
-                            <span className="group-hover:text-primary transition-colors flex items-center gap-0.5">
+                            <span className="group-hover:text-primary transition-colors duration-fast ease-soft flex items-center gap-0.5">
                               {t("home.details")} <ChevronRight className="w-3 h-3" />
                             </span>
                           </div>
@@ -369,7 +371,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setCustomizing(false)}
-                className="p-1.5 rounded-lg hover:bg-white/[0.06] text-gray-400 hover:text-white transition-colors cursor-pointer"
+                className="p-1.5 rounded-lg hover:bg-surfaceHover text-gray-400 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
                 aria-label={t("catalog.cancel")}
               >
                 <X className="w-4 h-4" />
@@ -393,7 +395,7 @@ export default function HomePage() {
                         type="button"
                         onClick={() => toggleHidden(shelf.slug)}
                         className={
-                          "w-5 h-5 rounded border grid place-items-center shrink-0 transition-colors cursor-pointer " +
+                          "w-5 h-5 rounded border grid place-items-center shrink-0 transition-colors duration-fast ease-soft cursor-pointer " +
                           (hidden
                             ? "border-white/15 bg-transparent text-transparent"
                             : "border-primary bg-primary text-white")
@@ -411,7 +413,7 @@ export default function HomePage() {
                         type="button"
                         disabled={idx === 0}
                         onClick={() => move(shelf.slug, -1)}
-                        className="p-1 rounded hover:bg-white/[0.06] text-gray-400 hover:text-white disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
+                        className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-white disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
                         aria-label={t("home.moveUp")}
                       >
                         <ChevronUp className="w-3.5 h-3.5" />
@@ -420,7 +422,7 @@ export default function HomePage() {
                         type="button"
                         disabled={idx === panelSections.length - 1}
                         onClick={() => move(shelf.slug, 1)}
-                        className="p-1 rounded hover:bg-white/[0.06] text-gray-400 hover:text-white disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
+                        className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-white disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
                         aria-label={t("home.moveDown")}
                       >
                         <ChevronDown className="w-3.5 h-3.5" />
@@ -436,7 +438,7 @@ export default function HomePage() {
                 type="button"
                 onClick={() => void resetPrefs()}
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 text-xs font-mono text-gray-400 hover:text-white transition-colors disabled:opacity-50 cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-xs font-mono text-gray-400 hover:text-white transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>{t("home.customizeReset")}</span>
@@ -447,7 +449,7 @@ export default function HomePage() {
                   type="button"
                   onClick={() => void savePrefs()}
                   disabled={saving}
-                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
                 >
                   {saving ? t("common.saving") : t("common.save")}
                 </button>
@@ -458,24 +460,24 @@ export default function HomePage() {
       )}
 
       <footer className="border-t border-white/[0.06] py-6 bg-surface/30 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-gray-400">
+        <div className="max-w-page mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-gray-400">
           <div>
             <span>© 2026 MetaFusion · Open Metadata &amp; Resource Sharing Platform</span>
           </div>
           <div className="flex items-center gap-4 flex-wrap">
-            <Link href="/landing" className="hover:text-white transition-colors">
+            <Link href="/landing" className="hover:text-white transition-colors duration-fast ease-soft">
               {t("home.footerAbout")}
             </Link>
-            <Link href="/explore" className="hover:text-white transition-colors">
+            <Link href="/explore" className="hover:text-white transition-colors duration-fast ease-soft">
               {t("home.footerExplore")}
             </Link>
-            <Link href="/community" className="hover:text-white transition-colors">
+            <Link href="/community" className="hover:text-white transition-colors duration-fast ease-soft">
               {t("home.footerCommunity")}
             </Link>
-            <Link href="/docs/catalog" className="hover:text-white transition-colors">
+            <Link href="/docs/catalog" className="hover:text-white transition-colors duration-fast ease-soft">
               {t("home.footerDocs")}
             </Link>
-            <a href="/developers" className="hover:text-white transition-colors">
+            <a href="/developers" className="hover:text-white transition-colors duration-fast ease-soft">
               {t("home.footerApi")}
             </a>
           </div>
@@ -492,23 +494,16 @@ function shelfExploreParam(shelf: PublicShelf): string {
   return first ? `kind=work&type=${encodeURIComponent(first)}` : "kind=work";
 }
 
+// 卡片左上角角标 = 实体类型（八骨架 kind），名称取服务端 definitions 的多语言 kinds，
+// 缺失时回退前端字典的同名键。**不再**用业务类型当"分类"角标：
+//   * 业务类型（album/song/动画…）是动态类型，本就该在卡片正文里以类型标签呈现；
+//   * "分类"这件事只由货架（catalog.shelves，数据驱动、后台可配、名称多语言）承担。
+// 这样页面不再出现"系统自己发明一套固定分类"的东西。
 function badgeFor(
-  item: EntityItem,
-  defs: any,
+  kind: string,
+  kinds: KindMap | null,
   loc: string,
-  translate: (k: string) => string,
+  translate: (k: string, f: string) => string,
 ): string {
-  if (item.types && item.types.length > 0) {
-    for (const code of item.types) {
-      const name = getTypeName(defs, code, loc);
-      if (name && name !== code) return name;
-    }
-  }
-  const kindKey = "catalog.kind." + item.kind;
-  const translated = translate(kindKey);
-  if (translated && translated !== kindKey) return translated;
-  if (item.kind === "work") return translate("home.kind.work");
-  if (item.kind === "release") return translate("home.kind.release");
-  if (item.kind === "agent") return translate("home.kind.agent");
-  return item.kind;
+  return getKindName(kinds, kind, loc, translate("catalog.kind." + kind, kind));
 }

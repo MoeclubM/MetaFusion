@@ -190,7 +190,7 @@ export function Select({
             aria-activedescendant={`${listId}-${activeIndex}`}
             style={menuStyle}
             className={cx(
-              "list-none overflow-y-auto rounded-md border border-surfaceBorder bg-surface shadow-elevated py-1",
+              "list-none overflow-y-auto rounded-md border border-line bg-surface shadow-elevated py-1",
               menuClassName
             )}
           >
@@ -217,9 +217,9 @@ export function Select({
                       opt.disabled && "opacity-40 cursor-not-allowed",
                       isSelected
                         ? "text-primary bg-primary/10"
-                        : "text-gray-900 dark:text-white",
+                        : "text-text-strong",
                       isActive && !isSelected && "bg-black/[0.04] dark:bg-white/[0.06]",
-                      !opt.disabled && "hover:bg-black/[0.04] dark:hover:bg-white/[0.06]"
+                      !opt.disabled && "hover:bg-black/[0.04] dark:hover:bg-surfaceHover"
                     )}
                   >
                     <span className="min-w-0 truncate">{opt.label}</span>
@@ -248,7 +248,7 @@ export function Select({
         onClick={() => !disabled && setOpen((v) => !v)}
         onKeyDown={onButtonKeyDown}
         className={cx(
-          "inline-flex w-full items-center justify-between gap-2 h-10 px-3 rounded-md bg-background border border-black/10 dark:border-white/10 text-sm text-gray-900 dark:text-white text-left",
+          "inline-flex w-full items-center justify-between gap-2 h-10 px-3 rounded-md bg-background border border-line text-sm text-text-strong text-left",
           "hover:border-black/20 dark:hover:border-white/20 focus:outline-none focus-visible:border-primary",
           "disabled:opacity-50 disabled:cursor-not-allowed",
           className
@@ -258,7 +258,7 @@ export function Select({
           {selected ? selected.label : placeholder || "\u00a0"}
         </span>
         <ChevronDown
-          className={cx("w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform", open && "rotate-180")}
+          className={cx("w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform duration-base ease-soft", open && "rotate-180")}
           strokeWidth={1.8}
         />
       </button>

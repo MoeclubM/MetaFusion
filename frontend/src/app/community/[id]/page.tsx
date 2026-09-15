@@ -122,7 +122,7 @@ export default function TopicDetailPage() {
  return (
  <div className="min-h-screen bg-background flex flex-col">
  <Navbar />
- <div className="max-w-4xl mx-auto px-4 py-20 text-center text-sm text-gray-500">
+ <div className="max-w-narrow mx-auto px-4 py-20 text-center text-sm text-gray-500">
  {t("common.notFoundTopic")}
  </div>
  </div>
@@ -142,12 +142,12 @@ export default function TopicDetailPage() {
  <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <Navbar />
 
- <main className="relative z-10 max-w-7xl mx-auto px-4 py-6 w-full flex-1">
+ <main className="mf-enter relative z-10 max-w-page mx-auto px-4 py-6 w-full flex-1">
  <div className="flex flex-col lg:flex-row gap-6 items-start">
  {/* Left / Main Post Stream */}
  <div className="flex-1 space-y-6 w-full min-w-0">
  {/* Topic Header */}
- <div className="space-y-3 border-b border-black/5 dark:border-white/[0.06] pb-4">
+ <div className="space-y-3 border-b border-line-subtle pb-4">
  <div className="flex items-center space-x-2 flex-wrap gap-2">
  <Link
  href="/community"
@@ -169,7 +169,7 @@ export default function TopicDetailPage() {
  <Link
  key={tg.id}
  href={`/community?tag=${encodeURIComponent(tg.name)}`}
- className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 hover:bg-emerald-500/20 text-xs font-mono transition-colors"
+ className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 hover:bg-emerald-500/20 text-xs font-mono transition-colors duration-fast ease-soft"
  >
  <TagIcon className="w-4 h-4" />
  {tg.name}
@@ -185,7 +185,7 @@ export default function TopicDetailPage() {
 
  {/* 锚定实体横幅：标题与 kind 由后端经模块边界补齐，未锚定则不渲染 */}
  {topic.entity_id && topic.entity_title && (
- <div className="p-4 rounded-lg bg-surface border border-surfaceBorder flex items-center justify-between gap-4">
+ <div className="p-4 rounded-lg bg-surface border border-line flex items-center justify-between gap-4">
  <div className="flex items-center space-x-3 truncate">
  <div className="truncate">
  <span className="text-xs font-mono text-emerald-400 block">
@@ -197,7 +197,7 @@ export default function TopicDetailPage() {
 
  <Link
  href={catalogEntityHref(topic.entity_kind || "work", topic.entity_id)}
- className="px-3 py-1.5 rounded bg-background hover:bg-surfaceBorder border border-surfaceBorder text-gray-300 hover:text-white flex items-center space-x-1 flex-shrink-0 transition-colors"
+ className="px-3 py-1.5 rounded bg-background hover:bg-surfaceBorder border border-line text-gray-300 hover:text-white flex items-center space-x-1 flex-shrink-0 transition-colors duration-fast ease-soft"
  >
  <span>{t("community.viewArchive")}</span>
  <ArrowRight className="w-4 h-4" />
@@ -207,14 +207,14 @@ export default function TopicDetailPage() {
  </div>
 
  {/* Post #1: Topic Original Post (Discourse Post Stream Item) */}
- <div id={`post-${opPost?.post_number ?? 1}`} className="border border-surfaceBorder rounded-lg bg-surface p-4 sm:p-5 space-y-3.5 shadow-2xs">
+ <div id={`post-${opPost?.post_number ?? 1}`} className="border border-line rounded-lg bg-surface p-4 sm:p-5 space-y-3.5 shadow-2xs">
  {/* Post Author Header */}
- <div className="flex items-center justify-between border-b border-surfaceBorder/60 pb-2.5">
+ <div className="flex items-center justify-between border-b border-line/60 pb-2.5">
  <div className="flex items-center space-x-2.5">
  {(opPost?.user_id || topic.user_id || opPost?.user?.id || topic.user?.id) ? (
  <Link
  href={`/users/${opPost?.user_id || topic.user_id || opPost?.user?.id || topic.user?.id}`}
- className="shrink-0 hover:opacity-90 transition-all"
+ className="shrink-0 hover:opacity-90 transition-all duration-base ease-soft"
  >
  <UserAvatar user={opPost?.user || topic.user} size="sm" shape="rounded" />
  </Link>
@@ -228,12 +228,12 @@ export default function TopicDetailPage() {
  {(opPost?.user_id || topic.user_id || opPost?.user?.id || topic.user?.id) ? (
  <Link
  href={`/users/${opPost?.user_id || topic.user_id || opPost?.user?.id || topic.user?.id}`}
- className="font-bold text-gray-900 dark:text-white text-sm hover:text-primary transition-colors"
+ className="font-bold text-text-strong text-sm hover:text-primary transition-colors duration-fast ease-soft"
  >
  {opPost?.user?.username || topic.user?.username || t("community.anonymous")}
  </Link>
  ) : (
- <span className="font-bold text-gray-900 dark:text-white text-sm">{opPost?.user?.username || topic.user?.username || t("community.anonymous")}</span>
+ <span className="font-bold text-text-strong text-sm">{opPost?.user?.username || topic.user?.username || t("community.anonymous")}</span>
  )}
  <UserRoleBadge role={opPost?.user?.role || topic.user?.role} t={t} />
  </div>
@@ -252,11 +252,11 @@ export default function TopicDetailPage() {
    </div>
 
  {/* Discourse Post Action Bar */}
- <div className="flex items-center justify-between pt-2.5 border-t border-surfaceBorder/60 text-gray-500">
+ <div className="flex items-center justify-between pt-2.5 border-t border-line/60 text-gray-500">
  <div className="flex items-center space-x-3.5">
  <button
  onClick={() => toggleLike(opPost?.id || topic.id)}
- className={`flex items-center space-x-1 hover:text-rose-400 transition-colors ${
+ className={`flex items-center space-x-1 hover:text-rose-400 transition-colors duration-fast ease-soft ${
  likedPosts[opPost?.id || topic.id] ? "text-rose-400 font-bold" : ""
  }`}
  >
@@ -266,7 +266,7 @@ export default function TopicDetailPage() {
 
  <button
  onClick={() => handleShare(opPost?.id || topic.id)}
- className="flex items-center space-x-1 hover:text-primary transition-colors"
+ className="flex items-center space-x-1 hover:text-primary transition-colors duration-fast ease-soft"
  >
  {shareFeedback[opPost?.id || topic.id] ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
  <span>{shareFeedback[opPost?.id || topic.id] || t("common.share")}</span>
@@ -274,7 +274,7 @@ export default function TopicDetailPage() {
 
  <button
  onClick={() => openReply(opPost || { id: topic.id, post_number: 1, user: topic.user, content: topic.content } as ForumPost)}
- className="flex items-center space-x-1 hover:text-primary transition-colors"
+ className="flex items-center space-x-1 hover:text-primary transition-colors duration-fast ease-soft"
  >
  <Reply className="w-4 h-4" />
  <span>{t("common.reply")}</span>
@@ -295,7 +295,7 @@ export default function TopicDetailPage() {
  <div
  key={post.id}
  id={`post-${post.post_number}`}
- className="border border-surfaceBorder rounded-lg bg-surface p-4 sm:p-5 space-y-3.5 shadow-2xs"
+ className="border border-line rounded-lg bg-surface p-4 sm:p-5 space-y-3.5 shadow-2xs"
  >
  {post.reply_to_post_number && (
  <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono">
@@ -303,12 +303,12 @@ export default function TopicDetailPage() {
  <span>{tr("community.replyToPost", `Reply to #${post.reply_to_post_number}`, { n: post.reply_to_post_number })}</span>
  </div>
  )}
- <div className="flex items-center justify-between border-b border-surfaceBorder/60 pb-2.5">
+ <div className="flex items-center justify-between border-b border-line/60 pb-2.5">
  <div className="flex items-center space-x-2.5">
  {replyUserId ? (
  <Link
  href={`/users/${replyUserId}`}
- className="shrink-0 hover:opacity-90 transition-all"
+ className="shrink-0 hover:opacity-90 transition-all duration-base ease-soft"
  >
  <UserAvatar user={post.user} size="sm" shape="rounded" />
  </Link>
@@ -322,12 +322,12 @@ export default function TopicDetailPage() {
  {replyUserId ? (
  <Link
  href={`/users/${replyUserId}`}
- className="font-bold text-gray-900 dark:text-white text-sm hover:text-primary transition-colors"
+ className="font-bold text-text-strong text-sm hover:text-primary transition-colors duration-fast ease-soft"
  >
  {post.user?.username || t("community.anonymous")}
  </Link>
  ) : (
- <span className="font-bold text-gray-900 dark:text-white text-sm">{post.user?.username || t("community.anonymous")}</span>
+ <span className="font-bold text-text-strong text-sm">{post.user?.username || t("community.anonymous")}</span>
  )}
  <UserRoleBadge role={post.user?.role} t={t} />
  </div>
@@ -345,11 +345,11 @@ export default function TopicDetailPage() {
    </div>
 
  {/* Post Actions */}
- <div className="flex items-center justify-between pt-2.5 border-t border-surfaceBorder/60 text-gray-500">
+ <div className="flex items-center justify-between pt-2.5 border-t border-line/60 text-gray-500">
  <div className="flex items-center space-x-3.5">
  <button
  onClick={() => toggleLike(post.id)}
- className={`flex items-center space-x-1 hover:text-rose-400 transition-colors ${
+ className={`flex items-center space-x-1 hover:text-rose-400 transition-colors duration-fast ease-soft ${
  likedPosts[post.id] ? "text-rose-400 font-bold" : ""
  }`}
  >
@@ -359,7 +359,7 @@ export default function TopicDetailPage() {
 
  <button
  onClick={() => handleShare(post.id, post.id)}
- className="flex items-center space-x-1 hover:text-primary transition-colors"
+ className="flex items-center space-x-1 hover:text-primary transition-colors duration-fast ease-soft"
  >
  {shareFeedback[post.id] ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
  <span>{shareFeedback[post.id] || t("common.share")}</span>
@@ -367,7 +367,7 @@ export default function TopicDetailPage() {
 
  <button
  onClick={() => openReply(post)}
- className="flex items-center space-x-1 hover:text-primary transition-colors"
+ className="flex items-center space-x-1 hover:text-primary transition-colors duration-fast ease-soft"
  >
  <Reply className="w-4 h-4" />
  <span>{t("common.reply")}</span>
@@ -380,8 +380,8 @@ export default function TopicDetailPage() {
  </div>
 
  {/* Bottom CTA / Composer anchor */}
- <div id="reply-box" className="border border-surfaceBorder rounded-lg bg-surface p-4 space-y-2.5 shadow-2xs">
- <h3 className="font-bold text-gray-900 dark:text-white text-sm flex items-center space-x-1.5">
+ <div id="reply-box" className="border border-line rounded-lg bg-surface p-4 space-y-2.5 shadow-2xs">
+ <h3 className="font-bold text-text-strong text-sm flex items-center space-x-1.5">
  <Reply className="w-4 h-4 text-primary" />
  <span>{t("community.replyTopic")}</span>
  </h3>
@@ -398,7 +398,7 @@ export default function TopicDetailPage() {
  </button>
  </div>
  ) : (
- <div className="p-4 text-center text-gray-500 bg-background rounded-md border border-surfaceBorder text-sm">
+ <div className="p-4 text-center text-gray-500 bg-background rounded-md border border-line text-sm">
  {t("community.loginToReply")}
  </div>
  )}
@@ -407,9 +407,9 @@ export default function TopicDetailPage() {
 
  {/* Right: Discourse Signature Timeline Navigator (Desktop) */}
  <div className="hidden lg:block w-64 sticky top-20 space-y-3.5 flex-shrink-0">
- <div className="border border-surfaceBorder rounded-lg bg-surface p-4.5 space-y-3 font-mono text-sm shadow-2xs">
- <div className="flex items-center justify-between text-gray-500 border-b border-surfaceBorder pb-2">
- <span className="font-bold text-gray-900 dark:text-white">{t("community.timelineNav")}</span>
+ <div className="border border-line rounded-lg bg-surface p-4.5 space-y-3 font-mono text-sm shadow-2xs">
+ <div className="flex items-center justify-between text-gray-500 border-b border-line pb-2">
+ <span className="font-bold text-text-strong">{t("community.timelineNav")}</span>
  <span>{t("community.floors", { count: totalPostsCount })}</span>
  </div>
 
@@ -421,7 +421,7 @@ export default function TopicDetailPage() {
  <Link
  key={tg.id}
  href={`/community?tag=${encodeURIComponent(tg.name)}`}
- className="px-2.5 py-1 rounded-sm bg-background border border-surfaceBorder text-gray-700 dark:text-gray-300 hover:text-primary flex items-center gap-2 text-xs"
+ className="px-2.5 py-1 rounded-sm bg-background border border-line text-text-body hover:text-primary flex items-center gap-2 text-xs"
  >
  <TagIcon className="w-2.5 h-2.5 text-primary" />
  <span>#{tg.name}</span>
@@ -439,17 +439,17 @@ export default function TopicDetailPage() {
  </div>
  <div className="w-full h-1 bg-background rounded-full overflow-hidden">
  <div
- className="h-full bg-primary transition-all duration-300"
+ className="h-full bg-primary transition-all duration-base ease-soft"
  style={{ width: `${Math.min(100, Math.max(10, (posts.length / 20) * 100))}%` }}
  />
  </div>
  </div>
 
  {/* Quick Jump Buttons */}
- <div className="pt-2 border-t border-surfaceBorder space-y-1">
+ <div className="pt-2 border-t border-line space-y-1">
  <button
  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
- className="w-full text-left py-1 px-2.5 rounded-md hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-between transition-colors text-xs"
+ className="w-full text-left py-1 px-2.5 rounded-md hover:bg-black/[0.03] hover:bg-surfaceSubtle text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-between transition-colors duration-fast ease-soft text-xs"
  >
  <span>{t("community.topJump")}</span>
  <span>#1</span>
@@ -459,7 +459,7 @@ export default function TopicDetailPage() {
  const el = document.getElementById(`post-${posts[posts.length - 1]?.post_number}`);
  el?.scrollIntoView({ behavior: 'smooth' });
  }}
- className="w-full text-left py-1 px-2.5 rounded-md hover:bg-black/[0.03] dark:hover:bg-white/[0.04] text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-between transition-colors text-xs"
+ className="w-full text-left py-1 px-2.5 rounded-md hover:bg-black/[0.03] hover:bg-surfaceSubtle text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-between transition-colors duration-fast ease-soft text-xs"
  >
  <span>{t("community.bottomJump")}</span>
  <span>#{posts[posts.length - 1]?.post_number || 1}</span>

@@ -6,12 +6,15 @@ import (
 	"testing"
 )
 
-// 启动 SQL 只应"按需建表建索引 + 种子"：删列、删表、旧数据搬迁属一次性迁移，
-// 必须放到版本化迁移里执行。这里守住这条边界，避免有人再把破坏性语句塞回启动路径。
-// 例外：幂等的 ADD COLUMN IF NOT EXISTS 加列（如 auth.users.email、结构属性
-// attributes 补列）允许留在启动 SQL——它们是"缺列补齐"而非破坏，且带 IF NOT
-// EXISTS 可重入；真正的删/改/数据搬迁一律走 backend/migrations/。
+// 结构文件（迁移 000001）只应"按需建表建索引"：它是唯一来源，**服务启动时也会执行**，
+// 因此不能含删列/删表/数据搬迁这类破坏性语句——一旦带上，每次启动都在跑破坏性操作。
+// 例外：幂等的 ADD COLUMN IF NOT EXISTS 加列允许保留（"缺列补齐"而非破坏，可重入）。
+// 需要改结构就改这一个文件；确实要做一次性数据搬迁时，另开一条迁移，不要写进基线。
 func TestStartupSchemaHasNoDestructiveStatements(t *testing.T) {
+	baseline, err := catalogBaseline()
+	if err != nil {
+		t.Fatalf("读不到结构基线: %v", err)
+	}
 	destructive := []*regexp.Regexp{
 		regexp.MustCompile(`(?i)\bDROP\s+COLUMN\b`),
 		regexp.MustCompile(`(?i)\bDROP\s+TABLE\b`),
@@ -21,8 +24,8 @@ func TestStartupSchemaHasNoDestructiveStatements(t *testing.T) {
 		regexp.MustCompile(`(?i)\bALTER\s+TABLE\b[^;]*\bALTER\s+COLUMN\b`),
 	}
 	for _, re := range destructive {
-		if loc := re.FindString(schema); loc != "" {
-			t.Errorf("启动 SQL 含破坏性语句 %q；一次性数据迁移应移入 backend/migrations/", loc)
+		if loc := re.FindString(baseline); loc != "" {
+			t.Errorf("结构基线含破坏性语句 %q；一次性数据迁移应另开迁移，不要写进基线", loc)
 		}
 	}
 }
@@ -148,22 +151,22 @@ func TestSchemesRejectedWhenInvalid(t *testing.T) {
 	if err := outside.Validate(); err == nil {
 		t.Fatal("scheme with required outside fields accepted")
 	}
-		badKind := mk()
-		s = badKind.Schemes["paper_pages"]
-		s.Kinds = []string{"no_such_kind"}
-		badKind.Schemes["paper_pages"] = s
-		if err := badKind.Validate(); err == nil {
-			t.Fatal("scheme with invalid kind accepted")
-		}
-		// 方案未包含全局组声明的 AnchorKey 必须被拒绝（防止录入时出现缺锚点死锁）
-		missingAnchor := mk()
-		s = missingAnchor.Schemes["paper_pages"]
-		s.Fields = []string{"page_start", "page_end"}
-		s.Required = []string{"page_start"}
-		missingAnchor.Schemes["paper_pages"] = s
-		if err := missingAnchor.Validate(); err == nil {
-			t.Fatal("scheme missing anchor key relative_to must be rejected")
-		}
+	badKind := mk()
+	s = badKind.Schemes["paper_pages"]
+	s.Kinds = []string{"no_such_kind"}
+	badKind.Schemes["paper_pages"] = s
+	if err := badKind.Validate(); err == nil {
+		t.Fatal("scheme with invalid kind accepted")
+	}
+	// 方案未包含全局组声明的 AnchorKey 必须被拒绝（防止录入时出现缺锚点死锁）
+	missingAnchor := mk()
+	s = missingAnchor.Schemes["paper_pages"]
+	s.Fields = []string{"page_start", "page_end"}
+	s.Required = []string{"page_start"}
+	missingAnchor.Schemes["paper_pages"] = s
+	if err := missingAnchor.Validate(); err == nil {
+		t.Fatal("scheme missing anchor key relative_to must be rejected")
+	}
 }
 
 // 词表必须包含编目常用的作品间关系；反向名需成对声明。

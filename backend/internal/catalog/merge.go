@@ -169,26 +169,26 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 				}
 			}
 		}
-			// Subjects 去重键与 validateEntity 同口径（work, role），position 不计入；
-			// 凡属性不同直接报 merge_subject_conflict（涵盖 Work 合并导致下游 Release
-			// 内两条记录 WorkID 改写收敛碰撞，以及 Release 实体合并碰撞），
-			// 属性完全相同视为重复幂等跳过，绝不静默丢弃任何附加属性。
-			unique := []Subject{}
-			seen := map[string]Subject{}
-			for _, subject := range e.Subjects {
-				key := subject.WorkID + ":" + subject.Role
-				if prev, ok := seen[key]; ok {
-					if encode(prev.Attributes) != encode(subject.Attributes) {
-						return fmt.Errorf("merge_subject_conflict")
-					}
-					continue
+		// Subjects 去重键与 validateEntity 同口径（work, role），position 不计入；
+		// 凡属性不同直接报 merge_subject_conflict（涵盖 Work 合并导致下游 Release
+		// 内两条记录 WorkID 改写收敛碰撞，以及 Release 实体合并碰撞），
+		// 属性完全相同视为重复幂等跳过，绝不静默丢弃任何附加属性。
+		unique := []Subject{}
+		seen := map[string]Subject{}
+		for _, subject := range e.Subjects {
+			key := subject.WorkID + ":" + subject.Role
+			if prev, ok := seen[key]; ok {
+				if encode(prev.Attributes) != encode(subject.Attributes) {
+					return fmt.Errorf("merge_subject_conflict")
 				}
-				seen[key] = subject
-				unique = append(unique, subject)
+				continue
 			}
-			if len(e.Subjects) > 0 {
-				e.Subjects = unique
-			}
+			seen[key] = subject
+			unique = append(unique, subject)
+		}
+		if len(e.Subjects) > 0 {
+			e.Subjects = unique
+		}
 		if before == encode(e) {
 			continue
 		}
@@ -251,15 +251,10 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 			return err
 		}
 	}
-	// 收藏跟随：favorites 指向已合并身份的行改写到目标身份（幂等——目标已收藏则
-	// 删旧行，避免 (user_id,target_type,target_id) 主键冲突）。
-	// 不删数据：只是把"指向旧身份"的收藏重定向到存活身份，与 Resolve 语义一致。
-	if _, err = tx.ExecContext(ctx, `DELETE FROM catalog.favorites WHERE target_id=$1 AND EXISTS(SELECT 1 FROM catalog.favorites f2 WHERE f2.user_id=catalog.favorites.user_id AND f2.target_type=catalog.favorites.target_type AND f2.target_id=$2)`, source.ID, target.ID); err != nil {
-		return err
-	}
-	if _, err = tx.ExecContext(ctx, `UPDATE catalog.favorites SET target_id=$2 WHERE target_id=$1`, source.ID, target.ID); err != nil {
-		return err
-	}
+	// 收藏（以及其它服务里指向旧身份的引用）**不在这里改写**：community.favorites 归互动服务，
+	// 目录写别人的表会破坏子系统边界。合并事实通过 outbox 的 entity.merged 事件广播，
+	// 调用方也可以用 GET /api/catalog/entities/{id}/resolve 跟随重定向——互动服务的收藏
+	// 与互动记录读取走的就是这条链路（见其 internal/catalog 客户端）。
 	// 合并只改写以旧身份为端点的边：按端点取候选而非全表加载
 	//（relations_endpoints 索引命中，避免关系量大时退化）。
 	all, err := relationsWithEndpoint(ctx, tx, source.ID)

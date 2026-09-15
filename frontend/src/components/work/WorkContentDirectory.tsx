@@ -6,6 +6,7 @@ import { ListTree } from "lucide-react";
 import { Entity, title as entityTitle } from "@/components/catalog/api";
 import { fetchAllPages } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { getTermName, useDefinitions } from "@/lib/definitions";
 
 type WorkContentDirectoryProps = {
   workId: string;
@@ -97,7 +98,8 @@ export function componentEntries(
 }
 
 export function WorkContentDirectory({ workId, directory = "tree" }: WorkContentDirectoryProps) {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
+  const { definitions: defs } = useDefinitions();
   const [items, setItems] = useState<DirectoryEntry[]>([]);
   const [components, setComponents] = useState<DirectoryEntry[]>([]);
   const [includedIn, setIncludedIn] = useState<DirectoryEntry[]>([]);
@@ -162,6 +164,13 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
     return grouped;
   }, [items]);
 
+  // 篇目用途名称以 definitions 的 entry_role 词表为准（后台新增用途即刻显示）；
+  // 词表未声明该用途时回退内置文案，仍缺失则显示原始码。
+  const roleLabel = (role: string): string => {
+    const name = getTermName(defs, "entry_role", role, locale);
+    return name !== role ? name : tr(`catalog.contents.role.${role}`, role);
+  };
+
   const renderEntries = (parentKey: string, depth: number): ReactNode[] => {
     return (children.get(parentKey) || []).flatMap((entry) => {
       const role = entry.entryRole || "main";
@@ -171,17 +180,17 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
       return [
         <div
           key={entry.id}
-          className="flex items-center gap-3 px-3.5 py-2.5 border-b border-black/5 dark:border-white/[0.06] last:border-b-0"
+          className="flex items-center gap-3 px-3.5 py-2.5 border-b border-line-subtle last:border-b-0"
           style={{ paddingLeft: `${14 + indent}px` }}
         >
           <span className="w-10 shrink-0 text-right font-mono text-xs text-gray-400">
             {entry.number || entry.position || "—"}
           </span>
-          <Link href={`/catalog/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200 hover:text-primary">
+          <Link href={`/catalog/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-text-strong hover:text-primary">
             {entry.title}
           </Link>
-          <span className="shrink-0 rounded-sm border border-black/10 dark:border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
-            {isCollectionOrWork ? t(`catalog.kind.${entry.kind}`) : t(`catalog.contents.role.${role}`)}
+          <span className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
+            {isCollectionOrWork ? t(`catalog.kind.${entry.kind}`) : roleLabel(role)}
           </span>
         </div>,
         ...renderEntries(entry.id, depth + 1),
@@ -200,13 +209,13 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
     entries.map((entry) => (
       <div
         key={entry.id}
-        className="flex items-center gap-3 px-3.5 py-2.5 border-b border-black/5 dark:border-white/[0.06] last:border-b-0"
+        className="flex items-center gap-3 px-3.5 py-2.5 border-b border-line-subtle last:border-b-0"
       >
         <span className="w-10 shrink-0 text-right font-mono text-xs text-gray-400">{entry.number || entry.position || "—"}</span>
-        <Link href={`/catalog/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200 hover:text-primary">
+        <Link href={`/catalog/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-text-strong hover:text-primary">
           {entry.title}
         </Link>
-        <span className="shrink-0 rounded-sm border border-black/10 dark:border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
+        <span className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
           {t(`catalog.kind.${entry.kind}`)}
         </span>
       </div>
@@ -217,13 +226,13 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
       {blocks.map((block) => (
         <section
           key={block.key}
-          className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden"
+          className="rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden"
         >
-          <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex items-center gap-2">
+          <div className="px-3.5 sm:px-4 py-3 border-b border-line-subtle flex items-center gap-2">
             <span className="w-9 h-9 grid place-items-center rounded-md bg-primary/10 border border-primary/20">
               <ListTree className="w-4 h-4 text-primary" strokeWidth={1.5} />
             </span>
-            <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">
+            <h2 className="font-display text-base font-bold tracking-tight text-text-strong">
               {block.title}
             </h2>
             {!loading && (
@@ -240,12 +249,12 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
         </section>
       ))}
       {!loading && blocks.length === 0 && (
-        <section className="rounded-lg border border-black/10 dark:border-white/[0.08] bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
-          <div className="px-3.5 sm:px-4 py-3 border-b border-black/5 dark:border-white/[0.06] flex items-center gap-2">
+        <section className="rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
+          <div className="px-3.5 sm:px-4 py-3 border-b border-line-subtle flex items-center gap-2">
             <span className="w-9 h-9 grid place-items-center rounded-md bg-primary/10 border border-primary/20">
               <ListTree className="w-4 h-4 text-primary" strokeWidth={1.5} />
             </span>
-            <h2 className="font-display text-base font-bold tracking-tight text-gray-900 dark:text-white">
+            <h2 className="font-display text-base font-bold tracking-tight text-text-strong">
               {t("work.contents.title")}
             </h2>
           </div>

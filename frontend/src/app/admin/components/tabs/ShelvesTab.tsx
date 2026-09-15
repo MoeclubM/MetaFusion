@@ -251,7 +251,7 @@ export function ShelvesTab() {
         </div>
         <button
           onClick={openCreate}
-          className="px-3 py-1.5 rounded-lg bg-emerald-400 text-black text-xs font-semibold hover:bg-emerald-300 transition-colors flex items-center gap-1.5"
+          className="px-3 py-1.5 rounded-lg bg-emerald-400 text-black text-xs font-semibold hover:bg-emerald-300 transition-colors duration-fast ease-soft flex items-center gap-1.5"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>{t("admin.shelves.new")}</span>
@@ -328,21 +328,21 @@ export function ShelvesTab() {
                           href={`/explore?shelf=${encodeURIComponent(shelf.slug)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                          className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
                           title={t("admin.shelves.viewShelf")}
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </a>
                         <button
                           onClick={() => openEdit(shelf)}
-                          className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                          className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
                           title={t("common.edit")}
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDelete(shelf)}
-                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors"
+                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors duration-fast ease-soft"
                           title={t("common.delete")}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -624,13 +624,13 @@ export function ShelvesTab() {
                 setCreating(false);
                 setEditing(null);
               }}
-              className="px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors"
+              className="px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
             >
               {t("common.cancel")}
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-lg bg-emerald-400 text-black font-semibold hover:bg-emerald-300 transition-colors"
+              className="px-4 py-1.5 rounded-lg bg-emerald-400 text-black font-semibold hover:bg-emerald-300 transition-colors duration-fast ease-soft"
             >
               {t("common.save")}
             </button>

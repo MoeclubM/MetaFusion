@@ -3,24 +3,37 @@ package catalog
 import (
 	"context"
 	"database/sql"
-	_ "embed"
 	"encoding/json"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/lib/pq"
+	"io/fs"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/lib/pq"
+
+	"github.com/metafusion/metafusion-app/migrations"
 )
 
-//go:embed schema.sql
-var schema string
+// baseline 是目录库的结构来源：与 `mf-migrate up` 执行的是**同一份文件**（迁移 000001）。
+// 以前这里 //go:embed 了一份 schema.sql 终态快照，与迁移文件各存一份、靠一致性测试盯着同步；
+// 数据不再需要历史迁移后合并成单一基线，两边读同一份，冗余与漂移一起消失。
+const baselineFile = "000001_catalog_core.up.sql"
+
+func catalogBaseline() (string, error) {
+	b, err := fs.ReadFile(migrations.FS, baselineFile)
+	if err != nil {
+		return "", fmt.Errorf("read catalog baseline %s: %w", baselineFile, err)
+	}
+	return string(b), nil
+}
 
 type Store struct {
 	DB *sql.DB
-	// Tokens 为可选的 RS256 令牌签发/验签器。为 nil 时鉴权只用服务端会话
-	// （纯查库模式），因此测试与未配置密钥的部署仍可正常工作。
-	Tokens *TokenIssuer
+	// Verifier 是账号服务令牌的验签器（只有公钥）。为 nil 或未配置密钥时，
+	// 需要身份的接口按匿名处理——目录不再有"查库兜底"这条路径。
+	Verifier *TokenVerifier
 }
 type queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
@@ -41,25 +54,25 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 	return &Store{DB: db}, nil
 }
 
-// Authenticate 先做无状态 RS256 验签（不查库），失败再回退服务端会话/令牌查库。
-// 双模式的意义：无状态路径承担绝大多数请求，查库路径保证存量随机会话令牌与
-// 登出注销仍然有效，切换过程不会把已登录用户踢下线。
-func (s *Store) Authenticate(ctx context.Context, token string) (*User, error) {
+// Authenticate 只做无状态 RS256 验签：目录侧不再回退查 auth.sessions / auth.oauth_tokens。
+// 那两张表归账号服务所有，跨系统读对方的表会让"各司其职"名存实亡，因此这里连 ctx 都不需要。
+// 验签器缺失或验签失败一律按匿名处理（fail closed），不会静默放行。
+func (s *Store) Authenticate(token string) (*User, error) {
 	token = strings.TrimSpace(token)
-	if token == "" {
+	if token == "" || s.Verifier == nil {
 		return nil, sql.ErrNoRows
 	}
-	if s.Tokens != nil {
-		if claims, err := s.Tokens.Verify(token); err == nil {
-			return ClaimsToUser(claims), nil
-		}
+	claims, err := s.Verifier.Verify(token)
+	if err != nil {
+		return nil, err
 	}
-	return s.User(ctx, token)
+	return ClaimsToUser(claims), nil
 }
 
 // Initialize touches only the new schema. Existing catalog and module data are untouched.
 // 其写入职责与 mf-migrate up 分工：migrate 只负责结构迁移（backend/migrations），
-// 定义/OAuth/货架/外部库四类"内容种子"只在这里逐行 ON CONFLICT DO NOTHING 补齐，
+// 定义/货架/外部库三类"内容种子"只在这里逐行 ON CONFLICT DO NOTHING 补齐
+// （第一方 OAuth 客户端随账号拆分归账号服务），
 // 因种子会随版本新增条目（如货架新增 slug），不属于一次性结构迁移。
 // 任一轨道先执行都安全：种子用 ON CONFLICT 保护已有行（后台自定义不被覆盖）。
 //
@@ -70,8 +83,12 @@ func (s *Store) Authenticate(ctx context.Context, token string) (*User, error) {
 // （importer_mapping_stale）与 entry_role 降级写入等显式兼容逻辑承接，
 // 而不是静默改写已发布定义。见 TestDefinitionsSeedOnlyWhenEmpty。
 func (s *Store) Initialize(ctx context.Context) error {
+	baseline, err := catalogBaseline()
+	if err != nil {
+		return err
+	}
 	return s.write(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, schema); err != nil {
+		if _, err := tx.ExecContext(ctx, baseline); err != nil {
 			return err
 		}
 		// 只判空表：逐行种子无需全表计数。
@@ -88,16 +105,8 @@ func (s *Store) Initialize(ctx context.Context) error {
 				return err
 			}
 		}
-		const seedOAuth = `
-INSERT INTO auth.oauth_clients(id, secret_hash, name, redirect_uris, trusted)
-VALUES
- ('metafusion-resources', '', 'MetaFusion 资源存储与下载管理中心', ARRAY['https://resources.findverse.cc/callback', 'http://localhost:3001/callback'], true),
- ('metafusion-forum', '', 'MetaFusion 社区论坛', ARRAY['https://forum.findverse.cc/auth/oauth2_basic/callback', 'http://localhost:4200/auth/callback'], true),
- ('metafusion-catalog', '', 'MetaFusion 元数据知识库', ARRAY['https://findverse.cc/auth/callback', 'http://localhost:3000/auth/callback'], true)
-ON CONFLICT (id) DO NOTHING;`
-		if _, err := tx.ExecContext(ctx, seedOAuth); err != nil {
-			return err
-		}
+		// 已迁到账号服务（auth store 的 Init 幂等播种）：auth schema 不归目录服务所有，
+		// 目录侧不再往里面写任何一行。
 		if err := seedExternalDatabases(ctx, tx); err != nil {
 			return err
 		}
@@ -107,24 +116,67 @@ ON CONFLICT (id) DO NOTHING;`
 		return nil
 	})
 }
+
+// write 执行一次写事务（不加全局锁）。
+//
+// 十万/百万级时“所有写都串行”只是慢；到亿级就是吞吐天花板：一个 advisory 锁把整个目录
+// （含互不相干的 agent/work/expression）压成单写通道。因此默认路径不再取锁，只有可能触碰
+// 受结构约束的表（content_units/mediums/tracks 的父子环检查）或关系无环校验的写，
+// 才走 writeStructural。
 func (s *Store) write(ctx context.Context, fn func(*sql.Tx) error) error {
+	return s.tx(ctx, fn, false)
+}
+
+// writeStructural 执行需要与结构校验串行的写事务。
+//
+// 锁键与 check_parent_cycle 触发器共用（740202）：并发重定父时，触发器内的递归检查才能
+// 看到别的事务刚提交的父子关系，环检测不会两边同时通过。代价是这些写彼此串行——
+// 它们只是结构编辑（篇目/载体/轨道/关系），不是目录主体。
+// 与 migrator.go LockID 88481001 无互斥：migrate 是独立进程的一次性操作，用会话级
+// pg_advisory_lock；此处是事务级 xact 锁，键与粒度都不同。需要部署期互斥时应在编排层
+// 串行（先 migrate 后启动），不在此加锁。
+func (s *Store) writeStructural(ctx context.Context, fn func(*sql.Tx) error) error {
+	return s.tx(ctx, fn, true)
+}
+
+func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error, structural bool) error {
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	// 写入串行化锁：与 check_parent_cycle 触发器共用同一会话级键（740202），
-	// 并发重定父时触发器内的递归检查才能看到本次事务的写入。
-	// 与 migrator.go LockID 88481001 无互斥：migrate 是独立进程的一次性操作，
-	// 用会话级 pg_advisory_lock；此处是事务级 xact 锁，两者键与粒度都不同。
-	// 若未来需要部署期互斥，应在编排层串行（先 migrate 后启动），不在此加锁。
-	if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(740202)"); err != nil {
-		return err
+	if structural {
+		if _, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(740202)"); err != nil {
+			return err
+		}
 	}
 	if err = fn(tx); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+// structuralKind 判断该 kind 的写入是否可能触碰受结构约束的表：
+// content_units/mediums/tracks 上有 check_parent_cycle 触发器，必须与环检查串行。
+// 其它 kind（agent/collection/work/expression/release）不写这三张表，无需全局锁。
+func structuralKind(kind string) bool {
+	switch kind {
+	case "content_unit", "medium", "track":
+		return true
+	}
+	return false
+}
+
+// newID 生成时间有序的 UUIDv7 作为主键。
+//
+// 随机 UUIDv4 做主键时插入点散落整棵 B-tree：亿级下页分裂、索引膨胀与缓存命中都会明显变差，
+// 且按时间范围扫描（导出/同步/分区裁剪）没有局部性。v7 前缀是毫秒时间戳，插入集中在最右侧。
+// 代价是 ID 泄漏创建时间（毫秒级，与 created_at 同级信息）；生成失败退回 v4，不返回空 ID。
+func newID() string {
+	if id, err := uuid.NewV7(); err == nil {
+		return id.String()
+	}
+	return uuid.NewString()
 }
 func encode(v any) string { b, _ := json.Marshal(v); return string(b) }
 func nullable(v string) any {
@@ -325,7 +377,9 @@ func reference(ctx context.Context, q queryer, u *User) func(string, []string) e
 	}
 }
 func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, note string, sources []Source, snapshot any, eventType string) error {
-	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,edit_note,sources,snapshot) VALUES($1,$2,$3,$4,$5,$6)", id, version, u.ID, note, encode(sources), encode(snapshot)); err != nil {
+	// actor_name/actor_role 与 actor_id 一起落库：读取修订历史不再需要 JOIN auth.users
+	// （账号表归账号服务，跨 schema 读会让两个系统在数据层重新耦合）。
+	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,actor_name,actor_role,edit_note,sources,snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", id, version, u.ID, u.Username, u.Role, note, encode(sources), encode(snapshot)); err != nil {
 		return err
 	}
 	_, err := tx.ExecContext(ctx, "INSERT INTO catalog.outbox(id,type,entity_id,version,payload) VALUES($1,$2,$3,$4,$5)", uuid.NewString(), eventType, id, version, encode(snapshot))
@@ -333,7 +387,12 @@ func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, no
 }
 func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 	e := input.Entity
-	err := s.write(ctx, func(tx *sql.Tx) error {
+	// 结构类实体（篇目/载体/轨道）走串行写通道，其余 kind 并行写。
+	commit := s.write
+	if structuralKind(e.Kind) {
+		commit = s.writeStructural
+	}
+	err := commit(ctx, func(tx *sql.Tx) error {
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
 		}
@@ -346,7 +405,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			if input.ExpectedVersion != 0 {
 				return fmt.Errorf("version_conflict")
 			}
-			e.ID = uuid.NewString()
+			e.ID = newID()
 			e.Version = 1
 			e.CreatedBy = u.ID
 		} else {
@@ -367,8 +426,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			e.Version = old.Version + 1
 		}
 		if u.Role != "admin" {
-			// 他人条目一律不可改。
-			if old.ID != "" && old.CreatedBy != u.ID {
+			if old.ID != "" && !canEditEntity(u, old) {
 				return fmt.Errorf("forbidden")
 			}
 			// 普通用户走审核制：只能存草稿或提交审核，且不可触碰已发布条目。
@@ -380,7 +438,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 					return fmt.Errorf("forbidden")
 				}
 			}
-			// editor：自己的条目可直接发布；已发布条目的降级/删除仍走 admin-only lifecycle。
+			// editor 可维护公开条目；发布他人的草稿、降级和删除仍由管理员处理。
 		}
 		if e.Status == "" {
 			e.Status = "draft"
@@ -855,10 +913,12 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 		}
 		entityScoped = false
 	}
+	// 身份取自修订行里的快照列，**不 JOIN auth.users**：账号表归账号服务，目录侧读它
+	// 就等于把两个系统的数据层重新绑在一起（也挡住了将来换库/换实例的可能）。
+	// 老库迁移过来的存量行可能没有快照，回退为 system/editor，只影响显示名。
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(u.username, 'system'), COALESCE(u.role, 'editor'), r.edit_note, r.sources, r.snapshot, r.created_at
+		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), COALESCE(NULLIF(r.actor_role, ''), 'editor'), r.edit_note, r.sources, r.snapshot, r.created_at
 		FROM catalog.revisions r
-		LEFT JOIN auth.users u ON u.id = r.actor_id
 		WHERE r.target_id = $1
 		ORDER BY r.version DESC, r.id DESC
 		LIMIT 100`, id)
