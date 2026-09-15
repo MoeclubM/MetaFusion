@@ -1,4 +1,5 @@
 import { pickRecordTitle } from "@/lib/titles";
+import { fetchApi } from "@/lib/api";
 
 export const kinds = [
   "agent",
@@ -175,13 +176,12 @@ export async function api<T = any>(
   data?: any,
   extraHeaders?: Record<string, string>,
 ): Promise<T> {
-  const res = await fetch(`/api${path}`, {
+  // 统一走 lib/api.ts 的 fetchApi：它带 Authorization、按 locale 设头、
+  // 并在 401 时静默续期后重试一次。此前这里自己 fetch，既不带令牌也没有续期——
+  // 访问令牌 15 分钟一过，编辑器就再也写不进去（真人在编辑半小时后必然遇到）。
+  return fetchApi<T>(path, {
     method,
-    credentials: "same-origin",
-    headers: {
-      ...(data instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      ...extraHeaders,
-    },
+    headers: extraHeaders,
     body:
       data === undefined
         ? undefined
@@ -189,9 +189,6 @@ export async function api<T = any>(
           ? data
           : JSON.stringify(data),
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
-  return body;
 }
 
 // fetchAllPages：对列表端点按 offset 翻页直到取完（端点返回真实 total，长度不足一页即停），

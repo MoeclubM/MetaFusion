@@ -27,6 +27,7 @@ async function runAgent(n) {
   try {
     const url = await login(page, agent, PASS);
     if (String(url).startsWith("LOGIN_FAILED")) { log.write(JSON.stringify({ action: "login-failed", url }) + "\n"); console.log("[" + agent + "] 登录失败 " + url); log.end(); await browser.close(); return { agent, ok, fail, login: false }; }
+    let relogins = 0;
     for (let i = 1; i <= OPS; i++) {
       const kind = KINDS[i % KINDS.length];
       const types = TYPES[kind] || [];
@@ -49,7 +50,17 @@ async function runAgent(n) {
         await page.waitForTimeout(2000);
       }
       const id = r.id || "";
-      if (r.status === 200 || r.status === 201) { ok++; created.push(id); } else fail++;
+      if (r.status === 200 || r.status === 201) { ok++; created.push(id); }
+      else {
+        fail++;
+        // 401 = 会话失效（令牌过期且续期失败、或被登出）：真人会重新登录后继续，
+        // 这里照做（每个账号最多 2 次），避免一次掉线把整波作废。
+        if (r.status === 401 && relogins < 2) {
+          relogins++;
+          const again = await login(page, agent, PASS);
+          log.write(JSON.stringify({ i, action: "relogin", attempt: relogins, url: String(again).slice(0, 40) }) + "\n");
+        }
+      }
       log.write(JSON.stringify({ wave: WAVE, i, action: useRel ? "relation" : useUpdate ? "update" : "create", kind, title, status: r.status, id, body: String(r.body).slice(0, 110) }) + "\n");
       if (i % 10 === 0) console.log("[" + agent + "] " + i + "/" + OPS + " ok=" + ok + " fail=" + fail);
     }
