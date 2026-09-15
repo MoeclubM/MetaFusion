@@ -32,6 +32,13 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       MF_V2_TEST_DSN: postgres://postgres:test-only-password@127.0.0.1:5432/mf_v2_test?sslmode=disable
+      # cmd/migrate 读的是 DB_*（不是 MF_V2_TEST_DSN）。服务容器里的用户是 postgres，
+      # 而 config 的默认值是 metafusion —— 迁移回滚步骤因为这条不匹配长期失败。
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: test-only-password
+      DB_NAME: mf_v2_test
     defaults:
       run:
         working-directory: backend
