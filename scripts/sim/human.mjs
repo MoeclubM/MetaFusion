@@ -82,11 +82,11 @@ export async function updateEntity(page, id, tag, agent) {
   await page.waitForTimeout(1400);
   // 等入口出现：详情页要先加载实体与权限判定；并发下更慢，所以等 25 秒，失败再整页重载试一次
   let editBtn = page.locator("button", { hasText: "编辑" }).first();
-  try { await editBtn.waitFor({ state: "visible", timeout: 25000 }); } catch {
+  try { await editBtn.waitFor({ state: "visible", timeout: 40000 }); } catch {
     await page.reload({ waitUntil: "domcontentloaded", timeout: 60000 }).catch(() => {});
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(2500);
     editBtn = page.locator("button", { hasText: "编辑" }).first();
-    try { await editBtn.waitFor({ state: "visible", timeout: 25000 }); } catch { return { status: 0, body: "没有编辑入口（权限或条目状态不允许）" }; }
+    try { await editBtn.waitFor({ state: "visible", timeout: 40000 }); } catch { return { status: 0, body: "没有编辑入口（权限或条目状态不允许）" }; }
   }
   await editBtn.click();
   const title = page.locator('label:has-text("基础题名")').locator("input").first();

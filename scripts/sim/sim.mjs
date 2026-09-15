@@ -26,9 +26,20 @@ async function runAgent(n) {
   let ok = 0, fail = 0, created = [], createdTitles = [];
   try {
     const url = await login(page, agent, PASS);
-    if (String(url).startsWith("LOGIN_FAILED")) { log.write(JSON.stringify({ action: "login-failed", url }) + "\n"); console.log("[" + agent + "] 登录失败 " + url); log.end(); await browser.close(); return { agent, ok, fail, login: false }; }
+    if (String(url).startsWith("LOGIN_FAILED")) {
+      // 起跑时撞限流很常见：不要整波空转，进循环后每个操作前按需重登
+      log.write(JSON.stringify({ action: "login-failed-initial", url }) + "\n");
+      console.log("[" + agent + "] 首次登录失败，稍后在操作中重试");
+    }
     let relogins = 0;
+    let loggedIn = !String(url).startsWith("LOGIN_FAILED");
     for (let i = 1; i <= OPS; i++) {
+      if (!loggedIn && relogins < 4) {
+        relogins++;
+        const again = await login(page, agent, PASS);
+        loggedIn = !String(again).startsWith("LOGIN_FAILED");
+        log.write(JSON.stringify({ i, action: "relogin", attempt: relogins, ok: loggedIn }) + "\n");
+      }
       const kind = KINDS[i % KINDS.length];
       const types = TYPES[kind] || [];
       const typeLabel = types.length ? types[i % types.length] : undefined;
