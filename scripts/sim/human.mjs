@@ -199,6 +199,8 @@ export async function addRelation(page, id, relType, targetQuery, agent) {
   const add = page.locator("button", { hasText: "添加关系" }).first();
   if (!(await add.count())) return { status: 200, skipped: true, body: "没有添加按钮，跳过" };
   try { await add.waitFor({ state: "visible", timeout: 15000 }); } catch {}
+  // 必填关系属性没填满时按钮是禁用的（definitions 声明的 required）：这属良性分支，跳过
+  if (await add.isDisabled().catch(() => false)) return { status: 200, skipped: true, body: "关系必填字段未满足，跳过" };
   await add.click({ timeout: 15000 }).catch(() => {});
   const res = await resp;
   await page.waitForTimeout(1200);
