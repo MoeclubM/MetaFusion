@@ -6,6 +6,9 @@ import { login, createEntity, updateEntity, addRelation, makeBrowser } from "./h
 const AGENTS = Number(process.argv[2] || 3);
 const OPS = Number(process.argv[3] || 40);
 const START = Number(process.argv[4] || 1);
+// MF_AGENTS="1,3,7" 可指定任意账号组合（默认是 startIndex 起连续 AGENTS 个）：
+// 每轮的波次优先补进度最少的账号，避免总是同一组先跑满。
+const AGENT_LIST = (process.env.MF_AGENTS || "").split(",").map((s) => Number(s.trim())).filter((n) => n > 0);
 const PASS = process.env.MF_USER_PASS;
 const OUT = (process.env.MF_LOG_DIR || "C:/Users/QwQ/AppData/Local/Temp/mf-ui") + "/";
 if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
@@ -61,7 +64,7 @@ async function runAgent(n) {
 }
 
 // 并发上限 3，错峰 4 秒启动
-const queue = Array.from({ length: AGENTS }, (_, k) => START + k);
+const queue = AGENT_LIST.length ? AGENT_LIST.slice() : Array.from({ length: AGENTS }, (_, k) => START + k);
 const results = [];
 const CONCURRENCY = Number(process.env.MF_CONCURRENCY || 2);
 const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async (_, w) => {
