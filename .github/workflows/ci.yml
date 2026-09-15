@@ -25,7 +25,11 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: "3.12"
+    # 实例专有串（主机名/内网域名等）不进仓库：在仓库变量里配 MF_FORBIDDEN_PATTERNS，
+    # 按行分隔；未配置时脚本只做通用检查（私钥、凭据文件、带口令连接串、明文凭据）。
     - run: python scripts/check_no_secrets.py
+      env:
+        MF_FORBIDDEN_PATTERNS: ${{ vars.MF_FORBIDDEN_PATTERNS }}
 
   backend:
     name: backend (go vet & build)
