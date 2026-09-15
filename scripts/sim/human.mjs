@@ -114,7 +114,8 @@ export async function addRelation(page, id, relType, targetQuery, agent) {
   try { await rel.waitFor({ state: "visible", timeout: 35000 }); } catch { return { status: 0, body: "关系区未出现" }; }
   const typeSelect = rel.locator("select").first();
   const opts = await typeSelect.locator("option").evaluateAll((os) => os.map((o) => o.value).filter(Boolean));
-  const pick = relType && opts.includes(relType) ? relType : opts[0];
+  // 未指定时随机挑一个可用关系类型：只取第一个会让 adaptation_of 独占，覆盖不到其它关系语义
+  const pick = relType && opts.includes(relType) ? relType : opts[Math.floor(Math.random() * opts.length)];
   if (!pick) return { status: 0, body: "无可用关系类型" };
   await typeSelect.selectOption(pick);
   await page.waitForTimeout(1600);
