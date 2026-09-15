@@ -73,6 +73,11 @@ export async function createEntity(page, opts) {
     if (chosen) await psel.selectOption(chosen);
     else return { status: 0, url: page.url(), body: "父级未选中（" + opts.parent.query + "）" };
   }
+  // 类型声明的属性字段（如 medium 的「载体格式」、release 的「发行日期」）：按字段多语言名精确填。
+  if (opts.attrs) {
+    const n = await fillRelationAttrs(page, page.locator("body"), opts.attrs);
+    if (n === 0) return { status: 0, url: page.url(), body: "属性字段一个都没填上：" + Object.keys(opts.attrs).join("/") };
+  }
   // 证据必须按 fieldset 语义定位：页面里还有「多语言题名与别名」的简介/别名 textarea，
   // 用 textarea.first() 会把修改说明写进"别名"，而证据区仍为空 → 客户端校验直接拦下提交。
   const ev = page.locator("fieldset", { hasText: "编辑说明与来源" }).first();
