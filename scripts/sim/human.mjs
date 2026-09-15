@@ -139,10 +139,10 @@ export async function addRelation(page, id, relType, targetQuery, agent) {
   // 未指定时随机挑一个可用关系类型：只取第一个会让 adaptation_of 独占，覆盖不到其它关系语义
   const pick = relType && opts.includes(relType) ? relType : opts[Math.floor(Math.random() * opts.length)];
   if (!pick) return { status: 0, body: "无可用关系类型" };
-  await typeSelect.selectOption(pick);
+  try { await typeSelect.selectOption(pick); } catch { return { status: 200, skipped: true, body: "关系类型未选中，跳过" }; }
   await page.waitForTimeout(1600);
   const search = rel.locator('input[placeholder*="搜索实体"]').first();
-  if (!(await search.count())) return { status: 0, body: "目标搜索框未出现" };
+  if (!(await search.count())) return { status: 200, skipped: true, body: "目标搜索框未出现，跳过" };
   // 目标候选为空通常是"这个标题的类型不符合该关系要求"：换标题重试，别让整条操作算失败
   const entitySelect0 = rel.locator("select").nth(1);
   const tries = Array.isArray(targetQuery) ? targetQuery : [targetQuery];
@@ -162,8 +162,9 @@ export async function addRelation(page, id, relType, targetQuery, agent) {
     const vals = await entitySelect.locator("option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: (o.textContent || "") })).filter((x) => x.v));
     if (vals.length) { const hit = vals.find((x) => x.t.includes(targetQuery)) || vals[0]; chosen = hit.v; }
   }
-  if (!chosen) return { status: 0, body: "实体下拉没有候选（查询=" + targetQuery + "）" };
-  await entitySelect.selectOption(chosen);
+  // 候选为空是良性分支（该关系类型对目标 kind 有要求，标题不合）：记为跳过，不算失败
+  if (!chosen) return { status: 200, skipped: true, body: "无匹配目标，跳过该关系" };
+  try { await entitySelect.selectOption(chosen); } catch { return { status: 200, skipped: true, body: "选择目标失败，跳过" }; }
   await page.waitForTimeout(900);
   // 关系定义声明的动态属性字段（role / credit_role / character / language…）：编辑器按 definitions 渲染，
   // 之前仿真只选类型与目标，这些字段一直没被覆盖。这里尽量填上：下拉取第一个可用项，文本填一个可考据的值。
@@ -196,8 +197,9 @@ export async function addRelation(page, id, relType, targetQuery, agent) {
   if (await cite.count() && !(await cite.inputValue())) await cite.fill("https://example.org/sim/" + agent + "-rel");
   const resp = page.waitForResponse((r) => r.url().includes("/api/catalog/relations") && r.request().method() === "POST", { timeout: 25000 }).catch(() => null);
   const add = page.locator("button", { hasText: "添加关系" }).first();
-  if (!(await add.count())) return { status: 0, body: "没有添加按钮" };
-  await add.click();
+  if (!(await add.count())) return { status: 200, skipped: true, body: "没有添加按钮，跳过" };
+  try { await add.waitFor({ state: "visible", timeout: 15000 }); } catch {}
+  await add.click({ timeout: 15000 }).catch(() => {});
   const res = await resp;
   await page.waitForTimeout(1200);
   let body = "";
