@@ -53,6 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         id: u.id,
         username: u.username,
         role: u.role,
+        groups: Array.isArray(u.groups) ? u.groups : [],
+        permissions: Array.isArray(u.permissions) ? u.permissions : [],
         email: u.email || `${u.username}@metafusion.local`,
         display_name: u.username,
       });
@@ -81,6 +83,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: u.id,
           username: u.username,
           role: u.role,
+          // 账号服务在 /me 里给了组与权限码：必须带住，否则授权判定只剩角色（旧口径）。
+          groups: Array.isArray(u.groups) ? u.groups : [],
+          permissions: Array.isArray(u.permissions) ? u.permissions : [],
           email: u.email || `${u.username}@metafusion.local`,
           display_name: u.username,
         });

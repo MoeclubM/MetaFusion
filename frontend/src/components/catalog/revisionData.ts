@@ -1,4 +1,5 @@
 import type { Entity } from "./api";
+import { canEditEntity } from "@/lib/permissions";
 
 function canonical(value: any): any {
   if (Array.isArray(value)) return value.map(canonical);
@@ -30,10 +31,13 @@ export function revisionChanges(before: any = {}, after: any = {}) {
   return changes;
 }
 
-export function canEditRevision(entity: Entity, user?: { id: string; role: string }): boolean {
-  if (!user || ["deleted", "merged"].includes(entity.status)) return false;
-  return user.role === "admin" || (user.role === "editor" && entity.status === "published") || (entity.created_by === user.id &&
-    (user.role === "editor" || entity.status !== "published"));
+export function canEditRevision(
+  entity: Entity,
+  user?: { id: string; role: string; permissions?: string[]; groups?: string[] },
+): boolean {
+  // 授权口径收敛到 lib/permissions.ts（与后端 permission.go 一致）：
+  // 前端不再自己比较 role 字符串，否则"给了权限组却看不到编辑入口"。
+  return canEditEntity(user, entity);
 }
 
 // 载入历史内容，保留当前版本锁、实体身份与生命周期。仍由普通 PUT 执行权限、

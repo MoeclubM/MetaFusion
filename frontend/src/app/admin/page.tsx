@@ -11,6 +11,7 @@ import { useDefinitions, getTypeName } from "@/lib/definitions";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
+import { canEnterAdmin } from "@/lib/permissions";
 import {
   Shield,
   LayoutDashboard,
@@ -262,7 +263,7 @@ function AdminInner() {
     );
   }
 
-  if (!user || user.role !== "admin") {
+  if (!user || !canEnterAdmin(user)) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
         <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-4">

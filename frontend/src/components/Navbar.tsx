@@ -11,6 +11,7 @@ import { BrandMark } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
 import { displayNameOf } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
+import { canEnterAdmin } from "@/lib/permissions";
 import { getAuthLoginUrl, getAuthSettingsUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
 import {
   Plus,
@@ -105,7 +106,7 @@ export const Navbar: React.FC = () => {
               );
             })}
 
-            {user?.role === "admin" && (
+            {user && canEnterAdmin(user) && (
               <Link
                 href="/admin"
                 className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all ${

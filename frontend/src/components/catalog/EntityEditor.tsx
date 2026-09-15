@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds, local, Source } from "./api";
+import { canPublishEntity } from "@/lib/permissions";
 import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
@@ -229,12 +230,7 @@ export function EntityEditor({
                       "pending_review",
                       // user 走审核制（草稿/待审）；editor/admin 可直接发布
                       // 自己的条目（新建无 created_by 即视为自己）。
-                      ...((user.role === "admin" ||
-                        (user.role === "editor" &&
-                          (!initial?.created_by ||
-                            initial.created_by === user.id)))
-                        ? ["published"]
-                        : []),
+                      ...(canPublishEntity(user, initial) ? ["published"] : []),
                     ]
               ).map((k) => (
                 <option key={k} value={k}>

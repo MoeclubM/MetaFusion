@@ -16,6 +16,9 @@ export interface User {
   display_name?: string | null;
   email: string;
   role: string;
+  /** 账号服务给的组与权限码：授权判定以 permissions 为准（见 lib/permissions.ts）。 */
+  groups?: string[];
+  permissions?: string[];
   invite_code?: string;
   invites_remaining?: number;
   invited_by?: string;
