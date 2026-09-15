@@ -1,8 +1,10 @@
 // 一个"真人"编辑者的浏览器行为：只用界面操作，产出实体、关系与修订。
 import { createRequire } from "module";
 const require = createRequire(import.meta.url);
-const pw = require(process.env.APPDATA + "/npm/node_modules/playwright");
-export const BASE = "https://findverse.cc";
+// 可移植引用：容器里是常规的 node_modules，本机是全局 npm 目录
+let pw;
+try { pw = require("playwright"); } catch { pw = require(process.env.APPDATA + "/npm/node_modules/playwright"); }
+export const BASE = process.env.MF_BASE || "https://findverse.cc";
 
 export async function login(page, user, pass) {
   for (let attempt = 0; attempt < 3; attempt++) {
