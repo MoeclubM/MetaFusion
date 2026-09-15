@@ -148,9 +148,13 @@ type RelationDefinition struct {
 	Acyclic      bool     `json:"acyclic"`
 	MaxOutgoing  int      `json:"max_outgoing"`
 	MaxIncoming  int      `json:"max_incoming"`
-	Group        string   `json:"group"`
-	GroupNames   Names    `json:"group_names,omitempty"`
-	Enabled      bool     `json:"enabled"`
+	// Aggregate 声明这条关系表达"组成/聚合"（集合→作品、专辑→曲目等）。
+	// 客户端据此区分"结构聚合"与"内容关系"，从而不必写死关系码：新增聚合类关系时
+	// 只要在定义里声明它，页面会自动把它算进组成列表。
+	Aggregate  bool   `json:"aggregate,omitempty"`
+	Group      string `json:"group"`
+	GroupNames Names  `json:"group_names,omitempty"`
+	Enabled    bool   `json:"enabled"`
 }
 type Section struct {
 	Names  Names    `json:"names"`

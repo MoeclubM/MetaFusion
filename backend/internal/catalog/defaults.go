@@ -321,6 +321,11 @@ func Defaults() Definitions {
 	addRel("pressing_of", "再版自", "Pressing of", "被再版为", "Repressed as", []string{"release"}, []string{"release"}, "creative", true)
 	addRel("bonus_included_in", "特典收录于", "Bonus included in", "收录特典", "Includes bonus", []string{"expression"}, []string{"release", "medium"}, "membership", true)
 	addRel("store_bonus_for", "渠道特典归属", "Store bonus for", "拥有渠道特典", "Has store bonus", []string{"expression", "release"}, []string{"agent"}, "membership", true)
+	// 组成/聚合关系：声明 Aggregate，页面据此把它算作"组成作品"而不写死关系码。
+	if r, ok := d.Relations["includes"]; ok {
+		r.Aggregate = true
+		d.Relations["includes"] = r
+	}
 	addRel("includes", "组成包含", "Includes", "组成属于", "Included in", []string{"collection", "work"}, []string{"work", "collection"}, "membership", true)
 	// 角色登场：虚构角色/团体 → 作品或集合。方向为 agent → work，
 	// 同一角色跨作品算多条边（AGENTS.md 语义）。
