@@ -16,6 +16,17 @@ permissions:
   pull-requests: read
 
 jobs:
+  # 仓库是公开的：先跑一遍隐私扫描，凭据/私钥/生产主机名一旦提交就收不回来。
+  secrets:
+    name: security (no credentials in tracked files)
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - run: python scripts/check_no_secrets.py
+
   backend:
     name: backend (go vet & build)
     runs-on: ubuntu-latest

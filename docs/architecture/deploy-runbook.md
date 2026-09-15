@@ -1,4 +1,4 @@
-# <prod-host> 线上部署手册与状态（findverse.cc）
+# 线上部署手册与状态（findverse.cc）
 
 > 更新时间：2026-09-14（UTC）。线上 `/root/metafusion` 已在 `codex/storage-history-cleanup` 上完成子系统切流
 > （账号 / 互动 / 存储三服务 + 网关，`./deploy.sh cutover`）并清掉拆分前的遗留结构（`./deploy.sh retire`）。
@@ -57,7 +57,7 @@
 
 ## 2. 部署链路
 
-生产机 `<prod-host>`（22 端口开放，密码或密钥认证；连接信息只记录在不进库的 `docs-local/`）。
+生产机是一台独立主机（SSH 22 端口）。**主机名、用户名、认证方式一律不入库**：它们只写在 `docs-local/deploy/server-connection.md`，仓库内只保留不带连接信息的部署步骤。
 CI（`.github/workflows/ci.yml`）只有构建+测试，无部署步骤；仓库 secrets 为空。
 `deploy/` 支持下面几种更新方式（均需机器 SSH 权限）：
 
@@ -92,9 +92,9 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-o
 
 ## 3. SSH 访问（已解决）
 
-服务端接受 `publickey,password`。认证方式与凭据来源只记在不进库的 docs-local/deploy/server-connection.md。
-注意 `<prod-host>` 不是 SSH 用户名，只是机器别名——用 `<prod-host>` 登录会 `Permission denied`。
-本地密钥未加入服务器 `authorized_keys` 时按 docs-local/deploy/server-connection.md 处理；不要在仓库里描述认证细节。
+服务端接受 `publickey,password`。认证方式与凭据来源只记在 `docs-local/deploy/server-connection.md`；**任何情况下不要把"用户名 + 口令"的组合、私钥内容或凭据文件原文写进仓库**。
+注意机器别名不是 SSH 用户名：直接把别名当用户名登录会 `Permission denied`。
+本地密钥未加入服务器 `authorized_keys` 时按 `docs-local/deploy/server-connection.md` 处理；不要在仓库里描述认证细节，也不要对生产机做账号枚举。
 
 ## 4. 部署后验证清单（上线后执行）
 
