@@ -877,16 +877,9 @@ export function EntityDetailView({ id }: { id: string }) {
                   字段、分区、次序、类型均来自服务端声明，新增媒体类型无需改本文件。 */}
               <WorkFacts entity={entity} defs={defs} locale={locale} />
 
-              {/* 业务类型决定字段方案；标签是独立的自由检索词。 */}
-              {(entity.types?.length > 0 || (Array.isArray(entity.attributes?.tags) && entity.attributes.tags.length > 0)) && (
+              {/* 标签是独立的自由检索词；业务类型只决定字段方案，不再在界面上展示。 */}
+              {Array.isArray(entity.attributes?.tags) && entity.attributes.tags.length > 0 && (
                 <div className="pt-3 border-t border-line-subtle space-y-2">
-                  {entity.types?.length > 0 && <>
-                  <div className="flex items-center gap-1 text-[11px] font-mono text-gray-400">
-                    <Layers className="w-3 h-3" />
-                    <span>{t("catalog.types")}</span>
-                  </div>
-                  {/* 业务类型不在身份区铺标签：它决定字段渲染，不当作分类展示 */}
-                  </>}
                   {Array.isArray(entity.attributes?.tags) && entity.attributes.tags.length > 0 && <>
                   <div className="flex items-center gap-1 text-[11px] font-mono text-gray-400">
                     <TagIcon className="w-3 h-3" />
