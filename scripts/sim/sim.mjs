@@ -24,6 +24,7 @@ async function runAgent(n) {
   const log = fs.createWriteStream(OUT + "run-" + WAVE + "-" + agent + ".jsonl", { flags: "a" });
   const { browser, page, problems } = await makeBrowser();
   let ok = 0, fail = 0, created = [], createdTitles = [];
+  const byKind = { work: [], release: [], medium: [] }; // 供"建子层级"选父级用
   try {
     const url = await login(page, agent, PASS);
     if (String(url).startsWith("LOGIN_FAILED")) {
@@ -48,20 +49,29 @@ async function runAgent(n) {
       const useUpdate = i % 4 === 3 && created.length > 0;
       // 约 1/5 的操作建关系：目标用同批已建的作品标题去搜（覆盖关系链路与实体选择器）
       const useRel = i % 5 === 0 && createdTitles.length > 2 && created.length > 2;
+      // 约 1/6 建子层级：覆盖深层结构（work→expression、release→medium）
+      const childPlan = i % 6 === 0
+        ? (byKind.work.length ? { kind: "expression", parentKind: "work", label: "作品" }
+          : byKind.release.length ? { kind: "medium", parentKind: "release", label: "发行版本" } : null)
+        : null;
       let r = { status: 0, url: "", body: "" };
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          r = useRel
-            ? await addRelation(page, created[(i * 3) % created.length], null, createdTitles.slice().sort(() => Math.random() - 0.5).slice(0, 3), agent)
-            : useUpdate
-              ? await updateEntity(page, created[(i * 7) % created.length], "u" + i, agent)
-              : await createEntity(page, { kind, typeLabel, title, lang: "ja", status: "draft", note: "仿真：" + agent + " 新建第 " + i + " 条（" + kind + "）", source: "https://example.org/sim/" + agent + "/" + i });
+          r = childPlan
+            ? await createEntity(page, { kind: childPlan.kind, typeLabel: undefined, title: agent + "-" + childPlan.kind + "-" + i, lang: "ja", status: "draft", parent: { label: childPlan.label, query: byKind[childPlan.parentKind][byKind[childPlan.parentKind].length - 1] }, note: "仿真：" + agent + " 建 " + childPlan.kind + " 挂在 " + childPlan.parentKind + " 下", source: "https://example.org/sim/" + agent + "/child/" + i })
+            : useRel
+              ? await addRelation(page, created[(i * 3) % created.length], null, createdTitles.slice().sort(() => Math.random() - 0.5).slice(0, 3), agent)
+              : useUpdate
+                ? await updateEntity(page, created[(i * 7) % created.length], "u" + i, agent)
+                : await createEntity(page, { kind, typeLabel, title, lang: "ja", status: "draft", note: "仿真：" + agent + " 新建第 " + i + " 条（" + kind + "）", source: "https://example.org/sim/" + agent + "/" + i });
         } catch (e) { r = { status: 0, url: page.url(), body: String(e).slice(0, 80) }; }
         if (r.status === 200 || r.status === 201) break;
         await page.waitForTimeout(2000);
       }
       const id = r.id || "";
-      if (r.status === 200 || r.status === 201) { ok++; created.push(id); if (!useUpdate && !useRel) createdTitles.push(title); }
+      if (r.status === 200 || r.status === 201) { ok++; created.push(id); if (!useUpdate && !useRel) createdTitles.push(title);
+        const madeKind = childPlan ? childPlan.kind : kind;
+        if (byKind[madeKind]) byKind[madeKind].push(title); }
       else {
         fail++;
         // 401 = 会话失效（令牌过期且续期失败、或被登出）：真人会重新登录后继续，
@@ -72,7 +82,7 @@ async function runAgent(n) {
           log.write(JSON.stringify({ i, action: "relogin", attempt: relogins, url: String(again).slice(0, 40) }) + "\n");
         }
       }
-      log.write(JSON.stringify({ wave: WAVE, i, action: useRel ? "relation" : useUpdate ? "update" : "create", kind, title, status: r.status, id, body: String(r.body).slice(0, 110) }) + "\n");
+      log.write(JSON.stringify({ wave: WAVE, i, action: childPlan ? "child" : useRel ? "relation" : useUpdate ? "update" : "create", kind, title, status: r.status, id, body: String(r.body).slice(0, 110) }) + "\n");
       if (i % 10 === 0) console.log("[" + agent + "] " + i + "/" + OPS + " ok=" + ok + " fail=" + fail);
     }
   } catch (e) {

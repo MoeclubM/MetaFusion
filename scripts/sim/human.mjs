@@ -53,6 +53,26 @@ export async function createEntity(page, opts) {
   await titleInput.fill(opts.title);
   if (opts.lang) { const og = label("原语言代码").locator("input").first(); if (await og.count()) await og.fill(opts.lang); }
   await label("发布状态").locator("select").selectOption(opts.status || "draft");
+  // 结构归属：子层级（expression/medium/track…）必须在「所属与收录结构」区选父级，
+  // 否则服务端 parent_required。选择器与关系目标同形：搜索框 + 原生下拉。
+  if (opts.parent) {
+    const st = page.locator("fieldset", { hasText: "所属与收录结构" }).first();
+    await st.waitFor({ state: "visible", timeout: 25000 }).catch(() => {});
+    const pl = st.locator("label", { hasText: opts.parent.label }).first();
+    const ps = pl.locator('input[placeholder*="搜索实体"]').first();
+    const psel = pl.locator("select").first();
+    let chosen = "";
+    if (await ps.count()) {
+      await ps.fill(String(opts.parent.query));
+      for (let w = 0; w < 10 && !chosen; w++) {
+        await page.waitForTimeout(700);
+        const vals = await psel.locator("option").evaluateAll((os) => os.map((o) => ({ v: o.value, t: o.textContent || "" })).filter((x) => x.v));
+        if (vals.length) chosen = (vals.find((x) => x.t.includes(String(opts.parent.query))) || vals[0]).v;
+      }
+    }
+    if (chosen) await psel.selectOption(chosen);
+    else return { status: 0, url: page.url(), body: "父级未选中（" + opts.parent.query + "）" };
+  }
   // 证据必须按 fieldset 语义定位：页面里还有「多语言题名与别名」的简介/别名 textarea，
   // 用 textarea.first() 会把修改说明写进"别名"，而证据区仍为空 → 客户端校验直接拦下提交。
   const ev = page.locator("fieldset", { hasText: "编辑说明与来源" }).first();
