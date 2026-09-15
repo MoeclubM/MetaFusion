@@ -5,7 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds, local, Source } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
-import { RelationEditorField } from "@/components/editor/RelationEditorField";
+import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
 import { effectiveSchemeFields, getFieldName, matchSchemes } from "@/lib/definitions";
 export function EntityEditor({
   initial,
@@ -57,6 +57,8 @@ export function EntityEditor({
     return union.length > 0 ? union : undefined;
   }, [defs, kindKey, typesKey]);
   const [note, setNote] = useState(initialEditNote);
+  // 新建条目时关系先入队：条目拿到 id 之后再逐条写入（见 save）。
+  const [pendingRelations, setPendingRelations] = useState<RelationDraft[]>([]);
   const [sources, setSources] = useState<Source[]>(initialSources || [
     { kind: "self", citation: "" },
   ]);
@@ -129,6 +131,39 @@ export function EntityEditor({
         e.id ? "PUT" : "POST",
         { entity: e, expected_version: e.version, edit_note: note, sources },
       );
+      // 新建时排队的关系：条目已在，逐条写入。失败不静默——列出失败项让用户决定重试哪条。
+      if (!e.id && pendingRelations.length > 0) {
+        const failures: string[] = [];
+        for (const d of pendingRelations) {
+          try {
+            await api(
+              "/catalog/relations",
+              "POST",
+              {
+                relation: {
+                  type: d.type,
+                  source_id: d.forward ? out.id : d.targetId,
+                  target_id: d.forward ? d.targetId : out.id,
+                  position: d.position,
+                  attributes: d.attributes,
+                },
+                expected_version: 0,
+                edit_note: note,
+                sources,
+              },
+              { "Idempotency-Key": crypto.randomUUID() },
+            );
+          } catch (err) {
+            failures.push(`${d.type}: ${(err as Error).message}`);
+          }
+        }
+        setPendingRelations([]);
+        if (failures.length > 0) {
+          setError(t("editor.relation.flushFailed", { list: failures.join("；") }));
+          setBusy(false);
+          return;
+        }
+      }
       if (onSaved) onSaved(out);
       else router.push(`/catalog/${out.id}`);
     } catch (err) {
@@ -622,7 +657,15 @@ export function EntityEditor({
       </fieldset>
       )}
       {/* 关系维护：独立资源逐条提交，不复用实体 PUT；词表来自服务端 definitions。 */}
-      <RelationEditorField entityId={e.id} entityKind={e.kind} entityTypes={e.types} note={note} sources={sources} />
+      <RelationEditorField
+        entityId={e.id}
+        entityKind={e.kind}
+        entityTypes={e.types}
+        note={note}
+        sources={sources}
+        drafts={pendingRelations}
+        onDraftsChange={setPendingRelations}
+      />
       {!!fields.length && (
         <fieldset>
           <legend>{t("catalog.attributes")}</legend>

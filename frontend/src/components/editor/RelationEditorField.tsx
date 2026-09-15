@@ -19,6 +19,16 @@ interface Relation {
   attributes?: Record<string, any>;
 }
 
+/** 新建条目时的待提交关系：条目还没有 id，关系先入队，保存成功后由编辑器逐条写入。 */
+export interface RelationDraft {
+  key: string;
+  type: string;
+  forward: boolean;
+  targetId: string;
+  position: number;
+  attributes: Record<string, any>;
+}
+
 interface Props {
   /** 新建未保存时为空：此时提示先保存条目。 */
   entityId?: string;
@@ -29,6 +39,9 @@ interface Props {
   /** 复用编辑器 Evidence 区的修改说明与来源：关系写入同样强制证据。 */
   note: string;
   sources: Source[];
+  /** 新建条目时使用：关系先入队（见 RelationDraft），保存条目后统一写入。 */
+  drafts?: RelationDraft[];
+  onDraftsChange?: (next: RelationDraft[]) => void;
 }
 
 // 选项同时携带对端可接受的 kind 与动态业务类型：服务的 invalid_endpoint_types
@@ -48,7 +61,7 @@ const optionKey = (o: TypeOption) => `${o.code}|${o.forward ? "f" : "r"}`;
  * 关系可携带的属性字段由关系定义的 fields 声明，创建与编辑共用同一套动态表单；
  * 已有关系的属性可就地修改（PUT，端点与类型不可变，version 乐观锁）。
  */
-export function RelationEditorField({ entityId, entityKind, entityTypes, note, sources }: Props) {
+export function RelationEditorField({ entityId, entityKind, entityTypes, note, sources, drafts, onDraftsChange }: Props) {
   const { t, locale } = useI18n();
   const { definitions: defs } = useDefinitions();
 
@@ -62,6 +75,29 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
   const [addAttrs, setAddAttrs] = useState<Record<string, any>>({});
   const [editingId, setEditingId] = useState("");
   const [editAttrs, setEditAttrs] = useState<Record<string, any>>({});
+  const [draftTitles, setDraftTitles] = useState<Record<string, string>>({});
+
+  // 新建中（没有 entityId）时，关系先入队；有 onDraftsChange 才启用队列 UI。
+  const pendingMode = !entityId && !!onDraftsChange;
+  const queue = drafts || [];
+
+  // 待提交关系的对端标题：只对这些 id 批量取一次，避免列表里只剩裸 UUID。
+  useEffect(() => {
+    const ids = queue.map((d) => d.targetId).filter((id) => id && !draftTitles[id]);
+    if (ids.length === 0) return;
+    let active = true;
+    void Promise.all(ids.map((id) => api<Entity>(`/catalog/entities/${id}`).catch(() => null))).then((list) => {
+      if (!active) return;
+      setDraftTitles((prev) => {
+        const next = { ...prev };
+        for (const e of list) if (e && e.id) next[e.id] = e.title;
+        return next;
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [queue, draftTitles]);
 
   const load = React.useCallback(async () => {
     if (!entityId) return;
@@ -123,7 +159,38 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
     });
 
   const submit = async () => {
-    if (!entityId || !selected || !addTarget) return;
+    if (!selected || !addTarget) return;
+    // 新建条目时还没有 id：关系先入队，条目保存成功后由 EntityEditor 统一写入。
+    // 这一步不校验证据——证据来自同一个表单，保存时才会强制。
+    if (pendingMode) {
+      const missingDraft = missingRequired(selected.code, addAttrs);
+      if (missingDraft.length > 0) {
+        setError(
+          t("editor.relation.requiredMissing", {
+            fields: missingDraft.map((c) => getFieldName(defs, c, locale)).join("、"),
+          }),
+        );
+        return;
+      }
+      const siblings = queue.filter((d) => d.type === selected.code && d.forward === selected.forward);
+      const nextPos = siblings.reduce((max, d) => Math.max(max, d.position), -1) + 1;
+      onDraftsChange?.([
+        ...queue,
+        {
+          key: `${selected.code}|${optionKey(selected)}|${addTarget}|${nextPos}`,
+          type: selected.code,
+          forward: selected.forward,
+          targetId: addTarget,
+          position: nextPos,
+          attributes: addAttrs,
+        },
+      ]);
+      setAddType("");
+      setAddTarget("");
+      setAddAttrs({});
+      setError("");
+      return;
+    }
     if (!evidenceReady) {
       setError(t("editor.relation.evidenceRequired"));
       return;
@@ -323,7 +390,7 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
   };
 
   // 已有关系的属性摘要：仅显示有值的字段，枚举/实体引用按 definitions 本地化。
-  const attrSummary = (r: Relation) => {
+  const attrSummary = (r: { type: string; attributes?: Record<string, any> }) => {
     const codes = relationFieldCodes(r.type).filter((fc) => {
       const v = r.attributes?.[fc];
       return v !== undefined && v !== null && v !== "";
@@ -341,7 +408,8 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
     );
   };
 
-  if (!entityId) {
+  // 没有 entityId 且调用方不支持队列（旧用法）：保留「先保存条目」的提示。
+  if (!entityId && !pendingMode) {
     return (
       <fieldset>
         <legend>{t("catalog.relations")}</legend>
@@ -361,8 +429,44 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
         </p>
       )}
 
+      {/* 待提交队列（新建条目）：保存条目时统一写入 */}
+      {pendingMode && (
+        <div className="space-y-1.5">
+          <p className="font-mono text-xs text-text-muted">{t("editor.relation.pendingTitle")}</p>
+          {queue.length === 0 ? (
+            <p className="text-sm opacity-60">{t("editor.relation.pendingEmpty")}</p>
+          ) : (
+            <ul className="cv-relation-list space-y-1.5">
+              {queue.map((d) => (
+                <li key={d.key} className="cv-row flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="inline-flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                    <span className="shrink-0 rounded bg-black/[0.05] px-1.5 py-0.5 font-mono text-xs dark:bg-white/[0.08]">
+                      {defs?.relations?.[d.type] ? getRelationName(defs, d.type, d.forward, locale) : d.type}
+                    </span>
+                    {!d.forward && (
+                      <ArrowLeftRight className="w-3 h-3 shrink-0 opacity-50" aria-label={t("editor.relation.reverse")} />
+                    )}
+                    <span className="truncate text-text-strong">{draftTitles[d.targetId] || d.targetId}</span>
+                    {attrSummary(d)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onDraftsChange?.((drafts || []).filter((x) => x.key !== d.key))}
+                    className="inline-flex shrink-0 items-center gap-1 text-xs opacity-60 hover:opacity-100 hover:text-red-600 dark:hover:text-red-400"
+                    title={t("editor.relation.remove")}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {t("editor.relation.remove")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {/* 已有关系列表 */}
-      {loading ? (
+      {pendingMode ? null : loading ? (
         <p className="text-sm opacity-60">{t("catalog.loading")}</p>
       ) : items.length === 0 ? (
         <p className="text-sm opacity-60">{t("editor.relation.none")}</p>
@@ -507,7 +611,7 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
             className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
-            {t("editor.relation.add")}
+            {t(pendingMode ? "editor.relation.addPending" : "editor.relation.add")}
           </button>
         </div>
         {selected && attrInputs(selected.code, addAttrs, setAddAttrs)}

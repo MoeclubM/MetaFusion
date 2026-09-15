@@ -2621,5 +2621,9 @@
   "theme.tone.neutral": "中性",
   "theme.tone.cool": "冷灰",
   "theme.tone.warm": "暖灰",
-  "theme.tone.deep": "深色"
+  "theme.tone.deep": "深色",
+  "editor.relation.pendingTitle": "待提交關係（儲存條目後自動寫入）",
+  "editor.relation.pendingEmpty": "尚未排入關係。新建條目時可先加關係，儲存時一併建立。",
+  "editor.relation.addPending": "加入待提交",
+  "editor.relation.flushFailed": "條目已儲存，但以下關係未寫入：{list}"
 }
