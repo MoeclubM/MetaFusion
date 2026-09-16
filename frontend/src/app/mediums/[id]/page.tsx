@@ -12,6 +12,7 @@ import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
 import { GroupAttributeInline, LocatorInline } from "@/components/catalog/TemplateAttributeSections";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { PageShell } from "@/components/ui/PageShell";
+import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -174,6 +175,17 @@ export default function MediumDetailPage() {
               {roleLabel && <span className="text-xs font-mono text-gray-500">{roleLabel}</span>}
             </div>
             <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-text-strong break-words">{mediumTitle}</h1>
+            {/* 多语言题名/别名：与 /works/[id] 一致（载体页此前也缺这块）。 */}
+            {medium && (
+              <LocalizedTitleGroups
+                translations={medium.translations}
+                originalLanguage={medium.original_language}
+                displayTitle={mediumTitle}
+                extraKnown={[medium.title]}
+                className="space-y-0.5"
+                itemClassName="font-mono text-xs text-text-muted"
+              />
+            )}
             {work && (
               <p className="text-sm text-gray-500">
                 {entityTitle(work, locale) || work.title}

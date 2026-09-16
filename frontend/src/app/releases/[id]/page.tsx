@@ -16,6 +16,7 @@ import {
 } from "@/lib/definitions";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { PageShell } from "@/components/ui/PageShell";
+import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
@@ -711,6 +712,15 @@ export default function ReleaseDetailPage() {
                 {barcode && <span className="text-gray-500">{t("release.detail.barcode", { code: barcode })}</span>}
               </div>
               <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong leading-tight">{releaseTitle}</h1>
+              {/* 多语言题名/别名：与 /works/[id] 一致。发行版此前缺这块，导致"有翻译却看不到"。 */}
+              <LocalizedTitleGroups
+                translations={release.translations}
+                originalLanguage={release.original_language}
+                displayTitle={releaseTitle}
+                extraKnown={[release.title]}
+                className="mt-1 space-y-0.5"
+                itemClassName="font-mono text-xs text-text-muted"
+              />
               <dl className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-gray-500">
                 {country && <div className="flex gap-1"><dt>{t("release.detail.countryLabel")}</dt><dd className="text-text-body">{country}</dd></div>}
                 {language && <div className="flex gap-1"><dt>{t("release.detail.languageLabel")}</dt><dd className="text-text-body">{language}</dd></div>}
