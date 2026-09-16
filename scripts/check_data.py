@@ -90,11 +90,16 @@ def main():
                     problems.append(("P0", "structure_target_not_visible", e["id"], "%s.%s -> %s" % (e.get("kind"), code, val)))
                 elif tgt.get("kind") not in targets:
                     problems.append(("P1", "structure_target_kind_mismatch", e["id"], "%s.%s -> %s(%s)" % (e.get("kind"), code, tgt.get("title"), tgt.get("kind"))))
-    # 3. 图片（期望值按层级区分；medium/track/expression 允许无图）
+    # 3. 图片：按类型只做"提示"，不进 P0/P1 闸门。
+    #    原因：medium/track/expression 本就不需要图；song 这类细分类型官方也没有独立图，
+    #    一刀切报 P2 会变成噪音，反而掩盖真问题。这里按"层级/类型"聚合后在报告末尾提示。
+    no_pic_by_type = Counter()
     for e in entities:
-        if e.get("kind") in ("work", "release", "agent", "collection") and not (e.get("pictures") or []):
-            stats["no_picture"] += 1
-            problems.append(("P2", "no_picture", e["id"], "%s/%s" % (e.get("kind"), e.get("title", ""))))
+        if e.get("pictures"):
+            continue
+        labels = e.get("types") or [str(e.get("kind"))]
+        for label in labels:
+            no_pic_by_type["%s/%s" % (e.get("kind"), label)] += 1
     # 4. 关系：重复边与端点不可见
     seen = defaultdict(int)
     checked = 0
@@ -135,6 +140,10 @@ def main():
     by_kind = Counter(p[1] for p in problems)
     for name, n in by_kind.most_common():
         print("  %-34s %d" % (name, n))
+    if no_pic_by_type:
+        print("\n缺图提示（不计入 P0/P1；官方无图或本层级不需要图的属正常）:")
+        for name, n in no_pic_by_type.most_common(12):
+            print("  %-28s %d" % (name, n))
     show = [p for p in problems if p[0] in ("P0", "P1")]
     if show:
         print("\nP0/P1 明细（最多 40 条）：")
