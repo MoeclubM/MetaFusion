@@ -39,7 +39,7 @@
 
 ## 变更纪律
 
-- 存储服务自带幂等 DDL 建表；**版本化迁移**仍是待补项（与目录侧的 `backend/migrations` 不同轨）。
+- 存储服务自带**版本化迁移**：DDL 在 `internal/store/migrations/000001_init.up.sql`（`go:embed`），启动执行同一份**幂等**基线并记账到 `storage.schema_migrations`，迁移期取事务级 advisory lock **740204**（目录侧是 `backend/migrations` + 740202）。
 - 存储侧与目录侧的接口只有一条：实体可见性查询（`GET /api/catalog/entities/{id}`，实体已合并时再取
   `/api/catalog/entities/{id}/resolve` 跟随重定向）。任何"直接读对方表"的做法都应被拒绝。
 - 身份解析不走目录服务：存量不透明令牌的兜底问账号服务（`AUTH_URL` 的 `GET /api/auth/me`），

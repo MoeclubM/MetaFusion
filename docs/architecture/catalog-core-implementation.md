@@ -2,7 +2,7 @@
 
 面向编目者的模型、例子与端点见 [编目教程](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/catalog.md)（文档在独立仓库 `metafusion-docs`）。
 
-核心位于 `backend/internal/catalog`：统一实体注册表（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）、类型专用结构表、动态定义、独立身份会话、修订与 outbox。所有核心写事务共用 advisory lock，乐观版本避免静默覆盖；复合外键和延迟触发器拒绝跨域父子和循环。该首版串行化核心写入，适合中小规模协作站；高写入量时需要按受影响图范围缩小锁粒度。
+核心位于 `backend/internal/catalog`：统一实体注册表（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）、类型专用结构表、动态定义、修订与 outbox；账号、会话与令牌归 `metafusion-auth`，目录侧只做 RS256 验签、不保存账号数据。所有核心写事务共用 advisory lock，乐观版本避免静默覆盖；复合外键和延迟触发器拒绝跨域父子和循环。该首版串行化核心写入，适合中小规模协作站；高写入量时需要按受影响图范围缩小锁粒度。
 
 `cmd/server/main.go` 作为纯净的单一启动入口：核心仅依赖 PostgreSQL。核心不强制初始化 Redis、S3 或 OpenSearch。外围初始化失败只影响能力接口和外围路由，目录仍可正常启动与编辑。
 

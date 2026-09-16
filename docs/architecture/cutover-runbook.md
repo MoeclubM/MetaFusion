@@ -24,8 +24,9 @@ cd deploy && ./deploy.sh cutover
 ### 网关必须显式重载
 
 `deploy/nginx.conf` 是以**文件**挂载进网关容器的，Compose 只比对服务定义、不比对被挂载文件的内容，
-因此改完路由矩阵后 `up -d` 不会重建网关，配置改了却不生效。`deploy.sh` 的每个部署动作末尾都会先
-`nginx -t` 校验再 `nginx -s reload`；手工操作时也要补这一步：
+因此改完路由矩阵后 `up -d` 不会重建网关，配置改了却不生效。`deploy.sh` 的重载函数会先
+`up -d --force-recreate --no-deps gateway`（单文件 bind mount 绑的是 inode，`git pull` 换掉文件后容器里仍是旧 inode），
+再做 `nginx -t` 校验与 `nginx -s reload`；校验失败就保留旧配置继续服务。手工操作时也要补这两步：
 
 ```bash
 docker exec metafusion-gateway nginx -t && docker exec metafusion-gateway nginx -s reload
@@ -36,7 +37,7 @@ docker exec metafusion-gateway nginx -t && docker exec metafusion-gateway nginx 
 | 前提 | 判据 |
 | --- | --- |
 | 三个服务已部署且健康 | `curl -fsS http://auth:8081/ready`、`community:8083/ready`、`storage:8082/ready` 均 200 |
-| **RSA 私钥一致** | auth 与 catalog 的 `AUTH_JWT_PRIVATE_KEY` 必须同一把密钥：否则切到 auth 后登录签发的令牌在 catalog 侧验签失败，用户会立刻掉线 |
+| **验签公钥对齐** | catalog 按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）或 `AUTH_JWKS_URL`（账号服务 JWKS）验签，二者必配其一（fail closed）；只有走兼容兜底 `AUTH_JWT_PRIVATE_KEY` 时才需要与 auth 同一把私钥——该路径启动会告警、待移除。公钥与签发密钥不一致会让已登录用户立刻掉线 |
 | issuer/audience 一致 | 两处 `AUTH_JWT_ISSUER=https://findverse.cc/api`、`AUTH_JWT_AUDIENCE=metafusion` |
 | 数据库可达 | 三个服务与单体连同一个 PostgreSQL 实例（各用自有 schema） |
 | 导入演练 | `docker compose run --rm community-migrate -direction forward -dry-run` 能打印各源表行数，且不写入 |
@@ -61,7 +62,7 @@ GATEWAY=https://<host> DSNS="postgres://…/metafusion_db" ./scripts/cutover-che
 **表结构等价性已有测试保证**（不需要数据库即可运行）：
 - 互动服务：`internal/store/schema_parity_test.go` 冻结了老表六张表的逐列定义（名称/类型/约束/默认值），
   搬运过来的 handler SQL 按老表结构编写，任何漂移都会让该用例失败；
-- 账号服务：`internal/store/schema_parity_test.go` 冻结了主仓库 `auth` schema 的终态（含迁移 000009 的 PKCE 列），
+- 账号服务：`internal/store/schema_parity_test.go` 冻结了**线上 `auth` schema 的终态**（含 PKCE 列；主仓库已不再创建 auth schema 的任何对象，这份冻结值是唯一来源），
   保证全新库上建出来的表与线上一致。
 
 因此切流前只需要跑 `go test ./...` 就能确认"新库能承受老代码的 SQL"，不必等真实请求报错。
@@ -73,7 +74,7 @@ GATEWAY=https://<host> DSNS="postgres://…/metafusion_db" ./scripts/cutover-che
 > **已用 `./deploy.sh cutover` 一次性切完的实例不需要再逐步执行这一步；
 > 下面三步保留给「有在线数据、必须按前缀分批切」的实例，以及未来回滚演练时的参照。**
 
-### 第 1 步：storage（前端不调用，风险最低）
+### 第 1 步：storage（风险最低）
 
 存储契约是 `/api/storage/*`，网关矩阵里这几处 location 从 P1 起就指向 `http://storage:8082`，
 所以这一步**没有「切流」动作**，只需要确认服务健康：
@@ -81,6 +82,10 @@ GATEWAY=https://<host> DSNS="postgres://…/metafusion_db" ./scripts/cutover-che
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' http://<host>/api/storage/stats   # 401 = 已在鉴权，符合预期
 ```
+
+注意：前端**会**调用 `/api/storage/*`（上传发起/完成、流式上传、绑定与解绑、实体文件列表，见
+`frontend/src/lib/storage.ts` 与 `components/storage/EntityResourceFiles.tsx`），所以存储前缀不是"无流量"，
+只是链路短、失败面窄（上传不可用不影响浏览与编目）。
 
 - 单体从来没有 `/api/storage/*`，因此不存在「切回单体」的回滚路径；真要退就是停掉这些 location。
 - 网关不为 `/api/archive/`、`/api/playback/`、`/api/media/` 单列 location（落到 `/api/` 兜底），前端也不调用它们。
@@ -169,8 +174,8 @@ cd deploy && ./deploy.sh retire
 - 所有 API 调用都走同源 `/api/*`（`fetchApi` 前缀），由网关按前缀分流，因此服务切换对前端透明。
 - 前端对受影响前缀的实际调用（已核对）：`/auth/*`（设置页）、`/community/*`（社区页）、`/favorites/*`（收藏按钮与个人主页）、
   `/users/{id}/*`（个人主页）。
-- 前端**完全不调用** `/archive/`、`/playback/`、`/media/`、`/storage/`、`/records/`、`/exchange/`，
-  这也是存储可以先切、且风险最低的原因。
+- 前端不调用 `/archive/`、`/playback/`、`/media/`、`/records/`、`/exchange/`；但**会**调用 `/api/storage/*`
+  （上传、绑定、实体文件列表），因此存储这一步的理由是"链路短、失败面窄"，不是"没有流量"。
 - 页面级外链（账号页、资源站、文档站）由 `frontend/src/lib/services.ts` 的 `NEXT_PUBLIC_*` 控制，与本次切流无关。
 
 ## 4. 还没处理的问题
@@ -179,5 +184,5 @@ cd deploy && ./deploy.sh retire
 | --- | --- | --- |
 | 媒体分析与预览转码 | 存储服务只收原始文件、按权限分发，不做这类处理 | 该能力不提供 |
 | 浏览器预签名直传 | 对象存储不发布宿主机端口，当前走服务端流式上传 | 恢复直传要给对象存储一个独立对外域名并设 `STORAGE_S3_PUBLIC_ENDPOINT`（SigV4 覆盖 Host，只加路径前缀不行） |
-| Redis | 已无代码读取（`REDIS_ADDR` 已从后端配置移除） | 可以从常驻服务里去掉，省一份常驻内存 |
+| Redis | backend 全仓 0 处 Redis 引用（compose 仍给 backend 注入 `REDIS_ADDR`，但没有任何代码读它） | 可以从常驻服务里去掉，省一份常驻内存 |
 | 收藏「是否公开」 | 前端只读占位，接口恒 `visible: true` | 实现该开关时归互动服务 |

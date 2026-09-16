@@ -49,7 +49,7 @@
 ### 2.1 网关矩阵、密钥与 UI 的归属（2026-09 审计）
 
 - **网关矩阵**：唯一生效的是 `deploy/nginx.conf`。2026-09 已把 `metafusion-api-gateway` 仓库里的旧矩阵移入 `examples/pre-cutover/` 并标注不参与部署（该仓库现在只有脚本），`cutover-check.sh` 改为**断言服务标记头**、新增离线 `--self-check`。矩阵的自动校验在主仓库：`scripts/check_gateway_matrix.py`（条数、每条 `/api/*` 必须挂限流、矩阵↔本文 §2 表的登记与归属比对）与 `scripts/check_versions.py`（`deploy/versions.lock`）。**仍未做**的是“把矩阵本体搬进网关仓库、主仓库只引用”，见 [审计文档](./decoupling-audit-2026-09.md) §6。
-- **密钥边界**：签发私钥只在账号服务。现状目录侧读 `AUTH_JWT_PRIVATE_KEY` 只为派生公钥，应改为静态公钥或 JWKS（证据见 [审计文档](./decoupling-audit-2026-09.md) §2）。
+- **密钥边界**：签发私钥只在账号服务。目录侧已改成按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）→ `AUTH_JWKS_URL`（账号服务的 JWKS）取验签公钥，compose 不再向 backend 注入 `AUTH_JWT_PRIVATE_KEY`；该变量在目录侧只剩兼容兜底路径（启动会告警、待移除）。证据与判据见 [审计文档](./decoupling-audit-2026-09.md) §2。
 - **协议层 SDK**：`metafusion-sdk` 仓库骨架已建（Claims/RS256+JWKS 验签/会话兜底/权限码与 `Can`/错误体与分页/health/request-id，零第三方依赖）。**尚无双端接入**：三个服务仍各自实现，切换是 B2 的后续批次；两处语义差异（SDK 拒收私钥配置、`offset<0` 收敛为 0）进契约前需核对存量令牌与调用方。
 - **UI 归属**：现状四域 UI 全在主仓库 `frontend/`；目标形态是**每个服务自带 UI**，网关按 `/`、`/account`、`/community`、`/downloads` 聚合，目录详情页对社区与资源区块改用嵌入契约（已定，见 [审计文档](./decoupling-audit-2026-09.md) §7）。
 
@@ -60,8 +60,8 @@
   - storage/community 判定"实体是否可见"必须走 catalog 的实体查询接口，不得直连 catalog 表。
   - 实体合并（`entity.merged`）写入目录的 `catalog.outbox`；**当前没有任何跨服务消费者**（投递函数 `Store.Deliver` 只在测试里被调用），子系统对合并结果的收敛靠同步查询目录接口。
     `deliveries`（consumer + `event_id`）去重与回调按事件 ID 幂等，是**将来引入投递时的契约**而不是现状；投递与拉取的取舍见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §5。
-- 结构来源：目录走 `backend/migrations/000001_catalog_core.up.sql` + `mf-migrate`；互动与存储各自把 DDL 放进仓库内 `migrations/000001_init.up.sql`（`go:embed`），启动执行同一份**幂等**基线并记账到 `<schema>.schema_migrations`。
-  约定：迁移文件按版本号命名、账本表在各自 schema 内、迁移期取事务级 advisory lock，键位 **catalog 740202 / auth 740203 / storage 740204 / community 740205**（新增服务必须另取键位并在本文登记）。
+- 结构来源：目录走 `backend/migrations/000001_catalog_core.up.sql` + `mf-migrate`；互动与存储各自把 DDL 放进仓库内（社区 `migrations/000001_init.up.sql`、存储 `internal/store/migrations/000001_init.up.sql`，均 `go:embed`），启动执行同一份**幂等**基线并记账到 `<schema>.schema_migrations`。
+  约定：迁移文件按版本号命名、账本表在各自 schema 内；迁移期取事务级 advisory lock 的键位是 **catalog 740202 / auth 740203 / storage 740204**（社区当前不取 advisory lock；新增服务必须另取键位并在本文登记）。
   “启动只校验、迁移由 owner 单独跑”尚未实现（受限角色下 `CREATE TABLE IF NOT EXISTS` 会要 schema 的 CREATE 权限），见 [审计文档](./decoupling-audit-2026-09.md) §4.3。
 - 存储系统**不保存**元数据结构（不复制作品/专辑/曲目表）；元数据系统**不保存**对象存储物理路径。
 - 绑定的"用途"用 `binding_role` 表达（`track_audio` / `disc_image` / `scans` / `video` …），
@@ -72,8 +72,8 @@
 - 只有 auth 签发令牌；其余服务**只验签**（RS256，JWKS）。验签信 `sub`/`preferred_username`/`role`，
   以及授权用的 `groups`/`permissions`（auth 按组展开后的权限码集合，admin 组带 `*` 通配）。
 - issuer 保持 `https://findverse.cc/api`、audience 保持 `metafusion`，避免存量令牌全部失效。
-- 各服务的 JWKS 地址用环境变量注入，现在都指向账号服务：community 的 `COMMUNITY_JWKS_URL`、storage 的
-  `STORAGE_JWKS_URL` = `http://auth:8081/api/oidc/jwks`（catalog/community/storage 都不提供 JWKS，只验签）。
+- 各服务的 JWKS 地址用环境变量注入，现在都指向账号服务：catalog 的 `AUTH_JWKS_URL`、community 的 `COMMUNITY_JWKS_URL`、storage 的
+  `STORAGE_JWKS_URL` = `http://auth:8081/api/oidc/jwks`（catalog/community/storage 都不提供 JWKS，只验签；catalog 也可用静态公钥 `AUTH_JWT_PUBLIC_KEY`）。
 - 主仓库 `Store.Authenticate` **只做 RS256 验签**：
   目录不读账号服务的表。存量不透明令牌的兜底由各服务问账号服务（`AUTH_URL`），
   续期仍走账号服务的 `/api/auth/refresh`（短期访问令牌，否则用户会被强制下线）。
@@ -87,8 +87,8 @@
 >
 > - **遗留**：收藏"是否公开"仍只有前端只读占位（`settings/page.tsx` 的开关是 `disabled readOnly`，
 >   目录侧无字段），接口恒返回 `visible: true`；实现该开关时归互动服务。
-> - **运维注意**：文档站镜像没有任何仓库发布，而 `deploy/docker-compose.prod.yml` 把它写成预构建镜像，
->   因此 `deploy.sh pull` 前要先在文档仓库构建并推送该镜像，否则该服务拉不到。
+> - **运维注意**：文档站镜像没有任何仓库发布。`deploy/docker-compose.prod.yml` 只给它一个镜像名、**保留 `build`**，
+>   而 `deploy.sh pull` 带 `--ignore-pull-failures`：镜像缺席时就地从兄弟目录 `../../metafusion-docs` 构建，不会让整条命令失败。
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |

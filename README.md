@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
   <img src="https://img.shields.io/badge/OpenSearch-2.14-005ECC?style=flat-square&logo=opensearch&logoColor=white" alt="OpenSearch"/>
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker"/>
-  <img src="https://img.shields.io/badge/i18n-zh--CN%20%7C%20en--US-blue?style=flat-square" alt="i18n"/>
+  <img src="https://img.shields.io/badge/i18n-zh--CN%20%7C%20zh--TW%20%7C%20ja--JP%20%7C%20en--US-blue?style=flat-square" alt="i18n"/>
 </p>
 
 <p align="center">
@@ -43,7 +43,7 @@
 
 ### 2. 🔐 会话认证与访问控制
 - **服务端会话 + RS256 访问令牌**：账号与令牌由独立服务 `metafusion-auth`（`auth` schema）负责——登录签发 RS256 JWT（默认 15 分钟）并写入 HttpOnly Cookie `mf_session`，`POST /api/auth/refresh` 轮转会话，`POST /api/auth/logout-all` 吊销全部会话；目录侧只做**验签**，不保存账号数据、不查对方表。
-- **令牌密钥（环境变量）**：`AUTH_JWT_PRIVATE_KEY` 为 PKCS#1/PKCS#8 PEM（或其 base64）RSA 私钥，**目录与账号服务共用同一把**（切流后由账号服务签发、其余服务只验签），未配置时生成进程内临时密钥（重启即失效）；`AUTH_JWT_ISSUER`（默认 `https://findverse.cc/api`）与 `AUTH_JWT_AUDIENCE`（默认 `metafusion`）写入令牌声明。注意：无状态令牌在 `logout-all` 后仍有最长 15 分钟的验签残余窗口，强吊销场景等待会话过期或更换密钥。
+- **令牌密钥（环境变量）**：私钥只在账号服务——`AUTH_JWT_PRIVATE_KEY`（PKCS#1/PKCS#8 PEM 或其 base64）由 auth 用于**签发**，未配置时生成进程内临时密钥（重启即失效）。目录侧只验签，按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）→ `AUTH_JWKS_URL`（账号服务的 JWKS，默认 `http://auth:8081/api/oidc/jwks`）取公钥；`AUTH_JWT_PRIVATE_KEY` 在目录侧只剩兼容兜底（启动会告警，待移除）。`AUTH_JWT_ISSUER`（默认 `https://findverse.cc/api`）与 `AUTH_JWT_AUDIENCE`（默认 `metafusion`）写入令牌声明。注意：无状态令牌在 `logout-all` 后仍有最长 15 分钟的验签残余窗口，强吊销场景等待会话过期或更换密钥。
 - **OAuth 2.0 / OIDC 接入**：由账号服务提供 `/api/oauth/authorize`、`/api/oauth/token`、`/api/oauth/userinfo`、
   `/.well-known/openid-configuration` 与 `/api/oidc/jwks`（其他服务用 JWKS 本地验签）。
 - **规划中（未实现）**：Access/Refresh 双 Token 轮转、基于 Redis 的令牌黑名单、个人访问令牌（PAT）——当前均无对应实现，请勿据此开发。
@@ -59,7 +59,7 @@
 
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
 - **独立迁移引擎 (`mf-migrate`)**：自研 Go 原生数据库迁移工具，集成 PostgreSQL Advisory Lock 机制，彻底杜绝多副本部署时的并发迁移竞争。
-- **无缝冷热启动**：支持 `up`、`down`、`status`、`force` 命令行管理，镜像内置嵌入式 SQL 脚本，部署前后自动完成无损版本升降级。
+- **无缝冷热启动**：支持 `up`、`down`、`status`、`force` 与 `seed`（定义/货架/外部库种子的只增不改增量合并）命令行管理，镜像内置嵌入式 SQL 脚本，部署前后自动完成无损版本升降级。
 - **单端口边缘网关**：内置优化配置的 Nginx 边缘网关，对外仅需暴露单端口（默认 `10100`），无缝兼容宿主机外部反向代理（Nginx / Caddy / Cloudflare）接管 HTTPS。
 
 ---
@@ -77,8 +77,8 @@
 | **元数据目录** | `backend/internal/catalog`、`backend/cmd/server` | **主系统** | 八大固定实体骨架、动态定义引擎、关系图谱、版本对比、修订历史、`/api/exchange/*` 导入导出 |
 | **前端** | `frontend/` | 展示层 | Next.js 主站与管理中台 |
 | **文档站** | 独立仓库 `../metafusion-docs` | 展示层 | VitePress 静态文档站（唯一源） |
-| **部署编排** | `deploy/`（`docker-compose.yml`、`nginx.conf`、`deploy.sh`、`sql/`） | 一键部署 | 单端口边缘网关、全部服务编排、切流/回滚与遗留结构清理 |
-| **独立子系统** | `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`、`../metafusion-api-gateway` | 兄弟仓库 | 账号与 RS256 令牌、论坛与互动记录、文件与内容寻址直传、路由矩阵 |
+| **部署编排** | `deploy/`（`docker-compose.yml` 与 dev/prod/metadata 覆盖、`nginx.conf`、`deploy.sh` / `deploy.ps1`、`versions.lock`、`sql/`） | 一键部署 | 单端口边缘网关、全部服务编排、切流/回滚、版本锁与遗留结构清理 |
+| **独立子系统** | `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`、`../metafusion-docs` | 兄弟仓库 | 账号与 RS256 令牌、论坛与互动记录、文件与内容寻址直传、文档站；`../metafusion-api-gateway` 现在只留切流自检脚本，生效的路由矩阵是本仓库 `deploy/nginx.conf` |
 
 > **解耦保障**：目录库只存实体本体与关系图谱，**不持有物理文件路径或社区帖子**；各服务的表在自己的 schema 里，
 > 互相只按实体 UUID 走 HTTP。目录服务停摆不影响互动/存储自身数据的完整性，反之亦然。
@@ -137,9 +137,9 @@
 git clone https://github.com/MoeclubM/MetaFusion.git
 cd MetaFusion
 
-# 账号 / 互动 / 存储三个子系统的构建上下文在兄弟目录（compose 里的 ../../metafusion-*），
-# 部署机上必须与主仓库并列检出，否则这三个服务拉不起来。
-cd .. && for r in metafusion-auth metafusion-community metafusion-storage; do
+# 账号 / 互动 / 存储 / 文档站的构建上下文在兄弟目录（compose 里的 ../../metafusion-*），
+# 部署机上必须与主仓库并列检出，否则这四个服务拉不起来（文档站镜像没有发布方，缺席时靠就地构建）。
+cd .. && for r in metafusion-auth metafusion-community metafusion-storage metafusion-docs; do
   git clone https://github.com/MoeclubM/$r.git
 done
 cd MetaFusion
@@ -147,8 +147,9 @@ cd MetaFusion
 # 从模板创建环境变量
 cp .env.example .env
 
-# 编辑 .env 配置生产级随机密钥 (DB_PASSWORD, RUSTFS_ROOT_PASSWORD, AUTH_JWT_PRIVATE_KEY；
-# AUTH_JWT_PRIVATE_KEY 必须在目录服务与账号服务之间共用同一把 RSA 私钥，否则登录后立刻掉线)
+# 编辑 .env 配置生产级随机密钥 (DB_PASSWORD, RUSTFS_ROOT_PASSWORD, AUTH_JWT_PRIVATE_KEY)；
+# AUTH_JWT_PRIVATE_KEY 只给账号服务签发用；目录侧用 AUTH_JWT_PUBLIC_KEY 或 AUTH_JWKS_URL 验签
+# （两者都没配时才回退私钥兜底，启动会告警）
 ```
 
 ### 3. 一键启动部署
@@ -202,10 +203,7 @@ bash deploy/deploy.sh retire
 - **首次部署初始化向导 (OOBE)**：`http://<您的IP>:10100/setup`
   - 新实例首次启动后，访问 `/setup` 即可按向导自主创建初始超级管理员（Super Admin）账号并配置实例准入策略；
   - 登录页面在未检测到管理员时也会提供明显的初始化引导入口。
-- **预置开发环境账号**（仅限载入测试种子时）：
-  - 超级管理员：`admin` / `admin@metafusion.internal`，默认密码：`AdminPassword2026!`
-  - 首席档案员：`archivist_prime` / `archivist@metafusion.internal`，默认密码：`AdminPassword2026!`
-  - *生产环境登录后请立即进入「个人设置」修改初始密码。*
+- **账号来源**：没有预置账号，也不随镜像播种测试用户——首个超级管理员由 `/setup` 向导创建（账号落在账号服务的 `auth.users`）；创建后请立即在「个人设置」修改密码。
 - **开发与架构文档站**：`http://<您的IP>:10100/docs`
 - **后端 API 健康状态**：`http://<您的IP>:10100/healthz`（就绪探针 `/ready`，标准 API 基址 `/api`，文档 `/api/docs`）
 

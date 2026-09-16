@@ -33,10 +33,10 @@
 | 项目代码 | 仓库规划 | 架构定位 | 核心职责 | 存储与基础设施依赖 |
 |---|---|---|---|---|
 | **`metafusion-catalog`** | `MoeclubM/MetaFusion` (主仓库) | **核心主项目** | 实体骨架建档、动态定义引擎、关系图谱、版本对比、协同审核、修订溯源、基础文本检索 | PostgreSQL (单实例) |
-| **`metafusion-auth`** | `MoeclubM/metafusion-auth` | 独立身份服务 | 用户中心、密码/邮箱安全、RBAC 角色权限、OAuth2.0/OIDC 授权中心、JWT 派发与吊销 | PostgreSQL (Auth DB) + Redis (Session/Blacklist) |
-| **`metafusion-storage`** | `MoeclubM/metafusion-storage` | 独立资源服务 | 物理文件归档、S3/RustFS 分布式对象存储接入、SHA-256/ED2K 指纹校验、种子生成与磁力链聚合、下载配额与限速控制 | S3 兼容存储 (RustFS/MinIO) + PostgreSQL (Storage DB) |
-| **`metafusion-community`** | `MoeclubM/metafusion-community` | 独立社区服务 | 讨论版块、主题帖 (Thread)、楼层回复 (Post)、动态评分、点赞与用户互动 | PostgreSQL (Community DB) + Redis (计数与热门流) |
-| **`metafusion-api`** | `MoeclubM/metafusion-api-gateway` | 边缘路由中枢 | 统一域名调度、SSL/TLS 终止、反向代理、路由分流、全域速率限制、统一聚合 OpenAPI 网关 | Nginx / Envoy / Cloudflare |
+| **`metafusion-auth`** | `MoeclubM/metafusion-auth` | 独立身份服务 | 用户中心、密码/邮箱安全、权限组与权限码、OAuth2.0/OIDC 授权中心、RS256 令牌派发与会话吊销 | PostgreSQL（`auth` schema，与其它服务同实例） |
+| **`metafusion-storage`** | `MoeclubM/metafusion-storage` | 独立资源服务 | 物理文件归档、S3/RustFS 对象存储接入、sha256 内容寻址与秒传、绑定与按实体可见性授权下载（不做转码） | S3 兼容存储 (RustFS) + PostgreSQL（`storage` schema） |
+| **`metafusion-community`** | `MoeclubM/metafusion-community` | 独立社区服务 | 讨论版块、主题与回复、短评、收藏与互动记录 | PostgreSQL（`community` schema，与其它服务同实例） |
+| **`metafusion-api`** | `MoeclubM/metafusion-api-gateway` | 边缘路由中枢 | **生效矩阵不在该仓库**：单端口 Nginx 网关是主仓库 `deploy/nginx.conf`（compose 的 `gateway` 服务），TLS 由外层反代接管；该仓库现在只剩切流自检脚本与归档的旧矩阵 | 主仓库编排（Nginx 1.25 Alpine 容器）；外层反代可换 Cloudflare 等 |
 | **`metafusion-docs`** | `MoeclubM/metafusion-docs` | 静态文档站点 | LRM 编目准则、开放 API 交互手册、智能体 Agent 接入协议、开发者指南与法务声明 | VitePress 静态托管 (Node/Bun) |
 
 ---
@@ -66,17 +66,24 @@
 └──────────────────┘  └──────────────────┘  └──────────────────┘  └──────────────────┘  └──────────────────┘
 ```
 
+> 上图的 `/catalog/*`、`/account/*`、`/downloads/*`、`/community/*` 是**页面路径**（由前端 Next.js 承载，或属"每服务自带 UI"的目标形态），
+> 当前网关只按 `/api/*` 前缀分流到各服务；生效矩阵以 `deploy/nginx.conf` 为准。
+
 ### 3.2 身份与授权契约 (OAuth2 / JWT Protocol)
-- **Token 规范**：`metafusion-auth` 派发符合 RFC 7519 的标准 JWT，Payload 包含：
+- **Token 规范**：`metafusion-auth` 派发符合 RFC 7519 的标准 JWT（RS256），Payload 字段名与各服务验签侧逐字一致：
   ```json
   {
     "sub": "user-uuid-1234",
-    "username": "admin",
-    "roles": ["curator", "uploader"],
-    "scopes": ["catalog:read", "catalog:edit", "storage:download", "community:post"],
+    "preferred_username": "admin",
+    "role": "admin",
+    "groups": ["admin"],
+    "permissions": ["*"],
+    "iss": "https://findverse.cc/api",
+    "aud": "metafusion",
     "exp": 1780000000
   }
   ```
+  `groups` 是组码（展示与审计用），**授权只看 `permissions`**（auth 按组展开后的权限码集合，admin 组为 `*`）。
 - **无状态验证**：各子服务本地挂载 Auth 服务的公钥，解析并拦截未授权请求，无需每一次读写均向 Auth 服务发起同步 RPC 调用。
 
 ### 3.3 元数据挂载契约 (Data Association Contract)
@@ -107,6 +114,9 @@
 - **前端集成**：元数据详情页仅展示“资源存储与下载”和“社区交流”的轻量 Tab 跳转 CTA。若需显示文件数量或帖子数量，前端通过独立客户端异步请求对应的服务端点，避免任何单点阻塞。
 
 ---
+
+> 上面的 `file_bindings` / `forum_threads` 是**挂载契约示意**，不是线上表结构：实际表在存储服务的 `storage.assets` / `storage.bindings`（用 `binding_role` 表达用途）
+> 与互动服务的 `community.topics` / `community.posts` / `community.favorites`（见各仓库 `migrations/000001_init.up.sql`）。
 
 ## 4. GitHub 仓库协同与 `gh cli` 规范
 
@@ -154,7 +164,9 @@ gh repo create MoeclubM/metafusion-docs --public --description "MetaFusion 官�
 
 ## 5. 迁移演进路线 (Step-by-Step Roadmap)
 
-1. **第一阶段（当前）**：
+> 下列阶段是当初的推进顺序，现已全部落地；当前边界与验收判据见 [子系统拆分与迁移基准](./service-split-migration.md)。
+
+1. **第一阶段（早期）**：
    - 模块化单体架构，完成元数据核心系统内部的固定骨架（Agent, Work, Expression, Release, Medium, Track）与动态定义引擎搭建；
    - 前端条目详情页按 Tab 完成对存储、论坛的解耦跳转设计；
    - 编写完成多项目解耦技术规范与架构契约。

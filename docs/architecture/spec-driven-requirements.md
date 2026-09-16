@@ -33,7 +33,7 @@
      - 图谱关系（如 `adaptation_of` 改编自、`soundtrack_of` 配乐、`sequel_of` 续作、`performed_by` 表演者等）、
      - 动态属性与词表（如 `format` 载体格式、`packaging` 包装等）、
      - 必须**全部从服务端动态获取**（`GET /api/catalog/definitions`）。
-     - 这些定义的名称在后台配置并保存多语言字典（`Names map[string]string`，含 `zh-CN` 与 `en-US`）。
+     - 这些定义的名称在后台配置并保存多语言字典（`Names map[string]string`，含 `zh-CN` / `zh-TW` / `ja-JP` / `en-US` 四语，见下 §2.3）。
      - 前端展示时根据当前用户 `locale` 动态读取（`def.names[locale] || def.names['zh-CN'] || def.names['en-US'] || code`），**严禁前端写死类型或字典映射**。
 
 2. **探索中心 (`/explore`) 规范**：

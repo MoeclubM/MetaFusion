@@ -24,7 +24,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 | 邀请 = 身份门槛 / 付费墙替代 | 邀请 = 风控与合规缓冲层，可后台关闭 |
 | 元数据与媒体同等鉴权 | 元数据公开可索引，媒体二进制强制鉴权 |
 
-关联约定：开放注册（后台可关）、首页品牌区与页脚、论坛三大默认板块
+关联约定：开放注册（后台可关）、首页品牌区与页脚、论坛默认板块（`announcement` / `casual` / `qa` / `reviews` / `bug_report` / `comment`，其中 `comment` 不进信息流）
 
 ---
 
@@ -36,10 +36,11 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 - 作品（Work）详情、发行版（Release）元数据、载体（Medium）与曲目（Track）结构、责任者（Agent）档案、标签（Tag）与虚拟货架（Virtual Shelf）体系、内容单元（ContentUnit）/ 表达（Expression）结构（完全无 `media_type` 冗余）
 - 搜索（`/api/catalog/entities?q=...`：标题与译文的子串匹配）、社区帖子列表与详情的文字部分
 - 首页、探索页、榜单等聚合页
-- 封面缩略图（比例由 `cover_aspect` 给出，只是展示建议；低分辨率封面可视为元数据的一部分，`preview_requires_auth` 这类独立开关当前未落地）
+- 封面缩略图（比例由前端按封面图自然比例与标签推断，只是展示建议，没有可写的 `cover_aspect` 属性；低分辨率封面可视为元数据的一部分，`preview_requires_auth` 这类独立开关当前未落地）
 
 **L1 — 登录可见（需 `Authorization: Bearer <JWT>`，游客命中返回 401 并引导登录）**
-- 任何媒体资产二进制：只能经存储服务的受控内容接口取用（`GET /api/storage/assets/:id/content` 等，按资产与权限分发），目录库不持有文件物理路径
+- 任何媒体资产二进制：只能经存储服务的受控内容接口取用（`GET /api/storage/assets/:id/content` 等），目录库不持有文件物理路径。
+  当前放行规则是"资产绑定的实体对调用者可见"：绑定已发布实体的资产匿名可取，不可读回 `404`（登录本身不是门槛）
 - 上传链路：`/api/storage/upload/*` 直传与 `POST /api/storage/bind` 绑定；实体本身用 `POST /api/catalog/entities` 创建
 - 社区写入：发帖、回帖、评注
 - 个人数据：邀请信息、已邀请用户列表
@@ -49,9 +50,9 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 ### 2.2 邀请制的真实目的
 
 - **风控**：抑制批量注册、机器爬取媒体、女巫刷取与垃圾内容。
-- **合规缓冲**：为媒体内容的二次分发提供可追溯的邀请链（`users.invited_by`），便于事后审计与封禁溯源。
+- **合规缓冲**：为媒体内容的二次分发提供可追溯的邀请链（`auth.invites` → `auth.invite_uses`：哪个邀请码邀请了哪个用户），便于事后审计与封禁溯源。
 - **非功能性**：不作为付费墙、不作为内容分级依据、不与 Karma/积分挂钩（当前无 Karma 系统，若未来引入需另行 PRD）。
-- **可开关**：`auth.instance_settings.registration_enabled`（总闸）与 `invite_required`（是否强制邀请）由 `admin`/`archivist` 在后台 `系统设置` 中动态切换；注册与登录开关由 `/api/setup`、`/api/auth/*` 暴露，具体字段以该端点实际响应为准。
+- **可开关**：`auth.instance_settings.registration_enabled`（总闸）与 `invite_required`（是否强制邀请）由持 `auth.settings.manage` 的角色在后台 `系统设置` 中动态切换（系统组里只有 `admin` 持 `*`）；`/api/auth/settings` 暴露公开子集，具体字段以该端点实际响应为准。
 
 ---
 
@@ -61,10 +62,10 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 
 | ID | 需求 | 说明 |
 |---|---|---|
-| AUTH-01 | 注册开关 | `registration_enabled=false` 时注册端点拒绝，文案 `auth.registration_closed`，前端禁用提交并展示 amber 提示（当前实现为 `/api/setup` 首管初始化 + `/api/admin/users` 建号，无公开自助注册端点） |
-| AUTH-02 | 邀请开关 | 产品要求：`invite_required=true` 时注册必填 `invite_code` 并校验邀请链（`users.invite_code` → `invitations.code` → 专属邀请码 → admin 回退）；`false` 时 `invite_code` 可选。**当前后端未实现该注册与邀请校验链路，属未落地需求** |
-| AUTH-03 | 登录与双 Token | `email_or_username + password`，`banned` 账号拒绝；产品要求 Access Token + Refresh Token 双令牌、Redis 实时黑名单撤销与 PAT 长期令牌。**双令牌中的续期与 PAT 当前未落地：账号服务只签发访问令牌，没有 refresh_token 轮换端点，也没有 PAT** |
-| AUTH-04 | 邀请链 | 注册成功写入 `users.invited_by`，`InviteCode` 为 `MF-` 永久码（邀请相关端点当前实现缺失） |
+| AUTH-01 | 注册开关 | `registration_enabled=false` 时 `POST /api/auth/register` 拒绝（错误码 `registration_closed`，前端文案键 `auth.error.registration_closed`）；首管初始化仍走 `/api/setup`，管理员建号走 `/api/admin/users` |
+| AUTH-02 | 邀请开关 | `invite_required=true` 时注册必带有效 `invite_code`（缺失报 `invite_required`、无效报 `invalid_invite_code`），核销写入 `auth.invite_uses` 并累计 `auth.invites.used_count`；`false` 时 `invite_code` 可选。开关与配额在后台「系统设置」里改 |
+| AUTH-03 | 登录与令牌续期 | `email_or_username + password`（账号表没有 `banned`/停用列，登录只校验口令，失败统一 `invalid_credentials`）；访问令牌 15 分钟，续期走 `POST /api/auth/refresh`（用当前 Bearer/Cookie 换发新令牌并轮转服务端会话行）。**账号服务不签发 `refresh_token`**（第三方令牌到期需重新授权），也没有 PAT 长期令牌 |
+| AUTH-04 | 邀请链 | 注册成功写入 `auth.invite_uses`（邀请码 → 用户）；邀请码在后台 `/api/admin/invites` 签发与作废，`code` 形如 `XXXX-XXXX-XXXX-XXXX` |
 
 ### 3.2 元数据开放
 
@@ -78,8 +79,8 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 
 | ID | 需求 | 说明 |
 |---|---|---|
-| MEDIA-01 | 下载需登录 | `GET /api/storage/assets/:id/content` 强制认证，返回预签名 URL，`response-content-disposition` 带文件名（需部署存储服务） |
-| MEDIA-02 | 预览需登录 | 媒体预览流（HLS 切片、音频/图像转码预览）当前未落地：存储服务只收原始文件、不做转码与媒体分析。原档同样只经受控接口取用，未登录请求返回 401 |
+| MEDIA-01 | 下载受控 | `GET /api/storage/assets/:id/content` 内联返回内容（`Content-Disposition: inline`），`GET /api/storage/download/:assetId` 在对象存储模式下返回预签名 URL（`Content-Disposition` 带文件名）；不可读与不存在一律回 `404 not_found`（不区分无权限）。**当前判定的是"资产绑定的实体对调用者是否可见"而不是"调用者是否登录"**：绑定到已发布实体的资产，匿名请求同样能取到内容 |
+| MEDIA-02 | 预览需登录 | 媒体预览流（HLS 切片、音频/图像转码预览）当前未落地：存储服务只收原始文件、不做转码与媒体分析。原档同样只经受控接口取用；未绑定实体或绑定实体不可见的资产，匿名请求回 `404`（不是 `401`） |
 | MEDIA-03 | 秒传不绕过鉴权 | `POST /api/storage/upload/initiate` 的 SHA-256 秒传命中仍需登录，秒传只复用已验内容的存储对象，不复用他人的访问授权 |
 | MEDIA-04 | 封面策略 | 列表缩略图可开放，原图/高分辨率封面受控；具体阈值当前没有独立开关，如需由实例设置（`auth.instance_settings`）扩展 |
 
@@ -109,7 +110,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 
 ## 6. 与邀请相关的演进
 
-- 邀请码保持 `MF-` 永久码 + `InvitesRemaining` 模型，未来若调整配额或引入 Karma，仅改 `auth.instance_settings` 与配额逻辑，不改变“邀请=风控”的定性。
+- 邀请码模型是 `auth.invites`（`code` + `max_uses` / `used_count` / 可选 `expires_at` / `revoked`）加 `auth.invite_uses` 核销记录，`code` 形如 `XXXX-XXXX-XXXX-XXXX`；未来若调整配额或引入 Karma，仅改 `auth.instance_settings` 与配额逻辑，不改变“邀请=风控”的定性。
 - 若需临时开放注册（如活动期），仅切换 `invite_required=false`，无需改代码或改文案。
 
 ---

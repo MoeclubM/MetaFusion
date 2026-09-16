@@ -25,9 +25,9 @@
 
 ### 1.3 可扩展性：定义层已达标，外围执行能力未落地
 
-已达标：新增类型、字段、词表项、关系、模板全部走 Admin `DefinitionsEditor` 草稿、影响预演、发布三步，前端经 `GET /catalog/definitions` 动态读取，后台新增无需发版；外部来源（官网、厂牌站、Bangumi、MusicBrainz 等）已有 `external_databases` 后台 CRUD 与对应 Tab；货架有 `catalog.shelves` 表、`/api/catalog/shelves` 接口与后台货架 Tab，前后端共用同一份规则。
+已达标：新增类型、字段、词表项、关系、模板全部走 Admin `DefinitionsEditor` 草稿、影响预演、发布三步，前端经 `GET /api/catalog/definitions` 动态读取，后台新增无需发版；外部来源（官网、厂牌站、Bangumi、MusicBrainz 等）已有 `external_databases` 后台 CRUD 与对应 Tab；货架有 `catalog.shelves` 表、`/api/catalog/shelves` 接口与后台货架 Tab，前后端共用同一份规则。
 
-缺失：抓取、导出、声纹、AI 补译、通知、搜索等执行能力不在核心实体层，也没有承载它们的独立服务或插件；按架构基准这些属外围能力，不进目录核心。
+缺失：抓取、批量导出/迁移、声纹、AI 补译、通知、搜索等执行能力不在核心实体层，也没有承载它们的独立服务或插件（单实体快照导出与外部编辑提案已有出口：`GET /api/exchange/entities/{id}`、`POST /api/exchange/proposals`）；按架构基准这些属外围能力，不进目录核心。
 
 ## 2. 优化原则
 
@@ -37,6 +37,9 @@
 4. 外围能力不进展核心层。抓取、导出、通知、AI 补译这类执行能力以独立服务或插件承载，不往目录后端加表加列。
 
 ## 3. 数据模型补强（只加 Definitions，不加表）
+
+> 下列枚举是**当时的建议**，不是线上词表：实际定义以 `backend/internal/catalog/defaults.go` 与 `GET /api/catalog/definitions` 为准
+> （例如 `edition_type` 落地为 `standard / limited / deluxe / boxset`，`packaging` 落地为 `box / slipcase / boxset / digipak`）。
 
 - `release` 补 `edition_type` 枚举字段，词表 `edition_type`：`standard` 普通版、`limited` 限定版、`first_press` 初回版、`regional` 地区版、`reissue` 再版、`digital` 数字版；并把既有的 `country / language / platform / publisher / edition_date / catalog_number / barcode / attachments / store_bonuses / events` 列为发行页必展字段。
 - `packaging` 词表扩 `jewel / slipcase / boxset`；`format` 词表扩 `uhd_bd / sacd / cassette / web`，原有 `cd / bd / dvd / vinyl / paper / digital` 保留；`role`（`primary / supplement / side`）保留，限定盘附带 BD 记 `supplement`。

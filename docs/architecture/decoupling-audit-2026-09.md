@@ -70,7 +70,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 ### 2.1 现状
 
-- catalog 侧自己实现 RS256 验签：`backend/internal/catalog/token.go:66-100` 从 `AUTH_JWT_PRIVATE_KEY` 读 RSA 私钥（PEM 或其 base64），**只为取公钥**，支持 PKCS#1/PKCS#8；`token.go:3-8` 的注释写明"目录进程拿不到也不需要签发路径"。
+- （**2026-09-16 已修**：目录改为 `AUTH_JWT_PUBLIC_KEY` → `AUTH_JWKS_URL` → 私钥兜底的优先级，私钥只剩兼容路径；以下为审计时现状）catalog 侧自己实现 RS256 验签：`backend/internal/catalog/token.go:66-100` 从 `AUTH_JWT_PRIVATE_KEY` 读 RSA 私钥（PEM 或其 base64），**只为取公钥**，支持 PKCS#1/PKCS#8；`token.go:3-8` 的注释写明"目录进程拿不到也不需要签发路径"。
 - `deploy/docker-compose.yml` 把**同一把私钥**注入 backend（`:121-126`）与 auth（`:146-150`）；`.env.example` 的注释自陈"同一把私钥会注入 backend 与 auth……两边不一致会让已登录用户立刻掉线"。
 - `community`/`storage` 走另一条路：静态公钥或 JWKS 拉取 + 缓存（`../metafusion-community/internal/auth/auth.go:95-137`、`../metafusion-community/internal/config/config.go:17-19,36`；`../metafusion-storage/internal/auth/auth.go` 同形）。catalog 侧没有任何 JWKS 客户端（`grep -i jwks backend` 只命中两处测试与 `token.go:167` 的注释）。
 - issuer/audience 靠约定一致：代码默认值与 compose 默认值都是 `https://findverse.cc/api` 加 `metafusion`（`backend/cmd/server/main.go:61`、`deploy/docker-compose.yml:125-126,151`）。
@@ -141,7 +141,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 - schema 由各服务启动时自建：`backend/migrations/000001_catalog_core.up.sql:8-11`、`../metafusion-auth/internal/store/store.go:36`、`../metafusion-community/internal/store/store.go:12`、`../metafusion-storage/internal/store/store.go:25`。
 - 库侧没有任何隔离手段：主仓库与子系统仓库里 `CREATE ROLE`、`GRANT`、`ROW LEVEL SECURITY`、`search_path` 零命中。
 - ~~子系统没有版本化迁移~~ → **2026-09-16 已改**：`community` 与 `storage` 各自把 DDL 搬进仓库内 `migrations/000001_init.up.sql`（`go:embed`），启动执行同一份幂等基线并记账到 `<schema>.schema_migrations`；主仓库仍走 `mf-migrate` 加单一基线 `backend/migrations/000001_catalog_core.up.sql`。
-  迁移约定（两服务一致）：文件 `internal/store/migrations/000001_init.up.sql`（storage）或 `migrations/000001_init.up.sql`（community）、账本 `<schema>.schema_migrations(version, applied_at[, name, checksum])`、事务级 advisory lock 键位 **catalog 740202 / auth 740203 / storage 740204 / community 740205**（键位必须查表分配，重复会串行化两个服务）。
+  迁移约定（两服务一致）：文件 `internal/store/migrations/000001_init.up.sql`（storage）或 `migrations/000001_init.up.sql`（community）、账本 `<schema>.schema_migrations(version, applied_at[, name, checksum])`、事务级 advisory lock 键位 **catalog 740202 / auth 740203 / storage 740204**（社区目前不取 advisory lock；键位必须查表分配，重复会串行化两个服务）。
 - 运维脚本跨 owner 操作别的域的库：`deploy/sql/retire-legacy-schemas.sql` 会按行数核对并 DROP 社区侧表，由 `deploy/deploy.sh` 调用。
 
 ### 4.2 问题
@@ -173,7 +173,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 ### 5.1 现状
 
 - 同步强依赖（fail-closed）：`community` 每次实体可见性都问 catalog（`../metafusion-community/internal/catalog/client.go:56`），`storage` 的绑定与下载鉴权同理（`../metafusion-storage/internal/handler/files.go:47`）。catalog 不可用时表现为 404，而不是"降级只读"。
-- **反向探活**：catalog 后台每 30 秒探一次上游 `/health` 生成 `/api/capabilities` 的 `healthy`（`backend/internal/capabilities/registry.go:43-48,110-125`）；而 catalog 自己只提供 `/healthz` 与 `/ready`（`backend/cmd/server/main.go:115-116`）——口径不一致，换个服务复用同一探测器会恒判不健康。
+- **反向探活（2026-09-16 已修：改声明式、目录出站请求为 0）**：catalog 后台每 30 秒探一次上游 `/health` 生成 `/api/capabilities` 的 `healthy`（`backend/internal/capabilities/registry.go:43-48,110-125`）；而 catalog 自己只提供 `/healthz` 与 `/ready`（`backend/cmd/server/main.go:115-116`）——口径不一致，换个服务复用同一探测器会恒判不健康。
 - **事件没有消费者**：`entity.merged` 写入 outbox（`backend/internal/catalog/store.go:402`，表结构 `backend/migrations/000001_catalog_core.up.sql:114-118`），投递函数 `Store.Deliver`（`backend/internal/catalog/lifecycle.go:129`）只在 `store_test.go` 有调用点；`backend/internal/catalog/merge.go:259-262` 的注释却写"通过 outbox 的 entity.merged 事件广播"，实际跨服务收敛是调用方主动拉取。
 - 两个能力共用同一个上游变量：`community` 与 `records` 都用 `COMMUNITY_URL`（`registry.go:45-46`）。
 
@@ -201,8 +201,8 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 ### 6.1 现状
 
-- 生效的矩阵是主仓库 `deploy/nginx.conf`：**实测 25 条 `location`**（核对命令见 §0.2），其中账号前缀用 6 条精确匹配加 2 条正则逐条分流（`deploy/nginx.conf:130,140,150,160,170,180`）。
-- 契约文档 `./service-split-migration.md` §2 称"18 条 location"，且表格未收录 `deploy/nginx.conf:106` 的 `/api/admin/oauth/` 与 `:73` 的 `/storage/preview/`——自诩"唯一契约来源"的表格已经与实现漂移。
+- 生效的矩阵是主仓库 `deploy/nginx.conf`：**审计时实测 25 条 `location`**（核对命令见 §0.2），其中账号前缀用 6 条精确匹配加 2 条正则逐条分流。**2026-09-16 补限流与探针后为 33 条**，见 §6.4。
+- ~~契约文档 §2 称"18 条 location"且表格漏收两条 location~~ **已修（2026-09-16）**：契约文档现在写 33 条，且由 `scripts/check_gateway_matrix.py` 在 CI 里与实现逐条比对。
 - **第二份矩阵**：`../metafusion-api-gateway/nginx.conf` 仍把账号前缀指向 `catalog:8080`，且没有 `/api/developer/`；而编排里的服务名是 `backend`，不存在 `catalog` 服务。该仓库没有 CI。
 - 限流只挂在两处：`deploy/nginx.conf:83,94`（auth 前缀）；`/api/community/`、`/api/records/`、`/api/oauth/`、`/api/oidc/`、`/api/developer/`、`/api/storage/` 均未挂 `limit_req`（zone 在 `:40-41` 已经定义）。
 - 网关探针段 `deploy/nginx.conf:331` 把 `/healthz|livez|ready|live|health` 全部转给 `backend:8080`，注释却写"网关自身探针，不代表任何上游可用"；而 catalog 没有 `/health`，该路径实测 404。

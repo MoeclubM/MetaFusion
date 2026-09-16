@@ -30,7 +30,7 @@ Work（创作母体）
 ### BRMM-10512《BanG Dream! Dreamer’s Best》
 
 1. 创建纯题名的音乐 `Work`。
-2. 创建一个 `Release`，将 `catalog_number=BRMM-10512`、JAN、官方页面和限定版包装写入发行版；发行版封面优先使用发行版自己的 `cover_image_url`。
+2. 创建一个 `Release`，把 `catalog_number=BRMM-10512`、JAN 条码（字段 `barcode`）、限定版包装（`packaging` 与 `edition_type`）、官方页面写进发行版；封面以 `pictures` 图片引用保存，每张图带 `source`（比例如 `1:1` 不落库，只是展示建议）。
 3. 在同一发行版下创建四个 `Medium`：两张 CD 为 `primary`，两张 Blu-ray 为 `supplement`，按包装中的实际顺序填写 `position`、`number` 和 `format`。
 4. CD 曲目对应可复用的录音 `Expression`；Blu-ray 中的演唱会或视频内容若有独立表达，则建立 `entry_role=extra` 的目录项并挂上 `Expression`，再由 `TrackContent` 关联。只有载体位置而没有可复用表达的附录，可以保留无内容关联的 Track。
 
@@ -43,7 +43,7 @@ Work（创作母体）
 ### Bangumi 206016《BanG Dream! バンドリ》漫画系列
 
 1. Bangumi 系列条目先建立一个没有 Release 的漫画 `Work`；没有章节来源时只保留作品级档案，不从“有 4 本单行本”推造 4 个章节。
-2. 每个真实单行本（例如卷 1、卷 4）作为同一 Work 下的独立 `Release`，在 Release 中保存 ISBN、出版日期、出版社和对应封面；每个纸质卷册建立一个 `Medium`，格式为 `paperback`。
+2. 每个真实单行本（例如卷 1、卷 4）作为同一 Work 下的独立 `Release`，在 Release 中保存 ISBN、出版日期、出版社和对应封面；每个纸质卷册建立一个 `Medium`，`format` 取 `paper`（纸质册）。
 3. 当权威来源提供章节目录时，再把章节建立为 `ContentUnit` 并按卷或章节组设置 `parent_id`；同一章节被电子版、纸版或再版收录时，只新增发行版与 `TrackContent` 关系，不复制内容单元。
 4. 若某个来源把“卷”维护成独立创作实体，则把它作为独立 `Work`，并用图谱边（如 `includes`）表达系列与卷的归属；不要把卷号拼接进系列 Work 的标题。
 
@@ -55,4 +55,4 @@ Work（创作母体）
 - 可复用表达：`GET /api/catalog/entities?kind=expression&work_id=...&content_unit_id=...`。
 - 发行载体树：`GET /api/catalog/entities?kind=medium&release_id=...`、`GET /api/catalog/entities?kind=track&medium_id=...`；Track 的 `contents` 数组维护多对多收录和定位信息。
 - 写入：`POST|PUT /api/catalog/entities` 创建与更新实体（`PUT` 为整份替换，非局部 PATCH），收录关系随 Track 的 `contents` 一并提交。
-- ContentUnit / Expression / Release / Medium / Track 的写入都要求 `edit_note` 与至少一条 `sources`，并记录不可变修订快照。
+- 所有实体写入（含上面的层级）都要求 `edit_note` 与至少一条 `sources`，并记录不可变修订快照（`backend/internal/catalog/store.go` 的 `Save`）。

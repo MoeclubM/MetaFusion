@@ -35,7 +35,7 @@
    自有 `storage` schema，桶由服务启动时自建。
 5. **边缘网关**：`deploy/nginx.conf`（compose 的 `gateway` 服务，单容器 Nginx）按前缀把 `/api/*`
    分流到各服务，只对外暴露一个端口；`metafusion-api-gateway` 仓库只剩切流自检脚本，
-   它自带的 nginx.conf 仍是切流前矩阵，不参与部署。
+   它带的那份切流前矩阵已归档到 `examples/pre-cutover/`，不挂进任何容器。
 6. **文档站（`metafusion-docs`）**：VitePress 静态工程，独立仓库即唯一源，编排从兄弟目录构建该服务。
 
 ## 协作与工具准则
