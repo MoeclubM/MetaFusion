@@ -116,17 +116,22 @@ function AdminInner() {
       .finally(() => setEntitiesLoading(false));
   };
 
-  useEffect(() => {
-    if (user?.role === "admin") {
-      loadOverview();
-    }
-  }, [user]);
+  // 取数条件与进入管理台的闸门保持一致（canEnterAdmin，按权限码判定）：
+  // 原来只认 role==="admin"，导致后台分配了管理权限组、但 role 仍是 user 的成员
+  // 能进 /admin 却永远看不到概览与实体列表（空面板而非"无权限"，等于假象无数据）。
+  const mayEnter = canEnterAdmin(user);
 
   useEffect(() => {
-    if (activeTab === "entities" && user?.role === "admin") {
+    if (mayEnter) {
+      loadOverview();
+    }
+  }, [mayEnter]);
+
+  useEffect(() => {
+    if (activeTab === "entities" && mayEnter) {
       loadEntities();
     }
-  }, [activeTab, entitiesKind, entitiesStatus]);
+  }, [activeTab, entitiesKind, entitiesStatus, mayEnter]);
 
   const handleEntityLifecycle = async (id: string, newStatus: string) => {
     try {
