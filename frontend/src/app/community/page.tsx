@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
-import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, boardDisplayName, boardDisplayDesc, catalogEntityHref } from "@/lib/api";
+import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, catalogEntityHref } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
@@ -106,7 +106,6 @@ function CommunityContent() {
  const [composerExpanded, setComposerExpanded] = useState(false);
 
  const [boards, setBoards] = useState<ForumBoard[]>(FORUM_BOARDS);
- const [filterLanguage, setFilterLanguage] = useState<string>("all");
 
  useEffect(() => {
  fetchBoards().then(setBoards).catch(() => {});
@@ -150,8 +149,8 @@ function CommunityContent() {
   const filteredBoards = boards.filter((b) => {
     if (!boardQuery.trim()) return true;
     const q = boardQuery.trim().toLowerCase();
-    const name = boardDisplayName(b, locale, t).toLowerCase();
-    const desc = boardDisplayDesc(b, locale, t).toLowerCase();
+    const name = b.name.toLowerCase();
+    const desc = b.description.toLowerCase();
     return (
       name.includes(q) ||
       desc.includes(q) ||
@@ -184,9 +183,6 @@ function CommunityContent() {
  if (entityFilter) {
  params.append("entity_id", entityFilter);
  }
- if (filterLanguage && filterLanguage !== "all") {
- params.append("language", filterLanguage);
- }
  if (searchFilter.trim()) {
  params.append("q", searchFilter.trim());
  }
@@ -215,7 +211,7 @@ function CommunityContent() {
 
  useEffect(() => {
  loadTopics();
- }, [selectedBoard, activeTab, filterTagId, filterTagName, filterLanguage]);
+ }, [selectedBoard, activeTab, filterTagId, filterTagName]);
 
  const getBoard = (code: string) => {
  return boards.find((b) => b.code === code) || boards[0] || FORUM_BOARDS[0];
@@ -252,7 +248,7 @@ function CommunityContent() {
  </div>
  )}
 
- {/* Board list — single source: language / Latest-Top / search live in top bar */}
+ {/* Board list — single source: Latest-Top / search live in top bar */}
  <div className="space-y-1">
  <h3 className="px-2.5 text-xs font-mono font-bold tracking-widest text-gray-500 uppercase flex items-center justify-between">
  <span>{t("community.boards")}</span>
@@ -290,9 +286,9 @@ function CommunityContent() {
  </span>
 	 <span className="flex-1 min-w-0">
 	 <span className={`block text-sm font-semibold leading-none truncate ${isActive ? "text-white" : "text-gray-300 group-hover:text-white"}`}>
-	 {boardDisplayName(board, locale, t)}
+	 {board.name}
 	 </span>
-	 <span className="block text-xs text-gray-500 truncate leading-tight mt-0.5">{boardDisplayDesc(board, locale, t)}</span>
+	 <span className="block text-xs text-gray-500 truncate leading-tight mt-0.5">{board.description}</span>
 	 </span>
 	 {badge && (
 	 <span className={`shrink-0 px-2.5 py-1 rounded text-xs font-mono leading-none border ${isActive ? "bg-background border-line text-gray-300" : "bg-surface border-line text-gray-500"}`}>
@@ -361,8 +357,8 @@ function CommunityContent() {
 	 <Icon className={`w-4 h-4 ${board.color}`} />
 	 </span>
 	 <span className="flex-1 min-w-0">
-	 <span className="block text-sm font-semibold truncate">{boardDisplayName(board, locale, t)}</span>
-	 <span className="block text-xs text-gray-500 truncate">{boardDisplayDesc(board, locale, t)}</span>
+	 <span className="block text-sm font-semibold truncate">{board.name}</span>
+	 <span className="block text-xs text-gray-500 truncate">{board.description}</span>
 	 </span>
 	 </button>
 	 );
@@ -449,7 +445,7 @@ function CommunityContent() {
 	              <span className="text-gray-400 font-normal">{t("community.searchCategoryFilter")}</span>
 	              <span className="text-gray-500 font-mono">&gt;</span>
 	              <span className="max-w-[130px] truncate">
-	                {selectedBoard === "all" ? t("community.allBoardsOption") : boardDisplayName(currentBoard, locale, t)}
+	                {selectedBoard === "all" ? t("community.allBoardsOption") : currentBoard.name}
 	              </span>
 	              <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform duration-base ease-soft ${boardDropdownOpen ? "rotate-180" : ""}`} />
 	            </button>
@@ -511,7 +507,7 @@ function CommunityContent() {
 	                            <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${board.bgColor} ${board.borderColor} border`}>
 	                              <Icon className={`w-3 h-3 ${board.color}`} />
 	                            </span>
-	                            <span className="truncate">{boardDisplayName(board, locale, t)}</span>
+	                            <span className="truncate">{board.name}</span>
 	                          </span>
 	                          {isSelected && <span className="text-[10px]">✓</span>}
 	                        </button>
@@ -638,33 +634,6 @@ function CommunityContent() {
 	              <span>{t("community.top")}</span>
 	            </button>
 	          </div>
-
-	          <div className="flex items-center gap-0.5 bg-surface border border-line rounded-md p-0.5 shrink-0">
-	            <button
-	              onClick={() => setFilterLanguage("all")}
-	              className={`px-2.5 h-8 rounded text-xs font-medium transition-colors duration-fast ease-soft ${
-	                filterLanguage === "all" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"
-	              }`}
-	            >
-	              {t("community.languageAll")}
-	            </button>
-	            <button
-	              onClick={() => setFilterLanguage("zh-CN")}
-	              className={`px-2.5 h-8 rounded text-xs font-medium transition-colors duration-fast ease-soft ${
-	                filterLanguage === "zh-CN" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"
-	              }`}
-	            >
-	              {t("community.languageZh")}
-	            </button>
-	            <button
-	              onClick={() => setFilterLanguage("en-US")}
-	              className={`px-2.5 h-8 rounded text-xs font-medium transition-colors duration-fast ease-soft ${
-	                filterLanguage === "en-US" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"
-	              }`}
-	            >
-	              {t("community.languageEn")}
-	            </button>
-	          </div>
 	        </div>
 	      </div>
 
@@ -694,7 +663,7 @@ function CommunityContent() {
 
  <div className="py-6 space-y-5 flex-1">
  {/* key 随页签/分区/筛选变化重放进入动画；搜索框内容不参与，避免输入时闪动 */}
- <TabPanel activeKey={activeTab + "-" + selectedBoard + "-" + filterLanguage + "-" + (filterTagId ?? filterTagName ?? "all")} spacing="none" className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
+ <TabPanel activeKey={activeTab + "-" + selectedBoard + "-" + (filterTagId ?? filterTagName ?? "all")} spacing="none" className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
  <div className="hidden sm:flex items-center gap-3 px-4 py-2.5 bg-background/60 border-b border-line text-sm font-mono text-gray-500">
  <span className="flex-1">{t("community.topic")}</span>
  <span className="w-20 text-center">{t("community.participants")}</span>
@@ -705,7 +674,7 @@ function CommunityContent() {
 
  {/* mobile header */}
  <div className="sm:hidden px-4 py-2 bg-background/60 border-b border-line text-sm font-mono text-gray-500 flex items-center justify-between">
- <span>{t("community.topic")} · {boardDisplayName(currentBoard, locale, t)}</span>
+ <span>{t("community.topic")} · {currentBoard.name}</span>
  <span>{t("community.topicItems", {count: topics.length})}</span>
  </div>
 
@@ -749,7 +718,7 @@ function CommunityContent() {
  <div className="flex items-center gap-2 flex-wrap">
  <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded border text-xs font-mono ${board.bgColor} ${board.borderColor} ${board.color}`}>
  <Icon className="w-4 h-4" />
- {boardDisplayName(board, locale, t)}
+ {board.name}
  </span>
  {topic.entity_id && topic.entity_title && (
  <Link

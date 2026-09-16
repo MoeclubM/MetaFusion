@@ -5,7 +5,7 @@ export { displayNameOf, getAccessToken, getRefreshToken, setAuthTokens, clearAut
 export type { User } from "./api/client";
 export { registerAccount, fetchInviteLedger, createInviteCode, uploadAvatar, deleteAvatar, fetchSetupStatus, fetchAuthSettings, performInitialSetup, sendVerificationEmail, verifyEmail, testSendEmail } from "./api/auth";
 export type { AuthSessionResponse, InviteCode, InviteLedger, SetupStatusResponse, InitialSetupPayload, InitialSetupResult, PublicAuthSettings } from "./api/auth";
-export { toggleFavorite, fetchFavoriteStatus, fetchFavorites, normalizeBoard, boardDisplayName, boardDisplayDesc, FORUM_BOARDS, fetchBoards, getBoardSync, shareContent, buildShareUrl, createTopic, createPost, fetchDirectMessages, sendDirectMessage } from "./api/community";
+export { toggleFavorite, fetchFavoriteStatus, fetchFavorites, normalizeBoard, FORUM_BOARDS, fetchBoards, getBoardSync, shareContent, buildShareUrl, createTopic, createPost, fetchDirectMessages, sendDirectMessage } from "./api/community";
 export type { FavoriteTargetType, FavoriteItem, ForumPost, DiscussionTopic, CreateTopicPayload, CreatePostPayload, Comment, DirectMessage, ConversationItem, ForumBoard } from "./api/community";
 export { CATALOG_HUBS, isCatalogHub, catalogHubOf, pickLocalizedName, catalogEntityHref, fetchEntityRevisions, mergeEntities } from "./api/catalog";
 export type { CatalogHub, Tag, ConnectedEntityItem, EntityRevision, EntityRelationship, RelationType, GraphNode, GraphLink } from "./api/catalog";

@@ -98,7 +98,6 @@ export interface CreateTopicPayload {
   board_code: string;
   title: string;
   content: string;
-  language?: string;
   work_id?: string;
   tag_ids?: number[];
   tag_names?: string[];
@@ -140,13 +139,13 @@ export interface ConversationItem {
   unread_count: number;
 }
 
+// 板块名称与描述是**内容**，不是 UI 文案：2026-09-16 起论坛不再分语言，
+// 服务端的 community.boards 只有单个 name/description（见迁移 000002）。
+// UI 文案（community.* 词条）仍然走 useI18n()，两者不要混。
 export interface ForumBoard {
   code: string;
-  names?: Record<string, string>;
-  descriptions?: Record<string, string>;
-  /** i18n keys — 复用已存在的 board.* 翻译（board.all / board.announcement / ...） */
-  nameKey: string;
-  descKey: string;
+  name: string;
+  description: string;
   color: string;
   bgColor: string;
   borderColor: string;
@@ -171,10 +170,8 @@ export function normalizeBoard(raw: any): ForumBoard {
   const palette = BOARD_PALETTE[raw.color] || BOARD_PALETTE.emerald;
   return {
     code: raw.code,
-    nameKey: raw.nameKey || `board.${raw.code}`,
-    descKey: raw.descKey || `board.${raw.code}Desc`,
-    names: (raw.names as Record<string, string>) || undefined,
-    descriptions: (raw.descriptions as Record<string, string>) || undefined,
+    name: typeof raw.name === "string" ? raw.name : "",
+    description: typeof raw.description === "string" ? raw.description : "",
     color: palette.color,
     bgColor: palette.bgColor,
     borderColor: palette.borderColor,
@@ -185,52 +182,11 @@ export function normalizeBoard(raw: any): ForumBoard {
   };
 }
 
-/** 板块显示名：有 translator 时以 board.* 词条为权威，否则走 names 的语言回退链。 */
-
-export function boardDisplayName(board: ForumBoard, locale?: string, t?: (k: string) => string): string {
-  return localizedBoardText(board.nameKey, board.code, board.names, locale, t);
-}
-
-/** 板块多语言描述：有 translator 时以 board.*Desc 词条为权威，否则走 descriptions 的语言回退链。 */
-
-export function boardDisplayDesc(board: ForumBoard, locale?: string, t?: (k: string) => string): string {
-  return localizedBoardText(board.descKey, board.code, board.descriptions, locale, t, "");
-}
-
-function localizedBoardText(
-  key: string,
-  code: string,
-  values: Record<string, string> | undefined,
-  locale?: string,
-  t?: (k: string) => string,
-  fallback = code
-): string {
-  if (t) {
-    const translated = (() => { try { const v = t(key); return v !== key ? v : ""; } catch { return ""; } })();
-    if (translated) return translated;
-  }
-  const loc = locale || "zh-CN";
-  if (values) {
-    if (values[loc]) return values[loc];
-    const prefix = loc.slice(0, 2);
-    for (const [k, v] of Object.entries(values)) {
-      if (k.startsWith(prefix) && v) return v;
-    }
-    if (values["zh-CN"]) return values["zh-CN"];
-    if (values["en-US"]) return values["en-US"];
-    for (const v of Object.values(values)) {
-      if (v) return v;
-    }
-  }
-  return fallback;
-}
 
 const VIRTUAL_ALL_BOARD: ForumBoard = {
   code: "all",
-  nameKey: "board.all",
-  descKey: "board.allDesc",
-  names: { "zh-CN": "全部分区", "en-US": "All Boards" },
-  descriptions: { "zh-CN": "全站论坛讨论总览", "en-US": "All forum boards overview" },
+  name: "全部分区",
+  description: "全站论坛讨论总览",
   color: "text-gray-300",
   bgColor: "bg-gray-500/20",
   borderColor: "border-gray-500/40",
@@ -243,15 +199,13 @@ let boardsCacheAt = 0;
 
 const BOARDS_TTL_MS = 5 * 60 * 1000;
 
-// nameKey/descKey 复用既有翻译：board.announcement / board.casual / board.qa / board.reviews / board.bug_report / board.comment
+// 兜底板块清单：内容语言是中文（服务端不可达时的降级展示，与 community.boards 的种子一致）。
 const FALLBACK_BOARDS: ForumBoard[] = [
   VIRTUAL_ALL_BOARD,
   {
     code: "announcement",
-    nameKey: "board.announcement",
-    descKey: "board.announcementDesc",
-    names: { "zh-CN": "站点公告", "en-US": "Announcements" },
-    descriptions: { "zh-CN": "站点公告与运营通知", "en-US": "Announcements & operations" },
+    name: "站点公告",
+    description: "站点公告与运营通知",
     color: "text-amber-400",
     bgColor: "bg-amber-500/15",
     borderColor: "border-amber-500/30",
@@ -262,10 +216,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
   },
   {
     code: "casual",
-    nameKey: "board.casual",
-    descKey: "board.casualDesc",
-    names: { "zh-CN": "闲聊杂谈", "en-US": "Casual Chat" },
-    descriptions: { "zh-CN": "轻松闲聊与站内日常交流", "en-US": "Casual chat & discussions" },
+    name: "闲聊杂谈",
+    description: "轻松闲聊与站内日常交流",
     color: "text-purple-400",
     bgColor: "bg-purple-500/15",
     borderColor: "border-purple-500/30",
@@ -276,10 +228,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
   },
   {
     code: "qa",
-    nameKey: "board.qa",
-    descKey: "board.qaDesc",
-    names: { "zh-CN": "求助答疑", "en-US": "Q&A" },
-    descriptions: { "zh-CN": "使用问题、编目与功能答疑", "en-US": "Questions, cataloging & help" },
+    name: "求助答疑",
+    description: "使用问题、编目与功能答疑",
     color: "text-teal-400",
     bgColor: "bg-teal-500/15",
     borderColor: "border-teal-500/30",
@@ -290,10 +240,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
   },
   {
     code: "reviews",
-    nameKey: "board.reviews",
-    descKey: "board.reviewsDesc",
-    names: { "zh-CN": "考据评注", "en-US": "Archive Reviews" },
-    descriptions: { "zh-CN": "版本考证、原盘评析与文献释读", "en-US": "Edition analysis & archive reviews" },
+    name: "考据评注",
+    description: "版本考证、原盘评析与文献释读",
     color: "text-emerald-400",
     bgColor: "bg-emerald-500/15",
     borderColor: "border-emerald-500/30",
@@ -304,10 +252,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
   },
   {
     code: "bug_report",
-    nameKey: "board.bug_report",
-    descKey: "board.bug_reportDesc",
-    names: { "zh-CN": "反馈与建议", "en-US": "Feedback & Bug Reports" },
-    descriptions: { "zh-CN": "缺陷反馈、功能建议与复现信息", "en-US": "Bug reports & feature feedback" },
+    name: "反馈与建议",
+    description: "缺陷反馈、功能建议与复现信息",
     color: "text-rose-400",
     bgColor: "bg-rose-500/15",
     borderColor: "border-rose-500/30",
@@ -318,10 +264,8 @@ const FALLBACK_BOARDS: ForumBoard[] = [
   },
   {
     code: "comment",
-    nameKey: "board.comment",
-    descKey: "board.commentDesc",
-    names: { "zh-CN": "评论专用", "en-US": "Comments" },
-    descriptions: { "zh-CN": "作品与讨论的评论承载区，不进入信息流与全站聚合", "en-US": "Comment carrier for works & topics, excluded from feeds" },
+    name: "评论专用",
+    description: "作品与讨论的评论承载区，不进入信息流与全站聚合",
     color: "text-sky-400",
     bgColor: "bg-sky-500/15",
     borderColor: "border-sky-500/30",
