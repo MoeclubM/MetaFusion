@@ -121,6 +121,10 @@ func (s *Store) Initialize(ctx context.Context) error {
 		if err := seedExternalDatabases(ctx, tx); err != nil {
 			return err
 		}
+		// 种子补译文只在空库播种时才进库，存量行的语种缺口要靠这里补（只增不改）。
+		if err := backfillExternalDatabaseNames(ctx, tx); err != nil {
+			return err
+		}
 		if err := seedShelves(ctx, tx); err != nil {
 			return err
 		}

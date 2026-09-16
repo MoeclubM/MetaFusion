@@ -334,8 +334,75 @@ func externalDatabaseSeeds() []ExternalDatabase {
 	}
 }
 
+// backfillExternalDatabaseNames 把种子里的语种译文补进已有行（只补缺失与英文占位，不动已有译文）。
+//
+// 为什么需要它：播种是 ON CONFLICT DO NOTHING，"种子后来补齐 zh-TW/ja"这件事本身进不了存量库，
+// 而名称四语齐备现在是写入硬约束——缺语种的存量行一旦在后台被编辑或启停就会被拒。
+// 先补数据、再谈约束，否则升级后管理员连停用一行都做不到。
+func backfillExternalDatabaseNames(ctx context.Context, tx *sql.Tx) error {
+	seeds := make(map[string]Names, len(externalDatabaseSeeds()))
+	for _, d := range externalDatabaseSeeds() {
+		seeds[d.Code] = d.Names
+	}
+	type pending struct {
+		code  string
+		names Names
+	}
+	var todo []pending
+	// 先读完再写：同一事务里带着未关闭的 Rows 发 UPDATE 会把连接占死。
+	rows, err := tx.QueryContext(ctx, `SELECT code,names FROM catalog.external_databases`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var code string
+		var raw []byte
+		if err := rows.Scan(&code, &raw); err != nil {
+			rows.Close()
+			return err
+		}
+		seed, ok := seeds[code]
+		if !ok {
+			continue
+		}
+		cur := Names{}
+		if len(raw) > 0 {
+			_ = json.Unmarshal(raw, &cur)
+		}
+		if len(cur) == 0 {
+			continue
+		}
+		var added []string
+		merged := mergeNames("external_databases."+code, cur, seed, &added)
+		if len(added) > 0 {
+			todo = append(todo, pending{code, merged})
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, p := range todo {
+		names, _ := json.Marshal(p.names)
+		if _, err := tx.ExecContext(ctx, `UPDATE catalog.external_databases SET names=$2 WHERE code=$1`, p.code, string(names)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// EnsureSeedExternalDatabases 播种外部权威库并补齐存量行缺失的语种译文（一个事务内完成）。
+func (s *Store) EnsureSeedExternalDatabases(ctx context.Context) error {
+	return s.write(ctx, func(tx *sql.Tx) error {
+		if err := seedExternalDatabases(ctx, tx); err != nil {
+			return err
+		}
+		return backfillExternalDatabaseNames(ctx, tx)
+	})
+}
+
 // seedExternalDatabases 写入系统预设；已存在的 code 不覆盖（保留后台自定义），
-// 新增的 code 自动补齐。
+// 新增的 code 自动补齐。已有行的语种补齐走 backfillExternalDatabaseNames。
 func seedExternalDatabases(ctx context.Context, tx *sql.Tx) error {
 	for _, d := range externalDatabaseSeeds() {
 		names, _ := json.Marshal(d.Names)
