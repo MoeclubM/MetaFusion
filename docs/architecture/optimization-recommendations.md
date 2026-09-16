@@ -267,3 +267,19 @@
 | 导入"声明即生效"（第五批） | `release` 带数据但 `mediums` 为空 → 预检 `invalid_payload: release requires mediums`（零写入）；判据是同向性：补上 `has_release=true` 时既有规则本就拒绝，两条必须同向，否则"多写一个 true 报错、不写反而静默丢发行"；无载体发行仍可走 `link_mode=append_release_to_work` | 真库用例断言拒绝三态均为**实体总数不变**、且 `create_relation` 模式同码零写入；**反证**：还原旧实现后 4 条拒绝用例变红，探针显示旧行为"建作品 + 静默丢发行" |
 | 多源口径：厂牌官网作为第二官方源 | 商品信息取自厂牌官网（其 WordPress REST 暴露的 ACF 字段）：店舗別特典 → `store_bonuses`；**版本归属用官方【品番】区块的"版本名：品番"映射**判定，不用"品番相邻±1"这类弱证据；兄弟品番复用同一页并按自己的条件筛选 | 每条写入的 `edit_note` 写明"兄弟品番回填 + 取自哪一页 + 按哪个条件筛出 N 条"，`sources` 与每条特典的 `source_url` 指向该页；回读逐条与官网行号对应；既有记录一字未改；幂等复跑 0 写入 |
 | 图片来源与可引用性 | 外部来源图片**镜像进自家存储**并改写 `pictures[].url`，`source` 保留原始页面与原图地址；存储侧提供长期可引用的原档内联端点 | 镜像脚本幂等（复跑 0 张待镜像）；浏览器实测 `naturalWidth>0` 且 `ERR_BLOCKED_BY_ORB` 归零；镜像地址匿名 200；除 `pictures[].url` 外零字段差异；发行版封面覆盖率实测并记录（剩余的按"官网无此品番页"如实留空） |
+
+### 8.4 收尾验证（可复现命令与实测值）
+
+| 验证项 | 命令 | 实测结果 |
+| --- | --- | --- |
+| 目录后端测试 | 在 `backend/`：`go build ./...`、`go vet ./...`、`MF_V2_TEST_DSN=… go test ./... -count=1` | 见 §8.5 收尾记录（代理改动落定后补跑） |
+| 账号服务测试 | 在 `../metafusion-auth`：`AUTH_TEST_DSN=… go test ./... -count=1 -p 1` | 3 包全绿（`internal/handler` 含 OAuth 用例） |
+| 互动服务测试 | 在 `../metafusion-community`：`go test ./... -count=1 -p 1` | 5 包全绿 |
+| 存储服务测试 | 在 `../metafusion-storage`：`STORAGE_TEST_DSN=… go test ./... -count=1 -p 1` | 6 包全绿（`internal/handler` 含原档内联端点用例） |
+| 文档站构建 | 在 `../metafusion-docs`：`npm run build` | 构建通过（约 11–12s） |
+| 数据完整性 | `python scripts/check_data.py` | `P0=0 P1=0 P2=0`；覆盖度两条硬闸门（乐队必须有成员、发行版必须有载体）计数为 0 |
+| 四语字典 | 比对 `frontend/src/messages/*.json` 键集合 | 四语键数完全一致（当前 2976）、空值 0 |
+| 页面外壳自检 | `node scripts/check_page_shell.mjs` | 0 违规；注入一处违规即 exit=1 |
+| 公开 API 表面 | 15 个端点冒烟（11 个公开 + 4 个需鉴权） | 公开全 200、需鉴权全 401；`relations` 响应含 `subject_id` 且 `entities` 覆盖两端（实测 items=71 / entities=72） |
+| OAuth 密钥对齐 | `/.well-known/openid-configuration` → `jwks_uri` → 用 JWKS 公钥验 `id_token` 签名 | kid 对齐 ✓、**RS256 验签通过** ✓ |
+| 前端三档基线 | 1440×950 与 390×844 下 `/works`、`/releases`、`/mediums` 的 h1 左边界 | 1440：112/112/112；390：16/16/16（三者完全一致） |
