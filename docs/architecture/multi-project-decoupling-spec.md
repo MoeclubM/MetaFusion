@@ -3,6 +3,8 @@
 > **状态：已落地（P1–P4）**
 > 本文描述的拆分**已经实施**：账号（`metafusion-auth`）、互动（`metafusion-community`）、存储（`metafusion-storage`）、网关（`metafusion-api-gateway`）均为独立仓库，主仓库收敛为元数据目录 + 前端 + 文档站 + 部署编排；开发实例已完成切流，进程内模块层（`backend/internal/modules`）与其 schema 已删除。
 > 与本文的差异：实现**没有**引入独立数据库（各服务共用同一 PostgreSQL 实例、各用自有 schema，且不建跨 schema 外键），也没有按域前缀拆 URL 命名空间（仍是统一的 `/api/*`，由网关按前缀分流）。
+> 网关本体也不是独立的 `metafusion-api-gateway` 仓库：线上矩阵是本仓库 `deploy/nginx.conf`（compose 的 `gateway` 服务），
+> 那个仓库只剩切流自检脚本；下文 §2/§3.1 里"边缘网关 = metafusion-api"的仓库边界按此理解。
 > 运行时的权威描述以 AGENTS.md、[子系统拆分与迁移契约](./service-split-migration.md)、[切流手册](./cutover-runbook.md) 与 `backend/internal/catalog/http.go` 为准。
 
 本文档面向 MetaFusion 核心开发与架构运维团队，明确**元数据系统作为主项目（Core Project）**与周边外围子系统（账号、论坛、资源存储、API 网关、文档站）的**项目拆分边界、通信协议契约、数据库隔离方案与 GitHub 多仓库协同规范**。

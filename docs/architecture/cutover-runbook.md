@@ -91,8 +91,10 @@ curl -s -o /dev/null -w '%{http_code}\n' http://<host>/api/storage/stats   # 401
 ### 第 2 步：auth（零数据迁移，回滚成本最低）
 
 ```bash
-# 网关：把 6 处 auth 前缀的 upstream 从 catalog:8080 改为 auth:8081：
-#   /api/auth/  /api/setup  /api/admin/users  /api/oauth/  /api/oidc/  /api/.well-known/
+# 网关：把 auth 域的每条 location 的 upstream 从 catalog:8080 改为 auth:8081：
+#   /api/auth/  /api/setup  /api/admin/{users,groups,permissions,settings,invites}
+#   /api/oauth/  /api/oidc/  /api/.well-known/  /.well-known/
+# （deploy/nginx.conf 现在已经是这个状态；本步只在"按前缀分批切"的实例上还有动作）
 docker compose -f deploy/docker-compose.yml up -d --force-recreate gateway
 ```
 
@@ -102,7 +104,9 @@ docker compose -f deploy/docker-compose.yml up -d --force-recreate gateway
 3. 新登录一次 → 成功；`GET /api/auth/me` 返回当前账号
 4. `curl -fsS https://<host>/api/.well-known/openid-configuration` 与 `/.well-known/openid-configuration` 返回同一份文档
 
-回滚：6 处 upstream 指回 `http://catalog:8080`。**不需要数据操作**——两边读写同一个 `auth` schema。
+回滚：这些 upstream 指回 `http://catalog:8080`。**不需要数据操作**——两边读写同一个 `auth` schema。
+注意：这条回滚只对"旧镜像里的单体仍带账号路由"成立；当前代码已删除单体账号实现，
+现网回滚只能改成"改网关 + 用上一版 catalog 镜像重建"。
 注意：若切流后已用 auth 服务改过密码/角色，回滚后单体读同一张表，改动依然生效（这是"同 schema"的好处）。
 
 ### 第 3 步：community + records + favorites（有实时数据，必须按窗口执行）
@@ -162,7 +166,7 @@ cd deploy && ./deploy.sh retire
 
 | 系统 | 数据布局 | 回滚代价 |
 | --- | --- | --- |
-| auth | 两边读写**同一个** `auth` schema | 改网关，无数据操作 |
+| auth | 两边读写**同一个** `auth` schema | 改网关；单体账号路由已删除，等于改网关 + 恢复上一版 catalog 镜像 |
 | community / records / favorites | 单体写 `modules.*`、`catalog.favorites`；服务写 `community.*` | 先 `-direction back` 搬运，再改网关 |
 | storage | 单体写 `modules.resources`；服务写 `storage.*` | 改网关；旧数据仍在单体表里 |
 

@@ -31,8 +31,9 @@
    自有 `community` schema；实体可见性问目录服务，不直连目录库。
 4. **存储服务 (`metafusion-storage`)**：物理文件、sha256 内容寻址、预签名直传与绑定（`/api/storage/*`）；
    自有 `storage` schema，桶由服务启动时自建。
-5. **边缘网关 (`metafusion-api-gateway`)**：按前缀把 `/api/*` 分流到各服务，只对外暴露一个端口；
-   路由矩阵与主仓库 `deploy/nginx.conf` 一致。
+5. **边缘网关**：`deploy/nginx.conf`（compose 的 `gateway` 服务，单容器 Nginx）按前缀把 `/api/*`
+   分流到各服务，只对外暴露一个端口；`metafusion-api-gateway` 仓库只剩切流自检脚本，
+   它自带的 nginx.conf 仍是切流前矩阵，不参与部署。
 6. **文档站（`metafusion-docs`）**：VitePress 静态工程，独立仓库即唯一源；主仓库不再存放 doc 页面，编排从兄弟目录构建该服务。
 
 **单体侧已完成收敛**：`catalog/identity.go`、`favorites.go` 与账号路由全部删除，`token.go` 只剩验签

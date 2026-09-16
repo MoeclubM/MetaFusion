@@ -9,11 +9,11 @@
 
 | 运行单元 | 职责 | 拥有数据（schema） | 对外路径前缀 | 仓库 |
 | --- | --- | --- | --- | --- |
-| 元数据目录 catalog | 八类实体、动态定义、关系、结构、修订、检索、货架、外部库 | `catalog.*` | `/api/catalog/*`、`/api/openapi.json` | MetaFusion（本仓库） |
+| 元数据目录 catalog | 八类实体、动态定义、关系、结构、修订、检索、货架、外部库 | `catalog.*` | `/api/catalog/*`、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json` | MetaFusion（本仓库） |
 | 账号 auth | 注册/登录、会话、令牌签发与吊销、OAuth2/OIDC、账号与角色管理 | `auth.*` | `/api/setup`、`/api/auth/*`、`/api/admin/users*`、`/api/oauth/*`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration` | metafusion-auth |
 | 互动 community | 论坛板块/主题/回复/标签、条目短评、个人收藏、评分与进度 | `community.*` | `/api/community/*`、`/api/favorites/*`、`/api/records/*`、`/api/users/{id}/favorites` | metafusion-community |
 | 存储 storage | 物理文件、哈希与去重、对象存储直传、绑定、下载/预览与访问控制 | `storage.*` | `/api/storage/*` | metafusion-storage |
-| 边缘网关 gateway | 统一入口、按前缀分流、限流、安全响应头 | 无 | `/`、`/docs` | metafusion-api-gateway |
+| 边缘网关 gateway | 统一入口、按前缀分流、限流、安全响应头 | 无 | `/`、`/docs`、各 `/api/` 前缀 | 本仓库 `deploy/nginx.conf`（`metafusion-api-gateway` 只留切流自检脚本） |
 | 文档 | 全站文档（唯一源） | 无 | 由网关 `/docs` 反代 | metafusion-docs |
 | 技能 | 编目技能（curator / lrm-catalog-standards） | 无 | 无（非运行时） | metafusion-skills |
 
@@ -21,21 +21,21 @@
 里的 `NEXT_PUBLIC_AUTH_URL` / `NEXT_PUBLIC_FORUM_URL` / `NEXT_PUBLIC_STORAGE_URL` / `NEXT_PUBLIC_DOCS_URL`
 是既有的外部化开关，服务切换时优先用它们，而不是改调用点。
 
-## 2. 路由归属（迁移目标）
+## 2. 路由归属（现状）
 
-| 归属 | 路径 | 现状（本仓库） |
+| 归属 | 路径 | 现状（P4 切流后） |
 | --- | --- | --- |
-| auth | `GET|POST /api/setup` | `catalog/http.go` |
-| auth | `POST /api/auth/login|refresh|logout|change-password|logout-all`、`GET /api/auth/me|settings`、`PUT /api/auth/password` | 同上 |
-| auth | `GET|POST /api/admin/users`、`PUT /api/admin/users/:id/role|password` | 同上 |
-| auth | `/api/oauth/clients|authorize|token|userinfo`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration` | 同上 |
-| catalog | `/api/catalog/*`（definitions、tags、entities、relations、shelves、compare、importer、me/home-preferences 等） | 同上，保留 |
-| community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id） | `modules/forum.go`、`modules/modules.go` |
-| community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | 已迁入 metafusion-community（`community.favorites`）；主仓库 `catalog/favorites.go` 待 P4 下线 |
-| community | `/api/records/entities/:id` | `modules/modules.go` |
-| storage | `/api/storage/*`（见 `docs-site/docs/api-storage.md` 的设计契约） | 不存在；现状是 `/api/archive/*`、`/api/playback/*`、`/api/media/*` |
-| 待定 | `/api/exchange/*`（导入/导出提案） | `modules/modules.go`；归属元数据侧写入能力，迁移期留在本仓库 |
-| 待定 | `/api/capabilities`、`/api/admin/modules/:id` | 模块开关是部署关注点；catalog 收敛为只读聚合，逐服务给出 `/health` |
+| auth | `GET|POST /api/setup` | metafusion-auth；网关用 `location = /api/setup` 精确匹配 |
+| auth | `POST /api/auth/login|refresh|logout|change-password|logout-all|register`、`GET /api/auth/me|settings|invite`、`POST /api/auth/invite`、`PUT /api/auth/password` | metafusion-auth（`/api/auth/` 前缀） |
+| auth | `GET|POST /api/admin/users`、`PUT /api/admin/users/:id/{role,password,groups}` | metafusion-auth（`/api/admin/users` 前缀） |
+| auth | `GET|POST /api/admin/groups`、`PUT|DELETE /api/admin/groups/:code`、`GET /api/admin/permissions`、`GET|PUT /api/admin/settings`、`GET|POST /api/admin/invites`、`POST /api/admin/invites/:code/revoke` | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关逐条精确匹配（漏一条就 404） |
+| auth | `/api/oauth/clients|authorize|token|userinfo`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration`、根路径 `/.well-known/{openid-configuration,jwks.json}` | metafusion-auth（令牌只由它签发，discovery 与 JWKS 也只在它这里） |
+| catalog | `/api/catalog/*`（definitions、tags、entities、relations、shelves、compare、me/home-preferences 等）、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json` | 本仓库，保留 |
+| community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id） | metafusion-community |
+| community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | metafusion-community（`community.favorites`）；主仓库的收藏实现与表已删除 |
+| community | `/api/records/entities/:id` | metafusion-community |
+| storage | `/api/storage/*`（契约见 `metafusion-docs` 的 `docs/api-storage.md`） | metafusion-storage；旧的 `/api/archive|playback|media` 已退役，网关不再为它们单列 location |
+| catalog | `/api/capabilities`、`/api/admin/modules/:id` | 部署态只读聚合 + 开关退役返回 409（见 capabilities 文档）；`/health` 由各服务自己提供给聚合探测 |
 
 **网关按前缀分流，不按服务改前端调用点。** 只有 `/api/users/{id}/favorites` 与用户资料同前缀，
 网关用精确正则 `^/api/users/[^/]+/favorites$` 单独分流到 community。
@@ -57,7 +57,8 @@
 - 只有 auth 签发令牌；其余服务**只验签**（RS256，JWKS）。验签信 `sub`/`preferred_username`/`role`，
   以及授权用的 `groups`/`permissions`（auth 按组展开后的权限码集合，admin 组带 `*` 通配）。
 - issuer 保持 `https://findverse.cc/api`、audience 保持 `metafusion`，避免存量令牌全部失效。
-- 各服务的 JWKS 地址用环境变量注入（迁移期指向 catalog 的 `/api/oidc/jwks`，auth 上线后指向 auth）。
+- 各服务的 JWKS 地址用环境变量注入，现在都指向账号服务：community 的 `COMMUNITY_JWKS_URL`、storage 的
+  `STORAGE_JWKS_URL` = `http://auth:8081/api/oidc/jwks`（catalog/community/storage 都不提供 JWKS，只验签）。
 - 主仓库 `Store.Authenticate` **只做 RS256 验签**（已于 2026-09-14 取消 `auth.sessions` 查库兜底）：
   目录不读账号服务的表。存量不透明令牌的兜底由各服务问账号服务（`AUTH_URL`），
   续期仍走账号服务的 `/api/auth/refresh`（短期访问令牌，否则用户会被强制下线）。
@@ -90,7 +91,9 @@
 >   目录侧无字段），迁移后的接口恒返回 `visible: true`；实现该开关时归互动服务。
 > - **P5 已完成（2026-09-14）**：以主仓库 `docs-site` 的最新内容为准同步进 `metafusion-docs`，
 >   后者成为唯一源；主仓库删除 `docs-site/`，`deploy/docker-compose.yml` 的构建上下文改为 `../../metafusion-docs`，
->   CI 的 docs job 与 release 的 docs 镜像随之从本仓库移除（改由文档仓库自己的 CI 承担）。
+>   CI 的 docs job 随之从本仓库移除（改由文档仓库自己的 CI 承担：那边只跑 VitePress 构建与死链自查）。
+>   **文档站镜像目前没有任何仓库发布**，而 `deploy/docker-compose.prod.yml` 把 docs-site 写成预构建镜像，
+>   因此 `deploy.sh pull` 前要先在文档仓库构建并推送该镜像，否则该服务拉不到。
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
@@ -112,7 +115,7 @@
 | metafusion-storage | ~~模型用 GORM；路由与文档的 `/api/storage/bind` 不一致~~ | ✅ 已改为 `database/sql`，路由以 `metafusion-docs` 的 `docs/api-storage.md` 契约为准 |
 | metafusion-auth / -community | 无 `go.sum`，`go build` 直接失败 | 补齐依赖锁（`GOPROXY=https://goproxy.cn,direct go mod tidy`）；storage 已完成 |
 | metafusion-docs | ~~26 篇 md 与本仓库 `docs-site` 重复，其中 14 篇已分叉~~ | ✅ 已收敛：以主仓库内容为基准同步过去，本仓库副本删除 |
-| metafusion-api-gateway | ~~缺 `/.well-known/` 路由；`/api/storage/*` 指向未实现服务~~ | ✅ 已重排：每个前缀一行上游、补齐 discovery/setup/oauth/oidc、未实现的服务不接线上流量 |
+| metafusion-api-gateway | ~~缺 `/.well-known/` 路由；`/api/storage/*` 指向未实现服务~~ | 网关矩阵最终落在本仓库 `deploy/nginx.conf`（每个前缀一行上游、补齐 discovery/setup/oauth/oidc）；该仓库只剩切流自检脚本，其 `nginx.conf` 与 README 仍是切流前矩阵，**不再作为部署输入** |
 
 ## 7. 回滚
 
