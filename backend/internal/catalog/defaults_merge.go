@@ -78,6 +78,20 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			added = append(added, "schemes."+k)
 		}
 	}
+	// 种子声明的**开关**只做"打开"：Aggregate 这类标记若种子为真、当前为假，说明当前文档是
+	// 旧版本（还没这个声明），补上即可；种子为假时不动——那可能是后台有意关掉的。
+	// 仍属"只增不改"：只会新增能力，不会覆盖人工决定。
+	for code, sr := range seed.Relations {
+		cur, ok := out.Relations[code]
+		if !ok {
+			continue // 缺失的关系已在上面补过
+		}
+		if sr.Aggregate && !cur.Aggregate {
+			cur.Aggregate = true
+			out.Relations[code] = cur
+			added = append(added, "relations."+code+".aggregate")
+		}
+	}
 	for k, v := range seed.Structure {
 		if _, ok := out.Structure[k]; !ok {
 			out.Structure[k] = v
