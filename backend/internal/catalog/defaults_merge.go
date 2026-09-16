@@ -98,6 +98,8 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			added = append(added, "structure."+k)
 		}
 	}
+	// 名称译文补丁：只填仍是英文占位的语种（见 mergeNames 注释），不覆盖已有译文。
+	added = append(added, backfillTranslations(&out, seed)...)
 	sort.Strings(added)
 	return out, added
 }
