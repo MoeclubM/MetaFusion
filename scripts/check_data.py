@@ -124,6 +124,57 @@ def main():
     for key, n in seen.items():
         if n > 1:
             problems.append(("P1", "duplicate_relation", key[0], "%s -> %s x%d" % (key[1], key[2], n)))
+    # 5. 覆盖度自检：该有却没有的关系与从属（"缺关系/缺翻译/缺图片/层级异常"里的"缺关系"）
+    #    硬闸门只放"规范要求必须成立"的两条：乐队必须有成员、发行版必须有载体；
+    #    其余按提示列出（例如影像作品的篇目数、载体曲目数），因为它们有正当的例外（剧场版单篇、Live 盘无分轨）。
+    import collections as _c
+    rel_by_src = _c.Counter()
+    rel_by_pair = _c.Counter()
+    rel_types = _c.Counter()
+    rel_cache = {}
+    for e in entities:
+        if e.get("kind") not in ("agent", "work", "release", "collection", "content_unit", "expression", "medium", "track"):
+            continue
+        rel = get("/api/catalog/entities/%s/relations" % e["id"]) or {}
+        rel_cache[e["id"]] = rel
+        for r in (rel.get("items") or []):
+            rel_types[r.get("type")] += 1
+            rel_by_pair[(r.get("type"), r.get("source_id"), r.get("target_id"))] += 1
+            rel_by_src[(r.get("type"), r.get("target_id"))] += 1
+    # 5.1 乐队必须有成员（member_of 指向它）
+    for e in entities:
+        if e.get("kind") != "agent":
+            continue
+        if "group" not in (e.get("types") or []):
+            continue
+        if rel_by_src[("member_of", e["id"])] == 0:
+            problems.append(("P1", "group_without_members", e["id"], e.get("title", "")))
+    # 5.2 发行版必须有载体（medium 挂在它下面）
+    for e in entities:
+        if e.get("kind") != "release":
+            continue
+        meds = get("/api/catalog/entities", {"release_id": e["id"], "limit": 50}) or {}
+        if not (meds.get("items") or []):
+            problems.append(("P1", "release_without_medium", e["id"], (e.get("attributes") or {}).get("catalog_number") or e.get("title", "")))
+    # 5.3 提示项：影像作品无篇目、载体无曲目、作品不在任何集合里
+    hints = _c.Counter()
+    for e in entities:
+        types = e.get("types") or []
+        if e.get("kind") == "work" and any(t in types for t in ("animation",)):
+            cus = get("/api/catalog/entities", {"work_id": e["id"], "kind": "content_unit", "limit": 1}) or {}
+            if not (cus.get("total") or 0):
+                hints["animation_without_episodes"] += 1
+        if e.get("kind") == "medium":
+            trs = get("/api/catalog/entities", {"medium_id": e["id"], "limit": 1}) or {}
+            if not (trs.get("total") or 0):
+                hints["medium_without_tracks"] += 1
+        if e.get("kind") == "work" and not (rel_cache.get(e["id"]) or {}).get("items"):
+            hints["work_without_relations"] += 1
+    if hints:
+        print("\n覆盖度提示（不计入 P0/P1；有正当例外，如剧场版单篇、Live 盘无分轨）:")
+        for name, n in hints.most_common():
+            print("  %-30s %d" % (name, n))
+    print("关系类型分布: " + ", ".join("%s=%d" % (k, v) for k, v in rel_types.most_common(8)))
     # 5. 定义名称占位
     for section, bag in (("fields", doc.get("fields")), ("types", doc.get("types")), ("relations", relations)):
         for code, v in (bag or {}).items():
