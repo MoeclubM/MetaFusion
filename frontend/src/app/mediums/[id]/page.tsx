@@ -201,10 +201,11 @@ export default function MediumDetailPage() {
           </Card>
 
           {/* 载体自身的动态属性（黑胶转速/尺寸等由后台声明）：走通用分区渲染，
-              不为每种媒体另写面板；无可用字段时组件返回 null。 */}
-          {/* WorkFacts 的容器口径与 Card 一致（plain 描边/底色 + section 内边距），
-              因此按组件的圆角与令牌给出同样的类名，不再走页面自写的 rounded-lg/border-line。 */}
-          <WorkFacts entity={medium} defs={defs} locale={locale} className="rounded-xl border border-line-subtle bg-surface/80 backdrop-blur-md shadow-soft p-4 sm:p-5" />
+              不为每种媒体另写面板；无可用字段时组件返回 null。
+              容器交给 Card（plain 档），组件只负责字段渲染，页面不写卡片类。 */}
+          <Card tone="plain" padding="section">
+            <WorkFacts entity={medium} defs={defs} locale={locale} />
+          </Card>
 
           {/* 资源文件：文件本体由存储服务托管，绑定用途由 binding_role 表达；
               载体是"整碟镜像/分轨音频/扫描件"最大的落点，放在曲目表之前。 */}
