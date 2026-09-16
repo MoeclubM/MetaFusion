@@ -12,6 +12,8 @@ import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
 import { GroupAttributeInline, LocatorInline } from "@/components/catalog/TemplateAttributeSections";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { PageShell } from "@/components/ui/PageShell";
+import { Card } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/SectionTitle";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ArrowLeft, ArrowRight, FileText, HardDrive, Layers } from "lucide-react";
 
@@ -161,7 +163,7 @@ export default function MediumDetailPage() {
           </div>
           }
         >
-          <section className="p-5 sm:p-7 rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft space-y-4">
+          <Card tone="plain" padding="section" className="shadow-soft space-y-4">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-500 grid place-items-center shrink-0">
                 <HardDrive className="w-6 h-6" />
@@ -196,23 +198,26 @@ export default function MediumDetailPage() {
                 <p className="text-sm font-semibold text-text-strong mt-0.5">{tracks.length}</p>
               </div>
             </div>
-          </section>
+          </Card>
 
           {/* 载体自身的动态属性（黑胶转速/尺寸等由后台声明）：走通用分区渲染，
               不为每种媒体另写面板；无可用字段时组件返回 null。 */}
-          <WorkFacts entity={medium} defs={defs} locale={locale} className="rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft p-4 sm:p-5" />
+          {/* WorkFacts 的容器口径与 Card 一致（plain 描边/底色 + section 内边距），
+              因此按组件的圆角与令牌给出同样的类名，不再走页面自写的 rounded-lg/border-line。 */}
+          <WorkFacts entity={medium} defs={defs} locale={locale} className="rounded-xl border border-line-subtle bg-surface/80 backdrop-blur-md shadow-soft p-4 sm:p-5" />
 
           {/* 资源文件：文件本体由存储服务托管，绑定用途由 binding_role 表达；
               载体是"整碟镜像/分轨音频/扫描件"最大的落点，放在曲目表之前。 */}
           <EntityResourceFiles entityId={mediumId} />
 
-          <section className="rounded-lg border border-line bg-surface/80 backdrop-blur-md overflow-hidden">
-            <div className="p-4 sm:p-5 border-b border-line-subtle flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-primary" />
-                <h2 className="font-display font-bold text-text-strong">{t("medium.detail.tracksTitle")}</h2>
-              </div>
-              <span className="font-mono text-xs text-gray-500">{tracks.length}</span>
+          <Card tone="plain" padding="none" className="overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-line-subtle">
+              <SectionTitle
+                icon={<Layers className="w-4 h-4 text-primary" />}
+                actions={<span className="font-mono text-xs text-gray-500">{tracks.length}</span>}
+              >
+                {t("medium.detail.tracksTitle")}
+              </SectionTitle>
             </div>
             {tracks.length === 0 ? (
               <div className="p-8 text-center font-mono text-xs text-gray-500">{t("medium.detail.noTracks")}</div>
@@ -263,7 +268,7 @@ export default function MediumDetailPage() {
                 })}
               </div>
             )}
-          </section>
+          </Card>
         </PageShell>
       </div>
     </div>

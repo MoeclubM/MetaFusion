@@ -20,6 +20,8 @@ import { GraphNode, GraphLink, FavoriteTargetType } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
 import { PageShell, PageContainer } from "@/components/ui/PageShell";
 import { TabPanel } from "@/components/ui/TabPanel";
+import { Card, CardTitle } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
@@ -990,7 +992,7 @@ export function EntityDetailView({ id }: { id: string }) {
           {/* ============================================================ */}
           <aside className="w-full space-y-4 shrink-0">
             {/* 1. Cover Card */}
-            <div className="rounded-xl overflow-hidden border border-black/10 dark:border-white/[0.12] bg-surface shadow-md">
+            <Card padding="none" className="overflow-hidden shadow-md">
               <AdaptiveCover
                 src={resolvedCover.src}
                 alt={localizedTitle}
@@ -1000,7 +1002,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 aspect={resolvedCover.aspect}
                 className="w-full h-auto object-cover"
               />
-            </div>
+            </Card>
 
             {/* 2. External Authority & Official Links (官网与各权威数据源同级一体化呈现) */}
             <ExternalAuthorityLinks
@@ -1010,13 +1012,10 @@ export function EntityDetailView({ id }: { id: string }) {
             />
 
             {/* 3. Basic Facts & Information Card */}
-            <div className="p-4 sm:p-5 rounded-xl border border-line bg-surface shadow-soft space-y-4">
-              <div className="flex items-center gap-2 border-b border-line-subtle pb-2.5">
-                <Sliders className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                <h3 className="font-display text-xs font-bold uppercase tracking-wider text-text-strong font-mono">
-                  {t("entity.page.basicInfo")}
-                </h3>
-              </div>
+            <Card padding="section" className="shadow-soft space-y-4">
+              <CardTitle icon={<Sliders className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
+                {t("entity.page.basicInfo")}
+              </CardTitle>
 
               <dl className="space-y-3 text-xs">
                 <div>
@@ -1079,11 +1078,11 @@ export function EntityDetailView({ id }: { id: string }) {
                   </>}
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* 4. Decoupled Resource Station Quick Jump（资源站未接入时不显示） */}
             {hasResourceStation() && (
-              <div className="p-4 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] dark:bg-sky-500/[0.08] space-y-2.5">
+              <Card padding="card" className="!border-sky-500/20 !bg-sky-500/[0.04] dark:!bg-sky-500/[0.08] space-y-2.5">
                 <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-semibold text-xs font-mono">
                   <HardDrive className="w-4 h-4" />
                   <span>{t("entity.page.resourceStation")}</span>
@@ -1100,7 +1099,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   <span>{t("entity.page.openResourceStation")}</span>
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </a>
-              </div>
+              </Card>
             )}
           </aside>
 
@@ -1130,13 +1129,10 @@ export function EntityDetailView({ id }: { id: string }) {
               className="space-y-4"
             >
             {active === "overview" && (
-            <section id="overview" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
-              <div className="flex items-center gap-2 border-b border-line-subtle pb-2.5">
-                <BookOpen className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
-                  {t("entity.page.overviewTitle")}
-                </h2>
-              </div>
+            <Card id="overview" padding="section" className="space-y-4 shadow-soft">
+              <SectionTitle icon={<BookOpen className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
+                {t("entity.page.overviewTitle")}
+              </SectionTitle>
 
               {summaryText ? (
                 <div className="text-sm text-text-strong leading-relaxed whitespace-pre-line">
@@ -1180,13 +1176,13 @@ export function EntityDetailView({ id }: { id: string }) {
                           className="group block space-y-1.5"
                           title={p.source?.citation || ""}
                         >
-                          <div className="aspect-[3/4] rounded-lg overflow-hidden border border-line bg-surfaceSubtle">
+                          <Card tone="subtle" padding="none" className="aspect-[3/4] overflow-hidden">
                             <img
                               src={p.url}
                               alt={p.caption?.[locale] || entity.title}
                               className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-fast ease-soft"
                             />
-                          </div>
+                          </Card>
                           <div className="font-mono text-[10px] text-gray-500">
                             {p.taken_at?.trim() || t("catalog.imageTimeUnknown")}
                           </div>
@@ -1197,10 +1193,10 @@ export function EntityDetailView({ id }: { id: string }) {
               )}
               {/* Mother Work Direct Card */}
               {motherWork && (
-                <div className="pt-2">
+                <Card tone="subtle" padding="none" className="hover:border-primary/50 transition-all mt-2">
                   <Link
                     href={`/catalog/${motherWork.id}`}
-                    className="group inline-flex items-center gap-3.5 p-3 rounded-xl border border-line bg-surfaceSubtle hover:border-primary/50 hover:bg-black/[0.04] hover:bg-surfaceSubtle transition-all w-full"
+                    className="group flex items-center gap-3.5 p-3 w-full"
                   >
                     <div className="w-12 h-12 rounded-lg overflow-hidden dark:bg-white/5 shrink-0 border border-line">
                       <AdaptiveCover
@@ -1227,12 +1223,12 @@ export function EntityDetailView({ id }: { id: string }) {
                     </div>
                     <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
                   </Link>
-                </div>
+                </Card>
               )}
 
               {/* Store Bonuses Highlight */}
               {storeBonuses.length > 0 && (
-                <div className="p-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.05] dark:bg-amber-500/[0.08] space-y-2">
+                <Card padding="card" className="!border-amber-500/30 !bg-amber-500/[0.05] dark:!bg-amber-500/[0.08] space-y-2">
                   <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-amber-600 dark:text-amber-400">
                     <Sparkles className="w-4 h-4" />
                     <span>{t("entity.detail.storeBonuses")}</span>
@@ -1251,37 +1247,32 @@ export function EntityDetailView({ id }: { id: string }) {
                       </div>
                     ))}
                   </div>
-                </div>
+                </Card>
               )}
-            </section>
+            </Card>
             )}
 
             {/* ============================================================ */}
             {/* Section 2: Staff & Credits (演职人员与创作者)                 */}
             {/* ============================================================ */}
             {active === "staff" && staffRelations.length > 0 && (
-              <section id="staff" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
-                <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <Users className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                    <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
-                      {t("entity.page.staffTitle")}
-                    </h2>
-                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                      {staffRelations.length}
-                    </span>
-                  </div>
-                </div>
+              <Card id="staff" padding="section" className="space-y-4 shadow-soft">
+                <SectionTitle icon={<Users className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
+                  {t("entity.page.staffTitle")}
+                  <span className="ml-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                    {staffRelations.length}
+                  </span>
+                </SectionTitle>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {staffRelations.map((r) => {
                     const target = r.target;
                     const targetTitle = endTitleOf(target, r.otherId, locale, titleOrder);
                     return (
+                      <Card key={r.id} tone="subtle" padding="none" className="hover:border-primary/50 transition-all group">
                       <Link
-                        key={r.id}
                         href={`/catalog/${r.otherId}`}
-                        className="p-3 rounded-xl border border-line-subtle bg-black/[0.015] dark:bg-white/[0.015] hover:border-primary/50 hover:bg-black/[0.03] hover:bg-surfaceSubtle transition-all flex items-center gap-3 group"
+                        className="p-3 flex items-center gap-3"
                       >
                         <div className="w-10 h-10 rounded-full bg-primary/10 text-primary grid place-items-center font-bold text-xs shrink-0 overflow-hidden border border-primary/20">
                           {target?.pictures?.[0]?.url ? (
@@ -1305,28 +1296,24 @@ export function EntityDetailView({ id }: { id: string }) {
                         </div>
                         <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
                       </Link>
+                      </Card>
                     );
                   })}
                 </div>
-              </section>
+              </Card>
             )}
 
             {/* ============================================================ */}
             {/* Section 3: Contents & Tracklist (内容目录与曲目结构)          */}
             {/* ============================================================ */}
             {active === "contents" && children.length > 0 && (
-              <section id="contents" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
-                <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <List className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                    <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
-                      {t("entity.page.contentsTitle")}
-                    </h2>
-                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                      {children.length}
-                    </span>
-                  </div>
-                </div>
+              <Card id="contents" padding="section" className="space-y-4 shadow-soft">
+                <SectionTitle icon={<List className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
+                  {t("entity.page.contentsTitle")}
+                  <span className="ml-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                    {children.length}
+                  </span>
+                </SectionTitle>
 
                 {/* Mediums & Tracks (for Releases) */}
                 {mediums.length > 0 ? (
@@ -1334,7 +1321,7 @@ export function EntityDetailView({ id }: { id: string }) {
                     {mediums.map((m) => {
                       const mTracks = (m.id ? tracksByMedium[m.id] : []) || [];
                       return (
-                        <div key={m.id} className="rounded-xl border border-line overflow-hidden bg-black/[0.01] dark:bg-white/[0.01]">
+                        <Card key={m.id} padding="none" className="overflow-hidden">
                           <div className="px-4 py-3 bg-black/[0.03] dark:bg-white/[0.04] border-b border-line flex items-center justify-between">
                             <div className="flex items-center gap-2 font-mono text-xs font-bold text-text-strong">
                               <Disc className="w-4 h-4 text-primary" />
@@ -1379,7 +1366,7 @@ export function EntityDetailView({ id }: { id: string }) {
                               );
                             })}
                           </div>
-                        </div>
+                        </Card>
                       );
                     })}
                   </div>
@@ -1387,10 +1374,10 @@ export function EntityDetailView({ id }: { id: string }) {
                   /* Content Units & Expressions (for Works) */
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {children.map((c) => (
+                      <Card key={c.id} tone="subtle" padding="none" className="hover:border-primary/50 transition-all group">
                       <Link
-                        key={c.id}
                         href={`/catalog/${c.id}`}
-                        className="p-3 rounded-xl border border-line-subtle bg-black/[0.015] dark:bg-white/[0.015] hover:border-primary/50 hover:bg-black/[0.03] hover:bg-surfaceSubtle transition-all flex items-center justify-between gap-3 group"
+                        className="p-3 flex items-center justify-between gap-3"
                       >
                         <div className="min-w-0 flex items-center gap-2.5">
                           <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-mono uppercase font-semibold shrink-0">
@@ -1402,28 +1389,24 @@ export function EntityDetailView({ id }: { id: string }) {
                         </div>
                         <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
                       </Link>
+                      </Card>
                     ))}
                   </div>
                 )}
-              </section>
+              </Card>
             )}
 
             {/* ============================================================ */}
             {/* Section 4: Releases & Occurrences (发行版本与收录情况)        */}
             {/* ============================================================ */}
             {active === "releases" && occurrences.length > 0 && (
-              <section id="releases" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
-                <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <Disc className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                    <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
-                      {t("entity.page.releasesTitle")}
-                    </h2>
-                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                      {occurrences.length}
-                    </span>
-                  </div>
-                </div>
+              <Card id="releases" padding="section" className="space-y-4 shadow-soft">
+                <SectionTitle icon={<Disc className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
+                  {t("entity.page.releasesTitle")}
+                  <span className="ml-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                    {occurrences.length}
+                  </span>
+                </SectionTitle>
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs font-mono">
@@ -1481,26 +1464,18 @@ export function EntityDetailView({ id }: { id: string }) {
                     </tbody>
                   </table>
                 </div>
-              </section>
+              </Card>
             )}
 
             {/* ============================================================ */}
             {/* Section 5: Relations & Graph (关联作品与图谱)                 */}
             {/* ============================================================ */}
             {active === "relations" && mediaRelations.length > 0 && (
-              <section id="relations" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
-                <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <Network className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                    <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
-                      {t("entity.page.relationsTitle")}
-                    </h2>
-                    <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                      {mediaRelations.length}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.06] p-0.5 rounded-lg text-xs font-mono">
+              <Card id="relations" padding="section" className="space-y-4 shadow-soft">
+                <SectionTitle
+                  icon={<Network className="w-4 h-4 text-primary" strokeWidth={1.5} />}
+                  actions={
+                    <div className="flex items-center gap-1 bg-black/[0.04] dark:bg-white/[0.06] p-0.5 rounded-lg text-xs font-mono">
                     <button
                       type="button"
                       onClick={() => setRelationViewMode("cards")}
@@ -1523,11 +1498,17 @@ export function EntityDetailView({ id }: { id: string }) {
                     >
                       {t("entity.page.viewGraph")}
                     </button>
-                  </div>
-                </div>
+                    </div>
+                  }
+                >
+                  {t("entity.page.relationsTitle")}
+                  <span className="ml-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                    {mediaRelations.length}
+                  </span>
+                </SectionTitle>
 
                 {relationViewMode === "graph" ? (
-                  <div className="h-[360px] rounded-xl overflow-hidden border border-line bg-surfaceSubtle">
+                  <Card tone="subtle" padding="none" className="h-[360px] overflow-hidden">
                     <InteractiveRelationGraph
                       centerEntityId={entity.id || id}
                       centerEntityType={entity.kind}
@@ -1546,7 +1527,7 @@ export function EntityDetailView({ id }: { id: string }) {
                         }
                       }}
                     />
-                  </div>
+                  </Card>
                 ) : (
                   <div className="space-y-4">
                     {groupedMediaRelations.map((group) => (
@@ -1560,10 +1541,15 @@ export function EntityDetailView({ id }: { id: string }) {
                       const toTitle = endTitleOf(r.to, r.toId, locale, titleOrder);
                       const target = r.target;
                       return (
-                        <Link
+                        <Card
                           key={r.id}
+                          tone="subtle"
+                          padding="none"
+                          className="hover:border-primary/50 transition-all group"
+                        >
+                        <Link
                           href={`/catalog/${r.otherId}`}
-                          className="p-3 rounded-xl border border-line-subtle bg-black/[0.015] dark:bg-white/[0.015] hover:border-primary/50 hover:bg-black/[0.03] hover:bg-surfaceSubtle transition-all flex items-center justify-between gap-3 group"
+                          className="p-3 flex items-center justify-between gap-3"
                         >
                           <div className="min-w-0 space-y-1">
                             <div className="text-[10px] font-mono font-semibold text-primary tracking-wider">
@@ -1586,6 +1572,7 @@ export function EntityDetailView({ id }: { id: string }) {
                           </div>
                           <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
                         </Link>
+                        </Card>
                       );
                           })}
                         </div>
@@ -1593,7 +1580,7 @@ export function EntityDetailView({ id }: { id: string }) {
                     ))}
                   </div>
                 )}
-              </section>
+              </Card>
             )}
 
 
@@ -1601,21 +1588,16 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* Section 7: Revisions (修订历史)                             */}
             {/* ============================================================ */}
             {active === "revisions" && (
-            <section id="revisions" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
-              <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
-                <div className="flex items-center gap-2">
-                  <History className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                  <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
-                    {t("entity.page.revisionsHistory")}
-                  </h2>
-                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                    {revisions.length || 1}
-                  </span>
-                </div>
-              </div>
+            <Card id="revisions" padding="section" className="space-y-4 shadow-soft">
+              <SectionTitle icon={<History className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
+                {t("entity.page.revisionsHistory")}
+                <span className="ml-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                  {revisions.length || 1}
+                </span>
+              </SectionTitle>
 
 <EntityRevisions revisions={revisions} currentEntity={entity} />
-            </section>
+            </Card>
             )}
 
             {/* ============================================================ */}
@@ -1630,30 +1612,30 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* Community discussions & collections (below the tabs, not a tab)      */}
             {/* ============================================================ */}
             {communityEnabled && (
-            <section id="community" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft mt-8">
-              <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                  <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
-                    {t("entity.page.communityTitle")}
-                  </h2>
-                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                    {communityPosts.length}
-                  </span>
-                </div>
-                <a
-                  href={getForumEntityUrl(entity.id || id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
-                >
-                  <span>{t("entity.page.openInForum")}</span>
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </a>
-              </div>
+            <Card id="community" padding="section" className="space-y-4 shadow-soft mt-8">
+              <SectionTitle
+                icon={<MessageSquare className="w-4 h-4 text-primary" strokeWidth={1.5} />}
+                actions={
+                  <a
+                    href={getForumEntityUrl(entity.id || id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
+                  >
+                    <span>{t("entity.page.openInForum")}</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                }
+              >
+                {t("entity.page.communityTitle")}
+                <span className="ml-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
+                  {communityPosts.length}
+                </span>
+              </SectionTitle>
 
               {/* Quick Comment Composer */}
-              <form onSubmit={handlePostComment} className="p-4 rounded-xl border border-line bg-black/[0.015] dark:bg-white/[0.015] space-y-3">
+              <Card tone="subtle" padding="card" className="space-y-3">
+              <form onSubmit={handlePostComment} className="space-y-3">
                 <div className="flex items-center justify-between text-xs text-gray-500">
                   <span className="font-medium text-text-body font-mono">
                     {t("entity.page.quickReview")}
@@ -1706,6 +1688,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   )}
                 </div>
               </form>
+              </Card>
 
               {/* Embedded Comments Stream */}
               <div className="space-y-3">
@@ -1713,16 +1696,18 @@ export function EntityDetailView({ id }: { id: string }) {
                   {t("entity.page.discussionStream")} ({communityPosts.length})
                 </h3>
                 {communityPosts.length === 0 ? (
-                  <div className="p-8 rounded-xl border border-dashed border-line text-center space-y-2">
-                    <MessageSquare className="w-8 h-8 mx-auto text-gray-400 opacity-50" />
-                    <p className="text-xs text-gray-500">
-                      {t("entity.page.noDiscussions")}
-                    </p>
-                  </div>
+                  <Card padding="none" className="border-dashed">
+                    <div className="p-8 text-center space-y-2">
+                      <MessageSquare className="w-8 h-8 mx-auto text-gray-400 opacity-50" />
+                      <p className="text-xs text-gray-500">
+                        {t("entity.page.noDiscussions")}
+                      </p>
+                    </div>
+                  </Card>
                 ) : (
                   <div className="space-y-3">
                     {communityPosts.map((post: any) => (
-                      <div key={post.id} className="p-4 rounded-xl border border-line-subtle bg-black/[0.015] dark:bg-white/[0.015] space-y-2 hover:border-black/15 dark:hover:border-white/15 transition-colors duration-fast ease-soft">
+                      <Card key={post.id} tone="subtle" padding="card" className="space-y-2 hover:border-black/15 dark:hover:border-white/15 transition-colors duration-fast ease-soft">
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-primary/15 text-primary grid place-items-center font-mono text-[11px] font-bold">
@@ -1739,7 +1724,7 @@ export function EntityDetailView({ id }: { id: string }) {
                         <p className="text-xs sm:text-sm text-text-strong leading-relaxed whitespace-pre-line pl-8">
                           {post.body}
                         </p>
-                      </div>
+                      </Card>
                     ))}
                   </div>
                 )}
@@ -1766,16 +1751,18 @@ export function EntityDetailView({ id }: { id: string }) {
                 </div>
 
                 {allDisplayCollections.length === 0 ? (
-                  <div className="p-6 rounded-xl border border-dashed border-line text-center text-xs text-gray-500">
-                    {t("entity.page.noCollections")}
-                  </div>
+                  <Card padding="none" className="border-dashed">
+                    <div className="p-6 text-center text-xs text-gray-500">
+                      {t("entity.page.noCollections")}
+                    </div>
+                  </Card>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {allDisplayCollections.map((col: any) => (
+                      <Card key={col.id} tone="subtle" padding="none" className="hover:border-indigo-500/50 transition-all group">
                       <a
-                        key={col.id}
                         href={getForumCollectionUrl(col.id)}
-                        className="p-3.5 rounded-xl border border-line bg-surfaceSubtle hover:border-indigo-500/50 hover:bg-black/[0.04] hover:bg-surfaceSubtle transition-all flex items-start gap-3 group cursor-pointer"
+                        className="p-3.5 flex items-start gap-3 cursor-pointer"
                       >
                         <div className="w-10 h-10 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 grid place-items-center shrink-0">
                           <FolderPlus className="w-5 h-5" />
@@ -1790,11 +1777,12 @@ export function EntityDetailView({ id }: { id: string }) {
                         </div>
                         <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors duration-fast ease-soft shrink-0 mt-0.5" />
                       </a>
+                      </Card>
                     ))}
                   </div>
                 )}
               </div>
-            </section>
+            </Card>
             )}
           </div>
         </div>

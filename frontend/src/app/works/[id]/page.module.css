@@ -35,6 +35,9 @@
 .sectionTitle { font-size: 17px; font-weight: 600; padding-bottom: 12px; border-bottom: 1px solid rgb(128 128 128 / .2); margin-bottom: 16px; }
 .summary { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; line-height: 1.95; opacity: .82; }
 .section > section { border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; padding-left: 0; padding-right: 0; }
+/* 关系面板改用 Card 后仍沿用本页"页内区块不画卡片"的口径：分节标题已经起分隔作用，
+   再套一层描边/底色会与其它页签的平铺版式不一致（横向内边距同理由 Card 的 section 档给出）。 */
+.flatBlock { border: 0; border-radius: 0; background: transparent; box-shadow: none; backdrop-filter: none; padding-left: 0; padding-right: 0; }
 .content :global(.font-mono), .headerBottom :global(.font-mono), .sidebar :global(.font-mono) { font-family: inherit; }
 
 @media (max-width: 767px) {

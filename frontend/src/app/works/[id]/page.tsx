@@ -2,6 +2,8 @@
 
 import styles from "./page.module.css";
 import { PageShell } from "@/components/ui/PageShell";
+import { Card } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/SectionTitle";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
@@ -554,13 +556,11 @@ const releaseFacets = useMemo(
                 }
               />
             ) : (
-              <section className="p-4 sm:p-5 rounded-lg border border-line bg-surface space-y-3">
-                <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
-                  <h2 className="font-display text-sm font-bold tracking-tight text-text-strong flex items-center gap-2">
-                    <Network className="w-4 h-4 text-primary" strokeWidth={1.5} />
-                    <span>{t("work.detail.relations")}</span>
-                  </h2>
-                  {graphData && graphData.nodes.length > 0 && (
+              <Card padding="section" className={`${styles.flatBlock} space-y-3`}>
+                <SectionTitle
+                  icon={<Network className="w-4 h-4 text-primary" strokeWidth={1.5} />}
+                  actions={
+                    graphData && graphData.nodes.length > 0 ? (
                     <div className="flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-[11px]">
                       <button
                         type="button"
@@ -579,10 +579,13 @@ const releaseFacets = useMemo(
                         <span>{t("graph.viewList")}</span>
                       </button>
                     </div>
-                  )}
-                </div>
+                    ) : null
+                  }
+                >
+                  {t("work.detail.relations")}
+                </SectionTitle>
                 <GroupedRelations items={connected} />
-              </section>
+              </Card>
             )}
              </section>
              ),
@@ -616,7 +619,9 @@ const releaseFacets = useMemo(
  {loadingReleases ? (
  <div className="p-8 text-center text-sm text-gray-500">{t("work.detail.loadingReleases")}</div>
  ) : releaseEntities.length === 0 ? (
- <div className="p-8 rounded-lg border border-dashed border-line bg-surface/50 text-center text-sm text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : ""}</div>
+ <Card padding="none" className="border-dashed">
+   <div className="p-8 text-center text-sm text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : ""}</div>
+ </Card>
  ) : (
  <>
  <div className="px-3.5 sm:px-4 py-2.5 border-b border-line-subtle flex flex-col lg:flex-row lg:items-center gap-2.5 bg-black/[0.01] dark:bg-white/[0.01]">

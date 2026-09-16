@@ -15,6 +15,8 @@ import {
 } from "@/lib/definitions";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { PageShell } from "@/components/ui/PageShell";
+import { Card } from "@/components/ui/Card";
+import { SectionTitle } from "@/components/ui/SectionTitle";
 import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
 import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateAttributeSections";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
@@ -123,7 +125,7 @@ function Collapsible({
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   return (
-    <section className="rounded-lg border border-line bg-surface overflow-hidden">
+    <Card padding="none" className="overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -144,7 +146,7 @@ function Collapsible({
         </span>
       </button>
       {open && <div className="px-3.5 sm:px-4 py-3 border-t border-line-subtle">{children}</div>}
-    </section>
+    </Card>
   );
 }
 
@@ -504,16 +506,8 @@ export default function ReleaseDetailPage() {
       (r) => showBonus || attrText(r.medium.attributes?.role) !== "supplement"
     );
     const ordered = orderedTracksWithDepth(tracks);
-    return (
-      <section
-        key={medium.id}
-        id={`medium-${medium.id}`}
-        className={
-          depth === 0
-            ? "rounded-lg border border-line bg-surface overflow-hidden shadow-soft"
-            : "bg-transparent"
-        }
-      >
+    const body = (
+      <>
         <div
           className={`px-3.5 sm:px-4 py-2.5 border-b border-line-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
             depth === 0 ? "bg-surfaceSubtle" : ""
@@ -654,6 +648,16 @@ export default function ReleaseDetailPage() {
             {kids.map((k) => mediumBlock(k, depth + 1))}
           </div>
         )}
+      </>
+    );
+    // 顶层载体是卡片（圆角/描边/底色由 Card 给）；嵌套子载体（面/分册）只是分组，不带卡片外观。
+    return depth === 0 ? (
+      <Card key={medium.id} id={`medium-${medium.id}`} padding="none" className="overflow-hidden shadow-soft">
+        {body}
+      </Card>
+    ) : (
+      <section key={medium.id} id={`medium-${medium.id}`} className="bg-transparent">
+        {body}
       </section>
     );
   };
@@ -680,7 +684,7 @@ export default function ReleaseDetailPage() {
         </div>
         }
       >
-        <section className="p-4 sm:p-6 rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
+        <Card tone="plain" padding="section" className="shadow-soft space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">
@@ -767,10 +771,11 @@ export default function ReleaseDetailPage() {
               {basketNotice && <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400">{basketNotice}</span>}
             </div>
           </div>
-        </section>
+        </Card>
 
         {siblingReleases.length > 1 && (
-          <nav aria-label={t("release.detail.siblingVersions")} className="rounded-lg border border-line bg-surface px-3.5 sm:px-4 py-3 space-y-2">
+          <Card padding="none">
+          <nav aria-label={t("release.detail.siblingVersions")} className="px-3.5 sm:px-4 py-3 space-y-2">
             <p className="font-mono text-[11px] text-gray-500">
               {t("release.detail.siblingVersions")} · {siblingReleases.length}
             </p>
@@ -803,6 +808,7 @@ export default function ReleaseDetailPage() {
               })}
             </div>
           </nav>
+          </Card>
         )}
 
         {formatGroups.length > 1 && (
@@ -855,7 +861,9 @@ export default function ReleaseDetailPage() {
         </div>
 
         {media.length === 0 ? (
-          <div className="rounded-lg border border-line bg-surface p-8 text-center font-mono text-xs text-gray-500">{t("release.detail.noMedium")}</div>
+          <Card padding="none">
+            <div className="p-8 text-center font-mono text-xs text-gray-500">{t("release.detail.noMedium")}</div>
+          </Card>
         ) : (
           <div className="space-y-4 sm:space-y-5">
             {(showBonus ? visibleGroups : bonusGroups).map(([fmt, rows]) => (
@@ -870,7 +878,7 @@ export default function ReleaseDetailPage() {
                     rows.map(({ medium, tracks }) => {
                       const fmtLabel = dynamicDefs ? getTermName(dynamicDefs, "format", fmt, locale) : fmt;
                       return (
-                        <div key={medium.id} className="rounded-md border border-line p-3">
+                        <Card key={medium.id} padding="card">
                           <div className="flex items-center gap-2 text-xs font-semibold text-text-strong">
                             <Disc className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
                             <span className="truncate">{entityTitle(medium, locale)}</span>
@@ -889,7 +897,7 @@ export default function ReleaseDetailPage() {
                           <Link href={`#medium-${medium.id}`} className="mt-2 inline-flex items-center gap-1 text-[11px] text-primary hover:underline">
                             {t("release.detail.viewBonusDisc")} <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
                           </Link>
-                        </div>
+                        </Card>
                       );
                     })
                   )}
@@ -904,7 +912,7 @@ export default function ReleaseDetailPage() {
             {/* 批量加载不完整时给出可重试提示，不静默留空表：实体与收录/署名分别统计，
                 任一部分未恢复都提示（旧实现只看实体失败，收录缺失时误报成功）。 */}
             {expressionLoadGaps.entities + expressionLoadGaps.details > 0 && (
-              <div className="mx-3.5 sm:mx-4 mb-2 p-2.5 rounded-md bg-amber-500/10 border border-amber-500/25 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2">
+              <Card padding="none" className="mx-3.5 sm:mx-4 mb-2 p-2.5 !border-amber-500/25 !bg-amber-500/10 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2">
                 <span className="flex-1">
                   {t("release.detail.occurrencesLoadFailed", { count: expressionLoadGaps.entities + expressionLoadGaps.details })}
                   {expressionLoadGaps.entities > 0 && expressionLoadGaps.details > 0 && (
@@ -920,7 +928,7 @@ export default function ReleaseDetailPage() {
                 >
                   {t("catalog.retry")}
                 </button>
-              </div>
+              </Card>
             )}
             <div className="overflow-x-auto -mx-3.5 sm:-mx-4 px-3.5 sm:px-4">
               <table className="w-full text-left text-xs min-w-[720px]">
@@ -1066,7 +1074,8 @@ export default function ReleaseDetailPage() {
         </div>
 
         {(catalogDef || dynamicDefs) && (
-          <details className="rounded-lg border border-line bg-surface px-3.5 sm:px-4 py-2.5">
+          <Card padding="none">
+          <details className="px-3.5 sm:px-4 py-2.5">
             <summary className="cursor-pointer font-mono text-[11px] text-gray-500 hover:text-primary min-h-[32px] flex items-center">
               {t("release.detail.comparableFields")}
             </summary>
@@ -1091,6 +1100,7 @@ export default function ReleaseDetailPage() {
               })}
             </dl>
           </details>
+          </Card>
         )}
 
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500">

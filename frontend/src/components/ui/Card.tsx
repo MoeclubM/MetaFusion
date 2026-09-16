@@ -20,18 +20,21 @@ const PADDING: Record<string, string> = {
 };
 
 export function Card({
+  id,
   tone = "surface",
   padding = "card",
   className = "",
   children,
 }: {
+  /** 分节锚点（#overview 等）：容器就是分节本身，锚点不能另挂一层包装。 */
+  id?: string;
   tone?: "surface" | "subtle" | "plain";
   padding?: "card" | "section" | "none";
   className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className={`rounded-xl border ${TONE[tone]} ${PADDING[padding]} ${className}`}>{children}</div>
+    <div id={id} className={`rounded-xl border ${TONE[tone]} ${PADDING[padding]} ${className}`}>{children}</div>
   );
 }
 
