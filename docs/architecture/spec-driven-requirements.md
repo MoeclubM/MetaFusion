@@ -1,6 +1,13 @@
 # MetaFusion 规范驱动开发需求与架构基准 (Spec-Driven Requirements & Architecture Baseline)
 
 > **重要约束**：本文档为用户明确下达的核心架构与产品规范，后续开发、修改与重构均以此为准。
+>
+> **实现现状差异（2026-09-16 逐条核实，规范不变，待产品决定）**：
+> 1. §2.2 的 Types 筛选器：`/explore` 的「类型」筛选控件已移除，筛选改走标签（`frontend/src/app/explore/page.tsx`；`?type=` 仅作参数透传与排序键保留）。
+> 2. §2.4 的「业务类型（types）在卡片正文以标签呈现」：列表卡片目前只渲染 kind 角标与状态（`frontend/src/components/catalog/CatalogPages.tsx`）。
+> 3. §1.1 的生命周期词表：实现是 `draft / pending_review / published / deleted / merged`——没有「归档」，多一个「合并」（`backend/internal/catalog/validation.go` 的状态闭集）。
+>
+> 另外两处是规范的表述比实现窄，不构成缺口：§2.1 的名称回退链在实现里是超集（在 zh-CN 之前插入了 zh-TW / ja，见 `frontend/src/lib/definitions.ts` 的 `resolveLocalizedName`）；§2.2 里「名称含 zh-CN 与 en-US」已按 §2.3 的命名四语铁律对齐。
 
 ---
 
