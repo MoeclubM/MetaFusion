@@ -212,7 +212,7 @@ function ExploreInner() {
     <div className="min-h-screen flex flex-col bg-background text-text-strong">
       <Navbar />
 
-      <main className="mf-enter max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
+      <main className="mf-enter max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-line">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-strong flex items-center gap-2.5 font-display">

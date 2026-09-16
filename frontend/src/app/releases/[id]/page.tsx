@@ -659,7 +659,7 @@ export default function ReleaseDetailPage() {
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
       <Navbar />
-      <main className="mf-enter relative z-10 max-w-page mx-auto px-4 py-5 w-full space-y-5 flex-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main className="mf-enter relative z-10 max-w-page mx-auto px-4 py-6 w-full space-y-5 flex-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
           {primaryWork && (
             <>

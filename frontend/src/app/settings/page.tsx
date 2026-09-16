@@ -137,7 +137,7 @@ export default function SettingsPage() {
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar />
-      <main className="mf-enter relative z-10 max-w-narrow mx-auto px-4 py-5 w-full flex-1 space-y-4">
+      <main className="mf-enter relative z-10 max-w-narrow mx-auto px-4 py-6 w-full flex-1 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-line-subtle">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 text-primary grid place-items-center shrink-0">

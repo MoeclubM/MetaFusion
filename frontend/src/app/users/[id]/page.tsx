@@ -221,7 +221,7 @@ export default function UserDetailPage() {
   return (
     <div className="min-h-screen bg-background text-text-strong flex flex-col">
       <Navbar />
-      <main className="mf-enter max-w-narrow mx-auto w-full px-4 py-5 flex-1 space-y-4 sm:space-y-5">
+      <main className="mf-enter max-w-narrow mx-auto w-full px-4 py-6 flex-1 space-y-4 sm:space-y-5">
         {/* User Card Header */}
         <div className="rounded-xl border border-line bg-surface p-4 sm:p-5 flex flex-col sm:flex-row gap-3.5 sm:items-center justify-between shadow-soft">
           <div className="flex gap-3.5 items-start min-w-0">

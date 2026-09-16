@@ -233,7 +233,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <main className="mf-enter max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-10 relative z-10">
+      <main className="mf-enter max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 space-y-10 relative z-10">
         {user && (
           <div className="flex items-center justify-between gap-3">
             <h1 className="font-display text-lg font-bold tracking-tight text-white">

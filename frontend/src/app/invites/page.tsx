@@ -184,7 +184,7 @@ export default function InvitesPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      <main className="mf-enter max-w-narrow mx-auto px-4 py-5 w-full flex-1 space-y-4 sm:space-y-5">
+      <main className="mf-enter max-w-narrow mx-auto px-4 py-6 w-full flex-1 space-y-4 sm:space-y-5">
         <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong">
           {t("invite.title")}
         </h1>

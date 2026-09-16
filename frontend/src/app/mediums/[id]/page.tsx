@@ -135,7 +135,7 @@ export default function MediumDetailPage() {
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-violet-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="relative z-10 flex-1">
         <Navbar />
-        <main className="mf-enter max-w-page mx-auto px-4 py-5 w-full space-y-5 pb-10">
+        <main className="mf-enter max-w-page mx-auto px-4 py-6 w-full space-y-5">
           <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500 flex-wrap">
             {work && work.id && (
               <>
