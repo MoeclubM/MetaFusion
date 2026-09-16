@@ -1802,86 +1802,6 @@ func splitDedupKey(key string) (kind, id string) {
 	return parts[1], parts[2]
 }
 
-// ImportedCleanup 是单次导入中途失败后"按 work+release 为单位"的失败清理建议实现：
-// 调用方传入本次已建的 workID（可空）与 releaseID（可空），本函数把两者名下
-// 本次导入键前缀的后代（content_unit/expression/medium/track/release）列出来，
-// 逐个经 Lifecycle 删除（delete 级联保护由外键保证：父级仍在时子级先删）。
-// 只删"本次导入键前缀"的实体：复用的既有实体（无本次键）不受影响。
-// 返回实际删除的实体 ID 列表；清理本身失败只记录首错并继续，不覆盖原始导入错误。
-// 注意：需要 admin 权限（Lifecycle 要求）；非 admin 调用返回 forbidden 由调用方处理。
-func (s *Store) importerCleanup(ctx context.Context, actor User, note string, sources []Source, workID, releaseID, keyPrefix string) ([]string, error) {
-	removed := []string{}
-	keyPrefix = strings.TrimSpace(keyPrefix)
-	if keyPrefix == "" || (strings.TrimSpace(workID) == "" && strings.TrimSpace(releaseID) == "") {
-		return removed, nil
-	}
-	collect := func(kind, col, parent string) []Entity {
-		if strings.TrimSpace(parent) == "" {
-			return nil
-		}
-		var out []Entity
-		switch kind {
-		case "content_unit":
-			out, _ = s.ListAll(ctx, ListOptions{Kind: "content_unit", WorkID: parent}, &actor)
-		case "expression":
-			out, _ = s.ListAll(ctx, ListOptions{Kind: "expression", WorkID: parent}, &actor)
-		case "medium":
-			out, _ = s.ListAll(ctx, ListOptions{Kind: "medium", ReleaseID: parent}, &actor)
-		case "track":
-			out, _ = s.ListAll(ctx, ListOptions{Kind: "track", MediumID: parent}, &actor)
-		}
-		return out
-	}
-	// 删除顺序：track → medium → expression → content_unit（子先父后）→ release → work。
-	// medium/track 需先按 release/medium 列出；expression/content_unit 按 work 列出。
-	candidates := []Entity{}
-	if strings.TrimSpace(releaseID) != "" {
-		for _, m := range collect("medium", "release_id", releaseID) {
-			for _, t := range collect("track", "medium_id", m.ID) {
-				candidates = append(candidates, t)
-			}
-			candidates = append(candidates, m)
-		}
-	}
-	if strings.TrimSpace(workID) != "" {
-		for _, e := range collect("expression", "work_id", workID) {
-			candidates = append(candidates, e)
-		}
-		for _, u := range collect("content_unit", "work_id", workID) {
-			candidates = append(candidates, u)
-		}
-	}
-	if strings.TrimSpace(releaseID) != "" {
-		if r, gerr := s.Get(ctx, strings.TrimSpace(releaseID), &actor); gerr == nil && r.Kind == "release" {
-			candidates = append(candidates, r)
-		}
-	}
-	if strings.TrimSpace(workID) != "" {
-		if w, gerr := s.Get(ctx, strings.TrimSpace(workID), &actor); gerr == nil && w.Kind == "work" {
-			candidates = append(candidates, w)
-		}
-	}
-	var firstErr error
-	for _, e := range candidates {
-		imp := strings.TrimSpace(e.ExternalIDs["metafusion_import"])
-		if imp == "" || !strings.HasPrefix(imp, keyPrefix) {
-			continue
-		}
-		cur, gerr := s.Get(ctx, e.ID, &actor)
-		if gerr != nil {
-			continue
-		}
-		if _, derr := s.Lifecycle(ctx, cur.ID, LifecycleEdit{ExpectedVersion: cur.Version, EditNote: note, Sources: sources}, actor); derr != nil {
-			if firstErr == nil {
-				firstErr = derr
-			}
-			continue
-		}
-		removed = append(removed, e.ID)
-	}
-	return removed, firstErr
-}
-
 func (s *Store) findImported(ctx context.Context, key string, actor *User) (Entity, bool) {
 	key = strings.TrimSpace(key)
 	if key == "" {
@@ -3822,11 +3742,10 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 //
 // 非原子说明：导入是"循环逐个 Save"，预检只读，Save 阶段仍可中途失败留下半成品
 // （例如发行链建到一半、关系建到一半）。不做跨多次 Save 的大事务重构（Save 内部
-// 各自独立事务 + 审计，合并事务会改变审计/版本语义），补偿策略如下：
-//   - 同一份载荷重试即补齐：work/release/medium/track/expression 都有导入幂等键，
-//     重试会复用已建部分并继续补齐（见 importerReleaseVariantKey/importerEntryExprKey）；
-//   - 明确不要半成品时，调用方可用 importerCleanup(workID, releaseID, keyPrefix)
-//     按 work+release 为单位删除本次键前缀的实体（只删新建、不碰复用），再重新导入。
+// 各自独立事务 + 审计，合并事务会改变审计/版本语义），补偿方式是**重试补齐**：
+// work/release/medium/track/expression 都有导入幂等键，重试会复用已建部分并继续
+// 补齐（见 importerReleaseVariantKey/importerEntryExprKey）。需要整体回退时按该
+// 导入键前缀走常规删除/合并流程。
 func (s *Store) importNewWork(ctx context.Context, actor User, note string, sources []Source, source string, req ImporterImportRequest, entityType string) (ImporterImportResponse, error) {
 	if entityType != "work" {
 		return s.importNewAgent(ctx, actor, note, sources, source, req, entityType)
