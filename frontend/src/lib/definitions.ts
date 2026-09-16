@@ -98,6 +98,8 @@ export interface SchemeDef {
  *  kind 是领域模型的一部分，名称由服务端提供；前端字典只做兜底，不再自带一份名称表。 */
 export interface KindDef {
   names: Record<string, string>;
+  /** 服务端停用该种类时为 false：浏览入口不再列出它（缺省视为启用）。 */
+  enabled?: boolean;
 }
 
 export type KindMap = Record<string, KindDef>;

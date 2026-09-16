@@ -9,6 +9,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions, getTypeName, getKindName } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
 import { PageShell, PageHeader } from "@/components/ui/PageShell";
+import { Card } from "@/components/ui/Card";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import {
   Search,
@@ -45,39 +46,9 @@ interface EntityItem {
   translations?: Record<string, { title: string; summary?: string; aliases?: string[] }>;
 }
 
-// 实体骨架天然分层：创作层（作品及其可复用表达）、发行层（发行版与承载）、
-// 主体与集合（创作者/角色、合集）。浏览按层组织，不再单列"类型"轴——
-// 类型（album/novel/…）本质是标签式的细分，作为卡片徽标与搜索条件呈现即可。
-const LAYERS: { id: string; icon: React.ElementType; kinds: { id: string; icon: React.ElementType }[] }[] = [
-  {
-    id: "creation",
-    icon: BookOpen,
-    kinds: [
-      { id: "work", icon: Layers },
-      { id: "content_unit", icon: BookOpen },
-      { id: "expression", icon: Film },
-    ],
-  },
-  {
-    id: "publication",
-    icon: Disc,
-    kinds: [
-      { id: "release", icon: Disc },
-      { id: "medium", icon: Disc },
-      { id: "track", icon: Disc },
-    ],
-  },
-  {
-    id: "agents",
-    icon: Users,
-    kinds: [
-      { id: "agent", icon: Users },
-      { id: "collection", icon: Network },
-    ],
-  },
-];
-
-// 各 kind 的图标，供卡片兜底与列表徽标复用。
+// 各 kind 的图标：只做图标映射，左侧「实体种类」的条目本身来自服务端 definitions.kinds
+// （停用的不显示），新增 kind 取默认图标即可，不会因为这里缺项而消失。
+// 卡片兜底图标与列表徽标复用同一份。
 const KIND_ICONS: Record<string, React.ElementType> = {
   work: Layers,
   release: Disc,
@@ -205,11 +176,52 @@ function ExploreInner() {
   // 左栏筛选与卡片角标都用它——"分类"不在这里，分类由货架承担。
   const kindLabel = (id: string) => getKindName(kinds, id, locale, tr("catalog.kind." + id, id));
 
-  // 当前所在层：用于左栏高亮，未选中具体 kind 时不强调任何层。
-  const activeLayer = useMemo(
-    () => LAYERS.find((l) => l.kinds.some((k) => k.id === currentKind))?.id || "",
-    [currentKind],
+  // 「实体种类」面板的可选项 = 服务端 definitions.kinds 里未停用的种类。
+  // 前端不维护任何种类清单：后台增删 kind、改多语言名，这里自动跟着变；排序按当前语种的名称。
+  const kindOptions = useMemo(
+    () =>
+      Object.keys(kinds || {})
+        .filter((code) => kinds[code]?.enabled !== false)
+        .sort((a, b) => getKindName(kinds, a, locale).localeCompare(getKindName(kinds, b, locale))),
+    [kinds, locale],
   );
+
+  // 面板条目 =「全部」+ 各启用种类；名称走 definitions 多语言名（helper 缺失时才回退前端字典）。
+  const kindEntries = [
+    { code: "", label: t("catalog.kind.all") },
+    ...kindOptions.map((code) => ({ code, label: kindLabel(code) })),
+  ];
+
+  const [kindCounts, setKindCounts] = useState<Record<string, number>>({});
+
+  // 各条目的数量：取列表接口响应里的 total（不是 items.length——列表被 limit 截断）。
+  // 单个种类请求失败只让那一格留空，不影响其它条目与整页渲染。
+  useEffect(() => {
+    const codes = ["all", ...kindOptions];
+    let cancelled = false;
+    Promise.all(
+      codes.map((code) =>
+        fetch(
+          "/api/catalog/entities?" +
+            new URLSearchParams(code === "all" ? { limit: "1" } : { kind: code, limit: "1" }).toString(),
+          { credentials: "same-origin" },
+        )
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => (typeof data?.total === "number" ? (data.total as number) : null))
+          .catch(() => null),
+      ),
+    ).then((totals) => {
+      if (cancelled) return;
+      const next: Record<string, number> = {};
+      totals.forEach((n, i) => {
+        if (typeof n === "number") next[codes[i]] = n;
+      });
+      setKindCounts(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [kindOptions]);
 
   // 列表容器 key：视图与筛选变化时重挂载、重放 .mf-tabpanel；
   // 搜索框的本地输入（qInput）不参与，否则打字过程会一直闪。
@@ -259,11 +271,52 @@ function ExploreInner() {
         />
         }
       >
-        {/* 双栏：左侧按实体层级导航，右侧结果区 */}
+        {/* 双栏：左侧实体种类与标签筛选，右侧结果区 */}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-5">
-          {/* 左侧：标签筛选。实体层级与类型属硬分类，不作为导航；浏览与归类一律由真实标签驱动
-              （/catalog/tags 聚合自各实体的 attributes.tags）。 */}
-          <aside className="space-y-4">
+          <aside className="space-y-4 min-w-0">
+            {/* 实体种类：条目来自服务端 definitions.kinds 里启用中的种类 +「全部」，
+                点击即写回 ?kind=<code>，与标签筛选叠加；窄屏收成一行横向滚动。 */}
+            <Card padding="none" className="shadow-soft overflow-hidden">
+              <div className="px-3.5 py-2.5 border-b border-line-subtle">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
+                  {t("catalog.kindFilter")}
+                </span>
+              </div>
+              <nav
+                data-mf-kindnav=""
+                className="p-2 flex gap-1.5 overflow-x-auto lg:flex-col lg:gap-0.5 lg:overflow-x-visible"
+              >
+                {kindEntries.map(({ code, label }) => {
+                  const active = currentKind === (code || "all");
+                  const count = kindCounts[code || "all"];
+                  const KindIcon = KIND_ICONS[code] || Layers;
+                  return (
+                    <button
+                      key={code || "all"}
+                      type="button"
+                      data-kind={code || "all"}
+                      aria-current={active ? "true" : undefined}
+                      onClick={() => updateFilters({ kind: code })}
+                      className={
+                        "shrink-0 lg:w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs whitespace-nowrap border transition-colors duration-fast ease-soft cursor-pointer " +
+                        (active
+                          ? "bg-primary/10 text-primary border-primary/25 font-semibold"
+                          : "text-text-body border-transparent hover:bg-black/[0.04] dark:hover:bg-surfaceHover")
+                      }
+                    >
+                      <KindIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span>{label}</span>
+                      {typeof count === "number" && (
+                        <span className="ml-auto pl-2 font-mono text-[10px] opacity-70">{count}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </nav>
+            </Card>
+
+            {/* 标签筛选：与种类筛选叠加生效；来源为真实标签聚合
+                （/catalog/tags 聚合自各实体的 attributes.tags）。 */}
             <div className="rounded-xl border border-line bg-surface shadow-soft overflow-hidden">
               <div className="px-3.5 py-2.5 border-b border-line-subtle flex items-center justify-between gap-2">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
