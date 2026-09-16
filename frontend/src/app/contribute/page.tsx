@@ -6,12 +6,16 @@ import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import { fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
+import { can, CATALOG_IMPORT_SUBMIT } from "@/lib/permissions";
 import { Layers, Users, Disc, Network, ArrowRight, Lock, LogIn, Sparkles, Zap, Disc3, Film, BookOpen, AlertCircle, Mail } from "lucide-react";
 import { OmniImportModal } from "@/components/importer/OmniImportModal";
 
 export default function ContributeHubPage() {
   const { user } = useAuth();
   const { t } = useI18n();
+  // 外部导入走 /api/importer/*:服务端要求 catalog.import.submit（预览与落库同权限）。
+  // 无码时禁用入口并说明原因，不把人引到注定 403 的弹窗上。
+  const canImport = can(user, CATALOG_IMPORT_SUBMIT);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [authSettings, setAuthSettings] = useState<PublicAuthSettings | null>(null);
 
@@ -135,6 +139,11 @@ export default function ContributeHubPage() {
               <p className="text-xs sm:text-sm text-text-body font-mono leading-relaxed">
                 {t("create.hub.cardImportDesc")}
               </p>
+              {!canImport && (
+                <p className="font-mono text-[11px] text-amber-600 dark:text-amber-300">
+                  {t("create.hub.importNoPermission")}
+                </p>
+              )}
               <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-mono text-text-muted">
                 <span className="inline-flex items-center gap-1.5">
                   <Disc3 className="w-3.5 h-3.5 text-sky-500" /> MusicBrainz
@@ -152,8 +161,11 @@ export default function ContributeHubPage() {
 
             <button
               type="button"
-              onClick={() => setIsImportModalOpen(true)}
-              className="px-5 h-11 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold text-xs sm:text-sm font-mono inline-flex items-center justify-center gap-2 shrink-0 shadow-md hover:shadow-lg transition-all cursor-pointer"
+              onClick={() => canImport && setIsImportModalOpen(true)}
+              disabled={!canImport}
+              aria-disabled={!canImport}
+              title={canImport ? undefined : t("create.hub.importNoPermission")}
+              className="px-5 h-11 rounded-xl bg-primary hover:bg-primary/90 text-white font-semibold text-xs sm:text-sm font-mono inline-flex items-center justify-center gap-2 shrink-0 shadow-md hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary disabled:shadow-none"
             >
               <Zap className="w-4 h-4 fill-white" />
               <span>{t("nav.importExternal")}</span>
@@ -192,8 +204,9 @@ export default function ContributeHubPage() {
         </div>
       </main>
 
+      {/* 无权限时永不打开弹窗（预览也会 403）；入口本身已禁用并给出说明。 */}
       <OmniImportModal
-        isOpen={isImportModalOpen}
+        isOpen={canImport && isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
       />
     </div>

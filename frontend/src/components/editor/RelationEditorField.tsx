@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useAuth } from "@/lib/authContext";
+import { can, CATALOG_RELATION_EDIT } from "@/lib/permissions";
 import { useDefinitions, getFieldName, getRelationName } from "@/lib/definitions";
 import { api, Entity, Source } from "@/components/catalog/api";
 import { EntityPicker, FieldInput } from "@/components/catalog/Fields";
@@ -64,6 +66,10 @@ const optionKey = (o: TypeOption) => `${o.code}|${o.forward ? "f" : "r"}`;
 export function RelationEditorField({ entityId, entityKind, entityTypes, note, sources, drafts, onDraftsChange }: Props) {
   const { t, locale } = useI18n();
   const { definitions: defs } = useDefinitions();
+  const { user } = useAuth();
+  // 关系写走独立端点（POST/PUT/DELETE /catalog/relations），服务端要求 catalog.relation.edit：
+  // 无码时不渲染写入控件，避免把用户引到注定 403 的按钮上（只读列表仍展示）。
+  const canWrite = can(user, CATALOG_RELATION_EDIT);
 
   const [items, setItems] = useState<Relation[]>([]);
   const [peers, setPeers] = useState<Record<string, Entity>>({});
@@ -77,8 +83,9 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
   const [editAttrs, setEditAttrs] = useState<Record<string, any>>({});
   const [draftTitles, setDraftTitles] = useState<Record<string, string>>({});
 
-  // 新建中（没有 entityId）时，关系先入队；有 onDraftsChange 才启用队列 UI。
-  const pendingMode = !entityId && !!onDraftsChange;
+  // 新建中（没有 entityId）时，关系先入队；有 onDraftsChange 且持写权限才启用队列 UI
+  // （队列在条目保存后由编辑器逐条写入，无权限时同样会 403）。
+  const pendingMode = !entityId && !!onDraftsChange && canWrite;
   const queue = drafts || [];
 
   // 待提交关系的对端标题：只对这些 id 批量取一次，避免列表里只剩裸 UUID。
@@ -408,12 +415,13 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
     );
   };
 
-  // 没有 entityId 且调用方不支持队列（旧用法）：保留「先保存条目」的提示。
+  // 没有 entityId 且调用方不支持队列（旧用法）：保留「先保存条目」的提示；
+  // 无写权限时改为说明只读原因，不误导用户去保存条目。
   if (!entityId && !pendingMode) {
     return (
       <fieldset>
         <legend>{t("catalog.relations")}</legend>
-        <p className="text-sm opacity-60">{t("editor.relation.needSave")}</p>
+        <p className="text-sm opacity-60">{t(canWrite ? "editor.relation.needSave" : "editor.relation.noPermission")}</p>
       </fieldset>
     );
   }
@@ -493,7 +501,8 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
                     {attrSummary(r)}
                   </span>
                   <span className="flex shrink-0 items-center gap-2">
-                    {/* 署名次序：与相邻同类型同向关系交换 position。 */}
+                    {/* 署名次序：与相邻同类型同向关系交换 position。无写权限时整组隐藏。 */}
+                    {canWrite && (<>
                     <button
                       type="button"
                       disabled={busy}
@@ -536,6 +545,7 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
                       <Trash2 className="w-3.5 h-3.5" />
                       {t("editor.relation.remove")}
                     </button>
+                    </>)}
                   </span>
                 </li>
                 {editingId === r.id && (
@@ -570,7 +580,8 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
         </ul>
       )}
 
-      {/* 添加行 */}
+      {/* 添加行：无写权限时整块不渲染（改为只读说明）。 */}
+      {canWrite ? (
       <div className="cv-row mt-3 space-y-2">
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end">
           <label className="block text-sm">
@@ -616,6 +627,9 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
         </div>
         {selected && attrInputs(selected.code, addAttrs, setAddAttrs)}
       </div>
+      ) : (
+        <p className="text-sm opacity-60">{t("editor.relation.noPermission")}</p>
+      )}
     </fieldset>
   );
 }
