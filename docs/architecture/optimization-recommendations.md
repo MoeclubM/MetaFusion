@@ -272,7 +272,7 @@
 
 | 验证项 | 命令 | 实测结果 |
 | --- | --- | --- |
-| 目录后端测试 | 在 `backend/`：`go build ./...`、`go vet ./...`、`MF_V2_TEST_DSN=… go test ./... -count=1` | 见 §8.5 收尾记录（代理改动落定后补跑） |
+| 目录后端测试 | 在 `backend/`：`go build ./...`、`go vet ./...`、`MF_V2_TEST_DSN=… go test ./... -count=1` | 全绿（`internal/capabilities` 0.063s、`internal/catalog` 46.279s；含定义 diff/单版本/列表瘦身三组新用例） |
 | 账号服务测试 | 在 `../metafusion-auth`：`AUTH_TEST_DSN=… go test ./... -count=1 -p 1` | 3 包全绿（`internal/handler` 含 OAuth 用例） |
 | 互动服务测试 | 在 `../metafusion-community`：`go test ./... -count=1 -p 1` | 5 包全绿 |
 | 存储服务测试 | 在 `../metafusion-storage`：`STORAGE_TEST_DSN=… go test ./... -count=1 -p 1` | 6 包全绿（`internal/handler` 含原档内联端点用例） |
