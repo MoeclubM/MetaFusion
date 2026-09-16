@@ -14,8 +14,10 @@
   2. 结构归属：definitions.structure 声明为 required 的结构字段为空；声明了 target_kinds 的字段指向了不匹配的层级；
   3. 图片：按层级的期望（work/release/agent/collection 至少一张；medium/track/expression 允许无图）统计缺图；
   4. 关系：端点不可见（指向已删/未发布）的边、同一 (type, source, target) 的重复边；
-  5. 定义名称：仍等于英文（占位）的语种位。
-退出码：0 = 无 P0/P1；1 = 存在 P0/P1。
+  5. 名称四语：缺语种、某语种仍逐字等于英文（占位）。覆盖 definitions 全部名称
+     （类型/字段及嵌套子字段与单位/词表与词项/关系正反名与分组名/模板与分区/场景方案/kinds）
+     以及货架、外部权威库；判据与后端写路径同一口径（zh-CN/zh-TW/en-US + ja|ja-JP）。
+退出码：0 = 无 P0/P1；1 = 存在 P0/P1（名称问题计 P2，只报告不拦门）。
 """
 
 import json
@@ -56,6 +58,82 @@ def all_entities(kind=None, limit=50):
         if len(batch) < page:
             return items
         offset += len(batch)
+
+
+# ── 名称四语检查（与后端写路径同一口径，见 backend/internal/catalog/validation.go）──
+# 后端对启用中的定义/货架/外部库强制四语（缺则 four_locale_names_required）；
+# 这里把线上载荷逐条摊平，把「缺语种」与「仍逐字等于英文」都报出来。
+# 专有名词（MusicBrainz / ISBNdb / CD）在多语种里本就同形，命中占位只作提示，不进闸门。
+REQUIRED_LOCALES = ("zh-CN", "zh-TW", "en-US")
+
+
+def check_names(label, names, problems):
+    """检查一条名称：缺语种与英文占位各报一条 P2。"""
+    if not isinstance(names, dict) or not names:
+        return
+    missing = [loc for loc in REQUIRED_LOCALES if not str(names.get(loc) or "").strip()]
+    if not str(names.get("ja") or "").strip() and not str(names.get("ja-JP") or "").strip():
+        missing.append("ja-JP")
+    if missing:
+        problems.append(("P2", "name_missing_locale", label, ",".join(missing)))
+    en = names.get("en-US")
+    for loc in ("ja-JP", "zh-TW"):
+        if names.get(loc) and en and names[loc] == en:
+            problems.append(("P2", "name_placeholder", label, loc))
+
+
+def check_field_names(label, field, problems):
+    """字段名称递归检查：字段名、单位名、列表项、嵌套子字段。"""
+    if not isinstance(field, dict):
+        return
+    check_names(label + ".names", field.get("names"), problems)
+    check_names(label + ".unit", field.get("unit"), problems)
+    if isinstance(field.get("items"), dict):
+        check_field_names(label + ".items", field["items"], problems)
+    for code, child in (field.get("fields") or {}).items():
+        check_field_names(label + "." + code, child, problems)
+
+
+def check_definition_names(defs, problems):
+    """检查 definitions 载荷里的全部名称（含 kinds 四语骨架名）。"""
+    doc = defs.get("document") or defs
+    for code, v in (defs.get("kinds") or {}).items():
+        check_names("kinds." + code, (v or {}).get("names"), problems)
+    for code, v in (doc.get("types") or {}).items():
+        check_names("types." + code, (v or {}).get("names"), problems)
+    for code, v in (doc.get("fields") or {}).items():
+        check_field_names("fields." + code, v, problems)
+    for code, v in (doc.get("vocabularies") or {}).items():
+        v = v or {}
+        check_names("vocabularies." + code, v.get("names"), problems)
+        for term, tv in (v.get("terms") or {}).items():
+            check_names("vocabularies.%s.terms.%s" % (code, term), (tv or {}).get("names"), problems)
+    for code, v in (doc.get("relations") or {}).items():
+        v = v or {}
+        check_names("relations." + code, v.get("names"), problems)
+        check_names("relations." + code + ".reverse_names", v.get("reverse_names"), problems)
+        check_names("relations." + code + ".group_names", v.get("group_names"), problems)
+    for code, v in (doc.get("templates") or {}).items():
+        v = v or {}
+        check_names("templates." + code, v.get("names"), problems)
+        for i, section in enumerate(v.get("sections") or []):
+            check_names("templates.%s.sections[%d]" % (code, i), (section or {}).get("names"), problems)
+    for code, v in (doc.get("schemes") or {}).items():
+        check_names("schemes." + code, (v or {}).get("names"), problems)
+
+
+def check_list_names(path, key, problems):
+    """检查一个「列表型多语名称接口」（货架 / 外部权威库）；取不到就如实标注未检查。"""
+    try:
+        data = get(path)
+    except Exception as exc:  # 只读自检不应因一个可选端点整体失败
+        problems.append(("P2", "name_check_skipped", path, str(exc)[:80]))
+        return
+    for item in (data.get("items") or data or []):
+        if not isinstance(item, dict):
+            continue
+        ident = item.get("slug") or item.get("code") or "?"
+        check_names("%s.%s" % (key, ident), item.get("names"), problems)
 
 
 def main():
@@ -175,14 +253,10 @@ def main():
         for name, n in hints.most_common():
             print("  %-30s %d" % (name, n))
     print("关系类型分布: " + ", ".join("%s=%d" % (k, v) for k, v in rel_types.most_common(8)))
-    # 5. 定义名称占位
-    for section, bag in (("fields", doc.get("fields")), ("types", doc.get("types")), ("relations", relations)):
-        for code, v in (bag or {}).items():
-            names = (v or {}).get("names") or {}
-            en = names.get("en-US")
-            for loc in ("ja-JP", "zh-TW"):
-                if names.get(loc) and en and names[loc] == en:
-                    problems.append(("P2", "definition_name_placeholder", section + "." + code, loc))
+    # 5. 名称四语：与写路径同一口径（缺语种 / 仍等于英文占位），含货架与外部权威库。
+    check_definition_names(defs, problems)
+    check_list_names("/api/catalog/shelves", "shelves", problems)
+    check_list_names("/api/catalog/external-databases", "external_databases", problems)
 
     counts = Counter(p[0] for p in problems)
     print("自检目标: %s" % BASE)
