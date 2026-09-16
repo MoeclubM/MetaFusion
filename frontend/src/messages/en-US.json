@@ -2864,5 +2864,8 @@
   "catalog.noTags": "No tags yet",
   "catalog.tagsLabel": "Tags",
   "catalog.tagsPlaceholder": "Type a tag and press Enter",
-  "catalog.tagsHint": "Tags drive search and grouping; fields now cover every type of this level, so no type needs ticking."
+  "catalog.tagsHint": "Tags drive search and grouping; fields now cover every type of this level, so no type needs ticking.",
+  "catalog.translationLocale": "Locale to edit",
+  "catalog.addLocale": "Add language",
+  "catalog.translationEmpty": "Pick a locale above (or add one) to edit its title, summary and aliases."
 }

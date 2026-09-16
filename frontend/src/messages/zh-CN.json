@@ -2864,5 +2864,8 @@
   "catalog.noTags": "暂无标签",
   "catalog.tagsLabel": "标签",
   "catalog.tagsPlaceholder": "输入标签后回车",
-  "catalog.tagsHint": "标签用于检索与自动归类；字段已按该层级的全部类型展示，无需再勾选类型。"
+  "catalog.tagsHint": "标签用于检索与自动归类；字段已按该层级的全部类型展示，无需再勾选类型。",
+  "catalog.translationLocale": "编辑语种",
+  "catalog.addLocale": "添加语种",
+  "catalog.translationEmpty": "选择上方语种或添加新语种后，即可填写该语种的题名、简介与别名。"
 }

@@ -529,6 +529,38 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   font-size: 0.72rem;
   opacity: 0.6;
 }
+/* 多语言区工具行：语种下拉 + 自定义代码输入 + 添加语种按钮同一行，窄容器下按钮不掉行。 */
+.cv-form .cv-row.cv-localebar > label { flex: 1 1 12rem; min-width: 0; }
+.cv-form .cv-row.cv-localebar > button { flex: 0 0 auto; align-self: flex-end; }
+/* 多语言区：已添加语种 chips（点击切换、× 删除；原始语言行不可删）。 */
+.cv-form .cv-localechips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin: 0.5rem 0;
+}
+.cv-form .cv-localechip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--surface-border-color);
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgb(var(--surface-rgb) / 0.85);
+}
+.cv-form .cv-localechip.is-active { border-color: var(--primary-color); }
+.cv-form .cv-localechip button {
+  border: 0;
+  background: transparent;
+  padding: 0.18rem 0.55rem;
+  font-size: 0.76rem;
+  color: inherit;
+  cursor: pointer;
+}
+.cv-form .cv-localechip.is-active > button:first-child {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+.cv-form .cv-localechip button:hover { color: var(--primary-color); }
 .cv-form .cv-error {
   color: #ef4444;
   font-size: 0.82rem;

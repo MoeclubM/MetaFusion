@@ -2864,5 +2864,8 @@
   "catalog.noTags": "暫無標籤",
   "catalog.tagsLabel": "標籤",
   "catalog.tagsPlaceholder": "輸入標籤後按 Enter",
-  "catalog.tagsHint": "標籤用於檢索與自動歸類；欄位已按該層級的全部類型顯示，無需再勾選類型。"
+  "catalog.tagsHint": "標籤用於檢索與自動歸類；欄位已按該層級的全部類型顯示，無需再勾選類型。",
+  "catalog.translationLocale": "編輯語種",
+  "catalog.addLocale": "新增語種",
+  "catalog.translationEmpty": "從上方選擇語種或新增語種後，即可填寫該語種的題名、簡介與別名。"
 }

@@ -2864,5 +2864,8 @@
   "catalog.noTags": "タグはまだありません",
   "catalog.tagsLabel": "タグ",
   "catalog.tagsPlaceholder": "タグを入力して Enter",
-  "catalog.tagsHint": "タグは検索と自動分類に使われます。フィールドはこの層の全タイプ分を表示するため、タイプの選択は不要です。"
+  "catalog.tagsHint": "タグは検索と自動分類に使われます。フィールドはこの層の全タイプ分を表示するため、タイプの選択は不要です。",
+  "catalog.translationLocale": "編集する言語",
+  "catalog.addLocale": "言語を追加",
+  "catalog.translationEmpty": "上の言語を選ぶか追加すると、その言語の題名・概要・別名を編集できます。"
 }

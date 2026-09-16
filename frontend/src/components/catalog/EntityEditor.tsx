@@ -9,6 +9,7 @@ import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
 import { effectiveSchemeFields, getFieldName, matchSchemes } from "@/lib/definitions";
+import { CATALOG_LOCALES } from "@/components/editor/localeForm";
 
 /** 生效类型：实体自带 types 时原样用它（老实体不清空、行为不变）；
  *  没有 types 时取该层级全部 enabled 类型——去掉"类型"勾选后，
@@ -96,6 +97,8 @@ export function EntityEditor({
   const [externalKey, setExternalKey] = useState("");
   // 标签输入框的待确认文本（回车/逗号才落到 attributes.tags）。
   const [tagInput, setTagInput] = useState("");
+  // 当前编辑的语种；空串表示跟随原始语言（用户还没手动切换过）。
+  const [localePick, setLocalePick] = useState("");
   if (!definition) return <p>{t("catalog.loading")}</p>;
   if (!user) return <p>{t("catalog.loginToEdit")}</p>;
   const d = definition.document;
@@ -113,6 +116,83 @@ export function EntityEditor({
     setTagInput("");
   };
 
+  // ---- 多语言：选择器只渲染当前语种，语种一多不再一次铺开 ----
+  const localeLabel = (code: string) => {
+    const found = CATALOG_LOCALES.find((l) => l.code === code);
+    return found ? `${t(found.labelKey)} (${code})` : code;
+  };
+  // 选项 = 原始语言 + 已添加语种 + 常用语种；常用语种来自仓库既有常量 CATALOG_LOCALES，
+  // 名称走四语字典的 labelKey，不写死语言名。
+  const localeOptions = (() => {
+    const seen = new Set<string>();
+    const out: { code: string; label: string }[] = [];
+    const push = (raw: string) => {
+      const code = String(raw || "").trim();
+      if (!code || seen.has(code)) return;
+      seen.add(code);
+      out.push({ code, label: localeLabel(code) });
+    };
+    push(e.original_language);
+    Object.keys(e.translations).forEach(push);
+    CATALOG_LOCALES.forEach((l) => push(l.code));
+    return out;
+  })();
+  // chips：原始语言 + 已添加语种；原始语言不可删除（题名只读，来自实体基础题名）。
+  const localeCodes = (() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of [e.original_language, ...Object.keys(e.translations)]) {
+      const code = String(raw || "").trim();
+      if (code && !seen.has(code)) {
+        seen.add(code);
+        out.push(code);
+      }
+    }
+    return out;
+  })();
+  const activeLocale =
+    localePick || e.original_language || Object.keys(e.translations)[0] || "";
+  const isOriginalLocale = !!activeLocale && activeLocale === e.original_language;
+  const activeTr = e.translations[activeLocale] || { title: "", summary: "", aliases: [] };
+  const setTranslation = (v: { title?: string; summary?: string; aliases?: string[] }) => {
+    if (!activeLocale) return;
+    patch({
+      translations: {
+        ...e.translations,
+        [activeLocale]: {
+          // 原始语言的题名就是实体基础题名（在身份区维护），这里不覆盖它。
+          title: isOriginalLocale ? e.title : v.title ?? activeTr.title ?? "",
+          summary: v.summary ?? activeTr.summary ?? "",
+          aliases: v.aliases ?? activeTr.aliases ?? [],
+        },
+      },
+    });
+  };
+  const addLocale = (raw: string) => {
+    const code = String(raw || "").trim();
+    if (!code) return;
+    if (!e.translations[code]) {
+      // 新语种行沿用旧行为：题名先预填实体基础题名，避免空题名发不出去。
+      patch({
+        translations: {
+          ...e.translations,
+          [code]: { title: e.title, summary: "", aliases: [] },
+        },
+      });
+    }
+    setLocalePick(code);
+    setNewLocale("");
+  };
+  const removeLocale = (code: string) => {
+    // 原始语言行不可删：它的题名就是实体基础题名，删掉多语言区就失去锚点。
+    if (code === e.original_language) return;
+    patch({
+      translations: Object.fromEntries(
+        Object.entries(e.translations).filter(([k]) => k !== code),
+      ),
+    });
+    if (localePick === code) setLocalePick("");
+  };
   const fields = Array.from(
     new Set([
       ...effTypes.flatMap((k) => d.types[k]?.fields || []),
@@ -333,149 +413,119 @@ export function EntityEditor({
       </fieldset>
       <fieldset>
         <legend>{t("catalog.translations")}</legend>
-        {/* 主语言（原始语言）行：标题即基础题名（在"实体身份"区维护），
-            但别名必须能按语种维护——没有该语种翻译行时提供合成行，
-            输入别名时才真正创建 translations 行落库。 */}
-        {/* 原始语言行与其它语种行用同一套字段：题名（只读，来自实体基础题名）、简介、别名。
-            之前这一行是个特例，只给题名与别名、没有简介——于是"原始语言的简介"根本无处可填，
-            用户以为填了简介，实际写进了别名。简介多语言必须包含原始语言。 */}
-        {e.original_language && e.title && !e.translations[e.original_language] && (
+        {/* 语种选择器 + 当前语种字段：语种一多不再每语种铺一块。
+            下拉选项来自常用语种常量与已添加语种；自定义代码（如 ja-JP）走旁边的输入框。 */}
+        <div className="cv-row cv-localebar">
+          <label>
+            {t("catalog.translationLocale")}
+            <select
+              aria-label={t("catalog.translationLocale")}
+              value={activeLocale}
+              onChange={(x) => addLocale(x.target.value)}
+            >
+              {!activeLocale && <option value="">{t("catalog.select")}</option>}
+              {localeOptions.map((o) => (
+                <option key={o.code} value={o.code}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("catalog.localeCode")}
+            <input
+              aria-label={t("catalog.localeCode")}
+              placeholder={t("catalog.localeCode")}
+              value={newLocale}
+              onChange={(x) => setNewLocale(x.target.value)}
+              onKeyDown={(ev) => {
+                if (ev.key !== "Enter") return;
+                ev.preventDefault();
+                addLocale(newLocale);
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            disabled={!newLocale.trim()}
+            onClick={() => addLocale(newLocale)}
+          >
+            {t("catalog.addLocale")}
+          </button>
+        </div>
+        {/* 已添加语种 chips：点击切换、× 删除；原始语言行不可删（题名只读，来自基础题名）。 */}
+        <div className="cv-localechips">
+          {localeCodes.map((loc) => {
+            const isOriginal = loc === e.original_language;
+            return (
+              <span
+                key={loc}
+                className={`cv-localechip${loc === activeLocale ? " is-active" : ""}`}
+              >
+                <button
+                  type="button"
+                  aria-pressed={loc === activeLocale}
+                  onClick={() => setLocalePick(loc)}
+                >
+                  {localeLabel(loc)}
+                  {isOriginal && ` · ${t("revisions.fieldOriginalLanguage")}`}
+                </button>
+                {!isOriginal && (
+                  <button
+                    type="button"
+                    aria-label={`${loc} · ${t("catalog.remove")}`}
+                    onClick={() => removeLocale(loc)}
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            );
+          })}
+        </div>
+        {activeLocale ? (
+          /* 原始语言与其它语种共用一套字段（题名/简介/别名），只是原始语言的题名只读：
+             原语言简介必须落在 translations[original_language].summary，
+             曾把简介写进别名字段，多语言简介等于缺失。 */
           <div className="cv-group">
-            <strong>{e.original_language}</strong>{" "}
-            <span className="text-xs opacity-60">{t("revisions.fieldOriginalLanguage")}</span>
-            <label>
-              {t("catalog.title")}
-              <input value={e.title} disabled />
-            </label>
-            <label>
-              {t("catalog.summary")}
-              <textarea
-                aria-label={`${e.original_language} · ${t("catalog.summary")}`}
-                value={e.translations[e.original_language]?.summary || ""}
-                onChange={(x) =>
-                  patch({
-                    translations: {
-                      ...e.translations,
-                      [e.original_language]: {
-                        title: e.title,
-                        summary: x.target.value,
-                        aliases: e.translations[e.original_language]?.aliases || [],
-                      },
-                    },
-                  })
-                }
-              />
-            </label>
-            <label>
-              {t("catalog.aliases")}
-              <textarea
-                aria-label={`${e.original_language} · ${t("catalog.aliases")}`}
-                value={(e.translations[e.original_language]?.aliases || []).join("\n")}
-                onChange={(x) =>
-                  patch({
-                    translations: {
-                      ...e.translations,
-                      [e.original_language]: {
-                        title: e.title,
-                        summary: e.translations[e.original_language]?.summary || "",
-                        aliases: x.target.value.split("\n").filter(Boolean),
-                      },
-                    },
-                  })
-                }
-              />
-            </label>
-          </div>
-        )}
-        {Object.entries(e.translations).map(([loc, tr]) => (
-          <div key={loc} className="cv-group">
-            <strong>{loc}</strong>
+            <strong>{localeLabel(activeLocale)}</strong>{" "}
+            {isOriginalLocale && (
+              <span className="text-xs opacity-60">
+                {t("revisions.fieldOriginalLanguage")}
+              </span>
+            )}
             <label>
               {t("catalog.title")}
               <input
-                required
-                value={tr.title}
-                onChange={(x) =>
-                  patch({
-                    translations: {
-                      ...e.translations,
-                      [loc]: { ...tr, title: x.target.value },
-                    },
-                  })
-                }
+                aria-label={`${activeLocale} · ${t("catalog.title")}`}
+                value={isOriginalLocale ? e.title : activeTr.title}
+                disabled={isOriginalLocale}
+                onChange={(x) => setTranslation({ title: x.target.value })}
               />
             </label>
             <label>
               {t("catalog.summary")}
               <textarea
-                aria-label={`${loc} · ${t("catalog.summary")}`}
-                value={tr.summary || ""}
-                onChange={(x) =>
-                  patch({
-                    translations: {
-                      ...e.translations,
-                      [loc]: { ...tr, summary: x.target.value },
-                    },
-                  })
-                }
+                aria-label={`${activeLocale} · ${t("catalog.summary")}`}
+                value={activeTr.summary || ""}
+                onChange={(x) => setTranslation({ summary: x.target.value })}
               />
             </label>
             <label>
               {t("catalog.aliases")}
               <textarea
-                aria-label={`${loc} · ${t("catalog.aliases")}`}
-                value={(tr.aliases || []).join("\n")}
+                aria-label={`${activeLocale} · ${t("catalog.aliases")}`}
+                value={(activeTr.aliases || []).join("\n")}
                 onChange={(x) =>
-                  patch({
-                    translations: {
-                      ...e.translations,
-                      [loc]: {
-                        ...tr,
-                        aliases: x.target.value.split("\n").filter(Boolean),
-                      },
-                    },
-                  })
+                  setTranslation({ aliases: x.target.value.split("\n").filter(Boolean) })
                 }
               />
             </label>
-            <button
-              type="button"
-              onClick={() =>
-                patch({
-                  translations: Object.fromEntries(
-                    Object.entries(e.translations).filter(([k]) => k !== loc),
-                  ),
-                })
-              }
-            >
-              {t("catalog.remove")}
-            </button>
           </div>
-        ))}
+        ) : (
+          <p className="cv-hint">{t("catalog.translationEmpty")}</p>
+        )}
         <p className="text-xs opacity-60">{t("catalog.translationHint")}</p>
-        <div className="cv-row">
-          <input
-            aria-label={t("catalog.localeCode")}
-            placeholder={t("catalog.localeCode")}
-            value={newLocale}
-            onChange={(x) => setNewLocale(x.target.value)}
-          />
-          <button
-            type="button"
-            disabled={!newLocale || !!e.translations[newLocale]}
-            onClick={() => {
-              patch({
-                translations: {
-                  ...e.translations,
-                  [newLocale]: { title: e.title, summary: "", aliases: [] },
-                },
-              });
-              setNewLocale("");
-            }}
-          >
-            {t("catalog.add")}
-          </button>
-        </div>
       </fieldset>
       {/* 守卫也按服务端声明：没有 structure 条目的层级不显示本区（曾因沿用写死的层级清单，
           在 release 上访问不存在的 structure.release.fields 而整页崩溃）。 */}
