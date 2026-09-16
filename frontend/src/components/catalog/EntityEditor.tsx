@@ -341,6 +341,7 @@ export function EntityEditor({
             <label>
               {t("catalog.summary")}
               <textarea
+                aria-label={`${loc} · ${t("catalog.summary")}`}
                 value={tr.summary || ""}
                 onChange={(x) =>
                   patch({
