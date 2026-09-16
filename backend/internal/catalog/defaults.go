@@ -82,6 +82,12 @@ type fieldSeed struct {
 	names Names
 }
 
+// termSeed 是词表项的声明形状：四语名称（names4）。
+type termSeed struct {
+	code  string
+	names Names
+}
+
 func Defaults() Definitions {
 	// 结构归属规则：哪些层级要挂上级、字段码指向哪些层级、是否必填、候选按哪个上级字段过滤。
 	// 校验（validation.go）与前端编辑器共用这一份，前端不再自己写死"expression 挂在 work 下"。
@@ -155,28 +161,82 @@ func Defaults() Definitions {
 	// 对应词表（distribution_channel 等），无词表命中则原样显示，不虚构映射。
 	// 待 taxonomy 落定后再收敛为词表或格式校验，目前仅以字段说明约束。
 	for _, x := range []struct {
-		code, zh, en string
-		terms        [][3]string
+		code  string
+		names Names
+		terms []termSeed
 	}{
-		{"format", "载体格式", "Medium formats", [][3]string{{"cd", "CD", "CD"}, {"bd", "蓝光", "Blu-ray"}, {"uhd_bd", "超高清蓝光", "Ultra HD Blu-ray"}, {"dvd", "DVD", "DVD"}, {"vinyl", "黑胶", "Vinyl"}, {"sacd", "SACD", "SACD"}, {"cassette", "磁带", "Cassette"}, {"paper", "纸质册", "Printed volume"}, {"digital", "数字文件集", "Digital collection"}, {"web", "网络配信", "Web distribution"}}},
-		{"packaging", "包装", "Packaging", [][3]string{{"standard", "标准包装", "Standard"}, {"jewel", "Jewel Case", "Jewel case"}, {"slipcase", "腰封 / 外封套", "Slipcase"}, {"box", "盒装", "Box"}, {"boxset", "套盒", "Box set"}, {"digipak", "Digipak", "Digipak"}}},
-		{"role", "内容用途", "Content roles", [][3]string{{"primary", "主要内容", "Primary"}, {"supplement", "附加内容", "Supplement"}, {"side", "唱片面", "Side"}, {"extra", "额外收录", "Extra"}, {"commentary", "解说音轨", "Commentary"}}},
+		{"format", names4("载体格式", "載體格式", "メディア形式", "Medium formats"), []termSeed{
+			{"cd", names4("CD", "CD（雷射唱片）", "CD（コンパクトディスク）", "CD")},
+			{"bd", names4("蓝光", "藍光", "ブルーレイ", "Blu-ray")},
+			{"uhd_bd", names4("超高清蓝光", "超高畫質藍光", "Ultra HD ブルーレイ", "Ultra HD Blu-ray")},
+			{"dvd", names4("DVD", "DVD（數位影音光碟）", "DVD（デジタル多用途ディスク）", "DVD")},
+			{"vinyl", names4("黑胶", "黑膠", "アナログ盤", "Vinyl")},
+			{"sacd", names4("SACD", "SACD（超級音頻光碟）", "SACD（スーパーオーディオCD）", "SACD")},
+			{"cassette", names4("磁带", "磁帶", "カセットテープ", "Cassette")},
+			{"paper", names4("纸质册", "紙質冊", "紙媒体", "Printed volume")},
+			{"digital", names4("数字文件集", "數位檔案集", "デジタルファイル", "Digital collection")},
+			{"web", names4("网络配信", "網路配信", "ネット配信", "Web distribution")},
+		}},
+		{"packaging", names4("包装", "包裝", "パッケージ", "Packaging"), []termSeed{
+			{"standard", names4("标准包装", "標準包裝", "標準仕様", "Standard")},
+			{"jewel", names4("Jewel Case", "CD 珠寶盒", "ジュエルケース", "Jewel case")},
+			{"slipcase", names4("腰封 / 外封套", "外封套 / 書腰", "スリップケース", "Slipcase")},
+			{"box", names4("盒装", "盒裝", "箱入り", "Box")},
+			{"boxset", names4("套盒", "套盒", "ボックスセット", "Box set")},
+			{"digipak", names4("Digipak", "紙盒裝", "デジパック", "Digipak")},
+		}},
+		{"role", names4("内容用途", "內容用途", "収録役割", "Content roles"), []termSeed{
+			{"primary", names4("主要内容", "主要內容", "メイン", "Primary")},
+			{"supplement", names4("附加内容", "附加內容", "特典", "Supplement")},
+			{"side", names4("唱片面", "唱片面", "面", "Side")},
+			{"extra", names4("额外收录", "額外收錄", "追加収録", "Extra")},
+			{"commentary", names4("解说音轨", "解說音軌", "解説音声", "Commentary")},
+		}},
 		// 篇目类型：区分本篇与 OP/ED/预告等附加篇目。集数编号在本篇与 OP 各自从 1 起算，
 		// 仅凭编号/标题无法区分，必须单独记录。
-		{"entry_role", "篇目类型", "Entry roles", [][3]string{{"main", "本篇", "Main"}, {"opening", "片头曲", "Opening"}, {"ending", "片尾曲", "Ending"}, {"trailer", "预告 / 宣传", "Trailer"}, {"extra", "其它附加", "Extra"}, {"other", "其它", "Other"}}},
-		{"release_role", "发行对象用途", "Release subject roles", [][3]string{{"primary", "主作品", "Primary"}, {"compilation", "汇编作品", "Compilation"}, {"supplement", "附加作品", "Supplement"}}},
+		{"entry_role", names4("篇目类型", "篇目類型", "収録種別", "Entry roles"), []termSeed{
+			{"main", names4("本篇", "本篇", "本篇", "Main")},
+			{"opening", names4("片头曲", "片頭曲", "オープニング", "Opening")},
+			{"ending", names4("片尾曲", "片尾曲", "エンディング", "Ending")},
+			{"trailer", names4("预告 / 宣传", "預告 / 宣傳", "予告・特報", "Trailer")},
+			{"extra", names4("其它附加", "其它附加", "その他の特典", "Extra")},
+			{"other", names4("其它", "其它", "その他", "Other")},
+		}},
+		{"release_role", names4("发行对象用途", "發行對象用途", "対象作品の用途", "Release subject roles"), []termSeed{
+			{"primary", names4("主作品", "主作品", "メイン作品", "Primary")},
+			{"compilation", names4("汇编作品", "合輯作品", "コンピレーション", "Compilation")},
+			{"supplement", names4("附加作品", "附加作品", "特典作品", "Supplement")},
+		}},
 		// 版本维度按"可同时成立"拆开：类别（普通/限定/豪华/套盒）、批次（通常/初回/再版/重印）
 		// 是各自独立的维度，地区归 country、渠道归 distribution_channel。
 		// 原先把限定/初回/地区/再版/数字塞进一个互斥枚举，导致"日本初回限定再版"
 		// 这类真实组合无法表达——只能三选一，丢掉另外两个维度。
-		{"edition_type", "版本类别", "Edition categories", [][3]string{{"standard", "普通版", "Standard edition"}, {"limited", "限定版", "Limited edition"}, {"deluxe", "豪华版", "Deluxe edition"}, {"boxset", "套盒", "Box set"}}},
-		{"edition_batch", "发行批次", "Edition batches", [][3]string{{"regular", "通常发行", "Regular release"}, {"first_press", "初回发行", "First press"}, {"reissue", "再版 / 重发", "Reissue"}, {"reprint", "重印", "Reprint"}}},
-		{"distribution_channel", "发行渠道", "Distribution channels", [][3]string{{"mixed", "混合", "Mixed"}, {"physical", "实体", "Physical"}, {"digital", "数字", "Digital"}, {"web", "网络配信", "Web distribution"}}},
-		{"locator_reference", "定位参照", "Locator reference", [][3]string{{"track", "整条音轨", "Whole track"}, {"medium", "整张载体", "Whole medium"}}},
+		{"edition_type", names4("版本类别", "版本類別", "版種別", "Edition categories"), []termSeed{
+			{"standard", names4("普通版", "普通版", "通常版", "Standard edition")},
+			{"limited", names4("限定版", "限定版", "限定版", "Limited edition")},
+			{"deluxe", names4("豪华版", "豪華版", "デラックス版", "Deluxe edition")},
+			{"boxset", names4("套盒", "套盒", "ボックスセット", "Box set")},
+		}},
+		{"edition_batch", names4("发行批次", "發行批次", "発売区分", "Edition batches"), []termSeed{
+			{"regular", names4("通常发行", "通常發行", "通常盤", "Regular release")},
+			{"first_press", names4("初回发行", "初回發行", "初回盤", "First press")},
+			{"reissue", names4("再版 / 重发", "再版 / 重發", "再発", "Reissue")},
+			{"reprint", names4("重印", "重印", "重版", "Reprint")},
+		}},
+		{"distribution_channel", names4("发行渠道", "發行通路", "流通チャネル", "Distribution channels"), []termSeed{
+			{"mixed", names4("混合", "混合", "併用", "Mixed")},
+			{"physical", names4("实体", "實體", "フィジカル", "Physical")},
+			{"digital", names4("数字", "數位", "デジタル", "Digital")},
+			{"web", names4("网络配信", "網路配信", "配信", "Web distribution")},
+		}},
+		{"locator_reference", names4("定位参照", "定位參照", "位置の基準", "Locator reference"), []termSeed{
+			{"track", names4("整条音轨", "整條音軌", "トラック全体", "Whole track")},
+			{"medium", names4("整张载体", "整張載體", "メディア全体", "Whole medium")},
+		}},
 	} {
-		v := Vocabulary{Names: names(x.zh, x.en), Terms: map[string]Term{}}
+		v := Vocabulary{Names: x.names, Terms: map[string]Term{}}
 		for _, t := range x.terms {
-			v.Terms[t[0]] = Term{Names: names(t[1], t[2]), Enabled: true}
+			v.Terms[t.code] = Term{Names: t.names, Enabled: true}
 		}
 		d.Vocabularies[x.code] = v
 	}
@@ -187,7 +247,7 @@ func Defaults() Definitions {
 	}
 	// 角色番位：此前借用 credit_role 自由文本，导致"主角/配角"既不可检索、也无法多语言
 	// （各语种各写各的）。改成词表后，"这部作品的主角有谁""这个角色在别处是什么番位"都能查。
-	// 四语名显式给出，避免走 names() 的占位回退。
+	// 四语名显式给出：番位词表不进上面的批量表，单独在此声明，避免英文占位。
 	d.Fields["character_rank"] = Field{Names: names4("角色番位", "角色番位", "役割", "Character rank"), Type: "enum", Vocabulary: "character_rank", Enabled: true, Searchable: true, Comparable: true}
 	d.Vocabularies["character_rank"] = Vocabulary{
 		Names: names4("角色番位", "角色番位", "役割", "Character ranks"),
