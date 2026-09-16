@@ -74,6 +74,8 @@ export type Definitions = {
         required?: boolean;
       }[];
       resources?: boolean;
+      subjects?: boolean;
+      contents?: boolean;
     }
   >;
   fields: Record<string, Field>;

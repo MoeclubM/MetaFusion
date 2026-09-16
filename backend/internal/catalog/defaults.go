@@ -110,10 +110,13 @@ func Defaults() Definitions {
 	// TargetKinds 为空表示同层父节点（同域父节点）；Resources 表示该层级可挂资源文件。
 	d := Definitions{Types: map[string]TypeDefinition{}, Fields: map[string]Field{}, Vocabularies: map[string]Vocabulary{},
 		Structure: map[string]StructureRule{
+			// 发行版没有上级，但有"发行对象"；收录位置额外有"收录内容"。两者都属于「所属与收录结构」，
+			// 在这里声明后，前端不必再写死"只有 release 才有发行对象/只有 track 才有收录内容"。
+			"release":      {Subjects: true},
 			"content_unit": {Fields: []StructureField{{Code: "work_id", TargetKinds: []string{"work"}, Required: true}, {Code: "parent_id", ScopedBy: "work_id"}}},
 			"expression":   {Fields: []StructureField{{Code: "work_id", TargetKinds: []string{"work"}, Required: true}, {Code: "content_unit_id", TargetKinds: []string{"content_unit"}, ScopedBy: "work_id"}}, Resources: true},
 			"medium":       {Fields: []StructureField{{Code: "release_id", TargetKinds: []string{"release"}, Required: true}, {Code: "parent_id", ScopedBy: "release_id"}}, Resources: true},
-			"track":        {Fields: []StructureField{{Code: "medium_id", TargetKinds: []string{"medium"}, Required: true}, {Code: "parent_id", ScopedBy: "medium_id"}}, Resources: true},
+			"track":        {Fields: []StructureField{{Code: "medium_id", TargetKinds: []string{"medium"}, Required: true}, {Code: "parent_id", ScopedBy: "medium_id"}}, Resources: true, Contents: true},
 		},
 		Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
 	field := func(code, typ string, n Names) {

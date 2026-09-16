@@ -223,6 +223,10 @@ type StructureRule struct {
 	Fields []StructureField `json:"fields"`
 	// Resources 表示该层级可以挂资源文件（存储服务里的资产）。
 	Resources bool `json:"resources,omitempty"`
+	// Subjects 表示该层级有"发行对象"（收录主体）列表：发行版用它声明收录了哪些作品。
+	Subjects bool `json:"subjects,omitempty"`
+	// Contents 表示该层级有"收录内容"列表：收录位置用它引用内容表达。
+	Contents bool `json:"contents,omitempty"`
 }
 
 // StructureField 是一个结构字段：字段码 + 允许作为目标的层级。

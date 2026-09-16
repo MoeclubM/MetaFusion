@@ -412,7 +412,7 @@ export function EntityEditor({
       </fieldset>
       {/* 守卫也按服务端声明：没有 structure 条目的层级不显示本区（曾因沿用写死的层级清单，
           在 release 上访问不存在的 structure.release.fields 而整页崩溃）。 */}
-      {((defs?.structure?.[e.kind]?.fields) || []).length > 0 && (
+      {(((defs?.structure?.[e.kind]?.fields) || []).length > 0 || defs?.structure?.[e.kind]?.subjects || defs?.structure?.[e.kind]?.contents) && (
       <fieldset>
         <legend>{t("catalog.structure")}</legend>
         <div className="cv-grid">
@@ -456,7 +456,9 @@ export function EntityEditor({
             </>
           )}
         </div>
-        {e.kind === "release" && (
+        {/* 发行对象：由 definitions 声明（structure.release.subjects）；此前这里写死 e.kind === "release"，
+              在结构区改按 definitions 渲染后，发行版反而整块消失。 */}
+        {defs?.structure?.[e.kind]?.subjects === true && (
           <>
             <h3>{t("catalog.subjects")}</h3>
             {e.subjects.map((s, i) => (
@@ -533,7 +535,8 @@ export function EntityEditor({
             </button>
           </>
         )}
-        {e.kind === "track" && (
+        {/* 收录内容：由 definitions 声明（structure.track.contents）。 */}
+        {defs?.structure?.[e.kind]?.contents === true && (
           <>
             <h3>{t("catalog.contents")}</h3>
             {e.contents.map((c, i) => (

@@ -319,6 +319,10 @@ export interface StructureField {
 export interface StructureRule {
   fields?: StructureField[];
   resources?: boolean;
+  /** 该层级有"发行对象"（收录主体）列表。 */
+  subjects?: boolean;
+  /** 该层级有"收录内容"列表。 */
+  contents?: boolean;
 }
 
 export function getTypeName(
