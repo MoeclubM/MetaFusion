@@ -67,6 +67,17 @@ func TestImporterPreviewValidation(t *testing.T) {
 		t.Fatalf("invalid entity type accepted: %v", err)
 	}
 	// 非 Bangumi 站点 URL 明确拒绝，不伪造。
+	// 来源主机白名单按域名后缀匹配：仿冒域不接受（notbgm.tv 曾因 Contains 而通过），
+	// 官方子域照旧可用。出站请求本身永远走常量 base + 数字 ID。
+	if _, err := parseBangumiRef("https://notbgm.tv/subject/7"); err == nil || err.Error() != "not_supported" {
+		t.Fatalf("lookalike host must be rejected: %v", err)
+	}
+	if ref, err := parseBangumiRef("https://www.bgm.tv:443/subject/7"); err != nil || ref.ID != 7 {
+		t.Fatalf("official subdomain with port must parse: %+v %v", ref, err)
+	}
+	if _, err := s.Preview(ctx, "bangumi", "https://evil.example/bgm.tv/subject/7", "work"); err == nil || err.Error() != "not_supported" {
+		t.Fatalf("path-embedded host must not be treated as a bangumi URL: %v", err)
+	}
 	if _, err := s.Preview(ctx, "bangumi", "https://example.com/item/1", "work"); err == nil || err.Error() != "not_supported" {
 		t.Fatalf("foreign url accepted: %v", err)
 	}

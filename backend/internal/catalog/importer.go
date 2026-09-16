@@ -321,8 +321,7 @@ func parseBangumiRef(raw string) (bangumiRef, error) {
 	if err != nil || u.Host == "" {
 		return bangumiRef{}, fmt.Errorf("invalid_payload")
 	}
-	host := strings.ToLower(u.Host)
-	if !strings.Contains(host, "bgm.tv") && !strings.Contains(host, "bangumi.tv") && !strings.Contains(host, "chii.in") {
+	if !bangumiHostAllowed(u.Host) {
 		return bangumiRef{}, fmt.Errorf("not_supported")
 	}
 	kind := ""
@@ -354,6 +353,22 @@ func parseBangumiRef(raw string) (bangumiRef, error) {
 		kind = "subject"
 	}
 	return bangumiRef{Kind: kind, ID: id}, nil
+}
+
+// bangumiHostAllowed 判定来源主机是否属于 Bangumi 官方域名（bgm.tv / bangumi.tv / chii.in
+// 及其子域）。出站请求始终是常量 base + 数字 ID 的路径，这里只决定"是否接受这个引用"；
+// 用后缀匹配而不是 strings.Contains：后者会把 notbgm.tv 这类仿冒域名当成合法来源。
+func bangumiHostAllowed(host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if i := strings.Index(host, ":"); i >= 0 {
+		host = host[:i] // 去掉端口
+	}
+	for _, domain := range []string{"bgm.tv", "bangumi.tv", "chii.in"} {
+		if host == domain || strings.HasSuffix(host, "."+domain) {
+			return true
+		}
+	}
+	return false
 }
 
 // resolveBangumiRef 在纯数字 ID 缺少路径种类的情况下，按实体类型改写目标端点。
