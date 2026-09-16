@@ -71,17 +71,23 @@ func TestProtectedRouteGates(t *testing.T) {
 	}
 }
 
-// 预览端点带 10/min 限流（与 /compare 同档）：第 11 次请求被 429 挡住并给 Retry-After。
-// 计数桶按 IP+路由，本用例独占该路由，不影响其它用例。
-func TestImporterPreviewIsRateLimited(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	// 限流桶是进程级全局状态：先清掉本路由的计数，避免与其它用例的放行请求共享配额。
+// resetPreviewBucket 清掉预览路由的限流计数：限流桶是进程级全局状态，
+// 用例之间共享配额会让断言依赖执行顺序。
+func resetPreviewBucket() {
 	routeAttempts.Range(func(k, _ any) bool {
 		if s, ok := k.(string); ok && strings.HasSuffix(s, "|/api/importer/preview") {
 			routeAttempts.Delete(k)
 		}
 		return true
 	})
+}
+
+// 预览端点带 10/min 限流（与 /compare 同档）：第 11 次请求被 429 挡住并给 Retry-After。
+// 计数桶按 IP+路由，本用例进出都清桶，避免影响其它用例。
+func TestImporterPreviewIsRateLimited(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resetPreviewBucket()
+	defer resetPreviewBucket()
 	u := &User{ID: "u-rl", Role: "member", Permissions: []string{PermissionImportSubmit}}
 	engine := gateEngine(u)
 	for i := 0; i < 10; i++ {
@@ -98,6 +104,20 @@ func TestImporterPreviewIsRateLimited(t *testing.T) {
 	}
 	if w.Header().Get("Retry-After") == "" {
 		t.Fatal("429 must carry Retry-After")
+	}
+}
+
+// 预览端点拒绝 media_type_hint：该字段是声明而非输入（来源解析按 URL/ID 判定媒介类型），
+// 非空即 400 not_supported（旧行为是收下后从不读取）。
+func TestImporterPreviewRejectsMediaTypeHint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	resetPreviewBucket()
+	u := &User{ID: "u-hint", Role: "member", Permissions: []string{PermissionImportSubmit}}
+	w := httptest.NewRecorder()
+	body := strings.NewReader(`{"url_or_id":"7","media_type_hint":"music"}`)
+	gateEngine(u).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/importer/preview", body))
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "media_type_hint") {
+		t.Fatalf("media_type_hint must be rejected: status=%d body=%s", w.Code, w.Body.String())
 	}
 }
 

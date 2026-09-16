@@ -567,6 +567,122 @@ func TestImporterPreflightKeepsZeroWrites(t *testing.T) {
 	}
 }
 
+// 四个此前"只有声明、没有读取点"的字段现在都有明确行为（见 importerApplyFieldSwitches）：
+// is_master_verified / media_type_hint 明确拒绝，has_release 与 mediums 必须自洽，
+// download_cover 显式 false 不引用远端封面/头像（未传保持既有透传）。
+func TestImporterApplyFieldSwitches(t *testing.T) {
+	base := func() ImporterImportRequest {
+		return ImporterImportRequest{
+			Work:              &ImporterWorkPreview{Title: "作品", CoverImageURL: "https://example.com/cover.jpg"},
+			Artist:            &ImporterArtistPreview{Name: "甲", AvatarURL: "https://example.com/avatar.jpg"},
+			Artists:           []ImporterArtistPreview{{Name: "乙", AvatarURL: "https://example.com/avatar2.jpg"}},
+			StaffAssociations: []ImporterStaffAssociation{{ParsedName: "丙", AvatarURL: "https://example.com/avatar3.jpg"}},
+			Release:           &ImporterReleasePreview{EditionName: "初回", CoverImageURL: "https://example.com/rel.jpg"},
+		}
+	}
+	// 未传 download_cover：保持既有透传行为
+	got, err := importerApplyFieldSwitches(base())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Work.CoverImageURL == "" || got.Artist.AvatarURL == "" || got.Artists[0].AvatarURL == "" || got.StaffAssociations[0].AvatarURL == "" {
+		t.Fatalf("absent download_cover must keep remote picture references: %+v", got)
+	}
+	// 显式 false：不引用远端封面/头像
+	req := base()
+	no := false
+	req.DownloadCover = &no
+	got, err = importerApplyFieldSwitches(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Work.CoverImageURL != "" || got.Release.CoverImageURL != "" || got.Artist.AvatarURL != "" || got.Artists[0].AvatarURL != "" || got.StaffAssociations[0].AvatarURL != "" {
+		t.Fatalf("download_cover=false must drop remote pictures: %+v", got)
+	}
+	if req.Work.CoverImageURL == "" {
+		t.Fatal("caller payload must not be mutated in place")
+	}
+	// is_master_verified 无落库语义
+	verified := base()
+	verified.IsMasterVerified = true
+	if _, err := importerApplyFieldSwitches(verified); err == nil || !strings.Contains(err.Error(), "not_supported: is_master_verified") {
+		t.Fatalf("is_master_verified must be rejected: %v", err)
+	}
+	// media_type_hint 不接受覆盖
+	hint := base()
+	hint.MediaTypeHint = "music"
+	if _, err := importerApplyFieldSwitches(hint); err == nil || !strings.Contains(err.Error(), "not_supported: media_type_hint") {
+		t.Fatalf("media_type_hint must be rejected: %v", err)
+	}
+	// has_release 与 mediums 必须自洽
+	claimed := base()
+	claimed.HasRelease = true
+	if _, err := importerApplyFieldSwitches(claimed); err == nil || !strings.Contains(err.Error(), "has_release") {
+		t.Fatalf("has_release without mediums must be rejected: %v", err)
+	}
+	claimed.Mediums = []ImporterMediumPreview{{Format: "cd"}}
+	if _, err := importerApplyFieldSwitches(claimed); err != nil {
+		t.Fatalf("has_release with mediums must pass: %v", err)
+	}
+}
+
+// download_cover 的落库效果（DB）：显式 false 不写 Picture，未传时保持远端 URL 引用；
+// has_release 与 mediums 不一致时零写入。
+func TestImporterImportHonoursDownloadCoverSwitch(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	works := func() int { return len(mustList(t, f, ListOptions{Kind: "work"})) }
+	before := works()
+
+	no := false
+	req := ImporterImportRequest{
+		EntityType: "work", Source: "bangumi", URLOrID: "https://bgm.tv/subject/7",
+		Work: &ImporterWorkPreview{
+			Title: "不要封面", OriginalLanguage: "zh-CN",
+			CoverImageURL:   "https://example.com/cover.jpg",
+			CatalogMetadata: map[string]any{"bangumi_type": float64(2)},
+		},
+		DownloadCover: &no,
+		EditNote:      "封面开关",
+		SourceURLs:    []string{"https://bgm.tv/subject/7"},
+	}
+	out, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Work.Pictures) != 0 {
+		t.Fatalf("download_cover=false must not store pictures: %+v", out.Work.Pictures)
+	}
+
+	// 未传（nil）时保持既有行为：远端封面仍作为 URL 引用落库
+	withCover := req
+	withCover.URLOrID = "https://bgm.tv/subject/8"
+	withCover.DownloadCover = nil
+	withCover.Work = &ImporterWorkPreview{
+		Title: "要封面", OriginalLanguage: "zh-CN",
+		CoverImageURL:   "https://example.com/cover2.jpg",
+		CatalogMetadata: map[string]any{"bangumi_type": float64(2)},
+	}
+	out, err = f.s.Import(ctx, withCover, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Work.Pictures) != 1 || out.Work.Pictures[0].URL != "https://example.com/cover2.jpg" {
+		t.Fatalf("absent download_cover must keep the remote cover reference: %+v", out.Work.Pictures)
+	}
+
+	// has_release=true 却不带载体：明确拒绝且不建作品
+	inconsistent := req
+	inconsistent.URLOrID = "https://bgm.tv/subject/9"
+	inconsistent.HasRelease = true
+	if _, err := f.s.Import(ctx, inconsistent, f.u); err == nil || !strings.Contains(err.Error(), "has_release") {
+		t.Fatalf("has_release without mediums must be rejected: %v", err)
+	}
+	if after := works(); after != before+2 {
+		t.Fatalf("rejected payload must not create entities: works %d -> %d", before, after)
+	}
+}
+
 // TestImporterPreviewEpisodes：动画条目预览应带分集 canonical entries
 // （entry_kind=content_unit、带官方集号与来源时长），无分集的条目为空。
 // Preview 只走上游 HTTP、不触库，因此无需数据库夹具。

@@ -3,8 +3,8 @@ package catalog
 // 外部目录导入器（OmniImportModal 后端最小实现）。
 //
 // 只实现 Bangumi 公开 API 的预览与落库；其余来源一律返回 not_supported，
-// 不伪造数据。图片下载（download_cover）在本阶段显式忽略：只透传远端 URL，
-// 不做抓取与转存，待资源/存储模块提供统一下载能力后再接线。
+// 不伪造数据。图片只做远端 URL 引用，不抓取、不转存（转存归存储子系统）；
+// download_cover 显式 false 时不写 Picture，见 importerApplyFieldSwitches。
 //
 // 落库全部走 Store.Save / Store.SaveRelation，证据（edit_note + sources）必填；
 // 幂等键 external_ids.metafusion_import=bangumi:{kind}:{id}，已存在直接返回旧 ID。
@@ -219,13 +219,17 @@ type ImporterImportRequest struct {
 	CanonicalEntries  []ImporterCanonicalEntryPreview `json:"canonical_entries,omitempty"`
 	Release           *ImporterReleasePreview         `json:"release,omitempty"`
 	Mediums           []ImporterMediumPreview         `json:"mediums,omitempty"`
-	DownloadCover     bool                            `json:"download_cover,omitempty"`
-	EditNote          string                          `json:"edit_note,omitempty"`
-	SourceURLs        []string                        `json:"source_urls,omitempty"`
-	IsMasterVerified  bool                            `json:"is_master_verified,omitempty"`
-	TargetWorkID      string                          `json:"target_work_id,omitempty"`
-	LinkMode          string                          `json:"link_mode,omitempty"`
-	RelationType      string                          `json:"relation_type,omitempty"`
+	// DownloadCover 只决定是否把远端封面/头像作为 Picture 引用写库（目录侧不抓取、不转存，
+	// 转存归存储子系统）：指针用于区分"没传"与"显式 false"——未传保持既有透传行为，
+	// 显式 false 表示调用方不要封面。IsMasterVerified / MediaTypeHint 无落库语义，
+	// true/非空一律拒绝，见 importerApplyFieldSwitches（不再"接受但忽略"）。
+	DownloadCover    *bool    `json:"download_cover,omitempty"`
+	EditNote         string   `json:"edit_note,omitempty"`
+	SourceURLs       []string `json:"source_urls,omitempty"`
+	IsMasterVerified bool     `json:"is_master_verified,omitempty"`
+	TargetWorkID     string   `json:"target_work_id,omitempty"`
+	LinkMode         string   `json:"link_mode,omitempty"`
+	RelationType     string   `json:"relation_type,omitempty"`
 }
 
 type ImporterImportedCounts struct {
@@ -1714,6 +1718,68 @@ func importerEvidence(req ImporterImportRequest, source string) (string, []Sourc
 		sources = []Source{{Kind: "self", Citation: note}}
 	}
 	return note, sources
+}
+
+// importerApplyFieldSwitches 收口四个此前"只有声明、没有读取点"的字段，返回可能被改写的请求：
+//   - is_master_verified=true：目录模型没有"核验主版"这一维（状态只有 draft/pending_review/
+//     published/deleted/merged），接受后无法记录，因此明确拒绝而不是静默忽略；
+//   - media_type_hint 非空：来源解析按 URL/ID 判定媒介类型，不接受调用方覆盖，同样明确拒绝；
+//   - has_release=true 但没有 mediums：写路径会跳过整条发行链、把 release 载荷静默丢弃，拒绝；
+//     （反向的"mediums 非空、has_release 缺省/false"以载荷为准：mediums 是写指令，has_release
+//     只是预览侧声明，且 false 与缺省在 DTO 里不可区分，不能据此拒绝。）
+//   - download_cover 显式 false：本服务不抓取、不转存图片（转存归存储子系统），字段只决定
+//     是否把远端封面/头像作为 Picture 引用写库；未传或 true 保持既有透传行为。
+func importerApplyFieldSwitches(req ImporterImportRequest) (ImporterImportRequest, error) {
+	if req.IsMasterVerified {
+		return req, fmt.Errorf("not_supported: is_master_verified")
+	}
+	if strings.TrimSpace(req.MediaTypeHint) != "" {
+		return req, fmt.Errorf("not_supported: media_type_hint")
+	}
+	if req.HasRelease && len(req.Mediums) == 0 {
+		return req, fmt.Errorf("invalid_payload: has_release=true requires mediums")
+	}
+	if req.DownloadCover != nil && !*req.DownloadCover {
+		req = importerWithoutRemotePictures(req)
+	}
+	return req, nil
+}
+
+// importerWithoutRemotePictures 清掉载荷里所有远端封面/头像 URL（work 封面、release 封面、
+// 顶层 artist 头像、staff 关联头像）。只改本次请求的副本，不动调用方数据。
+func importerWithoutRemotePictures(req ImporterImportRequest) ImporterImportRequest {
+	if req.Work != nil {
+		w := *req.Work
+		w.CoverImageURL = ""
+		req.Work = &w
+	}
+	if req.Release != nil {
+		r := *req.Release
+		r.CoverImageURL = ""
+		req.Release = &r
+	}
+	if req.Artist != nil {
+		a := *req.Artist
+		a.AvatarURL = ""
+		req.Artist = &a
+	}
+	if len(req.Artists) > 0 {
+		artists := make([]ImporterArtistPreview, len(req.Artists))
+		for i, a := range req.Artists {
+			a.AvatarURL = ""
+			artists[i] = a
+		}
+		req.Artists = artists
+	}
+	if len(req.StaffAssociations) > 0 {
+		assocs := make([]ImporterStaffAssociation, len(req.StaffAssociations))
+		for i, a := range req.StaffAssociations {
+			a.AvatarURL = ""
+			assocs[i] = a
+		}
+		req.StaffAssociations = assocs
+	}
+	return req
 }
 
 // importDedupKey 由 url_or_id 本地解析幂等键，不发网络请求。
@@ -3674,6 +3740,12 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 	note, sources := importerEvidence(req, source)
 	mode, err := normalizeImporterLinkMode(req.LinkMode)
 	if err != nil {
+		return ImporterImportResponse{}, err
+	}
+	// 四个此前"只有声明、没有读取点"的字段在此收口（is_master_verified / media_type_hint /
+	// has_release / download_cover，逐条见 importerApplyFieldSwitches）。
+	// download_cover 显式 false 会改写请求（不引用远端封面/头像），后续预检与落库用改写后的载荷。
+	if req, err = importerApplyFieldSwitches(req); err != nil {
 		return ImporterImportResponse{}, err
 	}
 	// 先做纯参数校验（不触库），保持"非法载荷在写库前失败"的既有约定。

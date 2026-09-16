@@ -511,6 +511,12 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		if !body(c, &in) {
 			return
 		}
+		// media_type_hint 是声明而非输入：来源解析按 URL/ID 判定媒介类型，不接受调用方覆盖，
+		// 与 /importer/import 同口径明确拒绝（旧行为是收下后从不读取）。
+		if strings.TrimSpace(in.MediaTypeHint) != "" {
+			c.JSON(400, gin.H{"error": "not_supported: media_type_hint"})
+			return
+		}
 		if strings.TrimSpace(in.URLOrID) == "" {
 			c.JSON(400, gin.H{"error": "invalid_payload"})
 			return
