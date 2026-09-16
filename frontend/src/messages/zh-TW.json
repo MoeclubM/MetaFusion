@@ -2857,5 +2857,6 @@
   "admin.reviews.approved": "已通過發佈",
   "catalog.imageTakenAt": "拍攝／發佈時刻（可選，YYYY-MM-DD）",
   "catalog.pictureGallery": "圖片（依時間）",
-  "catalog.imageTimeUnknown": "時間未註明"
+  "catalog.imageTimeUnknown": "時間未註明",
+  "catalog.translationHint": "題名、簡介、別名都按語種分別儲存，原始語言也在這一區裡。發佈需要至少一條翻譯記錄，請為要展示的語種補上題名。"
 }

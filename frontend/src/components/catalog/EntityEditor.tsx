@@ -269,6 +269,9 @@ export function EntityEditor({
         {/* 主语言（原始语言）行：标题即基础题名（在"实体身份"区维护），
             但别名必须能按语种维护——没有该语种翻译行时提供合成行，
             输入别名时才真正创建 translations 行落库。 */}
+        {/* 原始语言行与其它语种行用同一套字段：题名（只读，来自实体基础题名）、简介、别名。
+            之前这一行是个特例，只给题名与别名、没有简介——于是"原始语言的简介"根本无处可填，
+            用户以为填了简介，实际写进了别名。简介多语言必须包含原始语言。 */}
         {e.original_language && e.title && !e.translations[e.original_language] && (
           <div className="cv-group">
             <strong>{e.original_language}</strong>{" "}
@@ -278,16 +281,36 @@ export function EntityEditor({
               <input value={e.title} disabled />
             </label>
             <label>
-              {t("catalog.aliases")}
+              {t("catalog.summary")}
               <textarea
-                value=""
+                aria-label={`${e.original_language} · ${t("catalog.summary")}`}
+                value={e.translations[e.original_language]?.summary || ""}
                 onChange={(x) =>
                   patch({
                     translations: {
                       ...e.translations,
                       [e.original_language]: {
                         title: e.title,
-                        summary: "",
+                        summary: x.target.value,
+                        aliases: e.translations[e.original_language]?.aliases || [],
+                      },
+                    },
+                  })
+                }
+              />
+            </label>
+            <label>
+              {t("catalog.aliases")}
+              <textarea
+                aria-label={`${e.original_language} · ${t("catalog.aliases")}`}
+                value={(e.translations[e.original_language]?.aliases || []).join("\n")}
+                onChange={(x) =>
+                  patch({
+                    translations: {
+                      ...e.translations,
+                      [e.original_language]: {
+                        title: e.title,
+                        summary: e.translations[e.original_language]?.summary || "",
                         aliases: x.target.value.split("\n").filter(Boolean),
                       },
                     },
@@ -361,6 +384,7 @@ export function EntityEditor({
             </button>
           </div>
         ))}
+        <p className="text-xs opacity-60">{t("catalog.translationHint")}</p>
         <div className="cv-row">
           <input
             aria-label={t("catalog.localeCode")}

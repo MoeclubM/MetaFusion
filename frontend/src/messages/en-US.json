@@ -2857,5 +2857,6 @@
   "admin.reviews.approved": "Approved and published",
   "catalog.imageTakenAt": "Taken / published (optional, YYYY-MM-DD)",
   "catalog.pictureGallery": "Images (by time)",
-  "catalog.imageTimeUnknown": "Time not stated"
+  "catalog.imageTimeUnknown": "Time not stated",
+  "catalog.translationHint": "Titles, summaries and aliases are stored per locale (the original language is listed here too). Publishing needs at least one translation entry."
 }
