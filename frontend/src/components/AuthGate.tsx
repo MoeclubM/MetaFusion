@@ -8,6 +8,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 
 const PROTECTED_PREFIXES = [
   "/admin",
+  "/developer",
   "/settings",
   "/invites",
   "/contribute",

@@ -28,6 +28,7 @@ import {
   DownloadCloud,
   MessageSquare,
   Sparkles,
+  Terminal,
 } from "lucide-react";
 
 export const Navbar: React.FC = () => {
@@ -102,6 +103,22 @@ export const Navbar: React.FC = () => {
                 </Link>
               );
             })}
+
+            {/* 开发者中心：任何登录账号都能自助登记自己的应用（见 metafusion-auth 的
+                /api/developer/*），因此不像管理台那样受权限码限制；未登录时不提供入口。 */}
+            {user && (
+              <Link
+                href="/developer"
+                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all ${
+                  pathname.startsWith("/developer")
+                    ? "text-primary bg-primary/10 border border-primary/25 font-semibold"
+                    : "text-gray-400 hover:text-primary hover:bg-primary/5"
+                }`}
+              >
+                <Terminal className="w-3.5 h-3.5" />
+                <span>{t("navigation.developer")}</span>
+              </Link>
+            )}
 
             {user && canEnterAdmin(user) && (
               <Link
