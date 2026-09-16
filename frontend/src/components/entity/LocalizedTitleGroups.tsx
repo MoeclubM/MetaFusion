@@ -37,9 +37,24 @@ export function LocalizedTitleGroups({
 }: Props) {
   const { t } = useI18n();
   const [expanded, setExpanded] = React.useState(false);
+  // 实体级基础字段（title 等）与表格主标题一起参与去重：只比主标题本身、不吞并别名。
+  const knownKey = [displayTitle, ...(extraKnown || [])].join("\u0000");
+  const known = React.useMemo(
+    () =>
+      new Set(
+        [displayTitle, ...(extraKnown || [])]
+          .map((v) => (v ?? "").trim().toLocaleLowerCase())
+          .filter(Boolean),
+      ),
+    // 依赖拼好的字符串而不是数组本身：调用方常在 render 里新建数组字面量。
+    [knownKey],
+  );
   const groups = React.useMemo(
-    () => visibleTitleGroups(groupTitlesByLocale(translations, originalLanguage), displayTitle),
-    [translations, originalLanguage, displayTitle],
+    () =>
+      visibleTitleGroups(groupTitlesByLocale(translations, originalLanguage), displayTitle).filter(
+        (g) => g.aliases.length > 0 || !known.has(g.primary.trim().toLocaleLowerCase()),
+      ),
+    [translations, originalLanguage, displayTitle, known],
   );
   if (groups.length === 0) return null;
   const cls = itemClassName ?? "text-gray-500";
