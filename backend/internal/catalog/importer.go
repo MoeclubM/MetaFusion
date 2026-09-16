@@ -2867,6 +2867,80 @@ func importerPreflightTitles(req ImporterImportRequest, mode, entityType string)
 	return nil
 }
 
+// importerUnsupportedEntityTypeFields 拒绝"该类型的写路径绝不会读取"的顶层载荷对象。
+//
+// entity_type != work 的导入只建一个 agent（importNewAgent 压根不碰这三项）：agent 不是 Work，
+// 既没有 Work→ContentUnit→Expression 的创作层级，也没有 Work→Release→Medium→Track 的发行承载，
+// 所以 canonical_entries / mediums / release 在这条路径上**没有落点**——不是"暂时没实现"，
+// 而是实体边界不允许（见 AGENTS.md §4 的层级不变量），也就不该在这里假装支持。
+// 既然兑现不了，就不能收下：静默忽略会让调用方以为结构已经写进去，实际丢数据。
+// 空壳不算声明：null / [] / {} 与"没传"同义（前端为作品导入无条件带 release 键，手工载荷
+// 也可能带空对象），只有带内容的对象才拒绝，避免误伤合法载荷。
+// append_release_to_work 是例外：它借用作品载荷里的发行层字段、真的会写发行链，
+// 这三项在那里有落点（见 Import 的分派），故不拦。
+func importerUnsupportedEntityTypeFields(req ImporterImportRequest, mode, entityType string) error {
+	if entityType == "work" || mode == "append_release_to_work" {
+		return nil
+	}
+	for _, f := range []struct {
+		code     string
+		declared bool
+	}{
+		{"canonical_entries", len(req.CanonicalEntries) > 0},
+		{"mediums", len(req.Mediums) > 0},
+		{"release", importerReleaseDeclaresData(req.Release)},
+	} {
+		if f.declared {
+			// 错误信息带对象标识（entity_type）与字段码，便于调用方定位是哪个字段在此类型上不可用。
+			return fmt.Errorf("unsupported_field_for_entity_type: entity_type=%s field=%s", entityType, f.code)
+		}
+	}
+	return nil
+}
+
+// importerReleaseDeclaresData 判断发行预览是否真的声明了内容（空对象 {} 与 null 同义）。
+// 逐字段判空而非与零值比较：Translations/CatalogMetadata 是松散 JSON 值（map/slice 不可比较），
+// 直接比较结构体会 panic。
+func importerReleaseDeclaresData(rel *ImporterReleasePreview) bool {
+	if rel == nil {
+		return false
+	}
+	if importerJSONDeclaresData(rel.Translations) || importerJSONDeclaresData(rel.CatalogMetadata) {
+		return true
+	}
+	for _, s := range []string{
+		rel.CoverImageURL, rel.CoverAspect, rel.OriginalLanguage, rel.EditionName, rel.CatalogNumber,
+		rel.Barcode, rel.Publisher, rel.Packaging, rel.Country, rel.Language,
+		rel.DistributionChannel, rel.EditionType, rel.EditionBatch, rel.EditionDate, rel.Notes,
+	} {
+		if strings.TrimSpace(s) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// importerJSONDeclaresData 判断松散 JSON 值是否"声明了内容"：nil / 空串 / 空数组 / 空对象
+// 都算没声明，其余（含非空容器）算声明。
+func importerJSONDeclaresData(v any) bool {
+	switch x := v.(type) {
+	case nil:
+		return false
+	case string:
+		return strings.TrimSpace(x) != ""
+	case []any:
+		return len(x) > 0
+	case map[string]any:
+		return len(x) > 0
+	case []ImporterTranslationItem:
+		return len(x) > 0
+	case map[string]Translation:
+		return len(x) > 0
+	default:
+		return true
+	}
+}
+
 // importerPreflightExternalIDs 预检载荷会落库的外部编号：格式层（validateExternalIDs）与
 // 预设层（validateExternalIDsAgainstDB：键必须在 external_databases 预设里、值按正则、
 // 分类与实体 kind 一致）与 Store.Save 同一套校验，只是提前到零写入阶段执行。
@@ -2962,6 +3036,8 @@ func importerPreflightAssociations(doc Definitions, assocs []ImporterStaffAssoci
 }
 
 // importerPreflight 在写库前只读校验整份载荷，保证校验失败时零写入：
+//   - 载荷声明的对象在该 entity_type 的写路径上是否有落点
+//     （importerUnsupportedEntityTypeFields：没有就报 unsupported_field_for_entity_type，不静默忽略）；
 //   - 章节树（parent_index）结构合法（顺序即拓扑序）；
 //   - 标题与条目形态（importerPreflightTitles）：缺标题在写路径里要到建完 work/release/medium 才报错；
 //   - 显式表达引用（canonical entries 与各轨）必须存在且 kind=expression；
@@ -2974,6 +3050,11 @@ func importerPreflightAssociations(doc Definitions, assocs []ImporterStaffAssoci
 //   - 属性**取值**与载荷声明的原语言/翻译行/日期（importerPreflightValues）：与
 //     Store.Save 同一实现同一口径，提前到零写入阶段，见该函数注释。
 func (s *Store) importerPreflight(ctx context.Context, actor User, req ImporterImportRequest, mode, entityType, source string) error {
+	// 该类型的写路径绝不会读取的顶层对象先拒绝：静默忽略等于让调用方以为写进去了
+	//（unsupported_field_for_entity_type，见该函数注释），且比结构类校验更基础，先报更好定位。
+	if err := importerUnsupportedEntityTypeFields(req, mode, entityType); err != nil {
+		return err
+	}
 	entries, work, assocs := req.CanonicalEntries, req.Work, req.StaffAssociations
 	if err := validateImporterEntryTree(entries); err != nil {
 		return err
@@ -3077,10 +3158,10 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, req ImporterI
 // 不放宽也不收紧 Save 的判定。
 //
 // 范围与写路径对齐：entity_type=work 时校验 work/release/载体/曲目/条目/关联，其它
-// entity_type 只校验顶层 artist（载荷里的 canonical_entries/mediums/release 会被
-// importNewAgent 忽略，不替它报错）；append_release_to_work 只借用作品载荷里的发行层字段、
-// 不写作品；release/medium 的 original_language 与 translations 写路径不读取，同样不校验
-// ——校验它们会报出 Save 根本不会发生的错误。
+// entity_type 只校验顶层 artist——载荷里的 canonical_entries/mediums/release 在 agent
+// 路径上没有落点，由 importerPreflight 以 unsupported_field_for_entity_type 提前拒绝，
+// 不在这里假装校验；append_release_to_work 只借用作品载荷里的发行层字段、不写作品；
+// release/medium 的 original_language 与 translations 写路径不读取，同样不校验。
 //
 // 载荷里会在写路径被复用（幂等键命中、显式表达引用、同父同号篇目）的对象同样预检：与既有
 // 外部编号预检同口径——宁可让调用方改载荷，也不让同一份载荷这次通过、下次（复用失效时）
