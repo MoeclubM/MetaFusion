@@ -73,6 +73,15 @@ func KindNames() map[string]Names {
 	}
 	return out
 }
+
+// fieldSeed 是字段种子的声明形状：四语名称（names4）+ 字段类型。
+// 种子名不写死中英两语：缺 zh-TW/ja 时用户看到的是英文占位。
+type fieldSeed struct {
+	code  string
+	typ   string
+	names Names
+}
+
 func Defaults() Definitions {
 	// 结构归属规则：哪些层级要挂上级、字段码指向哪些层级、是否必填、候选按哪个上级字段过滤。
 	// 校验（validation.go）与前端编辑器共用这一份，前端不再自己写死"expression 挂在 work 下"。
@@ -80,28 +89,66 @@ func Defaults() Definitions {
 	d := Definitions{Types: map[string]TypeDefinition{}, Fields: map[string]Field{}, Vocabularies: map[string]Vocabulary{},
 		Structure: map[string]StructureRule{
 			"content_unit": {Fields: []StructureField{{Code: "work_id", TargetKinds: []string{"work"}, Required: true}, {Code: "parent_id", ScopedBy: "work_id"}}},
-			"expression": {Fields: []StructureField{{Code: "work_id", TargetKinds: []string{"work"}, Required: true}, {Code: "content_unit_id", TargetKinds: []string{"content_unit"}, ScopedBy: "work_id"}}, Resources: true},
-			"medium": {Fields: []StructureField{{Code: "release_id", TargetKinds: []string{"release"}, Required: true}, {Code: "parent_id", ScopedBy: "release_id"}}, Resources: true},
-			"track": {Fields: []StructureField{{Code: "medium_id", TargetKinds: []string{"medium"}, Required: true}, {Code: "parent_id", ScopedBy: "medium_id"}}, Resources: true},
+			"expression":   {Fields: []StructureField{{Code: "work_id", TargetKinds: []string{"work"}, Required: true}, {Code: "content_unit_id", TargetKinds: []string{"content_unit"}, ScopedBy: "work_id"}}, Resources: true},
+			"medium":       {Fields: []StructureField{{Code: "release_id", TargetKinds: []string{"release"}, Required: true}, {Code: "parent_id", ScopedBy: "release_id"}}, Resources: true},
+			"track":        {Fields: []StructureField{{Code: "medium_id", TargetKinds: []string{"medium"}, Required: true}, {Code: "parent_id", ScopedBy: "medium_id"}}, Resources: true},
 		},
- Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
-	field := func(code, zh, en, typ string) {
-		d.Fields[code] = Field{Names: names(zh, en), Type: typ, Enabled: true, Searchable: true, Comparable: true}
+		Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
+	field := func(code, typ string, n Names) {
+		d.Fields[code] = Field{Names: n, Type: typ, Enabled: true, Searchable: true, Comparable: true}
 	}
-	for _, x := range [][4]string{{"catalog_number", "品番", "Catalog number", "text"}, {"barcode", "条码 / ISBN", "Barcode / ISBN", "text"}, {"isbn", "ISBN", "ISBN", "text"}, {"edition_date", "发行日期", "Release date", "date"}, {"country", "发行地区", "Territory", "text"}, {"language", "内容语言", "Content language", "text"}, {"duration", "时长（秒）", "Duration (seconds)", "number"}, {"version_label", "表达版本", "Expression version", "text"}, {"format", "载体格式", "Medium format", "enum"}, {"packaging", "包装", "Packaging", "enum"}, {"edition_type", "版本类别", "Edition category", "enum"}, {"edition_batch", "发行批次", "Edition batch", "enum"}, {"distribution_channel", "发行渠道", "Distribution channel", "enum"}, {"platform", "平台", "Platform", "text"}, {"episodes", "话数", "Episodes", "number"}, {"volume_count", "卷数", "Volumes", "number"}, {"broadcast_start", "放送开始", "Broadcast start", "date"}, {"broadcast_weekday", "放送星期", "Broadcast weekday", "text"}, {"broadcast_end", "放送结束", "Broadcast end", "date"}, {"air_network", "放送电视台", "Broadcast network", "text"}, {"copyright", "版权标示", "Copyright", "text"}, {"author", "作者", "Author", "text"}, {"magazine", "连载杂志", "Magazine", "text"}, {"imdb", "IMDb", "IMDb", "text"}, {"isrc", "ISRC", "ISRC", "text"}, {"role", "内容用途", "Content role", "enum"}, {"entry_role", "篇目类型", "Entry role", "enum"}, {"character_rank", "角色番位", "Character rank", "enum"}, {"credit_role", "署名职位", "Credit role", "text"}, {"character", "所饰角色", "Character", "entity"}, {"context", "适用作品或篇目", "Context", "entity"}, {"begin_date", "开始日期", "Begin date", "date"}, {"end_date", "结束日期", "End date", "date"}, {"scope", "适用范围说明", "Scope description", "text"}, {"publisher", "发行主体", "Publisher", "entity"}, {"attachments", "包装附件", "Package attachments", "list"}, {"store_bonuses", "渠道特典", "Retailer bonuses", "list"}, {"events", "发布与放送事件", "Release and broadcast events", "list"}} {
-		field(x[0], x[1], x[2], x[3])
+	for _, x := range []fieldSeed{
+		{"catalog_number", "text", names4("品番", "唱片編號", "品番", "Catalog number")},
+		{"barcode", "text", names4("条码 / ISBN", "條碼 / ISBN", "バーコード / ISBN", "Barcode / ISBN")},
+		{"isbn", "text", names4("ISBN", "國際標準書號", "国際標準図書番号", "ISBN")},
+		{"edition_date", "date", names4("发行日期", "發行日期", "発売日", "Release date")},
+		{"country", "text", names4("发行地区", "發行地區", "発売地域", "Territory")},
+		{"language", "text", names4("内容语言", "內容語言", "内容言語", "Content language")},
+		{"duration", "number", names4("时长（秒）", "時長（秒）", "再生時間（秒）", "Duration (seconds)")},
+		{"version_label", "text", names4("表达版本", "表達版本", "バージョン表記", "Expression version")},
+		{"format", "enum", names4("载体格式", "載體格式", "メディア形式", "Medium format")},
+		{"packaging", "enum", names4("包装", "包裝", "パッケージ", "Packaging")},
+		{"edition_type", "enum", names4("版本类别", "版本類別", "版種別", "Edition category")},
+		{"edition_batch", "enum", names4("发行批次", "發行批次", "発売区分", "Edition batch")},
+		{"distribution_channel", "enum", names4("发行渠道", "發行通路", "流通チャネル", "Distribution channel")},
+		{"platform", "text", names4("平台", "平台", "プラットフォーム", "Platform")},
+		{"episodes", "number", names4("话数", "話數", "話数", "Episodes")},
+		{"volume_count", "number", names4("卷数", "卷數", "巻数", "Volumes")},
+		{"broadcast_start", "date", names4("放送开始", "放送開始", "放送開始", "Broadcast start")},
+		{"broadcast_weekday", "text", names4("放送星期", "放送星期", "放送曜日", "Broadcast weekday")},
+		{"broadcast_end", "date", names4("放送结束", "放送結束", "放送終了", "Broadcast end")},
+		{"air_network", "text", names4("放送电视台", "放送電視台", "放送局", "Broadcast network")},
+		{"copyright", "text", names4("版权标示", "版權標示", "権利表記", "Copyright")},
+		{"author", "text", names4("作者", "作者", "作者", "Author")},
+		{"magazine", "text", names4("连载杂志", "連載雜誌", "掲載誌", "Magazine")},
+		{"imdb", "text", names4("IMDb", "IMDb 編號", "IMDb ID", "IMDb")},
+		{"isrc", "text", names4("ISRC", "國際標準錄音代碼", "国際標準レコーディングコード", "ISRC")},
+		{"role", "enum", names4("内容用途", "內容用途", "収録役割", "Content role")},
+		{"entry_role", "enum", names4("篇目类型", "篇目類型", "収録種別", "Entry role")},
+		{"credit_role", "text", names4("署名职位", "署名職位", "クレジット表記", "Credit role")},
+		{"character", "entity", names4("所饰角色", "所飾角色", "役名", "Character")},
+		{"context", "entity", names4("适用作品或篇目", "適用作品或篇目", "対象作品・篇目", "Context")},
+		{"begin_date", "date", names4("开始日期", "開始日期", "開始日", "Begin date")},
+		{"end_date", "date", names4("结束日期", "結束日期", "終了日", "End date")},
+		{"scope", "text", names4("适用范围说明", "適用範圍說明", "適用範囲の説明", "Scope description")},
+		{"publisher", "entity", names4("发行主体", "發行主體", "発売元", "Publisher")},
+		{"attachments", "list", names4("包装附件", "包裝附件", "同梱物", "Package attachments")},
+		{"store_bonuses", "list", names4("渠道特典", "通路特典", "店舗特典", "Retailer bonuses")},
+		{"events", "list", names4("发布与放送事件", "發布與放送事件", "発売・放送イベント", "Release and broadcast events")},
+	} {
+		field(x.code, x.typ, x.names)
 	}
 	// 标签：值域开放（上游标签随作品而定），故为字符串列表而非受控词表；
 	// 存于 attributes.tags，按容器包含（@>）过滤——结构基线为该 JSON 路径
 	// 建了函数 GIN 索引，保证按标签检索走索引而非全表扫描。
 	// Hidden：详情页有专用标签区块，不再进信息面板，避免与 JSON 原文重复。
-	d.Fields["tags"] = Field{Names: names("标签", "Tags"), Type: "list", Enabled: true, Searchable: true, Hidden: true, Items: &Field{Names: names("标签", "Tag"), Type: "text", Enabled: true}}
+	d.Fields["tags"] = Field{Names: names4("标签", "標籤", "タグ", "Tags"), Type: "list", Enabled: true, Searchable: true, Hidden: true, Items: &Field{Names: names4("标签", "標籤", "タグ", "Tag"), Type: "text", Enabled: true}}
 	// infobox 原始条目：上游资料表的完整快照，保留键值原文以便追溯与后续映射。
 	// Hidden：仅供检索与存档，不进信息面板，避免把不规范的键名直接暴露给用户。
-	d.Fields["infobox"] = Field{Names: names("资料表原始条目", "Raw infobox entries"), Type: "list", Enabled: true, Searchable: true, Hidden: true,
-		Items: &Field{Names: names("条目", "Entry"), Type: "group", Enabled: true, Fields: map[string]Field{
-			"key":   {Names: names("键", "Key"), Type: "text", Required: true, Enabled: true},
-			"value": {Names: names("值", "Value"), Type: "text", Required: true, Enabled: true},
+	d.Fields["infobox"] = Field{Names: names4("资料表原始条目", "資料表原始條目", "インフォボックス原文", "Raw infobox entries"), Type: "list", Enabled: true, Searchable: true, Hidden: true,
+		Items: &Field{Names: names4("条目", "條目", "項目", "Entry"), Type: "group", Enabled: true, Fields: map[string]Field{
+			"key":   {Names: names4("键", "鍵", "キー", "Key"), Type: "text", Required: true, Enabled: true},
+			"value": {Names: names4("值", "值", "値", "Value"), Type: "text", Required: true, Enabled: true},
 		}}}
 	// country/region 保持 text 而未收敛为词表：取值是开放集合（地区代码、
 	// 渠道/店铺名、放送地区），硬编码词表会阻塞编目。前端显示时优先查
@@ -164,27 +211,27 @@ func Defaults() Definitions {
 	// duration_source：该时长来自哪份录音（实体引用，仅 expression 可写）。
 	// 含义=同一 expression 在不同版本中的时长差异由引用来源解释，
 	// 不在 duration 数值旁另立口径。
-	d.Fields["duration_source"] = Field{Names: names("时长来源", "Duration source"), Type: "entity", Kinds: []string{"expression"}, Enabled: true}
+	d.Fields["duration_source"] = Field{Names: names4("时长来源", "時長來源", "再生時間の参照元", "Duration source"), Type: "entity", Kinds: []string{"expression"}, Enabled: true}
 	for _, k := range []string{"attachments", "store_bonuses", "events"} {
 		f := d.Fields[k]
-		f.Items = &Field{Names: names("记录", "Record"), Type: "group", Enabled: true, Fields: map[string]Field{
-			"label":     {Names: names("说明", "Description"), Type: "multilingual", Required: true, Enabled: true},
-			"quantity":  {Names: names("数量", "Quantity"), Type: "number", Enabled: true},
-			"date":      {Names: names("日期", "Date"), Type: "date", Enabled: true},
-			"channel":   {Names: names("渠道 / 平台", "Channel / platform"), Type: "text", Enabled: true},
-			"region":    {Names: names("地区", "Region"), Type: "text", Enabled: true},
-			"time_zone": {Names: names("时区", "Time zone"), Type: "text", Enabled: true},
-			"condition": {Names: names("批次 / 随机规则 / 条件", "Batch / random rule / condition"), Type: "text", Enabled: true},
+		f.Items = &Field{Names: names4("记录", "記錄", "レコード", "Record"), Type: "group", Enabled: true, Fields: map[string]Field{
+			"label":     {Names: names4("说明", "說明", "説明", "Description"), Type: "multilingual", Required: true, Enabled: true},
+			"quantity":  {Names: names4("数量", "數量", "数量", "Quantity"), Type: "number", Enabled: true},
+			"date":      {Names: names4("日期", "日期", "日付", "Date"), Type: "date", Enabled: true},
+			"channel":   {Names: names4("渠道 / 平台", "通路 / 平台", "流通 / プラットフォーム", "Channel / platform"), Type: "text", Enabled: true},
+			"region":    {Names: names4("地区", "地區", "地域", "Region"), Type: "text", Enabled: true},
+			"time_zone": {Names: names4("时区", "時區", "タイムゾーン", "Time zone"), Type: "text", Enabled: true},
+			"condition": {Names: names4("批次 / 随机规则 / 条件", "批次 / 隨機規則 / 條件", "ロット / 抽選ルール / 条件", "Batch / random rule / condition"), Type: "text", Enabled: true},
 			// 渠道特典与发行事件进一步结构化的落点（全部走 definitions，
 			// 不加硬编码列）：店铺/发行主体、随附内容引用、示意图、售价与来源。
 			// store 是实体引用（零售店/出版社等 Agent）；content 引用随附的
 			// 作品/表达（特典 CD 里的实际内容不能只剩"赠 CD"三个字）。
-			"store":      {Names: names("店铺 / 发行主体", "Store / distributor"), Type: "entity", Kinds: []string{"agent"}, Enabled: true},
-			"content":    {Names: names("随附内容", "Included content"), Type: "entity", Kinds: []string{"work", "expression", "content_unit", "release", "medium"}, Enabled: true},
-			"image":      {Names: names("示意图", "Image"), Type: "url", Enabled: true},
-			"amount":     {Names: names("金额", "Amount"), Type: "number", Min: floatPtr(0), Enabled: true},
-			"currency":   {Names: names("币种", "Currency"), Type: "text", Enabled: true},
-			"source_url": {Names: names("来源链接", "Source link"), Type: "url", Enabled: true},
+			"store":      {Names: names4("店铺 / 发行主体", "店鋪 / 發行主體", "店舗 / 発売元", "Store / distributor"), Type: "entity", Kinds: []string{"agent"}, Enabled: true},
+			"content":    {Names: names4("随附内容", "隨附內容", "同梱内容", "Included content"), Type: "entity", Kinds: []string{"work", "expression", "content_unit", "release", "medium"}, Enabled: true},
+			"image":      {Names: names4("示意图", "示意圖", "参考画像", "Image"), Type: "url", Enabled: true},
+			"amount":     {Names: names4("金额", "金額", "金額", "Amount"), Type: "number", Min: floatPtr(0), Enabled: true},
+			"currency":   {Names: names4("币种", "幣別", "通貨", "Currency"), Type: "text", Enabled: true},
+			"source_url": {Names: names4("来源链接", "來源連結", "出典リンク", "Source link"), Type: "url", Enabled: true},
 		}}
 		d.Fields[k] = f
 	}
@@ -198,22 +245,22 @@ func Defaults() Definitions {
 	// 时间码是**内容范围**（同一份录音的固定时长内的截取范围，长度变化即内容变化）。
 	// 对比不再按字段名或区间长度猜测，只认这份声明。
 	d.Fields["locator"] = Field{
-		Names: names("定位", "Locator"), Type: "group", Enabled: true, Searchable: true, Comparable: true,
+		Names: names4("定位", "定位", "位置情報", "Locator"), Type: "group", Enabled: true, Searchable: true, Comparable: true,
 		AnchorKey: "relative_to",
 		Fields: map[string]Field{
-			"relative_to":   {Names: names("定位参照", "Relative to"), Type: "enum", Vocabulary: "locator_reference", Enabled: true, Semantics: "locating"},
-			"page_start":    {Names: names("起始页", "Start page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating"},
-			"page_end":      {Names: names("结束页", "End page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating", RangeStart: "page_start"},
-			"time_start_ms": {Names: names("起始时间（毫秒）", "Start time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content"},
-			"time_end_ms":   {Names: names("结束时间（毫秒）", "End time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content", RangeStart: "time_start_ms"},
-			"path":          {Names: names("文件路径", "File path"), Type: "text", Enabled: true, Semantics: "locating"},
-			"chapter":       {Names: names("章节", "Chapter"), Type: "text", Enabled: true, Semantics: "locating"},
+			"relative_to":   {Names: names4("定位参照", "定位參照", "位置の基準", "Relative to"), Type: "enum", Vocabulary: "locator_reference", Enabled: true, Semantics: "locating"},
+			"page_start":    {Names: names4("起始页", "起始頁", "開始ページ", "Start page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating"},
+			"page_end":      {Names: names4("结束页", "結束頁", "終了ページ", "End page"), Type: "number", Min: floatPtr(1), Enabled: true, Semantics: "locating", RangeStart: "page_start"},
+			"time_start_ms": {Names: names4("起始时间（毫秒）", "起始時間（毫秒）", "開始時間（ミリ秒）", "Start time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content"},
+			"time_end_ms":   {Names: names4("结束时间（毫秒）", "結束時間（毫秒）", "終了時間（ミリ秒）", "End time (ms)"), Type: "number", Min: floatPtr(0), Enabled: true, Semantics: "content", RangeStart: "time_start_ms"},
+			"path":          {Names: names4("文件路径", "檔案路徑", "ファイルパス", "File path"), Type: "text", Enabled: true, Semantics: "locating"},
+			"chapter":       {Names: names4("章节", "章節", "章", "Chapter"), Type: "text", Enabled: true, Semantics: "locating"},
 		},
 	}
 	// 收录关系 / 发行对象的附加属性：默认不声明任何子字段（即不允许额外值），
 	// 需要时在后台加子字段即刻生效——这就是"其余全部动态"的落点。
-	d.Fields["inclusion_attributes"] = Field{Names: names("收录附加属性", "Inclusion attributes"), Type: "group", Enabled: true, Fields: map[string]Field{}}
-	d.Fields["subject_attributes"] = Field{Names: names("发行对象附加属性", "Subject attributes"), Type: "group", Enabled: true, Fields: map[string]Field{}}
+	d.Fields["inclusion_attributes"] = Field{Names: names4("收录附加属性", "收錄附加屬性", "収録属性", "Inclusion attributes"), Type: "group", Enabled: true, Fields: map[string]Field{}}
+	d.Fields["subject_attributes"] = Field{Names: names4("发行对象附加属性", "發行對象附加屬性", "対象作品の属性", "Subject attributes"), Type: "group", Enabled: true, Fields: map[string]Field{}}
 	// 作品展示分区：每个媒体场景各自声明，只列该场景真实会写、且用户会看的字段。
 	// 全部为 definitions 里的动态字段；infobox 原始条目故意不进分区（仅存档与检索用）。
 	// 若某场景写了分区未列的字段，WorkFacts 会在"其它信息"兜底展示，不会丢数据。

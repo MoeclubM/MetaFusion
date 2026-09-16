@@ -56,8 +56,8 @@ func seededNames(d Definitions) map[string]Names {
 
 // placeholderBudget 是"仍把英文当繁中/日文用"的历史欠账上限（棘轮）。
 // 只允许下降：补完一批就调小这个数字；任何新增名称都必须四语齐备（用 names4）。
-// 当前实测：235 条种子名称全部还是英文占位（首批翻译完成前先冻在这里，只准往下调）。
-const placeholderBudget = 235
+// 当前实测：187 条（字段名一批已补完四语；余下词表/词表项/类型/模板分区/关系/场景方案待补）。
+const placeholderBudget = 187
 
 // TestSeededNamesPlaceholderBudget：种子名称的多语言覆盖率棘轮。
 // 目标（用户明确要求）：所有名称在 zh-CN / zh-TW / ja-JP / en-US 四语下都是真实译文。
