@@ -362,7 +362,9 @@ function AdminInner() {
         </aside>
 
         {/* Right Main Workbench */}
-        <main className="mf-enter flex-1 min-w-0">
+        {/* key 让每次切换页签都重放进入动画；外层统一包裹层保证各页签的首元素落在同一纵向位置 */}
+        <main key={activeTab} className="mf-tabpanel flex-1 min-w-0">
+          <div className="space-y-4 [&>*:first-child]:mt-0">
           {activeTab === "overview" && (
             <div className="space-y-6">
               <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
@@ -878,6 +880,7 @@ function AdminInner() {
               </form>
             </div>
           )}
+          </div>
         </main>
       </div>
     </div>
