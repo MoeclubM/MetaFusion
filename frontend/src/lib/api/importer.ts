@@ -8,7 +8,6 @@ export interface ImporterPreviewRequest {
   source?: string;
   url_or_id: string;
   entity_type?: string;
-  media_type_hint?: string;
 }
 
 export interface ImporterTranslationItem {
@@ -162,7 +161,6 @@ export interface ImporterImportRequest {
   source?: string;
   url_or_id?: string;
   external_id?: string;
-  media_type_hint?: string;
   work?: ImporterWorkPreview;
   artist?: ImporterArtistPreview;
   artists?: ImporterArtistPreview[];

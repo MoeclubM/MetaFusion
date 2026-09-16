@@ -113,7 +113,6 @@ export function OmniImportModal({
   const [plugins, setPlugins] = useState<PluginItem[]>([]);
   const [source, setSource] = useState<string>(initialSource);
   const [inputVal, setInputVal] = useState<string>(initialURLOrID);
-  const [mediaHint, setMediaHint] = useState<string>("");
 
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [previewData, setPreviewData] = useState<ImporterPreviewResponse | null>(null);
@@ -255,7 +254,6 @@ export function OmniImportModal({
         source: querySource,
         url_or_id: queryVal,
         entity_type: queryType,
-        media_type_hint: mediaHint,
       });
       setPreviewData(res);
       if (res.source) {
