@@ -30,6 +30,8 @@ import {
   Heart,
   Mail,
 } from "lucide-react";
+import { TabPanel } from "@/components/ui/TabPanel";
+import { PageShell } from "@/components/ui/PageShell";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -130,7 +132,7 @@ export default function SettingsPage() {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />
-        <main className="mf-enter max-w-narrow mx-auto px-4 py-16 w-full flex-1 flex flex-col items-center justify-center gap-4 text-center">
+        <PageShell width="narrow" center className="py-16">
           <div className="w-12 h-12 rounded-full bg-white/5 grid place-items-center">
             <KeyRound className="w-6 h-6 text-gray-500" />
           </div>
@@ -138,7 +140,7 @@ export default function SettingsPage() {
           <Link href="/login?redirect=/settings" className="px-5 h-9 rounded-full bg-primary text-white keep-white inline-flex items-center text-sm font-semibold">
             {t("nav.login")}
           </Link>
-        </main>
+        </PageShell>
       </div>
     );
   }
@@ -149,7 +151,7 @@ export default function SettingsPage() {
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <Navbar />
-      <main className="mf-enter relative z-10 max-w-narrow mx-auto px-4 py-6 w-full flex-1 space-y-4">
+      <PageShell width="narrow">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-line-subtle">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 text-primary grid place-items-center shrink-0">
@@ -217,7 +219,7 @@ export default function SettingsPage() {
         </div>
 
         {/* key 随页签变化：切换时重挂载以重放 .mf-tabpanel 进入动画（与详情页/管理台同一约定）。 */}
-        <div key={activeTab} className="mf-tabpanel rounded-xl border border-line bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
+        <TabPanel activeKey={activeTab} spacing="none" className="rounded-xl border border-line bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
           {activeTab === "profile" && (
             <div className="p-4 sm:p-6 space-y-4">
               {error && (
@@ -482,8 +484,8 @@ export default function SettingsPage() {
               </button>
             </form>
           )}
-        </div>
-      </main>
+        </TabPanel>
+      </PageShell>
     </div>
   );
 }

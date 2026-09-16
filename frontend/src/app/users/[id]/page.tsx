@@ -33,6 +33,8 @@ import {
   GitCommit,
 } from "lucide-react";
 import { fetchFavorites, FavoriteItem } from "@/lib/api";
+import { TabPanel } from "@/components/ui/TabPanel";
+import { PageShell } from "@/components/ui/PageShell";
 
 type Profile = {
   user: {
@@ -166,7 +168,7 @@ export default function UserDetailPage() {
     return (
       <div className="min-h-screen bg-background text-text-strong flex flex-col">
         <Navbar />
-        <main className="mf-enter max-w-narrow mx-auto w-full px-4 py-16 flex-1 flex flex-col items-center justify-center gap-3 text-center">
+        <PageShell width="narrow" center className="py-16" contentClassName="gap-3">
           <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 grid place-items-center">
             <AlertCircle className="w-6 h-6 text-amber-500" strokeWidth={1.6} />
           </div>
@@ -178,7 +180,7 @@ export default function UserDetailPage() {
           <Link href="/" className="mt-1 px-5 h-9 rounded-full bg-primary text-white keep-white inline-flex items-center text-sm font-semibold">
             {t("common.back")}
           </Link>
-        </main>
+        </PageShell>
       </div>
     );
 
@@ -186,7 +188,7 @@ export default function UserDetailPage() {
     return (
       <div className="min-h-screen bg-background text-text-strong">
         <Navbar />
-        <div className="max-w-narrow mx-auto p-6 text-gray-500 text-sm font-mono">{t("common.loading")}</div>
+        <PageShell width="narrow" spacing="none" contentClassName="p-6 text-gray-500 text-sm font-mono">{t("common.loading")}</PageShell>
       </div>
     );
 
@@ -221,7 +223,7 @@ export default function UserDetailPage() {
   return (
     <div className="min-h-screen bg-background text-text-strong flex flex-col">
       <Navbar />
-      <main className="mf-enter max-w-narrow mx-auto w-full px-4 py-6 flex-1 space-y-4 sm:space-y-5">
+      <PageShell width="narrow" spacing="none" contentClassName="space-y-4 sm:space-y-5">
         {/* User Card Header */}
         <div className="rounded-xl border border-line bg-surface p-4 sm:p-5 flex flex-col sm:flex-row gap-3.5 sm:items-center justify-between shadow-soft">
           <div className="flex gap-3.5 items-start min-w-0">
@@ -371,7 +373,7 @@ export default function UserDetailPage() {
         )}
 
         {/* Content Box：key 随页签变化，切换时重放 .mf-tabpanel（与详情页/管理台同一约定） */}
-        <div key={tab} className="mf-tabpanel rounded-xl border border-line bg-surface overflow-hidden shadow-soft">
+        <TabPanel activeKey={tab} spacing="none" className="rounded-xl border border-line bg-surface overflow-hidden shadow-soft">
           {loading ? (
             <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("common.loading")}</div>
           ) : tab === "favorites" && !favVisible ? (
@@ -530,7 +532,7 @@ export default function UserDetailPage() {
               })}
             </ul>
           )}
-        </div>
+        </TabPanel>
 
         {/* Pagination */}
         <div className="flex items-center justify-between text-xs text-gray-500">
@@ -552,7 +554,7 @@ export default function UserDetailPage() {
             </button>
           </div>
         </div>
-      </main>
+      </PageShell>
 
       {isChatOpen && (
         <DirectMessageModal

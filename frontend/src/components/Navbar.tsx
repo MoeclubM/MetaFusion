@@ -13,6 +13,7 @@ import { displayNameOf } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
 import { canEnterAdmin } from "@/lib/permissions";
 import { getAuthLoginUrl, getAuthSettingsUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
+import { PageContainer } from "@/components/ui/PageShell";
 import {
   Plus,
   LogOut,
@@ -61,7 +62,7 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/[0.06] bg-surface/85 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/85">
-      <div className="max-w-page mx-auto px-3 sm:px-4 h-14 sm:h-15 flex items-center justify-between gap-3">
+      <PageContainer className="h-14 sm:h-15 flex items-center justify-between gap-3">
         {/* Left Brand + Navigation */}
         <div className="flex items-center gap-3 sm:gap-4">
           <Link href="/landing" title={t("navbar.about")} className="flex items-center gap-2.5 shrink-0 group">
@@ -231,10 +232,13 @@ export const Navbar: React.FC = () => {
             <ThemePicker />
           </div>
         </div>
-      </div>
-      <nav aria-label={t("navigation.label")} className="xl:hidden flex gap-1 overflow-x-auto px-3 pb-2">
+      </PageContainer>
+      {/* 移动端横向导航：与主行共用 PageContainer，保证顶栏内容同一条左基线。 */}
+      <PageContainer>
+      <nav aria-label={t("navigation.label")} className="xl:hidden flex gap-1 overflow-x-auto pb-2">
         {navLinks.map(tab => <Link key={tab.href} href={tab.href} aria-current={pathname === tab.href ? "page" : undefined} className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm ${pathname === tab.href ? "bg-primary/10 text-primary" : "text-gray-400"}`}>{tab.label}</Link>)}
       </nav>
+      </PageContainer>
     </header>
   );
 };

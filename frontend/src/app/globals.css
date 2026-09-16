@@ -580,13 +580,6 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   padding: 0.45rem 0.6rem;
   background: rgb(var(--surface-rgb) / 0.6);
 }
-/* 编辑器页面容器：居中留白，长表单不顶满 */
-.cv-page {
-  width: 100%;
-  max-width: 72rem;
-  margin: 0 auto;
-  padding: 1.5rem 1rem 4rem;
-}
 /* 编辑器属性分区：模板 sections 的子分组标题 */
 .cv-form .cv-section { margin-top: 0.55rem; }
 .cv-form .cv-section:first-of-type { margin-top: 0.1rem; }

@@ -8,6 +8,8 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { DefinitionsEditor } from "@/components/catalog/DefinitionsEditor";
 import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { useDefinitions, getTypeName } from "@/lib/definitions";
+import { PageContainer } from "@/components/ui/PageShell";
+import { TabPanel } from "@/components/ui/TabPanel";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
@@ -316,7 +318,7 @@ function AdminInner() {
     <div className="min-h-screen flex flex-col bg-background text-text-strong">
       {/* Admin Topbar */}
       <header className="border-b border-line bg-surface/90 backdrop-blur sticky top-[var(--mf-header-h)] z-30">
-        <div className="max-w-page mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        <PageContainer className="h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href="/"
@@ -337,10 +339,10 @@ function AdminInner() {
               {user.username} ({user.role})
             </span>
           </div>
-        </div>
+        </PageContainer>
       </header>
 
-      <div className="max-w-page mx-auto px-4 sm:px-6 py-6 w-full flex-1 flex flex-col md:flex-row gap-6">
+      <PageContainer className="py-6 flex-1 flex flex-col md:flex-row gap-6">
         {/* Left Sidebar */}
         <aside className="w-full md:w-60 shrink-0">
           <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none sticky top-[calc(var(--mf-header-h)+1.5rem)]">
@@ -368,7 +370,7 @@ function AdminInner() {
 
         {/* Right Main Workbench */}
         {/* key 让每次切换页签都重放进入动画；外层统一包裹层保证各页签的首元素落在同一纵向位置 */}
-        <main key={activeTab} className="mf-tabpanel flex-1 min-w-0">
+        <TabPanel activeKey={activeTab} spacing="none" className="flex-1 min-w-0">
           <div className="space-y-4 [&>*:first-child]:mt-0">
           {activeTab === "overview" && (
             <div className="space-y-4">
@@ -888,8 +890,8 @@ function AdminInner() {
             </div>
           )}
           </div>
-        </main>
-      </div>
+        </TabPanel>
+      </PageContainer>
     </div>
   );
 }
