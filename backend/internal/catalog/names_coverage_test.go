@@ -6,7 +6,7 @@ import (
 )
 
 // isPlaceholder 判断一条名称是否仍把英文当繁体中文/日文用。
-// names() 的历史实现就是这样占位的，读起来"有值"，实际是未翻译。
+// names() 就是这样的占位实现（现在只留给测试夹具），读起来"有值"，实际是未翻译。
 func isPlaceholder(n Names) bool {
 	en := n["en-US"]
 	return n["zh-TW"] == en || n["ja-JP"] == en || n["ja"] == en
@@ -54,10 +54,10 @@ func seededNames(d Definitions) map[string]Names {
 	return out
 }
 
-// placeholderBudget 是"仍把英文当繁中/日文用"的历史欠账上限（棘轮）。
-// 只允许下降：补完一批就调小这个数字；任何新增名称都必须四语齐备（用 names4）。
-// 当前实测：1 条（字段名、词表与词表项、类型与展示模板分区、关系名已补完四语；余下场景方案待补）。
-const placeholderBudget = 1
+// placeholderBudget 是"仍把英文当繁中/日文用"的欠账上限（棘轮）。
+// 历史欠账已全部补完并冻结在 0：任何新增名称都必须四语齐备（用 names4），
+// 拿 names() 顶替繁中/日文会立刻把计数顶上去、判这条测试失败。
+const placeholderBudget = 0
 
 // TestSeededNamesPlaceholderBudget：种子名称的多语言覆盖率棘轮。
 // 目标（用户明确要求）：所有名称在 zh-CN / zh-TW / ja-JP / en-US 四语下都是真实译文。

@@ -3,15 +3,17 @@ package catalog
 // names builds bilingual names with reserved fallback keys.
 //
 // zh-CN/en-US are required by Definitions.Validate; zh-TW, ja and ja-JP carry
-// the English text until proper translations land, so exact-locale and prefix
-// lookups (ja-JP -> ja) resolve instead of falling through to an unrelated entry.
-// Use names4 when Traditional Chinese or Japanese text is available.
+// the English text, so exact-locale and prefix lookups (ja-JP -> ja) resolve
+// instead of falling through to an unrelated entry.
+//
+// 只给测试夹具用：种子定义必须走 names4，否则该条名称的繁中/日文就是英文占位，
+// names_coverage_test 的棘轮（placeholderBudget = 0）会直接判失败。
 func names(zh, en string) Names {
 	return Names{"zh-CN": zh, "zh-TW": en, "ja": en, "ja-JP": en, "en-US": en}
 }
 
 // names4 builds names with explicit Traditional Chinese and Japanese text.
-// Reserve ja/ja-JP and zh-TW keys even when only an English fallback exists.
+// zh-TW 用台湾常用译法、ja 用日语业界惯用说法；四语都是真实译文时才保证不留英文占位。
 func names4(zhCN, zhTW, ja, en string) Names {
 	return Names{"zh-CN": zhCN, "zh-TW": zhTW, "ja": ja, "ja-JP": ja, "en-US": en}
 }
@@ -554,7 +556,7 @@ func Defaults() Definitions {
 	// 默认设为 Enabled: false，避免未经 Medium 介质格式细分前误伤其他媒体（如纸书页码、音视频时间码）。
 	d.Schemes = map[string]Scheme{
 		"vinyl_track_locator": {
-			Names: names("黑胶定位", "Vinyl locator"), Slot: "locator",
+			Names: names4("黑胶定位", "黑膠定位", "アナログ盤の位置情報", "Vinyl locator"), Slot: "locator",
 			Kinds:   []string{"track"},
 			Fields:  []string{"relative_to", "chapter", "path"},
 			Enabled: false,
