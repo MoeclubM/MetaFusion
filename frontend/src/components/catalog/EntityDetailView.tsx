@@ -80,12 +80,32 @@ const InteractiveRelationGraph = dynamic(
   { ssr: false }
 );
 
+/** 兜底分组键：定义缺失或未声明 group_names 的关系归到这里。 */
+const FALLBACK_RELATION_GROUP = "__unlabeled__";
+
 /** 关系分组只允许来自服务端 definitions：group=credits 的进"演职人员"区，
  * 其余按各自 group 分组展示，分组标题用 group_names 本地化。后台改分组后
  * 前端即刻跟随，不在本文件另维护一份名单。 */
 const relationGroupOf = (defs: any, type: string): string =>
   defs?.relations?.[type]?.group || "";
 
+/**
+ * 展示分组键：定义声明了 group_names 才按自己的 group 分组；
+ * 没声明的（类型未定义 / group_names 为空）统一归入兜底分组，
+ * 不按 group 码另立一组，也不借用分节标题充当分组名。
+ * 多语言解析一律走 resolveLocalizedName，不在前端另拼文案。
+ */
+const relationGroupKey = (
+  defs: any,
+  type: string,
+  locale: string,
+): string => {
+  const rel = defs?.relations?.[type];
+  if (!rel) return FALLBACK_RELATION_GROUP;
+  return resolveLocalizedName(rel.group_names, locale, "")
+    ? rel.group || FALLBACK_RELATION_GROUP
+    : FALLBACK_RELATION_GROUP;
+};
 
 async function allEntities(query: string): Promise<Entity[]> {
   const items: Entity[] = [];
@@ -571,12 +591,12 @@ export function EntityDetailView({ id }: { id: string }) {
     [categorizedRelations, defs]
   );
 
-  // 其余关系按各自 group 分组：顺序按实体自身类型引用模板的 relation_groups
-  // 声明合并排序，声明外的组排最后；定义缺失时归入空组兜底展示，保证不丢数据。
+  // 其余关系按展示分组归并：顺序按实体自身类型引用模板的 relation_groups 声明合并排序，
+  // 声明外的组排最后，兜底分组固定在最后；定义缺失时进兜底分组，保证不丢数据。
   const groupedMediaRelations = useMemo(() => {
     const groups = new Map<string, typeof mediaRelations>();
     for (const r of mediaRelations) {
-      const key = relationGroupOf(defs, r.type);
+      const key = relationGroupKey(defs, r.type, locale);
       const list = groups.get(key) || [];
       list.push(r);
       groups.set(key, list);
@@ -589,17 +609,22 @@ export function EntityDetailView({ id }: { id: string }) {
       }
     }
     for (const key of Array.from(groups.keys())) {
-      if (!ordered.includes(key)) ordered.push(key);
+      if (key !== FALLBACK_RELATION_GROUP && !ordered.includes(key)) ordered.push(key);
     }
+    if (groups.has(FALLBACK_RELATION_GROUP)) ordered.push(FALLBACK_RELATION_GROUP);
     return ordered.map((key) => ({ key, items: groups.get(key) || [] }));
-  }, [mediaRelations, defs, entity]);
+  }, [mediaRelations, defs, entity, locale]);
 
-  // 分组标题：取组内首个关系定义的 group_names 本地化，缺失时回退通用关系标签。
+  // 分组标题：取组内关系定义声明的 group_names 本地化——组内任一条声明了就用它，
+  // 不因组内首条缺声明而整组降级；兜底分组用字典文案（与分节标题区分开）。
   const relationGroupTitle = (group: { key: string; items: typeof mediaRelations }): string => {
-    const rel = (defs as any)?.relations?.[group.items[0]?.type];
-    const name = resolveLocalizedName(rel?.group_names, locale, "");
-    if (name) return name;
-    return t("entity.page.relationsTitle");
+    if (group.key !== FALLBACK_RELATION_GROUP) {
+      for (const r of group.items) {
+        const name = resolveLocalizedName((defs as any)?.relations?.[r.type]?.group_names, locale, "");
+        if (name) return name;
+      }
+    }
+    return t("entity.page.relationsGroupOther");
   };
 
   // 社区模块未启用时不展示该标签，避免出现永远为空的分节。

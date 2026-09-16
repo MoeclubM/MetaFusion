@@ -2412,6 +2412,7 @@
   "entity.page.colCatalogNo": "Catalog No.",
   "entity.page.colDate": "Date",
   "entity.page.relationsTitle": "Related Works & Entities",
+  "entity.page.relationsGroupOther": "Other relations",
   "entity.page.viewCards": "Cards",
   "entity.page.viewGraph": "Graph",
   "entity.page.communityTitle": "Comments",

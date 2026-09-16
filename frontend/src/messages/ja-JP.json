@@ -2412,6 +2412,7 @@
   "entity.page.colCatalogNo": "品番",
   "entity.page.colDate": "発売日",
   "entity.page.relationsTitle": "関連作品・エンティティ",
+  "entity.page.relationsGroupOther": "その他の関係",
   "entity.page.viewCards": "カード",
   "entity.page.viewGraph": "ナレッジグラフ",
   "entity.page.communityTitle": "コメント",

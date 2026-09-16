@@ -2412,6 +2412,7 @@
   "entity.page.colCatalogNo": "唱片编号",
   "entity.page.colDate": "发行日期",
   "entity.page.relationsTitle": "关联实体与关系图谱",
+  "entity.page.relationsGroupOther": "其他关系",
   "entity.page.viewCards": "卡片列表",
   "entity.page.viewGraph": "知识图谱",
   "entity.page.communityTitle": "评论",
