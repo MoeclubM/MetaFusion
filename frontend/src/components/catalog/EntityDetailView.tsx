@@ -805,7 +805,7 @@ export function EntityDetailView({ id }: { id: string }) {
     ...collectionRelations.map((r) => ({
       id: r.otherId,
       title: endTitleOf(r.target, r.otherId, locale, titleOrder),
-      curator: r.target?.created_by ? "Community" : "MetaFusion",
+      curator: r.target?.created_by ? t("entity.collection.communityCurator") : "MetaFusion",
     })),
     ...communityCollections.filter(
       (c) => !collectionRelations.some((r) => r.otherId === c.id)
@@ -1000,7 +1000,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 type="button"
                 onClick={copyShareLink}
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-surface text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white transition-all shadow-2xs cursor-pointer"
-                title="Share link"
+                title={copiedLink ? t("entity.page.linkCopied") : t("entity.page.share")}
               >
                 {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
                 <span>{copiedLink ? t("entity.page.linkCopied") : t("entity.page.share")}</span>

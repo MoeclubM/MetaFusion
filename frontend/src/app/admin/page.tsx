@@ -445,7 +445,7 @@ function AdminInner() {
                     type="button"
                     onClick={loadEntities}
                     className="p-2 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover border border-line text-xs text-text-body transition-colors duration-fast ease-soft cursor-pointer"
-                    title="Refresh"
+                    title={t("common.refresh")}
                   >
                     <RefreshCw className={`w-4 h-4 ${entitiesLoading ? "animate-spin text-primary" : ""}`} />
                   </button>

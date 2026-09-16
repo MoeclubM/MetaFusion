@@ -29,7 +29,7 @@ function RootLandingInner() {
       <div className="absolute -bottom-32 -right-32 w-[600px] h-[600px] bg-sky-500/8 rounded-full blur-[140px] pointer-events-none" aria-hidden />
 
       {/* Floating Top-Right Controls (Rounded Pills) */}
-      <aside aria-label="Page controls" className="absolute top-5 right-5 z-20 flex items-center gap-2">
+      <aside aria-label={t("landing.pageControls")} className="absolute top-5 right-5 z-20 flex items-center gap-2">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-full dark:bg-white/[0.04] border border-line text-gray-700 dark:text-white/70 hover:text-gray-900 dark:hover:text-white text-xs font-mono font-medium transition-colors duration-fast ease-soft"

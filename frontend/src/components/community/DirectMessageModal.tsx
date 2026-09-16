@@ -66,7 +66,7 @@ export default function DirectMessageModal({
         setTimeout(() => scrollToBottom(false), 50);
       }
     } catch (e: any) {
-      if (!silent) setErr(e.message || "Failed to load messages");
+      if (!silent) setErr(e.message || t("community.dmLoadFailed"));
     } finally {
       if (!silent) setLoading(false);
     }
