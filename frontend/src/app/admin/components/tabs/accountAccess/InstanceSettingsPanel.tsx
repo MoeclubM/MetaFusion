@@ -140,7 +140,7 @@ export function InstanceSettingsPanel({
         desc={t("admin.account.settingsDesc")}
         actions={
           <>
-            <span className="text-[11px] font-mono text-gray-400">
+            <span className="text-[11px] font-mono text-text-muted">
               {t("admin.account.settingsChanged", { count: changedCount })}
             </span>
             <button
@@ -170,7 +170,7 @@ export function InstanceSettingsPanel({
       {settings.loading && keys.length === 0 ? <LoadingBlock /> : null}
 
       {!settings.loading && !settings.error && keys.length === 0 ? (
-        <div className="p-6 rounded-xl border border-dashed border-white/10 text-center text-xs text-gray-500 font-mono">
+        <div className="p-6 rounded-xl border border-dashed border-line text-center text-xs text-text-faint font-mono">
           {t("admin.account.settingsNone")}
         </div>
       ) : null}
@@ -189,15 +189,15 @@ export function InstanceSettingsPanel({
               className={`p-3.5 rounded-xl border space-y-2.5 ${
                 changed
                   ? "border-emerald-500/40 bg-emerald-500/[0.04]"
-                  : "border-white/[0.06] bg-black/20"
+                  : "border-line-subtle bg-surfaceSubtle"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="text-xs font-medium text-white">
+                  <div className="text-xs font-medium text-text-strong">
                     {settingLabel(key, tr)}
                   </div>
-                  <div className="text-[10px] font-mono text-gray-500 break-all">{key}</div>
+                  <div className="text-[10px] font-mono text-text-faint break-all">{key}</div>
                 </div>
                 {changed ? (
                   <span className="text-[10px] font-mono text-emerald-300 shrink-0">
@@ -212,9 +212,9 @@ export function InstanceSettingsPanel({
                     type="checkbox"
                     checked={Boolean(value)}
                     onChange={(e) => patch(key, e.target.checked)}
-                    className="w-4 h-4 rounded border-white/25 bg-white/5 text-emerald-500 focus:ring-0 cursor-pointer"
+                    className="w-4 h-4 rounded border-line-strong bg-surfaceSubtle text-emerald-500 focus:ring-0 cursor-pointer"
                   />
-                  <span className="text-xs font-mono text-gray-300">{String(Boolean(value))}</span>
+                  <span className="text-xs font-mono text-text-body">{String(Boolean(value))}</span>
                 </label>
               ) : null}
 
@@ -223,7 +223,7 @@ export function InstanceSettingsPanel({
                   type="number"
                   value={typeof value === "number" ? value : ""}
                   onChange={(e) => patch(key, Number(e.target.value))}
-                  className="w-full sm:w-64 px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs font-mono text-white focus:border-primary outline-none"
+                  className="w-full sm:w-64 px-2.5 py-1.5 rounded-lg bg-surfaceSubtle border border-line text-xs font-mono text-text-strong focus:border-primary outline-none"
                 />
               ) : null}
 
@@ -232,7 +232,7 @@ export function InstanceSettingsPanel({
                   type="text"
                   value={typeof value === "string" ? value : ""}
                   onChange={(e) => patch(key, e.target.value)}
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white focus:border-primary outline-none"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong focus:border-primary outline-none"
                 />
               ) : null}
 
@@ -240,7 +240,7 @@ export function InstanceSettingsPanel({
                 <div className="space-y-2">
                   <div className="flex flex-wrap gap-1.5">
                     {list.length === 0 ? (
-                      <span className="text-[10px] font-mono text-gray-500">
+                      <span className="text-[10px] font-mono text-text-faint">
                         {t("admin.account.settingsArrayEmpty")}
                       </span>
                     ) : (
@@ -274,7 +274,7 @@ export function InstanceSettingsPanel({
                         }
                       }}
                       placeholder={t("admin.account.settingsArrayPlaceholder")}
-                      className="flex-1 sm:max-w-xs px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs font-mono text-white focus:border-primary outline-none"
+                      className="flex-1 sm:max-w-xs px-2.5 py-1.5 rounded-lg bg-surfaceSubtle border border-line text-xs font-mono text-text-strong focus:border-primary outline-none"
                     />
                     {groupCodes.length > 0 ? (
                       <datalist id={`${key}-group-codes`}>
@@ -286,13 +286,13 @@ export function InstanceSettingsPanel({
                     <button
                       type="button"
                       onClick={() => addListItem(key)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] text-[11px] text-gray-300 transition-colors duration-fast ease-soft cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover text-[11px] text-text-body transition-colors duration-fast ease-soft cursor-pointer"
                     >
                       <Plus className="w-3 h-3" />
                       <span>{t("admin.account.settingsArrayAdd")}</span>
                     </button>
                   </div>
-                  <p className="text-[10px] text-gray-500 leading-relaxed">
+                  <p className="text-[10px] text-text-faint leading-relaxed">
                     {t("admin.account.settingsArrayHint")}
                   </p>
                 </div>
@@ -304,7 +304,7 @@ export function InstanceSettingsPanel({
                     rows={3}
                     value={jsonText[key] ?? JSON.stringify(value, null, 2)}
                     onChange={(e) => handleJsonChange(key, e.target.value)}
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-[11px] font-mono text-white focus:border-primary outline-none resize-y"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-surfaceSubtle border border-line text-[11px] font-mono text-text-strong focus:border-primary outline-none resize-y"
                   />
                   <p className="text-[10px] font-mono text-amber-400/80">
                     {jsonError[key] ?? t("admin.account.settingsUnknownType")}

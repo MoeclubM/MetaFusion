@@ -120,27 +120,27 @@ export function MemberAssignmentPanel({
       {message && !editing ? <StatusMessage kind={message.kind} text={message.text} /> : null}
 
       <div className="relative flex items-center max-w-md">
-        <Search className="absolute left-3 w-3.5 h-3.5 text-gray-500" />
+        <Search className="absolute left-3 w-3.5 h-3.5 text-text-faint" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t("admin.account.memberSearch")}
-          className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-500 focus:border-primary outline-none"
+          className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
         />
       </div>
 
-      <p className="text-[11px] text-gray-500 leading-relaxed">{t("admin.account.roleDerived")}</p>
+      <p className="text-[11px] text-text-faint leading-relaxed">{t("admin.account.roleDerived")}</p>
 
       {users.loading && users.data.length === 0 ? <LoadingBlock /> : null}
       {!users.loading && visibleUsers.length === 0 ? <EmptyBlock /> : null}
 
       {visibleUsers.length > 0 ? (
-        <div className="rounded-xl border border-white/[0.06] bg-surface/40 overflow-hidden">
+        <div className="rounded-xl border border-line-subtle bg-surface/40 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-white/[0.06] bg-white/[0.02] text-gray-400 font-mono">
+                <tr className="border-b border-line-subtle bg-surfaceSubtle text-text-muted font-mono">
                   <th className="py-2.5 px-3 font-medium">{t("admin.account.colUser")}</th>
                   <th className="py-2.5 px-3 font-medium">{t("admin.account.colRole")}</th>
                   <th className="py-2.5 px-3 font-medium">{t("admin.account.colGroups")}</th>
@@ -148,27 +148,27 @@ export function MemberAssignmentPanel({
                   <th className="py-2.5 px-3 font-medium text-right">{t("admin.account.colActions")}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody className="divide-y divide-line-subtle">
                 {visibleUsers.map((user) => {
                   const userGroups = user.groups ?? [];
                   const permissions = user.permissions ?? [];
                   const byPrefix = groupPermissionsByPrefix(permissions, catalog.data);
                   return (
-                    <tr key={user.id} className="hover:bg-white/[0.02] align-top">
+                    <tr key={user.id} className="hover:bg-surfaceSubtle align-top">
                       <td className="py-2.5 px-3">
-                        <div className="text-white font-semibold">{user.username}</div>
-                        <div className="text-[10px] font-mono text-gray-500 break-all">
+                        <div className="text-text-strong font-semibold">{user.username}</div>
+                        <div className="text-[10px] font-mono text-text-faint break-all">
                           {user.email || "—"}
                         </div>
                       </td>
                       <td className="py-2.5 px-3">
-                        <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] font-mono text-gray-300">
+                        <span className="px-1.5 py-0.5 rounded bg-surfaceSubtle text-[10px] font-mono text-text-body">
                           {user.role ?? "—"}
                         </span>
                       </td>
                       <td className="py-2.5 px-3">
                         {userGroups.length === 0 ? (
-                          <span className="text-[10px] font-mono text-gray-500">
+                          <span className="text-[10px] font-mono text-text-faint">
                             {t("admin.account.memberNoGroups")}
                           </span>
                         ) : (
@@ -186,19 +186,19 @@ export function MemberAssignmentPanel({
                       </td>
                       <td className="py-2.5 px-3">
                         {permissions.length === 0 ? (
-                          <span className="text-[10px] font-mono text-gray-500">—</span>
+                          <span className="text-[10px] font-mono text-text-faint">—</span>
                         ) : (
                           <div className="space-y-1">
                             {byPrefix.slice(0, 3).map(({ prefix, codes }) => (
                               <div key={prefix} className="flex items-start gap-1.5">
                                 <PrefixChip prefix={prefix} />
-                                <span className="text-[10px] font-mono text-gray-400">
+                                <span className="text-[10px] font-mono text-text-muted">
                                   {t("admin.account.permCount", { count: codes.length })}
                                 </span>
                               </div>
                             ))}
                             {byPrefix.length > 3 ? (
-                              <span className="text-[10px] font-mono text-gray-500">
+                              <span className="text-[10px] font-mono text-text-faint">
                                 {t("admin.account.memberMorePrefixes", { count: byPrefix.length - 3 })}
                               </span>
                             ) : null}
@@ -211,7 +211,7 @@ export function MemberAssignmentPanel({
                           onClick={() => openEditor(user)}
                           disabled={Boolean(groups.error)}
                           title={groups.error ? t("admin.account.memberNeedsGroups") : t("admin.account.memberEdit")}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-[11px] text-gray-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-fast ease-soft cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover border border-line text-[11px] text-text-body hover:text-text-strong disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-fast ease-soft cursor-pointer"
                         >
                           <UserCog className="w-3 h-3" />
                           <span>{t("admin.account.memberEdit")}</span>
@@ -235,7 +235,7 @@ export function MemberAssignmentPanel({
       >
         <div className="space-y-4 text-xs">
           <div className="space-y-2">
-            <div className="text-[11px] font-mono text-gray-300 font-medium">
+            <div className="text-[11px] font-mono text-text-body font-medium">
               {t("admin.account.memberGroupsLabel")}
             </div>
             {groupList.length === 0 ? (
@@ -253,18 +253,18 @@ export function MemberAssignmentPanel({
                       className={`flex items-start gap-2 px-2.5 py-2 rounded-lg border text-left transition-colors duration-fast ease-soft cursor-pointer ${
                         active
                           ? "bg-primary/15 border-primary/40"
-                          : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.05]"
+                          : "bg-surfaceSubtle border-line-subtle hover:bg-surfaceHover"
                       }`}
                     >
                       <span
                         className={`mt-0.5 w-3.5 h-3.5 rounded border shrink-0 grid place-items-center ${
-                          active ? "bg-primary border-primary text-white" : "border-white/25"
+                          active ? "bg-primary border-primary text-white" : "border-line-strong"
                         }`}
                       >
                         {active ? <Check className="w-2.5 h-2.5" /> : null}
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-[11px] font-mono text-white">
+                        <span className="block text-[11px] font-mono text-text-strong">
                           {group.code}
                           {group.is_system ? (
                             <span className="ml-1.5 text-[9px] text-amber-300">
@@ -272,7 +272,7 @@ export function MemberAssignmentPanel({
                             </span>
                           ) : null}
                         </span>
-                        <span className="block text-[10px] text-gray-400 truncate">
+                        <span className="block text-[10px] text-text-muted truncate">
                           {t("admin.account.permCount", { count: permissions.length })}
                         </span>
                         <span className="mt-1 flex flex-wrap gap-1">
@@ -295,15 +295,15 @@ export function MemberAssignmentPanel({
             </p>
           ) : null}
 
-          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
-            <div className="text-[11px] font-mono text-gray-300 font-medium">
+          <div className="p-3 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-2">
+            <div className="text-[11px] font-mono text-text-body font-medium">
               {t("admin.account.memberPreview")}
             </div>
-            <p className="text-[10px] text-gray-500 leading-relaxed">
+            <p className="text-[10px] text-text-faint leading-relaxed">
               {t("admin.account.memberPreviewHint")}
             </p>
             {previewPermissions.length === 0 ? (
-              <span className="text-[10px] font-mono text-gray-500">
+              <span className="text-[10px] font-mono text-text-faint">
                 {t("admin.account.memberNoGroups")}
               </span>
             ) : (
@@ -312,7 +312,7 @@ export function MemberAssignmentPanel({
                   <div key={prefix} className="space-y-1">
                     <div className="flex items-center gap-2">
                       <PrefixChip prefix={prefix} />
-                      <span className="text-[10px] text-gray-400">
+                      <span className="text-[10px] text-text-muted">
                         {prefix === "*"
                           ? t("admin.account.permWildcardShort")
                           : t("admin.account.permOwnerLine", {
@@ -328,7 +328,7 @@ export function MemberAssignmentPanel({
                           title={t("admin.account.memberGrantedBy", {
                             groups: (previewGranters.get(code) ?? []).join(", "),
                           })}
-                          className="px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/10 text-[10px] font-mono text-gray-300"
+                          className="px-1.5 py-0.5 rounded bg-surfaceSubtle border border-line text-[10px] font-mono text-text-body"
                         >
                           {code}
                         </span>
@@ -343,11 +343,11 @@ export function MemberAssignmentPanel({
 
           {message ? <StatusMessage kind={message.kind} text={message.text} /> : null}
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
             <button
               type="button"
               onClick={closeEditor}
-              className="px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-line text-text-muted hover:text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
             >
               {t("common.cancel")}
             </button>
@@ -363,7 +363,7 @@ export function MemberAssignmentPanel({
         </div>
       </Modal>
 
-      <p className="text-[11px] text-gray-500 leading-relaxed">
+      <p className="text-[11px] text-text-faint leading-relaxed">
         {t("admin.account.memberNoGroupAccess", { code: "auth.users.manage" })}
       </p>
     </div>

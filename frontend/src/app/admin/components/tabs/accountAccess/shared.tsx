@@ -117,7 +117,7 @@ export function PrefixBreakdown({ codes, catalog }: { codes: string[]; catalog: 
   const grouped = groupPermissionsByPrefix(codes, catalog);
 
   if (grouped.length === 0) {
-    return <span className="text-[10px] font-mono text-gray-500">{t("admin.account.groupNoPerms")}</span>;
+    return <span className="text-[10px] font-mono text-text-faint">{t("admin.account.groupNoPerms")}</span>;
   }
 
   return (
@@ -125,7 +125,7 @@ export function PrefixBreakdown({ codes, catalog }: { codes: string[]; catalog: 
       {grouped.map(({ prefix, codes: list }) => (
         <li key={prefix} className="flex items-start gap-2">
           <PrefixChip prefix={prefix} />
-          <span className="text-[11px] text-gray-400 leading-relaxed">
+          <span className="text-[11px] text-text-muted leading-relaxed">
             {prefix === "*"
               ? t("admin.account.permWildcard")
               : t("admin.account.permOwnerLine", {
@@ -153,13 +153,13 @@ export function SectionHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 p-4 rounded-xl bg-surfaceSubtle border border-line-subtle">
       <div className="min-w-0">
-        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-text-strong flex items-center gap-2">
           {icon}
           <span>{title}</span>
         </h3>
-        <p className="text-[11px] text-gray-400 leading-relaxed mt-1 max-w-3xl">{desc}</p>
+        <p className="text-[11px] text-text-muted leading-relaxed mt-1 max-w-3xl">{desc}</p>
       </div>
       {actions ? <div className="flex items-center gap-2 shrink-0">{actions}</div> : null}
     </div>
@@ -173,7 +173,7 @@ export function RefreshButton({ onClick, loading }: { onClick: () => void; loadi
       type="button"
       onClick={onClick}
       title={t("admin.account.reload")}
-      className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-300 transition-colors duration-fast ease-soft cursor-pointer"
+      className="p-2 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover border border-line text-text-body transition-colors duration-fast ease-soft cursor-pointer"
     >
       <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-primary" : ""}`} />
     </button>
@@ -216,7 +216,7 @@ export function ErrorNotice({
 export function LoadingBlock() {
   const { t } = useI18n();
   return (
-    <div className="py-10 text-center text-xs text-gray-500 font-mono flex items-center justify-center gap-2">
+    <div className="py-10 text-center text-xs text-text-faint font-mono flex items-center justify-center gap-2">
       <Loader2 className="w-4 h-4 animate-spin text-primary" />
       <span>{t("admin.account.loading")}</span>
     </div>
@@ -226,7 +226,7 @@ export function LoadingBlock() {
 export function EmptyBlock() {
   const { t } = useI18n();
   return (
-    <div className="p-6 rounded-xl border border-dashed border-white/10 text-center text-xs text-gray-500 font-mono">
+    <div className="p-6 rounded-xl border border-dashed border-line text-center text-xs text-text-faint font-mono">
       {t("admin.account.empty")}
     </div>
   );
@@ -284,23 +284,23 @@ export function MultilingualTextEditor({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <label className="block text-[11px] font-mono text-gray-300 font-medium">
+        <label className="block text-[11px] font-mono text-text-body font-medium">
           {label}
           {required ? <span className="text-rose-400 ml-1">*</span> : null}
         </label>
-        {helperText ? <span className="text-[10px] text-gray-500 font-mono">{helperText}</span> : null}
+        {helperText ? <span className="text-[10px] text-text-faint font-mono">{helperText}</span> : null}
       </div>
       <div className="space-y-1.5">
         {ordered.map((code) => (
           <div key={code} className="flex items-start gap-2">
-            <span className="px-2 py-1.5 rounded bg-white/[0.06] text-gray-300 text-[10px] font-mono shrink-0 w-[62px] text-center">
+            <span className="px-2 py-1.5 rounded bg-surfaceSubtle text-text-body text-[10px] font-mono shrink-0 w-[62px] text-center">
               {code}
             </span>
             <textarea
               rows={rows}
               value={current[code] ?? ""}
               onChange={(e) => onChange({ ...current, [code]: e.target.value })}
-              className="flex-1 px-2.5 py-1.5 rounded-lg bg-black/40 border border-white/10 text-xs text-white focus:border-primary outline-none resize-y"
+              className="flex-1 px-2.5 py-1.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong focus:border-primary outline-none resize-y"
             />
           </div>
         ))}

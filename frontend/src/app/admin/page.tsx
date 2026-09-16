@@ -265,7 +265,7 @@ function AdminInner() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center text-gray-500 font-mono text-xs">
+      <div className="min-h-screen bg-background flex items-center justify-center text-text-faint font-mono text-xs">
         <RefreshCw className="w-5 h-5 animate-spin text-primary mr-2" />
         {t("admin.console.checkingPerms")}
       </div>
@@ -278,10 +278,10 @@ function AdminInner() {
         <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-4">
           <Shield className="w-6 h-6" />
         </div>
-        <h1 className="text-xl font-bold text-white mb-2">
+        <h1 className="text-xl font-bold text-text-strong mb-2">
           {t("admin.console.permRequired")}
         </h1>
-        <p className="text-sm text-gray-400 max-w-md mb-6">
+        <p className="text-sm text-text-muted max-w-md mb-6">
           {t("admin.console.permDesc")}
         </p>
         <Link
@@ -308,26 +308,26 @@ function AdminInner() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-gray-100">
+    <div className="min-h-screen flex flex-col bg-background text-text-strong">
       {/* Admin Topbar */}
-      <header className="border-b border-white/[0.08] bg-surface/90 backdrop-blur sticky top-[var(--mf-header-h)] z-30">
+      <header className="border-b border-line bg-surface/90 backdrop-blur sticky top-[var(--mf-header-h)] z-30">
         <div className="max-w-page mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
               href="/"
-              className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
+              className="flex items-center gap-1 text-xs text-text-muted hover:text-text-strong transition-colors duration-fast ease-soft"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>{t("admin.console.backToSite")}</span>
             </Link>
-            <span className="text-white/20">/</span>
-            <div className="flex items-center gap-2 font-semibold text-sm text-white">
+            <span className="text-text-faint">/</span>
+            <div className="flex items-center gap-2 font-semibold text-sm text-text-strong">
               <Shield className="w-4 h-4 text-primary" />
               <span>{t("admin.console.consoleTitle")}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs font-mono text-gray-400">
+          <div className="flex items-center gap-3 text-xs font-mono text-text-muted">
             <span className="px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
               {user.username} ({user.role})
             </span>
@@ -350,7 +350,7 @@ function AdminInner() {
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-left whitespace-nowrap ${
                     active
                       ? "bg-primary text-white shadow-xs font-semibold"
-                      : "text-gray-400 hover:text-white hover:bg-surfaceHover"
+                      : "text-text-muted hover:text-text-strong hover:bg-surfaceHover"
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -367,36 +367,36 @@ function AdminInner() {
           <div className="space-y-4 [&>*:first-child]:mt-0">
           {activeTab === "overview" && (
             <div className="space-y-6">
-              <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                <h2 className="text-base font-semibold text-white mb-2">
+              <div className="p-5 rounded-xl bg-surfaceSubtle border border-line-subtle">
+                <h2 className="text-base font-semibold text-text-strong mb-2">
                   {t("admin.console.sysOverview")}
                 </h2>
-                <p className="text-xs text-gray-400 leading-relaxed">
+                <p className="text-xs text-text-muted leading-relaxed">
                   {t("admin.console.sysOverviewDesc")}
                 </p>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="p-4 rounded-xl border border-white/[0.06] bg-black/20">
-                  <div className="text-xs text-gray-400 font-mono mb-1">
+                <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
+                  <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.pendingReviews")}
                   </div>
                   <div className="text-2xl font-bold text-amber-400">{stats.pending}</div>
                 </div>
-                <div className="p-4 rounded-xl border border-white/[0.06] bg-black/20">
-                  <div className="text-xs text-gray-400 font-mono mb-1">
+                <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
+                  <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.totalModules")}
                   </div>
-                  <div className="text-2xl font-bold text-white">{modules.length || 6}</div>
+                  <div className="text-2xl font-bold text-text-strong">{modules.length || 6}</div>
                 </div>
-                <div className="p-4 rounded-xl border border-white/[0.06] bg-black/20">
-                  <div className="text-xs text-gray-400 font-mono mb-1">
+                <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
+                  <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.coreEngine")}
                   </div>
                   <div className="text-sm font-semibold text-emerald-400">PostgreSQL 16</div>
                 </div>
-                <div className="p-4 rounded-xl border border-white/[0.06] bg-black/20">
-                  <div className="text-xs text-gray-400 font-mono mb-1">
+                <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
+                  <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.authSession")}
                   </div>
                   <div className="text-sm font-semibold text-sky-400">HTTP-Only Cookie</div>
@@ -408,12 +408,12 @@ function AdminInner() {
           {activeTab === "entities" && (
             <div className="space-y-4">
               {/* Entities Header & Search */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-surfaceSubtle border border-line-subtle">
                 <div>
-                  <h2 className="text-base font-semibold text-white">
+                  <h2 className="text-base font-semibold text-text-strong">
                     {t("admin.entities.title")}
                   </h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-text-muted mt-0.5">
                     {t("admin.entities.desc")}
                   </p>
                 </div>
@@ -422,7 +422,7 @@ function AdminInner() {
                   <button
                     type="button"
                     onClick={loadEntities}
-                    className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs text-gray-300 transition-colors duration-fast ease-soft cursor-pointer"
+                    className="p-2 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover border border-line text-xs text-text-body transition-colors duration-fast ease-soft cursor-pointer"
                     title="Refresh"
                   >
                     <RefreshCw className={`w-4 h-4 ${entitiesLoading ? "animate-spin text-primary" : ""}`} />
@@ -438,7 +438,7 @@ function AdminInner() {
               </div>
 
               {/* Filter Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3.5 rounded-xl bg-surfaceSubtle border border-line-subtle">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -446,13 +446,13 @@ function AdminInner() {
                   }}
                   className="sm:col-span-5 relative flex items-center"
                 >
-                  <Search className="absolute left-3 w-4 h-4 text-gray-500" />
+                  <Search className="absolute left-3 w-4 h-4 text-text-faint" />
                   <input
                     type="text"
                     value={entitiesQ}
                     onChange={(e) => setEntitiesQ(e.target.value)}
                     placeholder={t("admin.entities.search")}
-                    className="w-full pl-9 pr-14 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-500 focus:border-primary outline-none"
+                    className="w-full pl-9 pr-14 py-1.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
                   />
                   <button
                     type="submit"
@@ -466,7 +466,7 @@ function AdminInner() {
                   <select
                     value={entitiesKind}
                     onChange={(e) => setEntitiesKind(e.target.value)}
-                    className="w-full py-1.5 px-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-gray-300 focus:border-primary outline-none"
+                    className="w-full py-1.5 px-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-body focus:border-primary outline-none"
                   >
                     <option value="all">{t("catalog.kind.all")}</option>
                     {["work", "release", "agent", "collection", "content_unit", "expression", "medium", "track"].map((k) => (
@@ -479,7 +479,7 @@ function AdminInner() {
                   <select
                     value={entitiesStatus}
                     onChange={(e) => setEntitiesStatus(e.target.value)}
-                    className="w-full py-1.5 px-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-gray-300 focus:border-primary outline-none"
+                    className="w-full py-1.5 px-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-body focus:border-primary outline-none"
                   >
                     <option value="all">{t("catalog.allStates")}</option>
                     <option value="published">{t("catalog.status.published")}</option>
@@ -493,19 +493,19 @@ function AdminInner() {
 
               {/* Table */}
               {entitiesLoading ? (
-                <div className="py-20 text-center text-xs text-gray-500 font-mono flex items-center justify-center gap-2">
+                <div className="py-20 text-center text-xs text-text-faint font-mono flex items-center justify-center gap-2">
                   <RefreshCw className="w-4 h-4 animate-spin text-primary" />
                   <span>{t("catalog.loading")}</span>
                 </div>
               ) : entitiesList.length === 0 ? (
-                <div className="p-8 rounded-xl border border-dashed border-white/10 text-center text-xs text-gray-500 font-mono">
+                <div className="p-8 rounded-xl border border-dashed border-line text-center text-xs text-text-faint font-mono">
                   {t("catalog.emptyTitle")}
                 </div>
               ) : (
-                <div className="rounded-xl border border-white/[0.06] overflow-hidden bg-surface/40">
+                <div className="rounded-xl border border-line-subtle overflow-hidden bg-surface/40">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="border-b border-white/[0.06] bg-white/[0.02] text-gray-400 font-mono">
+                      <tr className="border-b border-line-subtle bg-surfaceSubtle text-text-muted font-mono">
                         <th className="py-2.5 px-3 font-medium">{t("admin.entities.colTitle")}</th>
                         <th className="py-2.5 px-3 font-medium">{t("admin.entities.colKind")}</th>
                         <th className="py-2.5 px-3 font-medium">{t("admin.entities.colStatus")}</th>
@@ -514,17 +514,17 @@ function AdminInner() {
                         <th className="py-2.5 px-3 font-medium text-right">{t("admin.entities.colActions")}</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-white/[0.04]">
+                    <tbody className="divide-y divide-line-subtle">
                       {entitiesList.map((e) => (
-                        <tr key={e.id} className="hover:bg-white/[0.02] transition-colors duration-fast ease-soft">
+                        <tr key={e.id} className="hover:bg-surfaceSubtle transition-colors duration-fast ease-soft">
                           <td className="py-2.5 px-3">
-                            <Link href={`/catalog/${e.id}`} className="font-semibold text-white hover:text-primary transition-colors duration-fast ease-soft line-clamp-1">
+                            <Link href={`/catalog/${e.id}`} className="font-semibold text-text-strong hover:text-primary transition-colors duration-fast ease-soft line-clamp-1">
                               {e.title}
                             </Link>
-                            <div className="text-[10px] text-gray-500 font-mono">ID: {e.id}</div>
+                            <div className="text-[10px] text-text-faint font-mono">ID: {e.id}</div>
                           </td>
                           <td className="py-2.5 px-3">
-                            <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-[10px] font-mono">
+                            <span className="px-1.5 py-0.5 rounded bg-surfaceSubtle text-[10px] font-mono">
                               {tr(`catalog.kind.${e.kind}`, e.kind)}
                             </span>
                           </td>
@@ -534,7 +534,7 @@ function AdminInner() {
                               e.status === "pending_review" ? "bg-amber-500/20 text-amber-400" :
                               e.status === "deleted" ? "bg-rose-500/20 text-rose-400" :
                               e.status === "merged" ? "bg-purple-500/20 text-purple-400" :
-                              "bg-gray-500/20 text-gray-400"
+                              "bg-surfaceSubtle text-text-muted"
                             }`}>
                               {tr(`catalog.status.${e.status}`, e.status)}
                             </span>
@@ -542,20 +542,20 @@ function AdminInner() {
                           <td className="py-2.5 px-3">
                             <div className="flex flex-wrap gap-1">
                               {(e.types || []).map((tCode: string) => (
-                                <span key={tCode} className="px-1 py-0.2 rounded bg-white/[0.04] text-[9px] text-gray-400 font-mono">
+                                <span key={tCode} className="px-1 py-0.2 rounded bg-surfaceSubtle text-[9px] text-text-muted font-mono">
                                   {getTypeName(defs, tCode, locale)}
                                 </span>
                               ))}
                             </div>
                           </td>
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-gray-400">
+                          <td className="py-2.5 px-3 font-mono text-[11px] text-text-muted">
                             v{e.version || 1}
                           </td>
                           <td className="py-2.5 px-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
                               <Link
                                 href={`/catalog/${e.id}`}
-                                className="px-2 py-1 rounded bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 hover:text-white text-[11px] transition-colors duration-fast ease-soft"
+                                className="px-2 py-1 rounded bg-surfaceSubtle hover:bg-surfaceHover text-text-body hover:text-text-strong text-[11px] transition-colors duration-fast ease-soft"
                               >
                                 {t("admin.entities.edit")}
                               </Link>
@@ -612,19 +612,19 @@ function AdminInner() {
 
           {activeTab === "reviews" && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-semibold text-white">
+                  <h2 className="text-base font-semibold text-text-strong">
                     {t("admin.console.reviewWorkbench")}
                   </h2>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-text-muted">
                     {t("admin.console.reviewWorkbenchDesc")}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={loadOverview}
-                  className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-xs text-gray-300"
+                  className="p-2 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover text-xs text-text-body"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
@@ -637,7 +637,7 @@ function AdminInner() {
               )}
 
               {pendingItems.length === 0 ? (
-                <div className="p-8 rounded-xl border border-dashed border-white/10 text-center text-xs text-gray-500 font-mono">
+                <div className="p-8 rounded-xl border border-dashed border-line text-center text-xs text-text-faint font-mono">
                   {t("admin.console.noPending")}
                 </div>
               ) : (
@@ -645,16 +645,16 @@ function AdminInner() {
                   {pendingItems.map((item) => (
                     <div
                       key={item.id}
-                      className="p-4 rounded-xl border border-white/[0.06] bg-black/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                      className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-[10px] font-mono uppercase">
                             {item.kind}
                           </span>
-                          <span className="font-semibold text-sm text-white">{item.title}</span>
+                          <span className="font-semibold text-sm text-text-strong">{item.title}</span>
                         </div>
-                        <div className="text-xs text-gray-500 font-mono">
+                        <div className="text-xs text-text-faint font-mono">
                           ID: {item.id} · v{item.version}
                         </div>
                       </div>
@@ -662,7 +662,7 @@ function AdminInner() {
                       <div className="flex items-center gap-2 shrink-0">
                         <Link
                           href={`/catalog/${item.id}`}
-                          className="px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-xs text-gray-300"
+                          className="px-3 py-1.5 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover text-xs text-text-body"
                         >
                           {t("admin.console.inspect")}
                         </Link>
@@ -690,18 +690,18 @@ function AdminInner() {
 
           {activeTab === "merge" && (
             <div className="space-y-6">
-              <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                <h2 className="text-base font-semibold text-white mb-1">
+              <div className="p-5 rounded-xl bg-surfaceSubtle border border-line-subtle">
+                <h2 className="text-base font-semibold text-text-strong mb-1">
                   {t("admin.console.mergeTitle")}
                 </h2>
-                <p className="text-xs text-gray-400 leading-relaxed">
+                <p className="text-xs text-text-muted leading-relaxed">
                   {t("admin.console.mergeDesc")}
                 </p>
               </div>
 
-              <form onSubmit={handleMergeSubmit} className="p-5 rounded-xl bg-black/20 border border-white/[0.06] space-y-4 max-w-xl">
+              <form onSubmit={handleMergeSubmit} className="p-5 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-4 max-w-xl">
                 <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-text-body mb-1">
                     {t("admin.console.sourceUuid")}
                   </label>
                   <input
@@ -710,12 +710,12 @@ function AdminInner() {
                     value={mergeSource}
                     onChange={(e) => setMergeSource(e.target.value)}
                     placeholder="e.g. 5d1211ef-afe5-46fb-bfcb-706d84cebaec"
-                    className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs font-mono text-white placeholder:text-gray-600 focus:border-primary outline-none"
+                    className="w-full p-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs font-mono text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-text-body mb-1">
                     {t("admin.console.targetUuid")}
                   </label>
                   <input
@@ -724,12 +724,12 @@ function AdminInner() {
                     value={mergeTarget}
                     onChange={(e) => setMergeTarget(e.target.value)}
                     placeholder="e.g. ea8c8cd1-c75b-4919-9f02-b61e9a082b44"
-                    className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs font-mono text-white placeholder:text-gray-600 focus:border-primary outline-none"
+                    className="w-full p-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs font-mono text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-text-body mb-1">
                     {t("admin.console.mergeNote")}
                   </label>
                   <textarea
@@ -737,7 +737,7 @@ function AdminInner() {
                     value={mergeNote}
                     onChange={(e) => setMergeNote(e.target.value)}
                     placeholder={t("admin.console.mergeNotePlaceholder")}
-                    className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-600 focus:border-primary outline-none"
+                    className="w-full p-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
                   />
                 </div>
 
@@ -762,19 +762,19 @@ function AdminInner() {
 
           {activeTab === "modules" && (
             <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-semibold text-white">
+                  <h2 className="text-base font-semibold text-text-strong">
                     {t("admin.console.modulesTitle")}
                   </h2>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-text-muted">
                     {t("admin.console.modulesDesc")}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={loadOverview}
-                  className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-xs text-gray-300"
+                  className="p-2 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover text-xs text-text-body"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
@@ -784,21 +784,21 @@ function AdminInner() {
                 {modules.map((mod) => (
                   <div
                     key={mod.id}
-                    className="p-4 rounded-xl border border-white/[0.06] bg-black/20 flex items-start justify-between gap-4"
+                    className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle flex items-start justify-between gap-4"
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-white text-sm font-mono">{mod.id}</span>
-                        <span className="text-[10px] text-gray-500 font-mono">v{mod.version}</span>
+                        <span className="font-semibold text-text-strong text-sm font-mono">{mod.id}</span>
+                        <span className="text-[10px] text-text-faint font-mono">v{mod.version}</span>
                       </div>
                       <div className="flex items-center gap-2 text-xs">
-                        <span className={`w-2 h-2 rounded-full ${mod.enabled ? "bg-emerald-400" : "bg-gray-600"}`} />
-                        <span className="text-gray-400 font-mono text-[11px]">
+                        <span className={`w-2 h-2 rounded-full ${mod.enabled ? "bg-emerald-400" : "bg-text-faint"}`} />
+                        <span className="text-text-muted font-mono text-[11px]">
                           {mod.enabled ? t("admin.console.active") : t("admin.console.disabled")}
                         </span>
                       </div>
                       {Object.keys(mod.dependencies || {}).length > 0 && (
-                        <div className="text-[10px] text-gray-500 font-mono pt-1">
+                        <div className="text-[10px] text-text-faint font-mono pt-1">
                           Deps: {JSON.stringify(mod.dependencies)}
                         </div>
                       )}
@@ -821,21 +821,21 @@ function AdminInner() {
 
           {activeTab === "users" && (
             <div className="space-y-6">
-              <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-                <h2 className="text-base font-semibold text-white mb-1">
+              <div className="p-5 rounded-xl bg-surfaceSubtle border border-line-subtle">
+                <h2 className="text-base font-semibold text-text-strong mb-1">
                   {t("admin.console.usersTitle")}
                 </h2>
-                <p className="text-xs text-gray-400 leading-relaxed">
+                <p className="text-xs text-text-muted leading-relaxed">
                   {t("admin.console.usersDesc")}
                 </p>
               </div>
 
-              <form onSubmit={handleCreateUser} className="p-5 rounded-xl bg-black/20 border border-white/[0.06] space-y-4 max-w-md">
-                <h3 className="font-semibold text-white text-xs">
+              <form onSubmit={handleCreateUser} className="p-5 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-4 max-w-md">
+                <h3 className="font-semibold text-text-strong text-xs">
                   {t("admin.console.createEditorTitle")}
                 </h3>
                 <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-text-body mb-1">
                     {t("catalog.username")}
                   </label>
                   <input
@@ -844,12 +844,12 @@ function AdminInner() {
                     value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value)}
                     placeholder="e.g. curator_01"
-                    className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-600 focus:border-primary outline-none"
+                    className="w-full p-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-text-body mb-1">
                     {t("admin.console.fieldPassword")}
                   </label>
                   <input
@@ -858,7 +858,7 @@ function AdminInner() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full p-2.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-600 focus:border-primary outline-none"
+                    className="w-full p-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
                   />
                 </div>
 
@@ -889,7 +889,7 @@ function AdminInner() {
 
 export default function AdminPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background text-gray-500 font-mono text-xs grid place-items-center">Loading Admin...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-background text-text-faint font-mono text-xs grid place-items-center">Loading Admin...</div>}>
       <AdminInner />
     </Suspense>
   );

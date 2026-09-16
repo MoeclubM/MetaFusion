@@ -47,21 +47,21 @@ export function PermissionPicker({
     <div className="space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="relative flex items-center flex-1">
-          <Search className="absolute left-2.5 w-3.5 h-3.5 text-gray-500" />
+          <Search className="absolute left-2.5 w-3.5 h-3.5 text-text-faint" />
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("admin.account.permSearch")}
-            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-xs text-white placeholder:text-gray-500 focus:border-primary outline-none"
+            className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
           />
         </div>
-        <span className="text-[11px] font-mono text-gray-400 shrink-0">
+        <span className="text-[11px] font-mono text-text-muted shrink-0">
           {t("admin.account.permSelected", { count: selected.length })}
         </span>
       </div>
 
-      <p className="text-[11px] text-gray-500 leading-relaxed">{t("admin.account.permScopeHint")}</p>
+      <p className="text-[11px] text-text-faint leading-relaxed">{t("admin.account.permScopeHint")}</p>
 
       <div className="space-y-3">
         {grouped.map(({ prefix, codes }) => {
@@ -80,13 +80,13 @@ export function PermissionPicker({
           if (visible.length === 0) return null;
 
           return (
-            <div key={prefix} className="rounded-xl border border-white/[0.06] bg-black/20 overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2 bg-white/[0.02] border-b border-white/[0.06]">
+            <div key={prefix} className="rounded-xl border border-line-subtle bg-surfaceSubtle overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 bg-surfaceSubtle border-b border-line-subtle">
                 <PrefixChip prefix={prefix} />
-                <span className="text-[11px] text-gray-300 font-medium">
+                <span className="text-[11px] text-text-body font-medium">
                   {serviceLabel(prefix, tr)}
                 </span>
-                <span className="text-[10px] font-mono text-gray-500">
+                <span className="text-[10px] font-mono text-text-faint">
                   {t("admin.account.permCount", { count: codes.length })}
                 </span>
               </div>
@@ -101,21 +101,21 @@ export function PermissionPicker({
                       className={`flex items-start gap-2 px-2.5 py-2 rounded-lg border text-left transition-colors duration-fast ease-soft cursor-pointer ${
                         active
                           ? "bg-primary/15 border-primary/40"
-                          : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.05]"
+                          : "bg-surfaceSubtle border-line-subtle hover:bg-surfaceHover"
                       }`}
                     >
                       <span
                         className={`mt-0.5 w-3.5 h-3.5 rounded border shrink-0 grid place-items-center ${
-                          active ? "bg-primary border-primary text-white" : "border-white/25"
+                          active ? "bg-primary border-primary text-white" : "border-line-strong"
                         }`}
                       >
                         {active ? <Check className="w-2.5 h-2.5" /> : null}
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-[11px] font-mono text-white break-all">
+                        <span className="block text-[11px] font-mono text-text-strong break-all">
                           {item.code}
                         </span>
-                        <span className="block text-[10px] text-gray-400 truncate">
+                        <span className="block text-[10px] text-text-muted truncate">
                           {pickLocalizedName(locale, item.names, item.code)}
                         </span>
                       </span>

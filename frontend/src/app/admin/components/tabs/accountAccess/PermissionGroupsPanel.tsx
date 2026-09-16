@@ -167,11 +167,11 @@ export function PermissionGroupsPanel({
       {!groups.loading && list.length === 0 ? <EmptyBlock /> : null}
 
       {list.length > 0 ? (
-        <div className="rounded-xl border border-white/[0.06] bg-surface/40 overflow-hidden">
+        <div className="rounded-xl border border-line-subtle bg-surface/40 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-white/[0.06] bg-white/[0.02] text-gray-400 font-mono">
+                <tr className="border-b border-line-subtle bg-surfaceSubtle text-text-muted font-mono">
                   <th className="py-2.5 px-3 font-medium">{t("admin.account.colCode")}</th>
                   <th className="py-2.5 px-3 font-medium">{t("admin.account.colNames")}</th>
                   <th className="py-2.5 px-3 font-medium">{t("admin.account.colDescs")}</th>
@@ -181,19 +181,19 @@ export function PermissionGroupsPanel({
                   <th className="py-2.5 px-3 font-medium text-right">{t("admin.account.colActions")}</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody className="divide-y divide-line-subtle">
                 {list.map((group) => {
                   const permissions = group.permissions ?? [];
                   const breakdown = groupPermissionsByPrefix(permissions, catalog.data);
                   return (
-                    <tr key={group.code} className="hover:bg-white/[0.02] align-top">
+                    <tr key={group.code} className="hover:bg-surfaceSubtle align-top">
                       <td className="py-2.5 px-3 font-mono text-sky-300 font-semibold whitespace-nowrap">
                         {group.code}
                       </td>
-                      <td className="py-2.5 px-3 text-gray-300">
+                      <td className="py-2.5 px-3 text-text-body">
                         {group.names?.[locale] ?? group.names?.["zh-CN"] ?? group.names?.["en-US"] ?? "—"}
                       </td>
-                      <td className="py-2.5 px-3 text-gray-400 max-w-xs">
+                      <td className="py-2.5 px-3 text-text-muted max-w-xs">
                         {group.descriptions?.[locale] ??
                           group.descriptions?.["zh-CN"] ??
                           group.descriptions?.["en-US"] ??
@@ -201,7 +201,7 @@ export function PermissionGroupsPanel({
                       </td>
                       <td className="py-2.5 px-3">
                         <div className="space-y-1.5">
-                          <span className="text-[11px] font-mono text-gray-300">
+                          <span className="text-[11px] font-mono text-text-body">
                             {t("admin.account.permCount", { count: permissions.length })}
                           </span>
                           <div className="flex flex-wrap gap-1">
@@ -221,12 +221,12 @@ export function PermissionGroupsPanel({
                             {t("admin.account.groupSystemBadge")}
                           </span>
                         ) : (
-                          <span className="text-[10px] font-mono text-gray-500">
+                          <span className="text-[10px] font-mono text-text-faint">
                             {t("admin.account.groupCustom")}
                           </span>
                         )}
                       </td>
-                      <td className="py-2.5 px-3 font-mono text-gray-400">
+                      <td className="py-2.5 px-3 font-mono text-text-muted">
                         {group.sort_order ?? 0}
                       </td>
                       <td className="py-2.5 px-3 text-right">
@@ -235,7 +235,7 @@ export function PermissionGroupsPanel({
                             type="button"
                             onClick={() => openEdit(group)}
                             title={t("common.edit")}
-                            className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
+                            className="p-1.5 rounded-md hover:bg-surfaceHover text-text-muted hover:text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
                           >
                             <Pencil className="w-3.5 h-3.5" />
                           </button>
@@ -248,7 +248,7 @@ export function PermissionGroupsPanel({
                                 ? t("admin.account.groupSystemLocked")
                                 : t("admin.account.groupDelete")
                             }
-                            className="p-1.5 rounded-md text-gray-400 hover:text-rose-400 hover:bg-rose-500/10 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-colors duration-fast ease-soft cursor-pointer"
+                            className="p-1.5 rounded-md text-text-muted hover:text-rose-400 hover:bg-rose-500/10 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-text-muted transition-colors duration-fast ease-soft cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -274,7 +274,7 @@ export function PermissionGroupsPanel({
       >
         <div className="space-y-4 text-xs">
           <div>
-            <label className="block text-[11px] font-mono text-gray-300 font-medium mb-1">
+            <label className="block text-[11px] font-mono text-text-body font-medium mb-1">
               {t("admin.account.colCode")}
               <span className="text-rose-400 ml-1">*</span>
             </label>
@@ -284,9 +284,9 @@ export function PermissionGroupsPanel({
               disabled={codeLocked}
               onChange={(e) => setForm({ ...form, code: e.target.value.toLowerCase() })}
               placeholder="e.g. catalog_curator"
-              className="w-full px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white font-mono focus:outline-none focus:border-sky-400 disabled:opacity-50"
+              className="w-full px-3 py-2 rounded-lg bg-surfaceSubtle border border-line text-text-strong font-mono focus:outline-none focus:border-sky-400 disabled:opacity-50"
             />
-            <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
+            <p className="text-[10px] text-text-faint mt-1 leading-relaxed">
               {t("admin.account.groupCodeHint")}
             </p>
           </div>
@@ -308,7 +308,7 @@ export function PermissionGroupsPanel({
           />
 
           <div className="space-y-2">
-            <label className="block text-[11px] font-mono text-gray-300 font-medium">
+            <label className="block text-[11px] font-mono text-text-body font-medium">
               {t("admin.account.colPerms")}
             </label>
             {catalog.loading && catalog.data.length === 0 ? (
@@ -324,32 +324,32 @@ export function PermissionGroupsPanel({
             )}
           </div>
 
-          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
-            <div className="text-[11px] font-mono text-gray-300 font-medium">
+          <div className="p-3 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-2">
+            <div className="text-[11px] font-mono text-text-body font-medium">
               {t("admin.account.groupPermScopeTitle")}
             </div>
             <PrefixBreakdown codes={form.permissions ?? []} catalog={catalog.data} />
           </div>
 
           <div>
-            <label className="block text-[11px] font-mono text-gray-300 font-medium mb-1">
+            <label className="block text-[11px] font-mono text-text-body font-medium mb-1">
               {t("admin.account.colSort")}
             </label>
             <input
               type="number"
               value={form.sort_order ?? 0}
               onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })}
-              className="w-full sm:w-40 px-3 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-white font-mono focus:outline-none focus:border-sky-400"
+              className="w-full sm:w-40 px-3 py-2 rounded-lg bg-surfaceSubtle border border-line text-text-strong font-mono focus:outline-none focus:border-sky-400"
             />
           </div>
 
           {message ? <StatusMessage kind={message.kind} text={message.text} /> : null}
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-white/10">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
             <button
               type="button"
               onClick={close}
-              className="px-3 py-1.5 rounded-lg border border-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
+              className="px-3 py-1.5 rounded-lg border border-line text-text-muted hover:text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
             >
               {t("common.cancel")}
             </button>

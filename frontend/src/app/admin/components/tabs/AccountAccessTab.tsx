@@ -54,29 +54,29 @@ export function AccountAccessTab() {
 
   return (
     <div className="space-y-6">
-      <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
-        <h2 className="text-base font-semibold text-white flex items-center gap-2">
+      <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-3">
+        <h2 className="text-base font-semibold text-text-strong flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-primary" />
           <span>{t("admin.account.title")}</span>
         </h2>
-        <p className="text-xs text-gray-400 leading-relaxed">{t("admin.account.subtitle")}</p>
+        <p className="text-xs text-text-muted leading-relaxed">{t("admin.account.subtitle")}</p>
 
         <div className="p-3 rounded-xl bg-sky-500/[0.06] border border-sky-500/20 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-sky-200">
+          <div className="flex items-center gap-2 text-xs font-semibold text-sky-700 dark:text-sky-300">
             <Info className="w-3.5 h-3.5 shrink-0" />
             <span>{t("admin.account.splitTitle")}</span>
           </div>
-          <p className="text-[11px] text-sky-100/70 leading-relaxed">{t("admin.account.splitDesc")}</p>
+          <p className="text-[11px] text-sky-800/80 dark:text-sky-100/70 leading-relaxed">{t("admin.account.splitDesc")}</p>
           {prefixes.length > 0 ? (
             <div className="space-y-1.5 pt-1">
-              <div className="text-[10px] font-mono text-sky-200/70">
+              <div className="text-[10px] font-mono text-sky-700/80 dark:text-sky-200/70">
                 {t("admin.account.splitPrefixes", { count: prefixes.length })}
               </div>
               <ul className="space-y-1">
                 {prefixes.map((prefix) => (
                   <li key={prefix} className="flex items-start gap-2">
                     <PrefixChip prefix={prefix} />
-                    <span className="text-[11px] text-sky-100/70 leading-relaxed">
+                    <span className="text-[11px] text-sky-800/80 dark:text-sky-100/70 leading-relaxed">
                       {t("admin.account.splitPrefixLine", { service: serviceLabel(prefix, tr) })}
                     </span>
                   </li>

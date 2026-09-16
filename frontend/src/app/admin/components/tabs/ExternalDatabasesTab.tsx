@@ -140,15 +140,15 @@ export function ExternalDatabasesTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* 标题说明 */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-text-strong flex items-center gap-2">
             <Globe className="w-4 h-4 text-sky-400" />
             <span>{t("admin.extdb.title")}</span>
           </h2>
-          <p className="text-xs text-gray-400 font-mono mt-0.5">
+          <p className="text-xs text-text-muted font-mono mt-0.5">
             {t("admin.extdb.desc")}
           </p>
         </div>
@@ -169,10 +169,10 @@ export function ExternalDatabasesTab() {
       )}
 
       {/* 列表表格 */}
-      <div className="rounded-xl border border-white/10 bg-[#0e0e12] overflow-hidden">
+      <div className="rounded-xl border border-line bg-surface overflow-hidden">
         <table className="w-full text-left border-collapse text-xs">
           <thead>
-            <tr className="border-b border-white/10 bg-white/[0.02] font-mono text-[11px] text-gray-400 uppercase tracking-wider">
+            <tr className="border-b border-line bg-surfaceSubtle font-mono text-[11px] text-text-muted uppercase tracking-wider">
               <th className="py-3 px-4">{t("admin.extdb.colDb")}</th>
               <th className="py-3 px-4">{t("admin.extdb.colNames")}</th>
               <th className="py-3 px-4">{t("admin.extdb.colScope")}</th>
@@ -182,22 +182,22 @@ export function ExternalDatabasesTab() {
               <th className="py-3 px-4 text-right">{t("admin.extdb.colActions")}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/5 font-sans">
+          <tbody className="divide-y divide-line-subtle font-sans">
             {loading ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-500 font-mono">
+                <td colSpan={7} className="py-8 text-center text-text-faint font-mono">
                   {t("common.loadingGeneric")}
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-gray-500 font-mono">
+                <td colSpan={7} className="py-8 text-center text-text-faint font-mono">
                   {t("admin.extdb.noData")}
                 </td>
               </tr>
             ) : (
               items.map((item) => (
-                <tr key={item.code} className="hover:bg-white/[0.02] transition-colors duration-fast ease-soft">
+                <tr key={item.code} className="hover:bg-surfaceSubtle transition-colors duration-fast ease-soft">
                   {/* 名称与图标 */}
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2.5">
@@ -207,9 +207,9 @@ export function ExternalDatabasesTab() {
                         <Globe className="w-4 h-4 text-sky-400 opacity-80" />
                       )}
                       <div>
-                        <div className="font-mono font-bold text-white text-[11px]">{item.code}</div>
+                        <div className="font-mono font-bold text-text-strong text-[11px]">{item.code}</div>
                         {item.description && (
-                          <div className="text-[10px] text-gray-500 line-clamp-1 max-w-[150px]">{item.description}</div>
+                          <div className="text-[10px] text-text-faint line-clamp-1 max-w-[150px]">{item.description}</div>
                         )}
                       </div>
                     </div>
@@ -222,27 +222,27 @@ export function ExternalDatabasesTab() {
 
                   {/* 范畴 */}
                   <td className="py-3 px-4">
-                    <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-white/[0.05] border border-white/10 text-gray-300">
+                    <span className="px-2 py-0.5 rounded font-mono text-[10px] bg-surfaceSubtle border border-line text-text-body">
                       {item.category.toUpperCase()}
                     </span>
                   </td>
 
                   {/* URL 模板 */}
                   <td className="py-3 px-4">
-                    <div className="font-mono text-[11px] text-gray-300 truncate max-w-xs" title={item.url_pattern}>
+                    <div className="font-mono text-[11px] text-text-body truncate max-w-xs" title={item.url_pattern}>
                       {item.url_pattern}
                     </div>
                   </td>
 
                   {/* 校验正则 */}
                   <td className="py-3 px-4">
-                    <div className="font-mono text-[10px] text-gray-400 truncate max-w-[120px]" title={item.validation_regex}>
+                    <div className="font-mono text-[10px] text-text-muted truncate max-w-[120px]" title={item.validation_regex}>
                       {item.validation_regex || "--"}
                     </div>
                   </td>
 
                   {/* 排序 */}
-                  <td className="py-3 px-4 text-center font-mono text-gray-400">
+                  <td className="py-3 px-4 text-center font-mono text-text-muted">
                     {item.sort_order}
                   </td>
 
@@ -252,7 +252,7 @@ export function ExternalDatabasesTab() {
                       <button
                         onClick={() => handleOpenEdit(item)}
                         title={t("common.edit")}
-                        className="p-1.5 rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
+                        className="p-1.5 rounded-md hover:bg-surfaceHover text-text-muted hover:text-text-strong transition-colors duration-fast ease-soft"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
@@ -261,8 +261,8 @@ export function ExternalDatabasesTab() {
                         title={item.is_enabled ? t("admin.extdb.disable") : t("admin.extdb.enable")}
                         className={`p-1.5 rounded-md transition-colors duration-fast ease-soft ${
                           item.is_enabled
-                            ? "hover:bg-amber-500/10 text-gray-400 hover:text-amber-400"
-                            : "hover:bg-emerald-500/10 text-gray-500 hover:text-emerald-400"
+                            ? "hover:bg-amber-500/10 text-text-muted hover:text-amber-400"
+                            : "hover:bg-emerald-500/10 text-text-faint hover:text-emerald-400"
                         }`}
                       >
                         <Power className="w-3.5 h-3.5" />
@@ -271,14 +271,14 @@ export function ExternalDatabasesTab() {
                         <button
                           onClick={() => handleDelete(item.code)}
                           title={t("common.delete")}
-                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors duration-fast ease-soft"
+                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-text-muted hover:text-rose-400 transition-colors duration-fast ease-soft"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </div>
                     {item.is_system && (
-                      <div className="text-[10px] text-gray-500 font-mono mt-1">
+                      <div className="text-[10px] text-text-faint font-mono mt-1">
                         {t("admin.extdb.systemProtected")}
                       </div>
                     )}
@@ -303,7 +303,7 @@ export function ExternalDatabasesTab() {
         <form onSubmit={handleSave} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-gray-400 font-mono text-[11px] mb-1">
+              <label className="block text-text-muted font-mono text-[11px] mb-1">
                 {t("admin.extdb.fieldCode")}
               </label>
               <input
@@ -322,7 +322,7 @@ export function ExternalDatabasesTab() {
               />
             </div>
             <div>
-              <label className="block text-gray-400 font-mono text-[11px] mb-1">
+              <label className="block text-text-muted font-mono text-[11px] mb-1">
                 {t("admin.extdb.fieldCategory")}
               </label>
               <select
@@ -347,7 +347,7 @@ export function ExternalDatabasesTab() {
           />
 
           <div>
-            <label className="block text-gray-400 font-mono text-[11px] mb-1">
+            <label className="block text-text-muted font-mono text-[11px] mb-1">
               {t("admin.extdb.fieldUrl")}
             </label>
             <input
@@ -358,14 +358,14 @@ export function ExternalDatabasesTab() {
               onChange={(e) => setForm({ ...form, url_pattern: e.target.value })}
               className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
             />
-            <p className="text-[10px] text-gray-500 mt-1 font-mono">
+            <p className="text-[10px] text-text-faint mt-1 font-mono">
               {t("admin.extdb.urlHint")}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-gray-400 font-mono text-[11px] mb-1">
+              <label className="block text-text-muted font-mono text-[11px] mb-1">
                 {t("admin.extdb.fieldRegex")}
               </label>
               <input
@@ -377,7 +377,7 @@ export function ExternalDatabasesTab() {
               />
             </div>
             <div>
-              <label className="block text-gray-400 font-mono text-[11px] mb-1">
+              <label className="block text-text-muted font-mono text-[11px] mb-1">
                 {t("admin.extdb.fieldIcon")}
               </label>
               <input
@@ -392,7 +392,7 @@ export function ExternalDatabasesTab() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-gray-400 font-mono text-[11px] mb-1">
+              <label className="block text-text-muted font-mono text-[11px] mb-1">
                 {t("admin.extdb.fieldDesc")}
               </label>
               <input
@@ -404,7 +404,7 @@ export function ExternalDatabasesTab() {
               />
             </div>
             <div>
-              <label className="block text-gray-400 font-mono text-[11px] mb-1">
+              <label className="block text-text-muted font-mono text-[11px] mb-1">
                 {t("admin.extdb.fieldSort")}
               </label>
               <input
@@ -418,14 +418,14 @@ export function ExternalDatabasesTab() {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+          <div className="flex justify-end gap-2 pt-2 border-t border-line">
             <button
               type="button"
               onClick={() => {
                 setIsCreating(false);
                 setEditingItem(null);
               }}
-              className="px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-mono"
+              className="px-3 py-1.5 rounded bg-surfaceSubtle hover:bg-surfaceHover text-text-body text-xs font-mono"
             >
               {t("common.cancel")}
             </button>
