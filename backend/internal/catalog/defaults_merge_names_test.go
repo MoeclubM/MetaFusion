@@ -30,18 +30,18 @@ func TestMergeSeedDefinitionsBackfillsOnlyPlaceholderTranslations(t *testing.T) 
 	}
 	found := false
 	for _, a := range added {
-		if a == "fields.character.ja-JP" {
+		if a == "fields.character.names.ja-JP" {
 			found = true
 		}
 	}
 	if !found {
-		t.Fatalf("应在补丁清单里记录 fields.character.ja-JP：%v", added)
+		t.Fatalf("应在补丁清单里记录 fields.character.names.ja-JP：%v", added)
 	}
 	// 幂等：再合一次不应再报同一项
 	_, again := mergeSeedDefinitions(merged, seed)
 	for _, a := range again {
-		if a == "fields.character.ja-JP" {
-			t.Fatal("第二次合并不应再报 fields.character.ja-JP")
+		if a == "fields.character.names.ja-JP" {
+			t.Fatal("第二次合并不应再报 fields.character.names.ja-JP")
 		}
 	}
 }
