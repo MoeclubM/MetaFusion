@@ -342,6 +342,17 @@ func Defaults() Definitions {
 		d.Relations["includes"] = r
 	}
 	addRel("includes", "组成包含", "Includes", "组成属于", "Included in", []string{"collection", "work"}, []string{"work", "collection"}, "membership", true)
+	// 成员关系：个人 ↔ 团体（乐队、组合、社团）。声优乐队这类现实团体需要
+	// "谁是这个团体的成员"，职位原文（Vo./Gt./Ba. 等）落在 credit_role，不另造字段。
+	addRel("member_of", "所属团体", "Member of", "成员", "Members", []string{"agent"}, []string{"agent"}, "membership", true)
+	// 新增名称一律四语齐备：names_coverage_test 的占位棘轮只允许下降，
+	// 所以这里用 names4 覆盖 addRel 写入的中英占位。
+	if r, ok := d.Relations["member_of"]; ok {
+		r.Names = names4("所属团体", "所屬團體", "所属グループ", "Member of")
+		r.ReverseNames = names4("成员", "成員", "メンバー", "Members")
+		r.GroupNames = names4("组成与成员", "組成與成員", "構成とメンバー", "Membership")
+		d.Relations["member_of"] = r
+	}
 	// 角色登场：虚构角色/团体 → 作品或集合。方向为 agent → work，
 	// 同一角色跨作品算多条边（AGENTS.md 语义）。
 	// 番位走 character_rank 词表（main/supporting/guest/ensemble/narrator/cameo）：可检索、可多语言。
