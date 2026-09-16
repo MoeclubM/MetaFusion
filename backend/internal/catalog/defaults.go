@@ -150,6 +150,9 @@ func Defaults() Definitions {
 		{"isrc", "text", names4("ISRC", "國際標準錄音代碼", "国際標準レコーディングコード", "ISRC")},
 		{"role", "enum", names4("内容用途", "內容用途", "収録役割", "Content role")},
 		{"entry_role", "enum", names4("篇目类型", "篇目類型", "収録種別", "Entry role")},
+		// air_date 是**篇目级**放送日（逐话首播）：作品层的 broadcast_start 是整季开播日，
+		// 两者层级不同；官网故事页不给逐话日期时由 Bangumi 单集条目补（不猜）。
+		{"air_date", "date", names4("放送日期", "放送日期", "放送日", "Air date")},
 		{"credit_role", "text", names4("署名职位", "署名職位", "クレジット表記", "Credit role")},
 		{"character", "entity", names4("所饰角色", "所飾角色", "役名", "Character")},
 		{"context", "entity", names4("适用作品或篇目", "適用作品或篇目", "対象作品・篇目", "Context")},
@@ -430,7 +433,8 @@ func Defaults() Definitions {
 		case "content_unit":
 			// entry_role 记录篇目类型（本篇/OP/ED/预告）：集数编号在各类型间各自起算，
 			// 不记录就无法区分"第1话"与"第1首片头曲"。
-			keys = []string{"language", "entry_role"}
+			// air_date 记录该篇目自身的放送日：集数编号相同但放送日期不同的话数靠它区分。
+			keys = []string{"language", "entry_role", "air_date"}
 		case "expression":
 			keys = []string{"language", "duration", "version_label", "isrc", "events"}
 		case "release":

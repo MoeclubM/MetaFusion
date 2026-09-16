@@ -2,8 +2,8 @@ package catalog
 
 import "sort"
 
-// mergeSeedDefinitions 把种子里**新增**的定义并进当前定义：只补当前缺失的键，
-// 已存在的类型/字段/词表/关系/模板/方案一律原样保留。
+// mergeSeedDefinitions 把种子里**新增**的定义并进当前定义：只补当前缺失的键
+// （含已存在类型缺失的字段码），已存在的类型/字段/词表/关系/模板/方案一律原样保留。
 //
 // 为什么需要它：定义种子原先只在空库播种，存量实例拿不到新版本新增的关系码与字段，
 // 只能靠导入预检兜底。但"只空库播种"的初衷是怕覆盖人工编目决策（禁用某关系码、
@@ -46,6 +46,31 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 		if _, ok := out.Types[k]; !ok {
 			out.Types[k] = v
 			added = append(added, "types."+k)
+		}
+	}
+	// 已存在类型的**字段集**同样只做补缺：种子新增的字段码并进当前类型，既有字段与顺序原样保留。
+	// 只补 fields 表不够——写实体时属性键取自所属类型的字段集，存量类型缺新字段码时，
+	// 新字段在存量实例上仍然写不进去（unknown_field），"补了字段却用不上"。
+	// 只追加缺失的码：停用某字段的既有做法是把 fields.<code>.enabled 置假（本函数不碰），
+	// 不靠从类型字段集里删码，因此补缺不会与"停用"混淆。
+	for code, st := range seed.Types {
+		cur, ok := out.Types[code]
+		if !ok {
+			continue // 缺失的类型已在上面补过
+		}
+		var missing []string
+		for _, f := range st.Fields {
+			if !contains(cur.Fields, f) {
+				missing = append(missing, f)
+			}
+		}
+		if len(missing) == 0 {
+			continue
+		}
+		cur.Fields = append(append([]string{}, cur.Fields...), missing...)
+		out.Types[code] = cur
+		for _, f := range missing {
+			added = append(added, "types."+code+".fields."+f)
 		}
 	}
 	for k, v := range seed.Fields {
