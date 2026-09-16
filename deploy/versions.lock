@@ -1,0 +1,22 @@
+# deploy/versions.lock —— 一次部署的版本锚点
+#
+# 为什么要它：编排（deploy/docker-compose.yml）用 ../../metafusion-* 当构建上下文，主仓库代码与
+# 兄弟仓库代码之间没有任何版本绑定——同一个 METAFUSION_TAG 可能对应不同的兄弟仓库提交，
+# 回滚时无法判断当时那份 community 是哪一次提交。这里把这些部署输入钉住。
+#
+# 格式：<仓库目录>=<commit 短 sha>；. 是本仓库，.. 是与本仓库并列检出的兄弟目录。
+# 校验：python scripts/check_versions.py
+#   - 逐条 git -C <目录> rev-parse HEAD 与锁里的 sha 比对；
+#   - 兄弟目录不在本机（只检出主仓库的机器、CI 上很常见）→ 打印 skip，不算失败；
+#   - 某条不一致 → 打印期望与实际并以非零码退出，部署前停下；
+#   - 主仓库自身那条只提示不判失败：锁文件随主仓库提交一起前进，回滚时以本文件所在的提交为准。
+# 更新：切流窗口开始时按各仓库 git rev-parse --short HEAD 重写一遍并提交。
+#       不要为了让它变绿而改 sha——那等于把锚点挪到没验证过的代码上。
+#
+# 当前锚点（2026-09-16）：
+.=42ab227
+../metafusion-auth=39fd363
+../metafusion-community=399a9bb
+../metafusion-storage=6b0a9f7
+../metafusion-api-gateway=34389e2
+../metafusion-docs=6f8314d
