@@ -1,11 +1,12 @@
 # MetaFusion 多项目解耦与子系统拆分架构规范 (Multi-Project Decoupling Specification)
 
-> **状态：已落地（P1–P4）**
-> 本文描述的拆分**已经实施**：账号（`metafusion-auth`）、互动（`metafusion-community`）、存储（`metafusion-storage`）、网关（`metafusion-api-gateway`）均为独立仓库，主仓库收敛为元数据目录 + 前端 + 文档站 + 部署编排；开发实例已完成切流，进程内模块层（`backend/internal/modules`）与其 schema 已删除。
+> **状态：已落地**。账号（`metafusion-auth`）、互动（`metafusion-community`）、存储（`metafusion-storage`）与文档站（`metafusion-docs`）都是独立仓库，主仓库收敛为元数据目录 + 前端 + 部署编排；进程内模块层（`backend/internal/modules`）与其 schema 已删除。
 > 与本文的差异：实现**没有**引入独立数据库（各服务共用同一 PostgreSQL 实例、各用自有 schema，且不建跨 schema 外键），也没有按域前缀拆 URL 命名空间（仍是统一的 `/api/*`，由网关按前缀分流）。
 > 网关本体也不是独立的 `metafusion-api-gateway` 仓库：线上矩阵是本仓库 `deploy/nginx.conf`（compose 的 `gateway` 服务），
 > 那个仓库只剩切流自检脚本；下文 §2/§3.1 里"边缘网关 = metafusion-api"的仓库边界按此理解。
 > 运行时的权威描述以 AGENTS.md、[子系统拆分与迁移契约](./service-split-migration.md)、[切流手册](./cutover-runbook.md) 与 `backend/internal/catalog/http.go` 为准。
+>
+> 2026-09 审计的补充决议：UI 目标形态为**每个服务自带 UI**（先抽共享层，再按 auth → community → storage 拆）；共享代码收敛为**新建协议层 SDK 仓库**；两项已定，其余（密钥边界、网关矩阵归属、capabilities 去反向探活、数据层分角色、事件契约）为推荐值待评审。证据、目标架构与分批路线见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §8.2。
 
 本文档面向 MetaFusion 核心开发与架构运维团队，明确**元数据系统作为主项目（Core Project）**与周边外围子系统（账号、论坛、资源存储、API 网关、文档站）的**项目拆分边界、通信协议契约、数据库隔离方案与 GitHub 多仓库协同规范**。
 
@@ -159,7 +160,7 @@ gh repo create MoeclubM/metafusion-docs --public --description "MetaFusion 官�
    - 编写完成多项目解耦技术规范与架构契约。
 2. **第二阶段**：
    - 抽取 `backend/internal/auth` 为独立微服务 `metafusion-auth`，实现独立的 Auth DB 与 JWT 签名校验，完成全站 OAuth 统一；
-   - 将 `docs-site` 独立为独立仓库 `metafusion-docs`，配置独立 CI/CD 与静态部署。
+   - 文档站独立为 `metafusion-docs` 仓库，自带构建与静态部署。
 3. **第三阶段**：
    - 将 `backend/internal/storage` 独立为 `metafusion-storage`，部署专用的对象存储管理中枢与下载授权网关；
    - 将社区论坛独立为 `metafusion-community`，挂载主题讨论与动态打分系统；

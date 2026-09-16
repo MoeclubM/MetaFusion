@@ -42,6 +42,7 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 | 数据库与完整性约束 | `backend/migrations/000001_catalog_core.up.sql` 是目录库结构的**唯一来源**（`mf-migrate up` 与目录服务启动执行同一份文件）；复合外键与校验逻辑见 `backend/internal/catalog/store.go`；只把已执行迁移视为目标实例能力 |
 | 前端与国际化 | `frontend/src/`、`frontend/src/messages/{zh-CN,en-US,zh-TW,ja-JP}.json` |
 | 子系统边界与迁移 | [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)、[切流手册](docs/architecture/cutover-runbook.md)、[资源存储运行约定](docs/architecture/storage-operations.md)；账号 / 互动 / 存储分别在 `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage` |
+| 解耦审计与整改路线 | [多项目解耦审计与优化建议](docs/architecture/decoupling-audit-2026-09.md)：耦合分级证据、目标架构（每服务自带 UI、协议层 SDK、网关矩阵单源）与 B0–B6 分批 |
 | 部署与 CI | `deploy/docker-compose.yml`、`.github/workflows/ci.yml` |
 | 用户 / LLM 编辑教程 | [Agent 接入](../metafusion-docs/docs/agent-integration.md)、[Agent API](../metafusion-docs/docs/api-agent.md)（文档站是独立仓库 `metafusion-docs`） |
 
