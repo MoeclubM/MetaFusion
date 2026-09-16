@@ -53,7 +53,7 @@ export function AccountAccessTab() {
   }, [catalog.data]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-3">
         <h2 className="text-base font-semibold text-text-strong flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-primary" />

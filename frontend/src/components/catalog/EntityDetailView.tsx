@@ -747,9 +747,9 @@ export function EntityDetailView({ id }: { id: string }) {
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
 
-      <main className="mf-enter relative z-10 max-w-page mx-auto px-4 py-6 w-full space-y-6 flex-1 pb-[max(3rem,env(safe-area-inset-bottom))]">
+      <main className="mf-enter relative z-10 max-w-page mx-auto px-4 py-6 w-full space-y-4 flex-1 pb-[max(3rem,env(safe-area-inset-bottom))]">
         {/* Top Breadcrumb Navigation */}
-        <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-gray-500 border-b border-line-subtle pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-gray-500 border-b border-line-subtle pb-2.5">
           <div className="flex items-center gap-1.5 truncate">
             <Link href="/" className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
               <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
@@ -811,7 +811,7 @@ export function EntityDetailView({ id }: { id: string }) {
           {/* ============================================================ */}
           {/* LEFT SIDEBAR: Cover + Facts + External Authority             */}
           {/* ============================================================ */}
-          <aside className="w-full space-y-6 shrink-0">
+          <aside className="w-full space-y-4 shrink-0">
             {/* 1. Cover Card */}
             <div className="rounded-xl overflow-hidden border border-black/10 dark:border-white/[0.12] bg-surface shadow-md">
               <AdaptiveCover
@@ -930,7 +930,7 @@ export function EntityDetailView({ id }: { id: string }) {
           {/* ============================================================ */}
           {/* RIGHT COLUMN: Main Content Flow (Wiki Standard)              */}
           {/* ============================================================ */}
-          <div className="min-w-0 flex-1 space-y-8">
+          <div className="min-w-0 flex-1 space-y-4">
             {/* Header Area */}
             <header className="space-y-4 pb-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -1036,10 +1036,10 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* Section 1: Overview & Summary                                */}
             {/* ============================================================ */}
             {/* key 随页签变化：切换时重挂载以重放 .mf-tabpanel 进入动画 */}
-            <div key={active} role="tabpanel" id={`panel-${active}`} aria-labelledby={`tab-${active}`} className="mf-tabpanel space-y-8">
+            <div key={active} role="tabpanel" id={`panel-${active}`} aria-labelledby={`tab-${active}`} className="mf-tabpanel space-y-4">
             {active === "overview" && (
-            <section id="overview" className="rounded-xl border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
-              <div className="flex items-center gap-2 border-b border-line-subtle pb-3">
+            <section id="overview" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
+              <div className="flex items-center gap-2 border-b border-line-subtle pb-2.5">
                 <BookOpen className="w-4 h-4 text-primary" strokeWidth={1.5} />
                 <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
                   {t("entity.page.overviewTitle")}
@@ -1168,8 +1168,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* Section 2: Staff & Credits (演职人员与创作者)                 */}
             {/* ============================================================ */}
             {active === "staff" && staffRelations.length > 0 && (
-              <section id="staff" className="rounded-xl border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
-                <div className="flex items-center justify-between border-b border-line-subtle pb-3">
+              <section id="staff" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
+                <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-primary" strokeWidth={1.5} />
                     <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
@@ -1223,8 +1223,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* Section 3: Contents & Tracklist (内容目录与曲目结构)          */}
             {/* ============================================================ */}
             {active === "contents" && children.length > 0 && (
-              <section id="contents" className="rounded-xl border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
-                <div className="flex items-center justify-between border-b border-line-subtle pb-3">
+              <section id="contents" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
+                <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
                   <div className="flex items-center gap-2">
                     <List className="w-4 h-4 text-primary" strokeWidth={1.5} />
                     <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
@@ -1320,8 +1320,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* Section 4: Releases & Occurrences (发行版本与收录情况)        */}
             {/* ============================================================ */}
             {active === "releases" && occurrences.length > 0 && (
-              <section id="releases" className="rounded-xl border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
-                <div className="flex items-center justify-between border-b border-line-subtle pb-3">
+              <section id="releases" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
+                <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
                   <div className="flex items-center gap-2">
                     <Disc className="w-4 h-4 text-primary" strokeWidth={1.5} />
                     <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
@@ -1396,8 +1396,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* Section 5: Relations & Graph (关联作品与图谱)                 */}
             {/* ============================================================ */}
             {active === "relations" && mediaRelations.length > 0 && (
-              <section id="relations" className="rounded-xl border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
-                <div className="flex items-center justify-between border-b border-line-subtle pb-3">
+              <section id="relations" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
+                <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
                   <div className="flex items-center gap-2">
                     <Network className="w-4 h-4 text-primary" strokeWidth={1.5} />
                     <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
@@ -1502,8 +1502,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* Section 7: Revisions (修订历史)                             */}
             {/* ============================================================ */}
             {active === "revisions" && (
-            <section id="revisions" className="rounded-xl border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
-              <div className="flex items-center justify-between border-b border-line-subtle pb-3">
+            <section id="revisions" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
+              <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4 text-primary" strokeWidth={1.5} />
                   <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">
@@ -1531,8 +1531,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* Community discussions & collections (below the tabs, not a tab)      */}
             {/* ============================================================ */}
             {communityEnabled && (
-            <section id="community" className="rounded-xl border border-line bg-surface p-5 sm:p-6 space-y-6 shadow-soft mt-8">
-              <div className="flex items-center justify-between border-b border-line-subtle pb-3">
+            <section id="community" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft mt-8">
+              <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-4 h-4 text-primary" strokeWidth={1.5} />
                   <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">

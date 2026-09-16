@@ -299,9 +299,9 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
   return (
     <section
       id="resources"
-      className={`rounded-xl border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-soft ${className || ""}`}
+      className={`rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft ${className || ""}`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle pb-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle pb-2.5">
         <div className="flex items-center gap-2">
           <HardDrive className="w-4 h-4 text-primary" strokeWidth={1.5} />
           <h2 className="font-display text-sm font-bold text-text-strong uppercase tracking-wider font-mono">

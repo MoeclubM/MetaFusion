@@ -366,9 +366,9 @@ function AdminInner() {
         <main key={activeTab} className="mf-tabpanel flex-1 min-w-0">
           <div className="space-y-4 [&>*:first-child]:mt-0">
           {activeTab === "overview" && (
-            <div className="space-y-6">
-              <div className="p-5 rounded-xl bg-surfaceSubtle border border-line-subtle">
-                <h2 className="text-base font-semibold text-text-strong mb-2">
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle">
+                <h2 className="text-base font-semibold text-text-strong mb-1.5">
                   {t("admin.console.sysOverview")}
                 </h2>
                 <p className="text-xs text-text-muted leading-relaxed">
@@ -689,8 +689,8 @@ function AdminInner() {
           )}
 
           {activeTab === "merge" && (
-            <div className="space-y-6">
-              <div className="p-5 rounded-xl bg-surfaceSubtle border border-line-subtle">
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle">
                 <h2 className="text-base font-semibold text-text-strong mb-1">
                   {t("admin.console.mergeTitle")}
                 </h2>
@@ -699,7 +699,7 @@ function AdminInner() {
                 </p>
               </div>
 
-              <form onSubmit={handleMergeSubmit} className="p-5 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-4 max-w-xl">
+              <form onSubmit={handleMergeSubmit} className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-4 max-w-xl">
                 <div>
                   <label className="block text-xs font-medium text-text-body mb-1">
                     {t("admin.console.sourceUuid")}
@@ -820,8 +820,8 @@ function AdminInner() {
           )}
 
           {activeTab === "users" && (
-            <div className="space-y-6">
-              <div className="p-5 rounded-xl bg-surfaceSubtle border border-line-subtle">
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle">
                 <h2 className="text-base font-semibold text-text-strong mb-1">
                   {t("admin.console.usersTitle")}
                 </h2>
@@ -830,7 +830,7 @@ function AdminInner() {
                 </p>
               </div>
 
-              <form onSubmit={handleCreateUser} className="p-5 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-4 max-w-md">
+              <form onSubmit={handleCreateUser} className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-4 max-w-md">
                 <h3 className="font-semibold text-text-strong text-xs">
                   {t("admin.console.createEditorTitle")}
                 </h3>
