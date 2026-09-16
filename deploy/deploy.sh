@@ -66,7 +66,7 @@ function print_usage() {
     echo "  retire          - 清理拆分前的遗留 schema 与临时表 (切流稳定后跑一次)"
     echo "  dev             - 启动热重载开发模式 (源码挂载，修改代码免构建秒级生效)"
     echo "  prod            - 完整生产模式冷启动"
-    echo "  pull            - 直接拉取 GHCR 预构建生产镜像并启动 (免本地编译)"
+    echo "  pull            - 拉取 GHCR 预构建镜像 (backend/frontend) 并启动；账号/互动/存储/文档站就地构建"
     echo "  migrate [cmd]   - 执行版本化数据库迁移 (up/down/status/force)"
     echo "  restart [svc]   - 快速重启容器 (不重编镜像)"
     echo "  prune           - 清理所有旧镜像与未使用的构建缓存 (释放磁盘)"
@@ -151,7 +151,12 @@ case "$ACTION" in
 
     pull)
         echo "📦 拉取预构建生产容器镜像 (GHCR)..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml pull
+        # --ignore-buildable：账号/互动/存储仍从兄弟仓库构建，镜像名是本地标签
+        #   （metafusion-auth:local 之类），去 registry 拉必然失败；跳过它们，
+        #   只拉 prod 覆盖里真正预构建的 backend / frontend。
+        # --ignore-pull-failures：单个镜像缺席（例如尚未发布的 docs-site）不该让整条
+        #   命令以非零码中断——后面的 up -d 会用本地镜像或就地构建兜底。
+        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml pull --ignore-buildable --ignore-pull-failures
         echo "🚀 启动数据库与核心基础设施..."
         docker compose $COMPOSE_ENV up -d postgres redis rustfs
         echo "🗄️ 执行数据库版本化迁移..."
