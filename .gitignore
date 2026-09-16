@@ -145,3 +145,11 @@ deploy/*.sql.bak
 # frontend/public/covers/ 为种子数据，保持入库；如需本地生成大图请用 /tmp
 /.playwright-cli
 /output
+
+# 一次性 / 补数据脚本不进库（2026-09-16 约定）：批量补数据、浏览器仿真、镜像搬运、
+# 远程执行这类脚本只在本机与服务器上用，改它们不必经过仓库；CI 用的 check_*.{py,mjs} 不在此列。
+scripts/data/
+scripts/sim/
+scripts/import_external.py
+scripts/mirror_external_images.py
+scripts/run_remote.py
