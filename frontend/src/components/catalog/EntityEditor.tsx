@@ -1,14 +1,14 @@
 "use client";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/I18nProvider";
-import { api, Entity, emptyEntity, kinds, local, Source } from "./api";
+import { api, Entity, emptyEntity, kinds as fallbackKinds, local, Source } from "./api";
 import { canPublishEntity } from "@/lib/permissions";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
-import { effectiveSchemeFields, getFieldName, matchSchemes } from "@/lib/definitions";
+import { effectiveSchemeFields, getFieldName, getKindName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
 import { CATALOG_LOCALES } from "@/components/editor/localeForm";
 
 /** 生效类型：实体自带 types 时原样用它（老实体不清空、行为不变）；
@@ -43,13 +43,19 @@ export function EntityEditor({
   initialEditNote?: string;
   initialSources?: Source[];
 }) {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
   const { definition, user } = useCatalog();
+  const { kinds: serverKinds } = useDefinitions();
   const router = useRouter();
   // definitions：定位字段等由它声明，避免编辑器写死字段码。
   const defs = definition?.document;
+  // 层级名与可选项：服务端 definitions.kinds 优先，服务端未给时才退回内置骨架清单，
+  // 字典只作名称兜底（缺键退原始码）；后台改骨架名/停用种类前端即跟随。
+  const kindLabel = (code: string) =>
+    getKindName(serverKinds, code, locale, tr(`catalog.kind.${code}`, code));
+  const kindOptions = useMemo(() => resolveKindOptions(serverKinds, fallbackKinds), [serverKinds]);
   const [e, setE] = useState<Entity>(() => ({
-    ...emptyEntity(initial?.kind || (initialKind && kinds.includes(initialKind) ? initialKind : undefined)),
+    ...emptyEntity(initial?.kind || (initialKind && kindOptions.includes(initialKind) ? initialKind : undefined)),
     ...initial,
     types: initial?.types || [],
     attributes: initial?.attributes || {},
@@ -324,9 +330,9 @@ export function EntityEditor({
                 setE({ ...emptyEntity(x.target.value), title: e.title })
               }
             >
-              {kinds.map((k) => (
+              {kindOptions.map((k) => (
                 <option key={k} value={k}>
-                  {t(`catalog.kind.${k}`)}
+                  {kindLabel(k)}
                 </option>
               ))}
             </select>
@@ -541,7 +547,7 @@ export function EntityEditor({
             return (
               <label key={f.code}>
                 {f.target_kinds && f.target_kinds.length > 0
-                  ? f.target_kinds.map((k) => t(`catalog.kind.${k}`)).join(" / ")
+                  ? f.target_kinds.map((k) => kindLabel(k)).join(" / ")
                   : t("catalog.parent")}
                 <EntityPicker
                   kinds={targets}

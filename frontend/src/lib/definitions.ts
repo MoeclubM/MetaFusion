@@ -327,6 +327,21 @@ export interface StructureRule {
   contents?: boolean;
 }
 
+/**
+ * resolveKindOptions：骨架层级的可选项——服务端 definitions.kinds 里未停用的种类。
+ * 服务端没给出 kinds（旧缓存或接口异常）时退回调用方提供的兜底清单，
+ * 这样后台改骨架名/停用种类时前端跟随，同时保留无 definitions 时的可用性。
+ */
+export function resolveKindOptions(
+  kinds: KindMap | null | undefined,
+  fallback: string[],
+): string[] {
+  const codes = Object.keys(kinds || {}).filter(
+    (code) => kinds![code]?.enabled !== false,
+  );
+  return codes.length > 0 ? codes : fallback;
+}
+
 export function getTypeName(
   defs: DynamicDefinitions | null | undefined,
   typeCode: string,

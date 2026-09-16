@@ -9,6 +9,7 @@
 import React, { useState } from "react";
 import { Ban, KeyRound, Pencil, Plus, Trash2 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
+import { resolveLocalizedName } from "@/lib/definitions";
 import { Modal } from "@/components/ui/Modal";
 import {
   createAdminGroup,
@@ -191,13 +192,10 @@ export function PermissionGroupsPanel({
                         {group.code}
                       </td>
                       <td className="py-2.5 px-3 text-text-body">
-                        {group.names?.[locale] ?? group.names?.["zh-CN"] ?? group.names?.["en-US"] ?? "—"}
+                        {resolveLocalizedName(group.names, locale, "—")}
                       </td>
                       <td className="py-2.5 px-3 text-text-muted max-w-xs">
-                        {group.descriptions?.[locale] ??
-                          group.descriptions?.["zh-CN"] ??
-                          group.descriptions?.["en-US"] ??
-                          "—"}
+                        {resolveLocalizedName(group.descriptions, locale, "—")}
                       </td>
                       <td className="py-2.5 px-3">
                         <div className="space-y-1.5">

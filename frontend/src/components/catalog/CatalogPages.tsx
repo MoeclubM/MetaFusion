@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, X } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { api, Entity, Relation, Source, kinds, local, title } from "./api";
+import { api, Entity, Relation, Source, kinds as fallbackKinds, local, title } from "./api";
+import { useDefinitions, getKindName, resolveKindOptions } from "@/lib/definitions";
 import { pickRecordEntry } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useCatalog } from "./CatalogProvider";
@@ -28,9 +29,15 @@ async function allEntities(query: string) {
   }
 }
 export function Browse() {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
   const titleOrder = useTitleDisplayOrder();
   const { definition, user } = useCatalog();
+  const { kinds: serverKinds } = useDefinitions();
+  // kind 展示名与可选项都来自服务端 definitions.kinds；服务端未给时才退回内置骨架清单，
+  // 字典只作名称兜底（缺键退原始码），后台改骨架名/停用种类前端即跟随。
+  const kindLabel = (code: string) =>
+    getKindName(serverKinds, code, locale, tr(`catalog.kind.${code}`, code));
+  const kindOptions = useMemo(() => resolveKindOptions(serverKinds, fallbackKinds), [serverKinds]);
   const [items, setItems] = useState<Entity[]>([]);
   const [q, setQ] = useState("");
   const [kind, setKind] = useState("");
@@ -93,9 +100,9 @@ export function Browse() {
           }}
         >
           <option value="">{t("catalog.allKinds")}</option>
-          {kinds.map((k) => (
+          {kindOptions.map((k) => (
             <option key={k} value={k}>
-              {t(`catalog.kind.${k}`)}
+              {kindLabel(k)}
             </option>
           ))}
         </select>
@@ -176,7 +183,7 @@ export function Browse() {
             )}
             <div className="cv-card-body">
               <span className="cv-eyebrow">
-                {t(`catalog.kind.${e.kind}`)}
+                {kindLabel(e.kind)}
               </span>
               <h2>
                 <Link href={`/catalog/${e.id}`}>{title(e, locale, titleOrder)}</Link>

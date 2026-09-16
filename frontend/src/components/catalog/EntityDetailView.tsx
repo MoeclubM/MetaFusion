@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -25,7 +25,7 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
-import { useDefinitions, getTypeName, getRelationName, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
+import { useDefinitions, getKindName, getTypeName, getRelationName, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
   getForumEntityUrl,
@@ -132,8 +132,13 @@ export function EntityDetailView({ id }: { id: string }) {
   const { t, tr, locale } = useI18n();
   const titleOrder = useTitleDisplayOrder();
   const { definition, user, modules } = useCatalog();
-  const { definitions: dynamicDefs } = useDefinitions();
+  const { definitions: dynamicDefs, kinds } = useDefinitions();
   const defs = definition?.document || dynamicDefs;
+  // kind 展示名统一走服务端 definitions.kinds，字典只作兜底（缺键退原始码，不显示裸 key）。
+  const kindLabel = useCallback(
+    (kind: string) => getKindName(kinds, kind, locale, tr(`catalog.kind.${kind}`, kind)),
+    [kinds, locale, tr],
+  );
   // ?edit=1 直达编辑模式（works 页"编辑"跳转的目标）。useSearchParams 必须
   // 在任何早退 return 之前调用（hook 顺序），页面组件需提供 Suspense 边界。
   const searchParams = useSearchParams();
@@ -897,7 +902,7 @@ export function EntityDetailView({ id }: { id: string }) {
         <header className="space-y-4 pb-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-mono font-bold tracking-wider">
-              {tr(`catalog.kind.${entity.kind}`, entity.kind)}
+              {kindLabel(entity.kind)}
             </span>
 
             {/* 头部徽章：主日期与载体格式的字段码由模板声明，不写死 edition_date/format */}
@@ -1024,7 +1029,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   </dt>
                   <dd className="font-medium text-text-strong flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-primary" />
-                    <span>{tr(`catalog.kind.${entity.kind}`, entity.kind)}</span>
+                    <span>{kindLabel(entity.kind)}</span>
                   </dd>
                 </div>
 
@@ -1179,7 +1184,7 @@ export function EntityDetailView({ id }: { id: string }) {
                           <Card tone="subtle" padding="none" className="aspect-[3/4] overflow-hidden">
                             <img
                               src={p.url}
-                              alt={p.caption?.[locale] || entity.title}
+                              alt={resolveLocalizedName(p.caption, locale, entity.title)}
                               className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-fast ease-soft"
                             />
                           </Card>
@@ -1381,7 +1386,7 @@ export function EntityDetailView({ id }: { id: string }) {
                       >
                         <div className="min-w-0 flex items-center gap-2.5">
                           <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-mono uppercase font-semibold shrink-0">
-                            {t("catalog.kind." + c.kind) || c.kind}
+                            {kindLabel(c.kind)}
                           </span>
                           <span className="font-medium text-xs sm:text-sm text-text-strong group-hover:text-primary truncate">
                             {title(c, locale, titleOrder)}

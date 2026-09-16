@@ -136,12 +136,11 @@ export default function DirectMessageModal({
                 </span>
                 <UserRoleBadge role={peerUser.role} t={t} />
               </div>
+              {/* 日期与时间跟随当前界面语言：只认 zh-CN/en-US 会把 zh-TW、ja-JP 用户当成英文格式 */}
               <span className="text-[10px] text-gray-400 font-mono flex items-center gap-1">
                 <Clock className="w-2.5 h-2.5" />
                 {t("users.profile.registeredAt")}:{" "}
-                {new Date(peerUser.created_at).toLocaleDateString(
-                  locale === "zh-CN" ? "zh-CN" : "en-US"
-                )}
+                {new Date(peerUser.created_at).toLocaleDateString(locale)}
               </span>
             </div>
           </div>
@@ -188,10 +187,10 @@ export default function DirectMessageModal({
                   </div>
                   <div className="flex items-center gap-1 mt-1 px-1 text-[10px] font-mono text-gray-500">
                     <span>
-                      {new Date(msg.created_at).toLocaleTimeString(
-                        locale === "zh-CN" ? "zh-CN" : "en-US",
-                        { hour: "2-digit", minute: "2-digit" }
-                      )}
+                      {new Date(msg.created_at).toLocaleTimeString(locale, {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </span>
                     {isMe && (
                       <span className="flex items-center" title={msg.is_read ? t("users.profile.read") : t("users.profile.unread")}>

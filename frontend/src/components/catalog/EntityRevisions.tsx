@@ -5,6 +5,7 @@ import { api, Entity } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { EntityEditor } from "./EntityEditor";
 import { canEditRevision, prepareRevisionRestore, revisionChanges } from "./revisionData";
+import { getKindName, useDefinitions } from "@/lib/definitions";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   GitCommit,
@@ -98,8 +99,12 @@ export function EntityRevisions({
   revisions: RevisionItem[];
   currentEntity?: any;
 }) {
-  const { t } = useI18n();
+  const { t, tr, locale } = useI18n();
   const { user } = useCatalog();
+  const { kinds } = useDefinitions();
+  // 结构字段名里的层级（work_id 等）：名称走服务端 definitions.kinds，字典只作兜底。
+  const kindLabel = (code: string) =>
+    getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
   const [restore, setRestore] = useState<{ entity: Entity; revision: RevisionItem } | null>(null);
   const [restoreBusy, setRestoreBusy] = useState(false);
   const [restoreError, setRestoreError] = useState("");
@@ -178,10 +183,10 @@ export function EntityRevisions({
         position: t("catalog.position"),
         number: t("catalog.number"),
         parent_id: t("catalog.parent"),
-        work_id: t("catalog.kind.work"),
-        release_id: t("catalog.kind.release"),
-        medium_id: t("catalog.kind.medium"),
-        content_unit_id: t("catalog.kind.content_unit"),
+        work_id: kindLabel("work"),
+        release_id: kindLabel("release"),
+        medium_id: kindLabel("medium"),
+        content_unit_id: kindLabel("content_unit"),
       };
       return known[field] || field;
     }

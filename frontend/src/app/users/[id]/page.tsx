@@ -8,6 +8,8 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { fetchApi, displayNameOf, toggleFavorite, FavoriteTargetType, catalogEntityHref } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
+import { getKindName, resolveKindOptions, useDefinitions } from "@/lib/definitions";
+import { kinds as fallbackKinds } from "@/components/catalog/api";
 import DirectMessageModal from "@/components/community/DirectMessageModal";
 import { UserRoleBadge } from "@/lib/roles";
 import { DiffViewer } from "@/components/editor/DiffViewer";
@@ -69,7 +71,12 @@ export default function UserDetailPage() {
   const initialTab = searchParams.get("tab") || "all";
 
   const { user: currentUser } = useAuth();
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
+  const { kinds } = useDefinitions();
+  // 收藏筛选与条目角标的层级名：服务端 definitions.kinds 优先，服务端未给时才退回内置
+  // 骨架清单，字典只作名称兜底（缺键退原始码）。
+  const kindLabel = (code: string) => getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
+  const kindOptions = resolveKindOptions(kinds, fallbackKinds);
 
   const tabs = [
     { id: "all", label: t("users.profile.tabs.all") },
@@ -237,7 +244,7 @@ export default function UserDetailPage() {
                   <Calendar className="w-3 h-3 text-emerald-500" />
                   <span>
                     {t("users.profile.registeredAt")}:{" "}
-                    {new Date(u.created_at).toLocaleDateString(locale === "zh-CN" ? "zh-CN" : "en-US", {
+                    {new Date(u.created_at).toLocaleDateString(locale, {
                       year: "numeric",
                       month: "2-digit",
                       day: "2-digit",
@@ -343,16 +350,7 @@ export default function UserDetailPage() {
           <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
             {[
               { id: "", label: t("users.profile.favFilterAll") },
-              ...([
-                "work",
-                "release",
-                "medium",
-                "track",
-                "agent",
-                "collection",
-                "content_unit",
-                "expression",
-              ] as FavoriteTargetType[]).map((k) => ({ id: k, label: t(`catalog.kind.${k}`) })),
+              ...(kindOptions as FavoriteTargetType[]).map((k) => ({ id: k, label: kindLabel(k) })),
             ].map((f) => (
               <button
                 key={f.id}
@@ -389,7 +387,7 @@ export default function UserDetailPage() {
               {items.map((it: FavoriteItem) => {
                 const href = catalogEntityHref(it.target_type, it.target_id);
                 const title = it.entity?.title || it.target_id;
-                const typeLabel = t(`catalog.kind.${it.target_type}`);
+                const typeLabel = kindLabel(it.target_type);
                 return (
                   <li
                     key={it.id}

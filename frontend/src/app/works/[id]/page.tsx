@@ -10,7 +10,7 @@ import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { fetchApi, ConnectedEntityItem, GraphNode, GraphLink } from "@/lib/api";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle, type CommunityPost } from "@/components/catalog/api";
-import { useDefinitions, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
+import { useDefinitions, getFieldName, getRelationName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -45,7 +45,7 @@ export default function WorkDirectoryPage() {
  const router = useRouter();
  const workId = params.id as string;
  const { user } = useAuth();
- const { t, locale } = useI18n();
+ const { t, tr, locale } = useI18n();
  const titleOrder = useTitleDisplayOrder();
 
  const [work, setWork] = useState<Entity | null>(null);
@@ -199,19 +199,12 @@ const releaseFacets = useMemo(
  .join(joiner);
  };
 
- // 关系类型本地化名：definitions 声明的名称按请求语言 → zh-CN → en-US 回退，缺失保留 code。
+ // 关系类型本地化名：统一走 getRelationName（服务端 definitions 优先，回退链含
+ // zh-TW / ja-JP，最后退关系码），不再自造只认 locale/zh-CN/en-US 的三档回退。
  // reverse=true 取 reverse_names：当前实体是关系终点时必须用反向名，否则
  // "改编自/被改编为""翻唱自/被翻唱为"这类成对关系会显示反。
- const relationName = (code: string, reverse = false): string => {
- const r = defs?.relations?.[code] as any;
- const names = reverse ? r?.reverse_names || r?.names : r?.names;
- if (names) {
- for (const key of [locale, "zh-CN", "en-US"]) {
- if (key && names[key]) return names[key];
- }
- }
- return code;
- };
+ const relationName = (code: string, reverse = false): string =>
+ getRelationName(defs, code, !reverse, locale);
 
  // 关联条目列表（GroupedRelations 消费）。
  const connected = useMemo<ConnectedEntityItem[]>(() => {
@@ -271,20 +264,36 @@ const releaseFacets = useMemo(
  }
  out.push(credit);
  } else if (r.source_id !== work.id) {
- // 登场角色：agent(角色) → work，方向与署名关系相反；番位优先 i18n 键（主角/配角/客串），
- // 未覆盖的番位回退 definitions 词表名。
+ // 登场角色：agent(角色) → work，方向与署名关系相反。
+ // 番位码读 attributes.character_rank：番位词表是 character_rank（main/supporting/guest/
+ // ensemble/narrator/cameo），attributes.role 属"内容用途"词表（primary/supplement/extra），
+ // 只在兼容早期数据时读，不当作番位语义。
  const src = relEntities[r.source_id];
  if (!src || src.kind !== "agent") continue;
- const rank = attrText(r.attributes?.role);
- const rankKey = rank ? `entity.characterRank.${rank}` : "";
- const rankLabel = rank && t(rankKey) !== rankKey ? t(rankKey) : rank ? getTermName(defs, "role", rank, locale) : "";
+ const rankFromVocab = attrText(r.attributes?.character_rank);
+ const rankCode = rankFromVocab || attrText(r.attributes?.role);
+ // 番位名以服务端 character_rank 词表为准（四语、后台改词即刻生效），字典键只作兜底，
+ // 历史 role 码不进 role 词表（语义不同），最后退原始码。
+ const rankTerm = rankFromVocab ? getTermName(defs, "character_rank", rankCode, locale) : "";
+ const rankLabel = !rankCode
+ ? ""
+ : rankTerm && rankTerm !== rankCode
+ ? rankTerm
+ : tr(`entity.characterRank.${rankCode}`, rankCode);
  out.push({
  id: r.id,
  relationType: r.type,
  relationLabel: relationName(r.type),
  creditRole: attrText(r.attributes?.credit_role) || undefined,
  agent: { id: src.id!, name: src.title || "", avatarUrl: src.pictures?.[0]?.url, types: src.types || [] },
- character: { id: src.id!, name: src.title || "", avatarUrl: src.pictures?.[0]?.url, rankLabel: rankLabel && rankLabel !== rank ? rankLabel : undefined },
+ // rankCode 供展示层按数据码判定（主角 = main），不去嗅探本地化文案。
+ character: {
+ id: src.id!,
+ name: src.title || "",
+ avatarUrl: src.pictures?.[0]?.url,
+ rankLabel: rankLabel && rankLabel !== rankCode ? rankLabel : undefined,
+ rankCode: rankCode || undefined,
+ },
  });
  }
  }

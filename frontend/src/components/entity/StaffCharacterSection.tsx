@@ -24,12 +24,15 @@ export interface StaffCredit {
   creditRole?: string;
   agent: StaffCreditAgent;
   /** 配音关系指向的角色，或登场角色（character_in）自身。 */
-  character?: { id?: string; name: string; avatarUrl?: string; rankLabel?: string };
+  character?: { id?: string; name: string; avatarUrl?: string; rankLabel?: string; rankCode?: string };
   /** 配音语言（关系属性），同一角色的多版配音据此区分。 */
   language?: string;
   /** 适用篇目/版本（关系属性 context 的展示名），多版配音据此区分。 */
   contextLabel?: string;
 }
+
+/** 主角番位码：character_rank 词表用 main；早期字典键 era 用过 primary（同一含义）。 */
+const MAIN_CHARACTER_RANKS = new Set(["main", "primary"]);
 
 interface StaffCharacterSectionProps {
   credits: StaffCredit[];
@@ -51,6 +54,8 @@ interface CharacterCardItem {
     name: string;
     avatar_url?: string;
     roleBadge: string;
+    /** 番位数据码（主角 = main）：高亮判定按码，不看本地化文案。 */
+    rankCode?: string;
   };
   voices: CharacterVoice[];
 }
@@ -98,6 +103,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
             name: c.character.name,
             avatar_url: c.character.avatarUrl,
             roleBadge: badgeOf(c),
+            rankCode: c.character.rankCode,
           },
           voices: [],
         };
@@ -123,6 +129,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
         if (!card.character.avatar_url && c.character.avatarUrl) card.character.avatar_url = c.character.avatarUrl;
         // 登场关系带番位（主角/配角），比配音关系声明的职位更能代表角色定位。
         if (c.character.rankLabel) card.character.roleBadge = c.character.rankLabel;
+        if (c.character.rankCode) card.character.rankCode = c.character.rankCode;
       }
     }
     return Array.from(cardMap.values());
@@ -240,7 +247,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                           </div>
                           <span
                             className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono tracking-wide ${
-                              item.character.roleBadge.includes("主角") || item.character.roleBadge.includes("Lead")
+                              MAIN_CHARACTER_RANKS.has(item.character.rankCode || "")
                                 ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium"
                                 : "bg-black/[0.04] dark:bg-white/[0.06] text-gray-500"
                             }`}

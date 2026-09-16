@@ -3,10 +3,11 @@
 import React, { useEffect, useState } from "react";
 import { Layers, Plus, Eye, Edit2, Trash2 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { DynamicNamesEditor, MultilingualBadges } from "@/components/common/DynamicNamesEditor";
+import { DynamicNamesEditor, MultilingualBadges, missingRequiredLocales } from "@/components/common/DynamicNamesEditor";
 import { Modal } from "@/components/ui/Modal";
 import { fetchDefinitions } from "@/lib/definitions";
 import type { DynamicDefinitions } from "@/lib/definitions";
+import { localizeCatalogError } from "@/lib/catalogErrors";
 
 export interface ShelfQuery {
   types?: string[];
@@ -133,9 +134,8 @@ export function ShelvesTab() {
     e.preventDefault();
     setError(null);
     const names = { ...(form.names || {}) };
-    const nameZh = (names["zh-CN"] || "").trim();
-    const nameEn = (names["en-US"] || "").trim();
-    if (!form.slug?.trim() || !nameZh || !nameEn) {
+    // 四语齐备（服务端有同名硬校验）：先在本地拦一次，省掉注定失败的请求。
+    if (!form.slug?.trim() || missingRequiredLocales(names).length > 0) {
       setError(t("admin.shelves.required"));
       return;
     }
@@ -179,7 +179,7 @@ export function ShelvesTab() {
       setEditing(null);
       loadData();
     } catch (err: any) {
-      setError(err.message || t("admin.shelves.saveFailed"));
+      setError(err.message ? localizeCatalogError(err.message, t) : t("admin.shelves.saveFailed"));
     }
   };
 

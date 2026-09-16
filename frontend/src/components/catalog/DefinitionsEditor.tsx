@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   api,
@@ -8,11 +8,16 @@ import {
   Field,
   Names,
   Source,
-  kinds,
+  kinds as fallbackKinds,
   local,
 } from "./api";
 import { useCatalog } from "./CatalogProvider";
-import { refreshDefinitions } from "@/lib/definitions";
+import {
+  getKindName,
+  refreshDefinitions,
+  resolveKindOptions,
+  useDefinitions,
+} from "@/lib/definitions";
 import { Evidence, ErrorMessage, NamesEditor } from "./Fields";
 
 const newField = (): Field => ({ names: {}, type: "text", enabled: true });
@@ -148,8 +153,20 @@ function FieldDefinition({
   /** 所属 group 的子字段集合：number 子字段可从中选区间起点。 */
   groupFields?: Record<string, Field>;
 }) {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
+  const { kinds: serverKinds } = useDefinitions();
   const patch = (v: Partial<Field>) => onChange({ ...value, ...v });
+  // 允许种类：可选项取服务端 definitions.kinds（未停用），名称服务端优先、字典兜底。
+  const kindNames = useMemo(
+    () =>
+      Object.fromEntries(
+        resolveKindOptions(serverKinds, fallbackKinds).map((k) => [
+          k,
+          getKindName(serverKinds, k, locale, tr(`catalog.kind.${k}`, k)),
+        ]),
+      ),
+    [serverKinds, locale, tr],
+  );
   return (
     <>
       <NamesEditor value={value.names} onChange={(names) => patch({ names })} />
@@ -295,9 +312,7 @@ function FieldDefinition({
       {value.type === "entity" && (
         <Checks
           label={t("catalog.allowedKinds")}
-          values={Object.fromEntries(
-            kinds.map((k) => [k, t(`catalog.kind.${k}`)]),
-          )}
+          values={kindNames}
           selected={value.kinds || []}
           onChange={(kinds) => patch({ kinds })}
         />
@@ -332,8 +347,9 @@ function FieldDefinition({
   );
 }
 export function DefinitionsEditor() {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
   const { definition, user, refresh, modules } = useCatalog();
+  const { kinds: serverKinds } = useDefinitions();
   const [d, setD] = useState<Definitions>();
   const [base, setBase] = useState(0);
   const [versions, setVersions] = useState<Definition[]>([]);
@@ -378,8 +394,12 @@ export function DefinitionsEditor() {
     Object.fromEntries(
       Object.entries(items).map(([k, v]) => [k, local(v.names, locale, "", k)]),
     );
+  // 骨架层级名：服务端 definitions.kinds 优先，字典只作兜底（缺键退原始码）。
   const kindNames = Object.fromEntries(
-    kinds.map((k) => [k, t(`catalog.kind.${k}`)]),
+    resolveKindOptions(serverKinds, fallbackKinds).map((k) => [
+      k,
+      getKindName(serverKinds, k, locale, tr(`catalog.kind.${k}`, k)),
+    ]),
   );
   return (
     <>

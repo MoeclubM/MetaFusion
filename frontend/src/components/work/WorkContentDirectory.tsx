@@ -6,7 +6,7 @@ import { ListTree } from "lucide-react";
 import { Entity, title as entityTitle } from "@/components/catalog/api";
 import { fetchAllPages } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
-import { getTermName, useDefinitions } from "@/lib/definitions";
+import { getKindName, getTermName, useDefinitions } from "@/lib/definitions";
 // 日期值的呈现与信息面板共用同一实现（本地化/图例口径一致，不另写格式化）。
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 
@@ -109,7 +109,10 @@ export function componentEntries(
 
 export function WorkContentDirectory({ workId, directory = "tree" }: WorkContentDirectoryProps) {
   const { t, tr, locale } = useI18n();
-  const { definitions: defs } = useDefinitions();
+  const { definitions: defs, kinds } = useDefinitions();
+  // 条目角标的层级名：服务端 definitions.kinds 优先，字典只作兜底（缺键退原始码）。
+  const kindLabel = (code: string) =>
+    getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
   const [items, setItems] = useState<DirectoryEntry[]>([]);
   const [components, setComponents] = useState<DirectoryEntry[]>([]);
   const [includedIn, setIncludedIn] = useState<DirectoryEntry[]>([]);
@@ -209,7 +212,7 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
             </span>
           )}
           <span className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
-            {isCollectionOrWork ? t(`catalog.kind.${entry.kind}`) : roleLabel(role)}
+            {isCollectionOrWork ? kindLabel(entry.kind) : roleLabel(role)}
           </span>
         </div>,
         ...renderEntries(entry.id, depth + 1),
@@ -235,7 +238,7 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
           {entry.title}
         </Link>
         <span className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
-          {t(`catalog.kind.${entry.kind}`)}
+          {kindLabel(entry.kind)}
         </span>
       </div>
     ));

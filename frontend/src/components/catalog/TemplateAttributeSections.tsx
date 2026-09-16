@@ -259,14 +259,14 @@ function localizedValue(v: any, locale: string): string {
   return "";
 }
 
-// 时长字段名不写死：从类型模板声明的字段里找 number 类型且单位含"秒"的字段。
+// 时长字段按数据契约的字段码 duration 认定：单位（unit）是可翻译文案，
+// 一旦被改成英文/日文就不含"秒"，按它嗅探会随界面语言失效；找不到就返回空串。
 export function durationFieldCode(defs: DynamicDefinitions | null | undefined, typeCodes: string[]): string {
   for (const tc of typeCodes) {
     const tpl = defs?.templates?.[defs?.types?.[tc]?.template || ""];
     for (const sec of tpl?.sections || []) {
       for (const f of sec.fields || []) {
-        const d: any = defs?.fields?.[f];
-        if (d?.type === "number" && d?.unit && JSON.stringify(d.unit).includes("秒")) return f;
+        if (f === "duration") return f;
       }
     }
   }

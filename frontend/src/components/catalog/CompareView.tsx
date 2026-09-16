@@ -6,7 +6,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, mapLimit, local, title } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { FieldValue, EntityLink, ErrorMessage } from "./Fields";
-import { useDefinitions, getFieldName, getTermName } from "@/lib/definitions";
+import { useDefinitions, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import { computeAlignment, compareSemanticsOf } from "./compareAlignment";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
@@ -250,7 +250,8 @@ export function Compare({ ids }: { ids: string }) {
     if (Array.isArray(value)) return t("release.detail.listCount", { count: value.length });
     if (typeof value === "object") {
       const rec = value as Record<string, string>;
-      return rec[locale] || rec[locale.split("-")[0]] || rec["zh-CN"] || rec["en-US"] || "—";
+      // 多语言属性值走统一回退链（含 zh-TW / ja），不再自造只认 locale/zh-CN/en-US 的三档实现。
+      return resolveLocalizedName(rec, locale, "—");
     }
     return String(value);
   };

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/lib/themeContext";
 import { GraphNode, GraphLink, catalogEntityHref } from "@/lib/api";
+import { useDefinitions, getKindName } from "@/lib/definitions";
 import Link from "next/link";
 import {
   ZoomIn,
@@ -52,11 +53,17 @@ interface LayoutNode extends GraphNode {
 }
 
 // 实体类型视觉主题配置与本地化辅助（固定八实体骨架，支持明暗双模式高保真渲染）
-const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = false) => {
+// 展示名由调用方解析（服务端 definitions.kinds 优先、前端字典兜底）：本函数只按 kind 码
+// 决定配色与图标，名称不再从字典直取，避免后台改了骨架名前端不跟随。
+const getEntityTypeTheme = (
+  type: string,
+  labelOf: (kind: string) => string,
+  isDark = false,
+) => {
   switch (type) {
     case "work":
       return {
-        label: t("catalog.kind.work"),
+        label: labelOf(type),
         primaryColor: isDark ? "#38bdf8" : "#0284c7",
         bgFill: isDark ? "#0c4a6e" : "#e0f2fe",
         textFill: isDark ? "#7dd3fc" : "#0369a1",
@@ -66,7 +73,7 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
       };
     case "agent":
       return {
-        label: t("catalog.kind.agent"),
+        label: labelOf(type),
         primaryColor: isDark ? "#34d399" : "#059669",
         bgFill: isDark ? "#064e3b" : "#dcfce7",
         textFill: isDark ? "#86efac" : "#15803d",
@@ -76,7 +83,7 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
       };
     case "collection":
       return {
-        label: t("catalog.kind.collection"),
+        label: labelOf(type),
         primaryColor: isDark ? "#818cf8" : "#4f46e5",
         bgFill: isDark ? "#312e81" : "#e0e7ff",
         textFill: isDark ? "#a5b4fc" : "#4338ca",
@@ -86,7 +93,7 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
       };
     case "content_unit":
       return {
-        label: t("catalog.kind.content_unit"),
+        label: labelOf(type),
         primaryColor: isDark ? "#2dd4bf" : "#0d9488",
         bgFill: isDark ? "#134e4a" : "#ccfbf1",
         textFill: isDark ? "#5eead4" : "#0f766e",
@@ -96,7 +103,7 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
       };
     case "expression":
       return {
-        label: t("catalog.kind.expression"),
+        label: labelOf(type),
         primaryColor: isDark ? "#f472b6" : "#db2777",
         bgFill: isDark ? "#831843" : "#fce7f3",
         textFill: isDark ? "#f9a8d4" : "#be185d",
@@ -106,7 +113,7 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
       };
     case "release":
       return {
-        label: t("catalog.kind.release"),
+        label: labelOf(type),
         primaryColor: isDark ? "#fbbf24" : "#d97706",
         bgFill: isDark ? "#78350f" : "#ffedd5",
         textFill: isDark ? "#fed7aa" : "#c2410c",
@@ -116,7 +123,7 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
       };
     case "medium":
       return {
-        label: t("catalog.kind.medium"),
+        label: labelOf(type),
         primaryColor: isDark ? "#c084fc" : "#9333ea",
         bgFill: isDark ? "#581c87" : "#f3e8ff",
         textFill: isDark ? "#d8b4fe" : "#7e22ce",
@@ -126,7 +133,7 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
       };
     case "track":
       return {
-        label: t("catalog.kind.track"),
+        label: labelOf(type),
         primaryColor: isDark ? "#fb923c" : "#ea580c",
         bgFill: isDark ? "#7c2d12" : "#ffedd5",
         textFill: isDark ? "#fdba74" : "#c2410c",
@@ -136,7 +143,7 @@ const getEntityTypeTheme = (type: string, t: (k: string) => string, isDark = fal
       };
     default:
       return {
-        label: type,
+        label: labelOf(type),
         primaryColor: isDark ? "#94a3b8" : "#64748b",
         bgFill: isDark ? "#27272a" : "#f1f5f9",
         textFill: isDark ? "#e4e4e7" : "#475569",
@@ -232,8 +239,14 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   title,
   headerRightExtra,
 }) => {
-  const { t } = useI18n();
+  const { t, tr, locale } = useI18n();
+  const { kinds } = useDefinitions();
   const { resolvedMode } = useTheme();
+  // kind 展示名：服务端 definitions.kinds 优先，字典只作兜底，字典缺键时退原始码。
+  const kindLabel = useCallback(
+    (kind: string) => getKindName(kinds, kind, locale, tr(`catalog.kind.${kind}`, kind)),
+    [kinds, locale, tr],
+  );
   const isDark = resolvedMode === "dark";
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1283,7 +1296,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                 const isSelected = selectedNode?.id === node.id;
                 const isHovered = hoveredNodeId === node.id;
                 const r = node.radius;
-                const theme = getEntityTypeTheme(node.type, t, isDark);
+                const theme = getEntityTypeTheme(node.type, kindLabel, isDark);
 
                 const typeLabel = theme.label;
                 const typeBadgeWidth = Math.max(34, typeLabel.length * 11 + 10);
@@ -1503,10 +1516,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
               <div className="flex items-center gap-1.5 mb-1">
                 <span
                   className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                    getEntityTypeTheme(selectedNode.type, t, isDark).badgeBgClass
+                    getEntityTypeTheme(selectedNode.type, kindLabel, isDark).badgeBgClass
                   }`}
                 >
-                  {getEntityTypeTheme(selectedNode.type, t, isDark).label}
+                  {getEntityTypeTheme(selectedNode.type, kindLabel, isDark).label}
                 </span>
                 {selectedNode.id === centerEntityId && (
                   <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, Field, local, Names, Source, title } from "./api";
 import { useCatalog } from "./CatalogProvider";
+import { getKindName, useDefinitions } from "@/lib/definitions";
 export function NamesEditor({
   value,
   onChange,
@@ -41,7 +42,11 @@ export function EntityPicker({
   types?: string[];
   query?: string;
 }) {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
+  const { kinds: serverKinds } = useDefinitions();
+  // 候选行的层级名：服务端 definitions.kinds 优先，字典只作兜底（缺键退原始码）。
+  const kindLabel = (code: string) =>
+    getKindName(serverKinds, code, locale, tr(`catalog.kind.${code}`, code));
   const [search, setSearch] = useState("");
   const [items, setItems] = useState<Entity[]>([]);
   const [selected, setSelected] = useState<Entity>();
@@ -117,7 +122,7 @@ export function EntityPicker({
         )}
         {items.map((x) => (
           <option key={x.id} value={x.id}>
-            {title(x, locale)} · {t(`catalog.kind.${x.kind}`)}
+            {title(x, locale)} · {kindLabel(x.kind)}
           </option>
         ))}
       </select>

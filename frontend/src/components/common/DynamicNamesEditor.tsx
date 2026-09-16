@@ -8,17 +8,52 @@ export interface MultilingualNames {
   [langCode: string]: string;
 }
 
-const COMMON_LANGUAGES = [
+interface NameLocalePreset {
+  code: string;
+  label: string;
+  /** 等价键名：definitions 的历史数据里日文可能存成 ja。 */
+  aliases?: string[];
+}
+
+// 四语（zh-CN / zh-TW / ja-JP / en-US）必须排在最前：下面的快捷按钮只渲染前 4 个候选，
+// 四语必须一点即得；且语种码要与 definitions 的键一致——日文是 ja-JP，不是 ja。
+const COMMON_LANGUAGES: NameLocalePreset[] = [
   { code: "zh-CN", label: "简体中文" },
-  { code: "en-US", label: "English" },
-  { code: "ja", label: "日本語" },
-  { code: "ko", label: "한국어" },
   { code: "zh-TW", label: "繁體中文" },
+  { code: "ja-JP", label: "日本語", aliases: ["ja"] },
+  { code: "en-US", label: "English" },
+  { code: "ko", label: "한국어" },
   { code: "fr", label: "Français" },
   { code: "de", label: "Deutsch" },
   { code: "es", label: "Español" },
   { code: "ru", label: "Русский" },
 ];
+
+/**
+ * 四语齐备判据（与后端 four_locale_names_required 同口径）：
+ * zh-CN / zh-TW / en-US 必须非空；日文允许 ja 或 ja-JP——两种键名在存量数据里都存在。
+ * 返回缺失的语种码，供调用方决定提示文案。
+ */
+export function missingRequiredLocales(names?: MultilingualNames): string[] {
+  const values = names || {};
+  const filled = (code: string) => String(values[code] ?? "").trim() !== "";
+  const missing = ["zh-CN", "zh-TW", "en-US"].filter((code) => !filled(code));
+  if (!filled("ja-JP") && !filled("ja")) missing.push("ja-JP");
+  return missing;
+}
+
+/** 语种码归一：输入 ja / JA 都落成 definitions 的 ja-JP，避免写出 ja-jp、zh-tw 这类对不上服务端校验的键。 */
+function normalizeLocaleCode(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "";
+  const lower = trimmed.toLowerCase();
+  const preset = COMMON_LANGUAGES.find(
+    (l) =>
+      l.code.toLowerCase() === lower ||
+      (l.aliases || []).some((a) => a.toLowerCase() === lower)
+  );
+  return preset ? preset.code : trimmed;
+}
 
 interface DynamicNamesEditorProps {
   value?: MultilingualNames;
@@ -54,7 +89,7 @@ export function DynamicNamesEditor({
   };
 
   const handleAdd = (code: string) => {
-    const trimmed = code.trim();
+    const trimmed = normalizeLocaleCode(code);
     if (!trimmed || currentNames[trimmed] !== undefined) return;
     onChange({ ...currentNames, [trimmed]: "" });
     setNewLangCode("");
@@ -90,7 +125,9 @@ export function DynamicNamesEditor({
           </div>
         ) : (
           existingCodes.map((code) => {
-            const preset = COMMON_LANGUAGES.find((l) => l.code === code);
+            const preset = COMMON_LANGUAGES.find(
+              (l) => l.code === code || (l.aliases || []).some((a) => a === code)
+            );
             return (
               <div
                 key={code}
@@ -156,7 +193,7 @@ export function DynamicNamesEditor({
               autoFocus
               placeholder={t("multilingual.langCodePlaceholder")}
               value={newLangCode}
-              onChange={(e) => setNewLangCode(e.target.value.toLowerCase())}
+              onChange={(e) => setNewLangCode(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();

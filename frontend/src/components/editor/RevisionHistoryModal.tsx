@@ -5,6 +5,7 @@ import { X } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity } from "@/components/catalog/api";
 import { EntityRevisions, RevisionItem } from "@/components/catalog/EntityRevisions";
+import { getKindName, useDefinitions } from "@/lib/definitions";
 
 interface Props {
   isOpen: boolean;
@@ -16,7 +17,8 @@ interface Props {
 
 // 专用作品页与通用详情共用历史展示、对比与还原流程。
 export function RevisionHistoryModal({ isOpen, onClose, targetType, targetId, entityTitle }: Props) {
-  const { t } = useI18n();
+  const { t, tr, locale } = useI18n();
+  const { kinds } = useDefinitions();
   const [revisions, setRevisions] = useState<RevisionItem[]>([]);
   const [entity, setEntity] = useState<Entity>();
   const [loading, setLoading] = useState(false);
@@ -51,7 +53,10 @@ export function RevisionHistoryModal({ isOpen, onClose, targetType, targetId, en
         <div className="flex items-center justify-between p-4 border-b border-line">
           <div>
             <h2 id="revision-dialog-title" className="text-sm font-bold">{t("editor.history.title")}</h2>
-            <p className="text-xs text-gray-500">{entityTitle} · {t(`catalog.kind.${targetType}`)}</p>
+            <p className="text-xs text-gray-500">
+              {entityTitle} ·{" "}
+              {getKindName(kinds, targetType, locale, tr(`catalog.kind.${targetType}`, targetType))}
+            </p>
           </div>
           <button type="button" onClick={onClose} aria-label={t("revisions.close")} className="p-2">
             <X className="w-4 h-4" />

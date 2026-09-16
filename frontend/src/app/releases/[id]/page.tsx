@@ -12,6 +12,7 @@ import {
   getFieldName,
   getKindName,
   getTermName,
+  resolveLocalizedName,
 } from "@/lib/definitions";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { PageShell } from "@/components/ui/PageShell";
@@ -93,7 +94,8 @@ function localizedText(v: unknown, locale: string): string {
   if (typeof v === "string") return v;
   if (v && typeof v === "object") {
     const rec = v as Record<string, string>;
-    return rec[locale] || rec[locale.split("-")[0]] || rec["zh-CN"] || rec["en-US"] || rec["en"] || "";
+    // 统一回退链：精确语种 → 短码 → zh-CN → zh-TW → ja → en-US（此前缺繁中/日文两档）。
+    return resolveLocalizedName(rec, locale, "");
   }
   return "";
 }

@@ -7,7 +7,8 @@ import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DefinitionsEditor } from "@/components/catalog/DefinitionsEditor";
 import { CatalogProvider } from "@/components/catalog/CatalogProvider";
-import { useDefinitions, getTypeName } from "@/lib/definitions";
+import { useDefinitions, getKindName, getTypeName, resolveKindOptions } from "@/lib/definitions";
+import { kinds as fallbackKinds } from "@/components/catalog/api";
 import { PageContainer } from "@/components/ui/PageShell";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
@@ -56,7 +57,12 @@ function AdminInner() {
   const { t, tr, locale } = useI18n();
   const router = useRouter();
 
-  const { definitions: defs } = useDefinitions();
+  const { definitions: defs, kinds } = useDefinitions();
+
+  // 层级名与可选项：服务端 definitions.kinds 优先，服务端未给时退回内置骨架清单，
+  // 字典只作名称兜底（缺键退原始码）。
+  const kindLabel = (code: string) => getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
+  const kindOptions = resolveKindOptions(kinds, fallbackKinds);
 
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [stats, setStats] = useState({
@@ -486,8 +492,8 @@ function AdminInner() {
                     className="w-full py-1.5 px-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-body focus:border-primary outline-none"
                   >
                     <option value="all">{t("catalog.kind.all")}</option>
-                    {["work", "release", "agent", "collection", "content_unit", "expression", "medium", "track"].map((k) => (
-                      <option key={k} value={k}>{tr(`catalog.kind.${k}`, k)}</option>
+                    {kindOptions.map((k) => (
+                      <option key={k} value={k}>{kindLabel(k)}</option>
                     ))}
                   </select>
                 </div>
@@ -543,7 +549,7 @@ function AdminInner() {
                           </td>
                           <td className="py-2.5 px-3">
                             <span className="px-1.5 py-0.5 rounded bg-surfaceSubtle text-[10px] font-mono">
-                              {tr(`catalog.kind.${e.kind}`, e.kind)}
+                              {kindLabel(e.kind)}
                             </span>
                           </td>
                           <td className="py-2.5 px-3">

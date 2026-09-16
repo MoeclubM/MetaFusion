@@ -41,6 +41,7 @@ import { Entity, fetchAllPages, title } from "@/components/catalog/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { pickRecordTitle } from "@/lib/titles";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
+import { getKindName, getTermName, getTypeName, useDefinitions } from "@/lib/definitions";
 
 interface Props {
   isOpen: boolean;
@@ -89,9 +90,22 @@ export function OmniImportModal({
   initialEntityType = "work",
 }: Props) {
   const { user } = useAuth();
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
+  const { definitions: defs, kinds } = useDefinitions();
+  // 篇目用途名以 definitions 的 entry_role 词表为准（后台改词即刻生效），字典只作兜底；
+  // 只看字典时 OP / ED / 预告会显示成同一个「附加内容」。
+  const entryRoleLabel = (code: string) => {
+    const name = getTermName(defs, "entry_role", code, locale);
+    return name !== code ? name : tr(`catalog.contents.role.${code}`, code);
+  };
   const router = useRouter();
   const titleOrder = useTitleDisplayOrder();
+
+  // 预览条目的层级名与业务类型名都取服务端 definitions；字典只作层级名兜底，
+  // 类型名缺定义时退回原始码（显示码总好过空白，但不是首选）。
+  const kindLabel = (code: string) =>
+    getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
+  const typeLabel = (code: string) => getTypeName(defs, code, locale);
 
   // 实体类型切换 (Work / Artist / Organization / Character)
   const [entityType, setEntityType] = useState<"work" | "artist" | "organization" | "character">(initialEntityType);
@@ -931,7 +945,9 @@ export function OmniImportModal({
                               {t("catalog.contents.unitBadge")}
                             </span>
                           )}
-                          {entry.entry_role && <span className="text-xs text-gray-500">{t(`catalog.contents.role.${entry.entry_role}`)}</span>}
+                          {entry.entry_role && (
+                            <span className="text-xs text-gray-500">{entryRoleLabel(entry.entry_role)}</span>
+                          )}
                           {!isUnit && workExpressions.length > 0 && (() => {
                             const suggestion = suggestExpression(
                               pickRecordTitle(locale, entry.translations, entry.title),
@@ -1357,7 +1373,8 @@ export function OmniImportModal({
                                         {title(ar, locale)}
                                       </div>
                                       <div className="text-[10px] text-gray-400 truncate">
-                                        {t(`catalog.kind.${ar.kind}`)}{ar.types?.[0] ? ` · ${ar.types[0]}` : ""}
+                                        {kindLabel(ar.kind)}
+                                        {ar.types?.[0] ? ` · ${typeLabel(ar.types[0])}` : ""}
                                       </div>
                                     </div>
                                     <Check className="w-3.5 h-3.5 text-primary shrink-0 opacity-0 hover:opacity-100" />

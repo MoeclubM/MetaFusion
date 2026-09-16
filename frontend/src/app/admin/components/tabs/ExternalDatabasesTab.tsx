@@ -10,11 +10,17 @@ import {
   ExternalDatabaseDefinition,
 } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
-import { DynamicNamesEditor, MultilingualBadges } from "@/components/common/DynamicNamesEditor";
+import { DynamicNamesEditor, MultilingualBadges, missingRequiredLocales } from "@/components/common/DynamicNamesEditor";
 import { Modal } from "@/components/ui/Modal";
+import { getKindName, resolveKindOptions, useDefinitions } from "@/lib/definitions";
+import { kinds as fallbackKinds } from "@/components/catalog/api";
+import { localizeCatalogError } from "@/lib/catalogErrors";
 
 export function ExternalDatabasesTab() {
-  const { t } = useI18n();
+  const { t, tr, locale } = useI18n();
+  const { kinds: serverKinds } = useDefinitions();
+  // 适用范围候选与显示名都取服务端 kinds（后台停用的骨架不再出现），字典只作兜底。
+  const kindOptions = resolveKindOptions(serverKinds, fallbackKinds);
   const [items, setItems] = useState<ExternalDatabaseDefinition[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingItem, setEditingItem] = useState<ExternalDatabaseDefinition | null>(null);
@@ -87,12 +93,10 @@ export function ExternalDatabasesTab() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    // names 全语言回写：zh-CN/en-US 必填，zh-TW/ja-JP 选填。
+    // names 全语言回写：四语齐备是硬约束（与后端 four_locale_names_required 同一口径）。
     const names = { ...(form.names || {}) };
-    const nameZh = (names["zh-CN"] || "").trim();
-    const nameEn = (names["en-US"] || "").trim();
-    if (!nameZh || !nameEn) {
-      setError(t("admin.shelves.required"));
+    if (missingRequiredLocales(names).length > 0) {
+      setError(t("admin.names.fourLocaleRequired"));
       return;
     }
 
@@ -108,7 +112,8 @@ export function ExternalDatabasesTab() {
       }
       loadData();
     } catch (err: any) {
-      setError(err.message || (editingItem ? t("admin.extdb.updateFailed") : t("admin.extdb.createFailed")));
+      const fallback = editingItem ? t("admin.extdb.updateFailed") : t("admin.extdb.createFailed");
+      setError(err.message ? localizeCatalogError(err.message, t) : fallback);
     }
   };
 
@@ -135,7 +140,7 @@ export function ExternalDatabasesTab() {
       });
       loadData();
     } catch (err: any) {
-      setError(err.message || t("admin.extdb.updateFailed"));
+      setError(err.message ? localizeCatalogError(err.message, t) : t("admin.extdb.updateFailed"));
     }
   };
 
@@ -330,9 +335,9 @@ export function ExternalDatabasesTab() {
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
                 className="w-full bg-surface border border-theme rounded px-2.5 py-1.5 text-xs text-foreground font-mono focus:border-sky-400 outline-none"
               >
-                {["all", "agent", "collection", "work", "content_unit", "expression", "release", "medium", "track"].map((k) => (
+                {["all", ...kindOptions].map((k) => (
                   <option key={k} value={k}>
-                    {t(`catalog.kind.${k}`)}
+                    {getKindName(serverKinds, k, locale, tr(`catalog.kind.${k}`, k))}
                   </option>
                 ))}
               </select>
