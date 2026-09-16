@@ -71,7 +71,7 @@ func OpenAPI() map[string]any {
 	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, DefinitionVersionItem{}, DefinitionRollback{}, DefinitionDiff{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
 		schema(reflect.TypeOf(v))
 	}
-	schemas["DefinitionDraft"] = map[string]any{"type": "object", "required": []string{"document", "base_version", "edit_note", "sources"}, "properties": map[string]any{"document": schema(reflect.TypeOf(Definitions{})), "base_version": map[string]any{"type": "integer"}, "edit_note": map[string]any{"type": "string"}, "sources": schema(reflect.TypeOf([]Source{}))}}
+	schemas["DefinitionDraft"] = map[string]any{"type": "object", "description": "Draft or published definition document. Every name (types, fields, vocabularies and terms, relations incl. reverse_names and group_names, templates and their sections, schemes, field unit) of an enabled entry must carry all four locales zh-CN / zh-TW / en-US and ja or ja-JP; missing locales are rejected with four_locale_names_required (the error lists the missing locale codes). Names are returned as-is: the server never resolves a single locale.", "required": []string{"document", "base_version", "edit_note", "sources"}, "properties": map[string]any{"document": schema(reflect.TypeOf(Definitions{})), "base_version": map[string]any{"type": "integer"}, "edit_note": map[string]any{"type": "string"}, "sources": schema(reflect.TypeOf([]Source{}))}}
 	paths := map[string]any{}
 	add := func(path, method, summary, request, response string, auth bool) {
 		// 账号/收藏前缀已归子系统，本服务只剩目录自己的三类路径。
@@ -145,17 +145,17 @@ func OpenAPI() map[string]any {
 		{"/admin/catalog-definitions/{id}/diff", "get", "Field-level diff between a definition version and a baseline (requires catalog.definitions.manage); against defaults to this version's base_version (compare with the previous version) and must be an existing version id — an unparsable against is invalid_payload, a missing id on either side is 404 not_found. Each entry carries a key path that locates exactly one place in the document (fields.<code>.enabled, relations.<code>.aggregate, types.<code>.fields[2], vocabularies.<code>.terms.<term>.names.zh-TW) and one of added / removed / changed / toggled, with from/to values for value changes and toggles (values over 512 bytes are truncated to a string prefix and flagged by truncated). summary counts changes by section (types/fields/vocabularies/relations/templates/schemes/structure) and by change type. Neither side's document is returned", "", "DefinitionDiff", "auth"},
 		{"/admin/catalog-definitions/{id}/rollback", "post", "Re-draft a historical definition version on top of the current published version and publish it through the same impact validation (requires catalog.definitions.manage); no_op=true returns the existing published version without writing when the document already matches; 404 when the id is not a definition version", "", "DefinitionRollback", "auth"},
 		{"/admin/external-databases", "get", "List external authority databases (requires catalog.definitions.manage)", "", "Result", "auth"},
-		{"/admin/external-databases", "post", "Create external authority database (requires catalog.definitions.manage)", "ExternalDatabase", "Result", "auth"},
-		{"/admin/external-databases/{code}", "put", "Update external authority database (requires catalog.definitions.manage)", "ExternalDatabase", "Result", "auth"},
+		{"/admin/external-databases", "post", "Create external authority database (requires catalog.definitions.manage); names must carry zh-CN, zh-TW, en-US and ja or ja-JP (four_locale_names_required)", "ExternalDatabase", "Result", "auth"},
+		{"/admin/external-databases/{code}", "put", "Update external authority database (requires catalog.definitions.manage); names must carry zh-CN, zh-TW, en-US and ja or ja-JP (four_locale_names_required)", "ExternalDatabase", "Result", "auth"},
 		{"/admin/external-databases/{code}", "delete", "Delete external authority database (requires catalog.definitions.manage)", "", "Result", "auth"},
 		{"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
 		{"/catalog/shelves/feed", "get", "Evaluate shelf rules with their items, ordered by caller preferences", "", "Result", ""},
 		{"/catalog/me/home-preferences", "get", "Read caller homepage section preferences", "", "Result", "auth"},
 		{"/catalog/me/home-preferences", "put", "Replace caller homepage section preferences", "HomePreferences", "Result", "auth"},
 		{"/admin/shelves", "get", "List shelf rules (requires catalog.shelves.manage)", "", "Result", "auth"},
-		{"/admin/shelves", "post", "Create shelf rule (requires catalog.shelves.manage)", "Shelf", "Result", "auth"},
+		{"/admin/shelves", "post", "Create shelf rule (requires catalog.shelves.manage); names must carry zh-CN, zh-TW, en-US and ja or ja-JP (four_locale_names_required)", "Shelf", "Result", "auth"},
 		{"/admin/shelves/{id}", "get", "Read shelf rule (requires catalog.shelves.manage)", "", "Result", "auth"},
-		{"/admin/shelves/{id}", "put", "Update shelf rule (requires catalog.shelves.manage)", "Shelf", "Result", "auth"},
+		{"/admin/shelves/{id}", "put", "Update shelf rule (requires catalog.shelves.manage); names must carry zh-CN, zh-TW, en-US and ja or ja-JP (four_locale_names_required)", "Shelf", "Result", "auth"},
 		{"/admin/shelves/{id}", "delete", "Delete shelf rule (requires catalog.shelves.manage)", "", "Result", "auth"},
 	} {
 		add(r[0], r[1], r[2], r[3], r[4], r[5] != "")

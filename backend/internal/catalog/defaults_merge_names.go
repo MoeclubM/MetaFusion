@@ -1,5 +1,7 @@
 package catalog
 
+import "strings"
+
 // mergeNames 把种子里已有的**真实译文**补进当前名称表。只填这两种情况：
 //
 //	· 当前缺该语种；
@@ -80,9 +82,19 @@ func backfillTranslations(out *Definitions, seed Definitions) []string {
 			continue
 		}
 		cur.Names = mergeNames("templates."+code, cur.Names, se.Names, &added)
+		// 分区只能按名称配对：Section 没有独立编码，按下标配会在后台调换或增删分区时
+		// 把 A 分区的译文写到 B 分区头上（且越界分区永远补不到）。配对不上就不补：
+		// 少补一条只是该分区留占位，补错一条会把繁体名写进日文位。
+		seedSections := make(map[string]Names, len(se.Sections))
+		for _, s := range se.Sections {
+			if key := strings.TrimSpace(s.Names["en-US"]); key != "" {
+				seedSections[key] = s.Names
+			}
+		}
 		for i := range cur.Sections {
-			if i < len(se.Sections) {
-				cur.Sections[i].Names = mergeNames("templates."+code+".sections."+cur.Sections[i].Names["en-US"], cur.Sections[i].Names, se.Sections[i].Names, &added)
+			key := strings.TrimSpace(cur.Sections[i].Names["en-US"])
+			if seedNames, ok := seedSections[key]; ok {
+				cur.Sections[i].Names = mergeNames("templates."+code+".sections."+key, cur.Sections[i].Names, seedNames, &added)
 			}
 		}
 		out.Templates[code] = cur

@@ -1,15 +1,12 @@
 package catalog
 
-// names builds bilingual names with reserved fallback keys.
+// names 造一个**四语键齐备**的测试夹具名称，只为让文档结构通过四语校验。
 //
-// zh-CN/en-US are required by Definitions.Validate; zh-TW, ja and ja-JP carry
-// the English text, so exact-locale and prefix lookups (ja-JP -> ja) resolve
-// instead of falling through to an unrelated entry.
-//
-// 只给测试夹具用：种子定义必须走 names4，否则该条名称的繁中/日文就是英文占位，
-// names_coverage_test 的棘轮（placeholderBudget = 0）会直接判失败。
+// 夹具不追求译文质量：zh-TW 复用 zh 文本、ja/ja-JP 复用 en 文本——它构造的是"键都在"的
+// 合法载荷，用于测试结构/流程；真正的种子译文一律用 names4，占位问题由
+// names_coverage_test 的棘轮（placeholderBudget = 0，只扫 Defaults()）看守。
 func names(zh, en string) Names {
-	return Names{"zh-CN": zh, "zh-TW": en, "ja": en, "ja-JP": en, "en-US": en}
+	return Names{"zh-CN": zh, "zh-TW": zh, "ja": en, "ja-JP": en, "en-US": en}
 }
 
 // names4 builds names with explicit Traditional Chinese and Japanese text.

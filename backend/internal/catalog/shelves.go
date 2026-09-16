@@ -67,8 +67,9 @@ func validateShelf(s Shelf) error {
 	if !shelfSlugPattern.MatchString(s.Slug) {
 		return fmt.Errorf("invalid_slug")
 	}
-	if strings.TrimSpace(s.Names["zh-CN"]) == "" || strings.TrimSpace(s.Names["en-US"]) == "" {
-		return fmt.Errorf("bilingual_names_required")
+	// 货架名是首页/探索的分类入口名，与类型/关系名同一口径：四语齐备（不再只要求双语）。
+	if err := validateNames(s.Names); err != nil {
+		return err
 	}
 	switch s.Sort {
 	case "", "updated", "created", "title":
@@ -316,18 +317,23 @@ func (s *Store) ListShelfItems(ctx context.Context, sh Shelf, limit int, u *User
 	return out, nil
 }
 
-// seedShelves 写入首页货架默认规则；已存在的 slug 不覆盖（保留后台自定义），
-// 新增的 slug 自动补齐。前后端共用同一规则，不再各自硬编码。
-func seedShelves(ctx context.Context, tx *sql.Tx) error {
-	defs := []Shelf{
+// shelfSeeds 是首页货架的默认规则（四语名称）。
+// 单独成函数：名称四语覆盖由 names_coverage_test 直接断言，不只依赖启动写库。
+func shelfSeeds() []Shelf {
+	return []Shelf{
 		{Slug: "music", Names: map[string]string{"zh-CN": "音乐", "zh-TW": "音樂", "ja": "音楽", "ja-JP": "音楽", "en-US": "Music"}, Query: ShelfQuery{Types: []string{"music", "song", "album"}}, Sort: "updated", Icon: "Disc", Enabled: true, SortOrder: 10},
 		{Slug: "anime", Names: map[string]string{"zh-CN": "动画", "zh-TW": "動畫", "ja": "アニメ", "ja-JP": "アニメ", "en-US": "Anime"}, Query: ShelfQuery{Types: []string{"animation"}}, Sort: "updated", Icon: "Tv", Enabled: true, SortOrder: 20},
 		{Slug: "films", Names: map[string]string{"zh-CN": "电影", "zh-TW": "電影", "ja": "映画", "ja-JP": "映画", "en-US": "Films"}, Query: ShelfQuery{Types: []string{"film"}}, Sort: "updated", Icon: "Film", Enabled: true, SortOrder: 30},
 		{Slug: "novels", Names: map[string]string{"zh-CN": "小说", "zh-TW": "小說", "ja": "小説", "ja-JP": "小説", "en-US": "Novels"}, Query: ShelfQuery{Types: []string{"novel"}}, Sort: "updated", Icon: "BookOpen", Enabled: true, SortOrder: 40},
 		{Slug: "games", Names: map[string]string{"zh-CN": "游戏", "zh-TW": "遊戲", "ja": "ゲーム", "ja-JP": "ゲーム", "en-US": "Games"}, Query: ShelfQuery{Types: []string{"game", "indie_game", "visual_novel"}}, Sort: "updated", Icon: "Gamepad2", Enabled: true, SortOrder: 50},
-		{Slug: "creations", Names: map[string]string{"zh-CN": "个人创作", "zh-TW": "個人創作", "ja": "個人創作", "ja-JP": "個人創作", "en-US": "Creations"}, Query: ShelfQuery{Types: []string{"personal", "photobook"}}, Sort: "updated", Icon: "Camera", Enabled: true, SortOrder: 60},
+		{Slug: "creations", Names: map[string]string{"zh-CN": "个人创作", "zh-TW": "個人創作", "ja": "個人制作", "ja-JP": "個人制作", "en-US": "Creations"}, Query: ShelfQuery{Types: []string{"personal", "photobook"}}, Sort: "updated", Icon: "Camera", Enabled: true, SortOrder: 60},
 	}
-	for _, d := range defs {
+}
+
+// seedShelves 写入首页货架默认规则；已存在的 slug 不覆盖（保留后台自定义），
+// 新增的 slug 自动补齐。前后端共用同一规则，不再各自硬编码。
+func seedShelves(ctx context.Context, tx *sql.Tx) error {
+	for _, d := range shelfSeeds() {
 		names, _ := json.Marshal(d.Names)
 		query, _ := json.Marshal(d.Query)
 		if _, err := tx.ExecContext(ctx, `INSERT INTO catalog.shelves(slug,names,query,sort,icon,is_enabled,sort_order) VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT (slug) DO NOTHING`,

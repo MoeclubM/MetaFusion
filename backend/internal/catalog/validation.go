@@ -184,9 +184,27 @@ func validateSources(note string, sources []Source) error {
 	}
 	return nil
 }
+// requiredNameLocales 是每个名称都必须齐备的语种（命名四语铁律）。
+// ja 与 ja-JP 视为同一语种（种子两个键都写，只写其一也放行），单独判定。
+var requiredNameLocales = []string{"zh-CN", "zh-TW", "en-US"}
+
+// validateNames 要求名称四语齐备、取值非空、语种码合法。
+//
+// 只查「键在且非空」而不查「是否与英文不同」：Spotify / ISBNdb / CD 这类专有名词
+// 在几种文字里本就同形，把"值与英文相同"当硬错误会连合法名称一起拒掉。
+// 是否仍是英文占位属审查口径，由 scripts/check_data.py 报 P2 与种子棘轮测试看守。
 func validateNames(n Names) error {
-	if strings.TrimSpace(n["zh-CN"]) == "" || strings.TrimSpace(n["en-US"]) == "" {
-		return fmt.Errorf("bilingual_names_required")
+	var missing []string
+	for _, loc := range requiredNameLocales {
+		if strings.TrimSpace(n[loc]) == "" {
+			missing = append(missing, loc)
+		}
+	}
+	if strings.TrimSpace(n["ja"]) == "" && strings.TrimSpace(n["ja-JP"]) == "" {
+		missing = append(missing, "ja-JP")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("four_locale_names_required: %s", strings.Join(missing, ","))
 	}
 	for k := range n {
 		if _, e := language.Parse(k); e != nil {
@@ -233,8 +251,10 @@ func (d Definitions) Validate() error {
 			if !codePattern.MatchString(k) {
 				return fmt.Errorf("invalid_code")
 			}
-			if e := validateNames(t.Names); e != nil {
-				return e
+			if t.Enabled {
+				if e := validateNames(t.Names); e != nil {
+					return e
+				}
 			}
 		}
 	}
@@ -250,8 +270,12 @@ func (d Definitions) Validate() error {
 		if !codePattern.MatchString(code) {
 			return fmt.Errorf("invalid_code")
 		}
-		if e := validateNames(t.Names); e != nil {
-			return e
+		// 四语只对启用中的条目强制：停用条目可能是历史遗留的两语名，
+		// 让它们阻塞整份文档的提交会把"补译"变成"先删定义"。
+		if t.Enabled {
+			if e := validateNames(t.Names); e != nil {
+				return e
+			}
 		}
 		if e := validateKinds(t.Kinds); e != nil {
 			return e
@@ -269,11 +293,19 @@ func (d Definitions) Validate() error {
 		if !codePattern.MatchString(code) {
 			return fmt.Errorf("invalid_code")
 		}
-		if e := validateNames(r.Names); e != nil {
-			return e
-		}
-		if e := validateNames(r.ReverseNames); e != nil {
-			return e
+		if r.Enabled {
+			if e := validateNames(r.Names); e != nil {
+				return e
+			}
+			if e := validateNames(r.ReverseNames); e != nil {
+				return e
+			}
+			// 分组名此前完全没进校验：缺语种时前端只能退回兜底分组，用户看不到真实分组名。
+			if len(r.GroupNames) > 0 {
+				if e := validateNames(r.GroupNames); e != nil {
+					return e
+				}
+			}
 		}
 		if e := validateKinds(r.SourceKinds); e != nil {
 			return e
@@ -373,7 +405,7 @@ func (d Definitions) Validate() error {
 }
 
 // validateScheme 校验单个场景声明：码合规、slot 命中结构入口、
-// fields 全部已在全局组声明、required ⊆ fields、names 双语；类型错一律拒绝。
+// fields 全部已在全局组声明、required ⊆ fields、启用中的场景名称四语齐备；类型错一律拒绝。
 func (d Definitions) validateScheme(code string, s Scheme) error {
 	if !codePattern.MatchString(code) {
 		return fmt.Errorf("invalid_code")
@@ -381,8 +413,10 @@ func (d Definitions) validateScheme(code string, s Scheme) error {
 	if !contains(StructuralAttributeFields, s.Slot) {
 		return fmt.Errorf("%s: %w", code, fmt.Errorf("invalid_slot"))
 	}
-	if err := validateNames(s.Names); err != nil {
-		return fmt.Errorf("%s: %w", code, err)
+	if s.Enabled {
+		if err := validateNames(s.Names); err != nil {
+			return fmt.Errorf("%s: %w", code, err)
+		}
 	}
 	for _, k := range s.Kinds {
 		if !contains(Kinds, k) {
@@ -522,8 +556,17 @@ func (d Definitions) validateField(f Field, depth int) error {
 	if depth > 4 {
 		return fmt.Errorf("field_nesting_limit")
 	}
-	if e := validateNames(f.Names); e != nil {
-		return e
+	// 与类型/关系同一口径：四语只为启用中的字段强制。
+	// 单位名（unit）只在声明了单位时校验——未声明单位是常态，不能反过来当缺项。
+	if f.Enabled {
+		if e := validateNames(f.Names); e != nil {
+			return e
+		}
+		if len(f.Unit) > 0 {
+			if e := validateNames(f.Unit); e != nil {
+				return e
+			}
+		}
 	}
 	if f.Min != nil && f.Max != nil && *f.Min > *f.Max {
 		return fmt.Errorf("invalid_range")
