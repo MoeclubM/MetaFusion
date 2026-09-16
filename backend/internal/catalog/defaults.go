@@ -520,12 +520,13 @@ func Defaults() Definitions {
 	addRel("pressing_of", names4("再版自", "再版自", "復刻", "Pressing of"), names4("被再版为", "被再版為", "復刻された", "Repressed as"), []string{"release"}, []string{"release"}, "creative", true)
 	addRel("bonus_included_in", names4("特典收录于", "特典收錄於", "特典として収録", "Bonus included in"), names4("收录特典", "收錄特典", "特典を収録", "Includes bonus"), []string{"expression"}, []string{"release", "medium"}, "membership", true)
 	addRel("store_bonus_for", names4("渠道特典归属", "通路特典歸屬", "店舗特典", "Store bonus for"), names4("拥有渠道特典", "擁有通路特典", "店舗特典を保有", "Has store bonus"), []string{"expression", "release"}, []string{"agent"}, "membership", true)
+	addRel("includes", names4("组成包含", "組成包含", "収録", "Includes"), names4("组成属于", "組成屬於", "収録先", "Included in"), []string{"collection", "work"}, []string{"work", "collection"}, "membership", true)
 	// 组成/聚合关系：声明 Aggregate，页面据此把它算作"组成作品"而不写死关系码。
+	// 必须写在 addRel("includes", …) **之后**——写在前面时该关系还没进 map，永远设不上。
 	if r, ok := d.Relations["includes"]; ok {
 		r.Aggregate = true
 		d.Relations["includes"] = r
 	}
-	addRel("includes", names4("组成包含", "組成包含", "収録", "Includes"), names4("组成属于", "組成屬於", "収録先", "Included in"), []string{"collection", "work"}, []string{"work", "collection"}, "membership", true)
 	// 成员关系：个人 ↔ 团体（乐队、组合、社团）。声优乐队这类现实团体需要
 	// "谁是这个团体的成员"，职位原文（Vo./Gt./Ba. 等）落在 credit_role，不另造字段。
 	addRel("member_of", names4("所属团体", "所屬團體", "所属グループ", "Member of"), names4("成员", "成員", "メンバー", "Members"), []string{"agent"}, []string{"agent"}, "membership", true)
