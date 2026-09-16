@@ -257,9 +257,10 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 		}
 	}
 	// 收藏（以及其它服务里指向旧身份的引用）**不在这里改写**：community.favorites 归互动服务，
-	// 目录写别人的表会破坏子系统边界。合并事实通过 outbox 的 entity.merged 事件广播，
-	// 调用方也可以用 GET /api/catalog/entities/{id}/resolve 跟随重定向——互动服务的收藏
-	// 与互动记录读取走的就是这条链路（见其 internal/catalog 客户端）。
+	// 目录写别人的表会破坏子系统边界。合并事实写进 catalog.outbox（type=entity.merged），
+	// 但**当前没有跨服务消费者**（投递函数 Store.Deliver 只在测试里被调用）：互动服务的收藏
+	// 与互动记录收敛走的是主动查询——GET /api/catalog/entities/{id}/resolve 跟随重定向
+	//（见其 internal/catalog 客户端）。将来引入投递时的契约见 lifecycle.go 的 Deliver。
 	// 合并只改写以旧身份为端点的边：按端点取候选而非全表加载
 	//（relations_endpoints 索引命中，避免关系量大时退化）。
 	all, err := relationsWithEndpoint(ctx, tx, source.ID)

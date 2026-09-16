@@ -9,15 +9,21 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"math/big"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
 
-// 目录侧只验签。测试因此自带一个“签发侧”（真实签发方是账号服务，实现位于
+// 目录侧只验签。测试因此自带一个"签发侧"（真实签发方是账号服务，实现位于
 // metafusion-auth 仓库）：用同一把 RSA 私钥签出令牌，验证目录的验签行为，
-// 同时钉住“目录拿不到签发能力”——本文件里的 signTestToken 是测试专用函数，
+// 同时钉住"目录拿不到签发能力"——本文件里的 signTestToken 是测试专用函数，
 // 生产代码没有对应的导出方法。
+//
+// 三种来源都要覆盖：静态公钥、JWKS、以及待移除的私钥兜底；优先级按 NewTokenVerifierFromEnv 的注释。
 
 func testKey(t *testing.T) *rsa.PrivateKey {
 	t.Helper()
@@ -28,9 +34,19 @@ func testKey(t *testing.T) *rsa.PrivateKey {
 	return key
 }
 
-// testVerifier 把测试私钥交给验签器，返回验签器；私钥另存一份只用于造令牌。
+// clearSigningSources 把三种来源清空：任何一条测试都必须自己声明用哪一种，
+// 否则外层环境（开发机或 CI）里残留的变量会悄悄改变被测路径。
+func clearSigningSources(t *testing.T) {
+	t.Helper()
+	t.Setenv("AUTH_JWT_PUBLIC_KEY", "")
+	t.Setenv("AUTH_JWKS_URL", "")
+	t.Setenv("AUTH_JWT_PRIVATE_KEY", "")
+}
+
+// testVerifier 走兼容兜底路径（AUTH_JWT_PRIVATE_KEY）：私钥只为派生公钥，私钥另存一份用于造令牌。
 func testVerifier(t *testing.T, key *rsa.PrivateKey) *TokenVerifier {
 	t.Helper()
+	clearSigningSources(t)
 	t.Setenv("AUTH_JWT_PRIVATE_KEY", pemText(t, key))
 	v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
 	if err != nil {
@@ -39,12 +55,80 @@ func testVerifier(t *testing.T, key *rsa.PrivateKey) *TokenVerifier {
 	if v.Ephemeral() {
 		t.Fatal("verifier fell back to ephemeral mode")
 	}
+	if got := v.Source(); got != SourcePrivateKey {
+		t.Fatalf("来源应为兼容兜底 %s，实际 %q", SourcePrivateKey, got)
+	}
+	return v
+}
+
+// testVerifierFromPublicKey 走静态公钥路径（PKIX PEM），这是生产推荐配置。
+func testVerifierFromPublicKey(t *testing.T, pub *rsa.PublicKey, encoded string) *TokenVerifier {
+	t.Helper()
+	clearSigningSources(t)
+	t.Setenv("AUTH_JWT_PUBLIC_KEY", encoded)
+	v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
+	if err != nil {
+		t.Fatalf("public key verifier: %v", err)
+	}
+	if v.Ephemeral() || v.Source() != SourcePublicKey {
+		t.Fatalf("来源应为静态公钥，实际 %q（ephemeral=%v）", v.Source(), v.Ephemeral())
+	}
+	if got := v.KeyID(); got != keyID(pub) {
+		t.Fatalf("kid 应由公钥派生：%q != %q", got, keyID(pub))
+	}
+	return v
+}
+
+func testVerifierFromJWKS(t *testing.T, jwksURL string) *TokenVerifier {
+	t.Helper()
+	clearSigningSources(t)
+	t.Setenv("AUTH_JWKS_URL", jwksURL)
+	v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
+	if err != nil {
+		t.Fatalf("jwks verifier: %v", err)
+	}
+	if v.Source() != SourceJWKS {
+		t.Fatalf("来源应为 JWKS，实际 %q", v.Source())
+	}
 	return v
 }
 
 func pemText(t *testing.T, key *rsa.PrivateKey) string {
 	t.Helper()
 	return string(pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}))
+}
+
+func publicPEM(t *testing.T, key *rsa.PublicKey) string {
+	t.Helper()
+	der, err := x509.MarshalPKIXPublicKey(key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der}))
+}
+
+func publicPKCS1PEM(t *testing.T, key *rsa.PublicKey) string {
+	t.Helper()
+	return string(pem.EncodeToMemory(&pem.Block{Type: "RSA PUBLIC KEY", Bytes: x509.MarshalPKCS1PublicKey(key)}))
+}
+
+// jwksHandler 提供与账号服务同格式的 JWKS（kid 取公钥 SPKI 的 SHA-256 前 8 字节），
+// 并统计被请求次数：用来证明缓存生效、以及目录不再探测上游。
+func jwksHandler(hits *int64, current func() []*rsa.PublicKey) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt64(hits, 1)
+		list := make([]map[string]string, 0)
+		for _, pub := range current() {
+			list = append(list, map[string]string{
+				"kty": "RSA", "use": "sig", "alg": "RS256",
+				"kid": keyID(pub),
+				"n":   b64(pub.N.Bytes()),
+				"e":   b64(big.NewInt(int64(pub.E)).Bytes()),
+			})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": list})
+	}
 }
 
 // signTestToken 按与账号服务逐字一致的载荷形状签发 RS256 令牌。
@@ -121,7 +205,7 @@ func TestVerifyRejectsTampering(t *testing.T) {
 	}
 }
 
-// 过期与缺 exp 的令牌一律拒绝（不允许“永久令牌”）。
+// 过期与缺 exp 的令牌一律拒绝（不允许"永久令牌"）。
 func TestVerifyEnforcesExpiry(t *testing.T) {
 	key := testKey(t)
 	v := testVerifier(t, key)
@@ -178,8 +262,23 @@ func TestVerifyRejectsForeignKey(t *testing.T) {
 	}
 }
 
-// PKCS#1、PKCS#8 与 base64 包裹的 PEM 都要能加载，且只保留公钥用于验签。
-func TestVerifierLoadsPEM(t *testing.T) {
+// 兼容兜底路径（AUTH_JWT_PRIVATE_KEY）同样只验签：只保留公钥，别的密钥签的令牌一律拒绝。
+func TestPrivateKeyFallbackIsVerifyOnly(t *testing.T) {
+	key := testKey(t)
+	v := testVerifier(t, key)
+	if v.Source() != SourcePrivateKey {
+		t.Fatalf("来源应为兼容兜底，实际 %q", v.Source())
+	}
+	if v.PublicJWK() == nil || v.KeyID() == "" || v.KeyID() == "default" {
+		t.Fatalf("兜底路径应派生公钥与 kid")
+	}
+	if _, err := v.Verify(signTestToken(t, testKey(t), nil)); err == nil {
+		t.Fatal("兜底路径接受了别的密钥签的令牌")
+	}
+}
+
+// 私钥兜底要能吃 PKCS#1、PKCS#8 与 base64 包裹的 PEM 三种写法。
+func TestVerifierPrivateKeyFallbackLoadsPEM(t *testing.T) {
 	key := testKey(t)
 	pkcs1 := pemText(t, key)
 	der8, err := x509.MarshalPKCS8PrivateKey(key)
@@ -188,6 +287,7 @@ func TestVerifierLoadsPEM(t *testing.T) {
 	}
 	pkcs8 := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der8}))
 	for name, raw := range map[string]string{"pkcs1": pkcs1, "pkcs8": pkcs8, "base64": base64.StdEncoding.EncodeToString([]byte(pkcs1))} {
+		clearSigningSources(t)
 		t.Setenv("AUTH_JWT_PRIVATE_KEY", raw)
 		v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
 		if err != nil {
@@ -205,15 +305,187 @@ func TestVerifierLoadsPEM(t *testing.T) {
 	}
 }
 
-// 未配置密钥时 fail closed：验签器存在但拒绝一切令牌，绝不静默放行。
-func TestVerifierFailsClosedWithoutKey(t *testing.T) {
-	t.Setenv("AUTH_JWT_PRIVATE_KEY", "")
+// 静态公钥三种写法都要能加载并验签。
+func TestVerifierStaticPublicKeyFormats(t *testing.T) {
+	key := testKey(t)
+	spki := publicPEM(t, &key.PublicKey)
+	for name, encoded := range map[string]string{
+		"pkix":          spki,
+		"pkcs1":         publicPKCS1PEM(t, &key.PublicKey),
+		"base64-pkix":   base64.StdEncoding.EncodeToString([]byte(spki)),
+	} {
+		v := testVerifierFromPublicKey(t, &key.PublicKey, encoded)
+		if _, err := v.Verify(signTestToken(t, key, nil)); err != nil {
+			t.Fatalf("%s verify: %v", name, err)
+		}
+	}
+}
+
+// 静态公钥是推荐配置：它优先于 JWKS，也不该带来任何出站请求。
+func TestVerifierPrefersStaticPublicKeyWithoutNetwork(t *testing.T) {
+	key := testKey(t)
+	var hits int64
+	up := httptest.NewServer(jwksHandler(&hits, func() []*rsa.PublicKey { return nil }))
+	defer up.Close()
+
+	clearSigningSources(t)
+	t.Setenv("AUTH_JWT_PUBLIC_KEY", publicPEM(t, &key.PublicKey))
+	t.Setenv("AUTH_JWKS_URL", up.URL)          // 同时配置也不该被用到
+	t.Setenv("AUTH_JWT_PRIVATE_KEY", pemText(t, testKey(t))) // 私钥不该被用到
 	v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !v.Ephemeral() {
-		t.Fatal("expected ephemeral verifier when the key is unset")
+	if v.Source() != SourcePublicKey {
+		t.Fatalf("静态公钥应优先，实际来源 %q", v.Source())
+	}
+	if _, err = v.Verify(signTestToken(t, key, nil)); err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	if n := atomic.LoadInt64(&hits); n != 0 {
+		t.Fatalf("配置了静态公钥时不应请求 JWKS，实际 %d 次", n)
+	}
+}
+
+// AUTH_JWT_PUBLIC_KEY 里放私钥必须报错：目录的环境变量里出现私钥正是这次收口要消灭的东西。
+func TestVerifierRejectsPrivateKeyInPublicKeyEnv(t *testing.T) {
+	key := testKey(t)
+	clearSigningSources(t)
+	t.Setenv("AUTH_JWT_PUBLIC_KEY", pemText(t, key))
+	if _, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion"); err == nil {
+		t.Fatal("私钥被当作公钥接受了")
+	}
+}
+
+// JWKS 优先于私钥兜底：同一进程里两种变量都给时，只有 JWKS 里的钥匙能验签。
+func TestVerifierPrefersJWKSOverPrivateKey(t *testing.T) {
+	key := testKey(t)
+	var hits int64
+	up := httptest.NewServer(jwksHandler(&hits, func() []*rsa.PublicKey { return []*rsa.PublicKey{&key.PublicKey} }))
+	defer up.Close()
+
+	clearSigningSources(t)
+	t.Setenv("AUTH_JWKS_URL", up.URL)
+	t.Setenv("AUTH_JWT_PRIVATE_KEY", pemText(t, testKey(t)))
+	v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v.Source() != SourceJWKS {
+		t.Fatalf("JWKS 应优先于私钥兜底，实际来源 %q", v.Source())
+	}
+	if _, err = v.Verify(signTestToken(t, key, nil)); err != nil {
+		t.Fatalf("JWKS 签名密钥应通过: %v", err)
+	}
+	foreign := testKey(t)
+	if _, err = v.Verify(signTestToken(t, foreign, nil)); err == nil {
+		t.Fatal("JWKS 模式下接受了不在 JWKS 里的密钥")
+	}
+}
+
+// JWKS 缓存 10 分钟；kid 轮换（未知 kid）必须触发一次强制刷新。
+func TestVerifierJWKSCacheAndRotation(t *testing.T) {
+	keyA, keyB := testKey(t), testKey(t)
+	var hits int64
+	current := keyA
+	up := httptest.NewServer(jwksHandler(&hits, func() []*rsa.PublicKey { return []*rsa.PublicKey{&current.PublicKey} }))
+	defer up.Close()
+	v := testVerifierFromJWKS(t, up.URL)
+
+	tokenA := signTestToken(t, keyA, nil)
+	if _, err := v.Verify(tokenA); err != nil {
+		t.Fatalf("verify A: %v", err)
+	}
+	if n := atomic.LoadInt64(&hits); n != 1 {
+		t.Fatalf("首次验签应拉取一次 JWKS，实际 %d 次", n)
+	}
+	if _, err := v.Verify(tokenA); err != nil {
+		t.Fatalf("verify A again: %v", err)
+	}
+	if n := atomic.LoadInt64(&hits); n != 1 {
+		t.Fatalf("缓存期内不应重复拉取，实际 %d 次", n)
+	}
+
+	// 账号侧轮换签名密钥：新令牌带新 kid，目录必须刷新后接受。
+	current = keyB
+	if _, err := v.Verify(signTestToken(t, keyB, nil)); err != nil {
+		t.Fatalf("轮换后的密钥应通过: %v", err)
+	}
+	if n := atomic.LoadInt64(&hits); n != 2 {
+		t.Fatalf("未知 kid 应触发一次强制刷新，实际共 %d 次", n)
+	}
+}
+
+// JWKS 里没有的 kid、JWKS 不可用、JWKS 只有非 RSA 密钥：一律 fail closed。
+func TestVerifierJWKSFailuresAreClosed(t *testing.T) {
+	key := testKey(t)
+	var hits int64
+	up := httptest.NewServer(jwksHandler(&hits, func() []*rsa.PublicKey { return []*rsa.PublicKey{&key.PublicKey} }))
+	defer up.Close()
+
+	v := testVerifierFromJWKS(t, up.URL)
+	if _, err := v.Verify(signTestToken(t, testKey(t), nil)); err == nil {
+		t.Fatal("JWKS 里不存在的 kid 应被拒")
+	}
+
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}));
+	defer down.Close()
+	vDown := testVerifierFromJWKS(t, down.URL)
+	if _, err := vDown.Verify(signTestToken(t, key, nil)); err == nil {
+		t.Fatal("JWKS 不可用时必须 fail closed")
+	}
+
+	// 只有 EC 密钥的 JWKS：没有可用 RSA 公钥，同样不验签。
+	everywhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"keys":[{"kty":"EC","kid":"x","crv":"P-256"}]}`))
+	}));
+	defer everywhere.Close()
+	vEC := testVerifierFromJWKS(t, everywhere.URL)
+	if _, err := vEC.Verify(signTestToken(t, key, nil)); err == nil {
+		t.Fatal("没有可用 RSA 公钥时不能验签")
+	}
+}
+
+// 静态公钥路径上的声明校验与兜底路径一致：过期、错 issuer、错 audience、错算法、缺 sub 全拒。
+func TestStaticPublicKeyVerifierEnforcesClaims(t *testing.T) {
+	key := testKey(t)
+	v := testVerifierFromPublicKey(t, &key.PublicKey, publicPEM(t, &key.PublicKey))
+	if _, err := v.Verify(signTestToken(t, key, nil)); err != nil {
+		t.Fatalf("fresh token rejected: %v", err)
+	}
+	for name, mutate := range map[string]func(Claims) Claims{
+		"expired":        func(c Claims) Claims { c.Expires = time.Now().Add(-time.Minute).Unix(); return c },
+		"no exp":         func(c Claims) Claims { c.Expires = 0; return c },
+		"wrong issuer":   func(c Claims) Claims { c.Issuer = "https://evil.example/api"; return c },
+		"wrong audience": func(c Claims) Claims { c.Audience = "metafusion-forum"; return c },
+		"no subject":     func(c Claims) Claims { c.Subject = ""; return c },
+	} {
+		if _, err := v.Verify(signTestToken(t, key, mutate)); err == nil {
+			t.Fatalf("%s accepted at the static public key source", name)
+		}
+	}
+	// alg=none 与 HS256 必须被拒（算法混淆）。
+	parts := strings.Split(signTestToken(t, key, nil), ".")
+	for name, header := range map[string]string{"none": `{"alg":"none"}`, "hs256": `{"alg":"HS256"}`} {
+		bad := base64.RawURLEncoding.EncodeToString([]byte(header)) + "." + parts[1] + "." + parts[2]
+		if _, err := v.Verify(bad); err == nil {
+			t.Fatalf("alg=%s accepted at the static public key source", name)
+		}
+	}
+}
+
+// 未配置任何来源时 fail closed：验签器存在但拒绝一切令牌，绝不静默放行。
+func TestVerifierFailsClosedWithoutKey(t *testing.T) {
+	clearSigningSources(t)
+	v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !v.Ephemeral() || v.Source() != SourceNone {
+		t.Fatalf("未配置来源时应为 ephemeral，实际 source=%q", v.Source())
 	}
 	if _, err := v.Verify(signTestToken(t, testKey(t), nil)); err == nil {
 		t.Fatal("verifier without a key accepted a token")
@@ -299,5 +571,12 @@ func TestPublicJWKHasNoPrivateMaterial(t *testing.T) {
 		if _, ok := jwk[forbidden]; ok {
 			t.Fatalf("jwk leaks private parameter %q", forbidden)
 		}
+	}
+	// JWKS 模式下本服务不持有单一公钥：没有可给出的 JWK。
+	var hits int64
+	up := httptest.NewServer(jwksHandler(&hits, func() []*rsa.PublicKey { return nil }))
+	defer up.Close()
+	if jwk = testVerifierFromJWKS(t, up.URL).PublicJWK(); jwk != nil {
+		t.Fatalf("JWKS 模式下不应有单一 JWK: %+v", jwk)
 	}
 }

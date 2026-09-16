@@ -120,11 +120,15 @@ func deliverBackoff(n int) time.Duration {
 // Deliver acknowledges only successful callbacks. Callbacks must be idempotent by Event.ID.
 // 同批投递失败跳过继续: 记日志(含事件 ID+错误), 不中断整批; 失败事件不写
 // deliveries, 下次继续投递。批内有部分失败时返回汇总错误, 便于调用方重试整批。
-// 保留策略: outbox/deliveries 暂不清, 因事件是审计与模块消费的唯一事实来源,
+// **当前没有跨服务消费者**: 生产代码里没有调用点(只有 store_test.go), 子系统对
+// 合并结果的收敛靠调用方主动查询目录接口(如 GET /api/catalog/entities/{id}/resolve),
+// 所以 entity.merged 只是写在 outbox 里, 不是"广播"。
+// 本函数、deliveries 去重与"回调按 Event.ID 幂等"是**将来引入投递时的契约**:
+// 保留它是为了让那条契约有承载物, 不代表现在有投递在跑。
+// 保留策略: outbox/deliveries 暂不清, 因事件是审计与将来消费的唯一事实来源,
 // 删事件会断 deliveries 外键且丢审计。TODO(三期): 先给 deliveries 加
-// delivered_at 分区/保留期再清已全消费事件, 当前单消费方(见 cmd/server main
-// 的 optional-modules 轮询)下无堆积风险, 不做大重构。
-// 并发说明: 单进程单轮询, 无 SKIP LOCKED/FOR UPDATE; 若未来多副本消费,
+// delivered_at 分区/保留期再清已全消费事件; 当前无消费者, 不存在堆积问题。
+// 并发说明: 假定单进程单轮询, 无 SKIP LOCKED/FOR UPDATE; 若未来多副本消费,
 // 需按 consumer 分片或加领取列, 不在此先加。
 func (s *Store) Deliver(ctx context.Context, consumer string, handle func(context.Context, Event) error) error {
 	rows, err := s.DB.QueryContext(ctx, `SELECT id,type,entity_id,version,payload,created_at FROM catalog.outbox o WHERE NOT EXISTS(SELECT 1 FROM catalog.deliveries d WHERE d.consumer=$1 AND d.event_id=o.id) ORDER BY created_at,id LIMIT 100`, consumer)

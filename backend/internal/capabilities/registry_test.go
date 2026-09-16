@@ -1,9 +1,10 @@
 package capabilities
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -18,17 +19,15 @@ func find(t *testing.T, items []Capability, id string) Capability {
 	return Capability{}
 }
 
-// 未配置上游时，由独立服务承载的能力必须报未启用：
+// 未声明上游时，由独立服务承载的能力必须报未启用：
 // 前端据此隐藏入口，而不是渲染一个永远为空的区块。
 func TestUndeployedSubsystemsAreDisabled(t *testing.T) {
 	r := New(func(string) string { return "" })
-	r.Refresh(context.Background())
 	items := r.Manifests()
-	if c := find(t, items, "community"); c.Enabled || c.Healthy {
-		t.Fatalf("未部署社区服务时应为未启用: %+v", c)
-	}
-	if c := find(t, items, "storage"); c.Enabled {
-		t.Fatalf("未部署存储服务时应为未启用: %+v", c)
+	for _, id := range []string{"community", "records", "storage"} {
+		if c := find(t, items, id); c.Enabled || c.Healthy {
+			t.Fatalf("未声明 %s 时应为未启用: %+v", id, c)
+		}
 	}
 	// 转码与媒体分析不做，清单里不应再出现 playback / media 这类历史能力 id。
 	for _, gone := range []string{"playback", "media", "archive"} {
@@ -44,36 +43,78 @@ func TestUndeployedSubsystemsAreDisabled(t *testing.T) {
 	}
 }
 
-// 配置了上游且 /health 正常时，能力为启用且健康；上游挂掉则健康为 false 但保持启用
-// （前端按 enabled 决定是否展示入口，healthy 用于运维观察）。
-func TestUpstreamHealthDecidesHealthyFlag(t *testing.T) {
+// 目录不探测上游：即使声明了地址，也不得发出任何出站请求。
+// 这是"目录仅依赖 PostgreSQL 即可完整运行"的回归护栏。
+func TestNoOutboundProbe(t *testing.T) {
+	var hits int64
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		w.WriteHeader(http.StatusNotFound)
-	}))
+		atomic.AddInt64(&hits, 1)
+		w.WriteHeader(http.StatusOK)
+	}));
 	defer up.Close()
 
-	env := map[string]string{"COMMUNITY_URL": up.URL}
+	env := map[string]string{"COMMUNITY_URL": up.URL, "RECORDS_URL": up.URL, "STORAGE_URL": up.URL}
 	r := New(func(k string) string { return env[k] })
-	r.Refresh(context.Background())
-	c := find(t, r.Manifests(), "community")
-	if !c.Enabled || !c.Healthy {
-		t.Fatalf("上游健康时社区能力应为启用且健康: %+v", c)
+	for i := 0; i < 3; i++ {
+		_ = r.Manifests()
 	}
-	if rec := find(t, r.Manifests(), "records"); !rec.Enabled || !rec.Healthy {
-		t.Fatalf("同一上游承载的能力应一起生效: %+v", rec)
+	if n := atomic.LoadInt64(&hits); n != 0 {
+		t.Fatalf("目录不应探测上游，实际请求 %d 次", n)
 	}
+	for _, id := range []string{"community", "records", "storage"} {
+		if c := find(t, r.Manifests(), id); !c.Enabled || !c.Healthy {
+			t.Fatalf("已声明的能力应为启用且健康（同值）: %+v", c)
+		}
+	}
+}
 
-	up.Close()
-	r.Refresh(context.Background())
-	c = find(t, r.Manifests(), "community")
-	if !c.Enabled {
-		t.Fatalf("上游地址仍在配置里，应保持启用: %+v", c)
+// 清单是声明式的：enabled 只看部署配置，不看上游当时是否可达。
+// 上游挂掉时目录不该跟着把它标成不可用——那属于网关/运维面读 /health 的判断。
+func TestDeclarationIsIndependentOfUpstreamState(t *testing.T) {
+	env := map[string]string{"STORAGE_URL": "http://storage:8082"}
+	r := New(func(k string) string { return env[k] })
+	before := find(t, r.Manifests(), "storage")
+	delete(env, "STORAGE_URL") // 同实例重新构造：只有声明变化才会改变结果
+	after := find(t, New(func(k string) string { return env[k] }).Manifests(), "storage")
+	if !before.Enabled || !before.Healthy {
+		t.Fatalf("声明在场时应为启用: %+v", before)
 	}
-	if c.Healthy {
-		t.Fatalf("上游已下线，健康应为 false: %+v", c)
+	if after.Enabled || after.Healthy {
+		t.Fatalf("声明撤掉后应为未启用: %+v", after)
+	}
+}
+
+// community 与 records 各有自己的声明变量：不再共用一个 ENV 决定两个能力。
+func TestRecordsHasItsOwnSwitch(t *testing.T) {
+	env := map[string]string{"COMMUNITY_URL": "http://community:8083"}
+	r := New(func(k string) string { return env[k] })
+	if c := find(t, r.Manifests(), "community"); !c.Enabled {
+		t.Fatalf("声明了 community 就应启用: %+v", c)
+	}
+	if c := find(t, r.Manifests(), "records"); c.Enabled {
+		t.Fatalf("只声明 community 时 records 不应跟着启用: %+v", c)
+	}
+	env["RECORDS_URL"] = "http://community:8083"
+	r = New(func(k string) string { return env[k] })
+	if c := find(t, r.Manifests(), "records"); !c.Enabled {
+		t.Fatalf("声明了 records 就应启用: %+v", c)
+	}
+	// 反向：只声明 records 时 community 不启用。
+	delete(env, "COMMUNITY_URL")
+	r = New(func(k string) string { return env[k] })
+	if c := find(t, r.Manifests(), "community"); c.Enabled {
+		t.Fatalf("没声明 community 就不应启用: %+v", c)
+	}
+}
+
+// id 集合与顺序是前端契约：CatalogProvider 与 /admin 子系统面板按 id 判断。
+func TestManifestIDSetIsStable(t *testing.T) {
+	r := New(func(string) string { return "" })
+	ids := make([]string, 0, 4)
+	for _, c := range r.Manifests() {
+		ids = append(ids, c.ID)
+	}
+	if got := strings.Join(ids, " "); got != "exchange community records storage" {
+		t.Fatalf("能力 id 集合或顺序漂移: %q", got)
 	}
 }

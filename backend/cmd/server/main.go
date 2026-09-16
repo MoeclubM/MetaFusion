@@ -55,8 +55,9 @@ func main() {
 		log.Fatalf("catalog schema initialization failed: %v", err)
 	}
 
-	// 目录侧只验签，不签发：用与账号服务同一把 RSA 私钥派生出公钥（签发路径在账号服务）。
-	// 未配置时验签器不可用，需要身份的写接口会按未登录处理——这是有意的 fail closed，
+	// 目录侧只验签，不签发：按 AUTH_JWT_PUBLIC_KEY（静态公钥）→ AUTH_JWKS_URL（账号服务的 JWKS）
+	// → AUTH_JWT_PRIVATE_KEY（兼容兜底，启动告警）取公钥；私钥始终留在账号服务。
+	// 三者都未配置时验签器不可用，需要身份的写接口会按未登录处理——这是有意的 fail closed，
 	// 只影响写与个性化，公开读不受影响。
 	verifier, terr := catalog.NewTokenVerifierFromEnv(env("AUTH_JWT_ISSUER", "https://findverse.cc/api"), env("AUTH_JWT_AUDIENCE", "metafusion"))
 	if terr != nil {
@@ -64,7 +65,9 @@ func main() {
 	}
 	s.Verifier = verifier
 	if verifier.Ephemeral() {
-		log.Print("AUTH_JWT_PRIVATE_KEY is unset: catalog cannot verify tokens, authenticated writes will be rejected as anonymous")
+		log.Print("no token signing key material configured (AUTH_JWT_PUBLIC_KEY / AUTH_JWKS_URL): catalog cannot verify tokens, authenticated writes will be rejected as anonymous")
+	} else {
+		log.Printf("catalog verifies RS256 tokens using %s", verifier.Source())
 	}
 
 	r := gin.New()
@@ -106,13 +109,15 @@ func main() {
 
 	catalog.HTTP{Store: s}.Register(r)
 
-	// 能力清单改为"部署态"视图：子系统拆出去之后，能力由服务是否部署/健康决定，
-	// 运行时开关退役（PUT /api/admin/modules/:id 返回 409，见 capabilities 包）。
-	caps := capabilities.New(os.Getenv)
-	caps.Start(ctx)
-	caps.Register(r)
+	// 能力清单是**部署态声明**：子系统拆出去之后，能力由部署配置声明（见 capabilities 包），
+	// 目录不探测上游、不发任何出站请求；运行时开关退役（PUT /api/admin/modules/:id 返回 409）。
+	capabilities.New(os.Getenv).Register(r)
 
+	// /healthz 是进程存活；/health 与其它服务同形（status+service），供网关/运维面聚合探针统一读取。
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "live"}) })
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "live", "service": "metafusion-catalog"})
+	})
 	r.GET("/ready", func(c *gin.Context) {
 		check, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		defer cancel()

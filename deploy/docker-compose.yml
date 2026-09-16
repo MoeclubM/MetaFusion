@@ -113,15 +113,17 @@ services:
       # （--profile search 才拉起）。保留变量只为将来接入时不必改编排，不代表已生效。
       - REDIS_ADDR=redis:6379
       - ELASTICSEARCH_URL=http://opensearch:9200
-      # /api/capabilities 是"部署态"视图：能力是否可用取决于上游地址是否配置
-      # （capabilities/subsystems 的 envKey），backend 按 /health 探测，故必须给出内部地址。
-      # 不配 community/records 会被判为未部署，前端按 enabled 隐藏社区入口。
+      # /api/capabilities 是"部署态"声明：能力在不在由这几个变量决定（capabilities/subsystems 的 envKey）。
+      # 目录不探测上游、不发任何出站请求；不配的能力会被判为未部署，前端按 enabled 隐藏入口。
+      # community 与 records 各用各的变量（这里的值指向同一个互动服务），两个能力可以分别在场。
       - COMMUNITY_URL=http://community:8083
+      - RECORDS_URL=http://community:8083
       - STORAGE_URL=http://storage:8082
-      # 与账号服务共用同一把 RS256 私钥（PEM 或其 base64）：切流后由 auth 签发、
-      # 其余服务只验签，私钥不一致会让已登录用户立刻掉线；为空则退化进程内临时密钥，
-      # 重启即失效（仅开发可接受）。
-      - AUTH_JWT_PRIVATE_KEY=${AUTH_JWT_PRIVATE_KEY:-}
+      # 目录只验签、不签发：优先静态公钥，其次账号服务的 JWKS，都没有时才回退到私钥（启动会打告警）。
+      # 私钥只属于账号服务——目录**不再需要** AUTH_JWT_PRIVATE_KEY，因此这里不再注入。
+      # 切换窗口：公钥与 JWKS 都没配时，目录的写接口会一律按未登录处理（fail closed，不会静默放行）。
+      - AUTH_JWT_PUBLIC_KEY=${AUTH_JWT_PUBLIC_KEY:-}
+      - AUTH_JWKS_URL=${AUTH_JWKS_URL:-http://auth:8081/api/oidc/jwks}
       - AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER:-https://findverse.cc/api}
       - AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE:-metafusion}
     depends_on:

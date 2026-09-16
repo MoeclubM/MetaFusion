@@ -1,7 +1,6 @@
 package capabilities
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,10 +10,15 @@ import (
 )
 
 // 前端依赖这两个端点的形状：清单仍是 {modules:[…]}，开关端点给出明确原因而不是 404。
+// 清单字段名（id/version/dependencies/enabled/healthy）也在这条测试里钉住。
 func TestRegisterServesManifestsAndRetiresToggle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	r := New(func(string) string { return "" })
-	r.Refresh(context.Background())
+	r := New(func(k string) string {
+		if k == "COMMUNITY_URL" {
+			return "http://community:8083"
+		}
+		return ""
+	})
 	engine := gin.New()
 	r.Register(engine)
 
@@ -24,10 +28,21 @@ func TestRegisterServesManifestsAndRetiresToggle(t *testing.T) {
 		t.Fatalf("能力清单 HTTP %d", w.Code)
 	}
 	var body struct {
-		Modules []Capability `json:"modules"`
+		Modules []struct {
+			ID           string            `json:"id"`
+			Version      string            `json:"version"`
+			Dependencies map[string]string `json:"dependencies"`
+			Enabled      bool              `json:"enabled"`
+			Healthy      bool              `json:"healthy"`
+		} `json:"modules"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil || len(body.Modules) == 0 {
 		t.Fatalf("能力清单形状不符: %v / %s", err, w.Body.String())
+	}
+	for _, m := range body.Modules {
+		if m.ID == "" || m.Version == "" || m.Dependencies == nil {
+			t.Fatalf("清单项缺字段: %+v", m)
+		}
 	}
 
 	w = httptest.NewRecorder()
