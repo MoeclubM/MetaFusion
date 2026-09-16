@@ -337,6 +337,7 @@ function ExploreInner() {
               <div className="sm:col-span-2 flex items-center">
                 <select
                   value={currentStatus}
+                  aria-label={t("catalog.status")}
                   onChange={(e) => updateFilters({ status: e.target.value })}
                   className="w-full py-2 px-2.5 rounded-lg bg-surface dark:bg-[#18181b] border border-line text-xs text-text-strong focus:border-primary outline-none cursor-pointer"
                 >
@@ -547,11 +548,14 @@ function ExploreInner() {
 
             <div className="flex items-center justify-between border-t border-line pt-4 text-xs font-mono text-gray-600 dark:text-gray-400">
               <div>
+                {/* 空结果不显示"第 1 - 0 项"这类自相矛盾的区间（offset 有值而 items 为空）。 */}
                 <span>
-                  {t("catalog.showingPage", {
-                    start: (offset + 1).toString(),
-                    end: (offset + items.length).toString(),
-                  })}
+                  {items.length > 0
+                    ? t("catalog.showingPage", {
+                        start: (offset + 1).toString(),
+                        end: (offset + items.length).toString(),
+                      })
+                    : t("pagination.totalItems", { total: 0 })}
                 </span>
               </div>
               <div className="flex items-center gap-2">
