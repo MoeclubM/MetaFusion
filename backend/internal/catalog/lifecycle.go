@@ -31,7 +31,7 @@ func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u
 	// 合并会改写关系端点与结构引用，必须与关系/结构写串行。
 	err := s.writeStructural(ctx, func(tx *sql.Tx) error {
 		if !u.Can(PermissionLifecycleManage) {
-			return fmt.Errorf("forbidden")
+			return errForbidden
 		}
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
@@ -42,7 +42,7 @@ func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u
 			return err
 		}
 		if e.Version != input.ExpectedVersion {
-			return fmt.Errorf("version_conflict")
+			return errVersionConflict
 		}
 		if e.Status == "merged" || e.Status == "deleted" {
 			return fmt.Errorf("invalid_status")

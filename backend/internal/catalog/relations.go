@@ -527,7 +527,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		var old *Relation
 		if r.ID == "" {
 			if input.ExpectedVersion != 0 {
-				return fmt.Errorf("version_conflict")
+				return errVersionConflict
 			}
 			r.ID = newID()
 			r.Version = 1
@@ -540,7 +540,7 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 			}
 			old = &prev
 			if old.Version != input.ExpectedVersion {
-				return fmt.Errorf("version_conflict")
+				return errVersionConflict
 			}
 			if old.SourceID != r.SourceID || old.TargetID != r.TargetID || old.Type != r.Type {
 				return fmt.Errorf("immutable_scope")
@@ -556,16 +556,16 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 			return err
 		}
 		if !visible(src, &u) || !visible(tgt, &u) || src.Status == "deleted" || src.Status == "merged" || tgt.Status == "deleted" || tgt.Status == "merged" {
-			return fmt.Errorf("forbidden")
+			return errForbidden
 		}
 		if !canWriteRelation(u, src) {
-			return fmt.Errorf("forbidden")
+			return errForbidden
 		}
 		// 目标端沿用角色检查，普通用户仍不能修改他人的公开关系。
 		// 删除码后旧边读路径与此无关——Relations 读路径按对端可见性过滤，
 		// 不在此做停用/删除码判断。
 		if !canAttachToTarget(u, tgt) {
-			return fmt.Errorf("forbidden")
+			return errForbidden
 		}
 		if err = validateRelation(v.Document, r, src, tgt, all, reference(ctx, tx, &u), true); err != nil {
 			return err
@@ -601,14 +601,14 @@ func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, n
 			return err
 		}
 		if expected != r.Version {
-			return fmt.Errorf("version_conflict")
+			return errVersionConflict
 		}
 		src, err := get(ctx, tx, r.SourceID)
 		if err != nil {
 			return err
 		}
 		if !canWriteRelation(u, src) {
-			return fmt.Errorf("forbidden")
+			return errForbidden
 		}
 		// 删除同样受目标端否决权约束：他人已发布条目上的边不得单方面拆除。
 		tgt, err := get(ctx, tx, r.TargetID)
@@ -616,7 +616,7 @@ func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, n
 			return err
 		}
 		if !canAttachToTarget(u, tgt) {
-			return fmt.Errorf("forbidden")
+			return errForbidden
 		}
 		if _, err = tx.ExecContext(ctx, "DELETE FROM catalog.relations WHERE id=$1", id); err != nil {
 			return err

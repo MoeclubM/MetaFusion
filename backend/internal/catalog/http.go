@@ -39,11 +39,13 @@ func respond(c *gin.Context, v any, err error) {
 			status = 500
 			code = "database_error"
 		}
-	} else if code == "forbidden" {
+	} else if errors.Is(err, errForbidden) {
+		// 按错误链判定：delivery_partial/merge_relation_conflict 这类 %w 包裹后
+		// err.Error() 是拼接串，全等比较会让 403 退化成 400。
+		// 401 不在这里产生：未登录由 required() 闸门直接返回 authentication_required，
+		// 目录服务内没有 invalid_credentials 的生产者（原分支已删）。
 		status = 403
-	} else if code == "invalid_credentials" {
-		status = 401
-	} else if code == "version_conflict" {
+	} else if errors.Is(err, errVersionConflict) {
 		status = 409
 	}
 	// 错误响应统一为单一 error 字段（值为稳定机器码）；database_error 只透出固定码，
@@ -314,7 +316,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		ORDER BY n DESC, t.name
 		LIMIT $`+strconv.Itoa(len(args)), args...)
 		if err != nil {
-			respond(c, gin.H{"items": []any{}, "total": 0}, nil)
+			// 查询失败不能再回 200 空表：DB 故障看起来会像"库里没有标签"，
+			// 前端标签云与筛选建议会静默变空（错误由 respond 统一成 500/database_error）。
+			respond(c, nil, err)
 			return
 		}
 		defer rows.Close()
@@ -323,9 +327,15 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			var name string
 			var n int
 			if err := rows.Scan(&name, &n); err != nil {
-				continue
+				respond(c, nil, err)
+				return
 			}
 			items = append(items, map[string]any{"name": name, "count": n})
+		}
+		// 迭代中途断连同样要暴露：rows.Err() 才记录 Next 的终止原因。
+		if err := rows.Err(); err != nil {
+			respond(c, nil, err)
+			return
 		}
 		respond(c, gin.H{"items": items, "total": len(items)}, nil)
 	})

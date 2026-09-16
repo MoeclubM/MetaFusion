@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"strings"
@@ -28,6 +29,15 @@ func catalogBaseline() (string, error) {
 	}
 	return string(b), nil
 }
+
+// 领域哨兵错误：respond（http.go）按错误链判定 HTTP 状态码，所以写路径与
+// retirement/生命周期里的拒绝必须用同一批哨兵，而不是各自 fmt.Errorf 出同名字符串——
+// 字符串比较在 %w 包裹后就失效（403/409 会退化成 400）。
+// 哨兵文本即响应里的机器码（forbidden / version_conflict），与前端字典逐字对齐。
+var (
+	errForbidden       = errors.New("forbidden")
+	errVersionConflict = errors.New("version_conflict")
+)
 
 type Store struct {
 	DB *sql.DB
@@ -410,7 +420,7 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		var old Entity
 		if e.ID == "" {
 			if input.ExpectedVersion != 0 {
-				return fmt.Errorf("version_conflict")
+				return errVersionConflict
 			}
 			e.ID = newID()
 			e.Version = 1
@@ -421,10 +431,10 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 				return err
 			}
 			if !visible(old, &u) || old.Status == "deleted" || old.Status == "merged" {
-				return fmt.Errorf("forbidden")
+				return errForbidden
 			}
 			if old.Version != input.ExpectedVersion {
-				return fmt.Errorf("version_conflict")
+				return errVersionConflict
 			}
 			if old.Kind != e.Kind || old.WorkID != e.WorkID || old.ReleaseID != e.ReleaseID || old.MediumID != e.MediumID {
 				return fmt.Errorf("immutable_scope")
@@ -434,15 +444,15 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		}
 		if !u.Can(PermissionLifecycleManage) {
 			if old.ID != "" && !canEditEntity(u, old) {
-				return fmt.Errorf("forbidden")
+				return errForbidden
 			}
 			// 无实体编辑权者走审核制：只能存草稿或提交审核，不能发布，也不可触碰已发布条目。
 			if !u.Can(PermissionEntityEdit) {
 				if old.Status == "published" {
-					return fmt.Errorf("forbidden")
+					return errForbidden
 				}
 				if e.Status != "draft" && e.Status != "pending_review" {
-					return fmt.Errorf("forbidden")
+					return errForbidden
 				}
 			}
 			// 持实体编辑权者（旧 editor）可维护公开条目；发布他人的草稿、降级与删除

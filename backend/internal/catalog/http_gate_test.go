@@ -1,8 +1,10 @@
 package catalog
 
 import (
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -118,6 +120,33 @@ func TestImporterPreviewRejectsMediaTypeHint(t *testing.T) {
 	gateEngine(u).ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/importer/preview", body))
 	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "media_type_hint") {
 		t.Fatalf("media_type_hint must be rejected: status=%d body=%s", w.Code, w.Body.String())
+	}
+}
+
+// /tags 查询失败必须暴露错误：旧行为是 200 + 空表，DB 故障看起来像"库里没有标签"，
+// 前端标签云与筛选建议会静默变空。
+func TestTagsEndpointReportsQueryFailure(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	dsn := strings.TrimSpace(os.Getenv("MF_V2_TEST_DSN"))
+	if dsn == "" {
+		t.Skip("MF_V2_TEST_DSN must identify an isolated PostgreSQL test server")
+	}
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 立即关闭的连接池：任何查询都返回 "sql: database is closed"，
+	// 用它验证 /tags 不再把查询失败吞成 200 空表。
+	_ = db.Close()
+	engine := gin.New()
+	HTTP{Store: &Store{DB: db}}.Register(engine)
+	w := httptest.NewRecorder()
+	engine.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/catalog/tags", nil))
+	// 只断言"错误被暴露"：连接级失败不是 pq.Error，respond 目前给出的还不是 5xx
+	// （见报告里的新发现：respond 对非 pq 的库错误仍按 400 透出原文），
+	// 本用例钉住的是"不再吞成 200 空表"。
+	if w.Code == http.StatusOK || !strings.Contains(w.Body.String(), "error") {
+		t.Fatalf("tags query failure must surface an error instead of an empty 200: status=%d body=%s", w.Code, w.Body.String())
 	}
 }
 

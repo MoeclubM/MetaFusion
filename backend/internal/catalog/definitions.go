@@ -33,7 +33,7 @@ func (s *Store) Draft(ctx context.Context, d Definitions, base int64, u User, no
 	var id int64
 	err := s.write(ctx, func(tx *sql.Tx) error {
 		if !u.Can(PermissionDefinitionsManage) {
-			return fmt.Errorf("forbidden")
+			return errForbidden
 		}
 		if err := validateSources(note, sources); err != nil {
 			return err
@@ -46,7 +46,7 @@ func (s *Store) Draft(ctx context.Context, d Definitions, base int64, u User, no
 			return err
 		}
 		if base != v.ID {
-			return fmt.Errorf("version_conflict")
+			return errVersionConflict
 		}
 		if err = tx.QueryRowContext(ctx, "INSERT INTO catalog.definitions(state,base_version,document) VALUES('draft',$1,$2) RETURNING id", base, encode(d)).Scan(&id); err != nil {
 			return err
@@ -163,7 +163,7 @@ func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sour
 	// 事务内一律用 definitions(ctx, tx) 直读，不走进程内 Definitions 缓存。
 	err := s.write(ctx, func(tx *sql.Tx) error {
 		if !u.Can(PermissionDefinitionsManage) {
-			return fmt.Errorf("forbidden")
+			return errForbidden
 		}
 		if err := validateSources(note, sources); err != nil {
 			return err
@@ -179,7 +179,7 @@ func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sour
 			return err
 		}
 		if state != "draft" || current.ID != base {
-			return fmt.Errorf("version_conflict")
+			return errVersionConflict
 		}
 		var d Definitions
 		if err = json.Unmarshal(b, &d); err != nil {
