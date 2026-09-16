@@ -158,6 +158,11 @@ func TestImporterRefParsing(t *testing.T) {
 	if _, err := s.Import(ctx, ImporterImportRequest{EntityType: "work", Source: "bangumi", LinkMode: "append_release_to_work"}, me); err == nil {
 		t.Fatal("append without target accepted")
 	}
+	// merge_translations 已从契约移除：它曾与 append_release_to_work 同义，词典承诺的
+	// "补译名/简介/外部 ID"从未实现，必须显式拒绝而不是继续静默当同义词。
+	if _, err := s.Import(ctx, ImporterImportRequest{EntityType: "work", Source: "bangumi", LinkMode: "merge_translations", TargetWorkID: "00000000-0000-0000-0000-0000000000ff", Work: &ImporterWorkPreview{Title: "x"}}, me); err == nil || err.Error() != "invalid_link_mode" {
+		t.Fatalf("merge_translations must be rejected with invalid_link_mode: %v", err)
+	}
 	if _, err := buildWorkEntity(&ImporterWorkPreview{}, "", "bangumi", "", "", false, ""); err == nil {
 		t.Fatal("empty work title accepted")
 	}
@@ -482,6 +487,40 @@ func TestImporterImportCharacterRankAttribute(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("character_in relation not created")
+	}
+}
+
+// 发行复用必须校验该发行是否声明了目标作品：同一来源身份撞上同一发行幂等键、
+// 但目标作品不同（换了 target_work_id）时拒绝复用，不把本次载体/曲目挂进别人的发行。
+func TestImporterReleaseReuseRequiresWorkDeclaration(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	first := ImporterImportRequest{
+		EntityType: "work", Source: "bangumi", URLOrID: "https://bgm.tv/subject/7",
+		Work:       &ImporterWorkPreview{Title: "作品甲", OriginalLanguage: "zh-CN", CatalogMetadata: map[string]any{"bangumi_type": float64(2)}},
+		Release:    &ImporterReleasePreview{EditionName: "初回版"},
+		Mediums:    []ImporterMediumPreview{{Position: 0, Name: "Disc 1", Format: "cd", Tracks: []ImporterTrackPreview{{Position: 1, Title: "第一话"}}}},
+		EditNote:   "发行复用校验",
+		SourceURLs: []string{"https://bgm.tv/subject/7"},
+	}
+	out, err := f.s.Import(ctx, first, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.ReleaseID == "" {
+		t.Fatal("first import must build the release chain")
+	}
+	before := len(mustList(t, f, ListOptions{Kind: "medium", ReleaseID: out.ReleaseID}))
+	// 同一来源身份挂到另一个目标作品：发行基础键相同，但该发行只声明了"作品甲"。
+	target := f.save(Entity{Kind: "work", Title: "作品乙"})
+	second := first
+	second.LinkMode = "append_release_to_work"
+	second.TargetWorkID = target.ID
+	if _, err := f.s.Import(ctx, second, f.u); err == nil || !strings.Contains(err.Error(), "undeclared_release_subject") {
+		t.Fatalf("reusing a release that does not declare the work must fail: %v", err)
+	}
+	if after := len(mustList(t, f, ListOptions{Kind: "medium", ReleaseID: out.ReleaseID})); after != before {
+		t.Fatalf("failed reuse must not touch the other release: %d -> %d", before, after)
 	}
 }
 

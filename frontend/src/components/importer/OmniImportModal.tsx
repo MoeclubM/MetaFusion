@@ -116,7 +116,7 @@ export function OmniImportModal({
   // 智能查重与关联目标母体
   const [duplicateMatches, setDuplicateMatches] = useState<Entity[]>([]);
   const [selectedTargetWork, setSelectedTargetWork] = useState<Entity | null>(null);
-  const [linkMode, setLinkMode] = useState<"append_release_to_work" | "merge_translations" | "create_relation" | "new_work">("new_work");
+  const [linkMode, setLinkMode] = useState<"append_release_to_work" | "create_relation" | "new_work">("new_work");
   // 不预设关系码：关系类型来自服务端 definitions，未选则不提交该字段（避免写死某个码）。
   const [relationType] = useState<string>("");
 

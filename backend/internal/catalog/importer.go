@@ -274,12 +274,15 @@ func normalizeImporterEntityType(entityType string) (string, error) {
 	return et, nil
 }
 
+// normalizeImporterLinkMode 归一关联策略。merge_translations 已从契约移除：它曾与
+// append_release_to_work 同义（都走发行链），而词典承诺的"补译名/简介/外部 ID"从未实现；
+// 与其继续静默同义，不如显式拒绝（invalid_link_mode），需要补译名的路径走常规编辑。
 func normalizeImporterLinkMode(mode string) (string, error) {
 	m := strings.ToLower(strings.TrimSpace(mode))
 	if m == "" {
 		m = "new_work"
 	}
-	if !contains([]string{"new_work", "append_release_to_work", "merge_translations", "create_relation"}, m) {
+	if !contains([]string{"new_work", "append_release_to_work", "create_relation"}, m) {
 		return "", fmt.Errorf("invalid_link_mode")
 	}
 	return m, nil
@@ -3215,6 +3218,13 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 	var existingRelease *Entity
 	if strings.TrimSpace(releaseKey) != "" {
 		if existing, ok := s.findImported(ctx, strings.TrimSpace(releaseKey), &actor); ok && existing.Kind == "release" {
+			// 幂等键相同不代表"同一个发行"：换 target_work_id 或改过 subjects 后，
+			// 命中的可能是别人的发行。复用前必须确认它已声明本次的作品，
+			// 否则本次载体/曲目会被挂进一份没收录该作品的发行（触发
+			// undeclared_release_subject 或留下孤儿表达），且不修改他人发行的收录声明。
+			if !releaseDeclaresWork(existing, workID) {
+				return Entity{}, counts, fmt.Errorf("undeclared_release_subject: release=%s work=%s", existing.ID, workID)
+			}
 			existingRelease = &existing
 		}
 	}
@@ -3648,7 +3658,7 @@ func buildReleaseTitle(workTitle string, rel *ImporterReleasePreview) string {
 }
 
 // Import 落库：work/artist 分支 + link_mode（new_work / append_release_to_work /
-// create_relation / merge_translations 语义同前端：后者挂靠目标 work 只补发行链）。
+// create_relation）；append_release_to_work 挂靠目标 work 只补发行链。
 func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor User) (ImporterImportResponse, error) {
 	entityType, err := normalizeImporterEntityType(req.EntityType)
 	if err != nil {
@@ -3668,7 +3678,7 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 	}
 	// 先做纯参数校验（不触库），保持"非法载荷在写库前失败"的既有约定。
 	switch mode {
-	case "append_release_to_work", "merge_translations":
+	case "append_release_to_work":
 		if strings.TrimSpace(req.TargetWorkID) == "" {
 			return ImporterImportResponse{}, fmt.Errorf("invalid_payload")
 		}
@@ -3682,7 +3692,7 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 	if pfErr := s.importerPreflight(ctx, actor, req, mode, entityType); pfErr != nil {
 		return ImporterImportResponse{}, pfErr
 	}
-	if mode == "append_release_to_work" || mode == "merge_translations" {
+	if mode == "append_release_to_work" {
 		target, gerr := s.Get(ctx, strings.TrimSpace(req.TargetWorkID), &actor)
 		if gerr != nil || target.Kind != "work" {
 			return ImporterImportResponse{}, fmt.Errorf("not_found")
