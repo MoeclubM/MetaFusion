@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme, accentLabel } from "@/lib/themeContext";
 import { displayNameOf, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
+import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
 import { ThemeControls } from "@/components/ThemeControls";
@@ -100,15 +101,26 @@ export default function SettingsPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || t("settings.passwordFail"));
+        // 带上状态码：账号服务的错误码要经 authErrorText 翻成当前语言的人话。
+        const failed = new Error(data.error || "request_failed") as Error & { status?: number };
+        failed.status = res.status;
+        throw failed;
       }
       setSuccess(t("settings.passwordSuccess"));
       setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setError(msg || t("settings.passwordFail"));
+      // 服务端给的是稳定错误码（invalid_old_password / invalid_password_length 等）：
+      // 必须走四语字典，不能把原始码当文案贴给用户（此处曾直出 invalid_old_password）。
+      setError(
+        authErrorText(
+          err instanceof Error ? err.message : String(err),
+          t,
+          httpStatusOf(err),
+          "settings.passwordFail"
+        )
+      );
     } finally {
       setSubmitting(false);
     }
