@@ -12,7 +12,6 @@ import { UserAvatar } from "./UserAvatar";
 import { displayNameOf } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
 import { canEnterAdmin } from "@/lib/permissions";
-import { useDefinitions, getKindName } from "@/lib/definitions";
 import { getAuthLoginUrl, getAuthSettingsUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
 import {
   Plus,
@@ -38,8 +37,6 @@ export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { t, locale } = useI18n();
   const pathname = usePathname();
-  // 新建入口的层级清单来自服务端 definitions（kinds 的名称也由服务端下发）。
-  const { kinds } = useDefinitions();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -127,37 +124,14 @@ export const Navbar: React.FC = () => {
 
         {/* Right Controls */}
         <div className="flex items-center gap-2 sm:gap-2.5">
-          {/* Create dropdown */}
-          <div className="relative group/create">
-            <Link
+          {/* 新建：直达 /new，层级在创建页里选；入口不预设层级，也不枚举层级清单。 */}
+          <Link
               href="/new"
-              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-white transition-all shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-white transition-all shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
               <span className="hidden sm:inline">{t("catalog.create")}</span>
-              <ChevronDown className="w-3 h-3 opacity-60 group-hover/create:rotate-180 transition-transform duration-base ease-soft" />
             </Link>
-
-            <div className="absolute right-0 top-full pt-1.5 hidden group-hover/create:block z-40">
-              <div className="w-48 rounded-xl border border-white/10 bg-surface shadow-elevated py-1.5 text-xs overflow-hidden">
-                {/* 新建入口按服务端 definitions 的 kinds 渲染：层级名称由服务端下发，前端不再写死四个层级链接。 */}
-                {Object.keys(kinds || {}).map((code) => (
-                  <Link
-                    key={code}
-                    href={`/new?kind=${code}`}
-                    className="flex items-center gap-2.5 px-3 py-2 hover:bg-surfaceHover text-gray-200"
-                  >
-                    <Layers className="w-3.5 h-3.5 text-sky-400" />
-                    <span>{getKindName(kinds, code, locale, t(`catalog.kind.${code}`))}</span>
-                  </Link>
-                ))}
-                
-                
-                
-                
-              </div>
-            </div>
-          </div>
 
           {/* User Profile / Login */}
           {user ? (
