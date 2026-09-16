@@ -120,6 +120,24 @@ func (s *Store) definitionVersion(ctx context.Context, id int64) (DefinitionVers
 	return v, err
 }
 
+// DefinitionDetail 读单个定义版本（任意 state，含 superseded/draft）的完整文档与元数据：
+// 列表用 include_document=false 瘦身之后，前端点某一版就按 id 调这里取该版本文档。
+// summary/created_by 与列表项同一口径（摘要同一格式来源，身份同取最早一条修订）。
+// 不存在的 id 由 definitionVersion 返回 sql.ErrNoRows，HTTP 侧就是 404。
+func (s *Store) DefinitionDetail(ctx context.Context, id int64) (DefinitionVersion, error) {
+	v, err := s.definitionVersion(ctx, id)
+	if err != nil {
+		return v, err
+	}
+	v.Summary = definitionSummary(v.Document)
+	actors, err := revisionActors(ctx, s.DB, []string{definitionRevisionTarget(id)})
+	if err != nil {
+		return v, err
+	}
+	v.CreatedBy = actors[definitionRevisionTarget(id)]
+	return v, nil
+}
+
 // rollbackEvidence 取目标版本自己的编辑说明与来源，作为回滚版本的证据链：
 // 说明里带上原说明，来源原样保留（validateSources 要求至少一条来源）。
 // 目标行若是种子播种或直接写库（没有修订记录），说明退化为只记版本号、来源退化为一条自述来源——

@@ -604,6 +604,13 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.DefinitionVersions(c.Request.Context(), includeDocument)
 		respond(c, gin.H{"items": v, "include_document": includeDocument}, err)
 	})
+	// 单版本详情：{id} 是任意历史版本行（含 superseded/draft），返回完整文档与元数据。
+	// 非数字 id 与不存在的 id 同处理：解析成 0 后查不到即 404 not_found，与 /impact、/rollback 同风格。
+	defs.GET("/:id", func(c *gin.Context) {
+		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		v, err := s.DefinitionDetail(c.Request.Context(), id)
+		respond(c, v, err)
+	})
 	defs.POST("", func(c *gin.Context) {
 		var in struct {
 			Document    Definitions `json:"document"`
