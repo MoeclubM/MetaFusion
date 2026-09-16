@@ -279,3 +279,46 @@ func TestLifecycleSemanticsLocked(t *testing.T) {
 		t.Fatal("archived status silently accepted")
 	}
 }
+
+// definitions 的结构规则必须被校验（此前完全不查）：层级码、结构字段码、target_kinds 与
+// scoped_by 任一写错都会让"必填判定取不到值"或候选过滤整组失效，且要到保存实体时才暴露。
+func TestDefinitionsValidateStructure(t *testing.T) {
+	if err := Defaults().Validate(); err != nil {
+		t.Fatalf("seed structure must validate: %v", err)
+	}
+	cases := []struct {
+		name  string
+		mut   func(*Definitions)
+		match string
+	}{
+		{"unknown kind", func(d *Definitions) {
+			d.Structure["nope"] = StructureRule{Fields: []StructureField{{Code: "work_id"}}}
+		}, "invalid_kind"},
+		{"unknown structural field", func(d *Definitions) {
+			d.Structure["expression"] = StructureRule{Fields: []StructureField{{Code: "owner_id"}}}
+		}, "invalid_structural_field"},
+		{"duplicate structural field", func(d *Definitions) {
+			d.Structure["expression"] = StructureRule{Fields: []StructureField{{Code: "work_id"}, {Code: "work_id"}}}
+		}, "duplicate_field"},
+		{"unknown target kind", func(d *Definitions) {
+			d.Structure["medium"] = StructureRule{Fields: []StructureField{{Code: "release_id", TargetKinds: []string{"nope"}}}}
+		}, "invalid_kind"},
+		{"scoped_by unknown", func(d *Definitions) {
+			d.Structure["expression"] = StructureRule{Fields: []StructureField{{Code: "work_id"}, {Code: "content_unit_id", ScopedBy: "release_id"}}}
+		}, "invalid_scoped_by"},
+		{"scoped_by self", func(d *Definitions) {
+			d.Structure["expression"] = StructureRule{Fields: []StructureField{{Code: "work_id", ScopedBy: "work_id"}}}
+		}, "invalid_scoped_by"},
+	}
+	for _, tc := range cases {
+		d := Defaults()
+		tc.mut(&d)
+		if err := d.Validate(); err == nil || !strings.Contains(err.Error(), tc.match) {
+			t.Errorf("%s: got %v want containing %q", tc.name, err, tc.match)
+		}
+	}
+	// 结构字段码的权威集合来自 Entity.structuralRefs：两边不同源就会写出"永远读不到"的规则。
+	if len((Entity{}).structuralRefs()) == 0 {
+		t.Fatal("structuralRefs must not be empty")
+	}
+}

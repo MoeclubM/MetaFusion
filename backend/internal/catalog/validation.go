@@ -301,6 +301,40 @@ func (d Definitions) Validate() error {
 			return err
 		}
 	}
+	// 结构规则此前完全不校验：码拼错、scoped_by 指向不存在的上级字段这类错误会在写实体时
+	// 变成"必填判定永远取不到值"（每次保存都 parent_required）或悄悄失去过滤候选的能力。
+	// 字段码的权威集合是 Entity.structuralRefs（validateEntity 用它取值），两边同源。
+	for kind, rule := range d.Structure {
+		if !contains(Kinds, kind) {
+			return fmt.Errorf("%s: %w", kind, fmt.Errorf("invalid_kind"))
+		}
+		declared := map[string]bool{}
+		for _, f := range rule.Fields {
+			code := strings.TrimSpace(f.Code)
+			if _, ok := (Entity{}).structuralRefs()[code]; !ok {
+				return fmt.Errorf("%s: %w", kind, fmt.Errorf("invalid_structural_field: %s", f.Code))
+			}
+			if declared[code] {
+				return fmt.Errorf("%s: %w", kind, fmt.Errorf("duplicate_field: %s", f.Code))
+			}
+			declared[code] = true
+			for _, tk := range f.TargetKinds {
+				if !contains(Kinds, tk) {
+					return fmt.Errorf("%s: %w", kind, fmt.Errorf("invalid_kind: %s", tk))
+				}
+			}
+		}
+		for _, f := range rule.Fields {
+			if strings.TrimSpace(f.ScopedBy) == "" {
+				continue
+			}
+			// scoped_by 只能指向同一规则里声明过的结构字段（通常是上级归属），且不能自指：
+			// 取不到被指的字段时候选过滤整组失效。
+			if !declared[f.ScopedBy] || f.ScopedBy == f.Code {
+				return fmt.Errorf("%s: %w", kind, fmt.Errorf("invalid_scoped_by: %s", f.ScopedBy))
+			}
+		}
+	}
 	for code, t := range d.Templates {
 		if !codePattern.MatchString(code) {
 			return fmt.Errorf("invalid_code")
@@ -790,6 +824,12 @@ func (d Definitions) validateExternalIDs(e Entity) error {
 	return nil
 }
 
+// structuralRefs 返回"结构字段码 → 取值"。结构校验（validateEntity）与 definitions 的
+// structure 规则校验共用它，保证规则里能声明的码与实体上真正会读取的列是同一批。
+func (e Entity) structuralRefs() map[string]string {
+	return map[string]string{"work_id": e.WorkID, "parent_id": e.ParentID, "content_unit_id": e.ContentUnitID, "release_id": e.ReleaseID, "medium_id": e.MediumID}
+}
+
 func (d Definitions) validateEntity(e Entity, reference func(string, []string) error, historical bool) error {
 	if !contains(Kinds, e.Kind) || strings.TrimSpace(e.Title) == "" || len(e.Title) > 2000 || e.Position < 0 {
 		return fmt.Errorf("invalid_entity")
@@ -860,7 +900,7 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 			requiredField[f.Code] = true
 		}
 	}
-	refs := map[string]string{"work_id": e.WorkID, "parent_id": e.ParentID, "content_unit_id": e.ContentUnitID, "release_id": e.ReleaseID, "medium_id": e.MediumID}
+	refs := e.structuralRefs()
 	for k, v := range refs {
 		if v != "" && !allowedField[k] {
 			return fmt.Errorf("invalid_structural_field: %s", k)
