@@ -2861,5 +2861,8 @@
   "catalog.translationHint": "タイトル・概要・別名は言語ごとに保存されます（原語もこの欄にあります）。公開には少なくとも1件の翻訳が必要です。",
   "catalog.tagFilter": "タグで絞り込む",
   "catalog.clear": "クリア",
-  "catalog.noTags": "タグはまだありません"
+  "catalog.noTags": "タグはまだありません",
+  "catalog.tagsLabel": "タグ",
+  "catalog.tagsPlaceholder": "タグを入力して Enter",
+  "catalog.tagsHint": "タグは検索と自動分類に使われます。フィールドはこの層の全タイプ分を表示するため、タイプの選択は不要です。"
 }

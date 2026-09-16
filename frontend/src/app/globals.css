@@ -492,6 +492,43 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
 }
 .cv-form button:not(.cv-primary):hover:not(:disabled) { border-color: var(--primary-color); }
 .cv-form button:not(.cv-primary):disabled { opacity: 0.4; cursor: default; }
+/* 自由标签输入（替代原"类型"勾选）：输入框 + chips，回车/逗号新增、× 删除。
+   规则放在通用按钮样式之后，chips 内的 × 按钮才不被 button:not(.cv-primary) 的边框盖住。 */
+.cv-form .cv-tags { margin-top: 0.55rem; }
+.cv-form .cv-tags > label { max-width: 26rem; }
+.cv-form .cv-taglist {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+.cv-form .cv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.1rem 0.3rem 0.1rem 0.5rem;
+  border: 1px solid var(--surface-border-color);
+  border-radius: 999px;
+  background: rgb(var(--surface-rgb) / 0.85);
+  font-size: 0.76rem;
+}
+.cv-form .cv-tag button {
+  border: 0;
+  background: transparent;
+  padding: 0 0.15rem;
+  line-height: 1;
+  font-size: 0.9rem;
+  color: inherit;
+  opacity: 0.6;
+  cursor: pointer;
+}
+.cv-form .cv-tag button:hover { opacity: 1; color: var(--primary-color); }
+.cv-form .cv-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  opacity: 0.6;
+}
 .cv-form .cv-error {
   color: #ef4444;
   font-size: 0.82rem;

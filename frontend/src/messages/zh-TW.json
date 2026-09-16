@@ -2861,5 +2861,8 @@
   "catalog.translationHint": "題名、簡介、別名都按語種分別儲存，原始語言也在這一區裡。發佈需要至少一條翻譯記錄，請為要展示的語種補上題名。",
   "catalog.tagFilter": "標籤篩選",
   "catalog.clear": "清除",
-  "catalog.noTags": "暫無標籤"
+  "catalog.noTags": "暫無標籤",
+  "catalog.tagsLabel": "標籤",
+  "catalog.tagsPlaceholder": "輸入標籤後按 Enter",
+  "catalog.tagsHint": "標籤用於檢索與自動歸類；欄位已按該層級的全部類型顯示，無需再勾選類型。"
 }

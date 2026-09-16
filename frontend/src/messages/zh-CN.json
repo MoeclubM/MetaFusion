@@ -2861,5 +2861,8 @@
   "catalog.translationHint": "题名、简介、别名都按语种分别保存，原始语言也在这一区里。发布需要至少一条翻译记录，请为要展示的语种补上题名。",
   "catalog.tagFilter": "标签筛选",
   "catalog.clear": "清除",
-  "catalog.noTags": "暂无标签"
+  "catalog.noTags": "暂无标签",
+  "catalog.tagsLabel": "标签",
+  "catalog.tagsPlaceholder": "输入标签后回车",
+  "catalog.tagsHint": "标签用于检索与自动归类；字段已按该层级的全部类型展示，无需再勾选类型。"
 }

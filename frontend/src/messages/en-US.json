@@ -2861,5 +2861,8 @@
   "catalog.translationHint": "Titles, summaries and aliases are stored per locale (the original language is listed here too). Publishing needs at least one translation entry.",
   "catalog.tagFilter": "Filter by tag",
   "catalog.clear": "Clear",
-  "catalog.noTags": "No tags yet"
+  "catalog.noTags": "No tags yet",
+  "catalog.tagsLabel": "Tags",
+  "catalog.tagsPlaceholder": "Type a tag and press Enter",
+  "catalog.tagsHint": "Tags drive search and grouping; fields now cover every type of this level, so no type needs ticking."
 }

@@ -9,6 +9,24 @@ import { useCatalog } from "./CatalogProvider";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
 import { effectiveSchemeFields, getFieldName, matchSchemes } from "@/lib/definitions";
+
+/** 生效类型：实体自带 types 时原样用它（老实体不清空、行为不变）；
+ *  没有 types 时取该层级全部 enabled 类型——去掉"类型"勾选后，
+ *  模板分区与字段并集必须仍然完整，否则用户会看不到本该能填的字段。 */
+function effectiveTypesOf(
+  defs: { types?: Record<string, { kinds: string[]; enabled: boolean }> } | undefined,
+  kind: string,
+  types: string[],
+): string[] {
+  if (types.length > 0) return types;
+  return Object.entries(defs?.types || {})
+    .filter(([, v]) => v.enabled && v.kinds.includes(kind))
+    .map(([k]) => k);
+}
+
+/** 标签分隔符：中英文逗号/顿号/换行都算新增，避免只能靠回车。 */
+const TAG_SEPARATORS = /[,，、\n]/;
+
 export function EntityEditor({
   initial,
   initialKind,
@@ -45,23 +63,27 @@ export function EntityEditor({
   // 顺序（relative_to 锚点置前），无匹配时按全局声明顺序（锚点置前）。
   const kindKey = e.kind;
   const typesKey = JSON.stringify(e.types);
+  const effTypes = React.useMemo(
+    () => effectiveTypesOf(defs, kindKey, JSON.parse(typesKey)),
+    [defs, kindKey, typesKey],
+  );
   const locatorFieldKeys = React.useMemo(() => {
-    const matched = matchSchemes(defs as any, "locator", kindKey, JSON.parse(typesKey));
+    const matched = matchSchemes(defs as any, "locator", kindKey, effTypes);
     const union = effectiveSchemeFields(matched);
     const f: any = defs?.fields?.["locator"];
     const keys = union.length > 0 ? union.filter((k) => f?.fields?.[k]) : Object.keys(f?.fields || {});
     const anchor = f?.anchor_key;
     return anchor && keys.includes(anchor) ? [anchor, ...keys.filter((k) => k !== anchor)] : keys;
-  }, [defs, kindKey, typesKey]);
+  }, [defs, kindKey, effTypes]);
   // 两个 GroupFieldInput 的收敛码：无匹配时传 undefined（显示全部全局子字段）。
   const subjectCodes = React.useMemo(() => {
-    const union = effectiveSchemeFields(matchSchemes(defs as any, "subject_attributes", kindKey, JSON.parse(typesKey)));
+    const union = effectiveSchemeFields(matchSchemes(defs as any, "subject_attributes", kindKey, effTypes));
     return union.length > 0 ? union : undefined;
-  }, [defs, kindKey, typesKey]);
+  }, [defs, kindKey, effTypes]);
   const inclusionCodes = React.useMemo(() => {
-    const union = effectiveSchemeFields(matchSchemes(defs as any, "inclusion_attributes", kindKey, JSON.parse(typesKey)));
+    const union = effectiveSchemeFields(matchSchemes(defs as any, "inclusion_attributes", kindKey, effTypes));
     return union.length > 0 ? union : undefined;
-  }, [defs, kindKey, typesKey]);
+  }, [defs, kindKey, effTypes]);
   const [note, setNote] = useState(initialEditNote);
   // 新建条目时关系先入队：条目拿到 id 之后再逐条写入（见 save）。
   const [pendingRelations, setPendingRelations] = useState<RelationDraft[]>([]);
@@ -72,13 +94,28 @@ export function EntityEditor({
   const [busy, setBusy] = useState(false);
   const [newLocale, setNewLocale] = useState("");
   const [externalKey, setExternalKey] = useState("");
+  // 标签输入框的待确认文本（回车/逗号才落到 attributes.tags）。
+  const [tagInput, setTagInput] = useState("");
   if (!definition) return <p>{t("catalog.loading")}</p>;
   if (!user) return <p>{t("catalog.loginToEdit")}</p>;
   const d = definition.document;
   const patch = (v: Partial<Entity>) => setE({ ...e, ...v });
+  // ---- 标签：自由输入，取代原先的"类型"勾选（types 保留在数据里，只是不再由界面选择）----
+  const tags: string[] = Array.isArray(e.attributes?.tags)
+    ? (e.attributes.tags as unknown[]).map((v) => String(v ?? "").trim()).filter(Boolean)
+    : [];
+  const setTags = (next: string[]) => patch({ attributes: { ...e.attributes, tags: next } });
+  const addTags = (raw: string) => {
+    const parts = raw.split(TAG_SEPARATORS).map((s) => s.trim()).filter(Boolean);
+    if (!parts.length) return;
+    const seen = new Set(tags);
+    setTags([...tags, ...parts.filter((v) => !seen.has(v))]);
+    setTagInput("");
+  };
+
   const fields = Array.from(
     new Set([
-      ...e.types.flatMap((k) => d.types[k]?.fields || []),
+      ...effTypes.flatMap((k) => d.types[k]?.fields || []),
       ...Object.keys(e.attributes),
     ]),
   );
@@ -92,7 +129,10 @@ export function EntityEditor({
   {
     const declared = new Set(fields);
     const seen = new Set<string>();
-    for (const tc of e.types) {
+    // 同名分区合并：字段现在来自该层级全部类型的模板，而各模板都有自己的"基本信息"，
+    // 不合并就会出现多个同名分区（与"合并各类型模板 sections"的既有意图一致）。
+    const byName = new Map<string, { names: Record<string, string>; fields: string[] }>();
+    for (const tc of effTypes) {
       const tpl = d.templates?.[d.types[tc]?.template || ""];
       for (const sec of tpl?.sections || []) {
         const fs = (sec.fields || []).filter(
@@ -104,10 +144,15 @@ export function EntityEditor({
         );
         if (!fs.length) continue;
         fs.forEach((f: string) => seen.add(f));
-        sections.push({ names: sec.names || {}, fields: fs });
+        const key = JSON.stringify(sec.names || {});
+        const merged = byName.get(key);
+        if (merged) merged.fields.push(...fs);
+        else byName.set(key, { names: sec.names || {}, fields: [...fs] });
       }
     }
-    restFields = fields.filter((f) => !seen.has(f) && (!d.fields[f]?.hidden || f === "tags"));
+    sections.push(...Array.from(byName.values()));
+    // tags 已在身份区有专用标签输入，不再在"其它信息"里重复列出。
+    restFields = fields.filter((f) => f !== "tags" && !seen.has(f) && !d.fields[f]?.hidden);
     // 折叠区：hidden 字段（tags 已有专用编辑入口，不重复列出）。
     foldedFields = fields.filter(
       (f) => !seen.has(f) && !!d.fields[f]?.hidden && f !== "tags",
@@ -245,27 +290,45 @@ export function EntityEditor({
             </select>
           </label>
         </div>
-        <div className="cv-checks">
-          {Object.entries(d.types)
-            .filter(
-              ([k, v]) =>
-                v.kinds.includes(e.kind) && (v.enabled || e.types.includes(k)),
-            )
-            .map(([k, v]) => (
-              <label key={k}>
-                <input
-                  type="checkbox"
-                  checked={e.types.includes(k)}
-                  onChange={(x) => {
-                    const types = x.target.checked
-                      ? [...e.types, k]
-                      : e.types.filter((a) => a !== k);
-                    patch({ types });
-                  }}
-                />
-                {local(v.names, locale, "", k)}
-              </label>
-            ))}
+        {/* 自由标签：取代原先的"类型"勾选网格。业务类型不再由用户选，
+            层级可填字段按该层级全部类型取并集（见 effTypes）；值落在 attributes.tags，
+            详情页标签区块与 /explore?tags= 检索都读它。 */}
+        <div className="cv-tags">
+          <label>
+            {t("catalog.tagsLabel")}
+            <input
+              aria-label={t("catalog.tagsLabel")}
+              placeholder={t("catalog.tagsPlaceholder")}
+              value={tagInput}
+              onChange={(x) => setTagInput(x.target.value)}
+              onKeyDown={(ev) => {
+                // 输入法组合中的回车/逗号是候选确认，不能当分隔符
+                if (ev.nativeEvent.isComposing) return;
+                if (ev.key === "Enter" || ev.key === "," || ev.key === "，") {
+                  ev.preventDefault();
+                  addTags(tagInput);
+                }
+              }}
+              onBlur={() => addTags(tagInput)}
+            />
+          </label>
+          {tags.length > 0 && (
+            <div className="cv-taglist">
+              {tags.map((tag) => (
+                <span key={tag} className="cv-tag">
+                  {tag}
+                  <button
+                    type="button"
+                    aria-label={`${tag} · ${t("catalog.remove")}`}
+                    onClick={() => setTags(tags.filter((v) => v !== tag))}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <p className="cv-hint">{t("catalog.tagsHint")}</p>
         </div>
       </fieldset>
       <fieldset>
