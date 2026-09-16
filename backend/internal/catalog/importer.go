@@ -138,10 +138,14 @@ type ImporterTrackPreview struct {
 // （不是 attributes）：载体题名的原语言行与各语种译名行，随载体落库写入（importReleaseChain），
 // 幂等命中时补齐缺失行、不覆盖已有行。
 type ImporterMediumPreview struct {
-	Position         int                    `json:"position"`
-	Number           string                 `json:"number,omitempty"`
-	Name             string                 `json:"name"`
-	Format           string                 `json:"format"`
+	Position int    `json:"position"`
+	Number   string `json:"number,omitempty"`
+	Name     string `json:"name"`
+	Format   string `json:"format"`
+	// MediaCategory 是前端契约里的遗留键：**模型里没有这个字段**（Entity 无此列，medium 类型
+	// 字段集只有 catalog_number/format/role），预览响应因此恒为空串。载荷声明非空值没有落点，
+	// 收下就是丢数据，由预检以 unsupported_field_for_entity_type 明确拒绝
+	// （见 importerUnsupportedPayloadFields）。
 	MediaCategory    string                 `json:"media_category"`
 	Role             string                 `json:"role,omitempty"`
 	OriginalLanguage string                 `json:"original_language,omitempty"`
@@ -151,6 +155,11 @@ type ImporterMediumPreview struct {
 
 // ImporterReleasePreview 是发行版预览。与载体同口径：OriginalLanguage / Translations 落
 // release 实体本体（发行版题名的原语言行与各语种译名行），随发行链写入。
+//
+// 封面 CoverImageURL 与 work 封面同口径地兑现：透传为 release 实体的 Picture（只引用远端
+// URL，不抓取、不转存），新建与幂等复用都写（复用只补空、不覆盖已有图）。
+// CoverAspect / Notes / CatalogMetadata / Language 在模型里没有落点，由预检明确拒绝
+// （unsupported_field_for_entity_type，逐条理由见 importerUnsupportedPayloadFields）。
 type ImporterReleasePreview struct {
 	CoverImageURL       string `json:"cover_image_url,omitempty"`
 	CoverAspect         string `json:"cover_aspect,omitempty"`
@@ -2980,6 +2989,55 @@ func importerJSONDeclaresData(v any) bool {
 	}
 }
 
+// importerUnsupportedPayloadFields 拒绝载荷里"模型没有对应字段、写路径读不了"的对象级字段。
+//
+// 与 importerUnsupportedEntityTypeFields 同一判据（声明了就必须被兑现，否则明确报错），区别在
+// 判据的粒度：那条按整类实体判（canonical_entries/mediums/release 在 agent 路径上没有落点），
+// 这条按字段判——字段在**任何**路径上都没有落点，静默收下就是丢数据。错误码复用同一个
+// unsupported_field_for_entity_type，field 带对象定位（mediums[0].media_category / release.notes），
+// 调用方对"载荷声明了但写不进去"只需处理一种分支。
+//
+// 空壳（空串 / null / [] / {}）与"没传"同义，不算声明：预览响应会把 mediums[*].media_category
+// 恒为空串带回，前端原样转交，把空值也当声明就会把正常的预览→导入往返自己拒掉。
+func importerUnsupportedPayloadFields(req ImporterImportRequest, entityType string) error {
+	reject := func(field string) error {
+		return fmt.Errorf("unsupported_field_for_entity_type: entity_type=%s field=%s", entityType, field)
+	}
+	// media_category：Entity 无此列，medium 类型字段集也只有 catalog_number/format/role。
+	for i, m := range req.Mediums {
+		if strings.TrimSpace(m.MediaCategory) != "" {
+			return reject(fmt.Sprintf("mediums[%d].media_category", i))
+		}
+	}
+	rel := req.Release
+	if rel == nil {
+		return nil
+	}
+	// 封面比例：Picture 只有 url/caption/taken_at/source，没有比例列；比例是展示建议
+	// （AGENTS.md），由前端按标签推断，写不进模型。
+	if strings.TrimSpace(rel.CoverAspect) != "" {
+		return reject("release.cover_aspect")
+	}
+	// 发行备注：Entity 没有 notes 列，发行类型字段集也没有同义字段。语种翻译行的 summary
+	// 是"某个语种的题名简介"，本条备注没有语种归属，塞进去等于编造语种。
+	if strings.TrimSpace(rel.Notes) != "" {
+		return reject("release.notes")
+	}
+	// catalog_metadata：作品路径上的同名对象是**来源结构载体**（bangumi_type → types、
+	// official_website → external_ids、catalog_number → 发行属性），发行预览没有对应的消费
+	// 口径，模型里也没有可存 blob 的列，收下只能丢。品番/条码有各自的一等字段，不走这里。
+	if importerJSONDeclaresData(rel.CatalogMetadata) {
+		return reject("release.catalog_metadata")
+	}
+	// language：release 类型字段集不含 language（defaults.go 的发行字段集），而
+	// original_language 是另一个**已兑现**的槽位（Entity.OriginalLanguage）。两者合并进同一槽会
+	// 变成"同时声明时谁静默覆盖谁"，故不合并：要写语言用 original_language / translations。
+	if strings.TrimSpace(rel.Language) != "" {
+		return reject("release.language")
+	}
+	return nil
+}
+
 // importerPreflightExternalIDs 预检载荷会落库的外部编号：格式层（validateExternalIDs）与
 // 预设层（validateExternalIDsAgainstDB：键必须在 external_databases 预设里、值按正则、
 // 分类与实体 kind 一致）与 Store.Save 同一套校验，只是提前到零写入阶段执行。
@@ -3092,6 +3150,11 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, req ImporterI
 	// 该类型的写路径绝不会读取的顶层对象先拒绝：静默忽略等于让调用方以为写进去了
 	//（unsupported_field_for_entity_type，见该函数注释），且比结构类校验更基础，先报更好定位。
 	if err := importerUnsupportedEntityTypeFields(req, mode, entityType); err != nil {
+		return err
+	}
+	// 字段级同判据：模型里根本没有落点的对象级字段（media_category、release 的
+	// aspect/notes/catalog_metadata/language）同样在零写入阶段拒绝，不吃下再丢。
+	if err := importerUnsupportedPayloadFields(req, entityType); err != nil {
 		return err
 	}
 	entries, work, assocs := req.CanonicalEntries, req.Work, req.StaffAssociations
@@ -3622,6 +3685,22 @@ func releaseDeclaresWork(release Entity, workID string) bool {
 	return false
 }
 
+// importerReleasePictures 把发行预览声明的远端封面透传为 Picture（与 work 封面同口径：
+// 只引用远端 URL，不抓取、不转存；Source.URL 指回来源条目页便于考据）。
+// download_cover 显式 false 时 URL 已在 importerWithoutRemotePictures 里清空，这里自然不写。
+// 幂等复用分支用同一函数补齐（只在无图时补，不覆盖已有图，见调用点）。
+func importerReleasePictures(rel *ImporterReleasePreview, workKey string) []Picture {
+	if rel == nil {
+		return nil
+	}
+	// 发行封面与作品封面来自同一条上游条目：页面 URL 用作品幂等键还原（bangumi:subject:<id>）。
+	key := strings.TrimSpace(workKey)
+	if p, ok := pictureFromRemote(rel.CoverImageURL, "Bangumi 发行版封面", key, key != ""); ok {
+		return []Picture{p}
+	}
+	return nil
+}
+
 // importReleaseChain 按 work → expression → release → medium → track 建链。
 // 表达对齐只认权威依据：用户手工指定的 expression_id，或 recording_mbid/isrc 等
 // 外部编号；标题、时长、轨号相近不再自动合并身份（同名录音室版/现场版会被误并），
@@ -3890,7 +3969,16 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 		// 复用时不改写既有 subjects（可能含管理员人工补充），仅记录本次是否需补声明。
 		release = *existingRelease
 		// 语言/翻译行同理补齐：只在缺值时写，不覆盖已有行。
-		if merged, changed := mergeImporterMeta(release, releaseLang, releaseTranslations); changed {
+		merged, changed := mergeImporterMeta(release, releaseLang, releaseTranslations)
+		// 封面同口径补齐：只在复用实体尚无图时补。人工换过的图不该被上游下一次导入改回去，
+		// 但"上次没写进去"（本次修复前的历史数据、或上次 download_cover=false）要能补上。
+		if len(merged.Pictures) == 0 {
+			if pictures := importerReleasePictures(rel, workKey); len(pictures) > 0 {
+				merged.Pictures = pictures
+				changed = true
+			}
+		}
+		if changed {
 			updated, uerr := s.importerSaveVersioned(ctx, merged, release.Version, actor, note, sources)
 			if uerr != nil {
 				return Entity{}, counts, uerr
@@ -3915,6 +4003,7 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 			Attributes:       releaseAttrs,
 			ExternalIDs:      releaseExternalIDs,
 			Subjects:         subjects,
+			Pictures:         importerReleasePictures(rel, workKey),
 			OriginalLanguage: releaseLang,
 			Translations:     releaseTranslations,
 		}, actor, note, sources)
@@ -4109,9 +4198,11 @@ func buildReleaseTitle(workTitle string, rel *ImporterReleasePreview) string {
 // Import 落库：work/artist 分支 + link_mode（new_work / append_release_to_work /
 // create_relation）；append_release_to_work 挂靠目标 work 只补发行链。
 func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor User) (ImporterImportResponse, error) {
+	// 非法 entity_type 明确报错（错误码与 Preview 同一处归一化函数，见 normalizeImporterEntityType）：
+	// 此前这里吞掉错误回落成 work，同一份载荷会被预览拒、被落库悄悄建成作品——两边口径不一致。
 	entityType, err := normalizeImporterEntityType(req.EntityType)
 	if err != nil {
-		entityType = "work"
+		return ImporterImportResponse{}, err
 	}
 	source := strings.ToLower(strings.TrimSpace(req.Source))
 	if source == "" {
