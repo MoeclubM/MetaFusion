@@ -129,7 +129,9 @@ func (s *Store) EnsureSeedDefinitions(ctx context.Context) error {
 		return nil
 	}
 	log.Printf("definition seed merge: 将补入 %d 项：%v", len(added), added)
-	sys := User{ID: "system", Username: "system", Role: "admin", Permissions: []string{PermissionDefinitionsManage}}
+	// 审计的 created_by 是 uuid 列：系统身份用全零 UUID（约定俗成），
+	// 不能写字面量 "system"——那会以 invalid input syntax for type uuid 失败。
+	sys := User{ID: "00000000-0000-0000-0000-000000000000", Username: "system", Role: "admin", Permissions: []string{PermissionDefinitionsManage}}
 	note := "启动时合并新增的种子定义（只增不改）：" + strings.Join(added, "、")
 	sources := []Source{{Kind: "url", URL: "https://github.com/MoeclubM/MetaFusion", Citation: "种子定义合并：backend/internal/catalog/defaults.go"}}
 	id, err := s.Draft(ctx, merged, v.ID, sys, note, sources)
