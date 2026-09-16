@@ -28,8 +28,10 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { ClientFormModal, type ClientFormOutcome } from "./oauthClients/ClientFormModal";
-import { ConfirmDialog } from "./oauthClients/ConfirmDialog";
-import { SecretRevealModal, type SecretReveal } from "./oauthClients/SecretRevealModal";
+// 一次性密钥展示与破坏性动作确认是两个界面共用的小组件（管理台与开发者中心），
+// 因此放在 components/oauth/ 下，而不是留在某一个页签目录里。
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
+import { SecretRevealModal, type SecretReveal } from "@/components/oauth/SecretRevealModal";
 import { AuditPanel } from "./oauthClients/AuditPanel";
 import {
   deleteOAuthClient,
