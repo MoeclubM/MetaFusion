@@ -830,13 +830,14 @@ func (e Entity) structuralRefs() map[string]string {
 	return map[string]string{"work_id": e.WorkID, "parent_id": e.ParentID, "content_unit_id": e.ContentUnitID, "release_id": e.ReleaseID, "medium_id": e.MediumID}
 }
 
-func (d Definitions) validateEntity(e Entity, reference func(string, []string) error, historical bool) error {
-	if !contains(Kinds, e.Kind) || strings.TrimSpace(e.Title) == "" || len(e.Title) > 2000 || e.Position < 0 {
-		return fmt.Errorf("invalid_entity")
-	}
-	if !contains([]string{"draft", "pending_review", "published", "deleted", "merged"}, e.Status) {
-		return fmt.Errorf("invalid_status")
-	}
+// validateEntityContent 校验与"实体在结构里的位置"无关的内容：类型声明、属性取值
+// （词表项/引用可达/日期与数值格式/列表与子组）、原语言、翻译行、图片。
+//
+// Store.Save（经 validateEntity）与导入预检（importerPreflightValues）调用的是**同一个
+// 函数、同一个 historical 口径**，所以"预检通过 ⇒ Save 不会再因属性值/语言/翻译中途失败"
+// 由构造保证，而不是靠两份逻辑互相对齐；预检只查得比 Save 早，判定不放宽也不收紧。
+// historical 语义与 Save 一致（true：停用的码与词表项不断读，只影响新增使用）。
+func (d Definitions) validateEntityContent(e Entity, reference func(string, []string) error, historical bool) error {
 	if e.OriginalLanguage != "" {
 		if _, err := language.Parse(e.OriginalLanguage); err != nil {
 			return fmt.Errorf("invalid_locale")
@@ -856,20 +857,10 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		}
 	}
 	// 零翻译发布由 Store.Save 显式拦截（translation_required），此处不重复：
-	// validateEntity 统一 historical=true（存量/impact 宽容）。保留注释以防回退。
-	var keys []string
-	seen := map[string]bool{}
-	for _, code := range e.Types {
-		t, ok := d.Types[code]
-		if !ok || !historical && !t.Enabled || !contains(t.Kinds, e.Kind) || seen[code] {
-			return fmt.Errorf("invalid_type: %s", code)
-		}
-		seen[code] = true
-		for _, f := range t.Fields {
-			if !contains(keys, f) {
-				keys = append(keys, f)
-			}
-		}
+	// 调用方统一 historical=true（存量/impact 宽容）。保留注释以防回退。
+	keys, err := d.attributeKeys(e, historical)
+	if err != nil {
+		return err
 	}
 	if err := d.attributes(keys, e.Attributes, reference, historical); err != nil {
 		return err
@@ -884,6 +875,39 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		if err := validateSources("picture", []Source{p.Source}); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// attributeKeys 汇总实体声明类型带来的属性字段码（同一类型只计一次，顺序即去重顺序）。
+// 字段集与类型校验同源：Save 与预检都用它，避免出现"预检按 A 集合放行、Save 按 B 集合拒绝"。
+func (d Definitions) attributeKeys(e Entity, historical bool) ([]string, error) {
+	var keys []string
+	seen := map[string]bool{}
+	for _, code := range e.Types {
+		t, ok := d.Types[code]
+		if !ok || !historical && !t.Enabled || !contains(t.Kinds, e.Kind) || seen[code] {
+			return nil, fmt.Errorf("invalid_type: %s", code)
+		}
+		seen[code] = true
+		for _, f := range t.Fields {
+			if !contains(keys, f) {
+				keys = append(keys, f)
+			}
+		}
+	}
+	return keys, nil
+}
+
+func (d Definitions) validateEntity(e Entity, reference func(string, []string) error, historical bool) error {
+	if !contains(Kinds, e.Kind) || strings.TrimSpace(e.Title) == "" || len(e.Title) > 2000 || e.Position < 0 {
+		return fmt.Errorf("invalid_entity")
+	}
+	if !contains([]string{"draft", "pending_review", "published", "deleted", "merged"}, e.Status) {
+		return fmt.Errorf("invalid_status")
+	}
+	if err := d.validateEntityContent(e, reference, historical); err != nil {
+		return err
 	}
 	// 结构归属规则来自 definitions（d.Structure，见 defaults.go 的种子）：哪些结构字段可用、
 	// 哪些必填。旧定义文档没有该键时回退同一份种子，保持向后兼容且不产生第二份事实。

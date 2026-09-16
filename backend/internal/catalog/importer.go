@@ -14,6 +14,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -1504,46 +1505,72 @@ func scalarStringList(v any) []string {
 // 否则别名只能进实体级 aliases，失去语种归属。
 func importerTranslationsFromAny(v any) map[string]Translation {
 	out := map[string]Translation{}
-	add := func(loc, title, summary string, aliases []string) {
-		loc = strings.TrimSpace(loc)
-		title = strings.TrimSpace(title)
+	for _, it := range importerTranslationDecls(v) {
+		loc, title := strings.TrimSpace(it.Locale), strings.TrimSpace(it.Title)
+		// 写路径的宽容口径：非法 locale 与空标题行丢弃（缺值不阻断整条导入），
+		// 预检要用同一批声明却**不**做这层过滤，故形态解析单独一项（见 importerTranslationDecls）。
 		if loc == "" || title == "" {
-			return
+			continue
 		}
 		if _, err := language.Parse(loc); err != nil {
-			return
+			continue
 		}
 		if _, exists := out[loc]; exists {
-			return
+			continue
 		}
-		out[loc] = Translation{Title: title, Summary: summary, Aliases: aliases}
+		out[loc] = Translation{Title: title, Summary: it.Summary, Aliases: it.Aliases}
 	}
+	return out
+}
+
+// importerTranslationDecls 把载荷里声明的翻译行按原文展开（locale/title/summary/aliases），
+// **不做**合法性过滤：三种形态（条目数组 / 语种映射 / 字符串映射）的解析只此一份，
+// 过滤口径由调用方决定——写路径丢非法行（importerTranslationsFromAny），
+// 预检按 Save 的 invalid_locale / invalid_translation 拒绝（importerPreflightValues）。
+func importerTranslationDecls(v any) []ImporterTranslationItem {
+	out := []ImporterTranslationItem{}
 	switch x := v.(type) {
 	case nil:
 		return out
 	case []ImporterTranslationItem:
 		for _, it := range x {
-			add(it.Locale, it.Title, it.Summary, scalarStringList(it.Aliases))
+			out = append(out, ImporterTranslationItem{Locale: it.Locale, Title: it.Title, Summary: it.Summary, Aliases: scalarStringList(it.Aliases)})
 		}
 	case []any:
 		for _, raw := range x {
 			if m, ok := raw.(map[string]any); ok {
-				add(scalarString(m["locale"]), scalarString(m["title"]), scalarString(m["summary"]), scalarStringList(m["aliases"]))
+				out = append(out, ImporterTranslationItem{Locale: scalarString(m["locale"]), Title: scalarString(m["title"]), Summary: scalarString(m["summary"]), Aliases: scalarStringList(m["aliases"])})
 			}
 		}
 	case map[string]any:
 		for loc, raw := range x {
 			switch e := raw.(type) {
 			case map[string]any:
-				add(loc, scalarString(e["title"]), scalarString(e["summary"]), scalarStringList(e["aliases"]))
+				out = append(out, ImporterTranslationItem{Locale: loc, Title: scalarString(e["title"]), Summary: scalarString(e["summary"]), Aliases: scalarStringList(e["aliases"])})
 			case string:
-				add(loc, e, "", nil)
+				out = append(out, ImporterTranslationItem{Locale: loc, Title: e})
 			}
 		}
 	case map[string]Translation:
 		for loc, tr := range x {
-			add(loc, tr.Title, tr.Summary, tr.Aliases)
+			out = append(out, ImporterTranslationItem{Locale: loc, Title: tr.Title, Summary: tr.Summary, Aliases: tr.Aliases})
 		}
+	}
+	return out
+}
+
+// importerDeclaredTranslations 把载荷声明的翻译行按原文收进 Entity.Translations（不做写路径
+// 的丢弃过滤）：非法 locale 与空标题在这里保留，交给 Save 的同一实现判定
+// （invalid_locale / invalid_translation），从而"预检通过"与"Save 通过"用同一套判据。
+// 同一 locale 多行时取首行（与 importerTranslationsFromAny 同序），仅用于校验不用于写入。
+func importerDeclaredTranslations(decls []ImporterTranslationItem) map[string]Translation {
+	out := map[string]Translation{}
+	for _, it := range decls {
+		loc := strings.TrimSpace(it.Locale)
+		if _, exists := out[loc]; exists {
+			continue
+		}
+		out[loc] = Translation{Title: strings.TrimSpace(it.Title), Summary: it.Summary, Aliases: it.Aliases}
 	}
 	return out
 }
@@ -2460,21 +2487,30 @@ func (s *Store) createExpression(ctx context.Context, actor User, note string, s
 	}, actor, note, sources)
 }
 
+// importerEntryExpressionAttrs 计算 canonical entry 表达本体的类型与属性：载荷声明的属性
+// 原样带上（nil 跳过），只有声明了时长才给表达类型并写 duration——写路径
+// （createExpressionWithMeta）与导入预检共用，避免"预检按 A 字段集放行、Save 按 B 字段集拒绝"
+// 这类偏差（时长缺失时类型为空，载荷属性会落成 unknown_field）。
+func importerEntryExpressionAttrs(ce ImporterCanonicalEntryPreview) ([]string, map[string]any) {
+	attrs := map[string]any{}
+	for k, v := range ce.Attributes {
+		if v != nil {
+			attrs[k] = v
+		}
+	}
+	var types []string
+	if ce.DurationSeconds > 0 {
+		types = []string{"expression"}
+		attrs["duration"] = ce.DurationSeconds
+	}
+	return types, attrs
+}
+
 // createExpressionWithMeta 从 canonical entry 建表达，除标题/编号/时长/外部编号外
 // 一并落多语言与原语言（旧实现漏掉这些字段，导致预览里已解析的翻译丢失）。
 // importKey 非空时写入 external_ids.metafusion_import，供同一清单重试时幂等复用。
 func (s *Store) createExpressionWithMeta(ctx context.Context, actor User, note string, sources []Source, workID, contentUnitID, title string, ce ImporterCanonicalEntryPreview, pos int, importKey string) (Entity, error) {
-	exprAttrs := map[string]any{}
-	for k, v := range ce.Attributes {
-		if v != nil {
-			exprAttrs[k] = v
-		}
-	}
-	var exprTypes []string
-	if ce.DurationSeconds > 0 {
-		exprTypes = []string{"expression"}
-		exprAttrs["duration"] = ce.DurationSeconds
-	}
+	exprTypes, exprAttrs := importerEntryExpressionAttrs(ce)
 	externalIDs := importerEntryExternalIDs(ce, importKey)
 	return s.importerSave(ctx, Entity{
 		Kind:             "expression",
@@ -2934,8 +2970,10 @@ func importerPreflightAssociations(doc Definitions, assocs []ImporterStaffAssoci
 //     必须属于对应类型字段集（unknown_field 提前暴露）；
 //   - 写死映射（关系码/词表输出）仍被当前已发布定义支持（importer_mapping_stale
 //     提前暴露，避免后台改码后在 Save 阶段才报 invalid_relation_type 留半成品），
-//     只校验本次载荷实际用到的码与词表项。
-func (s *Store) importerPreflight(ctx context.Context, actor User, req ImporterImportRequest, mode, entityType string) error {
+//     只校验本次载荷实际用到的码与词表项；
+//   - 属性**取值**与载荷声明的原语言/翻译行/日期（importerPreflightValues）：与
+//     Store.Save 同一实现同一口径，提前到零写入阶段，见该函数注释。
+func (s *Store) importerPreflight(ctx context.Context, actor User, req ImporterImportRequest, mode, entityType, source string) error {
 	entries, work, assocs := req.CanonicalEntries, req.Work, req.StaffAssociations
 	if err := validateImporterEntryTree(entries); err != nil {
 		return err
@@ -3023,7 +3061,262 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, req ImporterI
 			}
 		}
 	}
+	// 最后才是"属性取值 + 语言/翻译/日期"：前面的结构与映射问题更基础，先报更好定位；
+	// 判定与 Store.Save 同源，见 importerPreflightValues。
+	return s.importerPreflightValues(ctx, actor, defs.Document, req, mode, entityType, source)
+}
+
+// importerPreflightValues 把"属性取值 + 原语言/翻译行/日期"的校验前移到零写入阶段。
+//
+// 判定不复制第二份：实体由写路径**同一批构造函数**重建（buildWorkEntity /
+// importerReleaseAttrs / importerMediumAttrs / importerTrackAttrs / importerContentUnitAttrs /
+// importerEntryExpressionAttrs / buildAgentEntity），再用 Store.Save 的同一实现
+// （Definitions.validateEntityContent）与同一 historical 口径校验；关系边属性同理走
+// importerAssociationRelationAttrs + validateRelationAttributes（SaveRelation 的同一实现）。
+// 因此"预检通过 ⇒ 导入不会再因属性值/语言/翻译中途失败"由构造保证，预检只是提前失败，
+// 不放宽也不收紧 Save 的判定。
+//
+// 范围与写路径对齐：entity_type=work 时校验 work/release/载体/曲目/条目/关联，其它
+// entity_type 只校验顶层 artist（载荷里的 canonical_entries/mediums/release 会被
+// importNewAgent 忽略，不替它报错）；append_release_to_work 只借用作品载荷里的发行层字段、
+// 不写作品；release/medium 的 original_language 与 translations 写路径不读取，同样不校验
+// ——校验它们会报出 Save 根本不会发生的错误。
+//
+// 载荷里会在写路径被复用（幂等键命中、显式表达引用、同父同号篇目）的对象同样预检：与既有
+// 外部编号预检同口径——宁可让调用方改载荷，也不让同一份载荷这次通过、下次（复用失效时）
+// 才在 Save 阶段失败。写路径不读取的载荷字段一律不查（见上一段）。
+//
+// 只读：全部走已有的构造函数与只读查询，不产生任何写入。
+func (s *Store) importerPreflightValues(ctx context.Context, actor User, defs Definitions, req ImporterImportRequest, mode, entityType, source string) error {
+	ref := reference(ctx, s.DB, &actor)
+	check := func(at string, e Entity) error {
+		if err := defs.validateEntityContent(e, ref, true); err != nil {
+			return importerValueError(at, defs, e, ref, err)
+		}
+		// 停用项（类型/字段/词表项）：Store.Save 在 validateEntity 之后还有 retiredEntity——
+		// 新建实体没有旧值可比，用到的停用码一律拒绝（disabled_type/disabled_field/disabled_term）。
+		// 预检按同样的"全新实体"判定，否则后台停用某个词表项后，载荷仍会写到一半才失败。
+		if err := defs.retiredEntity(e, Entity{}); err != nil {
+			if code, value, ok := importerRetiredAttribute(e, err); ok {
+				return fmt.Errorf("invalid_attribute_value: %s.%s=%s: %w", at, code, value, err)
+			}
+			return fmt.Errorf("invalid_attribute_value: %s: %w", at, err)
+		}
+		return nil
+	}
+	// 载荷声明的原语言与翻译行：写路径对非法值**静默丢弃**（originalLanguageOrEmpty /
+	// importerTranslationsFromAny），调用方会以为已经写进去。这里按 Save 同一实现判定
+	// 载荷原文，非法 locale / 空标题行以 invalid_locale / invalid_translation 提前拒绝。
+	checkMeta := func(at, originalLanguage string, decls []ImporterTranslationItem) error {
+		e := Entity{OriginalLanguage: strings.TrimSpace(originalLanguage), Translations: importerDeclaredTranslations(decls)}
+		if e.OriginalLanguage == "" && len(e.Translations) == 0 {
+			return nil
+		}
+		return check(at, e)
+	}
+
+	if entityType != "work" {
+		a := importerTopArtist(req)
+		if a == nil {
+			return nil
+		}
+		key, hasKey := importDedupKey(source, req, entityType)
+		agent, err := buildAgentEntity(a.Name, a.OriginalName, a.Biography, a.AvatarURL, a.Language, entityType, a.Translations, a.ExternalIDs, key, hasKey)
+		if err != nil {
+			return err
+		}
+		// 与 importNewAgent 同序：预览侧细化类型覆盖 URL 推断。
+		if et := agentTypeForPreviewValue(a.EntityType); et != "" && et != "person" {
+			agent.Types = []string{et}
+		}
+		if err := check("artist", agent); err != nil {
+			return err
+		}
+		return checkMeta("artist", a.Language, a.Translations)
+	}
+
+	workType := ""
+	if req.Work != nil {
+		workType = workTypeFromMetadata(req.Work.CatalogMetadata)
+	}
+	key, hasKey := importDedupKey(source, req, entityType)
+	// 作品本体与作品层声明的语言/翻译：append_release_to_work 不写作品，跳过。
+	if w := req.Work; w != nil && mode != "append_release_to_work" {
+		work, err := buildWorkEntity(w, workType, source, key, req.ExternalID, hasKey, defs.PrimaryDateField(workType))
+		if err != nil {
+			return err
+		}
+		if err := check("work", work); err != nil {
+			return err
+		}
+		if err := checkMeta("work", w.OriginalLanguage, w.Translations); err != nil {
+			return err
+		}
+	}
+	// 发行：属性同源。edition_date 经 cleanImporterDate 归一后仍可能是日历非法值
+	// （如 2024-13-45），Save 会以 invalid_date 拒绝——这里同样提前拦。
+	if err := check("release", Entity{Kind: "release", Types: []string{"release"}, Attributes: importerReleaseAttrs(req.Release, req.Work)}); err != nil {
+		return err
+	}
+	for i, m := range req.Mediums {
+		if err := check(fmt.Sprintf("mediums[%d]", i), Entity{Kind: "medium", Types: []string{"medium"}, Attributes: importerMediumAttrs(m)}); err != nil {
+			return err
+		}
+		for j, t := range m.Tracks {
+			if err := check(fmt.Sprintf("mediums[%d].tracks[%d]", i, j), Entity{Kind: "track", Types: []string{"track"}, Attributes: importerTrackAttrs(t)}); err != nil {
+				return err
+			}
+		}
+	}
+	// 条目：篇目与表达的属性各自与写路径同一构造函数（注意表达只有声明时长才有类型，
+	// 载荷属性在没有类型声明时会落成 unknown_field，写路径同样如此）。
+	cuFields := importerFieldSet(defs, "content_unit")
+	for i, ce := range req.CanonicalEntries {
+		at := fmt.Sprintf("canonical_entries[%d]", i)
+		if strings.TrimSpace(ce.EntryKind) == "content_unit" {
+			if err := check(at, Entity{Kind: "content_unit", Types: []string{"content_unit"}, Attributes: importerContentUnitAttrs(cuFields, ce)}); err != nil {
+				return err
+			}
+		} else {
+			types, attrs := importerEntryExpressionAttrs(ce)
+			if err := check(at, Entity{Kind: "expression", Types: types, Attributes: attrs}); err != nil {
+				return err
+			}
+		}
+		if err := checkMeta(at, ce.OriginalLanguage, importerTranslationDecls(ce.Translations)); err != nil {
+			return err
+		}
+	}
+	// 关联：agent 本体只在写路径会新建时校验（target_artist_id 复用既有实体、无名字项不落库），
+	// 关系边属性则一律按同一构造函数算出来再校验（复用端点也照样写边）。
+	for i, a := range req.StaffAssociations {
+		if strings.EqualFold(strings.TrimSpace(a.Action), "skip") {
+			continue
+		}
+		at := fmt.Sprintf("staff_associations[%d]", i)
+		if strings.TrimSpace(a.TargetArtistID) == "" && strings.TrimSpace(a.ParsedName) != "" {
+			iKey := assocImportKey(a.ExternalIDs)
+			staff, err := buildAgentEntity(a.ParsedName, a.ParsedOriginal, a.Biography, a.AvatarURL, a.Language, staffAgentType(a.EntityType), a.Translations, a.ExternalIDs, iKey, iKey != "")
+			if err != nil {
+				return err
+			}
+			if err := check(at, staff); err != nil {
+				return err
+			}
+			if err := checkMeta(at, a.Language, a.Translations); err != nil {
+				return err
+			}
+		}
+		code := strings.TrimSpace(a.RelationType)
+		relDef, ok := defs.Relations[code]
+		if code == "" || !ok {
+			// 关系码缺失/未知已由 importerPreflightCodeCheck 与 importerPreflightAssociations
+			// 按 importer_mapping_stale 拦下，这里不重复报错。
+			continue
+		}
+		// character 属性填的是本次导入在上游解析出的角色实体 ID（预检阶段尚不存在），
+		// 故按"未解析"分支计算——那是写路径的 credit_role 文本分支；写路径拿到的 ID 来自
+		// 本次刚保存的实体，必然可解析。
+		attrs := importerAssociationRelationAttrs(code, relDef, a, "")
+		if err := validateRelationAttributes(defs, code, attrs, ref, true); err != nil {
+			return fmt.Errorf("invalid_attribute_value: %s.attributes=%s: %w", at, importerValueText(attrs), err)
+		}
+		// 与 SaveRelation 同口径：新建边还要过一遍停用检查（retiredAttributes，旧值为空）。
+		if err := defs.retiredAttributes(attrs, nil); err != nil {
+			return fmt.Errorf("invalid_attribute_value: %s.attributes=%s: %w", at, importerValueText(attrs), err)
+		}
+	}
 	return nil
+}
+
+// importerRetiredAttribute 定位停用项错误里的字段码与取值：retiredValue 把错误构造成
+// "<字段码>: <错误码>"（类型停用则是 disabled_type: <类型码>），字段码若在实体属性里就回显取值。
+func importerRetiredAttribute(e Entity, err error) (code, value string, ok bool) {
+	head, _, _ := strings.Cut(err.Error(), ":")
+	code = strings.TrimSpace(head)
+	if v, exists := e.Attributes[code]; exists {
+		return code, importerValueText(v), true
+	}
+	return "", "", false
+}
+
+// importerValueError 给预检失败补上"对象标识 + 字段码 + 具体值"，错误码沿用 Save 的原始码
+// （unknown_field / invalid_term / invalid_date / invalid_locale / invalid_translation…）。
+// 判定与失败顺序都不受影响：这里只在 Store.Save 同一实现的失败结果上补定位信息，
+// 错误链用 %w 保留，调用方仍可按码判定。
+func importerValueError(at string, defs Definitions, e Entity, ref func(string, []string) error, err error) error {
+	if code, value, unknown, ok := importerOffendingAttribute(defs, e, ref); ok {
+		if unknown {
+			return fmt.Errorf("unknown_field: %s.%s=%s", at, code, value)
+		}
+		// d.attributes 的错误已带字段码前缀，去掉重复（值已单独回显）。
+		cause := err
+		if inner := errors.Unwrap(err); inner != nil && strings.HasPrefix(err.Error(), code+": ") {
+			cause = inner
+		}
+		return fmt.Errorf("invalid_attribute_value: %s.%s=%s: %w", at, code, value, cause)
+	}
+	if err.Error() == "invalid_locale" {
+		return fmt.Errorf("invalid_locale: %s.original_language=%s", at, importerValueText(e.OriginalLanguage))
+	}
+	if err.Error() == "invalid_translation" {
+		if loc, title, ok := importerOffendingTranslation(e.Translations); ok {
+			return fmt.Errorf("invalid_translation: %s.translations[%s].title=%s", at, loc, importerValueText(title))
+		}
+	}
+	return fmt.Errorf("%s: %w", at, err)
+}
+
+// importerOffendingAttribute 在已失败的属性集里定位出错的字段码与取值（仅用于补充定位）。
+// 顺序与 Definitions.attributes 一致：先未声明字段（unknown_field），再按声明字段用同一个
+// d.value 复算；定位不到（理论上不会发生）时返回 ok=false，错误原文照旧透出。
+func importerOffendingAttribute(defs Definitions, e Entity, ref func(string, []string) error) (code, value string, unknown, ok bool) {
+	keys, kerr := defs.attributeKeys(e, true)
+	if kerr != nil {
+		return "", "", false, false
+	}
+	for k := range e.Attributes {
+		if !contains(keys, k) {
+			return k, importerValueText(e.Attributes[k]), true, true
+		}
+	}
+	for _, k := range keys {
+		f, exists := defs.Fields[k]
+		if !exists {
+			return k, "", true, true
+		}
+		if derr := defs.value(f, e.Attributes[k], ref, true); derr != nil {
+			return k, importerValueText(e.Attributes[k]), false, true
+		}
+	}
+	return "", "", false, false
+}
+
+// importerOffendingTranslation 找出首个被判非法的翻译行（locale 解析失败或标题为空），
+// 按 locale 字典序输出，保证同一载荷的错误稳定可复现。
+func importerOffendingTranslation(translations map[string]Translation) (loc, title string, ok bool) {
+	for _, key := range sortedKeys(translations) {
+		tr := translations[key]
+		if _, err := language.Parse(key); err != nil || strings.TrimSpace(tr.Title) == "" {
+			return key, tr.Title, true
+		}
+	}
+	return "", "", false
+}
+
+// importerValueText 把值渲染成错误里的短文本：字符串带引号，其余走 JSON；
+// 超过 80 个字符按 rune 截断（载荷可能是整段 infobox 快照），避免错误响应被撑爆。
+func importerValueText(v any) string {
+	out := fmt.Sprintf("%v", v)
+	if s, isString := v.(string); isString {
+		out = strconv.Quote(s)
+	} else if b, err := json.Marshal(v); err == nil {
+		out = string(b)
+	}
+	if r := []rune(out); len(r) > 80 {
+		out = string(r[:80]) + "…"
+	}
+	return out
 }
 
 // importerEntryExprKey 生成条目级表达的导入幂等键：同一 work 的同一份清单重试时，
@@ -3696,7 +3989,7 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 	}
 	// 写库前整体预检：属性字段码、显式表达引用、写死映射与关联关系码先校验，
 	// 避免先建 work/release/medium 再在某条曲目/关系处失败，留下半成品结构。
-	if pfErr := s.importerPreflight(ctx, actor, req, mode, entityType); pfErr != nil {
+	if pfErr := s.importerPreflight(ctx, actor, req, mode, entityType, source); pfErr != nil {
 		return ImporterImportResponse{}, pfErr
 	}
 	if mode == "append_release_to_work" {
@@ -3751,6 +4044,31 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 		return out, nil
 	}
 	return s.importNewWork(ctx, actor, note, sources, source, req, entityType)
+}
+
+// importerAssociationRelationAttrs 计算一条关联要写进关系边的属性。
+// characterID 是本次导入在上游解析到的角色实体 ID（voiced_by 专用：**entity 引用字段**填 ID
+// 而非角色名；解析不到则降级为 credit_role 文本，不丢信息）。
+// 写路径（importNewWork 第二趟）与导入预检共用同一实现，两边属性集必然一致。
+func importerAssociationRelationAttrs(code string, relDef RelationDefinition, assoc ImporterStaffAssociation, characterID string) map[string]any {
+	attrs := map[string]any{}
+	if cr := strings.TrimSpace(assoc.ParsedRole); cr != "" {
+		attrs["credit_role"] = cr
+	}
+	// 番位落 character_rank（definitions 的角色番位字段），不再借 role（载体用途词表）。
+	// 关系定义未声明该字段的旧实例降级为不写：原始番位文本已进 credit_role，不丢信息，
+	// 也不会因 unknown_field 让整条导入失败。
+	if rr := strings.TrimSpace(assoc.RelationRole); rr != "" && code == "character_in" && contains(relDef.Fields, "character_rank") {
+		attrs["character_rank"] = rr
+	}
+	if ch := strings.TrimSpace(assoc.CharacterName); ch != "" && code == "voiced_by" {
+		if characterID != "" {
+			attrs["character"] = characterID
+		} else {
+			attrs["credit_role"] = "配音：" + ch
+		}
+	}
+	return attrs
 }
 
 // importNewWork 新建 work（或 agent）并按需建发行链与演职员。
@@ -3955,24 +4273,13 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			counts.SkippedRelations++
 			continue
 		}
-		attrs := map[string]any{}
-		if cr := strings.TrimSpace(assoc.ParsedRole); cr != "" {
-			attrs["credit_role"] = cr
-		}
-		// 番位落 character_rank（definitions 的角色番位字段），不再借 role（载体用途词表）。
-		// 关系定义未声明该字段的旧实例降级为不写：原始番位文本已进 credit_role，不丢信息，
-		// 也不会因 unknown_field 让整条导入失败。
-		if rr := strings.TrimSpace(assoc.RelationRole); rr != "" && relType == "character_in" && contains(relDef.Fields, "character_rank") {
-			attrs["character_rank"] = rr
-		}
+		characterID := ""
 		if ch := strings.TrimSpace(assoc.CharacterName); ch != "" && relType == "voiced_by" {
-			// character 是 entity 引用字段：填角色实体 ID，而非角色名。
 			if ce, ok := characterByName[strings.ToLower(ch)]; ok {
-				attrs["character"] = ce.ID
-			} else {
-				attrs["credit_role"] = "配音：" + ch
+				characterID = ce.ID
 			}
 		}
+		attrs := importerAssociationRelationAttrs(relType, relDef, assoc, characterID)
 		src, tgt := savedWork.ID, agent.ID
 		if contains(relDef.SourceKinds, "agent") && !contains(relDef.SourceKinds, "work") {
 			src, tgt = agent.ID, savedWork.ID
@@ -4028,20 +4335,25 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 	return out, nil
 }
 
-// importNewAgent 新建 agent（artist / organization / character）。
-func (s *Store) importNewAgent(ctx context.Context, actor User, note string, sources []Source, source string, req ImporterImportRequest, entityType string) (ImporterImportResponse, error) {
-	var a *ImporterArtistPreview
-	var lang string
+// importerTopArtist 取顶层 agent 导入的预览：Artist 优先，其次 Artists 的首个。
+// 写路径（importNewAgent）与预检共用，避免两边对"哪个预览才是本次要建的 agent"判断不一。
+func importerTopArtist(req ImporterImportRequest) *ImporterArtistPreview {
 	switch {
 	case req.Artist != nil:
-		a = req.Artist
+		return req.Artist
 	case len(req.Artists) > 0:
-		a = &req.Artists[0]
+		return &req.Artists[0]
 	}
+	return nil
+}
+
+// importNewAgent 新建 agent（artist / organization / character）。
+func (s *Store) importNewAgent(ctx context.Context, actor User, note string, sources []Source, source string, req ImporterImportRequest, entityType string) (ImporterImportResponse, error) {
+	a := importerTopArtist(req)
 	if a == nil {
 		return ImporterImportResponse{}, fmt.Errorf("invalid_payload")
 	}
-	lang = a.Language
+	lang := a.Language
 	key, hasKey := importDedupKey(source, req, entityType)
 	if hasKey {
 		if existing, ok := s.findImported(ctx, key, &actor); ok && existing.Kind == "agent" {

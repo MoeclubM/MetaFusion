@@ -417,6 +417,17 @@ func canAttachToTarget(u User, tgt Entity) bool {
 	return ownedBy(tgt, u) || tgt.Status == "published" && u.Can(PermissionEntityEdit)
 }
 
+// validateRelationAttributes 校验关系边的属性：字段码必须属于该关系声明的字段集，
+// 取值按字段类型/词表/引用校验。SaveRelation（经 validateRelation）与导入预检共用同一
+// 实现与同一 historical 口径（true），预检因此既不比 Save 严也不比 Save 松。
+func validateRelationAttributes(d Definitions, code string, attrs map[string]any, ref func(string, []string) error, historical bool) error {
+	rt, ok := d.Relations[code]
+	if !ok {
+		return fmt.Errorf("invalid_relation_type")
+	}
+	return d.attributes(rt.Fields, attrs, ref, historical)
+}
+
 func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Relation, ref func(string, []string) error, historical bool) error {
 	rt, ok := d.Relations[r.Type]
 	if !ok || !historical && !rt.Enabled {
@@ -442,7 +453,7 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 	if !matches(rt.SourceTypes, src.Types) || !matches(rt.TargetTypes, tgt.Types) {
 		return fmt.Errorf("invalid_endpoint_types")
 	}
-	if err := d.attributes(rt.Fields, r.Attributes, ref, historical); err != nil {
+	if err := validateRelationAttributes(d, r.Type, r.Attributes, ref, historical); err != nil {
 		return err
 	}
 	incoming, outgoing := 0, 0
