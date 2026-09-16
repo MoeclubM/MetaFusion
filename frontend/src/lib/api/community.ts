@@ -182,6 +182,17 @@ export function normalizeBoard(raw: any): ForumBoard {
   };
 }
 
+// 板块名与描述是**内容**、单语言（2026-09-16 起论坛不再分语言，服务端只有 name/description）。
+// 名称空值时回退 code：板块身份是 code，名称缺失不该渲染成一片空白。
+export function boardDisplayName(board: ForumBoard): string {
+  return (board.name || "").trim() || board.code;
+}
+
+/** 描述可为空（运营配置里不是必填），为空就是空串——不拿别的字段顶上。 */
+export function boardDisplayDesc(board: ForumBoard): string {
+  return (board.description || "").trim();
+}
+
 
 const VIRTUAL_ALL_BOARD: ForumBoard = {
   code: "all",
@@ -199,7 +210,9 @@ let boardsCacheAt = 0;
 
 const BOARDS_TTL_MS = 5 * 60 * 1000;
 
-// 兜底板块清单：内容语言是中文（服务端不可达时的降级展示，与 community.boards 的种子一致）。
+// 兜底板块清单：**仅离线兜底**——服务端不可达时展示，与 community.boards 的种子一致。
+// 板块名是内容不是 UI 文案：正常一律来自服务端单字段 name/description（2026-09-16 起论坛不分语言），
+// 这里的字面量是降级值，不是某个语种的版本。
 const FALLBACK_BOARDS: ForumBoard[] = [
   VIRTUAL_ALL_BOARD,
   {

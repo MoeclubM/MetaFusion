@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
-import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, catalogEntityHref } from "@/lib/api";
+import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, boardDisplayName, boardDisplayDesc, catalogEntityHref } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
@@ -286,9 +286,9 @@ function CommunityContent() {
  </span>
 	 <span className="flex-1 min-w-0">
 	 <span className={`block text-sm font-semibold leading-none truncate ${isActive ? "text-white" : "text-gray-300 group-hover:text-white"}`}>
-	 {board.name}
+	 {boardDisplayName(board)}
 	 </span>
-	 <span className="block text-xs text-gray-500 truncate leading-tight mt-0.5">{board.description}</span>
+	 <span className="block text-xs text-gray-500 truncate leading-tight mt-0.5">{boardDisplayDesc(board)}</span>
 	 </span>
 	 {badge && (
 	 <span className={`shrink-0 px-2.5 py-1 rounded text-xs font-mono leading-none border ${isActive ? "bg-background border-line text-gray-300" : "bg-surface border-line text-gray-500"}`}>
@@ -357,8 +357,8 @@ function CommunityContent() {
 	 <Icon className={`w-4 h-4 ${board.color}`} />
 	 </span>
 	 <span className="flex-1 min-w-0">
-	 <span className="block text-sm font-semibold truncate">{board.name}</span>
-	 <span className="block text-xs text-gray-500 truncate">{board.description}</span>
+	 <span className="block text-sm font-semibold truncate">{boardDisplayName(board)}</span>
+	 <span className="block text-xs text-gray-500 truncate">{boardDisplayDesc(board)}</span>
 	 </span>
 	 </button>
 	 );
@@ -507,7 +507,7 @@ function CommunityContent() {
 	                            <span className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${board.bgColor} ${board.borderColor} border`}>
 	                              <Icon className={`w-3 h-3 ${board.color}`} />
 	                            </span>
-	                            <span className="truncate">{board.name}</span>
+	                            <span className="truncate">{boardDisplayName(board)}</span>
 	                          </span>
 	                          {isSelected && <span className="text-[10px]">✓</span>}
 	                        </button>
@@ -718,7 +718,7 @@ function CommunityContent() {
  <div className="flex items-center gap-2 flex-wrap">
  <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded border text-xs font-mono ${board.bgColor} ${board.borderColor} ${board.color}`}>
  <Icon className="w-4 h-4" />
- {board.name}
+ {boardDisplayName(board)}
  </span>
  {topic.entity_id && topic.entity_title && (
  <Link

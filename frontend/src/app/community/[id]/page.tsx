@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
 import { UserRoleBadge } from "@/lib/roles";
-import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, shareContent, buildShareUrl, catalogEntityHref, ApiError } from "@/lib/api";
+import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref, ApiError } from "@/lib/api";
 import { can, COMMUNITY_POST_MODERATE } from "@/lib/permissions";
 import PostComposer from "@/components/community/PostComposer";
 import { TabPanel } from "@/components/ui/TabPanel";
@@ -203,7 +203,7 @@ export default function TopicDetailPage() {
  className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded border text-xs font-mono ${board.bgColor} ${board.borderColor} ${board.color}`}
  >
  <span className={`w-1.5 h-1.5 rounded-full ${board.color.replace('text-', 'bg-')}`} />
- <span>{board.name}</span>
+ <span>{boardDisplayName(board)}</span>
  </span>
  {topic.tags && topic.tags.length > 0 && (
  <span className="flex items-center gap-2 flex-wrap">

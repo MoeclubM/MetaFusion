@@ -8,6 +8,8 @@ import {
   Tag,
   createTopic,
   createPost,
+  boardDisplayName,
+  boardDisplayDesc,
 } from "@/lib/api";
 import { Entity, fetchAllPages } from "@/components/catalog/api";
 import {
@@ -478,7 +480,7 @@ export default function PostComposer({
                   {selectedBoardObj ? (
                     <>
                       <span className={`w-2.5 h-2.5 rounded-full ${selectedBoardObj.bgColor} ${selectedBoardObj.borderColor} border`} />
-                      <span className="truncate font-medium">{selectedBoardObj?.name ?? ""}</span>
+                      <span className="truncate font-medium">{selectedBoardObj ? boardDisplayName(selectedBoardObj) : ""}</span>
                     </>
                   ) : (
                     <span className="truncate">{t("community.board")}</span>
@@ -525,9 +527,9 @@ export default function PostComposer({
                             </span>
                             <span className="flex-1 min-w-0">
                               <span className={`block text-xs font-semibold truncate ${active ? "text-white" : "text-gray-200"}`}>
-                                {b.name}
+                                {boardDisplayName(b)}
                               </span>
-                              <span className="block text-[10px] text-gray-500 truncate">{b.description}</span>
+                              <span className="block text-[10px] text-gray-500 truncate">{boardDisplayDesc(b)}</span>
                             </span>
                             {active && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
                           </button>
