@@ -16,9 +16,9 @@
 # 当前锚点（2026-09-16 实施批次后）。注意：`../metafusion-sdk` 目前**不是部署输入**（没有任何服务 import），
 # 因此不进这份锁；等 SDK 接入服务后必须补一行，否则“锁住了”只是错觉。
 # 更新时按各仓库 git rev-parse --short HEAD 重写，并在同一次提交里跑一遍 python scripts/check_versions.py。
-.=cb358a3
+.=2d41f54
 ../metafusion-auth=3c4ac86
-../metafusion-community=b4d2371
+../metafusion-community=dfa7d44
 ../metafusion-storage=6c4b3cf
 ../metafusion-api-gateway=67f1685
 ../metafusion-docs=27ad595
