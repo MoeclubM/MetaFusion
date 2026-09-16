@@ -74,7 +74,17 @@ func KindNames() map[string]Names {
 	return out
 }
 func Defaults() Definitions {
-	d := Definitions{Types: map[string]TypeDefinition{}, Fields: map[string]Field{}, Vocabularies: map[string]Vocabulary{}, Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
+	// 结构归属规则：哪些层级要挂上级、字段码指向哪些层级、是否必填、候选按哪个上级字段过滤。
+	// 校验（validation.go）与前端编辑器共用这一份，前端不再自己写死"expression 挂在 work 下"。
+	// TargetKinds 为空表示同层父节点（同域父节点）；Resources 表示该层级可挂资源文件。
+	d := Definitions{Types: map[string]TypeDefinition{}, Fields: map[string]Field{}, Vocabularies: map[string]Vocabulary{},
+		Structure: map[string]StructureRule{
+			"content_unit": {Fields: []StructureField{{Code: "work_id", TargetKinds: []string{"work"}, Required: true}, {Code: "parent_id", ScopedBy: "work_id"}}},
+			"expression": {Fields: []StructureField{{Code: "work_id", TargetKinds: []string{"work"}, Required: true}, {Code: "content_unit_id", TargetKinds: []string{"content_unit"}, ScopedBy: "work_id"}}, Resources: true},
+			"medium": {Fields: []StructureField{{Code: "release_id", TargetKinds: []string{"release"}, Required: true}, {Code: "parent_id", ScopedBy: "release_id"}}, Resources: true},
+			"track": {Fields: []StructureField{{Code: "medium_id", TargetKinds: []string{"medium"}, Required: true}, {Code: "parent_id", ScopedBy: "medium_id"}}, Resources: true},
+		},
+ Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
 	field := func(code, zh, en, typ string) {
 		d.Fields[code] = Field{Names: names(zh, en), Type: typ, Enabled: true, Searchable: true, Comparable: true}
 	}

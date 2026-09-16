@@ -212,6 +212,27 @@ type Definitions struct {
 	// Schemes 可缺省：旧已发布定义文档没有该键时解码为 nil，实体校验回退全局组，
 	// 保持向后兼容；新文档即使空 map 也合法。
 	Schemes map[string]Scheme `json:"schemes,omitempty"`
+	// Structure 声明每个层级的"所属与收录结构"：有哪些结构字段、指向哪些层级、
+	// 是否必填、是否按上级字段过滤候选。写在校验与编辑器共用这里，
+	// 前端不再各自写死"expression 挂 work"这类知识。可缺省，缺省时回退内建规则。
+	Structure map[string]StructureRule `json:"structure,omitempty"`
+}
+
+// StructureRule 是一个层级的结构归属规则。
+type StructureRule struct {
+	Fields []StructureField `json:"fields"`
+	// Resources 表示该层级可以挂资源文件（存储服务里的资产）。
+	Resources bool `json:"resources,omitempty"`
+}
+
+// StructureField 是一个结构字段：字段码 + 允许作为目标的层级。
+type StructureField struct {
+	Code string `json:"code"`
+	// TargetKinds 为空表示与当前层级同层（同域父节点）。
+	TargetKinds []string `json:"target_kinds,omitempty"`
+	// ScopedBy 指定候选按哪个结构字段过滤（如 expression 的内容单元按 work_id 过滤）。
+	ScopedBy string `json:"scoped_by,omitempty"`
+	Required bool   `json:"required,omitempty"`
 }
 type DefinitionVersion struct {
 	ID          int64       `json:"id"`

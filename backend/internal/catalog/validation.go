@@ -834,10 +834,24 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 			return err
 		}
 	}
-	allowed := map[string][]string{"content_unit": {"work_id", "parent_id"}, "expression": {"work_id", "content_unit_id"}, "medium": {"release_id", "parent_id"}, "track": {"medium_id", "parent_id"}}
+	// 结构归属规则来自 definitions（d.Structure，见 defaults.go 的种子）：哪些结构字段可用、
+	// 哪些必填。旧定义文档没有该键时回退同一份种子，保持向后兼容且不产生第二份事实。
+	rules := d.Structure
+	if len(rules) == 0 {
+		rules = Defaults().Structure
+	}
+	rule := rules[e.Kind]
+	allowedField := map[string]bool{}
+	requiredField := map[string]bool{}
+	for _, f := range rule.Fields {
+		allowedField[f.Code] = true
+		if f.Required {
+			requiredField[f.Code] = true
+		}
+	}
 	refs := map[string]string{"work_id": e.WorkID, "parent_id": e.ParentID, "content_unit_id": e.ContentUnitID, "release_id": e.ReleaseID, "medium_id": e.MediumID}
 	for k, v := range refs {
-		if v != "" && !contains(allowed[e.Kind], k) {
+		if v != "" && !allowedField[k] {
 			return fmt.Errorf("invalid_structural_field: %s", k)
 		}
 		if v != "" {
@@ -846,8 +860,10 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 			}
 		}
 	}
-	if (e.Kind == "expression" || e.Kind == "content_unit") && e.WorkID == "" || e.Kind == "medium" && e.ReleaseID == "" || e.Kind == "track" && e.MediumID == "" {
-		return fmt.Errorf("parent_required")
+	for code := range requiredField {
+		if refs[code] == "" {
+			return fmt.Errorf("parent_required")
+		}
 	}
 	if e.Kind != "release" && len(e.Subjects) > 0 || e.Kind != "track" && len(e.Contents) > 0 {
 		return fmt.Errorf("invalid_structural_field")

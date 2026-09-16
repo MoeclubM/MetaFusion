@@ -17,6 +17,10 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 		Relations:    make(map[string]RelationDefinition, len(current.Relations)),
 		Templates:    make(map[string]Template, len(current.Templates)),
 		Schemes:      make(map[string]Scheme, len(current.Schemes)),
+		Structure:    make(map[string]StructureRule, len(current.Structure)),
+	}
+	for k, v := range current.Structure {
+		out.Structure[k] = v
 	}
 	for k, v := range current.Types {
 		out.Types[k] = v
@@ -72,6 +76,12 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 		if _, ok := out.Schemes[k]; !ok {
 			out.Schemes[k] = v
 			added = append(added, "schemes."+k)
+		}
+	}
+	for k, v := range seed.Structure {
+		if _, ok := out.Structure[k]; !ok {
+			out.Structure[k] = v
+			added = append(added, "structure."+k)
 		}
 	}
 	sort.Strings(added)
