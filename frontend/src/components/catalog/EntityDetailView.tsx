@@ -89,6 +89,14 @@ const FALLBACK_RELATION_GROUP = "__unlabeled__";
 const relationGroupOf = (defs: any, type: string): string =>
   defs?.relations?.[type]?.group || "";
 
+/** 关系端点的展示题名：本地化题名 → 原语言题名 → id，绝不返回空串（不出现空标题）。 */
+const endTitleOf = (
+  e: Entity | undefined,
+  id: string,
+  locale: string,
+  order: string[],
+): string => (e ? title(e, locale, order) || e.title || id : id);
+
 /**
  * 展示分组键：定义声明了 group_names 才按自己的 group 分组；
  * 没声明的（类型未定义 / group_names 为空）统一归入兜底分组，
@@ -136,6 +144,9 @@ export function EntityDetailView({ id }: { id: string }) {
   const [occurrences, setOccurrences] = useState<any[]>([]);
   const [relations, setRelations] = useState<Relation[]>([]);
   const [relatedEntities, setRelatedEntities] = useState<Record<string, Entity>>({});
+  // 响应标出的主体 id（/relations 的 subject_id）。旧响应没有该字段时留空，
+  // 由页面已知实体兜底，判定口径不变。
+  const [relationSubjectId, setRelationSubjectId] = useState<string>("");
   const [children, setChildren] = useState<Entity[]>([]);
   const [revisions, setRevisions] = useState<any[]>([]);
   const [subjectWorks, setSubjectWorks] = useState<Entity[]>([]);
@@ -178,7 +189,7 @@ export function EntityDetailView({ id }: { id: string }) {
       // Fetch occurrences, relations, revisions, posts, collections in parallel
       const [occRes, relRes, revRes, postRes, colRes] = await Promise.all([
         api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => ({ items: [] })),
-        api<{ items: Relation[]; entities?: Record<string, Entity> }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: undefined })),
+        api<{ items: Relation[]; entities?: Record<string, Entity>; subject_id?: string }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: undefined, subject_id: undefined })),
         api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => ({ items: [] })),
         api<{ items: any[] }>(`/community/entities/${e.id}/posts`).catch(() => ({ items: [] })),
         api<{ items: any[] }>(`/community/entities/${e.id}/collections`).catch(() => ({ items: [] })),
@@ -187,8 +198,10 @@ export function EntityDetailView({ id }: { id: string }) {
       const occItems = occRes.items || [];
       const relItems = relRes.items || [];
       // 关系对端实体由 relations 接口一并返回（单次批量查询），不再逐条 Get。
-      // 保留逐条回退，使前端部署不依赖后端是否已上线该字段。
+      // 映射覆盖每条关系的两端（含主体自身），subject_id 指出哪一端是主体；
+      // 保留逐条回退，使前端部署不依赖后端是否已上线这两个字段。
       if (relRes.entities) setRelatedEntities(relRes.entities);
+      setRelationSubjectId(relRes.subject_id || e.id || "");
       const revItems = revRes.items || [];
       setOccurrences(occItems);
       setRelations(relItems);
@@ -247,11 +260,12 @@ export function EntityDetailView({ id }: { id: string }) {
 
       // 后端未内嵌对端实体时的回退：逐条取。默认并发 8 并限制条数，
       // 避免数百条关系同时打满连接；上限内之外的条目会退回显示 UUID。
+      // 取 id 集合时把每条边两端都算上：旧响应没有 entities 时也要能渲染两端题名。
       if (!relRes.entities) {
         const otherIds = Array.from(
           new Set(
             relItems
-              .map((r) => (r.source_id === e.id ? r.target_id : r.source_id))
+              .flatMap((r) => [r.source_id, r.target_id])
               .filter((x) => x && x !== e.id)
           )
         ).slice(0, 30);
@@ -468,37 +482,35 @@ export function EntityDetailView({ id }: { id: string }) {
     [entity, defs, locale],
   );
 
-  // Graph nodes & links
+  // Graph nodes & links：节点摘要同样取自响应 entities 表，且每条关系的两端都建节点
+  // （属性引用边的对端原先不在图上）；中心节点用 entities[subject_id] 的摘要，
+  // 不依赖"页面上已知的实体"。缺表时才回退已知实体，仍缺则退回短 id。
   const { graphNodes, graphLinks } = useMemo(() => {
     if (!entity) return { graphNodes: [], graphLinks: [] };
+    const centerId = entity.id || id;
+    const nodeOf = (nid: string, level: number): GraphNode => {
+      const e = relatedEntities[nid] || (nid === centerId ? entity : undefined);
+      return {
+        id: nid,
+        name: e ? title(e, locale, titleOrder) || e.title || nid : nid.slice(0, 8),
+        original_name: e ? e.title || "" : "",
+        type: e?.kind || "related",
+        category: e?.kind || "related",
+        level,
+        cover_image_url: e?.pictures?.[0]?.url || undefined,
+      };
+    };
     const nodes: GraphNode[] = [
-      {
-        id: entity.id || id,
-        name: title(entity, locale, titleOrder),
-        original_name: entity.title,
-        type: entity.kind,
-        category: entity.kind,
-        level: 0,
-        cover_image_url: resolvedCover.src || undefined,
-      },
+      { ...nodeOf(centerId, 0), cover_image_url: resolvedCover.src || undefined },
     ];
     const links: GraphLink[] = [];
-    const seenNodes = new Set<string>([entity.id || id]);
+    const seenNodes = new Set<string>([centerId]);
 
     for (const r of relations) {
-      const otherId = r.source_id === entity.id ? r.target_id : r.source_id;
-      const targetEntity = relatedEntities[otherId];
-      if (!seenNodes.has(otherId)) {
-        seenNodes.add(otherId);
-        nodes.push({
-          id: otherId,
-          name: targetEntity ? title(targetEntity, locale, titleOrder) : otherId.slice(0, 8),
-          original_name: targetEntity ? targetEntity.title : "",
-          type: targetEntity?.kind || "related",
-          category: targetEntity?.kind || "related",
-          level: 1,
-          cover_image_url: targetEntity?.pictures?.[0]?.url || undefined,
-        });
+      for (const nid of [r.source_id, r.target_id]) {
+        if (!nid || seenNodes.has(nid)) continue;
+        seenNodes.add(nid);
+        nodes.push(nodeOf(nid, 1));
       }
       links.push({
         source: r.source_id,
@@ -510,7 +522,7 @@ export function EntityDetailView({ id }: { id: string }) {
     }
 
     return { graphNodes: nodes, graphLinks: links };
-  }, [entity, relations, relatedEntities, resolvedCover, locale, id]);
+  }, [entity, relations, relatedEntities, resolvedCover, locale, id, defs, titleOrder]);
 
   const copyUuid = () => {
     if (!entity || !entity.id) return;
@@ -561,18 +573,40 @@ export function EntityDetailView({ id }: { id: string }) {
 
   // 关系分组与分节标签必须在提前 return 之前求值：loading/error/editing 分支
   // 若少调用一次 hook，就会触发 "Rendered more hooks than during the previous render"。
+  // 关系两端的摘要一律取自响应 entities 表（覆盖两端 + 主体自身）：
+  // 主体一侧不再依赖"页面上已知的实体"，对端也不再只认页面上猜出的那一端。
+  // 旧响应缺 subject_id 时回退被查询实体，行为与改动前一致。
   const categorizedRelations = useMemo(
     () =>
       relations.map((r) => {
-        const otherId = r.source_id === entity?.id ? r.target_id : r.source_id;
+        const subjectId = r.subject_id || relationSubjectId || entity?.id || "";
+        const isOutgoing = subjectId === r.source_id;
+        const isIncoming = subjectId === r.target_id;
+        const isEndpoint = isOutgoing || isIncoming;
+        // 跳转目标与对端摘要沿用旧口径（主体是终点时取 source，属性引用边同样取 source）。
+        const otherId = isOutgoing ? r.target_id : r.source_id;
+        // 展示用的两端：主体是端点时 = 主体 ↔ 对端；属性引用边（主体只是关系属性的取值，
+        // 两端都不是主体）按边自身的方向展示 source → target，不硬把主体凑成一端。
+        const fromId = isEndpoint ? subjectId : r.source_id;
+        const toId = isEndpoint ? otherId : r.target_id;
+        const subject =
+          relatedEntities[subjectId] ||
+          (subjectId && subjectId === entity?.id ? entity ?? undefined : undefined);
         return {
           ...r,
+          subjectId,
+          subject,
           otherId,
           target: relatedEntities[otherId],
-          isOutgoing: r.source_id === entity?.id,
+          isOutgoing,
+          /** 两端摘要：均取自响应 entities 表，缺表时才回退已知实体。 */
+          from: relatedEntities[fromId] || (fromId === entity?.id ? entity ?? undefined : undefined),
+          to: relatedEntities[toId] || (toId === entity?.id ? entity ?? undefined : undefined),
+          fromId,
+          toId,
         };
       }),
-    [relations, relatedEntities, entity]
+    [relations, relatedEntities, entity, relationSubjectId]
   );
 
   const staffRelations = useMemo(
@@ -740,7 +774,7 @@ export function EntityDetailView({ id }: { id: string }) {
   const allDisplayCollections = [
     ...collectionRelations.map((r) => ({
       id: r.otherId,
-      title: r.target ? title(r.target, locale, titleOrder) : r.otherId,
+      title: endTitleOf(r.target, r.otherId, locale, titleOrder),
       curator: r.target?.created_by ? "Community" : "MetaFusion",
     })),
     ...communityCollections.filter(
@@ -1242,7 +1276,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {staffRelations.map((r) => {
                     const target = r.target;
-                    const targetTitle = target ? title(target, locale, titleOrder) : r.otherId;
+                    const targetTitle = endTitleOf(target, r.otherId, locale, titleOrder);
                     return (
                       <Link
                         key={r.id}
@@ -1258,7 +1292,7 @@ export function EntityDetailView({ id }: { id: string }) {
                         </div>
                         <div className="min-w-0 flex-1 space-y-0.5">
                           <div className="text-[10px] font-mono font-semibold text-primary tracking-wider">
-                            {getRelationName(defs, r.type, r.source_id === entity.id, locale)}
+                            {getRelationName(defs, r.type, r.isOutgoing, locale)}
                           </div>
                           <div className="font-semibold text-xs sm:text-sm text-text-strong group-hover:text-primary truncate">
                             {targetTitle}
@@ -1522,8 +1556,9 @@ export function EntityDetailView({ id }: { id: string }) {
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {group.items.map((r) => {
+                      const fromTitle = endTitleOf(r.from, r.fromId, locale, titleOrder);
+                      const toTitle = endTitleOf(r.to, r.toId, locale, titleOrder);
                       const target = r.target;
-                      const targetTitle = target ? title(target, locale, titleOrder) : r.otherId;
                       return (
                         <Link
                           key={r.id}
@@ -1532,12 +1567,18 @@ export function EntityDetailView({ id }: { id: string }) {
                         >
                           <div className="min-w-0 space-y-1">
                             <div className="text-[10px] font-mono font-semibold text-primary tracking-wider">
-                              {getRelationName(defs, r.type, r.source_id === entity.id, locale)}
+                              {getRelationName(defs, r.type, r.isOutgoing, locale)}
                             </div>
-                            <div className="font-semibold text-xs sm:text-sm text-text-strong group-hover:text-primary truncate">
-                              {targetTitle}
+                            {/* 关系两端都给题名：主体一侧取自响应 entities[subject_id]，
+                                对端取自 entities[另一端]，不再出现空标题或原始 UUID。 */}
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[11px] text-gray-500 truncate">{fromTitle}</span>
+                              <ArrowRight className="w-3 h-3 text-gray-400 shrink-0" strokeWidth={1.6} />
+                              <span className="font-semibold text-xs sm:text-sm text-text-strong group-hover:text-primary truncate">
+                                {toTitle}
+                              </span>
                             </div>
-                            {target && isDistinctOriginalTitle(target.title, targetTitle) && (
+                            {target && isDistinctOriginalTitle(target.title, toTitle) && (
                               <div className="text-[10px] text-gray-400 font-mono truncate">
                                 {target.title}
                               </div>

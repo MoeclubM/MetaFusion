@@ -167,6 +167,8 @@ export type Relation = {
   target_id: string;
   position: number;
   attributes: Record<string, any>;
+  /** 该边的主体实体（/relations 响应级 subject_id 的逐条形态）；旧响应没有该字段。 */
+  subject_id?: string;
 };
 export type User = { id: string; username: string; role: string };
 // 社区短评（modules.posts）：按实体聚合，不是独立主题模型。
