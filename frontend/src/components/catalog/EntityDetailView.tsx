@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import FavoriteButton from "@/components/FavoriteButton";
 import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
@@ -14,6 +14,7 @@ import { api, Entity, Relation, title, local } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle, findRowForLocale, buildTitleChain } from "@/lib/titles";
 import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
+import { formalDetailUrl, keepsGenericView } from "@/lib/entityRoutes";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { GraphNode, GraphLink, FavoriteTargetType } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
@@ -106,6 +107,7 @@ export function EntityDetailView({ id }: { id: string }) {
   // ?edit=1 直达编辑模式（works 页"编辑"跳转的目标）。useSearchParams 必须
   // 在任何早退 return 之前调用（hook 顺序），页面组件需提供 Suspense 边界。
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [entity, setEntity] = useState<Entity | null>(null);
   const [motherWork, setMotherWork] = useState<Entity | null>(null);
@@ -128,6 +130,8 @@ export function EntityDetailView({ id }: { id: string }) {
   const [editing, setEditing] = useState(searchParams.get("edit") === "1");
   const [copiedId, setCopiedId] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  // 收敛到正式路由期间不渲染通用视图，避免先闪一次两栏布局。
+  const [redirecting, setRedirecting] = useState(false);
   const [relationFilter, setRelationFilter] = useState<string>("all");
   const [relationViewMode, setRelationViewMode] = useState<"cards" | "graph">("cards");
 
@@ -137,6 +141,19 @@ export function EntityDetailView({ id }: { id: string }) {
     try {
       const e = await api<Entity>(`/catalog/entities/${id}/resolve`);
       setEntity(e);
+
+      // 服务端没能判定 kind 时（未登录看不到草稿、上游不可用）在这里按同一规则再收敛一次，
+      // 同一实体不该停在两套观感上；带 ?edit=1 时保留通用视图（编辑器只挂在这里）。
+      // 余下请求直接跳过：这一页马上要被正式路由替换掉。
+      const queryString = searchParams.toString();
+      if (!keepsGenericView(queryString)) {
+        const target = formalDetailUrl(e.kind, e.id, queryString);
+        if (target) {
+          setRedirecting(true);
+          router.replace(target);
+          return;
+        }
+      }
 
       // Fetch occurrences, relations, revisions, posts, collections in parallel
       const [occRes, relRes, revRes, postRes, colRes] = await Promise.all([
@@ -613,7 +630,7 @@ export function EntityDetailView({ id }: { id: string }) {
     if (el) el.scrollIntoView({ block: "start" });
   }, [loading, communityEnabled, children.length, occurrences.length, mediaRelations.length]);
 
-  if (loading) {
+  if (loading || redirecting) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
