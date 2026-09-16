@@ -1,0 +1,1770 @@
+[
+ {
+  "work": "BanG Dream!（バンドリ！）",
+  "work_id": "01a0a82b-97a4-78fd-8569-60c6941cc79e",
+  "bgm_subject": 186515,
+  "official_story": "https://anime.bang-dream.com/1st/story/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "出会っちゃった!",
+    "title_official": true,
+    "air_date": "2017-01-21",
+    "bgm_ep_id": "682644"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "やっちゃった！",
+    "title_official": true,
+    "air_date": "2017-01-28",
+    "bgm_ep_id": "682645"
+   },
+   {
+    "position": 3,
+    "number": "3",
+    "title": "逃げちゃった！",
+    "title_official": true,
+    "air_date": "2017-02-04",
+    "bgm_ep_id": "682646"
+   },
+   {
+    "position": 4,
+    "number": "4",
+    "title": "怒っちゃった！",
+    "title_official": true,
+    "air_date": "2017-02-11",
+    "bgm_ep_id": "682647"
+   },
+   {
+    "position": 5,
+    "number": "5",
+    "title": "ドキドキしちゃった！",
+    "title_official": true,
+    "air_date": "2017-02-18",
+    "bgm_ep_id": "682648"
+   },
+   {
+    "position": 6,
+    "number": "6",
+    "title": "作っちゃった！",
+    "title_official": true,
+    "air_date": "2017-02-25",
+    "bgm_ep_id": "682649"
+   },
+   {
+    "position": 7,
+    "number": "7",
+    "title": "ケンカしちゃった！",
+    "title_official": true,
+    "air_date": "2017-03-04",
+    "bgm_ep_id": "682650"
+   },
+   {
+    "position": 8,
+    "number": "8",
+    "title": "走っちゃった！",
+    "title_official": true,
+    "air_date": "2017-03-11",
+    "bgm_ep_id": "682651"
+   },
+   {
+    "position": 9,
+    "number": "9",
+    "title": "バイトしちゃった！",
+    "title_official": true,
+    "air_date": "2017-03-25",
+    "bgm_ep_id": "682652"
+   },
+   {
+    "position": 10,
+    "number": "10",
+    "title": "驚いちゃった！",
+    "title_official": true,
+    "air_date": "2017-04-01",
+    "bgm_ep_id": "682653"
+   },
+   {
+    "position": 11,
+    "number": "11",
+    "title": "歌えなくなっちゃった",
+    "title_official": true,
+    "air_date": "2017-04-08",
+    "bgm_ep_id": "682654"
+   },
+   {
+    "position": 12,
+    "number": "12",
+    "title": "キラキラしちゃった！？",
+    "title_official": true,
+    "air_date": "2017-04-15",
+    "bgm_ep_id": "682655"
+   },
+   {
+    "position": 13,
+    "number": "13",
+    "title": "歌っちゃった！",
+    "title_official": true,
+    "air_date": "2017-04-22",
+    "bgm_ep_id": "682656"
+   }
+  ]
+ },
+ {
+  "work": "BanG Dream! 2nd Season",
+  "work_id": "01a0a813-926f-71bc-a55e-d14f979b67ce",
+  "bgm_subject": 246429,
+  "official_story": "https://anime.bang-dream.com/2nd/story/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "Happy Party!",
+    "title_official": true,
+    "air_date": "2019-01-03",
+    "bgm_ep_id": "847317"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "黒き咆哮",
+    "title_official": true,
+    "air_date": "2019-01-10",
+    "bgm_ep_id": "847318"
+   },
+   {
+    "position": 3,
+    "number": "3",
+    "title": "Sing Girls",
+    "title_official": true,
+    "air_date": "2019-01-17",
+    "bgm_ep_id": "847319"
+   },
+   {
+    "position": 4,
+    "number": "4",
+    "title": "ゴーカ！ごーかい！？のっびのびワールド！",
+    "title_official": true,
+    "air_date": "2019-01-24",
+    "bgm_ep_id": "847320"
+   },
+   {
+    "position": 5,
+    "number": "5",
+    "title": "雨のRing-Dong-Dance",
+    "title_official": true,
+    "air_date": "2019-01-31",
+    "bgm_ep_id": "847321"
+   },
+   {
+    "position": 6,
+    "number": "6",
+    "title": "You Only Live Once",
+    "title_official": true,
+    "air_date": "2019-02-07",
+    "bgm_ep_id": "847322"
+   },
+   {
+    "position": 7,
+    "number": "7",
+    "title": "ナカナ イナ カナイ",
+    "title_official": true,
+    "air_date": "2019-02-14",
+    "bgm_ep_id": "847323"
+   },
+   {
+    "position": 8,
+    "number": "8",
+    "title": "ひとりじゃないんだから",
+    "title_official": true,
+    "air_date": "2019-02-21",
+    "bgm_ep_id": "847324"
+   },
+   {
+    "position": 9,
+    "number": "9",
+    "title": "スクール・フェスティバル・シンフォニー",
+    "title_official": true,
+    "air_date": "2019-02-28",
+    "bgm_ep_id": "847325"
+   },
+   {
+    "position": 10,
+    "number": "10",
+    "title": "R·I·O·T",
+    "title_official": true,
+    "air_date": "2019-03-07",
+    "bgm_ep_id": "847326"
+   },
+   {
+    "position": 11,
+    "number": "11",
+    "title": "ホシノナミダ",
+    "title_official": true,
+    "air_date": "2019-03-14",
+    "bgm_ep_id": "847327"
+   },
+   {
+    "position": 12,
+    "number": "12",
+    "title": "Returns",
+    "title_official": true,
+    "air_date": "2019-03-21",
+    "bgm_ep_id": "847328"
+   },
+   {
+    "position": 13,
+    "number": "13",
+    "title": "キズナミュージック♪",
+    "title_official": true,
+    "air_date": "2019-03-28",
+    "bgm_ep_id": "847329"
+   }
+  ]
+ },
+ {
+  "work": "BanG Dream! 3rd Season",
+  "work_id": "01a0a813-baa8-78ed-aceb-41b3f0e7271b",
+  "bgm_subject": 246430,
+  "official_story": "https://anime.bang-dream.com/3rd/story/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "最高の夢――ですよね！",
+    "title_official": true,
+    "air_date": "2020-01-23",
+    "bgm_ep_id": "923544"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "おびえてるじゃない",
+    "title_official": true,
+    "air_date": "2020-01-30",
+    "bgm_ep_id": "923545"
+   },
+   {
+    "position": 3,
+    "number": "3",
+    "title": "帰らん！",
+    "title_official": true,
+    "air_date": "2020-02-06",
+    "bgm_ep_id": "923546"
+   },
+   {
+    "position": 4,
+    "number": "4",
+    "title": "タコさんウィンナーだぎゃあ",
+    "title_official": true,
+    "air_date": "2020-02-20",
+    "bgm_ep_id": "923547"
+   },
+   {
+    "position": 5,
+    "number": "5",
+    "title": "ポピブイ！",
+    "title_official": true,
+    "air_date": "2020-02-27",
+    "bgm_ep_id": "923548"
+   },
+   {
+    "position": 6,
+    "number": "6",
+    "title": "This is it.",
+    "title_official": true,
+    "air_date": "2020-03-05",
+    "bgm_ep_id": "923549"
+   },
+   {
+    "position": 7,
+    "number": "7",
+    "title": "音に残しておきたくて",
+    "title_official": true,
+    "air_date": "2020-03-12",
+    "bgm_ep_id": "923550"
+   },
+   {
+    "position": 8,
+    "number": "8",
+    "title": "のんびりしていてよいのでしょうか",
+    "title_official": true,
+    "air_date": "2020-03-19",
+    "bgm_ep_id": "923551"
+   },
+   {
+    "position": 9,
+    "number": "9",
+    "title": "いくぞポピパ",
+    "title_official": true,
+    "air_date": "2020-03-26",
+    "bgm_ep_id": "923552"
+   },
+   {
+    "position": 10,
+    "number": "10",
+    "title": "ボーカルは……星……",
+    "title_official": true,
+    "air_date": "2020-04-02",
+    "bgm_ep_id": "923553"
+   },
+   {
+    "position": 11,
+    "number": "11",
+    "title": "パレオはもういません",
+    "title_official": true,
+    "air_date": "2020-04-09",
+    "bgm_ep_id": "923554"
+   },
+   {
+    "position": 12,
+    "number": "12",
+    "title": "ポピパさんと共演やーーーーーーーーーーーーーー！",
+    "title_official": true,
+    "air_date": "2020-04-16",
+    "bgm_ep_id": "923555"
+   },
+   {
+    "position": 13,
+    "number": "13",
+    "title": "これが……これこそが、大ガールズバンド時代や！",
+    "title_official": true,
+    "air_date": "2020-04-23",
+    "bgm_ep_id": "923556"
+   }
+  ]
+ },
+ {
+  "work": "BanG Dream! It's MyGO!!!!!",
+  "work_id": "01a0a7e4-86c1-7969-9c17-7d764794576f",
+  "bgm_subject": 428735,
+  "official_story": "https://anime.bang-dream.com/mygo/story/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "羽丘の不思議ちゃん",
+    "title_official": true,
+    "air_date": "2023-06-29",
+    "bgm_ep_id": "1211350"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "もう誘わない",
+    "title_official": true,
+    "air_date": "2023-06-29",
+    "bgm_ep_id": "1223867"
+   },
+   {
+    "position": 3,
+    "number": "3",
+    "title": "CRYCHIC",
+    "title_official": true,
+    "air_date": "2023-06-29",
+    "bgm_ep_id": "1223868"
+   },
+   {
+    "position": 4,
+    "number": "4",
+    "title": "一生だよ！？",
+    "title_official": true,
+    "air_date": "2023-07-06",
+    "bgm_ep_id": "1225915"
+   },
+   {
+    "position": 5,
+    "number": "5",
+    "title": "逃げてない！",
+    "title_official": true,
+    "air_date": "2023-07-13",
+    "bgm_ep_id": "1225916"
+   },
+   {
+    "position": 6,
+    "number": "6",
+    "title": "なんで今更",
+    "title_official": true,
+    "air_date": "2023-07-20",
+    "bgm_ep_id": "1225917"
+   },
+   {
+    "position": 7,
+    "number": "7",
+    "title": "今日のライブが終わっても",
+    "title_official": true,
+    "air_date": "2023-07-27",
+    "bgm_ep_id": "1225918"
+   },
+   {
+    "position": 8,
+    "number": "8",
+    "title": "どうして",
+    "title_official": true,
+    "air_date": "2023-08-03",
+    "bgm_ep_id": "1225919"
+   },
+   {
+    "position": 9,
+    "number": "9",
+    "title": "解散",
+    "title_official": true,
+    "air_date": "2023-08-10",
+    "bgm_ep_id": "1225920"
+   },
+   {
+    "position": 10,
+    "number": "10",
+    "title": "ずっと迷子",
+    "title_official": true,
+    "air_date": "2023-08-17",
+    "bgm_ep_id": "1225921"
+   },
+   {
+    "position": 11,
+    "number": "11",
+    "title": "それでも",
+    "title_official": true,
+    "air_date": "2023-08-24",
+    "bgm_ep_id": "1225922"
+   },
+   {
+    "position": 12,
+    "number": "12",
+    "title": "It’s my go!!!!!",
+    "title_official": true,
+    "air_date": "2023-08-31",
+    "bgm_ep_id": "1225923"
+   },
+   {
+    "position": 13,
+    "number": "13",
+    "title": "信じられるのは我が身ひとつ",
+    "title_official": true,
+    "air_date": "2023-09-14",
+    "bgm_ep_id": "1240250"
+   }
+  ]
+ },
+ {
+  "work": "BanG Dream! Ave Mujica",
+  "work_id": "01a0a813-e2a1-7cb5-8a94-439a35bea98f",
+  "bgm_subject": 454684,
+  "official_story": "https://anime.bang-dream.com/avemujica/story/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "Sub rosa.",
+    "title_official": true,
+    "air_date": "2025-01-02",
+    "bgm_ep_id": "1412723"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "Exitus acta probat.",
+    "title_official": true,
+    "air_date": "2025-01-09",
+    "bgm_ep_id": "1412724"
+   },
+   {
+    "position": 3,
+    "number": "3",
+    "title": "Quid faciam?",
+    "title_official": true,
+    "air_date": "2025-01-16",
+    "bgm_ep_id": "1412725"
+   },
+   {
+    "position": 4,
+    "number": "4",
+    "title": "Acta est fabula.",
+    "title_official": true,
+    "air_date": "2025-01-23",
+    "bgm_ep_id": "1412726"
+   },
+   {
+    "position": 5,
+    "number": "5",
+    "title": "Facta fugis, facienda petis.",
+    "title_official": true,
+    "air_date": "2025-01-30",
+    "bgm_ep_id": "1412727"
+   },
+   {
+    "position": 6,
+    "number": "6",
+    "title": "Animum reges.",
+    "title_official": true,
+    "air_date": "2025-02-06",
+    "bgm_ep_id": "1412728"
+   },
+   {
+    "position": 7,
+    "number": "7",
+    "title": "Post nubila Phoebus.",
+    "title_official": true,
+    "air_date": "2025-02-13",
+    "bgm_ep_id": "1412729"
+   },
+   {
+    "position": 8,
+    "number": "8",
+    "title": "Belua multorum es capitums.",
+    "title_official": true,
+    "air_date": "2025-02-20",
+    "bgm_ep_id": "1412730"
+   },
+   {
+    "position": 9,
+    "number": "9",
+    "title": "Ne vivam si abis.",
+    "title_official": true,
+    "air_date": "2025-02-27",
+    "bgm_ep_id": "1412731"
+   },
+   {
+    "position": 10,
+    "number": "10",
+    "title": "Odi et amo.",
+    "title_official": true,
+    "air_date": "2025-03-06",
+    "bgm_ep_id": "1412732"
+   },
+   {
+    "position": 11,
+    "number": "11",
+    "title": "Te ustus amem.",
+    "title_official": true,
+    "air_date": "2025-03-13",
+    "bgm_ep_id": "1412733"
+   },
+   {
+    "position": 12,
+    "number": "12",
+    "title": "Fluctuat nec mergitur.",
+    "title_official": true,
+    "air_date": "2025-03-20",
+    "bgm_ep_id": "1412734"
+   },
+   {
+    "position": 13,
+    "number": "13",
+    "title": "Per aspera ad astra.",
+    "title_official": true,
+    "air_date": "2025-03-27",
+    "bgm_ep_id": "1446497"
+   }
+  ]
+ },
+ {
+  "work": "BanG Dream! ガルパ☆ピコ",
+  "work_id": "01a0a82b-bf44-7039-8057-9d65e68c6af2",
+  "bgm_subject": 246431,
+  "official_story": "https://anime.bang-dream.com/pico/story/1st/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "ライブハウス「さーくる」",
+    "title_official": true,
+    "air_date": "2018-07-05",
+    "bgm_ep_id": "805417"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "くらトーーーーク",
+    "title_official": true,
+    "air_date": "2018-07-12",
+    "bgm_ep_id": "805418"
+   },
+   {
+    "position": 3,
+    "number": "3",
+    "title": "革命-revolution-",
+    "title_official": true,
+    "air_date": "2018-07-18",
+    "bgm_ep_id": "805419"
+   },
+   {
+    "position": 4,
+    "number": "4",
+    "title": "ロックンロールベイベェ",
+    "title_official": true,
+    "air_date": "2018-07-26",
+    "bgm_ep_id": "805420"
+   },
+   {
+    "position": 5,
+    "number": "5",
+    "title": "パスパレ・水着deコマーシャル",
+    "title_official": true,
+    "air_date": "2018-08-02",
+    "bgm_ep_id": "805421"
+   },
+   {
+    "position": 6,
+    "number": "6",
+    "title": "ミッシェルランドへようこそ！",
+    "title_official": true,
+    "air_date": "2018-08-09",
+    "bgm_ep_id": "805422"
+   },
+   {
+    "position": 7,
+    "number": "7",
+    "title": "さーくる合同ライブ対策会議",
+    "title_official": true,
+    "air_date": "2018-08-16",
+    "bgm_ep_id": "805423"
+   },
+   {
+    "position": 8,
+    "number": "8",
+    "title": "ドラマーっていつも何かしらリズム刻んでるよね",
+    "title_official": true,
+    "air_date": "2018-08-22",
+    "bgm_ep_id": "805424"
+   },
+   {
+    "position": 9,
+    "number": "9",
+    "title": "チョココロネだいすき",
+    "title_official": true,
+    "air_date": "2018-08-29",
+    "bgm_ep_id": "805425"
+   },
+   {
+    "position": 10,
+    "number": "10",
+    "title": "ニンニクどうします？",
+    "title_official": true,
+    "air_date": "2018-09-06",
+    "bgm_ep_id": "805426"
+   },
+   {
+    "position": 11,
+    "number": "11",
+    "title": "ハロハピスカイライブ",
+    "title_official": true,
+    "air_date": "2018-09-12",
+    "bgm_ep_id": "805427"
+   },
+   {
+    "position": 12,
+    "number": "12",
+    "title": "ババンボ様にお願い☆",
+    "title_official": true,
+    "air_date": "2018-09-20",
+    "bgm_ep_id": "805428"
+   },
+   {
+    "position": 13,
+    "number": "13",
+    "title": "キラキラ愉快な商店街狂乱のブシドーパーティ",
+    "title_official": true,
+    "air_date": "2018-09-26",
+    "bgm_ep_id": "830118"
+   },
+   {
+    "position": 14,
+    "number": "14",
+    "title": "ハロハピ厳冬期雪山縦走",
+    "title_official": true,
+    "air_date": "2018-10-04",
+    "bgm_ep_id": "830886"
+   },
+   {
+    "position": 15,
+    "number": "15",
+    "title": "バイトの時間",
+    "title_official": true,
+    "air_date": "2018-10-11",
+    "bgm_ep_id": "830887"
+   },
+   {
+    "position": 16,
+    "number": "16",
+    "title": "ポッピン'シャッフル",
+    "title_official": true,
+    "air_date": "2018-10-18",
+    "bgm_ep_id": "830888"
+   },
+   {
+    "position": 17,
+    "number": "17",
+    "title": "パステル＊散歩",
+    "title_official": true,
+    "air_date": "2018-10-25",
+    "bgm_ep_id": "830889"
+   },
+   {
+    "position": 18,
+    "number": "18",
+    "title": "蔵迷宮",
+    "title_official": true,
+    "air_date": "2018-11-01",
+    "bgm_ep_id": "830972"
+   },
+   {
+    "position": 19,
+    "number": "19",
+    "title": "さーくるの崩壊",
+    "title_official": true,
+    "air_date": "2018-11-07",
+    "bgm_ep_id": "830973"
+   },
+   {
+    "position": 20,
+    "number": "20",
+    "title": "真実を映す魔眼",
+    "title_official": true,
+    "air_date": "2018-11-15",
+    "bgm_ep_id": "830974"
+   },
+   {
+    "position": 21,
+    "number": "21",
+    "title": "あの演出ってワクワクするよね",
+    "title_official": true,
+    "air_date": "2018-11-22",
+    "bgm_ep_id": "830975"
+   },
+   {
+    "position": 22,
+    "number": "22",
+    "title": "ミッシェルカフェへようこそ！",
+    "title_official": true,
+    "air_date": "2018-11-29",
+    "bgm_ep_id": "830976"
+   },
+   {
+    "position": 23,
+    "number": "23",
+    "title": "パステルパジャマパーティー",
+    "title_official": true,
+    "air_date": "2018-12-06",
+    "bgm_ep_id": "830977"
+   },
+   {
+    "position": 24,
+    "number": "24",
+    "title": "フタゴリズム",
+    "title_official": true,
+    "air_date": "2018-12-13",
+    "bgm_ep_id": "830978"
+   },
+   {
+    "position": 25,
+    "number": "25",
+    "title": "聖夜のサプライズ",
+    "title_official": true,
+    "air_date": "2018-12-20",
+    "bgm_ep_id": "846230"
+   },
+   {
+    "position": 26,
+    "number": "26",
+    "title": "再建しちゃった！",
+    "title_official": true,
+    "air_date": "2018-12-27",
+    "bgm_ep_id": "846231"
+   }
+  ]
+ },
+ {
+  "work": "BanG Dream! ガルパ☆ピコ ～大盛り～",
+  "work_id": "01a0a835-b3dd-722d-b157-025089aedc07",
+  "bgm_subject": 296295,
+  "official_story": "https://anime.bang-dream.com/pico/story/ohmori/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "ライブハウス「さーくる」",
+    "title_official": true,
+    "air_date": "2020-05-07",
+    "bgm_ep_id": "949881"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "ポッピンパン",
+    "title_official": true,
+    "air_date": "2020-05-14",
+    "bgm_ep_id": "949882"
+   },
+   {
+    "position": 3,
+    "number": "3",
+    "title": "リサコレ",
+    "title_official": true,
+    "air_date": "2020-05-21",
+    "bgm_ep_id": "949883"
+   },
+   {
+    "position": 4,
+    "number": "4",
+    "title": "ひまりSOS！",
+    "title_official": true,
+    "air_date": "2020-05-28",
+    "bgm_ep_id": "949884"
+   },
+   {
+    "position": 5,
+    "number": "5",
+    "title": "パステル＊砂漠",
+    "title_official": true,
+    "air_date": "2020-06-04",
+    "bgm_ep_id": "949885"
+   },
+   {
+    "position": 6,
+    "number": "6",
+    "title": "美咲禁断症状",
+    "title_official": true,
+    "air_date": "2020-06-11",
+    "bgm_ep_id": "949886"
+   },
+   {
+    "position": 7,
+    "number": "7",
+    "title": "アラタナフタツナ",
+    "title_official": true,
+    "air_date": "2020-06-18",
+    "bgm_ep_id": "949887"
+   },
+   {
+    "position": 8,
+    "number": "8",
+    "title": "カードファイト!! お姉ちゃん！",
+    "title_official": true,
+    "air_date": "2020-06-25",
+    "bgm_ep_id": "949888"
+   },
+   {
+    "position": 9,
+    "number": "9",
+    "title": "パズル☆ピコ",
+    "title_official": true,
+    "air_date": "2020-07-02",
+    "bgm_ep_id": "949889"
+   },
+   {
+    "position": 10,
+    "number": "10",
+    "title": "ハナゾノ路上ライブ",
+    "title_official": true,
+    "air_date": "2020-07-09",
+    "bgm_ep_id": "949890"
+   },
+   {
+    "position": 11,
+    "number": "11",
+    "title": "暗晦ティータイム",
+    "title_official": true,
+    "air_date": "2020-07-16",
+    "bgm_ep_id": "949891"
+   },
+   {
+    "position": 12,
+    "number": "12",
+    "title": "ガールズバンド新聞",
+    "title_official": true,
+    "air_date": "2020-07-23",
+    "bgm_ep_id": "949892"
+   },
+   {
+    "position": 13,
+    "number": "13",
+    "title": "さーくる集客対策会議",
+    "title_official": true,
+    "air_date": "2020-07-30",
+    "bgm_ep_id": "949893"
+   },
+   {
+    "position": 14,
+    "number": "14",
+    "title": "髪切った？",
+    "title_official": true,
+    "air_date": "2020-08-06",
+    "bgm_ep_id": "968272"
+   },
+   {
+    "position": 15,
+    "number": "15",
+    "title": "ロゼリアオンライン",
+    "title_official": true,
+    "air_date": "2020-08-13",
+    "bgm_ep_id": "968273"
+   },
+   {
+    "position": 16,
+    "number": "16",
+    "title": "noodlee!journey!",
+    "title_official": true,
+    "air_date": "2020-08-20",
+    "bgm_ep_id": "968274"
+   },
+   {
+    "position": 17,
+    "number": "17",
+    "title": "魔法戦隊パステル＊レンジャー",
+    "title_official": true,
+    "air_date": "2020-08-27",
+    "bgm_ep_id": "968275"
+   },
+   {
+    "position": 18,
+    "number": "18",
+    "title": "発進！ミッシェルロボ",
+    "title_official": true,
+    "air_date": "2020-09-03",
+    "bgm_ep_id": "968276"
+   },
+   {
+    "position": 19,
+    "number": "19",
+    "title": "ましろステーション",
+    "title_official": true,
+    "air_date": "2020-09-10",
+    "bgm_ep_id": "968277"
+   },
+   {
+    "position": 20,
+    "number": "20",
+    "title": "マグロ",
+    "title_official": true,
+    "air_date": "2020-09-17",
+    "bgm_ep_id": "968278"
+   },
+   {
+    "position": 21,
+    "number": "21",
+    "title": "薫オンステージ",
+    "title_official": true,
+    "air_date": "2020-09-24",
+    "bgm_ep_id": "968279"
+   },
+   {
+    "position": 22,
+    "number": "22",
+    "title": "戸山探検隊",
+    "title_official": true,
+    "air_date": "2020-10-01",
+    "bgm_ep_id": "968280"
+   },
+   {
+    "position": 23,
+    "number": "23",
+    "title": "まるやま＊チャンネル",
+    "title_official": true,
+    "air_date": "2020-10-08",
+    "bgm_ep_id": "968281"
+   },
+   {
+    "position": 24,
+    "number": "24",
+    "title": "お砂糖いくついれますか？",
+    "title_official": true,
+    "air_date": "2020-10-15",
+    "bgm_ep_id": "968282"
+   },
+   {
+    "position": 25,
+    "number": "25",
+    "title": "いなくなっちゃった",
+    "title_official": true,
+    "air_date": "2020-10-22",
+    "bgm_ep_id": "968283"
+   },
+   {
+    "position": 26,
+    "number": "26",
+    "title": "惑星（ホシ）の鼓動",
+    "title_official": true,
+    "air_date": "2020-10-29",
+    "bgm_ep_id": "968284"
+   }
+  ]
+ },
+ {
+  "work": "BanG Dream! ガルパ☆ピコ ふぃーばー！",
+  "work_id": "01a0a835-dcbc-7733-802e-79c96926043b",
+  "bgm_subject": 338400,
+  "official_story": "https://anime.bang-dream.com/pico/story/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "ガールズバンド戦国時代",
+    "title_official": true,
+    "air_date": "2021-10-07",
+    "bgm_ep_id": "1060873"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "はいきんぐやっほー",
+    "title_official": true,
+    "air_date": "2021-10-14",
+    "bgm_ep_id": "1060874"
+   },
+   {
+    "position": 3,
+    "number": "3",
+    "title": "スポーツマンシップにほっこり",
+    "title_official": true,
+    "air_date": "2021-10-21",
+    "bgm_ep_id": "1060875"
+   },
+   {
+    "position": 4,
+    "number": "4",
+    "title": "エモイナの泉",
+    "title_official": true,
+    "air_date": "2021-10-28",
+    "bgm_ep_id": "1060876"
+   },
+   {
+    "position": 5,
+    "number": "5",
+    "title": "ジェニファーちゃんを捜せ！",
+    "title_official": true,
+    "air_date": "2021-11-04",
+    "bgm_ep_id": "1060877"
+   },
+   {
+    "position": 6,
+    "number": "6",
+    "title": "プロデュース☆銀河",
+    "title_official": true,
+    "air_date": "2021-11-11",
+    "bgm_ep_id": "1060878"
+   },
+   {
+    "position": 7,
+    "number": "7",
+    "title": "ひまりのSNS WARS",
+    "title_official": true,
+    "air_date": "2021-11-18",
+    "bgm_ep_id": "1060879"
+   },
+   {
+    "position": 8,
+    "number": "8",
+    "title": "THE パスパレ DISH",
+    "title_official": true,
+    "air_date": "2021-11-25",
+    "bgm_ep_id": "1060880"
+   },
+   {
+    "position": 9,
+    "number": "9",
+    "title": "駆け抜けろ青春",
+    "title_official": true,
+    "air_date": "2021-12-02",
+    "bgm_ep_id": "1060881"
+   },
+   {
+    "position": 10,
+    "number": "10",
+    "title": "漆黒のラヴィアンノート",
+    "title_official": true,
+    "air_date": "2021-12-09",
+    "bgm_ep_id": "1060882"
+   },
+   {
+    "position": 11,
+    "number": "11",
+    "title": "心配性のましろちゃん",
+    "title_official": true,
+    "air_date": "2021-12-16",
+    "bgm_ep_id": "1060883"
+   },
+   {
+    "position": 12,
+    "number": "12",
+    "title": "ジャーキーアドベンチャー",
+    "title_official": true,
+    "air_date": "2021-12-23",
+    "bgm_ep_id": "1060884"
+   },
+   {
+    "position": 13,
+    "number": "13",
+    "title": "７バンド、夢の合同ライブ！",
+    "title_official": true,
+    "air_date": "2021-12-30",
+    "bgm_ep_id": "1076484"
+   },
+   {
+    "position": 14,
+    "number": "14",
+    "title": "ペンションアンダンテ",
+    "title_official": true,
+    "air_date": "2022-01-06",
+    "bgm_ep_id": "1076716"
+   },
+   {
+    "position": 15,
+    "number": "15",
+    "title": "ポピモニロードショー",
+    "title_official": true,
+    "air_date": "2022-01-13",
+    "bgm_ep_id": "1076717"
+   },
+   {
+    "position": 16,
+    "number": "16",
+    "title": "ハピハピ♪バケーション",
+    "title_official": true,
+    "air_date": "2022-01-20",
+    "bgm_ep_id": "1076718"
+   },
+   {
+    "position": 17,
+    "number": "17",
+    "title": "コロネつまみ食い裁判",
+    "title_official": true,
+    "air_date": "2022-01-27",
+    "bgm_ep_id": "1076719"
+   },
+   {
+    "position": 18,
+    "number": "18",
+    "title": "ねこねこタイム",
+    "title_official": true,
+    "air_date": "2022-02-03",
+    "bgm_ep_id": "1076720"
+   },
+   {
+    "position": 19,
+    "number": "19",
+    "title": "ガルパ名作劇場～たえデレラ～",
+    "title_official": true,
+    "air_date": "2022-02-10",
+    "bgm_ep_id": "1076721"
+   },
+   {
+    "position": 20,
+    "number": "20",
+    "title": "ゲームセンターともえ",
+    "title_official": true,
+    "air_date": "2022-02-17",
+    "bgm_ep_id": "1076722"
+   },
+   {
+    "position": 21,
+    "number": "21",
+    "title": "ハッピーさんばかーニバル",
+    "title_official": true,
+    "air_date": "2022-02-24",
+    "bgm_ep_id": "1076723"
+   },
+   {
+    "position": 22,
+    "number": "22",
+    "title": "さーくる幼稚園",
+    "title_official": true,
+    "air_date": "2022-03-03",
+    "bgm_ep_id": "1076724"
+   },
+   {
+    "position": 23,
+    "number": "23",
+    "title": "ウホホウホホイ",
+    "title_official": true,
+    "air_date": "2022-03-10",
+    "bgm_ep_id": "1076725"
+   },
+   {
+    "position": 24,
+    "number": "24",
+    "title": "ありがとう",
+    "title_official": true,
+    "air_date": "2022-03-17",
+    "bgm_ep_id": "1076726"
+   },
+   {
+    "position": 25,
+    "number": "25",
+    "title": "7バンド合同ライブ演出会議！",
+    "title_official": true,
+    "air_date": "2022-03-24",
+    "bgm_ep_id": "1076727"
+   },
+   {
+    "position": 26,
+    "number": "26",
+    "title": "遥かなるソラの先へ",
+    "title_official": true,
+    "air_date": "2022-03-31",
+    "bgm_ep_id": "1076728"
+   }
+  ]
+ },
+ {
+  "work": "BanG Dream! Morfonication",
+  "work_id": "01a0a82b-e6a5-7998-9acd-d4b84f7ebd98",
+  "bgm_subject": 385928,
+  "official_story": "https://morfonica-anime.bang-dream.com/story/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "夏モニカ計画",
+    "title_official": true,
+    "air_date": "2022-07-28",
+    "bgm_ep_id": "1109379"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "Shining days",
+    "title_official": true,
+    "air_date": "2022-07-29",
+    "bgm_ep_id": "1109380"
+   }
+  ]
+ },
+ {
+  "work": "元祖！バンドリちゃん",
+  "work_id": "01a0a82c-0fc0-765d-ace5-95133ef38e05",
+  "bgm_subject": 540449,
+  "official_story": "https://anime.bang-dream.com/bandorichan/story/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "元祖！バンドリちゃん",
+    "title_official": true,
+    "air_date": "2025-10-02",
+    "bgm_ep_id": "1467574"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "真っ赤なスポーツカー",
+    "title_official": true,
+    "air_date": "2025-10-09",
+    "bgm_ep_id": "1467575"
+   },
+   {
+    "position": 3,
+    "number": "3",
+    "title": "いつも通りの居場所",
+    "title_official": true,
+    "air_date": "2025-10-16",
+    "bgm_ep_id": "1467576"
+   },
+   {
+    "position": 4,
+    "number": "4",
+    "title": "違いのわかる女の子",
+    "title_official": true,
+    "air_date": "2025-10-23",
+    "bgm_ep_id": "1467577"
+   },
+   {
+    "position": 5,
+    "number": "5",
+    "title": "ハロハピ定例MTG",
+    "title_official": true,
+    "air_date": "2025-10-30",
+    "bgm_ep_id": "1467578"
+   },
+   {
+    "position": 6,
+    "number": "6",
+    "title": "プロとして",
+    "title_official": true,
+    "air_date": "2025-11-06",
+    "bgm_ep_id": "1467579"
+   },
+   {
+    "position": 7,
+    "number": "7",
+    "title": "「羽化～growth～」",
+    "title_official": true,
+    "air_date": "2025-11-13",
+    "bgm_ep_id": "1467580"
+   },
+   {
+    "position": 8,
+    "number": "8",
+    "title": "パステルすごろく",
+    "title_official": true,
+    "air_date": "2025-11-20",
+    "bgm_ep_id": "1467581"
+   },
+   {
+    "position": 9,
+    "number": "9",
+    "title": "RAISE-A-FIRE",
+    "title_official": true,
+    "air_date": "2025-11-27",
+    "bgm_ep_id": "1467582"
+   },
+   {
+    "position": 10,
+    "number": "10",
+    "title": "Minna na cayosi.",
+    "title_official": true,
+    "air_date": "2025-12-04",
+    "bgm_ep_id": "1467583"
+   },
+   {
+    "position": 11,
+    "number": "11",
+    "title": "どきどき☆関係者挨拶",
+    "title_official": true,
+    "air_date": "2025-12-11",
+    "bgm_ep_id": "1467584"
+   },
+   {
+    "position": 12,
+    "number": "12",
+    "title": "天体観測",
+    "title_official": true,
+    "air_date": "2025-12-18",
+    "bgm_ep_id": "1467585"
+   },
+   {
+    "position": 13,
+    "number": "13",
+    "title": "イヴサンタがやってくる",
+    "title_official": true,
+    "air_date": "2025-12-25",
+    "bgm_ep_id": "1467586"
+   },
+   {
+    "position": 14,
+    "number": "14",
+    "title": "みんなでお正月",
+    "title_official": true,
+    "air_date": "2026-01-08",
+    "bgm_ep_id": "1467587"
+   },
+   {
+    "position": 15,
+    "number": "15",
+    "title": "ブンブンバイクでゴー",
+    "title_official": true,
+    "air_date": "2026-01-15",
+    "bgm_ep_id": "1467588"
+   },
+   {
+    "position": 16,
+    "number": "16",
+    "title": "わくわく！旅準備",
+    "title_official": true,
+    "air_date": "2026-01-22",
+    "bgm_ep_id": "1467589"
+   },
+   {
+    "position": 17,
+    "number": "17",
+    "title": "チュチュPのカリスマラジオ",
+    "title_official": true,
+    "air_date": "2026-01-29",
+    "bgm_ep_id": "1467590"
+   },
+   {
+    "position": 18,
+    "number": "18",
+    "title": "スペシャルコラボ！にゃむちチャンネル",
+    "title_official": true,
+    "air_date": "2026-02-05",
+    "bgm_ep_id": "1467591"
+   },
+   {
+    "position": 19,
+    "number": "19",
+    "title": "箱入りミッシェル",
+    "title_official": true,
+    "air_date": "2026-02-12",
+    "bgm_ep_id": "1467592"
+   },
+   {
+    "position": 20,
+    "number": "20",
+    "title": "旅立ちはビターチョコレート",
+    "title_official": true,
+    "air_date": "2026-02-19",
+    "bgm_ep_id": "1467593"
+   },
+   {
+    "position": 21,
+    "number": "21",
+    "title": "バイトミーさん",
+    "title_official": true,
+    "air_date": "2026-02-26",
+    "bgm_ep_id": "1467594"
+   },
+   {
+    "position": 22,
+    "number": "22",
+    "title": "百物語",
+    "title_official": true,
+    "air_date": "2026-03-05",
+    "bgm_ep_id": "1467595"
+   },
+   {
+    "position": 23,
+    "number": "23",
+    "title": "放課後トークタイム",
+    "title_official": true,
+    "air_date": "2026-03-12",
+    "bgm_ep_id": "1467596"
+   },
+   {
+    "position": 24,
+    "number": "24",
+    "title": "ドリフティング・クラスルーム",
+    "title_official": true,
+    "air_date": "2026-03-19",
+    "bgm_ep_id": "1467597"
+   },
+   {
+    "position": 25,
+    "number": "25",
+    "title": "宇田川催眠波",
+    "title_official": true,
+    "air_date": "2026-03-26",
+    "bgm_ep_id": "1467598"
+   },
+   {
+    "position": 26,
+    "number": "26",
+    "title": "魔法少女パッピームジゴ",
+    "title_official": true,
+    "air_date": "2026-04-02",
+    "bgm_ep_id": "1467599"
+   },
+   {
+    "position": 27,
+    "number": "27",
+    "title": "今日のにゃーんちゃん",
+    "title_official": true,
+    "air_date": "2026-04-09",
+    "bgm_ep_id": "1467600"
+   },
+   {
+    "position": 28,
+    "number": "28",
+    "title": "割烹きたざわ",
+    "title_official": true,
+    "air_date": "2026-04-16",
+    "bgm_ep_id": "1467601"
+   },
+   {
+    "position": 29,
+    "number": "29",
+    "title": "サバイバルタワーの試練",
+    "title_official": true,
+    "air_date": "2026-04-23",
+    "bgm_ep_id": "1467602"
+   },
+   {
+    "position": 30,
+    "number": "30",
+    "title": "ビーフジャーキーできるかな",
+    "title_official": true,
+    "air_date": "2026-04-30",
+    "bgm_ep_id": "1467603"
+   },
+   {
+    "position": 31,
+    "number": "31",
+    "title": "いつも通りの帰り道",
+    "title_official": true,
+    "air_date": "2026-05-07",
+    "bgm_ep_id": "1467604"
+   },
+   {
+    "position": 32,
+    "number": "32",
+    "title": "魔球敗れる！ミッシェル決死のジャンプ！",
+    "title_official": true,
+    "air_date": "2026-05-14",
+    "bgm_ep_id": "1467605"
+   },
+   {
+    "position": 33,
+    "number": "33",
+    "title": "昼下がりの午後",
+    "title_official": true,
+    "air_date": "2026-05-21",
+    "bgm_ep_id": "1467606"
+   },
+   {
+    "position": 34,
+    "number": "34",
+    "title": "もっとサバイバル",
+    "title_official": true,
+    "air_date": "2026-05-28",
+    "bgm_ep_id": "1467607"
+   },
+   {
+    "position": 35,
+    "number": "35",
+    "title": "ファミレス・ガールズ",
+    "title_official": true,
+    "air_date": "2026-06-04",
+    "bgm_ep_id": "1467608"
+   },
+   {
+    "position": 36,
+    "number": "36",
+    "title": "クイズ答えてバンドリちゃんの館",
+    "title_official": true,
+    "air_date": "2026-06-11",
+    "bgm_ep_id": "1467609"
+   },
+   {
+    "position": 37,
+    "number": "37",
+    "title": "RiNGで待ち合わせ",
+    "title_official": true,
+    "air_date": "2026-06-18",
+    "bgm_ep_id": "1467610"
+   },
+   {
+    "position": 38,
+    "number": "38",
+    "title": "RiNGからの脱出",
+    "title_official": true,
+    "air_date": "2026-06-25",
+    "bgm_ep_id": "1467611"
+   },
+   {
+    "position": 39,
+    "number": "39",
+    "title": "＊＊＊＊＊＊のお悩み相談室",
+    "title_official": true,
+    "air_date": "2026-07-02",
+    "bgm_ep_id": "1467612"
+   },
+   {
+    "position": 40,
+    "number": "40",
+    "title": "アーティスト格付けチョイス",
+    "title_official": true,
+    "air_date": "2026-07-09",
+    "bgm_ep_id": "1467613"
+   },
+   {
+    "position": 41,
+    "number": "41",
+    "title": "Roselia強化夏合宿",
+    "title_official": true,
+    "air_date": "2026-07-16",
+    "bgm_ep_id": "1467614"
+   },
+   {
+    "position": 42,
+    "number": "42",
+    "title": "ショートショートショート",
+    "title_official": true,
+    "air_date": "2026-07-23",
+    "bgm_ep_id": "1467615"
+   },
+   {
+    "position": 43,
+    "number": "43",
+    "title": "寝坊しました",
+    "title_official": true,
+    "air_date": "2026-07-30",
+    "bgm_ep_id": "1467616"
+   },
+   {
+    "position": 44,
+    "number": "44",
+    "title": "これは元祖！バンドリちゃんのあらすじ",
+    "title_official": true,
+    "air_date": "2026-08-06",
+    "bgm_ep_id": "1467617"
+   },
+   {
+    "position": 45,
+    "number": "45",
+    "title": "モールでMyGO!!!!!",
+    "title_official": true,
+    "air_date": "2026-08-13",
+    "bgm_ep_id": "1467618"
+   },
+   {
+    "position": 46,
+    "number": "46",
+    "title": "ビーム撃ちたい",
+    "title_official": true,
+    "air_date": "2026-08-20",
+    "bgm_ep_id": "1467619"
+   },
+   {
+    "position": 47,
+    "number": "47",
+    "title": "Sauna de totonoi.",
+    "title_official": true,
+    "air_date": "2026-08-27",
+    "bgm_ep_id": "1467620"
+   },
+   {
+    "position": 48,
+    "number": "48",
+    "title": "富士見夜子先生サイン会",
+    "title_official": true,
+    "air_date": "2026-09-03",
+    "bgm_ep_id": "1467621"
+   },
+   {
+    "position": 49,
+    "number": "49",
+    "title": "BIGになりたい",
+    "title_official": true,
+    "air_date": "2026-09-10",
+    "bgm_ep_id": "1467622"
+   },
+   {
+    "position": 50,
+    "number": "50",
+    "title": "機動宇宙戦妃 バンドール",
+    "title_official": true,
+    "air_date": "2026-09-17",
+    "bgm_ep_id": "1467623"
+   },
+   {
+    "position": 51,
+    "number": "51",
+    "title": "",
+    "title_official": false,
+    "air_date": "2026-09-24",
+    "bgm_ep_id": "1467624"
+   },
+   {
+    "position": 52,
+    "number": "52",
+    "title": "",
+    "title_official": false,
+    "air_date": "2026-10-01",
+    "bgm_ep_id": "1467625"
+   }
+  ]
+ },
+ {
+  "work": "バンドリ！ ゆめ∞みた",
+  "work_id": "01a0a836-03ae-7b50-b99e-7c7c092046e4",
+  "bgm_subject": 583729,
+  "official_story": "https://anime.bang-dream.com/yumemita/story/",
+  "episodes": [
+   {
+    "position": 1,
+    "number": "1",
+    "title": "みゅーたいぷ",
+    "title_official": true,
+    "air_date": "2026-07-02",
+    "bgm_ep_id": "1687829"
+   },
+   {
+    "position": 2,
+    "number": "2",
+    "title": "ちゅ～",
+    "title_official": true,
+    "air_date": "2026-07-02",
+    "bgm_ep_id": "1687830"
+   },
+   {
+    "position": 3,
+    "number": "3",
+    "title": "すきにしろ",
+    "title_official": true,
+    "air_date": "2026-07-02",
+    "bgm_ep_id": "1687831"
+   },
+   {
+    "position": 4,
+    "number": "4",
+    "title": "たのしいかも",
+    "title_official": true,
+    "air_date": "2026-07-09",
+    "bgm_ep_id": "1687832"
+   },
+   {
+    "position": 5,
+    "number": "5",
+    "title": "たすけて",
+    "title_official": true,
+    "air_date": "2026-07-16",
+    "bgm_ep_id": "1687833"
+   },
+   {
+    "position": 6,
+    "number": "6",
+    "title": "うんめい",
+    "title_official": true,
+    "air_date": "2026-07-23",
+    "bgm_ep_id": "1687834"
+   },
+   {
+    "position": 7,
+    "number": "7",
+    "title": "こころあらたに",
+    "title_official": true,
+    "air_date": "2026-07-30",
+    "bgm_ep_id": "1687835"
+   },
+   {
+    "position": 8,
+    "number": "8",
+    "title": "はなまる",
+    "title_official": true,
+    "air_date": "2026-08-06",
+    "bgm_ep_id": "1687836"
+   },
+   {
+    "position": 9,
+    "number": "9",
+    "title": "かいさん",
+    "title_official": true,
+    "air_date": "2026-08-13",
+    "bgm_ep_id": "1687837"
+   },
+   {
+    "position": 10,
+    "number": "10",
+    "title": "うみ",
+    "title_official": true,
+    "air_date": "2026-08-20",
+    "bgm_ep_id": "1687838"
+   },
+   {
+    "position": 11,
+    "number": "11",
+    "title": "たのしかった",
+    "title_official": true,
+    "air_date": "2026-08-27",
+    "bgm_ep_id": "1687839"
+   },
+   {
+    "position": 12,
+    "number": "12",
+    "title": "わかれ",
+    "title_official": true,
+    "air_date": "2026-09-03",
+    "bgm_ep_id": "1687840"
+   },
+   {
+    "position": 13,
+    "number": "13",
+    "title": "夢限大みゅーたいぷ",
+    "title_official": true,
+    "air_date": "2026-09-10",
+    "bgm_ep_id": "1716518"
+   }
+  ]
+ }
+]
