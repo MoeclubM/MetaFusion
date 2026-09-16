@@ -63,6 +63,10 @@ func scanShelf(row func(...any) error) (Shelf, error) {
 	return s, nil
 }
 
+// shelfSortKeys 是货架排序取值的闭集（空串表示未配置，等价于 updated）。
+// 校验与求值共用它，测试也逐值遍历：新增排序方式必须同时补 shelfOrderClause。
+var shelfSortKeys = []string{"", "updated", "created", "title"}
+
 func validateShelf(s Shelf) error {
 	if !shelfSlugPattern.MatchString(s.Slug) {
 		return fmt.Errorf("invalid_slug")
@@ -71,9 +75,8 @@ func validateShelf(s Shelf) error {
 	if err := validateNames(s.Names); err != nil {
 		return err
 	}
-	switch s.Sort {
-	case "", "updated", "created", "title":
-	default:
+	// 白名单与 shelfOrderClause 共用同一份闭集：分开写就会出现"接受但求值没实现"的静默回落。
+	if !contains(shelfSortKeys, s.Sort) {
 		return fmt.Errorf("invalid_sort")
 	}
 	return nil
@@ -259,6 +262,25 @@ func shelfFilter(sh Shelf, args *[]any, alias string) []string {
 	return parts
 }
 
+// shelfOrderClause 把货架的 sort 编译成 ORDER BY 片段。
+//
+// 与 validateShelf 的白名单一一对应：白名单放行了却没有求值实现，写进去就等于静默回落
+// （历史上 created 正是这样：接受了取值却按 updated_at 排序）。未知值仍回落 updated，
+// 这是兜底而不是契约——测试逐值断言每个被接受的取值都有非空片段。
+func shelfOrderClause(sortKey string) string {
+	switch sortKey {
+	case "created":
+		// 实体表没有 created_at 列（只有 updated_at），而基线迁移是唯一结构来源、不能为
+		// 一个排序键改它。实体 id 由 uuid.NewV7() 生成、是时间有序的，按 id 倒序即创建时间
+		// 倒序，且能走主键索引；同毫秒内两条的顺序由随机位决定（毫秒级精度）。
+		return "e.id DESC"
+	case "title":
+		return "e.title ASC, e.id"
+	default: // ""（未配置）与 "updated"
+		return "e.updated_at DESC, e.id"
+	}
+}
+
 // ListShelfItems 按货架规则求值出实体列表，返回顺序与 sort 一致。
 // 规则里的 fields/vocab_terms/relations 只有服务端能判定，故求值必须在此完成，
 // 前端不再自行近似匹配（那会把非作品实体和无关条目混进推荐）。
@@ -279,10 +301,7 @@ func (s *Store) ListShelfItems(ctx context.Context, sh Shelf, limit int, u *User
 	where = append(where, "e.status NOT IN ('deleted','merged')")
 	where = append(where, shelfFilter(sh, &args, "e")...)
 
-	order := "e.updated_at DESC, e.id"
-	if sh.Sort == "title" {
-		order = "e.title ASC, e.id"
-	}
+	order := shelfOrderClause(sh.Sort)
 	args = append(args, limit)
 	q := "SELECT e.id::text FROM catalog.entities e WHERE " + strings.Join(where, " AND ") +
 		" ORDER BY " + order + fmt.Sprintf(" LIMIT $%d", len(args))

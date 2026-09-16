@@ -149,13 +149,13 @@ func OpenAPI() map[string]any {
 		{"/admin/external-databases/{code}", "put", "Update external authority database (requires catalog.definitions.manage); names must carry zh-CN, zh-TW, en-US and ja or ja-JP (four_locale_names_required)", "ExternalDatabase", "Result", "auth"},
 		{"/admin/external-databases/{code}", "delete", "Delete external authority database (requires catalog.definitions.manage)", "", "Result", "auth"},
 		{"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
-		{"/catalog/shelves/feed", "get", "Evaluate shelf rules with their items, ordered by caller preferences", "", "Result", ""},
+		{"/catalog/shelves/feed", "get", "Evaluate shelf rules with their items, ordered by caller preferences; each shelf's items follow its own sort key: updated (default) | created | title", "", "Result", ""},
 		{"/catalog/me/home-preferences", "get", "Read caller homepage section preferences", "", "Result", "auth"},
 		{"/catalog/me/home-preferences", "put", "Replace caller homepage section preferences", "HomePreferences", "Result", "auth"},
 		{"/admin/shelves", "get", "List shelf rules (requires catalog.shelves.manage)", "", "Result", "auth"},
-		{"/admin/shelves", "post", "Create shelf rule (requires catalog.shelves.manage); names must carry zh-CN, zh-TW, en-US and ja or ja-JP (four_locale_names_required)", "Shelf", "Result", "auth"},
+		{"/admin/shelves", "post", "Create shelf rule (requires catalog.shelves.manage); names must carry zh-CN, zh-TW, en-US and ja or ja-JP (four_locale_names_required); sort accepts updated (default) | created | title, other values are rejected with invalid_sort", "Shelf", "Result", "auth"},
 		{"/admin/shelves/{id}", "get", "Read shelf rule (requires catalog.shelves.manage)", "", "Result", "auth"},
-		{"/admin/shelves/{id}", "put", "Update shelf rule (requires catalog.shelves.manage); names must carry zh-CN, zh-TW, en-US and ja or ja-JP (four_locale_names_required)", "Shelf", "Result", "auth"},
+		{"/admin/shelves/{id}", "put", "Update shelf rule (requires catalog.shelves.manage); names must carry zh-CN, zh-TW, en-US and ja or ja-JP (four_locale_names_required); sort accepts updated (default) | created | title, other values are rejected with invalid_sort", "Shelf", "Result", "auth"},
 		{"/admin/shelves/{id}", "delete", "Delete shelf rule (requires catalog.shelves.manage)", "", "Result", "auth"},
 	} {
 		add(r[0], r[1], r[2], r[3], r[4], r[5] != "")
