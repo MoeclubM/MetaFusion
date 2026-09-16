@@ -1878,16 +1878,12 @@ func (s *Store) importerSaveVersioned(ctx context.Context, e Entity, expectedVer
 }
 
 // assocImportKey 取关联项的导入键，**必须与落库的 external_ids.metafusion_import 格式一致**
-// （findImported 按该字段查询）。预览已带 metafusion_import 时直接用；否则由
-// bangumi_person/character 拼成 `bangumi:{kind}:{id}`（与落库格式一致）。
+// （findImported 按该字段查询）。键由服务端从来源 ID 派生：bangumi_person/character 拼成
+// `bangumi:{kind}:{id}`（与落库格式一致）；载荷自带的 metafusion_import 只是预览回带的副本，
+// 只在派生不出键时兜底——冲突时以派生键为准，否则载荷能用别人的幂等键把实体写进另一条链路。
 // 曾因返回 `bangumi_person:{id}`（下划线）与落库的 `bangumi:person:{id}` 不匹配，
 // 导致重复导入每次都新建一份实体。
 func assocImportKey(externalIDs map[string]any) string {
-	if v, ok := externalIDs["metafusion_import"]; ok {
-		if s := strings.TrimSpace(fmt.Sprint(v)); s != "" {
-			return s
-		}
-	}
 	for _, k := range []string{"bangumi_character", "bangumi_person"} {
 		if v, ok := externalIDs[k]; ok {
 			if s := strings.TrimSpace(fmt.Sprint(v)); s != "" {
@@ -1895,7 +1891,32 @@ func assocImportKey(externalIDs map[string]any) string {
 			}
 		}
 	}
+	if v, ok := externalIDs["metafusion_import"]; ok {
+		if s := strings.TrimSpace(fmt.Sprint(v)); s != "" {
+			return s
+		}
+	}
 	return ""
+}
+
+// importerEntryExternalIDs 归一表达要落库的 external_ids：派生键（条目签名键）非空即覆盖
+// 载荷自带值，载荷的 metafusion_import 只在无来源身份（派生键为空）时保留，供同值写回。
+func importerEntryExternalIDs(ce ImporterCanonicalEntryPreview, importKey string) map[string]string {
+	out := stringScalarMap(ce.ExternalIDs)
+	if importKey = strings.TrimSpace(importKey); importKey != "" {
+		out["metafusion_import"] = importKey
+	}
+	return out
+}
+
+// importerAgentExternalIDs 归一关联 agent 要落库的 external_ids：同上，metafusion_import 以
+// assocImportKey 的派生结果为准（同值写回不受影响），其余来源键原样保留。
+func importerAgentExternalIDs(externalIDs map[string]any) map[string]string {
+	out := stringScalarMap(externalIDs)
+	if key := assocImportKey(externalIDs); key != "" {
+		out["metafusion_import"] = key
+	}
+	return out
 }
 
 // assocAgentDedup 复算第一趟使用的去重键，保证两趟指向同一 agent。
@@ -2442,10 +2463,7 @@ func (s *Store) createExpressionWithMeta(ctx context.Context, actor User, note s
 		exprTypes = []string{"expression"}
 		exprAttrs["duration"] = ce.DurationSeconds
 	}
-	externalIDs := stringScalarMap(ce.ExternalIDs)
-	if importKey = strings.TrimSpace(importKey); importKey != "" && strings.TrimSpace(externalIDs["metafusion_import"]) == "" {
-		externalIDs["metafusion_import"] = importKey
-	}
+	externalIDs := importerEntryExternalIDs(ce, importKey)
 	return s.importerSave(ctx, Entity{
 		Kind:             "expression",
 		Title:            title,
@@ -3679,7 +3697,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			Translations:     toEntityTranslations(assoc.Translations),
 			Types:            []string{entityType},
 			Attributes:       map[string]any{},
-			ExternalIDs:      stringScalarMap(assoc.ExternalIDs),
+			ExternalIDs:      importerAgentExternalIDs(assoc.ExternalIDs),
 		}
 		if p, ok := pictureFromRemote(assoc.AvatarURL, "Bangumi 头像", "", false); ok {
 			staff.Pictures = []Picture{p}

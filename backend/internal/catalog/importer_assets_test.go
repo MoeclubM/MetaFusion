@@ -178,14 +178,27 @@ func TestBangumiCharacterRankRole(t *testing.T) {
 
 // 关联项去重键：必须与落库的 metafusion_import 格式一致（否则 findImported 查不到
 // 已存在实体，重复导入会不断新建副本）；其次名称+类型。同人物跨职位应合并为一个 agent。
+// 键由服务端派生：载荷自带的 metafusion_import 同值时结果不变，冲突时不得覆盖派生键。
 func TestAssocAgentDedup(t *testing.T) {
-	// 预览自带 metafusion_import：直接采用，与落库键同格式
+	// 预览回带的自带键与派生键同值：仍取派生结果
 	withMetaKey := ImporterStaffAssociation{
 		ParsedName: "北澤史隆", EntityType: "person",
 		ExternalIDs: map[string]any{"bangumi_person": 43041, "metafusion_import": "bangumi:person:43041"},
 	}
 	if got := assocImportKey(withMetaKey.ExternalIDs); got != "bangumi:person:43041" {
-		t.Fatalf("metafusion_import preferred: %q", got)
+		t.Fatalf("same-value payload key must keep derived result: %q", got)
+	}
+	// 冲突：载荷自称别的键，来源 ID 仍是权威 → 派生键胜出
+	conflicted := ImporterStaffAssociation{
+		ParsedName: "北澤史隆", EntityType: "person",
+		ExternalIDs: map[string]any{"bangumi_person": 43041, "metafusion_import": "bangumi:person:99999"},
+	}
+	if got := assocImportKey(conflicted.ExternalIDs); got != "bangumi:person:43041" {
+		t.Fatalf("derived key must win over payload key: %q", got)
+	}
+	// 派生不出键（无来源 ID）：保留载荷自带键，同值写回照旧
+	if got := assocImportKey(map[string]any{"metafusion_import": "bangumi:person:99999"}); got != "bangumi:person:99999" {
+		t.Fatalf("payload key kept when nothing can be derived: %q", got)
 	}
 	// 只有 bangumi_person 时也要拼成与落库一致的形式
 	withKey := ImporterStaffAssociation{
@@ -208,6 +221,34 @@ func TestAssocAgentDedup(t *testing.T) {
 	noKey := ImporterStaffAssociation{ParsedName: "Somebody", EntityType: "person"}
 	if got := assocAgentDedup(noKey); got != "name:somebody|person" {
 		t.Fatalf("name dedup: %q", got)
+	}
+}
+
+// 落库的 external_ids 同样以服务端派生键为准：载荷声明的 metafusion_import 冲突时被改写，
+// 同值与非冲突（无法派生）两种情形保持原值。
+func TestImporterKeyNormalizationPrefersDerived(t *testing.T) {
+	entry := ImporterCanonicalEntryPreview{
+		Title:       "第一话",
+		ExternalIDs: map[string]any{"bangumi_episode": 12345, "metafusion_import": "bangumi:subject:7:e000000000000000"},
+	}
+	got := importerEntryExternalIDs(entry, "bangumi:subject:7:eaabbccddeeff001")
+	if got["metafusion_import"] != "bangumi:subject:7:eaabbccddeeff001" {
+		t.Fatalf("derived entry key must win: %v", got)
+	}
+	if got["bangumi_episode"] != "12345" {
+		t.Fatalf("source key must survive: %v", got)
+	}
+	same := importerEntryExternalIDs(entry, "bangumi:subject:7:e000000000000000")
+	if same["metafusion_import"] != "bangumi:subject:7:e000000000000000" {
+		t.Fatalf("same-value writeback must keep the value: %v", same)
+	}
+	kept := importerEntryExternalIDs(entry, "")
+	if kept["metafusion_import"] != "bangumi:subject:7:e000000000000000" {
+		t.Fatalf("payload key kept when no key is derived: %v", kept)
+	}
+	assoc := importerAgentExternalIDs(map[string]any{"bangumi_person": 43041, "metafusion_import": "bangumi:person:99999"})
+	if assoc["metafusion_import"] != "bangumi:person:43041" || assoc["bangumi_person"] != "43041" {
+		t.Fatalf("agent external_ids must use derived key: %v", assoc)
 	}
 }
 
