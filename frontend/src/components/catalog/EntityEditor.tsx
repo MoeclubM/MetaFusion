@@ -410,13 +410,15 @@ export function EntityEditor({
           </button>
         </div>
       </fieldset>
-      {["content_unit", "expression", "release", "medium", "track"].includes(e.kind) && (
+      {/* 守卫也按服务端声明：没有 structure 条目的层级不显示本区（曾因沿用写死的层级清单，
+          在 release 上访问不存在的 structure.release.fields 而整页崩溃）。 */}
+      {((defs?.structure?.[e.kind]?.fields) || []).length > 0 && (
       <fieldset>
         <legend>{t("catalog.structure")}</legend>
         <div className="cv-grid">
           {/* 结构字段按服务端 definitions.structure 渲染：字段码、目标层级、候选过滤都由后端声明，
               前端不再写死"expression 挂在 work 下"这类层级知识。 */}
-          {(defs!.structure![e.kind].fields || []).map((f) => {
+          {(defs?.structure?.[e.kind]?.fields || []).map((f) => {
             const targets = f.target_kinds && f.target_kinds.length > 0 ? f.target_kinds : [e.kind];
             const scope = f.scoped_by ? String((e as Record<string, unknown>)[f.scoped_by] || "") : "";
             return (
