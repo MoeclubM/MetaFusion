@@ -162,13 +162,15 @@ func TestBangumiPersonTypeAgent(t *testing.T) {
 	}
 }
 
-// 角色番位映射：主角=primary、配角=supplement、客串/闲角=extra，其余为空。
+// 角色番位映射到 character_rank 词表（main/supporting/guest/ensemble/narrator），
+// 而不是 role（载体用途/收录内容词表）；未覆盖的原文返回空，由 credit_role 承载。
 func TestBangumiCharacterRankRole(t *testing.T) {
 	for in, want := range map[string]string{
-		"主角": "primary", "主人公": "primary",
-		"配角": "supplement",
-		"客串": "extra", "闲角": "extra",
-		"旁白": "",
+		"主角": "main", "主人公": "main",
+		"配角": "supporting", "副角": "supporting",
+		"客串": "guest", "闲角": "ensemble", "路人": "ensemble",
+		"旁白": "narrator",
+		"":   "",
 	} {
 		if got := bangumiCharacterRankRole(in); got != want {
 			t.Errorf("%s: got %q want %q", in, got, want)

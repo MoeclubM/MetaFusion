@@ -165,7 +165,7 @@ func TestImporterPreflightAssociations(t *testing.T) {
 	doc := Defaults()
 	ok := []ImporterStaffAssociation{
 		{ParsedName: "甲", RelationType: "directed_by", ParsedRole: "导演"},
-		{ParsedName: "乙", RelationType: "character_in", RelationRole: "primary"},
+		{ParsedName: "乙", RelationType: "character_in", RelationRole: "main"},
 		{ParsedName: "丙"}, // 空关系码：落库侧计数跳过，预检不拒绝
 		{ParsedName: "丁", Action: "skip", RelationType: "bogus"}, // skip 不校验
 	}

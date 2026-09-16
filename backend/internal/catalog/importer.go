@@ -93,7 +93,8 @@ type ImporterArtistPreview struct {
 	Translations   []ImporterTranslationItem `json:"translations,omitempty"`
 	MatchedArtist  any                       `json:"matched_artist,omitempty"`
 	// RelationType 是该关联应落到 definitions 的关系码（如 directed_by / voiced_by / character_in）；
-	// RelationRole 是角色番位的词表项（primary/supplement/extra，用于 character_in）。
+	// RelationRole 是角色番位的 character_rank 词表项（main/supporting/guest/ensemble/narrator/cameo，
+	// 落 character_in 的 attributes.character_rank）。
 	RelationType string `json:"relation_type,omitempty"`
 	RelationRole string `json:"relation_role,omitempty"`
 }
@@ -750,17 +751,24 @@ func bangumiPersonTypeAgent(t int) string {
 	}
 }
 
-// bangumiCharacterRankRole 把角色 relation 映射到 role 词表项。
-// 主角=primary、配角=supplement、客串/闲角=extra，其余为空（不虚构番位）。
+// bangumiCharacterRankRole 把角色 relation 映射到 **character_rank** 词表项
+// （definitions 声明的角色番位字段，见 defaults.go：main/supporting/guest/ensemble/narrator/cameo）。
+// 曾误映射到 role（载体用途/收录内容词表），写出的值虽能通过校验，但按 model 的
+// character_rank 检索恒空——番位既不可查也不能多语言。未命中词表时返回空：原始文本
+// 仍由 credit_role 承载，不虚构番位。
 func bangumiCharacterRankRole(relation string) string {
 	r := strings.TrimSpace(relation)
 	switch {
 	case containsAny(r, "主角", "主人公"):
-		return "primary"
+		return "main"
 	case containsAny(r, "配角", "配角", "副角"):
-		return "supplement"
-	case containsAny(r, "客串", "闲角", "閑角", "路人"):
-		return "extra"
+		return "supporting"
+	case containsAny(r, "客串"):
+		return "guest"
+	case containsAny(r, "闲角", "閑角", "路人"):
+		return "ensemble"
+	case containsAny(r, "旁白"):
+		return "narrator"
 	}
 	return ""
 }
@@ -2719,7 +2727,7 @@ func importerPreflightCodeCheck(doc Definitions) error {
 // importerPreflightAssociations 校验导入关联的关系码与词表项：
 // 空关系码跳过（落库侧计入 SkippedRelations，不在这里拒绝）；
 // 非空关系码必须存在且启用，character_in 的番位（relation_role）非空时必须仍在
-// role 词表内且启用。voiced_by 的 character 名是引用配对线索（落库时按名找角色
+// character_rank 词表内且启用（且该关系定义确实声明了 character_rank）。voiced_by 的 character 名是引用配对线索（落库时按名找角色
 // 实体，找不到则降级为 credit_role 文本），不是词表项，不在这里校验。
 // 错误码与 importerPreflightCodeCheck 同系列，便于前端区分"载荷映射过期"。
 func importerPreflightAssociations(doc Definitions, assocs []ImporterStaffAssociation) error {
@@ -2738,14 +2746,16 @@ func importerPreflightAssociations(doc Definitions, assocs []ImporterStaffAssoci
 		if !rel.Enabled {
 			return fmt.Errorf("importer_mapping_stale:association[%d].relation_disabled=%s", i, code)
 		}
-		if rr := strings.TrimSpace(a.RelationRole); rr != "" && code == "character_in" {
-			v, ok := doc.Vocabularies["role"]
+		// 番位落 character_rank 字段（不是 role）：只在关系定义声明了该字段时才写，
+		// 因此也只在声明时校验词表项——旧实例降级为不写词表项，不该被预检拦住。
+		if rr := strings.TrimSpace(a.RelationRole); rr != "" && code == "character_in" && contains(rel.Fields, "character_rank") {
+			v, ok := doc.Vocabularies["character_rank"]
 			if !ok {
-				return fmt.Errorf("importer_mapping_stale:association[%d].vocab=role", i)
+				return fmt.Errorf("importer_mapping_stale:association[%d].vocab=character_rank", i)
 			}
 			t, ok := v.Terms[rr]
 			if !ok || !t.Enabled {
-				return fmt.Errorf("importer_mapping_stale:association[%d].role=%s", i, rr)
+				return fmt.Errorf("importer_mapping_stale:association[%d].character_rank=%s", i, rr)
 			}
 		}
 	}
@@ -3756,7 +3766,8 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			counts.SkippedRelations++
 			continue
 		}
-		if _, ok := relDefs.Document.Relations[relType]; !ok {
+		relDef, ok := relDefs.Document.Relations[relType]
+		if !ok {
 			// 无此关系定义：不虚构，跳过并计数（响应不再静默丢边）。
 			counts.SkippedRelations++
 			continue
@@ -3770,8 +3781,11 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 		if cr := strings.TrimSpace(assoc.ParsedRole); cr != "" {
 			attrs["credit_role"] = cr
 		}
-		if rr := strings.TrimSpace(assoc.RelationRole); rr != "" && relType == "character_in" {
-			attrs["role"] = rr
+		// 番位落 character_rank（definitions 的角色番位字段），不再借 role（载体用途词表）。
+		// 关系定义未声明该字段的旧实例降级为不写：原始番位文本已进 credit_role，不丢信息，
+		// 也不会因 unknown_field 让整条导入失败。
+		if rr := strings.TrimSpace(assoc.RelationRole); rr != "" && relType == "character_in" && contains(relDef.Fields, "character_rank") {
+			attrs["character_rank"] = rr
 		}
 		if ch := strings.TrimSpace(assoc.CharacterName); ch != "" && relType == "voiced_by" {
 			// character 是 entity 引用字段：填角色实体 ID，而非角色名。
@@ -3782,8 +3796,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			}
 		}
 		src, tgt := savedWork.ID, agent.ID
-		if contains(relDefs.Document.Relations[relType].SourceKinds, "agent") &&
-			!contains(relDefs.Document.Relations[relType].SourceKinds, "work") {
+		if contains(relDef.SourceKinds, "agent") && !contains(relDef.SourceKinds, "work") {
 			src, tgt = agent.ID, savedWork.ID
 		}
 		key := relType + "|" + src + "|" + tgt + "|" + encode(attrs)

@@ -434,6 +434,55 @@ func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
 	}
 }
 
+// character_in 的番位落 attributes.character_rank（definitions 的角色番位字段），
+// 不再写 role（载体用途/收录内容词表）；原始番位文本仍在 credit_role，检索与保真兼得。
+func TestImporterImportCharacterRankAttribute(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	req := ImporterImportRequest{
+		EntityType: "work",
+		Source:     "bangumi",
+		URLOrID:    "9",
+		Work: &ImporterWorkPreview{
+			Title:            "番位落点",
+			OriginalLanguage: "zh-CN",
+			CatalogMetadata:  map[string]any{"bangumi_type": float64(2)},
+		},
+		StaffAssociations: []ImporterStaffAssociation{
+			{ParsedName: "登场角色", EntityType: "character", ParsedRole: "主角", RelationType: "character_in", RelationRole: "main"},
+		},
+		EditNote:   "番位落点测试",
+		SourceURLs: []string{"https://bgm.tv/character/1"},
+	}
+	out, err := f.s.Import(ctx, req, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rels, err := f.s.Relations(ctx, out.WorkID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, r := range rels {
+		if r.Type != "character_in" {
+			continue
+		}
+		found = true
+		if got := r.Attributes["character_rank"]; got != "main" {
+			t.Fatalf("character_rank not stored: %v", r.Attributes)
+		}
+		if _, ok := r.Attributes["role"]; ok {
+			t.Fatalf("rank must not be written to role: %v", r.Attributes)
+		}
+		if got := r.Attributes["credit_role"]; got != "主角" {
+			t.Fatalf("raw rank text must stay in credit_role: %v", r.Attributes)
+		}
+	}
+	if !found {
+		t.Fatal("character_in relation not created")
+	}
+}
+
 // TestImporterPreviewEpisodes：动画条目预览应带分集 canonical entries
 // （entry_kind=content_unit、带官方集号与来源时长），无分集的条目为空。
 // Preview 只走上游 HTTP、不触库，因此无需数据库夹具。
