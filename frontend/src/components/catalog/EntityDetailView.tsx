@@ -82,9 +82,6 @@ const InteractiveRelationGraph = dynamic(
 const relationGroupOf = (defs: any, type: string): string =>
   defs?.relations?.[type]?.group || "";
 
-// 资源文件区块只挂在这三种"承载层"实体上：存储侧约定的用途码
-// （master_archive / disc_image / track_audio …）指向的都是它们，而不是作品或作者。
-const RESOURCE_FILE_KINDS = ["medium", "track", "expression"];
 
 async function allEntities(query: string): Promise<Entity[]> {
   const items: Entity[] = [];
@@ -598,7 +595,7 @@ export function EntityDetailView({ id }: { id: string }) {
     { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     // entity 在数据到达前为 null，这里只能安全取值；分节本身的可见性由 kind 决定。
-    { id: "resources", label: t("entity.detail.resourcesTitle"), visible: RESOURCE_FILE_KINDS.indexOf(String(entity?.kind || "")) >= 0, icon: <HardDrive className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "resources", label: t("entity.detail.resourcesTitle"), visible: defs?.structure?.[String(entity?.kind || "")]?.resources === true, icon: <HardDrive className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "revisions", label: t("entity.detail.revisionsTitle"), badge: revisions.length || 1, icon: <History className="w-3.5 h-3.5" strokeWidth={1.5} /> },
   ];
   const { active, select } = useHashTab(tabs);
@@ -1522,7 +1519,7 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 8: Resource files (资源文件与上传)                    */}
             {/* ============================================================ */}
-            {active === "resources" && RESOURCE_FILE_KINDS.indexOf(String(entity.kind || "")) >= 0 && (
+            {active === "resources" && defs?.structure?.[String(entity.kind || "")]?.resources === true && (
               <EntityResourceFiles entityId={entity.id || id} />
             )}
             </div>
