@@ -63,6 +63,19 @@ export type Definitions = {
     }
   >;
   schemes?: Record<string, Scheme>;
+  /** 各层级的"所属与收录结构"：由服务端下发，编辑器据此渲染结构字段与资源区块。 */
+  structure?: Record<
+    string,
+    {
+      fields?: {
+        code: string;
+        target_kinds?: string[];
+        scoped_by?: string;
+        required?: boolean;
+      }[];
+      resources?: boolean;
+    }
+  >;
   fields: Record<string, Field>;
   vocabularies: Record<
     string,
