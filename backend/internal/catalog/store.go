@@ -418,7 +418,9 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			return err
 		}
 		var old Entity
-		if e.ID == "" {
+		// create 决定了这一步是"无版本可比的纯插入"还是"必须带版本条件的更新"。
+		create := e.ID == ""
+		if create {
 			if input.ExpectedVersion != 0 {
 				return errVersionConflict
 			}
@@ -536,9 +538,22 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		stored.ParentID = ""
 		stored.Contents = nil
 		stored.Subjects = nil
-		_, err = tx.ExecContext(ctx, `INSERT INTO catalog.entities(id,kind,version,title,status,created_by,document,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(id) DO UPDATE SET version=EXCLUDED.version,title=EXCLUDED.title,status=EXCLUDED.status,document=EXCLUDED.document,updated_at=EXCLUDED.updated_at`, e.ID, e.Kind, e.Version, e.Title, e.Status, e.CreatedBy, encode(stored), e.UpdatedAt)
-		if err != nil {
-			return err
+		// 乐观并发的"版本检查 + 写入"必须是**一次原子操作**：原先是"先读版本、再无条件写"，
+		// READ COMMITTED 下两个并发写各自读到同一版本、都通过检查，后写覆盖先写 = 丢更新。
+		// 版本条件进 WHERE 后，后到者先在行锁上排队，锁释放时重算条件、版本已变 → 0 行 →
+		// version_conflict，整个事务（含侧表与审计行）一起回滚。
+		if create {
+			if _, err = tx.ExecContext(ctx, `INSERT INTO catalog.entities(id,kind,version,title,status,created_by,document,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, e.ID, e.Kind, e.Version, e.Title, e.Status, e.CreatedBy, encode(stored), e.UpdatedAt); err != nil {
+				return err
+			}
+		} else {
+			var res sql.Result
+			if res, err = tx.ExecContext(ctx, `UPDATE catalog.entities SET version=$3,title=$4,status=$5,document=$6,updated_at=$7 WHERE id=$1 AND version=$2`, e.ID, input.ExpectedVersion, e.Version, e.Title, e.Status, encode(stored), e.UpdatedAt); err != nil {
+				return err
+			}
+			if n, _ := res.RowsAffected(); n == 0 {
+				return errVersionConflict
+			}
 		}
 		switch e.Kind {
 		case "content_unit":

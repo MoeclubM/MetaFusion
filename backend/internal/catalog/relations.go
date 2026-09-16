@@ -580,8 +580,21 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if err = v.Document.retiredAttributes(r.Attributes, previous); err != nil {
 			return err
 		}
-		if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.relations(id,version,type,source_id,target_id,document) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO UPDATE SET version=EXCLUDED.version,document=EXCLUDED.document", r.ID, r.Version, r.Type, r.SourceID, r.TargetID, encode(r)); err != nil {
-			return err
+		// 与实体写同一原则：版本条件进 WHERE，读完旧版本与写入是同一次原子操作。
+		// 本路径虽持结构写锁（关系写彼此串行），但 DeleteRelation 走普通写通道不取该锁，
+		// 两边仍能同时通过版本检查，所以不能只靠锁。
+		if old == nil {
+			if _, err = tx.ExecContext(ctx, "INSERT INTO catalog.relations(id,version,type,source_id,target_id,document) VALUES($1,$2,$3,$4,$5,$6)", r.ID, r.Version, r.Type, r.SourceID, r.TargetID, encode(r)); err != nil {
+				return err
+			}
+		} else {
+			var res sql.Result
+			if res, err = tx.ExecContext(ctx, "UPDATE catalog.relations SET version=$3,document=$4 WHERE id=$1 AND version=$2", r.ID, input.ExpectedVersion, r.Version, encode(r)); err != nil {
+				return err
+			}
+			if n, _ := res.RowsAffected(); n == 0 {
+				return errVersionConflict
+			}
 		}
 		return audit(ctx, tx, r.ID, r.Version, u, input.EditNote, input.Sources, r, "relation.saved")
 	})
@@ -618,8 +631,14 @@ func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, n
 		if !canAttachToTarget(u, tgt) {
 			return errForbidden
 		}
-		if _, err = tx.ExecContext(ctx, "DELETE FROM catalog.relations WHERE id=$1", id); err != nil {
+		// 删除同样收敛到版本条件：读到版本与真正删除之间可能被并发更新插队，
+		// 无条件 DELETE 会把对方刚落库的写入一并抹掉（丢更新）。
+		var res sql.Result
+		if res, err = tx.ExecContext(ctx, "DELETE FROM catalog.relations WHERE id=$1 AND version=$2", id, expected); err != nil {
 			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return errVersionConflict
 		}
 		return audit(ctx, tx, id, r.Version+1, u, note, sources, r, "relation.deleted")
 	})

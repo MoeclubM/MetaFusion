@@ -289,10 +289,10 @@ func (s *Store) Impact(ctx context.Context, id int64) ([]string, error) {
 }
 
 // 并发口径：发布走 s.write（**不取** advisory 锁，见 store.go 的 write/writeStructural），
-// 与其它写事务并行；两个并发发布不会同时生效——is_valid_draft 的状态/版本检查加上
-// one_published_definition 唯一索引（只允许一行 state='published'）会让后到者拿到
-// constraint_violation，而不是留下两个已发布版本。impact 全量校验在本事务快照内执行，
-// 因此"校验看到的快照"与"发布生效"是原子的。
+// 与其它写事务并行。两个并发发布不会同时生效：让位语句把 base（= 当前已发布版本 id）
+// 写进 WHERE 做条件更新，后到者在行锁释放后重算条件、版本已换 → 0 行 → version_conflict，
+// 而不是反向依赖 one_published_definition 唯一索引报 constraint_violation。impact 全量校验
+// 在本事务快照内执行，"校验看到的快照"与"发布生效"仍是原子的。
 func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sources []Source) error {
 	// 事务内一律用 definitions(ctx, tx) 直读，不走进程内 Definitions 缓存。
 	err := s.write(ctx, func(tx *sql.Tx) error {
@@ -326,8 +326,14 @@ func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sour
 		if len(issues) > 0 {
 			return fmt.Errorf("definition_impact: %s", encode(issues))
 		}
-		if _, err = tx.ExecContext(ctx, "UPDATE catalog.definitions SET state='superseded' WHERE state='published'"); err != nil {
+		// "当前已发布版本让位"同样是一次原子条件更新：无条件 supersede 会让两个
+		// base 相同的并发发布都通过上面的版本检查，后到者静默顶掉刚发布的版本（丢更新）。
+		var res sql.Result
+		if res, err = tx.ExecContext(ctx, "UPDATE catalog.definitions SET state='superseded' WHERE state='published' AND id=$1", base); err != nil {
 			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return errVersionConflict
 		}
 		if _, err = tx.ExecContext(ctx, "UPDATE catalog.definitions SET state='published' WHERE id=$1", id); err != nil {
 			return err

@@ -178,26 +178,129 @@ func TestPostgresCatalog(t *testing.T) {
 		}
 	})
 	t.Run("optimistic concurrency", func(t *testing.T) {
+		// 同一实体、同一 expected_version 的并发写：恰好一个成功、另一个 version_conflict，
+		// 且失败者零落库（版本只前进一格、本批只留一条修订）。断言口径固定，不看时序运气。
+		base := save(entity("work", "乐观并发基准"))
+		titles := [2]string{"乐观并发甲", "乐观并发乙"}
+		results := [2]error{}
+		start := make(chan struct{})
 		var wg sync.WaitGroup
-		var mu sync.Mutex
-		success := 0
-		for i := 0; i < 2; i++ {
+		for i := 0; i < len(results); i++ {
 			wg.Add(1)
-			go func() {
+			go func(i int) {
 				defer wg.Done()
-				_, err := s.Save(ctx, Edit{Entity: song, ExpectedVersion: song.Version, Sources: sources, EditNote: "race"}, admin)
-				mu.Lock()
-				defer mu.Unlock()
-				if err == nil {
-					success++
-				} else if err.Error() != "version_conflict" {
-					t.Error(err)
-				}
-			}()
+				payload := base
+				payload.Title = titles[i]
+				<-start
+				_, err := s.Save(ctx, Edit{Entity: payload, ExpectedVersion: base.Version, Sources: sources, EditNote: "race"}, admin)
+				results[i] = err
+			}(i)
 		}
+		close(start)
 		wg.Wait()
+		success, conflict, winner := 0, 0, -1
+		for i, err := range results {
+			switch {
+			case err == nil:
+				success++
+				winner = i
+			case err != nil && err.Error() == "version_conflict":
+				conflict++
+			default:
+				t.Errorf("writer %d: unexpected error %v", i, err)
+			}
+		}
+		if success != 1 || conflict != 1 {
+			t.Fatalf("success count=%d conflict count=%d, want 1/1", success, conflict)
+		}
+		assertNoLostUpdate(t, s, base, base.Version+1, titles[winner], "race")
+	})
+	t.Run("optimistic concurrency (N writers)", func(t *testing.T) {
+		// 更狠的一轮：N 个 goroutine 同时用同一 expected_version 写同一实体。
+		// 乐观并发的下限是"成功数恰为 1"——多于 1 就是丢更新（后写覆盖先写）。
+		base := save(entity("work", "乐观并发基准 N"))
+		const writers = 8
+		titles := make([]string, writers)
+		results := make([]error, writers)
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		for i := 0; i < writers; i++ {
+			titles[i] = fmt.Sprintf("乐观并发 N-%d", i)
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				payload := base
+				payload.Title = titles[i]
+				<-start
+				_, err := s.Save(ctx, Edit{Entity: payload, ExpectedVersion: base.Version, Sources: sources, EditNote: "race-n"}, admin)
+				results[i] = err
+			}(i)
+		}
+		close(start)
+		wg.Wait()
+		success, conflict, winner := 0, 0, -1
+		for i, err := range results {
+			switch {
+			case err == nil:
+				success++
+				winner = i
+			case err != nil && err.Error() == "version_conflict":
+				conflict++
+			default:
+				t.Errorf("writer %d: unexpected error %v", i, err)
+			}
+		}
 		if success != 1 {
-			t.Fatalf("success count=%d", success)
+			t.Fatalf("success count=%d, want exactly 1", success)
+		}
+		if conflict != writers-1 {
+			t.Fatalf("version_conflict count=%d, want %d", conflict, writers-1)
+		}
+		assertNoLostUpdate(t, s, base, base.Version+1, titles[winner], "race-n")
+	})
+	t.Run("optimistic concurrency (relations)", func(t *testing.T) {
+		// 关系写走同一原则：同一关系的并发更新同样只能有一个赢家。
+		rel, err := s.SaveRelation(ctx, RelationEdit{Relation: Relation{Type: "sequel_of", SourceID: song.ID, TargetID: album.ID, Attributes: map[string]any{}}, EditNote: "relation fixture", Sources: sources}, admin)
+		if err != nil {
+			t.Fatal(err)
+		}
+		const writers = 8
+		results := make([]error, writers)
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		for i := 0; i < writers; i++ {
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+				payload := rel
+				payload.Position = i + 1
+				<-start
+				_, err := s.SaveRelation(ctx, RelationEdit{Relation: payload, ExpectedVersion: rel.Version, EditNote: "race-n", Sources: sources}, admin)
+				results[i] = err
+			}(i)
+		}
+		close(start)
+		wg.Wait()
+		success, conflict := 0, 0
+		for i, err := range results {
+			switch {
+			case err == nil:
+				success++
+			case err != nil && err.Error() == "version_conflict":
+				conflict++
+			default:
+				t.Errorf("writer %d: unexpected error %v", i, err)
+			}
+		}
+		if success != 1 || conflict != writers-1 {
+			t.Fatalf("success count=%d conflict count=%d, want 1/%d", success, conflict, writers-1)
+		}
+		var colVersion int64
+		if err := s.DB.QueryRowContext(ctx, "SELECT version FROM catalog.relations WHERE id=$1", rel.ID).Scan(&colVersion); err != nil {
+			t.Fatal(err)
+		}
+		if colVersion != rel.Version+1 {
+			t.Fatalf("relation version=%d, want %d", colVersion, rel.Version+1)
 		}
 	})
 	t.Run("private catalog remains private", func(t *testing.T) {
@@ -251,6 +354,30 @@ func TestPostgresCatalog(t *testing.T) {
 	})
 	if _, err = s.List(ctx, ListOptions{Query: "原创"}, nil); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// assertNoLostUpdate 复核并发写之后的落库事实：版本列只前进一格、列与文档的题名一致、
+// 本批次只留一条修订。任何"后写覆盖先写"的丢更新都会在其中一条上暴露。
+func assertNoLostUpdate(t *testing.T, s *Store, base Entity, wantVersion int64, wantTitle, note string) {
+	t.Helper()
+	var colVersion int64
+	var colTitle, docTitle string
+	if err := s.DB.QueryRowContext(context.Background(), "SELECT version,title,document->>'title' FROM catalog.entities WHERE id=$1", base.ID).Scan(&colVersion, &colTitle, &docTitle); err != nil {
+		t.Fatalf("read back raced entity: %v", err)
+	}
+	if colVersion != wantVersion {
+		t.Fatalf("version=%d, want %d", colVersion, wantVersion)
+	}
+	if colTitle != wantTitle || docTitle != wantTitle {
+		t.Fatalf("title=%q document.title=%q, want %q", colTitle, docTitle, wantTitle)
+	}
+	var revisions int
+	if err := s.DB.QueryRowContext(context.Background(), "SELECT count(*) FROM catalog.revisions WHERE target_id=$1 AND edit_note=$2", base.ID, note).Scan(&revisions); err != nil {
+		t.Fatalf("count revisions: %v", err)
+	}
+	if revisions != 1 {
+		t.Fatalf("revisions=%d, want 1", revisions)
 	}
 }
 

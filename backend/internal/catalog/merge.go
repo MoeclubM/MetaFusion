@@ -243,9 +243,14 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 		stored.ParentID = ""
 		stored.Contents = nil
 		stored.Subjects = nil
-		_, err = tx.ExecContext(ctx, "UPDATE catalog.entities SET version=$2,document=$3,updated_at=$4 WHERE id=$1", e.ID, e.Version, encode(stored), e.UpdatedAt)
-		if err != nil {
+		// 与 Save 同一原则：引用改写也是"读版本 → 写"，版本条件进 WHERE。
+		// e.Version 是本事务读到的版本 +1（见上面的 e.Version++），所以条件用 e.Version-1。
+		var res sql.Result
+		if res, err = tx.ExecContext(ctx, "UPDATE catalog.entities SET version=$3,document=$4,updated_at=$5 WHERE id=$1 AND version=$2", e.ID, e.Version-1, e.Version, encode(stored), e.UpdatedAt); err != nil {
 			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return errVersionConflict
 		}
 		if err = audit(ctx, tx, e.ID, e.Version, u, in.EditNote, in.Sources, e, "entity.saved"); err != nil {
 			return err
@@ -278,9 +283,13 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 		if r.SourceID == r.TargetID {
 			return fmt.Errorf("merge_relation_conflict")
 		}
-		_, err = tx.ExecContext(ctx, "UPDATE catalog.relations SET source_id=$2,target_id=$3,version=$4,document=$5 WHERE id=$1", r.ID, r.SourceID, r.TargetID, r.Version, encode(r))
-		if err != nil {
+		// 同上：r.Version 是读到的版本 +1（见上面的 r.Version++）。
+		var res sql.Result
+		if res, err = tx.ExecContext(ctx, "UPDATE catalog.relations SET source_id=$3,target_id=$4,version=$5,document=$6 WHERE id=$1 AND version=$2", r.ID, r.Version-1, r.SourceID, r.TargetID, r.Version, encode(r)); err != nil {
 			return err
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return errVersionConflict
 		}
 		if err = audit(ctx, tx, r.ID, r.Version, u, in.EditNote, in.Sources, r, "relation.saved"); err != nil {
 			return err
