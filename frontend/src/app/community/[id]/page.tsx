@@ -203,7 +203,7 @@ export default function TopicDetailPage() {
  className={`inline-flex items-center space-x-1 px-2.5 py-1 rounded border text-xs font-mono ${board.bgColor} ${board.borderColor} ${board.color}`}
  >
  <span className={`w-1.5 h-1.5 rounded-full ${board.color.replace('text-', 'bg-')}`} />
- <span>{boardDisplayName(board)}</span>
+ <span>{boardDisplayName(board, locale, t)}</span>
  </span>
  {topic.tags && topic.tags.length > 0 && (
  <span className="flex items-center gap-2 flex-wrap">

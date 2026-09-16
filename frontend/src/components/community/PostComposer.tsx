@@ -6,10 +6,10 @@ import {
   fetchApi,
   ForumBoard,
   Tag,
-  createTopic,
-  createPost,
   boardDisplayName,
   boardDisplayDesc,
+  createTopic,
+  createPost,
 } from "@/lib/api";
 import { Entity, fetchAllPages } from "@/components/catalog/api";
 import {
@@ -211,6 +211,7 @@ export default function PostComposer({
   // ── createTopic-only state ──
   const [newTitle, setNewTitle] = useState("");
   const [newBoardCode, setNewBoardCode] = useState(defaultBoardCode || "announcement");
+  const [topicLanguage, setTopicLanguage] = useState<string>(locale || "zh-CN");
   const [workSearchQuery, setWorkSearchQuery] = useState("");
   const [searchedWorks, setSearchedWorks] = useState<Entity[]>([]);
   const [selectedWork, setSelectedWork] = useState<Entity | null>(null);
@@ -310,8 +311,8 @@ export default function PostComposer({
   const filteredBoards = boardOptions.filter((b) => {
     if (!boardQuery.trim()) return true;
     const q = boardQuery.toLowerCase();
-    const name = b.name.toLowerCase();
-    const desc = b.description.toLowerCase();
+    const name = boardDisplayName(b, locale, t).toLowerCase();
+    const desc = boardDisplayDesc(b, locale, t).toLowerCase();
     return name.includes(q) || desc.includes(q) || b.code.toLowerCase().includes(q);
   });
   const selectedBoardObj =
@@ -370,7 +371,8 @@ export default function PostComposer({
         board_code: newBoardCode,
         title: newTitle.trim(),
         content: newContent.trim(),
-          work_id: selectedWork?.id,
+        language: topicLanguage,
+        work_id: selectedWork?.id,
         tag_ids: selectedTagIds.length ? selectedTagIds : undefined,
         tag_names: customTagNames.length ? customTagNames : undefined,
       });
@@ -480,7 +482,7 @@ export default function PostComposer({
                   {selectedBoardObj ? (
                     <>
                       <span className={`w-2.5 h-2.5 rounded-full ${selectedBoardObj.bgColor} ${selectedBoardObj.borderColor} border`} />
-                      <span className="truncate font-medium">{selectedBoardObj ? boardDisplayName(selectedBoardObj) : ""}</span>
+                      <span className="truncate font-medium">{boardDisplayName(selectedBoardObj, locale, t)}</span>
                     </>
                   ) : (
                     <span className="truncate">{t("community.board")}</span>
@@ -527,9 +529,9 @@ export default function PostComposer({
                             </span>
                             <span className="flex-1 min-w-0">
                               <span className={`block text-xs font-semibold truncate ${active ? "text-white" : "text-gray-200"}`}>
-                                {boardDisplayName(b)}
+                                {boardDisplayName(b, locale, t)}
                               </span>
-                              <span className="block text-[10px] text-gray-500 truncate">{boardDisplayDesc(b)}</span>
+                              <span className="block text-[10px] text-gray-500 truncate">{boardDisplayDesc(b, locale, t)}</span>
                             </span>
                             {active && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
                           </button>
@@ -585,9 +587,26 @@ export default function PostComposer({
             </div>
           </div>
 
-          {/* Tags */}
+          {/* Tags & Language */}
           <div className="shrink-0 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1 bg-background border border-line rounded-full px-2.5 py-1 text-xs font-mono shrink-0">
+                <span className="text-gray-500">{t("locale.languageChoice")}:</span>
+                <button
+                  type="button"
+                  onClick={() => setTopicLanguage("zh-CN")}
+                  className={`px-2 py-0.5 rounded-full transition-colors duration-fast ease-soft ${topicLanguage === "zh-CN" ? "bg-white text-black font-semibold" : "text-gray-400 hover:text-white"}`}
+                >
+                  {t("community.languageZh")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTopicLanguage("en-US")}
+                  className={`px-2 py-0.5 rounded-full transition-colors duration-fast ease-soft ${topicLanguage === "en-US" ? "bg-white text-black font-semibold" : "text-gray-400 hover:text-white"}`}
+                >
+                  {t("community.languageEn")}
+                </button>
+              </div>
               <span className="text-xs font-mono text-gray-500 flex items-center gap-1 shrink-0 ml-1">
                 <TagIcon className="w-3.5 h-3.5" />
                 {t("community.tags")}
