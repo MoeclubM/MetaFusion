@@ -212,7 +212,7 @@ export default function HomePage() {
 
       <Navbar />
 
-      <div className="border-b border-white/[0.06] bg-surface/60 backdrop-blur-xl sticky top-14 sm:top-15 z-30 shadow-xs">
+      <div className="border-b border-white/[0.06] bg-surface/60 backdrop-blur-xl sticky top-[var(--mf-header-h)] z-30 shadow-xs">
         <div className="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-center">
           <form onSubmit={handleSearch} className="relative w-full max-w-3xl">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />

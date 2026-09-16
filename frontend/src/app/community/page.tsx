@@ -362,9 +362,9 @@ function CommunityContent() {
 	 )}
 
 	{/* ===================== Main Topic List ===================== */}
-	<main className="mf-enter flex-1 min-w-0 flex flex-col pb-28 bg-background">
+	<main className="mf-enter flex-1 min-w-0 flex flex-col bg-background py-6">
 	  {/* Discourse-style Hero Search & Filter Header */}
-	  <div className="sticky top-12 z-20 bg-background/95 backdrop-blur border-b border-line">
+	  <div className="sticky top-[var(--mf-header-h)] z-20 bg-background/95 backdrop-blur border-b border-line">
 	    <div className="px-4 sm:px-6 py-4 space-y-3.5 max-w-[1100px] mx-auto w-full">
 	      {/* Row 1: Discourse-style Prominent Centered Search Bar */}
 	      <div className="flex items-center gap-2.5">

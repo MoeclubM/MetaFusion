@@ -561,3 +561,14 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
     animation: none;
   }
 }
+
+/* 站点顶栏高度：吸顶元素（筛选条、详情子头、管理台内栏）统一按它定位，
+   避免各页面自己写 top-12 / top-20 而和实际导航栏高度（h-14 sm:h-15）对不上。 */
+:root {
+  --mf-header-h: 3.5rem;
+}
+@media (min-width: 640px) {
+  :root {
+    --mf-header-h: 3.75rem;
+  }
+}

@@ -670,7 +670,7 @@ export function EntityDetailView({ id }: { id: string }) {
             {t("entity.detail.editEntity")}
           </span>
         </div>
-        <main className="mf-enter relative z-10 max-w-narrow mx-auto px-4 py-8 w-full">
+        <main className="mf-enter relative z-10 max-w-narrow mx-auto px-4 py-6 w-full">
           <EntityEditor
             initial={entity}
             onSaved={(updated) => {

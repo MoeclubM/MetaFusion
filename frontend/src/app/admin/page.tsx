@@ -310,7 +310,7 @@ function AdminInner() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-gray-100">
       {/* Admin Topbar */}
-      <header className="border-b border-white/[0.08] bg-surface/90 backdrop-blur sticky top-0 z-30">
+      <header className="border-b border-white/[0.08] bg-surface/90 backdrop-blur sticky top-[var(--mf-header-h)] z-30">
         <div className="max-w-page mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
@@ -338,7 +338,7 @@ function AdminInner() {
       <div className="max-w-page mx-auto px-4 sm:px-6 py-6 w-full flex-1 flex flex-col md:flex-row gap-6">
         {/* Left Sidebar */}
         <aside className="w-full md:w-60 shrink-0">
-          <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none sticky top-20">
+          <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none sticky top-[calc(var(--mf-header-h)+1.5rem)]">
             {navTabs.map((tItem) => {
               const Icon = tItem.icon;
               const active = activeTab === tItem.id;
