@@ -1,7 +1,7 @@
 # 子系统拆分与迁移基准
 
 本文是 MetaFusion 从"单进程模块化单体"迁移到"按职责划分的独立服务"的**唯一契约来源**。
-状态：**执行中**。任何仓库的迁移改动都必须与本文一致；与本文冲突的实现以本文为准，或先改本文再改代码。
+状态：**已落地**（P0–P5 全部完成）。任何仓库的迁移改动都必须与本文一致；与本文冲突的实现以本文为准，或先改本文再改代码。
 
 相关文档：[规范驱动开发需求与架构基准](./spec-driven-requirements.md)、[插件架构 VISION（未实现）](./plugin-decoupling-blueprint.md)。
 
@@ -23,7 +23,10 @@
 
 ## 2. 路由归属（现状）
 
-| 归属 | 路径 | 现状（P4 切流后） |
+唯一生效的矩阵是 `deploy/nginx.conf`（compose 的 `gateway` 服务）：实测 **25 条 `location`**，账号前缀用精确匹配与正则逐条分流。
+下表按归属归纳路径族；逐条 location 与精确匹配以文件为准。矩阵与本文表格的一致性检查、以及网关矩阵的单一来源归属见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §6。
+
+| 归属 | 路径 | 现状 |
 | --- | --- | --- |
 | auth | `GET|POST /api/setup` | metafusion-auth；网关用 `location = /api/setup` 精确匹配 |
 | auth | `POST /api/auth/login|refresh|logout|change-password|logout-all|register`、`GET /api/auth/me|settings|invite`、`POST /api/auth/invite`、`PUT /api/auth/password` | metafusion-auth（`/api/auth/` 前缀） |
@@ -33,22 +36,29 @@
 | auth | `/api/developer/*`（overview、apps、apps/{id}、apps/{id}/rotate-secret） | metafusion-auth（开发者中心：任何登录账号自助登记应用；网关用 `/api/developer/` 前缀整体分流，不与 `/api/admin/oauth/*` 混用） |
 | catalog | `/api/catalog/*`（definitions、tags、entities、relations、shelves、compare、me/home-preferences 等）、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json` | 本仓库，保留 |
 | community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id） | metafusion-community |
-| community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | metafusion-community（`community.favorites`）；主仓库的收藏实现与表已删除 |
+| community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | metafusion-community（`community.favorites`） |
 | community | `/api/records/entities/:id` | metafusion-community |
-| storage | `/api/storage/*`（契约见 `metafusion-docs` 的 `docs/api-storage.md`） | metafusion-storage；旧的 `/api/archive|playback|media` 已退役，网关不再为它们单列 location |
+| storage | `/api/storage/*`（契约见 `metafusion-docs` 的 `docs/api-storage.md`） | metafusion-storage（契约见 `metafusion-docs` 的 `docs/api-storage.md`） |
+| auth | `/api/admin/oauth/*`（客户端治理：核验、提升自有平台、吊销、审计） | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关用 `location /api/admin/oauth/` 单独分流 |
+| storage | `/storage/preview/*` | 显式 `return 404`（预览改走 `/api/storage/*` 的资源鉴权，不再直代私有桶）；网关为它保留一条 location，属于刻意的退役占位 |
 | catalog | `/api/capabilities`、`/api/admin/modules/:id` | 部署态只读聚合 + 开关退役返回 409（见 capabilities 文档）；`/health` 由各服务自己提供给聚合探测 |
 
 **网关按前缀分流，不按服务改前端调用点。** 只有 `/api/users/{id}/favorites` 与用户资料同前缀，
 网关用精确正则 `^/api/users/[^/]+/favorites$` 单独分流到 community。
 
+### 2.1 网关矩阵、密钥与 UI 的归属（2026-09 审计）
+
+- **网关矩阵**：唯一生效的是 `deploy/nginx.conf`；`metafusion-api-gateway` 仓库里的矩阵是切流前的旧版本（仍把账号前缀指向 `catalog:8080`），**不是部署输入**。把它收敛为唯一来源（或从该仓库删除）与矩阵对文档表格的自动比对，见 [审计文档](./decoupling-audit-2026-09.md) §6。
+- **密钥边界**：签发私钥只在账号服务。现状目录侧读 `AUTH_JWT_PRIVATE_KEY` 只为派生公钥，应改为静态公钥或 JWKS（证据见 [审计文档](./decoupling-audit-2026-09.md) §2）。
+- **UI 归属**：现状四域 UI 全在主仓库 `frontend/`；目标形态是**每个服务自带 UI**，网关按 `/`、`/account`、`/community`、`/downloads` 聚合，目录详情页对社区与资源区块改用嵌入契约（已定，见 [审计文档](./decoupling-audit-2026-09.md) §7）。
+
 ## 3. 数据归属与边界
 
 - 每个服务拥有自己的 schema，只读写自己的表；**禁止跨服务 JOIN**。
 - 服务间只通过 HTTP 契约与事件交互：
-  - storage/community 判定"实体是否可见"必须走 catalog 的实体查询接口（当前单体内的等价能力见
-    `moduleapi.Catalog` 的 `Lookup`/`LookupMany`/`RelatedEntities`），不得直连 catalog 表。
-  - 实体合并（`entity.merged`）的引用改写：各服务各自订阅并做消费去重（现有 `modules.consumed` 模式），
-    迁移期事件仍由 catalog outbox 投递，跨服务通道（HTTP 推送或消息系统）在 P4 前确定。
+  - storage/community 判定"实体是否可见"必须走 catalog 的实体查询接口，不得直连 catalog 表。
+  - 实体合并（`entity.merged`）写入目录的 `catalog.outbox`；**当前没有任何跨服务消费者**（投递函数 `Store.Deliver` 只在测试里被调用），子系统对合并结果的收敛靠同步查询目录接口。
+    `deliveries`（consumer + `event_id`）去重与回调按事件 ID 幂等，是**将来引入投递时的契约**而不是现状；投递与拉取的取舍见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §5。
 - 存储系统**不保存**元数据结构（不复制作品/专辑/曲目表）；元数据系统**不保存**对象存储物理路径。
 - 绑定的"用途"用 `binding_role` 表达（`track_audio` / `disc_image` / `scans` / `video` …），
   "区间/位置"仍留在元数据侧的 `locator`（TrackContent），两者不重复：文件说"我是谁的什么用途"，目录说"收录在第几轨/什么时间码"。
@@ -60,7 +70,7 @@
 - issuer 保持 `https://findverse.cc/api`、audience 保持 `metafusion`，避免存量令牌全部失效。
 - 各服务的 JWKS 地址用环境变量注入，现在都指向账号服务：community 的 `COMMUNITY_JWKS_URL`、storage 的
   `STORAGE_JWKS_URL` = `http://auth:8081/api/oidc/jwks`（catalog/community/storage 都不提供 JWKS，只验签）。
-- 主仓库 `Store.Authenticate` **只做 RS256 验签**（已于 2026-09-14 取消 `auth.sessions` 查库兜底）：
+- 主仓库 `Store.Authenticate` **只做 RS256 验签**：
   目录不读账号服务的表。存量不透明令牌的兜底由各服务问账号服务（`AUTH_URL`），
   续期仍走账号服务的 `/api/auth/refresh`（短期访问令牌，否则用户会被强制下线）。
 - 业务权限（谁能编辑哪个实体）仍由 catalog 自己判断：auth 只负责把权限码装进组、随令牌下发
@@ -69,56 +79,25 @@
 
 ## 5. 迁移阶段与验收
 
-> **进度**：P0–P4 已在开发实例上落地；P5（文档去重）未开始。
+> **进度**：P0–P5 已全部完成；下表是各阶段的契约与验收判据。
 >
-> - **P1 已完成**：metafusion-storage 实现 `/api/storage/*`（内容寻址、秒传与分片预签名直传、`binding_role` 绑定、
->   统一读取可见性、哈希校验）；网关把 `/api/storage/*` 指向 storage。存储桶改由服务启动时自建，
->   不再依赖 `minio/mc` 初始化容器（该镜像已从 Docker Hub 撤下）。
-> - **P2 已完成**：metafusion-community 承接论坛/短评/互动记录/收藏，路径与请求响应形状与单体逐字一致；
->   幂等搬运工具 `cmd/migrate` 与互动服务共用镜像，切流时由编排直接调用。
-> - **P3 已完成**：metafusion-auth 承接账号/会话/OAuth2.0/OIDC 与 RS256 签发验签，表在既有独立 `auth` schema，
->   **无需数据搬运**。
-> - **P4 已完成（2026-09-14，开发实例）**：`./deploy.sh cutover` 一次完成构建 → 起服务 → 目录库迁移 →
->   搬运旧表（forward 全量核对）→ 拉起网关；网关矩阵 18 条 location 逐前缀验证 `X-MetaFusion-Service`
->   分别落到 catalog/auth/community/storage；随后 `./deploy.sh retire` 删除 `modules` / `media` schema、
->   `catalog.favorites` 与手工迁移遗留的临时备份表。库里最终只剩 `catalog` / `auth` / `community` / `storage`。
-> - **P4 代码侧已完成**：`modules`/`moduleapi`/`moduledeps` 三个包、账号实现（`identity.go`/`favorites.go`、
->   账号与收藏路由、`token.go` 的签发侧，约 900 行）全部删除；目录侧只剩 RS256 验签（只持公钥）。
->   结构基线不再创建 `auth.*` 与 `catalog.favorites`，也不再播种第一方 OAuth 客户端
->   （种子随 auth schema 归账号服务）；修订作者名改为写入快照，目录侧不再有任何跨 schema 的 JOIN 或写入。
-> - **迁移收敛（2026-09-14）**：历史 15 个迁移合并为单一基线 `000001_catalog_core`，与目录服务启动读同一份文件；
->   提交历史里的 000002–000015 只对"需要从旧库升级"的实例有意义，测试实例直接重建即可。
 > - **遗留**：收藏"是否公开"仍只有前端只读占位（`settings/page.tsx` 的开关是 `disabled readOnly`，
->   目录侧无字段），迁移后的接口恒返回 `visible: true`；实现该开关时归互动服务。
-> - **P5 已完成（2026-09-14）**：以主仓库 `docs-site` 的最新内容为准同步进 `metafusion-docs`，
->   后者成为唯一源；主仓库删除 `docs-site/`，`deploy/docker-compose.yml` 的构建上下文改为 `../../metafusion-docs`，
->   CI 的 docs job 随之从本仓库移除（改由文档仓库自己的 CI 承担：那边只跑 VitePress 构建与死链自查）。
->   **文档站镜像目前没有任何仓库发布**，而 `deploy/docker-compose.prod.yml` 把 docs-site 写成预构建镜像，
+>   目录侧无字段），接口恒返回 `visible: true`；实现该开关时归互动服务。
+> - **运维注意**：文档站镜像没有任何仓库发布，而 `deploy/docker-compose.prod.yml` 把它写成预构建镜像，
 >   因此 `deploy.sh pull` 前要先在文档仓库构建并推送该镜像，否则该服务拉不到。
 
 | 阶段 | 内容 | 验收 |
 | --- | --- | --- |
 | P0 | 冻结契约（本文 + 各服务 README 对齐路由与数据归属） | 网关路由表与本文逐条一致 |
-| P1 | storage：实现 `/api/storage/*`（CAS、秒传、分片预签名、绑定角色、下载、预览、哈希校验） | ✅ 新仓库 `go build/vet/test` 通过；本仓库 archive/media 端点保持可用，未切流 |
-| P2 | community：迁移论坛/短评/收藏/记录，**保留现有 `/topics`、`/boards` 契约与请求/响应形状** | ✅ 论坛/短评/记录已迁（16 条路由与单体逐字一致，`go build/vet/test` 通过）；收藏随 P3 迁移 |
-| P3 | auth：迁出 setup/auth/admin/oauth；catalog 改为只验签 | ✅ 服务侧完成（30 条路径与单体一致 + OIDC 标准根路径；`go build/vet/test` 通过，含令牌闭环与 PKCE 单测）。切流与单体只验签在 P4 执行 |
-| P4 | catalog 瘦身 + 网关切流：下线 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` 与 `modules` 包 | ✅ 全部完成：已切流并逐前缀验证；旧 schema/表已删；**账号实现与路由已从单体删除，目录只剩验签** |
-| P5 | 文档去重：`metafusion-docs` 为唯一源，本仓库 `docs-site` 移除/compose 收敛 | ✅ 已完成：主仓库 docs-site 的最新内容同步进 `metafusion-docs` 并删除本仓库副本，编排改为从兄弟目录构建；`docker compose config` 通过 |
+| P1 | storage：承接 `/api/storage/*`（CAS、秒传、分片预签名、绑定角色、下载与访问控制、哈希校验） | 网关把 `/api/storage/*` 指向存储服务；存储桶由服务启动时自建 |
+| P2 | community：承接论坛/短评/收藏/记录 | 路径与请求/响应形状与拆分前逐字一致；数据在 `community.*` |
+| P3 | auth：承接 setup/auth/admin/oauth | 只有 auth 签发令牌，其余服务只验签；账号数据在 `auth.*` |
+| P4 | catalog 瘦身 + 网关切流：目录不再承载 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` | 上述前缀不由网关分流；目录侧只剩 RS256 验签，不读别人表、不建跨 schema 外键 |
+| P5 | 文档去重：`metafusion-docs` 为唯一源 | 编排从兄弟目录构建文档站，本仓库不再存放 doc 页面 |
 
 每个阶段独立提交、独立可回退；不回滚别人的改动，也不做双向写入。
 
-## 6. 现有脚手架必须修正的偏差
-
-| 仓库 | 偏差 | 修正 |
-| --- | --- | --- |
-| metafusion-community | 路由写成 `/threads`、`/categories`、`/entities/:id/rate`；模型用 `Category/Thread/Post(floor)` | 改为现有契约 `/boards`、`/topics`、`/topic-tags`、`community_post_number`，模型含双语板块名与标签 |
-| metafusion-auth | discovery 在根路径、JWKS 路径 `/.well-known/jwks.json`、issuer 无 `/api`；缺 `/api/setup`、`/api/admin/users`、OAuth 客户端管理 | 与第 2 节路径一致；issuer 与 catalog 现值一致 |
-| metafusion-storage | ~~模型用 GORM；路由与文档的 `/api/storage/bind` 不一致~~ | ✅ 已改为 `database/sql`，路由以 `metafusion-docs` 的 `docs/api-storage.md` 契约为准 |
-| metafusion-auth / -community | 无 `go.sum`，`go build` 直接失败 | 补齐依赖锁（`GOPROXY=https://goproxy.cn,direct go mod tidy`）；storage 已完成 |
-| metafusion-docs | ~~26 篇 md 与本仓库 `docs-site` 重复，其中 14 篇已分叉~~ | ✅ 已收敛：以主仓库内容为基准同步过去，本仓库副本删除 |
-| metafusion-api-gateway | ~~缺 `/.well-known/` 路由；`/api/storage/*` 指向未实现服务~~ | 网关矩阵最终落在本仓库 `deploy/nginx.conf`（每个前缀一行上游、补齐 discovery/setup/oauth/oidc）；该仓库只剩切流自检脚本，其 `nginx.conf` 与 README 仍是切流前矩阵，**不再作为部署输入** |
-
-## 7. 回滚
+## 6. 回滚
 
 网关按前缀切换，切换点只有 nginx 一张表；任一阶段出问题只需把前缀指回主仓库，数据由各服务独立 schema 承担，
 迁移期不做双向写入，因此不存在冲突合并问题。

@@ -1,28 +1,28 @@
 # 内容目录与发行载体层级
 
-> **状态：VISION（未实现，勿当运行时事实）**
-> 本文使用旧的 `CanonicalEntry` 模型描述层级，**该实体在当前实现中不存在**。现行为固定八实体骨架 `agent / collection / work / content_unit / expression / release / medium / track`：`Work → ContentUnit → Expression` 表达创作与可复用内容/表达，`Work → Release → Medium → Track` 表达发行承载，`Track` 通过 `contents[].expression_id` 关联 `Expression`。表结构与约束见 `backend/internal/catalog/schema.sql` 与 `store.go`；本文件仅保留建模讨论，请勿据此写入。
-
 MetaFusion 将“作品是什么”和“某个版本如何承载它”分开存储。这样同一首录音、同一集动画或同一章漫画可以被多个发行版复用，也不会因为一张盒装专辑、一本单行本或一套蓝光的包装差异而复制作品实体。
 
-## 层级关系（历史 VISION 示意，非当前实现）
+固定八实体骨架是 `agent / collection / work / content_unit / expression / release / medium / track`：创作侧为 `Work → ContentUnit → Expression`，发行侧为 `Work → Release → Medium → Track`，`Track` 通过 `contents[].expression_id` 关联 `Expression`。表结构与约束见 `backend/migrations/000001_catalog_core.up.sql` 与 `store.go`。
+
+## 层级关系
 
 ```text
 Work（创作母体）
-├── CanonicalEntry（作品内容目录 / LRM-E2 Expression）
-│   └── CanonicalEntry.parent_id（同一作品内的目录树）
-└── Release（商业发行版 / Manifestation）
+├── ContentUnit（作品内容目录树，parent_id 自引用）
+│   └── Expression（可被引用的内容表达，可挂 content_unit_id）
+└── Release（有来源依据的发行版）
     └── Medium（发行版内的碟、卷、文件集或其他容器）
         ├── Medium.parent_id（同一发行版内的容器树）
         └── Track（容器中的位置或偏移）
-            └── TrackContent（Track ↔ CanonicalEntry 多对多收录关系）
+            └── TrackContent（Track ↔ Expression 多对多收录关系）
 ```
 
 - `Work.title` 只保存创作母体的纯题名，不混入季数、碟号、卷号、规格或目录编号。
-- `CanonicalEntry` 保存可被引用的内容表达：歌曲母版、动画分集、电影剪辑、漫画章节或书籍正文片段。`position`、`number`、`entry_role` 与 `parent_id` 表达作品目录，不表达包装。
-- `Release` 保存带有发行日期、厂牌、ISBN/JAN/目录编号、包装和封面的具体版本。没有可靠发行证据时，作品可以只有 `Work + CanonicalEntry`，不创建占位发行版。
+- `ContentUnit` 表达作品内的稳定目录结构（分集、章节、篇、游戏路线）：`position`、`number`、`entry_role` 与 `parent_id` 描述目录，不表达包装。
+- `Expression` 保存可被复用的内容表达：歌曲母带、动画分集录像、影片剪辑、译文。同一 `Expression` 可被多个 `Track` 引用。
+- `Release` 保存带有发行日期、厂牌、目录编号、包装和封面的具体版本。没有可靠发行证据时，作品可以只有 `Work + ContentUnit/Expression`，不创建占位发行版。
 - `Medium` 是发行版内真实存在的容器。多碟盒装、实体卷册、蓝光附盘和数字文件集都在这里表达；`role=primary|supplement` 区分主载体和附加载体。
-- `Track` 是载体中的位置，不再被当作作品目录。一个 Track 可以通过 `TrackContent` 收录多个内容表达，并在 `locator` 中保存页码、章节或时间段。当前 `catalog.tracks` 表已无 `canonical_entry_id` 列，收录关系只在 `catalog.track_contents`。
+- `Track` 是载体中的位置，不表达作品目录。一个 Track 可以通过 `TrackContent` 收录多个内容表达，并在 `locator` 中保存页码、章节或时间段；收录关系只存在于 `catalog.track_contents`。
 - 所有层级的父节点都受数据库外键、同容器约束和延迟触发器无环检查保护，不能跨作品、跨发行版或跨介质挂接；Track 及 TrackContent 与 Release 的跨 Work 一致性由应用层 `store.go` 的 `undeclared_release_subject` 校验（非数据库触发器），其范围与风险见 [架构评估结论](./architecture-assessment-2026-09.md) §2 第 2 条。
 
 ## 三类来源的推荐落库
@@ -32,31 +32,27 @@ Work（创作母体）
 1. 创建纯题名的音乐 `Work`。
 2. 创建一个 `Release`，将 `catalog_number=BRMM-10512`、JAN、官方页面和限定版包装写入发行版；发行版封面优先使用发行版自己的 `cover_image_url`。
 3. 在同一发行版下创建四个 `Medium`：两张 CD 为 `primary`，两张 Blu-ray 为 `supplement`，按包装中的实际顺序填写 `position`、`number` 和 `format`。
-4. CD 曲目对应可复用的录音 `CanonicalEntry`；Blu-ray 中的演唱会或视频内容若有独立表达，则建立 `entry_role=extra` 的目录项，再由 `TrackContent` 关联。只有载体位置而没有可复用表达的附录，可以保留无内容关联的 Track。
+4. CD 曲目对应可复用的录音 `Expression`；Blu-ray 中的演唱会或视频内容若有独立表达，则建立 `entry_role=extra` 的目录项并挂上 `Expression`，再由 `TrackContent` 关联。只有载体位置而没有可复用表达的附录，可以保留无内容关联的 Track。
 
 ### Bangumi 186515《BanG Dream!》TV
 
 1. `Work` 保存 TV 系列的纯题名和播出时间。
-2. 13 集与 OVA/SP 建立 `CanonicalEntry`；正片使用 `entry_role=main`，OVA、SP 等使用 `extra`，排序由 `position/number` 表达。
-3. 每一套真实蓝光或 DVD 发行版单独建立 `Release`，每张碟建立 `Medium`，每个收录位置建立 `Track`，再通过 `TrackContent` 指向对应分集。不要创建“TV Broadcast”“BD-BOX”这类虚构技术载体来代替真实发行证据。
+2. 13 集与 OVA/SP 建立 `ContentUnit`；正片使用 `entry_role=main`，OVA、SP 等使用 `extra`，排序由 `position/number` 表达。
+3. 每一套真实蓝光或 DVD 发行版单独建立 `Release`，每张碟建立 `Medium`，每个收录位置建立 `Track`，再通过 `TrackContent` 指向对应分集的 `Expression`。不要创建“TV Broadcast”“BD-BOX”这类虚构技术载体来代替真实发行证据。
 
 ### Bangumi 206016《BanG Dream! バンドリ》漫画系列
 
 1. Bangumi 系列条目先建立一个没有 Release 的漫画 `Work`；没有章节来源时只保留作品级档案，不从“有 4 本单行本”推造 4 个章节。
 2. 每个真实单行本（例如卷 1、卷 4）作为同一 Work 下的独立 `Release`，在 Release 中保存 ISBN、出版日期、出版社和对应封面；每个纸质卷册建立一个 `Medium`，格式为 `paperback`。
-3. 当权威来源提供章节目录时，再把章节建立为 `CanonicalEntry` 并按卷或章节组设置 `parent_id`；同一章节被电子版、纸版或再版收录时，只新增发行版和 TrackContent 关系，不复制章节实体。
-4. 若某个来源把“卷”维护成独立创作实体，则把它作为独立 Work，并用受控图谱边表达 `part_of`/`version_of`；不要把卷号拼接进系列 Work 的标题。
+3. 当权威来源提供章节目录时，再把章节建立为 `ContentUnit` 并按卷或章节组设置 `parent_id`；同一章节被电子版、纸版或再版收录时，只新增发行版与 `TrackContent` 关系，不复制内容单元。
+4. 若某个来源把“卷”维护成独立创作实体，则把它作为独立 `Work`，并用图谱边（如 `includes`）表达系列与卷的归属；不要把卷号拼接进系列 Work 的标题。
 
-## 写入与读取接口（当前实现）
+## 写入与读取接口
 
-读写统一走 `/api/catalog/entities`，不存在 `/catalog/works/:id/contents`、`/catalog/canonical-entries`、`/catalog/mediums`、`/catalog/tracks` 等旧轨逐实体端点：
+读写统一走 `/api/catalog/entities`（没有按层级拆分的逐实体端点）：
 
 - 内容目录：`GET /api/catalog/entities?kind=content_unit&work_id=...&parent_id=...` 按作品与父节点分页读取。
 - 可复用表达：`GET /api/catalog/entities?kind=expression&work_id=...&content_unit_id=...`。
 - 发行载体树：`GET /api/catalog/entities?kind=medium&release_id=...`、`GET /api/catalog/entities?kind=track&medium_id=...`；Track 的 `contents` 数组维护多对多收录和定位信息。
 - 写入：`POST|PUT /api/catalog/entities` 创建与更新实体（`PUT` 为整份替换，非局部 PATCH），收录关系随 Track 的 `contents` 一并提交。
-- ContentUnit / Expression / Release / Medium / Track 的写入都要求 `edit_note` 与 HTTP(S) `source_urls`，并记录不可变修订快照。
-
-## 迁移与兼容
-
-**结构现状（以仓库实际文件为准）**：`backend/migrations/` 只有**单一基线** `000001_catalog_core`（历史 000002–000015 已合并进它）；`mf-migrate up` 与目录服务启动（`Initialize`）执行的是同一份文件。本文旧版引用的 `000004_content_hierarchy`、`000005_carrier_hierarchy`、`000006_carrier_content_integrity` 文件**不存在**。因此：作品目录父子外键与延迟触发器无环检查、`track_contents` 表、发行/介质/轨道侧表都定义在该基线里；Track/TrackContent 的跨 Work 一致性是应用层 `undeclared_release_subject` 校验，不是数据库触发器。不存在 `tracks.canonical_entry_id` 兼容列，旧轨 `CanonicalEntry` 与 `internal/models` 已随兼容层整段删除。
+- ContentUnit / Expression / Release / Medium / Track 的写入都要求 `edit_note` 与至少一条 `sources`，并记录不可变修订快照。

@@ -1,6 +1,6 @@
 # MetaFusion 规范驱动开发需求与架构基准 (Spec-Driven Requirements & Architecture Baseline)
 
-> **重要约束**：本文档为用户明确下达的核心架构与产品规范。所有后续开发、修改、重构与会话压缩恢复均以此规范为唯一权威依据，严防需求丢失导致目标偏移。
+> **重要约束**：本文档为用户明确下达的核心架构与产品规范，后续开发、修改与重构均以此为准。
 
 ---
 
@@ -25,7 +25,7 @@
 
 1. **双轨多语言分工体系**：
    - **系统级固定前端字段**：全站界面按钮、表单占位符、状态标签、空状态提示等**必须严格通过前端 i18n 字典管理**（`frontend/src/messages/{zh-CN,zh-TW,ja-JP,en-US}.json`），禁止任何硬编码中文或英文，禁止中英文混杂。
-   - **固定实体骨架（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）的名称属于领域名称，不再由前端字典自带**：
+   - **固定实体骨架（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）的名称属于领域名称**：
      服务端在 `GET /api/catalog/definitions` 的 `kinds` 字段给出四语名称（`catalog.KindNames()`），前端用 `getKindName()` 取；
      前端字典里的 `catalog.kind.*` 只作为"服务端未给"时的兜底，不得作为唯一来源。
    - **业务级动态元数据定义**：
@@ -42,7 +42,7 @@
 
 3. **命名四语铁律（无例外）**：
    - 任何"名称"（实体的 kind/type/字段/关系/词表项/模板/分区/货架）必须在 `zh-CN`、`zh-TW`、`ja-JP`、`en-US` 四语下都能取到真实译文；
-     把英文填进 `zh-TW`/`ja-JP` 当占位属于未完成（`names()` 的历史占位是待还的债，新增一律用 `names4()`）。
+     把英文填进 `zh-TW`/`ja-JP` 当占位属于未完成；新增名称一律用 `names4()` 显式给出四语。
    - 前端 `t(key) || "中文兜底"` 这类写法一律禁止；缺键要么补字典，要么走服务端多语言数据。
 
 4. **分类与标签的红线**：

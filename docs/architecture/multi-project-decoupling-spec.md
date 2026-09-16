@@ -1,6 +1,6 @@
 # MetaFusion 多项目解耦与子系统拆分架构规范 (Multi-Project Decoupling Specification)
 
-> **状态：已落地**。账号（`metafusion-auth`）、互动（`metafusion-community`）、存储（`metafusion-storage`）与文档站（`metafusion-docs`）都是独立仓库，主仓库收敛为元数据目录 + 前端 + 部署编排；进程内模块层（`backend/internal/modules`）与其 schema 已删除。
+> **状态：已落地**。账号（`metafusion-auth`）、互动（`metafusion-community`）、存储（`metafusion-storage`）与文档站（`metafusion-docs`）都是独立仓库，主仓库收敛为元数据目录 + 前端 + 部署编排。
 > 与本文的差异：实现**没有**引入独立数据库（各服务共用同一 PostgreSQL 实例、各用自有 schema，且不建跨 schema 外键），也没有按域前缀拆 URL 命名空间（仍是统一的 `/api/*`，由网关按前缀分流）。
 > 网关本体也不是独立的 `metafusion-api-gateway` 仓库：线上矩阵是本仓库 `deploy/nginx.conf`（compose 的 `gateway` 服务），
 > 那个仓库只剩切流自检脚本；下文 §2/§3.1 里"边缘网关 = metafusion-api"的仓库边界按此理解。

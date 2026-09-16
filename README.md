@@ -38,8 +38,8 @@
 ### 1. 🏛️ 国际图书馆级 LRM 混合编目模型
 - **固定八实体骨架**：`Agent（责任者）· Collection（集合）· Work（作品）· ContentUnit（内容单元）· Expression（内容表达）· Release（发行版）· Medium（物理/数字载体）· Track（收录位置）`，资产文件（AssetFile）独立承载哈希与绑定。
 - **纯净实体题名**：作品主标题坚决剥离季数、介质、规格等非本质限定词；版本与载体规格由 Release / Medium 精确承载，杜绝重复冗余。
-- **自由标签与虚拟货架**：彻底废弃传统死板的单一树状分类，由「形态（Format）+ 制作媒介（Medium）+ 流派（Genre）+ 企划宇宙（Theme）」动态聚合生成虚拟货架。
-- **自适应封面与多语言回退链**：支持 1:1、2:3、3:4 自然宽高比封面与自适应渲染；基于 `work_translations` 构建多语言回退链（`User Locale → en-US → original_language → Default`）。
+- **自由标签与虚拟货架**：不预置树状分类；货架是数据驱动、后台可配的收录规则（`catalog.shelves`），实体标签只来自上游来源或用户贡献，不充当分类体系。
+- **自适应封面与多语言回退链**：1:1、2:3、3:4 封面比例只是展示建议，`cover_aspect` 以接口为准；实体翻译在统一 DTO 的 `translations` 里按 locale 分组（每语种 `title` / `summary` / `aliases`），展示回退链为请求语言 → en-US → original_language → 基础字段。
 
 ### 2. 🔐 会话认证与访问控制
 - **服务端会话 + RS256 访问令牌**：账号与令牌由独立服务 `metafusion-auth`（`auth` schema）负责——登录签发 RS256 JWT（默认 15 分钟）并写入 HttpOnly Cookie `mf_session`，`POST /api/auth/refresh` 轮转会话，`POST /api/auth/logout-all` 吊销全部会话；目录侧只做**验签**，不保存账号数据、不查对方表。
@@ -56,7 +56,6 @@
   支持分片预签名直传与服务端流式上传兜底；元数据与物理资产分离，目录侧不保存物理路径。
 - **数据库检索**：`GET /api/catalog/entities?q=...` 由 PostgreSQL 匹配题名与多语言文档（`ILIKE` / 全文索引），OpenSearch 2.14 容器已随 Compose 部署，但**当前 Go 代码尚未接入客户端，规划中的多语言分词与 Facet 聚合未生效**。
 - **不做转码（明确取舍）**：不生成 HLS 切片、预览音频、波形图或缩略图；存储服务只收原始文件、做内容寻址与受控下载。
-  原 `media` 模块（`ffprobe` 探针、预览转码）随模块层退役，不再补。
 
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
 - **独立迁移引擎 (`mf-migrate`)**：自研 Go 原生数据库迁移工具，集成 PostgreSQL Advisory Lock 机制，彻底杜绝多副本部署时的并发迁移竞争。
@@ -77,7 +76,7 @@
 |---|---|---|---|
 | **元数据目录** | `backend/internal/catalog`、`backend/cmd/server` | **主系统** | 八大固定实体骨架、动态定义引擎、关系图谱、版本对比、修订历史、`/api/exchange/*` 导入导出 |
 | **前端** | `frontend/` | 展示层 | Next.js 主站与管理中台 |
-| **文档站** | 独立仓库 `../metafusion-docs` | 展示层 | VitePress 静态文档站（唯一源，本仓库不再存放 doc 页面） |
+| **文档站** | 独立仓库 `../metafusion-docs` | 展示层 | VitePress 静态文档站（唯一源） |
 | **部署编排** | `deploy/`（`docker-compose.yml`、`nginx.conf`、`deploy.sh`、`sql/`） | 一键部署 | 单端口边缘网关、全部服务编排、切流/回滚与遗留结构清理 |
 | **独立子系统** | `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`、`../metafusion-api-gateway` | 兄弟仓库 | 账号与 RS256 令牌、论坛与互动记录、文件与内容寻址直传、路由矩阵 |
 
@@ -223,16 +222,16 @@ MetaFusion 采用统一 `/api` 主干（无版本前缀），核心元数据读�
    - `GET /api/catalog/entities?q=<keyword>&limit=20`
    - `GET /api/catalog/entities/<UUID>`、`GET /api/catalog/entities/<UUID>/relations`
    - `POST /api/catalog/entities`、`PUT /api/catalog/entities/:id`（写入，请求体为 `{entity, expected_version, edit_note, sources}`）
-3. **Agent 自主协同**：支持 LLM 智能体通过 `/api/openapi.json`（OpenAPI 3.0.3）与 `/api/docs` 交互式文档了解契约。注意：当前**没有** MusicBrainz WS/2 兼容层、`/api/search`、`/api/browse/*` 或一站式 `POST /api/catalog/submit`；详见 [API 概览](docs-site/docs/api-overview.md)。
+3. **Agent 自主协同**：支持 LLM 智能体通过 `/api/openapi.json`（OpenAPI 3.0.3）与 `/api/docs` 交互式文档了解契约。注意：当前**没有** MusicBrainz WS/2 兼容层、`/api/search`、`/api/browse/*` 或一站式 `POST /api/catalog/submit`；详见 [API 概览](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/api-overview.md)。
 
 ---
 
 ## 🤝 贡献与参与
 
 欢迎任何形式的代码贡献、文档完善与编目建议！
-- **代码规范**：所有新增业务需遵循全栈 i18n 零硬编码标准（`zh-CN.json` / `en-US.json`）；
+- **代码规范**：所有新增业务需遵循全栈 i18n 零硬编码标准（`zh-CN` / `zh-TW` / `ja-JP` / `en-US` 四语字典同步）；
 - **提交规范**：遵循 [Conventional Commits](https://www.conventionalcommits.org/) 规范；
-- **编目准则**：录入新作品与实体关系时请参考 [IFLA LRM Cataloging Standards](docs-site/docs/curation-guide.md)；
+- **编目准则**：录入新作品与实体关系时请参考 [IFLA LRM Cataloging Standards](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/curation-guide.md)；
 - **GitHub 工具准则**：所有远端仓库操作、分支推送、Issue 跟踪与 Pull Request 管理**统一通过 GitHub CLI (`gh`) 命令行工具执行**。
 
 ---

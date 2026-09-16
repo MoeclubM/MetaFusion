@@ -83,10 +83,9 @@ curl -s -o /dev/null -w '%{http_code}\n' http://<host>/api/storage/stats   # 401
 ```
 
 - 单体从来没有 `/api/storage/*`，因此不存在「切回单体」的回滚路径；真要退就是停掉这些 location。
-- 旧的 `/api/archive/`、`/api/playback/`、`/api/media/` 前缀已退役：网关不再为它们单列 location
-  （落到 `/api/` 兜底），前端也从不调用它们（已核对源码）。
+- 网关不为 `/api/archive/`、`/api/playback/`、`/api/media/` 单列 location（落到 `/api/` 兜底），前端也不调用它们。
 - 媒体分析（ffprobe 探针、预览转码）没有迁进存储服务，属既有缺口，见第 4 节。
-- `modules.resources` / `resource_bindings` 当时为空，且已随 `./deploy.sh retire` 删除，没有数据要搬。
+- `modules.resources` / `resource_bindings` 已随 `./deploy.sh retire` 删除，没有数据要搬。
 
 ### 第 2 步：auth（零数据迁移，回滚成本最低）
 
@@ -149,18 +148,6 @@ cd deploy && ./deploy.sh retire
 `modules` / `media` 两个 schema、`catalog.favorites`，以及 2026-09-11 手工迁移留下的临时备份表。
 执行后库里只应剩下 `catalog` / `auth` / `community` / `storage` 四个业务 schema（脚本末尾会打印核对结果）。
 
-已经下线的对象：
-
-| 移除对象 | 说明 | 时机 |
-| --- | --- | --- |
-| `modules`、`moduleapi`、`moduledeps` 三个包（约 2900 行） | 模块装配与论坛/资源层，功能已由互动与存储服务承载 | 拆分期随目录包收敛删除 |
-| `modules` / `media` schema、`catalog.favorites`、临时备份表 | 已无代码读写 | `./deploy.sh retire` |
-
-**代码侧已完成（2026-09-14）**：删掉 `catalog/identity.go` / `favorites.go` 与全部账号/收藏路由；
-`token.go` 收敛为**只持公钥的验签器**（没有签发、续期、注销入口）；`Store.Authenticate` 不再回退查
-`auth.sessions`；结构基线不再建 `auth.*` 与 `catalog.favorites`（收藏归 `community.favorites`），
-第一方 OAuth 客户端种子随 auth schema 搬进账号服务；修订历史的作者名改为写入时快照
-（迁移 000015），因此目录侧不再有跨 schema 的 JOIN。部署方式：`./deploy.sh migrate up`（新迁移）后 `./deploy.sh fast`。
 
 ## 2. 为什么每步都可回滚
 
@@ -190,11 +177,7 @@ cd deploy && ./deploy.sh retire
 
 | 问题 | 现状 | 影响 |
 | --- | --- | --- |
-| ~~单体账号代码~~ | 已完成：账号实现与路由删除，`token.go` 只剩验签，目录不再建/写 `auth` schema | 不需要再处理 |
-| `/api/media/*` | ffprobe 探针与预览转码没有迁进存储服务，网关也没有这个前缀 | 该能力当前不可用（既有缺口，不是切流引入） |
+| 媒体分析与预览转码 | 存储服务只收原始文件、按权限分发，不做这类处理 | 该能力不提供 |
 | 浏览器预签名直传 | 对象存储不发布宿主机端口，当前走服务端流式上传 | 恢复直传要给对象存储一个独立对外域名并设 `STORAGE_S3_PUBLIC_ENDPOINT`（SigV4 覆盖 Host，只加路径前缀不行） |
-| Redis | 常驻但已无代码读取（`REDIS_ADDR` 已从后端配置移除） | 可以从常驻服务里去掉，省一份常驻内存 |
+| Redis | 已无代码读取（`REDIS_ADDR` 已从后端配置移除） | 可以从常驻服务里去掉，省一份常驻内存 |
 | 收藏「是否公开」 | 前端只读占位，接口恒 `visible: true` | 实现该开关时归互动服务 |
-
-已完成、不再待办：`/api/capabilities` 改为「上游是否配置 + /health 探测」的部署态视图，
-`PUT /api/admin/modules/:id` 返回 `409 module_toggle_retired`；`/api/exchange/*` 已随目录包收敛留在单体。
