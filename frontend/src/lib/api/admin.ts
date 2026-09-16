@@ -79,45 +79,6 @@ export function fetchPublicPlugins(capability?: string): Promise<{ items: Plugin
   return fetchApi<{ items: PluginItem[]; count: number }>(`/plugins${query}`);
 }
 
-export function fetchAdminPlugins(): Promise<{ items: PluginItem[]; count: number }> {
-  return fetchApi<{ items: PluginItem[]; count: number }>("/admin/plugins");
-}
-
-export function fetchAdminPlugin(id: string): Promise<PluginItem> {
-  return fetchApi<PluginItem>(`/admin/plugins/${id}`);
-}
-
-export function registerExternalPlugin(payload: RegisterExternalPluginPayload): Promise<{ message: string; plugin: PluginItem }> {
-  return fetchApi<{ message: string; plugin: PluginItem }>("/admin/plugins", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export function updatePlugin(id: string, payload: UpdatePluginPayload): Promise<{ message: string; plugin: PluginItem }> {
-  return fetchApi<{ message: string; plugin: PluginItem }>(`/admin/plugins/${id}`, {
-    method: "PUT",
-    body: JSON.stringify(payload),
-  });
-}
-
-export function deletePlugin(id: string): Promise<{ message: string }> {
-  return fetchApi<{ message: string }>(`/admin/plugins/${id}`, {
-    method: "DELETE",
-  });
-}
-
-export function testPluginHealth(id: string): Promise<PluginHealthStatus> {
-  return fetchApi<PluginHealthStatus>(`/admin/plugins/${id}/test`, {
-    method: "POST",
-  });
-}
-
-export function testPluginNotification(): Promise<{ message: string }> {
-  return fetchApi<{ message: string }>("/admin/plugins/test-notify", {
-    method: "POST",
-  });
-}
 
 // ── 外部权威数据库预设定义 ──
 export interface ExternalDatabaseDefinition {

@@ -5,9 +5,8 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
-import { fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
 import { can, CATALOG_IMPORT_SUBMIT } from "@/lib/permissions";
-import { Layers, Users, Disc, Network, ArrowRight, Lock, LogIn, Sparkles, Zap, Disc3, Film, BookOpen, AlertCircle, Mail } from "lucide-react";
+import { Layers, Users, Disc, Network, ArrowRight, Lock, LogIn, Sparkles, Zap, Disc3, Film, BookOpen, AlertCircle } from "lucide-react";
 import { OmniImportModal } from "@/components/importer/OmniImportModal";
 import { PageShell } from "@/components/ui/PageShell";
 
@@ -18,12 +17,6 @@ export default function ContributeHubPage() {
   // 无码时禁用入口并说明原因，不把人引到注定 403 的弹窗上。
   const canImport = can(user, CATALOG_IMPORT_SUBMIT);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [authSettings, setAuthSettings] = useState<PublicAuthSettings | null>(null);
-
-  useEffect(() => {
-    fetchAuthSettings().then(setAuthSettings).catch(() => {});
-  }, []);
-
   const cards = [
     {
       href: "/new?kind=work",
@@ -97,31 +90,6 @@ export default function ContributeHubPage() {
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>{t("contribute.loginNow")}</span>
-            </Link>
-          </div>
-        )}
-
-        {user && user.role !== "admin" && user.role !== "archivist" && !user.is_email_verified && authSettings?.email_verification_enabled !== false && authSettings?.require_email_verification && (
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-400/20 grid place-items-center shrink-0">
-                <AlertCircle className="w-4 h-4 text-amber-500" />
-              </div>
-              <div>
-                <div className="font-semibold text-xs text-amber-600 dark:text-amber-200">
-                  {t("contribute.emailVerificationRequiredTitle")}
-                </div>
-                <div className="font-mono text-[11px] text-amber-700/80 dark:text-amber-300/80">
-                  {t("contribute.emailVerificationRequiredDesc")}
-                </div>
-              </div>
-            </div>
-            <Link
-              href="/settings"
-              className="px-3.5 h-8 rounded-lg bg-primary text-white font-semibold text-xs font-mono inline-flex items-center justify-center gap-1.5 shrink-0 transition-opacity hover:opacity-90 shadow-xs"
-            >
-              <Mail className="w-3.5 h-3.5" />
-              <span>{t("settings.verifyEmailBtn")}</span>
             </Link>
           </div>
         )}

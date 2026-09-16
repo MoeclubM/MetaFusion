@@ -65,21 +65,6 @@ export function createInviteCode(payload: {
   });
 }
 
-export async function uploadAvatar(file: File): Promise<{ avatar_url: string; user: User; message: string }> {
-  const formData = new FormData();
-  formData.append("avatar", file);
-  return fetchApi<{ avatar_url: string; user: User; message: string }>("/auth/avatar", {
-    method: "POST",
-    body: formData,
-  });
-}
-
-export async function deleteAvatar(): Promise<{ avatar_url: string; user: User; message: string }> {
-  return fetchApi<{ avatar_url: string; user: User; message: string }>("/auth/avatar", {
-    method: "DELETE",
-  });
-}
-
 // ── 目录关系图谱拓扑与关系边 ──
 // ── OOBE 开箱初始化设置 ──
 export interface SetupStatusResponse {
@@ -169,22 +154,3 @@ export async function performInitialSetup(payload: InitialSetupPayload): Promise
   };
 }
 
-export function sendVerificationEmail(): Promise<{ message: string; expires_in: number }> {
-  return fetchApi<{ message: string; expires_in: number }>("/auth/send-verification-email", {
-    method: "POST",
-  });
-}
-
-export function verifyEmail(code: string): Promise<{ message: string; user: User }> {
-  return fetchApi<{ message: string; user: User }>("/auth/verify-email", {
-    method: "POST",
-    body: JSON.stringify({ code }),
-  });
-}
-
-export function testSendEmail(toEmail: string): Promise<{ message: string; to_email: string }> {
-  return fetchApi<{ message: string; to_email: string }>("/admin/settings/test-email", {
-    method: "POST",
-    body: JSON.stringify({ to_email: toEmail }),
-  });
-}
