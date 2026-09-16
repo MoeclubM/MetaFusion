@@ -221,19 +221,22 @@ type ImporterPreviewResponse struct {
 }
 
 type ImporterImportRequest struct {
-	EntityType        string                          `json:"entity_type,omitempty"`
-	Source            string                          `json:"source,omitempty"`
-	URLOrID           string                          `json:"url_or_id,omitempty"`
-	ExternalID        string                          `json:"external_id,omitempty"`
-	MediaTypeHint     string                          `json:"media_type_hint,omitempty"`
-	Work              *ImporterWorkPreview            `json:"work,omitempty"`
-	Artist            *ImporterArtistPreview          `json:"artist,omitempty"`
-	Artists           []ImporterArtistPreview         `json:"artists,omitempty"`
-	StaffAssociations []ImporterStaffAssociation      `json:"staff_associations,omitempty"`
-	HasRelease        bool                            `json:"has_release,omitempty"`
-	CanonicalEntries  []ImporterCanonicalEntryPreview `json:"canonical_entries,omitempty"`
-	Release           *ImporterReleasePreview         `json:"release,omitempty"`
-	Mediums           []ImporterMediumPreview         `json:"mediums,omitempty"`
+	EntityType        string                     `json:"entity_type,omitempty"`
+	Source            string                     `json:"source,omitempty"`
+	URLOrID           string                     `json:"url_or_id,omitempty"`
+	ExternalID        string                     `json:"external_id,omitempty"`
+	MediaTypeHint     string                     `json:"media_type_hint,omitempty"`
+	Work              *ImporterWorkPreview       `json:"work,omitempty"`
+	Artist            *ImporterArtistPreview     `json:"artist,omitempty"`
+	Artists           []ImporterArtistPreview    `json:"artists,omitempty"`
+	StaffAssociations []ImporterStaffAssociation `json:"staff_associations,omitempty"`
+	// HasRelease 是预览侧的声明位（预览响应目前不产出它）；写路径以 mediums 为写指令：
+	// has_release=true 却没有 mediums、以及 release 带了数据却没有 mediums，都在零写入预检里
+	// 明确拒绝（importerApplyFieldSwitches / importerReleaseRequiresMediums），不静默丢发行。
+	HasRelease       bool                            `json:"has_release,omitempty"`
+	CanonicalEntries []ImporterCanonicalEntryPreview `json:"canonical_entries,omitempty"`
+	Release          *ImporterReleasePreview         `json:"release,omitempty"`
+	Mediums          []ImporterMediumPreview         `json:"mediums,omitempty"`
 	// DownloadCover 只决定是否把远端封面/头像作为 Picture 引用写库（目录侧不抓取、不转存，
 	// 转存归存储子系统）：指针用于区分"没传"与"显式 false"——未传保持既有透传行为，
 	// 显式 false 表示调用方不要封面。IsMasterVerified / MediaTypeHint 无落库语义，
@@ -1782,7 +1785,8 @@ func importerEvidence(req ImporterImportRequest, source string) (string, []Sourc
 //   - media_type_hint 非空：来源解析按 URL/ID 判定媒介类型，不接受调用方覆盖，同样明确拒绝；
 //   - has_release=true 但没有 mediums：写路径会跳过整条发行链、把 release 载荷静默丢弃，拒绝；
 //     （反向的"mediums 非空、has_release 缺省/false"以载荷为准：mediums 是写指令，has_release
-//     只是预览侧声明，且 false 与缺省在 DTO 里不可区分，不能据此拒绝。）
+//     只是预览侧声明，且 false 与缺省在 DTO 里不可区分，不能据此拒绝。
+//     缺省 has_release 却带非空 release 的同一类残留按载荷侧对象判，见 importerReleaseRequiresMediums。）
 //   - download_cover 显式 false：本服务不抓取、不转存图片（转存归存储子系统），字段只决定
 //     是否把远端封面/头像作为 Picture 引用写库；未传或 true 保持既有透传行为。
 func importerApplyFieldSwitches(req ImporterImportRequest) (ImporterImportRequest, error) {
@@ -2989,6 +2993,28 @@ func importerJSONDeclaresData(v any) bool {
 	}
 }
 
+// importerReleaseRequiresMediums 拒绝"发行对象真的带了数据、却没有载体"的载荷：写路径里 mediums
+// 才是发行链的写指令，new_work / create_relation 在 mediums 为空时走不到 importReleaseChain
+// （importNewWork 直接返回，canonical entries 至多走 importExpressionsOnly），载荷里的 release
+// 对象没有任何读取点，收下就是静默丢数据。
+//
+// 与 importerApplyFieldSwitches 里 has_release=true 的那条是同一规则，判据不同：布尔在 JSON 里
+// 缺省与 false 不可区分、预览响应也从不产出它，调用方实际会漏的正是这个声明，所以这里按"对象是否
+// 带了数据"（importerReleaseDeclaresData）判；空壳（null / {}）与"没传"同义，不算声明。
+//
+// 判为调用方漏声明而非"合法无载体发行草稿"：能建无载体发行的路径是 append_release_to_work
+// （显式挂靠已有 work、只要发行链，它不依赖 mediums），new_work 模式下 release 只是作品的附属结构，
+// 没有载体就没有链路落点；要表达无载体发行应改走那条模式，拒绝这里不丢能力。
+func importerReleaseRequiresMediums(req ImporterImportRequest, mode string) error {
+	if mode == "append_release_to_work" || len(req.Mediums) > 0 {
+		return nil
+	}
+	if !importerReleaseDeclaresData(req.Release) {
+		return nil
+	}
+	return fmt.Errorf("invalid_payload: release requires mediums")
+}
+
 // importerUnsupportedPayloadFields 拒绝载荷里"模型没有对应字段、写路径读不了"的对象级字段。
 //
 // 与 importerUnsupportedEntityTypeFields 同一判据（声明了就必须被兑现，否则明确报错），区别在
@@ -3155,6 +3181,11 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, req ImporterI
 	// 字段级同判据：模型里根本没有落点的对象级字段（media_category、release 的
 	// aspect/notes/catalog_metadata/language）同样在零写入阶段拒绝，不吃下再丢。
 	if err := importerUnsupportedPayloadFields(req, entityType); err != nil {
+		return err
+	}
+	// 对象级的同类判据：release 带了数据却没有 mediums，发行链在这条模式的写路径上走不到
+	// （见 importerReleaseRequiresMediums），同样零写入拒绝而不是静默丢弃。
+	if err := importerReleaseRequiresMediums(req, mode); err != nil {
 		return err
 	}
 	entries, work, assocs := req.CanonicalEntries, req.Work, req.StaffAssociations
