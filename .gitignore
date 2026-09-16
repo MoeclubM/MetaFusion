@@ -146,10 +146,4 @@ deploy/*.sql.bak
 /.playwright-cli
 /output
 
-# 一次性 / 补数据脚本不进库（2026-09-16 约定）：批量补数据、浏览器仿真、镜像搬运、
-# 远程执行这类脚本只在本机与服务器上用，改它们不必经过仓库；CI 用的 check_*.{py,mjs} 不在此列。
-scripts/data/
-scripts/sim/
-scripts/import_external.py
-scripts/mirror_external_images.py
-scripts/run_remote.py
+# 注：一次性脚本的忽略规则见上面同一节，不要重复添加（2026-09-16 曾因两次追加留下重复块）。
