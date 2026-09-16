@@ -221,6 +221,7 @@ export function InstanceSettingsPanel({
               {kind === "number" ? (
                 <input
                   type="number"
+                  aria-label={settingLabel(key, tr)}
                   value={typeof value === "number" ? value : ""}
                   onChange={(e) => patch(key, Number(e.target.value))}
                   className="w-full sm:w-64 px-2.5 py-1.5 rounded-lg bg-surfaceSubtle border border-line text-xs font-mono text-text-strong focus:border-primary outline-none"
@@ -230,6 +231,7 @@ export function InstanceSettingsPanel({
               {kind === "string" ? (
                 <input
                   type="text"
+                  aria-label={settingLabel(key, tr)}
                   value={typeof value === "string" ? value : ""}
                   onChange={(e) => patch(key, e.target.value)}
                   className="w-full px-2.5 py-1.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong focus:border-primary outline-none"
@@ -264,6 +266,7 @@ export function InstanceSettingsPanel({
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
+                      aria-label={settingLabel(key, tr)}
                       list={`${key}-group-codes`}
                       value={listInput[key] ?? ""}
                       onChange={(e) => setListInput((prev) => ({ ...prev, [key]: e.target.value }))}

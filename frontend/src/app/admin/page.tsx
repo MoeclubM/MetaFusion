@@ -465,6 +465,7 @@ function AdminInner() {
                 <div className="sm:col-span-3">
                   <select
                     value={entitiesKind}
+                    aria-label={t("catalog.kindLabel")}
                     onChange={(e) => setEntitiesKind(e.target.value)}
                     className="w-full py-1.5 px-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-body focus:border-primary outline-none"
                   >
@@ -478,6 +479,7 @@ function AdminInner() {
                 <div className="sm:col-span-4">
                   <select
                     value={entitiesStatus}
+                    aria-label={t("catalog.status")}
                     onChange={(e) => setEntitiesStatus(e.target.value)}
                     className="w-full py-1.5 px-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-body focus:border-primary outline-none"
                   >

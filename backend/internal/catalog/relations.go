@@ -366,6 +366,11 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 		if _, ok := peers[other]; !ok {
 			continue
 		}
+		// 端点优先：本实体是端点时 Via 留空，只有纯属性引用才标出字段码——
+		// 客户端据此区分"它是这条边的端点"与"它是被某个实体型属性引用的第三方"。
+		if r.SourceID != id && r.TargetID != id {
+			r.Via = attributeReferencingField(r.Attributes, entityFields, id)
+		}
 		// 删除码后旧边读路径宽容：Relations 读路径只做"字段仍声明+引用可达"
 		// 校验（historical=true），停用/删除的码不断读（与 impact 的 historical
 		// 宽容同口径）。关系码本身已删除（!ok）时同样保留——删除码不断读，
@@ -382,6 +387,18 @@ func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, 
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Position < out[j].Position })
 	return out, nil
+}
+
+// attributeReferencingField 返回把 id 当取值引用的实体型属性字段码（没有则空串）。
+// 与 Relations 的查询条件同口径：只认顶层、值恰好等于 id 的实体型字段；
+// 字段码已排序，多个命中时结果稳定。
+func attributeReferencingField(attrs map[string]any, fields []string, id string) string {
+	for _, code := range fields {
+		if v, ok := attrs[code].(string); ok && v == id {
+			return code
+		}
+	}
+	return ""
 }
 
 // 关系源端遵循实体编辑权限（catalog.entity.edit）；公开目标可由受信任编辑员建立关系。

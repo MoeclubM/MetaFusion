@@ -37,6 +37,7 @@ export function LocaleSwitcher({ compact }: { compact?: boolean }) {
  type="button"
  onClick={() => setIsOpen(!isOpen)}
  title={t("locale.switchTitle")}
+        aria-label={t("locale.switchTitle")}
  className={
  compact
  ? "w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-full bg-black/5 dark:bg-white/[0.04] hover:bg-black/10 dark:hover:bg-white/[0.08] border border-line text-text-body transition-colors duration-fast ease-soft"

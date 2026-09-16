@@ -38,6 +38,8 @@ export const ThemePicker: React.FC = () => {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         title={t("settings.appearanceTitle")}
+        /* 图标按钮必须有可访问名：title 不足以被读屏播报 */
+        aria-label={t("settings.appearanceTitle")}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
         className="mf-focus w-9 h-9 max-sm:min-h-[44px] grid place-items-center rounded-full bg-surfaceSubtle hover:bg-surfaceHover border border-line text-text-body transition-colors duration-fast ease-soft cursor-pointer"
