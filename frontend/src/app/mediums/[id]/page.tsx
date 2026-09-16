@@ -141,6 +141,7 @@ export default function MediumDetailPage() {
         <PageShell
           width="page"
           header={
+          <div className="space-y-3">
           <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500 flex-wrap">
             {work && work.id && (
               <>
@@ -161,30 +162,32 @@ export default function MediumDetailPage() {
             )}
             <span className="text-text-strong truncate">{mediumTitle}</span>
           </div>
+          {/* 页面级 h1 归页头：与 /works/[id]、/releases/[id] 落同一条左基线，
+              不再受卡片左内边距与图标列影响。 */}
+          <header className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-500 grid place-items-center shrink-0">
+              <HardDrive className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="px-2 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-300 font-mono text-[10px] tracking-wider">
+                  {t("medium.detail.badge")}
+                </span>
+                {roleLabel && <span className="text-xs font-mono text-gray-500">{roleLabel}</span>}
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-text-strong break-words">{mediumTitle}</h1>
+              {work && (
+                <p className="text-sm text-gray-500 mt-1">
+                  {entityTitle(work, locale) || work.title}
+                </p>
+              )}
+            </div>
+          </header>
+          </div>
           }
         >
-          <Card tone="plain" padding="section" className="shadow-soft space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-500 grid place-items-center shrink-0">
-                <HardDrive className="w-6 h-6" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 flex-wrap mb-1">
-                  <span className="px-2 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-300 font-mono text-[10px] tracking-wider">
-                    {t("medium.detail.badge")}
-                  </span>
-                  {roleLabel && <span className="text-xs font-mono text-gray-500">{roleLabel}</span>}
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-text-strong break-words">{mediumTitle}</h1>
-                {work && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    {entityTitle(work, locale) || work.title}
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-line-subtle">
+          <Card tone="plain" padding="section" className="shadow-soft">
+            <div className="grid grid-cols-3 gap-2">
               <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
                 <p className="text-[10px] font-mono text-gray-500 uppercase">{t("medium.detail.format")}</p>
                 <p className="text-sm font-semibold text-text-strong mt-0.5">{formatLabel || formatCode || "—"}</p>

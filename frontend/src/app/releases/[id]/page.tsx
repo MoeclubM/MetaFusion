@@ -670,6 +670,7 @@ export default function ReleaseDetailPage() {
         width="page"
         className="pb-[max(1.5rem,env(safe-area-inset-bottom))]"
         header={
+        <div className="space-y-3">
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
           {primaryWork && (
             <>
@@ -682,9 +683,8 @@ export default function ReleaseDetailPage() {
           )}
           <span className="text-text-strong truncate">{releaseTitle}</span>
         </div>
-        }
-      >
-        <Card tone="plain" padding="section" className="shadow-soft space-y-3">
+          {/* 页面级 h1 归页头：与 /works/[id] 同一条左基线，不再落进卡片的左内边距；
+              卡片边框因此不再包住标题，标题区直接在页面基线上。 */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">
@@ -771,7 +771,9 @@ export default function ReleaseDetailPage() {
               {basketNotice && <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400">{basketNotice}</span>}
             </div>
           </div>
-        </Card>
+        </div>
+        }
+      >
 
         {siblingReleases.length > 1 && (
           <Card padding="none">
