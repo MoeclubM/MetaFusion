@@ -388,12 +388,12 @@ const releaseFacets = useMemo(
  }, [page, totalPages]);
 
  if (loadingWork) {
- return <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center text-sm text-gray-500">{t("work.detail.loading")}</div></div>;
+ return <div className="min-h-screen bg-background relative flex flex-col overflow-clip"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center text-sm text-gray-500">{t("work.detail.loading")}</div></div>;
  }
 
  if (!work) {
  return (
- <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
+ <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
  <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
  <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />

@@ -65,6 +65,9 @@
 
 html {
   scroll-behavior: smooth;
+  /* 纵向滚动条槽位常驻：自定义 ::-webkit-scrollbar 宽 6px，有/无滚动条的页面
+     可用宽度相差 6px，居中的顶栏与页面容器会在切页时左右微移。 */
+  scrollbar-gutter: stable;
 }
 
 /* 主色只在 :root 给默认值（无 JS / 未选配色时），具体配色由生成的属性块覆盖；
@@ -89,7 +92,9 @@ body {
   color: rgb(var(--foreground-rgb));
   background: var(--bg-color);
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  overflow-x: hidden;
+  /* clip 不产生滚动容器（hidden 会把 overflow-y 计算成 auto，让 6px 滚动条落到 body 上，
+     顶栏基线随页面是否有滚动条而变化）；横向越界仍照旧被裁掉。 */
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   position: relative;

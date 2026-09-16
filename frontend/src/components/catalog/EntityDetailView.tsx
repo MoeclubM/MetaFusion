@@ -693,7 +693,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
   if (loading || redirecting) {
     return (
-      <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
         <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
@@ -709,7 +709,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
   if (error || !entity) {
     return (
-      <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <PageShell width="narrow" center>
           {/* 后端读取失败给的是稳定码（not_found）；裸码不能直接给用户看。 */}
@@ -731,7 +731,7 @@ export function EntityDetailView({ id }: { id: string }) {
   // Editing mode
   if (editing) {
     return (
-      <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <PageContainer className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md border-b border-line py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
@@ -822,7 +822,7 @@ export function EntityDetailView({ id }: { id: string }) {
   // 注意：不得写成 useMemo——本组件此位置之前存在条件 return，hook 顺序会违规。
 
   return (
-    <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
+    <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white">
       {/* Atmosphere Glow */}
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />

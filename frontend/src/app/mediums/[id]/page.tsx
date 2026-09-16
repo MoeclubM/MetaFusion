@@ -123,7 +123,7 @@ export default function MediumDetailPage() {
 
   if (notFound || !medium) {
     return (
-      <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <Navbar />
         <PageShell width="narrow" center className="py-20" contentClassName="font-mono text-xs text-gray-500">
           {t("medium.detail.notFound")}
@@ -133,7 +133,7 @@ export default function MediumDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
+    <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white">
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-violet-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="relative z-10 flex-1">

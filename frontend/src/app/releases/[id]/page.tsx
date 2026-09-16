@@ -409,7 +409,7 @@ export default function ReleaseDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <Navbar />
         <div className="relative z-10 min-h-screen grid place-items-center font-mono text-xs text-gray-500">{t("release.detail.loading")}</div>
@@ -419,7 +419,7 @@ export default function ReleaseDetailPage() {
 
   if (!release) {
     return (
-      <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <Navbar />
         <PageShell width="narrow" center className="py-20" contentClassName="font-mono text-xs text-gray-500">
@@ -663,7 +663,7 @@ export default function ReleaseDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
+    <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white">
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
       <Navbar />
       <PageShell

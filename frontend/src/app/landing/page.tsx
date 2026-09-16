@@ -22,7 +22,7 @@ function RootLandingInner() {
   const { t } = useI18n();
 
   return (
-    <div className="min-h-screen sm:h-screen sm:max-h-screen bg-background relative flex flex-col justify-between overflow-x-hidden sm:overflow-hidden selection:bg-primary selection:text-white">
+    <div className="min-h-screen sm:h-screen sm:max-h-screen bg-background relative flex flex-col justify-between overflow-clip sm:overflow-hidden selection:bg-primary selection:text-white">
       {/* ── Background subtle ambient light ── */}
       <div className="absolute inset-0 bg-radial-vignette opacity-60 pointer-events-none" aria-hidden />
       <div className="absolute -top-32 -left-32 w-[600px] h-[600px] bg-primary/8 rounded-full blur-[140px] pointer-events-none" aria-hidden />
