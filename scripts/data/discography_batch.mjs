@@ -129,6 +129,50 @@ const PLANS = {
       { catalogNumber: "BRMM-10191", editionType: "standard", typeLabel: "通常盤（シングルCD）", media: [["CD", "cd", true]] },
     ],
   },
+  632: {
+    band: "Poppin'Party",
+    releaseTitle: "キズナミュージック♪",
+    date: "2018-12-12",
+    headline: "Poppin'Party 12th Single「キズナミュージック♪」",
+    songs: [
+      { title: "キズナミュージック♪", soundtrackOf: "BanG Dream! 2nd Season" },
+      { title: "Home Street" },
+    ],
+    editions: [
+      { catalogNumber: "BRMM-10140", editionType: "limited", typeLabel: "Blu-ray付生産限定盤（シングルCD＋Blu-ray，BD 收录动画 OP 无字幕影像）", media: [["CD", "cd", true], ["Blu-ray", "bd", false]] },
+      { catalogNumber: "BRMM-10141", editionType: "standard", typeLabel: "通常盤（シングルCD）", media: [["CD", "cd", true]] },
+    ],
+  },
+  511: {
+    band: "Poppin'Party",
+    releaseTitle: "ガールズコード",
+    date: "2018-10-03",
+    headline: "Poppin'Party 11th Single「ガールズコード」",
+    songs: [
+      { title: "ガールズコード" },
+      { title: "切ないSandglass" },
+    ],
+    // 官网该条只有一个品番、商品タイプ「シングルCD」（无 Blu-ray 盘），无动画主题歌记载
+    editions: [
+      { catalogNumber: "BRMM-10135", editionType: "standard", typeLabel: "通常盤（シングルCD，初回生産分のみ封入特典）", media: [["CD", "cd", true]] },
+    ],
+  },
+  193: {
+    band: "Poppin'Party",
+    releaseTitle: "二重の虹/最高",
+    date: "2018-07-11",
+    headline: "Poppin'Party 10th Single「二重の虹(ダブル レインボウ)/最高(さあ行こう)！」",
+    // 括号内是读音不是题名的一部分：Work 取纯净题名，官方写法进 alias。
+    // 「最高」是 TVアニメ「フューチャーカード 神バディファイト」OP，但该动画站上没有且不属本企划 → 不建 soundtrack_of（记入跳过清单）
+    songs: [
+      { title: "二重の虹", aliases: ["二重の虹(ダブル レインボウ)"] },
+      { title: "最高", aliases: ["最高(さあ行こう)！"] },
+    ],
+    editions: [
+      { catalogNumber: "BRMM-10125", editionType: "limited", typeLabel: "Blu-ray付生産限定盤（CD＋Blu-ray）", media: [["CD", "cd", true], ["Blu-ray", "bd", false]] },
+      { catalogNumber: "BRMM-10126", editionType: "standard", typeLabel: "通常盤（CD）", media: [["CD", "cd", true]] },
+    ],
+  },
 };
 
 // ── HTTP ─────────────────────────────────────────────────────────────────
@@ -246,9 +290,11 @@ async function ensureSongWork(title, plan, sourceUrl, citation, dry) {
   if (hit) { console.log("    · 复用歌曲 Work「" + title + "」" + hit.id.slice(0, 8)); bump("work", false); return hit; }
   if (same.length) console.log("    ! 同名 Work 已存在但类型非 song，另建： " + JSON.stringify(same.map((x) => x.types)));
   if (dry) { console.log("    · [dry] 将创建歌曲 Work「" + title + "」"); bump("work", true); return { id: "DRY", title }; }
+  const ja = { title };
+  if (plan.songs.find((s) => s.title === title)?.aliases) ja.aliases = plan.songs.find((s) => s.title === title).aliases;
   const created = await createEntity({
     kind: "work", title, original_language: "ja", types: ["song"],
-    translations: { "ja-JP": { title } }, status: "published",
+    translations: { "ja-JP": ja }, status: "published",
   }, "编目：" + plan.headline + " 收录曲「" + title + "」（题名保持纯净，单曲/品番等发行信息落 Release）", sourceUrl, citation);
   console.log("    + 新建歌曲 Work「" + title + "」" + created.id.slice(0, 8));
   bump("work", true);
