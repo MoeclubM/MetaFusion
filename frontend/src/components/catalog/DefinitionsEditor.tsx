@@ -361,7 +361,6 @@ export function DefinitionsEditor() {
     { kind: "self", citation: "" },
   ]);
   const [tab, setTab] = useState<keyof Definitions | "schemes">("types");
-  const [cascade, setCascade] = useState(false);
   // 冒烟验证：相对已发布版本的新增词表项，供发布前预演。
   const [smokeVocab, setSmokeVocab] = useState("");
   const [smokeTerm, setSmokeTerm] = useState("");
@@ -408,35 +407,13 @@ export function DefinitionsEditor() {
       <p className="cv-muted">{t("catalog.definitionHelp")}</p>
       <section>
         <h2>{t("catalog.modules")}</h2>
-        <label className="cv-check">
-          <input
-            type="checkbox"
-            checked={cascade}
-            onChange={(e) => setCascade(e.target.checked)}
-          />
-          {t("catalog.cascade")}
-        </label>
+        {/* 模块开关已退役：PUT /api/admin/modules/:id 恒返回 409 module_toggle_retired（模块状态改由声明式配置决定，
+            服务端保留该端点只为给旧客户端一个明确答复）。这里只展示状态，不再渲染必然失败的复选框。 */}
         {modules.map((m) => (
-          <label className="cv-check" key={m.id}>
-            <input
-              type="checkbox"
-              checked={m.enabled}
-              onChange={async (e) => {
-                try {
-                  await api(`/admin/modules/${m.id}`, "PUT", {
-                    enabled: e.target.checked,
-                    cascade,
-                  });
-                  await refresh();
-                  setError("");
-                } catch (err) {
-                  setError((err as Error).message);
-                }
-              }}
-            />
+          <p className="cv-check" key={m.id}>
             {t(`catalog.module.${m.id}`)}{" "}
             {!m.healthy && t("catalog.unavailable")}
-          </label>
+          </p>
         ))}
       </section>
       <div className="cv-row">
