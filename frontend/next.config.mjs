@@ -12,6 +12,16 @@ const nextConfig = {
         hostname: "**.r2.cloudflarestorage.com",
       },
       {
+        // 官方来源图片（bushiroad / BanG Dream! 官网）：乐队键视觉、成员图与唱片封面都直接引用
+        // 官网原始地址，不在白名单里会导致 <Image> 全部渲染失败（整页只显示 alt 文本）。
+        protocol: "https",
+        hostname: "**.bang-dream.com",
+      },
+      {
+        protocol: "https",
+        hostname: "bang-dream.com",
+      },
+      {
         protocol: "https",
         hostname: "lain.bgm.tv",
       },
