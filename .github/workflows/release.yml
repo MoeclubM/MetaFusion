@@ -48,6 +48,15 @@ jobs:
             dockerfile: ./frontend/Dockerfile
             target: ""
             image_name: frontend
+            # Next 的 NEXT_PUBLIC_* 是**构建期内联**：镜像发布后改运行期 env 无效。
+            # 这里从仓库变量 vars.* 取值，未配置时为空 → 前端按同源网关路径工作
+            # （与当前部署一致）。要指向外部服务域名，先在仓库 Variables 里配置。
+            build_args: |
+              NEXT_PUBLIC_AUTH_URL=${{ vars.NEXT_PUBLIC_AUTH_URL }}
+              NEXT_PUBLIC_FORUM_URL=${{ vars.NEXT_PUBLIC_FORUM_URL }}
+              NEXT_PUBLIC_STORAGE_URL=${{ vars.NEXT_PUBLIC_STORAGE_URL }}
+              NEXT_PUBLIC_RESOURCE_STATION_URL=${{ vars.NEXT_PUBLIC_RESOURCE_STATION_URL }}
+              NEXT_PUBLIC_DOCS_URL=${{ vars.NEXT_PUBLIC_DOCS_URL }}
           # 文档站镜像由 metafusion-docs 仓库自己构建发布（内容与构建配置都在那边），
           # 本仓库只构建目录/前端与迁移器镜像。
 
@@ -90,6 +99,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ matrix.build_args }}
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 

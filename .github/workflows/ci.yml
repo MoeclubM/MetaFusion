@@ -95,6 +95,10 @@ jobs:
         # 页面容器不得自写宽度/内边距（外壳只有 PageShell 一处）；纯 node，无需依赖。
         working-directory: .
         run: node scripts/check_page_shell.mjs
+      - name: 契约生成物一致性（权限码 / kinds）
+        # 生成物由 frontend/scripts/generate-contracts.mjs 从后端与各子系统源码提取；
+        # 兄弟仓库在 CI 里缺席时脚本只告警不失败（主仓库单独检出仍可用）。
+        run: node scripts/generate-contracts.mjs --check
 
       - name: next build (via Bun)
         run: bun run build
@@ -135,6 +139,12 @@ jobs:
         run: |
           python3 -m pip install --quiet pyyaml
           python3 scripts/check_deploy.py
+      # 下面两个脚本只用标准库，不需要网络与 docker：网关矩阵是唯一入口的“线上真图”，
+      # 它与文档 §2 表、与各仓库版本锁的关系只能靠机器守（2026-09 审计 §6）。
+      - name: 网关矩阵 ↔ 文档 §2 表一致性
+        run: python3 scripts/check_gateway_matrix.py
+      - name: 版本锁一致性（兄弟仓库缺席时跳过）
+        run: python3 scripts/check_versions.py
   # 文档站已独立为 metafusion-docs 仓库（唯一源），构建与链接自查在那边跑；
   # 本仓库不再持有 doc 页面，故这里没有 docs-site job。
 
