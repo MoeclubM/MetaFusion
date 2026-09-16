@@ -94,7 +94,6 @@ export interface ConnectedEntityItem {
   entity_type: string;
   original_name?: string;
   cover_url?: string;
-  cover_aspect?: string;
   country?: string;
   relationship_type: string;
   relationship_name: string;

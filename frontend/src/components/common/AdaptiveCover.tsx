@@ -20,7 +20,7 @@ interface AdaptiveCoverProps {
   imgClassName?: string;
   /** 真图加载完成前的占位比例，也用于程序封面兜底 */
   fallbackRatio?: number;
-  /** 手动固定比例（works.cover_aspect，如 "1:1"），优先于推断与自然比例 */
+  /** 调用方显式指定的固定比例（如 "1:1"），优先于推断与自然比例；服务端没有这个字段 */
   aspect?: string | null;
   loading?: "lazy" | "eager";
   /** 固定外框比例，图片在外框内按自然比例完整显示 */
@@ -29,7 +29,7 @@ interface AdaptiveCoverProps {
 
 /**
  * 封面容器比例决策（优先级从高到低）：
- * 1. 手动设置（works.cover_aspect，如 "1:1"/"2:3"/"3:4"）
+ * 1. 调用方显式指定（如 "1:1"/"2:3"/"3:4"；服务端不下发这个值）
  * 2. 有真图：图片自然宽高比（object-contain 完整显示）
  * 3. 标签推断：音乐 1:1、影视 2:3、默认 3:4
  */

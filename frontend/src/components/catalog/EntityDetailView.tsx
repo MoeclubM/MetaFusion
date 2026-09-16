@@ -336,9 +336,8 @@ export function EntityDetailView({ id }: { id: string }) {
     void load();
   }, [id, user?.id]);
 
-  // Inherited cover decision. Aspect is left to AdaptiveCover (natural ratio
-  // first): the new-track Entity carries no cover_aspect field, so no kind
-  // based hardcoding here; entity-specific pages may pass their own aspect.
+  // 封面继承决策：比例一律留给 AdaptiveCover（自然比例优先），这里不做按 kind 的硬编码；
+  // 服务端没有 cover_aspect 字段，所以本函数恒返回 aspect: null。
   const resolvedCover = useMemo(() => {
     if (!entity) return { src: null, aspect: null as string | null, sourceName: "" };
 

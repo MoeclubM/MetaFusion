@@ -7,7 +7,7 @@ import { EntityLink } from "./Fields";
 import { Calendar, Hash, Clock, ExternalLink, Link2, Check, Minus } from "lucide-react";
 
 // 说明：属性分区渲染已统一到 @/components/work/WorkFacts（两个详情页共用）。
-// 本文件只保留按字段类型渲染取值的原子能力与时长字段查找，供 WorkFacts 与
+// 本文件只保留按字段类型渲染取值的原子能力，供 WorkFacts 与
 // 其它页面复用，避免同一套类型分发逻辑出现多份实现。
 
 // FieldValue 按 definitions 声明的字段类型渲染，未知类型退化为纯文本。
@@ -256,20 +256,6 @@ export function GroupAttributeInline({
 function localizedValue(v: any, locale: string): string {
   if (v && typeof v === "object") return resolveLocalizedName(v, locale, "");
   if (typeof v === "string") return v;
-  return "";
-}
-
-// 时长字段按数据契约的字段码 duration 认定：单位（unit）是可翻译文案，
-// 一旦被改成英文/日文就不含"秒"，按它嗅探会随界面语言失效；找不到就返回空串。
-export function durationFieldCode(defs: DynamicDefinitions | null | undefined, typeCodes: string[]): string {
-  for (const tc of typeCodes) {
-    const tpl = defs?.templates?.[defs?.types?.[tc]?.template || ""];
-    for (const sec of tpl?.sections || []) {
-      for (const f of sec.fields || []) {
-        if (f === "duration") return f;
-      }
-    }
-  }
   return "";
 }
 

@@ -9,7 +9,7 @@
 
 export type CoverTagInput = string | { name?: string } | null | undefined;
 
-/** 手动设置的封面比例值（works.cover_aspect），如 "1:1"；空/未知 = 自动 */
+/** 调用方显式指定的展示比例（如 "1:1"/"2:3"/"3:4"）：不是数据库字段，空/未知 = 走推断与自然比例 */
 export function parseManualRatio(aspect?: string | null): number | null {
   if (!aspect) return null;
   const m = /^(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)$/.exec(aspect.trim());
