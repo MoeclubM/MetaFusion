@@ -86,7 +86,9 @@ func (s *Store) Initialize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return s.write(ctx, func(tx *sql.Tx) error {
+	// 注意：这里必须是 if err := s.write(...); err != nil 而不是 return s.write(...)——
+	// 后者会让下面的种子增量合并成为不可达代码（go vet 会报 unreachable，且永不执行）。
+	if err := s.write(ctx, func(tx *sql.Tx) error {
 		if _, err := tx.ExecContext(ctx, baseline); err != nil {
 			return err
 		}
@@ -113,8 +115,7 @@ func (s *Store) Initialize(ctx context.Context) error {
 			return err
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 	// 定义种子是"只空库播种"，存量实例拿不到新版本新增的关系码/字段；
