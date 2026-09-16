@@ -193,7 +193,7 @@ export default function SetupPage() {
               <ArrowRight className="w-4 h-4" />
             </Link>
             <Link
-              href="/home"
+              href="/"
               className="flex-1 inline-flex items-center justify-center gap-2 h-12 rounded-xl dark:bg-white/[0.06] border border-line text-text-strong hover:bg-black/10 dark:hover:bg-white/[0.12] font-medium text-sm transition-all cursor-pointer"
             >
               <span>{t("setup.enterHome")}</span>
