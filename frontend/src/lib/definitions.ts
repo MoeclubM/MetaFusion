@@ -110,6 +110,8 @@ export interface DynamicDefinitions {
   templates: Record<string, TemplateDef>;
   /** 按使用场景配置的结构属性方案；缺省（旧文档无该键）时回退全局组。 */
   schemes?: Record<string, SchemeDef>;
+  /** 各层级的"所属与收录结构"规则；缺省（旧文档无该键）时回退服务端内建规则。 */
+  structure?: Record<string, StructureRule>;
 }
 
 /**
@@ -304,6 +306,19 @@ export function getKindName(
   const names = kinds?.[kind]?.names;
   const resolved = resolveLocalizedName(names, locale, "");
   return resolved || fallback || kind;
+}
+
+// 结构归属规则：由服务端 definitions.structure 下发，前端据此渲染结构字段与资源区块，
+// 不再自己维护"哪个层级挂哪个上级"的清单。
+export interface StructureField {
+  code: string;
+  target_kinds?: string[];
+  scoped_by?: string;
+  required?: boolean;
+}
+export interface StructureRule {
+  fields?: StructureField[];
+  resources?: boolean;
 }
 
 export function getTypeName(

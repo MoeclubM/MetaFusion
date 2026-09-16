@@ -414,66 +414,25 @@ export function EntityEditor({
       <fieldset>
         <legend>{t("catalog.structure")}</legend>
         <div className="cv-grid">
-          {(e.kind === "content_unit" || e.kind === "expression") && (
-            <label>
-              {t("catalog.kind.work")}
-              <EntityPicker
-                kinds={["work"]}
-                value={e.work_id || ""}
-                onChange={(id) => patch({ work_id: id })}
-              />
-            </label>
-          )}
-          {e.kind === "expression" && (
-            <label>
-              {t("catalog.kind.content_unit")}
-              <EntityPicker
-                kinds={["content_unit"]}
-                query={e.work_id ? `&work_id=${e.work_id}` : ""}
-                value={e.content_unit_id || ""}
-                onChange={(id) => patch({ content_unit_id: id })}
-              />
-            </label>
-          )}
-          {e.kind === "medium" && (
-            <label>
-              {t("catalog.kind.release")}
-              <EntityPicker
-                kinds={["release"]}
-                value={e.release_id || ""}
-                onChange={(id) => patch({ release_id: id })}
-              />
-            </label>
-          )}
-          {e.kind === "track" && (
-            <label>
-              {t("catalog.kind.medium")}
-              <EntityPicker
-                kinds={["medium"]}
-                value={e.medium_id || ""}
-                onChange={(id) => patch({ medium_id: id })}
-              />
-            </label>
-          )}
-          {["content_unit", "medium", "track"].includes(e.kind) && (
-            <label>
-              {t("catalog.parent")}
-              <EntityPicker
-                kinds={[e.kind]}
-                query={
-                  e.work_id
-                    ? `&work_id=${e.work_id}`
-                    : e.release_id
-                      ? `&release_id=${e.release_id}`
-                      : e.medium_id
-                        ? `&medium_id=${e.medium_id}`
-                        : ""
-                }
-                value={e.parent_id || ""}
-                onChange={(id) => patch({ parent_id: id })}
-              />
-            </label>
-          )}
+          {/* 结构字段按服务端 definitions.structure 渲染：字段码、目标层级、候选过滤都由后端声明，
+              前端不再写死"expression 挂在 work 下"这类层级知识。 */}
+          {(defs!.structure![e.kind].fields || []).map((f) => {
+            const targets = f.target_kinds && f.target_kinds.length > 0 ? f.target_kinds : [e.kind];
+            const scope = f.scoped_by ? String((e as Record<string, unknown>)[f.scoped_by] || "") : "";
+            return (
+              <label key={f.code}>
+                {f.target_kinds && f.target_kinds.length > 0
+                  ? f.target_kinds.map((k) => t(`catalog.kind.${k}`)).join(" / ")
+                  : t("catalog.parent")}
+                <EntityPicker
+                  kinds={targets}
+                  query={scope ? `&${f.scoped_by}=${scope}` : ""}
+                  value={String((e as Record<string, unknown>)[f.code] || "")}
+                  onChange={(id) => patch({ [f.code]: id } as Partial<typeof e>)}
+                />
+              </label>
+            );
+          })}
           {["content_unit", "expression", "release", "medium", "track"].includes(e.kind) && (
             <>
               <label>
