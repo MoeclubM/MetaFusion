@@ -107,8 +107,9 @@ export default function UserDetailPage() {
     fetchApi<Profile>(`/users/${id}`).then(setProfile).catch((e) => setErr(e.message));
   }, [id]);
 
-  // 后端当前未注册 /users/* 与 /favorites/*：profile 拉取失败时不再触发后续
-  // 贡献/收藏请求，改为在下方渲染明确的「功能暂未开放」占位，避免连环 404。
+  // 用户资料 `/users/:id` 与贡献 `/users/:id/contributions` 后端仍未注册：profile 拉取失败时
+  // 不再触发后续请求，改为渲染「功能暂未开放」占位，避免连环 404。收藏已可用——
+  // community 注册了 `GET /users/:id/favorites`（网关按精确正则分流）。
   useEffect(() => {
     if (!profile) return;
     if (tab !== "favorites") return;
