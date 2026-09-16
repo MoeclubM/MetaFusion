@@ -2858,5 +2858,8 @@
   "catalog.imageTakenAt": "拍摄／发布时刻（可选，YYYY-MM-DD）",
   "catalog.pictureGallery": "图片（按时间）",
   "catalog.imageTimeUnknown": "时间未注明",
-  "catalog.translationHint": "题名、简介、别名都按语种分别保存，原始语言也在这一区里。发布需要至少一条翻译记录，请为要展示的语种补上题名。"
+  "catalog.translationHint": "题名、简介、别名都按语种分别保存，原始语言也在这一区里。发布需要至少一条翻译记录，请为要展示的语种补上题名。",
+  "catalog.tagFilter": "标签筛选",
+  "catalog.clear": "清除",
+  "catalog.noTags": "暂无标签"
 }

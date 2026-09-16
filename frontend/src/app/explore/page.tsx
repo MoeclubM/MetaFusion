@@ -34,6 +34,7 @@ interface EntityItem {
   title: string;
   original_language?: string;
   types?: string[];
+  attributes?: { tags?: string[] };
   status: string;
   version: number;
   pictures?: { url: string }[];
@@ -257,66 +258,56 @@ function ExploreInner() {
 
         {/* 双栏：左侧按实体层级导航，右侧结果区 */}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-5">
+          {/* 左侧：标签筛选。实体层级与类型属硬分类，不作为导航；浏览与归类一律由真实标签驱动
+              （/catalog/tags 聚合自各实体的 attributes.tags）。 */}
           <aside className="space-y-4">
             <div className="rounded-xl border border-line bg-surface shadow-soft overflow-hidden">
-              <div className="px-3.5 py-2.5 border-b border-line-subtle">
+              <div className="px-3.5 py-2.5 border-b border-line-subtle flex items-center justify-between gap-2">
                 <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
-                  {t("catalog.kindLabel")}
+                  {t("catalog.tagFilter")}
                 </span>
+                {currentTags.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const p = new URLSearchParams(searchParams.toString());
+                      p.delete("tags");
+                      p.delete("page");
+                      router.push("/explore?" + p.toString());
+                    }}
+                    className="text-[11px] text-primary hover:underline"
+                  >
+                    {t("catalog.clear")}
+                  </button>
+                )}
               </div>
-              <nav className="p-2 space-y-3">
-                <button
-                  type="button"
-                  onClick={() => updateFilters({ kind: "" })}
-                  className={
-                    "w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium transition-colors duration-fast ease-soft " +
-                    (currentKind === "all"
-                      ? "bg-primary/10 text-primary border border-primary/25 font-semibold"
-                      : "text-text-body hover:bg-black/[0.04] dark:hover:bg-surfaceHover border border-transparent")
-                  }
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>{t("catalog.kind.all")}</span>
-                </button>
-
-                {LAYERS.map((layer) => {
-                  const LayerIcon = layer.icon;
-                  const on = activeLayer === layer.id;
-                  return (
-                    <div key={layer.id} className="space-y-0.5">
-                      <div
-                        className={
-                          "flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider " +
-                          (on ? "text-primary" : "text-gray-500")
-                        }
-                      >
-                        <LayerIcon className="w-3 h-3" />
-                        <span>{t("catalog.layer." + layer.id)}</span>
-                      </div>
-                      {layer.kinds.map((k) => {
-                        const Icon = k.icon;
-                        const active = currentKind === k.id;
-                        return (
-                          <button
-                            key={k.id}
-                            type="button"
-                            onClick={() => updateFilters({ kind: k.id })}
-                            className={
-                              "w-full flex items-center gap-2 pl-5 pr-2.5 py-1.5 rounded-lg text-xs transition-colors duration-fast ease-soft " +
-                              (active
-                                ? "bg-primary/10 text-primary border border-primary/25 font-semibold"
-                                : "text-gray-600 dark:text-gray-400 hover:bg-black/[0.04] dark:hover:bg-surfaceHover hover:text-gray-900 dark:hover:text-white border border-transparent")
-                            }
-                          >
-                            <Icon className="w-3.5 h-3.5" />
-                            <span>{kindLabel(k.id)}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })}
-              </nav>
+              <div className="p-2.5">
+                {topTags.length === 0 ? (
+                  <p className="px-1 py-2 text-xs text-gray-500">{t("catalog.noTags")}</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {topTags.map((tag) => {
+                      const on = currentTags.includes(tag.name);
+                      return (
+                        <button
+                          key={tag.name}
+                          type="button"
+                          onClick={() => toggleTag(tag.name)}
+                          className={
+                            "px-2 py-1 rounded-md text-[11px] font-mono border transition-colors duration-150 " +
+                            (on
+                              ? "bg-primary/15 text-primary border-primary/30 font-semibold"
+                              : "text-text-body border-line-subtle hover:bg-black/[0.04] dark:hover:bg-surfaceHover")
+                          }
+                        >
+                          {tag.name}
+                          <span className="ml-1 opacity-60">{tag.count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </aside>
 
@@ -340,23 +331,8 @@ function ExploreInner() {
                 </button>
               </form>
 
-              {/* 类型筛选：选项来自 definitions 里 enabled 的类型；选中 kind 时只列该 kind 的类型。 */}
-              {typeOptions.length > 0 && (
-                <div className="sm:col-span-2 flex items-center">
-                  <select
-                    value={currentType}
-                    onChange={(e) => updateFilters({ type: e.target.value })}
-                    className="w-full py-2 px-2.5 rounded-lg bg-surface dark:bg-[#18181b] border border-line text-xs text-text-strong focus:border-primary outline-none cursor-pointer"
-                  >
-                    <option value="">{t("catalog.typeAll")}</option>
-                    {typeOptions.map((code) => (
-                      <option key={code} value={code}>
-                        {getTypeName(definitions, code, locale)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* 类型筛选已移除：类型属硬分类，筛选一律走标签（左侧标签面板 / ?tags=）。 */}
+
 
               <div className="sm:col-span-2 flex items-center">
                 <select
@@ -476,7 +452,7 @@ function ExploreInner() {
                         badge={
                           <span className="px-2 py-0.5 rounded-md bg-black/65 dark:bg-black/75 text-white keep-white backdrop-blur-md border border-white/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                            <span className="truncate max-w-[85px]">{badgeLabel}</span>
+                            <span className="truncate max-w-[85px]">{item.attributes?.tags?.[0] || ""}</span>
                           </span>
                         }
                         statusBadge={
@@ -488,7 +464,7 @@ function ExploreInner() {
                         }
                         fallbackIcon={<KindIcon className="w-5 h-5" />}
                         fallbackTitle={displayTitle}
-                        fallbackSubtitle={badgeLabel}
+                        fallbackSubtitle={item.attributes?.tags?.[0] || ""}
                         className="border-b border-line-subtle"
                       />
 
@@ -537,7 +513,7 @@ function ExploreInner() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className="px-2 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-text-body font-medium">
-                              {badgeLabel}
+                              {item.attributes?.tags?.[0] || ""}
                             </span>
                             <h3 className="font-semibold text-text-strong group-hover:text-primary transition-colors duration-fast ease-soft text-sm truncate">
                               {displayTitle}
@@ -554,7 +530,7 @@ function ExploreInner() {
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-text-muted font-mono">
-                            <span>{kindLabel(item.kind)}</span>
+                            <span>{(item.attributes?.tags || []).slice(0, 3).join(" · ")}</span>
                           </div>
                         </div>
                       </div>

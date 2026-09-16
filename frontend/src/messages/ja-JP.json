@@ -2858,5 +2858,8 @@
   "catalog.imageTakenAt": "撮影・公開日（任意、YYYY-MM-DD）",
   "catalog.pictureGallery": "画像（時系列）",
   "catalog.imageTimeUnknown": "日付不明",
-  "catalog.translationHint": "タイトル・概要・別名は言語ごとに保存されます（原語もこの欄にあります）。公開には少なくとも1件の翻訳が必要です。"
+  "catalog.translationHint": "タイトル・概要・別名は言語ごとに保存されます（原語もこの欄にあります）。公開には少なくとも1件の翻訳が必要です。",
+  "catalog.tagFilter": "タグで絞り込む",
+  "catalog.clear": "クリア",
+  "catalog.noTags": "タグはまだありません"
 }
