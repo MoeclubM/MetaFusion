@@ -134,6 +134,9 @@ type ImporterTrackPreview struct {
 	EntryIndex *int `json:"entry_index,omitempty"`
 }
 
+// ImporterMediumPreview 是载体预览。OriginalLanguage / Translations 落 medium **实体本体**
+// （不是 attributes）：载体题名的原语言行与各语种译名行，随载体落库写入（importReleaseChain），
+// 幂等命中时补齐缺失行、不覆盖已有行。
 type ImporterMediumPreview struct {
 	Position         int                    `json:"position"`
 	Number           string                 `json:"number,omitempty"`
@@ -146,6 +149,8 @@ type ImporterMediumPreview struct {
 	Tracks           []ImporterTrackPreview `json:"tracks"`
 }
 
+// ImporterReleasePreview 是发行版预览。与载体同口径：OriginalLanguage / Translations 落
+// release 实体本体（发行版题名的原语言行与各语种译名行），随发行链写入。
 type ImporterReleasePreview struct {
 	CoverImageURL       string `json:"cover_image_url,omitempty"`
 	CoverAspect         string `json:"cover_aspect,omitempty"`
@@ -2148,6 +2153,40 @@ func hasHan(s string) bool {
 	return false
 }
 
+// importerReleaseMeta 取发行预览声明的原语言与翻译行（rel 为 nil 时为空）。
+// 新建与"幂等命中补齐"共用同一口径，避免两处各解析一遍。
+func importerReleaseMeta(rel *ImporterReleasePreview) (string, map[string]Translation) {
+	if rel == nil {
+		return "", nil
+	}
+	return originalLanguageOrEmpty(rel.OriginalLanguage), importerTranslationsFromAny(rel.Translations)
+}
+
+// mergeImporterMeta 为已存在的实体（发行/载体）补齐缺失的原语言与翻译行，返回结果与是否有变化。
+// 与 mergeWorkMetadata/mergeAgentMetadata 同口径：只在缺值时写、**不覆盖**已有行——
+// 人工修订过的译名不该被上游下一次导入改回去；载荷新增的语种行则补齐，保证
+// "载荷声明过的语言字段不会因为这次是复用分支就被丢掉"。
+func mergeImporterMeta(existing Entity, lang string, translations map[string]Translation) (Entity, bool) {
+	changed := false
+	if existing.OriginalLanguage == "" {
+		if lang = originalLanguageOrEmpty(lang); lang != "" {
+			existing.OriginalLanguage = lang
+			changed = true
+		}
+	}
+	for loc, tr := range translations {
+		if _, exists := existing.Translations[loc]; exists {
+			continue
+		}
+		if existing.Translations == nil {
+			existing.Translations = map[string]Translation{}
+		}
+		existing.Translations[loc] = tr
+		changed = true
+	}
+	return existing, changed
+}
+
 // mergeAgentMetadata 为已存在的 agent 补齐/纠正元数据，返回结果与是否有变化。
 // 只在原值为空时补齐；类型只做"person → organization/group"的纠正（上游把企业
 // 标成个人是已知数据问题），不把组织降级成个人。简介与语言同理只在缺失时写。
@@ -3160,8 +3199,10 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, req ImporterI
 // 范围与写路径对齐：entity_type=work 时校验 work/release/载体/曲目/条目/关联，其它
 // entity_type 只校验顶层 artist——载荷里的 canonical_entries/mediums/release 在 agent
 // 路径上没有落点，由 importerPreflight 以 unsupported_field_for_entity_type 提前拒绝，
-// 不在这里假装校验；append_release_to_work 只借用作品载荷里的发行层字段、不写作品；
-// release/medium 的 original_language 与 translations 写路径不读取，同样不校验。
+// 不在这里假装校验；append_release_to_work 只借用作品载荷里的发行层字段、不写作品。
+// 发行与载体的 original_language / translations 会随发行链落库（见 importReleaseChain），
+// 因此同样按 Save 的实现预检：非法 locale / 空标题行在零写入阶段报 invalid_locale /
+// invalid_translation，而不是留到 medium/release Save 时才失败。
 //
 // 载荷里会在写路径被复用（幂等键命中、显式表达引用、同父同号篇目）的对象同样预检：与既有
 // 外部编号预检同口径——宁可让调用方改载荷，也不让同一份载荷这次通过、下次（复用失效时）
@@ -3239,8 +3280,19 @@ func (s *Store) importerPreflightValues(ctx context.Context, actor User, defs De
 	if err := check("release", Entity{Kind: "release", Types: []string{"release"}, Attributes: importerReleaseAttrs(req.Release, req.Work)}); err != nil {
 		return err
 	}
+	// 发行本体声明的语言/翻译与 medium 同源：写路径会写进发行实体，预检用同一实现判定。
+	if rel := req.Release; rel != nil {
+		if err := checkMeta("release", rel.OriginalLanguage, importerTranslationDecls(rel.Translations)); err != nil {
+			return err
+		}
+	}
 	for i, m := range req.Mediums {
 		if err := check(fmt.Sprintf("mediums[%d]", i), Entity{Kind: "medium", Types: []string{"medium"}, Attributes: importerMediumAttrs(m)}); err != nil {
+			return err
+		}
+		// 载体声明的原语言/翻译行会写进 medium 实体（见 importReleaseChain 的载体落库），
+		// 非法值必须在零写入阶段就报出来。
+		if err := checkMeta(fmt.Sprintf("mediums[%d]", i), m.OriginalLanguage, importerTranslationDecls(m.Translations)); err != nil {
 			return err
 		}
 		for j, t := range m.Tracks {
@@ -3829,12 +3881,22 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 	if strings.TrimSpace(releaseKey) != "" {
 		releaseExternalIDs["metafusion_import"] = strings.TrimSpace(releaseKey)
 	}
+	// 发行本体声明的原语言/翻译行：写进发行实体，与载体同口径（载荷声明了就得兑现）。
+	releaseLang, releaseTranslations := importerReleaseMeta(rel)
 	var release Entity
 	if existingRelease != nil {
 		// 复用已建发行，但**继续走载体/曲目循环**：上次导入可能中途失败，
 		// 只建了部分结构，重试需要补齐，而不是整链跳过。
 		// 复用时不改写既有 subjects（可能含管理员人工补充），仅记录本次是否需补声明。
 		release = *existingRelease
+		// 语言/翻译行同理补齐：只在缺值时写，不覆盖已有行。
+		if merged, changed := mergeImporterMeta(release, releaseLang, releaseTranslations); changed {
+			updated, uerr := s.importerSaveVersioned(ctx, merged, release.Version, actor, note, sources)
+			if uerr != nil {
+				return Entity{}, counts, uerr
+			}
+			release = updated
+		}
 	} else {
 		subjects := []Subject{{WorkID: workID, Role: "primary", Position: 0}}
 		// 跨作品收录：被引用作品的 Work 必须声明在发行上（release_role=compilation）。
@@ -3847,12 +3909,14 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 			subjects = append(subjects, Subject{WorkID: wid, Role: "compilation", Position: idx + 1})
 		}
 		created, cerr := s.importerSave(ctx, Entity{
-			Kind:        "release",
-			Title:       releaseTitle,
-			Types:       []string{"release"},
-			Attributes:  releaseAttrs,
-			ExternalIDs: releaseExternalIDs,
-			Subjects:    subjects,
+			Kind:             "release",
+			Title:            releaseTitle,
+			Types:            []string{"release"},
+			Attributes:       releaseAttrs,
+			ExternalIDs:      releaseExternalIDs,
+			Subjects:         subjects,
+			OriginalLanguage: releaseLang,
+			Translations:     releaseTranslations,
 		}, actor, note, sources)
 		if cerr != nil {
 			return Entity{}, counts, cerr
@@ -3882,20 +3946,30 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 		}
 		if medium.ID == "" {
 			created, merr := s.importerSave(ctx, Entity{
-				Kind:        "medium",
-				Title:       mediumTitle,
-				ReleaseID:   release.ID,
-				Number:      strings.TrimSpace(m.Number),
-				Position:    medPos,
-				Types:       []string{"medium"},
-				Attributes:  mediumAttrs,
-				ExternalIDs: mediumExternal,
+				Kind:             "medium",
+				Title:            mediumTitle,
+				ReleaseID:        release.ID,
+				Number:           strings.TrimSpace(m.Number),
+				Position:         medPos,
+				Types:            []string{"medium"},
+				Attributes:       mediumAttrs,
+				ExternalIDs:      mediumExternal,
+				OriginalLanguage: originalLanguageOrEmpty(m.OriginalLanguage),
+				Translations:     importerTranslationsFromAny(m.Translations),
 			}, actor, note, sources)
 			if merr != nil {
 				return Entity{}, counts, merr
 			}
 			medium = created
 			counts.Mediums++
+		} else if merged, changed := mergeImporterMeta(medium, m.OriginalLanguage, importerTranslationsFromAny(m.Translations)); changed {
+			// 幂等命中的载体同样要补齐本次声明的原语言/翻译行：否则同一份载荷
+			// "首次（新建）写进去、重试（复用）被丢掉"，结果取决于上次是否成功。
+			updated, uerr := s.importerSaveVersioned(ctx, merged, medium.Version, actor, note, sources)
+			if uerr != nil {
+				return Entity{}, counts, uerr
+			}
+			medium = updated
 		}
 		for j, t := range m.Tracks {
 			trackTitle := strings.TrimSpace(t.Title)
