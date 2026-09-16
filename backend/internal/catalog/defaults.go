@@ -95,6 +95,13 @@ type typeSeed struct {
 	template string
 }
 
+// relSeed 是一条关系的声明形状：关系码 + 正向名 + 反向名（均为四语 names4）。
+type relSeed struct {
+	code  string
+	names Names
+	rev   Names
+}
+
 func Defaults() Definitions {
 	// 结构归属规则：哪些层级要挂上级、字段码指向哪些层级、是否必填、候选按哪个上级字段过滤。
 	// 校验（validation.go）与前端编辑器共用这一份，前端不再自己写死"expression 挂在 work 下"。
@@ -454,63 +461,81 @@ func Defaults() Definitions {
 		}
 		d.Types[k] = TypeDefinition{Names: kindTypeNames[k], Kinds: []string{k}, Fields: keys, Template: tpl, Enabled: true}
 	}
-	addRel := func(code, zh, en, rzh, ren string, src, tgt []string, group string, acyclic bool) {
-		d.Relations[code] = RelationDefinition{Names: names(zh, en), ReverseNames: names(rzh, ren), SourceKinds: src, TargetKinds: tgt, Fields: []string{"role", "credit_role", "character_rank", "context", "character", "language", "begin_date", "end_date", "scope"}, Group: group, GroupNames: names(map[string]string{"credits": "署名", "creative": "创作关系", "membership": "组成与成员"}[group], map[string]string{"credits": "Credits", "creative": "Creative relations", "membership": "Membership"}[group]), Acyclic: acyclic, Enabled: true}
+	// 关系分组名：credits/creative/membership 三组，四语齐备（前端按组折叠展示）。
+	groupNames := map[string]Names{
+		"credits":    names4("署名", "署名", "クレジット", "Credits"),
+		"creative":   names4("创作关系", "創作關係", "創作関連", "Creative relations"),
+		"membership": names4("组成与成员", "組成與成員", "構成とメンバー", "Membership"),
 	}
-	for _, x := range [][5]string{{"created_by", "创作者", "Created by", "创作了", "Creator of"}, {"performed_by", "表演者", "Performed by", "表演了", "Performer of"}, {"photographed_by", "摄影者", "Photographed by", "拍摄了", "Photographer of"}, {"modeled_by", "出镜者", "Modeled by", "出镜于", "Model in"}, {"developed_by", "开发者", "Developed by", "开发了", "Developer of"}, {"voiced_by", "配音者", "Voiced by", "配音于", "Voice actor in"}} {
-		addRel(x[0], x[1], x[2], x[3], x[4], []string{"work", "content_unit", "expression", "release"}, []string{"agent"}, "credits", false)
+
+	addRel := func(code string, n, rev Names, src, tgt []string, group string, acyclic bool) {
+		d.Relations[code] = RelationDefinition{Names: n, ReverseNames: rev, SourceKinds: src, TargetKinds: tgt, Fields: []string{"role", "credit_role", "character_rank", "context", "character", "language", "begin_date", "end_date", "scope"}, Group: group, GroupNames: groupNames[group], Acyclic: acyclic, Enabled: true}
+	}
+	for _, x := range []relSeed{
+		{"created_by", names4("创作者", "創作者", "作者", "Created by"), names4("创作了", "創作了", "制作した", "Creator of")},
+		{"performed_by", names4("表演者", "表演者", "歌唱・演奏", "Performed by"), names4("表演了", "表演了", "歌唱・演奏した", "Performer of")},
+		{"photographed_by", names4("摄影者", "攝影者", "撮影", "Photographed by"), names4("拍摄了", "拍攝了", "撮影した", "Photographer of")},
+		{"modeled_by", names4("出镜者", "出鏡者", "モデル", "Modeled by"), names4("出镜于", "出鏡於", "出演した", "Model in")},
+		{"developed_by", names4("开发者", "開發者", "開発", "Developed by"), names4("开发了", "開發了", "開発した", "Developer of")},
+		{"voiced_by", names4("配音者", "配音者", "声優", "Voiced by"), names4("配音于", "配音於", "声を担当した", "Voice actor in")},
+	} {
+		addRel(x.code, x.names, x.rev, []string{"work", "content_unit", "expression", "release"}, []string{"agent"}, "credits", false)
 	}
 	// 分媒介署名关系：音乐（作曲/作词/编曲）、影视与动画（导演/编剧）、书籍（插画/朗读）。
 	// 均为 agent 目标、group=credits，后台 DefinitionsEditor 可继续增删改。
 	for _, x := range []struct {
-		code, zh, en, rzh, ren string
-		src                    []string
+		code  string
+		names Names
+		rev   Names
+		src   []string
 	}{
-		{"composed_by", "作曲者", "Composed by", "作曲了", "Composer of", []string{"work", "content_unit", "expression"}},
-		{"lyricist_of", "作词者", "Lyricist of", "作词了", "Lyricist for", []string{"work", "content_unit", "expression"}},
-		{"arranged_by", "编曲者", "Arranged by", "编曲了", "Arranger of", []string{"work", "expression"}},
-		{"directed_by", "导演", "Directed by", "执导了", "Director of", []string{"work", "content_unit"}},
-		{"written_by", "编剧", "Written by", "编写了", "Writer of", []string{"work", "content_unit"}},
-		{"illustrated_by", "插画者", "Illustrated by", "绘制了", "Illustrator of", []string{"work", "content_unit", "release"}},
-		{"narrated_by", "朗读 / 旁白", "Narrated by", "朗读了", "Narrator of", []string{"expression", "release"}},
+		{"composed_by", names4("作曲者", "作曲者", "作曲", "Composed by"), names4("作曲了", "作曲了", "作曲した", "Composer of"), []string{"work", "content_unit", "expression"}},
+		{"lyricist_of", names4("作词者", "作詞者", "作詞", "Lyricist of"), names4("作词了", "作詞了", "作詞した", "Lyricist for"), []string{"work", "content_unit", "expression"}},
+		{"arranged_by", names4("编曲者", "編曲者", "編曲", "Arranged by"), names4("编曲了", "編曲了", "編曲した", "Arranger of"), []string{"work", "expression"}},
+		{"directed_by", names4("导演", "導演", "監督", "Directed by"), names4("执导了", "執導了", "監督した", "Director of"), []string{"work", "content_unit"}},
+		{"written_by", names4("编剧", "編劇", "脚本", "Written by"), names4("编写了", "編寫了", "脚本を書いた", "Writer of"), []string{"work", "content_unit"}},
+		{"illustrated_by", names4("插画者", "插畫者", "イラスト", "Illustrated by"), names4("绘制了", "繪製了", "イラストを描いた", "Illustrator of"), []string{"work", "content_unit", "release"}},
+		{"narrated_by", names4("朗读 / 旁白", "朗讀 / 旁白", "ナレーション", "Narrated by"), names4("朗读了", "朗讀了", "ナレーションを担当した", "Narrator of"), []string{"expression", "release"}},
 	} {
-		addRel(x.code, x.zh, x.en, x.rzh, x.ren, x.src, []string{"agent"}, "credits", false)
+		addRel(x.code, x.names, x.rev, x.src, []string{"agent"}, "credits", false)
 	}
-	for _, x := range [][5]string{{"adaptation_of", "改编自", "Adaptation of", "被改编为", "Adapted as"}, {"sequel_of", "续作于", "Sequel of", "作为前作", "Prequel of"}, {"spin_off_of", "外传自", "Spin-off of", "衍生出", "Spun off as"}, {"soundtrack_of", "配乐用于", "Soundtrack of", "配乐作品", "Soundtrack"}} {
-		addRel(x[0], x[1], x[2], x[3], x[4], []string{"work"}, []string{"work"}, "creative", true)
+	for _, x := range []relSeed{
+		{"adaptation_of", names4("改编自", "改編自", "翻案", "Adaptation of"), names4("被改编为", "被改編為", "翻案された", "Adapted as")},
+		{"sequel_of", names4("续作于", "續作於", "続編", "Sequel of"), names4("作为前作", "作為前作", "前作", "Prequel of")},
+		{"spin_off_of", names4("外传自", "外傳自", "スピンオフ", "Spin-off of"), names4("衍生出", "衍生出", "スピンオフ作品", "Spun off as")},
+		{"soundtrack_of", names4("配乐用于", "配樂用於", "サウンドトラック", "Soundtrack of"), names4("配乐作品", "配樂作品", "劇中音楽", "Soundtrack")},
+	} {
+		addRel(x.code, x.names, x.rev, []string{"work"}, []string{"work"}, "creative", true)
 	}
-	for _, x := range [][5]string{{"translation_of", "翻译自", "Translation of", "被翻译为", "Translated as"}, {"revision_of", "修订自", "Revision of", "被修订为", "Revised as"}, {"cover_of", "翻唱自", "Cover of", "被翻唱为", "Covered as"}, {"alternate_take_of", "别版取自", "Alternate take of", "被用作别版", "Used as alternate take"}} {
-		addRel(x[0], x[1], x[2], x[3], x[4], []string{"expression"}, []string{"expression"}, "creative", true)
+	for _, x := range []relSeed{
+		{"translation_of", names4("翻译自", "翻譯自", "翻訳", "Translation of"), names4("被翻译为", "被翻譯為", "翻訳された", "Translated as")},
+		{"revision_of", names4("修订自", "修訂自", "改訂", "Revision of"), names4("被修订为", "被修訂為", "改訂された", "Revised as")},
+		{"cover_of", names4("翻唱自", "翻唱自", "カバー", "Cover of"), names4("被翻唱为", "被翻唱為", "カバーされた", "Covered as")},
+		{"alternate_take_of", names4("别版取自", "別版取自", "別テイク", "Alternate take of"), names4("被用作别版", "被用作別版", "別テイクとして使用", "Used as alternate take")},
+	} {
+		addRel(x.code, x.names, x.rev, []string{"expression"}, []string{"expression"}, "creative", true)
 	}
-	addRel("pressing_of", "再版自", "Pressing of", "被再版为", "Repressed as", []string{"release"}, []string{"release"}, "creative", true)
-	addRel("bonus_included_in", "特典收录于", "Bonus included in", "收录特典", "Includes bonus", []string{"expression"}, []string{"release", "medium"}, "membership", true)
-	addRel("store_bonus_for", "渠道特典归属", "Store bonus for", "拥有渠道特典", "Has store bonus", []string{"expression", "release"}, []string{"agent"}, "membership", true)
+	addRel("pressing_of", names4("再版自", "再版自", "復刻", "Pressing of"), names4("被再版为", "被再版為", "復刻された", "Repressed as"), []string{"release"}, []string{"release"}, "creative", true)
+	addRel("bonus_included_in", names4("特典收录于", "特典收錄於", "特典として収録", "Bonus included in"), names4("收录特典", "收錄特典", "特典を収録", "Includes bonus"), []string{"expression"}, []string{"release", "medium"}, "membership", true)
+	addRel("store_bonus_for", names4("渠道特典归属", "通路特典歸屬", "店舗特典", "Store bonus for"), names4("拥有渠道特典", "擁有通路特典", "店舗特典を保有", "Has store bonus"), []string{"expression", "release"}, []string{"agent"}, "membership", true)
 	// 组成/聚合关系：声明 Aggregate，页面据此把它算作"组成作品"而不写死关系码。
 	if r, ok := d.Relations["includes"]; ok {
 		r.Aggregate = true
 		d.Relations["includes"] = r
 	}
-	addRel("includes", "组成包含", "Includes", "组成属于", "Included in", []string{"collection", "work"}, []string{"work", "collection"}, "membership", true)
+	addRel("includes", names4("组成包含", "組成包含", "収録", "Includes"), names4("组成属于", "組成屬於", "収録先", "Included in"), []string{"collection", "work"}, []string{"work", "collection"}, "membership", true)
 	// 成员关系：个人 ↔ 团体（乐队、组合、社团）。声优乐队这类现实团体需要
 	// "谁是这个团体的成员"，职位原文（Vo./Gt./Ba. 等）落在 credit_role，不另造字段。
-	addRel("member_of", "所属团体", "Member of", "成员", "Members", []string{"agent"}, []string{"agent"}, "membership", true)
-	// 新增名称一律四语齐备：names_coverage_test 的占位棘轮只允许下降，
-	// 所以这里用 names4 覆盖 addRel 写入的中英占位。
-	if r, ok := d.Relations["member_of"]; ok {
-		r.Names = names4("所属团体", "所屬團體", "所属グループ", "Member of")
-		r.ReverseNames = names4("成员", "成員", "メンバー", "Members")
-		r.GroupNames = names4("组成与成员", "組成與成員", "構成とメンバー", "Membership")
-		d.Relations["member_of"] = r
-	}
+	addRel("member_of", names4("所属团体", "所屬團體", "所属グループ", "Member of"), names4("成员", "成員", "メンバー", "Members"), []string{"agent"}, []string{"agent"}, "membership", true)
 	// 角色登场：虚构角色/团体 → 作品或集合。方向为 agent → work，
 	// 同一角色跨作品算多条边（AGENTS.md 语义）。
 	// 番位走 character_rank 词表（main/supporting/guest/ensemble/narrator/cameo）：可检索、可多语言。
 	// 不再借 credit_role —— 那是"来源里的职位原文"，混用会导致番位既不可查也不能翻译。
-	addRel("character_in", "角色登场", "Character in", "登场角色", "Characters in", []string{"agent"}, []string{"work", "collection"}, "credits", false)
+	addRel("character_in", names4("角色登场", "角色登場", "登場", "Character in"), names4("登场角色", "登場角色", "登場キャラクター", "Characters in"), []string{"agent"}, []string{"work", "collection"}, "credits", false)
 	// 通用署名兜底：外部来源的职位文本没有贴切既有关系码时（分镜、企画、制作、
 	// 制片人等），用它承载"谁参与了这部作品"，职位原文落在 credit_role。
 	// 有精确关系码时不使用，避免同一署名重复两条边。
-	addRel("credit_for", "参与制作", "Credited in", "署名人员", "Credits", []string{"work", "content_unit", "expression", "release"}, []string{"agent"}, "credits", false)
+	addRel("credit_for", names4("参与制作", "參與製作", "クレジット", "Credited in"), names4("署名人员", "署名人員", "クレジット担当", "Credits"), []string{"work", "content_unit", "expression", "release"}, []string{"agent"}, "credits", false)
 	// 译者关系：若默认信用关系里缺译者（translated_by 或等价）则补一个，
 	// group=credits，翻译作品的译者署名不再挤进通用兜底。
 	if _, ok := d.Relations["translated_by"]; !ok {
@@ -522,7 +547,7 @@ func Defaults() Definitions {
 			}
 		}
 		if !hasTranslator {
-			addRel("translated_by", "译者", "Translated by", "翻译了", "Translator of", []string{"work", "content_unit", "expression"}, []string{"agent"}, "credits", false)
+			addRel("translated_by", names4("译者", "譯者", "翻訳者", "Translated by"), names4("翻译了", "翻譯了", "翻訳した", "Translator of"), []string{"work", "content_unit", "expression"}, []string{"agent"}, "credits", false)
 		}
 	}
 	// 场景示例（纯示范，默认关闭，供后台按需启用或扩展）：黑胶上下文 locator 只收敛到唱片面相关子集。
