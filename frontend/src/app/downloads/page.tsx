@@ -3,6 +3,7 @@
 import React, { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
+import { PageShell } from "@/components/ui/PageShell";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getStorageEntityUrl, hasResourceStation } from "@/lib/services";
 import { DownloadCloud, ExternalLink, HardDrive } from "lucide-react";
@@ -23,7 +24,7 @@ function DownloadsInner() {
     <div className="min-h-screen flex flex-col bg-background text-gray-100">
       <Navbar />
 
-      <main className="mf-enter flex-1 grid place-items-center px-4 py-16">
+      <PageShell width="narrow" center className="py-16">
         {configured ? (
           <div className="text-center space-y-4 max-w-sm">
             <DownloadCloud className="w-8 h-8 text-primary mx-auto" />
@@ -44,7 +45,7 @@ function DownloadsInner() {
             </p>
           </div>
         )}
-      </main>
+      </PageShell>
     </div>
   );
 }

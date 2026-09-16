@@ -8,6 +8,7 @@ import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions, getTypeName, getKindName } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
+import { PageShell, PageHeader } from "@/components/ui/PageShell";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import {
   Search,
@@ -27,6 +28,7 @@ import {
   GitCompare,
   Tag,
 } from "lucide-react";
+import { TabPanel } from "@/components/ui/TabPanel";
 
 interface EntityItem {
   id: string;
@@ -225,19 +227,18 @@ function ExploreInner() {
     <div className="min-h-screen flex flex-col bg-background text-text-strong">
       <Navbar />
 
-      <main className="mf-enter max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-line">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-strong flex items-center gap-2.5 font-display">
-              <Layers className="w-7 h-7 text-primary" />
-              <span>{t("catalog.exploreTitle")}</span>
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {t("catalog.exploreSubtitle")}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
+      <PageShell
+        width="page"
+        header={
+        <PageHeader
+          size="lg"
+          bordered
+          icon={<Layers className="w-7 h-7 text-primary" />}
+          title={t("catalog.exploreTitle")}
+          subtitle={t("catalog.exploreSubtitle")}
+          subtitleClassName="text-sm text-gray-600 dark:text-gray-400"
+          actions={
+          <>
             <Link
               href="/compare"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface hover:bg-black/[0.04] dark:hover:bg-white/[0.08] border border-line text-xs font-mono text-text-body transition-colors duration-fast ease-soft shadow-2xs"
@@ -253,9 +254,11 @@ function ExploreInner() {
               <Plus className="w-4 h-4" />
               <span>{t("catalog.newEntity")}</span>
             </Link>
-          </div>
-        </div>
-
+          </>
+          }
+        />
+        }
+      >
         {/* 双栏：左侧按实体层级导航，右侧结果区 */}
         <div className="grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-5">
           {/* 左侧：标签筛选。实体层级与类型属硬分类，不作为导航；浏览与归类一律由真实标签驱动
@@ -434,7 +437,7 @@ function ExploreInner() {
                 </button>
               </div>
             ) : viewMode === "grid" ? (
-              <div key={listKey} className="mf-tabpanel grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+              <TabPanel activeKey={listKey} spacing="none" className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
                 {items.map((item) => {
                   const KindIcon = KIND_ICONS[item.kind] || Layers;
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
@@ -488,9 +491,9 @@ function ExploreInner() {
                     </Link>
                   );
                 })}
-              </div>
+              </TabPanel>
             ) : (
-              <div key={listKey} className="mf-tabpanel rounded-xl border border-line bg-surface overflow-hidden divide-y dark:divide-white/[0.04] shadow-soft">
+              <TabPanel activeKey={listKey} spacing="none" className="rounded-xl border border-line bg-surface overflow-hidden divide-y dark:divide-white/[0.04] shadow-soft">
                 {items.map((item) => {
                   const KindIcon = KIND_ICONS[item.kind] || Layers;
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
@@ -543,7 +546,7 @@ function ExploreInner() {
                     </Link>
                   );
                 })}
-              </div>
+              </TabPanel>
             )}
 
             <div className="flex items-center justify-between border-t border-line pt-4 text-xs font-mono text-gray-600 dark:text-gray-400">
@@ -582,7 +585,7 @@ function ExploreInner() {
             </div>
           </div>
         </div>
-      </main>
+      </PageShell>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import React, { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
+import { PageShell } from "@/components/ui/PageShell";
 import { Compare } from "@/components/catalog/CatalogPages";
 
 function CompareContent() {
@@ -13,9 +14,9 @@ function CompareContent() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Navbar />
-      <main className="mf-enter flex-1 max-w-page w-full mx-auto px-4 py-6">
+      <PageShell width="page">
         <Compare ids={ids} />
-      </main>
+      </PageShell>
     </div>
   );
 }

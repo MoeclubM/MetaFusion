@@ -15,6 +15,7 @@ import {
   Database,
   ArrowRight,
 } from "lucide-react";
+import { PageShell, PageContainer } from "@/components/ui/PageShell";
 
 function RootLandingInner() {
   const { user } = useAuth();
@@ -59,7 +60,7 @@ function RootLandingInner() {
       </aside>
 
       {/* Hero Core: Perfectly Centered Stacked Layout */}
-      <main className="mf-enter relative z-10 w-full max-w-narrow mx-auto px-6 py-10 sm:py-16 flex-1 flex flex-col items-center justify-center text-center">
+      <PageShell width="narrow" center spacing="none" contentClassName="py-10 sm:py-16">
         {/* BrandMark Logo & Glowing Halo */}
         <div className="mb-6 relative group">
           <div className="absolute inset-0 bg-primary/20 rounded-full blur-2xl transform scale-125 group-hover:scale-150 transition-transform duration-700 pointer-events-none" />
@@ -78,7 +79,7 @@ function RootLandingInner() {
         </h1>
 
         {/* Subtitle */}
-        <p className="text-base sm:text-lg md:text-xl text-text-body max-w-narrow mx-auto leading-relaxed mb-8">
+        <p className="text-base sm:text-lg md:text-xl text-text-body leading-relaxed mb-8">
           {t("landing.heroSubtitle")}
         </p>
 
@@ -122,10 +123,10 @@ function RootLandingInner() {
             {t("landing.featureOpen")}
           </span>
         </div>
-      </main>
+      </PageShell>
 
       {/* Docked Minimal Footer */}
-      <footer className="relative z-10 w-full max-w-narrow mx-auto px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-line-subtle font-mono text-xs text-gray-500 dark:text-white/35">
+      <PageContainer as="footer" width="narrow" className="relative z-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-line-subtle font-mono text-xs text-gray-500 dark:text-white/35">
         <div className="flex items-center gap-4 flex-wrap">
           <span>© 2026 MoeClub Ltd · Open Metadata & Resource Platform</span>
           <span className="hidden sm:inline text-black/20 dark:text-white/20">|</span>
@@ -145,7 +146,7 @@ function RootLandingInner() {
           <GitHubIcon className="w-3.5 h-3.5" />
           <span>github.com/MoeclubM/MetaFusion</span>
         </a>
-      </footer>
+      </PageContainer>
     </div>
   );
 }

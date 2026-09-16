@@ -27,6 +27,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
+import { PageShell, PageContainer } from "@/components/ui/PageShell";
 
 export default function SetupPage() {
   const router = useRouter();
@@ -217,7 +218,7 @@ export default function SetupPage() {
       </aside>
 
       {/* Header */}
-      <header className="relative z-10 w-full max-w-narrow mx-auto pt-6 text-center space-y-4">
+      <PageContainer as="header" width="narrow" className="relative z-10 pt-6 text-center space-y-4">
         <div className="inline-block relative">
           <BrandMark size={56} withGlow={true} idSuffix="setup-header" className="mx-auto drop-shadow-md" />
         </div>
@@ -233,10 +234,10 @@ export default function SetupPage() {
             {t("setup.subtitle")}
           </p>
         </div>
-      </header>
+      </PageContainer>
 
       {/* Main Form Box */}
-      <main className="mf-enter relative z-10 w-full max-w-narrow mx-auto my-8">
+      <PageShell width="narrow" spacing="none" className="my-8">
         <form
           onSubmit={handleSubmit}
           className="p-6 sm:p-8 rounded-3xl bg-card border border-border shadow-2xl space-y-8"
@@ -386,12 +387,12 @@ export default function SetupPage() {
             )}
           </button>
         </form>
-      </main>
+      </PageShell>
 
       {/* Minimal Footer */}
-      <footer className="relative z-10 w-full max-w-narrow mx-auto text-center font-mono text-xs text-gray-400 dark:text-white/30 py-4">
+      <PageContainer as="footer" width="narrow" className="relative z-10 text-center font-mono text-xs text-gray-400 dark:text-white/30 py-4">
         © 2026 MetaFusion · Out-of-Box Initialization Wizard
-      </footer>
+      </PageContainer>
     </div>
   );
 }

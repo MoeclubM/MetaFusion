@@ -24,6 +24,7 @@ import {
   Plus,
   ShieldAlert,
 } from "lucide-react";
+import { PageShell } from "@/components/ui/PageShell";
 
 type CodeStatus = "active" | "revoked" | "expired" | "exhausted";
 
@@ -150,9 +151,9 @@ export default function InvitesPage() {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />
-        <main className="mf-enter max-w-narrow mx-auto px-4 py-16 w-full flex-1 grid place-items-center">
+        <PageShell width="narrow" center className="py-16">
           <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        </main>
+        </PageShell>
       </div>
     );
   }
@@ -161,7 +162,7 @@ export default function InvitesPage() {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />
-        <main className="mf-enter max-w-narrow mx-auto px-4 py-16 w-full flex-1 flex flex-col items-center justify-center gap-4 text-center">
+        <PageShell width="narrow" center className="py-16">
           <div className="w-12 h-12 rounded-full bg-white/5 grid place-items-center">
             <KeyRound className="w-6 h-6 text-gray-500" />
           </div>
@@ -172,7 +173,7 @@ export default function InvitesPage() {
           >
             {t("nav.login")}
           </Link>
-        </main>
+        </PageShell>
       </div>
     );
   }
@@ -184,7 +185,7 @@ export default function InvitesPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      <main className="mf-enter max-w-narrow mx-auto px-4 py-6 w-full flex-1 space-y-4 sm:space-y-5">
+      <PageShell width="narrow" spacing="none" contentClassName="space-y-4 sm:space-y-5">
         <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong">
           {t("invite.title")}
         </h1>
@@ -411,7 +412,7 @@ export default function InvitesPage() {
             </div>
           )}
         </div>
-      </main>
+      </PageShell>
     </div>
   );
 }

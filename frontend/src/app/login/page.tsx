@@ -14,6 +14,7 @@ import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getAuthLoginUrl, getAuthRegisterUrl, AUTH_SERVICE_URL } from "@/lib/services";
 import { BrandMark } from "@/components/Logo";
+import { PageContainer } from "@/components/ui/PageShell";
 import { ThemePicker } from "@/components/ThemePicker";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import {
@@ -204,7 +205,7 @@ function LoginInner() {
       <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-[500px] h-[500px] bg-sky-500/10 rounded-full blur-[120px] pointer-events-none" />
 
-      <header className="relative z-10 w-full max-w-narrow mx-auto flex items-center justify-between shrink-0">
+      <PageContainer as="header" width="narrow" className="relative z-10 flex items-center justify-between shrink-0">
         <Link href="/landing" title="MetaFusion" className="flex items-center gap-2.5 group">
           <BrandMark size={28} withGlow idSuffix="login" />
           <span className="flex flex-col leading-none">
@@ -216,9 +217,9 @@ function LoginInner() {
           <ThemePicker />
           <LocaleSwitcher compact />
         </div>
-      </header>
+      </PageContainer>
 
-      <main className="mf-enter relative z-10 flex-1 min-h-0 grid place-items-center py-3">
+      <PageContainer as="main" width="narrow" className="mf-enter relative z-10 flex-1 min-h-0 grid place-items-center py-3">
         <div className="w-full max-w-md max-h-full overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden space-y-3">
           {AUTH_SERVICE_URL.startsWith("http") && (
             <a
@@ -409,7 +410,7 @@ function LoginInner() {
             </form>
           </div>
         </div>
-      </main>
+      </PageContainer>
     </div>
   );
 }

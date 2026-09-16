@@ -35,6 +35,8 @@ import {
   Film,
   Music2,
 } from "lucide-react";
+import { TabPanel } from "@/components/ui/TabPanel";
+import { PageContainer } from "@/components/ui/PageShell";
 
 function formatTimeAgo(dateStr: string, locale?: string, t?: (k: string, v?: Record<string,string|number>)=>string) {
  const diff = Date.now() - new Date(dateStr).getTime();
@@ -219,10 +221,10 @@ function CommunityContent() {
  <Navbar />
 
  {/* Forum layout: sidebar + topic stream */}
- <div className="relative z-10 flex-1 w-full max-w-[1440px] mx-auto flex items-stretch">
+ <PageContainer className="relative z-10 flex-1 flex items-stretch">
  {/* ===================== Left board sidebar ===================== */}
  {/* Desktop */}
- <aside className="hidden lg:flex w-[280px] shrink-0 flex-col border-r border-line bg-background sticky top-12 h-[calc(100vh-3rem)] overflow-hidden">
+ <aside className="hidden lg:flex w-[280px] shrink-0 flex-col border-r border-line bg-background sticky top-[var(--mf-header-h)] h-[calc(100vh-var(--mf-header-h))] overflow-hidden">
  <div className="flex-1 overflow-y-auto">
  <div className="p-4 space-y-5">
  {/* CTA */}
@@ -362,10 +364,10 @@ function CommunityContent() {
 	 )}
 
 	{/* ===================== Main Topic List ===================== */}
-	<main className="mf-enter flex-1 min-w-0 flex flex-col bg-background py-6">
+	<main className="mf-enter flex-1 min-w-0 flex flex-col bg-background">
 	  {/* Discourse-style Hero Search & Filter Header */}
 	  <div className="sticky top-[var(--mf-header-h)] z-20 bg-background/95 backdrop-blur border-b border-line">
-	    <div className="px-4 sm:px-6 py-4 space-y-3.5 max-w-[1100px] mx-auto w-full">
+	    <div className="py-4 space-y-3.5 w-full">
 	      {/* Row 1: Discourse-style Prominent Centered Search Bar */}
 	      <div className="flex items-center gap-2.5">
 	        <button
@@ -680,9 +682,9 @@ function CommunityContent() {
 	    </div>
 	  </div>
 
- <div className="px-4 py-6 space-y-5 flex-1">
+ <div className="py-6 space-y-5 flex-1">
  {/* key 随页签/分区/筛选变化重放进入动画；搜索框内容不参与，避免输入时闪动 */}
- <div key={activeTab + "-" + selectedBoard + "-" + filterLanguage + "-" + (filterTagId ?? filterTagName ?? "all")} className="mf-tabpanel border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
+ <TabPanel activeKey={activeTab + "-" + selectedBoard + "-" + filterLanguage + "-" + (filterTagId ?? filterTagName ?? "all")} spacing="none" className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
  <div className="hidden sm:flex items-center gap-3 px-4 py-2.5 bg-background/60 border-b border-line text-sm font-mono text-gray-500">
  <span className="flex-1">{t("community.topic")}</span>
  <span className="w-20 text-center">{t("community.participants")}</span>
@@ -815,10 +817,10 @@ function CommunityContent() {
  })}
  </div>
  )}
- </div>
+ </TabPanel>
  </div>
  </main>
- </div>
+ </PageContainer>
 
  {/* Composer Drawer — unified PostComposer */}
  {isComposerOpen && (

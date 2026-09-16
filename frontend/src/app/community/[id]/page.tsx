@@ -10,6 +10,8 @@ import { UserRoleBadge } from "@/lib/roles";
 import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref, ApiError } from "@/lib/api";
 import { can, COMMUNITY_POST_MODERATE } from "@/lib/permissions";
 import PostComposer from "@/components/community/PostComposer";
+import { TabPanel } from "@/components/ui/TabPanel";
+import { PageShell } from "@/components/ui/PageShell";
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), {
   loading: () => <div className="h-4 my-1.5 rounded bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />,
 });
@@ -162,9 +164,9 @@ export default function TopicDetailPage() {
  return (
  <div className="min-h-screen bg-background flex flex-col">
  <Navbar />
- <div className="max-w-narrow mx-auto px-4 py-20 text-center text-sm text-gray-500">
+ <PageShell width="narrow" center className="py-20" contentClassName="text-sm text-gray-500">
  {t("common.notFoundTopic")}
- </div>
+ </PageShell>
  </div>
  );
  }
@@ -182,7 +184,7 @@ export default function TopicDetailPage() {
  <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <Navbar />
 
- <main className="mf-enter relative z-10 max-w-page mx-auto px-4 py-6 w-full flex-1">
+ <PageShell width="page">
  <div className="flex flex-col lg:flex-row gap-6 items-start">
  {/* Left / Main Post Stream */}
  <div className="flex-1 space-y-6 w-full min-w-0">
@@ -344,7 +346,7 @@ export default function TopicDetailPage() {
 
  {/* Replies Stream */}
  {/* key 随楼层数变化：发帖/删帖后回复流重放一次进入动画，输入与点赞不触发 */}
- <div key={"replies-" + posts.length} className="mf-tabpanel space-y-3">
+ <TabPanel activeKey={"replies-" + posts.length} spacing="none" className="space-y-3">
  {replies.map((post) => {
  const replyUserId = post.user_id || post.user?.id;
  return (
@@ -449,7 +451,7 @@ export default function TopicDetailPage() {
  </div>
  );
  })}
- </div>
+ </TabPanel>
 
  {/* Bottom CTA / Composer anchor */}
  <div id="reply-box" className="border border-line rounded-lg bg-surface p-4 space-y-2.5 shadow-2xs">
@@ -540,7 +542,7 @@ export default function TopicDetailPage() {
  </div>
  </div>
  </div>
- </main>
+ </PageShell>
 
  {/* Reply Drawer — unified PostComposer */}
  {isComposerOpen && (

@@ -7,6 +7,7 @@ import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions, getKindName, resolveLocalizedName, type KindMap } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
+import { PageContainer, PageShell } from "@/components/ui/PageShell";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useAuth } from "@/lib/authContext";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
@@ -213,7 +214,7 @@ export default function HomePage() {
       <Navbar />
 
       <div className="border-b border-white/[0.06] bg-surface/60 backdrop-blur-xl sticky top-[var(--mf-header-h)] z-30 shadow-xs">
-        <div className="max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-center">
+        <PageContainer className="py-4 flex justify-center">
           <form onSubmit={handleSearch} className="relative w-full max-w-3xl">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <input
@@ -230,10 +231,11 @@ export default function HomePage() {
               {t("home.search")}
             </button>
           </form>
-        </div>
+        </PageContainer>
       </div>
 
-      <main className="mf-enter max-w-page mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 space-y-10 relative z-10">
+      {/* 首页区块间距保持 40px：首屏块与列表差异大，收紧会挤在一起。 */}
+      <PageShell width="page" spacing="none" contentClassName="space-y-10" className="relative z-10">
         {user && (
           <div className="flex items-center justify-between gap-3">
             <h1 className="font-display text-lg font-bold tracking-tight text-white">
@@ -358,7 +360,7 @@ export default function HomePage() {
             );
           })
         )}
-      </main>
+      </PageShell>
 
       {customizing && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4" role="dialog" aria-modal="true">
@@ -460,7 +462,7 @@ export default function HomePage() {
       )}
 
       <footer className="border-t border-white/[0.06] py-6 bg-surface/30 backdrop-blur-md">
-        <div className="max-w-page mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-gray-400">
+        <PageContainer className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-gray-400">
           <div>
             <span>© 2026 MetaFusion · Open Metadata &amp; Resource Sharing Platform</span>
           </div>
@@ -481,7 +483,7 @@ export default function HomePage() {
               {t("home.footerApi")}
             </a>
           </div>
-        </div>
+        </PageContainer>
       </footer>
     </div>
   );

@@ -9,6 +9,7 @@ import { fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
 import { can, CATALOG_IMPORT_SUBMIT } from "@/lib/permissions";
 import { Layers, Users, Disc, Network, ArrowRight, Lock, LogIn, Sparkles, Zap, Disc3, Film, BookOpen, AlertCircle, Mail } from "lucide-react";
 import { OmniImportModal } from "@/components/importer/OmniImportModal";
+import { PageShell } from "@/components/ui/PageShell";
 
 export default function ContributeHubPage() {
   const { user } = useAuth();
@@ -65,7 +66,7 @@ export default function ContributeHubPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background text-gray-100">
       <Navbar />
-      <main className="mf-enter max-w-narrow mx-auto px-4 py-6 w-full flex-1 space-y-5 sm:space-y-6">
+      <PageShell width="narrow" spacing="none" contentClassName="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong">
             {t("create.hub.title")}
@@ -202,7 +203,7 @@ export default function ContributeHubPage() {
             })}
           </div>
         </div>
-      </main>
+      </PageShell>
 
       {/* 无权限时永不打开弹窗（预览也会 403）；入口本身已禁用并给出说明。 */}
       <OmniImportModal
