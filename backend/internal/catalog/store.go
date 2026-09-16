@@ -76,12 +76,11 @@ func (s *Store) Authenticate(token string) (*User, error) {
 // 因种子会随版本新增条目（如货架新增 slug），不属于一次性结构迁移。
 // 任一轨道先执行都安全：种子用 ON CONFLICT 保护已有行（后台自定义不被覆盖）。
 //
-// 定义种子语义（只空库播种、存量不迁移）：catalog.definitions 非空时直接跳过，
-// 存量实例的已发布定义不会被 Defaults() 覆盖——后台改过的关系/词表/字段
-// （如禁用某关系码、entry_role 降级）全部保留。这是有意的：自动迁移存量定义
-// 会覆盖人工编目决策；新字段/新关系只对新库生效，存量实例的缺口由导入预检
-// （importer_mapping_stale）与 entry_role 降级写入等显式兼容逻辑承接，
-// 而不是静默改写已发布定义。见 TestDefinitionsSeedOnlyWhenEmpty。
+// 定义种子语义（空库全量播种、存量**只增不改**）：catalog.definitions 非空时
+// 不覆盖既有文档——后台改过的关系/词表/字段（禁用某关系码、entry_role 降级）全部保留；
+// 播种之后再由 EnsureSeedDefinitions 做一次增量合并，只补种子里新增而当前缺失的键，
+// 这样新版本新增的关系码/字段能到达存量实例，又不会覆盖任何人工决定。
+// 见 TestDefinitionsSeedOnlyWhenEmpty 与 TestMergeSeedDefinitionsIsAdditiveOnly。
 func (s *Store) Initialize(ctx context.Context) error {
 	baseline, err := catalogBaseline()
 	if err != nil {
@@ -115,6 +114,12 @@ func (s *Store) Initialize(ctx context.Context) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	// 定义种子是"只空库播种"，存量实例拿不到新版本新增的关系码/字段；
+	// 这里再做一次只增不改的增量合并，把缺失的定义补上（不会覆盖后台的人工调整）。
+	return s.EnsureSeedDefinitions(ctx)
 }
 
 // write 执行一次写事务（不加全局锁）。

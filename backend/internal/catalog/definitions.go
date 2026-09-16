@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 func (s *Store) DefinitionVersions(ctx context.Context) ([]DefinitionVersion, error) {
@@ -113,6 +114,28 @@ func impact(ctx context.Context, q queryer, d Definitions) ([]string, error) {
 	}
 	return issues, nil
 }
+// EnsureSeedDefinitions 把种子里新增的定义补进当前已发布定义（只增不改，见 mergeSeedDefinitions）。
+// 没有任何新增时不写库：幂等，避免每次启动都多出一个定义版本。
+// 以系统身份起草并发布，说明里列出新增键，便于在修订历史里追溯这次模板更新的来源。
+func (s *Store) EnsureSeedDefinitions(ctx context.Context) error {
+	v, err := s.Definitions(ctx)
+	if err != nil {
+		return err
+	}
+	merged, added := mergeSeedDefinitions(v.Document, Defaults())
+	if len(added) == 0 {
+		return nil
+	}
+	sys := User{ID: "system", Username: "system", Role: "admin", Permissions: []string{PermissionDefinitionsManage}}
+	note := "启动时合并新增的种子定义（只增不改）：" + strings.Join(added, "、")
+	sources := []Source{{Kind: "url", URL: "https://github.com/MoeclubM/MetaFusion", Citation: "种子定义合并：backend/internal/catalog/defaults.go"}}
+	id, err := s.Draft(ctx, merged, v.ID, sys, note, sources)
+	if err != nil {
+		return err
+	}
+	return s.Publish(ctx, id, sys, note, sources)
+}
+
 func (s *Store) Impact(ctx context.Context, id int64) ([]string, error) {
 	var b []byte
 	var d Definitions
