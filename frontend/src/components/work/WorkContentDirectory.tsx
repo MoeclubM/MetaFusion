@@ -7,6 +7,8 @@ import { Entity, title as entityTitle } from "@/components/catalog/api";
 import { fetchAllPages } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getTermName, useDefinitions } from "@/lib/definitions";
+// 日期值的呈现与信息面板共用同一实现（本地化/图例口径一致，不另写格式化）。
+import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 
 type WorkContentDirectoryProps = {
   workId: string;
@@ -31,6 +33,8 @@ type DirectoryEntry = {
   /** 条目对应的实体 kind：组成作品列为 "work"，其余为篇目/表达本身。 */
   kind: string;
   title: string;
+  /** 篇目放送日（definitions 声明的 air_date）：原样呈现 ISO 日期，与页头日期徽章口径一致。 */
+  airDate: string;
 };
 
 function toEntry(e: Entity, locale: string): DirectoryEntry {
@@ -46,6 +50,9 @@ function toEntry(e: Entity, locale: string): DirectoryEntry {
     entryRole: String(e.attributes?.entry_role || ""),
     kind: e.kind || "",
     title: entityTitle(e, locale) || e.title || e.id || "",
+    // 放送日是篇目自带的标量属性，与发行日期同样按 ISO 字符串直出（站上既有口径），
+    // 不做本地化格式化：日期在不同语言下含义相同，避免多一套格式化实现。
+    airDate: String(e.attributes?.air_date || "").trim(),
   };
 }
 
@@ -89,6 +96,7 @@ export function componentEntries(
       entryRole: "",
       kind: peer.kind || "work",
       title: entityTitle(peer, locale) || peer.title || peerId,
+      airDate: "",
     };
     (outgoing ? includes : includedIn).push(entry);
   }
@@ -193,6 +201,13 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
           <Link href={`/catalog/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-text-strong hover:text-primary">
             {entry.title}
           </Link>
+          {/* 放送日：有值才显示，缺值不留空占位。呈现走站上共用的 FieldValue，
+              日期类型由 definitions 判定（不在这里自造格式化），与信息面板同一口径。 */}
+          {entry.airDate && (
+            <span className="shrink-0 text-[11px] text-gray-500">
+              <FieldValue code="air_date" value={entry.airDate} defs={defs} locale={locale} />
+            </span>
+          )}
           <span className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
             {isCollectionOrWork ? t(`catalog.kind.${entry.kind}`) : roleLabel(role)}
           </span>
