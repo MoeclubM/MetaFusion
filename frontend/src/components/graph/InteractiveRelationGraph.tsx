@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme } from "@/lib/themeContext";
 import { GraphNode, GraphLink, catalogEntityHref } from "@/lib/api";
 import { useDefinitions, getKindName } from "@/lib/definitions";
+import { RelationFilterBar, useRelationFilter } from "@/components/entity/RelationFilterBar";
 import Link from "next/link";
 import {
   ZoomIn,
@@ -276,7 +277,6 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const [isFullscreen, setIsFullscreen] = useState(false);
   // 严格默认采用层级结构 (Hierarchy) 布局
   const [layoutMode, setLayoutMode] = useState<"hierarchy" | "radial" | "force">("hierarchy");
-  const [filterType, setFilterType] = useState<"all" | "hierarchy" | "cast" | "media">("all");
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredLinkId, setHoveredLinkId] = useState<string | null>(null);
@@ -291,25 +291,25 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const centerFill = isDark ? "#3b82f6" : "#2563eb";
   const centerBorder = isDark ? "#0b0f17" : "#ffffff";
 
-  // 过滤连线
-  const filteredLinks = useMemo(() => {
-    if (filterType === "all") return links;
-    // 三类筛选直接对齐 definitions 的关系分组（credits 署名 / membership 组成 /
-    // creative 改编翻唱），不在前端硬编码关系码。分组缺失时按端点 kind 兜底。
-    const byGroup = (g: string) => links.filter((l) => l.group === g);
-    if (filterType === "hierarchy") {
-      return links.filter((l) => l.group === "membership" || l.is_hierarchical);
-    }
-    if (filterType === "cast") {
-      return links.filter(
-        (l) => l.group === "credits" || l.source_type === "agent" || l.target_type === "agent"
-      );
-    }
-    if (filterType === "media") {
-      return byGroup("creative");
-    }
-    return links;
-  }, [links, filterType]);
+  // 过滤连线：筛选维度（关联对象 / 关系分类 / 关系类型）全部由连线自身与 definitions
+  // 推导——分组名与类型名都取服务端声明，新增关系或改分组后图谱即刻跟随，
+  // 不在前端硬编码关系码或分组码。
+  const facetRows = useMemo(
+    () =>
+      links.map((link, index) => ({
+        type: link.type,
+        // 对端 kind：中心实体一侧不算，另一侧才是"关联对象"。
+        kind: (link.source === centerEntityId ? link.target_type : link.source_type) || "",
+        label: link.label,
+        index,
+      })),
+    [links, centerEntityId]
+  );
+  const relationFilter = useRelationFilter(facetRows);
+  const filteredLinks = useMemo(
+    () => relationFilter.visible.map((row) => links[row.index]),
+    [relationFilter.visible, links]
+  );
 
   // 获取激活的节点集合
   const activeNodeIds = useMemo(() => {
@@ -909,54 +909,6 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             <div className="mr-1 border-r border-border/60 pr-2">{headerRightExtra}</div>
           )}
 
-          {/* 关系分类过滤 */}
-          <div className="flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-[11px]">
-            <button
-              type="button"
-              onClick={() => setFilterType("all")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-                filterType === "all"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t("graph.filterAll")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterType("hierarchy")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-                filterType === "hierarchy"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t("graph.filterHierarchy")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterType("cast")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-                filterType === "cast"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t("graph.filterCast")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilterType("media")}
-              className={`px-2.5 py-1 rounded-md font-medium transition-all ${
-                filterType === "media"
-                  ? "bg-background text-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t("graph.filterMedia")}
-            </button>
-          </div>
-
           {/* 拓扑排布模式切换 (层级结构 / 环形放射 / 力导向) */}
           <div className="hidden sm:flex items-center bg-secondary/80 rounded-lg p-0.5 border border-border/50 text-[11px]">
             <button
@@ -1059,6 +1011,17 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           </div>
         </div>
       </div>
+
+      {/* 关系筛选：维度与选项由连线数据与 definitions 动态生成，数据里没有的维度不出现 */}
+      {relationFilter.filterable && (
+        <div className="px-4 pt-2 pb-1 border-b border-border/60 bg-background/60">
+          <RelationFilterBar
+            facets={relationFilter.facets}
+            selection={relationFilter.selection}
+            onToggle={relationFilter.toggle}
+          />
+        </div>
+      )}
 
       {/* 图谱主体 SVG 交互画布 */}
       <div

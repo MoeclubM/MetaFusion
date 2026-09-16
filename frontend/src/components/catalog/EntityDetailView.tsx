@@ -18,6 +18,7 @@ import { formalDetailUrl, keepsGenericView } from "@/lib/entityRoutes";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { GraphNode, GraphLink, FavoriteTargetType } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
+import { RelationFilterBar, useRelationFilter } from "@/components/entity/RelationFilterBar";
 import { PageShell, PageContainer } from "@/components/ui/PageShell";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { Card, CardTitle } from "@/components/ui/Card";
@@ -170,7 +171,6 @@ export function EntityDetailView({ id }: { id: string }) {
   const [copiedLink, setCopiedLink] = useState(false);
   // 收敛到正式路由期间不渲染通用视图，避免先闪一次两栏布局。
   const [redirecting, setRedirecting] = useState(false);
-  const [relationFilter, setRelationFilter] = useState<string>("all");
   const [relationViewMode, setRelationViewMode] = useState<"cards" | "graph">("cards");
 
   const load = async () => {
@@ -632,29 +632,53 @@ export function EntityDetailView({ id }: { id: string }) {
     [categorizedRelations, defs]
   );
 
-  // 其余关系按展示分组归并：顺序按实体自身类型引用模板的 relation_groups 声明合并排序，
-  // 声明外的组排最后，兜底分组固定在最后；定义缺失时进兜底分组，保证不丢数据。
-  const groupedMediaRelations = useMemo(() => {
-    const groups = new Map<string, typeof mediaRelations>();
-    for (const r of mediaRelations) {
-      const key = relationGroupKey(defs, r.type, locale);
-      const list = groups.get(key) || [];
-      list.push(r);
-      groups.set(key, list);
-    }
+  // 分类展示顺序：实体自身类型引用模板声明的 relation_groups（多类型声明合并去重）。
+  const relationGroupOrder = useMemo(() => {
     const ordered: string[] = [];
     for (const tc of entity?.types || []) {
       const tpl = (defs as any)?.templates?.[(defs as any)?.types?.[tc]?.template || ""];
       for (const g of tpl?.relation_groups || []) {
-        if (groups.has(g) && !ordered.includes(g)) ordered.push(g);
+        if (!ordered.includes(g)) ordered.push(g);
       }
+    }
+    return ordered;
+  }, [defs, entity]);
+
+  // 关系筛选：维度与选项由关系数据与 definitions 动态生成（关联对象 / 关系分类 / 关系类型），
+  // 与作品详情的关系列表同一套口径；行里带上关系对象本身，筛完直接取回。
+  const relationFacetRows = useMemo(
+    () =>
+      mediaRelations.map((r) => ({
+        type: r.type,
+        kind: r.target?.kind || "",
+        label: getRelationName(defs, r.type, r.isOutgoing, locale),
+        relation: r,
+      })),
+    [mediaRelations, defs, locale]
+  );
+  const relationFilter = useRelationFilter(relationFacetRows, relationGroupOrder);
+
+  // 其余关系按展示分组归并：声明过的分类排前，声明外的按出现顺序，兜底分组固定在最后；
+  // 定义缺失时进兜底分组，保证不丢数据。
+  const groupedMediaRelations = useMemo(() => {
+    type MediaRelation = (typeof mediaRelations)[number];
+    const groups = new Map<string, MediaRelation[]>();
+    for (const { relation } of relationFilter.visible) {
+      const key = relationGroupKey(defs, relation.type, locale);
+      const list = groups.get(key) || [];
+      list.push(relation);
+      groups.set(key, list);
+    }
+    const ordered: string[] = [];
+    for (const key of relationGroupOrder) {
+      if (groups.has(key) && !ordered.includes(key)) ordered.push(key);
     }
     for (const key of Array.from(groups.keys())) {
       if (key !== FALLBACK_RELATION_GROUP && !ordered.includes(key)) ordered.push(key);
     }
     if (groups.has(FALLBACK_RELATION_GROUP)) ordered.push(FALLBACK_RELATION_GROUP);
     return ordered.map((key) => ({ key, items: groups.get(key) || [] }));
-  }, [mediaRelations, defs, entity, locale]);
+  }, [relationFilter.visible, defs, locale, relationGroupOrder]);
 
   // 分组标题：取组内关系定义声明的 group_names 本地化——组内任一条声明了就用它，
   // 不因组内首条缺声明而整组降级；兜底分组用字典文案（与分节标题区分开）。
@@ -1535,6 +1559,15 @@ export function EntityDetailView({ id }: { id: string }) {
                   </Card>
                 ) : (
                   <div className="space-y-4">
+                    {/* 筛选条：维度与选项都由关系数据与 definitions 生成，只有一个取值的维度不出现 */}
+                    <RelationFilterBar
+                      facets={relationFilter.facets}
+                      selection={relationFilter.selection}
+                      onToggle={relationFilter.toggle}
+                    />
+                    {relationFilter.visible.length === 0 && (
+                      <p className="text-sm text-gray-500">{t("relations.filterEmpty")}</p>
+                    )}
                     {groupedMediaRelations.map((group) => (
                       <div key={group.key || "ungrouped"}>
                         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground m-0 mb-2">

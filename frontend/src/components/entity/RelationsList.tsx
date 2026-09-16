@@ -7,14 +7,16 @@ import { catalogEntityHref, ConnectedEntityItem, EntityRelationship } from "@/li
 import { useI18n } from "@/i18n/I18nProvider";
 import { getFieldName, useDefinitions } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
+import { RelationFilterBar, useRelationFilter } from "@/components/entity/RelationFilterBar";
 
 type Row = {
   href: string;
   name: string;
   originalName?: string;
   coverUrl?: string;
-  coverAspect?: string;
   entityType: string;
+  /** 对端实体 kind：关系筛选的 kind 维度口径（与 entityType 同源，别名便于筛选层复用）。 */
+  kind: string;
   label: string;
   /** 关系类型码与方向：正向名的本地化文案不能代表反向关系。 */
   type: string;
@@ -29,6 +31,7 @@ type Row = {
   relationId?: string;
 };
 
+/** 同一关系类型下的卡片超过阈值就折叠，避免单个类型把整页拉长。 */
 const COLLAPSED_COUNT = 12;
 
 function toRows(items: ConnectedEntityItem[] | EntityRelationship[]): Row[] {
@@ -41,8 +44,8 @@ function toRows(items: ConnectedEntityItem[] | EntityRelationship[]): Row[] {
         name: it.entity_name,
         originalName: it.original_name,
         coverUrl: it.cover_url,
-        coverAspect: it.cover_aspect,
         entityType: it.entity_type,
+        kind: it.entity_type,
         label: it.label || it.relationship_name || it.relationship_type,
         type: it.relationship_type,
         direction: it.direction,
@@ -61,6 +64,7 @@ function toRows(items: ConnectedEntityItem[] | EntityRelationship[]): Row[] {
         href: catalogEntityHref(it.target_type, it.target_id),
         name: it.target_id.slice(0, 8),
         entityType: it.target_type,
+        kind: it.target_type,
         label: it.relationship_type,
         type: it.relationship_type,
         attributes: it.attributes,
@@ -77,7 +81,7 @@ function toRows(items: ConnectedEntityItem[] | EntityRelationship[]): Row[] {
   return rows;
 }
 
-function RelationCard({ row }: { row: Row }) {
+function RelationCard({ row, showLabel = false }: { row: Row; showLabel?: boolean }) {
   const { t, locale } = useI18n();
   const { definitions: defs } = useDefinitions();
   // 关系附加属性（适用章节、语言、职务…）：字段码与名称都取自 definitions，
@@ -92,9 +96,12 @@ function RelationCard({ row }: { row: Row }) {
   }
   return (
     <Link href={row.href} className="group block min-w-0">
-      <div className="mb-1 truncate text-[11px] text-text-muted" title={row.label}>
-        {row.label}
-      </div>
+      {/* 类型名已由分组标题承担；同一类型两个方向都在时才在卡上补方向名。 */}
+      {showLabel && (
+        <div className="mb-1 truncate text-[11px] text-text-muted" title={row.label}>
+          {row.label}
+        </div>
+      )}
       <div className="overflow-hidden rounded-md border bg-black/[0.03] transition-all duration-base ease-soft group-hover:-translate-y-0.5 group-hover:shadow-sm border-line dark:bg-white/[0.04]">
         <AdaptiveCover
           src={row.coverUrl}
@@ -102,7 +109,6 @@ function RelationCard({ row }: { row: Row }) {
           title={row.name}
           originalTitle={row.originalName}
           id={row.key}
-          aspect={row.coverAspect || undefined}
           fallbackRatio={row.entityType === "agent" ? 1 : 2 / 3}
         />
       </div>
@@ -126,43 +132,32 @@ function RelationCard({ row }: { row: Row }) {
   );
 }
 
-/**
- * Bangumi 式关联条目封面网格：每卡自带关系类型小字（同类型相邻排列），
- * 无封面实体走 ProceduralCover 兜底；超过阈值折叠，展开/收起走 i18n。
- */
-export function GroupedRelations({
-  items,
-}: {
-  items: ConnectedEntityItem[] | EntityRelationship[] | undefined;
-}) {
+function TypeSection({ label, rows }: { label: string; rows: Row[] }) {
   const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  if (!items || items.length === 0) return null;
-  const rows = toRows(items);
-  // 稳定按关系类型首次出现顺序排列，让同类型卡片相邻但不打断为分组标题
-  const typeOrder = new Map<string, number>();
-  for (const r of rows) {
-    if (!typeOrder.has(r.type)) typeOrder.set(r.type, typeOrder.size);
-  }
-  const sorted = [...rows].sort((a, b) => typeOrder.get(a.type)! - typeOrder.get(b.type)!);
-  const collapsible = sorted.length > COLLAPSED_COUNT;
-  const visible = expanded || !collapsible ? sorted : sorted.slice(0, COLLAPSED_COUNT);
-
+  const collapsible = rows.length > COLLAPSED_COUNT;
+  const visible = expanded || !collapsible ? rows : rows.slice(0, COLLAPSED_COUNT);
+  // 类型名与卡上方向名不一致 = 该类型两个方向都有，卡上补方向名区分。
+  const mixedDirections = rows.some((r) => r.label !== label);
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
+      <h4 className="m-0 flex items-baseline gap-1.5 font-display text-sm font-semibold text-text-strong">
+        <span>{label}</span>
+        <span className="font-mono text-[11px] font-normal text-text-muted">({rows.length})</span>
+      </h4>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-x-3.5 gap-y-4">
         {visible.map((r) => (
-          <RelationCard key={r.key} row={r} />
+          <RelationCard key={r.key} row={r} showLabel={mixedDirections} />
         ))}
       </div>
       {collapsible && (
-        <div className="pt-1">
+        <div className="pt-0.5">
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="text-sm font-medium text-primary hover:underline underline-offset-2"
+            className="text-xs font-medium text-primary hover:underline underline-offset-2"
           >
-            {expanded ? t("relations.collapse") : t("relations.showAll", { count: sorted.length })}
+            {expanded ? t("relations.collapse") : t("relations.showAll", { count: rows.length })}
           </button>
         </div>
       )}
@@ -170,10 +165,56 @@ export function GroupedRelations({
   );
 }
 
+/**
+ * 关联条目封面网格：按"关系分类 → 关系类型"归并，卡片自带关系名小字；
+ * 无封面实体走 ProceduralCover 兜底。筛选维度（关联对象 / 分类 / 类型）
+ * 由数据与 definitions 动态生成，同一维度的选项再点一次即取消。
+ */
+export function GroupedRelations({
+  items,
+  groupOrder,
+}: {
+  items: ConnectedEntityItem[] | EntityRelationship[] | undefined;
+  /** 实体模板声明的分类顺序（relation_groups）。 */
+  groupOrder?: string[];
+}) {
+  const { t } = useI18n();
+  const rows = React.useMemo(() => toRows(items || []), [items]);
+  const filter = useRelationFilter(rows, groupOrder);
+  if (!items || items.length === 0) return null;
+
+  return (
+    <div className="space-y-4">
+      <RelationFilterBar
+        facets={filter.facets}
+        selection={filter.selection}
+        onToggle={filter.toggle}
+      />
+      {filter.visible.length === 0 ? (
+        <p className="text-sm text-gray-500">{t("relations.filterEmpty")}</p>
+      ) : (
+        filter.sections.map((section) => (
+          <div key={section.key} className="space-y-3">
+            <h3 className="m-0 flex items-baseline gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <span>{section.label}</span>
+              <span className="font-mono text-[11px] font-normal">({section.count})</span>
+            </h3>
+            {section.types.map((type) => (
+              <TypeSection key={type.type} label={type.label} rows={type.rows} />
+            ))}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 export function RelationsList({
   items,
+  groupOrder,
 }: {
   items: ConnectedEntityItem[] | EntityRelationship[];
+  groupOrder?: string[];
 }) {
-  return <GroupedRelations items={items} />;
+  return <GroupedRelations items={items} groupOrder={groupOrder} />;
 }

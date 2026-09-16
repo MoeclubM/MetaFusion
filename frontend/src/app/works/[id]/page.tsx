@@ -593,7 +593,10 @@ const releaseFacets = useMemo(
                 >
                   {t("work.detail.relations")}
                 </SectionTitle>
-                <GroupedRelations items={connected} />
+                <GroupedRelations
+                  items={connected}
+                  groupOrder={(workTemplate as any)?.relation_groups}
+                />
               </Card>
             )}
              </section>
