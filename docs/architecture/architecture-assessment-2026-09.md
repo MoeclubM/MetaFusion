@@ -19,7 +19,7 @@
 | (b) CD/黑胶/WebDL/BD 等不同最终载体 | **已支持** | `format` 词表含 `cd/bd/uhd_bd/dvd/vinyl/sacd/cassette/paper/digital/web`（`defaults.go` 的 `format` 词表种子），绑定在 medium 的字段集；`distribution_channel` 区分实体/数字/网络配信（同为 `defaults.go` 的词表种子）。WEDL/REMUX/编码等归档技术面属文件与媒体模块，不塞进核心实体，符合边界。 |
 | (c) 单曲既是独立作品又可被多个专辑收录（TrackContent 引用复用） | **已支持** | 单曲本身建 Work（`defaults.go` 的 `song` 类型种子），录音建 Expression；多张 Release 的 Track 通过 `contents[].expression_id` 引用同一 Expression（DTO 见 `types.go` 的 `Entity.Contents`，库结构见迁移的 `catalog.track_contents`）；反向反查见 `relations.go` 的 `Occurrences`（按 kind 求值：expression 取自身、content_unit 取该篇目、work 取整个作品）。写入按 `track_contents` 整组替换（`store.go` 的 `Save`）。 |
 | (d) 小说章节关系（content_unit 层级） | **已支持** | `content_units.parent_id` 自引用 + 同 work 复合外键（`backend/migrations/000001_catalog_core.up.sql`），延迟触发器做无环检测（同一份迁移）；`expression.content_unit_id` 关联篇目（同一份迁移）；结构字段白名单与 `parent_required` 见 `validation.go` 的 `validateEntity`；页码/章节定位由 `locator`（`page_start/page_end/chapter` 等子字段，`validation.go` 的 `value` 按声明校验）承载。最多四层字段嵌套限制针对 field 定义（`validation.go` 的 `validateField` 深度上限），不影响 content_unit 树深度。 |
-| (e) 关系类型与字段可由后台 GUI 扩展而不改代码 | **部分支持** | 已支持：关系/字段/类型/词表/模板均为 definitions JSON，后台 draft→impact→publish 三步（`definitions.go` 的 `Draft` / `Impact` / `Publish`），发布前对全量既有实体与关系做影响预演（`definitions.go` 的 `Impact`），校验含端点 kind/type、对称、无环、基数、字段白名单（`relations.go` 的 `validateRelation` 与 `validateRelationAttributes`）；种子全部由 `defaults.go` 的 `addRel` 生成。**限制**：固定 kind 集不可扩展（`types.go` 的 `Kinds` 常量 + 迁移里的 CHECK），无法通过 GUI 新增实体骨架；关系属性只能引用已有 `Fields`，字段类型集固定（`validation.go` 的 `validateField` 类型分支）；字段 code 有保留字黑名单（`validation.go` 的 `reserved`）。 |
+| (e) 关系类型与字段可由后台 GUI 扩展而不改代码 | **部分支持** | 已支持：关系/字段/类型/词表/模板均为 definitions JSON，后台 draft→impact→publish 三步（`definitions.go` 的 `Draft` / `Impact` / `Publish`），发布前对全量既有实体与关系做影响预演（`definitions.go` 的 `Impact`），校验含端点 kind/type、对称、无环、基数、字段白名单（`relations.go` 的 `validateRelation` 与 `validateRelationAttributes`）；种子全部由 `defaults.go` 的 `addRel` 生成。**注意执行口径**：机制齐备，但当前已发布的 29 条关系里 `source_types` / `target_types` 均为 `null`、`max_outgoing` / `max_incoming` 均为 `0`、`symmetric` 均为 `false`，所以类型白名单、基数上限与对称判重这三项在现行定义下不会触发；端点 kind 与无环校验是实际生效的两项。**限制**：固定 kind 集不可扩展（`types.go` 的 `Kinds` 常量 + 迁移里的 CHECK），无法通过 GUI 新增实体骨架；关系属性只能引用已有 `Fields`，字段类型集固定（`validation.go` 的 `validateField` 类型分支）；字段 code 有保留字黑名单（`validation.go` 的 `reserved`）。 |
 | (f) 通用巨型多媒体模型（不为特定媒体建特例） | **已支持** | 无 `media_type` 枚举与树状分类，媒体差异由类型种子、模板种子、词表与关系线表达；`release_subjects` 支持一个 Release 归属多个 Work（库结构见迁移，DTO 见 `types.go` 的 `Entity.Subjects`）。所有实体共用 `catalog.entities` 文档列，无按媒体分表。 |
 
 ## 2. 缺口与风险
@@ -46,7 +46,7 @@
    - 建议方向：若确需 per-pressing 署名/标题覆盖，优先在 definitions 增加 track 字段（如 `title_override`、`artist_credit`）走后台配置，而不是加列。
 
 5. **relations 表无数据库级端点/类型约束**
-   - 现状：`catalog.relations.type` 为 text，端点 FK 只到 `entities(id)`，未约束 kind 组合（`backend/migrations/000001_catalog_core.up.sql`）；全部端点 kind/type、无环、基数、重复判定逻辑都在应用层（`relations.go` 的 `validateRelation`），并依赖全局 advisory lock（`store.go` 的写事务串行化）串行化。
+   - 现状：`catalog.relations.type` 为 text，端点 FK 只到 `entities(id)`，未约束 kind 组合（`backend/migrations/000001_catalog_core.up.sql`）；全部端点 kind/type、无环、基数、重复判定逻辑都在应用层（`relations.go` 的 `validateRelation`），并依赖全局 advisory lock（`store.go` 的写事务串行化）串行化。其中端点 kind 与无环是现行定义下实际生效的校验，类型白名单与基数按当前 29 条关系的定义值（全 `null` / 全 `0`）不会触发。
    - 影响：直连 SQL 或未来并发入口可写入非法边；查询 `relations` 时按 `historical=true` 逐条校验、失败静默跳过（`relations.go` 的 `relations` 读路径；关系码本身已删除的边仍保留），非法边表现为“读不到”而非报错，难排查。
    - 建议方向：保持应用层校验为主，但考虑把“被静默跳过的非法边”纳入日志或运维巡检；关系表可评估加 `CHECK(source_id<>target_id)` 之外的最小约束。
 
