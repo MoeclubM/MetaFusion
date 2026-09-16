@@ -466,19 +466,9 @@ export default function HomePage() {
           <div>
             <span>© 2026 MetaFusion · Open Metadata &amp; Resource Sharing Platform</span>
           </div>
+          {/* 这里只留顶栏没有的入口：/landing 与 /explore、/community、/docs/catalog
+              都已由顶栏 Logo 与主导航覆盖，不再重复。 */}
           <div className="flex items-center gap-4 flex-wrap">
-            <Link href="/landing" className="hover:text-white transition-colors duration-fast ease-soft">
-              {t("home.footerAbout")}
-            </Link>
-            <Link href="/explore" className="hover:text-white transition-colors duration-fast ease-soft">
-              {t("home.footerExplore")}
-            </Link>
-            <Link href="/community" className="hover:text-white transition-colors duration-fast ease-soft">
-              {t("home.footerCommunity")}
-            </Link>
-            <Link href="/docs/catalog" className="hover:text-white transition-colors duration-fast ease-soft">
-              {t("home.footerDocs")}
-            </Link>
             <a href="/developers" className="hover:text-white transition-colors duration-fast ease-soft">
               {t("home.footerApi")}
             </a>
