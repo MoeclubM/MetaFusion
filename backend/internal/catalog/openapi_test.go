@@ -104,3 +104,60 @@ func TestOpenAPIReverseCoverage(t *testing.T) {
 		}
 	}
 }
+
+// 路径模板变量与参数声明必须一一对应：{code} 这类变量漏声明会让文档成为无效 OpenAPI，
+// 客户端（Scalar / Swagger / 生成器）解析路径参数时拿不到名字，只能猜。
+func TestOpenAPIPathParametersMatchTemplates(t *testing.T) {
+	doc := OpenAPI()
+	for path, ops := range doc["paths"].(map[string]any) {
+		want := pathTemplateParams(path)
+		for method, op := range ops.(map[string]any) {
+			declared := map[string]bool{}
+			if params, ok := op.(map[string]any)["parameters"].([]any); ok {
+				for _, p := range params {
+					pm, _ := p.(map[string]any)
+					if pm["in"] != "path" {
+						continue
+					}
+					if name, ok := pm["name"].(string); ok {
+						declared[name] = true
+					}
+				}
+			}
+			for _, name := range want {
+				if !declared[name] {
+					t.Fatalf("%s %s: 路径变量 {%s} 没有对应的 in=path 参数声明", method, path, name)
+				}
+			}
+			for name := range declared {
+				if !contains(want, name) {
+					t.Fatalf("%s %s: 参数 %q 不在路径模板里", method, path, name)
+				}
+			}
+		}
+	}
+}
+
+// GET /catalog/definitions 的响应比 DefinitionVersion 多一个 kinds（handler 拼的骨架名，
+// 见 http.go：288）。文档必须表达出来：该 schema 声明 additionalProperties:false，
+// 漏写会让按文档做严格校验的客户端判失败。
+func TestOpenAPIDefinitionsResponseIncludesKinds(t *testing.T) {
+	doc := OpenAPI()
+	op := doc["paths"].(map[string]any)["/catalog/definitions"].(map[string]any)["get"].(map[string]any)
+	resp := op["responses"].(map[string]any)["200"].(map[string]any)["content"].(map[string]any)["application/json"].(map[string]any)["schema"].(map[string]any)
+	ref, _ := resp["$ref"].(string)
+	name := strings.TrimPrefix(ref, "#/components/schemas/")
+	if name == "" || name == "DefinitionVersion" {
+		t.Fatalf("响应 schema 仍是 %q，漏掉 kinds", name)
+	}
+	schemas := doc["components"].(map[string]any)["schemas"].(map[string]any)
+	props, ok := schemas[name].(map[string]any)["properties"].(map[string]any)
+	if !ok {
+		t.Fatalf("%s 不是对象 schema", name)
+	}
+	for _, k := range []string{"id", "state", "base_version", "document", "created_at", "kinds"} {
+		if props[k] == nil {
+			t.Fatalf("%s schema 缺 %s 字段", name, k)
+		}
+	}
+}

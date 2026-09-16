@@ -6,6 +6,24 @@ import (
 	"time"
 )
 
+// pathTemplateParams 提取路径里的模板变量名（/a/{id}/b/{code} → [id code]），
+// 保持出现顺序并去重，供 OpenAPI 逐个声明 in=path 参数。
+func pathTemplateParams(path string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, seg := range strings.Split(path, "{") {
+		i := strings.Index(seg, "}")
+		if i <= 0 {
+			continue
+		}
+		if name := seg[:i]; name != "" && !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
+}
+
 // OpenAPI derives DTO schemas from the same structs decoded by the handlers.
 // Dynamic attributes are further constrained by the published definitions endpoint.
 func OpenAPI() map[string]any {
@@ -76,8 +94,14 @@ func OpenAPI() map[string]any {
 		if auth {
 			op["security"] = []any{map[string]any{"session": []string{}}, map[string]any{"bearer": []string{}}}
 		}
-		if strings.Contains(path, "{id}") {
-			op["parameters"] = []any{map[string]any{"name": "id", "in": "path", "required": true, "schema": map[string]any{"type": "string"}}}
+		// 路径模板变量必须逐个声明：只声明 {id} 会让 {code} 这类路径留下
+		// "路径里有模板变量、参数列表里没有"的空洞（OpenAPI 3.0 里属于无效文档）。
+		if names := pathTemplateParams(path); len(names) > 0 {
+			list := make([]any, 0, len(names))
+			for _, name := range names {
+				list = append(list, map[string]any{"name": name, "in": "path", "required": true, "schema": map[string]any{"type": "string"}})
+			}
+			op["parameters"] = list
 		}
 		if request != "" {
 			op["requestBody"] = map[string]any{"required": true, "content": map[string]any{"application/json": map[string]any{"schema": map[string]any{"$ref": "#/components/schemas/" + request}}}}
@@ -88,8 +112,19 @@ func OpenAPI() map[string]any {
 		paths[path].(map[string]any)[method] = op
 	}
 	schemas["Result"] = map[string]any{"type": "object", "additionalProperties": true}
+	// GET /catalog/definitions 的实际响应是 DefinitionVersion + kinds（骨架多语言名，
+	// 见 http.go 的 handler）。直接复用 DefinitionVersion 会漏掉 kinds，而该 schema
+	// 声明了 additionalProperties:false，客户端按文档做严格校验就会失败。
+	schemas["PublishedDefinitions"] = map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
+		"id":           schema(reflect.TypeOf(int64(0))),
+		"state":        schema(reflect.TypeOf("")),
+		"base_version": schema(reflect.TypeOf(int64(0))),
+		"document":     schema(reflect.TypeOf(Definitions{})),
+		"created_at":   schema(reflect.TypeOf(time.Time{})),
+		"kinds":        schema(reflect.TypeOf(map[string]KindRecord{})),
+	}}
 	for _, r := range [][6]string{
-		{"/catalog/definitions", "get", "Published dynamic definitions plus the fixed entity-skeleton names (multilingual kinds)", "", "DefinitionVersion", ""}, {"/catalog/entities", "get", "Entity search (kind/kinds/q/type/types/status/work_id/content_unit_id/release_id/medium_id/parent_id/field/value/tags; field supports dotted paths like attachments.store or locator.path, structural locator./inclusion_attributes./subject_attributes. compile to track_contents/release_subjects EXISTS; items + real COUNT total; 120/min per IP)", "", "Result", ""}, {"/catalog/entities", "post", "Create entity with evidence (supports Idempotency-Key, 24h)", "Edit", "Entity", "auth"},
+		{"/catalog/definitions", "get", "Published dynamic definitions plus the fixed entity-skeleton names (multilingual kinds)", "", "PublishedDefinitions", ""}, {"/catalog/entities", "get", "Entity search (kind/kinds/q/type/types/status/work_id/content_unit_id/release_id/medium_id/parent_id/field/value/tags; field supports dotted paths like attachments.store or locator.path, structural locator./inclusion_attributes./subject_attributes. compile to track_contents/release_subjects EXISTS; items + real COUNT total; 120/min per IP)", "", "Result", ""}, {"/catalog/entities", "post", "Create entity with evidence (supports Idempotency-Key, 24h)", "Edit", "Entity", "auth"},
 		{"/catalog/tags", "get", "Tag frequency aggregation over published entities' attributes.tags (q filter, limit<=500)", "", "Result", ""},
 		{"/catalog/entities/{id}", "get", "Read visible entity", "", "Entity", ""}, {"/catalog/entities/{id}", "put", "Replace entity with optimistic version check", "Edit", "Entity", "auth"}, {"/catalog/entities/{id}/resolve", "get", "Resolve merged identity", "", "Entity", ""}, {"/catalog/entities/{id}/lifecycle", "post", "Merge or retire (requires catalog.lifecycle.manage)", "LifecycleEdit", "Entity", "auth"},
 		{"/catalog/entities/{id}/revisions", "get", "Read visible revision history", "", "Result", ""}, {"/catalog/entities/{id}/relations", "get", "Read contextual forward and reverse relations", "", "Result", ""}, {"/catalog/entities/{id}/occurrences", "get", "Read own reverse inclusions, scoped by entity kind (expression=itself, content_unit=its expressions, work=its expressions)", "", "Result", ""}, {"/catalog/expressions/details", "post", "Batch expression details (entity + own inclusions + same-content-unit siblings + credit) for release pages; JSON body {ids:[...]}", "Result", "Result", ""}, {"/catalog/external-databases", "get", "List active external authority database definitions", "", "Result", ""}, {"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
