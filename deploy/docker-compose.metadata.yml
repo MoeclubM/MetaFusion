@@ -20,7 +20,9 @@ services:
     image: metafusion-catalog-backend:${METAFUSION_TAG:-local}
     build:
       context: ../backend
-      target: catalog-server
+      # 目录服务的运行镜像就是 backend/Dockerfile 的 server 阶段（没有 catalog-server 阶段，
+      # 写错会让该编排在 build 时报 target stage could not be found，而 config 检查发现不了）。
+      target: server
       labels:
         io.metafusion.project: metafusion
     container_name: metafusion-backend
