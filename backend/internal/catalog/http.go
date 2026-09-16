@@ -501,8 +501,12 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.Compare(c.Request.Context(), strings.Split(c.Query("ids"), ","), user(c))
 		respond(c, gin.H{"items": v}, err)
 	})
+	// 导入端点按 catalog.import.submit 收口（账号服务已把该码分配给目录编辑/目录管理员组）：
+	// 预览与落库同权限——两者都按载荷里的来源 ID 出站抓取，匿名预览是免费的出站放大面。
+	// 预览另有分集分页与 ≤8 并发详情抓取，因此按 /compare 同档加 10/min 限流；
+	// 顺序为先鉴权后限流：限流桶按 IP+路由计数，不该被未授权流量挤占。
 	imp := api.Group("/importer")
-	imp.POST("/preview", func(c *gin.Context) {
+	imp.POST("/preview", required(PermissionImportSubmit), routeLimiter(10), func(c *gin.Context) {
 		var in ImporterPreviewRequest
 		if !body(c, &in) {
 			return
@@ -518,7 +522,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		respond(c, nil, err)
 	})
-	imp.POST("/import", required(""), func(c *gin.Context) {
+	imp.POST("/import", required(PermissionImportSubmit), func(c *gin.Context) {
 		var in ImporterImportRequest
 		if !body(c, &in) {
 			return
@@ -526,7 +530,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.Import(c.Request.Context(), in, *user(c))
 		respond(c, v, err)
 	})
-	cat.POST("/relations", required(""), func(c *gin.Context) {
+	// 关系写端点强制 catalog.relation.edit：与实体编辑分开的码（账号服务已分配），
+	// 端点级闸门挡住无码者的写请求，细粒度两端判定仍在 SaveRelation（canWriteRelation/canAttachToTarget）。
+	cat.POST("/relations", required(PermissionRelationEdit), func(c *gin.Context) {
 		// 幂等命中直接返回首创结果, 不建重复关系。
 		if cached, ok := idemLookup(c); ok {
 			c.JSON(200, cached)
@@ -546,7 +552,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		respond(c, v, err)
 	})
-	cat.PUT("/relations/:id", required(""), func(c *gin.Context) {
+	cat.PUT("/relations/:id", required(PermissionRelationEdit), func(c *gin.Context) {
 		var in RelationEdit
 		if !body(c, &in) {
 			return
@@ -555,7 +561,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.SaveRelation(c.Request.Context(), in, *user(c))
 		respond(c, v, err)
 	})
-	cat.DELETE("/relations/:id", required(""), func(c *gin.Context) {
+	cat.DELETE("/relations/:id", required(PermissionRelationEdit), func(c *gin.Context) {
 		var in LifecycleEdit
 		if !body(c, &in) {
 			return

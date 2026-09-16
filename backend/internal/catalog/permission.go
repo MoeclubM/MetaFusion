@@ -11,15 +11,15 @@ package catalog
 const (
 	// PermissionEntityEdit 编辑目录实体：维护自己创建的条目，并协作维护公开条目。
 	PermissionEntityEdit = "catalog.entity.edit"
-	// PermissionRelationEdit 编辑实体关系。关系写入口径当前仍由 PermissionEntityEdit 覆盖
-	// （与旧 editor 同档）；本码已在账号服务的组里分配，尚未在目录侧单独强制。
+	// PermissionRelationEdit 编辑实体关系：POST/PUT/DELETE /catalog/relations 的路由闸门，
+	// 与实体编辑分开。两端细粒度判定（canWriteRelation/canAttachToTarget）仍按实体口径复核。
 	PermissionRelationEdit = "catalog.relation.edit"
 	// PermissionDefinitionsManage 管理动态定义：起草、影响面校验与发布。
 	PermissionDefinitionsManage = "catalog.definitions.manage"
 	// PermissionLifecycleManage 审核与生命周期：删除/合并，以及处置他人的未发布条目。
 	PermissionLifecycleManage = "catalog.lifecycle.manage"
-	// PermissionImportSubmit 提交外部导入。导入端点当前只要求登录（未按码收口）；
-	// 本码已在账号服务的组里分配，尚未在目录侧强制。
+	// PermissionImportSubmit 提交外部导入：预览与落库端点同权（预览同样按载荷出站抓取），
+	// 见 http.go 的 /importer 路由。
 	PermissionImportSubmit = "catalog.import.submit"
 	// PermissionShelvesManage 管理货架：管理端点，以及货架求值时预览未发布条目。
 	PermissionShelvesManage = "catalog.shelves.manage"
