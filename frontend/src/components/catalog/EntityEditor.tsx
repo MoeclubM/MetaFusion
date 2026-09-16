@@ -11,11 +11,15 @@ import { RelationEditorField, type RelationDraft } from "@/components/editor/Rel
 import { effectiveSchemeFields, getFieldName, matchSchemes } from "@/lib/definitions";
 export function EntityEditor({
   initial,
+  initialKind,
   onSaved,
   initialEditNote = "",
   initialSources,
 }: {
   initial?: Entity;
+  /** 新建时的预选层级（来自 /new?kind=…，如贡献页与 /works/new 等旧入口重定向）；
+   *  只接受骨架里的合法层级，非法值回落到 emptyEntity 的默认值。 */
+  initialKind?: string;
   onSaved?: (e: Entity) => void;
   initialEditNote?: string;
   initialSources?: Source[];
@@ -26,7 +30,7 @@ export function EntityEditor({
   // definitions：定位字段等由它声明，避免编辑器写死字段码。
   const defs = definition?.document;
   const [e, setE] = useState<Entity>(() => ({
-    ...emptyEntity(initial?.kind),
+    ...emptyEntity(initial?.kind || (initialKind && kinds.includes(initialKind) ? initialKind : undefined)),
     ...initial,
     types: initial?.types || [],
     attributes: initial?.attributes || {},
