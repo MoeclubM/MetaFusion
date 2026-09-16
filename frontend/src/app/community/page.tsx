@@ -34,6 +34,7 @@ import {
   Bookmark,
   Film,
   Music2,
+  RotateCw,
 } from "lucide-react";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { PageContainer } from "@/components/ui/PageShell";
@@ -82,6 +83,8 @@ function CommunityContent() {
  const [activeTab, setActiveTab] = useState<"latest" | "top">("latest");
  const [topics, setTopics] = useState<DiscussionTopic[]>([]);
  const [loading, setLoading] = useState(true);
+ // 失败与“没有主题”必须分开：失败要说清并可重试，不能伪装成空列表或永远停在加载中。
+ const [loadError, setLoadError] = useState<string | null>(null);
  const [searchFilter, setSearchFilter] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [boardDropdownOpen, setBoardDropdownOpen] = useState(false);
@@ -169,6 +172,10 @@ function CommunityContent() {
 
  const loadTopics = async () => {
  setLoading(true);
+ setLoadError(null);
+ // 请求挂住时 loading 必须有终态，否则列表永远停在“加载中”。
+ const controller = new AbortController();
+ const timer = setTimeout(() => controller.abort(), 15000);
  try {
  const params = new URLSearchParams();
  if (selectedBoard && selectedBoard !== "all") {
@@ -189,7 +196,8 @@ function CommunityContent() {
  params.append("tag", filterTagName);
  }
  const res = await fetchApi<{ items: DiscussionTopic[]; total: number }>(
- `/community/topics?${params.toString()}`
+ `/community/topics?${params.toString()}`,
+ { signal: controller.signal }
  );
  let list = res.items || [];
  if (activeTab === "top") {
@@ -198,7 +206,9 @@ function CommunityContent() {
  setTopics(list);
  } catch {
  setTopics([]);
+ setLoadError(t("community.loadFailed"));
  } finally {
+ clearTimeout(timer);
  setLoading(false);
  }
  };
@@ -214,14 +224,14 @@ function CommunityContent() {
  const currentBoard = getBoard(selectedBoard);
 
  return (
- <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white text-sm">
+ <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white text-sm">
  <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
  <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <Navbar />
 
  {/* Forum layout: sidebar + topic stream */}
- <PageContainer className="relative z-10 flex-1 flex items-stretch">
+ <PageContainer className="relative z-10 flex-1 flex items-stretch lg:gap-6">
  {/* ===================== Left board sidebar ===================== */}
  {/* Desktop */}
  <aside className="hidden lg:flex w-[280px] shrink-0 flex-col border-r border-line bg-background sticky top-[var(--mf-header-h)] h-[calc(100vh-var(--mf-header-h))] overflow-hidden">
@@ -701,6 +711,17 @@ function CommunityContent() {
 
  {loading ? (
  <div className="py-16 text-center text-gray-500 font-mono text-sm">{t("common.loadingTopics")}</div>
+ ) : loadError ? (
+ <div className="py-16 text-center space-y-3">
+ <p className="text-sm text-rose-300">{loadError}</p>
+ <button
+ onClick={loadTopics}
+ className="px-3.5 py-1.5 rounded-md bg-white hover:bg-gray-200 text-black text-sm font-bold inline-flex items-center gap-2 transition-colors duration-fast ease-soft"
+ >
+ <RotateCw className="w-4 h-4" />
+ {t("common.retry")}
+ </button>
+ </div>
  ) : topics.length === 0 ? (
  <div className="py-20 text-center text-gray-500 space-y-2">
  <p className="text-sm">{t("community.noTopics")}</p>
