@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { TabPanel } from "@/components/ui/TabPanel";
 
 export interface TabItem {
   /** 面板标识，同时作为 URL hash，便于分享与直达。 */
@@ -162,14 +163,15 @@ export function DetailTabs({
   return (
     <div className={className}>
       <TabBar items={tabs} active={current.id} onSelect={select} ariaLabel={ariaLabel} />
-      <div
+      {/* 面板重挂载（key）与页签条→内容间距都由 TabPanel 统一。 */}
+      <TabPanel
+        activeKey={current.id}
         role="tabpanel"
         id={`panel-${current.id}`}
-        aria-labelledby={`tab-${current.id}`}
-        className="pt-6"
+        labelledBy={`tab-${current.id}`}
       >
         {current.content}
-      </div>
+      </TabPanel>
     </div>
   );
 }

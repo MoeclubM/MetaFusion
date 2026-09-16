@@ -1,6 +1,7 @@
 "use client";
 
 import styles from "./page.module.css";
+import { PageShell } from "@/components/ui/PageShell";
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
@@ -395,7 +396,7 @@ const releaseFacets = useMemo(
  <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <Navbar />
- <div className="relative z-10 max-w-page mx-auto px-4 py-20 text-center text-sm text-gray-500">{t("common.notFoundWork")}</div>
+ <PageShell width="narrow" center className="py-20" contentClassName="text-sm text-gray-500">{t("common.notFoundWork")}</PageShell>
  </div>
  );
  }
@@ -418,7 +419,11 @@ const releaseFacets = useMemo(
  return (
  <div className="min-h-screen bg-background text-foreground">
  <Navbar />
- <main className={styles.page}>
+ <PageShell
+   width="page"
+   contentClassName={styles.page}
+   header={
+   <div className={styles.page}>
    <div className={styles.breadcrumb}>
      <Link href="/explore">{t("work.detail.explore")}</Link><span>/</span><span>{title}</span>
    </div>
@@ -452,6 +457,9 @@ const releaseFacets = useMemo(
        </EntityActionToolbar>
      </div>
    </header>
+   </div>
+   }
+ >
    <div className={styles.layout}>
      <aside className={styles.sidebar}>
        <div className={styles.cover}>
@@ -745,7 +753,7 @@ const releaseFacets = useMemo(
  )}
  </section>
    </div>
- </main>
+ </PageShell>
 
  {/* Revision History & Diff Modal */}
  <RevisionHistoryModal

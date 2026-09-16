@@ -11,6 +11,7 @@ import { WorkFacts } from "@/components/work/WorkFacts";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
 import { GroupAttributeInline, LocatorInline } from "@/components/catalog/TemplateAttributeSections";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
+import { PageShell } from "@/components/ui/PageShell";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ArrowLeft, ArrowRight, FileText, HardDrive, Layers } from "lucide-react";
 
@@ -122,9 +123,9 @@ export default function MediumDetailPage() {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
         <Navbar />
-        <main className="mf-enter relative z-10 max-w-page mx-auto px-4 py-20 text-center font-mono text-xs text-gray-500">
+        <PageShell width="narrow" center className="py-20" contentClassName="font-mono text-xs text-gray-500">
           {t("medium.detail.notFound")}
-        </main>
+        </PageShell>
       </div>
     );
   }
@@ -135,7 +136,9 @@ export default function MediumDetailPage() {
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-violet-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="relative z-10 flex-1">
         <Navbar />
-        <main className="mf-enter max-w-page mx-auto px-4 py-6 w-full space-y-5">
+        <PageShell
+          width="page"
+          header={
           <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500 flex-wrap">
             {work && work.id && (
               <>
@@ -156,7 +159,8 @@ export default function MediumDetailPage() {
             )}
             <span className="text-text-strong truncate">{mediumTitle}</span>
           </div>
-
+          }
+        >
           <section className="p-5 sm:p-7 rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft space-y-4">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-500 grid place-items-center shrink-0">
@@ -260,7 +264,7 @@ export default function MediumDetailPage() {
               </div>
             )}
           </section>
-        </main>
+        </PageShell>
       </div>
     </div>
   );

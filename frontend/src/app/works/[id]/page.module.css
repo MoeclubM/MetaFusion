@@ -1,8 +1,7 @@
+/* 只保留页内配色作用域：宽度、居中与内边距一律由 PageShell 提供，
+   否则同一实体在 /works/[id] 与 /catalog/[id] 两条路由下左边界不一致。 */
 .page {
   --detail-muted: #6b6b76;
-  width: min(1160px, 100%);
-  margin: 0 auto;
-  padding: 24px 28px 64px;
 }
 
 .breadcrumb { display: flex; gap: 10px; font-size: 12px; color: var(--detail-muted); min-width: 0; }
@@ -39,8 +38,6 @@
 .content :global(.font-mono), .headerBottom :global(.font-mono), .sidebar :global(.font-mono) { font-family: inherit; }
 
 @media (max-width: 767px) {
-  .page {
-  --detail-muted: #6b6b76; padding: 18px 18px 40px; }
   .header { padding-top: 20px; }
   .layout { grid-template-columns: minmax(0, 1fr); gap: 30px; }
   .sidebar { grid-template-columns: 130px minmax(0, 1fr); gap: 20px; }

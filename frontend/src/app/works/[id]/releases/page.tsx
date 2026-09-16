@@ -9,6 +9,7 @@ import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/compone
 import { useDefinitions, getTermName } from "@/lib/definitions";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ArrowLeft, Search, ChevronLeft, ChevronRight, ArrowRightLeft, ArrowUpRight, X } from "lucide-react";
+import { PageShell } from "@/components/ui/PageShell";
 
 // vocabLabel：枚举字段值按 definitions 声明的词表本地化（不写死字段码清单），
 // 缺词表命中时原样返回。用于版本类别/批次/包装等所有枚举属性列。
@@ -125,7 +126,9 @@ export default function WorkReleasesPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      <main className="mf-enter max-w-page mx-auto px-4 py-6 w-full space-y-5 flex-1">
+      <PageShell
+        width="page"
+        header={
         <div className="flex items-center gap-2 font-mono text-[11px] text-gray-500">
           <Link href={`/works/${workId}`} className="hover:text-white inline-flex items-center gap-1">
             <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
@@ -134,7 +137,8 @@ export default function WorkReleasesPage() {
           <span className="text-white/20">/</span>
           <span className="text-white">{t("work.releases.allReleases")}</span>
         </div>
-
+        }
+      >
         <div className="rounded-card border border-white/[0.06] bg-surface/70 backdrop-blur overflow-hidden">
           <div className="px-4 md:px-5 py-4 border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h1 className="font-display text-xl tracking-tight text-white">{t("work.releases.releaseCount", { count: total })}</h1>
@@ -255,7 +259,7 @@ export default function WorkReleasesPage() {
             </>
           )}
         </div>
-      </main>
+      </PageShell>
     </div>
   );
 }

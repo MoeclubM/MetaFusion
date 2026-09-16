@@ -17,6 +17,8 @@ import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { GraphNode, GraphLink, FavoriteTargetType } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
+import { PageShell, PageContainer } from "@/components/ui/PageShell";
+import { TabPanel } from "@/components/ui/TabPanel";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
@@ -631,7 +633,7 @@ export function EntityDetailView({ id }: { id: string }) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
-        <main className="mf-enter relative z-10 max-w-narrow mx-auto px-4 py-20 text-center space-y-4">
+        <PageShell width="narrow" center>
           {/* 后端读取失败给的是稳定码（not_found）；裸码不能直接给用户看。 */}
           <div className="font-mono text-sm text-red-500 dark:text-red-400">
             {!error || isNotFoundError(error) ? t("entity.detail.notFound") : localizeCatalogError(error, t)}
@@ -643,7 +645,7 @@ export function EntityDetailView({ id }: { id: string }) {
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>{t("nav.catalog")}</span>
           </Link>
-        </main>
+        </PageShell>
       </div>
     );
   }
@@ -652,7 +654,7 @@ export function EntityDetailView({ id }: { id: string }) {
   if (editing) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
-        <div className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md border-b border-line px-4 py-2.5 flex items-center justify-between max-w-page mx-auto w-full">
+        <PageContainer className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md border-b border-line py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -670,8 +672,8 @@ export function EntityDetailView({ id }: { id: string }) {
           <span className="px-2 py-0.5 rounded-sm bg-primary/10 text-primary text-[10px] font-mono font-semibold uppercase">
             {t("entity.detail.editEntity")}
           </span>
-        </div>
-        <main className="mf-enter relative z-10 max-w-narrow mx-auto px-4 py-6 w-full">
+        </PageContainer>
+        <PageShell width="narrow">
           <EntityEditor
             initial={entity}
             onSaved={(updated) => {
@@ -680,7 +682,7 @@ export function EntityDetailView({ id }: { id: string }) {
               void load();
             }}
           />
-        </main>
+        </PageShell>
       </div>
     );
   }
@@ -748,8 +750,11 @@ export function EntityDetailView({ id }: { id: string }) {
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
 
-      <main className="mf-enter relative z-10 max-w-page mx-auto px-4 py-6 w-full space-y-4 flex-1 pb-[max(3rem,env(safe-area-inset-bottom))]">
-        {/* Top Breadcrumb Navigation */}
+      {/* Top Breadcrumb Navigation：作为页头交给外壳，页头到正文的间距由外壳统一给。 */}
+      <PageShell
+        width="page"
+        className="pb-[max(3rem,env(safe-area-inset-bottom))]"
+        header={
         <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-gray-500 border-b border-line-subtle pb-2.5">
           <div className="flex items-center gap-1.5 truncate">
             <Link href="/" className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
@@ -807,6 +812,8 @@ export function EntityDetailView({ id }: { id: string }) {
           </div>
         </div>
 
+        }
+      >
         {/* Master 2-Column Wiki Layout (Inspired by 2cd76d44) */}
         <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-8 items-start">
           {/* ============================================================ */}
@@ -1036,8 +1043,16 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 1: Overview & Summary                                */}
             {/* ============================================================ */}
-            {/* key 随页签变化：切换时重挂载以重放 .mf-tabpanel 进入动画 */}
-            <div key={active} role="tabpanel" id={`panel-${active}`} aria-labelledby={`tab-${active}`} className="mf-tabpanel space-y-4">
+            {/* 页签面板：重挂载 + 重放进入动画由 TabPanel 负责；页签条在本卡片内，
+                间距已由卡片内边距给出，故不再额外加顶距。 */}
+            <TabPanel
+              activeKey={active}
+              role="tabpanel"
+              id={`panel-${active}`}
+              labelledBy={`tab-${active}`}
+              spacing="none"
+              className="space-y-4"
+            >
             {active === "overview" && (
             <section id="overview" className="rounded-xl border border-line bg-surface p-4 sm:p-5 space-y-4 shadow-soft">
               <div className="flex items-center gap-2 border-b border-line-subtle pb-2.5">
@@ -1526,7 +1541,7 @@ export function EntityDetailView({ id }: { id: string }) {
             {active === "resources" && defs?.structure?.[String(entity.kind || "")]?.resources === true && (
               <EntityResourceFiles entityId={entity.id || id} />
             )}
-            </div>
+            </TabPanel>
 
             {/* ============================================================ */}
             {/* Community discussions & collections (below the tabs, not a tab)      */}
@@ -1700,7 +1715,7 @@ export function EntityDetailView({ id }: { id: string }) {
             )}
           </div>
         </div>
-      </main>
+      </PageShell>
     </div>
   );
 }

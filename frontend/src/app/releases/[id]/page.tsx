@@ -14,6 +14,7 @@ import {
   getTermName,
 } from "@/lib/definitions";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
+import { PageShell } from "@/components/ui/PageShell";
 import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
 import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateAttributeSections";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
@@ -419,10 +420,10 @@ export default function ReleaseDetailPage() {
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <Navbar />
-        <div className="relative z-10 max-w-page mx-auto px-4 py-20 text-center font-mono text-xs text-gray-500">
+        <PageShell width="narrow" center className="py-20" contentClassName="font-mono text-xs text-gray-500">
           {/* 裸错误码 not_found 不是给用户看的文案，统一走页面自己的"未找到"。 */}
           {!error || isNotFoundError(error) ? t("common.notFoundRelease") : localizeCatalogError(error, t)}
-        </div>
+        </PageShell>
       </div>
     );
   }
@@ -661,7 +662,10 @@ export default function ReleaseDetailPage() {
     <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden selection:bg-primary selection:text-white">
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
       <Navbar />
-      <main className="mf-enter relative z-10 max-w-page mx-auto px-4 py-6 w-full space-y-5 flex-1 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <PageShell
+        width="page"
+        className="pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+        header={
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
           {primaryWork && (
             <>
@@ -674,7 +678,8 @@ export default function ReleaseDetailPage() {
           )}
           <span className="text-text-strong truncate">{releaseTitle}</span>
         </div>
-
+        }
+      >
         <section className="p-4 sm:p-6 rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
             <div className="space-y-1.5 min-w-0">
@@ -1094,7 +1099,7 @@ export default function ReleaseDetailPage() {
             {t("release.detail.openInCatalog")} <ExternalLink className="w-3 h-3" strokeWidth={1.5} />
           </Link>
         </div>
-      </main>
+      </PageShell>
     </div>
   );
 }
