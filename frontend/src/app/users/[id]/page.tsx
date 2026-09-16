@@ -370,8 +370,8 @@ export default function UserDetailPage() {
           </div>
         )}
 
-        {/* Content Box */}
-        <div className="rounded-xl border border-line bg-surface overflow-hidden shadow-soft">
+        {/* Content Box：key 随页签变化，切换时重放 .mf-tabpanel（与详情页/管理台同一约定） */}
+        <div key={tab} className="mf-tabpanel rounded-xl border border-line bg-surface overflow-hidden shadow-soft">
           {loading ? (
             <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("common.loading")}</div>
           ) : tab === "favorites" && !favVisible ? (

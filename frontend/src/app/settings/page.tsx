@@ -204,7 +204,8 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-line bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
+        {/* key 随页签变化：切换时重挂载以重放 .mf-tabpanel 进入动画（与详情页/管理台同一约定）。 */}
+        <div key={activeTab} className="mf-tabpanel rounded-xl border border-line bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
           {activeTab === "profile" && (
             <div className="p-4 sm:p-6 space-y-4">
               {error && (
