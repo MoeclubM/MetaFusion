@@ -164,24 +164,21 @@ export default function MediumDetailPage() {
           </div>
           {/* 页面级 h1 归页头：与 /works/[id]、/releases/[id] 落同一条左基线，
               不再受卡片左内边距与图标列影响。 */}
-          <header className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-500 grid place-items-center shrink-0">
-              <HardDrive className="w-6 h-6" />
+          <header className="space-y-2">
+            {/* 图标收进徽章行：大图标列会把 h1 顶到 176px，标题必须落在内容基线上。 */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-300 font-mono text-[10px] tracking-wider">
+                <HardDrive className="w-3.5 h-3.5" />
+                {t("medium.detail.badge")}
+              </span>
+              {roleLabel && <span className="text-xs font-mono text-gray-500">{roleLabel}</span>}
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap mb-1">
-                <span className="px-2 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-300 font-mono text-[10px] tracking-wider">
-                  {t("medium.detail.badge")}
-                </span>
-                {roleLabel && <span className="text-xs font-mono text-gray-500">{roleLabel}</span>}
-              </div>
-              <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-text-strong break-words">{mediumTitle}</h1>
-              {work && (
-                <p className="text-sm text-gray-500 mt-1">
-                  {entityTitle(work, locale) || work.title}
-                </p>
-              )}
-            </div>
+            <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-text-strong break-words">{mediumTitle}</h1>
+            {work && (
+              <p className="text-sm text-gray-500">
+                {entityTitle(work, locale) || work.title}
+              </p>
+            )}
           </header>
           </div>
           }
