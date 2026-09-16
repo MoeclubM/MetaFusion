@@ -256,6 +256,20 @@ type DefinitionVersion struct {
 	Summary string `json:"summary,omitempty"`
 }
 
+// DefinitionVersionItem 是定义版本列表的一项：与 DefinitionVersion 同一批元数据，
+// document 只在 include_document=true（缺省）时随项返回，false 时整个键省略。
+// 响应顶层的 include_document 说明本次是否带文档：为 false 时客户端要看某一版文档
+// 就按 id 调 GET /admin/catalog-definitions/{id}，不必为列表拉回完整文档。
+type DefinitionVersionItem struct {
+	ID          int64        `json:"id"`
+	State       string       `json:"state"`
+	BaseVersion int64        `json:"base_version"`
+	Document    *Definitions `json:"document,omitempty"`
+	CreatedAt   time.Time    `json:"created_at"`
+	CreatedBy   string       `json:"created_by,omitempty"`
+	Summary     string       `json:"summary,omitempty"`
+}
+
 // DefinitionRollback 是一次定义回滚的结果。no_op 为真表示目标版本文档与当前已发布文档完全一致，
 // 服务端没有新建版本，id/state/base_version/created_at 描述的是既有**已发布**版本，edit_note 为空。
 type DefinitionRollback struct {

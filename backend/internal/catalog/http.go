@@ -588,9 +588,21 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, gin.H{"ok": true}, s.DeleteRelation(c.Request.Context(), c.Param("id"), in.ExpectedVersion, in.EditNote, in.Sources, *user(c)))
 	})
 	defs := api.Group("/admin/catalog-definitions", required(PermissionDefinitionsManage))
+	// include_document 缺省 true（既有调用方不变）；false 时列表项不带 document，
+	// 顶层的 include_document 说明本次响应是否含文档，前端据此决定要不要按 id 取详情。
+	// 取值非法直接 400：静默按 true 处理会让"以为瘦身了"的调用方继续拉回整份文档。
 	defs.GET("", func(c *gin.Context) {
-		v, err := s.DefinitionVersions(c.Request.Context())
-		respond(c, gin.H{"items": v}, err)
+		includeDocument := true
+		if raw, ok := c.GetQuery("include_document"); ok && strings.TrimSpace(raw) != "" {
+			v, err := strconv.ParseBool(strings.TrimSpace(raw))
+			if err != nil {
+				c.JSON(400, gin.H{"error": "invalid_payload"})
+				return
+			}
+			includeDocument = v
+		}
+		v, err := s.DefinitionVersions(c.Request.Context(), includeDocument)
+		respond(c, gin.H{"items": v, "include_document": includeDocument}, err)
 	})
 	defs.POST("", func(c *gin.Context) {
 		var in struct {

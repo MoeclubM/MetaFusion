@@ -14,24 +14,47 @@ import (
 // DefinitionVersions 返回最近一批定义版本（后台列表用）。
 // 列表项在既有字段之外补 created_by 与 summary：起草身份只在修订表里（见 revisionActors），
 // 摘要只给各分区的条目数，客户端不必为了显示"这一版有几条定义"而展开整份 document。
-func (s *Store) DefinitionVersions(ctx context.Context) ([]DefinitionVersion, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT id,state,base_version,document,created_at FROM catalog.definitions ORDER BY id DESC LIMIT 100")
+//
+// includeDocument=false 时连同文档一起瘦身：SQL 不取 document 列（只取四个分区的键数），
+// 列表项也不带 document 键——单版本数十 KB、LIMIT 100 下这是 MB 级响应的来源。
+// 摘要文本与带文档时逐字相同（definitionSummaryCounts）。
+func (s *Store) DefinitionVersions(ctx context.Context, includeDocument bool) ([]DefinitionVersionItem, error) {
+	// 分区计数在库里算：数对象键的个数，与 len(map) 同口径（服务器没有 jsonb_object_length，
+	// 用 jsonb_object_keys 的 count 子查询；分区缺失时 -> 为 NULL，jsonb_object_keys 返回 0 行即 0）。
+	columns := "id,state,base_version,created_at," +
+		"(select count(*) from jsonb_object_keys(document->'fields'))," +
+		"(select count(*) from jsonb_object_keys(document->'types'))," +
+		"(select count(*) from jsonb_object_keys(document->'relations'))," +
+		"(select count(*) from jsonb_object_keys(document->'templates'))"
+	if includeDocument {
+		columns = "id,state,base_version,created_at,document"
+	}
+	rows, err := s.DB.QueryContext(ctx, "SELECT "+columns+" FROM catalog.definitions ORDER BY id DESC LIMIT 100")
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := []DefinitionVersion{}
+	out := []DefinitionVersionItem{}
 	targets := []string{}
 	for rows.Next() {
-		var v DefinitionVersion
-		var b []byte
-		if err = rows.Scan(&v.ID, &v.State, &v.BaseVersion, &b, &v.CreatedAt); err != nil {
-			return nil, err
+		var v DefinitionVersionItem
+		if includeDocument {
+			var b []byte
+			if err = rows.Scan(&v.ID, &v.State, &v.BaseVersion, &v.CreatedAt, &b); err != nil {
+				return nil, err
+			}
+			var d Definitions
+			if err = json.Unmarshal(b, &d); err != nil {
+				return nil, err
+			}
+			v.Document, v.Summary = &d, definitionSummary(d)
+		} else {
+			var fields, types, relations, templates int
+			if err = rows.Scan(&v.ID, &v.State, &v.BaseVersion, &v.CreatedAt, &fields, &types, &relations, &templates); err != nil {
+				return nil, err
+			}
+			v.Summary = definitionSummaryCounts(fields, types, relations, templates)
 		}
-		if err = json.Unmarshal(b, &v.Document); err != nil {
-			return nil, err
-		}
-		v.Summary = definitionSummary(v.Document)
 		targets = append(targets, definitionRevisionTarget(v.ID))
 		out = append(out, v)
 	}
@@ -53,7 +76,13 @@ func (s *Store) DefinitionVersions(ctx context.Context) ([]DefinitionVersion, er
 
 // definitionSummary 生成列表用的短摘要：只报各分区条目数，顺序固定便于前端直接展示与断言。
 func definitionSummary(d Definitions) string {
-	return fmt.Sprintf("字段 %d / 类型 %d / 关系 %d / 模板 %d", len(d.Fields), len(d.Types), len(d.Relations), len(d.Templates))
+	return definitionSummaryCounts(len(d.Fields), len(d.Types), len(d.Relations), len(d.Templates))
+}
+
+// definitionSummaryCounts 是摘要的唯一格式来源：不走文档的列表查询在库里数出计数，
+// 两条路径的摘要文本必须逐字一致，否则同一版本会随 include_document 给出两种摘要。
+func definitionSummaryCounts(fields, types, relations, templates int) string {
+	return fmt.Sprintf("字段 %d / 类型 %d / 关系 %d / 模板 %d", fields, types, relations, templates)
 }
 
 // definitionRevisionTarget 是定义版本在修订/发件箱里使用的 target_id（见 audit 调用点）。

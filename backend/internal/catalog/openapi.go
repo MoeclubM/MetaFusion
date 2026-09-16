@@ -68,7 +68,7 @@ func OpenAPI() map[string]any {
 			return map[string]any{}
 		}
 	}
-	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, DefinitionRollback{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
+	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, DefinitionVersionItem{}, DefinitionRollback{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
 		schema(reflect.TypeOf(v))
 	}
 	schemas["DefinitionDraft"] = map[string]any{"type": "object", "required": []string{"document", "base_version", "edit_note", "sources"}, "properties": map[string]any{"document": schema(reflect.TypeOf(Definitions{})), "base_version": map[string]any{"type": "integer"}, "edit_note": map[string]any{"type": "string"}, "sources": schema(reflect.TypeOf([]Source{}))}}
@@ -112,6 +112,12 @@ func OpenAPI() map[string]any {
 		paths[path].(map[string]any)[method] = op
 	}
 	schemas["Result"] = map[string]any{"type": "object", "additionalProperties": true}
+	// 定义版本列表的响应形状：items 的元素类型单列（include_document=false 时每项没有 document 键），
+	// 顶层的 include_document 是本次响应是否带文档的提示。
+	schemas["DefinitionList"] = map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
+		"items":            schema(reflect.TypeOf([]DefinitionVersionItem{})),
+		"include_document": schema(reflect.TypeOf(false)),
+	}}
 	// GET /catalog/definitions 的实际响应是 DefinitionVersion + kinds（骨架多语言名，
 	// 见 http.go 的 handler）。直接复用 DefinitionVersion 会漏掉 kinds，而该 schema
 	// 声明了 additionalProperties:false，客户端按文档做严格校验就会失败。
@@ -134,7 +140,7 @@ func OpenAPI() map[string]any {
 		{"/importer/preview", "post", "Preview external catalog entry via an outbound fetch (requires catalog.import.submit, 10/min per IP; only Bangumi URLs/IDs; media_type_hint is rejected as not_supported; an invalid entity_type is rejected with invalid_entity_type, the same code /importer/import returns for the same payload)", "ImporterPreviewRequest", "ImporterPreviewResponse", "auth"},
 		{"/importer/import", "post", "Import previewed entry with evidence (requires catalog.import.submit; validated with zero writes before the first save: attribute values, unknown field codes, original_language, translation rows and date fields are checked against the published definitions with the same rules as entity saves; media/release original_language and translation rows are written to the medium/release entity; payload objects with no write path for the requested entity_type (canonical_entries/mediums/release on entity_type != work) are rejected with unsupported_field_for_entity_type instead of being ignored; download_cover=false skips remote cover refs; is_master_verified and media_type_hint are rejected; has_release=true without mediums, and a release object that declares data while mediums is empty (null or {} counts as absent, like an omitted field), are rejected with invalid_payload (mediums is the write instruction for the release chain in new_work/create_relation; a carrier-less release is only reachable through link_mode=append_release_to_work); link_mode merge_translations is rejected; an invalid entity_type is rejected with invalid_entity_type, the same code /importer/preview returns (no silent fallback to work); release.cover_image_url is honoured as a Picture on the release entity (remote URL reference only, first picture wins when an existing release is reused); payload fields with no model slot are rejected with unsupported_field_for_entity_type instead of being silently dropped: mediums[*].media_category (no such field in the model, and the preview response always reports it empty), release.cover_aspect (Picture has no aspect; ratios are a display hint), release.notes and release.catalog_metadata (no such field on the release entity) and release.language (the release type declares no language field; use original_language/translations))", "ImporterImportRequest", "ImporterImportResponse", "auth"},
 		{"/catalog/relations", "post", "Create contextual relation (requires catalog.relation.edit; supports Idempotency-Key, 24h)", "RelationEdit", "Relation", "auth"}, {"/catalog/relations/{id}", "put", "Replace relation context (requires catalog.relation.edit)", "RelationEdit", "Relation", "auth"}, {"/catalog/relations/{id}", "delete", "Remove relation with evidence (requires catalog.relation.edit)", "LifecycleEdit", "Result", "auth"},
-		{"/admin/catalog-definitions", "get", "List definition versions (requires catalog.definitions.manage); each item carries state, created_at, created_by (when a revision row exists) and a short counts summary in addition to document", "", "Result", "auth"}, {"/admin/catalog-definitions", "post", "Save immutable draft (requires catalog.definitions.manage)", "DefinitionDraft", "Result", "auth"}, {"/admin/catalog-definitions/{id}/impact", "get", "Validate draft against all current data", "", "Result", "auth"}, {"/admin/catalog-definitions/{id}/publish", "post", "Publish compatible draft (requires catalog.definitions.manage)", "LifecycleEdit", "Result", "auth"},
+		{"/admin/catalog-definitions", "get", "List definition versions (requires catalog.definitions.manage); each item carries state, created_at, created_by (when a revision row exists) and a short counts summary. include_document defaults to true and keeps the full document on every item; include_document=false omits the document key entirely (and reads no document from the database) while keeping every other metadata field, and the response-level include_document tells the client whether documents came along — read one version with GET /admin/catalog-definitions/{id}; an unparsable value is rejected with invalid_payload instead of silently returning documents", "", "DefinitionList", "auth"}, {"/admin/catalog-definitions", "post", "Save immutable draft (requires catalog.definitions.manage)", "DefinitionDraft", "Result", "auth"}, {"/admin/catalog-definitions/{id}/impact", "get", "Validate draft against all current data", "", "Result", "auth"}, {"/admin/catalog-definitions/{id}/publish", "post", "Publish compatible draft (requires catalog.definitions.manage)", "LifecycleEdit", "Result", "auth"},
 		{"/admin/catalog-definitions/{id}/rollback", "post", "Re-draft a historical definition version on top of the current published version and publish it through the same impact validation (requires catalog.definitions.manage); no_op=true returns the existing published version without writing when the document already matches; 404 when the id is not a definition version", "", "DefinitionRollback", "auth"},
 		{"/admin/external-databases", "get", "List external authority databases (requires catalog.definitions.manage)", "", "Result", "auth"},
 		{"/admin/external-databases", "post", "Create external authority database (requires catalog.definitions.manage)", "ExternalDatabase", "Result", "auth"},
@@ -187,6 +193,9 @@ func OpenAPI() map[string]any {
 	}
 	paths["/catalog/shelves/feed"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
 		qp("per_shelf", "Items per shelf, default 12, max 100", false),
+	}
+	paths["/admin/catalog-definitions"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
+		qp("include_document", "Whether each item carries its full document; default true, false omits the document key (read one version with GET /admin/catalog-definitions/{id})", false),
 	}
 	// 权限级别说明：OpenAPI security 只区分匿名/登录；管理端点的权限码在 summary 标注
 	// （见各 admin/* 与 lifecycle 行），与 http.go required(<code>) 对应，不另加字段。
