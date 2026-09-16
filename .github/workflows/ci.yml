@@ -91,6 +91,11 @@ jobs:
       - name: i18n keys sync check
         run: |
           bun -e "const fs=require('fs');const ks=f=>Object.keys(JSON.parse(fs.readFileSync('src/messages/'+f,'utf8'))).sort().join('|');const base=ks('zh-CN.json');for(const f of ['en-US.json','zh-TW.json','ja-JP.json']){if(ks(f)!==base){console.error('i18n drift: '+f);process.exit(1)}}console.log('i18n keys in sync')"
+      - name: page shell check
+        # 页面容器不得自写宽度/内边距（外壳只有 PageShell 一处）；纯 node，无需依赖。
+        working-directory: .
+        run: node scripts/check_page_shell.mjs
+
       - name: next build (via Bun)
         run: bun run build
 
