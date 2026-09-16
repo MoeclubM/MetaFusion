@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -124,8 +125,10 @@ func (s *Store) EnsureSeedDefinitions(ctx context.Context) error {
 	}
 	merged, added := mergeSeedDefinitions(v.Document, Defaults())
 	if len(added) == 0 {
+		log.Printf("definition seed merge: 无新增（当前已发布版本 id=%d）", v.ID)
 		return nil
 	}
+	log.Printf("definition seed merge: 将补入 %d 项：%v", len(added), added)
 	sys := User{ID: "system", Username: "system", Role: "admin", Permissions: []string{PermissionDefinitionsManage}}
 	note := "启动时合并新增的种子定义（只增不改）：" + strings.Join(added, "、")
 	sources := []Source{{Kind: "url", URL: "https://github.com/MoeclubM/MetaFusion", Citation: "种子定义合并：backend/internal/catalog/defaults.go"}}
