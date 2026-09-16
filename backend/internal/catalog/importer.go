@@ -1873,7 +1873,8 @@ func (s *Store) importerSaveVersioned(ctx context.Context, e Entity, expectedVer
 	if e.ExternalIDs == nil {
 		e.ExternalIDs = map[string]string{}
 	}
-	return s.Save(ctx, Edit{Entity: e, ExpectedVersion: expectedVersion, EditNote: note, Sources: sources}, actor)
+	// internal=true：导入链路是内部幂等键的唯一合法写入者（见 validation.go 的 guardImportKey）。
+	return s.Save(ctx, Edit{Entity: e, ExpectedVersion: expectedVersion, EditNote: note, Sources: sources, internal: true}, actor)
 }
 
 // assocImportKey 取关联项的导入键，**必须与落库的 external_ids.metafusion_import 格式一致**

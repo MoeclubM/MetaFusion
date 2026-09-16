@@ -480,6 +480,13 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if err = v.Document.validateExternalIDs(e); err != nil {
 			return err
 		}
+		// 内部幂等键只能由导入链路声明（见 validation.go 的 guardImportKey）：
+		// 任何登录用户都能写草稿，手工载荷抢占键会让合法导入永久撞唯一索引。
+		if !input.internal {
+			if err = guardImportKey(e.ExternalIDs, old.ExternalIDs); err != nil {
+				return err
+			}
+		}
 		if err = validateExternalIDsAgainstDB(ctx, tx, e); err != nil {
 			return err
 		}

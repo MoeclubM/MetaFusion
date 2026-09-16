@@ -77,6 +77,10 @@ type Edit struct {
 	ExpectedVersion int64    `json:"expected_version"`
 	EditNote        string   `json:"edit_note"`
 	Sources         []Source `json:"sources"`
+	// internal 标记写入来自导入链路（importer 内部构造），允许新声明内部幂等键
+	// metafusion_import。未导出是有意的：JSON 解码不填充未导出字段，客户端无法伪造
+	//（DisallowUnknownFields 会把同名 JSON 键判为未知字段）。
+	internal bool
 }
 type Relation struct {
 	ID         string         `json:"id"`

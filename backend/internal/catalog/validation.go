@@ -433,24 +433,21 @@ func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []st
 	if len(matched) == 0 {
 		return group
 	}
+	// 并集只用于"哪些子字段可用"（顺序由 group.Fields 的 map 决定，前端按 scheme 的
+	// fields 顺序展示），因此这里不需要另外累积顺序。
 	union := map[string]bool{}
 	required := map[string]bool{}
-	order := []string{}
 	for _, s := range matched {
 		for _, k := range s.Fields {
-			if !union[k] {
-				union[k] = true
-				order = append(order, k)
-			}
+			union[k] = true
 		}
 		for _, k := range s.Required {
 			required[k] = true
 		}
 	}
 	// 若全局组有 AnchorKey，自动确保 effectiveGroup 包含该锚点字段定义，双重保障
-	if group.AnchorKey != "" && group.Fields[group.AnchorKey].Enabled && !union[group.AnchorKey] {
+	if group.AnchorKey != "" && group.Fields[group.AnchorKey].Enabled {
 		union[group.AnchorKey] = true
-		order = append(order, group.AnchorKey)
 	}
 	eff := group
 	eff.Fields = map[string]Field{}
@@ -464,7 +461,6 @@ func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []st
 			eff.Fields[k] = c
 		}
 	}
-	_ = order
 	return eff
 }
 
@@ -738,9 +734,24 @@ func (d Definitions) attributes(keys []string, values map[string]any, reference 
 	return nil
 }
 
-// importerInternalKeys 是仅 importer 内部写的键：手工 POST/PUT 携带一律拒绝，
-// 防止伪造幂等键劫持他人条目。C 路若已做同口径校验则复用此处错误码，不重复建表。
+// importerInternalKeys 是仅 importer 内部写的键：它决定"重导命中哪条记录"，
+// 手工载荷带它就能抢占他人条目的键（唯一索引全库唯一，见结构基线）。
+//
+// 分层：validateExternalIDs 只管格式（离线、无写入者信息）；"谁能声明新键"由
+// guardImportKey 在 Store.Save 里按写入来源判定——导入链路经 Edit.internal 放行，
+// 手工 POST/PUT 与实例间提案一律拒绝。C 路若已做同口径校验则复用此处错误码。
 var importerInternalKeys = map[string]bool{"metafusion_import": true}
+
+// guardImportKey 阻止非导入写入**新声明或改写**内部幂等键。
+// 同值放行：PUT 是全量替换（AGENTS.md 的"先读全量再写"），已带该键的条目原样写回
+// 必须通过，否则任何一次常规编辑都会被自己的历史键挡住。
+func guardImportKey(next, prev map[string]string) error {
+	key := strings.TrimSpace(next["metafusion_import"])
+	if key == "" || key == strings.TrimSpace(prev["metafusion_import"]) {
+		return nil
+	}
+	return fmt.Errorf("invalid_import_key")
+}
 
 // validImportKey 校验幂等键格式：bangumi:{subject|person|character}:{数字id}
 // 允许派生后缀（:release、:r{hash}、:m{n}、:t{n}、:e{hash}），与 importer.go 的
