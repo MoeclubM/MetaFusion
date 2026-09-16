@@ -434,7 +434,6 @@ export default function PostComposer({
         <div className="flex items-center gap-2">
           <MessageSquare className="w-4 h-4 text-emerald-400" />
           <span className="font-bold text-white text-xs">{headerTitle}</span>
-          <span className="hidden sm:inline text-[10px] font-mono text-gray-500">{t("community.markdownReady")}</span>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -684,7 +683,6 @@ export default function PostComposer({
                 )}
               </div>
             </div>
-            <p className="text-[11px] text-gray-600 font-mono">{t("community.tagMultiHint")}</p>
           </div>
 
           <MarkdownToolbar textareaRef={contentRef} onInsert={setContentFromToolbar} t={t} />
@@ -703,9 +701,8 @@ export default function PostComposer({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2.5 border-t border-line shrink-0">
-            <span className="text-xs text-gray-500 font-mono hidden sm:inline">{t("community.markdownReady")}</span>
-            <div className="flex items-center gap-2.5 ml-auto">
+          <div className="flex items-center justify-end pt-2.5 border-t border-line shrink-0">
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => {
@@ -765,9 +762,8 @@ export default function PostComposer({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2.5 border-t border-line shrink-0">
-            <span className="text-xs text-gray-500 font-mono hidden sm:inline">{t("community.markdownReady")}</span>
-            <div className="flex items-center gap-2.5 ml-auto">
+          <div className="flex items-center justify-end pt-2.5 border-t border-line shrink-0">
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={() => {

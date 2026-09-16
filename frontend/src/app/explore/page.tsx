@@ -246,9 +246,7 @@ function ExploreInner() {
           size="lg"
           bordered
           icon={<Layers className="w-7 h-7 text-primary" />}
-          title={t("catalog.exploreTitle")}
-          subtitle={t("catalog.exploreSubtitle")}
-          subtitleClassName="text-sm text-gray-600 dark:text-gray-400"
+          title={t("navigation.explore")}
           actions={
           <>
             <Link
