@@ -203,16 +203,16 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 - 生效的矩阵是主仓库 `deploy/nginx.conf`：**审计时实测 25 条 `location`**（核对命令见 §0.2），其中账号前缀用 6 条精确匹配加 2 条正则逐条分流。**2026-09-16 补限流与探针后为 33 条**，见 §6.4。
 - ~~契约文档 §2 称"18 条 location"且表格漏收两条 location~~ **已修（2026-09-16）**：契约文档现在写 33 条，且由 `scripts/check_gateway_matrix.py` 在 CI 里与实现逐条比对。
-- **第二份矩阵**：`../metafusion-api-gateway/nginx.conf` 仍把账号前缀指向 `catalog:8080`，且没有 `/api/developer/`；而编排里的服务名是 `backend`，不存在 `catalog` 服务。该仓库没有 CI。
+- **第二份矩阵**：`../metafusion-api-gateway/nginx.conf` 仍把账号前缀指向 `catalog:8080`，且没有 `/api/developer/`；而编排里的服务名是 `backend`，不存在 `catalog` 服务。~~该仓库没有 CI~~ **已修（2026-09-16）**：旧矩阵移入 `examples/pre-cutover/` 并标注不可部署，仓库新增 CI（`bash -n` + `--self-check`），见 §7 完成表。
 - 限流只挂在两处：`deploy/nginx.conf:83,94`（auth 前缀）；`/api/community/`、`/api/records/`、`/api/oauth/`、`/api/oidc/`、`/api/developer/`、`/api/storage/` 均未挂 `limit_req`（zone 在 `:40-41` 已经定义）。
-- 网关探针段 `deploy/nginx.conf:331` 把 `/healthz|livez|ready|live|health` 全部转给 `backend:8080`，注释却写"网关自身探针，不代表任何上游可用"；而 catalog 没有 `/health`，该路径实测 404。
+- 网关探针段 `deploy/nginx.conf:331` 把 `/healthz|livez|ready|live|health` 全部转给 `backend:8080`，注释却写"网关自身探针，不代表任何上游可用"；而 catalog 当时没有 `/health`，该路径实测 404。**已修（2026-09-16）**：`backend/cmd/server/main.go` 提供 `GET /health`（返回 `{status:live,service:metafusion-catalog}`），网关探针拆成网关自身与逐上游两类。
 - 部署面仍是单体式：`deploy/docker-compose.yml` 用 `../../metafusion-*` 作构建上下文（`:139`、`:173`、`:216`、`:238` 等），全仓无 commit 锁；`.github/workflows/release.yml` 只发布 backend/migrator/frontend 三个镜像，`docs-site`、`auth`、`community`、`storage` 没有发布方，而 `deploy/docker-compose.prod.yml` 却按预构建镜像拉取。
 - 切流自检脚本 `cutover-check.sh` 的服务标记断言当前传的是占位符（子代理核对，未二次复核），等于不校验。
 
 ### 6.2 问题
 
 1. 路由矩阵有两份且已分叉，"哪份生效"取决于部署路径；矩阵与文档表格都没有自动一致性检查——已经发生过"新前缀漏加 location 就静默落回目录服务"的情形。
-2. 网关既是唯一入口，又是主仓库里的一个部署文件：网关自身没有仓库、没有 CI、没有测试。
+2. 网关既是唯一入口，又是主仓库里的一个部署文件：矩阵与切流脚本现已收敛到 `metafusion-api-gateway`（**2026-09-16**：仓库与最小 CI 已就位，旧矩阵归档；主仓库保留生效矩阵 `deploy/nginx.conf`），但网关自身仍缺覆盖矩阵行为的测试。
 3. 发布面不完整：多个运行单元没有镜像发布渠道，拉取路径下只能就地构建或被跳过。
 4. 缺限流、健康聚合与版本锁，使"拆分后的自治"无法按服务灰度或回滚。
 

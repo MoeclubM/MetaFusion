@@ -30,7 +30,8 @@
 | --- | --- | --- |
 | auth | `GET|POST /api/setup` | metafusion-auth；网关用 `location = /api/setup` 精确匹配 |
 | auth | `POST /api/auth/login|refresh|logout|change-password|logout-all|register`、`GET /api/auth/me|settings|invite`、`POST /api/auth/invite`、`PUT /api/auth/password` | metafusion-auth（`/api/auth/` 前缀） |
-| auth | `GET|POST /api/admin/users`、`PUT /api/admin/users/:id/{role,password,groups}` | metafusion-auth（`/api/admin/users` 前缀） |
+| auth | `GET|POST /api/admin/users`、`PUT /api/admin/users/:id/{role,password,groups}`、`PUT /api/admin/users/:id/ban` | metafusion-auth（`/api/admin/users` 前缀） |
+| auth | `GET /api/auth/oauth-grants`、`DELETE /api/auth/oauth-grants/:client_id` | metafusion-auth（账号自助撤回第三方授权；网关 `/api/auth/` 前缀已覆盖） |
 | auth | `GET|POST /api/admin/groups`、`PUT|DELETE /api/admin/groups/:code`、`GET /api/admin/permissions`、`GET|PUT /api/admin/settings`、`GET|POST /api/admin/invites`、`POST /api/admin/invites/:code/revoke` | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关逐条精确匹配（漏一条就 404） |
 | auth | `/api/oauth/clients|authorize|token|userinfo`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration`、根路径 `/.well-known/{openid-configuration,jwks.json}` | metafusion-auth（令牌只由它签发，discovery 与 JWKS 也只在它这里） |
 | auth | `/api/developer/*`（overview、apps、apps/{id}、apps/{id}/rotate-secret） | metafusion-auth（开发者中心：任何登录账号自助登记应用；网关用 `/api/developer/` 前缀整体分流，不与 `/api/admin/oauth/*` 混用） |
@@ -61,7 +62,7 @@
   - 实体合并（`entity.merged`）写入目录的 `catalog.outbox`；**当前没有任何跨服务消费者**（投递函数 `Store.Deliver` 只在测试里被调用），子系统对合并结果的收敛靠同步查询目录接口。
     `deliveries`（consumer + `event_id`）去重与回调按事件 ID 幂等，是**将来引入投递时的契约**而不是现状；投递与拉取的取舍见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §5。
 - 结构来源：目录走 `backend/migrations/000001_catalog_core.up.sql` + `mf-migrate`；互动与存储各自把 DDL 放进仓库内（社区 `migrations/000001_init.up.sql`、存储 `internal/store/migrations/000001_init.up.sql`，均 `go:embed`），启动执行同一份**幂等**基线并记账到 `<schema>.schema_migrations`。
-  约定：迁移文件按版本号命名、账本表在各自 schema 内；迁移期取事务级 advisory lock 的键位是 **catalog 740202 / auth 740203 / storage 740204**（社区当前不取 advisory lock；新增服务必须另取键位并在本文登记）。
+  约定：迁移文件按版本号命名、账本表在各自 schema 内；迁移期取事务级 advisory lock 的键位是 **catalog 740202 / auth 740203 / storage 740204 / community 740205**（2026-09-16 community 已补事务级锁并重查账本空转；新增服务必须另取键位并在本文登记）。
   “启动只校验、迁移由 owner 单独跑”尚未实现（受限角色下 `CREATE TABLE IF NOT EXISTS` 会要 schema 的 CREATE 权限），见 [审计文档](./decoupling-audit-2026-09.md) §4.3。
 - 存储系统**不保存**元数据结构（不复制作品/专辑/曲目表）；元数据系统**不保存**对象存储物理路径。
 - 绑定的"用途"用 `binding_role` 表达（`track_audio` / `disc_image` / `scans` / `video` …），
