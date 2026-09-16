@@ -31,6 +31,16 @@ export function catalogErrorKey(message: string): string | null {
   return CODE_KEYS[code] || null;
 }
 
+/**
+ * 读取类错误码 not_found：GET 实体拿不到时的稳定码。
+ * 它不属于写入错误的映射表，各页用自己的"未找到"文案兜底即可，
+ * 但绝不能把裸码 `not_found` 直接渲染给用户。
+ */
+export function isNotFoundError(message?: string | null): boolean {
+  if (!message) return false;
+  return message.trim().split(":")[0].trim() === "not_found";
+}
+
 /** 把后端错误消息本地化：命中码就用人话，未命中保留原文（不伪装成已解释）。 */
 export function localizeCatalogError(message: string, t: (k: string) => string): string {
   const key = catalogErrorKey(message);

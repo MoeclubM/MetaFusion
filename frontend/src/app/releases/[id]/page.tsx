@@ -14,6 +14,7 @@ import {
   getTermName,
 } from "@/lib/definitions";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
+import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
 import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateAttributeSections";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
@@ -419,7 +420,8 @@ export default function ReleaseDetailPage() {
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <Navbar />
         <div className="relative z-10 max-w-page mx-auto px-4 py-20 text-center font-mono text-xs text-gray-500">
-          {error || t("common.notFoundRelease")}
+          {/* 裸错误码 not_found 不是给用户看的文案，统一走页面自己的"未找到"。 */}
+          {!error || isNotFoundError(error) ? t("common.notFoundRelease") : localizeCatalogError(error, t)}
         </div>
       </div>
     );

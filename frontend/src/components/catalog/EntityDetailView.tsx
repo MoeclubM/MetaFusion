@@ -13,6 +13,7 @@ import { useCatalog } from "@/components/catalog/CatalogProvider";
 import { api, Entity, Relation, title, local } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle, findRowForLocale, buildTitleChain } from "@/lib/titles";
+import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { GraphNode, GraphLink, FavoriteTargetType } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
@@ -631,7 +632,10 @@ export function EntityDetailView({ id }: { id: string }) {
       <div className="min-h-screen bg-background relative flex flex-col overflow-x-hidden">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <main className="mf-enter relative z-10 max-w-narrow mx-auto px-4 py-20 text-center space-y-4">
-          <div className="font-mono text-sm text-red-500 dark:text-red-400">{error || t("entity.detail.notFound")}</div>
+          {/* 后端读取失败给的是稳定码（not_found）；裸码不能直接给用户看。 */}
+          <div className="font-mono text-sm text-red-500 dark:text-red-400">
+            {!error || isNotFoundError(error) ? t("entity.detail.notFound") : localizeCatalogError(error, t)}
+          </div>
           <Link
             href="/catalog"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-white text-xs font-semibold hover:bg-primary/90 transition-all duration-base ease-soft"
