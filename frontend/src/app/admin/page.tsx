@@ -13,9 +13,12 @@ import { TabPanel } from "@/components/ui/TabPanel";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
-import { canEnterAdmin } from "@/lib/permissions";
+import { OAuthClientsTab } from "./components/tabs/OAuthClientsTab";
+import { AUTH_OAUTH_MANAGE, can, canEnterAdmin } from "@/lib/permissions";
 import { fetchApi } from "@/lib/api";
+import type { LucideIcon } from "lucide-react";
 import {
+  KeyRound,
   Shield,
   LayoutDashboard,
   Sliders,
@@ -45,7 +48,8 @@ type AdminTab =
   | "users"
   | "extdb"
   | "shelves"
-  | "accounts";
+  | "accounts"
+  | "oauth";
 
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
@@ -301,7 +305,10 @@ function AdminInner() {
     );
   }
 
-  const navTabs = [
+  // 页签准入：给了 permission 的页签按权限码过滤（OAuth 客户端管理面受 auth.oauth.manage 保护，
+  // 没有该码的成员连入口都不该看到，点了也只会 403）。其余页签沿用既有口径：
+  // 进管理台的闸门是 canEnterAdmin，块内 403 各自降级，不在这里逐块加码。
+  const allTabs: { id: AdminTab; labelKey: string; icon: LucideIcon; permission?: string }[] = [
     { id: "overview", labelKey: "admin.tab.overview", icon: LayoutDashboard },
     { id: "entities", labelKey: "admin.nav.entities", icon: Layers },
     { id: "definitions", labelKey: "admin.tab.definitions", icon: Sliders },
@@ -312,7 +319,9 @@ function AdminInner() {
     { id: "modules", labelKey: "admin.tab.modules", icon: Cpu },
     { id: "users", labelKey: "admin.tab.users", icon: Users },
     { id: "accounts", labelKey: "admin.tab.accounts", icon: ShieldCheck },
+    { id: "oauth", labelKey: "admin.tab.oauth", icon: KeyRound, permission: AUTH_OAUTH_MANAGE },
   ];
+  const navTabs = allTabs.filter((item) => !item.permission || can(user, item.permission));
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-text-strong">
@@ -353,7 +362,7 @@ function AdminInner() {
                 <button
                   key={tItem.id}
                   type="button"
-                  onClick={() => setActiveTab(tItem.id as AdminTab)}
+                  onClick={() => setActiveTab(tItem.id)}
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all text-left whitespace-nowrap ${
                     active
                       ? "bg-primary text-white shadow-xs font-semibold"
@@ -618,6 +627,8 @@ function AdminInner() {
           {activeTab === "shelves" && <ShelvesTab />}
 
           {activeTab === "accounts" && <AccountAccessTab />}
+
+          {activeTab === "oauth" && <OAuthClientsTab />}
 
           {activeTab === "reviews" && (
             <div className="space-y-4">

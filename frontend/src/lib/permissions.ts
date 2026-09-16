@@ -15,6 +15,9 @@ export const CATALOG_SHELVES_MANAGE = "catalog.shelves.manage";
 export const AUTH_USERS_MANAGE = "auth.users.manage";
 export const AUTH_GROUPS_MANAGE = "auth.groups.manage";
 export const AUTH_SETTINGS_MANAGE = "auth.settings.manage";
+// OAuth 授权方管理码：账号服务把客户端管理、密钥轮换、令牌吊销与审计统一挂在它下面
+// （metafusion-auth/internal/handler/oauth_admin.go）。
+export const AUTH_OAUTH_MANAGE = "auth.oauth.manage";
 // 论坛权限码，与 metafusion-community/internal/auth/permission.go 一致。
 export const COMMUNITY_POST_CREATE = "community.post.create";
 export const COMMUNITY_POST_MODERATE = "community.post.moderate";
