@@ -41,7 +41,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 **L1 — 登录可见（需 `Authorization: Bearer <JWT>`，游客命中返回 401 并引导登录）**
 - 任何媒体资产二进制：只能经存储服务的受控内容接口取用（`GET /api/storage/assets/:id/content` 等），目录库不持有文件物理路径。
   当前放行规则是"资产绑定的实体对调用者可见"：绑定已发布实体的资产匿名可取，不可读回 `404`（登录本身不是门槛）
-- 上传链路：`/api/storage/upload/*` 直传与 `POST /api/storage/bind` 绑定；实体本身用 `POST /api/catalog/entities` 创建
+- 上传链路：`/api/storage/upload/*` 直传与 `POST /api/storage/bind` 绑定，需登录且持有 `storage.asset.upload`（`member` 组默认持有；缺码 `403 forbidden`）；实体本身用 `POST /api/catalog/entities` 创建
 - 社区写入：发帖、回帖、评注
 - 个人数据：邀请信息、已邀请用户列表
 
@@ -64,7 +64,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 |---|---|---|
 | AUTH-01 | 注册开关 | `registration_enabled=false` 时 `POST /api/auth/register` 拒绝（错误码 `registration_closed`，前端文案键 `auth.error.registration_closed`）；首管初始化仍走 `/api/setup`，管理员建号走 `/api/admin/users` |
 | AUTH-02 | 邀请开关 | `invite_required=true` 时注册必带有效 `invite_code`（缺失报 `invite_required`、无效报 `invalid_invite_code`），核销写入 `auth.invite_uses` 并累计 `auth.invites.used_count`；`false` 时 `invite_code` 可选。开关与配额在后台「系统设置」里改 |
-| AUTH-03 | 登录与令牌续期 | `email_or_username + password`（账号表没有 `banned`/停用列，登录只校验口令，失败统一 `invalid_credentials`）；访问令牌 15 分钟，续期走 `POST /api/auth/refresh`（用当前 Bearer/Cookie 换发新令牌并轮转服务端会话行）。**账号服务不签发 `refresh_token`**（第三方令牌到期需重新授权），也没有 PAT 长期令牌 |
+| AUTH-03 | 登录、续期与账号封禁 | `email_or_username + password`，口令错误统一 `invalid_credentials`（401）；访问令牌 15 分钟，续期走 `POST /api/auth/refresh`（用当前 Bearer/Cookie 换发新令牌并轮转服务端会话行）。**账号封禁**：`auth.users.banned` 由 `PUT /api/admin/users/{id}/ban`（需 `auth.users.manage`）维护，被封禁账号的登录与续期一律 `403 account_banned`，封禁同时删除其服务端会话、第三方令牌与未兑换授权码，并让验签路径立即拒绝（不必等令牌自然过期）；不能封自己、不能封掉最后一个可登录的管理员。用户可 `GET /api/auth/oauth-grants` 查看、`DELETE /api/auth/oauth-grants/{client_id}` 撤回自己的第三方授权。**账号服务不签发 `refresh_token`**（第三方令牌到期需重新授权），也没有 PAT 长期令牌；认证写入类接口按 IP 限流，速率与开关来自实例设置（默认 15 次/分钟） |
 | AUTH-04 | 邀请链 | 注册成功写入 `auth.invite_uses`（邀请码 → 用户）；邀请码在后台 `/api/admin/invites` 签发与作废，`code` 形如 `XXXX-XXXX-XXXX-XXXX` |
 
 ### 3.2 元数据开放
