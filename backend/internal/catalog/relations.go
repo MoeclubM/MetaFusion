@@ -295,10 +295,30 @@ func relationsWithEndpoint(ctx context.Context, q queryer, id string) ([]Relatio
 	return out, rows.Err()
 }
 
+// Relations 返回该实体的关系列表（端点边 + 以它为实体型属性取值的引用边）。
+// 只关心边本身的调用方用它；关系 HTTP 响应还要主体摘要，用 relationsWithSubject。
 func (s *Store) Relations(ctx context.Context, id string, u *User) ([]Relation, error) {
-	if _, err := s.Get(ctx, id, u); err != nil {
-		return nil, err
+	rels, _, err := s.relationsWithSubject(ctx, id, u)
+	return rels, err
+}
+
+// relationsWithSubject 与 Relations 同口径，额外返回被查询实体自身：
+// 关系响应要同时给出主体摘要（subject_id 与 entities 里的自身条目），
+// 单独再查一次会把"主体存在且可见"的判断做两遍，也可能与边取到不同时刻的版本。
+func (s *Store) relationsWithSubject(ctx context.Context, id string, u *User) ([]Relation, Entity, error) {
+	self, err := s.Get(ctx, id, u)
+	if err != nil {
+		return nil, Entity{}, err
 	}
+	rels, err := s.relations(ctx, id, u)
+	if err != nil {
+		return nil, Entity{}, err
+	}
+	return rels, self, nil
+}
+
+// relations 只做边查询：调用方已确认主体存在且可见。
+func (s *Store) relations(ctx context.Context, id string, u *User) ([]Relation, error) {
 	d, err := s.Definitions(ctx)
 	if err != nil {
 		return nil, err
