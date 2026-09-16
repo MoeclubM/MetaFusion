@@ -12,6 +12,7 @@ import { UserAvatar } from "./UserAvatar";
 import { displayNameOf } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
 import { canEnterAdmin } from "@/lib/permissions";
+import { useDefinitions, getKindName } from "@/lib/definitions";
 import { getAuthLoginUrl, getAuthSettingsUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
 import {
   Plus,
@@ -35,8 +36,10 @@ import {
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const pathname = usePathname();
+  // 新建入口的层级清单来自服务端 definitions（kinds 的名称也由服务端下发）。
+  const { kinds } = useDefinitions();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -137,34 +140,21 @@ export const Navbar: React.FC = () => {
 
             <div className="absolute right-0 top-full pt-1.5 hidden group-hover/create:block z-40">
               <div className="w-48 rounded-xl border border-white/10 bg-surface shadow-elevated py-1.5 text-xs overflow-hidden">
-                <Link
-                  href="/new?kind=work"
-                  className="flex items-center gap-2.5 px-3 py-2 hover:bg-surfaceHover text-gray-200"
-                >
-                  <Layers className="w-3.5 h-3.5 text-sky-400" />
-                  <span>{t("nav.createWork")}</span>
-                </Link>
-                <Link
-                  href="/new?kind=release"
-                  className="flex items-center gap-2.5 px-3 py-2 hover:bg-surfaceHover text-gray-200"
-                >
-                  <Disc className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>{t("nav.createRelease")}</span>
-                </Link>
-                <Link
-                  href="/new?kind=agent"
-                  className="flex items-center gap-2.5 px-3 py-2 hover:bg-surfaceHover text-gray-200"
-                >
-                  <Users className="w-3.5 h-3.5 text-amber-400" />
-                  <span>{t("navbar.createAgent")}</span>
-                </Link>
-                <Link
-                  href="/new?kind=collection"
-                  className="flex items-center gap-2.5 px-3 py-2 hover:bg-surfaceHover text-gray-200"
-                >
-                  <Network className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>{t("navbar.createCollection")}</span>
-                </Link>
+                {/* 新建入口按服务端 definitions 的 kinds 渲染：层级名称由服务端下发，前端不再写死四个层级链接。 */}
+                {Object.keys(kinds || {}).map((code) => (
+                  <Link
+                    key={code}
+                    href={`/new?kind=${code}`}
+                    className="flex items-center gap-2.5 px-3 py-2 hover:bg-surfaceHover text-gray-200"
+                  >
+                    <Layers className="w-3.5 h-3.5 text-sky-400" />
+                    <span>{getKindName(kinds, code, locale, t(`catalog.kind.${code}`))}</span>
+                  </Link>
+                ))}
+                
+                
+                
+                
               </div>
             </div>
           </div>
@@ -267,7 +257,7 @@ export const Navbar: React.FC = () => {
 
           {/* Controls: Theme & Locale */}
           <div className="flex items-center border-l border-white/10 pl-2 gap-1.5">
-            <LocaleSwitcher />
+            <LocaleSwitcher compact />
             <ThemePicker />
           </div>
         </div>
