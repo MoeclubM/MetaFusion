@@ -17,8 +17,8 @@
 # 因此不进这份锁；等 SDK 接入服务后必须补一行，否则“锁住了”只是错觉。
 # 更新时按各仓库 git rev-parse --short HEAD 重写，并在同一次提交里跑一遍 python scripts/check_versions.py。
 .=cb358a3
-../metafusion-auth=b3b74bc
-../metafusion-community=399a9bb
-../metafusion-storage=7bf29a9
+../metafusion-auth=3c4ac86
+../metafusion-community=b4d2371
+../metafusion-storage=6c4b3cf
 ../metafusion-api-gateway=67f1685
-../metafusion-docs=e5a23da
+../metafusion-docs=27ad595
