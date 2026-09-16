@@ -358,7 +358,9 @@ func TestImporterImportMultiDiscExpressionMatching(t *testing.T) {
 				// 轨号与 Disc 1 Track 1 相同，但内容不同：不得复用"夜航"的表达。
 				{Position: 1, Title: "幕间映像", ISRC: "JPB992600010"},
 				// 同名曲跨盘收录：应复用"夜航"的既有表达。
-				{Position: 2, Title: "夜航", RecordingMBID: "rec-1"},
+				// recording_mbid 必须是合法 MBID（预检与 Store.Save 同口径的 UUID 正则）；
+				// 这里只作查找线索，命中同名条目表达后不会写库。
+				{Position: 2, Title: "夜航", RecordingMBID: "11111111-2222-3333-4444-555555555555"},
 			}},
 		},
 		EditNote:   "多盘对齐测试",
@@ -480,6 +482,49 @@ func TestImporterImportCharacterRankAttribute(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("character_in relation not created")
+	}
+}
+
+// 预检零写入：外部编号非法（与 Store.Save 同一套正则/分类校验）、篇目缺标题、
+// create_relation 关系码非法，都必须在建 work/release/medium 之前失败，不留半成品。
+func TestImporterPreflightKeepsZeroWrites(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	works := func() int { return len(mustList(t, f, ListOptions{Kind: "work"})) }
+
+	badExternal := ImporterImportRequest{
+		EntityType: "work", Source: "bangumi", URLOrID: "https://bgm.tv/subject/7",
+		Work:             &ImporterWorkPreview{Title: "外部编号预检", OriginalLanguage: "zh-CN", CatalogMetadata: map[string]any{"bangumi_type": float64(2)}},
+		CanonicalEntries: []ImporterCanonicalEntryPreview{{Title: "第一话", ExternalIDs: map[string]any{"isrc": "NOT-AN-ISRC"}}},
+		EditNote:         "零写入探针", SourceURLs: []string{"https://bgm.tv/subject/7"},
+	}
+	before := works()
+	if _, err := f.s.Import(ctx, badExternal, f.u); err == nil || !strings.Contains(err.Error(), "invalid_external_id") {
+		t.Fatalf("bad external id must fail preflight, got %v", err)
+	}
+	if after := works(); after != before {
+		t.Fatalf("preflight failure left partial data: works %d -> %d", before, after)
+	}
+
+	missingTitle := badExternal
+	missingTitle.CanonicalEntries = []ImporterCanonicalEntryPreview{{Title: "  "}}
+	if _, err := f.s.Import(ctx, missingTitle, f.u); err == nil || !strings.Contains(err.Error(), "canonical_entries[0].title") {
+		t.Fatalf("missing entry title must fail preflight, got %v", err)
+	}
+	if after := works(); after != before {
+		t.Fatalf("title preflight failure left partial data: works %d -> %d", before, after)
+	}
+
+	badRelation := badExternal
+	badRelation.CanonicalEntries = nil
+	badRelation.LinkMode = "create_relation"
+	badRelation.TargetWorkID = "00000000-0000-0000-0000-0000000000ff"
+	badRelation.RelationType = "no_such_relation"
+	if _, err := f.s.Import(ctx, badRelation, f.u); err == nil || !strings.Contains(err.Error(), "importer_mapping_stale") {
+		t.Fatalf("unknown relation type must fail preflight, got %v", err)
+	}
+	if after := works(); after != before {
+		t.Fatalf("relation preflight failure left partial data: works %d -> %d", before, after)
 	}
 }
 

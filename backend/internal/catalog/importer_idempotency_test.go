@@ -132,32 +132,110 @@ func TestImporterRelationSkippableNarrowed(t *testing.T) {
 	}
 }
 
-// 前置映射校验：默认定义下全量通过；关系被删/禁用、词表项被禁用、
-// 载荷关系码未知时明确报 importer_mapping_stale。
+// 前置映射校验只查本次载荷**实际用到**的关系码与词表项：停用一个无关码/词表项
+// 不该拦住"只建一个人"的导入（旧实现无条件要求 11 个关系码 + format/role/entry_role 全量）。
 func TestImporterPreflightCodeCheck(t *testing.T) {
-	if err := importerPreflightCodeCheck(Defaults()); err != nil {
-		t.Fatalf("defaults must satisfy importer mappings: %v", err)
+	// 只建一个 person：没有任何映射用量
+	personOnly := importerMappingUsageFromPayload(ImporterImportRequest{
+		StaffAssociations: []ImporterStaffAssociation{{ParsedName: "甲", EntityType: "person"}},
+	}, "new_work", nil)
+	if err := importerPreflightCodeCheck(Defaults(), personOnly); err != nil {
+		t.Fatalf("payload without mapping usage must pass: %v", err)
 	}
+	// 停用一批本次用不到的关系码与词表项：仍应通过
+	stale := Defaults()
+	for _, code := range []string{"photographed_by", "credit_for", "voiced_by", "character_in"} {
+		r := stale.Relations[code]
+		r.Enabled = false
+		stale.Relations[code] = r
+	}
+	v := stale.Vocabularies["format"]
+	tm := v.Terms["cd"]
+	tm.Enabled = false
+	v.Terms["cd"] = tm
+	stale.Vocabularies["format"] = v
+	if err := importerPreflightCodeCheck(stale, personOnly); err != nil {
+		t.Fatalf("unused mappings must not block an import: %v", err)
+	}
+	// 用到的关系码被停用：明确报 stale
+	used := importerMappingUsageFromPayload(ImporterImportRequest{
+		StaffAssociations: []ImporterStaffAssociation{{ParsedName: "甲", EntityType: "person", RelationType: "voiced_by"}},
+	}, "new_work", nil)
+	if err := importerPreflightCodeCheck(stale, used); err == nil || !strings.Contains(err.Error(), "relation_disabled=voiced_by") {
+		t.Fatalf("disabled used relation must fail stale, got %v", err)
+	}
+	// 用到的关系码不在定义里
 	missing := Defaults()
 	delete(missing.Relations, "voiced_by")
-	if err := importerPreflightCodeCheck(missing); err == nil || !strings.Contains(err.Error(), "importer_mapping_stale") {
-		t.Fatalf("missing relation must fail stale, got %v", err)
+	if err := importerPreflightCodeCheck(missing, used); err == nil || !strings.Contains(err.Error(), "importer_mapping_stale") {
+		t.Fatalf("missing used relation must fail stale, got %v", err)
 	}
-	disabled := Defaults()
-	r := disabled.Relations["directed_by"]
-	r.Enabled = false
-	disabled.Relations["directed_by"] = r
-	if err := importerPreflightCodeCheck(disabled); err == nil || !strings.Contains(err.Error(), "directed_by") {
-		t.Fatalf("disabled relation must fail stale, got %v", err)
+	// 用到的词表项被停用（载体 format=cd）
+	mediumUsage := importerMappingUsageFromPayload(ImporterImportRequest{
+		Mediums: []ImporterMediumPreview{{Format: "cd", Role: "primary"}},
+	}, "new_work", nil)
+	if err := importerPreflightCodeCheck(stale, mediumUsage); err == nil || !strings.Contains(err.Error(), "importer_mapping_stale") {
+		t.Fatalf("disabled used vocab term must fail stale, got %v", err)
 	}
-	badTerm := Defaults()
-	v := badTerm.Vocabularies["role"]
-	tm := v.Terms["primary"]
-	tm.Enabled = false
-	v.Terms["primary"] = tm
-	badTerm.Vocabularies["role"] = v
-	if err := importerPreflightCodeCheck(badTerm); err == nil || !strings.Contains(err.Error(), "importer_mapping_stale") {
-		t.Fatalf("disabled vocab term must fail stale, got %v", err)
+	// 白名单外的自由文本本来就不写库，不该要求词表项存在
+	noVocab := Defaults()
+	delete(noVocab.Vocabularies, "edition_type")
+	freeText := importerMappingUsageFromPayload(ImporterImportRequest{
+		Release: &ImporterReleasePreview{EditionType: "豪华未知版"},
+	}, "new_work", nil)
+	if err := importerPreflightCodeCheck(noVocab, freeText); err != nil {
+		t.Fatalf("unmapped free text must not require a vocab term: %v", err)
+	}
+	// 发行层命中的词表值要查（edition_type=limited）
+	mapped := importerMappingUsageFromPayload(ImporterImportRequest{
+		Release: &ImporterReleasePreview{EditionType: "limited"},
+	}, "new_work", nil)
+	if err := importerPreflightCodeCheck(noVocab, mapped); err == nil || !strings.Contains(err.Error(), "importer_mapping_stale") {
+		t.Fatalf("mapped edition_type without vocabulary must fail stale, got %v", err)
+	}
+}
+
+// 标题/条目形态预检：缺失标题与非法 entry_kind/entry_role 都在零写入阶段被拒。
+func TestImporterPreflightTitles(t *testing.T) {
+	base := func() ImporterImportRequest {
+		return ImporterImportRequest{
+			Work: &ImporterWorkPreview{Title: "标题"},
+			CanonicalEntries: []ImporterCanonicalEntryPreview{
+				{Title: "第一话", EntryKind: "content_unit", EntryRole: "main"},
+			},
+			Mediums: []ImporterMediumPreview{{Tracks: []ImporterTrackPreview{{Title: "曲目"}}}},
+		}
+	}
+	if err := importerPreflightTitles(base(), "new_work", "work"); err != nil {
+		t.Fatalf("valid payload rejected: %v", err)
+	}
+	// 追加发行不要求 work 载荷（标题回退目标作品）；导入 agent 同样不要求 work
+	if err := importerPreflightTitles(ImporterImportRequest{}, "append_release_to_work", "work"); err != nil {
+		t.Fatalf("append mode must not require work title: %v", err)
+	}
+	if err := importerPreflightTitles(ImporterImportRequest{}, "new_work", "artist"); err != nil {
+		t.Fatalf("agent import must not require a work payload: %v", err)
+	}
+	cases := []struct {
+		name  string
+		mut   func(*ImporterImportRequest)
+		match string
+	}{
+		{"missing work", func(r *ImporterImportRequest) { r.Work.Title = " " }, "work.title"},
+		{"missing work object", func(r *ImporterImportRequest) { r.Work = nil }, "work.title"},
+		{"missing entry title", func(r *ImporterImportRequest) { r.CanonicalEntries[0].Title = "" }, "canonical_entries[0].title"},
+		{"unknown entry kind", func(r *ImporterImportRequest) { r.CanonicalEntries[0].EntryKind = "work" }, "entry_kind"},
+		{"entry_role on expression", func(r *ImporterImportRequest) {
+			r.CanonicalEntries[0].EntryKind = "expression"
+		}, "entry_role"},
+		{"missing track title", func(r *ImporterImportRequest) { r.Mediums[0].Tracks[0].Title = " " }, "mediums[0].tracks[0].title"},
+	}
+	for _, tc := range cases {
+		r := base()
+		tc.mut(&r)
+		if err := importerPreflightTitles(r, "new_work", "work"); err == nil || !strings.Contains(err.Error(), tc.match) {
+			t.Errorf("%s: got %v want containing %q", tc.name, err, tc.match)
+		}
 	}
 }
 

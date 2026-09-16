@@ -2520,6 +2520,16 @@ func releaseLevelValues(work *ImporterWorkPreview) map[string]any {
 	return out
 }
 
+// 发行层枚举的写入口径：值先命中这些白名单才会写进 attributes（未命中的自由文本不虚构映射），
+// 因此预检只按命中的值校验词表项（见 importerMappingUsageFromPayload）。命中后它们同时进入
+// 发行版本签名（importerReleaseVariantKey），互为表里。
+var (
+	importerEditionTypes         = []string{"standard", "limited", "deluxe", "boxset"}
+	importerEditionBatches       = []string{"regular", "first_press", "reissue", "reprint"}
+	importerPackagings           = []string{"standard", "jewel", "slipcase", "box", "boxset", "digipak"}
+	importerDistributionChannels = []string{"mixed", "physical", "digital", "web"}
+)
+
 // importerReleaseAttrs 从预览计算发行版属性。publisher 是自由文本、无法解析为
 // Agent 引用（entity 类型），仍不写入；edition_type/edition_batch/packaging/
 // distribution_channel 只有命中词表才写（未命中则丢弃该维度、不虚构），
@@ -2546,16 +2556,16 @@ func importerReleaseAttrs(rel *ImporterReleasePreview, work *ImporterWorkPreview
 		}
 		// 版本维度只写词表命中的值：未命中的自由文本不虚构映射，
 		// 由发行版本签名保留区分度（签名用原文，属性用词表项）。
-		if v := importerEnum(rel.EditionType, []string{"standard", "limited", "deluxe", "boxset"}); v != "" {
+		if v := importerEnum(rel.EditionType, importerEditionTypes); v != "" {
 			out["edition_type"] = v
 		}
-		if v := importerEnum(rel.EditionBatch, []string{"regular", "first_press", "reissue", "reprint"}); v != "" {
+		if v := importerEnum(rel.EditionBatch, importerEditionBatches); v != "" {
 			out["edition_batch"] = v
 		}
-		if v := importerEnum(rel.Packaging, []string{"standard", "jewel", "slipcase", "box", "boxset", "digipak"}); v != "" {
+		if v := importerEnum(rel.Packaging, importerPackagings); v != "" {
 			out["packaging"] = v
 		}
-		if v := importerEnum(rel.DistributionChannel, []string{"mixed", "physical", "digital", "web"}); v != "" {
+		if v := importerEnum(rel.DistributionChannel, importerDistributionChannels); v != "" {
 			out["distribution_channel"] = v
 		}
 	}
@@ -2670,21 +2680,98 @@ func (s *Store) importerExplicitExpressions(ctx context.Context, actor User, ent
 	return out, nil
 }
 
-// importerPreflightCodeCheck 在写库前校验"代码写死映射仍被当前已发布定义支持"：
-//   - bangumiCreditRelation/character_in/voiced_by 等导入可能写的关系码必须存在且启用；
-//   - importerMediumFormats/importerMediumRoles 的输出值必须仍在对应词表内且启用；
-//   - bangumiEpisodeRole 的 entry_role 输出必须仍在 entry_role 词表内且启用。
+// importerMappingUsage 收集本次载荷**实际会用到**的写死映射：关系码与词表项。
+// 取值口径必须与写路径同源（见 importerMappingUsageFromPayload）。
+type importerMappingUsage struct {
+	relations map[string]bool
+	terms     map[string]map[string]bool
+}
+
+func (u *importerMappingUsage) relation(code string) {
+	if code = strings.TrimSpace(code); code != "" {
+		if u.relations == nil {
+			u.relations = map[string]bool{}
+		}
+		u.relations[code] = true
+	}
+}
+
+func (u *importerMappingUsage) term(vocab, term string) {
+	vocab, term = strings.TrimSpace(vocab), strings.TrimSpace(term)
+	if vocab == "" || term == "" {
+		return
+	}
+	if u.terms == nil {
+		u.terms = map[string]map[string]bool{}
+	}
+	if u.terms[vocab] == nil {
+		u.terms[vocab] = map[string]bool{}
+	}
+	u.terms[vocab][term] = true
+}
+
+// importerMappingUsageFromPayload 从载荷推导本次会用到的关系码与词表项，口径与写路径一致：
+//   - 关系码：staff_associations 的 relation_type（skip 项不落库，不计）+ create_relation 的目标码；
+//   - 词表项：importerReleaseAttrs/importerMediumAttrs 白名单命中的发行/载体枚举值，
+//     以及 entry_kind=content_unit 且目标实例声明了 entry_role 时写入的篇目角色。
+//
+// 只统计"确实会被写进库"的值：载荷里未命中白名单的自由文本本来就丢弃，不应要求词表项存在。
+func importerMappingUsageFromPayload(req ImporterImportRequest, mode string, cuFields map[string]bool) importerMappingUsage {
+	u := importerMappingUsage{}
+	for _, a := range req.StaffAssociations {
+		if strings.EqualFold(strings.TrimSpace(a.Action), "skip") {
+			continue
+		}
+		u.relation(a.RelationType)
+	}
+	if mode == "create_relation" {
+		u.relation(req.RelationType)
+	}
+	if rel := req.Release; rel != nil {
+		if t := importerEnum(rel.EditionType, importerEditionTypes); t != "" {
+			u.term("edition_type", t)
+		}
+		if t := importerEnum(rel.EditionBatch, importerEditionBatches); t != "" {
+			u.term("edition_batch", t)
+		}
+		if t := importerEnum(rel.Packaging, importerPackagings); t != "" {
+			u.term("packaging", t)
+		}
+		if t := importerEnum(rel.DistributionChannel, importerDistributionChannels); t != "" {
+			u.term("distribution_channel", t)
+		}
+	}
+	for _, m := range req.Mediums {
+		if f, ok := importerMediumFormats[strings.ToLower(strings.TrimSpace(m.Format))]; ok {
+			u.term("format", f)
+		}
+		if r := importerEnum(m.Role, importerMediumRoles); r != "" {
+			u.term("role", r)
+		}
+	}
+	if cuFields["entry_role"] {
+		for _, ce := range req.CanonicalEntries {
+			if strings.TrimSpace(ce.EntryKind) == "content_unit" {
+				u.term("entry_role", ce.EntryRole)
+			}
+		}
+	}
+	return u
+}
+
+// importerPreflightCodeCheck 在写库前校验"本次载荷实际用到的写死映射仍被当前已发布定义支持"：
+// 用到的关系码必须存在且启用，用到的词表项必须仍在词表内且启用。
+//
+// 只校验用到的项：旧实现无条件要求 11 个关系码 + format/role/entry_role 全量词表项存在并启用，
+// 后台停用一个与本次无关的码，连"只建一个 person"的导入都会被 400 importer_mapping_stale
+// （写路径本身反而宽容，见 relations.go 的 historical=true）。
 //
 // 背景：后台改码（如禁用某关系/词表项）后，旧的导入载荷与写死映射会在 Save/关系
 // 落库阶段才报 invalid_relation_type/unknown_term，前面已建的 work/release/medium
 // 变成半成品。本检查把这类失败提前到零写入阶段，错误码为 importer_mapping_stale:*。
 // 只读已发布定义快照，无写入。
-func importerPreflightCodeCheck(doc Definitions) error {
-	for _, code := range []string{
-		"photographed_by", "illustrated_by", "directed_by", "written_by",
-		"lyricist_of", "composed_by", "arranged_by", "narrated_by", "voiced_by",
-		"character_in", "credit_for",
-	} {
+func importerPreflightCodeCheck(doc Definitions, usage importerMappingUsage) error {
+	for _, code := range sortedKeys(usage.relations) {
 		rel, ok := doc.Relations[code]
 		if !ok {
 			return fmt.Errorf("importer_mapping_stale:relation=%s", code)
@@ -2693,35 +2780,107 @@ func importerPreflightCodeCheck(doc Definitions) error {
 			return fmt.Errorf("importer_mapping_stale:relation_disabled=%s", code)
 		}
 	}
-	termEnabled := func(vocab, term string) bool {
+	for _, vocab := range sortedKeys(usage.terms) {
 		v, ok := doc.Vocabularies[vocab]
 		if !ok {
-			return false
+			return fmt.Errorf("importer_mapping_stale:vocab=%s", vocab)
 		}
-		t, ok := v.Terms[term]
-		return ok && t.Enabled
-	}
-	seen := map[string]bool{}
-	for _, f := range importerMediumFormats {
-		if seen[f] {
-			continue
-		}
-		seen[f] = true
-		if !termEnabled("format", f) {
-			return fmt.Errorf("importer_mapping_stale:vocab=format term=%s", f)
-		}
-	}
-	for _, r := range importerMediumRoles {
-		if !termEnabled("role", r) {
-			return fmt.Errorf("importer_mapping_stale:vocab=role term=%s", r)
-		}
-	}
-	for _, role := range []string{"main", "opening", "ending", "trailer", "extra"} {
-		if !termEnabled("entry_role", role) {
-			return fmt.Errorf("importer_mapping_stale:vocab=entry_role term=%s", role)
+		for _, term := range sortedKeys(usage.terms[vocab]) {
+			t, ok := v.Terms[term]
+			if !ok || !t.Enabled {
+				return fmt.Errorf("importer_mapping_stale:vocab=%s term=%s", vocab, term)
+			}
 		}
 	}
 	return nil
+}
+
+// importerPreflightTitles 预检标题与条目形态：新建作品（entityType=work 且非挂靠模式）、
+// 篇目、曲目都必须有标题，entry_kind 只能是 content_unit/expression，entry_role 只能落在篇目条目上。
+// 写路径里缺标题要到建完 work/release/medium 之后才报 invalid_payload，留下半成品。
+// entityType 是归一化后的目标类型：导入 agent 时载荷不带 work，也不该要求它。
+func importerPreflightTitles(req ImporterImportRequest, mode, entityType string) error {
+	if mode != "append_release_to_work" && entityType == "work" && (req.Work == nil || strings.TrimSpace(req.Work.Title) == "") {
+		return fmt.Errorf("invalid_payload: work.title")
+	}
+	for i, ce := range req.CanonicalEntries {
+		if strings.TrimSpace(ce.Title) == "" {
+			return fmt.Errorf("invalid_payload: canonical_entries[%d].title", i)
+		}
+		switch strings.TrimSpace(ce.EntryKind) {
+		case "", "expression", "content_unit":
+		default:
+			return fmt.Errorf("invalid_payload: canonical_entries[%d].entry_kind=%s", i, ce.EntryKind)
+		}
+		// entry_role 只在篇目（content_unit）上声明；留给表达条目会被写路径静默丢弃。
+		if strings.TrimSpace(ce.EntryRole) != "" && strings.TrimSpace(ce.EntryKind) != "content_unit" {
+			return fmt.Errorf("invalid_payload: canonical_entries[%d].entry_role", i)
+		}
+	}
+	for i, m := range req.Mediums {
+		for j, t := range m.Tracks {
+			if strings.TrimSpace(t.Title) == "" {
+				return fmt.Errorf("invalid_payload: mediums[%d].tracks[%d].title", i, j)
+			}
+		}
+	}
+	return nil
+}
+
+// importerPreflightExternalIDs 预检载荷会落库的外部编号：格式层（validateExternalIDs）与
+// 预设层（validateExternalIDsAgainstDB：键必须在 external_databases 预设里、值按正则、
+// 分类与实体 kind 一致）与 Store.Save 同一套校验，只是提前到零写入阶段执行。
+// 覆盖会落库的三类：条目表达/篇目、曲目写进表达本体的 recording_mbid/isrc、关联 agent。
+func (s *Store) importerPreflightExternalIDs(ctx context.Context, defs Definitions, req ImporterImportRequest) error {
+	check := func(kind string, externalIDs map[string]string) error {
+		if len(externalIDs) == 0 {
+			return nil
+		}
+		e := Entity{Kind: kind, ExternalIDs: externalIDs}
+		if err := defs.validateExternalIDs(e); err != nil {
+			return err
+		}
+		return validateExternalIDsAgainstDB(ctx, s.DB, e)
+	}
+	for i, ce := range req.CanonicalEntries {
+		kind := "expression"
+		if strings.TrimSpace(ce.EntryKind) == "content_unit" {
+			kind = "content_unit"
+		}
+		if err := check(kind, importerEntryExternalIDs(ce, "")); err != nil {
+			return fmt.Errorf("canonical_entries[%d]: %w", i, err)
+		}
+	}
+	for i, m := range req.Mediums {
+		for j, t := range m.Tracks {
+			if err := check("expression", importerTrackExpressionExternalIDs(t)); err != nil {
+				return fmt.Errorf("mediums[%d].tracks[%d]: %w", i, j, err)
+			}
+		}
+	}
+	for i, a := range req.StaffAssociations {
+		// 与写路径同样的跳过口径：skip 项、显式关联既有实体（target_artist_id）、无名字项都不落库。
+		if strings.EqualFold(strings.TrimSpace(a.Action), "skip") || strings.TrimSpace(a.TargetArtistID) != "" || strings.TrimSpace(a.ParsedName) == "" {
+			continue
+		}
+		if err := check("agent", importerAgentExternalIDs(a.ExternalIDs)); err != nil {
+			return fmt.Errorf("staff_associations[%d]: %w", i, err)
+		}
+	}
+	return nil
+}
+
+// importerTrackExpressionExternalIDs 取曲目写在**表达本体**上的外部编号（recording_mbid/isrc，
+// 见 importReleaseChain 的 trackExternal）：track 定义只声明 duration/role，ISRC 不是 track 属性。
+func importerTrackExpressionExternalIDs(t ImporterTrackPreview) map[string]string {
+	out := map[string]string{}
+	if v := strings.TrimSpace(t.RecordingMBID); v != "" {
+		out["recording_mbid"] = v
+	}
+	if v := strings.TrimSpace(t.ISRC); v != "" {
+		out["isrc"] = v
+	}
+	return out
 }
 
 // importerPreflightAssociations 校验导入关联的关系码与词表项：
@@ -2764,26 +2923,44 @@ func importerPreflightAssociations(doc Definitions, assocs []ImporterStaffAssoci
 
 // importerPreflight 在写库前只读校验整份载荷，保证校验失败时零写入：
 //   - 章节树（parent_index）结构合法（顺序即拓扑序）；
+//   - 标题与条目形态（importerPreflightTitles）：缺标题在写路径里要到建完 work/release/medium 才报错；
 //   - 显式表达引用（canonical entries 与各轨）必须存在且 kind=expression；
+//   - 载荷会落库的外部编号与 Store.Save 同口径（importerPreflightExternalIDs）；
 //   - 载荷声明的属性字段码、以及代码将写入的 release/medium/track 属性，
 //     必须属于对应类型字段集（unknown_field 提前暴露）；
 //   - 写死映射（关系码/词表输出）仍被当前已发布定义支持（importer_mapping_stale
-//     提前暴露，避免后台改码后在 Save 阶段才报 invalid_relation_type 留半成品）。
-func (s *Store) importerPreflight(ctx context.Context, actor User, entries []ImporterCanonicalEntryPreview, rel *ImporterReleasePreview, mediums []ImporterMediumPreview, work *ImporterWorkPreview, assocs []ImporterStaffAssociation) error {
+//     提前暴露，避免后台改码后在 Save 阶段才报 invalid_relation_type 留半成品），
+//     只校验本次载荷实际用到的码与词表项。
+func (s *Store) importerPreflight(ctx context.Context, actor User, req ImporterImportRequest, mode, entityType string) error {
+	entries, work, assocs := req.CanonicalEntries, req.Work, req.StaffAssociations
 	if err := validateImporterEntryTree(entries); err != nil {
 		return err
 	}
-	if _, err := s.importerExplicitExpressions(ctx, actor, entries, mediums); err != nil {
+	if err := importerPreflightTitles(req, mode, entityType); err != nil {
+		return err
+	}
+	if _, err := s.importerExplicitExpressions(ctx, actor, entries, req.Mediums); err != nil {
 		return err
 	}
 	defs, err := s.Definitions(ctx)
 	if err != nil {
 		return err
 	}
-	// 写死映射先验：后台改码/禁用词表后，旧映射在 Save 阶段才报
-	// invalid_relation_type/unknown_term 会留下半成品；此处零写入提前暴露。
-	if err := importerPreflightCodeCheck(defs.Document); err != nil {
+	if err := s.importerPreflightExternalIDs(ctx, defs.Document, req); err != nil {
 		return err
+	}
+	// 写死映射先验：后台改码/禁用词表后，旧映射在 Save 阶段才报
+	// invalid_relation_type/unknown_term 会留下半成品；此处零写入提前暴露，且只查用到的项。
+	if err := importerPreflightCodeCheck(defs.Document, importerMappingUsageFromPayload(req, mode, importerFieldSet(defs.Document, "content_unit"))); err != nil {
+		return err
+	}
+	// create_relation 的端点类型先验：新作品 → 目标作品，关系两端都得接受 work，
+	// 否则要等关系落库才报 invalid_endpoints，而作品已经建好了。
+	if mode == "create_relation" {
+		rel, ok := defs.Document.Relations[strings.TrimSpace(req.RelationType)]
+		if !ok || !contains(rel.SourceKinds, "work") || !contains(rel.TargetKinds, "work") {
+			return fmt.Errorf("invalid_endpoints: relation=%s", strings.TrimSpace(req.RelationType))
+		}
 	}
 	if err := importerPreflightAssociations(defs.Document, assocs); err != nil {
 		return err
@@ -2809,7 +2986,7 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, entries []Imp
 			}
 		}
 	}
-	if err := importerCheckAttrs(defs.Document, "release", importerReleaseAttrs(rel, work)); err != nil {
+	if err := importerCheckAttrs(defs.Document, "release", importerReleaseAttrs(req.Release, work)); err != nil {
 		return err
 	}
 	for _, ce := range entries {
@@ -2820,18 +2997,8 @@ func (s *Store) importerPreflight(ctx context.Context, actor User, entries []Imp
 		if err := importerCheckAttrs(defs.Document, kind, ce.Attributes); err != nil {
 			return err
 		}
-		// 预检与落库用同一份数据：entry_role 会被写入篇目属性，必须同样在预检里
-		// 校验（未声明该字段的旧实例按落库规则跳过，与 importerContentUnitAttrs 一致）。
-		if role := strings.TrimSpace(ce.EntryRole); role != "" {
-			roleFields := importerFieldSet(defs.Document, kind)
-			if roleFields["entry_role"] {
-				if _, ok := defs.Document.Vocabularies["entry_role"].Terms[role]; !ok {
-					return fmt.Errorf("unknown_term: entry_role=%s", role)
-				}
-			}
-		}
 	}
-	for _, m := range mediums {
+	for _, m := range req.Mediums {
 		if err := importerCheckAttrs(defs.Document, "medium", importerMediumAttrs(m)); err != nil {
 			return err
 		}
@@ -3395,13 +3562,8 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 					continue
 				}
 			}
-			trackExternal := map[string]string{}
-			if v := strings.TrimSpace(t.RecordingMBID); v != "" {
-				trackExternal["recording_mbid"] = v
-			}
-			if v := strings.TrimSpace(t.ISRC); v != "" {
-				trackExternal["isrc"] = v
-			}
+			// 与预检同源：recording_mbid/isrc 属于录音本体，落 expression.external_ids。
+			trackExternal := importerTrackExpressionExternalIDs(t)
 			expressionID := ""
 			number := ""
 			// 解析优先级：曲目显式指定 → 按 entry_index 结构绑定（同次清单的稳定节点）
@@ -3517,7 +3679,7 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 	}
 	// 写库前整体预检：属性字段码、显式表达引用、写死映射与关联关系码先校验，
 	// 避免先建 work/release/medium 再在某条曲目/关系处失败，留下半成品结构。
-	if pfErr := s.importerPreflight(ctx, actor, req.CanonicalEntries, req.Release, req.Mediums, req.Work, req.StaffAssociations); pfErr != nil {
+	if pfErr := s.importerPreflight(ctx, actor, req, mode, entityType); pfErr != nil {
 		return ImporterImportResponse{}, pfErr
 	}
 	if mode == "append_release_to_work" || mode == "merge_translations" {
