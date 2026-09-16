@@ -7,8 +7,13 @@ import (
 	"fmt"
 	"log"
 	"strings"
+
+	"github.com/lib/pq"
 )
 
+// DefinitionVersions 返回最近一批定义版本（后台列表用）。
+// 列表项在既有字段之外补 created_by 与 summary：起草身份只在修订表里（见 revisionActors），
+// 摘要只给各分区的条目数，客户端不必为了显示"这一版有几条定义"而展开整份 document。
 func (s *Store) DefinitionVersions(ctx context.Context) ([]DefinitionVersion, error) {
 	rows, err := s.DB.QueryContext(ctx, "SELECT id,state,base_version,document,created_at FROM catalog.definitions ORDER BY id DESC LIMIT 100")
 	if err != nil {
@@ -16,6 +21,7 @@ func (s *Store) DefinitionVersions(ctx context.Context) ([]DefinitionVersion, er
 	}
 	defer rows.Close()
 	out := []DefinitionVersion{}
+	targets := []string{}
 	for rows.Next() {
 		var v DefinitionVersion
 		var b []byte
@@ -25,9 +31,137 @@ func (s *Store) DefinitionVersions(ctx context.Context) ([]DefinitionVersion, er
 		if err = json.Unmarshal(b, &v.Document); err != nil {
 			return nil, err
 		}
+		v.Summary = definitionSummary(v.Document)
+		targets = append(targets, definitionRevisionTarget(v.ID))
 		out = append(out, v)
 	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return out, nil
+	}
+	actors, err := revisionActors(ctx, s.DB, targets)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		out[i].CreatedBy = actors[definitionRevisionTarget(out[i].ID)]
+	}
+	return out, nil
+}
+
+// definitionSummary 生成列表用的短摘要：只报各分区条目数，顺序固定便于前端直接展示与断言。
+func definitionSummary(d Definitions) string {
+	return fmt.Sprintf("字段 %d / 类型 %d / 关系 %d / 模板 %d", len(d.Fields), len(d.Types), len(d.Relations), len(d.Templates))
+}
+
+// definitionRevisionTarget 是定义版本在修订/发件箱里使用的 target_id（见 audit 调用点）。
+func definitionRevisionTarget(id int64) string { return fmt.Sprintf("definitions:%d", id) }
+
+// revisionActors 取每个 target 最早的修订行演员名：最早一条就是起草那次，
+// 与创建者语义一致（后续发布/回滚不改变创建者）。没有修订记录的 target 不出现在结果里。
+func revisionActors(ctx context.Context, q queryer, targets []string) (map[string]string, error) {
+	rows, err := q.QueryContext(ctx, "SELECT target_id,actor_name FROM catalog.revisions WHERE target_id = ANY($1) ORDER BY id", pq.Array(targets))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var target, actor string
+		if err = rows.Scan(&target, &actor); err != nil {
+			return nil, err
+		}
+		if _, seen := out[target]; !seen {
+			out[target] = actor
+		}
+	}
 	return out, rows.Err()
+}
+
+// definitionVersion 读任意一条定义版本行（含 superseded/draft），不存在时返回 sql.ErrNoRows（HTTP 404）。
+func (s *Store) definitionVersion(ctx context.Context, id int64) (DefinitionVersion, error) {
+	var v DefinitionVersion
+	var b []byte
+	err := s.DB.QueryRowContext(ctx, "SELECT id,state,base_version,document,created_at FROM catalog.definitions WHERE id=$1", id).Scan(&v.ID, &v.State, &v.BaseVersion, &b, &v.CreatedAt)
+	if err == nil {
+		err = json.Unmarshal(b, &v.Document)
+	}
+	return v, err
+}
+
+// rollbackEvidence 取目标版本自己的编辑说明与来源，作为回滚版本的证据链：
+// 说明里带上原说明，来源原样保留（validateSources 要求至少一条来源）。
+// 目标行若是种子播种或直接写库（没有修订记录），说明退化为只记版本号、来源退化为一条自述来源——
+// 空手回滚会被 Draft 以 evidence_required 拒绝。
+func rollbackEvidence(ctx context.Context, q queryer, target int64) (string, []Source) {
+	var note string
+	var raw []byte
+	var sources []Source
+	if err := q.QueryRowContext(ctx, "SELECT edit_note,sources FROM catalog.revisions WHERE target_id=$1 ORDER BY id LIMIT 1", definitionRevisionTarget(target)).Scan(&note, &raw); err == nil {
+		if e := json.Unmarshal(raw, &sources); e != nil {
+			sources = nil
+		}
+	}
+	if strings.TrimSpace(note) == "" {
+		note = fmt.Sprintf("版本 %d 无编辑说明记录", target)
+	}
+	out := fmt.Sprintf("回滚定义到版本 %d（原编辑说明：%s）", target, note)
+	if len(sources) == 0 {
+		sources = []Source{{Kind: "self", Citation: fmt.Sprintf("回滚定义到版本 %d：该版本没有来源记录（catalog.definitions id=%d）", target, target)}}
+	}
+	return out, sources
+}
+
+// RollbackDefinitions 把指定历史版本（任意 state，含 superseded）的文档以当前已发布版本为 base
+// 重新起草并发布：不原地改历史行，回滚本身就是一个新版本。链路完全复用 Draft + Publish，
+// 生效与否由 Publish 事务内的 impact 全量校验决定（见 definitions.go 顶部的并发说明）。
+//
+// 起草前先只读跑一次 impact：草稿行不可删除，若跳过预检，回滚一份非法文档会在版本表里
+// 留下一颗永远发不出去的草稿。预检失败零写入；Publish 事务内再校验一次，不会因预检放宽。
+//
+// 目标文档与当前已发布文档完全一致时不写库：返回既有已发布版本并置 no_op。
+func (s *Store) RollbackDefinitions(ctx context.Context, target int64, u User) (DefinitionRollback, error) {
+	out := DefinitionRollback{TargetID: target}
+	if !u.Can(PermissionDefinitionsManage) {
+		return out, errForbidden
+	}
+	tv, err := s.definitionVersion(ctx, target)
+	if err != nil {
+		return out, err
+	}
+	cur, err := s.Definitions(ctx)
+	if err != nil {
+		return out, err
+	}
+	// 整份文档比较走 encode（json.Marshal 对 map 键排序），与 jsonb 等值同口径：不受键顺序影响。
+	if encode(tv.Document) == encode(cur.Document) {
+		out.ID, out.State, out.BaseVersion, out.CreatedAt = cur.ID, cur.State, cur.BaseVersion, cur.CreatedAt
+		out.NoOp = true
+		return out, nil
+	}
+	note, sources := rollbackEvidence(ctx, s.DB, target)
+	issues, err := impact(ctx, s.DB, tv.Document)
+	if err != nil {
+		return out, err
+	}
+	if len(issues) > 0 {
+		return out, fmt.Errorf("definition_impact: %s", encode(issues))
+	}
+	id, err := s.Draft(ctx, tv.Document, cur.ID, u, note, sources)
+	if err != nil {
+		return out, err
+	}
+	if err = s.Publish(ctx, id, u, note, sources); err != nil {
+		return out, err
+	}
+	nv, err := s.definitionVersion(ctx, id)
+	if err != nil {
+		return out, err
+	}
+	out.ID, out.State, out.BaseVersion, out.CreatedAt, out.EditNote = nv.ID, nv.State, nv.BaseVersion, nv.CreatedAt, note
+	return out, nil
 }
 func (s *Store) Draft(ctx context.Context, d Definitions, base int64, u User, note string, sources []Source) (int64, error) {
 	var id int64
@@ -51,7 +185,7 @@ func (s *Store) Draft(ctx context.Context, d Definitions, base int64, u User, no
 		if err = tx.QueryRowContext(ctx, "INSERT INTO catalog.definitions(state,base_version,document) VALUES('draft',$1,$2) RETURNING id", base, encode(d)).Scan(&id); err != nil {
 			return err
 		}
-		return audit(ctx, tx, fmt.Sprintf("definitions:%d", id), id, u, note, sources, d, "definitions.drafted")
+		return audit(ctx, tx, definitionRevisionTarget(id), id, u, note, sources, d, "definitions.drafted")
 	})
 	return id, err
 }
@@ -198,7 +332,7 @@ func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sour
 		if _, err = tx.ExecContext(ctx, "UPDATE catalog.definitions SET state='published' WHERE id=$1", id); err != nil {
 			return err
 		}
-		return audit(ctx, tx, fmt.Sprintf("definitions:%d", id), id, u, note, sources, d, "definitions.published")
+		return audit(ctx, tx, definitionRevisionTarget(id), id, u, note, sources, d, "definitions.published")
 	})
 	if err == nil {
 		InvalidateDefinitionsCache()

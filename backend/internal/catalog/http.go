@@ -615,6 +615,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		}
 		respond(c, gin.H{"ok": true}, s.Publish(c.Request.Context(), id, *user(c), in.EditNote, in.Sources))
 	})
+	// 回滚：{id} 是任意历史版本行（含 superseded），编辑说明与来源由服务端从该版本自己的修订记录
+	// 拼出，因此不接受请求体。非数字 id 与不存在的 id 同处理：查不到即 404 not_found，
+	// 与 /impact、/publish 的既有风格一致。
+	defs.POST("/:id/rollback", func(c *gin.Context) {
+		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		v, err := s.RollbackDefinitions(c.Request.Context(), id, *user(c))
+		respond(c, v, err)
+	})
 	ext := api.Group("/admin/external-databases", required(PermissionDefinitionsManage))
 	ext.GET("", func(c *gin.Context) {
 		v, err := s.ListExternalDatabases(c.Request.Context(), c.Query("category"), false)

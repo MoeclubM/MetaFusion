@@ -248,6 +248,24 @@ type DefinitionVersion struct {
 	BaseVersion int64       `json:"base_version"`
 	Document    Definitions `json:"document"`
 	CreatedAt   time.Time   `json:"created_at"`
+	// CreatedBy 是起草该版本的账号名快照：身份只在修订表里（catalog.definitions 没有 actor 列），
+	// 种子播种或直接写库的版本行没有修订记录，此时留空（JSON 省略）。
+	CreatedBy string `json:"created_by,omitempty"`
+	// Summary 是列表用的短计数摘要（如"字段 43 / 类型 20 / 关系 28 / 模板 7"）：
+	// 让后台列表不必展开整份 document 也能判断"这一版有几条定义"。
+	Summary string `json:"summary,omitempty"`
+}
+
+// DefinitionRollback 是一次定义回滚的结果。no_op 为真表示目标版本文档与当前已发布文档完全一致，
+// 服务端没有新建版本，id/state/base_version/created_at 描述的是既有**已发布**版本，edit_note 为空。
+type DefinitionRollback struct {
+	ID          int64     `json:"id"`
+	TargetID    int64     `json:"target_id"`
+	State       string    `json:"state"`
+	BaseVersion int64     `json:"base_version"`
+	CreatedAt   time.Time `json:"created_at"`
+	EditNote    string    `json:"edit_note"`
+	NoOp        bool      `json:"no_op"`
 }
 type User struct {
 	ID       string `json:"id"`
