@@ -220,6 +220,7 @@
 | 数据完整性自检命令 | `scripts/check_data.py`（只读）：发布态与翻译、结构归属（以 `definitions.structure` 为准）、关系（重复边/端点不可见/未知码）、定义名称占位；图片缺口按 `kind/type` 聚合作**提示**，不计入闸门 | 退出码 0/1 可直接当发布闸门；对目标实例跑完 `P0=0 P1=0`；图片项输出为提示清单而非问题 |
 | 多源口径的落地实践 | 同一字段多源时：官方站点优先；官方确无该字段时用第二源补，并在数据里**写明来源与"官方无此数据"的原因** | 补入的图片引用其 `source.kind=url` 指向第二源条目页；编辑说明含"官方页面无此数据"字样 |
 | OAuth 作为授权方（服务端） | 授权码 + PKCE、服务端渲染同意页（`trusted` 客户端跳过）、scope 收敛、token/userinfo、客户端管理与密钥轮换、按客户端/按用户吊销、审计表 | 线上端到端实测：同意页只展示白名单内 scope；换码响应 `expires_in` 为真实 TTL、`scope` 为收敛结果；吊销后 userinfo 立即 401；匿名与低权限访问管理端点分别 401/403 |
+| 前端外壳组件化 | `frontend/src/components/ui/{PageShell,Card,SectionTitle,TabPanel}.tsx`：`PageContainer` 是"最大宽度 + 水平内边距"的**唯一出处**（`max-w-page` / `max-w-narrow`，`narrow` 包在 page 档容器内保证左基线一致），`TabPanel` 由组件内部把 `activeKey` 当 React key 挂载（调用方漏不掉重挂载），导航条与管理台内栏复用同一容器；21 条路由迁移完毕，三个自写容器（`.page` / `.cv-page` / `.cv-main`）删除 | `node scripts/check_page_shell.mjs` → 0 违规（90 tsx），注入一处 `mx-auto max-w-* px-* py-*` 即 exit=1 并报 `R1`/`R2`（已接 CI frontend job）；量测：桌面 1440 内容左边界 9 个页面**全部一致**、移动 390 全部一致、导航条与内容同基线；页签切换 7/7 重挂载且 `animationName === "mf-tab-in"` |
 | 写路径的乐观并发（丢更新） | 7 处"读版本号 → 无条件写"改为**版本条件进 WHERE** 的原子条件更新（实体 `Save`、`Lifecycle`、`SaveRelation`、`DeleteRelation`、定义 `Publish`、合并引用改写），受影响行数为 0 即沿用既有 `version_conflict` 哨兵并整事务回滚 | 并发用例稳定断言"恰一个成功 + 恰一个 `version_conflict`"且回读库无丢更新；`-count=30` 全绿（90 PASS / 0 FAIL）；把 `Save` 临时还原为无条件覆盖后 `-count=1` 立刻失败（"success count=2"）、`-count=30` 30/30 迭代全失败 |
 
 ### 7.2 仍未定 / 待办
@@ -230,4 +231,4 @@
 | 定义版本 diff 与回滚 UI | 列表仍随每项返回完整 `document`（单版本数十 KB，LIMIT 上限下响应可达 MB 级）；缺版本间 diff 视图 | 产品/架构拍板瘦身方式 | 先定瘦身：新增只读详情端点或 `?include_document=false`（破坏性变更需同步前端与文档），再让 UI 只拉列表摘要 + 按需拉单版本；判据：列表响应不再含 `document` 字段，且前端点击某版本能拿到该版本文档 |
 | OAuth 客户端自助/管理 UI | 管理端点已就绪，但管理台尚无对应界面，第三方接入目前只能走 API | 产品排期 | UI 能完成"建客户端拿到一次性 secret → 轮换 → 吊销"三步且每步有成功/失败提示；无 `auth.oauth.manage` 权限时入口不可见 |
 
-| 前端外壳组件化 | 各页仍自写宽度与内边距，同一实体在详情页与专用路由下观感可能不一致 | 已在做（同一批次） | 共享外壳组件落地后：页面不再出现自写 `max-w-*`/`px-*`/`py-*`（脚本检查 0 违规且注入违规会失败）；各页内容区左边界与页头到内容距离一致；页签切换后 DOM 重挂载且动画类命中 |
+| 页面内部区块换 Card/SectionTitle | 外壳与页签面板已组件化，但页面内部仍手写卡片类（如详情页各 section 的 `p-4 sm:p-5`），自检只拦页面级容器 | 前端 | 详情页与列表页的内部区块改用 `Card`/`SectionTitle`；判据：自检规则扩展到内容级卡片类后仍 0 违规，且逐页截图无观感回归 ||
