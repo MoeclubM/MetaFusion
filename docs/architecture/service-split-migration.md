@@ -23,7 +23,7 @@
 
 ## 2. 路由归属（现状）
 
-唯一生效的矩阵是 `deploy/nginx.conf`（compose 的 `gateway` 服务）：实测 **25 条 `location`**，账号前缀用精确匹配与正则逐条分流。
+唯一生效的矩阵是 `deploy/nginx.conf`（compose 的 `gateway` 服务）：实测 **33 条 `location`**（2026-09 补限流与探针后），账号前缀用精确匹配与正则逐条分流。
 下表按归属归纳路径族；逐条 location 与精确匹配以文件为准。矩阵与本文表格的一致性检查、以及网关矩阵的单一来源归属见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §6。
 
 | 归属 | 路径 | 现状 |
@@ -41,15 +41,16 @@
 | storage | `/api/storage/*`（契约见 `metafusion-docs` 的 `docs/api-storage.md`） | metafusion-storage（契约见 `metafusion-docs` 的 `docs/api-storage.md`） |
 | auth | `/api/admin/oauth/*`（客户端治理：核验、提升自有平台、吊销、审计） | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关用 `location /api/admin/oauth/` 单独分流 |
 | storage | `/storage/preview/*` | 显式 `return 404`（预览改走 `/api/storage/*` 的资源鉴权，不再直代私有桶）；网关为它保留一条 location，属于刻意的退役占位 |
-| catalog | `/api/capabilities`、`/api/admin/modules/:id` | 部署态只读聚合 + 开关退役返回 409（见 capabilities 文档）；`/health` 由各服务自己提供给聚合探测 |
+| catalog | `/api/capabilities`、`/api/admin/modules/:id` | 部署态**声明式**能力清单（不再主动探活上游，见 capabilities 文档）+ 开关退役返回 409；目录服务自己也提供 `/health`（与 account/community/storage 同形），`/ready` 仍探数据库 |
 
 **网关按前缀分流，不按服务改前端调用点。** 只有 `/api/users/{id}/favorites` 与用户资料同前缀，
 网关用精确正则 `^/api/users/[^/]+/favorites$` 单独分流到 community。
 
 ### 2.1 网关矩阵、密钥与 UI 的归属（2026-09 审计）
 
-- **网关矩阵**：唯一生效的是 `deploy/nginx.conf`；`metafusion-api-gateway` 仓库里的矩阵是切流前的旧版本（仍把账号前缀指向 `catalog:8080`），**不是部署输入**。把它收敛为唯一来源（或从该仓库删除）与矩阵对文档表格的自动比对，见 [审计文档](./decoupling-audit-2026-09.md) §6。
+- **网关矩阵**：唯一生效的是 `deploy/nginx.conf`。2026-09 已把 `metafusion-api-gateway` 仓库里的旧矩阵移入 `examples/pre-cutover/` 并标注不参与部署（该仓库现在只有脚本），`cutover-check.sh` 改为**断言服务标记头**、新增离线 `--self-check`。矩阵的自动校验在主仓库：`scripts/check_gateway_matrix.py`（条数、每条 `/api/*` 必须挂限流、矩阵↔本文 §2 表的登记与归属比对）与 `scripts/check_versions.py`（`deploy/versions.lock`）。**仍未做**的是“把矩阵本体搬进网关仓库、主仓库只引用”，见 [审计文档](./decoupling-audit-2026-09.md) §6。
 - **密钥边界**：签发私钥只在账号服务。现状目录侧读 `AUTH_JWT_PRIVATE_KEY` 只为派生公钥，应改为静态公钥或 JWKS（证据见 [审计文档](./decoupling-audit-2026-09.md) §2）。
+- **协议层 SDK**：`metafusion-sdk` 仓库骨架已建（Claims/RS256+JWKS 验签/会话兜底/权限码与 `Can`/错误体与分页/health/request-id，零第三方依赖）。**尚无双端接入**：三个服务仍各自实现，切换是 B2 的后续批次；两处语义差异（SDK 拒收私钥配置、`offset<0` 收敛为 0）进契约前需核对存量令牌与调用方。
 - **UI 归属**：现状四域 UI 全在主仓库 `frontend/`；目标形态是**每个服务自带 UI**，网关按 `/`、`/account`、`/community`、`/downloads` 聚合，目录详情页对社区与资源区块改用嵌入契约（已定，见 [审计文档](./decoupling-audit-2026-09.md) §7）。
 
 ## 3. 数据归属与边界
@@ -59,6 +60,9 @@
   - storage/community 判定"实体是否可见"必须走 catalog 的实体查询接口，不得直连 catalog 表。
   - 实体合并（`entity.merged`）写入目录的 `catalog.outbox`；**当前没有任何跨服务消费者**（投递函数 `Store.Deliver` 只在测试里被调用），子系统对合并结果的收敛靠同步查询目录接口。
     `deliveries`（consumer + `event_id`）去重与回调按事件 ID 幂等，是**将来引入投递时的契约**而不是现状；投递与拉取的取舍见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §5。
+- 结构来源：目录走 `backend/migrations/000001_catalog_core.up.sql` + `mf-migrate`；互动与存储各自把 DDL 放进仓库内 `migrations/000001_init.up.sql`（`go:embed`），启动执行同一份**幂等**基线并记账到 `<schema>.schema_migrations`。
+  约定：迁移文件按版本号命名、账本表在各自 schema 内、迁移期取事务级 advisory lock，键位 **catalog 740202 / auth 740203 / storage 740204 / community 740205**（新增服务必须另取键位并在本文登记）。
+  “启动只校验、迁移由 owner 单独跑”尚未实现（受限角色下 `CREATE TABLE IF NOT EXISTS` 会要 schema 的 CREATE 权限），见 [审计文档](./decoupling-audit-2026-09.md) §4.3。
 - 存储系统**不保存**元数据结构（不复制作品/专辑/曲目表）；元数据系统**不保存**对象存储物理路径。
 - 绑定的"用途"用 `binding_role` 表达（`track_audio` / `disc_image` / `scans` / `video` …），
   "区间/位置"仍留在元数据侧的 `locator`（TrackContent），两者不重复：文件说"我是谁的什么用途"，目录说"收录在第几轨/什么时间码"。

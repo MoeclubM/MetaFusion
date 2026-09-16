@@ -60,10 +60,10 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 | 维度 | 判定 | 一句话依据 |
 | --- | --- | --- |
 | 编译期 | **低** | 各仓库 module path 独立，无 `replace`/`go.work`/跨仓库 import；重复的只是第三方依赖版本 |
-| 运行时 | **高** | `community`/`storage` 对 catalog/auth 同步强依赖；catalog 反向探活 `community`/`storage`；共享签发私钥 |
-| 数据层 | **高** | 同实例/同库/同 DB 用户；无 role、无 GRANT、无 RLS；启动执行内联 DDL、无迁移版本；跨 owner 运维脚本 |
+| 运行时 | **高** | `community`/`storage` 对 catalog/auth 同步强依赖（未变）；~~catalog 反向探活~~、~~共享签发私钥~~ 已于 2026-09-16 消除（§2、§5） |
+| 数据层 | **高** | 同实例/同库/同 DB 用户；无 role、无 GRANT、无 RLS（待 B4）；~~无迁移版本~~ → community 已改版本化迁移，storage 待办；跨 owner 运维脚本未动 |
 | 部署编排 | **高** | compose 跨仓库构建上下文、无 commit 锁；网关矩阵双份且已分叉；多个服务没有镜像发布方 |
-| 契约 | **高** | 权限码 5 份、验签 3 份、错误码漂移、`kinds` 骨架前端手抄、各仓库路由清单各写各的 |
+| 契约 | **高** | 权限码 5 份、验签 3 份、各仓库路由清单各写各的（前端权限码与 `kinds` 已于 2026-09-16 改生成物） |
 | UI | **高** | 单应用承载四域、无包边界；`NEXT_PUBLIC_*` 死开关；跨域耦合落在同一页面组件里；字典单文件 |
 
 ## 2. 密钥与身份边界
@@ -102,9 +102,9 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 | JWT 验签 | 3 份实现：catalog 188 行（标准库）、community 352 行、storage 329 行；后两者去空白后约 90% 行相同 | `backend/internal/catalog/token.go`、两个子系统的 `internal/auth/auth.go` |
 | Claims 字段名 | 三份结构体靠注释要求逐字一致（`sub`、`preferred_username`、`role`、`groups`、`permissions`） | 同上 |
 | 权限码 | 5 份：catalog 6、auth 17、community 4、storage 2、前端 14（引号内去重计数） | `backend/internal/catalog/permission.go:13-25`、`../metafusion-auth/internal/store/access.go`、两个子系统的 `internal/auth/permission.go`、`frontend/src/lib/permissions.ts` |
-| 错误响应 | 形状 `{error: 机器码}` 手抄；已出现漂移：`unauthorized` 与 `authentication_required` 并存（子代理核对，未二次复核） | 各服务 handler 层 |
+| 错误响应 | 形状 `{error: 机器码}` 手抄；形状手抄。2026-09-16 复核：原报告说的 `unauthorized` 漂移**不成立**——两个服务的 401 码都是 `authentication_required`（community 全仓 0 处 `unauthorized`） | 各服务 handler 层 |
 | 分页参数 | 同一服务并存 `limit/offset` 与 `page/page_size`（子代理核对，未二次复核） | community 侧 handler 层 |
-| 实体骨架 `kinds` | 前端手抄 8 个 kind 字面量；后端已有 `/api/openapi.json`，前端无生成产物 | `frontend/src/components/catalog/api.ts:4-13`、`backend/internal/catalog/http.go:253` |
+| 实体骨架 `kinds` | 曾前端手抄 8 个 kind 字面量；**2026-09-16 已改生成物**（来源 `backend/migrations/000001_catalog_core.up.sql` 的 CHECK） | `frontend/src/components/catalog/api.ts:4-13`、`backend/internal/catalog/http.go:253` |
 | 服务标记头 | 各服务各写一份同名响应头，用于逐前缀核对 | `backend/cmd/server/main.go:78` 注释 |
 
 ### 3.2 问题
@@ -128,10 +128,10 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 | 待办项 | 涉及文件 | 可验证判据 |
 | --- | --- | --- |
-| 建 `metafusion-sdk`（v0.x） | 新仓库 | `go build ./...`、`go vet ./...`、`go test ./...` 通过；三个服务引入后可删掉各自的 `internal/auth` |
-| 三服务切换 | `backend/internal/catalog/token.go`、两个子系统的 `internal/auth/auth.go` | 删除本地实现后各仓库 `go test ./...` 全绿；令牌在三个服务上验签结论一致（过期、错 issuer、错 audience、错算法四个反例） |
-| 权限码单源 + 前端生成物 | 上述 5 个权限码文件 | 故意改一个码时至少两方 CI 变红；前端不再出现裸串权限码 |
-| 错误码与分页统一 | 各服务 handler 层 | 同一语义在两个服务上返回同一错误码；分页两套写法在契约里显式写成"兼容期"并有用例 |
+| 建 `metafusion-sdk`（v0.x） | 新仓库 | **已建仓（2026-09-16，本地）**：`go build/vet/test` 全绿（52 个用例）；**尚无远端、无 tag、无服务接入** |
+| 三服务切换（未开始） | `backend/internal/catalog/token.go`、两个子系统的 `internal/auth/auth.go` | 删除本地实现后各仓库 `go test ./...` 全绿；令牌在三个服务上验签结论一致（过期、错 issuer、错 audience、错算法四个反例） |
+| 权限码单源 + 前端生成物 | 上述 5 个权限码文件 | **前端已完成（2026-09-16）**：判据 = `cd frontend && node scripts/generate-contracts.mjs --check`；后端侧单源（SDK 切换）未开始 |
+| 错误码与分页统一 | 各服务 handler 层 | **community 已完成（2026-09-16）**：分页解析收敛到 `internal/handler/paging.go`、兼容期与换算写进注释、真库用例证明两种写法窗口等价；错误码本已一致 |
 
 ## 4. 数据层边界
 
@@ -140,7 +140,8 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 - 五个运行单元共用同一 PostgreSQL 实例、同一 DB 用户、同一库名：`deploy/docker-compose.yml` 的 `backend:106-110`、`auth:146-150`、`community:180-184`、`community-migrate:221-225`、`storage:245-249`，实例定义在 `:284-293`。
 - schema 由各服务启动时自建：`backend/migrations/000001_catalog_core.up.sql:8-11`、`../metafusion-auth/internal/store/store.go:36`、`../metafusion-community/internal/store/store.go:12`、`../metafusion-storage/internal/store/store.go:25`。
 - 库侧没有任何隔离手段：主仓库与子系统仓库里 `CREATE ROLE`、`GRANT`、`ROW LEVEL SECURITY`、`search_path` 零命中。
-- 子系统没有版本化迁移：`community`/`storage` 仓库内 `.sql` 计数为 0，启动即执行内联幂等 DDL；主仓库走 `mf-migrate` 加单一基线（`backend/migrations/000001_catalog_core.up.sql`）。
+- ~~子系统没有版本化迁移~~ → **2026-09-16 已改**：`community` 与 `storage` 各自把 DDL 搬进仓库内 `migrations/000001_init.up.sql`（`go:embed`），启动执行同一份幂等基线并记账到 `<schema>.schema_migrations`；主仓库仍走 `mf-migrate` 加单一基线 `backend/migrations/000001_catalog_core.up.sql`。
+  迁移约定（两服务一致）：文件 `internal/store/migrations/000001_init.up.sql`（storage）或 `migrations/000001_init.up.sql`（community）、账本 `<schema>.schema_migrations(version, applied_at[, name, checksum])`、事务级 advisory lock 键位 **catalog 740202 / auth 740203 / storage 740204 / community 740205**（键位必须查表分配，重复会串行化两个服务）。
 - 运维脚本跨 owner 操作别的域的库：`deploy/sql/retire-legacy-schemas.sql` 会按行数核对并 DROP 社区侧表，由 `deploy/deploy.sh` 调用。
 
 ### 4.2 问题
@@ -155,7 +156,8 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 1. **每服务一个 DB 角色**，只授自己 schema 的 `USAGE`/`SELECT`/`INSERT`/`UPDATE`/`DELETE`；迁移用各自的角色执行；运维脚本按域归位（社区侧退役动作交回 `metafusion-community`）。
 2. **每服务一个 `DATABASE_URL`**（不再由 `DB_HOST`/`DB_USER`/`DB_NAME` 片段拼），使"同实例不同角色"与"独立实例"只差一个连接串；编排里给出各服务独立库名的注释示例。
-3. **子系统迁移版本化**：仓库内 `migrations/` 加版本表，启动只校验不建表；把当前结构登记为基线。
+3. **子系统迁移版本化**：仓库内 `migrations/` 加版本表，把当前结构登记为基线。**实现口径（2026-09-16）**：启动仍执行同一份**幂等**基线文件（不是“只校验”），因为受限角色下 `CREATE TABLE IF NOT EXISTS` 会先要 schema 的 CREATE 权限，
+  只授 CRUD 的角色即使结构已建好也会 `permission denied for schema <x>`。要真正“启动只校验、迁移用 owner 单独跑”，需要额外一个显式迁移入口（二进制/命令）并改 Dockerfile 与编排——**未做**，见 §12。
 
 ### 4.4 待办
 
@@ -163,7 +165,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 | --- | --- | --- |
 | 角色与授权 | `deploy/docker-compose.yml`、各服务 `internal/config/config.go`、新增初始化 SQL | 用 community 角色执行 `INSERT INTO catalog.*` 被拒（`permission denied`）；两服务正常读写自己的 schema |
 | `DATABASE_URL` 化 | 同上 | 给某服务指到独立库后只改环境变量即可启动，代码零改动 |
-| 迁移版本化 | 两个子系统的 `internal/store/store.go`、新增 `migrations/` | 新实例启动不执行 DDL；跑迁移命令后表结构齐全，重复执行幂等 |
+| 迁移版本化 | 两个子系统的 `internal/store/store.go`、新增 `migrations/` | **部分完成（2026-09-16）**：文件化 + 账本 + 幂等已落地并有真库用例（`community`/`storage`）；原判据“新实例启动不执行 DDL”**未达成**，需显式迁移入口（见 §4.3 第 3 条口径） |
 | 运维脚本归位 | `deploy/sql/retire-legacy-schemas.sql`、`docs-local/deploy/*` | 主仓库脚本不再 DROP 非 `catalog` schema 的对象；社区侧退役动作在其仓库内可复现 |
 
 ## 5. 调用链与事件契约
@@ -216,7 +218,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 ### 6.3 建议做法
 
-1. **矩阵单一来源归 `metafusion-api-gateway`**（与"每个运行单元一个仓库"一致）：把矩阵与切流自检收敛到该仓库，加最小 CI（配置语法检查 + 矩阵与文档表格一致性断言 + 前缀标记断言）；主仓库 compose 改为从该仓库挂载。迁移分三步，任一步都可停：①两处矩阵做到字节一致 → ②加等价断言 → ③compose 切挂载、删主仓库副本。
+1. **矩阵单一来源归 `metafusion-api-gateway`**（与"每个运行单元一个仓库"一致）：把矩阵与切流自检收敛到该仓库，加最小 CI（配置语法检查 + 矩阵与文档表格一致性断言 + 前缀标记断言）；主仓库 compose 改为从该仓库挂载。迁移分三步，任一步都可停：①两处矩阵做到字节一致 → ②加等价断言 → ③compose 切挂载、删主仓库副本。**进度（2026-09-16）**：旧矩阵已归档到网关仓库 `examples/pre-cutover/`（不再可部署，等价于把“两份生效矩阵”降为一份），矩阵↔文档与限流的不变量已由 `scripts/check_gateway_matrix.py` 在 CI 强制；**第 ③ 步未做**（矩阵本体仍在主仓库）。
 2. **文档表格与矩阵自动比对**：`service-split-migration.md` §2 的行集合必须等于 nginx 的 location 集合（含精确匹配与正则），进 CI。
 3. **补齐网关能力**：给 community/records/oauth/oidc/developer/storage 前缀挂限流；健康探针按上游 `/ready` 聚合；`cutover-check.sh` 真正断言服务标记头。
 4. **发布与版本对齐**：每个服务在自己的仓库发布镜像；新增 `deploy/versions.lock` 记录各仓库 commit，部署前校验检出 sha。
@@ -226,11 +228,11 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 | 待办项 | 涉及文件 | 可验证判据 |
 | --- | --- | --- |
-| 矩阵单源化（三步） | `deploy/nginx.conf`、`../metafusion-api-gateway/` 下的矩阵与脚本、新增 CI | 两份矩阵 `diff` 为空；故意把某前缀指回 catalog 时切流脚本与 CI 都 FAIL |
-| 文档表格自动比对 | `./service-split-migration.md`、CI 脚本 | location 集合与表格行集合不一致时 CI 红 |
-| 限流与健康补齐 | `deploy/nginx.conf` | 六个前缀都能复现限流（429）；聚合探针能定位异常上游 |
-| 发布渠道与版本锁 | `.github/workflows/release.yml`、各服务仓库 CI、`deploy/versions.lock` | 五个镜像均可在镜像仓库拉到；`versions.lock` 与检出 sha 不符时部署脚本拒绝启动 |
-| 元数据-only 编排降级 | `deploy/nginx.metadata.conf`、`frontend/src/lib/services.ts` | 该组合下不存在指向未部署上游的入口（页面无 502 死链） |
+| 矩阵单源化（三步） | `deploy/nginx.conf`、`../metafusion-api-gateway/` 下的矩阵与脚本、新增 CI | **部分完成（2026-09-16）**：旧矩阵已归档且不可部署、`cutover-check.sh` 断言标记并带 `--self-check`、网关仓库有了 CI；第 ③ 步（矩阵搬进网关仓库）未做 |
+| 文档表格自动比对 | `./service-split-migration.md`、CI 脚本 | **已完成（2026-09-16）**：`python scripts/check_gateway_matrix.py`（33 条 location 对 33 条文档路径，含限流不变量与归属比对），并接进主仓库 CI |
+| 限流与健康补齐 | `deploy/nginx.conf` | **已完成（2026-09-16）**：所有 `/api/*` location 一律自带 `limit_req`（脚本强制），探针拆成 `/healthz|/livez|/live`（网关自身）与 `/health/<service>`（逐上游 `/ready`）；本机无 nginx，`nginx -t` 与 429 复现留给 CI/部署 |
+| 发布渠道与版本锁 | `.github/workflows/release.yml`、各服务仓库 CI、`deploy/versions.lock` | **一半完成（2026-09-16）**：`deploy/versions.lock` + `scripts/check_versions.py`（接进 CI）已就位，前端的 `NEXT_PUBLIC_*` 也改由 `release.yml` 的 build args 注入；**镜像发布渠道仍缺**（docs-site/auth/community/storage 无发布方），部署脚本里的锁校验未接 |
+| 元数据-only 编排降级 | `deploy/nginx.metadata.conf`、`frontend/src/lib/services.ts` | **部分完成（2026-09-16）**：metadata 栈补了安全头/限流/`/healthz` 与 `/health/catalog`；前端不再拼账号服务的页面地址（`AUTH_PAGES_ENABLED`/`FORUM_PAGES_ENABLED`=false）；**仍未做**“上游未部署则藏入口”的完整性（页面级 API 仍会打到不存在的上游） |
 
 ## 7. UI 归属
 
@@ -238,10 +240,11 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 - 单 Next 应用承载四域：写入时实测 `frontend/src` 共 123 个 `ts/tsx`；按路径归属的分域统计为 catalog 42 文件 14072 行、auth 20 文件 4486 行、community 5 文件 1878 行、storage 3 文件 887 行、共享层（`components/ui`、`components/common`、`i18n`、部分 `lib`）30 文件 4543 行，其余是站点页与混合页。
 - 子系统仓库零前端：`metafusion-auth`、`metafusion-community`、`metafusion-storage` 顶层没有前端目录，也没有 `.tsx`/`.html`/`.css` 资源；账号侧唯一的 HTML 是服务端渲染的 OAuth 同意页（`../metafusion-auth/internal/handler/consent.go`）。
-- "外部化开关"是死开关：`NEXT_PUBLIC_{AUTH,FORUM,STORAGE,RESOURCE_STATION,DOCS}_URL` 全仓只出现在 `frontend/src/lib/services.ts:2,5,10-12,24`（外加一篇架构文档），compose/Dockerfile/CI 都没有注入点；默认值指回同源 `/account`、`/community`、`/docs`，而这些前缀在 `deploy/nginx.conf:357` 的 `location /` 下又回到前端自己。真实切流只发生在 nginx 改一行。
-- 开关的 http 分支指向不存在的页面：`services.ts` 会拼出账号服务下的 `/login`、`/settings`、`/password`、`/admin/users`，而账号服务只注册 JSON API，没有页面路由。
+- "外部化开关"曾是死开关：`NEXT_PUBLIC_*` 只在 `frontend/src/lib/services.ts` 引用，compose/Dockerfile/CI 没有注入点。**2026-09-16 已补上注入链**：`frontend/Dockerfile` 声明 ARG/ENV、`deploy/docker-compose.yml` 的 `frontend.build.args` 传值、`release.yml` 从仓库变量 `vars.NEXT_PUBLIC_*` 传给镜像构建（构建期内联）。默认仍为空 → 前端按同源网关路径工作，与当前部署一致。
+- 开关的 http 分支曾指向不存在的页面（账号服务只有 JSON API + 同意页）：**2026-09-16 已改**，`services.ts` 用 `AUTH_PAGES_ENABLED`/`FORUM_PAGES_ENABLED`（均 false）门控，服务没有页面路由就不生成外部页面地址，退回同源路径。
 - 跨域耦合落在页面里：`frontend/src/components/catalog/EntityDetailView.tsx` 同时嵌 auth 跳转、community 收藏、storage 上传下载；`frontend/src/app/admin/page.tsx` 一页混目录定义与账号管理。
-- 契约副本在前端：`frontend/src/lib/permissions.ts` 手抄权限码（实测 14 个引号内码），`frontend/src/components/catalog/api.ts:4-13` 手抄 8 个 `kinds`。
+- 契约副本在前端（**2026-09-16 已消灭手抄**）：`frontend/scripts/generate-contracts.mjs` 从四个仓库源码提取 17 个权限码（catalog 6 / auth 5 / community 4 / storage 2）与 `kinds`（来源 `backend/migrations/000001_catalog_core.up.sql` 的 CHECK），产出 `permissions.generated.ts` 与 `kinds.generated.ts`，脚本带反手抄守卫与 `--check`；**遗留**：9 处裸串权限码仍在 `app/admin/components/tabs/**`（属他人正在改的文件，未动）。
+- 跨域巨型客户端（**2026-09-16 已拆**）：`frontend/src/lib/api.ts` 1664 行拆成 `lib/api/{client,auth,community,catalog,admin,importer}.ts`，原文件保留为 barrel（32 个 import 点零改动）；同时删掉 15 个指向已下线端点的死声明。**遗留**：私信（`components/community/DirectMessageModal.tsx`）与插件（`components/importer/OmniImportModal.tsx`）两组死调用仍在。
 - 字典单文件混全部域：`frontend/src/messages/{zh-CN,en-US,zh-TW,ja-JP}.json`，写入时实测**四语各 3049 键且键集合完全一致**（`admin` 前缀 876 键，占 29%）；`frontend/src/i18n/getMessages.ts` 静态 import 四个整文件。
 
 ### 7.2 问题
@@ -332,13 +335,44 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 1. 未启动任何服务、未连数据库、未跑 `go test` 或 `next build`；"降级行为"结论来自代码路径，未在实例上复现。
 2. 未读 `.env` 与任何密钥值；私钥实际来源与长度未确认，只确认了变量名与注入点。
-3. 以下条目来自子代理报告、本次**未二次复核**：错误码漂移（`unauthorized` 与 `authentication_required`）、community 侧分页两套口径、账号侧额外支持受众集合与 `jti` 注销、切流脚本当前传占位标记、发布工作流的镜像矩阵细节。
+3. 以下条目来自子代理报告、本次**未二次复核**：账号侧额外支持受众集合与 `jti` 注销、发布工作流的镜像矩阵细节。
+   （已在 2026-09-16 核实并结案：错误码漂移**不成立**；切流脚本传占位标记**属实且已修**；community 侧分页两套口径**属实且已写明并加用例**。）
 4. 未核对 `metafusion-api-gateway` 仓库的矩阵是否曾被部署（只确认它与主仓库矩阵不一致）。
 5. 未验证 `metafusion-importer` 是否有人使用；它未被编排、文档与技能引用。
 6. 前端"独立部署"未实测；只确认 `frontend/next.config.mjs` 使用 `output: "standalone"`。
+
+2026-09-16 实施批次新增的未验证项：
+
+7. **本机没有 docker/nginx**：`deploy/docker-compose*.yml` 的 `config` 校验、两个 nginx 配置的 `nginx -t`、以及限流 429 的复现都没在本机跑过（CI 的 compose-lint job 会跑前两项）。
+8. **`proxy_pass $上游变量/ready` 是新用法**（此前 `deploy/` 下 0 处）：语义按 nginx 文档推断（变量形式下 URI 原样传递），首次部署应实测 `curl -i /healthz` 与 `/health/<service>`。`/healthz` 语义也变了（旧行为转发给目录服务），**外部监控若拿它当目录存活必须改成 `/health/catalog`**。
+9. **SDK 未被任何服务接入**（无 `go.work`/`replace`/tag），因此“切换后三服务构建测试全绿”没有证据；`go test -race` 未跑（Windows 需 CGO+gcc）。
+10. **`sql/roles.example.sql` 未启用**：只做了语法与授权语义验证，“越权被拒（`permission denied`）”未在实例实测；而且它在当前“启动执行幂等基线”的口径下**会挡住启动**（见 §4.3 第 3 条）。
+11. **真库用例必须 `-p 1`**：community/storage 的 handler 与 store 包共用同一个测试库，`storage` 的 `store` 包清理会删掉 handler 包的资产（在改动前的 HEAD 上同样可复现，已在其 CI 里改成 `-p 1`）。
 
 假设：
 
 1. 数字以写入时刻实测为准（主仓库工作区有并发改动，前端行数与字典键数会变动：本文为 123 个 `ts/tsx`、字典 3049 键）。
 2. D3–D8 是推荐值，评审通过后再改代码；未通过前，实现以现有文档为准。
 3. 拆分顺序（auth → community → storage）按"边界清晰度 + 代码量"排序；产品优先级变化可调整顺序，但共享层（B5）不可后置。
+
+## 12. 本轮落地进展（2026-09-16 实施批次）
+
+按 B1–B4 拆成 6 个工作包并行实施（互不重叠的文件所有权 + 按明确路径提交，全部本地提交、未推送）；CI 接线、compose 构建参数与文档同步由父代理收口 = **本文件所在的提交**。
+
+| 批次 | 已落地 | 提交 |
+| --- | --- | --- |
+| B2 密钥与健康 | catalog 三级验签来源（静态公钥 → JWKS → 私钥兼容兜底 + 启动告警），私钥不再下发给 backend；capabilities 去探活改声明式（出站请求 0 有测试钉住）；目录补 `/health`；outbox 注释如实化；compose/.env.example 同步 | 主仓库 `69423ee` |
+| B1 契约单源 + 前端分域 | 权限码与 `kinds` 生成物（反手抄守卫 + `--check`）；`lib/api.ts` 拆成 6 个域模块（barrel 保持 32 个调用点不动）；删 15 个死声明；`services.ts` 页面开关门控；Dockerfile / compose / release 三层注入 `NEXT_PUBLIC_*` | 主仓库 `1edfaae` |
+| B3 网关与部署 | 所有 `/api/*` 挂限流（脚本强制的不变量）；探针拆成网关自身与逐上游；`scripts/check_gateway_matrix.py`（33/33 + 限流 + 归属，负例 4/4）与 `scripts/check_versions.py` + `deploy/versions.lock`；`deploy/nginx.metadata.conf` 补安全头/限流/探针；网关仓库收敛为脚本仓库并加 CI；`cutover-check.sh` 断言标记 + `--self-check` | 主仓库 `27433d4`；网关仓库 `34389e2`、`850d777` |
+| B2 前置 SDK | `metafusion-sdk` 骨架（Claims/验签/JWKS/会话兜底/权限码/错误体与分页/health/request-id；52 用例，零第三方依赖）+ CI | SDK 仓库 `75799ea`、`59f2233` |
+| B4 数据层准备 | community/storage 迁移文件化 + 版本账本（幂等、真库用例）；两处 `sql/roles.example.sql`；`records` 与 `community` 变量拆分；`-p 1` 进 storage CI | community `06a3f48`、`316efaf`、`0eaaee4`、`399a9bb`；storage `05db308`、`d7dbca6`、`7bf29a9`；auth `e2e700b`、`b3b74bc` |
+| B5 / B6 UI 拆分 | **未开始**（共享层与逐域拆分仍待排期） | — |
+
+仍待办（按投入产出排序）：
+
+1. **SDK 接入三个服务**（B2 收尾）：删各自的 `internal/auth` 与权限码副本、收口 `unauthorized`、删私钥兜底路径；SDK 仓库尚未建远端与 tag（需要用户授权）。
+2. **B4 正式启用**：每服务 DB 角色 + `DATABASE_URL` 拆分 + 显式迁移入口（否则受限角色会挡住启动，见 §4.3 第 3 条）——需要停机窗口与回滚脚本。
+3. **矩阵本体搬进网关仓库**（B3 第 ③ 步）与**镜像发布渠道**（docs-site/auth/community/storage）。
+4. **B5 → B6 UI 拆分**：字典按域拆、共享 UI 包、嵌入契约小样，然后 auth → community → storage 逐域独立。
+5. **遗留死代码**：私信与插件两组前端死调用、`app/admin/components/tabs/**` 里的 9 处裸串权限码（都在并发改动中的文件里，需等其作者落地后再清）。
+6. **部署前必做**：刷新 `deploy/versions.lock`（兄弟仓库 HEAD 会随并发提交前进）、`nginx -t` 与 `/health/<service>` 实测、外部监控把 `/healthz` 改成 `/health/catalog`。
