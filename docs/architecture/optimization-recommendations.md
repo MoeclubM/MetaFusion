@@ -283,3 +283,20 @@
 | 公开 API 表面 | 15 个端点冒烟（11 个公开 + 4 个需鉴权） | 公开全 200、需鉴权全 401；`relations` 响应含 `subject_id` 且 `entities` 覆盖两端（实测 items=71 / entities=72） |
 | OAuth 密钥对齐 | `/.well-known/openid-configuration` → `jwks_uri` → 用 JWKS 公钥验 `id_token` 签名 | kid 对齐 ✓、**RS256 验签通过** ✓ |
 | 前端三档基线 | 1440×950 与 390×844 下 `/works`、`/releases`、`/mediums` 的 h1 左边界 | 1440：112/112/112；390：16/16/16（三者完全一致） |
+### 8.5 收尾记录：定义生命周期四件套的线上实测值（2026-09）
+
+| 端点 | 实测（线上 findverse.cc，管理员令牌） |
+| --- | --- |
+| `GET /api/admin/catalog-definitions`（默认） | 200 · 454,531 字节 · 7 个版本 · 每项含完整 `document` |
+| `GET /api/admin/catalog-definitions?include_document=false` | 200 · **1,195 字节（0.3%）** · 无 `document` · 保留 `id/state/base_version/created_at/created_by/summary` |
+| `GET /api/admin/catalog-definitions/{id}` | 200 · 66,452 字节 · 含完整文档；不存在 404；匿名 401；无码 403 |
+| `GET /api/admin/catalog-definitions/{id}/diff` | 200 · **593 字节** · `{id,against,base_version,changes,summary}` · 条目含 `path/section/change/from/to/truncated`，`change ∈ added/removed/changed/toggled` |
+
+线上 v7→v8 的差异**恰好只有两条**：`fields.air_date`（新增字段整体）与 `types.content_unit.fields[2]`（类型字段集新增一项）——
+这既验证了差异端点，也**独立佐证了增量合并"只增不改"**：如果合并顺手改了别的键，这里会多出条目。
+
+实现口径（与 §1 的建议一致）：默认行为不变（`include_document=false` 为**可选**参数，非法值 400 而不是静默按 true）；
+比较器是**通用 JSON 路径遍历**（map 逐键、array 按多重集——仅顺序不同不算变更、标量与布尔分别归 `changed`/`toggled`），无分区专用逻辑；
+长值超过阈值截断为前缀并置 `truncated=true`；`summary` 给出 `total` + 按分区与按变更类型的计数。
+
+仍缺（属前端任务，不在后端范围）：**后台面板尚未接这三个端点**；面板接上后，"列表不下载文档、点版本才拉详情、变更区不取文档即可显示差异"才算端到端达成。
