@@ -88,6 +88,13 @@ type termSeed struct {
 	names Names
 }
 
+// typeSeed 是类型的声明形状：四语名称（names4）+ 归属展示模板。
+type typeSeed struct {
+	code     string
+	names    Names
+	template string
+}
+
 func Defaults() Definitions {
 	// 结构归属规则：哪些层级要挂上级、字段码指向哪些层级、是否必填、候选按哪个上级字段过滤。
 	// 校验（validation.go）与前端编辑器共用这一份，前端不再自己写死"expression 挂在 work 下"。
@@ -326,25 +333,26 @@ func Defaults() Definitions {
 	// 若某场景写了分区未列的字段，WorkFacts 会在"其它信息"兜底展示，不会丢数据。
 	commonSections := func(extra ...Section) []Section {
 		return append(append([]Section{}, extra...),
-			Section{Names: names("创作与权利", "Credits & rights"), Fields: []string{"author", "copyright", "imdb"}},
-			Section{Names: names("首发与收录", "Premiere & inclusion"), Fields: []string{"edition_date", "events"}},
+			Section{Names: names4("创作与权利", "創作與權利", "制作・権利", "Credits & rights"), Fields: []string{"author", "copyright", "imdb"}},
+			Section{Names: names4("首发与收录", "首發與收錄", "初出・収録", "Premiere & inclusion"), Fields: []string{"edition_date", "events"}},
 		)
 	}
 	for _, x := range []struct {
-		code, zh, en string
-		sections     []Section
+		code     string
+		names    Names
+		sections []Section
 	}{
-		{"music", "音乐", "Music", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "duration", "duration_source"}})},
-		{"literature", "文学", "Literature", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "volume_count", "magazine"}})},
-		{"screen", "影视", "Screen", commonSections(
-			Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "episodes", "platform"}},
-			Section{Names: names("放送信息", "Broadcast"), Fields: []string{"broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"}},
+		{"music", names4("音乐", "音樂", "音楽", "Music"), commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration", "duration_source"}})},
+		{"literature", names4("文学", "文學", "文学", "Literature"), commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count", "magazine"}})},
+		{"screen", names4("影视", "影視", "映像", "Screen"), commonSections(
+			Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "episodes", "platform"}},
+			Section{Names: names4("放送信息", "放送資訊", "放送情報", "Broadcast"), Fields: []string{"broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"}},
 		)},
-		{"photography", "写真", "Photography", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "volume_count"}})},
-		{"game", "游戏", "Games", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "platform", "episodes", "volume_count"}})},
-		{"generic", "通用", "General", commonSections(Section{Names: names("基本信息", "Basics"), Fields: []string{"language", "duration"}})},
+		{"photography", names4("写真", "寫真", "写真", "Photography"), commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "volume_count"}})},
+		{"game", names4("游戏", "遊戲", "ゲーム", "Games"), commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "platform", "episodes", "volume_count"}})},
+		{"generic", names4("通用", "通用", "汎用", "General"), commonSections(Section{Names: names4("基本信息", "基本資訊", "基本情報", "Basics"), Fields: []string{"language", "duration"}})},
 	} {
-		d.Templates[x.code] = Template{Names: names(x.zh, x.en), Directory: "tree", Sections: x.sections,
+		d.Templates[x.code] = Template{Names: x.names, Directory: "tree", Sections: x.sections,
 			Columns: []string{"edition_date"}, RelationGroups: []string{"credits", "creative", "membership"}, PrimaryDateField: "edition_date", BadgeFields: []string{"platform", "episodes", "volume_count", "air_network"}}
 	}
 	// 作品类型可写的字段集：与所属模板分区声明的字段保持一致，避免"声明了却没权限写"。
@@ -370,14 +378,40 @@ func Defaults() Definitions {
 		"visual_novel": {"platform", "episodes", "volume_count"},
 		"personal":     {"duration"},
 	}
-	for _, x := range [][4]string{{"music", "音乐作品", "Music work", "music"}, {"song", "歌曲", "Song", "music"}, {"album", "专辑", "Album", "music"}, {"novel", "小说", "Novel", "literature"}, {"animation", "动画", "Animation", "screen"}, {"film", "电影", "Film", "screen"}, {"photobook", "写真集", "Photobook", "photography"}, {"indie_game", "独立游戏", "Independent game", "game"}, {"visual_novel", "视觉小说", "Visual novel", "game"}, {"personal", "个人创作", "Personal creation", "generic"}} {
+	for _, x := range []typeSeed{
+		{"music", names4("音乐作品", "音樂作品", "音楽作品", "Music work"), "music"},
+		{"song", names4("歌曲", "歌曲", "楽曲", "Song"), "music"},
+		{"album", names4("专辑", "專輯", "アルバム", "Album"), "music"},
+		{"novel", names4("小说", "小說", "小説", "Novel"), "literature"},
+		{"animation", names4("动画", "動畫", "アニメーション", "Animation"), "screen"},
+		{"film", names4("电影", "電影", "映画", "Film"), "screen"},
+		{"photobook", names4("写真集", "寫真集", "写真集", "Photobook"), "photography"},
+		{"indie_game", names4("独立游戏", "獨立遊戲", "インディーゲーム", "Independent game"), "game"},
+		{"visual_novel", names4("视觉小说", "視覺小說", "ビジュアルノベル", "Visual novel"), "game"},
+		{"personal", names4("个人创作", "個人創作", "個人制作", "Personal creation"), "generic"},
+	} {
 		// edition_date 用于承载作品首发/出版日期（列表与详情展示）；发行版自身的日期仍在 release.edition_date。
-		fields := append(append([]string{}, workFieldsByType[x[0]]...), commonWorkFields...)
-		d.Types[x[0]] = TypeDefinition{Names: names(x[1], x[2]), Kinds: []string{"work"}, Fields: fields, Template: x[3], Enabled: true}
+		fields := append(append([]string{}, workFieldsByType[x.code]...), commonWorkFields...)
+		d.Types[x.code] = TypeDefinition{Names: x.names, Kinds: []string{"work"}, Fields: fields, Template: x.template, Enabled: true}
 	}
-	for _, x := range [][3]string{{"person", "个人", "Person"}, {"organization", "组织", "Organization"}, {"group", "团体", "Group"}, {"character", "虚构角色", "Fictional character"}} {
-		d.Types[x[0]] = TypeDefinition{Names: names(x[1], x[2]), Kinds: []string{"agent"}, Fields: []string{}, Template: "generic", Enabled: true}
+	for _, x := range []typeSeed{
+		{"person", names4("个人", "個人", "個人", "Person"), "generic"},
+		{"organization", names4("组织", "組織", "組織", "Organization"), "generic"},
+		{"group", names4("团体", "團體", "グループ", "Group"), "generic"},
+		{"character", names4("虚构角色", "虛構角色", "架空のキャラクター", "Fictional character"), "generic"},
+	} {
+		d.Types[x.code] = TypeDefinition{Names: x.names, Kinds: []string{"agent"}, Fields: []string{}, Template: x.template, Enabled: true}
 	}
+	// 骨架类型的显示名：四语齐备，与 KindNames()/Kinds 对齐，不再按 zh/en 两语构造。
+	kindTypeNames := map[string]Names{
+		"collection":   names4("集合", "集合", "コレクション", "Collection"),
+		"content_unit": names4("内容单元", "內容單元", "コンテンツ単位", "Content unit"),
+		"expression":   names4("内容表达", "內容表達", "内容表現", "Expression"),
+		"release":      names4("发行版", "發行版", "リリース", "Release"),
+		"medium":       names4("载体", "載體", "メディア", "Medium"),
+		"track":        names4("收录位置", "收錄位置", "収録位置", "Track"),
+	}
+
 	for _, k := range []string{"collection", "content_unit", "expression", "release", "medium", "track"} {
 		keys := []string{"language"}
 		switch k {
@@ -399,18 +433,16 @@ func Defaults() Definitions {
 			// 通过 TrackContent 引用同一 CanonicalEntry/Expression 实现复用。
 			keys = []string{"duration", "role"}
 		}
-		zh := map[string]string{"collection": "集合", "content_unit": "内容单元", "expression": "内容表达", "release": "发行版", "medium": "载体", "track": "收录位置"}[k]
-		en := map[string]string{"collection": "Collection", "content_unit": "Content unit", "expression": "Expression", "release": "Release", "medium": "Medium", "track": "Track"}[k]
 		// 发行版有专用模板：其"属性分区"与"列表列"是发行这一媒体特有的编排，
 		// 由模板声明（可在后台改），避免把 edition_type/country/packaging… 写进代码。
 		tpl := "generic"
 		if k == "release" {
 			d.Templates["release"] = Template{
-				Names: names("发行版", "Release"), Directory: "tree",
+				Names: names4("发行版", "發行版", "リリース", "Release"), Directory: "tree",
 				Sections: []Section{
-					{Names: names("版本信息", "Edition"), Fields: []string{"edition_type", "edition_batch", "edition_date", "country", "distribution_channel", "platform"}},
-					{Names: names("载体与包装", "Carrier & packaging"), Fields: []string{"catalog_number", "barcode", "isbn", "packaging", "publisher"}},
-					{Names: names("附加内容", "Extras"), Fields: []string{"attachments", "store_bonuses", "events"}},
+					{Names: names4("版本信息", "版本資訊", "版情報", "Edition"), Fields: []string{"edition_type", "edition_batch", "edition_date", "country", "distribution_channel", "platform"}},
+					{Names: names4("载体与包装", "載體與包裝", "メディア・パッケージ", "Carrier & packaging"), Fields: []string{"catalog_number", "barcode", "isbn", "packaging", "publisher"}},
+					{Names: names4("附加内容", "附加內容", "特典・同梱物", "Extras"), Fields: []string{"attachments", "store_bonuses", "events"}},
 				},
 				Columns:          []string{"edition_type", "edition_batch", "country", "packaging", "catalog_number", "edition_date"},
 				PrimaryDateField: "edition_date",
@@ -420,7 +452,7 @@ func Defaults() Definitions {
 			}
 			tpl = "release"
 		}
-		d.Types[k] = TypeDefinition{Names: names(zh, en), Kinds: []string{k}, Fields: keys, Template: tpl, Enabled: true}
+		d.Types[k] = TypeDefinition{Names: kindTypeNames[k], Kinds: []string{k}, Fields: keys, Template: tpl, Enabled: true}
 	}
 	addRel := func(code, zh, en, rzh, ren string, src, tgt []string, group string, acyclic bool) {
 		d.Relations[code] = RelationDefinition{Names: names(zh, en), ReverseNames: names(rzh, ren), SourceKinds: src, TargetKinds: tgt, Fields: []string{"role", "credit_role", "character_rank", "context", "character", "language", "begin_date", "end_date", "scope"}, Group: group, GroupNames: names(map[string]string{"credits": "署名", "creative": "创作关系", "membership": "组成与成员"}[group], map[string]string{"credits": "Credits", "creative": "Creative relations", "membership": "Membership"}[group]), Acyclic: acyclic, Enabled: true}
