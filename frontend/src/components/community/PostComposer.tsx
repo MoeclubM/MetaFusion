@@ -211,7 +211,6 @@ export default function PostComposer({
   // ── createTopic-only state ──
   const [newTitle, setNewTitle] = useState("");
   const [newBoardCode, setNewBoardCode] = useState(defaultBoardCode || "announcement");
-  const [topicLanguage, setTopicLanguage] = useState<string>(locale || "zh-CN");
   const [workSearchQuery, setWorkSearchQuery] = useState("");
   const [searchedWorks, setSearchedWorks] = useState<Entity[]>([]);
   const [selectedWork, setSelectedWork] = useState<Entity | null>(null);
@@ -371,7 +370,6 @@ export default function PostComposer({
         board_code: newBoardCode,
         title: newTitle.trim(),
         content: newContent.trim(),
-        language: topicLanguage,
         work_id: selectedWork?.id,
         tag_ids: selectedTagIds.length ? selectedTagIds : undefined,
         tag_names: customTagNames.length ? customTagNames : undefined,
@@ -587,26 +585,9 @@ export default function PostComposer({
             </div>
           </div>
 
-          {/* Tags & Language */}
+          {/* Tags */}
           <div className="shrink-0 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1 bg-background border border-line rounded-full px-2.5 py-1 text-xs font-mono shrink-0">
-                <span className="text-gray-500">{t("locale.languageChoice")}:</span>
-                <button
-                  type="button"
-                  onClick={() => setTopicLanguage("zh-CN")}
-                  className={`px-2 py-0.5 rounded-full transition-colors duration-fast ease-soft ${topicLanguage === "zh-CN" ? "bg-white text-black font-semibold" : "text-gray-400 hover:text-white"}`}
-                >
-                  {t("community.languageZh")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTopicLanguage("en-US")}
-                  className={`px-2 py-0.5 rounded-full transition-colors duration-fast ease-soft ${topicLanguage === "en-US" ? "bg-white text-black font-semibold" : "text-gray-400 hover:text-white"}`}
-                >
-                  {t("community.languageEn")}
-                </button>
-              </div>
               <span className="text-xs font-mono text-gray-500 flex items-center gap-1 shrink-0 ml-1">
                 <TagIcon className="w-3.5 h-3.5" />
                 {t("community.tags")}

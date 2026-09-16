@@ -98,7 +98,6 @@ export interface CreateTopicPayload {
   board_code: string;
   title: string;
   content: string;
-  language?: string;
   work_id?: string;
   tag_ids?: number[];
   tag_names?: string[];

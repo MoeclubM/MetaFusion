@@ -106,7 +106,6 @@ function CommunityContent() {
  const [composerExpanded, setComposerExpanded] = useState(false);
 
  const [boards, setBoards] = useState<ForumBoard[]>(FORUM_BOARDS);
- const [filterLanguage, setFilterLanguage] = useState<string>("all");
 
  useEffect(() => {
  fetchBoards().then(setBoards).catch(() => {});
@@ -184,9 +183,6 @@ function CommunityContent() {
  if (entityFilter) {
  params.append("entity_id", entityFilter);
  }
- if (filterLanguage && filterLanguage !== "all") {
- params.append("language", filterLanguage);
- }
  if (searchFilter.trim()) {
  params.append("q", searchFilter.trim());
  }
@@ -215,7 +211,7 @@ function CommunityContent() {
 
  useEffect(() => {
  loadTopics();
- }, [selectedBoard, activeTab, filterTagId, filterTagName, filterLanguage]);
+ }, [selectedBoard, activeTab, filterTagId, filterTagName]);
 
  const getBoard = (code: string) => {
  return boards.find((b) => b.code === code) || boards[0] || FORUM_BOARDS[0];
@@ -252,7 +248,7 @@ function CommunityContent() {
  </div>
  )}
 
- {/* Board list — single source: language / Latest-Top / search live in top bar */}
+ {/* Board list — single source: Latest-Top / search live in top bar */}
  <div className="space-y-1">
  <h3 className="px-2.5 text-xs font-mono font-bold tracking-widest text-gray-500 uppercase flex items-center justify-between">
  <span>{t("community.boards")}</span>
@@ -429,7 +425,7 @@ function CommunityContent() {
 	        )}
 	      </div>
 
-	      {/* Row 2: Discourse Sub-Filter Controls (类别 > | 标签 > | 最新 | 热门 | 语言) */}
+	      {/* Row 2: Discourse Sub-Filter Controls (类别 > | 标签 > | 最新 | 热门) */}
 	      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-0.5">
 	        <div className="flex items-center gap-2 flex-wrap">
 	          {/* Discourse Category Dropdown (类别 >) */}
@@ -616,56 +612,6 @@ function CommunityContent() {
 	          </div>
 	        </div>
 
-	        {/* Tabs & Language filter */}
-	        <div className="flex items-center gap-2 overflow-x-auto">
-	          <div className="flex items-center gap-0.5 bg-surface border border-line rounded-md p-0.5 shrink-0">
-	            <button
-	              onClick={() => setActiveTab("latest")}
-	              className={`px-3 h-8 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors duration-fast ease-soft ${
-	                activeTab === "latest" ? "bg-white text-black shadow-xs" : "text-gray-400 hover:text-white"
-	              }`}
-	            >
-	              <Sparkles className="w-3.5 h-3.5" />
-	              <span>{t("community.latest")}</span>
-	            </button>
-	            <button
-	              onClick={() => setActiveTab("top")}
-	              className={`px-3 h-8 rounded text-xs font-semibold flex items-center gap-1.5 transition-colors duration-fast ease-soft ${
-	                activeTab === "top" ? "bg-white text-black shadow-xs" : "text-gray-400 hover:text-white"
-	              }`}
-	            >
-	              <Flame className="w-3.5 h-3.5" />
-	              <span>{t("community.top")}</span>
-	            </button>
-	          </div>
-
-	          <div className="flex items-center gap-0.5 bg-surface border border-line rounded-md p-0.5 shrink-0">
-	            <button
-	              onClick={() => setFilterLanguage("all")}
-	              className={`px-2.5 h-8 rounded text-xs font-medium transition-colors duration-fast ease-soft ${
-	                filterLanguage === "all" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"
-	              }`}
-	            >
-	              {t("community.languageAll")}
-	            </button>
-	            <button
-	              onClick={() => setFilterLanguage("zh-CN")}
-	              className={`px-2.5 h-8 rounded text-xs font-medium transition-colors duration-fast ease-soft ${
-	                filterLanguage === "zh-CN" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"
-	              }`}
-	            >
-	              {t("community.languageZh")}
-	            </button>
-	            <button
-	              onClick={() => setFilterLanguage("en-US")}
-	              className={`px-2.5 h-8 rounded text-xs font-medium transition-colors duration-fast ease-soft ${
-	                filterLanguage === "en-US" ? "bg-white text-black shadow-xs font-semibold" : "text-gray-400 hover:text-white"
-	              }`}
-	            >
-	              {t("community.languageEn")}
-	            </button>
-	          </div>
-	        </div>
 	      </div>
 
 	      {/* Active Tag Filter Chip */}
@@ -694,7 +640,7 @@ function CommunityContent() {
 
  <div className="py-6 space-y-5 flex-1">
  {/* key 随页签/分区/筛选变化重放进入动画；搜索框内容不参与，避免输入时闪动 */}
- <TabPanel activeKey={activeTab + "-" + selectedBoard + "-" + filterLanguage + "-" + (filterTagId ?? filterTagName ?? "all")} spacing="none" className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
+ <TabPanel activeKey={activeTab + "-" + selectedBoard + "-" + (filterTagId ?? filterTagName ?? "all")} spacing="none" className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
  <div className="hidden sm:flex items-center gap-3 px-4 py-2.5 bg-background/60 border-b border-line text-sm font-mono text-gray-500">
  <span className="flex-1">{t("community.topic")}</span>
  <span className="w-20 text-center">{t("community.participants")}</span>
@@ -865,10 +811,20 @@ function CommunityContent() {
  );
 }
 
+/** Suspense 兜底：兜底节点在 I18n 上下文之外，单独成组件才能取到字典文案。 */
+function CommunityFallback() {
+  const { t } = useI18n();
+  return (
+    <div className="min-h-screen bg-background flex items-center justify-center text-sm text-gray-500">
+      {t("common.loading")}
+    </div>
+  );
+}
+
 export default function CommunityPage() {
- return (
- <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center text-sm text-gray-500">Loading…</div>}>
- <CommunityContent />
- </Suspense>
- );
+  return (
+    <Suspense fallback={<CommunityFallback />}>
+      <CommunityContent />
+    </Suspense>
+  );
 }
