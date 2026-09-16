@@ -13,10 +13,12 @@
 # 更新：切流窗口开始时按各仓库 git rev-parse --short HEAD 重写一遍并提交。
 #       不要为了让它变绿而改 sha——那等于把锚点挪到没验证过的代码上。
 #
-# 当前锚点（2026-09-16）：
-.=42ab227
-../metafusion-auth=39fd363
+# 当前锚点（2026-09-16 实施批次后）。注意：`../metafusion-sdk` 目前**不是部署输入**（没有任何服务 import），
+# 因此不进这份锁；等 SDK 接入服务后必须补一行，否则“锁住了”只是错觉。
+# 更新时按各仓库 git rev-parse --short HEAD 重写，并在同一次提交里跑一遍 python scripts/check_versions.py。
+.=cb358a3
+../metafusion-auth=b3b74bc
 ../metafusion-community=399a9bb
-../metafusion-storage=6b0a9f7
-../metafusion-api-gateway=34389e2
+../metafusion-storage=7bf29a9
+../metafusion-api-gateway=850d777
 ../metafusion-docs=6f8314d

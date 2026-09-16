@@ -57,6 +57,14 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
+      # NEXT_PUBLIC_* 是**构建期内联**：必须在 build 阶段传，运行期 environment 无效。
+      # 留空即前端按同源网关路径工作（当前部署形态）；要指向外部服务域名再填。
+      args:
+        NEXT_PUBLIC_AUTH_URL: ${NEXT_PUBLIC_AUTH_URL:-}
+        NEXT_PUBLIC_FORUM_URL: ${NEXT_PUBLIC_FORUM_URL:-}
+        NEXT_PUBLIC_STORAGE_URL: ${NEXT_PUBLIC_STORAGE_URL:-}
+        NEXT_PUBLIC_RESOURCE_STATION_URL: ${NEXT_PUBLIC_RESOURCE_STATION_URL:-}
+        NEXT_PUBLIC_DOCS_URL: ${NEXT_PUBLIC_DOCS_URL:-}
     container_name: metafusion-frontend
     restart: unless-stopped
     environment:
