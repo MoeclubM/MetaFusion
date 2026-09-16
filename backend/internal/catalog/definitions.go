@@ -115,6 +115,7 @@ func impact(ctx context.Context, q queryer, d Definitions) ([]string, error) {
 	}
 	return issues, nil
 }
+
 // EnsureSeedDefinitions 把种子里新增的定义补进当前已发布定义（只增不改，见 mergeSeedDefinitions）。
 // 没有任何新增时不写库：幂等，避免每次启动都多出一个定义版本。
 // 以系统身份起草并发布，说明里列出新增键，便于在修订历史里追溯这次模板更新的来源。
@@ -152,10 +153,13 @@ func (s *Store) Impact(ctx context.Context, id int64) ([]string, error) {
 	}
 	return impact(ctx, s.DB, d)
 }
+
+// 并发口径：发布走 s.write（**不取** advisory 锁，见 store.go 的 write/writeStructural），
+// 与其它写事务并行；两个并发发布不会同时生效——is_valid_draft 的状态/版本检查加上
+// one_published_definition 唯一索引（只允许一行 state='published'）会让后到者拿到
+// constraint_violation，而不是留下两个已发布版本。impact 全量校验在本事务快照内执行，
+// 因此"校验看到的快照"与"发布生效"是原子的。
 func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sources []Source) error {
-	// 长事务说明：impact 全量校验（逐实体+逐关系）在本事务内执行，发布期间持有
-	// advisory 锁（见 write），大库上发布会阻塞其它写事务。这是刻意trade-off：
-	// 定义发布是低频管理操作，正确性（校验看到的快照与发布原子）优先于并发。
 	// 事务内一律用 definitions(ctx, tx) 直读，不走进程内 Definitions 缓存。
 	err := s.write(ctx, func(tx *sql.Tx) error {
 		if !u.Can(PermissionDefinitionsManage) {
