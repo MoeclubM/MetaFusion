@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "theme:build": "node scripts/gen-theme.mjs"
+    "theme:build": "node scripts/gen-theme.mjs",
+    "contracts:build": "node scripts/generate-contracts.mjs",
+    "contracts:check": "node scripts/generate-contracts.mjs --check"
   },
   "dependencies": {
     "@types/katex": "^0.16.8",

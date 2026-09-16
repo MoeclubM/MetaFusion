@@ -1,16 +1,9 @@
 import { pickRecordTitle } from "@/lib/titles";
 import { fetchApi } from "@/lib/api";
+import { ENTITY_KINDS } from "@/lib/kinds.generated";
 
-export const kinds = [
-  "agent",
-  "collection",
-  "work",
-  "content_unit",
-  "expression",
-  "release",
-  "medium",
-  "track",
-];
+/** 固定八种骨架：单一来源是目录库基线（见 frontend/scripts/generate-contracts.mjs）。 */
+export const kinds: string[] = [...ENTITY_KINDS];
 export type Names = Record<string, string>;
 export type Field = {
   names: Names;

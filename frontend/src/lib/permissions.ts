@@ -1,28 +1,39 @@
-// 前端权限判定：与后端 backend/internal/catalog/permission.go 同口径。
+// 前端权限判定：码表由 backend/internal/catalog/permission.go 与各子系统仓库声明生成
+// （见 frontend/scripts/generate-contracts.mjs），本文件不再手抄任何码。
 //
 // 权限码由账号服务装进组（auth.groups.permissions），各子系统声明并解释自己的码。
 // 这里只做"能不能看到入口"的判断；真正的写入授权仍在服务端，前端判定只是别把
 // 用户引到注定 403 的按钮上，也不能因为前端放行就以为服务端会放行。
 
 import type { User } from "./api";
+import {
+  AUTH_GROUPS_MANAGE,
+  AUTH_SETTINGS_MANAGE,
+  AUTH_USERS_MANAGE,
+  CATALOG_DEFINITIONS_MANAGE,
+  CATALOG_ENTITY_EDIT,
+  CATALOG_LIFECYCLE_MANAGE,
+  CATALOG_SHELVES_MANAGE,
+} from "./permissions.generated";
 
-export const CATALOG_ENTITY_EDIT = "catalog.entity.edit";
-export const CATALOG_RELATION_EDIT = "catalog.relation.edit";
-export const CATALOG_DEFINITIONS_MANAGE = "catalog.definitions.manage";
-export const CATALOG_LIFECYCLE_MANAGE = "catalog.lifecycle.manage";
-export const CATALOG_IMPORT_SUBMIT = "catalog.import.submit";
-export const CATALOG_SHELVES_MANAGE = "catalog.shelves.manage";
-export const AUTH_USERS_MANAGE = "auth.users.manage";
-export const AUTH_GROUPS_MANAGE = "auth.groups.manage";
-export const AUTH_SETTINGS_MANAGE = "auth.settings.manage";
-// OAuth 授权方管理码：账号服务把客户端管理、密钥轮换、令牌吊销与审计统一挂在它下面
-// （metafusion-auth/internal/handler/oauth_admin.go）。
-export const AUTH_OAUTH_MANAGE = "auth.oauth.manage";
-// 论坛权限码，与 metafusion-community/internal/auth/permission.go 一致。
-export const COMMUNITY_POST_CREATE = "community.post.create";
-export const COMMUNITY_POST_MODERATE = "community.post.moderate";
-export const COMMUNITY_TOPIC_PIN = "community.topic.pin";
-export const COMMUNITY_BOARD_MANAGE = "community.board.manage";
+// 既有调用点从 "@/lib/permissions" 取这些常量，导出名保持不变；
+// 用 export { ... } from 而不是 export const，以保留生成物里的字面量类型。
+export {
+  AUTH_GROUPS_MANAGE,
+  AUTH_OAUTH_MANAGE,
+  AUTH_SETTINGS_MANAGE,
+  AUTH_USERS_MANAGE,
+  CATALOG_DEFINITIONS_MANAGE,
+  CATALOG_ENTITY_EDIT,
+  CATALOG_IMPORT_SUBMIT,
+  CATALOG_LIFECYCLE_MANAGE,
+  CATALOG_RELATION_EDIT,
+  CATALOG_SHELVES_MANAGE,
+  COMMUNITY_BOARD_MANAGE,
+  COMMUNITY_POST_CREATE,
+  COMMUNITY_POST_MODERATE,
+  COMMUNITY_TOPIC_PIN,
+} from "./permissions.generated";
 
 type AnyUser = Pick<User, "id" | "role"> & Partial<Pick<User, "permissions" | "groups">>;
 
