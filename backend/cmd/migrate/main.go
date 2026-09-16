@@ -11,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/metafusion/metafusion-app/internal/catalog"
 	"github.com/metafusion/metafusion-app/internal/config"
 	"github.com/metafusion/metafusion-app/internal/migrator"
 	"github.com/metafusion/metafusion-app/migrations"
@@ -27,7 +28,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  up              执行所有待处理的数据库迁移 (默认)\n")
 		fmt.Fprintf(os.Stderr, "  down            回滚上一版本的数据库迁移\n")
 		fmt.Fprintf(os.Stderr, "  status          查看数据库当前版本与全部迁移状态\n")
-		fmt.Fprintf(os.Stderr, "  force <version> 强制解除指定版本的脏迁移 (dirty) 标记\n\n")
+		fmt.Fprintf(os.Stderr, "  force <version> 强制解除指定版本的脏迁移 (dirty) 标记\n")
+		fmt.Fprintf(os.Stderr, "  seed            把种子定义增量合并进当前已发布定义（只增不改，服务启动时也会做一次）\n\n")
 	}
 	flag.Parse()
 
@@ -67,6 +69,20 @@ func main() {
 	defer cancel()
 
 	switch cmd {
+	case "seed":
+		// 显式入口：把种子里新增的定义（新关系码、新字段、新词表）补进存量实例的已发布定义。
+		// 服务启动时也会执行同样的合并；这个命令便于运维在部署后确认模板是否已更新。
+		log.Println("开始合并种子定义（只增不改）...")
+		s, err := catalog.Open(ctx, dsn)
+		if err != nil {
+			log.Fatalf("打开目录库失败: %v", err)
+		}
+		defer s.DB.Close()
+		if err := s.EnsureSeedDefinitions(ctx); err != nil {
+			log.Fatalf("种子定义合并失败: %v", err)
+		}
+		log.Println("种子定义合并完成")
+
 	case "up":
 		log.Println("开始执行数据库版本迁移 (Migrate Up)...")
 		if err := m.Up(ctx); err != nil {
