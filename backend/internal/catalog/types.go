@@ -270,6 +270,38 @@ type DefinitionVersionItem struct {
 	Summary     string       `json:"summary,omitempty"`
 }
 
+// DefinitionChange 是一条字段级差异。Path 是键路径，逐级用文档里的真实键名与数组下标表达
+// （如 fields.<code>.enabled、relations.<code>.aggregate、types.<code>.fields[2]、
+// vocabularies.<code>.terms.<term>.names.zh-TW），唯一对应文档里的一处位置；Section 是首段分区名。
+// Change 取 added / removed / changed / toggled 四种之一：added 只给 To，removed 只给 From，
+// changed（值变更）与 toggled（开关翻转）两侧都给。值超过 512 字节时截断成字符串前缀并置 Truncated。
+type DefinitionChange struct {
+	Path      string `json:"path"`
+	Section   string `json:"section"`
+	Change    string `json:"change"`
+	From      any    `json:"from,omitempty"`
+	To        any    `json:"to,omitempty"`
+	Truncated bool   `json:"truncated,omitempty"`
+}
+
+// DefinitionDiffSummary 是按分区与按变更类型的计数汇总：七个分区与四种变更类型的键恒存在
+// （为 0 也给），面板不必遍历条目就能显示"共 N 处变更"。
+type DefinitionDiffSummary struct {
+	Total     int            `json:"total"`
+	BySection map[string]int `json:"by_section"`
+	ByChange  map[string]int `json:"by_change"`
+}
+
+// DefinitionDiff 是两个定义版本之间的差异：只有差异条目与计数，不含任何一侧的 document。
+// Against 是实际比较的基线版本（缺省取该版本的 base_version）。
+type DefinitionDiff struct {
+	ID          int64                 `json:"id"`
+	Against     int64                 `json:"against"`
+	BaseVersion int64                 `json:"base_version"`
+	Changes     []DefinitionChange    `json:"changes"`
+	Summary     DefinitionDiffSummary `json:"summary"`
+}
+
 // DefinitionRollback 是一次定义回滚的结果。no_op 为真表示目标版本文档与当前已发布文档完全一致，
 // 服务端没有新建版本，id/state/base_version/created_at 描述的是既有**已发布**版本，edit_note 为空。
 type DefinitionRollback struct {

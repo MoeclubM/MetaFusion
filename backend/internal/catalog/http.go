@@ -611,6 +611,23 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.DefinitionDetail(c.Request.Context(), id)
 		respond(c, v, err)
 	})
+	// 版本间差异：against 缺省（未传或空）= 该版本的 base_version，即"与上一版比"；显式给出则与指定
+	// 版本比。两端任一版本不存在即 404（非数字 id 照旧按不存在处理）；query 里的 against 不合法是
+	// 请求形状错误，直接 400 invalid_payload，不静默退回默认基线。
+	defs.GET("/:id/diff", func(c *gin.Context) {
+		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		var against int64
+		if raw, ok := c.GetQuery("against"); ok && strings.TrimSpace(raw) != "" {
+			v, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+			if err != nil {
+				c.JSON(400, gin.H{"error": "invalid_payload"})
+				return
+			}
+			against = v
+		}
+		v, err := s.DefinitionDiff(c.Request.Context(), id, against)
+		respond(c, v, err)
+	})
 	defs.POST("", func(c *gin.Context) {
 		var in struct {
 			Document    Definitions `json:"document"`

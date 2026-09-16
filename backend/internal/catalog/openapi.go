@@ -68,7 +68,7 @@ func OpenAPI() map[string]any {
 			return map[string]any{}
 		}
 	}
-	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, DefinitionVersionItem{}, DefinitionRollback{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
+	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, DefinitionVersionItem{}, DefinitionRollback{}, DefinitionDiff{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
 		schema(reflect.TypeOf(v))
 	}
 	schemas["DefinitionDraft"] = map[string]any{"type": "object", "required": []string{"document", "base_version", "edit_note", "sources"}, "properties": map[string]any{"document": schema(reflect.TypeOf(Definitions{})), "base_version": map[string]any{"type": "integer"}, "edit_note": map[string]any{"type": "string"}, "sources": schema(reflect.TypeOf([]Source{}))}}
@@ -142,6 +142,7 @@ func OpenAPI() map[string]any {
 		{"/catalog/relations", "post", "Create contextual relation (requires catalog.relation.edit; supports Idempotency-Key, 24h)", "RelationEdit", "Relation", "auth"}, {"/catalog/relations/{id}", "put", "Replace relation context (requires catalog.relation.edit)", "RelationEdit", "Relation", "auth"}, {"/catalog/relations/{id}", "delete", "Remove relation with evidence (requires catalog.relation.edit)", "LifecycleEdit", "Result", "auth"},
 		{"/admin/catalog-definitions", "get", "List definition versions (requires catalog.definitions.manage); each item carries state, created_at, created_by (when a revision row exists) and a short counts summary. include_document defaults to true and keeps the full document on every item; include_document=false omits the document key entirely (and reads no document from the database) while keeping every other metadata field, and the response-level include_document tells the client whether documents came along — read one version with GET /admin/catalog-definitions/{id}; an unparsable value is rejected with invalid_payload instead of silently returning documents", "", "DefinitionList", "auth"}, {"/admin/catalog-definitions", "post", "Save immutable draft (requires catalog.definitions.manage)", "DefinitionDraft", "Result", "auth"}, {"/admin/catalog-definitions/{id}/impact", "get", "Validate draft against all current data", "", "Result", "auth"}, {"/admin/catalog-definitions/{id}/publish", "post", "Publish compatible draft (requires catalog.definitions.manage)", "LifecycleEdit", "Result", "auth"},
 		{"/admin/catalog-definitions/{id}", "get", "Read one definition version with its full document plus state, base_version, created_at, created_by (when a revision row exists) and the same counts summary as the list (requires catalog.definitions.manage); any state is readable, including superseded and draft; a non-numeric or unknown id is 404 not_found", "", "DefinitionVersion", "auth"},
+		{"/admin/catalog-definitions/{id}/diff", "get", "Field-level diff between a definition version and a baseline (requires catalog.definitions.manage); against defaults to this version's base_version (compare with the previous version) and must be an existing version id — an unparsable against is invalid_payload, a missing id on either side is 404 not_found. Each entry carries a key path that locates exactly one place in the document (fields.<code>.enabled, relations.<code>.aggregate, types.<code>.fields[2], vocabularies.<code>.terms.<term>.names.zh-TW) and one of added / removed / changed / toggled, with from/to values for value changes and toggles (values over 512 bytes are truncated to a string prefix and flagged by truncated). summary counts changes by section (types/fields/vocabularies/relations/templates/schemes/structure) and by change type. Neither side's document is returned", "", "DefinitionDiff", "auth"},
 		{"/admin/catalog-definitions/{id}/rollback", "post", "Re-draft a historical definition version on top of the current published version and publish it through the same impact validation (requires catalog.definitions.manage); no_op=true returns the existing published version without writing when the document already matches; 404 when the id is not a definition version", "", "DefinitionRollback", "auth"},
 		{"/admin/external-databases", "get", "List external authority databases (requires catalog.definitions.manage)", "", "Result", "auth"},
 		{"/admin/external-databases", "post", "Create external authority database (requires catalog.definitions.manage)", "ExternalDatabase", "Result", "auth"},
@@ -197,6 +198,11 @@ func OpenAPI() map[string]any {
 	}
 	paths["/admin/catalog-definitions"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
 		qp("include_document", "Whether each item carries its full document; default true, false omits the document key (read one version with GET /admin/catalog-definitions/{id})", false),
+	}
+	// 路径模板变量必须与查询参数一起声明：整体覆盖 parameters 会把 {id} 的 in=path 声明抹掉。
+	paths["/admin/catalog-definitions/{id}/diff"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
+		map[string]any{"name": "id", "in": "path", "required": true, "schema": map[string]any{"type": "string"}},
+		qp("against", "Baseline definition version id to compare with; defaults to this version's base_version", false),
 	}
 	// 权限级别说明：OpenAPI security 只区分匿名/登录；管理端点的权限码在 summary 标注
 	// （见各 admin/* 与 lifecycle 行），与 http.go required(<code>) 对应，不另加字段。
