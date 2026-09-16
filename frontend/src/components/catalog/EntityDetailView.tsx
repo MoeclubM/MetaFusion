@@ -1035,7 +1035,8 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 1: Overview & Summary                                */}
             {/* ============================================================ */}
-            <div role="tabpanel" id={`panel-${active}`} aria-labelledby={`tab-${active}`} className="space-y-8">
+            {/* key 随页签变化：切换时重挂载以重放 .mf-tabpanel 进入动画 */}
+            <div key={active} role="tabpanel" id={`panel-${active}`} aria-labelledby={`tab-${active}`} className="mf-tabpanel space-y-8">
             {active === "overview" && (
             <section id="overview" className="rounded-xl border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-soft">
               <div className="flex items-center gap-2 border-b border-line-subtle pb-3">

@@ -343,7 +343,8 @@ export default function TopicDetailPage() {
  </div>
 
  {/* Replies Stream */}
- <div className="space-y-3">
+ {/* key 随楼层数变化：发帖/删帖后回复流重放一次进入动画，输入与点赞不触发 */}
+ <div key={"replies-" + posts.length} className="mf-tabpanel space-y-3">
  {replies.map((post) => {
  const replyUserId = post.user_id || post.user?.id;
  return (

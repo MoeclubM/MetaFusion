@@ -681,7 +681,8 @@ function CommunityContent() {
 	  </div>
 
  <div className="px-4 py-6 space-y-5 flex-1">
- <div className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
+ {/* key 随页签/分区/筛选变化重放进入动画；搜索框内容不参与，避免输入时闪动 */}
+ <div key={activeTab + "-" + selectedBoard + "-" + filterLanguage + "-" + (filterTagId ?? filterTagName ?? "all")} className="mf-tabpanel border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
  <div className="hidden sm:flex items-center gap-3 px-4 py-2.5 bg-background/60 border-b border-line text-sm font-mono text-gray-500">
  <span className="flex-1">{t("community.topic")}</span>
  <span className="w-20 text-center">{t("community.participants")}</span>

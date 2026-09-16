@@ -208,6 +208,18 @@ function ExploreInner() {
     [currentKind],
   );
 
+  // 列表容器 key：视图与筛选变化时重挂载、重放 .mf-tabpanel；
+  // 搜索框的本地输入（qInput）不参与，否则打字过程会一直闪。
+  const listKey = [
+    viewMode,
+    currentKind,
+    currentStatus,
+    currentType,
+    currentQ,
+    currentTags.join(","),
+    currentPage,
+  ].join("|");
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-text-strong">
       <Navbar />
@@ -445,7 +457,7 @@ function ExploreInner() {
                 </button>
               </div>
             ) : viewMode === "grid" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div key={listKey} className="mf-tabpanel grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
                 {items.map((item) => {
                   const KindIcon = KIND_ICONS[item.kind] || Layers;
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
@@ -501,7 +513,7 @@ function ExploreInner() {
                 })}
               </div>
             ) : (
-              <div className="rounded-xl border border-line bg-surface overflow-hidden divide-y dark:divide-white/[0.04] shadow-soft">
+              <div key={listKey} className="mf-tabpanel rounded-xl border border-line bg-surface overflow-hidden divide-y dark:divide-white/[0.04] shadow-soft">
                 {items.map((item) => {
                   const KindIcon = KIND_ICONS[item.kind] || Layers;
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
