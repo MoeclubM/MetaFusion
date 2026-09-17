@@ -322,6 +322,103 @@ func TestImporterImportIdempotent(t *testing.T) {
 	}
 }
 
+// TestImporterImportNormalizesSource：Import 与 Preview 共用 normalizeImporterSource。
+// Import 曾自带一套归一化（"" → bangumi，但 "auto" 原样保留），于是 source=auto 的落库
+// 拿不到 importDedupKey 的幂等键，还把 external_ids 的键名写成 "auto"（不在注册表预设里，
+// 带 external_id 时会被预检以 invalid_external_key: auto 拒）。三种写法现在必须同一条记录。
+func TestImporterImportNormalizesSource(t *testing.T) {
+	stubBangumi(t)
+	f := newFixture(t)
+	ctx := context.Background()
+
+	importWith := func(source string) ImporterImportResponse {
+		t.Helper()
+		out, err := f.s.Import(ctx, ImporterImportRequest{
+			EntityType: "work",
+			Source:     source,
+			URLOrID:    "https://bgm.tv/subject/7",
+			Work:       &ImporterWorkPreview{Title: "来源归一化"},
+			EditNote:   "来源归一化测试",
+		}, f.u)
+		if err != nil {
+			t.Fatalf("source=%q 导入失败：%v", source, err)
+		}
+		return out
+	}
+	auto := importWith("auto")
+	empty := importWith("")
+	bangumi := importWith("bangumi")
+	if auto.WorkID == "" {
+		t.Fatal("source=auto 没有返回作品 id")
+	}
+	// 幂等键取归一化后的来源：三次调用必须命中同一条记录，而不是各建一份。
+	if empty.WorkID != auto.WorkID || bangumi.WorkID != auto.WorkID {
+		t.Fatalf("同一来源的不同写法未命中同一条记录：auto=%s empty=%s bangumi=%s", auto.WorkID, empty.WorkID, bangumi.WorkID)
+	}
+	// external_ids 的键名同样按归一化后的来源写。
+	got, err := f.s.Get(ctx, auto.WorkID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ExternalIDs["metafusion_import"] != "bangumi:subject:7" {
+		t.Errorf("幂等键未按 bangumi 落库：%v", got.ExternalIDs)
+	}
+	if got.ExternalIDs["bangumi"] != "7" {
+		t.Errorf("bangumi external id 缺失：%v", got.ExternalIDs)
+	}
+	if _, ok := got.ExternalIDs["auto"]; ok {
+		t.Errorf("external_ids 里不该出现 auto：%v", got.ExternalIDs)
+	}
+
+	// 幂等键取不到时（url_or_id 不是 Bangumi 引用）走的是 external_id 那条写路径：
+	// 手工载荷同样必须落到归一化后的来源，而不是带着 "auto" 去撞注册表预设。
+	manual, err := f.s.Import(ctx, ImporterImportRequest{
+		EntityType: "work",
+		Source:     "auto",
+		URLOrID:    "manual-payload",
+		ExternalID: "999",
+		Work:       &ImporterWorkPreview{Title: "手工载荷"},
+		EditNote:   "手工载荷来源归一化测试",
+	}, f.u)
+	if err != nil {
+		t.Fatalf("手工载荷导入失败：%v", err)
+	}
+	manualWork, err := f.s.Get(ctx, manual.WorkID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manualWork.ExternalIDs["bangumi"] != "999" {
+		t.Errorf("external_id 未按归一化后的来源落库：%v", manualWork.ExternalIDs)
+	}
+	if _, ok := manualWork.ExternalIDs["auto"]; ok {
+		t.Errorf("external_ids 里不该出现 auto：%v", manualWork.ExternalIDs)
+	}
+}
+
+// 归一化函数本身的口径（Preview 与 Import 共用）：大小写/空白收敛到 bangumi，
+// 其余一律 not_supported——注册表里有 code 但没有适配器的来源（douban / bangumi_person）
+// 同样被拒，不因为"注册表认识"就放行。
+func TestNormalizeImporterSourceSharedByBothEndpoints(t *testing.T) {
+	for _, in := range []string{"", "auto", "AUTO", "  Auto  ", "bangumi", "Bangumi"} {
+		if got, err := normalizeImporterSource(in); err != nil || got != "bangumi" {
+			t.Errorf("normalizeImporterSource(%q)=%q,%v，want bangumi,nil", in, got, err)
+		}
+	}
+	for _, in := range []string{"tmdb", "musicbrainz", "douban", "bangumi_person", "plugin:x"} {
+		if _, err := normalizeImporterSource(in); err == nil || err.Error() != "not_supported" {
+			t.Errorf("normalizeImporterSource(%q) 未按 not_supported 拒绝：%v", in, err)
+		}
+	}
+	// 未知来源在 Import 里于任何写之前就被拒：空 Store（无库）也能拿到同一个错误码。
+	s := &Store{}
+	_, err := s.Import(context.Background(), ImporterImportRequest{
+		EntityType: "work", Source: "tmdb", URLOrID: "1", Work: &ImporterWorkPreview{Title: "x"},
+	}, User{ID: "u1", Role: "admin"})
+	if err == nil || err.Error() != "not_supported" {
+		t.Fatalf("未知来源未被落库端点拒绝：%v", err)
+	}
+}
+
 func mustList(t *testing.T, f fixture, o ListOptions) []Entity {
 	t.Helper()
 	items, err := f.s.List(context.Background(), o, &f.u)

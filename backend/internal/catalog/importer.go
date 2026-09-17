@@ -4235,12 +4235,13 @@ func (s *Store) Import(ctx context.Context, req ImporterImportRequest, actor Use
 	if err != nil {
 		return ImporterImportResponse{}, err
 	}
-	source := strings.ToLower(strings.TrimSpace(req.Source))
-	if source == "" {
-		source = "bangumi"
-	}
-	if source != "bangumi" && source != "auto" {
-		return ImporterImportResponse{}, fmt.Errorf("not_supported")
+	// 来源归一化必须与 Preview 共用同一个函数。这里曾自带一套（"" → bangumi，但
+	// "auto" 原样收下）：于是 source=auto 的落库既拿不到 importDedupKey 的幂等键，
+	// 又把 external_ids 的键名写成 "auto"——auto 不在 external_databases 预设里，
+	// 带 external_id 的载荷会在写库前的预检被 invalid_external_key: auto 拒。
+	source, err := normalizeImporterSource(req.Source)
+	if err != nil {
+		return ImporterImportResponse{}, err
 	}
 	note, sources := importerEvidence(req, source)
 	mode, err := normalizeImporterLinkMode(req.LinkMode)
