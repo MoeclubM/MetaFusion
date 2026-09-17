@@ -1,8 +1,10 @@
 # ==============================================================================
 # MetaFusion - 本地极速热重载开发配置 (Zero-Rebuild Development Override)
 # 使用方法: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-# 特点: 源码直接挂载，前端/后台秒级 Fast Refresh 热重载，完全无需每次重新构建 Docker 镜像！
+# 特点: 源码直接挂载，前端 / 文档站秒级 Fast Refresh 热重载，完全无需每次重新构建 Docker 镜像！
 # 前端已切换至 Bun 1.4 运行时（oven/bun:1.4-alpine），比 Node 快 3-5 倍
+# 目录服务（Go）是编译型语言又没有 watcher 依赖：这里换到 backend/Dockerfile 的 builder 阶段
+# （容器内有 Go 工具链）跑 `go run ./cmd/server`，改完代码 restart backend 重新编译即可。
 # ==============================================================================
 services:
   frontend:
@@ -16,15 +18,40 @@ services:
       - ../frontend/src:/app/src:ro
       - ../frontend/public:/app/public:ro
       - ../frontend/package.json:/app/package.json:ro
+      # Next 会读的入口与配置文件：漏挂就等于容器里跑镜像内那份旧配置——Tailwind 的 postcss
+      # 插件不生效、middleware 不跑、tsconfig 的 @/* 路径别名解析不了。
+      - ../frontend/postcss.config.mjs:/app/postcss.config.mjs:ro
       - ../frontend/tailwind.config.ts:/app/tailwind.config.ts:ro
       - ../frontend/next.config.mjs:/app/next.config.mjs:ro
+      - ../frontend/middleware.ts:/app/middleware.ts:ro
+      - ../frontend/tsconfig.json:/app/tsconfig.json:ro
     environment:
       - NODE_ENV=development
       - WATCHPACK_POLLING=true
 
   backend:
+    # 目录服务是编译型：dev 栈承诺的"改代码即时生效"只能靠容器内跑源码，所以换到 builder 阶段
+    # （golang:1.25-alpine，容器内有 Go 工具链），入口改成 go run。原来的写法是把源码挂到 server
+    # 阶段的 /app 上，正好盖掉镜像里的 /app/server，容器以 exec: /app/server: no such file or
+    # directory 起不来——本编排此前因此整体不可用（网关等 backend healthy，永远不开门）。
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: builder
+    entrypoint: ["go", "run", "./cmd/server"]
+    working_dir: /app
+    environment:
+      # 与 Dockerfile 的构建口径一致：alpine 镜像里没有 gcc，别让 cgo 参与编译。
+      - CGO_ENABLED=0
     volumes:
       - ../backend:/app:ro
+      # 模块与编译缓存放命名卷：首次启动拷一次依赖，之后 restart 不再重下（源码卷是 :ro）。
+      - go_mod_cache:/go/pkg/mod
+      - go_build_cache:/root/.cache/go-build
+    # 健康检查必须换写法：server 阶段装了 curl，golang 阶段只有 busybox wget，照抄 curl 会让
+    # backend 永远 unhealthy，而网关是 depends_on: service_healthy —— 网关就永远不开门。
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/ready"]
 
   docs-site:
     build:
@@ -42,3 +69,7 @@ services:
       - NODE_ENV=development
       - PORT=3001
       - WATCHPACK_POLLING=true
+
+volumes:
+  go_mod_cache:
+  go_build_cache:
