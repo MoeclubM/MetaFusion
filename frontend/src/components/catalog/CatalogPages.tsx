@@ -9,6 +9,8 @@ import { ErrorMessage } from "./Fields";
 // 登录入口唯一：/login（app/login/page.tsx，含注册页签；实例未初始化时由 AuthGate 引导 /setup）。
 // 本页未登录时由 components/AuthGate.tsx 跳 /login?redirect=/account，不要在下面再渲染
 // 用户名/密码表单——两套登录界面并存时字段提示与文案还不一致，用户会以为是两个站。
+// 本页也不展示"已授权应用"：账号服务已整条删除 GET /oauth/clients（登录即可枚举全量客户端），
+// 自助入口是 /settings 的 OAuthGrantsPanel（GET /auth/oauth-grants 只回本人），不在这里重复一份。
 export function Account() {
   const { t } = useI18n();
   const { user, refresh } = useCatalog();
@@ -16,8 +18,8 @@ export function Account() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Active tab for logged-in user: "profile" | "oauth" | "admin"
-  const [activeTab, setActiveTab] = useState<"security" | "oauth" | "users">("security");
+  // 页签：安全与密码（本人）、用户与权限管理（仅管理员）。
+  const [activeTab, setActiveTab] = useState<"security" | "users">("security");
 
   // Change password state
   const [oldPassword, setOldPassword] = useState("");
@@ -31,9 +33,6 @@ export function Account() {
   const [resetTargetUser, setResetTargetUser] = useState<{ id: string; username: string } | null>(null);
   const [resetNewPassword, setResetNewPassword] = useState("");
 
-  // OAuth clients list
-  const [oauthClients, setOauthClients] = useState<Array<{ client_id: string; name: string; redirect_uris: string[]; trusted: boolean }>>([]);
-
   // Load admin users list
   const loadUsers = () => {
     if (user?.role === "admin") {
@@ -43,19 +42,9 @@ export function Account() {
     }
   };
 
-  // Load oauth clients
-  const loadOAuth = () => {
-    api<{ clients: Array<{ client_id: string; name: string; redirect_uris: string[]; trusted: boolean }> }>("/oauth/clients")
-      .then((r) => setOauthClients(r.clients || []))
-      .catch(() => {});
-  };
-
   useEffect(() => {
-    if (user) {
-      loadOAuth();
-      if (user.role === "admin") {
-        loadUsers();
-      }
+    if (user?.role === "admin") {
+      loadUsers();
     }
   }, [user]);
 
@@ -138,19 +127,6 @@ export function Account() {
           }}
         >
           {t("account.securityPassword")}
-        </button>
-        <button
-          type="button"
-          onClick={() => { setActiveTab("oauth"); setError(""); setSuccess(""); }}
-          style={{
-            background: activeTab === "oauth" ? "#1e293b" : "transparent",
-            borderBottom: activeTab === "oauth" ? "2px solid #38bdf8" : "none",
-            borderRadius: "6px 6px 0 0",
-            fontWeight: activeTab === "oauth" ? 600 : 400,
-            padding: "8px 16px",
-          }}
-        >
-          {t("account.oauthApps")}
         </button>
         {user.role === "admin" && (
           <button
@@ -240,49 +216,7 @@ export function Account() {
         </section>
       )}
 
-      {/* TAB 2: OAuth 2.0 Clients */}
-      {activeTab === "oauth" && (
-        <section className="cv-group">
-          <h2>{t("account.authorizedClients")}</h2>
-          <p className="cv-muted" style={{ marginBottom: 16 }}>
-            {t("account.clientsDesc")}
-          </p>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {oauthClients.map((c) => (
-              <div
-                key={c.client_id}
-                style={{
-                  padding: 14,
-                  background: "#131b26",
-                  border: "1px solid #293749",
-                  borderRadius: 8,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 6,
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontWeight: 650, fontSize: 15, color: "#93c5fd" }}>{c.name}</span>
-                  {c.trusted && (
-                    <span className="cv-badge" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.3)" }}>
-                      {t("account.trustedApp")}
-                    </span>
-                  )}
-                </div>
-                <div style={{ fontSize: 13, color: "#94a3b8" }}>
-                  <code>client_id: {c.client_id}</code>
-                </div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>
-                  {t("account.redirectUris")}: {c.redirect_uris.join(", ")}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* TAB 3: Admin Users Management */}
+      {/* TAB 2: Admin Users Management */}
       {activeTab === "users" && user.role === "admin" && (
         <>
           {/* Reset Password Modal / Form */}
