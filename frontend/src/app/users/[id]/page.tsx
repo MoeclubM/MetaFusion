@@ -236,7 +236,9 @@ export default function UserDetailPage() {
   };
 
   const u = profile?.user ?? null;
-  const isMe = !!u && currentUser?.id === u.id;
+  // 自己是拿 URL 里的 id 判的，不依赖资料是否取到：账号服务不可用时，
+  // 本人仍应能进设置页、能取消自己的收藏。
+  const isMe = !!currentUser && currentUser.id === (u?.id || id);
 
   const getRevisionActionLabel = (action?: string) => {
     switch (action) {
