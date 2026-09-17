@@ -1,84 +1,9 @@
 // 由 frontend/src/lib/api.ts 按域拆分而来（机械搬运：导出名、签名、行为与拆分前一致）。
-// 域：插件与外部权威库的管理面端点
-import { fetchApi } from "./client";
-
-export interface PluginConfigField {
-  key: string;
-  label: string;
-  type: string; // "string" | "password" | "number" | "boolean" | "select" | "textarea"
-  default_value?: any;
-  description?: string;
-  required?: boolean;
-  options?: string[];
-}
-
-export interface PluginConfigSchema {
-  fields: PluginConfigField[];
-}
-
-export interface PluginHealthStatus {
-  status: "healthy" | "warning" | "unhealthy" | "disabled" | "unknown";
-  message: string;
-  latency_ms: number;
-  last_checked: string;
-}
-
-export interface PluginItem {
-  id: string;
-  name: string;
-  version: string;
-  description: string;
-  author: string;
-  icon: string;
-  type: "native" | "external_http" | "webhook";
-  endpoint_url?: string;
-  capabilities: string[];
-  dependencies?: Record<string, string>;
-  dependents?: string[];
-  dependency_status?: "satisfied" | "missing_dependencies" | "unmet_versions" | "inactive_dependencies" | string;
-  missing_dependencies?: string[];
-  inactive_dependencies?: string[];
-  load_order?: number;
-  config_schema: PluginConfigSchema;
-  config: Record<string, any>;
-  is_enabled: boolean;
-  is_system: boolean;
-  health: PluginHealthStatus;
-  supported_sources?: string[];
-  supported_formats?: string[];
-  supported_events?: string[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface RegisterExternalPluginPayload {
-  id: string;
-  name: string;
-  version?: string;
-  description?: string;
-  author?: string;
-  icon?: string;
-  type?: string;
-  endpoint_url: string;
-  secret_token?: string;
-  capabilities: string[];
-  dependencies?: Record<string, string>;
-  config_schema?: PluginConfigSchema;
-  config?: Record<string, any>;
-  is_enabled?: boolean;
-}
-
-export interface UpdatePluginPayload {
-  is_enabled?: boolean;
-  config?: Record<string, any>;
-  cascade?: boolean;
-}
-
-export function fetchPublicPlugins(capability?: string): Promise<{ items: PluginItem[]; count: number }> {
-  const query = capability ? `?capability=${encodeURIComponent(capability)}` : "";
-  return fetchApi<{ items: PluginItem[]; count: number }>(`/plugins${query}`);
-}
-
+// 域：外部权威库的管理面端点
+//
+// 这里不再有插件管理面（fetchPublicPlugins / PluginItem / RegisterExternalPluginPayload …）：
+// 后端 catalog、auth、community、storage 四仓都没有 /plugins* 的任何实现，唯一调用方
+// 只能拿到 404 再被 .catch 吞掉——留着就是一条永远取不到数据的静默降级路径。
 
 // ── 外部权威数据库预设定义 ──
 export interface ExternalDatabaseDefinition {

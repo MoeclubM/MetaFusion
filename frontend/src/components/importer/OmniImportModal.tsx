@@ -11,7 +11,6 @@ import {
   BookOpen,
   Gamepad2,
   Globe,
-  Puzzle,
   AlertCircle,
   CheckCircle2,
   Layers,
@@ -31,11 +30,9 @@ import { useI18n } from "@/i18n/I18nProvider";
 import {
   previewExternalCatalog,
   importExternalCatalog,
-  fetchPublicPlugins,
   fetchApi,
   ImporterPreviewResponse,
   StaffAssociation,
-  PluginItem,
 } from "@/lib/api";
 import { Entity, fetchAllPages, title } from "@/components/catalog/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
@@ -110,7 +107,6 @@ export function OmniImportModal({
   // 实体类型切换 (Work / Artist / Organization / Character)
   const [entityType, setEntityType] = useState<"work" | "artist" | "organization" | "character">(initialEntityType);
 
-  const [plugins, setPlugins] = useState<PluginItem[]>([]);
   const [source, setSource] = useState<string>(initialSource);
   const [inputVal, setInputVal] = useState<string>(initialURLOrID);
 
@@ -150,18 +146,6 @@ export function OmniImportModal({
   const [editNote, setEditNote] = useState("");
   const [importing, setImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<any>(null);
-
-  useEffect(() => {
-    if (isOpen) {
-      fetchPublicPlugins("importer")
-        .then((res) => {
-          if (res?.items && res.items.length > 0) {
-            setPlugins(res.items);
-          }
-        })
-        .catch(() => {});
-    }
-  }, [isOpen]);
 
   // 目标母体变化时拉取其既有表达；无目标母体（新建作品）时清空，不做匹配。
   useEffect(() => {
@@ -481,24 +465,9 @@ export function OmniImportModal({
       ];
     }
 
-    return [
-      ...builtin,
-      ...plugins
-        .filter((p) => !builtin.some((b) => b.id === p.id))
-        .map((p) => {
-          let Icon = Puzzle;
-          if (p.icon === "Disc") Icon = Disc;
-          else if (p.icon === "Film") Icon = Film;
-          else if (p.icon === "Tv") Icon = BookOpen;
-          else if (p.icon === "Gamepad2") Icon = Gamepad2;
-          else if (p.icon === "BookOpen") Icon = BookOpen;
-          return {
-            id: p.id,
-            label: p.name.split(" ")[0] || p.name,
-            icon: Icon,
-          };
-        }),
-    ];
+    // 来源只列真实可用的内置权威库：插件的 /plugins 端点在四个后端仓里都没有实现，
+    // 原先拉一次插件清单、失败就静默退回内置来源，等于一条永远拿不到数据的分支。
+    return builtin;
   };
 
   const getPlaceholder = () => {

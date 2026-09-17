@@ -9,7 +9,7 @@ export { toggleFavorite, fetchFavoriteStatus, fetchFavorites, normalizeBoard, bo
 export type { FavoriteTargetType, FavoriteItem, ForumPost, DiscussionTopic, CreateTopicPayload, CreatePostPayload, Comment, DirectMessage, ConversationItem, ForumBoard } from "./api/community";
 export { CATALOG_HUBS, isCatalogHub, catalogHubOf, pickLocalizedName, catalogEntityHref, fetchEntityRevisions, mergeEntities } from "./api/catalog";
 export type { CatalogHub, Tag, ConnectedEntityItem, EntityRevision, EntityRelationship, RelationType, GraphNode, GraphLink } from "./api/catalog";
-export { fetchPublicPlugins, fetchExternalDatabases, fetchAdminExternalDatabases, createExternalDatabase, updateExternalDatabase, deleteExternalDatabase } from "./api/admin";
-export type { PluginConfigField, PluginConfigSchema, PluginHealthStatus, PluginItem, RegisterExternalPluginPayload, UpdatePluginPayload, ExternalDatabaseDefinition, ExternalLinkDisplay } from "./api/admin";
+export { fetchExternalDatabases, fetchAdminExternalDatabases, createExternalDatabase, updateExternalDatabase, deleteExternalDatabase } from "./api/admin";
+export type { ExternalDatabaseDefinition, ExternalLinkDisplay } from "./api/admin";
 export { previewExternalCatalog, importExternalCatalog } from "./api/importer";
 export type { ImporterPreviewRequest, ImporterTranslationItem, ImporterWorkPreview, ImporterArtistPreview, StaffAssociation, ImporterTrackPreview, ImporterMediumPreview, ImporterReleasePreview, ImporterCanonicalEntryPreview, ImporterPreviewResponse, ImporterImportRequest, ImporterImportResponse } from "./api/importer";
