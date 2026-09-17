@@ -169,7 +169,8 @@ export const Navbar: React.FC = () => {
 
         {/* Right Controls */}
         <div className="flex items-center gap-2 sm:gap-2.5">
-          {/* 新建：直达 /new，层级在创建页里选；入口不预设层级，也不枚举层级清单。 */}
+          {/* 新建：指向 /new；那边不带 ?kind= 时会落到编目枢纽（/contribute）先选手动创建
+              或外部权威库导入，带 ?kind= 才直接进编辑器。入口不预设层级，也不枚举层级清单。 */}
           <Link
               href="/new"
             className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-white transition-all shadow-2xs"

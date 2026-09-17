@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { EntityEditor } from "@/components/catalog/EntityEditor";
 import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { Navbar } from "@/components/Navbar";
@@ -17,6 +18,12 @@ export default function Page({
   // 否则用户点了"新建发行版本"却看到默认的作品层级。
   const raw = searchParams?.kind;
   const kind = typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
+  // 不带层级的 /new 就是「新建」入口：先落到编目枢纽（/contribute）二选一——
+  // 手动编目入库挑一个层级、或走已有的外部权威库导入弹窗。带 ?kind= 说明层级已定
+  // （枢纽卡片、/works/new 等旧重定向都会带），直接进编辑器，不再拐回枢纽。
+  if (!kind?.trim()) {
+    redirect("/contribute");
+  }
   return (
     <>
       <Navbar />
