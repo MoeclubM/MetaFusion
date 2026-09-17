@@ -353,9 +353,11 @@ export function UsersTab() {
                             </span>
                           ) : null}
                         </div>
+                        {/* 邮箱与用户 ID 挤在同一行，用列名当行内标签：这两个字段没有独立列，
+                            但凭一行裸值认不出来是什么。 */}
                         <div className="text-[10px] text-text-faint font-mono">
-                          {u.email ? `${u.email} · ` : ""}
-                          {u.id}
+                          {u.email ? `${t("admin.users.colEmail")}: ${u.email} · ` : ""}
+                          {t("admin.users.colId")}: {u.id}
                         </div>
                       </td>
                       <td className="py-2.5 px-3">
