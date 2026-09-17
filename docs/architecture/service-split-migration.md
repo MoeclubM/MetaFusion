@@ -33,7 +33,7 @@
 | auth | `GET|POST /api/admin/users`、`PUT /api/admin/users/:id/{role,password,groups}`、`PUT /api/admin/users/:id/ban` | metafusion-auth（`/api/admin/users` 前缀） |
 | auth | `GET /api/auth/oauth-grants`、`DELETE /api/auth/oauth-grants/:client_id` | metafusion-auth（账号自助撤回第三方授权；网关 `/api/auth/` 前缀已覆盖） |
 | auth | `GET|POST /api/admin/groups`、`PUT|DELETE /api/admin/groups/:code`、`GET /api/admin/permissions`、`GET|PUT /api/admin/settings`、`GET|POST /api/admin/invites`、`POST /api/admin/invites/:code/revoke` | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关逐条精确匹配（漏一条就 404） |
-| auth | `/api/oauth/clients|authorize|token|userinfo`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration`、根路径 `/.well-known/{openid-configuration,jwks.json}` | metafusion-auth（令牌只由它签发，discovery 与 JWKS 也只在它这里） |
+| auth | `/api/oauth/authorize|token|userinfo`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration`、根路径 `/.well-known/{openid-configuration,jwks.json}` | metafusion-auth（令牌只由它签发，discovery 与 JWKS 也只在它这里） |
 | auth | `/api/developer/*`（overview、apps、apps/{id}、apps/{id}/rotate-secret） | metafusion-auth（开发者中心：任何登录账号自助登记应用；网关用 `/api/developer/` 前缀整体分流，不与 `/api/admin/oauth/*` 混用） |
 | catalog | `/api/catalog/*`（definitions、tags、entities、relations、shelves、compare、me/home-preferences 等）、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json` | 本仓库，保留 |
 | community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id） | metafusion-community |
