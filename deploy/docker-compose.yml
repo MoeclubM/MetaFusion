@@ -294,6 +294,57 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
+  # 6b. 三个服务自带的管理台（独立应用；决议见解耦审计 §7.3 与
+  #     docs/architecture/service-split-migration.md 第 2 节）
+  #     为什么独立构建与独立发布：管理台是各服务自己仓库里的 `admin/` 应用（构建上下文取该仓库），
+  #     镜像不出现在主仓库的发布矩阵里；某个服务改一个字段就重发它自己的管理台，不必占用主前端的发布窗口。
+  #     网关按 `^/admin/(account|community|storage)/` 三条前缀聚合，三条 location 见 deploy/nginx.conf。
+  #     刻意不给健康门控：网关对它们的探活是 /admin/<域>/api/health（应用自己的端点），
+  #     所以这里用最轻的 depends_on 列表形式——管理台与域 API 并列，不参与网关开门的判据。
+  #     image 命名随 frontend（就地构建、不写死名字）：构建上下文是兄弟仓库，主仓库的 CI 构不到它。
+  #     不写 healthcheck：三个 admin/Dockerfile 的基础镜像不保证带 wget/curl，
+  #     编排层探活会得到"永远 unhealthy"的假象；健康交给网关路径与运维侧的 curl。
+  # --------------------------------------------------------------------------
+  auth-admin:
+    build:
+      context: ${MF_AUTH_DIR:-../../metafusion-auth}
+      dockerfile: admin/Dockerfile
+    container_name: metafusion-auth-admin
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - auth
+    networks:
+      - metafusion-net
+
+  community-admin:
+    build:
+      context: ${MF_COMMUNITY_DIR:-../../metafusion-community}
+      dockerfile: admin/Dockerfile
+    container_name: metafusion-community-admin
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - community
+    networks:
+      - metafusion-net
+
+  storage-admin:
+    build:
+      context: ${MF_STORAGE_DIR:-../../metafusion-storage}
+      dockerfile: admin/Dockerfile
+    container_name: metafusion-storage-admin
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - storage
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
   # 7. 主关系数据库 (PostgreSQL 16) — 各服务共用实例、独立 schema
   # --------------------------------------------------------------------------
   postgres:

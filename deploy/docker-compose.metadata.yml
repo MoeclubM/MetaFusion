@@ -4,6 +4,8 @@
 # 只用于目录侧开发/验收，不是"部分部署"的受支持形态。
 # 镜像命名与构建入参一律以主编排 deploy/docker-compose.yml 为准：同一个服务不出现第二套名字，
 # 也不使用任何没有发布方的镜像名（那种名字既拉不到、也无法与主编排复用同一份构建）。
+# 三个服务自带的管理台（deploy/docker-compose.yml 的 auth-admin / community-admin / storage-admin）不在本栈内：
+# 本栈只起目录侧，没有 auth/community/storage，管理台起了也没有可管的上游。
 # 文档站是 --profile docs 的可选件：不开这个 profile 它完全不参与启动，而 nginx.metadata.conf
 # 里 /docs/ 的 location 仍在，请求必然 502（本编排的取舍，不是配置错误）。
 # ==============================================================================
