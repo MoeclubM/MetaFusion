@@ -368,7 +368,10 @@ func feedShelves(items []feedEntry) []Shelf {
 func TestPostgresShelfFeedMergesHomeSections(t *testing.T) {
 	f := newFixture(t)
 	f.save(Entity{Kind: "work", Title: "首页分区电影", Types: []string{"film"}})
-	f.save(Entity{Kind: "work", Title: "首页分区独立游戏", Types: []string{"game"}})
+	// game 是展示模板码、不是可赋值类型：作品类型只能是 music/song/album/novel/animation/film/
+	// photobook/indie_game/visual_novel/personal（defaults.go 的 typeSeed 列表）。写成 "game"
+	// 会被 attributeKeys 判 invalid_type，只在带 DSN 跑真库用例时才会暴露。
+	f.save(Entity{Kind: "work", Title: "首页分区独立游戏", Types: []string{"indie_game"}})
 
 	key := testKey(t)
 	f.s.Verifier = testVerifier(t, key)
@@ -414,7 +417,7 @@ func TestPostgresShelfFeedMergesHomeSections(t *testing.T) {
 		Hidden: []string{"games"},
 		Sections: []HomeSection{
 			{Slug: "films", Names: Names{"zh-CN": "我的电影"}, Query: ShelfQuery{Types: []string{"film"}}, Sort: "updated", Icon: "Film"},
-			{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Types: []string{"game"}}, Sort: "updated", Icon: "Gamepad2"},
+			{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Types: []string{"indie_game"}}, Sort: "updated", Icon: "Gamepad2"},
 		},
 	})
 	if err != nil {
