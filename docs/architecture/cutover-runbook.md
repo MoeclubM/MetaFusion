@@ -96,7 +96,7 @@ GATEWAY=https://<host> DSNS="postgres://…/metafusion_db" ./scripts/cutover-che
 ```
 
 自检脚本靠响应头 `X-MetaFusion-Service` 判断前缀究竟由哪个上游答复（单体也有同名标记 `metafusion-catalog`），
-并对 `topics/posts/boards/records/favorites` 五张表做新旧行数对比。**切换瞬间这五个差值应为 0。**
+并对 `topics/posts/boards/favorites` 四张表做新旧行数对比。**切换瞬间这四个差值应为 0。**
 
 **表结构等价性已有测试保证**（不需要数据库即可运行）：
 - 互动服务：`internal/store/schema_parity_test.go` 冻结了老表六张表的逐列定义（名称/类型/约束/默认值），
@@ -152,7 +152,7 @@ docker compose -f deploy/docker-compose.yml up -d --force-recreate gateway
 现网回滚只能改成"改网关 + 用上一版 catalog 镜像重建"。
 注意：若切流后已用 auth 服务改过密码/角色，回滚后单体读同一张表，改动依然生效（这是"同 schema"的好处）。
 
-### 第 3 步：community + records + favorites（有实时数据，必须按窗口执行）
+### 第 3 步：community + favorites（有实时数据，必须按窗口执行）
 
 ```bash
 # 1) 切换前立刻补增量（此刻单体仍是唯一写入方）
@@ -162,8 +162,8 @@ cd deploy
 docker compose --env-file ../.env -f docker-compose.yml run --rm community-migrate -direction forward -dry-run
 docker compose --env-file ../.env -f docker-compose.yml run --rm community-migrate -direction forward
 
-# 2) 网关：把 /api/community/、/api/records/、/api/favorites/、/api/users/{id}/favorites
-#    四处 upstream 改为 http://community:8083
+# 2) 网关：把 /api/community/、/api/favorites/、/api/users/{id}/favorites
+#    三处 upstream 改为 http://community:8083
 docker compose -f deploy/docker-compose.yml up -d --force-recreate gateway
 ```
 
@@ -198,7 +198,7 @@ cd deploy && ./deploy.sh retire
 | 系统 | 数据布局 | 回滚代价 |
 | --- | --- | --- |
 | auth | 两边读写**同一个** `auth` schema | 改网关；单体账号路由已删除，等于改网关 + 恢复上一版 catalog 镜像 |
-| community / records / favorites | 单体写 `modules.*`、`catalog.favorites`；服务写 `community.*` | 先 `-direction back` 搬运，再改网关 |
+| community / favorites | 单体写 `modules.*`、`catalog.favorites`；服务写 `community.*` | 先 `-direction back` 搬运，再改网关 |
 | storage | 单体写 `modules.resources`；服务写 `storage.*` | 改网关；旧数据仍在单体表里 |
 
 **单一写入方规则**：任何时刻只允许一侧写入。切流前单体写、服务不接流量；切流后服务写、单体前缀不再被路由到。
@@ -224,5 +224,5 @@ cd deploy && ./deploy.sh retire
 | --- | --- | --- |
 | 媒体分析与预览转码 | 存储服务只收原始文件、按权限分发，不做这类处理 | 该能力不提供 |
 | 浏览器预签名直传 | 对象存储不发布宿主机端口，当前走服务端流式上传 | 恢复直传要给对象存储一个独立对外域名并设 `STORAGE_S3_PUBLIC_ENDPOINT`（SigV4 覆盖 Host，只加路径前缀不行） |
-| Redis | backend 全仓 0 处 Redis 引用（compose 仍给 backend 注入 `REDIS_ADDR`，但没有任何代码读它） | 可以从常驻服务里去掉，省一份常驻内存 |
+| Redis | backend 全仓 0 处 Redis 引用（compose 也不再注入缓存/检索地址） | 可以从常驻编排里去掉这个常驻容器，省一份内存 |
 | 收藏「是否公开」 | 前端只读占位，接口恒 `visible: true` | 实现该开关时归互动服务 |

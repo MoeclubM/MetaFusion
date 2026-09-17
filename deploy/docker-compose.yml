@@ -124,9 +124,8 @@ services:
       - ELASTICSEARCH_URL=http://opensearch:9200
       # /api/capabilities 是"部署态"声明：能力在不在由这几个变量决定（capabilities/subsystems 的 envKey）。
       # 目录不探测上游、不发任何出站请求；不配的能力会被判为未部署，前端按 enabled 隐藏入口。
-      # community 与 records 各用各的变量（这里的值指向同一个互动服务），两个能力可以分别在场。
+      # 互动（论坛/短评/收藏/私信）由同一个互动服务承载，因此只有一条 community 声明。
       - COMMUNITY_URL=http://community:8083
-      - RECORDS_URL=http://community:8083
       - STORAGE_URL=http://storage:8082
       # 目录只验签、不签发：优先静态公钥，其次账号服务的 JWKS，都没有时才回退到私钥（启动会打告警）。
       # 私钥只属于账号服务——目录**不再需要** AUTH_JWT_PRIVATE_KEY，因此这里不再注入。
@@ -213,7 +212,7 @@ services:
 
   # --------------------------------------------------------------------------
   # 5b. 互动数据搬运工具（一次性）— 把主仓库旧表搬进 community.*
-  #     forward：modules.forum_* / modules.records / catalog.favorites → community.*
+  #     forward：modules.forum_* / catalog.favorites → community.*
   #     back   ：反向搬运，仅用于"切流后还要退回单体"的回滚窗口。
   #     幂等（全部 ON CONFLICT DO NOTHING）、只读源表，可重复运行补增量。
   #     常驻编排不启动它（profiles: tools），只在切流窗口显式调用：

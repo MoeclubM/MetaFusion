@@ -10,16 +10,15 @@
 | id | 承载 | `enabled` / `healthy` 的判定 |
 | --- | --- | --- |
 | `exchange` | 目录服务本进程 | 恒为 true |
-| `community` | 账号之外的互动服务 | 取决于是否配置 `COMMUNITY_URL` |
-| `records` | 互动服务 | 取决于是否配置 `RECORDS_URL`（与 `community` 分开，见下） |
+| `community` | 互动服务（论坛/短评/收藏/私信） | 取决于是否配置 `COMMUNITY_URL` |
 | `storage` | 存储服务 | 取决于是否配置 `STORAGE_URL` |
 
 - **目录进程不发任何出站请求**：`enabled` 就是部署时声明了这个上游，`healthy` 与 `enabled` 同源（声明了即视为在场）。
   真正的存活判断在网关与运维面：`deploy/nginx.conf` 的 `/health/<service>` 逐上游探到各自的 `/ready`；目录服务自己也提供 `/health`。
 - 这么定的理由：探活一旦留在目录进程里，目录只依赖 PostgreSQL 即可完整运行这条就名存实亡，而目录接口也不该因外围服务变慢或失败。
   证据与判据见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §5。
-- `records` 与 `community` 曾共用 `COMMUNITY_URL`（关一个等于关两个），现在各用各的变量：
-  只声明 `COMMUNITY_URL` 而不声明 `RECORDS_URL` 时 `records` 显示为未启用——这是刻意的。
+- 互动相关的界面（论坛、短评、收藏）只由 `community` 一条声明控制：历史上与它指向同一上游的
+  `records` 能力已随 `/api/records/*` 删除，多保留一条声明就等于给前端留一个没有承载物的入口。
 - 能力在不在由部署决定，不由后台开关决定；网关的前缀分流与这份清单是两件事。
 
 ## 2. `PUT /api/admin/modules/:id` 是墓碑端点
@@ -32,7 +31,7 @@
 ## 3. 决议与待定
 
 **决议（已落地，2026-09-16）**：目录服务不再主动探活上游。`enabled` 改为部署态声明，健康判断交给网关与运维面的 `/health/<service>` 探针；
-`community` 与 `records` 各用独立变量。前端按 `id` 判断的消费方式保持不变。
+每个运行单元一条声明。前端按 `id` 判断的消费方式保持不变。
 实现见 `backend/internal/capabilities`（出站请求为 0，有测试钉住）；证据与判据见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §5。
 
 **仍待定**：

@@ -38,11 +38,11 @@ type subsystem struct {
 // 固定顺序即前端展示顺序，id 集合是前端契约（CatalogProvider 与 /admin 的子系统面板按 id 判断）。
 // 旧的 archive / playback / media 是单体模块层的名字（归档 / 预览转码 / 媒体分析），
 // 拆分后只剩一个存储服务，转码与媒体分析不做，因此统一成 `storage`。
-// community 与 records 各用各的变量：两个能力可以在不同部署里分别在场。
+// 论坛/短评/收藏由同一个互动服务承载，因此只有一条 community 声明：与它指向同一上游的
+// records 已随 /api/records/* 一起删除（前端零消费）。
 var subsystems = []subsystem{
 	{id: "exchange", version: "2.0.0", deps: map[string]string{}, local: true},
 	{id: "community", version: "2.0.0", deps: map[string]string{}, envKey: "COMMUNITY_URL"},
-	{id: "records", version: "2.0.0", deps: map[string]string{}, envKey: "RECORDS_URL"},
 	{id: "storage", version: "2.0.0", deps: map[string]string{}, envKey: "STORAGE_URL"},
 }
 

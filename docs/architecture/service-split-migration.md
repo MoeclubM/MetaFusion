@@ -11,7 +11,7 @@
 | --- | --- | --- | --- | --- |
 | 元数据目录 catalog | 八类实体、动态定义、关系、结构、修订、检索、货架、外部库 | `catalog.*` | `/api/catalog/*`、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json` | MetaFusion（本仓库） |
 | 账号 auth | 注册/登录、会话、令牌签发与吊销、OAuth2/OIDC、账号与角色管理、开发者中心（应用自助登记与接入配置） | `auth.*` | `/api/setup`、`/api/auth/*`、`/api/admin/users*`、`/api/oauth/*`、`/api/developer/*`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration` | metafusion-auth |
-| 互动 community | 论坛板块/主题/回复/标签、条目短评、个人收藏、评分与进度 | `community.*` | `/api/community/*`、`/api/favorites/*`、`/api/records/*`、`/api/users/{id}/favorites` | metafusion-community |
+| 互动 community | 论坛板块/主题/回复/标签、条目短评、个人收藏、私信 | `community.*` | `/api/community/*`、`/api/favorites/*`、`/api/messages/*`、`/api/users/{id}/favorites` | metafusion-community |
 | 存储 storage | 物理文件、哈希与去重、对象存储直传、绑定、下载/预览与访问控制 | `storage.*` | `/api/storage/*` | metafusion-storage |
 | 边缘网关 gateway | 统一入口、按前缀分流、限流、安全响应头 | 无 | `/`、`/docs`、各 `/api/` 前缀 | 本仓库 `deploy/nginx.conf`（`metafusion-api-gateway` 只留切流自检脚本） |
 | 文档 | 全站文档（唯一源） | 无 | 由网关 `/docs` 反代 | metafusion-docs |
@@ -23,13 +23,13 @@
 
 ## 2. 路由归属（现状）
 
-唯一生效的矩阵是 `deploy/nginx.conf`（compose 的 `gateway` 服务）：实测 **42 条 `location`**（2026-09 补限流与探针、随后接入三个服务管理台后），账号前缀用精确匹配与正则逐条分流。
+唯一生效的矩阵是 `deploy/nginx.conf`（compose 的 `gateway` 服务）：实测 **41 条 `location`**（2026-09 补限流与探针、随后接入三个服务管理台、删掉 `/api/records/` 后），账号前缀用精确匹配与正则逐条分流。
 下表按归属归纳路径族；逐条 location 与精确匹配以文件为准。矩阵与本文表格的一致性检查、以及网关矩阵的单一来源归属见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §6。
 
 | 归属 | 路径 | 现状 |
 | --- | --- | --- |
 | auth | `GET|POST /api/setup` | metafusion-auth；网关用 `location = /api/setup` 精确匹配 |
-| auth | `POST /api/auth/login|refresh|logout|change-password|logout-all|register`、`GET /api/auth/me|settings|invite`、`POST /api/auth/invite`、`PUT /api/auth/password` | metafusion-auth（`/api/auth/` 前缀） |
+| auth | `POST /api/auth/login|refresh|logout|logout-all|register`、`GET /api/auth/me|settings|invite`、`POST /api/auth/invite`、`PUT /api/auth/password` | metafusion-auth（`/api/auth/` 前缀） |
 | auth | `GET|POST /api/admin/users`、`PUT /api/admin/users/:id/{role,password,groups}`、`PUT /api/admin/users/:id/ban` | metafusion-auth（`/api/admin/users` 前缀） |
 | auth | `GET /api/auth/oauth-grants`、`DELETE /api/auth/oauth-grants/:client_id` | metafusion-auth（账号自助撤回第三方授权；网关 `/api/auth/` 前缀已覆盖） |
 | auth | `GET|POST /api/admin/groups`、`PUT|DELETE /api/admin/groups/:code`、`GET /api/admin/permissions`、`GET|PUT /api/admin/settings`、`GET|POST /api/admin/invites`、`POST /api/admin/invites/:code/revoke` | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关逐条精确匹配（漏一条就 404） |
@@ -38,7 +38,6 @@
 | catalog | `/api/catalog/*`（definitions、tags、entities、relations、shelves、compare、me/home-preferences 等）、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json` | 本仓库，保留 |
 | community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id） | metafusion-community |
 | community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | metafusion-community（`community.favorites`） |
-| community | `/api/records/entities/:id` | metafusion-community |
 | auth | `GET /api/users/:id` | metafusion-auth（公开账号资料；同前缀多归属，网关用 `^/api/users/[^/]+$` 精确分流） |
 | catalog | `GET /api/users/:id/contributions` | 本仓库（用户贡献列表；两段式，不匹配那两条正则，落目录服务兜底） |
 | community | `GET /api/users/:id/stats` | metafusion-community（用户互动统计：主题/回复/收藏计数；网关用 `^/api/users/[^/]+/stats$` 分流） |
