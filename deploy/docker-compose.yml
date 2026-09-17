@@ -261,7 +261,9 @@ services:
       - STORAGE_ROOT=/app/storage-data
       - STORAGE_S3_ENDPOINT=http://rustfs:9000
       - STORAGE_S3_TLS=false
-      # 对象存储凭据（RustFS 的 root 用户/口令）；服务侧只认 S3 协议，与具体实现无关。
+      # 对象存储凭据（RustFS 的 root 用户/口令）的唯一来源；服务侧只认 S3 协议，与具体实现无关。
+      # 读取方是 metafusion-storage（internal/config 的 STORAGE_S3_ACCESS_KEY/_SECRET_KEY）；
+      # 对象存储容器自己读的是 RUSTFS_*，见下面服务 10。
       - STORAGE_S3_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
       - STORAGE_S3_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
       - STORAGE_S3_BUCKET=metafusion-master
@@ -365,8 +367,15 @@ services:
     container_name: metafusion-rustfs
     restart: unless-stopped
     environment:
+      # 这两行只给 rustfs 容器自己读（canonical 名，源码里是 ENV_RUSTFS_ACCESS_KEY /
+      # ENV_RUSTFS_SECRET_KEY）；本仓库的 Go 代码都不读 RUSTFS_* —— 目录服务只读 DB_*/PORT/
+      # AUTH_*，存储服务读上面的 STORAGE_S3_*。
       - RUSTFS_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
       - RUSTFS_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
+      # RUSTFS_ROOT_USER / RUSTFS_ROOT_PASSWORD 是同一镜像的旧名别名（源码里标为 legacy，
+      # 只在 canonical 名缺席时兜底）。值与上面两行完全相同，保留是因为镜像 tag 还浮动在
+      # :latest（见上方 pin 备忘）：旧版本里旧名才是主名，删掉等于把凭据押在"镜像已升级"
+      # 这个未验证前提上。
       - RUSTFS_ROOT_USER=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
       - RUSTFS_ROOT_PASSWORD=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
       - RUSTFS_STORAGE_DIR=/data
