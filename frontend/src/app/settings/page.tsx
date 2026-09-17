@@ -11,6 +11,7 @@ import { displayNameOf, fetchAuthSettings, PublicAuthSettings } from "@/lib/api"
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
+import { OAuthGrantsPanel } from "@/components/settings/OAuthGrantsPanel";
 import { ThemeControls } from "@/components/ThemeControls";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -29,18 +30,25 @@ import {
   Eye,
   Heart,
   Mail,
+  ShieldCheck,
 } from "lucide-react";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { PageShell } from "@/components/ui/PageShell";
+
+// 页签白名单：?tab= 只认这几项，其余一律回资料页（避免深链把页面带到不存在的页签）。
+type SettingsTab = "profile" | "password" | "appearance" | "tokens" | "authorizations";
+
+const SETTINGS_TABS: SettingsTab[] = ["profile", "password", "appearance", "tokens", "authorizations"];
 
 export default function SettingsPage() {
   const { user } = useAuth();
   const { t, locale, setLocale } = useI18n();
   const { mode, accent, setMode, setAccent, accents } = useTheme();
   const searchParams = useSearchParams();
-  const initialTab = (searchParams.get("tab") as string) === "tokens" ? "tokens" : "profile";
+  const tabParam = searchParams.get("tab");
+  const initialTab: SettingsTab = SETTINGS_TABS.includes(tabParam as SettingsTab) ? (tabParam as SettingsTab) : "profile";
 
-  const [activeTab, setActiveTab] = useState<"profile" | "password" | "appearance" | "tokens">(initialTab as "profile" | "password" | "appearance" | "tokens");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -61,8 +69,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "tokens" || tab === "appearance" || tab === "password" || tab === "profile") {
-      setActiveTab(tab as "profile" | "password" | "appearance" | "tokens");
+    if (SETTINGS_TABS.includes(tab as SettingsTab)) {
+      setActiveTab(tab as SettingsTab);
     }
   }, [searchParams]);
 
@@ -190,6 +198,19 @@ export default function SettingsPage() {
             >
               <KeyRound className="w-3.5 h-3.5" />
               <span>{t("settings.tabTokens")}</span>
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab("authorizations");
+                setError(null);
+                setSuccess(null);
+              }}
+              className={`px-3 h-8 rounded-md text-xs font-medium transition-colors duration-fast ease-soft flex items-center gap-1.5 whitespace-nowrap ${
+                activeTab === "authorizations" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>{t("settings.tabAuthorizations")}</span>
             </button>
             <button
               onClick={() => {
@@ -406,6 +427,8 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
+
+          {activeTab === "authorizations" && <OAuthGrantsPanel />}
 
           {activeTab === "appearance" && (
             <div className="p-4 sm:p-5">

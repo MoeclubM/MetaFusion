@@ -3003,5 +3003,22 @@
   "users.profile.dmError.invalidBody": "內容為空或超過 4000 字元，未送出。",
   "users.profile.dmError.notFound": "找不到該使用者，無法傳送。",
   "users.profile.dmError.generic": "傳送失敗，請稍後重試（輸入內容已保留）。",
-  "users.profile.dmError.refreshFailed": "訊息已送出，但暫時重新整理不到最新會話。"
+  "users.profile.dmError.refreshFailed": "訊息已送出，但暫時重新整理不到最新會話。",
+  "settings.tabAuthorizations": "已授權應用程式",
+  "settings.oauthTitle": "第三方應用程式授權",
+  "settings.oauthDesc": "下列應用程式已取得存取你帳號的授權。撤回後，該應用程式手上的存取權杖立即失效，需重新授權才能繼續存取。",
+  "settings.oauthEmpty": "目前沒有第三方應用程式取得你的授權。",
+  "settings.oauthActive": "生效中",
+  "settings.oauthExpired": "已過期",
+  "settings.oauthScopes": "權限範圍",
+  "settings.oauthLastAuthorized": "最近授權",
+  "settings.oauthExpiresAt": "權杖到期",
+  "settings.oauthRevoke": "撤回授權",
+  "settings.oauthRevokeConfirmTitle": "撤回授權",
+  "settings.oauthRevokeConfirm": "確認撤回對「{name}」的授權？該應用程式目前的存取權杖會立即失效，需重新授權才能繼續存取。",
+  "settings.oauthRevokeConfirmBtn": "確認撤回",
+  "settings.oauthRevoked": "已撤回對「{name}」的授權。",
+  "settings.oauthRevokeFailed": "撤回失敗，請稍後重試。",
+  "settings.oauthLoadFailed": "授權清單載入失敗。",
+  "settings.oauthLoginRequired": "登入狀態已失效，請重新登入後再查看。"
 }

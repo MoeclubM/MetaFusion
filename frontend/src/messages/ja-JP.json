@@ -3003,5 +3003,22 @@
   "users.profile.dmError.invalidBody": "本文が空か 4000 文字を超えているため送信できません。",
   "users.profile.dmError.notFound": "相手が見つからないため送信できません。",
   "users.profile.dmError.generic": "送信に失敗しました。入力内容は保持されています。",
-  "users.profile.dmError.refreshFailed": "メッセージは送信されましたが、最新の会話を取得できませんでした。"
+  "users.profile.dmError.refreshFailed": "メッセージは送信されましたが、最新の会話を取得できませんでした。",
+  "settings.tabAuthorizations": "認証済みアプリ",
+  "settings.oauthTitle": "サードパーティアプリの認可",
+  "settings.oauthDesc": "以下はあなたのアカウントへのアクセスを認可済みのアプリです。取り消すと、そのアプリのアクセストークンは直ちに無効になり、再認可が必要です。",
+  "settings.oauthEmpty": "認可済みのサードパーティアプリはありません。",
+  "settings.oauthActive": "有効",
+  "settings.oauthExpired": "期限切れ",
+  "settings.oauthScopes": "スコープ",
+  "settings.oauthLastAuthorized": "最終認可",
+  "settings.oauthExpiresAt": "トークン有効期限",
+  "settings.oauthRevoke": "認可を取り消す",
+  "settings.oauthRevokeConfirmTitle": "認可の取り消し",
+  "settings.oauthRevokeConfirm": "「{name}」の認可を取り消しますか？現在のアクセストークンは直ちに無効になり、再認可が必要です。",
+  "settings.oauthRevokeConfirmBtn": "取り消す",
+  "settings.oauthRevoked": "「{name}」の認可を取り消しました。",
+  "settings.oauthRevokeFailed": "取り消しに失敗しました。後でもう一度お試しください。",
+  "settings.oauthLoadFailed": "認可一覧の読み込みに失敗しました。",
+  "settings.oauthLoginRequired": "ログイン状態が無効です。再ログインしてから確認してください。"
 }

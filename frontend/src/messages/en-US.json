@@ -3003,5 +3003,22 @@
   "users.profile.dmError.invalidBody": "The message is empty or longer than 4000 characters; nothing was sent.",
   "users.profile.dmError.notFound": "Recipient not found; the message was not sent.",
   "users.profile.dmError.generic": "Sending failed; please retry (your text is kept).",
-  "users.profile.dmError.refreshFailed": "The message was sent, but the conversation could not be refreshed yet."
+  "users.profile.dmError.refreshFailed": "The message was sent, but the conversation could not be refreshed yet.",
+  "settings.tabAuthorizations": "Authorized Apps",
+  "settings.oauthTitle": "Third-party app authorizations",
+  "settings.oauthDesc": "These apps are authorized to access your account. Revoking stops their current access tokens immediately; they must be authorized again to continue.",
+  "settings.oauthEmpty": "No third-party app has been authorized yet.",
+  "settings.oauthActive": "Active",
+  "settings.oauthExpired": "Expired",
+  "settings.oauthScopes": "Scopes",
+  "settings.oauthLastAuthorized": "Last authorized",
+  "settings.oauthExpiresAt": "Token expires",
+  "settings.oauthRevoke": "Revoke",
+  "settings.oauthRevokeConfirmTitle": "Revoke authorization",
+  "settings.oauthRevokeConfirm": "Revoke access for “{name}”? Its current access tokens stop working immediately and it must be authorized again to continue.",
+  "settings.oauthRevokeConfirmBtn": "Revoke",
+  "settings.oauthRevoked": "Access for “{name}” has been revoked.",
+  "settings.oauthRevokeFailed": "Revoking failed; please retry.",
+  "settings.oauthLoadFailed": "Failed to load authorizations.",
+  "settings.oauthLoginRequired": "Your session has expired; sign in again to view this."
 }

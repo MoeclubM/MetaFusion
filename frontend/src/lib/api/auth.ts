@@ -65,6 +65,33 @@ export function createInviteCode(payload: {
   });
 }
 
+// ── 第三方授权自助：GET/DELETE /auth/oauth-grants ──
+//
+// 归属是当前登录身份（路径里没有别人的 user id），因此普通成员也能看/收回自己的授权。
+// 后端返回的形状是 store.AuthorizedApp 的逐字投影：名称取不到时用 client_id 兜底，
+// last_authorized_at 来自同意审计（授权过但令牌已过期的应用也会在列表里），
+// expires_at 只在还有生效令牌时才有值——两者都是可选项，缺席就整行不渲染。
+export interface AuthorizedApp {
+  client_id: string;
+  name: string;
+  scopes: string[];
+  /** 当前还有未过期令牌。 */
+  active: boolean;
+  last_authorized_at?: string;
+  expires_at?: string;
+}
+
+export function fetchOAuthGrants(): Promise<{ items: AuthorizedApp[] }> {
+  return fetchApi<{ items: AuthorizedApp[] }>("/auth/oauth-grants");
+}
+
+/** 撤回：后端按 (user_id, client_id) 删除未过期令牌并作废未兑换授权码，幂等（本来没有也回 ok）。 */
+export function revokeOAuthGrant(clientId: string): Promise<{ ok: boolean; revoked: number }> {
+  return fetchApi<{ ok: boolean; revoked: number }>("/auth/oauth-grants/" + encodeURIComponent(clientId), {
+    method: "DELETE",
+  });
+}
+
 // ── 目录关系图谱拓扑与关系边 ──
 // ── OOBE 开箱初始化设置 ──
 export interface SetupStatusResponse {

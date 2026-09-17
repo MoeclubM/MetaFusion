@@ -3003,5 +3003,22 @@
   "users.profile.dmError.invalidBody": "内容为空或超过 4000 字符，未发送。",
   "users.profile.dmError.notFound": "找不到该用户，无法发送。",
   "users.profile.dmError.generic": "发送失败，请稍后重试（输入内容已保留）。",
-  "users.profile.dmError.refreshFailed": "消息已发送，但暂时刷新不到最新会话。"
+  "users.profile.dmError.refreshFailed": "消息已发送，但暂时刷新不到最新会话。",
+  "settings.tabAuthorizations": "已授权应用",
+  "settings.oauthTitle": "第三方应用授权",
+  "settings.oauthDesc": "下列应用已获得访问你账号的授权。撤回后，该应用手上的访问令牌立即失效，需要重新授权才能继续访问。",
+  "settings.oauthEmpty": "目前没有第三方应用获得你的授权。",
+  "settings.oauthActive": "生效中",
+  "settings.oauthExpired": "已过期",
+  "settings.oauthScopes": "权限范围",
+  "settings.oauthLastAuthorized": "最近授权",
+  "settings.oauthExpiresAt": "令牌到期",
+  "settings.oauthRevoke": "撤回授权",
+  "settings.oauthRevokeConfirmTitle": "撤回授权",
+  "settings.oauthRevokeConfirm": "确认撤回对「{name}」的授权？该应用当前的访问令牌会立即失效，需要重新授权才能继续访问。",
+  "settings.oauthRevokeConfirmBtn": "确认撤回",
+  "settings.oauthRevoked": "已撤回对「{name}」的授权。",
+  "settings.oauthRevokeFailed": "撤回失败，请稍后重试。",
+  "settings.oauthLoadFailed": "授权列表加载失败。",
+  "settings.oauthLoginRequired": "登录状态已失效，请重新登录后再查看。"
 }

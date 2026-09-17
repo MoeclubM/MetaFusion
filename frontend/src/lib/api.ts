@@ -4,7 +4,8 @@
 export { displayNameOf, getAccessToken, getRefreshToken, setAuthTokens, clearAuthTokens, ApiError, fetchApi } from "./api/client";
 export type { User } from "./api/client";
 export { registerAccount, fetchInviteLedger, createInviteCode, fetchSetupStatus, fetchAuthSettings, performInitialSetup } from "./api/auth";
-export type { AuthSessionResponse, InviteCode, InviteLedger, SetupStatusResponse, InitialSetupPayload, InitialSetupResult, PublicAuthSettings } from "./api/auth";
+export { fetchOAuthGrants, revokeOAuthGrant } from "./api/auth";
+export type { AuthSessionResponse, InviteCode, InviteLedger, SetupStatusResponse, InitialSetupPayload, InitialSetupResult, PublicAuthSettings, AuthorizedApp } from "./api/auth";
 export { toggleFavorite, fetchFavoriteStatus, fetchFavorites, normalizeBoard, boardDisplayName, boardDisplayDesc, FORUM_BOARDS, fetchBoards, getBoardSync, shareContent, buildShareUrl, createTopic, createPost, fetchDirectMessages, sendDirectMessage } from "./api/community";
 export type { FavoriteTargetType, FavoriteItem, ForumPost, DiscussionTopic, CreateTopicPayload, CreatePostPayload, Comment, DirectMessage, ConversationItem, ForumBoard } from "./api/community";
 export { CATALOG_HUBS, isCatalogHub, catalogHubOf, pickLocalizedName, catalogEntityHref, fetchEntityRevisions, mergeEntities } from "./api/catalog";
