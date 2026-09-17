@@ -107,11 +107,14 @@ func main() {
 		}))
 	}
 
-	catalog.HTTP{Store: s}.Register(r)
+	catalogHTTP := catalog.HTTP{Store: s}
+	catalogHTTP.Register(r)
 
 	// 能力清单是**部署态声明**：子系统拆出去之后，能力由部署配置声明（见 capabilities 包），
 	// 目录不探测上游、不发任何出站请求；运行时开关退役（PUT /api/admin/modules/:id 返回 409）。
-	capabilities.New(os.Getenv).Register(r)
+	// 墓碑端点注册在 /api 组之外，因此把目录的管理员闸门显式传进去：未登录 401、非管理员 403，
+	// 管理员才拿到 409 与 hint（闸门与 409 契约见 capabilities 包的注释）。
+	capabilities.New(os.Getenv).Register(r, catalogHTTP.AdminGate())
 
 	// /healthz 是进程存活；/health 与其它服务同形（status+service），供网关/运维面聚合探针统一读取。
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "live"}) })

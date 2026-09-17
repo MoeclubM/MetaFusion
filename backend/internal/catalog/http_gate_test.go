@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/metafusion/metafusion-app/internal/capabilities"
 )
 
 // gateEngine 挂载真实路由表并把身份直接注入上下文：目录侧的鉴权中间件在无令牌时
@@ -70,6 +71,57 @@ func TestProtectedRouteGates(t *testing.T) {
 				t.Errorf("%s with code %v: status=%d body=%s want 400 invalid_payload", tc.name, u.Permissions, w.Code, w.Body.String())
 			}
 		}
+	}
+}
+
+// 墓碑端点的闸门由组合根注入（capabilities.Register 的第二个参数），这里用真实验签器与真实令牌
+// 跑端到端：未登录 401、非管理员 403，管理员才拿到 409 与 hint。少了任何一层，未登录都能拿到 409。
+func TestModuleToggleRetiredGate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	key := testKey(t)
+	s := &Store{Verifier: testVerifier(t, key)}
+	engine := gin.New()
+	capabilities.New(func(string) string { return "" }).Register(engine, HTTP{Store: s}.AdminGate())
+
+	put := func(token string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPut, "/api/admin/modules/community", nil)
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		engine.ServeHTTP(w, req)
+		return w
+	}
+	// 未登录：401，且响应里不该出现墓碑机器码与 hint。
+	if w := put(""); w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), "authentication_required") || strings.Contains(w.Body.String(), "module_toggle_retired") {
+		t.Fatalf("未登录应 401 且不泄漏墓碑响应: status=%d body=%s", w.Code, w.Body.String())
+	}
+	// 非管理员（editor 只带 catalog.entity.edit）：403。
+	editor := signTestToken(t, key, func(c Claims) Claims {
+		c.Role = "editor"
+		c.Permissions = []string{PermissionEntityEdit}
+		return c
+	})
+	if w := put(editor); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "forbidden") {
+		t.Fatalf("非管理员应 403: status=%d body=%s", w.Code, w.Body.String())
+	}
+	// 管理员（admin 组的 * 通配）：才拿到 409 与 hint。
+	admin := signTestToken(t, key, func(c Claims) Claims {
+		c.Role = "admin"
+		c.Permissions = []string{permissionWildcard}
+		return c
+	})
+	if w := put(admin); w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "module_toggle_retired") || !strings.Contains(w.Body.String(), "hint") {
+		t.Fatalf("管理员应拿到 409 + hint: status=%d body=%s", w.Code, w.Body.String())
+	}
+	// 老令牌（没有 permissions 声明）按角色兜底：admin 仍放行，与 permission.go 的口径一致。
+	legacy := signTestToken(t, key, func(c Claims) Claims {
+		c.Role = "admin"
+		c.Permissions = nil
+		return c
+	})
+	if w := put(legacy); w.Code != http.StatusConflict {
+		t.Fatalf("角色兜底的 admin 应放行: status=%d body=%s", w.Code, w.Body.String())
 	}
 }
 

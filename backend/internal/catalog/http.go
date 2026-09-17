@@ -260,23 +260,8 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		c.String(200, swaggerHTML)
 	})
 	// 身份只来自账号服务签发的 RS256 令牌：目录侧**只验签、不查库、不签发**。
-	// 因此这里不再有"会话表兜底"分支——账号数据归账号服务，目录不读它的表。
-	// Bearer 与 Cookie 各试一次：前端可能带着刚过期的 Bearer 令牌，
-	// 而 HttpOnly Cookie 里是刷新后的新令牌（或反之），不能互相顶掉。
-	api.Use(func(c *gin.Context) {
-		bearer := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
-		cookie, _ := c.Cookie("mf_session")
-		for _, token := range []string{bearer, cookie} {
-			if token == "" {
-				continue
-			}
-			if u, err := s.Authenticate(token); err == nil {
-				c.Set("catalog_user", u)
-				break
-			}
-		}
-		c.Next()
-	})
+	// 中间件本体与给其它路由组复用的管理员闸门都在 auth_gate.go。
+	api.Use(attachUser(s))
 	cat := api.Group("/catalog")
 	// 发布的定义文档 + 固定骨架的多语言名称。kinds 放在文档**外面**：它是骨架的显示名，
 	// 不是可编辑的动态定义（放进 document 会被后台保存时当成未知键处理），但同样必须由服务端
