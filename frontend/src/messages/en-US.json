@@ -115,7 +115,6 @@
   "nav.docs": "Docs",
   "nav.login": "Sign in",
   "nav.logout": "Sign out",
-  "shelf.empty": "No shelves enabled",
   "multilingual.noEntries": "No language entries configured. Click below to add languages.",
   "multilingual.namePlaceholder": "Enter {code} localized name…",
   "multilingual.removeLang": "Remove {code}",

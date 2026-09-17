@@ -115,7 +115,6 @@
   "nav.docs": "ドキュメント",
   "nav.login": "ログイン",
   "nav.logout": "ログアウト",
-  "shelf.empty": "有効なシェルフがありません",
   "multilingual.noEntries": "言語設定がありません。下のボタンから追加してください。",
   "multilingual.namePlaceholder": "{code} の現地語名を入力…",
   "multilingual.removeLang": "{code} を削除",

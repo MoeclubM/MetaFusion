@@ -115,7 +115,6 @@
   "nav.docs": "文档",
   "nav.login": "登录",
   "nav.logout": "退出",
-  "shelf.empty": "陈列为空",
   "multilingual.noEntries": "暂无配置任何语言，请点击下方快捷按钮添加",
   "multilingual.namePlaceholder": "输入 {code} 本地化名称…",
   "multilingual.removeLang": "移除 {code} 语言",

@@ -115,7 +115,6 @@
   "nav.docs": "文件",
   "nav.login": "登入",
   "nav.logout": "登出",
-  "shelf.empty": "尚無啟用的陳列",
   "multilingual.noEntries": "尚未設定任何語言，請點擊下方按鈕快速新增",
   "multilingual.namePlaceholder": "輸入 {code} 在地化名稱…",
   "multilingual.removeLang": "移除 {code} 語言",
