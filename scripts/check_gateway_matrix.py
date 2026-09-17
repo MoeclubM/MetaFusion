@@ -17,6 +17,7 @@
 
 白名单（未登记仍允许，逐条给理由）：
   /                  —— 前端 Next.js 应用，非 API 前缀
+  /admin             —— 主前端里的目录控制台（由 location / 兜底，未单列前缀）
   /docs              —— 文档站前缀
   /storage/preview   —— 退役占位，显式 return 404，不分流到任何上游
   /healthz /livez /live —— 网关自身存活探针（只证明 nginx 进程在跑）
@@ -40,15 +41,19 @@ ZONE_RE = re.compile(r"limit_req_zone\s+\S+\s+zone=(\w+):")
 METHOD_PREFIX = re.compile(r"^(?:[A-Z]{3,7}\s*\|\s*|[A-Z]{3,7}\s+)+")
 
 # 文档 §2 表的"归属"列 -> 矩阵里允许的上游主机名。
+# 每个域多一个 <域>-admin：服务自带的独立管理台（页面与静态资源，见 §7.3 决议）与域内 API 同属该域，
+# 但它们在编排里是独立容器，因此单独登记而不是复用域 API 的主机名——同一域的两个上游之间写错
+# （管理台指到域 API 容器）归人工复核，这里只保证"没指到别的域、也没指到不存在的服务"。
 OWNER_HOSTS = {
     "catalog": {"backend"},
-    "auth": {"auth"},
-    "community": {"community"},
-    "storage": {"storage"},
+    "auth": {"auth", "auth-admin"},
+    "community": {"community", "community-admin"},
+    "storage": {"storage", "storage-admin"},
 }
 
 WHITELIST = {
     "/": "前端 Next.js 应用，非 API 前缀",
+    "/admin": "主前端里的目录控制台：一条 location / 兜底，没有单列前缀",
     "/docs": "文档站前缀",
     "/storage/preview": "退役占位：显式 return 404，不分流到任何上游",
     "/healthz": "网关自身存活探针",

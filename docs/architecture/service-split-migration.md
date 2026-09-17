@@ -23,7 +23,7 @@
 
 ## 2. 路由归属（现状）
 
-唯一生效的矩阵是 `deploy/nginx.conf`（compose 的 `gateway` 服务）：实测 **33 条 `location`**（2026-09 补限流与探针后），账号前缀用精确匹配与正则逐条分流。
+唯一生效的矩阵是 `deploy/nginx.conf`（compose 的 `gateway` 服务）：实测 **42 条 `location`**（2026-09 补限流与探针、随后接入三个服务管理台后），账号前缀用精确匹配与正则逐条分流。
 下表按归属归纳路径族；逐条 location 与精确匹配以文件为准。矩阵与本文表格的一致性检查、以及网关矩阵的单一来源归属见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §6。
 
 | 归属 | 路径 | 现状 |
@@ -47,6 +47,9 @@
 | auth | `/api/admin/oauth/*`（客户端治理：核验、提升自有平台、吊销、审计） | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关用 `location /api/admin/oauth/` 单独分流 |
 | storage | `/storage/preview/*` | 显式 `return 404`（预览改走 `/api/storage/*` 的资源鉴权，不再直代私有桶）；网关为它保留一条 location，属于刻意的退役占位 |
 | catalog | `/api/capabilities`、`/api/admin/modules/:id` | 部署态**声明式**能力清单（不再主动探活上游，见 capabilities 文档）+ 开关退役返回 409；目录服务自己也提供 `/health`（与 account/community/storage 同形），`/ready` 仍探数据库 |
+| auth | `/admin/account/*` | metafusion-auth 自带的管理台（`admin/` 目录，独立 Next 应用）：页面与静态资源在这里，数据请求走上面已分流的 `/api/*`；网关用 `location /admin/account/` 指 `auth-admin:3000`，无尾斜杠的 `/admin/account` 由 `location =` 301 补齐（否则落主前端得到 404） |
+| community | `/admin/community/*` | metafusion-community 自带的管理台（`admin/` 目录，独立 Next 应用）：同上，网关用 `location /admin/community/` 指 `community-admin:3000`；页面路径与主站页面 `/community` 不重叠 |
+| storage | `/admin/storage/*` | metafusion-storage 自带的管理台（`admin/` 目录，独立 Next 应用）：同上，网关用 `location /admin/storage/` 指 `storage-admin:3000` |
 
 **网关按前缀分流，不按服务改前端调用点。** `/api/users/*` 是「同前缀、多归属」的典型，靠三条正则各自锚定：
 `/api/users/{id}` 归账号服务、`/api/users/{id}/favorites` 与 `/api/users/{id}/stats` 归互动服务、
@@ -57,7 +60,7 @@
 - **网关矩阵**：唯一生效的是 `deploy/nginx.conf`。2026-09 已把 `metafusion-api-gateway` 仓库里的旧矩阵移入 `examples/pre-cutover/` 并标注不参与部署（该仓库现在只有脚本），`cutover-check.sh` 改为**断言服务标记头**、新增离线 `--self-check`。矩阵的自动校验在主仓库：`scripts/check_gateway_matrix.py`（条数、每条 `/api/*` 必须挂限流、矩阵↔本文 §2 表的登记与归属比对）与 `scripts/check_versions.py`（`deploy/versions.lock`）。**仍未做**的是“把矩阵本体搬进网关仓库、主仓库只引用”，见 [审计文档](./decoupling-audit-2026-09.md) §6。
 - **密钥边界**：签发私钥只在账号服务。目录侧已改成按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）→ `AUTH_JWKS_URL`（账号服务的 JWKS）取验签公钥，compose 不再向 backend 注入 `AUTH_JWT_PRIVATE_KEY`；该变量在目录侧只剩兼容兜底路径（启动会告警、待移除）。证据与判据见 [审计文档](./decoupling-audit-2026-09.md) §2。
 - **协议层 SDK**：`metafusion-sdk` 仓库骨架已建（Claims/RS256+JWKS 验签/会话兜底/权限码与 `Can`/错误体与分页/health/request-id，零第三方依赖）。**尚无双端接入**：三个服务仍各自实现，切换是 B2 的后续批次；两处语义差异（SDK 拒收私钥配置、`offset<0` 收敛为 0）进契约前需核对存量令牌与调用方。
-- **UI 归属**：现状四域 UI 全在主仓库 `frontend/`；目标形态是**每个服务自带 UI**，网关按 `/`、`/account`、`/community`、`/downloads` 聚合，目录详情页对社区与资源区块改用嵌入契约（已定，见 [审计文档](./decoupling-audit-2026-09.md) §7）。
+- **UI 归属**：目标形态是**每个服务自带 UI**，网关按路径聚合，目录详情页对社区与资源区块改用嵌入契约（已定，见 [审计文档](./decoupling-audit-2026-09.md) §7）。**落地进度分两段**：三个服务各自的管理台（账号 / 互动 / 存储，各自仓库的 `admin/` 目录，独立构建与发布）已经在网关与主编排里按 `^/admin/(account|community|storage)/` 接好（见上表）；把主控制台里那四个域的**页面**整体拆到各服务（共享层、`/account`·`/community`·`/downloads` 形态）仍未开始，四域页面现状仍在主仓库 `frontend/`。
 
 ## 3. 数据归属与边界
 
