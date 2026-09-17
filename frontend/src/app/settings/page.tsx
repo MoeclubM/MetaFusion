@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme, accentLabel } from "@/lib/themeContext";
-import { displayNameOf, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
+import { clearAuthTokens, displayNameOf, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
@@ -100,6 +100,9 @@ export default function SettingsPage() {
 
     setSubmitting(true);
     try {
+      // 保持原生 fetch，不走 fetchApi：fetchApi 在 401 时会静默续期并重试一次，而改密成功后
+      // 服务端已删掉当前会话——那条重试路径只会多打一次 /auth/refresh 与重复的 PUT，还会把
+      // "会话已失效，请重新登录"讲成密码错误。这里要的是如实报错、由用户自己重新登录。
       const res = await fetch("/api/auth/password", {
         method: "PUT",
         credentials: "same-origin",
@@ -116,10 +119,16 @@ export default function SettingsPage() {
         failed.status = res.status;
         throw failed;
       }
-      setSuccess(t("settings.passwordSuccess"));
       setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      // 账号服务改密成功后会删掉该用户的全部 auth.sessions 与 auth.oauth_tokens（含发起这次
+      // 请求的会话）：本地会话必须一起清掉，并把用户送回登录页说明原因，否则下一次请求会莫名 401。
+      // 这里刻意用整页跳转，而不是 logout() + router.replace()：受保护页在 user 变成 null 时
+      // AuthGate 也会 replace 一次 /login?redirect=/settings，两条客户端重定向会打架、把 ?notice
+      // 顶掉（本地实测：URL 变成 /login?redirect=%2Fsettings，提示不出现）。
+      clearAuthTokens();
+      window.location.assign(`/login?notice=password_changed&redirect=${encodeURIComponent("/settings?tab=password")}`);
     } catch (err: unknown) {
       // 服务端给的是稳定错误码（invalid_old_password / invalid_password_length 等）：
       // 必须走四语字典，不能把原始码当文案贴给用户（此处曾直出 invalid_old_password）。

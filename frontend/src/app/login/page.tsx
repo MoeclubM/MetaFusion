@@ -29,6 +29,12 @@ import {
 
 type AuthMode = "login" | "register";
 
+// ?notice= 只认白名单里的稳定码：URL 里的文本绝不直接渲染。（改密成功后账号服务已删掉该账号
+// 全部会话与 OAuth 令牌，设置页只能把用户送回这里，并说明为什么需要重新登录。）
+const LOGIN_NOTICES: Record<string, string> = {
+  password_changed: "auth.passwordChangedSignedOut",
+};
+
 const inputClass =
   "w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-line rounded-control text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary";
 
@@ -113,6 +119,13 @@ function LoginInner() {
     // tabParam/inviteParam 来自 URL，只在挂载时读一次即可
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t]);
+
+  // 带 ?notice=<稳定码> 进来时给出说明（未识别的码忽略：不拿 URL 文案直接渲染）
+  useEffect(() => {
+    const code = searchParams.get("notice");
+    const key = code ? LOGIN_NOTICES[code] : undefined;
+    if (key) setNotice(t(key));
+  }, [searchParams, t]);
 
   // 等鉴权状态初始化完成再判断，避免 /auth/me 未返回时误判为未登录而闪跳
   useEffect(() => {
