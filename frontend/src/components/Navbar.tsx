@@ -38,6 +38,10 @@ export const Navbar: React.FC = () => {
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  // 账号管理台（/admin/account/）是账号服务自带的独立应用：按目录管理台同一约定探活
+  // （2.5s AbortController 超时、cache: no-store、只认 HTTP 200）。探不到就不渲染入口——
+  // 本机开发与元数据-only 部署都没有这条网关 location，留着就是一个必 404 的死链。
+  const [authConsoleOnline, setAuthConsoleOnline] = useState(false);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -48,6 +52,33 @@ export const Navbar: React.FC = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (user?.role !== "admin") {
+      setAuthConsoleOnline(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 2500);
+    let alive = true;
+    fetch(`${getAuthUsersAdminUrl()}api/health`, {
+      cache: "no-store",
+      credentials: "same-origin",
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (alive) setAuthConsoleOnline(res.ok);
+      })
+      .catch(() => {
+        if (alive) setAuthConsoleOnline(false);
+      })
+      .finally(() => window.clearTimeout(timer));
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [user]);
 
   const navLinks = [
     { href: "/", label: t("navigation.home"), icon: Library, exact: true },
@@ -196,7 +227,6 @@ export const Navbar: React.FC = () => {
                     </a>
 
                     {user.role === "admin" && (
-                      <>
                       <Link
                         href="/admin"
                         onClick={() => setIsUserMenuOpen(false)}
@@ -205,6 +235,9 @@ export const Navbar: React.FC = () => {
                         <Shield className="w-3.5 h-3.5" strokeWidth={1.7} />
                         <span>{t("navbar.adminConsole")}</span>
                       </Link>
+                    )}
+                    {/* 账号管理台是另一个应用：上面的探活不通过就不渲染，避免死链 */}
+                    {user.role === "admin" && authConsoleOnline && (
                       <a
                         href={getAuthUsersAdminUrl()}
                         onClick={() => setIsUserMenuOpen(false)}
@@ -213,7 +246,6 @@ export const Navbar: React.FC = () => {
                         <Settings className="w-3.5 h-3.5" strokeWidth={1.7} />
                         <span>{t("navbar.userManagement")}</span>
                       </a>
-                      </>
                     )}
                   </div>
 

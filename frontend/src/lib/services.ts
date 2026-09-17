@@ -52,11 +52,12 @@ export function getAuthRegisterUrl(returnTo?: string): string {
   return `/login?tab=register&redirect=${encodeURIComponent(redirect)}`;
 }
 
+// 账号自助页（资料/隐私/令牌/外观/已授权应用/改密码）由本前端提供：/settings。
 export function getAuthSettingsUrl(): string {
   if (AUTH_PAGES_ENABLED && AUTH_SERVICE_URL.startsWith("http")) {
     return `${AUTH_SERVICE_URL}/settings`;
   }
-  return "/account";
+  return "/settings";
 }
 
 export function getAuthPasswordUrl(): string {
@@ -66,11 +67,11 @@ export function getAuthPasswordUrl(): string {
   return "/account";
 }
 
+// 账号域的管理面是独立控制台（metafusion-auth/admin，网关 /admin/account/），不是本前端的页面，
+// 也不随 AUTH_SERVICE_URL 这个"账号服务页面地址"开关走：恒定给网关路径（带尾斜杠省一次 301）。
+// 入口只在探活通过后渲染，见 components/Navbar.tsx。
 export function getAuthUsersAdminUrl(): string {
-  if (AUTH_PAGES_ENABLED && AUTH_SERVICE_URL.startsWith("http")) {
-    return `${AUTH_SERVICE_URL}/admin/users`;
-  }
-  return "/account";
+  return "/admin/account/";
 }
 
 export function getForumEntityUrl(entityId: string): string {
