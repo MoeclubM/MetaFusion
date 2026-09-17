@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // 默认会带 X-Powered-By: Next.js（线上实测主站与三个管理台都有），是给攻击者免费用指纹的
+  // 无谓泄露；关掉它不改变任何客户端行为，网关也不读这个头。
+  poweredByHeader: false,
   images: {
     remotePatterns: [
       {
