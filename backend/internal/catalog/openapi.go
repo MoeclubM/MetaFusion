@@ -79,6 +79,11 @@ func OpenAPI() map[string]any {
 		if strings.HasPrefix(path, "/admin/catalog-definitions") || path == "/catalog/definitions" {
 			tag = "Definitions"
 		}
+		// 外部权威库的读写（/catalog/external-databases 与 /admin/external-databases）
+		// 归第三个 tag：tags 清单里声明了它，这些操作就不该留在 Catalog 组里。
+		if strings.Contains(path, "external-databases") {
+			tag = "ExternalDatabases"
+		}
 		op := map[string]any{
 			"tags":    []string{tag},
 			"summary": summary,
@@ -148,7 +153,7 @@ func OpenAPI() map[string]any {
 		{"/catalog/entities/stats", "get", "Entity counts grouped by status over the whole catalog.entities table, plus the real table total (requires catalog.lifecycle.manage; 120/min per IP). The list endpoint's shared filter always excludes deleted and merged rows — that visibility rule is deliberate and unchanged — so this aggregate is the only source for the tombstone count. statuses always carries all five codes (draft, pending_review, published, deleted, merged), zero-filled when a status has no rows, and total equals count(*) of the table, so a key that is present with 0 is a fact while an absent key means the count was not obtained", "", "EntityStatusCounts", "auth"},
 		{"/catalog/tags", "get", "Tag frequency aggregation over published entities' attributes.tags (q filter, limit<=500)", "", "Result", ""},
 		{"/catalog/entities/{id}", "get", "Read visible entity", "", "Entity", ""}, {"/catalog/entities/{id}", "put", "Replace entity with optimistic version check", "Edit", "Entity", "auth"}, {"/catalog/entities/{id}/resolve", "get", "Resolve merged identity", "", "Entity", ""}, {"/catalog/entities/{id}/lifecycle", "post", "Merge or retire (requires catalog.lifecycle.manage)", "LifecycleEdit", "Entity", "auth"}, {"/catalog/entities/{id}/unpublish", "post", "Demote a published entity back to draft, the only way back from published (requires catalog.lifecycle.manage; Save refuses demotion with use_lifecycle_endpoint). Request body is UnpublishEdit: expected_version, edit_note and at least one source, validated like every other write. Only published -> draft is accepted: draft/pending_review have nothing to unpublish and deleted/merged are terminal, so all four answer 400 invalid_status (never 500); a stale expected_version is 409 version_conflict. The transition is recorded in the existing revision trail as a revision row plus an entity.unpublished outbox event, so GET /catalog/entities/{id}/revisions lists it while the contribution stats keep their calibration (audit_actions still counts only entity.deleted / entity.merged)", "UnpublishEdit", "Entity", "auth"},
-		{"/catalog/entities/{id}/revisions", "get", "Read visible revision history", "", "Result", ""}, {"/catalog/entities/{id}/relations", "get", "Read contextual forward and reverse relations; the response carries subject_id (the queried entity) and entities covering both ends of every returned relation — including the subject itself, so callers can render either side without an extra lookup", "", "Result", ""}, {"/catalog/entities/{id}/occurrences", "get", "Read own reverse inclusions, scoped by entity kind (expression=itself, content_unit=its expressions, work=its expressions)", "", "Result", ""}, {"/catalog/expressions/details", "post", "Batch expression details (entity + own inclusions + same-content-unit siblings + credit) for release pages; JSON body {ids:[...]}", "Result", "Result", ""}, {"/catalog/external-databases", "get", "List active external authority database definitions", "", "Result", ""}, {"/catalog/shelves", "get", "List enabled shelf rules (shared by homepage and admin)", "", "Result", ""},
+		{"/catalog/entities/{id}/revisions", "get", "Read visible revision history", "", "Result", ""}, {"/catalog/entities/{id}/relations", "get", "Read contextual forward and reverse relations; the response carries subject_id (the queried entity) and entities covering both ends of every returned relation — including the subject itself, so callers can render either side without an extra lookup", "", "Result", ""}, {"/catalog/entities/{id}/occurrences", "get", "Read own reverse inclusions, scoped by entity kind (expression=itself, content_unit=its expressions, work=its expressions)", "", "Result", ""}, {"/catalog/expressions/details", "post", "Batch expression details (entity + own inclusions + same-content-unit siblings + credit) for release pages; JSON body {ids:[...]}", "Result", "Result", ""}, {"/catalog/external-databases", "get", "List active external authority database definitions", "", "Result", ""},
 		{"/catalog/compare", "get", "Compare two to six releases (10/min per IP)", "", "Result", ""},
 		{"/exchange/entities/{id}", "get", "Export an entity snapshot for another instance", "", "Entity", ""},
 		{"/exchange/proposals", "post", "Submit an external edit proposal (always lands in pending_review)", "Edit", "Entity", "auth"},
@@ -199,7 +204,6 @@ func OpenAPI() map[string]any {
 	}
 	paths["/catalog/entities"].(map[string]any)["get"].(map[string]any)["parameters"] = params
 	paths["/catalog/compare"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{map[string]any{"name": "ids", "in": "query", "required": true, "description": "Two to six comma-separated release UUIDs", "schema": map[string]any{"type": "string"}}}
-	// 查询参数补齐（与 http.go 实际读取一致）：收藏分页/过滤、标签聚合、货架 feed、
 	// 查询参数补齐（与 http.go 实际读取一致）：标签聚合与货架 feed。
 	qp := func(name, desc string, required bool) map[string]any {
 		return map[string]any{"name": name, "in": "query", "required": required, "description": desc, "schema": map[string]any{"type": "string"}}
