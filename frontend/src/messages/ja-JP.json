@@ -2993,5 +2993,10 @@
   "catalog.translationEmpty": "上の言語を選ぶか追加すると、その言語の題名・概要・別名を編集できます。",
   "landing.pageControls": "ページコントロール",
   "entity.collection.communityCurator": "コミュニティ",
-  "community.dmLoadFailed": "メッセージの読み込みに失敗しました"
+  "community.dmLoadFailed": "メッセージの読み込みに失敗しました",
+  "users.profile.banned": "アカウント停止中",
+  "users.profile.accountUnavailable": "アカウント情報を取得できません（認証サービスが応答していません）。以下のカタログ貢献とコミュニティデータはそのまま表示します。",
+  "users.profile.stats.unknown": "不明",
+  "users.profile.stats.audits": "管理操作",
+  "users.profile.listFailed": "一覧の読み込みに失敗しました"
 }

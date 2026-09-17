@@ -21,13 +21,14 @@ import {
 } from "lucide-react";
 
 interface DirectMessageModalProps {
+  // 对方资料来自账号服务的公开投影（/users/:id）：只有 id / username / role，
+  // created_at 与 avatar_url 在 auth.users 里并不存在，因此是可选项而不是空值。
   peerUser: {
     id: string;
     username: string;
     role: string;
     avatar_url?: string;
-    bio?: string;
-    created_at: string;
+    created_at?: string;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -136,12 +137,15 @@ export default function DirectMessageModal({
                 </span>
                 <UserRoleBadge role={peerUser.role} t={t} />
               </div>
-              {/* 日期与时间跟随当前界面语言：只认 zh-CN/en-US 会把 zh-TW、ja-JP 用户当成英文格式 */}
-              <span className="text-[10px] text-gray-400 font-mono flex items-center gap-1">
-                <Clock className="w-2.5 h-2.5" />
-                {t("users.profile.registeredAt")}:{" "}
-                {new Date(peerUser.created_at).toLocaleDateString(locale)}
-              </span>
+              {/* 注册时间只有在账号服务真的给了 created_at 时才显示；字段缺席就不渲染这一行，
+                  不能把 undefined 送进 Date 造出 "Invalid Date"。 */}
+              {peerUser.created_at && (
+                <span className="text-[10px] text-gray-400 font-mono flex items-center gap-1">
+                  <Clock className="w-2.5 h-2.5" />
+                  {t("users.profile.registeredAt")}:{" "}
+                  {new Date(peerUser.created_at).toLocaleDateString(locale)}
+                </span>
+              )}
             </div>
           </div>
 

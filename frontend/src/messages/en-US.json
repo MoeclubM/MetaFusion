@@ -2993,5 +2993,10 @@
   "catalog.translationEmpty": "Pick a locale above (or add one) to edit its title, summary and aliases.",
   "landing.pageControls": "Page controls",
   "entity.collection.communityCurator": "Community",
-  "community.dmLoadFailed": "Failed to load messages"
+  "community.dmLoadFailed": "Failed to load messages",
+  "users.profile.banned": "Account disabled",
+  "users.profile.accountUnavailable": "Account profile is unavailable (the auth service did not respond); catalog contributions and community data below are still shown.",
+  "users.profile.stats.unknown": "Unknown",
+  "users.profile.stats.audits": "Admin actions",
+  "users.profile.listFailed": "Failed to load the list"
 }

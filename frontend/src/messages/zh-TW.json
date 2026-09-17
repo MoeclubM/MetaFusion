@@ -2993,5 +2993,10 @@
   "catalog.translationEmpty": "從上方選擇語種或新增語種後，即可填寫該語種的題名、簡介與別名。",
   "landing.pageControls": "頁面控制項",
   "entity.collection.communityCurator": "社群",
-  "community.dmLoadFailed": "私訊載入失敗"
+  "community.dmLoadFailed": "私訊載入失敗",
+  "users.profile.banned": "帳號已停用",
+  "users.profile.accountUnavailable": "帳號資料暫時取不到（帳號服務未回應）；下方目錄貢獻與互動資料仍照常顯示。",
+  "users.profile.stats.unknown": "未知",
+  "users.profile.stats.audits": "管理動作",
+  "users.profile.listFailed": "清單載入失敗"
 }

@@ -9,6 +9,8 @@ export { toggleFavorite, fetchFavoriteStatus, fetchFavorites, normalizeBoard, bo
 export type { FavoriteTargetType, FavoriteItem, ForumPost, DiscussionTopic, CreateTopicPayload, CreatePostPayload, Comment, DirectMessage, ConversationItem, ForumBoard } from "./api/community";
 export { CATALOG_HUBS, isCatalogHub, catalogHubOf, pickLocalizedName, catalogEntityHref, fetchEntityRevisions, mergeEntities } from "./api/catalog";
 export type { CatalogHub, Tag, ConnectedEntityItem, EntityRevision, EntityRelationship, RelationType, GraphNode, GraphLink } from "./api/catalog";
+export { fetchUserProfile, fetchUserContributions, fetchUserCommunityStats, isContributionTab, CONTRIBUTION_TABS } from "./api/users";
+export type { PublicUser, PublicUserProfile, ContributionTab, ContributionStats, ContributionSource, ContributionItem, UserContributions, CommunityUserStats } from "./api/users";
 export { fetchExternalDatabases, fetchAdminExternalDatabases, createExternalDatabase, updateExternalDatabase, deleteExternalDatabase } from "./api/admin";
 export type { ExternalDatabaseDefinition, ExternalLinkDisplay } from "./api/admin";
 export { previewExternalCatalog, importExternalCatalog } from "./api/importer";

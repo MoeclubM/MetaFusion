@@ -5,7 +5,21 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
-import { fetchApi, displayNameOf, toggleFavorite, FavoriteTargetType, catalogEntityHref } from "@/lib/api";
+import {
+  fetchFavorites,
+  FavoriteItem,
+  FavoriteTargetType,
+  catalogEntityHref,
+  toggleFavorite,
+  fetchUserProfile,
+  fetchUserContributions,
+  fetchUserCommunityStats,
+  isContributionTab,
+  ContributionItem,
+  ContributionStats,
+  CommunityUserStats,
+  PublicUserProfile,
+} from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import { getKindName, resolveKindOptions, useDefinitions } from "@/lib/definitions";
@@ -13,6 +27,8 @@ import { kinds as fallbackKinds } from "@/components/catalog/api";
 import DirectMessageModal from "@/components/community/DirectMessageModal";
 import { UserRoleBadge } from "@/lib/roles";
 import { DiffViewer } from "@/components/editor/DiffViewer";
+import { TabPanel } from "@/components/ui/TabPanel";
+import { PageShell } from "@/components/ui/PageShell";
 import {
   FileText,
   Disc,
@@ -21,7 +37,6 @@ import {
   History,
   Mail,
   MessageCircle,
-  Calendar,
   Heart,
   Lock,
   AlertCircle,
@@ -33,36 +48,13 @@ import {
   ChevronUp,
   ExternalLink,
   GitCommit,
+  ShieldAlert,
+  RefreshCw,
 } from "lucide-react";
-import { fetchFavorites, FavoriteItem } from "@/lib/api";
-import { TabPanel } from "@/components/ui/TabPanel";
-import { PageShell } from "@/components/ui/PageShell";
 
-type Profile = {
-  user: {
-    id: string;
-    username: string;
-    display_name?: string | null;
-    email?: string;
-    favorites_public?: boolean;
-    role: string;
-    avatar_url?: string;
-    bio?: string;
-    created_at: string;
-    invite_code?: string;
-  };
-  stats: {
-    works_created: number;
-    releases_created: number;
-    artists_created: number;
-    topics_created: number;
-    comments_created: number;
-    audit_actions: number;
-    revisions_count?: number;
-    invited_count: number;
-    favorites_count: number;
-  };
-};
+// 三个数据来源各自的状态：loading 只用于"还在取"，取不到一律按"未知/不可用"讲，
+// 不折成 0 或空列表——那会把"来源没有响应"讲成"这个用户什么都没做"。
+type SourceState = "loading" | "ok" | "error";
 
 export default function UserDetailPage() {
   const params = useParams() as { id: string };
@@ -78,68 +70,142 @@ export default function UserDetailPage() {
   const kindLabel = (code: string) => getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
   const kindOptions = resolveKindOptions(kinds, fallbackKinds);
 
+  // 只保留真有数据源的页签：目录服务只服务 all/revisions/works/releases/artists
+  // （其余取值 400 invalid_tab），收藏由互动服务承载。主题/回复/审计没有"按用户列清单"的端点，
+  // 保留页签只会必然失败，因此不提供——统计数字仍在顶部如实展示（缺来源显示未知）。
   const tabs = [
     { id: "all", label: t("users.profile.tabs.all") },
     { id: "revisions", label: t("users.profile.tabs.revisions") },
     { id: "works", label: t("users.profile.tabs.works") },
     { id: "releases", label: t("users.profile.tabs.releases") },
     { id: "artists", label: t("users.profile.tabs.artists") },
-    { id: "topics", label: t("users.profile.tabs.topics") },
-    { id: "comments", label: t("users.profile.tabs.comments") },
     { id: "favorites", label: t("users.profile.tabs.favorites") },
-    { id: "audits", label: t("users.profile.tabs.audits") },
   ] as const;
 
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<PublicUserProfile | null>(null);
+  const [profileError, setProfileError] = useState("");
+  const [contribStats, setContribStats] = useState<ContributionStats | null>(null);
+  const [contribStatsError, setContribStatsError] = useState("");
+  const [communityStats, setCommunityStats] = useState<CommunityUserStats | null>(null);
+  const [communityStatsError, setCommunityStatsError] = useState("");
   const [tab, setTab] = useState<string>(initialTab);
   const [favFilter, setFavFilter] = useState<FavoriteTargetType | "">("");
   const [items, setItems] = useState<any[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState("");
+  const [listError, setListError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [favVisible, setFavVisible] = useState(true);
   const [copiedId, setCopiedId] = useState(false);
   const [expandedDiffs, setExpandedDiffs] = useState<Record<string, boolean>>({});
 
+  // 账号资料（auth）：失败只影响顶部资料卡与邀请数，不影响目录贡献与互动数据。
   useEffect(() => {
-    fetchApi<Profile>(`/users/${id}`).then(setProfile).catch((e) => setErr(e.message));
+    let alive = true;
+    setProfile(null);
+    setProfileError("");
+    fetchUserProfile(id)
+      .then((p) => {
+        if (alive) setProfile(p);
+      })
+      .catch((e: any) => {
+        if (alive) setProfileError(e?.message || "request_failed");
+      });
+    return () => {
+      alive = false;
+    };
   }, [id]);
 
-  // 用户资料 `/users/:id` 与贡献 `/users/:id/contributions` 后端仍未注册：profile 拉取失败时
-  // 不再触发后续请求，改为渲染「功能暂未开放」占位，避免连环 404。收藏已可用——
-  // community 注册了 `GET /users/:id/favorites`（网关按精确正则分流）。
+  // 目录贡献计数：stats 与 tab、分页无关，page_size=1 只为拿那一份计数，避免和列表重复取 20 条。
   useEffect(() => {
-    if (!profile) return;
+    let alive = true;
+    setContribStats(null);
+    setContribStatsError("");
+    fetchUserContributions(id, { tab: "all", page: 1, pageSize: 1 })
+      .then((r) => {
+        if (alive) setContribStats(r.stats ?? {});
+      })
+      .catch((e: any) => {
+        if (alive) setContribStatsError(e?.message || "request_failed");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  // 互动计数（community）：同样独立降级。
+  useEffect(() => {
+    let alive = true;
+    setCommunityStats(null);
+    setCommunityStatsError("");
+    fetchUserCommunityStats(id)
+      .then((s) => {
+        if (alive) setCommunityStats(s);
+      })
+      .catch((e: any) => {
+        if (alive) setCommunityStatsError(e?.message || "request_failed");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
     if (tab !== "favorites") return;
+    let alive = true;
     setLoading(true);
+    setListError("");
     fetchFavorites(id, { targetType: favFilter || undefined, page, pageSize: 20 })
       .then((r) => {
+        if (!alive) return;
         setFavVisible(r.visible);
         setItems(r.items || []);
         setTotal(r.total || 0);
       })
-      .catch((e) => setErr(e.message))
-      .finally(() => setLoading(false));
-  }, [id, profile, tab, favFilter, page]);
+      .catch((e: any) => {
+        if (!alive) return;
+        setItems([]);
+        setTotal(0);
+        setListError(e?.message || "request_failed");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id, tab, favFilter, page, reloadKey]);
 
   useEffect(() => {
-    if (!profile) return;
-    if (tab === "favorites") return;
+    if (tab === "favorites" || !isContributionTab(tab)) return;
+    let alive = true;
     setLoading(true);
-    fetchApi<{ items: any[]; total: number }>(`/users/${id}/contributions?tab=${tab}&page=${page}&page_size=20`)
+    setListError("");
+    fetchUserContributions(id, { tab, page, pageSize: 20 })
       .then((r) => {
-        setItems(r.items || []);
-        setTotal(r.total || 0);
+        if (!alive) return;
+        setItems(r.items);
+        setTotal(r.total);
+        if (r.stats) setContribStats(r.stats);
       })
-      .catch((e) => setErr(e.message))
-      .finally(() => setLoading(false));
-  }, [id, profile, tab, page]);
+      .catch((e: any) => {
+        if (!alive) return;
+        setItems([]);
+        setTotal(0);
+        setListError(e?.message || "request_failed");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id, tab, page, reloadKey]);
 
   const handleCopyId = () => {
-    if (!profile) return;
-    navigator.clipboard.writeText(profile.user.id);
+    navigator.clipboard.writeText(profile?.user.id || id);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
   };
@@ -158,54 +224,22 @@ export default function UserDetailPage() {
       await toggleFavorite(it.target_type, it.target_id);
       setItems((prev) => prev.filter((item) => item.id !== it.id));
       setTotal((prev) => Math.max(0, prev - 1));
-      if (profile) {
-        setProfile({
-          ...profile,
-          stats: {
-            ...profile.stats,
-            favorites_count: Math.max(0, profile.stats.favorites_count - 1),
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Failed to remove favorite:", error);
+      setCommunityStats((prev) =>
+        prev && typeof prev.favorites_count === "number"
+          ? { ...prev, favorites_count: Math.max(0, prev.favorites_count - 1) }
+          : prev
+      );
+    } catch (error: any) {
+      // 取消失败不能静默：给出可读原因，收藏项保持原样（服务端没删就还在）。
+      setListError(error?.message || "request_failed");
     }
   };
 
-  if (err)
-    return (
-      <div className="min-h-screen bg-background text-text-strong flex flex-col">
-        <Navbar />
-        <PageShell width="narrow" center className="py-16" contentClassName="gap-3">
-          <div className="w-12 h-12 rounded-full bg-amber-500/10 border border-amber-500/20 grid place-items-center">
-            <AlertCircle className="w-6 h-6 text-amber-500" strokeWidth={1.6} />
-          </div>
-          <h1 className="font-display text-lg font-bold">{t("nav.userProfile")}</h1>
-          <p className="text-sm text-gray-500 max-w-md">
-            {t("catalog.unavailable")}
-          </p>
-          <p className="font-mono text-[11px] text-gray-400 break-all max-w-md">{err}</p>
-          <Link href="/" className="mt-1 px-5 h-9 rounded-full bg-primary text-white keep-white inline-flex items-center text-sm font-semibold">
-            {t("common.back")}
-          </Link>
-        </PageShell>
-      </div>
-    );
+  const u = profile?.user ?? null;
+  const isMe = !!u && currentUser?.id === u.id;
 
-  if (!profile)
-    return (
-      <div className="min-h-screen bg-background text-text-strong">
-        <Navbar />
-        <PageShell width="narrow" spacing="none" contentClassName="p-6 text-gray-500 text-sm font-mono">{t("common.loading")}</PageShell>
-      </div>
-    );
-
-  const u = profile.user;
-  const s = profile.stats;
-  const isMe = currentUser?.id === u.id;
-
-  const getRevisionActionLabel = (editType?: string) => {
-    switch (editType) {
+  const getRevisionActionLabel = (action?: string) => {
+    switch (action) {
       case "create":
         return { label: t("editor.history.actionCreate"), color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" };
       case "delete":
@@ -228,6 +262,30 @@ export default function UserDetailPage() {
     }
   };
 
+  const accountState: SourceState = profileError ? "error" : profile ? "ok" : "loading";
+  const catalogState: SourceState = contribStatsError ? "error" : contribStats ? "ok" : "loading";
+  const communityState: SourceState = communityStatsError ? "error" : communityStats ? "ok" : "loading";
+
+  // 计数按来源展示：来源不可用或该字段缺席时显示"未知"，绝不用 0 冒充满值。
+  const statValue = (value: number | undefined, state: SourceState): string => {
+    if (state === "loading") return "…";
+    if (state === "error" || typeof value !== "number") return t("users.profile.stats.unknown");
+    return String(value);
+  };
+  const statTiles = [
+    { id: "revisions", label: t("users.profile.stats.revisions"), value: contribStats?.revisions_count, state: catalogState, icon: GitCommit },
+    { id: "works", label: t("users.profile.stats.works"), value: contribStats?.works_created, state: catalogState, icon: FileText },
+    { id: "releases", label: t("users.profile.stats.releases"), value: contribStats?.releases_created, state: catalogState, icon: Disc },
+    { id: "artists", label: t("users.profile.stats.artists"), value: contribStats?.artists_created, state: catalogState, icon: Users },
+    { id: "audits", label: t("users.profile.stats.audits"), value: contribStats?.audit_actions, state: catalogState, icon: History },
+    { id: "favorites", label: t("users.profile.stats.favorites"), value: communityStats?.favorites_count, state: communityState, icon: Heart },
+    { id: "topics", label: t("users.profile.stats.topics"), value: communityStats?.topics_created, state: communityState, icon: MessageSquare },
+    { id: "comments", label: t("users.profile.stats.comments"), value: communityStats?.comments_created, state: communityState, icon: MessageSquare },
+    { id: "invited", label: t("users.profile.stats.invited"), value: profile?.stats?.invited_count, state: accountState, icon: Users },
+  ];
+
+  const hasNext = page * 20 < total;
+
   return (
     <div className="min-h-screen bg-background text-text-strong flex flex-col">
       <Navbar />
@@ -235,26 +293,36 @@ export default function UserDetailPage() {
         {/* User Card Header */}
         <div className="rounded-xl border border-line bg-surface p-4 sm:p-5 flex flex-col sm:flex-row gap-3.5 sm:items-center justify-between shadow-soft">
           <div className="flex gap-3.5 items-start min-w-0">
-            <UserAvatar user={u} size="xl" shape="rounded" ring className="shadow-md" />
+            {u ? (
+              <UserAvatar user={u} size="xl" shape="rounded" ring className="shadow-md" />
+            ) : (
+              <div className="w-14 h-14 rounded-md border border-dashed border-line grid place-items-center text-gray-400 shrink-0">
+                <AlertCircle className="w-5 h-5" strokeWidth={1.6} />
+              </div>
+            )}
             <div className="min-w-0 flex-1 space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg font-bold text-text-strong">{displayNameOf(u as any)}</h1>
-                {displayNameOf(u as any) !== u.username && <span className="text-xs text-gray-500 font-mono">@{u.username}</span>}
-                <UserRoleBadge role={u.role} t={t} showIcon />
-                <span className="text-[11px] text-gray-500 font-mono flex items-center gap-1 px-2 py-0.5 rounded-sm bg-black/[0.03] dark:bg-white/5 border border-line">
-                  <Calendar className="w-3 h-3 text-emerald-500" />
-                  <span>
-                    {t("users.profile.registeredAt")}:{" "}
-                    {new Date(u.created_at).toLocaleDateString(locale, {
-                      year: "numeric",
-                      month: "2-digit",
-                      day: "2-digit",
-                    })}
+                <h1 className="text-lg font-bold text-text-strong">{u ? u.username : t("nav.userProfile")}</h1>
+                {u && <UserRoleBadge role={u.role} t={t} showIcon />}
+                {u?.banned && (
+                  <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-sm bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 inline-flex items-center gap-1">
+                    <ShieldAlert className="w-3 h-3" />
+                    <span>{t("users.profile.banned")}</span>
                   </span>
-                </span>
+                )}
               </div>
-              {u.bio && <p className="text-xs text-text-body whitespace-pre-wrap line-clamp-2">{u.bio}</p>}
-              {u.email && (
+              {/* display_name / bio / avatar_url / created_at 都不在 auth.users 里：字段缺席就整块不渲染，
+                  不做"空字符串"或 Invalid Date 的假展示。 */}
+              {profileError && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  <span>
+                    {t("users.profile.accountUnavailable")}
+                    <span className="font-mono text-[10px] text-gray-500 ml-1.5 break-all">{profileError}</span>
+                  </span>
+                </p>
+              )}
+              {u?.email && (
                 <div className="text-xs text-gray-500 flex items-center gap-1">
                   <Mail className="w-3 h-3" />
                   <span>{u.email}</span>
@@ -262,7 +330,7 @@ export default function UserDetailPage() {
               )}
               <div className="text-[11px] font-mono text-gray-400 flex items-center gap-2 flex-wrap">
                 <span>
-                  ID: <span className="text-text-body font-medium">{u.id}</span>
+                  ID: <span className="text-text-body font-medium">{u?.id || id}</span>
                 </span>
                 <button
                   type="button"
@@ -278,7 +346,7 @@ export default function UserDetailPage() {
           </div>
 
           <div className="shrink-0 flex items-center gap-2">
-            {!isMe ? (
+            {!u ? null : !isMe ? (
               <button
                 type="button"
                 onClick={() => {
@@ -305,26 +373,25 @@ export default function UserDetailPage() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-          {[
-            { id: "revisions", label: t("users.profile.stats.revisions"), v: s.revisions_count ?? s.audit_actions, icon: GitCommit },
-            { id: "works", label: t("users.profile.stats.works"), v: s.works_created, icon: FileText },
-            { id: "releases", label: t("users.profile.stats.releases"), v: s.releases_created, icon: Disc },
-            { id: "artists", label: t("users.profile.stats.artists"), v: s.artists_created, icon: Users },
-            { id: "favorites", label: t("users.profile.stats.favorites"), v: s.favorites_count, icon: Heart },
-            { id: "topics", label: t("users.profile.stats.topics"), v: s.topics_created, icon: MessageSquare },
-            { id: "comments", label: t("users.profile.stats.comments"), v: s.comments_created, icon: MessageSquare },
-            { id: "invited", label: t("users.profile.stats.invited"), v: s.invited_count, icon: Users },
-          ].map((it) => (
-            <div key={it.id} className="rounded-lg border border-line bg-surface p-2.5 text-center shadow-2xs">
-              <div className="text-[10px] text-gray-500 font-mono flex items-center justify-center gap-1">
-                <it.icon className="w-3 h-3" />
-                <span>{it.label}</span>
+        {/* Stats Grid：按来源拼接（账号 1 项 / 目录 5 项 / 互动 3 项），缺来源显示"未知" */}
+        <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
+          {statTiles.map((it) => {
+            const unknown = it.state !== "ok" || typeof it.value !== "number";
+            return (
+              <div key={it.id} className="rounded-lg border border-line bg-surface p-2.5 text-center shadow-2xs">
+                <div className="text-[10px] text-gray-500 font-mono flex items-center justify-center gap-1">
+                  <it.icon className="w-3 h-3" />
+                  <span className="truncate">{it.label}</span>
+                </div>
+                <div
+                  title={unknown ? t("users.profile.stats.unknown") : undefined}
+                  className={unknown ? "text-xs font-semibold text-gray-400 mt-1.5" : "text-base font-bold text-text-strong mt-0.5"}
+                >
+                  {statValue(it.value, it.state)}
+                </div>
               </div>
-              <div className="text-base font-bold text-text-strong mt-0.5">{it.v}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Tabs Bar */}
@@ -375,6 +442,20 @@ export default function UserDetailPage() {
         <TabPanel activeKey={tab} spacing="none" className="rounded-xl border border-line bg-surface overflow-hidden shadow-soft">
           {loading ? (
             <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("common.loading")}</div>
+          ) : listError ? (
+            <div className="p-8 text-center space-y-2">
+              <AlertCircle className="w-5 h-5 text-amber-500 mx-auto" strokeWidth={1.6} />
+              <div className="text-sm text-text-body font-medium">{t("users.profile.listFailed")}</div>
+              <div className="text-xs text-gray-500 font-mono break-all">{listError}</div>
+              <button
+                type="button"
+                onClick={() => setReloadKey((k) => k + 1)}
+                className="mt-1 px-3 h-7 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-line text-xs text-text-body inline-flex items-center gap-1.5 hover:text-primary"
+              >
+                <RefreshCw className="w-3 h-3" />
+                <span>{t("common.retry")}</span>
+              </button>
+            </div>
           ) : tab === "favorites" && !favVisible ? (
             <div className="p-10 text-center space-y-2">
               <Lock className="w-6 h-6 text-gray-400 mx-auto" strokeWidth={1.5} />
@@ -402,7 +483,7 @@ export default function UserDetailPage() {
                         </div>
                         <div className="text-[10px] text-gray-500 font-mono mt-0.5">
                           {typeLabel}
-                          {it.created_at ? ` · ${new Date(it.created_at).toLocaleDateString()}` : ""}
+                          {it.created_at ? ` · ${new Date(it.created_at).toLocaleDateString(locale)}` : ""}
                         </div>
                       </div>
                     </Link>
@@ -424,37 +505,26 @@ export default function UserDetailPage() {
             <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("users.profile.noData")}</div>
           ) : (
             <ul className="divide-y divide-black/5 dark:divide-white/[0.06]">
-              {items.map((it: any, idx: number) => {
-                const isRevision = it.edit_type !== undefined || it.diff !== undefined;
+              {items.map((it: ContributionItem, idx: number) => {
                 const itemId = it.id || String(idx);
                 const isDiffExpanded = !!expandedDiffs[itemId];
+                const isRevision = it.action !== undefined;
+                const actionBadge = isRevision ? getRevisionActionLabel(it.action) : null;
 
-                // 实体链接解析
-                let entityHref = "#";
-                let entityDisplayName = it.target_title || it.title || it.edition_name || it.name || it.summary || "";
-                const targetId = it.target_id || it.work_id || it.id;
-                if (it.target_type && targetId) {
-                  entityHref = catalogEntityHref(it.target_type, targetId);
-                } else if (it.kind && targetId) {
-                  entityHref = catalogEntityHref(it.kind, targetId);
-                } else if (it.id && it.title) {
-                  entityHref = catalogEntityHref("work", it.id);
-                }
-
-                if (!entityDisplayName && isRevision) {
-                  entityDisplayName = `${it.target_type?.toUpperCase() || "ENTITY"}: ${String(it.target_id || "").slice(0, 8)}…`;
-                }
-
-                const actionBadge = isRevision ? getRevisionActionLabel(it.edit_type) : null;
+                // 实体链接：后端两项都带 kind 与 target_id（创建项的 id 就是实体 id）。
+                const kind = it.kind || "";
+                const targetId = it.target_id || it.id;
+                const entityHref = kind && targetId ? catalogEntityHref(kind, targetId) : "#";
+                const entityDisplayName = it.title || "";
 
                 return (
                   <li key={itemId} className="p-3.5 hover:bg-black/[0.01] dark:hover:bg-white/[0.01] transition-colors duration-fast ease-soft space-y-2">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                        {isRevision ? (
-                          <GitCommit className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
+                        {it.action === "create" ? (
+                          <FileText className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
                         ) : (
-                          <History className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                          <GitCommit className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
                         )}
 
                         <div className="min-w-0 flex-1 space-y-1">
@@ -465,50 +535,54 @@ export default function UserDetailPage() {
                               </span>
                             )}
                             <Link href={entityHref} className="font-semibold text-text-strong hover:text-primary transition-colors duration-fast ease-soft truncate">
-                              {entityDisplayName || it.action || it.content?.slice(0, 60)}
+                              {entityDisplayName || t("users.profile.noData")}
                             </Link>
-                            {it.target_type && (
+                            {kind && (
                               <span className="text-[10px] font-mono text-gray-400 uppercase bg-black/[0.03] dark:bg-white/5 px-1 rounded">
-                                {it.target_type}
+                                {kindLabel(kind)}
                               </span>
                             )}
                           </div>
 
-                          {it.edit_note && (
-                            <p className="text-xs text-text-body font-sans">
-                              {it.edit_note}
-                            </p>
+                          {it.edit_note && <p className="text-xs text-text-body font-sans">{it.edit_note}</p>}
+
+                          {it.diff_summary && !it.diff && (
+                            <p className="text-[11px] text-gray-500 font-mono whitespace-pre-wrap">{it.diff_summary}</p>
                           )}
 
-                          {it.source_urls && it.source_urls.length > 0 && (
+                          {it.sources.length > 0 && (
                             <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-mono text-gray-400 pt-0.5">
                               <span>{t("users.profile.sources")}:</span>
-                              {it.source_urls.map((url: string, uidx: number) => (
-                                <a
-                                  key={uidx}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-sky-600 dark:text-sky-400 hover:underline max-w-[200px] truncate inline-flex items-center gap-0.5"
-                                >
-                                  <span>{url}</span>
-                                  <ExternalLink className="w-2.5 h-2.5 shrink-0" />
-                                </a>
-                              ))}
+                              {it.sources.map((src, sidx) =>
+                                src.url ? (
+                                  <a
+                                    key={sidx}
+                                    href={src.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    title={src.citation || src.url}
+                                    className="text-sky-600 dark:text-sky-400 hover:underline max-w-[220px] truncate inline-flex items-center gap-0.5"
+                                  >
+                                    <span>{src.citation || src.url}</span>
+                                    <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                  </a>
+                                ) : (
+                                  <span key={sidx} className="max-w-[220px] truncate" title={src.citation}>
+                                    {src.citation}
+                                  </span>
+                                )
+                              )}
                             </div>
                           )}
 
                           <div className="text-[10px] text-gray-500 font-mono flex items-center gap-2">
-                            <span>{it.created_at ? new Date(it.created_at).toLocaleString() : ""}</span>
-                            {it.is_master_verified !== undefined && (
-                              <span>· {it.is_master_verified ? t("users.profile.verified") : t("users.profile.pending")}</span>
-                            )}
+                            <span>{it.created_at ? new Date(it.created_at).toLocaleString(locale) : ""}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Diff Toggle Button */}
-                      {isRevision && it.diff && Object.keys(it.diff).length > 0 && (
+                      {it.diff && Object.keys(it.diff).length > 0 && (
                         <button
                           type="button"
                           onClick={() => toggleDiff(itemId)}
@@ -521,9 +595,9 @@ export default function UserDetailPage() {
                     </div>
 
                     {/* Collapsible Field-by-Field Diff */}
-                    {isRevision && isDiffExpanded && (
+                    {isDiffExpanded && it.diff && Object.keys(it.diff).length > 0 && (
                       <div className="pt-2 border-t border-line-subtle pl-6">
-                        <DiffViewer diff={it.diff} editType={it.edit_type} />
+                        <DiffViewer diff={it.diff} editType={it.action} />
                       </div>
                     )}
                   </li>
@@ -545,7 +619,7 @@ export default function UserDetailPage() {
               {t("users.profile.prevPage")}
             </button>
             <button
-              disabled={items.length < 20}
+              disabled={!hasNext}
               onClick={() => setPage((p) => p + 1)}
               className="px-2.5 h-6.5 rounded-md bg-primary text-white keep-white font-semibold disabled:opacity-40 hover:opacity-90 transition-opacity text-xs"
             >
@@ -555,7 +629,7 @@ export default function UserDetailPage() {
         </div>
       </PageShell>
 
-      {isChatOpen && (
+      {isChatOpen && u && (
         <DirectMessageModal
           peerUser={u}
           isOpen={isChatOpen}
