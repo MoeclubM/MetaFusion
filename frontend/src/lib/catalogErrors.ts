@@ -19,6 +19,10 @@ const CODE_KEYS: Record<string, string> = {
   invalid_structural_field: "catalog.error.invalidStructuralField",
   use_lifecycle_endpoint: "catalog.error.useLifecycle",
   id_must_be_empty: "catalog.error.idMustBeEmpty",
+  // 合并/生命周期两条路径的拒绝码：目标不同归属或非同层级（invalid_merge_target）、
+  // 源已删除或已合并、或状态值不在允许集合内（invalid_status）。
+  invalid_merge_target: "catalog.error.invalidMergeTarget",
+  invalid_status: "catalog.error.invalidStatus",
   forbidden: "catalog.error.forbidden",
   authentication_required: "catalog.error.authenticationRequired",
   // 定义/货架/外部库的名称四语齐备是硬约束：缺语种的写入一律被拒。

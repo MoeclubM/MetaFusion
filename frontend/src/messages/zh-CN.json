@@ -3020,5 +3020,7 @@
   "settings.oauthRevoked": "已撤回对「{name}」的授权。",
   "settings.oauthRevokeFailed": "撤回失败，请稍后重试。",
   "settings.oauthLoadFailed": "授权列表加载失败。",
-  "settings.oauthLoginRequired": "登录状态已失效，请重新登录后再查看。"
+  "settings.oauthLoginRequired": "登录状态已失效，请重新登录后再查看。",
+  "catalog.error.invalidMergeTarget": "合并条件不满足：源与目标必须是两条不同的记录，且同类型、同归属（作品 / 发行版 / 载体 / 父级 / 内容单元一致），目标还需处于已发布状态。",
+  "catalog.error.invalidStatus": "状态值不被接受：已发布条目不能退回草稿（请走生命周期操作）；源条目已删除或已合并时，也不能再作为合并来源。"
 }

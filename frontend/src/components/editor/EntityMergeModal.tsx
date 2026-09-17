@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, GitMerge, AlertTriangle, CheckCircle2, Lock, LogIn } from "lucide-react";
 import Link from "next/link";
 import { catalogEntityHref, isCatalogHub, mergeEntities } from "@/lib/api";
+import { localizeCatalogError } from "@/lib/catalogErrors";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -47,6 +48,11 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
       setError(t("editor.merge.notePlaceholder"));
       return;
     }
+    // 自合并（源与目标同一条）服务端必然回 invalid_merge_target：先在本地拦掉并讲清楚原因。
+    if (targetId.trim() === sourceEntity.id) {
+      setError(t("catalog.error.invalidMergeTarget"));
+      return;
+    }
 
     setSubmitting(true);
     setError("");
@@ -56,6 +62,8 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
         target_id: targetId.trim(),
         merge_note: mergeNote.trim(),
         source_urls: sourceUrl.trim() ? [sourceUrl.trim()] : [],
+        // 没填考据链接时的 self 来源文案：用既有键，不硬编码中文。
+        citation: t("editor.merge.title"),
       });
       alert(res.message || t("editor.merge.successAlert"));
       onClose();
@@ -69,7 +77,9 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
         window.location.href = UUID_PATTERN.test(id) ? catalogEntityHref(kind, id) : "/";
       }
     } catch (err: any) {
-      setError(err.message || t("editor.merge.failedMsg"));
+      // 后端给稳定错误码（invalid_merge_target / invalid_status / evidence_required …）：
+      // 走码表翻成人话，未知码才回退原文，不把裸码直接贴给用户。
+      setError(localizeCatalogError(String(err?.message || ""), t) || t("editor.merge.failedMsg"));
     } finally {
       setSubmitting(false);
     }

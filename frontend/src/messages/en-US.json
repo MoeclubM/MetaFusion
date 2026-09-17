@@ -3020,5 +3020,7 @@
   "settings.oauthRevoked": "Access for “{name}” has been revoked.",
   "settings.oauthRevokeFailed": "Revoking failed; please retry.",
   "settings.oauthLoadFailed": "Failed to load authorizations.",
-  "settings.oauthLoginRequired": "Your session has expired; sign in again to view this."
+  "settings.oauthLoginRequired": "Your session has expired; sign in again to view this.",
+  "catalog.error.invalidMergeTarget": "Merge conditions are not met: the source and target must be two different records of the same kind and owner (work/release/medium/parent/content unit), and the target must be published.",
+  "catalog.error.invalidStatus": "The status is not acceptable: a published entity cannot return to draft (use the lifecycle operation), and an entity that is already deleted or merged cannot be used as a merge source."
 }

@@ -3020,5 +3020,7 @@
   "settings.oauthRevoked": "「{name}」の認可を取り消しました。",
   "settings.oauthRevokeFailed": "取り消しに失敗しました。後でもう一度お試しください。",
   "settings.oauthLoadFailed": "認可一覧の読み込みに失敗しました。",
-  "settings.oauthLoginRequired": "ログイン状態が無効です。再ログインしてから確認してください。"
+  "settings.oauthLoginRequired": "ログイン状態が無効です。再ログインしてから確認してください。",
+  "catalog.error.invalidMergeTarget": "統合の条件を満たしていません。統合元と統合先は別々の項目で、同一の種類・所属（作品／リリース／媒体／親／コンテンツユニット）であり、統合先は公開済みである必要があります。",
+  "catalog.error.invalidStatus": "ステータスが受け付けられません。公開済みの項目は下書きに戻せず（ライフサイクル操作を使用）、削除済み・統合済みの項目は統合元にできません。"
 }

@@ -264,16 +264,29 @@ export async function mergeEntities(payload: {
   source_id: string;
   target_id: string;
   merge_note: string;
+  /** 考据链接（可选）：填了就作为 url 来源，citation 仍用合并说明。 */
   source_urls?: string[];
+  /** 没有链接时的 self 来源文案（调用方传四语键）；缺省回落到合并说明。 */
+  citation?: string;
 }): Promise<{ message: string; target_id: string }> {
+  const note = (payload.merge_note || "").trim();
+  const citation = (note || payload.citation || "").trim();
+  const urls = (payload.source_urls || []).map((u) => u.trim()).filter(Boolean);
+  // 服务端 validateSources 要求 edit_note 与 sources **都**非空，sources 里每项的 citation 也要非空。
+  // 用户不填可选的考据链接时若照旧传空数组，这次合并必然 400 evidence_required——
+  // 因此缺链接时补一条 kind=self 的站内来源，而不是伪造外部 URL。
+  const sources =
+    urls.length > 0
+      ? urls.map((url) => ({ kind: "url", citation, url }))
+      : [{ kind: "self", citation }];
   const source = await fetchApi<{ version: number }>(`/catalog/entities/${payload.source_id}`);
   await fetchApi(`/catalog/entities/${payload.source_id}/lifecycle`, {
     method: "POST",
     body: JSON.stringify({
       expected_version: source.version,
       target_id: payload.target_id,
-      edit_note: payload.merge_note,
-      sources: (payload.source_urls || []).map((u) => ({ kind: "url", citation: payload.merge_note, url: u })),
+      edit_note: note || citation,
+      sources,
     }),
   });
   return { message: "merged", target_id: payload.target_id };

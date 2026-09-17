@@ -3020,5 +3020,7 @@
   "settings.oauthRevoked": "已撤回對「{name}」的授權。",
   "settings.oauthRevokeFailed": "撤回失敗，請稍後重試。",
   "settings.oauthLoadFailed": "授權清單載入失敗。",
-  "settings.oauthLoginRequired": "登入狀態已失效，請重新登入後再查看。"
+  "settings.oauthLoginRequired": "登入狀態已失效，請重新登入後再查看。",
+  "catalog.error.invalidMergeTarget": "合併條件不滿足：來源與目標必須是兩筆不同的記錄，且同類型、同歸屬（作品／發行版／載體／父層／內容單元一致），目標還需處於已發佈狀態。",
+  "catalog.error.invalidStatus": "狀態值不被接受：已發佈條目不能退回草稿（請走生命週期操作）；來源條目已刪除或已合併時，也不能再作為合併來源。"
 }
