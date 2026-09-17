@@ -39,13 +39,18 @@
 | community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id） | metafusion-community |
 | community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | metafusion-community（`community.favorites`） |
 | community | `/api/records/entities/:id` | metafusion-community |
+| auth | `GET /api/users/:id` | metafusion-auth（公开账号资料；同前缀多归属，网关用 `^/api/users/[^/]+$` 精确分流） |
+| catalog | `GET /api/users/:id/contributions` | 本仓库（用户贡献列表；两段式，不匹配那两条正则，落目录服务兜底） |
+| community | `GET /api/users/:id/stats` | metafusion-community（用户互动统计：主题/回复/收藏计数；网关用 `^/api/users/[^/]+/stats$` 分流） |
+| community | `GET|POST /api/messages/with/:id` | metafusion-community（私信：读写同一对用户之间的消息；网关用 `/api/messages/` 前缀分流） |
 | storage | `/api/storage/*`（契约见 `metafusion-docs` 的 `docs/api-storage.md`） | metafusion-storage（契约见 `metafusion-docs` 的 `docs/api-storage.md`） |
 | auth | `/api/admin/oauth/*`（客户端治理：核验、提升自有平台、吊销、审计） | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关用 `location /api/admin/oauth/` 单独分流 |
 | storage | `/storage/preview/*` | 显式 `return 404`（预览改走 `/api/storage/*` 的资源鉴权，不再直代私有桶）；网关为它保留一条 location，属于刻意的退役占位 |
 | catalog | `/api/capabilities`、`/api/admin/modules/:id` | 部署态**声明式**能力清单（不再主动探活上游，见 capabilities 文档）+ 开关退役返回 409；目录服务自己也提供 `/health`（与 account/community/storage 同形），`/ready` 仍探数据库 |
 
-**网关按前缀分流，不按服务改前端调用点。** 只有 `/api/users/{id}/favorites` 与用户资料同前缀，
-网关用精确正则 `^/api/users/[^/]+/favorites$` 单独分流到 community。
+**网关按前缀分流，不按服务改前端调用点。** `/api/users/*` 是「同前缀、多归属」的典型，靠三条正则各自锚定：
+`/api/users/{id}` 归账号服务、`/api/users/{id}/favorites` 与 `/api/users/{id}/stats` 归互动服务、
+`/api/users/{id}/contributions` 归目录服务（前三条把对应路径从目录兜底里分流出去，最后一条落兜底）。
 
 ### 2.1 网关矩阵、密钥与 UI 的归属（2026-09 审计）
 
