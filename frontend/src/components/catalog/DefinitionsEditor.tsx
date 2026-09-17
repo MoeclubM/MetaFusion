@@ -3,7 +3,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   api,
-  Definition,
   Definitions,
   DefinitionVersionItem,
   Field,
@@ -16,13 +15,22 @@ import {
 import { CATALOG_DEFINITIONS_MANAGE, can } from "@/lib/permissions";
 import { DefinitionHistory } from "./DefinitionHistory";
 import { useCatalog } from "./CatalogProvider";
+import { useAuth } from "@/lib/authContext";
 import {
   getKindName,
+  getPublishedDefinitionId,
   refreshDefinitions,
   resolveKindOptions,
   useDefinitions,
 } from "@/lib/definitions";
+import type { DynamicDefinitions } from "@/lib/definitions";
 import { Evidence, ErrorMessage, NamesEditor } from "./Fields";
+
+// 同一份服务端定义文档在前端有两个方向不同的类型：lib/definitions.ts 的 DynamicDefinitions
+// 是只读消费视图（老文档缺键时为可选），./api 的 Definitions 是写入视图（字段齐全）。
+// 已发布文档就是写入视图的输入，这里按写入视图收窄，免得编辑器整篇跟着换类型。
+const asEditableDefinitions = (d: DynamicDefinitions): Definitions =>
+  d as unknown as Definitions;
 
 const newField = (): Field => ({ names: {}, type: "text", enabled: true });
 function Checks({
@@ -352,8 +360,12 @@ function FieldDefinition({
 }
 export function DefinitionsEditor() {
   const { t, tr, locale } = useI18n();
-  const { definition, user, refresh, modules } = useCatalog();
-  const { kinds: serverKinds } = useDefinitions();
+  const { modules } = useCatalog();
+  const { user } = useAuth();
+  // 已发布定义与它的版本行 id 只从 lib/definitions.ts 取（同一响应的同一份缓存）：
+  // 从 CatalogProvider 再拿一份副本，就是审计里"同一份定义两份缓存、发布后不同步"的根源，
+  // 更别说这个 Provider 只在 /admin 路由挂着。
+  const { definitions: published, kinds: serverKinds, versionId } = useDefinitions();
   const [d, setD] = useState<Definitions>();
   const [base, setBase] = useState(0);
   const [versions, setVersions] = useState<DefinitionVersionItem[]>([]);
@@ -370,11 +382,11 @@ export function DefinitionsEditor() {
   ]);
   const [tab, setTab] = useState<keyof Definitions | "schemes">("types");
   useEffect(() => {
-    if (definition && !d) {
-      setD(structuredClone(definition.document));
-      setBase(definition.id);
+    if (published && versionId !== null && !d) {
+      setD(structuredClone(asEditableDefinitions(published)));
+      setBase(versionId);
     }
-  }, [definition, d]);
+  }, [published, versionId, d]);
   // 门槛按权限码判定：can() 在令牌没带 permissions 时回落到 role，老行为不变；
   // 持 catalog.definitions.manage 的管理组此前被 role 判断挡在门外，现在也能进。
   const manageDefinitions = can(user, CATALOG_DEFINITIONS_MANAGE);
@@ -407,14 +419,18 @@ export function DefinitionsEditor() {
     setDraft(0);
     setIssues(undefined);
   };
-  // 发布/回滚后刷新所有定义消费方：CatalogProvider 与 definitions.ts 模块缓存是两份独立状态
-  // （同一页面可能同时消费），只刷新其一会让部分组件停留在旧定义，直到整页刷新。
+  // 发布/回滚后刷新所有定义消费方：定义缓存只有 lib/definitions.ts 一处（带订阅），
+  // refreshDefinitions() 会按新版本号重取、更新缓存并通知已挂载的组件；
+  // 基线版本号从同一份响应里取，不再自己打一次 /catalog/definitions（第二条取数路径）。
   const reloadPublished = async () => {
-    await refresh();
-    await refreshDefinitions();
-    const current = await api<Definition>("/catalog/definitions");
-    setD(structuredClone(current.document));
-    setBase(current.id);
+    const current = await refreshDefinitions();
+    const currentId = getPublishedDefinitionId();
+    if (!current || currentId === null) {
+      // 发布已经落库成功，只是本地刷新没拿到：如实说明，不要把刷新失败讲成发布失败。
+      throw new Error("definition_refresh_failed");
+    }
+    setD(structuredClone(asEditableDefinitions(current)));
+    setBase(currentId);
     setDraft(0);
     setIssues(undefined);
     setError("");
@@ -467,7 +483,7 @@ export function DefinitionsEditor() {
               // 免得把编辑器改成"半份定义"。
               if (v?.document) {
                 change(structuredClone(v.document));
-                setBase(v.state === "draft" ? v.base_version : definition!.id);
+                setBase(v.state === "draft" ? v.base_version : versionId ?? base);
                 if (v.state === "draft") setDraft(v.id);
               }
             }}
@@ -486,7 +502,7 @@ export function DefinitionsEditor() {
       </div>
       <DefinitionHistory
         versions={versions}
-        currentId={definition?.id}
+        currentId={versionId ?? undefined}
         loading={versionsLoading}
         error={versionsError}
         onReload={() => setVersionsNonce((n) => n + 1)}

@@ -4,8 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
-import { api, Entity, fetchAllPages, mapLimit, local, title as entityTitle } from "@/components/catalog/api";
-import { useCatalog } from "@/components/catalog/CatalogProvider";
+import { api, Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   useDefinitions,
@@ -157,7 +156,8 @@ export default function ReleaseDetailPage() {
   const params = useParams();
   const releaseId = params.id as string;
   const { t, locale } = useI18n();
-  const { definition: catalogDef } = useCatalog();
+  // 本页没有 CatalogProvider：定义一律走 lib/definitions.ts 的缓存（与 /catalog 路由同源），
+  // 以前这里读 Provider 的 definition 恒为 undefined，字段名只能显示裸码。
   const { definitions: dynamicDefs, kinds } = useDefinitions();
 
   const [release, setRelease] = useState<Entity | null>(null);
@@ -1087,7 +1087,7 @@ export default function ReleaseDetailPage() {
           )}
         </div>
 
-        {(catalogDef || dynamicDefs) && (
+        {dynamicDefs && (
           <Card padding="none">
           <details className="px-3.5 sm:px-4 py-2.5">
             <summary className="cursor-pointer font-mono text-[11px] text-gray-500 hover:text-primary min-h-[32px] flex items-center">
@@ -1095,13 +1095,10 @@ export default function ReleaseDetailPage() {
             </summary>
             <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
               {Object.keys(attrs).map((k) => {
-                const defs = dynamicDefs || catalogDef?.document;
-                const field = (defs as any)?.fields?.[k];
+                const field = dynamicDefs?.fields?.[k];
                 if (field && "comparable" in field && field.comparable === false) return null;
-                const name =
-                  getFieldName(dynamicDefs, k, locale) !== k
-                    ? getFieldName(dynamicDefs, k, locale)
-                    : local((catalogDef?.document.fields as any)?.[k]?.names, locale, "", k as string);
+                // 字段名只从一份定义里解析（getFieldName 在定义缺该字段时回落字段码本身）。
+                const name = getFieldName(dynamicDefs, k, locale);
                 const v = attrs[k];
                 const text = typeof v === "string" || typeof v === "number" ? String(v) : Array.isArray(v) ? t("release.detail.listCount", { count: v.length }) : "—";
                 if (["attachments", "store_bonuses", "events"].includes(k)) return null;

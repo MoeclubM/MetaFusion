@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, Field, local, Names, Source, title } from "./api";
-import { useCatalog } from "./CatalogProvider";
 import { getKindName, useDefinitions } from "@/lib/definitions";
 export function NamesEditor({
   value,
@@ -232,9 +231,9 @@ export function FieldInput({
   value: any;
   onChange: (v: any) => void;
 }) {
-  const { definition } = useCatalog();
+  const { definitions } = useDefinitions();
   const { t, locale } = useI18n();
-  if (!definition) return null;
+  if (!definitions) return null;
   if (field.type === "entity")
     return (
       <EntityPicker
@@ -258,7 +257,7 @@ export function FieldInput({
       <select value={value || ""} onChange={(e) => onChange(e.target.value)}>
         <option value="">{t("catalog.none")}</option>
         {Object.entries(
-          definition.document.vocabularies[field.vocabulary || ""]?.terms || {},
+          definitions.vocabularies[field.vocabulary || ""]?.terms || {},
         )
           .filter(([k, v]) => v.enabled || k === value)
           .map(([k, v]) => (
@@ -347,7 +346,7 @@ export function FieldInput({
   );
 }
 export function FieldValue({ field, value }: { field?: Field; value: any }) {
-  const { definition } = useCatalog();
+  const { definitions } = useDefinitions();
   const { locale, t } = useI18n();
   if (value === null || value === undefined || value === "")
     return <span>—</span>;
@@ -358,7 +357,7 @@ export function FieldValue({ field, value }: { field?: Field; value: any }) {
     return (
       <span>
         {local(
-          definition?.document.vocabularies[field.vocabulary || ""]?.terms[
+          definitions?.vocabularies[field.vocabulary || ""]?.terms[
             value
           ]?.names,
           locale,

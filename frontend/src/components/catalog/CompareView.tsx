@@ -3,8 +3,7 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
-import { api, Entity, mapLimit, local, title } from "./api";
-import { useCatalog } from "./CatalogProvider";
+import { api, Entity, mapLimit, title } from "./api";
 import { FieldValue, EntityLink, ErrorMessage } from "./Fields";
 import { useDefinitions, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import { computeAlignment, compareSemanticsOf } from "./compareAlignment";
@@ -42,7 +41,8 @@ function readBasket(): string[] {
 
 export function Compare({ ids }: { ids: string }) {
   const { t, locale } = useI18n();
-  const { definition: catalogDef } = useCatalog();
+  // 定义只有这一份来源：/compare 不在 CatalogProvider 的挂载范围内，
+  // 以前这里取的是 Provider 的 definition，恒为 undefined，字段名与枚举值一律裸露。
   const { definitions: dynamicDefs } = useDefinitions();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -167,7 +167,7 @@ export function Compare({ ids }: { ids: string }) {
   }, [selectedIds, t, maxSlots]);
 
   const comparableFields = useMemo(() => {
-    const defs = dynamicDefs || catalogDef?.document;
+    const defs = dynamicDefs;
     const allKeys = Array.from(new Set(items.flatMap((x) => Object.keys(x.release?.attributes || {}))));
     return allKeys.filter((k) => {
       const field = (defs as any)?.fields?.[k];
@@ -176,7 +176,7 @@ export function Compare({ ids }: { ids: string }) {
       if (typeof field.Comparable === "boolean") return field.Comparable;
       return true;
     });
-  }, [items, dynamicDefs, catalogDef]);
+  }, [items, dynamicDefs]);
 
   const sets = useMemo(() => {
     return items.map(
@@ -231,8 +231,8 @@ export function Compare({ ids }: { ids: string }) {
   }, [expressionIds.join(",")]);
 
   const alignment = useMemo(
-    () => computeAlignment(items, exprEntities, compareSemanticsOf(dynamicDefs || catalogDef?.document)),
-    [items, exprEntities, dynamicDefs, catalogDef],
+    () => computeAlignment(items, exprEntities, compareSemanticsOf(dynamicDefs)),
+    [items, exprEntities, dynamicDefs],
   );
 
   const renderAttrValue = (key: string, value: unknown): string => {
@@ -896,7 +896,8 @@ export function Compare({ ids }: { ids: string }) {
                   ))}
                 </tr>
                 {comparableFields.map((k) => {
-                  const fieldName = getFieldName(dynamicDefs, k, locale) || local(catalogDef?.document.fields[k]?.names, locale, "", k);
+                  // getFieldName 在定义缺席时回落字段码本身，与原先的两级兜底同义。
+                  const fieldName = getFieldName(dynamicDefs, k, locale);
                   const rawValues = items.map((x) => JSON.stringify(x.release.attributes?.[k] ?? null));
                   const isDiff = new Set(rawValues).size > 1;
 
@@ -924,9 +925,9 @@ export function Compare({ ids }: { ids: string }) {
                             highlightDiff && isDiff ? "font-medium" : ""
                           }`}
                         >
-                          {(catalogDef?.document.fields as any)?.[k] ? (
+                          {(dynamicDefs?.fields as any)?.[k] ? (
                             <FieldValue
-                              field={(catalogDef?.document.fields as any)[k]}
+                              field={(dynamicDefs?.fields as any)[k]}
                               value={x.release.attributes?.[k]}
                             />
                           ) : (

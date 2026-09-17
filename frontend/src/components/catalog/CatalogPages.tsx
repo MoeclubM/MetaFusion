@@ -2,7 +2,7 @@
 import { useI18n } from "@/i18n/I18nProvider";
 import { getAuthPasswordUrl } from "@/lib/services";
 import { api } from "./api";
-import { useCatalog } from "./CatalogProvider";
+import { useAuth } from "@/lib/authContext";
 
 // 登录入口唯一：/login（app/login/page.tsx，含注册页签；实例未初始化时由 AuthGate 引导 /setup）。
 // 本页未登录时由 components/AuthGate.tsx 跳 /login?redirect=/account，不要在这里再渲染
@@ -13,7 +13,8 @@ import { useCatalog } from "./CatalogProvider";
 // 本页只留一个入口链接；账号治理（成员/角色/权限组/邀请/OAuth 客户端）归独立控制台 /admin/account/。
 export function Account() {
   const { t } = useI18n();
-  const { user, refresh } = useCatalog();
+  // 会话只有 useAuth 一份：退出登录后由它的 refreshProfile 读回 /auth/me（401 即清会话）。
+  const { user, refreshProfile } = useAuth();
 
   // 未登录不渲染任何内容：AuthGate 已把未登录访问重定向到 /login?redirect=/account。
   if (!user) return null;
@@ -52,7 +53,7 @@ export function Account() {
               type="button"
               onClick={async () => {
                 await api("/auth/logout", "POST");
-                await refresh();
+                await refreshProfile();
               }}
               style={{ fontSize: 13, padding: "6px 14px" }}
             >
@@ -63,7 +64,7 @@ export function Account() {
               onClick={async () => {
                 if (confirm(t("account.logoutAllConfirm"))) {
                   await api("/auth/logout-all", "POST");
-                  await refresh();
+                  await refreshProfile();
                 }
               }}
               style={{

@@ -5,7 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds as fallbackKinds, local, Source } from "./api";
 import { canPublishEntity } from "@/lib/permissions";
 import { localizeCatalogError } from "@/lib/catalogErrors";
-import { useCatalog } from "./CatalogProvider";
+import { useAuth } from "@/lib/authContext";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
 import { effectiveSchemeFields, getFieldName, getKindName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
@@ -44,11 +44,13 @@ export function EntityEditor({
   initialSources?: Source[];
 }) {
   const { t, tr, locale } = useI18n();
-  const { definition, user } = useCatalog();
-  const { kinds: serverKinds } = useDefinitions();
+  // 会话来自 useAuth（唯一来源），定义来自 useDefinitions（唯一缓存）：
+  // CatalogProvider 不再存这两份，本组件也不该依赖它被挂载。
+  const { user } = useAuth();
+  const { definitions, kinds: serverKinds } = useDefinitions();
   const router = useRouter();
   // definitions：定位字段等由它声明，避免编辑器写死字段码。
-  const defs = definition?.document;
+  const defs = definitions ?? undefined;
   // 层级名与可选项：服务端 definitions.kinds 优先，服务端未给时才退回内置骨架清单，
   // 字典只作名称兜底（缺键退原始码）；后台改骨架名/停用种类前端即跟随。
   const kindLabel = (code: string) =>
@@ -105,9 +107,9 @@ export function EntityEditor({
   const [tagInput, setTagInput] = useState("");
   // 当前编辑的语种；空串表示跟随原始语言（用户还没手动切换过）。
   const [localePick, setLocalePick] = useState("");
-  if (!definition) return <p>{t("catalog.loading")}</p>;
+  if (!definitions) return <p>{t("catalog.loading")}</p>;
   if (!user) return <p>{t("catalog.loginToEdit")}</p>;
-  const d = definition.document;
+  const d = definitions;
   const patch = (v: Partial<Entity>) => setE({ ...e, ...v });
   // ---- 标签：自由输入，取代原先的"类型"勾选（types 保留在数据里，只是不再由界面选择）----
   const tags: string[] = Array.isArray(e.attributes?.tags)

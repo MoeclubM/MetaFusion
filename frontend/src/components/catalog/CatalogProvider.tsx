@@ -1,11 +1,15 @@
 "use client";
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { api, Capability, Definition, User } from "./api";
+import { api, Capability } from "./api";
 import { useI18n } from "@/i18n/I18nProvider";
 
+// 目录页的共享上下文只保留非定义职责：模块开关与实例初始化状态。
+// 定义（types/fields/relations/vocabularies…）的唯一来源是 lib/definitions.ts 的
+// useDefinitions()（带版本缓存、订阅与发布后失效）；会话用户来自 lib/authContext 的
+// useAuth()。这两样此前在这里各存了一份 React state，于是同一份数据有了第二份缓存：
+// 后台发布新定义后，只有拿到 Provider 那一份的组件会变，没挂 Provider 的路由
+// （/compare、/releases/[id]）则连字段名都取不到，只能显示裸字段码。
 const Context = createContext<{
-  definition?: Definition;
-  user?: User;
   modules: Capability[];
   setup: boolean;
   refresh: () => Promise<void>;
@@ -15,28 +19,22 @@ export const useCatalog = () => useContext(Context);
 
 export function CatalogProvider({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
-  const [definition, setDefinition] = useState<Definition>();
-  const [user, setUser] = useState<User>();
   const [modules, setModules] = useState<Capability[]>([]);
   const [setup, setSetup] = useState(false);
   const [error, setError] = useState("");
 
   const refresh = async () => {
     const results = await Promise.allSettled([
-      api<Definition>("/catalog/definitions"),
-      api<User>("/auth/me"),
       api<{ modules: Capability[] }>("/capabilities"),
       api<{ needed: boolean }>("/setup"),
     ]);
+    // 能力探测失败会让依赖模块的分节整块消失（如社区分节）：必须说清是实例连不上，
+    // 而不是"这个功能不存在"，并留一个重试入口。
     if (results[0].status === "fulfilled") {
-      setDefinition(results[0].value);
+      setModules(results[0].value.modules);
       setError("");
-    } else setError(results[0].reason.message);
-    setUser(results[1].status === "fulfilled" ? results[1].value : undefined);
-    setModules(
-      results[2].status === "fulfilled" ? results[2].value.modules : [],
-    );
-    setSetup(results[3].status === "fulfilled" && results[3].value.needed);
+    } else setError((results[0].reason as Error).message);
+    setSetup(results[1].status === "fulfilled" && results[1].value.needed);
   };
 
   useEffect(() => {
@@ -44,7 +42,7 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <Context.Provider value={{ definition, user, modules, setup, refresh }}>
+    <Context.Provider value={{ modules, setup, refresh }}>
       {error && (
         <div role="alert" className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-mono text-center">
           {t("catalog.connectionError")}

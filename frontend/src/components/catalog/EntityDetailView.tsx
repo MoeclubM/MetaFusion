@@ -11,6 +11,7 @@ import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { EntityEditor } from "@/components/catalog/EntityEditor";
 import { useCatalog } from "@/components/catalog/CatalogProvider";
 import { api, Entity, Relation, title, local } from "@/components/catalog/api";
+import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle, findRowForLocale, buildTitleChain } from "@/lib/titles";
 import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
@@ -132,9 +133,12 @@ async function allEntities(query: string): Promise<Entity[]> {
 export function EntityDetailView({ id }: { id: string }) {
   const { t, tr, locale } = useI18n();
   const titleOrder = useTitleDisplayOrder();
-  const { definition, user, modules } = useCatalog();
+  // 会话与定义各只有一个来源：Provider 不再缓存这两份。同一份数据存两处的问题是
+  // 两处会不同步——定义发布、会话刷新后，只有恰好挂在 Provider 下的路由才看得到变化。
+  const { modules } = useCatalog();
+  const { user } = useAuth();
   const { definitions: dynamicDefs, kinds } = useDefinitions();
-  const defs = definition?.document || dynamicDefs;
+  const defs = dynamicDefs;
   // kind 展示名统一走服务端 definitions.kinds，字典只作兜底（缺键退原始码，不显示裸 key）。
   const kindLabel = useCallback(
     (kind: string) => getKindName(kinds, kind, locale, tr(`catalog.kind.${kind}`, kind)),

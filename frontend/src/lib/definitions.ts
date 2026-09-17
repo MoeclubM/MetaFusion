@@ -160,6 +160,9 @@ let cachedDefinitions: DynamicDefinitions | null = null;
 let cachedKinds: KindMap = {};
 // 已发布定义的版本行 id：后台发布新版本后 id 变化，据此失效缓存。
 let cachedVersion = "";
+// 版本行 id 的数字形态：编辑器的"基线版本"就是它，必须与文档同源同一份响应，
+// 不能让调用方再自己打一次 /catalog/definitions 去取（那就是第二条取数路径）。
+let cachedVersionId: number | null = null;
 let definitionsPromise: Promise<DynamicDefinitions | null> | null = null;
 let revalidating = false;
 // 请求序号：只接受不早于已应用序号的响应，防止较早的请求晚到覆盖较新版本。
@@ -179,6 +182,8 @@ async function loadDefinitions(): Promise<DynamicDefinitions | null> {
   if (seq < appliedSeq) return cachedDefinitions;
   appliedSeq = seq;
   const version = String(data.id ?? "");
+  const versionId = Number(data.id);
+  cachedVersionId = Number.isFinite(versionId) ? versionId : null;
   if (!cachedDefinitions || version !== cachedVersion) {
     cachedVersion = version;
     cachedDefinitions = data.document;
@@ -223,9 +228,18 @@ export async function refreshDefinitions(): Promise<DynamicDefinitions | null> {
   return loadDefinitions();
 }
 
+/**
+ * 已发布定义的版本行 id（数字）。刚 await 过 refreshDefinitions() 的调用方可直接读它拿
+ * 新基线版本；响应里没有可解析的 id 时为 null（调用方自行决定是否继续）。
+ */
+export function getPublishedDefinitionId(): number | null {
+  return cachedVersionId;
+}
+
 export function useDefinitions() {
   const [defs, setDefs] = useState<DynamicDefinitions | null>(cachedDefinitions);
   const [kinds, setKinds] = useState<KindMap>(cachedKinds);
+  const [versionId, setVersionId] = useState<number | null>(cachedVersionId);
   const [loading, setLoading] = useState<boolean>(!cachedDefinitions);
 
   useEffect(() => {
@@ -234,6 +248,7 @@ export function useDefinitions() {
       if (mounted) {
         setDefs(d);
         setKinds(cachedKinds);
+        setVersionId(cachedVersionId);
         setLoading(false);
       }
     };
@@ -245,6 +260,7 @@ export function useDefinitions() {
       if (mounted) {
         setDefs(d);
         setKinds(cachedKinds);
+        setVersionId(cachedVersionId);
         setLoading(false);
       }
     });
@@ -258,7 +274,8 @@ export function useDefinitions() {
     };
   }, []);
 
-  return { definitions: defs, kinds, loading };
+  // versionId 与 definitions 同批更新（同一次响应解析出来的），供编辑器的基线版本使用。
+  return { definitions: defs, kinds, versionId, loading };
 }
 
 /**

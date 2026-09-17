@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import { api, Entity } from "./api";
-import { useCatalog } from "./CatalogProvider";
+import { useAuth } from "@/lib/authContext";
 import { EntityEditor } from "./EntityEditor";
 import { canEditRevision, prepareRevisionRestore, revisionChanges } from "./revisionData";
 import { getKindName, useDefinitions } from "@/lib/definitions";
@@ -100,7 +100,7 @@ export function EntityRevisions({
   currentEntity?: any;
 }) {
   const { t, tr, locale } = useI18n();
-  const { user } = useCatalog();
+  const { user } = useAuth();
   const { kinds } = useDefinitions();
   // 结构字段名里的层级（work_id 等）：名称走服务端 definitions.kinds，字典只作兜底。
   const kindLabel = (code: string) =>
@@ -114,7 +114,8 @@ export function EntityRevisions({
     setRestoreError("");
     try {
       const current = await api<Entity>(`/catalog/entities/${currentEntity.id}`);
-      if (!canEditRevision(current, user)) throw new Error("forbidden");
+      // useAuth 的 user 是 User | null，canEditRevision 收 undefined 表示未登录。
+      if (!canEditRevision(current, user ?? undefined)) throw new Error("forbidden");
       setRestore({ entity: prepareRevisionRestore(current, revision.snapshot), revision });
     } catch {
       setRestoreError(t("revisions.restoreFailed"));
@@ -543,7 +544,7 @@ export function EntityRevisions({
                       </button>
                     )}
 
-                    {currentEntity && canEditRevision(currentEntity, user) && rev.id && rev.snapshot &&
+                    {currentEntity && canEditRevision(currentEntity, user ?? undefined) && rev.id && rev.snapshot &&
                       rev.version < currentEntity.version && !["deleted", "merged"].includes(rev.snapshot.status) && (
                       <button type="button" disabled={restoreBusy} onClick={() => beginRestore(rev)}
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-primary hover:bg-primary/10 disabled:opacity-50">
