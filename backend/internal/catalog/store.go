@@ -37,6 +37,10 @@ func catalogBaseline() (string, error) {
 var (
 	errForbidden       = errors.New("forbidden")
 	errVersionConflict = errors.New("version_conflict")
+	// errInvalidStatus 是"当前状态不允许这个动作"的稳定码（如 Unpublish 只接受 published）。
+	// 它不需要 respond 特判——默认分支就是 400 + 错误文本；登记成哨兵是为了让调用方与
+	// 测试能 errors.Is 判定，而不是比较字符串（%w 包裹后字符串比较会失效）。
+	errInvalidStatus = errors.New("invalid_status")
 )
 
 type Store struct {

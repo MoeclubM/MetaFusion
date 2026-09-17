@@ -230,6 +230,48 @@ func TestOpenAPIHomeSectionFields(t *testing.T) {
 	}
 }
 
+// 下架端点（published → draft）的文档必须冻结：它是已发布条目唯一的降级入口，
+// 漏记 requestBody 会让按文档做严格校验的客户端发不出请求；错误码与事件码写进 summary，
+// 前端与 Agent 只按文档对接。
+func TestOpenAPIUnpublishEndpoint(t *testing.T) {
+	doc := OpenAPI()
+	op, ok := doc["paths"].(map[string]any)["/catalog/entities/{id}/unpublish"].(map[string]any)
+	if !ok {
+		t.Fatal("下架端点未进 OpenAPI 文档")
+	}
+	post, ok := op["post"].(map[string]any)
+	if !ok {
+		t.Fatal("下架端点必须是 POST")
+	}
+	if _, ok := post["security"]; !ok {
+		t.Fatal("下架端点必须声明 security（需要登录 + catalog.lifecycle.manage）")
+	}
+	body, _ := post["requestBody"].(map[string]any)
+	ref, _ := body["content"].(map[string]any)["application/json"].(map[string]any)["schema"].(map[string]any)["$ref"].(string)
+	if ref != "#/components/schemas/UnpublishEdit" {
+		t.Fatalf("下架端点请求体 schema=%q, want UnpublishEdit", ref)
+	}
+	props, ok := doc["components"].(map[string]any)["schemas"].(map[string]any)["UnpublishEdit"].(map[string]any)["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("UnpublishEdit schema 缺失")
+	}
+	// 与既有写端点同口径的三个字段；下架不指向别的实体，target_id 不属于它的契约。
+	for _, k := range []string{"expected_version", "edit_note", "sources"} {
+		if props[k] == nil {
+			t.Fatalf("UnpublishEdit schema 缺 %s 字段", k)
+		}
+	}
+	if props["target_id"] != nil {
+		t.Fatal("下架没有合并目标，不该有 target_id")
+	}
+	summary, _ := post["summary"].(string)
+	for _, want := range []string{"published", "invalid_status", "version_conflict", "entity.unpublished", "revisions"} {
+		if !strings.Contains(summary, want) {
+			t.Fatalf("下架端点说明未覆盖 %q：%q", want, summary)
+		}
+	}
+}
+
 // GET /catalog/definitions 的响应比 DefinitionVersion 多一个 kinds（handler 拼的骨架名，
 // 见 http.go：288）。文档必须表达出来：该 schema 声明 additionalProperties:false，
 // 漏写会让按文档做严格校验的客户端判失败。

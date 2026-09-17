@@ -382,12 +382,22 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		e, err := s.Save(c.Request.Context(), in, *user(c))
 		respond(c, e, err)
 	})
+	// 生命周期只做删除/合并；下架（published → draft）是唯一的状态降级入口，
+	// Save 对降级一律回 use_lifecycle_endpoint（store.go）。两者同档权限：能清退的人才能下架。
 	cat.POST("/entities/:id/lifecycle", required(PermissionLifecycleManage), func(c *gin.Context) {
 		var in LifecycleEdit
 		if !body(c, &in) {
 			return
 		}
 		e, err := s.Lifecycle(c.Request.Context(), c.Param("id"), in, *user(c))
+		respond(c, e, err)
+	})
+	cat.POST("/entities/:id/unpublish", required(PermissionLifecycleManage), func(c *gin.Context) {
+		var in UnpublishEdit
+		if !body(c, &in) {
+			return
+		}
+		e, err := s.Unpublish(c.Request.Context(), c.Param("id"), in, *user(c))
 		respond(c, e, err)
 	})
 	cat.GET("/entities/:id/revisions", func(c *gin.Context) {
