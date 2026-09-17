@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Globe, Power } from "lucide-react";
 import {
   fetchAdminExternalDatabases,
+  fetchImporterSources,
   createExternalDatabase,
   updateExternalDatabase,
   deleteExternalDatabase,
@@ -22,6 +23,9 @@ export function ExternalDatabasesTab() {
   // 适用范围候选与显示名都取服务端 kinds（后台停用的骨架不再出现），字典只作兜底。
   const kindOptions = resolveKindOptions(serverKinds, fallbackKinds);
   const [items, setItems] = useState<ExternalDatabaseDefinition[]>([]);
+  // 有导入适配器的 code 集合，来自 GET /importer/sources（后端同一份事实：
+  // 适配器在代码里、元数据在注册表）。null = 还没取到或取不到，与"无适配器"分开显示。
+  const [adapterIds, setAdapterIds] = useState<Set<string> | null>(null);
   const [loading, setLoading] = useState(true);
   const [editingItem, setEditingItem] = useState<ExternalDatabaseDefinition | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -49,6 +53,10 @@ export function ExternalDatabasesTab() {
     } finally {
       setLoading(false);
     }
+    // 适配器集合单独取：取不到只让这一列显示"未知"，不影响库列表本身（两者失败原因不同）。
+    fetchImporterSources()
+      .then((res) => setAdapterIds(new Set((res.items || []).map((s) => s.id))))
+      .catch(() => setAdapterIds(null));
   };
 
   useEffect(() => {
@@ -184,19 +192,20 @@ export function ExternalDatabasesTab() {
               <th className="py-3 px-4">{t("admin.extdb.colUrl")}</th>
               <th className="py-3 px-4">{t("admin.extdb.colRegex")}</th>
               <th className="py-3 px-4 text-center">{t("admin.extdb.colSort")}</th>
+              <th className="py-3 px-4 text-center">{t("admin.extdb.colImporter")}</th>
               <th className="py-3 px-4 text-right">{t("admin.extdb.colActions")}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line-subtle font-sans">
             {loading ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-text-faint font-mono">
+                <td colSpan={8} className="py-8 text-center text-text-faint font-mono">
                   {t("common.loadingGeneric")}
                 </td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-text-faint font-mono">
+                <td colSpan={8} className="py-8 text-center text-text-faint font-mono">
                   {t("admin.extdb.noData")}
                 </td>
               </tr>
@@ -249,6 +258,32 @@ export function ExternalDatabasesTab() {
                   {/* 排序 */}
                   <td className="py-3 px-4 text-center font-mono text-text-muted">
                     {item.sort_order}
+                  </td>
+
+                  {/* 导入适配器：数据来自 /importer/sources 的 id 集合，与导入弹窗同源 */}
+                  <td className="py-3 px-4 text-center">
+                    {adapterIds === null ? (
+                      <span
+                        className="font-mono text-[10px] text-text-faint"
+                        title={t("admin.extdb.importerUnknownHint")}
+                      >
+                        {t("admin.extdb.importerUnknown")}
+                      </span>
+                    ) : adapterIds.has(item.code) ? (
+                      <span
+                        className="inline-block px-2 py-0.5 rounded font-mono text-[10px] bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                        title={t("admin.extdb.importerSupportedHint")}
+                      >
+                        {t("admin.extdb.importerSupported")}
+                      </span>
+                    ) : (
+                      <span
+                        className="inline-block px-2 py-0.5 rounded font-mono text-[10px] bg-surfaceSubtle border border-line text-text-faint"
+                        title={t("admin.extdb.importerUnsupportedHint")}
+                      >
+                        {t("admin.extdb.importerUnsupported")}
+                      </span>
+                    )}
                   </td>
 
                   {/* 操作 */}
