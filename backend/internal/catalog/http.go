@@ -354,6 +354,15 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		total, err := s.Count(c.Request.Context(), o, user(c))
 		respond(c, gin.H{"items": items, "total": total}, err)
 	})
+	// 状态计数：概览卡片的待审/已发布/墓碑三个数只从这一条 GROUP BY 拿（列表端点给不出墓碑数）。
+	// 闸门是 catalog.lifecycle.manage——只有它的持有者能在 /entities 列表里看全量状态，
+	// 聚合口径因此不比列表多露一行；未登录 401 authentication_required、其它目录码 403 forbidden。
+	// 放在 /entities/:id 之前：静态段与参数段在 gin 的路由树里是可共存的兄弟节点，
+	// 顺序不影响匹配（静态优先），但先声明静态路径省得日后读代码时以为 stats 会被当成 id。
+	cat.GET("/entities/stats", required(PermissionLifecycleManage), routeLimiter(120), func(c *gin.Context) {
+		stats, err := s.StatusCounts(c.Request.Context())
+		respond(c, stats, err)
+	})
 	cat.GET("/entities/:id", func(c *gin.Context) { e, err := s.Get(c.Request.Context(), c.Param("id"), user(c)); respond(c, e, err) })
 	cat.GET("/entities/:id/resolve", func(c *gin.Context) {
 		e, err := s.Resolve(c.Request.Context(), c.Param("id"), user(c))

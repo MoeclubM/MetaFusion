@@ -73,6 +73,9 @@ func TestOpenAPIReverseCoverage(t *testing.T) {
 	}{
 		{"/catalog/entities", "post", true},
 		{"/catalog/entities", "get", false},
+		// 概览计数是管理台口径的聚合，必须登录 + catalog.lifecycle.manage：它含 deleted/merged，
+		// 匿名读会绕过列表端点刻意的可见性过滤。
+		{"/catalog/entities/stats", "get", true},
 		{"/catalog/me/home-preferences", "get", true},
 		{"/catalog/me/home-preferences", "put", true},
 		{"/exchange/proposals", "post", true},
@@ -269,6 +272,51 @@ func TestOpenAPIUnpublishEndpoint(t *testing.T) {
 	for _, want := range []string{"published", "invalid_status", "version_conflict", "entity.unpublished", "revisions"} {
 		if !strings.Contains(summary, want) {
 			t.Fatalf("下架端点说明未覆盖 %q：%q", want, summary)
+		}
+	}
+}
+
+// 状态计数端点的文档必须冻结：它是墓碑数唯一的来源，五个状态键与 total 的 schema
+// （additionalProperties:false）漏一个，按文档做严格校验的客户端就会判失败。
+func TestOpenAPIEntityStatsEndpoint(t *testing.T) {
+	doc := OpenAPI()
+	op, ok := doc["paths"].(map[string]any)["/catalog/entities/stats"].(map[string]any)
+	if !ok {
+		t.Fatal("状态计数端点未进 OpenAPI 文档")
+	}
+	get, ok := op["get"].(map[string]any)
+	if !ok {
+		t.Fatal("状态计数端点必须是 GET")
+	}
+	if _, ok := get["security"]; !ok {
+		t.Fatal("状态计数端点必须声明 security（需要登录 + catalog.lifecycle.manage）")
+	}
+	ref, _ := get["responses"].(map[string]any)["200"].(map[string]any)["content"].(map[string]any)["application/json"].(map[string]any)["schema"].(map[string]any)["$ref"].(string)
+	if ref != "#/components/schemas/EntityStatusCounts" {
+		t.Fatalf("状态计数端点 200 响应 schema=%q, want EntityStatusCounts", ref)
+	}
+	schemas := doc["components"].(map[string]any)["schemas"].(map[string]any)
+	props, ok := schemas["EntityStatusCounts"].(map[string]any)["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("EntityStatusCounts schema 缺失")
+	}
+	if props["statuses"] == nil || props["total"] == nil {
+		t.Fatalf("EntityStatusCounts schema 缺 statuses/total: %+v", props)
+	}
+	// 五个状态键逐个冻结，且与 Go 侧 entityStatuses（迁移 CHECK 的全集）逐字一致。
+	statusProps, ok := props["statuses"].(map[string]any)["properties"].(map[string]any)
+	if !ok || len(statusProps) != len(entityStatuses) {
+		t.Fatalf("statuses 应逐个声明 %d 个状态: %+v", len(entityStatuses), statusProps)
+	}
+	for _, code := range entityStatuses {
+		if statusProps[code] == nil {
+			t.Fatalf("statuses 缺状态键 %s", code)
+		}
+	}
+	summary, _ := get["summary"].(string)
+	for _, want := range []string{"deleted", "merged", "catalog.lifecycle.manage"} {
+		if !strings.Contains(summary, want) {
+			t.Fatalf("状态计数端点说明未覆盖 %q：%q", want, summary)
 		}
 	}
 }
