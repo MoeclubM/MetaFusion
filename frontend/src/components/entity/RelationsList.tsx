@@ -208,13 +208,3 @@ export function GroupedRelations({
     </div>
   );
 }
-
-export function RelationsList({
-  items,
-  groupOrder,
-}: {
-  items: ConnectedEntityItem[] | EntityRelationship[];
-  groupOrder?: string[];
-}) {
-  return <GroupedRelations items={items} groupOrder={groupOrder} />;
-}
