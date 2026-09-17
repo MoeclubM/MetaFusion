@@ -3,7 +3,9 @@ package catalog
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -127,5 +129,56 @@ func TestUnpublishDemotesToDraftOnPostgres(t *testing.T) {
 	draft.Status = "published"
 	if _, err := f.s.Save(ctx, Edit{Entity: draft, ExpectedVersion: draft.Version, EditNote: "修好再发", Sources: fixtureSources()}, admin); err != nil {
 		t.Fatalf("下架后的草稿应能重新发布: %v", err)
+	}
+}
+
+// unpublishEngine 挂真实路由并注入身份：目录侧鉴权中间件在无令牌时不覆盖已有的 catalog_user，
+// 所以这里不需要账号服务，但要用真库（Store）证明 respond 的状态码映射。
+func unpublishEngine(s *Store, u *User) *gin.Engine {
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		if u != nil {
+			c.Set("catalog_user", u)
+		}
+		c.Next()
+	})
+	HTTP{Store: s}.Register(r)
+	return r
+}
+
+// 端到端错误码矩阵（真库）：HTTP 层解码 UnpublishEdit、respond 把领域错误映射成状态码。
+// 成功 200 + 与 Save 同形状的实体；非 published 400 invalid_status；过时版本 409 version_conflict。
+func TestUnpublishHTTPStatusMatrix(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	f := newFixture(t)
+	admin := f.u
+	engine := unpublishEngine(f.s, &admin)
+	pub := f.save(Entity{Kind: "work", Title: "HTTP 矩阵作品"})
+	call := func(version int64) *httptest.ResponseRecorder {
+		t.Helper()
+		payload := fmt.Sprintf(`{"expected_version":%d,"edit_note":"下架","sources":[{"kind":"self","citation":"HTTP 矩阵"}]}`, version)
+		w := httptest.NewRecorder()
+		engine.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/catalog/entities/"+pub.ID+"/unpublish", strings.NewReader(payload)))
+		return w
+	}
+
+	w := call(pub.Version)
+	if w.Code != http.StatusOK {
+		t.Fatalf("下架应 200: %d %s", w.Code, w.Body.String())
+	}
+	var got Entity
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("响应不是实体: %v %s", err, w.Body.String())
+	}
+	if got.ID != pub.ID || got.Status != "draft" || got.Version != pub.Version+1 {
+		t.Fatalf("响应实体不符: %+v", got)
+	}
+	// 已回草稿后用旧版本再试：版本条件先判，报 409 而不是 400。
+	if w = call(pub.Version); w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "version_conflict") {
+		t.Fatalf("过时版本应 409 version_conflict: %d %s", w.Code, w.Body.String())
+	}
+	// 版本对齐但状态不是 published：400 invalid_status（不是 500，也不是 404）。
+	if w = call(pub.Version + 1); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "invalid_status") {
+		t.Fatalf("非发布态应 400 invalid_status: %d %s", w.Code, w.Body.String())
 	}
 }
