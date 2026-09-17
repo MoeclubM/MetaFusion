@@ -1,3 +1,10 @@
+# ==============================================================================
+# 元数据-only 编排：只拉起目录侧（PostgreSQL + 目录服务 + 前端 + 可选文档站 + 网关）。
+# 账号 / 互动 / 存储缺席时前端仍会请求那三个上游（页面级 API 打到不存在的服务），所以这个组合
+# 只用于目录侧开发/验收，不是"部分部署"的受支持形态。
+# 镜像命名与构建入参一律以主编排 deploy/docker-compose.yml 为准：同一个服务不出现第二套名字，
+# 也不使用任何没有发布方的镜像名（那种名字既拉不到、也无法与主编排复用同一份构建）。
+# ==============================================================================
 services:
   postgres:
     image: postgres:16-alpine
@@ -17,7 +24,8 @@ services:
     networks: [metafusion-net]
 
   backend:
-    image: metafusion-catalog-backend:${METAFUSION_TAG:-local}
+    # 与主编排同名同标签：两份编排构建出的目录服务镜像可以互相复用。
+    image: metafusion-backend:${METAFUSION_TAG:-local}
     build:
       context: ../backend
       # 目录服务的运行镜像就是 backend/Dockerfile 的 server 阶段（没有 catalog-server 阶段，
@@ -43,10 +51,18 @@ services:
     networks: [metafusion-net]
 
   frontend:
-    image: metafusion-catalog-frontend:${METAFUSION_TAG:-local}
+    # 不写 image：主编排也没给前端命名，两个编排文件同在 deploy/ 下时由 compose 生成同一个
+    # 镜像名，复用同一份构建产物。构建入参也必须与主编排一致，否则同一镜像名下会出现两种前端
+    # 产物（NEXT_PUBLIC_* 是构建期内联，运行期 environment 无效）。
     build:
       context: ../frontend
-      args: {BACKEND_ORIGIN: "http://backend:8080"}
+      args:
+        BACKEND_ORIGIN: "http://backend:8080"
+        NEXT_PUBLIC_AUTH_URL: ${NEXT_PUBLIC_AUTH_URL:-}
+        NEXT_PUBLIC_FORUM_URL: ${NEXT_PUBLIC_FORUM_URL:-}
+        NEXT_PUBLIC_STORAGE_URL: ${NEXT_PUBLIC_STORAGE_URL:-}
+        NEXT_PUBLIC_RESOURCE_STATION_URL: ${NEXT_PUBLIC_RESOURCE_STATION_URL:-}
+        NEXT_PUBLIC_DOCS_URL: ${NEXT_PUBLIC_DOCS_URL:-}
       labels:
         io.metafusion.project: metafusion
     container_name: metafusion-frontend
@@ -57,7 +73,8 @@ services:
 
   docs-site:
     profiles: [docs]
-    image: metafusion-catalog-docs:${METAFUSION_TAG:-local}
+    # 文档站镜像没有任何仓库发布（metafusion-docs 的 CI 只构建站点、不发布容器镜像，
+    # 见 .github/workflows/release.yml 的镜像矩阵），所以它只能就地构建，同样不显式命名镜像。
     build:
       # 文档内容在独立仓库 metafusion-docs（唯一源）；可用 MF_DOCS_DIR 覆盖布局
       context: ${MF_DOCS_DIR:-../../metafusion-docs}
