@@ -563,6 +563,12 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.Import(c.Request.Context(), in, *user(c))
 		respond(c, v, err)
 	})
+	// 可用来源清单与导入端点同权限（同一功能面）：它只读注册表，不做出站抓取，
+	// 因此按普通列表口径处理，不额外限流。界面拿到的 id 一定是真有适配器的。
+	imp.GET("/sources", required(PermissionImportSubmit), func(c *gin.Context) {
+		v, err := s.ImporterSources(c.Request.Context())
+		respond(c, gin.H{"items": v}, err)
+	})
 	// 关系写端点强制 catalog.relation.edit：与实体编辑分开的码（账号服务已分配），
 	// 端点级闸门挡住无码者的写请求，细粒度两端判定仍在 SaveRelation（canWriteRelation/canAttachToTarget）。
 	cat.POST("/relations", required(PermissionRelationEdit), func(c *gin.Context) {
