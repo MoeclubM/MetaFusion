@@ -14,6 +14,7 @@ import { TabPanel } from "@/components/ui/TabPanel";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
+import { UsersTab } from "./components/tabs/UsersTab";
 import { OAuthClientsTab } from "./components/tabs/OAuthClientsTab";
 import { AUTH_OAUTH_MANAGE, can, canEnterAdmin } from "@/lib/permissions";
 import { fetchApi } from "@/lib/api";
@@ -92,12 +93,6 @@ function AdminInner() {
   // 合并结果的成功/失败由状态位决定配色：原先靠 "Error: " 前缀判定，等于把英文前缀写进流程。
   const [mergeError, setMergeError] = useState(false);
   const [merging, setMerging] = useState(false);
-
-  // Users state
-  const [newUsername, setNewUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [creatingUser, setCreatingUser] = useState(false);
-  const [userActionMsg, setUserActionMsg] = useState("");
 
   const loadOverview = () => {
     fetch("/api/catalog/entities?status=pending_review", { credentials: "same-origin" })
@@ -274,35 +269,6 @@ function AdminInner() {
       setMergeMessage(localizeCatalogError(String((err as Error).message || err), t));
     } finally {
       setMerging(false);
-    }
-  };
-
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreatingUser(true);
-    setUserActionMsg("");
-    try {
-      const res = await fetch("/api/admin/users", {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: newUsername.trim(),
-          password: newPassword,
-        }),
-      });
-      if (res.ok) {
-        setUserActionMsg(t("admin.console.userCreated"));
-        setNewUsername("");
-        setNewPassword("");
-      } else {
-        const err = await res.json();
-        setUserActionMsg(`Error: ${err.error || "Failed"}`);
-      }
-    } catch (e: any) {
-      setUserActionMsg(`Error: ${e.message}`);
-    } finally {
-      setCreatingUser(false);
     }
   };
 
@@ -894,67 +860,7 @@ function AdminInner() {
             </div>
           )}
 
-          {activeTab === "users" && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle">
-                <h2 className="text-base font-semibold text-text-strong mb-1">
-                  {t("admin.console.usersTitle")}
-                </h2>
-                <p className="text-xs text-text-muted leading-relaxed">
-                  {t("admin.console.usersDesc")}
-                </p>
-              </div>
-
-              <form onSubmit={handleCreateUser} className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-4 max-w-md">
-                <h3 className="font-semibold text-text-strong text-xs">
-                  {t("admin.console.createEditorTitle")}
-                </h3>
-                <div>
-                  <label className="block text-xs font-medium text-text-body mb-1">
-                    {t("catalog.username")}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    placeholder="e.g. curator_01"
-                    className="w-full p-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-text-body mb-1">
-                    {t("admin.console.fieldPassword")}
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full p-2.5 rounded-lg bg-surfaceSubtle border border-line text-xs text-text-strong placeholder:text-text-faint focus:border-primary outline-none"
-                  />
-                </div>
-
-                {userActionMsg && (
-                  <div className={`p-3 rounded-lg text-xs font-mono ${
-                    userActionMsg.startsWith("Error") ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"
-                  }`}>
-                    {userActionMsg}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={creatingUser}
-                  className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 text-white text-xs font-semibold transition-all shadow-xs cursor-pointer"
-                >
-                  {creatingUser ? t("admin.console.creating") : t("admin.console.createUser")}
-                </button>
-              </form>
-            </div>
-          )}
+          {activeTab === "users" && <UsersTab />}
           </div>
         </TabPanel>
       </PageContainer>
