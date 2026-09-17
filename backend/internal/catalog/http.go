@@ -498,6 +498,16 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.SaveHomePreferences(c.Request.Context(), user(c).ID, in)
 		respond(c, v, err)
 	})
+	// 用户贡献视图（前端用户主页的 all/revisions/works/releases/artists 五个 tab）：匿名可读，
+	// 可见性与实体列表同口径（未发布只有创建者与生命周期管理员看得到）。口径、分页与差异形状见
+	// contributions.go；限流与 /catalog/entities 同档（每次响应还要按页算差异）。
+	// 路径归目录服务而 /users/:id/favorites 归互动服务，网关按精确正则分流（见 deploy/nginx.conf）。
+	api.GET("/users/:id/contributions", routeLimiter(120), func(c *gin.Context) {
+		page, _ := strconv.Atoi(c.Query("page"))
+		pageSize, _ := strconv.Atoi(c.Query("page_size"))
+		v, err := s.UserContributions(c.Request.Context(), c.Param("id"), c.DefaultQuery("tab", "all"), page, pageSize, user(c))
+		respond(c, v, err)
+	})
 	cat.GET("/compare", routeLimiter(10), func(c *gin.Context) {
 		v, err := s.Compare(c.Request.Context(), strings.Split(c.Query("ids"), ","), user(c))
 		respond(c, gin.H{"items": v}, err)

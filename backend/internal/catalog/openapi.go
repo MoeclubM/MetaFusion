@@ -68,7 +68,7 @@ func OpenAPI() map[string]any {
 			return map[string]any{}
 		}
 	}
-	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, DefinitionVersionItem{}, DefinitionRollback{}, DefinitionDiff{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, HomeSection{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
+	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, DefinitionVersion{}, DefinitionVersionItem{}, DefinitionRollback{}, DefinitionDiff{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, HomeSection{}, UserContributions{}, ContributionItem{}, UserContributionStats{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}} {
 		schema(reflect.TypeOf(v))
 	}
 	schemas["DefinitionDraft"] = map[string]any{"type": "object", "description": "Draft or published definition document. Every name (types, fields, vocabularies and terms, relations incl. reverse_names and group_names, templates and their sections, schemes, field unit) of an enabled entry must carry all four locales zh-CN / zh-TW / en-US and ja or ja-JP; missing locales are rejected with four_locale_names_required (the error lists the missing locale codes). Names are returned as-is: the server never resolves a single locale.", "required": []string{"document", "base_version", "edit_note", "sources"}, "properties": map[string]any{"document": schema(reflect.TypeOf(Definitions{})), "base_version": map[string]any{"type": "integer"}, "edit_note": map[string]any{"type": "string"}, "sources": schema(reflect.TypeOf([]Source{}))}}
@@ -195,6 +195,15 @@ func OpenAPI() map[string]any {
 	}
 	paths["/catalog/shelves/feed"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
 		qp("per_shelf", "Items per shelf, default 12, max 100", false),
+	}
+	// 用户贡献视图：items 的形状随 tab 变化（创建项 vs 修订项），响应 schema 见 UserContributions。
+	// tab 之外的取值（topics/comments/audits 属互动服务）返回 400 invalid_tab，不静默给空列表。
+	add("/users/{id}/contributions", "get", "User contribution feed for the profile page: tab=all (default) mixes the entities the user created (works/releases/artists, judged by the version=1 revision actor snapshot) with their later edits (revision rows above version 1), revisions lists their entity revision rows with a field-level diff (diff keys follow the entity fields, attributes/translations drilled one level; ignored: id/version/created_by/created_at/updated_at), works/releases/artists list the entities the user created (artists maps to the agent kind); anonymous readable and filtered by the same visibility rules as entity lists (deleted/merged targets are invisible to everyone; unpublished targets only to their creator and catalog.lifecycle.manage holders), so items and stats never expose drafts; page defaults to 1 and page_size to 20 (both clamped, never rejected); an unknown tab is 400 invalid_tab; stats carry five counts derived from the revision actor snapshot columns without joining the account tables: works_created/releases_created/artists_created count first revisions (version 1) on visible targets, revisions_count counts revision rows on visible targets, while audit_actions counts lifecycle management actions (entity.deleted / entity.merged events) the user performed regardless of the target's current state, because deleting or merging removes the target from the visible set", "", "UserContributions", false)
+	paths["/users/{id}/contributions"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
+		map[string]any{"name": "id", "in": "path", "required": true, "schema": map[string]any{"type": "string"}},
+		qp("tab", "all (default) | revisions | works | releases | artists", false),
+		qp("page", "Page number, default 1; values below 1 are clamped", false),
+		qp("page_size", "Items per page, default 20, max 100; out-of-range values fall back to 20", false),
 	}
 	paths["/admin/catalog-definitions"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
 		qp("include_document", "Whether each item carries its full document; default true, false omits the document key (read one version with GET /admin/catalog-definitions/{id})", false),
