@@ -17,6 +17,7 @@ import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
 import { OAuthClientsTab } from "./components/tabs/OAuthClientsTab";
 import { AUTH_OAUTH_MANAGE, can, canEnterAdmin } from "@/lib/permissions";
 import { fetchApi } from "@/lib/api";
+import { localizeCatalogError } from "@/lib/catalogErrors";
 import type { LucideIcon } from "lucide-react";
 import {
   KeyRound,
@@ -86,6 +87,8 @@ function AdminInner() {
   const [mergeTarget, setMergeTarget] = useState("");
   const [mergeNote, setMergeNote] = useState("");
   const [mergeMessage, setMergeMessage] = useState("");
+  // 合并结果的成功/失败由状态位决定配色：原先靠 "Error: " 前缀判定，等于把英文前缀写进流程。
+  const [mergeError, setMergeError] = useState(false);
   const [merging, setMerging] = useState(false);
 
   // Users state
@@ -145,66 +148,51 @@ function AdminInner() {
     }
   }, [activeTab, entitiesKind, entitiesStatus, mayEnter]);
 
-  const handleEntityLifecycle = async (id: string, newStatus: string) => {
+  // 状态写入的唯一封装：PUT 是整份替换，必须先读全量再改状态（列表项是摘要，
+  // 直接提交会因缺字段被服务端拒）；sources 的 kind 只能是 url / publication / self
+  // （validation.go 的 validateSources）：管理台动作属于自述来源，用 "self" + 操作记录说明，
+  // 不拿站点地址冒充外部证据。
+  const submitEntityStatus = async (id: string, status: "published" | "draft", note: string) => {
+    const full = await fetchApi<Record<string, any>>(`/catalog/entities/${id}`);
+    const { updated_at: _updatedAt, ...doc } = full;
+    await fetchApi(`/catalog/entities/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        entity: { ...doc, id, status },
+        expected_version: full.version || 1,
+        edit_note: note,
+        sources: [{ kind: "self", citation: t("admin.reviews.sourceCitation") }],
+      }),
+    });
+  };
+
+  // 通过（草稿/待审 → 已发布）只能走保存端点：它是唯一能把状态写成 published 的写路径；
+  // 生命周期端点 POST …/lifecycle 只做删除与合并（lifecycle.go 恒把状态置 deleted/merged），
+  // 已发布条目降级则被 store.go 的 use_lifecycle_endpoint 拦住，全仓没有降级入口。
+  const handleEntityPublish = async (id: string) => {
+    setReviewNotice("");
     try {
-      // Find current entity to get version
-      const target = entitiesList.find((e) => e.id === id);
-      const res = await fetch(`/api/catalog/entities/${id}`, {
-        method: "PUT",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          entity: {
-            ...target,
-            status: newStatus,
-          },
-          expected_version: target?.version || 1,
-          edit_note: `Admin lifecycle status changed to ${newStatus}`,
-          sources: [{ kind: "editorial", citation: "Admin Console Lifecycle" }],
-        }),
-      });
-      if (res.ok) {
-        loadEntities();
-      } else {
-        const err = await res.json();
-        alert(err.error || "Action failed");
-      }
-    } catch (e: any) {
-      alert(e.message);
+      await submitEntityStatus(id, "published", t("admin.reviews.approveNote"));
+      setReviewNotice(t("admin.reviews.approved"));
+      loadEntities();
+      loadOverview();
+    } catch (e) {
+      setReviewNotice(localizeCatalogError(String((e as Error).message || e), t));
     }
   };
 
   const handleReviewAction = async (id: string, action: "published" | "draft") => {
     setReviewNotice("");
     try {
-      // PUT 是整份替换：必须先把实体读全再改状态。
-      // 之前直接提交待审列表里的摘要对象（且用不带 Authorization 的裸 fetch），
-      // 服务端会因缺字段/校验失败返回 400，按钮点了等于没反应。
-      const full = await fetchApi<Record<string, any>>(`/catalog/entities/${id}`);
-      const { updated_at: _updatedAt, ...doc } = full;
-      await fetchApi(`/catalog/entities/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          entity: { ...doc, id, status: action },
-          expected_version: full.version || 1,
-          edit_note:
-            action === "published"
-              ? t("admin.reviews.approveNote")
-              : t("admin.reviews.rejectNote"),
-          // 来源必须是 { kind: "url", url, citation }：kind: "editorial" 且缺 url 会被服务端拒为 invalid_source
-          sources: [
-            {
-              kind: "url",
-              url: `${window.location.origin}/catalog/${id}`,
-              citation: t("admin.reviews.sourceCitation"),
-            },
-          ],
-        }),
-      });
+      await submitEntityStatus(
+        id,
+        action,
+        action === "published" ? t("admin.reviews.approveNote") : t("admin.reviews.rejectNote"),
+      );
       setPendingItems((prev) => prev.filter((i) => i.id !== id));
       setReviewNotice(action === "published" ? t("admin.reviews.approved") : t("admin.reviews.rejected"));
     } catch (e) {
-      setReviewNotice(String((e as Error).message || e));
+      setReviewNotice(localizeCatalogError(String((e as Error).message || e), t));
     }
   };
 
@@ -214,38 +202,61 @@ function AdminInner() {
 
   const handleMergeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const sourceId = mergeSource.trim();
+    const targetId = mergeTarget.trim();
     setMerging(true);
     setMergeMessage("");
+    setMergeError(false);
     try {
-      // Find source entity version
-      const srcRes = await fetch(`/api/catalog/entities/${mergeSource.trim()}`, { credentials: "same-origin" });
-      if (!srcRes.ok) {
-        setMergeMessage("Source entity not found");
+      // 前置校验与 lifecycle.go 的合并约束同一口径：源与目标要读得到、同 kind、
+      // 同归属（作品/发行版/载体/父级/内容单元）、目标已发布、源不是已删除/已合并。
+      // 少任何一条，服务端只会回 invalid_merge_target / invalid_status——先在本地讲清楚。
+      const pair = await Promise.all([
+        fetchApi<Record<string, any>>(`/catalog/entities/${sourceId}`),
+        fetchApi<Record<string, any>>(`/catalog/entities/${targetId}`),
+      ]).catch(() => null);
+      if (!pair) {
+        setMergeError(true);
+        setMergeMessage(t("admin.console.mergeMissingEntity"));
         return;
       }
-      const srcData = await srcRes.json();
-      const res = await fetch(`/api/catalog/entities/${mergeSource.trim()}/lifecycle`, {
+      const [source, target] = pair;
+      if (source.status === "deleted" || source.status === "merged") {
+        setMergeError(true);
+        setMergeMessage(t("admin.console.mergeSourceRetired"));
+        return;
+      }
+      const sameScope =
+        source.kind === target.kind &&
+        (source.work_id || "") === (target.work_id || "") &&
+        (source.release_id || "") === (target.release_id || "") &&
+        (source.medium_id || "") === (target.medium_id || "") &&
+        (source.parent_id || "") === (target.parent_id || "") &&
+        (source.content_unit_id || "") === (target.content_unit_id || "");
+      if (!sameScope || target.status !== "published") {
+        setMergeError(true);
+        setMergeMessage(t("admin.console.mergeInvalidTarget"));
+        return;
+      }
+      await fetchApi(`/catalog/entities/${sourceId}/lifecycle`, {
         method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          target_id: mergeTarget.trim(),
-          expected_version: srcData.version,
-          edit_note: mergeNote.trim() || "Merged via Admin Console",
-          sources: [{ kind: "editorial", citation: "Administrative Merge" }],
+          target_id: targetId,
+          // 版本取刚才读到的值：与 Lifecycle 的乐观并发同源，期间被人改过就如实报 version_conflict。
+          expected_version: source.version || 1,
+          // edit_note 与 sources 都是必填证据（validateSources）：说明留空时退回合并标题，
+          // kind 只能是 url / publication / self，管理台动作用 "self" + 操作记录，不伪造外部 URL。
+          edit_note: mergeNote.trim() || t("admin.console.mergeTitle"),
+          sources: [{ kind: "self", citation: t("admin.reviews.sourceCitation") }],
         }),
       });
-      if (res.ok) {
-        setMergeMessage(t("admin.console.mergeSuccess"));
-        setMergeSource("");
-        setMergeTarget("");
-        setMergeNote("");
-      } else {
-        const err = await res.json();
-        setMergeMessage(`Error: ${err.error || "Merge failed"}`);
-      }
-    } catch (e: any) {
-      setMergeMessage(`Error: ${e.message}`);
+      setMergeMessage(t("admin.console.mergeSuccess"));
+      setMergeSource("");
+      setMergeTarget("");
+      setMergeNote("");
+    } catch (err) {
+      setMergeError(true);
+      setMergeMessage(localizeCatalogError(String((err as Error).message || err), t));
     } finally {
       setMerging(false);
     }
@@ -459,6 +470,12 @@ function AdminInner() {
                 </div>
               </div>
 
+              {reviewNotice && (
+                <div className="p-3 rounded-xl border border-primary/30 bg-primary/[0.08] text-xs text-text-body">
+                  {reviewNotice}
+                </div>
+              )}
+
               {/* Filter Row */}
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-3.5 rounded-xl bg-surfaceSubtle border border-line-subtle">
                 <form
@@ -583,34 +600,42 @@ function AdminInner() {
                               >
                                 {t("admin.entities.edit")}
                               </Link>
-                              {e.status !== "published" && (
+                              {/* 只有草稿/待审能通过：保存端点拒绝把已发布条目降级、也拒绝写 deleted/merged
+                                  （store.go 的 use_lifecycle_endpoint），生命周期端点只做删除与合并。
+                                  所以已发布给"不能降级"的禁用态说明，已删除/已合并连合并入口都不给。 */}
+                              {(e.status === "draft" || e.status === "pending_review") && (
                                 <button
                                   type="button"
-                                  onClick={() => handleEntityLifecycle(e.id, "published")}
+                                  onClick={() => handleEntityPublish(e.id)}
                                   className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
                                 >
                                   {t("admin.entities.approve")}
                                 </button>
                               )}
                               {e.status === "published" && (
+                                // 禁用按钮自身不派发鼠标事件，title 挂在外层 span 上提示才显示得出来。
+                                <span title={t("admin.entities.rejectPublishedHint")}>
+                                  <button
+                                    type="button"
+                                    disabled
+                                    className="px-2 py-1 rounded bg-amber-500/10 text-amber-400/60 text-[11px] cursor-not-allowed"
+                                  >
+                                    {t("admin.entities.reject")}
+                                  </button>
+                                </span>
+                              )}
+                              {e.status !== "deleted" && e.status !== "merged" && (
                                 <button
                                   type="button"
-                                  onClick={() => handleEntityLifecycle(e.id, "draft")}
-                                  className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
+                                  onClick={() => {
+                                    setActiveTab("merge");
+                                    setMergeSource(e.id);
+                                  }}
+                                  className="px-2 py-1 rounded bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
                                 >
-                                  {t("admin.entities.reject")}
+                                  {t("admin.entities.merge")}
                                 </button>
                               )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveTab("merge");
-                                  setMergeSource(e.id);
-                                }}
-                                className="px-2 py-1 rounded bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
-                              >
-                                {t("admin.entities.merge")}
-                              </button>
                             </div>
                           </td>
                         </tr>
@@ -769,7 +794,7 @@ function AdminInner() {
 
                 {mergeMessage && (
                   <div className={`p-3 rounded-lg text-xs font-mono ${
-                    mergeMessage.startsWith("Error") ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"
+                    mergeError ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"
                   }`}>
                     {mergeMessage}
                   </div>
