@@ -6,17 +6,40 @@ import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import { can, CATALOG_IMPORT_SUBMIT } from "@/lib/permissions";
-import { Layers, Users, Disc, Network, ArrowRight, Lock, LogIn, Sparkles, Zap, Disc3, Film, BookOpen, AlertCircle } from "lucide-react";
+import { Layers, Users, Disc, Network, ArrowRight, Lock, LogIn, Sparkles, Zap } from "lucide-react";
 import { OmniImportModal } from "@/components/importer/OmniImportModal";
 import { PageShell } from "@/components/ui/PageShell";
+import { fetchImporterSources, ImporterSource } from "@/lib/api";
+import { importerSourceIcon, importerSourceLabel } from "@/lib/importerSources";
 
 export default function ContributeHubPage() {
   const { user } = useAuth();
-  const { t } = useI18n();
+  const { t, tr, locale } = useI18n();
   // 外部导入走 /api/importer/*:服务端要求 catalog.import.submit（预览与落库同权限）。
   // 无码时禁用入口并说明原因，不把人引到注定 403 的弹窗上。
   const canImport = can(user, CATALOG_IMPORT_SUBMIT);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  // 来源徽标只列**真有适配器**的来源（GET /api/importer/sources，与弹窗的来源 tab 同一份事实）。
+  // 取不到（无权限 403、网关或上游异常）就不渲染徽标：原来写死的 MusicBrainz / TMDB & IMDb /
+  // Bangumi 三条正是"列了导不进来的库"，降级时再补一份内置名单等于把谎再讲一遍。
+  const [sources, setSources] = useState<ImporterSource[]>([]);
+  useEffect(() => {
+    if (!canImport) {
+      setSources([]);
+      return;
+    }
+    let active = true;
+    fetchImporterSources()
+      .then((res) => {
+        if (active) setSources(res?.items || []);
+      })
+      .catch(() => {
+        if (active) setSources([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [canImport]);
   const cards = [
     {
       href: "/new?kind=work",
@@ -113,19 +136,21 @@ export default function ContributeHubPage() {
                   {t("create.hub.importNoPermission")}
                 </p>
               )}
-              <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-mono text-text-muted">
-                <span className="inline-flex items-center gap-1.5">
-                  <Disc3 className="w-3.5 h-3.5 text-sky-500" /> MusicBrainz
-                </span>
-                <span>•</span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Film className="w-3.5 h-3.5 text-amber-500" /> TMDB & IMDb
-                </span>
-                <span>•</span>
-                <span className="inline-flex items-center gap-1.5">
-                  <BookOpen className="w-3.5 h-3.5 text-emerald-500" /> Bangumi (bgm.tv)
-                </span>
-              </div>
+              {sources.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] font-mono text-text-muted">
+                  {sources.map((s, index) => {
+                    const SourceIcon = importerSourceIcon(s);
+                    return (
+                      <React.Fragment key={s.id}>
+                        {index > 0 && <span>•</span>}
+                        <span className="inline-flex items-center gap-1.5">
+                          <SourceIcon className="w-3.5 h-3.5 text-primary" /> {importerSourceLabel(tr, locale, s)}
+                        </span>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <button

@@ -29,12 +29,11 @@ import {
   importExternalCatalog,
   fetchImporterSources,
   fetchApi,
-  pickLocalizedName,
   ImporterPreviewResponse,
   ImporterSource,
   StaffAssociation,
 } from "@/lib/api";
-import { authorityIcon } from "@/lib/authorityIcons";
+import { importerSourceIcon, importerSourceLabel } from "@/lib/importerSources";
 import { Entity, fetchAllPages, title } from "@/components/catalog/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { pickRecordTitle } from "@/lib/titles";
@@ -87,17 +86,6 @@ function suggestExpression(
 const FALLBACK_SOURCES: Array<{ id: string; labelKey: string; label: string; icon: any }> = [
   { id: "bangumi", labelKey: "importer.sourceBangumi", label: "Bangumi", icon: BookOpen },
 ];
-
-// sourceKeySuffix 把来源 id 转成字典键后缀（bangumi → Bangumi，official_website →
-// OfficialWebsite）：动态来源优先复用既有 importer.source* 四语文案，
-// 没有对应键的来源再用注册表里的名称（见 lib/authorityIcons 同一套"注册表驱动"思路）。
-function sourceKeySuffix(id: string): string {
-  return id
-    .split("_")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join("");
-}
 
 export function OmniImportModal({
   isOpen,
@@ -480,8 +468,8 @@ export function OmniImportModal({
         .filter((s) => s.id !== "auto" && (s.category === "all" || s.category === category))
         .map((s) => ({
           id: s.id,
-          label: tr(`importer.source${sourceKeySuffix(s.id)}`, pickLocalizedName(locale, s.names, s.id)),
-          icon: authorityIcon(s.icon),
+          label: importerSourceLabel(tr, locale, s),
+          icon: importerSourceIcon(s),
         }));
     } else if (sourcesDegraded) {
       // 端点不可用：回退内置兜底，并按当前类型过滤（兜底项都是 all，实际全通过）。
