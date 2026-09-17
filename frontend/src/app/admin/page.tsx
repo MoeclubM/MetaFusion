@@ -17,6 +17,7 @@ import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
 import { UsersTab } from "./components/tabs/UsersTab";
 import { BoardsTab } from "./components/tabs/BoardsTab";
 import { ExchangeTab } from "./components/tabs/ExchangeTab";
+import { StorageTab } from "./components/tabs/StorageTab";
 import { OAuthClientsTab } from "./components/tabs/OAuthClientsTab";
 import { AUTH_OAUTH_MANAGE, can, canEnterAdmin } from "@/lib/permissions";
 import { fetchApi, unpublishEntity } from "@/lib/api";
@@ -24,6 +25,7 @@ import { localizeCatalogError } from "@/lib/catalogErrors";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import type { LucideIcon } from "lucide-react";
 import {
+  HardDrive,
   KeyRound,
   MessageSquare,
   Shield,
@@ -58,7 +60,8 @@ type AdminTab =
   | "accounts"
   | "oauth"
   | "boards"
-  | "exchange";
+  | "exchange"
+  | "storage";
 
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
@@ -380,6 +383,7 @@ function AdminInner() {
     { id: "users", labelKey: "admin.tab.users", icon: Users },
     { id: "boards", labelKey: "admin.tab.boards", icon: MessageSquare },
     { id: "exchange", labelKey: "admin.tab.exchange", icon: ArrowUpRight },
+    { id: "storage", labelKey: "admin.tab.storage", icon: HardDrive },
     { id: "accounts", labelKey: "admin.tab.accounts", icon: ShieldCheck },
     { id: "oauth", labelKey: "admin.tab.oauth", icon: KeyRound, permission: AUTH_OAUTH_MANAGE },
   ];
@@ -973,6 +977,8 @@ function AdminInner() {
           {activeTab === "boards" && <BoardsTab />}
 
           {activeTab === "exchange" && <ExchangeTab />}
+
+          {activeTab === "storage" && <StorageTab />}
           </div>
         </TabPanel>
       </PageContainer>

@@ -42,6 +42,8 @@ export interface StorageAsset {
   multipart_upload_id?: string;
   hash_verified: boolean;
   uploader_id: string;
+  /** 只在服务端回读校验失败时写入（不参与任何判定），是"为什么停在 pending"的唯一线索。 */
+  fail_reason?: string;
   created_at: string;
   completed_at?: string | null;
 }
@@ -317,4 +319,64 @@ export function storageErrorKey(err: unknown): { key: string; vars?: Record<stri
   if (status === 429) return { key: "storage.files.errRateLimited" };
   if (status === 502 || status === 503 || status === 504) return { key: "storage.files.errUnavailable" };
   return { key: "storage.files.errGeneric", vars: { status } };
+}
+
+// ── 管理台入口：全局用量、按 id 查资产、解绑 ──
+
+/**
+ * GET /stats：全局（跨所有上传者）status='complete' 的资产条数与字节数。
+ * 契约里**没有配额字段**（没有 quota / limit / used / remaining，也没有按上传者拆分），
+ * 界面不得据此推算剩余空间、占用率或人均用量。
+ */
+export interface StorageStats {
+  assets: number;
+  bytes: number;
+}
+
+/** GET /assets/:id：资产元数据 + 挂在它上面的全部绑定；没有绑定时服务端给 []（不是 null）。 */
+export interface AssetBindingsResponse {
+  asset: StorageAsset;
+  bindings: StorageBinding[];
+}
+
+/** 用量是运营数据：需要 storage.asset.moderate（未登录 401，已登录缺码 403 forbidden）。 */
+export function fetchStorageStats(): Promise<StorageStats> {
+  return fetchApi<StorageStats>("/storage/stats");
+}
+
+/** 按 id 查资产是唯一入口（没有"列出全部/我的资产"的端点）；不可读与不存在都回 404 not_found。 */
+export function fetchStorageAsset(assetId: string): Promise<AssetBindingsResponse> {
+  return fetchApi<AssetBindingsResponse>(`/storage/assets/${encodeURIComponent(assetId)}`);
+}
+
+/**
+ * 内容地址：服务端每次按请求鉴权后**原样转发文件本体**（不是重定向、不是预签名地址），
+ * 支持 Range，可作 `<img>` / `<video>` 的长期引用。相对路径、无查询参数。
+ */
+export function storageAssetContentUrl(assetId: string): string {
+  return `${STORAGE_API_BASE}/assets/${encodeURIComponent(assetId)}/content`;
+}
+
+/**
+ * 取内容本体：localStorage 里的令牌不会随 `<img src>` 带上，所以预览要自己带头取回 Blob。
+ * 代价是整份文件进内存，超大原档不适合走预览（改用上面的内容地址或下载接口）。
+ */
+export async function fetchStorageAssetBlob(assetId: string): Promise<Blob> {
+  const res = await fetch(storageAssetContentUrl(assetId), {
+    method: "GET",
+    headers: storageAuthHeaders(),
+    credentials: "same-origin",
+  });
+  if (!res.ok) throw new StorageRequestError(await errorCodeOf(res), res.status);
+  return res.blob();
+}
+
+/**
+ * 解绑：不带 body，也不要求 storage.asset.upload——所有权在处理器内判定
+ * （绑定创建者 == 我 / 资产上传者 == 我 / 持 storage.asset.moderate）。
+ * **不幂等**：重复删同一个 id 的第二次是 404 not_found，调用方必须据此重新取数，
+ * 不能乐观地留下幽灵行。
+ */
+export function deleteStorageBinding(bindingId: string): Promise<{ ok: boolean }> {
+  return fetchApi<{ ok: boolean }>(`/storage/bindings/${encodeURIComponent(bindingId)}`, { method: "DELETE" });
 }
