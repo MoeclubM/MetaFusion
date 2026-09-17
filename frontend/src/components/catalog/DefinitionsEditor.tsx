@@ -361,15 +361,6 @@ export function DefinitionsEditor() {
     { kind: "self", citation: "" },
   ]);
   const [tab, setTab] = useState<keyof Definitions | "schemes">("types");
-  // 冒烟验证：相对已发布版本的新增词表项，供发布前预演。
-  const [smokeVocab, setSmokeVocab] = useState("");
-  const [smokeTerm, setSmokeTerm] = useState("");
-  const publishedVocabs = definition?.document.vocabularies || {};
-  const newTerms = Object.entries(d?.vocabularies || {}).flatMap(([vk, v]) =>
-    Object.keys(v.terms || {})
-      .filter((tk) => !publishedVocabs[vk]?.terms?.[tk])
-      .map((tk) => ({ vocab: vk, term: tk })),
-  );
   useEffect(() => {
     if (definition && !d) {
       setD(structuredClone(definition.document));
@@ -951,80 +942,10 @@ export function DefinitionsEditor() {
           )}
         </section>
       )}
-      <section>
-        <h2>{t("catalog.smokeTitle")}</h2>
-        <p className="cv-muted">{t("catalog.smokeDesc")}</p>
-        {newTerms.length === 0 ? (
-          <p className="cv-muted">{t("catalog.smokeNoNew")}</p>
-        ) : (
-          <div className="cv-row">
-            <label>
-              {t("catalog.smokePickVocab")}
-              <select
-                value={smokeVocab}
-                onChange={(e) => {
-                  setSmokeVocab(e.target.value);
-                  setSmokeTerm("");
-                }}
-              >
-                <option value="">{t("catalog.select")}</option>
-                {Array.from(new Set(newTerms.map((x) => x.vocab))).map((vk) => (
-                  <option key={vk} value={vk}>
-                    {local(d?.vocabularies[vk]?.names, locale, "", vk)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t("catalog.smokePickTerm")}
-              <select
-                value={smokeTerm}
-                onChange={(e) => setSmokeTerm(e.target.value)}
-              >
-                <option value="">{t("catalog.select")}</option>
-                {newTerms
-                  .filter((x) => !smokeVocab || x.vocab === smokeVocab)
-                  .map((x) => (
-                    <option key={`${x.vocab}:${x.term}`} value={x.term}>
-                      {local(
-                        d?.vocabularies[x.vocab]?.terms[x.term]?.names,
-                        locale,
-                        "",
-                        x.term,
-                      )}{" "}
-                      <small>({x.vocab}:{x.term})</small>
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <button
-              disabled={draft <= 0 || !smokeTerm}
-              title={draft <= 0 ? t("catalog.smokeHint") : undefined}
-              onClick={async () => {
-                try {
-                  setIssues(
-                    (
-                      await api(
-                        `/admin/catalog-definitions/${draft}/impact`,
-                      )
-                    ).issues.filter((x: string) =>
-                      smokeTerm ? x.includes(smokeTerm) : true,
-                    ),
-                  );
-                  setError("");
-                } catch (err) {
-                  setError((err as Error).message);
-                }
-              }}
-            >
-              {t("catalog.smokeRun")}
-            </button>
-          </div>
-        )}
-        {draft <= 0 && newTerms.length > 0 && (
-          <p className="cv-muted">{t("catalog.smokeHint")}</p>
-        )}
-      </section>
+      {/* 这里原本有一个"词表新词冒烟验证"面板：它只是再调一次 /impact 再按词条名本地过滤，
+          不产生任何新的服务端校验，等于一个点了也没用的按钮。服务端的真实校验路径是
+          「保存草稿」（POST /admin/catalog-definitions，跑 Definitions.Validate）与
+          「影响检查」（上一段，跑 impact 全量回放），因此整块删除而不是换个说法保留。 */}
     </>
   );
 }
