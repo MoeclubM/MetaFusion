@@ -1,29 +1,10 @@
 "use client";
 
 import React, { useEffect, useState, useMemo } from "react";
-import {
-  ExternalLink,
-  Globe,
-  BookOpen,
-  Music,
-  Film,
-  Tv,
-  Gamepad2,
-  Database,
-  Disc,
-  Disc3,
-  Apple,
-  Sparkles,
-  Barcode,
-  UserCheck,
-  GraduationCap,
-  AtSign,
-  User,
-  Smile,
-  ArrowUpRight,
-} from "lucide-react";
+import { ExternalLink, Globe, ArrowUpRight } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { fetchExternalDatabases, ExternalDatabaseDefinition, ExternalLinkDisplay, pickLocalizedName } from "@/lib/api";
+import { authorityIcon } from "@/lib/authorityIcons";
 
 interface Props {
   entity?: {
@@ -38,32 +19,6 @@ interface Props {
   label?: string;
   variant?: "chips" | "list"; // chips: 小徽标水平流; list: 左侧大边栏列表
 }
-
-const ICON_MAP: Record<string, any> = {
-  globe: Globe,
-  book: BookOpen,
-  bookopen: BookOpen,
-  bookheart: BookOpen,
-  music: Music,
-  music2: Music,
-  film: Film,
-  clapperboard: Film,
-  tv: Tv,
-  tv2: Tv,
-  gamepad: Gamepad2,
-  gamepad2: Gamepad2,
-  database: Database,
-  disc: Disc,
-  disc3: Disc3,
-  apple: Apple,
-  sparkles: Sparkles,
-  barcode: Barcode,
-  usercheck: UserCheck,
-  graduationcap: GraduationCap,
-  atsign: AtSign,
-  user: User,
-  smile: Smile,
-};
 
 export interface AuthorityLinkItem {
   code: string;
@@ -241,7 +196,7 @@ export function ExternalAuthorityLinks({
 
         <div className="flex flex-col gap-2">
           {linkItems.map((item) => {
-            const IconComp = ICON_MAP[item.icon?.toLowerCase()] || Globe;
+            const IconComp = authorityIcon(item.icon);
             const isOfficial = item.isOfficial;
             const isBangumi = item.isBangumi;
 
@@ -290,7 +245,7 @@ export function ExternalAuthorityLinks({
     <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
       {displayLabel && <span className="font-mono text-[10px] uppercase tracking-wider text-gray-500 mr-1">{displayLabel}:</span>}
       {linkItems.map((item) => {
-        const IconComp = ICON_MAP[item.icon?.toLowerCase()] || Globe;
+        const IconComp = authorityIcon(item.icon);
         const isOfficial = item.isOfficial;
         const isBangumi = item.isBangumi;
 

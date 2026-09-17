@@ -14,5 +14,5 @@ export { fetchUserProfile, fetchUserContributions, fetchUserCommunityStats, isCo
 export type { PublicUser, PublicUserProfile, ContributionTab, ContributionStats, ContributionSource, ContributionItem, UserContributions, CommunityUserStats } from "./api/users";
 export { fetchExternalDatabases, fetchAdminExternalDatabases, createExternalDatabase, updateExternalDatabase, deleteExternalDatabase } from "./api/admin";
 export type { ExternalDatabaseDefinition, ExternalLinkDisplay } from "./api/admin";
-export { previewExternalCatalog, importExternalCatalog } from "./api/importer";
-export type { ImporterPreviewRequest, ImporterTranslationItem, ImporterWorkPreview, ImporterArtistPreview, StaffAssociation, ImporterTrackPreview, ImporterMediumPreview, ImporterReleasePreview, ImporterCanonicalEntryPreview, ImporterPreviewResponse, ImporterImportRequest, ImporterImportResponse } from "./api/importer";
+export { previewExternalCatalog, importExternalCatalog, fetchImporterSources } from "./api/importer";
+export type { ImporterPreviewRequest, ImporterTranslationItem, ImporterWorkPreview, ImporterArtistPreview, StaffAssociation, ImporterTrackPreview, ImporterMediumPreview, ImporterReleasePreview, ImporterCanonicalEntryPreview, ImporterPreviewResponse, ImporterImportRequest, ImporterImportResponse, ImporterSource } from "./api/importer";

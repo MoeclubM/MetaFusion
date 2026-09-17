@@ -198,6 +198,26 @@ export interface ImporterImportResponse {
   redirect_url: string;
 }
 
+// ── 可用导入源清单（GET /importer/sources）──
+// id 是**真正实现了适配器**的来源；names / category / icon / description 来自
+// external databases 注册表（后台改名即时生效）。前端不维护第二份来源列表：
+// 此前写死在导入弹窗 tab 上的 musicbrainz / tmdb / imdb / vndb / douban
+// 在后端只回 not_supported。
+export interface ImporterSource {
+  id: string;
+  /** 四语名称映射（zh-CN / zh-TW / ja-JP / en-US），展示按 pickLocalizedName 的回退链解析。 */
+  names: Record<string, string>;
+  /** 适用实体 kind：all 或固定八实体 kind 之一（artist/organization/character 在骨架里都属 agent）。 */
+  category: string;
+  icon: string;
+  description: string;
+  url_pattern?: string;
+}
+
+export function fetchImporterSources(): Promise<{ items: ImporterSource[] }> {
+  return fetchApi<{ items: ImporterSource[] }>("/importer/sources");
+}
+
 export function previewExternalCatalog(payload: ImporterPreviewRequest): Promise<ImporterPreviewResponse> {
   return fetchApi<ImporterPreviewResponse>("/importer/preview", {
     method: "POST",

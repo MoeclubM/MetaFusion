@@ -6,11 +6,8 @@ import {
   X,
   Sparkles,
   Search,
-  Disc,
   Film,
   BookOpen,
-  Gamepad2,
-  Globe,
   AlertCircle,
   CheckCircle2,
   Layers,
@@ -30,10 +27,14 @@ import { useI18n } from "@/i18n/I18nProvider";
 import {
   previewExternalCatalog,
   importExternalCatalog,
+  fetchImporterSources,
   fetchApi,
+  pickLocalizedName,
   ImporterPreviewResponse,
+  ImporterSource,
   StaffAssociation,
 } from "@/lib/api";
+import { authorityIcon } from "@/lib/authorityIcons";
 import { Entity, fetchAllPages, title } from "@/components/catalog/api";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { pickRecordTitle } from "@/lib/titles";
@@ -77,6 +78,25 @@ function suggestExpression(
   if (!key) return null;
   const exact = expressions.find((ex) => normalizeTitleKey(ex.title) === key);
   return exact || null;
+}
+
+// FALLBACK_SOURCES 是 GET /importer/sources 取不到时的内置兜底（网络/网关/权限抖动）。
+// 只列 auto 与确实实现了适配器的来源：旧的内置列表（musicbrainz / tmdb / imdb / vndb /
+// douban）正是这次要修的谎——后端 normalizeImporterSource 只认 bangumi，选了只会拿
+// not_supported，降级路径不该把它们再端出来一次。
+const FALLBACK_SOURCES: Array<{ id: string; labelKey: string; label: string; icon: any }> = [
+  { id: "bangumi", labelKey: "importer.sourceBangumi", label: "Bangumi", icon: BookOpen },
+];
+
+// sourceKeySuffix 把来源 id 转成字典键后缀（bangumi → Bangumi，official_website →
+// OfficialWebsite）：动态来源优先复用既有 importer.source* 四语文案，
+// 没有对应键的来源再用注册表里的名称（见 lib/authorityIcons 同一套"注册表驱动"思路）。
+function sourceKeySuffix(id: string): string {
+  return id
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
 }
 
 export function OmniImportModal({
@@ -146,6 +166,27 @@ export function OmniImportModal({
   const [editNote, setEditNote] = useState("");
   const [importing, setImporting] = useState(false);
   const [importSuccess, setImportSuccess] = useState<any>(null);
+
+  // 可用来源清单：serverSources 为 null 表示还没拿到（加载中或已降级）。
+  const [serverSources, setServerSources] = useState<ImporterSource[] | null>(null);
+  const [sourcesDegraded, setSourcesDegraded] = useState(false);
+
+  // 打开弹窗时取一次服务端清单：来源 tab 不再由前端写死，只有后端真有适配器的来源才会出现。
+  // 失败不弹错误、不清空界面，退回 FALLBACK_SOURCES 并给一句静态提示；重新打开会再试一次。
+  useEffect(() => {
+    if (!isOpen || serverSources !== null) return;
+    let active = true;
+    fetchImporterSources()
+      .then((res) => {
+        if (active) setServerSources(res?.items || []);
+      })
+      .catch(() => {
+        if (active) setSourcesDegraded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, serverSources]);
 
   // 目标母体变化时拉取其既有表达；无目标母体（新建作品）时清空，不做匹配。
   useEffect(() => {
@@ -426,48 +467,31 @@ export function OmniImportModal({
     }
   };
 
-  // 根据当前实体类型组织推荐权威源
-  const getSourceTabs = () => {
-    let builtin: Array<{ id: string; label: string; icon: any }> = [];
-    if (entityType === "work") {
-      builtin = [
-        { id: "auto", label: t("importer.sourceAuto"), icon: Sparkles },
-        { id: "musicbrainz", label: t("importer.sourceMusicbrainz"), icon: Disc },
-        { id: "tmdb", label: t("importer.sourceTmdb"), icon: Film },
-        { id: "imdb", label: t("importer.sourceImdb"), icon: Film },
-        { id: "bangumi", label: t("importer.sourceBangumi"), icon: BookOpen },
-        { id: "vndb", label: t("importer.sourceVndb"), icon: Gamepad2 },
-        { id: "douban", label: t("importer.sourceDouban"), icon: Globe },
-      ];
-    } else if (entityType === "artist") {
-      builtin = [
-        { id: "auto", label: t("importer.sourceAuto"), icon: Sparkles },
-        { id: "musicbrainz", label: t("importer.sourceMusicbrainz"), icon: Disc },
-        { id: "tmdb", label: t("importer.sourceTmdb"), icon: Film },
-        { id: "imdb", label: t("importer.sourceImdb"), icon: Film },
-        { id: "bangumi", label: t("importer.sourceBangumi"), icon: BookOpen },
-        { id: "vndb", label: t("importer.sourceVndb"), icon: Gamepad2 },
-      ];
-    } else if (entityType === "organization") {
-      builtin = [
-        { id: "auto", label: t("importer.sourceAuto"), icon: Sparkles },
-        { id: "musicbrainz", label: t("importer.sourceMusicbrainz"), icon: Disc },
-        { id: "tmdb", label: t("importer.sourceTmdb"), icon: Film },
-        { id: "bangumi", label: t("importer.sourceBangumi"), icon: BookOpen },
-        { id: "vndb", label: t("importer.sourceVndb"), icon: Gamepad2 },
-      ];
-    } else {
-      // character
-      builtin = [
-        { id: "auto", label: t("importer.sourceAuto"), icon: Sparkles },
-        { id: "bangumi", label: t("importer.sourceBangumi"), icon: BookOpen },
-        { id: "vndb", label: t("importer.sourceVndb"), icon: Gamepad2 },
-      ];
+  // 来源 tab = 显式保留的 auto + 服务端清单里适配当前实体类型的来源。
+  // auto 交给后端按 URL/ID 判定（normalizeImporterSource 归一为默认适配器），
+  // 其余来源的可用性由后端代码决定，前端不再自己维护一份"看起来能导入"的名字列表。
+  const getSourceTabs = (): Array<{ id: string; label: string; icon: any }> => {
+    // 注册表的 category 用骨架 kind：弹窗里的 artist / organization / character 都属 agent。
+    const category = entityType === "work" ? "work" : "agent";
+    let items: Array<{ id: string; label: string; icon: any }> = [];
+    if (serverSources) {
+      items = serverSources
+        // auto 由下面显式补上：后端清单里不会出现它（它是解析别名，不是来源）。
+        .filter((s) => s.id !== "auto" && (s.category === "all" || s.category === category))
+        .map((s) => ({
+          id: s.id,
+          label: tr(`importer.source${sourceKeySuffix(s.id)}`, pickLocalizedName(locale, s.names, s.id)),
+          icon: authorityIcon(s.icon),
+        }));
+    } else if (sourcesDegraded) {
+      // 端点不可用：回退内置兜底，并按当前类型过滤（兜底项都是 all，实际全通过）。
+      items = FALLBACK_SOURCES.map((s) => ({
+        id: s.id,
+        label: tr(s.labelKey, s.label),
+        icon: s.icon,
+      }));
     }
-
-    // 来源只列真实可用的内置权威库：插件的 /plugins 端点在四个后端仓里都没有实现，
-    // 原先拉一次插件清单、失败就静默退回内置来源，等于一条永远拿不到数据的分支。
-    return builtin;
+    return [{ id: "auto", label: t("importer.sourceAuto"), icon: Sparkles }, ...items];
   };
 
   const getPlaceholder = () => {
@@ -582,27 +606,36 @@ export function OmniImportModal({
             </div>
           </div>
 
-          {/* Source Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl dark:bg-white/[0.04] border border-line-subtle text-xs font-mono">
-            {getSourceTabs().map((tab) => {
-              const Icon = tab.icon;
-              const active = source === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setSource(tab.id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
-                    active
-                      ? "bg-surface text-primary font-semibold shadow-xs border border-line"
-                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
+          {/* Source Tabs：来源清单来自服务端，前端只决定 auto 与类型过滤（见 getSourceTabs） */}
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl dark:bg-white/[0.04] border border-line-subtle text-xs font-mono">
+              {getSourceTabs().map((tab) => {
+                const Icon = tab.icon;
+                const active = source === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSource(tab.id)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all ${
+                      active
+                        ? "bg-surface text-primary font-semibold shadow-xs border border-line"
+                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {sourcesDegraded && (
+              // 不打扰的降级：来源清单取不到不等于导入失败，因此不用错误条，
+              // 只说清当前用的是内置兜底（能点的一定有适配器）。
+              <p className="text-[10px] font-mono text-text-faint px-1">
+                {t("importer.sourcesDegraded")}
+              </p>
+            )}
           </div>
 
           {/* Input & Action */}

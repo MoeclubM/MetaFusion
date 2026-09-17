@@ -1103,6 +1103,7 @@
   "importer.matchSuggestion": "疑似同名：{title}",
   "importer.matchSuggestionHint": "系统不再按标题自动合并；确认后才复用该表达，否则新建。",
   "importer.sourceIncompleteEpisodes": "部分分集未能取全，导入内容可能不完整，请核对后再提交。",
+  "importer.sourcesDegraded": "来源清单暂时取不到，已改用内置来源；能选的都是确有适配器的来源。",
   "importer.sourceIncompleteGeneric": "来源数据可能不完整，请核对后再提交。",
   "importer.placeholderMusicbrainz": "输入 Release / Release-Group / Artist / Label MBID 或完整链接...",
   "importer.placeholderTmdb": "输入电影/剧集/人物/公司 ID 或 themoviedb.org 链接...",
