@@ -49,9 +49,42 @@ function reload_gateway() {
 # 迁移必须用**当前镜像里**的迁移器：迁移是编译进二进制的（embed），用运行中的旧容器
 # 执行会报"已是最新"而漏掉新迁移。--entrypoint 覆盖服务入口（镜像是 /app/server，
 # 直接 run 会把参数交给它而不是迁移器）；--no-deps 不连带拉起依赖，只跑这一个一次性容器。
+#
+# 第二个及以后的参数是**额外的 compose 文件**（如 -f docker-compose.prod.yml）：pull 路径上
+# 要跑的是拉下来那份镜像里的迁移器，而不是本地那张旧标签。
 function run_migrate() {
     local cmd=${1:-up}
-    docker compose $COMPOSE_ENV -f docker-compose.yml run --rm --no-deps --entrypoint /app/migrate backend "$cmd"
+    shift || true
+    docker compose $COMPOSE_ENV -f docker-compose.yml "$@" run --rm --no-deps --entrypoint /app/migrate backend "$cmd"
+}
+
+# 部署流程里唯一的迁移入口：跑完 up 必须回读账本确认，读不出来、还有 PENDING 或出现 DIRTY
+# 就非零退出。"迁移没跑却报部署成功"是必须避免的失败模式：compose run 只替换 CMD、不换
+# ENTRYPOINT，少了 --entrypoint 参数会被交给 /app/server，一条迁移都不会执行
+# （backend/Dockerfile 的 server 阶段是 ENTRYPOINT ["/app/server"]）。
+function migrate_up_checked() {
+    echo "🗄️  执行目录库版本化迁移..."
+    run_migrate up "$@"
+
+    local status
+    if ! status=$(run_migrate status "$@"); then
+        echo "❌ 迁移后读不到迁移账本：无法确认结构已落地，部署中止" >&2
+        exit 1
+    fi
+    echo "$status"
+    if printf '%s\n' "$status" | grep -q 'PENDING'; then
+        echo "❌ 仍有未应用的迁移（上面标为 PENDING）：部署中止" >&2
+        exit 1
+    fi
+    if printf '%s\n' "$status" | grep -q 'DIRTY'; then
+        echo "❌ 存在脏迁移（上面标为 DIRTY）：先人工确认再部署" >&2
+        exit 1
+    fi
+    if ! printf '%s\n' "$status" | grep -q 'APPLIED'; then
+        echo "❌ 迁移账本里没有任何已应用版本：迁移未生效，部署中止" >&2
+        exit 1
+    fi
+    echo "✅ 迁移已确认：账本无 PENDING / DIRTY"
 }
 
 function print_usage() {
@@ -113,8 +146,7 @@ case "$ACTION" in
         docker compose $COMPOSE_ENV -f docker-compose.yml up -d postgres redis rustfs
         echo "🚀 启动各子系统 (账号 / 互动 / 存储 / 目录)..."
         docker compose $COMPOSE_ENV -f docker-compose.yml up -d auth community storage backend
-        echo "🗄️  执行目录库版本化迁移..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml exec -T -e DB_HOST=postgres backend /app/migrate up
+        migrate_up_checked
         echo "📦 把主仓库旧表搬进 community schema（幂等，可重复运行补增量）..."
         docker compose $COMPOSE_ENV -f docker-compose.yml run --rm community-migrate -direction forward
         echo "🌐 拉起前端 / 文档站 / 网关（网关等各上游 /ready 通过后才开门）..."
@@ -141,8 +173,7 @@ case "$ACTION" in
         docker compose $COMPOSE_ENV -f docker-compose.yml build backend
         echo "🚀 启动数据库与核心基础设施 (Postgres / Redis / RustFS)..."
         docker compose $COMPOSE_ENV up -d postgres redis rustfs
-        echo "🗄️ 执行数据库版本化迁移 (Pre-deployment Migrate Up)..."
-        run_migrate up
+        migrate_up_checked
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
         reload_gateway
         docker image prune -f >/dev/null 2>&1 || true
@@ -159,17 +190,20 @@ case "$ACTION" in
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml pull --ignore-buildable --ignore-pull-failures
         echo "🚀 启动数据库与核心基础设施..."
         docker compose $COMPOSE_ENV up -d postgres redis rustfs
-        echo "🗄️ 执行数据库版本化迁移..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml exec -T -e DB_HOST=postgres backend /app/migrate up || \
-        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml run --rm backend /app/migrate up
+        migrate_up_checked -f docker-compose.prod.yml
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
         echo "✅ 生产镜像拉取与启动完成！"
         ;;
 
     migrate)
         CMD=${TARGET:-"up"}
-        echo "🗄️ 执行数据库版本化迁移 (mf-migrate $CMD)..."
-        run_migrate "$CMD"
+        if [ "$CMD" = "up" ]; then
+            # up 走带校验的入口；down/status/force 是运维手工动作，保持原样。
+            migrate_up_checked
+        else
+            echo "🗄️ 执行数据库版本化迁移 (mf-migrate $CMD)..."
+            run_migrate "$CMD"
+        fi
         ;;
 
     restart)
