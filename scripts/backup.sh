@@ -263,7 +263,7 @@ backup_config() {
     docker ps -a --filter "name=metafusion-" --format '{{.Names}}|{{.Image}}|{{.Status}}' | sort
     echo
     echo "# 相关镜像与 ID"
-    docker images --format '{{.Repository}}:{{.Tag}}|{{.ID}}|{{.Size}}' | grep -Ei 'metafusion|^deploy-|rustfs|^postgres|^redis|^nginx|opensearch' | sort
+    docker images --format '{{.Repository}}:{{.Tag}}|{{.ID}}|{{.Size}}' | grep -Ei 'metafusion|^deploy-|rustfs|^postgres|^redis|^nginx|opensearch' | sort || true
   } >"$stage/containers.txt" 2>&1
 
   {
@@ -342,7 +342,7 @@ write_manifest() {
     echo
     echo "row_counts:"
     if [ "$DO_DB" = 1 ]; then
-      mf_pg_psql "$MF_DB_NAME" "select format('  %-28s %s', 'catalog.entities', (select count(*) from catalog.entities)) union all select format('  %-28s %s', 'catalog.relations', (select count(*) from catalog.relations)) union all select format('  %-28s %s', 'auth.users', (select count(*) from auth.users)) union all select format('  %-28s %s', 'community.boards', (select count(*) from community.boards)) union all select format('  %-28s %s', 'storage.assets', (select count(*) from storage.assets))"
+      mf_pg_psql "$MF_DB_NAME" "select format('  %-28s %s', 'catalog.entities', (select count(*) from catalog.entities)) union all select format('  %-28s %s', 'catalog.relations', (select count(*) from catalog.relations)) union all select format('  %-28s %s', 'auth.users', (select count(*) from auth.users)) union all select format('  %-28s %s', 'community.boards', (select count(*) from community.boards)) union all select format('  %-28s %s', 'storage.assets', (select count(*) from storage.assets))" || echo "  （行数读取失败：见 backup.log，不影响产物完整性）"
     fi
     echo
     echo "repos:"
@@ -381,6 +381,9 @@ finish() {
 
 # ---- 主流程 -------------------------------------------------------------------
 
+# 库身份只能在这里解：lib 里的 MF_DB_USER/MF_DB_NAME 默认是空的，不到 .env 取一次，
+# pg_dump/psql 就会拿到空用户名与空库名（第一次跑就是这么暴露出来的）。
+mf_resolve_db_identity
 preflight
 
 if [ "$DRY_RUN" = 1 ]; then
