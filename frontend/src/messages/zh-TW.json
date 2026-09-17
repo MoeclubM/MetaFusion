@@ -417,8 +417,6 @@
   "board.bug_reportDesc": "問題回報、功能建議與重現資訊",
   "board.comment": "僅限評論",
   "board.commentDesc": "作品與討論的評論承載區，不進入資訊流與全站聚合",
-  "nav.contribute": "投稿",
-  "nav.contributeSystem": "投稿中心",
   "community.loginToCreate": "登入後即可發表新主題。",
   "nav.createWork": "新增作品",
   "nav.createArtist": "新增創作者",

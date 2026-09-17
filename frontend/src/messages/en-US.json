@@ -417,8 +417,6 @@
   "board.bug_reportDesc": "Bug reports & feature feedback",
   "board.comment": "Comments Only",
   "board.commentDesc": "Comment carrier for works & topics, excluded from feeds",
-  "nav.contribute": "Contribute",
-  "nav.contributeSystem": "Contribution Hub",
   "community.loginToCreate": "Sign in to create a new topic.",
   "nav.createWork": "New Work",
   "nav.createArtist": "New Creator",

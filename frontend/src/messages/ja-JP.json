@@ -417,8 +417,6 @@
   "board.bug_reportDesc": "不具合の報告、機能提案、再現手順",
   "board.comment": "コメント専用",
   "board.commentDesc": "作品とトピックのコメント用の枠。フィードと全体集約には含まれません",
-  "nav.contribute": "投稿",
-  "nav.contributeSystem": "投稿ハブ",
   "community.loginToCreate": "ログインすると新しいトピックを作成できます。",
   "nav.createWork": "作品を作成",
   "nav.createArtist": "クリエイターを作成",

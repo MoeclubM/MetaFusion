@@ -417,8 +417,6 @@
   "board.bug_reportDesc": "缺陷反馈、功能建议与复现信息",
   "board.comment": "评论专用",
   "board.commentDesc": "作品与讨论的评论承载区，不进入信息流与全站聚合",
-  "nav.contribute": "投稿录入",
-  "nav.contributeSystem": "档案录入中心",
   "community.loginToCreate": "登录后可发表新主题。",
   "nav.createWork": "新建作品",
   "nav.createArtist": "新建创作者",
