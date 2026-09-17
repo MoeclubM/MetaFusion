@@ -121,6 +121,62 @@ export interface Comment {
   user?: User;
 }
 
+// ── 实体短评与关联合集（community 服务 /community/entities/:id/*）──
+//
+// 短评在服务端复用评论板块的 topics 行（board_code=comment、锚定 entity_id、无独立标题），
+// 所以 GET 回来的就是评论行本身。以前这两个端点由详情页自己拼 URL 直调、POST 由详情页自己
+// 拼请求体，写失败时还在前端自造一条"已发表"的评论——这里收成与其它互动端点同级的包装。
+export interface EntityComment {
+  id: string;
+  author_id: string;
+  author_name: string;
+  body: string;
+  created_at: string;
+  /** 列表响应不带这两项，逐条读取（GET /community/posts/:id）时才回。 */
+  entity_id?: string;
+  entity_title?: string;
+  entity_kind?: string;
+}
+
+/** 关联合集：服务端经目录关系取的 collection 邻居（最多 20 条，只要已发布），只有 id 与标题。 */
+export interface EntityCollectionRef {
+  id: string;
+  title: string;
+}
+
+/** 某实体的短评列表：公开可读，服务端按 created_at DESC 取最新 100 条（无分页参数）。 */
+export async function fetchEntityPosts(entityId: string): Promise<EntityComment[]> {
+  const res = await fetchApi<{ items?: EntityComment[] }>(
+    `/community/entities/${encodeURIComponent(entityId)}/posts`
+  );
+  return Array.isArray(res.items) ? res.items : [];
+}
+
+/** 某实体被哪些合集关联（服务端回查目录，实体对当前身份不可见时是 404 not_found）。 */
+export async function fetchEntityCollections(entityId: string): Promise<EntityCollectionRef[]> {
+  const res = await fetchApi<{ items?: EntityCollectionRef[] }>(
+    `/community/entities/${encodeURIComponent(entityId)}/collections`
+  );
+  return Array.isArray(res.items) ? res.items : [];
+}
+
+/**
+ * 发一条短评（请求体字段名是 body，与论坛回帖的 content 不同）。
+ *
+ * 返回 null 表示服务端回了 2xx 但没给 item **且没有抛错**——调用方此时应回读列表，
+ * 绝不能在前端自造一条评论：伪造的 id/时间会让人以为已经落库，刷新后凭空消失。
+ */
+export async function createEntityComment(
+  entityId: string,
+  body: string
+): Promise<EntityComment | null> {
+  const res = await fetchApi<{ ok?: boolean; item?: EntityComment }>(
+    `/community/entities/${encodeURIComponent(entityId)}/posts`,
+    { method: "POST", body: JSON.stringify({ body }) }
+  );
+  return res?.item ?? null;
+}
+
 // 私信（community 服务 /api/messages/with/:id 的逐字契约）：
 // items 里就是这四个字段 + id，**没有内容字段 content、没有 is_read**——
 // 已读回执的 read_at 列在库里已预留但两个端点都不读不写，前端不许诺不存在的状态。

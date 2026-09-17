@@ -221,16 +221,9 @@ export type Relation = {
 // 这类缺口在类型层面看不出来。
 export type { User } from "@/lib/api/client";
 // 社区短评（modules.posts）：按实体聚合，不是独立主题模型。
-export type CommunityPost = {
-  id: string;
-  entity_id?: string;
-  author_id: string;
-  author_name: string;
-  body: string;
-  created_at: string;
-  entity_title?: string;
-  entity_kind?: string;
-};
+// 它就是 /community/entities/:id/posts 的响应形状，类型只在 lib/api/community.ts 声明一处，
+// 这里 re-export 以保住既有调用点（同一份契约不要在前端留两份类型）。
+export type { EntityComment as CommunityPost } from "@/lib/api/community";
 export type Capability = {
   id: string;
   enabled: boolean;

@@ -8,7 +8,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
-import { fetchApi, ConnectedEntityItem, GraphNode, GraphLink } from "@/lib/api";
+import { fetchApi, fetchEntityPosts, ConnectedEntityItem, GraphNode, GraphLink } from "@/lib/api";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle, type CommunityPost } from "@/components/catalog/api";
 import { useDefinitions, getFieldName, getRelationName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
@@ -366,8 +366,9 @@ const releaseFacets = useMemo(
  if (!workId) return;
  loadWork();
  // 关联评论：展示该作品下的评论（与论坛主题区分——评论锚定条目，主题独立成文）。
- fetchApi<{ items: CommunityPost[] }>(`/community/entities/${workId}/posts`)
- .then((r) => setTopics((r.items || []).slice(0, 5)))
+ // 短评端点与响应形状由 lib/api/community.ts 的包装负责，本页不再自己拼 URL。
+ fetchEntityPosts(workId)
+ .then((items) => setTopics(items.slice(0, 5)))
  .catch(() => {});
  }, [workId]);
 

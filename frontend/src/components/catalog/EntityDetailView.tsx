@@ -15,9 +15,18 @@ import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { isDistinctOriginalTitle, findRowForLocale, buildTitleChain } from "@/lib/titles";
 import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
+import { localizeCommunityError } from "@/lib/communityErrors";
 import { formalDetailUrl, keepsGenericView } from "@/lib/entityRoutes";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
-import { GraphNode, GraphLink, FavoriteTargetType } from "@/lib/api";
+import {
+  GraphNode,
+  GraphLink,
+  FavoriteTargetType,
+  fetchEntityPosts,
+  fetchEntityCollections,
+  createEntityComment,
+} from "@/lib/api";
+import type { EntityComment, EntityCollectionRef } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
 import { RelationFilterBar, useRelationFilter } from "@/components/entity/RelationFilterBar";
 import { PageShell, PageContainer } from "@/components/ui/PageShell";
@@ -162,8 +171,8 @@ export function EntityDetailView({ id }: { id: string }) {
   const [children, setChildren] = useState<Entity[]>([]);
   const [revisions, setRevisions] = useState<any[]>([]);
   const [subjectWorks, setSubjectWorks] = useState<Entity[]>([]);
-  const [communityPosts, setCommunityPosts] = useState<any[]>([]);
-  const [communityCollections, setCommunityCollections] = useState<any[]>([]);
+  const [communityPosts, setCommunityPosts] = useState<EntityComment[]>([]);
+  const [communityCollections, setCommunityCollections] = useState<EntityCollectionRef[]>([]);
   const [newCommentBody, setNewCommentBody] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [commentError, setCommentError] = useState("");
@@ -197,13 +206,17 @@ export function EntityDetailView({ id }: { id: string }) {
         }
       }
 
+      // resolve 可能返回合并后的规范 id；回落路由参数只为类型收口（能渲染到这里的实体必有 id）。
+      const communityId = e.id || id;
       // Fetch occurrences, relations, revisions, posts, collections in parallel
-      const [occRes, relRes, revRes, postRes, colRes] = await Promise.all([
+      const [occRes, relRes, revRes, posts, collections] = await Promise.all([
         api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => ({ items: [] })),
         api<{ items: Relation[]; entities?: Record<string, Entity>; subject_id?: string }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: undefined, subject_id: undefined })),
         api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => ({ items: [] })),
-        api<{ items: any[] }>(`/community/entities/${e.id}/posts`).catch(() => ({ items: [] })),
-        api<{ items: any[] }>(`/community/entities/${e.id}/collections`).catch(() => ({ items: [] })),
+        // 互动服务没接入（或这两条端点不可用）时整块留空，不阻断条目详情渲染；
+        // 端点与请求体由 lib/api/community.ts 的包装负责，本组件不再自己拼 URL。
+        fetchEntityPosts(communityId).catch(() => [] as EntityComment[]),
+        fetchEntityCollections(communityId).catch(() => [] as EntityCollectionRef[]),
       ]);
 
       const occItems = occRes.items || [];
@@ -217,8 +230,8 @@ export function EntityDetailView({ id }: { id: string }) {
       setOccurrences(occItems);
       setRelations(relItems);
       setRevisions(revItems);
-      setCommunityPosts(postRes.items || []);
-      setCommunityCollections(colRes.items || []);
+      setCommunityPosts(posts);
+      setCommunityCollections(collections);
 
       // Resolve parent references
       const parentPromises: Promise<any>[] = [];
@@ -550,7 +563,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
   const handlePostComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCommentBody.trim() || !entity) return;
+    if (!newCommentBody.trim() || !entity?.id) return;
     if (!user) {
       window.location.href = getAuthLoginUrl(window.location.href);
       return;
@@ -558,24 +571,20 @@ export function EntityDetailView({ id }: { id: string }) {
     setSubmittingComment(true);
     setCommentError("");
     try {
-      const res = await api<{ ok: boolean; item?: any }>(`/community/entities/${entity.id}/posts`, "POST", { body: newCommentBody.trim() });
-      if (res.item) {
-        setCommunityPosts((prev) => [res.item, ...prev]);
+      const created = await createEntityComment(entity.id, newCommentBody.trim());
+      if (created) {
+        setCommunityPosts((prev) => [created, ...prev]);
       } else {
-        setCommunityPosts((prev) => [
-          {
-            id: String(Date.now()),
-            author_id: user.id,
-            author_name: user.username,
-            body: newCommentBody.trim(),
-            created_at: new Date().toISOString(),
-          },
-          ...prev,
-        ]);
+        // 2xx 但响应没带 item：回读服务端列表。不在这里自造一条评论——
+        // 伪 id/伪时间会让人以为已经落库，刷新后凭空消失。
+        setCommunityPosts(await fetchEntityPosts(entity.id));
       }
       setNewCommentBody("");
     } catch (err: any) {
-      setCommentError(err.message || "Failed to post comment");
+      // 错误码 → 四语文案（communityErrors：module_error/not_found + 目录表共享码）。
+      setCommentError(
+        localizeCommunityError(String(err?.message || ""), t) || t("community.error.postFailed")
+      );
     } finally {
       setSubmittingComment(false);
     }
