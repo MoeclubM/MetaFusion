@@ -1,22 +1,20 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Check, X } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api } from "./api";
 import { useCatalog } from "./CatalogProvider";
 import { ErrorMessage } from "./Fields";
-export function Account() {
-  const { t, locale } = useI18n();
-  const { user, setup, refresh } = useCatalog();
-  const router = useRouter();
 
-  // Login / setup state
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+// 登录入口唯一：/login（app/login/page.tsx，含注册页签；实例未初始化时由 AuthGate 引导 /setup）。
+// 本页未登录时由 components/AuthGate.tsx 跳 /login?redirect=/account，不要在下面再渲染
+// 用户名/密码表单——两套登录界面并存时字段提示与文案还不一致，用户会以为是两个站。
+export function Account() {
+  const { t } = useI18n();
+  const { user, refresh } = useCatalog();
+
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [busy, setBusy] = useState(false);
 
   // Active tab for logged-in user: "profile" | "oauth" | "admin"
   const [activeTab, setActiveTab] = useState<"security" | "oauth" | "users">("security");
@@ -61,419 +59,391 @@ export function Account() {
     }
   }, [user]);
 
+  // 未登录不渲染任何表单：AuthGate 已把未登录访问重定向到 /login?redirect=/account。
+  if (!user) return null;
+
   return (
     <div className="cv-narrow" style={{ maxWidth: 860 }}>
-      <h1>{t(setup ? "catalog.setup" : "catalog.account")}</h1>
+      <h1>{t("catalog.account")}</h1>
 
-      {user ? (
-        <>
-          {/* User Profile Card */}
-          <section className="cv-group" style={{ margin: "16px 0 20px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 20, fontWeight: 700 }}>{user.username}</span>
-                  <span
-                    className="cv-badge"
-                    style={{
-                      background: user.role === "admin" ? "rgba(244, 63, 94, 0.15)" : "rgba(16, 185, 129, 0.15)",
-                      color: user.role === "admin" ? "#fb7185" : "#34d399",
-                      borderColor: user.role === "admin" ? "rgba(244, 63, 94, 0.3)" : "rgba(16, 185, 129, 0.3)",
-                      textTransform: "uppercase",
-                      fontSize: 11,
-                      fontWeight: 600,
-                    }}
-                  >
-                    {user.role === "admin" ? t("account.roleAdmin") : t("account.roleEditor")}
-                  </span>
-                </div>
-                <small className="cv-muted" style={{ display: "block", marginTop: 4 }}>
-                  UUID: {user.id}
-                </small>
-              </div>
-
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    await api("/auth/logout", "POST");
-                    await refresh();
-                  }}
-                  style={{ fontSize: 13, padding: "6px 14px" }}
-                >
-                  {t("catalog.logout")}
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (confirm(t("account.logoutAllConfirm"))) {
-                      await api("/auth/logout-all", "POST");
-                      await refresh();
-                    }
-                  }}
-                  style={{
-                    fontSize: 13,
-                    padding: "6px 14px",
-                    background: "rgba(239, 68, 68, 0.1)",
-                    color: "#f87171",
-                    borderColor: "rgba(239, 68, 68, 0.25)",
-                  }}
-                >
-                  {t("account.logoutAllDevices")}
-                </button>
-              </div>
-            </div>
-          </section>
-
-          {/* Navigation Tabs */}
-          <div style={{ display: "flex", gap: 8, borderBottom: "1px solid #283444", marginBottom: 20 }}>
-            <button
-              type="button"
-              onClick={() => { setActiveTab("security"); setError(""); setSuccess(""); }}
-              style={{
-                background: activeTab === "security" ? "#1e293b" : "transparent",
-                borderBottom: activeTab === "security" ? "2px solid #38bdf8" : "none",
-                borderRadius: "6px 6px 0 0",
-                fontWeight: activeTab === "security" ? 600 : 400,
-                padding: "8px 16px",
-              }}
-            >
-              {t("account.securityPassword")}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab("oauth"); setError(""); setSuccess(""); }}
-              style={{
-                background: activeTab === "oauth" ? "#1e293b" : "transparent",
-                borderBottom: activeTab === "oauth" ? "2px solid #38bdf8" : "none",
-                borderRadius: "6px 6px 0 0",
-                fontWeight: activeTab === "oauth" ? 600 : 400,
-                padding: "8px 16px",
-              }}
-            >
-              {t("account.oauthApps")}
-            </button>
-            {user.role === "admin" && (
-              <button
-                type="button"
-                onClick={() => { setActiveTab("users"); setError(""); setSuccess(""); loadUsers(); }}
+      {/* User Profile Card */}
+      <section className="cv-group" style={{ margin: "16px 0 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20, fontWeight: 700 }}>{user.username}</span>
+              <span
+                className="cv-badge"
                 style={{
-                  background: activeTab === "users" ? "#1e293b" : "transparent",
-                  borderBottom: activeTab === "users" ? "2px solid #38bdf8" : "none",
-                  borderRadius: "6px 6px 0 0",
-                  fontWeight: activeTab === "users" ? 600 : 400,
-                  padding: "8px 16px",
+                  background: user.role === "admin" ? "rgba(244, 63, 94, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                  color: user.role === "admin" ? "#fb7185" : "#34d399",
+                  borderColor: user.role === "admin" ? "rgba(244, 63, 94, 0.3)" : "rgba(16, 185, 129, 0.3)",
+                  textTransform: "uppercase",
+                  fontSize: 11,
+                  fontWeight: 600,
                 }}
               >
-                {t("account.usersTab")}
-              </button>
-            )}
+                {user.role === "admin" ? t("account.roleAdmin") : t("account.roleEditor")}
+              </span>
+            </div>
+            <small className="cv-muted" style={{ display: "block", marginTop: 4 }}>
+              UUID: {user.id}
+            </small>
           </div>
 
-          {success && (
-            <div style={{ padding: "10px 14px", background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: 6, color: "#34d399", marginBottom: 16 }}>
-              <Check className="w-4 h-4 inline-block" strokeWidth={2} /> {success}
-            </div>
-          )}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              onClick={async () => {
+                await api("/auth/logout", "POST");
+                await refresh();
+              }}
+              style={{ fontSize: 13, padding: "6px 14px" }}
+            >
+              {t("catalog.logout")}
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (confirm(t("account.logoutAllConfirm"))) {
+                  await api("/auth/logout-all", "POST");
+                  await refresh();
+                }
+              }}
+              style={{
+                fontSize: 13,
+                padding: "6px 14px",
+                background: "rgba(239, 68, 68, 0.1)",
+                color: "#f87171",
+                borderColor: "rgba(239, 68, 68, 0.25)",
+              }}
+            >
+              {t("account.logoutAllDevices")}
+            </button>
+          </div>
+        </div>
+      </section>
 
-          {/* TAB 1: Security & Password */}
-          {activeTab === "security" && (
-            <section className="cv-group">
-              <h2>{t("account.changePassword")}</h2>
-              <p className="cv-muted" style={{ marginBottom: 16 }}>
-                {t("account.passwordHint")}
-              </p>
-              <form
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  setError("");
-                  setSuccess("");
-                  if (newPassword !== confirmPassword) {
-                    setError(t("account.pwMismatch"));
-                    return;
-                  }
-                  if (newPassword.length < 12) {
-                    setError(t("account.pwTooShort"));
-                    return;
-                  }
-                  try {
-                    await api("/auth/password", "PUT", { old_password: oldPassword, new_password: newPassword });
-                    setSuccess(t("account.pwUpdated"));
-                    setOldPassword("");
-                    setNewPassword("");
-                    setConfirmPassword("");
-                  } catch (err) {
-                    setError((err as Error).message);
-                  }
+      {/* Navigation Tabs */}
+      <div style={{ display: "flex", gap: 8, borderBottom: "1px solid #283444", marginBottom: 20 }}>
+        <button
+          type="button"
+          onClick={() => { setActiveTab("security"); setError(""); setSuccess(""); }}
+          style={{
+            background: activeTab === "security" ? "#1e293b" : "transparent",
+            borderBottom: activeTab === "security" ? "2px solid #38bdf8" : "none",
+            borderRadius: "6px 6px 0 0",
+            fontWeight: activeTab === "security" ? 600 : 400,
+            padding: "8px 16px",
+          }}
+        >
+          {t("account.securityPassword")}
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab("oauth"); setError(""); setSuccess(""); }}
+          style={{
+            background: activeTab === "oauth" ? "#1e293b" : "transparent",
+            borderBottom: activeTab === "oauth" ? "2px solid #38bdf8" : "none",
+            borderRadius: "6px 6px 0 0",
+            fontWeight: activeTab === "oauth" ? 600 : 400,
+            padding: "8px 16px",
+          }}
+        >
+          {t("account.oauthApps")}
+        </button>
+        {user.role === "admin" && (
+          <button
+            type="button"
+            onClick={() => { setActiveTab("users"); setError(""); setSuccess(""); loadUsers(); }}
+            style={{
+              background: activeTab === "users" ? "#1e293b" : "transparent",
+              borderBottom: activeTab === "users" ? "2px solid #38bdf8" : "none",
+              borderRadius: "6px 6px 0 0",
+              fontWeight: activeTab === "users" ? 600 : 400,
+              padding: "8px 16px",
+            }}
+          >
+            {t("account.usersTab")}
+          </button>
+        )}
+      </div>
+
+      {success && (
+        <div style={{ padding: "10px 14px", background: "rgba(16, 185, 129, 0.15)", border: "1px solid rgba(16, 185, 129, 0.3)", borderRadius: 6, color: "#34d399", marginBottom: 16 }}>
+          <Check className="w-4 h-4 inline-block" strokeWidth={2} /> {success}
+        </div>
+      )}
+
+      {/* TAB 1: Security & Password */}
+      {activeTab === "security" && (
+        <section className="cv-group">
+          <h2>{t("account.changePassword")}</h2>
+          <p className="cv-muted" style={{ marginBottom: 16 }}>
+            {t("account.passwordHint")}
+          </p>
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setError("");
+              setSuccess("");
+              if (newPassword !== confirmPassword) {
+                setError(t("account.pwMismatch"));
+                return;
+              }
+              if (newPassword.length < 12) {
+                setError(t("account.pwTooShort"));
+                return;
+              }
+              try {
+                await api("/auth/password", "PUT", { old_password: oldPassword, new_password: newPassword });
+                setSuccess(t("account.pwUpdated"));
+                setOldPassword("");
+                setNewPassword("");
+                setConfirmPassword("");
+              } catch (err) {
+                setError((err as Error).message);
+              }
+            }}
+          >
+            <label>
+              {t("account.currentPassword")}
+              <input
+                type="password"
+                required
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+              />
+            </label>
+            <label>
+              {t("account.newPassword")}
+              <input
+                type="password"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </label>
+            <label>
+              {t("account.confirmNewPassword")}
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </label>
+            <button className="cv-primary" type="submit" style={{ marginTop: 12 }}>
+              {t("account.saveNewPassword")}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {/* TAB 2: OAuth 2.0 Clients */}
+      {activeTab === "oauth" && (
+        <section className="cv-group">
+          <h2>{t("account.authorizedClients")}</h2>
+          <p className="cv-muted" style={{ marginBottom: 16 }}>
+            {t("account.clientsDesc")}
+          </p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {oauthClients.map((c) => (
+              <div
+                key={c.client_id}
+                style={{
+                  padding: 14,
+                  background: "#131b26",
+                  border: "1px solid #293749",
+                  borderRadius: 8,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
                 }}
               >
-                <label>
-                  {t("account.currentPassword")}
-                  <input
-                    type="password"
-                    required
-                    value={oldPassword}
-                    onChange={(e) => setOldPassword(e.target.value)}
-                  />
-                </label>
-                <label>
-                  {t("account.newPassword")}
-                  <input
-                    type="password"
-                    required
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                  />
-                </label>
-                <label>
-                  {t("account.confirmNewPassword")}
-                  <input
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                  />
-                </label>
-                <button className="cv-primary" type="submit" style={{ marginTop: 12 }}>
-                  {t("account.saveNewPassword")}
-                </button>
-              </form>
-            </section>
-          )}
-
-          {/* TAB 2: OAuth 2.0 Clients */}
-          {activeTab === "oauth" && (
-            <section className="cv-group">
-              <h2>{t("account.authorizedClients")}</h2>
-              <p className="cv-muted" style={{ marginBottom: 16 }}>
-                {t("account.clientsDesc")}
-              </p>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {oauthClients.map((c) => (
-                  <div
-                    key={c.client_id}
-                    style={{
-                      padding: 14,
-                      background: "#131b26",
-                      border: "1px solid #293749",
-                      borderRadius: 8,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontWeight: 650, fontSize: 15, color: "#93c5fd" }}>{c.name}</span>
-                      {c.trusted && (
-                        <span className="cv-badge" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.3)" }}>
-                          {t("account.trustedApp")}
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 13, color: "#94a3b8" }}>
-                      <code>client_id: {c.client_id}</code>
-                    </div>
-                    <div style={{ fontSize: 12, color: "#64748b" }}>
-                      {t("account.redirectUris")}: {c.redirect_uris.join(", ")}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* TAB 3: Admin Users Management */}
-          {activeTab === "users" && user.role === "admin" && (
-            <>
-              {/* Reset Password Modal / Form */}
-              {resetTargetUser && (
-                <div style={{ padding: 14, background: "#221919", border: "1px solid #7f1d1d", borderRadius: 8, marginBottom: 16 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ fontWeight: 600, color: "#fca5a5" }}>
-                      {t("account.resetPwFor", { username: resetTargetUser.username })}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontWeight: 650, fontSize: 15, color: "#93c5fd" }}>{c.name}</span>
+                  {c.trusted && (
+                    <span className="cv-badge" style={{ background: "rgba(56, 189, 248, 0.15)", color: "#38bdf8", borderColor: "rgba(56, 189, 248, 0.3)" }}>
+                      {t("account.trustedApp")}
                     </span>
-                    <button type="button" onClick={() => { setResetTargetUser(null); setResetNewPassword(""); }} style={{ minHeight: "auto", padding: "2px 8px" }} aria-label="Close">
-                      <X className="w-4 h-4" strokeWidth={2} />
-                    </button>
-                  </div>
-                  <div style={{ display: "flex", gap: 10 }}>
-                    <input
-                      type="password"
-                      placeholder={t("account.newPwPlaceholder")}
-                      value={resetNewPassword}
-                      onChange={(e) => setResetNewPassword(e.target.value)}
-                      style={{ flex: 1 }}
-                    />
-                    <button
-                      type="button"
-                      className="cv-primary"
-                      disabled={resetNewPassword.length < 12}
-                      onClick={async () => {
-                        try {
-                          await api(`/admin/users/${resetTargetUser.id}/password`, "PUT", { password: resetNewPassword });
-                          setSuccess(t("account.pwResetDone", { username: resetTargetUser.username }));
-                          setResetTargetUser(null);
-                          setResetNewPassword("");
-                        } catch (err) {
-                          setError((err as Error).message);
-                        }
-                      }}
-                    >
-                      {t("account.confirmReset")}
-                    </button>
-                  </div>
+                  )}
                 </div>
-              )}
-
-              {/* Users Table */}
-              <section className="cv-group" style={{ marginBottom: 20 }}>
-                <h2>{t("account.usersRoles")}</h2>
-                <div className="cv-table-scroll" style={{ marginTop: 10 }}>
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>{t("account.colUsername")}</th>
-                        <th>{t("account.colRole")}</th>
-                        <th>{t("account.colUserId")}</th>
-                        <th style={{ textAlign: "right" }}>{t("account.colActions")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {usersList.map((u) => (
-                        <tr key={u.id}>
-                          <td style={{ fontWeight: 600 }}>{u.username}</td>
-                          <td>
-                            <span
-                              className="cv-badge"
-                              style={{
-                                background: u.role === "admin" ? "rgba(244, 63, 94, 0.15)" : "rgba(16, 185, 129, 0.15)",
-                                color: u.role === "admin" ? "#fb7185" : "#34d399",
-                                borderColor: u.role === "admin" ? "rgba(244, 63, 94, 0.3)" : "rgba(16, 185, 129, 0.3)",
-                              }}
-                            >
-                              {u.role}
-                            </span>
-                          </td>
-                          <td>
-                            <small className="cv-muted">{u.id}</small>
-                          </td>
-                          <td style={{ textAlign: "right" }}>
-                            <div style={{ display: "inline-flex", gap: 6 }}>
-                              {u.role === "editor" ? (
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    if (confirm(t("account.promoteConfirm", { username: u.username }))) {
-                                      try {
-                                        await api(`/admin/users/${u.id}/role`, "PUT", { role: "admin" });
-                                        loadUsers();
-                                      } catch (err) {
-                                        setError((err as Error).message);
-                                      }
-                                    }
-                                  }}
-                                  style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
-                                >
-                                  {t("account.makeAdmin")}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    if (confirm(t("account.demoteConfirm", { username: u.username }))) {
-                                      try {
-                                        await api(`/admin/users/${u.id}/role`, "PUT", { role: "editor" });
-                                        loadUsers();
-                                      } catch (err) {
-                                        setError((err as Error).message);
-                                      }
-                                    }
-                                  }}
-                                  style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
-                                >
-                                  {t("account.setEditor")}
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setResetTargetUser(u);
-                                  setResetNewPassword("");
-                                }}
-                                style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
-                              >
-                                {t("account.resetPassword")}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div style={{ fontSize: 13, color: "#94a3b8" }}>
+                  <code>client_id: {c.client_id}</code>
                 </div>
-              </section>
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  {t("account.redirectUris")}: {c.redirect_uris.join(", ")}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
-              {/* Create Editor Form */}
-              <section className="cv-group">
-                <h2>{t("catalog.createEditor")}</h2>
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setError("");
-                    setSuccess("");
+      {/* TAB 3: Admin Users Management */}
+      {activeTab === "users" && user.role === "admin" && (
+        <>
+          {/* Reset Password Modal / Form */}
+          {resetTargetUser && (
+            <div style={{ padding: 14, background: "#221919", border: "1px solid #7f1d1d", borderRadius: 8, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ fontWeight: 600, color: "#fca5a5" }}>
+                  {t("account.resetPwFor", { username: resetTargetUser.username })}
+                </span>
+                <button type="button" onClick={() => { setResetTargetUser(null); setResetNewPassword(""); }} style={{ minHeight: "auto", padding: "2px 8px" }} aria-label="Close">
+                  <X className="w-4 h-4" strokeWidth={2} />
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <input
+                  type="password"
+                  placeholder={t("account.newPwPlaceholder")}
+                  value={resetNewPassword}
+                  onChange={(e) => setResetNewPassword(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="cv-primary"
+                  disabled={resetNewPassword.length < 12}
+                  onClick={async () => {
                     try {
-                      await api("/admin/users", "POST", { username: newEditorUsername, password: newEditorPassword });
-                      setSuccess(t("account.editorCreated", { username: newEditorUsername }));
-                      setNewEditorUsername("");
-                      setNewEditorPassword("");
-                      loadUsers();
+                      await api(`/admin/users/${resetTargetUser.id}/password`, "PUT", { password: resetNewPassword });
+                      setSuccess(t("account.pwResetDone", { username: resetTargetUser.username }));
+                      setResetTargetUser(null);
+                      setResetNewPassword("");
                     } catch (err) {
                       setError((err as Error).message);
                     }
                   }}
                 >
-                  <Credentials
-                    username={newEditorUsername}
-                    password={newEditorPassword}
-                    setUsername={setNewEditorUsername}
-                    setPassword={setNewEditorPassword}
-                  />
-                  <button className="cv-primary" type="submit" style={{ marginTop: 10 }}>
-                    {t("catalog.create")}
-                  </button>
-                </form>
-              </section>
-            </>
+                  {t("account.confirmReset")}
+                </button>
+              </div>
+            </div>
           )}
+
+          {/* Users Table */}
+          <section className="cv-group" style={{ marginBottom: 20 }}>
+            <h2>{t("account.usersRoles")}</h2>
+            <div className="cv-table-scroll" style={{ marginTop: 10 }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t("account.colUsername")}</th>
+                    <th>{t("account.colRole")}</th>
+                    <th>{t("account.colUserId")}</th>
+                    <th style={{ textAlign: "right" }}>{t("account.colActions")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {usersList.map((u) => (
+                    <tr key={u.id}>
+                      <td style={{ fontWeight: 600 }}>{u.username}</td>
+                      <td>
+                        <span
+                          className="cv-badge"
+                          style={{
+                            background: u.role === "admin" ? "rgba(244, 63, 94, 0.15)" : "rgba(16, 185, 129, 0.15)",
+                            color: u.role === "admin" ? "#fb7185" : "#34d399",
+                            borderColor: u.role === "admin" ? "rgba(244, 63, 94, 0.3)" : "rgba(16, 185, 129, 0.3)",
+                          }}
+                        >
+                          {u.role}
+                        </span>
+                      </td>
+                      <td>
+                        <small className="cv-muted">{u.id}</small>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <div style={{ display: "inline-flex", gap: 6 }}>
+                          {u.role === "editor" ? (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (confirm(t("account.promoteConfirm", { username: u.username }))) {
+                                  try {
+                                    await api(`/admin/users/${u.id}/role`, "PUT", { role: "admin" });
+                                    loadUsers();
+                                  } catch (err) {
+                                    setError((err as Error).message);
+                                  }
+                                }
+                              }}
+                              style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
+                            >
+                              {t("account.makeAdmin")}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (confirm(t("account.demoteConfirm", { username: u.username }))) {
+                                  try {
+                                    await api(`/admin/users/${u.id}/role`, "PUT", { role: "editor" });
+                                    loadUsers();
+                                  } catch (err) {
+                                    setError((err as Error).message);
+                                  }
+                                }
+                              }}
+                              style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
+                            >
+                              {t("account.setEditor")}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setResetTargetUser(u);
+                              setResetNewPassword("");
+                            }}
+                            style={{ padding: "4px 8px", minHeight: 28, fontSize: 12 }}
+                          >
+                            {t("account.resetPassword")}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          {/* Create Editor Form */}
+          <section className="cv-group">
+            <h2>{t("catalog.createEditor")}</h2>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setError("");
+                setSuccess("");
+                try {
+                  await api("/admin/users", "POST", { username: newEditorUsername, password: newEditorPassword });
+                  setSuccess(t("account.editorCreated", { username: newEditorUsername }));
+                  setNewEditorUsername("");
+                  setNewEditorPassword("");
+                  loadUsers();
+                } catch (err) {
+                  setError((err as Error).message);
+                }
+              }}
+            >
+              <Credentials
+                username={newEditorUsername}
+                password={newEditorPassword}
+                setUsername={setNewEditorUsername}
+                setPassword={setNewEditorPassword}
+              />
+              <button className="cv-primary" type="submit" style={{ marginTop: 10 }}>
+                {t("catalog.create")}
+              </button>
+            </form>
+          </section>
         </>
-      ) : (
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            try {
-              if (setup) await api("/setup", "POST", { username, password });
-              await api("/auth/login", "POST", { username, password });
-              await refresh();
-              router.push("/catalog");
-            } catch (err) {
-              setError((err as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <Credentials
-            username={username}
-            password={password}
-            setUsername={setUsername}
-            setPassword={setPassword}
-          />
-          <button className="cv-primary" disabled={busy}>
-            {t(setup ? "catalog.setup" : "catalog.login")}
-          </button>
-        </form>
       )}
       <ErrorMessage error={error} />
     </div>

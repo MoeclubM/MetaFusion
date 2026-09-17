@@ -7,6 +7,8 @@ import { fetchSetupStatus } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 
 const PROTECTED_PREFIXES = [
+  // /account 已不自带登录表单：未登录访问统一跳 /login（见 app/account/page.tsx 的说明）。
+  "/account",
   "/admin",
   "/developer",
   "/settings",
