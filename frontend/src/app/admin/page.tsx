@@ -66,11 +66,13 @@ function AdminInner() {
   const kindOptions = resolveKindOptions(kinds, fallbackKinds);
 
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
-  const [stats, setStats] = useState({
+  // totalEntities 为 null 表示"还没拿到"：卡片显示占位，而不是把没取到的数当成 0 讲成事实。
+  const [stats, setStats] = useState<{ pending: number; totalEntities: number | null }>({
     pending: 0,
-    totalEntities: 0,
+    totalEntities: null,
   });
   const [modules, setModules] = useState<any[]>([]);
+  const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
   const [pendingItems, setPendingItems] = useState<any[]>([]);
   // 审核动作的反馈：原来用 alert()，既不本地化也打断操作
   const [reviewNotice, setReviewNotice] = useState("");
@@ -99,20 +101,32 @@ function AdminInner() {
 
   const loadOverview = () => {
     fetch("/api/catalog/entities?status=pending_review", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((r) => (r.ok ? r.json() : { items: [], total: 0 }))
       .then((d) => {
+        // 列表本身按 50 条封顶（服务端上限），卡片要的是待审总数，取响应里的 total。
         setPendingItems(d.items || []);
-        setStats((prev) => ({ ...prev, pending: (d.items || []).length }));
+        setStats((prev) => ({ ...prev, pending: Number(d.total) || 0 }));
       })
       .catch(() => {});
 
+    // limit=1 只为拿 total：列表端点同时返回与筛选条件一致的精确总数（Store.Count）。
     fetch("/api/catalog/entities?limit=1", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && d.total != null) {
+          setStats((prev) => ({ ...prev, totalEntities: Number(d.total) || 0 }));
+        }
+      })
       .catch(() => {});
 
+    // 能力清单是部署态声明（registry.go）：enabled 表示部署配置声明了该子系统在不在场。
     fetch("/api/capabilities", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : { modules: [] }))
-      .then((d) => setModules(d.modules || []))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        setModules(d.modules || []);
+        setCapabilitiesLoaded(true);
+      })
       .catch(() => {});
   };
 
@@ -409,6 +423,9 @@ function AdminInner() {
                 </p>
               </div>
 
+              {/* 卡片只放拿得到的真实数据：数据库版本与会话模式没有任何端点暴露（/api/capabilities
+                  只给部署态的能力声明），写死在页面上等于把"今天恰好如此"讲成系统事实，因此省略；
+                  拿不到的能力清单显示占位符，不写死数字。 */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
                   <div className="text-xs text-text-muted font-mono mb-1">
@@ -418,21 +435,27 @@ function AdminInner() {
                 </div>
                 <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
                   <div className="text-xs text-text-muted font-mono mb-1">
+                    {t("admin.console.totalEntities")}
+                  </div>
+                  <div className="text-2xl font-bold text-text-strong">
+                    {stats.totalEntities ?? "—"}
+                  </div>
+                </div>
+                <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
+                  <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.totalModules")}
                   </div>
-                  <div className="text-2xl font-bold text-text-strong">{modules.length || 6}</div>
+                  <div className="text-2xl font-bold text-text-strong">
+                    {capabilitiesLoaded ? modules.length : "—"}
+                  </div>
                 </div>
                 <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
                   <div className="text-xs text-text-muted font-mono mb-1">
-                    {t("admin.console.coreEngine")}
+                    {t("admin.console.active")}
                   </div>
-                  <div className="text-sm font-semibold text-emerald-400">PostgreSQL 16</div>
-                </div>
-                <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
-                  <div className="text-xs text-text-muted font-mono mb-1">
-                    {t("admin.console.authSession")}
+                  <div className="text-2xl font-bold text-emerald-400">
+                    {capabilitiesLoaded ? modules.filter((m) => m.enabled).length : "—"}
                   </div>
-                  <div className="text-sm font-semibold text-sky-400">HTTP-Only Cookie</div>
                 </div>
               </div>
             </div>
