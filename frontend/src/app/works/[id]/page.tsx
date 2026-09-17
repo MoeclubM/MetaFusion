@@ -19,6 +19,7 @@ import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
 import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
+import { getForumEntityUrl } from "@/lib/services";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
@@ -750,7 +751,7 @@ const releaseFacets = useMemo(
  <span>{t("work.detail.relatedTopics")}</span>
  <span className="text-sm font-normal text-gray-500">({topics.length})</span>
  </h3>
- <Link href={`/community?entity_id=${workId}&board_code=comment`} className="text-sm text-primary hover:underline inline-flex items-center gap-0.5">
+ <Link href={getForumEntityUrl(workId, "comment")} className="text-sm text-primary hover:underline inline-flex items-center gap-0.5">
  <span>{t("work.detail.enterForum")}</span>
  <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
  </Link>

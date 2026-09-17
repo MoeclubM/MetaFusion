@@ -76,11 +76,16 @@ export function getAuthUsersAdminUrl(): string {
   return "/admin/account/";
 }
 
-export function getForumEntityUrl(entityId: string): string {
+// 条目 → 论坛的地址。条目页的「在论坛打开」原来有两种拼法（这里只有 entity_id，
+// works/[id] 那边手拼 board_code=comment），统一收在这里：板块可选，社区页从
+// board_code 读初始板块（app/community/page.tsx），不传就是全部板块。
+export function getForumEntityUrl(entityId: string, boardCode?: string): string {
+  const query = new URLSearchParams({ entity_id: entityId });
+  if (boardCode) query.set("board_code", boardCode);
   if (FORUM_PAGES_ENABLED && FORUM_SERVICE_URL.startsWith("http")) {
-    return `${FORUM_SERVICE_URL}?entity_id=${encodeURIComponent(entityId)}`;
+    return `${FORUM_SERVICE_URL}?${query.toString()}`;
   }
-  return `/community?entity_id=${encodeURIComponent(entityId)}`;
+  return `/community?${query.toString()}`;
 }
 
 export function getForumCollectionUrl(collectionId: string): string {
