@@ -6,6 +6,18 @@
 set -e
 cd "$(dirname "$0")"
 
+# --skip-version-check 是运维紧急开关（见 check_version_lock）：它可能出现在任意位置，
+# 因此先把位置参数里的它摘掉，剩下的仍是 [action] [target]。
+SKIP_VERSION_CHECK=0
+POSITIONAL=()
+for arg in "$@"; do
+    case "$arg" in
+        --skip-version-check) SKIP_VERSION_CHECK=1 ;;
+        *) POSITIONAL+=("$arg") ;;
+    esac
+done
+set -- "${POSITIONAL[@]}"
+
 ACTION=${1:-"fast"}
 TARGET=${2:-""}
 
@@ -43,6 +55,28 @@ function reload_gateway() {
         docker exec metafusion-gateway nginx -s reload >/dev/null 2>&1 && echo "🔄 网关已重建并重载路由矩阵"
     else
         echo "⚠️  网关配置校验失败：保留旧配置（运行 docker exec metafusion-gateway nginx -t 查看原因）"
+    fi
+}
+
+# 兄弟仓库是构建输入：编排按 ../metafusion-* 的**当前检出**构建，而 deploy/versions.lock 记的是
+# 上一次验证过的那次提交。不比对就会把没验证过的代码推上线，回滚时也说不清当时部署的是哪一份。
+# 比对由 scripts/check_versions.py 提供（逐条 git rev-parse HEAD，兄弟目录缺席会 SKIP）。
+# 紧急情况用 ./deploy.sh <action> --skip-version-check 显式跳过：跳过原因会打进日志，
+# 不是静默放行。
+function check_version_lock() {
+    if [ "$SKIP_VERSION_CHECK" = "1" ]; then
+        echo "⚠️  已跳过版本锁校验（--skip-version-check）：本次部署不保证兄弟仓库是 versions.lock 里的提交"
+        return 0
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "❌ 本机没有 python3，无法校验版本锁；确认环境后可用 --skip-version-check 显式跳过" >&2
+        exit 1
+    fi
+    echo "🔒 校验部署版本锁 (deploy/versions.lock)..."
+    if ! python3 ../scripts/check_versions.py; then
+        echo "❌ 兄弟仓库与 deploy/versions.lock 不一致：先把锁刷到本次要部署的提交再继续" >&2
+        echo "   紧急放行（会写进日志）：./deploy.sh $ACTION --skip-version-check" >&2
+        exit 1
     fi
 }
 
@@ -105,6 +139,9 @@ function print_usage() {
     echo "  prune           - 清理所有旧镜像与未使用的构建缓存 (释放磁盘)"
     echo "  logs [svc]      - 实时查看容器运行日志"
     echo "  status          - 查看全部容器健康状态"
+    echo ""
+    echo "全局开关:"
+    echo "  --skip-version-check - 跳过 versions.lock 校验（仅紧急放行，日志会写明）"
     echo "================================================================="
 }
 
@@ -117,6 +154,7 @@ case "$ACTION" in
         ;;
 
     fast)
+        check_version_lock
         export DOCKER_BUILDKIT=1
         if [ -n "$TARGET" ]; then
             echo "⚡ 增量更新指定服务 [$TARGET]..."
@@ -136,6 +174,7 @@ case "$ACTION" in
         ;;
 
     cutover)
+        check_version_lock
         # 首次把实例从单体切到拆分后的服务：搬数据在前、换网关在后，顺序不可颠倒
         # （搬运必须在单体仍是唯一写入方时完成，见 docs/architecture/cutover-runbook.md）。
         # 日常迭代仍用 ./deploy.sh fast；本动作只走一次，回滚见手册第 1 章。
@@ -168,6 +207,7 @@ case "$ACTION" in
         ;;
 
     prod)
+        check_version_lock
         echo "🏭 启动生产集群模式..."
         export DOCKER_BUILDKIT=1
         docker compose $COMPOSE_ENV -f docker-compose.yml build backend
@@ -181,6 +221,7 @@ case "$ACTION" in
         ;;
 
     pull)
+        check_version_lock
         echo "📦 拉取预构建生产容器镜像 (GHCR)..."
         # --ignore-buildable：账号/互动/存储仍从兄弟仓库构建，镜像名是本地标签
         #   （metafusion-auth:local 之类），去 registry 拉必然失败；跳过它们，
