@@ -2,8 +2,10 @@
 
 // 开发者中心：把账号服务的"接入配置"和"我的应用"放在一个独立页面里（不再挤在管理台页签下）。
 //
-// 契约只读核对 metafusion-auth/internal/handler/developer.go：/api/developer/overview 给端点、
-// scope 四语说明与自有平台清单，/api/developer/apps* 给归属为当前账号的应用 CRUD。
+// 契约只读核对 metafusion-auth/internal/handler/developer.go：/api/developer/overview 给端点与
+// scope 四语说明，/api/developer/apps* 给归属为当前账号的应用 CRUD。
+// overview 仍回 platforms（owner_user_id 为空的系统应用），本页不渲染也不为它取数：
+// 系统应用归管理后台的 OAuth 客户端页维护，这里只留一句说明与管理员入口。
 // 归属与核验由服务端判定：这里只展示状态，不提供 trusted / verified 开关——
 // 免同意是平台自己的身份，只能由管理员在管理台设置。
 
@@ -19,7 +21,6 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  ShieldCheck,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
@@ -30,6 +31,8 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { SecretRevealModal, type SecretReveal } from "@/components/oauth/SecretRevealModal";
 import { useI18n } from "@/i18n/I18nProvider";
+import { useAuth } from "@/lib/authContext";
+import { AUTH_OAUTH_MANAGE, can } from "@/lib/permissions";
 import { DOCS_SERVICE_URL } from "@/lib/services";
 import {
   ENDPOINT_KEYS,
@@ -83,6 +86,7 @@ async function copyText(text: string): Promise<boolean> {
 
 export default function DeveloperPage() {
   const { t, locale } = useI18n();
+  const { user } = useAuth();
   const [config, setConfig] = useState<AccessConfig | null>(null);
   const [apps, setApps] = useState<DeveloperApp[]>([]);
   const [loading, setLoading] = useState(true);
@@ -94,6 +98,9 @@ export default function DeveloperPage() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+
+  // 系统应用改由管理后台维护：入口判定与账号台 OAuth 客户端节同码（auth.oauth.manage）。
+  const canManageOauthClients = can(user, AUTH_OAUTH_MANAGE);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -279,42 +286,24 @@ export default function DeveloperPage() {
               {copied === "failed" ? <p className="text-[11px] text-amber-400">{t("developer.copyFailed")}</p> : null}
             </Card>
 
-            <Card padding="section" className="space-y-3">
-              <SectionTitle icon={<ShieldCheck className="w-4 h-4 text-primary" />}>{t("developer.platforms.title")}</SectionTitle>
-              <p className="text-xs text-text-muted leading-relaxed">{t("developer.platforms.subtitle")}</p>
-              {config.platforms.length === 0 ? (
-                <div className="p-6 rounded-xl border border-dashed border-line text-center text-xs text-text-faint font-mono">
-                  {t("developer.platforms.empty")}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-line-subtle overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-line-subtle bg-surfaceSubtle text-text-muted font-mono text-[11px]">
-                        <th className="py-2 px-3 font-medium">{t("developer.colName")}</th>
-                        <th className="py-2 px-3 font-medium">{t("developer.colClientId")}</th>
-                        <th className="py-2 px-3 font-medium">{t("developer.colRedirects")}</th>
-                        <th className="py-2 px-3 font-medium">{t("developer.colStatus")}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-line-subtle">
-                      {config.platforms.map((app) => (
-                        <tr key={app.client_id} data-mf-platform={app.client_id} className="hover:bg-surfaceSubtle align-top">
-                          <td className="py-2.5 px-3 text-text-body">{app.name || "—"}</td>
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-text-strong break-all">{app.client_id}</td>
-                          <td className="py-2.5 px-3 font-mono text-[10px] text-text-muted break-all">
-                            {(app.redirect_uris || []).map((uri) => (
-                              <div key={uri}>{uri}</div>
-                            ))}
-                          </td>
-                          <td className="py-2.5 px-3">{badge(app)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Card>
+            {/* 系统应用（owner_user_id 为空）不在开发者中心展示：overview 仍回 platforms，
+                本页不取用该数组，只留一句说明与管理员入口，不列任何 client_id 与回调地址。 */}
+            <p className="text-[11px] text-text-faint leading-relaxed">
+              {t("developer.systemApps.note")}
+              {canManageOauthClients ? (
+                <>
+                  {" "}
+                  <a
+                    href="/admin/account/oauth-clients/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    {t("developer.systemApps.adminLink")}
+                  </a>
+                </>
+              ) : null}
+            </p>
 
             <Card padding="section" className="space-y-3">
               <SectionTitle

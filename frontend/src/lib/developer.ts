@@ -40,7 +40,9 @@ export interface ScopeInfo {
   descriptions: Record<string, string>;
 }
 
-/** 接入配置：端点、能力、scope 说明与自有平台清单。 */
+/** 接入配置：端点、能力与 scope 说明。
+ *  platforms 是 overview 仍在回的清单（owner_user_id 为空的系统应用）：接口不为此改，
+ *  字段留着是为了类型与响应形状不失真；开发者中心不渲染也不取用它，只留说明与管理员入口。 */
 export interface AccessConfig {
   issuer: string;
   account_url: string;
