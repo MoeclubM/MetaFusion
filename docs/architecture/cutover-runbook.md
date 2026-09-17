@@ -3,11 +3,25 @@
 配套文档：[子系统拆分与迁移契约](./service-split-migration.md)。本手册描述**如何把流量从单体切到各服务**，
 以及**每一步怎么验、怎么退**。所有命令都在有数据库访问权的运维机上执行。
 
-## 部署目录布局（可配）
+## 部署目录布局
 
-编排默认假设四个兄弟仓库与主仓库**并列检出**（`../../metafusion-auth|community|storage|docs`）。
-想把它们收进主仓库内（例如服务器上统一放 `services/` 下，避免散落在 `$HOME`），在 `deploy` 同级
-的 `.env` 里覆盖路径，并按需给版本锁自检加 `--siblings-root`：
+**推荐：所有仓库平铺在同一个父目录下**（本地 `~/GitHub/`，服务器 `/root/metafusion/`）：
+
+```
+/root/metafusion/
+├── MetaFusion/                 # 主仓库（含 deploy/）
+├── metafusion-auth/
+├── metafusion-community/
+├── metafusion-storage/
+├── metafusion-docs/
+└── metafusion-api-gateway/
+```
+
+编排按 `../../metafusion-*` 解析构建上下文（相对 `deploy/` 的父目录的父级），所以平铺布局**无需任何配置**；
+`scripts/check_versions.py` 也直接可用（锁里的 `../metafusion-x` 就是这套布局）。
+
+**其他布局**（例如把兄弟仓库塞进主仓库内部的 `services/`）：在 `deploy` 同级的 `.env` 里覆盖路径，
+并给版本锁自检加 `--siblings-root`：
 
 ```bash
 # .env（相对 deploy/ 解析）
@@ -22,6 +36,11 @@ python scripts/check_versions.py --siblings-root services   # 或在环境里设
 ```
 
 默认值不变，因此本地开发与 CI 无需任何改动；改了布局只影响部署机。
+
+**移动整个目录是安全的**：compose 的工程名取自 compose 文件所在目录名（`deploy`），卷名是 `deploy_<卷>`
+（`deploy_pg_data` 等）。把父目录改名或搬位置不会换工程名，因此**不会重建卷、不会丢数据**；
+但容器重建前不要删除旧路径（网关的 `nginx.conf` 等是相对路径挂载）。
+
 
 ## 一次性切流（已脚本化）
 
