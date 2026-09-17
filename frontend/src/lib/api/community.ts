@@ -121,16 +121,15 @@ export interface Comment {
   user?: User;
 }
 
+// 私信（community 服务 /api/messages/with/:id 的逐字契约）：
+// items 里就是这四个字段 + id，**没有内容字段 content、没有 is_read**——
+// 已读回执的 read_at 列在库里已预留但两个端点都不读不写，前端不许诺不存在的状态。
 export interface DirectMessage {
   id: string;
   sender_id: string;
-  receiver_id: string;
-  content: string;
-  is_read: boolean;
+  recipient_id: string;
+  body: string;
   created_at: string;
-  updated_at: string;
-  sender?: { id: string; username: string; role: string; avatar_url?: string };
-  receiver?: { id: string; username: string; role: string; avatar_url?: string };
 }
 
 export interface ConversationItem {
@@ -440,17 +439,29 @@ export async function createPost(topicId: string, payload: CreatePostPayload): P
   });
 }
 
+/**
+ * 会话分页：**第一页是最新的**（服务端按 created_at DESC, id DESC），往后翻是更早的；
+ * total 是整段会话的条数，不随窗口变化。调用方据此决定"加载更早的消息"。
+ */
 export async function fetchDirectMessages(
   userId: string,
   page = 1,
-  pageSize = 50
-): Promise<{ peer: User; messages: DirectMessage[]; total: number; page: number }> {
-  return fetchApi(`/messages/with/${userId}?page=${page}&page_size=${pageSize}`);
+  pageSize = 20
+): Promise<{ items: DirectMessage[]; total: number }> {
+  const res = await fetchApi<{ items?: DirectMessage[]; total?: number }>(
+    "/messages/with/" + encodeURIComponent(userId) + "?page=" + page + "&page_size=" + pageSize
+  );
+  return {
+    items: Array.isArray(res.items) ? res.items : [],
+    total: typeof res.total === "number" ? res.total : 0,
+  };
 }
 
-export async function sendDirectMessage(userId: string, content: string): Promise<DirectMessage> {
-  return fetchApi<DirectMessage>(`/messages/with/${userId}`, {
+/** 发信：请求体字段名是 body（不是 content），响应把新消息包在 message 里。 */
+export async function sendDirectMessage(userId: string, body: string): Promise<DirectMessage> {
+  const res = await fetchApi<{ message: DirectMessage }>("/messages/with/" + encodeURIComponent(userId), {
     method: "POST",
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ body }),
   });
+  return res.message;
 }

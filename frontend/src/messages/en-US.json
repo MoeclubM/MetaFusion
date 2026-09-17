@@ -2997,5 +2997,11 @@
   "users.profile.banned": "Account disabled",
   "users.profile.accountUnavailable": "Account profile is unavailable (the auth service did not respond); catalog contributions and community data below are still shown.",
   "users.profile.stats.unknown": "Unknown",
-  "users.profile.listFailed": "Failed to load the list"
+  "users.profile.listFailed": "Failed to load the list",
+  "users.profile.loadMoreMessages": "Load earlier messages",
+  "users.profile.dmError.unauthorized": "Your session has expired; sign in again to send messages.",
+  "users.profile.dmError.invalidBody": "The message is empty or longer than 4000 characters; nothing was sent.",
+  "users.profile.dmError.notFound": "Recipient not found; the message was not sent.",
+  "users.profile.dmError.generic": "Sending failed; please retry (your text is kept).",
+  "users.profile.dmError.refreshFailed": "The message was sent, but the conversation could not be refreshed yet."
 }

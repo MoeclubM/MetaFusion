@@ -2997,5 +2997,11 @@
   "users.profile.banned": "账号已停用",
   "users.profile.accountUnavailable": "账号资料暂时取不到（账号服务未响应）；下方目录贡献与互动数据仍照常展示。",
   "users.profile.stats.unknown": "未知",
-  "users.profile.listFailed": "列表加载失败"
+  "users.profile.listFailed": "列表加载失败",
+  "users.profile.loadMoreMessages": "加载更早的消息",
+  "users.profile.dmError.unauthorized": "登录状态已失效，请重新登录后再发送。",
+  "users.profile.dmError.invalidBody": "内容为空或超过 4000 字符，未发送。",
+  "users.profile.dmError.notFound": "找不到该用户，无法发送。",
+  "users.profile.dmError.generic": "发送失败，请稍后重试（输入内容已保留）。",
+  "users.profile.dmError.refreshFailed": "消息已发送，但暂时刷新不到最新会话。"
 }

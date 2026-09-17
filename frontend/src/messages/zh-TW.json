@@ -2997,5 +2997,11 @@
   "users.profile.banned": "帳號已停用",
   "users.profile.accountUnavailable": "帳號資料暫時取不到（帳號服務未回應）；下方目錄貢獻與互動資料仍照常顯示。",
   "users.profile.stats.unknown": "未知",
-  "users.profile.listFailed": "清單載入失敗"
+  "users.profile.listFailed": "清單載入失敗",
+  "users.profile.loadMoreMessages": "載入更早的訊息",
+  "users.profile.dmError.unauthorized": "登入狀態已失效，請重新登入後再傳送。",
+  "users.profile.dmError.invalidBody": "內容為空或超過 4000 字元，未送出。",
+  "users.profile.dmError.notFound": "找不到該使用者，無法傳送。",
+  "users.profile.dmError.generic": "傳送失敗，請稍後重試（輸入內容已保留）。",
+  "users.profile.dmError.refreshFailed": "訊息已送出，但暫時重新整理不到最新會話。"
 }

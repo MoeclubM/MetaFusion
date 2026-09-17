@@ -2997,5 +2997,11 @@
   "users.profile.banned": "アカウント停止中",
   "users.profile.accountUnavailable": "アカウント情報を取得できません（認証サービスが応答していません）。以下のカタログ貢献とコミュニティデータはそのまま表示します。",
   "users.profile.stats.unknown": "不明",
-  "users.profile.listFailed": "一覧の読み込みに失敗しました"
+  "users.profile.listFailed": "一覧の読み込みに失敗しました",
+  "users.profile.loadMoreMessages": "過去のメッセージを読み込む",
+  "users.profile.dmError.unauthorized": "ログイン状態が無効です。再ログインしてから送信してください。",
+  "users.profile.dmError.invalidBody": "本文が空か 4000 文字を超えているため送信できません。",
+  "users.profile.dmError.notFound": "相手が見つからないため送信できません。",
+  "users.profile.dmError.generic": "送信に失敗しました。入力内容は保持されています。",
+  "users.profile.dmError.refreshFailed": "メッセージは送信されましたが、最新の会話を取得できませんでした。"
 }
