@@ -79,6 +79,48 @@ func validateShelf(s Shelf) error {
 	if !contains(shelfSortKeys, s.Sort) {
 		return fmt.Errorf("invalid_sort")
 	}
+	return validateShelfQuery(s.Query)
+}
+
+// validateShelfQuery 校验收录规则的形状：types / relations 逐项必须是去空白后非空的码，
+// fields / vocab_terms 的键必须是合法字段码、取值逐项非空。
+//
+// 抽成公共函数：系统货架规则（validateShelf）与用户首页分区共用同一份检查。
+// 只判形状不判存在性——类型/字段/词表项由动态 definitions 决定，写实体与定义发布自会拦住
+// 未声明的码；这里要挡的是"写进去必然取不到值"的空承诺（shelfFilter 会把空白项整个丢掉）。
+func validateShelfQuery(q ShelfQuery) error {
+	for _, v := range q.Types {
+		if strings.TrimSpace(v) == "" {
+			return fmt.Errorf("invalid_types")
+		}
+	}
+	if err := validateQueryValues("invalid_fields", q.Fields); err != nil {
+		return err
+	}
+	if err := validateQueryValues("invalid_vocab_terms", q.VocabTerms); err != nil {
+		return err
+	}
+	for _, v := range q.Relations {
+		if strings.TrimSpace(v) == "" {
+			return fmt.Errorf("invalid_relations")
+		}
+	}
+	return nil
+}
+
+// validateQueryValues 校验"字段码 → 取值"映射：键与 definitions 的字段码同一口径（codePattern），
+// 值逐项非空。码本身是否已声明不在这一层判定（见 validateShelfQuery）。
+func validateQueryValues(code string, m map[string][]string) error {
+	for _, field := range sortedKeys(m) {
+		if !codePattern.MatchString(field) {
+			return fmt.Errorf("%s", code)
+		}
+		for _, v := range m[field] {
+			if strings.TrimSpace(v) == "" {
+				return fmt.Errorf("%s", code)
+			}
+		}
+	}
 	return nil
 }
 

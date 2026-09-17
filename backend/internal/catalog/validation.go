@@ -184,6 +184,7 @@ func validateSources(note string, sources []Source) error {
 	}
 	return nil
 }
+
 // requiredNameLocales 是每个名称都必须齐备的语种（命名四语铁律）。
 // ja 与 ja-JP 视为同一语种（种子两个键都写，只写其一也放行），单独判定。
 var requiredNameLocales = []string{"zh-CN", "zh-TW", "en-US"}
@@ -206,6 +207,12 @@ func validateNames(n Names) error {
 	if len(missing) > 0 {
 		return fmt.Errorf("four_locale_names_required: %s", strings.Join(missing, ","))
 	}
+	return validateNameLocales(n)
+}
+
+// validateNameLocales 校验名称里的语种键能否解析（ja 与 ja-JP 都合法）。
+// 与四语铁律分开：用户首页分区名只强制 zh-CN，其余语种缺省时前端按回退链显示。
+func validateNameLocales(n Names) error {
 	for k := range n {
 		if _, e := language.Parse(k); e != nil {
 			return fmt.Errorf("invalid_locale")

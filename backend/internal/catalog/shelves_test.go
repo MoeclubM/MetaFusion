@@ -24,6 +24,37 @@ func TestShelfSortWhitelistMatchesEvaluation(t *testing.T) {
 	}
 }
 
+// query 形状校验是系统货架与用户首页分区共用的同一份检查（validateShelfQuery）：
+// 空白码与非法字段码一律拒绝，否则就是"写进去必然取不到值"的空承诺
+// （shelfFilter 会把空白项整条丢掉）。
+func TestShelfQueryShapeValidation(t *testing.T) {
+	base := Shelf{Slug: "query-check", Names: names4("形状检查", "形狀檢查", "形チェック", "Query check"), Sort: "updated"}
+	// 空 query 表示收录全部作品，必须仍然放行。
+	if err := validateShelf(base); err != nil {
+		t.Fatalf("空 query 应被接受：%v", err)
+	}
+	for _, tc := range []struct {
+		name  string
+		query ShelfQuery
+		want  string
+	}{
+		{"空类型码", ShelfQuery{Types: []string{"film", " "}}, "invalid_types"},
+		{"非法字段码", ShelfQuery{Fields: map[string][]string{"Not-A-Code": {"x"}}}, "invalid_fields"},
+		{"空字段取值", ShelfQuery{Fields: map[string][]string{"tags": {""}}}, "invalid_fields"},
+		{"非法词表键", ShelfQuery{VocabTerms: map[string][]string{"-bad": {"x"}}}, "invalid_vocab_terms"},
+		{"空关系码", ShelfQuery{Relations: []string{""}}, "invalid_relations"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sh := base
+			sh.Query = tc.query
+			err := validateShelf(sh)
+			if err == nil || err.Error() != tc.want {
+				t.Fatalf("got %v want %s", err, tc.want)
+			}
+		})
+	}
+}
+
 // created 必须真的按创建时间倒序。实体表没有 created_at 列，实现取的是 UUIDv7 id 的字节序，
 // 所以这条用例同时钉住「实体 id 仍由 NewV7 生成」这一前提：改回随机 id 它会红。
 func TestShelfSortCreatedOrdersByCreationTime(t *testing.T) {
