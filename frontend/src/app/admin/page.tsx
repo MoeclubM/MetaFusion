@@ -15,6 +15,7 @@ import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
 import { UsersTab } from "./components/tabs/UsersTab";
+import { BoardsTab } from "./components/tabs/BoardsTab";
 import { OAuthClientsTab } from "./components/tabs/OAuthClientsTab";
 import { AUTH_OAUTH_MANAGE, can, canEnterAdmin } from "@/lib/permissions";
 import { fetchApi, unpublishEntity } from "@/lib/api";
@@ -23,6 +24,7 @@ import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import type { LucideIcon } from "lucide-react";
 import {
   KeyRound,
+  MessageSquare,
   Shield,
   LayoutDashboard,
   Sliders,
@@ -53,7 +55,8 @@ type AdminTab =
   | "extdb"
   | "shelves"
   | "accounts"
-  | "oauth";
+  | "oauth"
+  | "boards";
 
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
@@ -373,6 +376,7 @@ function AdminInner() {
     { id: "merge", labelKey: "admin.tab.merge", icon: GitMerge },
     { id: "modules", labelKey: "admin.tab.modules", icon: Cpu },
     { id: "users", labelKey: "admin.tab.users", icon: Users },
+    { id: "boards", labelKey: "admin.tab.boards", icon: MessageSquare },
     { id: "accounts", labelKey: "admin.tab.accounts", icon: ShieldCheck },
     { id: "oauth", labelKey: "admin.tab.oauth", icon: KeyRound, permission: AUTH_OAUTH_MANAGE },
   ];
@@ -962,6 +966,8 @@ function AdminInner() {
           )}
 
           {activeTab === "users" && <UsersTab />}
+
+          {activeTab === "boards" && <BoardsTab />}
           </div>
         </TabPanel>
       </PageContainer>
