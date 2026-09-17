@@ -1770,7 +1770,7 @@
   "admin.console.pendingReviews": "待審核提交",
   "admin.console.publishedEntities": "已發佈實體",
   "admin.console.tombstones": "墓碑記錄",
-  "admin.console.tombstonesHint": "目前取不到：條目端點固定排除已刪除／已合併記錄，後端尚無墓碑計數端點",
+  "admin.console.tombstonesHint": "已刪除／已合併的終態記錄：條目列表端點不返回這類資料列，計數來自 /catalog/entities/stats",
   "admin.console.extDatabases": "外部權威庫（啟用）",
   "admin.console.reviewWorkbench": "編目審核工作台",
   "admin.console.reviewWorkbenchDesc": "審核使用者提交的元資料條目修改與草稿",

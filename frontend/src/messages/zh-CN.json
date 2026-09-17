@@ -1770,7 +1770,7 @@
   "admin.console.pendingReviews": "待审核提交",
   "admin.console.publishedEntities": "已发布实体",
   "admin.console.tombstones": "墓碑记录",
-  "admin.console.tombstonesHint": "计不到：条目列表端点固定排除已删除/已合并记录，后端暂无墓碑计数端点",
+  "admin.console.tombstonesHint": "已删除/已合并的终态记录：条目列表端点不返回这类行，计数来自 /catalog/entities/stats",
   "admin.console.extDatabases": "外部权威库（启用）",
   "admin.console.reviewWorkbench": "编目审核工作台",
   "admin.console.reviewWorkbenchDesc": "审核用户提交的元数据条目修改与草稿",

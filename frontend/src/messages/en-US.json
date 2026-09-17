@@ -1770,7 +1770,7 @@
   "admin.console.pendingReviews": "Pending Reviews",
   "admin.console.publishedEntities": "Published entities",
   "admin.console.tombstones": "Tombstones",
-  "admin.console.tombstonesHint": "Not countable yet: the entity list endpoint always excludes deleted/merged rows and there is no tombstone count endpoint",
+  "admin.console.tombstonesHint": "Deleted or merged terminal records: the entity list endpoint never returns them, so the count comes from /catalog/entities/stats",
   "admin.console.extDatabases": "External authority DBs (enabled)",
   "admin.console.reviewWorkbench": "Review Workbench",
   "admin.console.reviewWorkbenchDesc": "Approve or reject catalog drafts",

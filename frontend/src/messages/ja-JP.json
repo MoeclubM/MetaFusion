@@ -1770,7 +1770,7 @@
   "admin.console.pendingReviews": "審査待ちの投稿",
   "admin.console.publishedEntities": "公開済みエンティティ",
   "admin.console.tombstones": "墓碑レコード",
-  "admin.console.tombstonesHint": "取得不可：エントリ一覧エンドポイントは削除済み／統合済みを常に除外し、墓碑の計数エンドポイントがありません",
+  "admin.console.tombstonesHint": "削除済み／統合済みの終端レコード：エントリ一覧エンドポイントはこれらを返さないため、件数は /catalog/entities/stats から取得します",
   "admin.console.extDatabases": "外部権威DB（有効）",
   "admin.console.reviewWorkbench": "カタログ審査ワークベンチ",
   "admin.console.reviewWorkbenchDesc": "ユーザーが投稿したメタデータの変更と下書きを審査",

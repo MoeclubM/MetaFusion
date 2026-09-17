@@ -108,6 +108,11 @@ const OTHER_CONSOLES: {
   },
 ];
 
+// 聚合计数的取值口径：只接受有限数字。字段缺失（端点没有这个键）、类型不对、
+// 整个响应拿不到，都返回 null，调用方据此保留占位符——"取不到"与"真的是 0"必须分开。
+const countOrNull = (v: unknown): number | null =>
+  typeof v === "number" && Number.isFinite(v) ? v : null;
+
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
   const { t, tr, locale } = useI18n();
@@ -125,8 +130,9 @@ function AdminInner() {
   const [stats, setStats] = useState<{
     pending: number | null;
     published: number | null;
+    tombstones: number | null;
     extDatabases: number | null;
-  }>({ pending: null, published: null, extDatabases: null });
+  }>({ pending: null, published: null, tombstones: null, extDatabases: null });
   // 其他控制台的探活结果：unknown 表示还没探到——未知不等于在线，这时入口不渲染。
   const [consoles, setConsoles] = useState<Record<string, ConsoleState>>({});
   const [modules, setModules] = useState<any[]>([]);
@@ -155,23 +161,30 @@ function AdminInner() {
   const [mergeError, setMergeError] = useState(false);
   const [merging, setMerging] = useState(false);
 
-  // 单状态计数：limit=1 只为拿 total——列表端点同时返回与筛选条件一致的精确总数（Store.Count）。
-  // 非 2xx、网络失败、响应里没有 total 一律不写状态，卡片保持占位符而不是显示 0。
-  const countEntities = (status: string, apply: (n: number) => void) => {
-    fetch(`/api/catalog/entities?status=${status}&limit=1`, { credentials: "same-origin" })
+  const loadOverview = () => {
+    // 目录域的三个计数（待审 / 已发布 / 墓碑）一次拿全：GET /catalog/entities/stats 是按状态分组的
+    // 聚合。以前为两个数字发两次 limit=1 的列表请求，而墓碑数那条路走不通——列表端点固定排除
+    // deleted/merged（后端 listFilter 的刻意口径），status=deleted 的列表恒空。
+    // 非 2xx、网络失败、字段不是数字一律不写状态：卡片保持占位符，绝不把"取不到"显示成 0。
+    fetch("/api/catalog/entities/stats", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d && d.total != null) apply(Number(d.total));
+        const statuses = d?.statuses;
+        if (!statuses || typeof statuses !== "object") return;
+        const pending = countOrNull(statuses.pending_review);
+        const published = countOrNull(statuses.published);
+        // 墓碑 = deleted + merged：两个终态都不在列表里，任一项取不到就整张卡留占位符。
+        const deleted = countOrNull(statuses.deleted);
+        const merged = countOrNull(statuses.merged);
+        setStats((prev) => {
+          const next = { ...prev };
+          if (pending != null) next.pending = pending;
+          if (published != null) next.published = published;
+          if (deleted != null && merged != null) next.tombstones = deleted + merged;
+          return next;
+        });
       })
       .catch(() => {});
-  };
-
-  const loadOverview = () => {
-    // 这里只要待审总数：列表内容由 loadReviewList 按当前档位单独取，
-    // 两者共用同一端点但筛选条件不同，混在一起会让切档位时数字与列表对不上。
-    countEntities("pending_review", (n) => setStats((prev) => ({ ...prev, pending: n })));
-    // 已发布数：以前这张卡把"除已删除/已合并外的全量"当"实体总数"讲，标签与事实不符。
-    countEntities("published", (n) => setStats((prev) => ({ ...prev, published: n })));
 
     // 外部权威库启用数：GET /catalog/external-databases 只回启用项
     // （store.go ListExternalDatabases 的 enabledOnly=true），取到空数组就是 0 个启用，
@@ -601,10 +614,10 @@ function AdminInner() {
                   </div>
                   <div className="text-2xl font-bold text-emerald-400">{stats.published ?? "—"}</div>
                 </div>
-                {/* 墓碑数当前取不到：条目列表端点的过滤固定带 status NOT IN ('deleted','merged')
-                    （backend/internal/catalog/store.go listFilter），与 status=deleted 相与恒为空，
-                    后端也没有墓碑计数端点。如实留占位符——线上同表 deleted 有 288 条，
-                    正是这条查询覆盖不到的那部分，显示 0 就是假数据。 */}
+                {/* 墓碑 = deleted + merged，只来自 GET /catalog/entities/stats：列表端点的过滤固定带
+                    status NOT IN ('deleted','merged')（backend/internal/catalog/store.go listFilter），
+                    与 status=deleted 相与恒为空，所以这张卡不走列表端点。取不到仍是占位符，
+                    不拿 0 冒充——线上同表 deleted 有 288 条，显示 0 就是假数据。 */}
                 <div
                   className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle"
                   title={t("admin.console.tombstonesHint")}
@@ -612,7 +625,7 @@ function AdminInner() {
                   <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.tombstones")}
                   </div>
-                  <div className="text-2xl font-bold text-text-faint">—</div>
+                  <div className="text-2xl font-bold text-text-strong">{stats.tombstones ?? "—"}</div>
                   <div className="mt-1 text-[10px] text-text-faint leading-tight">
                     {t("admin.console.tombstonesHint")}
                   </div>
