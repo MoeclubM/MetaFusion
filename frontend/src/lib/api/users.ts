@@ -149,10 +149,6 @@ function normalizeContributionSources(row: Record<string, any>): ContributionSou
       else if (s && typeof s === "object") out.push({ kind: s.kind, citation: s.citation, url: s.url });
     }
   }
-  // 旧形状（纯 URL 列表）仍可能来自更早的响应，混在一起时去重。
-  if (Array.isArray(row.source_urls)) {
-    for (const u of row.source_urls) if (typeof u === "string" && u.trim() !== "") out.push({ url: u });
-  }
   return out.filter((s) => Boolean(s.url) || Boolean(s.citation));
 }
 
