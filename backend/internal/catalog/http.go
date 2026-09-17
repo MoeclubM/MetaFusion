@@ -465,9 +465,11 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		v, err := s.ListShelves(c.Request.Context(), true)
 		respond(c, gin.H{"items": v}, err)
 	})
-	// /shelves/feed 一次返回每个货架及其求值后的条目，供首页直接渲染。
+	// /shelves/feed 一次返回每个分区及其求值后的条目，供首页直接渲染。
 	// 规则里的 fields/vocab_terms/relations 只有服务端能判定，放在这里避免前端近似匹配。
-	// 登录用户按个人偏好重排/隐藏；匿名与未设置偏好者按 sort_order 默认序。
+	// 登录用户按个人偏好合并：sections 覆盖同名系统货架/追加自建分区，order 重排，
+	// hidden 过滤；每条 shelf 带 source（system/custom）供前端决定能否删除。
+	// 匿名与未设置偏好者按 sort_order 默认序，且只有 system。
 	cat.GET("/shelves/feed", routeLimiter(60), func(c *gin.Context) {
 		perShelf, _ := strconv.Atoi(c.Query("per_shelf"))
 		shelves, err := s.ListShelves(c.Request.Context(), true)
@@ -496,7 +498,8 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		c.JSON(200, gin.H{"items": out})
 	})
 	// 个人首页偏好读：需登录，未登录返回 401（与 required("") 语义一致，
-	// 不再用匿名 404 误导前端走“未找到”分支）。
+	// 不再用匿名 404 误导前端走“未找到”分支）。sections 为"覆盖 + 自建"列表，
+	// slug 与系统货架同名表示覆盖本人视角（不是冲突），不同名表示新增分区。
 	cat.GET("/me/home-preferences", required(""), func(c *gin.Context) {
 		v, err := s.GetHomePreferences(c.Request.Context(), user(c).ID)
 		respond(c, v, err)

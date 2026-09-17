@@ -25,7 +25,18 @@ type Shelf struct {
 	Icon      string            `json:"icon"`
 	Enabled   bool              `json:"enabled"`
 	SortOrder int               `json:"sort_order"`
+	// Source 只在 /shelves/feed 里由 applyHomePreferences 置位（system / custom），
+	// 库内货架没有这一列，管理端读写时为空并因此不出现在 JSON 里。
+	Source string `json:"source,omitempty"`
 }
+
+// ShelfSourceSystem / ShelfSourceCustom 是 feed 条目的分区来源：命中系统货架 slug 的覆盖
+// 仍是 system（前端据此不给"删除分区"入口——删掉只会露出系统默认），用户自建的是 custom。
+// 匿名用户没有 sections，因此永远只见 system。
+const (
+	ShelfSourceSystem = "system"
+	ShelfSourceCustom = "custom"
+)
 
 // ShelfQuery 描述货架收录规则。各子条件之间为 AND；同一数组内为 OR。
 // 空 query 表示收录全部已发布作品。

@@ -189,6 +189,47 @@ func TestOpenAPIDefinitionRollbackAndListFields(t *testing.T) {
 	}
 }
 
+// 首页分区的追加字段必须进文档：HomePreferences.sections（用户覆盖 + 自建）由结构体反射
+// 生成，漏记会让按文档做严格校验的客户端把合法请求判成非法；Shelf.source 只在 feed 里出现。
+func TestOpenAPIHomeSectionFields(t *testing.T) {
+	doc := OpenAPI()
+	schemas := doc["components"].(map[string]any)["schemas"].(map[string]any)
+	prefsProps, ok := schemas["HomePreferences"].(map[string]any)["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("HomePreferences schema 缺失")
+	}
+	for _, k := range []string{"order", "hidden", "sections"} {
+		if prefsProps[k] == nil {
+			t.Fatalf("HomePreferences schema 缺 %s 字段", k)
+		}
+	}
+	sectionProps, ok := schemas["HomeSection"].(map[string]any)["properties"].(map[string]any)
+	if !ok {
+		t.Fatal("HomeSection schema 缺失（sections 的元素契约）")
+	}
+	for _, k := range []string{"slug", "names", "query", "sort", "icon"} {
+		if sectionProps[k] == nil {
+			t.Fatalf("HomeSection schema 缺 %s 字段", k)
+		}
+	}
+	shelfProps, ok := schemas["Shelf"].(map[string]any)["properties"].(map[string]any)
+	if !ok || shelfProps["source"] == nil {
+		t.Fatal("Shelf schema 缺 source（feed 条目的来源标记）")
+	}
+	// 端点说明必须覆盖分区语义：前端只按文档对接，说明缺失等于契约没写。
+	for _, p := range []struct{ path, method, want string }{
+		{"/catalog/shelves/feed", "get", "source"},
+		{"/catalog/me/home-preferences", "put", "too_many_sections"},
+		{"/catalog/me/home-preferences", "put", "invalid_slug"},
+	} {
+		op := doc["paths"].(map[string]any)[p.path].(map[string]any)[p.method].(map[string]any)
+		summary, _ := op["summary"].(string)
+		if !strings.Contains(summary, p.want) {
+			t.Fatalf("%s %s 说明未覆盖 %q：%q", p.method, p.path, p.want, summary)
+		}
+	}
+}
+
 // GET /catalog/definitions 的响应比 DefinitionVersion 多一个 kinds（handler 拼的骨架名，
 // 见 http.go：288）。文档必须表达出来：该 schema 声明 additionalProperties:false，
 // 漏写会让按文档做严格校验的客户端判失败。
