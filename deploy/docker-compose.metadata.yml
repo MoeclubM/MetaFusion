@@ -59,8 +59,8 @@ services:
     profiles: [docs]
     image: metafusion-catalog-docs:${METAFUSION_TAG:-local}
     build:
-      # 文档内容在独立仓库 metafusion-docs（唯一源）
-      context: ../../metafusion-docs
+      # 文档内容在独立仓库 metafusion-docs（唯一源）；可用 MF_DOCS_DIR 覆盖布局
+      context: ${MF_DOCS_DIR:-../../metafusion-docs}
       labels:
         io.metafusion.project: metafusion
     container_name: metafusion-docs

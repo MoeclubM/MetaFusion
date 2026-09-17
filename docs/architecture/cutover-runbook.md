@@ -3,6 +3,26 @@
 配套文档：[子系统拆分与迁移契约](./service-split-migration.md)。本手册描述**如何把流量从单体切到各服务**，
 以及**每一步怎么验、怎么退**。所有命令都在有数据库访问权的运维机上执行。
 
+## 部署目录布局（可配）
+
+编排默认假设四个兄弟仓库与主仓库**并列检出**（`../../metafusion-auth|community|storage|docs`）。
+想把它们收进主仓库内（例如服务器上统一放 `services/` 下，避免散落在 `$HOME`），在 `deploy` 同级
+的 `.env` 里覆盖路径，并按需给版本锁自检加 `--siblings-root`：
+
+```bash
+# .env（相对 deploy/ 解析）
+MF_AUTH_DIR=../services/metafusion-auth
+MF_COMMUNITY_DIR=../services/metafusion-community
+MF_STORAGE_DIR=../services/metafusion-storage
+MF_DOCS_DIR=../services/metafusion-docs
+```
+
+```bash
+python scripts/check_versions.py --siblings-root services   # 或在环境里设 MF_SIBLINGS_ROOT
+```
+
+默认值不变，因此本地开发与 CI 无需任何改动；改了布局只影响部署机。
+
 ## 一次性切流（已脚本化）
 
 首次把实例切到拆分后的架构，在部署机（开发服务器）上一条命令即可：

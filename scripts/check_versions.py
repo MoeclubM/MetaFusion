@@ -16,7 +16,11 @@
 锁的更新方式（人工，不做自动改写）：切流窗口开始时按 `git -C <目录> rev-parse --short HEAD`
 把六行 sha 更新一遍并提交；不要为了"让检查变绿"而改 sha。
 
-用法：python scripts/check_versions.py [--lock PATH]
+用法：python scripts/check_versions.py [--lock PATH] [--siblings-root DIR]
+
+部署布局可配：compose 的构建上下文用 MF_*_DIR 变量覆盖（默认 ../../metafusion-*），
+若把兄弟仓库收进主仓库内（例如 services/ 下），用 --siblings-root services
+（或环境变量 MF_SIBLINGS_ROOT）让锁里的 ../metafusion-x 改在该目录下解析。
 """
 import argparse
 import os
@@ -59,6 +63,8 @@ def main():
     ap = argparse.ArgumentParser(description="部署版本锁自检")
     ap.add_argument("--lock", default=None, help="锁文件（默认 <root>/deploy/versions.lock）")
     ap.add_argument("--root", default=root, help="仓库根目录（默认由脚本位置推断）")
+    ap.add_argument("--siblings-root", default=os.environ.get("MF_SIBLINGS_ROOT"),
+                    help="兄弟仓库所在根目录（默认按锁里的相对路径解析；服务器把兄弟仓库收进主仓库内时用它）")
     args = ap.parse_args()
 
     root = os.path.abspath(args.root)
@@ -78,7 +84,11 @@ def main():
         if not repo or not expected:
             problems.append("%s:%d: 行格式应为 `<仓库目录>=<sha>`" % (os.path.relpath(lock, root), lineno))
             continue
-        repo_dir = os.path.normpath(os.path.join(root, repo))
+        if repo.startswith("../") and args.siblings_root:
+            # 布局可配：锁里的 ../metafusion-x 改在 --siblings-root 下解析（去掉一级 ../）。
+            repo_dir = os.path.normpath(os.path.join(os.path.abspath(args.siblings_root), repo[3:]))
+        else:
+            repo_dir = os.path.normpath(os.path.join(root, repo))
         if not os.path.isdir(repo_dir):
             skipped.append("%s: 目录不在本机，跳过（%s）" % (repo, os.path.relpath(repo_dir, root)))
             continue

@@ -76,11 +76,12 @@ services:
 
   # --------------------------------------------------------------------------
   # 2. 全量文档站 (VitePress SSG + sirv-cli)，经网关 /docs 反代
-  #    内容在独立仓库 metafusion-docs（唯一源），与主仓库并列检出；主仓库不再存放 doc 页面。
+  #    内容在独立仓库 metafusion-docs（唯一源）。默认按"与主仓库并列检出"解析（../../），
+  #    可用 MF_DOCS_DIR 改成任意布局（例如全部放在主仓库内的 services/ 下）。
   # --------------------------------------------------------------------------
   docs-site:
     build:
-      context: ../../metafusion-docs
+      context: ${MF_DOCS_DIR:-../../metafusion-docs}
       dockerfile: Dockerfile
     container_name: metafusion-docs
     restart: unless-stopped
@@ -146,7 +147,7 @@ services:
   # --------------------------------------------------------------------------
   auth:
     build:
-      context: ../../metafusion-auth
+      context: ${MF_AUTH_DIR:-../../metafusion-auth}
       dockerfile: Dockerfile
     image: metafusion-auth:${METAFUSION_TAG:-local}
     container_name: metafusion-auth
@@ -180,7 +181,7 @@ services:
   # --------------------------------------------------------------------------
   community:
     build:
-      context: ../../metafusion-community
+      context: ${MF_COMMUNITY_DIR:-../../metafusion-community}
       dockerfile: Dockerfile
     image: metafusion-community:${METAFUSION_TAG:-local}
     container_name: metafusion-community
@@ -222,7 +223,7 @@ services:
   # --------------------------------------------------------------------------
   community-migrate:
     build:
-      context: ../../metafusion-community
+      context: ${MF_COMMUNITY_DIR:-../../metafusion-community}
       dockerfile: Dockerfile
     image: metafusion-community:${METAFUSION_TAG:-local}
     profiles: ["tools"]
@@ -245,7 +246,7 @@ services:
   # --------------------------------------------------------------------------
   storage:
     build:
-      context: ../../metafusion-storage
+      context: ${MF_STORAGE_DIR:-../../metafusion-storage}
       dockerfile: Dockerfile
     image: metafusion-storage:${METAFUSION_TAG:-local}
     container_name: metafusion-storage

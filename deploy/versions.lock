@@ -1,6 +1,7 @@
 # deploy/versions.lock —— 一次部署的版本锚点
 #
-# 为什么要它：编排（deploy/docker-compose.yml）用 ../../metafusion-* 当构建上下文，主仓库代码与
+# 为什么要它：编排（deploy/docker-compose.yml）以兄弟仓库为构建上下文（默认 ../../metafusion-*，
+# 可用 MF_*_DIR 覆盖布局，见 runbook「部署目录布局」），主仓库代码与
 # 兄弟仓库代码之间没有任何版本绑定——同一个 METAFUSION_TAG 可能对应不同的兄弟仓库提交，
 # 回滚时无法判断当时那份 community 是哪一次提交。这里把这些部署输入钉住。
 #
