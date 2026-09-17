@@ -1,0 +1,15 @@
+[Unit]
+# 每天 04:30 UTC（服务器本地时区是 Europe/London，用 UTC 后缀写死，避免夏令时漂移）。
+Description=MetaFusion 每日 04:30 UTC 备份触发器
+
+[Timer]
+OnCalendar=*-*-* 04:30:00 UTC
+# 机器夜间重启/宕机错过时点则尽快补跑一次（systemd 记录上次触发时间）。
+Persistent=true
+# 抖动几分钟，避免与系统其它定时任务抢 IO；日志里看得到实际触发时刻。
+RandomizedDelaySec=300
+AccuracySec=1min
+Unit=metafusion-backup.service
+
+[Install]
+WantedBy=timers.target

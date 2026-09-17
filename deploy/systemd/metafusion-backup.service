@@ -1,0 +1,17 @@
+[Unit]
+# MetaFusion 每日备份：PostgreSQL + 对象存储卷 + 配置快照（脚本自带磁盘护栏与保留策略）。
+# 路径与部署目录一致（服务器上仓库检出在 /root/metafusion/MetaFusion）。
+Description=MetaFusion 每日备份（PostgreSQL + 对象存储 + 配置快照）
+Documentation=file:/root/metafusion/MetaFusion/scripts/backup.sh
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/root/metafusion/MetaFusion/scripts/backup.sh --keep-days 7 --keep-weeks 4 --max-gb 2 --min-free-gb 3
+# 备份是 IO 轻负载（36MB 库 → ~3MB 产物），但别跟业务抢 CPU：降优先级即可，不需要 cpulimit。
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# pg_dump 秒级完成；给足超时是为了大库或磁盘变慢时不误杀。
+TimeoutStartSec=30min
