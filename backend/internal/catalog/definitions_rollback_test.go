@@ -55,7 +55,7 @@ func TestRollbackEvidenceFallsBackWithoutRevision(t *testing.T) {
 }
 
 // 真库用例：回滚 = 以当前已发布版本为 base，把历史版本的 document 重新起草并发布
-//（复用 Draft + Publish，不原地改历史行）。
+// （复用 Draft + Publish，不原地改历史行）。
 func TestPostgresDefinitionRollback(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()

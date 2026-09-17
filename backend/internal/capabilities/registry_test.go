@@ -50,7 +50,7 @@ func TestNoOutboundProbe(t *testing.T) {
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt64(&hits, 1)
 		w.WriteHeader(http.StatusOK)
-	}));
+	}))
 	defer up.Close()
 
 	env := map[string]string{"COMMUNITY_URL": up.URL, "RECORDS_URL": up.URL, "STORAGE_URL": up.URL}

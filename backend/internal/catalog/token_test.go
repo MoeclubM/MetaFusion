@@ -310,9 +310,9 @@ func TestVerifierStaticPublicKeyFormats(t *testing.T) {
 	key := testKey(t)
 	spki := publicPEM(t, &key.PublicKey)
 	for name, encoded := range map[string]string{
-		"pkix":          spki,
-		"pkcs1":         publicPKCS1PEM(t, &key.PublicKey),
-		"base64-pkix":   base64.StdEncoding.EncodeToString([]byte(spki)),
+		"pkix":        spki,
+		"pkcs1":       publicPKCS1PEM(t, &key.PublicKey),
+		"base64-pkix": base64.StdEncoding.EncodeToString([]byte(spki)),
 	} {
 		v := testVerifierFromPublicKey(t, &key.PublicKey, encoded)
 		if _, err := v.Verify(signTestToken(t, key, nil)); err != nil {
@@ -330,7 +330,7 @@ func TestVerifierPrefersStaticPublicKeyWithoutNetwork(t *testing.T) {
 
 	clearSigningSources(t)
 	t.Setenv("AUTH_JWT_PUBLIC_KEY", publicPEM(t, &key.PublicKey))
-	t.Setenv("AUTH_JWKS_URL", up.URL)          // 同时配置也不该被用到
+	t.Setenv("AUTH_JWKS_URL", up.URL)                        // 同时配置也不该被用到
 	t.Setenv("AUTH_JWT_PRIVATE_KEY", pemText(t, testKey(t))) // 私钥不该被用到
 	v, err := NewTokenVerifierFromEnv("https://example.test/api", "metafusion")
 	if err != nil {
@@ -430,7 +430,7 @@ func TestVerifierJWKSFailuresAreClosed(t *testing.T) {
 
 	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-	}));
+	}))
 	defer down.Close()
 	vDown := testVerifierFromJWKS(t, down.URL)
 	if _, err := vDown.Verify(signTestToken(t, key, nil)); err == nil {
@@ -441,7 +441,7 @@ func TestVerifierJWKSFailuresAreClosed(t *testing.T) {
 	everywhere := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"keys":[{"kty":"EC","kid":"x","crv":"P-256"}]}`))
-	}));
+	}))
 	defer everywhere.Close()
 	vEC := testVerifierFromJWKS(t, everywhere.URL)
 	if _, err := vEC.Verify(signTestToken(t, key, nil)); err == nil {
