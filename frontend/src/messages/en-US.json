@@ -2997,6 +2997,5 @@
   "users.profile.banned": "Account disabled",
   "users.profile.accountUnavailable": "Account profile is unavailable (the auth service did not respond); catalog contributions and community data below are still shown.",
   "users.profile.stats.unknown": "Unknown",
-  "users.profile.stats.audits": "Admin actions",
   "users.profile.listFailed": "Failed to load the list"
 }

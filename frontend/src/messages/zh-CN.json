@@ -2997,6 +2997,5 @@
   "users.profile.banned": "账号已停用",
   "users.profile.accountUnavailable": "账号资料暂时取不到（账号服务未响应）；下方目录贡献与互动数据仍照常展示。",
   "users.profile.stats.unknown": "未知",
-  "users.profile.stats.audits": "管理动作",
   "users.profile.listFailed": "列表加载失败"
 }
