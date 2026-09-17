@@ -60,11 +60,13 @@ export function getAuthSettingsUrl(): string {
   return "/settings";
 }
 
+// 改密码的唯一实现在本前端的设置页（?tab=password 是 SETTINGS_TABS 白名单内的深链），
+// 供 /account 的入口链接使用：那边有错误码四语映射、minLength 与改密后的重新登录引导。
 export function getAuthPasswordUrl(): string {
   if (AUTH_PAGES_ENABLED && AUTH_SERVICE_URL.startsWith("http")) {
-    return `${AUTH_SERVICE_URL}/password`;
+    return `${AUTH_SERVICE_URL}/settings?tab=password`;
   }
-  return "/account";
+  return "/settings?tab=password";
 }
 
 // 账号域的管理面是独立控制台（metafusion-auth/admin，网关 /admin/account/），不是本前端的页面，
