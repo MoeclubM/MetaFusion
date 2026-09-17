@@ -196,8 +196,9 @@ function AdminInner() {
   };
 
   // 通过（草稿/待审 → 已发布）只能走保存端点：它是唯一能把状态写成 published 的写路径；
-  // 生命周期端点 POST …/lifecycle 只做删除与合并（lifecycle.go 恒把状态置 deleted/merged），
-  // 已发布条目降级则被 store.go 的 use_lifecycle_endpoint 拦住，全仓没有降级入口。
+  // 生命周期端点 POST …/lifecycle 只做删除与合并（lifecycle.go 恒把状态置 deleted/merged）。
+  // 反向的 published → draft 被 store.go 的 use_lifecycle_endpoint 拦住，只能走
+  // POST …/unpublish（见 handleUnpublish）。
   const handleEntityPublish = async (id: string) => {
     setReviewNotice("");
     try {
@@ -646,9 +647,10 @@ function AdminInner() {
                               >
                                 {t("admin.entities.edit")}
                               </Link>
-                              {/* 只有草稿/待审能通过：保存端点拒绝把已发布条目降级、也拒绝写 deleted/merged
-                                  （store.go 的 use_lifecycle_endpoint），生命周期端点只做删除与合并。
-                                  所以已发布给"不能降级"的禁用态说明，已删除/已合并连合并入口都不给。 */}
+                              {/* 只有草稿/待审能通过：保存端点拒绝写 deleted/merged，也拒绝
+                                  published → draft（store.go 的 use_lifecycle_endpoint）；
+                                  生命周期端点只做删除与合并。已发布条目改成走下架端点（见下），
+                                  已删除/已合并连合并入口都不给。 */}
                               {(e.status === "draft" || e.status === "pending_review") && (
                                 <button
                                   type="button"

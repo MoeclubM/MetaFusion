@@ -23,6 +23,8 @@ const CODE_KEYS: Record<string, string> = {
   // 源已删除或已合并、或状态值不在允许集合内（invalid_status）。
   invalid_merge_target: "catalog.error.invalidMergeTarget",
   invalid_status: "catalog.error.invalidStatus",
+  // 证据/来源校验：下架与合并都要求 edit_note + 至少一条合法 sources。
+  invalid_source: "catalog.error.invalidSource",
   forbidden: "catalog.error.forbidden",
   authentication_required: "catalog.error.authenticationRequired",
   // 定义/货架/外部库的名称四语齐备是硬约束：缺语种的写入一律被拒。
