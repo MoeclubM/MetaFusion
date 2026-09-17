@@ -7,8 +7,8 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
 import { UserRoleBadge } from "@/lib/roles";
-import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref, ApiError } from "@/lib/api";
-import { can, COMMUNITY_POST_MODERATE } from "@/lib/permissions";
+import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref, setTopicPinned, ApiError } from "@/lib/api";
+import { can, COMMUNITY_POST_MODERATE, COMMUNITY_TOPIC_PIN } from "@/lib/permissions";
 import PostComposer from "@/components/community/PostComposer";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { PageShell } from "@/components/ui/PageShell";
@@ -26,6 +26,8 @@ import {
   Check,
   Tag as TagIcon,
   Trash2,
+  Pin,
+  PinOff,
 } from "lucide-react";
 
 export default function TopicDetailPage() {
@@ -46,8 +48,13 @@ export default function TopicDetailPage() {
  const [replyTo, setReplyTo] = useState<{ post_number: number; username?: string; content: string } | null>(null);
  const [deletingTarget, setDeletingTarget] = useState<string | null>(null);
  const [moderationError, setModerationError] = useState<{ target: string; text: string } | null>(null);
- // 治理入口只对持有 community.post.moderate 的人存在；鉴权仍在服务端，这里不渲染禁用态。
+ const [pinning, setPinning] = useState(false);
+ const [pinNotice, setPinNotice] = useState("");
+ // 治理入口只对持有对应权限码的人存在；鉴权仍在服务端，这里不渲染禁用态。
+ // 置顶与删帖是两条不同的码（community.topic.pin / community.post.moderate），分开判定：
+ // 只有置顶权的人不该看见删除入口，反之亦然。
  const canModeratePosts = can(user, COMMUNITY_POST_MODERATE);
+ const canPinTopic = can(user, COMMUNITY_TOPIC_PIN);
 
  useEffect(() => { fetchBoards().then(setBoards).catch(()=>{}); }, []);
 
@@ -124,6 +131,31 @@ export default function TopicDetailPage() {
  err instanceof ApiError && err.status === 403
  ? t("community.moderateForbidden")
  : t("community.moderateFailed");
+
+ // 置顶不二次确认：它是可逆的展示位调整，不是破坏性动作；失败照实提示，并按状态码分档
+ // （403 缺码 / 404 主题不存在或该板块不支持 / 其余通用），不把失败说成成功。
+ const togglePin = async () => {
+ if (!topic) return;
+ setPinning(true);
+ setPinNotice("");
+ const next = !topic.is_pinned;
+ try {
+ const updated = await setTopicPinned(topicId, next);
+ setTopic((prev) => (prev ? { ...prev, is_pinned: updated.is_pinned ?? next } : prev));
+ setPinNotice(next ? t("community.pinSuccess") : t("community.unpinSuccess"));
+ } catch (err) {
+ const status = err instanceof ApiError ? err.status : 0;
+ setPinNotice(
+ status === 403
+ ? t("community.pinForbidden")
+ : status === 404
+ ? t("community.pinNotFound")
+ : t("community.pinFailed"),
+ );
+ } finally {
+ setPinning(false);
+ }
+ };
 
  const deleteTopic = async () => {
  if (!window.confirm(t("community.deleteTopicConfirm"))) return;
@@ -286,6 +318,22 @@ export default function TopicDetailPage() {
  </div>
 
  <div className="flex items-center space-x-2.5">
+ {canPinTopic && (
+ <button
+ onClick={togglePin}
+ disabled={pinning}
+ className={`flex items-center space-x-1 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed ${topic.is_pinned ? "text-amber-400 hover:text-amber-300" : "text-gray-500 hover:text-amber-400"}`}
+ >
+ {topic.is_pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
+ <span>
+ {pinning
+ ? t("community.pinning")
+ : topic.is_pinned
+ ? t("community.unpinTopic")
+ : t("community.pinTopic")}
+ </span>
+ </button>
+ )}
  {canModeratePosts && (
  <button
  onClick={deleteTopic}
@@ -302,6 +350,7 @@ export default function TopicDetailPage() {
  {moderationError?.target === "topic" && (
  <p className="text-xs text-rose-400 font-mono">{moderationError.text}</p>
  )}
+ {pinNotice && <p className="text-xs font-mono text-amber-400">{pinNotice}</p>}
 
    {/* Post Body */}
    <div className="py-1">

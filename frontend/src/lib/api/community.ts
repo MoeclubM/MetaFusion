@@ -425,6 +425,23 @@ export function buildShareUrl(topicId: string, highlightPostId?: string): string
   return `${base}/community/${topicId}${hash}`;
 }
 
+/**
+ * 置顶/取消置顶（PUT /api/community/topics/:id/pin）。
+ *
+ * 请求体**只有 `pinned` 一个字段且必填**（服务端用指针判空，缺字段是 400 invalid_payload，
+ * 没有独立的 unpin 端点）；用 `pinned:false` 取消。成功回的是 topic map（不含 tags/posts），
+ * 所以调用方拿 is_pinned 更新本地状态即可，不必重取整页。
+ *
+ * 已知的 404 语义：主题若挂在 `comment` 板块（实体短评）也走这条 SQL，服务端刻意让它与
+ * "主题不存在"同码——调用方无法区分，提示文案要同时覆盖两种可能。
+ */
+export async function setTopicPinned(topicId: string, pinned: boolean): Promise<DiscussionTopic> {
+  return fetchApi<DiscussionTopic>(`/community/topics/${encodeURIComponent(topicId)}/pin`, {
+    method: "PUT",
+    body: JSON.stringify({ pinned }),
+  });
+}
+
 export async function createTopic(payload: CreateTopicPayload): Promise<DiscussionTopic> {
   return fetchApi<DiscussionTopic>("/community/topics", {
     method: "POST",
