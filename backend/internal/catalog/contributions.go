@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -118,8 +119,13 @@ func contributionTabValid(tab string) bool {
 // 分页口径与拆分前该端点一致：page 从 1 起（越界收敛为 1），page_size 越界（<1 或 >100）收敛为
 // 20，不硬拒绝（列表接口的既有风格）。
 func (s *Store) UserContributions(ctx context.Context, userID, tab string, page, pageSize int, u *User) (UserContributions, error) {
+	// 非法 uuid 与账号 GET /users/{id}、互动 GET /users/{id}/stats 同口径：404 not_found
+	// （sql.ErrNoRows 经 respond 映射）。用户主页把三路数据源按"同一类降级"处理，目录这一路
+	// 回 400 invalid_id 会让前端把"这个来源取不到"讲成"参数错误"。
+	// "账号不存在"与"有这个人但一条贡献都没有"分不出来：账号表归账号服务，目录不查它，
+	// 两者都是零贡献的 200（同 community 侧 stats.go 的注释），404 只留给"这个 id 不是 uuid"。
 	if _, err := uuid.Parse(userID); err != nil {
-		return UserContributions{}, fmt.Errorf("invalid_id")
+		return UserContributions{}, sql.ErrNoRows
 	}
 	if !contributionTabValid(tab) {
 		return UserContributions{}, fmt.Errorf("invalid_tab")

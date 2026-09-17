@@ -2,7 +2,9 @@ package catalog
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -132,17 +134,23 @@ func TestContributionItemShapes(t *testing.T) {
 	}
 }
 
-// 参数校验不必连库（Store 为空也走不到查询）：非法 user id 与目录不服务的 tab 都是 400 + 稳定机器码。
+// 参数校验不必连库（Store 为空也走不到查询）：非法 user id 与账号 /users/{id}、互动
+// /users/{id}/stats 同口径——404 not_found（前端三路聚合按同一类降级，目录这一路回
+// 400 invalid_id 会弹出"参数错误"）；目录不服务的 tab 仍是 400 invalid_tab。
 func TestUserContributionsRejectsBadParameters(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	for _, tc := range []struct{ path, code string }{
-		{"/api/users/not-a-uuid/contributions", "invalid_id"},
-		{"/api/users/11111111-1111-1111-1111-111111111111/contributions?tab=topics", "invalid_tab"},
+	for _, tc := range []struct {
+		path   string
+		status int
+		code   string
+	}{
+		{"/api/users/not-a-uuid/contributions", http.StatusNotFound, "not_found"},
+		{"/api/users/11111111-1111-1111-1111-111111111111/contributions?tab=topics", http.StatusBadRequest, "invalid_tab"},
 	} {
 		w := httptest.NewRecorder()
 		gateEngine(nil).ServeHTTP(w, httptest.NewRequest(http.MethodGet, tc.path, nil))
-		if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), tc.code) {
-			t.Fatalf("%s: status=%d body=%s, want 400 %s", tc.path, w.Code, w.Body.String(), tc.code)
+		if w.Code != tc.status || !strings.Contains(w.Body.String(), tc.code) {
+			t.Fatalf("%s: status=%d body=%s, want %d %s", tc.path, w.Code, w.Body.String(), tc.status, tc.code)
 		}
 	}
 }
@@ -289,14 +297,15 @@ func TestUserContributionsFeedAndStats(t *testing.T) {
 		t.Fatalf("删除后本人作品数应为 2（另一作品 + 草稿）: %d", after.Total)
 	}
 
-	// 非法参数：Store 层的机器码与 respond 的映射一致（400 invalid_id / invalid_tab）。
-	if _, err := f.s.UserContributions(ctx, "not-a-uuid", "all", 1, 20, nil); err == nil || err.Error() != "invalid_id" {
-		t.Fatalf("非法 user id 应报 invalid_id: %v", err)
+	// 非法参数：Store 层按 respond 的判据返回（sql.ErrNoRows → 404 not_found / 400 invalid_tab）。
+	if _, err := f.s.UserContributions(ctx, "not-a-uuid", "all", 1, 20, nil); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("非法 user id 应按 not_found 处理: %v", err)
 	}
 	if _, err := f.s.UserContributions(ctx, author.ID, "topics", 1, 20, nil); err == nil || err.Error() != "invalid_tab" {
 		t.Fatalf("目录不服务的 tab 应报 invalid_tab: %v", err)
 	}
-	// 不存在的用户：目录不查账号服务，没有修订就是零贡献（200 + 空列表，不是 404）。
+	// 不存在的用户：目录不查账号服务（账号表归账号服务），"没有这个人"与"有这个人但零贡献"
+	// 分不出来，两者都是 200 + 空列表；404 只留给"这个 id 根本不是 uuid"。
 	ghost, err := f.s.UserContributions(ctx, fixtureUser("member").ID, "all", 1, 20, nil)
 	if err != nil || ghost.Total != 0 || len(ghost.Items) != 0 {
 		t.Fatalf("无贡献用户应返回空列表: %+v %v", ghost, err)
