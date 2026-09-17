@@ -5,12 +5,16 @@ import {
   api,
   Definition,
   Definitions,
+  DefinitionVersionItem,
   Field,
   Names,
   Source,
+  definitionVersions,
   kinds as fallbackKinds,
   local,
 } from "./api";
+import { CATALOG_DEFINITIONS_MANAGE, can } from "@/lib/permissions";
+import { DefinitionHistory } from "./DefinitionHistory";
 import { useCatalog } from "./CatalogProvider";
 import {
   getKindName,
@@ -352,7 +356,11 @@ export function DefinitionsEditor() {
   const { kinds: serverKinds } = useDefinitions();
   const [d, setD] = useState<Definitions>();
   const [base, setBase] = useState(0);
-  const [versions, setVersions] = useState<Definition[]>([]);
+  const [versions, setVersions] = useState<DefinitionVersionItem[]>([]);
+  // 版本列表另用一个 nonce 触发重取：draft 只在"保存草稿"时变号，回滚后需要独立重取。
+  const [versionsNonce, setVersionsNonce] = useState(0);
+  const [versionsLoading, setVersionsLoading] = useState(true);
+  const [versionsError, setVersionsError] = useState("");
   const [draft, setDraft] = useState(0);
   const [issues, setIssues] = useState<string[]>();
   const [error, setError] = useState("");
@@ -367,18 +375,59 @@ export function DefinitionsEditor() {
       setBase(definition.id);
     }
   }, [definition, d]);
+  // 门槛按权限码判定：can() 在令牌没带 permissions 时回落到 role，老行为不变；
+  // 持 catalog.definitions.manage 的管理组此前被 role 判断挡在门外，现在也能进。
+  const manageDefinitions = can(user, CATALOG_DEFINITIONS_MANAGE);
   useEffect(() => {
-    if (user?.role === "admin")
-      api("/admin/catalog-definitions")
-        .then((r) => setVersions(r.items))
-        .catch((e) => setError(e.message));
-  }, [user, draft]);
-  if (user?.role !== "admin") return <p>{t("catalog.adminRequired")}</p>;
+    if (!manageDefinitions) return;
+    // 回滚/保存草稿都会触发重取，迟到的旧响应不能覆盖新列表。
+    let alive = true;
+    setVersionsLoading(true);
+    definitionVersions()
+      .then((r) => {
+        if (!alive) return;
+        setVersions(r.items);
+        setVersionsError("");
+      })
+      // 列表失败只降级版本历史那一块：写失败仍走 error（顶部 ErrorMessage）。
+      .catch((e) => {
+        if (alive) setVersionsError(e.message);
+      })
+      .finally(() => {
+        if (alive) setVersionsLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [manageDefinitions, draft, versionsNonce]);
+  if (!manageDefinitions) return <p>{t("catalog.adminRequired")}</p>;
   if (!d) return <p>{t("catalog.loading")}</p>;
   const change = (next: Definitions) => {
     setD(next);
     setDraft(0);
     setIssues(undefined);
+  };
+  // 发布/回滚后刷新所有定义消费方：CatalogProvider 与 definitions.ts 模块缓存是两份独立状态
+  // （同一页面可能同时消费），只刷新其一会让部分组件停留在旧定义，直到整页刷新。
+  const reloadPublished = async () => {
+    await refresh();
+    await refreshDefinitions();
+    const current = await api<Definition>("/catalog/definitions");
+    setD(structuredClone(current.document));
+    setBase(current.id);
+    setDraft(0);
+    setIssues(undefined);
+    setError("");
+  };
+  // 回滚已经落库成功，刷新失败只影响本地视图：用顶层 error 说明并要求手动重载，
+  // 不能让"刷新失败"看起来像"回滚失败"。
+  const afterRollback = async () => {
+    setVersionsNonce((n) => n + 1);
+    try {
+      await reloadPublished();
+    } catch (err) {
+      setError((err as Error).message);
+    }
   };
   const names = (items: Record<string, { names: Names }>) =>
     Object.fromEntries(
@@ -414,7 +463,9 @@ export function DefinitionsEditor() {
             value=""
             onChange={(e) => {
               const v = versions.find((x) => x.id === Number(e.target.value));
-              if (v) {
+              // 列表按 include_document=true 取，每项都带文档；万一缺失就什么都不做，
+              // 免得把编辑器改成"半份定义"。
+              if (v?.document) {
                 change(structuredClone(v.document));
                 setBase(v.state === "draft" ? v.base_version : definition!.id);
                 if (v.state === "draft") setDraft(v.id);
@@ -433,6 +484,14 @@ export function DefinitionsEditor() {
           {t("catalog.baseVersion")}: {base}
         </span>
       </div>
+      <DefinitionHistory
+        versions={versions}
+        currentId={definition?.id}
+        loading={versionsLoading}
+        error={versionsError}
+        onReload={() => setVersionsNonce((n) => n + 1)}
+        onChanged={afterRollback}
+      />
       <nav className="cv-tabs">
         {(
           ["types", "fields", "vocabularies", "relations", "templates", "schemes"] as const
@@ -908,17 +967,7 @@ export function DefinitionsEditor() {
                   "POST",
                   { edit_note: note, sources },
                 );
-                // 同时刷新 CatalogProvider 与 definitions.ts 模块缓存：
-                // 两者是独立状态（同一页面可能同时消费），只刷新其一会让部分组件
-                // 停留在旧定义，直到整页刷新。
-                await refresh();
-                await refreshDefinitions();
-                const current = await api<Definition>("/catalog/definitions");
-                setD(structuredClone(current.document));
-                setBase(current.id);
-                setDraft(0);
-                setIssues(undefined);
-                setError("");
+                await reloadPublished();
               } catch (err) {
                 setError((err as Error).message);
               }
