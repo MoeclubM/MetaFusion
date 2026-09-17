@@ -248,8 +248,11 @@ func (h HTTP) Register(r *gin.Engine) {
 
 func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	s := h.Store
-	// 实例间导入导出：原属模块层，随子系统拆分迁入目录包（见 exchange.go）。
-	h.registerExchange(api)
+	// 公开端点：这三条刻意不要身份，所以留在 attachUser 之前。
+	// 其余任何注册都必须在 attachUser 之后——gin 的 RouterGroup.Use 只对**之后**注册的
+	// 路由生效（注册时复制当时的 handler 链），插到前面会让 user(c) 恒为 nil。0be8ae9 的
+	// 回归就是这么来的（/api/exchange/* 提案带合法令牌也 401）。需要身份的注册函数还应把
+	// 中间件挂在自己的子组上（见 registerExchange），免得下次再被插入位置决定行为。
 	api.GET("/openapi.json", func(c *gin.Context) { c.JSON(200, OpenAPI()) })
 	api.GET("/docs", func(c *gin.Context) {
 		c.Header("Content-Type", "text/html; charset=utf-8")
@@ -262,6 +265,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 身份只来自账号服务签发的 RS256 令牌：目录侧**只验签、不查库、不签发**。
 	// 中间件本体与给其它路由组复用的管理员闸门都在 auth_gate.go。
 	api.Use(attachUser(s))
+	// 实例间导入导出：原属模块层，随子系统拆分迁入目录包（见 exchange.go）。
+	// 必须在 api.Use(attachUser) 之后：提案作者取自 user(c)，导出可见性也按它判。
+	h.registerExchange(api)
 	cat := api.Group("/catalog")
 	// 发布的定义文档 + 固定骨架的多语言名称。kinds 放在文档**外面**：它是骨架的显示名，
 	// 不是可编辑的动态定义（放进 document 会被后台保存时当成未知键处理），但同样必须由服务端
