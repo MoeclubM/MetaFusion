@@ -390,7 +390,9 @@ function AdminInner() {
   const navTabs = allTabs.filter((item) => !item.permission || can(user, item.permission));
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-text-strong">
+    // pt-[var(--mf-header-h)]：站点头部是 fixed/sticky 且不给内容留位（各页面自己补），
+    // 少了这一档，下面这个 sticky topbar 会被顶到 y=60 并盖住其后 57px 内容——标题与左栏首项直接消失。
+    <div className="min-h-screen flex flex-col bg-background text-text-strong pt-[var(--mf-header-h)]">
       {/* Admin Topbar */}
       <header className="border-b border-line bg-surface/90 backdrop-blur sticky top-[var(--mf-header-h)] z-30">
         <PageContainer className="h-14 flex items-center justify-between">
@@ -420,7 +422,8 @@ function AdminInner() {
       <PageContainer className="py-6 flex-1 flex flex-col md:flex-row gap-6">
         {/* Left Sidebar */}
         <aside className="w-full md:w-60 shrink-0">
-          <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none sticky top-[calc(var(--mf-header-h)+1.5rem)]">
+          {/* 粘附偏移必须含 topbar 自身高度（h-14=3.5rem）+ 上间距，否则左栏首项被 topbar 吃掉 */}
+          <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none sticky top-[calc(var(--mf-header-h)+5rem)]">
             {navTabs.map((tItem) => {
               const Icon = tItem.icon;
               const active = activeTab === tItem.id;
