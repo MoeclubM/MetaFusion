@@ -135,10 +135,13 @@ jobs:
           docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml config --quiet
       # config 解析不出"build.target 在 Dockerfile 里不存在"（曾把 catalog-server 当真），
       # 也看不出必填变量没写进 .env.example；这两项由本仓库脚本补齐，本机无 docker 也能跑。
-      - name: deploy 编排自检（构建目标 / 必填变量）
+      # --selftest 是脚本自带的离线用例（变量展开 / 路径解析）：它自己坏了要在 CI 就红，
+      # 而不是等到某天没人发现「检查其实没跑」。
+      - name: deploy 编排自检（构建目标 / 必填变量 / 自测）
         run: |
           python3 -m pip install --quiet pyyaml
           python3 scripts/check_deploy.py
+          python3 scripts/check_deploy.py --selftest
       # 下面两个脚本只用标准库，不需要网络与 docker：网关矩阵是唯一入口的“线上真图”，
       # 它与文档 §2 表、与各仓库版本锁的关系只能靠机器守（2026-09 审计 §6）。
       - name: 网关矩阵 ↔ 文档 §2 表一致性
