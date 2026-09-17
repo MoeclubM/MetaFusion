@@ -16,6 +16,7 @@ import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
 import { UsersTab } from "./components/tabs/UsersTab";
 import { BoardsTab } from "./components/tabs/BoardsTab";
+import { ExchangeTab } from "./components/tabs/ExchangeTab";
 import { OAuthClientsTab } from "./components/tabs/OAuthClientsTab";
 import { AUTH_OAUTH_MANAGE, can, canEnterAdmin } from "@/lib/permissions";
 import { fetchApi, unpublishEntity } from "@/lib/api";
@@ -56,7 +57,8 @@ type AdminTab =
   | "shelves"
   | "accounts"
   | "oauth"
-  | "boards";
+  | "boards"
+  | "exchange";
 
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
@@ -377,6 +379,7 @@ function AdminInner() {
     { id: "modules", labelKey: "admin.tab.modules", icon: Cpu },
     { id: "users", labelKey: "admin.tab.users", icon: Users },
     { id: "boards", labelKey: "admin.tab.boards", icon: MessageSquare },
+    { id: "exchange", labelKey: "admin.tab.exchange", icon: ArrowUpRight },
     { id: "accounts", labelKey: "admin.tab.accounts", icon: ShieldCheck },
     { id: "oauth", labelKey: "admin.tab.oauth", icon: KeyRound, permission: AUTH_OAUTH_MANAGE },
   ];
@@ -968,6 +971,8 @@ function AdminInner() {
           {activeTab === "users" && <UsersTab />}
 
           {activeTab === "boards" && <BoardsTab />}
+
+          {activeTab === "exchange" && <ExchangeTab />}
           </div>
         </TabPanel>
       </PageContainer>
