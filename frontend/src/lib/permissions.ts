@@ -20,6 +20,7 @@ import {
 // 用 export { ... } from 而不是 export const，以保留生成物里的字面量类型。
 export {
   AUTH_GROUPS_MANAGE,
+  AUTH_INVITES_MANAGE,
   AUTH_OAUTH_MANAGE,
   AUTH_SETTINGS_MANAGE,
   AUTH_USERS_MANAGE,
@@ -33,6 +34,8 @@ export {
   COMMUNITY_POST_CREATE,
   COMMUNITY_POST_MODERATE,
   COMMUNITY_TOPIC_PIN,
+  STORAGE_ASSET_MODERATE,
+  STORAGE_ASSET_UPLOAD,
 } from "./permissions.generated";
 
 type AnyUser = Pick<User, "id" | "role"> & Partial<Pick<User, "permissions" | "groups">>;

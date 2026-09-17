@@ -1,5 +1,10 @@
 "use client";
 
+// 目录域管理台：只覆盖元数据目录自己的工作面（概览 / 条目 / 定义 / 外部来源 / 货架 / 审核 /
+// 合并 / 子系统能力 / 实例交换）。账号、社区、存储三个域的管理台已是独立应用
+// （deploy/nginx.conf 的 /admin/account|community|storage/ 三条 location），这里只留入口：
+// 左栏底部的「其他控制台」，按权限码与探活结果收敛——未部署的域不出现死链。
+
 import React, { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -14,7 +19,20 @@ import { TabPanel } from "@/components/ui/TabPanel";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
 import { ExchangeTab } from "./components/tabs/ExchangeTab";
-import { canEnterAdmin } from "@/lib/permissions";
+import {
+  AUTH_GROUPS_MANAGE,
+  AUTH_INVITES_MANAGE,
+  AUTH_OAUTH_MANAGE,
+  AUTH_SETTINGS_MANAGE,
+  AUTH_USERS_MANAGE,
+  COMMUNITY_BOARD_MANAGE,
+  COMMUNITY_POST_MODERATE,
+  COMMUNITY_TOPIC_PIN,
+  STORAGE_ASSET_MODERATE,
+  STORAGE_ASSET_UPLOAD,
+  can,
+  canEnterAdmin,
+} from "@/lib/permissions";
 import { fetchApi, unpublishEntity } from "@/lib/api";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
@@ -35,6 +53,9 @@ import {
   ArrowUpRight,
   Trash2,
   Globe,
+  HardDrive,
+  MessageSquare,
+  ShieldCheck,
 } from "lucide-react";
 
 type AdminTab =
@@ -47,6 +68,45 @@ type AdminTab =
   | "extdb"
   | "shelves"
   | "exchange";
+
+type ConsoleId = "account" | "community" | "storage";
+type ConsoleState = "unknown" | "online" | "offline";
+
+// 其他控制台：三个已拆出去的管理台的入口定义。
+//   * permissions 与目标应用自己的入口判定同集合：账号域五码任一（metafusion-auth/admin
+//     的 SECTION_PERMISSIONS）、社区治理三码任一（community 的 GOVERNANCE_CODES，不含
+//     普通发帖码 community.post.create）、存储两码任一（storage-admin 的 STORAGE_PERMISSION_CODES）；
+//   * href 带尾斜杠：nginx 对裸路径只回 301，直接用带尾斜杠的地址省一次跳转；
+//   * target=_blank 见渲染处：点进去是另一个应用，不是本控制台的页签。
+const OTHER_CONSOLES: {
+  id: ConsoleId;
+  href: string;
+  labelKey: string;
+  icon: LucideIcon;
+  permissions: string[];
+}[] = [
+  {
+    id: "account",
+    href: "/admin/account/",
+    labelKey: "admin.consoles.account",
+    icon: ShieldCheck,
+    permissions: [AUTH_USERS_MANAGE, AUTH_GROUPS_MANAGE, AUTH_INVITES_MANAGE, AUTH_SETTINGS_MANAGE, AUTH_OAUTH_MANAGE],
+  },
+  {
+    id: "community",
+    href: "/admin/community/",
+    labelKey: "admin.consoles.community",
+    icon: MessageSquare,
+    permissions: [COMMUNITY_BOARD_MANAGE, COMMUNITY_POST_MODERATE, COMMUNITY_TOPIC_PIN],
+  },
+  {
+    id: "storage",
+    href: "/admin/storage/",
+    labelKey: "admin.consoles.storage",
+    icon: HardDrive,
+    permissions: [STORAGE_ASSET_MODERATE, STORAGE_ASSET_UPLOAD],
+  },
+];
 
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
@@ -61,13 +121,15 @@ function AdminInner() {
   const kindOptions = resolveKindOptions(kinds, fallbackKinds);
 
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
-  // totalEntities 为 null 表示"还没拿到"：卡片显示占位，而不是把没取到的数当成 0 讲成事实。
-  const [stats, setStats] = useState<{ pending: number; totalEntities: number | null }>({
-    pending: 0,
-    totalEntities: null,
-  });
+  // 四个计数各为 null 表示"还没拿到或取不到"：卡片显示占位符，不把没取到的数当成 0 讲成事实。
+  const [stats, setStats] = useState<{
+    pending: number | null;
+    published: number | null;
+    extDatabases: number | null;
+  }>({ pending: null, published: null, extDatabases: null });
+  // 其他控制台的探活结果：unknown 表示还没探到——未知不等于在线，这时入口不渲染。
+  const [consoles, setConsoles] = useState<Record<string, ConsoleState>>({});
   const [modules, setModules] = useState<any[]>([]);
-  const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
   const [pendingItems, setPendingItems] = useState<any[]>([]);
   // 审核台要能看的不只是待审：已发布条目下架（published → draft）是审核工作的一部分，
   // 而它只能走 POST /entities/:id/unpublish（保存端点拒绝降级）。所以列表按状态分档取数。
@@ -93,33 +155,43 @@ function AdminInner() {
   const [mergeError, setMergeError] = useState(false);
   const [merging, setMerging] = useState(false);
 
-  const loadOverview = () => {
-    fetch("/api/catalog/entities?status=pending_review", { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : { items: [], total: 0 }))
-      .then((d) => {
-        // 这里只要待审总数：列表内容由 loadReviewList 按当前档位单独取，
-        // 两者共用同一端点但筛选条件不同，混在一起会让切档位时数字与列表对不上。
-        setStats((prev) => ({ ...prev, pending: Number(d.total) || 0 }));
-      })
-      .catch(() => {});
-
-    // limit=1 只为拿 total：列表端点同时返回与筛选条件一致的精确总数（Store.Count）。
-    fetch("/api/catalog/entities?limit=1", { credentials: "same-origin" })
+  // 单状态计数：limit=1 只为拿 total——列表端点同时返回与筛选条件一致的精确总数（Store.Count）。
+  // 非 2xx、网络失败、响应里没有 total 一律不写状态，卡片保持占位符而不是显示 0。
+  const countEntities = (status: string, apply: (n: number) => void) => {
+    fetch(`/api/catalog/entities?status=${status}&limit=1`, { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (d && d.total != null) {
-          setStats((prev) => ({ ...prev, totalEntities: Number(d.total) || 0 }));
+        if (d && d.total != null) apply(Number(d.total));
+      })
+      .catch(() => {});
+  };
+
+  const loadOverview = () => {
+    // 这里只要待审总数：列表内容由 loadReviewList 按当前档位单独取，
+    // 两者共用同一端点但筛选条件不同，混在一起会让切档位时数字与列表对不上。
+    countEntities("pending_review", (n) => setStats((prev) => ({ ...prev, pending: n })));
+    // 已发布数：以前这张卡把"除已删除/已合并外的全量"当"实体总数"讲，标签与事实不符。
+    countEntities("published", (n) => setStats((prev) => ({ ...prev, published: n })));
+
+    // 外部权威库启用数：GET /catalog/external-databases 只回启用项
+    // （store.go ListExternalDatabases 的 enabledOnly=true），取到空数组就是 0 个启用，
+    // 与"取不到"（留 null）分开——不拿空数组冒充失败，也不拿失败冒充 0。
+    fetch("/api/catalog/external-databases", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && Array.isArray(d.items)) {
+          setStats((prev) => ({ ...prev, extDatabases: d.items.length }));
         }
       })
       .catch(() => {});
 
     // 能力清单是部署态声明（registry.go）：enabled 表示部署配置声明了该子系统在不在场。
+    // 概览不再用它出卡片（那是部署态数字，不是目录域指标），但"子系统与能力"页签仍读它。
     fetch("/api/capabilities", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!d) return;
         setModules(d.modules || []);
-        setCapabilitiesLoaded(true);
       })
       .catch(() => {});
   };
@@ -151,6 +223,41 @@ function AdminInner() {
   // 原来只认 role==="admin"，导致后台分配了管理权限组、但 role 仍是 user 的成员
   // 能进 /admin 却永远看不到概览与实体列表（空面板而非"无权限"，等于假象无数据）。
   const mayEnter = canEnterAdmin(user);
+
+  // 各域管理台挂载时探活一次：2.5s 超时、no-store，只认 HTTP 200。
+  // 三个应用的健康体并不一致（auth/storage 是 {"ok":true}，community 是 {"status":"ok"}），
+  // 所以不能按字段判定，只看状态码；超时 / 404 / 网络失败一律当未部署，静默隐藏入口。
+  // 主站本地开发下这三条路径没有代理，会稳定 404 —— 降级结果就是"看不到入口"，不是报错。
+  useEffect(() => {
+    if (!mayEnter) return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 2500);
+    let alive = true;
+    void Promise.all(
+      OTHER_CONSOLES.map(async (item) => {
+        try {
+          const res = await fetch(`${item.href}api/health`, {
+            cache: "no-store",
+            credentials: "same-origin",
+            signal: controller.signal,
+          });
+          return [item.id, res.ok ? "online" : "offline"] as const;
+        } catch {
+          return [item.id, "offline"] as const;
+        }
+      }),
+    )
+      .then((entries) => {
+        window.clearTimeout(timer);
+        if (alive) setConsoles(Object.fromEntries(entries) as Record<ConsoleId, ConsoleState>);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [mayEnter]);
 
   useEffect(() => {
     if (mayEnter) {
@@ -367,6 +474,15 @@ function AdminInner() {
     { id: "exchange", labelKey: "admin.tab.exchange", icon: ArrowUpRight },
   ];
 
+  // 左栏入口 = 有该域管理码 且 探活到在线；探活没回来时一律不渲染，免得闪出一个点进去 404 的链接。
+  const consoleEntries = OTHER_CONSOLES.filter(
+    (item) => consoles[item.id] === "online" && item.permissions.some((code) => can(user, code)),
+  );
+  // 概览的状态条按权限（而不是在线）筛：要能讲"这个域你看得到但没部署"。
+  // 探活结果与左栏入口同源，不重复请求。
+  const permittedConsoles = OTHER_CONSOLES.filter((item) => item.permissions.some((code) => can(user, code)));
+  const consoleProbeDone = permittedConsoles.every((item) => consoles[item.id] != null);
+
   return (
     // pt-[var(--mf-header-h)]：站点头部是 fixed/sticky 且不给内容留位（各页面自己补），
     // 少了这一档，下面这个 sticky topbar 会被顶到 y=60 并盖住其后 57px 内容——标题与左栏首项直接消失。
@@ -422,6 +538,36 @@ function AdminInner() {
               );
             })}
           </nav>
+
+          {/* 其他控制台：独立应用，故 target=_blank；探不到在线的域整条不出现（无死链）。 */}
+          {consoleEntries.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-line-subtle">
+              <div className="px-3 mb-1.5 text-[10px] font-mono uppercase tracking-wide text-text-faint">
+                {t("admin.consoles.title")}
+              </div>
+              <div className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none">
+                {consoleEntries.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <a
+                      key={item.id}
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium text-text-muted hover:text-text-strong hover:bg-surfaceHover transition-all whitespace-nowrap"
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span>{t(item.labelKey)}</span>
+                      <ArrowUpRight className="w-3.5 h-3.5 shrink-0 text-text-faint" />
+                    </a>
+                  );
+                })}
+              </div>
+              <p className="px-3 mt-1 text-[10px] text-text-faint leading-relaxed">
+                {t("admin.consoles.hint")}
+              </p>
+            </div>
+          )}
         </aside>
 
         {/* Right Main Workbench */}
@@ -439,41 +585,69 @@ function AdminInner() {
                 </p>
               </div>
 
-              {/* 卡片只放拿得到的真实数据：数据库版本与会话模式没有任何端点暴露（/api/capabilities
-                  只给部署态的能力声明），写死在页面上等于把"今天恰好如此"讲成系统事实，因此省略；
-                  拿不到的能力清单显示占位符，不写死数字。 */}
+              {/* 卡片只放目录域拿得到的真实数据，且标签与端点口径一致：数据库版本与会话模式没有
+                  任何端点暴露，部署态能力数（/api/capabilities）不是目录域指标，都不出现在这里；
+                  取不到显示占位符，不写死、不拿 0 冒充。 */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
                   <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.pendingReviews")}
                   </div>
-                  <div className="text-2xl font-bold text-amber-400">{stats.pending}</div>
+                  <div className="text-2xl font-bold text-amber-400">{stats.pending ?? "—"}</div>
                 </div>
                 <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
                   <div className="text-xs text-text-muted font-mono mb-1">
-                    {t("admin.console.totalEntities")}
+                    {t("admin.console.publishedEntities")}
                   </div>
-                  <div className="text-2xl font-bold text-text-strong">
-                    {stats.totalEntities ?? "—"}
+                  <div className="text-2xl font-bold text-emerald-400">{stats.published ?? "—"}</div>
+                </div>
+                {/* 墓碑数当前取不到：条目列表端点的过滤固定带 status NOT IN ('deleted','merged')
+                    （backend/internal/catalog/store.go listFilter），与 status=deleted 相与恒为空，
+                    后端也没有墓碑计数端点。如实留占位符——线上同表 deleted 有 288 条，
+                    正是这条查询覆盖不到的那部分，显示 0 就是假数据。 */}
+                <div
+                  className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle"
+                  title={t("admin.console.tombstonesHint")}
+                >
+                  <div className="text-xs text-text-muted font-mono mb-1">
+                    {t("admin.console.tombstones")}
+                  </div>
+                  <div className="text-2xl font-bold text-text-faint">—</div>
+                  <div className="mt-1 text-[10px] text-text-faint leading-tight">
+                    {t("admin.console.tombstonesHint")}
                   </div>
                 </div>
                 <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
                   <div className="text-xs text-text-muted font-mono mb-1">
-                    {t("admin.console.totalModules")}
+                    {t("admin.console.extDatabases")}
                   </div>
-                  <div className="text-2xl font-bold text-text-strong">
-                    {capabilitiesLoaded ? modules.length : "—"}
-                  </div>
-                </div>
-                <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
-                  <div className="text-xs text-text-muted font-mono mb-1">
-                    {t("admin.console.active")}
-                  </div>
-                  <div className="text-2xl font-bold text-emerald-400">
-                    {capabilitiesLoaded ? modules.filter((m) => m.enabled).length : "—"}
-                  </div>
+                  <div className="text-2xl font-bold text-text-strong">{stats.extDatabases ?? "—"}</div>
                 </div>
               </div>
+
+              {/* 其他控制台状态条：与左栏入口共用同一次探活，不重复请求；未部署的域在这里
+                  如实标"未部署"，但左栏不给入口（状态条不是链接）。 */}
+              {consoleProbeDone && permittedConsoles.length > 0 && (
+                <div className="p-3 rounded-xl border border-line-subtle bg-surfaceSubtle flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <span className="text-[11px] font-mono uppercase tracking-wide text-text-faint">
+                    {t("admin.consoles.title")}
+                  </span>
+                  {permittedConsoles.map((item) => {
+                    const online = consoles[item.id] === "online";
+                    return (
+                      <span key={item.id} className="inline-flex items-center gap-1.5 text-xs">
+                        <span className={`w-2 h-2 rounded-full ${online ? "bg-emerald-400" : "bg-text-faint"}`} />
+                        <span className={online ? "text-text-body" : "text-text-faint"}>
+                          {t(item.labelKey)}
+                        </span>
+                        <span className="font-mono text-[10px] text-text-faint">
+                          {online ? t("admin.console.active") : t("admin.console.disabled")}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -737,7 +911,7 @@ function AdminInner() {
                     }`}
                   >
                     {status === "pending_review"
-                      ? `${t("admin.reviews.pending")} (${stats.pending})`
+                      ? `${t("admin.reviews.pending")} (${stats.pending ?? "—"})`
                       : t("admin.reviews.published")}
                   </button>
                 ))}
