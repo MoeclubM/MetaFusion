@@ -264,7 +264,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 | 嵌入契约 | 目录详情页的社区与资源区块改为挂载自定义元素（属性传实体 id 与 locale，事件回传登录需求，鉴权走同域 cookie 或显式令牌） | 目标是"目录站不 import 别的应用的内部代码" |
 | 降级 | 上游未部署时隐藏入口（沿用 `hasResourceStation()` 的现成思路，扩展到 auth 与 community） | 元数据-only 部署不再出现死链 |
 
-拆分顺序与代价（实测规模）：auth 4486 行 → community 1878 行 → storage 887 行；共享层 4543 行必须先行。前端内部先做无风险的分域重构：`lib/api.ts` 按域拆模块、`app/admin/page.tsx` 的账号页签移出、详情页跨域区块改插槽、`NEXT_PUBLIC_*` 要么补齐构建期注入点要么删掉外部态分支。
+拆分顺序与代价（实测规模）：auth 4486 行 → community 1878 行 → storage 887 行；共享层 4543 行必须先行。前端内部先做无风险的分域重构：`lib/api.ts` 按域拆模块、`app/admin/page.tsx` 的账号页签移出（**已完成（2026-09-17）**：三个域管理台已落地为独立应用 `/admin/{account,community,storage}`，主控制台 `/admin` 只保留目录域）、详情页跨域区块改插槽、`NEXT_PUBLIC_*` 要么补齐构建期注入点要么删掉外部态分支。
 
 ### 7.4 待办
 
