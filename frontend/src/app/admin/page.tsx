@@ -13,28 +13,19 @@ import { PageContainer } from "@/components/ui/PageShell";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { ExternalDatabasesTab } from "./components/tabs/ExternalDatabasesTab";
 import { ShelvesTab } from "./components/tabs/ShelvesTab";
-import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
-import { UsersTab } from "./components/tabs/UsersTab";
-import { BoardsTab } from "./components/tabs/BoardsTab";
 import { ExchangeTab } from "./components/tabs/ExchangeTab";
-import { StorageTab } from "./components/tabs/StorageTab";
-import { OAuthClientsTab } from "./components/tabs/OAuthClientsTab";
-import { AUTH_OAUTH_MANAGE, can, canEnterAdmin } from "@/lib/permissions";
+import { canEnterAdmin } from "@/lib/permissions";
 import { fetchApi, unpublishEntity } from "@/lib/api";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import type { LucideIcon } from "lucide-react";
 import {
-  HardDrive,
-  KeyRound,
-  MessageSquare,
   Shield,
   LayoutDashboard,
   Sliders,
   CheckSquare,
   GitMerge,
   Cpu,
-  Users,
   ArrowLeft,
   RefreshCw,
   Power,
@@ -44,7 +35,6 @@ import {
   ArrowUpRight,
   Trash2,
   Globe,
-  ShieldCheck,
 } from "lucide-react";
 
 type AdminTab =
@@ -54,14 +44,9 @@ type AdminTab =
   | "reviews"
   | "merge"
   | "modules"
-  | "users"
   | "extdb"
   | "shelves"
-  | "accounts"
-  | "oauth"
-  | "boards"
-  | "exchange"
-  | "storage";
+  | "exchange";
 
 function AdminInner() {
   const { user, loading: authLoading } = useAuth();
@@ -368,10 +353,9 @@ function AdminInner() {
     );
   }
 
-  // 页签准入：给了 permission 的页签按权限码过滤（OAuth 客户端管理面受 auth.oauth.manage 保护，
-  // 没有该码的成员连入口都不该看到，点了也只会 403）。其余页签沿用既有口径：
-  // 进管理台的闸门是 canEnterAdmin，块内 403 各自降级，不在这里逐块加码。
-  const allTabs: { id: AdminTab; labelKey: string; icon: LucideIcon; permission?: string }[] = [
+  // 页签即管理台的全部工作面：进管理台的闸门是 canEnterAdmin，块内 403 各自降级，
+  // 不在这里逐块加码。其余域（账号 / 社区 / 存储）已是独立应用，不在这里挂页签。
+  const navTabs: { id: AdminTab; labelKey: string; icon: LucideIcon }[] = [
     { id: "overview", labelKey: "admin.tab.overview", icon: LayoutDashboard },
     { id: "entities", labelKey: "admin.nav.entities", icon: Layers },
     { id: "definitions", labelKey: "admin.tab.definitions", icon: Sliders },
@@ -380,14 +364,8 @@ function AdminInner() {
     { id: "reviews", labelKey: "admin.tab.reviews", icon: CheckSquare },
     { id: "merge", labelKey: "admin.tab.merge", icon: GitMerge },
     { id: "modules", labelKey: "admin.tab.modules", icon: Cpu },
-    { id: "users", labelKey: "admin.tab.users", icon: Users },
-    { id: "boards", labelKey: "admin.tab.boards", icon: MessageSquare },
     { id: "exchange", labelKey: "admin.tab.exchange", icon: ArrowUpRight },
-    { id: "storage", labelKey: "admin.tab.storage", icon: HardDrive },
-    { id: "accounts", labelKey: "admin.tab.accounts", icon: ShieldCheck },
-    { id: "oauth", labelKey: "admin.tab.oauth", icon: KeyRound, permission: AUTH_OAUTH_MANAGE },
   ];
-  const navTabs = allTabs.filter((item) => !item.permission || can(user, item.permission));
 
   return (
     // pt-[var(--mf-header-h)]：站点头部是 fixed/sticky 且不给内容留位（各页面自己补），
@@ -721,10 +699,6 @@ function AdminInner() {
 
           {activeTab === "shelves" && <ShelvesTab />}
 
-          {activeTab === "accounts" && <AccountAccessTab />}
-
-          {activeTab === "oauth" && <OAuthClientsTab />}
-
           {activeTab === "reviews" && (
             <div className="space-y-4">
               <div className="p-4 rounded-xl bg-surfaceSubtle border border-line-subtle flex items-center justify-between">
@@ -975,13 +949,7 @@ function AdminInner() {
             </div>
           )}
 
-          {activeTab === "users" && <UsersTab />}
-
-          {activeTab === "boards" && <BoardsTab />}
-
           {activeTab === "exchange" && <ExchangeTab />}
-
-          {activeTab === "storage" && <StorageTab />}
           </div>
         </TabPanel>
       </PageContainer>
