@@ -6,7 +6,8 @@
 # 回滚时无法判断当时那份 community 是哪一次提交。这里把这些部署输入钉住。
 #
 # 格式：<仓库目录>=<commit 短 sha>；. 是本仓库，.. 是与本仓库并列检出的兄弟目录。
-# 校验：python scripts/check_versions.py
+# 校验：python scripts/check_versions.py（deploy.sh 的 fast/cutover/prod/pull 每个动作开头都会跑，
+#       不一致就非零退出；紧急放行用 --skip-version-check，跳过原因会写进部署日志）
 #   - 逐条 git -C <目录> rev-parse HEAD 与锁里的 sha 比对；
 #   - 兄弟目录不在本机（只检出主仓库的机器、CI 上很常见）→ 打印 skip，不算失败；
 #   - 某条不一致 → 打印期望与实际并以非零码退出，部署前停下；
@@ -14,12 +15,18 @@
 # 更新：切流窗口开始时按各仓库 git rev-parse --short HEAD 重写一遍并提交。
 #       不要为了让它变绿而改 sha——那等于把锚点挪到没验证过的代码上。
 #
-# 当前锚点（2026-09-16 实施批次后）。注意：`../metafusion-sdk` 目前**不是部署输入**（没有任何服务 import），
+# 已知缺口（2026-09-26 审计确认）：本仓库 CI 只检出主仓库，兄弟目录缺席时上面的 SKIP 分支生效，
+# 漂移因此不会让 CI 变红。要让 CI 也守住锚点，得在 CI 里按这份锁的 sha 克隆四个兄弟仓库
+# （git clone https://github.com/MoeclubM/metafusion-<x> ../metafusion-<x> && git -C ../metafusion-<x> checkout <sha>）
+# 再跑 check_versions.py；在那之前，唯一会拦住漂移的是 deploy.sh 的这一步。
+#
+# 当前锚点（2026-09-26 清理批次后；docs 一行随当时文档仓的最新提交刷新）。
+# 注意：`../metafusion-sdk` 目前**不是部署输入**（没有任何服务 import），
 # 因此不进这份锁；等 SDK 接入服务后必须补一行，否则“锁住了”只是错觉。
 # 更新时按各仓库 git rev-parse --short HEAD 重写，并在同一次提交里跑一遍 python scripts/check_versions.py。
-.=811c676
-../metafusion-auth=c96e4ad
-../metafusion-community=9bdc6a1
-../metafusion-storage=beff6cd
+.=e13be7c
+../metafusion-auth=c925c68
+../metafusion-community=d8b54ff
+../metafusion-storage=ab1755e
 ../metafusion-api-gateway=67f1685
-../metafusion-docs=d3fea91
+../metafusion-docs=b989f14
