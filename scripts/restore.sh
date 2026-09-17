@@ -259,7 +259,8 @@ prepare_target() {
 # ---- 恢复执行 ------------------------------------------------------------------
 
 do_restore() {
-  local flags=(-U "$MF_DB_USER" -d "$TARGET" -v ON_ERROR_STOP=1) start elapsed
+  # -q 只压掉 CREATE TABLE 这类命令回显；报错仍走 stderr，日志里只剩进度与结果。
+  local flags=(-U "$MF_DB_USER" -d "$TARGET" -v ON_ERROR_STOP=1 -q) start elapsed
   if [ "$SINGLE_TX" = 1 ]; then flags+=(-1); fi
   if [ "$DRY_RUN" = 1 ]; then
     mf_log "  [dry-run] gunzip -c $DUMP_FILE | docker exec -i $MF_PG_CONTAINER psql ${flags[*]}"
