@@ -247,7 +247,8 @@ function AdminInner() {
         (source.medium_id || "") === (target.medium_id || "") &&
         (source.parent_id || "") === (target.parent_id || "") &&
         (source.content_unit_id || "") === (target.content_unit_id || "");
-      if (!sameScope || target.status !== "published") {
+      // 自合并（源与目标同一条）服务端同样判 invalid_merge_target，先本地拦掉再讲清楚原因。
+      if (sourceId === targetId || !sameScope || target.status !== "published") {
         setMergeError(true);
         setMergeMessage(t("admin.console.mergeInvalidTarget"));
         return;
