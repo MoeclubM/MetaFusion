@@ -216,6 +216,7 @@ cd deploy && ./deploy.sh retire
 - 前端不调用 `/archive/`、`/playback/`、`/media/`、`/records/`、`/exchange/`；但**会**调用 `/api/storage/*`
   （上传、绑定、实体文件列表），因此存储这一步的理由是"链路短、失败面窄"，不是"没有流量"。
 - 页面级外链（账号页、资源站、文档站）由 `frontend/src/lib/services.ts` 的 `NEXT_PUBLIC_*` 控制，与本次切流无关。
+- 三个服务自带的管理台（`/admin/account`、`/admin/community`、`/admin/storage`）是各服务仓库里的独立应用，由网关按前缀反代到 `auth-admin`、`community-admin`、`storage-admin`：它们**不是主前端** `frontend/` 的页面，因此这一步不涉及它们的构建与发布；改了它们的路由后照「网关必须显式重载」一节重建网关容器。
 
 ## 4. 还没处理的问题
 

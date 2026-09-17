@@ -229,7 +229,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 | 待办项 | 涉及文件 | 可验证判据 |
 | --- | --- | --- |
 | 矩阵单源化（三步） | `deploy/nginx.conf`、`../metafusion-api-gateway/` 下的矩阵与脚本、新增 CI | **部分完成（2026-09-16）**：旧矩阵已归档且不可部署、`cutover-check.sh` 断言标记并带 `--self-check`、网关仓库有了 CI；第 ③ 步（矩阵搬进网关仓库）未做 |
-| 文档表格自动比对 | `./service-split-migration.md`、CI 脚本 | **已完成（2026-09-16）**：`python scripts/check_gateway_matrix.py`（33 条 location 对 33 条文档路径，含限流不变量与归属比对），并接进主仓库 CI |
+| 文档表格自动比对 | `./service-split-migration.md`、CI 脚本 | **已完成（2026-09-16）**：`python scripts/check_gateway_matrix.py`（含限流不变量与归属比对），并接进主仓库 CI；接入三个服务管理台后为 42 条 location 对 43 条文档路径、0 个问题（2026-09） |
 | 限流与健康补齐 | `deploy/nginx.conf` | **已完成（2026-09-16）**：所有 `/api/*` location 一律自带 `limit_req`（脚本强制），探针拆成 `/healthz|/livez|/live`（网关自身）与 `/health/<service>`（逐上游 `/ready`）；本机无 nginx，`nginx -t` 与 429 复现留给 CI/部署 |
 | 发布渠道与版本锁 | `.github/workflows/release.yml`、各服务仓库 CI、`deploy/versions.lock` | **一半完成（2026-09-16）**：`deploy/versions.lock` + `scripts/check_versions.py`（接进 CI）已就位，前端的 `NEXT_PUBLIC_*` 也改由 `release.yml` 的 build args 注入；**镜像发布渠道仍缺**（docs-site/auth/community/storage 无发布方），部署脚本里的锁校验未接 |
 | 元数据-only 编排降级 | `deploy/nginx.metadata.conf`、`frontend/src/lib/services.ts` | **部分完成（2026-09-16）**：metadata 栈补了安全头/限流/`/healthz` 与 `/health/catalog`；前端不再拼账号服务的页面地址（`AUTH_PAGES_ENABLED`/`FORUM_PAGES_ENABLED`=false）；**仍未做**“上游未部署则藏入口”的完整性（页面级 API 仍会打到不存在的上游） |
@@ -275,6 +275,9 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 | 前端内部分域 | `frontend/src/lib/api.ts`、`frontend/src/app/admin/page.tsx`、`frontend/src/components/catalog/EntityDetailView.tsx` | `tsc --noEmit` 通过；单文件不再混多个服务端点 |
 | 开关二选一 | `frontend/src/lib/services.ts`、`frontend/Dockerfile`、`deploy/*.yml` | 若保留：`NEXT_PUBLIC_*` 作为构建参数注入，外链指向配置域名；若删除：仓库内不再有外部态分支与死代码 |
 | 嵌入契约小样 | 目录详情页与一个新应用 | 目录站构建产物不含目标应用的客户端代码；目标应用未部署时嵌区块隐藏而非报错 |
+
+**已落地（2026-09）**：三个服务各自的管理台——`metafusion-auth/admin`、`metafusion-community/admin`、`metafusion-storage/admin`（各自仓库构建、各自发布，基础路径 `/admin/account`、`/admin/community`、`/admin/storage`）——已经按本节的机制（独立应用 + 同域路径）接进网关与主编排：网关三条前缀 location 加无尾斜杠的 301，编排三个 `*-admin` 服务，契约登记在 [service-split-migration.md](./service-split-migration.md) §2。
+**仍未开始**：§7.4 其余各项——共享层（字典按域拆、UI kit、会话客户端）、主控制台里四个域页面（`/account`、`/community`、`/downloads` 形态）与嵌入契约小样。也就是说：管理台这一段先落地，共享层与整页拆分没有因此提前完成。
 
 ## 8. 目标架构
 
@@ -366,13 +369,13 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 | B3 网关与部署 | 所有 `/api/*` 挂限流（脚本强制的不变量）；探针拆成网关自身与逐上游；`scripts/check_gateway_matrix.py`（33/33 + 限流 + 归属，负例 4/4）与 `scripts/check_versions.py` + `deploy/versions.lock`；`deploy/nginx.metadata.conf` 补安全头/限流/探针；网关仓库收敛为脚本仓库并加 CI；`cutover-check.sh` 断言标记 + `--self-check` | 主仓库 `27433d4`；网关仓库 `34389e2`、`850d777` |
 | B2 前置 SDK | `metafusion-sdk` 骨架（Claims/验签/JWKS/会话兜底/权限码/错误体与分页/health/request-id；52 用例，零第三方依赖）+ CI | SDK 仓库 `75799ea`、`59f2233` |
 | B4 数据层准备 | community/storage 迁移文件化 + 版本账本（幂等、真库用例）；两处 `sql/roles.example.sql`；`records` 与 `community` 变量拆分；`-p 1` 进 storage CI | community `06a3f48`、`316efaf`、`0eaaee4`、`399a9bb`；storage `05db308`、`d7dbca6`、`7bf29a9`；auth `e2e700b`、`b3b74bc` |
-| B5 / B6 UI 拆分 | **未开始**（共享层与逐域拆分仍待排期） | — |
+| B5 / B6 UI 拆分 | **部分落地**：三个服务自带的管理台（独立应用 + 同域路径 + 网关三条前缀 location + 编排三个 `*-admin` 服务）已接入；**共享层与主控制台逐域拆页未开始** | — |
 
 仍待办（按投入产出排序）：
 
 1. **SDK 接入三个服务**（B2 收尾）：删各自的 `internal/auth` 与权限码副本、收口 `unauthorized`、删私钥兜底路径；SDK 仓库尚未建远端与 tag（需要用户授权）。
 2. **B4 正式启用**：每服务 DB 角色 + `DATABASE_URL` 拆分 + 显式迁移入口（否则受限角色会挡住启动，见 §4.3 第 3 条）——需要停机窗口与回滚脚本。
 3. **矩阵本体搬进网关仓库**（B3 第 ③ 步）与**镜像发布渠道**（docs-site/auth/community/storage）。
-4. **B5 → B6 UI 拆分**：字典按域拆、共享 UI 包、嵌入契约小样，然后 auth → community → storage 逐域独立。
+4. **B5 → B6 UI 拆分**：字典按域拆、共享 UI 包、嵌入契约小样，然后 auth → community → storage 逐域独立。三个服务自带的管理台已在网关层落地（见 §7.4），但它们只让服务有了独立**管理**界面，共享层与主控制台的整页拆分仍未开始。
 5. **遗留死代码**：私信与插件两组前端死调用、`app/admin/components/tabs/**` 里的 9 处裸串权限码（都在并发改动中的文件里，需等其作者落地后再清）。
 6. **部署前必做**：刷新 `deploy/versions.lock`（兄弟仓库 HEAD 会随并发提交前进）、`nginx -t` 与 `/health/<service>` 实测、外部监控把 `/healthz` 改成 `/health/catalog`。
