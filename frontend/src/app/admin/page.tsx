@@ -17,8 +17,9 @@ import { AccountAccessTab } from "./components/tabs/AccountAccessTab";
 import { UsersTab } from "./components/tabs/UsersTab";
 import { OAuthClientsTab } from "./components/tabs/OAuthClientsTab";
 import { AUTH_OAUTH_MANAGE, can, canEnterAdmin } from "@/lib/permissions";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, unpublishEntity } from "@/lib/api";
 import { localizeCatalogError } from "@/lib/catalogErrors";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import type { LucideIcon } from "lucide-react";
 import {
   KeyRound,
@@ -75,6 +76,11 @@ function AdminInner() {
   const [modules, setModules] = useState<any[]>([]);
   const [capabilitiesLoaded, setCapabilitiesLoaded] = useState(false);
   const [pendingItems, setPendingItems] = useState<any[]>([]);
+  // 审核台要能看的不只是待审：已发布条目下架（published → draft）是审核工作的一部分，
+  // 而它只能走 POST /entities/:id/unpublish（保存端点拒绝降级）。所以列表按状态分档取数。
+  const [reviewStatus, setReviewStatus] = useState<"pending_review" | "published">("pending_review");
+  const [unpublishTarget, setUnpublishTarget] = useState<any | null>(null);
+  const [unpublishing, setUnpublishing] = useState(false);
   // 审核动作的反馈：原来用 alert()，既不本地化也打断操作
   const [reviewNotice, setReviewNotice] = useState("");
 
@@ -98,8 +104,8 @@ function AdminInner() {
     fetch("/api/catalog/entities?status=pending_review", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : { items: [], total: 0 }))
       .then((d) => {
-        // 列表本身按 50 条封顶（服务端上限），卡片要的是待审总数，取响应里的 total。
-        setPendingItems(d.items || []);
+        // 这里只要待审总数：列表内容由 loadReviewList 按当前档位单独取，
+        // 两者共用同一端点但筛选条件不同，混在一起会让切档位时数字与列表对不上。
         setStats((prev) => ({ ...prev, pending: Number(d.total) || 0 }));
       })
       .catch(() => {});
@@ -123,6 +129,14 @@ function AdminInner() {
         setCapabilitiesLoaded(true);
       })
       .catch(() => {});
+  };
+
+  const loadReviewList = () => {
+    // 50 是服务端上限；审核台只呈现这一页，总数另由概览卡片给出，不在这里编造分页。
+    fetch(`/api/catalog/entities?status=${reviewStatus}&limit=50`, { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((d) => setPendingItems(d.items || []))
+      .catch(() => setPendingItems([]));
   };
 
   const loadEntities = () => {
@@ -157,6 +171,12 @@ function AdminInner() {
     }
   }, [activeTab, entitiesKind, entitiesStatus, mayEnter]);
 
+  useEffect(() => {
+    if (activeTab === "reviews" && mayEnter) {
+      loadReviewList();
+    }
+  }, [activeTab, reviewStatus, mayEnter]);
+
   // 状态写入的唯一封装：PUT 是整份替换，必须先读全量再改状态（列表项是摘要，
   // 直接提交会因缺字段被服务端拒）；sources 的 kind 只能是 url / publication / self
   // （validation.go 的 validateSources）：管理台动作属于自述来源，用 "self" + 操作记录说明，
@@ -187,6 +207,42 @@ function AdminInner() {
       loadOverview();
     } catch (e) {
       setReviewNotice(localizeCatalogError(String((e as Error).message || e), t));
+    }
+  };
+
+  // 下架（published → draft）只能走 /unpublish：保存端点对 published 降级回
+  // 400 use_lifecycle_endpoint，生命周期端点只写 deleted/merged。expected_version 用
+  // 当前行的版本，服务端把它放进 WHERE 做乐观并发——别人先改过就是 409，不会覆盖掉。
+  const handleUnpublish = async () => {
+    if (!unpublishTarget) return;
+    setUnpublishing(true);
+    setReviewNotice("");
+    try {
+      await unpublishEntity({
+        entity_id: unpublishTarget.id,
+        expected_version: Number(unpublishTarget.version) || 1,
+        edit_note: t("admin.reviews.unpublishNote"),
+        citation: t("admin.reviews.sourceCitation"),
+      });
+      setReviewNotice(t("admin.reviews.unpublished"));
+      setUnpublishTarget(null);
+      loadReviewList();
+      loadEntities();
+      loadOverview();
+    } catch (e) {
+      // 下架有两种拒绝最值得单独讲清：状态已经变了（列表是旧的）与版本冲突（别人先改过）。
+      // 其余错误码统一走码表，不把裸码渲染给用户。
+      const raw = String((e as Error).message || e);
+      const code = raw.trim().split(":")[0]?.trim();
+      setReviewNotice(
+        code === "invalid_status"
+          ? t("admin.reviews.unpublishInvalidStatus")
+          : code === "version_conflict"
+            ? t("admin.reviews.unpublishVersionConflict")
+            : localizeCatalogError(raw, t),
+      );
+    } finally {
+      setUnpublishing(false);
     }
   };
 
@@ -603,16 +659,18 @@ function AdminInner() {
                                 </button>
                               )}
                               {e.status === "published" && (
-                                // 禁用按钮自身不派发鼠标事件，title 挂在外层 span 上提示才显示得出来。
-                                <span title={t("admin.entities.rejectPublishedHint")}>
-                                  <button
-                                    type="button"
-                                    disabled
-                                    className="px-2 py-1 rounded bg-amber-500/10 text-amber-400/60 text-[11px] cursor-not-allowed"
-                                  >
-                                    {t("admin.entities.reject")}
-                                  </button>
-                                </span>
+                                // 已发布条目现在有真正的降级入口（/unpublish），不再是禁用态：
+                                // 调用前二次确认，确认框里说明这一步的影响面。
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReviewNotice("");
+                                    setUnpublishTarget(e);
+                                  }}
+                                  className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
+                                >
+                                  {t("admin.entities.unpublish")}
+                                </button>
                               )}
                               {e.status !== "deleted" && e.status !== "merged" && (
                                 <button
@@ -664,11 +722,35 @@ function AdminInner() {
                 </div>
                 <button
                   type="button"
-                  onClick={loadOverview}
+                  onClick={() => {
+                    loadReviewList();
+                    loadOverview();
+                  }}
                   className="p-2 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover text-xs text-text-body"
                 >
                   <RefreshCw className="w-4 h-4" />
                 </button>
+              </div>
+
+              {/* 两个档位共用同一端点、不同 status 筛选：待审的入口是"通过/驳回"，
+                  已发布的入口是"退回草稿"（只有 /unpublish 能降级）。 */}
+              <div className="flex items-center gap-2">
+                {(["pending_review", "published"] as const).map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setReviewStatus(status)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors duration-fast ease-soft cursor-pointer ${
+                      reviewStatus === status
+                        ? "bg-primary/20 text-primary"
+                        : "bg-surfaceSubtle hover:bg-surfaceHover text-text-muted"
+                    }`}
+                  >
+                    {status === "pending_review"
+                      ? `${t("admin.reviews.pending")} (${stats.pending})`
+                      : t("admin.reviews.published")}
+                  </button>
+                ))}
               </div>
 
               {reviewNotice && (
@@ -707,20 +789,37 @@ function AdminInner() {
                         >
                           {t("admin.console.inspect")}
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => handleReviewAction(item.id, "published")}
-                          className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-semibold"
-                        >
-                          {t("admin.reviews.approve")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleReviewAction(item.id, "draft")}
-                          className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-xs font-semibold"
-                        >
-                          {t("admin.entities.reject")}
-                        </button>
+                        {/* 已发布条目不能"通过发布"（已经是发布态），也不该走保存端点降级：
+                            唯一的出口是 /unpublish，所以两个档位的操作集合不同。 */}
+                        {item.status === "published" ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReviewNotice("");
+                              setUnpublishTarget(item);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-xs font-semibold cursor-pointer"
+                          >
+                            {t("admin.entities.unpublish")}
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleReviewAction(item.id, "published")}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-semibold"
+                            >
+                              {t("admin.reviews.approve")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReviewAction(item.id, "draft")}
+                              className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-xs font-semibold"
+                            >
+                              {t("admin.entities.reject")}
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -864,6 +963,20 @@ function AdminInner() {
           </div>
         </TabPanel>
       </PageContainer>
+
+      {/* 实体行的"退回草稿"与审核台共用这个确认框：一次只可能有一个待确认目标。 */}
+      <ConfirmDialog
+        open={unpublishTarget != null}
+        title={t("admin.entities.unpublish")}
+        message={t("admin.entities.unpublishConfirm", {
+          title: unpublishTarget?.title ?? "",
+          version: String(unpublishTarget?.version ?? 1),
+        })}
+        confirmLabel={t("admin.entities.unpublish")}
+        busy={unpublishing}
+        onClose={() => setUnpublishTarget(null)}
+        onConfirm={() => void handleUnpublish()}
+      />
     </div>
   );
 }
