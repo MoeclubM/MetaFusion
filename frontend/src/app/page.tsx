@@ -5,32 +5,24 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useDefinitions, getKindName, resolveLocalizedName, type KindMap } from "@/lib/definitions";
+import { useDefinitions, getKindName, type KindMap } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
 import { PageContainer, PageShell } from "@/components/ui/PageShell";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useAuth } from "@/lib/authContext";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import { fetchApi } from "@/lib/api";
+import { localizeCatalogError } from "@/lib/catalogErrors";
+import { HomeCustomizeModal } from "@/components/home/HomeCustomizeModal";
 import {
-  Search,
-  Disc,
-  BookOpen,
-  Film,
-  Tv,
-  Gamepad2,
-  Camera,
-  Layers,
-  Music,
-  Sparkles,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown,
-  Check,
-  RotateCcw,
-  Sliders,
-  X,
-} from "lucide-react";
+  EMPTY_PREFERENCES,
+  iconFor,
+  normalizePreferences,
+  shelfTitle,
+  type HomePreferences,
+  type ShelfLike,
+} from "@/lib/homeSections";
+import { Search, Sparkles, ChevronRight, Sliders } from "lucide-react";
 
 type EntityItem = {
   id: string;
@@ -43,43 +35,13 @@ type EntityItem = {
   version?: number;
 };
 
-type PublicShelf = {
-  slug: string;
-  names?: Record<string, string> | null;
-  icon?: string;
-  query?: { types?: string[] | null } | null;
-};
-
-type FeedSection = { shelf: PublicShelf; items: EntityItem[] };
-
-type HomePreferences = { order: string[]; hidden: string[] };
-
-// 分区图标按货架声明的 icon 名映射；未声明的按 slug 兜底，最后回落到通用图标。
-const ICONS: Record<string, React.ElementType> = {
-  Disc,
-  Tv,
-  Film,
-  Gamepad2,
-  Camera,
-  BookOpen,
-  Layers,
-  Music,
-  Sparkles,
-};
-
-function iconFor(shelf: PublicShelf): React.ElementType {
-  if (shelf.icon && ICONS[shelf.icon]) return ICONS[shelf.icon];
-  return ICONS[shelf.slug] || Sparkles;
-}
-
-function shelfTitle(shelf: PublicShelf, locale: string): string {
-  return resolveLocalizedName(shelf.names || undefined, locale, shelf.slug);
-}
+// 分区定义（含 source：system 只能隐藏、custom 可删除）与图标集见 lib/homeSections.ts。
+type FeedSection = { shelf: ShelfLike; items: EntityItem[] };
 
 export default function HomePage() {
   const { t, tr, locale } = useI18n();
   const router = useRouter();
-  const { kinds } = useDefinitions();
+  const { definitions, kinds } = useDefinitions();
   const titleOrder = useTitleDisplayOrder();
   const { user, loading: authLoading } = useAuth();
 
@@ -88,7 +50,9 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [customizing, setCustomizing] = useState(false);
-  const [prefs, setPrefs] = useState<HomePreferences>({ order: [], hidden: [] });
+  const [prefs, setPrefs] = useState<HomePreferences>(EMPTY_PREFERENCES);
+  const [templates, setTemplates] = useState<ShelfLike[]>([]);
+  const [prefsLoading, setPrefsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
@@ -125,83 +89,61 @@ export default function HomePage() {
     [sections],
   );
 
-  // 自定义面板的候选：以服务端返回的全部分区为准（含被隐藏的空分区），
-  // 这样用户隐藏后仍能在面板里重新开启。
-  const allSlugs = useMemo(
-    () => sections.map((s) => s.shelf.slug).filter(Boolean),
-    [sections],
-  );
-
   const openCustomize = async () => {
     setSaveError("");
     setCustomizing(true);
     if (!user) return;
+    setPrefsLoading(true);
     try {
-      const r = await fetchApi<HomePreferences>("/catalog/me/home-preferences");
-      setPrefs({ order: r.order || [], hidden: r.hidden || [] });
+      // 偏好给出用户自己的分区配置；/catalog/shelves 给出系统预设——它既是"从模板添加"
+      // 的候选，也是隐藏分区的定义来源（feed 已按偏好把隐藏项过滤掉了）。
+      const [loaded, tpl] = await Promise.all([
+        fetchApi<HomePreferences>("/catalog/me/home-preferences"),
+        fetchApi<{ items: ShelfLike[] }>("/catalog/shelves"),
+      ]);
+      setPrefs(normalizePreferences(loaded));
+      setTemplates(tpl.items || []);
     } catch {
-      setPrefs({ order: [], hidden: [] });
+      setPrefs(EMPTY_PREFERENCES);
+      setTemplates([]);
+    } finally {
+      setPrefsLoading(false);
     }
   };
 
-  const toggleHidden = (slug: string) => {
-    setPrefs((p) => ({
-      order: p.order.filter((x) => x !== slug),
-      hidden: p.hidden.includes(slug) ? p.hidden.filter((x) => x !== slug) : [...p.hidden, slug],
-    }));
-  };
-
-  const move = (slug: string, dir: -1 | 1) => {
-    setPrefs((p) => {
-      // 面板里的显示顺序 = order 里列出的 + 其余默认序；移动时先物化完整顺序。
-      const listed = p.order.filter((x) => allSlugs.includes(x) && !p.hidden.includes(x));
-      const rest = allSlugs.filter(
-        (s) => !listed.includes(s) && !p.hidden.includes(s),
-      );
-      const seq = [...listed, ...rest];
-      const i = seq.indexOf(slug);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= seq.length) return p;
-      [seq[i], seq[j]] = [seq[j], seq[i]];
-      return { ...p, order: seq };
-    });
-  };
-
-  const savePrefs = async () => {
+  const savePrefs = async (payload: HomePreferences) => {
     setSaving(true);
     setSaveError("");
     try {
-      await fetchApi("/catalog/me/home-preferences", { method: "PUT", body: JSON.stringify(prefs) });
+      await fetchApi("/catalog/me/home-preferences", { method: "PUT", body: JSON.stringify(payload) });
       setCustomizing(false);
       await loadFeed();
     } catch (e) {
-      setSaveError((e as Error).message);
+      // 后端给的是稳定错误码（invalid_slug / too_many_sections …），翻成四语文案再显示。
+      setSaveError(localizeCatalogError((e as Error).message, t));
     } finally {
       setSaving(false);
     }
   };
 
+  // 恢复默认 = 清空偏好、回落到系统预设；不改系统货架，也不影响别人。
   const resetPrefs = async () => {
     setSaving(true);
     setSaveError("");
     try {
-      await fetchApi("/catalog/me/home-preferences", { method: "PUT", body: JSON.stringify({ order: [], hidden: [] }) });
-      setPrefs({ order: [], hidden: [] });
+      await fetchApi("/catalog/me/home-preferences", {
+        method: "PUT",
+        body: JSON.stringify(EMPTY_PREFERENCES),
+      });
+      setPrefs(EMPTY_PREFERENCES);
+      setCustomizing(false);
       await loadFeed();
     } catch (e) {
-      setSaveError((e as Error).message);
+      setSaveError(localizeCatalogError((e as Error).message, t));
     } finally {
       setSaving(false);
     }
   };
-
-  const panelSections = useMemo(() => {
-    const listed = prefs.order.filter((x) => allSlugs.includes(x));
-    const rest = allSlugs.filter((s) => !listed.includes(s));
-    const seq = [...listed, ...rest];
-    const byslug = new Map(sections.map((s) => [s.shelf.slug, s.shelf]));
-    return seq.map((slug) => byslug.get(slug)).filter(Boolean) as PublicShelf[];
-  }, [prefs.order, allSlugs, sections]);
 
   const showSkeleton = authLoading || loading;
 
@@ -362,104 +304,19 @@ export default function HomePage() {
         )}
       </PageShell>
 
-      {customizing && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-surface shadow-elevated">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08]">
-              <h2 className="font-display font-bold text-sm text-white flex items-center gap-2">
-                <Sliders className="w-4 h-4 text-primary" />
-                {t("home.customizeTitle")}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setCustomizing(false)}
-                className="p-1.5 rounded-lg hover:bg-surfaceHover text-gray-400 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
-                aria-label={t("catalog.cancel")}
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="px-5 py-4 space-y-2 max-h-[60vh] overflow-y-auto">
-              <p className="text-xs text-gray-500 pb-1">{t("home.customizeHint")}</p>
-              {panelSections.length === 0 ? (
-                <p className="text-xs text-gray-500 py-6 text-center">{t("shelf.empty")}</p>
-              ) : (
-                panelSections.map((shelf, idx) => {
-                  const hidden = prefs.hidden.includes(shelf.slug);
-                  const Icon = iconFor(shelf);
-                  return (
-                    <div
-                      key={shelf.slug}
-                      className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/[0.08] bg-white/[0.02]"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleHidden(shelf.slug)}
-                        className={
-                          "w-5 h-5 rounded border grid place-items-center shrink-0 transition-colors duration-fast ease-soft cursor-pointer " +
-                          (hidden
-                            ? "border-white/15 bg-transparent text-transparent"
-                            : "border-primary bg-primary text-white")
-                        }
-                        aria-pressed={!hidden}
-                        aria-label={t("home.toggleSection")}
-                      >
-                        <Check className="w-3 h-3" />
-                      </button>
-                      <Icon className={"w-4 h-4 shrink-0 " + (hidden ? "text-gray-600" : "text-primary")} />
-                      <span className={"flex-1 text-xs truncate " + (hidden ? "text-gray-600 line-through" : "text-gray-200")}>
-                        {shelfTitle(shelf, locale)}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={idx === 0}
-                        onClick={() => move(shelf.slug, -1)}
-                        className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-white disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
-                        aria-label={t("home.moveUp")}
-                      >
-                        <ChevronUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={idx === panelSections.length - 1}
-                        onClick={() => move(shelf.slug, 1)}
-                        className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-white disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
-                        aria-label={t("home.moveDown")}
-                      >
-                        <ChevronDown className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            <div className="px-5 py-4 border-t border-white/[0.08] flex items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={() => void resetPrefs()}
-                disabled={saving}
-                className="inline-flex items-center gap-1.5 text-xs font-mono text-gray-400 hover:text-white transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>{t("home.customizeReset")}</span>
-              </button>
-              <div className="flex items-center gap-2">
-                {saveError && <span className="text-[11px] text-red-400 font-mono">{saveError}</span>}
-                <button
-                  type="button"
-                  onClick={() => void savePrefs()}
-                  disabled={saving}
-                  className="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-semibold transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
-                >
-                  {saving ? t("common.saving") : t("common.save")}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <HomeCustomizeModal
+        open={customizing}
+        loading={prefsLoading}
+        prefs={prefs}
+        templates={templates}
+        feedSections={sections}
+        defs={definitions}
+        saving={saving}
+        error={saveError}
+        onClose={() => setCustomizing(false)}
+        onSave={(payload) => void savePrefs(payload)}
+        onReset={() => void resetPrefs()}
+      />
 
       <footer className="border-t border-white/[0.06] py-6 bg-surface/30 backdrop-blur-md">
         <PageContainer className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-gray-400">
@@ -481,7 +338,7 @@ export default function HomePage() {
 
 // 分区"查看全部"进入探索页：用该分区规则的首个类型过滤，跳转目标与推荐内容一致。
 // 规则没限定类型（收录全部作品）时只带 kind=work。
-function shelfExploreParam(shelf: PublicShelf): string {
+function shelfExploreParam(shelf: ShelfLike): string {
   const first = (shelf.query?.types || []).filter(Boolean)[0];
   return first ? `kind=work&type=${encodeURIComponent(first)}` : "kind=work";
 }

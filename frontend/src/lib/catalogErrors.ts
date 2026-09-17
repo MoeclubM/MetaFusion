@@ -23,6 +23,16 @@ const CODE_KEYS: Record<string, string> = {
   authentication_required: "catalog.error.authenticationRequired",
   // 定义/货架/外部库的名称四语齐备是硬约束：缺语种的写入一律被拒。
   four_locale_names_required: "catalog.error.fourLocaleNamesRequired",
+  // 用户首页分区偏好的写入校验：slug / 标题 / 排序 / 数量（后台货架编辑器共用同一套码）。
+  invalid_slug: "catalog.error.invalidSlug",
+  invalid_name: "catalog.error.invalidName",
+  invalid_sort: "catalog.error.invalidSort",
+  too_many_sections: "catalog.error.tooManySections",
+  invalid_types: "catalog.error.invalidTypes",
+  invalid_fields: "catalog.error.invalidFields",
+  invalid_vocab_terms: "catalog.error.invalidVocabTerms",
+  invalid_relations: "catalog.error.invalidRelations",
+  invalid_locale: "catalog.error.invalidLocale",
 };
 
 /** 取错误码对应的文案键；未知码返回 null（调用方回退原文）。 */
