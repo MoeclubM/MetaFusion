@@ -8,6 +8,7 @@ import {
   fetchSetupStatus,
   fetchAuthSettings,
   registerAccount,
+  normalizeSessionUser,
   PublicAuthSettings,
 } from "@/lib/api";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
@@ -71,13 +72,9 @@ function LoginInner() {
         .then((r) => r.json())
         .then((u) => {
           if (u && u.id) {
-            login(tokenParam, {
-              id: u.id,
-              username: u.username,
-              role: u.role,
-              email: u.email || `${u.username}@metafusion.local`,
-              display_name: u.username,
-            });
+            // 组与权限码必须一起进会话：只带 id/username/role 的话，can() 会静默退回
+            // 角色兜底，持权限码但角色普通的管理员组在这里就被判成没权限。
+            login(tokenParam, normalizeSessionUser(u));
             const redirectUrl = searchParams.get("redirect") || "/";
             router.replace(redirectUrl);
           }
@@ -171,13 +168,7 @@ function LoginInner() {
           invite_code: inviteCode.trim() || undefined,
         });
         // 服务端注册成功即签发令牌，这里直接进入已登录态。
-        login(res.access_token || res.token, {
-          id: res.user.id,
-          username: res.user.username,
-          role: res.user.role,
-          email: res.user.email || `${res.user.username}@metafusion.local`,
-          display_name: res.user.username,
-        });
+        login(res.access_token || res.token, normalizeSessionUser(res.user));
         router.replace(redirectUrl);
         return;
       }
@@ -197,13 +188,7 @@ function LoginInner() {
         failed.status = response.status;
         throw failed;
       }
-      login(res.token, {
-        id: res.user.id,
-        username: res.user.username,
-        role: res.user.role,
-        email: res.user.email || `${res.user.username}@metafusion.local`,
-        display_name: res.user.username,
-      });
+      login(res.token, normalizeSessionUser(res.user));
       router.replace(redirectUrl);
     } catch (err: any) {
       setError(authErrorText(err?.message, t, httpStatusOf(err)));

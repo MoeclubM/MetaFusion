@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User, getAccessToken, setAuthTokens, clearAuthTokens } from "./api";
+import { User, getAccessToken, setAuthTokens, clearAuthTokens, normalizeSessionUser } from "./api";
 
 interface AuthContextType {
   user: User | null;
@@ -49,15 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error("unauthorized");
       }
       const u = await res.json();
-      setUser({
-        id: u.id,
-        username: u.username,
-        role: u.role,
-        groups: Array.isArray(u.groups) ? u.groups : [],
-        permissions: Array.isArray(u.permissions) ? u.permissions : [],
-        email: u.email || `${u.username}@metafusion.local`,
-        display_name: u.username,
-      });
+      setUser(normalizeSessionUser(u));
     } catch {
       clearAuthTokens();
       setToken(null);
@@ -79,16 +71,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return res.json();
       })
       .then((u) => {
-        setUser({
-          id: u.id,
-          username: u.username,
-          role: u.role,
-          // 账号服务在 /me 里给了组与权限码：必须带住，否则授权判定只剩角色（旧口径）。
-          groups: Array.isArray(u.groups) ? u.groups : [],
-          permissions: Array.isArray(u.permissions) ? u.permissions : [],
-          email: u.email || `${u.username}@metafusion.local`,
-          display_name: u.username,
-        });
+        // 账号服务在 /me 里给了组与权限码，映射统一在 normalizeSessionUser 里做，
+        // 免得这里与登录路径各写一份、其中一份漏字段。
+        setUser(normalizeSessionUser(u));
       })
       .catch(() => {
         setUser(null);

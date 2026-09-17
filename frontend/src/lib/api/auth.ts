@@ -12,6 +12,33 @@ export interface AuthSessionResponse {
 }
 
 /**
+ * 会话用户的唯一映射：/auth/me、/auth/login、/auth/register、/api/setup 拿到的原始对象
+ * 都是账号服务 store.User 的 JSON 投影。这份映射原先在登录路径上手抄了五遍，其中登录的
+ * 三处漏掉 groups/permissions（权限判定静默退回角色兜底），并用
+ * `用户名@metafusion.local` 造了个假邮箱当成真实邮箱渲染。
+ *
+ * 拿不准的字段一律不造值：邮箱缺席就保持缺席（页面走 settings.unboundEmail），
+ * display_name 缺席交给 displayNameOf 回落 username；组与权限码有就整份带住。
+ * 其余字段（avatar_url / bio / is_email_verified / invite_code…）原样透传——
+ * 它们是否存在由账号服务决定，前端不在这里裁剪。
+ */
+export function normalizeSessionUser(raw: unknown): User {
+  const u = (raw || {}) as Record<string, any>;
+  const { email, display_name, groups, permissions, ...rest } = u;
+  return {
+    ...rest,
+    id: String(u.id ?? ""),
+    username: String(u.username ?? ""),
+    role: String(u.role ?? ""),
+    ...(typeof email === "string" && email.trim() !== "" ? { email: email.trim() } : {}),
+    ...(typeof display_name === "string" && display_name.trim() !== "" ? { display_name } : {}),
+    // 账号服务按 omitempty 发这两个数组：给了就带住（空数组也是真实值），缺席才留空。
+    ...(Array.isArray(groups) ? { groups: groups.filter((g: unknown) => typeof g === "string") } : {}),
+    ...(Array.isArray(permissions) ? { permissions: permissions.filter((p: unknown) => typeof p === "string") } : {}),
+  };
+}
+
+/**
  * 自助注册。是否需要邀请码由实例设置决定（GET /auth/settings 的 invite_required），
  * 服务端在注册事务里校验并消耗次数；前端只透传，不做本地判定。
  */
@@ -172,7 +199,8 @@ export async function performInitialSetup(payload: InitialSetupPayload): Promise
   const loginData = loginRes.ok ? await loginRes.json() : {};
   return {
     message: "setup_success",
-    user: loginData.user || user,
+    // 初始化路径同样走唯一的会话映射：登录响应带 groups/permissions，不能在这里漏掉。
+    user: normalizeSessionUser(loginData.user || user),
     token: loginData.token || "",
     access_token: loginData.token || "",
     refresh_token: "",

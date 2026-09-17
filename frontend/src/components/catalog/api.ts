@@ -215,14 +215,11 @@ export type Relation = {
   /** 该边的主体实体（/relations 响应级 subject_id 的逐条形态）；旧响应没有该字段。 */
   subject_id?: string;
 };
-export type User = {
-  id: string;
-  username: string;
-  role: string;
-  /** 账号服务展开后的权限集合：有它时授权判定只认码（见 lib/permissions.ts 的 can）。 */
-  permissions?: string[];
-  groups?: string[];
-};
+// 会话用户类型只有一份：lib/api/client.ts 的 User（原始响应 → User 的唯一映射是
+// lib/api/auth.ts 的 normalizeSessionUser）。这里 re-export 只为兼容既有调用点，
+// 不再另立一份同名字段更少的类型——两份类型会让"登录路径少带 groups/permissions"
+// 这类缺口在类型层面看不出来。
+export type { User } from "@/lib/api/client";
 // 社区短评（modules.posts）：按实体聚合，不是独立主题模型。
 export type CommunityPost = {
   id: string;
