@@ -117,11 +117,9 @@ services:
       - DB_USER=${DB_USER:-metafusion}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
       - DB_NAME=${DB_NAME:-metafusion_db}
-      # 以下两个地址当前**没有任何代码读取**：检索走 PostgreSQL，Redis 只是常驻未用
-      # （见 docs/architecture/cutover-runbook.md 第 4 节），opensearch 也默认不启动
-      # （--profile search 才拉起）。保留变量只为将来接入时不必改编排，不代表已生效。
-      - REDIS_ADDR=redis:6379
-      - ELASTICSEARCH_URL=http://opensearch:9200
+      # 检索走 PostgreSQL（见 docs/architecture/cutover-runbook.md 第 4 节），Redis 只常驻未用，
+      # opensearch 默认不启动（--profile search 才拉起）：没有任何代码读缓存/检索地址，
+      # 因此这里不声明这类变量。
       # /api/capabilities 是"部署态"声明：能力在不在由这几个变量决定（capabilities/subsystems 的 envKey）。
       # 目录不探测上游、不发任何出站请求；不配的能力会被判为未部署，前端按 enabled 隐藏入口。
       # 互动（论坛/短评/收藏/私信）由同一个互动服务承载，因此只有一条 community 声明。
@@ -426,6 +424,8 @@ services:
       # 只在 canonical 名缺席时兜底）。值与上面两行完全相同，保留是因为镜像 tag 还浮动在
       # :latest（见上方 pin 备忘）：旧版本里旧名才是主名，删掉等于把凭据押在"镜像已升级"
       # 这个未验证前提上。
+      # 删除窗口：镜像 pin 到具体 digest（并验证存储服务连得上、桶仍能创建）之后，
+      # 随那次编排更新一起删掉这两行——在那之前它们是旧镜像的唯一凭据来源。
       - RUSTFS_ROOT_USER=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
       - RUSTFS_ROOT_PASSWORD=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
       - RUSTFS_STORAGE_DIR=/data
