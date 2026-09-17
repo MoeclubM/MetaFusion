@@ -49,7 +49,11 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      { source: "/upload", destination: "/contribute", permanent: true },
+      // /upload 从前 308 到 /contribute（元数据编目枢纽），把"资源上传"引到了语义无关的
+      // 地方：资源上传属存储域（独立资源站）。改指 /downloads —— 本前端的资源入口：
+      // 资源站已配置时整页跳过去，未配置时显示「资源站未接入」的说明，两种情况都不说谎。
+      { source: "/upload", destination: "/downloads", permanent: true },
+      // /submit 保留指 /contribute：在这个站里 submit 是"投稿/提交条目"，与编目枢纽同义。
       { source: "/submit", destination: "/contribute", permanent: true },
       // 旧轨详情页已退役：统一到通用兜底 /catalog/:id（EntityDetailView 支持全 kind）。
       { source: "/artists/:id", destination: "/catalog/:id", permanent: true },
