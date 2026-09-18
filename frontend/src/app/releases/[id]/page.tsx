@@ -109,7 +109,7 @@ function Collapsible({
             </span>
           )}
         </span>
-        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
+        <span className="inline-flex items-center gap-1.5 font-mono text-[11px] text-text-faint">
           <span className="hidden sm:inline">{open ? t("common.collapse") : t("common.expand")}</span>
           <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-base ease-soft ${open ? "rotate-180" : ""}`} strokeWidth={1.6} />
         </span>
@@ -396,7 +396,7 @@ export default function ReleaseDetailPage() {
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <Navbar />
-        <div className="relative z-10 min-h-screen grid place-items-center font-mono text-xs text-gray-500">{t("release.detail.loading")}</div>
+        <div className="relative z-10 min-h-screen grid place-items-center font-mono text-xs text-text-faint">{t("release.detail.loading")}</div>
       </div>
     );
   }
@@ -512,7 +512,7 @@ export default function ReleaseDetailPage() {
               {mediumTitle}
             </span>
             {fmtLabel && ownFmt !== "unknown" && (
-              <span className="hidden sm:inline font-mono text-[11px] text-gray-500 shrink-0">{fmtLabel}</span>
+              <span className="hidden sm:inline font-mono text-[11px] text-text-faint shrink-0">{fmtLabel}</span>
             )}
             {role === "supplement" && (
               <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono text-[10px] shrink-0">
@@ -520,17 +520,17 @@ export default function ReleaseDetailPage() {
               </span>
             )}
           </div>
-          <span className="font-mono text-[10px] text-gray-400">
+          <span className="font-mono text-[10px] text-text-muted">
             #{String(medium.id).slice(0, 8)} · {t("release.detail.trackCount", { count: mediumTree.totalOf(row) })}
           </span>
         </div>
         {ordered.length > 0 ? (
           <div className="overflow-x-auto">
-            <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-gray-500">
+            <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-text-faint">
               {t("media.entryRow", { label: entryKindLabel })}
             </div>
             <table className="w-full text-left text-xs min-w-[640px]">
-              <thead className="bg-surfaceSubtle border-y border-line-subtle font-mono text-[10px] uppercase tracking-wider text-gray-500">
+              <thead className="bg-surfaceSubtle border-y border-line-subtle font-mono text-[10px] uppercase tracking-wider text-text-faint">
                 <tr>
                   <th className="py-2 px-3.5 w-12 font-medium">{t("release.detail.tablePosition")}</th>
                   <th className="py-2 px-3.5 font-medium whitespace-nowrap">{entryKindLabel}</th>
@@ -561,13 +561,13 @@ export default function ReleaseDetailPage() {
                   const dur = Number(tr.attributes?.duration);
                   return (
                     <tr key={tr.id} className="hover:bg-surfaceSubtle transition-colors duration-fast ease-soft">
-                      <td className="py-2 px-3.5 font-mono text-gray-500 tabular-nums whitespace-nowrap">{tr.number || tr.position}</td>
+                      <td className="py-2 px-3.5 font-mono text-text-faint tabular-nums whitespace-nowrap">{tr.number || tr.position}</td>
                       <td className="py-2 px-3.5 font-medium text-text-strong">
                         <div
                           className="flex flex-wrap items-center gap-1.5"
                           style={trDepth > 0 ? { paddingLeft: `${trDepth * 14}px` } : undefined}
                         >
-                          {trDepth > 0 && <span className="text-gray-400 font-mono text-[10px]">└</span>}
+                          {trDepth > 0 && <span className="text-text-muted font-mono text-[10px]">└</span>}
                           <span>{displayTitle || t("release.detail.untitledTrack")}</span>
                           {overridden && (
                             <span className="text-amber-500 text-[10px]">[{t("release.detail.overridden")}]</span>
@@ -583,13 +583,13 @@ export default function ReleaseDetailPage() {
                           )}
                         </div>
                         {cross && cross.size > 1 && (
-                          <div className="mt-0.5 font-mono text-[10px] font-normal text-gray-500">
+                          <div className="mt-0.5 font-mono text-[10px] font-normal text-text-faint">
                             {t("release.detail.crossMediumDuration")}:{" "}
                             {Array.from(cross.values()).map((s) => formatDuration(s)).join(" / ")}
                           </div>
                         )}
                       </td>
-                      <td className="py-2 px-3.5 text-gray-500 text-xs">
+                      <td className="py-2 px-3.5 text-text-faint text-xs">
                         {contents.length > 0 ? (
                           <span className="inline-flex flex-wrap gap-1">
                             {contents.map((c, i) => {
@@ -606,15 +606,15 @@ export default function ReleaseDetailPage() {
                             })}
                           </span>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-text-muted">—</span>
                         )}
                       </td>
-                      <td className="py-2 px-3.5 text-gray-500">
+                      <td className="py-2 px-3.5 text-text-faint">
                         {firstExpr && expressionCredits[firstExpr] ? (
                           <span className="text-xs text-text-body">
                             {expressionCredits[firstExpr]}
                             {attrText(tr.attributes?.isrc) && (
-                              <span className="ml-1.5 font-mono text-[10px] text-gray-400">
+                              <span className="ml-1.5 font-mono text-[10px] text-text-muted">
                                 {attrText(tr.attributes?.isrc)}
                               </span>
                             )}
@@ -622,10 +622,10 @@ export default function ReleaseDetailPage() {
                         ) : attrText(tr.attributes?.isrc) ? (
                           <span className="font-mono text-[11px]">{attrText(tr.attributes?.isrc)}</span>
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-text-muted">—</span>
                         )}
                       </td>
-                      <td className="py-2 px-3.5 text-right font-mono text-gray-500 tabular-nums whitespace-nowrap">
+                      <td className="py-2 px-3.5 text-right font-mono text-text-faint tabular-nums whitespace-nowrap">
                         {formatDuration(dur > 0 ? dur : Number(expr?.attributes?.duration) || 0)}
                       </td>
                     </tr>
@@ -635,7 +635,7 @@ export default function ReleaseDetailPage() {
             </table>
           </div>
         ) : (
-          <div className="px-3.5 py-4 font-mono text-[11px] text-gray-500">{t("release.detail.noTracks")}</div>
+          <div className="px-3.5 py-4 font-mono text-[11px] text-text-faint">{t("release.detail.noTracks")}</div>
         )}
         {kids.length > 0 && (
           <div className="border-t border-line-subtle">
@@ -665,14 +665,14 @@ export default function ReleaseDetailPage() {
         className="pb-[max(1.5rem,env(safe-area-inset-bottom))]"
         header={
         <div className="space-y-3">
-        <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
+        <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-faint">
           {primaryWork && (
             <>
               <Link href={`/works/${primaryWork.id}`} className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
                 <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
                 {entityTitle(primaryWork, locale)}
               </Link>
-              <span className="text-gray-400 dark:text-white/20">/</span>
+              <span className="text-text-muted dark:text-white/20">/</span>
             </>
           )}
           <span className="text-text-strong truncate">{releaseTitle}</span>
@@ -697,10 +697,10 @@ export default function ReleaseDetailPage() {
                   <span className="px-2 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">{country}</span>
                 )}
                 {packagingLabel && (
-                  <span className="text-gray-500">{t("release.detail.packagingLabel")}{packagingLabel}</span>
+                  <span className="text-text-faint">{t("release.detail.packagingLabel")}{packagingLabel}</span>
                 )}
-                {catalogNo && <span className="text-gray-500 font-mono">{catalogNo}</span>}
-                {barcode && <span className="text-gray-500">{t("release.detail.barcode", { code: barcode })}</span>}
+                {catalogNo && <span className="text-text-faint font-mono">{catalogNo}</span>}
+                {barcode && <span className="text-text-faint">{t("release.detail.barcode", { code: barcode })}</span>}
               </div>
               <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong leading-tight">{releaseTitle}</h1>
               {/* 多语言题名/别名：与 /works/[id] 一致。发行版此前缺这块，导致"有翻译却看不到"。 */}
@@ -712,7 +712,7 @@ export default function ReleaseDetailPage() {
                 className="mt-1 space-y-0.5"
                 itemClassName="font-mono text-xs text-text-muted"
               />
-              <dl className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-gray-500">
+              <dl className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-text-faint">
                 {country && <div className="flex gap-1"><dt>{t("release.detail.countryLabel")}</dt><dd className="text-text-body">{country}</dd></div>}
                 {language && <div className="flex gap-1"><dt>{t("release.detail.languageLabel")}</dt><dd className="text-text-body">{language}</dd></div>}
                 {channelLabel && <div className="flex gap-1"><dt>{t("release.detail.channelLabel")}</dt><dd className="text-text-body">{channelLabel}</dd></div>}
@@ -753,7 +753,7 @@ export default function ReleaseDetailPage() {
             <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
               {release.pictures?.[0]?.url && (
                 <div className="w-24 aspect-square rounded-md overflow-hidden border border-line">
-                  <AdaptiveCardCover src={release.pictures[0].url} alt={releaseTitle} fallbackIcon={<Disc className="w-6 h-6 text-gray-400" />} aspectClassName="w-full h-full" />
+                  <AdaptiveCardCover src={release.pictures[0].url} alt={releaseTitle} fallbackIcon={<Disc className="w-6 h-6 text-text-muted" />} aspectClassName="w-full h-full" />
                 </div>
               )}
               <span className="inline-flex items-center gap-1.5">
@@ -790,7 +790,7 @@ export default function ReleaseDetailPage() {
         {siblingReleases.length > 1 && (
           <Card padding="none">
           <nav aria-label={t("release.detail.siblingVersions")} className="px-3.5 sm:px-4 py-3 space-y-2">
-            <p className="font-mono text-[11px] text-gray-500">
+            <p className="font-mono text-[11px] text-text-faint">
               {t("release.detail.siblingVersions")} · {siblingReleases.length}
             </p>
             <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
@@ -814,7 +814,7 @@ export default function ReleaseDetailPage() {
                     <span className={`block text-xs font-semibold truncate ${active ? "" : "text-text-strong"}`}>
                       {entityTitle(sib, locale)}
                     </span>
-                    <span className={`mt-0.5 block font-mono text-[10px] truncate ${active ? "text-text-strong" : "text-gray-500"}`}>
+                    <span className={`mt-0.5 block font-mono text-[10px] truncate ${active ? "text-text-strong" : "text-text-faint"}`}>
                       {[sibEditionLabel, sibBatchLabel, sibCatalogNo].filter(Boolean).join(" · ") || "—"}
                     </span>
                   </Link>
@@ -862,8 +862,8 @@ export default function ReleaseDetailPage() {
         )}
 
         <div className="flex items-center justify-between gap-2">
-          <p className="font-mono text-[11px] text-gray-500">{t("release.detail.mediumCount", { count: mediumTree.roots.length })}</p>
-          <label className="inline-flex items-center gap-2 font-mono text-[11px] text-gray-500 cursor-pointer select-none">
+          <p className="font-mono text-[11px] text-text-faint">{t("release.detail.mediumCount", { count: mediumTree.roots.length })}</p>
+          <label className="inline-flex items-center gap-2 font-mono text-[11px] text-text-faint cursor-pointer select-none">
             <input
               type="checkbox"
               checked={showBonus}
@@ -876,7 +876,7 @@ export default function ReleaseDetailPage() {
 
         {media.length === 0 ? (
           <Card padding="none">
-            <div className="p-8 text-center font-mono text-xs text-gray-500">{t("release.detail.noMedium")}</div>
+            <div className="p-8 text-center font-mono text-xs text-text-faint">{t("release.detail.noMedium")}</div>
           </Card>
         ) : (
           <div className="space-y-4 sm:space-y-5">
@@ -896,15 +896,15 @@ export default function ReleaseDetailPage() {
                           <div className="flex items-center gap-2 text-xs font-semibold text-text-strong">
                             <Disc className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
                             <span className="truncate">{entityTitle(medium, locale)}</span>
-                            {fmtLabel && fmt !== "unknown" && <span className="font-mono text-[10px] font-normal text-gray-500">{fmtLabel}</span>}
-                            <span className="font-mono text-[10px] font-normal text-gray-500">{t("release.detail.trackCount", { count: tracks.length })}</span>
+                            {fmtLabel && fmt !== "unknown" && <span className="font-mono text-[10px] font-normal text-text-faint">{fmtLabel}</span>}
+                            <span className="font-mono text-[10px] font-normal text-text-faint">{t("release.detail.trackCount", { count: tracks.length })}</span>
                           </div>
                           <div className="mt-2 space-y-1">
                             {tracks.slice().sort((a, b) => (a.position || 0) - (b.position || 0)).map((tr) => (
                               <div key={tr.id} className="flex items-center gap-2 text-xs">
-                                <span className="font-mono text-gray-500 w-8 shrink-0">{tr.number || tr.position}</span>
+                                <span className="font-mono text-text-faint w-8 shrink-0">{tr.number || tr.position}</span>
                                 <span className="text-text-strong truncate">{entityTitle(tr, locale) || tr.title}</span>
-                                <span className="ml-auto font-mono text-[11px] text-gray-500 shrink-0">{formatDuration(Number(tr.attributes?.duration) || 0)}</span>
+                                <span className="ml-auto font-mono text-[11px] text-text-faint shrink-0">{formatDuration(Number(tr.attributes?.duration) || 0)}</span>
                               </div>
                             ))}
                           </div>
@@ -946,7 +946,7 @@ export default function ReleaseDetailPage() {
             )}
             <div className="overflow-x-auto -mx-3.5 sm:-mx-4 px-3.5 sm:px-4">
               <table className="w-full text-left text-xs min-w-[720px]">
-                <thead className="font-mono text-[10px] uppercase tracking-wider text-gray-500 border-b border-line-subtle">
+                <thead className="font-mono text-[10px] uppercase tracking-wider text-text-faint border-b border-line-subtle">
                   <tr>
                     <th className="py-2 pr-3 font-medium">{t("release.detail.sameRecordingExpr")}</th>
                     <th className="py-2 pr-3 font-medium">{t("release.detail.sameRecordingRelease")}</th>
@@ -964,7 +964,7 @@ export default function ReleaseDetailPage() {
                       return (
                         <tr key={exprId}>
                           <td className="py-2 pr-3 text-text-strong">{expr ? entityTitle(expr, locale) : exprId.slice(0, 8)}</td>
-                          <td colSpan={4} className="py-2 font-mono text-[11px] text-gray-400">{t("release.detail.sameRecordingEmpty")}</td>
+                          <td colSpan={4} className="py-2 font-mono text-[11px] text-text-muted">{t("release.detail.sameRecordingEmpty")}</td>
                         </tr>
                       );
                     }
@@ -988,11 +988,11 @@ export default function ReleaseDetailPage() {
                                 {entityTitle(occurrenceEntities[o.release_id], locale)}
                               </Link>
                             </td>
-                            <td className="py-2 pr-3 text-gray-500">{entityTitle(occurrenceEntities[o.medium_id], locale)}</td>
-                            <td className="py-2 pr-3 font-mono text-gray-500">
+                            <td className="py-2 pr-3 text-text-faint">{entityTitle(occurrenceEntities[o.medium_id], locale)}</td>
+                            <td className="py-2 pr-3 font-mono text-text-faint">
                               #{occurrenceEntities[o.track_id]?.number || occurrenceEntities[o.track_id]?.position} {entityTitle(occurrenceEntities[o.track_id], locale)}
                             </td>
-                            <td className="py-2 text-right font-mono text-gray-500 tabular-nums">
+                            <td className="py-2 text-right font-mono text-text-faint tabular-nums">
                               {formatDuration(Number(occurrenceEntities[o.track_id]?.attributes?.duration) || 0)}
                               {/* 收录附加属性（definitions 声明，未声明则不显示）。 */}
                               <GroupAttributeInline defs={dynamicDefs} code="inclusion_attributes" value={o.attributes || undefined} locale={locale} className="ml-2 text-[10px] font-sans" />
@@ -1002,7 +1002,7 @@ export default function ReleaseDetailPage() {
                         {/* 同篇目其它表达（加长版/另一录音）的收录单列一行，避免与自身收录混读。 */}
                         {sibs.length > 0 && (
                           <tr key={`${exprId}-sib`} className="bg-black/[0.015] bg-surfaceSubtle">
-                            <td colSpan={4} className="py-1.5 pr-3 text-[11px] text-gray-500">
+                            <td colSpan={4} className="py-1.5 pr-3 text-[11px] text-text-faint">
                               {t("release.detail.sameUnitSiblings", { count: sibs.length })}
                               {sibs.slice(0, 3).map((o, i) => (
                                 <span key={`${exprId}-sib-${i}`} className="ml-2 inline-block">
@@ -1015,7 +1015,7 @@ export default function ReleaseDetailPage() {
                         {/* 单个表达的收录被截断时就地展开全部，不让用户以为只有这些。 */}
                         {(hiddenOcc > 0 || (expanded && occ.length > OCC_PAGE_SIZE)) && (
                           <tr key={`${exprId}-more`}>
-                            <td colSpan={4} className="py-1.5 pr-3 text-[11px] text-gray-400">
+                            <td colSpan={4} className="py-1.5 pr-3 text-[11px] text-text-muted">
                               {hiddenOcc > 0 ? t("release.detail.moreOccurrences", { count: hiddenOcc }) : null}
                               <button
                                 type="button"
@@ -1038,7 +1038,7 @@ export default function ReleaseDetailPage() {
               const occPages = Math.max(1, Math.ceil(expressionIds.length / OCC_PAGE_SIZE));
               return (
                 <div className="px-3.5 sm:px-4 py-2.5 border-t border-line-subtle flex items-center justify-end gap-2">
-                  <span className="font-mono text-[11px] text-gray-500">{t("common.pagination", { page: occPage, total: occPages })}</span>
+                  <span className="font-mono text-[11px] text-text-faint">{t("common.pagination", { page: occPage, total: occPages })}</span>
                   <button type="button" disabled={occPage <= 1} onClick={() => setOccPage((p) => Math.max(1, p - 1))} aria-label={t("pagination.prev")} className="w-7 h-7 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-line disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
                     <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} />
                   </button>
@@ -1090,7 +1090,7 @@ export default function ReleaseDetailPage() {
         {dynamicDefs && (
           <Card padding="none">
           <details className="px-3.5 sm:px-4 py-2.5">
-            <summary className="cursor-pointer font-mono text-[11px] text-gray-500 hover:text-primary min-h-[32px] flex items-center">
+            <summary className="cursor-pointer font-mono text-[11px] text-text-faint hover:text-primary min-h-[32px] flex items-center">
               {t("release.detail.comparableFields")}
             </summary>
             <dl className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
@@ -1104,7 +1104,7 @@ export default function ReleaseDetailPage() {
                 if (["attachments", "store_bonuses", "events"].includes(k)) return null;
                 return (
                   <div key={k} className="flex gap-2 min-w-0">
-                    <dt className="font-mono text-gray-500 shrink-0">{name}</dt>
+                    <dt className="font-mono text-text-faint shrink-0">{name}</dt>
                     <dd className="text-text-strong truncate">{text}</dd>
                   </div>
                 );
@@ -1114,7 +1114,7 @@ export default function ReleaseDetailPage() {
           </Card>
         )}
 
-        <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500">
+        <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-faint">
           <Plus className="w-3 h-3" strokeWidth={1.6} />
           <Link href={`/catalog/${release.id}`} className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
             {t("release.detail.openInCatalog")} <ExternalLink className="w-3 h-3" strokeWidth={1.5} />

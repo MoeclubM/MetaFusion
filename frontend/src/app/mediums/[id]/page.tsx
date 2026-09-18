@@ -141,7 +141,7 @@ export default function MediumDetailPage() {
   const redirecting = useKindRedirect("medium", kindMismatch, mediumId);
 
   if (loading || redirecting) {
-    return <div className="min-h-screen bg-background grid place-items-center font-mono text-xs text-gray-500">{t("medium.detail.loading")}</div>;
+    return <div className="min-h-screen bg-background grid place-items-center font-mono text-xs text-text-faint">{t("medium.detail.loading")}</div>;
   }
 
   if (!medium) {
@@ -170,7 +170,7 @@ export default function MediumDetailPage() {
           width="page"
           header={
           <div className="space-y-3">
-          <div className="flex items-center gap-1.5 font-mono text-[11px] text-gray-500 flex-wrap">
+          <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-faint flex-wrap">
             {work && work.id && (
               <>
                 <Link href={`/works/${work.id}`} className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
@@ -200,7 +200,7 @@ export default function MediumDetailPage() {
                   <HardDrive className="w-3.5 h-3.5" />
                   {t("medium.detail.badge")}
                 </span>
-                {roleLabel && <span className="text-xs font-mono text-gray-500">{roleLabel}</span>}
+                {roleLabel && <span className="text-xs font-mono text-text-faint">{roleLabel}</span>}
               </div>
               <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-text-strong break-words">{mediumTitle}</h1>
               {/* 多语言题名/别名：与 /works/[id] 一致（载体页此前也缺这块）。 */}
@@ -215,7 +215,7 @@ export default function MediumDetailPage() {
                 />
               )}
               {work && (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-text-faint">
                   {entityTitle(work, locale) || work.title}
                 </p>
               )}
@@ -227,7 +227,7 @@ export default function MediumDetailPage() {
                 <AdaptiveCardCover
                   src={coverUrl}
                   alt={mediumTitle}
-                  fallbackIcon={<HardDrive className="w-6 h-6 text-gray-400" />}
+                  fallbackIcon={<HardDrive className="w-6 h-6 text-text-muted" />}
                   aspectClassName="w-full h-full"
                 />
               </div>
@@ -239,15 +239,15 @@ export default function MediumDetailPage() {
           <Card tone="plain" padding="section" className="shadow-soft">
             <div className="grid grid-cols-3 gap-2">
               <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
-                <p className="text-[10px] font-mono text-gray-500 uppercase">{t("medium.detail.format")}</p>
+                <p className="text-[10px] font-mono text-text-faint uppercase">{t("medium.detail.format")}</p>
                 <p className="text-sm font-semibold text-text-strong mt-0.5">{formatLabel || formatCode || "—"}</p>
               </div>
               <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
-                <p className="text-[10px] font-mono text-gray-500 uppercase">{t("medium.detail.position")}</p>
+                <p className="text-[10px] font-mono text-text-faint uppercase">{t("medium.detail.position")}</p>
                 <p className="text-sm font-semibold text-text-strong mt-0.5">{medium.number || `#${medium.position ?? 0}`}</p>
               </div>
               <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
-                <p className="text-[10px] font-mono text-gray-500 uppercase">{t("medium.detail.trackCount")}</p>
+                <p className="text-[10px] font-mono text-text-faint uppercase">{t("medium.detail.trackCount")}</p>
                 <p className="text-sm font-semibold text-text-strong mt-0.5">{tracks.length}</p>
               </div>
             </div>
@@ -268,13 +268,13 @@ export default function MediumDetailPage() {
             <div className="p-4 sm:p-5 border-b border-line-subtle">
               <SectionTitle
                 icon={<Layers className="w-4 h-4 text-primary" />}
-                actions={<span className="font-mono text-xs text-gray-500">{tracks.length}</span>}
+                actions={<span className="font-mono text-xs text-text-faint">{tracks.length}</span>}
               >
                 {t("medium.detail.tracksTitle")}
               </SectionTitle>
             </div>
             {tracks.length === 0 ? (
-              <div className="p-8 text-center font-mono text-xs text-gray-500">{t("medium.detail.noTracks")}</div>
+              <div className="p-8 text-center font-mono text-xs text-text-faint">{t("medium.detail.noTracks")}</div>
             ) : (
               <div className="divide-y divide-black/[0.06] dark:divide-white/[0.06]">
                 {tracks.map(({ track, depth, duration, contents }) => {
@@ -285,14 +285,14 @@ export default function MediumDetailPage() {
                       className="p-4 flex items-start gap-3 hover:bg-surfaceSubtle transition-colors duration-fast ease-soft"
                       style={depth > 0 ? { paddingLeft: `${16 + depth * 18}px` } : undefined}
                     >
-                      <span className="w-8 shrink-0 text-right font-mono text-xs text-gray-500 pt-0.5">{track.number || track.position}</span>
-                      <FileText className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                      <span className="w-8 shrink-0 text-right font-mono text-xs text-text-faint pt-0.5">{track.number || track.position}</span>
+                      <FileText className="w-4 h-4 text-text-muted mt-0.5 shrink-0" />
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-sm text-text-strong truncate">
-                          {depth > 0 && <span className="mr-1 font-mono text-[10px] text-gray-400">└</span>}
+                          {depth > 0 && <span className="mr-1 font-mono text-[10px] text-text-muted">└</span>}
                           {trackTitle}
                         </p>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 font-mono text-[11px] text-gray-500">
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 font-mono text-[11px] text-text-faint">
                           {duration > 0 && <span>{formatDuration(duration)}</span>}
                         </div>
                         {contents.map((entry) => (
@@ -302,7 +302,7 @@ export default function MediumDetailPage() {
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[11px] ${
                                 entry.title
                                   ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/15"
-                                  : "bg-black/[0.03] dark:bg-white/[0.04] text-gray-500 border-dashed border-black/15 dark:border-white/15"
+                                  : "bg-black/[0.03] dark:bg-white/[0.04] text-text-faint border-dashed border-black/15 dark:border-white/15"
                               }`}
                             >
                               {entry.title || `${entry.id.slice(0, 8)}…`}

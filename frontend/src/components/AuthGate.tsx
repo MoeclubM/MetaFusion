@@ -92,7 +92,7 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
       <div className="min-h-screen bg-background grid place-items-center">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-          <span className="font-mono text-xs text-gray-500 tracking-wider">{t("auth.initializing")}</span>
+          <span className="font-mono text-xs text-text-faint tracking-wider">{t("auth.initializing")}</span>
         </div>
       </div>
     );

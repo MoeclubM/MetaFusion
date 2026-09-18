@@ -131,7 +131,7 @@ export function LanguagePicker({
   const fieldTrigger = variant === "field";
   const triggerClass = fieldTrigger
     ? "w-full h-8 px-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-line text-left text-xs text-text-strong hover:border-primary/60 focus:outline-none focus:border-primary inline-flex items-center gap-2"
-    : "px-2 py-0.5 rounded bg-emphasis/[0.04] hover:bg-emphasis/[0.08] text-gray-400 hover:text-emphasis border border-line text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft disabled:opacity-50";
+    : "px-2 py-0.5 rounded bg-emphasis/[0.04] hover:bg-emphasis/[0.08] text-text-muted hover:text-emphasis border border-line text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft disabled:opacity-50";
 
   return (
     <div ref={containerRef} className={"relative " + (className || (fieldTrigger ? "block" : "inline-block"))}>
@@ -155,8 +155,8 @@ export function LanguagePicker({
       >
         {fieldTrigger ? (
           <>
-            <Search className="w-3.5 h-3.5 shrink-0 text-gray-400" strokeWidth={1.6} />
-            <span className="truncate text-gray-400">{label || t("common.languageSearchPlaceholder")}</span>
+            <Search className="w-3.5 h-3.5 shrink-0 text-text-muted" strokeWidth={1.6} />
+            <span className="truncate text-text-muted">{label || t("common.languageSearchPlaceholder")}</span>
           </>
         ) : (
           <>
@@ -189,7 +189,7 @@ export function LanguagePicker({
               setActive(0);
             }}
             onKeyDown={onSearchKeyDown}
-            className="w-full h-8 px-2 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-line-subtle text-xs text-text-strong placeholder:text-gray-400 focus:outline-none focus:border-primary"
+            className="w-full h-8 px-2 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-line-subtle text-xs text-text-strong placeholder:text-text-muted focus:outline-none focus:border-primary"
           />
           <div
             id={listId}
@@ -199,7 +199,7 @@ export function LanguagePicker({
             className="mt-1 max-h-64 overflow-y-auto space-y-0.5"
           >
             {ordered.length === 0 ? (
-              <p className="px-2 py-3 text-xs text-gray-500 font-sans">{t("common.languageNoMatch")}</p>
+              <p className="px-2 py-3 text-xs text-text-faint font-sans">{t("common.languageNoMatch")}</p>
             ) : (
               ordered.map((entry, index) => {
                 const added = isAdded(entry);
@@ -229,10 +229,10 @@ export function LanguagePicker({
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-text-strong font-sans">{entry.native}</span>
                       {secondary.length > 0 && (
-                        <span className="block truncate text-[10px] text-gray-500">{secondary.join(" · ")}</span>
+                        <span className="block truncate text-[10px] text-text-faint">{secondary.join(" · ")}</span>
                       )}
                     </span>
-                    <span className="shrink-0 font-mono text-[10px] text-gray-400">{entry.code}</span>
+                    <span className="shrink-0 font-mono text-[10px] text-text-muted">{entry.code}</span>
                     {added && (
                       <span className="shrink-0 inline-flex items-center gap-0.5 text-[10px] text-primary">
                         <Check className="w-3 h-3" strokeWidth={2.4} />
@@ -244,7 +244,7 @@ export function LanguagePicker({
               })
             )}
           </div>
-          <p className="mt-1 px-2 pt-1 border-t border-line-subtle font-mono text-[10px] text-gray-500">
+          <p className="mt-1 px-2 pt-1 border-t border-line-subtle font-mono text-[10px] text-text-faint">
             {t("common.languagePickerHint")}
           </p>
         </div>

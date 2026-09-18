@@ -81,11 +81,11 @@ function ToggleChip({
         "px-2 py-0.5 rounded border text-[11px] font-mono transition-colors duration-fast ease-soft cursor-pointer " +
         (active
           ? "bg-primary/20 border-primary/40 text-primary"
-          : "bg-emphasis/[0.03] border-line text-gray-400 hover:text-emphasis hover:bg-emphasis/[0.07]")
+          : "bg-emphasis/[0.03] border-line text-text-muted hover:text-emphasis hover:bg-emphasis/[0.07]")
       }
     >
       <span>{label}</span>
-      {code !== label && <span className="ml-1 text-gray-500">{code}</span>}
+      {code !== label && <span className="ml-1 text-text-faint">{code}</span>}
     </button>
   );
 }
@@ -93,7 +93,7 @@ function ToggleChip({
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="p-2.5 rounded-lg bg-emphasis/[0.02] border border-emphasis/[0.08] space-y-2">
-      <div className="text-[11px] font-mono font-bold text-gray-300">{title}</div>
+      <div className="text-[11px] font-mono font-bold text-text-body">{title}</div>
       {children}
     </div>
   );
@@ -103,7 +103,7 @@ const inputClass =
   "flex-1 min-w-0 px-2.5 py-1.5 rounded bg-black/30 border border-line text-xs text-emphasis font-mono placeholder:text-gray-600 focus:border-primary outline-none";
 
 const addButtonClass =
-  "px-2.5 py-1.5 rounded bg-emphasis/[0.06] hover:bg-emphasis/[0.12] text-gray-300 hover:text-emphasis text-xs cursor-pointer";
+  "px-2.5 py-1.5 rounded bg-emphasis/[0.06] hover:bg-emphasis/[0.12] text-text-body hover:text-emphasis text-xs cursor-pointer";
 
 export function SectionRuleEditor({ row, defs, onChange }: Props) {
   const { t, locale } = useI18n();
@@ -184,7 +184,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
     <div className="space-y-2.5">
       {row.custom && (
         <div className="space-y-1">
-          <label className="block text-[11px] font-mono text-gray-300" htmlFor={`mf-section-slug-${row.slug}`}>
+          <label className="block text-[11px] font-mono text-text-body" htmlFor={`mf-section-slug-${row.slug}`}>
             {t("home.customizeSlug")}
           </label>
           <input
@@ -217,7 +217,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
           </div>
         )}
         {typeCodes.length === 0 ? (
-          <p className="text-[11px] text-gray-500">{t("home.customizeDefsUnavailable")}</p>
+          <p className="text-[11px] text-text-faint">{t("home.customizeDefsUnavailable")}</p>
         ) : (
           <>
             <input
@@ -306,7 +306,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
             />
           ))}
           {vocabTerms.length === 0 && (
-            <span className="text-[11px] text-gray-500 font-mono">{t("home.customizeTermEmpty")}</span>
+            <span className="text-[11px] text-text-faint font-mono">{t("home.customizeTermEmpty")}</span>
           )}
         </div>
         <div className="flex gap-2">
@@ -347,7 +347,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
             )),
           )}
           {Object.keys(selectedFields).length === 0 && (
-            <span className="text-[11px] text-gray-500 font-mono">{t("home.customizeRuleNone")}</span>
+            <span className="text-[11px] text-text-faint font-mono">{t("home.customizeRuleNone")}</span>
           )}
         </div>
         <div className="flex gap-2">
@@ -411,7 +411,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
             />
           ))}
           {selectedRelations.length === 0 && (
-            <span className="text-[11px] text-gray-500 font-mono">{t("home.customizeRuleNone")}</span>
+            <span className="text-[11px] text-text-faint font-mono">{t("home.customizeRuleNone")}</span>
           )}
         </div>
         <div className="flex gap-2">
@@ -482,7 +482,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
                     "w-7 h-7 rounded border grid place-items-center transition-colors duration-fast ease-soft cursor-pointer " +
                     (row.icon === name
                       ? "border-primary bg-primary/20 text-primary"
-                      : "border-line bg-emphasis/[0.03] text-gray-400 hover:text-emphasis hover:bg-emphasis/[0.08]")
+                      : "border-line bg-emphasis/[0.03] text-text-muted hover:text-emphasis hover:bg-emphasis/[0.08]")
                   }
                 >
                   <Icon className="w-3.5 h-3.5" />

@@ -426,7 +426,7 @@ export function EntityLink({ id, fallback }: { id: string; fallback?: string }) 
   // 解析不到（引用已失效、或该 id 不可见）时显示可读占位而不是裸 UUID，也不留成死链：
   // 指向一个取不回来的实体的链接只会把用户带到下一个错误页。
   if (failed && !e) {
-    return <span className="text-gray-400">{fallback || t("catalog.referenceUnknown")}</span>;
+    return <span className="text-text-muted">{fallback || t("catalog.referenceUnknown")}</span>;
   }
   return (
     <Link href={`/catalog/${e?.id || id}`} className="text-primary hover:underline">

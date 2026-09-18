@@ -67,7 +67,7 @@ export function EntityCommentComposer({
   return (
     <Card tone="subtle" padding="card" className="space-y-3">
       <form onSubmit={submit} className="space-y-3">
-        <div className="flex items-center justify-between gap-2 text-xs text-gray-500">
+        <div className="flex items-center justify-between gap-2 text-xs text-text-faint">
           <label htmlFor="entity-comment-body" className="font-medium text-text-body font-mono cursor-pointer">
             {t("entity.page.quickReview")}
           </label>
@@ -95,7 +95,7 @@ export function EntityCommentComposer({
           disabled={!user || submitting}
           maxLength={MAX_BODY}
           rows={3}
-          className="w-full p-3 rounded-lg bg-surface border border-line text-xs sm:text-sm text-text-strong placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 resize-y"
+          className="w-full p-3 rounded-lg bg-surface border border-line text-xs sm:text-sm text-text-strong placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 resize-y"
         />
         {error && (
           <p role="alert" className="text-xs text-rose-500 flex items-start gap-1.5">
@@ -104,7 +104,7 @@ export function EntityCommentComposer({
           </p>
         )}
         <div className="flex items-center justify-between gap-2 pt-1">
-          <span id="entity-comment-hint" className="text-[11px] text-gray-400">
+          <span id="entity-comment-hint" className="text-[11px] text-text-muted">
             {t("entity.page.syncNotice")}
           </span>
           {user ? (

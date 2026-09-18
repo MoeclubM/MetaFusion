@@ -79,7 +79,7 @@ export function OAuthGrantsPanel() {
           <KeyRound className="w-4 h-4 text-sky-500" />
           <span>{t("settings.oauthTitle")}</span>
         </h3>
-        <p className="text-xs text-gray-500 leading-relaxed">{t("settings.oauthDesc")}</p>
+        <p className="text-xs text-text-faint leading-relaxed">{t("settings.oauthDesc")}</p>
       </div>
 
       {error && (
@@ -105,13 +105,13 @@ export function OAuthGrantsPanel() {
       )}
 
       {loading ? (
-        <div className="p-8 text-center text-gray-500 text-xs font-mono flex items-center justify-center gap-2">
+        <div className="p-8 text-center text-text-faint text-xs font-mono flex items-center justify-center gap-2">
           <Loader2 className="w-4 h-4 animate-spin text-primary" />
           <span>{t("common.loading")}</span>
         </div>
       ) : grants && grants.length === 0 ? (
         <div className="p-6 rounded-xl bg-surfaceSubtle border border-line-subtle text-center space-y-2">
-          <ShieldCheck className="w-5 h-5 text-gray-400 mx-auto" strokeWidth={1.5} />
+          <ShieldCheck className="w-5 h-5 text-text-muted mx-auto" strokeWidth={1.5} />
           <div className="text-xs text-text-body">{t("settings.oauthEmpty")}</div>
         </div>
       ) : (
@@ -130,13 +130,13 @@ export function OAuthGrantsPanel() {
                           "text-[10px] font-mono px-1.5 py-0.5 rounded-sm border " +
                           (app.active
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                            : "bg-black/[0.04] dark:bg-white/[0.06] text-gray-500 border-line")
+                            : "bg-black/[0.04] dark:bg-white/[0.06] text-text-faint border-line")
                         }
                       >
                         {app.active ? t("settings.oauthActive") : t("settings.oauthExpired")}
                       </span>
                     </div>
-                    <div className="font-mono text-[10px] text-gray-400 break-all">{app.client_id}</div>
+                    <div className="font-mono text-[10px] text-text-muted break-all">{app.client_id}</div>
                   </div>
 
                   <button
@@ -153,7 +153,7 @@ export function OAuthGrantsPanel() {
                   </button>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-gray-500">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-text-faint">
                   {lastAt && (
                     <span>
                       {t("settings.oauthLastAuthorized")}: <span className="text-text-body">{lastAt}</span>
@@ -168,7 +168,7 @@ export function OAuthGrantsPanel() {
 
                 {Array.isArray(app.scopes) && app.scopes.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-mono text-gray-500">{t("settings.oauthScopes")}:</span>
+                    <span className="text-[10px] font-mono text-text-faint">{t("settings.oauthScopes")}:</span>
                     {app.scopes.map((scope) => (
                       <span
                         key={scope}

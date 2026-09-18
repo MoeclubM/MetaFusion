@@ -226,7 +226,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                 </button>
               ))}
             </div>
-            <span className="font-mono text-[11px] text-gray-400">TOTAL {credits.length} CREDITS</span>
+            <span className="font-mono text-[11px] text-text-muted">TOTAL {credits.length} CREDITS</span>
           </div>
 
           {/* 渲染当前 Tab: 角色与声优专用双轨卡片 (Characters & Cast) */}
@@ -261,7 +261,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                             className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono tracking-wide ${
                               MAIN_CHARACTER_RANKS.has(item.character.rankCode || "")
                                 ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium"
-                                : "bg-black/[0.04] dark:bg-white/[0.06] text-gray-500"
+                                : "bg-black/[0.04] dark:bg-white/[0.06] text-text-faint"
                             }`}
                           >
                             {item.character.roleBadge}

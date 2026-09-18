@@ -250,7 +250,7 @@ export function EntityRevisions({
                 {t("revisions.commitsUnit", { count: sortedRevisions.length })}
               </span>
             </div>
-            <p className="text-xs text-gray-500 font-mono mt-0.5">
+            <p className="text-xs text-text-faint font-mono mt-0.5">
               {t("revisions.appendOnly")}
             </p>
           </div>
@@ -258,7 +258,7 @@ export function EntityRevisions({
 
         {/* Contributors Avatars */}
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono text-gray-400 hidden md:inline">
+          <span className="text-[11px] font-mono text-text-muted hidden md:inline">
             {t("revisions.contributors")}
           </span>
           <div className="flex items-center -space-x-1.5 overflow-hidden">
@@ -291,7 +291,7 @@ export function EntityRevisions({
                     {activeDiff.oldLabel} → {activeDiff.newLabel}
                   </span>
                 </h3>
-                <p className="text-[11px] font-mono text-gray-500 mt-0.5">
+                <p className="text-[11px] font-mono text-text-faint mt-0.5">
                   {t("revisions.fieldsChanged", { count: activeDiff.fields.length })}
                 </p>
               </div>
@@ -302,14 +302,14 @@ export function EntityRevisions({
                 <button
                   type="button"
                   onClick={() => setDiffTab("visual")}
-                  className={"px-2.5 py-1 rounded-md transition-all " + (diffTab === "visual" ? "bg-surface text-primary font-bold shadow-2xs" : "text-gray-500 hover:text-gray-900 dark:hover:text-white")}
+                  className={"px-2.5 py-1 rounded-md transition-all " + (diffTab === "visual" ? "bg-surface text-primary font-bold shadow-2xs" : "text-text-faint hover:text-gray-900 dark:hover:text-white")}
                 >
                   <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{t("revisions.visualView")}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setDiffTab("unified")}
-                  className={"px-2.5 py-1 rounded-md transition-all " + (diffTab === "unified" ? "bg-surface text-primary font-bold shadow-2xs" : "text-gray-500 hover:text-gray-900 dark:hover:text-white")}
+                  className={"px-2.5 py-1 rounded-md transition-all " + (diffTab === "unified" ? "bg-surface text-primary font-bold shadow-2xs" : "text-text-faint hover:text-gray-900 dark:hover:text-white")}
                 >
                   <span className="flex items-center gap-1"><Code className="w-3.5 h-3.5" />{t("revisions.unifiedView")}</span>
                 </button>
@@ -327,7 +327,7 @@ export function EntityRevisions({
 
           {diffTab === "visual" ? (
             activeDiff.fields.length === 0 ? (
-              <div className="p-6 text-center text-xs font-mono text-gray-500 bg-surface rounded-lg border border-line-subtle">
+              <div className="p-6 text-center text-xs font-mono text-text-faint bg-surface rounded-lg border border-line-subtle">
                 {t("revisions.noDiff")}
               </div>
             ) : (
@@ -394,7 +394,7 @@ export function EntityRevisions({
               <h3 className="font-semibold text-text-strong text-sm">
                 {t("revisions.snapshotAt", { version: inspectingRev.version })}
               </h3>
-              <span className="text-xs font-mono text-gray-500">
+              <span className="text-xs font-mono text-text-faint">
                 ({new Date(inspectingRev.created_at).toLocaleString()})
               </span>
             </div>
@@ -440,7 +440,7 @@ export function EntityRevisions({
                 className={"absolute -left-6 sm:-left-8 top-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center shadow-xs transition-transform duration-base ease-soft group-hover:scale-110 " + (
                   isLatest
                     ? "border-primary bg-primary text-white"
-                    : "border-black/20 dark:border-white/20 bg-surface text-gray-500 group-hover:border-primary group-hover:text-primary"
+                    : "border-black/20 dark:border-white/20 bg-surface text-text-faint group-hover:border-primary group-hover:text-primary"
                 )}
               >
                 <div className={"w-1.5 h-1.5 rounded-full " + (isLatest ? "bg-white" : "bg-primary")} />
@@ -465,24 +465,24 @@ export function EntityRevisions({
                       </span>
                     )}
 
-                    <span className="font-mono text-[11px] text-gray-400">
+                    <span className="font-mono text-[11px] text-text-muted">
                       rev #{rev.id || idx + 1}
                     </span>
 
-                    <span className="text-gray-300 dark:text-gray-600">•</span>
+                    <span className="text-text-body dark:text-gray-600">•</span>
 
                     <div className="flex items-center gap-1.5 text-xs text-text-body">
                       <div className="w-4 h-4 rounded-full bg-primary/20 text-primary font-bold flex items-center justify-center text-[9px]">
                         {author.slice(0, 1).toUpperCase()}
                       </div>
                       <span className="font-semibold text-text-strong">@{author}</span>
-                      <span className="px-1 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-gray-500 uppercase">
+                      <span className="px-1 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-text-faint uppercase">
                         {role}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 text-xs font-mono text-gray-500">
+                  <div className="flex items-center gap-1.5 text-xs font-mono text-text-faint">
                     <Clock className="w-3.5 h-3.5" />
                     <span>{new Date(rev.created_at).toLocaleString()}</span>
                   </div>
@@ -562,7 +562,7 @@ export function EntityRevisions({
                     </button>
                   </div>
 
-                  <span className="text-[10px] text-gray-400">
+                  <span className="text-[10px] text-text-muted">
                     {t("revisions.immutableBadge")}
                   </span>
                 </div>

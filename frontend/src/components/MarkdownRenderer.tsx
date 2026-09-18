@@ -60,12 +60,12 @@ function CodeBlockWrapper({
 
   return (
     <div className="relative group my-3 rounded-lg overflow-hidden border border-line bg-[#0d1117] shadow-xs">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#161b22] border-b border-emphasis/5 text-xs text-gray-400 font-mono select-none">
-        <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{language || "code"}</span>
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#161b22] border-b border-emphasis/5 text-xs text-text-muted font-mono select-none">
+        <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{language || "code"}</span>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emphasis/5 hover:bg-emphasis/15 text-gray-300 hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer text-[11px]"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emphasis/5 hover:bg-emphasis/15 text-text-body hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer text-[11px]"
           title={t("common.copy")}
         >
           {copied ? (
@@ -81,7 +81,7 @@ function CodeBlockWrapper({
           )}
         </button>
       </div>
-      <div className="p-3.5 overflow-x-auto text-xs sm:text-sm font-mono text-gray-200 leading-relaxed scrollbar-thin">
+      <div className="p-3.5 overflow-x-auto text-xs sm:text-sm font-mono text-text-strong leading-relaxed scrollbar-thin">
         {children}
       </div>
     </div>

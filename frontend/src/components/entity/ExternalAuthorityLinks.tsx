@@ -189,7 +189,7 @@ export function ExternalAuthorityLinks({
               {displayLabel}
             </h3>
           </div>
-          <span className="text-[10px] font-mono text-gray-400 bg-black/[0.04] dark:bg-white/[0.06] px-1.5 py-0.5 rounded">
+          <span className="text-[10px] font-mono text-text-muted bg-black/[0.04] dark:bg-white/[0.06] px-1.5 py-0.5 rounded">
             {linkItems.length}
           </span>
         </div>
@@ -243,7 +243,7 @@ export function ExternalAuthorityLinks({
   // 样式 B: 水平徽标流（通用位置展示）
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
-      {displayLabel && <span className="font-mono text-[10px] uppercase tracking-wider text-gray-500 mr-1">{displayLabel}:</span>}
+      {displayLabel && <span className="font-mono text-[10px] uppercase tracking-wider text-text-faint mr-1">{displayLabel}:</span>}
       {linkItems.map((item) => {
         const IconComp = authorityIcon(item.icon);
         const isOfficial = item.isOfficial;

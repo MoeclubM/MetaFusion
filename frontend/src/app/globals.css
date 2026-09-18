@@ -171,25 +171,8 @@ html.light body {
   color: #0f172a;
 }
 
-/* 浅色下的中性文字阶梯：全部走语义变量，逐一写死的十六进制改不动（改一处漏一处）。
-   取值见 theme-palette.mjs 的 BASE_LIGHT，深色模式不受影响。 */
-html.light .text-gray-100:not(.keep-white),
-html.light .text-gray-200:not(.keep-white) {
-  color: var(--text-strong-color) !important;
-}
-
-html.light .text-gray-300:not(.keep-white) {
-  color: var(--text-body-color) !important;
-}
-
-html.light .text-gray-400:not(.keep-white) {
-  color: var(--text-muted-color) !important;
-}
-
-html.light .text-gray-500:not(.keep-white) {
-  color: var(--text-faint-color) !important;
-}
-
+/* 中性文字阶梯的浅色补丁已删除：text-gray-100/200 → text-text-strong、300 → text-text-body、
+   400 → text-text-muted、500 → text-text-faint 已在源码里迁移完成，取值同 BASE_LIGHT。 */
 /* 主色底上的文字：原来也被上一条 .text-white 规则刷成深字，浅蓝底深字只有 3.45:1；
    改用每套配色自己的对照色（--primary-contrast-color），蓝底白字 4.52:1。 */
 html.light .bg-primary.text-white:not(.keep-white) {

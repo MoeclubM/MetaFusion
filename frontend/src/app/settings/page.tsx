@@ -204,7 +204,7 @@ export default function SettingsPage() {
               <h1 className="font-display text-lg font-bold tracking-tight text-text-strong leading-none">
                 {t("settings.title")}
               </h1>
-              <p className="text-xs text-gray-500 mt-1">{t("settings.subtitle")}</p>
+              <p className="text-xs text-text-faint mt-1">{t("settings.subtitle")}</p>
             </div>
           </div>
 
@@ -312,10 +312,10 @@ export default function SettingsPage() {
                     </span>
                     <UserRoleBadge role={user.role} t={t} showIcon />
                     {displayNameOf(user as unknown as { username: string; display_name?: string }) !== user.username && (
-                      <span className="font-mono text-xs text-gray-500">@{user.username}</span>
+                      <span className="font-mono text-xs text-text-faint">@{user.username}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap font-mono text-xs text-gray-500">
+                  <div className="flex items-center gap-2 flex-wrap font-mono text-xs text-text-faint">
                     <span className="truncate">{user.email || t("settings.unboundEmail")}</span>
                     {user.email && (
                       user.is_email_verified ? (
@@ -324,7 +324,7 @@ export default function SettingsPage() {
                           <span>{t("settings.emailVerified")}</span>
                         </span>
                       ) : authSettings?.email_verification_enabled === false ? (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.04] text-gray-500 border border-line text-[10px] font-mono font-medium">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-black/[0.04] dark:bg-white/[0.04] text-text-faint border border-line text-[10px] font-mono font-medium">
                           <span>{t("settings.emailVerificationDisabledTag")}</span>
                         </span>
                       ) : (
@@ -335,7 +335,7 @@ export default function SettingsPage() {
                       )
                     )}
                   </div>
-                  <div className="font-mono text-[11px] text-gray-400 break-all">
+                  <div className="font-mono text-[11px] text-text-muted break-all">
                     UUID: {user.id}
                   </div>
                 </div>
@@ -344,7 +344,7 @@ export default function SettingsPage() {
               {/* 资料编辑：后端没有 /auth/profile 实现，改为只读展示 + 占位说明 */}
               <div className="space-y-3.5">
                 <div className="p-3 rounded-lg bg-surfaceSubtle border border-line-subtle text-xs text-text-body flex items-center gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-gray-400" />
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-text-muted" />
                   <span>
                     {t("settings.displayName")} / {t("settings.bioLabel")}: {t("catalog.unavailable")}
                   </span>
@@ -354,7 +354,7 @@ export default function SettingsPage() {
                   <div className="w-full min-h-10 px-3.5 py-2.5 bg-background border border-line rounded-lg text-text-strong text-sm opacity-70">
                     {displayNameOf(user as unknown as { username: string; display_name?: string })}
                   </div>
-                  <p className="font-mono text-xs text-gray-500">{t("settings.displayNameHint")}</p>
+                  <p className="font-mono text-xs text-text-faint">{t("settings.displayNameHint")}</p>
                 </div>
                 <div className="space-y-1">
                   <label className="font-mono text-xs sm:text-sm text-text-muted">{t("settings.bioLabel")}</label>
@@ -366,8 +366,8 @@ export default function SettingsPage() {
 
               <div className="grid gap-1.5 pt-2 border-t border-line-subtle">
                 <div className="p-2.5 rounded-md bg-background border border-line-subtle flex items-center justify-between text-xs font-mono">
-                  <span className="text-gray-500 flex items-center gap-1.5">
-                    <Shield className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
+                  <span className="text-text-faint flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-text-muted" strokeWidth={1.5} />
                     <span>{t("settings.accountRole")}</span>
                   </span>
                   <UserRoleBadge role={user.role} t={t} showIcon />
@@ -375,7 +375,7 @@ export default function SettingsPage() {
 
                 {!!(user as unknown as { invite_code?: string }).invite_code && (
                   <div className="p-2.5 rounded-md bg-background border border-line-subtle flex items-center justify-between text-xs font-mono">
-                    <span className="text-gray-500 flex items-center gap-1.5">
+                    <span className="text-text-faint flex items-center gap-1.5">
                       <KeyRound className="w-3.5 h-3.5 text-amber-500" strokeWidth={1.5} />
                       <span>{t("settings.inviteCodeLabel")}</span>
                     </span>
@@ -384,7 +384,7 @@ export default function SettingsPage() {
                 )}
 
                 <div className="p-2.5 rounded-md bg-background border border-line-subtle flex items-center justify-between text-xs font-mono">
-                  <span className="text-gray-500 flex items-center gap-1.5">
+                  <span className="text-text-faint flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.5} />
                     <span>{t("settings.interfaceLanguage")}</span>
                   </span>
@@ -411,12 +411,12 @@ export default function SettingsPage() {
                   不挂「暂不可用」徽标：徽标说"不可用"、旁边却是可点的高亮开关，是自相矛盾的表达。 */}
               <div className="space-y-1.5 pt-2 border-t border-line-subtle">
                 <div className="flex items-center gap-1.5 pb-1">
-                  <Eye className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
+                  <Eye className="w-3.5 h-3.5 text-text-muted" strokeWidth={1.5} />
                   <span className="font-mono text-xs font-semibold text-text-body">{t("settings.privacyTitle")}</span>
                 </div>
 
-                <div className="p-3 rounded-lg bg-surfaceSubtle border border-line-subtle text-[11px] text-gray-500 leading-relaxed flex items-start gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" strokeWidth={1.5} />
+                <div className="p-3 rounded-lg bg-surfaceSubtle border border-line-subtle text-[11px] text-text-faint leading-relaxed flex items-start gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-text-muted" strokeWidth={1.5} />
                   <span>{t("settings.privacyUnavailableHint")}</span>
                 </div>
 
@@ -426,7 +426,7 @@ export default function SettingsPage() {
                       <Heart className="w-3.5 h-3.5 text-rose-500" strokeWidth={1.8} />
                       <span>{t("settings.privacyFavorites")}</span>
                     </div>
-                    <div className="text-[11px] text-gray-500 leading-relaxed">{t("settings.privacyFavoritesDesc")}</div>
+                    <div className="text-[11px] text-text-faint leading-relaxed">{t("settings.privacyFavoritesDesc")}</div>
                   </div>
                   {/* 灰态开关：只表示"这里本该有个开关、现在没有"，不表示开或关——
                       账号服务根本没有这两列，任何 checked 取值都是在编造一个不存在的设置状态。 */}
@@ -439,7 +439,7 @@ export default function SettingsPage() {
                       <Mail className="w-3.5 h-3.5 text-sky-500" strokeWidth={1.8} />
                       <span>{t("settings.privacyEmail")}</span>
                     </div>
-                    <div className="text-[11px] text-gray-500 leading-relaxed">{t("settings.privacyEmailDesc")}</div>
+                    <div className="text-[11px] text-text-faint leading-relaxed">{t("settings.privacyEmailDesc")}</div>
                   </div>
                   {/* 同上：邮箱可见性目前只由账号服务决定（非本人一律不下发），前端没有可写字段。 */}
                   <span aria-hidden="true" className="shrink-0 w-9 h-5 rounded-full bg-gray-300 dark:bg-white/15" />
@@ -477,14 +477,14 @@ export default function SettingsPage() {
               <div className="space-y-1">
                 <label className="font-mono text-xs sm:text-sm text-text-muted">{t("settings.oldPassword")}</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" strokeWidth={1.5} />
                   <input
                     type="password"
                     required
                     placeholder={t("settings.oldPasswordPlaceholder")}
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
-                    className="w-full pl-9 pr-3.5 h-10 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
+                    className="w-full pl-9 pr-3.5 h-10 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50"
                   />
                 </div>
               </div>
@@ -492,7 +492,7 @@ export default function SettingsPage() {
               <div className="space-y-1">
                 <label className="font-mono text-xs sm:text-sm text-text-muted">{t("settings.newPassword")}</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" strokeWidth={1.5} />
                   <input
                     type="password"
                     required
@@ -501,7 +501,7 @@ export default function SettingsPage() {
                     placeholder={t("settings.newPasswordPlaceholder")}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full pl-9 pr-3.5 h-10 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
+                    className="w-full pl-9 pr-3.5 h-10 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50"
                   />
                 </div>
                 {/* 规则只此一处：与服务端 12–72 位同口径；/login 注册页用同一个键。 */}
@@ -511,7 +511,7 @@ export default function SettingsPage() {
               <div className="space-y-1">
                 <label className="font-mono text-xs sm:text-sm text-text-muted">{t("settings.confirmPassword")}</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" strokeWidth={1.5} />
                   <input
                     type="password"
                     required
@@ -520,7 +520,7 @@ export default function SettingsPage() {
                     placeholder={t("settings.confirmPasswordPlaceholder")}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full pl-9 pr-3.5 h-10 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
+                    className="w-full pl-9 pr-3.5 h-10 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50"
                   />
                 </div>
               </div>
@@ -538,10 +538,10 @@ export default function SettingsPage() {
                   入口（本页签就是安全与改密），服务端行为不变。 */}
               <div className="pt-3 mt-1 border-t border-line-subtle space-y-2">
                 <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
+                  <ShieldCheck className="w-3.5 h-3.5 text-text-muted" strokeWidth={1.5} />
                   <span className="font-mono text-xs font-semibold text-text-body">{t("settings.sessionsTitle")}</span>
                 </div>
-                <p className="text-[11px] text-gray-500 leading-relaxed">{t("settings.sessionsDesc")}</p>
+                <p className="text-[11px] text-text-faint leading-relaxed">{t("settings.sessionsDesc")}</p>
                 {/* type=button：本按钮在改密表单内，但语义与表单无关，回车提交改密不受影响。 */}
                 <button
                   type="button"

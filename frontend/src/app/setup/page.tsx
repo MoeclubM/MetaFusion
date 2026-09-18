@@ -111,7 +111,7 @@ export default function SetupPage() {
 
   if (loadingStatus) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center font-mono text-sm text-gray-500">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center font-mono text-sm text-text-faint">
         <Loader2 className="w-8 h-8 animate-spin text-primary mb-3" />
         <span>{t("common.loading")}</span>
       </div>
@@ -172,15 +172,15 @@ export default function SetupPage() {
           </div>
 
           <div className="p-4 rounded-2xl bg-surfaceSubtle border border-line font-mono text-xs text-left space-y-2">
-            <div className="flex justify-between items-center text-gray-500">
+            <div className="flex justify-between items-center text-text-faint">
               <span>Admin Username:</span>
               <span className="font-bold text-text-strong">{successResult.user.username}</span>
             </div>
-            <div className="flex justify-between items-center text-gray-500">
+            <div className="flex justify-between items-center text-text-faint">
               <span>Admin Email:</span>
               <span className="font-bold text-text-strong">{successResult.user.email || email}</span>
             </div>
-            <div className="flex justify-between items-center text-gray-500">
+            <div className="flex justify-between items-center text-text-faint">
               <span>Admin Role:</span>
               <span className="text-primary font-bold">{successResult.user.role}</span>
             </div>
@@ -265,7 +265,7 @@ export default function SetupPage() {
                 {t("setup.adminSectionTitle")}
               </h2>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-text-faint">
               {t("setup.adminSectionDesc")}
             </p>
 
@@ -275,7 +275,7 @@ export default function SetupPage() {
                   {t("setup.usernameLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                   <input
                     type="text"
                     required
@@ -292,7 +292,7 @@ export default function SetupPage() {
                   {t("setup.emailLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                   <input
                     type="email"
                     required
@@ -309,7 +309,7 @@ export default function SetupPage() {
                   {t("setup.passwordLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                   <input
                     type={showPassword ? "text" : "password"}
                     required
@@ -323,7 +323,7 @@ export default function SetupPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-gray-600 dark:hover:text-gray-200"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -335,7 +335,7 @@ export default function SetupPage() {
                   {t("setup.confirmPasswordLabel")} <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
                   <input
                     type={showPassword ? "text" : "password"}
                     required
@@ -353,12 +353,12 @@ export default function SetupPage() {
 
           {/* 站点名称与注册/邀请开关暂无后端实现，如实说明而非提交会被忽略的字段 */}
           <div className="p-4 rounded-2xl bg-surfaceSubtle border border-line flex items-start gap-3">
-            <AlertCircle className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+            <AlertCircle className="w-4 h-4 text-text-muted shrink-0 mt-0.5" />
             <div className="text-xs space-y-0.5">
               <div className="font-bold text-text-strong">
                 {t("setup.siteSettingsTitle")}
               </div>
-              <div className="text-gray-500">
+              <div className="text-text-faint">
                 {t("catalog.unavailable")}
               </div>
             </div>
@@ -394,7 +394,7 @@ export default function SetupPage() {
       </PageShell>
 
       {/* Minimal Footer */}
-      <PageContainer as="footer" width="narrow" className="relative z-10 text-center font-mono text-xs text-gray-400 dark:text-white/30 py-4">
+      <PageContainer as="footer" width="narrow" className="relative z-10 text-center font-mono text-xs text-text-muted dark:text-white/30 py-4">
         © 2026 MetaFusion · Out-of-Box Initialization Wizard
       </PageContainer>
     </div>

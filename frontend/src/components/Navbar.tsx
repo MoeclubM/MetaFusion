@@ -149,7 +149,7 @@ export const Navbar: React.FC = () => {
               const className = `relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all ${
                 active
                   ? "text-primary bg-primary/10 border border-primary/25 font-semibold shadow-xs"
-                  : "text-gray-400 hover:text-emphasis hover:bg-surfaceHover"
+                  : "text-text-muted hover:text-emphasis hover:bg-surfaceHover"
               }`;
 
               if (tab.external) {
@@ -176,7 +176,7 @@ export const Navbar: React.FC = () => {
                 className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all ${
                   pathname.startsWith("/developer")
                     ? "text-primary bg-primary/10 border border-primary/25 font-semibold"
-                    : "text-gray-400 hover:text-primary hover:bg-primary/5"
+                    : "text-text-muted hover:text-primary hover:bg-primary/5"
                 }`}
               >
                 <Terminal className="w-3.5 h-3.5" />
@@ -220,14 +220,14 @@ export const Navbar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-2 pl-1.5 pr-2.5 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs text-gray-200 transition-colors duration-fast ease-soft cursor-pointer"
+                className="flex items-center gap-2 pl-1.5 pr-2.5 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
               >
                 <UserAvatar user={user} size="sm" shape="rounded" />
                 <span className="font-medium max-w-[90px] truncate hidden sm:inline text-xs">
                   {displayNameOf(user as unknown as { username: string; display_name?: string })}
                 </span>
                 <ChevronDown
-                  className={`w-3 h-3 text-gray-400 transition-transform duration-200 ${
+                  className={`w-3 h-3 text-text-muted transition-transform duration-200 ${
                     isUserMenuOpen ? "rotate-180" : ""
                   }`}
                   strokeWidth={1.5}
@@ -245,7 +245,7 @@ export const Navbar: React.FC = () => {
                       <div className="font-semibold text-emphasis truncate">
                         {displayNameOf(user as unknown as { username: string; display_name?: string })}
                       </div>
-                      <div className="text-[10px] text-gray-500 font-mono truncate">@{user.username}</div>
+                      <div className="text-[10px] text-text-faint font-mono truncate">@{user.username}</div>
                       <div className="pt-0.5">
                         <UserRoleBadge role={user.role} t={t} showIcon />
                       </div>
@@ -256,7 +256,7 @@ export const Navbar: React.FC = () => {
                     <a
                       href={getAuthSettingsUrl()}
                       onClick={() => setIsUserMenuOpen(false)}
-                      className="w-full px-3 py-2 text-left text-gray-300 hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
+                      className="w-full px-3 py-2 text-left text-text-body hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
                     >
                       <UserIcon className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
                       <span>{t("navbar.accountSessions")}</span>
@@ -268,7 +268,7 @@ export const Navbar: React.FC = () => {
                     <Link
                       href="/developer"
                       onClick={() => setIsUserMenuOpen(false)}
-                      className="xl:hidden w-full px-3 py-2 text-left text-gray-300 hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
+                      className="xl:hidden w-full px-3 py-2 text-left text-text-body hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
                     >
                       <Terminal className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
                       <span>{t("navigation.developer")}</span>
@@ -316,7 +316,7 @@ export const Navbar: React.FC = () => {
           ) : (
             <a
               href={getAuthLoginUrl()}
-              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs font-medium text-gray-200 transition-colors duration-fast ease-soft"
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs font-medium text-text-strong transition-colors duration-fast ease-soft"
             >
               <UserIcon className="w-3.5 h-3.5" />
               <span>{t("navbar.signIn")}</span>
@@ -335,7 +335,7 @@ export const Navbar: React.FC = () => {
       <nav aria-label={t("navigation.label")} className="xl:hidden flex gap-1 overflow-x-auto pb-2">
         {navLinks.map((tab) => {
           const active = isNavLinkActive(pathname, tab);
-          const className = `whitespace-nowrap rounded-lg px-3 py-2 text-sm ${active ? "bg-primary/10 text-primary" : "text-gray-400"}`;
+          const className = `whitespace-nowrap rounded-lg px-3 py-2 text-sm ${active ? "bg-primary/10 text-primary" : "text-text-muted"}`;
           // external 项必须走 <a>：/docs/catalog 与外站资源站不是本应用的路由，
           // next/link 会让 App Router 去取一条不存在的 RSC 载荷（与桌面分支同一处理）。
           if (tab.external) {

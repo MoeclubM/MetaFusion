@@ -308,7 +308,7 @@ export default function UserDetailPage() {
             {u ? (
               <UserAvatar user={u} size="xl" shape="rounded" ring className="shadow-md" />
             ) : (
-              <div className="w-14 h-14 rounded-md border border-dashed border-line grid place-items-center text-gray-400 shrink-0">
+              <div className="w-14 h-14 rounded-md border border-dashed border-line grid place-items-center text-text-muted shrink-0">
                 <AlertCircle className="w-5 h-5" strokeWidth={1.6} />
               </div>
             )}
@@ -338,12 +338,12 @@ export default function UserDetailPage() {
                 </p>
               )}
               {u?.email && (
-                <div className="text-xs text-gray-500 flex items-center gap-1">
+                <div className="text-xs text-text-faint flex items-center gap-1">
                   <Mail className="w-3 h-3" />
                   <span>{u.email}</span>
                 </div>
               )}
-              <div className="text-[11px] font-mono text-gray-400 flex items-center gap-2 flex-wrap">
+              <div className="text-[11px] font-mono text-text-muted flex items-center gap-2 flex-wrap">
                 <span>
                   ID: <span className="text-text-body font-medium">{u?.id || id}</span>
                 </span>
@@ -351,7 +351,7 @@ export default function UserDetailPage() {
                   type="button"
                   onClick={handleCopyId}
                   title={t("users.profile.copyId")}
-                  className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-fast ease-soft flex items-center gap-1"
+                  className="p-1 rounded hover:bg-black/5 dark:hover:bg-white/10 text-text-muted hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-fast ease-soft flex items-center gap-1"
                 >
                   {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                   <span className="text-[10px]">{copiedId ? t("users.profile.copied") : t("users.profile.copyId")}</span>
@@ -397,13 +397,13 @@ export default function UserDetailPage() {
             const unknown = it.state !== "ok" || typeof it.value !== "number";
             return (
               <div key={it.id} className="rounded-lg border border-line bg-surface p-2.5 text-center shadow-2xs">
-                <div className="text-[10px] text-gray-500 font-mono flex items-center justify-center gap-1">
+                <div className="text-[10px] text-text-faint font-mono flex items-center justify-center gap-1">
                   <it.icon className="w-3 h-3" />
                   <span className="truncate">{it.label}</span>
                 </div>
                 <div
                   title={unknown ? t("users.profile.stats.unknown") : undefined}
-                  className={unknown ? "text-xs font-semibold text-gray-400 mt-1.5" : "text-base font-bold text-text-strong mt-0.5"}
+                  className={unknown ? "text-xs font-semibold text-text-muted mt-1.5" : "text-base font-bold text-text-strong mt-0.5"}
                 >
                   {statValue(it.value, it.state)}
                 </div>
@@ -459,12 +459,12 @@ export default function UserDetailPage() {
         {/* Content Box：key 随页签变化，切换时重放 .mf-tabpanel（与详情页/管理台同一约定） */}
         <TabPanel activeKey={tab} spacing="none" className="rounded-xl border border-line bg-surface overflow-hidden shadow-soft">
           {loading ? (
-            <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("common.loading")}</div>
+            <div className="p-8 text-center text-text-faint text-xs font-mono">{t("common.loading")}</div>
           ) : listError ? (
             <div className="p-8 text-center space-y-2">
               <AlertCircle className="w-5 h-5 text-amber-500 mx-auto" strokeWidth={1.6} />
               <div className="text-sm text-text-body font-medium">{t("users.profile.listFailed")}</div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-text-faint">
                 {listError === "not_found" || listError === "invalid"
                   ? t("users.profile.notFound")
                   : listError === "rate_limited"
@@ -482,12 +482,12 @@ export default function UserDetailPage() {
             </div>
           ) : tab === "favorites" && !favVisible ? (
             <div className="p-10 text-center space-y-2">
-              <Lock className="w-6 h-6 text-gray-400 mx-auto" strokeWidth={1.5} />
+              <Lock className="w-6 h-6 text-text-muted mx-auto" strokeWidth={1.5} />
               <div className="text-sm text-text-body font-medium">{t("users.profile.favoritesPrivate")}</div>
-              <div className="text-xs text-gray-500 font-mono">{t("users.profile.favoritesPrivateHint")}</div>
+              <div className="text-xs text-text-faint font-mono">{t("users.profile.favoritesPrivateHint")}</div>
             </div>
           ) : tab === "favorites" && items.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("users.profile.noFavorites")}</div>
+            <div className="p-8 text-center text-text-faint text-xs font-mono">{t("users.profile.noFavorites")}</div>
           ) : tab === "favorites" ? (
             <ul className="divide-y divide-black/5 dark:divide-white/[0.06]">
               {items.map((it: FavoriteItem) => {
@@ -505,7 +505,7 @@ export default function UserDetailPage() {
                         <div className="text-xs text-text-strong font-medium truncate group-hover:text-primary transition-colors duration-fast ease-soft">
                           {title}
                         </div>
-                        <div className="text-[10px] text-gray-500 font-mono mt-0.5">
+                        <div className="text-[10px] text-text-faint font-mono mt-0.5">
                           {typeLabel}
                           {it.created_at ? ` · ${isoDate(it.created_at)}` : ""}
                         </div>
@@ -516,7 +516,7 @@ export default function UserDetailPage() {
                         type="button"
                         onClick={(e) => handleRemoveFavorite(e, it)}
                         title={t("users.profile.unfavorite")}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-rose-500/10 text-gray-400 hover:text-rose-500"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded hover:bg-rose-500/10 text-text-muted hover:text-rose-500"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -526,7 +526,7 @@ export default function UserDetailPage() {
               })}
             </ul>
           ) : items.length === 0 ? (
-            <div className="p-8 text-center text-gray-500 text-xs font-mono">{t("users.profile.noData")}</div>
+            <div className="p-8 text-center text-text-faint text-xs font-mono">{t("users.profile.noData")}</div>
           ) : (
             <ul className="divide-y divide-black/5 dark:divide-white/[0.06]">
               {items.map((it: ContributionItem, idx: number) => {
@@ -562,7 +562,7 @@ export default function UserDetailPage() {
                               {entityDisplayName || t("users.profile.noData")}
                             </Link>
                             {kind && (
-                              <span className="text-[10px] font-mono text-gray-400 uppercase bg-black/[0.03] dark:bg-white/5 px-1 rounded">
+                              <span className="text-[10px] font-mono text-text-muted uppercase bg-black/[0.03] dark:bg-white/5 px-1 rounded">
                                 {kindLabel(kind)}
                               </span>
                             )}
@@ -571,11 +571,11 @@ export default function UserDetailPage() {
                           {it.edit_note && <p className="text-xs text-text-body font-sans">{it.edit_note}</p>}
 
                           {it.diff_summary && !it.diff && (
-                            <p className="text-[11px] text-gray-500 font-mono whitespace-pre-wrap">{it.diff_summary}</p>
+                            <p className="text-[11px] text-text-faint font-mono whitespace-pre-wrap">{it.diff_summary}</p>
                           )}
 
                           {it.sources.length > 0 && (
-                            <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-mono text-gray-400 pt-0.5">
+                            <div className="flex items-center gap-1.5 flex-wrap text-[10px] font-mono text-text-muted pt-0.5">
                               <span>{t("users.profile.sources")}:</span>
                               {it.sources.map((src, sidx) =>
                                 src.url ? (
@@ -599,7 +599,7 @@ export default function UserDetailPage() {
                             </div>
                           )}
 
-                          <div className="text-[10px] text-gray-500 font-mono flex items-center gap-2">
+                          <div className="text-[10px] text-text-faint font-mono flex items-center gap-2">
                             {/* 时间戳统一 ISO（见 lib/datetime.ts）；本地化写法留 title 供悬停查看。 */}
                             <span>
                               {it.created_at ? (
@@ -641,7 +641,7 @@ export default function UserDetailPage() {
         </TabPanel>
 
         {/* Pagination */}
-        <div className="flex items-center justify-between text-xs text-gray-500">
+        <div className="flex items-center justify-between text-xs text-text-faint">
           <span className="font-mono text-[11px]">{t("users.profile.pagination", { total, page })}</span>
           <div className="flex gap-1.5">
             <button

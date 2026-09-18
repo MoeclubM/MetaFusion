@@ -298,13 +298,13 @@ function CommunityContent() {
  </button>
  ) : (
  <div className="rounded-lg border border-dashed border-line bg-surface/60 p-4 text-center">
- <p className="text-sm text-gray-500 leading-relaxed">{t("community.loginToCreate")}</p>
+ <p className="text-sm text-text-faint leading-relaxed">{t("community.loginToCreate")}</p>
  </div>
  )}
 
  {/* Board list — single source: Latest-Top / search live in top bar */}
  <div className="space-y-1">
- <h3 className="px-2.5 text-xs font-mono font-bold tracking-widest text-gray-500 uppercase flex items-center justify-between">
+ <h3 className="px-2.5 text-xs font-mono font-bold tracking-widest text-text-faint uppercase flex items-center justify-between">
  <span>{t("community.boards")}</span>
  <span className="font-normal normal-case tracking-normal text-xs text-gray-600">{t("community.boardCount", {count: boards.length - 1})}</span>
  </h3>
@@ -337,24 +337,24 @@ function CommunityContent() {
  className={`w-full group flex items-center gap-2.5 px-3.5 py-2.5 rounded-md border text-left transition-colors duration-fast ease-soft ${
  isActive
  ? "bg-surface border-line text-emphasis shadow-sm"
- : "border-transparent text-gray-400 hover:text-emphasis hover:bg-surface/70 hover:border-line/60"
+ : "border-transparent text-text-muted hover:text-emphasis hover:bg-surface/70 hover:border-line/60"
  }`}
  >
  <span className={`w-8 h-8 rounded-md flex items-center justify-center border shrink-0 ${board.bgColor} ${board.borderColor}`}>
  <Icon className={`w-4 h-4 ${board.color}`} />
  </span>
 	 <span className="flex-1 min-w-0">
-	 <span className={`block text-sm font-semibold leading-none truncate ${isActive ? "text-emphasis" : "text-gray-300 group-hover:text-emphasis"}`}>
+	 <span className={`block text-sm font-semibold leading-none truncate ${isActive ? "text-emphasis" : "text-text-body group-hover:text-emphasis"}`}>
 	 {boardDisplayName(board, locale, t)}
 	 </span>
-	 <span className="block text-xs text-gray-500 truncate leading-tight mt-0.5">{boardDisplayDesc(board, locale, t)}</span>
+	 <span className="block text-xs text-text-faint truncate leading-tight mt-0.5">{boardDisplayDesc(board, locale, t)}</span>
 	 </span>
 	 {badge && (
-	 <span className={`shrink-0 px-2.5 py-1 rounded text-xs font-mono leading-none border ${isActive ? "bg-background border-line text-gray-300" : "bg-surface border-line text-gray-500"}`}>
+	 <span className={`shrink-0 px-2.5 py-1 rounded text-xs font-mono leading-none border ${isActive ? "bg-background border-line text-text-body" : "bg-surface border-line text-text-faint"}`}>
 	 {badge}
 	 </span>
 	 )}
-	 {isActive && <ChevronRight className="w-4 h-4 text-gray-500 shrink-0" />}
+	 {isActive && <ChevronRight className="w-4 h-4 text-text-faint shrink-0" />}
 	 </button>
 	 );
 	 })}
@@ -379,10 +379,10 @@ function CommunityContent() {
  <div className="w-[300px] max-w-[85vw] bg-background border-r border-line flex flex-col overflow-hidden">
  <div className="h-12 flex items-center justify-between px-4 border-b border-line shrink-0">
  <span className="text-sm font-bold text-emphasis flex items-center gap-2">
- <Layers className="w-4 h-4 text-gray-500" />
+ <Layers className="w-4 h-4 text-text-faint" />
  {t("community.boardNav")}
  </span>
- <button onClick={() => setSidebarOpen(false)} className="p-1.5 text-gray-400 hover:text-emphasis rounded-md hover:bg-surface">
+ <button onClick={() => setSidebarOpen(false)} className="p-1.5 text-text-muted hover:text-emphasis rounded-md hover:bg-surface">
  <X className="w-4 h-4" />
  </button>
  </div>
@@ -411,14 +411,14 @@ function CommunityContent() {
 	 setSidebarOpen(false);
 	 resetToFirstPage();
 	 }}
-	 className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md border text-left ${isActive ? "bg-surface border-line text-emphasis" : "border-transparent text-gray-400"}`}
+	 className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md border text-left ${isActive ? "bg-surface border-line text-emphasis" : "border-transparent text-text-muted"}`}
 	 >
 	 <span className={`w-8 h-8 rounded-md flex items-center justify-center border ${board.bgColor} ${board.borderColor}`}>
 	 <Icon className={`w-4 h-4 ${board.color}`} />
 	 </span>
 	 <span className="flex-1 min-w-0">
 	 <span className="block text-sm font-semibold truncate">{boardDisplayName(board, locale, t)}</span>
-	 <span className="block text-xs text-gray-500 truncate">{boardDisplayDesc(board, locale, t)}</span>
+	 <span className="block text-xs text-text-faint truncate">{boardDisplayDesc(board, locale, t)}</span>
 	 </span>
 	 </button>
 	 );
@@ -438,13 +438,13 @@ function CommunityContent() {
 	      <div className="flex items-center gap-2.5">
 	        <button
 	          onClick={() => setSidebarOpen(true)}
-	          className="lg:hidden p-2 rounded-md border border-line bg-surface text-gray-400 hover:text-emphasis"
+	          className="lg:hidden p-2 rounded-md border border-line bg-surface text-text-muted hover:text-emphasis"
 	        >
 	          <Menu className="w-4 h-4" />
 	        </button>
 
 	        <div className="relative flex-1">
-	          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+	          <Search className="w-4 h-4 text-text-muted absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
 	          <input
 	            type="text"
 	            placeholder={t("community.boardSearchPlaceholder")}
@@ -459,7 +459,7 @@ function CommunityContent() {
 	                onClick={() => {
 	                  setSearchFilter("");
 	                }}
-	                className="p-1 text-gray-500 hover:text-gray-300 transition-colors duration-fast ease-soft rounded"
+	                className="p-1 text-text-faint hover:text-text-body transition-colors duration-fast ease-soft rounded"
 	                title={t("community.clear")}
 	              >
 	                <X className="w-3.5 h-3.5" />
@@ -467,7 +467,7 @@ function CommunityContent() {
 	            )}
 	            <button
 	              onClick={submitSearch}
-	              className="px-3 py-1 rounded bg-emphasis/[0.08] hover:bg-emphasis/[0.15] border border-line text-xs font-mono text-gray-200 transition-colors duration-fast ease-soft"
+	              className="px-3 py-1 rounded bg-emphasis/[0.08] hover:bg-emphasis/[0.15] border border-line text-xs font-mono text-text-strong transition-colors duration-fast ease-soft"
 	            >
 	              {t("common.search")}
 	            </button>
@@ -499,21 +499,21 @@ function CommunityContent() {
 	              className={`h-9 px-3 rounded-md border text-xs font-medium inline-flex items-center gap-1.5 transition-colors duration-fast ease-soft cursor-pointer ${
 	                selectedBoard !== "all"
 	                  ? `${currentBoard.bgColor} ${currentBoard.borderColor} ${currentBoard.color} font-semibold shadow-xs`
-	                  : "bg-surface hover:bg-surfaceBorder border-line text-gray-300"
+	                  : "bg-surface hover:bg-surfaceBorder border-line text-text-body"
 	              }`}
 	            >
-	              <span className="text-gray-400 font-normal">{t("community.searchCategoryFilter")}</span>
-	              <span className="text-gray-500 font-mono">&gt;</span>
+	              <span className="text-text-muted font-normal">{t("community.searchCategoryFilter")}</span>
+	              <span className="text-text-faint font-mono">&gt;</span>
 	              <span className="max-w-[130px] truncate">
 	                {selectedBoard === "all" ? t("community.allBoardsOption") : boardDisplayName(currentBoard, locale, t)}
 	              </span>
-	              <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform duration-base ease-soft ${boardDropdownOpen ? "rotate-180" : ""}`} />
+	              <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-base ease-soft ${boardDropdownOpen ? "rotate-180" : ""}`} />
 	            </button>
 
 	            {boardDropdownOpen && (
 	              <div className="absolute left-0 top-full mt-1.5 w-72 rounded-lg bg-surface border border-line shadow-xl z-50 p-2 space-y-2 animate-in fade-in duration-100">
 	                <div className="relative">
-	                  <Search className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-2.5" />
+	                  <Search className="w-3.5 h-3.5 text-text-faint absolute left-2.5 top-2.5" />
 	                  <input
 	                    ref={boardSearchInputRef}
 	                    type="text"
@@ -535,7 +535,7 @@ function CommunityContent() {
 	                    className={`w-full text-left px-2.5 py-2 rounded-md text-xs flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                      selectedBoard === "all"
 	                        ? "bg-primary text-white font-semibold"
-	                        : "text-gray-300 hover:text-white hover:bg-emphasis/[0.05]"
+	                        : "text-text-body hover:text-white hover:bg-emphasis/[0.05]"
 	                    }`}
 	                  >
 	                    <span className="flex items-center gap-2 truncate">
@@ -562,7 +562,7 @@ function CommunityContent() {
 	                          className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                            isSelected
 	                              ? `${board.bgColor} ${board.color} font-semibold border ${board.borderColor}`
-	                              : "text-gray-300 hover:text-emphasis hover:bg-emphasis/[0.05]"
+	                              : "text-text-body hover:text-emphasis hover:bg-emphasis/[0.05]"
 	                          }`}
 	                        >
 	                          <span className="flex items-center gap-2 min-w-0">
@@ -591,21 +591,21 @@ function CommunityContent() {
 	              className={`h-9 px-3 rounded-md border text-xs font-medium inline-flex items-center gap-1.5 transition-colors duration-fast ease-soft cursor-pointer ${
 	                currentSelectedTagObj
 	                  ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-semibold shadow-xs"
-	                  : "bg-surface hover:bg-surfaceBorder border-line text-gray-300"
+	                  : "bg-surface hover:bg-surfaceBorder border-line text-text-body"
 	              }`}
 	            >
-	              <span className="text-gray-400 font-normal">{t("community.searchTagFilter")}</span>
-	              <span className="text-gray-500 font-mono">&gt;</span>
+	              <span className="text-text-muted font-normal">{t("community.searchTagFilter")}</span>
+	              <span className="text-text-faint font-mono">&gt;</span>
 	              <span className="max-w-[120px] truncate">
 	                {currentSelectedTagObj ? `#${currentSelectedTagObj.name}` : t("community.allTagsOption")}
 	              </span>
-	              <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform duration-base ease-soft ${tagDropdownOpen ? "rotate-180" : ""}`} />
+	              <ChevronDown className={`w-3 h-3 text-text-muted transition-transform duration-base ease-soft ${tagDropdownOpen ? "rotate-180" : ""}`} />
 	            </button>
 
 	            {tagDropdownOpen && (
 	              <div className="absolute left-0 top-full mt-1.5 w-64 rounded-lg bg-surface border border-line shadow-xl z-50 p-2 space-y-2 animate-in fade-in duration-100">
 	                <div className="relative">
-	                  <Search className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-2.5" />
+	                  <Search className="w-3.5 h-3.5 text-text-faint absolute left-2.5 top-2.5" />
 	                  <input
 	                    ref={tagSearchInputRef}
 	                    type="text"
@@ -631,7 +631,7 @@ function CommunityContent() {
 	                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                      !filterTagId && !filterTagName
 	                        ? "bg-primary text-white font-semibold"
-	                        : "text-gray-400 hover:text-white hover:bg-emphasis/[0.05]"
+	                        : "text-text-muted hover:text-white hover:bg-emphasis/[0.05]"
 	                    }`}
 	                  >
 	                    <span>{t("community.allTagsOption")}</span>
@@ -639,7 +639,7 @@ function CommunityContent() {
 	                  </button>
 
 	                  {filteredTags.length === 0 ? (
-	                    <div className="py-4 text-center text-xs font-mono text-gray-500">
+	                    <div className="py-4 text-center text-xs font-mono text-text-faint">
 	                      {t("community.noTagMatch")}
 	                    </div>
 	                  ) : (
@@ -658,11 +658,11 @@ function CommunityContent() {
 	                          className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                            isSelected
 	                              ? "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
-	                              : "text-gray-300 hover:text-emphasis hover:bg-emphasis/[0.05]"
+	                              : "text-text-body hover:text-emphasis hover:bg-emphasis/[0.05]"
 	                          }`}
 	                        >
 	                          <span className="flex items-center gap-1.5 truncate">
-	                            <TagIcon className="w-3 h-3 text-gray-500 shrink-0" />
+	                            <TagIcon className="w-3 h-3 text-text-faint shrink-0" />
 	                            <span className="truncate">#{tag.name}</span>
 	                          </span>
 	                          {isSelected && <span className="text-[10px] text-emerald-400">✓</span>}
@@ -681,7 +681,7 @@ function CommunityContent() {
 	      {/* Active Tag Filter Chip */}
 	      {currentSelectedTagObj && (
 	        <div className="flex items-center gap-2 pt-0.5 text-xs font-mono animate-in fade-in duration-100">
-	          <span className="text-gray-500">{t("community.selectedTag", { name: "" })}</span>
+	          <span className="text-text-faint">{t("community.selectedTag", { name: "" })}</span>
 	          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-semibold">
 	            <TagIcon className="w-3 h-3" />
 	            <span>#{currentSelectedTagObj.name}</span>
@@ -706,7 +706,7 @@ function CommunityContent() {
  <div className="py-6 space-y-5 flex-1">
  {/* key 随页签/分区/筛选变化重放进入动画；搜索框内容不参与，避免输入时闪动 */}
  <TabPanel activeKey={activeTab + "-" + selectedBoard + "-" + (filterTagId ?? filterTagName ?? "all")} spacing="none" className="border border-line rounded-xl overflow-hidden bg-surface shadow-sm">
- <div className="hidden sm:flex items-center gap-3 px-4 py-2.5 bg-background/60 border-b border-line text-sm font-mono text-gray-500">
+ <div className="hidden sm:flex items-center gap-3 px-4 py-2.5 bg-background/60 border-b border-line text-sm font-mono text-text-faint">
  <span className="flex-1">{t("community.topic")}</span>
  <span className="w-20 text-center">{t("community.participants")}</span>
  <span className="w-14 text-center">{t("community.replies")}</span>
@@ -715,13 +715,13 @@ function CommunityContent() {
  </div>
 
  {/* mobile header */}
- <div className="sm:hidden px-4 py-2 bg-background/60 border-b border-line text-sm font-mono text-gray-500 flex items-center justify-between">
+ <div className="sm:hidden px-4 py-2 bg-background/60 border-b border-line text-sm font-mono text-text-faint flex items-center justify-between">
  <span>{t("community.topic")} · {boardDisplayName(currentBoard, locale, t)}</span>
  <span>{t("community.topicItems", { count: total })}</span>
  </div>
 
  {loading ? (
- <div className="py-16 text-center text-gray-500 font-mono text-sm">{t("common.loadingTopics")}</div>
+ <div className="py-16 text-center text-text-faint font-mono text-sm">{t("common.loadingTopics")}</div>
  ) : loadError ? (
  <div className="py-16 text-center space-y-3">
  <p className="text-sm text-rose-300">{loadError}</p>
@@ -734,7 +734,7 @@ function CommunityContent() {
  </button>
  </div>
  ) : topics.length === 0 ? (
- <div className="py-20 text-center text-gray-500 space-y-2">
+ <div className="py-20 text-center text-text-faint space-y-2">
  <p className="text-sm">{t("community.noTopics")}</p>
  <p className="text-sm text-gray-600">{t("community.noTopicsHint")}</p>
  {user && (
@@ -746,7 +746,7 @@ function CommunityContent() {
  </div>
  ) : pageOutOfRange ? (
  <div className="py-16 text-center space-y-3">
- <p className="text-sm text-gray-400">{t("community.pageOutOfRange", { page, totalPages })}</p>
+ <p className="text-sm text-text-muted">{t("community.pageOutOfRange", { page, totalPages })}</p>
  <button
  onClick={() => goToPage(totalPages)}
  className="px-3.5 py-1.5 rounded-md bg-white hover:bg-gray-200 text-black text-sm font-bold inline-flex items-center gap-2 transition-colors duration-fast ease-soft"
@@ -775,7 +775,7 @@ function CommunityContent() {
  {topic.entity_id && topic.entity_title && (
  <Link
  href={catalogEntityHref(topic.entity_kind || "work", topic.entity_id)}
- className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-background border border-line text-gray-300 hover:text-emphasis text-xs font-mono hover:border-emerald-500/40 transition-colors duration-fast ease-soft max-w-[180px] truncate"
+ className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-background border border-line text-text-body hover:text-emphasis text-xs font-mono hover:border-emerald-500/40 transition-colors duration-fast ease-soft max-w-[180px] truncate"
  onClick={(e) => e.stopPropagation()}
  >
  <BookOpen className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
@@ -793,7 +793,7 @@ function CommunityContent() {
  {tag.name}
  </button>
  ))}
- <span className="hidden sm:inline-flex items-center gap-2 text-xs text-gray-500 font-mono">
+ <span className="hidden sm:inline-flex items-center gap-2 text-xs text-text-faint font-mono">
  <User className="w-4 h-4" />
  {authorId ? (
  <Link
@@ -811,7 +811,7 @@ function CommunityContent() {
  </span>
  </div>
  {/* mobile meta */}
- <div className="sm:hidden flex items-center gap-3 text-sm font-mono text-gray-500">
+ <div className="sm:hidden flex items-center gap-3 text-sm font-mono text-text-faint">
  <span className="flex items-center gap-2">
  <MessageSquare className="w-4 h-4" />
  {topic.reply_count}
@@ -850,10 +850,10 @@ function CommunityContent() {
  </div>
 
  <div className="hidden sm:flex w-14 items-center justify-center">
- <span className={`px-2.5 py-1 rounded text-sm font-bold font-mono ${topic.reply_count > 0 ? "bg-surfaceBorder/60 text-emphasis" : "text-gray-500"}`}>{topic.reply_count}</span>
+ <span className={`px-2.5 py-1 rounded text-sm font-bold font-mono ${topic.reply_count > 0 ? "bg-surfaceBorder/60 text-emphasis" : "text-text-faint"}`}>{topic.reply_count}</span>
  </div>
- <div className="hidden md:flex w-14 items-center justify-center text-gray-400 font-mono text-sm">{topic.view_count}</div>
- <div className="hidden sm:flex w-24 items-center justify-end pr-4 text-gray-400 font-mono text-sm whitespace-nowrap">{formatTimeAgo(topic.updated_at || topic.created_at, locale, t)}</div>
+ <div className="hidden md:flex w-14 items-center justify-center text-text-muted font-mono text-sm">{topic.view_count}</div>
+ <div className="hidden sm:flex w-24 items-center justify-end pr-4 text-text-muted font-mono text-sm whitespace-nowrap">{formatTimeAgo(topic.updated_at || topic.created_at, locale, t)}</div>
  </div>
  );
  })}
@@ -862,23 +862,23 @@ function CommunityContent() {
 
  {/* 分页器只在多页时出现（与 works/[id] 的 totalPages > 1 守卫一致）。 */}
  {!loading && !loadError && totalPages > 1 && (
- <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-line bg-background/40 text-xs font-mono text-gray-500">
+ <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-line bg-background/40 text-xs font-mono text-text-faint">
  <span>{t("community.topicItems", { count: total })}</span>
  <div className="flex items-center gap-2">
  <button
  type="button"
  disabled={page <= 1}
  onClick={() => goToPage(page - 1)}
- className="px-3 py-1.5 rounded-md border border-line bg-surface hover:bg-surfaceBorder disabled:opacity-40 disabled:pointer-events-none text-gray-300 transition-colors duration-fast ease-soft"
+ className="px-3 py-1.5 rounded-md border border-line bg-surface hover:bg-surfaceBorder disabled:opacity-40 disabled:pointer-events-none text-text-body transition-colors duration-fast ease-soft"
  >
  {t("pagination.prev")}
  </button>
- <span className="px-1 text-gray-400">{t("common.pagination", { page, total: totalPages })}</span>
+ <span className="px-1 text-text-muted">{t("common.pagination", { page, total: totalPages })}</span>
  <button
  type="button"
  disabled={page >= totalPages}
  onClick={() => goToPage(page + 1)}
- className="px-3 py-1.5 rounded-md border border-line bg-surface hover:bg-surfaceBorder disabled:opacity-40 disabled:pointer-events-none text-gray-300 transition-colors duration-fast ease-soft"
+ className="px-3 py-1.5 rounded-md border border-line bg-surface hover:bg-surfaceBorder disabled:opacity-40 disabled:pointer-events-none text-text-body transition-colors duration-fast ease-soft"
  >
  {t("pagination.next")}
  </button>
@@ -914,7 +914,7 @@ function CommunityContent() {
 
 export default function CommunityPage() {
   return (
-    <Suspense fallback={<LoadingFallback className="min-h-screen bg-background flex items-center justify-center text-sm text-gray-500" />}>
+    <Suspense fallback={<LoadingFallback className="min-h-screen bg-background flex items-center justify-center text-sm text-text-faint" />}>
       <CommunityContent />
     </Suspense>
   );

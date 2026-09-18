@@ -41,7 +41,7 @@ const LOGIN_NOTICES: Record<string, string> = {
 };
 
 const inputClass =
-  "w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-line rounded-control text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary";
+  "w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-line rounded-control text-text-strong text-sm placeholder:text-text-muted focus:outline-none focus:border-primary";
 
 // 密码框右侧要放可见性按钮：按钮绝对定位在框内，输入框右内边距必须一起加宽，
 // 否则长密码会钻到眼睛图标底下。
@@ -225,7 +225,7 @@ function LoginInner() {
           <BrandMark size={28} withGlow idSuffix="login" />
           <span className="flex flex-col leading-none">
             <span className="font-display text-xl tracking-[-0.03em] text-text-strong">MetaFusion</span>
-            <span className="font-mono text-[8px] tracking-[0.16em] text-gray-500 dark:text-white/35 mt-[2px]">SINCE 2026</span>
+            <span className="font-mono text-[8px] tracking-[0.16em] text-text-faint dark:text-white/35 mt-[2px]">SINCE 2026</span>
           </span>
         </Link>
         <div className="flex items-center gap-2">
@@ -318,7 +318,7 @@ function LoginInner() {
                   {mode === "register" ? t("auth.username") : t("auth.gate.emailOrUsername")}
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" strokeWidth={1.5} />
                   <input
                     type="text"
                     required
@@ -340,7 +340,7 @@ function LoginInner() {
                 <div className="space-y-1.5 animate-fade-in">
                   <label className="font-mono text-xs sm:text-sm text-text-muted">{t("auth.email")}</label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" strokeWidth={1.5} />
                     <input
                       type="email"
                       required
@@ -362,7 +362,7 @@ function LoginInner() {
                   )}
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" strokeWidth={1.5} />
                   <input
                     id="login-password"
                     type={passwordVisible ? "text" : "password"}
@@ -382,7 +382,7 @@ function LoginInner() {
                     aria-pressed={passwordVisible}
                     aria-controls="login-password"
                     title={passwordVisible ? t("auth.passwordHide") : t("auth.passwordShow")}
-                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 max-sm:min-h-[44px] max-sm:h-11 grid place-items-center rounded-control text-gray-400 hover:text-text-strong hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors duration-fast mf-focus cursor-pointer"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 max-sm:min-h-[44px] max-sm:h-11 grid place-items-center rounded-control text-text-muted hover:text-text-strong hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors duration-fast mf-focus cursor-pointer"
                   >
                     {passwordVisible ? <EyeOff className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" /> : <Eye className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />}
                   </button>
@@ -405,7 +405,7 @@ function LoginInner() {
                       placeholder={t("auth.inviteCodePlaceholder")}
                       value={inviteCode}
                       onChange={(e) => setInviteCode(e.target.value)}
-                      className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-amber-500/30 rounded-control text-amber-600 dark:text-amber-300 font-mono text-sm placeholder:text-gray-500 focus:outline-none focus:border-amber-400"
+                      className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-amber-500/30 rounded-control text-amber-600 dark:text-amber-300 font-mono text-sm placeholder:text-text-faint focus:outline-none focus:border-amber-400"
                     />
                   </div>
                 </div>
@@ -446,7 +446,7 @@ function LoginInner() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<LoadingFallback className="h-[100dvh] bg-background grid place-items-center font-mono text-sm text-gray-500" />}>
+    <Suspense fallback={<LoadingFallback className="h-[100dvh] bg-background grid place-items-center font-mono text-sm text-text-faint" />}>
       <LoginInner />
     </Suspense>
   );

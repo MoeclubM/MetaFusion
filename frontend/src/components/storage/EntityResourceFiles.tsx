@@ -359,7 +359,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
             onClick={() => void loadFiles()}
             disabled={listState === "loading"}
             title={t("storage.files.refresh")}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-line bg-background text-xs text-gray-500 hover:text-text-strong hover:border-primary/40 transition-colors duration-fast ease-soft disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-line bg-background text-xs text-text-faint hover:text-text-strong hover:border-primary/40 transition-colors duration-fast ease-soft disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${listState === "loading" ? "animate-spin" : ""}`} />
             <span className="max-sm:hidden">{t("storage.files.refresh")}</span>
@@ -377,7 +377,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
         </div>
       </div>
 
-      <p className="text-[11px] text-gray-500 leading-relaxed">{t("storage.files.subtitle")}</p>
+      <p className="text-[11px] text-text-faint leading-relaxed">{t("storage.files.subtitle")}</p>
 
       {panelOpen && (
         <div className="p-4 rounded-xl border border-line-subtle bg-black/[0.015] dark:bg-white/[0.015] space-y-3">
@@ -390,14 +390,14 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
               type="button"
               onClick={() => setPanelOpen(false)}
               disabled={busy}
-              className="p-1.5 rounded-md text-gray-400 hover:text-text-strong hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
+              className="p-1.5 rounded-md text-text-muted hover:text-text-strong hover:bg-black/5 dark:hover:bg-white/5 disabled:opacity-40"
               title={t("storage.files.uploadClose")}
             >
               <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <p className="text-[11px] text-gray-500 leading-relaxed">{t("storage.files.dedupHint")}</p>
+          <p className="text-[11px] text-text-faint leading-relaxed">{t("storage.files.dedupHint")}</p>
 
           {!authLoading && !user ? (
             <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] text-xs text-amber-600 dark:text-amber-400">
@@ -412,7 +412,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
           ) : (
             <>
               <div className="space-y-1.5">
-                <label className="block font-mono text-[11px] text-gray-500">{t("storage.files.pickFile")}</label>
+                <label className="block font-mono text-[11px] text-text-faint">{t("storage.files.pickFile")}</label>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -422,17 +422,17 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
                     setError(null);
                     setDone(null);
                   }}
-                  className="block w-full text-xs text-gray-500 file:mr-3 file:rounded-md file:border file:border-line file:bg-background file:px-3 file:py-2 file:text-xs file:font-semibold file:text-text-strong hover:file:border-primary/40 disabled:opacity-50"
+                  className="block w-full text-xs text-text-faint file:mr-3 file:rounded-md file:border file:border-line file:bg-background file:px-3 file:py-2 file:text-xs file:font-semibold file:text-text-strong hover:file:border-primary/40 disabled:opacity-50"
                 />
                 {file && (
-                  <p className="font-mono text-[11px] text-gray-500">
+                  <p className="font-mono text-[11px] text-text-faint">
                     {t("storage.files.fileMeta", { name: file.name, size: formatSize(file.size) })}
                   </p>
                 )}
               </div>
 
               <div className="space-y-1.5">
-                <label className="block font-mono text-[11px] text-gray-500">{t("storage.files.roleLabel")}</label>
+                <label className="block font-mono text-[11px] text-text-faint">{t("storage.files.roleLabel")}</label>
                 <Select
                   value={roleChoice}
                   onChange={(v) => {
@@ -454,7 +454,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
                     className="w-full h-9 px-3 rounded-md bg-background border border-line text-xs font-mono text-text-strong focus:outline-none focus-visible:border-primary disabled:opacity-50"
                   />
                 )}
-                <p className="text-[11px] text-gray-500">{t("storage.files.roleHint")}</p>
+                <p className="text-[11px] text-text-faint">{t("storage.files.roleHint")}</p>
               </div>
 
               {error && (
@@ -480,7 +480,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
 
               {busy && (
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between font-mono text-[11px] text-gray-500">
+                  <div className="flex items-center justify-between font-mono text-[11px] text-text-faint">
                     <span className="inline-flex items-center gap-1.5">
                       <Loader2 className="w-3 h-3 animate-spin" />
                       {stageLabel[stage]}
@@ -509,7 +509,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
                   <button
                     type="button"
                     onClick={cancelUpload}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line text-xs text-gray-500 hover:text-text-strong transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line text-xs text-text-faint hover:text-text-strong transition-colors"
                   >
                     <X className="w-3.5 h-3.5" />
                     <span>{t("storage.files.cancel")}</span>
@@ -536,7 +536,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
       )}
 
       {listState === "loading" && (
-        <div className="flex items-center gap-2 font-mono text-xs text-gray-500">
+        <div className="flex items-center gap-2 font-mono text-xs text-text-faint">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
           <span>{t("storage.files.loading")}</span>
         </div>
@@ -557,7 +557,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
       )}
 
       {listState === "ready" && files.length === 0 && (
-        <div className="p-6 rounded-xl border border-dashed border-line text-center text-xs text-gray-500">
+        <div className="p-6 rounded-xl border border-dashed border-line text-center text-xs text-text-faint">
           {t("storage.files.empty")}
         </div>
       )}
@@ -572,7 +572,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
                   <p className="font-medium text-text-strong truncate" title={entry.asset.file_name}>
                     {entry.asset.file_name}
                   </p>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-mono text-[11px] text-gray-500">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 font-mono text-[11px] text-text-faint">
                     <span>{formatSize(entry.asset.size_bytes)}</span>
                     <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">{entry.binding_role}</span>
                     <span>{dateLabel(entry.created_at)}</span>
@@ -608,7 +608,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
                     onClick={() => setPendingUnbind(entry)}
                     disabled={unbinding}
                     title={t("storage.files.unbind")}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-background text-[11px] font-semibold text-gray-500 hover:border-rose-500/40 hover:text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-background text-[11px] font-semibold text-text-faint hover:border-rose-500/40 hover:text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Link2Off className="w-3.5 h-3.5" />
                     <span>{t("storage.files.unbind")}</span>

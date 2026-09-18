@@ -420,7 +420,7 @@ const releaseFacets = useMemo(
  const redirecting = useKindRedirect("work", kindMismatch, workId);
 
  if (loadingWork || redirecting) {
- return <div className="min-h-screen bg-background relative flex flex-col overflow-clip"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center text-sm text-gray-500">{t("work.detail.loading")}</div></div>;
+ return <div className="min-h-screen bg-background relative flex flex-col overflow-clip"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center text-sm text-text-faint">{t("work.detail.loading")}</div></div>;
  }
 
  if (!work) {
@@ -641,22 +641,22 @@ const releaseFacets = useMemo(
  <Layers className="w-4 h-4 text-sky-500" strokeWidth={1.5} />
  </span>
  <h2 className="font-display text-base font-bold tracking-tight text-text-strong">{t("work.detail.releaseCatalog")}</h2>
- <span className="text-sm text-gray-500">{t("work.detail.totalReleases", { count: total })}</span>
+ <span className="text-sm text-text-faint">{t("work.detail.totalReleases", { count: total })}</span>
  </div>
  <form onSubmit={onSearch} className="relative w-full sm:w-auto">
- <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
+ <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" strokeWidth={1.5} />
  <input
  value={qInput}
  onChange={(e) => setQInput(e.target.value)}
  aria-label={t("work.detail.searchPlaceholder")}
  placeholder={t("work.detail.searchPlaceholder")}
- className="pl-11 pr-3.5 h-9 max-sm:min-h-[44px] w-full sm:w-48 bg-black/[0.03] dark:bg-white/[0.04] border border-line rounded-md text-sm text-text-strong placeholder:text-gray-400 focus:outline-none focus:border-primary/50 font-mono"
+ className="pl-11 pr-3.5 h-9 max-sm:min-h-[44px] w-full sm:w-48 bg-black/[0.03] dark:bg-white/[0.04] border border-line rounded-md text-sm text-text-strong placeholder:text-text-muted focus:outline-none focus:border-primary/50 font-mono"
  />
  </form>
  </div>
 
  {loadingReleases ? (
- <div className="p-8 text-center text-sm text-gray-500">{t("work.detail.loadingReleases")}</div>
+ <div className="p-8 text-center text-sm text-text-faint">{t("work.detail.loadingReleases")}</div>
  ) : releasesFailed ? (
  <div role="alert" className="p-8 text-center text-sm space-y-2">
  <p className="text-amber-700 dark:text-amber-300">{t("catalog.listFailed")}</p>
@@ -666,14 +666,14 @@ const releaseFacets = useMemo(
  </div>
  ) : releaseEntities.length === 0 ? (
  <Card padding="none" className="border-dashed">
-   <div className="p-8 text-center text-sm text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : ""}</div>
+   <div className="p-8 text-center text-sm text-text-faint">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : ""}</div>
  </Card>
  ) : (
  <>
  <div className="px-3.5 sm:px-4 py-2.5 border-b border-line-subtle flex flex-col lg:flex-row lg:items-center gap-2.5 bg-black/[0.01] dark:bg-white/[0.01]">
  <div className="flex flex-wrap items-center gap-2">
  {releaseFacets.map((code) => (
- <label key={code} className="inline-flex items-center gap-1.5 text-xs text-gray-500">
+ <label key={code} className="inline-flex items-center gap-1.5 text-xs text-text-faint">
  <span className="font-mono">{getFieldName(defs, code, locale)}</span>
  <select value={facetValues[code] || ""} onChange={(e) => { setFacetValues((prev) => ({ ...prev, [code]: e.target.value })); setPage(1); }} className="h-9 max-sm:min-h-[44px] px-2 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-line text-xs text-text-strong">
  <option value="">{t("common.all")}</option>
@@ -686,7 +686,7 @@ const releaseFacets = useMemo(
  </label>
  ))}
  {Object.values(facetValues).some(Boolean) && (
- <button onClick={() => setFacetValues({})} className="inline-flex items-center gap-1 h-9 px-2.5 rounded-md text-xs text-gray-500 hover:text-primary">
+ <button onClick={() => setFacetValues({})} className="inline-flex items-center gap-1 h-9 px-2.5 rounded-md text-xs text-text-faint hover:text-primary">
  <X className="w-3.5 h-3.5" strokeWidth={1.6} /><span>{t("work.detail.clearFilters")}</span>
  </button>
  )}
@@ -698,14 +698,14 @@ const releaseFacets = useMemo(
  )}
  </div>
  {filteredReleases.length === 0 ? (
- <div className="p-8 text-center text-sm text-gray-500">{t("work.detail.noFilterResult")}</div>
+ <div className="p-8 text-center text-sm text-text-faint">{t("work.detail.noFilterResult")}</div>
  ) : (
  <>
  {/* 发行版列表的列由模板 columns 声明（后台可改），不再写死字段码 */}
  {releaseColumns.length > 0 && (
  <div className="hidden sm:block overflow-x-auto">
  <table className="w-full text-left text-sm">
- <thead className="bg-surfaceSubtle border-b border-line-subtle text-xs uppercase tracking-wider text-gray-500">
+ <thead className="bg-surfaceSubtle border-b border-line-subtle text-xs uppercase tracking-wider text-text-faint">
  <tr>
  <th className="py-2.5 px-2 font-medium w-10" aria-label={t("work.detail.compareSelect")} />
  <th className="py-2.5 px-3.5 font-medium">{t("work.detail.tableRelease")}</th>
@@ -724,7 +724,7 @@ const releaseFacets = useMemo(
  </td>
  <td className="py-2.5 px-3.5">
  <Link href={`/releases/${rel.id}`} className="font-semibold text-text-strong hover:text-primary inline-flex items-center gap-1.5">
- {entityTitle(rel, locale)} <ArrowUpRight className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.6} />
+ {entityTitle(rel, locale)} <ArrowUpRight className="w-3.5 h-3.5 text-text-muted" strokeWidth={1.6} />
  </Link>
  </td>
  {releaseColumns.map((code) => (
@@ -748,7 +748,7 @@ const releaseFacets = useMemo(
  <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="mt-1 w-5 h-5 rounded accent-primary cursor-pointer shrink-0" />
  <Link href={`/releases/${rel.id}`} className="min-w-0 flex-1 space-y-1">
  <div className="font-semibold text-text-strong text-sm leading-tight line-clamp-2">{entityTitle(rel, locale)}</div>
-                      <div className="text-xs text-gray-500 truncate">
+                      <div className="text-xs text-text-faint truncate">
  {releaseColumns.map((code) => (code === "format" && formatSummaryOf(rel)) || attributeText(defs, code, rel.attributes?.[code], locale)).filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}
  </div>
  </Link>
@@ -757,7 +757,7 @@ const releaseFacets = useMemo(
  </div>
  {totalPages > 1 && (
  <div className="px-3.5 sm:px-4 py-3 border-t border-line-subtle flex items-center justify-end gap-2">
- <span className="font-mono text-[11px] text-gray-500">{t("common.pagination", { page, total: totalPages })}</span>
+ <span className="font-mono text-[11px] text-text-faint">{t("common.pagination", { page, total: totalPages })}</span>
  <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))} aria-label={t("pagination.prev")} className="w-8 h-8 grid place-items-center rounded-full bg-black/[0.04] dark:bg-white/[0.06] border border-line disabled:opacity-40 hover:bg-black/[0.08] dark:hover:bg-white/[0.10]">
  <ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} />
  </button>
@@ -782,7 +782,7 @@ const releaseFacets = useMemo(
  <h3 className="font-display text-sm font-bold text-text-strong flex items-center gap-2">
  <MessageSquare className="w-4 h-4 text-emerald-500" strokeWidth={1.5} />
  <span>{t("work.detail.relatedTopics")}</span>
- <span className="text-sm font-normal text-gray-500">({topics.length})</span>
+ <span className="text-sm font-normal text-text-faint">({topics.length})</span>
  </h3>
  <Link href={getForumEntityUrl(workId, "comment")} className="text-sm text-primary hover:underline inline-flex items-center gap-0.5">
  <span>{t("work.detail.enterForum")}</span>
@@ -794,14 +794,14 @@ const releaseFacets = useMemo(
  <EntityCommentComposer entityId={workId} onPosted={loadTopics} />
  </div>
  {topics.length === 0 ? (
- <p className="text-sm text-gray-500 mt-3">{t("work.detail.noRelatedTopics")}</p>
+ <p className="text-sm text-text-faint mt-3">{t("work.detail.noRelatedTopics")}</p>
  ) : (
  <div className="divide-y divide-black/5 dark:divide-white/[0.06] mt-3">
  {/* 评论就地展示，不跳"文章页"——评论与论坛主题是两类东西。 */}
  {topics.slice(0, 3).map((c) => (
  <div key={c.id} className="py-2.5 flex items-start justify-between gap-3 px-2.5">
  <span className="text-sm text-text-strong line-clamp-2 min-w-0">{c.body}</span>
- <span className="text-xs text-gray-500 shrink-0">{c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</span>
+ <span className="text-xs text-text-faint shrink-0">{c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</span>
  </div>
  ))}
  </div>

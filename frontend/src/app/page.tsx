@@ -151,7 +151,7 @@ export default function HomePage() {
   // （线上实测桌面 +154px / 移动 +161px）。用 overflow-clip 而不是 overflow-hidden——
   // clip 不建滚动容器，页内 sticky 的搜索栏与顶栏照旧相对视口吸附。
   return (
-    <div className="min-h-screen flex flex-col bg-background text-gray-100 relative overflow-clip selection:bg-primary selection:text-white">
+    <div className="min-h-screen flex flex-col bg-background text-text-strong relative overflow-clip selection:bg-primary selection:text-white">
       <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px] pointer-events-none" aria-hidden />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[150px] pointer-events-none" aria-hidden />
@@ -161,13 +161,13 @@ export default function HomePage() {
       <div className="border-b border-line-subtle bg-surface/60 backdrop-blur-xl sticky top-[var(--mf-header-h)] z-30 shadow-xs">
         <PageContainer className="py-4 flex justify-center">
           <form onSubmit={handleSearch} className="relative w-full max-w-3xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("home.searchPlaceholder")}
-              className="w-full pl-12 pr-24 py-3.5 rounded-xl bg-emphasis/[0.04] border border-line hover:border-emphasis/20 focus:border-primary focus:ring-1 focus:ring-primary text-emphasis text-sm placeholder:text-gray-500 outline-none transition-all duration-base ease-soft"
+              className="w-full pl-12 pr-24 py-3.5 rounded-xl bg-emphasis/[0.04] border border-line hover:border-emphasis/20 focus:border-primary focus:ring-1 focus:ring-primary text-emphasis text-sm placeholder:text-text-faint outline-none transition-all duration-base ease-soft"
             />
             <button
               type="submit"
@@ -189,7 +189,7 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => void openCustomize()}
-              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg border border-line bg-emphasis/[0.03] hover:bg-emphasis/[0.07] text-xs font-medium text-gray-300 hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg border border-line bg-emphasis/[0.03] hover:bg-emphasis/[0.07] text-xs font-medium text-text-body hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
             >
               <Sliders className="w-3.5 h-3.5" />
               <span>{t("home.customize")}</span>
@@ -219,7 +219,7 @@ export default function HomePage() {
         ) : visibleSections.length === 0 && !failed ? (
           <div className="p-10 rounded-xl border border-dashed border-line bg-emphasis/[0.01] text-center space-y-3">
             <Sparkles className="w-7 h-7 text-gray-600 mx-auto" />
-            <p className="text-sm text-gray-400">{t("home.recommendEmpty")}</p>
+            <p className="text-sm text-text-muted">{t("home.recommendEmpty")}</p>
             <Link
               href="/new"
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium transition-colors duration-fast ease-soft"
@@ -241,7 +241,7 @@ export default function HomePage() {
                     </div>
                     <div className="flex items-center gap-2.5">
                       <h2 className="font-bold text-emphasis text-base sm:text-lg tracking-tight">{title}</h2>
-                      <span className="px-2 py-0.5 rounded-full bg-emphasis/[0.06] text-gray-400 text-xs font-mono">
+                      <span className="px-2 py-0.5 rounded-full bg-emphasis/[0.06] text-text-muted text-xs font-mono">
                         {t("home.itemCount", { count: items.length.toString() })}
                       </span>
                     </div>
@@ -288,10 +288,10 @@ export default function HomePage() {
                               {displayTitle}
                             </h3>
                             {item.title !== displayTitle && (
-                              <p className="text-[10px] text-gray-400 font-mono line-clamp-1 mb-1">{item.title}</p>
+                              <p className="text-[10px] text-text-muted font-mono line-clamp-1 mb-1">{item.title}</p>
                             )}
                           </div>
-                          <div className="pt-2 border-t border-line-subtle flex items-center justify-end text-[10px] text-gray-400 font-mono">
+                          <div className="pt-2 border-t border-line-subtle flex items-center justify-end text-[10px] text-text-muted font-mono">
                             <span className="group-hover:text-primary transition-colors duration-fast ease-soft flex items-center gap-0.5">
                               {t("home.details")} <ChevronRight className="w-3 h-3" />
                             </span>
@@ -322,7 +322,7 @@ export default function HomePage() {
       />
 
       <footer className="border-t border-line-subtle py-6 bg-surface/30 backdrop-blur-md">
-        <PageContainer className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-gray-400">
+        <PageContainer className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-text-muted">
           <div>
             <span>© 2026 MetaFusion · Open Metadata &amp; Resource Sharing Platform</span>
           </div>

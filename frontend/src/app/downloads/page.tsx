@@ -22,14 +22,14 @@ function DownloadsInner() {
   }, [configured, targetUrl]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-gray-100">
+    <div className="min-h-screen flex flex-col bg-background text-text-strong">
       <Navbar />
 
       <PageShell width="narrow" center className="py-16">
         {configured ? (
           <div className="text-center space-y-4 max-w-sm">
             <DownloadCloud className="w-8 h-8 text-primary mx-auto" />
-            <p className="text-sm text-gray-400">{t("catalog.resourceGatewayRedirecting")}</p>
+            <p className="text-sm text-text-muted">{t("catalog.resourceGatewayRedirecting")}</p>
             <a
               href={targetUrl}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-surface font-semibold text-sm transition-colors duration-fast ease-soft"
@@ -40,8 +40,8 @@ function DownloadsInner() {
           </div>
         ) : (
           <div className="text-center space-y-3 max-w-sm">
-            <HardDrive className="w-8 h-8 text-gray-500 mx-auto" />
-            <p className="text-sm text-gray-400 leading-relaxed">
+            <HardDrive className="w-8 h-8 text-text-faint mx-auto" />
+            <p className="text-sm text-text-muted leading-relaxed">
               {t("catalog.resourceStationNotReady")}
             </p>
           </div>
@@ -53,7 +53,7 @@ function DownloadsInner() {
 
 export default function DownloadsPage() {
   return (
-    <Suspense fallback={<LoadingFallback className="min-h-screen bg-background grid place-items-center text-xs font-mono text-gray-500" />}>
+    <Suspense fallback={<LoadingFallback className="min-h-screen bg-background grid place-items-center text-xs font-mono text-text-faint" />}>
       <DownloadsInner />
     </Suspense>
   );

@@ -98,7 +98,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
               <h2 className="text-sm font-semibold text-emphasis flex items-center gap-2">
                 {t("editor.merge.title")}
               </h2>
-              <p className="font-mono text-[10px] text-gray-400">
+              <p className="font-mono text-[10px] text-text-muted">
                 {targetType.toUpperCase()}: {sourceEntity.title}
               </p>
             </div>
@@ -107,7 +107,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
             type="button"
             onClick={onClose}
             aria-label={t("revisions.close")}
-            className="w-7 h-7 grid place-items-center rounded-md hover:bg-emphasis/10 text-gray-400 hover:text-emphasis transition-colors duration-fast ease-soft"
+            className="w-7 h-7 grid place-items-center rounded-md hover:bg-emphasis/10 text-text-muted hover:text-emphasis transition-colors duration-fast ease-soft"
           >
             <X className="w-4 h-4" />
           </button>
@@ -145,19 +145,19 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
         <form onSubmit={handleSubmit} className="p-5 space-y-3 font-mono text-xs">
           {/* Source Entity Info */}
           <div className="space-y-1">
-            <label className="text-gray-400 text-[10px] uppercase tracking-wider">{t("editor.merge.sourceEntity")}</label>
+            <label className="text-text-muted text-[10px] uppercase tracking-wider">{t("editor.merge.sourceEntity")}</label>
             <div className="p-2.5 rounded-md bg-background/70 border border-line text-emphasis flex items-center justify-between">
               <div>
                 <span className="font-semibold text-xs">{sourceEntity.title}</span>
-                {sourceEntity.sub && <span className="text-gray-400 ml-2 text-[11px]">({sourceEntity.sub})</span>}
+                {sourceEntity.sub && <span className="text-text-muted ml-2 text-[11px]">({sourceEntity.sub})</span>}
               </div>
-              <span className="text-[10px] text-gray-500 font-mono">{sourceEntity.id}</span>
+              <span className="text-[10px] text-text-faint font-mono">{sourceEntity.id}</span>
             </div>
           </div>
 
           {/* Target UUID Input */}
           <div className="space-y-1">
-            <label className="block text-gray-300 font-semibold text-[10px] uppercase tracking-wider">
+            <label className="block text-text-body font-semibold text-[10px] uppercase tracking-wider">
               {t("editor.merge.targetUuidLabel")} <span className="text-purple-400">*</span>
             </label>
             <input
@@ -172,7 +172,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
 
           {/* Merge Note */}
           <div className="space-y-1">
-            <label className="block text-gray-300 font-semibold text-[10px] uppercase tracking-wider">
+            <label className="block text-text-body font-semibold text-[10px] uppercase tracking-wider">
               {t("editor.merge.noteLabel")} <span className="text-purple-400">*</span>
             </label>
             <textarea
@@ -187,7 +187,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
 
           {/* Source URL */}
           <div className="space-y-1">
-            <label className="block text-gray-300 text-[10px] uppercase tracking-wider">
+            <label className="block text-text-body text-[10px] uppercase tracking-wider">
               {t("editor.merge.sourceUrlLabel")}
             </label>
             <input
@@ -207,7 +207,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
 
           {/* Footer Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-emphasis/[0.08]">
-            <span className="text-gray-500 text-[10px] flex items-center gap-1">
+            <span className="text-text-faint text-[10px] flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
               <span>{t("editor.merge.footerSnapshot")}</span>
             </span>
@@ -216,7 +216,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 h-7 rounded-md border border-line text-xs text-gray-300 hover:bg-emphasis/10 transition-colors duration-fast ease-soft"
+                className="px-3 h-7 rounded-md border border-line text-xs text-text-body hover:bg-emphasis/10 transition-colors duration-fast ease-soft"
               >
                 {t("editor.universal.cancel")}
               </button>

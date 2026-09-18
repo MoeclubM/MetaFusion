@@ -111,7 +111,7 @@ function RootLandingInner() {
         </div>
 
         {/* Architecture Highlights */}
-        <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono text-gray-500 dark:text-white/40">
+        <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-mono text-text-faint dark:text-white/40">
           <span className="px-2.5 py-1 rounded-md bg-surfaceSubtle border border-line-subtle">
             {t("landing.featureGraph")}
           </span>
@@ -127,7 +127,7 @@ function RootLandingInner() {
       </PageShell>
 
       {/* Docked Minimal Footer */}
-      <PageContainer as="footer" width="narrow" className="relative z-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-line-subtle font-mono text-xs text-gray-500 dark:text-white/35">
+      <PageContainer as="footer" width="narrow" className="relative z-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-line-subtle font-mono text-xs text-text-faint dark:text-white/35">
         <div className="flex items-center gap-4 flex-wrap">
           <span>© 2026 MoeClub Ltd · Open Metadata & Resource Platform</span>
           <span className="hidden sm:inline text-black/20 dark:text-white/20">|</span>

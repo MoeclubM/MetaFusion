@@ -80,14 +80,14 @@ export default function ContributeHubPage() {
   ] as const;
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-gray-100">
+    <div className="min-h-screen flex flex-col bg-background text-text-strong">
       <Navbar />
       <PageShell width="narrow" spacing="none" contentClassName="space-y-5 sm:space-y-6">
         <div className="space-y-1">
           <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong">
             {t("create.hub.title")}
           </h1>
-          <p className="font-mono text-xs text-gray-500 max-w-3xl">
+          <p className="font-mono text-xs text-text-faint max-w-3xl">
             {t("create.hub.subtitle")}
           </p>
         </div>
@@ -147,7 +147,7 @@ export default function ContributeHubPage() {
 
         {/* Manual Creation Cards */}
         <div className="space-y-2">
-          <div className="text-xs font-mono text-gray-400 uppercase tracking-wider font-semibold">
+          <div className="text-xs font-mono text-text-muted uppercase tracking-wider font-semibold">
             {t("create.hub.manualSectionTitle")}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -164,7 +164,7 @@ export default function ContributeHubPage() {
                   </div>
                   <div className="font-semibold text-text-strong text-base flex items-center gap-1.5 group-hover:text-primary transition-colors duration-fast ease-soft">
                     <span>{c.title}</span>
-                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-base ease-soft" />
+                    <ArrowRight className="w-4 h-4 text-text-muted group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-base ease-soft" />
                   </div>
                   <div className="font-mono text-xs leading-relaxed text-text-muted">
                     {c.desc}

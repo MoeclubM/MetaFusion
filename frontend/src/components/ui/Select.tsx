@@ -254,11 +254,11 @@ export function Select({
           className
         )}
       >
-        <span className={cx("min-w-0 truncate", !selected && "text-gray-400")}>
+        <span className={cx("min-w-0 truncate", !selected && "text-text-muted")}>
           {selected ? selected.label : placeholder || "\u00a0"}
         </span>
         <ChevronDown
-          className={cx("w-3.5 h-3.5 shrink-0 text-gray-400 transition-transform duration-base ease-soft", open && "rotate-180")}
+          className={cx("w-3.5 h-3.5 shrink-0 text-text-muted transition-transform duration-base ease-soft", open && "rotate-180")}
           strokeWidth={1.8}
         />
       </button>

@@ -191,7 +191,7 @@ export function GroupedRelations({
         onToggle={filter.toggle}
       />
       {filter.visible.length === 0 ? (
-        <p className="text-sm text-gray-500">{t("relations.filterEmpty")}</p>
+        <p className="text-sm text-text-faint">{t("relations.filterEmpty")}</p>
       ) : (
         filter.sections.map((section) => (
           <div key={section.key} className="space-y-3">

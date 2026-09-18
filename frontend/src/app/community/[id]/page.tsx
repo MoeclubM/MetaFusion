@@ -195,7 +195,7 @@ export default function TopicDetailPage() {
 
  if (loading) {
  return (
- <div className="min-h-screen bg-background text-gray-400 flex items-center justify-center text-sm font-mono">
+ <div className="min-h-screen bg-background text-text-muted flex items-center justify-center text-sm font-mono">
  {t("community.topicStreamLoading")}
  </div>
  );
@@ -236,7 +236,7 @@ export default function TopicDetailPage() {
  <div className="flex items-center space-x-2 flex-wrap gap-2">
  <Link
  href="/community"
- className="text-gray-400 hover:text-emphasis flex items-center space-x-1 font-mono text-sm"
+ className="text-text-muted hover:text-emphasis flex items-center space-x-1 font-mono text-sm"
  >
  <ArrowLeft className="w-4 h-4" />
  <span>{t("nav.community")}</span>
@@ -282,7 +282,7 @@ export default function TopicDetailPage() {
 
  <Link
  href={catalogEntityHref(topic.entity_kind || "work", topic.entity_id)}
- className="px-3 py-1.5 rounded bg-background hover:bg-surfaceBorder border border-line text-gray-300 hover:text-emphasis flex items-center space-x-1 flex-shrink-0 transition-colors duration-fast ease-soft"
+ className="px-3 py-1.5 rounded bg-background hover:bg-surfaceBorder border border-line text-text-body hover:text-emphasis flex items-center space-x-1 flex-shrink-0 transition-colors duration-fast ease-soft"
  >
  <span>{t("community.viewArchive")}</span>
  <ArrowRight className="w-4 h-4" />
@@ -322,7 +322,7 @@ export default function TopicDetailPage() {
  )}
  <UserRoleBadge role={opPost?.user?.role || topic.user?.role} t={t} />
  </div>
- <span className="text-xs text-gray-500 font-mono">
+ <span className="text-xs text-text-faint font-mono">
  {new Date(opPost?.created_at || topic.created_at).toLocaleString()}
  </span>
  </div>
@@ -333,7 +333,7 @@ export default function TopicDetailPage() {
  <button
  onClick={togglePin}
  disabled={pinning}
- className={`flex items-center space-x-1 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed ${topic.is_pinned ? "text-amber-400 hover:text-amber-300" : "text-gray-500 hover:text-amber-400"}`}
+ className={`flex items-center space-x-1 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed ${topic.is_pinned ? "text-amber-400 hover:text-amber-300" : "text-text-faint hover:text-amber-400"}`}
  >
  {topic.is_pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
  <span>
@@ -349,13 +349,13 @@ export default function TopicDetailPage() {
  <button
  onClick={() => setPendingDelete({ kind: "topic" })}
  disabled={deletingTarget === "topic"}
- className="flex items-center space-x-1 text-gray-500 hover:text-rose-400 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
+ className="flex items-center space-x-1 text-text-faint hover:text-rose-400 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
  >
  <Trash2 className="w-4 h-4" />
  <span>{deletingTarget === "topic" ? t("community.deleting") : t("community.deleteTopic")}</span>
  </button>
  )}
- <span className="text-gray-500 font-mono text-sm">#{opPost?.post_number ?? 1}</span>
+ <span className="text-text-faint font-mono text-sm">#{opPost?.post_number ?? 1}</span>
  </div>
  </div>
  {moderationError?.target === "topic" && (
@@ -369,7 +369,7 @@ export default function TopicDetailPage() {
    </div>
 
  {/* Discourse Post Action Bar */}
- <div className="flex items-center justify-between pt-2.5 border-t border-line/60 text-gray-500">
+ <div className="flex items-center justify-between pt-2.5 border-t border-line/60 text-text-faint">
  <div className="flex items-center space-x-3.5">
  <button
  onClick={() => toggleLike(opPost?.id || topic.id)}
@@ -398,7 +398,7 @@ export default function TopicDetailPage() {
  </button>
  </div>
 
- <span className="text-xs text-gray-500 font-mono">
+ <span className="text-xs text-text-faint font-mono">
  {t("work.detail.viewCount", { count: topic.view_count })}
  </span>
  </div>
@@ -449,7 +449,7 @@ export default function TopicDetailPage() {
  )}
  <UserRoleBadge role={post.user?.role} t={t} />
  </div>
- <span className="text-xs text-gray-500 font-mono">
+ <span className="text-xs text-text-faint font-mono">
  {new Date(post.created_at).toLocaleString()}
  </span>
  </div>
@@ -461,13 +461,13 @@ export default function TopicDetailPage() {
  <button
  onClick={() => setPendingDelete({ kind: "reply", post })}
  disabled={deletingTarget === post.id}
- className="flex items-center space-x-1 text-gray-500 hover:text-rose-400 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
+ className="flex items-center space-x-1 text-text-faint hover:text-rose-400 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
  >
  <Trash2 className="w-4 h-4" />
  <span>{deletingTarget === post.id ? t("community.deleting") : t("community.deleteReply")}</span>
  </button>
  )}
- <span className="text-gray-500 font-mono text-sm">#{post.post_number}</span>
+ <span className="text-text-faint font-mono text-sm">#{post.post_number}</span>
  </div>
  </div>
  {moderationError?.target === post.id && (
@@ -479,7 +479,7 @@ export default function TopicDetailPage() {
    </div>
 
  {/* Post Actions */}
- <div className="flex items-center justify-between pt-2.5 border-t border-line/60 text-gray-500">
+ <div className="flex items-center justify-between pt-2.5 border-t border-line/60 text-text-faint">
  <div className="flex items-center space-x-3.5">
  <button
  onClick={() => toggleLike(post.id)}
@@ -522,7 +522,7 @@ export default function TopicDetailPage() {
 
  {user ? (
  <div className="space-y-2.5">
- <p className="text-sm text-gray-500 font-mono">{t("community.replyPlaceholder")}</p>
+ <p className="text-sm text-text-faint font-mono">{t("community.replyPlaceholder")}</p>
  <button
  onClick={openTopicReply}
  className="w-full sm:w-auto px-3.5 h-10 max-sm:min-h-[44px] bg-primary text-white font-bold rounded-md hover:opacity-90 flex items-center justify-center space-x-1.5 transition-opacity text-sm"
@@ -532,7 +532,7 @@ export default function TopicDetailPage() {
  </button>
  </div>
  ) : (
- <div className="p-4 text-center text-gray-500 bg-background rounded-md border border-line text-sm">
+ <div className="p-4 text-center text-text-faint bg-background rounded-md border border-line text-sm">
  {t("community.loginToReply")}
  </div>
  )}
@@ -542,14 +542,14 @@ export default function TopicDetailPage() {
  {/* Right: Discourse Signature Timeline Navigator (Desktop) */}
  <div className="hidden lg:block w-64 sticky top-[calc(var(--mf-header-h)+1.25rem)] space-y-3.5 flex-shrink-0">
  <div className="border border-line rounded-lg bg-surface p-4.5 space-y-3 font-mono text-sm shadow-2xs">
- <div className="flex items-center justify-between text-gray-500 border-b border-line pb-2">
+ <div className="flex items-center justify-between text-text-faint border-b border-line pb-2">
  <span className="font-bold text-text-strong">{t("community.timelineNav")}</span>
  <span>{t("community.floors", { count: totalPostsCount })}</span>
  </div>
 
  {topic.tags && topic.tags.length > 0 && (
  <div className="space-y-1">
- <span className="text-xs tracking-widest font-bold text-gray-500 uppercase">{t("community.tags")}</span>
+ <span className="text-xs tracking-widest font-bold text-text-faint uppercase">{t("community.tags")}</span>
  <div className="flex flex-wrap gap-2">
  {topic.tags.map((tg) => (
  <Link
@@ -567,7 +567,7 @@ export default function TopicDetailPage() {
 
  {/* Progress bar */}
  <div className="space-y-1 py-1">
- <div className="flex justify-between text-xs text-gray-500">
+ <div className="flex justify-between text-xs text-text-faint">
  <span>{new Date(topic.created_at).toLocaleDateString()}</span>
  <span>{t("community.latest")}</span>
  </div>
@@ -583,7 +583,7 @@ export default function TopicDetailPage() {
  <div className="pt-2 border-t border-line space-y-1">
  <button
  onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
- className="w-full text-left py-1 px-2.5 rounded-md hover:bg-black/[0.03] hover:bg-surfaceSubtle text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-between transition-colors duration-fast ease-soft text-xs"
+ className="w-full text-left py-1 px-2.5 rounded-md hover:bg-black/[0.03] hover:bg-surfaceSubtle text-text-faint hover:text-gray-900 dark:hover:text-white flex items-center justify-between transition-colors duration-fast ease-soft text-xs"
  >
  <span>{t("community.topJump")}</span>
  <span>#1</span>
@@ -593,7 +593,7 @@ export default function TopicDetailPage() {
  const el = document.getElementById(`post-${posts[posts.length - 1]?.post_number}`);
  el?.scrollIntoView({ behavior: 'smooth' });
  }}
- className="w-full text-left py-1 px-2.5 rounded-md hover:bg-black/[0.03] hover:bg-surfaceSubtle text-gray-500 hover:text-gray-900 dark:hover:text-white flex items-center justify-between transition-colors duration-fast ease-soft text-xs"
+ className="w-full text-left py-1 px-2.5 rounded-md hover:bg-black/[0.03] hover:bg-surfaceSubtle text-text-faint hover:text-gray-900 dark:hover:text-white flex items-center justify-between transition-colors duration-fast ease-soft text-xs"
  >
  <span>{t("community.bottomJump")}</span>
  <span>#{posts[posts.length - 1]?.post_number || 1}</span>

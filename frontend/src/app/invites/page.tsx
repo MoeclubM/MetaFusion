@@ -217,7 +217,7 @@ export default function InvitesPage() {
                   maxLength={200}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder={t("invite.notePlaceholder")}
-                  className="w-full px-3.5 h-10 bg-black/[0.03] dark:bg-black/20 border border-line rounded-control text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary"
+                  className="w-full px-3.5 h-10 bg-black/[0.03] dark:bg-black/20 border border-line rounded-control text-text-strong text-sm placeholder:text-text-muted focus:outline-none focus:border-primary"
                 />
               </div>
 

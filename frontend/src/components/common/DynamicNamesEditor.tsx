@@ -90,13 +90,13 @@ export function DynamicNamesEditor({
     <div className="space-y-2">
       {label && (
         <div className="flex items-center justify-between">
-          <label className="block text-[11px] font-mono text-gray-300 font-medium flex items-center gap-1.5">
+          <label className="block text-[11px] font-mono text-text-body font-medium flex items-center gap-1.5">
             <Globe className="w-3.5 h-3.5 text-primary" />
             <span>{label}</span>
             {required && <span className="text-rose-400">*</span>}
           </label>
           {helperText && (
-            <span className="text-[10px] text-gray-500 font-mono">
+            <span className="text-[10px] text-text-faint font-mono">
               {helperText}
             </span>
           )}
@@ -106,7 +106,7 @@ export function DynamicNamesEditor({
       {/* 语言条目列表 */}
       <div className="space-y-2">
         {existingCodes.length === 0 ? (
-          <div className="p-3 rounded-lg border border-dashed border-line text-center text-xs text-gray-500 font-mono">
+          <div className="p-3 rounded-lg border border-dashed border-line text-center text-xs text-text-faint font-mono">
             {t("multilingual.noEntries")}
           </div>
         ) : (
@@ -118,10 +118,10 @@ export function DynamicNamesEditor({
                 key={code}
                 className="flex items-center gap-2 bg-black/40 border border-line rounded-lg p-1.5 focus-within:border-primary/50 transition-colors duration-fast ease-soft"
               >
-                <span className="px-2 py-0.5 rounded bg-emphasis/[0.06] text-gray-300 text-[11px] font-mono shrink-0 min-w-[64px] text-center">
+                <span className="px-2 py-0.5 rounded bg-emphasis/[0.06] text-text-body text-[11px] font-mono shrink-0 min-w-[64px] text-center">
                   {code}
                   {preset && (
-                    <span className="text-[10px] text-gray-500 ml-1">
+                    <span className="text-[10px] text-text-faint ml-1">
                       ({languageNativeName(code)})
                     </span>
                   )}
@@ -136,7 +136,7 @@ export function DynamicNamesEditor({
                 <button
                   type="button"
                   onClick={() => handleRemove(code)}
-                  className="p-1 text-gray-500 hover:text-rose-400 rounded transition-colors duration-fast ease-soft"
+                  className="p-1 text-text-faint hover:text-rose-400 rounded transition-colors duration-fast ease-soft"
                   title={t("multilingual.removeLang", { code })}
                 >
                   <X className="w-3.5 h-3.5" />
@@ -154,11 +154,11 @@ export function DynamicNamesEditor({
             key={lang.code}
             type="button"
             onClick={() => handleAdd(lang.code)}
-            className="px-2 py-0.5 rounded bg-emphasis/[0.04] hover:bg-emphasis/[0.08] text-gray-400 hover:text-emphasis border border-line text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft"
+            className="px-2 py-0.5 rounded bg-emphasis/[0.04] hover:bg-emphasis/[0.08] text-text-muted hover:text-emphasis border border-line text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft"
           >
             <Plus className="w-2.5 h-2.5" />
             <span>+{lang.code}</span>
-            <span className="text-gray-500 text-[9px]">({lang.native})</span>
+            <span className="text-text-faint text-[9px]">({lang.native})</span>
           </button>
         ))}
 
@@ -178,7 +178,7 @@ export function DynamicNamesEditor({
 export function MultilingualBadges({ names }: { names?: MultilingualNames }) {
   const entries = Object.entries(names || {}).filter(([_, v]) => v && v.trim() !== "");
   if (entries.length === 0) {
-    return <span className="text-gray-500 font-mono text-[11px]">—</span>;
+    return <span className="text-text-faint font-mono text-[11px]">—</span>;
   }
 
   return (

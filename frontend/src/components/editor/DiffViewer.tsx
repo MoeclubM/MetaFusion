@@ -51,7 +51,7 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
 
   if (!diff || Object.keys(diff).length === 0) {
     return (
-      <div className={`p-4 rounded-lg border border-line bg-surfaceSubtle text-center font-mono text-xs text-gray-500 ${className}`}>
+      <div className={`p-4 rounded-lg border border-line bg-surfaceSubtle text-center font-mono text-xs text-text-faint ${className}`}>
         {editType === "create" ? t("editor.diff.initialSnapshot") : t("editor.diff.noChanges")}
       </div>
     );
@@ -61,7 +61,7 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
 
   return (
     <div className={`space-y-2.5 font-mono text-xs ${className}`}>
-      <div className="flex items-center justify-between pb-1 text-[11px] text-gray-500">
+      <div className="flex items-center justify-between pb-1 text-[11px] text-text-faint">
         <span>{t("editor.diff.title")} ({entries.length})</span>
         <button
           type="button"

@@ -119,7 +119,7 @@ function MarkdownToolbar({
   );
 
   return (
-    <div className="flex items-center gap-1 py-1 border-y border-line text-gray-400 shrink-0">
+    <div className="flex items-center gap-1 py-1 border-y border-line text-text-muted shrink-0">
       <button
         type="button"
         onClick={() => wrapSelection("**", "**", t("community.boldPlaceholder"))}
@@ -437,7 +437,7 @@ export default function PostComposer({
           <button
             type="button"
             onClick={() => onExpandedChange(!expanded)}
-            className="p-1 text-gray-400 hover:text-emphasis"
+            className="p-1 text-text-muted hover:text-emphasis"
             title={expanded ? t("community.composerCollapse") : t("community.composerExpand")}
           >
             {expanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -445,7 +445,7 @@ export default function PostComposer({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-emphasis"
+            className="p-1 text-text-muted hover:text-emphasis"
             title={t("community.closeComposer")}
           >
             <X className="w-4 h-4" />
@@ -486,13 +486,13 @@ export default function PostComposer({
                     <span className="truncate">{t("community.board")}</span>
                   )}
                 </span>
-                <ChevronDown className={`w-4 h-4 text-gray-500 shrink-0 transition-transform duration-base ease-soft ${boardDropdownOpen ? "rotate-180" : ""}`} />
+                <ChevronDown className={`w-4 h-4 text-text-faint shrink-0 transition-transform duration-base ease-soft ${boardDropdownOpen ? "rotate-180" : ""}`} />
               </button>
               {boardDropdownOpen && (
                 <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-line rounded-card shadow-elevated z-50 isolate animate-slide-up overflow-hidden flex flex-col">
                   <div className="p-2 border-b border-line">
                     <div className="relative">
-                      <Search className="w-3 h-3 text-gray-500 absolute left-2 top-2.5" />
+                      <Search className="w-3 h-3 text-text-faint absolute left-2 top-2.5" />
                       <input
                         ref={boardQueryRef}
                         autoFocus
@@ -506,7 +506,7 @@ export default function PostComposer({
                   </div>
                   <div className="max-h-48 overflow-y-auto divide-y divide-surfaceBorder">
                     {filteredBoards.length === 0 ? (
-                      <div className="p-3 text-center text-[11px] text-gray-500">{t("community.noBoardMatch")}</div>
+                      <div className="p-3 text-center text-[11px] text-text-faint">{t("community.noBoardMatch")}</div>
                     ) : (
                       filteredBoards.map((b) => {
                         const active = newBoardCode === b.code;
@@ -526,10 +526,10 @@ export default function PostComposer({
                               <Icon className={`w-3.5 h-3.5 ${b.color}`} />
                             </span>
                             <span className="flex-1 min-w-0">
-                              <span className={`block text-xs font-semibold truncate ${active ? "text-emphasis" : "text-gray-200"}`}>
+                              <span className={`block text-xs font-semibold truncate ${active ? "text-emphasis" : "text-text-strong"}`}>
                                 {boardDisplayName(b, locale, t)}
                               </span>
-                              <span className="block text-[10px] text-gray-500 truncate">{boardDisplayDesc(b, locale, t)}</span>
+                              <span className="block text-[10px] text-text-faint truncate">{boardDisplayDesc(b, locale, t)}</span>
                             </span>
                             {active && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
                           </button>
@@ -549,7 +549,7 @@ export default function PostComposer({
                     <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span className="truncate">{selectedWork.title}</span>
                   </span>
-                  <button type="button" onClick={() => setSelectedWork(null)} className="text-gray-400 hover:text-emphasis ml-1.5 cursor-pointer">
+                  <button type="button" onClick={() => setSelectedWork(null)} className="text-text-muted hover:text-emphasis ml-1.5 cursor-pointer">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -581,7 +581,7 @@ export default function PostComposer({
                             setSearchedWorks([]);
                             setNewBoardCode("comment");
                           }}
-                          className="p-2.5 hover:bg-surfaceBorder/50 cursor-pointer flex items-center justify-between text-gray-300 hover:text-emphasis text-sm"
+                          className="p-2.5 hover:bg-surfaceBorder/50 cursor-pointer flex items-center justify-between text-text-body hover:text-emphasis text-sm"
                         >
                           <span className="font-medium truncate">{w.title}</span>
                         </div>
@@ -596,7 +596,7 @@ export default function PostComposer({
           {/* Tags */}
           <div className="shrink-0 space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-mono text-gray-500 flex items-center gap-1 shrink-0 ml-1">
+              <span className="text-xs font-mono text-text-faint flex items-center gap-1 shrink-0 ml-1">
                 <TagIcon className="w-3.5 h-3.5" />
                 {t("community.tags")}
               </span>
@@ -650,10 +650,10 @@ export default function PostComposer({
                         key={ftag.id}
                         type="button"
                         onClick={() => addTag(ftag)}
-                        className="w-full px-3 py-2 text-left hover:bg-surfaceBorder/50 flex items-center justify-between text-xs text-gray-300 hover:text-emphasis"
+                        className="w-full px-3 py-2 text-left hover:bg-surfaceBorder/50 flex items-center justify-between text-xs text-text-body hover:text-emphasis"
                       >
                         <span className="flex items-center gap-1.5">
-                          <TagIcon className="w-3 h-3 text-gray-500" />
+                          <TagIcon className="w-3 h-3 text-text-faint" />
                           {ftag.name}
                         </span>
                       </button>
@@ -698,7 +698,7 @@ export default function PostComposer({
                   clearDraft();
                   onClose();
                 }}
-                className="px-4 h-10 rounded-lg bg-surface hover:bg-surfaceBorder text-gray-400 hover:text-emphasis text-sm transition-colors duration-fast ease-soft cursor-pointer"
+                className="px-4 h-10 rounded-lg bg-surface hover:bg-surfaceBorder text-text-muted hover:text-emphasis text-sm transition-colors duration-fast ease-soft cursor-pointer"
               >
                 {t("community.discard")}
               </button>
@@ -759,7 +759,7 @@ export default function PostComposer({
                   clearDraft();
                   onClose();
                 }}
-                className="px-4 h-10 rounded-lg bg-surface hover:bg-surfaceBorder text-gray-400 hover:text-emphasis text-sm transition-colors duration-fast ease-soft cursor-pointer"
+                className="px-4 h-10 rounded-lg bg-surface hover:bg-surfaceBorder text-text-muted hover:text-emphasis text-sm transition-colors duration-fast ease-soft cursor-pointer"
               >
                 {t("community.discard")}
               </button>

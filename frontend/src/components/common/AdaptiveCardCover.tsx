@@ -74,7 +74,7 @@ export function AdaptiveCardCover({
             </span>
           )}
           {fallbackSubtitle && (
-            <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider mt-0.5">
+            <span className="text-[9px] font-mono text-text-faint uppercase tracking-wider mt-0.5">
               {fallbackSubtitle}
             </span>
           )}

@@ -53,7 +53,7 @@ export function RevisionHistoryModal({ isOpen, onClose, targetType, targetId, en
         <div className="flex items-center justify-between p-4 border-b border-line">
           <div>
             <h2 id="revision-dialog-title" className="text-sm font-bold">{t("editor.history.title")}</h2>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-text-faint">
               {entityTitle} ·{" "}
               {getKindName(kinds, targetType, locale, tr(`catalog.kind.${targetType}`, targetType))}
             </p>

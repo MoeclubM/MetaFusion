@@ -23,7 +23,7 @@ function CompareContent() {
 
 export default function ComparePage() {
   return (
-    <Suspense fallback={<LoadingFallback className="min-h-screen grid place-items-center text-sm text-gray-500" />}>
+    <Suspense fallback={<LoadingFallback className="min-h-screen grid place-items-center text-sm text-text-faint" />}>
       <CompareContent />
     </Suspense>
   );

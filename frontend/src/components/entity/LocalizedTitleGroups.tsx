@@ -58,7 +58,7 @@ export function LocalizedTitleGroups({
     [translations, originalLanguage, displayTitle, known],
   );
   if (groups.length === 0) return null;
-  const cls = itemClassName ?? "text-gray-500";
+  const cls = itemClassName ?? "text-text-faint";
   const hiddenRows = groups.slice(1).length;
   const visibleGroups = expanded ? groups : groups.slice(0, 1);
   // 组内去重：数据里别名常含与主标题相同的值（同一分组内逐字重复只展示一次）。

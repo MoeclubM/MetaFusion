@@ -42,7 +42,7 @@ export default function Error({
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-emphasis mb-3">
           {t("error.title")}
         </h1>
-        <p className="text-sm sm:text-base text-gray-400 mb-4 leading-relaxed">
+        <p className="text-sm sm:text-base text-text-muted mb-4 leading-relaxed">
           {t("error.desc")}
         </p>
 
@@ -63,7 +63,7 @@ export default function Error({
 
           <Link
             href="/"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emphasis/5 hover:bg-emphasis/10 border border-line text-gray-200 text-sm font-medium transition-colors duration-fast ease-soft"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emphasis/5 hover:bg-emphasis/10 border border-line text-text-strong text-sm font-medium transition-colors duration-fast ease-soft"
           >
             <Home className="w-4 h-4" />
             <span>{t("nav.home")}</span>

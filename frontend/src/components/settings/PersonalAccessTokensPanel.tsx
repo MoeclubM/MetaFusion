@@ -204,8 +204,8 @@ export function PersonalAccessTokensPanel() {
           <KeyRound className="w-4 h-4 text-amber-500" />
           <span>{t("settings.patTitle")}</span>
         </h3>
-        <p className="text-xs text-gray-500 leading-relaxed">{t("settings.patDesc")}</p>
-        <p className="text-[11px] text-gray-500 leading-relaxed">{t("settings.patRateLimitHint")}</p>
+        <p className="text-xs text-text-faint leading-relaxed">{t("settings.patDesc")}</p>
+        <p className="text-[11px] text-text-faint leading-relaxed">{t("settings.patRateLimitHint")}</p>
         <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed flex items-start gap-1.5">
           <TriangleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.6} />
           <span>{t("settings.patWindowHint")}</span>
@@ -243,7 +243,7 @@ export function PersonalAccessTokensPanel() {
       {/* 创建 */}
       <form onSubmit={handleCreate} className="p-3.5 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-3">
         <div className="flex items-center gap-1.5">
-          <Plus className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.8} />
+          <Plus className="w-3.5 h-3.5 text-text-muted" strokeWidth={1.8} />
           <span className="font-mono text-xs font-semibold text-text-body">{t("settings.patCreateTitle")}</span>
         </div>
 
@@ -256,7 +256,7 @@ export function PersonalAccessTokensPanel() {
               maxLength={64}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("settings.patNamePlaceholder")}
-              className="w-full h-9 px-3 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
+              className="w-full h-9 px-3 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50"
             />
           </div>
           <div className="space-y-1">
@@ -279,7 +279,7 @@ export function PersonalAccessTokensPanel() {
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-[11px] text-text-muted">{t("settings.patScopes")}</span>
             {grantable.length > 0 && (
-              <span className="font-mono text-[10px] text-gray-400">
+              <span className="font-mono text-[10px] text-text-muted">
                 {t("settings.patSelected", { count: scopes.length, total: grantable.length })}
               </span>
             )}
@@ -293,7 +293,7 @@ export function PersonalAccessTokensPanel() {
             <div className="space-y-2">
               {groups.map(([service, codes]) => (
                 <div key={service} className="space-y-1">
-                  <div className="font-mono text-[10px] uppercase tracking-wide text-gray-400">
+                  <div className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
                     {labelOf(`settings.patScopeGroup.${service}`, service)}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -317,7 +317,7 @@ export function PersonalAccessTokensPanel() {
                           />
                           {checked ? <Check className="w-3 h-3 text-primary" /> : null}
                           <span>{labelOf(`settings.patScope.${code}`, code)}</span>
-                          <span className="font-mono text-[9px] text-gray-400">{code}</span>
+                          <span className="font-mono text-[9px] text-text-muted">{code}</span>
                         </label>
                       );
                     })}
@@ -327,7 +327,7 @@ export function PersonalAccessTokensPanel() {
             </div>
           )}
 
-          <p className="text-[11px] text-gray-500 leading-relaxed">{t("settings.patScopesHint")}</p>
+          <p className="text-[11px] text-text-faint leading-relaxed">{t("settings.patScopesHint")}</p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -339,7 +339,7 @@ export function PersonalAccessTokensPanel() {
             {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
             <span>{creating ? t("settings.patCreating") : t("settings.patCreateBtn")}</span>
           </button>
-          <span className="text-[11px] text-gray-500">{t("settings.patLimitHint")}</span>
+          <span className="text-[11px] text-text-faint">{t("settings.patLimitHint")}</span>
         </div>
       </form>
 
@@ -358,13 +358,13 @@ export function PersonalAccessTokensPanel() {
         </div>
 
         {loading ? (
-          <div className="p-8 text-center text-gray-500 text-xs font-mono flex items-center justify-center gap-2">
+          <div className="p-8 text-center text-text-faint text-xs font-mono flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin text-primary" />
             <span>{t("settings.patLoading")}</span>
           </div>
         ) : tokens === null ? null : tokens.length === 0 ? (
           <div className="p-6 rounded-xl bg-surfaceSubtle border border-line-subtle text-center space-y-2">
-            <KeyRound className="w-5 h-5 text-gray-400 mx-auto" strokeWidth={1.5} />
+            <KeyRound className="w-5 h-5 text-text-muted mx-auto" strokeWidth={1.5} />
             <div className="text-xs text-text-body">{t("settings.patEmpty")}</div>
           </div>
         ) : (
@@ -394,7 +394,7 @@ export function PersonalAccessTokensPanel() {
                               : t("settings.patRevoked")}
                         </span>
                       </div>
-                      <div className="font-mono text-[11px] text-gray-500" data-mf-pat-prefix={token.token_prefix}>
+                      <div className="font-mono text-[11px] text-text-faint" data-mf-pat-prefix={token.token_prefix}>
                         {t("settings.patPrefix", { prefix: token.token_prefix })}
                       </div>
                     </div>
@@ -415,7 +415,7 @@ export function PersonalAccessTokensPanel() {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-gray-500">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-text-faint">
                     {createdAt && (
                       <span>
                         {t("settings.patCreatedAt", { time: createdAt })}

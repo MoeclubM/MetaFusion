@@ -82,7 +82,7 @@ export function TitleDisplayOrderSetting() {
   return (
     <div className="p-2.5 rounded-md bg-background border border-line-subtle text-xs font-mono space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-gray-500 flex items-center gap-1.5">
+        <span className="text-text-faint flex items-center gap-1.5">
           <Languages className="w-3.5 h-3.5 text-violet-500" strokeWidth={1.5} />
           <span>{t("settings.titleDisplayOrder")}</span>
         </span>
@@ -90,14 +90,14 @@ export function TitleDisplayOrderSetting() {
           <button
             type="button"
             onClick={reset}
-            className="inline-flex items-center gap-1 text-gray-500 hover:text-gray-900 dark:hover:text-white"
+            className="inline-flex items-center gap-1 text-text-faint hover:text-gray-900 dark:hover:text-white"
           >
             <RotateCcw className="w-3 h-3" />
             <span>{t("settings.titleDisplayOrderReset")}</span>
           </button>
         )}
       </div>
-      <p className="text-[11px] leading-relaxed text-gray-500 font-sans">
+      <p className="text-[11px] leading-relaxed text-text-faint font-sans">
         {t("settings.titleDisplayOrderDesc")}
       </p>
       <ol className="space-y-1">
@@ -106,15 +106,15 @@ export function TitleDisplayOrderSetting() {
             key={code}
             className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-line-subtle"
           >
-            <span className="w-5 text-center text-gray-400">{i + 1}</span>
+            <span className="w-5 text-center text-text-muted">{i + 1}</span>
             <span className="flex-1 text-text-strong font-sans">{languageNativeName(code)}</span>
-            <span className="text-gray-400">{code}</span>
+            <span className="text-text-muted">{code}</span>
             <button
               type="button"
               aria-label={t("settings.titleDisplayOrderMoveUp")}
               disabled={i === 0}
               onClick={() => move(code, -1)}
-              className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 text-gray-500"
+              className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 text-text-faint"
             >
               <ArrowUp className="w-3.5 h-3.5" />
             </button>
@@ -123,7 +123,7 @@ export function TitleDisplayOrderSetting() {
               aria-label={t("settings.titleDisplayOrderMoveDown")}
               disabled={i === order.length - 1}
               onClick={() => move(code, 1)}
-              className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 text-gray-500"
+              className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 disabled:opacity-30 text-text-faint"
             >
               <ArrowDown className="w-3.5 h-3.5" />
             </button>
@@ -131,7 +131,7 @@ export function TitleDisplayOrderSetting() {
               type="button"
               aria-label={t("settings.titleDisplayOrderRemove")}
               onClick={() => remove(code)}
-              className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-gray-500"
+              className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 text-text-faint"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -145,7 +145,7 @@ export function TitleDisplayOrderSetting() {
               key={code}
               type="button"
               onClick={() => add(code)}
-              className="px-2 py-0.5 rounded-full border border-line text-gray-500 hover:text-gray-900 dark:hover:text-white"
+              className="px-2 py-0.5 rounded-full border border-line text-text-faint hover:text-gray-900 dark:hover:text-white"
             >
               + {languageNativeName(code)}
             </button>
@@ -160,7 +160,7 @@ export function TitleDisplayOrderSetting() {
           variant="field"
         />
       </div>
-      <p className="text-[11px] leading-relaxed text-gray-500 font-sans">
+      <p className="text-[11px] leading-relaxed text-text-faint font-sans">
         {t("settings.titleDisplayOrderCustomHint")}
       </p>
     </div>

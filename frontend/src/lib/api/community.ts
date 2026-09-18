@@ -285,7 +285,7 @@ const VIRTUAL_ALL_BOARD: ForumBoard = {
   descKey: "board.allDesc",
   names: { "zh-CN": "全部分区", "en-US": "All Boards" },
   descriptions: { "zh-CN": "全站论坛讨论总览", "en-US": "All forum boards overview" },
-  color: "text-gray-300",
+  color: "text-text-body",
   bgColor: "bg-gray-500/20",
   borderColor: "border-gray-500/40",
   icon: "Layers",

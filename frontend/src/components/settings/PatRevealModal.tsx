@@ -62,7 +62,7 @@ export function PatRevealModal({
           <p className="text-[11px] text-rose-500 dark:text-rose-300 leading-relaxed">{t("settings.patCopyFailed")}</p>
         )}
 
-        <p className="text-[11px] text-gray-500 leading-relaxed">{t("settings.patEnvHint")}</p>
+        <p className="text-[11px] text-text-faint leading-relaxed">{t("settings.patEnvHint")}</p>
 
         <div className="flex justify-end pt-1">
           <button

@@ -198,7 +198,7 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
           className="flex items-center gap-3 px-3.5 py-2.5 border-b border-line-subtle last:border-b-0"
           style={{ paddingLeft: `${14 + indent}px` }}
         >
-          <span className="w-10 shrink-0 text-right font-mono text-xs text-gray-400">
+          <span className="w-10 shrink-0 text-right font-mono text-xs text-text-muted">
             {entry.number || entry.position || "—"}
           </span>
           <Link href={`/catalog/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-text-strong hover:text-primary">
@@ -207,11 +207,11 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
           {/* 放送日：有值才显示，缺值不留空占位。呈现走站上共用的 FieldValue，
               日期类型由 definitions 判定（不在这里自造格式化），与信息面板同一口径。 */}
           {entry.airDate && (
-            <span className="shrink-0 text-[11px] text-gray-500">
+            <span className="shrink-0 text-[11px] text-text-faint">
               <FieldValue code="air_date" value={entry.airDate} defs={defs} locale={locale} />
             </span>
           )}
-          <span className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
+          <span className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-text-faint">
             {isCollectionOrWork ? kindLabel(entry.kind) : roleLabel(role)}
           </span>
         </div>,
@@ -233,11 +233,11 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
         key={entry.id}
         className="flex items-center gap-3 px-3.5 py-2.5 border-b border-line-subtle last:border-b-0"
       >
-        <span className="w-10 shrink-0 text-right font-mono text-xs text-gray-400">{entry.number || entry.position || "—"}</span>
+        <span className="w-10 shrink-0 text-right font-mono text-xs text-text-muted">{entry.number || entry.position || "—"}</span>
         <Link href={`/catalog/${entry.id}`} className="min-w-0 flex-1 truncate text-sm text-text-strong hover:text-primary">
           {entry.title}
         </Link>
-        <span className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
+        <span className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-text-faint">
           {kindLabel(entry.kind)}
         </span>
       </div>
@@ -258,11 +258,11 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
               {block.title}
             </h2>
             {!loading && (
-              <span className="font-mono text-sm text-gray-500">{t("work.contents.count", { count: block.entries.length })}</span>
+              <span className="font-mono text-sm text-text-faint">{t("work.contents.count", { count: block.entries.length })}</span>
             )}
           </div>
           {loading ? (
-            <div className="p-6 text-center font-mono text-sm text-gray-500">{t("work.contents.loading")}</div>
+            <div className="p-6 text-center font-mono text-sm text-text-faint">{t("work.contents.loading")}</div>
           ) : block.key === "items" ? (
             <div>{renderEntries("root", 0)}</div>
           ) : (
@@ -280,7 +280,7 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
               {t("work.contents.title")}
             </h2>
           </div>
-          <div className="p-6 text-center font-mono text-sm text-gray-500">{t("work.contents.empty")}</div>
+          <div className="p-6 text-center font-mono text-sm text-text-faint">{t("work.contents.empty")}</div>
         </section>
       )}
     </div>

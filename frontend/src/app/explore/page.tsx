@@ -350,7 +350,7 @@ function ExploreInner() {
                 点击即写回 ?kind=<code>，与标签筛选叠加；窄屏收成一行横向滚动。 */}
             <Card padding="none" className="shadow-soft overflow-hidden">
               <div className="px-3.5 py-2.5 border-b border-line-subtle">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-text-faint">
                   {t("catalog.kindFilter")}
                 </span>
               </div>
@@ -391,7 +391,7 @@ function ExploreInner() {
                 （/catalog/tags 聚合自各实体的 attributes.tags）。 */}
             <div className="rounded-xl border border-line bg-surface shadow-soft overflow-hidden">
               <div className="px-3.5 py-2.5 border-b border-line-subtle flex items-center justify-between gap-2">
-                <span className="text-[11px] font-mono uppercase tracking-wider text-gray-500">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-text-faint">
                   {t("catalog.tagFilter")}
                 </span>
                 {currentTags.length > 0 && (
@@ -422,7 +422,7 @@ function ExploreInner() {
                     </button>
                   </div>
                 ) : topTags.length === 0 ? (
-                  <p className="px-1 py-2 text-xs text-gray-500">{t("catalog.noTags")}</p>
+                  <p className="px-1 py-2 text-xs text-text-faint">{t("catalog.noTags")}</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
                     {topTags.map((tag) => {
@@ -460,7 +460,7 @@ function ExploreInner() {
                   value={qInput}
                   onChange={(e) => setQInput(e.target.value)}
                   placeholder={t("catalog.searchPlaceholder")}
-                  className="w-full pl-10 pr-20 py-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.04] border border-line text-xs text-text-strong placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-primary focus:bg-surface outline-none transition-all duration-base ease-soft"
+                  className="w-full pl-10 pr-20 py-2 rounded-lg bg-black/[0.02] dark:bg-white/[0.04] border border-line text-xs text-text-strong placeholder:text-text-muted dark:placeholder:text-gray-500 focus:border-primary focus:bg-surface outline-none transition-all duration-base ease-soft"
                 />
                 <button
                   type="submit"
@@ -582,7 +582,7 @@ function ExploreInner() {
             )}
 
             {loading ? (
-              <div className="py-24 text-center text-gray-500 font-mono text-xs flex flex-col items-center justify-center gap-3">
+              <div className="py-24 text-center text-text-faint font-mono text-xs flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="w-6 h-6 animate-spin text-primary" />
                 <span>{t("catalog.loading")}</span>
               </div>
@@ -695,7 +695,7 @@ function ExploreInner() {
                             {displayTitle}
                           </h3>
                           {item.title !== displayTitle && (
-                            <p className="text-[10px] text-gray-500 font-mono line-clamp-1 mb-1">{item.title}</p>
+                            <p className="text-[10px] text-text-faint font-mono line-clamp-1 mb-1">{item.title}</p>
                           )}
                           {/* 业务类型不再当标签显示（types 仍决定渲染哪些动态字段，只是在界面上不铺标签） */}
                         </div>
@@ -740,7 +740,7 @@ function ExploreInner() {
                               {displayTitle}
                             </h3>
                             {item.title !== displayTitle && (
-                              <span className="text-[11px] text-gray-500 font-mono hidden sm:inline truncate">
+                              <span className="text-[11px] text-text-faint font-mono hidden sm:inline truncate">
                                 ({item.title})
                               </span>
                             )}
@@ -815,7 +815,7 @@ function ExploreInner() {
 function ExploreFallback() {
   const { t } = useI18n();
   return (
-    <div className="min-h-screen bg-background text-gray-500 font-mono text-xs grid place-items-center">{t("common.loading")}</div>
+    <div className="min-h-screen bg-background text-text-faint font-mono text-xs grid place-items-center">{t("common.loading")}</div>
   );
 }
 

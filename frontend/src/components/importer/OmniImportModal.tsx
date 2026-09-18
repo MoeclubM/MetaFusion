@@ -540,7 +540,7 @@ export function OmniImportModal({
             type="button"
             onClick={onClose}
             aria-label={t("revisions.close")}
-            className="w-8 h-8 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 grid place-items-center transition-colors duration-fast ease-soft"
+            className="w-8 h-8 rounded-lg text-text-muted hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 grid place-items-center transition-colors duration-fast ease-soft"
           >
             <X className="w-4 h-4" />
           </button>
@@ -580,7 +580,7 @@ export function OmniImportModal({
                     }`}
                   >
                     <div className="flex items-center gap-2 font-bold text-xs">
-                      <Icon className={`w-4 h-4 ${active ? "text-primary" : "text-gray-400"}`} />
+                      <Icon className={`w-4 h-4 ${active ? "text-primary" : "text-text-muted"}`} />
                       <span>{item.label}</span>
                     </div>
                     <span className="text-[10px] text-text-muted mt-1 line-clamp-1 font-mono">
@@ -638,13 +638,13 @@ export function OmniImportModal({
                     }
                   }}
                   placeholder={getPlaceholder()}
-                  className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-line bg-surfaceSubtle text-sm text-text-strong placeholder:text-gray-400 focus:outline-hidden focus:border-primary transition-all font-mono"
+                  className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-line bg-surfaceSubtle text-sm text-text-strong placeholder:text-text-muted focus:outline-hidden focus:border-primary transition-all font-mono"
                 />
                 {inputVal && (
                   <button
                     type="button"
                     onClick={() => setInputVal("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-gray-600 dark:hover:text-gray-200"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -726,7 +726,7 @@ export function OmniImportModal({
                       {previewData.artist.name}
                     </h3>
                     {previewData.artist.original_name && previewData.artist.original_name !== previewData.artist.name && (
-                      <p className="text-xs text-gray-500 font-mono mt-0.5">
+                      <p className="text-xs text-text-faint font-mono mt-0.5">
                         {previewData.artist.original_name}
                       </p>
                     )}
@@ -749,7 +749,7 @@ export function OmniImportModal({
                   </div>
 
                   {previewData.artist.aliases && previewData.artist.aliases.length > 0 && (
-                    <div className="text-xs text-gray-500 font-mono line-clamp-1">
+                    <div className="text-xs text-text-faint font-mono line-clamp-1">
                       <span className="font-semibold">{t("importer.entityAliases")}: </span>
                       {previewData.artist.aliases.join(", ")}
                     </div>
@@ -760,7 +760,7 @@ export function OmniImportModal({
                       displayTitle={previewData.artist.name}
                       extraKnown={[previewData.artist.name, previewData.artist.original_name]}
                       className="space-y-0.5"
-                      itemClassName="text-xs text-gray-500 font-mono line-clamp-1"
+                      itemClassName="text-xs text-text-faint font-mono line-clamp-1"
                     />
                   )}
 
@@ -829,7 +829,7 @@ export function OmniImportModal({
                             <div className="font-bold truncate text-text-strong">
                               {m.title}
                             </div>
-                            <div className="text-[11px] text-gray-500 truncate">
+                            <div className="text-[11px] text-text-faint truncate">
                               {String(m.attributes?.country || "")}
                             </div>
                           </div>
@@ -850,7 +850,7 @@ export function OmniImportModal({
                     className="w-24 h-32 sm:w-28 sm:h-36 rounded-lg object-cover border border-line shrink-0"
                   />
                 ) : (
-                  <div className="w-24 h-32 sm:w-28 sm:h-36 rounded-lg dark:bg-white/5 border border-line grid place-items-center text-gray-400 shrink-0">
+                  <div className="w-24 h-32 sm:w-28 sm:h-36 rounded-lg dark:bg-white/5 border border-line grid place-items-center text-text-muted shrink-0">
                     <Film className="w-8 h-8" />
                   </div>
                 )}
@@ -860,7 +860,7 @@ export function OmniImportModal({
                       {previewData.work.title}
                     </h3>
                     {previewData.work.original_title && previewData.work.original_title !== previewData.work.title && (
-                      <p className="text-xs text-gray-500 font-mono truncate">
+                      <p className="text-xs text-text-faint font-mono truncate">
                         {previewData.work.original_title}
                       </p>
                     )}
@@ -871,7 +871,7 @@ export function OmniImportModal({
                         displayTitle={previewData.work.title}
                         extraKnown={[previewData.work.title, previewData.work.original_title]}
                         className="space-y-0.5"
-                        itemClassName="text-xs text-gray-500 font-mono"
+                        itemClassName="text-xs text-text-faint font-mono"
                       />
                     )}
                   </div>
@@ -917,7 +917,7 @@ export function OmniImportModal({
                 <section className="p-4 rounded-xl border border-line space-y-3">
                   <div className="flex items-baseline justify-between gap-2">
                     <h3 className="font-semibold">{t("catalog.contents.title")}</h3>
-                    <span className="text-xs text-gray-500 font-mono">{previewData.canonical_entries.length}</span>
+                    <span className="text-xs text-text-faint font-mono">{previewData.canonical_entries.length}</span>
                   </div>
                   <ol className="max-h-72 overflow-y-auto space-y-2 text-sm">
                     {previewData.canonical_entries.map((entry, index) => {
@@ -929,8 +929,8 @@ export function OmniImportModal({
                           className="flex items-baseline gap-2 sm:gap-3"
                           style={depth > 0 ? { paddingLeft: `${depth * 16}px` } : undefined}
                         >
-                          {depth > 0 && <span className="text-gray-400 font-mono text-xs">└</span>}
-                          <span className="text-gray-500 font-mono shrink-0">{entry.number || entry.position}</span>
+                          {depth > 0 && <span className="text-text-muted font-mono text-xs">└</span>}
+                          <span className="text-text-faint font-mono shrink-0">{entry.number || entry.position}</span>
                           <span className={isUnit ? "font-medium" : ""}>
                             {pickRecordTitle(locale, entry.translations, entry.title, { order: titleOrder, originalLanguage: entry.original_language })}
                           </span>
@@ -940,7 +940,7 @@ export function OmniImportModal({
                             </span>
                           )}
                           {entry.entry_role && (
-                            <span className="text-xs text-gray-500">{entryRoleLabel(entry.entry_role)}</span>
+                            <span className="text-xs text-text-faint">{entryRoleLabel(entry.entry_role)}</span>
                           )}
                           {!isUnit && workExpressions.length > 0 && (() => {
                             const suggestion = suggestExpression(
@@ -1011,9 +1011,9 @@ export function OmniImportModal({
                     >
                       <span className="flex items-baseline gap-2 min-w-0">
                         <span className="font-semibold text-text-strong truncate">{t("importer.crossWork.title")}</span>
-                        <span className="text-xs text-gray-500 font-mono shrink-0">{crossWorkResults.length}</span>
+                        <span className="text-xs text-text-faint font-mono shrink-0">{crossWorkResults.length}</span>
                       </span>
-                      <span className="text-xs text-gray-400 font-mono shrink-0">{crossWorkOpen ? "−" : "+"}</span>
+                      <span className="text-xs text-text-muted font-mono shrink-0">{crossWorkOpen ? "−" : "+"}</span>
                     </button>
                     {crossWorkOpen && (
                       <div className="space-y-2">
@@ -1025,10 +1025,10 @@ export function OmniImportModal({
                           value={crossWorkQuery}
                           onChange={(e) => setCrossWorkQuery(e.target.value)}
                           placeholder={t("importer.crossWork.searchPlaceholder")}
-                          className="w-full px-3 py-1.5 rounded-lg border border-line bg-surface text-xs text-text-strong placeholder:text-gray-400 focus:outline-hidden focus:border-primary font-mono"
+                          className="w-full px-3 py-1.5 rounded-lg border border-line bg-surface text-xs text-text-strong placeholder:text-text-muted focus:outline-hidden focus:border-primary font-mono"
                         />
                         {crossWorkSearching && (
-                          <p className="flex items-center gap-1.5 text-xs text-gray-500 font-mono">
+                          <p className="flex items-center gap-1.5 text-xs text-text-faint font-mono">
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             <span>{t("importer.crossWork.searching")}</span>
                           </p>
@@ -1040,7 +1040,7 @@ export function OmniImportModal({
                           </div>
                         )}
                         {!crossWorkSearching && !crossWorkError && crossWorkQuery.trim() && crossWorkResults.length === 0 && (
-                          <p className="text-[11px] text-gray-400 font-mono">
+                          <p className="text-[11px] text-text-muted font-mono">
                             {t("importer.crossWork.noResults")}
                           </p>
                         )}
@@ -1133,13 +1133,13 @@ export function OmniImportModal({
                 {/* Toolbar */}
                 <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
                   <div className="relative flex-1 min-w-[200px] max-w-sm">
-                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
                     <input
                       type="text"
                       value={staffFilter}
                       onChange={(e) => setStaffFilter(e.target.value)}
                       placeholder={t("importer.staffFilterPlaceholder")}
-                      className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-line bg-surface text-xs text-text-strong placeholder:text-gray-400 focus:outline-hidden focus:border-primary"
+                      className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-line bg-surface text-xs text-text-strong placeholder:text-text-muted focus:outline-hidden focus:border-primary"
                     />
                   </div>
 
@@ -1161,7 +1161,7 @@ export function OmniImportModal({
                     <button
                       type="button"
                       onClick={handleResetAssociations}
-                      className="px-2.5 py-1 rounded-md dark:bg-white/5 hover:bg-black/10 border border-line text-gray-500 transition-colors duration-fast ease-soft flex items-center gap-1"
+                      className="px-2.5 py-1 rounded-md dark:bg-white/5 hover:bg-black/10 border border-line text-text-faint transition-colors duration-fast ease-soft flex items-center gap-1"
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span>{t("importer.staffActionReset")}</span>
@@ -1199,7 +1199,7 @@ export function OmniImportModal({
                                 className="w-10 h-10 rounded-lg object-cover border border-line shrink-0"
                               />
                             ) : (
-                              <div className="w-10 h-10 rounded-lg dark:bg-white/5 border border-line grid place-items-center text-gray-400 shrink-0">
+                              <div className="w-10 h-10 rounded-lg dark:bg-white/5 border border-line grid place-items-center text-text-muted shrink-0">
                                 {assoc.entity_type === "studio" || assoc.entity_type === "publisher" ? (
                                   <Building2 className="w-5 h-5" />
                                 ) : (
@@ -1213,7 +1213,7 @@ export function OmniImportModal({
                                   {assoc.parsed_name}
                                 </span>
                                 {assoc.parsed_original && assoc.parsed_original !== assoc.parsed_name && (
-                                  <span className="text-[11px] text-gray-400 font-mono truncate">
+                                  <span className="text-[11px] text-text-muted font-mono truncate">
                                     ({assoc.parsed_original})
                                   </span>
                                 )}
@@ -1366,7 +1366,7 @@ export function OmniImportModal({
                                       <div className="font-bold text-text-strong truncate">
                                         {title(ar, locale)}
                                       </div>
-                                      <div className="text-[10px] text-gray-400 truncate">
+                                      <div className="text-[10px] text-text-muted truncate">
                                         {kindLabel(ar.kind)}
                                         {ar.types?.[0] ? ` · ${typeLabel(ar.types[0])}` : ""}
                                       </div>
@@ -1377,7 +1377,7 @@ export function OmniImportModal({
                               </div>
                             ) : (
                               !isSearchingArtist && (
-                                <p className="text-[11px] text-gray-400 font-mono">
+                                <p className="text-[11px] text-text-muted font-mono">
                                   {t("importer.staffNoMatchesFound")}
                                 </p>
                               )
@@ -1411,7 +1411,7 @@ export function OmniImportModal({
                 value={editNote}
                 onChange={(e) => setEditNote(e.target.value)}
                 placeholder={t("importer.editNotePlaceholder", { note: t("importer.defaultEditNote", { source: previewData.source.toUpperCase() }) })}
-                className="w-full px-3.5 py-2 rounded-xl border border-line bg-surfaceSubtle text-xs text-text-strong placeholder:text-gray-400 focus:outline-hidden focus:border-primary font-mono"
+                className="w-full px-3.5 py-2 rounded-xl border border-line bg-surfaceSubtle text-xs text-text-strong placeholder:text-text-muted focus:outline-hidden focus:border-primary font-mono"
               />
             </div>
           )}

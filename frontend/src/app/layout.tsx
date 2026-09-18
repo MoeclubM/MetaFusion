@@ -68,7 +68,7 @@ export default function RootLayout({
         {/* 首帧前同步应用主题：见 public/theme-boot.js（静态文件，无需内联拼字符串） */}
         <script src="/theme-boot.js" />
       </head>
-      <body className="font-sans min-h-screen bg-background text-gray-100 flex flex-col antialiased">
+      <body className="font-sans min-h-screen bg-background text-text-strong flex flex-col antialiased">
         <ThemeProvider>
           <I18nProvider>
             <ApplicationBoundary>{children}</ApplicationBoundary>

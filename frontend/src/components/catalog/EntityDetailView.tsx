@@ -809,7 +809,7 @@ export function EntityDetailView({ id }: { id: string }) {
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>{t("entity.detail.backToDetail")}</span>
             </button>
-            <span className="font-mono text-xs text-gray-400">/</span>
+            <span className="font-mono text-xs text-text-muted">/</span>
             <span className="font-medium text-xs text-text-strong truncate max-w-md">
               {title(entity, locale, titleOrder)}
             </span>
@@ -900,19 +900,19 @@ export function EntityDetailView({ id }: { id: string }) {
         width="page"
         className="pb-[max(3rem,env(safe-area-inset-bottom))]"
         header={
-        <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-gray-500 border-b border-line-subtle pb-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 font-mono text-xs text-text-faint border-b border-line-subtle pb-2.5">
           <div className="flex items-center gap-1.5 truncate">
             <Link href="/" className="hover:text-primary transition-colors duration-fast ease-soft inline-flex items-center gap-1">
               <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
               <span>{t("nav.home")}</span>
             </Link>
-            <span className="text-gray-400 dark:text-white/20">/</span>
+            <span className="text-text-muted dark:text-white/20">/</span>
             <Link href="/catalog" className="hover:text-primary transition-colors duration-fast ease-soft">
               {t("nav.catalog")}
             </Link>
             {motherWork && (
               <>
-                <span className="text-gray-400 dark:text-white/20">/</span>
+                <span className="text-text-muted dark:text-white/20">/</span>
                 <Link
                   href={`/catalog/${motherWork.id}`}
                   className="hover:text-primary transition-colors duration-fast ease-soft truncate max-w-[200px]"
@@ -924,7 +924,7 @@ export function EntityDetailView({ id }: { id: string }) {
             )}
             {motherRelease && (
               <>
-                <span className="text-gray-400 dark:text-white/20">/</span>
+                <span className="text-text-muted dark:text-white/20">/</span>
                 <Link
                   href={`/catalog/${motherRelease.id}`}
                   className="hover:text-primary transition-colors duration-fast ease-soft truncate max-w-[200px]"
@@ -934,7 +934,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 </Link>
               </>
             )}
-            <span className="text-gray-400 dark:text-white/20">/</span>
+            <span className="text-text-muted dark:text-white/20">/</span>
             <span className="text-text-strong font-semibold truncate max-w-[280px]">
               {localizedTitle}
             </span>
@@ -944,7 +944,7 @@ export function EntityDetailView({ id }: { id: string }) {
             <button
               type="button"
               onClick={copyUuid}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-line bg-surfaceSubtle hover:border-primary/50 text-gray-500 hover:text-gray-900 dark:hover:text-white transition-all text-xs font-mono cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-line bg-surfaceSubtle hover:border-primary/50 text-text-faint hover:text-gray-900 dark:hover:text-white transition-all text-xs font-mono cursor-pointer"
               title={entity.id}
             >
               {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
@@ -1041,7 +1041,7 @@ export function EntityDetailView({ id }: { id: string }) {
               <button
                 type="button"
                 onClick={copyShareLink}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-surface text-xs font-medium text-gray-500 hover:text-gray-900 dark:hover:text-white transition-all shadow-2xs cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-surface text-xs font-medium text-text-faint hover:text-gray-900 dark:hover:text-white transition-all shadow-2xs cursor-pointer"
                 title={copiedLink ? t("entity.page.linkCopied") : t("entity.page.share")}
               >
                 {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5" />}
@@ -1092,7 +1092,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
               <dl className="space-y-3 text-xs">
                 <div>
-                  <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
+                  <dt className="text-text-muted font-mono text-[11px] mb-0.5">
                     {t("entity.page.entityKind")}
                   </dt>
                   <dd className="font-medium text-text-strong flex items-center gap-1.5">
@@ -1103,7 +1103,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
                 {officialInfo && (
                   <div>
-                    <dt className="text-gray-400 font-mono text-[11px] mb-0.5">
+                    <dt className="text-text-muted font-mono text-[11px] mb-0.5">
                       {t("entity.page.officialLink")}
                     </dt>
                     <dd className="font-mono text-emerald-600 dark:text-emerald-400 truncate">
@@ -1130,7 +1130,7 @@ export function EntityDetailView({ id }: { id: string }) {
               {Array.isArray(entity.attributes?.tags) && entity.attributes.tags.length > 0 && (
                 <div className="pt-3 border-t border-line-subtle space-y-2">
                   {Array.isArray(entity.attributes?.tags) && entity.attributes.tags.length > 0 && <>
-                  <div className="flex items-center gap-1 text-[11px] font-mono text-gray-400">
+                  <div className="flex items-center gap-1 text-[11px] font-mono text-text-muted">
                     <TagIcon className="w-3 h-3" />
                     <span>{t("work.detail.tagsHeading")}</span>
                   </div>
@@ -1212,7 +1212,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   {summaryText}
                 </div>
               ) : (
-                <div className="text-xs text-gray-400 italic">
+                <div className="text-xs text-text-muted italic">
                   {t("entity.page.noSummary")}
                 </div>
               )}
@@ -1262,7 +1262,7 @@ export function EntityDetailView({ id }: { id: string }) {
                               imgClassName="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-fast ease-soft"
                             />
                           </Card>
-                          <div className="font-mono text-[10px] text-gray-500">
+                          <div className="font-mono text-[10px] text-text-faint">
                             {p.taken_at?.trim() || t("catalog.imageTimeUnknown")}
                           </div>
                         </a>
@@ -1295,12 +1295,12 @@ export function EntityDetailView({ id }: { id: string }) {
                         {title(motherWork, locale, titleOrder)}
                       </div>
                       {isDistinctOriginalTitle(motherWork.title, title(motherWork, locale, titleOrder)) && (
-                        <div className="font-mono text-xs text-gray-400 truncate">
+                        <div className="font-mono text-xs text-text-muted truncate">
                           {motherWork.title}
                         </div>
                       )}
                     </div>
-                    <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
+                    <ArrowUpRight className="w-4 h-4 text-text-muted group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
                   </Link>
                 </Card>
               )}
@@ -1364,12 +1364,12 @@ export function EntityDetailView({ id }: { id: string }) {
                             {targetTitle}
                           </div>
                           {target && isDistinctOriginalTitle(target.title, targetTitle) && (
-                            <div className="text-[10px] text-gray-400 font-mono truncate">
+                            <div className="text-[10px] text-text-muted font-mono truncate">
                               {target.title}
                             </div>
                           )}
                         </div>
-                        <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
+                        <ArrowUpRight className="w-3.5 h-3.5 text-text-muted group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
                       </Link>
                       </Card>
                     );
@@ -1407,7 +1407,7 @@ export function EntityDetailView({ id }: { id: string }) {
                                 </span>
                               )}
                             </div>
-                            <span className="font-mono text-xs text-gray-400">
+                            <span className="font-mono text-xs text-text-muted">
                               {mTracks.length} {t("entity.page.tracksUnit")}
                             </span>
                           </div>
@@ -1422,7 +1422,7 @@ export function EntityDetailView({ id }: { id: string }) {
                               return (
                                 <div key={t.id} className="px-4 py-2.5 flex items-center justify-between gap-3 text-xs hover:bg-surfaceSubtle transition-colors duration-fast ease-soft">
                                   <div className="flex items-center gap-3 min-w-0">
-                                    <span className="font-mono text-gray-400 w-6 text-right shrink-0">
+                                    <span className="font-mono text-text-muted w-6 text-right shrink-0">
                                       {t.position || idx + 1}
                                     </span>
                                     <Link
@@ -1433,7 +1433,7 @@ export function EntityDetailView({ id }: { id: string }) {
                                     </Link>
                                   </div>
                                   {durStr && (
-                                    <span className="font-mono text-gray-400 shrink-0">
+                                    <span className="font-mono text-text-muted shrink-0">
                                       {durStr}
                                     </span>
                                   )}
@@ -1462,7 +1462,7 @@ export function EntityDetailView({ id }: { id: string }) {
                             {title(c, locale, titleOrder)}
                           </span>
                         </div>
-                        <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
+                        <ArrowUpRight className="w-3.5 h-3.5 text-text-muted group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
                       </Link>
                       </Card>
                     ))}
@@ -1486,7 +1486,7 @@ export function EntityDetailView({ id }: { id: string }) {
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs font-mono">
                     <thead>
-                      <tr className="border-b border-line text-gray-400">
+                      <tr className="border-b border-line text-text-muted">
                         <th className="pb-2 font-medium">{t("entity.page.colEdition")}</th>
                         <th className="pb-2 font-medium">{t("entity.page.colFormat")}</th>
                         <th className="pb-2 font-medium">{t("entity.page.colCatalogNo")}</th>
@@ -1511,7 +1511,7 @@ export function EntityDetailView({ id }: { id: string }) {
                                   className="font-semibold text-text-strong hover:text-primary inline-flex items-center gap-1.5"
                                 >
                                   {title(rel, locale, titleOrder)}
-                                  <ArrowUpRight className="w-3.5 h-3.5 text-gray-400" />
+                                  <ArrowUpRight className="w-3.5 h-3.5 text-text-muted" />
                                 </Link>
                                 {isBoxset && (
                                   <span className="px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[10px] font-semibold">
@@ -1530,7 +1530,7 @@ export function EntityDetailView({ id }: { id: string }) {
                             <td className="py-2.5 px-3 text-primary font-semibold">
                               {rel.attributes?.catalog_number || "—"}
                             </td>
-                            <td className="py-2.5 pl-3 text-right text-gray-500">
+                            <td className="py-2.5 pl-3 text-right text-text-faint">
                               {rel.attributes?.edition_date || rel.attributes?.release_date || "—"}
                             </td>
                           </tr>
@@ -1557,7 +1557,7 @@ export function EntityDetailView({ id }: { id: string }) {
                       className={`px-2.5 py-1 rounded-md transition-all ${
                         relationViewMode === "cards"
                           ? "bg-surface text-text-strong font-semibold shadow-xs"
-                          : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                          : "text-text-faint hover:text-gray-900 dark:hover:text-white"
                       }`}
                     >
                       {t("entity.page.viewCards")}
@@ -1568,7 +1568,7 @@ export function EntityDetailView({ id }: { id: string }) {
                       className={`px-2.5 py-1 rounded-md transition-all ${
                         relationViewMode === "graph"
                           ? "bg-surface text-text-strong font-semibold shadow-xs"
-                          : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                          : "text-text-faint hover:text-gray-900 dark:hover:text-white"
                       }`}
                     >
                       {t("entity.page.viewGraph")}
@@ -1612,7 +1612,7 @@ export function EntityDetailView({ id }: { id: string }) {
                       onToggle={relationFilter.toggle}
                     />
                     {relationFilter.visible.length === 0 && (
-                      <p className="text-sm text-gray-500">{t("relations.filterEmpty")}</p>
+                      <p className="text-sm text-text-faint">{t("relations.filterEmpty")}</p>
                     )}
                     {groupedMediaRelations.map((group) => (
                       <div key={group.key || "ungrouped"}>
@@ -1642,19 +1642,19 @@ export function EntityDetailView({ id }: { id: string }) {
                             {/* 关系两端都给题名：主体一侧取自响应 entities[subject_id]，
                                 对端取自 entities[另一端]，不再出现空标题或原始 UUID。 */}
                             <div className="flex items-center gap-1.5 min-w-0">
-                              <span className="text-[11px] text-gray-500 truncate">{fromTitle}</span>
-                              <ArrowRight className="w-3 h-3 text-gray-400 shrink-0" strokeWidth={1.6} />
+                              <span className="text-[11px] text-text-faint truncate">{fromTitle}</span>
+                              <ArrowRight className="w-3 h-3 text-text-muted shrink-0" strokeWidth={1.6} />
                               <span className="font-semibold text-xs sm:text-sm text-text-strong group-hover:text-primary truncate">
                                 {toTitle}
                               </span>
                             </div>
                             {target && isDistinctOriginalTitle(target.title, toTitle) && (
-                              <div className="text-[10px] text-gray-400 font-mono truncate">
+                              <div className="text-[10px] text-text-muted font-mono truncate">
                                 {target.title}
                               </div>
                             )}
                           </div>
-                          <ArrowUpRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
+                          <ArrowUpRight className="w-3.5 h-3.5 text-text-muted group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
                         </Link>
                         </Card>
                       );
@@ -1720,7 +1720,7 @@ export function EntityDetailView({ id }: { id: string }) {
               {/* Quick Comment Composer */}
               <Card tone="subtle" padding="card" className="space-y-3">
               <form onSubmit={handlePostComment} className="space-y-3">
-                <div className="flex items-center justify-between text-xs text-gray-500">
+                <div className="flex items-center justify-between text-xs text-text-faint">
                   <span className="font-medium text-text-body font-mono">
                     {t("entity.page.quickReview")}
                   </span>
@@ -1744,13 +1744,13 @@ export function EntityDetailView({ id }: { id: string }) {
                   }
                   disabled={!user || submittingComment}
                   rows={3}
-                  className="w-full p-3 rounded-lg bg-surface border border-line text-xs sm:text-sm text-text-strong placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 resize-y"
+                  className="w-full p-3 rounded-lg bg-surface border border-line text-xs sm:text-sm text-text-strong placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60 resize-y"
                 />
                 {commentError && (
                   <div className="text-xs text-rose-500 font-mono">{commentError}</div>
                 )}
                 <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-gray-400">
+                  <span className="text-[11px] text-text-muted">
                     {t("entity.page.syncNotice")}
                   </span>
                   {user ? (
@@ -1782,8 +1782,8 @@ export function EntityDetailView({ id }: { id: string }) {
                 {communityPosts.length === 0 ? (
                   <Card padding="none" className="border-dashed">
                     <div className="p-8 text-center space-y-2">
-                      <MessageSquare className="w-8 h-8 mx-auto text-gray-400 opacity-50" />
-                      <p className="text-xs text-gray-500">
+                      <MessageSquare className="w-8 h-8 mx-auto text-text-muted opacity-50" />
+                      <p className="text-xs text-text-faint">
                         {t("entity.page.noDiscussions")}
                       </p>
                     </div>
@@ -1801,7 +1801,7 @@ export function EntityDetailView({ id }: { id: string }) {
                               {post.author_name || "User"}
                             </span>
                           </div>
-                          <span className="text-[11px] text-gray-400 font-mono">
+                          <span className="text-[11px] text-text-muted font-mono">
                             {post.created_at ? new Date(post.created_at).toLocaleDateString() : ""}
                           </span>
                         </div>
@@ -1836,7 +1836,7 @@ export function EntityDetailView({ id }: { id: string }) {
 
                 {allDisplayCollections.length === 0 ? (
                   <Card padding="none" className="border-dashed">
-                    <div className="p-6 text-center text-xs text-gray-500">
+                    <div className="p-6 text-center text-xs text-text-faint">
                       {t("entity.page.noCollections")}
                     </div>
                   </Card>
@@ -1855,11 +1855,11 @@ export function EntityDetailView({ id }: { id: string }) {
                           <div className="font-semibold text-xs sm:text-sm text-text-strong group-hover:text-indigo-600 dark:group-hover:text-indigo-400 truncate">
                             {col.title}
                           </div>
-                          <div className="text-[11px] text-gray-500 font-mono truncate">
+                          <div className="text-[11px] text-text-faint font-mono truncate">
                             {t("entity.page.curatorBy")}{col.curator || "Community"}
                           </div>
                         </div>
-                        <ArrowUpRight className="w-4 h-4 text-gray-400 group-hover:text-indigo-500 transition-colors duration-fast ease-soft shrink-0 mt-0.5" />
+                        <ArrowUpRight className="w-4 h-4 text-text-muted group-hover:text-indigo-500 transition-colors duration-fast ease-soft shrink-0 mt-0.5" />
                       </a>
                       </Card>
                     ))}
