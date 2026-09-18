@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import type { DynamicDefinitions } from "@/lib/definitions";
 import { SectionRuleEditor } from "@/components/home/SectionRuleEditor";
 import {
@@ -72,6 +73,9 @@ export function HomeCustomizeModal({
   const [expanded, setExpanded] = useState<number | null>(null);
   // 「添加分区」的候选面板：展开时列出系统预设分区与"空白分区"两个来源。
   const [adding, setAdding] = useState(false);
+  // 待确认的破坏性动作：删除某一行 / 恢复默认。确认框见文件尾。
+  const [pendingRemove, setPendingRemove] = useState<number | null>(null);
+  const [pendingReset, setPendingReset] = useState(false);
   const [localError, setLocalError] = useState("");
 
   const counts = useMemo(() => {
@@ -117,8 +121,13 @@ export function HomeCustomizeModal({
   };
 
   const removeRow = (index: number) => {
-    const row = rows[index]!;
-    if (!window.confirm(t("home.customizeDeleteConfirm", { name: shelfTitle(row, locale) }))) return;
+    setPendingRemove(index);
+  };
+
+  const confirmRemove = () => {
+    const index = pendingRemove;
+    setPendingRemove(null);
+    if (index === null) return;
     setRows((prev) => prev.filter((_, i) => i !== index));
     setExpanded((prev) => (prev === null || prev === index ? null : prev > index ? prev - 1 : prev));
   };
@@ -173,7 +182,11 @@ export function HomeCustomizeModal({
   };
 
   const handleReset = () => {
-    if (!window.confirm(t("home.customizeResetConfirm"))) return;
+    setPendingReset(true);
+  };
+
+  const confirmReset = () => {
+    setPendingReset(false);
     setLocalError("");
     onReset();
   };
@@ -182,16 +195,16 @@ export function HomeCustomizeModal({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm grid place-items-center p-4" role="dialog" aria-modal="true">
-      <div className="w-full max-w-3xl max-h-[88vh] flex flex-col rounded-xl border border-white/10 bg-surface shadow-elevated">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.08] shrink-0">
-          <h2 className="font-display font-bold text-sm text-white flex items-center gap-2">
+      <div className="w-full max-w-3xl max-h-[88vh] flex flex-col rounded-xl border border-line bg-surface shadow-elevated">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-emphasis/[0.08] shrink-0">
+          <h2 className="font-display font-bold text-sm text-emphasis flex items-center gap-2">
             <Sliders className="w-4 h-4 text-primary" />
             {t("home.customizeTitle")}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-surfaceHover text-gray-400 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-surfaceHover text-gray-400 hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
             aria-label={t("catalog.cancel")}
           >
             <X className="w-4 h-4" />
@@ -204,7 +217,7 @@ export function HomeCustomizeModal({
           <button
             type="button"
             onClick={() => setAdding((v) => !v)}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-medium text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-line bg-emphasis/[0.03] hover:bg-emphasis/[0.08] text-xs font-medium text-gray-300 hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>{t("home.customizeAdd")}</span>
@@ -217,7 +230,7 @@ export function HomeCustomizeModal({
                 <button
                   type="button"
                   onClick={() => setAdding(false)}
-                  className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-white cursor-pointer"
+                  className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-emphasis cursor-pointer"
                   aria-label={t("catalog.cancel")}
                 >
                   <X className="w-3 h-3" />
@@ -228,7 +241,7 @@ export function HomeCustomizeModal({
                 <button
                   type="button"
                   onClick={addBlank}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-xs text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-emphasis/[0.03] hover:bg-emphasis/[0.08] text-xs text-gray-300 hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5 text-primary" />
                   <span>{t("home.customizeAddBlank")}</span>
@@ -245,7 +258,7 @@ export function HomeCustomizeModal({
                         key={template.slug}
                         type="button"
                         onClick={() => addPreset(template)}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-xs text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line bg-emphasis/[0.03] hover:bg-emphasis/[0.08] text-xs text-gray-300 hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
                       >
                         <Icon className="w-3.5 h-3.5 text-primary" />
                         <span>{shelfTitle(template, locale)}</span>
@@ -273,7 +286,7 @@ export function HomeCustomizeModal({
               return (
                 <div
                   key={index}
-                  className="rounded-lg border border-white/[0.08] bg-white/[0.02] overflow-hidden"
+                  className="rounded-lg border border-emphasis/[0.08] bg-emphasis/[0.02] overflow-hidden"
                 >
                   <div className="flex items-center gap-2 px-3 py-2">
                     <button
@@ -282,7 +295,7 @@ export function HomeCustomizeModal({
                       className={
                         "w-5 h-5 rounded border grid place-items-center shrink-0 transition-colors duration-fast ease-soft cursor-pointer " +
                         (row.hidden
-                          ? "border-white/15 bg-transparent text-transparent"
+                          ? "border-emphasis/15 bg-transparent text-transparent"
                           : "border-primary bg-primary text-white")
                       }
                       aria-pressed={!row.hidden}
@@ -300,7 +313,7 @@ export function HomeCustomizeModal({
                         >
                           {shelfTitle(row, locale)}
                         </span>
-                        <span className="px-1.5 py-0.5 rounded bg-white/[0.06] text-gray-500 text-[10px] font-mono shrink-0">
+                        <span className="px-1.5 py-0.5 rounded bg-emphasis/[0.06] text-gray-500 text-[10px] font-mono shrink-0">
                           {row.custom ? t("home.customizeSourceCustom") : t("home.customizeSourceSystem")}
                         </span>
                       </div>
@@ -309,7 +322,7 @@ export function HomeCustomizeModal({
                       </div>
                     </div>
                     {typeof count === "number" && (
-                      <span className="px-2 py-0.5 rounded-full bg-white/[0.06] text-gray-400 text-[10px] font-mono shrink-0">
+                      <span className="px-2 py-0.5 rounded-full bg-emphasis/[0.06] text-gray-400 text-[10px] font-mono shrink-0">
                         {t("home.itemCount", { count: count.toString() })}
                       </span>
                     )}
@@ -317,7 +330,7 @@ export function HomeCustomizeModal({
                       type="button"
                       disabled={index === 0}
                       onClick={() => move(index, -1)}
-                      className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-white disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
+                      className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-emphasis disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
                       aria-label={t("home.moveUp")}
                     >
                       <ChevronUp className="w-3.5 h-3.5" />
@@ -326,7 +339,7 @@ export function HomeCustomizeModal({
                       type="button"
                       disabled={index === rows.length - 1}
                       onClick={() => move(index, 1)}
-                      className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-white disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
+                      className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-emphasis disabled:opacity-25 disabled:pointer-events-none cursor-pointer"
                       aria-label={t("home.moveDown")}
                     >
                       <ChevronDown className="w-3.5 h-3.5" />
@@ -335,7 +348,7 @@ export function HomeCustomizeModal({
                       <button
                         type="button"
                         onClick={() => revertRow(index)}
-                        className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-white cursor-pointer"
+                        className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-emphasis cursor-pointer"
                         title={t("home.customizeRevert")}
                         aria-label={t("home.customizeRevert")}
                       >
@@ -357,7 +370,7 @@ export function HomeCustomizeModal({
                       type="button"
                       onClick={() => setExpanded(isOpen ? null : index)}
                       className={
-                        "p-1 rounded hover:bg-surfaceHover cursor-pointer " + (isOpen ? "text-primary" : "text-gray-400 hover:text-white")
+                        "p-1 rounded hover:bg-surfaceHover cursor-pointer " + (isOpen ? "text-primary" : "text-gray-400 hover:text-emphasis")
                       }
                       title={isOpen ? t("home.customizeCollapse") : t("common.edit")}
                       aria-label={isOpen ? t("home.customizeCollapse") : t("common.edit")}
@@ -367,7 +380,7 @@ export function HomeCustomizeModal({
                     </button>
                   </div>
                   {isOpen && (
-                    <div className="px-3 py-3 border-t border-white/[0.08]">
+                    <div className="px-3 py-3 border-t border-emphasis/[0.08]">
                       <SectionRuleEditor row={row} defs={defs} onChange={(patch) => patchRow(index, patch)} />
                     </div>
                   )}
@@ -377,12 +390,12 @@ export function HomeCustomizeModal({
           )}
         </div>
 
-        <div className="px-5 py-4 border-t border-white/[0.08] flex items-center justify-between gap-3 shrink-0">
+        <div className="px-5 py-4 border-t border-emphasis/[0.08] flex items-center justify-between gap-3 shrink-0">
           <button
             type="button"
             onClick={handleReset}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 text-xs font-mono text-gray-400 hover:text-white transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs font-mono text-gray-400 hover:text-emphasis transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>{t("home.customizeReset")}</span>
@@ -393,7 +406,7 @@ export function HomeCustomizeModal({
               type="button"
               onClick={onClose}
               disabled={saving}
-              className="px-3 py-2 rounded-lg border border-white/10 text-xs text-gray-300 hover:text-white hover:bg-surfaceHover transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
+              className="px-3 py-2 rounded-lg border border-line text-xs text-gray-300 hover:text-emphasis hover:bg-surfaceHover transition-colors duration-fast ease-soft disabled:opacity-50 cursor-pointer"
             >
               {t("catalog.cancel")}
             </button>
@@ -408,6 +421,27 @@ export function HomeCustomizeModal({
           </div>
         </div>
       </div>
+
+      {/* 删除分区 / 恢复默认都是破坏性动作：确认框自绘（原生 confirm 不可本地化，
+          按钮文案跟随浏览器语言），并把被删的分区名写进说明。 */}
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        title={t("home.customizeDelete")}
+        message={t("home.customizeDeleteConfirm", {
+          name: pendingRemove !== null && rows[pendingRemove] ? shelfTitle(rows[pendingRemove]!, locale) : "",
+        })}
+        confirmLabel={t("common.delete")}
+        onClose={() => setPendingRemove(null)}
+        onConfirm={confirmRemove}
+      />
+      <ConfirmDialog
+        open={pendingReset}
+        title={t("home.customizeReset")}
+        message={t("home.customizeResetConfirm")}
+        confirmLabel={t("home.customizeReset")}
+        onClose={() => setPendingReset(false)}
+        onConfirm={confirmReset}
+      />
     </div>
   );
 }
