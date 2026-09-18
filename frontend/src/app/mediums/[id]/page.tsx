@@ -223,7 +223,7 @@ export default function MediumDetailPage() {
             {/* 封面：载体自身没有封面图时沿用所属发行版的封面（缺失才落程序占位）。
                 此前载体页完全没有封面位，同一实体在 /catalog/[id] 有图、在这里是空白。 */}
             <div className="w-24 sm:w-28 shrink-0 self-start">
-              <div className="w-full aspect-square rounded-md overflow-hidden border border-line">
+              <div className="w-full aspect-[3/4] rounded-md overflow-hidden border border-line">
                 <AdaptiveCardCover
                   src={coverUrl}
                   alt={mediumTitle}

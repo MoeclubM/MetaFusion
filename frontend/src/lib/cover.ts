@@ -62,10 +62,23 @@ export function inferCoverRatio(tags?: CoverTagInput[]): number {
   return 3 / 4;
 }
 
-/** 容器比例的钳制范围，避免极端长图撑爆列表布局 */
-export const MIN_COVER_RATIO = 0.45;
-export const MAX_COVER_RATIO = 2.2;
+/**
+ * 封面容器允许的比例区间（宽/高）。
+ * 下限取 2:3、上限取 1:1：三种建议比例（音乐 1:1 / 影视 2:3 / 书籍 3:4）全部落在区间内，
+ * 再宽（横图）或再窄（长图）的封面都在边界上按 `object-fit: cover` 裁掉溢出部分，
+ * 因此容器既不会出现两侧留白，也不会被极端比例的图撑坏版式。
+ */
+export const MIN_COVER_ASPECT = 2 / 3;
+export const MAX_COVER_ASPECT = 1;
+
+/**
+ * 网格/卡片场景的统一容器比例，取区间内的 3:4。
+ * 同一排用同一个容器比例才能对齐；3:4 是区间内**最坏裁剪率最小**的取值：
+ * 1:1 或 2:3 的容器对上异形封面最坏要裁掉 33% 的短边，3:4 最坏只裁 25%。
+ */
+export const GRID_COVER_ASPECT = 3 / 4;
 
 export function clampCoverRatio(ratio: number): number {
-  return Math.min(MAX_COVER_RATIO, Math.max(MIN_COVER_RATIO, ratio));
+  if (!isFinite(ratio) || ratio <= 0) return GRID_COVER_ASPECT;
+  return Math.min(MAX_COVER_ASPECT, Math.max(MIN_COVER_ASPECT, ratio));
 }

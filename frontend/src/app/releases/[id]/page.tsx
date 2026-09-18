@@ -752,7 +752,7 @@ export default function ReleaseDetailPage() {
             </div>
             <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
               {release.pictures?.[0]?.url && (
-                <div className="w-24 aspect-square rounded-md overflow-hidden border border-line">
+                <div className="w-24 aspect-[3/4] rounded-md overflow-hidden border border-line">
                   <AdaptiveCardCover src={release.pictures[0].url} alt={releaseTitle} fallbackIcon={<Disc className="w-6 h-6 text-text-muted" />} aspectClassName="w-full h-full" />
                 </div>
               )}

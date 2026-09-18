@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
+import { GRID_COVER_ASPECT } from "@/lib/cover";
 import { catalogEntityHref, ConnectedEntityItem, EntityRelationship } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getFieldName, useDefinitions } from "@/lib/definitions";
@@ -103,13 +104,14 @@ function RelationCard({ row, showLabel = false }: { row: Row; showLabel?: boolea
         </div>
       )}
       <div className="overflow-hidden rounded-md border bg-black/[0.03] transition-all duration-base ease-soft group-hover:-translate-y-0.5 group-hover:shadow-sm border-line dark:bg-white/[0.04]">
+        {/* 关系卡是网格：统一容器比例才能同排对齐，图片 cover 填满不留白 */}
         <AdaptiveCover
           src={row.coverUrl}
           alt={row.name}
           title={row.name}
           originalTitle={row.originalName}
           id={row.key}
-          fallbackRatio={row.entityType === "agent" ? 1 : 2 / 3}
+          uniformAspect={GRID_COVER_ASPECT}
         />
       </div>
       <div className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-gray-900 transition-colors duration-fast ease-soft group-hover:text-primary dark:text-white">

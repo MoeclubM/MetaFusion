@@ -210,7 +210,7 @@ export default function HomePage() {
                 <div className="h-5 w-40 bg-emphasis/[0.04] rounded-md animate-pulse" />
                 <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(158px,1fr))]">
                   {Array.from({ length: 6 }).map((_, j) => (
-                    <div key={j} className="aspect-square rounded-xl bg-emphasis/[0.02] border border-line-subtle animate-pulse" />
+                    <div key={j} className="aspect-[3/4] rounded-xl bg-emphasis/[0.02] border border-line-subtle animate-pulse" />
                   ))}
                 </div>
               </div>
@@ -272,7 +272,7 @@ export default function HomePage() {
                         <AdaptiveCardCover
                           src={item.pictures && item.pictures[0]?.url}
                           alt={displayTitle}
-                          aspectClassName="aspect-square"
+                          aspectClassName="aspect-[3/4]"
                           badge={
                             <span className="px-2 py-0.5 rounded-md bg-black/65 text-emphasis keep-white backdrop-blur-md border border-emphasis/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
                               <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />

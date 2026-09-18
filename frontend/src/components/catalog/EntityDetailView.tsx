@@ -1066,6 +1066,8 @@ export function EntityDetailView({ id }: { id: string }) {
           <aside className="w-full space-y-4 shrink-0">
             {/* 1. Cover Card */}
             <Card padding="none" className="overflow-hidden shadow-md">
+              {/* 详情页是单张展示：比例在允许区间内跟着图片走（见 AdaptiveCover），
+                  这里给上下限兜底——窄屏侧栏也不至于把长图压成一条、或让大图撑满整屏。 */}
               <AdaptiveCover
                 src={resolvedCover.src}
                 alt={localizedTitle}
@@ -1073,7 +1075,10 @@ export function EntityDetailView({ id }: { id: string }) {
                 originalTitle={entity.title}
                 id={entity.id}
                 aspect={resolvedCover.aspect}
-                className="w-full h-auto object-cover"
+                tags={Array.isArray(entity.attributes?.tags) ? (entity.attributes.tags as string[]) : undefined}
+                minHeight={160}
+                maxHeight="60vh"
+                className="w-full h-auto"
               />
             </Card>
 

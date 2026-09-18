@@ -502,7 +502,8 @@ const releaseFacets = useMemo(
      <aside className={styles.sidebar}>
        <div className={styles.cover}>
          <AdaptiveCover src={coverUrl} alt={title} title={title}
-           id={work.id} tags={tags} className="rounded-md overflow-hidden border border-line" />
+           id={work.id} tags={tags} minHeight={160} maxHeight="60vh"
+           className="rounded-md overflow-hidden border border-line" />
        </div>
        <section className={styles.facts}>
          <h2>{t("work.detail.information")}</h2>

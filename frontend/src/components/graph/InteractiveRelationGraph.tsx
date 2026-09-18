@@ -1510,7 +1510,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
           {/* 封面海报大图预览 */}
           {selectedNode.cover_image_url && (
-            <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border/60 bg-muted shadow-xs group">
+            <div className="relative w-full aspect-[3/4] rounded-xl overflow-hidden border border-border/60 bg-muted shadow-xs group">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={selectedNode.cover_image_url}

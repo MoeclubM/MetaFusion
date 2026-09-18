@@ -360,7 +360,7 @@ export function Compare({ ids }: { ids: string }) {
                     </button>
                   </div>
 
-                  <div className="w-full aspect-square rounded-lg overflow-hidden mb-2 border border-border/60">
+                  <div className="w-full aspect-[3/4] rounded-lg overflow-hidden mb-2 border border-border/60">
                     <AdaptiveCardCover
                       src={info.coverUrl}
                       alt={info.title}
