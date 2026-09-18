@@ -21,10 +21,8 @@ import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { getForumEntityUrl } from "@/lib/services";
-import { EntityCommentComposer } from "@/components/community/EntityCommentComposer";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
-import { useCompareBasket } from "@/lib/compareBasket";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { DetailTabs, DetailTab } from "@/components/catalog/DetailTabs";
 import { GroupedRelations } from "@/components/entity/RelationsList";
@@ -62,8 +60,7 @@ export default function WorkDirectoryPage() {
  const [releaseFormatCounts, setReleaseFormatCounts] = useState<Record<string, Record<string, number>>>({});
  // 筛选条件：键为字段码，值选中项。字段集合由模板 facet_fields 声明。
  const [facetValues, setFacetValues] = useState<Record<string, string>>({});
- // 篮子状态与跨标签页同步统一走 lib/compareBasket.ts：另一页加入/移除后本页不刷新即一致。
- const { basket: compareSelected, toggle: toggleCompare } = useCompareBasket();
+ const [compareSelected, setCompareSelected] = useState<string[]>([]);
  const [page, setPage] = useState(1);
  const pageSize = 10;
  const [q, setQ] = useState("");
@@ -331,6 +328,7 @@ const releaseFacets = useMemo(
  target: r.target_id,
  type: r.type,
  label: relationName(r.type),
+ group: defs?.relations?.[r.type]?.group,
  source_type: relEntities[r.source_id]?.kind,
  target_type: relEntities[r.target_id]?.kind,
  });
@@ -358,24 +356,28 @@ const releaseFacets = useMemo(
  );
 
 
- // 关联评论：展示该作品下的评论（与论坛主题区分——评论锚定条目，主题独立成文）。
- // 短评端点与响应形状由 lib/api/community.ts 的包装负责，本页不再自己拼 URL。
- // 抽成函数是为了让发布器发表成功后回读：id/时间只用服务端返回值，不在前端自造。
- const loadTopics = async () => {
- if (!workId) return;
+ const toggleCompare = (id: string) => {
+ setCompareSelected((prev) => {
+ if (prev.includes(id)) return prev.filter((x) => x !== id);
+ if (prev.length >= 6) return prev;
+ const next = [...prev, id];
  try {
- const items = await fetchEntityPosts(workId);
- setTopics(items.slice(0, 5));
- } catch {
- // 评论取不到不影响条目本身：保持列表状态、不弹错、不阻断页面。
- }
+ const basket: string[] = JSON.parse(window.localStorage.getItem("metafusion_compare_basket") || "[]");
+ const merged = Array.from(new Set([...(Array.isArray(basket) ? basket : []), ...next])).slice(0, 6);
+ window.localStorage.setItem("metafusion_compare_basket", JSON.stringify(merged));
+ } catch { /* ignore */ }
+ return next;
+ });
  };
 
  useEffect(() => {
  if (!workId) return;
  loadWork();
- loadTopics();
- // eslint-disable-next-line react-hooks/exhaustive-deps
+ // 关联评论：展示该作品下的评论（与论坛主题区分——评论锚定条目，主题独立成文）。
+ // 短评端点与响应形状由 lib/api/community.ts 的包装负责，本页不再自己拼 URL。
+ fetchEntityPosts(workId)
+ .then((items) => setTopics(items.slice(0, 5)))
+ .catch(() => {});
  }, [workId]);
 
  useEffect(() => {
@@ -412,7 +414,8 @@ const releaseFacets = useMemo(
  return (
  <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
  <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
- <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px] pointer-events-none" aria-hidden />
+ <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+ <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <Navbar />
  {loadError === "not_found" || loadError === "invalid" ? (
  <DetailNotFound title={t("common.notFoundWork")} />
