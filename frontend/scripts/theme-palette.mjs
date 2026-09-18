@@ -44,7 +44,9 @@ export const BASE_DARK = {
 export const BASE_LIGHT = {
   bg: "#f8fafc", surface: "#ffffff", surfaceHover: "#f1f5f9", surfaceSubtle: "rgba(15,23,42,0.035)",
   line: "rgba(15,23,42,0.12)", lineSubtle: "rgba(15,23,42,0.07)", lineStrong: "rgba(15,23,42,0.22)",
-  textStrong: "#0f172a", textBody: "#334155", textMuted: "#64748b", textFaint: "#94a3b8",
+  // 对比度：次要文字在最浅的浅色表面（surfaceHover #f1f5f9）上也要 ≥4.5:1 ——
+  // muted #55606f = 5.83:1、faint #636e80 = 4.71:1（改前 #64748b = 4.34、#94a3b8 = 2.34）。
+  textStrong: "#0f172a", textBody: "#334155", textMuted: "#55606f", textFaint: "#636e80",
 };
 /** 默认配色与表面色调（首次访问、未做选择时的取值）。 */
 export const DEFAULT_ACCENT = "blue";

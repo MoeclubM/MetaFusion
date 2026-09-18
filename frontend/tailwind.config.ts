@@ -50,6 +50,13 @@ const config: Config = {
           hover: "var(--primary-hover-color)",
           light: "var(--primary-light-color)",
         },
+        // 状态色：浅色下自动换成同色相深色（白底 ≥5:1），别再直接写 text-amber-400 这类
+        // 只在深色底上够亮的调色板类。
+        warn: "var(--state-warn-color)",
+        success: "var(--state-success-color)",
+        danger: "var(--state-danger-color)",
+        info: "var(--state-info-color)",
+        alt: "var(--state-alt-color)",
         accent: {
           gold: "#f59e0b",
           cyan: "#06b6d4",

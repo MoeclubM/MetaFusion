@@ -44,6 +44,11 @@
   /* 主色的三通道值与对照色：每套配色的块在 theme.generated.css 里覆盖，这里是兜底 */
   --primary-rgb: 79 142 247;
   --primary-contrast-rgb: 255 255 255;
+  --state-warn-color: #fbbf24;
+  --state-success-color: #34d399;
+  --state-danger-color: #fb7185;
+  --state-info-color: #38bdf8;
+  --state-alt-color: #a78bfa;
   --font-display: "Instrument Serif", "Noto Serif SC", Georgia, serif;
   --font-sans: "Inter", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
@@ -61,8 +66,9 @@
   --surface-subtle-color: rgba(15, 23, 42, 0.035);
   --text-strong-color: #0f172a;
   --text-body-color: #334155;
-  --text-muted-color: #64748b;
-  --text-faint-color: #94a3b8;
+  /* 与 theme-palette.mjs 的 BASE_LIGHT 同值：次要文字在最浅的表面（#f1f5f9）上也要 ≥4.5:1 */
+  --text-muted-color: #55606f;
+  --text-faint-color: #636e80;
   --ring-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
   --bg-color: #f8fafc;
   --surface-color: #ffffff;
@@ -78,12 +84,18 @@
   --card-rgb: 255 255 255;
   --muted-rgb: 241 245 249;
   --secondary-rgb: 241 245 249;
-  --muted-foreground-rgb: 100 116 139;
+  --muted-foreground-rgb: 85 96 111;
   --border-rgb: 226 227 230;
   --destructive-rgb: 220 38 38;
   --destructive-foreground-rgb: 255 255 255;
   --primary-rgb: 37 99 235;
   --primary-contrast-rgb: 255 255 255;
+  /* 状态色：300/400 档在深色底上才够亮，白底只有 1.4-2.7:1；浅色改用同色相深色（≥5:1） */
+  --state-warn-color: #b45309;
+  --state-success-color: #047857;
+  --state-danger-color: #be123c;
+  --state-info-color: #0369a1;
+  --state-alt-color: #6d28d9;
 }
 
 html {
@@ -128,28 +140,53 @@ html.light body {
   color: #0f172a;
 }
 
-html.light .text-white:not(.keep-white) {
-  color: #0f172a !important;
-}
-
-html.light .text-gray-100:not(.keep-white) {
-  color: #0f172a !important;
-}
-
+/* 浅色下的中性文字阶梯：全部走语义变量，逐一写死的十六进制改不动（改一处漏一处）。
+   取值见 theme-palette.mjs 的 BASE_LIGHT，深色模式不受影响。 */
+html.light .text-white:not(.keep-white),
+html.light .text-gray-100:not(.keep-white),
 html.light .text-gray-200:not(.keep-white) {
-  color: #1e293b !important;
+  color: var(--text-strong-color) !important;
 }
 
 html.light .text-gray-300:not(.keep-white) {
-  color: #334155 !important;
+  color: var(--text-body-color) !important;
 }
 
 html.light .text-gray-400:not(.keep-white) {
-  color: #64748b !important;
+  color: var(--text-muted-color) !important;
 }
 
 html.light .text-gray-500:not(.keep-white) {
-  color: #94a3b8 !important;
+  color: var(--text-faint-color) !important;
+}
+
+/* 主色底上的文字：原来也被上一条 .text-white 规则刷成深字，浅蓝底深字只有 3.45:1；
+   改用每套配色自己的对照色（--primary-contrast-color），蓝底白字 4.52:1。 */
+html.light .bg-primary.text-white:not(.keep-white) {
+  color: rgb(var(--primary-contrast-rgb)) !important;
+}
+
+/* 状态色：Tailwind 的 300/400 档是给深色底配的，白底只有 1.44-2.77:1（12px 小字读不到）。
+   浅色下按"同色相深一档"折算到 5 个语义变量，深色模式保持原色。
+   深色底/图片上的状态色要保留原值时，加 .keep-white。 */
+html.light :is(.text-amber-300, .text-amber-400, .text-yellow-300, .text-yellow-400, .text-orange-300, .text-orange-400):not(.keep-white) {
+  color: var(--state-warn-color) !important;
+}
+
+html.light :is(.text-emerald-300, .text-emerald-400, .text-green-300, .text-green-400, .text-teal-300, .text-teal-400):not(.keep-white) {
+  color: var(--state-success-color) !important;
+}
+
+html.light :is(.text-rose-300, .text-rose-400, .text-red-300, .text-red-400):not(.keep-white) {
+  color: var(--state-danger-color) !important;
+}
+
+html.light :is(.text-sky-300, .text-sky-400, .text-blue-300, .text-blue-400):not(.keep-white) {
+  color: var(--state-info-color) !important;
+}
+
+html.light :is(.text-purple-300, .text-purple-400, .text-violet-300, .text-violet-400, .text-fuchsia-300, .text-fuchsia-400):not(.keep-white) {
+  color: var(--state-alt-color) !important;
 }
 
 /* 覆盖在深色图上的徽章要保持白字：只认显式声明的 .keep-white。
