@@ -415,9 +415,10 @@ function LoginInner() {
                 <p className="font-mono text-xs text-text-faint">{t("auth.settingsUnavailable")}</p>
               )}
 
-              {mode === "register" && authSettings?.require_email_verification && (
-                <p className="font-mono text-xs text-text-faint">{t("auth.emailVerificationRequired")}</p>
-              )}
+              {/* 注册页不再显示"需要邮箱验证"：该开关已按"暂不支持"收敛——账号服务
+                  （metafusion-auth）的 GET /api/auth/settings 一律回 require_email_verification=false
+                  且拒绝写入 true（unsupported_setting），提示语永远不会触发，留着只会让人以为
+                  注册有验证环节。 */}
 
               <button
                 type="submit"
