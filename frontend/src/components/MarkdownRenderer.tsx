@@ -10,7 +10,8 @@ import { Check, Copy, ExternalLink } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 
 import "katex/dist/katex.min.css";
-import "highlight.js/styles/github-dark.css";
+// 语法高亮主题在仓库内，跟随主题变量（浅色不再是一块写死的黑板）：见 markdown-highlight.css
+import "./markdown-highlight.css";
 
 interface MarkdownRendererProps {
   content: string;
@@ -59,8 +60,8 @@ function CodeBlockWrapper({
   };
 
   return (
-    <div className="relative group my-3 rounded-lg overflow-hidden border border-line bg-[#0d1117] shadow-xs">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#161b22] border-b border-emphasis/5 text-xs text-text-muted font-mono select-none">
+    <div className="relative group my-3 rounded-lg overflow-hidden border border-line bg-background shadow-xs">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-surfaceSubtle border-b border-line-subtle text-xs text-text-muted font-mono select-none">
         <span className="text-[11px] font-semibold text-text-muted uppercase tracking-wider">{language || "code"}</span>
         <button
           type="button"

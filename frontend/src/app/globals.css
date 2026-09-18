@@ -50,6 +50,9 @@
   /* 强调前景/叠加色：与迁移前的字面白逐通道相等（纯白），深色外观零变化；
      浅色模式取最强前景色，见下面 light 块。 */
   --emphasis-rgb: 255 255 255;
+  /* 滚动条：深色下就是原先写死的 #222938 / #2e364d（深色外观零变化），浅色下另给一套墨色。 */
+  --scrollbar-thumb-color: #222938;
+  --scrollbar-thumb-hover-color: #2e364d;
   /* 状态色：base = 400 档（与迁移前写的 text-amber-400 / text-emerald-400 / text-rose-400 /
      text-sky-400 / text-violet-400 逐通道相等），soft = 300 档；两档在浅色模式下合并成一个角色色。 */
   --state-warn-rgb: 251 191 36;
@@ -111,6 +114,9 @@
   --primary-contrast-rgb: 255 255 255;
   /* 状态色：300/400 档在深色底上才够亮，白底只有 1.4-2.7:1；浅色改用同色相深色（≥5:1） */
   --emphasis-rgb: 15 23 42;
+  /* 滚动条滑块：浅色轨道（#f8fafc）上要明显比轨道深，0.45 墨色约 3:1（非文本对比度下限）。 */
+  --scrollbar-thumb-color: rgba(15, 23, 42, 0.45);
+  --scrollbar-thumb-hover-color: rgba(15, 23, 42, 0.6);
   --state-warn-rgb: 180 83 9;
   --state-success-rgb: 4 120 87;
   --state-danger-rgb: 190 18 60;
@@ -294,13 +300,14 @@ select option:checked, select option:hover {
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #222938; border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: #2e364d; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb-color); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover-color); }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Selection */
-::selection { background: rgba(59,130,246,0.28); color: #fff; }
+/* Selection：以前写死蓝色底 + 写死白字——浅色下白字叠浅蓝选区几乎看不见，也不跟用户选的配色走。
+   底色改成主色的 28%，字色走强调令牌（深色下仍是纯白，浅色下是墨色）。 */
+::selection { background: color-mix(in srgb, var(--primary-color) 28%, transparent); color: rgb(var(--emphasis-rgb)); }
 
 /* ——— Typography utilities ——— */
 .font-display { font-family: var(--font-display); }

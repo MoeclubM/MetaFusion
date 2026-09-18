@@ -1,0 +1,104 @@
+/**
+ * 代码块语法高亮：跟随主题的令牌配色。
+ *
+ * 以前是 `import "highlight.js/styles/github-dark.css"`——写死深色的一套主题（#0d1117 底 +
+ * 亮色 token）。浅色模式下它就是一块突兀的黑板，也完全不受全站令牌体系约束；而 highlight.js
+ * 的主题 CSS 又没有 `.dark` 作用域，没法两套并存。
+ *
+ * 这里用语义变量重写同一批 .hljs-* 选择器（只覆盖色/字重，不改 highlight.js 的类名契约）。
+ * 色相角色按 GitHub Dark 的分组搬过来：关键字 → danger、实体/函数 → alt、常量/数字/变量 → info、
+ * 字符串 → success、内置/符号/项目符号 → warn、注释 → muted、标签/章节 → primary。
+ * 深浅两套取值都由 globals.css 的 --state-（warn/success/danger/info/alt）、--text- 阶梯与
+ * --primary-color 决定。注意：注释里别写 "星号+斜杠" 这种样式通配，它会提前结束注释。
+ */
+.hljs {
+  color: inherit;
+  background: transparent;
+}
+
+.hljs-doctag,
+.hljs-keyword,
+.hljs-meta .hljs-keyword,
+.hljs-template-tag,
+.hljs-template-variable,
+.hljs-type,
+.hljs-variable.language_ {
+  color: var(--state-danger-color);
+}
+
+.hljs-title,
+.hljs-title.class_,
+.hljs-title.class_.inherited__,
+.hljs-title.function_ {
+  color: var(--state-alt-color);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-literal,
+.hljs-meta,
+.hljs-number,
+.hljs-operator,
+.hljs-variable,
+.hljs-selector-attr,
+.hljs-selector-class,
+.hljs-selector-id {
+  color: var(--state-info-color);
+}
+
+.hljs-regexp,
+.hljs-string,
+.hljs-meta .hljs-string {
+  color: var(--state-success-color);
+}
+
+.hljs-built_in,
+.hljs-symbol {
+  color: var(--state-warn-color);
+}
+
+/* 注释用 muted 而不是 faint：faint 在深色代码底上只有 3.7:1，注释也是正文级小字。 */
+.hljs-comment,
+.hljs-code,
+.hljs-formula {
+  color: var(--text-muted-color);
+  font-style: italic;
+}
+
+.hljs-name,
+.hljs-quote,
+.hljs-selector-tag,
+.hljs-selector-pseudo {
+  color: var(--primary-color);
+}
+
+.hljs-subst {
+  color: inherit;
+}
+
+.hljs-section {
+  color: var(--primary-color);
+  font-weight: 700;
+}
+
+.hljs-bullet {
+  color: var(--state-warn-color);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: 700;
+}
+
+.hljs-addition {
+  color: var(--state-success-color);
+  background-color: color-mix(in srgb, var(--state-success-color) 18%, transparent);
+}
+
+.hljs-deletion {
+  color: var(--state-danger-color);
+  background-color: color-mix(in srgb, var(--state-danger-color) 18%, transparent);
+}

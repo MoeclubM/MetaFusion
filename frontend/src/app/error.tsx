@@ -47,7 +47,7 @@ export default function Error({
         </p>
 
         {process.env.NODE_ENV !== "production" && error.message && (
-          <div className="w-full text-left bg-black/40 border border-line rounded-xl p-3 mb-6 overflow-x-auto max-h-32 text-xs font-mono text-danger-soft">
+          <div className="w-full text-left bg-surfaceSubtle border border-line-subtle rounded-xl p-3 mb-6 overflow-x-auto max-h-32 text-xs font-mono text-danger">
             {error.message}
           </div>
         )}

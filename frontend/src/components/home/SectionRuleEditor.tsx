@@ -100,7 +100,7 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 }
 
 const inputClass =
-  "flex-1 min-w-0 px-2.5 py-1.5 rounded bg-black/30 border border-line text-xs text-emphasis font-mono placeholder:text-gray-600 focus:border-primary outline-none";
+  "flex-1 min-w-0 px-2.5 py-1.5 rounded bg-background border border-line text-xs text-text-body font-mono placeholder:text-text-faint focus:border-primary outline-none";
 
 const addButtonClass =
   "px-2.5 py-1.5 rounded bg-emphasis/[0.06] hover:bg-emphasis/[0.12] text-text-body hover:text-emphasis text-xs cursor-pointer";
@@ -273,7 +273,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
           <select
             value={vocab}
             onChange={(e) => setVocabPick(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded bg-black/30 border border-line text-xs text-emphasis font-mono focus:border-primary outline-none cursor-pointer"
+            className="w-full px-2.5 py-1.5 rounded bg-background border border-line text-xs text-text-body font-mono focus:border-primary outline-none cursor-pointer"
           >
             {vocabCodes.map((code) => (
               <option key={code} value={code}>
