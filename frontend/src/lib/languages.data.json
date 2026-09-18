@@ -18,7 +18,9 @@
         "zh",
         "zh-Hans",
         "zh-SG",
-        "zh-MY"
+        "zh-MY",
+        "zho",
+        "chi"
       ],
       "ui": true,
       "popular": true,
@@ -46,7 +48,8 @@
       "nameZh": "日语",
       "nameJa": "日本語",
       "aliases": [
-        "ja"
+        "ja",
+        "jpn"
       ],
       "ui": true,
       "popular": true
@@ -58,7 +61,8 @@
       "nameZh": "英语（美国）",
       "nameJa": "英語（アメリカ）",
       "aliases": [
-        "en"
+        "en",
+        "eng"
       ],
       "ui": true,
       "popular": true
@@ -70,7 +74,8 @@
       "nameZh": "韩语",
       "nameJa": "韓国語",
       "aliases": [
-        "ko-KR"
+        "ko-KR",
+        "kor"
       ],
       "popular": true
     },
@@ -81,7 +86,8 @@
       "nameZh": "葡萄牙语",
       "nameJa": "ポルトガル語",
       "aliases": [
-        "pt-PT"
+        "pt-PT",
+        "por"
       ],
       "popular": true
     },
@@ -309,7 +315,11 @@
       "native": "Cymraeg",
       "en": "Welsh",
       "nameZh": "威尔士语",
-      "nameJa": "ウェールズ語"
+      "nameJa": "ウェールズ語",
+      "aliases": [
+        "cym",
+        "wel"
+      ]
     },
     {
       "code": "da",
@@ -327,7 +337,9 @@
       "aliases": [
         "de-DE",
         "de-AT",
-        "de-CH"
+        "de-CH",
+        "deu",
+        "ger"
       ]
     },
     {
@@ -374,7 +386,8 @@
       "aliases": [
         "es-ES",
         "es-MX",
-        "es-419"
+        "es-419",
+        "spa"
       ]
     },
     {
@@ -434,7 +447,9 @@
       "nameJa": "フランス語",
       "aliases": [
         "fr-FR",
-        "fr-CA"
+        "fr-CA",
+        "fra",
+        "fre"
       ]
     },
     {
@@ -618,7 +633,8 @@
       "nameZh": "意大利语",
       "nameJa": "イタリア語",
       "aliases": [
-        "it-IT"
+        "it-IT",
+        "ita"
       ]
     },
     {
@@ -1041,7 +1057,8 @@
       "nameZh": "俄语",
       "nameJa": "ロシア語",
       "aliases": [
-        "ru-RU"
+        "ru-RU",
+        "rus"
       ]
     },
     {
@@ -1205,7 +1222,8 @@
       "nameZh": "泰语",
       "nameJa": "タイ語",
       "aliases": [
-        "th-TH"
+        "th-TH",
+        "tha"
       ]
     },
     {
@@ -1320,7 +1338,8 @@
       "nameZh": "越南语",
       "nameJa": "ベトナム語",
       "aliases": [
-        "vi-VN"
+        "vi-VN",
+        "vie"
       ]
     },
     {

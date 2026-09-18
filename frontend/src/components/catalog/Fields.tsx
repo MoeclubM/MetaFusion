@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, Field, local, Names, Source, title } from "./api";
 import { getKindName, useDefinitions } from "@/lib/definitions";
+import { CORE_LOCALE_CODES } from "@/lib/languages";
 export function NamesEditor({
   value,
   onChange,
@@ -14,7 +15,8 @@ export function NamesEditor({
   const { t } = useI18n();
   return (
     <div className="cv-grid">
-      {["zh-CN", "zh-TW", "ja-JP", "en-US"].map((loc) => (
+      {/* 命名四语来自语言单一来源（与后端 four_locale_names_required 同口径） */}
+      {CORE_LOCALE_CODES.map((loc) => (
         <label key={loc}>
           {t(`catalog.${loc}`)}
           <input

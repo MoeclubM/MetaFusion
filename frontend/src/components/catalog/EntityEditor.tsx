@@ -10,7 +10,7 @@ import { getAuthLoginUrl } from "@/lib/services";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
 import { effectiveSchemeFields, getFieldName, getKindName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
-import { CATALOG_LOCALES } from "@/components/editor/localeForm";
+import { canonicalLanguageCode, languageLabel, quickLanguages } from "@/lib/languages";
 
 /** 生效类型：实体自带 types 时原样用它（老实体不清空、行为不变）；
  *  没有 types 时取该层级全部 enabled 类型——去掉"类型"勾选后，
@@ -143,12 +143,10 @@ export function EntityEditor({
   };
 
   // ---- 多语言：选择器只渲染当前语种，语种一多不再一次铺开 ----
-  const localeLabel = (code: string) => {
-    const found = CATALOG_LOCALES.find((l) => l.code === code);
-    return found ? `${t(found.labelKey)} (${code})` : code;
-  };
-  // 选项 = 原始语言 + 已添加语种 + 常用语种；常用语种来自仓库既有常量 CATALOG_LOCALES，
-  // 名称走四语字典的 labelKey，不写死语言名。
+  // 语种标签走语言单一来源：表内语种显示「自称 (规范码)」，表外语种回落代码本身。
+  const localeLabel = (code: string) => languageLabel(code);
+  // 选项 = 原始语言 + 已添加语种 + 常用语种；常用语种来自语言单一来源的快捷列表，
+  // 名称是语言表里的自称，不在组件里另抄语种清单、也不写死语言名。
   const localeOptions = (() => {
     const seen = new Set<string>();
     const out: { code: string; label: string }[] = [];
@@ -160,7 +158,7 @@ export function EntityEditor({
     };
     push(e.original_language);
     Object.keys(e.translations).forEach(push);
-    CATALOG_LOCALES.forEach((l) => push(l.code));
+    quickLanguages().forEach((l) => push(l.code));
     return out;
   })();
   // chips：原始语言 + 已添加语种；原始语言不可删除（题名只读，来自实体基础题名）。
@@ -195,7 +193,9 @@ export function EntityEditor({
     });
   };
   const addLocale = (raw: string) => {
-    const code = String(raw || "").trim();
+    // 归一后再写入：ja / JA / jpn 都落成 ja-JP，避免同一语种在 translations 里出现两个键；
+    // 不合法（含空格、空串）直接丢弃——语种是否在候选表里不设限制。
+    const code = canonicalLanguageCode(raw);
     if (!code) return;
     if (!e.translations[code]) {
       // 新语种行沿用旧行为：题名先预填实体基础题名，避免空题名发不出去。

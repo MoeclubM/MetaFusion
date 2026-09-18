@@ -1,3 +1,10 @@
+import {
+  canonicalLanguageCode,
+  findLanguage,
+  languageAliases,
+  languageRank,
+  sameLanguage,
+} from "./languages";
 
 /** Show original_title only when it differs from the primary display title. */
 export function isDistinctOriginalTitle(
@@ -21,50 +28,31 @@ export interface LocaleTitleGroup {
   isOriginal: boolean;
 }
 
-const LOCALE_ORDER = ["zh-CN", "zh-TW", "ja", "en-US", "ko"];
-
-/** 同一语种的不同写法（界面语言 ja-JP 与编目语种 ja 必须互通）。键为小写。 */
-const LOCALE_ALIASES: Record<string, string[]> = {
-  "ja-jp": ["ja"],
-  ja: ["ja-JP"],
-  jpn: ["ja", "ja-JP"],
-  "en-us": ["en"],
-  en: ["en-US"],
-  "zh-cn": ["zh"],
-  zh: ["zh-CN"],
-  "zh-tw": ["zh-TW", "zh-Hant"],
-  "zh-hant": ["zh-TW"],
-  "ko-kr": ["ko"],
-  ko: ["ko-KR"],
-  kor: ["ko", "ko-KR"],
-};
-
-/** 取某语种代码的等价写法（不含自身）。 */
+/**
+ * 取某语种代码的等价写法（不含自身）：ja ↔ ja-JP、zh ↔ zh-CN、zh-Hant ↔ zh-TW、jpn ↔ ja…
+ * 等价关系只有语言单一来源一处定义（见 @/lib/languages），本文件不再维护自己的别名表。
+ */
 export function localeAliases(loc: string): string[] {
-  const low = (loc || "").trim().toLowerCase();
-  if (!low) return [];
-  return LOCALE_ALIASES[low] || [];
+  return languageAliases(loc);
 }
 
+/** 语种在默认回退链里的秩；不在链内的语种排在最后（ja 与 ja-JP 同秩）。 */
 function localeRank(locale: string): number {
-  const v = (locale || "").trim();
-  if (v === "ja-JP" || v === "ja") return LOCALE_ORDER.indexOf("ja");
-  if (v === "en-US" || v === "en") return LOCALE_ORDER.indexOf("en-US");
-  if (v === "zh-CN" || v === "zh") return LOCALE_ORDER.indexOf("zh-CN");
-  if (v === "zh-TW") return LOCALE_ORDER.indexOf("zh-TW");
-  const i = LOCALE_ORDER.indexOf(v);
-  return i < 0 ? LOCALE_ORDER.length : i;
+  return languageRank(locale);
 }
 
+/**
+ * 实体内容语言（ISO 639-1，也接受 jpn / zh-Hant / ko-KR 这类写法）归一到编目语种。
+ *
+ * 旧实现自带一张只覆盖 zh/en/ja/ko/fr/de 的小表，其它语种一律返回空串——原语言是 cy、eo、
+ * pt-BR 的实体就失去原语言标记、也不进标题回退链。现在交给语言单一来源解析，
+ * 解析不到才返回空串（调用方按"没有原语言"处理）。
+ */
 function normalizeOriginalLocale(originalLanguage?: string | null): string {
-  const v = (originalLanguage ?? "").trim().toLowerCase();
-  if (v.startsWith("zh")) return v.includes("tw") || v.includes("hk") || v.includes("hant") ? "zh-TW" : "zh-CN";
-  if (v.startsWith("en")) return "en-US";
-  if (v.startsWith("ja") || v === "jpn") return "ja";
-  if (v.startsWith("ko") || v === "kor") return "ko";
-  if (v.startsWith("fr")) return "fr";
-  if (v.startsWith("de")) return "de";
-  return "";
+  const v = (originalLanguage ?? "").trim();
+  if (!v) return "";
+  const found = findLanguage(v);
+  return found ? found.code : "";
 }
 
 /**
@@ -94,9 +82,7 @@ export function groupTitlesByLocale(
       locale: loc,
       primary: primary || aliases[0] || "",
       aliases: primary ? aliases : aliases.slice(1),
-      isOriginal:
-        !!origLocale &&
-        (loc === origLocale || localeAliases(loc).includes(origLocale)),
+      isOriginal: !!origLocale && sameLanguage(loc, origLocale),
     });
   }
   groups.sort((a, b) => {
@@ -109,9 +95,13 @@ export function groupTitlesByLocale(
 export const TITLE_DISPLAY_ORDER_KEY = "metafusion_title_display_order";
 export const TITLE_ORDER_CHANGED_EVENT = "mf:title-display-order-changed";
 
+/**
+ * localStorage 里的语种码归一：命中语言表就走规范码（ja → ja-JP，与选择器写进去的一致），
+ * 表外的合法 BCP-47 写法原样保留——cy、eo 这些不在候选表里的语种必须能存下来并显示；
+ * 既非表内也不是合法 BCP-47 的垃圾值丢弃，避免列表里出现一行空白标签。
+ */
 function normalizeLocaleCode(input: unknown): string {
-  const v = String(input ?? "").trim();
-  return v;
+  return canonicalLanguageCode(typeof input === "string" ? input : String(input ?? ""));
 }
 
 /** 用户自定义的标题显示语言优先级（localStorage，未设置返回空数组即默认回退链）。 */
@@ -164,20 +154,27 @@ export function resetTitleDisplayOrder(): void {
   }
 }
 
+/**
+ * 语种 → 界面文案键：只有字典里真配了本地化名字的语种才在这里（en-US 界面要显示 "Japanese"
+ * 而不是 "日本語"）。这里的键是语言单一来源的规范码，不是另一份语种清单——等价写法
+ * （ja → ja-JP）先经语言表归一后再查。
+ */
 const TITLE_LOCALE_LABEL_KEYS: Record<string, string> = {
   "zh-CN": "editor.core.langZhHans",
   "zh-TW": "editor.core.langZhHant",
-  ja: "editor.core.langJa",
+  "ja-JP": "editor.core.langJa",
+  "ko": "editor.core.langKo",
   "en-US": "editor.core.langEn",
-  ko: "editor.core.langKo",
 };
 
-/** 语种展示标签的 i18n 键；未知语种返回 null，调用方直接展示原始 locale 代码。 */
+/** 语种展示标签的 i18n 键；字典没配的语种返回 null，调用方用语言表的自称兜底。 */
 export function titleLocaleLabelKey(locale: string): string | null {
-  return TITLE_LOCALE_LABEL_KEYS[locale] ?? null;
+  const found = findLanguage(locale);
+  if (!found) return null;
+  return TITLE_LOCALE_LABEL_KEYS[found.code] ?? null;
 }
 
-/** ISO 639-1 内容语言映射到编目语种（与后端的 catalogLocaleFromContentLang 对齐）。 */
+/** 内容语言（ISO 639-1/639-2 或带变体的写法）映射到编目语种。 */
 export function mapOriginalLanguageToLocale(originalLanguage?: string | null): string {
   return normalizeOriginalLocale(originalLanguage);
 }
@@ -192,9 +189,9 @@ export interface TitlePickOptions {
 /**
  * 标题/简介选取链：
  * 用户优先级（含等价写法）→ 界面语言（含等价写法）→ 原始语言（含等价写法）
- * → en-US → zh-CN → zh-TW → ja/ja-JP → 行内剩余语种（按语种秩）。
- * original_language 经 mapOriginalLanguageToLocale 归一化后参与回退，
- * ISO 639-1（ja/jpn、zh、en、ko 等）与编目语种（ja、zh-CN…）互通。
+ * → en-US → zh-CN → zh-TW → ja-JP → 行内剩余语种（按语种秩）。
+ * original_language 经 mapOriginalLanguageToLocale 归一化后参与回退；等价写法
+ * （ISO 639-1 的 ja/jpn、zh、en、ko 与编目语种的 ja-JP、zh-CN…）由语言单一来源解析。
  */
 export function buildTitleChain(
   uiLocale: string,
@@ -219,8 +216,8 @@ export function buildTitleChain(
   pushWithAliases("en-US");
   pushWithAliases("zh-CN");
   push("zh-TW");
-  push("ja");
-  push("ja-JP");
+  // ja 与 ja-JP 是同一语种：pushWithAliases 会把两种写法都放进链里，不必各写一行。
+  pushWithAliases("ja-JP");
   const rest = (rowLocales || [])
     .map((l) => (l ?? "").trim())
     .filter(Boolean)

@@ -59,7 +59,7 @@ const CURATED = {
     nameZh: "简体中文",
     nameJa: "簡体字中国語",
     // zh 是不带地区的语言子标签：本项目一律按简体处理（与既有回退链一致）。
-    aliases: ["zh", "zh-Hans", "zh-SG", "zh-MY"],
+    aliases: ["zh", "zh-Hans", "zh-SG", "zh-MY", "zho", "chi"],
     ui: true,
     popular: true,
     regional: true,
@@ -81,7 +81,7 @@ const CURATED = {
     nameZh: "日语",
     nameJa: "日本語",
     // 日语没有会改变题名的地区变体：ja 与 ja-JP 是同一语言的两种写法。
-    aliases: ["ja"],
+    aliases: ["ja", "jpn"],
     ui: true,
     popular: true,
   },
@@ -91,12 +91,12 @@ const CURATED = {
     nameZh: "英语（美国）",
     nameJa: "英語（アメリカ）",
     // en 不带地区时本项目按 en-US 处理（字典键、definitions 名称键都是 en-US）。
-    aliases: ["en"],
+    aliases: ["en", "eng"],
     ui: true,
     popular: true,
   },
-  ko: { native: "한국어", en: "Korean", aliases: ["ko-KR"], popular: true, nameZh: "韩语", nameJa: "韓国語" },
-  pt: { native: "Português", en: "Portuguese", aliases: ["pt-PT"], popular: true, nameZh: "葡萄牙语", nameJa: "ポルトガル語" },
+  ko: { native: "한국어", en: "Korean", aliases: ["ko-KR", "kor"], popular: true, nameZh: "韩语", nameJa: "韓国語" },
+  pt: { native: "Português", en: "Portuguese", aliases: ["pt-PT", "por"], popular: true, nameZh: "葡萄牙语", nameJa: "ポルトガル語" },
   "pt-BR": {
     native: "Português (Brasil)",
     en: "Portuguese (Brazil)",
@@ -105,17 +105,20 @@ const CURATED = {
     popular: true,
     regional: true,
   },
-  fr: { aliases: ["fr-FR", "fr-CA"], nameZh: "法语", nameJa: "フランス語" },
-  de: { aliases: ["de-DE", "de-AT", "de-CH"], nameZh: "德语", nameJa: "ドイツ語" },
-  es: { aliases: ["es-ES", "es-MX", "es-419"], nameZh: "西班牙语", nameJa: "スペイン語" },
-  it: { aliases: ["it-IT"], nameZh: "意大利语", nameJa: "イタリア語" },
-  ru: { aliases: ["ru-RU"], nameZh: "俄语", nameJa: "ロシア語" },
-  th: { aliases: ["th-TH"], nameZh: "泰语", nameJa: "タイ語" },
-  vi: { aliases: ["vi-VN"], nameZh: "越南语", nameJa: "ベトナム語" },
+  fr: { aliases: ["fr-FR", "fr-CA", "fra", "fre"], nameZh: "法语", nameJa: "フランス語" },
+  de: { aliases: ["de-DE", "de-AT", "de-CH", "deu", "ger"], nameZh: "德语", nameJa: "ドイツ語" },
+  es: { aliases: ["es-ES", "es-MX", "es-419", "spa"], nameZh: "西班牙语", nameJa: "スペイン語" },
+  it: { aliases: ["it-IT", "ita"], nameZh: "意大利语", nameJa: "イタリア語" },
+  ru: { aliases: ["ru-RU", "rus"], nameZh: "俄语", nameJa: "ロシア語" },
+  th: { aliases: ["th-TH", "tha"], nameZh: "泰语", nameJa: "タイ語" },
+  vi: { aliases: ["vi-VN", "vie"], nameZh: "越南语", nameJa: "ベトナム語" },
   // 已废弃的 ISO 639 旧码仍被 BCP-47 解析器接受，存量数据里可能出现。
   he: { aliases: ["iw"] },
   id: { aliases: ["in"] },
   yi: { aliases: ["ji"] },
+  // ISO 639-2/3 三字母码也收在同一张表里：original_language 与外部库导入会出现 jpn、kor、
+  // deu 这类写法（旧的手写别名表只覆盖了 jpn/kor）。
+  cy: { aliases: ["cym", "wel"] },
 };
 
 // zh / en / ja 三个基码被上面的变体条目吸收：它们是同一语言的等价写法，不另设条目，

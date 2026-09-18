@@ -8,6 +8,7 @@ import {
   titleLocaleLabelKey,
   visibleTitleGroups,
 } from "@/lib/titles";
+import { languageNativeName } from "@/lib/languages";
 
 interface Props {
   /** 统一 DTO 的 translations：按 locale 分组的对象（{loc:{title,aliases}}）。 */
@@ -77,8 +78,9 @@ export function LocalizedTitleGroups({
   return (
     <div className={className ?? "space-y-0.5"}>
       {visibleGroups.map((g) => {
+        // 字典没配该语种时用语言表的自称（cy 显示 Cymraeg 而不是裸代码）；语言表也没有才回落原始代码。
         const labelKey = titleLocaleLabelKey(g.locale);
-        const localeLabel = labelKey ? t(labelKey) : g.locale;
+        const localeLabel = labelKey ? t(labelKey) : languageNativeName(g.locale) || g.locale;
         const titles = joinUnique([g.primary, ...g.aliases]);
         return (
           <p key={g.locale} className={cls}>

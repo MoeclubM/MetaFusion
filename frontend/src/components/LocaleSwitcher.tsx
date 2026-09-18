@@ -4,13 +4,15 @@ import React, { useState, useRef, useEffect } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Languages, Check } from "lucide-react";
 import type { Locale } from "@/i18n/routing";
+import { uiLanguages } from "@/lib/languages";
 
-export const LOCALES: { id: Locale; name: string; nativeName: string }[] = [
- { id: "zh-CN", name: "简体中文", nativeName: "简体中文" },
- { id: "zh-TW", name: "繁體中文", nativeName: "繁體中文" },
- { id: "ja-JP", name: "日本語", nativeName: "日本語" },
- { id: "en-US", name: "English", nativeName: "English (US)" },
-];
+// 界面语言候选来自语言单一来源（与 i18n/routing 的 locales 同源），
+// 名称用语言表的自称，不再在组件里另抄一份语种清单。
+export const LOCALES: { id: Locale; name: string; nativeName: string }[] = uiLanguages().map((l) => ({
+ id: l.code as Locale,
+ name: l.en,
+ nativeName: l.native,
+}));
 
 export function LocaleSwitcher({ compact }: { compact?: boolean }) {
  const { locale, setLocale, t } = useI18n();
