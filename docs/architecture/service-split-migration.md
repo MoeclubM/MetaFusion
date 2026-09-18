@@ -38,7 +38,7 @@
 | auth | `/api/developer/*`（overview、apps、apps/{id}、apps/{id}/rotate-secret） | metafusion-auth（开发者中心：任何登录账号自助登记应用；网关用 `/api/developer/` 前缀整体分流，不与 `/api/admin/oauth/*` 混用） |
 | catalog | `/api/catalog/*`（definitions、tags、entities、relations、shelves、compare、me/home-preferences 等）、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json` | 本仓库，保留 |
 | catalog | `GET /api/version` | 本仓库：运行中进程的版本身份——构建期注入的版本与 git sha、构建时间、进程启动时间（同一个 `/api/` 兜底 location 分流）；匿名可读，只回身份字段，不含配置、凭据与主机信息，用于发布/回滚后核对"线上跑的是哪一版" |
-| community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id） | metafusion-community |
+| community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id、**reports 与 admin/reports｜admin/appeals**） | metafusion-community（举报与申诉：用户端 `POST /reports`、`GET /reports/mine`、`POST /reports/:id/appeal`；管理端 `GET /admin/reports`、`/{id}`、`/{id}/accept|reject|resolve`、`GET /admin/appeals`、`POST /admin/appeals/:id/review`——同属 `/api/community/` location，不需要新增网关条目） |
 | community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | metafusion-community（`community.favorites`） |
 | auth | `GET /api/users/:id` | metafusion-auth（公开账号资料；同前缀多归属，网关用 `^/api/users/[^/]+$` 精确分流） |
 | catalog | `GET /api/users/:id/contributions` | 本仓库（用户贡献列表；两段式，不匹配那两条正则，落目录服务兜底） |
