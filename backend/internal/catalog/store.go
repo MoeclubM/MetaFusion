@@ -804,7 +804,8 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 		// 无索引支撑，大库上是顺序扫描。这是刻意的最小口径——精确的多语言标题
 		// 检索应走专用全文/三元组索引（三期），此处保留"能搜到"的降级语义，
 		// 不为单个 LIKE 建昂贵的表达式索引。title 列有 entities_search GIN。
-		add("(title ILIKE $%[1]d OR (document->'translations')::text ILIKE $%[1]d)", "%"+o.Query+"%")
+		// 模式由 likeContains 编译：用户输入里的 %/_/\ 按字面处理（like_pattern.go）。
+		add("(title ILIKE $%[1]d OR (document->'translations')::text ILIKE $%[1]d)", likeContains(o.Query))
 	}
 	if o.Type != "" {
 		add("document->'types' ? $%d", o.Type)

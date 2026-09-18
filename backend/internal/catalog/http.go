@@ -321,7 +321,8 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		args := []any{}
 		where := []string{"e.status='published'", "jsonb_typeof(e.document->'attributes'->'tags')='array'"}
 		if q := strings.TrimSpace(c.Query("q")); q != "" {
-			args = append(args, "%"+q+"%")
+			// 与实体搜索同口径：%/_ 由 likeContains 按字面转义。
+			args = append(args, likeContains(q))
 			where = append(where, fmt.Sprintf("t.name ILIKE $%d", len(args)))
 		}
 		limit, _ := strconv.Atoi(c.Query("limit"))
