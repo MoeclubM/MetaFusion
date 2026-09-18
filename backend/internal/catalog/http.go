@@ -268,6 +268,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		c.Header("Content-Type", "text/html; charset=utf-8")
 		c.String(200, docsHTML)
 	})
+	// 文档页的脚本与样式随二进制自托管（docsassets/）：页面一旦改回 CDN，就等于把主站的
+	// 脚本执行权交给第三方，所以资源与页面走同一道闸门、同一份白名单。
+	docs.GET("/assets/*filepath", docsAssetsHandler)
 	api.GET("/swagger", required(PermissionLifecycleManage), func(c *gin.Context) {
 		c.Header("Content-Type", "text/html; charset=utf-8")
 		c.String(200, swaggerHTML)
@@ -772,7 +775,7 @@ const docsHTML = `<!doctype html>
       data-url="/api/openapi.json"
       data-configuration='{"theme": "purple", "hideModels": false, "showSidebar": true}'>
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+    <script src="/api/docs/assets/scalar-standalone.js"></script>
   </body>
 </html>`
 
@@ -783,7 +786,7 @@ const swaggerHTML = `<!DOCTYPE html>
   <title>MetaFusion API 文档 (Swagger UI)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+  <link rel="stylesheet" href="/api/docs/assets/swagger-ui.css">
   <style>
     body { margin: 0; padding: 0; background: #fafafa; }
     .swagger-ui .topbar { display: none; }
@@ -791,7 +794,8 @@ const swaggerHTML = `<!DOCTYPE html>
 </head>
 <body>
   <div id="swagger-ui"></div>
-  <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script src="/api/docs/assets/swagger-ui-bundle.js"></script>
+  <script src="/api/docs/assets/swagger-ui-standalone-preset.js"></script>
   <script>
     window.onload = function() {
       SwaggerUIBundle({
@@ -800,7 +804,10 @@ const swaggerHTML = `<!DOCTYPE html>
         deepLinking: true,
         presets: [
           SwaggerUIBundle.presets.apis,
-          SwaggerUIBundle.SwaggerUIStandalonePreset
+          // 预设文件定义的是全局 SwaggerUIStandalonePreset（UMD 导出），
+          // SwaggerUIBundle 上并没有这个属性：原先写成 SwaggerUIBundle.SwaggerUIStandalonePreset
+          // 传进去的是 undefined。按 swagger-ui-dist 自己的 index.html 取全局，页面才真的渲染。
+          SwaggerUIStandalonePreset
         ],
         layout: "BaseLayout"
       });

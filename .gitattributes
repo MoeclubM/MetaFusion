@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# 自托管的第三方脚本按字节保存：换行归一化会改掉文件内容，docs_assets_test.go 的摘要校验
+# 与「与上游发布物逐字一致」都会失效（core.autocrlf=true 的机器上检出即失败）。
+backend/internal/catalog/docsassets/* -text
+
