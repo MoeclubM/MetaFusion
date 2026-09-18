@@ -40,10 +40,12 @@ const nextConfig = {
         protocol: "https",
         hostname: "media.vgm.io",
       },
-      {
-        protocol: "http",
-        hostname: "localhost",
-      },
+      // 这里曾有 protocol: "http" / hostname: "localhost"。它把 /_next/image 的取图范围
+      // 放到了回环地址上：对本机自托管实例，任何能传 url= 的人都能让优化器去打内网（SSRF），
+      // 或至少拿到"这个端口上有东西"的结论。线上从不需要它（图片都来自上面的公开源），
+      // 只服务于早期本地调试，故整体移除——本机调试请把图片放到 /public 走相对路径。
+      // 相关上游公告：GHSA-9g9p-9gw9-jx7f（remotePatterns 配置不当导致 DoS）、
+      // GHSA-2xp9-vwfh-vxw4（图片优化 API 的 RCE，15.5.24 起修）。
     ],
   },
   output: "standalone",
