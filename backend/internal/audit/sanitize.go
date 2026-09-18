@@ -137,19 +137,6 @@ func maskOne(m string) string {
 	return string([]rune(m[:at])[:1]) + "***" + m[at:]
 }
 
-// MaskSecret 处理准凭据（邀请码这类"拿到即可用"的值，契约 §4）：保留前 4 位 + "…"。
-// 长度不足 5 时整段遮罩——保留前 4 位会把 4 位以内的凭据整个露出来。
-func MaskSecret(s string) string {
-	r := []rune(s)
-	if len(r) == 0 {
-		return ""
-	}
-	if len(r) <= 4 {
-		return "…"
-	}
-	return string(r[:4]) + "…"
-}
-
 // truncate 按 rune 截断（按字节切会切出半个 UTF-8 字符），超限时以 "…" 结尾标记被截断。
 func truncate(s string, max int) string {
 	if max <= 0 {

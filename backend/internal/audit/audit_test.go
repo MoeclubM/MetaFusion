@@ -131,15 +131,6 @@ func TestMaskEmailAndSecret(t *testing.T) {
 			t.Errorf("MaskEmail(%q) = %q, want %q", in, got, want)
 		}
 	}
-	if got := MaskSecret("abcd1234efgh"); got != "abcd…" {
-		t.Errorf("MaskSecret 保留前 4 位: %q", got)
-	}
-	if got := MaskSecret("ab1"); got != "…" {
-		t.Errorf("不足 5 位的凭据整段遮罩: %q", got)
-	}
-	if got := MaskSecret(""); got != "" {
-		t.Errorf("空值原样返回: %q", got)
-	}
 }
 
 // 队列满时必须丢弃而不是阻塞业务（契约 §3）。这里用"只造队列、不起消费 goroutine"的
@@ -285,8 +276,7 @@ func mustEntry(t *testing.T, rec *Recorder) Entry {
 	}
 }
 
-// 敏感值出现在审计行文本里就违规（契约 §6.2）：把脱敏后的 changes 与凭据正则对一遍，
-// 顺带钉住"准凭据必须走 MaskSecret"这条调用方约定。
+// 敏感值出现在审计行文本里就违规（契约 §6.2）：把脱敏后的 changes 与凭据正则对一遍。
 func TestSanitizedChangesHaveNoSensitiveText(t *testing.T) {
 	patterns := []*regexp.Regexp{
 		regexp.MustCompile(`(?i)password`),
@@ -300,7 +290,7 @@ func TestSanitizedChangesHaveNoSensitiveText(t *testing.T) {
 	in := map[string]any{
 		"title":   map[string]any{"before": "旧题名", "after": "新题名"},
 		"contact": "maintainer@example.com",
-		"code":    MaskSecret("abcd1234efgh"),
+		"code":    "abcd…",
 	}
 	b, err := encodeChanges(SanitizeChanges(in))
 	if err != nil {

@@ -74,7 +74,7 @@ func testVerifierFromPublicKey(t *testing.T, pub *rsa.PublicKey, encoded string)
 	if v.Ephemeral() || v.Source() != SourcePublicKey {
 		t.Fatalf("来源应为静态公钥，实际 %q（ephemeral=%v）", v.Source(), v.Ephemeral())
 	}
-	if got := v.KeyID(); got != keyID(pub) {
+	if got := v.kid; got != keyID(pub) {
 		t.Fatalf("kid 应由公钥派生：%q != %q", got, keyID(pub))
 	}
 	return v
@@ -270,7 +270,7 @@ func TestPrivateKeyFallbackIsVerifyOnly(t *testing.T) {
 	if v.Source() != SourcePrivateKey {
 		t.Fatalf("来源应为兼容兜底，实际 %q", v.Source())
 	}
-	if v.PublicJWK() == nil || v.KeyID() == "" || v.KeyID() == "default" {
+	if v.PublicJWK() == nil || v.kid == "" || v.kid == "default" {
 		t.Fatalf("兜底路径应派生公钥与 kid")
 	}
 	if _, err := v.Verify(signTestToken(t, testKey(t), nil)); err == nil {
@@ -297,7 +297,7 @@ func TestVerifierPrivateKeyFallbackLoadsPEM(t *testing.T) {
 		if v.Ephemeral() {
 			t.Fatalf("%s: expected a real key", name)
 		}
-		if v.KeyID() == "" || v.KeyID() == "default" {
+		if v.kid == "" || v.kid == "default" {
 			t.Fatalf("%s: no kid derived", name)
 		}
 		if _, err = v.Verify(signTestToken(t, key, nil)); err != nil {
@@ -565,7 +565,7 @@ func TestClaimsCarryGroupsAndPermissions(t *testing.T) {
 func TestPublicJWKHasNoPrivateMaterial(t *testing.T) {
 	v := testVerifier(t, testKey(t))
 	jwk := v.PublicJWK()
-	if jwk["kty"] != "RSA" || jwk["alg"] != "RS256" || jwk["kid"] != v.KeyID() {
+	if jwk["kty"] != "RSA" || jwk["alg"] != "RS256" || jwk["kid"] != v.kid {
 		t.Fatalf("unexpected jwk: %+v", jwk)
 	}
 	for _, forbidden := range []string{"d", "p", "q", "dp", "dq", "qi"} {

@@ -206,10 +206,6 @@ func (t *TokenVerifier) Source() string {
 // Ephemeral 表示没有任何验签来源：所有需要身份的请求都会被当作匿名，调用方应据此告警配置缺失。
 func (t *TokenVerifier) Ephemeral() bool { return t == nil || t.source == SourceNone }
 
-func (t *TokenVerifier) Issuer() string   { return t.issuer }
-func (t *TokenVerifier) Audience() string { return t.audience }
-func (t *TokenVerifier) KeyID() string    { return t.kid }
-
 // Verify 校验签名与时间窗。任何一步失败都返回错误，调用方据此按匿名处理。
 func (t *TokenVerifier) Verify(token string) (*Claims, error) {
 	if t == nil {

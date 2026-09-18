@@ -35,11 +35,6 @@ const (
 	NotificationImportCompleted = "import.completed"
 )
 
-// NotificationRetentionDays 是保留期**建议值**：本期只记录、不实现清理任务。
-// 清理要配套产品决定（删掉的正是用户唯一的事件事实来源），并与 outbox/deliveries 那条
-// TODO(三期) 的保留期口径一起排期。
-const NotificationRetentionDays = 180
-
 // 列表分页口径：缺省 20、上限 100（越界静默收敛，与 /catalog/entities 风格一致）。
 const (
 	defaultNotificationLimit = 20
