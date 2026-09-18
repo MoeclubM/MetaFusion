@@ -23,6 +23,7 @@ import { SectionTitle } from "@/components/ui/SectionTitle";
 import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateAttributeSections";
 import { EntityLink } from "@/components/catalog/Fields";
+import { formatDuration as formatDurationShared } from "@/lib/duration";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowLeft,
@@ -39,10 +40,10 @@ import {
 } from "lucide-react";
 
 
+// 时长统一到 lib/duration.ts（M:SS / 超 1 小时 H:MM:SS），空值这里仍显示 "—"。
+// 旧实现没有小时段：7200 秒会渲染成 "120:00"，与"附加信息"里的口径也对不上。
 function formatDuration(totalSeconds?: number | null): string {
-  if (!totalSeconds || totalSeconds <= 0) return "—";
-  const s = Math.round(totalSeconds);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  return formatDurationShared(totalSeconds) || "—";
 }
 
 function attrText(v: unknown): string {
@@ -532,10 +533,14 @@ export default function ReleaseDetailPage() {
               <thead className="bg-surfaceSubtle border-y border-line-subtle font-mono text-[10px] uppercase tracking-wider text-gray-500">
                 <tr>
                   <th className="py-2 px-3.5 w-12 font-medium">{t("release.detail.tablePosition")}</th>
-                  <th className="py-2 px-3.5 font-medium">{entryKindLabel}</th>
+                  <th className="py-2 px-3.5 font-medium whitespace-nowrap">{entryKindLabel}</th>
+                  {/* 中间"母版篇目"列负责吸收余量，末两列固定宽度且表头不折行：
+                      表头折成三行时它们会被挤到 69px/49px（审计 2026-09-19 第 19 条：
+                      同一组件在 Deltarune 页与颤栗页宽度差一倍）。表格外层已有
+                      overflow-x-auto 与 min-w-[640px]，窄屏不会因此横向溢出页面。 */}
                   <th className="py-2 px-3.5 font-medium">{t("release.detail.tableMasterEntry")}</th>
-                  <th className="py-2 px-3.5 font-medium">{t("release.detail.tableCredit")}</th>
-                  <th className="py-2 px-3.5 text-right font-medium">{t("release.detail.tableDuration")}</th>
+                  <th className="py-2 px-3.5 font-medium whitespace-nowrap w-[9rem]">{t("release.detail.tableCredit")}</th>
+                  <th className="py-2 px-3.5 text-right font-medium whitespace-nowrap w-[5.5rem]">{t("release.detail.tableDuration")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 dark:divide-white/[0.06]">

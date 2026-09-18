@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { DynamicDefinitions, resolveLocalizedName, getTermName } from "@/lib/definitions";
 import { EntityLink } from "./Fields";
+import { formatDuration } from "@/lib/duration";
 import { Calendar, Hash, Clock, ExternalLink, Link2, Check, Minus } from "lucide-react";
 
 // 说明：属性分区渲染已统一到 @/components/work/WorkFacts（两个详情页共用）。
@@ -38,6 +39,20 @@ export function FieldValue({
   }
   if (type === "number") {
     const unit = def?.unit ? resolveLocalizedName(def.unit, locale, "") : "";
+    // duration（秒）是骨架字段：同一份时长在轨表里已经渲染成 8:03，这里再直出 7200
+    // 会让同一个概念出现两种口径（审计 2026-09-19 第 17 条）。统一走 lib/duration.ts，
+    // 原始秒数留在 title 里可读——标签本身已经写明"（秒）"。
+    if (code === "duration") {
+      const formatted = formatDuration(Number(value));
+      if (formatted) {
+        return (
+          <span className="font-mono inline-flex items-center gap-1" title={String(value)}>
+            <Clock className="w-3 h-3 text-gray-400" />
+            {formatted}
+          </span>
+        );
+      }
+    }
     return (
       <span className="font-mono inline-flex items-center gap-1">
         <Hash className="w-3 h-3 text-gray-400" />
