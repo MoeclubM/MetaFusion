@@ -215,10 +215,11 @@ export function revokePersonalAccessToken(id: string): Promise<{ ok: boolean }> 
 
 // ── 目录关系图谱拓扑与关系边 ──
 // ── OOBE 开箱初始化设置 ──
+// 站点名不在这里：它不是实例设置（账号服务里既没有消费方也已从接受表移除），
+// 前端品牌文案由构建期决定；POST /api/setup 只认 username/email/password，多传字段一律 400。
 export interface SetupStatusResponse {
   is_initialized: boolean;
   has_admin: boolean;
-  site_name: string;
   total_users: number;
 }
 
@@ -227,9 +228,6 @@ export interface InitialSetupPayload {
   display_name?: string;
   email: string;
   password: string;
-  site_name?: string;
-  registration_enabled?: boolean;
-  invite_required?: boolean;
 }
 
 export interface InitialSetupResult {
@@ -247,10 +245,10 @@ export async function fetchSetupStatus(): Promise<SetupStatusResponse> {
     const res = await fetch("/api/setup", { credentials: "same-origin" });
     if (res.ok) {
       const data = await res.json();
-      return { is_initialized: !data.needed, has_admin: !data.needed, site_name: "MetaFusion", total_users: 1 };
+      return { is_initialized: !data.needed, has_admin: !data.needed, total_users: 1 };
     }
   } catch {}
-  return { is_initialized: true, has_admin: true, site_name: "MetaFusion", total_users: 1 };
+  return { is_initialized: true, has_admin: true, total_users: 1 };
 }
 
 export interface PublicAuthSettings {

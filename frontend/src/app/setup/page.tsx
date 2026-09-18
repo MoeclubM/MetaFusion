@@ -60,7 +60,6 @@ export default function SetupPage() {
         setStatus({
           is_initialized: false,
           has_admin: false,
-          site_name: "MetaFusion",
           total_users: 0,
         });
       })
