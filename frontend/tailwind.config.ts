@@ -11,9 +11,35 @@ const config: Config = {
     extend: {
       colors: {
         background: "rgb(var(--bg-rgb) / <alpha-value>)",
+        foreground: "rgb(var(--foreground-rgb) / <alpha-value>)",
         surface: "rgb(var(--surface-rgb) / <alpha-value>)",
         surfaceHover: "rgb(var(--surface-hover-rgb) / <alpha-value>)",
         surfaceBorder: "var(--surface-border-color)",
+        // 卡片/次要面/静音面：这三组是同一族表面色，值与 bg-surface / bg-surfaceHover
+        // 对齐（globals.css 的 --card-rgb / --muted-rgb / --secondary-rgb），
+        // 用三通道变量是为了让 bg-muted/30 这类透明度变体也能生成。
+        card: {
+          DEFAULT: "rgb(var(--card-rgb) / <alpha-value>)",
+          foreground: "rgb(var(--foreground-rgb) / <alpha-value>)",
+        },
+        muted: {
+          DEFAULT: "rgb(var(--muted-rgb) / <alpha-value>)",
+          // 跟随 --text-muted-color 的深浅取值（由主题色调块给出），承担"次要文字"角色。
+          foreground: "rgb(var(--muted-foreground-rgb) / <alpha-value>)",
+        },
+        secondary: {
+          DEFAULT: "rgb(var(--secondary-rgb) / <alpha-value>)",
+          foreground: "rgb(var(--foreground-rgb) / <alpha-value>)",
+        },
+        // 默认描边色：值是 --line-color 在其所在表面上的不透明等价值（由 gen-theme.mjs 的
+        // blendOver / globals.css 的 --border-rgb 给出），因为 <alpha-value> 要同时支撑
+        // border-border 与 border-border/50 两种写法。
+        border: "rgb(var(--border-rgb) / <alpha-value>)",
+        theme: "rgb(var(--border-rgb) / <alpha-value>)",
+        destructive: {
+          DEFAULT: "rgb(var(--destructive-rgb) / <alpha-value>)",
+          foreground: "rgb(var(--destructive-foreground-rgb) / <alpha-value>)",
+        },
         primary: {
           DEFAULT: "var(--primary-color)",
           hover: "var(--primary-hover-color)",
@@ -97,6 +123,8 @@ const config: Config = {
       },
       // 动效统一：时长与缓动固定，组件不再各写 duration-150/200/300。
       transitionDuration: { fast: "120ms", base: "200ms" },
+      // v3 的透明度刻度是 5 的倍数，bg-card/98 这类写法不会生成；补上用到的档位。
+      opacity: { 98: "0.98" },
       transitionTimingFunction: { soft: "cubic-bezier(0.16, 1, 0.3, 1)" },
       boxShadow: {
         soft: "0 8px 24px -8px rgba(0,0,0,0.4)",

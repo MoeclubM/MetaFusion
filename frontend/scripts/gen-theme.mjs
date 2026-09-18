@@ -41,6 +41,19 @@ function shift(hex, { dh = 0, ds = 0, dl = 0 }) {
   const [h, s, l] = rgbToHsl(hexToRgb(hex));
   return hslToHex(h + dh, s + ds, l + dl);
 }
+// 三通道值（"r g b"）：Tailwind 的 <alpha-value> 只能替换 rgb() 的斜杠通道，
+// 所以主色这类要出透明度变体的令牌必须以三通道形式额外给一份。
+const rgbTriplet = (hex) => hexToRgb(hex).join(" ");
+// 把半透明描边压到表面上得到不透明等价值：border-border 与 border-border/50 共用一个变量，
+// 而 <alpha-value> 在裸类名下取默认档 1，只能用不透明值表达描边的"本色"。
+const blendOver = (rgba, surfaceHex) => {
+  const parts = (rgba.match(/\(([^)]+)\)/) || [null, "0,0,0,1"])[1].split(",").map((v) => Number(v.trim()));
+  const [r, g, b] = parts;
+  const a = parts.length > 3 ? parts[3] : 1;
+  const s = hexToRgb(surfaceHex);
+  return [r, g, b].map((c, i) => Math.round(c * a + s[i] * (1 - a))).join(" ");
+};
+
 // 相对亮度决定"主色上的文字"用什么颜色：亮主色（黄/柠檬）配深字，其余配白字。
 function luminance(hex) {
   const [r, g, b] = hexToRgb(hex).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
@@ -128,6 +141,8 @@ for (const tone of TONES) {
     lines.push(`  --text-body-color: ${t.textBody};`);
     lines.push(`  --text-muted-color: ${t.textMuted};`);
     lines.push(`  --text-faint-color: ${t.textFaint};`);
+    // 描边令牌的三通道值跟着色调/对比一起走，避免 border-border 与 border-line 在暖/冷/深色调下分家。
+    lines.push(`  --border-rgb: ${blendOver(t.line, t.surface)};`);
     lines.push("}");
     lines.push("");
   }

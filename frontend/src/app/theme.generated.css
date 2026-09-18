@@ -252,6 +252,7 @@
   --text-body-color: #cbd5e1;
   --text-muted-color: #94a3b8;
   --text-faint-color: #64748b;
+  --border-rgb: 42 47 60;
 }
 
 [data-theme-tone="neutral"][data-theme-mode="light"] {
@@ -266,6 +267,7 @@
   --text-body-color: #334155;
   --text-muted-color: #64748b;
   --text-faint-color: #94a3b8;
+  --border-rgb: 226 227 229;
 }
 
 [data-theme-tone="cool"][data-theme-mode="dark"] {
@@ -280,6 +282,7 @@
   --text-body-color: #cbd5e1;
   --text-muted-color: #94a3b8;
   --text-faint-color: #64748b;
+  --border-rgb: 47 50 54;
 }
 
 [data-theme-tone="cool"][data-theme-mode="light"] {
@@ -294,6 +297,7 @@
   --text-body-color: #334155;
   --text-muted-color: #64748b;
   --text-faint-color: #94a3b8;
+  --border-rgb: 226 227 229;
 }
 
 [data-theme-tone="warm"][data-theme-mode="dark"] {
@@ -308,6 +312,7 @@
   --text-body-color: #cbd5e1;
   --text-muted-color: #94a3b8;
   --text-faint-color: #64748b;
+  --border-rgb: 54 51 47;
 }
 
 [data-theme-tone="warm"][data-theme-mode="light"] {
@@ -322,6 +327,7 @@
   --text-body-color: #334155;
   --text-muted-color: #64748b;
   --text-faint-color: #94a3b8;
+  --border-rgb: 226 227 229;
 }
 
 [data-theme-tone="deep"][data-theme-mode="dark"] {
@@ -336,6 +342,7 @@
   --text-body-color: #cbd5e1;
   --text-muted-color: #94a3b8;
   --text-faint-color: #64748b;
+  --border-rgb: 48 53 65;
 }
 
 [data-theme-tone="deep"][data-theme-mode="light"] {
@@ -350,4 +357,5 @@
   --text-body-color: #334155;
   --text-muted-color: #64748b;
   --text-faint-color: #94a3b8;
+  --border-rgb: 219 220 223;
 }
