@@ -2432,5 +2432,16 @@
   "catalog.history.rollbackNoOp": "バージョン {target} のドキュメントは現在の公開バージョンと完全に同一のため、新しいバージョンは作成されませんでした。現在の公開バージョンは {id} のままです。",
   "catalog.history.rollbackNote": "サーバーが記録した編集メモ：{note}",
   "catalog.history.rollbackConflict": "現在の公開バージョンが他の利用者に変更されたため、ロールバックは実行されませんでした。バージョン一覧を再読み込みしてから再試行してください。",
-  "catalog.history.rollbackBlocked": "影響範囲の事前チェックに通らなかったため、ロールバックは実行されませんでした："
+  "catalog.history.rollbackBlocked": "影響範囲の事前チェックに通らなかったため、ロールバックは実行されませんでした：",
+  "catalog.listFailed": "一覧の読み込みに失敗しました。しばらくしてから再試行してください",
+  "catalog.notFoundDesc": "リンク先の項目は存在しません。統合または削除された可能性があります。前のページに戻るか、探索ページから探し直してください。",
+  "catalog.notFoundTitle": "この項目は見つかりません",
+  "catalog.rateLimitedDesc": "サーバーにはリクエスト回数の上限があります。しばらくしてから再試行してください。項目が存在しないという意味ではありません。",
+  "catalog.referenceUnknown": "不明な項目",
+  "catalog.sectionFailed": "このセクションは一時的に取得できません",
+  "catalog.unavailableDesc": "サービスが応答していません。しばらくして再試行すると復旧することが多く、項目が存在しないという意味ではありません。",
+  "catalog.unavailableTitle": "この項目を一時的に読み込めません",
+  "release.detail.publisherUnknown": "不明なレーベル",
+  "seo.topicDescription": "MetaFusion コミュニティのディスカッショントピック。",
+  "seo.userDescription": "MetaFusion のユーザーページ：貢献とお気に入りの一覧。"
 }

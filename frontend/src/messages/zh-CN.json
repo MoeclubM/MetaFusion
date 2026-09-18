@@ -2432,5 +2432,16 @@
   "catalog.history.rollbackNoOp": "版本 {target} 的文档与当前已发布版本完全一致，服务端未新建版本；当前已发布版本仍为 {id}。",
   "catalog.history.rollbackNote": "服务端记录的编辑说明：{note}",
   "catalog.history.rollbackConflict": "当前已发布版本已被他人改动，本次回滚未执行；请重新加载版本列表后重试。",
-  "catalog.history.rollbackBlocked": "影响面预检未通过，本次回滚未执行："
+  "catalog.history.rollbackBlocked": "影响面预检未通过，本次回滚未执行：",
+  "catalog.listFailed": "列表加载失败，请稍后重试",
+  "catalog.notFoundDesc": "链接指向的条目不存在，可能已被合并或移除。可以返回上一页，或从探索页重新查找。",
+  "catalog.notFoundTitle": "找不到这个条目",
+  "catalog.rateLimitedDesc": "服务端有请求频率上限，稍后再试即可；这不代表条目不存在。",
+  "catalog.referenceUnknown": "未知条目",
+  "catalog.sectionFailed": "这一节暂时取不到",
+  "catalog.unavailableDesc": "服务暂时没有响应，稍后重试通常就能恢复——这不代表条目不存在。",
+  "catalog.unavailableTitle": "暂时无法加载该条目",
+  "release.detail.publisherUnknown": "未知厂牌",
+  "seo.topicDescription": "MetaFusion 社区里的讨论主题。",
+  "seo.userDescription": "MetaFusion 用户主页：贡献记录与收藏一览。"
 }

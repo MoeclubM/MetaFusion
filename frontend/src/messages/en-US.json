@@ -2432,5 +2432,16 @@
   "catalog.history.rollbackNoOp": "The document of version {target} is identical to the currently published version, so no new version was created; the published version is still {id}.",
   "catalog.history.rollbackNote": "Edit note recorded by the server: {note}",
   "catalog.history.rollbackConflict": "The currently published version was changed by someone else, so the rollback did not run. Reload the version list and try again.",
-  "catalog.history.rollbackBlocked": "The impact check failed, so the rollback did not run:"
+  "catalog.history.rollbackBlocked": "The impact check failed, so the rollback did not run:",
+  "catalog.listFailed": "Failed to load the list — please retry",
+  "catalog.notFoundDesc": "The entry this link points to does not exist; it may have been merged or removed. Go back, or search again from Explore.",
+  "catalog.notFoundTitle": "Entry not found",
+  "catalog.rateLimitedDesc": "The server caps how often a request may repeat. Try again shortly — this does not mean the entry is missing.",
+  "catalog.referenceUnknown": "Unknown entry",
+  "catalog.sectionFailed": "This section is temporarily unavailable",
+  "catalog.unavailableDesc": "The service did not respond. Retrying usually works — this does not mean the entry is missing.",
+  "catalog.unavailableTitle": "This entry is temporarily unavailable",
+  "release.detail.publisherUnknown": "Unknown label",
+  "seo.topicDescription": "A discussion topic in the MetaFusion community.",
+  "seo.userDescription": "MetaFusion profile: contributions and favorites."
 }
