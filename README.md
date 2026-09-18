@@ -43,7 +43,7 @@
 
 ### 2. 🔐 会话认证与访问控制
 - **服务端会话 + RS256 访问令牌**：账号与令牌由独立服务 `metafusion-auth`（`auth` schema）负责——登录签发 RS256 JWT（默认 15 分钟）并写入 HttpOnly Cookie `mf_session`，`POST /api/auth/refresh` 轮转会话，`POST /api/auth/logout-all` 吊销全部会话；目录侧只做**验签**，不保存账号数据、不查对方表。
-- **令牌密钥（环境变量）**：私钥只在账号服务——`AUTH_JWT_PRIVATE_KEY`（PKCS#1/PKCS#8 PEM 或其 base64）由 auth 用于**签发**，未配置时生成进程内临时密钥（重启即失效）。目录侧只验签，按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）→ `AUTH_JWKS_URL`（账号服务的 JWKS，默认 `http://auth:8081/api/oidc/jwks`）取公钥；`AUTH_JWT_PRIVATE_KEY` 在目录侧只剩兼容兜底（启动会告警，待移除）。`AUTH_JWT_ISSUER`（默认 `https://findverse.cc/api`）与 `AUTH_JWT_AUDIENCE`（默认 `metafusion`）写入令牌声明。注意：无状态令牌在 `logout-all` 后仍有最长 15 分钟的验签残余窗口，强吊销场景等待会话过期或更换密钥。
+- **令牌密钥（环境变量）**：私钥只在账号服务——`AUTH_JWT_PRIVATE_KEY`（PKCS#1/PKCS#8 PEM 或其 base64）由 auth 用于**签发**，是**必填项**：未配置时账号服务拒绝启动（本地开发可显式设 `AUTH_JWT_ALLOW_EPHEMERAL_KEY=1` 改用进程内临时密钥，重启即失效且启动会打 WARNING）。目录侧只验签，按 `AUTH_JWT_PUBLIC_KEY`（静态公钥）→ `AUTH_JWKS_URL`（账号服务的 JWKS，默认 `http://auth:8081/api/oidc/jwks`）取公钥；`AUTH_JWT_PRIVATE_KEY` 在目录侧只剩兼容兜底（启动会告警，待移除）。`AUTH_JWT_ISSUER`（默认 `https://findverse.cc/api`）与 `AUTH_JWT_AUDIENCE`（默认 `metafusion`）写入令牌声明。注意：无状态令牌在 `logout-all` 后仍有最长 15 分钟的验签残余窗口，强吊销场景等待会话过期或更换密钥。
 - **OAuth 2.0 / OIDC 接入**：由账号服务提供 `/api/oauth/authorize`、`/api/oauth/token`、`/api/oauth/userinfo`、
   `/.well-known/openid-configuration` 与 `/api/oidc/jwks`（其他服务用 JWKS 本地验签）。
 - **规划中（未实现）**：Access/Refresh 双 Token 轮转、基于 Redis 的令牌黑名单、个人访问令牌（PAT）——当前均无对应实现，请勿据此开发。
