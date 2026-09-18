@@ -10,7 +10,9 @@
     "lint": "next lint",
     "theme:build": "node scripts/gen-theme.mjs",
     "contracts:build": "node scripts/generate-contracts.mjs",
-    "contracts:check": "node scripts/generate-contracts.mjs --check"
+    "contracts:check": "node scripts/generate-contracts.mjs --check",
+    "langs:build": "bun scripts/gen-languages.mjs",
+    "langs:check": "bun scripts/gen-languages.mjs --check"
   },
   "dependencies": {
     "@types/katex": "^0.16.8",
