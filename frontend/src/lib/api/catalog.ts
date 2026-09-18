@@ -212,8 +212,6 @@ export interface GraphLink {
   target_type?: string;
   type: string;
   label: string;
-  /** definitions 中的关系分组（credits/creative/membership），供图谱按语义筛选。 */
-  group?: string;
   qualifier?: string;
   color?: string;
   attributes?: Record<string, any>;

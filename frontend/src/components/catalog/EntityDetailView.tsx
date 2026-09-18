@@ -29,6 +29,7 @@ import {
 import type { EntityComment, EntityCollectionRef } from "@/lib/api";
 import { EntityRevisions } from "./EntityRevisions";
 import { RelationFilterBar, useRelationFilter } from "@/components/entity/RelationFilterBar";
+import { UNGROUPED_RELATION_GROUP } from "@/lib/relationFilters";
 import { PageShell, PageContainer } from "@/components/ui/PageShell";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { Card, CardTitle } from "@/components/ui/Card";
@@ -93,8 +94,9 @@ const InteractiveRelationGraph = dynamic(
   { ssr: false }
 );
 
-/** 兜底分组键：定义缺失或未声明 group_names 的关系归到这里。 */
-const FALLBACK_RELATION_GROUP = "__unlabeled__";
+/** 兜底分组键：全站唯一来源在 relationFilters（筛选条分面与关系网格必须用同一个键，
+ * 否则同一页会出现两个"其他关系"分组）。 */
+const FALLBACK_RELATION_GROUP = UNGROUPED_RELATION_GROUP;
 
 /** 关系分组只允许来自服务端 definitions：group=credits 的进"演职人员"区，
  * 其余按各自 group 分组展示，分组标题用 group_names 本地化。后台改分组后
@@ -540,7 +542,6 @@ export function EntityDetailView({ id }: { id: string }) {
         target: r.target_id,
         type: r.type,
         label: getRelationName(defs, r.type, true, locale),
-        group: defs?.relations?.[r.type]?.group,
       });
     }
 
