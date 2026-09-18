@@ -249,13 +249,17 @@ export default function WorkReleasesPage() {
                   </div>
                 );})}
               </div>
-              <div className="px-4 py-3 border-t border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
-                <span className="font-mono text-[11px] text-gray-500">{t("common.pagination", { page, total: totalPages })}</span>
-                <div className="flex items-center gap-2">
-                  <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="w-8 h-8 grid place-items-center rounded-full bg-white/[0.06] border border-white/10 disabled:opacity-40 hover:bg-white/[0.10]"><ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} /></button>
-                  <button disabled={page>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="w-8 h-8 grid place-items-center rounded-full bg-white/[0.06] border border-white/10 disabled:opacity-40 hover:bg-white/[0.10]"><ChevronRight className="w-3.5 h-3.5" strokeWidth={1.6} /></button>
+              {/* 单页数据不渲染翻页器：页数没有变化时"第 1/1 页"加两个禁用按钮只是噪音
+                  （与 works/[id] 的 totalPages > 1 守卫一致）。 */}
+              {totalPages > 1 && (
+                <div className="px-4 py-3 border-t border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
+                  <span className="font-mono text-[11px] text-gray-500">{t("common.pagination", { page, total: totalPages })}</span>
+                  <div className="flex items-center gap-2">
+                    <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="w-8 h-8 grid place-items-center rounded-full bg-white/[0.06] border border-white/10 disabled:opacity-40 hover:bg-white/[0.10]"><ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} /></button>
+                    <button disabled={page>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="w-8 h-8 grid place-items-center rounded-full bg-white/[0.06] border border-white/10 disabled:opacity-40 hover:bg-white/[0.10]"><ChevronRight className="w-3.5 h-3.5" strokeWidth={1.6} /></button>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
         </div>

@@ -96,6 +96,10 @@ function ExploreInner() {
 
   const [qInput, setQInput] = useState(currentQ);
   const [items, setItems] = useState<EntityItem[]>([]);
+  // 结果总数（后端 total）：翻页判定必须以它为准——items.length 只是当前窗口，结果数是页宽整数倍时
+  // 会误判"还有下一页"，点进去是没有数据的空页。
+  const [total, setTotal] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [topTags, setTopTags] = useState<{ name: string; count: number }[]>([]);
@@ -125,7 +129,7 @@ function ExploreInner() {
 
     fetch("/api/catalog/entities?" + params.toString(), { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((data) => setItems(data.items || []))
+      .then((data) => { setItems(data.items || []); setTotal(typeof data.total === "number" ? data.total : 0); })
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   }, [currentKind, currentStatus, currentQ, currentType, currentTags, offset]);
@@ -625,7 +629,7 @@ function ExploreInner() {
                 <span className="px-2 py-1 text-gray-900 dark:text-gray-200 font-bold">{currentPage}</span>
                 <button
                   type="button"
-                  disabled={items.length < limit}
+                  disabled={total > 0 ? currentPage >= totalPages : items.length < limit}
                   onClick={() => updateFilters({ page: (currentPage + 1).toString() })}
                   className="px-3 py-1.5 rounded-lg border border-line bg-surface hover:bg-black/[0.04] dark:hover:bg-surfaceHover disabled:opacity-40 disabled:pointer-events-none text-gray-800 dark:text-white transition-colors duration-fast ease-soft flex items-center gap-1 cursor-pointer shadow-2xs"
                 >
