@@ -7,6 +7,12 @@ import { api, Entity, mapLimit, title } from "./api";
 import { FieldValue, EntityLink, ErrorMessage } from "./Fields";
 import { useDefinitions, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import { computeAlignment, compareSemanticsOf } from "./compareAlignment";
+import {
+  COMPARE_MAX_SLOTS,
+  COMPARE_MIN_SLOTS,
+  readCompareBasket,
+  useCompareBasket,
+} from "@/lib/compareBasket";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowRightLeft,
@@ -22,22 +28,8 @@ import {
   Layers,
 } from "lucide-react";
 
-export const COMPARE_MIN_SLOTS = 2;
-export const COMPARE_MAX_SLOTS = 6;
-const COMPARE_BASKET_KEY = "metafusion_compare_basket";
-
-function readBasket(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(COMPARE_BASKET_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x) => typeof x === "string" && x.trim() !== "");
-  } catch {
-    return [];
-  }
-}
+// 槽位常量与篮子读写统一到 lib/compareBasket.ts（含跨标签页同步）；重新导出保持既有引用可用。
+export { COMPARE_MIN_SLOTS, COMPARE_MAX_SLOTS };
 
 export function Compare({ ids }: { ids: string }) {
   const { t, locale } = useI18n();
@@ -52,9 +44,11 @@ export function Compare({ ids }: { ids: string }) {
       .map((s) => s.trim())
       .filter(Boolean);
     if (fromUrl.length > 0) return Array.from(new Set(fromUrl)).slice(0, COMPARE_MAX_SLOTS);
-    return readBasket().slice(0, COMPARE_MAX_SLOTS);
+    return readCompareBasket().slice(0, COMPARE_MAX_SLOTS);
   }, [ids]);
 
+  // 跨标签页同步在 hook 里完成：另一页加入/移除后本页不刷新即一致。
+  const { basket: storedBasket, setBasket: writeBasket } = useCompareBasket();
   const [selectedIds, setSelectedIds] = useState<string[]>(initialList);
   const [items, setItems] = useState<any[]>([]);
   const [error, setError] = useState("");
@@ -74,12 +68,17 @@ export function Compare({ ids }: { ids: string }) {
   }, [initialList.join(",")]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(COMPARE_BASKET_KEY, JSON.stringify(selectedIds));
-    } catch {
-      /* ignore */
+    writeBasket(selectedIds);
+  }, [selectedIds, writeBasket]);
+
+  // 另一标签页改了篮子时跟随；URL 显式带了 ids 时保持用户给定的清单，不被篮子覆盖。
+  useEffect(() => {
+    if (ids) return;
+    const synced = storedBasket.slice(0, COMPARE_MAX_SLOTS);
+    if (selectedIds.length !== synced.length || selectedIds.some((x, i) => x !== synced[i])) {
+      setSelectedIds(synced);
     }
-  }, [selectedIds]);
+  }, [storedBasket, ids, selectedIds]);
 
   const updateSelected = (next: string[]) => {
     setSelectedIds(next);
@@ -353,6 +352,7 @@ export function Compare({ ids }: { ids: string }) {
                     <button
                       type="button"
                       onClick={() => removeId(id)}
+                      aria-label={t("catalog.compareRemove")}
                       className="p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors duration-fast ease-soft cursor-pointer"
                       title={t("catalog.compareRemove")}
                     >
@@ -443,6 +443,7 @@ export function Compare({ ids }: { ids: string }) {
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
+                  aria-label={t("catalog.clear")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -541,6 +542,7 @@ export function Compare({ ids }: { ids: string }) {
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                             : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
                         }`}
+                        aria-label={isSelected ? t("catalog.compareAdded") : t("catalog.compareAdd")}
                         title={isSelected ? t("catalog.compareAdded") : t("catalog.compareAdd")}
                       >
                         {isSelected ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
@@ -610,6 +612,7 @@ export function Compare({ ids }: { ids: string }) {
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                             : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white"
                         }`}
+                        aria-label={isSelected ? t("catalog.compareAdded") : t("catalog.compareAdd")}
                         title={isSelected ? t("catalog.compareAdded") : t("catalog.compareAdd")}
                       >
                         {isSelected ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
@@ -856,6 +859,7 @@ export function Compare({ ids }: { ids: string }) {
                             <button
                               type="button"
                               onClick={() => removeId(x.release.id)}
+                              aria-label={t("catalog.compareRemove")}
                               className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all shrink-0 cursor-pointer"
                               title={t("catalog.compareRemove")}
                             >

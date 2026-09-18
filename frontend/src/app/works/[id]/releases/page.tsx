@@ -10,6 +10,7 @@ import { useDefinitions, getTermName } from "@/lib/definitions";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ArrowLeft, Search, ChevronLeft, ChevronRight, ArrowRightLeft, ArrowUpRight, X } from "lucide-react";
 import { PageShell } from "@/components/ui/PageShell";
+import { useCompareBasket } from "@/lib/compareBasket";
 
 // vocabLabel：枚举字段值按 definitions 声明的词表本地化（不写死字段码清单），
 // 缺词表命中时原样返回。用于版本类别/批次/包装等所有枚举属性列。
@@ -40,7 +41,8 @@ export default function WorkReleasesPage() {
   const [batchFilter, setBatchFilter] = useState("");
   const [formatFilter, setFormatFilter] = useState("");
   const [countryFilter, setCountryFilter] = useState("");
-  const [compareSelected, setCompareSelected] = useState<string[]>([]);
+  // 篮子状态与跨标签页同步统一走 lib/compareBasket.ts：另一页加入/移除后本页不刷新即一致。
+  const { basket: compareSelected, toggle: toggleCompare } = useCompareBasket();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -108,20 +110,6 @@ export default function WorkReleasesPage() {
   const batchOptions = useMemo(() => Array.from(new Set(entities.map((e) => String(e.attributes?.edition_batch || "").trim()).filter(Boolean))), [entities]);
   const formatOptions = useMemo(() => Array.from(new Set(entities.flatMap(formatCodesOf).filter(Boolean))), [entities, formatCounts]);
   const countryOptions = useMemo(() => Array.from(new Set(entities.map((e) => String(e.attributes?.country || "").trim()).filter(Boolean))), [entities]);
-
-  const toggleCompare = (id: string) => {
-    setCompareSelected((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= 6) return prev;
-      const next = [...prev, id];
-      try {
-        const basket: string[] = JSON.parse(window.localStorage.getItem("metafusion_compare_basket") || "[]");
-        const merged = Array.from(new Set([...(Array.isArray(basket) ? basket : []), ...next])).slice(0, 6);
-        window.localStorage.setItem("metafusion_compare_basket", JSON.stringify(merged));
-      } catch { /* ignore */ }
-      return next;
-    });
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

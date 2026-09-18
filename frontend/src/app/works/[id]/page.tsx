@@ -14,6 +14,7 @@ import { Entity, fetchAllPages, mapLimit, title as entityTitle, type CommunityPo
 import { useDefinitions, getFieldName, getRelationName, getTermName, resolveLocalizedName } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useAuth } from "@/lib/authContext";
+import { useKindRedirect } from "@/lib/useKindRedirect";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Layers, MessageSquare, Search, ChevronLeft, ChevronRight, ArrowRight, ArrowUpRight, Network, List, ArrowRightLeft, X, Calendar, Tag } from "lucide-react";
 import { RevisionHistoryModal } from "@/components/editor/RevisionHistoryModal";
@@ -75,6 +76,9 @@ export default function WorkDirectoryPage() {
  const [loadError, setLoadError] = useState<LoadFailureKind | "">("");
  const [loadingReleases, setLoadingReleases] = useState(true);
  const [releasesFailed, setReleasesFailed] = useState(false);
+ // 路由隐含的种类与实际 kind 不符时的收敛（见 lib/useKindRedirect）：/works/:id 拿到
+ // release/medium/track 等任何 id 都照作品模板渲染，会把同一个实体显示成矛盾的类型。
+ const [kindMismatch, setKindMismatch] = useState<string | null>(null);
 
  // Revision History, and Merge Modals（编辑改为跳转通用编辑页 /catalog/:id?edit=1）
  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -85,6 +89,12 @@ export default function WorkDirectoryPage() {
  setLoadError("");
  try {
  const data = await fetchApi<Entity>(`/catalog/entities/${workId}`);
+ if (data.kind !== "work") {
+ // 关系/发行版都是"按作品模板取数据"，种类不符时一条都不发，直接收敛。
+ setKindMismatch(data.kind || "unknown");
+ return;
+ }
+ setKindMismatch(null);
  setWork(data);
  // 关系与对端实体一次取回（服务端批量解析），前端不再逐条请求。
  const r = await fetchApi<{ items: RelationItem[]; entities: Record<string, Entity> }>(`/catalog/entities/${workId}/relations`);
@@ -379,9 +389,11 @@ const releaseFacets = useMemo(
  }, [workId]);
 
  useEffect(() => {
- if (!workId) return;
+ // 种类不符时这一页马上要被规范路由替换，别再按作品拉一遍发行版列表。
+ if (!workId || kindMismatch) return;
  loadReleases();
- }, [workId]);
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [workId, kindMismatch]);
 
  // 讨论分节已不在标签栏（id="discussion" 现在是普通锚点）。客户端渲染下浏览器
  // 处理 hash 时元素还不存在，旧链接 #discussion 会停在页首；内容就绪后补一次滚动。
@@ -404,7 +416,10 @@ const releaseFacets = useMemo(
  if (page > totalPages) setPage(totalPages);
  }, [page, totalPages]);
 
- if (loadingWork) {
+ // 正在收敛到规范路由：停在加载态，绝不按作品模板渲染别的种类。
+ const redirecting = useKindRedirect("work", kindMismatch, workId);
+
+ if (loadingWork || redirecting) {
  return <div className="min-h-screen bg-background relative flex flex-col overflow-clip"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center text-sm text-gray-500">{t("work.detail.loading")}</div></div>;
  }
 

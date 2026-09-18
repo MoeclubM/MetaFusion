@@ -14,6 +14,8 @@ import {
   resolveLocalizedName,
 } from "@/lib/definitions";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
+import { useKindRedirect } from "@/lib/useKindRedirect";
+import { COMPARE_MAX_SLOTS, compareHref, useCompareBasket } from "@/lib/compareBasket";
 import { PageShell } from "@/components/ui/PageShell";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { Card } from "@/components/ui/Card";
@@ -36,43 +38,6 @@ import {
   Plus,
 } from "lucide-react";
 
-const COMPARE_MIN_SLOTS = 2;
-const COMPARE_MAX_SLOTS = 6;
-const COMPARE_BASKET_KEY = "metafusion_compare_basket";
-
-function readBasket(): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(COMPARE_BASKET_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((x) => typeof x === "string" && x.trim() !== "");
-  } catch {
-    return [];
-  }
-}
-
-function toggleBasket(id: string): string[] {
-  const trimmed = id.trim();
-  if (!trimmed) return readBasket();
-  const current = readBasket();
-  const next = current.includes(trimmed)
-    ? current.filter((x) => x !== trimmed)
-    : [...current, trimmed].slice(0, COMPARE_MAX_SLOTS);
-  try {
-    window.localStorage.setItem(COMPARE_BASKET_KEY, JSON.stringify(next));
-  } catch {
-    /* storage unavailable */
-  }
-  return next;
-}
-
-function compareHref(ids: string[]): string {
-  const cleaned = ids.map((x) => x.trim()).filter(Boolean);
-  if (cleaned.length === 0) return "/compare";
-  return `/compare?ids=${encodeURIComponent(cleaned.join(","))}`;
-}
 
 function formatDuration(totalSeconds?: number | null): string {
   if (!totalSeconds || totalSeconds <= 0) return "—";
@@ -178,9 +143,13 @@ export default function ReleaseDetailPage() {
   const [error, setError] = useState<LoadFailureKind | "">("");
   // 重试入口：重跑同一次取数（不改变路由与筛选）。
   const [reloadKey, setReloadKey] = useState(0);
+  // 路由隐含的种类与实际 kind 不符时的收敛（见 lib/useKindRedirect）：以前只抛 invalid_kind，
+  // 页面上既没有正确模板也没有可读错误页。
+  const [kindMismatch, setKindMismatch] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [showBonus, setShowBonus] = useState(false);
-  const [basket, setBasket] = useState<string[]>([]);
+  // 篮子状态与跨标签页同步统一走 lib/compareBasket.ts：另一页加入/移除后本页不刷新即一致。
+  const { basket, toggle: toggleBasket } = useCompareBasket();
   const [basketNotice, setBasketNotice] = useState("");
   const [siblingReleases, setSiblingReleases] = useState<Entity[]>([]);
   // 批量数据的加载缺口按来源细分：实体查询与批量详情是两条路径，任一部分未恢复都要
@@ -195,10 +164,6 @@ export default function ReleaseDetailPage() {
   const [expandedOcc, setExpandedOcc] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    setBasket(readBasket());
-  }, []);
-
-  useEffect(() => {
     if (!releaseId) return;
     let cancelled = false;
     setLoading(true);
@@ -206,7 +171,13 @@ export default function ReleaseDetailPage() {
     (async () => {
       try {
         const rel = await api<Entity>(`/catalog/entities/${releaseId}/resolve`);
-        if (rel.kind !== "release") throw new Error("invalid_kind");
+        if (rel.kind !== "release") {
+          // 种类不符不再把裸码 invalid_kind 当正文吐出来（那既不是错误页也不是正确模板），
+          // 收敛到该 kind 的规范路由；后面全是"按发行版模板取数据"的请求，一条都不发。
+          if (!cancelled) setKindMismatch(rel.kind || "unknown");
+          return;
+        }
+        if (!cancelled) setKindMismatch(null);
         // 载体与曲目全量翻页获取：大型盒装/合集不受固定 limit 截断。
         const mediums = await fetchAllPages<Entity>(
           `/catalog/entities?kind=medium&release_id=${encodeURIComponent(String(rel.id || ""))}`
@@ -416,7 +387,10 @@ export default function ReleaseDetailPage() {
     return Array.from(groups.entries());
   }, [mediumTree]);
 
-  if (loading) {
+  // 正在收敛到规范路由：停在加载态，绝不按发行版模板渲染别的种类。
+  const redirecting = useKindRedirect("release", kindMismatch, releaseId);
+
+  if (loading || redirecting) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
@@ -502,7 +476,7 @@ export default function ReleaseDetailPage() {
       return;
     }
     setBasketNotice("");
-    setBasket(toggleBasket(release.id!));
+    toggleBasket(release.id!);
   };
 
   const releaseTitle = entityTitle(release, locale);
