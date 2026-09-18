@@ -87,8 +87,8 @@ export function PersonalAccessTokensPanel() {
     fetchPersonalAccessTokens()
       .then((r) => {
         if (!alive) return;
-        // 契约漂移：HTTP 200 但 items 不是数组 = **取不到数据**，与下面 catch 同口径按失败处理
-        // （维持 tokens=null，列表区不渲染，并给出失败文案）。
+        // 第二层守卫（第一层在 lib/api/auth.ts 的 fetchPersonalAccessTokens：包装层现在会直接抛）：
+        // HTTP 200 但 items 不是数组 = **取不到数据**，与下面 catch 同口径按失败处理。
         // 只有确认为数组才 setTokens——空数组才是"你还没有令牌"（settings.patEmpty）；
         // 把"取不到"落成 [] 就是本文档开头警告过的"把失败讲成你还没有令牌"。
         if (!Array.isArray(r.items)) {

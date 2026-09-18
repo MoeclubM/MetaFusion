@@ -192,11 +192,15 @@ function normalizeCreatedToken(raw: unknown): CreatedPersonalAccessToken {
 /** GET /auth/tokens：只列当前登录身份自己的令牌（含已撤销的，界面靠 revoked_at 打标）。 */
 export async function fetchPersonalAccessTokens(): Promise<{ items: PersonalAccessToken[] }> {
   const raw = await fetchApi<unknown>("/auth/tokens");
+  // 契约漂移必须能与"没有令牌"分开：这里原来把"既不是数组、也没有 items 数组"的响应也归一成
+  // { items: [] }，界面上就成了"暂无令牌"——把取不到讲成了空列表，面板的失败分支永远进不去。
+  // 现在按失败抛出（码留在 message 前缀里，面板的 patErrorText 会把码与明细一起显示出来）。
   const list = Array.isArray(raw)
     ? raw
     : Array.isArray((raw as { items?: unknown })?.items)
       ? ((raw as { items: unknown[] }).items)
-      : [];
+      : null;
+  if (list === null) throw new Error("invalid_response: items");
   return { items: list.map(normalizePersonalAccessToken) };
 }
 
