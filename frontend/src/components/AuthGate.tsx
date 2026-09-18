@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { fetchSetupStatus } from "@/lib/api";
 import { useI18n } from "@/i18n/I18nProvider";
+import { isEditEntry } from "@/lib/entityRoutes";
 
 const PROTECTED_PREFIXES = [
   // /account 已不自带登录表单：未登录访问统一跳 /login（见 app/account/page.tsx 的说明）。
@@ -31,7 +32,15 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
   const router = useRouter();
 
   const [setupChecked, setSetupChecked] = useState(cachedSetupStatus !== null);
-  const isProtected = isProtectedPath(pathname);
+  // `/catalog/[id]?edit=1` 不在受保护前缀里，但它就是编辑器入口，门槛必须与 /new 一致。
+  // 查询串只能在客户端读（见下面重定向里的说明），故先按 false 渲染一帧，挂载后并入同一判定；
+  // EntityEditor 的未登录空态带登录链接，这一帧不再是死胡同。
+  const [editEntry, setEditEntry] = useState(false);
+  const isProtected = isProtectedPath(pathname) || editEntry;
+
+  useEffect(() => {
+    setEditEntry(isEditEntry(typeof window !== "undefined" ? window.location.search : ""));
+  }, [pathname]);
 
   useEffect(() => {
     // 首次检测系统是否完成 OOBE 初始化

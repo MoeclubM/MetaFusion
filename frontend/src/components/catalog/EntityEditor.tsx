@@ -6,6 +6,7 @@ import { api, Entity, emptyEntity, kinds as fallbackKinds, local, Source } from 
 import { canPublishEntity } from "@/lib/permissions";
 import { localizeCatalogError } from "@/lib/catalogErrors";
 import { useAuth } from "@/lib/authContext";
+import { getAuthLoginUrl } from "@/lib/services";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
 import { effectiveSchemeFields, getFieldName, getKindName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
@@ -108,7 +109,24 @@ export function EntityEditor({
   // 当前编辑的语种；空串表示跟随原始语言（用户还没手动切换过）。
   const [localePick, setLocalePick] = useState("");
   if (!definitions) return <p>{t("catalog.loading")}</p>;
-  if (!user) return <p>{t("catalog.loginToEdit")}</p>;
+  if (!user) {
+    // ?edit=1 已由 AuthGate 纳入登录闸门（未登录先跳 /login 并带回完整目标）。这里只兜底
+    // 闸门判定生效前的一帧与编辑中途掉登录态：所以必须留登录出口——原来只回一句没有链接、
+    // 没有跳转的文本，分享出去的编辑链接就是个死胡同。
+    // getAuthLoginUrl() 不带参即用 window.location.href 做回跳目标，深链逐字保留；
+    // 本分支只可能在客户端渲染（上面 definitions 未就绪时已经 return）。
+    return (
+      <div className="space-y-3 py-6">
+        <p className="text-sm text-text-muted">{t("catalog.loginToEdit")}</p>
+        <a
+          href={getAuthLoginUrl()}
+          className="inline-flex items-center gap-1.5 px-4 h-9 rounded-lg bg-primary text-white keep-white text-sm font-semibold mf-focus"
+        >
+          {t("nav.login")}
+        </a>
+      </div>
+    );
+  }
   const d = definitions;
   const patch = (v: Partial<Entity>) => setE({ ...e, ...v });
   // ---- 标签：自由输入，取代原先的"类型"勾选（types 保留在数据里，只是不再由界面选择）----

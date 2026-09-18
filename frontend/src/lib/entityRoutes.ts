@@ -35,9 +35,15 @@ export function formalDetailUrl(
 }
 
 /**
- * ?edit=1 是实体编辑器的唯一入口，而编辑器只挂在通用详情视图上：
- * 收敛到正式路由会连编辑入口一起丢掉，所以带这个参数时保持通用视图。
+ * ?edit=1 是实体编辑器的唯一入口，而编辑器只挂在通用详情视图上。这个参数决定两件事：
+ * 详情路由不收敛到正式路由（keepsGenericView），以及登录闸门把它当受保护目标
+ * （components/AuthGate.tsx：未登录先跳 /login 并带回完整目标，与 /new 同一套规则）。
  */
-export function keepsGenericView(query = ""): boolean {
+export function isEditEntry(query = ""): boolean {
   return new URLSearchParams(query).get("edit") === "1";
+}
+
+/** 收敛到正式路由会连编辑入口一起丢掉，所以带 ?edit=1 时保持通用视图。 */
+export function keepsGenericView(query = ""): boolean {
+  return isEditEntry(query);
 }
