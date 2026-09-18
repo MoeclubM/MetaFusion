@@ -23,7 +23,7 @@
 
 ## 2. 路由归属（现状）
 
-唯一生效的矩阵是 `deploy/nginx.conf`（compose 的 `gateway` 服务）：实测 **41 条 `location`**（2026-09 补限流与探针、随后接入三个服务管理台、删掉 `/api/records/` 后），账号前缀用精确匹配与正则逐条分流。
+唯一生效的矩阵是 `deploy/nginx.conf`（compose 的 `gateway` 服务）：实测 **44 条 `location`**（以 `python scripts/check_gateway_matrix.py` 输出为准；2026-09 起陆续接入三个服务管理台、账号自助应用（`/login`、`/setup`）、举报/申诉与私信路径后增长，删掉 `/api/records/` 后），账号前缀用精确匹配与正则逐条分流。
 下表按归属归纳路径族；逐条 location 与精确匹配以文件为准。矩阵与本文表格的一致性检查、以及网关矩阵的单一来源归属见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §6。
 
 | 归属 | 路径 | 现状 |
@@ -37,6 +37,7 @@
 | auth | `/api/oauth/authorize|token|userinfo`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration`、根路径 `/.well-known/{openid-configuration,jwks.json}` | metafusion-auth（令牌只由它签发，discovery 与 JWKS 也只在它这里） |
 | auth | `/api/developer/*`（overview、apps、apps/{id}、apps/{id}/rotate-secret） | metafusion-auth（开发者中心：任何登录账号自助登记应用；网关用 `/api/developer/` 前缀整体分流，不与 `/api/admin/oauth/*` 混用） |
 | catalog | `/api/catalog/*`（definitions、tags、entities、relations、shelves、compare、me/home-preferences 等）、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json` | 本仓库，保留 |
+| catalog | `GET /api/notifications`、`GET /api/notifications/unread-count`、`POST /api/notifications/read-all`、`POST /api/notifications/:id/read`、`POST /api/notifications/internal` | 本仓库（站内通知收件箱：`catalog.notifications`，2026-09-20 落地，迁移 `000003_notifications`；读取端按令牌身份收件，跨服务投递端 `internal` 由互动服务凭 `INTERNAL_API_TOKEN` 写入；网关走 `/api/` 兜底分流到目录服务，无需单列 location） |
 | catalog | `GET /api/version` | 本仓库：运行中进程的版本身份——构建期注入的版本与 git sha、构建时间、进程启动时间（同一个 `/api/` 兜底 location 分流）；匿名可读，只回身份字段，不含配置、凭据与主机信息，用于发布/回滚后核对"线上跑的是哪一版" |
 | community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id、**reports 与 admin/reports｜admin/appeals**） | metafusion-community（举报与申诉：用户端 `POST /reports`、`GET /reports/mine`、`POST /reports/:id/appeal`；管理端 `GET /admin/reports`、`/{id}`、`/{id}/accept|reject|resolve`、`GET /admin/appeals`、`POST /admin/appeals/:id/review`——同属 `/api/community/` location，不需要新增网关条目） |
 | community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | metafusion-community（`community.favorites`） |
@@ -71,7 +72,7 @@
   - storage/community 判定"实体是否可见"必须走 catalog 的实体查询接口，不得直连 catalog 表。
   - 实体合并（`entity.merged`）写入目录的 `catalog.outbox`；**当前没有任何跨服务消费者**（投递函数 `Store.Deliver` 只在测试里被调用），子系统对合并结果的收敛靠同步查询目录接口。
     `deliveries`（consumer + `event_id`）去重与回调按事件 ID 幂等，是**将来引入投递时的契约**而不是现状；投递与拉取的取舍见 [多项目解耦审计与优化建议](./decoupling-audit-2026-09.md) §5。
-- 结构来源：目录走 `backend/migrations/000001_catalog_core.up.sql` + `mf-migrate`；互动与存储各自把 DDL 放进仓库内（社区 `migrations/000001_init.up.sql`、存储 `internal/store/migrations/000001_init.up.sql`，均 `go:embed`），启动执行同一份**幂等**基线并记账到 `<schema>.schema_migrations`。
+- 结构来源：目录走 `backend/migrations/000001_catalog_core.up.sql`（基线）+ `000002_audit_log.up.sql`（审计表）+ `000003_notifications.up.sql`（站内通知收件箱）+ `mf-migrate`；服务启动与 `mf-migrate up` 执行同一份 DDL；互动与存储各自把 DDL 放进仓库内（社区 `migrations/000001_init.up.sql`、存储 `internal/store/migrations/000001_init.up.sql`，均 `go:embed`），启动执行同一份**幂等**基线并记账到 `<schema>.schema_migrations`。
   约定：迁移文件按版本号命名、账本表在各自 schema 内；迁移期取事务级 advisory lock 的键位是 **catalog 740202 / auth 740203 / storage 740204 / community 740205**（2026-09-16 community 已补事务级锁并重查账本空转；新增服务必须另取键位并在本文登记）。
   “启动只校验、迁移由 owner 单独跑”尚未实现（受限角色下 `CREATE TABLE IF NOT EXISTS` 会要 schema 的 CREATE 权限），见 [审计文档](./decoupling-audit-2026-09.md) §4.3。
 - **库侧权限边界（2026-09 落地）**：四个服务各有自己的库角色（`mf_catalog` / `mf_auth` / `mf_community` / `mf_storage`），

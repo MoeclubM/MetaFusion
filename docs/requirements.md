@@ -64,7 +64,7 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 |---|---|---|
 | AUTH-01 | 注册开关 | `registration_enabled=false` 时 `POST /api/auth/register` 拒绝（错误码 `registration_closed`，前端文案键 `auth.error.registration_closed`）；首管初始化仍走 `/api/setup`，管理员建号走 `/api/admin/users` |
 | AUTH-02 | 邀请开关 | `invite_required=true` 时注册必带有效 `invite_code`（缺失报 `invite_required`、无效报 `invalid_invite_code`），核销写入 `auth.invite_uses` 并累计 `auth.invites.used_count`；`false` 时 `invite_code` 可选。开关与配额在后台「系统设置」里改 |
-| AUTH-03 | 登录、续期与账号封禁 | `email_or_username + password`，口令错误统一 `invalid_credentials`（401）；访问令牌 15 分钟，续期走 `POST /api/auth/refresh`（用当前 Bearer/Cookie 换发新令牌并轮转服务端会话行）。**账号封禁**：`auth.users.banned` 由 `PUT /api/admin/users/{id}/ban`（需 `auth.users.manage`）维护，被封禁账号的登录与续期一律 `403 account_banned`，封禁同时删除其服务端会话、第三方令牌与未兑换授权码，并让验签路径立即拒绝（不必等令牌自然过期）；不能封自己、不能封掉最后一个可登录的管理员。用户可 `GET /api/auth/oauth-grants` 查看、`DELETE /api/auth/oauth-grants/{client_id}` 撤回自己的第三方授权。**账号服务不签发 `refresh_token`**（第三方令牌到期需重新授权），也没有 PAT 长期令牌；认证写入类接口按 IP 限流，速率与开关来自实例设置（默认 15 次/分钟） |
+| AUTH-03 | 登录、续期与账号封禁 | `email_or_username + password`，口令错误统一 `invalid_credentials`（401）；访问令牌 15 分钟，续期走 `POST /api/auth/refresh`（用当前 Bearer/Cookie 换发新令牌并轮转服务端会话行）。**账号封禁**：`auth.users.banned` 由 `PUT /api/admin/users/{id}/ban`（需 `auth.users.manage`）维护，被封禁账号的登录与续期一律 `403 account_banned`，封禁同时删除其服务端会话、第三方令牌与未兑换授权码，并让验签路径立即拒绝（不必等令牌自然过期）；不能封自己、不能封掉最后一个可登录的管理员。用户可 `GET /api/auth/oauth-grants` 查看、`DELETE /api/auth/oauth-grants/{client_id}` 撤回自己的第三方授权。**账号服务不签发 `refresh_token`**（第三方令牌到期需重新授权）；**个人访问令牌（PAT）已落地**：账号服务签发 `mfp_` 前缀长期令牌（明文只在创建响应出现一次，库里只存 sha256），目录侧经账号服务的 `POST /api/auth/tokens/introspect` 内省判定（进程内缓存 60 秒；`401`/`403`=令牌无效回 `401 invalid_token`，5xx/超时/限流回 `503 auth_unavailable`）；认证写入类接口按 IP 限流，速率与开关来自实例设置（默认 15 次/分钟） |
 | AUTH-04 | 邀请链 | 注册成功写入 `auth.invite_uses`（邀请码 → 用户）；邀请码在后台 `/api/admin/invites` 签发与作废，`code` 形如 `XXXX-XXXX-XXXX-XXXX` |
 
 ### 3.2 元数据开放
@@ -87,14 +87,14 @@ MetaFusion 的正确定位是 **元数据开放、媒体受控** 的多媒介百
 ### 3.4 社区与论坛
 
 - 读开放、写需登录；`comment` 分区 `show_in_feed=false` 不进入 `board_code=all` 信息流（comment 分区不进入信息流）。
-- 论坛不再有语言维度：板块名称/描述是单一字段，主题不带 `language`，社区列表也不提供语种筛选（2026-09-16 变更；站点自身 UI 的多语言不受影响）。
+- 论坛去掉语言维度但只去接口层：话题列表不再接受 `?language=` 筛选，发帖/改帖不再传 `language`；数据库列全部保留（`community.topics.language` 默认空串不再读写，板块 `names`/`descriptions` 多语言 JSONB 保留）；站点自身 UI 的四语不受影响（2026-09-17 变更）。
 
 ---
 
 ## 4. 非功能与合规
 
-- **审计**：目录侧每次写入在 `catalog.revisions` 留痕（带 `edit_note` 与来源）；账号与媒体资产的统一审计表（`admin_audit_logs`）当前未落地。
-- **速率限制**：当前在网关按 IP 限流（`/api/` 30 r/s、`/api/auth/` 5 r/s），目录服务另有按路由的限额；匿名/登录差异化配额、统一限流中间件与 `X-RateLimit-*` 响应头均未落地。
+- **审计**：目录侧每次写入在 `catalog.revisions` 留痕（带 `edit_note` 与来源）；跨服务统一审计表 `audit.audit_log` 已落地，四个服务写操作各记一行，唯一读取面是账号服务的 `GET /api/admin/audit-logs`（需 `auth.audit.read`），口径见 [审计留痕契约](architecture/audit-log.md)。
+- **速率限制**：网关按 IP 限流（`/api/` 30 r/s、`/api/auth/` 5 r/s），目录服务另有按路由的限额（`routeLimiter`，如列表 120/min、导入预检 10/min）；被限流的路由随响应下发 `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset`（超限另带 `Retry-After`，实现见 `backend/internal/catalog/http.go`）；匿名/登录差异化配额与统一限流中间件未落地。
 - **SEO**：元数据页 SSR 可被爬虫收录，媒体二进制 URL 必须带鉴权且 `robots.txt` 禁止直链索引。
 - **版权提示**：媒体预览/下载页需展示版权与合规提示，下载行为需二次确认。
 

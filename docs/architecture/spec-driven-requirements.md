@@ -14,7 +14,7 @@
 ## 1. 核心架构与系统边界
 
 1. **元数据主系统（一体化核心）**：
-   - **涵盖范围**：首页分类货架（`/`）、全域探索中心（`/explore`）、实体详情展示（`/catalog/[id]`）、实体编辑器/创建器（`/new`）、多版本对比工具（`/compare`）、以及共用同一数据库的后台管理系统（`/admin`）。
+   - **涵盖范围**：首页分类货架（`/`）、全域探索中心（`/explore`）、实体详情展示（正式路由 `/works`、`/releases`、`/mediums`，其余 kind 兜底 `/catalog/[id]`，见 `frontend/src/lib/entityRoutes.ts`）、实体编辑器/创建器（`/new`）、多版本对比工具（`/compare`）、站内通知（`/notifications`）、以及共用同一数据库的后台管理系统（`/admin`）。
    - **后台管理系统**：
      - 与元数据主系统共用同一 PostgreSQL 数据库（`catalog` schema）。
      - 支持在后台 GUI 中完整定义与管理动态元数据架构：动态类型（Types）、字段定义（Fields）、图谱关系（Relations）、受控词表（Vocabularies）、展示模板（Templates）。

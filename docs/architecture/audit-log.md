@@ -77,7 +77,7 @@ $audit_ddl$;
 
 命名：`<域>.<过去式动作>`，全小写 + 下划线。域按业务对象分（`user` / `group` / `settings` /
 `invite` / `oauth_client` / `pat` / `session` / `entity` / `relation` / `definition` /
-`external_database` / `shelf` / `import` / `proposal` / `module` / `preference` /
+`external_database` / `shelf` / `import` / `proposal` / `module` / `preference` / `notification` /
 `board` / `topic` / `post` / `ban` / `asset` / `binding` / `file` / `moderation`）。
 
 清单按服务分别落在各自实现的 `actions` 注册表里（路由模板 → 动作码），并由

@@ -8,7 +8,7 @@
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache--2.0-black?style=flat-square" alt="License"/></a>
   <img src="https://img.shields.io/badge/Go-1.25-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go"/>
-  <img src="https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js&logoColor=white" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js&logoColor=white" alt="Next.js"/>
   <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL"/>
   <img src="https://img.shields.io/badge/OpenSearch-2.14-005ECC?style=flat-square&logo=opensearch&logoColor=white" alt="OpenSearch"/>
   <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker"/>
@@ -116,7 +116,7 @@
 ## 🛠️ 技术栈清单
 
 - **后端核心 (Backend)**：Go 1.25, Gin, Golang-JWT/v5（对象存储走 S3 协议，客户端库为 minio-go——它只是 S3 SDK，服务端是 RustFS）
-- **前端系统 (Frontend)**：Next.js 14 (App Router), React 18, Tailwind CSS, Lucide Icons, TypeScript
+- **前端系统 (Frontend)**：Next.js 16 (App Router), React 19, Tailwind CSS, Lucide Icons, TypeScript
 - **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
 - **数据库 (Storage & DB)**：PostgreSQL 16, Redis 7 (Alpine，Compose 已部署；Go 代码尚未接入), RustFS (S3-compatible Object Storage)
 - **检索引擎 (Search Engine)**：OpenSearch 2.14.0（Compose 已部署；Go 代码尚未接入，当前检索走 PostgreSQL）

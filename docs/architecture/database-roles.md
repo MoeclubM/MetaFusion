@@ -30,7 +30,7 @@
 
 | schema | 表 | 序列 / 其它 | 谁读写 |
 | --- | --- | --- | --- |
-| `catalog` | entities, relations, content_units, expressions, release_subjects, mediums, tracks, track_contents, revisions, definitions, shelves, external_databases, outbox, deliveries, user_preferences（15） | definitions_id_seq, revisions_id_seq, shelves_id_seq；函数 check_parent_cycle() | `mf_catalog` |
+| `catalog` | entities, relations, content_units, expressions, release_subjects, mediums, tracks, track_contents, revisions, definitions, shelves, external_databases, outbox, deliveries, user_preferences, notifications（16；`notifications` 由 `000003_notifications` 建出，见迁移基准 §2 的 `/api/notifications/*` 行） | definitions_id_seq, revisions_id_seq, shelves_id_seq；函数 check_parent_cycle() | `mf_catalog` |
 | `auth` | users, sessions, oauth_clients, oauth_codes, oauth_tokens, oauth_audit, personal_access_tokens, instance_settings, invites, invite_uses, groups, user_groups（12） | — | `mf_auth` |
 | `community` | boards, topics, posts, tags, topic_tags, favorites, direct_messages, schema_migrations（8） | tags_id_seq | `mf_community` |
 | `storage` | assets, bindings, schema_migrations（3） | — | `mf_storage` |

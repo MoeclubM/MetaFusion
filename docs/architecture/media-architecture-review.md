@@ -56,7 +56,7 @@
 
 ## 5. 后台治理补强
 
-后台治理 Tab 现为账号与权限、OAuth 客户端、审计、外部库、货架、定义六类；`DefinitionsEditor` 保留草稿、影响、发布流程。货架规则（types、fields、vocab、relations 条件，加排序、图标、多语言名）公开读、管理写，前后端共用同一规则。抓取、导出、声纹、AI、通知、搜索一律做外围能力，禁止外键指回核心表。
+主站后台（`frontend/src/app/admin/page.tsx`）现有总览、定义、外部库、货架、审核、合并、模块、导入导出八组 Tab；账号与权限、OAuth 客户端、审计页已随拆分迁入各服务自带的管理台（网关 `/admin/account/`、`/admin/community/`、`/admin/storage/`，见迁移基准 §2），主站不再重复建设；`DefinitionsEditor` 保留草稿、影响、发布流程。货架规则（types、fields、vocab、relations 条件，加排序、图标、多语言名）公开读、管理写，前后端共用同一规则。抓取、导出、声纹、AI、通知、搜索一律做外围能力，禁止外键指回核心表。
 
 
 ## 6. 每类一例
