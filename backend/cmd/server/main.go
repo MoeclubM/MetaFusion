@@ -21,6 +21,7 @@ import (
 	"github.com/metafusion/metafusion-app/internal/capabilities"
 	"github.com/metafusion/metafusion-app/internal/catalog"
 	"github.com/metafusion/metafusion-app/internal/nettrust"
+	"github.com/metafusion/metafusion-app/internal/upstream"
 )
 
 func main() {
@@ -96,6 +97,12 @@ func main() {
 	if authURL := strings.TrimSpace(os.Getenv("AUTH_URL")); authURL != "" {
 		s.PAT = catalog.NewPATIntrospector(authURL)
 		log.Printf("catalog accepts personal access tokens via %s (introspection cached for %s)", authURL, catalog.PATCacheTTL)
+		// 实际生效的出站策略要能被运维看见：账号服务慢到什么程度算故障、会重试几次、熔断阈值多少，
+		// 只写在代码里的话，"为什么 PAT 请求 503 了"只能靠读源码猜。
+		if pol := catalog.PATIntrospectPolicy(); true {
+			log.Printf("auth upstream policy: attempts=%d attempt_timeout=%s budget=%s backoff=%s..%s jitter=%.2f breaker=%d consecutive failures / %s open",
+				pol.Attempts, pol.AttemptTimeout, pol.Budget, pol.BaseBackoff, pol.MaxBackoff, pol.Jitter, pol.BreakerThreshold, pol.BreakerOpenFor)
+		}
 	} else {
 		log.Print("AUTH_URL is not configured: personal access tokens (mfp_ prefix) will be rejected with 503 auth_unavailable")
 	}
@@ -179,6 +186,8 @@ func main() {
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "live", "service": "metafusion-catalog", "definitions": s.DefinitionStatus()})
 	})
+	// 浅探针只探本进程自己的依赖（PG），必须保持毫秒级：编排的 healthcheck 每 10 秒打它一次。
+	// 跨服务依赖另开 deep=1（编排与常规探针都不带这个参数），因此不会把探针拖慢。
 	r.GET("/ready", func(c *gin.Context) {
 		check, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		defer cancel()
@@ -186,7 +195,22 @@ func main() {
 			c.JSON(503, gin.H{"status": "unavailable"})
 			return
 		}
-		c.JSON(200, gin.H{"status": "ready", "dependencies": []string{"postgres"}})
+		body := gin.H{"status": "ready", "dependencies": []string{"postgres"}}
+		if deep := c.Query("deep"); deep == "1" || strings.EqualFold(deep, "true") {
+			// 深探：并发探关键上游（账号服务 = PAT 内省与 JWKS 的依赖），总时长被 ProbeAll 封在 3s。
+			// 上游不可用时回 503 + status=degraded：这是"依赖不全、别往上切流"的信号，
+			// 与浅探针的语义（本进程连不上库）刻意区分开。
+			results := upstream.ProbeAll(c.Request.Context(), 3*time.Second, []upstream.ProbeTarget{s.PAT.ProbeTarget()})
+			body["upstreams"] = results
+			for _, r := range results {
+				if r.Status != upstream.ProbeReady {
+					body["status"] = "degraded"
+					c.JSON(503, body)
+					return
+				}
+			}
+		}
+		c.JSON(200, body)
 	})
 
 	server := &http.Server{

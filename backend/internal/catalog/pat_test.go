@@ -245,7 +245,7 @@ func TestPATCacheSingleflight(t *testing.T) {
 
 // 缓存必须有上限与逐出：任何人都能构造 mfp_ 前缀的字符串来喂缓存。
 func TestPATCacheIsBounded(t *testing.T) {
-	c := newPATCache(time.Now)
+	c := newPATCache(time.Now, 0)
 	if PATCacheMax < 16 {
 		t.Fatalf("上限太小，用例失去意义: %d", PATCacheMax)
 	}
@@ -264,7 +264,7 @@ func TestPATCacheIsBounded(t *testing.T) {
 // 满了要逐出时先清过期项（它们只是白占内存），不是无脑扔掉最老的活条目。
 func TestPATCacheEvictsExpiredFirst(t *testing.T) {
 	now := time.Now()
-	c := newPATCache(func() time.Time { return now })
+	c := newPATCache(func() time.Time { return now }, 0)
 	for i := 0; i < PATCacheMax; i++ {
 		c.storeLocked(patHash("stale-"+strconv.Itoa(i)), patCacheEntry{cachedUntil: now.Add(-time.Minute)})
 	}

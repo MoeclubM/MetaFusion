@@ -108,8 +108,12 @@ func newTokenVerifier(issuer, audience string, getenv func(string) string) (*Tok
 	t := &TokenVerifier{
 		issuer:   issuer,
 		audience: audience,
-		client:   &http.Client{Timeout: 2 * time.Second},
-		keys:     map[string]*rsa.PublicKey{},
+		// JWKS 拉取刻意不走 internal/upstream（超时分层+有界重试+熔断）：它有自己的单飞
+		// （refreshMu + flight，同一时刻只发一次）、10 分钟缓存，以及**失败回落缓存公钥**的降级路径
+		// ——失败不是"取不到身份"，只是"这次轮换没确认到"。给这条出站再加一层重试只会把
+		// "密钥轮换确认"拖长，不会让验签更可靠（见 refreshJWKS 的注释）。
+		client: &http.Client{Timeout: 2 * time.Second},
+		keys:   map[string]*rsa.PublicKey{},
 	}
 	if raw := strings.TrimSpace(getenv("AUTH_JWT_PUBLIC_KEY")); raw != "" {
 		pub, err := parseStaticPublicKey(raw)
