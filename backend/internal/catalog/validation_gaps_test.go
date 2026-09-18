@@ -7,7 +7,8 @@ import (
 )
 
 // 本文件锁定校验/关系/合并/权限补缺口的离线语义（无 DB）：
-//   - 署名码动态化：creditRelationTypes 与 definitions group=credits 一致；
+//   - 署名码动态化：creditRelationTypes 来自关系自己的 CountsAsCredit 声明
+//     （老文档按 group=credits 兜底），挪分组不再改行为；
 //   - 去重键含 position；目标端否决权；validation 最小校验；
 //   - Relations/impact 删除码宽容；合并冲突键；状态机现状（无 archived）。
 // DB 行为（Save/mergeReferences/Lifecycle/收藏跟随）在 MF_V2_TEST_DSN 下的
@@ -48,6 +49,50 @@ func TestCreditRelationTypesFollowDefinitions(t *testing.T) {
 		if g == "voiced_by" {
 			t.Fatal("disabled credit code still reported")
 		}
+	}
+}
+
+// 把关系挪出 credits 组是"改展示归类"，不得静默改变署名聚合的口径：
+// 行为看关系自己的 CountsAsCredit 声明，因此上述改动后集合不变。
+func TestCreditRelationTypesIgnoreGroupMove(t *testing.T) {
+	before := creditRelationTypes(Defaults())
+
+	moved := Defaults()
+	rt := moved.Relations["directed_by"]
+	rt.Group = "membership"
+	rt.GroupNames = moved.Relations["member_of"].GroupNames
+	moved.Relations["directed_by"] = rt
+
+	after := creditRelationTypes(moved)
+	if len(after) != len(before) {
+		t.Fatalf("挪组后署名码集合变了：%v → %v", before, after)
+	}
+	for _, code := range []string{"directed_by", "voiced_by", "credit_for"} {
+		if !contains(after, code) {
+			t.Fatalf("挪组后 %q 仍在署名聚合里，实际 %v", code, after)
+		}
+	}
+}
+
+// 声明一旦存在就以它为准：显式关掉 CountsAsCredit 的码即使留在 credits 组也不进聚合，
+// 反之给非 credits 组的关系打开声明也会进——这正是"分组 ≠ 行为口径"。
+func TestCreditRelationTypesFollowDeclarationOverGroup(t *testing.T) {
+	d := Defaults()
+	keep := d.Relations["voiced_by"]
+	keep.CountsAsCredit = false
+	keep.Group = "credits" // 仍留在 credits 组
+	d.Relations["voiced_by"] = keep
+
+	extra := d.Relations["store_bonus_for"]
+	extra.CountsAsCredit = true // membership 组的关系也可显式参与署名
+	d.Relations["store_bonus_for"] = extra
+
+	got := creditRelationTypes(d)
+	if contains(got, "voiced_by") {
+		t.Fatalf("显式关掉声明的码不应进聚合：%v", got)
+	}
+	if !contains(got, "store_bonus_for") {
+		t.Fatalf("显式打开声明的码应进聚合：%v", got)
 	}
 }
 

@@ -512,8 +512,10 @@ func Defaults() Definitions {
 		"bonus_included_in": "peer",
 		"member_of":         "peer",
 	}
+	// credits 组的关系同时声明 CountsAsCredit：署名聚合看的是这条声明，不是分组码。
+	// 因此后台把某条关系挪出 credits 组只改变展示归类，不会静默改变 Release 详情的署名聚合。
 	addRel := func(code string, n, rev Names, src, tgt []string, group string, acyclic bool) {
-		d.Relations[code] = RelationDefinition{Names: n, ReverseNames: rev, SourceKinds: src, TargetKinds: tgt, Fields: []string{"role", "credit_role", "character_rank", "context", "character", "language", "begin_date", "end_date", "scope"}, ParticipantSlot: relSlot[code], Group: group, GroupNames: groupNames[group], Acyclic: acyclic, Enabled: true}
+		d.Relations[code] = RelationDefinition{Names: n, ReverseNames: rev, SourceKinds: src, TargetKinds: tgt, Fields: []string{"role", "credit_role", "character_rank", "context", "character", "language", "begin_date", "end_date", "scope"}, ParticipantSlot: relSlot[code], CountsAsCredit: group == "credits", Group: group, GroupNames: groupNames[group], Acyclic: acyclic, Enabled: true}
 	}
 	for _, x := range []relSeed{
 		{"created_by", names4("创作者", "創作者", "作者", "Created by"), names4("创作了", "創作了", "制作した", "Creator of")},

@@ -1154,19 +1154,36 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 	return out, nil
 }
 
-// creditRelationTypes 返回 definitions 中 group=credits 的关系码集合：
-// 批量署名聚合（ExpressionDetailsBatch 的 CreditTitle）与展示分组都以它为准，
-// 后台改名/增删署名码时自动跟随，不再因硬编码名单静默漏数。
-// 返回排序后的码，保证 SQL 占位符顺序稳定。
+// creditRelationTypes 返回"参与批量署名聚合"的关系码集合
+// （ExpressionDetailsBatch 的 CreditTitle 用它拼 IN 查询）。
+//
+// 判定严格来自每条关系自己的 CountsAsCredit 声明，不再看分组码：分组是展示归类，
+// 后台把某条关系挪出 credits 组属于改展示，不该静默改变"哪些关系算署名"的行为口径。
+// 老文档（还没有该声明）按 group=credits 兜底，保证上线后口径不跳变；
+// 停用码一律不计入。返回排序后的码，保证 SQL 占位符顺序稳定。
 func creditRelationTypes(d Definitions) []string {
 	out := []string{}
 	for code, rt := range d.Relations {
-		if rt.Group == "credits" && rt.Enabled {
+		if !rt.Enabled {
+			continue
+		}
+		if rt.CountsAsCredit || !hasCreditDeclaration(d) && rt.Group == "credits" {
 			out = append(out, code)
 		}
 	}
 	sort.Strings(out)
 	return out
+}
+
+// hasCreditDeclaration 报告这份文档里是否已有关系显式声明 CountsAsCredit：
+// 有就以声明为准（不再看分组），没有（老文档）才按 group=credits 兜底。
+func hasCreditDeclaration(d Definitions) bool {
+	for _, rt := range d.Relations {
+		if rt.CountsAsCredit {
+			return true
+		}
+	}
+	return false
 }
 
 // keysOf 返回 set 的键（顺序无关，仅用于构造 IN 查询）。

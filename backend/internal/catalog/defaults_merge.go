@@ -123,6 +123,13 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			out.Relations[code] = cur
 			added = append(added, "relations."+code+".participant_slot")
 		}
+		// CountsAsCredit 同属"只打开"的声明：老文档没有它时补上，
+		// 于是存量实例也从"按分组码猜"升级为"按关系自己的声明"。
+		if sr.CountsAsCredit && !cur.CountsAsCredit {
+			cur.CountsAsCredit = true
+			out.Relations[code] = cur
+			added = append(added, "relations."+code+".counts_as_credit")
+		}
 	}
 	for k, v := range seed.Structure {
 		if _, ok := out.Structure[k]; !ok {
