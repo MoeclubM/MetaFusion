@@ -91,6 +91,15 @@ jobs:
       - name: i18n keys sync check
         run: |
           bun -e "const fs=require('fs');const ks=f=>Object.keys(JSON.parse(fs.readFileSync('src/messages/'+f,'utf8'))).sort().join('|');const base=ks('zh-CN.json');for(const f of ['en-US.json','zh-TW.json','ja-JP.json']){if(ks(f)!==base){console.error('i18n drift: '+f);process.exit(1)}}console.log('i18n keys in sync')"
+      - name: i18n 使用面（悬空键 + 死键报告）
+        # 键集合比对只保证四语彼此一致，抓不到反向：代码 t() 了一个字典里根本没有的键，
+        # 界面上会把裸 key 显示出来。死键部分是报告项（--strict-dead 才失败）。
+        # 判据、动态前缀白名单与 --list-dead / --prune 的用法见脚本头部注释。
+        run: node scripts/check_i18n_usage.mjs
+      - name: 语言表生成物一致性
+        # src/lib/languages.ts 由 scripts/gen-languages.mjs 从消息字典生成；不跑生成器
+        # 就会和字典/语言数据漂移（langs:build 是本机修法，CI 只校验）。
+        run: bun run langs:check
       - name: JSX 裸文案检查
         # 四语键集合比对抓不到写死在 JSX 里的文案（landing/login 的 Loading…、admin 的 Loading Admin...
         # 就是这么漏过去的）；判据与白名单见 frontend/scripts/check_jsx_literals.mjs 顶部说明。
@@ -150,6 +159,16 @@ jobs:
       # 它与文档 §2 表、与各仓库版本锁的关系只能靠机器守（2026-09 审计 §6）。
       - name: 网关矩阵 ↔ 文档 §2 表一致性
         run: python3 scripts/check_gateway_matrix.py
+      - name: CI 脚本存在性元检查
+        # 本轮出现过"CI 引用了脚本但脚本没入库"，表现是 job 在干净检出上红、本地看不出来。
+        # 这里只做检查，不再装依赖（脚本是纯标准库，--selftest 是它自己的离线用例）。
+        run: |
+          python3 scripts/check_ci_scripts.py
+          python3 scripts/check_ci_scripts.py --selftest
+      - name: 文档端点契约脚本离线自测
+        # 真跑要兄弟仓库（在 cross-repo job）；这里先证明脚本本体的归一化与两个方向判定没坏，
+        # 否则它会静默地"永远 0 问题"。
+        run: python3 scripts/check_doc_routes.py --selftest
       # 版本锁与环境变量矩阵需要兄弟仓库源码，放在下面的 cross-repo job：
       # 这里只检出主仓库，跑 check_versions.py 只会逐条 SKIP（审计 ops#9 的“恒 SKIP”）。
   # 跨仓检查：版本锁与环境变量矩阵都要看兄弟仓库源码/提交，因此先把它们按锁检出。
@@ -192,6 +211,16 @@ jobs:
           python3 -m pip install --quiet pyyaml
           python3 scripts/check_env_matrix.py
           python3 scripts/check_env_matrix.py --selftest
+      - name: 契约生成物 ↔ 锚点来源一致性（权限码 / kinds）
+        # frontend job 里那一步其实没有兄弟仓库：缺席时生成器沿用生成物里的现有取值，
+        # 兄弟侧权限码等于没校验（本地实测：锚点来源与生成物一致时才真能守住）。
+        # 这里兄弟仓库已按 versions.lock 锚点就位，加码/改码漏改生成物会真的失败。
+        run: node frontend/scripts/generate-contracts.mjs --check
+      - name: 文档端点 ↔ 后端路由一致性
+        # 文档站写过不存在的端点（例如 change-password 别名）而没人发现：只有"文档有、实现无"
+        # 的主仓 /api 端点会非零退出，反向（实现有、文档没写）只报告。兄弟仓库按 versions.lock
+        # 检出在 ../ 下，正是脚本默认的搜索起点；缺席时脚本 SKIP 并退 0。
+        run: python3 scripts/check_doc_routes.py
 
   # 文档站已独立为 metafusion-docs 仓库（唯一源），构建与链接自查在那边跑；
   # 本仓库不再持有 doc 页面，故这里没有 docs-site job。
