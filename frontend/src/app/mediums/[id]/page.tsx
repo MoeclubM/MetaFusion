@@ -13,6 +13,7 @@ import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
 import { GroupAttributeInline, LocatorInline } from "@/components/catalog/TemplateAttributeSections";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { PageShell } from "@/components/ui/PageShell";
+import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { Card } from "@/components/ui/Card";
@@ -131,6 +132,11 @@ export default function MediumDetailPage() {
   const formatLabel = formatCode ? getTermName(defs, "format", formatCode, locale) : "";
   const roleCode = String(medium?.attributes?.role || "");
   const roleLabel = roleCode ? getTermName(defs, "role", roleCode, locale) : "";
+  // 封面继承链与 /catalog/[id] 一致：载体自身 → 所属发行版 → 发行对象作品。
+  // 载体自身通常没有封面图，回落到发行版封面才是这张碟实际用的那张。
+  const coverUrl =
+    medium?.pictures?.[0]?.url || release?.pictures?.[0]?.url || work?.pictures?.[0]?.url || undefined;
+
   // 正在收敛到规范路由：停在加载态，绝不按载体模板渲染别的种类。
   const redirecting = useKindRedirect("medium", kindMismatch, mediumId);
 
@@ -186,32 +192,46 @@ export default function MediumDetailPage() {
           </div>
           {/* 页面级 h1 归页头：与 /works/[id]、/releases/[id] 落同一条左基线，
               不再受卡片左内边距与图标列影响。 */}
-          <header className="space-y-2">
-            {/* 图标收进徽章行：大图标列会把 h1 顶到 176px，标题必须落在内容基线上。 */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-300 font-mono text-[10px] tracking-wider">
-                <HardDrive className="w-3.5 h-3.5" />
-                {t("medium.detail.badge")}
-              </span>
-              {roleLabel && <span className="text-xs font-mono text-gray-500">{roleLabel}</span>}
+          <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div className="space-y-2 min-w-0">
+              {/* 图标收进徽章行：大图标列会把 h1 顶到 176px，标题必须落在内容基线上。 */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-300 font-mono text-[10px] tracking-wider">
+                  <HardDrive className="w-3.5 h-3.5" />
+                  {t("medium.detail.badge")}
+                </span>
+                {roleLabel && <span className="text-xs font-mono text-gray-500">{roleLabel}</span>}
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-text-strong break-words">{mediumTitle}</h1>
+              {/* 多语言题名/别名：与 /works/[id] 一致（载体页此前也缺这块）。 */}
+              {medium && (
+                <LocalizedTitleGroups
+                  translations={medium.translations}
+                  originalLanguage={medium.original_language}
+                  displayTitle={mediumTitle}
+                  extraKnown={[medium.title]}
+                  className="space-y-0.5"
+                  itemClassName="font-mono text-xs text-text-muted"
+                />
+              )}
+              {work && (
+                <p className="text-sm text-gray-500">
+                  {entityTitle(work, locale) || work.title}
+                </p>
+              )}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-text-strong break-words">{mediumTitle}</h1>
-            {/* 多语言题名/别名：与 /works/[id] 一致（载体页此前也缺这块）。 */}
-            {medium && (
-              <LocalizedTitleGroups
-                translations={medium.translations}
-                originalLanguage={medium.original_language}
-                displayTitle={mediumTitle}
-                extraKnown={[medium.title]}
-                className="space-y-0.5"
-                itemClassName="font-mono text-xs text-text-muted"
-              />
-            )}
-            {work && (
-              <p className="text-sm text-gray-500">
-                {entityTitle(work, locale) || work.title}
-              </p>
-            )}
+            {/* 封面：载体自身没有封面图时沿用所属发行版的封面（缺失才落程序占位）。
+                此前载体页完全没有封面位，同一实体在 /catalog/[id] 有图、在这里是空白。 */}
+            <div className="w-24 sm:w-28 shrink-0 self-start">
+              <div className="w-full aspect-square rounded-md overflow-hidden border border-line">
+                <AdaptiveCardCover
+                  src={coverUrl}
+                  alt={mediumTitle}
+                  fallbackIcon={<HardDrive className="w-6 h-6 text-gray-400" />}
+                  aspectClassName="w-full h-full"
+                />
+              </div>
+            </div>
           </header>
           </div>
           }
