@@ -2501,5 +2501,17 @@
   "seo.topicDescription": "MetaFusion 社区里的讨论主题。",
   "seo.userDescription": "MetaFusion 用户主页：贡献记录与收藏一览。",
   "users.profile.listUnavailable": "列表暂时取不到，请稍后重试。",
-  "users.profile.notFound": "找不到该用户（账号服务返回 404）；下方目录贡献与互动数据仍照常展示。"
+  "users.profile.notFound": "找不到该用户（账号服务返回 404）；下方目录贡献与互动数据仍照常展示。",
+  "messages.title": "私信",
+  "messages.conversations": "会话",
+  "messages.loadMoreConversations": "加载更多会话",
+  "messages.loadMoreFailed": "更多会话加载失败，请重试。",
+  "messages.empty": "还没有私信",
+  "messages.emptyHint": "在用户主页点「发送私信」即可开始一段对话。",
+  "messages.loginRequired": "登录后即可查看私信",
+  "messages.loginRequiredHint": "会话列表与未读消息只对登录用户可见。",
+  "messages.selectConversation": "从左侧选择一个会话开始阅读。",
+  "messages.backToList": "返回会话列表",
+  "messages.unknownPeer": "暂时取不到该用户的用户名，这里显示用户 ID。",
+  "messages.unreadLabel": "{n} 条未读消息"
 }

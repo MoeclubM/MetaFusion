@@ -9,7 +9,7 @@ import { ThemePicker } from "./ThemePicker";
 import { useI18n } from "@/i18n/I18nProvider";
 import { BrandMark } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
-import { displayNameOf } from "@/lib/api";
+import { displayNameOf, fetchUnreadMessageCount } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
 import { canEnterAdmin } from "@/lib/permissions";
 import { getAuthLoginUrl, getAuthSettingsUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
@@ -29,6 +29,7 @@ import {
   MessageSquare,
   Sparkles,
   Terminal,
+  Mail,
 } from "lucide-react";
 
 /**
@@ -51,6 +52,9 @@ export const Navbar: React.FC = () => {
   const pathname = usePathname();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  // 未读私信角标：登录后拉一次 + 每 30s 一次。失败一律隐藏角标（null），**不渲染成 0**——
+  // "取不到"与"没有未读"必须能区分；失败也不影响导航其余部分。
+  const [unreadCount, setUnreadCount] = useState<number | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   // 顶栏实际高度随断点变化：<xl 时顶栏里还多一行移动导航，写死在 CSS 里必然对不上。
@@ -110,6 +114,45 @@ export const Navbar: React.FC = () => {
       controller.abort();
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(null);
+      return;
+    }
+    let alive = true;
+    const load = () => {
+      fetchUnreadMessageCount()
+        .then((n) => {
+          if (alive) setUnreadCount(n);
+        })
+        .catch(() => {
+          if (alive) setUnreadCount(null);
+        });
+    };
+    load();
+    const timer = window.setInterval(load, 30000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [user]);
+
+  // 打开用户菜单时顺手刷新一次：下拉里的角标不该停在最多 30 秒前的旧值。
+  useEffect(() => {
+    if (!user || !isUserMenuOpen) return;
+    let alive = true;
+    fetchUnreadMessageCount()
+      .then((n) => {
+        if (alive) setUnreadCount(n);
+      })
+      .catch(() => {
+        if (alive) setUnreadCount(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user, isUserMenuOpen]);
 
   const navLinks = [
     { href: "/", label: t("navigation.home"), icon: Library, exact: true },
@@ -220,8 +263,17 @@ export const Navbar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-2 pl-1.5 pr-2.5 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
+                className="relative flex items-center gap-2 pl-1.5 pr-2.5 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
               >
+                {/* 角标挂在按钮上：用户菜单在窄屏同样可见，桌面顶栏不必再加一条只在 >xl 出现的入口。 */}
+                {unreadCount !== null && unreadCount > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-danger/15 border border-danger/30 text-danger-soft text-[10px] font-bold flex items-center justify-center"
+                    title={t("messages.unreadLabel", { n: unreadCount })}
+                  >
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
                 <UserAvatar user={user} size="sm" shape="rounded" />
                 <span className="font-medium max-w-[90px] truncate hidden sm:inline text-xs">
                   {displayNameOf(user as unknown as { username: string; display_name?: string })}
@@ -261,6 +313,24 @@ export const Navbar: React.FC = () => {
                       <UserIcon className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
                       <span>{t("navbar.accountSessions")}</span>
                     </a>
+
+                    {/* 私信收件箱：用户菜单在所有断点都可见，窄屏与桌面共用这一条入口。 */}
+                    <Link
+                      href="/messages"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="w-full px-3 py-2 text-left text-text-body hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
+                    >
+                      <Mail className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
+                      <span>{t("messages.title")}</span>
+                      {unreadCount !== null && unreadCount > 0 && (
+                        <span
+                          className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-danger/15 border border-danger/30 text-danger-soft text-[10px] font-bold flex items-center justify-center"
+                          title={t("messages.unreadLabel", { n: unreadCount })}
+                        >
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
+                      )}
+                    </Link>
 
                     {/* 开发者中心：桌面顶栏那条入口在 hidden xl:flex 里，<xl 视口（移动端/平板）
                         看不到，这里补同一个入口；可见性用 xl:hidden 与桌面导航配对，避免桌面重复。

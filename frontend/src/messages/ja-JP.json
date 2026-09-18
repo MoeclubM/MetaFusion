@@ -2501,5 +2501,17 @@
   "seo.topicDescription": "MetaFusion コミュニティのディスカッショントピック。",
   "seo.userDescription": "MetaFusion のユーザーページ：貢献とお気に入りの一覧。",
   "users.profile.listUnavailable": "一覧を一時的に取得できません。しばらくしてから再試行してください。",
-  "users.profile.notFound": "ユーザーが見つかりません（アカウントサービスが 404 を返しました）。以下のカタログ・コミュニティ情報はそのまま表示します。"
+  "users.profile.notFound": "ユーザーが見つかりません（アカウントサービスが 404 を返しました）。以下のカタログ・コミュニティ情報はそのまま表示します。",
+  "messages.title": "メッセージ",
+  "messages.conversations": "会話",
+  "messages.loadMoreConversations": "さらに会話を読み込む",
+  "messages.loadMoreFailed": "会話の追加読み込みに失敗しました。再試行してください。",
+  "messages.empty": "メッセージはまだありません",
+  "messages.emptyHint": "ユーザーページで「メッセージを送る」を選ぶと会話を始められます。",
+  "messages.loginRequired": "ログインするとメッセージを閲覧できます",
+  "messages.loginRequiredHint": "会話一覧と未読件数はログインユーザーにのみ表示されます。",
+  "messages.selectConversation": "左の一覧から会話を選ぶと読めます。",
+  "messages.backToList": "会話一覧に戻る",
+  "messages.unknownPeer": "このユーザーの名前を取得できないため、ユーザー ID を表示しています。",
+  "messages.unreadLabel": "未読 {n} 件"
 }

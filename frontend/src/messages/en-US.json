@@ -2501,5 +2501,17 @@
   "seo.topicDescription": "A discussion topic in the MetaFusion community.",
   "seo.userDescription": "MetaFusion profile: contributions and favorites.",
   "users.profile.listUnavailable": "The list is temporarily unavailable — please retry.",
-  "users.profile.notFound": "User not found (the account service answered 404); the catalog and community data below are still shown."
+  "users.profile.notFound": "User not found (the account service answered 404); the catalog and community data below are still shown.",
+  "messages.title": "Messages",
+  "messages.conversations": "Conversations",
+  "messages.loadMoreConversations": "Load more conversations",
+  "messages.loadMoreFailed": "Failed to load more conversations; please retry.",
+  "messages.empty": "No messages yet",
+  "messages.emptyHint": "Open a profile and choose “Send message” to start a conversation.",
+  "messages.loginRequired": "Sign in to view your messages",
+  "messages.loginRequiredHint": "Conversations and unread counts are visible to signed-in users only.",
+  "messages.selectConversation": "Pick a conversation on the left to start reading.",
+  "messages.backToList": "Back to conversations",
+  "messages.unknownPeer": "This user's name is unavailable right now, so the user ID is shown instead.",
+  "messages.unreadLabel": "{n} unread messages"
 }

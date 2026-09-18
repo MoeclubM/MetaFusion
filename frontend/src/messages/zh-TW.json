@@ -2501,5 +2501,17 @@
   "seo.topicDescription": "MetaFusion 社群裡的討論主題。",
   "seo.userDescription": "MetaFusion 使用者主頁：貢獻記錄與收藏一覽。",
   "users.profile.listUnavailable": "列表暫時取不到，請稍後重試。",
-  "users.profile.notFound": "找不到該使用者（帳號服務回傳 404）；下方目錄貢獻與互動資料仍照常顯示。"
+  "users.profile.notFound": "找不到該使用者（帳號服務回傳 404）；下方目錄貢獻與互動資料仍照常顯示。",
+  "messages.title": "私訊",
+  "messages.conversations": "會話",
+  "messages.loadMoreConversations": "載入更多會話",
+  "messages.loadMoreFailed": "更多會話載入失敗，請重試。",
+  "messages.empty": "還沒有私訊",
+  "messages.emptyHint": "在使用者主頁點「傳送私訊」即可開始一段對話。",
+  "messages.loginRequired": "登入後即可查看私訊",
+  "messages.loginRequiredHint": "會話清單與未讀訊息只對登入使用者可見。",
+  "messages.selectConversation": "從左側選擇一個會話開始閱讀。",
+  "messages.backToList": "返回會話清單",
+  "messages.unknownPeer": "暫時取不到該使用者的名稱，這裡顯示使用者 ID。",
+  "messages.unreadLabel": "{n} 則未讀訊息"
 }

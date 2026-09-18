@@ -191,9 +191,16 @@ export interface DirectMessage {
   created_at: string;
 }
 
+/**
+ * 会话列表行（GET /api/messages/conversations）。
+ *
+ * 只有 peer_id，**没有对方用户名/头像**：账号资料归账号服务，互动服务不查它的库，
+ * 展示名由调用方自己按 fetchUserProfile(peer_id) 解析；解析失败也不能因此让整行变成错误态。
+ * last_message 是这段会话里最新的一条（服务端按 created_at DESC, id DESC 排序，与列表同序）。
+ */
 export interface ConversationItem {
-  peer: { id: string; username: string; role: string; avatar_url?: string; bio?: string; created_at: string };
-  last_message?: DirectMessage;
+  peer_id: string;
+  last_message: DirectMessage;
   unread_count: number;
 }
 
@@ -543,4 +550,50 @@ export async function sendDirectMessage(userId: string, body: string): Promise<D
     body: JSON.stringify({ body }),
   });
   return res.message;
+}
+
+/**
+ * 会话列表（GET /api/messages/conversations）：按 last_message.created_at DESC, id DESC，
+ * 第一页就是最新的会话；page/page_size 口径与逐会话消息一致（缺省 20、上限 100，越界静默收敛）。
+ */
+export async function fetchConversations(
+  page = 1,
+  pageSize = 20
+): Promise<{ items: ConversationItem[]; total: number }> {
+  const res = await fetchApi<{ items?: ConversationItem[]; total?: number }>(
+    "/messages/conversations?page=" + page + "&page_size=" + pageSize
+  );
+  // 会话列表界面上有"还没有私信"空态文案：items 换型/缺失必须抛错走失败态，
+  // 不能折成空数组把"取不到"讲成"没有会话"（与 fetchDirectMessages 同一口径）。
+  const items = requireArray<ConversationItem>(res?.items, "items");
+  return { items, total: safeCount(res?.total, items.length) };
+}
+
+/**
+ * 全站未读数（GET /api/messages/unread），导航角标用。
+ *
+ * 字段非法时**抛错**而不是回 0：角标只有"有 N 条未读"和"不显示"两种状态，
+ * 把取不到渲染成 0 会让用户以为没有新消息，比干脆不显示更糟。调用方接住错误即隐藏角标。
+ */
+export async function fetchUnreadMessageCount(): Promise<number> {
+  const res = await fetchApi<{ unread_count?: unknown }>("/messages/unread");
+  const raw = res?.unread_count;
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0 || raw > Number.MAX_SAFE_INTEGER) {
+    throw new Error("invalid_response: unread_count");
+  }
+  return Math.floor(raw);
+}
+
+/**
+ * 把来自 userId 的全部未读标记为已读（PUT /api/messages/with/:id/read），返回本次标记条数。
+ *
+ * marked 只作乐观更新用：字段缺失时退回 0（"没标记到"）而不抛错——已读回执是次要副作用，
+ * 不该因为一个计数不合法就打断正在进行的阅读。
+ */
+export async function markConversationRead(userId: string): Promise<number> {
+  const res = await fetchApi<{ marked?: number }>(
+    "/messages/with/" + encodeURIComponent(userId) + "/read",
+    { method: "PUT" }
+  );
+  return safeCount(res?.marked, 0);
 }
