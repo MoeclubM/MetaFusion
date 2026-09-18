@@ -124,6 +124,10 @@ services:
       timeout: 3s
       retries: 10
     environment:
+      # 生产不开 gin 的 debug 模式：debug 下每次启动会把整份路由表打进日志，并给每个请求
+      # 附 [GIN-debug] 明细（等于把未公开端点清单写进日志、也把日志撑大）。release 只关掉这些
+      # debug 输出，gin.Logger() 的逐请求访问日志与格式不变，排障字段照旧。
+      - GIN_MODE=release
       - PORT=8080
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -164,6 +168,8 @@ services:
     container_name: metafusion-auth
     restart: unless-stopped
     environment:
+      # 同上：生产关掉 gin debug 的路由表与逐请求 debug 输出。
+      - GIN_MODE=release
       - PORT=8081
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -199,6 +205,8 @@ services:
     container_name: metafusion-community
     restart: unless-stopped
     environment:
+      # 同上：生产关掉 gin debug 的路由表与逐请求 debug 输出。
+      - GIN_MODE=release
       - PORT=8083
       - DB_HOST=postgres
       - DB_PORT=5432
@@ -266,6 +274,8 @@ services:
     container_name: metafusion-storage
     restart: unless-stopped
     environment:
+      # 同上：生产关掉 gin debug 的路由表与逐请求 debug 输出。
+      - GIN_MODE=release
       - PORT=8082
       - DB_HOST=postgres
       - DB_PORT=5432
