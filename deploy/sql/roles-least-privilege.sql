@@ -233,54 +233,50 @@ $ops$;
 \if :{?audit_bootstrap}
 BEGIN;
 -- >>> audit-ddl begin（scripts/check_audit_schema.py 比对这个区间里的语句）
-CREATE SCHEMA IF NOT EXISTS audit;
--- 预建路径把 schema 归属也钉死（非契约语句，检查器只比对契约那七条）
-ALTER SCHEMA audit OWNER TO mf_audit_owner;
-SELECT pg_advisory_xact_lock(740205);
-SET LOCAL ROLE mf_audit_owner;
-CREATE TABLE IF NOT EXISTS audit.audit_log (
-  id               uuid PRIMARY KEY,
-  occurred_at      timestamptz NOT NULL DEFAULT now(),
-  service          text NOT NULL,
-  action           text NOT NULL,
-  actor_user_id    uuid,
-  actor_username   text NOT NULL DEFAULT '',
-  credential_type  text NOT NULL DEFAULT '',
-  actor_ip         text NOT NULL DEFAULT '',
-  actor_user_agent text NOT NULL DEFAULT '',
-  target_type      text NOT NULL DEFAULT '',
-  target_id        text NOT NULL DEFAULT '',
-  changes          jsonb NOT NULL DEFAULT '{}'::jsonb,
-  result           text NOT NULL DEFAULT 'success' CHECK (result IN ('success','failure')),
-  error_code       text NOT NULL DEFAULT '',
-  request_method   text NOT NULL DEFAULT '',
-  route            text NOT NULL DEFAULT '',
-  http_status      int NOT NULL DEFAULT 0,
-  request_id       text NOT NULL DEFAULT ''
-);
-CREATE INDEX IF NOT EXISTS audit_log_occurred_at_idx ON audit.audit_log(occurred_at DESC);
-CREATE INDEX IF NOT EXISTS audit_log_service_action_idx ON audit.audit_log(service, action, occurred_at DESC);
-CREATE INDEX IF NOT EXISTS audit_log_actor_idx ON audit.audit_log(actor_user_id, occurred_at DESC);
-CREATE INDEX IF NOT EXISTS audit_log_target_idx ON audit.audit_log(target_type, target_id, occurred_at DESC);
--- <<< audit-ddl end
-COMMIT;
-
--- 预建路径同时把归属钉死：表已存在却归服务角色时，只有这条路径能改正（第 2 节刻意不碰 audit，
--- 抢归属会打断当前能起来的那个服务）。
-DO $audit_owner$
-DECLARE
-  table_owner name;
+DO $audit_ddl$
 BEGIN
-  SELECT pg_get_userbyid(c.relowner) INTO table_owner
-  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-  WHERE n.nspname = 'audit' AND c.relname = 'audit_log';
-  IF table_owner IS DISTINCT FROM 'mf_audit_owner' THEN
-    EXECUTE 'ALTER TABLE audit.audit_log OWNER TO mf_audit_owner';
-    RAISE NOTICE '[3b] audit.audit_log 的 owner 原为 %，已交回 mf_audit_owner（预建路径）', table_owner;
+  PERFORM pg_advisory_xact_lock(740205);
+  IF to_regclass('audit.audit_log') IS NULL THEN
+    CREATE SCHEMA IF NOT EXISTS audit;
+    CREATE TABLE audit.audit_log (
+      id               uuid PRIMARY KEY,
+      occurred_at      timestamptz NOT NULL DEFAULT now(),
+      service          text NOT NULL,
+      action           text NOT NULL,
+      actor_user_id    uuid,
+      actor_username   text NOT NULL DEFAULT '',
+      credential_type  text NOT NULL DEFAULT '',
+      actor_ip         text NOT NULL DEFAULT '',
+      actor_user_agent text NOT NULL DEFAULT '',
+      target_type      text NOT NULL DEFAULT '',
+      target_id        text NOT NULL DEFAULT '',
+      changes          jsonb NOT NULL DEFAULT '{}'::jsonb,
+      result           text NOT NULL DEFAULT 'success' CHECK (result IN ('success','failure')),
+      error_code       text NOT NULL DEFAULT '',
+      request_method   text NOT NULL DEFAULT '',
+      route            text NOT NULL DEFAULT '',
+      http_status      int NOT NULL DEFAULT 0,
+      request_id       text NOT NULL DEFAULT ''
+    );
+    CREATE INDEX audit_log_occurred_at_idx ON audit.audit_log(occurred_at DESC);
+    CREATE INDEX audit_log_service_action_idx ON audit.audit_log(service, action, occurred_at DESC);
+    CREATE INDEX audit_log_actor_idx ON audit.audit_log(actor_user_id, occurred_at DESC);
+    CREATE INDEX audit_log_target_idx ON audit.audit_log(target_type, target_id, occurred_at DESC);
   END IF;
-  RAISE NOTICE '[3b] 已预建 audit.audit_log 并钉死 owner=mf_audit_owner';
 END
-$audit_owner$;
+$audit_ddl$;
+-- <<< audit-ddl end
+-- 守卫块之后把归属交给 mf_audit_owner（非契约语句，幂等）。
+-- 为什么不提前 SET LOCAL ROLE：守卫块里含 CREATE SCHEMA IF NOT EXISTS，而 PostgreSQL 对该语句
+-- **即使 schema 已存在也要求库级 CREATE**，该角色没有（见 docs/architecture/database-roles.md §4.1）。
+ALTER SCHEMA audit OWNER TO mf_audit_owner;
+ALTER TABLE audit.audit_log OWNER TO mf_audit_owner;   -- 主键与四条索引随表一起走
+DO $audit_notice$
+BEGIN
+  RAISE NOTICE '[3b] 已预建共享审计表（守卫形态）并钉死 owner=mf_audit_owner';
+END
+$audit_notice$;
+COMMIT;
 \else
 \echo '[3b] 跳过预建（未给 -v audit_bootstrap=1）：只做第 4b 节的按服务授权，不动 audit 归属。'
 \echo '     默认跳过的原因：契约 DDL 里 CREATE INDEX IF NOT EXISTS 在表已存在时仍要求表所有权，'
