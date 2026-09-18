@@ -24,40 +24,49 @@ import (
 // ServiceName 是本服务写进 audit_log.service 的值（契约 §1：该列无 CHECK，新增服务不改旧 DDL）。
 const ServiceName = "catalog"
 
-// Schema 是契约 §1 的 DDL 逐字复制：CREATE SCHEMA / advisory 锁（740205，四个服务共用，
-// 用来串行化"四个服务同时首次建表"）/ 建表 / 建索引，全部 IF NOT EXISTS，重复执行安全。
-const Schema = `-- 审计表跨服务共用：四个服务的业务 DDL 各管自己的 schema，这里单独用 audit schema，
--- 因为它不属于任何单个服务的领域数据（见 §5 的取舍说明）。
-CREATE SCHEMA IF NOT EXISTS audit;
-
--- 四个服务可能同时首次启动；建表用同一个 advisory 锁键（740205）串行化。
--- 一次 Exec 里的多条语句由 lib/pq 作为隐式事务批处理发送，xact 锁因此覆盖到建表结束。
-SELECT pg_advisory_xact_lock(740205);
-
-CREATE TABLE IF NOT EXISTS audit.audit_log (
-  id               uuid PRIMARY KEY,
-  occurred_at      timestamptz NOT NULL DEFAULT now(),
-  service          text NOT NULL,
-  action           text NOT NULL,
-  actor_user_id    uuid,
-  actor_username   text NOT NULL DEFAULT '',
-  credential_type  text NOT NULL DEFAULT '',
-  actor_ip         text NOT NULL DEFAULT '',
-  actor_user_agent text NOT NULL DEFAULT '',
-  target_type      text NOT NULL DEFAULT '',
-  target_id        text NOT NULL DEFAULT '',
-  changes          jsonb NOT NULL DEFAULT '{}'::jsonb,
-  result           text NOT NULL DEFAULT 'success' CHECK (result IN ('success','failure')),
-  error_code       text NOT NULL DEFAULT '',
-  request_method   text NOT NULL DEFAULT '',
-  route            text NOT NULL DEFAULT '',
-  http_status      int NOT NULL DEFAULT 0,
-  request_id       text NOT NULL DEFAULT ''
-);
-CREATE INDEX IF NOT EXISTS audit_log_occurred_at_idx ON audit.audit_log(occurred_at DESC);
-CREATE INDEX IF NOT EXISTS audit_log_service_action_idx ON audit.audit_log(service, action, occurred_at DESC);
-CREATE INDEX IF NOT EXISTS audit_log_actor_idx ON audit.audit_log(actor_user_id, occurred_at DESC);
-CREATE INDEX IF NOT EXISTS audit_log_target_idx ON audit.audit_log(target_type, target_id, occurred_at DESC);
+// Schema 是契约 §1 的 DDL（四仓逐字一致，改动要四仓同步）。
+//
+// **必须带存在性守卫**（`IF to_regclass('audit.audit_log') IS NULL`），不能退回顶层的
+// `CREATE TABLE IF NOT EXISTS …` + `CREATE INDEX IF NOT EXISTS …`：实测（PostgreSQL 17）
+// `CREATE INDEX IF NOT EXISTS` 是**先查表所有权、再看索引是否存在**，而这张表在最小权限部署里
+// 由 `mf_audit_owner` 预建、四个运行角色都不是它的所有者 → 无条件重跑会在服务启动路径上拿到
+// `42501 must be owner of table audit_log`，四个服务全部起不来（`CREATE TABLE IF NOT EXISTS`
+// 不这样，它只要求 schema 上的 CREATE；旧写法只在"表还不存在"时才侥幸通过）。
+// 有了守卫，表已存在的实例上整段是纯空转、不触发任何所有权检查；表不存在时才建表，此刻表由
+// 执行者自己建出、四条索引随即可建（所以索引不再需要 IF NOT EXISTS）。
+// 锁仍在建表之前取（PERFORM），四个服务同时首次启动由 advisory 锁 740205 串行化。
+const Schema = `DO $audit_ddl$
+BEGIN
+  PERFORM pg_advisory_xact_lock(740205);
+  IF to_regclass('audit.audit_log') IS NULL THEN
+    CREATE SCHEMA IF NOT EXISTS audit;
+    CREATE TABLE audit.audit_log (
+      id               uuid PRIMARY KEY,
+      occurred_at      timestamptz NOT NULL DEFAULT now(),
+      service          text NOT NULL,
+      action           text NOT NULL,
+      actor_user_id    uuid,
+      actor_username   text NOT NULL DEFAULT '',
+      credential_type  text NOT NULL DEFAULT '',
+      actor_ip         text NOT NULL DEFAULT '',
+      actor_user_agent text NOT NULL DEFAULT '',
+      target_type      text NOT NULL DEFAULT '',
+      target_id        text NOT NULL DEFAULT '',
+      changes          jsonb NOT NULL DEFAULT '{}'::jsonb,
+      result           text NOT NULL DEFAULT 'success' CHECK (result IN ('success','failure')),
+      error_code       text NOT NULL DEFAULT '',
+      request_method   text NOT NULL DEFAULT '',
+      route            text NOT NULL DEFAULT '',
+      http_status      int NOT NULL DEFAULT 0,
+      request_id       text NOT NULL DEFAULT ''
+    );
+    CREATE INDEX audit_log_occurred_at_idx ON audit.audit_log(occurred_at DESC);
+    CREATE INDEX audit_log_service_action_idx ON audit.audit_log(service, action, occurred_at DESC);
+    CREATE INDEX audit_log_actor_idx ON audit.audit_log(actor_user_id, occurred_at DESC);
+    CREATE INDEX audit_log_target_idx ON audit.audit_log(target_type, target_id, occurred_at DESC);
+  END IF;
+END
+$audit_ddl$;
 `
 
 // 契约写死的上限与上下文键（§1、§3、§4）。
