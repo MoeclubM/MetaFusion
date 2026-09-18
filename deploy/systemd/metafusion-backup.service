@@ -1,14 +1,17 @@
 [Unit]
 # MetaFusion 每日备份：PostgreSQL + 对象存储卷 + 配置快照（脚本自带磁盘护栏与保留策略）。
-# 路径与部署目录一致（服务器上仓库检出在 /root/metafusion/MetaFusion）。
+# 脚本路径用 systemd 的 %h（服务用户的 home；本 unit 未设 User=，即 root → /root），
+# 不再写死 /root/...：换账号跑或把检出挪进该账号 home 下的别处时，只改这两处的后半段。
+# 若检出既不在 home 下、也不由 root 跑，就把下面两行换成实际绝对路径——systemd 不对
+# 命令名做环境变量展开，所以这里用不了 EnvironmentFile 传路径。
 Description=MetaFusion 每日备份（PostgreSQL + 对象存储 + 配置快照）
-Documentation=file:/root/metafusion/MetaFusion/scripts/backup.sh
+Documentation=file:%h/metafusion/MetaFusion/scripts/backup.sh
 After=docker.service
 Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=/root/metafusion/MetaFusion/scripts/backup.sh --keep-days 7 --keep-weeks 4 --max-gb 2 --min-free-gb 3
+ExecStart=%h/metafusion/MetaFusion/scripts/backup.sh --keep-days 7 --keep-weeks 4 --max-gb 2 --min-free-gb 3
 # 备份是 IO 轻负载（36MB 库 → ~3MB 产物），但别跟业务抢 CPU：降优先级即可，不需要 cpulimit。
 Nice=10
 IOSchedulingClass=best-effort
