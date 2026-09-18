@@ -1,9 +1,15 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { ArrowUp, ArrowDown, RotateCcw, Languages, Plus, X } from "lucide-react";
+import { ArrowUp, ArrowDown, RotateCcw, Languages, X } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { CATALOG_LOCALES } from "@/components/editor/localeForm";
+import { LanguagePicker } from "@/components/common/LanguagePicker";
+import {
+  canonicalLanguageCode,
+  languageNativeName,
+  quickLanguages,
+  sameLanguage,
+} from "@/lib/languages";
 import {
   TITLE_ORDER_CHANGED_EVENT,
   getTitleDisplayOrder,
@@ -11,28 +17,20 @@ import {
   setTitleDisplayOrder,
 } from "@/lib/titles";
 
-const BASE_CODES = CATALOG_LOCALES.map((l) => l.code);
-
-// 后端 ValidLocales 开放的常见语种：可直接作为快速添加候选。
-const EXTRA_CODES = ["fr", "de", "es", "pt", "it", "ru", "th", "vi"];
-const LANG_CODE_RE = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
-
-const EXTRA_LABEL_KEYS: Record<string, string> = {
-  fr: "editor.core.origLangFr",
-  de: "editor.core.origLangDe",
-};
+// 默认优先级与快捷 chip 的候选都来自语言单一来源（@/lib/languages）；
+// 这里只保留"默认排在第几"这一件事：前 5 项是默认回退链顺序。
+const BASE_CODES = quickLanguages().map((l) => l.code);
 
 /**
- * 标题/简介显示语言优先级：基础编目语种之外支持添加任意 BCP-47 代码
- * （后端翻译行白名单内的语种才能落库生效）。未设置时走默认回退链
- * （界面语言 → en-US → 原始语言 → 其余语种）。变更即时存 localStorage 并广播。
+ * 标题/简介显示语言优先级：语种由可搜索的语言选择器挑选（按自称、英文名、中文名、
+ * 日文名、代码都能搜），不再要求用户手输语言代码。数据源是语言单一来源，本组件不含语种清单；
+ * 也不做语种白名单——任意合法 BCP-47 代码都能进列表（后端只校验格式，不校验是否在候选表内）。
+ * 变更即时存 localStorage 并广播。
  */
 export function TitleDisplayOrderSetting() {
   const { t } = useI18n();
   const [order, setOrder] = useState<string[]>([]);
   const [custom, setCustom] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [invalid, setInvalid] = useState(false);
 
   const reload = useCallback(() => {
     const saved = getTitleDisplayOrder();
@@ -65,37 +63,21 @@ export function TitleDisplayOrderSetting() {
     persist(order.filter((c) => c !== code));
   };
 
-  const add = (code: string) => {
-    const clean = code.trim();
-    if (!LANG_CODE_RE.test(clean)) {
-      setInvalid(true);
-      return;
-    }
-    if (order.includes(clean)) {
-      setDraft("");
-      setInvalid(false);
-      return;
-    }
-    setInvalid(false);
-    setDraft("");
-    persist([...order, clean]);
+  // 选择器只会回传语言表里的规范码；这里仍做一次归一与格式校验，挡住从旧 localStorage
+  // 读回来的历史写法（ja 与 ja-JP 视为同一语种，不重复添加）。
+  const add = (raw: string) => {
+    const code = canonicalLanguageCode(raw);
+    if (!code) return;
+    if (order.some((c) => sameLanguage(c, code))) return;
+    persist([...order, code]);
   };
 
   const reset = () => {
     resetTitleDisplayOrder();
-    setDraft("");
-    setInvalid(false);
     reload();
   };
 
-  const labelOf = (code: string) => {
-    const found = CATALOG_LOCALES.find((l) => l.code === code);
-    if (found) return t(found.labelKey);
-    const extra = EXTRA_LABEL_KEYS[code];
-    if (extra) return t(extra);
-    return code;
-  };
-  const missingBase = [...BASE_CODES, ...EXTRA_CODES].filter((c) => !order.includes(c));
+  const missingBase = BASE_CODES.filter((c) => !order.some((o) => sameLanguage(o, c)));
 
   return (
     <div className="p-2.5 rounded-md bg-background border border-line-subtle text-xs font-mono space-y-2">
@@ -125,7 +107,7 @@ export function TitleDisplayOrderSetting() {
             className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-line-subtle"
           >
             <span className="w-5 text-center text-gray-400">{i + 1}</span>
-            <span className="flex-1 text-text-strong font-sans">{labelOf(code)}</span>
+            <span className="flex-1 text-text-strong font-sans">{languageNativeName(code)}</span>
             <span className="text-gray-400">{code}</span>
             <button
               type="button"
@@ -165,42 +147,19 @@ export function TitleDisplayOrderSetting() {
               onClick={() => add(code)}
               className="px-2 py-0.5 rounded-full border border-line text-gray-500 hover:text-gray-900 dark:hover:text-white"
             >
-              + {labelOf(code)}
+              + {languageNativeName(code)}
             </button>
           ))}
         </div>
       )}
-      <div className="flex items-center gap-1.5 pt-1 border-t border-line-subtle">
-        <input
-          type="text"
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            setInvalid(false);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              add(draft);
-            }
-          }}
-          placeholder={t("settings.titleDisplayOrderAddPlaceholder")}
-          className={`flex-1 h-8 px-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border text-xs font-mono text-text-strong placeholder:text-gray-400 focus:outline-none focus:border-primary ${
-            invalid ? "border-rose-400" : "border-line"
-          }`}
+      <div className="pt-1 border-t border-line-subtle">
+        <LanguagePicker
+          selected={order}
+          onSelect={add}
+          ariaLabel={t("settings.titleDisplayOrderAdd")}
+          variant="field"
         />
-        <button
-          type="button"
-          onClick={() => add(draft)}
-          className="inline-flex items-center gap-1 px-2.5 h-8 rounded-md border border-line text-text-body hover:text-gray-900 dark:hover:text-white"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>{t("settings.titleDisplayOrderAdd")}</span>
-        </button>
       </div>
-      {invalid && (
-        <p className="text-[11px] text-rose-500 font-sans">{t("settings.titleDisplayOrderInvalid")}</p>
-      )}
       <p className="text-[11px] leading-relaxed text-gray-500 font-sans">
         {t("settings.titleDisplayOrderCustomHint")}
       </p>
