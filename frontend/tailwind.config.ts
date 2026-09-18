@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 const config: Config = {
   content: [
@@ -134,7 +135,7 @@ const config: Config = {
       },
       // v3 默认间距刻度没有 15 与 6.5：顶栏 sm:h-15（3.75rem，与 --mf-header-h 对齐）
       // 与 h-6.5（1.625rem）原本不生成，等于 h-15/h-6.5 写了没效果。
-      spacing: { 6.5: "1.625rem", 15: "3.75rem" },
+      spacing: { 0.2: "0.05rem", 6.5: "1.625rem", 15: "3.75rem" },
       // 容器宽度只留三档：page（主内容）/ narrow（阅读与表单）/ form（登录等窄卡）。
       maxWidth: {
         page: "80rem",
@@ -146,12 +147,19 @@ const config: Config = {
       opacity: { 8: "0.08", 98: "0.98" },
       transitionTimingFunction: { soft: "cubic-bezier(0.16, 1, 0.3, 1)" },
       boxShadow: {
+        // v4 把 shadow-sm 改名 shadow-xs、v3 的 shadow-sm 又叫 shadow-2xs 的前身；
+        // 源码里写的 shadow-xs/shadow-2xs 在 v3 下不生成，这里按 v3 等效值补上。
+        xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        "2xs": "0 1px 1px 0 rgb(0 0 0 / 0.04)",
         soft: "0 8px 24px -8px rgba(0,0,0,0.4)",
         elevated: "0 16px 48px -12px rgba(0,0,0,0.55)",
         glow: "0 2px 20px rgba(59,130,246,0.12)",
         "glow-amber": "0 2px 20px rgba(245,158,11,0.14)",
       },
       animation: {
+        // animate-in / animate-scale-up 来自 tailwindcss-animate（未装）：补上等效进/出场。
+        in: "fadeIn 0.2s cubic-bezier(0.16,1,0.3,1) both",
+        "scale-up": "scaleUp 0.18s cubic-bezier(0.16,1,0.3,1) both",
         "fade-in": "fadeIn 0.35s cubic-bezier(0.16,1,0.3,1)",
         "slide-up": "slideUp 0.4s cubic-bezier(0.16,1,0.3,1)",
         "scale-in": "scaleIn 0.18s cubic-bezier(0.16,1,0.3,1)",
@@ -170,6 +178,10 @@ const config: Config = {
           from: { opacity: "0", transform: "scale(0.97)" },
           to: { opacity: "1", transform: "scale(1)" },
         },
+        scaleUp: {
+          from: { opacity: "0", transform: "scale(0.95)" },
+          to: { opacity: "1", transform: "scale(1)" },
+        },
         shimmer: {
           "0%": { backgroundPosition: "100% 0" },
           "100%": { backgroundPosition: "-100% 0" },
@@ -177,6 +189,19 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  // 只有在 v4 或装了插件时才存在的写法：不补就是"写了不生效"。
+  // 值按 v3/v4 的等效语义给，组件侧不必逐处改名。
+  plugins: [
+    plugin(({ addUtilities }) => {
+      addUtilities({
+        ".outline-hidden": { outline: "2px solid transparent", outlineOffset: "2px" },
+        ".scrollbar-none": { scrollbarWidth: "none", "-ms-overflow-style": "none" },
+        ".scrollbar-none::-webkit-scrollbar": { display: "none" },
+        ".scrollbar-thin": { scrollbarWidth: "thin" },
+        // v4 的 bg-linear-to-br：等价于 v3 的 bg-gradient-to-br（仍靠 from-/via-/to- 填色标）
+        ".bg-linear-to-br": { backgroundImage: "linear-gradient(to bottom right, var(--tw-gradient-stops))" },
+      });
+    }),
+  ],
 };
 export default config;

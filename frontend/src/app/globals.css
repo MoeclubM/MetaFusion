@@ -338,13 +338,14 @@ select {
   line-height: 1.5;
 }
 
-/* Focus ring — cobalt */
+/* 输入框焦点环：跟着主色走（与 .mf-focus 的 --ring-color 同一套），
+   以前写死钴蓝，换成 rose/amber 等配色后同一页面会出现两种焦点色。 */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18), 0 1px 2px rgba(0,0,0,0.2);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px var(--ring-color, rgba(59, 130, 246, 0.18)), 0 1px 2px rgba(0,0,0,0.2);
 }
 
 /* Native <select> fallback — follow html.light / html.dark, never force dark */
@@ -392,12 +393,19 @@ select option:checked, select option:hover {
 /* ——— Typography utilities ——— */
 .font-display { font-family: var(--font-display); }
 
-/* ——— Glass / elevation ——— */
-.glass-strong {
-  background: rgba(18, 22, 31, 0.88);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  border: 1px solid rgba(255,255,255,0.08);
+/* ——— Page enter ——— */
+/* 页面级进入动画：error / not-found / PageShell / login / community 共 5 处引用，
+   但一直没有定义（类名是死的）。只动 opacity：动 transform 会让页面容器成为
+   fixed/sticky 后代的包含块，吸顶条会在动画期间跳位。 */
+.mf-enter {
+  animation: mf-enter-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes mf-enter-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mf-enter { animation: none; }
 }
 
 /* Radial vignette — Archive Cosmos hero wash */
@@ -444,10 +452,6 @@ img, video { max-width: 100%; }
 
 /* Fixed bottom bars should respect safe area */
 .fixed.bottom-0 { padding-bottom: env(safe-area-inset-bottom); }
-
-/* Bottom bar offset — main content needs bottom padding when a fixed bottom bar is mounted */
-body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
-@media (max-width: 640px) { body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 112px; } }
 
 /* --- Markdown & KaTeX / Math Typography --- */
 .markdown-body {
