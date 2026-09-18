@@ -380,7 +380,7 @@ func TestNotificationProducersOnPostgres(t *testing.T) {
 func TestNotificationImportReceiptOnPostgres(t *testing.T) {
 	f := newNotifyFixture(t)
 	ctx := context.Background()
-	res := ImporterImportResponse{EntityType: "work", WorkID: "cccccccc-0000-0000-0000-000000000001", ImportedCounts: ImporterImportedCounts{Artists: 1, Relations: 2, Mediums: 1, Tracks: 3, ContentUnits: 3}}
+	res := ImporterImportResponse{EntityType: "work", WorkID: "cccccccc-0000-0000-0000-000000000001", ImportedCounts: ImporterImportedCounts{Artists: 1, Relations: 2, SkippedRelations: 1, Mediums: 1, Tracks: 3, ContentUnits: 3}}
 	if err := f.s.notifyImportCompleted(ctx, f.owner, "bangumi", res); err != nil {
 		t.Fatal(err)
 	}
@@ -398,6 +398,68 @@ func TestNotificationImportReceiptOnPostgres(t *testing.T) {
 	}
 	if items[0].ActorID != f.owner.ID {
 		t.Fatalf("导入回执的 actor 是发起人自己: %+v", items[0])
+	}
+	// 载荷里的数字必须与 importReceiptPayload 的定义逐字一致（前端按同名键渲染，不做再计算）：
+	// entities = 顶层实体(1) + artists(1) + mediums(1) + tracks(3) + content_units(3) = 9。
+	if got := items[0].Payload["entities"]; got != float64(9) && got != 9 {
+		t.Fatalf("entities 定义不符（应为顶层+分项之和=9）: %+v", items[0].Payload)
+	}
+	if got := items[0].Payload["relations"]; got != float64(2) && got != 2 {
+		t.Fatalf("relations 应取 ImportedCounts.Relations: %+v", items[0].Payload)
+	}
+	if got := items[0].Payload["skipped_relations"]; got != float64(1) && got != 1 {
+		t.Fatalf("skipped_relations 应取 ImportedCounts.SkippedRelations: %+v", items[0].Payload)
+	}
+}
+
+// TestImportReceiptPayloadDefinition 钉住"这两个数到底是什么"：纯函数表驱动，
+// 不碰数据库也不碰网络——每个数字都只能来自 ImporterImportResponse 的对应字段。
+func TestImportReceiptPayloadDefinition(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		res  ImporterImportResponse
+		want map[string]int
+	}{
+		{
+			name: "作品链：顶层 work + 分项计数",
+			res:  ImporterImportResponse{EntityType: "work", WorkID: "w", ImportedCounts: ImporterImportedCounts{Artists: 1, Relations: 2, SkippedRelations: 1, Mediums: 1, Tracks: 3, ContentUnits: 3}},
+			want: map[string]int{"entities": 9, "relations": 2, "skipped_relations": 1, "artists": 1, "mediums": 1, "tracks": 3, "content_units": 3},
+		},
+		{
+			name: "只有顶层 artist、没有分项",
+			res:  ImporterImportResponse{EntityType: "artist", ArtistID: "a"},
+			want: map[string]int{"entities": 1, "relations": 0, "skipped_relations": 0},
+		},
+		{
+			name: "空回执（定义仍要自洽）",
+			res:  ImporterImportResponse{},
+			want: map[string]int{"entities": 0, "relations": 0, "skipped_relations": 0},
+		},
+		{
+			name: "同一响应里多个顶层 id 按出现次数计（导入器不会这么回，但计数不能靠猜）",
+			res:  ImporterImportResponse{WorkID: "w", ReleaseID: "r", ArtistID: "a"},
+			want: map[string]int{"entities": 3},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := importReceiptPayload("bangumi", tc.res)
+			if payload["source"] != "bangumi" || payload["status"] != "completed" {
+				t.Fatalf("来源/状态不符: %+v", payload)
+			}
+			for key, want := range tc.want {
+				got, ok := payload[key].(int)
+				if !ok {
+					t.Fatalf("%s 不是整数: %+v", key, payload[key])
+				}
+				if got != want {
+					t.Fatalf("%s=%d want %d（改定义要同时改前端文案）: %+v", key, got, want, payload)
+				}
+			}
+			// 不产出服务端算不出来的数：created 从来不在载荷里（前端曾有一行读它，已删）。
+			if _, exists := payload["created"]; exists {
+				t.Fatal("载荷不得出现 created：导入器没有新建/更新的拆分，编一个数比不显示更糟")
+			}
+		})
 	}
 }
 
