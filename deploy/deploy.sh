@@ -118,7 +118,12 @@ function tag_release_images() {
         return 0
     fi
 
-    # 只给本编排正在运行的容器镜像打 tag：pull/cutover 等路径上没落地的镜像不硬造标签。
+    # 只给**本仓库/兄弟仓库构建的镜像**打 tag：仓库名要么是 metafusion-*（compose 里显式 image:
+    # 的那几个服务），要么是 <compose 项目名>-*（frontend / docs / 三个管理台由 compose 生成
+    # deploy-<svc>）。postgres / redis / nginx / rustfs / opensearch 是别人的发布物，给它们贴
+    # 本项目的版本号等于把"这个 tag 代表一次发布"说成谎话，也会让保留策略去管别人的镜像；
+    # 网关虽然用 nginx:1.25-alpine，但它的配置是 bind mount，本来就没有镜像可回退。
+    local project="${COMPOSE_PROJECT_NAME:-$(basename "$PWD")}"
     local in_use imgs img repo tagged=0
     in_use="$(docker ps -a --format "{{.Image}}" | sort -u)"
     imgs="$(docker compose $COMPOSE_ENV -f docker-compose.yml ps -q 2>/dev/null | xargs -r docker inspect -f "{{.Config.Image}}" 2>/dev/null | sort -u)"
@@ -129,6 +134,10 @@ function tag_release_images() {
     for img in $imgs; do
         repo="${img%%:*}"
         [ -z "$repo" ] && continue
+        case "$repo" in
+            metafusion-*|"$project"-*) ;;
+            *) continue ;;
+        esac
         if ! docker image inspect "$img" >/dev/null 2>&1; then continue; fi
         if [ "$repo:$ver" != "$img" ]; then
             docker tag "$img" "$repo:$ver" >/dev/null 2>&1 && { echo "🏷️  镜像 tag：$img -> $repo:$ver"; tagged=$((tagged + 1)); }
@@ -143,10 +152,10 @@ function tag_release_images() {
 # 容器用的 :local / :latest 滚动标签永不参与）。候选只认「版本形态」的名字：vX.Y.Z 或 12 位短 sha。
 function prune_release_tags() {
     local repo="$1" in_use="$2" i=0 t tags
-    # 候选只认版本形态的名字：<repo>:vX.Y.Z 或 <repo>:<12 位短 sha>，按镜像创建时间倒序，
-    # 前 IMAGE_TAG_KEEP 个留下。用 | 分隔字段（tab 在源码里不可见，容易在编辑中被吃掉）。
-    tags="$(docker images --format "{{.Repository}}:{{.Tag}}|{{.CreatedAt}}" "$repo" 2>/dev/null \
-        | awk -F'|' '$1 ~ /:(v[0-9]|[0-9a-f]{12})$/ {print $2"|"$1}' | sort -r | cut -d'|' -f2)"
+    # 候选只认版本形态的名字：<repo>:vX.Y.Z 或 <repo>:<12 位短 sha>；**按版本号倒序**取前
+    # IMAGE_TAG_KEEP 个（按镜像构建时间排是错的：给新镜像贴个旧版本号就会被当成"最新"留住）。
+    tags="$(docker images --format "{{.Repository}}:{{.Tag}}" "$repo" 2>/dev/null \
+        | awk '/:(v[0-9]|[0-9a-f]{12})$/ {print}' | sort -Vr)"
     for t in $tags; do
         i=$((i + 1))
         [ "$i" -le "$IMAGE_TAG_KEEP" ] && continue
