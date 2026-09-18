@@ -198,7 +198,7 @@ export default function HomePage() {
         )}
 
         {failed && (
-          <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-mono">
+          <div className="p-3.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-warn-soft text-xs font-mono">
             {t("catalog.connectionError")}
           </div>
         )}

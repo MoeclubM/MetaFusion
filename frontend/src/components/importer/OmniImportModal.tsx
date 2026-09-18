@@ -673,7 +673,7 @@ export function OmniImportModal({
 
           {/* Error Banner */}
           {error && (
-            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-mono flex items-start gap-2.5">
+            <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-danger text-xs font-mono flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <div className="flex-1">{error}</div>
             </div>
@@ -681,7 +681,7 @@ export function OmniImportModal({
 
           {/* Success Banner */}
           {importSuccess && (
-            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-xs font-mono flex items-center gap-3">
+            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 dark:text-success text-xs font-mono flex items-center gap-3">
               <CheckCircle2 className="w-5 h-5 shrink-0" />
               <div>
                 <div className="font-bold">{t("importer.successTitle")}</div>
@@ -783,7 +783,7 @@ export function OmniImportModal({
               {/* 1. 智能查重关联已有作品提示 */}
               {duplicateMatches.length > 0 && (
                 <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs font-mono space-y-2">
-                  <div className="flex items-center justify-between text-amber-700 dark:text-amber-300 font-semibold">
+                  <div className="flex items-center justify-between text-amber-700 dark:text-warn-soft font-semibold">
                     <div className="flex items-center gap-2">
                       <AlertCircle className="w-4 h-4" />
                       <span>{t("importer.smartMatchDetected")}</span>
@@ -905,7 +905,7 @@ export function OmniImportModal({
               )}
               {/* 来源抓取不完整（如分集 total 与实取不符）必须显式提示，不能静默当作完整清单落库。 */}
               {!!previewData.warnings?.length && (
-                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/25 text-xs text-amber-700 dark:text-warn-soft space-y-1">
                   {Array.from(new Set(previewData.warnings.map((w) =>
                     w.startsWith("bangumi_episodes_incomplete") ? t("importer.sourceIncompleteEpisodes") : t("importer.sourceIncompleteGeneric"),
                   ))).map((msg) => (
@@ -935,7 +935,7 @@ export function OmniImportModal({
                             {pickRecordTitle(locale, entry.translations, entry.title, { order: titleOrder, originalLanguage: entry.original_language })}
                           </span>
                           {isUnit && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-sky-300 border border-sky-500/20 shrink-0">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-600 dark:text-info-soft border border-sky-500/20 shrink-0">
                               {t("catalog.contents.unitBadge")}
                             </span>
                           )}
@@ -956,7 +956,7 @@ export function OmniImportModal({
                                     type="button"
                                     onClick={() => setEntryMatches((prev) => ({ ...prev, [index]: suggestion.id }))}
                                     title={t("importer.matchSuggestionHint")}
-                                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-700 dark:text-amber-300 hover:bg-amber-500/20"
+                                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-700 dark:text-warn-soft hover:bg-amber-500/20"
                                   >
                                     <span>{t("importer.matchSuggestion", { title: suggestion.title })}</span>
                                   </button>
@@ -1034,7 +1034,7 @@ export function OmniImportModal({
                           </p>
                         )}
                         {crossWorkError && (
-                          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-mono flex items-start gap-2">
+                          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-danger text-xs font-mono flex items-start gap-2">
                             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                             <div className="flex-1">{crossWorkError}</div>
                           </div>
@@ -1124,7 +1124,7 @@ export function OmniImportModal({
 
                   {/* Summary counts badge */}
                   <div className="flex items-center gap-2 text-xs font-mono">
-                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-success border border-emerald-500/20">
                       {t("importer.staffCountSummary", { create: countCreate, link: countLink, skip: countSkip })}
                     </span>
                   </div>
@@ -1294,7 +1294,7 @@ export function OmniImportModal({
                         {/* If Link Mode is selected: display matched artist badge and allow searching another */}
                         {isLinked && (
                           <div className="mt-2.5 pt-2 border-t border-blue-500/15 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-                            <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                            <div className="flex items-center gap-1.5 text-blue-600 dark:text-info">
                               <UserCheck className="w-3.5 h-3.5" />
                               <span>{t("importer.staffMatchedWith")}:</span>
                               <strong className="underline">
@@ -1311,7 +1311,7 @@ export function OmniImportModal({
                                   handleSearchArtistInDB(assoc.parsed_name);
                                 }
                               }}
-                              className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                              className="text-[11px] text-blue-600 dark:text-info hover:underline flex items-center gap-1"
                             >
                               <Search className="w-3 h-3" />
                               <span>{t("importer.staffPickDifferent")}</span>

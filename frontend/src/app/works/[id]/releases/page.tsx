@@ -207,7 +207,7 @@ export default function WorkReleasesPage() {
                       return (
                       <tr key={rel.id} className="hover:bg-emphasis/[0.03] transition-colors duration-fast ease-soft">
                         <td className="py-3 px-2"><input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="w-4 h-4 rounded accent-primary cursor-pointer" /></td>
-                        <td className="py-3 px-4"><Link href={`/releases/${rel.id}`} className="font-semibold text-emphasis hover:text-sky-200 inline-flex items-center gap-1">{entityTitle(rel, locale)} <ArrowUpRight className="w-3 h-3 text-text-faint" strokeWidth={1.5} /></Link></td>
+                        <td className="py-3 px-4"><Link href={`/releases/${rel.id}`} className="font-semibold text-emphasis hover:text-info-soft inline-flex items-center gap-1">{entityTitle(rel, locale)} <ArrowUpRight className="w-3 h-3 text-text-faint" strokeWidth={1.5} /></Link></td>
                         <td className="py-3 px-4 text-text-muted">{vocabLabel(definitions, "edition_type", edition, locale) || "—"}</td>
                         <td className="py-3 px-4 text-text-muted">{country || "—"}</td>
                         <td className="py-3 px-4 text-text-muted">{vocabLabel(definitions, "packaging", packaging, locale) || "—"}</td>

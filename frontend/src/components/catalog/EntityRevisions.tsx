@@ -344,21 +344,21 @@ export function EntityRevisions({
                       </span>
                       <span className={"px-1.5 py-0.2 rounded text-[10px] uppercase font-bold " + (
                         f.type === "added"
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                          ? "bg-emerald-500/15 text-emerald-600 dark:text-success"
                           : f.type === "removed"
-                          ? "bg-rose-500/15 text-rose-600 dark:text-rose-400"
-                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                          ? "bg-rose-500/15 text-rose-600 dark:text-danger"
+                          : "bg-amber-500/15 text-amber-600 dark:text-warn"
                       )}>
                         {f.type}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
-                      <div className="p-2 rounded bg-rose-500/[0.06] dark:bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 break-all whitespace-pre-wrap">
+                      <div className="p-2 rounded bg-rose-500/[0.06] dark:bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-danger-soft break-all whitespace-pre-wrap">
                         <div className="text-[9px] uppercase tracking-wider text-rose-500 font-bold mb-0.5">{t("revisions.oldVersion", { version: diffTarget.base?.version || 0 })}</div>
                         {diffVal(f.oldVal)}
                       </div>
-                      <div className="p-2 rounded bg-emerald-500/[0.06] dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 break-all whitespace-pre-wrap">
+                      <div className="p-2 rounded bg-emerald-500/[0.06] dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-success-soft break-all whitespace-pre-wrap">
                         <div className="text-[9px] uppercase tracking-wider text-emerald-500 font-bold mb-0.5">{t("revisions.newVersion", { version: diffTarget.current?.version || 0 })}</div>
                         {diffVal(f.newVal)}
                       </div>
@@ -460,7 +460,7 @@ export function EntityRevisions({
                     </span>
 
                     {isLatest && (
-                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold">
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-success text-[10px] font-mono font-bold">
                         {t("revisions.latest")}
                       </span>
                     )}

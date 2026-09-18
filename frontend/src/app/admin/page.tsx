@@ -484,7 +484,7 @@ function AdminInner() {
   if (!user || !canEnterAdmin(user)) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mb-4">
+        <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/20 text-danger flex items-center justify-center mb-4">
           <Shield className="w-6 h-6" />
         </div>
         <h1 className="text-xl font-bold text-text-strong mb-2">
@@ -697,13 +697,13 @@ function AdminInner() {
                   <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.pendingReviews")}
                   </div>
-                  <div className="text-2xl font-bold text-amber-400">{stats.pending ?? "—"}</div>
+                  <div className="text-2xl font-bold text-warn">{stats.pending ?? "—"}</div>
                 </div>
                 <div className="p-4 rounded-xl border border-line-subtle bg-surfaceSubtle">
                   <div className="text-xs text-text-muted font-mono mb-1">
                     {t("admin.console.publishedEntities")}
                   </div>
-                  <div className="text-2xl font-bold text-emerald-400">{stats.published ?? "—"}</div>
+                  <div className="text-2xl font-bold text-success">{stats.published ?? "—"}</div>
                 </div>
                 {/* 墓碑 = deleted + merged，只来自 GET /catalog/entities/stats：列表端点的过滤固定带
                     status NOT IN ('deleted','merged')（backend/internal/catalog/store.go listFilter），
@@ -858,7 +858,7 @@ function AdminInner() {
               ) : entitiesListFailed ? (
                 // 管理员最容易把"取数失败"读成"没有待审条目"：这一格必须说清是失败。
                 <div role="alert" className="p-8 rounded-xl border border-amber-500/30 bg-amber-500/5 text-center text-xs space-y-2">
-                  <p className="text-amber-700 dark:text-amber-300">{t("catalog.listFailed")}</p>
+                  <p className="text-amber-700 dark:text-warn-soft">{t("catalog.listFailed")}</p>
                   <button type="button" onClick={() => loadEntities()} className="font-mono text-primary hover:underline cursor-pointer">
                     {t("catalog.retry")}
                   </button>
@@ -896,10 +896,10 @@ function AdminInner() {
                           </td>
                           <td className="py-2.5 px-3">
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
-                              e.status === "published" ? "bg-emerald-500/20 text-emerald-400" :
-                              e.status === "pending_review" ? "bg-amber-500/20 text-amber-400" :
-                              e.status === "deleted" ? "bg-rose-500/20 text-rose-400" :
-                              e.status === "merged" ? "bg-purple-500/20 text-purple-400" :
+                              e.status === "published" ? "bg-emerald-500/20 text-success" :
+                              e.status === "pending_review" ? "bg-amber-500/20 text-warn" :
+                              e.status === "deleted" ? "bg-rose-500/20 text-danger" :
+                              e.status === "merged" ? "bg-purple-500/20 text-alt" :
                               "bg-surfaceSubtle text-text-muted"
                             }`}>
                               {tr(`catalog.status.${e.status}`, e.status)}
@@ -933,7 +933,7 @@ function AdminInner() {
                                 <button
                                   type="button"
                                   onClick={() => handleEntityPublish(e.id)}
-                                  className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
+                                  className="px-2 py-1 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-success text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
                                 >
                                   {t("admin.entities.approve")}
                                 </button>
@@ -947,7 +947,7 @@ function AdminInner() {
                                     setReviewNotice("");
                                     setUnpublishTarget(e);
                                   }}
-                                  className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
+                                  className="px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-warn text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
                                 >
                                   {t("admin.entities.unpublish")}
                                 </button>
@@ -959,7 +959,7 @@ function AdminInner() {
                                     setActiveTab("merge");
                                     setMergeSource(e.id);
                                   }}
-                                  className="px-2 py-1 rounded bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
+                                  className="px-2 py-1 rounded bg-indigo-500/15 hover:bg-indigo-500/25 text-alt text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
                                 >
                                   {t("admin.entities.merge")}
                                 </button>
@@ -1038,7 +1038,7 @@ function AdminInner() {
               {reviewListFailed ? (
                 // 与实体列表同因：取数失败会被读成"队列已清空"（loadReviewList 也刻意把失败与空列表分开）。
                 <div role="alert" className="p-8 rounded-xl border border-amber-500/30 bg-amber-500/5 text-center text-xs space-y-2">
-                  <p className="text-amber-700 dark:text-amber-300">{t("catalog.listFailed")}</p>
+                  <p className="text-amber-700 dark:text-warn-soft">{t("catalog.listFailed")}</p>
                   <button type="button" onClick={() => loadReviewList()} className="font-mono text-primary hover:underline cursor-pointer">
                     {t("catalog.retry")}
                   </button>
@@ -1082,7 +1082,7 @@ function AdminInner() {
                               setReviewNotice("");
                               setUnpublishTarget(item);
                             }}
-                            className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 text-xs font-semibold cursor-pointer"
+                            className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-warn text-xs font-semibold cursor-pointer"
                           >
                             {t("admin.entities.unpublish")}
                           </button>
@@ -1091,14 +1091,14 @@ function AdminInner() {
                             <button
                               type="button"
                               onClick={() => handleReviewAction(item.id, "published")}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 text-xs font-semibold"
+                              className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-success text-xs font-semibold"
                             >
                               {t("admin.reviews.approve")}
                             </button>
                             <button
                               type="button"
                               onClick={() => handleReviewAction(item.id, "draft")}
-                              className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 text-xs font-semibold"
+                              className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-danger text-xs font-semibold"
                             >
                               {t("admin.entities.reject")}
                             </button>
@@ -1167,7 +1167,7 @@ function AdminInner() {
 
                 {mergeMessage && (
                   <div className={`p-3 rounded-lg text-xs font-mono ${
-                    mergeError ? "bg-rose-500/20 text-rose-400" : "bg-emerald-500/20 text-emerald-400"
+                    mergeError ? "bg-rose-500/20 text-danger" : "bg-emerald-500/20 text-success"
                   }`}>
                     {mergeMessage}
                   </div>
@@ -1232,8 +1232,8 @@ function AdminInner() {
                     <span
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${
                         mod.healthy
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-rose-500/15 text-rose-400"
+                          ? "bg-emerald-500/15 text-success"
+                          : "bg-rose-500/15 text-danger"
                       }`}
                     >
                       {mod.healthy ? t("admin.console.healthy") : t("admin.console.unreachable")}

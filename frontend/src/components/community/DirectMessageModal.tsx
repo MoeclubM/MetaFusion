@@ -306,7 +306,7 @@ export default function DirectMessageModal({
 
         {/* Error message */}
         {err && (
-          <div className="px-4 py-1.5 bg-rose-500/20 border-t border-rose-500/30 text-rose-300 text-xs font-mono flex items-center gap-1.5">
+          <div className="px-4 py-1.5 bg-rose-500/20 border-t border-rose-500/30 text-danger-soft text-xs font-mono flex items-center gap-1.5">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             <span>{err}</span>
           </div>

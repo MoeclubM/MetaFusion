@@ -69,7 +69,7 @@ const getEntityTypeTheme = (
         bgFill: isDark ? "#0c4a6e" : "#e0f2fe",
         textFill: isDark ? "#7dd3fc" : "#0369a1",
         stroke: isDark ? "#0284c7" : "#38bdf8",
-        badgeBgClass: "bg-sky-500/15 text-sky-700 dark:text-sky-300 border-sky-500/30",
+        badgeBgClass: "bg-sky-500/15 text-sky-700 dark:text-info-soft border-sky-500/30",
         icon: Film,
       };
     case "agent":
@@ -79,7 +79,7 @@ const getEntityTypeTheme = (
         bgFill: isDark ? "#064e3b" : "#dcfce7",
         textFill: isDark ? "#86efac" : "#15803d",
         stroke: isDark ? "#059669" : "#34d399",
-        badgeBgClass: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+        badgeBgClass: "bg-emerald-500/15 text-emerald-700 dark:text-success-soft border-emerald-500/30",
         icon: User,
       };
     case "collection":
@@ -89,7 +89,7 @@ const getEntityTypeTheme = (
         bgFill: isDark ? "#312e81" : "#e0e7ff",
         textFill: isDark ? "#a5b4fc" : "#4338ca",
         stroke: isDark ? "#4f46e5" : "#818cf8",
-        badgeBgClass: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30",
+        badgeBgClass: "bg-indigo-500/15 text-indigo-700 dark:text-alt-soft border-indigo-500/30",
         icon: Layers,
       };
     case "content_unit":
@@ -99,7 +99,7 @@ const getEntityTypeTheme = (
         bgFill: isDark ? "#134e4a" : "#ccfbf1",
         textFill: isDark ? "#5eead4" : "#0f766e",
         stroke: isDark ? "#0d9488" : "#2dd4bf",
-        badgeBgClass: "bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30",
+        badgeBgClass: "bg-teal-500/15 text-teal-700 dark:text-success-soft border-teal-500/30",
         icon: Sparkles,
       };
     case "expression":
@@ -109,7 +109,7 @@ const getEntityTypeTheme = (
         bgFill: isDark ? "#831843" : "#fce7f3",
         textFill: isDark ? "#f9a8d4" : "#be185d",
         stroke: isDark ? "#db2777" : "#f472b6",
-        badgeBgClass: "bg-pink-500/15 text-pink-700 dark:text-pink-300 border-pink-500/30",
+        badgeBgClass: "bg-pink-500/15 text-pink-700 dark:text-danger-soft border-pink-500/30",
         icon: Sparkles,
       };
     case "release":
@@ -119,7 +119,7 @@ const getEntityTypeTheme = (
         bgFill: isDark ? "#78350f" : "#ffedd5",
         textFill: isDark ? "#fed7aa" : "#c2410c",
         stroke: isDark ? "#d97706" : "#fbbf24",
-        badgeBgClass: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30",
+        badgeBgClass: "bg-amber-500/15 text-amber-700 dark:text-warn-soft border-amber-500/30",
         icon: Disc,
       };
     case "medium":
@@ -129,7 +129,7 @@ const getEntityTypeTheme = (
         bgFill: isDark ? "#581c87" : "#f3e8ff",
         textFill: isDark ? "#d8b4fe" : "#7e22ce",
         stroke: isDark ? "#9333ea" : "#c084fc",
-        badgeBgClass: "bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30",
+        badgeBgClass: "bg-purple-500/15 text-purple-700 dark:text-alt-soft border-purple-500/30",
         icon: Disc,
       };
     case "track":
@@ -139,7 +139,7 @@ const getEntityTypeTheme = (
         bgFill: isDark ? "#7c2d12" : "#ffedd5",
         textFill: isDark ? "#fdba74" : "#c2410c",
         stroke: isDark ? "#ea580c" : "#fb923c",
-        badgeBgClass: "bg-orange-500/15 text-orange-700 dark:text-orange-300 border-orange-500/30",
+        badgeBgClass: "bg-orange-500/15 text-orange-700 dark:text-warn-soft border-orange-500/30",
         icon: Tag,
       };
     default:

@@ -31,12 +31,12 @@ export function PatRevealModal({
       open
       onClose={onClose}
       title={t("settings.patCreatedTitle")}
-      icon={<KeyRound className="w-4 h-4 text-amber-400" />}
+      icon={<KeyRound className="w-4 h-4 text-warn" />}
     >
       <div className="space-y-3 text-xs">
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2">
-          <TriangleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
-          <span className="text-amber-500 dark:text-amber-300 leading-relaxed font-medium">
+          <TriangleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5 text-warn" />
+          <span className="text-amber-500 dark:text-warn-soft leading-relaxed font-medium">
             {t("settings.patCreatedBanner")}
           </span>
         </div>
@@ -59,7 +59,7 @@ export function PatRevealModal({
         </div>
 
         {copied === "failed" && (
-          <p className="text-[11px] text-rose-500 dark:text-rose-300 leading-relaxed">{t("settings.patCopyFailed")}</p>
+          <p className="text-[11px] text-rose-500 dark:text-danger-soft leading-relaxed">{t("settings.patCopyFailed")}</p>
         )}
 
         <p className="text-[11px] text-text-faint leading-relaxed">{t("settings.patEnvHint")}</p>

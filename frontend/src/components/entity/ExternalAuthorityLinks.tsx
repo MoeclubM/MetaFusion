@@ -205,7 +205,7 @@ export function ExternalAuthorityLinks({
               "bg-black/[0.04] dark:bg-white/[0.06] border-line text-text-body hover:border-primary/40 hover:text-primary";
             if (isOfficial) {
               badgeClass =
-                "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/20";
+                "bg-emerald-500/10 text-emerald-600 dark:text-success border-emerald-500/25 hover:bg-emerald-500/20";
             } else if (isBangumi) {
               badgeClass =
                 "bg-[#f09199]/10 text-[#f09199] border-[#f09199]/25 hover:bg-[#f09199]/20";
@@ -250,10 +250,10 @@ export function ExternalAuthorityLinks({
         const isBangumi = item.isBangumi;
 
         let badgeClass =
-          "bg-black/[0.04] dark:bg-white/[0.06] hover:bg-sky-500/10 border-line hover:border-sky-500/40 text-gray-700 dark:text-gray-200 hover:text-sky-600 dark:hover:text-sky-300";
+          "bg-black/[0.04] dark:bg-white/[0.06] hover:bg-sky-500/10 border-line hover:border-sky-500/40 text-gray-700 dark:text-gray-200 hover:text-sky-600 dark:hover:text-info-soft";
         if (isOfficial) {
           badgeClass =
-            "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/20";
+            "bg-emerald-500/10 text-emerald-600 dark:text-success border-emerald-500/25 hover:bg-emerald-500/20";
         } else if (isBangumi) {
           badgeClass =
             "bg-[#f09199]/10 text-[#f09199] border-[#f09199]/25 hover:bg-[#f09199]/20";

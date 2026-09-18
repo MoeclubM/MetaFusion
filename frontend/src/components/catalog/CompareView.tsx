@@ -315,13 +315,13 @@ export function Compare({ ids }: { ids: string }) {
 
           <div>
             {selectedIds.length < COMPARE_MIN_SLOTS && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-warn border border-amber-500/20">
                 <AlertCircle className="w-3.5 h-3.5" />
                 {t("catalog.compareNeedMore", { count: COMPARE_MIN_SLOTS - selectedIds.length })}
               </span>
             )}
             {selectedIds.length >= COMPARE_MIN_SLOTS && selectedIds.length < maxSlots && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-success border border-emerald-500/20">
                 <Check className="w-3.5 h-3.5" />
                 {t("catalog.compareReady")}
               </span>
@@ -555,7 +555,7 @@ export function Compare({ ids }: { ids: string }) {
                         }}
                         className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 transition-all cursor-pointer ${
                           isSelected
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-success border border-emerald-500/20"
                             : "bg-primary/10 text-primary hover:bg-primary hover:text-emphasis"
                         }`}
                         aria-label={isSelected ? t("catalog.compareAdded") : t("catalog.compareAdd")}
@@ -633,7 +633,7 @@ export function Compare({ ids }: { ids: string }) {
                         }}
                         className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 transition-all cursor-pointer ${
                           isSelected
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-success border border-emerald-500/20"
                             : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-emphasis"
                         }`}
                         aria-label={isSelected ? t("catalog.compareAdded") : t("catalog.compareAdd")}
@@ -670,7 +670,7 @@ export function Compare({ ids }: { ids: string }) {
               曲目/收录时，只显示"没有可对齐内容"会让人误以为已比对完成。 */}
           {alignment.incomplete.length > 0 && (
             <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.07] p-3 space-y-1.5">
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-300 m-0">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-700 dark:text-warn-soft m-0">
                 {t("catalog.compareIncompleteCatalog")}
               </h3>
               <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
@@ -812,7 +812,7 @@ export function Compare({ ids }: { ids: string }) {
               )}
               {/* 身份元数据解析不全时不下结论，明确提示人工确认。 */}
               {alignment.pendingConfirm && (
-                <p className="m-0 text-xs text-amber-700 dark:text-amber-300">{t("catalog.comparePendingConfirm")}</p>
+                <p className="m-0 text-xs text-amber-700 dark:text-warn-soft">{t("catalog.comparePendingConfirm")}</p>
               )}
             </div>
           )}
@@ -940,7 +940,7 @@ export function Compare({ ids }: { ids: string }) {
                         <div className="flex items-center justify-between gap-1.5">
                           <span>{fieldName}</span>
                           {highlightDiff && isDiff && (
-                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 font-normal">
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-warn font-normal">
                               {t("catalog.compareDiffTag")}
                             </span>
                           )}
@@ -1022,7 +1022,7 @@ export function Compare({ ids }: { ids: string }) {
                                       >
                                         <EntityLink id={c.expression_id} />
                                         {isVariant && (
-                                          <span className="text-[10px] px-1.5 py-0.2 rounded-full font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-2xs">
+                                          <span className="text-[10px] px-1.5 py-0.2 rounded-full font-medium bg-emerald-500/10 text-emerald-600 dark:text-success border border-emerald-500/20 shadow-2xs">
                                             {t("catalog.variantContent")}
                                           </span>
                                         )}

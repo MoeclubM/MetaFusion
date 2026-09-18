@@ -282,13 +282,13 @@ export default function SettingsPage() {
           {activeTab === "profile" && (
             <div className="p-4 sm:p-6 space-y-4">
               {error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 font-mono text-xs sm:text-sm flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-danger-soft font-mono text-xs sm:text-sm flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                   <span>{error}</span>
                 </div>
               )}
               {success && (
-                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs sm:text-sm flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-success-soft font-mono text-xs sm:text-sm flex items-center gap-2">
                   <Check className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                   <span>{success}</span>
                 </div>
@@ -322,7 +322,7 @@ export default function SettingsPage() {
                     <span className="truncate">{user.email || t("settings.unboundEmail")}</span>
                     {user.email && (
                       user.is_email_verified ? (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-medium">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-emerald-500/10 text-emerald-600 dark:text-success border border-emerald-500/20 text-[10px] font-mono font-medium">
                           <Check className="w-3 h-3" />
                           <span>{t("settings.emailVerified")}</span>
                         </span>
@@ -331,7 +331,7 @@ export default function SettingsPage() {
                           <span>{t("settings.emailVerificationDisabledTag")}</span>
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-mono font-medium">
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-warn border border-amber-500/20 text-[10px] font-mono font-medium">
                           <AlertCircle className="w-3 h-3" />
                           <span>{t("settings.emailUnverified")}</span>
                         </span>
@@ -465,13 +465,13 @@ export default function SettingsPage() {
           {activeTab === "password" && (
             <form onSubmit={handlePasswordChange} className="p-4 sm:p-6 space-y-4">
               {error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 font-mono text-xs sm:text-sm flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-danger-soft font-mono text-xs sm:text-sm flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                   <span>{error}</span>
                 </div>
               )}
               {success && (
-                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs sm:text-sm flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-success-soft font-mono text-xs sm:text-sm flex items-center gap-2">
                   <Check className="w-4 h-4 shrink-0" strokeWidth={1.5} />
                   <span>{success}</span>
                 </div>
@@ -550,7 +550,7 @@ export default function SettingsPage() {
                   type="button"
                   onClick={() => setPendingLogoutAll(true)}
                   disabled={signingOutAll}
-                  className="w-full h-10 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 dark:text-red-300 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-red-500/[0.16] transition-colors disabled:opacity-50"
+                  className="w-full h-10 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 dark:text-danger-soft font-semibold text-sm flex items-center justify-center gap-2 hover:bg-red-500/[0.16] transition-colors disabled:opacity-50"
                 >
                   {signingOutAll ? (
                     <div className="w-4 h-4 rounded-full border-2 border-red-400/30 border-t-red-400 animate-spin" />

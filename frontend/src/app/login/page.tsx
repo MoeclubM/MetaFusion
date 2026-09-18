@@ -299,14 +299,14 @@ function LoginInner() {
             </div>
 
             {error && (
-              <div className="mx-4 sm:mx-5 mt-3.5 p-3.5 rounded-control bg-red-500/10 border border-red-500/20 text-red-500 dark:text-red-300 font-mono text-sm flex items-center gap-2">
+              <div className="mx-4 sm:mx-5 mt-3.5 p-3.5 rounded-control bg-red-500/10 border border-red-500/20 text-red-500 dark:text-danger-soft font-mono text-sm flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             {notice && (
-              <div className="mx-4 sm:mx-5 mt-3.5 p-3.5 rounded-control bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-300 font-mono text-sm flex items-start gap-2">
+              <div className="mx-4 sm:mx-5 mt-3.5 p-3.5 rounded-control bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-warn-soft font-mono text-sm flex items-start gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span className="min-w-0">{notice}</span>
               </div>
@@ -391,7 +391,7 @@ function LoginInner() {
 
               {mode === "register" && showInviteField && (
                 <div className="space-y-1.5 animate-fade-in">
-                  <label className="font-mono text-xs sm:text-sm text-amber-600 dark:text-amber-300 flex items-center justify-between gap-2">
+                  <label className="font-mono text-xs sm:text-sm text-amber-600 dark:text-warn-soft flex items-center justify-between gap-2">
                     <span>{t("auth.inviteCode")}</span>
                     <span className="text-xs text-text-faint font-normal">
                       {inviteRequired ? t("auth.required") : t("auth.optional")}
@@ -405,7 +405,7 @@ function LoginInner() {
                       placeholder={t("auth.inviteCodePlaceholder")}
                       value={inviteCode}
                       onChange={(e) => setInviteCode(e.target.value)}
-                      className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-amber-500/30 rounded-control text-amber-600 dark:text-amber-300 font-mono text-sm placeholder:text-text-faint focus:outline-none focus:border-amber-400"
+                      className="w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-amber-500/30 rounded-control text-amber-600 dark:text-warn-soft font-mono text-sm placeholder:text-text-faint focus:outline-none focus:border-amber-400"
                     />
                   </div>
                 </div>

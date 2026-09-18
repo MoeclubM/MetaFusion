@@ -74,7 +74,7 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
       </div>
 
       {showRaw ? (
-        <pre className="p-3 rounded-lg dark:bg-black/60 border border-line text-emerald-400 text-[11px] overflow-x-auto max-h-72">
+        <pre className="p-3 rounded-lg dark:bg-black/60 border border-line text-success text-[11px] overflow-x-auto max-h-72">
           {JSON.stringify(diff, null, 2)}
         </pre>
       ) : (
@@ -90,15 +90,15 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
                   {getFieldLabel(key)}
                 </span>
                 {isAdded ? (
-                  <span className="px-1.5 py-0.2 rounded text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5">
+                  <span className="px-1.5 py-0.2 rounded text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-success border border-emerald-500/20 flex items-center gap-0.5">
                     <Plus className="w-2.5 h-2.5" /> {t("editor.external.added")}
                   </span>
                 ) : isRemoved ? (
-                  <span className="px-1.5 py-0.2 rounded text-[10px] bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex items-center gap-0.5">
+                  <span className="px-1.5 py-0.2 rounded text-[10px] bg-rose-500/10 text-rose-600 dark:text-danger border border-rose-500/20 flex items-center gap-0.5">
                     <Minus className="w-2.5 h-2.5" /> {t("editor.external.removed")}
                   </span>
                 ) : (
-                  <span className="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  <span className="px-1.5 py-0.2 rounded text-[10px] bg-amber-500/10 text-amber-600 dark:text-warn border border-amber-500/20">
                     {t("editor.diff.modifiedBadge")}
                   </span>
                 )}
@@ -109,16 +109,16 @@ export function DiffViewer({ diff, editType = "update", className = "", compact 
                   <span className="text-[10px] text-rose-500/90 font-semibold flex items-center gap-1">
                     <Minus className="w-2.5 h-2.5" /> {t("editor.diff.before")}
                   </span>
-                  <div className="p-2 rounded bg-rose-500/[0.07] border border-rose-500/20 text-rose-700 dark:text-rose-300 break-all whitespace-pre-wrap max-h-48 overflow-y-auto">
+                  <div className="p-2 rounded bg-rose-500/[0.07] border border-rose-500/20 text-rose-700 dark:text-danger-soft break-all whitespace-pre-wrap max-h-48 overflow-y-auto">
                     {formatVal(change.old)}
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
+                  <span className="text-[10px] text-emerald-600 dark:text-success font-semibold flex items-center gap-1">
                     <Plus className="w-2.5 h-2.5" /> {t("editor.diff.after")}
                   </span>
-                  <div className="p-2 rounded bg-emerald-500/[0.07] border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 break-all whitespace-pre-wrap max-h-48 overflow-y-auto">
+                  <div className="p-2 rounded bg-emerald-500/[0.07] border border-emerald-500/20 text-emerald-700 dark:text-success-soft break-all whitespace-pre-wrap max-h-48 overflow-y-auto">
                     {formatVal(change.new)}
                   </div>
                 </div>

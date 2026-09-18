@@ -83,7 +83,7 @@ export function OAuthGrantsPanel() {
       </div>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 font-mono text-xs flex items-center gap-2">
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-danger-soft font-mono text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
           <span className="flex-1">{error}</span>
           <button
@@ -98,7 +98,7 @@ export function OAuthGrantsPanel() {
       )}
 
       {notice && (
-        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs flex items-center gap-2">
+        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-success-soft font-mono text-xs flex items-center gap-2">
           <Check className="w-4 h-4 shrink-0" strokeWidth={1.5} />
           <span>{notice}</span>
         </div>
@@ -129,7 +129,7 @@ export function OAuthGrantsPanel() {
                         className={
                           "text-[10px] font-mono px-1.5 py-0.5 rounded-sm border " +
                           (app.active
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                            ? "bg-emerald-500/10 text-emerald-600 dark:text-success border-emerald-500/30"
                             : "bg-black/[0.04] dark:bg-white/[0.06] text-text-faint border-line")
                         }
                       >
@@ -146,7 +146,7 @@ export function OAuthGrantsPanel() {
                       setError("");
                       setConfirming(app);
                     }}
-                    className="shrink-0 px-2.5 h-7 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs font-medium inline-flex items-center gap-1.5"
+                    className="shrink-0 px-2.5 h-7 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-danger-soft text-xs font-medium inline-flex items-center gap-1.5"
                   >
                     <ShieldOff className="w-3.5 h-3.5" />
                     <span>{t("settings.oauthRevoke")}</span>
@@ -172,7 +172,7 @@ export function OAuthGrantsPanel() {
                     {app.scopes.map((scope) => (
                       <span
                         key={scope}
-                        className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
+                        className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-600 dark:text-info border border-sky-500/20"
                       >
                         {scope}
                       </span>
@@ -191,7 +191,7 @@ export function OAuthGrantsPanel() {
           <div className="w-full max-w-md rounded-xl border border-line bg-surface shadow-2xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 grid place-items-center shrink-0">
-                <ShieldOff className="w-4 h-4 text-rose-400" />
+                <ShieldOff className="w-4 h-4 text-danger" />
               </div>
               <h4 className="text-sm font-semibold text-text-strong">{t("settings.oauthRevokeConfirmTitle")}</h4>
             </div>

@@ -92,7 +92,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-emphasis/[0.08] bg-background/50">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-md bg-purple-500/10 border border-purple-500/20 grid place-items-center">
-              <GitMerge className="w-4 h-4 text-purple-400" />
+              <GitMerge className="w-4 h-4 text-alt" />
             </div>
             <div>
               <h2 className="text-sm font-semibold text-emphasis flex items-center gap-2">
@@ -115,20 +115,20 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
 
         {/* Warning Callout */}
         <div className="mx-5 mt-3.5 p-3 rounded-md bg-amber-500/10 border border-amber-500/20 space-y-1">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-300">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-warn-soft">
+            <AlertTriangle className="w-3.5 h-3.5 text-warn" />
             <span>{t("editor.merge.cautionLabel")}</span>
           </div>
-          <p className="text-[11px] text-amber-200/90 leading-relaxed font-mono">
+          <p className="text-[11px] text-warn-soft/90 leading-relaxed font-mono">
             {t("editor.merge.warning")}
           </p>
         </div>
 
         {/* Auth warning if not logged in */}
         {!user && (
-          <div className="mx-5 mt-2.5 p-3 rounded-md bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-2.5 text-xs text-rose-200">
+          <div className="mx-5 mt-2.5 p-3 rounded-md bg-rose-500/10 border border-rose-500/20 flex items-center justify-between gap-2.5 text-xs text-danger-soft">
             <div className="flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <Lock className="w-3.5 h-3.5 text-danger shrink-0" />
               <span>{t("editor.universal.unauthWarning")}</span>
             </div>
             <Link
@@ -158,7 +158,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
           {/* Target UUID Input */}
           <div className="space-y-1">
             <label className="block text-text-body font-semibold text-[10px] uppercase tracking-wider">
-              {t("editor.merge.targetUuidLabel")} <span className="text-purple-400">*</span>
+              {t("editor.merge.targetUuidLabel")} <span className="text-alt">*</span>
             </label>
             <input
               type="text"
@@ -173,7 +173,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
           {/* Merge Note */}
           <div className="space-y-1">
             <label className="block text-text-body font-semibold text-[10px] uppercase tracking-wider">
-              {t("editor.merge.noteLabel")} <span className="text-purple-400">*</span>
+              {t("editor.merge.noteLabel")} <span className="text-alt">*</span>
             </label>
             <textarea
               rows={2}
@@ -200,7 +200,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
           </div>
 
           {error && (
-            <div className="p-2.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+            <div className="p-2.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-danger-soft text-xs">
               {error}
             </div>
           )}
@@ -208,7 +208,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
           {/* Footer Actions */}
           <div className="flex items-center justify-between pt-3 border-t border-emphasis/[0.08]">
             <span className="text-text-faint text-[10px] flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-alt" />
               <span>{t("editor.merge.footerSnapshot")}</span>
             </span>
 

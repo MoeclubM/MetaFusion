@@ -327,7 +327,7 @@ function ExploreInner() {
               href="/compare"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface hover:bg-black/[0.04] dark:hover:bg-white/[0.08] border border-line text-xs font-mono text-text-body transition-colors duration-fast ease-soft shadow-2xs"
             >
-              <GitCompare className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+              <GitCompare className="w-4 h-4 text-amber-500 dark:text-warn" />
               <span>{t("catalog.compare")}</span>
             </Link>
 
@@ -411,7 +411,7 @@ function ExploreInner() {
               </div>
               <div className="p-2.5">
                 {tagsFailed ? (
-                  <div className="px-1 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                  <div className="px-1 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-warn-soft">
                     <span>{t("catalog.tagsFailed")}</span>
                     <button
                       type="button"
@@ -593,7 +593,7 @@ function ExploreInner() {
                 role="alert"
                 className="py-20 rounded-xl border border-amber-500/30 bg-amber-500/5 text-center shadow-2xs"
               >
-                <p className="text-amber-700 dark:text-amber-300 text-sm mb-3">
+                <p className="text-amber-700 dark:text-warn-soft text-sm mb-3">
                   {loadError === "rate_limited"
                     ? t("catalog.rateLimited")
                     : loadError === "invalid_params"
@@ -745,7 +745,7 @@ function ExploreInner() {
                               </span>
                             )}
                             {item.status !== "published" && (
-                              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-mono font-medium">
+                              <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-warn text-[10px] font-mono font-medium">
                                 {tr("catalog.status." + item.status, item.status)}
                               </span>
                             )}

@@ -436,7 +436,7 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
       <legend>{t("catalog.relations")}</legend>
 
       {error && (
-        <p role="alert" className="cv-error inline-flex items-center gap-1.5 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="cv-error inline-flex items-center gap-1.5 text-sm text-red-600 dark:text-danger">
           <AlertCircle className="w-4 h-4 shrink-0" />
           {error}
         </p>
@@ -465,7 +465,7 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
                   <button
                     type="button"
                     onClick={() => onDraftsChange?.((drafts || []).filter((x) => x.key !== d.key))}
-                    className="inline-flex shrink-0 items-center gap-1 text-xs opacity-60 hover:opacity-100 hover:text-red-600 dark:hover:text-red-400"
+                    className="inline-flex shrink-0 items-center gap-1 text-xs opacity-60 hover:opacity-100 hover:text-red-600 dark:hover:text-danger"
                     title={t("editor.relation.remove")}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -544,7 +544,7 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
                       type="button"
                       disabled={busy}
                       onClick={() => setPendingRemove(r)}
-                      className="inline-flex items-center gap-1 text-xs opacity-60 hover:opacity-100 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-30"
+                      className="inline-flex items-center gap-1 text-xs opacity-60 hover:opacity-100 hover:text-red-600 dark:hover:text-danger disabled:opacity-30"
                       title={t("editor.relation.remove")}
                     >
                       <Trash2 className="w-3.5 h-3.5" />

@@ -206,7 +206,7 @@ export function PersonalAccessTokensPanel() {
         </h3>
         <p className="text-xs text-text-faint leading-relaxed">{t("settings.patDesc")}</p>
         <p className="text-[11px] text-text-faint leading-relaxed">{t("settings.patRateLimitHint")}</p>
-        <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed flex items-start gap-1.5">
+        <p className="text-[11px] text-amber-600 dark:text-warn leading-relaxed flex items-start gap-1.5">
           <TriangleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.6} />
           <span>{t("settings.patWindowHint")}</span>
         </p>
@@ -219,7 +219,7 @@ export function PersonalAccessTokensPanel() {
       </div>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-300 font-mono text-xs flex items-center gap-2">
+        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-danger-soft font-mono text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
           <span className="flex-1">{error}</span>
           <button
@@ -234,7 +234,7 @@ export function PersonalAccessTokensPanel() {
       )}
 
       {notice && (
-        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-mono text-xs flex items-center gap-2">
+        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-success-soft font-mono text-xs flex items-center gap-2">
           <Check className="w-4 h-4 shrink-0" strokeWidth={1.5} />
           <span>{notice}</span>
         </div>
@@ -376,10 +376,10 @@ export function PersonalAccessTokensPanel() {
               const expiresAt = formatTime(token.expires_at);
               const statusClass =
                 status === "active"
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                  ? "bg-emerald-500/10 text-emerald-600 dark:text-success border-emerald-500/30"
                   : status === "expired"
-                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
-                    : "bg-rose-500/10 text-rose-600 dark:text-rose-300 border-rose-500/30";
+                    ? "bg-amber-500/10 text-amber-600 dark:text-warn border-amber-500/30"
+                    : "bg-rose-500/10 text-rose-600 dark:text-danger-soft border-rose-500/30";
               return (
                 <li key={token.id} className="p-3 rounded-lg bg-background border border-line-subtle space-y-2">
                   <div className="flex items-start justify-between gap-3">
@@ -407,7 +407,7 @@ export function PersonalAccessTokensPanel() {
                           setError("");
                           setConfirming(token);
                         }}
-                        className="shrink-0 px-2.5 h-7 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs font-medium inline-flex items-center gap-1.5"
+                        className="shrink-0 px-2.5 h-7 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-danger-soft text-xs font-medium inline-flex items-center gap-1.5"
                       >
                         <ShieldOff className="w-3.5 h-3.5" />
                         <span>{t("settings.patRevoke")}</span>
@@ -438,7 +438,7 @@ export function PersonalAccessTokensPanel() {
                       {token.scopes.map((code) => (
                         <span
                           key={code}
-                          className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20"
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-600 dark:text-info border border-sky-500/20"
                         >
                           {labelOf(`settings.patScope.${code}`, code)}
                         </span>

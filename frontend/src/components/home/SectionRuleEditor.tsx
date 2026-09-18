@@ -50,7 +50,7 @@ function RuleChip({ label, code, onRemove }: { label: string; code?: string; onR
       <button
         type="button"
         onClick={onRemove}
-        className="hover:text-rose-400 cursor-pointer"
+        className="hover:text-danger cursor-pointer"
         title={t("common.delete")}
         aria-label={t("common.delete")}
       >
@@ -195,7 +195,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
             className={inputClass + " w-full"}
           />
           {!isValidSlug(row.slug) && (
-            <p className="text-[10px] text-amber-300 font-mono">{t("home.customizeError.slugInvalid")}</p>
+            <p className="text-[10px] text-warn-soft font-mono">{t("home.customizeError.slugInvalid")}</p>
           )}
         </div>
       )}

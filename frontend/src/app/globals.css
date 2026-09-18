@@ -179,29 +179,10 @@ html.light .bg-primary.text-white:not(.keep-white) {
   color: rgb(var(--primary-contrast-rgb)) !important;
 }
 
-/* 状态色：Tailwind 的 300/400 档是给深色底配的，白底只有 1.44-2.77:1（12px 小字读不到）。
-   浅色下按"同色相深一档"折算到 5 个语义变量，深色模式保持原色。
-   深色底/图片上的状态色要保留原值时，加 .keep-white。 */
-html.light :is(.text-amber-300, .text-amber-400, .text-yellow-300, .text-yellow-400, .text-orange-300, .text-orange-400):not(.keep-white) {
-  color: var(--state-warn-color) !important;
-}
-
-html.light :is(.text-emerald-300, .text-emerald-400, .text-green-300, .text-green-400, .text-teal-300, .text-teal-400):not(.keep-white) {
-  color: var(--state-success-color) !important;
-}
-
-html.light :is(.text-rose-300, .text-rose-400, .text-red-300, .text-red-400):not(.keep-white) {
-  color: var(--state-danger-color) !important;
-}
-
-html.light :is(.text-sky-300, .text-sky-400, .text-blue-300, .text-blue-400):not(.keep-white) {
-  color: var(--state-info-color) !important;
-}
-
-html.light :is(.text-purple-300, .text-purple-400, .text-violet-300, .text-violet-400, .text-fuchsia-300, .text-fuchsia-400):not(.keep-white) {
-  color: var(--state-alt-color) !important;
-}
-
+/* 状态色的浅色折算已删除：源码不再写 text-amber-400 / text-emerald-300 这类调色板类，
+   改用语义状态色令牌（text-warn / text-success / text-danger / text-info / text-alt，
+   -soft 是深色模式下浅一档的那一档）。深色取值与迁移前的调色板类逐通道相等，
+   浅色取值就是这里原来折算出的那几个十六进制。 */
 /* 覆盖在深色图上的徽章要保持白字：只认显式声明的 .keep-white。
    以前这里还按 `[class*="bg-black/"]` 整段刷白，结果是任何带 `hover:bg-black/…` 的元素在浅色下
    也变白字（白底白字直接看不见）。语义色接管后，这类子串匹配不再需要。 */

@@ -430,7 +430,7 @@ export default function PostComposer({
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2 bg-background border-b border-line shrink-0">
         <div className="flex items-center gap-2">
-          <MessageSquare className="w-4 h-4 text-emerald-400" />
+          <MessageSquare className="w-4 h-4 text-success" />
           <span className="font-bold text-emphasis text-xs">{headerTitle}</span>
         </div>
         <div className="flex items-center gap-2">
@@ -531,7 +531,7 @@ export default function PostComposer({
                               </span>
                               <span className="block text-[10px] text-text-faint truncate">{boardDisplayDesc(b, locale, t)}</span>
                             </span>
-                            {active && <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                            {active && <Check className="w-3.5 h-3.5 text-success shrink-0" />}
                           </button>
                         );
                       })
@@ -544,9 +544,9 @@ export default function PostComposer({
             {/* Work link */}
             <div className="md:col-span-4 relative">
               {selectedWork ? (
-                <div className="flex items-center justify-between px-3.5 h-10 rounded-lg bg-background border border-emerald-500/40 text-emerald-300">
+                <div className="flex items-center justify-between px-3.5 h-10 rounded-lg bg-background border border-emerald-500/40 text-success-soft">
                   <span className="flex items-center gap-2 truncate text-sm font-semibold">
-                    <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <BookOpen className="w-4 h-4 text-success shrink-0" />
                     <span className="truncate">{selectedWork.title}</span>
                   </span>
                   <button type="button" onClick={() => setSelectedWork(null)} className="text-text-muted hover:text-emphasis ml-1.5 cursor-pointer">
@@ -603,7 +603,7 @@ export default function PostComposer({
               {selectedTagsForDisplay.map((entry) => (
                 <span
                   key={`${entry.id ?? entry.name}-${entry.name}`}
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-medium"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-success-soft text-xs font-medium"
                 >
                   #{entry.name}
                   <button
@@ -662,7 +662,7 @@ export default function PostComposer({
                       <button
                         type="button"
                         onClick={() => addCustomTag(tagInput)}
-                        className="w-full px-3 py-2 text-left hover:bg-emerald-500/10 flex items-center gap-1.5 text-xs text-emerald-300"
+                        className="w-full px-3 py-2 text-left hover:bg-emerald-500/10 flex items-center gap-1.5 text-xs text-success-soft"
                       >
                         <Check className="w-3 h-3" />
                         {t("community.createTag", { name: tagInput.trim() })}
@@ -717,7 +717,7 @@ export default function PostComposer({
         <form onSubmit={handleReply} className="flex-1 flex flex-col p-4 gap-3.5 overflow-hidden">
           {/* Quoted banner */}
           {activeQuotedPost && (
-            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs sm:text-sm shrink-0">
+            <div className="flex items-center justify-between px-3.5 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-warn-soft text-xs sm:text-sm shrink-0">
               <span className="flex items-center gap-2">
                 <Quote className="w-4 h-4" />
                 <span>
@@ -728,7 +728,7 @@ export default function PostComposer({
               <button
                 type="button"
                 onClick={() => setActiveQuotedPost(null)}
-                className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-mono cursor-pointer"
+                className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-warn-soft text-xs font-mono cursor-pointer"
               >
                 {t("community.cancelReply")}
               </button>

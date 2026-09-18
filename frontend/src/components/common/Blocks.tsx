@@ -50,18 +50,18 @@ export function ErrorNotice({
   const { t } = useI18n();
   return (
     <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-2">
-      <div className="flex items-start gap-2 text-rose-300 text-xs leading-relaxed">
+      <div className="flex items-start gap-2 text-danger-soft text-xs leading-relaxed">
         <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
         <span>{message}</span>
       </div>
       {permissionHint ? (
-        <p className="text-[11px] text-rose-300/70 leading-relaxed">{permissionHint}</p>
+        <p className="text-[11px] text-danger-soft/70 leading-relaxed">{permissionHint}</p>
       ) : null}
       {onRetry ? (
         <button
           type="button"
           onClick={onRetry}
-          className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 text-[11px] font-medium transition-colors duration-fast ease-soft cursor-pointer"
+          className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-danger-soft text-[11px] font-medium transition-colors duration-fast ease-soft cursor-pointer"
         >
           {t("common.retry")}
         </button>
@@ -75,7 +75,7 @@ export function StatusMessage({ kind, text }: { kind: "ok" | "err"; text: string
     <div
       role="status"
       className={`p-2.5 rounded-lg text-[11px] font-mono leading-relaxed ${
-        kind === "ok" ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/20 text-rose-300"
+        kind === "ok" ? "bg-emerald-500/15 text-success-soft" : "bg-rose-500/20 text-danger-soft"
       }`}
     >
       {text}

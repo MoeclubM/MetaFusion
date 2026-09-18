@@ -515,7 +515,7 @@ export default function ReleaseDetailPage() {
               <span className="hidden sm:inline font-mono text-[11px] text-text-faint shrink-0">{fmtLabel}</span>
             )}
             {role === "supplement" && (
-              <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-mono text-[10px] shrink-0">
+              <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-warn border border-amber-500/20 font-mono text-[10px] shrink-0">
                 {t("release.detail.bonusDisc")}
               </span>
             )}
@@ -575,7 +575,7 @@ export default function ReleaseDetailPage() {
                           {showWorkBadge && trWork && (
                             <Link
                               href={`/works/${trWork.id}`}
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20 text-[10px] hover:bg-sky-500/20 transition-colors duration-fast ease-soft font-mono"
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-info-soft border border-sky-500/20 text-[10px] hover:bg-sky-500/20 transition-colors duration-fast ease-soft font-mono"
                             >
                               <Film className="w-2.5 h-2.5" />
                               <span className="truncate max-w-[22ch]">{entityTitle(trWork, locale)}</span>
@@ -684,17 +684,17 @@ export default function ReleaseDetailPage() {
               <div className="flex flex-wrap items-center gap-1.5 font-mono text-[10px] tracking-wide">
                 <span className="px-2 py-0.5 rounded-sm bg-primary text-white font-semibold">{t("release.detail.badge")}</span>
                 {editionLabel && (
-                  <span className="px-2 py-0.5 rounded-sm bg-violet-500/10 text-violet-600 dark:text-violet-300 border border-violet-500/25 font-semibold">
+                  <span className="px-2 py-0.5 rounded-sm bg-violet-500/10 text-violet-600 dark:text-alt-soft border border-violet-500/25 font-semibold">
                     {editionLabel}
                   </span>
                 )}
                 {editionBatchLabel && (
-                  <span className="px-2 py-0.5 rounded-sm bg-fuchsia-500/10 text-fuchsia-600 dark:text-fuchsia-300 border border-fuchsia-500/25 font-semibold">
+                  <span className="px-2 py-0.5 rounded-sm bg-fuchsia-500/10 text-fuchsia-600 dark:text-alt-soft border border-fuchsia-500/25 font-semibold">
                     {editionBatchLabel}
                   </span>
                 )}
                 {country && (
-                  <span className="px-2 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">{country}</span>
+                  <span className="px-2 py-0.5 rounded-sm bg-sky-500/10 text-sky-700 dark:text-info-soft border border-sky-500/20">{country}</span>
                 )}
                 {packagingLabel && (
                   <span className="text-text-faint">{t("release.detail.packagingLabel")}{packagingLabel}</span>
@@ -764,7 +764,7 @@ export default function ReleaseDetailPage() {
                   aria-pressed={inBasket}
                   className={`inline-flex items-center gap-1.5 h-8 max-sm:min-h-[44px] px-3 rounded-md border text-xs font-mono transition-colors duration-fast ease-soft ${
                     inBasket
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-300"
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-success-soft"
                       : "bg-black/[0.03] dark:bg-white/[0.06] border-line text-gray-700 dark:text-gray-200 hover:text-primary hover:border-primary/40 disabled:opacity-40"
                   }`}
                 >
@@ -780,7 +780,7 @@ export default function ReleaseDetailPage() {
                   </Link>
                 )}
               </span>
-              {basketNotice && <span className="font-mono text-[10px] text-amber-600 dark:text-amber-400">{basketNotice}</span>}
+              {basketNotice && <span className="font-mono text-[10px] text-amber-600 dark:text-warn">{basketNotice}</span>}
             </div>
           </div>
         </div>
@@ -926,7 +926,7 @@ export default function ReleaseDetailPage() {
             {/* 批量加载不完整时给出可重试提示，不静默留空表：实体与收录/署名分别统计，
                 任一部分未恢复都提示（旧实现只看实体失败，收录缺失时误报成功）。 */}
             {expressionLoadGaps.entities + expressionLoadGaps.details > 0 && (
-              <Card padding="none" className="mx-3.5 sm:mx-4 mb-2 p-2.5 !border-amber-500/25 !bg-amber-500/10 text-[11px] text-amber-700 dark:text-amber-300 flex items-center gap-2">
+              <Card padding="none" className="mx-3.5 sm:mx-4 mb-2 p-2.5 !border-amber-500/25 !bg-amber-500/10 text-[11px] text-amber-700 dark:text-warn-soft flex items-center gap-2">
                 <span className="flex-1">
                   {t("release.detail.occurrencesLoadFailed", { count: expressionLoadGaps.entities + expressionLoadGaps.details })}
                   {expressionLoadGaps.entities > 0 && expressionLoadGaps.details > 0 && (

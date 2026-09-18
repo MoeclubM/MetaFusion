@@ -249,7 +249,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                             loading="lazy"
                           />
                         ) : (
-                          <div className="w-10 h-10 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
+                          <div className="w-10 h-10 rounded-md bg-amber-500/10 text-amber-600 dark:text-warn flex items-center justify-center font-bold text-xs shrink-0">
                             {item.character.name.charAt(0)}
                           </div>
                         )}
@@ -260,7 +260,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                           <span
                             className={`inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono tracking-wide ${
                               MAIN_CHARACTER_RANKS.has(item.character.rankCode || "")
-                                ? "bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium"
+                                ? "bg-amber-500/15 text-amber-700 dark:text-warn-soft font-medium"
                                 : "bg-black/[0.04] dark:bg-white/[0.06] text-text-faint"
                             }`}
                           >
@@ -270,13 +270,13 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                       </Link>
                     ) : (
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-10 h-10 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
+                        <div className="w-10 h-10 rounded-md bg-amber-500/10 text-amber-600 dark:text-warn flex items-center justify-center font-bold text-xs shrink-0">
                           {item.character.name.charAt(0)}
                         </div>
                         <div className="min-w-0">
                           <div className="text-xs font-semibold text-text-strong truncate">{item.character.name}</div>
                           {item.character.roleBadge && (
-                            <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono tracking-wide bg-amber-500/15 text-amber-700 dark:text-amber-300 font-medium">
+                            <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono tracking-wide bg-amber-500/15 text-amber-700 dark:text-warn-soft font-medium">
                               {item.character.roleBadge}
                             </span>
                           )}
@@ -314,7 +314,7 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
                               loading="lazy"
                             />
                           ) : (
-                            <div className="w-8 h-8 rounded-full bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center font-mono text-[10px] shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-sky-500/10 text-sky-600 dark:text-info flex items-center justify-center font-mono text-[10px] shrink-0">
                               <Mic className="w-3.5 h-3.5" />
                             </div>
                           )}

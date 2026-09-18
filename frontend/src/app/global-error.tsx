@@ -25,7 +25,7 @@ export default function GlobalError({
     <html lang={locale} className="dark">
       <body className="font-sans min-h-screen bg-[#0a0c10] text-text-strong flex flex-col items-center justify-center p-6 antialiased">
         <div className="max-w-md w-full text-center flex flex-col items-center">
-          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center text-2xl font-bold mb-6">
+          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-danger flex items-center justify-center text-2xl font-bold mb-6">
             !
           </div>
           <h1 className="text-2xl font-bold text-emphasis mb-2">

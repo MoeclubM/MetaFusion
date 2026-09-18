@@ -56,7 +56,7 @@ export function ExchangeTab() {
         <p className="text-xs text-text-muted leading-relaxed">{t("admin.exchange.subtitle")}</p>
 
         <div className="p-3 rounded-xl bg-amber-500/[0.08] border border-amber-500/25 space-y-1">
-          <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
+          <div className="flex items-center gap-2 text-xs font-semibold text-amber-700 dark:text-warn-soft">
             <Info className="w-3.5 h-3.5 shrink-0" />
             <span>{t("admin.exchange.noticeTitle")}</span>
           </div>
@@ -153,7 +153,7 @@ function ExportPanel() {
   return (
     <div className="space-y-3">
       <SectionHeader
-        icon={<Download className="w-4 h-4 text-sky-400" />}
+        icon={<Download className="w-4 h-4 text-info" />}
         title={t("admin.exchange.exportTitle")}
         desc={t("admin.exchange.exportDesc")}
       />
@@ -341,7 +341,7 @@ function ProposalPanel() {
   return (
     <div className="space-y-3">
       <SectionHeader
-        icon={<FileJson className="w-4 h-4 text-purple-400" />}
+        icon={<FileJson className="w-4 h-4 text-alt" />}
         title={t("admin.exchange.proposalTitle")}
         desc={t("admin.exchange.proposalDesc")}
       />
@@ -446,7 +446,7 @@ function ProposalPanel() {
 
       {result ? (
         <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-emerald-300">
+          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 dark:text-success-soft">
             <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
             <span>{t("admin.exchange.successTitle")}</span>
           </div>

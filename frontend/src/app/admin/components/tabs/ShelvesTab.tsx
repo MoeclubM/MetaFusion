@@ -249,7 +249,7 @@ export function ShelvesTab() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-text-strong flex items-center gap-2">
-            <Layers className="w-4 h-4 text-emerald-400" />
+            <Layers className="w-4 h-4 text-success" />
             {t("admin.shelves.title")}
           </h2>
           <p className="text-[11px] text-text-muted font-mono mt-0.5">
@@ -266,7 +266,7 @@ export function ShelvesTab() {
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400 text-xs font-mono">
+        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-danger text-xs font-mono">
           {error}
         </div>
       )}
@@ -303,7 +303,7 @@ export function ShelvesTab() {
                 const rule = describeRule(shelf);
                 return (
                   <tr key={shelf.id} className="hover:bg-surfaceSubtle">
-                    <td className="py-3 px-4 font-mono text-emerald-300 font-bold">{shelf.slug}</td>
+                    <td className="py-3 px-4 font-mono text-success-soft font-bold">{shelf.slug}</td>
                     <td className="py-3 px-3">
                       <MultilingualBadges names={shelf.names} />
                     </td>
@@ -315,7 +315,7 @@ export function ShelvesTab() {
                           rule.map((r) => (
                             <span
                               key={r}
-                              className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono"
+                              className="px-1.5 py-0.2 rounded bg-emerald-500/10 text-success-soft border border-emerald-500/20 text-[10px] font-mono"
                             >
                               {r}
                             </span>
@@ -349,7 +349,7 @@ export function ShelvesTab() {
                         </button>
                         <button
                           onClick={() => setPendingDelete(shelf)}
-                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-text-muted hover:text-rose-400 transition-colors duration-fast ease-soft"
+                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-text-muted hover:text-danger transition-colors duration-fast ease-soft"
                           title={t("common.delete")}
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -371,7 +371,7 @@ export function ShelvesTab() {
           setEditing(null);
         }}
         title={editing ? t("admin.shelves.editTitle") : t("admin.shelves.createTitle")}
-        icon={<Layers className="w-4 h-4 text-emerald-400" />}
+        icon={<Layers className="w-4 h-4 text-success" />}
       >
         <form onSubmit={handleSave} className="space-y-4 text-xs max-h-[80vh] overflow-y-auto pr-1">
           <div>
@@ -403,12 +403,12 @@ export function ShelvesTab() {
             </div>
             <div className="flex flex-wrap gap-1.5">
               {(q.types || []).map((x) => (
-                <span key={x} className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-xs font-mono flex items-center gap-1">
+                <span key={x} className="px-2 py-0.5 rounded bg-emerald-500/15 text-success-soft border border-emerald-500/30 text-xs font-mono flex items-center gap-1">
                   {x}
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, query: { ...q, types: (q.types || []).filter((y) => y !== x) } })}
-                    className="hover:text-red-400"
+                    className="hover:text-danger"
                   >
                     ×
                   </button>
@@ -440,7 +440,7 @@ export function ShelvesTab() {
             <div className="flex flex-wrap gap-1.5">
               {Object.entries(q.fields || {}).flatMap(([k, vs]) =>
                 (vs || []).map((v) => (
-                  <span key={`${k}=${v}`} className="px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 text-xs font-mono flex items-center gap-1">
+                  <span key={`${k}=${v}`} className="px-2 py-0.5 rounded bg-sky-500/15 text-info-soft border border-sky-500/30 text-xs font-mono flex items-center gap-1">
                     {k}={v}
                     <button
                       type="button"
@@ -450,7 +450,7 @@ export function ShelvesTab() {
                         if (cur[k].length === 0) delete cur[k];
                         setForm({ ...form, query: { ...q, fields: cur } });
                       }}
-                      className="hover:text-red-400"
+                      className="hover:text-danger"
                     >
                       ×
                     </button>
@@ -489,7 +489,7 @@ export function ShelvesTab() {
             <div className="flex flex-wrap gap-1.5">
               {Object.entries(q.vocab_terms || {}).flatMap(([k, vs]) =>
                 (vs || []).map((v) => (
-                  <span key={`${k}:${v}`} className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-mono flex items-center gap-1">
+                  <span key={`${k}:${v}`} className="px-2 py-0.5 rounded bg-amber-500/15 text-warn-soft border border-amber-500/30 text-xs font-mono flex items-center gap-1">
                     {k}:{v}
                     <button
                       type="button"
@@ -499,7 +499,7 @@ export function ShelvesTab() {
                         if (cur[k].length === 0) delete cur[k];
                         setForm({ ...form, query: { ...q, vocab_terms: cur } });
                       }}
-                      className="hover:text-red-400"
+                      className="hover:text-danger"
                     >
                       ×
                     </button>
@@ -543,12 +543,12 @@ export function ShelvesTab() {
             </div>
             <div className="flex flex-wrap gap-1.5">
               {(q.relations || []).map((x) => (
-                <span key={x} className="px-2 py-0.5 rounded bg-purple-500/15 text-purple-300 border border-purple-500/30 text-xs font-mono flex items-center gap-1">
+                <span key={x} className="px-2 py-0.5 rounded bg-purple-500/15 text-alt-soft border border-purple-500/30 text-xs font-mono flex items-center gap-1">
                   {x}
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, query: { ...q, relations: (q.relations || []).filter((y) => y !== x) } })}
-                    className="hover:text-red-400"
+                    className="hover:text-danger"
                   >
                     ×
                   </button>

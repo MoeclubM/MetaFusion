@@ -46,7 +46,7 @@ export default function ContributeHubPage() {
       icon: Layers,
       title: t("create.hub.cardWorkTitle"),
       desc: t("create.hub.cardWorkDesc"),
-      accent: "text-sky-400",
+      accent: "text-info",
       border: "hover:border-sky-500/30",
       bg: "bg-sky-500/10",
     },
@@ -55,7 +55,7 @@ export default function ContributeHubPage() {
       icon: Users,
       title: t("create.hub.cardArtistTitle"),
       desc: t("create.hub.cardArtistDesc"),
-      accent: "text-amber-400",
+      accent: "text-warn",
       border: "hover:border-amber-500/30",
       bg: "bg-amber-500/10",
     },
@@ -64,7 +64,7 @@ export default function ContributeHubPage() {
       icon: Disc,
       title: t("create.hub.cardReleaseTitle"),
       desc: t("create.hub.cardReleaseDesc"),
-      accent: "text-emerald-400",
+      accent: "text-success",
       border: "hover:border-emerald-500/30",
       bg: "bg-emerald-500/10",
     },
@@ -73,7 +73,7 @@ export default function ContributeHubPage() {
       icon: Network,
       title: t("create.hub.cardFranchiseTitle"),
       desc: t("create.hub.cardFranchiseDesc"),
-      accent: "text-indigo-400",
+      accent: "text-alt",
       border: "hover:border-indigo-500/30",
       bg: "bg-indigo-500/10",
     },
@@ -110,7 +110,7 @@ export default function ContributeHubPage() {
                 {t("create.hub.cardImportDesc")}
               </p>
               {!canImport && (
-                <p className="font-mono text-[11px] text-amber-600 dark:text-amber-300">
+                <p className="font-mono text-[11px] text-amber-600 dark:text-warn-soft">
                   {t("create.hub.importNoPermission")}
                 </p>
               )}

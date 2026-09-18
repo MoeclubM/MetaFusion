@@ -44,7 +44,7 @@ export function SecretRevealModal({
       open
       onClose={onClose}
       title={t("admin.oauth.secretTitle")}
-      icon={<KeyRound className="w-4 h-4 text-amber-400" />}
+      icon={<KeyRound className="w-4 h-4 text-warn" />}
     >
       <div className="space-y-3 text-xs">
         <p className="text-text-body leading-relaxed">
@@ -54,8 +54,8 @@ export function SecretRevealModal({
         </p>
 
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-2">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-400" />
-          <span className="text-amber-400 leading-relaxed font-medium">{t("admin.oauth.secretWarn")}</span>
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-warn" />
+          <span className="text-warn leading-relaxed font-medium">{t("admin.oauth.secretWarn")}</span>
         </div>
 
         <div className="space-y-1.5">
@@ -70,7 +70,7 @@ export function SecretRevealModal({
               title={t("admin.oauth.secretCopy")}
               className="p-2 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover border border-line text-text-body transition-colors duration-fast ease-soft cursor-pointer"
             >
-              {copied === "client_id" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied === "client_id" ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
             </button>
           </div>
         </div>
@@ -94,7 +94,7 @@ export function SecretRevealModal({
             </button>
           </div>
           {copied === "failed" ? (
-            <p className="text-[11px] text-rose-400 leading-relaxed">{t("admin.oauth.secretCopyFailed")}</p>
+            <p className="text-[11px] text-danger leading-relaxed">{t("admin.oauth.secretCopyFailed")}</p>
           ) : null}
         </div>
 

@@ -196,7 +196,7 @@ export default function MediumDetailPage() {
             <div className="space-y-2 min-w-0">
               {/* 图标收进徽章行：大图标列会把 h1 顶到 176px，标题必须落在内容基线上。 */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-300 font-mono text-[10px] tracking-wider">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-alt-soft font-mono text-[10px] tracking-wider">
                   <HardDrive className="w-3.5 h-3.5" />
                   {t("medium.detail.badge")}
                 </span>

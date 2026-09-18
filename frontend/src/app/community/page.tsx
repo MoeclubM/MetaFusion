@@ -590,7 +590,7 @@ function CommunityContent() {
 	              }}
 	              className={`h-9 px-3 rounded-md border text-xs font-medium inline-flex items-center gap-1.5 transition-colors duration-fast ease-soft cursor-pointer ${
 	                currentSelectedTagObj
-	                  ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-semibold shadow-xs"
+	                  ? "bg-emerald-500/20 border-emerald-500/40 text-success-soft font-semibold shadow-xs"
 	                  : "bg-surface hover:bg-surfaceBorder border-line text-text-body"
 	              }`}
 	            >
@@ -657,7 +657,7 @@ function CommunityContent() {
 	                          }}
 	                          className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                            isSelected
-	                              ? "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
+	                              ? "bg-emerald-500/20 text-success-soft font-semibold border border-emerald-500/30"
 	                              : "text-text-body hover:text-emphasis hover:bg-emphasis/[0.05]"
 	                          }`}
 	                        >
@@ -665,7 +665,7 @@ function CommunityContent() {
 	                            <TagIcon className="w-3 h-3 text-text-faint shrink-0" />
 	                            <span className="truncate">#{tag.name}</span>
 	                          </span>
-	                          {isSelected && <span className="text-[10px] text-emerald-400">✓</span>}
+	                          {isSelected && <span className="text-[10px] text-success">✓</span>}
 	                        </button>
 	                      );
 	                    })
@@ -682,7 +682,7 @@ function CommunityContent() {
 	      {currentSelectedTagObj && (
 	        <div className="flex items-center gap-2 pt-0.5 text-xs font-mono animate-in fade-in duration-100">
 	          <span className="text-text-faint">{t("community.selectedTag", { name: "" })}</span>
-	          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-semibold">
+	          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-success-soft font-semibold">
 	            <TagIcon className="w-3 h-3" />
 	            <span>#{currentSelectedTagObj.name}</span>
 	            <button
@@ -724,7 +724,7 @@ function CommunityContent() {
  <div className="py-16 text-center text-text-faint font-mono text-sm">{t("common.loadingTopics")}</div>
  ) : loadError ? (
  <div className="py-16 text-center space-y-3">
- <p className="text-sm text-rose-300">{loadError}</p>
+ <p className="text-sm text-danger-soft">{loadError}</p>
  <button
  onClick={loadTopics}
  className="px-3.5 py-1.5 rounded-md bg-white hover:bg-gray-200 text-black text-sm font-bold inline-flex items-center gap-2 transition-colors duration-fast ease-soft"
@@ -764,8 +764,8 @@ function CommunityContent() {
  <div key={topic.id} className="group flex items-stretch hover:bg-emphasis/[0.02] transition-colors duration-fast ease-soft">
  {/* main col */}
  <div className="flex-1 min-w-0 py-3 px-4 space-y-1.5">
- <Link href={`/community/${topic.id}`} className="block text-sm font-semibold text-emphasis group-hover:text-emerald-400 transition-colors duration-fast ease-soft leading-snug line-clamp-2 sm:line-clamp-1">
- {topic.is_pinned && <span className="mr-1 inline-flex items-center px-2.5 py-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono">📌 {t("community.pinned")}</span>}{topic.title}
+ <Link href={`/community/${topic.id}`} className="block text-sm font-semibold text-emphasis group-hover:text-success transition-colors duration-fast ease-soft leading-snug line-clamp-2 sm:line-clamp-1">
+ {topic.is_pinned && <span className="mr-1 inline-flex items-center px-2.5 py-1 rounded bg-amber-500/15 border border-amber-500/30 text-warn-soft text-xs font-mono">📌 {t("community.pinned")}</span>}{topic.title}
  </Link>
  <div className="flex items-center gap-2 flex-wrap">
  <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded border text-xs font-mono ${board.bgColor} ${board.borderColor} ${board.color}`}>
@@ -778,7 +778,7 @@ function CommunityContent() {
  className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-background border border-line text-text-body hover:text-emphasis text-xs font-mono hover:border-emerald-500/40 transition-colors duration-fast ease-soft max-w-[180px] truncate"
  onClick={(e) => e.stopPropagation()}
  >
- <BookOpen className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+ <BookOpen className="w-2.5 h-2.5 text-success shrink-0" />
  <span className="truncate">{topic.entity_title}</span>
  </Link>
  )}
@@ -786,7 +786,7 @@ function CommunityContent() {
  <button
  key={tag.id}
  onClick={() => setFilterTagId(tag.id)}
- className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 hover:bg-emerald-500/20 text-xs font-mono transition-colors duration-fast ease-soft"
+ className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-success-soft hover:bg-emerald-500/20 text-xs font-mono transition-colors duration-fast ease-soft"
  title={t("community.filterByTag", {name: tag.name})}
  >
  <TagIcon className="w-2.5 h-2.5" />
@@ -842,7 +842,7 @@ function CommunityContent() {
  </div>
  )}
  {topic.reply_count > 0 && (
- <div title={t("community.activeReplier")} className="w-7 h-7 rounded-full bg-emerald-500/20 border-2 border-background flex items-center justify-center text-[10px] font-bold text-emerald-400 ring-1 ring-emerald-500/40 shrink-0">
+ <div title={t("community.activeReplier")} className="w-7 h-7 rounded-full bg-emerald-500/20 border-2 border-background flex items-center justify-center text-[10px] font-bold text-success ring-1 ring-emerald-500/40 shrink-0">
  +{topic.reply_count}
  </div>
  )}

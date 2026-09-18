@@ -67,7 +67,7 @@ export default function NotFound() {
             href="/explore"
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emphasis/5 hover:bg-emphasis/10 border border-line text-text-strong text-sm font-medium transition-colors duration-fast ease-soft"
           >
-            <Compass className="w-4 h-4 text-sky-400" />
+            <Compass className="w-4 h-4 text-info" />
             <span>{t("nav.explore")}</span>
           </Link>
         </div>

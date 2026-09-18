@@ -36,10 +36,10 @@ function codeStatus(item: InviteCode): CodeStatus {
 }
 
 const STATUS_CLASS: Record<CodeStatus, string> = {
-  active: "bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400",
-  revoked: "bg-red-500/10 border-red-500/25 text-red-500 dark:text-red-300",
+  active: "bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-success",
+  revoked: "bg-red-500/10 border-red-500/25 text-red-500 dark:text-danger-soft",
   expired: "bg-black/[0.04] dark:bg-white/[0.06] border-line text-text-muted",
-  exhausted: "bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-amber-300",
+  exhausted: "bg-amber-500/10 border-amber-500/25 text-amber-600 dark:text-warn-soft",
 };
 
 function formatDay(value?: string): string {
@@ -151,7 +151,7 @@ export default function InvitesPage() {
         </h1>
 
         {loadError && (
-          <div className="rounded-card border border-red-500/25 bg-red-500/10 p-3.5 text-red-500 dark:text-red-300 font-mono text-xs sm:text-sm flex items-start gap-2">
+          <div className="rounded-card border border-red-500/25 bg-red-500/10 p-3.5 text-red-500 dark:text-danger-soft font-mono text-xs sm:text-sm flex items-start gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <div className="min-w-0 space-y-1.5">
               <p className="break-words">{loadError}</p>
@@ -167,7 +167,7 @@ export default function InvitesPage() {
         )}
 
         {settings && !settings.registration_enabled && (
-          <div className="rounded-card border border-amber-500/25 bg-amber-500/[0.06] p-3.5 text-amber-600 dark:text-amber-300 font-mono text-xs sm:text-sm flex items-start gap-2">
+          <div className="rounded-card border border-amber-500/25 bg-amber-500/[0.06] p-3.5 text-amber-600 dark:text-warn-soft font-mono text-xs sm:text-sm flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
             <span className="min-w-0">{t("invite.registrationClosedHint")}</span>
           </div>
@@ -181,7 +181,7 @@ export default function InvitesPage() {
         )}
 
         {!loading && ledger && !canCreate && (
-          <div className="rounded-card border border-amber-500/25 bg-amber-500/[0.06] p-3.5 text-amber-600 dark:text-amber-300 font-mono text-xs sm:text-sm flex items-start gap-2">
+          <div className="rounded-card border border-amber-500/25 bg-amber-500/[0.06] p-3.5 text-amber-600 dark:text-warn-soft font-mono text-xs sm:text-sm flex items-start gap-2">
             <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
             <span className="min-w-0">{t("invite.noPermission")}</span>
           </div>
@@ -195,13 +195,13 @@ export default function InvitesPage() {
             </div>
             <div className="p-4 space-y-3">
               {createError && (
-                <div className="rounded-control border border-red-500/20 bg-red-500/10 p-3 text-red-500 dark:text-red-300 font-mono text-xs flex items-start gap-2">
+                <div className="rounded-control border border-red-500/20 bg-red-500/10 p-3 text-red-500 dark:text-danger-soft font-mono text-xs flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span className="min-w-0 break-words">{createError}</span>
                 </div>
               )}
               {createdCode && (
-                <div className="rounded-control border border-emerald-500/25 bg-emerald-500/10 p-3 font-mono text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                <div className="rounded-control border border-emerald-500/25 bg-emerald-500/10 p-3 font-mono text-xs text-emerald-600 dark:text-success flex items-center gap-2">
                   <Check className="w-4 h-4 shrink-0" />
                   <span className="min-w-0">
                     {t("invite.created")} <span className="font-bold tracking-widest">{createdCode}</span>
@@ -276,7 +276,7 @@ export default function InvitesPage() {
             </span>
           </div>
           {copyFailed ? (
-            <p className="px-4 py-2 border-b border-line-subtle text-[11px] font-mono text-amber-600 dark:text-amber-400">
+            <p className="px-4 py-2 border-b border-line-subtle text-[11px] font-mono text-amber-600 dark:text-warn">
               {t("common.copyFailed")}
             </p>
           ) : null}

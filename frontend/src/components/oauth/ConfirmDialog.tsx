@@ -28,9 +28,9 @@ export function ConfirmDialog({
 }) {
   const { t } = useI18n();
   return (
-    <Modal open={open} onClose={onClose} title={title} icon={<AlertTriangle className="w-4 h-4 text-rose-400" />}>
+    <Modal open={open} onClose={onClose} title={title} icon={<AlertTriangle className="w-4 h-4 text-danger" />}>
       <div className="space-y-3 text-xs">
-        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 leading-relaxed">
+        <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-danger-soft leading-relaxed">
           {message}
         </div>
         <div className="flex justify-end gap-2 pt-1">

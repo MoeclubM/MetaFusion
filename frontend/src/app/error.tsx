@@ -33,7 +33,7 @@ export default function Error({
           <BrandMark size={72} withGlow={true} idSuffix="error-boundary" />
         </div>
 
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-mono tracking-wider mb-4">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/10 border border-rose-500/20 text-danger text-xs font-mono tracking-wider mb-4">
           <AlertTriangle className="w-3.5 h-3.5" />
           <span>APPLICATION ERROR</span>
           {error.digest && <span>• {error.digest.slice(0, 8)}</span>}
@@ -47,7 +47,7 @@ export default function Error({
         </p>
 
         {process.env.NODE_ENV !== "production" && error.message && (
-          <div className="w-full text-left bg-black/40 border border-line rounded-xl p-3 mb-6 overflow-x-auto max-h-32 text-xs font-mono text-rose-300">
+          <div className="w-full text-left bg-black/40 border border-line rounded-xl p-3 mb-6 overflow-x-auto max-h-32 text-xs font-mono text-danger-soft">
             {error.message}
           </div>
         )}

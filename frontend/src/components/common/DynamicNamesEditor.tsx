@@ -93,7 +93,7 @@ export function DynamicNamesEditor({
           <label className="block text-[11px] font-mono text-text-body font-medium flex items-center gap-1.5">
             <Globe className="w-3.5 h-3.5 text-primary" />
             <span>{label}</span>
-            {required && <span className="text-rose-400">*</span>}
+            {required && <span className="text-danger">*</span>}
           </label>
           {helperText && (
             <span className="text-[10px] text-text-faint font-mono">
@@ -136,7 +136,7 @@ export function DynamicNamesEditor({
                 <button
                   type="button"
                   onClick={() => handleRemove(code)}
-                  className="p-1 text-text-faint hover:text-rose-400 rounded transition-colors duration-fast ease-soft"
+                  className="p-1 text-text-faint hover:text-danger rounded transition-colors duration-fast ease-soft"
                   title={t("multilingual.removeLang", { code })}
                 >
                   <X className="w-3.5 h-3.5" />

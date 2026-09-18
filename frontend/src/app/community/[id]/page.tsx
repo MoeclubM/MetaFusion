@@ -254,7 +254,7 @@ export default function TopicDetailPage() {
  <Link
  key={tg.id}
  href={`/community?tag=${encodeURIComponent(tg.name)}`}
- className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 hover:bg-emerald-500/20 text-xs font-mono transition-colors duration-fast ease-soft"
+ className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-success-soft hover:bg-emerald-500/20 text-xs font-mono transition-colors duration-fast ease-soft"
  >
  <TagIcon className="w-4 h-4" />
  {tg.name}
@@ -273,7 +273,7 @@ export default function TopicDetailPage() {
  <div className="p-4 rounded-lg bg-surface border border-line flex items-center justify-between gap-4">
  <div className="flex items-center space-x-3 truncate">
  <div className="truncate">
- <span className="text-xs font-mono text-emerald-400 block">
+ <span className="text-xs font-mono text-success block">
  {t("community.linkedWork")}
  </span>
  <strong className="text-emphasis text-sm block truncate">{topic.entity_title}</strong>
@@ -333,7 +333,7 @@ export default function TopicDetailPage() {
  <button
  onClick={togglePin}
  disabled={pinning}
- className={`flex items-center space-x-1 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed ${topic.is_pinned ? "text-amber-400 hover:text-amber-300" : "text-text-faint hover:text-amber-400"}`}
+ className={`flex items-center space-x-1 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed ${topic.is_pinned ? "text-warn hover:text-warn-soft" : "text-text-faint hover:text-warn"}`}
  >
  {topic.is_pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}
  <span>
@@ -349,7 +349,7 @@ export default function TopicDetailPage() {
  <button
  onClick={() => setPendingDelete({ kind: "topic" })}
  disabled={deletingTarget === "topic"}
- className="flex items-center space-x-1 text-text-faint hover:text-rose-400 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
+ className="flex items-center space-x-1 text-text-faint hover:text-danger transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
  >
  <Trash2 className="w-4 h-4" />
  <span>{deletingTarget === "topic" ? t("community.deleting") : t("community.deleteTopic")}</span>
@@ -359,9 +359,9 @@ export default function TopicDetailPage() {
  </div>
  </div>
  {moderationError?.target === "topic" && (
- <p className="text-xs text-rose-400 font-mono">{moderationError.text}</p>
+ <p className="text-xs text-danger font-mono">{moderationError.text}</p>
  )}
- {pinNotice && <p className="text-xs font-mono text-amber-400">{pinNotice}</p>}
+ {pinNotice && <p className="text-xs font-mono text-warn">{pinNotice}</p>}
 
    {/* Post Body */}
    <div className="py-1">
@@ -373,8 +373,8 @@ export default function TopicDetailPage() {
  <div className="flex items-center space-x-3.5">
  <button
  onClick={() => toggleLike(opPost?.id || topic.id)}
- className={`flex items-center space-x-1 hover:text-rose-400 transition-colors duration-fast ease-soft ${
- likedPosts[opPost?.id || topic.id] ? "text-rose-400 font-bold" : ""
+ className={`flex items-center space-x-1 hover:text-danger transition-colors duration-fast ease-soft ${
+ likedPosts[opPost?.id || topic.id] ? "text-danger font-bold" : ""
  }`}
  >
  <Heart className={`w-4 h-4 ${likedPosts[opPost?.id || topic.id] ? "fill-rose-400" : ""}`} />
@@ -385,7 +385,7 @@ export default function TopicDetailPage() {
  onClick={() => handleShare(opPost?.id || topic.id)}
  className="flex items-center space-x-1 hover:text-primary transition-colors duration-fast ease-soft"
  >
- {shareFeedback[opPost?.id || topic.id] ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+ {shareFeedback[opPost?.id || topic.id] ? <Check className="w-4 h-4 text-success" /> : <Share2 className="w-4 h-4" />}
  <span>{shareFeedback[opPost?.id || topic.id] || t("common.share")}</span>
  </button>
 
@@ -416,7 +416,7 @@ export default function TopicDetailPage() {
  className="border border-line rounded-lg bg-surface p-4 sm:p-5 space-y-3.5 shadow-2xs"
  >
  {post.reply_to_post_number && (
- <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-mono">
+ <div className="flex items-center gap-2 px-2.5 py-1 rounded-sm bg-amber-500/10 border border-amber-500/20 text-warn text-xs font-mono">
  <span>↳</span>
  <span>{tr("community.replyToPost", `Reply to #${post.reply_to_post_number}`, { n: post.reply_to_post_number })}</span>
  </div>
@@ -461,7 +461,7 @@ export default function TopicDetailPage() {
  <button
  onClick={() => setPendingDelete({ kind: "reply", post })}
  disabled={deletingTarget === post.id}
- className="flex items-center space-x-1 text-text-faint hover:text-rose-400 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
+ className="flex items-center space-x-1 text-text-faint hover:text-danger transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
  >
  <Trash2 className="w-4 h-4" />
  <span>{deletingTarget === post.id ? t("community.deleting") : t("community.deleteReply")}</span>
@@ -471,7 +471,7 @@ export default function TopicDetailPage() {
  </div>
  </div>
  {moderationError?.target === post.id && (
- <p className="text-xs text-rose-400 font-mono">{moderationError.text}</p>
+ <p className="text-xs text-danger font-mono">{moderationError.text}</p>
  )}
 
    <div className="py-1">
@@ -483,8 +483,8 @@ export default function TopicDetailPage() {
  <div className="flex items-center space-x-3.5">
  <button
  onClick={() => toggleLike(post.id)}
- className={`flex items-center space-x-1 hover:text-rose-400 transition-colors duration-fast ease-soft ${
- likedPosts[post.id] ? "text-rose-400 font-bold" : ""
+ className={`flex items-center space-x-1 hover:text-danger transition-colors duration-fast ease-soft ${
+ likedPosts[post.id] ? "text-danger font-bold" : ""
  }`}
  >
  <Heart className={`w-4 h-4 ${likedPosts[post.id] ? "fill-rose-400" : ""}`} />
@@ -495,7 +495,7 @@ export default function TopicDetailPage() {
  onClick={() => handleShare(post.id, post.id)}
  className="flex items-center space-x-1 hover:text-primary transition-colors duration-fast ease-soft"
  >
- {shareFeedback[post.id] ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+ {shareFeedback[post.id] ? <Check className="w-4 h-4 text-success" /> : <Share2 className="w-4 h-4" />}
  <span>{shareFeedback[post.id] || t("common.share")}</span>
  </button>
 

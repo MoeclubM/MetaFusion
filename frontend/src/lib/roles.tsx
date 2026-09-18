@@ -24,8 +24,8 @@ export function getUserRoleInfo(role?: string | null, t?: (key: string) => strin
       return {
         role: "admin",
         label: translate("roles.admin"),
-        badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30",
-        textClass: "text-amber-600 dark:text-amber-400",
+        badgeClass: "bg-amber-500/10 text-amber-600 dark:text-warn border-amber-500/30",
+        textClass: "text-amber-600 dark:text-warn",
         bgClass: "bg-amber-500/10",
         borderClass: "border-amber-500/30",
         icon: Shield,
@@ -34,8 +34,8 @@ export function getUserRoleInfo(role?: string | null, t?: (key: string) => strin
       return {
         role: "archivist",
         label: translate("roles.archivist"),
-        badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
-        textClass: "text-emerald-600 dark:text-emerald-400",
+        badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-success border-emerald-500/30",
+        textClass: "text-emerald-600 dark:text-success",
         bgClass: "bg-emerald-500/10",
         borderClass: "border-emerald-500/30",
         icon: Sparkles,
@@ -44,8 +44,8 @@ export function getUserRoleInfo(role?: string | null, t?: (key: string) => strin
       return {
         role: "banned",
         label: translate("roles.banned"),
-        badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30",
-        textClass: "text-rose-600 dark:text-rose-400",
+        badgeClass: "bg-rose-500/10 text-rose-600 dark:text-danger border-rose-500/30",
+        textClass: "text-rose-600 dark:text-danger",
         bgClass: "bg-rose-500/10",
         borderClass: "border-rose-500/30",
         icon: Ban,
@@ -55,8 +55,8 @@ export function getUserRoleInfo(role?: string | null, t?: (key: string) => strin
       return {
         role: r,
         label: translate("roles.member"),
-        badgeClass: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/30",
-        textClass: "text-sky-600 dark:text-sky-400",
+        badgeClass: "bg-sky-500/10 text-sky-600 dark:text-info border-sky-500/30",
+        textClass: "text-sky-600 dark:text-info",
         bgClass: "bg-sky-500/10",
         borderClass: "border-sky-500/30",
         icon: User,

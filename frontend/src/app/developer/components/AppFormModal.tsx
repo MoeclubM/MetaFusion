@@ -274,7 +274,7 @@ export function AppFormModal({
         </div>
 
         {error ? (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 leading-relaxed">{error}</div>
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-danger-soft leading-relaxed">{error}</div>
         ) : null}
 
         <div className="flex justify-end gap-2 pt-1">

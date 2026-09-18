@@ -359,7 +359,7 @@ export function HomeCustomizeModal({
                       <button
                         type="button"
                         onClick={() => removeRow(index)}
-                        className="p-1 rounded hover:bg-rose-500/10 text-text-muted hover:text-rose-400 cursor-pointer"
+                        className="p-1 rounded hover:bg-rose-500/10 text-text-muted hover:text-danger cursor-pointer"
                         title={t("home.customizeDelete")}
                         aria-label={t("home.customizeDelete")}
                       >
@@ -401,7 +401,7 @@ export function HomeCustomizeModal({
             <span>{t("home.customizeReset")}</span>
           </button>
           <div className="flex items-center gap-2">
-            {shownError && <span className="text-[11px] text-red-400 font-mono max-w-[280px]">{shownError}</span>}
+            {shownError && <span className="text-[11px] text-danger font-mono max-w-[280px]">{shownError}</span>}
             <button
               type="button"
               onClick={onClose}

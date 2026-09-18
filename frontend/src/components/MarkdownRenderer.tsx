@@ -70,8 +70,8 @@ function CodeBlockWrapper({
         >
           {copied ? (
             <>
-              <Check className="w-3 h-3 text-emerald-400" />
-              <span className="text-emerald-400 font-medium">{t("common.copied")}</span>
+              <Check className="w-3 h-3 text-success" />
+              <span className="text-success font-medium">{t("common.copied")}</span>
             </>
           ) : (
             <>
@@ -199,7 +199,7 @@ export default function MarkdownRenderer({
             }
             return (
               <code
-                className="px-1.5 py-0.5 rounded dark:bg-white/10 text-amber-600 dark:text-amber-400 font-mono text-[0.875em] break-all border border-line-subtle"
+                className="px-1.5 py-0.5 rounded dark:bg-white/10 text-amber-600 dark:text-warn font-mono text-[0.875em] break-all border border-line-subtle"
                 {...props}
               >
                 {children}

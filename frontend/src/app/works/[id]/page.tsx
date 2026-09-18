@@ -659,7 +659,7 @@ const releaseFacets = useMemo(
  <div className="p-8 text-center text-sm text-text-faint">{t("work.detail.loadingReleases")}</div>
  ) : releasesFailed ? (
  <div role="alert" className="p-8 text-center text-sm space-y-2">
- <p className="text-amber-700 dark:text-amber-300">{t("catalog.listFailed")}</p>
+ <p className="text-amber-700 dark:text-warn-soft">{t("catalog.listFailed")}</p>
  <button type="button" onClick={() => void loadReleases()} className="text-xs font-mono text-primary hover:underline cursor-pointer">
  {t("catalog.retry")}
  </button>

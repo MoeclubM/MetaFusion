@@ -165,7 +165,7 @@ export function ExternalDatabasesTab() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-sm font-semibold text-text-strong flex items-center gap-2">
-            <Globe className="w-4 h-4 text-sky-400" />
+            <Globe className="w-4 h-4 text-info" />
             <span>{t("admin.extdb.title")}</span>
           </h2>
           <p className="text-xs text-text-muted font-mono mt-0.5">
@@ -183,7 +183,7 @@ export function ExternalDatabasesTab() {
       </div>
 
       {error && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-400 text-xs font-mono">
+        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-danger text-xs font-mono">
           {error}
         </div>
       )}
@@ -225,7 +225,7 @@ export function ExternalDatabasesTab() {
                       {item.icon_url ? (
                         <img src={item.icon_url} alt="" className="w-4 h-4 object-contain" />
                       ) : (
-                        <Globe className="w-4 h-4 text-sky-400 opacity-80" />
+                        <Globe className="w-4 h-4 text-info opacity-80" />
                       )}
                       <div>
                         <div className="font-mono font-bold text-text-strong text-[11px]">{item.code}</div>
@@ -278,7 +278,7 @@ export function ExternalDatabasesTab() {
                       </span>
                     ) : adapterIds.has(item.code) ? (
                       <span
-                        className="inline-block px-2 py-0.5 rounded font-mono text-[10px] bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
+                        className="inline-block px-2 py-0.5 rounded font-mono text-[10px] bg-emerald-500/10 border border-emerald-500/30 text-success"
                         title={t("admin.extdb.importerSupportedHint")}
                       >
                         {t("admin.extdb.importerSupported")}
@@ -308,8 +308,8 @@ export function ExternalDatabasesTab() {
                         title={item.is_enabled ? t("admin.extdb.disable") : t("admin.extdb.enable")}
                         className={`p-1.5 rounded-md transition-colors duration-fast ease-soft ${
                           item.is_enabled
-                            ? "hover:bg-amber-500/10 text-text-muted hover:text-amber-400"
-                            : "hover:bg-emerald-500/10 text-text-faint hover:text-emerald-400"
+                            ? "hover:bg-amber-500/10 text-text-muted hover:text-warn"
+                            : "hover:bg-emerald-500/10 text-text-faint hover:text-success"
                         }`}
                       >
                         <Power className="w-3.5 h-3.5" />
@@ -318,7 +318,7 @@ export function ExternalDatabasesTab() {
                         <button
                           onClick={() => setPendingDelete(item.code)}
                           title={t("common.delete")}
-                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-text-muted hover:text-rose-400 transition-colors duration-fast ease-soft"
+                          className="p-1.5 rounded-md hover:bg-rose-500/10 text-text-muted hover:text-danger transition-colors duration-fast ease-soft"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -345,7 +345,7 @@ export function ExternalDatabasesTab() {
           setEditingItem(null);
         }}
         title={editingItem ? t("common.edit") : t("admin.extdb.newPreset")}
-        icon={<Globe className="w-4 h-4 text-sky-400" />}
+        icon={<Globe className="w-4 h-4 text-info" />}
       >
         <form onSubmit={handleSave} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

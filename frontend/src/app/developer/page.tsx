@@ -54,10 +54,10 @@ type Pending = { kind: "rotate" | "delete"; app: DeveloperApp };
 
 /** 徽章色调：自有平台/已核验是"可信"语义，待核验是提醒，停用是失效。 */
 const STATUS_CLASS: Record<string, string> = {
-  first_party: "bg-indigo-500/10 border-indigo-500/30 text-indigo-400",
-  verified: "bg-emerald-500/10 border-emerald-500/30 text-emerald-400",
-  unverified: "bg-amber-500/10 border-amber-500/30 text-amber-400",
-  disabled: "bg-rose-500/10 border-rose-500/30 text-rose-300",
+  first_party: "bg-indigo-500/10 border-indigo-500/30 text-alt",
+  verified: "bg-emerald-500/10 border-emerald-500/30 text-success",
+  unverified: "bg-amber-500/10 border-amber-500/30 text-warn",
+  disabled: "bg-rose-500/10 border-rose-500/30 text-danger-soft",
 };
 
 export default function DeveloperPage() {
@@ -207,10 +207,10 @@ export default function DeveloperPage() {
         </div>
 
         {error ? (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs leading-relaxed">{error}</div>
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-danger-soft text-xs leading-relaxed">{error}</div>
         ) : null}
         {notice ? (
-          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs leading-relaxed">{notice}</div>
+          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-success-soft text-xs leading-relaxed">{notice}</div>
         ) : null}
 
         {loading && !config ? (
@@ -259,7 +259,7 @@ export default function DeveloperPage() {
                 <span>response_types: {config.response_types.join(" ")}</span>
                 <span>PKCE: {config.code_challenge_methods.join(" ")}</span>
               </div>
-              {copied === "failed" ? <p className="text-[11px] text-amber-400">{t("developer.copyFailed")}</p> : null}
+              {copied === "failed" ? <p className="text-[11px] text-warn">{t("developer.copyFailed")}</p> : null}
             </Card>
 
             {/* 系统应用（owner_user_id 为空）不在开发者中心展示：overview 仍回 platforms，
@@ -325,7 +325,7 @@ export default function DeveloperPage() {
                           <td className="py-2.5 px-3 font-mono text-[11px] text-text-strong break-all">{app.client_id}</td>
                           <td className="py-2.5 px-3">
                             {(app.redirect_uris || []).length === 0 ? (
-                              <span className="font-mono text-[10px] text-rose-400">{t("developer.apps.noRedirects")}</span>
+                              <span className="font-mono text-[10px] text-danger">{t("developer.apps.noRedirects")}</span>
                             ) : (
                               <div className="space-y-0.5">
                                 {(app.redirect_uris || []).map((uri) => (

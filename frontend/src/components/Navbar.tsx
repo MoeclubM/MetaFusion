@@ -189,8 +189,8 @@ export const Navbar: React.FC = () => {
                 href="/admin"
                 className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all ${
                   pathname.startsWith("/admin")
-                    ? "text-rose-400 bg-rose-500/10 border border-rose-500/25 font-semibold"
-                    : "text-rose-400/80 hover:text-rose-400 hover:bg-rose-500/5"
+                    ? "text-danger bg-rose-500/10 border border-rose-500/25 font-semibold"
+                    : "text-danger/80 hover:text-danger hover:bg-rose-500/5"
                 }`}
               >
                 <Shield className="w-3.5 h-3.5" />
@@ -278,7 +278,7 @@ export const Navbar: React.FC = () => {
                       <Link
                         href="/admin"
                         onClick={() => setIsUserMenuOpen(false)}
-                        className="w-full px-3 py-2 text-left text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
+                        className="w-full px-3 py-2 text-left text-danger hover:text-danger-soft hover:bg-rose-500/10 flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
                       >
                         <Shield className="w-3.5 h-3.5" strokeWidth={1.7} />
                         <span>{t("navbar.adminConsole")}</span>
@@ -289,7 +289,7 @@ export const Navbar: React.FC = () => {
                       <a
                         href={getAuthUsersAdminUrl()}
                         onClick={() => setIsUserMenuOpen(false)}
-                        className="w-full px-3 py-2 text-left text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
+                        className="w-full px-3 py-2 text-left text-warn hover:text-warn-soft hover:bg-amber-500/10 flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
                       >
                         <Settings className="w-3.5 h-3.5" strokeWidth={1.7} />
                         <span>{t("navbar.userManagement")}</span>
@@ -304,7 +304,7 @@ export const Navbar: React.FC = () => {
                         setIsUserMenuOpen(false);
                         logout();
                       }}
-                      className="w-full px-3 py-2 text-left text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition-colors duration-fast ease-soft cursor-pointer"
+                      className="w-full px-3 py-2 text-left text-danger hover:bg-rose-500/10 flex items-center gap-2 transition-colors duration-fast ease-soft cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" strokeWidth={1.7} />
                       <span>{t("catalog.logout")}</span>

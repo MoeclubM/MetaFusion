@@ -73,7 +73,7 @@ export function EntityCommentComposer({
           </label>
           <span className="font-mono text-[11px] truncate">
             {user ? (
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">@{user.username}</span>
+              <span className="text-emerald-600 dark:text-success font-semibold">@{user.username}</span>
             ) : (
               <a href={getAuthLoginUrl()} className="text-primary hover:underline font-medium">
                 {t("entity.page.signInToComment")}

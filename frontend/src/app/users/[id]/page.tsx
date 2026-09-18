@@ -253,24 +253,24 @@ export default function UserDetailPage() {
   const getRevisionActionLabel = (action?: string) => {
     switch (action) {
       case "create":
-        return { label: t("editor.history.actionCreate"), color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" };
+        return { label: t("editor.history.actionCreate"), color: "bg-emerald-500/10 text-emerald-600 dark:text-success border-emerald-500/20" };
       case "delete":
-        return { label: t("editor.history.actionDelete"), color: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20" };
+        return { label: t("editor.history.actionDelete"), color: "bg-rose-500/10 text-rose-600 dark:text-danger border-rose-500/20" };
       case "merge":
-        return { label: t("editor.history.actionMerge"), color: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20" };
+        return { label: t("editor.history.actionMerge"), color: "bg-purple-500/10 text-purple-600 dark:text-alt border-purple-500/20" };
       case "rollback":
-        return { label: t("editor.history.actionRollback"), color: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" };
+        return { label: t("editor.history.actionRollback"), color: "bg-amber-500/10 text-amber-600 dark:text-warn border-amber-500/20" };
       case "cover_update":
-        return { label: t("editor.history.actionCover"), color: "bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20" };
+        return { label: t("editor.history.actionCover"), color: "bg-pink-500/10 text-pink-600 dark:text-danger border-pink-500/20" };
       case "relation_update":
-        return { label: t("editor.history.actionRelations"), color: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20" };
+        return { label: t("editor.history.actionRelations"), color: "bg-indigo-500/10 text-indigo-600 dark:text-alt border-indigo-500/20" };
       case "external_links":
-        return { label: t("editor.history.actionExternalIds"), color: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20" };
+        return { label: t("editor.history.actionExternalIds"), color: "bg-sky-500/10 text-sky-600 dark:text-info border-sky-500/20" };
       case "release_mount":
-        return { label: t("editor.history.actionReleaseMount"), color: "bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20" };
+        return { label: t("editor.history.actionReleaseMount"), color: "bg-teal-500/10 text-teal-600 dark:text-success border-teal-500/20" };
       case "update":
       default:
-        return { label: t("editor.history.actionUpdate"), color: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20" };
+        return { label: t("editor.history.actionUpdate"), color: "bg-sky-500/10 text-sky-600 dark:text-info border-sky-500/20" };
     }
   };
 
@@ -317,7 +317,7 @@ export default function UserDetailPage() {
                 <h1 className="text-lg font-bold text-text-strong">{u ? u.username : t("nav.userProfile")}</h1>
                 {u && <UserRoleBadge role={u.role} t={t} showIcon />}
                 {u?.banned && (
-                  <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-sm bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 inline-flex items-center gap-1">
+                  <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-sm bg-rose-500/10 text-rose-600 dark:text-danger border border-rose-500/30 inline-flex items-center gap-1">
                     <ShieldAlert className="w-3 h-3" />
                     <span>{t("users.profile.banned")}</span>
                   </span>
@@ -326,7 +326,7 @@ export default function UserDetailPage() {
               {/* display_name / bio / avatar_url / created_at 都不在 auth.users 里：字段缺席就整块不渲染，
                   不做"空字符串"或 Invalid Date 的假展示。 */}
               {profileFailure && (
-                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+                <p className="text-xs text-amber-600 dark:text-warn flex items-start gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                   <span>
                     {/* 服务明确回 404 时说"找不到这个人"，不再谎报"账号服务未响应"，
@@ -357,7 +357,7 @@ export default function UserDetailPage() {
                   <span className="text-[10px]">{copiedId ? t("users.profile.copied") : t("users.profile.copyId")}</span>
                 </button>
                 {copyFailed && (
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400">{t("common.copyFailed")}</span>
+                  <span className="text-[10px] text-amber-600 dark:text-warn">{t("common.copyFailed")}</span>
                 )}
               </div>
             </div>
@@ -585,7 +585,7 @@ export default function UserDetailPage() {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     title={src.citation || src.url}
-                                    className="text-sky-600 dark:text-sky-400 hover:underline max-w-[220px] truncate inline-flex items-center gap-0.5"
+                                    className="text-sky-600 dark:text-info hover:underline max-w-[220px] truncate inline-flex items-center gap-0.5"
                                   >
                                     <span>{src.citation || src.url}</span>
                                     <ExternalLink className="w-2.5 h-2.5 shrink-0" />

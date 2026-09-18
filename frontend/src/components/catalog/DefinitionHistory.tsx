@@ -49,15 +49,15 @@ const CHANGES = ["added", "removed", "changed", "toggled"] as const;
 
 /** 版本状态色板：沿用管理台表格的既有色号（published 绿 / draft 琥珀 / 其余灰）。 */
 const STATE_CLASS: Record<string, string> = {
-  published: "bg-emerald-500/15 text-emerald-400",
-  draft: "bg-amber-500/15 text-amber-400",
+  published: "bg-emerald-500/15 text-success",
+  draft: "bg-amber-500/15 text-warn",
   superseded: "bg-surfaceSubtle text-text-muted",
 };
 const CHANGE_CLASS: Record<string, string> = {
-  added: "bg-emerald-500/15 text-emerald-400",
-  removed: "bg-rose-500/15 text-rose-400",
-  changed: "bg-amber-500/15 text-amber-400",
-  toggled: "bg-sky-500/15 text-sky-400",
+  added: "bg-emerald-500/15 text-success",
+  removed: "bg-rose-500/15 text-danger",
+  changed: "bg-amber-500/15 text-warn",
+  toggled: "bg-sky-500/15 text-info",
 };
 
 /** 值预览上限：服务端只保证单个值不超过 512 字节，表格里再收一次，免得一行撑爆版式。 */
@@ -229,15 +229,15 @@ function DiffModal({
                           {tr(`catalog.history.change.${c.change}`, c.change)}
                         </span>
                         {c.truncated ? (
-                          <span className="ml-1.5 text-[10px] text-amber-400">
+                          <span className="ml-1.5 text-[10px] text-warn">
                             {t("catalog.history.truncated")}
                           </span>
                         ) : null}
                       </td>
                       <td className="py-2 px-3 align-top break-all">
-                        <span className="text-rose-400/90">{preview(c.from)}</span>
+                        <span className="text-danger/90">{preview(c.from)}</span>
                         <ArrowRight className="inline w-3 h-3 mx-1 text-text-faint" />
-                        <span className="text-emerald-400/90">{preview(c.to)}</span>
+                        <span className="text-success/90">{preview(c.to)}</span>
                       </td>
                     </tr>
                   ))}
@@ -314,7 +314,7 @@ export function DefinitionHistory({
         />
       ) : null}
       {result ? (
-        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-300 space-y-1">
+        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-success-soft space-y-1">
           <p className="leading-relaxed">
             {result.no_op
               ? t("catalog.history.rollbackNoOp", {
@@ -328,7 +328,7 @@ export function DefinitionHistory({
                 })}
           </p>
           {result.edit_note ? (
-            <p className="text-emerald-300/80 font-mono leading-relaxed">
+            <p className="text-success-soft/80 font-mono leading-relaxed">
               {t("catalog.history.rollbackNote", { note: result.edit_note })}
             </p>
           ) : null}
@@ -415,7 +415,7 @@ export function DefinitionHistory({
                             setFailure(undefined);
                             setRollbackTarget(v);
                           }}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-500/15 hover:bg-amber-500/25 text-warn text-[11px] transition-colors duration-fast ease-soft cursor-pointer"
                         >
                           <RotateCcw className="w-3 h-3" />
                           {t("catalog.history.rollback")}

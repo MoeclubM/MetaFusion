@@ -45,7 +45,7 @@ export function EntityActionToolbar({
             <button
               type="button"
               onClick={onMerge}
-              className="inline-flex items-center gap-1.5 px-3 h-7 rounded-md bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 text-purple-300 hover:text-purple-200 transition-all active:scale-95"
+              className="inline-flex items-center gap-1.5 px-3 h-7 rounded-md bg-purple-500/10 border border-purple-500/30 hover:bg-purple-500/20 text-alt-soft hover:text-alt-soft transition-all active:scale-95"
             >
               <GitMerge className="w-3.5 h-3.5" />
               {t("entity.toolbar.merge", { entityType: label })}
@@ -60,7 +60,7 @@ export function EntityActionToolbar({
         onClick={onHistory}
         className="inline-flex items-center gap-1.5 px-3 h-7 rounded-md bg-black/[0.03] dark:bg-white/[0.06] border border-line hover:bg-black/[0.06] dark:hover:bg-white/10 text-text-body hover:text-gray-900 dark:hover:text-white transition-all active:scale-95"
       >
-        <History className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
+        <History className="w-3.5 h-3.5 text-amber-500 dark:text-warn" />
         {t("entity.toolbar.history")}
       </button>
 

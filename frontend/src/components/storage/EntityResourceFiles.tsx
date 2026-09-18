@@ -400,7 +400,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
           <p className="text-[11px] text-text-faint leading-relaxed">{t("storage.files.dedupHint")}</p>
 
           {!authLoading && !user ? (
-            <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] text-xs text-amber-600 dark:text-amber-400">
+            <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] text-xs text-amber-600 dark:text-warn">
               <span>{t("storage.files.signInHint")}</span>
               <a
                 href={getAuthLoginUrl()}
@@ -464,19 +464,19 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
                 </p>
               )}
               {notice && (
-                <p className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-amber-400">
+                <p className="flex items-start gap-1.5 text-[11px] text-amber-600 dark:text-warn">
                   <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                   <span>{msg(notice)}</span>
                 </p>
               )}
               {done && (
-                <p className="flex items-start gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+                <p className="flex items-start gap-1.5 text-[11px] text-emerald-600 dark:text-success">
                   <Check className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                   <span>{msg(done)}</span>
                 </p>
               )}
-              {busy && deduped && <p className="text-[11px] text-sky-600 dark:text-sky-400">{t("storage.files.stageInstant")}</p>}
-              {fellBack && <p className="text-[11px] text-sky-600 dark:text-sky-400">{t("storage.files.stageFallback")}</p>}
+              {busy && deduped && <p className="text-[11px] text-sky-600 dark:text-info">{t("storage.files.stageInstant")}</p>}
+              {fellBack && <p className="text-[11px] text-sky-600 dark:text-info">{t("storage.files.stageFallback")}</p>}
 
               {busy && (
                 <div className="space-y-1.5">
@@ -529,7 +529,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
       )}
 
       {downloadNote && (
-        <p className="flex items-start gap-1.5 text-[11px] text-sky-600 dark:text-sky-400">
+        <p className="flex items-start gap-1.5 text-[11px] text-sky-600 dark:text-info">
           <HardDrive className="w-3.5 h-3.5 mt-0.5 shrink-0" />
           <span>{msg(downloadNote)}</span>
         </p>
@@ -543,7 +543,7 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
       )}
 
       {listState === "error" && (
-        <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] font-mono text-[11px] text-amber-600 dark:text-amber-400">
+        <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] font-mono text-[11px] text-amber-600 dark:text-warn">
           <AlertCircle className="w-3.5 h-3.5" />
           <span>{msg(listError)}</span>
           <button
@@ -577,12 +577,12 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
                     <span className="px-1.5 py-0.5 rounded bg-primary/10 text-primary font-semibold">{entry.binding_role}</span>
                     <span>{dateLabel(entry.created_at)}</span>
                     {pending ? (
-                      <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-warn">
                         {t("storage.files.statusPending")}
                       </span>
                     ) : null}
                     {entry.asset.hash_verified && (
-                      <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400">
+                      <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-success">
                         <Check className="w-3 h-3" />
                         {t("storage.files.verified")}
                       </span>
