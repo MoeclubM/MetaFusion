@@ -159,6 +159,62 @@ html.light .keep-white {
   color: #ffffff !important;
 }
 
+/* 无条件的白色工具类：.hover\:text-white:hover、.divide-white\/[0.06]、.bg-white\/5 这些
+   不带 dark: 前缀、也不在下面白名单里的写法，生成的 CSS 本身就是白/半透明白，
+   浅色下白字叠白底、分隔线叠白底。按"角色"映射到语义变量，别再逐个手写十六进制。
+   深色底/图片上要保留深色模式取值时，在元素上加 .keep-white（与上面白字同一套逃生舱）。 */
+html.light .hover\:text-white:hover:not(.keep-white),
+html.light .group:hover .group-hover\:text-white:not(.keep-white) {
+  color: var(--text-strong-color) !important;
+}
+
+html.light .text-white\/90:not(.keep-white),
+html.light .text-white\/80:not(.keep-white) {
+  color: var(--text-strong-color) !important;
+}
+
+html.light .text-white\/70:not(.keep-white) {
+  color: var(--text-body-color) !important;
+}
+
+html.light .text-white\/60:not(.keep-white),
+html.light .text-white\/50:not(.keep-white) {
+  color: var(--text-muted-color) !important;
+}
+
+html.light .text-white\/40:not(.keep-white),
+html.light .text-white\/30:not(.keep-white),
+html.light .text-white\/20:not(.keep-white) {
+  color: var(--text-faint-color) !important;
+}
+
+html.light .divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]),
+html.light .divide-white\/10 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-white\/5 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--line-subtle-color) !important;
+}
+
+html.light .border-white\/5 {
+  border-color: var(--line-subtle-color) !important;
+}
+
+html.light .hover\:border-white\/20:hover {
+  border-color: var(--line-strong-color) !important;
+}
+
+html.light .bg-white\/5,
+html.light .bg-white\/\[0\.01\] {
+  background-color: var(--surface-subtle-color) !important;
+}
+
+html.light .hover\:bg-white\/10:hover,
+html.light .hover\:bg-white\/15:hover,
+html.light .hover\:bg-white\/\[0\.03\]:hover,
+html.light .hover\:bg-white\/\[0\.07\]:hover,
+html.light .hover\:bg-white\/\[0\.15\]:hover {
+  background-color: var(--surface-hover-color) !important;
+}
+
 html.light .border-white\/10,
 html.light .border-white\/\[0\.06\],
 html.light .border-white\/\[0\.07\],
