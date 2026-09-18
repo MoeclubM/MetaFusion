@@ -38,7 +38,7 @@ export default function NotFound() {
           <span>NOT FOUND</span>
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-emphasis mb-3">
           {t("notFound.title")}
         </h1>
         <p className="text-sm sm:text-base text-gray-400 mb-8 leading-relaxed">
@@ -49,7 +49,7 @@ export default function NotFound() {
           <button
             type="button"
             onClick={handleBack}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 text-sm font-medium transition-colors duration-fast ease-soft"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emphasis/5 hover:bg-emphasis/10 border border-line text-gray-200 text-sm font-medium transition-colors duration-fast ease-soft"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>{t("common.back")}</span>
@@ -65,7 +65,7 @@ export default function NotFound() {
 
           <Link
             href="/explore"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 text-sm font-medium transition-colors duration-fast ease-soft"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emphasis/5 hover:bg-emphasis/10 border border-line text-gray-200 text-sm font-medium transition-colors duration-fast ease-soft"
           >
             <Compass className="w-4 h-4 text-sky-400" />
             <span>{t("nav.explore")}</span>

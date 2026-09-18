@@ -774,7 +774,7 @@ export default function ReleaseDetailPage() {
                 {basket.length > 0 && (
                   <Link
                     href={compareHref(basket)}
-                    className="inline-flex items-center h-8 max-sm:min-h-[44px] px-3 rounded-md bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-white transition-all text-xs font-mono"
+                    className="inline-flex items-center h-8 max-sm:min-h-[44px] px-3 rounded-md bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-emphasis transition-all text-xs font-mono"
                   >
                     {t("release.detail.compareOpen", { count: basket.length })}
                   </Link>
@@ -814,7 +814,7 @@ export default function ReleaseDetailPage() {
                     <span className={`block text-xs font-semibold truncate ${active ? "" : "text-text-strong"}`}>
                       {entityTitle(sib, locale)}
                     </span>
-                    <span className={`mt-0.5 block font-mono text-[10px] truncate ${active ? "text-white/80" : "text-gray-500"}`}>
+                    <span className={`mt-0.5 block font-mono text-[10px] truncate ${active ? "text-text-strong" : "text-gray-500"}`}>
                       {[sibEditionLabel, sibBatchLabel, sibCatalogNo].filter(Boolean).join(" · ") || "—"}
                     </span>
                   </Link>

@@ -118,49 +118,49 @@ export default function WorkReleasesPage() {
         width="page"
         header={
         <div className="flex items-center gap-2 font-mono text-[11px] text-gray-500">
-          <Link href={`/works/${workId}`} className="hover:text-white inline-flex items-center gap-1">
+          <Link href={`/works/${workId}`} className="hover:text-emphasis inline-flex items-center gap-1">
             <ArrowLeft className="w-3 h-3" strokeWidth={1.6} />
             {work?.title || t("work.releases.backToWork")}
           </Link>
-          <span className="text-white/20">/</span>
-          <span className="text-white">{t("work.releases.allReleases")}</span>
+          <span className="text-text-faint">/</span>
+          <span className="text-emphasis">{t("work.releases.allReleases")}</span>
         </div>
         }
       >
-        <div className="rounded-card border border-white/[0.06] bg-surface/70 backdrop-blur overflow-hidden">
-          <div className="px-4 md:px-5 py-4 border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h1 className="font-display text-xl tracking-tight text-white">{t("work.releases.releaseCount", { count: total })}</h1>
+        <div className="rounded-card border border-line-subtle bg-surface/70 backdrop-blur overflow-hidden">
+          <div className="px-4 md:px-5 py-4 border-b border-line-subtle flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h1 className="font-display text-xl tracking-tight text-emphasis">{t("work.releases.releaseCount", { count: total })}</h1>
             <form onSubmit={onSearch} className="relative w-full sm:w-auto">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" strokeWidth={1.5} />
-              <input value={qInput} onChange={(e)=>setQInput(e.target.value)} placeholder={t("work.detail.searchPlaceholder")} className="pl-9 pr-3 h-10 sm:h-9 w-full sm:w-56 bg-white/[0.04] border border-white/10 rounded-full text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-primary/40" />
+              <input value={qInput} onChange={(e)=>setQInput(e.target.value)} placeholder={t("work.detail.searchPlaceholder")} className="pl-9 pr-3 h-10 sm:h-9 w-full sm:w-56 bg-emphasis/[0.04] border border-line rounded-full text-xs text-emphasis placeholder:text-gray-500 focus:outline-none focus:border-primary/40" />
             </form>
           </div>
 
-          <div className="px-4 md:px-5 py-2.5 border-b border-white/[0.06] flex flex-wrap items-center gap-2">
+          <div className="px-4 md:px-5 py-2.5 border-b border-line-subtle flex flex-wrap items-center gap-2">
             <label className="inline-flex items-center gap-1.5 text-xs text-gray-400">
               <span className="font-mono">{t("work.detail.filterEdition")}</span>
-              <select value={editionFilter} onChange={(e) => { setEditionFilter(e.target.value); setPage(1); }} className="h-9 px-2 rounded-md bg-white/[0.04] border border-white/10 text-xs text-white">
+              <select value={editionFilter} onChange={(e) => { setEditionFilter(e.target.value); setPage(1); }} className="h-9 px-2 rounded-md bg-emphasis/[0.04] border border-line text-xs text-emphasis">
                 <option value="">{t("common.all")}</option>
                 {editionOptions.map((o) => <option key={o} value={o}>{getTermName(definitions, "edition_type", o, locale) !== o ? getTermName(definitions, "edition_type", o, locale) : o}</option>)}
               </select>
             </label>
             <label className="inline-flex items-center gap-1.5 text-xs text-gray-400">
               <span className="font-mono">{t("release.detail.batchLabel")}</span>
-              <select value={batchFilter} onChange={(e) => { setBatchFilter(e.target.value); setPage(1); }} className="h-9 px-2 rounded-md bg-white/[0.04] border border-white/10 text-xs text-white">
+              <select value={batchFilter} onChange={(e) => { setBatchFilter(e.target.value); setPage(1); }} className="h-9 px-2 rounded-md bg-emphasis/[0.04] border border-line text-xs text-emphasis">
                 <option value="">{t("common.all")}</option>
                 {batchOptions.map((o) => <option key={o} value={o}>{getTermName(definitions, "edition_batch", o, locale) !== o ? getTermName(definitions, "edition_batch", o, locale) : o}</option>)}
               </select>
             </label>
             <label className="inline-flex items-center gap-1.5 text-xs text-gray-400">
               <span className="font-mono">{t("work.detail.filterFormat")}</span>
-              <select value={formatFilter} onChange={(e) => { setFormatFilter(e.target.value); setPage(1); }} className="h-9 px-2 rounded-md bg-white/[0.04] border border-white/10 text-xs text-white">
+              <select value={formatFilter} onChange={(e) => { setFormatFilter(e.target.value); setPage(1); }} className="h-9 px-2 rounded-md bg-emphasis/[0.04] border border-line text-xs text-emphasis">
                 <option value="">{t("common.all")}</option>
                 {formatOptions.map((o) => <option key={o} value={o}>{getTermName(definitions, "format", o, locale) !== o ? getTermName(definitions, "format", o, locale) : o}</option>)}
               </select>
             </label>
             <label className="inline-flex items-center gap-1.5 text-xs text-gray-400">
               <span className="font-mono">{t("work.detail.filterCountry")}</span>
-              <select value={countryFilter} onChange={(e) => { setCountryFilter(e.target.value); setPage(1); }} className="h-9 px-2 rounded-md bg-white/[0.04] border border-white/10 text-xs text-white">
+              <select value={countryFilter} onChange={(e) => { setCountryFilter(e.target.value); setPage(1); }} className="h-9 px-2 rounded-md bg-emphasis/[0.04] border border-line text-xs text-emphasis">
                 <option value="">{t("common.all")}</option>
                 {countryOptions.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
@@ -185,7 +185,7 @@ export default function WorkReleasesPage() {
             <>
               <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-white/[0.03] border-b border-white/[0.06] font-mono text-[11px] tracking-wide text-gray-500">
+                  <thead className="bg-emphasis/[0.03] border-b border-line-subtle font-mono text-[11px] tracking-wide text-gray-500">
                     <tr>
                       <th className="py-3 px-2 font-medium w-10" aria-label={t("work.detail.compareSelect")} />
                       <th className="py-3 px-4 font-medium">{t("work.detail.tableRelease")}</th>
@@ -196,7 +196,7 @@ export default function WorkReleasesPage() {
                       <th className="py-3 px-4 text-right font-medium">{t("work.detail.tableDate")}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-white/[0.06]">
+                  <tbody className="divide-y divide-line-subtle">
                     {pageItems.map((rel)=>{
                       const edition = String(rel.attributes?.edition_type || "").trim();
                       const country = String(rel.attributes?.country || "").trim();
@@ -205,9 +205,9 @@ export default function WorkReleasesPage() {
                       const editionDate = String(rel.attributes?.edition_date || "").trim();
                       const fmt = formatSummaryOf(rel);
                       return (
-                      <tr key={rel.id} className="hover:bg-white/[0.03] transition-colors duration-fast ease-soft">
+                      <tr key={rel.id} className="hover:bg-emphasis/[0.03] transition-colors duration-fast ease-soft">
                         <td className="py-3 px-2"><input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="w-4 h-4 rounded accent-primary cursor-pointer" /></td>
-                        <td className="py-3 px-4"><Link href={`/releases/${rel.id}`} className="font-semibold text-white hover:text-sky-200 inline-flex items-center gap-1">{entityTitle(rel, locale)} <ArrowUpRight className="w-3 h-3 text-gray-500" strokeWidth={1.5} /></Link></td>
+                        <td className="py-3 px-4"><Link href={`/releases/${rel.id}`} className="font-semibold text-emphasis hover:text-sky-200 inline-flex items-center gap-1">{entityTitle(rel, locale)} <ArrowUpRight className="w-3 h-3 text-gray-500" strokeWidth={1.5} /></Link></td>
                         <td className="py-3 px-4 text-gray-400">{vocabLabel(definitions, "edition_type", edition, locale) || "—"}</td>
                         <td className="py-3 px-4 text-gray-400">{country || "—"}</td>
                         <td className="py-3 px-4 text-gray-400">{vocabLabel(definitions, "packaging", packaging, locale) || "—"}</td>
@@ -218,7 +218,7 @@ export default function WorkReleasesPage() {
                   </tbody>
                 </table>
               </div>
-              <div className="sm:hidden divide-y divide-white/[0.06]">
+              <div className="sm:hidden divide-y divide-line-subtle">
                 {pageItems.map((rel)=>{
                   const edition = String(rel.attributes?.edition_type || "").trim();
                   const country = String(rel.attributes?.country || "").trim();
@@ -230,7 +230,7 @@ export default function WorkReleasesPage() {
                   <div key={rel.id} className="px-4 py-3.5 flex items-start gap-2.5">
                     <input type="checkbox" aria-label={t("work.detail.compareSelectName", { name: entityTitle(rel, locale) })} checked={compareSelected.includes(rel.id!)} onChange={() => toggleCompare(rel.id!)} className="mt-1 w-5 h-5 rounded accent-primary cursor-pointer shrink-0" />
                     <Link href={`/releases/${rel.id}`} className="min-w-0 flex-1 space-y-1">
-                      <div className="font-semibold text-white text-sm line-clamp-2">{entityTitle(rel, locale)}</div>
+                      <div className="font-semibold text-emphasis text-sm line-clamp-2">{entityTitle(rel, locale)}</div>
                       <div className="font-mono text-[11px] text-gray-400 truncate">{[vocabLabel(definitions, "edition_type", edition, locale), country, vocabLabel(definitions, "packaging", packaging, locale)].filter(Boolean).join(" · ") || t("work.detail.noEditionMeta")}</div>
                       <div className="font-mono text-[11px] text-gray-500 truncate">{[fmt, catalogNo, editionDate].filter(Boolean).join(" · ") || "—"}</div>
                     </Link>
@@ -240,11 +240,11 @@ export default function WorkReleasesPage() {
               {/* 单页数据不渲染翻页器：页数没有变化时"第 1/1 页"加两个禁用按钮只是噪音
                   （与 works/[id] 的 totalPages > 1 守卫一致）。 */}
               {totalPages > 1 && (
-                <div className="px-4 py-3 border-t border-white/[0.06] bg-white/[0.02] flex items-center justify-between">
+                <div className="px-4 py-3 border-t border-line-subtle bg-emphasis/[0.02] flex items-center justify-between">
                   <span className="font-mono text-[11px] text-gray-500">{t("common.pagination", { page, total: totalPages })}</span>
                   <div className="flex items-center gap-2">
-                    <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="w-8 h-8 grid place-items-center rounded-full bg-white/[0.06] border border-white/10 disabled:opacity-40 hover:bg-white/[0.10]"><ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} /></button>
-                    <button disabled={page>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="w-8 h-8 grid place-items-center rounded-full bg-white/[0.06] border border-white/10 disabled:opacity-40 hover:bg-white/[0.10]"><ChevronRight className="w-3.5 h-3.5" strokeWidth={1.6} /></button>
+                    <button disabled={page<=1} onClick={()=>setPage(p=>Math.max(1,p-1))} className="w-8 h-8 grid place-items-center rounded-full bg-emphasis/[0.06] border border-line disabled:opacity-40 hover:bg-emphasis/[0.10]"><ChevronLeft className="w-3.5 h-3.5" strokeWidth={1.6} /></button>
+                    <button disabled={page>=totalPages} onClick={()=>setPage(p=>Math.min(totalPages,p+1))} className="w-8 h-8 grid place-items-center rounded-full bg-emphasis/[0.06] border border-line disabled:opacity-40 hover:bg-emphasis/[0.10]"><ChevronRight className="w-3.5 h-3.5" strokeWidth={1.6} /></button>
                   </div>
                 </div>
               )}

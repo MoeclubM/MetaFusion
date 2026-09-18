@@ -1254,7 +1254,7 @@ export function OmniImportModal({
                               onClick={() => updateAssociation(originalIndex, { action: "create" })}
                               className={`px-2.5 py-1 rounded-lg transition-all ${
                                 isCreate
-                                  ? "bg-emerald-500 text-white font-bold shadow-xs"
+                                  ? "bg-emerald-500 text-emphasis font-bold shadow-xs"
                                   : "bg-black/5 dark:bg-white/5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                               }`}
                             >
@@ -1271,7 +1271,7 @@ export function OmniImportModal({
                               }}
                               className={`px-2.5 py-1 rounded-lg transition-all ${
                                 isLinked
-                                  ? "bg-blue-500 text-white font-bold shadow-xs"
+                                  ? "bg-blue-500 text-emphasis font-bold shadow-xs"
                                   : "bg-black/5 dark:bg-white/5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                               }`}
                             >
@@ -1282,7 +1282,7 @@ export function OmniImportModal({
                               onClick={() => updateAssociation(originalIndex, { action: "skip" })}
                               className={`px-2.5 py-1 rounded-lg transition-all ${
                                 isSkipped
-                                  ? "bg-gray-600 text-white font-bold shadow-xs"
+                                  ? "bg-gray-600 text-emphasis font-bold shadow-xs"
                                   : "bg-black/5 dark:bg-white/5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                               }`}
                             >

@@ -87,15 +87,15 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
-      <div className="w-full max-w-2xl flex flex-col rounded-lg border border-white/10 bg-surface shadow-2xl overflow-hidden">
+      <div className="w-full max-w-2xl flex flex-col rounded-lg border border-line bg-surface shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.08] bg-background/50">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-emphasis/[0.08] bg-background/50">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-md bg-purple-500/10 border border-purple-500/20 grid place-items-center">
               <GitMerge className="w-4 h-4 text-purple-400" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-emphasis flex items-center gap-2">
                 {t("editor.merge.title")}
               </h2>
               <p className="font-mono text-[10px] text-gray-400">
@@ -107,7 +107,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
             type="button"
             onClick={onClose}
             aria-label={t("revisions.close")}
-            className="w-7 h-7 grid place-items-center rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
+            className="w-7 h-7 grid place-items-center rounded-md hover:bg-emphasis/10 text-gray-400 hover:text-emphasis transition-colors duration-fast ease-soft"
           >
             <X className="w-4 h-4" />
           </button>
@@ -146,7 +146,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
           {/* Source Entity Info */}
           <div className="space-y-1">
             <label className="text-gray-400 text-[10px] uppercase tracking-wider">{t("editor.merge.sourceEntity")}</label>
-            <div className="p-2.5 rounded-md bg-background/70 border border-white/10 text-white flex items-center justify-between">
+            <div className="p-2.5 rounded-md bg-background/70 border border-line text-emphasis flex items-center justify-between">
               <div>
                 <span className="font-semibold text-xs">{sourceEntity.title}</span>
                 {sourceEntity.sub && <span className="text-gray-400 ml-2 text-[11px]">({sourceEntity.sub})</span>}
@@ -166,7 +166,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
               value={targetId}
               onChange={(e) => setTargetId(e.target.value)}
               placeholder={t("editor.merge.targetUuidPlaceholder")}
-              className="w-full px-3 h-10 rounded-md bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-purple-400"
+              className="w-full px-3 h-10 rounded-md bg-background border border-line text-emphasis font-mono text-xs focus:outline-none focus:border-purple-400"
             />
           </div>
 
@@ -181,7 +181,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
               value={mergeNote}
               onChange={(e) => setMergeNote(e.target.value)}
               placeholder={t("editor.merge.notePlaceholder")}
-              className="w-full p-2.5 rounded-md bg-background border border-white/10 text-white text-xs leading-relaxed resize-none focus:outline-none focus:border-purple-400"
+              className="w-full p-2.5 rounded-md bg-background border border-line text-emphasis text-xs leading-relaxed resize-none focus:outline-none focus:border-purple-400"
             />
           </div>
 
@@ -195,7 +195,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
               value={sourceUrl}
               onChange={(e) => setSourceUrl(e.target.value)}
               placeholder="https://musicbrainz.org/artist/..."
-              className="w-full px-3 h-10 rounded-md bg-background border border-white/10 text-white font-mono text-xs focus:outline-none focus:border-purple-400"
+              className="w-full px-3 h-10 rounded-md bg-background border border-line text-emphasis font-mono text-xs focus:outline-none focus:border-purple-400"
             />
           </div>
 
@@ -206,7 +206,7 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
           )}
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-between pt-3 border-t border-white/[0.08]">
+          <div className="flex items-center justify-between pt-3 border-t border-emphasis/[0.08]">
             <span className="text-gray-500 text-[10px] flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
               <span>{t("editor.merge.footerSnapshot")}</span>
@@ -216,14 +216,14 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 h-7 rounded-md border border-white/10 text-xs text-gray-300 hover:bg-white/10 transition-colors duration-fast ease-soft"
+                className="px-3 h-7 rounded-md border border-line text-xs text-gray-300 hover:bg-emphasis/10 transition-colors duration-fast ease-soft"
               >
                 {t("editor.universal.cancel")}
               </button>
               <button
                 type="submit"
                 disabled={submitting || !user}
-                className="px-3.5 h-7 rounded-md bg-purple-500 hover:bg-purple-400 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors duration-fast ease-soft disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
+                className="px-3.5 h-7 rounded-md bg-purple-500 hover:bg-purple-400 text-emphasis text-xs font-semibold flex items-center gap-1.5 transition-colors duration-fast ease-soft disabled:opacity-40 disabled:cursor-not-allowed shadow-xs"
               >
                 <GitMerge className="w-3.5 h-3.5" />
                 <span>{submitting ? t("editor.merge.submitting") : t("editor.merge.submitBtn")}</span>

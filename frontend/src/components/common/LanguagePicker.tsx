@@ -131,7 +131,7 @@ export function LanguagePicker({
   const fieldTrigger = variant === "field";
   const triggerClass = fieldTrigger
     ? "w-full h-8 px-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04] border border-line text-left text-xs text-text-strong hover:border-primary/60 focus:outline-none focus:border-primary inline-flex items-center gap-2"
-    : "px-2 py-0.5 rounded bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 hover:text-white border border-white/10 text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft disabled:opacity-50";
+    : "px-2 py-0.5 rounded bg-emphasis/[0.04] hover:bg-emphasis/[0.08] text-gray-400 hover:text-emphasis border border-line text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft disabled:opacity-50";
 
   return (
     <div ref={containerRef} className={"relative " + (className || (fieldTrigger ? "block" : "inline-block"))}>

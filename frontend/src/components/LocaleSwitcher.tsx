@@ -77,7 +77,7 @@ export function LocaleSwitcher({ compact }: { compact?: boolean }) {
  }`}
  >
  <span className="text-[13px]">{l.nativeName}</span>
- {active && <Check className="w-4 h-4 text-white keep-white stroke-[2.2]" />}
+ {active && <Check className="w-4 h-4 text-emphasis keep-white stroke-[2.2]" />}
  </button>
  );
  })}

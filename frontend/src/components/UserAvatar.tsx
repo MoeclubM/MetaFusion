@@ -38,15 +38,15 @@ const shapeMap = {
 function getFallbackBg(name: string): string {
   if (!name) return "bg-primary text-white";
   const colors = [
-    "bg-emerald-600 text-white",
-    "bg-sky-600 text-white",
-    "bg-indigo-600 text-white",
-    "bg-purple-600 text-white",
-    "bg-pink-600 text-white",
-    "bg-amber-600 text-white",
-    "bg-teal-600 text-white",
-    "bg-rose-600 text-white",
-    "bg-cyan-600 text-white",
+    "bg-emerald-600 text-emphasis",
+    "bg-sky-600 text-emphasis",
+    "bg-indigo-600 text-emphasis",
+    "bg-purple-600 text-emphasis",
+    "bg-pink-600 text-emphasis",
+    "bg-amber-600 text-emphasis",
+    "bg-teal-600 text-emphasis",
+    "bg-rose-600 text-emphasis",
+    "bg-cyan-600 text-emphasis",
   ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -100,7 +100,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
 
   return (
     <div
-      className={`shrink-0 flex items-center justify-center font-sans font-bold select-none border border-white/10 shadow-2xs keep-white ${bgClass} ${sizeClass} ${shapeClass} ${ringClass} ${className}`}
+      className={`shrink-0 flex items-center justify-center font-sans font-bold select-none border border-line shadow-2xs keep-white ${bgClass} ${sizeClass} ${shapeClass} ${ringClass} ${className}`}
       title={name}
       aria-label={name}
     >

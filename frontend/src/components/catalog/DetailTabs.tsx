@@ -130,7 +130,7 @@ export function TabBar({
             {tb.icon}
             <span>{tb.label}</span>
             {tb.badge != null && (
-              <span className={`text-[10px] font-mono ${on ? "text-white/80" : "text-gray-400"}`}>
+              <span className={`text-[10px] font-mono ${on ? "text-text-strong" : "text-gray-400"}`}>
                 {tb.badge}
               </span>
             )}

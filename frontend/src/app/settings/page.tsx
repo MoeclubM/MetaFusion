@@ -530,7 +530,7 @@ export default function SettingsPage() {
                 disabled={submitting}
                 className="w-full h-10 rounded-lg bg-primary text-white keep-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 mt-1 shadow-xs"
               >
-                {submitting ? <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : t("settings.confirmChange")}
+                {submitting ? <div className="w-4 h-4 rounded-full border-2 border-emphasis/30 border-t-white animate-spin" /> : t("settings.confirmChange")}
               </button>
 
               {/* 会话安全：「全部设备登出」原来只有 /account 一个入口（components/catalog/

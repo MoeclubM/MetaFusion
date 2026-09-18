@@ -556,7 +556,7 @@ export function Compare({ ids }: { ids: string }) {
                         className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 transition-all cursor-pointer ${
                           isSelected
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                            : "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                            : "bg-primary/10 text-primary hover:bg-primary hover:text-emphasis"
                         }`}
                         aria-label={isSelected ? t("catalog.compareAdded") : t("catalog.compareAdd")}
                         title={isSelected ? t("catalog.compareAdded") : t("catalog.compareAdd")}
@@ -634,7 +634,7 @@ export function Compare({ ids }: { ids: string }) {
                         className={`w-7 h-7 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 transition-all cursor-pointer ${
                           isSelected
                             ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                            : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white"
+                            : "bg-primary/10 text-primary group-hover:bg-primary group-hover:text-emphasis"
                         }`}
                         aria-label={isSelected ? t("catalog.compareAdded") : t("catalog.compareAdd")}
                         title={isSelected ? t("catalog.compareAdded") : t("catalog.compareAdd")}

@@ -336,15 +336,15 @@ function CommunityContent() {
  }}
  className={`w-full group flex items-center gap-2.5 px-3.5 py-2.5 rounded-md border text-left transition-colors duration-fast ease-soft ${
  isActive
- ? "bg-surface border-line text-white shadow-sm"
- : "border-transparent text-gray-400 hover:text-white hover:bg-surface/70 hover:border-line/60"
+ ? "bg-surface border-line text-emphasis shadow-sm"
+ : "border-transparent text-gray-400 hover:text-emphasis hover:bg-surface/70 hover:border-line/60"
  }`}
  >
  <span className={`w-8 h-8 rounded-md flex items-center justify-center border shrink-0 ${board.bgColor} ${board.borderColor}`}>
  <Icon className={`w-4 h-4 ${board.color}`} />
  </span>
 	 <span className="flex-1 min-w-0">
-	 <span className={`block text-sm font-semibold leading-none truncate ${isActive ? "text-white" : "text-gray-300 group-hover:text-white"}`}>
+	 <span className={`block text-sm font-semibold leading-none truncate ${isActive ? "text-emphasis" : "text-gray-300 group-hover:text-emphasis"}`}>
 	 {boardDisplayName(board, locale, t)}
 	 </span>
 	 <span className="block text-xs text-gray-500 truncate leading-tight mt-0.5">{boardDisplayDesc(board, locale, t)}</span>
@@ -378,11 +378,11 @@ function CommunityContent() {
  <div className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
  <div className="w-[300px] max-w-[85vw] bg-background border-r border-line flex flex-col overflow-hidden">
  <div className="h-12 flex items-center justify-between px-4 border-b border-line shrink-0">
- <span className="text-sm font-bold text-white flex items-center gap-2">
+ <span className="text-sm font-bold text-emphasis flex items-center gap-2">
  <Layers className="w-4 h-4 text-gray-500" />
  {t("community.boardNav")}
  </span>
- <button onClick={() => setSidebarOpen(false)} className="p-1.5 text-gray-400 hover:text-white rounded-md hover:bg-surface">
+ <button onClick={() => setSidebarOpen(false)} className="p-1.5 text-gray-400 hover:text-emphasis rounded-md hover:bg-surface">
  <X className="w-4 h-4" />
  </button>
  </div>
@@ -411,7 +411,7 @@ function CommunityContent() {
 	 setSidebarOpen(false);
 	 resetToFirstPage();
 	 }}
-	 className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md border text-left ${isActive ? "bg-surface border-line text-white" : "border-transparent text-gray-400"}`}
+	 className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md border text-left ${isActive ? "bg-surface border-line text-emphasis" : "border-transparent text-gray-400"}`}
 	 >
 	 <span className={`w-8 h-8 rounded-md flex items-center justify-center border ${board.bgColor} ${board.borderColor}`}>
 	 <Icon className={`w-4 h-4 ${board.color}`} />
@@ -438,7 +438,7 @@ function CommunityContent() {
 	      <div className="flex items-center gap-2.5">
 	        <button
 	          onClick={() => setSidebarOpen(true)}
-	          className="lg:hidden p-2 rounded-md border border-line bg-surface text-gray-400 hover:text-white"
+	          className="lg:hidden p-2 rounded-md border border-line bg-surface text-gray-400 hover:text-emphasis"
 	        >
 	          <Menu className="w-4 h-4" />
 	        </button>
@@ -451,7 +451,7 @@ function CommunityContent() {
 	            value={searchFilter}
 	            onChange={(e) => setSearchFilter(e.target.value)}
 	            onKeyDown={(e) => e.key === "Enter" && submitSearch()}
-	            className="w-full pl-10 pr-24 h-11 rounded-lg bg-surface border border-line text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors duration-fast ease-soft shadow-inner"
+	            className="w-full pl-10 pr-24 h-11 rounded-lg bg-surface border border-line text-emphasis text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors duration-fast ease-soft shadow-inner"
 	          />
 	          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
 	            {searchFilter && (
@@ -467,7 +467,7 @@ function CommunityContent() {
 	            )}
 	            <button
 	              onClick={submitSearch}
-	              className="px-3 py-1 rounded bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-xs font-mono text-gray-200 transition-colors duration-fast ease-soft"
+	              className="px-3 py-1 rounded bg-emphasis/[0.08] hover:bg-emphasis/[0.15] border border-line text-xs font-mono text-gray-200 transition-colors duration-fast ease-soft"
 	            >
 	              {t("common.search")}
 	            </button>
@@ -520,7 +520,7 @@ function CommunityContent() {
 	                    value={boardQuery}
 	                    onChange={(e) => setBoardQuery(e.target.value)}
 	                    placeholder={t("community.boardDropdownPlaceholder")}
-	                    className="w-full pl-8 pr-2.5 py-1.5 rounded-md bg-background border border-line text-xs text-white placeholder-gray-500 focus:outline-none focus:border-gray-500 font-mono"
+	                    className="w-full pl-8 pr-2.5 py-1.5 rounded-md bg-background border border-line text-xs text-emphasis placeholder-gray-500 focus:outline-none focus:border-gray-500 font-mono"
 	                  />
 	                </div>
 
@@ -535,7 +535,7 @@ function CommunityContent() {
 	                    className={`w-full text-left px-2.5 py-2 rounded-md text-xs flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                      selectedBoard === "all"
 	                        ? "bg-primary text-white font-semibold"
-	                        : "text-gray-300 hover:text-white hover:bg-white/[0.05]"
+	                        : "text-gray-300 hover:text-white hover:bg-emphasis/[0.05]"
 	                    }`}
 	                  >
 	                    <span className="flex items-center gap-2 truncate">
@@ -562,7 +562,7 @@ function CommunityContent() {
 	                          className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                            isSelected
 	                              ? `${board.bgColor} ${board.color} font-semibold border ${board.borderColor}`
-	                              : "text-gray-300 hover:text-white hover:bg-white/[0.05]"
+	                              : "text-gray-300 hover:text-emphasis hover:bg-emphasis/[0.05]"
 	                          }`}
 	                        >
 	                          <span className="flex items-center gap-2 min-w-0">
@@ -615,7 +615,7 @@ function CommunityContent() {
 	                      fetchTags(e.target.value);
 	                    }}
 	                    placeholder={t("community.tagDropdownPlaceholder")}
-	                    className="w-full pl-8 pr-2.5 py-1.5 rounded-md bg-background border border-line text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-400 font-mono"
+	                    className="w-full pl-8 pr-2.5 py-1.5 rounded-md bg-background border border-line text-xs text-emphasis placeholder-gray-500 focus:outline-none focus:border-emerald-400 font-mono"
 	                  />
 	                </div>
 
@@ -631,7 +631,7 @@ function CommunityContent() {
 	                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                      !filterTagId && !filterTagName
 	                        ? "bg-primary text-white font-semibold"
-	                        : "text-gray-400 hover:text-white hover:bg-white/[0.05]"
+	                        : "text-gray-400 hover:text-white hover:bg-emphasis/[0.05]"
 	                    }`}
 	                  >
 	                    <span>{t("community.allTagsOption")}</span>
@@ -658,7 +658,7 @@ function CommunityContent() {
 	                          className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                            isSelected
 	                              ? "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
-	                              : "text-gray-300 hover:text-white hover:bg-white/[0.05]"
+	                              : "text-gray-300 hover:text-emphasis hover:bg-emphasis/[0.05]"
 	                          }`}
 	                        >
 	                          <span className="flex items-center gap-1.5 truncate">
@@ -692,7 +692,7 @@ function CommunityContent() {
 	                setFilterTagName(null);
 	                resetToFirstPage();
 	              }}
-	              className="hover:text-white p-0.5"
+	              className="hover:text-emphasis p-0.5"
 	              title={t("community.clearTag")}
 	            >
 	              <X className="w-3 h-3" />
@@ -764,7 +764,7 @@ function CommunityContent() {
  <div key={topic.id} className="group flex items-stretch hover:bg-surfaceBorder/20 transition-colors duration-fast ease-soft">
  {/* main col */}
  <div className="flex-1 min-w-0 py-3 px-4 space-y-1.5">
- <Link href={`/community/${topic.id}`} className="block text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors duration-fast ease-soft leading-snug line-clamp-2 sm:line-clamp-1">
+ <Link href={`/community/${topic.id}`} className="block text-sm font-semibold text-emphasis group-hover:text-emerald-400 transition-colors duration-fast ease-soft leading-snug line-clamp-2 sm:line-clamp-1">
  {topic.is_pinned && <span className="mr-1 inline-flex items-center px-2.5 py-1 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-mono">📌 {t("community.pinned")}</span>}{topic.title}
  </Link>
  <div className="flex items-center gap-2 flex-wrap">
@@ -775,7 +775,7 @@ function CommunityContent() {
  {topic.entity_id && topic.entity_title && (
  <Link
  href={catalogEntityHref(topic.entity_kind || "work", topic.entity_id)}
- className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-background border border-line text-gray-300 hover:text-white text-xs font-mono hover:border-emerald-500/40 transition-colors duration-fast ease-soft max-w-[180px] truncate"
+ className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-background border border-line text-gray-300 hover:text-emphasis text-xs font-mono hover:border-emerald-500/40 transition-colors duration-fast ease-soft max-w-[180px] truncate"
  onClick={(e) => e.stopPropagation()}
  >
  <BookOpen className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
@@ -798,7 +798,7 @@ function CommunityContent() {
  {authorId ? (
  <Link
  href={`/users/${authorId}`}
- className="hover:text-white hover:underline transition-colors duration-fast ease-soft"
+ className="hover:text-emphasis hover:underline transition-colors duration-fast ease-soft"
  onClick={(e) => e.stopPropagation()}
  >
  {topic.user?.username || t("community.anonymous")}
@@ -850,7 +850,7 @@ function CommunityContent() {
  </div>
 
  <div className="hidden sm:flex w-14 items-center justify-center">
- <span className={`px-2.5 py-1 rounded text-sm font-bold font-mono ${topic.reply_count > 0 ? "bg-surfaceBorder/60 text-white" : "text-gray-500"}`}>{topic.reply_count}</span>
+ <span className={`px-2.5 py-1 rounded text-sm font-bold font-mono ${topic.reply_count > 0 ? "bg-surfaceBorder/60 text-emphasis" : "text-gray-500"}`}>{topic.reply_count}</span>
  </div>
  <div className="hidden md:flex w-14 items-center justify-center text-gray-400 font-mono text-sm">{topic.view_count}</div>
  <div className="hidden sm:flex w-24 items-center justify-end pr-4 text-gray-400 font-mono text-sm whitespace-nowrap">{formatTimeAgo(topic.updated_at || topic.created_at, locale, t)}</div>

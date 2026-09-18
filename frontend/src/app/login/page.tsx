@@ -426,7 +426,7 @@ function LoginInner() {
                 className="w-full h-11 max-sm:min-h-[44px] rounded-control bg-primary text-white keep-white font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity duration-fast shadow-xs disabled:opacity-50 mt-2 mf-focus"
               >
                 {submitting ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-emphasis/30 border-t-white rounded-full animate-spin" />
                 ) : (
                   <>
                     <span>

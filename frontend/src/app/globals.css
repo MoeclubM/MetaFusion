@@ -47,11 +47,27 @@
   /* 主色的三通道值与对照色：每套配色的块在 theme.generated.css 里覆盖，这里是兜底 */
   --primary-rgb: 79 142 247;
   --primary-contrast-rgb: 255 255 255;
-  --state-warn-color: #fbbf24;
-  --state-success-color: #34d399;
-  --state-danger-color: #fb7185;
-  --state-info-color: #38bdf8;
-  --state-alt-color: #a78bfa;
+  /* 强调前景/叠加色：与迁移前的字面白逐通道相等（纯白），深色外观零变化；
+     浅色模式取最强前景色，见下面 light 块。 */
+  --emphasis-rgb: 255 255 255;
+  /* 状态色：base = 400 档（与迁移前写的 text-amber-400 / text-emerald-400 / text-rose-400 /
+     text-sky-400 / text-violet-400 逐通道相等），soft = 300 档；两档在浅色模式下合并成一个角色色。 */
+  --state-warn-rgb: 251 191 36;
+  --state-warn-soft-rgb: 252 211 77;
+  --state-success-rgb: 52 211 153;
+  --state-success-soft-rgb: 110 231 183;
+  --state-danger-rgb: 251 113 133;
+  --state-danger-soft-rgb: 253 164 175;
+  --state-info-rgb: 56 189 248;
+  --state-info-soft-rgb: 125 211 252;
+  --state-alt-rgb: 167 139 250;
+  --state-alt-soft-rgb: 196 181 253;
+  /* 兼容旧引用：新代码用 tailwind 令牌类（text-warn、bg-warn/10…），这两行只为不破坏旧变量名。 */
+  --state-warn-color: rgb(var(--state-warn-rgb));
+  --state-success-color: rgb(var(--state-success-rgb));
+  --state-danger-color: rgb(var(--state-danger-rgb));
+  --state-info-color: rgb(var(--state-info-rgb));
+  --state-alt-color: rgb(var(--state-alt-rgb));
   --font-display: var(--font-instrument-serif, "Instrument Serif"), "Noto Serif SC", Georgia, serif;
   --font-sans: var(--font-inter, "Inter"), "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), "Fira Code", ui-monospace, monospace;
@@ -94,11 +110,23 @@
   --primary-rgb: 37 99 235;
   --primary-contrast-rgb: 255 255 255;
   /* 状态色：300/400 档在深色底上才够亮，白底只有 1.4-2.7:1；浅色改用同色相深色（≥5:1） */
-  --state-warn-color: #b45309;
-  --state-success-color: #047857;
-  --state-danger-color: #be123c;
-  --state-info-color: #0369a1;
-  --state-alt-color: #6d28d9;
+  --emphasis-rgb: 15 23 42;
+  --state-warn-rgb: 180 83 9;
+  --state-success-rgb: 4 120 87;
+  --state-danger-rgb: 190 18 60;
+  --state-info-rgb: 3 105 161;
+  --state-alt-rgb: 109 40 217;
+  /* 浅色下 soft 与 base 同值：300 档在白底只有 1.4-2.7:1，浅色只剩"一个角色一个色"。 */
+  --state-warn-soft-rgb: 180 83 9;
+  --state-success-soft-rgb: 4 120 87;
+  --state-danger-soft-rgb: 190 18 60;
+  --state-info-soft-rgb: 3 105 161;
+  --state-alt-soft-rgb: 109 40 217;
+  --state-warn-color: rgb(var(--state-warn-rgb));
+  --state-success-color: rgb(var(--state-success-rgb));
+  --state-danger-color: rgb(var(--state-danger-rgb));
+  --state-info-color: rgb(var(--state-info-rgb));
+  --state-alt-color: rgb(var(--state-alt-rgb));
 }
 
 html {
@@ -145,7 +173,6 @@ html.light body {
 
 /* 浅色下的中性文字阶梯：全部走语义变量，逐一写死的十六进制改不动（改一处漏一处）。
    取值见 theme-palette.mjs 的 BASE_LIGHT，深色模式不受影响。 */
-html.light .text-white:not(.keep-white),
 html.light .text-gray-100:not(.keep-white),
 html.light .text-gray-200:not(.keep-white) {
   color: var(--text-strong-color) !important;
@@ -199,91 +226,12 @@ html.light .keep-white {
   color: #ffffff !important;
 }
 
-/* 无条件的白色工具类：.hover\:text-white:hover、.divide-white\/[0.06]、.bg-white\/5 这些
-   不带 dark: 前缀、也不在下面白名单里的写法，生成的 CSS 本身就是白/半透明白，
-   浅色下白字叠白底、分隔线叠白底。按"角色"映射到语义变量，别再逐个手写十六进制。
-   深色底/图片上要保留深色模式取值时，在元素上加 .keep-white（与上面白字同一套逃生舱）。 */
-html.light .hover\:text-white:hover:not(.keep-white),
-html.light .group:hover .group-hover\:text-white:not(.keep-white) {
-  color: var(--text-strong-color) !important;
-}
-
-html.light .text-white\/90:not(.keep-white),
-html.light .text-white\/80:not(.keep-white) {
-  color: var(--text-strong-color) !important;
-}
-
-html.light .text-white\/70:not(.keep-white) {
-  color: var(--text-body-color) !important;
-}
-
-html.light .text-white\/60:not(.keep-white),
-html.light .text-white\/50:not(.keep-white) {
-  color: var(--text-muted-color) !important;
-}
-
-html.light .text-white\/40:not(.keep-white),
-html.light .text-white\/30:not(.keep-white),
-html.light .text-white\/20:not(.keep-white) {
-  color: var(--text-faint-color) !important;
-}
-
-html.light .divide-white\/\[0\.06\] > :not([hidden]) ~ :not([hidden]),
-html.light .divide-white\/10 > :not([hidden]) ~ :not([hidden]),
-html.light .divide-white\/5 > :not([hidden]) ~ :not([hidden]) {
-  border-color: var(--line-subtle-color) !important;
-}
-
-html.light .border-white\/5 {
-  border-color: var(--line-subtle-color) !important;
-}
-
-html.light .hover\:border-white\/20:hover {
-  border-color: var(--line-strong-color) !important;
-}
-
-html.light .bg-white\/5,
-html.light .bg-white\/\[0\.01\] {
-  background-color: var(--surface-subtle-color) !important;
-}
-
-html.light .hover\:bg-white\/10:hover,
-html.light .hover\:bg-white\/15:hover,
-html.light .hover\:bg-white\/\[0\.03\]:hover,
-html.light .hover\:bg-white\/\[0\.07\]:hover,
-html.light .hover\:bg-white\/\[0\.15\]:hover {
-  background-color: var(--surface-hover-color) !important;
-}
-
-html.light .border-white\/10,
-html.light .border-white\/\[0\.06\],
-html.light .border-white\/\[0\.07\],
-html.light .border-white\/\[0\.08\],
-html.light .border-white\/\[0\.04\],
-html.light .border-white\/20,
-html.light .border-white\/30,
-html.light .border-white\/15 {
-  border-color: rgba(0, 0, 0, 0.09) !important;
-}
-
-html.light .bg-white\/\[0\.02\],
-html.light .bg-white\/\[0\.03\],
-html.light .bg-white\/\[0\.04\],
-html.light .bg-white\/\[0\.05\],
-html.light .bg-white\/\[0\.06\],
-html.light .bg-white\/\[0\.08\],
-html.light .bg-white\/\[0\.10\],
-html.light .bg-white\/10 {
-  background-color: rgba(0, 0, 0, 0.04) !important;
-}
-
-html.light .bg-white\/\[0\.04\]:hover,
-html.light .bg-white\/\[0\.06\]:hover,
-html.light .bg-white\/\[0\.08\]:hover,
-html.light .bg-white\/\[0\.10\]:hover {
-  background-color: rgba(0, 0, 0, 0.08) !important;
-}
-
+/* 无条件白色工具类（hover:text-white、divide-white/[0.06]、border-white/10、bg-white/[0.04]…）
+   这一整块浅色补丁已删除：源码迁到语义令牌类（text-emphasis / border-line / border-line-subtle /
+   divide-line-subtle / bg-emphasis/[0.0x]），令牌的浅色取值就是这里原来映射到的那些变量，
+   深色取值与迁移前的字面白逐通道相等（见 tailwind.config.ts 的 emphasis 与 globals.css 的
+   --emphasis-rgb）。保留 .keep-white 逃生舱与上面 .bg-primary.text-white 那一条（主色上的
+   字色由每套配色的对照色阈值决定，属产品决策）。 */
 html.light .shadow-elevated {
   box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.06) !important;
 }

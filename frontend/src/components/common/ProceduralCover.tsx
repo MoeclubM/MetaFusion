@@ -56,8 +56,8 @@ export function ProceduralCover({ title = "Untitled", originalTitle, id = "", cl
       </svg>
 
       {/* Border Frame */}
-      <div className="absolute inset-2 sm:inset-2.5 rounded-sm border border-white/10 pointer-events-none" />
-      <div className="absolute inset-3 sm:inset-3.5 rounded-sm border border-white/[0.04] pointer-events-none" />
+      <div className="absolute inset-2 sm:inset-2.5 rounded-sm border border-line pointer-events-none" />
+      <div className="absolute inset-3 sm:inset-3.5 rounded-sm border border-line-subtle pointer-events-none" />
 
       {/* Content Container */}
       <div className="relative z-10 w-full h-full p-4 sm:p-5 flex flex-col justify-between text-left">
@@ -67,7 +67,7 @@ export function ProceduralCover({ title = "Untitled", originalTitle, id = "", cl
             <span className="w-1.5 h-1.5 rounded-xs inline-block" style={{ backgroundColor: p.accent }} />
             METAFUSION
           </span>
-          <span className="text-white/40">{refCode}</span>
+          <span className="text-text-faint">{refCode}</span>
         </div>
 
         {/* Central Geometric Totem */}
@@ -110,11 +110,11 @@ export function ProceduralCover({ title = "Untitled", originalTitle, id = "", cl
         <div className="space-y-1.5">
           <div className="h-0.5 w-8 rounded-full" style={{ backgroundColor: p.accent }} />
           <div>
-            <h4 className="font-serif font-bold text-white leading-tight line-clamp-2 text-sm sm:text-base tracking-tight drop-shadow-sm">
+            <h4 className="font-serif font-bold text-emphasis leading-tight line-clamp-2 text-sm sm:text-base tracking-tight drop-shadow-sm">
               {title}
             </h4>
             {isDistinctOriginalTitle(originalTitle, title) && (
-              <p className="font-mono text-[10px] text-white/50 truncate mt-0.5">
+              <p className="font-mono text-[10px] text-text-muted truncate mt-0.5">
                 {originalTitle}
               </p>
             )}

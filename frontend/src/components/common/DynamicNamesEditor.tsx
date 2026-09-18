@@ -106,7 +106,7 @@ export function DynamicNamesEditor({
       {/* 语言条目列表 */}
       <div className="space-y-2">
         {existingCodes.length === 0 ? (
-          <div className="p-3 rounded-lg border border-dashed border-white/10 text-center text-xs text-gray-500 font-mono">
+          <div className="p-3 rounded-lg border border-dashed border-line text-center text-xs text-gray-500 font-mono">
             {t("multilingual.noEntries")}
           </div>
         ) : (
@@ -116,9 +116,9 @@ export function DynamicNamesEditor({
             return (
               <div
                 key={code}
-                className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg p-1.5 focus-within:border-primary/50 transition-colors duration-fast ease-soft"
+                className="flex items-center gap-2 bg-black/40 border border-line rounded-lg p-1.5 focus-within:border-primary/50 transition-colors duration-fast ease-soft"
               >
-                <span className="px-2 py-0.5 rounded bg-white/[0.06] text-gray-300 text-[11px] font-mono shrink-0 min-w-[64px] text-center">
+                <span className="px-2 py-0.5 rounded bg-emphasis/[0.06] text-gray-300 text-[11px] font-mono shrink-0 min-w-[64px] text-center">
                   {code}
                   {preset && (
                     <span className="text-[10px] text-gray-500 ml-1">
@@ -131,7 +131,7 @@ export function DynamicNamesEditor({
                   value={currentNames[code] || ""}
                   onChange={(e) => handleUpdate(code, e.target.value)}
                   placeholder={t("multilingual.namePlaceholder", { code })}
-                  className="flex-1 bg-transparent px-2 py-1 text-xs text-white placeholder:text-gray-600 focus:outline-none"
+                  className="flex-1 bg-transparent px-2 py-1 text-xs text-emphasis placeholder:text-gray-600 focus:outline-none"
                 />
                 <button
                   type="button"
@@ -154,7 +154,7 @@ export function DynamicNamesEditor({
             key={lang.code}
             type="button"
             onClick={() => handleAdd(lang.code)}
-            className="px-2 py-0.5 rounded bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 hover:text-white border border-white/10 text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft"
+            className="px-2 py-0.5 rounded bg-emphasis/[0.04] hover:bg-emphasis/[0.08] text-gray-400 hover:text-emphasis border border-line text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft"
           >
             <Plus className="w-2.5 h-2.5" />
             <span>+{lang.code}</span>
@@ -186,12 +186,12 @@ export function MultilingualBadges({ names }: { names?: MultilingualNames }) {
       {entries.map(([code, val]) => (
         <span
           key={code}
-          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/10 text-xs font-mono"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emphasis/[0.04] border border-line text-xs font-mono"
         >
           <span className="text-[10px] text-primary/80 font-bold uppercase">
             {code}:
           </span>
-          <span className="text-white font-sans text-[11px] font-medium">
+          <span className="text-emphasis font-sans text-[11px] font-medium">
             {val}
           </span>
         </span>

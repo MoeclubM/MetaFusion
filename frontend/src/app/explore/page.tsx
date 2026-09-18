@@ -671,7 +671,7 @@ function ExploreInner() {
                         src={item.pictures && item.pictures[0]?.url}
                         alt={displayTitle}
                         badge={
-                          <span className="px-2 py-0.5 rounded-md bg-black/65 dark:bg-black/75 text-white keep-white backdrop-blur-md border border-white/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
+                          <span className="px-2 py-0.5 rounded-md bg-black/65 dark:bg-black/75 text-emphasis keep-white backdrop-blur-md border border-emphasis/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                             <span className="truncate max-w-[85px]">{item.attributes?.tags?.[0] || ""}</span>
                           </span>

@@ -81,7 +81,7 @@ function ToggleChip({
         "px-2 py-0.5 rounded border text-[11px] font-mono transition-colors duration-fast ease-soft cursor-pointer " +
         (active
           ? "bg-primary/20 border-primary/40 text-primary"
-          : "bg-white/[0.03] border-white/10 text-gray-400 hover:text-white hover:bg-white/[0.07]")
+          : "bg-emphasis/[0.03] border-line text-gray-400 hover:text-emphasis hover:bg-emphasis/[0.07]")
       }
     >
       <span>{label}</span>
@@ -92,7 +92,7 @@ function ToggleChip({
 
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.08] space-y-2">
+    <div className="p-2.5 rounded-lg bg-emphasis/[0.02] border border-emphasis/[0.08] space-y-2">
       <div className="text-[11px] font-mono font-bold text-gray-300">{title}</div>
       {children}
     </div>
@@ -100,10 +100,10 @@ function Block({ title, children }: { title: string; children: React.ReactNode }
 }
 
 const inputClass =
-  "flex-1 min-w-0 px-2.5 py-1.5 rounded bg-black/30 border border-white/10 text-xs text-white font-mono placeholder:text-gray-600 focus:border-primary outline-none";
+  "flex-1 min-w-0 px-2.5 py-1.5 rounded bg-black/30 border border-line text-xs text-emphasis font-mono placeholder:text-gray-600 focus:border-primary outline-none";
 
 const addButtonClass =
-  "px-2.5 py-1.5 rounded bg-white/[0.06] hover:bg-white/[0.12] text-gray-300 hover:text-white text-xs cursor-pointer";
+  "px-2.5 py-1.5 rounded bg-emphasis/[0.06] hover:bg-emphasis/[0.12] text-gray-300 hover:text-emphasis text-xs cursor-pointer";
 
 export function SectionRuleEditor({ row, defs, onChange }: Props) {
   const { t, locale } = useI18n();
@@ -273,7 +273,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
           <select
             value={vocab}
             onChange={(e) => setVocabPick(e.target.value)}
-            className="w-full px-2.5 py-1.5 rounded bg-black/30 border border-white/10 text-xs text-white font-mono focus:border-primary outline-none cursor-pointer"
+            className="w-full px-2.5 py-1.5 rounded bg-black/30 border border-line text-xs text-emphasis font-mono focus:border-primary outline-none cursor-pointer"
           >
             {vocabCodes.map((code) => (
               <option key={code} value={code}>
@@ -482,7 +482,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
                     "w-7 h-7 rounded border grid place-items-center transition-colors duration-fast ease-soft cursor-pointer " +
                     (row.icon === name
                       ? "border-primary bg-primary/20 text-primary"
-                      : "border-white/10 bg-white/[0.03] text-gray-400 hover:text-white hover:bg-white/[0.08]")
+                      : "border-line bg-emphasis/[0.03] text-gray-400 hover:text-emphasis hover:bg-emphasis/[0.08]")
                   }
                 >
                   <Icon className="w-3.5 h-3.5" />

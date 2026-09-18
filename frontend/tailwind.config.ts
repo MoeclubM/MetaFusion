@@ -51,13 +51,36 @@ const config: Config = {
           hover: "var(--primary-hover-color)",
           light: "var(--primary-light-color)",
         },
+        // 强调前景/叠加色（emphasis）：迁移前源码里写死的字面白（text-white、hover:text-white、
+        // divide-white/[0.06]、bg-white/[0.04]…）的语义角色。深色模式取值与字面白逐通道相等
+        // （255 255 255），所以迁移到它以后深色外观零变化；浅色模式取最强前景色，与上一轮
+        // html.light 白名单补丁映射到的 --text-strong-color 取值一致。三通道形式让
+        // text-emphasis/60、bg-emphasis/[0.04] 这类透明度变体也能生成。
+        emphasis: "rgb(var(--emphasis-rgb) / <alpha-value>)",
         // 状态色：浅色下自动换成同色相深色（白底 ≥5:1），别再直接写 text-amber-400 这类
-        // 只在深色底上够亮的调色板类。
-        warn: "var(--state-warn-color)",
-        success: "var(--state-success-color)",
-        danger: "var(--state-danger-color)",
-        info: "var(--state-info-color)",
-        alt: "var(--state-alt-color)",
+        // 只在深色底上够亮的调色板类。soft = 深色模式下浅一档（原 300 档）的角色色；
+        // 浅色模式两档合并成同一个角色色（浅色下浅档在白底读不到，原补丁也是这么折的）。
+        // 三通道形式是为了 text-warn/90 这类透明度变体（裸 var() 拿不到 <alpha-value>）。
+        warn: {
+          DEFAULT: "rgb(var(--state-warn-rgb) / <alpha-value>)",
+          soft: "rgb(var(--state-warn-soft-rgb) / <alpha-value>)",
+        },
+        success: {
+          DEFAULT: "rgb(var(--state-success-rgb) / <alpha-value>)",
+          soft: "rgb(var(--state-success-soft-rgb) / <alpha-value>)",
+        },
+        danger: {
+          DEFAULT: "rgb(var(--state-danger-rgb) / <alpha-value>)",
+          soft: "rgb(var(--state-danger-soft-rgb) / <alpha-value>)",
+        },
+        info: {
+          DEFAULT: "rgb(var(--state-info-rgb) / <alpha-value>)",
+          soft: "rgb(var(--state-info-soft-rgb) / <alpha-value>)",
+        },
+        alt: {
+          DEFAULT: "rgb(var(--state-alt-rgb) / <alpha-value>)",
+          soft: "rgb(var(--state-alt-soft-rgb) / <alpha-value>)",
+        },
         accent: {
           gold: "#f59e0b",
           cyan: "#06b6d4",

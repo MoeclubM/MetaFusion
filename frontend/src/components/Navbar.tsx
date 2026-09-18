@@ -124,7 +124,7 @@ export const Navbar: React.FC = () => {
   ];
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-40 w-full border-b border-white/[0.06] bg-surface/85 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/85">
+    <header ref={headerRef} className="sticky top-0 z-40 w-full border-b border-line-subtle bg-surface/85 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/85">
       <PageContainer className="h-14 sm:h-15 flex items-center justify-between gap-3">
         {/* Left Brand + Navigation */}
         <div className="flex items-center gap-3 sm:gap-4">
@@ -133,10 +133,10 @@ export const Navbar: React.FC = () => {
           <Link href="/landing" aria-label={t("navbar.about")} title={t("navbar.about")} className="flex items-center gap-2.5 shrink-0 group">
             <BrandMark size={26} withGlow={false} idSuffix="nav" />
             <span className="hidden sm:flex flex-col leading-none">
-              <span className="font-display text-[20px] leading-none tracking-[-0.03em] text-white group-hover:text-primary transition-colors duration-fast ease-soft">
+              <span className="font-display text-[20px] leading-none tracking-[-0.03em] text-emphasis group-hover:text-primary transition-colors duration-fast ease-soft">
                 MetaFusion
               </span>
-              <span className="hidden sm:inline font-mono text-[7px] tracking-[0.16em] text-white/30 leading-none mt-[3px]">
+              <span className="hidden sm:inline font-mono text-[7px] tracking-[0.16em] text-text-faint leading-none mt-[3px]">
                 CATALOG
               </span>
             </span>
@@ -149,7 +149,7 @@ export const Navbar: React.FC = () => {
               const className = `relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all ${
                 active
                   ? "text-primary bg-primary/10 border border-primary/25 font-semibold shadow-xs"
-                  : "text-gray-400 hover:text-white hover:bg-surfaceHover"
+                  : "text-gray-400 hover:text-emphasis hover:bg-surfaceHover"
               }`;
 
               if (tab.external) {
@@ -208,7 +208,7 @@ export const Navbar: React.FC = () => {
           <Link
               href="/new"
             aria-label={t("catalog.create")}
-            className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-white transition-all shadow-2xs"
+            className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-emphasis transition-all shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
               <span className="hidden sm:inline">{t("catalog.create")}</span>
@@ -220,7 +220,7 @@ export const Navbar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-2 pl-1.5 pr-2.5 h-9 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs text-gray-200 transition-colors duration-fast ease-soft cursor-pointer"
+                className="flex items-center gap-2 pl-1.5 pr-2.5 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs text-gray-200 transition-colors duration-fast ease-soft cursor-pointer"
               >
                 <UserAvatar user={user} size="sm" shape="rounded" />
                 <span className="font-medium max-w-[90px] truncate hidden sm:inline text-xs">
@@ -237,12 +237,12 @@ export const Navbar: React.FC = () => {
               {isUserMenuOpen && (
                 <div
                   onClick={(e) => e.stopPropagation()}
-                  className="absolute right-0 mt-2 w-56 rounded-xl border border-white/10 bg-surface shadow-elevated py-1.5 z-50 animate-slide-up text-xs"
+                  className="absolute right-0 mt-2 w-56 rounded-xl border border-line bg-surface shadow-elevated py-1.5 z-50 animate-slide-up text-xs"
                 >
-                  <div className="px-3.5 py-2.5 border-b border-white/[0.06] flex items-center gap-2.5">
+                  <div className="px-3.5 py-2.5 border-b border-line-subtle flex items-center gap-2.5">
                     <UserAvatar user={user} size="md" shape="rounded" ring />
                     <div className="space-y-0.5 min-w-0 flex-1">
-                      <div className="font-semibold text-white truncate">
+                      <div className="font-semibold text-emphasis truncate">
                         {displayNameOf(user as unknown as { username: string; display_name?: string })}
                       </div>
                       <div className="text-[10px] text-gray-500 font-mono truncate">@{user.username}</div>
@@ -256,7 +256,7 @@ export const Navbar: React.FC = () => {
                     <a
                       href={getAuthSettingsUrl()}
                       onClick={() => setIsUserMenuOpen(false)}
-                      className="w-full px-3 py-2 text-left text-gray-300 hover:text-white hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
+                      className="w-full px-3 py-2 text-left text-gray-300 hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
                     >
                       <UserIcon className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
                       <span>{t("navbar.accountSessions")}</span>
@@ -268,7 +268,7 @@ export const Navbar: React.FC = () => {
                     <Link
                       href="/developer"
                       onClick={() => setIsUserMenuOpen(false)}
-                      className="xl:hidden w-full px-3 py-2 text-left text-gray-300 hover:text-white hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
+                      className="xl:hidden w-full px-3 py-2 text-left text-gray-300 hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
                     >
                       <Terminal className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
                       <span>{t("navigation.developer")}</span>
@@ -297,7 +297,7 @@ export const Navbar: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="border-t border-white/[0.06] pt-1">
+                  <div className="border-t border-line-subtle pt-1">
                     <button
                       type="button"
                       onClick={() => {
@@ -316,7 +316,7 @@ export const Navbar: React.FC = () => {
           ) : (
             <a
               href={getAuthLoginUrl()}
-              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-xs font-medium text-gray-200 transition-colors duration-fast ease-soft"
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs font-medium text-gray-200 transition-colors duration-fast ease-soft"
             >
               <UserIcon className="w-3.5 h-3.5" />
               <span>{t("navbar.signIn")}</span>
@@ -324,7 +324,7 @@ export const Navbar: React.FC = () => {
           )}
 
           {/* Controls: Theme & Locale */}
-          <div className="flex items-center border-l border-white/10 pl-2 gap-1.5">
+          <div className="flex items-center border-l border-line pl-2 gap-1.5">
             <LocaleSwitcher compact />
             <ThemePicker />
           </div>

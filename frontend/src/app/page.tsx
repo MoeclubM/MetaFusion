@@ -158,7 +158,7 @@ export default function HomePage() {
 
       <Navbar />
 
-      <div className="border-b border-white/[0.06] bg-surface/60 backdrop-blur-xl sticky top-[var(--mf-header-h)] z-30 shadow-xs">
+      <div className="border-b border-line-subtle bg-surface/60 backdrop-blur-xl sticky top-[var(--mf-header-h)] z-30 shadow-xs">
         <PageContainer className="py-4 flex justify-center">
           <form onSubmit={handleSearch} className="relative w-full max-w-3xl">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
@@ -167,7 +167,7 @@ export default function HomePage() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("home.searchPlaceholder")}
-              className="w-full pl-12 pr-24 py-3.5 rounded-xl bg-white/[0.04] border border-white/10 hover:border-white/20 focus:border-primary focus:ring-1 focus:ring-primary text-white text-sm placeholder:text-gray-500 outline-none transition-all duration-base ease-soft"
+              className="w-full pl-12 pr-24 py-3.5 rounded-xl bg-emphasis/[0.04] border border-line hover:border-emphasis/20 focus:border-primary focus:ring-1 focus:ring-primary text-emphasis text-sm placeholder:text-gray-500 outline-none transition-all duration-base ease-soft"
             />
             <button
               type="submit"
@@ -183,13 +183,13 @@ export default function HomePage() {
       <PageShell width="page" spacing="none" contentClassName="space-y-10" className="relative z-10">
         {user && (
           <div className="flex items-center justify-between gap-3">
-            <h1 className="font-display text-lg font-bold tracking-tight text-white">
+            <h1 className="font-display text-lg font-bold tracking-tight text-emphasis">
               {t("home.recommended")}
             </h1>
             <button
               type="button"
               onClick={() => void openCustomize()}
-              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.07] text-xs font-medium text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-3.5 h-9 rounded-lg border border-line bg-emphasis/[0.03] hover:bg-emphasis/[0.07] text-xs font-medium text-gray-300 hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer"
             >
               <Sliders className="w-3.5 h-3.5" />
               <span>{t("home.customize")}</span>
@@ -207,17 +207,17 @@ export default function HomePage() {
           <div className="space-y-10">
             {[1, 2].map((i) => (
               <div key={i} className="space-y-4">
-                <div className="h-5 w-40 bg-white/[0.04] rounded-md animate-pulse" />
+                <div className="h-5 w-40 bg-emphasis/[0.04] rounded-md animate-pulse" />
                 <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(158px,1fr))]">
                   {Array.from({ length: 6 }).map((_, j) => (
-                    <div key={j} className="aspect-square rounded-xl bg-white/[0.02] border border-white/[0.04] animate-pulse" />
+                    <div key={j} className="aspect-square rounded-xl bg-emphasis/[0.02] border border-line-subtle animate-pulse" />
                   ))}
                 </div>
               </div>
             ))}
           </div>
         ) : visibleSections.length === 0 && !failed ? (
-          <div className="p-10 rounded-xl border border-dashed border-white/10 bg-white/[0.01] text-center space-y-3">
+          <div className="p-10 rounded-xl border border-dashed border-line bg-emphasis/[0.01] text-center space-y-3">
             <Sparkles className="w-7 h-7 text-gray-600 mx-auto" />
             <p className="text-sm text-gray-400">{t("home.recommendEmpty")}</p>
             <Link
@@ -234,14 +234,14 @@ export default function HomePage() {
             const title = shelfTitle(shelf, locale);
             return (
               <section key={shelf.slug} className="space-y-4">
-                <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
+                <div className="flex items-center justify-between border-b border-emphasis/[0.08] pb-3">
                   <div className="flex items-center gap-3.5">
                     <div className="w-10 h-10 rounded-xl border border-primary/20 bg-primary/10 flex items-center justify-center text-primary">
                       <Icon className="w-5 h-5" />
                     </div>
                     <div className="flex items-center gap-2.5">
-                      <h2 className="font-bold text-white text-base sm:text-lg tracking-tight">{title}</h2>
-                      <span className="px-2 py-0.5 rounded-full bg-white/[0.06] text-gray-400 text-xs font-mono">
+                      <h2 className="font-bold text-emphasis text-base sm:text-lg tracking-tight">{title}</h2>
+                      <span className="px-2 py-0.5 rounded-full bg-emphasis/[0.06] text-gray-400 text-xs font-mono">
                         {t("home.itemCount", { count: items.length.toString() })}
                       </span>
                     </div>
@@ -267,14 +267,14 @@ export default function HomePage() {
                       <Link
                         key={item.id}
                         href={"/catalog/" + item.id}
-                        className="group flex flex-col rounded-xl bg-white/[0.02] hover:bg-surfaceHover border border-white/[0.06] hover:border-white/20 overflow-hidden transition-all shadow-2xs hover:shadow-md"
+                        className="group flex flex-col rounded-xl bg-emphasis/[0.02] hover:bg-surfaceHover border border-line-subtle hover:border-emphasis/20 overflow-hidden transition-all shadow-2xs hover:shadow-md"
                       >
                         <AdaptiveCardCover
                           src={item.pictures && item.pictures[0]?.url}
                           alt={displayTitle}
                           aspectClassName="aspect-square"
                           badge={
-                            <span className="px-2 py-0.5 rounded-md bg-black/65 text-white keep-white backdrop-blur-md border border-white/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
+                            <span className="px-2 py-0.5 rounded-md bg-black/65 text-emphasis keep-white backdrop-blur-md border border-emphasis/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
                               <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
                               <span className="truncate max-w-[85px]">{badge}</span>
                             </span>
@@ -284,14 +284,14 @@ export default function HomePage() {
                         />
                         <div className="p-3 flex-1 flex flex-col justify-between">
                           <div>
-                            <h3 className="font-medium text-white group-hover:text-primary transition-colors duration-fast ease-soft text-xs sm:text-sm line-clamp-2 leading-snug mb-1">
+                            <h3 className="font-medium text-emphasis group-hover:text-primary transition-colors duration-fast ease-soft text-xs sm:text-sm line-clamp-2 leading-snug mb-1">
                               {displayTitle}
                             </h3>
                             {item.title !== displayTitle && (
                               <p className="text-[10px] text-gray-400 font-mono line-clamp-1 mb-1">{item.title}</p>
                             )}
                           </div>
-                          <div className="pt-2 border-t border-white/[0.04] flex items-center justify-end text-[10px] text-gray-400 font-mono">
+                          <div className="pt-2 border-t border-line-subtle flex items-center justify-end text-[10px] text-gray-400 font-mono">
                             <span className="group-hover:text-primary transition-colors duration-fast ease-soft flex items-center gap-0.5">
                               {t("home.details")} <ChevronRight className="w-3 h-3" />
                             </span>
@@ -321,7 +321,7 @@ export default function HomePage() {
         onReset={() => void resetPrefs()}
       />
 
-      <footer className="border-t border-white/[0.06] py-6 bg-surface/30 backdrop-blur-md">
+      <footer className="border-t border-line-subtle py-6 bg-surface/30 backdrop-blur-md">
         <PageContainer className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-gray-400">
           <div>
             <span>© 2026 MetaFusion · Open Metadata &amp; Resource Sharing Platform</span>
@@ -329,7 +329,7 @@ export default function HomePage() {
           {/* 这里只留顶栏没有的入口：/landing 与 /explore、/community、/docs/catalog
               都已由顶栏 Logo 与主导航覆盖，不再重复。 */}
           <div className="flex items-center gap-4 flex-wrap">
-            <a href="/developers" className="hover:text-white transition-colors duration-fast ease-soft">
+            <a href="/developers" className="hover:text-emphasis transition-colors duration-fast ease-soft">
               {t("home.footerApi")}
             </a>
           </div>

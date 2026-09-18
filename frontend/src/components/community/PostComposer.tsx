@@ -123,7 +123,7 @@ function MarkdownToolbar({
       <button
         type="button"
         onClick={() => wrapSelection("**", "**", t("community.boldPlaceholder"))}
-        className="p-1 hover:text-white rounded hover:bg-background"
+        className="p-1 hover:text-emphasis rounded hover:bg-background"
         title={t("community.bold")}
       >
         <Bold className="w-3.5 h-3.5" />
@@ -131,7 +131,7 @@ function MarkdownToolbar({
       <button
         type="button"
         onClick={() => wrapSelection("*", "*", t("community.italicPlaceholder"))}
-        className="p-1 hover:text-white rounded hover:bg-background"
+        className="p-1 hover:text-emphasis rounded hover:bg-background"
         title={t("community.italic")}
       >
         <Italic className="w-3.5 h-3.5" />
@@ -139,7 +139,7 @@ function MarkdownToolbar({
       <button
         type="button"
         onClick={() => wrapSelection("\n> ", "", t("community.quotePlaceholder"))}
-        className="p-1 hover:text-white rounded hover:bg-background"
+        className="p-1 hover:text-emphasis rounded hover:bg-background"
         title={t("community.quote")}
       >
         <Quote className="w-3.5 h-3.5" />
@@ -147,7 +147,7 @@ function MarkdownToolbar({
       <button
         type="button"
         onClick={() => wrapSelection("\n```\n", "\n```\n", t("community.codePlaceholder"))}
-        className="p-1 hover:text-white rounded hover:bg-background"
+        className="p-1 hover:text-emphasis rounded hover:bg-background"
         title={t("community.code")}
       >
         <Code className="w-3.5 h-3.5" />
@@ -155,7 +155,7 @@ function MarkdownToolbar({
       <button
         type="button"
         onClick={() => insertBlock("\n- " + t("community.listPlaceholder") + "\n")}
-        className="p-1 hover:text-white rounded hover:bg-background"
+        className="p-1 hover:text-emphasis rounded hover:bg-background"
         title={t("community.list")}
       >
         <List className="w-3.5 h-3.5" />
@@ -163,7 +163,7 @@ function MarkdownToolbar({
       <button
         type="button"
         onClick={() => wrapSelection("$", "$", t("community.mathPlaceholder"))}
-        className="p-1 hover:text-white rounded hover:bg-background"
+        className="p-1 hover:text-emphasis rounded hover:bg-background"
         title={t("community.math")}
       >
         <Sigma className="w-3.5 h-3.5" />
@@ -431,13 +431,13 @@ export default function PostComposer({
       <div className="flex items-center justify-between px-4 py-2 bg-background border-b border-line shrink-0">
         <div className="flex items-center gap-2">
           <MessageSquare className="w-4 h-4 text-emerald-400" />
-          <span className="font-bold text-white text-xs">{headerTitle}</span>
+          <span className="font-bold text-emphasis text-xs">{headerTitle}</span>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => onExpandedChange(!expanded)}
-            className="p-1 text-gray-400 hover:text-white"
+            className="p-1 text-gray-400 hover:text-emphasis"
             title={expanded ? t("community.composerCollapse") : t("community.composerExpand")}
           >
             {expanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -445,7 +445,7 @@ export default function PostComposer({
           <button
             type="button"
             onClick={onClose}
-            className="p-1 text-gray-400 hover:text-white"
+            className="p-1 text-gray-400 hover:text-emphasis"
             title={t("community.closeComposer")}
           >
             <X className="w-4 h-4" />
@@ -465,7 +465,7 @@ export default function PostComposer({
                 placeholder={t("community.topicTitlePlaceholder")}
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full px-3.5 h-10 bg-background border border-line rounded-lg text-white text-sm focus:outline-none focus:border-gray-600 font-medium"
+                className="w-full px-3.5 h-10 bg-background border border-line rounded-lg text-emphasis text-sm focus:outline-none focus:border-gray-600 font-medium"
               />
             </div>
 
@@ -474,7 +474,7 @@ export default function PostComposer({
               <button
                 type="button"
                 onClick={() => setBoardDropdownOpen((v) => !v)}
-                className="w-full px-3.5 h-10 bg-background border border-line rounded-lg text-white text-sm flex items-center justify-between gap-2 hover:border-gray-600 transition-colors duration-fast ease-soft cursor-pointer"
+                className="w-full px-3.5 h-10 bg-background border border-line rounded-lg text-emphasis text-sm flex items-center justify-between gap-2 hover:border-gray-600 transition-colors duration-fast ease-soft cursor-pointer"
               >
                 <span className="flex items-center gap-2 truncate">
                   {selectedBoardObj ? (
@@ -489,7 +489,7 @@ export default function PostComposer({
                 <ChevronDown className={`w-4 h-4 text-gray-500 shrink-0 transition-transform duration-base ease-soft ${boardDropdownOpen ? "rotate-180" : ""}`} />
               </button>
               {boardDropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-card shadow-elevated z-50 isolate animate-slide-up overflow-hidden flex flex-col">
+                <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-line rounded-card shadow-elevated z-50 isolate animate-slide-up overflow-hidden flex flex-col">
                   <div className="p-2 border-b border-line">
                     <div className="relative">
                       <Search className="w-3 h-3 text-gray-500 absolute left-2 top-2.5" />
@@ -500,7 +500,7 @@ export default function PostComposer({
                         placeholder={t("community.boardSearchPlaceholder")}
                         value={boardQuery}
                         onChange={(e) => setBoardQuery(e.target.value)}
-                        className="w-full pl-7 pr-2 py-1.5 bg-background border border-line rounded text-white text-xs placeholder-gray-500 focus:outline-none focus:border-gray-600"
+                        className="w-full pl-7 pr-2 py-1.5 bg-background border border-line rounded text-emphasis text-xs placeholder-gray-500 focus:outline-none focus:border-gray-600"
                       />
                     </div>
                   </div>
@@ -526,7 +526,7 @@ export default function PostComposer({
                               <Icon className={`w-3.5 h-3.5 ${b.color}`} />
                             </span>
                             <span className="flex-1 min-w-0">
-                              <span className={`block text-xs font-semibold truncate ${active ? "text-white" : "text-gray-200"}`}>
+                              <span className={`block text-xs font-semibold truncate ${active ? "text-emphasis" : "text-gray-200"}`}>
                                 {boardDisplayName(b, locale, t)}
                               </span>
                               <span className="block text-[10px] text-gray-500 truncate">{boardDisplayDesc(b, locale, t)}</span>
@@ -549,7 +549,7 @@ export default function PostComposer({
                     <BookOpen className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span className="truncate">{selectedWork.title}</span>
                   </span>
-                  <button type="button" onClick={() => setSelectedWork(null)} className="text-gray-400 hover:text-white ml-1.5 cursor-pointer">
+                  <button type="button" onClick={() => setSelectedWork(null)} className="text-gray-400 hover:text-emphasis ml-1.5 cursor-pointer">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
@@ -560,10 +560,10 @@ export default function PostComposer({
                     placeholder={t("community.workSearchPlaceholder")}
                     value={workSearchQuery}
                     onChange={(e) => setWorkSearchQuery(e.target.value)}
-                    className="w-full px-3.5 h-10 bg-background border border-line rounded-lg text-white text-sm focus:outline-none focus:border-gray-600"
+                    className="w-full px-3.5 h-10 bg-background border border-line rounded-lg text-emphasis text-sm focus:outline-none focus:border-gray-600"
                   />
                   {searchedWorks.length > 0 && (
-                    <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-xl shadow-elevated max-h-48 overflow-y-auto z-50 isolate animate-slide-up divide-y divide-white/[0.06]">
+                    <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-line rounded-xl shadow-elevated max-h-48 overflow-y-auto z-50 isolate animate-slide-up divide-y divide-line-subtle">
                       {searchedWorks.map((w) => (
                         <div
                           key={w.id}
@@ -581,7 +581,7 @@ export default function PostComposer({
                             setSearchedWorks([]);
                             setNewBoardCode("comment");
                           }}
-                          className="p-2.5 hover:bg-surfaceBorder/50 cursor-pointer flex items-center justify-between text-gray-300 hover:text-white text-sm"
+                          className="p-2.5 hover:bg-surfaceBorder/50 cursor-pointer flex items-center justify-between text-gray-300 hover:text-emphasis text-sm"
                         >
                           <span className="font-medium truncate">{w.title}</span>
                         </div>
@@ -641,16 +641,16 @@ export default function PostComposer({
                       setTagDropdownOpen(false);
                     }
                   }}
-                  className="w-full pl-3.5 pr-2.5 h-9 bg-background border border-line rounded-full text-white text-xs placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
+                  className="w-full pl-3.5 pr-2.5 h-9 bg-background border border-line rounded-full text-emphasis text-xs placeholder-gray-500 focus:outline-none focus:border-emerald-500/50"
                 />
                 {tagDropdownOpen && tagInput.trim() && (
-                  <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-white/10 rounded-card shadow-elevated z-50 isolate animate-slide-up max-h-40 overflow-y-auto divide-y divide-white/[0.06]">
+                  <div className="absolute top-full mt-2 left-0 right-0 bg-surface/95 backdrop-blur-2xl border border-line rounded-card shadow-elevated z-50 isolate animate-slide-up max-h-40 overflow-y-auto divide-y divide-line-subtle">
                     {filteredAvailableTags.slice(0, 8).map((ftag) => (
                       <button
                         key={ftag.id}
                         type="button"
                         onClick={() => addTag(ftag)}
-                        className="w-full px-3 py-2 text-left hover:bg-surfaceBorder/50 flex items-center justify-between text-xs text-gray-300 hover:text-white"
+                        className="w-full px-3 py-2 text-left hover:bg-surfaceBorder/50 flex items-center justify-between text-xs text-gray-300 hover:text-emphasis"
                       >
                         <span className="flex items-center gap-1.5">
                           <TagIcon className="w-3 h-3 text-gray-500" />
@@ -683,7 +683,7 @@ export default function PostComposer({
               placeholder={t("community.contentPlaceholder")}
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
-              className="w-full h-full p-3.5 bg-background border border-line rounded-lg text-white text-sm focus:outline-none focus:border-gray-600 resize-none font-mono leading-relaxed overflow-y-auto"
+              className="w-full h-full p-3.5 bg-background border border-line rounded-lg text-emphasis text-sm focus:outline-none focus:border-gray-600 resize-none font-mono leading-relaxed overflow-y-auto"
             />
             <div className="hidden md:block h-full p-3.5 bg-background/50 border border-line rounded-lg overflow-y-auto">
               {newContent ? <MarkdownRenderer content={newContent} /> : <span className="text-gray-600 font-mono">{t("community.livePreview")}</span>}
@@ -698,7 +698,7 @@ export default function PostComposer({
                   clearDraft();
                   onClose();
                 }}
-                className="px-4 h-10 rounded-lg bg-surface hover:bg-surfaceBorder text-gray-400 hover:text-white text-sm transition-colors duration-fast ease-soft cursor-pointer"
+                className="px-4 h-10 rounded-lg bg-surface hover:bg-surfaceBorder text-gray-400 hover:text-emphasis text-sm transition-colors duration-fast ease-soft cursor-pointer"
               >
                 {t("community.discard")}
               </button>
@@ -744,7 +744,7 @@ export default function PostComposer({
               placeholder={t("community.replyPlaceholder")}
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
-              className="w-full h-full p-3.5 bg-background border border-line rounded-lg text-white text-sm focus:outline-none focus:border-gray-600 resize-none font-mono leading-relaxed overflow-y-auto"
+              className="w-full h-full p-3.5 bg-background border border-line rounded-lg text-emphasis text-sm focus:outline-none focus:border-gray-600 resize-none font-mono leading-relaxed overflow-y-auto"
             />
             <div className="hidden md:block h-full p-3.5 bg-background/50 border border-line rounded-lg overflow-y-auto">
               {newContent ? <MarkdownRenderer content={newContent} /> : <span className="text-gray-600 font-mono">{t("community.livePreview")}</span>}
@@ -759,7 +759,7 @@ export default function PostComposer({
                   clearDraft();
                   onClose();
                 }}
-                className="px-4 h-10 rounded-lg bg-surface hover:bg-surfaceBorder text-gray-400 hover:text-white text-sm transition-colors duration-fast ease-soft cursor-pointer"
+                className="px-4 h-10 rounded-lg bg-surface hover:bg-surfaceBorder text-gray-400 hover:text-emphasis text-sm transition-colors duration-fast ease-soft cursor-pointer"
               >
                 {t("community.discard")}
               </button>

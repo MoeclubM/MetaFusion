@@ -60,12 +60,12 @@ function CodeBlockWrapper({
 
   return (
     <div className="relative group my-3 rounded-lg overflow-hidden border border-line bg-[#0d1117] shadow-xs">
-      <div className="flex items-center justify-between px-3 py-1.5 bg-[#161b22] border-b border-white/5 text-xs text-gray-400 font-mono select-none">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-[#161b22] border-b border-emphasis/5 text-xs text-gray-400 font-mono select-none">
         <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">{language || "code"}</span>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/5 hover:bg-white/15 text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer text-[11px]"
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emphasis/5 hover:bg-emphasis/15 text-gray-300 hover:text-emphasis transition-colors duration-fast ease-soft cursor-pointer text-[11px]"
           title={t("common.copy")}
         >
           {copied ? (

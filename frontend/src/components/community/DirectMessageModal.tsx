@@ -204,16 +204,16 @@ export default function DirectMessageModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
       <div
-        className="w-full max-w-lg bg-surface border border-white/10 rounded-2xl shadow-2xl flex flex-col h-[600px] max-h-[90vh] overflow-hidden animate-scale-up"
+        className="w-full max-w-lg bg-surface border border-line rounded-2xl shadow-2xl flex flex-col h-[600px] max-h-[90vh] overflow-hidden animate-scale-up"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-4 py-3 bg-surface/90 border-b border-white/10 flex items-center justify-between shrink-0">
+        <div className="px-4 py-3 bg-surface/90 border-b border-line flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             <UserAvatar user={peerUser} size="md" shape="circle" ring />
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-white text-sm truncate">
+                <span className="font-semibold text-emphasis text-sm truncate">
                   {peerUser.username}
                 </span>
                 <UserRoleBadge role={peerUser.role} t={t} />
@@ -232,7 +232,7 @@ export default function DirectMessageModal({
 
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
+            className="p-1.5 rounded-full hover:bg-emphasis/10 text-gray-400 hover:text-emphasis transition-colors duration-fast ease-soft"
             title={t("users.profile.closeChat")}
           >
             <X className="w-5 h-5" />
@@ -248,7 +248,7 @@ export default function DirectMessageModal({
             </div>
           ) : messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-500 space-y-2">
-              <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-gray-400">
+              <div className="w-12 h-12 rounded-full bg-emphasis/5 border border-line flex items-center justify-center text-gray-400">
                 <MessageCircle className="w-6 h-6" />
               </div>
               <p className="text-xs">{t("users.profile.noMessages")}</p>
@@ -261,7 +261,7 @@ export default function DirectMessageModal({
                     type="button"
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="px-3 h-7 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] text-gray-300 font-mono inline-flex items-center gap-1.5 disabled:opacity-50"
+                    className="px-3 h-7 rounded-full bg-emphasis/5 hover:bg-emphasis/10 border border-line text-[11px] text-gray-300 font-mono inline-flex items-center gap-1.5 disabled:opacity-50"
                   >
                     {loadingMore ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                     <span>
@@ -281,7 +281,7 @@ export default function DirectMessageModal({
                         "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-xs whitespace-pre-wrap leading-relaxed shadow-sm " +
                         (mine
                           ? "bg-primary text-white rounded-tr-xs"
-                          : "bg-surface border border-white/10 text-gray-200 rounded-tl-xs")
+                          : "bg-surface border border-line text-gray-200 rounded-tl-xs")
                       }
                     >
                       {msg.body}
@@ -314,7 +314,7 @@ export default function DirectMessageModal({
 
         {/* Input area */}
         {!isLoggedIn ? (
-          <div className="p-3.5 bg-surface border-t border-white/10 flex items-center justify-between gap-2.5 shrink-0 text-xs text-gray-300">
+          <div className="p-3.5 bg-surface border-t border-line flex items-center justify-between gap-2.5 shrink-0 text-xs text-gray-300">
             <span>{t("users.profile.dmError.unauthorized")}</span>
             <Link
               href="/login"
@@ -325,13 +325,13 @@ export default function DirectMessageModal({
             </Link>
           </div>
         ) : isSelf ? (
-          <div className="p-3.5 bg-surface border-t border-white/10 text-xs text-gray-400 shrink-0">
+          <div className="p-3.5 bg-surface border-t border-line text-xs text-gray-400 shrink-0">
             {t("users.profile.cannotChatSelf")}
           </div>
         ) : (
           <form
             onSubmit={handleSend}
-            className="p-3.5 bg-surface border-t border-white/10 flex items-end gap-2.5 shrink-0"
+            className="p-3.5 bg-surface border-t border-line flex items-end gap-2.5 shrink-0"
           >
             <textarea
               ref={inputRef}
@@ -340,7 +340,7 @@ export default function DirectMessageModal({
               onChange={(e) => setInputContent(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={t("users.profile.typeMessage")}
-              className="flex-1 px-3.5 py-2.5 bg-background border border-white/10 rounded-xl text-white text-sm placeholder-gray-500 focus:outline-none focus:border-primary resize-none font-sans leading-relaxed"
+              className="flex-1 px-3.5 py-2.5 bg-background border border-line rounded-xl text-emphasis text-sm placeholder-gray-500 focus:outline-none focus:border-primary resize-none font-sans leading-relaxed"
             />
             <button
               type="submit"

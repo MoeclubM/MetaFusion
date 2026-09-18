@@ -188,7 +188,7 @@ export function OAuthGrantsPanel() {
       {/* 二次确认：撤回会让该应用手上的访问令牌立刻失效，不能一次点击就生效 */}
       {confirming && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-white/10 bg-surface shadow-2xl p-4 space-y-3">
+          <div className="w-full max-w-md rounded-xl border border-line bg-surface shadow-2xl p-4 space-y-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/20 grid place-items-center shrink-0">
                 <ShieldOff className="w-4 h-4 text-rose-400" />
@@ -211,7 +211,7 @@ export function OAuthGrantsPanel() {
                 type="button"
                 onClick={() => handleRevoke(confirming)}
                 disabled={!!revoking}
-                className="px-3 h-8 rounded-md bg-rose-500 hover:bg-rose-400 text-white keep-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
+                className="px-3 h-8 rounded-md bg-rose-500 hover:bg-rose-400 text-emphasis keep-white text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-50"
               >
                 {revoking === confirming.client_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldOff className="w-3.5 h-3.5" />}
                 <span>{t("settings.oauthRevokeConfirmBtn")}</span>

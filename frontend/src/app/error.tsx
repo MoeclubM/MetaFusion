@@ -39,7 +39,7 @@ export default function Error({
           {error.digest && <span>• {error.digest.slice(0, 8)}</span>}
         </div>
 
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-emphasis mb-3">
           {t("error.title")}
         </h1>
         <p className="text-sm sm:text-base text-gray-400 mb-4 leading-relaxed">
@@ -47,7 +47,7 @@ export default function Error({
         </p>
 
         {process.env.NODE_ENV !== "production" && error.message && (
-          <div className="w-full text-left bg-black/40 border border-white/10 rounded-xl p-3 mb-6 overflow-x-auto max-h-32 text-xs font-mono text-rose-300">
+          <div className="w-full text-left bg-black/40 border border-line rounded-xl p-3 mb-6 overflow-x-auto max-h-32 text-xs font-mono text-rose-300">
             {error.message}
           </div>
         )}
@@ -63,7 +63,7 @@ export default function Error({
 
           <Link
             href="/"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 text-sm font-medium transition-colors duration-fast ease-soft"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emphasis/5 hover:bg-emphasis/10 border border-line text-gray-200 text-sm font-medium transition-colors duration-fast ease-soft"
           >
             <Home className="w-4 h-4" />
             <span>{t("nav.home")}</span>

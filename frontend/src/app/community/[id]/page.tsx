@@ -236,7 +236,7 @@ export default function TopicDetailPage() {
  <div className="flex items-center space-x-2 flex-wrap gap-2">
  <Link
  href="/community"
- className="text-gray-400 hover:text-white flex items-center space-x-1 font-mono text-sm"
+ className="text-gray-400 hover:text-emphasis flex items-center space-x-1 font-mono text-sm"
  >
  <ArrowLeft className="w-4 h-4" />
  <span>{t("nav.community")}</span>
@@ -264,7 +264,7 @@ export default function TopicDetailPage() {
  )}
  </div>
 
- <h1 className="text-xl font-bold text-white leading-snug tracking-tight">
+ <h1 className="text-xl font-bold text-emphasis leading-snug tracking-tight">
  {topic.title}
  </h1>
 
@@ -276,13 +276,13 @@ export default function TopicDetailPage() {
  <span className="text-xs font-mono text-emerald-400 block">
  {t("community.linkedWork")}
  </span>
- <strong className="text-white text-sm block truncate">{topic.entity_title}</strong>
+ <strong className="text-emphasis text-sm block truncate">{topic.entity_title}</strong>
  </div>
  </div>
 
  <Link
  href={catalogEntityHref(topic.entity_kind || "work", topic.entity_id)}
- className="px-3 py-1.5 rounded bg-background hover:bg-surfaceBorder border border-line text-gray-300 hover:text-white flex items-center space-x-1 flex-shrink-0 transition-colors duration-fast ease-soft"
+ className="px-3 py-1.5 rounded bg-background hover:bg-surfaceBorder border border-line text-gray-300 hover:text-emphasis flex items-center space-x-1 flex-shrink-0 transition-colors duration-fast ease-soft"
  >
  <span>{t("community.viewArchive")}</span>
  <ArrowRight className="w-4 h-4" />

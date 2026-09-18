@@ -28,7 +28,7 @@ export default function GlobalError({
           <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center text-2xl font-bold mb-6">
             !
           </div>
-          <h1 className="text-2xl font-bold text-white mb-2">
+          <h1 className="text-2xl font-bold text-emphasis mb-2">
             {t("globalError.title")}
           </h1>
           <p className="text-sm text-gray-400 mb-6">
@@ -36,7 +36,7 @@ export default function GlobalError({
           </p>
           <button
             onClick={() => reset()}
-            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors duration-fast ease-soft"
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-emphasis text-sm font-medium transition-colors duration-fast ease-soft"
           >
             {t("globalError.reload")}
           </button>
