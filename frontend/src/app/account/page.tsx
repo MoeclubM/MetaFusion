@@ -2,7 +2,6 @@ import { Account } from "@/components/catalog/CatalogPages";
 import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { Navbar } from "@/components/Navbar";
 import { PageShell } from "@/components/ui/PageShell";
-import "../catalog/catalog.css";
 
 // 登录入口唯一：/login。本页是受保护页面（components/AuthGate.tsx 的 PROTECTED_PREFIXES）：
 // 未登录访问会被重定向到 /login?redirect=/account，不要在 Account 里再实现用户名/密码表单，
@@ -12,11 +11,9 @@ export default function Page() {
     <>
       <Navbar />
       <CatalogProvider>
-        {/* 容器宽度与内边距走 PageShell；cv-* 表单/表格/徽标样式的作用域仍是 .catalog-root。 */}
-        <PageShell width="page" spacing="none">
-          <div className="catalog-root">
-            <Account />
-          </div>
+        {/* 容器宽度与内边距走 PageShell；本页是表单/资料类页面，用 narrow 档（与 /settings 同宽）。 */}
+        <PageShell width="narrow">
+          <Account />
         </PageShell>
       </CatalogProvider>
     </>

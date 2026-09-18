@@ -4,9 +4,8 @@ import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { Navbar } from "@/components/Navbar";
 import { PageShell } from "@/components/ui/PageShell";
 
-// 不再引入 catalog/catalog.css：那套 .catalog-root 表单覆盖会以更高优先级
-// 盖掉 globals.css 的 cv-* 编辑器样式，造成编辑与新建两页样式分裂。
-// 编辑器样式统一在 globals.css（与 /catalog/[id] 编辑页共用）。
+// 编辑器样式统一在 globals.css（与 /catalog/[id] 编辑页共用）；v1 的 catalog/catalog.css
+// 已整体删除（写死深色、且与 globals.css 的 .cv-* 同名双定义），本页不再需要任何路由级 CSS。
 // 页面容器用 PageShell（原来写死在 .cv-page 的 72rem + 内边距已删除）。
 export default function Page({
   searchParams,

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
+import { Card } from "@/components/ui/Card";
 import { getAuthPasswordUrl } from "@/lib/services";
 import { api } from "./api";
 import { useAuth } from "@/lib/authContext";
@@ -30,77 +31,62 @@ export function Account() {
   // 未登录不渲染任何内容：AuthGate 已把未登录访问重定向到 /login?redirect=/account。
   if (!user) return null;
 
-  return (
-    <div className="cv-narrow" style={{ maxWidth: 860 }}>
-      <h1>{t("catalog.account")}</h1>
+  // 角色徽标：原来写死 rgba/#fb7185/#34d399，浅色下只有 2-3:1；改用状态语义色。
+  const roleBadge =
+    user.role === "admin"
+      ? "border-danger/30 bg-danger/10 text-danger"
+      : "border-success/30 bg-success/10 text-success";
 
-      {/* User Profile Card */}
-      <section className="cv-group" style={{ margin: "16px 0 20px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 20, fontWeight: 700 }}>{user.username}</span>
-              <span
-                className="cv-badge"
-                style={{
-                  background: user.role === "admin" ? "rgba(244, 63, 94, 0.15)" : "rgba(16, 185, 129, 0.15)",
-                  color: user.role === "admin" ? "#fb7185" : "#34d399",
-                  borderColor: user.role === "admin" ? "rgba(244, 63, 94, 0.3)" : "rgba(16, 185, 129, 0.3)",
-                  textTransform: "uppercase",
-                  fontSize: 11,
-                  fontWeight: 600,
-                }}
-              >
+  return (
+    <div className="space-y-4">
+      <h1 className="font-display text-lg font-bold tracking-tight text-text-strong">{t("catalog.account")}</h1>
+
+      {/* 资料卡：用户名 / 角色 / UUID 与两个会话动作 */}
+      <Card padding="section">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <span className="text-xl font-bold text-text-strong break-all">{user.username}</span>
+              <span className={`px-2 py-0.5 rounded-chip border text-[11px] font-semibold uppercase ${roleBadge}`}>
                 {user.role === "admin" ? t("account.roleAdmin") : t("account.roleEditor")}
               </span>
             </div>
-            <small className="cv-muted" style={{ display: "block", marginTop: 4 }}>
-              UUID: {user.id}
-            </small>
+            <p className="mt-1 text-xs font-mono text-text-muted break-all">UUID: {user.id}</p>
           </div>
 
-          <div style={{ display: "flex", gap: 8 }}>
+          <div className="flex flex-wrap gap-2 shrink-0">
             <button
               type="button"
               onClick={async () => {
                 await api("/auth/logout", "POST");
                 await refreshProfile();
               }}
-              style={{ fontSize: 13, padding: "6px 14px" }}
+              className="px-3.5 h-9 rounded-control border border-line bg-surfaceSubtle hover:bg-surfaceHover text-text-body hover:text-emphasis text-xs font-medium transition-colors duration-fast ease-soft cursor-pointer"
             >
               {t("catalog.logout")}
             </button>
             <button
               type="button"
               onClick={() => setPendingLogoutAll(true)}
-              style={{
-                fontSize: 13,
-                padding: "6px 14px",
-                background: "rgba(239, 68, 68, 0.1)",
-                color: "#f87171",
-                borderColor: "rgba(239, 68, 68, 0.25)",
-              }}
+              className="px-3.5 h-9 rounded-control border border-danger/30 bg-danger/10 hover:bg-danger/[0.16] text-danger text-xs font-semibold transition-colors duration-fast ease-soft cursor-pointer"
             >
               {t("account.logoutAllDevices")}
             </button>
           </div>
         </div>
-      </section>
+      </Card>
 
       {/* 账户与安全设置：改密码、授权自助、资料与外观都在 /settings，本页不再自带表单 */}
-      <section className="cv-group">
-        <h2>{t("account.settingsTitle")}</h2>
-        <p className="cv-muted" style={{ marginBottom: 12 }}>
-          {t("account.settingsDesc")}
-        </p>
+      <Card padding="section">
+        <h2 className="text-sm font-semibold text-text-strong mb-1.5">{t("account.settingsTitle")}</h2>
+        <p className="text-xs text-text-muted leading-relaxed mb-3">{t("account.settingsDesc")}</p>
         <a
-          className="cv-primary"
+          className="inline-flex items-center justify-center h-9 px-3.5 rounded-control bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold transition-colors duration-fast ease-soft"
           href={getAuthPasswordUrl()}
-          style={{ display: "inline-block", padding: "8px 16px", textDecoration: "none" }}
         >
           {t("account.changePassword")}
         </a>
-      </section>
+      </Card>
 
       {/* 「全部设备登出」是破坏性动作：确认框自绘（原生 confirm 不可本地化、不可样式化），
           与 /settings 安全页签里的同一入口同形。 */}
