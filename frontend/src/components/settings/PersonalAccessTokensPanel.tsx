@@ -93,7 +93,7 @@ export function PersonalAccessTokensPanel() {
           // 保持 null：加载失败时不能落成"空列表"，否则界面上会同时出现"加载失败"和
           // "暂无令牌"两句话，把失败讲成"你还没有令牌"。
           setTokens(null);
-          setError(authErrorText(e instanceof Error ? e.message : String(e), t, httpStatusOf(e), "settings.patLoadFailed"));
+          setError(patErrorText(e, "settings.patLoadFailed"));
         }
       })
       .finally(() => {
@@ -103,6 +103,18 @@ export function PersonalAccessTokensPanel() {
       alive = false;
     };
   }, [reloadKey]);
+
+  // 账号服务的错误码可能带明细后缀（invalid_scope: catalog.entity.edit、
+  // scope_not_granted: <code>）：先按码取名话，再把明细原样附在后面——码本身不翻译，
+  // 但用户必须看得见是哪一个码被拒了，否则只能对着"请求失败"猜。
+  const patErrorText = (e: unknown, fallbackKey: string): string => {
+    const raw = e instanceof Error ? e.message : String(e);
+    const cut = raw.indexOf(": ");
+    const code = cut >= 0 ? raw.slice(0, cut) : raw;
+    const detail = cut >= 0 ? raw.slice(cut + 2).trim() : "";
+    const text = authErrorText(code, t, httpStatusOf(e), fallbackKey);
+    return detail ? `${text} (${detail})` : text;
+  };
 
   const formatTime = (value?: string | null): string | null => {
     if (!value) return null;
@@ -147,7 +159,7 @@ export function PersonalAccessTokensPanel() {
       // 以服务端为准回读列表，不在本地拼一条假记录。
       setReloadKey((k) => k + 1);
     } catch (err: unknown) {
-      setError(authErrorText(err instanceof Error ? err.message : String(err), t, httpStatusOf(err), "settings.patCreateFailed"));
+      setError(patErrorText(err, "settings.patCreateFailed"));
     } finally {
       setCreating(false);
     }
@@ -166,13 +178,17 @@ export function PersonalAccessTokensPanel() {
       setReloadKey((k) => k + 1);
     } catch (err: unknown) {
       setConfirming(null);
-      setError(authErrorText(err instanceof Error ? err.message : String(err), t, httpStatusOf(err), "settings.patRevokeFailed"));
+      setError(patErrorText(err, "settings.patRevokeFailed"));
     } finally {
       setRevokingId("");
     }
   };
 
+  // 服务端算好的 active 优先：两端时钟不一致时，本地按 expires_at 比时间会把刚过期的
+  // 令牌显示成"有效"。只有缺这个字段（旧服务端）才回落到本地判定。
   const statusOf = (token: PersonalAccessToken): "revoked" | "expired" | "active" => {
+    if (token.active === true) return "active";
+    if (token.active === false) return token.revoked_at ? "revoked" : "expired";
     if (token.revoked_at) return "revoked";
     if (token.expires_at) {
       const exp = new Date(token.expires_at);
@@ -237,7 +253,7 @@ export function PersonalAccessTokensPanel() {
             <input
               type="text"
               value={name}
-              maxLength={80}
+              maxLength={64}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("settings.patNamePlaceholder")}
               className="w-full h-9 px-3 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50"

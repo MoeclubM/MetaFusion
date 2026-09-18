@@ -144,6 +144,9 @@ export interface PersonalAccessToken {
   created_at?: string;
   /** 非空即已撤销；撤销是写时间戳，行不删。 */
   revoked_at?: string | null;
+  /** 服务端算好的"这张还能用吗"（未吊销且未过期）。有它就别拿浏览器时间自己比：
+   *  两端时钟不一致时，本地判定会把刚过期的令牌显示成"有效"。 */
+  active?: boolean;
 }
 
 export interface CreatedPersonalAccessToken {
@@ -167,6 +170,8 @@ function normalizePersonalAccessToken(raw: unknown): PersonalAccessToken {
     last_used_at: strField(r.last_used_at),
     created_at: strField(r.created_at) ?? undefined,
     revoked_at: strField(r.revoked_at),
+    // 只有真的是布尔才带上：缺字段/旧服务端时保持 undefined，界面回落到本地判定。
+    ...(typeof r.active === "boolean" ? { active: r.active } : {}),
   };
 }
 
