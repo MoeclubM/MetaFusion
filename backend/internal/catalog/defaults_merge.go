@@ -116,6 +116,13 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			out.Relations[code] = cur
 			added = append(added, "relations."+code+".aggregate")
 		}
+		// ParticipantSlot 同理：老文档没有该声明，补上即可（客户端据此判定"是否演职"）。
+		// 已有值时不覆盖——后台可以按需要改写槽位，种子不夺回控制权。
+		if sr.ParticipantSlot != "" && cur.ParticipantSlot == "" {
+			cur.ParticipantSlot = sr.ParticipantSlot
+			out.Relations[code] = cur
+			added = append(added, "relations."+code+".participant_slot")
+		}
 	}
 	for k, v := range seed.Structure {
 		if _, ok := out.Structure[k]; !ok {

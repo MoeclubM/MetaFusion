@@ -162,11 +162,24 @@ type RelationDefinition struct {
 	// Aggregate 声明这条关系表达"组成/聚合"（集合→作品、专辑→曲目等）。
 	// 客户端据此区分"结构聚合"与"内容关系"，从而不必写死关系码：新增聚合类关系时
 	// 只要在定义里声明它，页面会自动把它算进组成列表。
-	Aggregate  bool   `json:"aggregate,omitempty"`
-	Group      string `json:"group"`
-	GroupNames Names  `json:"group_names,omitempty"`
-	Enabled    bool   `json:"enabled"`
+	Aggregate bool `json:"aggregate,omitempty"`
+	// ParticipantSlot 声明这条关系的对端在署名里扮演什么：person（对端是署名主体，
+	// 人或机构）、character（对端是虚构角色）、peer（对端是同层级对象，不产生署名主体）。
+	// 为什么需要它：29 个关系码共用一份 fields 时，"这条关系是否带角色"对每条关系都成立，
+	// 客户端只能拿分组码当语义用。客户端据此判定"算不算演职、图标取哪个"，不写死关系码与组码。
+	ParticipantSlot string `json:"participant_slot,omitempty"`
+	Group           string `json:"group"`
+	GroupNames      Names  `json:"group_names,omitempty"`
+	Enabled         bool   `json:"enabled"`
 }
+
+// 关系对端的参与者槽位取值（见 RelationDefinition.ParticipantSlot）。
+const (
+	ParticipantSlotPerson    = "person"
+	ParticipantSlotCharacter = "character"
+	ParticipantSlotPeer      = "peer"
+)
+
 type Section struct {
 	Names  Names    `json:"names"`
 	Fields []string `json:"fields"`

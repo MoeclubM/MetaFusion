@@ -474,8 +474,46 @@ func Defaults() Definitions {
 		"membership": names4("组成与成员", "組成與成員", "構成とメンバー", "Membership"),
 	}
 
+	// 每条关系的对端在署名里扮演什么（ParticipantSlot）。为什么按关系逐条声明：
+	// 29 个关系码共用同一份 fields（含 character），于是"这条关系是否带角色"对每条关系都成立，
+	// 客户端只能把分组码当成"是否演职"的语义代理——按组码写死判定必然误伤，且新关系码改分组即静默改变界面语义。
+	// 声明集中在这里维护：新增关系码必须同时给出槽位，defaults_merge_slots_test 的棘轮会拦住漏声明的码。
+	//   person    对端是署名主体（人/机构）：作品页的署名区块与人物网格按它收录
+	//   character 对端是虚构角色：character_in 的源端就是角色实体
+	//   peer      对端是同层级对象（作品↔作品、发行↔发行…），不产生署名主体
+	relSlot := map[string]string{
+		"created_by":        "person",
+		"performed_by":      "person",
+		"photographed_by":   "person",
+		"modeled_by":        "person",
+		"developed_by":      "person",
+		"voiced_by":         "person",
+		"composed_by":       "person",
+		"lyricist_of":       "person",
+		"arranged_by":       "person",
+		"directed_by":       "person",
+		"written_by":        "person",
+		"illustrated_by":    "person",
+		"narrated_by":       "person",
+		"translated_by":     "person",
+		"credit_for":        "person",
+		"store_bonus_for":   "person",
+		"character_in":      "character",
+		"adaptation_of":     "peer",
+		"sequel_of":         "peer",
+		"spin_off_of":       "peer",
+		"soundtrack_of":     "peer",
+		"translation_of":    "peer",
+		"revision_of":       "peer",
+		"cover_of":          "peer",
+		"alternate_take_of": "peer",
+		"pressing_of":       "peer",
+		"includes":          "peer",
+		"bonus_included_in": "peer",
+		"member_of":         "peer",
+	}
 	addRel := func(code string, n, rev Names, src, tgt []string, group string, acyclic bool) {
-		d.Relations[code] = RelationDefinition{Names: n, ReverseNames: rev, SourceKinds: src, TargetKinds: tgt, Fields: []string{"role", "credit_role", "character_rank", "context", "character", "language", "begin_date", "end_date", "scope"}, Group: group, GroupNames: groupNames[group], Acyclic: acyclic, Enabled: true}
+		d.Relations[code] = RelationDefinition{Names: n, ReverseNames: rev, SourceKinds: src, TargetKinds: tgt, Fields: []string{"role", "credit_role", "character_rank", "context", "character", "language", "begin_date", "end_date", "scope"}, ParticipantSlot: relSlot[code], Group: group, GroupNames: groupNames[group], Acyclic: acyclic, Enabled: true}
 	}
 	for _, x := range []relSeed{
 		{"created_by", names4("创作者", "創作者", "作者", "Created by"), names4("创作了", "創作了", "制作した", "Creator of")},
