@@ -5,6 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
+import { EntityCover } from "@/components/common/EntityCover";
 import FavoriteButton from "@/components/FavoriteButton";
 import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
@@ -130,6 +131,23 @@ const relationGroupKey = (
     ? rel.group || FALLBACK_RELATION_GROUP
     : FALLBACK_RELATION_GROUP;
 };
+
+/**
+ * 演职人员头像：外链头像取不到时回退到首字母，而不是在圆框里留一个破图图标。
+ * 同一页的封面已经走 EntityCover（失败即程序封面），这里补上同类问题的最后一处。
+ */
+function StaffAvatar({ src, name }: { src?: string | null; name: string }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) return <span>{name[0]?.toUpperCase() || "A"}</span>;
+  return (
+    <img
+      src={src}
+      alt={name}
+      className="w-full h-full object-cover"
+      onError={() => setBroken(true)}
+    />
+  );
+}
 
 async function allEntities(query: string): Promise<Entity[]> {
   const items: Entity[] = [];
@@ -1231,11 +1249,17 @@ export function EntityDetailView({ id }: { id: string }) {
                           className="group block space-y-1.5"
                           title={p.source?.citation || ""}
                         >
+                          {/* 画廊用同一套封面组件：自托管封面取不到（如 404 object_missing）时
+                              退化成程序封面，而不是让浏览器画破图图标——作品页早就这么兜底，
+                              两个页面对同一份数据给出两种观感是这里此前唯一的不一致。 */}
                           <Card tone="subtle" padding="none" className="aspect-[3/4] overflow-hidden">
-                            <img
+                            <EntityCover
                               src={p.url}
                               alt={resolveLocalizedName(p.caption, locale, entity.title)}
-                              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-fast ease-soft"
+                              title={resolveLocalizedName(p.caption, locale, entity.title)}
+                              id={entity.id}
+                              className="w-full h-full"
+                              imgClassName="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-fast ease-soft"
                             />
                           </Card>
                           <div className="font-mono text-[10px] text-gray-500">
@@ -1330,11 +1354,7 @@ export function EntityDetailView({ id }: { id: string }) {
                         className="p-3 flex items-center gap-3"
                       >
                         <div className="w-10 h-10 rounded-full bg-primary/10 text-primary grid place-items-center font-bold text-xs shrink-0 overflow-hidden border border-primary/20">
-                          {target?.pictures?.[0]?.url ? (
-                            <img src={target.pictures[0].url} alt={targetTitle} className="w-full h-full object-cover" />
-                          ) : (
-                            <span>{targetTitle[0]?.toUpperCase() || "A"}</span>
-                          )}
+                          <StaffAvatar src={target?.pictures?.[0]?.url} name={targetTitle} />
                         </div>
                         <div className="min-w-0 flex-1 space-y-0.5">
                           <div className="text-[10px] font-mono font-semibold text-primary tracking-wider">
