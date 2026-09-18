@@ -2,7 +2,9 @@ package catalog
 
 import (
 	"errors"
+	"math"
 	"net/url"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/gin-gonic/gin"
@@ -20,12 +22,23 @@ const listTextParamLimit = 256
 
 // 参数类错误的稳定机器码（响应体统一是 {"error": <code>}，见 respond）。
 const (
-	codeInvalidQueryParam = "invalid_query_param"
-	codeQueryTooLong      = "query_too_long"
+	codeInvalidQueryParam  = "invalid_query_param"
+	codeQueryTooLong       = "query_too_long"
+	codeInvalidLimit       = "invalid_limit"
+	codeInvalidOffset      = "invalid_offset"
+	codeInvalidPage        = "invalid_page"
+	codePaginationConflict = "pagination_conflict"
+)
+
+// 分页默认值与上限：与 OpenAPI 声明的 limit 语义一致（default 50, max 100）。
+// 前端 fetchAllPages 以 100 翻页，因此上限不能再低。
+const (
+	defaultListLimit = 50
+	maxListLimit     = 100
 )
 
 // listTextParams 是列表端点会下传给 SQL 的文本查询参数。整数分页参数
-// （limit/offset/page）不在此列，由分页解析单独判定。
+// （limit/offset/page）不在此列，由 listPagination 单独判定。
 var listTextParams = []string{
 	"q", "kind", "kinds", "type", "types", "status", "sort", "order", "locale",
 	"work_id", "content_unit_id", "release_id", "medium_id", "parent_id", "field", "value", "tags",
@@ -78,4 +91,49 @@ func validateTextQuery(c *gin.Context, names ...string) error {
 		}
 	}
 	return nil
+}
+
+// listPagination 解析并归一 limit/offset/page。
+//
+// 契约（2026-09-19 定，随 OpenAPI 一起发布）：
+//   - limit 与 offset 是基本分页：limit 缺省 50、允许 1..100；offset 缺省 0、必须 ≥ 0。
+//   - page（1 起）是便捷写法，等价于 offset=(page-1)*limit；page 必须 ≥ 1。
+//   - page 与 offset 同时出现即 400 pagination_conflict，而不是让其中一个悄悄生效：
+//     调用方给了两个互相矛盾的分页意图，服务端替它挑一个正是本次要修的那类静默行为
+//     （同 normalizeListSort 对未知排序键返回 400 的理由——静默忽略会让人以为参数生效了）。
+//   - 非整数（abc/1.5/空格）与越界值一律 400，不再静默回落到默认值：线上实测
+//     limit=-1、limit=abc 都拿到 200 + 50 条，调用方无法察觉自己的分页没生效。
+//   - 空串（?limit=&offset=）按"未提供"处理：URL 拼装里常见的占位写法，不带任何意图。
+func listPagination(c *gin.Context) (limit, offset int, err error) {
+	limit = defaultListLimit
+	rawLimit := c.Query("limit")
+	if rawLimit != "" {
+		limit, err = strconv.Atoi(rawLimit)
+		if err != nil || limit < 1 || limit > maxListLimit {
+			return 0, 0, errParam(codeInvalidLimit)
+		}
+	}
+	rawOffset, rawPage := c.Query("offset"), c.Query("page")
+	if rawOffset != "" && rawPage != "" {
+		return 0, 0, errParam(codePaginationConflict)
+	}
+	if rawPage != "" {
+		page, perr := strconv.Atoi(rawPage)
+		if perr != nil || page < 1 {
+			return 0, 0, errParam(codeInvalidPage)
+		}
+		// (page-1)*limit 溢出即视为越界页：int 在本平台是 64 位，但仍要显式挡住，
+		// 否则 OFFSET 会拿到一个回绕后的负数。
+		if page-1 > math.MaxInt/limit {
+			return 0, 0, errParam(codeInvalidPage)
+		}
+		return limit, (page - 1) * limit, nil
+	}
+	if rawOffset != "" {
+		offset, err = strconv.Atoi(rawOffset)
+		if err != nil || offset < 0 {
+			return 0, 0, errParam(codeInvalidOffset)
+		}
+	}
+	return limit, offset, nil
 }

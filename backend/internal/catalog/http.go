@@ -362,13 +362,17 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, gin.H{"items": items, "total": len(items)}, nil)
 	})
 	cat.GET("/entities", routeLimiter(120), func(c *gin.Context) {
-		// 参数闸门：非法 UTF-8/控制字符/超长值 400（见 query_params.go）。
+		// 参数闸门：非法 UTF-8/控制字符/超长值 400（见 query_params.go），分页契约
+		// 也在这一步归一（page 与 offset 冲突即 400，不再"传了 page 却按 offset 返回"）。
 		if err := validateTextQuery(c, listTextParams...); err != nil {
 			respond(c, nil, err)
 			return
 		}
-		limit, _ := strconv.Atoi(c.Query("limit"))
-		offset, _ := strconv.Atoi(c.Query("offset"))
+		limit, offset, err := listPagination(c)
+		if err != nil {
+			respond(c, nil, err)
+			return
+		}
 		o := ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Sort: c.Query("sort"), Order: c.Query("order"), Locale: c.Query("locale"), Limit: limit, Offset: offset}
 		// 排序参数走白名单校验：未知字段/方向返回 400 invalid_sort / invalid_order，
 		// 而不是静默按 updated_at 返回另一套顺序（调用方会以为排序生效了）。
