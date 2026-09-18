@@ -8,6 +8,7 @@ import { localizeCatalogError } from "@/lib/catalogErrors";
 import { useAuth } from "@/lib/authContext";
 import { getAuthLoginUrl } from "@/lib/services";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
+import { LanguagePicker } from "@/components/common/LanguagePicker";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
 import { effectiveSchemeFields, getFieldName, getKindName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
 import { canonicalLanguageCode, languageLabel, quickLanguages } from "@/lib/languages";
@@ -102,7 +103,7 @@ export function EntityEditor({
   ]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [newLocale, setNewLocale] = useState("");
+  // 新增语种走可搜索的语言选择器，组件里不再留"待确认的语言代码"输入态。
   const [externalKey, setExternalKey] = useState("");
   // 标签输入框的待确认文本（回车/逗号才落到 attributes.tags）。
   const [tagInput, setTagInput] = useState("");
@@ -207,7 +208,6 @@ export function EntityEditor({
       });
     }
     setLocalePick(code);
-    setNewLocale("");
   };
   const removeLocale = (code: string) => {
     // 原始语言行不可删：它的题名就是实体基础题名，删掉多语言区就失去锚点。
@@ -440,7 +440,7 @@ export function EntityEditor({
       <fieldset>
         <legend>{t("catalog.translations")}</legend>
         {/* 语种选择器 + 当前语种字段：语种一多不再每语种铺一块。
-            下拉选项来自常用语种常量与已添加语种；自定义代码（如 ja-JP）走旁边的输入框。 */}
+            下拉选项来自已添加语种；新增语种走可搜索的语言选择器（不必知道代码）。 */}
         <div className="cv-row cv-localebar">
           <label>
             {t("catalog.translationLocale")}
@@ -457,27 +457,13 @@ export function EntityEditor({
               ))}
             </select>
           </label>
-          <label>
-            {t("catalog.localeCode")}
-            <input
-              aria-label={t("catalog.localeCode")}
-              placeholder={t("catalog.localeCode")}
-              value={newLocale}
-              onChange={(x) => setNewLocale(x.target.value)}
-              onKeyDown={(ev) => {
-                if (ev.key !== "Enter") return;
-                ev.preventDefault();
-                addLocale(newLocale);
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!newLocale.trim()}
-            onClick={() => addLocale(newLocale)}
-          >
-            {t("catalog.addLocale")}
-          </button>
+          <LanguagePicker
+            selected={localeCodes}
+            onSelect={addLocale}
+            label={t("catalog.addLocale")}
+            ariaLabel={t("catalog.addLocale")}
+            variant="field"
+          />
         </div>
         {/* 已添加语种 chips：点击切换、× 删除；原始语言行不可删（题名只读，来自基础题名）。 */}
         <div className="cv-localechips">

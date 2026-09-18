@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { Plus, X, Globe } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
+import { LanguagePicker } from "@/components/common/LanguagePicker";
 import {
   canonicalLanguageCode,
   findLanguage,
@@ -56,8 +57,6 @@ export function DynamicNamesEditor({
   required,
 }: DynamicNamesEditorProps) {
   const { t } = useI18n();
-  const [newLangCode, setNewLangCode] = useState("");
-  const [showCustomInput, setShowCustomInput] = useState(false);
 
   const currentNames = { ...value };
   const existingCodes = Object.keys(currentNames);
@@ -73,12 +72,12 @@ export function DynamicNamesEditor({
     onChange(updated);
   };
 
-  const handleAdd = (code: string) => {
-    const trimmed = normalizeLocaleCode(code);
-    if (!trimmed || currentNames[trimmed] !== undefined) return;
-    onChange({ ...currentNames, [trimmed]: "" });
-    setNewLangCode("");
-    setShowCustomInput(false);
+  const handleAdd = (raw: string) => {
+    const code = normalizeLocaleCode(raw);
+    if (!code) return;
+    // 同一语种不重复添加：存量数据里日文可能是 ja，也可能是 ja-JP。
+    if (existingCodes.some((c) => sameLanguage(c, code))) return;
+    onChange({ ...currentNames, [code]: "" });
   };
 
   // 快捷候选取常用语种里还没添加的那些；语言表的 popular 顺序已把界面四语排在最前，
@@ -163,47 +162,14 @@ export function DynamicNamesEditor({
           </button>
         ))}
 
-        {!showCustomInput ? (
-          <button
-            type="button"
-            onClick={() => setShowCustomInput(true)}
-            className="px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[10px] font-mono flex items-center gap-1 transition-colors duration-fast ease-soft"
-          >
-            <Plus className="w-2.5 h-2.5" />
-            <span>{t("multilingual.addOtherLang")}</span>
-          </button>
-        ) : (
-          <div className="flex items-center gap-1">
-            <input
-              type="text"
-              autoFocus
-              placeholder={t("multilingual.langCodePlaceholder")}
-              value={newLangCode}
-              onChange={(e) => setNewLangCode(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAdd(newLangCode);
-                }
-              }}
-              className="bg-black/60 border border-primary/40 rounded px-2 py-0.5 text-[11px] text-white font-mono outline-none w-28"
-            />
-            <button
-              type="button"
-              onClick={() => handleAdd(newLangCode)}
-              className="px-2 py-0.5 rounded bg-primary text-black text-[10px] font-bold"
-            >
-              {t("common.save")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCustomInput(false)}
-              className="p-1 text-gray-400 hover:text-white"
-            >
-              <X className="w-3 h-3" />
-            </button>
-          </div>
-        )}
+        {/* 语种由可搜索的语言选择器挑选：不必先知道代码，ja / 日本 / Japanese 都能搜到。 */}
+        <LanguagePicker
+          selected={existingCodes}
+          onSelect={handleAdd}
+          label={t("multilingual.addOtherLang")}
+          ariaLabel={t("multilingual.addOtherLang")}
+          variant="chip"
+        />
       </div>
     </div>
   );
