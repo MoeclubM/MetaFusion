@@ -92,6 +92,7 @@
   "common.generating": "生成中…",
   "common.copy": "コピー",
   "common.copied": "コピーしました",
+  "common.copyFailed": "コピーに失敗しました。テキストを選択して手動でコピーしてください。",
   "common.copyLink": "リンクをコピー",
   "common.share": "共有",
   "common.reply": "返信",

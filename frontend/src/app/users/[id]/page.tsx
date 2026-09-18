@@ -20,6 +20,7 @@ import {
   CommunityUserStats,
   PublicUserProfile,
 } from "@/lib/api";
+import { copyText } from "@/lib/clipboard";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import { getKindName, resolveKindOptions, useDefinitions } from "@/lib/definitions";
@@ -102,6 +103,7 @@ export default function UserDetailPage() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [favVisible, setFavVisible] = useState(true);
   const [copiedId, setCopiedId] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [expandedDiffs, setExpandedDiffs] = useState<Record<string, boolean>>({});
 
   // 账号资料（auth）：失败只影响顶部资料卡与邀请数，不影响目录贡献与互动数据。
@@ -208,10 +210,13 @@ export default function UserDetailPage() {
     };
   }, [id, tab, page, reloadKey]);
 
-  const handleCopyId = () => {
-    navigator.clipboard.writeText(profile?.user.id || id);
-    setCopiedId(true);
-    setTimeout(() => setCopiedId(false), 2000);
+  const handleCopyId = async () => {
+    // 走共享 helper 并如实报错：明文 http 下 navigator.clipboard 是 undefined，原来直接调它会
+    // 同步抛 TypeError，按钮既不显示"已复制"也没有任何提示。
+    const ok = await copyText(profile?.user.id || id);
+    setCopiedId(ok);
+    setCopyFailed(!ok);
+    setTimeout(() => { setCopiedId(false); setCopyFailed(false); }, 2000);
   };
 
   const toggleDiff = (itemId: string) => {
@@ -350,6 +355,9 @@ export default function UserDetailPage() {
                   {copiedId ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
                   <span className="text-[10px]">{copiedId ? t("users.profile.copied") : t("users.profile.copyId")}</span>
                 </button>
+                {copyFailed && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400">{t("common.copyFailed")}</span>
+                )}
               </div>
             </div>
           </div>

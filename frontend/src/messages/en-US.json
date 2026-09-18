@@ -92,6 +92,7 @@
   "common.generating": "Generating…",
   "common.copy": "Copy",
   "common.copied": "Copied",
+  "common.copyFailed": "Copy failed — select the text and copy it manually.",
   "common.copyLink": "Copy link",
   "common.share": "Share",
   "common.reply": "Reply",

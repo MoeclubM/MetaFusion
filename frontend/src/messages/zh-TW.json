@@ -92,6 +92,7 @@
   "common.generating": "產生中…",
   "common.copy": "複製",
   "common.copied": "已複製",
+  "common.copyFailed": "複製失敗，請手動選取文字複製。",
   "common.copyLink": "複製連結",
   "common.share": "分享",
   "common.reply": "回覆",

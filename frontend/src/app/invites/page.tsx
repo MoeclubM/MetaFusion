@@ -13,6 +13,7 @@ import {
   PublicAuthSettings,
 } from "@/lib/api";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
+import { copyText } from "@/lib/clipboard";
 import {
   AlertCircle,
   Check,
@@ -48,30 +49,6 @@ function formatDay(value?: string): string {
   return d.toLocaleDateString();
 }
 
-// 复制优先走剪贴板 API，非安全上下文（http 局域网测试）退回 execCommand。
-async function copyText(text: string): Promise<boolean> {
-  try {
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {}
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    return ok;
-  } catch {
-    return false;
-  }
-}
-
 export default function InvitesPage() {
   const { t } = useI18n();
   const { user, loading: authLoading } = useAuth();
@@ -88,6 +65,8 @@ export default function InvitesPage() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  // 复制失败要如实说：明文 http 或用户拒权时剪贴板 API 不存在，徽标不出现会被读成"点了没反应"。
+  const [copyFailed, setCopyFailed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -118,10 +97,11 @@ export default function InvitesPage() {
   }, []);
 
   const handleCopy = async (key: string, text: string) => {
-    if (await copyText(text)) {
-      setCopiedKey(key);
-      setTimeout(() => setCopiedKey(null), 2000);
-    }
+    const ok = await copyText(text);
+    setCopyFailed(!ok);
+    if (!ok) return;
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -295,6 +275,11 @@ export default function InvitesPage() {
               {t("invite.ledgerCount", { count: items.length })}
             </span>
           </div>
+          {copyFailed ? (
+            <p className="px-4 py-2 border-b border-line-subtle text-[11px] font-mono text-amber-600 dark:text-amber-400">
+              {t("common.copyFailed")}
+            </p>
+          ) : null}
           {loading ? (
             <div className="p-8 grid place-items-center">
               <Loader2 className="w-5 h-5 animate-spin text-primary" />

@@ -34,6 +34,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import { AUTH_OAUTH_MANAGE, can } from "@/lib/permissions";
 import { DOCS_SERVICE_URL } from "@/lib/services";
+import { copyText } from "@/lib/clipboard";
 import {
   ENDPOINT_KEYS,
   appStatus,
@@ -58,31 +59,6 @@ const STATUS_CLASS: Record<string, string> = {
   unverified: "bg-amber-500/10 border-amber-500/30 text-amber-400",
   disabled: "bg-rose-500/10 border-rose-500/30 text-rose-300",
 };
-
-// 复制优先走剪贴板 API，非安全上下文（http 局域网测试）退回 execCommand，
-// 与邀请码页同一处理，避免在 http 下"点了没反应"。
-async function copyText(text: string): Promise<boolean> {
-  try {
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {}
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.setAttribute("readonly", "");
-    ta.style.position = "fixed";
-    ta.style.opacity = "0";
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand("copy");
-    document.body.removeChild(ta);
-    return ok;
-  } catch {
-    return false;
-  }
-}
 
 export default function DeveloperPage() {
   const { t, locale } = useI18n();
