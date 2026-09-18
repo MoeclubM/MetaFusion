@@ -103,7 +103,7 @@
         └───────────────┴──── PostgreSQL 16 ────┬──────┘
                           catalog / auth / community / storage 四个 schema
                                                 ├──── RustFS (S3 兼容，仅内网可达；桶由存储服务启动时自建)
-                                                └──── Redis / OpenSearch (常驻但尚未接线，见切流手册第 4 节)
+                                                └──── Redis（常驻但尚未接线）/ OpenSearch（仅 --profile search 启动，未接线）
 ```
 
 > 各服务仓库的当前落地状态与「子项目各司其职」的边界，见
@@ -206,7 +206,7 @@ bash deploy/deploy.sh retire
   - 登录页面在未检测到管理员时也会提供明显的初始化引导入口。
 - **账号来源**：没有预置账号，也不随镜像播种测试用户——首个超级管理员由 `/setup` 向导创建（账号落在账号服务的 `auth.users`）；创建后请立即在「个人设置」修改密码。
 - **开发与架构文档站**：`http://<您的IP>:10100/docs`
-- **后端 API 健康状态**：`http://<您的IP>:10100/healthz`（就绪探针 `/ready`，标准 API 基址 `/api`，文档 `/api/docs`）
+- **健康探针**：`/healthz`、`/livez` 是网关自身存活（只证明 nginx 在跑，不探上游）；逐上游就绪看 `/health/catalog`、`/health/auth`、`/health/community`、`/health/storage`；目录服务自身就绪是 `/ready`、`/health`。标准 API 基址 `/api`，文档 `/api/docs`
 
 ---
 
@@ -214,7 +214,7 @@ bash deploy/deploy.sh retire
 
 MetaFusion 采用统一 `/api` 主干（无版本前缀），核心元数据读接口对游客开放，写入需登录会话。
 
-1. **认证方式**：登录后使用会话令牌（`Authorization: Bearer <token>`）或 `mf_session` Cookie；第三方应用可经 `/api/oauth/*` 的 OAuth 2.0 / OIDC 流程接入。**个人访问令牌（PAT）当前未实现**。
+1. **认证方式**：登录后使用会话令牌（`Authorization: Bearer <token>`）或 `mf_session` Cookie；第三方应用可经 `/api/oauth/*` 的 OAuth 2.0 / OIDC 流程接入。个人访问令牌（PAT）由账号服务签发（`mfp_` 前缀），目录侧经 `/api/auth/tokens/introspect` 校验——未给目录服务配置 `AUTH_URL` 时该路径返回 503 `auth_unavailable`。
 2. **标准接口（统一基址 `/api`）**：
    - `GET /api/catalog/entities?kind=work&limit=20`
    - `GET /api/catalog/entities?kind=release&limit=20`

@@ -22,6 +22,8 @@ function Show-Usage {
     Write-Host "  retire          - 清理拆分前的遗留 schema 与临时表 (切流稳定后跑一次)"
     Write-Host "  dev             - 启动热重载开发模式 (源码直接挂载，免构建秒级热重载)"
     Write-Host "  prod            - 完整生产模式启动"
+    Write-Host "  pull            - 拉取生产预构建镜像并极速启动"
+    Write-Host "  migrate [ver]   - 执行数据库版本迁移"
     Write-Host "  restart [svc]   - 快速重启服务"
     Write-Host "  prune           - 清理旧镜像与构建缓存 (释放磁盘)"
     Write-Host "  logs [svc]      - 查看容器日志"

@@ -63,8 +63,9 @@ jobs:
               NEXT_PUBLIC_STORAGE_URL=${{ vars.NEXT_PUBLIC_STORAGE_URL }}
               NEXT_PUBLIC_RESOURCE_STATION_URL=${{ vars.NEXT_PUBLIC_RESOURCE_STATION_URL }}
               NEXT_PUBLIC_DOCS_URL=${{ vars.NEXT_PUBLIC_DOCS_URL }}
-          # 文档站镜像由 metafusion-docs 仓库自己构建发布（内容与构建配置都在那边），
-          # 本仓库只构建目录/前端与迁移器镜像。
+          # 文档站镜像目前**没有任何仓库发布**（metafusion-docs 的 .github 下只有 ci.yml，
+          # 不含 ghcr / build-push-action），生产编排里那份只能就地构建；本仓库只构建目录/前端
+          # 与迁移器镜像。等文档站自己发布镜像时，改这里的口径并给 prod 覆盖文件写上 image。
 
     steps:
       - name: Checkout repository

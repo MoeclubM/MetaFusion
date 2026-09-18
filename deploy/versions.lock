@@ -15,10 +15,10 @@
 # 更新：切流窗口开始时按各仓库 git rev-parse --short HEAD 重写一遍并提交。
 #       不要为了让它变绿而改 sha——那等于把锚点挪到没验证过的代码上。
 #
-# 已知缺口（2026-09-26 审计确认）：本仓库 CI 只检出主仓库，兄弟目录缺席时上面的 SKIP 分支生效，
-# 漂移因此不会让 CI 变红。要让 CI 也守住锚点，得在 CI 里按这份锁的 sha 克隆四个兄弟仓库
-# （git clone https://github.com/MoeclubM/metafusion-<x> ../metafusion-<x> && git -C ../metafusion-<x> checkout <sha>）
-# 再跑 check_versions.py；在那之前，唯一会拦住漂移的是 deploy.sh 的这一步。
+# 缺口口径（2026-09-26 审计的"CI 只检出主仓库"已收窄）：.github/workflows/ci.yml 的 cross-repo job
+# 现在按这份锁的每一行（含 api-gateway 与 docs，当前共 5 个兄弟仓库）逐个 clone 到 ../ 并检出该 sha，
+# 再跑 check_versions.py，因此"锁里的 sha 在远端取不到"会让 CI 红。仍未守住的是反向：CI 检出的是
+# 锁里的 sha，自然与锁一致——"本机检出比锁新/旧"只能由 deploy.sh 的那一步拦。
 #
 # 当前锚点（2026-09-26 清理批次后；docs 一行随当时文档仓的最新提交刷新）。
 # 注意：`../metafusion-sdk` 目前**不是部署输入**（没有任何服务 import），

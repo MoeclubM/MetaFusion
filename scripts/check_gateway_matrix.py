@@ -60,7 +60,7 @@ WHITELIST = {
     "/livez": "网关自身存活探针别名",
     "/live": "网关自身存活探针别名",
     "/ready": "兼容旧路径：目录服务就绪探针",
-    "/health": "兼容旧路径：目录服务探针（目录补 /health 之前如实 404）",
+    "/health": "兼容旧路径：目录服务探针（目录侧已实现 GET /health，与其它服务同形）",
     "/health/catalog": "逐上游就绪探针",
     "/health/auth": "逐上游就绪探针",
     "/health/community": "逐上游就绪探针",
