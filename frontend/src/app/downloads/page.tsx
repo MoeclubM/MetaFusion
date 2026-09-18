@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { PageShell } from "@/components/ui/PageShell";
 import { useI18n } from "@/i18n/I18nProvider";
+import { LoadingFallback } from "@/components/common/LoadingFallback";
 import { getStorageEntityUrl, hasResourceStation } from "@/lib/services";
 import { DownloadCloud, ExternalLink, HardDrive } from "lucide-react";
 
@@ -50,18 +51,9 @@ function DownloadsInner() {
   );
 }
 
-function DownloadsFallback() {
-  const { t } = useI18n();
-  return (
-    <div className="min-h-screen bg-background grid place-items-center text-xs font-mono text-gray-500">
-      {t("common.loading")}
-    </div>
-  );
-}
-
 export default function DownloadsPage() {
   return (
-    <Suspense fallback={<DownloadsFallback />}>
+    <Suspense fallback={<LoadingFallback className="min-h-screen bg-background grid place-items-center text-xs font-mono text-gray-500" />}>
       <DownloadsInner />
     </Suspense>
   );

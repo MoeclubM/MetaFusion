@@ -6,6 +6,7 @@
 // 左栏底部的「其他控制台」，按权限码与探活结果收敛——未部署的域不出现死链。
 
 import React, { useEffect, useState, Suspense } from "react";
+import { LoadingFallback } from "@/components/common/LoadingFallback";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
@@ -1160,7 +1161,7 @@ function AdminInner() {
 
 export default function AdminPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background text-text-faint font-mono text-xs grid place-items-center">Loading Admin...</div>}>
+    <Suspense fallback={<LoadingFallback className="min-h-screen bg-background text-text-faint font-mono text-xs grid place-items-center" />}>
       <AdminInner />
     </Suspense>
   );

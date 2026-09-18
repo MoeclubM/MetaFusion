@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense } from "react";
+import { LoadingFallback } from "@/components/common/LoadingFallback";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -153,7 +154,7 @@ function RootLandingInner() {
 
 export default function RootLandingPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-background grid place-items-center font-mono text-sm text-gray-500">Loading…</div>}>
+    <Suspense fallback={<LoadingFallback />}>
       <RootLandingInner />
     </Suspense>
   );

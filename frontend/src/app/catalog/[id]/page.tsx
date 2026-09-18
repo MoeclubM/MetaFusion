@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { LoadingFallback } from "@/components/common/LoadingFallback";
 import { redirect } from "next/navigation";
 import { EntityDetailView } from "@/components/catalog/EntityDetailView";
 import { Entity } from "@/components/catalog/api";
@@ -53,7 +54,8 @@ export default async function Page({
 
   return (
     // EntityDetailView 内使用 useSearchParams（?edit=1 直达编辑），需要 Suspense 边界。
-    <Suspense fallback={null}>
+    // 首帧给同款加载态：fallback={null} 在这条兜底路由上是整屏空白（正式路由都有加载文案）。
+    <Suspense fallback={<LoadingFallback />}>
       <EntityDetailView id={id} />
     </Suspense>
   );

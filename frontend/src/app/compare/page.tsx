@@ -3,8 +3,8 @@
 import React, { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
-import { useI18n } from "@/i18n/I18nProvider";
 import { PageShell } from "@/components/ui/PageShell";
+import { LoadingFallback } from "@/components/common/LoadingFallback";
 import { Compare } from "@/components/catalog/CatalogPages";
 
 function CompareContent() {
@@ -21,16 +21,9 @@ function CompareContent() {
   );
 }
 
-function CompareFallback() {
-  const { t } = useI18n();
-  return (
-    <div className="min-h-screen grid place-items-center text-sm text-gray-500">{t("common.loading")}</div>
-  );
-}
-
 export default function ComparePage() {
   return (
-    <Suspense fallback={<CompareFallback />}>
+    <Suspense fallback={<LoadingFallback className="min-h-screen grid place-items-center text-sm text-gray-500" />}>
       <CompareContent />
     </Suspense>
   );

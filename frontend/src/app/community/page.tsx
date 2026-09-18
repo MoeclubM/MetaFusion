@@ -8,6 +8,7 @@ import { UserAvatar } from "@/components/UserAvatar";
 import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, boardDisplayName, boardDisplayDesc, catalogEntityHref } from "@/lib/api";
 import PostComposer from "@/components/community/PostComposer";
 import { useI18n } from "@/i18n/I18nProvider";
+import { LoadingFallback } from "@/components/common/LoadingFallback";
 import { useAuth } from "@/lib/authContext";
 import {
  MessageSquare,
@@ -911,19 +912,9 @@ function CommunityContent() {
  );
 }
 
-/** Suspense 兜底：兜底节点在 I18n 上下文之外，单独成组件才能取到字典文案。 */
-function CommunityFallback() {
-  const { t } = useI18n();
-  return (
-    <div className="min-h-screen bg-background flex items-center justify-center text-sm text-gray-500">
-      {t("common.loading")}
-    </div>
-  );
-}
-
 export default function CommunityPage() {
   return (
-    <Suspense fallback={<CommunityFallback />}>
+    <Suspense fallback={<LoadingFallback className="min-h-screen bg-background flex items-center justify-center text-sm text-gray-500" />}>
       <CommunityContent />
     </Suspense>
   );

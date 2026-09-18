@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, Suspense } from "react";
+import { LoadingFallback } from "@/components/common/LoadingFallback";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/lib/authContext";
@@ -416,7 +417,7 @@ function LoginInner() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="h-[100dvh] bg-background grid place-items-center font-mono text-sm text-gray-500">Loading…</div>}>
+    <Suspense fallback={<LoadingFallback className="h-[100dvh] bg-background grid place-items-center font-mono text-sm text-gray-500" />}>
       <LoginInner />
     </Suspense>
   );
