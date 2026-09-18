@@ -1,10 +1,11 @@
 [Unit]
-# MetaFusion 每日备份：PostgreSQL + 对象存储卷 + 配置快照（脚本自带磁盘护栏与保留策略）。
+# MetaFusion 每日备份：PostgreSQL + 对象存储（S3 API 逐对象 + 清单/sha256）+ 配置快照
+# （脚本自带磁盘护栏与保留策略；对象口径与空桶行为见 docs-local/deploy/backup-restore.md）。
 # 脚本路径用 systemd 的 %h（服务用户的 home；本 unit 未设 User=，即 root → /root），
 # 不再写死 /root/...：换账号跑或把检出挪进该账号 home 下的别处时，只改这两处的后半段。
 # 若检出既不在 home 下、也不由 root 跑，就把下面两行换成实际绝对路径——systemd 不对
 # 命令名做环境变量展开，所以这里用不了 EnvironmentFile 传路径。
-Description=MetaFusion 每日备份（PostgreSQL + 对象存储 + 配置快照）
+Description=MetaFusion 每日备份（PostgreSQL + 对象存储（S3 API 逐对象） + 配置快照）
 Documentation=file:%h/metafusion/MetaFusion/scripts/backup.sh
 After=docker.service
 Requires=docker.service

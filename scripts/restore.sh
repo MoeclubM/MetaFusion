@@ -2,6 +2,11 @@
 # ==============================================================================
 # MetaFusion 恢复：从备份目录恢复 PostgreSQL（可选恢复对象存储卷与角色定义）
 # ==============================================================================
+# 对象存储恢复（--restore-s3）：
+#   - objects 口径的备份：按 s3/objects-inventory-*.tsv 逐对象 PUT 回各自的原桶（桶不存在则建），
+#     每个对象上传后用 HEAD 核对字节数；不写卷、不停服务。非交互环境需要 --yes。
+#   - volume-tar 口径（旧备份）：仍走"停 rustfs → 解包卷 → 拉起"，期间对象存储不可用。
+#
 # 安全设计（每一步都是"别把线上库覆盖掉"的护栏）：
 #   1. 默认恢复到 --db 指定的库；目标是 .env 里的生产库名时必须再加 --allow-production；
 #   2. 目标库非空时：不加 --force 直接拒绝（退出码 3）；加了 --force 还要输入库名确认
@@ -63,7 +68,8 @@ MetaFusion 恢复（默认恢复到 --db 指定的库；覆盖非空库需要显
   --skip-verify          不校验 checksums.sha256（默认校验）
   --single-transaction   用 psql -1 恢复（失败整体回滚；大库更慢）
   --restore-roles        同时恢复 db/globals-*.sql.gz 里的角色定义
-  --restore-s3           同时恢复对象存储卷（会先停 rustfs 容器，再解包后拉起）
+  --restore-s3           同时恢复对象存储。objects 口径的备份（默认）走 S3 API 逐对象回传，
+                         不停服务、不改卷；旧口径（--s3-mode volume-tar）的备份才停 rustfs 解包
   --s3-volume NAME       对象存储卷名（默认 deploy_s3_data，仅在 --restore-s3 时用）
   --counts "a.b,c.d"     恢复后打印行数的表（默认 catalog.entities,catalog.relations）
   --dry-run              只打印计划与将要执行的命令
@@ -290,13 +296,78 @@ do_roles() {
 }
 
 do_s3() {
+  local inv
+  inv=$(find "$RUN_DIR/s3" -maxdepth 1 -type f -name 'objects-inventory-*.tsv' 2>/dev/null | sort | head -n1)
+  if [ -n "$inv" ]; then
+    do_restore_objects "$inv"
+    return 0
+  fi
+  do_s3_volume
+}
+
+# 逐对象回传：objects 口径的恢复路径（不停服务、不改卷）。
+do_restore_objects() {
+  local inv=$1 b key size sha _etag _lm _kmatch f got n=0 bad=0 total cfgdir made=" "
+  total=$(grep -c -v '^#' "$inv" || true)
+  mf_log "恢复对象存储（逐对象）: $total 个对象 → 各自的原桶（清单 $(basename "$inv")）"
+  if [ "$DRY_RUN" = 1 ]; then
+    mf_log "  [dry-run] 缺的桶先 PUT 建桶，再逐个 PUT 对象，每个对象上传后 HEAD 核对字节数"
+    mf_log "  [dry-run] 例: $RUN_DIR/s3/objects/<桶>/<键> → s3://<桶>/<键>"
+    return 0
+  fi
+  if [ "$ASSUME_YES" != 1 ]; then
+    if [ -t 0 ]; then
+      printf '将把 %s 个对象回传到对象存储的原桶（同名键会被覆盖）。输入 yes 继续: ' "$total"
+      read -r answer
+      if [ "$answer" != "yes" ]; then mf_log "已取消"; exit 0; fi
+    else
+      mf_die "非交互环境回传对象需要 --yes"
+    fi
+  fi
+  cfgdir=$(mktemp -d)
+  mf_s3_init "$cfgdir"
+  while IFS=$'\t' read -r b key size sha _etag _lm _kmatch; do
+    case "$b" in '#'*|'') continue ;; esac
+    [ -n "${key:-}" ] || continue
+    mf_s3_require_safe_key "$key"
+    f="$RUN_DIR/s3/objects/$b/$key"
+    if [ ! -f "$f" ]; then
+      mf_s3_cleanup; rm -rf "$cfgdir"
+      mf_die "备份里少了对象本体: s3://$b/$key（清单与产物不同步，先用 restore_objects_drill.sh 查）"
+    fi
+    case "$made" in
+      *" $b "*) ;;
+      *)
+        if ! mf_s3_bucket_exists "$b"; then
+          mf_s3_make_bucket "$b"
+          mf_log "   建桶 $b"
+        fi
+        made="$made$b " ;;
+    esac
+    mf_s3_put_object "$b" "$key" "$f"
+    got=$(mf_s3_object_size "$b" "$key" || echo -)
+    if [ "$got" = "$size" ]; then
+      n=$(( n + 1 ))
+    else
+      bad=$(( bad + 1 ))
+      mf_warn "回传后字节数不符: s3://$b/$key 期望 $size，HEAD 得到 $got"
+    fi
+  done <"$inv"
+  mf_s3_cleanup
+  rm -rf "$cfgdir"
+  mf_log "对象回传完成：$n/$total 个对象字节数核对通过，不一致 $bad 个"
+  if [ "$bad" != 0 ]; then mf_die "有对象回传后核对失败（见上）"; fi
+  mf_log "提示：回传只是把字节放回桶；目录库里的 storage.assets 记录是否与对象对得上，另跑一次 storage 服务的校验"
+}
+
+do_s3_volume() {
   local archive src
   archive=$(find "$RUN_DIR/s3" -maxdepth 1 -type f -name "$S3_VOLUME-*.tar.gz" 2>/dev/null | sort | head -n1)
   if [ -z "$archive" ]; then
     archive=$(find "$RUN_DIR/s3" -maxdepth 1 -type f -name '*.tar.gz' 2>/dev/null | sort | head -n1)
   fi
   if [ -z "$archive" ]; then
-    refuse "--restore-s3：这份备份里没有对象存储 tar.gz"
+    refuse "--restore-s3：这份备份里既没有对象清单（objects 口径）也没有卷 tar.gz"
   fi
   src=$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/data"}}{{.Source}}{{end}}{{end}}' "$MF_RUSTFS_CONTAINER" 2>/dev/null || true)
   if [ -z "$src" ]; then
