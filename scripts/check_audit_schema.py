@@ -51,7 +51,13 @@ GO_CONST = re.compile(r"const\s+Schema\s*=\s*\x60")
 
 # 只比较"契约语句"：授权脚本的区间里还夹着 SET LOCAL ROLE / BEGIN / COMMIT 这类记账语句，
 # 两边统一过滤，DDL 本身仍然是逐字比对。
-CANONICAL_PREFIXES = ("create schema", "select pg_advisory_xact_lock", "create table", "create index")
+# 两种契约形态都要认：2026-09-19 之前是"裸语句 + IF NOT EXISTS"（CREATE INDEX 在表已存在时会 42501），
+# 之后是"整段包在 to_regclass 守卫里"（PERFORM 取锁 + 无 IF NOT EXISTS 的建表/建索引）。
+# 两种形态的语句集合必然不同，所以守卫本身也作为一个 canonical 元素参与比对——混用就是漂移。
+CANONICAL_PREFIXES = ("create schema", "select pg_advisory_xact_lock", "perform pg_advisory_xact_lock",
+                      "create table", "create index")
+GUARD_MARKER = "to_regclass('audit.audit_log') is null"
+GUARD_TOKEN = "GUARD to_regclass('audit.audit_log') IS NULL"
 
 EXPECTED_COLUMNS = [
     "id", "occurred_at", "service", "action", "actor_user_id", "actor_username", "credential_type",
@@ -114,14 +120,17 @@ def statements(text):
         if line.strip().startswith("--"):
             continue
         lines.append(line)
+    joined = "\n".join(lines)
     out = []
-    for stmt in "\n".join(lines).split(";"):
+    for stmt in joined.split(";"):
         norm = " ".join(stmt.split())
         if not norm:
             continue
         low = norm.lower()
         if any(low.startswith(p) for p in CANONICAL_PREFIXES):
             out.append(norm)
+    if GUARD_MARKER in " ".join(joined.lower().split()):
+        out.append(GUARD_TOKEN)
     return out
 
 
@@ -153,7 +162,7 @@ def diff_hint(a, b):
     return "…%s… ≠ …%s…" % (a[start:i + 40], b[start:i + 40])
 
 
-def shape_problems(label, stmts):
+def shape_problems(label, stmts, raw):
     """结构形状断言：列数/列序、四条索引、锁键。只看 DDL 语义，不看与其它来源是否一致。"""
     problems = []
     tables = [s for s in stmts if s.lower().startswith("create table")]
@@ -178,7 +187,8 @@ def shape_problems(label, stmts):
         if got != EXPECTED_INDEXES:
             problems.append("%s: 索引名/顺序不一致：%s" % (label, got))
 
-    if len(locks) != 1 or EXPECTED_LOCK not in locks[0]:
+    # 取锁语句两种形态都认（SELECT / 守卫里的 PERFORM），因此直接在原文里找键位
+    if len(locks) > 1 or ("pg_advisory_xact_lock(%s)" % EXPECTED_LOCK) not in raw:
         problems.append("%s: 缺少 pg_advisory_xact_lock(%s)（四个服务同时首次建表要靠它串行化）" % (label, EXPECTED_LOCK))
     return problems
 
@@ -210,7 +220,7 @@ def check(root, siblings_root):
             problems.append("%s: %s 里没提取到任何契约语句" % (label, relpath))
             continue
         extracted[label] = stmts
-        problems.extend(shape_problems(label, stmts))
+        problems.extend(shape_problems(label, stmts, text))
 
     # A. 来源之间逐字（规范化后）比对
     if len(extracted) >= 2:
@@ -263,7 +273,7 @@ def selftest():
     broken = ["CREATE TABLE IF NOT EXISTS audit.audit_log ( id uuid PRIMARY KEY );",
               "CREATE INDEX IF NOT EXISTS audit_log_occurred_at_idx ON audit.audit_log(occurred_at DESC);",
               "SELECT pg_advisory_xact_lock(740205);"]
-    if not shape_problems("selftest", broken):
+    if not shape_problems("selftest", broken, "\n".join(broken)):
         failures.append("形状断言没抓到残缺的建表语句")
     region = "-- >>> audit-ddl begin\nCREATE SCHEMA IF NOT EXISTS audit;\n-- <<< audit-ddl end\n"
     if "CREATE SCHEMA" not in (slice_region(region) or ""):
