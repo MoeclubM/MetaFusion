@@ -115,6 +115,8 @@ for (const a of ACCENTS) {
   lines.push(`  --primary-hover-color: ${v.dark.hover};`);
   lines.push(`  --primary-light-color: ${v.dark.light};`);
   lines.push(`  --primary-contrast-color: ${v.dark.contrast};`);
+  lines.push(`  --primary-rgb: ${rgbTriplet(v.dark.primary)};`);
+  lines.push(`  --primary-contrast-rgb: ${rgbTriplet(v.dark.contrast)};`);
   lines.push(`  --accent-color: ${v.dark.accent};`);
   lines.push("}");
   lines.push(`[data-theme-accent="${a.id}"][data-theme-mode="light"] {`);
@@ -122,6 +124,8 @@ for (const a of ACCENTS) {
   lines.push(`  --primary-hover-color: ${v.light.hover};`);
   lines.push(`  --primary-light-color: ${v.light.light};`);
   lines.push(`  --primary-contrast-color: ${v.light.contrast};`);
+  lines.push(`  --primary-rgb: ${rgbTriplet(v.light.primary)};`);
+  lines.push(`  --primary-contrast-rgb: ${rgbTriplet(v.light.contrast)};`);
   lines.push(`  --accent-color: ${v.light.accent};`);
   lines.push("}");
   lines.push("");

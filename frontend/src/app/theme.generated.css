@@ -5,6 +5,8 @@
   --primary-hover-color: #1e6ff5;
   --primary-light-color: #89b4fa;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 79 142 247;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #22d3ee;
 }
 [data-theme-accent="blue"][data-theme-mode="light"] {
@@ -12,6 +14,8 @@
   --primary-hover-color: #0a5bdf;
   --primary-light-color: #6ca1f8;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 30 111 245;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #22d3ee;
 }
 
@@ -20,6 +24,8 @@
   --primary-hover-color: #0c91cc;
   --primary-light-color: #54c3f5;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 26 174 241;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #38bdf8;
 }
 [data-theme-accent="sky"][data-theme-mode="light"] {
@@ -27,6 +33,8 @@
   --primary-hover-color: #0a75a6;
   --primary-light-color: #37b9f3;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 12 145 204;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #38bdf8;
 }
 
@@ -35,6 +43,8 @@
   --primary-hover-color: #059cb6;
   --primary-light-color: #32dcf9;
   --primary-contrast-color: #0b0f17;
+  --primary-rgb: 7 199 232;
+  --primary-contrast-rgb: 11 15 23;
   --accent-color: #2dd4bf;
 }
 [data-theme-accent="cyan"][data-theme-mode="light"] {
@@ -42,6 +52,8 @@
   --primary-hover-color: #047a8f;
   --primary-light-color: #15d7f8;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 5 156 182;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #2dd4bf;
 }
 
@@ -50,6 +62,8 @@
   --primary-hover-color: #119c8d;
   --primary-light-color: #35e9d5;
   --primary-contrast-color: #0b0f17;
+  --primary-rgb: 22 202 183;
+  --primary-contrast-rgb: 11 15 23;
   --accent-color: #22d3ee;
 }
 [data-theme-accent="teal"][data-theme-mode="light"] {
@@ -57,6 +71,8 @@
   --primary-hover-color: #0d786c;
   --primary-light-color: #19e6cf;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 17 156 141;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #22d3ee;
 }
 
@@ -65,6 +81,8 @@
   --primary-hover-color: #0e9d6d;
   --primary-light-color: #2eedae;
   --primary-contrast-color: #0b0f17;
+  --primary-rgb: 18 204 142;
+  --primary-contrast-rgb: 11 15 23;
   --accent-color: #34d399;
 }
 [data-theme-accent="emerald"][data-theme-mode="light"] {
@@ -72,6 +90,8 @@
   --primary-hover-color: #0a7753;
   --primary-light-color: #14e8a2;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 14 157 109;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #34d399;
 }
 
@@ -80,6 +100,8 @@
   --primary-hover-color: #53870b;
   --primary-light-color: #93ec15;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 113 182 15;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #a3e635;
 }
 [data-theme-accent="lime"][data-theme-mode="light"] {
@@ -87,6 +109,8 @@
   --primary-hover-color: #3c6108;
   --primary-light-color: #82d211;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 83 135 11;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #a3e635;
 }
 
@@ -95,6 +119,8 @@
   --primary-hover-color: #d98b09;
   --primary-light-color: #f8bd59;
   --primary-contrast-color: #0b0f17;
+  --primary-rgb: 246 166 31;
+  --primary-contrast-rgb: 11 15 23;
   --accent-color: #fbbf24;
 }
 [data-theme-accent="amber"][data-theme-mode="light"] {
@@ -102,6 +128,8 @@
   --primary-hover-color: #b17207;
   --primary-light-color: #f7b13c;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 217 139 9;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #fbbf24;
 }
 
@@ -110,6 +138,8 @@
   --primary-hover-color: #ea6406;
   --primary-light-color: #fba366;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 250 127 42;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #fb923c;
 }
 [data-theme-accent="orange"][data-theme-mode="light"] {
@@ -117,6 +147,8 @@
   --primary-hover-color: #c35305;
   --primary-light-color: #fa9148;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 234 100 6;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #fb923c;
 }
 
@@ -125,6 +157,8 @@
   --primary-hover-color: #ed2828;
   --primary-light-color: #f58f8f;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 241 87 87;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #f87171;
 }
 [data-theme-accent="red"][data-theme-mode="light"] {
@@ -132,6 +166,8 @@
   --primary-hover-color: #d91313;
   --primary-light-color: #f37373;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 237 40 40;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #f87171;
 }
 
@@ -140,6 +176,8 @@
   --primary-hover-color: #f22246;
   --primary-light-color: #f88c9f;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 245 82 110;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #fb7185;
 }
 [data-theme-accent="rose"][data-theme-mode="light"] {
@@ -147,6 +185,8 @@
   --primary-hover-color: #df0d31;
   --primary-light-color: #f76f86;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 242 34 70;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #fb7185;
 }
 
@@ -155,6 +195,8 @@
   --primary-hover-color: #d32aed;
   --primary-light-color: #e891f5;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 221 89 241;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #e879f9;
 }
 [data-theme-accent="fuchsia"][data-theme-mode="light"] {
@@ -162,6 +204,8 @@
   --primary-hover-color: #c113db;
   --primary-light-color: #e375f3;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 211 42 237;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #e879f9;
 }
 
@@ -170,6 +214,8 @@
   --primary-hover-color: #9938f6;
   --primary-light-color: #d0a3fb;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 178 104 248;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #c084fc;
 }
 [data-theme-accent="purple"][data-theme-mode="light"] {
@@ -177,6 +223,8 @@
   --primary-hover-color: #8511f4;
   --primary-light-color: #c186f9;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 153 56 246;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #c084fc;
 }
 
@@ -185,6 +233,8 @@
   --primary-hover-color: #763ff4;
   --primary-light-color: #c2a9fa;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 153 111 247;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #a78bfa;
 }
 [data-theme-accent="violet"][data-theme-mode="light"] {
@@ -192,6 +242,8 @@
   --primary-hover-color: #5b18f2;
   --primary-light-color: #ad8cf9;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 118 63 244;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #a78bfa;
 }
 
@@ -200,6 +252,8 @@
   --primary-hover-color: #474aee;
   --primary-light-color: #aeaff8;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 118 120 243;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #818cf8;
 }
 [data-theme-accent="indigo"][data-theme-mode="light"] {
@@ -207,6 +261,8 @@
   --primary-hover-color: #2126eb;
   --primary-light-color: #9294f5;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 71 74 238;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #818cf8;
 }
 
@@ -215,6 +271,8 @@
   --primary-hover-color: #576579;
   --primary-light-color: #919eb0;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 109 126 150;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #94a3b8;
 }
 [data-theme-accent="slate"][data-theme-mode="light"] {
@@ -222,6 +280,8 @@
   --primary-hover-color: #465161;
   --primary-light-color: #7f8ea3;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 87 101 121;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #94a3b8;
 }
 
@@ -230,6 +290,8 @@
   --primary-hover-color: #62626a;
   --primary-light-color: #9b9ba2;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 123 123 133;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #a1a1aa;
 }
 [data-theme-accent="monochrome"][data-theme-mode="light"] {
@@ -237,6 +299,8 @@
   --primary-hover-color: #4f4f55;
   --primary-light-color: #8b8b93;
   --primary-contrast-color: #ffffff;
+  --primary-rgb: 98 98 106;
+  --primary-contrast-rgb: 255 255 255;
   --accent-color: #a1a1aa;
 }
 

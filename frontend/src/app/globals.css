@@ -41,6 +41,9 @@
   --border-rgb: 42 47 60;
   --destructive-rgb: 248 113 113;
   --destructive-foreground-rgb: 255 255 255;
+  /* 主色的三通道值与对照色：每套配色的块在 theme.generated.css 里覆盖，这里是兜底 */
+  --primary-rgb: 79 142 247;
+  --primary-contrast-rgb: 255 255 255;
   --font-display: "Instrument Serif", "Noto Serif SC", Georgia, serif;
   --font-sans: "Inter", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
@@ -79,6 +82,8 @@
   --border-rgb: 226 227 230;
   --destructive-rgb: 220 38 38;
   --destructive-foreground-rgb: 255 255 255;
+  --primary-rgb: 37 99 235;
+  --primary-contrast-rgb: 255 255 255;
 }
 
 html {

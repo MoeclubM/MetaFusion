@@ -41,7 +41,12 @@ const config: Config = {
           foreground: "rgb(var(--destructive-foreground-rgb) / <alpha-value>)",
         },
         primary: {
-          DEFAULT: "var(--primary-color)",
+          // 三通道形式：裸 var() 让 Tailwind 拿不到 <alpha-value>，于是 bg-primary/10、
+          // hover:bg-primary/90、border-primary/30 这类透明度变体会被整体跳过。
+          DEFAULT: "rgb(var(--primary-rgb) / <alpha-value>)",
+          // 主色上的文字用每套配色自己的对照色（亮主色配深字），
+          // 而不是 text-white + html.light 白名单补丁。
+          foreground: "rgb(var(--primary-contrast-rgb) / <alpha-value>)",
           hover: "var(--primary-hover-color)",
           light: "var(--primary-light-color)",
         },
@@ -123,8 +128,8 @@ const config: Config = {
       },
       // 动效统一：时长与缓动固定，组件不再各写 duration-150/200/300。
       transitionDuration: { fast: "120ms", base: "200ms" },
-      // v3 的透明度刻度是 5 的倍数，bg-card/98 这类写法不会生成；补上用到的档位。
-      opacity: { 98: "0.98" },
+      // v3 的透明度刻度是 5 的倍数，bg-card/98、bg-primary/8 这类写法不会生成；补上用到的档位。
+      opacity: { 8: "0.08", 98: "0.98" },
       transitionTimingFunction: { soft: "cubic-bezier(0.16, 1, 0.3, 1)" },
       boxShadow: {
         soft: "0 8px 24px -8px rgba(0,0,0,0.4)",
