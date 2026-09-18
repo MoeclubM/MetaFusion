@@ -69,6 +69,11 @@ jobs:
           /tmp/mf-migrate down
           /tmp/mf-migrate up
           /tmp/mf-migrate status
+      - name: 悬挂引用体检（check-refs 冒烟）
+        # check-refs 是部署前置检查用的体检命令（docs/architecture/cutover-runbook.md 的"部署前置检查"一节）。
+        # 这里在刚迁移完、还没有任何实体的库上跑一遍：证明它能连库、能读定义/实体/关系并给出
+        # "0 条"的结论——同一条命令在库里有悬挂引用时退 1，因此可以直接挂进部署流水线卡住上线。
+        run: /tmp/mf-migrate check-refs
 
   frontend:
     name: frontend (Bun 1.4 + Next build)
