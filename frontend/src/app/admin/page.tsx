@@ -513,11 +513,11 @@ function AdminInner() {
   const consoleProbeDone = permittedConsoles.every((item) => consoles[item.id] != null);
 
   return (
-    // pt-[var(--mf-header-h)]：站点头部是 fixed/sticky 且不给内容留位（各页面自己补），
-    // 少了这一档，下面这个 sticky topbar 会被顶到 y=60 并盖住其后 57px 内容——标题与左栏首项直接消失。
-    <div className="min-h-screen flex flex-col bg-background text-text-strong pt-[var(--mf-header-h)]">
+    // 管理台不渲染站点头部：Navbar 由各页面自己渲染，/admin 全目录 0 命中（根布局也只放 Provider），
+    // 本页自带 topbar。所以这里不预留 --mf-header-h——原来那档 3.5rem 是一条空带，滚动时正文会从带子里穿过。
+    <div className="min-h-screen flex flex-col bg-background text-text-strong">
       {/* Admin Topbar */}
-      <header className="border-b border-line bg-surface/90 backdrop-blur sticky top-[var(--mf-header-h)] z-30">
+      <header className="border-b border-line bg-surface/90 backdrop-blur sticky top-0 z-30">
         <PageContainer className="h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link
@@ -545,8 +545,8 @@ function AdminInner() {
       <PageContainer className="py-6 flex-1 flex flex-col md:flex-row gap-6">
         {/* Left Sidebar */}
         <aside className="w-full md:w-60 shrink-0">
-          {/* 粘附偏移必须含 topbar 自身高度（h-14=3.5rem）+ 上间距，否则左栏首项被 topbar 吃掉 */}
-          <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none sticky top-[calc(var(--mf-header-h)+5rem)]">
+          {/* 粘附偏移 = topbar 自身高度（h-14=3.5rem）+ 容器上间距（py-6=1.5rem），否则左栏首项被 topbar 吃掉 */}
+          <nav className="flex md:flex-col gap-1 overflow-x-auto pb-2 md:pb-0 scrollbar-none sticky top-20">
             {navTabs.map((tItem) => {
               const Icon = tItem.icon;
               const active = activeTab === tItem.id;
