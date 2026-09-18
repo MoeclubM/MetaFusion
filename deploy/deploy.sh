@@ -151,12 +151,18 @@ function tag_release_images() {
 # 保留策略：每个镜像只留最近 IMAGE_TAG_KEEP 个版本 tag，更老的撤 tag（镜像层数据不动、
 # 容器用的 :local / :latest 滚动标签永不参与）。候选只认「版本形态」的名字：vX.Y.Z 或 12 位短 sha。
 function prune_release_tags() {
-    local repo="$1" in_use="$2" i=0 t tags
-    # 候选只认版本形态的名字：<repo>:vX.Y.Z 或 <repo>:<12 位短 sha>；**按版本号倒序**取前
-    # IMAGE_TAG_KEEP 个（按镜像构建时间排是错的：给新镜像贴个旧版本号就会被当成"最新"留住）。
-    tags="$(docker images --format "{{.Repository}}:{{.Tag}}" "$repo" 2>/dev/null \
-        | awk '/:(v[0-9]|[0-9a-f]{12})$/ {print}' | sort -Vr)"
-    for t in $tags; do
+    local repo="$1" in_use="$2" i=0 t sorted
+    # 判定用 bash 通配，不用 awk/grep 正则：目标机的 awk 是 mawk 1.3.4，**不支持 {n} 区间**，
+    # 写 /:(v[0-9]|[0-9a-f]{12})$/ 这种正则会静默不匹配（首版就是这么漏掉清理的，实测才发现）。
+    # 排序按**版本号**倒序（sort -Vr）：按镜像构建时间排是错的——给新镜像贴个旧版本号，
+    # 它会因为"构建时间新"被当成最新版留住。
+    sorted="$(docker images --format "{{.Repository}}:{{.Tag}}" "$repo" 2>/dev/null \
+        | while IFS= read -r t; do
+              case "$t" in
+                  *:v[0-9]*|*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) printf '%s\n' "$t" ;;
+              esac
+          done | sort -Vr)"
+    for t in $sorted; do
         i=$((i + 1))
         [ "$i" -le "$IMAGE_TAG_KEEP" ] && continue
         case "$in_use" in
