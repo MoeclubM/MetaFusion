@@ -159,6 +159,11 @@ services:
       - AUTH_JWKS_URL=${AUTH_JWKS_URL:-http://auth:8081/api/oidc/jwks}
       - AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER:-https://findverse.cc/api}
       - AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE:-metafusion}
+      # 个人访问令牌（PAT，mfp_ 前缀）的内省地址：目录不签发、不读账号库，带 mfp_ 的请求交给
+      # 账号服务的内省端点判定（结果进程内缓存 60 秒 → 吊销最长 60 秒生效）。
+      # 不配这个变量时 PAT 请求一律 503 auth_unavailable，而不是 401——401 会让 bot/CI
+      # 以为凭据有问题去换令牌，而实际是这条依赖没接上。
+      - AUTH_URL=http://auth:8081
     depends_on:
       postgres:
         condition: service_healthy

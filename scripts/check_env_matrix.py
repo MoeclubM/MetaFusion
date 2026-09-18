@@ -90,7 +90,7 @@ KEYS = {
     "AUTH_ACCOUNT_URL": {"readers": [("auth", "internal/handler/oauth.go")], "default": "空 = 站点相对路径", "safe": True},
     # ── 互动服务（../metafusion-community）───────────────────────────────
     "COMMUNITY_JWKS_URL": {"readers": [("community", "internal/config/config.go")], "default": "http://auth:8081/api/oidc/jwks", "safe": True},
-    "AUTH_URL": {"readers": [("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "空 = 只接受 JWT", "safe": True},
+    "AUTH_URL": {"readers": [("catalog", "cmd/server/main.go"), ("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "空 = 只接受 JWT；PAT（mfp_ 前缀）一律 503", "safe": True},
     "CATALOG_URL": {"readers": [("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "http://backend:8080", "safe": True},
     "COMMUNITY_CATALOG_TIMEOUT_MS": {"readers": [("community", "internal/config/config.go")], "default": "5000ms", "safe": True},
     # ── 存储服务（../metafusion-storage）─────────────────────────────────
