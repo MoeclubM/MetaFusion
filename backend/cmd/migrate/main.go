@@ -39,8 +39,9 @@ func main() {
 		cmd = args[0]
 	}
 
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable connect_timeout=10",
-		cfg.DBHost, cfg.DBPort, cfg.DBUser, cfg.DBPassword, cfg.DBName)
+	// 连接串只有 config.DSN() 一份（含 DB_SSLMODE）：内联第二份会让迁移连接与
+	// 服务连接的加密开关各自漂移（2026-09-19 第二轮审计 #5）。
+	dsn := cfg.DSN()
 
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {

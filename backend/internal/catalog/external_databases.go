@@ -33,24 +33,9 @@ var externalDatabaseCategories = map[string]bool{
 	"expression": true, "release": true, "medium": true, "track": true,
 }
 
-// BuildURL 把外部 ID 或完整 URL 拼成可跳转的目标地址。
-// 本身已是 http(s) 的值直接透传，因此 official_website 这类存完整 URL 的来源也能同级接入。
-func (e ExternalDatabase) BuildURL(idOrURL string) string {
-	idOrURL = strings.TrimSpace(idOrURL)
-	if idOrURL == "" {
-		return ""
-	}
-	if strings.HasPrefix(idOrURL, "http://") || strings.HasPrefix(idOrURL, "https://") {
-		return idOrURL
-	}
-	if e.URLPattern == "" {
-		return ""
-	}
-	if strings.Contains(e.URLPattern, "{id}") {
-		return strings.ReplaceAll(e.URLPattern, "{id}", idOrURL)
-	}
-	return e.URLPattern + idOrURL
-}
+// 外链地址由**前端**按 url_pattern 拼（{id} 替换，见 ExternalAuthorityLinks.tsx）：
+// 服务端只回 url_pattern 这个字符串。此前这里还有一份 BuildURL（含"pattern 里没有 {id} 就退回
+// 字符串拼接"的兜底分支），零生产引用，同一条规则两份实现会漂移，已删（2026-09-19 第二轮审计 #2）。
 
 var externalDatabaseCodePattern = regexp.MustCompile(`^[a-z0-9_]{2,64}$`)
 
@@ -193,11 +178,9 @@ func (s *Store) ListExternalDatabases(ctx context.Context, category string, enab
 	return out, rows.Err()
 }
 
-// GetExternalDatabase 按 code 读取单个预设（含停用项，供后台编辑）。
-func (s *Store) GetExternalDatabase(ctx context.Context, code string) (ExternalDatabase, error) {
-	row := s.DB.QueryRowContext(ctx, `SELECT code,names,category,url_pattern,icon,icon_url,validation_regex,description,sort_order,is_enabled,is_system FROM catalog.external_databases WHERE code=$1`, code)
-	return scanExternalDatabase(row.Scan)
-}
+// 没有"按 code 取单条预设"的端点：管理台编辑走的是列表数据（GET /api/admin/external-databases
+// 回整行）。此前这里的 GetExternalDatabase 零引用，改 DTO 形状时静态检查也发现不了它脱节，已删
+// （2026-09-19 第二轮审计 #3）。
 
 func (s *Store) CreateExternalDatabase(ctx context.Context, in ExternalDatabase) (ExternalDatabase, error) {
 	in.Code = strings.TrimSpace(in.Code)
@@ -235,7 +218,8 @@ func (s *Store) CreateExternalDatabase(ctx context.Context, in ExternalDatabase)
 	return created, err
 }
 
-// UpdateExternalDatabase 更新预设；系统预设的 code 与 is_system 不可改，停用保留历史展示。
+// UpdateExternalDatabase 更新预设；系统预设的 code 与 is_system 不可改（靠**下面 UPDATE 的 set 里
+// 没有这两列**实现，不是靠判定），停用保留历史展示。
 func (s *Store) UpdateExternalDatabase(ctx context.Context, code string, in ExternalDatabase) (ExternalDatabase, error) {
 	in.Code = code
 	if in.Category == "" {
@@ -252,11 +236,10 @@ func (s *Store) UpdateExternalDatabase(ctx context.Context, code string, in Exte
 	}
 	names, _ := json.Marshal(in.Names)
 	var updated ExternalDatabase
+	// 不再先查一次 is_system：这个值只用于"系统预设不可改"的保护，而保护本身由 UPDATE 的
+	// set 清单不含 code/is_system 完成（下面那条语句一次往返即可）。原先那次查询每次 PUT 都多
+	// 打一次库、结果还被丢弃，读起来却像这里有显式判定（2026-09-19 第二轮审计 #4）。
 	err := s.write(ctx, func(tx *sql.Tx) error {
-		var isSystem bool
-		if err := tx.QueryRowContext(ctx, `SELECT is_system FROM catalog.external_databases WHERE code=$1`, code).Scan(&isSystem); err != nil {
-			return err
-		}
 		row := tx.QueryRowContext(ctx, `UPDATE catalog.external_databases SET names=$2,category=$3,url_pattern=$4,icon=$5,icon_url=$6,validation_regex=$7,description=$8,sort_order=$9,is_enabled=$10 WHERE code=$1 RETURNING code,names,category,url_pattern,icon,icon_url,validation_regex,description,sort_order,is_enabled,is_system`,
 			code, string(names), in.Category, in.URLPattern, in.Icon, in.IconURL, in.ValidationRegex, in.Description, in.SortOrder, in.IsEnabled)
 		e, err := scanExternalDatabase(row.Scan)
