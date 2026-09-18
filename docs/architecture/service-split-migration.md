@@ -43,7 +43,7 @@
 | auth | `GET /api/users/:id` | metafusion-auth（公开账号资料；同前缀多归属，网关用 `^/api/users/[^/]+$` 精确分流） |
 | catalog | `GET /api/users/:id/contributions` | 本仓库（用户贡献列表；两段式，不匹配那两条正则，落目录服务兜底） |
 | community | `GET /api/users/:id/stats` | metafusion-community（用户互动统计：主题/回复/收藏计数；网关用 `^/api/users/[^/]+/stats$` 分流） |
-| community | `GET|POST /api/messages/with/:id` | metafusion-community（私信：读写同一对用户之间的消息；网关用 `/api/messages/` 前缀分流） |
+| community | `GET|POST /api/messages/with/:id`、`PUT /api/messages/with/:id/read`、`GET /api/messages/conversations`、`GET /api/messages/unread` | metafusion-community（私信：读写同一对用户之间的消息 + 收件箱会话列表/未读总数/标记已读；网关用 `/api/messages/` 前缀分流，四条路径同属该前缀） |
 | storage | `/api/storage/*`（契约见 `metafusion-docs` 的 `docs/api-storage.md`） | metafusion-storage（契约见 `metafusion-docs` 的 `docs/api-storage.md`） |
 | auth | `/api/admin/oauth/*`（客户端治理：核验、提升自有平台、吊销、审计） | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关用 `location /api/admin/oauth/` 单独分流 |
 | storage | `/storage/preview/*` | 显式 `return 404`（预览改走 `/api/storage/*` 的资源鉴权，不再直代私有桶）；网关为它保留一条 location，属于刻意的退役占位 |
