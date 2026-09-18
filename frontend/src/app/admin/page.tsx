@@ -965,7 +965,15 @@ function AdminInner() {
                 </div>
               )}
 
-              {pendingItems.length === 0 ? (
+              {reviewListFailed ? (
+                // 与实体列表同因：取数失败会被读成"队列已清空"（loadReviewList 也刻意把失败与空列表分开）。
+                <div role="alert" className="p-8 rounded-xl border border-amber-500/30 bg-amber-500/5 text-center text-xs space-y-2">
+                  <p className="text-amber-700 dark:text-amber-300">{t("catalog.listFailed")}</p>
+                  <button type="button" onClick={() => loadReviewList()} className="font-mono text-primary hover:underline cursor-pointer">
+                    {t("catalog.retry")}
+                  </button>
+                </div>
+              ) : pendingItems.length === 0 ? (
                 <div className="p-8 rounded-xl border border-dashed border-line text-center text-xs text-text-faint font-mono">
                   {t("admin.console.noPending")}
                 </div>
