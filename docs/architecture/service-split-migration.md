@@ -49,6 +49,7 @@
 | storage | `/storage/preview/*` | 显式 `return 404`（预览改走 `/api/storage/*` 的资源鉴权，不再直代私有桶）；网关为它保留一条 location，属于刻意的退役占位 |
 | catalog | `/api/capabilities`、`/api/admin/modules/:id` | 部署态**声明式**能力清单（不再主动探活上游，见 capabilities 文档）+ 开关退役返回 409；目录服务自己也提供 `/health`（与 account/community/storage 同形），`/ready` 仍探数据库 |
 | auth | `/admin/account/*` | metafusion-auth 自带的管理台（`admin/` 目录，独立 Next 应用）：页面与静态资源在这里，数据请求走上面已分流的 `/api/*`；网关用 `location /admin/account/` 指 `auth-admin:3000`，无尾斜杠的 `/admin/account` 由 `location =` 301 补齐（否则落主前端得到 404） |
+| auth | `/login`、`/setup` | metafusion-auth 自带的账号自助应用（`user/` 目录，独立 Next 应用，无 basePath）：登录/注册/初始化三页，Cookie 会话口径；网关用 `location = /login`、`= /setup` 精确匹配指 `auth-user:3000`（精确优先于主前端的 `location /` 兜底；回滚即删这两条并重建网关） |
 | community | `/admin/community/*` | metafusion-community 自带的管理台（`admin/` 目录，独立 Next 应用）：同上，网关用 `location /admin/community/` 指 `community-admin:3000`；页面路径与主站页面 `/community` 不重叠 |
 | storage | `/admin/storage/*` | metafusion-storage 自带的管理台（`admin/` 目录，独立 Next 应用）：同上，网关用 `location /admin/storage/` 指 `storage-admin:3000` |
 

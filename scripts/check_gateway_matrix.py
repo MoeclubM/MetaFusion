@@ -46,7 +46,7 @@ METHOD_PREFIX = re.compile(r"^(?:[A-Z]{3,7}\s*\|\s*|[A-Z]{3,7}\s+)+")
 # （管理台指到域 API 容器）归人工复核，这里只保证"没指到别的域、也没指到不存在的服务"。
 OWNER_HOSTS = {
     "catalog": {"backend"},
-    "auth": {"auth", "auth-admin"},
+    "auth": {"auth", "auth-admin", "auth-user"},  # auth-user：账号自助应用（user/，= /login|/setup 精确路径）
     "community": {"community", "community-admin"},
     "storage": {"storage", "storage-admin"},
 }

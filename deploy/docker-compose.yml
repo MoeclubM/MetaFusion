@@ -427,6 +427,23 @@ services:
     networks:
       - metafusion-net
 
+  # 账号自助应用（登录/注册/初始化；与管理台同模式：兄弟仓库 user/ 目录独立构建，
+  # 网关用 = /login、= /setup 精确路径聚合。不写 healthcheck、不进网关开门判据，
+  # 理由同上 6b 节：健康由网关路径 /login（应用自己的页面）与运维侧 curl 判定。
+  auth-user:
+    logging: *default-logging
+    build:
+      context: ${MF_AUTH_DIR:-../../metafusion-auth}
+      dockerfile: user/Dockerfile
+    container_name: metafusion-auth-user
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - auth
+    networks:
+      - metafusion-net
+
   community-admin:
     logging: *default-logging
     build:
