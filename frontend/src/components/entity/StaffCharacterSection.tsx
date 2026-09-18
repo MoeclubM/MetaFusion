@@ -6,9 +6,9 @@ import { User, Users, ChevronDown, ChevronUp, Mic, Building2 } from "lucide-reac
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions } from "@/lib/definitions";
 
-// 演职员区块的数据契约：页面从 /catalog/entities/:id/relations 解析出结构化条目，
-// 不再做角色/声优字符串配对。cast（配音/登场角色）与主创（definitions 关系分组
-// group=creative）按关系类型与词表分组判定，代码不写死职位文本。
+// 署名区块的数据契约：页面从 /catalog/entities/:id/relations 解析出结构化条目，
+// 不再做角色/声优字符串配对。哪些关系算"署名"、哪些算"角色"由关系定义自己声明
+// （ParticipantSlot），代码不写死关系码、不写死职位文本、也不拿分组码当语义用。
 export interface StaffCreditAgent {
   id: string;
   name: string;
@@ -66,21 +66,30 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   const defaultRole = t("work.detail.staffDefaultRole");
   const characterFallback = t("work.detail.relGroupCharacters");
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<"all" | "key" | "characters">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "characters">("all");
 
   if (!credits || credits.length === 0) return null;
 
-  const relationGroup = (code: string) => defs?.relations?.[code]?.group || "";
-  // cast：配音与登场角色关系；登场的角色实体类型兜底判定。
-  // 是否属于"角色/配音"这一类：由关系定义自己声明（声明了 character 字段的关系，或数据里已带角色）。
-  // 不写死关系码，也不写死动态类型码 —— 新增配音类关系不用改这里。
-  const declaresCharacter = (code: string) => (defs?.relations?.[code]?.fields || []).includes("character");
-  const isCast = (c: StaffCredit) => !!c.character || declaresCharacter(c.relationType);
-  // 核心主创：definitions 把创作类关系（编剧/导演/作曲…）归入 creative 组，分组可配。
-  const isKeyStaff = (c: StaffCredit) => !isCast(c) && relationGroup(c.relationType) === "creative";
-
-  const keyStaff = useMemo(() => credits.filter((c) => isKeyStaff(c)), [credits, defs]);
-  const otherStaff = useMemo(() => credits.filter((c) => !isCast(c)), [credits, defs]);
+  // 参与者槽位由关系定义声明（person/character/peer）。为什么不用"fields 里有没有 character"：
+  // 29 个关系码共用同一份 fields（含 character），那个判定对每条关系都成立，
+  // 于是 isCast 恒真、人员网格永不渲染、图标恒为麦克风。槽位是逐条关系声明的语义。
+  const participantSlot = (code: string) => (defs?.relations?.[code] as any)?.participant_slot || "";
+  // 定义缺失（老实例的定义文档还没有槽位声明）时退回旧的字段判定，避免把关系判成"非署名"而丢展示。
+  const relationDeclaresCharacter = (code: string) => (defs?.relations?.[code]?.fields || []).includes("character");
+  // 角色类关系：对端是虚构角色，或数据里这条边已经带上了角色。
+  const isCharacterRelation = (code: string) =>
+    participantSlot(code) === "character" || (!participantSlot(code) && relationDeclaresCharacter(code));
+  // 署名类关系：对端是署名主体（人/机构）。槽位未声明时才退回"只要不是角色类"的宽松口径。
+  const isCreditRelation = (code: string) =>
+    !!participantSlot(code) && participantSlot(code) !== "character";
+  const isCast = (c: StaffCredit) => !!c.character || isCharacterRelation(c.relationType);
+  // 人物网格收录全部署名主体（人/机构）：不再按分组码切出"核心主创"——creative 组装的是
+  // 作品派生关系，拿它当"主创"永远命不中，那条页签恒空。
+  const humanCredits = useMemo(
+    () => credits.filter((c) => isCreditRelation(c.relationType) || (!participantSlot(c.relationType) && !isCast(c))),
+    [credits, defs],
+  );
+  const otherStaff = humanCredits;
 
   // 角色与声优双轨卡片：登场角色直接成卡，配音挂到其角色卡上。
   // 卡片按**角色 ID**归并（角色名会因语种/重名而误并），且配音保留为列表——
@@ -136,32 +145,35 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   }, [credits, characterFallback]);
 
   // 紧凑核心创作者徽章（未展开时展示在详情页头部）
-  const displayedKey = keyStaff.length > 0 ? keyStaff.slice(0, 8) : credits.slice(0, 8);
+  const displayedKey = credits.slice(0, 8);
 
   // 页签：固定「全部」置顶，其余按实际存在的关系组自动生成（无数据的分组不出现）
   const staffTabs = useMemo(() => {
-    const list: { key: "all" | "key" | "characters"; label: string; count: number }[] = [
+    const list: { key: "all" | "characters"; label: string; count: number }[] = [
       { key: "all", label: t("work.detail.tabAll"), count: credits.length },
     ];
-    if (keyStaff.length > 0) {
-      list.push({ key: "key", label: t("work.detail.tabKeyStaff"), count: keyStaff.length });
-    }
     if (characterCards.length > 0) {
       list.push({ key: "characters", label: t("work.detail.tabCharacters"), count: characterCards.length });
     }
     return list;
-  }, [credits, keyStaff, characterCards, t]);
+  }, [credits, characterCards, t]);
 
   const effectiveTab = staffTabs.some((tab) => tab.key === activeTab) ? activeTab : "all";
 
   // 格式化具体职务标签：来源职位文本优先，缺失回退关系本地化名。
   const formatRole = (c: StaffCredit) => c.creditRole || c.relationLabel || defaultRole;
 
+  // 图标按关系语义取：只有"某个主体为角色配音/演出"才是麦克风——判断依据是
+  // 关系声明了 person 槽位且带 character 属性（voiced_by 这类）；
+  // 角色实体自身（character_in 的源端）与机构署名各有自己的图标。
+  // 旧实现把 isCast 当麦克风条件，而 isCast 恒真，于是出版社也显示麦克风。
+  const isVoiceCredit = (c: StaffCredit) =>
+    participantSlot(c.relationType) === "person" && relationDeclaresCharacter(c.relationType);
   const agentIcon = (c: StaffCredit) => {
-    if (isCast(c)) return <Mic className="w-3.5 h-3.5 text-sky-500 shrink-0" strokeWidth={1.5} />;
     if (c.agent.types.includes("organization") || c.agent.types.includes("publisher")) {
       return <Building2 className="w-3.5 h-3.5 text-amber-500 shrink-0" strokeWidth={1.5} />;
     }
+    if (isVoiceCredit(c)) return <Mic className="w-3.5 h-3.5 text-sky-500 shrink-0" strokeWidth={1.5} />;
     return <User className="w-3.5 h-3.5 text-primary shrink-0" strokeWidth={1.5} />;
   };
 
@@ -315,14 +327,11 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
             </div>
           )}
 
-          {/* 渲染当前 Tab: 核心主创 (Key Staff) & 全部制作团队 (All Staff) */}
-          {(effectiveTab === "key" || effectiveTab === "all") && otherStaff.length > 0 && (
+          {/* 全部页签：署名主体人员网格（角色卡片与人员网格可以同屏） */}
+          {effectiveTab === "all" && otherStaff.length > 0 && (
             <>
-              {effectiveTab === "all" && characterCards.length > 0 && (
-                <div className="font-mono text-[10px] uppercase tracking-wider text-gray-400 pt-1">{t("work.detail.tabAllStaff")}</div>
-              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-[360px] overflow-y-auto pr-1">
-                {(effectiveTab === "key" ? keyStaff : otherStaff).map((rel) => (
+                {otherStaff.map((rel) => (
                 <Link
                   key={rel.id}
                   href={`/catalog/${rel.agent.id}`}
