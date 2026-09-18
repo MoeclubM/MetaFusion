@@ -4,7 +4,8 @@
 // 语义（与后端 /catalog/me/home-preferences 契约一致）：
 //   * sections 是"覆盖 + 自建"混合列表——slug 命中系统货架 = 覆盖它（改名/换规则/换图标），
 //     不命中 = 该用户独有的分区；
-//   * 系统预设只是模板，用户改的是自己的副本，不动系统货架，也不影响别人。
+//   * 系统预设就是首页的默认布局本身（"恢复默认"＝清空偏好回落到它）；
+//     用户改的始终是自己的副本，不动系统货架，也不影响别人。
 import type { ElementType } from "react";
 import {
   BookOpen,
@@ -273,7 +274,7 @@ export function toPreferences(rows: SectionRow[]): HomePreferences {
   };
 }
 
-/** 生成不与现有分区冲突的 slug（新建空白分区、从模板复制都用它）。 */
+/** 生成不与现有分区冲突的 slug（新建空白分区用）。 */
 export function uniqueSlug(base: string, taken: Set<string>): string {
   const root = (base || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-").replace(/^[^a-z0-9]+/, "").slice(0, 56);
   if (root && isValidSlug(root) && !taken.has(root)) return root;
@@ -285,21 +286,21 @@ export function uniqueSlug(base: string, taken: Set<string>): string {
   return `section-${Date.now().toString(36)}`;
 }
 
-/** 从系统模板复制成一条可编辑的自建行。 */
-export function rowFromTemplate(template: ShelfLike, taken: Set<string>, fallbackName: string): SectionRow {
-  const names = { ...(template.names || {}) };
-  if (Object.values(names).every((v) => !(v || "").trim())) {
-    names["zh-CN"] = fallbackName;
-  }
+/**
+ * 把系统预设按"预设身份"加回列表（custom=false：保存后仍跟随预设）。
+ * 偏好契约里的 order/hidden 都表达不了"删掉这个预设"，所以预设分区的移除只能是隐藏；
+ * 加回时用这条插回列表——不复制成自建副本，同一个预设就不会出现两份。
+ */
+export function rowFromPreset(template: ShelfLike): SectionRow {
   return {
-    slug: uniqueSlug(template.slug, taken),
-    custom: true,
-    names,
+    slug: template.slug,
+    custom: false,
+    names: { ...(template.names || {}) },
     query: normalizeQuery(template.query),
     sort: normalizeSort(template.sort),
     icon: template.icon || "",
     hidden: false,
-    overridden: true,
+    overridden: false,
     template,
   };
 }

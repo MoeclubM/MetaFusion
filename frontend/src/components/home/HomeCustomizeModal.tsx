@@ -1,15 +1,15 @@
 "use client";
 
 // 自定义首页推荐弹窗：分区编辑器。
-// 设计口径（与用户诉求一致）：系统预设只是**模板**，用户在这里改的是自己的偏好副本
-// ——改标题 / 换规则 / 换图标 / 调顺序 / 隐藏，或从模板复制出自建分区；
-// 系统货架本身不被改动，也不影响别人。
+// 设计口径（与用户诉求一致）：系统预设就是**首页默认布局本身**——「恢复默认」即清空偏好
+// 回落到它，所以这里不再有第二条"模板"入口：唯一的追加入口是「添加分区」，候选里既列
+// 系统预设分区（把隐藏掉的预设加回列表），也提供空白自建分区；用户改的是自己的偏好副本
+// ——改标题 / 换规则 / 换图标 / 调顺序 / 隐藏，系统货架本身不被改动，也不影响别人。
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Check,
   ChevronDown,
   ChevronUp,
-  Copy,
   Plus,
   RotateCcw,
   Sliders,
@@ -26,8 +26,8 @@ import {
   iconFor,
   isValidSlug,
   revertToTemplate,
+  rowFromPreset,
   rowFromScratch,
-  rowFromTemplate,
   shelfTitle,
   toPreferences,
   type HomePreferences,
@@ -42,7 +42,7 @@ type Props = {
   open: boolean;
   loading: boolean;
   prefs: HomePreferences;
-  /** GET /catalog/shelves 的系统预设：既是"从模板添加"的候选，也是隐藏行的定义来源。 */
+  /** GET /catalog/shelves 的系统预设：既是「添加分区」的候选，也是隐藏行的定义来源。 */
   templates: ShelfLike[];
   feedSections: FeedLike[];
   defs: DynamicDefinitions | null;
@@ -70,7 +70,8 @@ export function HomeCustomizeModal({
   const [rows, setRows] = useState<SectionRow[]>([]);
   // 展开单个分区：面板本身很长，同时展开多行会把列表挤没。
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [picking, setPicking] = useState(false);
+  // 「添加分区」的候选面板：展开时列出系统预设分区与"空白分区"两个来源。
+  const [adding, setAdding] = useState(false);
   const [localError, setLocalError] = useState("");
 
   const counts = useMemo(() => {
@@ -84,7 +85,7 @@ export function HomeCustomizeModal({
     if (!open || loading) return;
     setRows(buildRows(prefs, templates, feedSections.map((s) => s.shelf)));
     setExpanded(null);
-    setPicking(false);
+    setAdding(false);
     setLocalError("");
   }, [open, loading, prefs, templates, feedSections]);
 
@@ -130,13 +131,22 @@ export function HomeCustomizeModal({
     const row = rowFromScratch(locale, taken, t("home.customizeNewSection"));
     setRows((prev) => [...prev, row]);
     setExpanded(rows.length);
+    setAdding(false);
   };
 
-  const addFromTemplate = (template: ShelfLike) => {
-    const row = rowFromTemplate(template, taken, t("home.customizeNewSection"));
-    setRows((prev) => [...prev, row]);
-    setExpanded(rows.length);
-    setPicking(false);
+  // 预设分区"加回列表"：列表里已有该 slug（隐藏/被改过）就把它显示出来，用户的改动保留
+  // （要回到预设用行内的"还原为预设"）；列表里没有才按预设身份插回末尾。
+  // 两种情况都不新建副本——同一个预设出现两份会让"恢复默认"的语义变模糊。
+  const addPreset = (template: ShelfLike) => {
+    const index = rows.findIndex((row) => row.slug === template.slug);
+    if (index >= 0) {
+      setRows((prev) => prev.map((row, i) => (i === index ? { ...row, hidden: false } : row)));
+      setExpanded(index);
+    } else {
+      setRows((prev) => [...prev, rowFromPreset(template)]);
+      setExpanded(rows.length);
+    }
+    setAdding(false);
   };
 
   const validate = (): string => {
@@ -191,56 +201,57 @@ export function HomeCustomizeModal({
         <div className="px-5 py-4 space-y-3 overflow-y-auto grow">
           <p className="text-xs text-gray-500">{t("home.customizeHint")}</p>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={addBlank}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-medium text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>{t("home.customizeAdd")}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPicking((v) => !v)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/30 bg-primary/10 hover:bg-primary/20 text-xs font-medium text-primary transition-colors duration-fast ease-soft cursor-pointer"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              <span>{t("home.customizeAddTemplate")}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setAdding((v) => !v)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-xs font-medium text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>{t("home.customizeAdd")}</span>
+          </button>
 
-          {picking && (
+          {adding && (
             <div className="p-3 rounded-lg border border-primary/25 bg-primary/[0.04] space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono font-bold text-gray-300">
-                  {t("home.customizeTemplateTitle")}
-                </span>
+                <span className="text-[11px] font-mono font-bold text-gray-300">{t("home.customizeAdd")}</span>
                 <button
                   type="button"
-                  onClick={() => setPicking(false)}
+                  onClick={() => setAdding(false)}
                   className="p-1 rounded hover:bg-surfaceHover text-gray-400 hover:text-white cursor-pointer"
                   aria-label={t("catalog.cancel")}
                 >
                   <X className="w-3 h-3" />
                 </button>
               </div>
-              <p className="text-[11px] text-gray-500">{t("home.customizeTemplateHint")}</p>
+              <p className="text-[11px] text-gray-500">{t("home.customizeAddHint")}</p>
               <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
+                <button
+                  type="button"
+                  onClick={addBlank}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-xs text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5 text-primary" />
+                  <span>{t("home.customizeAddBlank")}</span>
+                </button>
                 {templates.length === 0 ? (
-                  <span className="text-[11px] text-gray-500 font-mono">{t("home.customizeTemplateEmpty")}</span>
+                  <span className="text-[11px] text-gray-500 font-mono">{t("home.customizeAddEmpty")}</span>
                 ) : (
                   templates.map((template) => {
                     const Icon = iconFor(template);
+                    // 已在列表里的预设标出隐藏态：点一下就是把它显示回来，不会再造一份。
+                    const hidden = rows.some((row) => row.slug === template.slug && row.hidden);
                     return (
                       <button
                         key={template.slug}
                         type="button"
-                        onClick={() => addFromTemplate(template)}
+                        onClick={() => addPreset(template)}
                         className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/[0.03] hover:bg-white/[0.08] text-xs text-gray-300 hover:text-white transition-colors duration-fast ease-soft cursor-pointer"
                       >
                         <Icon className="w-3.5 h-3.5 text-primary" />
                         <span>{shelfTitle(template, locale)}</span>
+                        {hidden && (
+                          <span className="text-[10px] font-mono text-gray-500">{t("home.customizeAddHidden")}</span>
+                        )}
                       </button>
                     );
                   })

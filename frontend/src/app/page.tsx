@@ -95,7 +95,7 @@ export default function HomePage() {
     if (!user) return;
     setPrefsLoading(true);
     try {
-      // 偏好给出用户自己的分区配置；/catalog/shelves 给出系统预设——它既是"从模板添加"
+      // 偏好给出用户自己的分区配置；/catalog/shelves 给出系统预设——它既是「添加分区」
       // 的候选，也是隐藏分区的定义来源（feed 已按偏好把隐藏项过滤掉了）。
       const [loaded, tpl] = await Promise.all([
         fetchApi<HomePreferences>("/catalog/me/home-preferences"),
