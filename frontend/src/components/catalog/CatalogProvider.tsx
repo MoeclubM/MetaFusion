@@ -31,7 +31,10 @@ export function CatalogProvider({ children }: { children: React.ReactNode }) {
     // 能力探测失败会让依赖模块的分节整块消失（如社区分节）：必须说清是实例连不上，
     // 而不是"这个功能不存在"，并留一个重试入口。
     if (results[0].status === "fulfilled") {
-      setModules(results[0].value.modules);
+      // 契约漂移防御：/capabilities 少了 modules（或它不是数组）时，绝不能让 undefined 进 state——
+      // 消费方（详情页、定义编辑器）是**渲染路径**上的 .some()/.map()，抛一次就是整页白屏。
+      // 取不到就落回空列表，等价于"没有可用子系统"，页面自然降级而不是崩掉。
+      setModules(Array.isArray(results[0].value?.modules) ? results[0].value.modules : []);
       setError("");
     } else setError((results[0].reason as Error).message);
     setSetup(results[1].status === "fulfilled" && results[1].value.needed);

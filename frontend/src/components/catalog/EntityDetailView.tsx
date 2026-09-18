@@ -731,9 +731,11 @@ export function EntityDetailView({ id }: { id: string }) {
   };
 
   // 社区模块未启用时不展示该标签，避免出现永远为空的分节。
-  const communityEnabled = modules.some(
-    (m) => m.id === "community" && m.enabled && m.healthy,
-  );
+  // modules 来自 /api/capabilities：契约漂移（缺字段/不是数组）时这里不能抛错——
+  // 本组件在渲染路径上，抛一次整页白屏；取不到就按"未启用"处理（分节自然消失）。
+  const communityEnabled =
+    Array.isArray(modules) &&
+    modules.some((m) => m.id === "community" && m.enabled && m.healthy);
 
   // 分节标签：与下方的条件渲染一一对应；标签集合随后数据到达再收窄。
   const tabs: TabItem[] = [

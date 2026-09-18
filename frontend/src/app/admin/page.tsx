@@ -211,7 +211,8 @@ function AdminInner() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!d) return;
-        setModules(d.modules || []);
+        // 与 CatalogProvider 同一口径：契约漂移时不把非数组灌进 state（下面有 modules.map 渲染路径）。
+        setModules(Array.isArray(d.modules) ? d.modules : []);
       })
       .catch(() => {});
   };
