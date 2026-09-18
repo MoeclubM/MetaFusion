@@ -2,20 +2,13 @@
 
 import React, { useMemo } from "react";
 import { isDistinctOriginalTitle } from "@/lib/titles";
+import { coverHash, coverIdentity, coverRefCode } from "@/lib/coverIdentity";
 
 interface ProceduralCoverProps {
   title?: string;
   originalTitle?: string;
   id?: string;
   className?: string;
-}
-
-function djb2Hash(str: string): number {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 33) ^ str.charCodeAt(i);
-  }
-  return Math.abs(hash >>> 0);
 }
 
 function hsl(h: number, s: number, l: number): string {
@@ -34,12 +27,13 @@ function paletteFromHash(hash: number) {
 }
 
 export function ProceduralCover({ title = "Untitled", originalTitle, id = "", className = "" }: ProceduralCoverProps) {
-  const hash = useMemo(() => djb2Hash(`${title}_${id}`), [title, id]);
+  // 身份串与界面语言无关（见 lib/coverIdentity.ts）：同一实体在任何语言下
+  // REF 码与配色都相同，切语言不再换一个引用码。
+  const identity = coverIdentity({ id, originalTitle, title });
+  const hash = useMemo(() => coverHash(identity), [identity]);
   const p = useMemo(() => paletteFromHash(hash), [hash]);
 
-  const refCode = useMemo(() => {
-    return `REF: MF-${hash.toString(16).toUpperCase().padStart(6, "0").slice(0, 6)}`;
-  }, [hash]);
+  const refCode = useMemo(() => `REF: ${coverRefCode(hash)}`, [hash]);
 
   const patternIndex = hash % 4;
 
