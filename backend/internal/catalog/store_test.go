@@ -322,8 +322,8 @@ func TestPostgresCatalog(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		issues, err := s.Impact(ctx, id)
-		if err != nil || len(issues) == 0 {
+		probe, err := s.Impact(ctx, id)
+		if err != nil || len(probe.Issues) == 0 {
 			t.Fatal("missing impact")
 		}
 		if s.Publish(ctx, id, admin, "publish invalid", sources) == nil {

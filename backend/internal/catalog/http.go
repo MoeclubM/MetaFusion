@@ -839,8 +839,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	})
 	defs.GET("/:id/impact", func(c *gin.Context) {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		// 响应带两类清单：issues 阻断发布，dangling_references 是数据欠账警告（形状见 OpenAPI）。
 		v, err := s.Impact(c.Request.Context(), id)
-		respond(c, gin.H{"issues": v}, err)
+		respond(c, v, err)
 	})
 	defs.POST("/:id/publish", func(c *gin.Context) {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)

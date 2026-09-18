@@ -79,7 +79,8 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 // medium/track 的所属与父子、track 的收录内容、release 的 subjects）。
 // document 里这些字段落库时被清空，只解 JSON 会拿到空值，因此任何要消费结构字段的
 // 读取路径都必须经此补齐；全部按 kind 一次 IN 查询，不逐条访问。
-func fillStructural(ctx context.Context, db *sql.DB, out map[string]Entity) (map[string]Entity, error) {
+// 取 queryer 而非 *sql.DB：启动期定义回放在事务外跑，而 Publish 的回放要在事务快照内看同一批数据。
+func fillStructural(ctx context.Context, q queryer, out map[string]Entity) (map[string]Entity, error) {
 	byKind := map[string][]string{}
 	for id, e := range out {
 		byKind[e.Kind] = append(byKind[e.Kind], id)
@@ -89,7 +90,7 @@ func fillStructural(ctx context.Context, db *sql.DB, out map[string]Entity) (map
 		if len(sub) == 0 {
 			return nil
 		}
-		r, qerr := db.QueryContext(ctx, query+" IN ("+entityPlaceholders(sub, 1)+")", entityArgs(sub)...)
+		r, qerr := q.QueryContext(ctx, query+" IN ("+entityPlaceholders(sub, 1)+")", entityArgs(sub)...)
 		if qerr != nil {
 			return qerr
 		}
@@ -156,7 +157,7 @@ func fillStructural(ctx context.Context, db *sql.DB, out map[string]Entity) (map
 		return nil, err
 	}
 	if len(byKind["track"]) > 0 {
-		r, err := db.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator, attributes FROM catalog.track_contents WHERE track_id IN ("+entityPlaceholders(byKind["track"], 1)+") ORDER BY track_id, position", entityArgs(byKind["track"])...)
+		r, err := q.QueryContext(ctx, "SELECT track_id::text, expression_id::text, position, locator, attributes FROM catalog.track_contents WHERE track_id IN ("+entityPlaceholders(byKind["track"], 1)+") ORDER BY track_id, position", entityArgs(byKind["track"])...)
 		if err != nil {
 			return nil, err
 		}

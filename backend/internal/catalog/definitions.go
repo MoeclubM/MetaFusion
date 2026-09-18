@@ -189,13 +189,14 @@ func (s *Store) RollbackDefinitions(ctx context.Context, target int64, u User) (
 		return out, nil
 	}
 	note, sources := rollbackEvidence(ctx, s.DB, target)
-	issues, err := impact(ctx, s.DB, tv.Document)
+	pre, err := impact(ctx, s.DB, tv.Document)
 	if err != nil {
 		return out, err
 	}
-	if len(issues) > 0 {
-		return out, fmt.Errorf("definition_impact: %s", encode(issues))
+	if len(pre.Issues) > 0 {
+		return out, fmt.Errorf("definition_impact: %s", encode(pre.Issues))
 	}
+	logDangling("rollback impact", pre.Dangling)
 	id, err := s.Draft(ctx, tv.Document, cur.ID, u, note, sources)
 	if err != nil {
 		return out, err
@@ -236,67 +237,8 @@ func (s *Store) Draft(ctx context.Context, d Definitions, base int64, u User, no
 	})
 	return id, err
 }
-func impact(ctx context.Context, q queryer, d Definitions) ([]string, error) {
-	if err := d.Validate(); err != nil {
-		return []string{err.Error()}, nil
-	}
-	rows, err := q.QueryContext(ctx, "SELECT id FROM catalog.entities WHERE status NOT IN ('deleted','merged')")
-	if err != nil {
-		return nil, err
-	}
-	var ids []string
-	for rows.Next() {
-		var id string
-		if err = rows.Scan(&id); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		ids = append(ids, id)
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return nil, err
-	}
-	issues := []string{}
-	// impact 以系统上下文回放存量数据：显式持通配权限，不依赖角色兜底。
-	system := &User{Role: "admin", Permissions: []string{permissionWildcard}}
-	ref := reference(ctx, q, system)
-	entities := map[string]Entity{}
-	for _, id := range ids {
-		e, err := get(ctx, q, id)
-		if err != nil {
-			return nil, err
-		}
-		entities[id] = e
-		if err = d.validateEntity(e, ref, true); err != nil {
-			issues = append(issues, id+": "+err.Error())
-		}
-	}
-	all, err := relations(ctx, q)
-	if err != nil {
-		return nil, err
-	}
-	for _, r := range all {
-		src, sok := entities[r.SourceID]
-		tgt, tok := entities[r.TargetID]
-		if !sok || !tok {
-			continue
-		}
-		// 删除与停用宽容度对齐：impact 用 historical=true 回放存量，关系码删除
-		// （!ok）与停用（Enabled=false）都不报 invalid_relation_type——与 Relations
-		// 读路径"删除码不断读"同口径。删除码后新建由 SaveRelation 的
-		// disabled_relation_type 拦截；停用码的新增使用由 retiredAttributes 拦截。
-		if _, ok := d.Relations[r.Type]; !ok {
-			continue
-		}
-		if err = validateRelation(d, r, src, tgt, all, ref, true); err != nil {
-			issues = append(issues, r.ID+": "+err.Error())
-		}
-	}
-	return issues, nil
-}
 
+// impact 的全量回放与两类问题的处置口径见 impact.go（定义问题阻断、悬挂引用只警告）。
 // EnsureSeedDefinitions 把种子里新增的定义补进当前已发布定义（只增不改，见 mergeSeedDefinitions）。
 // 没有任何新增时不写库：幂等，避免每次启动都多出一个定义版本。
 // 以系统身份起草并发布，说明里列出新增键，便于在修订历史里追溯这次模板更新的来源。
@@ -321,18 +263,6 @@ func (s *Store) EnsureSeedDefinitions(ctx context.Context) error {
 		return err
 	}
 	return s.Publish(ctx, id, sys, note, sources)
-}
-
-func (s *Store) Impact(ctx context.Context, id int64) ([]string, error) {
-	var b []byte
-	var d Definitions
-	if err := s.DB.QueryRowContext(ctx, "SELECT document FROM catalog.definitions WHERE id=$1", id).Scan(&b); err != nil {
-		return nil, err
-	}
-	if err := json.Unmarshal(b, &d); err != nil {
-		return nil, err
-	}
-	return impact(ctx, s.DB, d)
 }
 
 // 并发口径：发布走 s.write（**不取** advisory 锁，见 store.go 的 write/writeStructural），
@@ -366,13 +296,15 @@ func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sour
 		if err = json.Unmarshal(b, &d); err != nil {
 			return err
 		}
-		issues, err := impact(ctx, tx, d)
+		probe, err := impact(ctx, tx, d)
 		if err != nil {
 			return err
 		}
-		if len(issues) > 0 {
-			return fmt.Errorf("definition_impact: %s", encode(issues))
+		if len(probe.Issues) > 0 {
+			return fmt.Errorf("definition_impact: %s", encode(probe.Issues))
 		}
+		// 悬挂引用只警告：定义本身合法就照发（口径与理由见 impact.go 顶部）。
+		logDangling("publish impact", probe.Dangling)
 		// "当前已发布版本让位"同样是一次原子条件更新：无条件 supersede 会让两个
 		// base 相同的并发发布都通过上面的版本检查，后到者静默顶掉刚发布的版本（丢更新）。
 		var res sql.Result
