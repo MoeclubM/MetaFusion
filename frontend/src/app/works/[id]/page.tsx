@@ -22,7 +22,6 @@ import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { getForumEntityUrl } from "@/lib/services";
 import { EntityCommentComposer } from "@/components/community/EntityCommentComposer";
-import { EntityCommentComposer } from "@/components/community/EntityCommentComposer";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useCompareBasket } from "@/lib/compareBasket";
