@@ -21,6 +21,11 @@ set -- "${POSITIONAL[@]}"
 ACTION=${1:-"fast"}
 TARGET=${2:-""}
 
+# 版本 tag 的保留个数（每个镜像留几个可回退锚点）。tag 只是镜像的第二个名字，不额外占磁盘；
+# 但名字会无限增长，所以在 tag_release_images 里撤掉更老的（同一份层数据仍在，容器用的
+# :local 滚动标签从不参与清理）。要留更多历史就设 MF_IMAGE_TAG_KEEP。
+IMAGE_TAG_KEEP=${MF_IMAGE_TAG_KEEP:-3}
+
 # 自动定位 .env（项目根目录 ../.env 或当前 deploy/.env）
 ENV_FILE=""
 if [ -f "../.env" ]; then
@@ -95,6 +100,61 @@ function export_version_identity() {
         [ -n "$tag" ] && export METAFUSION_VERSION="$tag"
     fi
     echo "🏷️  版本身份（写进 /api/version）：git=${METAFUSION_GIT_SHA:-unknown} version=${METAFUSION_VERSION:-unknown}"
+}
+
+
+# 每批部署给镜像补版本 tag。**没有版本 tag 就没有快速回退**：容器用的是滚动标签
+# （metafusion-*:local 与编排生成的 deploy-<svc>:latest），下一次部署直接覆盖它们，
+# 上一版镜像随即变成无主镜像被 prune 掉 —— v0.3.0 之前就是这样，回退只剩「按 tag 重建」（10-20 分钟）。
+# 口径与 /api/version 的版本身份一致：METAFUSION_VERSION（git describe 的精确 tag），
+# 没有 tag 时退回短 sha，保证每批都有锚点。回退命令见 docs/architecture/cutover-runbook.md。
+function tag_release_images() {
+    local ver="${METAFUSION_VERSION:-}"
+    if [ -z "$ver" ] || [ "$ver" = "unknown" ]; then
+        ver="${METAFUSION_GIT_SHA:-}"
+    fi
+    if [ -z "$ver" ]; then
+        echo "⚠️  无法确定版本标识（既无 git tag 也无 sha）：跳过镜像版本 tag（本批没有可回退锚点）"
+        return 0
+    fi
+
+    # 只给本编排正在运行的容器镜像打 tag：pull/cutover 等路径上没落地的镜像不硬造标签。
+    local in_use imgs img repo tagged=0
+    in_use="$(docker ps -a --format "{{.Image}}" | sort -u)"
+    imgs="$(docker compose $COMPOSE_ENV -f docker-compose.yml ps -q 2>/dev/null | xargs -r docker inspect -f "{{.Config.Image}}" 2>/dev/null | sort -u)"
+    if [ -z "$imgs" ]; then
+        echo "⚠️  没读到本项目容器镜像：跳过镜像版本 tag"
+        return 0
+    fi
+    for img in $imgs; do
+        repo="${img%%:*}"
+        [ -z "$repo" ] && continue
+        if ! docker image inspect "$img" >/dev/null 2>&1; then continue; fi
+        if [ "$repo:$ver" != "$img" ]; then
+            docker tag "$img" "$repo:$ver" >/dev/null 2>&1 && { echo "🏷️  镜像 tag：$img -> $repo:$ver"; tagged=$((tagged + 1)); }
+        fi
+        prune_release_tags "$repo" "$in_use"
+    done
+    echo "✅ 版本 tag 完成：$tagged 个镜像带 $ver（每个镜像保留最近 $IMAGE_TAG_KEEP 个版本）"
+    echo "   回退：docker tag <repo>:<旧版本> <repo>:local && docker compose up -d --no-deps --force-recreate <svc>"
+}
+
+# 保留策略：每个镜像只留最近 IMAGE_TAG_KEEP 个版本 tag，更老的撤 tag（镜像层数据不动、
+# 容器用的 :local / :latest 滚动标签永不参与）。候选只认「版本形态」的名字：vX.Y.Z 或 12 位短 sha。
+function prune_release_tags() {
+    local repo="$1" in_use="$2" i=0 t tags
+    # 候选只认版本形态的名字：<repo>:vX.Y.Z 或 <repo>:<12 位短 sha>，按镜像创建时间倒序，
+    # 前 IMAGE_TAG_KEEP 个留下。用 | 分隔字段（tab 在源码里不可见，容易在编辑中被吃掉）。
+    tags="$(docker images --format "{{.Repository}}:{{.Tag}}|{{.CreatedAt}}" "$repo" 2>/dev/null \
+        | awk -F'|' '$1 ~ /:(v[0-9]|[0-9a-f]{12})$/ {print $2"|"$1}' | sort -r | cut -d'|' -f2)"
+    for t in $tags; do
+        i=$((i + 1))
+        [ "$i" -le "$IMAGE_TAG_KEEP" ] && continue
+        case "$in_use" in
+            *"$t"*) echo "   ↳ 保留 $t（正被容器使用，不撤）"; continue ;;
+        esac
+        docker rmi "$t" >/dev/null 2>&1 && echo "   ↳ 撤掉更老的版本 tag $t（只留最近 $IMAGE_TAG_KEEP 个）"
+    done
 }
 
 # 迁移必须用**当前镜像里**的迁移器：迁移是编译进二进制的（embed），用运行中的旧容器
@@ -186,6 +246,9 @@ case "$ACTION" in
             docker compose $COMPOSE_ENV up -d --remove-orphans
         fi
         reload_gateway
+        # 先补版本 tag 再清悬空层：本批镜像有了名字就不会被当成无主镜像清掉，
+        # 也让"回退到上一版"变成换 tag + recreate（见 tag_release_images 的注释）。
+        tag_release_images
         echo "🧹 自动清理悬空层..."
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 极速部署完成！"
@@ -236,6 +299,7 @@ case "$ACTION" in
         migrate_up_checked
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
         reload_gateway
+        tag_release_images
         docker image prune -f >/dev/null 2>&1 || true
         echo "✅ 生产环境已启动！"
         ;;

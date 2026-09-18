@@ -234,6 +234,31 @@ cd deploy && ./deploy.sh retire
 执行后库里只应剩下 `catalog` / `auth` / `community` / `storage` 四个业务 schema（脚本末尾会打印核对结果）。
 
 
+## 1.5 日常批次的镜像回退（两行命令）
+
+`./deploy.sh fast` 收尾会给本批镜像补一个**版本 tag**（口径与 `/api/version` 的版本一致：
+`git describe --tags` 的精确 tag，没有 tag 时退回 12 位短 sha）。为什么必须有它：容器用的是
+滚动标签（`metafusion-*:local` 与编排生成的 `deploy-<svc>:latest`），**下一次部署会直接覆盖它们**，
+上一版镜像随即变成无主镜像、被 `docker image prune` 清掉——"回退"就只剩按 tag 重建（10–20 分钟）。
+保留策略：每个镜像只留最近 `MF_IMAGE_TAG_KEEP`（默认 3）个版本 tag，更老的撤 tag；tag 只是镜像的
+第二个名字，不额外占磁盘。
+
+回退到某个仍保留的版本（以 backend 为例；`--env-file ../.env` 按你的调用习惯补全）：
+
+    cd deploy
+    docker tag metafusion-backend:v0.3.0 metafusion-backend:local
+    docker compose --env-file ../.env -f docker-compose.yml up -d --no-deps --force-recreate backend
+    curl -s http://127.0.0.1:10100/api/version        # 应显示被换上的那一版
+
+验证没问题后回退到本批（把标签换回来即可）：
+
+    docker tag metafusion-backend:v0.3.1 metafusion-backend:local
+    docker compose --env-file ../.env -f docker-compose.yml up -d --no-deps --force-recreate backend
+
+两条注意：① **镜像回退不回退数据库结构**——两版之间的迁移必须向后兼容（加列/加表可回退，
+删列/改类型不可），换镜像前先确认；② 前端镜像的名字是编排生成的 `deploy-frontend`
+（`docker images` 里显示为 `deploy-frontend:vX.Y.Z`），命令同上，服务名换成 `frontend`。
+
 ## 2. 为什么每步都可回滚
 
 | 系统 | 数据布局 | 回滚代价 |
