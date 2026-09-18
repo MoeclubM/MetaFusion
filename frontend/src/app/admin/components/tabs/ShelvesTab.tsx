@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { fetchDefinitions } from "@/lib/definitions";
 import type { DynamicDefinitions } from "@/lib/definitions";
 import { localizeCatalogError } from "@/lib/catalogErrors";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 
 export interface ShelfQuery {
   types?: string[];
@@ -63,6 +64,9 @@ export function ShelvesTab() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<ShelfItem | null>(null);
   const [creating, setCreating] = useState(false);
+  // 待确认的删除目标：确认框自绘（见文件尾），这里只记"要删哪一个"。
+  const [pendingDelete, setPendingDelete] = useState<ShelfItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<Partial<ShelfItem>>(emptyShelf(0));
   const [typeInput, setTypeInput] = useState("");
   const [relInput, setRelInput] = useState("");
@@ -184,8 +188,9 @@ export function ShelvesTab() {
   };
 
   const handleDelete = async (shelf: ShelfItem) => {
-    if (!window.confirm(t("admin.shelves.deleteConfirm", { slug: shelf.slug }))) return;
+    setPendingDelete(null);
     setError(null);
+    setDeleting(true);
     try {
       await fetch(`/api/admin/shelves/${shelf.id}`, {
         method: "DELETE",
@@ -197,6 +202,8 @@ export function ShelvesTab() {
       loadData();
     } catch (err: any) {
       setError(err.message || t("admin.shelves.deleteFailed"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -341,7 +348,7 @@ export function ShelvesTab() {
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleDelete(shelf)}
+                          onClick={() => setPendingDelete(shelf)}
                           className="p-1.5 rounded-md hover:bg-rose-500/10 text-text-muted hover:text-rose-400 transition-colors duration-fast ease-soft"
                           title={t("common.delete")}
                         >
@@ -637,6 +644,17 @@ export function ShelvesTab() {
           </div>
         </form>
       </Modal>
+
+      {/* 删除货架是破坏性动作：确认框自绘（原生 confirm 不可本地化），说明里带上被删货架的 slug。 */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={t("common.delete")}
+        message={t("admin.shelves.deleteConfirm", { slug: pendingDelete?.slug ?? "" })}
+        confirmLabel={t("common.delete")}
+        busy={deleting}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => { if (pendingDelete) void handleDelete(pendingDelete); }}
+      />
     </div>
   );
 }

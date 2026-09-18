@@ -1,5 +1,7 @@
 "use client";
+import { useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { getAuthPasswordUrl } from "@/lib/services";
 import { api } from "./api";
 import { useAuth } from "@/lib/authContext";
@@ -15,6 +17,15 @@ export function Account() {
   const { t } = useI18n();
   // 会话只有 useAuth 一份：退出登录后由它的 refreshProfile 读回 /auth/me（401 即清会话）。
   const { user, refreshProfile } = useAuth();
+  // 待确认的「全部设备登出」：确认框自绘（见文件尾），这里只记开关。
+  const [pendingLogoutAll, setPendingLogoutAll] = useState(false);
+
+  const logoutAll = async () => {
+    // 这一页没有 busy 展示位：先关框再发请求，用户看到框关闭即表示动作已提交。
+    setPendingLogoutAll(false);
+    await api("/auth/logout-all", "POST");
+    await refreshProfile();
+  };
 
   // 未登录不渲染任何内容：AuthGate 已把未登录访问重定向到 /login?redirect=/account。
   if (!user) return null;
@@ -61,12 +72,7 @@ export function Account() {
             </button>
             <button
               type="button"
-              onClick={async () => {
-                if (confirm(t("account.logoutAllConfirm"))) {
-                  await api("/auth/logout-all", "POST");
-                  await refreshProfile();
-                }
-              }}
+              onClick={() => setPendingLogoutAll(true)}
               style={{
                 fontSize: 13,
                 padding: "6px 14px",
@@ -95,6 +101,17 @@ export function Account() {
           {t("account.changePassword")}
         </a>
       </section>
+
+      {/* 「全部设备登出」是破坏性动作：确认框自绘（原生 confirm 不可本地化、不可样式化），
+          与 /settings 安全页签里的同一入口同形。 */}
+      <ConfirmDialog
+        open={pendingLogoutAll}
+        title={t("account.logoutAllDevices")}
+        message={t("account.logoutAllConfirm")}
+        confirmLabel={t("account.logoutAllDevices")}
+        onClose={() => setPendingLogoutAll(false)}
+        onConfirm={logoutAll}
+      />
     </div>
   );
 }

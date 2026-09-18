@@ -9,6 +9,7 @@ import { useDefinitions, getFieldName, getRelationName } from "@/lib/definitions
 import { api, Entity, Source } from "@/components/catalog/api";
 import { EntityPicker, FieldInput } from "@/components/catalog/Fields";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { Plus, Trash2, Pencil, ArrowLeftRight, AlertCircle, ChevronUp, ChevronDown } from "lucide-react";
 
 interface Relation {
@@ -81,6 +82,8 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
   const [addAttrs, setAddAttrs] = useState<Record<string, any>>({});
   const [editingId, setEditingId] = useState("");
   const [editAttrs, setEditAttrs] = useState<Record<string, any>>({});
+  // 待确认的删除目标：确认框自绘（见文件尾），这里只记"要删哪条关系"。
+  const [pendingRemove, setPendingRemove] = useState<Relation | null>(null);
   const [draftTitles, setDraftTitles] = useState<Record<string, string>>({});
 
   // 新建中（没有 entityId）时，关系先入队；有 onDraftsChange 且持写权限才启用队列 UI
@@ -337,7 +340,7 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
   };
 
   const remove = async (rel: Relation) => {
-    if (!confirm(t("editor.relation.removeConfirm"))) return;
+    setPendingRemove(null);
     if (!evidenceReady) {
       setError(t("editor.relation.evidenceRequired"));
       return;
@@ -538,7 +541,7 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => remove(r)}
+                      onClick={() => setPendingRemove(r)}
                       className="inline-flex items-center gap-1 text-xs opacity-60 hover:opacity-100 hover:text-red-600 dark:hover:text-red-400 disabled:opacity-30"
                       title={t("editor.relation.remove")}
                     >
@@ -629,6 +632,24 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
       </div>
       ) : (
         <p className="text-sm opacity-60">{t("editor.relation.noPermission")}</p>
+      )}
+
+      {/* 删除关系是破坏性动作：确认框自绘（原生 confirm 不可本地化），说明写清"与谁、哪一类关系"。 */}
+      {pendingRemove && (
+        <ConfirmDialog
+          open
+          title={t("editor.relation.remove")}
+          message={t("editor.relation.removeConfirm", {
+            label: defs?.relations?.[pendingRemove.type]
+              ? getRelationName(defs, pendingRemove.type, pendingRemove.source_id === entityId, locale)
+              : pendingRemove.type,
+            peer: peerLabel(pendingRemove.source_id === entityId ? pendingRemove.target_id : pendingRemove.source_id),
+          })}
+          confirmLabel={t("common.delete")}
+          busy={busy}
+          onClose={() => setPendingRemove(null)}
+          onConfirm={() => void remove(pendingRemove)}
+        />
       )}
     </fieldset>
   );

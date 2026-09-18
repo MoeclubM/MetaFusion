@@ -17,6 +17,7 @@ const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), 
 });
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import {
   ArrowLeft,
   ArrowRight,
@@ -47,6 +48,8 @@ export default function TopicDetailPage() {
  const [composerExpanded, setComposerExpanded] = useState(false);
  const [replyTo, setReplyTo] = useState<{ post_number: number; username?: string; content: string } | null>(null);
  const [deletingTarget, setDeletingTarget] = useState<string | null>(null);
+ // 待确认的删除目标：确认框自绘（见文件尾），这里只记"要删哪一个"。
+ const [pendingDelete, setPendingDelete] = useState<{ kind: "topic" } | { kind: "reply"; post: ForumPost } | null>(null);
  const [moderationError, setModerationError] = useState<{ target: string; text: string } | null>(null);
  const [pinning, setPinning] = useState(false);
  const [pinNotice, setPinNotice] = useState("");
@@ -158,7 +161,7 @@ export default function TopicDetailPage() {
  };
 
  const deleteTopic = async () => {
- if (!window.confirm(t("community.deleteTopicConfirm"))) return;
+ setPendingDelete(null);
  setDeletingTarget("topic");
  setModerationError(null);
  try {
@@ -171,7 +174,7 @@ export default function TopicDetailPage() {
  };
 
  const deleteReply = async (post: ForumPost) => {
- if (!window.confirm(t("community.deleteReplyConfirm"))) return;
+ setPendingDelete(null);
  setDeletingTarget(post.id);
  setModerationError(null);
  try {
@@ -336,7 +339,7 @@ export default function TopicDetailPage() {
  )}
  {canModeratePosts && (
  <button
- onClick={deleteTopic}
+ onClick={() => setPendingDelete({ kind: "topic" })}
  disabled={deletingTarget === "topic"}
  className="flex items-center space-x-1 text-gray-500 hover:text-rose-400 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
  >
@@ -448,7 +451,7 @@ export default function TopicDetailPage() {
  {/* 自己的楼层沿用原有通道，治理按钮只用于处置他人回复 */}
  {canModeratePosts && replyUserId && replyUserId !== user?.id && (
  <button
- onClick={() => deleteReply(post)}
+ onClick={() => setPendingDelete({ kind: "reply", post })}
  disabled={deletingTarget === post.id}
  className="flex items-center space-x-1 text-gray-500 hover:text-rose-400 transition-colors duration-fast ease-soft disabled:opacity-50 disabled:cursor-not-allowed"
  >
@@ -613,6 +616,26 @@ export default function TopicDetailPage() {
  onClose={() => {
  setIsComposerOpen(false);
  setReplyTo(null);
+ }}
+ />
+ )}
+ {/* 删除是破坏性动作：确认框自绘（原生 confirm 不可本地化、不可样式化，也只测得到个布尔），
+ 并把被删对象写进说明——主题带标题、回复带作者。 */}
+ {pendingDelete && (
+ <ConfirmDialog
+ open
+ title={pendingDelete.kind === "topic" ? t("community.deleteTopic") : t("community.deleteReply")}
+ message={
+ pendingDelete.kind === "topic"
+ ? t("community.deleteTopicConfirm", { title: topic?.title ?? "" })
+ : t("community.deleteReplyConfirm", { author: pendingDelete.post.user?.username || t("community.anonymous") })
+ }
+ confirmLabel={t("common.delete")}
+ busy={deletingTarget !== null}
+ onClose={() => setPendingDelete(null)}
+ onConfirm={() => {
+ if (pendingDelete.kind === "topic") void deleteTopic();
+ else void deleteReply(pendingDelete.post);
  }}
  />
  )}

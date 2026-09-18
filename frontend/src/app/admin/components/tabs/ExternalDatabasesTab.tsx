@@ -16,6 +16,7 @@ import { Modal } from "@/components/ui/Modal";
 import { getKindName, resolveKindOptions, useDefinitions } from "@/lib/definitions";
 import { kinds as fallbackKinds } from "@/components/catalog/api";
 import { localizeCatalogError } from "@/lib/catalogErrors";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 
 export function ExternalDatabasesTab() {
   const { t, tr, locale } = useI18n();
@@ -41,6 +42,9 @@ export function ExternalDatabasesTab() {
     sort_order: 10,
   });
   const [error, setError] = useState<string | null>(null);
+  // 待确认的删除目标 code：确认框自绘（见文件尾），这里只记"要删哪一个"。
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -126,13 +130,16 @@ export function ExternalDatabasesTab() {
   };
 
   const handleDelete = async (code: string) => {
-    if (!confirm(t("admin.extdb.deleteConfirm", { code }))) return;
+    setPendingDelete(null);
     setError(null);
+    setDeleting(true);
     try {
       await deleteExternalDatabase(code);
       loadData();
     } catch (err: any) {
       setError(err.message || t("admin.alert.deleteFailed"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -309,7 +316,7 @@ export function ExternalDatabasesTab() {
                       </button>
                       {!item.is_system && (
                         <button
-                          onClick={() => handleDelete(item.code)}
+                          onClick={() => setPendingDelete(item.code)}
                           title={t("common.delete")}
                           className="p-1.5 rounded-md hover:bg-rose-500/10 text-text-muted hover:text-rose-400 transition-colors duration-fast ease-soft"
                         >
@@ -478,6 +485,17 @@ export function ExternalDatabasesTab() {
           </div>
         </form>
       </Modal>
+
+      {/* 删除外部库是破坏性动作：确认框自绘（原生 confirm 不可本地化），说明里带上被删的 code。 */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={t("common.delete")}
+        message={t("admin.extdb.deleteConfirm", { code: pendingDelete ?? "" })}
+        confirmLabel={t("common.delete")}
+        busy={deleting}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={() => { if (pendingDelete) void handleDelete(pendingDelete); }}
+      />
     </div>
   );
 }
