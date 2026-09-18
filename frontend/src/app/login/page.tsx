@@ -12,7 +12,7 @@ import {
   normalizeSessionUser,
   PublicAuthSettings,
 } from "@/lib/api";
-import { authErrorText, httpStatusOf } from "@/lib/authErrors";
+import { authErrorText, httpStatusOf, httpRetryAfterSecondsOf } from "@/lib/authErrors";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getAuthLoginUrl, getAuthRegisterUrl, AUTH_SERVICE_URL } from "@/lib/services";
 import { BrandMark } from "@/components/Logo";
@@ -27,6 +27,8 @@ import {
   ArrowRight,
   AlertCircle,
   Sparkles,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 type AuthMode = "login" | "register";
@@ -41,6 +43,15 @@ const LOGIN_NOTICES: Record<string, string> = {
 const inputClass =
   "w-full pl-11 pr-3.5 h-11 max-sm:min-h-[44px] bg-black/[0.03] dark:bg-black/20 border border-line rounded-control text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary";
 
+// 密码框右侧要放可见性按钮：按钮绝对定位在框内，输入框右内边距必须一起加宽，
+// 否则长密码会钻到眼睛图标底下。
+const passwordInputClass = inputClass.replace("pr-3.5", "pr-11");
+
+// 用户名上限取自服务端校验（metafusion-auth/internal/store/groups.go:432：2-80 字符且不含空格）。
+// 邮箱服务端没有长度校验，所以这里不写 maxlength——前端凭空造一个上限，
+// 只会替服务端拒掉它其实接受的输入。
+const USERNAME_MAX_LENGTH = 80;
+
 function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,6 +65,8 @@ function LoginInner() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // 密码可见性：默认隐藏，状态同时进 aria-pressed，键盘与读屏用户才能判断当前是哪种。
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [inviteCode, setInviteCode] = useState(inviteParam);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -188,12 +201,14 @@ function LoginInner() {
       if (!response.ok) {
         const failed = new Error(res.error || "invalid_credentials") as Error & { status?: number };
         failed.status = response.status;
+        // Retry-After 是秒数形式才有意义；没有它（例如网关直接 429）就不承诺具体等待时间。
+        (failed as Error & { retryAfter?: string }).retryAfter = response.headers.get("Retry-After") || undefined;
         throw failed;
       }
       login(res.token, normalizeSessionUser(res.user));
       router.replace(redirectUrl);
     } catch (err: any) {
-      setError(authErrorText(err?.message, t, httpStatusOf(err)));
+      setError(authErrorText(err?.message, t, httpStatusOf(err), undefined, httpRetryAfterSecondsOf(err)));
     } finally {
       setSubmitting(false);
     }
@@ -307,6 +322,7 @@ function LoginInner() {
                   <input
                     type="text"
                     required
+                    maxLength={mode === "register" ? USERNAME_MAX_LENGTH : undefined}
                     autoComplete="username"
                     placeholder={
                       mode === "register"
@@ -348,7 +364,8 @@ function LoginInner() {
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" strokeWidth={1.5} />
                   <input
-                    type="password"
+                    id="login-password"
+                    type={passwordVisible ? "text" : "password"}
                     required
                     minLength={mode === "register" ? 12 : undefined}
                     maxLength={72}
@@ -356,8 +373,19 @@ function LoginInner() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={inputClass}
+                    className={passwordInputClass}
                   />
+                  <button
+                    type="button"
+                    onClick={() => setPasswordVisible((v) => !v)}
+                    aria-label={passwordVisible ? t("auth.passwordHide") : t("auth.passwordShow")}
+                    aria-pressed={passwordVisible}
+                    aria-controls="login-password"
+                    title={passwordVisible ? t("auth.passwordHide") : t("auth.passwordShow")}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 w-9 h-9 max-sm:min-h-[44px] max-sm:h-11 grid place-items-center rounded-control text-gray-400 hover:text-text-strong hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition-colors duration-fast mf-focus cursor-pointer"
+                  >
+                    {passwordVisible ? <EyeOff className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" /> : <Eye className="w-4 h-4" strokeWidth={1.5} aria-hidden="true" />}
+                  </button>
                 </div>
               </div>
 

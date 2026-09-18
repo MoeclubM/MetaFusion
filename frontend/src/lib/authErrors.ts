@@ -13,6 +13,13 @@ const AUTH_ERROR_ALIASES: Record<string, string> = {
   invite_invalid: "invalid_invite_code",
   // 注册关闭：服务端 Register 给 registration_closed
   registration_disabled: "registration_closed",
+  // 注册字段不合规：线上实测到的 invalid_username（前端此前只显示「请求失败」），
+  // 以及服务端在别处用的 invalid_password / weak_password 写法。用户名格式与口令长度
+  // 是两个不同的问题，分别指向两条文案，不合并成一句泛泛的"格式不对"。
+  invalid_password: "invalid_password_length",
+  weak_password: "invalid_password_length",
+  // 账号停用：服务端 fail() 给的 banned（403），历史上还有 account_disabled 写法。
+  banned: "account_disabled",
 };
 
 /** 读取响应错误对象上的状态码：只按字段探测，不 import api.ts 的错误类，避免跨模块耦合。 */
@@ -22,21 +29,43 @@ export function httpStatusOf(err: unknown): number | undefined {
 }
 
 /**
+ * 读取 Retry-After（秒）。只有秒数形式能被解释：HTTP-date 形式在这里没有可靠的时区来源，
+ * 与其算错不如不显示（回 undefined，调用方退回不承诺具体秒数的文案）。
+ */
+export function httpRetryAfterSecondsOf(err: unknown): number | undefined {
+  const raw = (err as { retryAfter?: unknown } | null | undefined)?.retryAfter;
+  const seconds = typeof raw === "string" ? Number.parseInt(raw.trim(), 10) : NaN;
+  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
+}
+
+/**
  * 把账号服务错误码翻译成当前语言的人话；未知码回退到通用请求失败提示。
  * status 只用来兜住"路由不存在/上游不可用"这类没有业务码的情况
  * （例如账号服务尚未部署这些端点时返回的 404 纯文本）。
+ *
+ * 限流要分辨两层（见 metafusion-auth/internal/handler/login_guard.go 的注释）：
+ *   · 请求速率层只回 rate_limited，没有"账号被锁多久"的语义；
+ *   · 失败凭据层回 login_blocked，并带 Retry-After（秒）。
+ * 所以 429 先看错误码，再看 retryAfterSeconds：有秒数就告诉用户还要等多久，
+ * 没给（例如网关 nginx limit_req 直接回的 429）就退回通用限流文案。
  */
 export function authErrorText(
   code: string | null | undefined,
-  t: (key: string) => string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
   status?: number,
-  fallbackKey = "auth.requestFailed"
+  fallbackKey = "auth.requestFailed",
+  retryAfterSeconds?: number
 ): string {
   if (status === 404 || (status !== undefined && status >= 500)) {
     return t("auth.error.service_unavailable");
   }
-  if (status === 429) return t("auth.error.rate_limit_exceeded");
   const raw = (code || "").trim();
+  if (status === 429 || raw === "login_blocked") {
+    const key = raw === "login_blocked" ? "auth.error.login_blocked" : "auth.error.rate_limit_exceeded";
+    // Retry-After 是窗口剩余秒数：向上取整到分钟，给用户一个可读的等待预期。
+    const minutes = retryAfterSeconds ? Math.max(1, Math.ceil(retryAfterSeconds / 60)) : 0;
+    return t(key, minutes ? { minutes } : undefined);
+  }
   if (!raw) return t(fallbackKey);
   for (const candidate of [raw, AUTH_ERROR_ALIASES[raw]]) {
     if (!candidate) continue;
