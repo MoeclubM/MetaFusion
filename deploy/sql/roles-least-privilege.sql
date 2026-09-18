@@ -231,7 +231,6 @@ $ops$;
 --     事务：BEGIN 让 pg_advisory_xact_lock 覆盖到建表结束，与同时启动的服务串行化。
 -- ------------------------------------------------------------------------------
 \if :{?audit_bootstrap}
-\if :{?audit_bootstrap}
 BEGIN;
 -- >>> audit-ddl begin（scripts/check_audit_schema.py 比对这个区间里的语句）
 CREATE SCHEMA IF NOT EXISTS audit;
@@ -369,8 +368,22 @@ DECLARE
   r record;
   table_owner name;
 BEGIN
+  -- schema 都不存在 = 审计功能还没部署（默认路径没有预建，服务也还没启动过）：空操作。
+  IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'audit') THEN
+    RAISE NOTICE '[4b] 未发现 audit schema：审计功能尚未部署，跳过共享审计授权（第 3b 节预建或服务首次启动会建它）';
+    RETURN;
+  END IF;
+
+  -- 表还不存在 = 审计功能还没建过表（默认路径没有预建，服务也还没启动过）：只授 schema 权限。
+  -- 这不是错误，但**必须重跑本脚本**才能补上表权限，否则服务起来后审计行会静默写失败——
+  -- verify-role-isolation.sql 的 F 段会以"缺 SELECT/INSERT"报错兜住这一点。
   IF to_regclass('audit.audit_log') IS NULL THEN
-    RAISE EXCEPTION '[4b] audit.audit_log 不存在：第 3b 节的预建没有生效（脚本不应走到这里）';
+    RAISE NOTICE '[4b] audit.audit_log 尚不存在：只授 audit schema 权限；表建出来后重跑本脚本补齐表权限（F 段断言会盯着）';
+    FOR r IN SELECT unnest(ARRAY['mf_catalog', 'mf_auth', 'mf_community', 'mf_storage']) AS app_role
+    LOOP
+      EXECUTE format('GRANT USAGE, CREATE ON SCHEMA audit TO %I', r.app_role);
+    END LOOP;
+    RETURN;
   END IF;
 
   SELECT pg_get_userbyid(c.relowner) INTO table_owner
