@@ -104,7 +104,9 @@ export function EntityMergeModal({ isOpen, onClose, targetType, sourceEntity, on
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label={t("revisions.close")}
             className="w-7 h-7 grid place-items-center rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors duration-fast ease-soft"
           >
             <X className="w-4 h-4" />

@@ -1128,9 +1128,10 @@ function AdminInner() {
                 <button
                   type="button"
                   onClick={loadOverview}
+                  aria-label={t("common.refresh")}
                   className="p-2 rounded-lg bg-surfaceSubtle hover:bg-surfaceHover text-xs text-text-body"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-4 h-4" aria-hidden="true" />
                 </button>
               </div>
 

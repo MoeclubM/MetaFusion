@@ -539,6 +539,7 @@ export function OmniImportModal({
           <button
             type="button"
             onClick={onClose}
+            aria-label={t("revisions.close")}
             className="w-8 h-8 rounded-lg text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/10 grid place-items-center transition-colors duration-fast ease-soft"
           >
             <X className="w-4 h-4" />
@@ -806,6 +807,14 @@ export function OmniImportModal({
                       return (
                         <div
                           key={m.id}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.currentTarget.click();
+                            }
+                          }}
                           onClick={() => {
                             setSelectedTargetWork(m);
                             setLinkMode("append_release_to_work");
@@ -1336,6 +1345,14 @@ export function OmniImportModal({
                                 {artistSearchResults.map((ar) => (
                                   <div
                                     key={ar.id}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" || e.key === " ") {
+                                        e.preventDefault();
+                                        e.currentTarget.click();
+                                      }
+                                    }}
                                     onClick={() => {
                                       updateAssociation(originalIndex, {
                                         action: "link",

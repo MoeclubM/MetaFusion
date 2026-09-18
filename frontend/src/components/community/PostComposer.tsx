@@ -567,6 +567,14 @@ export default function PostComposer({
                       {searchedWorks.map((w) => (
                         <div
                           key={w.id}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.currentTarget.click();
+                            }
+                          }}
                           onClick={() => {
                             setSelectedWork(w);
                             setWorkSearchQuery("");

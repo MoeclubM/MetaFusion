@@ -400,6 +400,14 @@ export function Compare({ ids }: { ids: string }) {
             return (
               <div
                 key={`empty-${index}`}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
+                }}
                 onClick={focusSearch}
                 className="border-2 border-dashed border-border/70 hover:border-primary/60 hover:bg-primary/5 rounded-xl p-3 flex flex-col items-center justify-center min-h-[160px] text-center transition-all cursor-pointer group"
               >
@@ -504,6 +512,14 @@ export function Compare({ ids }: { ids: string }) {
                   return (
                     <div
                       key={r.id}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
+                }}
                       onClick={() => !isSelected && addId(r.id!)}
                       className={`group rounded-xl p-3 border transition-all flex items-center justify-between gap-3 ${
                         isSelected
@@ -574,6 +590,14 @@ export function Compare({ ids }: { ids: string }) {
                   return (
                     <div
                       key={r.id}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.currentTarget.click();
+                  }
+                }}
                       onClick={() => !isSelected && addId(r.id!)}
                       className={`group rounded-xl p-3 border transition-all duration-base ease-soft flex items-center justify-between gap-3 ${
                         isSelected
