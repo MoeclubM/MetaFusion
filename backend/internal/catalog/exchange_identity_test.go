@@ -72,9 +72,11 @@ func TestExchangeRoutesCarryIdentityMiddleware(t *testing.T) {
 }
 
 // 同一类失效的通杀检查：任何 /api 路由对"带合法令牌"的请求都不该回 401 authentication_required
-// ——那说明这条链里压根没有身份中间件（gin 的 Use 只管之后注册的路由）。公开的 /openapi.json、
-// /docs、/swagger 不在此列：它们刻意无身份。令牌刻意不带任何目录权限：带权限的请求会真的落库
-// 或出站抓取，这里只需要"链里有中间件"这一个事实（无码是 403、载荷不合是 400，都不是 401）。
+// ——那说明这条链里压根没有身份中间件（gin 的 Use 只管之后注册的路由）。只有公开的
+// /openapi.json 不在此列：它是接入方的机器可读契约，刻意无身份。/docs 与 /swagger 必须看到
+// 身份中间件——它们是管理面，一旦被挪回 attachUser 之前，这里会以 401 抓住。
+// 令牌刻意不带任何目录权限：带权限的请求会真的落库或出站抓取，这里只需要"链里有中间件"
+// 这一个事实（无码是 403、载荷不合是 400，都不是 401）。
 func TestEveryAPIRouteSeesIdentityMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	key := testKey(t)
@@ -89,7 +91,7 @@ func TestEveryAPIRouteSeesIdentityMiddleware(t *testing.T) {
 		c.Permissions = []string{"community.post.create"}
 		return c
 	})
-	public := map[string]bool{"/api/openapi.json": true, "/api/docs": true, "/api/swagger": true}
+	public := map[string]bool{"/api/openapi.json": true}
 	probe := "00000000-0000-0000-0000-000000000001"
 	for _, route := range engine.Routes() {
 		if public[route.Path] {

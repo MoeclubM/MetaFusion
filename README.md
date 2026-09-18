@@ -220,7 +220,7 @@ MetaFusion 采用统一 `/api` 主干（无版本前缀），核心元数据读�
    - `GET /api/catalog/entities?q=<keyword>&limit=20`
    - `GET /api/catalog/entities/<UUID>`、`GET /api/catalog/entities/<UUID>/relations`
    - `POST /api/catalog/entities`、`PUT /api/catalog/entities/:id`（写入，请求体为 `{entity, expected_version, edit_note, sources}`）
-3. **Agent 自主协同**：支持 LLM 智能体通过 `/api/openapi.json`（OpenAPI 3.0.3）与 `/api/docs` 交互式文档了解契约。注意：当前**没有** MusicBrainz WS/2 兼容层、`/api/search`、`/api/browse/*` 或一站式 `POST /api/catalog/submit`；详见 [API 概览](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/api-overview.md)。
+3. **Agent 自主协同**：支持 LLM 智能体通过 `/api/openapi.json`（OpenAPI 3.0.3）了解契约——它是**公开面，匿名可读**，也是接入方发现端点的唯一来源；交互式文档页 `/api/docs`（Scalar）与 `/api/swagger`（Swagger UI）属管理面，需登录且令牌带 `catalog.lifecycle.manage`。注意：当前**没有** MusicBrainz WS/2 兼容层、`/api/search`、`/api/browse/*` 或一站式 `POST /api/catalog/submit`；详见 [API 概览](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/api-overview.md)。
 
 ---
 

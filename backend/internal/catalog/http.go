@@ -248,23 +248,30 @@ func (h HTTP) Register(r *gin.Engine) {
 
 func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	s := h.Store
-	// 公开端点：这三条刻意不要身份，所以留在 attachUser 之前。
+	// 唯一保留在 attachUser 之前的公开端点：这份 OpenAPI 是**接入方的公开契约**。
+	// 前端工具集、Agent 与技能仓库都把"先读 GET /api/openapi.json"写进流程，改鉴权会让
+	// 这些接入方先要一张令牌才能发现契约；而 paths 清单本身不是秘密——同一份端点表也在
+	// 文档站公开，隐藏它只是隐蔽性而非控制（2026-09-19 审计 S-4 的处置结论）。
+	api.GET("/openapi.json", func(c *gin.Context) { c.JSON(200, OpenAPI()) })
 	// 其余任何注册都必须在 attachUser 之后——gin 的 RouterGroup.Use 只对**之后**注册的
 	// 路由生效（注册时复制当时的 handler 链），插到前面会让 user(c) 恒为 nil。0be8ae9 的
 	// 回归就是这么来的（/api/exchange/* 提案带合法令牌也 401）。需要身份的注册函数还应把
 	// 中间件挂在自己的子组上（见 registerExchange），免得下次再被插入位置决定行为。
-	api.GET("/openapi.json", func(c *gin.Context) { c.JSON(200, OpenAPI()) })
-	api.GET("/docs", func(c *gin.Context) {
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(200, docsHTML)
-	})
-	api.GET("/swagger", func(c *gin.Context) {
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.String(200, swaggerHTML)
-	})
 	// 身份只来自账号服务签发的 RS256 令牌：目录侧**只验签、不查库、不签发**。
 	// 中间件本体与给其它路由组复用的管理员闸门都在 auth_gate.go。
 	api.Use(attachUser(s))
+	// 交互式文档页是**管理面**：它们在浏览器里执行脚本、与本域同源，匿名可达等于把整份 API 面
+	// 连同同源脚本执行面一起交出去（审计 S-4）。移到 attachUser 之后并要求本侧唯一的
+	// admin-only 码 catalog.lifecycle.manage（与 AdminGate 同码，不新造码）。
+	docs := api.Group("/docs", required(PermissionLifecycleManage))
+	docs.GET("", func(c *gin.Context) {
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(200, docsHTML)
+	})
+	api.GET("/swagger", required(PermissionLifecycleManage), func(c *gin.Context) {
+		c.Header("Content-Type", "text/html; charset=utf-8")
+		c.String(200, swaggerHTML)
+	})
 	// 实例间导入导出：原属模块层，随子系统拆分迁入目录包（见 exchange.go）。
 	// 必须在 api.Use(attachUser) 之后：提案作者取自 user(c)，导出可见性也按它判。
 	h.registerExchange(api)
