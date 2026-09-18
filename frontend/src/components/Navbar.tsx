@@ -52,6 +52,23 @@ export const Navbar: React.FC = () => {
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  // 顶栏实际高度随断点变化：<xl 时顶栏里还多一行移动导航，写死在 CSS 里必然对不上。
+  // 这里把实测高度写进 --mf-header-h，吸顶元素（管理台内栏、社区工具条、首页筛选条）
+  // 才不会被顶栏压住；globals.css 保留同口径静态值，供无 Navbar 的页面与首帧使用。
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const publish = () =>
+      document.documentElement.style.setProperty("--mf-header-h", `${el.offsetHeight}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--mf-header-h");
+    };
+  }, []);
   // 账号管理台（/admin/account/）是账号服务自带的独立应用：按目录管理台同一约定探活
   // （2.5s AbortController 超时、cache: no-store、只认 HTTP 200）。探不到就不渲染入口——
   // 本机开发与元数据-only 部署都没有这条网关 location，留着就是一个必 404 的死链。
@@ -107,7 +124,7 @@ export const Navbar: React.FC = () => {
   ];
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/[0.06] bg-surface/85 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/85">
+    <header ref={headerRef} className="sticky top-0 z-40 w-full border-b border-white/[0.06] bg-surface/85 backdrop-blur-xl supports-[backdrop-filter]:bg-surface/85">
       <PageContainer className="h-14 sm:h-15 flex items-center justify-between gap-3">
         {/* Left Brand + Navigation */}
         <div className="flex items-center gap-3 sm:gap-4">

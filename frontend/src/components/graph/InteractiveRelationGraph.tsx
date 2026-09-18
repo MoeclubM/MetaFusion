@@ -882,7 +882,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
       ref={containerRef}
       className={`relative flex flex-col overflow-hidden select-none transition-all duration-base ease-soft ${
         isFullscreen
-          ? "fixed top-14 sm:top-[3.75rem] left-0 right-0 bottom-0 z-30 w-full h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-3.75rem)] max-w-none max-h-none m-0 rounded-none border-t border-border/60 bg-background/98 backdrop-blur-md text-foreground shadow-2xl"
+          ? "fixed top-[var(--mf-header-h)] left-0 right-0 bottom-0 z-30 w-full h-[calc(100dvh-var(--mf-header-h))] max-w-none max-h-none m-0 rounded-none border-t border-border/60 bg-background/98 backdrop-blur-md text-foreground shadow-2xl"
           : `rounded-2xl border border-border/80 bg-card/60 backdrop-blur-md shadow-sm ${className}`
       }`}
       style={isFullscreen ? undefined : { height }}

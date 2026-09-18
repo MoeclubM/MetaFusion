@@ -652,12 +652,19 @@ body:has(.glass-strong.fixed.bottom-0) main { padding-bottom: 88px; }
   }
 }
 
-/* 站点顶栏高度：吸顶元素（筛选条、详情子头、管理台内栏）统一按它定位，
-   避免各页面自己写 top-12 / top-20 而和实际导航栏高度（h-14 sm:h-15）对不上。 */
+/* 站点顶栏高度：吸顶元素（筛选条、详情子头、管理台内栏）统一按它定位。
+   组成 = 主行（h-14 / sm:h-15）+ <xl 才渲染的移动导航行（Navbar.tsx 的 xl:hidden 行：
+   链接 py-2 + 行高 1.25rem + 容器 pb-2 = 2.75rem）+ 1px 下边框。
+   Navbar 挂载后会写入实测值覆盖这里，这是无 Navbar 页面与首帧的兜底。 */
 :root {
-  --mf-header-h: 3.5rem;
+  --mf-header-h: 6.25rem;
 }
 @media (min-width: 640px) {
+  :root {
+    --mf-header-h: 6.5rem;
+  }
+}
+@media (min-width: 1280px) {
   :root {
     --mf-header-h: 3.75rem;
   }

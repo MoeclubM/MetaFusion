@@ -121,6 +121,9 @@ const config: Config = {
         pill: "9999px",
         full: "9999px",
       },
+      // v3 默认间距刻度没有 15 与 6.5：顶栏 sm:h-15（3.75rem，与 --mf-header-h 对齐）
+      // 与 h-6.5（1.625rem）原本不生成，等于 h-15/h-6.5 写了没效果。
+      spacing: { 6.5: "1.625rem", 15: "3.75rem" },
       // 容器宽度只留三档：page（主内容）/ narrow（阅读与表单）/ form（登录等窄卡）。
       maxWidth: {
         page: "80rem",

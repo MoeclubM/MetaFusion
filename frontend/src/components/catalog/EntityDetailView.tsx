@@ -773,7 +773,7 @@ export function EntityDetailView({ id }: { id: string }) {
   if (editing) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
-        <PageContainer className="sticky top-0 z-30 bg-surface/90 backdrop-blur-md border-b border-line py-2.5 flex items-center justify-between">
+        <PageContainer className="sticky top-[var(--mf-header-h)] z-30 bg-surface/90 backdrop-blur-md border-b border-line py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
               type="button"
