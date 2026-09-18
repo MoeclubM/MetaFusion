@@ -7,9 +7,13 @@ node_modules/
 .pnp/
 .pnp.js
 .pnpm-store/
-# 现状：lock 文件不入库；只用 bun（见 frontend/package.json packageManager）
+# lock 文件：包管理器口径是 bun（见 package.json 的 packageManager），但只有主站的
+# frontend/bun.lock 入库——服务器是现场构建镜像的，锁文件不入库意味着同一个提交每次
+# 构建都可能解析出不同的传递依赖树（升级、恢复、回滚都受影响）。三个管理台的锁文件在
+# 各自仓库里本来就在库（auth/storage 的 admin/bun.lock、community 的 admin/package-lock.json）。
 bun.lockb
 bun.lock
+!frontend/bun.lock
 yarn.lock
 package-lock.json
 
