@@ -119,6 +119,100 @@ export function revokeOAuthGrant(clientId: string): Promise<{ ok: boolean; revok
   });
 }
 
+// ── 个人访问令牌（PAT）：POST/GET /auth/tokens、DELETE /auth/tokens/:id ──
+//
+// 明文形如 mfp_<32 字节 base62>，库里只存 sha256：创建响应是它唯一一次露面，
+// 列表接口永远拿不回明文，界面也不该假装"稍后还能再看一眼"。
+// scopes 就是权限码（如 catalog.entity.edit），令牌的有效权限 = 用户自身权限 ∩ scopes；
+// 下游服务用 Authorization: Bearer mfp_...（没有 X-API-Key 这种写法）调账号服务内省端点换成身份；
+// 无效/已吊销/已过期一律 401 invalid_token，不区分原因（免得被拿来探测令牌状态）；
+// 内省结果按 token_hash 进程内缓存 60 秒 —— 因此**撤销最长有 60 秒窗口**（UI 与文档同口径）。
+//
+// 形状以账号服务实现为准，这里做的是"别把服务端的合法变体读成空"：
+// 列表接受 {items:[…]} 或裸数组；创建响应接受 token/plaintext/plaintext_token/secret
+// 里的明文，元数据取 item/pat 平铺。明文读不到时抛错——静默返回空串会让用户
+// 抱走一个不存在的令牌，比报错更糟。
+
+export interface PersonalAccessToken {
+  id: string;
+  name: string;
+  /** 前 12 字符，用于在列表里分辨令牌（明文只出现一次，之后只能靠前缀认人）。 */
+  token_prefix: string;
+  scopes: string[];
+  expires_at?: string | null;
+  last_used_at?: string | null;
+  created_at?: string;
+  /** 非空即已撤销；撤销是写时间戳，行不删。 */
+  revoked_at?: string | null;
+}
+
+export interface CreatedPersonalAccessToken {
+  /** mfp_ 明文：只在这一次响应里出现，调用方必须立刻展示给用户。 */
+  token: string;
+  item: PersonalAccessToken;
+}
+
+function strField(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+function normalizePersonalAccessToken(raw: unknown): PersonalAccessToken {
+  const r = (raw || {}) as Record<string, unknown>;
+  return {
+    id: strField(r.id) ?? "",
+    name: strField(r.name) ?? "",
+    token_prefix: strField(r.token_prefix) ?? "",
+    scopes: Array.isArray(r.scopes) ? r.scopes.filter((s): s is string => typeof s === "string") : [],
+    expires_at: strField(r.expires_at),
+    last_used_at: strField(r.last_used_at),
+    created_at: strField(r.created_at) ?? undefined,
+    revoked_at: strField(r.revoked_at),
+  };
+}
+
+function normalizeCreatedToken(raw: unknown): CreatedPersonalAccessToken {
+  const r = (raw || {}) as Record<string, unknown>;
+  const nested = typeof r.token === "object" && r.token !== null ? (r.token as Record<string, unknown>) : null;
+  const plain =
+    (typeof r.token === "string" && r.token) ||
+    strField(r.plaintext) ||
+    strField(r.plaintext_token) ||
+    strField(r.secret) ||
+    "";
+  if (!plain) throw new Error("pat_plaintext_missing");
+  const meta = (nested || (r.item as Record<string, unknown>) || (r.pat as Record<string, unknown>) || r) as unknown;
+  return { token: plain, item: normalizePersonalAccessToken(meta) };
+}
+
+/** GET /auth/tokens：只列当前登录身份自己的令牌（含已撤销的，界面靠 revoked_at 打标）。 */
+export async function fetchPersonalAccessTokens(): Promise<{ items: PersonalAccessToken[] }> {
+  const raw = await fetchApi<unknown>("/auth/tokens");
+  const list = Array.isArray(raw)
+    ? raw
+    : Array.isArray((raw as { items?: unknown })?.items)
+      ? ((raw as { items: unknown[] }).items)
+      : [];
+  return { items: list.map(normalizePersonalAccessToken) };
+}
+
+/** POST /auth/tokens：需登录会话（PAT 本身不能创建 PAT）；expires_in_days 省略即永不过期。 */
+export async function createPersonalAccessToken(payload: {
+  name: string;
+  scopes: string[];
+  expires_in_days?: number;
+}): Promise<CreatedPersonalAccessToken> {
+  const raw = await fetchApi<unknown>("/auth/tokens", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return normalizeCreatedToken(raw);
+}
+
+/** DELETE /auth/tokens/:id：写 revoked_at（幂等）。生效最长需 60 秒，见文件头注释。 */
+export function revokePersonalAccessToken(id: string): Promise<{ ok: boolean }> {
+  return fetchApi<{ ok: boolean }>("/auth/tokens/" + encodeURIComponent(id), { method: "DELETE" });
+}
+
 // ── 目录关系图谱拓扑与关系边 ──
 // ── OOBE 开箱初始化设置 ──
 export interface SetupStatusResponse {

@@ -7,6 +7,7 @@
 
 import type { User } from "./api";
 import {
+  ALL_PERMISSION_CODES,
   AUTH_GROUPS_MANAGE,
   AUTH_SETTINGS_MANAGE,
   AUTH_USERS_MANAGE,
@@ -54,6 +55,30 @@ export function can(user: AnyUser | null | undefined, code: string): boolean {
   if (user.role === "admin") return true;
   if (code === CATALOG_ENTITY_EDIT && user.role === "editor") return true;
   return false;
+}
+
+/**
+ * 个人访问令牌（PAT）可授权的权限码：只能是自己持有的那些码。
+ *
+ * 服务端按「用户权限 ∩ 令牌 scopes」收敛，所以勾了自己没有的码也拿不到东西——
+ * 前端先把不可能生效的选项去掉，别让用户勾完才发现白勾。
+ * 与 can() 同一套回落：老令牌（没有 permissions 声明）按历史 role 兜底；
+ * 带 * 通配时展开成具体码，因为 scopes 要落库、要能被人看懂。
+ * 本实例自定义的码不在生成物里也照样列出：它可能真实存在，藏起来只会更糟。
+ */
+export function grantablePermissionCodes(user: AnyUser | null | undefined): string[] {
+  if (!user) return [];
+  const perms = user.permissions || [];
+  const known = ALL_PERMISSION_CODES as readonly string[];
+  if (perms.includes("*")) return [...known];
+  if (perms.length > 0) {
+    const listed = known.filter((code) => perms.includes(code));
+    const custom = perms.filter((code) => !known.includes(code));
+    return [...listed, ...custom];
+  }
+  if (user.role === "admin") return [...known];
+  if (user.role === "editor") return [CATALOG_ENTITY_EDIT];
+  return [];
 }
 
 /** 能否进入管理中台：账号域或目录域的任一管理码，或老令牌下的 admin 角色。 */
