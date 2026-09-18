@@ -4,11 +4,16 @@ import { ApplicationBoundary } from "@/components/ApplicationBoundary";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { ThemeProvider } from "@/lib/themeContext";
 import { DEFAULT_ACCENT, DEFAULT_TONE } from "@/lib/theme.generated";
+import { SITE_NAME, SITE_ORIGIN } from "@/lib/site";
 
 export const metadata: Metadata = {
+  // metadataBase：详情页 OG 的 url/images 用站点绝对地址（见 lib/seo.ts），
+  // 缺了它 Next 无法把相对路径变成绝对地址。
+  metadataBase: new URL(SITE_ORIGIN),
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
-  title: "MetaFusion",
-  description: "MetaFusion",
+  title: SITE_NAME,
+  description: SITE_NAME,
+  openGraph: { siteName: SITE_NAME, type: "website", title: SITE_NAME, description: SITE_NAME },
 };
 
 export const viewport: Viewport = {

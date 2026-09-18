@@ -1,8 +1,5 @@
 import type { MetadataRoute } from "next";
-
-// 站点公开入口（网关只发布这一个域名，与后端/编排的 issuer 默认值同源）；
-// sitemap 的 url 必须是绝对地址。
-const SITE_ORIGIN = "https://findverse.cc";
+import { SITE_ORIGIN } from "@/lib/site";
 
 // 只列公开且稳定 200 的静态路径，四类不列：
 //   * 受登录保护的 /admin、/account、/settings、/developer、/new、/contribute、/invites

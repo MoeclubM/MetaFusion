@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { LoadingFallback } from "@/components/common/LoadingFallback";
 import { redirect } from "next/navigation";
+import { entityMetadata } from "@/lib/seo";
 import { EntityDetailView } from "@/components/catalog/EntityDetailView";
 import { Entity } from "@/components/catalog/api";
 import { fetchApi } from "@/lib/api";
@@ -31,6 +33,12 @@ async function resolveKind(id: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+// 兜底路由同样要有页面级 metadata：客户端取数是渲染策略，与 metadata 无关
+// （取数失败回落站点级，见 lib/seo.ts；这里不发第二个请求，直接复用同一份取数逻辑）。
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  return entityMetadata(params.id, "/catalog");
 }
 
 export default async function Page({
