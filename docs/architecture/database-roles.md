@@ -184,19 +184,31 @@ COMMUNITY_MIGRATE_DATABASE_URL  → community-migrate（一次性，跨域读）
      psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f - < deploy/sql/roles-least-privilege.sql
    ```
    （口令用 psql 变量传入，不写进仓库；不给变量则只建角色、口令稍后 `ALTER ROLE` 补。）
-   **共享审计表默认不建**（第 3b 节需显式 `-v audit_bootstrap=1`）：契约 DDL 的守卫落地前
-   预建会让四个服务启动全部 42501，见 §4.1。
-4. **重建服务**：`docker compose up -d --force-recreate backend auth community storage`
+   **共享审计表默认不由这一步建**（第 3b 节要显式 `-v audit_bootstrap=1`，见第 4 步）；
+   默认路径只收敛权限、**不动任何对象归属**——漏看一次不该改变所有权。
+4. **审计表归属前置检查（脚本会自己报，别只看 F 段）**：默认路径跑完时，脚本会检测
+   "`audit.audit_log` 已存在且 owner ≠ `mf_audit_owner`"（= 表是某个服务先启动时建的），并打印指引框。
+   命中时按指引执行一次（幂等、可在服务运行中做）：
+   ```bash
+   docker compose --env-file .env -f deploy/docker-compose.yml exec -T postgres \
+     psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -v audit_bootstrap=1 -f - \
+     < deploy/sql/roles-least-privilege.sql
+   ```
+   **预期输出**：`NOTICE: [3b] 已预建共享审计表（守卫形态）并钉死 owner=mf_audit_owner`；
+   此后 `verify-role-isolation.sql` 的 F 段从红转绿，且**不需要重启服务**（契约 DDL 有存在性守卫，
+   归属变化不再让服务启动失败）。
+5. **重建服务**：`docker compose up -d --force-recreate backend auth community storage`
    （各服务启动路径照常自建自己那份幂等结构；这一步同时验证运行角色够用）。
-5. **校验**：跑 `verify-role-isolation.sql`（A/B/C/D/F 全过才是绿的），再做一次功能冒烟
-   （目录读、账号 setup/登录、互动板块、存储 ready）。`[F]` 若报"owner 是某个服务角色"，
-   那是 §4.1 的契约缺陷、不是授权脚本的问题——它必须红，直到守卫落地。
-6. **回滚**：`roles-least-privilege.sql` 第 6.2 节（先让服务换回 `DB_*`，再撤权、再删角色；
+6. **校验**：跑 `verify-role-isolation.sql`（A/B/C/D/F 全过才是绿的），再做一次功能冒烟
+   （目录读、账号 setup/登录、互动板块、存储 ready）。`[F]` 若仍报"owner 是某个服务角色"，
+   说明第 4 步没做或没生效——按指引框的命令重跑一次即可，不是授权脚本的问题。
+7. **回滚**：`roles-least-privilege.sql` 第 6.2 节（先让服务换回 `DB_*`，再撤权、再删角色；
    顺序反了会让在跑的服务当场 42501）。**授权脚本本身可重复执行**，误撤权限重跑一遍即恢复。
 
-停机窗口之外还有一条纪律：**迁移新增对象之后重跑一次授权脚本**。默认权限只覆盖"登记之后、
-由登记角色建出"的对象；本轮就实测到过一次（目录 000002 建出的表在重跑前对 `mf_catalog` 零权限，
-重跑后自动补齐）。
+**★ 通用纪律（每次迁移之后都要执行，不是一次性的）**：**迁移新增了表/序列之后重跑一次授权脚本**
+（即重复第 3 步）。默认权限只覆盖"登记之后、由登记角色建出"的对象；本轮就实测到过一次
+（目录 000002 建出的表在重跑前对 `mf_catalog` 零权限，重跑后自动补齐）。同一件事对共享审计表也成立：
+表建出来后必须重跑，否则第 4b 节只授了 schema 权限、审计行会静默写失败（F 段会以"缺 SELECT/INSERT"报错兜住）。
 
 ## 7. 验证记录（本机真库，可复跑）
 

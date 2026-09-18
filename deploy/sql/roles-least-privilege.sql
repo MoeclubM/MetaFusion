@@ -386,9 +386,25 @@ BEGIN
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
   WHERE n.nspname = 'audit' AND c.relname = 'audit_log';
   IF table_owner IS DISTINCT FROM 'mf_audit_owner' THEN
-    -- 刻意不在这里抢归属：那会打断当前 owner（服务角色）的下一次启动。
-    -- 要改成 mf_audit_owner，只能在契约 DDL 有"表不存在才建"守卫之后走第 3b 节预建路径。
-    RAISE NOTICE '[4b] 注意：audit.audit_log 的 owner 是 %，owner 隐式持有全部权限且 REVOKE 不掉，因此"只追加"对该角色不成立。改法见 docs/architecture/database-roles.md 第 4 节', table_owner;
+    -- 刻意不在这里抢归属：默认路径执行的是"收敛权限"，不该顺手改所有权——
+    -- 运维漏看一次就变更了对象归属，是不可接受的副作用。
+    -- 但也不能只留给 F 段去红：这里就把"怎么改"一步一步写出来（可执行的前置检查）。
+    RAISE NOTICE '';
+    RAISE NOTICE '┌──────────────────────────────────────────────────────────────────────────────';
+    RAISE NOTICE '│ [4b] 前置检查未通过：audit.audit_log 的 owner 是 %（期望 mf_audit_owner）', table_owner;
+    RAISE NOTICE '│ 危害：owner 隐式持有全部权限且 REVOKE 不掉，该角色能 UPDATE/DELETE 审计行 —— "只追加"不成立；';
+    RAISE NOTICE '│       verify-role-isolation.sql 的 F 段会因此硬失败（这是刻意的）。';
+    RAISE NOTICE '│ 原因：表是某个服务先启动时建的（四个服务账本互相独立，新库上谁先起谁建）。';
+    RAISE NOTICE '│ 修法（在部署机上执行，幂等，可在服务运行中执行）：';
+    RAISE NOTICE '│   docker compose --env-file .env -f deploy/docker-compose.yml exec -T postgres \';
+    RAISE NOTICE '│     psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -v audit_bootstrap=1 -f - \';
+    RAISE NOTICE '│     < deploy/sql/roles-least-privilege.sql';
+    RAISE NOTICE '│ 预期输出：[3b] 已预建共享审计表（守卫形态）并钉死 owner=mf_audit_owner，';
+    RAISE NOTICE '│           且此后 verify-role-isolation.sql 的 F 段从红转绿；服务无需重启';
+    RAISE NOTICE '│           （契约 DDL 有存在性守卫，归属变化不再让服务启动失败）。';
+    RAISE NOTICE '│ 说明：本步是显式动作，不由默认路径代劳——默认路径只收敛权限。';
+    RAISE NOTICE '└──────────────────────────────────────────────────────────────────────────────';
+    RAISE NOTICE '';
   END IF;
 
   FOR r IN SELECT unnest(ARRAY['mf_catalog', 'mf_auth', 'mf_community', 'mf_storage']) AS app_role
