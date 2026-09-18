@@ -34,6 +34,7 @@ type AuthMode = "login" | "register";
 // 全部会话与 OAuth 令牌，设置页只能把用户送回这里，并说明为什么需要重新登录。）
 const LOGIN_NOTICES: Record<string, string> = {
   password_changed: "auth.passwordChangedSignedOut",
+  sessions_revoked: "auth.sessionsRevokedSignedOut",
 };
 
 const inputClass =

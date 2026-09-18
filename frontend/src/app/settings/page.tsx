@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme, accentLabel } from "@/lib/themeContext";
-import { clearAuthTokens, displayNameOf, fetchAuthSettings, PublicAuthSettings } from "@/lib/api";
+import { clearAuthTokens, displayNameOf, fetchAuthSettings, getAccessToken, PublicAuthSettings } from "@/lib/api";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
@@ -31,6 +31,7 @@ import {
   Heart,
   Mail,
   ShieldCheck,
+  LogOut,
 } from "lucide-react";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { PageShell } from "@/components/ui/PageShell";
@@ -55,6 +56,7 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [signingOutAll, setSigningOutAll] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -142,6 +144,42 @@ export default function SettingsPage() {
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleLogoutAll = async () => {
+    // 误触防护与 /account 的既有实现（components/catalog/CatalogPages.tsx）一致：先二次确认。
+    if (!window.confirm(t("account.logoutAllConfirm"))) return;
+    setError(null);
+    setSuccess(null);
+    setSigningOutAll(true);
+    try {
+      // 原生 fetch，不走 fetchApi（与上面的改密同理）：账号服务这条端点会删掉该用户全部
+      // auth.sessions，含发起这次请求的会话（metafusion-auth 的 Store.LogoutAll），
+      // fetchApi 的 401 续期重试在这里只会多打一次注定失败的 /auth/refresh。
+      const token = getAccessToken();
+      const res = await fetch("/api/auth/logout-all", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const failed = new Error(data.error || "request_failed") as Error & { status?: number };
+        failed.status = res.status;
+        throw failed;
+      }
+      // 当前会话已被服务端删掉：本地令牌必须一起清空，并整页跳到登录页说明原因
+      // （与改密同款：只清令牌不跳转的话，AuthGate 会立刻 replace 一次
+      // /login?redirect=... 把提示顶掉——本文件上面记过这次打架）。
+      clearAuthTokens();
+      window.location.assign(
+        `/login?notice=sessions_revoked&redirect=${encodeURIComponent("/settings?tab=password")}`
+      );
+    } catch (err: unknown) {
+      setError(authErrorText(err instanceof Error ? err.message : String(err), t, httpStatusOf(err)));
+    } finally {
+      setSigningOutAll(false);
     }
   };
 
@@ -514,6 +552,33 @@ export default function SettingsPage() {
               >
                 {submitting ? <div className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" /> : t("settings.confirmChange")}
               </button>
+
+              {/* 会话安全：「全部设备登出」原来只有 /account 一个入口（components/catalog/
+                  CatalogPages.tsx），而该页在导航里已无入口，普通用户到不了。这里给同一语义的
+                  入口（本页签就是安全与改密），服务端行为不变。 */}
+              <div className="pt-3 mt-1 border-t border-line-subtle space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
+                  <span className="font-mono text-xs font-semibold text-text-body">{t("settings.sessionsTitle")}</span>
+                </div>
+                <p className="text-[11px] text-gray-500 leading-relaxed">{t("settings.sessionsDesc")}</p>
+                {/* type=button：本按钮在改密表单内，但语义与表单无关，回车提交改密不受影响。 */}
+                <button
+                  type="button"
+                  onClick={handleLogoutAll}
+                  disabled={signingOutAll}
+                  className="w-full h-10 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 dark:text-red-300 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-red-500/[0.16] transition-colors disabled:opacity-50"
+                >
+                  {signingOutAll ? (
+                    <div className="w-4 h-4 rounded-full border-2 border-red-400/30 border-t-red-400 animate-spin" />
+                  ) : (
+                    <>
+                      <LogOut className="w-4 h-4" />
+                      <span>{t("account.logoutAllDevices")}</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </form>
           )}
         </TabPanel>
