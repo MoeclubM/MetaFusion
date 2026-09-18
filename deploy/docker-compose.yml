@@ -115,6 +115,12 @@ services:
       context: ../backend
       dockerfile: Dockerfile
       target: server
+      # /api/version 的版本身份：只有构建期注入才靠得住（镜像里没有 .git，运行期读环境变量
+      # 会随重启漂移）。deploy.sh 构建前把当前提交导出成 METAFUSION_GIT_SHA，CI 的镜像矩阵
+      # 传 GITHUB_SHA；两者都没有时是 unknown——宁可显式未知，也不要猜一个版本。
+      args:
+        GIT_SHA: ${METAFUSION_GIT_SHA:-unknown}
+        APP_VERSION: ${METAFUSION_VERSION:-unknown}
     image: metafusion-backend:${METAFUSION_TAG:-local}
     container_name: metafusion-backend
     restart: unless-stopped

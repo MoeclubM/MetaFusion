@@ -46,6 +46,10 @@ services:
       # 目录服务的运行镜像就是 backend/Dockerfile 的 server 阶段（没有 catalog-server 阶段，
       # 写错会让该编排在 build 时报 target stage could not be found，而 config 检查发现不了）。
       target: server
+      # 与主编排同口径：/api/version 的版本身份在构建期注入（deploy.sh 导出 METAFUSION_GIT_SHA）。
+      args:
+        GIT_SHA: ${METAFUSION_GIT_SHA:-unknown}
+        APP_VERSION: ${METAFUSION_VERSION:-unknown}
       labels:
         io.metafusion.project: metafusion
     container_name: metafusion-backend

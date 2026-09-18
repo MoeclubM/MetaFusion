@@ -9,7 +9,7 @@
 
 | 运行单元 | 职责 | 拥有数据（schema） | 对外路径前缀 | 仓库 |
 | --- | --- | --- | --- | --- |
-| 元数据目录 catalog | 八类实体、动态定义、关系、结构、修订、检索、货架、外部库 | `catalog.*` | `/api/catalog/*`、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json` | MetaFusion（本仓库） |
+| 元数据目录 catalog | 八类实体、动态定义、关系、结构、修订、检索、货架、外部库 | `catalog.*` | `/api/catalog/*`、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json`、`/api/version` | MetaFusion（本仓库） |
 | 账号 auth | 注册/登录、会话、令牌签发与吊销、OAuth2/OIDC、账号与角色管理、开发者中心（应用自助登记与接入配置） | `auth.*` | `/api/setup`、`/api/auth/*`、`/api/admin/users*`、`/api/oauth/*`、`/api/developer/*`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration` | metafusion-auth |
 | 互动 community | 论坛板块/主题/回复/标签、条目短评、个人收藏、私信 | `community.*` | `/api/community/*`、`/api/favorites/*`、`/api/messages/*`、`/api/users/{id}/favorites` | metafusion-community |
 | 存储 storage | 物理文件、哈希与去重、对象存储直传、绑定、下载/预览与访问控制 | `storage.*` | `/api/storage/*` | metafusion-storage |
@@ -36,6 +36,7 @@
 | auth | `/api/oauth/authorize|token|userinfo`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration`、根路径 `/.well-known/{openid-configuration,jwks.json}` | metafusion-auth（令牌只由它签发，discovery 与 JWKS 也只在它这里） |
 | auth | `/api/developer/*`（overview、apps、apps/{id}、apps/{id}/rotate-secret） | metafusion-auth（开发者中心：任何登录账号自助登记应用；网关用 `/api/developer/` 前缀整体分流，不与 `/api/admin/oauth/*` 混用） |
 | catalog | `/api/catalog/*`（definitions、tags、entities、relations、shelves、compare、me/home-preferences 等）、`/api/importer/*`、`/api/exchange/*`、`/api/capabilities`、`/api/admin/{catalog-definitions,external-databases,shelves,modules}`、`/api/openapi.json` | 本仓库，保留 |
+| catalog | `GET /api/version` | 本仓库：运行中进程的版本身份——构建期注入的版本与 git sha、构建时间、进程启动时间（同一个 `/api/` 兜底 location 分流）；匿名可读，只回身份字段，不含配置、凭据与主机信息，用于发布/回滚后核对"线上跑的是哪一版" |
 | community | `/api/community/*`（boards、topics、topic-tags、feed、entities/:id/posts、entities/:id/collections、posts/:id） | metafusion-community |
 | community | `/api/favorites/toggle|status|mine`、`/api/users/:id/favorites` | metafusion-community（`community.favorites`） |
 | auth | `GET /api/users/:id` | metafusion-auth（公开账号资料；同前缀多归属，网关用 `^/api/users/[^/]+$` 精确分流） |

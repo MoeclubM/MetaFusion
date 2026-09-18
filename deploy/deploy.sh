@@ -80,6 +80,23 @@ function check_version_lock() {
     fi
 }
 
+# /api/version 的构建期身份来源：把当前提交与版本交给 compose（backend 的 build args）。
+# 只有构建期注入才靠得住——容器里没有 .git（.dockerignore 排除），运行期再读环境变量会随重启漂移。
+# 刻意不标 dirty：部署树里有未提交文件是常态，标了几乎永远是 dirty，反而没人会看这一行。
+function export_version_identity() {
+    local root_dir sha tag
+    root_dir="$(dirname "$0")/.."
+    if [ -z "${METAFUSION_GIT_SHA:-}" ] && command -v git >/dev/null 2>&1; then
+        sha=$(git -C "$root_dir" rev-parse --short=12 HEAD 2>/dev/null || true)
+        [ -n "$sha" ] && export METAFUSION_GIT_SHA="$sha"
+    fi
+    if [ -z "${METAFUSION_VERSION:-}" ] && command -v git >/dev/null 2>&1; then
+        tag=$(git -C "$root_dir" describe --tags --exact-match 2>/dev/null || true)
+        [ -n "$tag" ] && export METAFUSION_VERSION="$tag"
+    fi
+    echo "🏷️  版本身份（写进 /api/version）：git=${METAFUSION_GIT_SHA:-unknown} version=${METAFUSION_VERSION:-unknown}"
+}
+
 # 迁移必须用**当前镜像里**的迁移器：迁移是编译进二进制的（embed），用运行中的旧容器
 # 执行会报"已是最新"而漏掉新迁移。--entrypoint 覆盖服务入口（镜像是 /app/server，
 # 直接 run 会把参数交给它而不是迁移器）；--no-deps 不连带拉起依赖，只跑这一个一次性容器。
@@ -155,6 +172,7 @@ case "$ACTION" in
 
     fast)
         check_version_lock
+        export_version_identity
         export DOCKER_BUILDKIT=1
         if [ -n "$TARGET" ]; then
             echo "⚡ 增量更新指定服务 [$TARGET]..."
@@ -175,6 +193,7 @@ case "$ACTION" in
 
     cutover)
         check_version_lock
+        export_version_identity
         # 首次把实例从单体切到拆分后的服务：搬数据在前、换网关在后，顺序不可颠倒
         # （搬运必须在单体仍是唯一写入方时完成，见 docs/architecture/cutover-runbook.md）。
         # 日常迭代仍用 ./deploy.sh fast；本动作只走一次，回滚见手册第 1 章。
@@ -208,6 +227,7 @@ case "$ACTION" in
 
     prod)
         check_version_lock
+        export_version_identity
         echo "🏭 启动生产集群模式..."
         export DOCKER_BUILDKIT=1
         docker compose $COMPOSE_ENV -f docker-compose.yml build backend
@@ -222,6 +242,7 @@ case "$ACTION" in
 
     pull)
         check_version_lock
+        export_version_identity
         echo "📦 拉取预构建生产容器镜像 (GHCR)..."
         # --ignore-buildable：账号/互动/存储仍从兄弟仓库构建，镜像名是本地标签
         #   （metafusion-auth:local 之类），去 registry 拉必然失败；跳过它们，

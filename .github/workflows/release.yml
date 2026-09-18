@@ -38,6 +38,12 @@ jobs:
             dockerfile: ./backend/Dockerfile
             target: server
             image_name: backend
+            # /api/version 的版本身份：镜像里没有 .git，只有构建期注入才靠得住。
+            # GIT_SHA 用本次构建的提交，APP_VERSION 用 ref 名（tag 上是 tag，main 上是 main）；
+            # migrator 镜像不需要——迁移器二进制不带这两个 -X。
+            build_args: |
+              GIT_SHA=${{ github.sha }}
+              APP_VERSION=${{ github.ref_name }}
           - name: backend-migrator
             context: ./backend
             dockerfile: ./backend/Dockerfile
