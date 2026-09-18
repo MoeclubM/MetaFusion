@@ -177,13 +177,6 @@ type RelationDefinition struct {
 	Enabled        bool   `json:"enabled"`
 }
 
-// 关系对端的参与者槽位取值（见 RelationDefinition.ParticipantSlot）。
-const (
-	ParticipantSlotPerson    = "person"
-	ParticipantSlotCharacter = "character"
-	ParticipantSlotPeer      = "peer"
-)
-
 type Section struct {
 	Names  Names    `json:"names"`
 	Fields []string `json:"fields"`
