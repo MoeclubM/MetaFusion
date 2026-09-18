@@ -193,7 +193,9 @@ export default function UserDetailPage() {
     fetchUserContributions(id, { tab, page, pageSize: 20 })
       .then((r) => {
         if (!alive) return;
-        setItems(r.items);
+        // 契约漂移防御：items 会在渲染路径上 .length/.map（收藏与贡献两个列表），
+        // 非数组不能进 state；取不到按空列表降级，页面其余部分照常可用。
+        setItems(Array.isArray(r.items) ? r.items : []);
         setTotal(r.total);
         if (r.stats) setContribStats(r.stats);
       })

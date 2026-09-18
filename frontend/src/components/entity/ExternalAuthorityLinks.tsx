@@ -48,7 +48,8 @@ export function ExternalAuthorityLinks({
   useEffect(() => {
     fetchExternalDatabases(category)
       .then((res) => {
-        if (res?.items) {
+        // 非数组（契约漂移）不进 state：只挡 undefined 是挡不住的，宁可不覆盖已有状态。
+        if (Array.isArray(res?.items)) {
           setDefinitions(res.items);
         }
       })

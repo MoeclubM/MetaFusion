@@ -155,6 +155,9 @@ async function allEntities(query: string): Promise<Entity[]> {
     const r = await api<{ items: Entity[] }>(
       `/catalog/entities?${query}&offset=${offset}&limit=100`
     );
+    // 契约漂移：直接取 r.items.length 会在缺字段时抛 "Cannot read properties of undefined"。
+    // 这里抛出**可读**错误交给调用方现有的失败路径（子实体列表整块降级），不白屏、也不静默半截列表。
+    if (!Array.isArray(r.items)) throw new Error("invalid_response: entities.items");
     items.push(...r.items);
     if (r.items.length < 100) return items;
   }
@@ -247,7 +250,8 @@ export function EntityDetailView({ id }: { id: string }) {
       // 关系对端实体由 relations 接口一并返回（单次批量查询），不再逐条 Get。
       // 映射覆盖每条关系的两端（含主体自身），subject_id 指出哪一端是主体；
       // 保留逐条回退，使前端部署不依赖后端是否已上线这两个字段。
-      if (relRes.entities) setRelatedEntities(relRes.entities);
+      // 只认数组：非数组进 state 会让按 id 取对端的映射渲染成空白或抛错。
+      if (Array.isArray(relRes.entities)) setRelatedEntities(relRes.entities);
       setRelationSubjectId(relRes.subject_id || e.id || "");
       const revItems = revRes.items || [];
       setOccurrences(occItems);

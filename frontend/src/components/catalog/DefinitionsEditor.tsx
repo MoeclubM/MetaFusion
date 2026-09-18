@@ -401,7 +401,9 @@ export function DefinitionsEditor() {
     definitionVersions()
       .then((r) => {
         if (!alive) return;
-        setVersions(r.items);
+        // 契约漂移防御：versions 是渲染路径上的 .map（下面版本列表），HTTP 200 但 items 不是数组时
+        // 不能让 undefined 进 state，否则整块版本历史把页面带崩；取不到就按"没有版本列表"降级。
+        setVersions(Array.isArray(r.items) ? r.items : []);
         setVersionsError("");
       })
       // 列表失败只降级版本历史那一块：写失败仍走 error（顶部 ErrorMessage）。
