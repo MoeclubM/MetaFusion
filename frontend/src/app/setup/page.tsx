@@ -81,8 +81,10 @@ export default function SetupPage() {
       return;
     }
 
-    if (password.length < 12) {
-      setError(t("setup.passwordTooShort"));
+    // 口径与服务端 Store.ValidatePassword 一致：12–72 位，前后端共用同一个错误键
+    // （提示文案原先写"至少 8 个字符"，与本页自己的 12 位校验矛盾）。
+    if (password.length < 12 || password.length > 72) {
+      setError(t("auth.error.invalid_password_length"));
       return;
     }
 
@@ -312,6 +314,7 @@ export default function SetupPage() {
                     type={showPassword ? "text" : "password"}
                     required
                     minLength={12}
+                    maxLength={72}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t("setup.passwordPlaceholder12")}
@@ -337,6 +340,7 @@ export default function SetupPage() {
                     type={showPassword ? "text" : "password"}
                     required
                     minLength={12}
+                    maxLength={72}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder={t("setup.confirmPasswordPlaceholder")}

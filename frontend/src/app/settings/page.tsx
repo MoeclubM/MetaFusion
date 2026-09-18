@@ -90,8 +90,9 @@ export default function SettingsPage() {
     setError(null);
     setSuccess(null);
 
-    // 后端 Store.ChangePassword 要求 12–72 位，与请求体 old_password/new_password 对齐。
-    if (newPassword.length < 12) {
+    // 后端 Store.ChangePassword 要求 12–72 位，与请求体 old_password/new_password 对齐：
+    // 上限也要在本地拦住，否则用户输入超长口令要等服务端 invalid_password_length 才知道。
+    if (newPassword.length < 12 || newPassword.length > 72) {
       setError(t("auth.error.invalid_password_length"));
       return;
     }
@@ -496,12 +497,15 @@ export default function SettingsPage() {
                     type="password"
                     required
                     minLength={12}
+                    maxLength={72}
                     placeholder={t("settings.newPasswordPlaceholder")}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full pl-9 pr-3.5 h-10 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-gray-400 focus:outline-none focus:border-primary/50"
                   />
                 </div>
+                {/* 规则只此一处：与服务端 12–72 位同口径；/login 注册页用同一个键。 */}
+                <p className="text-[11px] text-text-muted font-mono">{t("auth.registerPasswordHint")}</p>
               </div>
 
               <div className="space-y-1">
@@ -512,6 +516,7 @@ export default function SettingsPage() {
                     type="password"
                     required
                     minLength={12}
+                    maxLength={72}
                     placeholder={t("settings.confirmPasswordPlaceholder")}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
