@@ -1770,6 +1770,8 @@
   "admin.console.mergeSuccess": "エンティティのマージが完了しました！",
   "admin.consoles.title": "その他のコンソール",
   "admin.consoles.hint": "各領域の管理コンソールは独立したアプリで、新しいタブで開きます。",
+  "admin.consoles.pickDesc": "このアカウントで開ける管理コンソールです。いずれも独立したアプリで、新しいタブで開きます。「未デプロイ」と表示された領域は現在公開されていません。",
+  "admin.consoles.pickTitle": "管理コンソールの選択",
   "admin.consoles.account": "アカウントと権限",
   "admin.consoles.community": "コミュニティ板の管理",
   "admin.consoles.storage": "リソースストレージ",

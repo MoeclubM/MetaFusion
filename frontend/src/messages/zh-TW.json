@@ -1770,6 +1770,8 @@
   "admin.console.mergeSuccess": "實體合併成功完成！",
   "admin.consoles.title": "其他控制台",
   "admin.consoles.hint": "各域管理台是獨立應用程式，於新視窗開啟。",
+  "admin.consoles.pickDesc": "你的帳號可以進入以下管理台。每個都是獨立應用程式，於新視窗開啟；標示「未部署」的網域目前沒有上線。",
+  "admin.consoles.pickTitle": "選擇管理主控台",
   "admin.consoles.account": "帳號與權限",
   "admin.consoles.community": "社群分區管理",
   "admin.consoles.storage": "資源儲存",

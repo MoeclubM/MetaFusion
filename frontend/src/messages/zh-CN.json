@@ -1770,6 +1770,8 @@
   "admin.console.mergeSuccess": "实体合并成功完成！",
   "admin.consoles.title": "其他控制台",
   "admin.consoles.hint": "各域管理台是独立应用，在新窗口打开。",
+  "admin.consoles.pickDesc": "你的账号可以进入以下管理台。每个都是独立应用，在新窗口打开；标着「未部署」的域当前没有上线。",
+  "admin.consoles.pickTitle": "选择管理控制台",
   "admin.consoles.account": "账号与权限",
   "admin.consoles.community": "社区分区管理",
   "admin.consoles.storage": "资源存储",

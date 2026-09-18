@@ -33,6 +33,7 @@ import {
   STORAGE_ASSET_UPLOAD,
   can,
   canEnterAdmin,
+  canEnterCatalogConsole,
 } from "@/lib/permissions";
 import { fetchApi, unpublishEntity } from "@/lib/api";
 import { localizeCatalogError } from "@/lib/catalogErrors";
@@ -253,17 +254,21 @@ function AdminInner() {
       .finally(() => setEntitiesLoading(false));
   };
 
-  // 取数条件与进入管理台的闸门保持一致（canEnterAdmin，按权限码判定）：
-  // 原来只认 role==="admin"，导致后台分配了管理权限组、但 role 仍是 user 的成员
-  // 能进 /admin 却永远看不到概览与实体列表（空面板而非"无权限"，等于假象无数据）。
-  const mayEnter = canEnterAdmin(user);
+  // 两个取数闸门，别混成一个（原来只认 role==="admin"，后台分配了管理权限组但 role 仍是
+  // user 的成员能进 /admin 却永远看不到概览与实体列表，空面板冒充"无数据"）：
+  //   · mayEnterConsoles —— 控制台探活。只持账号域权限的人也会落到入口页，而那个页面
+  //     要靠探活结果标"未部署"，所以这里是并集；
+  //   · mayEnterCatalog —— 概览 / 实体 / 审核这些取数全是目录域端点，只该由目录域权限触发，
+  //     否则账号域管理员一进 /admin 就打出一串注定 403 的请求。
+  const mayEnterConsoles = canEnterAdmin(user);
+  const mayEnterCatalog = canEnterCatalogConsole(user);
 
   // 各域管理台挂载时探活一次：2.5s 超时、no-store，只认 HTTP 200。
   // 三个应用的健康体并不一致（auth/storage 是 {"ok":true}，community 是 {"status":"ok"}），
   // 所以不能按字段判定，只看状态码；超时 / 404 / 网络失败一律当未部署，静默隐藏入口。
   // 主站本地开发下这三条路径没有代理，会稳定 404 —— 降级结果就是"看不到入口"，不是报错。
   useEffect(() => {
-    if (!mayEnter) return;
+    if (!mayEnterConsoles) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 2500);
     let alive = true;
@@ -291,25 +296,25 @@ function AdminInner() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [mayEnter]);
+  }, [mayEnterConsoles]);
 
   useEffect(() => {
-    if (mayEnter) {
+    if (mayEnterCatalog) {
       loadOverview();
     }
-  }, [mayEnter]);
+  }, [mayEnterCatalog]);
 
   useEffect(() => {
-    if (activeTab === "entities" && mayEnter) {
+    if (activeTab === "entities" && mayEnterCatalog) {
       loadEntities();
     }
-  }, [activeTab, entitiesKind, entitiesStatus, mayEnter]);
+  }, [activeTab, entitiesKind, entitiesStatus, mayEnterCatalog]);
 
   useEffect(() => {
-    if (activeTab === "reviews" && mayEnter) {
+    if (activeTab === "reviews" && mayEnterCatalog) {
       loadReviewList();
     }
-  }, [activeTab, reviewStatus, mayEnter]);
+  }, [activeTab, reviewStatus, mayEnterCatalog]);
 
   // 状态写入的唯一封装：PUT 是整份替换，必须先读全量再改状态（列表项是摘要，
   // 直接提交会因缺字段被服务端拒）；sources 的 kind 只能是 url / publication / self
@@ -472,6 +477,10 @@ function AdminInner() {
     );
   }
 
+  // 这个人真的能进的域：按权限筛，探活结果与左栏入口同源（不重复请求）。
+  // 必须在准入分支之前算：下面要用它决定"给控制台入口页，还是给权限不足页"。
+  const permittedConsoles = OTHER_CONSOLES.filter((item) => item.permissions.some((code) => can(user, code)));
+
   if (!user || !canEnterAdmin(user)) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
@@ -494,8 +503,70 @@ function AdminInner() {
     );
   }
 
-  // 页签即管理台的全部工作面：进管理台的闸门是 canEnterAdmin，块内 403 各自降级，
-  // 不在这里逐块加码。其余域（账号 / 社区 / 存储）已是独立应用，不在这里挂页签。
+  // 能进管理台、但没有目录域权限（例如只持 auth.users.manage）：这里绝不能把人放进目录外壳——
+  // 本页页签全是目录工作面，对他一片 403，看着像管理台坏了。只给"你能进的控制台"入口页。
+  // 未探活到在线的域不渲染成链接（与左栏同口径：不给死链），但保留一行说明它存在。
+  if (!canEnterCatalogConsole(user)) {
+    return (
+      <div className="min-h-screen bg-background text-text-strong pt-[var(--mf-header-h)]">
+        <PageContainer className="py-12">
+          <div className="max-w-xl mx-auto">
+            <h1 className="text-xl font-bold text-text-strong mb-2">
+              {t("admin.consoles.pickTitle")}
+            </h1>
+            <p className="text-sm text-text-muted leading-relaxed mb-6">
+              {t("admin.consoles.pickDesc")}
+            </p>
+            <div className="flex flex-col gap-3">
+              {permittedConsoles.map((item) => {
+                const Icon = item.icon;
+                const online = consoles[item.id] === "online";
+                const inner = (
+                  <>
+                    <Icon className="w-5 h-5 shrink-0 text-text-muted" />
+                    <span className="flex-1 text-sm font-medium">{t(item.labelKey)}</span>
+                    {online ? null : (
+                      <span className="text-[10px] font-mono text-text-faint">
+                        {t("admin.console.disabled")}
+                      </span>
+                    )}
+                    <ArrowUpRight className="w-4 h-4 shrink-0 text-text-faint" />
+                  </>
+                );
+                return online ? (
+                  <a
+                    key={item.id}
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-line-subtle bg-surfaceSubtle hover:bg-surfaceHover transition-colors"
+                  >
+                    {inner}
+                  </a>
+                ) : (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-line-subtle bg-surfaceSubtle opacity-60"
+                  >
+                    {inner}
+                  </div>
+                );
+              })}
+            </div>
+            <Link
+              href="/account"
+              className="inline-block mt-8 text-xs text-primary hover:underline"
+            >
+              {t("admin.console.goLogin")}
+            </Link>
+          </div>
+        </PageContainer>
+      </div>
+    );
+  }
+
+  // 页签即管理台的全部工作面：走到这里说明持有目录域管理码（闸门是 canEnterCatalogConsole），
+  // 块内 403 各自降级，不在这里逐块加码。其余域（账号 / 社区 / 存储）已是独立应用，不在这里挂页签。
   const navTabs: { id: AdminTab; labelKey: string; icon: LucideIcon }[] = [
     { id: "overview", labelKey: "admin.tab.overview", icon: LayoutDashboard },
     { id: "entities", labelKey: "admin.nav.entities", icon: Layers },
@@ -513,8 +584,7 @@ function AdminInner() {
     (item) => consoles[item.id] === "online" && item.permissions.some((code) => can(user, code)),
   );
   // 概览的状态条按权限（而不是在线）筛：要能讲"这个域你看得到但没部署"。
-  // 探活结果与左栏入口同源，不重复请求。
-  const permittedConsoles = OTHER_CONSOLES.filter((item) => item.permissions.some((code) => can(user, code)));
+  // permittedConsoles 在上面准入分支之前就算过了（探活结果与左栏入口同源），这里不重复计算。
   const consoleProbeDone = permittedConsoles.every((item) => consoles[item.id] != null);
 
   return (

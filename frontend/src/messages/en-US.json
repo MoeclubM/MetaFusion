@@ -1770,6 +1770,8 @@
   "admin.console.mergeSuccess": "Entity merged successfully!",
   "admin.consoles.title": "Other consoles",
   "admin.consoles.hint": "Each domain console is a separate app; links open in a new tab.",
+  "admin.consoles.pickDesc": "These are the consoles your account can open. Each is a separate app and opens in a new tab; an entry marked \"Not deployed\" means that domain is not online.",
+  "admin.consoles.pickTitle": "Choose a console",
   "admin.consoles.account": "Accounts & permissions",
   "admin.consoles.community": "Community boards",
   "admin.consoles.storage": "Resource storage",
