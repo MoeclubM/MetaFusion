@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { PageShell } from "@/components/ui/PageShell";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 
 // 页签白名单：?tab= 只认这几项，其余一律回资料页（避免深链把页面带到不存在的页签）。
 type SettingsTab = "profile" | "password" | "appearance" | "tokens" | "authorizations";
@@ -57,6 +58,8 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [signingOutAll, setSigningOutAll] = useState(false);
+  // 待确认的「全部设备登出」：确认框自绘（原生 confirm 不可本地化、不可样式化），与 /account 同形。
+  const [pendingLogoutAll, setPendingLogoutAll] = useState(false);
 
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
@@ -148,9 +151,9 @@ export default function SettingsPage() {
     }
   };
 
+  // 点击只开确认框，确认后才走下面的动作（误触防护与 /account 的实现一致）。
   const handleLogoutAll = async () => {
-    // 误触防护与 /account 的既有实现（components/catalog/CatalogPages.tsx）一致：先二次确认。
-    if (!window.confirm(t("account.logoutAllConfirm"))) return;
+    setPendingLogoutAll(false);
     setError(null);
     setSuccess(null);
     setSigningOutAll(true);
@@ -545,7 +548,7 @@ export default function SettingsPage() {
                 {/* type=button：本按钮在改密表单内，但语义与表单无关，回车提交改密不受影响。 */}
                 <button
                   type="button"
-                  onClick={handleLogoutAll}
+                  onClick={() => setPendingLogoutAll(true)}
                   disabled={signingOutAll}
                   className="w-full h-10 rounded-lg border border-red-500/30 bg-red-500/10 text-red-500 dark:text-red-300 font-semibold text-sm flex items-center justify-center gap-2 hover:bg-red-500/[0.16] transition-colors disabled:opacity-50"
                 >
@@ -563,6 +566,16 @@ export default function SettingsPage() {
           )}
         </TabPanel>
       </PageShell>
+
+      <ConfirmDialog
+        open={pendingLogoutAll}
+        title={t("account.logoutAllDevices")}
+        message={t("account.logoutAllConfirm")}
+        confirmLabel={t("account.logoutAllDevices")}
+        busy={signingOutAll}
+        onClose={() => setPendingLogoutAll(false)}
+        onConfirm={handleLogoutAll}
+      />
     </div>
   );
 }
