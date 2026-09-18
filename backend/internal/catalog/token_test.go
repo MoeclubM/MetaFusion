@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -578,5 +579,109 @@ func TestPublicJWKHasNoPrivateMaterial(t *testing.T) {
 	defer up.Close()
 	if jwk = testVerifierFromJWKS(t, up.URL).PublicJWK(); jwk != nil {
 		t.Fatalf("JWKS 模式下不应有单一 JWK: %+v", jwk)
+	}
+}
+
+// 账号服务抖动（JWKS 非 200 / 连接失败）超过 TTL 后，缓存里仍然有效的旧键必须继续可用：
+// 公钥没有有效期，TTL 只是"多久去确认一次轮换"；旧实现此时直接返回错误，等于让本服务对
+// 所有已签发令牌 401（2026-09-19 第二轮架构报告 #22）。
+func TestVerifierJWKSRefreshFailureFallsBackToCachedKey(t *testing.T) {
+	key := testKey(t)
+	var hits int64
+	var down atomic.Bool
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt64(&hits, 1)
+		if down.Load() {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		list := []map[string]string{{
+			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": keyID(&key.PublicKey),
+			"n": b64(key.PublicKey.N.Bytes()), "e": b64(big.NewInt(int64(key.PublicKey.E)).Bytes()),
+		}}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": list})
+	}))
+	defer up.Close()
+	v := testVerifierFromJWKS(t, up.URL)
+
+	token := signTestToken(t, key, nil)
+	if _, err := v.Verify(token); err != nil {
+		t.Fatalf("首次验签: %v", err)
+	}
+	if n := atomic.LoadInt64(&hits); n != 1 {
+		t.Fatalf("首次验签应拉取一次 JWKS，实际 %d 次", n)
+	}
+
+	// 抖动 + 缓存过期：刷新失败，但旧键仍在缓存里 → 必须继续验签通过。
+	down.Store(true)
+	v.mu.Lock()
+	v.fetchedAt = time.Now().Add(-2 * jwksCacheTTL)
+	v.mu.Unlock()
+	if _, err := v.Verify(token); err != nil {
+		t.Fatalf("刷新失败时应回落到缓存公钥，实际被拒：%v", err)
+	}
+	if n := atomic.LoadInt64(&hits); n != 2 {
+		t.Fatalf("缓存过期后应尝试刷新一次，实际累计 %d 次", n)
+	}
+
+	// 回落只对"缓存里有这个 kid"生效：没有缓存公钥的 kid 仍然 fail closed。
+	if _, err := v.Verify(signTestToken(t, testKey(t), nil)); err == nil {
+		t.Fatal("缓存里没有的 kid 即使 JWKS 挂掉也必须被拒")
+	}
+
+	// 账号服务恢复：下一次刷新成功后缓存更新，旧键仍可用。
+	down.Store(false)
+	v.mu.Lock()
+	v.fetchedAt = time.Now().Add(-2 * jwksCacheTTL)
+	v.mu.Unlock()
+	if _, err := v.Verify(token); err != nil {
+		t.Fatalf("JWKS 恢复后应重新刷新并通过: %v", err)
+	}
+}
+
+// 并发未知 kid：出站请求必须共享同一次刷新（旧实现是每个请求在持锁期间强制刷新两次，
+// 锁被持有到 HTTP 结束，JWKS 慢时该副本的验签全部排队）。
+func TestVerifierJWKSConcurrentUnknownKidSharesOneFetch(t *testing.T) {
+	keyA, keyB := testKey(t), testKey(t)
+	var hits int64
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt64(&hits, 1)
+		// 拉长飞行窗口，让并发请求真的重叠在"刷新中"。
+		time.Sleep(100 * time.Millisecond)
+		list := []map[string]string{{
+			"kty": "RSA", "use": "sig", "alg": "RS256", "kid": keyID(&keyA.PublicKey),
+			"n": b64(keyA.PublicKey.N.Bytes()), "e": b64(big.NewInt(int64(keyA.PublicKey.E)).Bytes()),
+		}}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"keys": list})
+	}))
+	defer up.Close()
+	v := testVerifierFromJWKS(t, up.URL)
+
+	if _, err := v.Verify(signTestToken(t, keyA, nil)); err != nil {
+		t.Fatalf("预热验签: %v", err)
+	}
+	warm := atomic.LoadInt64(&hits)
+
+	const racers = 16
+	tokenB := signTestToken(t, keyB, nil)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for i := 0; i < racers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, _ = v.Verify(tokenB)
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	got := atomic.LoadInt64(&hits) - warm
+	t.Logf("%d 个并发未知 kid 产生的出站请求数 = %d", racers, got)
+	if got != 1 {
+		t.Fatalf("并发未知 kid 应共享同一次刷新（出站请求数 1），实际 %d", got)
 	}
 }
