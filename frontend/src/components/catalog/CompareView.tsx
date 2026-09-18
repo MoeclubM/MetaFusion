@@ -525,7 +525,7 @@ export function Compare({ ids }: { ids: string }) {
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                             {catNo ? `${String(catNo)} · ` : ""}
-                            {fmt ? String(fmt) : "Release"}
+                            {fmt ? String(fmt) : t("catalog.kind.release")}
                           </div>
                         </div>
                       </div>
@@ -594,7 +594,7 @@ export function Compare({ ids }: { ids: string }) {
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate mt-0.5">
                             {catNo ? `${String(catNo)} · ` : ""}
-                            {fmt ? String(fmt) : "Release"}
+                            {fmt ? String(fmt) : t("catalog.kind.release")}
                           </div>
                         </div>
                       </div>

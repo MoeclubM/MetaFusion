@@ -25,6 +25,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import { getKindName, resolveKindOptions, useDefinitions } from "@/lib/definitions";
 import { classifyLoadFailure, type LoadFailureKind } from "@/components/common/DetailLoadStates";
+import { isoDate, isoTimestamp, localDateTime } from "@/lib/datetime";
 import { kinds as fallbackKinds } from "@/components/catalog/api";
 import DirectMessageModal from "@/components/community/DirectMessageModal";
 import { UserRoleBadge } from "@/lib/roles";
@@ -506,7 +507,7 @@ export default function UserDetailPage() {
                         </div>
                         <div className="text-[10px] text-gray-500 font-mono mt-0.5">
                           {typeLabel}
-                          {it.created_at ? ` · ${new Date(it.created_at).toLocaleDateString(locale)}` : ""}
+                          {it.created_at ? ` · ${isoDate(it.created_at)}` : ""}
                         </div>
                       </div>
                     </Link>
@@ -599,7 +600,16 @@ export default function UserDetailPage() {
                           )}
 
                           <div className="text-[10px] text-gray-500 font-mono flex items-center gap-2">
-                            <span>{it.created_at ? new Date(it.created_at).toLocaleString(locale) : ""}</span>
+                            {/* 时间戳统一 ISO（见 lib/datetime.ts）；本地化写法留 title 供悬停查看。 */}
+                            <span>
+                              {it.created_at ? (
+                                <time dateTime={isoTimestamp(it.created_at)} title={localDateTime(it.created_at, locale)}>
+                                  {isoTimestamp(it.created_at)}
+                                </time>
+                              ) : (
+                                ""
+                              )}
+                            </span>
                           </div>
                         </div>
                       </div>
