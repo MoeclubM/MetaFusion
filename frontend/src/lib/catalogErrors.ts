@@ -39,6 +39,9 @@ const CODE_KEYS: Record<string, string> = {
   invalid_vocab_terms: "catalog.error.invalidVocabTerms",
   invalid_relations: "catalog.error.invalidRelations",
   invalid_locale: "catalog.error.invalidLocale",
+  // 服务端故障类码：目录服务对未登记的库层/网络错误只回这两个通用码，前端给通用提示。
+  database_error: "catalog.error.unknown",
+  internal_error: "catalog.error.unknown",
 };
 
 /** 取错误码对应的文案键；未知码返回 null（调用方回退原文）。 */
@@ -65,10 +68,20 @@ export function isNotFoundError(message?: string | null): boolean {
   return message.trim().split(":")[0].trim() === "not_found";
 }
 
-/** 把后端错误消息本地化：命中码就用人话，未命中保留原文（不伪装成已解释）。 */
+/**
+ * 把后端错误消息本地化：命中码就用人话，**未命中的一律回通用提示**。
+ *
+ * 未知码不再原样渲染：目录服务的库层/网络/反序列化故障过去会把驱动原文当错误码回给
+ * 客户端（报告 #16），原样显示等于把 "dial tcp 10.0.0.5:5432: connect: connection refused"
+ * 或反序列化报错摆给用户看。服务端已改为只回稳定码，这一侧同样不把原文当文案。
+ */
 export function localizeCatalogError(message: string, t: (k: string) => string): string {
   const key = catalogErrorKey(message);
-  if (!key) return message;
-  const text = t(key);
-  return text && text !== key ? text : message;
+  if (key) {
+    const text = t(key);
+    if (text && text !== key) return text;
+  }
+  const fallback = t("catalog.error.unknown");
+  // 字典缺键（不该发生）时退回原文：宁可显示得难看，也不编造一句与事实不符的提示。
+  return fallback && fallback !== "catalog.error.unknown" ? fallback : message;
 }

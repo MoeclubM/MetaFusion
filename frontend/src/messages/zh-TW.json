@@ -2263,6 +2263,7 @@
   "catalog.error.versionConflict": "條目已被他人修改：請重新開啟後再編輯，本次未儲存。",
   "catalog.error.immutableScope": "所屬域不可透過編輯修改（需重建實體後合併）。",
   "catalog.error.invalidPayload": "提交內容不符合介面要求，請檢查後重試。",
+  "catalog.error.unknown": "請求失敗，請稍後重試；若持續失敗，請把狀態碼與發生時間告知站務。",
   "catalog.error.unknownField": "存在該類型未宣告的欄位：請依定義宣告的欄位碼填寫。",
   "catalog.error.invalidTerm": "取值不在受控詞表內：請從詞表項中選擇。",
   "catalog.error.invalidReference": "引用的實體不存在、類型不符或目前不可見。",

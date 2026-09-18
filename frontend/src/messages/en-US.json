@@ -2263,6 +2263,7 @@
   "catalog.error.versionConflict": "Someone else changed this entry — reopen it and edit again.",
   "catalog.error.immutableScope": "Scope cannot be changed by editing — rebuild the entity and merge.",
   "catalog.error.invalidPayload": "The payload does not match the API contract.",
+  "catalog.error.unknown": "The request failed. Please try again shortly; if it keeps failing, tell the operators the status code and when it happened.",
   "catalog.error.unknownField": "A field is not declared for this type.",
   "catalog.error.invalidTerm": "Value is not in the controlled vocabulary.",
   "catalog.error.invalidReference": "Referenced entity is missing, of the wrong kind, or not visible.",

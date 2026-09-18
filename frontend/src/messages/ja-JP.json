@@ -2263,6 +2263,7 @@
   "catalog.error.versionConflict": "他のユーザーが更新しました。再度開いてから編集してください。",
   "catalog.error.immutableScope": "所属は編集では変更できません（作り直して統合が必要）。",
   "catalog.error.invalidPayload": "送信内容が API の要件に合いません。",
+  "catalog.error.unknown": "リクエストに失敗しました。しばらくして再試行してください。改善しない場合は、状態コードと時刻を運用担当までお知らせください。",
   "catalog.error.unknownField": "この型に存在しないフィールドがあります。",
   "catalog.error.invalidTerm": "語彙にない値です。",
   "catalog.error.invalidReference": "参照先が存在しないか、型が合いません。",
