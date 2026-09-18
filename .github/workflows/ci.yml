@@ -83,6 +83,9 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v7
+      # Next 16 要求 Node >= 20.9（next/dist/bin/next 里是硬断言）。这个 job 全程跑在 Bun 上，
+      # 用的是 Bun 自带的 Node 兼容版本号（实测 Bun 1.4.2 报 process.versions.node=26.3.0），
+      # 因此不需要另外 setup-node；换 Bun 版本时先确认这一条，否则会在构建第一步就红。
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.4.0"
@@ -90,9 +93,9 @@ jobs:
         run: bun install --frozen-lockfile
       - name: typecheck
         run: bunx tsc --noEmit
-      - name: next lint
-        # 仓库暂无 eslint 配置文件：有配置则真校验，无配置仅告警不阻塞。
-        run: bun run lint || echo "lint skipped, no eslint config"
+      # 这里原有一步 `bun run lint`（package.json 的 lint 脚本 = next lint）。Next 16 移除了
+      # next lint 命令，而仓库本来也没有 eslint 配置文件（旧步骤只会打印 "no eslint config"），
+      # 故脚本与步骤一起删除。要恢复 lint 请单独一轮接入 typescript-eslint，不要混进本次升级。
       - name: i18n keys sync check
         run: |
           bun -e "const fs=require('fs');const ks=f=>Object.keys(JSON.parse(fs.readFileSync('src/messages/'+f,'utf8'))).sort().join('|');const base=ks('zh-CN.json');for(const f of ['en-US.json','zh-TW.json','ja-JP.json']){if(ks(f)!==base){console.error('i18n drift: '+f);process.exit(1)}}console.log('i18n keys in sync')"

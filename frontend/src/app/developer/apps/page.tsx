@@ -5,13 +5,13 @@ import { redirect } from "next/navigation";
 // lib/developer.ts 顶部契约说明）——接口路径与页面路由是两回事。
 // 这里不复刻第二份实现，只把访问（含查询串）送回 /developer，避免该路径落到 404；
 // 未登录时由 AuthGate 按 /developer 前缀接管，跳到 /login?redirect=/developer/apps。
-export default function DeveloperAppsRedirectPage({
+export default async function DeveloperAppsRedirectPage({
   searchParams,
 }: {
-  searchParams?: { [key: string]: string | string[] | undefined };
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(searchParams ?? {})) {
+  for (const [key, value] of Object.entries((await searchParams) ?? {})) {
     if (Array.isArray(value)) {
       for (const item of value) query.append(key, item);
     } else if (value !== undefined) {

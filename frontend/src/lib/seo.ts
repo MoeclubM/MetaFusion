@@ -36,17 +36,22 @@ type SeoEntity = {
   attributes?: Record<string, any>;
 };
 
-/** 请求语种：Accept-Language 优先（爬虫与分享预览常带），其次界面语言 Cookie，最后默认。 */
-function requestLocale(): string {
+/**
+ * 请求语种：Accept-Language 优先（爬虫与分享预览常带），其次界面语言 Cookie，最后默认。
+ * headers()/cookies() 是异步请求 API（Next 15 起返回 Promise，Next 16 不再接受同步取值）：
+ * 这里必须 await——原来同步调用在 Next 16 直接抛错，被下面的 catch 静默折成 null，
+ * 表现是"metadata 语言悄悄退回默认"，不报错也测不出来。
+ */
+async function requestLocale(): Promise<string> {
   let accept: string | null = null;
   let cookieLocale: string | null = null;
   try {
-    accept = headers().get("accept-language");
+    accept = (await headers()).get("accept-language");
   } catch {
     accept = null;
   }
   try {
-    cookieLocale = cookies().get("NEXT_LOCALE")?.value ?? null;
+    cookieLocale = (await cookies()).get("NEXT_LOCALE")?.value ?? null;
   } catch {
     cookieLocale = null;
   }
@@ -64,10 +69,10 @@ function catalogBase(): string {
  * 前缀把它们分流到对应服务，因此在部署形态下可用；本地开发拿不到就回落站点级
  * metadata（不报错、不 500）。
  */
-function serviceBase(envUrl: string | undefined, fallbackPath: string): string | null {
+async function serviceBase(envUrl: string | undefined, fallbackPath: string): Promise<string | null> {
   if (envUrl) return envUrl.replace(/\/$/, "");
   try {
-    const h = headers();
+    const h = await headers();
     const host = h.get("x-forwarded-host") || h.get("host");
     if (!host) return null;
     const proto = h.get("x-forwarded-proto") || "http";
@@ -155,7 +160,7 @@ export async function entityMetadata(id: string, routePrefix: string): Promise<M
     `${catalogBase()}/catalog/entities/${encodeURIComponent(id)}/resolve`,
   );
   if (!entity) return siteFallback();
-  const locale = requestLocale();
+  const locale = await requestLocale();
   const { title, body } = pickRecordEntry(
     locale,
     entity.translations,
@@ -171,28 +176,28 @@ export async function entityMetadata(id: string, routePrefix: string): Promise<M
 
 /** 用户主页的 metadata（账号服务 /users/:id；取不到回落站点级）。 */
 export async function userMetadata(id: string): Promise<Metadata> {
-  const base = serviceBase(process.env.AUTH_INTERNAL_API_URL, "/api");
+  const base = await serviceBase(process.env.AUTH_INTERNAL_API_URL, "/api");
   if (!base) return siteFallback();
   const profile = await getJson<{ user?: { username?: string; display_name?: string } }>(
     `${base}/users/${encodeURIComponent(id)}`,
   );
   const name = (profile?.user?.display_name || profile?.user?.username || "").trim();
   if (!name) return siteFallback();
-  const locale = requestLocale();
+  const locale = await requestLocale();
   const description = getMessages(locale)["seo.userDescription"] || SITE_NAME;
   return build(name, description, `/users/${id}`, null, "profile");
 }
 
 /** 社区讨论主题的 metadata（互动服务 /community/topics/:id）。 */
 export async function topicMetadata(id: string): Promise<Metadata> {
-  const base = serviceBase(process.env.COMMUNITY_INTERNAL_API_URL, "/api");
+  const base = await serviceBase(process.env.COMMUNITY_INTERNAL_API_URL, "/api");
   if (!base) return siteFallback();
   const topic = await getJson<{ title?: string; content?: string; board_code?: string }>(
     `${base}/community/topics/${encodeURIComponent(id)}`,
   );
   const title = (topic?.title || "").trim();
   if (!title) return siteFallback();
-  const locale = requestLocale();
+  const locale = await requestLocale();
   const description = clamp(
     (topic?.content || "").trim() || getMessages(locale)["seo.topicDescription"] || SITE_NAME,
     200,

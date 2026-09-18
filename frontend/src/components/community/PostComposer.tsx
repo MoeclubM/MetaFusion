@@ -66,7 +66,9 @@ function MarkdownToolbar({
   onInsert,
   t,
 }: {
-  textareaRef: React.RefObject<HTMLTextAreaElement>;
+  // React 19 的 useRef<T>(null) 返回 RefObject<T | null>：这里必须带上 null 分支，
+  // 否则传入的 ref 类型不匹配（@types/react 19 收紧了 RefObject 的可空性）。
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   onInsert: (transform: (prev: string) => string) => void;
   t: (k: string, params?: Record<string, string | number>) => string;
 }) {
