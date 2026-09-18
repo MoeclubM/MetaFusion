@@ -95,9 +95,9 @@ func (s *Store) SaveHomePreferences(ctx context.Context, userID string, in HomeP
 	}
 	err = s.write(ctx, func(tx *sql.Tx) error {
 		_, e := tx.ExecContext(ctx, `
-			INSERT INTO catalog.user_preferences(user_id,home_shelves,updated_at)
-			VALUES($1,$2,now())
-			ON CONFLICT(user_id) DO UPDATE SET home_shelves=EXCLUDED.home_shelves, updated_at=now()`,
+			INSERT INTO catalog.user_preferences(user_id,home_shelves)
+			VALUES($1,$2)
+			ON CONFLICT(user_id) DO UPDATE SET home_shelves=EXCLUDED.home_shelves`,
 			userID, string(b))
 		return e
 	})

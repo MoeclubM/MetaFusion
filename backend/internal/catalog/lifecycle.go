@@ -83,7 +83,7 @@ func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u
 		// 与 Save 同一原则：版本条件进 WHERE，读版本与写入是同一次原子操作。
 		// 本路径虽走结构串行通道，但非结构 kind 的 Save 不取该锁，两边仍会竞争同一行。
 		var res sql.Result
-		if res, err = tx.ExecContext(ctx, "UPDATE catalog.entities SET version=$3,status=$4,redirect_id=$5,document=$6,updated_at=$7 WHERE id=$1 AND version=$2", e.ID, input.ExpectedVersion, e.Version, e.Status, nullable(e.RedirectID), encode(stored), e.UpdatedAt); err != nil {
+		if res, err = tx.ExecContext(ctx, "UPDATE catalog.entities SET version=$3,status=$4,document=$5,updated_at=$6 WHERE id=$1 AND version=$2", e.ID, input.ExpectedVersion, e.Version, e.Status, encode(stored), e.UpdatedAt); err != nil {
 			return err
 		}
 		if n, _ := res.RowsAffected(); n == 0 {
