@@ -31,6 +31,20 @@ import {
   Terminal,
 } from "lucide-react";
 
+/**
+ * 导航项的 active 判定：桌面顶栏与移动行共用这一份，避免两处漂移
+ * （移动行曾用 pathname === href，桌面用 startsWith，于是 /community/<id>、
+ * 实体详情这类子路径在移动端一个页签都不高亮）。
+ * external 项不属于本应用路由（文档站前缀、外站资源站），不参与判定。
+ */
+function isNavLinkActive(
+  pathname: string,
+  tab: { href: string; exact?: boolean; external?: boolean },
+): boolean {
+  if (tab.external) return false;
+  return tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
+}
+
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const { t, locale } = useI18n();
@@ -112,7 +126,7 @@ export const Navbar: React.FC = () => {
           <nav className="hidden xl:flex items-center gap-1.5 ml-2">
             {navLinks.map((tab) => {
               const Icon = tab.icon;
-              const active = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
+              const active = isNavLinkActive(pathname, tab);
               const className = `relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium tracking-wide transition-all ${
                 active
                   ? "text-primary bg-primary/10 border border-primary/25 font-semibold shadow-xs"
@@ -298,7 +312,24 @@ export const Navbar: React.FC = () => {
       {/* 移动端横向导航：与主行共用 PageContainer，保证顶栏内容同一条左基线。 */}
       <PageContainer>
       <nav aria-label={t("navigation.label")} className="xl:hidden flex gap-1 overflow-x-auto pb-2">
-        {navLinks.map(tab => <Link key={tab.href} href={tab.href} aria-current={pathname === tab.href ? "page" : undefined} className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm ${pathname === tab.href ? "bg-primary/10 text-primary" : "text-gray-400"}`}>{tab.label}</Link>)}
+        {navLinks.map((tab) => {
+          const active = isNavLinkActive(pathname, tab);
+          const className = `whitespace-nowrap rounded-lg px-3 py-2 text-sm ${active ? "bg-primary/10 text-primary" : "text-gray-400"}`;
+          // external 项必须走 <a>：/docs/catalog 与外站资源站不是本应用的路由，
+          // next/link 会让 App Router 去取一条不存在的 RSC 载荷（与桌面分支同一处理）。
+          if (tab.external) {
+            return (
+              <a key={tab.href} href={tab.href} className={className}>
+                {tab.label}
+              </a>
+            );
+          }
+          return (
+            <Link key={tab.href} href={tab.href} aria-current={active ? "page" : undefined} className={className}>
+              {tab.label}
+            </Link>
+          );
+        })}
       </nav>
       </PageContainer>
     </header>
