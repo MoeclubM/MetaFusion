@@ -123,8 +123,8 @@ export default function ReleaseDetailPage() {
   const params = useParams();
   const releaseId = params.id as string;
   const { t, locale } = useI18n();
-  // 本页没有 CatalogProvider：定义一律走 lib/definitions.ts 的缓存（与 /catalog 路由同源），
-  // 以前这里读 Provider 的 definition 恒为 undefined，字段名只能显示裸码。
+  // 定义一律走 lib/definitions.ts 的缓存（与 /catalog 路由同源）——定义从来不住在 CatalogProvider 里
+  // （Provider 只留模块状态与实例初始化状态），以前这里读 Provider 的 definition 恒为 undefined，字段名只能显示裸码。
   const { definitions: dynamicDefs, kinds } = useDefinitions();
 
   const [release, setRelease] = useState<Entity | null>(null);

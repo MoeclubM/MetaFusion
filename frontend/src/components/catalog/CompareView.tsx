@@ -33,7 +33,7 @@ export { COMPARE_MIN_SLOTS, COMPARE_MAX_SLOTS };
 
 export function Compare({ ids }: { ids: string }) {
   const { t, locale } = useI18n();
-  // 定义只有这一份来源：/compare 不在 CatalogProvider 的挂载范围内，
+  // 定义只有这一份来源：CatalogProvider 只留模块状态与实例初始化状态，从不持有定义，
   // 以前这里取的是 Provider 的 definition，恒为 undefined，字段名与枚举值一律裸露。
   const { definitions: dynamicDefs } = useDefinitions();
   const searchInputRef = useRef<HTMLInputElement>(null);

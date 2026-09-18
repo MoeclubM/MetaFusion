@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ApplicationBoundary } from "@/components/ApplicationBoundary";
+import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { ThemeProvider } from "@/lib/themeContext";
 import { DEFAULT_ACCENT, DEFAULT_TONE } from "@/lib/theme.generated";
@@ -71,7 +72,16 @@ export default function RootLayout({
       <body className="font-sans min-h-screen bg-background text-text-strong flex flex-col antialiased">
         <ThemeProvider>
           <I18nProvider>
-            <ApplicationBoundary>{children}</ApplicationBoundary>
+            {/* CatalogProvider（模块状态 + 实例初始化状态）在根 layout 挂**一次**：
+                它原先只在 /catalog、/account、/admin、/new 四处分别挂载，于是同一类详情页
+                （/catalog/[id] 挂、/works/[id] 与 /releases/[id] 不挂）拿到的是两种上下文——
+                没挂的那些路由静默落到 context 默认值 []，"capabilities 异常"只在部分路由显形。
+                统一挂载后所有路由的 modules 都来自同一次探测（取值已做数组归一，见 CatalogProvider）。
+                代价：每个页面多两个很小的请求（/capabilities、/setup）；目录服务连不上时，
+                这四处之外的路由也会显示 Provider 自带的"暂时无法连接目录服务"提示条。 */}
+            <ApplicationBoundary>
+              <CatalogProvider>{children}</CatalogProvider>
+            </ApplicationBoundary>
           </I18nProvider>
         </ThemeProvider>
       </body>

@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { EntityEditor } from "@/components/catalog/EntityEditor";
-import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { Navbar } from "@/components/Navbar";
 import { PageShell } from "@/components/ui/PageShell";
 
@@ -26,11 +25,10 @@ export default function Page({
   return (
     <>
       <Navbar />
-      <CatalogProvider>
-        <PageShell width="page" spacing="none">
-          <EntityEditor initialKind={kind} />
-        </PageShell>
-      </CatalogProvider>
+      {/* CatalogProvider 已在 app/layout.tsx 全站挂载，这里不再重复挂。 */}
+      <PageShell width="page" spacing="none">
+        <EntityEditor initialKind={kind} />
+      </PageShell>
     </>
   );
 }

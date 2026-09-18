@@ -12,7 +12,6 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DefinitionsEditor } from "@/components/catalog/DefinitionsEditor";
-import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { useDefinitions, getKindName, getTypeName, resolveKindOptions } from "@/lib/definitions";
 import { kinds as fallbackKinds } from "@/components/catalog/api";
 import { PageContainer } from "@/components/ui/PageShell";
@@ -976,11 +975,8 @@ function AdminInner() {
             </div>
           )}
 
-          {activeTab === "definitions" && (
-            <CatalogProvider>
-              <DefinitionsEditor />
-            </CatalogProvider>
-          )}
+          {/* CatalogProvider 已在 app/layout.tsx 全站挂载（此前这里为定义编辑器单独挂了一份）。 */}
+          {activeTab === "definitions" && <DefinitionsEditor />}
 
           {activeTab === "extdb" && <ExternalDatabasesTab />}
 

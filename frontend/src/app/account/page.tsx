@@ -1,5 +1,4 @@
 import { Account } from "@/components/catalog/CatalogPages";
-import { CatalogProvider } from "@/components/catalog/CatalogProvider";
 import { Navbar } from "@/components/Navbar";
 import { PageShell } from "@/components/ui/PageShell";
 
@@ -10,12 +9,11 @@ export default function Page() {
   return (
     <>
       <Navbar />
-      <CatalogProvider>
-        {/* 容器宽度与内边距走 PageShell；本页是表单/资料类页面，用 narrow 档（与 /settings 同宽）。 */}
-        <PageShell width="narrow">
-          <Account />
-        </PageShell>
-      </CatalogProvider>
+      {/* CatalogProvider 已在 app/layout.tsx 全站挂载，这里不再重复挂。 */}
+      {/* 容器宽度与内边距走 PageShell；本页是表单/资料类页面，用 narrow 档（与 /settings 同宽）。 */}
+      <PageShell width="narrow">
+        <Account />
+      </PageShell>
     </>
   );
 }
