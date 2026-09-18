@@ -9,7 +9,7 @@ export { fetchPersonalAccessTokens, createPersonalAccessToken, revokePersonalAcc
 export type { AuthSessionResponse, InviteCode, InviteLedger, SetupStatusResponse, InitialSetupPayload, InitialSetupResult, PublicAuthSettings, AuthorizedApp, PersonalAccessToken, CreatedPersonalAccessToken } from "./api/auth";
 export { toggleFavorite, fetchFavoriteStatus, fetchFavorites, normalizeBoard, boardDisplayName, boardDisplayDesc, FORUM_BOARDS, fetchBoards, getBoardSync, shareContent, buildShareUrl, createTopic, createPost, setTopicPinned, fetchDirectMessages, sendDirectMessage, fetchConversations, fetchUnreadMessageCount, markConversationRead, fetchMessageSettings, updateMessageSettings, fetchEntityPosts, fetchEntityCollections, createEntityComment } from "./api/community";
 export type { FavoriteTargetType, FavoriteItem, ForumPost, DiscussionTopic, CreateTopicPayload, CreatePostPayload, Comment, EntityComment, EntityCollectionRef, DirectMessage, ConversationItem, ForumBoard } from "./api/community";
-export { CATALOG_HUBS, isCatalogHub, catalogHubOf, pickLocalizedName, catalogEntityHref, fetchEntityRevisions, mergeEntities, unpublishEntity } from "./api/catalog";
+export { CATALOG_HUBS, isCatalogHub, catalogHubOf, pickLocalizedName, catalogEntityHref, mergeEntities, unpublishEntity } from "./api/catalog";
 export type { CatalogHub, Tag, ConnectedEntityItem, EntityRevision, EntityRelationship, RelationType, GraphNode, GraphLink } from "./api/catalog";
 export { fetchUserProfile, fetchUserContributions, fetchUserCommunityStats, isContributionTab, CONTRIBUTION_TABS } from "./api/users";
 export type { PublicUser, PublicUserProfile, ContributionTab, ContributionStats, ContributionSource, ContributionItem, UserContributions, CommunityUserStats } from "./api/users";

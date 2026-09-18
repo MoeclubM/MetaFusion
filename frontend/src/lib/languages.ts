@@ -260,12 +260,6 @@ export function languageNativeName(code?: string | null): string {
   return found ? found.native : String(code ?? "").trim();
 }
 
-/** 英文名；表外语种回落到代码本身。 */
-export function languageEnglishName(code?: string | null): string {
-  const found = findLanguage(code);
-  return found ? found.en : String(code ?? "").trim();
-}
-
 /**
  * 展示标签：表内语种是「自称 (规范码)」，表外语种回落原始代码 —— 系统没见过的语种也必须
  * 显示成非空字符串，不能空白或报错。
@@ -345,6 +339,3 @@ export function uiLanguages(): LanguageEntry[] {
     .map((code) => findLanguage(code))
     .filter((e): e is LanguageEntry => !!e);
 }
-
-/** 已收录语言条数（自检与报告用）。 */
-export const LANGUAGE_COUNT = LANGUAGES.length;

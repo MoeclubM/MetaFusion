@@ -45,7 +45,6 @@ import {
   getForumEntityUrl,
   getForumCollectionUrl,
   getStorageEntityUrl,
-  FORUM_SERVICE_URL,
   hasResourceStation,
 } from "@/lib/services";
 import {
@@ -1850,7 +1849,7 @@ export function EntityDetailView({ id }: { id: string }) {
                     </h3>
                   </div>
                   <a
-                    href={`${FORUM_SERVICE_URL}/collections`}
+                    href={getForumEntityUrl(entity.id || id)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs text-indigo-600 dark:text-alt hover:underline inline-flex items-center gap-1 font-medium cursor-pointer"
