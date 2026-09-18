@@ -13,7 +13,6 @@ import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
 import { OAuthGrantsPanel } from "@/components/settings/OAuthGrantsPanel";
 import { ThemeControls } from "@/components/ThemeControls";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   Shield,
@@ -183,22 +182,9 @@ export default function SettingsPage() {
     }
   };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <Navbar />
-        <PageShell width="narrow" center className="py-16">
-          <div className="w-12 h-12 rounded-full bg-white/5 grid place-items-center">
-            <KeyRound className="w-6 h-6 text-gray-500" />
-          </div>
-          <p className="text-sm text-gray-500">{t("create.common.requiresLogin")}</p>
-          <Link href="/login?redirect=/settings" className="px-5 h-9 rounded-full bg-primary text-white keep-white inline-flex items-center text-sm font-semibold">
-            {t("nav.login")}
-          </Link>
-        </PageShell>
-      </div>
-    );
-  }
+  // 未登录时 AuthGate 先 return null 并 replace 到 /login?redirect=/settings，本页的「请先登录」
+  // 界面从不渲染（同一条闸门写了两遍，其中一份是死代码）。这里只为把 user 收窄成非空。
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white">

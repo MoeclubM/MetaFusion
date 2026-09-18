@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -18,7 +17,6 @@ import {
   AlertCircle,
   Check,
   Copy,
-  KeyRound,
   Link2,
   Loader2,
   Plus,
@@ -158,26 +156,8 @@ export default function InvitesPage() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <Navbar />
-        <PageShell width="narrow" center className="py-16">
-          <div className="w-12 h-12 rounded-full bg-white/5 grid place-items-center">
-            <KeyRound className="w-6 h-6 text-gray-500" />
-          </div>
-          <p className="text-sm text-gray-500">{t("create.common.requiresLogin")}</p>
-          <Link
-            href="/login?redirect=/invites"
-            className="px-5 h-9 rounded-control bg-primary text-white keep-white inline-flex items-center text-sm font-semibold mf-focus"
-          >
-            {t("nav.login")}
-          </Link>
-        </PageShell>
-      </div>
-    );
-  }
-
+  // 未登录不渲染本页：AuthGate 已把 /invites 的未登录访问 replace 到 /login?redirect=/invites，
+  // 这里原来那份「请先登录」整屏永远渲染不到。
   const items = ledger?.items || [];
   const members = ledger?.members || [];
   const canCreate = ledger?.can_create === true;

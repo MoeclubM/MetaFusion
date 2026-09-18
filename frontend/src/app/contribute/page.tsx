@@ -6,7 +6,7 @@ import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import { can, CATALOG_IMPORT_SUBMIT } from "@/lib/permissions";
-import { Layers, Users, Disc, Network, ArrowRight, Lock, LogIn, Sparkles, Zap } from "lucide-react";
+import { Layers, Users, Disc, Network, ArrowRight, Sparkles, Zap } from "lucide-react";
 import { OmniImportModal } from "@/components/importer/OmniImportModal";
 import { PageShell } from "@/components/ui/PageShell";
 import { fetchImporterSources, ImporterSource } from "@/lib/api";
@@ -92,30 +92,8 @@ export default function ContributeHubPage() {
           </p>
         </div>
 
-        {!user && (
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-400/20 grid place-items-center shrink-0">
-                <Lock className="w-4 h-4 text-amber-500" />
-              </div>
-              <div>
-                <div className="font-semibold text-xs text-amber-600 dark:text-amber-200">
-                  {t("contribute.unauthTitle")}
-                </div>
-                <div className="font-mono text-[11px] text-amber-700/80 dark:text-amber-300/80">
-                  {t("contribute.unauthDesc")}
-                </div>
-              </div>
-            </div>
-            <Link
-              href="/login?redirect=/contribute"
-              className="px-3.5 h-8 rounded-lg bg-primary text-white font-semibold text-xs font-mono inline-flex items-center justify-center gap-1.5 shrink-0 transition-opacity hover:opacity-90 shadow-xs"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>{t("contribute.loginNow")}</span>
-            </Link>
-          </div>
-        )}
+        {/* 未登录提示原来写在这里，但 AuthGate 对 /contribute 先 return null 并跳登录，
+            那段横幅永远渲染不到；未登录的登录门槛统一由 AuthGate 负责。 */}
 
         {/* Featured Hero Banner: OmniSource Fast Importer */}
         <div className="relative overflow-hidden rounded-2xl border border-primary/25 bg-linear-to-br from-primary/10 via-primary/5 to-transparent p-5 sm:p-6 shadow-sm group">
