@@ -47,3 +47,27 @@ export function isEditEntry(query = ""): boolean {
 export function keepsGenericView(query = ""): boolean {
   return isEditEntry(query);
 }
+
+/**
+ * 某 kind 的规范落点：work / release / medium 走各自的正式路由，其余 kind（track、agent、
+ * collection、content_unit、expression…）只有通用兜底 /catalog/[id]。
+ * 专用路由发现实体种类不符时用它算跳转目标。
+ */
+export function canonicalDetailPath(
+  kind: string | null | undefined,
+  id: string | null | undefined,
+): string | null {
+  return formalDetailPath(kind, id) ?? (kind && id ? `/catalog/${id}` : null);
+}
+
+/** 收敛后的完整地址（含原样保留的查询串）。 */
+export function canonicalDetailUrl(
+  kind: string | null | undefined,
+  id: string | null | undefined,
+  query = "",
+): string | null {
+  const path = canonicalDetailPath(kind, id);
+  if (!path) return null;
+  const qs = query.replace(/^\?/, "");
+  return qs ? `${path}?${qs}` : path;
+}

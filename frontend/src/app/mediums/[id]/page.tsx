@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle } from "@/components/catalog/api";
 import { fetchApi } from "@/lib/api";
+import { useKindRedirect } from "@/lib/useKindRedirect";
 import { useDefinitions, getTermName } from "@/lib/definitions";
 import { WorkFacts } from "@/components/work/WorkFacts";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
@@ -56,6 +57,9 @@ export default function MediumDetailPage() {
   // 把 429/5xx/断网都说成「未找到该载体。」，且页面既无重试也无出口。
   const [loadError, setLoadError] = useState<LoadFailureKind | "">("");
   const [reloadKey, setReloadKey] = useState(0);
+  // 路由隐含的种类与实际 kind 不符时的收敛（见 lib/useKindRedirect）：非 medium 的 id
+  // 接到 /mediums/ 上不能照载体模板渲染，否则同一 id 在不同路由下类型标签互相矛盾。
+  const [kindMismatch, setKindMismatch] = useState<string | null>(null);
 
   useEffect(() => {
     if (!mediumId) return;
@@ -66,6 +70,12 @@ export default function MediumDetailPage() {
       try {
         const m = await fetchApi<Entity>(`/catalog/entities/${mediumId}`);
         if (cancelled) return;
+        if (m.kind !== "medium") {
+          // 后面全是"按载体模板取数据"的请求，种类不符时一个都不发，直接收敛。
+          setKindMismatch(m.kind || "unknown");
+          return;
+        }
+        setKindMismatch(null);
         setMedium(m);
         if (m.release_id) {
           const rel = await fetchApi<Entity>(`/catalog/entities/${m.release_id}`);
@@ -121,8 +131,10 @@ export default function MediumDetailPage() {
   const formatLabel = formatCode ? getTermName(defs, "format", formatCode, locale) : "";
   const roleCode = String(medium?.attributes?.role || "");
   const roleLabel = roleCode ? getTermName(defs, "role", roleCode, locale) : "";
+  // 正在收敛到规范路由：停在加载态，绝不按载体模板渲染别的种类。
+  const redirecting = useKindRedirect("medium", kindMismatch, mediumId);
 
-  if (loading) {
+  if (loading || redirecting) {
     return <div className="min-h-screen bg-background grid place-items-center font-mono text-xs text-gray-500">{t("medium.detail.loading")}</div>;
   }
 
