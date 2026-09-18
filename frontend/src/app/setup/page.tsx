@@ -209,7 +209,8 @@ export default function SetupPage() {
 
   // Active Setup Form
   return (
-    <div className="min-h-screen bg-background relative flex flex-col justify-between p-4 sm:p-8 selection:bg-primary selection:text-white">
+    // 居中的 800px 光晕在窄视口上左右各溢出（390 视口下右边界到 595），祖先必须裁剪。
+    <div className="min-h-screen bg-background relative flex flex-col justify-between overflow-clip p-4 sm:p-8 selection:bg-primary selection:text-white">
       {/* Background ambient lighting */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/8 rounded-full blur-[140px] pointer-events-none" />
 

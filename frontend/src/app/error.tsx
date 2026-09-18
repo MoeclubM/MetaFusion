@@ -20,8 +20,9 @@ export default function Error({
     console.error("MetaFusion Application Error Boundary Caught:", error);
   }, [error]);
 
+  // 与 not-found 同形：装饰光晕必须被祖先裁掉，否则整页出现横向滚动条。
   return (
-    <main className="mf-enter min-h-screen bg-background relative flex flex-col items-center justify-center px-6 py-12 selection:bg-primary selection:text-white">
+    <main className="mf-enter min-h-screen bg-background relative flex flex-col items-center justify-center overflow-clip px-6 py-12 selection:bg-primary selection:text-white">
       {/* Ambient glow */}
       <div className="absolute inset-0 bg-radial-vignette opacity-60 pointer-events-none" aria-hidden />
       <div className="absolute -top-32 -left-32 w-[500px] h-[500px] bg-rose-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
