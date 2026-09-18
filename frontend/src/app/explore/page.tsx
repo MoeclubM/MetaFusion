@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useMemo, Suspense } from "react";
+import { safeCount } from "@/lib/api/fields";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
@@ -184,7 +185,7 @@ function ExploreInner() {
       .then((data) => {
         if (!alive) return;
         setItems(Array.isArray(data.items) ? data.items : []);
-        setTotal(typeof data.total === "number" ? data.total : 0);
+        setTotal(safeCount(data.total, 0));
       })
       .catch((err: any) => {
         if (!alive) return;
@@ -280,7 +281,7 @@ function ExploreInner() {
           { credentials: "same-origin" },
         )
           .then((res) => (res.ok ? res.json() : null))
-          .then((data) => (typeof data?.total === "number" ? (data.total as number) : null))
+          .then((data) => { const n = safeCount(data?.total, -1); return n >= 0 ? n : null; })
           .catch(() => null),
       ),
     ).then((totals) => {

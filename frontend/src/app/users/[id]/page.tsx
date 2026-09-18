@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { safeCount } from "@/lib/api/fields";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
@@ -169,7 +170,7 @@ export default function UserDetailPage() {
         if (!alive) return;
         setFavVisible(r.visible);
         setItems(Array.isArray(r.items) ? r.items : []);
-        setTotal(r.total || 0);
+        setTotal(safeCount(r.total, 0));
       })
       .catch((e: any) => {
         if (!alive) return;

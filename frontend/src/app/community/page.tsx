@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useRef, Suspense } from "react";
+import { safeCount } from "@/lib/api/fields";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
@@ -217,7 +218,7 @@ function CommunityContent() {
  list = [...list].sort((a, b) => b.reply_count + b.view_count - (a.reply_count + a.view_count));
  }
  setTopics(list);
- setTotal(typeof res.total === "number" ? res.total : list.length);
+ setTotal(safeCount(res.total, list.length));
  } catch {
  setTopics([]);
  setLoadError(t("community.loadFailed"));
