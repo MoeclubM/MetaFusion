@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useDefinitions, getTypeName, getKindName } from "@/lib/definitions";
+import { useDefinitions, getKindName } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
 import { PageShell, PageHeader } from "@/components/ui/PageShell";
 import { Card } from "@/components/ui/Card";
@@ -203,21 +203,6 @@ function ExploreInner() {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [currentKind, currentStatus, currentQ, currentType, currentTags, offset, sortParam, orderParam, locale, reloadKey]);
-
-  // 可选类型：来自 definitions 的 enabled 类型；已选具体 kind 时只保留该 kind 的类型。
-  const typeOptions = useMemo(() => {
-    const types = definitions?.types || {};
-    return Object.keys(types)
-      .filter((code) => {
-        const t = types[code];
-        if (!t || t.enabled === false) return false;
-        if (currentKind === "all") return true;
-        return (t.kinds || []).includes(currentKind);
-      })
-      .sort((a, b) =>
-        getTypeName(definitions, a, locale).localeCompare(getTypeName(definitions, b, locale)),
-      );
-  }, [definitions, currentKind, locale]);
 
   const updateFilters = (updates: Record<string, string>) => {
     const next = new URLSearchParams(searchParams.toString());
