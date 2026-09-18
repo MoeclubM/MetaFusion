@@ -16,7 +16,12 @@ func TestOpenAPIRouteCoverage(t *testing.T) {
 	HTTP{Store: &Store{}}.Register(r)
 	paths := doc["paths"].(map[string]any)
 	for _, route := range r.Routes() {
-		if route.Path == "/api/openapi.json" || route.Path == "/api/docs" || route.Path == "/api/swagger" {
+		// 文档面不进 OpenAPI 契约：openapi.json 本身就是这份文档，
+		// /docs、/swagger 是 HTML 页面，/docs/assets/*filepath 是页面自托管的静态资源
+		// （白名单在 docs_assets.go）。它们都不是给接入方调用的 API，登记进来只会让
+		// 生成出来的 SDK 多出三个无意义的接口。
+		if route.Path == "/api/openapi.json" || route.Path == "/api/docs" ||
+			route.Path == "/api/swagger" || route.Path == "/api/docs/assets/*filepath" {
 			continue
 		}
 		clean := strings.TrimPrefix(route.Path, "/api")

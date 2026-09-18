@@ -248,11 +248,16 @@ func (h HTTP) Register(r *gin.Engine) {
 
 func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	s := h.Store
-	// 唯一保留在 attachUser 之前的公开端点：这份 OpenAPI 是**接入方的公开契约**。
+	// attachUser 之前的公开端点只有两个：/api/openapi.json 与 /api/version。
+	// openapi.json 是**接入方的公开契约**。
 	// 前端工具集、Agent 与技能仓库都把"先读 GET /api/openapi.json"写进流程，改鉴权会让
 	// 这些接入方先要一张令牌才能发现契约；而 paths 清单本身不是秘密——同一份端点表也在
 	// 文档站公开，隐藏它只是隐蔽性而非控制（2026-09-19 审计 S-4 的处置结论）。
 	api.GET("/openapi.json", func(c *gin.Context) { c.JSON(200, OpenAPI()) })
+	// 版本身份：发布、切流与回滚后第一件事是确认"线上跑的到底是哪一版"，要求登录才能问
+	// 等于让运维先借另一套凭据。它只回构建期注入的版本/sha、构建时间与进程启动时间
+	// （见 version.go），不含配置、凭据、数据库或主机信息，因此与 openapi.json 同列公开面。
+	api.GET("/version", func(c *gin.Context) { c.JSON(200, versionInfo()) })
 	// 其余任何注册都必须在 attachUser 之后——gin 的 RouterGroup.Use 只对**之后**注册的
 	// 路由生效（注册时复制当时的 handler 链），插到前面会让 user(c) 恒为 nil。0be8ae9 的
 	// 回归就是这么来的（/api/exchange/* 提案带合法令牌也 401）。需要身份的注册函数还应把
@@ -343,7 +348,13 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	cat.GET("/entities", routeLimiter(120), func(c *gin.Context) {
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		offset, _ := strconv.Atoi(c.Query("offset"))
-		o := ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Limit: limit, Offset: offset}
+		o := ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Sort: c.Query("sort"), Order: c.Query("order"), Locale: c.Query("locale"), Limit: limit, Offset: offset}
+		// 排序参数走白名单校验：未知字段/方向返回 400 invalid_sort / invalid_order，
+		// 而不是静默按 updated_at 返回另一套顺序（调用方会以为排序生效了）。
+		if err := normalizeListSort(&o); err != nil {
+			respond(c, nil, err)
+			return
+		}
 		// kinds / types 支持多次出现或逗号分隔：多值命中在 SQL 侧完成，
 		// 供关系编辑器按"kind + 业务类型"收敛候选，避免前端先取固定条数再过滤而漏候选。
 		o.Kinds = queryList(c, "kinds")

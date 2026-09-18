@@ -646,8 +646,12 @@ type ListOptions struct {
 	Kinds, Types []string
 	// Tags 按"任一命中"（OR）过滤 attributes.tags，走 jsonb 容器包含，
 	// 由 entities_attribute_tags 函数索引支撑，避免全表扫描。
-	Tags          []string
-	Offset, Limit int
+	Tags []string
+	// Sort / Order 是白名单排序键与方向（见 listSortKeys），Locale 只在 Sort=title
+	// 时参与"取哪个语种的题名"；未知键由 normalizeListSort 拒掉（HTTP 400 invalid_sort），
+	// 不静默退回默认序——静默忽略正是"传了 sort=title 却拿到 updated_at 序列"的成因。
+	Sort, Order, Locale string
+	Offset, Limit       int
 }
 
 // listFilter builds the shared WHERE clause for List and Count so the list
@@ -881,6 +885,89 @@ func (s *Store) Count(ctx context.Context, o ListOptions, u *User) (int64, error
 	return n, err
 }
 
+// entityListSortKeys 是实体列表排序键白名单，白名单之外在 HTTP 层被拒（400 invalid_sort）。
+// "最新创建"排在 id 上：entities 表没有 created_at 列（基线迁移是唯一结构来源，不为一个
+// 排序键改结构），而主键由 uuid.NewV7() 生成、按时间有序，id 序即创建时间序且能走主键索引
+// ——与货架排序 shelfOrderClause 的 created 取值同一口径。
+var entityListSortKeys = map[string]bool{"updated_at": true, "created_at": true, "title": true}
+
+// sortLocaleOK 只接受形如 zh-CN / ja / en-US 的语种码。它只当绑定参数用，
+// 形态不合法的取值被丢弃（排序退到原文语种/en-US/基础题名），不因此拒绝整次列表请求。
+func sortLocaleOK(s string) bool {
+	if len(s) < 2 || len(s) > 20 {
+		return false
+	}
+	for i, r := range s {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z':
+			continue
+		case (r == '-' || r == '_') && i > 0:
+			continue
+		case r >= '0' && r <= '9' && i > 0:
+			continue
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// normalizeListSort 校验并归一化排序参数：未知排序键/方向返回稳定码（HTTP 层映射 400），
+// 不静默退回默认序——静默忽略正是"传了 sort=title 却拿到 updated_at 序列"的成因。
+func normalizeListSort(o *ListOptions) error {
+	o.Sort = strings.ToLower(strings.TrimSpace(o.Sort))
+	o.Order = strings.ToLower(strings.TrimSpace(o.Order))
+	if o.Sort != "" && !entityListSortKeys[o.Sort] {
+		return fmt.Errorf("invalid_sort")
+	}
+	if o.Order != "" && o.Order != "asc" && o.Order != "desc" {
+		return fmt.Errorf("invalid_order")
+	}
+	o.Locale = strings.TrimSpace(o.Locale)
+	if !sortLocaleOK(o.Locale) {
+		o.Locale = ""
+	}
+	return nil
+}
+
+// entityListOrderClause 生成实体列表的 ORDER BY：排序键与方向都经白名单映射成 SQL 片段，
+// 用户输入**不进 SQL 文本**（title 排序只把请求语种作为绑定参数 $n 带进去）。
+// 末位一律补 id，同一排序键下的并列值靠它定序，分页不会抖动。
+func entityListOrderClause(o ListOptions, args *[]any) (string, error) {
+	structural := o.ReleaseID != "" || o.MediumID != "" || o.ParentID != "" || o.ContentUnitID != ""
+	// 方向缺省按排序键的直觉取值：时间类"最新在前"，题名类 A→Z；显式 order 覆盖它。
+	dir := "DESC"
+	if o.Sort == "title" {
+		dir = "ASC"
+	}
+	if o.Order == "asc" {
+		dir = "ASC"
+	} else if o.Order == "desc" {
+		dir = "DESC"
+	}
+	switch o.Sort {
+	case "":
+		if structural {
+			// 结构子项按 position 排序：Go 落库恒为数字（types.go Position int），
+			// 正则守卫只防直接 SQL 写入的脏串（PG 无 TRY_CAST，裸 ::int 会报 22P02
+			// 导致整页 500；脏串按 0 排而不中断列表）。
+			return "CASE WHEN document->>'position' ~ '^-?[0-9]+$' THEN (document->>'position')::int ELSE 0 END, updated_at DESC, id", nil
+		}
+		return "updated_at DESC, id", nil
+	case "updated_at":
+		return "updated_at " + dir + ", id", nil
+	case "created_at":
+		return "id " + dir, nil
+	case "title":
+		// 多语言题名：请求语种 → 原文语种 → en-US → 基础题名，与前端 lib/titles.ts
+		// 的选取链同序（首位由调用方按界面语言传入）。只按基础题名排会让日文/中文界面
+		// 看到"顺序与显示的题名无关"，这里让排序键与页面显示的题名是同一个值。
+		*args = append(*args, o.Locale)
+		return fmt.Sprintf("COALESCE(NULLIF(document->'translations'->$%d::text->>'title',''), NULLIF(document->'translations'->(document->>'original_language')->>'title',''), NULLIF(document->'translations'->'en-US'->>'title',''), title) %s, id", len(*args), dir), nil
+	}
+	return "", fmt.Errorf("invalid_sort")
+}
+
 func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, error) {
 	args := []any{}
 	parts, err := listFilter(ctx, s, o, u, &args)
@@ -893,14 +980,11 @@ func (s *Store) List(ctx context.Context, o ListOptions, u *User) ([]Entity, err
 	if o.Offset < 0 {
 		o.Offset = 0
 	}
-	args = append(args, o.Limit, o.Offset)
-	orderClause := "updated_at DESC, id"
-	if o.ReleaseID != "" || o.MediumID != "" || o.ParentID != "" || o.ContentUnitID != "" {
-		// 结构子项按 position 排序：Go 落库恒为数字（types.go Position int），
-		// 正则守卫只防直接 SQL 写入的脏串（PG 无 TRY_CAST，裸 ::int 会报 22P02
-		// 导致整页 500；脏串按 0 排而不中断列表）。
-		orderClause = "CASE WHEN document->>'position' ~ '^-?[0-9]+$' THEN (document->>'position')::int ELSE 0 END, updated_at DESC, id"
+	orderClause, err := entityListOrderClause(o, &args)
+	if err != nil {
+		return nil, err
 	}
+	args = append(args, o.Limit, o.Offset)
 	rows, err := s.DB.QueryContext(ctx, "SELECT id FROM catalog.entities WHERE "+strings.Join(parts, " AND ")+fmt.Sprintf(" ORDER BY "+orderClause+" LIMIT $%d OFFSET $%d", len(args)-1, len(args)), args...)
 	if err != nil {
 		return nil, err
