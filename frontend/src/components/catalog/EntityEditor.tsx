@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds as fallbackKinds, local, Source } from "./api";
 import { canPublishEntity } from "@/lib/permissions";
 import { localizeCatalogError } from "@/lib/catalogErrors";
+import { newSubmissionSession, submissionKey } from "@/lib/idempotency";
 import { useAuth } from "@/lib/authContext";
 import { getAuthLoginUrl } from "@/lib/services";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
@@ -98,6 +99,9 @@ export function EntityEditor({
   const [note, setNote] = useState(initialEditNote);
   // 新建条目时关系先入队：条目拿到 id 之后再逐条写入（见 save）。
   const [pendingRelations, setPendingRelations] = useState<RelationDraft[]>([]);
+  // 幂等键的会话部分：同一次编辑会话内稳定，载荷指纹在提交时算（见 lib/idempotency）。
+  const submitSession = React.useRef("");
+  const submissionScope = () => (submitSession.current ||= newSubmissionSession());
   const [sources, setSources] = useState<Source[]>(initialSources || [
     { kind: "self", citation: "" },
   ]);
@@ -283,32 +287,34 @@ export function EntityEditor({
     setBusy(true);
     setError("");
     try {
+      // 建实体带上幂等键：双击保存 / 超时重发复用同一个键，服务端只建一个实体。
+      // PUT 不带（幂等键服务端只覆盖两个 POST 端点，见 lib/idempotency 的说明）。
+      const body = { entity: e, expected_version: e.version, edit_note: note, sources };
       const out = await api<Entity>(
         e.id ? `/catalog/entities/${e.id}` : "/catalog/entities",
         e.id ? "PUT" : "POST",
-        { entity: e, expected_version: e.version, edit_note: note, sources },
+        body,
+        e.id ? undefined : { "Idempotency-Key": submissionKey(submissionScope(), body) },
       );
       // 新建时排队的关系：条目已在，逐条写入。失败不静默——列出失败项让用户决定重试哪条。
       if (!e.id && pendingRelations.length > 0) {
         const failures: string[] = [];
         for (const d of pendingRelations) {
           try {
+            // 同一条待提交关系在重试里复用同一个键（键 = 会话 + 关系载荷指纹），
+            // 不再每次现生成 UUID——否则超时后重试会重复建边。
+            const relation = {
+              type: d.type,
+              source_id: d.forward ? out.id : d.targetId,
+              target_id: d.forward ? d.targetId : out.id,
+              position: d.position,
+              attributes: d.attributes,
+            };
             await api(
               "/catalog/relations",
               "POST",
-              {
-                relation: {
-                  type: d.type,
-                  source_id: d.forward ? out.id : d.targetId,
-                  target_id: d.forward ? d.targetId : out.id,
-                  position: d.position,
-                  attributes: d.attributes,
-                },
-                expected_version: 0,
-                edit_note: note,
-                sources,
-              },
-              { "Idempotency-Key": crypto.randomUUID() },
+              { relation, expected_version: 0, edit_note: note, sources },
+              { "Idempotency-Key": submissionKey(submissionScope(), relation) },
             );
           } catch (err) {
             failures.push(`${d.type}: ${(err as Error).message}`);

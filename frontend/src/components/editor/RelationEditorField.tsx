@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/authContext";
 import { can, CATALOG_RELATION_EDIT } from "@/lib/permissions";
 import { useDefinitions, getFieldName, getRelationName } from "@/lib/definitions";
 import { api, Entity, Source } from "@/components/catalog/api";
+import { newSubmissionSession, submissionKey } from "@/lib/idempotency";
 import { EntityPicker, FieldInput } from "@/components/catalog/Fields";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
@@ -68,6 +69,9 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
   const { t, locale } = useI18n();
   const { definitions: defs } = useDefinitions();
   const { user } = useAuth();
+  // 幂等键的会话部分：同一次表单会话内稳定，载荷指纹在提交时算（见 lib/idempotency）。
+  const submitSession = React.useRef("");
+  const submissionScope = () => (submitSession.current ||= newSubmissionSession());
   // 关系写走独立端点（POST/PUT/DELETE /catalog/relations），服务端要求 catalog.relation.edit：
   // 无码时不渲染写入控件，避免把用户引到注定 403 的按钮上（只读列表仍展示）。
   const canWrite = can(user, CATALOG_RELATION_EDIT);
@@ -226,22 +230,20 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
     setBusy(true);
     setError("");
     try {
+      // 幂等键 = 会话 + 关系载荷指纹：同一份表单内容重试（超时后重新点"添加"）复用同一个键，
+      // 服务端只建一条边；换了对端/类型/属性就是新的提交意图，键随之改变。
+      const relation = {
+        type: selected.code,
+        source_id: selected.forward ? entityId : addTarget,
+        target_id: selected.forward ? addTarget : entityId,
+        position: nextPosition,
+        attributes: addAttrs,
+      };
       await api(
         "/catalog/relations",
         "POST",
-        {
-          relation: {
-            type: selected.code,
-            source_id: selected.forward ? entityId : addTarget,
-            target_id: selected.forward ? addTarget : entityId,
-            position: nextPosition,
-            attributes: addAttrs,
-          },
-          expected_version: 0,
-          edit_note: note,
-          sources,
-        },
-        { "Idempotency-Key": crypto.randomUUID() },
+        { relation, expected_version: 0, edit_note: note, sources },
+        { "Idempotency-Key": submissionKey(submissionScope(), relation) },
       );
       setAddType("");
       setAddTarget("");
