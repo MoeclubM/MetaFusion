@@ -113,20 +113,26 @@ END $$;
 - 本脚本默认**不**预建、也**不**事后抢归属（`audit` 刻意不在第 2 节的接管清单里）：预建会让四个服务全挂；
   事后抢归属则会打断"当前能起来的那个服务"的下一次启动。
 
-**守卫落地状态（2026-09-19 晚）与同步口径**
+**已解决（2026-09-19 晚，守卫落地 + 预建副本同步）**
 
-- 审计契约方已把守卫落到 `../metafusion-auth/internal/audit/audit.go`（整段包在 `to_regclass` 守卫里的 `DO` 块）；
-  **本仓库脚本第 3b 节那份副本与其余六份（catalog/community/storage 的 Go 常量与迁移文件）待同步**，
-  在它们全部对齐之前 `scripts/check_audit_schema.py` 会红——这就是跨仓一致性的信号，不要改检查器去消掉它。
-- 守卫有效性的实测（`guarded-check.sh`，库 `mf_e2e`，`audit.audit_log` 归 `mf_community`，
-  以 `mf_catalog` 身份执行）：旧形态 `CREATE INDEX IF NOT EXISTS ...` → `ERROR: must be owner of table audit_log`（exit 1）；
-  守卫形态（契约新副本）→ `DO`（exit 0，整段空转）。即守卫落地后四个服务互不依赖 owner 也能启动。
-- 同步自己那份预建副本时有一个坑：守卫块内含 `CREATE SCHEMA IF NOT EXISTS audit`，而 PostgreSQL 对
-  `CREATE SCHEMA IF NOT EXISTS` **即使 schema 已存在也要求库级 CREATE**（第 3 节实测），因此预建那段
-  **不能** 用 `SET LOCAL ROLE mf_audit_owner` 跑契约块（该角色没有库级 CREATE）。正确做法是：
-  以**运维身份**执行契约块（它有库级 CREATE），随后在同一个事务里 `ALTER SCHEMA audit OWNER TO mf_audit_owner` +
-  `ALTER TABLE audit.audit_log OWNER TO mf_audit_owner`（索引随表走）把归属交回去。
-- 同步后本节 ①②③ 三个目标同时成立：owner 固定 `mf_audit_owner`、四个服务启动全部空转、任何顺序断言都绿。
+- 审计契约方已把守卫落到四仓全部七份副本（Go 常量 + 迁移文件），本仓库脚本第 3b 节那份副本也已同步；
+  `python scripts/check_audit_schema.py` 现在 8 个来源 0 问题（它此前报的那条 `deploy(预建) 与 auth 不一致`
+  正是这次同步要消掉的信号）。
+- 守卫有效性的实测（`guarded-check.sh`，库 `mf_e2e`，`audit.audit_log` 归 `mf_community`，以 `mf_catalog` 身份执行）：
+  旧形态 `CREATE INDEX IF NOT EXISTS ...` → `ERROR: must be owner of table audit_log`（exit 1）；
+  守卫形态 → `DO`（exit 0，整段空转）。
+- 端到端实测（预建库，owner=`mf_audit_owner`，四个服务二进制都带守卫）：**四个服务全部启动成功**
+  （catalog `/ready`+definitions、auth `/ready`+setup、community `/ready`+boards、storage `/ready` 全 200；
+  storage 的 `000002_audit_log` 迁移在守卫下空转通过）——§4.1 表格里那条"四个服务全部 42501"已不再复现。
+- order B 的补救路径也实测通过：先让服务建出表（owner=某服务角色）→ 重跑脚本加 `-v audit_bootstrap=1`
+  → 归属交回 `mf_audit_owner`、verify exit 0、原 owner 服务仍能启动（守卫让它不再依赖归属）。
+- 同步自己那份预建副本时有一个坑（已写进脚本注释）：守卫块内含 `CREATE SCHEMA IF NOT EXISTS audit`，
+  而 PostgreSQL 对该语句**即使 schema 已存在也要求库级 CREATE**（第 3 节实测），所以预建那段**不能**
+  `SET LOCAL ROLE mf_audit_owner` 跑契约块；正确做法是以**运维身份**执行契约块，随后在同一事务里
+  `ALTER SCHEMA audit OWNER TO mf_audit_owner` + `ALTER TABLE audit.audit_log OWNER TO mf_audit_owner`（索引随表走）。
+- 开关默认值：第 3b 节仍是 `-v audit_bootstrap=1` 才执行（现状口径不变）。守卫既已落地，
+  "默认开启"在技术上是安全的——是否改成默认由运维/契约方定，改法就是删掉那对 `\if/\endif`。
+- 现在本节 ①②③ 三个目标同时成立：owner 固定 `mf_audit_owner`、四个服务启动全部空转、任何顺序断言都绿。
 - `verify-role-isolation.sql` 的 F 段在这种情况下**硬失败**——这是刻意的：owner 隐式持有全部权限且
   REVOKE 不掉，放任它就等于"审计行可被那个服务改写"静默通过。**F 段红 = 契约缺陷的直接体现，不是脚本 bug。**
 
