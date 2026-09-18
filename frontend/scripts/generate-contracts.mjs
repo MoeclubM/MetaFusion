@@ -11,6 +11,8 @@
 //   ../metafusion-community/internal/auth/permission.go 互动权限码（兄弟仓库，可选）
 //   ../metafusion-storage/internal/auth/permission.go   存储权限码（兄弟仓库，可选）
 //
+//   ../metafusion-{auth,community,storage}/admin/           三个域管理台登记的权限码（兄弟仓库，可选）
+//
 // 兄弟仓库缺席时的行为：该服务的码沿用现有生成物里的取值继续生成（所以 --check 在主仓库
 // 单独检出时仍然可用），但会打印"未经来源校验"的告警。CI 里能检出兄弟仓库时应视为失败。
 
@@ -127,6 +129,44 @@ for (const s of SERVICES) for (const code of codesByService[s.id]) flatCodes.pus
 const uniqueCodes = [...new Set(flatCodes)].sort();
 if (!uniqueCodes.length) problems.push("没有解析出任何权限码");
 
+// 三个域管理台是各服务仓库里的独立应用，不参与本仓库构建、拿不到生成物，只能自己登记码表。
+// 这里钉住"登记进管理台的码必须真的存在于某个服务的码表"：加码/改码时漏改一个应用，
+// 表现是入口该出现却不出现、或点进去注定 403，两边都不报错，只能靠人肉发现。
+const ADMIN_APPS = [
+  { id: "auth", note: "../metafusion-auth/admin/src/lib/permissions.ts",
+    file: path.join(ROOT, "../metafusion-auth/admin/src/lib/permissions.ts") },
+  { id: "community", note: "../metafusion-community/admin/src/lib/permissions.ts",
+    file: path.join(ROOT, "../metafusion-community/admin/src/lib/permissions.ts") },
+  { id: "storage", note: "../metafusion-storage/admin/src/lib/session.ts",
+    file: path.join(ROOT, "../metafusion-storage/admin/src/lib/session.ts") },
+];
+
+const knownCodes = new Set(uniqueCodes);
+const adminCounts = [];
+for (const app of ADMIN_APPS) {
+  if (!fs.existsSync(app.file)) {
+    warnings.push("管理台 " + app.id + "：来源 " + app.note + " 不存在，跳过其权限码校验");
+    continue;
+  }
+  const text = fs.readFileSync(app.file, "utf8");
+  const declared = new Set();
+  const re = /"([a-z][a-z0-9]*(?:[.][a-z0-9_]+)+)"/g;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    // 只认四个服务前缀：这个文件里还有错误码、i18n 键一类的字面量，不能一起收。
+    if (SERVICES.some((s) => m[1].startsWith(s.prefix))) declared.add(m[1]);
+  }
+  for (const code of [...declared].sort()) {
+    if (!knownCodes.has(code)) {
+      problems.push(
+        "管理台 " + app.id + " 登记了不存在于任何服务码表的权限码 " + code + "（" + app.note +
+        "）：加码 / 改码 / 删码时漏改了这个应用",
+      );
+    }
+  }
+  adminCounts.push(app.id + "=" + declared.size);
+}
+
 const header = (title, sources) =>
   [
     "// 本文件由 frontend/scripts/generate-contracts.mjs 生成，勿手改。",
@@ -206,6 +246,7 @@ if (CHECK) {
 
 for (const w of warnings) console.log("警告：" + w);
 console.log("权限码：" + SERVICES.map((s) => s.id + "=" + codesByService[s.id].length).join(" ") + "；kinds=" + kinds.length);
+if (adminCounts.length) console.log("管理台登记码：" + adminCounts.join(" "));
 if (problems.length) {
   console.error("契约校验失败：");
   for (const p of problems) console.error("  - " + p);
