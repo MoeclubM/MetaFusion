@@ -5,7 +5,10 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=Noto+Serif+SC:wght@400;600;700&display=swap');
+/* 字体不再用 @import：@import 必须排在所有规则之前，这里被 @tailwind 展开的规则挤到后面，
+   按 CSS 规范整条忽略，等于五个 Web 字体都没加载。现在由 next/font 在 layout.tsx 里
+   自托管（--font-inter / --font-jetbrains-mono / --font-instrument-serif），
+   下面三个栈把自托管字体放在首位，缺失时回落到系统字体。 */
 
 :root, [data-theme-mode="dark"], html.dark {
   --foreground-rgb: 240 243 246;
@@ -49,9 +52,9 @@
   --state-danger-color: #fb7185;
   --state-info-color: #38bdf8;
   --state-alt-color: #a78bfa;
-  --font-display: "Instrument Serif", "Noto Serif SC", Georgia, serif;
-  --font-sans: "Inter", "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  --font-display: var(--font-instrument-serif, "Instrument Serif"), "Noto Serif SC", Georgia, serif;
+  --font-sans: var(--font-inter, "Inter"), "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), "Fira Code", ui-monospace, monospace;
 }
 
 [data-theme-mode="light"], html.light {
