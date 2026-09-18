@@ -65,7 +65,6 @@ export interface StaffAssociation {
   entity_type: string;
   action: "create" | "link" | "skip";
   target_artist_id?: string;
-  custom_role?: string;
   character_name?: string;
   country?: string;
   biography?: string;

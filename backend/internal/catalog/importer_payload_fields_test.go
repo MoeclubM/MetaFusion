@@ -6,6 +6,8 @@ import (
 )
 
 // 这批字段此前"声明了却不生效"（模型里没有对应落点，写路径也不读）：
+//   - staff_associations[*].custom_role：前端"角色"下拉把界面文案（Author/Director/Voice Actor…）
+//     写进这个键，而落库的署名职位只来自 parsed_role（见 importerAssociationRelationAttrs）。
 //   - mediums[*].media_category：Entity 无此列，medium 字段集只有 catalog_number/format/role，
 //     预览响应里的该字段因此恒为空串；
 //   - release.cover_aspect：Picture 只有 url/caption/taken_at/source，比例是前端展示建议；
@@ -63,6 +65,61 @@ func TestImporterPreflightRejectsFieldsWithoutModelSlot(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// custom_role 的两条路径：与原值不同（用户真改过角色）零写入明确拒绝；空值或"等于 parsed_role"
+// （旧前端把预览里的字段原样回填）不改变落库结果，按空壳放行，落库的 credit_role 仍是 parsed_role。
+func TestImporterRejectsCustomRoleOverride(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	base := func() ImporterImportRequest {
+		return ImporterImportRequest{
+			EntityType: "work", Source: "bangumi", URLOrID: "https://bgm.tv/subject/11",
+			Work: &ImporterWorkPreview{
+				Title: "角色下拉载荷", OriginalLanguage: "ja",
+				CatalogMetadata: map[string]any{"bangumi_type": float64(2)},
+			},
+			StaffAssociations: []ImporterStaffAssociation{
+				{ParsedName: "监督甲", EntityType: "person", ParsedRole: "监督", RelationType: "directed_by"},
+			},
+			EditNote: "角色下拉探针", SourceURLs: []string{"https://bgm.tv/subject/11"},
+		}
+	}
+
+	before := countEntities(t, f, "")
+	changed := base()
+	changed.StaffAssociations[0].CustomRole = "Director"
+	_, err := f.s.Import(ctx, changed, f.u)
+	assertImportError(t, err, []string{
+		"unsupported_field_for_entity_type", "entity_type=work", "field=staff_associations[0].custom_role",
+	})
+	if after := countEntities(t, f, ""); after != before {
+		t.Fatalf("预检失败必须零写入：实体总数 %d -> %d", before, after)
+	}
+
+	roundTrip := base()
+	roundTrip.StaffAssociations[0].CustomRole = "监督"
+	out, err := f.s.Import(ctx, roundTrip, f.u)
+	if err != nil {
+		t.Fatalf("回填来源职位的往返不该被拒：%v", err)
+	}
+	rels, err := f.s.Relations(ctx, out.WorkID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var found bool
+	for _, r := range rels {
+		if r.Type != "directed_by" {
+			continue
+		}
+		found = true
+		if got := r.Attributes["credit_role"]; got != "监督" {
+			t.Fatalf("署名职位应始终来自 parsed_role：%v", r.Attributes)
+		}
+	}
+	if !found {
+		t.Fatal("directed_by 关系未建立")
 	}
 }
 

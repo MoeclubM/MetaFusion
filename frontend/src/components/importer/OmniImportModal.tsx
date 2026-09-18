@@ -287,7 +287,6 @@ export function OmniImportModal({
             entity_type: a.entity_type || "person",
             action: hasMatched ? "link" : "create",
             target_artist_id: a.id,
-            custom_role: a.role || "Creator",
             character_name: a.character_name || "",
             country: a.country,
             biography: a.biography,
@@ -367,7 +366,6 @@ export function OmniImportModal({
         entity_type: a.entity_type || "person",
         action: hasMatched ? "link" : "create",
         target_artist_id: a.id,
-        custom_role: a.role || "Creator",
         character_name: a.character_name || "",
         country: a.country,
         biography: a.biography,
@@ -509,7 +507,6 @@ export function OmniImportModal({
       a.parsed_name.toLowerCase().includes(q) ||
       (a.parsed_original && a.parsed_original.toLowerCase().includes(q)) ||
       a.parsed_role.toLowerCase().includes(q) ||
-      (a.custom_role && a.custom_role.toLowerCase().includes(q)) ||
       (a.character_name && a.character_name.toLowerCase().includes(q))
     );
   });
@@ -1212,31 +1209,23 @@ export function OmniImportModal({
                                   </span>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 mt-1">
-                                {/* Role Selector */}
-                                <select
-                                  value={assoc.custom_role || assoc.parsed_role}
-                                  onChange={(e) => updateAssociation(originalIndex, { custom_role: e.target.value })}
-                                  className="text-[11px] font-mono px-2 py-0.5 rounded-md dark:bg-white/5 border border-line text-text-body focus:outline-hidden focus:border-primary"
+                              <div className="flex flex-wrap items-center gap-2 mt-1">
+                                {/* 角色取自来源数据，不可在这里改：落库的署名职位只有 parsed_role 一个来源，
+                                    关系码由预览按 definitions 判定。此前这里是个下拉，但它写的 custom_role
+                                    服务端读不了——收敛成只读展示，调用方改过值会被服务端明确拒绝
+                                    （unsupported_field_for_entity_type）。要改角色去实体编辑器。 */}
+                                <span
+                                  title={t("importer.staffRoleSourceOnly")}
+                                  className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-black/[0.03] dark:bg-white/5 border border-line text-text-body"
                                 >
-                                  <option value={assoc.parsed_role}>{assoc.parsed_role}</option>
-                                  <option value="Author">{t("importer.role.roleAuthor")}</option>
-                                  <option value="Director">{t("importer.role.roleDirector")}</option>
-                                  <option value="Screenplay">{t("importer.role.roleScreenplay")}</option>
-                                  <option value="Illustrator / Artist">{t("importer.role.roleIllustrator")}</option>
-                                  <option value="Composer">{t("importer.role.roleComposer")}</option>
-                                  <option value="Voice Actor">{t("importer.role.roleVoiceActor")}</option>
-                                  <option value="Actor">{t("importer.role.roleActor")}</option>
-                                  <option value="Studio">{t("importer.role.roleStudio")}</option>
-                                  <option value="Publisher">{t("importer.role.rolePublisher")}</option>
-                                  <option value="Record Label">{t("importer.role.roleLabel")}</option>
-                                  <option value="Circle">{t("importer.role.roleCircle")}</option>
-                                  <option value="Producer">{t("importer.role.roleProducer")}</option>
-                                  <option value="Character">{t("importer.role.roleCharacter")}</option>
-                                </select>
+                                  {assoc.parsed_role}
+                                </span>
 
                                 {/* Character name field if voice actor / cast */}
-                                {(assoc.custom_role?.includes("Voice") || assoc.parsed_role?.includes("Voice") || assoc.character_name) && (
+                                {(assoc.relation_type === "voiced_by" ||
+                                  assoc.parsed_role?.includes("Voice") ||
+                                  assoc.parsed_role?.includes("配音") ||
+                                  assoc.character_name) && (
                                   <input
                                     type="text"
                                     value={assoc.character_name || ""}

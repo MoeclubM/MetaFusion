@@ -101,22 +101,27 @@ type ImporterArtistPreview struct {
 }
 
 type ImporterStaffAssociation struct {
-	ParsedName     string                    `json:"parsed_name"`
-	ParsedOriginal string                    `json:"parsed_original,omitempty"`
-	ParsedRole     string                    `json:"parsed_role"`
-	EntityType     string                    `json:"entity_type"`
-	Action         string                    `json:"action"`
-	TargetArtistID string                    `json:"target_artist_id,omitempty"`
-	CustomRole     string                    `json:"custom_role,omitempty"`
-	CharacterName  string                    `json:"character_name,omitempty"`
-	Country        string                    `json:"country,omitempty"`
-	Biography      string                    `json:"biography,omitempty"`
-	Language       string                    `json:"language,omitempty"`
-	AvatarURL      string                    `json:"avatar_url,omitempty"`
-	ExternalIDs    map[string]any            `json:"external_ids,omitempty"`
-	Translations   []ImporterTranslationItem `json:"translations,omitempty"`
-	RelationType   string                    `json:"relation_type,omitempty"`
-	RelationRole   string                    `json:"relation_role,omitempty"`
+	ParsedName     string `json:"parsed_name"`
+	ParsedOriginal string `json:"parsed_original,omitempty"`
+	ParsedRole     string `json:"parsed_role"`
+	EntityType     string `json:"entity_type"`
+	Action         string `json:"action"`
+	TargetArtistID string `json:"target_artist_id,omitempty"`
+	// CustomRole 是前端"角色"下拉的遗留键：它的取值是界面文案（Author/Director/Voice Actor…），
+	// 既不是 definitions 关系码也不是词表项，服务端**没有**任何落点——落库的署名职位只会来自
+	// ParsedRole（见 importerAssociationRelationAttrs）。因此只有"与原值相同"（旧前端把
+	// parsed_role 原样回传）被当成空壳放行，用户真改动过（≠ parsed_role）由预检以
+	// unsupported_field_for_entity_type 明确拒绝，不静默忽略（见 importerUnsupportedPayloadFields）。
+	CustomRole    string                    `json:"custom_role,omitempty"`
+	CharacterName string                    `json:"character_name,omitempty"`
+	Country       string                    `json:"country,omitempty"`
+	Biography     string                    `json:"biography,omitempty"`
+	Language      string                    `json:"language,omitempty"`
+	AvatarURL     string                    `json:"avatar_url,omitempty"`
+	ExternalIDs   map[string]any            `json:"external_ids,omitempty"`
+	Translations  []ImporterTranslationItem `json:"translations,omitempty"`
+	RelationType  string                    `json:"relation_type,omitempty"`
+	RelationRole  string                    `json:"relation_role,omitempty"`
 }
 
 type ImporterTrackPreview struct {
@@ -3033,6 +3038,15 @@ func importerUnsupportedPayloadFields(req ImporterImportRequest, entityType stri
 	for i, m := range req.Mediums {
 		if strings.TrimSpace(m.MediaCategory) != "" {
 			return reject(fmt.Sprintf("mediums[%d].media_category", i))
+		}
+	}
+	// staff_associations[*].custom_role：落库的署名职位只来自 parsed_role，这个键读不了。
+	// 旧前端把它初始化成 parsed_role 并原样回传，那种"等同原值"的往返不改变落库结果，
+	// 按空壳放行；调用方真改了值（≠ parsed_role）说明它期待"改角色"生效，而模型里没有
+	// 对应的关系码/词表项可用（界面取值是英文文案，不是 definitions 码），只能明确拒绝。
+	for i, a := range req.StaffAssociations {
+		if cr := strings.TrimSpace(a.CustomRole); cr != "" && cr != strings.TrimSpace(a.ParsedRole) {
+			return reject(fmt.Sprintf("staff_associations[%d].custom_role", i))
 		}
 	}
 	rel := req.Release
