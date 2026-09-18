@@ -146,8 +146,49 @@ jobs:
       # 它与文档 §2 表、与各仓库版本锁的关系只能靠机器守（2026-09 审计 §6）。
       - name: 网关矩阵 ↔ 文档 §2 表一致性
         run: python3 scripts/check_gateway_matrix.py
-      - name: 版本锁一致性（兄弟仓库缺席时跳过）
+      # 版本锁与环境变量矩阵需要兄弟仓库源码，放在下面的 cross-repo job：
+      # 这里只检出主仓库，跑 check_versions.py 只会逐条 SKIP（审计 ops#9 的“恒 SKIP”）。
+  # 跨仓检查：版本锁与环境变量矩阵都要看兄弟仓库源码/提交，因此先把它们按锁检出。
+  # 刻意用独立 job：这一步会 clone 五个仓库，失败原因（锚点取不到 / 编排注入了没人读的变量）
+  # 与 compose 语法检查是两件事，混在一起会让"哪个环节红了"变难判。
+  cross-repo:
+    name: 版本锁与环境变量矩阵（跨仓）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: 按 deploy/versions.lock 的 sha 检出兄弟仓库
+        # 为什么需要它：check_versions.py 对缺席的兄弟目录是"跳过"，而 CI 以前只检出主仓库，
+        # 于是版本锁恒等于没跑（2026-09 审计 ops#9）。这里按锁里的 sha 逐个 clone 并 checkout：
+        #   - 锁里的 sha 在远端可取 → 锚点可被任何人复现，检查真的跑起来；
+        #   - 取不到（本地未推送的提交）→ 明确失败，不用 continue-on-error 把它盖过去。
+        # 口径说明：这一步证明的是"锁里的 sha 在远端仓库存在且可检出"，不是"某台机器的本地检出与锁一致"。
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS='=' read -r repo sha; do
+            name="${repo#../}"
+            git clone --quiet "https://github.com/MoeclubM/${name}.git" "../${name}"
+            if git -C "../${name}" checkout --quiet --detach "$sha" 2>/dev/null; then
+              continue
+            fi
+            if git -C "../${name}" fetch --quiet origin "$sha" 2>/dev/null; then
+              git -C "../${name}" checkout --quiet --detach FETCH_HEAD
+              continue
+            fi
+            echo "::error::锁里的 ${name}=${sha} 在远端仓库取不到：先把该仓库推到远端，或按 deploy/versions.lock 的流程刷新锚点"
+            failed=1
+          done < <(grep -E '^\.\./[A-Za-z0-9_.-]+=' deploy/versions.lock)
+          exit "$failed"
+      - name: 版本锁一致性
         run: python3 scripts/check_versions.py
+      - name: 环境变量矩阵（注入↔读取两个方向）
+        # 兄弟仓库已在上一步就位，因此这里三个方向都是全量校验：注入了没人读、
+        # 默认不安全却没注入、登记表与代码漂移（2026-09 审计：这两个方向原来都没有机器守）。
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 scripts/check_env_matrix.py
+          python3 scripts/check_env_matrix.py --selftest
+
   # 文档站已独立为 metafusion-docs 仓库（唯一源），构建与链接自查在那边跑；
   # 本仓库不再持有 doc 页面，故这里没有 docs-site job。
 
