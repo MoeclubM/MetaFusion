@@ -23,6 +23,7 @@ export const CATALOG_PERMISSION_CODES = [
 
 // ── auth ──
 // 账号权限：auth.oauth.manage 覆盖客户端管理、密钥轮换、令牌吊销与审计（metafusion-auth/internal/handler/oauth_admin.go）。
+export const AUTH_AUDIT_READ = "auth.audit.read" as const;
 export const AUTH_GROUPS_MANAGE = "auth.groups.manage" as const;
 export const AUTH_INVITES_MANAGE = "auth.invites.manage" as const;
 export const AUTH_OAUTH_MANAGE = "auth.oauth.manage" as const;
@@ -30,6 +31,7 @@ export const AUTH_SETTINGS_MANAGE = "auth.settings.manage" as const;
 export const AUTH_USERS_MANAGE = "auth.users.manage" as const;
 
 export const AUTH_PERMISSION_CODES = [
+  AUTH_AUDIT_READ,
   AUTH_GROUPS_MANAGE,
   AUTH_INVITES_MANAGE,
   AUTH_OAUTH_MANAGE,
@@ -71,6 +73,7 @@ export const PERMISSION_CODES_BY_SERVICE = {
 
 /** 全部权限码（去重、按字母序）。 */
 export const ALL_PERMISSION_CODES = [
+  "auth.audit.read",
   "auth.groups.manage",
   "auth.invites.manage",
   "auth.oauth.manage",
