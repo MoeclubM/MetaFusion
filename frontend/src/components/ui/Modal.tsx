@@ -97,7 +97,7 @@ export function Modal({
  onClick={(e) => e.stopPropagation()}
  className={`w-full ${maxWidth} rounded-lg border border-line bg-surface p-5 sm:p-6 space-y-4 shadow-elevated max-h-[90vh] overflow-y-auto outline-none`}
  >
- <div className="flex items-center justify-between border-b border-line/60 pb-3">
+ <div className="flex items-center justify-between border-b border-line-subtle pb-3">
  <h3 id={titleId} className="text-sm font-semibold text-text-strong flex items-center gap-2">
  {icon}
  {title}

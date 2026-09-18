@@ -337,7 +337,7 @@ function CommunityContent() {
  className={`w-full group flex items-center gap-2.5 px-3.5 py-2.5 rounded-md border text-left transition-colors duration-fast ease-soft ${
  isActive
  ? "bg-surface border-line text-emphasis shadow-sm"
- : "border-transparent text-text-muted hover:text-emphasis hover:bg-surface/70 hover:border-line/60"
+ : "border-transparent text-text-muted hover:text-emphasis hover:bg-surface/70 hover:border-line-subtle"
  }`}
  >
  <span className={`w-8 h-8 rounded-md flex items-center justify-center border shrink-0 ${board.bgColor} ${board.borderColor}`}>
@@ -755,13 +755,13 @@ function CommunityContent() {
  </button>
  </div>
  ) : (
- <div className="divide-y divide-surfaceBorder/70">
+ <div className="divide-y divide-line-subtle">
  {topics.map((topic) => {
  const board = getBoard(topic.board_code);
  const Icon = resolveBoardIcon(board);
  const authorId = topic.user_id || topic.user?.id;
  return (
- <div key={topic.id} className="group flex items-stretch hover:bg-surfaceBorder/20 transition-colors duration-fast ease-soft">
+ <div key={topic.id} className="group flex items-stretch hover:bg-emphasis/[0.02] transition-colors duration-fast ease-soft">
  {/* main col */}
  <div className="flex-1 min-w-0 py-3 px-4 space-y-1.5">
  <Link href={`/community/${topic.id}`} className="block text-sm font-semibold text-emphasis group-hover:text-emerald-400 transition-colors duration-fast ease-soft leading-snug line-clamp-2 sm:line-clamp-1">
@@ -850,7 +850,7 @@ function CommunityContent() {
  </div>
 
  <div className="hidden sm:flex w-14 items-center justify-center">
- <span className={`px-2.5 py-1 rounded text-sm font-bold font-mono ${topic.reply_count > 0 ? "bg-surfaceBorder/60 text-emphasis" : "text-text-faint"}`}>{topic.reply_count}</span>
+ <span className={`px-2.5 py-1 rounded text-sm font-bold font-mono ${topic.reply_count > 0 ? "bg-emphasis/[0.05] text-emphasis" : "text-text-faint"}`}>{topic.reply_count}</span>
  </div>
  <div className="hidden md:flex w-14 items-center justify-center text-text-muted font-mono text-sm">{topic.view_count}</div>
  <div className="hidden sm:flex w-24 items-center justify-end pr-4 text-text-muted font-mono text-sm whitespace-nowrap">{formatTimeAgo(topic.updated_at || topic.created_at, locale, t)}</div>

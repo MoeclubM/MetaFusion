@@ -294,7 +294,7 @@ export default function TopicDetailPage() {
  {/* Post #1: Topic Original Post (Discourse Post Stream Item) */}
  <div id={`post-${opPost?.post_number ?? 1}`} className="border border-line rounded-lg bg-surface p-4 sm:p-5 space-y-3.5 shadow-2xs">
  {/* Post Author Header */}
- <div className="flex items-center justify-between border-b border-line/60 pb-2.5">
+ <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
  <div className="flex items-center space-x-2.5">
  {(opPost?.user_id || topic.user_id || opPost?.user?.id || topic.user?.id) ? (
  <Link
@@ -369,7 +369,7 @@ export default function TopicDetailPage() {
    </div>
 
  {/* Discourse Post Action Bar */}
- <div className="flex items-center justify-between pt-2.5 border-t border-line/60 text-text-faint">
+ <div className="flex items-center justify-between pt-2.5 border-t border-line-subtle text-text-faint">
  <div className="flex items-center space-x-3.5">
  <button
  onClick={() => toggleLike(opPost?.id || topic.id)}
@@ -421,7 +421,7 @@ export default function TopicDetailPage() {
  <span>{tr("community.replyToPost", `Reply to #${post.reply_to_post_number}`, { n: post.reply_to_post_number })}</span>
  </div>
  )}
- <div className="flex items-center justify-between border-b border-line/60 pb-2.5">
+ <div className="flex items-center justify-between border-b border-line-subtle pb-2.5">
  <div className="flex items-center space-x-2.5">
  {replyUserId ? (
  <Link
@@ -479,7 +479,7 @@ export default function TopicDetailPage() {
    </div>
 
  {/* Post Actions */}
- <div className="flex items-center justify-between pt-2.5 border-t border-line/60 text-text-faint">
+ <div className="flex items-center justify-between pt-2.5 border-t border-line-subtle text-text-faint">
  <div className="flex items-center space-x-3.5">
  <button
  onClick={() => toggleLike(post.id)}

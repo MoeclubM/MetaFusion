@@ -520,7 +520,7 @@ export default function PostComposer({
                               setBoardDropdownOpen(false);
                               setBoardQuery("");
                             }}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-surfaceBorder/50 transition-colors duration-fast ease-soft ${active ? "bg-surfaceBorder/30" : ""}`}
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-emphasis/[0.04] transition-colors duration-fast ease-soft ${active ? "bg-emphasis/[0.025]" : ""}`}
                           >
                             <span className={`w-7 h-7 rounded-md flex items-center justify-center border shrink-0 ${b.bgColor} ${b.borderColor}`}>
                               <Icon className={`w-3.5 h-3.5 ${b.color}`} />
@@ -581,7 +581,7 @@ export default function PostComposer({
                             setSearchedWorks([]);
                             setNewBoardCode("comment");
                           }}
-                          className="p-2.5 hover:bg-surfaceBorder/50 cursor-pointer flex items-center justify-between text-text-body hover:text-emphasis text-sm"
+                          className="p-2.5 hover:bg-emphasis/[0.04] cursor-pointer flex items-center justify-between text-text-body hover:text-emphasis text-sm"
                         >
                           <span className="font-medium truncate">{w.title}</span>
                         </div>
@@ -650,7 +650,7 @@ export default function PostComposer({
                         key={ftag.id}
                         type="button"
                         onClick={() => addTag(ftag)}
-                        className="w-full px-3 py-2 text-left hover:bg-surfaceBorder/50 flex items-center justify-between text-xs text-text-body hover:text-emphasis"
+                        className="w-full px-3 py-2 text-left hover:bg-emphasis/[0.04] flex items-center justify-between text-xs text-text-body hover:text-emphasis"
                       >
                         <span className="flex items-center gap-1.5">
                           <TagIcon className="w-3 h-3 text-text-faint" />
