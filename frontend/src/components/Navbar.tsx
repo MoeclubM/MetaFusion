@@ -128,7 +128,9 @@ export const Navbar: React.FC = () => {
       <PageContainer className="h-14 sm:h-15 flex items-center justify-between gap-3">
         {/* Left Brand + Navigation */}
         <div className="flex items-center gap-3 sm:gap-4">
-          <Link href="/landing" title={t("navbar.about")} className="flex items-center gap-2.5 shrink-0 group">
+          {/* 品牌名 span 在 <640px 被隐藏，只剩 26×26 的图形：title 只是兜底名，
+              显式 aria-label 才是稳定可访问名（屏幕阅读器与自动化都以它为准）。 */}
+          <Link href="/landing" aria-label={t("navbar.about")} title={t("navbar.about")} className="flex items-center gap-2.5 shrink-0 group">
             <BrandMark size={26} withGlow={false} idSuffix="nav" />
             <span className="hidden sm:flex flex-col leading-none">
               <span className="font-display text-[20px] leading-none tracking-[-0.03em] text-white group-hover:text-primary transition-colors duration-fast ease-soft">
@@ -201,9 +203,11 @@ export const Navbar: React.FC = () => {
         {/* Right Controls */}
         <div className="flex items-center gap-2 sm:gap-2.5">
           {/* 新建：指向 /new；那边不带 ?kind= 时会落到编目枢纽（/contribute）先选手动创建
-              或外部权威库导入，带 ?kind= 才直接进编辑器。入口不预设层级，也不枚举层级清单。 */}
+              或外部权威库导入，带 ?kind= 才直接进编辑器。入口不预设层级，也不枚举层级清单。
+              标签 span 带 hidden sm:inline，窄屏只剩加号图标，因此必须显式给可访问名。 */}
           <Link
               href="/new"
+            aria-label={t("catalog.create")}
             className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-primary/15 hover:bg-primary/25 border border-primary/30 text-xs font-medium text-primary hover:text-white transition-all shadow-2xs"
             >
               <Plus className="w-3.5 h-3.5" strokeWidth={2} />
