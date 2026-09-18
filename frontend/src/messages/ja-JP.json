@@ -1487,7 +1487,6 @@
   "catalog.directoryModes.none": "汎用表示",
   "catalog.module.storage": "ファイル保管とダウンロード",
   "catalog.module.community": "コミュニティ",
-  "catalog.module.records": "個人の記録",
   "catalog.module.exchange": "提案の取込と書出",
   "catalog.switchLanguage": "言語切替",
   "catalog.analyze": "メディアを解析",
