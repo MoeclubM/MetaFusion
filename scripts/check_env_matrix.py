@@ -17,11 +17,15 @@ B. 登记 → 注入：KEYS 里 safe=False 的键，必须在指定编排文件�
 C. 登记 → 代码：KEYS 里每个读者路径必须真实存在且文件里出现该键名，
    防止"登记表说有人读、代码里其实已经删了"的静默漂移。兄弟仓库目录缺席时记
    "未能校验"并照常退出 0——CI 上它们由前一步按 deploy/versions.lock 检出，因此那里是全量校验。
+D. KEYS 里标了 interpolate 的键（数据层隔离的五条服务 DSN），必须在指定编排文件里真的被插值
+   （形如 键名加 :- 空默认，或裸键名）。编排只把它注入成容器的 DATABASE_URL，所以 A/B/C 都看不见它：
+   没有这条检查，"编排里键名改了、.env 里配的还是老名字"会静默变成"服务退回共用库用户"。
 
 用法：python scripts/check_env_matrix.py [仓库根目录] [--siblings-root DIR] [--selftest]
 """
 import argparse
 import os
+import re
 import sys
 
 import yaml
@@ -70,7 +74,18 @@ ALLOWED_INFRA = {
 KEYS = {
     # ── 目录服务（本仓库 backend/）────────────────────────────────────────
     "PORT": {"readers": [("catalog", "cmd/server/main.go")], "default": "8080", "safe": True},
-    "DATABASE_URL": {"readers": [("catalog", "cmd/server/main.go")], "default": "空 → 回退 DB_* 拼装", "safe": True},
+    "DATABASE_URL": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "internal/config/config.go"), ("community", "internal/config/config.go"), ("community", "cmd/migrate/main.go"), ("storage", "internal/config/config.go")], "default": "空 → 回退 DB_* 拼装", "safe": True},
+    # ── 数据层隔离：每服务各自的 DSN（编排侧插值键）────────────────────────
+    # 这五条以"键名 + 空默认"的插值形式注入成容器里的 DATABASE_URL（服务只读这个名字），
+    # 因此它们自己没有 readers——读者路径就是上面那条 DATABASE_URL 的登记。
+    # 留空 = 回退共用 DB_* 拼装（向后兼容）；生产必须填，否则四个服务仍共用一个库用户
+    # （2026-09 审计 P0：SQL 层零权限隔离）。interpolate 声明"哪份编排必须真的用到这个键"，
+    # 由下面的 D 检查兜底，防止 .env 里配了却没人读。
+    "CATALOG_DATABASE_URL": {"readers": [], "default": "空 → 回退 DB_USER/DB_PASSWORD/DB_NAME", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "目录服务的独立角色 DSN（角色 mf_catalog，授权见 deploy/sql/roles-least-privilege.sql）"},
+    "AUTH_DATABASE_URL": {"readers": [], "default": "空 → 回退 DB_USER/DB_PASSWORD/DB_NAME", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "账号服务的独立角色 DSN（角色 mf_auth）"},
+    "COMMUNITY_DATABASE_URL": {"readers": [], "default": "空 → 回退 DB_USER/DB_PASSWORD/DB_NAME", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "互动服务的独立角色 DSN（角色 mf_community）"},
+    "STORAGE_DATABASE_URL": {"readers": [], "default": "空 → 回退 DB_USER/DB_PASSWORD/DB_NAME", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "存储服务的独立角色 DSN（角色 mf_storage）"},
+    "COMMUNITY_MIGRATE_DATABASE_URL": {"readers": [], "default": "空 → 回退 DB_USER/DB_PASSWORD/DB_NAME", "safe": True, "interpolate": ["deploy/docker-compose.yml"], "note": "切流搬运工具（community-migrate）的管理身份 DSN：唯一需要跨域读的进程，不拿任何服务运行角色"},
     "DB_HOST": {"readers": [("catalog", "cmd/server/main.go")], "default": "localhost", "safe": True},
     "DB_PORT": {"readers": [("catalog", "cmd/server/main.go")], "default": "5432", "safe": True},
     "DB_USER": {"readers": [("catalog", "cmd/server/main.go")], "default": "metafusion", "safe": True},
@@ -215,6 +230,21 @@ def check(root, siblings_root):
                 if key not in fh.read():
                     problems.append("%s: 登记表说 %s 读它，但 %s 里没有这个键名" % (key, repo, shown))
 
+    # D. 登记 → 编排插值：标了 interpolate 的键必须在指定编排文件里真的被用到。
+    #    数据层隔离的五条服务 DSN 只会以插值形式出现在编排里（注入成容器的 DATABASE_URL），
+    #    A/B/C 三条都看不见它们：没有这条检查，编排里改了键名而 .env 还配着老名字，
+    #    结果只是静默退回共用库用户，不会让任何检查变红。
+    for key, meta in sorted(KEYS.items()):
+        for rel in meta.get("interpolate", []):
+            path = os.path.join(root, rel)
+            if not os.path.isfile(path):
+                problems.append("%s: 登记表要求 %s 插值它，但该编排文件不存在" % (key, rel))
+                continue
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+            if not re.search(r"\$\{" + re.escape(key) + r"(:|\})", text):
+                problems.append("%s: 登记表要求 %s 用它（形如 ${键名:-}），但文件里没有这个插值" % (key, rel))
+
     for key, meta in sorted(KEYS.items()):
         if meta.get("note"):
             notes.append("%s: %s" % (key, meta["note"]))
@@ -254,6 +284,10 @@ def selftest():
         for repo, _rel in meta.get("readers", []):
             if repo not in SIBLING_DIRS and repo != "catalog":
                 failures.append("%s: 未知仓库 %s" % (key, repo))
+        # interpolate 只用于"编排侧插值键"，目标必须是 deploy/ 下的 .yml
+        for rel in meta.get("interpolate", []):
+            if not (rel.startswith("deploy/") and rel.endswith(".yml")):
+                failures.append("%s: interpolate 目标应是 deploy/*.yml，实际 %s" % (key, rel))
     for bad in failures:
         print("FAIL " + bad)
     print("check_env_matrix --selftest: %d 项用例，%d 个问题" % (len(SELFTEST_DOCS) + 1 + len(KEYS), len(failures)))

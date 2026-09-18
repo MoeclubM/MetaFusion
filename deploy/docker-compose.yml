@@ -135,6 +135,13 @@ services:
       # debug 输出，gin.Logger() 的逐请求访问日志与格式不变，排障字段照旧。
       - GIN_MODE=release
       - PORT=8080
+      # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）：
+      # 留空 = 回退到下面共用的 DB_* 拼装，与旧 .env 完全兼容；生产**必须**填，否则四个服务
+      # 仍共用同一个库用户 metafusion——任一服务被攻破即可读写全部数据（2026-09 审计 P0）。
+      # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 CATALOG_DATABASE_URL 同源。
+      # 值的形状：postgres://mf_catalog:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
+      # （刻意不写 <键名>=<连接串> 的字面行：gitleaks 的 generic-api-key 规则会误判成密钥，见 .env.example）
+      - DATABASE_URL=${CATALOG_DATABASE_URL:-}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER:-metafusion}
@@ -186,6 +193,12 @@ services:
       # 同上：生产关掉 gin debug 的路由表与逐请求 debug 输出。
       - GIN_MODE=release
       - PORT=8081
+      # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）：
+      # 留空 = 回退到下面共用的 DB_* 拼装，与旧 .env 完全兼容；生产**必须**填，否则四个服务
+      # 仍共用同一个库用户 metafusion——任一服务被攻破即可读写全部数据（2026-09 审计 P0）。
+      # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 AUTH_DATABASE_URL 同源。
+      # 值的形状：postgres://mf_auth:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
+      - DATABASE_URL=${AUTH_DATABASE_URL:-}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER:-metafusion}
@@ -231,6 +244,12 @@ services:
       # 同上：生产关掉 gin debug 的路由表与逐请求 debug 输出。
       - GIN_MODE=release
       - PORT=8083
+      # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）：
+      # 留空 = 回退到下面共用的 DB_* 拼装，与旧 .env 完全兼容；生产**必须**填，否则四个服务
+      # 仍共用同一个库用户 metafusion——任一服务被攻破即可读写全部数据（2026-09 审计 P0）。
+      # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 COMMUNITY_DATABASE_URL 同源。
+      # 值的形状：postgres://mf_community:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
+      - DATABASE_URL=${COMMUNITY_DATABASE_URL:-}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER:-metafusion}
@@ -274,6 +293,10 @@ services:
     profiles: ["tools"]
     entrypoint: ["/app/community-migrate"]
     environment:
+      # 一次性搬运工具：**唯一需要跨域读的进程**（读 modules.* 与 catalog.favorites，
+      # 写 community.*），因此它用独立的管理身份，不拿任何服务的运行角色——
+      # 见 docs/architecture/database-roles.md 第 4 节。留空 = 回退共用 DB_*（切流窗口的旧行为）。
+      - DATABASE_URL=${COMMUNITY_MIGRATE_DATABASE_URL:-}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER:-metafusion}
@@ -301,6 +324,12 @@ services:
       # 同上：生产关掉 gin debug 的路由表与逐请求 debug 输出。
       - GIN_MODE=release
       - PORT=8082
+      # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）：
+      # 留空 = 回退到下面共用的 DB_* 拼装，与旧 .env 完全兼容；生产**必须**填，否则四个服务
+      # 仍共用同一个库用户 metafusion——任一服务被攻破即可读写全部数据（2026-09 审计 P0）。
+      # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 STORAGE_DATABASE_URL 同源。
+      # 值的形状：postgres://mf_storage:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
+      - DATABASE_URL=${STORAGE_DATABASE_URL:-}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER:-metafusion}
