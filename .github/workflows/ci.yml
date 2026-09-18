@@ -112,6 +112,12 @@ jobs:
         # 生成物由 frontend/scripts/generate-contracts.mjs 从后端与各子系统源码提取；
         # 兄弟仓库在 CI 里缺席时脚本只告警不失败（主仓库单独检出仍可用）。
         run: node scripts/generate-contracts.mjs --check
+      - name: 设计令牌守门（源码用到的令牌类名必须产出 CSS）
+        # 上一轮的事故：37 个语义令牌类名在源码里写了、产出 CSS 里一条都没有——未注册的颜色
+        # Tailwind 直接跳过，而 tsc 与 next build 全绿。脚本用项目自己的 tailwind.config.ts
+        # 编译一次再逐个查选择器，并守住令牌清单（含 <alpha-value>）、深浅两套模式块里的
+        # 变量定义，以及"字面白/调色板色不许写回来"这条迁移成果。
+        run: node scripts/check-design-tokens.mjs
 
       - name: next build (via Bun)
         run: bun run build
@@ -211,6 +217,14 @@ jobs:
           python3 -m pip install --quiet pyyaml
           python3 scripts/check_env_matrix.py
           python3 scripts/check_env_matrix.py --selftest
+      - name: 审计表 DDL 一致性（授权脚本预建 ↔ 四个服务副本）
+        # audit.audit_log 是跨四仓共用的表，DDL 天然有 4 份服务副本；授权脚本第 3b 节又加了一份
+        # **预建**副本（部署时以它为准，owner 才会固定是 mf_audit_owner）。副本漂移的后果是
+        # "预建的列"与"服务以为的列"分叉 → 审计行静默写失败，而没有任何现有检查会红。
+        # 这里逐条语句比对全部来源，并用结构断言兜住列数/索引/锁键；缺席的兄弟仓库记"未能校验"。
+        run: |
+          python3 scripts/check_audit_schema.py
+          python3 scripts/check_audit_schema.py --selftest
       - name: 契约生成物 ↔ 锚点来源一致性（权限码 / kinds）
         # frontend job 里那一步其实没有兄弟仓库：缺席时生成器沿用生成物里的现有取值，
         # 兄弟侧权限码等于没校验（本地实测：锚点来源与生成物一致时才真能守住）。
