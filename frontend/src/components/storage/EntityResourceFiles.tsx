@@ -9,7 +9,9 @@
 // 前端判定只用于"别把用户引到注定失败的按钮"，真正的授权仍在服务端。
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { AlertCircle, Check, Download, HardDrive, Loader2, RefreshCw, Upload, X } from "lucide-react";
+import { AlertCircle, Check, Download, HardDrive, Loader2, Link2Off, RefreshCw, Upload, X } from "lucide-react";
+import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
+import { STORAGE_ASSET_MODERATE, can } from "@/lib/permissions";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { Select } from "@/components/ui/Select";
@@ -22,6 +24,7 @@ import {
   StorageRequestError,
   bindAsset,
   completeUpload,
+  deleteStorageBinding,
   downloadAssetFile,
   fetchEntityFiles,
   initiateUpload,
@@ -69,6 +72,14 @@ function downloadErrorKey(err: unknown): Message {
   return mapped;
 }
 
+/** 解绑失败归一：403 是"这条绑定不归你/没有治理码"，404 是"它已经不在了"（端点不幂等）。 */
+function unbindErrorKey(err: unknown): Message {
+  const mapped = storageErrorKey(err);
+  if (mapped.key === "storage.files.errForbidden") return { key: "storage.files.unbindForbidden" };
+  if (mapped.key === "storage.files.errNotFound") return { key: "storage.files.unbindGone" };
+  return { key: "storage.files.unbindFailed", vars: mapped.vars };
+}
+
 export function EntityResourceFiles({ entityId, className }: { entityId: string; className?: string }) {
   const { t, locale } = useI18n();
   const { user, loading: authLoading } = useAuth();
@@ -93,6 +104,9 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
   const [downloadingId, setDownloadingId] = useState("");
   const [downloadError, setDownloadError] = useState<Message | null>(null);
   const [downloadNote, setDownloadNote] = useState<Message | null>(null);
+  // 待确认的解绑目标：解绑是破坏性动作（删的是绑定关系），确认框自绘并写清删的是哪一条。
+  const [pendingUnbind, setPendingUnbind] = useState<StorageFileBinding | null>(null);
+  const [unbinding, setUnbinding] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<(() => void) | null>(null);
@@ -124,6 +138,11 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
   const effectiveRole = (roleChoice === CUSTOM_ROLE ? customRole : roleChoice).trim().toLowerCase();
   const roleValid = BINDING_ROLE_PATTERN.test(effectiveRole);
   const busy = stage !== "idle" && stage !== "done";
+
+  // 谁能解绑：与后端 Handler.unbind 同一口径——绑定创建者、文件上传者，或持
+  // storage.asset.moderate 的治理者。前端判定只用于"别把按钮给注定 403 的人"，真正的授权在服务端。
+  const canUnbind = (entry: StorageFileBinding) =>
+    !!user && (entry.created_by === user.id || entry.asset.uploader_id === user.id || can(user, STORAGE_ASSET_MODERATE));
 
   const stageLabel: Record<Stage, string> = {
     idle: "",
@@ -282,6 +301,27 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
       setDownloadingId("");
     }
   }, []);
+
+  /**
+   * 解绑：绑错文件或绑错实体只能在这里纠正（下载/上传都改不了已有绑定）。
+   * 契约（lib/storage.ts 的 deleteStorageBinding）：该端点**不幂等**——重复删同一个 id 的
+   * 第二次是 404 not_found，所以无论成败都重新取数，不做乐观删除，否则列表里会留幽灵行。
+   */
+  const unbind = useCallback(async (entry: StorageFileBinding) => {
+    setPendingUnbind(null);
+    setUnbinding(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await deleteStorageBinding(entry.id);
+      setNotice({ key: "storage.files.unbindDone", vars: { name: entry.asset.file_name } });
+    } catch (err) {
+      setError(unbindErrorKey(err));
+    } finally {
+      setUnbinding(false);
+      await loadFiles();
+    }
+  }, [loadFiles]);
 
   // 预设下拉不是封闭枚举：末项切到自由输入，仍按同一字段码规则校验。
   const roleOptions: { value: string; label: string }[] = BINDING_ROLE_PRESETS.map((code) => ({
@@ -562,11 +602,37 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
                   )}
                   <span>{downloadingId === entry.asset_id ? t("storage.files.downloading") : t("storage.files.download")}</span>
                 </button>
+                {canUnbind(entry) && (
+                  <button
+                    type="button"
+                    onClick={() => setPendingUnbind(entry)}
+                    disabled={unbinding}
+                    title={t("storage.files.unbind")}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-background text-[11px] font-semibold text-gray-500 hover:border-rose-500/40 hover:text-rose-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Link2Off className="w-3.5 h-3.5" />
+                    <span>{t("storage.files.unbind")}</span>
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       )}
+
+      {/* 解绑确认：删的是绑定关系（文件本体还在），所以说明里写清"解绑的是哪一个文件、哪种用途"。 */}
+      <ConfirmDialog
+        open={pendingUnbind !== null}
+        title={t("storage.files.unbind")}
+        message={t("storage.files.unbindConfirm", {
+          name: pendingUnbind?.asset.file_name ?? "",
+          role: pendingUnbind?.binding_role ?? "",
+        })}
+        confirmLabel={t("storage.files.unbind")}
+        busy={unbinding}
+        onClose={() => setPendingUnbind(null)}
+        onConfirm={() => { if (pendingUnbind) void unbind(pendingUnbind); }}
+      />
     </section>
   );
 }
