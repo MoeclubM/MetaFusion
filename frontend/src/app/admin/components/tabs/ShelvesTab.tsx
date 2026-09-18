@@ -84,7 +84,7 @@ export function ShelvesTab() {
         if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
         return body as { items: ShelfItem[] };
       });
-      setItems(res.items || []);
+      setItems(Array.isArray(res.items) ? res.items : []);
     } catch (err: any) {
       setError(err.message || t("admin.shelves.loadFailed"));
     } finally {

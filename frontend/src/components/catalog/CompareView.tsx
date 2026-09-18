@@ -121,7 +121,7 @@ export function Compare({ ids }: { ids: string }) {
 
   useEffect(() => {
     api<{ items: Entity[] }>("/catalog/entities?kind=release&limit=12")
-      .then((r) => setRecentReleases(r.items || []))
+      .then((r) => setRecentReleases(Array.isArray(r.items) ? r.items : []))
       .catch(() => {});
   }, []);
 
@@ -134,7 +134,7 @@ export function Compare({ ids }: { ids: string }) {
     const timer = setTimeout(() => {
       setSearching(true);
       api<{ items: Entity[] }>(`/catalog/entities?kind=release&q=${encodeURIComponent(q)}&limit=8`)
-        .then((r) => setSearchResults(r.items || []))
+        .then((r) => setSearchResults(Array.isArray(r.items) ? r.items : []))
         .catch((e) => setError(e.message))
         .finally(() => setSearching(false));
     }, 250);
@@ -155,7 +155,7 @@ export function Compare({ ids }: { ids: string }) {
     setError("");
     api<{ items: any[] }>(`/catalog/compare?ids=${selectedIds.join(",")}`)
       .then((r) => {
-        setItems(r.items || []);
+        setItems(Array.isArray(r.items) ? r.items : []);
         setError("");
       })
       .catch((e) => {

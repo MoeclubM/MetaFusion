@@ -51,7 +51,7 @@ export function ExternalDatabasesTab() {
     setError(null);
     try {
       const res = await fetchAdminExternalDatabases();
-      setItems(res.items || []);
+      setItems(Array.isArray(res.items) ? res.items : []);
     } catch (err: any) {
       setError(err.message || t("admin.extdb.loadFailed"));
     } finally {
@@ -59,7 +59,7 @@ export function ExternalDatabasesTab() {
     }
     // 适配器集合单独取：取不到只让这一列显示"未知"，不影响库列表本身（两者失败原因不同）。
     fetchImporterSources()
-      .then((res) => setAdapterIds(new Set((res.items || []).map((s) => s.id))))
+      .then((res) => setAdapterIds(new Set((Array.isArray(res.items) ? res.items : []).map((s) => s.id))))
       .catch(() => setAdapterIds(null));
   };
 

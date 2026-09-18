@@ -101,8 +101,8 @@ export default function WorkDirectoryPage() {
  setWork(data);
  // 关系与对端实体一次取回（服务端批量解析），前端不再逐条请求。
  const r = await fetchApi<{ items: RelationItem[]; entities: Record<string, Entity> }>(`/catalog/entities/${workId}/relations`);
- setRelations(r.items || []);
- setRelEntities(r.entities || {});
+ setRelations(Array.isArray(r.items) ? r.items : []);
+ setRelEntities(r.entities && typeof r.entities === "object" ? r.entities : {});
  } catch (e) {
  setLoadError(classifyLoadFailure(e));
  } finally {

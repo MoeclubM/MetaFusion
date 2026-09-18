@@ -121,8 +121,8 @@ export function RelationEditorField({ entityId, entityKind, entityTypes, note, s
       const res = await api<{ items: Relation[]; entities: Record<string, Entity> }>(
         `/catalog/entities/${entityId}/relations`,
       );
-      setItems(res.items || []);
-      setPeers(res.entities || {});
+      setItems(Array.isArray(res.items) ? res.items : []);
+      setPeers(res.entities && typeof res.entities === "object" ? res.entities : {});
     } catch (e) {
       setError(t("editor.relation.loadFailed"));
     } finally {

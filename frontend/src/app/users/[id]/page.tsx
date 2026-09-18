@@ -168,7 +168,7 @@ export default function UserDetailPage() {
       .then((r) => {
         if (!alive) return;
         setFavVisible(r.visible);
-        setItems(r.items || []);
+        setItems(Array.isArray(r.items) ? r.items : []);
         setTotal(r.total || 0);
       })
       .catch((e: any) => {

@@ -225,7 +225,7 @@ function AdminInner() {
         if (!r.ok) throw new Error(String(r.status));
         return r.json();
       })
-      .then((d) => setPendingItems(d.items || []))
+      .then((d) => setPendingItems(Array.isArray(d.items) ? d.items : []))
       .catch(() => {
         setPendingItems([]);
         setReviewListFailed(true);
@@ -246,7 +246,7 @@ function AdminInner() {
         if (!r.ok) throw new Error(String(r.status));
         return r.json();
       })
-      .then((d) => setEntitiesList(d.items || []))
+      .then((d) => setEntitiesList(Array.isArray(d.items) ? d.items : []))
       .catch(() => {
         setEntitiesList([]);
         setEntitiesListFailed(true);

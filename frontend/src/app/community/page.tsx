@@ -211,7 +211,7 @@ function CommunityContent() {
  `/community/topics?${params.toString()}`,
  { signal: controller.signal }
  );
- let list = res.items || [];
+ let list = Array.isArray(res.items) ? res.items : [];
  // 「热门」只在当前页窗口内排序：后端没有热度排序参数，跨页热度榜要后端先给排序口径。
  if (activeTab === "top") {
  list = [...list].sort((a, b) => b.reply_count + b.view_count - (a.reply_count + a.view_count));

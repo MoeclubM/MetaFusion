@@ -251,15 +251,15 @@ export function EntityDetailView({ id }: { id: string }) {
         fetchEntityCollections(communityId).catch(() => { collectionsFailed = true; return [] as EntityCollectionRef[]; }),
       ]);
 
-      const occItems = occRes.items || [];
-      const relItems = relRes.items || [];
+      const occItems = Array.isArray(occRes.items) ? occRes.items : [];
+      const relItems = Array.isArray(relRes.items) ? relRes.items : [];
       // 关系对端实体由 relations 接口一并返回（单次批量查询），不再逐条 Get。
       // 映射覆盖每条关系的两端（含主体自身），subject_id 指出哪一端是主体；
       // 保留逐条回退，使前端部署不依赖后端是否已上线这两个字段。
       // 只认数组：非数组进 state 会让按 id 取对端的映射渲染成空白或抛错。
       if (Array.isArray(relRes.entities)) setRelatedEntities(relRes.entities);
       setRelationSubjectId(relRes.subject_id || e.id || "");
-      const revItems = revRes.items || [];
+      const revItems = Array.isArray(revRes.items) ? revRes.items : [];
       setOccurrences(occItems);
       setRelations(relItems);
       setRevisions(revItems);

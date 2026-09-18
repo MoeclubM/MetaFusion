@@ -63,7 +63,7 @@ export default function HomePage() {
       // 必须用 fetchApi：登录态 token 存在 localStorage，只有它会带 Authorization。
       // 用 components/catalog 的 api() 只会发 cookie，带身份的偏好不会被识别。
       const r = await fetchApi<{ items: FeedSection[] }>("/catalog/shelves/feed?per_shelf=12");
-      setSections(r.items || []);
+      setSections(Array.isArray(r.items) ? r.items : []);
     } catch {
       setSections([]);
       setFailed(true);
@@ -85,7 +85,7 @@ export default function HomePage() {
 
   // 空分区不展示：推荐位不该出现"0 部作品"这类噪音。
   const visibleSections = useMemo(
-    () => sections.filter((s) => (s.items || []).length > 0),
+    () => sections.filter((s) => (Array.isArray(s.items) ? s.items : []).length > 0),
     [sections],
   );
 
@@ -102,7 +102,7 @@ export default function HomePage() {
         fetchApi<{ items: ShelfLike[] }>("/catalog/shelves"),
       ]);
       setPrefs(normalizePreferences(loaded));
-      setTemplates(tpl.items || []);
+      setTemplates(Array.isArray(tpl.items) ? tpl.items : []);
     } catch {
       setPrefs(EMPTY_PREFERENCES);
       setTemplates([]);

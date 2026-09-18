@@ -35,7 +35,7 @@ export function RevisionHistoryModal({ isOpen, onClose, targetType, targetId, en
     ]).then(([current, history]) => {
       if (active) {
         setEntity(current);
-        setRevisions(history.items || []);
+        setRevisions(Array.isArray(history.items) ? history.items : []);
       }
     }).catch(() => {
       if (active) setFailed(true);

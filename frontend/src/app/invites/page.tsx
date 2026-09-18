@@ -138,7 +138,7 @@ export default function InvitesPage() {
 
   // 未登录不渲染本页：AuthGate 已把 /invites 的未登录访问 replace 到 /login?redirect=/invites，
   // 这里原来那份「请先登录」整屏永远渲染不到。
-  const items = ledger?.items || [];
+  const items = Array.isArray(ledger?.items) ? ledger?.items : [];
   const members = ledger?.members || [];
   const canCreate = ledger?.can_create === true;
 

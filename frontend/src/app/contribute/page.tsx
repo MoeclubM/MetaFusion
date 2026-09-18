@@ -31,7 +31,7 @@ export default function ContributeHubPage() {
     let active = true;
     fetchImporterSources()
       .then((res) => {
-        if (active) setSources(res?.items || []);
+        if (active) setSources(Array.isArray(res?.items) ? res?.items : []);
       })
       .catch(() => {
         if (active) setSources([]);

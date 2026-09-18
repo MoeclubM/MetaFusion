@@ -139,7 +139,7 @@ function ExploreInner() {
     setTagsFailed(false);
     fetch("/api/catalog/tags?limit=40", { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
-      .then((data) => { if (alive) setTopTags(data.items || []); })
+      .then((data) => { if (alive) setTopTags(Array.isArray(data.items) ? data.items : []); })
       .catch(() => { if (alive) { setTopTags([]); setTagsFailed(true); } });
     return () => { alive = false; };
   }, [tagsReloadKey]);
@@ -183,7 +183,7 @@ function ExploreInner() {
       })
       .then((data) => {
         if (!alive) return;
-        setItems(data.items || []);
+        setItems(Array.isArray(data.items) ? data.items : []);
         setTotal(typeof data.total === "number" ? data.total : 0);
       })
       .catch((err: any) => {

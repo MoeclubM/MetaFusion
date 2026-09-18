@@ -281,8 +281,8 @@ export async function fetchAllPages<T = any>(query: string, pageSize = 100): Pro
   const sep = query.includes("?") ? "&" : "?";
   for (let offset = 0; ; offset += pageSize) {
     const r = await api<{ items: T[] }>(`${query}${sep}offset=${offset}&limit=${pageSize}`);
-    items.push(...(r.items || []));
-    if ((r.items || []).length < pageSize) return items;
+    items.push(...(Array.isArray(r.items) ? r.items : []));
+    if ((Array.isArray(r.items) ? r.items : []).length < pageSize) return items;
   }
 }
 

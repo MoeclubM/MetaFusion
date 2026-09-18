@@ -134,8 +134,8 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
           credentials: "same-origin",
         }).then((res) => (res.ok ? res.json() : { items: [], entities: {} }));
         const { includes, includedIn: parents } = componentEntries(
-          rel.items || [],
-          rel.entities || {},
+          Array.isArray(rel.items) ? rel.items : [],
+          rel.entities && typeof rel.entities === "object" ? rel.entities : {},
           workId,
           locale,
           // 组成关系由定义声明（aggregate），新增聚合类关系不用改这里。

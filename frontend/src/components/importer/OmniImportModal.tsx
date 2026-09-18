@@ -166,7 +166,7 @@ export function OmniImportModal({
     let active = true;
     fetchImporterSources()
       .then((res) => {
-        if (active) setServerSources(res?.items || []);
+        if (active) setServerSources(Array.isArray(res?.items) ? res?.items : []);
       })
       .catch(() => {
         if (active) setSourcesDegraded(true);
@@ -221,7 +221,7 @@ export function OmniImportModal({
       fetchApi<{ items: Entity[] }>(`/catalog/entities?kind=expression&q=${encodeURIComponent(q)}&limit=20`)
         .then((res) => {
           if (active) {
-            setCrossWorkResults(res?.items || []);
+            setCrossWorkResults(Array.isArray(res?.items) ? res?.items : []);
             setCrossWorkError("");
           }
         })
@@ -330,7 +330,7 @@ export function OmniImportModal({
     try {
       // 主体搜索走统一实体端点：/catalog/entities?kind=agent。
       const res = await fetchApi<{ items: Entity[] }>(`/catalog/entities?kind=agent&q=${encodeURIComponent(q)}&limit=8`);
-      setArtistSearchResults(res?.items || []);
+      setArtistSearchResults(Array.isArray(res?.items) ? res?.items : []);
     } catch {
       setArtistSearchResults([]);
     } finally {
