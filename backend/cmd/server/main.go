@@ -70,6 +70,17 @@ func main() {
 		log.Printf("catalog verifies RS256 tokens using %s", verifier.Source())
 	}
 
+	// PAT（个人访问令牌，mfp_ 前缀）的消费侧：目录不签发、不读 auth 库，带 mfp_ 的请求交给
+	// 账号服务的内省端点判定（结果进程内缓存 60 秒 → 吊销与过期最长 60 秒后在下游生效）。
+	// AUTH_URL 未配置时不装配内省器：这类请求回 503 auth_unavailable（依赖不可用），
+	// 而不是 401——bot/CI 拿到 401 会以为凭据有问题去换令牌。
+	if authURL := strings.TrimSpace(os.Getenv("AUTH_URL")); authURL != "" {
+		s.PAT = catalog.NewPATIntrospector(authURL)
+		log.Printf("catalog accepts personal access tokens via %s (introspection cached for %s)", authURL, catalog.PATCacheTTL)
+	} else {
+		log.Print("AUTH_URL is not configured: personal access tokens (mfp_ prefix) will be rejected with 503 auth_unavailable")
+	}
+
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 	r.SetTrustedProxies(nil)

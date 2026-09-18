@@ -168,9 +168,13 @@ type RelationDefinition struct {
 	// 为什么需要它：29 个关系码共用一份 fields 时，"这条关系是否带角色"对每条关系都成立，
 	// 客户端只能拿分组码当语义用。客户端据此判定"算不算演职、图标取哪个"，不写死关系码与组码。
 	ParticipantSlot string `json:"participant_slot,omitempty"`
-	Group           string `json:"group"`
-	GroupNames      Names  `json:"group_names,omitempty"`
-	Enabled         bool   `json:"enabled"`
+	// CountsAsCredit 声明这条关系参与批量署名聚合（Release 详情的署名列表）。
+	// 为什么不用分组码判定：分组是展示归类，后台把某条关系挪出 credits 组是改展示，
+	// 不该静默改变"哪些关系算署名"这一行为口径。
+	CountsAsCredit bool   `json:"counts_as_credit,omitempty"`
+	Group          string `json:"group"`
+	GroupNames     Names  `json:"group_names,omitempty"`
+	Enabled        bool   `json:"enabled"`
 }
 
 // 关系对端的参与者槽位取值（见 RelationDefinition.ParticipantSlot）。
@@ -335,6 +339,9 @@ type User struct {
 	Role        string   `json:"role"`
 	Groups      []string `json:"groups,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`
+	// FromPAT 标记身份来自 PAT 内省（而不是账号服务签发的 JWT）。它参与授权判定
+	// （见 permission.go：PAT 身份永不回落角色兜底），因此不进 JSON 输出、不暴露给调用方。
+	FromPAT bool `json:"-"`
 }
 type Event struct {
 	ID        string          `json:"id"`

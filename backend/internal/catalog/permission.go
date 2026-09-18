@@ -39,15 +39,26 @@ var catalogPermissionCodes = []string{
 	PermissionShelvesManage,
 }
 
+// HasPermission 是**纯权限码集合判定**：只看 permissions 里的码（* 通配即全权），
+// 不做任何角色兜底。PAT 身份（FromPAT）一律走它——PAT 的权限集合可能为空（scopes 不含
+// 本子系统的任何码），空集合必须表现为"什么都不许"，而不是回落到角色上拿权。
+func (u User) HasPermission(code string) bool {
+	return contains(u.Permissions, permissionWildcard) || contains(u.Permissions, code)
+}
+
 // Can 报告用户是否持有某权限码。
 //
 // 令牌带 permissions 时一律以码为准（* 通配即全权）：拆服务后这是唯一的授权来源，
 // 此时角色不再额外放行，否则「角色兜底」会变成绕过权限组的后门。
 // 只有令牌完全没有 permissions 声明时（老令牌，或尚未按权限组配置的实例）才按历史角色兜底：
 // admin 放行全部目录码；editor 放行实体编辑（旧的受信任编辑员语义）；user 与匿名不放行。
+//
+// FromPAT（身份来自 PAT 内省）时**永不**回落到角色兜底：PAT 的权限就是账号服务算好的
+// "用户自身权限 ∩ scopes"，scopes 空时就是空。若把它当"没有 permissions 声明"处理，
+// 一个 scopes=[] 的管理员 PAT 会因为角色兜底拿到全权，收窄 scopes 形同虚设。
 func (u User) Can(code string) bool {
-	if len(u.Permissions) > 0 {
-		return contains(u.Permissions, permissionWildcard) || contains(u.Permissions, code)
+	if len(u.Permissions) > 0 || u.FromPAT {
+		return u.HasPermission(code)
 	}
 	switch u.Role {
 	case "admin":

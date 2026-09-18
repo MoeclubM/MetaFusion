@@ -48,6 +48,9 @@ type Store struct {
 	// Verifier 是账号服务令牌的验签器（只有公钥）。为 nil 或未配置密钥时，
 	// 需要身份的接口按匿名处理——目录不再有"查库兜底"这条路径。
 	Verifier *TokenVerifier
+	// PAT 是个人访问令牌（mfp_ 前缀）的内省器，见 pat.go。为 nil（未配置 AUTH_URL）时，
+	// 带 mfp_ 前缀的请求一律 503 auth_unavailable：身份只能问账号服务，目录不查它的表。
+	PAT *PATIntrospector
 }
 type queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
