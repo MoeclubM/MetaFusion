@@ -32,6 +32,7 @@
 | auth | `POST /api/auth/login|refresh|logout|logout-all|register`、`GET /api/auth/me|settings|invite`、`POST /api/auth/invite`、`PUT /api/auth/password` | metafusion-auth（`/api/auth/` 前缀） |
 | auth | `GET|POST /api/admin/users`、`PUT /api/admin/users/:id/{role,password,groups}`、`PUT /api/admin/users/:id/ban` | metafusion-auth（`/api/admin/users` 前缀） |
 | auth | `GET /api/auth/oauth-grants`、`DELETE /api/auth/oauth-grants/:client_id` | metafusion-auth（账号自助撤回第三方授权；网关 `/api/auth/` 前缀已覆盖） |
+| auth | `GET /api/admin/audit-logs` | metafusion-auth（**跨服务审计表的唯一读取面**：catalog/auth/community/storage 都往 `audit.audit_log` 写，只有这里能看全，见 [审计留痕契约](audit-log.md)；与目录侧 `/api/admin/*` 同前缀，网关逐条精确匹配） |
 | auth | `GET|POST /api/admin/groups`、`PUT|DELETE /api/admin/groups/:code`、`GET /api/admin/permissions`、`GET|PUT /api/admin/settings`、`GET|POST /api/admin/invites`、`POST /api/admin/invites/:code/revoke` | metafusion-auth；与目录侧 `/api/admin/*` 同前缀，网关逐条精确匹配（漏一条就 404） |
 | auth | `/api/oauth/authorize|token|userinfo`、`/api/oidc/jwks`、`/api/.well-known/openid-configuration`、根路径 `/.well-known/{openid-configuration,jwks.json}` | metafusion-auth（令牌只由它签发，discovery 与 JWKS 也只在它这里） |
 | auth | `/api/developer/*`（overview、apps、apps/{id}、apps/{id}/rotate-secret） | metafusion-auth（开发者中心：任何登录账号自助登记应用；网关用 `/api/developer/` 前缀整体分流，不与 `/api/admin/oauth/*` 混用） |
