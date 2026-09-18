@@ -52,8 +52,20 @@ func main() {
 	}
 	defer s.DB.Close()
 
+	// 结构初始化失败仍是致命错误（服务没有可用的表结构）。
+	//
+	// 唯一的例外是"种子定义合并没能生效"（*catalog.DefinitionSeedError）：那是**可降级**的
+	// 失败——上一个已发布定义照旧生效，库里的存量数据也照旧能读写。2026-09 的事故正是把
+	// 它当致命错误：库里 31 条悬挂引用让 impact 回放失败 → log.Fatalf → 容器 CrashLoop →
+	// 网关 502。这里改为记 error 日志 + 暴露状态信号（/health 的 definitions）后继续启动，
+	// 让"定义没更新"表现为一个可诊断的降级，而不是整站不可用。
 	if err = s.Initialize(ctx); err != nil {
-		log.Fatalf("catalog schema initialization failed: %v", err)
+		var seedErr *catalog.DefinitionSeedError
+		if errors.As(err, &seedErr) {
+			log.Printf("ERROR startup degraded: %v; serving with the previously published definitions — check GET /health (definitions) and run mf-migrate check-refs for dangling references", err)
+		} else {
+			log.Fatalf("catalog schema initialization failed: %v", err)
+		}
 	}
 
 	// 审计写入器（跨服务契约 §3）：一个后台 goroutine + 有界队列，挂在 Store 上供
@@ -150,9 +162,13 @@ func main() {
 	})
 
 	// /healthz 是进程存活；/health 与其它服务同形（status+service），供网关/运维面聚合探针统一读取。
+	// /health 另外带 definitions（见 catalog.DefinitionStatus）：published_id 是当前**实际生效**的
+	// 定义版本，degraded/pending_publish_error 表示"这次启动的种子合并没生效，站点仍按上一个
+	// 已发布定义服务"。状态码刻意保持 200——降级可用不是"不健康"，回 503 会把编排器拉回
+	// "重启到好为止"的循环，那正是要根除的 CrashLoop。探针判据：definitions.degraded == true。
 	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "live"}) })
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "live", "service": "metafusion-catalog"})
+		c.JSON(200, gin.H{"status": "live", "service": "metafusion-catalog", "definitions": s.DefinitionStatus()})
 	})
 	r.GET("/ready", func(c *gin.Context) {
 		check, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)

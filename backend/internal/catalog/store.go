@@ -69,6 +69,10 @@ type Store struct {
 	// Audit 是审计留痕写入器（internal/audit，见 audit.go 的接线）。为 nil 时写路由不写审计行
 	// （单测里大量夹具只有 Store{DB:…}，不该为了"没接审计"而让请求变形）。
 	Audit *auditlog.Recorder
+	// defStatus 记录最近一次启动期定义种子合并的结果（见 definitions.go 的 DefinitionStatus）。
+	// 由服务侧透出在 /health：这一项要回答的是"站点可用，但定义是不是没更新"。
+	defStatusMu sync.Mutex
+	defStatus   DefinitionStatus
 }
 type queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row

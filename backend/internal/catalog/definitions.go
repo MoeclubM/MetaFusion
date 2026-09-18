@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/lib/pq"
 )
@@ -239,17 +241,94 @@ func (s *Store) Draft(ctx context.Context, d Definitions, base int64, u User, no
 }
 
 // impact 的全量回放与两类问题的处置口径见 impact.go（定义问题阻断、悬挂引用只警告）。
+
+// DefinitionStatus 是"定义有没有跟上当前版本"的启动期状态，由 EnsureSeedDefinitions 每次
+// 启动写一次，服务侧原样透出在 /health 的 definitions 字段里。
+//
+// 为什么需要它：2026-09 事故里"定义没更新但站点还活着"只能靠翻日志看出来，而失败被当成
+// 致命错误（log.Fatalf）处理，表现是容器 CrashLoop + 整站 502。降级启动之后，判断依据必须
+// 是一眼可见的字段，而不是日志里的人肉搜索。
+type DefinitionStatus struct {
+	// PublishedID 是当前**实际生效**的已发布定义版本（失败时就是被保留的那一个）。
+	PublishedID int64  `json:"published_id"`
+	CheckedAt   string `json:"checked_at"`
+	// Degraded 是给探针用的单一判据（等价于 PendingError != ""）：定义没更新，服务仍可服务。
+	Degraded bool `json:"degraded"`
+	// PendingItems 是本次想补入但未生效的种子项数（0 表示没有待补项）。
+	PendingItems int `json:"pending_items"`
+	// PendingError 是可诊断的失败原因（definition_impact: [...] / 发布失败原因）；空表示正常。
+	PendingError string `json:"pending_publish_error,omitempty"`
+	// DanglingReferences 是本次回放看到的悬挂引用条数：为 0 表示库里没有指向不存在行的引用。
+	DanglingReferences int `json:"dangling_references"`
+}
+
+// DefinitionSeedError 表示"种子定义合并没能生效"：定义本身非法，或发布中途失败。
+// 上一个已发布定义保持有效，调用方应当记 error 日志 + 暴露状态，然后**继续启动**——
+// 单个/单批数据或定义的问题不该让整站起不来（口径见 impact.go 顶部）。
+// 它是可降级错误，与真正的启动硬故障（连不上库、结构初始化失败）由类型区分。
+type DefinitionSeedError struct {
+	PublishedID int64  // 仍然生效的上一个已发布定义版本
+	Pending     int    // 本次想补入的种子项数
+	Reason      string // 可诊断原因
+}
+
+func (e *DefinitionSeedError) Error() string {
+	return fmt.Sprintf("definition seed merge did not apply: published definition id=%d stays in effect, %d seed item(s) pending: %s", e.PublishedID, e.Pending, e.Reason)
+}
+
+func (s *Store) setDefinitionStatus(v DefinitionStatus) {
+	v.CheckedAt = time.Now().UTC().Format(time.RFC3339)
+	s.defStatusMu.Lock()
+	s.defStatus = v
+	s.defStatusMu.Unlock()
+}
+
+// DefinitionStatus 返回最近一次定义种子检查/合并的结果；零值表示本次进程还没跑过检查。
+func (s *Store) DefinitionStatus() DefinitionStatus {
+	s.defStatusMu.Lock()
+	defer s.defStatusMu.Unlock()
+	return s.defStatus
+}
+
 // EnsureSeedDefinitions 把种子里新增的定义补进当前已发布定义（只增不改，见 mergeSeedDefinitions）。
 // 没有任何新增时不写库：幂等，避免每次启动都多出一个定义版本。
 // 以系统身份起草并发布，说明里列出新增键，便于在修订历史里追溯这次模板更新的来源。
+//
+// 失败与幂等口径（2026-09 线上 CrashLoop 的整改）：
+//
+//  1. 定义本身非法 → **零写入**失败：先只读跑一次 impact 预检，有阻断项就既不起草也不发布，
+//     上一个已发布定义原样生效。服务侧把 *DefinitionSeedError 当降级信号（记录 + 状态信号），
+//     不再 log.Fatalf。
+//  2. 悬挂引用（存量数据指向不存在的行）→ 只警告 + 报告，照常发布。理由见 impact.go 顶部。
+//  3. 草稿行不可删（它们是修订历史：Draft 在同一事务里写 revisions，回滚路径同样靠"预检"
+//     避免产生发不出去的草稿），因此幂等靠"先预检、再复用"实现——同内容同 base 的草稿直接
+//     复用，重复重启不会在 catalog.definitions 里堆一行行发不出去的垃圾草稿（本次留下 10 行）。
 func (s *Store) EnsureSeedDefinitions(ctx context.Context) error {
 	v, err := s.Definitions(ctx)
 	if err != nil {
+		// 读不到已发布定义是硬故障（库没初始化/连不上）：不伪装成"降级"，交给调用方判定。
 		return err
 	}
 	merged, added := mergeSeedDefinitions(v.Document, Defaults())
+	// 快照读一次，给悬挂扫描与下面的预检共用。
+	ents, err := liveEntities(ctx, s.DB)
+	if err != nil {
+		return err
+	}
+	rels, err := relations(ctx, s.DB)
+	if err != nil {
+		return err
+	}
+	dangling, _, err := merged.scanDangling(ctx, s.DB, ents, rels)
+	if err != nil {
+		return err
+	}
 	if len(added) == 0 {
 		log.Printf("definition seed merge: 无新增（当前已发布版本 id=%d）", v.ID)
+		// 没有待补项也要扫一次悬挂引用：状态信号要回答的是"库里现在有多少指向不存在行的引用"，
+		// 只在合并时才有的数字会让部署后重启一次的实例看起来是干净的。
+		logDangling("startup scan", dangling)
+		s.setDefinitionStatus(DefinitionStatus{PublishedID: v.ID, DanglingReferences: len(dangling)})
 		return nil
 	}
 	log.Printf("definition seed merge: 将补入 %d 项：%v", len(added), added)
@@ -258,11 +337,58 @@ func (s *Store) EnsureSeedDefinitions(ctx context.Context) error {
 	sys := User{ID: "00000000-0000-0000-0000-000000000000", Username: "system", Role: "admin", Permissions: []string{PermissionDefinitionsManage}}
 	note := "启动时合并新增的种子定义（只增不改）：" + strings.Join(added, "、")
 	sources := []Source{{Kind: "url", URL: "https://github.com/MoeclubM/MetaFusion", Citation: "种子定义合并：backend/internal/catalog/defaults.go"}}
-	id, err := s.Draft(ctx, merged, v.ID, sys, note, sources)
+
+	pre, err := merged.impactOn(ctx, s.DB, ents, rels)
 	if err != nil {
-		return err
+		return fmt.Errorf("seed definition preflight: %w", err)
 	}
-	return s.Publish(ctx, id, sys, note, sources)
+	if len(pre.Issues) > 0 {
+		reason := fmt.Sprintf("definition_impact: %s", encode(pre.Issues))
+		// 零写入：不起草、不发布。草稿行不可删，起草即留下一行发不出去的垃圾。
+		s.setDefinitionStatus(DefinitionStatus{PublishedID: v.ID, Degraded: true, PendingItems: len(added), PendingError: reason, DanglingReferences: len(pre.Dangling)})
+		log.Printf("ERROR definition seed merge blocked by definition issues (%d seed item(s) pending, published definition id=%d stays in effect): %s", len(added), v.ID, reason)
+		return &DefinitionSeedError{PublishedID: v.ID, Pending: len(added), Reason: reason}
+	}
+	logDangling("startup impact", pre.Dangling)
+
+	id, reused, err := s.reuseOrDraft(ctx, merged, v.ID, sys, note, sources)
+	if err != nil {
+		s.setDefinitionStatus(DefinitionStatus{PublishedID: v.ID, Degraded: true, PendingItems: len(added), PendingError: err.Error(), DanglingReferences: len(pre.Dangling)})
+		return &DefinitionSeedError{PublishedID: v.ID, Pending: len(added), Reason: err.Error()}
+	}
+	if err = s.Publish(ctx, id, sys, note, sources); err != nil {
+		// 失败时保留自己创建的草稿：草稿行不可删，且同内容同 base 会被下一次启动复用
+		// （见 reuseOrDraft），重复重启不会让版本表继续变长。
+		s.setDefinitionStatus(DefinitionStatus{PublishedID: v.ID, Degraded: true, PendingItems: len(added), PendingError: err.Error(), DanglingReferences: len(pre.Dangling)})
+		return &DefinitionSeedError{PublishedID: v.ID, Pending: len(added), Reason: err.Error()}
+	}
+	if reused {
+		log.Printf("definition seed merge: 复用既有等价草稿 id=%d 并发布", id)
+	} else {
+		log.Printf("definition seed merge: 已发布 id=%d（补入 %d 项）", id, len(added))
+	}
+	s.setDefinitionStatus(DefinitionStatus{PublishedID: id, DanglingReferences: len(pre.Dangling)})
+	return nil
+}
+
+// reuseOrDraft 复用"同 base、同文档"的既有草稿，没有才起草。
+//
+// 为什么是复用而不是"失败时删掉自己创建的那行"：草稿行是修订历史的一部分（Draft 会在同一
+// 事务里写 revisions），删 row 会留下指向不存在版本的修订记录，比留一行草稿更脏；而版本表的
+// 幂等可以用"同内容同 base 复用"做到——失败留下的那行在下次启动时被认回来，行数不再增长。
+func (s *Store) reuseOrDraft(ctx context.Context, d Definitions, base int64, u User, note string, sources []Source) (int64, bool, error) {
+	var id int64
+	// 用 jsonb 等值比较：encode 已对 map 键排序，与列存口径一致，键顺序不影响命中。
+	err := s.DB.QueryRowContext(ctx, "SELECT id FROM catalog.definitions WHERE state='draft' AND base_version=$1 AND document=$2::jsonb ORDER BY id LIMIT 1", base, encode(d)).Scan(&id)
+	switch {
+	case err == nil:
+		return id, true, nil
+	case errors.Is(err, sql.ErrNoRows):
+		id, err = s.Draft(ctx, d, base, u, note, sources)
+		return id, false, err
+	default:
+		return 0, false, err
+	}
 }
 
 // 并发口径：发布走 s.write（**不取** advisory 锁，见 store.go 的 write/writeStructural），
