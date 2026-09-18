@@ -12,7 +12,6 @@ import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
 import { OAuthGrantsPanel } from "@/components/settings/OAuthGrantsPanel";
-import { PersonalAccessTokensPanel } from "@/components/settings/PersonalAccessTokensPanel";
 import { DirectMessagePrivacyCard } from "@/components/settings/DirectMessagePrivacyCard";
 import { ThemeControls } from "@/components/ThemeControls";
 import { useSearchParams } from "next/navigation";
@@ -39,9 +38,9 @@ import { PageShell } from "@/components/ui/PageShell";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 
 // 页签白名单：?tab= 只认这几项，其余一律回资料页（避免深链把页面带到不存在的页签）。
-type SettingsTab = "profile" | "password" | "appearance" | "tokens" | "authorizations";
+type SettingsTab = "profile" | "password" | "appearance" | "authorizations";
 
-const SETTINGS_TABS: SettingsTab[] = ["profile", "password", "appearance", "tokens", "authorizations"];
+const SETTINGS_TABS: SettingsTab[] = ["profile", "password", "appearance", "authorizations"];
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -224,19 +223,6 @@ export default function SettingsPage() {
               }`}
             >
               {t("settings.tabProfile")}
-            </button>
-            <button
-              onClick={() => {
-                setActiveTab("tokens");
-                setError(null);
-                setSuccess(null);
-              }}
-              className={`px-3 h-8 rounded-md text-xs font-medium transition-colors duration-fast ease-soft flex items-center gap-1.5 whitespace-nowrap ${
-                activeTab === "tokens" ? "bg-white dark:bg-white text-black font-semibold shadow-xs" : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-              }`}
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>{t("settings.tabTokens")}</span>
             </button>
             <button
               onClick={() => {
@@ -455,9 +441,6 @@ export default function SettingsPage() {
               </div>
             </div>
           )}
-
-          {/* 令牌页签自带标题与说明（面板内），这里不再套一层占位卡 */}
-          {activeTab === "tokens" && <PersonalAccessTokensPanel />}
 
           {activeTab === "authorizations" && <OAuthGrantsPanel />}
 

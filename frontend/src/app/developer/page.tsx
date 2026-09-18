@@ -48,6 +48,7 @@ import {
   type DeveloperApp,
 } from "@/lib/developer";
 import { AppFormModal, type AppFormOutcome } from "./components/AppFormModal";
+import { ApiKeysPanel } from "@/components/developer/ApiKeysPanel";
 
 /** 待确认的破坏性动作：轮换与删除都先弹确认。 */
 type Pending = { kind: "rotate" | "delete"; app: DeveloperApp };
@@ -390,6 +391,14 @@ export default function DeveloperPage() {
                   </li>
                 ))}
               </ul>
+            </Card>
+
+            <Card padding="section" className="space-y-3">
+              <SectionTitle icon={<KeyRound className="w-4 h-4 text-primary" />}>
+                {t("developer.apiKeys.title")}
+              </SectionTitle>
+              <p className="text-xs text-text-muted leading-relaxed">{t("developer.apiKeys.subtitle")}</p>
+              <ApiKeysPanel />
             </Card>
           </>
         ) : null}

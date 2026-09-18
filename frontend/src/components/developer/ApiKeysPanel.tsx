@@ -24,9 +24,9 @@ import {
   type PersonalAccessToken,
 } from "@/lib/api";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
-import { PatRevealModal } from "@/components/settings/PatRevealModal";
+import { ApiKeyRevealModal } from "@/components/developer/ApiKeyRevealModal";
 
-// 个人访问令牌（PAT）自助：列出我的令牌、创建（名称 + scopes + 有效期）、一次性看明文、撤销。
+// API Key 自助：列出我的密钥、创建（名称 + scopes + 有效期）、一次性看明文、撤销。
 //
 // 契约（账号服务）：
 //   GET    /api/auth/tokens      → { items: [{ id, name, token_prefix, scopes, expires_at, last_used_at, created_at, revoked_at }] }
@@ -44,7 +44,7 @@ import { PatRevealModal } from "@/components/settings/PatRevealModal";
 /** 有效期选项：0 表示不带 expires_in_days（服务端即永不过期）。 */
 const EXPIRY_CHOICES = [0, 30, 90, 365] as const;
 
-export function PersonalAccessTokensPanel() {
+export function ApiKeysPanel() {
   const { t, locale } = useI18n();
   const { user } = useAuth();
 
@@ -89,11 +89,11 @@ export function PersonalAccessTokensPanel() {
         if (!alive) return;
         // 第二层守卫（第一层在 lib/api/auth.ts 的 fetchPersonalAccessTokens：包装层现在会直接抛）：
         // HTTP 200 但 items 不是数组 = **取不到数据**，与下面 catch 同口径按失败处理。
-        // 只有确认为数组才 setTokens——空数组才是"你还没有令牌"（settings.patEmpty）；
+        // 只有确认为数组才 setTokens——空数组才是"你还没有令牌"（developer.apiKeyEmpty）；
         // 把"取不到"落成 [] 就是本文档开头警告过的"把失败讲成你还没有令牌"。
         if (!Array.isArray(r.items)) {
           setTokens(null);
-          setError(patErrorText(new Error("invalid_response: items"), "settings.patLoadFailed"));
+          setError(patErrorText(new Error("invalid_response: items"), "developer.apiKeyLoadFailed"));
           return;
         }
         setTokens(r.items);
@@ -103,7 +103,7 @@ export function PersonalAccessTokensPanel() {
           // 保持 null：加载失败时不能落成"空列表"，否则界面上会同时出现"加载失败"和
           // "暂无令牌"两句话，把失败讲成"你还没有令牌"。
           setTokens(null);
-          setError(patErrorText(e, "settings.patLoadFailed"));
+          setError(patErrorText(e, "developer.apiKeyLoadFailed"));
         }
       })
       .finally(() => {
@@ -149,11 +149,11 @@ export function PersonalAccessTokensPanel() {
     setNotice("");
     const trimmed = name.trim();
     if (!trimmed) {
-      setError(t("settings.patNameRequired"));
+      setError(t("developer.apiKeyNameRequired"));
       return;
     }
     if (scopes.length === 0) {
-      setError(t("settings.patScopesRequired"));
+      setError(t("developer.apiKeyScopesRequired"));
       return;
     }
     setCreating(true);
@@ -169,7 +169,7 @@ export function PersonalAccessTokensPanel() {
       // 以服务端为准回读列表，不在本地拼一条假记录。
       setReloadKey((k) => k + 1);
     } catch (err: unknown) {
-      setError(patErrorText(err, "settings.patCreateFailed"));
+      setError(patErrorText(err, "developer.apiKeyCreateFailed"));
     } finally {
       setCreating(false);
     }
@@ -184,11 +184,11 @@ export function PersonalAccessTokensPanel() {
     try {
       await revokePersonalAccessToken(target.id);
       setConfirming(null);
-      setNotice(t("settings.patRevokeDone", { name: target.name }));
+      setNotice(t("developer.apiKeyRevokeDone", { name: target.name }));
       setReloadKey((k) => k + 1);
     } catch (err: unknown) {
       setConfirming(null);
-      setError(patErrorText(err, "settings.patRevokeFailed"));
+      setError(patErrorText(err, "developer.apiKeyRevokeFailed"));
     } finally {
       setRevokingId("");
     }
@@ -212,19 +212,19 @@ export function PersonalAccessTokensPanel() {
       <div className="space-y-1">
         <h3 className="text-sm font-semibold text-text-strong flex items-center gap-2">
           <KeyRound className="w-4 h-4 text-amber-500" />
-          <span>{t("settings.patTitle")}</span>
+          <span>{t("developer.apiKeyTitle")}</span>
         </h3>
-        <p className="text-xs text-text-faint leading-relaxed">{t("settings.patDesc")}</p>
-        <p className="text-[11px] text-text-faint leading-relaxed">{t("settings.patRateLimitHint")}</p>
+        <p className="text-xs text-text-faint leading-relaxed">{t("developer.apiKeyDesc")}</p>
+        <p className="text-[11px] text-text-faint leading-relaxed">{t("developer.apiKeyRateLimitHint")}</p>
         <p className="text-[11px] text-amber-600 dark:text-warn leading-relaxed flex items-start gap-1.5">
           <TriangleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.6} />
-          <span>{t("settings.patWindowHint")}</span>
+          <span>{t("developer.apiKeyWindowHint")}</span>
         </p>
         <a
           href={`${DOCS_SERVICE_URL}/api-auth`}
           className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
         >
-          {t("settings.patViewDevDocs")}
+          {t("developer.apiKeyViewDevDocs")}
         </a>
       </div>
 
@@ -254,23 +254,23 @@ export function PersonalAccessTokensPanel() {
       <form onSubmit={handleCreate} className="p-3.5 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-3">
         <div className="flex items-center gap-1.5">
           <Plus className="w-3.5 h-3.5 text-text-muted" strokeWidth={1.8} />
-          <span className="font-mono text-xs font-semibold text-text-body">{t("settings.patCreateTitle")}</span>
+          <span className="font-mono text-xs font-semibold text-text-body">{t("developer.apiKeyCreateTitle")}</span>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <div className="space-y-1 min-w-0">
-            <label className="font-mono text-[11px] text-text-muted">{t("settings.patTokenName")}</label>
+            <label className="font-mono text-[11px] text-text-muted">{t("developer.apiKeyTokenName")}</label>
             <input
               type="text"
               value={name}
               maxLength={64}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t("settings.patNamePlaceholder")}
+              placeholder={t("developer.apiKeyNamePlaceholder")}
               className="w-full h-9 px-3 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50"
             />
           </div>
           <div className="space-y-1">
-            <label className="font-mono text-[11px] text-text-muted">{t("settings.patExpiry")}</label>
+            <label className="font-mono text-[11px] text-text-muted">{t("developer.apiKeyExpiry")}</label>
             <select
               value={expiryDays}
               onChange={(e) => setExpiryDays(Number(e.target.value))}
@@ -278,7 +278,7 @@ export function PersonalAccessTokensPanel() {
             >
               {EXPIRY_CHOICES.map((days) => (
                 <option key={days} value={days}>
-                  {days === 0 ? t("settings.patExpiryNever") : t("settings.patExpiryDays", { days })}
+                  {days === 0 ? t("developer.apiKeyExpiryNever") : t("developer.apiKeyExpiryDays", { days })}
                 </option>
               ))}
             </select>
@@ -287,24 +287,24 @@ export function PersonalAccessTokensPanel() {
 
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-[11px] text-text-muted">{t("settings.patScopes")}</span>
+            <span className="font-mono text-[11px] text-text-muted">{t("developer.apiKeyScopes")}</span>
             {grantable.length > 0 && (
               <span className="font-mono text-[10px] text-text-muted">
-                {t("settings.patSelected", { count: scopes.length, total: grantable.length })}
+                {t("developer.apiKeySelected", { count: scopes.length, total: grantable.length })}
               </span>
             )}
           </div>
 
           {grantable.length === 0 ? (
             <p className="p-3 rounded-lg bg-background border border-line-subtle text-[11px] text-text-body leading-relaxed">
-              {t("settings.patNoScopes")}
+              {t("developer.apiKeyNoScopes")}
             </p>
           ) : (
             <div className="space-y-2">
               {groups.map(([service, codes]) => (
                 <div key={service} className="space-y-1">
                   <div className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
-                    {labelOf(`settings.patScopeGroup.${service}`, service)}
+                    {labelOf(`developer.apiKeyScopeGroup.${service}`, service)}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {codes.map((code) => {
@@ -326,7 +326,7 @@ export function PersonalAccessTokensPanel() {
                             className="sr-only"
                           />
                           {checked ? <Check className="w-3 h-3 text-primary" /> : null}
-                          <span>{labelOf(`settings.patScope.${code}`, code)}</span>
+                          <span>{labelOf(`developer.apiKeyScope.${code}`, code)}</span>
                           <span className="font-mono text-[9px] text-text-muted">{code}</span>
                         </label>
                       );
@@ -337,7 +337,7 @@ export function PersonalAccessTokensPanel() {
             </div>
           )}
 
-          <p className="text-[11px] text-text-faint leading-relaxed">{t("settings.patScopesHint")}</p>
+          <p className="text-[11px] text-text-faint leading-relaxed">{t("developer.apiKeyScopesHint")}</p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -347,35 +347,35 @@ export function PersonalAccessTokensPanel() {
             className="px-3.5 h-9 rounded-lg bg-primary text-white keep-white font-semibold text-xs inline-flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-            <span>{creating ? t("settings.patCreating") : t("settings.patCreateBtn")}</span>
+            <span>{creating ? t("developer.apiKeyCreating") : t("developer.apiKeyCreateBtn")}</span>
           </button>
-          <span className="text-[11px] text-text-faint">{t("settings.patLimitHint")}</span>
+          <span className="text-[11px] text-text-faint">{t("developer.apiKeyLimitHint")}</span>
         </div>
       </form>
 
       {/* 已颁发令牌 */}
       <div className="space-y-2">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs font-semibold text-text-body">{t("settings.patIssuedTitle")}</span>
+          <span className="font-mono text-xs font-semibold text-text-body">{t("developer.apiKeyIssuedTitle")}</span>
           <button
             type="button"
             onClick={() => setReloadKey((k) => k + 1)}
             className="ml-auto px-2 h-7 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-line text-[11px] inline-flex items-center gap-1 text-text-body"
           >
             <RefreshCw className="w-3 h-3" />
-            <span>{t("settings.patRefresh")}</span>
+            <span>{t("developer.apiKeyRefresh")}</span>
           </button>
         </div>
 
         {loading ? (
           <div className="p-8 text-center text-text-faint text-xs font-mono flex items-center justify-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin text-primary" />
-            <span>{t("settings.patLoading")}</span>
+            <span>{t("developer.apiKeyLoading")}</span>
           </div>
         ) : tokens === null ? null : tokens.length === 0 ? (
           <div className="p-6 rounded-xl bg-surfaceSubtle border border-line-subtle text-center space-y-2">
             <KeyRound className="w-5 h-5 text-text-muted mx-auto" strokeWidth={1.5} />
-            <div className="text-xs text-text-body">{t("settings.patEmpty")}</div>
+            <div className="text-xs text-text-body">{t("developer.apiKeyEmpty")}</div>
           </div>
         ) : (
           <ul className="space-y-2">
@@ -398,14 +398,14 @@ export function PersonalAccessTokensPanel() {
                         <span className="text-sm font-semibold text-text-strong truncate">{token.name}</span>
                         <span className={"text-[10px] font-mono px-1.5 py-0.5 rounded-sm border " + statusClass}>
                           {status === "active"
-                            ? t("settings.patActive")
+                            ? t("developer.apiKeyActive")
                             : status === "expired"
-                              ? t("settings.patExpired")
-                              : t("settings.patRevoked")}
+                              ? t("developer.apiKeyExpired")
+                              : t("developer.apiKeyRevoked")}
                         </span>
                       </div>
-                      <div className="font-mono text-[11px] text-text-faint" data-mf-pat-prefix={token.token_prefix}>
-                        {t("settings.patPrefix", { prefix: token.token_prefix })}
+                      <div className="font-mono text-[11px] text-text-faint" data-mf-apikey-prefix={token.token_prefix}>
+                        {t("developer.apiKeyPrefix", { prefix: token.token_prefix })}
                       </div>
                     </div>
 
@@ -420,7 +420,7 @@ export function PersonalAccessTokensPanel() {
                         className="shrink-0 px-2.5 h-7 rounded-md bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-600 dark:text-danger-soft text-xs font-medium inline-flex items-center gap-1.5"
                       >
                         <ShieldOff className="w-3.5 h-3.5" />
-                        <span>{t("settings.patRevoke")}</span>
+                        <span>{t("developer.apiKeyRevoke")}</span>
                       </button>
                     )}
                   </div>
@@ -428,18 +428,18 @@ export function PersonalAccessTokensPanel() {
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-mono text-text-faint">
                     {createdAt && (
                       <span>
-                        {t("settings.patCreatedAt", { time: createdAt })}
+                        {t("developer.apiKeyCreatedAt", { time: createdAt })}
                       </span>
                     )}
                     <span>
                       {lastUsed
-                        ? t("settings.patLastUsedAt", { time: lastUsed })
-                        : t("settings.patNeverUsed")}
+                        ? t("developer.apiKeyLastUsedAt", { time: lastUsed })
+                        : t("developer.apiKeyNeverUsed")}
                     </span>
                     <span>
                       {expiresAt
-                        ? t("settings.patExpiresAt", { time: expiresAt })
-                        : t("settings.patNoExpiry")}
+                        ? t("developer.apiKeyExpiresAt", { time: expiresAt })
+                        : t("developer.apiKeyNoExpiry")}
                     </span>
                   </div>
 
@@ -450,7 +450,7 @@ export function PersonalAccessTokensPanel() {
                           key={code}
                           className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-sky-500/10 text-sky-600 dark:text-info border border-sky-500/20"
                         >
-                          {labelOf(`settings.patScope.${code}`, code)}
+                          {labelOf(`developer.apiKeyScope.${code}`, code)}
                         </span>
                       ))}
                     </div>
@@ -462,14 +462,14 @@ export function PersonalAccessTokensPanel() {
         )}
       </div>
 
-      <PatRevealModal created={reveal} onClose={() => setReveal(null)} />
+      <ApiKeyRevealModal created={reveal} onClose={() => setReveal(null)} />
 
       {/* 撤销二次确认：用 Modal 版 ConfirmDialog，不用原生 confirm（不可本地化/不可样式化） */}
       <ConfirmDialog
         open={!!confirming}
-        title={t("settings.patRevokeTitle")}
-        message={t("settings.patRevokeConfirm", { name: confirming?.name || "" })}
-        confirmLabel={t("settings.patRevoke")}
+        title={t("developer.apiKeyRevokeTitle")}
+        message={t("developer.apiKeyRevokeConfirm", { name: confirming?.name || "" })}
+        confirmLabel={t("developer.apiKeyRevoke")}
         busy={!!revokingId}
         onClose={() => setConfirming(null)}
         onConfirm={handleRevoke}
@@ -478,4 +478,4 @@ export function PersonalAccessTokensPanel() {
   );
 }
 
-export default PersonalAccessTokensPanel;
+export default ApiKeysPanel;
