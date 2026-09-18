@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -39,6 +40,16 @@ func respond(c *gin.Context, v any, err error) {
 			status = 500
 			code = "database_error"
 		}
+		if status >= 500 {
+			// SQLSTATE 与 detail 只进服务端日志：客户端拿到表名/约束名既看不懂也泄露库结构。
+			slog.Error("目录服务：数据库错误", "sqlstate", string(pg.Code), "constraint", pg.Constraint,
+				"detail", pg.Detail, "err", err.Error())
+		}
+	} else if internalFailure(err) {
+		// 非 pq 的库层错误（连接被拒、context 取消）与文档反序列化失败都走这里：
+		// 默认分支不再把驱动原文当错误码回给客户端（报告 #16）。
+		slog.Error("目录服务：未登记的错误（原文不外发）", "err", err.Error())
+		status, code = 500, codeInternalError
 	} else if errors.Is(err, errForbidden) {
 		// 按错误链判定：delivery_partial/merge_relation_conflict 这类 %w 包裹后
 		// err.Error() 是拼接串，全等比较会让 403 退化成 400。

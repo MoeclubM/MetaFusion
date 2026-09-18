@@ -1,11 +1,15 @@
 package catalog
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http/httptest"
+	"regexp"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -54,6 +58,79 @@ func TestRespondMapsStatusByErrorChain(t *testing.T) {
 		}
 		if body.Error != tc.wantCode {
 			t.Errorf("%s: error=%q want=%q", tc.name, body.Error, tc.wantCode)
+		}
+	}
+}
+
+// leakPattern 是绝不允许出现在错误响应体里的形状：驱动前缀、SQLSTATE、SQL 片段、
+// 表名/约束名、文件路径与内网地址（2026-09-19 第二轮架构报告 #16 的回归断言）。
+var leakPattern = regexp.MustCompile(`pq:|SQLSTATE|SELECT|INSERT|UPDATE|DELETE|catalog\.entities|/|\\|dial tcp|127\.0\.0\.1|connection refused|permission denied|no such host`)
+
+// 默认分支不再把 err.Error() 当错误码：非 pq 的库层错误（连接被拒、context 取消、连接已关）
+// 与文档反序列化失败都必须回 500 + 通用码，且响应体里不得出现驱动原文。
+func TestRespondHidesDriverText(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{"net refused", errors.New("dial tcp 10.0.0.5:5432: connect: connection refused")},
+		{"no such host", errors.New("dial tcp: lookup auth on 10.0.0.2:53: no such host")},
+		{"context canceled", context.Canceled},
+		{"context deadline", context.DeadlineExceeded},
+		{"conn done", sql.ErrConnDone},
+		{"bad conn", driver.ErrBadConn},
+		{"conn closed", errors.New("sql: database is closed")},
+		{"json decode", errors.New("invalid character 'x' looking for beginning of value")},
+		{"unexpected eof", io.ErrUnexpectedEOF},
+		{"file path", errors.New("open /etc/metafusion/catalog.json: permission denied")},
+		{"sql fragment", errors.New("SELECT id FROM catalog.entities WHERE id = $1")},
+		{"pq detail", &pq.Error{Code: "42P01", Message: `relation "catalog.entities" does not exist`}},
+	} {
+		w := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(w)
+		respond(ctx, gin.H{"ok": true}, tc.err)
+		var body struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatalf("%s: bad body %s", tc.name, w.Body.String())
+		}
+		if w.Code != 500 {
+			t.Errorf("%s: status=%d want=500 (body=%s)", tc.name, w.Code, w.Body.String())
+		}
+		if body.Error != codeInternalError && body.Error != "database_error" {
+			t.Errorf("%s: 未登记的故障必须回通用码，实际 %q", tc.name, body.Error)
+		}
+		if leakPattern.MatchString(w.Body.String()) {
+			t.Errorf("%s: 响应体泄露了故障原文：%s", tc.name, w.Body.String())
+		}
+	}
+}
+
+// 业务码与"字段路径 + 码"的复合形态必须继续原样透出：前端按冒号分段取码翻译，
+// 把它们误判成故障原文会让所有校验错误变成 500。
+func TestRespondKeepsDomainCodes(t *testing.T) {
+	for _, tc := range []string{
+		"unknown_field: duration",
+		"canonical_entries[0].duration: unknown_field",
+		"four_locale_names_required: zh-TW,ja-JP",
+		"undeclared_release_subject: release=x work=y",
+		"invalid_attribute_value: work.duration=90",
+	} {
+		if internalFailure(errors.New(tc)) {
+			t.Errorf("%q 是业务码（可能是路径前缀形式），不该被判成故障原文", tc)
+		}
+		w := httptest.NewRecorder()
+		ctx, _ := gin.CreateTestContext(w)
+		respond(ctx, gin.H{"ok": true}, errors.New(tc))
+		var body struct {
+			Error string `json:"error"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatalf("%s: bad body %s", tc, w.Body.String())
+		}
+		if w.Code != 400 || body.Error != tc {
+			t.Errorf("%q: status=%d code=%q", tc, w.Code, body.Error)
 		}
 	}
 }
