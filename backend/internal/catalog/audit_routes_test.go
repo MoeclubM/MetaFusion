@@ -115,6 +115,9 @@ func TestAuditActionCodesAreStable(t *testing.T) {
 		"PUT /api/admin/shelves/:id":                       "shelf.updated",
 		"DELETE /api/admin/shelves/:id":                    "shelf.deleted",
 		"POST /api/exchange/proposals":                     "proposal.submitted",
+		"POST /api/notifications/:id/read":                 "notification.read",
+		"POST /api/notifications/read-all":                 "notification.all_read",
+		"POST /api/notifications/internal":                 "notification.delivered",
 		"PUT /api/admin/modules/:id":                       "module.toggle_attempted",
 	}
 	got, _ := auditRegistry()

@@ -45,6 +45,19 @@ func catalogAuditSchema() (string, error) {
 	return string(b), nil
 }
 
+// notificationsSchemaFile 是站内通知（迁移 000003），与 000002 同一套做法：
+// 新库只起服务也能建表（否则收件箱端点会 500），版本记账仍归 mf-migrate。
+// 只建表、不写行，重复执行安全。
+const notificationsSchemaFile = "000003_notifications.up.sql"
+
+func catalogNotificationsSchema() (string, error) {
+	b, err := fs.ReadFile(migrations.FS, notificationsSchemaFile)
+	if err != nil {
+		return "", fmt.Errorf("read notifications schema %s: %w", notificationsSchemaFile, err)
+	}
+	return string(b), nil
+}
+
 // 领域哨兵错误：respond（http.go）按错误链判定 HTTP 状态码，所以写路径与
 // retirement/生命周期里的拒绝必须用同一批哨兵，而不是各自 fmt.Errorf 出同名字符串——
 // 字符串比较在 %w 包裹后就失效（403/409 会退化成 400）。
@@ -170,6 +183,13 @@ func (s *Store) Initialize(ctx context.Context) error {
 	}
 	if _, err = s.DB.ExecContext(ctx, auditSchema); err != nil {
 		return fmt.Errorf("apply audit schema %s: %w", auditSchemaFile, err)
+	}
+	notificationsSchema, err := catalogNotificationsSchema()
+	if err != nil {
+		return err
+	}
+	if _, err = s.DB.ExecContext(ctx, notificationsSchema); err != nil {
+		return fmt.Errorf("apply notifications schema %s: %w", notificationsSchemaFile, err)
 	}
 	// 定义种子是"只空库播种"，存量实例拿不到新版本新增的关系码/字段；
 	// 这里再做一次只增不改的增量合并，把缺失的定义补上（不会覆盖后台的人工调整）。
@@ -638,7 +658,18 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if missing {
 			return fmt.Errorf("undeclared_release_subject")
 		}
-		return audit(ctx, tx, e.ID, e.Version, u, input.EditNote, input.Sources, e, "entity.saved")
+		if err := audit(ctx, tx, e.ID, e.Version, u, input.EditNote, input.Sources, e, "entity.saved"); err != nil {
+			return err
+		}
+		// 通知与实体写入**同一事务**：审核结果与收录事件不会出现"改了却没通知"的半成品。
+		// create 时 old 是零值，用 nil 表示"没有旧版本"（零值 Entity 的 Status 也是空串，
+		// 直接传会被当成一次"从空状态变成 published"的跃迁）。
+		var before *Entity
+		if !create {
+			prior := old
+			before = &prior
+		}
+		return notifySaveOutcome(ctx, tx, before, e, u)
 	})
 	return e, err
 }

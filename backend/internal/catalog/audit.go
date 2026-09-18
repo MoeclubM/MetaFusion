@@ -41,6 +41,11 @@ func AuditActions() map[string]string {
 		"PUT /api/admin/shelves/:id":                       "shelf.updated",
 		"DELETE /api/admin/shelves/:id":                    "shelf.deleted",
 		"POST /api/exchange/proposals":                     "proposal.submitted",
+		// 站内通知（2026-09-20）：标记已读是自服务的写操作，同样要留痕；
+		// internal 投递端由互动服务调用，审计行的 actor 是转发过来的终端用户令牌。
+		"POST /api/notifications/:id/read": "notification.read",
+		"POST /api/notifications/read-all": "notification.all_read",
+		"POST /api/notifications/internal": "notification.delivered",
 	}
 }
 

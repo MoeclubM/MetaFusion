@@ -112,6 +112,10 @@ KEYS = {
     # 所以登记它、让读者路径受 C 检查约束；默认值本身是安全的（回环 + RFC1918 私网）。
     "TRUSTED_PROXIES": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "internal/config/config.go"), ("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "空 = 回环 + RFC1918 私网（网关容器所在网段）；none = 无可信代理", "safe": True, "note": "应用层 ClientIP() 的信任范围：四个服务此前都是 SetTrustedProxies(nil)，限流与审计 actor_ip 退化成网关容器 IP"},
     "COMMUNITY_CATALOG_TIMEOUT_MS": {"readers": [("community", "internal/config/config.go")], "default": "5000ms", "safe": True},
+    # 站内通知的跨服务投递密钥（互动服务 → 目录，唯一一条服务间写入）。两个读者：目录侧校验它、
+    # 互动侧带着它投递。默认值本身安全（空 = 目录侧端点整体 503 internal_api_disabled、
+    # 互动侧不投递，评论/回帖照常成功），危险的是"以为配了其实没配"——所以两边都登记、都要注入。
+    "INTERNAL_API_TOKEN": {"readers": [("catalog", "cmd/server/main.go"), ("community", "internal/config/config.go")], "default": "空 = 跨服务通知投递关闭（评论/回帖仍成功，只是不产生通知）", "safe": True},
     # ── 存储服务（../metafusion-storage）─────────────────────────────────
     "STORAGE_ROOT": {"readers": [("storage", "internal/config/config.go")], "default": "./storage-data", "safe": True},
     "STORAGE_S3_ENDPOINT": {"readers": [("storage", "internal/config/config.go")], "default": "空 = 本地对象模式", "safe": True},

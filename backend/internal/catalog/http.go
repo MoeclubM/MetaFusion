@@ -19,7 +19,12 @@ import (
 	auditlog "github.com/metafusion/metafusion-app/internal/audit"
 )
 
-type HTTP struct{ Store *Store }
+type HTTP struct {
+	Store *Store
+	// InternalToken 是跨服务投递端点（POST /api/notifications/internal）的共享密钥。
+	// 为空即端点关闭（503 internal_api_disabled）——默认关闭见 notifications_http.go 的说明。
+	InternalToken string
+}
 
 func respond(c *gin.Context, v any, err error) {
 	if err == nil {
@@ -319,6 +324,9 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 实例间导入导出：原属模块层，随子系统拆分迁入目录包（见 exchange.go）。
 	// 必须在 api.Use(attachUser) 之后：提案作者取自 user(c)，导出可见性也按它判。
 	h.registerExchange(api)
+	// 站内通知：读取端（收件箱/未读数/标记已读）与跨服务投递端（见 notifications_http.go）。
+	// 同样必须在 attachUser 与审计中间件之后——收件人取自 user(c)，标记已读是写操作要留痕。
+	h.registerNotifications(api)
 	cat := api.Group("/catalog")
 	// 发布的定义文档 + 固定骨架的多语言名称。kinds 放在文档**外面**：它是骨架的显示名，
 	// 不是可编辑的动态定义（放进 document 会被后台保存时当成未知键处理），但同样必须由服务端
@@ -701,6 +709,13 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		if err == nil {
 			targetType, targetID, changes := importChangeDetail(in, v)
 			auditlog.Describe(c, auditlog.Detail{TargetType: targetType, TargetID: targetID, Changes: changes})
+			// 导入完成回执（收件人 = 发起人）。失败只记日志、不改响应：
+			// 导入本身已经落库成功，回执丢了不该让用户以为导入失败；但也不能静默，
+			// 否则"通知没来"会变成无法排查的悬案。
+			source, _ := normalizeImporterSource(in.Source)
+			if nerr := s.notifyImportCompleted(c.Request.Context(), *user(c), source, v); nerr != nil {
+				slog.Error("目录服务：导入完成通知写入失败", "err", nerr.Error())
+			}
 		}
 		respond(c, v, err)
 	})

@@ -175,6 +175,11 @@ services:
       # 所在网段）。语义与安全边界见 backend/internal/nettrust（四个服务同一份实现）。留空即默认值；
       # 非法值会让服务**拒绝启动**——静默退回"无可信代理"会让限流重新退化成全站共享一个桶。
       - TRUSTED_PROXIES=${TRUSTED_PROXIES:-}
+      # 站内通知的跨服务投递密钥（互动服务 → 目录，见 backend/internal/catalog/notifications_http.go）。
+      # 留空 = 目录侧的投递端点整体 503 internal_api_disabled、互动侧不投递：评论与回帖照常成功，
+      # 只是不产生通知（部署态可见、可排查），而不是"任何登录用户都能给任何人塞通知"。
+      # 两个服务必须**同值**：不一致时表现为互动侧投递 401 invalid_internal_token 的日志。
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -269,6 +274,8 @@ services:
       # 存量不透明会话令牌的兜底解析：身份问题只问账号服务（不查目录服务）。
       - AUTH_URL=http://auth:8081
       - CATALOG_URL=http://backend:8080
+      # 站内通知的跨服务投递密钥（与 backend 段同一个键、**必须同值**）：见 backend 段的说明。
+      - INTERNAL_API_TOKEN=${INTERNAL_API_TOKEN:-}
       # 应用层限流与审计要按**真实客户端 IP**：只信任显式来源（默认回环 + RFC1918 私网 = 网关容器
       # 所在网段）。语义与安全边界见 backend/internal/nettrust（四个服务同一份实现）。留空即默认值；
       # 非法值会让服务**拒绝启动**——静默退回"无可信代理"会让限流重新退化成全站共享一个桶。

@@ -628,7 +628,14 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 				return errVersionConflict
 			}
 		}
-		return audit(ctx, tx, r.ID, r.Version, u, input.EditNote, input.Sources, r, "relation.saved")
+		if err := audit(ctx, tx, r.ID, r.Version, u, input.EditNote, input.Sources, r, "relation.saved"); err != nil {
+			return err
+		}
+		// 只有新建关系才是"一次收录事件"；改属性（换 position、补 attributes）不重复通知。
+		if old == nil {
+			return notifyIncludedRelation(ctx, tx, r, src, tgt, u)
+		}
+		return nil
 	})
 	return r, err
 }

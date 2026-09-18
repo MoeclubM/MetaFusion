@@ -152,7 +152,14 @@ func main() {
 		}))
 	}
 
-	catalogHTTP := catalog.HTTP{Store: s}
+	// INTERNAL_API_TOKEN 是跨服务投递站内通知的共享密钥（唯一一个服务间写端点）。
+	// 未配置即该端点关闭：评论回复照常成功，只是不产生通知（行为可见、可排查），
+	// 而不是"任何登录用户都能给任何人塞通知"。密钥只从环境读取，不进日志。
+	internalToken := strings.TrimSpace(os.Getenv("INTERNAL_API_TOKEN"))
+	if internalToken == "" {
+		log.Print("INTERNAL_API_TOKEN is not configured: cross-service notification delivery is disabled (POST /api/notifications/internal returns 503 internal_api_disabled)")
+	}
+	catalogHTTP := catalog.HTTP{Store: s, InternalToken: internalToken}
 	catalogHTTP.Register(r)
 
 	// 能力清单是**部署态声明**：子系统拆出去之后，能力由部署配置声明（见 capabilities 包），

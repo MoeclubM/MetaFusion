@@ -68,7 +68,7 @@ func OpenAPI() map[string]any {
 			return map[string]any{}
 		}
 	}
-	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, UnpublishEdit{}, DefinitionVersion{}, DefinitionVersionItem{}, DefinitionRollback{}, DefinitionDiff{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, HomeSection{}, UserContributions{}, ContributionItem{}, UserContributionStats{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}, ImporterSource{}, VersionInfo{}, DefinitionImpact{}} {
+	for _, v := range []any{Entity{}, Edit{}, Relation{}, RelationEdit{}, LifecycleEdit{}, UnpublishEdit{}, DefinitionVersion{}, DefinitionVersionItem{}, DefinitionRollback{}, DefinitionDiff{}, Definitions{}, ExternalDatabase{}, Shelf{}, HomePreferences{}, HomeSection{}, UserContributions{}, ContributionItem{}, UserContributionStats{}, ImporterPreviewRequest{}, ImporterPreviewResponse{}, ImporterImportRequest{}, ImporterImportResponse{}, ImporterSource{}, VersionInfo{}, DefinitionImpact{}, Notification{}} {
 		schema(reflect.TypeOf(v))
 	}
 	schemas["DefinitionDraft"] = map[string]any{"type": "object", "description": "Draft or published definition document. Every name (types, fields, vocabularies and terms, relations incl. reverse_names and group_names, templates and their sections, schemes, field unit) of an enabled entry must carry all four locales zh-CN / zh-TW / en-US and ja or ja-JP; missing locales are rejected with four_locale_names_required (the error lists the missing locale codes). Names are returned as-is: the server never resolves a single locale.", "required": []string{"document", "base_version", "edit_note", "sources"}, "properties": map[string]any{"document": schema(reflect.TypeOf(Definitions{})), "base_version": map[string]any{"type": "integer"}, "edit_note": map[string]any{"type": "string"}, "sources": schema(reflect.TypeOf([]Source{}))}}
@@ -83,6 +83,11 @@ func OpenAPI() map[string]any {
 		// 归第三个 tag：tags 清单里声明了它，这些操作就不该留在 Catalog 组里。
 		if strings.Contains(path, "external-databases") {
 			tag = "ExternalDatabases"
+		}
+		// 站内通知（收件箱 / 未读数 / 标记已读 / 跨服务投递）自成一组：
+		// 它读的不是目录数据，而是"发给调用者的事件"，与 Catalog 组混在一起会误导接入方。
+		if strings.HasPrefix(path, "/notifications") {
+			tag = "Notifications"
 		}
 		op := map[string]any{
 			"tags":    []string{tag},
@@ -140,6 +145,30 @@ func OpenAPI() map[string]any {
 	schemas["ImporterSourceList"] = map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
 		"items": schema(reflect.TypeOf([]ImporterSource{})),
 	}}
+	// 收件箱列表：items 元素与 total/unread 逐个声明。unread 与 items 同一次响应给出是有意的
+	// （见 ListNotifications）：分两次请求会出现"角标 3、列表全已读"的中间窗口。
+	schemas["NotificationList"] = map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
+		"items":  schema(reflect.TypeOf([]Notification{})),
+		"total":  schema(reflect.TypeOf(0)),
+		"unread": schema(reflect.TypeOf(0)),
+	}}
+	schemas["NotificationUnread"] = map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
+		"unread": schema(reflect.TypeOf(0)),
+	}}
+	schemas["NotificationReadResult"] = map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
+		"ok":      schema(reflect.TypeOf(false)),
+		"unread":  schema(reflect.TypeOf(0)),
+		"updated": schema(reflect.TypeOf(0)),
+	}}
+	schemas["NotificationDelivery"] = map[string]any{"type": "object", "additionalProperties": false, "required": []string{"recipient_id", "type"}, "properties": map[string]any{
+		"recipient_id": map[string]any{"type": "string", "description": "Recipient user id (UUID) as resolved by the calling service"},
+		"type":         map[string]any{"type": "string", "enum": NotificationTypes(), "description": "Notification type code; an unknown code is 400 invalid_notification_type"},
+		"subject_type": map[string]any{"type": "string", "description": "topic | entity | import (free-form, at most 64 chars)"},
+		"subject_id":   map[string]any{"type": "string", "description": "Clickable target id (at most 200 chars)"},
+		"payload":      map[string]any{"type": "object", "additionalProperties": true, "description": "Per-type display payload; unknown keys are stored as-is and returned to the recipient"},
+		"dedupe_key":   map[string]any{"type": "string", "description": "Aggregation key (at most 300 chars); defaults to type:subject_id. Events sharing (recipient_id, dedupe_key) merge into one row: count increments, read_at resets to unread and updated_at is bumped"},
+		"event_id":     map[string]any{"type": "string", "description": "Stable identity of this event (at most 200 chars), so that an upstream retry is idempotent: delivering the same event_id again on the same (recipient_id, dedupe_key) leaves count, read_at and updated_at untouched. Omitted means a new event every call"},
+	}}
 	schemas["PublishedDefinitions"] = map[string]any{"type": "object", "additionalProperties": false, "properties": map[string]any{
 		"id":           schema(reflect.TypeOf(int64(0))),
 		"state":        schema(reflect.TypeOf("")),
@@ -179,6 +208,11 @@ func OpenAPI() map[string]any {
 		{"/admin/shelves/{id}", "get", "Read shelf rule (requires catalog.shelves.manage)", "", "Result", "auth"},
 		{"/admin/shelves/{id}", "put", "Update shelf rule (requires catalog.shelves.manage); names must carry zh-CN, zh-TW, en-US and ja or ja-JP (four_locale_names_required); sort accepts updated (default) | created | title, other values are rejected with invalid_sort; query rejects blank codes with invalid_types / invalid_relations and malformed field codes or blank values with invalid_fields / invalid_vocab_terms", "Shelf", "Result", "auth"},
 		{"/admin/shelves/{id}", "delete", "Delete shelf rule (requires catalog.shelves.manage)", "", "Result", "auth"},
+		{"/notifications", "get", "Read the caller's own notification inbox, newest activity first (requires authentication; no recipient parameter exists — the recipient is always the token holder, so another user's inbox is not addressable). Returns items + total + unread in one response: the list page needs all three consistent, and splitting them would leave a window where the badge says 3 while the list renders fully read. limit defaults to 20 and is silently clamped to 100, offset defaults to 0 and is clamped to >= 0. Ordering is by updated_at (latest activity) desc, so a notification that aggregated a new event floats back to the top instead of staying at its first event's position. Notification types: comment.replied (someone replied to a post/topic the caller wrote, delivered by the community service), entity.included (the caller's work was declared as a subject of a release or included in a collection), entity.review_approved / entity.review_rejected (an editor or reviewer published or rejected one of the caller's entities), import.completed (a receipt for the caller's own import job). Each item carries type, actor_id/actor_name (possibly empty for system events), subject_type/subject_id for the click target, a per-type payload for rendering, count (how many events were merged into this row) and read. Retention is planned at 180 days but no cleanup job runs in this round", "", "NotificationList", "auth"},
+		{"/notifications/unread-count", "get", "Unread badge count for the caller (requires authentication). Deliberately the lightest endpoint of the feature: one COUNT over the partial index catalog.notifications_unread(recipient_id) WHERE read_at IS NULL, no rows read, no JOIN, no payload decoding, no aggregation — it exists to be polled by the top bar badge. Rate limited to 300 requests per minute per IP (a single NAT can hold dozens of open tabs). Answers a single unread field; 0 is a real zero from the count, never a placeholder", "", "NotificationUnread", "auth"},
+		{"/notifications/read-all", "post", "Mark every unread notification of the caller as read (requires authentication; writes an audit row with action notification.all_read). The recipient condition is part of the UPDATE predicate, so this can only ever touch the caller's own rows. Returns ok, updated (how many rows this call marked) and unread (read back from the database after the update, not assumed to be 0). No 'until' parameter: the inbox is per-recipient, so 'all currently unread' is the whole semantics", "", "NotificationReadResult", "auth"},
+		{"/notifications/{id}/read", "post", "Mark one notification as read (requires authentication; writes an audit row with action notification.read). The recipient is part of the UPDATE predicate — a notification belonging to somebody else and a notification that does not exist are both 404 not_found, because answering 403 for the former and 404 for the latter would let a caller probe whether a given id exists in another user's inbox. read_at keeps its first value (COALESCE), so re-reading does not rewrite history; the response carries the caller's remaining unread count", "", "NotificationReadResult", "auth"},
+		{"/notifications/internal", "post", "Service-to-service notification delivery (community -> catalog), the only cross-service write of the feature. Two credentials are required: the shared secret in the X-Internal-Token header (INTERNAL_API_TOKEN, injected by the compose file; when the variable is unset this endpoint is closed and answers 503 internal_api_disabled, so a forgotten configuration degrades to 'replies produce no notification' instead of 'any signed-in user can push a notification to anyone') and the end user's bearer token in Authorization, which supplies the actor for the audit row and for actor_id/actor_name in the notification. The recipient is declared by the calling service — that is exactly why the shared secret exists, since a user token proves who acted but not that the event was generated by a service. Bodies are validated before writing: recipient_id must be a UUID (400 invalid_recipient_id), type must be one of the enum codes (400 invalid_notification_type), subject_type/subject_id/dedupe_key have length caps (400 invalid_payload). The sending service performs the call through its own internal/upstream client (timeouts, bounded retries, circuit breaker) and treats a failure as 'no notification' with a log line, never as a reason to fail the user's comment", "NotificationDelivery", "NotificationReadResult", "auth"},
 	} {
 		add(r[0], r[1], r[2], r[3], r[4], r[5] != "")
 	}
@@ -215,6 +249,10 @@ func OpenAPI() map[string]any {
 		return map[string]any{"name": name, "in": "query", "required": required, "description": desc, "schema": map[string]any{"type": "string"}}
 	}
 
+	paths["/notifications"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
+		qp("limit", "Page size, default 20, max 100; out-of-range values are clamped (never rejected)", false),
+		qp("offset", "Page offset, default 0; negative values are clamped to 0", false),
+	}
 	paths["/catalog/tags"].(map[string]any)["get"].(map[string]any)["parameters"] = []any{
 		qp("q", "Substring filter on tag name", false),
 		qp("limit", "Max tags, default 200, max 500", false),
@@ -257,6 +295,7 @@ func OpenAPI() map[string]any {
 		"tags": []any{
 			map[string]any{"name": "Catalog", "description": "核心实体编目与查询 (Work, Release, Medium, Track, ContentUnit, Agent, Collection)"},
 			map[string]any{"name": "Definitions", "description": "无代码动态元数据类型、属性与关系定义管理"},
+			map[string]any{"name": "Notifications", "description": "站内通知：本人收件箱、未读数角标、标记已读，以及服务间投递（互动服务 → 目录）"},
 			map[string]any{"name": "ExternalDatabases", "description": "外部权威数据库与官方渠道配置"},
 		},
 		"paths": paths,
