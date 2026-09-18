@@ -227,6 +227,18 @@ export const Navbar: React.FC = () => {
                       <span>{t("navbar.accountSessions")}</span>
                     </a>
 
+                    {/* 开发者中心：桌面顶栏那条入口在 hidden xl:flex 里，<xl 视口（移动端/平板）
+                        看不到，这里补同一个入口；可见性用 xl:hidden 与桌面导航配对，避免桌面重复。
+                        规则一致：登录即可自助登记应用，未登录不显示——本菜单只在 user 存在时渲染。 */}
+                    <Link
+                      href="/developer"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="xl:hidden w-full px-3 py-2 text-left text-gray-300 hover:text-white hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
+                    >
+                      <Terminal className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
+                      <span>{t("navigation.developer")}</span>
+                    </Link>
+
                     {user.role === "admin" && (
                       <Link
                         href="/admin"
