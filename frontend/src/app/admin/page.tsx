@@ -509,8 +509,8 @@ function AdminInner() {
   if (!canEnterCatalogConsole(user)) {
     return (
       <div className="min-h-screen bg-background text-text-strong pt-[var(--mf-header-h)]">
-        <PageContainer className="py-12">
-          <div className="max-w-xl mx-auto">
+        <PageContainer width="narrow" className="py-12">
+          <div>
             <h1 className="text-xl font-bold text-text-strong mb-2">
               {t("admin.consoles.pickTitle")}
             </h1>
