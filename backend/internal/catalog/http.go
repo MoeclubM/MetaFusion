@@ -146,11 +146,22 @@ func routeLimiter(perMinute int) gin.HandlerFunc {
 		b.n++
 		b.lastSeen = now
 		over := b.n > perMinute
+		remaining := perMinute - b.n
 		retrySecs := int(time.Until(b.start.Add(time.Minute)).Seconds()) + 1
 		b.mu.Unlock()
 		if retrySecs < 1 {
 			retrySecs = 1
 		}
+		if remaining < 0 {
+			remaining = 0
+		}
+		// 剩余额度随每个响应下发：四语字典 settings.patRateLimitHint 承诺过这组头，
+		// 服务端此前一个都没发（全仓 grep X-RateLimit = 0），承诺与实现相反。
+		// 三个数值都是调用方本就能观测到的语义（窗口上限、窗口内还剩几次、何时重置），
+		// 不含任何内部实现细节。
+		c.Header("X-RateLimit-Limit", strconv.Itoa(perMinute))
+		c.Header("X-RateLimit-Remaining", strconv.Itoa(remaining))
+		c.Header("X-RateLimit-Reset", strconv.Itoa(retrySecs))
 		if over {
 			c.Header("Retry-After", strconv.Itoa(retrySecs))
 			c.AbortWithStatusJSON(429, gin.H{"error": "rate_limited"})
