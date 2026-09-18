@@ -90,7 +90,19 @@ function ExploreInner() {
     () => searchParams.getAll("tags").flatMap((v) => v.split(",")).map((s) => s.trim()).filter(Boolean),
     [searchParams],
   );
-  const currentPage = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+  // 页码解析必须挡住 NaN：`?page=abc` 经 parseInt 得到 NaN，Math.max(1, NaN) 仍是 NaN，
+  // 于是 offset=NaN 被原样发给服务端（现在会被按非法参数 400 拒绝，页面就以"加载失败"告终）。
+  // 非数字或小于 1 一律当第 1 页；数字但超出结果范围的越界页另有可读提示（见 outOfRange）。
+  const rawPageParam = searchParams.get("page") || "";
+  const parsedPage = /^\d+$/.test(rawPageParam) ? parseInt(rawPageParam, 10) : 1;
+  const currentPage = parsedPage >= 1 ? parsedPage : 1;
+  // 排序：写进 URL（可深链、可后退），取值与后端白名单一致；非法取值由后端 400 拒绝，
+  // 这里只把 URL 原样传给服务端——前端不静默改写用户给的参数。
+  const sortParam = searchParams.get("sort") || "";
+  const orderParam = searchParams.get("order") || "";
+  const sortKey = sortParam + (orderParam ? ":" + orderParam : "");
+  // 下拉的选中值：默认（不带参）= 最近更新，与后端空值口径一致。
+  const sortValue = sortParam ? sortKey : "";
   const limit = 24;
   const offset = (currentPage - 1) * limit;
 
@@ -101,38 +113,95 @@ function ExploreInner() {
   const [total, setTotal] = useState(0);
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const [loading, setLoading] = useState(true);
+  // 加载失败态："" 无错误 / "rate_limited" 429 / "invalid_params" 400 / "failed" 其它失败。
+  // 与"真的没有条目"必须是两种状态——把 429、5xx、断网都渲染成"未找到匹配的元数据实体"
+  // 会让用户以为库里没有这个条目（并据此去建重复条目），也让排障无从知道是限流。
+  // 400 更要单独说：那是"参数非法"，既不是没有结果、也不是服务故障，而且重试同样非法。
+  const [loadError, setLoadError] = useState<"" | "rate_limited" | "invalid_params" | "failed">("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [topTags, setTopTags] = useState<{ name: string; count: number }[]>([]);
+  const [tagsFailed, setTagsFailed] = useState(false);
+  const [tagsReloadKey, setTagsReloadKey] = useState(0);
+  // 越界页（如 ?page=99999）：服务端返回空 items，但 total 仍是筛选后的真实条数。
+  // 这不是"没有结果"，页面要说清"没有更多"并把用户带回第一页——线上实测这一页
+  // 显示"共 0 条"，与侧栏"全部实体 3070"自相矛盾，原因正是总数被写死成 0。
+  const outOfRange = !loading && !loadError && items.length === 0 && total > 0 && currentPage > totalPages;
 
   useEffect(() => {
     setQInput(currentQ);
   }, [currentQ]);
 
   // 标签云：来自真实聚合（各实体 attributes.tags 的频次），按使用量取前若干。
+  // 取不到时说明"标签面板暂时不可用"，不再与"暂无标签"混成同一句。
   useEffect(() => {
+    let alive = true;
+    setTagsFailed(false);
     fetch("/api/catalog/tags?limit=40", { credentials: "same-origin" })
-      .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((data) => setTopTags(data.items || []))
-      .catch(() => setTopTags([]));
-  }, []);
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+      .then((data) => { if (alive) setTopTags(data.items || []); })
+      .catch(() => { if (alive) { setTopTags([]); setTagsFailed(true); } });
+    return () => { alive = false; };
+  }, [tagsReloadKey]);
 
   useEffect(() => {
+    let alive = true;
     setLoading(true);
+    setLoadError("");
     const params = new URLSearchParams();
     if (currentKind !== "all") params.set("kind", currentKind);
     if (currentStatus) params.set("status", currentStatus);
     if (currentQ) params.set("q", currentQ);
     if (currentType) params.set("type", currentType);
     currentTags.forEach((tag) => params.append("tags", tag));
+    if (sortParam) params.set("sort", sortParam);
+    if (orderParam) params.set("order", orderParam);
+    // title 排序由服务端按请求语种取题名（请求语种 → 原文语种 → en-US → 基础题名），
+    // 与页面上显示的题名同源，而不是恒按基础题名排。
+    if (sortParam === "title") params.set("locale", locale);
     params.set("limit", limit.toString());
     params.set("offset", offset.toString());
 
     fetch("/api/catalog/entities?" + params.toString(), { credentials: "same-origin" })
-      .then((res) => (res.ok ? res.json() : { items: [] }))
-      .then((data) => { setItems(data.items || []); setTotal(typeof data.total === "number" ? data.total : 0); })
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-  }, [currentKind, currentStatus, currentQ, currentType, currentTags, offset]);
+      .then(async (res) => {
+        if (!res.ok) {
+          // 400 带稳定机器码（invalid_query_param / query_too_long / invalid_limit /
+          // invalid_offset / invalid_page / pagination_conflict…）。读出来只为分类：
+          // 参数非法要单独提示，不能落成空态或"服务暂时不可用"。
+          if (res.status === 400) {
+            let code = "";
+            try {
+              code = (await res.json())?.error || "";
+            } catch {
+              // 非 JSON 错误体不阻断判定：仍然按 400 处理。
+            }
+            throw new Error("invalid_params:" + code);
+          }
+          throw new Error(res.status === 429 ? "rate_limited" : "load_failed:" + res.status);
+        }
+        return res.json();
+      })
+      .then((data) => {
+        if (!alive) return;
+        setItems(data.items || []);
+        setTotal(typeof data.total === "number" ? data.total : 0);
+      })
+      .catch((err: any) => {
+        if (!alive) return;
+        setItems([]);
+        setTotal(0);
+        const message = String(err?.message || "");
+        setLoadError(
+          message === "rate_limited"
+            ? "rate_limited"
+            : message.startsWith("invalid_params")
+              ? "invalid_params"
+              : "failed",
+        );
+      })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [currentKind, currentStatus, currentQ, currentType, currentTags, offset, sortParam, orderParam, locale, reloadKey]);
 
   // 可选类型：来自 definitions 的 enabled 类型；已选具体 kind 时只保留该 kind 的类型。
   const typeOptions = useMemo(() => {
@@ -237,6 +306,7 @@ function ExploreInner() {
     currentQ,
     currentTags.join(","),
     currentPage,
+    sortKey,
   ].join("|");
 
   return (
@@ -340,7 +410,18 @@ function ExploreInner() {
                 )}
               </div>
               <div className="p-2.5">
-                {topTags.length === 0 ? (
+                {tagsFailed ? (
+                  <div className="px-1 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300">
+                    <span>{t("catalog.tagsFailed")}</span>
+                    <button
+                      type="button"
+                      onClick={() => setTagsReloadKey((n) => n + 1)}
+                      className="text-primary hover:underline cursor-pointer"
+                    >
+                      {t("catalog.retry")}
+                    </button>
+                  </div>
+                ) : topTags.length === 0 ? (
                   <p className="px-1 py-2 text-xs text-gray-500">{t("catalog.noTags")}</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
@@ -372,7 +453,7 @@ function ExploreInner() {
           <div className="min-w-0 space-y-5">
             {/* 检索与状态：仅保留面向用户的检索条件，类型不再单列 */}
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-4 rounded-xl bg-surface border border-line shadow-soft">
-              <form onSubmit={handleSearchSubmit} className="sm:col-span-8 relative flex items-center">
+              <form onSubmit={handleSearchSubmit} className="sm:col-span-6 relative flex items-center">
                 <Search className="absolute left-3.5 w-4 h-4 text-text-muted pointer-events-none" />
                 <input
                   type="text"
@@ -391,6 +472,31 @@ function ExploreInner() {
 
               {/* 类型筛选已移除：类型属硬分类，筛选一律走标签（左侧标签面板 / ?tags=）。 */}
 
+              {/* 排序：取值写回 URL（?sort=&order=），可深链、后退键保持；后端按白名单校验。 */}
+              <div className="sm:col-span-2 flex items-center">
+                <select
+                  value={sortValue}
+                  aria-label={t("catalog.sort")}
+                  onChange={(e) => {
+                    const [sort, order] = e.target.value.split(":");
+                    updateFilters({ sort: sort || "", order: sort ? order || "" : "" });
+                  }}
+                  className="w-full py-2 px-2.5 rounded-lg bg-surface dark:bg-[#18181b] border border-line text-xs text-text-strong focus:border-primary outline-none cursor-pointer"
+                >
+                  <option value="" className="bg-surface dark:bg-[#18181b] text-text-strong">
+                    {t("catalog.sortUpdated")}
+                  </option>
+                  <option value="created_at:desc" className="bg-surface dark:bg-[#18181b] text-text-strong">
+                    {t("catalog.sortCreated")}
+                  </option>
+                  <option value="title:asc" className="bg-surface dark:bg-[#18181b] text-text-strong">
+                    {t("catalog.sortTitleAsc")}
+                  </option>
+                  <option value="title:desc" className="bg-surface dark:bg-[#18181b] text-text-strong">
+                    {t("catalog.sortTitleDesc")}
+                  </option>
+                </select>
+              </div>
 
               <div className="sm:col-span-2 flex items-center">
                 <select
@@ -479,6 +585,62 @@ function ExploreInner() {
               <div className="py-24 text-center text-gray-500 font-mono text-xs flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="w-6 h-6 animate-spin text-primary" />
                 <span>{t("catalog.loading")}</span>
+              </div>
+            ) : loadError ? (
+              // 错误态与空态是两种状态：这里说的是"这一次没取到"，并给重试入口；
+              // 429 单独给限流文案（服务端 120/分钟全站共享预算，命中是常态）。
+              <div
+                role="alert"
+                className="py-20 rounded-xl border border-amber-500/30 bg-amber-500/5 text-center shadow-2xs"
+              >
+                <p className="text-amber-700 dark:text-amber-300 text-sm mb-3">
+                  {loadError === "rate_limited"
+                    ? t("catalog.rateLimited")
+                    : loadError === "invalid_params"
+                      ? t("catalog.invalidQueryParams")
+                      : t("catalog.loadFailed")}
+                </p>
+                {loadError === "invalid_params" ? (
+                  // 参数非法时给"清除筛选"而不是"重试"：同样的参数再发一次还是 400。
+                  <button
+                    type="button"
+                    onClick={() => updateFilters({ q: "", kind: "", tags: "" })}
+                    className="inline-flex items-center gap-1.5 text-xs font-mono text-primary hover:underline cursor-pointer"
+                  >
+                    {t("catalog.emptyAction")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setReloadKey((n) => n + 1)}
+                    className="inline-flex items-center gap-1.5 text-xs font-mono text-primary hover:underline cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    {t("catalog.retry")}
+                  </button>
+                )}
+              </div>
+            ) : outOfRange ? (
+              // 越界页与空结果是两件事：这里给出真实总数与页数，并提供回第一页的出口。
+              <div
+                role="alert"
+                className="py-20 rounded-xl border border-dashed border-line text-center bg-surface/50 shadow-2xs"
+              >
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-3">
+                  {t("catalog.pageOutOfRange", {
+                    page: currentPage.toString(),
+                    total: total.toString(),
+                    pages: totalPages.toString(),
+                  })}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => updateFilters({ page: "1" })}
+                  className="inline-flex items-center gap-1.5 text-xs font-mono text-primary hover:underline cursor-pointer"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                  {t("catalog.goFirstPage")}
+                </button>
               </div>
             ) : items.length === 0 ? (
               <div className="py-20 rounded-xl border border-dashed border-line text-center bg-surface/50 shadow-2xs">
@@ -613,7 +775,12 @@ function ExploreInner() {
                         start: (offset + 1).toString(),
                         end: (offset + items.length).toString(),
                       })
-                    : t("pagination.totalItems", { total: 0 })}
+                    : loadError
+                      ? // 取数失败时不报"共 0 项"——那是在给一个没拿到的结论下定论。
+                        t("catalog.loadFailed")
+                      : // 空结果与越界页都报真实 total（后端在越界页也照常返回它），
+                        // 不再写死 0：写死 0 会与侧栏"全部实体 N"直接矛盾。
+                        t("pagination.totalItems", { total })}
                 </span>
               </div>
               <div className="flex items-center gap-2">
