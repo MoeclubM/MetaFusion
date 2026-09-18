@@ -12,6 +12,7 @@ import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
 import { OAuthGrantsPanel } from "@/components/settings/OAuthGrantsPanel";
+import { PersonalAccessTokensPanel } from "@/components/settings/PersonalAccessTokensPanel";
 import { ThemeControls } from "@/components/ThemeControls";
 import { useSearchParams } from "next/navigation";
 import {
@@ -403,12 +404,19 @@ export default function SettingsPage() {
                 <TitleDisplayOrderSetting />
               </div>
 
-              {/* 隐私设置：后端没有 /auth/profile 实现，开关不可写，如实禁用 */}
+              {/* 隐私设置：账号服务没有这两项能力——auth.users 只有 id/username/email/role/banned，
+                  没有 favorites_public / email_public 列，也没有修改资料的写接口，前端既读不到也写不了，
+                  所以开关一律禁用置灰，并写明"由谁决定开放"。
+                  不挂「暂不可用」徽标：徽标说"不可用"、旁边却是可点的高亮开关，是自相矛盾的表达。 */}
               <div className="space-y-1.5 pt-2 border-t border-line-subtle">
                 <div className="flex items-center gap-1.5 pb-1">
                   <Eye className="w-3.5 h-3.5 text-gray-400" strokeWidth={1.5} />
                   <span className="font-mono text-xs font-semibold text-text-body">{t("settings.privacyTitle")}</span>
-                  <span className="ml-auto font-mono text-[10px] text-gray-400">{t("catalog.unavailable")}</span>
+                </div>
+
+                <div className="p-3 rounded-lg bg-surfaceSubtle border border-line-subtle text-[11px] text-gray-500 leading-relaxed flex items-start gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" strokeWidth={1.5} />
+                  <span>{t("settings.privacyUnavailableHint")}</span>
                 </div>
 
                 <div className="p-3 rounded-md bg-background border border-line-subtle flex items-center justify-between gap-3 opacity-60">
@@ -419,10 +427,9 @@ export default function SettingsPage() {
                     </div>
                     <div className="text-[11px] text-gray-500 leading-relaxed">{t("settings.privacyFavoritesDesc")}</div>
                   </div>
-                  <label className="relative inline-flex items-center shrink-0 cursor-not-allowed">
-                    <input type="checkbox" checked={favoritesPublicValue(user)} disabled readOnly className="sr-only peer" />
-                    <div className="w-9 h-5 bg-gray-300 dark:bg-white/20 rounded-full peer-checked:bg-primary"></div>
-                  </label>
+                  {/* 灰态开关：只表示"这里本该有个开关、现在没有"，不表示开或关——
+                      账号服务根本没有这两列，任何 checked 取值都是在编造一个不存在的设置状态。 */}
+                  <span aria-hidden="true" className="shrink-0 w-9 h-5 rounded-full bg-gray-300 dark:bg-white/15" />
                 </div>
 
                 <div className="p-3 rounded-md bg-background border border-line-subtle flex items-center justify-between gap-3 opacity-60">
@@ -433,33 +440,15 @@ export default function SettingsPage() {
                     </div>
                     <div className="text-[11px] text-gray-500 leading-relaxed">{t("settings.privacyEmailDesc")}</div>
                   </div>
-                  <label className="relative inline-flex items-center shrink-0 cursor-not-allowed">
-                    <input type="checkbox" checked={emailPublicValue(user)} disabled readOnly className="sr-only peer" />
-                    <div className="w-9 h-5 bg-gray-300 dark:bg-white/20 rounded-full peer-checked:bg-primary"></div>
-                  </label>
+                  {/* 同上：邮箱可见性目前只由账号服务决定（非本人一律不下发），前端没有可写字段。 */}
+                  <span aria-hidden="true" className="shrink-0 w-9 h-5 rounded-full bg-gray-300 dark:bg-white/15" />
                 </div>
               </div>
             </div>
           )}
 
-          {activeTab === "tokens" && (
-            <div className="p-4 sm:p-5 space-y-4">
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-text-strong flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-amber-500" />
-                  <span>{t("settings.patTitle")}</span>
-                </h3>
-              </div>
-
-              <div className="p-6 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 flex flex-col items-center gap-2 text-center">
-                <AlertCircle className="w-5 h-5 text-amber-500" />
-                <div className="text-sm font-semibold text-text-strong">{t("catalog.unavailable")}</div>
-                <p className="text-xs text-gray-500 max-w-sm">
-                  {t("settings.patDesc")}
-                </p>
-              </div>
-            </div>
-          )}
+          {/* 令牌页签自带标题与说明（面板内），这里不再套一层占位卡 */}
+          {activeTab === "tokens" && <PersonalAccessTokensPanel />}
 
           {activeTab === "authorizations" && <OAuthGrantsPanel />}
 
@@ -571,12 +560,4 @@ export default function SettingsPage() {
       </PageShell>
     </div>
   );
-}
-
-function favoritesPublicValue(user: unknown): boolean {
-  return (user as Record<string, unknown>)["favorites_public"] !== false;
-}
-
-function emailPublicValue(user: unknown): boolean {
-  return (user as Record<string, unknown>)["email_public"] === true;
 }
