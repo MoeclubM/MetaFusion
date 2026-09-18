@@ -29,7 +29,7 @@
    - 目录库不反向持有物理文件或社区帖子。
 2. **账号服务 (`metafusion-auth`)**：`/api/auth/*`、`/api/setup`、`/api/admin/users`、`/api/oauth/*`、`/api/oidc/*`、`/api/.well-known/*`；
    自有 `auth` schema，RS256 令牌签发与 JWKS；其余服务只验签、不签发。
-3. **互动服务 (`metafusion-community`)**：论坛、短评、收藏与互动记录（`/api/community/*`、`/api/records/*`、`/api/favorites/*`、`/api/users/{id}/favorites`）；
+3. **互动服务 (`metafusion-community`)**：论坛、短评与收藏（`/api/community/*`、`/api/favorites/*`、`/api/users/{id}/favorites`）；
    自有 `community` schema；实体可见性问目录服务，不直连目录库。
 4. **存储服务 (`metafusion-storage`)**：物理文件、sha256 内容寻址、预签名直传与绑定（`/api/storage/*`）；
    自有 `storage` schema，桶由服务启动时自建。
