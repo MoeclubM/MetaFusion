@@ -179,12 +179,18 @@ error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（
 守卫后的行为：表已存在 → 整段纯空转（不触发任何所有权检查）；表不存在 → 取 740205 锁后建 schema / 表 / 四条索引。
 每个仓都有回归断言钉住这三点：守卫存在、**不得**再出现 `CREATE INDEX IF NOT EXISTS`、锁必须是守卫内的 `PERFORM`。
 
+**已应用过旧版迁移的实例不需要回填、也不需要重跑**：账本里已有该版本记录，迁移器会空转；新旧文件的建表形状完全相同，
+改的只是执行语义（从「无条件语句」变成「表已存在则整段空转」）。真正的修复点是**首次启动**那条路径。
+
 ### 6.1.2 库侧授权（部署时必查）
 
 `audit` schema 与 `audit.audit_log` 由 bootstrap 以 `mf_audit_owner` 预建（owner 唯一）；四个运行角色只有
 `USAGE`（schema）+ `SELECT, INSERT`（表），**不依赖「建表后重跑授权脚本」**（表已存在，一次授完）。
 `deploy/sql/roles-least-privilege.sql` 另 `REVOKE UPDATE, DELETE, TRUNCATE` 让审计对应用角色只可追加，
 `verify-role-isolation.sql` 的 F 段断言这一点。
+
+**运行角色必须有 audit schema 的 `USAGE`**：`to_regclass('audit.audit_log')` 要先能解析名字，否则守卫会误判成「表不存在」
+而走进建表分支（随后因权限不足报错）。这正是角色脚本授的 `USAGE, CREATE ON SCHEMA audit`，两者缺一不可。
 
 两条注意：① 若某实例没预建（服务自己建表），那张表的 owner 就是先启动的运行角色，PostgreSQL 的 owner 隐式持权、
 `REVOKE` 对它无效，F 段的「不得 UPDATE/DELETE」断言会失败——所以预建不是优化而是前提；
