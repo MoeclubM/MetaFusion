@@ -10,38 +10,43 @@ catalog / auth / community / storage 的**全部写操作**纳入同一张审计
 ## 1. 表结构（唯一来源，逐字复制到四个服务）
 
 ```sql
--- 审计表跨服务共用：四个服务的业务 DDL 各管自己的 schema，这里单独用 audit schema，
--- 因为它不属于任何单个服务的领域数据（见 §5 的取舍说明）。
-CREATE SCHEMA IF NOT EXISTS audit;
-
--- 四个服务可能同时首次启动；建表用同一个 advisory 锁键（740205）串行化。
--- 一次 Exec 里的多条语句由 lib/pq 作为隐式事务批处理发送，xact 锁因此覆盖到建表结束。
-SELECT pg_advisory_xact_lock(740205);
-
-CREATE TABLE IF NOT EXISTS audit.audit_log (
-  id               uuid PRIMARY KEY,
-  occurred_at      timestamptz NOT NULL DEFAULT now(),
-  service          text NOT NULL,
-  action           text NOT NULL,
-  actor_user_id    uuid,
-  actor_username   text NOT NULL DEFAULT '',
-  credential_type  text NOT NULL DEFAULT '',
-  actor_ip         text NOT NULL DEFAULT '',
-  actor_user_agent text NOT NULL DEFAULT '',
-  target_type      text NOT NULL DEFAULT '',
-  target_id        text NOT NULL DEFAULT '',
-  changes          jsonb NOT NULL DEFAULT '{}'::jsonb,
-  result           text NOT NULL DEFAULT 'success' CHECK (result IN ('success','failure')),
-  error_code       text NOT NULL DEFAULT '',
-  request_method   text NOT NULL DEFAULT '',
-  route            text NOT NULL DEFAULT '',
-  http_status      int NOT NULL DEFAULT 0,
-  request_id       text NOT NULL DEFAULT ''
-);
-CREATE INDEX IF NOT EXISTS audit_log_occurred_at_idx ON audit.audit_log(occurred_at DESC);
-CREATE INDEX IF NOT EXISTS audit_log_service_action_idx ON audit.audit_log(service, action, occurred_at DESC);
-CREATE INDEX IF NOT EXISTS audit_log_actor_idx ON audit.audit_log(actor_user_id, occurred_at DESC);
-CREATE INDEX IF NOT EXISTS audit_log_target_idx ON audit.audit_log(target_type, target_id, occurred_at DESC);
+-- 表由部署时的 mf_audit_owner 预建；四个服务的运行角色执行这段 DDL 时整段空转。
+-- 为什么必须用 to_regclass 守卫：PostgreSQL 的 CREATE INDEX IF NOT EXISTS 会**先做表所有权检查**、
+-- 再看索引是否存在（CREATE TABLE IF NOT EXISTS 不同，它只要求 schema 的 CREATE）。四个服务启动都会执行
+-- 整段 DDL，不做守卫的话非 owner 的运行角色会拿到 42501 must be owner of table audit_log，服务直接起不来
+-- （2026-09-19 由数据库分离任务真库实测，见 §6.1）。
+DO $audit_ddl$
+BEGIN
+  PERFORM pg_advisory_xact_lock(740205);   -- 四个服务共用的建表锁：先取锁再判断，才能串行化首次建表
+  IF to_regclass('audit.audit_log') IS NULL THEN
+    CREATE SCHEMA IF NOT EXISTS audit;
+    CREATE TABLE audit.audit_log (
+      id               uuid PRIMARY KEY,
+      occurred_at      timestamptz NOT NULL DEFAULT now(),
+      service          text NOT NULL,
+      action           text NOT NULL,
+      actor_user_id    uuid,
+      actor_username   text NOT NULL DEFAULT '',
+      credential_type  text NOT NULL DEFAULT '',
+      actor_ip         text NOT NULL DEFAULT '',
+      actor_user_agent text NOT NULL DEFAULT '',
+      target_type      text NOT NULL DEFAULT '',
+      target_id        text NOT NULL DEFAULT '',
+      changes          jsonb NOT NULL DEFAULT '{}'::jsonb,
+      result           text NOT NULL DEFAULT 'success' CHECK (result IN ('success','failure')),
+      error_code       text NOT NULL DEFAULT '',
+      request_method   text NOT NULL DEFAULT '',
+      route            text NOT NULL DEFAULT '',
+      http_status      int NOT NULL DEFAULT 0,
+      request_id       text NOT NULL DEFAULT ''
+    );
+    CREATE INDEX audit_log_occurred_at_idx ON audit.audit_log(occurred_at DESC);
+    CREATE INDEX audit_log_service_action_idx ON audit.audit_log(service, action, occurred_at DESC);
+    CREATE INDEX audit_log_actor_idx ON audit.audit_log(actor_user_id, occurred_at DESC);
+    CREATE INDEX audit_log_target_idx ON audit.audit_log(target_type, target_id, occurred_at DESC);
+  END IF;
+END
+$audit_ddl$;
 ```
 
 字段语义：
@@ -152,19 +157,38 @@ error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（
 
 ## 6. 迁移与测试
 
-### 6.1 迁移（只追加）
+### 6.1 迁移落点（只追加）
 
-**库侧授权（部署时必查）**：审计表在跨服务共用的 `audit` schema 里，最小权限角色只授自己的业务 schema 时，
-审计写入会**全部静默失败**（业务不受影响，但留痕整段缺失）。按最小权限角色部署时必须显式给
-`GRANT USAGE ON SCHEMA audit` + `GRANT SELECT, INSERT ON audit.audit_log`（读取面另需 SELECT）。
-storage 仓已在自己的 `sql/roles.example.sql` 里补了这一处；主仓库的 `deploy/sql/roles-least-privilege.sql`
-（另一任务的产物）需要同一个 owner 复核。
-- **auth**：没有版本化迁移，DDL 在 `internal/store/store.go` 的 `schema` 常量里 ——
-  按既有做法在末尾追加 `CREATE SCHEMA IF NOT EXISTS audit` + 建表语句，并加列形状冻结测试。
-- **catalog**：`backend/migrations/000002_audit_log.up.sql`（+ `.down.sql`）。
-- **community**：`migrations/000007_audit_log.up.sql`。
-- **storage**：`internal/store/migrations/00000N_audit_log.up.sql`。
-- 四个服务都**不修改**已应用的迁移文件（改了会让校验和/记账不一致）。
+| 仓库 | 落点 | 说明 |
+| --- | --- | --- |
+| catalog（主仓） | `backend/migrations/000002_audit_log.up.sql`（+ `.down.sql`） | 版本化迁移，`mf-migrate up` 与服务启动同一份 |
+| auth | 无版本化迁移：`internal/audit` 的 `Schema` 常量由 `store.Init` 执行 | 照该仓既有做法；`cmd/server/main.go` 启动即执行 |
+| community | `migrations/000007_audit_log.up.sql` | 启动与迁移工具读同一份（`internal/store.Init`） |
+| storage | `internal/store/migrations/000002_audit_log.up.sql` | 启动时按版本号顺序应用 |
+
+四个服务都**不修改**已应用的迁移文件（改了会让校验和/记账不一致）；四份 DDL **逐字一致**。
+
+### 6.1.1 建表守卫（必须，否则多服务共存部署直接起不来）
+
+建表段必须整段包在 §1 的 `to_regclass` 守卫里。理由与实测：PostgreSQL 的 `CREATE INDEX IF NOT EXISTS` 会
+**先做表所有权检查、再看索引是否存在**（`CREATE TABLE IF NOT EXISTS` 不同，它只要求 schema 的 `CREATE`）。
+四个服务的启动/迁移路径都会执行整段 DDL，而表由部署时的 `mf_audit_owner` **预建**；不做守卫时非 owner 的
+运行角色会拿到 `42501 must be owner of table audit_log`，**四个服务全部起不来**（数据库分离任务真库实测：
+预建 owner 后四个服务全挂；不预建、让先启动的服务建表，其余三个全挂）。
+
+守卫后的行为：表已存在 → 整段纯空转（不触发任何所有权检查）；表不存在 → 取 740205 锁后建 schema / 表 / 四条索引。
+每个仓都有回归断言钉住这三点：守卫存在、**不得**再出现 `CREATE INDEX IF NOT EXISTS`、锁必须是守卫内的 `PERFORM`。
+
+### 6.1.2 库侧授权（部署时必查）
+
+`audit` schema 与 `audit.audit_log` 由 bootstrap 以 `mf_audit_owner` 预建（owner 唯一）；四个运行角色只有
+`USAGE`（schema）+ `SELECT, INSERT`（表），**不依赖「建表后重跑授权脚本」**（表已存在，一次授完）。
+`deploy/sql/roles-least-privilege.sql` 另 `REVOKE UPDATE, DELETE, TRUNCATE` 让审计对应用角色只可追加，
+`verify-role-isolation.sql` 的 F 段断言这一点。
+
+两条注意：① 若某实例没预建（服务自己建表），那张表的 owner 就是先启动的运行角色，PostgreSQL 的 owner 隐式持权、
+`REVOKE` 对它无效，F 段的「不得 UPDATE/DELETE」断言会失败——所以预建不是优化而是前提；
+② 审计行的清理/归档只能用 `mf_audit_owner`（应用角色被显式禁止改写/删除）。
 
 ### 6.2 真库用例（必须有）
 - 每个被审计动作各产生**恰好一行**（按 request_id / 动作码查）；
@@ -187,4 +211,4 @@ storage 仓已在自己的 `sql/roles.example.sql` 里补了这一处；主仓�
 - **credential_type 在非账号服务是近似值**：catalog / community / storage 只验签，
   无法区分"会话令牌"与"OAuth 令牌"，只能给 `pat` / `session`。
 - **不做保留策略与分区**：表会持续增长，清理/归档是运维议题（需要时再加）。
-- **不做审计自身的防篡改**（哈希链/只追加权限）：超出本轮范围。
+- **审计行对应用角色只可追加**（`deploy/sql/roles-least-privilege.sql` 已 REVOKE UPDATE/DELETE/TRUNCATE），但**不做防篡改的哈希链**：拥有 `mf_audit_owner` 的人仍可改写历史行。清理/归档只能用该 owner 角色。
