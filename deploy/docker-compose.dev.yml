@@ -8,8 +8,18 @@
 # 目录服务（Go）是编译型语言又没有 watcher 依赖：这里换到 backend/Dockerfile 的 builder 阶段
 # （容器内有 Go 工具链）跑 `go run ./cmd/server`，改完代码 restart backend 重新编译即可。
 # ==============================================================================
+# 所有服务共用同一份容器日志上限：json-file 驱动 + 单文件 10 MiB + 保留 3 份。
+# 不设上限时 docker 默认的 json-file 会一直涨，生产机磁盘本就不宽裕（2026-09 审计：/ 曾到 95%），
+# 一次日志爆量就能把宿主盘打满，连 PostgreSQL 一起拖死；上限只截断历史，不影响实时排障。
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   frontend:
+    logging: *default-logging
     build:
       context: ../frontend
       dockerfile: Dockerfile
@@ -32,6 +42,7 @@ services:
       - WATCHPACK_POLLING=true
 
   backend:
+    logging: *default-logging
     # 目录服务是编译型：dev 栈承诺的"改代码即时生效"只能靠容器内跑源码，所以换到 builder 阶段
     # （golang:1.25-alpine，容器内有 Go 工具链），入口改成 go run。原来的写法是把源码挂到 server
     # 阶段的 /app 上，正好盖掉镜像里的 /app/server，容器以 exec: /app/server: no such file or
@@ -59,6 +70,7 @@ services:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/ready"]
 
   docs-site:
+    logging: *default-logging
     build:
       context: ${MF_DOCS_DIR:-../../metafusion-docs}
       dockerfile: Dockerfile

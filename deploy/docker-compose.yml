@@ -10,6 +10,15 @@
 # 唯一对外端口是网关 (HTTP_PORT)，其余服务只在 metafusion-net 内可达，避免重复暴露。
 # 路由归属以 docs/architecture/service-split-migration.md 第 2 节为准。
 # ==============================================================================
+# 所有服务共用同一份容器日志上限：json-file 驱动 + 单文件 10 MiB + 保留 3 份。
+# 不设上限时 docker 默认的 json-file 会一直涨，生产机磁盘本就不宽裕（2026-09 审计：/ 曾到 95%），
+# 一次日志爆量就能把宿主盘打满，连 PostgreSQL 一起拖死；上限只截断历史，不影响实时排障。
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # --------------------------------------------------------------------------
   # 0. 边缘网关 (Nginx) — 统一入口：按前缀分流到各自治服务
@@ -17,6 +26,7 @@ services:
   #    只保留切流自检脚本，它自己的 nginx.conf 不参与部署。
   # --------------------------------------------------------------------------
   gateway:
+    logging: *default-logging
     image: nginx:1.25-alpine
     container_name: metafusion-gateway
     restart: unless-stopped
@@ -54,6 +64,7 @@ services:
   #    调用都是同源 /api/*，由网关分流，前端不感知服务拆分。
   # --------------------------------------------------------------------------
   frontend:
+    logging: *default-logging
     build:
       context: ../frontend
       dockerfile: Dockerfile
@@ -80,6 +91,7 @@ services:
   #    可用 MF_DOCS_DIR 改成任意布局（例如全部放在主仓库内的 services/ 下）。
   # --------------------------------------------------------------------------
   docs-site:
+    logging: *default-logging
     build:
       context: ${MF_DOCS_DIR:-../../metafusion-docs}
       dockerfile: Dockerfile
@@ -98,6 +110,7 @@ services:
   # --------------------------------------------------------------------------
   # backend 健康检查：/ready 需 postgres 可达（见 cmd/server/main.go）。
   backend:
+    logging: *default-logging
     build:
       context: ../backend
       dockerfile: Dockerfile
@@ -143,6 +156,7 @@ services:
   #    自有 auth schema；issuer/audience/私钥必须与目录侧完全一致，否则存量令牌全部失效。
   # --------------------------------------------------------------------------
   auth:
+    logging: *default-logging
     build:
       context: ${MF_AUTH_DIR:-../../metafusion-auth}
       dockerfile: Dockerfile
@@ -177,6 +191,7 @@ services:
   #    自有 community schema；实体可见性问目录服务，不直连目录库。
   # --------------------------------------------------------------------------
   community:
+    logging: *default-logging
     build:
       context: ${MF_COMMUNITY_DIR:-../../metafusion-community}
       dockerfile: Dockerfile
@@ -219,6 +234,7 @@ services:
   #     与 community 共用同一镜像，保证搬运逻辑与被部署的代码是同一份。
   # --------------------------------------------------------------------------
   community-migrate:
+    logging: *default-logging
     build:
       context: ${MF_COMMUNITY_DIR:-../../metafusion-community}
       dockerfile: Dockerfile
@@ -242,6 +258,7 @@ services:
   #    自有 storage schema；元数据不落在这里（只按实体 id 问目录服务可见性）。
   # --------------------------------------------------------------------------
   storage:
+    logging: *default-logging
     build:
       context: ${MF_STORAGE_DIR:-../../metafusion-storage}
       dockerfile: Dockerfile
@@ -303,6 +320,7 @@ services:
   #     编排层探活会得到"永远 unhealthy"的假象；健康交给网关路径与运维侧的 curl。
   # --------------------------------------------------------------------------
   auth-admin:
+    logging: *default-logging
     build:
       context: ${MF_AUTH_DIR:-../../metafusion-auth}
       dockerfile: admin/Dockerfile
@@ -316,6 +334,7 @@ services:
       - metafusion-net
 
   community-admin:
+    logging: *default-logging
     build:
       context: ${MF_COMMUNITY_DIR:-../../metafusion-community}
       dockerfile: admin/Dockerfile
@@ -329,6 +348,7 @@ services:
       - metafusion-net
 
   storage-admin:
+    logging: *default-logging
     build:
       context: ${MF_STORAGE_DIR:-../../metafusion-storage}
       dockerfile: admin/Dockerfile
@@ -345,6 +365,7 @@ services:
   # 7. 主关系数据库 (PostgreSQL 16) — 各服务共用实例、独立 schema
   # --------------------------------------------------------------------------
   postgres:
+    logging: *default-logging
     image: postgres:16-alpine
     container_name: metafusion-postgres
     restart: unless-stopped
@@ -366,6 +387,7 @@ services:
   # 8. 分布式缓存与任务队列 (Redis 7)
   # --------------------------------------------------------------------------
   redis:
+    logging: *default-logging
     image: redis:7-alpine
     container_name: metafusion-redis
     restart: unless-stopped
@@ -386,6 +408,7 @@ services:
   #    需要全文搜索时用 --profile search 显式启用。存量 opensearch_data 卷保留。
   # --------------------------------------------------------------------------
   opensearch:
+    logging: *default-logging
     image: opensearchproject/opensearch:2.14.0
     container_name: metafusion-opensearch
     profiles: ["search"]
@@ -411,6 +434,7 @@ services:
   # 镜像 pin 备忘：rustfs/rustfs 当前 :latest 浮动，待运维确认可用 digest/tag 后再
   # pin（并验证存储服务仍能连上、桶仍能自动创建）。未确认前不虚构"已验证"版本号。
   rustfs:
+    logging: *default-logging
     image: rustfs/rustfs:latest
     container_name: metafusion-rustfs
     restart: unless-stopped

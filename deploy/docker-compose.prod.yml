@@ -9,8 +9,18 @@
 #   1 秒极速启动，杜绝生产构建资源浪费与内存打满。
 # ==============================================================================
 
+# 所有服务共用同一份容器日志上限：json-file 驱动 + 单文件 10 MiB + 保留 3 份。
+# 不设上限时 docker 默认的 json-file 会一直涨，生产机磁盘本就不宽裕（2026-09 审计：/ 曾到 95%），
+# 一次日志爆量就能把宿主盘打满，连 PostgreSQL 一起拖死；上限只截断历史，不影响实时排障。
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   frontend:
+    logging: *default-logging
     build: !reset null
     image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/frontend:${IMAGE_TAG:-latest}
     restart: always
@@ -19,10 +29,12 @@ services:
   # reset 掉 build 就等于让这一服务在拉取路径下无镜像可选；保留 build，镜像缺席时还能从兄弟目录
   # ../../metafusion-docs 就地构建（账号/互动/存储本来也是就地构建）。
   docs-site:
+    logging: *default-logging
     image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/docs-site:${IMAGE_TAG:-latest}
     restart: always
 
   backend:
+    logging: *default-logging
     build: !reset null
     image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/backend:${IMAGE_TAG:-latest}
     restart: always
