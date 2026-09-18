@@ -30,6 +30,20 @@ func catalogBaseline() (string, error) {
 	return string(b), nil
 }
 
+// auditSchemaFile 是审计表结构（迁移 000002）。目录服务启动路径与 `mf-migrate up` 执行
+// **同一份文件**：新库只起服务也能建表，不然写路由的审计行会整条落空；版本记账仍归 mf-migrate
+// （schema_migrations 只有它维护）。语句全是 IF NOT EXISTS 且共用契约里的 advisory 锁 740205，
+// 两条路径、四个服务重复执行都安全。
+const auditSchemaFile = "000002_audit_log.up.sql"
+
+func catalogAuditSchema() (string, error) {
+	b, err := fs.ReadFile(migrations.FS, auditSchemaFile)
+	if err != nil {
+		return "", fmt.Errorf("read audit schema %s: %w", auditSchemaFile, err)
+	}
+	return string(b), nil
+}
+
 // 领域哨兵错误：respond（http.go）按错误链判定 HTTP 状态码，所以写路径与
 // retirement/生命周期里的拒绝必须用同一批哨兵，而不是各自 fmt.Errorf 出同名字符串——
 // 字符串比较在 %w 包裹后就失效（403/409 会退化成 400）。
@@ -138,6 +152,16 @@ func (s *Store) Initialize(ctx context.Context) error {
 		return nil
 	}); err != nil {
 		return err
+	}
+	// 审计表与迁移 000002 是同一份 DDL。刻意放在基线事务**之外**执行：建表要与另外三个服务
+	// 抢同一个 advisory 锁（740205），不该把目录基线事务一起拖住；失败直接上报——起不来比
+	// "服务能起但一行审计都不留"好排查得多。
+	auditSchema, err := catalogAuditSchema()
+	if err != nil {
+		return err
+	}
+	if _, err = s.DB.ExecContext(ctx, auditSchema); err != nil {
+		return fmt.Errorf("apply audit schema %s: %w", auditSchemaFile, err)
 	}
 	// 定义种子是"只空库播种"，存量实例拿不到新版本新增的关系码/字段；
 	// 这里再做一次只增不改的增量合并，把缺失的定义补上（不会覆盖后台的人工调整）。
