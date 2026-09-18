@@ -4,7 +4,20 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/metafusion/metafusion-app/internal/audit"
 )
+
+// AuditActions 是 capabilities 包的路由 → 审计动作码（跨服务审计契约 §2）：本包的写路由
+// 只有退役的模块开关墓碑，没有可写的能力开关。
+//
+// 墓碑端点恒返回 409（零写入），记的是"谁试图打开一个已退役的开关"这个动作本身：
+// result=failure + error_code=module_toggle_retired。它注册在 /api 组之外，拿不到组内的
+// 审计中间件，因此由组合根单独接线（见 cmd/server/main.go）；这张表与
+// catalog.AuditActions() 一起被写路由覆盖守卫测试核对（internal/catalog/audit_routes_test.go）。
+func AuditActions() map[string]string {
+	return map[string]string{"PUT /api/admin/modules/:id": "module.toggle_attempted"}
+}
 
 // Register 挂载能力清单与"模块开关"的墓碑端点。
 //
@@ -28,6 +41,9 @@ func (r *Registry) Register(engine *gin.Engine, adminGate gin.HandlerFunc) {
 		c.JSON(http.StatusOK, gin.H{"modules": r.Manifests()})
 	})
 	engine.PUT("/api/admin/modules/:id", adminGate, func(c *gin.Context) {
+		// 失败码与响应体同值（跨服务审计契约 §1）：组合根给这条路由单独接的审计中间件
+		// 读它写 error_code=module_toggle_retired（见 cmd/server/main.go 与 AuditActions）。
+		audit.Fail(c, "module_toggle_retired")
 		c.JSON(http.StatusConflict, gin.H{
 			"error": "module_toggle_retired",
 			"hint":  "能力由部署决定：启动对应的独立服务，而不是在后台开关",

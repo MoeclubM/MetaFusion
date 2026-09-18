@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+
+	auditlog "github.com/metafusion/metafusion-app/internal/audit"
 )
 
 // patRejection 是 PAT 请求**不能按匿名继续**时的结论：调用方必须直接结束请求，
@@ -106,10 +108,14 @@ func (h HTTP) AdminGate() gin.HandlerFunc {
 		}
 		u := user(c)
 		if u == nil {
+			// 审计错误码与响应体同值（契约 §1）：墓碑端点的中间件排在闸门之后，
+			// 未登录/无权限时同样留一行 failure。
+			auditlog.Fail(c, "authentication_required")
 			c.AbortWithStatusJSON(401, gin.H{"error": "authentication_required"})
 			return
 		}
 		if !u.Can(PermissionLifecycleManage) {
+			auditlog.Fail(c, "forbidden")
 			c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
 			return
 		}

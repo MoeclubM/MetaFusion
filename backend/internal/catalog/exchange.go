@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	auditlog "github.com/metafusion/metafusion-app/internal/audit"
 )
 
 // registerExchange 挂载实例间的导入导出：导出实体快照、提交外部编辑提案。
@@ -33,6 +35,9 @@ func (h HTTP) registerExchange(api *gin.RouterGroup) {
 		c.Data(http.StatusOK, "application/json", b)
 	})
 	ex.POST("/proposals", required(""), func(c *gin.Context) {
+		// 审核动作在目录服务只有这一条入口是"提案"：外部提交一律被覆盖成 pending_review，
+		// 状态流转本身（draft/pending_review/published）经 Save 走 entity.updated。
+		auditlog.Describe(c, auditlog.Detail{TargetType: "entity"})
 		var in Edit
 		if !body(c, &in) {
 			return
@@ -40,6 +45,9 @@ func (h HTTP) registerExchange(api *gin.RouterGroup) {
 		// 外部提案一律进待审：交换不能绕过审核直接发布。
 		in.Entity.Status = "pending_review"
 		e, err := s.Save(c.Request.Context(), in, *user(c))
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: e.ID, Changes: entityChangeDetail(nil, &e)})
+		}
 		respond(c, e, err)
 	})
 }

@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	auditlog "github.com/metafusion/metafusion-app/internal/audit"
 )
 
 type HTTP struct{ Store *Store }
@@ -59,6 +61,9 @@ func respond(c *gin.Context, v any, err error) {
 	} else if errors.Is(err, errVersionConflict) {
 		status = 409
 	}
+	// 失败路径同样留痕：登记的错误码与响应体的 error 字段同值（契约 §1），
+	// 审计中间件据此写 result=failure + error_code（没登记的才回落 http_<status>）。
+	auditlog.Fail(c, code)
 	// 错误响应统一为单一 error 字段（值为稳定机器码）；database_error 只透出固定码，
 	// 不附带 SQL 原文。
 	c.JSON(status, gin.H{"error": code})
@@ -68,10 +73,12 @@ func body(c *gin.Context, v any) bool {
 	dec := json.NewDecoder(c.Request.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
+		auditlog.Fail(c, "invalid_payload")
 		c.JSON(400, gin.H{"error": "invalid_payload"})
 		return false
 	}
 	if dec.Decode(&struct{}{}) != io.EOF {
+		auditlog.Fail(c, "invalid_payload")
 		c.JSON(400, gin.H{"error": "invalid_payload"})
 		return false
 	}
@@ -91,10 +98,13 @@ func required(code string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		u := user(c)
 		if u == nil {
+			// 越权/未登录的写请求也要留痕（result=failure），错误码与响应体同值。
+			auditlog.Fail(c, "authentication_required")
 			c.AbortWithStatusJSON(401, gin.H{"error": "authentication_required"})
 			return
 		}
 		if code != "" && !u.Can(code) {
+			auditlog.Fail(c, "forbidden")
 			c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
 			return
 		}
@@ -287,6 +297,10 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 身份只来自账号服务签发的 RS256 令牌：目录侧**只验签、不查库、不签发**。
 	// 中间件本体与给其它路由组复用的管理员闸门都在 auth_gate.go。
 	api.Use(attachUser(s))
+	// 审计留痕（契约 §3）：挂在身份中间件**之后**（草稿里的 actor 要在 c.Next() 之前读得到），
+	// 且在下面所有写路由注册**之前**——gin 的 RouterGroup.Use 只对之后注册的路由生效
+	//（0be8ae9 的回归就是位置放错导致的）。只有 AuditActions 里登记的路由会写行。
+	api.Use(auditMiddleware(s))
 	// 交互式文档页是**管理面**：它们在浏览器里执行脚本、与本域同源，匿名可达等于把整份 API 面
 	// 连同同源脚本执行面一起交出去（审计 S-4）。移到 attachUser 之后并要求本侧唯一的
 	// admin-only 码 catalog.lifecycle.manage（与 AdminGate 同码，不新造码）。
@@ -427,8 +441,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, e, err)
 	})
 	cat.POST("/entities", required(""), func(c *gin.Context) {
+		// 目标在创建成功前还不存在：失败路径只留 target_type（"有人试图建实体"），
+		// 成功后再补 id 与变更摘要。
+		auditlog.Describe(c, auditlog.Detail{TargetType: "entity"})
 		// 幂等命中直接返回首创结果, 不建重复实体。
 		if cached, ok := idemLookup(c); ok {
+			if e, ok := cached.(Entity); ok {
+				auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: e.ID, Changes: entityChangeDetail(nil, &e)})
+			}
 			c.JSON(200, cached)
 			return
 		}
@@ -437,40 +457,75 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		if in.Entity.ID != "" {
+			auditlog.Fail(c, "id_must_be_empty")
 			c.JSON(400, gin.H{"error": "id_must_be_empty"})
 			return
 		}
 		e, err := s.Save(c.Request.Context(), in, *user(c))
 		if err == nil {
 			idemStore(c, e)
+			auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: e.ID, Changes: entityChangeDetail(nil, &e)})
 		}
 		respond(c, e, err)
 	})
 	cat.PUT("/entities/:id", required(""), func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: c.Param("id")})
 		var in Edit
 		if !body(c, &in) {
 			return
 		}
+		// "变更前"摘要要多读一次旧值：只有写端点会多这一次读（契约 §3 明确允许）。
+		// 读不到（不存在/不可见）就不给 before，判定仍归 Save 自己——它才是 404/403 的来源。
+		var before *Entity
+		if prev, err := s.Get(c.Request.Context(), c.Param("id"), user(c)); err == nil {
+			before = &prev
+		}
 		in.Entity.ID = c.Param("id")
 		e, err := s.Save(c.Request.Context(), in, *user(c))
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: e.ID, Changes: entityChangeDetail(before, &e)})
+		}
 		respond(c, e, err)
 	})
 	// 生命周期只做删除/合并；下架（published → draft）是唯一的状态降级入口，
 	// Save 对降级一律回 use_lifecycle_endpoint（store.go）。两者同档权限：能清退的人才能下架。
 	cat.POST("/entities/:id/lifecycle", required(PermissionLifecycleManage), func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: c.Param("id")})
 		var in LifecycleEdit
 		if !body(c, &in) {
 			return
 		}
+		// 生命周期写的是终态（deleted/merged）：before 只能在这里读——写完状态就变了。
+		var before *Entity
+		if prev, err := s.Get(c.Request.Context(), c.Param("id"), user(c)); err == nil {
+			before = &prev
+		}
 		e, err := s.Lifecycle(c.Request.Context(), c.Param("id"), in, *user(c))
+		if err == nil {
+			changes := entityChangeDetail(before, &e)
+			if in.TargetID != "" {
+				// 合并要一眼看出"合进了哪个实体"。
+				changes["merge_target_id"] = map[string]any{"after": in.TargetID}
+			}
+			auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: e.ID, Changes: changes})
+		}
 		respond(c, e, err)
 	})
 	cat.POST("/entities/:id/unpublish", required(PermissionLifecycleManage), func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: c.Param("id")})
 		var in UnpublishEdit
 		if !body(c, &in) {
 			return
 		}
+		// 与 lifecycle 同理：published → draft 之后读不到"曾经 published"这件事的 before。
+		var before *Entity
+		if prev, err := s.Get(c.Request.Context(), c.Param("id"), user(c)); err == nil {
+			before = &prev
+		}
 		e, err := s.Unpublish(c.Request.Context(), c.Param("id"), in, *user(c))
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: e.ID, Changes: entityChangeDetail(before, &e)})
+		}
 		respond(c, e, err)
 	})
 	cat.GET("/entities/:id/revisions", func(c *gin.Context) {
@@ -578,11 +633,21 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	})
 	// 个人首页偏好写：需登录、不限管理员，与读端对称。
 	cat.PUT("/me/home-preferences", required(""), func(c *gin.Context) {
+		uid := user(c).ID
+		// 自服务写也留痕（契约要求"全部写操作"）：被动对象是这名用户自己的偏好行。
+		auditlog.Describe(c, auditlog.Detail{TargetType: "preference", TargetID: uid})
 		var in HomePreferences
 		if !body(c, &in) {
 			return
 		}
-		v, err := s.SaveHomePreferences(c.Request.Context(), user(c).ID, in)
+		var before *HomePreferences
+		if prev, err := s.GetHomePreferences(c.Request.Context(), uid); err == nil {
+			before = &prev
+		}
+		v, err := s.SaveHomePreferences(c.Request.Context(), uid, in)
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "preference", TargetID: uid, Changes: homePreferencesDetail(before, &v)})
+		}
 		respond(c, v, err)
 	})
 	// 用户贡献视图（前端用户主页的 all/revisions/works/releases/artists 五个 tab）：匿名可读，
@@ -627,11 +692,16 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, nil, err)
 	})
 	imp.POST("/import", required(PermissionImportSubmit), func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "entity"})
 		var in ImporterImportRequest
 		if !body(c, &in) {
 			return
 		}
 		v, err := s.Import(c.Request.Context(), in, *user(c))
+		if err == nil {
+			targetType, targetID, changes := importChangeDetail(in, v)
+			auditlog.Describe(c, auditlog.Detail{TargetType: targetType, TargetID: targetID, Changes: changes})
+		}
 		respond(c, v, err)
 	})
 	// 可用来源清单与导入端点同权限（同一功能面）：它只读注册表，不做出站抓取，
@@ -643,8 +713,12 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 关系写端点强制 catalog.relation.edit：与实体编辑分开的码（账号服务已分配），
 	// 端点级闸门挡住无码者的写请求，细粒度两端判定仍在 SaveRelation（canWriteRelation/canAttachToTarget）。
 	cat.POST("/relations", required(PermissionRelationEdit), func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "relation"})
 		// 幂等命中直接返回首创结果, 不建重复关系。
 		if cached, ok := idemLookup(c); ok {
+			if r, ok := cached.(Relation); ok {
+				auditlog.Describe(c, auditlog.Detail{TargetType: "relation", TargetID: r.ID, Changes: relationChangeDetail(nil, &r)})
+			}
 			c.JSON(200, cached)
 			return
 		}
@@ -653,25 +727,47 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		if in.Relation.ID != "" {
+			auditlog.Fail(c, "id_must_be_empty")
 			c.JSON(400, gin.H{"error": "id_must_be_empty"})
 			return
 		}
 		v, err := s.SaveRelation(c.Request.Context(), in, *user(c))
 		if err == nil {
 			idemStore(c, v)
+			auditlog.Describe(c, auditlog.Detail{TargetType: "relation", TargetID: v.ID, Changes: relationChangeDetail(nil, &v)})
 		}
 		respond(c, v, err)
 	})
 	cat.PUT("/relations/:id", required(PermissionRelationEdit), func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "relation", TargetID: c.Param("id")})
 		var in RelationEdit
 		if !body(c, &in) {
 			return
 		}
+		// 变更前摘要：目录侧没有 relation-by-id 的读取入口，就按载荷给的 source_id 在该实体的
+		// 关系列表里找同 id 的那条（只有写端点会多这一次读）。找不到就不给 before。
+		var before *Relation
+		if in.Relation.SourceID != "" {
+			if rels, rerr := s.Relations(c.Request.Context(), in.Relation.SourceID, user(c)); rerr == nil {
+				for i := range rels {
+					if rels[i].ID == c.Param("id") {
+						before = &rels[i]
+						break
+					}
+				}
+			}
+		}
 		in.Relation.ID = c.Param("id")
 		v, err := s.SaveRelation(c.Request.Context(), in, *user(c))
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "relation", TargetID: v.ID, Changes: relationChangeDetail(before, &v)})
+		}
 		respond(c, v, err)
 	})
 	cat.DELETE("/relations/:id", required(PermissionRelationEdit), func(c *gin.Context) {
+		// 只给 target：删掉的关系在目录侧没有按 id 的读取入口，为了 before 摘要专门造一条
+		// 查询不值得（before 的价值不如实体那里高——关系删除只有 id，没有正文）。
+		auditlog.Describe(c, auditlog.Detail{TargetType: "relation", TargetID: c.Param("id")})
 		var in LifecycleEdit
 		if !body(c, &in) {
 			return
@@ -720,6 +816,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, v, err)
 	})
 	defs.POST("", func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "definition"})
 		var in struct {
 			Document    Definitions `json:"document"`
 			BaseVersion int64       `json:"base_version"`
@@ -730,6 +827,14 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			return
 		}
 		id, err := s.Draft(c.Request.Context(), in.Document, in.BaseVersion, *user(c), in.EditNote, in.Sources)
+		if err == nil {
+			changes := map[string]any{
+				"state":           map[string]any{"after": "draft"},
+				"base_version":    map[string]any{"after": in.BaseVersion},
+				"document_counts": map[string]any{"after": definitionsSummary(in.Document)},
+			}
+			auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: strconv.FormatInt(id, 10), Changes: changes})
+		}
 		respond(c, gin.H{"id": id}, err)
 	})
 	defs.GET("/:id/impact", func(c *gin.Context) {
@@ -739,18 +844,38 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	})
 	defs.POST("/:id/publish", func(c *gin.Context) {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: c.Param("id")})
 		var in LifecycleEdit
 		if !body(c, &in) {
 			return
 		}
-		respond(c, gin.H{"ok": true}, s.Publish(c.Request.Context(), id, *user(c), in.EditNote, in.Sources))
+		err := s.Publish(c.Request.Context(), id, *user(c), in.EditNote, in.Sources)
+		if err == nil {
+			// Publish 只接受 state='draft' 的版本（definitions.go），before 恒为 draft：
+			// 不必为了这一个字段多读一次整份定义文档。
+			auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: c.Param("id"), Changes: map[string]any{
+				"state": map[string]any{"before": "draft", "after": "published"},
+			}})
+		}
+		respond(c, gin.H{"ok": true}, err)
 	})
 	// 回滚：{id} 是任意历史版本行（含 superseded），编辑说明与来源由服务端从该版本自己的修订记录
 	// 拼出，因此不接受请求体。非数字 id 与不存在的 id 同处理：查不到即 404 not_found，
 	// 与 /impact、/publish 的既有风格一致。
 	defs.POST("/:id/rollback", func(c *gin.Context) {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: c.Param("id")})
 		v, err := s.RollbackDefinitions(c.Request.Context(), id, *user(c))
+		if err == nil {
+			// 回滚是一条新版本记录：既记被回滚到的历史版本，也记它落地成了哪个版本；
+			// no_op 为真表示目标文档与当前已发布文档一致、没有新建版本（实现见 definitions.go）。
+			auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: strconv.FormatInt(v.ID, 10), Changes: map[string]any{
+				"target_version": map[string]any{"after": v.TargetID},
+				"state":          map[string]any{"after": v.State},
+				"base_version":   map[string]any{"after": v.BaseVersion},
+				"no_op":          map[string]any{"after": v.NoOp},
+			}})
+		}
 		respond(c, v, err)
 	})
 	ext := api.Group("/admin/external-databases", required(PermissionDefinitionsManage))
@@ -763,23 +888,44 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, gin.H{"items": v}, err)
 	})
 	ext.POST("", func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "external_database"})
 		var in ExternalDatabase
 		if !body(c, &in) {
 			return
 		}
 		v, err := s.CreateExternalDatabase(c.Request.Context(), in)
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "external_database", TargetID: v.Code, Changes: externalDatabaseDetail(nil, &v)})
+		}
 		respond(c, gin.H{"message": "created", "data": v}, err)
 	})
 	ext.PUT("/:code", func(c *gin.Context) {
+		code := c.Param("code")
+		auditlog.Describe(c, auditlog.Detail{TargetType: "external_database", TargetID: code})
 		var in ExternalDatabase
 		if !body(c, &in) {
 			return
 		}
-		v, err := s.UpdateExternalDatabase(c.Request.Context(), c.Param("code"), in)
+		var before *ExternalDatabase
+		if prev := externalDatabaseBefore(c, s, code); prev != nil {
+			before = prev
+		}
+		v, err := s.UpdateExternalDatabase(c.Request.Context(), code, in)
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "external_database", TargetID: v.Code, Changes: externalDatabaseDetail(before, &v)})
+		}
 		respond(c, gin.H{"message": "updated", "data": v}, err)
 	})
 	ext.DELETE("/:code", func(c *gin.Context) {
-		respond(c, gin.H{"message": "deleted"}, s.DeleteExternalDatabase(c.Request.Context(), c.Param("code")))
+		code := c.Param("code")
+		auditlog.Describe(c, auditlog.Detail{TargetType: "external_database", TargetID: code})
+		// 删除只留 before（"删掉的是什么"）：删完就查不到了。
+		before := externalDatabaseBefore(c, s, code)
+		err := s.DeleteExternalDatabase(c.Request.Context(), code)
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "external_database", TargetID: code, Changes: externalDatabaseDetail(before, nil)})
+		}
+		respond(c, gin.H{"message": "deleted"}, err)
 	})
 	shelves := api.Group("/admin/shelves", required(PermissionShelvesManage))
 	shelves.GET("", func(c *gin.Context) {
@@ -787,11 +933,15 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, gin.H{"items": v}, err)
 	})
 	shelves.POST("", func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "shelf"})
 		var in Shelf
 		if !body(c, &in) {
 			return
 		}
 		v, err := s.CreateShelf(c.Request.Context(), in)
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "shelf", TargetID: strconv.FormatInt(v.ID, 10), Changes: shelfChangeDetail(nil, &v)})
+		}
 		respond(c, gin.H{"message": "created", "data": v}, err)
 	})
 	shelves.GET("/:id", func(c *gin.Context) {
@@ -801,16 +951,34 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	})
 	shelves.PUT("/:id", func(c *gin.Context) {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+		auditlog.Describe(c, auditlog.Detail{TargetType: "shelf", TargetID: c.Param("id")})
 		var in Shelf
 		if !body(c, &in) {
 			return
 		}
+		var before *Shelf
+		if prev, gerr := s.GetShelf(c.Request.Context(), id); gerr == nil {
+			before = &prev
+		}
 		v, err := s.UpdateShelf(c.Request.Context(), id, in)
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "shelf", TargetID: strconv.FormatInt(v.ID, 10), Changes: shelfChangeDetail(before, &v)})
+		}
 		respond(c, gin.H{"message": "updated", "data": v}, err)
 	})
 	shelves.DELETE("/:id", func(c *gin.Context) {
 		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-		respond(c, gin.H{"message": "deleted"}, s.DeleteShelf(c.Request.Context(), id))
+		auditlog.Describe(c, auditlog.Detail{TargetType: "shelf", TargetID: c.Param("id")})
+		// 删除只留 before（"删掉的是什么"）：删完就查不到了。
+		var before *Shelf
+		if prev, gerr := s.GetShelf(c.Request.Context(), id); gerr == nil {
+			before = &prev
+		}
+		err := s.DeleteShelf(c.Request.Context(), id)
+		if err == nil {
+			auditlog.Describe(c, auditlog.Detail{TargetType: "shelf", TargetID: c.Param("id"), Changes: shelfChangeDetail(before, nil)})
+		}
+		respond(c, gin.H{"message": "deleted"}, err)
 	})
 }
 
