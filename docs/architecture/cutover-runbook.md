@@ -42,6 +42,47 @@ python scripts/check_versions.py --siblings-root services   # 或在环境里设
 但容器重建前不要删除旧路径（网关的 `nginx.conf` 等是相对路径挂载）。
 
 
+## 部署前置检查：悬挂引用体检
+
+升级目录服务**之前**先体检一次：attributes 里的实体引用（如 `publisher`）与关系端点可能指向
+已经不存在的行（删除/合并、早期导入脚本留下的欠账）。定义回放会把这些引用全部照亮——
+2026-09 的线上事故就是它把启动路径顶成了 CrashLoop。
+
+```bash
+# 人读：逐条列出实体/关系、字段与悬挂取值，以及判定所用的定义基准
+cd deploy && ./deploy.sh migrate check-refs
+
+# 机读：definition_id / seed_added / references[]（scope/id/kind/field/value/reason）
+docker compose -f deploy/docker-compose.yml run --rm --no-deps --entrypoint /app/migrate backend check-refs -json
+```
+
+- **退出码**：0 = 没有悬挂引用（可继续部署）；非 0 = 有。因此这条命令可以直接挂进 CI 或发布
+  流水线的前置步骤，让"下次部署先发现"替代"崩在现场"。
+- **判定基准**是"当前已发布定义 + 本次种子新增项"合并后的文档，也就是下一次启动会发布的定义：
+  只按旧文档扫描会漏掉这次新增的 entity 型字段。
+- **覆盖范围**：attributes 里声明为 entity 型的字段（含组/列表嵌套）、结构归属与记录级引用
+  （`work_id` / `subjects[].work_id` / `contents[].expression_id`）、关系端点与关系属性。
+- **怎么修**：把悬挂取值改到正确的行，或确认无用后清掉该属性键。根因是那次删除目标行的操作，
+  体检只负责把它照亮；悬挂引用**不阻断**定义发布，但不清掉就会一直跟着每次升级。
+- 库还没有已发布定义（刚 `migrate up`、服务从未启动过）时，它退回内置种子判定并打印提示，
+  不会把"未初始化的库"判成故障。
+
+## 定义没更新但站点可用：怎么看出来
+
+定义合并（`EnsureSeedDefinitions`）失败不再让服务起不来：定义**非法**时它零写入失败（不起草、
+不发布），保留上一个已发布定义并降级继续服务；悬挂引用这类**数据欠账**只警告，不阻断发布。
+
+- 启动日志：`ERROR startup degraded: ...`，含 `definition_impact: [...]` 的具体条目。
+- `GET /health` 的 `definitions` 块（网关的 `/health` 已指向目录服务）：
+  `published_id` 是**实际生效**的定义版本；`degraded: true` 且 `pending_publish_error` 非空表示
+  "站点可用但定义没更新"，`pending_items` 是没生效的种子项数，`dangling_references` 是本次回放
+  看到的悬挂引用条数。
+- 状态码**刻意保持 200**：降级可用不是"不健康"，回 503 会把编排器拉回"重启到好为止"的循环，
+  那正是这次 CrashLoop（整站 502）的成因。监控要区分它请用 `definitions.degraded == true`，
+  不要用 HTTP 状态码。
+- 修完数据后重启服务即可让待补的定义项生效；失败留下的草稿会被下次启动按"同内容同 base"复用，
+  不会在 `catalog.definitions` 里堆行。
+
 ## 一次性切流（已脚本化）
 
 首次把实例切到拆分后的架构，在部署机（开发服务器）上一条命令即可：

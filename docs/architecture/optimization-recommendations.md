@@ -22,6 +22,8 @@
 - 种子播种是"空库全量播种"：`catalog.definitions` 非空时不覆盖既有文档，后台改过的关系/词表/字段（如停用某个关系码、词表项降级）全部保留；播种在 `Store.Initialize`（`backend/internal/catalog/store.go`）。
 - **启动时只增不改的增量合并**：`Store.EnsureSeedDefinitions`（`backend/internal/catalog/definitions.go`）在播种后调用 `mergeSeedDefinitions`（`backend/internal/catalog/defaults_merge.go`），把种子里新增而当前缺失的键补进已发布文档。
 - 显式运维入口 `mf-migrate seed`（`backend/cmd/migrate/main.go`），可单独确认模板是否已更新；服务启动时执行同一次合并。
+- 合并失败**不再致命**：定义非法时零写入失败并返回 `*DefinitionSeedError`，服务保留上一个已发布定义降级启动，`GET /health` 的 `definitions` 块给出 `published_id` / `degraded` / `pending_publish_error`；悬挂引用（存量数据指向不存在的行）只进警告报告。失败留下的草稿按"同内容同 base"复用，重复启动不新增定义行。
+- 与之配套的运维入口 `mf-migrate check-refs`：一次列出库里全部悬挂引用（attributes 的 entity 型取值、结构与记录级引用、关系端点与关系属性），有则非零退出，作为部署前置检查（见 [切流手册](./cutover-runbook.md) 的"部署前置检查"一节）。
 - 合并规则（只增不改、可重复执行）：
 
 | 合并动作 | 规则 |
