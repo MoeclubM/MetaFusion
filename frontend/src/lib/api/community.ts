@@ -597,3 +597,34 @@ export async function markConversationRead(userId: string): Promise<number> {
   );
   return safeCount(res?.marked, 0);
 }
+
+/**
+ * 收件设置（GET /api/messages/settings）：响应是扁平的一个布尔，不套信封。
+ *
+ * 字段缺失或换型必须抛错走失败态——把"取不到"画成"默认接收"就是在编造一个
+ * 不存在的设置状态（与会话列表 items 必须 requireArray 同一口径）。
+ */
+export async function fetchMessageSettings(): Promise<boolean> {
+  const res = await fetchApi<{ accept_from_strangers?: unknown }>("/messages/settings");
+  const raw = res?.accept_from_strangers;
+  if (typeof raw !== "boolean") {
+    throw new Error("invalid_response: accept_from_strangers");
+  }
+  return raw;
+}
+
+/**
+ * 改收件设置（PUT /api/messages/settings {"accept_from_strangers":bool}），
+ * 以服务端回读为准；回读非法同样抛错，调用方回滚到旧值。
+ */
+export async function updateMessageSettings(accept: boolean): Promise<boolean> {
+  const res = await fetchApi<{ accept_from_strangers?: unknown }>("/messages/settings", {
+    method: "PUT",
+    body: JSON.stringify({ accept_from_strangers: accept }),
+  });
+  const raw = res?.accept_from_strangers;
+  if (typeof raw !== "boolean") {
+    throw new Error("invalid_response: accept_from_strangers");
+  }
+  return raw;
+}

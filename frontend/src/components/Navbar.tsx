@@ -329,6 +329,36 @@ export const Navbar: React.FC = () => {
               <span className="hidden sm:inline">{t("catalog.create")}</span>
             </Link>
 
+          {/* 私信：与站内通知并列的**独立**入口（各自一枚角标，不合成汇总——合成要跨服务聚合，
+              为一个角标给顶栏引入新的可失败依赖不划算）。图标语义必须一眼可辨：
+              铃铛 = 站内通知、信封 = 私信；两者各有 aria-label（含未读数时念出条数）。 */}
+          {user && (
+            <Link
+              href="/messages"
+              aria-label={
+                unreadCount !== null && unreadCount > 0
+                  ? t("messages.unreadLabel", { n: unreadCount })
+                  : t("messages.title")
+              }
+              title={t("messages.title")}
+              className={`relative inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors duration-fast ease-soft ${
+                pathname.startsWith("/messages")
+                  ? "bg-primary/10 border-primary/25 text-primary"
+                  : "bg-emphasis/[0.04] border-line text-text-strong hover:bg-emphasis/[0.08]"
+              }`}
+            >
+              <Mail className="w-3.5 h-3.5" strokeWidth={1.8} />
+              {unreadCount !== null && unreadCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-danger/15 border border-danger/30 text-danger-soft text-[10px] font-bold flex items-center justify-center"
+                  title={t("messages.unreadLabel", { n: unreadCount })}
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </Link>
+          )}
+
           {/* User Profile / Login */}
           {user ? (
             <div className="relative" ref={userMenuRef}>
@@ -337,15 +367,8 @@ export const Navbar: React.FC = () => {
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="relative flex items-center gap-2 pl-1.5 pr-2.5 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs text-text-strong transition-colors duration-fast ease-soft cursor-pointer"
               >
-                {/* 角标挂在按钮上：用户菜单在窄屏同样可见，桌面顶栏不必再加一条只在 >xl 出现的入口。 */}
-                {unreadCount !== null && unreadCount > 0 && (
-                  <span
-                    className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-danger/15 border border-danger/30 text-danger-soft text-[10px] font-bold flex items-center justify-center"
-                    title={t("messages.unreadLabel", { n: unreadCount })}
-                  >
-                    {unreadCount > 99 ? "99+" : unreadCount}
-                  </span>
-                )}
+                {/* 未读私信角标改挂在顶栏信封入口上（见上）：同一个计数在顶栏只出现一次，
+                    头像按钮回归"纯菜单开关"，不再承担未读提示。 */}
                 <UserAvatar user={user} size="sm" shape="rounded" />
                 <span className="font-medium max-w-[90px] truncate hidden sm:inline text-xs">
                   {displayNameOf(user as unknown as { username: string; display_name?: string })}

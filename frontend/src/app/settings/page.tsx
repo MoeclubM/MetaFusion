@@ -13,6 +13,7 @@ import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
 import { OAuthGrantsPanel } from "@/components/settings/OAuthGrantsPanel";
 import { PersonalAccessTokensPanel } from "@/components/settings/PersonalAccessTokensPanel";
+import { DirectMessagePrivacyCard } from "@/components/settings/DirectMessagePrivacyCard";
 import { ThemeControls } from "@/components/ThemeControls";
 import { useSearchParams } from "next/navigation";
 import {
@@ -447,6 +448,10 @@ export default function SettingsPage() {
                   {/* 同上：邮箱可见性目前只由账号服务决定（非本人一律不下发），前端没有可写字段。 */}
                   <span aria-hidden="true" className="shrink-0 w-9 h-5 rounded-full bg-gray-300 dark:bg-white/15" />
                 </div>
+
+                {/* 陌生人私信开关：上面两个是灰态（无后端），这一项真的有可写后端
+                    （互动服务 community.direct_message_settings，迁移 000010），所以是可点的真开关。 */}
+                <DirectMessagePrivacyCard />
               </div>
             </div>
           )}
