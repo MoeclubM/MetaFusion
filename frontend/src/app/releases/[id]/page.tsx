@@ -25,6 +25,7 @@ import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateA
 import { EntityLink } from "@/components/catalog/Fields";
 import { formatDuration as formatDurationShared } from "@/lib/duration";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
+import ReportButton from "@/components/report/ReportButton";
 import {
   ArrowLeft,
   ArrowRightLeft,
@@ -780,6 +781,8 @@ export default function ReleaseDetailPage() {
                   </Link>
                 )}
               </span>
+              {/* 发行版本身的举报入口：与 /works 的条目举报同为 target_type=entity。 */}
+              <ReportButton targetType="entity" targetId={releaseId} />
               {basketNotice && <span className="font-mono text-[10px] text-amber-600 dark:text-warn">{basketNotice}</span>}
             </div>
           </div>

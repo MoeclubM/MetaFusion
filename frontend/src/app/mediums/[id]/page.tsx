@@ -14,6 +14,7 @@ import { GroupAttributeInline, LocatorInline } from "@/components/catalog/Templa
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { PageShell } from "@/components/ui/PageShell";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
+import ReportButton from "@/components/report/ReportButton";
 import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { Card } from "@/components/ui/Card";
@@ -219,6 +220,8 @@ export default function MediumDetailPage() {
                   {entityTitle(work, locale) || work.title}
                 </p>
               )}
+              {/* 载体本身的举报入口：与 /works、/releases 共用 target_type=entity。 */}
+              <ReportButton targetType="entity" targetId={mediumId} />
             </div>
             {/* 封面：载体自身没有封面图时沿用所属发行版的封面（缺失才落程序占位）。
                 此前载体页完全没有封面位，同一实体在 /catalog/[id] 有图、在这里是空白。 */}

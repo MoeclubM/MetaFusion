@@ -29,6 +29,7 @@ import { classifyLoadFailure, type LoadFailureKind } from "@/components/common/D
 import { isoDate, isoTimestamp, localDateTime } from "@/lib/datetime";
 import { kinds as fallbackKinds } from "@/components/catalog/api";
 import DirectMessageModal from "@/components/community/DirectMessageModal";
+import ReportButton from "@/components/report/ReportButton";
 import { UserRoleBadge } from "@/lib/roles";
 import { DiffViewer } from "@/components/editor/DiffViewer";
 import { TabPanel } from "@/components/ui/TabPanel";
@@ -391,6 +392,8 @@ export default function UserDetailPage() {
                 <span>{t("users.profile.editSettings")}</span>
               </Link>
             )}
+            {/* 举报他人入口：自己举报自己没有意义，isMe 时不渲染（与私信按钮同一判定）。 */}
+            {u && !isMe && <ReportButton targetType="user" targetId={u.id} />}
           </div>
         </div>
 

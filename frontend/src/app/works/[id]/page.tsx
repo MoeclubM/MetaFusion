@@ -23,6 +23,7 @@ import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { getForumEntityUrl } from "@/lib/services";
 import { EntityCommentComposer } from "@/components/community/EntityCommentComposer";
+import ReportButton from "@/components/report/ReportButton";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useCompareBasket } from "@/lib/compareBasket";
@@ -498,6 +499,8 @@ const releaseFacets = useMemo(
        <EntityActionToolbar onEdit={() => router.push(`/catalog/${work.id}?edit=1`)} onHistory={() => setIsHistoryOpen(true)}
          onMerge={() => setIsMergeOpen(true)} entityTypeLabel={t("entity.toolbar.work")}>
          <FavoriteButton targetType="work" targetId={work.id!} />
+         {/* 条目本身的举报入口：与收藏同一行，不新开一块工具栏。 */}
+         <ReportButton targetType="entity" targetId={workId} />
        </EntityActionToolbar>
      </div>
    </header>
@@ -810,7 +813,10 @@ const releaseFacets = useMemo(
  {topics.slice(0, 3).map((c) => (
  <div key={c.id} className="py-2.5 flex items-start justify-between gap-3 px-2.5">
  <span className="text-sm text-text-strong line-clamp-2 min-w-0">{c.body}</span>
- <span className="text-xs text-text-faint shrink-0">{c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</span>
+ <span className="flex items-center gap-2 shrink-0">
+ <ReportButton targetType="comment" targetId={c.id} compact />
+ <span className="text-xs text-text-faint">{c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}</span>
+ </span>
  </div>
  ))}
  </div>

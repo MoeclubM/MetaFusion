@@ -44,12 +44,14 @@ export const AUTH_PERMISSION_CODES = [
 export const COMMUNITY_BOARD_MANAGE = "community.board.manage" as const;
 export const COMMUNITY_POST_CREATE = "community.post.create" as const;
 export const COMMUNITY_POST_MODERATE = "community.post.moderate" as const;
+export const COMMUNITY_REPORT_REVIEW = "community.report.review" as const;
 export const COMMUNITY_TOPIC_PIN = "community.topic.pin" as const;
 
 export const COMMUNITY_PERMISSION_CODES = [
   COMMUNITY_BOARD_MANAGE,
   COMMUNITY_POST_CREATE,
   COMMUNITY_POST_MODERATE,
+  COMMUNITY_REPORT_REVIEW,
   COMMUNITY_TOPIC_PIN,
 ] as const;
 
@@ -88,6 +90,7 @@ export const ALL_PERMISSION_CODES = [
   "community.board.manage",
   "community.post.create",
   "community.post.moderate",
+  "community.report.review",
   "community.topic.pin",
   "storage.asset.moderate",
   "storage.asset.upload",

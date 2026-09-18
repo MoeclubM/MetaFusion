@@ -10,6 +10,7 @@ import { UserRoleBadge } from "@/lib/roles";
 import { fetchApi, DiscussionTopic, ForumPost, ForumBoard, fetchBoards, FORUM_BOARDS, getBoardSync, boardDisplayName, shareContent, buildShareUrl, catalogEntityHref, setTopicPinned, ApiError } from "@/lib/api";
 import { can, COMMUNITY_POST_MODERATE, COMMUNITY_TOPIC_PIN } from "@/lib/permissions";
 import PostComposer from "@/components/community/PostComposer";
+import ReportButton from "@/components/report/ReportButton";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { PageShell } from "@/components/ui/PageShell";
 import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
@@ -355,6 +356,8 @@ export default function TopicDetailPage() {
  <span>{deletingTarget === "topic" ? t("community.deleting") : t("community.deleteTopic")}</span>
  </button>
  )}
+ {/* 主题本身（首楼）的举报入口：与置顶/删除同一行，不对非治理用户隐藏。 */}
+ <ReportButton targetType="post" targetId={topicId} compact />
  <span className="text-text-faint font-mono text-sm">#{opPost?.post_number ?? 1}</span>
  </div>
  </div>
@@ -506,6 +509,9 @@ export default function TopicDetailPage() {
  <Reply className="w-4 h-4" />
  <span>{t("common.reply")}</span>
  </button>
+
+ {/* 每条回复一个入口：target_id 是回帖 id，不是主题 id。 */}
+ <ReportButton targetType="post" targetId={post.id} compact />
  </div>
  </div>
  </div>

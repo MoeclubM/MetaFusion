@@ -39,6 +39,7 @@ import {
   RotateCw,
 } from "lucide-react";
 import { TabPanel } from "@/components/ui/TabPanel";
+import ReportButton from "@/components/report/ReportButton";
 import { PageContainer } from "@/components/ui/PageShell";
 
 // 列表页宽：与后端 /community/topics 的缺省 limit 一致，翻页后第一页窗口与改动前完全相同；
@@ -810,6 +811,8 @@ function CommunityContent() {
  <span className="text-gray-600">·</span>
  {formatTimeAgo(topic.created_at, locale, t)}
  </span>
+ {/* 主题行内的举报入口：target_id 是主题 id（与标题链接同一对象）。 */}
+ <ReportButton targetType="post" targetId={topic.id} compact />
  </div>
  {/* mobile meta */}
  <div className="sm:hidden flex items-center gap-3 text-sm font-mono text-text-faint">
