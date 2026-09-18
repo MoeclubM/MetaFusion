@@ -38,8 +38,10 @@
 --   2) deploy/sql/retire-legacy-schemas.sql（一次性 DROP 遗留 schema 的对象）。
 --   两者都由**库 owner 身份**执行；本脚本第 3 节把四个 owner 角色授给库 owner，
 --   使这两条运维路径在原身份下保持 DDL 能力（deploy.sh 用的就是库 owner 凭据）。
---   3) 共享审计表 audit.audit_log：四个服务都要写它（2026-09 在途功能），
---      见第 4b 节的条件授权——只给 USAGE/CREATE 与 SELECT/INSERT，不给 UPDATE/DELETE。
+--   3) 共享审计表 audit.audit_log：四个服务都要写它（契约见 docs/architecture/audit-log.md）。
+--      schema 与表由第 3b 节**预建**、owner 固定为 mf_audit_owner（运行角色不能是 owner，
+--      owner 隐式持有全部权限且 REVOKE 不掉）；第 4b 节只给 USAGE/CREATE 与 SELECT/INSERT。
+--      DDL 与四份服务副本逐字一致，由 scripts/check_audit_schema.py 自动比对（CI）。
 --   另外，目录的**迁移工具**（backend/cmd/migrate → internal/config）只读 DB_*、不读 DATABASE_URL，
 --   因此 deploy.sh migrate 用的仍是库 owner 身份与 public.schema_migrations 账本——
 --   这是刻意保留的“结构变更身份”；若将来把它也切到服务角色，见第 6.4 节要补的权限。
@@ -114,16 +116,13 @@ BEGIN
       ('catalog',   'mf_catalog_owner'),
       ('auth',      'mf_auth_owner'),
       ('community', 'mf_community_owner'),
-      ('storage',   'mf_storage_owner'),
-      -- 共享审计 schema：四个服务都往里写（见下面共享 schema 一节），但它不属于任何单个服务，
-      -- 因此单独一个 owner 角色；schema 不存在时这一段是空操作（功能未落地时不影响）。
-      ('audit',     'mf_audit_owner')
+      ('storage',   'mf_storage_owner')
+      -- 共享审计 schema 刻意不在这里：它的归属只能由第 3b 节的预建一次钉死。
+      -- 事后抢归属会直接把"当前能起来的那个服务"打断（它的启动 DDL 里有 CREATE INDEX IF NOT EXISTS，
+      -- 而 PostgreSQL 对 CREATE INDEX 先查表所有权、再看索引是否存在）——实测报
+      -- pq: must be owner of table audit_log (42501)，见 docs/architecture/database-roles.md 第 4 节。
     ) AS t(schema_name, owner_role)
   LOOP
-    -- 业务 schema 必须存在（服务自己的结构）；audit 是共享 schema，没有就先跳过、不空建
-    IF m.schema_name = 'audit' AND NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = m.schema_name) THEN
-      CONTINUE;
-    END IF;
     EXECUTE format('CREATE SCHEMA IF NOT EXISTS %I AUTHORIZATION %I', m.schema_name, m.owner_role);
     EXECUTE format('ALTER SCHEMA %I OWNER TO %I', m.schema_name, m.owner_role);
 
@@ -202,6 +201,94 @@ END
 $ops$;
 
 -- ------------------------------------------------------------------------------
+-- 3b. 预建共享审计表（bootstrap）——**默认关闭，需显式 -v audit_bootstrap=1**：
+--     audit schema 与 audit.audit_log 由本脚本建出、owner = mf_audit_owner。
+--
+--     为什么需要它（2026-09-19 复核发现的两个真实缺陷）：
+--       ① PostgreSQL 的对象 owner **隐式持有全部权限且 REVOKE 不掉**。若让服务先建表，
+--          "谁先启动谁成为 owner"——那个运行角色能 UPDATE/DELETE 审计行（留痕可被篡改），
+--          而第 4b 节的 REVOKE 对它只是空操作，F 段断言也会在那种实例上失败。
+--       ② 授权顺序：表不存在时第 4b 节只能授 schema 权限，漏跑一次会让审计行静默写失败
+--          （业务不受影响、留痕整段缺失），而没有任何检查会红。
+--
+--     为什么默认关闭（实测，不是保守）：预建要成立，前提是四个服务的启动 DDL 在表已存在时
+--     **真的空转**；但契约 DDL 里那条 CREATE INDEX IF NOT EXISTS 并不空转——PostgreSQL 对
+--     CREATE INDEX **先检查表所有权、再看索引是否存在**，因此表一旦归 mf_audit_owner，
+--     四个服务启动全部报 pq: must be owner of table audit_log (42501)（2026-09-19 本机真库实测，
+--     见 docs/architecture/database-roles.md 第 4 节）。反过来，事后抢归属会打断当前能起来的那个服务。
+--     所以：**契约 DDL 加上"表不存在才建"的守卫之前，本段不能开**（守卫补丁原文见同文档第 4 节）。
+--     守卫落地后：本段开起来 + 四份副本同步 → owner 固定、权限一次授完、任何启动顺序断言都成立。
+--
+--     开启方式：psql ... -v audit_bootstrap=1 -f sql/roles-least-privilege.sql
+--
+--     下面这段 DDL 必须与四个服务各自那份**逐字一致**（契约见 docs/architecture/audit-log.md §1）：
+--       backend/migrations/000002_audit_log.up.sql（catalog）
+--       ../metafusion-auth/internal/audit/audit.go（auth）
+--       ../metafusion-community/migrations/000007_audit_log.up.sql 与 internal/audit/audit.go（community）
+--       ../metafusion-storage/internal/store/migrations/000002_audit_log.up.sql 与 internal/audit/audit.go（storage）
+--     脚本里这一段是**唯一会被自动化比对的副本**：`python scripts/check_audit_schema.py` 逐条语句
+--     比对上面全部来源，漂移即以非零码失败（已接进 CI）。改这里之前先改契约与四份副本。
+--     事务：BEGIN 让 pg_advisory_xact_lock 覆盖到建表结束，与同时启动的服务串行化。
+-- ------------------------------------------------------------------------------
+\if :{?audit_bootstrap}
+\if :{?audit_bootstrap}
+BEGIN;
+-- >>> audit-ddl begin（scripts/check_audit_schema.py 比对这个区间里的语句）
+CREATE SCHEMA IF NOT EXISTS audit;
+-- 预建路径把 schema 归属也钉死（非契约语句，检查器只比对契约那七条）
+ALTER SCHEMA audit OWNER TO mf_audit_owner;
+SELECT pg_advisory_xact_lock(740205);
+SET LOCAL ROLE mf_audit_owner;
+CREATE TABLE IF NOT EXISTS audit.audit_log (
+  id               uuid PRIMARY KEY,
+  occurred_at      timestamptz NOT NULL DEFAULT now(),
+  service          text NOT NULL,
+  action           text NOT NULL,
+  actor_user_id    uuid,
+  actor_username   text NOT NULL DEFAULT '',
+  credential_type  text NOT NULL DEFAULT '',
+  actor_ip         text NOT NULL DEFAULT '',
+  actor_user_agent text NOT NULL DEFAULT '',
+  target_type      text NOT NULL DEFAULT '',
+  target_id        text NOT NULL DEFAULT '',
+  changes          jsonb NOT NULL DEFAULT '{}'::jsonb,
+  result           text NOT NULL DEFAULT 'success' CHECK (result IN ('success','failure')),
+  error_code       text NOT NULL DEFAULT '',
+  request_method   text NOT NULL DEFAULT '',
+  route            text NOT NULL DEFAULT '',
+  http_status      int NOT NULL DEFAULT 0,
+  request_id       text NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS audit_log_occurred_at_idx ON audit.audit_log(occurred_at DESC);
+CREATE INDEX IF NOT EXISTS audit_log_service_action_idx ON audit.audit_log(service, action, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS audit_log_actor_idx ON audit.audit_log(actor_user_id, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS audit_log_target_idx ON audit.audit_log(target_type, target_id, occurred_at DESC);
+-- <<< audit-ddl end
+COMMIT;
+
+-- 预建路径同时把归属钉死：表已存在却归服务角色时，只有这条路径能改正（第 2 节刻意不碰 audit，
+-- 抢归属会打断当前能起来的那个服务）。
+DO $audit_owner$
+DECLARE
+  table_owner name;
+BEGIN
+  SELECT pg_get_userbyid(c.relowner) INTO table_owner
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'audit' AND c.relname = 'audit_log';
+  IF table_owner IS DISTINCT FROM 'mf_audit_owner' THEN
+    EXECUTE 'ALTER TABLE audit.audit_log OWNER TO mf_audit_owner';
+    RAISE NOTICE '[3b] audit.audit_log 的 owner 原为 %，已交回 mf_audit_owner（预建路径）', table_owner;
+  END IF;
+  RAISE NOTICE '[3b] 已预建 audit.audit_log 并钉死 owner=mf_audit_owner';
+END
+$audit_owner$;
+\else
+\echo '[3b] 跳过预建（未给 -v audit_bootstrap=1）：只做第 4b 节的按服务授权，不动 audit 归属。'
+\echo '     默认跳过的原因：契约 DDL 里 CREATE INDEX IF NOT EXISTS 在表已存在时仍要求表所有权，'
+\echo '     预建会让四个服务启动全部 42501 must be owner of table audit_log；见 database-roles.md 第 4 节。'
+\endif
+
+-- ------------------------------------------------------------------------------
 -- 4. 授权：本域给全（运行期 CRUD + 序列 + 函数 + 默认权限），别的域一律不给。
 --    - 本域 CRUD 现在由 owner 成员身份覆盖，是 Tier 2 的落点（见第 6 节），现在就授出，
 --      免得降级时才发现清单缺表。
@@ -267,41 +354,39 @@ END
 $grants$;
 
 -- ------------------------------------------------------------------------------
--- 4b. 共享 audit schema（跨域例外，条件生效）
---     2026-09 在途功能引入了一张**四个服务共写**的审计表 audit.audit_log
---     （backend/migrations/000002_audit_log.up.sql：schema 与表都由各服务的启动/迁移路径
---     幂等建立）。它不属于任何单个服务的领域，因此单独一个 mf_audit_owner 角色持有，
---     四个运行角色只拿"追加"权限：
---       USAGE + CREATE ON SCHEMA audit  —— 启动路径要执行 CREATE SCHEMA/TABLE IF NOT EXISTS
---                                         （PostgreSQL 先查权限再看对象是否存在）
+-- 4b. 共享 audit schema 的按服务授权（跨域例外）
+--     audit.audit_log 由第 3b 节预建、owner = mf_audit_owner；四个运行角色只拿「追加」权限：
+--       USAGE + CREATE ON SCHEMA audit —— 启动路径要执行 CREATE SCHEMA/TABLE IF NOT EXISTS，
+--                                         而 PostgreSQL 先查权限再看对象是否存在（见文件头）
 --       SELECT + INSERT ON audit.audit_log —— 写审计与排障读
---     刻意**不授** UPDATE / DELETE / TRUNCATE：审计行不可改不可删（管理员清理走运维身份）。
---     为什么要 CREATE：见文件头 Tier 1 的说明——本脚本不假设"启动只校验"。
---     audit schema 不存在时（功能未部署）整段是空操作。
+--     刻意**不授** UPDATE / DELETE / TRUNCATE：审计行不可改不可删。表归 mf_audit_owner，
+--     因此这三条 REVOKE 对四个运行角色是**真的生效**的（而不是对 owner 的空操作）——
+--     这正是第 3b 节预建的意义。本段最后还会把 owner 交回 mf_audit_owner 并报 NOTICE：
+--     owner 决定最终权限，留着「看起来授了权、其实 owner 说了算」才是真正的隐患。
 -- ------------------------------------------------------------------------------
 DO $audit$
 DECLARE
   r record;
-  has_table boolean;
+  table_owner name;
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'audit') THEN
-    RAISE NOTICE '[4b] audit schema 不存在：跳过共享审计授权（功能未部署）';
-    RETURN;
+  IF to_regclass('audit.audit_log') IS NULL THEN
+    RAISE EXCEPTION '[4b] audit.audit_log 不存在：第 3b 节的预建没有生效（脚本不应走到这里）';
   END IF;
 
-  has_table := to_regclass('audit.audit_log') IS NOT NULL;
-  IF NOT has_table THEN
-    RAISE NOTICE '[4b] audit schema 存在但没有 audit.audit_log：只授 schema 权限；建表后重跑本脚本即可补表权限';
+  SELECT pg_get_userbyid(c.relowner) INTO table_owner
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'audit' AND c.relname = 'audit_log';
+  IF table_owner IS DISTINCT FROM 'mf_audit_owner' THEN
+    -- 刻意不在这里抢归属：那会打断当前 owner（服务角色）的下一次启动。
+    -- 要改成 mf_audit_owner，只能在契约 DDL 有"表不存在才建"守卫之后走第 3b 节预建路径。
+    RAISE NOTICE '[4b] 注意：audit.audit_log 的 owner 是 %，owner 隐式持有全部权限且 REVOKE 不掉，因此"只追加"对该角色不成立。改法见 docs/architecture/database-roles.md 第 4 节', table_owner;
   END IF;
 
   FOR r IN SELECT unnest(ARRAY['mf_catalog', 'mf_auth', 'mf_community', 'mf_storage']) AS app_role
   LOOP
     EXECUTE format('GRANT USAGE, CREATE ON SCHEMA audit TO %I', r.app_role);
-    IF has_table THEN
-      EXECUTE format('GRANT SELECT, INSERT ON audit.audit_log TO %I', r.app_role);
-      -- 归属被别人拿走时（表由某个服务角色建出）这一句不会生效，见文件头与 docs 的说明
-      EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON audit.audit_log FROM %I', r.app_role);
-    END IF;
+    EXECUTE format('GRANT SELECT, INSERT ON audit.audit_log TO %I', r.app_role);
+    EXECUTE format('REVOKE UPDATE, DELETE, TRUNCATE ON audit.audit_log FROM %I', r.app_role);
   END LOOP;
 END
 $audit$;

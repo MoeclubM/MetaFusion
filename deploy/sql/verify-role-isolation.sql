@@ -34,6 +34,7 @@ DECLARE
   leaked text;
   denied boolean;
   probe_table text;
+  probe_owner name;
   exists_count int;
 BEGIN
   FOR i IN 1 .. array_length(services, 1) LOOP
@@ -169,27 +170,37 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- F. 共享 audit schema（条件断言）：四个运行角色都能追加审计，都不能改写/删除
-  IF EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'audit') THEN
+  -- F. 共享审计表：owner 必须是 mf_audit_owner，四个运行角色只能追加
+  --    缺表 = 审计功能还没部署（用 -v audit_bootstrap=1 预建，或等服务的启动 DDL 建出）→ 只提示；
+  --    表存在但 owner 是服务角色 = **硬失败**：owner 隐式持有全部权限且 REVOKE 不掉，
+  --    那个服务能 UPDATE/DELETE 审计行——这是审计承诺被破坏，必须红。
+  --    ⚠ 这条红不是本脚本的 bug：它是**契约 DDL 的幂等性缺陷**的直接体现，见
+  --      docs/architecture/database-roles.md 第 4 节（CREATE INDEX IF NOT EXISTS 也要求表所有权）。
+  IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname = 'audit')
+     OR to_regclass('audit.audit_log') IS NULL THEN
+    RAISE NOTICE '[F] 未发现 audit.audit_log：审计功能尚未建表（跳过 owner/只追加断言）';
+  ELSE
+    SELECT pg_get_userbyid(c.relowner) INTO probe_owner
+    FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'audit' AND c.relname = 'audit_log';
+    IF probe_owner IS DISTINCT FROM 'mf_audit_owner' THEN
+      RAISE EXCEPTION '[F] audit.audit_log 的 owner 是 %（期望 mf_audit_owner）：owner 隐式持有全部权限且 REVOKE 不掉，该角色能改写/删除审计行。修法见 docs/architecture/database-roles.md 第 4 节（契约 DDL 加"表不存在才建"守卫 + -v audit_bootstrap=1 预建）', probe_owner;
+    END IF;
     FOR i IN 1 .. array_length(services, 1) LOOP
       app_role := services[i][1];
       IF NOT has_schema_privilege(app_role, 'audit', 'USAGE') THEN
-        RAISE EXCEPTION '[F] % 缺 audit schema 的 USAGE：服务写审计会失败', app_role;
+        RAISE EXCEPTION '[F] % 缺 audit schema 的 USAGE：服务写审计会失败（重跑授权脚本第 4b 节可补）', app_role;
       END IF;
-      IF to_regclass('audit.audit_log') IS NOT NULL THEN
-        IF NOT has_table_privilege(app_role, 'audit.audit_log', 'SELECT,INSERT') THEN
-          RAISE EXCEPTION '[F] % 不能往 audit.audit_log 追加（缺 SELECT/INSERT）', app_role;
-        END IF;
-        IF has_table_privilege(app_role, 'audit.audit_log', 'UPDATE')
-           OR has_table_privilege(app_role, 'audit.audit_log', 'DELETE')
-           OR has_table_privilege(app_role, 'audit.audit_log', 'TRUNCATE') THEN
-          RAISE EXCEPTION '[F] % 能改写或删除 audit.audit_log（审计必须只可追加）', app_role;
-        END IF;
+      IF NOT has_table_privilege(app_role, 'audit.audit_log', 'SELECT,INSERT') THEN
+        RAISE EXCEPTION '[F] % 不能往 audit.audit_log 追加（缺 SELECT/INSERT）：审计行会静默写失败，重跑授权脚本第 4b 节可补', app_role;
+      END IF;
+      IF has_table_privilege(app_role, 'audit.audit_log', 'UPDATE')
+         OR has_table_privilege(app_role, 'audit.audit_log', 'DELETE')
+         OR has_table_privilege(app_role, 'audit.audit_log', 'TRUNCATE') THEN
+        RAISE EXCEPTION '[F] % 能改写或删除 audit.audit_log（审计必须只可追加）', app_role;
       END IF;
     END LOOP;
-    RAISE NOTICE '[F] 共享 audit schema：USAGE 与只追加（SELECT/INSERT）已就位';
-  ELSE
-    RAISE NOTICE '[F] 未发现 audit schema：跳过共享审计断言（功能未部署）';
+    RAISE NOTICE '[F] 共享审计表：owner=mf_audit_owner，四个运行角色只追加（SELECT/INSERT），UPDATE/DELETE/TRUNCATE 被拒';
   END IF;
 
   RAISE NOTICE 'verify-role-isolation: A/B/C/D 全部通过（% 个服务角色）', array_length(services, 1);
