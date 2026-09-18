@@ -313,6 +313,11 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 不硬拒绝；与 expressions/details 的 ids 硬拒绝（400）差异是刻意的：
 	// 后者是 POST body 批量参数，超限直接拒绝避免大查询拖库。
 	cat.GET("/tags", routeLimiter(120), func(c *gin.Context) {
+		// 与 /entities 同一道参数闸门：?q=%00 在 tags 上同样会走 ILIKE 撞库错误。
+		if err := validateTextQuery(c, "q"); err != nil {
+			respond(c, nil, err)
+			return
+		}
 		args := []any{}
 		where := []string{"e.status='published'", "jsonb_typeof(e.document->'attributes'->'tags')='array'"}
 		if q := strings.TrimSpace(c.Query("q")); q != "" {
@@ -357,6 +362,11 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, gin.H{"items": items, "total": len(items)}, nil)
 	})
 	cat.GET("/entities", routeLimiter(120), func(c *gin.Context) {
+		// 参数闸门：非法 UTF-8/控制字符/超长值 400（见 query_params.go）。
+		if err := validateTextQuery(c, listTextParams...); err != nil {
+			respond(c, nil, err)
+			return
+		}
 		limit, _ := strconv.Atoi(c.Query("limit"))
 		offset, _ := strconv.Atoi(c.Query("offset"))
 		o := ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Sort: c.Query("sort"), Order: c.Query("order"), Locale: c.Query("locale"), Limit: limit, Offset: offset}
@@ -500,6 +510,10 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, v, err)
 	})
 	cat.GET("/external-databases", func(c *gin.Context) {
+		if err := validateTextQuery(c, "category"); err != nil {
+			respond(c, nil, err)
+			return
+		}
 		v, err := s.ListExternalDatabases(c.Request.Context(), c.Query("category"), true)
 		respond(c, gin.H{"items": v}, err)
 	})
@@ -725,6 +739,10 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	})
 	ext := api.Group("/admin/external-databases", required(PermissionDefinitionsManage))
 	ext.GET("", func(c *gin.Context) {
+		if err := validateTextQuery(c, "category"); err != nil {
+			respond(c, nil, err)
+			return
+		}
 		v, err := s.ListExternalDatabases(c.Request.Context(), c.Query("category"), false)
 		respond(c, gin.H{"items": v}, err)
 	})
