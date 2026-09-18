@@ -110,7 +110,11 @@ error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（
   `password_hash`、`token`、`access_token`、`refresh_token`、`token_hash`、
   `secret`、`client_secret`、`secret_hash`、`authorization`、`cookie`、
   `api_key`、`code_verifier` → 值替换成 `"[redacted]"`。
+  （账号服务的实现额外遮了 `code_challenge`：它不是凭据（哈希），多遮一个属**允许偏差**，
+  其余三个服务严格按上面这份清单实现。）
 - 键名子串黑名单：含 `password` / `secret` / `token` / `hash` 的键一律 `"[redacted]"`。
+  **注意子串匹配的副作用**：`hash_verified`、`token_prefix` 这类键名会被整键吃掉（storage 侧真库用例抓到过
+  `hash_verified` → `[redacted]`，已改键名）。要保留这类信息就换个不含黑名单词根的键名。
 - **邀请码**（`auth.invites.code`）是准凭据：调用方必须用 `audit.MaskSecret(code)`
   写成 `abcd…`（保留前 4 位）后再放进 `changes`。
 - **邮箱**：值里任何匹配邮箱正则的字符串 → `a***@domain`（保留首字母与域名）；键名含
@@ -149,6 +153,12 @@ error 日志 + 丢一行；这比"审计写失败导致业务回滚"可接受（
 ## 6. 迁移与测试
 
 ### 6.1 迁移（只追加）
+
+**库侧授权（部署时必查）**：审计表在跨服务共用的 `audit` schema 里，最小权限角色只授自己的业务 schema 时，
+审计写入会**全部静默失败**（业务不受影响，但留痕整段缺失）。按最小权限角色部署时必须显式给
+`GRANT USAGE ON SCHEMA audit` + `GRANT SELECT, INSERT ON audit.audit_log`（读取面另需 SELECT）。
+storage 仓已在自己的 `sql/roles.example.sql` 里补了这一处；主仓库的 `deploy/sql/roles-least-privilege.sql`
+（另一任务的产物）需要同一个 owner 复核。
 - **auth**：没有版本化迁移，DDL 在 `internal/store/store.go` 的 `schema` 常量里 ——
   按既有做法在末尾追加 `CREATE SCHEMA IF NOT EXISTS audit` + 建表语句，并加列形状冻结测试。
 - **catalog**：`backend/migrations/000002_audit_log.up.sql`（+ `.down.sql`）。
