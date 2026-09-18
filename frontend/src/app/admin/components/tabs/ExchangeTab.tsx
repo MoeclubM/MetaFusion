@@ -34,7 +34,7 @@ import {
   type ExchangeSource,
   type ExchangeSourceKind,
 } from "@/lib/api/exchange";
-import { ErrorNotice, SectionHeader, StatusMessage } from "./accountAccess/shared";
+import { ErrorNotice, SectionHeader, StatusMessage } from "@/components/common/Blocks";
 
 /** 新建（entity.id 为空）时 expected_version 必须是 0，非 0 会被判成版本冲突。 */
 const NEW_ENTITY_VERSION = 0;

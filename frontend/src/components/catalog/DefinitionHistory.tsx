@@ -24,7 +24,7 @@ import {
 import { useI18n } from "@/i18n/I18nProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
-import { ErrorNotice } from "@/app/admin/components/tabs/accountAccess/shared";
+import { ErrorNotice } from "@/components/common/Blocks";
 import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
 import { ApiError } from "@/lib/api";
 import {
