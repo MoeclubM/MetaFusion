@@ -128,6 +128,7 @@
   "community.noTopics": "一致するトピックがありません。",
   "community.noTopicsHint": "左のボードやタグを切り替えるか、キーワードをクリアしてください。",
   "community.loadFailed": "トピックの読み込みに失敗しました。再試行してください",
+  "community.pageOutOfRange": "{page} ページ目は範囲外です（現在の絞り込み結果は全 {totalPages} ページ）。",
   "community.createFirstTopic": "最初のトピックを作成",
   "community.createTitle": "トピックの作成",
   "community.boardSearchPlaceholder": "ボード名 / 説明 / コードで検索…",

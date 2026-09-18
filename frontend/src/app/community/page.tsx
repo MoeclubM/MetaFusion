@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { UserAvatar } from "@/components/UserAvatar";
 import { fetchApi, DiscussionTopic, Tag, ForumBoard, fetchBoards, FORUM_BOARDS, boardDisplayName, boardDisplayDesc, catalogEntityHref } from "@/lib/api";
@@ -39,6 +39,10 @@ import {
 import { TabPanel } from "@/components/ui/TabPanel";
 import { PageContainer } from "@/components/ui/PageShell";
 
+// 列表页宽：与后端 /community/topics 的缺省 limit 一致，翻页后第一页窗口与改动前完全相同；
+// 显式传窗口取代「缺省 = 第一页」的假设，第 31 条起才取得到（后端上限 100）。
+const PAGE_SIZE = 30;
+
 function formatTimeAgo(dateStr: string, locale?: string, t?: (k: string, v?: Record<string,string|number>)=>string) {
  const diff = Date.now() - new Date(dateStr).getTime();
  const mins = Math.floor(diff / (1000 * 60));
@@ -74,6 +78,11 @@ function CommunityContent() {
  const { user } = useAuth();
  const { t, locale } = useI18n();
  const searchParams = useSearchParams();
+ const router = useRouter();
+ const pathname = usePathname();
+ // 页码从 URL 派生：列表窗口由服务端 offset 决定，本地 state 恢复不出来，
+ // 所以深链/后退/前进都必须以 URL 上的 page 为准（再同步回 state 触发重取）。
+ const pageFromUrl = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
  const initialTag = searchParams.get("tag");
  const initialTagId = searchParams.get("tag_id");
  // 从条目页跳来时带 entity_id / board_code，用于锁定到该条目的评论或指定板块。
@@ -82,6 +91,9 @@ function CommunityContent() {
  const [selectedBoard, setSelectedBoard] = useState<string>(initialBoard);
  const [activeTab, setActiveTab] = useState<"latest" | "top">("latest");
  const [topics, setTopics] = useState<DiscussionTopic[]>([]);
+ // 页码（与 URL 双向同步）与后端的结果总数：计数与翻页判定都用 total，不是当前页条数。
+ const [page, setPage] = useState(pageFromUrl);
+ const [total, setTotal] = useState(0);
  const [loading, setLoading] = useState(true);
  // 失败与“没有主题”必须分开：失败要说清并可重试，不能伪装成空列表或永远停在加载中。
  const [loadError, setLoadError] = useState<string | null>(null);
@@ -191,15 +203,20 @@ function CommunityContent() {
  } else if (filterTagName) {
  params.append("tag", filterTagName);
  }
+ // limit/offset 显式传：后端缺省 30 是「第一页」的意思，不传就只能取到前 30 条。
+ params.set("limit", String(PAGE_SIZE));
+ params.set("offset", String((page - 1) * PAGE_SIZE));
  const res = await fetchApi<{ items: DiscussionTopic[]; total: number }>(
  `/community/topics?${params.toString()}`,
  { signal: controller.signal }
  );
  let list = res.items || [];
+ // 「热门」只在当前页窗口内排序：后端没有热度排序参数，跨页热度榜要后端先给排序口径。
  if (activeTab === "top") {
  list = [...list].sort((a, b) => b.reply_count + b.view_count - (a.reply_count + a.view_count));
  }
  setTopics(list);
+ setTotal(typeof res.total === "number" ? res.total : list.length);
  } catch {
  setTopics([]);
  setLoadError(t("community.loadFailed"));
@@ -209,15 +226,51 @@ function CommunityContent() {
  }
  };
 
+ // 翻页写 URL：同一个链接能复现同一窗口，后退键在页码之间往返（state 与 URL 一起走）。
+ const goToPage = (next: number) => {
+ const target = Math.max(1, next);
+ if (target === page) return;
+ const params = new URLSearchParams(searchParams.toString());
+ if (target <= 1) params.delete("page");
+ else params.set("page", String(target));
+ const qs = params.toString();
+ setPage(target);
+ router.push(qs ? `${pathname}?${qs}` : pathname);
+ };
+
+ // 换分区/标签或重新搜索都要回第一页：URL 里留着上一组的页码，新筛选会取到空窗口。
+ const resetToFirstPage = () => {
+ if (page !== 1) setPage(1);
+ if (!searchParams.get("page")) return;
+ const params = new URLSearchParams(searchParams.toString());
+ params.delete("page");
+ const qs = params.toString();
+ router.replace(qs ? `${pathname}?${qs}` : pathname);
+ };
+
+ // 搜索框内容只在 state 里（不进 URL）：页码本来就在第一页时 effect 不会重跑，得显式重取。
+ const submitSearch = () => {
+ if (page !== 1) { resetToFirstPage(); return; }
+ loadTopics();
+ };
+
  useEffect(() => {
  loadTopics();
- }, [selectedBoard, activeTab, filterTagId, filterTagName]);
+ }, [selectedBoard, activeTab, filterTagId, filterTagName, page]);
+
+ // 后退/前进只改 URL 不改 state：页码必须从 URL 回灌，否则地址栏的页码与列表窗口会脱节。
+ useEffect(() => {
+ setPage(pageFromUrl);
+ }, [pageFromUrl]);
 
  const getBoard = (code: string) => {
  return boards.find((b) => b.code === code) || boards[0] || FORUM_BOARDS[0];
  };
 
  const currentBoard = getBoard(selectedBoard);
+ const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+ // 越界页（手改 URL、或结果变少）：后端把 offset 静默收敛成空窗口，得自己给可读出口。
+ const pageOutOfRange = !loading && !loadError && total > 0 && topics.length === 0 && page > totalPages;
 
  return (
  <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white text-sm">
@@ -260,6 +313,9 @@ function CommunityContent() {
  const isActive = selectedBoard === board.code;
  const isCommentOnly = board.show_in_feed === false && board.code !== "all";
  let badge: string | null = null;
+ // 角标是从当前页数据里数出来的：结果超过一页时它只是"这一页"的分布，会被读成总数，
+ // 所以只在结果能在一页内取全时显示。
+ if (total <= PAGE_SIZE) {
  if (selectedBoard === "all") {
  if (board.code === "all") badge = String(topics.length);
  else if (!isCommentOnly) {
@@ -269,11 +325,13 @@ function CommunityContent() {
  } else if (isActive) {
  badge = String(topics.length);
  }
+ }
  return (
  <button
  key={board.code}
  onClick={() => {
  setSelectedBoard(board.code);
+ resetToFirstPage();
  }}
  className={`w-full group flex items-center gap-2.5 px-3.5 py-2.5 rounded-md border text-left transition-colors duration-fast ease-soft ${
  isActive
@@ -350,6 +408,7 @@ function CommunityContent() {
 	 onClick={() => {
 	 setSelectedBoard(board.code);
 	 setSidebarOpen(false);
+	 resetToFirstPage();
 	 }}
 	 className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-md border text-left ${isActive ? "bg-surface border-line text-white" : "border-transparent text-gray-400"}`}
 	 >
@@ -390,7 +449,7 @@ function CommunityContent() {
 	            placeholder={t("community.boardSearchPlaceholder")}
 	            value={searchFilter}
 	            onChange={(e) => setSearchFilter(e.target.value)}
-	            onKeyDown={(e) => e.key === "Enter" && loadTopics()}
+	            onKeyDown={(e) => e.key === "Enter" && submitSearch()}
 	            className="w-full pl-10 pr-24 h-11 rounded-lg bg-surface border border-line text-white text-sm placeholder-gray-500 focus:outline-none focus:border-gray-500 transition-colors duration-fast ease-soft shadow-inner"
 	          />
 	          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
@@ -406,7 +465,7 @@ function CommunityContent() {
 	              </button>
 	            )}
 	            <button
-	              onClick={loadTopics}
+	              onClick={submitSearch}
 	              className="px-3 py-1 rounded bg-white/[0.08] hover:bg-white/[0.15] border border-white/10 text-xs font-mono text-gray-200 transition-colors duration-fast ease-soft"
 	            >
 	              {t("common.search")}
@@ -470,6 +529,7 @@ function CommunityContent() {
 	                    onClick={() => {
 	                      setSelectedBoard("all");
 	                      setBoardDropdownOpen(false);
+	                      resetToFirstPage();
 	                    }}
 	                    className={`w-full text-left px-2.5 py-2 rounded-md text-xs flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                      selectedBoard === "all"
@@ -496,6 +556,7 @@ function CommunityContent() {
 	                          onClick={() => {
 	                            setSelectedBoard(board.code);
 	                            setBoardDropdownOpen(false);
+	                            resetToFirstPage();
 	                          }}
 	                          className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                            isSelected
@@ -564,6 +625,7 @@ function CommunityContent() {
 	                      setFilterTagId(null);
 	                      setFilterTagName(null);
 	                      setTagDropdownOpen(false);
+	                      resetToFirstPage();
 	                    }}
 	                    className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                      !filterTagId && !filterTagName
@@ -590,6 +652,7 @@ function CommunityContent() {
 	                            setFilterTagId(tag.id);
 	                            setFilterTagName(null);
 	                            setTagDropdownOpen(false);
+	                            resetToFirstPage();
 	                          }}
 	                          className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs font-mono flex items-center justify-between transition-colors duration-fast ease-soft ${
 	                            isSelected
@@ -626,6 +689,7 @@ function CommunityContent() {
 	              onClick={() => {
 	                setFilterTagId(null);
 	                setFilterTagName(null);
+	                resetToFirstPage();
 	              }}
 	              className="hover:text-white p-0.5"
 	              title={t("community.clearTag")}
@@ -652,7 +716,7 @@ function CommunityContent() {
  {/* mobile header */}
  <div className="sm:hidden px-4 py-2 bg-background/60 border-b border-line text-sm font-mono text-gray-500 flex items-center justify-between">
  <span>{t("community.topic")} · {boardDisplayName(currentBoard, locale, t)}</span>
- <span>{t("community.topicItems", {count: topics.length})}</span>
+ <span>{t("community.topicItems", { count: total })}</span>
  </div>
 
  {loading ? (
@@ -678,6 +742,16 @@ function CommunityContent() {
  {t("community.createFirstTopic")}
  </button>
  )}
+ </div>
+ ) : pageOutOfRange ? (
+ <div className="py-16 text-center space-y-3">
+ <p className="text-sm text-gray-400">{t("community.pageOutOfRange", { page, totalPages })}</p>
+ <button
+ onClick={() => goToPage(totalPages)}
+ className="px-3.5 py-1.5 rounded-md bg-white hover:bg-gray-200 text-black text-sm font-bold inline-flex items-center gap-2 transition-colors duration-fast ease-soft"
+ >
+ {t("pagination.last")}
+ </button>
  </div>
  ) : (
  <div className="divide-y divide-surfaceBorder/70">
@@ -782,6 +856,32 @@ function CommunityContent() {
  </div>
  );
  })}
+ </div>
+ )}
+
+ {/* 分页器只在多页时出现（与 works/[id] 的 totalPages > 1 守卫一致）。 */}
+ {!loading && !loadError && totalPages > 1 && (
+ <div className="flex items-center justify-between gap-2 px-4 py-3 border-t border-line bg-background/40 text-xs font-mono text-gray-500">
+ <span>{t("community.topicItems", { count: total })}</span>
+ <div className="flex items-center gap-2">
+ <button
+ type="button"
+ disabled={page <= 1}
+ onClick={() => goToPage(page - 1)}
+ className="px-3 py-1.5 rounded-md border border-line bg-surface hover:bg-surfaceBorder disabled:opacity-40 disabled:pointer-events-none text-gray-300 transition-colors duration-fast ease-soft"
+ >
+ {t("pagination.prev")}
+ </button>
+ <span className="px-1 text-gray-400">{t("common.pagination", { page, total: totalPages })}</span>
+ <button
+ type="button"
+ disabled={page >= totalPages}
+ onClick={() => goToPage(page + 1)}
+ className="px-3 py-1.5 rounded-md border border-line bg-surface hover:bg-surfaceBorder disabled:opacity-40 disabled:pointer-events-none text-gray-300 transition-colors duration-fast ease-soft"
+ >
+ {t("pagination.next")}
+ </button>
+ </div>
  </div>
  )}
  </TabPanel>

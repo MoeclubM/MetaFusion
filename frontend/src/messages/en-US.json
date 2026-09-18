@@ -128,6 +128,7 @@
   "community.noTopics": "No matching topics.",
   "community.noTopicsHint": "Try switching boards, tags, or clearing keywords.",
   "community.loadFailed": "Failed to load topics — please retry",
+  "community.pageOutOfRange": "Page {page} is out of range — the current filter has {totalPages} pages of results.",
   "community.createFirstTopic": "Create the first topic",
   "community.createTitle": "Create Topic",
   "community.boardSearchPlaceholder": "Search boards by name / desc / code…",

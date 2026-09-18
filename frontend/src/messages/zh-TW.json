@@ -128,6 +128,7 @@
   "community.noTopics": "沒有相符的討論主題。",
   "community.noTopicsHint": "試著切換左側看板、標籤或清空搜尋關鍵字。",
   "community.loadFailed": "主題列表載入失敗，請稍後重試",
+  "community.pageOutOfRange": "第 {page} 頁超出範圍：目前篩選結果共 {totalPages} 頁。",
   "community.createFirstTopic": "發起第一個主題",
   "community.createTitle": "建立新主題",
   "community.boardSearchPlaceholder": "搜尋看板名稱／說明／代碼…",
