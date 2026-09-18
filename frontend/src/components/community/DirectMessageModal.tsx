@@ -246,7 +246,8 @@ export default function DirectMessageModal({
               <Loader2 className="w-4 h-4 animate-spin text-primary" />
               <span>{t("common.loading")}</span>
             </div>
-          ) : messages.length === 0 ? (
+          ) : messages.length === 0 && !err ? (
+            // 有 err 时不再说"暂无私聊记录"：取不到与真的没有是两种状态，同时显示等于把失败讲成空。
             <div className="h-full flex flex-col items-center justify-center text-center p-6 text-text-faint space-y-2">
               <div className="w-12 h-12 rounded-full bg-emphasis/5 border border-line flex items-center justify-center text-text-muted">
                 <MessageCircle className="w-6 h-6" />
