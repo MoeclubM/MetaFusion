@@ -9,12 +9,13 @@ import { ThemePicker } from "./ThemePicker";
 import { useI18n } from "@/i18n/I18nProvider";
 import { BrandMark } from "./Logo";
 import { UserAvatar } from "./UserAvatar";
-import { displayNameOf, fetchUnreadMessageCount } from "@/lib/api";
+import { displayNameOf, fetchUnreadMessageCount, fetchUnreadCount, NOTIFICATIONS_CHANGED_EVENT } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
 import { canEnterAdmin } from "@/lib/permissions";
 import { getAuthLoginUrl, getAuthSettingsUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
 import { PageContainer } from "@/components/ui/PageShell";
 import {
+  Bell,
   Plus,
   LogOut,
   User as UserIcon,
@@ -38,6 +39,9 @@ import {
  * 实体详情这类子路径在移动端一个页签都不高亮）。
  * external 项不属于本应用路由（文档站前缀、外站资源站），不参与判定。
  */
+// 顶栏角标的最短刷新间隔：可见性切换/其它触发都受它限制，杜绝高频轮询。
+const NOTIFICATION_BADGE_MIN_INTERVAL_MS = 60000;
+
 function isNavLinkActive(
   pathname: string,
   tab: { href: string; exact?: boolean; external?: boolean },
@@ -55,6 +59,10 @@ export const Navbar: React.FC = () => {
   // 未读私信角标：登录后拉一次 + 每 30s 一次。失败一律隐藏角标（null），**不渲染成 0**——
   // "取不到"与"没有未读"必须能区分；失败也不影响导航其余部分。
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
+  // 未读站内通知角标：与私信不同，这条**不轮询**——挂载后取一次、页面重新可见时取一次
+  // （最短间隔见 NOTIFICATION_BADGE_MIN_INTERVAL_MS），通知页改完已读会广播事件让它立刻跟一次。
+  // 失败一律静默且保留旧值（null = 不显示角标），"取不到"不画成 0，也不弄脏顶栏。
+  const [unreadNotifications, setUnreadNotifications] = useState<number | null>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   // 顶栏实际高度随断点变化：<xl 时顶栏里还多一行移动导航，写死在 CSS 里必然对不上。
@@ -154,6 +162,41 @@ export const Navbar: React.FC = () => {
     };
   }, [user, isUserMenuOpen]);
 
+  useEffect(() => {
+    if (!user) {
+      setUnreadNotifications(null);
+      return;
+    }
+    let alive = true;
+    let lastFetchedAt = 0;
+    const load = (force: boolean) => {
+      // 成功才记时间戳：失败不占这个窗口，下一次可见/变更时还能立刻再试一次。
+      if (!force && Date.now() - lastFetchedAt < NOTIFICATION_BADGE_MIN_INTERVAL_MS) return;
+      fetchUnreadCount()
+        .then((n) => {
+          if (!alive) return;
+          lastFetchedAt = Date.now();
+          setUnreadNotifications(n);
+        })
+        .catch(() => {
+          /* 静默：角标接口挂了不影响顶栏渲染，也不弹错 */
+        });
+    };
+    load(true);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") load(false);
+    };
+    // 通知页标记已读后广播：这是明确的用户动作，不受最短间隔限制。
+    const onNotificationsChanged = () => load(true);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, onNotificationsChanged);
+    };
+  }, [user]);
+
   const navLinks = [
     { href: "/", label: t("navigation.home"), icon: Library, exact: true },
     { href: "/explore", label: t("navigation.explore"), icon: Compass },
@@ -248,6 +291,35 @@ export const Navbar: React.FC = () => {
           {/* 新建：指向 /new；那边不带 ?kind= 时会落到编目枢纽（/contribute）先选手动创建
               或外部权威库导入，带 ?kind= 才直接进编辑器。入口不预设层级，也不枚举层级清单。
               标签 span 带 hidden sm:inline，窄屏只剩加号图标，因此必须显式给可访问名。 */}
+          {/* 站内通知：常驻铃铛入口（未登录不显示），未读 >0 才挂角标，>99 显示 99+。
+              放在右侧控件区而不是 hidden xl:flex 的桌面导航里，窄屏同样看得见。 */}
+          {user && (
+            <Link
+              href="/notifications"
+              aria-label={
+                unreadNotifications !== null && unreadNotifications > 0
+                  ? t("notifications.unreadBadge", { count: unreadNotifications })
+                  : t("navigation.notifications")
+              }
+              title={t("navigation.notifications")}
+              className={`relative inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors duration-fast ease-soft ${
+                pathname.startsWith("/notifications")
+                  ? "bg-primary/10 border-primary/25 text-primary"
+                  : "bg-emphasis/[0.04] border-line text-text-strong hover:bg-emphasis/[0.08]"
+              }`}
+            >
+              <Bell className="w-3.5 h-3.5" strokeWidth={1.8} />
+              {unreadNotifications !== null && unreadNotifications > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-white text-[9px] font-mono font-bold flex items-center justify-center"
+                  title={t("notifications.unreadBadge", { count: unreadNotifications })}
+                >
+                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                </span>
+              )}
+            </Link>
+          )}
+
           <Link
               href="/new"
             aria-label={t("catalog.create")}
