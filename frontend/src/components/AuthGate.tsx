@@ -67,8 +67,13 @@ export const AuthGate: React.FC<{ children: React.ReactNode }> = ({ children }) 
 
   useEffect(() => {
     if (!loading && !user && isProtected && pathname !== "/setup") {
-      const redirectUrl = pathname ? `/login?redirect=${encodeURIComponent(pathname)}` : "/login";
-      router.replace(redirectUrl);
+      // 回跳目标必须带上查询串：`/new?kind=release`、`/settings?tab=password`、`?edit=1`，
+      // 以及账号服务 302 过来的 `/account?return_to=<授权请求>`——只带 pathname 会让用户
+      // 登录后停在丢了参数的页面上（第三方 OAuth 续授权就是这么断链的）。
+      // 读 window.location.search 而不是 useSearchParams：AuthGate 挂在根布局上，
+      // useSearchParams 会让所有静态页在构建期额外要求 Suspense 边界。
+      const search = typeof window !== "undefined" ? window.location.search : "";
+      router.replace(`/login?redirect=${encodeURIComponent(`${pathname}${search}`)}`);
     }
   }, [loading, user, isProtected, pathname, router]);
 
