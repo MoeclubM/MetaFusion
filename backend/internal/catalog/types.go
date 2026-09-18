@@ -187,7 +187,6 @@ type Template struct {
 	Columns        []string  `json:"columns"`
 	RelationGroups []string  `json:"relation_groups"`
 	Directory      string    `json:"directory"`
-	Modules        []string  `json:"modules"`
 	// PrimaryDateField 指定该模板下代表"作品首发/发行日期"的字段码，
 	// 供列表与排序使用。取代代码里硬编码 edition_date 的语义；为空则不展示日期。
 	PrimaryDateField string `json:"primary_date_field,omitempty"`

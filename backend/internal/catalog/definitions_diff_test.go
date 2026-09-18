@@ -50,7 +50,7 @@ func TestDefinitionDiffLogic(t *testing.T) {
 				"part_of": {Names: Names{"en": "Part of"}, ReverseNames: Names{"en": "Has part"}, SourceKinds: []string{"work"}, TargetKinds: []string{"work"}, MaxOutgoing: 1, Enabled: true},
 			},
 			Templates: map[string]Template{
-				"photography": {Names: Names{"en": "Photography"}, Columns: []string{"title", "date"}, Directory: "works", Modules: []string{"cover"}},
+				"photography": {Names: Names{"en": "Photography"}, Columns: []string{"title", "date"}, Directory: "works"},
 			},
 			Schemes: map[string]Scheme{
 				"paper": {Names: Names{"en": "Paper"}, Slot: "locator", Fields: []string{"page"}, Enabled: true},
