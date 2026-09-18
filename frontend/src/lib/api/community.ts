@@ -1,6 +1,7 @@
 // 由 frontend/src/lib/api.ts 按域拆分而来（机械搬运：导出名、签名、行为与拆分前一致）。
 // 域：互动服务 /api/community、/api/favorites 与 /api/messages 客户端
 import { fetchApi } from "./client";
+import { requireArray, safeCount } from "./fields";
 import type { Tag } from "./catalog";
 import type { User } from "./client";
 import type { Entity } from "@/components/catalog/api";
@@ -149,7 +150,8 @@ export async function fetchEntityPosts(entityId: string): Promise<EntityComment[
   const res = await fetchApi<{ items?: EntityComment[] }>(
     `/community/entities/${encodeURIComponent(entityId)}/posts`
   );
-  return Array.isArray(res.items) ? res.items : [];
+  // 详情页/作品页对空列表都有"暂无…"文案：漂移必须抛错走失败态，只有确认为数组才算"没有评论"。
+  return requireArray<EntityComment>(res?.items, "items");
 }
 
 /** 某实体被哪些合集关联（服务端回查目录，实体对当前身份不可见时是 404 not_found）。 */
@@ -157,7 +159,8 @@ export async function fetchEntityCollections(entityId: string): Promise<EntityCo
   const res = await fetchApi<{ items?: EntityCollectionRef[] }>(
     `/community/entities/${encodeURIComponent(entityId)}/collections`
   );
-  return Array.isArray(res.items) ? res.items : [];
+  // 合集空列表在详情页有"暂无"文案：同上，漂移抛错而不是伪装成"没有合集"。
+  return requireArray<EntityCollectionRef>(res?.items, "items");
 }
 
 /**
@@ -524,9 +527,12 @@ export async function fetchDirectMessages(
   const res = await fetchApi<{ items?: DirectMessage[]; total?: number }>(
     "/messages/with/" + encodeURIComponent(userId) + "?page=" + page + "&page_size=" + pageSize
   );
+  const items = requireArray<DirectMessage>(res?.items, "items");
   return {
-    items: Array.isArray(res.items) ? res.items : [],
-    total: typeof res.total === "number" ? res.total : 0,
+    items,
+    // total 不再 ||0：缺失或异常值（NaN/负数/超大）时退回"本次已确认拿到的条数"这个下界，
+    // 而不是谎报 0 条（私信弹窗靠它决定"还能加载更早的"，0 会直接掐掉翻页入口）。
+    total: safeCount(res?.total, items.length),
   };
 }
 

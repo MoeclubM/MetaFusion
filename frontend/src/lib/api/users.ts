@@ -3,6 +3,7 @@
 // 都是常态。这里只负责"按各自的真实形状取数与归位"，降级由调用方按来源分别处理——
 // 不把"某个上游没响应"折成 0 或空列表，那会把取不到讲成"这个人什么都没做"。
 import { fetchApi } from "./client";
+import { requireArray, safeCount } from "./fields";
 
 // ── 账号资料：GET /users/:id（匿名可读）──
 //
@@ -98,10 +99,13 @@ export async function fetchUserContributions(
   const res = await fetchApi<{ items?: unknown[]; total?: number; stats?: ContributionStats }>(
     "/users/" + encodeURIComponent(id) + "/contributions?" + params.toString()
   );
+  // 本文件开头那条约束就在这里落地：上游没响应/换型时**不要**折成 0 或空列表
+  // （用户主页对空列表有"暂无贡献"文案，折成空就是把取不到讲成"这个人什么都没做"）。
+  const rows = requireArray<unknown>(res?.items, "items");
   return {
-    items: (Array.isArray(res.items) ? res.items : []).map(normalizeContributionItem),
-    total: typeof res.total === "number" ? res.total : 0,
-    stats: res.stats ?? null,
+    items: rows.map(normalizeContributionItem),
+    total: safeCount(res?.total, rows.length),
+    stats: res?.stats && typeof res.stats === "object" ? res.stats : null,
   };
 }
 

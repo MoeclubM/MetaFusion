@@ -196,6 +196,9 @@ export function EntityDetailView({ id }: { id: string }) {
   const [revisions, setRevisions] = useState<any[]>([]);
   const [subjectWorks, setSubjectWorks] = useState<Entity[]>([]);
   const [communityPosts, setCommunityPosts] = useState<EntityComment[]>([]);
+  // 失败与「没有评论/没有合集」必须分开：两处的空列表都各有一句文案。
+  const [communityPostsFailed, setCommunityPostsFailed] = useState(false);
+  const [communityCollectionsFailed, setCommunityCollectionsFailed] = useState(false);
   const [communityCollections, setCommunityCollections] = useState<EntityCollectionRef[]>([]);
   const [newCommentBody, setNewCommentBody] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -235,14 +238,17 @@ export function EntityDetailView({ id }: { id: string }) {
       // resolve 可能返回合并后的规范 id；回落路由参数只为类型收口（能渲染到这里的实体必有 id）。
       const communityId = e.id || id;
       // Fetch occurrences, relations, revisions, posts, collections in parallel
+      // 互动服务的两条列表失败时只影响各自那一块：先记下失败，稍后连同数据一起落到 state。
+      let postsFailed = false;
+      let collectionsFailed = false;
       const [occRes, relRes, revRes, posts, collections] = await Promise.all([
         api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => ({ items: [] })),
         api<{ items: Relation[]; entities?: Record<string, Entity>; subject_id?: string }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: undefined, subject_id: undefined })),
         api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => ({ items: [] })),
         // 互动服务没接入（或这两条端点不可用）时整块留空，不阻断条目详情渲染；
         // 端点与请求体由 lib/api/community.ts 的包装负责，本组件不再自己拼 URL。
-        fetchEntityPosts(communityId).catch(() => [] as EntityComment[]),
-        fetchEntityCollections(communityId).catch(() => [] as EntityCollectionRef[]),
+        fetchEntityPosts(communityId).catch(() => { postsFailed = true; return [] as EntityComment[]; }),
+        fetchEntityCollections(communityId).catch(() => { collectionsFailed = true; return [] as EntityCollectionRef[]; }),
       ]);
 
       const occItems = occRes.items || [];
@@ -258,6 +264,9 @@ export function EntityDetailView({ id }: { id: string }) {
       setRelations(relItems);
       setRevisions(revItems);
       setCommunityPosts(posts);
+      // 空数组 = 服务端确认没有；到这里仍是空且标记了失败 = 取不到——界面上不能混。
+      setCommunityPostsFailed(postsFailed);
+      setCommunityCollectionsFailed(collectionsFailed);
       setCommunityCollections(collections);
 
       // Resolve parent references
@@ -1790,7 +1799,13 @@ export function EntityDetailView({ id }: { id: string }) {
                 <h3 className="font-display text-xs font-bold text-text-strong uppercase tracking-wider font-mono">
                   {t("entity.page.discussionStream")} ({communityPosts.length})
                 </h3>
-                {communityPosts.length === 0 ? (
+                {communityPostsFailed ? (
+                  <Card padding="none" className="border-dashed">
+                    <div className="p-8 text-center space-y-2">
+                      <p className="text-xs text-text-faint">{t("community.commentsLoadFailed")}</p>
+                    </div>
+                  </Card>
+                ) : communityPosts.length === 0 ? (
                   <Card padding="none" className="border-dashed">
                     <div className="p-8 text-center space-y-2">
                       <MessageSquare className="w-8 h-8 mx-auto text-text-muted opacity-50" />
@@ -1845,7 +1860,13 @@ export function EntityDetailView({ id }: { id: string }) {
                   </a>
                 </div>
 
-                {allDisplayCollections.length === 0 ? (
+                {communityCollectionsFailed && allDisplayCollections.length === 0 ? (
+                  <Card padding="none" className="border-dashed">
+                    <div className="p-6 text-center text-xs text-text-faint">
+                      {t("catalog.listFailed")}
+                    </div>
+                  </Card>
+                ) : allDisplayCollections.length === 0 ? (
                   <Card padding="none" className="border-dashed">
                     <div className="p-6 text-center text-xs text-text-faint">
                       {t("entity.page.noCollections")}

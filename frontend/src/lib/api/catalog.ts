@@ -1,6 +1,7 @@
 // 由 frontend/src/lib/api.ts 按域拆分而来（机械搬运：导出名、签名、行为与拆分前一致）。
 // 域：目录服务 /api/catalog/*
 import { fetchApi } from "./client";
+import { requireArray } from "./fields";
 import type { User } from "./client";
 import { revisionChanges } from "@/components/catalog/revisionData";
 
@@ -225,7 +226,8 @@ export interface GraphLink {
 // sources,snapshot,created_at}。编辑类型与字段级 diff 由前端对比相邻快照得出。
 export async function fetchEntityRevisions(targetId: string): Promise<{ items: EntityRevision[]; total: number }> {
   const res = await fetchApi<{ items: Record<string, any>[] }>(`/catalog/entities/${targetId}/revisions`);
-  const rows = res.items || [];
+  // 同一规则（清单外补的一处）：修订历史弹窗对空列表也有文案，漂移不能伪装成"没有修订记录"。
+  const rows = requireArray<Record<string, any>>(res?.items, "items");
   const items: EntityRevision[] = rows.map((row, i) => {
     const sources = Array.isArray(row.sources) ? row.sources : [];
     const prev = i + 1 < rows.length ? rows[i + 1]?.snapshot : undefined;

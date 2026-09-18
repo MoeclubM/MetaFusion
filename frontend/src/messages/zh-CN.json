@@ -135,6 +135,7 @@
   "community.noTopics": "暂无匹配的讨论主题。",
   "community.noTopicsHint": "试试切换左侧分区、标签或清空搜索关键词。",
   "community.loadFailed": "主题列表加载失败，请稍后重试",
+"community.commentsLoadFailed": "评论加载失败，请稍后重试",
   "community.pageOutOfRange": "第 {page} 页超出范围：当前筛选结果共 {totalPages} 页。",
   "community.createFirstTopic": "发起第一个主题",
   "community.createTitle": "创建新主题",

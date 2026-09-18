@@ -70,6 +70,9 @@ export default function WorkDirectoryPage() {
  const [q, setQ] = useState("");
  const [qInput, setQInput] = useState("");
  const [topics, setTopics] = useState<CommunityPost[]>([]);
+ // 评论取不到的区分：这一节对空列表有「暂无评论，欢迎在下方发表。」文案，
+ // 所以漂移/失败不能落进那个分支（否则就是把取不到讲成「没人评论」）。
+ const [topicsFailed, setTopicsFailed] = useState(false);
  const [loadingWork, setLoadingWork] = useState(true);
  // 取数失败与"真的没有这个条目"是两种状态：之前 catch 只 console.error，work 保持 null，
  // 于是 429/5xx/断网都被渲染成「未找到该作品。」——用户以为库里没有，页面也没有重试出口。
@@ -376,8 +379,11 @@ const releaseFacets = useMemo(
  try {
  const items = await fetchEntityPosts(workId);
  setTopics(items.slice(0, 5));
+ setTopicsFailed(false);
  } catch {
- // 评论取不到不影响条目本身：保持列表状态、不弹错、不阻断页面。
+ // 评论取不到不影响条目本身：不弹错、不阻断页面，但必须与「没有评论」分开显示——
+ // 本节对空列表有文案，混在一起就等于把取不到讲成「没人评论」。
+ setTopicsFailed(true);
  }
  };
 
@@ -794,7 +800,9 @@ const releaseFacets = useMemo(
  <div className="mt-3">
  <EntityCommentComposer entityId={workId} onPosted={loadTopics} />
  </div>
- {topics.length === 0 ? (
+ {topicsFailed ? (
+   <p className="text-sm text-text-faint mt-3">{t("community.commentsLoadFailed")}</p>
+ ) : topics.length === 0 ? (
  <p className="text-sm text-text-faint mt-3">{t("work.detail.noRelatedTopics")}</p>
  ) : (
  <div className="divide-y divide-black/5 dark:divide-white/[0.06] mt-3">
