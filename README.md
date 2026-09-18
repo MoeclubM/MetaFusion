@@ -104,7 +104,7 @@
         └───────────────┴──── PostgreSQL 16 ────┬──────┘
                           catalog / auth / community / storage 四个 schema
                                                 ├──── RustFS (S3 兼容，仅内网可达；桶由存储服务启动时自建)
-                                                └──── Redis（常驻但尚未接线）/ OpenSearch（仅 --profile search 启动，未接线）
+                                                └──── OpenSearch（仅 --profile search 启动，未接线）
 ```
 
 > 各服务仓库的当前落地状态与「子项目各司其职」的边界，见
@@ -118,7 +118,7 @@
 - **后端核心 (Backend)**：Go 1.25, Gin, Golang-JWT/v5（对象存储走 S3 协议，客户端库为 minio-go——它只是 S3 SDK，服务端是 RustFS）
 - **前端系统 (Frontend)**：Next.js 16 (App Router), React 19, Tailwind CSS, Lucide Icons, TypeScript
 - **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
-- **数据库 (Storage & DB)**：PostgreSQL 16, Redis 7 (Alpine，Compose 已部署；Go 代码尚未接入), RustFS (S3-compatible Object Storage)
+- **数据库 (Storage & DB)**：PostgreSQL 16, RustFS (S3-compatible Object Storage)
 - **检索引擎 (Search Engine)**：OpenSearch 2.14.0（Compose 已部署；Go 代码尚未接入，当前检索走 PostgreSQL）
 - **媒体处理**：不做转码（无 FFmpeg 依赖）；上传/下载契约见 [资源上传与下载](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/upload-download.md)
 - **容器与网关 (Infra)**：Docker, Docker Compose v2, Nginx 1.25 Alpine

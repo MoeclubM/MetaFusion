@@ -151,7 +151,7 @@ services:
       # 库一旦搬出宿主网（异地副本/迁移）就要在 .env 改成 require，Postgres 侧同时开 TLS；
       # 不注入这个键时默认值也是 disable，但没人能从编排看出这一层。
       - DB_SSLMODE=${DB_SSLMODE:-disable}
-      # 检索走 PostgreSQL（见 docs/architecture/cutover-runbook.md 第 4 节），Redis 只常驻未用，
+      # 检索走 PostgreSQL（见 docs/architecture/cutover-runbook.md 第 4 节），
       # opensearch 默认不启动（--profile search 才拉起）：没有任何代码读缓存/检索地址，
       # 因此这里不声明这类变量。
       # /api/capabilities 是"部署态"声明：能力在不在由这几个变量决定（capabilities/subsystems 的 envKey）。
@@ -495,26 +495,7 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 8. 分布式缓存与任务队列 (Redis 7)
-  # --------------------------------------------------------------------------
-  redis:
-    logging: *default-logging
-    image: redis:7-alpine
-    container_name: metafusion-redis
-    restart: unless-stopped
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-    volumes:
-      - redis_data:/data
-    networks:
-      - metafusion-net
-
-  # --------------------------------------------------------------------------
-  # 9. 全文与多维聚合搜索引擎 (OpenSearch 2.14)
+  # 8. 全文与多维聚合搜索引擎 (OpenSearch 2.14)
   #    当前后端无任何 OpenSearch 接线（检索走 PostgreSQL），默认不启动以节省资源；
   #    需要全文搜索时用 --profile search 显式启用。存量 opensearch_data 卷保留。
   # --------------------------------------------------------------------------
@@ -575,7 +556,6 @@ networks:
 
 volumes:
   pg_data:
-  redis_data:
   # opensearch 只在 --profile search 下启用，卷保留以免存量索引数据丢失。
   opensearch_data:
   s3_data:

@@ -278,8 +278,8 @@ case "$ACTION" in
         export DOCKER_BUILDKIT=1
         echo "🏗️  构建全部服务镜像..."
         docker compose $COMPOSE_ENV -f docker-compose.yml build
-        echo "🚀 启动基础设施 (Postgres / Redis / RustFS + 桶初始化)..."
-        docker compose $COMPOSE_ENV -f docker-compose.yml up -d postgres redis rustfs
+        echo "🚀 启动基础设施 (Postgres / RustFS + 桶初始化)..."
+        docker compose $COMPOSE_ENV -f docker-compose.yml up -d postgres rustfs
         echo "🚀 启动各子系统 (账号 / 互动 / 存储 / 目录)..."
         docker compose $COMPOSE_ENV -f docker-compose.yml up -d auth community storage backend
         migrate_up_checked
@@ -309,8 +309,8 @@ case "$ACTION" in
         echo "🏭 启动生产集群模式..."
         export DOCKER_BUILDKIT=1
         docker compose $COMPOSE_ENV -f docker-compose.yml build backend
-        echo "🚀 启动数据库与核心基础设施 (Postgres / Redis / RustFS)..."
-        docker compose $COMPOSE_ENV up -d postgres redis rustfs
+        echo "🚀 启动数据库与核心基础设施 (Postgres / RustFS)..."
+        docker compose $COMPOSE_ENV up -d postgres rustfs
         migrate_up_checked
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
         reload_gateway
@@ -330,7 +330,7 @@ case "$ACTION" in
         #   命令以非零码中断——后面的 up -d 会用本地镜像或就地构建兜底。
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml pull --ignore-buildable --ignore-pull-failures
         echo "🚀 启动数据库与核心基础设施..."
-        docker compose $COMPOSE_ENV up -d postgres redis rustfs
+        docker compose $COMPOSE_ENV up -d postgres rustfs
         migrate_up_checked -f docker-compose.prod.yml
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
         echo "✅ 生产镜像拉取与启动完成！"
