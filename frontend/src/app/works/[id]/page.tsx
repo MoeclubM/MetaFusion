@@ -2,6 +2,7 @@
 
 import styles from "./page.module.css";
 import { PageShell } from "@/components/ui/PageShell";
+import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import React, { useEffect, useMemo, useState } from "react";
@@ -20,8 +21,11 @@ import { EntityMergeModal } from "@/components/editor/EntityMergeModal";
 import { EntityActionToolbar } from "@/components/entity/EntityActionToolbar";
 import FavoriteButton from "@/components/FavoriteButton";
 import { getForumEntityUrl } from "@/lib/services";
+import { EntityCommentComposer } from "@/components/community/EntityCommentComposer";
+import { EntityCommentComposer } from "@/components/community/EntityCommentComposer";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
+import { useCompareBasket } from "@/lib/compareBasket";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { DetailTabs, DetailTab } from "@/components/catalog/DetailTabs";
 import { GroupedRelations } from "@/components/entity/RelationsList";
@@ -59,14 +63,19 @@ export default function WorkDirectoryPage() {
  const [releaseFormatCounts, setReleaseFormatCounts] = useState<Record<string, Record<string, number>>>({});
  // 筛选条件：键为字段码，值选中项。字段集合由模板 facet_fields 声明。
  const [facetValues, setFacetValues] = useState<Record<string, string>>({});
- const [compareSelected, setCompareSelected] = useState<string[]>([]);
+ // 篮子状态与跨标签页同步统一走 lib/compareBasket.ts：另一页加入/移除后本页不刷新即一致。
+ const { basket: compareSelected, toggle: toggleCompare } = useCompareBasket();
  const [page, setPage] = useState(1);
  const pageSize = 10;
  const [q, setQ] = useState("");
  const [qInput, setQInput] = useState("");
  const [topics, setTopics] = useState<CommunityPost[]>([]);
  const [loadingWork, setLoadingWork] = useState(true);
+ // 取数失败与"真的没有这个条目"是两种状态：之前 catch 只 console.error，work 保持 null，
+ // 于是 429/5xx/断网都被渲染成「未找到该作品。」——用户以为库里没有，页面也没有重试出口。
+ const [loadError, setLoadError] = useState<LoadFailureKind | "">("");
  const [loadingReleases, setLoadingReleases] = useState(true);
+ const [releasesFailed, setReleasesFailed] = useState(false);
 
  // Revision History, and Merge Modals（编辑改为跳转通用编辑页 /catalog/:id?edit=1）
  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -74,6 +83,7 @@ export default function WorkDirectoryPage() {
 
  const loadWork = async () => {
  setLoadingWork(true);
+ setLoadError("");
  try {
  const data = await fetchApi<Entity>(`/catalog/entities/${workId}`);
  setWork(data);
@@ -82,7 +92,7 @@ export default function WorkDirectoryPage() {
  setRelations(r.items || []);
  setRelEntities(r.entities || {});
  } catch (e) {
- console.error(e);
+ setLoadError(classifyLoadFailure(e));
  } finally {
  setLoadingWork(false);
  }
@@ -92,6 +102,7 @@ export default function WorkDirectoryPage() {
  // 求值：否则"先分页后筛选"会漏掉其它页的命中，总数也不会随筛选变化。
  const loadReleases = async () => {
  setLoadingReleases(true);
+ setReleasesFailed(false);
  try {
  const entities = await fetchAllPages<Entity>(`/catalog/entities?kind=release&work_id=${encodeURIComponent(workId)}`);
  // 载体格式从实际 Medium 全量聚合（受并发上限约束），不再截断在首屏 50 条。
@@ -110,8 +121,9 @@ export default function WorkDirectoryPage() {
  entities.forEach((e, i) => { fmtMap[e.id!] = counts[i] || {}; });
  setReleaseEntities(entities);
  setReleaseFormatCounts(fmtMap);
- } catch (e) {
- console.error(e);
+ } catch {
+ // 列表取数失败不能落成「暂无发行版。」：那是在替服务端断言"这部作品没有发行版"。
+ setReleasesFailed(true);
  } finally {
  setLoadingReleases(false);
  }
@@ -320,7 +332,6 @@ const releaseFacets = useMemo(
  target: r.target_id,
  type: r.type,
  label: relationName(r.type),
- group: defs?.relations?.[r.type]?.group,
  source_type: relEntities[r.source_id]?.kind,
  target_type: relEntities[r.target_id]?.kind,
  });
@@ -348,28 +359,24 @@ const releaseFacets = useMemo(
  );
 
 
- const toggleCompare = (id: string) => {
- setCompareSelected((prev) => {
- if (prev.includes(id)) return prev.filter((x) => x !== id);
- if (prev.length >= 6) return prev;
- const next = [...prev, id];
+ // 关联评论：展示该作品下的评论（与论坛主题区分——评论锚定条目，主题独立成文）。
+ // 短评端点与响应形状由 lib/api/community.ts 的包装负责，本页不再自己拼 URL。
+ // 抽成函数是为了让发布器发表成功后回读：id/时间只用服务端返回值，不在前端自造。
+ const loadTopics = async () => {
+ if (!workId) return;
  try {
- const basket: string[] = JSON.parse(window.localStorage.getItem("metafusion_compare_basket") || "[]");
- const merged = Array.from(new Set([...(Array.isArray(basket) ? basket : []), ...next])).slice(0, 6);
- window.localStorage.setItem("metafusion_compare_basket", JSON.stringify(merged));
- } catch { /* ignore */ }
- return next;
- });
+ const items = await fetchEntityPosts(workId);
+ setTopics(items.slice(0, 5));
+ } catch {
+ // 评论取不到不影响条目本身：保持列表状态、不弹错、不阻断页面。
+ }
  };
 
  useEffect(() => {
  if (!workId) return;
  loadWork();
- // 关联评论：展示该作品下的评论（与论坛主题区分——评论锚定条目，主题独立成文）。
- // 短评端点与响应形状由 lib/api/community.ts 的包装负责，本页不再自己拼 URL。
- fetchEntityPosts(workId)
- .then((items) => setTopics(items.slice(0, 5)))
- .catch(() => {});
+ loadTopics();
+ // eslint-disable-next-line react-hooks/exhaustive-deps
  }, [workId]);
 
  useEffect(() => {
@@ -406,10 +413,14 @@ const releaseFacets = useMemo(
  return (
  <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
  <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
- <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
- <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+ <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px] pointer-events-none" aria-hidden />
  <Navbar />
- <PageShell width="narrow" center className="py-20" contentClassName="text-sm text-gray-500">{t("common.notFoundWork")}</PageShell>
+ {loadError === "not_found" || loadError === "invalid" ? (
+ <DetailNotFound title={t("common.notFoundWork")} />
+ ) : (
+ // 429 / 5xx / 断网：说"暂时取不到"并给重试，不替服务端断言条目不存在。
+ <DetailUnavailable kind={loadError === "rate_limited" ? "rate_limited" : "unavailable"} onRetry={() => void loadWork()} />
+ )}
  </div>
  );
  }
@@ -632,6 +643,13 @@ const releaseFacets = useMemo(
 
  {loadingReleases ? (
  <div className="p-8 text-center text-sm text-gray-500">{t("work.detail.loadingReleases")}</div>
+ ) : releasesFailed ? (
+ <div role="alert" className="p-8 text-center text-sm space-y-2">
+ <p className="text-amber-700 dark:text-amber-300">{t("catalog.listFailed")}</p>
+ <button type="button" onClick={() => void loadReleases()} className="text-xs font-mono text-primary hover:underline cursor-pointer">
+ {t("catalog.retry")}
+ </button>
+ </div>
  ) : releaseEntities.length === 0 ? (
  <Card padding="none" className="border-dashed">
    <div className="p-8 text-center text-sm text-gray-500">{t("work.detail.noReleases")}{q ? t("work.detail.noReleasesHint") : ""}</div>

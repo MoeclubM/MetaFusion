@@ -12,6 +12,7 @@ import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
 import { GroupAttributeInline, LocatorInline } from "@/components/catalog/TemplateAttributeSections";
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { PageShell } from "@/components/ui/PageShell";
+import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
@@ -51,13 +52,16 @@ export default function MediumDetailPage() {
   const [work, setWork] = useState<Entity | null>(null);
   const [tracks, setTracks] = useState<TrackRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  // 取数失败与"真的没有这个载体"分开：之前 catch 一律 setNotFound(true)，
+  // 把 429/5xx/断网都说成「未找到该载体。」，且页面既无重试也无出口。
+  const [loadError, setLoadError] = useState<LoadFailureKind | "">("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!mediumId) return;
     let cancelled = false;
     setLoading(true);
-    setNotFound(false);
+    setLoadError("");
     (async () => {
       try {
         const m = await fetchApi<Entity>(`/catalog/entities/${mediumId}`);
@@ -101,8 +105,8 @@ export default function MediumDetailPage() {
             })),
           })),
         );
-      } catch {
-        if (!cancelled) setNotFound(true);
+      } catch (e) {
+        if (!cancelled) setLoadError(classifyLoadFailure(e));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -110,7 +114,7 @@ export default function MediumDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [mediumId, locale]);
+  }, [mediumId, locale, reloadKey]);
 
   const mediumTitle = useMemo(() => (medium ? entityTitle(medium, locale) || medium.title || mediumId : ""), [medium, locale]);
   const formatCode = String(medium?.attributes?.format || "");
@@ -122,13 +126,18 @@ export default function MediumDetailPage() {
     return <div className="min-h-screen bg-background grid place-items-center font-mono text-xs text-gray-500">{t("medium.detail.loading")}</div>;
   }
 
-  if (notFound || !medium) {
+  if (!medium) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <Navbar />
-        <PageShell width="narrow" center className="py-20" contentClassName="font-mono text-xs text-gray-500">
-          {t("medium.detail.notFound")}
-        </PageShell>
+        {loadError === "not_found" || loadError === "invalid" ? (
+          <DetailNotFound title={t("medium.detail.notFound")} />
+        ) : (
+          <DetailUnavailable
+            kind={loadError === "rate_limited" ? "rate_limited" : "unavailable"}
+            onRetry={() => setReloadKey((n) => n + 1)}
+          />
+        )}
       </div>
     );
   }

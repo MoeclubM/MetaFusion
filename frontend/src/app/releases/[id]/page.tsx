@@ -18,8 +18,9 @@ import { PageShell } from "@/components/ui/PageShell";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
-import { isNotFoundError, localizeCatalogError } from "@/lib/catalogErrors";
+import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateAttributeSections";
+import { EntityLink } from "@/components/catalog/Fields";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import {
   ArrowLeft,
@@ -171,7 +172,12 @@ export default function ReleaseDetailPage() {
   // 收录引用的 release/medium/track 实体（批量响应的共享表）。
   const [occurrenceEntities, setOccurrenceEntities] = useState<Record<string, Entity>>({});
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  // 失败态按四种可解释的原因归类：404/invalid_kind 是"没有这个条目"，429/5xx/断网是
+  // "暂时取不到"。这里之前存的是原始 message，结果 invalid_kind、Failed to fetch 这类
+  // 裸码与浏览器英文错误被当正文吐出来（同页对 not_found 有特判，其余全部漏过）。
+  const [error, setError] = useState<LoadFailureKind | "">("");
+  // 重试入口：重跑同一次取数（不改变路由与筛选）。
+  const [reloadKey, setReloadKey] = useState(0);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [showBonus, setShowBonus] = useState(false);
   const [basket, setBasket] = useState<string[]>([]);
@@ -230,7 +236,7 @@ export default function ReleaseDetailPage() {
         setWorks(workMap);
         setActiveTab("all");
       } catch (e: any) {
-        if (!cancelled) setError(e?.message || "load_failed");
+        if (!cancelled) setError(classifyLoadFailure(e));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -238,7 +244,7 @@ export default function ReleaseDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [releaseId]);
+  }, [releaseId, reloadKey]);
 
   // 同 Work 其他版本：用主 subject work_id 查 release 列表，供版本横 rail 切换。
   useEffect(() => {
@@ -425,10 +431,13 @@ export default function ReleaseDetailPage() {
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <Navbar />
-        <PageShell width="narrow" center className="py-20" contentClassName="font-mono text-xs text-gray-500">
-          {/* 裸错误码 not_found 不是给用户看的文案，统一走页面自己的"未找到"。 */}
-          {!error || isNotFoundError(error) ? t("common.notFoundRelease") : localizeCatalogError(error, t)}
-        </PageShell>
+        {error === "not_found" || error === "invalid" || !error ? (
+          // 裸错误码（not_found / invalid_kind / invalid_id）不是给用户看的文案，
+          // 统一走页面自己的"未找到"，并给出与站内 404 页相同的出口。
+          <DetailNotFound title={t("common.notFoundRelease")} />
+        ) : (
+          <DetailUnavailable kind={error === "rate_limited" ? "rate_limited" : "unavailable"} onRetry={() => setReloadKey((n) => n + 1)} />
+        )}
       </div>
     );
   }
@@ -442,9 +451,12 @@ export default function ReleaseDetailPage() {
   const catalogNo = attrText(attrs.catalog_number);
   const barcode = attrText(attrs.barcode);
   const editionDate = attrText(attrs.edition_date);
+  // 发行主体是实体引用：字符串形态存的是 id，必须解析成标题——直出 UUID 在页面上
+  // 既是天书，又掩盖了"引用已失效"这件事（线上实测该 id 在 resolve 上已 404）。
   const publisher = attrs.publisher;
-  const publisherName =
-    typeof publisher === "string" ? publisher : localizedText((publisher as any)?.name, locale) || attrText((publisher as any)?.id);
+  const publisherId =
+    typeof publisher === "string" ? publisher : attrText((publisher as any)?.id);
+  const publisherName = typeof publisher === "string" ? "" : localizedText((publisher as any)?.name, locale);
   const attachments = attrList(attrs.attachments);
   const storeBonuses = attrList(attrs.store_bonuses);
   const events = attrList(attrs.events);
@@ -726,7 +738,16 @@ export default function ReleaseDetailPage() {
                 {language && <div className="flex gap-1"><dt>{t("release.detail.languageLabel")}</dt><dd className="text-text-body">{language}</dd></div>}
                 {channelLabel && <div className="flex gap-1"><dt>{t("release.detail.channelLabel")}</dt><dd className="text-text-body">{channelLabel}</dd></div>}
                 {editionDate && <div className="flex gap-1"><dt>{t("release.detail.dateLabel")}</dt><dd className="text-text-body">{editionDate}</dd></div>}
-                {publisherName && <div className="flex gap-1"><dt>{t("release.detail.publisherLabel")}</dt><dd className="text-text-body">{publisherName}</dd></div>}
+                {(publisherName || publisherId) && (
+                <div className="flex gap-1">
+                  <dt>{t("release.detail.publisherLabel")}</dt>
+                  <dd className="text-text-body">
+                    {publisherName || (
+                      <EntityLink id={publisherId} fallback={t("release.detail.publisherUnknown")} />
+                    )}
+                  </dd>
+                </div>
+              )}
               </dl>
               {(release.subjects || []).length > 1 && (
                 <div className="flex flex-wrap items-center gap-1.5 pt-1">

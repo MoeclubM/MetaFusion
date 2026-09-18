@@ -12,6 +12,7 @@ import { can, COMMUNITY_POST_MODERATE, COMMUNITY_TOPIC_PIN } from "@/lib/permiss
 import PostComposer from "@/components/community/PostComposer";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { PageShell } from "@/components/ui/PageShell";
+import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 const MarkdownRenderer = dynamic(() => import("@/components/MarkdownRenderer"), {
   loading: () => <div className="h-4 my-1.5 rounded bg-black/[0.04] dark:bg-white/[0.04] animate-pulse" />,
 });
@@ -61,8 +62,13 @@ export default function TopicDetailPage() {
 
  useEffect(() => { fetchBoards().then(setBoards).catch(()=>{}); }, []);
 
+ // 取数失败与"这个主题不存在"是两种状态：之前 catch 只 console.error → topic 保持 null →
+ // 429/5xx/断网都渲染成「未找到该讨论主题。」，既说错原因又没有重试出口。
+ const [loadError, setLoadError] = useState<LoadFailureKind | "">("");
+
  const loadTopic = async () => {
  setLoading(true);
+ setLoadError("");
  try {
  const data = await fetchApi<DiscussionTopic>(`/community/topics/${topicId}`);
  const raw = data as any;
@@ -89,7 +95,7 @@ export default function TopicDetailPage() {
  setTopic(data);
  setPosts(normalized);
  } catch (err) {
- console.error(err);
+ setLoadError(classifyLoadFailure(err));
  } finally {
  setLoading(false);
  }
@@ -199,9 +205,11 @@ export default function TopicDetailPage() {
  return (
  <div className="min-h-screen bg-background flex flex-col">
  <Navbar />
- <PageShell width="narrow" center className="py-20" contentClassName="text-sm text-gray-500">
- {t("common.notFoundTopic")}
- </PageShell>
+ {loadError === "not_found" || loadError === "invalid" ? (
+ <DetailNotFound title={t("common.notFoundTopic")} />
+ ) : (
+ <DetailUnavailable kind={loadError === "rate_limited" ? "rate_limited" : "unavailable"} onRetry={() => void loadTopic()} />
+ )}
  </div>
  );
  }

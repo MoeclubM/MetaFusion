@@ -23,6 +23,7 @@ import {
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAuth } from "@/lib/authContext";
 import { getKindName, resolveKindOptions, useDefinitions } from "@/lib/definitions";
+import { classifyLoadFailure, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { kinds as fallbackKinds } from "@/components/catalog/api";
 import DirectMessageModal from "@/components/community/DirectMessageModal";
 import { UserRoleBadge } from "@/lib/roles";
@@ -83,7 +84,7 @@ export default function UserDetailPage() {
   ] as const;
 
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
-  const [profileError, setProfileError] = useState("");
+  const [profileFailure, setProfileFailure] = useState<LoadFailureKind | "">("");
   const [contribStats, setContribStats] = useState<ContributionStats | null>(null);
   const [contribStatsError, setContribStatsError] = useState("");
   const [communityStats, setCommunityStats] = useState<CommunityUserStats | null>(null);
@@ -94,7 +95,9 @@ export default function UserDetailPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [listError, setListError] = useState("");
+  // 失败原因按可解释的分类保存，而不是原始 message：线上实测这一页把裸码 not_found
+  // 明文显示两次（横幅 + 列表），还把"服务正常返回 404"讲成"账号服务未响应"。
+  const [listError, setListError] = useState<LoadFailureKind | "">("");
   const [reloadKey, setReloadKey] = useState(0);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [favVisible, setFavVisible] = useState(true);
@@ -105,13 +108,14 @@ export default function UserDetailPage() {
   useEffect(() => {
     let alive = true;
     setProfile(null);
-    setProfileError("");
+    setProfileFailure("");
     fetchUserProfile(id)
       .then((p) => {
         if (alive) setProfile(p);
       })
       .catch((e: any) => {
-        if (alive) setProfileError(e?.message || "request_failed");
+        // 404 与"服务没响应"是两回事：前者说找不到这个人，后者才说暂时取不到。
+        if (alive) setProfileFailure(classifyLoadFailure(e));
       });
     return () => {
       alive = false;
@@ -168,7 +172,7 @@ export default function UserDetailPage() {
         if (!alive) return;
         setItems([]);
         setTotal(0);
-        setListError(e?.message || "request_failed");
+        setListError(classifyLoadFailure(e));
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -194,7 +198,7 @@ export default function UserDetailPage() {
         if (!alive) return;
         setItems([]);
         setTotal(0);
-        setListError(e?.message || "request_failed");
+        setListError(classifyLoadFailure(e));
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -231,7 +235,7 @@ export default function UserDetailPage() {
       );
     } catch (error: any) {
       // 取消失败不能静默：给出可读原因，收藏项保持原样（服务端没删就还在）。
-      setListError(error?.message || "request_failed");
+      setListError(classifyLoadFailure(error));
     }
   };
 
@@ -264,7 +268,7 @@ export default function UserDetailPage() {
     }
   };
 
-  const accountState: SourceState = profileError ? "error" : profile ? "ok" : "loading";
+  const accountState: SourceState = profileFailure ? "error" : profile ? "ok" : "loading";
   const catalogState: SourceState = contribStatsError ? "error" : contribStats ? "ok" : "loading";
   const communityState: SourceState = communityStatsError ? "error" : communityStats ? "ok" : "loading";
 
@@ -315,12 +319,15 @@ export default function UserDetailPage() {
               </div>
               {/* display_name / bio / avatar_url / created_at 都不在 auth.users 里：字段缺席就整块不渲染，
                   不做"空字符串"或 Invalid Date 的假展示。 */}
-              {profileError && (
+              {profileFailure && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                   <span>
-                    {t("users.profile.accountUnavailable")}
-                    <span className="font-mono text-[10px] text-gray-500 ml-1.5 break-all">{profileError}</span>
+                    {/* 服务明确回 404 时说"找不到这个人"，不再谎报"账号服务未响应"，
+                        也不把裸错误码当正文。 */}
+                    {profileFailure === "not_found" || profileFailure === "invalid"
+                      ? t("users.profile.notFound")
+                      : t("users.profile.accountUnavailable")}
                   </span>
                 </p>
               )}
@@ -448,7 +455,13 @@ export default function UserDetailPage() {
             <div className="p-8 text-center space-y-2">
               <AlertCircle className="w-5 h-5 text-amber-500 mx-auto" strokeWidth={1.6} />
               <div className="text-sm text-text-body font-medium">{t("users.profile.listFailed")}</div>
-              <div className="text-xs text-gray-500 font-mono break-all">{listError}</div>
+              <div className="text-xs text-gray-500">
+                {listError === "not_found" || listError === "invalid"
+                  ? t("users.profile.notFound")
+                  : listError === "rate_limited"
+                    ? t("catalog.rateLimited")
+                    : t("users.profile.listUnavailable")}
+              </div>
               <button
                 type="button"
                 onClick={() => setReloadKey((k) => k + 1)}

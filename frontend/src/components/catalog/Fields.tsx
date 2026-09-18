@@ -405,22 +405,31 @@ export function FieldValue({ field, value }: { field?: Field; value: any }) {
     </span>
   );
 }
-export function EntityLink({ id }: { id: string }) {
+export function EntityLink({ id, fallback }: { id: string; fallback?: string }) {
   const [e, setE] = useState<Entity>();
+  const [failed, setFailed] = useState(false);
   const { locale, t } = useI18n();
   useEffect(() => {
     let active = true;
+    setFailed(false);
     api<Entity>(`/catalog/entities/${id}/resolve`)
       .then((x) => {
         if (active) setE(x);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setFailed(true);
+      });
     return () => {
       active = false;
     };
   }, [id]);
+  // 解析不到（引用已失效、或该 id 不可见）时显示可读占位而不是裸 UUID，也不留成死链：
+  // 指向一个取不回来的实体的链接只会把用户带到下一个错误页。
+  if (failed && !e) {
+    return <span className="text-gray-400">{fallback || t("catalog.referenceUnknown")}</span>;
+  }
   return (
-    <Link href={`/catalog/${e?.id || id}`}>
+    <Link href={`/catalog/${e?.id || id}`} className="text-primary hover:underline">
       {e ? title(e, locale) : t("catalog.entityReference")}
     </Link>
   );

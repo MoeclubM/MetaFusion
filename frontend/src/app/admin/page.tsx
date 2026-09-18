@@ -212,10 +212,18 @@ function AdminInner() {
 
   const loadReviewList = () => {
     // 50 是服务端上限；审核台只呈现这一页，总数另由概览卡片给出，不在这里编造分页。
+    // 取数失败必须与"没有待审条目"分开：管理员看到空列表会以为队列已清空。
+    setReviewListFailed(false);
     fetch(`/api/catalog/entities?status=${reviewStatus}&limit=50`, { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((d) => setPendingItems(d.items || []))
-      .catch(() => setPendingItems([]));
+      .catch(() => {
+        setPendingItems([]);
+        setReviewListFailed(true);
+      });
   };
 
   const loadEntities = () => {
@@ -226,10 +234,17 @@ function AdminInner() {
     if (entitiesQ.trim()) params.set("q", entitiesQ.trim());
     params.set("limit", "50");
 
+    setEntitiesListFailed(false);
     fetch(`/api/catalog/entities?${params.toString()}`, { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : { items: [] }))
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
       .then((d) => setEntitiesList(d.items || []))
-      .catch(() => setEntitiesList([]))
+      .catch(() => {
+        setEntitiesList([]);
+        setEntitiesListFailed(true);
+      })
       .finally(() => setEntitiesLoading(false));
   };
 
@@ -764,6 +779,14 @@ function AdminInner() {
                 <div className="py-20 text-center text-xs text-text-faint font-mono flex items-center justify-center gap-2">
                   <RefreshCw className="w-4 h-4 animate-spin text-primary" />
                   <span>{t("catalog.loading")}</span>
+                </div>
+              ) : entitiesListFailed ? (
+                // 管理员最容易把"取数失败"读成"没有待审条目"：这一格必须说清是失败。
+                <div role="alert" className="p-8 rounded-xl border border-amber-500/30 bg-amber-500/5 text-center text-xs space-y-2">
+                  <p className="text-amber-700 dark:text-amber-300">{t("catalog.listFailed")}</p>
+                  <button type="button" onClick={() => loadEntities()} className="font-mono text-primary hover:underline cursor-pointer">
+                    {t("catalog.retry")}
+                  </button>
                 </div>
               ) : entitiesList.length === 0 ? (
                 <div className="p-8 rounded-xl border border-dashed border-line text-center text-xs text-text-faint font-mono">

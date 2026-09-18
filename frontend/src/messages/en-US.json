@@ -2418,5 +2418,7 @@
   "catalog.history.rollbackNoOp": "The document of version {target} is identical to the currently published version, so no new version was created; the published version is still {id}.",
   "catalog.history.rollbackNote": "Edit note recorded by the server: {note}",
   "catalog.history.rollbackConflict": "The currently published version was changed by someone else, so the rollback did not run. Reload the version list and try again.",
-  "catalog.history.rollbackBlocked": "The impact check failed, so the rollback did not run:"
+  "catalog.history.rollbackBlocked": "The impact check failed, so the rollback did not run:",
+  "users.profile.listUnavailable": "The list is temporarily unavailable — please retry.",
+  "users.profile.notFound": "User not found (the account service answered 404); the catalog and community data below are still shown."
 }

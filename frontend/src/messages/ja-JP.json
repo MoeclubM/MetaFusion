@@ -2418,5 +2418,7 @@
   "catalog.history.rollbackNoOp": "バージョン {target} のドキュメントは現在の公開バージョンと完全に同一のため、新しいバージョンは作成されませんでした。現在の公開バージョンは {id} のままです。",
   "catalog.history.rollbackNote": "サーバーが記録した編集メモ：{note}",
   "catalog.history.rollbackConflict": "現在の公開バージョンが他の利用者に変更されたため、ロールバックは実行されませんでした。バージョン一覧を再読み込みしてから再試行してください。",
-  "catalog.history.rollbackBlocked": "影響範囲の事前チェックに通らなかったため、ロールバックは実行されませんでした："
+  "catalog.history.rollbackBlocked": "影響範囲の事前チェックに通らなかったため、ロールバックは実行されませんでした：",
+  "users.profile.listUnavailable": "一覧を一時的に取得できません。しばらくしてから再試行してください。",
+  "users.profile.notFound": "ユーザーが見つかりません（アカウントサービスが 404 を返しました）。以下のカタログ・コミュニティ情報はそのまま表示します。"
 }

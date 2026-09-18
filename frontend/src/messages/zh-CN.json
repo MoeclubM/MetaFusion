@@ -2418,5 +2418,7 @@
   "catalog.history.rollbackNoOp": "版本 {target} 的文档与当前已发布版本完全一致，服务端未新建版本；当前已发布版本仍为 {id}。",
   "catalog.history.rollbackNote": "服务端记录的编辑说明：{note}",
   "catalog.history.rollbackConflict": "当前已发布版本已被他人改动，本次回滚未执行；请重新加载版本列表后重试。",
-  "catalog.history.rollbackBlocked": "影响面预检未通过，本次回滚未执行："
+  "catalog.history.rollbackBlocked": "影响面预检未通过，本次回滚未执行：",
+  "users.profile.listUnavailable": "列表暂时取不到，请稍后重试。",
+  "users.profile.notFound": "找不到该用户（账号服务返回 404）；下方目录贡献与互动数据仍照常展示。"
 }
