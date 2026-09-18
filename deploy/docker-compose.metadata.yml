@@ -56,6 +56,8 @@ services:
       DB_USER: ${DB_USER:-metafusion}
       DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
       DB_NAME: ${DB_NAME:-metafusion_db}
+      # 与主编排同口径：显式化 SSL 模式（默认 disable，跨网部署时改 require）。
+      DB_SSLMODE: ${DB_SSLMODE:-disable}
     depends_on:
       postgres: {condition: service_healthy}
     healthcheck:

@@ -134,6 +134,10 @@ services:
       - DB_USER=${DB_USER:-metafusion}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
       - DB_NAME=${DB_NAME:-metafusion_db}
+      # 库与各服务同在 metafusion-net（PostgreSQL 未开 TLS）：显式写 disable 与原行为一致，
+      # 库一旦搬出宿主网（异地副本/迁移）就要在 .env 改成 require，Postgres 侧同时开 TLS；
+      # 不注入这个键时默认值也是 disable，但没人能从编排看出这一层。
+      - DB_SSLMODE=${DB_SSLMODE:-disable}
       # 检索走 PostgreSQL（见 docs/architecture/cutover-runbook.md 第 4 节），Redis 只常驻未用，
       # opensearch 默认不启动（--profile search 才拉起）：没有任何代码读缓存/检索地址，
       # 因此这里不声明这类变量。
@@ -176,6 +180,8 @@ services:
       - DB_USER=${DB_USER:-metafusion}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
       - DB_NAME=${DB_NAME:-metafusion_db}
+      # SSL 模式说明见 backend 段。账号库最敏感，跨网部署第一个要改就是这里。
+      - DB_SSLMODE=${DB_SSLMODE:-disable}
       - AUTH_JWT_PRIVATE_KEY=${AUTH_JWT_PRIVATE_KEY:-}
       - AUTH_JWT_ISSUER=${AUTH_JWT_ISSUER:-https://findverse.cc/api}
       - AUTH_JWT_AUDIENCE=${AUTH_JWT_AUDIENCE:-metafusion}
@@ -213,6 +219,7 @@ services:
       - DB_USER=${DB_USER:-metafusion}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
       - DB_NAME=${DB_NAME:-metafusion_db}
+      - DB_SSLMODE=${DB_SSLMODE:-disable}   # SSL 模式说明见 backend 段
       # auth 是唯一签发方，JWKS 指向账号服务（不再回指目录服务）。
       - COMMUNITY_JWKS_URL=http://auth:8081/api/oidc/jwks
       # 存量不透明会话令牌的兜底解析：身份问题只问账号服务（不查目录服务）。
@@ -282,7 +289,15 @@ services:
       - DB_USER=${DB_USER:-metafusion}
       - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
       - DB_NAME=${DB_NAME:-metafusion_db}
+      - DB_SSLMODE=${DB_SSLMODE:-disable}   # SSL 模式说明见 backend 段
       - STORAGE_ROOT=/app/storage-data
+      # 上传与回读校验的上限：代码默认 0 = 不限制，编排必须显式收口，否则只剩网关
+      # client_max_body_size 的 1 GiB 兜底（2026-09 审计 ops#30 / storage S24）。
+      # 取值与网关对齐：上传上限 = 网关的 1024m；回读校验是 complete 阶段整份读回，
+      # 超时就按 600s（= 网关 storage 段的 proxy_read_timeout）封顶，超限显式失败。
+      - STORAGE_MAX_UPLOAD_MB=${STORAGE_MAX_UPLOAD_MB:-1024}
+      - STORAGE_VERIFY_MAX_MB=${STORAGE_VERIFY_MAX_MB:-1024}
+      - STORAGE_VERIFY_TIMEOUT_SECONDS=${STORAGE_VERIFY_TIMEOUT_SECONDS:-600}
       - STORAGE_S3_ENDPOINT=http://rustfs:9000
       - STORAGE_S3_TLS=false
       # 对象存储凭据（RustFS 的 root 用户/口令）的唯一来源；服务侧只认 S3 协议，与具体实现无关。
