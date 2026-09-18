@@ -59,6 +59,7 @@
 - **不做转码（明确取舍）**：不生成 HLS 切片、预览音频、波形图或缩略图；存储服务只收原始文件、做内容寻址与受控下载。
 
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
+- **每服务独立库用户（最小权限）**：四个服务共用同一个库，但各有自己的角色（`mf_catalog` / `mf_auth` / `mf_community` / `mf_storage`），只对本域 schema 有权限，越权读写由库直接拒绝。授权与校验脚本是 `deploy/sql/roles-least-privilege.sql` 与 `deploy/sql/verify-role-isolation.sql`；口径、落地与回滚见 [数据层角色与最小权限](docs/architecture/database-roles.md)。
 - **独立迁移引擎 (`mf-migrate`)**：自研 Go 原生数据库迁移工具，集成 PostgreSQL Advisory Lock 机制，彻底杜绝多副本部署时的并发迁移竞争。
 - **无缝冷热启动**：支持 `up`、`down`、`status`、`force` 与 `seed`（定义/货架/外部库种子的只增不改增量合并）命令行管理，镜像内置嵌入式 SQL 脚本，部署前后自动完成无损版本升降级。
 - **单端口边缘网关**：内置优化配置的 Nginx 边缘网关，对外仅需暴露单端口（默认 `10100`），无缝兼容宿主机外部反向代理（Nginx / Caddy / Cloudflare）接管 HTTPS。
@@ -151,6 +152,10 @@ cp .env.example .env
 # 编辑 .env 配置生产级随机密钥 (DB_PASSWORD, RUSTFS_ROOT_PASSWORD, AUTH_JWT_PRIVATE_KEY)；
 # AUTH_JWT_PRIVATE_KEY 只给账号服务签发用；目录侧用 AUTH_JWT_PUBLIC_KEY 或 AUTH_JWKS_URL 验签
 # （两者都没配时才回退私钥兜底，启动会告警）
+#
+# 数据层隔离：按 .env.example 的说明填五个每服务 DSN（CATALOG_/AUTH_/COMMUNITY_/STORAGE_/
+# COMMUNITY_MIGRATE_DATABASE_URL），留空则四个服务仍共用 DB_USER（旧行为）。角色由
+# deploy/sql/roles-least-privilege.sql 建立，校验用 deploy/sql/verify-role-isolation.sql。
 ```
 
 ### 3. 一键启动部署

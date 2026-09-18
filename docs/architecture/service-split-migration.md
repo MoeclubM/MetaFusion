@@ -73,6 +73,10 @@
 - 结构来源：目录走 `backend/migrations/000001_catalog_core.up.sql` + `mf-migrate`；互动与存储各自把 DDL 放进仓库内（社区 `migrations/000001_init.up.sql`、存储 `internal/store/migrations/000001_init.up.sql`，均 `go:embed`），启动执行同一份**幂等**基线并记账到 `<schema>.schema_migrations`。
   约定：迁移文件按版本号命名、账本表在各自 schema 内；迁移期取事务级 advisory lock 的键位是 **catalog 740202 / auth 740203 / storage 740204 / community 740205**（2026-09-16 community 已补事务级锁并重查账本空转；新增服务必须另取键位并在本文登记）。
   “启动只校验、迁移由 owner 单独跑”尚未实现（受限角色下 `CREATE TABLE IF NOT EXISTS` 会要 schema 的 CREATE 权限），见 [审计文档](./decoupling-audit-2026-09.md) §4.3。
+- **库侧权限边界（2026-09 落地）**：四个服务各有自己的库角色（`mf_catalog` / `mf_auth` / `mf_community` / `mf_storage`），
+  只对本域 schema 有权限，越权读写由库直接拒绝；仅有的跨域例外是共享审计表 `audit.audit_log`
+  （四个服务只追加）与切流的 community-migrate 工具。授权脚本 `deploy/sql/roles-least-privilege.sql`、
+  断言 `deploy/sql/verify-role-isolation.sql`、口径与回滚见 [数据层角色与最小权限](./database-roles.md)。
 - 存储系统**不保存**元数据结构（不复制作品/专辑/曲目表）；元数据系统**不保存**对象存储物理路径。
 - 绑定的"用途"用 `binding_role` 表达（`track_audio` / `disc_image` / `scans` / `video` …），
   "区间/位置"仍留在元数据侧的 `locator`（TrackContent），两者不重复：文件说"我是谁的什么用途"，目录说"收录在第几轨/什么时间码"。
