@@ -49,11 +49,13 @@ export function LanguagePicker({
 
   const chosen = selected || [];
   const results = useMemo(() => (open ? searchLanguages(query) : []), [open, query]);
-  // 已添加的排到列表尾部：一屏之内先看到能选的那些（结果集不变，只是顺序）。
   const ordered = useMemo(() => {
     const isAdded = (e: LanguageEntry) => chosen.some((c) => sameLanguage(c, e.code));
+    // 浏览（空查询）时把已添加的排到尾部：一屏之内先看到能选的那些。
+    // 有查询时保持相关度排序——否则「搜 ja 时日文掉到列表末尾」，等于搜索没帮上忙。
+    if (query.trim()) return results;
     return [...results.filter((e) => !isAdded(e)), ...results.filter((e) => isAdded(e))];
-  }, [results, chosen]);
+  }, [results, chosen, query]);
 
   /** 该语种在当前界面语言下的名字（用于列表第二行），界面四语之外回落英文名。 */
   const localizedName = (entry: LanguageEntry): string => {
