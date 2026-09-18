@@ -107,6 +107,10 @@ KEYS = {
     "COMMUNITY_JWKS_URL": {"readers": [("community", "internal/config/config.go")], "default": "http://auth:8081/api/oidc/jwks", "safe": True},
     "AUTH_URL": {"readers": [("catalog", "cmd/server/main.go"), ("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "空 = 只接受 JWT；PAT（mfp_ 前缀）一律 503", "safe": True},
     "CATALOG_URL": {"readers": [("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "http://backend:8080", "safe": True},
+    # 四个服务共用的一份实现见各仓 internal/nettrust（目录在 backend/internal/nettrust）。
+    # 它决定"谁能通过 X-Forwarded-For 声明调用者 IP"：填错（尤其是 0.0.0.0/0）等于限流可被绕过，
+    # 所以登记它、让读者路径受 C 检查约束；默认值本身是安全的（回环 + RFC1918 私网）。
+    "TRUSTED_PROXIES": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "internal/config/config.go"), ("community", "internal/config/config.go"), ("storage", "internal/config/config.go")], "default": "空 = 回环 + RFC1918 私网（网关容器所在网段）；none = 无可信代理", "safe": True, "note": "应用层 ClientIP() 的信任范围：四个服务此前都是 SetTrustedProxies(nil)，限流与审计 actor_ip 退化成网关容器 IP"},
     "COMMUNITY_CATALOG_TIMEOUT_MS": {"readers": [("community", "internal/config/config.go")], "default": "5000ms", "safe": True},
     # ── 存储服务（../metafusion-storage）─────────────────────────────────
     "STORAGE_ROOT": {"readers": [("storage", "internal/config/config.go")], "default": "./storage-data", "safe": True},

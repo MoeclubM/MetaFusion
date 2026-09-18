@@ -20,6 +20,7 @@ import (
 	"github.com/metafusion/metafusion-app/internal/audit"
 	"github.com/metafusion/metafusion-app/internal/capabilities"
 	"github.com/metafusion/metafusion-app/internal/catalog"
+	"github.com/metafusion/metafusion-app/internal/nettrust"
 )
 
 func main() {
@@ -101,7 +102,15 @@ func main() {
 
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
-	r.SetTrustedProxies(nil)
+	// 真实客户端 IP：只信任显式声明的来源（TRUSTED_PROXIES，默认回环 + RFC1918 私网 = 网关容器所在网段）。
+	// 此前这里是 SetTrustedProxies(nil)（谁都不是代理），于是 XFF 被整段忽略、ClientIP() 恒等于网关
+	// 容器 IP：routeLimiter 的桶键退化成"全站共享一个桶"（线上实测第 11 次 /api/catalog/compare 即 429），
+	// 审计行的 actor_ip 也全是网关地址。配置非法直接拒绝启动——静默退化回共享桶在功能上看不出来。
+	trustedProxies, perr := nettrust.Apply(r, os.Getenv(nettrust.EnvVar))
+	if perr != nil {
+		log.Fatalf("trusted proxies configuration invalid: %v", perr)
+	}
+	log.Printf("trusted proxies for X-Forwarded-For: %s", trustedProxies)
 	r.Use(func(c *gin.Context) {
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
