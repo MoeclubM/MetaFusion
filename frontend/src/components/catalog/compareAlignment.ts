@@ -40,7 +40,8 @@ export interface CompareMediumLike {
 }
 
 export interface CompareItemLike {
-  media?: CompareMediumLike[];
+  // 结构子树：发行/载体为 [{medium, tracks}]，其余层级为空（entity-only 对比只比属性表）。
+  children?: CompareMediumLike[];
 }
 
 export interface CompareExprEntityLike {
@@ -291,7 +292,7 @@ function sequenceOf(
   const locating: string[] = [];
   const other: string[] = [];
   let unknown = false;
-  for (const m of item.media || []) {
+  for (const m of item.children || []) {
     for (const tr of orderedTracks(m.tracks || [])) {
       for (const c of tr.contents || []) {
         const id = c.expression_id;
@@ -311,11 +312,11 @@ function sequenceOf(
 function structureOf(item: CompareItemLike): string {
   const formats: string[] = [];
   let tracks = 0;
-  for (const m of item.media || []) {
+  for (const m of item.children || []) {
     formats.push(String(m.medium?.attributes?.format || "").trim());
     tracks += (m.tracks || []).length;
   }
-  return `${formats.sort().join("+")}/${(item.media || []).length}M/${tracks}T`;
+  return `${formats.sort().join("+")}/${(item.children || []).length}M/${tracks}T`;
 }
 
 // 目录完整性：空内容集合不能当成"已确认相同"。只有载体结构的发行（曲目未录入）
@@ -327,7 +328,7 @@ function completenessOf(item: CompareItemLike): CompareItemCompleteness {
   let mediaWithoutTracks = 0;
   let tracksWithoutContents = 0;
   let totalTracks = 0;
-  const media = item.media || [];
+  const media = item.children || [];
   // 载体内的父轨集合：任一被别的轨当作 parent 的轨即容器（导航节点）。
   const containerIds = new Set<string>();
   for (const m of media) {

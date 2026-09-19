@@ -15,6 +15,8 @@ import {
 } from "@/lib/compareBasket";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import { RevisionsCompare } from "./RevisionsCompare";
+import { canonicalDetailPath } from "@/lib/entityRoutes";
+import { ENTITY_KINDS } from "@/lib/kinds.generated";
 import {
   ArrowRightLeft,
   Search,
@@ -33,7 +35,7 @@ import {
 export { COMPARE_MIN_SLOTS, COMPARE_MAX_SLOTS };
 
 export function Compare({ ids, revisions }: { ids: string; revisions?: string }) {
-  const { t, locale } = useI18n();
+  const { t, tr, locale } = useI18n();
   // 定义只有这一份来源：CatalogProvider 只留模块状态与实例初始化状态，从不持有定义，
   // 以前这里取的是 Provider 的 definition，恒为 undefined，字段名与枚举值一律裸露。
   const { definitions: dynamicDefs } = useDefinitions();
@@ -54,8 +56,10 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
   const [items, setItems] = useState<any[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [recentReleases, setRecentReleases] = useState<Entity[]>([]);
+  const [recentEntities, setRecentEntities] = useState<Entity[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  // 选择器层级：all 不带 kind 参数（八层级混排），其余只取该层级。
+  const [pickerKind, setPickerKind] = useState<string>("all");
   const [searchResults, setSearchResults] = useState<Entity[]>([]);
   const [searching, setSearching] = useState(false);
   const [customIdInput, setCustomIdInput] = useState("");
@@ -125,10 +129,11 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
   };
 
   useEffect(() => {
-    api<{ items: Entity[] }>("/catalog/entities?kind=release&limit=12")
-      .then((r) => setRecentReleases(Array.isArray(r.items) ? r.items : []))
+    const kindParam = pickerKind === "all" ? "" : `kind=${encodeURIComponent(pickerKind)}&`;
+    api<{ items: Entity[] }>(`/catalog/entities?${kindParam}limit=12`)
+      .then((r) => setRecentEntities(Array.isArray(r.items) ? r.items : []))
       .catch(() => {});
-  }, []);
+  }, [pickerKind]);
 
   useEffect(() => {
     const q = searchQuery.trim();
@@ -138,13 +143,14 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
     }
     const timer = setTimeout(() => {
       setSearching(true);
-      api<{ items: Entity[] }>(`/catalog/entities?kind=release&q=${encodeURIComponent(q)}&limit=8`)
+      const kindParam = pickerKind === "all" ? "" : `kind=${encodeURIComponent(pickerKind)}&`;
+      api<{ items: Entity[] }>(`/catalog/entities?${kindParam}q=${encodeURIComponent(q)}&limit=8`)
         .then((r) => setSearchResults(Array.isArray(r.items) ? r.items : []))
         .catch((e) => setError(e.message))
         .finally(() => setSearching(false));
     }, 250);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, pickerKind]);
 
   // 同一 ids 只取一次：无论 effect 因何重入（依赖抖动、跨标签页写回），
   // ids 不变就不重发——线上曾出现同一 compare URL 每秒多次 429 的刷击。
@@ -179,7 +185,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
 
   const comparableFields = useMemo(() => {
     const defs = dynamicDefs;
-    const allKeys = Array.from(new Set(items.flatMap((x) => Object.keys(x.release?.attributes || {}))));
+    const allKeys = Array.from(new Set(items.flatMap((x) => Object.keys(x.entity?.attributes || {}))));
     return allKeys.filter((k) => {
       const field = (defs as any)?.fields?.[k];
       if (!field) return true;
@@ -193,7 +199,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
     return items.map(
       (x) =>
         new Set<string>(
-          x.media.flatMap((m: any) =>
+          (x.children || []).flatMap((m: any) =>
             m.tracks.flatMap((tr: any) =>
               (tr.contents || []).map((c: any) => c.expression_id)
             )
@@ -207,7 +213,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
   const expressionIds = useMemo(() => {
     const ids = new Set<string>();
     for (const x of items) {
-      for (const m of x.media || []) {
+      for (const m of x.children || []) {
         for (const tr of m.tracks || []) {
           for (const c of tr.contents || []) {
             if (c.expression_id) ids.add(c.expression_id);
@@ -267,15 +273,32 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
     return String(value);
   };
 
-  const getReleaseSummary = (id: string) => {
-    const matched = items.find((x) => x.release?.id === id) || recentReleases.find((x) => x.id === id);
-    const releaseObj = matched?.release || matched;
-    const releaseTitle = releaseObj ? title(releaseObj, locale) : `${id.slice(0, 8)}...`;
-    const coverUrl = releaseObj?.pictures?.[0]?.url || "";
-    const catalogNo = releaseObj?.attributes?.catalog_number || "";
-    const format = releaseObj?.attributes?.format || "";
-    return { title: releaseTitle, coverUrl, catalogNo, format, raw: releaseObj };
+  const kindName = (kind: string) => (kind ? tr(`catalog.kind.${kind}`, kind) : "");
+
+  // 槽位/卡片摘要：标题+封面通用，副标题按层级取（发行：品番/格式；载体：格式；其余：层级名）。
+  const getEntitySummary = (id: string) => {
+    const matched = items.find((x) => x.entity?.id === id) || recentEntities.find((x) => x.id === id);
+    const obj = matched?.entity || matched;
+    const summaryTitle = obj ? title(obj, locale) : `${id.slice(0, 8)}...`;
+    const coverUrl = obj?.pictures?.[0]?.url || "";
+    const kind = obj?.kind || "";
+    const catalogNo = obj?.attributes?.catalog_number || "";
+    const format = obj?.attributes?.format || "";
+    const subtitle =
+      kind === "release"
+        ? [catalogNo, format].filter(Boolean).map(String).join(" · ") || kindName(kind)
+        : kind === "medium"
+          ? (format ? String(format) : kindName(kind))
+          : kindName(kind);
+    return { title: summaryTitle, coverUrl, kind, catalogNo, format, subtitle, raw: obj };
   };
+
+  // 内容对齐只对有结构子树的槽位有意义（发行/载体）：纯属性对比时整段不渲染，
+  // 不拿"没有可对齐内容"去吓唬只比两个作品的人。
+  const hasStructure = useMemo(
+    () => items.some((x) => Array.isArray(x.children) && x.children.length > 0),
+    [items],
+  );
 
   return (
     <div className="space-y-6">
@@ -372,7 +395,8 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
           {slotIndices.map((index) => {
             const id = selectedIds[index];
             if (id) {
-              const info = getReleaseSummary(id);
+              const info = getEntitySummary(id);
+              const href = canonicalDetailPath(info.raw?.kind, id) ?? `/catalog/${id}`;
               return (
                 <div
                   key={id}
@@ -404,26 +428,24 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
 
                   <div className="min-w-0">
                     <Link
-                      href={`/releases/${id}`}
+                      href={href}
                       className="text-xs font-semibold text-foreground hover:text-primary line-clamp-2 leading-snug transition-colors duration-fast ease-soft"
                       title={info.title}
                     >
                       {info.title}
                     </Link>
                     <div className="flex items-center gap-1.5 mt-1.5 text-[11px] text-muted-foreground">
-                      {info.format ? (
+                      {info.kind === "release" && info.format ? (
                         <span className="px-1.5 py-0.2 rounded bg-muted/60 font-medium truncate">
                           {String(info.format)}
                         </span>
                       ) : null}
-                      {info.catalogNo ? (
+                      {info.kind === "release" && info.catalogNo ? (
                         <span className="truncate font-mono">
                           {String(info.catalogNo)}
                         </span>
                       ) : null}
-                      {!info.format && !info.catalogNo && (
-                        <span className="font-mono">{id.slice(0, 8)}</span>
-                      )}
+                      <span className="truncate text-muted-foreground/80">{info.subtitle || id.slice(0, 8)}</span>
                     </div>
                   </div>
                 </div>
@@ -466,8 +488,29 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
         <section className="bg-card border border-border rounded-2xl p-5 shadow-sm">
           <h2 className="text-base sm:text-lg font-bold text-foreground mb-4 flex items-center gap-2">
             <Plus className="w-4 h-4 text-primary" />
-            {t("catalog.compareSelectRelease")}
+            {t("catalog.compareSelectEntity")}
           </h2>
+
+          {/* 选择器层级页签：默认混排，选定后搜索与快速加入只取该层级。 */}
+          <div className="flex flex-wrap gap-1.5 mb-4" role="tablist" aria-label={t("catalog.kindFilter")}>
+            {["all", ...ENTITY_KINDS].map((k) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={pickerKind === k}
+                onClick={() => setPickerKind(k)}
+                className={
+                  "px-2.5 py-1 rounded-md text-[11px] font-mono border transition-colors duration-fast ease-soft cursor-pointer " +
+                  (pickerKind === k
+                    ? "bg-primary/15 text-primary border-primary/30 font-semibold"
+                    : "text-text-body border-line-subtle hover:bg-black/[0.04] dark:hover:bg-surfaceHover")
+                }
+              >
+                {k === "all" ? t("catalog.kind.all") : kindName(k)}
+              </button>
+            ))}
+          </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <div className="relative flex-1">
@@ -540,8 +583,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                   const isSelected = selectedIds.includes(r.id!);
                   const releaseTitle = title(r, locale);
                   const coverUrl = r.pictures?.[0]?.url;
-                  const catNo = r.attributes?.catalog_number;
-                  const fmt = r.attributes?.format;
+                  const subtitle = getEntitySummary(r.id!).subtitle;
                   return (
                     <div
                       key={r.id}
@@ -574,8 +616,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                             {releaseTitle}
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-                            {catNo ? `${String(catNo)} · ` : ""}
-                            {fmt ? String(fmt) : t("catalog.kind.release")}
+                            {subtitle}
                           </div>
                         </div>
                       </div>
@@ -603,7 +644,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
             </div>
           )}
 
-          {selectedIds.length < maxSlots && searchResults.length === 0 && recentReleases.length > 0 && (
+          {selectedIds.length < maxSlots && searchResults.length === 0 && recentEntities.length > 0 && (
             <div className="mt-5 pt-4 border-t border-border">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <span className="text-xs font-bold text-foreground">
@@ -614,12 +655,11 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {recentReleases.slice(0, 8).map((r) => {
+                {recentEntities.slice(0, 8).map((r) => {
                   const isSelected = selectedIds.includes(r.id!);
                   const releaseTitle = title(r, locale);
                   const coverUrl = r.pictures?.[0]?.url;
-                  const catNo = r.attributes?.catalog_number;
-                  const fmt = r.attributes?.format;
+                  const subtitle = getEntitySummary(r.id!).subtitle;
                   return (
                     <div
                       key={r.id}
@@ -652,8 +692,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                             {releaseTitle}
                           </div>
                           <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-                            {catNo ? `${String(catNo)} · ` : ""}
-                            {fmt ? String(fmt) : t("catalog.kind.release")}
+                            {subtitle}
                           </div>
                         </div>
                       </div>
@@ -691,7 +730,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
         </div>
       )}
 
-      {items.length >= COMPARE_MIN_SLOTS && !loading && (
+      {items.length >= COMPARE_MIN_SLOTS && !loading && hasStructure && (
         <section className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm mt-8 space-y-4">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
@@ -708,7 +747,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
               </h3>
               <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
                 {alignment.incomplete.map((i) => (
-                  <li key={`incomplete-top-${i}`}>{title(items[i]?.release, locale)}</li>
+                  <li key={`incomplete-top-${i}`}>{title(items[i]?.entity, locale)}</li>
                 ))}
               </ul>
             </div>
@@ -749,7 +788,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                         </span>
                         <span className="text-muted-foreground">
                           {t("catalog.compareIncludedIn")}{" "}
-                          {inSet.map((i) => title(items[i]?.release, locale)).join("、")}
+                          {inSet.map((i) => title(items[i]?.entity, locale)).join("、")}
                         </span>
                       </li>
                     ))}
@@ -772,7 +811,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                             <span className="text-muted-foreground">
                               ({items
                                 .filter((_, i) => alignment.perExpr.get(id)?.some((o) => o.releaseIndex === i))
-                                .map((x) => title(x.release, locale))
+                                .map((x) => title(x.entity, locale))
                                 .join("、")})
                             </span>
                           </span>
@@ -790,7 +829,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                   <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
                     {alignment.carrierOnly.map(([i, j]) => (
                       <li key={`${i}-${j}`}>
-                        {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
+                        {title(items[i]?.entity, locale)} × {title(items[j]?.release, locale)}
                       </li>
                     ))}
                   </ul>
@@ -806,7 +845,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                   <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
                     {alignment.rangeDiffer.map(([i, j]) => (
                       <li key={`${i}-${j}`}>
-                        {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
+                        {title(items[i]?.entity, locale)} × {title(items[j]?.release, locale)}
                       </li>
                     ))}
                   </ul>
@@ -822,7 +861,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                   <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
                     {alignment.locatingDiffer.map(([i, j]) => (
                       <li key={`${i}-${j}`}>
-                        {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
+                        {title(items[i]?.entity, locale)} × {title(items[j]?.release, locale)}
                       </li>
                     ))}
                   </ul>
@@ -837,7 +876,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                   <ul className="space-y-1 m-0 p-0 list-none text-xs text-muted-foreground">
                     {alignment.attributeDiffer.map(([i, j]) => (
                       <li key={`${i}-${j}`}>
-                        {title(items[i]?.release, locale)} × {title(items[j]?.release, locale)}
+                        {title(items[i]?.entity, locale)} × {title(items[j]?.release, locale)}
                       </li>
                     ))}
                   </ul>
@@ -884,13 +923,15 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                     {t("catalog.attributes")}
                   </th>
                   {items.map((x) => {
-                    const releaseTitle = title(x.release, locale);
-                    const coverUrl = x.release.pictures?.[0]?.url;
-                    const catNo = x.release.attributes?.catalog_number;
-                    const fmt = x.release.attributes?.format;
+                    const summary = getEntitySummary(x.entity.id);
+                    const releaseTitle = summary.title;
+                    const coverUrl = summary.coverUrl;
+                    const catNo = summary.kind === "release" ? summary.catalogNo : "";
+                    const fmt = summary.kind === "release" || summary.kind === "medium" ? summary.format : "";
+                    const href = canonicalDetailPath(summary.kind, x.entity.id) ?? `/catalog/${x.entity.id}`;
                     return (
                       <th
-                        key={x.release.id}
+                        key={x.entity.id}
                         className="p-4 min-w-[240px] max-w-[320px] align-top border-r border-border last:border-r-0 font-normal"
                       >
                         <div className="flex flex-col gap-3">
@@ -907,7 +948,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
 
                           <div className="flex items-start justify-between gap-2">
                             <Link
-                              href={`/releases/${x.release.id}`}
+                              href={href}
                               className="text-sm font-bold text-foreground hover:text-primary transition-colors duration-fast ease-soft line-clamp-2 leading-snug"
                               title={releaseTitle}
                             >
@@ -915,7 +956,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                             </Link>
                             <button
                               type="button"
-                              onClick={() => removeId(x.release.id)}
+                              onClick={() => removeId(x.entity.id)}
                               aria-label={t("catalog.compareRemove")}
                               className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-transparent hover:border-destructive/20 transition-all shrink-0 cursor-pointer"
                               title={t("catalog.compareRemove")}
@@ -946,20 +987,23 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
               <tbody className="divide-y divide-border">
                 <tr className="hover:bg-muted/20 transition-colors duration-fast ease-soft">
                   <th className="p-4 font-medium text-xs text-muted-foreground border-r border-border align-top bg-muted/10">
-                    {t("catalog.compareReleaseTitle")}
+                    {t("catalog.compareEntityTitle")}
                   </th>
-                  {items.map((x) => (
-                    <td key={x.release.id} className="p-4 text-xs text-foreground border-r border-border last:border-r-0 align-top">
-                      <Link href={`/releases/${x.release.id}`} className="hover:text-primary hover:underline">
-                        {title(x.release, locale)}
-                      </Link>
-                    </td>
-                  ))}
+                  {items.map((x) => {
+                    const href = canonicalDetailPath(x.entity?.kind, x.entity?.id) ?? `/catalog/${x.entity?.id}`;
+                    return (
+                      <td key={x.entity.id} className="p-4 text-xs text-foreground border-r border-border last:border-r-0 align-top">
+                        <Link href={href} className="hover:text-primary hover:underline">
+                          {title(x.entity, locale)}
+                        </Link>
+                      </td>
+                    );
+                  })}
                 </tr>
                 {comparableFields.map((k) => {
                   // getFieldName 在定义缺席时回落字段码本身，与原先的两级兜底同义。
                   const fieldName = getFieldName(dynamicDefs, k, locale);
-                  const rawValues = items.map((x) => JSON.stringify(x.release.attributes?.[k] ?? null));
+                  const rawValues = items.map((x) => JSON.stringify(x.entity.attributes?.[k] ?? null));
                   const isDiff = new Set(rawValues).size > 1;
 
                   return (
@@ -981,7 +1025,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                       </th>
                       {items.map((x) => (
                         <td
-                          key={x.release.id}
+                          key={x.entity.id}
                           className={`p-4 text-xs text-foreground border-r border-border last:border-r-0 align-top ${
                             highlightDiff && isDiff ? "font-medium" : ""
                           }`}
@@ -989,10 +1033,10 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                           {(dynamicDefs?.fields as any)?.[k] ? (
                             <FieldValue
                               field={(dynamicDefs?.fields as any)[k]}
-                              value={x.release.attributes?.[k]}
+                              value={x.entity.attributes?.[k]}
                             />
                           ) : (
-                            <span>{renderAttrValue(k, x.release.attributes?.[k])}</span>
+                            <span>{renderAttrValue(k, x.entity.attributes?.[k])}</span>
                           )}
                         </td>
                       ))}
@@ -1009,11 +1053,14 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                   </th>
                   {items.map((x, index) => (
                     <td
-                      key={x.release.id}
+                      key={x.entity.id}
                       className="p-4 align-top border-r border-border last:border-r-0"
                     >
+                      {(x.children || []).length === 0 ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
                       <div className="space-y-3">
-                        {x.media?.map((m: any) => (
+                        {(x.children || []).map((m: any) => (
                           <div
                             key={m.medium.id}
                             className="bg-background dark:bg-muted/20 border border-border rounded-xl p-3.5 shadow-2xs"
@@ -1068,6 +1115,7 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                           </div>
                         ))}
                       </div>
+                      )}
                     </td>
                   ))}
                 </tr>
