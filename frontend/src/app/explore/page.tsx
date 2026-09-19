@@ -31,6 +31,7 @@ import {
   Tag,
 } from "lucide-react";
 import { TabPanel } from "@/components/ui/TabPanel";
+import { Select } from "@/components/ui/Select";
 
 interface EntityItem {
   id: string;
@@ -460,47 +461,33 @@ function ExploreInner() {
 
               {/* 排序：取值写回 URL（?sort=&order=），可深链、后退键保持；后端按白名单校验。 */}
               <div className="sm:col-span-2 flex items-center">
-                <select
+                <Select
                   value={sortValue}
                   aria-label={t("catalog.sort")}
-                  onChange={(e) => {
-                    const [sort, order] = e.target.value.split(":");
+                  onChange={(v) => {
+                    const [sort, order] = v.split(":");
                     updateFilters({ sort: sort || "", order: sort ? order || "" : "" });
                   }}
-                  className="w-full py-2 px-2.5 rounded-lg bg-surface dark:bg-[#18181b] border border-line text-xs text-text-strong focus:border-primary outline-none cursor-pointer"
-                >
-                  <option value="" className="bg-surface dark:bg-[#18181b] text-text-strong">
-                    {t("catalog.sortUpdated")}
-                  </option>
-                  <option value="created_at:desc" className="bg-surface dark:bg-[#18181b] text-text-strong">
-                    {t("catalog.sortCreated")}
-                  </option>
-                  <option value="title:asc" className="bg-surface dark:bg-[#18181b] text-text-strong">
-                    {t("catalog.sortTitleAsc")}
-                  </option>
-                  <option value="title:desc" className="bg-surface dark:bg-[#18181b] text-text-strong">
-                    {t("catalog.sortTitleDesc")}
-                  </option>
-                </select>
+                  options={[
+                    { value: "", label: t("catalog.sortUpdated") },
+                    { value: "created_at:desc", label: t("catalog.sortCreated") },
+                    { value: "title:asc", label: t("catalog.sortTitleAsc") },
+                    { value: "title:desc", label: t("catalog.sortTitleDesc") },
+                  ]}
+                />
               </div>
 
               <div className="sm:col-span-2 flex items-center">
-                <select
+                <Select
                   value={currentStatus}
                   aria-label={t("catalog.status")}
-                  onChange={(e) => updateFilters({ status: e.target.value })}
-                  className="w-full py-2 px-2.5 rounded-lg bg-surface dark:bg-[#18181b] border border-line text-xs text-text-strong focus:border-primary outline-none cursor-pointer"
-                >
-                  <option value="published" className="bg-surface dark:bg-[#18181b] text-text-strong">
-                    {t("catalog.status.published")}
-                  </option>
-                  <option value="pending_review" className="bg-surface dark:bg-[#18181b] text-text-strong">
-                    {t("catalog.status.pending_review")}
-                  </option>
-                  <option value="draft" className="bg-surface dark:bg-[#18181b] text-text-strong">
-                    {t("catalog.status.draft")}
-                  </option>
-                </select>
+                  onChange={(v) => updateFilters({ status: v })}
+                  options={[
+                    { value: "published", label: tr("catalog.status.published", "published") },
+                    { value: "pending_review", label: tr("catalog.status.pending_review", "pending_review") },
+                    { value: "draft", label: tr("catalog.status.draft", "draft") },
+                  ]}
+                />
               </div>
 
               <div className="sm:col-span-2 flex items-center justify-end gap-1.5">
