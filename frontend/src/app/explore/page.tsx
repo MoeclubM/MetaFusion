@@ -659,7 +659,7 @@ function ExploreInner() {
                         badge={
                           <span className="px-2 py-0.5 rounded-md bg-black/65 dark:bg-black/75 text-emphasis keep-white backdrop-blur-md border border-emphasis/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
                             <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                            <span className="truncate max-w-[85px]">{item.attributes?.tags?.[0] || ""}</span>
+                            <span className="truncate max-w-[85px]">{badgeLabel}</span>
                           </span>
                         }
                         statusBadge={
@@ -720,7 +720,7 @@ function ExploreInner() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-0.5">
                             <span className="px-2 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] text-[10px] font-mono text-text-body font-medium">
-                              {item.attributes?.tags?.[0] || ""}
+                              {badgeLabel}
                             </span>
                             <h3 className="font-semibold text-text-strong group-hover:text-primary transition-colors duration-fast ease-soft text-sm truncate">
                               {displayTitle}
