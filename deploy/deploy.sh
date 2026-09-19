@@ -154,14 +154,17 @@ function prune_release_tags() {
     local repo="$1" in_use="$2" i=0 t sorted
     # 判定用 bash 通配，不用 awk/grep 正则：目标机的 awk 是 mawk 1.3.4，**不支持 {n} 区间**，
     # 写 /:(v[0-9]|[0-9a-f]{12})$/ 这种正则会静默不匹配（首版就是这么漏掉清理的，实测才发现）。
-    # 排序按**版本号**倒序（sort -Vr）：按镜像构建时间排是错的——给新镜像贴个旧版本号，
-    # 它会因为"构建时间新"被当成最新版留住。
-    sorted="$(docker images --format "{{.Repository}}:{{.Tag}}" "$repo" 2>/dev/null \
-        | while IFS= read -r t; do
+    # 排序按镜像构建时间倒序（CreatedAt 字典序即时间序，构建全在同一台机器同一时区）。
+    # sort -Vr 对 sha 无意义：sha 的字母序与新旧无关，2026-09-19 曾把刚打的本批锚判成"最老"
+    # 全撤（10 个新锚 0 残留）。"构建时间新=最新"的反例在本流程不存在：版本 tag 只打给当前构建，
+    # 从不给新镜像贴旧版本号。
+    sorted="$(docker images --format "{{.Repository}}:{{.Tag}} {{.CreatedAt}}" "$repo" 2>/dev/null \
+        | while IFS= read -r line; do
+              t="${line%% *}"; created="${line#* }"
               case "$t" in
-                  *:v[0-9]*|*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) printf '%s\n' "$t" ;;
+                  *:v[0-9]*|*:[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]) printf '%s %s\n' "$created" "$t" ;;
               esac
-          done | sort -Vr)"
+          done | sort -r | while IFS= read -r cline; do printf '%s\n' "${cline##* }"; done)"
     for t in $sorted; do
         i=$((i + 1))
         [ "$i" -le "$IMAGE_TAG_KEEP" ] && continue
