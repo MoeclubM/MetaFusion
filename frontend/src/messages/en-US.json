@@ -1080,7 +1080,6 @@
   "auth.error.setup_needed": "System setup is required.",
   "navbar.about": "About MetaFusion",
   "navbar.admin": "Admin",
-  "navbar.accountSessions": "Account & Sessions",
   "navbar.adminConsole": "Admin Console",
   "navbar.userManagement": "User Management",
   "navbar.signIn": "Sign In / Register",
@@ -1948,5 +1947,7 @@
   "revisions.pickedCount": "Picked {count} / 2",
   "revisions.pickTwo": "Pick one more to compare",
   "revisions.openInCompare": "Open in Compare",
-  "revisions.clearPicked": "Clear"
+  "revisions.clearPicked": "Clear",
+  "navbar.userCenter": "User Center",
+  "navbar.userSettings": "Settings"
 }

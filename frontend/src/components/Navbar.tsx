@@ -12,7 +12,7 @@ import { UserAvatar } from "./UserAvatar";
 import { displayNameOf, fetchUnreadMessageCount, fetchUnreadCount, NOTIFICATIONS_CHANGED_EVENT } from "@/lib/api";
 import { UserRoleBadge } from "@/lib/roles";
 import { canEnterAdmin } from "@/lib/permissions";
-import { getAuthLoginUrl, getAuthSettingsUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
+import { getAuthLoginUrl, getAuthUsersAdminUrl, STORAGE_SERVICE_URL, hasResourceStation } from "@/lib/services";
 import { PageContainer } from "@/components/ui/PageShell";
 import {
   Bell,
@@ -400,14 +400,22 @@ export const Navbar: React.FC = () => {
                   </div>
 
                   <div className="py-1">
-                    <a
-                      href={getAuthSettingsUrl()}
+                    <Link
+                      href={`/users/${user.id}`}
                       onClick={() => setIsUserMenuOpen(false)}
                       className="w-full px-3 py-2 text-left text-text-body hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
                     >
                       <UserIcon className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
-                      <span>{t("navbar.accountSessions")}</span>
-                    </a>
+                      <span>{t("navbar.userCenter")}</span>
+                    </Link>
+                    <Link
+                      href="/settings"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="w-full px-3 py-2 text-left text-text-body hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
+                      <span>{t("navbar.userSettings")}</span>
+                    </Link>
 
                     {/* 私信收件箱：用户菜单在所有断点都可见，窄屏与桌面共用这一条入口。 */}
                     <Link

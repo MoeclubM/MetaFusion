@@ -1080,7 +1080,6 @@
   "auth.error.setup_needed": "システムの初期設定が必要です。",
   "navbar.about": "MetaFusion について",
   "navbar.admin": "管理",
-  "navbar.accountSessions": "アカウントセンターとセッション",
   "navbar.adminConsole": "管理コンソール",
   "navbar.userManagement": "アカウント管理",
   "navbar.signIn": "ログイン / 新規登録",
@@ -1948,5 +1947,7 @@
   "revisions.pickedCount": "{count} / 2 件選択中",
   "revisions.pickTwo": "あと 1 件選択で比較できます",
   "revisions.openInCompare": "比較ページで開く",
-  "revisions.clearPicked": "クリア"
+  "revisions.clearPicked": "クリア",
+  "navbar.userCenter": "ユーザーセンター",
+  "navbar.userSettings": "設定"
 }

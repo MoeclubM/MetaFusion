@@ -1080,7 +1080,6 @@
   "auth.error.setup_needed": "系统尚未完成初始化",
   "navbar.about": "平台介绍",
   "navbar.admin": "管理后台",
-  "navbar.accountSessions": "个人中心与会话",
   "navbar.adminConsole": "管理控制台",
   "navbar.userManagement": "账号管理",
   "navbar.signIn": "登录 / 注册",
@@ -1948,5 +1947,7 @@
   "revisions.pickedCount": "已选 {count} / 2 版",
   "revisions.pickTwo": "再选一版即可对比",
   "revisions.openInCompare": "在对比页打开",
-  "revisions.clearPicked": "清空"
+  "revisions.clearPicked": "清空",
+  "navbar.userCenter": "用户中心",
+  "navbar.userSettings": "设置"
 }
