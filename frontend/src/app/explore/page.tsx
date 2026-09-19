@@ -22,7 +22,6 @@ import {
   Network,
   BookOpen,
   Film,
-  Plus,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
@@ -337,7 +336,6 @@ function ExploreInner() {
           icon={<Layers className="w-7 h-7 text-primary" />}
           title={t("navigation.explore")}
           actions={
-          <>
             <Link
               href="/compare"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-surface hover:bg-black/[0.04] dark:hover:bg-white/[0.08] border border-line text-xs font-mono text-text-body transition-colors duration-fast ease-soft shadow-2xs"
@@ -345,15 +343,6 @@ function ExploreInner() {
               <GitCompare className="w-4 h-4 text-amber-500 dark:text-warn" />
               <span>{t("catalog.compare")}</span>
             </Link>
-
-            <Link
-              href="/new"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-xs font-medium text-white transition-colors duration-fast ease-soft shadow-2xs"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{t("catalog.newEntity")}</span>
-            </Link>
-          </>
           }
         />
         }
