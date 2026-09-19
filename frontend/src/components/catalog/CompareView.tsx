@@ -71,7 +71,9 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
   }, [initialList.join(",")]);
 
   useEffect(() => {
-    writeBasket(selectedIds);
+    // 读后写：存储里已是同一组就不碰（碰了也会经 hook 产生新引用，
+    // 跨标签页追逐时就是多余的渲染与请求抖动）。
+    if (readCompareBasket().join(",") !== selectedIds.join(",")) writeBasket(selectedIds);
   }, [selectedIds, writeBasket]);
 
   // 另一标签页改了篮子时跟随；URL 显式带了 ids 时保持用户给定的清单，不被篮子覆盖。
@@ -144,19 +146,26 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // 同一 ids 只取一次：无论 effect 因何重入（依赖抖动、跨标签页写回），
+  // ids 不变就不重发——线上曾出现同一 compare URL 每秒多次 429 的刷击。
+  const lastFetchedRef = useRef("");
   useEffect(() => {
     if (selectedIds.length < COMPARE_MIN_SLOTS) {
       setItems([]);
       setError("");
+      lastFetchedRef.current = "";
       return;
     }
     if (selectedIds.length > maxSlots) {
       setError(t("catalog.compareLimitError"));
       return;
     }
+    const key = selectedIds.join(",");
+    if (lastFetchedRef.current === key) return;
+    lastFetchedRef.current = key;
     setLoading(true);
     setError("");
-    api<{ items: any[] }>(`/catalog/compare?ids=${selectedIds.join(",")}`)
+    api<{ items: any[] }>(`/catalog/compare?ids=${key}`)
       .then((r) => {
         setItems(Array.isArray(r.items) ? r.items : []);
         setError("");

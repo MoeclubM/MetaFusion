@@ -126,7 +126,12 @@ export function useCompareBasket(): CompareBasket {
   const actions = useMemo(
     () => ({
       setBasket: ((value: SetStateAction<string[]>) => {
-        setBasketState((prev) => mergeIntoBasket(typeof value === "function" ? (value as (p: string[]) => string[])(prev) : value));
+        // 值相等保留原引用：调用方在 effect 里无条件写篮子时，不让每次写都产生新引用
+        // 去触发依赖 basket 的同步链（线上 compare 刷击的助燃项之一）。
+        setBasketState((prev) => {
+          const next = mergeIntoBasket(typeof value === "function" ? (value as (p: string[]) => string[])(prev) : value);
+          return prev.length === next.length && prev.every((x, i) => x === next[i]) ? prev : next;
+        });
       }) as Dispatch<SetStateAction<string[]>>,
       add: (id: string) => setBasketState((prev) => addToBasket(prev, id)),
       remove: (id: string) => setBasketState((prev) => removeFromBasket(prev, id)),
