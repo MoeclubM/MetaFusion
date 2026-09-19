@@ -9,6 +9,8 @@ interface ProceduralCoverProps {
   originalTitle?: string;
   id?: string;
   className?: string;
+  /** 小缩略图（关系卡 ~100px）：去引用码与标题、内容缩小，免得固定尺寸的内部撑爆裁剪。 */
+  compact?: boolean;
 }
 
 function hsl(h: number, s: number, l: number): string {
@@ -26,7 +28,7 @@ function paletteFromHash(hash: number) {
   };
 }
 
-export function ProceduralCover({ title = "Untitled", originalTitle, id = "", className = "" }: ProceduralCoverProps) {
+export function ProceduralCover({ title = "Untitled", originalTitle, id = "", className = "", compact = false }: ProceduralCoverProps) {
   // 身份串与界面语言无关（见 lib/coverIdentity.ts）：同一实体在任何语言下
   // REF 码与配色都相同，切语言不再换一个引用码。
   const identity = coverIdentity({ id, originalTitle, title });
@@ -60,19 +62,30 @@ export function ProceduralCover({ title = "Untitled", originalTitle, id = "", cl
       <div className="absolute inset-3 sm:inset-3.5 rounded-sm border border-line-subtle pointer-events-none" />
 
       {/* Content Container */}
-      <div className="relative z-10 w-full h-full p-4 sm:p-5 flex flex-col justify-between text-left">
+      <div
+        className={
+          compact
+            ? "relative z-10 w-full h-full p-2 flex flex-col justify-between text-left"
+            : "relative z-10 w-full h-full p-4 sm:p-5 flex flex-col justify-between text-left"
+        }
+      >
         {/* Top Header */}
-        <div className="flex items-center justify-between font-mono text-[9px] sm:text-[10px] tracking-wider">
-          <span className="flex items-center gap-1.5 font-bold" style={{ color: p.accent }}>
-            <span className="w-1.5 h-1.5 rounded-xs inline-block" style={{ backgroundColor: p.accent }} />
-            METAFUSION
+        <div className="flex items-center justify-between font-mono text-[9px] sm:text-[10px] tracking-wider min-w-0">
+          <span className="flex items-center gap-1 font-bold truncate" style={{ color: p.accent }}>
+            <span className="w-1.5 h-1.5 rounded-xs inline-block shrink-0" style={{ backgroundColor: p.accent }} />
+            <span className="truncate">METAFUSION</span>
           </span>
-          <span className="text-text-faint">{refCode}</span>
+          {!compact && <span className="text-text-faint shrink-0">{refCode}</span>}
         </div>
 
         {/* Central Geometric Totem */}
         <div className="my-auto py-2 flex items-center justify-center">
-          <svg className="w-20 h-20 sm:w-24 sm:h-24 opacity-80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <svg
+            className={compact ? "w-10 h-10 opacity-80" : "w-20 h-20 sm:w-24 sm:h-24 opacity-80"}
+            viewBox="0 0 100 100"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
             <circle cx="50" cy="50" r="44" stroke="rgba(255,255,255,0.08)" strokeWidth="1" strokeDasharray="3 3" />
             <circle cx="50" cy="50" r="34" stroke={p.accent} strokeOpacity="0.4" strokeWidth="1.5" />
             <circle cx="50" cy="50" r="24" fill="rgba(0,0,0,0.3)" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
@@ -106,7 +119,8 @@ export function ProceduralCover({ title = "Untitled", originalTitle, id = "", cl
           </svg>
         </div>
 
-        {/* Bottom Title & Credits */}
+        {/* Bottom Title & Credits（小卡片不渲染：名字已在图下方，省得挤占）。 */}
+        {!compact && (
         <div className="space-y-1.5">
           <div className="h-0.5 w-8 rounded-full" style={{ backgroundColor: p.accent }} />
           <div>
@@ -120,6 +134,7 @@ export function ProceduralCover({ title = "Untitled", originalTitle, id = "", cl
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

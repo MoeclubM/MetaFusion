@@ -26,6 +26,8 @@ interface AdaptiveCoverProps {
   /** 单张展示的外框上限，避免极端比例的大图撑坏版式 */
   maxHeight?: number | string;
   minHeight?: number | string;
+  /** 小缩略图：占位走精简版（见 ProceduralCover compact）。 */
+  compact?: boolean;
 }
 
 /**
@@ -55,6 +57,7 @@ export function AdaptiveCover({
   uniformAspect,
   maxHeight,
   minHeight,
+  compact = false,
 }: AdaptiveCoverProps) {
   const manual = typeof aspect === "string" ? parseManualRatio(aspect) : null;
   const inferred = inferCoverRatio(tags);
@@ -89,6 +92,7 @@ export function AdaptiveCover({
         loading={loading}
         imgClassName={imgClassName ?? "w-full h-full object-cover"}
         onLoad={handleLoad}
+        compact={compact}
       />
     </div>
   );

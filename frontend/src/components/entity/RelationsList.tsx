@@ -112,6 +112,7 @@ function RelationCard({ row, showLabel = false }: { row: Row; showLabel?: boolea
           originalTitle={row.originalName}
           id={row.key}
           uniformAspect={GRID_COVER_ASPECT}
+          compact
         />
       </div>
       <div className="mt-1.5 line-clamp-2 text-[13px] leading-snug text-gray-900 transition-colors duration-fast ease-soft group-hover:text-primary dark:text-white">

@@ -13,6 +13,7 @@ interface EntityCoverProps {
   imgClassName?: string;
   loading?: "lazy" | "eager";
   onLoad?: (e: React.SyntheticEvent<HTMLImageElement>) => void;
+  compact?: boolean;
 }
 
 export function EntityCover({
@@ -25,6 +26,7 @@ export function EntityCover({
   imgClassName,
   loading = "lazy",
   onLoad,
+  compact = false,
 }: EntityCoverProps) {
   const [hasError, setHasError] = useState(false);
 
@@ -35,6 +37,7 @@ export function EntityCover({
         originalTitle={originalTitle}
         id={id}
         className={className}
+        compact={compact}
       />
     );
   }
