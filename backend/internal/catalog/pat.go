@@ -132,6 +132,9 @@ type patIdentity struct {
 	Username    string
 	Role        string
 	Permissions []string
+	// TokenName 是令牌名（调用日志归因用）：内省新字段，老账号服务不下发时为空，
+	// 日志里 credential_name 即空（类型 pat 仍在，不丢行）。
+	TokenName string
 	// ExpiresAt 是令牌自身的过期时刻；零值表示永不过期。
 	ExpiresAt time.Time
 }
@@ -141,7 +144,7 @@ type patIdentity struct {
 func (p patIdentity) catalogUser() *User {
 	return &User{
 		ID: p.UserID, Username: p.Username, Role: p.Role,
-		Permissions: p.Permissions, FromPAT: true,
+		Permissions: p.Permissions, FromPAT: true, TokenName: p.TokenName,
 	}
 }
 
@@ -225,6 +228,7 @@ type patIntrospectResponse struct {
 	Role        string        `json:"role"`
 	Permissions []string      `json:"permissions"`
 	ExpiresAt   *patTimestamp `json:"expires_at"`
+	TokenName   string        `json:"token_name"`
 }
 
 // patTimestamp 容忍三种写法：null / RFC3339（Go 与 JS 的默认）/ Unix 秒。
@@ -303,6 +307,7 @@ func (p *PATIntrospector) fetch(ctx context.Context, token string) (patCacheEntr
 		Username:    doc.Username,
 		Role:        doc.Role,
 		Permissions: doc.Permissions,
+		TokenName:   doc.TokenName,
 	}
 	if doc.ExpiresAt != nil {
 		ident.ExpiresAt = doc.ExpiresAt.Time

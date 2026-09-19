@@ -185,10 +185,10 @@ func TestPostgresReleaseComparisonAndReuse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(comparison[1]["media"].([]map[string]any)) != 2 {
+	if len(comparison[1]["children"].([]map[string]any)) != 2 {
 		t.Fatal("CD and BD not preserved")
 	}
-	last := comparison[2]["media"].([]map[string]any)[0]["tracks"].([]Entity)
+	last := comparison[2]["children"].([]map[string]any)[0]["tracks"].([]Entity)
 	if len(last) != 101 {
 		t.Fatalf("directory truncated: %d", len(last))
 	}

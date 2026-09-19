@@ -357,6 +357,9 @@ type User struct {
 	// FromPAT 标记身份来自 PAT 内省（而不是账号服务签发的 JWT）。它参与授权判定
 	// （见 permission.go：PAT 身份永不回落角色兜底），因此不进 JSON 输出、不暴露给调用方。
 	FromPAT bool `json:"-"`
+	// TokenName 是 PAT 令牌名（调用日志 credential_name）。会话身份恒为空；
+	// omitempty 让旧载荷形状不变，老账号服务不下发 token_name 时也不露空键。
+	TokenName string `json:"token_name,omitempty"`
 }
 type Event struct {
 	ID        string          `json:"id"`
