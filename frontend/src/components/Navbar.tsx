@@ -229,6 +229,22 @@ export const Navbar: React.FC = () => {
           </Link>
 
           <nav className="hidden xl:flex items-center gap-1.5 ml-2">
+            {/* 开发者中心放导航最前、文档保持垫底：任何登录账号都能自助登记自己的应用
+                （见 metafusion-auth 的 /api/developer/*），因此不像管理台那样受权限码限制；
+                未登录时不提供入口。管理后台不在顶栏——统一收进用户菜单。 */}
+            {user && (
+              <Link
+                href="/developer"
+                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all ${
+                  pathname.startsWith("/developer")
+                    ? "text-primary bg-primary/10 border border-primary/25 font-semibold"
+                    : "text-text-muted hover:text-primary hover:bg-primary/5"
+                }`}
+              >
+                <Terminal className="w-3.5 h-3.5" />
+                <span>{t("navigation.developer")}</span>
+              </Link>
+            )}
             {navLinks.map((tab) => {
               const Icon = tab.icon;
               const active = isNavLinkActive(pathname, tab);
@@ -254,42 +270,12 @@ export const Navbar: React.FC = () => {
               );
             })}
 
-            {/* 开发者中心：任何登录账号都能自助登记自己的应用（见 metafusion-auth 的
-                /api/developer/*），因此不像管理台那样受权限码限制；未登录时不提供入口。 */}
-            {user && (
-              <Link
-                href="/developer"
-                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all ${
-                  pathname.startsWith("/developer")
-                    ? "text-primary bg-primary/10 border border-primary/25 font-semibold"
-                    : "text-text-muted hover:text-primary hover:bg-primary/5"
-                }`}
-              >
-                <Terminal className="w-3.5 h-3.5" />
-                <span>{t("navigation.developer")}</span>
-              </Link>
-            )}
-
-            {user && canEnterAdmin(user) && (
-              <Link
-                href="/admin"
-                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all ${
-                  pathname.startsWith("/admin")
-                    ? "text-danger bg-rose-500/10 border border-rose-500/25 font-semibold"
-                    : "text-danger/80 hover:text-danger hover:bg-rose-500/5"
-                }`}
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>{t("navbar.admin")}</span>
-              </Link>
-            )}
           </nav>
         </div>
 
         {/* Right Controls */}
         <div className="flex items-center gap-2 sm:gap-2.5">
-          {/* 新建：指向 /new；那边不带 ?kind= 时会落到编目枢纽（/contribute）先选手动创建
-              或外部权威库导入，带 ?kind= 才直接进编辑器。入口不预设层级，也不枚举层级清单。
+          {/* 新建：指向统一新建页 /new（层级在编辑器内切换，?kind= 只做预选）。
               标签 span 带 hidden sm:inline，窄屏只剩加号图标，因此必须显式给可访问名。 */}
           {/* 站内通知：常驻铃铛入口（未登录不显示），未读 >0 才挂角标，>99 显示 99+。
               放在右侧控件区而不是 hidden xl:flex 的桌面导航里，窄屏同样看得见。 */}
@@ -447,7 +433,9 @@ export const Navbar: React.FC = () => {
                       <span>{t("navigation.developer")}</span>
                     </Link>
 
-                    {user.role === "admin" && (
+                    {/* 顶栏不再设管理后台入口：这里是唯一入口，门与旧顶栏按钮同口径
+                        （canEnterAdmin，持管理权限组同样可见，不只认 role）。 */}
+                    {canEnterAdmin(user) && (
                       <Link
                         href="/admin"
                         onClick={() => setIsUserMenuOpen(false)}
@@ -458,7 +446,7 @@ export const Navbar: React.FC = () => {
                       </Link>
                     )}
                     {/* 账号管理台是另一个应用：上面的探活不通过就不渲染，避免死链 */}
-                    {user.role === "admin" && authConsoleOnline && (
+                    {canEnterAdmin(user) && authConsoleOnline && (
                       <a
                         href={getAuthUsersAdminUrl()}
                         onClick={() => setIsUserMenuOpen(false)}
