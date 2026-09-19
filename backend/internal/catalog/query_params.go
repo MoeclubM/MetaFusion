@@ -42,6 +42,7 @@ const (
 var listTextParams = []string{
 	"q", "kind", "kinds", "type", "types", "status", "sort", "order", "locale",
 	"work_id", "content_unit_id", "release_id", "medium_id", "parent_id", "field", "value", "tags",
+	"original_language", "has_pictures",
 }
 
 // errParam 只携带机器码：respond 用 err.Error() 作为响应体里的 error 值，

@@ -232,6 +232,8 @@ func OpenAPI() map[string]any {
 		{"medium_id", "Tracks under the medium"},
 		{"parent_id", "Child content_units/mediums/tracks"},
 		{"tags", "Multi-value tag filter (repeat or comma-separated, OR, container match @>)"},
+		{"original_language", "Exact match on document original_language (all eight kinds share it, e.g. ja)"},
+		{"has_pictures", "Only entities with a non-empty pictures array when 1; missing key or non-array counts as no cover"},
 		{"sort", "Sort key, whitelisted: updated_at (column, default), created_at (entity ids are time-ordered UUIDv7, so id order is creation order), title (the displayed title: requested locale -> original_language -> en-US -> base title). An unknown key is 400 invalid_sort rather than being silently ignored"},
 		{"order", "Sort direction, asc or desc; defaults to desc for the time keys and asc for title. Anything else is 400 invalid_order"},
 		{"locale", "Locale used only by sort=title to pick which translation is compared (BCP-47-like, ignored when malformed)"},

@@ -167,6 +167,32 @@ func TestListFilterDisabledChainRejected(t *testing.T) {
 	}
 }
 
+// 原语言精确匹配 document->>'original_language'，取值走绑定参数。
+func TestListFilterOriginalLanguageExact(t *testing.T) {
+	joined, args := listFilterSearchSQL(t, listFilterSearchDefinitions(),
+		ListOptions{OriginalLanguage: "ja"})
+	if !strings.Contains(joined, "document->>'original_language'=$1") {
+		t.Fatalf("original language must compare document->>'original_language', got: %s", joined)
+	}
+	if len(args) != 1 || args[0] != "ja" {
+		t.Fatalf("value must be a single bound arg, got %v", args)
+	}
+}
+
+// 仅有封面：pictures 非空数组。缺键/非数组按无封面处理（先 typeof 收窄，
+// jsonb_array_length 对非数组会报错）；不占绑定参数位。
+func TestListFilterHasPicturesGuardsType(t *testing.T) {
+	joined, args := listFilterSearchSQL(t, listFilterSearchDefinitions(),
+		ListOptions{HasPictures: true})
+	if !strings.Contains(joined, "jsonb_typeof(document->'pictures')='array'") ||
+		!strings.Contains(joined, "jsonb_array_length(document->'pictures')>0") {
+		t.Fatalf("has_pictures must guard typeof before array_length, got: %s", joined)
+	}
+	if len(args) != 0 {
+		t.Fatalf("has_pictures must not consume bound args, got %v", args)
+	}
+}
+
 // 未知路径返回 unknown_field。
 func TestListFilterUnknownPathRejected(t *testing.T) {
 	for _, field := range []string{"pack.no_such_leaf", "no_such_root.format", "attachments.store.deeper", "locator.no_such_key"} {

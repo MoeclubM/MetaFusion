@@ -407,7 +407,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			respond(c, nil, err)
 			return
 		}
-		o := ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), Sort: c.Query("sort"), Order: c.Query("order"), Locale: c.Query("locale"), Limit: limit, Offset: offset}
+		o := ListOptions{Kind: c.Query("kind"), Query: c.Query("q"), Type: c.Query("type"), Status: c.Query("status"), WorkID: c.Query("work_id"), ContentUnitID: c.Query("content_unit_id"), ReleaseID: c.Query("release_id"), MediumID: c.Query("medium_id"), ParentID: c.Query("parent_id"), Field: c.Query("field"), Value: c.Query("value"), OriginalLanguage: c.Query("original_language"), HasPictures: c.Query("has_pictures") == "1", Sort: c.Query("sort"), Order: c.Query("order"), Locale: c.Query("locale"), Limit: limit, Offset: offset}
 		// 排序参数走白名单校验：未知字段/方向返回 400 invalid_sort / invalid_order，
 		// 而不是静默按 updated_at 返回另一套顺序（调用方会以为排序生效了）。
 		if err := normalizeListSort(&o); err != nil {

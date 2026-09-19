@@ -713,6 +713,12 @@ type ListOptions struct {
 	// Tags 按"任一命中"（OR）过滤 attributes.tags，走 jsonb 容器包含，
 	// 由 entities_attribute_tags 函数索引支撑，避免全表扫描。
 	Tags []string
+	// OriginalLanguage 按 document->>'original_language' 精确匹配：八层级通用列，
+	// 探索页侧栏的原语言筛选即它（值如 ja/zh/en，大小写按入库原样比）。
+	OriginalLanguage string
+	// HasPictures 只留有封面的：document->'pictures' 为非空数组。缺键/非数组
+	// 一律按无封面处理（jsonb_array_length 对非数组会报错，先 typeof 收窄）。
+	HasPictures bool
 	// Sort / Order 是白名单排序键与方向（见 listSortKeys），Locale 只在 Sort=title
 	// 时参与"取哪个语种的题名"；未知键由 normalizeListSort 拒掉（HTTP 400 invalid_sort），
 	// 不静默退回默认序——静默忽略正是"传了 sort=title 却拿到 updated_at 序列"的成因。
@@ -861,6 +867,12 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 	}
 	if o.Status != "" {
 		add("status=$%d", o.Status)
+	}
+	if o.OriginalLanguage != "" {
+		add("document->>'original_language'=$%d", o.OriginalLanguage)
+	}
+	if o.HasPictures {
+		parts = append(parts, "(jsonb_typeof(document->'pictures')='array' AND jsonb_array_length(document->'pictures')>0)")
 	}
 	if o.Query != "" {
 		// 翻译搜索走 (document->'translations')::text ILIKE：整 JSON 转文本匹配，
