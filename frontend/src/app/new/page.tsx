@@ -1,4 +1,3 @@
-import { redirect } from "next/navigation";
 import { EntityEditor } from "@/components/catalog/EntityEditor";
 import { Navbar } from "@/components/Navbar";
 import { PageShell } from "@/components/ui/PageShell";
@@ -16,18 +15,15 @@ export default async function Page({
   // 否则用户点了"新建发行版本"却看到默认的作品层级。
   const raw = (await searchParams)?.kind;
   const kind = typeof raw === "string" ? raw : Array.isArray(raw) ? raw[0] : undefined;
-  // 不带层级的 /new 就是「新建」入口：先落到编目枢纽（/contribute）二选一——
-  // 手动编目入库挑一个层级、或走已有的外部权威库导入弹窗。带 ?kind= 说明层级已定
-  // （枢纽卡片、/works/new 等旧重定向都会带），直接进编辑器，不再拐回枢纽。
-  if (!kind?.trim()) {
-    redirect("/contribute");
-  }
+  // /new 就是统一新建页：一切实体一个入口，层级在编辑器内随时切换。
+  // ?kind= 只做预选（枢纽卡片、/works/new 等旧重定向会带）；不带时默认 work。
+  const initialKind = kind?.trim() || "work";
   return (
     <>
       <Navbar />
       {/* CatalogProvider 已在 app/layout.tsx 全站挂载，这里不再重复挂。 */}
       <PageShell width="page" spacing="none">
-        <EntityEditor initialKind={kind} />
+        <EntityEditor initialKind={initialKind} />
       </PageShell>
     </>
   );
