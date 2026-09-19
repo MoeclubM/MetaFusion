@@ -4,6 +4,9 @@
 -- 盯着同步）。测试实例的数据不再需要保留后，历史迁移只剩"给旧库补结构"的负担，于是合并为本基线：
 -- 只描述当前终态，全文件幂等（IF NOT EXISTS），且不含任何破坏性语句（启动路径也会执行它，
 -- 见 TestStartupSchemaHasNoDestructiveStatements）。
+-- 2026-09-19 把 000004 的删列/删索引折进来（deliveries.delivered_at、user_preferences.updated_at、
+-- entities.redirect_id、entities_search、entities_document 五处创建直接删除，不再先建后删）：
+-- 新库一次成型，存量库早已由 000004 执行过删除，两边终态一致（等价性见折叠时的双库比对记录）。
 --
 -- 边界：只建 catalog schema 自己的对象。账号（auth）、互动（community）、存储（storage）的表由各自的
 -- 服务在自己的 schema 里幂等建立；目录侧的 created_by / user_id 都是裸 UUID，不跨 schema 建外键——
@@ -14,17 +17,14 @@ CREATE TABLE IF NOT EXISTS catalog.entities (
  id uuid PRIMARY KEY, kind text NOT NULL CHECK(kind IN ('agent','collection','work','content_unit','expression','release','medium','track')),
  version bigint NOT NULL CHECK(version>0), title text NOT NULL CHECK(length(trim(title))>0),
  status text NOT NULL CHECK(status IN ('draft','pending_review','published','deleted','merged')),
- created_by uuid NOT NULL, redirect_id uuid REFERENCES catalog.entities(id),
+ created_by uuid NOT NULL,
  document jsonb NOT NULL, updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE(id,kind)
 );
 CREATE INDEX IF NOT EXISTS entities_kind_status ON catalog.entities(kind,status);
-CREATE INDEX IF NOT EXISTS entities_search ON catalog.entities USING gin (to_tsvector('simple',title));
-CREATE INDEX IF NOT EXISTS entities_document ON catalog.entities USING gin (document jsonb_path_ops);
 -- 标签按容器包含过滤（attributes.tags @> [...]）：函数索引让该查询走索引而非全表扫描。
 CREATE INDEX IF NOT EXISTS entities_attribute_tags ON catalog.entities USING gin ((document->'attributes'->'tags') jsonb_path_ops);
 -- 类型筛选（探索页/货架规则）用的是 jsonb 的 ? 与 ?|（数组元素存在性），
--- 而 entities_document 是 jsonb_path_ops —— 它只支持 @> / @? / @@，**用不上** ?|，
--- 十亿级下这类查询会退化成顺序扫描。这里补一个 jsonb_ops 的表达式索引（默认即是 jsonb_ops）。
+-- 这里补一个 jsonb_ops 的表达式索引（默认即是 jsonb_ops）。
 CREATE INDEX IF NOT EXISTS entities_types ON catalog.entities USING gin ((document->'types'));
 -- 列表页统一 ORDER BY updated_at DESC, id，且几乎都带 kind（+status）过滤。
 -- 只有 (kind,status) 索引时，排序列仍要排序；这条复合索引让"最新一批"直接走索引扫描，
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS catalog.outbox (
  id uuid PRIMARY KEY, type text NOT NULL, entity_id text NOT NULL, version bigint NOT NULL, payload jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS catalog.deliveries (
- consumer text NOT NULL, event_id uuid NOT NULL REFERENCES catalog.outbox(id), delivered_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(consumer,event_id)
+ consumer text NOT NULL, event_id uuid NOT NULL REFERENCES catalog.outbox(id), PRIMARY KEY(consumer,event_id)
 );
 -- The deferred trigger also guards direct SQL and concurrent reparenting.
 CREATE OR REPLACE FUNCTION catalog.check_parent_cycle() RETURNS trigger LANGUAGE plpgsql AS $$
@@ -173,8 +173,7 @@ ALTER TABLE catalog.release_subjects ADD COLUMN IF NOT EXISTS attributes jsonb N
 -- 用户首页推荐偏好：展示顺序与隐藏项，内容仍由 catalog.shelves 规则驱动。
 CREATE TABLE IF NOT EXISTS catalog.user_preferences (
  user_id uuid PRIMARY KEY,
- home_shelves jsonb NOT NULL DEFAULT '{}'::jsonb,
- updated_at timestamptz NOT NULL DEFAULT now()
+ home_shelves jsonb NOT NULL DEFAULT '{}'::jsonb
 );
 
 -- 本文件只做"按需建表/建索引"：全部语句幂等（IF NOT EXISTS），不含删列、删表或数据搬迁，
