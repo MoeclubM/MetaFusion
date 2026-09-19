@@ -1935,7 +1935,6 @@
   "settings.profileSaved": "Profile saved",
   "settings.profileSaveFailed": "Save failed, please retry",
   "catalog.originalLanguageFilter": "Original language",
-  "catalog.originalLanguagePlaceholder": "e.g. ja, exact match",
   "catalog.hasPicturesFilter": "Has cover only",
   "catalog.tagSearchPlaceholder": "Search tags…",
   "catalog.compareSelectEntity": "Add entities to compare",
@@ -1948,5 +1947,6 @@
   "developer.reqlogs.empty": "No requests logged yet",
   "developer.reqlogs.failed": "Failed to load, retry later",
   "developer.reqlogs.allCredentials": "All credentials",
-  "developer.apiKeys.new": "New"
+  "developer.apiKeys.new": "New",
+  "catalog.allLanguages": "All languages"
 }

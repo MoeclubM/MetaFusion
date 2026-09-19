@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { Select } from "@/components/ui/Select";
+import { languageLabel, searchLanguages } from "@/lib/languages";
 
 interface EntityItem {
   id: string;
@@ -112,7 +113,6 @@ function ExploreInner() {
   const offset = (currentPage - 1) * limit;
 
   const [qInput, setQInput] = useState(currentQ);
-  const [langInput, setLangInput] = useState(currentOriginalLanguage);
   // 标签云本地搜索：只过滤面板展示，不发请求。
   const [tagQuery, setTagQuery] = useState("");
   const [items, setItems] = useState<EntityItem[]>([]);
@@ -144,6 +144,18 @@ function ExploreInner() {
     const selected = topTags.filter((tag) => currentTags.includes(tag.name) && !top.includes(tag));
     return [...selected, ...top];
   }, [topTags, tagQuery, currentTags]);
+  // 原语言下拉选项：常用在前、全表在后；URL 里带了表外码（别名/冷门码）时 pin 一项，免得选中态凭空消失。
+  const langOptions = useMemo(() => {
+    const base = searchLanguages("").map((e) => ({ value: e.code, label: languageLabel(e.code) }));
+    if (currentOriginalLanguage && !base.some((o) => o.value === currentOriginalLanguage)) {
+      return [
+        { value: "", label: t("catalog.allLanguages") },
+        { value: currentOriginalLanguage, label: languageLabel(currentOriginalLanguage) },
+        ...base,
+      ];
+    }
+    return [{ value: "", label: t("catalog.allLanguages") }, ...base];
+  }, [currentOriginalLanguage, t]);
   const [tagsFailed, setTagsFailed] = useState(false);
   const [tagsReloadKey, setTagsReloadKey] = useState(0);
   // 越界页（如 ?page=99999）：服务端返回空 items，但 total 仍是筛选后的真实条数。
@@ -154,9 +166,6 @@ function ExploreInner() {
   useEffect(() => {
     setQInput(currentQ);
   }, [currentQ]);
-  useEffect(() => {
-    setLangInput(currentOriginalLanguage);
-  }, [currentOriginalLanguage]);
 
   // 标签云：来自真实聚合（各实体 attributes.tags 的频次），按使用量取前若干。
   // 取不到时说明"标签面板暂时不可用"，不再与"暂无标签"混成同一句。
@@ -496,34 +505,14 @@ function ExploreInner() {
                   {t("catalog.originalLanguageFilter")}
                 </span>
               </div>
-              <form
-                className="p-2.5 flex items-center gap-1.5"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  updateFilters({ original_language: langInput.trim() });
-                }}
-              >
-                <input
-                  type="text"
-                  value={langInput}
-                  onChange={(e) => setLangInput(e.target.value)}
-                  placeholder={t("catalog.originalLanguagePlaceholder")}
+              <div className="p-2.5">
+                <Select
+                  value={currentOriginalLanguage}
                   aria-label={t("catalog.originalLanguageFilter")}
-                  className="flex-1 min-w-0 px-2.5 py-1.5 rounded-md bg-black/[0.02] dark:bg-white/[0.04] border border-line-subtle text-[11px] font-mono text-text-strong placeholder:text-text-muted focus:border-primary outline-none"
+                  onChange={(v) => updateFilters({ original_language: v })}
+                  options={langOptions}
                 />
-                {(currentOriginalLanguage || langInput.trim()) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setLangInput("");
-                      updateFilters({ original_language: "" });
-                    }}
-                    className="shrink-0 text-[11px] text-primary hover:underline px-1"
-                  >
-                    {t("catalog.clear")}
-                  </button>
-                )}
-              </form>
+              </div>
             </Card>
 
             {/* 封面：只留 pictures 非空数组的条目。 */}

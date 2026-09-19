@@ -1935,7 +1935,6 @@
   "settings.profileSaved": "资料已保存",
   "settings.profileSaveFailed": "保存失败，请稍后重试",
   "catalog.originalLanguageFilter": "原语言",
-  "catalog.originalLanguagePlaceholder": "如 ja，精确匹配",
   "catalog.hasPicturesFilter": "仅有封面",
   "catalog.tagSearchPlaceholder": "搜索标签…",
   "catalog.compareSelectEntity": "添加实体到对比",
@@ -1948,5 +1947,6 @@
   "developer.reqlogs.empty": "暂无调用记录",
   "developer.reqlogs.failed": "读取失败，稍后重试",
   "developer.reqlogs.allCredentials": "全部凭据",
-  "developer.apiKeys.new": "新建"
+  "developer.apiKeys.new": "新建",
+  "catalog.allLanguages": "全部语言"
 }
