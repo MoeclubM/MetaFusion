@@ -280,6 +280,9 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [hoveredLinkId, setHoveredLinkId] = useState<string | null>(null);
+  // 类型聚合 hub 的展开态（手风琴：一次只展开一个类型，默认全收起）。
+  // 只在层级布局下生效； radial / force 保持原样平铺。
+  const [expandedHub, setExpandedHub] = useState<string | null>(null);
 
   // 主题配色
   const capsuleBg = isDark ? "#18181b" : "#ffffff";
@@ -324,6 +327,94 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
   const activeNodes = useMemo(() => {
     return nodes.filter((n) => activeNodeIds.has(n.id));
   }, [nodes, activeNodeIds]);
+
+  // 按关系类型分组（触及中心的边才参与聚合；游离边直通渲染，不进 hub）。
+  // 成员按首次出现排，节点有多条边时归第一组——星形拓扑下基本是一对一。
+  const typeGroups = useMemo(() => {
+    const order: string[] = [];
+    const members = new Map<string, string[]>();
+    const labels = new Map<string, string>();
+    for (const link of filteredLinks) {
+      const other = link.source === centerEntityId ? link.target : link.source;
+      if (other === centerEntityId) continue;
+      if (link.source !== centerEntityId && link.target !== centerEntityId) continue;
+      if (!members.has(link.type)) {
+        order.push(link.type);
+        members.set(link.type, []);
+        labels.set(link.type, link.label || link.type);
+      }
+      const list = members.get(link.type)!;
+      if (!list.includes(other)) list.push(other);
+    }
+    return order.map((type) => ({ type, label: labels.get(type) || type, memberIds: members.get(type) || [] }));
+  }, [filteredLinks, centerEntityId]);
+
+  // 单类型时聚合没有意义（一个 hub 包全部节点，多此一举）：直接平铺。
+  const grouped = layoutMode === "hierarchy" && typeGroups.length > 1;
+  const activeHub = expandedHub && typeGroups.some((g) => g.type === expandedHub) ? expandedHub : null;
+  const hubIdOf = (type: string) => `__hub:${type}`;
+
+  // 聚合展示集：中心 + 类型 hub + 展开组的成员。
+  const displayNodes = useMemo<GraphNode[]>(() => {
+    if (!grouped) return activeNodes;
+    const byId = new Map(activeNodes.map((n) => [n.id, n]));
+    const out: GraphNode[] = [];
+    const center = byId.get(centerEntityId);
+    if (center) out.push(center);
+    for (const g of typeGroups) {
+      out.push({
+        id: hubIdOf(g.type),
+        name: g.label,
+        type: "__hub",
+        category: "hub",
+        level: 1,
+        role: String(g.memberIds.length),
+      });
+      if (g.type === activeHub) {
+        for (const id of g.memberIds) {
+          const m = byId.get(id);
+          if (m) out.push(m);
+        }
+      }
+    }
+    return out;
+  }, [grouped, activeNodes, typeGroups, activeHub, centerEntityId]);
+
+  // 聚合连边：中心→hub（收起态的唯一可见边）+ hub→成员（展开组）+
+  // 两端都可见的游离边。原生的中心→成员边由 hub 边代替，不再绘制。
+  const displayLinks = useMemo<GraphLink[]>(() => {
+    if (!grouped) return filteredLinks;
+    const visible = new Set(displayNodes.map((n) => n.id));
+    const out: GraphLink[] = [];
+    for (const g of typeGroups) {
+      out.push({
+        id: `__hub-edge:${g.type}`,
+        source: centerEntityId,
+        target: hubIdOf(g.type),
+        type: g.type,
+        label: g.label,
+        qualifier: "__hub",
+      });
+      if (g.type === activeHub) {
+        for (const id of g.memberIds) {
+          if (!visible.has(id)) continue;
+          out.push({
+            id: `__hub-link:${g.type}:${id}`,
+            source: hubIdOf(g.type),
+            target: id,
+            type: g.type,
+            label: "",
+            qualifier: "__hub-member",
+          });
+        }
+      }
+    }
+    for (const link of filteredLinks) {
+      if (link.source === centerEntityId || link.target === centerEntityId) continue;
+      if (visible.has(link.source) && visible.has(link.target)) out.push(link);
+    }
+    return out;
+  }, [grouped, filteredLinks, displayNodes, typeGroups, activeHub, centerEntityId]);
 
   // 计算节点布局坐标并执行全局几何中心对齐校准 (1000 x 680 基准坐标系)
   const layoutNodes = useMemo<Map<string, LayoutNode>>(() => {
@@ -409,6 +500,33 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         }
       }
     } else if (layoutMode === "hierarchy") {
+      if (grouped) {
+        // 类型聚合布局：中心 → 类型 hub → 成员（手风琴单开，默认全收起）。
+        const hubById = new Map(displayNodes.map((n) => [n.id, n]));
+        const hubList = typeGroups;
+        const hubRadius = hubList.length <= 8 ? 300 : 350;
+        hubList.forEach((g, i) => {
+          const angle = (i / Math.max(1, hubList.length)) * 2 * Math.PI - Math.PI / 2;
+          const hx = centerX + hubRadius * Math.cos(angle);
+          const hy = centerY + hubRadius * Math.sin(angle);
+          const hub = hubById.get(hubIdOf(g.type));
+          if (hub) map.set(hub.id, { ...hub, x: hx, y: hy, vx: 0, vy: 0, radius: 34 });
+          if (g.type === activeHub) {
+            const side = hx >= centerX ? 1 : -1;
+            const total = g.memberIds.length;
+            g.memberIds.forEach((id, j) => {
+              const m = hubById.get(id);
+              if (!m) return;
+              map.set(id, {
+                ...m,
+                x: hx + side * 180,
+                y: hy + (j - (total - 1) / 2) * 78,
+                vx: 0, vy: 0, radius: 26,
+              });
+            });
+          }
+        });
+      } else {
       // 层级结构 (Hierarchy) 布局：精细化分类与充裕间距排布
       const topNodes: GraphNode[] = [];
       const bottomReleaseNodes: GraphNode[] = [];
@@ -476,6 +594,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
         const startY = centerY - ((total - 1) * 125) / 2;
         map.set(node.id, { ...node, x: centerX + 360, y: startY + i * 125, vx: 0, vy: 0, radius: 30 });
       });
+      }
     } else {
       // 自然力导向模拟排布 (Force-Directed)
       const simNodes: LayoutNode[] = [
@@ -593,7 +712,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
     }
 
     return map;
-  }, [activeNodes, centerEntityId, centerEntityType, layoutMode, filteredLinks]);
+  }, [activeNodes, centerEntityId, centerEntityType, layoutMode, filteredLinks, grouped, activeHub, typeGroups, displayNodes]);
+
+  // 渲染用的边集：聚合态用合成边（hub 边无徽章，见 qualifier），平铺态用原边。
+  const renderLinks = grouped ? displayLinks : filteredLinks;
 
   // 将屏幕 Client 坐标精确转换为 SVG viewBox (0..1000, 0..680) 坐标
   const getSvgPoint = useCallback((clientX: number, clientY: number): { x: number; y: number } => {
@@ -1207,7 +1329,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
           >
             {/* 1. 渲染拓扑连线底层 (Edges Lines Layer) */}
             <g className="edges-lines-layer">
-              {filteredLinks.map((link, idx) => {
+              {renderLinks.map((link, idx) => {
                 const src = layoutNodes.get(link.source);
                 const tgt = layoutNodes.get(link.target);
                 if (!src || !tgt) return null;
@@ -1256,16 +1378,24 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
             <g className="nodes-layer">
               {Array.from(layoutNodes.values()).map((node) => {
                 const isCenter = node.id === centerEntityId;
+                const isHub = !isCenter && node.id.startsWith("__hub:");
+                const hubType = isHub ? node.id.slice("__hub:".length) : "";
+                const hubOpen = isHub && activeHub === hubType;
                 const isSelected = selectedNode?.id === node.id;
                 const isHovered = hoveredNodeId === node.id;
                 const r = node.radius;
                 const theme = getEntityTypeTheme(node.type, kindLabel, isDark);
 
                 const typeLabel = theme.label;
-                const typeBadgeWidth = Math.max(34, typeLabel.length * 11 + 10);
+                // hub 药丸只显示一行「类型名 (数量)」：类型徽章省了，名字就是标签。
+                const hubName = isHub ? `${node.name} (${node.role ?? ""})` : "";
+                const typeBadgeWidth = isHub ? 0 : Math.max(34, typeLabel.length * 11 + 10);
                 const maxNameChars = 16;
-                const truncatedName =
-                  node.name.length > maxNameChars ? `${node.name.slice(0, maxNameChars - 1)}…` : node.name;
+                const truncatedName = isHub
+                  ? hubName
+                  : node.name.length > maxNameChars
+                    ? `${node.name.slice(0, maxNameChars - 1)}…`
+                    : node.name;
                 const nameWidth = truncatedName.length * 12.5;
                 const pillWidth = Math.min(240, Math.max(110, typeBadgeWidth + nameWidth + 24));
                 const pillHeight = 28;
@@ -1280,6 +1410,11 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                     onMouseLeave={() => setHoveredNodeId(null)}
                     onClick={(e) => {
                       e.stopPropagation();
+                      // hub 点了只展开/收起（手风琴），不进检查器、不导航——它不是实体。
+                      if (isHub) {
+                        setExpandedHub(hubOpen ? null : hubType);
+                        return;
+                      }
                       setSelectedNode(node);
                       onNodeClick?.(node);
                     }}
@@ -1318,10 +1453,10 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                       />
                     )}
 
-                    {/* 节点主圆底色 */}
+                    {/* 节点主圆底色（hub 没有渐变定义，走主题纯色） */}
                     <circle
                       r={r}
-                      fill={isCenter ? centerFill : `url(#grad-${node.type})`}
+                      fill={isCenter ? centerFill : isHub ? theme.bgFill : `url(#grad-${node.type})`}
                       stroke={isCenter ? centerBorder : theme.stroke}
                       strokeWidth={isCenter ? 3.5 : 2.5}
                       filter="url(#node-drop-shadow)"
@@ -1352,7 +1487,7 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                         fill="#ffffff"
                         className="pointer-events-none font-mono select-none"
                       >
-                        {node.type.slice(0, 2).toUpperCase()}
+                        {isHub ? (hubOpen ? "−" : "+") : node.type.slice(0, 2).toUpperCase()}
                       </text>
                     )}
 
@@ -1370,28 +1505,32 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
                         filter="url(#badge-drop-shadow)"
                       />
 
-                      <rect
-                        x={-pillWidth / 2 + 4}
-                        y={-9}
-                        width={typeBadgeWidth}
-                        height={18}
-                        rx={9}
-                        fill={theme.bgFill}
-                      />
-                      <text
-                        x={-pillWidth / 2 + 4 + typeBadgeWidth / 2}
-                        y={3.5}
-                        textAnchor="middle"
-                        fontSize="10"
-                        fontWeight="700"
-                        fill={theme.textFill}
-                        className="pointer-events-none select-none font-sans"
-                      >
-                        {typeLabel}
-                      </text>
+                      {!isHub && (
+                        <>
+                          <rect
+                            x={-pillWidth / 2 + 4}
+                            y={-9}
+                            width={typeBadgeWidth}
+                            height={18}
+                            rx={9}
+                            fill={theme.bgFill}
+                          />
+                          <text
+                            x={-pillWidth / 2 + 4 + typeBadgeWidth / 2}
+                            y={3.5}
+                            textAnchor="middle"
+                            fontSize="10"
+                            fontWeight="700"
+                            fill={theme.textFill}
+                            className="pointer-events-none select-none font-sans"
+                          >
+                            {typeLabel}
+                          </text>
+                        </>
+                      )}
 
                       <text
-                        x={(-pillWidth / 2 + 4 + typeBadgeWidth + (pillWidth / 2 - 6)) / 2}
+                        x={isHub ? 0 : (-pillWidth / 2 + 4 + typeBadgeWidth + (pillWidth / 2 - 6)) / 2}
                         y={4.5}
                         textAnchor="middle"
                         fontSize="13"
@@ -1409,10 +1548,12 @@ export const InteractiveRelationGraph: React.FC<InteractiveRelationGraphProps> =
 
             {/* 3. 渲染连线谓词徽章层 (Edge Badges Top Layer) */}
             <g className="edges-badges-layer">
-              {filteredLinks.map((link, idx) => {
+              {renderLinks.map((link, idx) => {
                 const src = layoutNodes.get(link.source);
                 const tgt = layoutNodes.get(link.target);
                 if (!src || !tgt) return null;
+                // 合成 hub 边不画谓词徽章：类型名已在 hub 药丸上，画了就是满屏重复。
+                if (link.qualifier === "__hub" || link.qualifier === "__hub-member") return null;
 
                 const isHovered = hoveredLinkId === (link.id || `${link.source}-${link.target}`);
                 const colorHex = getLinkColorHex(link.color);
