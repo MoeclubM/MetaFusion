@@ -130,12 +130,20 @@ function ExploreInner() {
   const [reloadKey, setReloadKey] = useState(0);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [topTags, setTopTags] = useState<{ name: string; count: number }[]>([]);
-  // 标签云展示集：本地搜索过滤 + 已选置顶（选中的不因搜不到而消失）。
+  // 默认展示数与搜索上限：面板不展开长云，冷门标签走搜索框（搜索池见下面的 limit=100）。
+  const TAG_COLLAPSED_COUNT = 8;
+  const TAG_SEARCH_CAP = 30;
+  // 标签默认只露前几个：面板不展开长云，剩下的走搜索框。已选恒置顶（不因不在前 N 或搜不到而消失）。
   const visibleTags = useMemo(() => {
     const q = tagQuery.trim().toLowerCase();
-    const base = q ? topTags.filter((tag) => tag.name.toLowerCase().includes(q)) : topTags;
-    const selected = topTags.filter((tag) => currentTags.includes(tag.name) && !base.includes(tag));
-    return [...selected, ...base];
+    if (q) {
+      const base = topTags.filter((tag) => tag.name.toLowerCase().includes(q)).slice(0, TAG_SEARCH_CAP);
+      const selected = topTags.filter((tag) => currentTags.includes(tag.name) && !base.includes(tag));
+      return [...selected, ...base];
+    }
+    const top = topTags.slice(0, TAG_COLLAPSED_COUNT);
+    const selected = topTags.filter((tag) => currentTags.includes(tag.name) && !top.includes(tag));
+    return [...selected, ...top];
   }, [topTags, tagQuery, currentTags]);
   const [tagsFailed, setTagsFailed] = useState(false);
   const [tagsReloadKey, setTagsReloadKey] = useState(0);
@@ -156,7 +164,8 @@ function ExploreInner() {
   useEffect(() => {
     let alive = true;
     setTagsFailed(false);
-    fetch("/api/catalog/tags?limit=40", { credentials: "same-origin" })
+    // 取 100 个当搜索池：面板默认只展示前 N（见 visibleTags），搜得到深处的冷门标签。
+    fetch("/api/catalog/tags?limit=100", { credentials: "same-origin" })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
       .then((data) => { if (alive) setTopTags(Array.isArray(data.items) ? data.items : []); })
       .catch(() => { if (alive) { setTopTags([]); setTagsFailed(true); } });
