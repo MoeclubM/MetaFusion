@@ -28,7 +28,7 @@ import {
   ChevronRight,
   RefreshCw,
   GitCompare,
-  Tag,
+  Check,
 } from "lucide-react";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { Select } from "@/components/ui/Select";
@@ -92,6 +92,10 @@ function ExploreInner() {
     () => searchParams.getAll("tags").flatMap((v) => v.split(",")).map((s) => s.trim()).filter(Boolean),
     [searchParams],
   );
+  // 原语言：document->>'original_language' 精确匹配（ja/zh/en…大小写按入库原样比）。
+  const currentOriginalLanguage = searchParams.get("original_language") || "";
+  // 仅有封面：document->'pictures' 为非空数组。
+  const currentHasPictures = searchParams.get("has_pictures") === "1";
   // 页码解析必须挡住 NaN：`?page=abc` 经 parseInt 得到 NaN，Math.max(1, NaN) 仍是 NaN，
   // 于是 offset=NaN 被原样发给服务端（现在会被按非法参数 400 拒绝，页面就以"加载失败"告终）。
   // 非数字或小于 1 一律当第 1 页；数字但超出结果范围的越界页另有可读提示（见 outOfRange）。
@@ -109,6 +113,9 @@ function ExploreInner() {
   const offset = (currentPage - 1) * limit;
 
   const [qInput, setQInput] = useState(currentQ);
+  const [langInput, setLangInput] = useState(currentOriginalLanguage);
+  // 标签云本地搜索：只过滤面板展示，不发请求。
+  const [tagQuery, setTagQuery] = useState("");
   const [items, setItems] = useState<EntityItem[]>([]);
   // 结果总数（后端 total）：翻页判定必须以它为准——items.length 只是当前窗口，结果数是页宽整数倍时
   // 会误判"还有下一页"，点进去是没有数据的空页。
@@ -123,6 +130,13 @@ function ExploreInner() {
   const [reloadKey, setReloadKey] = useState(0);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [topTags, setTopTags] = useState<{ name: string; count: number }[]>([]);
+  // 标签云展示集：本地搜索过滤 + 已选置顶（选中的不因搜不到而消失）。
+  const visibleTags = useMemo(() => {
+    const q = tagQuery.trim().toLowerCase();
+    const base = q ? topTags.filter((tag) => tag.name.toLowerCase().includes(q)) : topTags;
+    const selected = topTags.filter((tag) => currentTags.includes(tag.name) && !base.includes(tag));
+    return [...selected, ...base];
+  }, [topTags, tagQuery, currentTags]);
   const [tagsFailed, setTagsFailed] = useState(false);
   const [tagsReloadKey, setTagsReloadKey] = useState(0);
   // 越界页（如 ?page=99999）：服务端返回空 items，但 total 仍是筛选后的真实条数。
@@ -133,6 +147,9 @@ function ExploreInner() {
   useEffect(() => {
     setQInput(currentQ);
   }, [currentQ]);
+  useEffect(() => {
+    setLangInput(currentOriginalLanguage);
+  }, [currentOriginalLanguage]);
 
   // 标签云：来自真实聚合（各实体 attributes.tags 的频次），按使用量取前若干。
   // 取不到时说明"标签面板暂时不可用"，不再与"暂无标签"混成同一句。
@@ -156,6 +173,8 @@ function ExploreInner() {
     if (currentQ) params.set("q", currentQ);
     if (currentType) params.set("type", currentType);
     currentTags.forEach((tag) => params.append("tags", tag));
+    if (currentOriginalLanguage) params.set("original_language", currentOriginalLanguage);
+    if (currentHasPictures) params.set("has_pictures", "1");
     if (sortParam) params.set("sort", sortParam);
     if (orderParam) params.set("order", orderParam);
     // title 排序由服务端按请求语种取题名（请求语种 → 原文语种 → en-US → 基础题名），
@@ -203,7 +222,7 @@ function ExploreInner() {
       })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [currentKind, currentStatus, currentQ, currentType, currentTags, offset, sortParam, orderParam, locale, reloadKey]);
+  }, [currentKind, currentStatus, currentQ, currentType, currentTags, currentOriginalLanguage, currentHasPictures, offset, sortParam, orderParam, locale, reloadKey]);
 
   const updateFilters = (updates: Record<string, string>) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -374,6 +393,27 @@ function ExploreInner() {
               </nav>
             </Card>
 
+            {/* 状态：与种类/标签叠加；原来在顶部检索栏，现收归侧栏统一筛选。 */}
+            <Card padding="none" className="shadow-soft overflow-hidden">
+              <div className="px-3.5 py-2.5 border-b border-line-subtle">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-text-faint">
+                  {t("catalog.status")}
+                </span>
+              </div>
+              <div className="p-2.5">
+                <Select
+                  value={currentStatus}
+                  aria-label={t("catalog.status")}
+                  onChange={(v) => updateFilters({ status: v })}
+                  options={[
+                    { value: "published", label: tr("catalog.status.published", "published") },
+                    { value: "pending_review", label: tr("catalog.status.pending_review", "pending_review") },
+                    { value: "draft", label: tr("catalog.status.draft", "draft") },
+                  ]}
+                />
+              </div>
+            </Card>
+
             {/* 标签筛选：与种类筛选叠加生效；来源为真实标签聚合
                 （/catalog/tags 聚合自各实体的 attributes.tags）。 */}
             <div className="rounded-xl border border-line bg-surface shadow-soft overflow-hidden">
@@ -397,6 +437,18 @@ function ExploreInner() {
                 )}
               </div>
               <div className="p-2.5">
+                {/* 标签云本地搜索：只过滤面板展示，不发请求。 */}
+                <div className="relative flex items-center mb-2">
+                  <Search className="absolute left-2.5 w-3.5 h-3.5 text-text-muted pointer-events-none" />
+                  <input
+                    type="text"
+                    value={tagQuery}
+                    onChange={(e) => setTagQuery(e.target.value)}
+                    placeholder={t("catalog.tagSearchPlaceholder")}
+                    aria-label={t("catalog.tagFilter")}
+                    className="w-full pl-8 pr-2 py-1.5 rounded-md bg-black/[0.02] dark:bg-white/[0.04] border border-line-subtle text-[11px] text-text-strong placeholder:text-text-muted focus:border-primary outline-none"
+                  />
+                </div>
                 {tagsFailed ? (
                   <div className="px-1 py-2 flex items-center gap-2 text-xs text-amber-700 dark:text-warn-soft">
                     <span>{t("catalog.tagsFailed")}</span>
@@ -412,7 +464,7 @@ function ExploreInner() {
                   <p className="px-1 py-2 text-xs text-text-faint">{t("catalog.noTags")}</p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
-                    {topTags.map((tag) => {
+                    {visibleTags.map((tag) => {
                       const on = currentTags.includes(tag.name);
                       return (
                         <button
@@ -431,16 +483,76 @@ function ExploreInner() {
                         </button>
                       );
                     })}
+                    {visibleTags.length === 0 && topTags.length > 0 && (
+                      <p className="px-1 py-2 text-xs text-text-faint">{t("catalog.noTags")}</p>
+                    )}
                   </div>
                 )}
               </div>
             </div>
+
+            {/* 原语言：document->>'original_language' 精确匹配，八层级通用。 */}
+            <Card padding="none" className="shadow-soft overflow-hidden">
+              <div className="px-3.5 py-2.5 border-b border-line-subtle">
+                <span className="text-[11px] font-mono uppercase tracking-wider text-text-faint">
+                  {t("catalog.originalLanguageFilter")}
+                </span>
+              </div>
+              <form
+                className="p-2.5 flex items-center gap-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  updateFilters({ original_language: langInput.trim() });
+                }}
+              >
+                <input
+                  type="text"
+                  value={langInput}
+                  onChange={(e) => setLangInput(e.target.value)}
+                  placeholder={t("catalog.originalLanguagePlaceholder")}
+                  aria-label={t("catalog.originalLanguageFilter")}
+                  className="flex-1 min-w-0 px-2.5 py-1.5 rounded-md bg-black/[0.02] dark:bg-white/[0.04] border border-line-subtle text-[11px] font-mono text-text-strong placeholder:text-text-muted focus:border-primary outline-none"
+                />
+                {(currentOriginalLanguage || langInput.trim()) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLangInput("");
+                      updateFilters({ original_language: "" });
+                    }}
+                    className="shrink-0 text-[11px] text-primary hover:underline px-1"
+                  >
+                    {t("catalog.clear")}
+                  </button>
+                )}
+              </form>
+            </Card>
+
+            {/* 封面：只留 pictures 非空数组的条目。 */}
+            <Card padding="none" className="shadow-soft overflow-hidden">
+              <button
+                type="button"
+                onClick={() => updateFilters({ has_pictures: currentHasPictures ? "" : "1" })}
+                aria-pressed={currentHasPictures}
+                className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left cursor-pointer hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
+              >
+                <span
+                  className={
+                    "w-4 h-4 rounded border flex items-center justify-center shrink-0 transition-colors " +
+                    (currentHasPictures ? "bg-primary border-primary text-white" : "border-line text-transparent")
+                  }
+                >
+                  <Check className="w-3 h-3" />
+                </span>
+                <span className="text-xs text-text-body">{t("catalog.hasPicturesFilter")}</span>
+              </button>
+            </Card>
           </aside>
 
           <div className="min-w-0 space-y-5">
-            {/* 检索与状态：仅保留面向用户的检索条件，类型不再单列 */}
+            {/* 检索与排序：筛选条件收归左侧栏（种类/状态/标签/原语言/封面），这里只留检索、排序与视图切换。 */}
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 p-4 rounded-xl bg-surface border border-line shadow-soft">
-              <form onSubmit={handleSearchSubmit} className="sm:col-span-6 relative flex items-center">
+              <form onSubmit={handleSearchSubmit} className="sm:col-span-8 relative flex items-center">
                 <Search className="absolute left-3.5 w-4 h-4 text-text-muted pointer-events-none" />
                 <input
                   type="text"
@@ -477,19 +589,6 @@ function ExploreInner() {
                 />
               </div>
 
-              <div className="sm:col-span-2 flex items-center">
-                <Select
-                  value={currentStatus}
-                  aria-label={t("catalog.status")}
-                  onChange={(v) => updateFilters({ status: v })}
-                  options={[
-                    { value: "published", label: tr("catalog.status.published", "published") },
-                    { value: "pending_review", label: tr("catalog.status.pending_review", "pending_review") },
-                    { value: "draft", label: tr("catalog.status.draft", "draft") },
-                  ]}
-                />
-              </div>
-
               <div className="sm:col-span-2 flex items-center justify-end gap-1.5">
                 <button
                   type="button"
@@ -520,40 +619,6 @@ function ExploreInner() {
               </div>
             </div>
 
-            {/* 标签筛选：多选、命中任一；来源为真实标签聚合 */}
-            {topTags.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-text-muted shrink-0" />
-                {topTags.map((tag) => {
-                  const active = currentTags.includes(tag.name);
-                  return (
-                    <button
-                      key={tag.name}
-                      type="button"
-                      onClick={() => toggleTag(tag.name)}
-                      className={
-                        "px-2.5 py-1 rounded-md text-[11px] font-mono transition-colors duration-fast ease-soft cursor-pointer " +
-                        (active
-                          ? "bg-primary text-white font-semibold border border-primary"
-                          : "bg-surface text-text-body hover:text-gray-900 dark:hover:text-white hover:bg-black/[0.04] dark:hover:bg-surfaceHover border border-line")
-                      }
-                    >
-                      #{tag.name}
-                    </button>
-                  );
-                })}
-                {currentTags.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => updateFilters({ tags: "" })}
-                    className="px-2.5 py-1 rounded-md text-[11px] font-mono text-primary hover:underline cursor-pointer"
-                  >
-                    {t("catalog.emptyAction")}
-                  </button>
-                )}
-              </div>
-            )}
-
             {loading ? (
               <div className="py-24 text-center text-text-faint font-mono text-xs flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="w-6 h-6 animate-spin text-primary" />
@@ -577,7 +642,7 @@ function ExploreInner() {
                   // 参数非法时给"清除筛选"而不是"重试"：同样的参数再发一次还是 400。
                   <button
                     type="button"
-                    onClick={() => updateFilters({ q: "", kind: "", tags: "" })}
+                    onClick={() => updateFilters({ q: "", kind: "", tags: "", original_language: "", has_pictures: "" })}
                     className="inline-flex items-center gap-1.5 text-xs font-mono text-primary hover:underline cursor-pointer"
                   >
                     {t("catalog.emptyAction")}

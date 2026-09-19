@@ -1953,5 +1953,9 @@
   "settings.profileSave": "Save profile",
   "settings.profileSaving": "Saving…",
   "settings.profileSaved": "Profile saved",
-  "settings.profileSaveFailed": "Save failed, please retry"
+  "settings.profileSaveFailed": "Save failed, please retry",
+  "catalog.originalLanguageFilter": "Original language",
+  "catalog.originalLanguagePlaceholder": "e.g. ja, exact match",
+  "catalog.hasPicturesFilter": "Has cover only",
+  "catalog.tagSearchPlaceholder": "Search tags…"
 }

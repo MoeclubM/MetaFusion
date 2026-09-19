@@ -1953,5 +1953,9 @@
   "settings.profileSave": "プロフィールを保存",
   "settings.profileSaving": "保存中…",
   "settings.profileSaved": "プロフィールを保存しました",
-  "settings.profileSaveFailed": "保存に失敗しました。時間をおいて再試行してください"
+  "settings.profileSaveFailed": "保存に失敗しました。時間をおいて再試行してください",
+  "catalog.originalLanguageFilter": "原言語",
+  "catalog.originalLanguagePlaceholder": "例 ja、完全一致",
+  "catalog.hasPicturesFilter": "カバーのみ",
+  "catalog.tagSearchPlaceholder": "タグを検索…"
 }

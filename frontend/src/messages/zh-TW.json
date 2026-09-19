@@ -1953,5 +1953,9 @@
   "settings.profileSave": "儲存資料",
   "settings.profileSaving": "儲存中…",
   "settings.profileSaved": "資料已儲存",
-  "settings.profileSaveFailed": "儲存失敗，請稍後重試"
+  "settings.profileSaveFailed": "儲存失敗，請稍後重試",
+  "catalog.originalLanguageFilter": "原語言",
+  "catalog.originalLanguagePlaceholder": "如 ja，精確匹配",
+  "catalog.hasPicturesFilter": "僅有封面",
+  "catalog.tagSearchPlaceholder": "搜尋標籤…"
 }
