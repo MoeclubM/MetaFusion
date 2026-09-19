@@ -11,7 +11,6 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  BadgeCheck,
   Check,
   Copy,
   ExternalLink,
@@ -26,13 +25,12 @@ import {
 } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 import { PageContainer } from "@/components/ui/PageShell";
-import { Card, CardTitle } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { SecretRevealModal, type SecretReveal } from "@/components/oauth/SecretRevealModal";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useAuth } from "@/lib/authContext";
-import { AUTH_OAUTH_MANAGE, can } from "@/lib/permissions";
+
 import { DOCS_SERVICE_URL } from "@/lib/services";
 import { copyText } from "@/lib/clipboard";
 import {
@@ -43,12 +41,13 @@ import {
   fetchAccessConfig,
   fetchMyApps,
   rotateAppSecret,
-  scopeText,
   type AccessConfig,
   type DeveloperApp,
 } from "@/lib/developer";
 import { AppFormModal, type AppFormOutcome } from "./components/AppFormModal";
 import { ApiKeysPanel } from "@/components/developer/ApiKeysPanel";
+import { AuditLogsCard } from "./components/AuditLogsCard";
+import { RequestLogsCard } from "./components/RequestLogsCard";
 
 /** 待确认的破坏性动作：轮换与删除都先弹确认。 */
 type Pending = { kind: "rotate" | "delete"; app: DeveloperApp };
@@ -62,8 +61,7 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 export default function DeveloperPage() {
-  const { t, locale } = useI18n();
-  const { user } = useAuth();
+  const { t } = useI18n();
   const [config, setConfig] = useState<AccessConfig | null>(null);
   const [apps, setApps] = useState<DeveloperApp[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,9 +73,6 @@ export default function DeveloperPage() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
-
-  // 系统应用改由管理后台维护：入口判定与账号台 OAuth 客户端节同码（auth.oauth.manage）。
-  const canManageOauthClients = can(user, AUTH_OAUTH_MANAGE);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -222,66 +217,9 @@ export default function DeveloperPage() {
         ) : null}
 
         {config ? (
-          <>
-            <Card padding="section" className="space-y-3">
-              <CardTitle icon={<SlidersHorizontal className="w-4 h-4 text-primary" />}>{t("developer.access.title")}</CardTitle>
-              <p className="text-xs text-text-muted leading-relaxed">{t("developer.access.subtitle")}</p>
-              <div className="rounded-xl border border-line-subtle overflow-hidden">
-                <table className="w-full text-left text-xs border-collapse">
-                  <tbody className="divide-y divide-line-subtle">
-                    <tr>
-                      <td className="py-2 px-3 text-text-muted whitespace-nowrap">{t("developer.access.issuer")}</td>
-                      <td className="py-2 px-3 font-mono text-[11px] text-text-strong break-all">{config.issuer}</td>
-                      <td className="py-2 px-3 text-right w-16">
-                        <button type="button" onClick={() => void copy("issuer", config.issuer)} className={actionClass}>
-                          {copied === "issuer" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                        </button>
-                      </td>
-                    </tr>
-                    {ENDPOINT_KEYS.map((key) => {
-                      const value = config.endpoints[key] || "";
-                      return (
-                        <tr key={key}>
-                          <td className="py-2 px-3 text-text-muted whitespace-nowrap">{t(`developer.access.endpoint.${key}`)}</td>
-                          <td className="py-2 px-3 font-mono text-[11px] text-text-body break-all">{value}</td>
-                          <td className="py-2 px-3 text-right w-16">
-                            <button type="button" onClick={() => void copy(key, value)} className={actionClass}>
-                              {copied === key ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-text-muted font-mono">
-                <span>grant_types: {config.grant_types.join(" ")}</span>
-                <span>response_types: {config.response_types.join(" ")}</span>
-                <span>PKCE: {config.code_challenge_methods.join(" ")}</span>
-              </div>
-              {copied === "failed" ? <p className="text-[11px] text-warn">{t("developer.copyFailed")}</p> : null}
-            </Card>
-
-            {/* 系统应用（owner_user_id 为空）不在开发者中心展示：overview 仍回 platforms，
-                本页不取用该数组，只留一句说明与管理员入口，不列任何 client_id 与回调地址。 */}
-            <p className="text-[11px] text-text-faint leading-relaxed">
-              {t("developer.systemApps.note")}
-              {canManageOauthClients ? (
-                <>
-                  {" "}
-                  <a
-                    href="/admin/account/oauth-clients/"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary hover:underline"
-                  >
-                    {t("developer.systemApps.adminLink")}
-                  </a>
-                </>
-              ) : null}
-            </p>
-
+          <div className="space-y-4">
+          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+            <div className="space-y-4 min-w-0">
             <Card padding="section" className="space-y-3">
               <SectionTitle
                 icon={<KeyRound className="w-4 h-4 text-primary" />}
@@ -376,31 +314,56 @@ export default function DeveloperPage() {
             </Card>
 
             <Card padding="section" className="space-y-3">
-              <SectionTitle icon={<BadgeCheck className="w-4 h-4 text-primary" />}>{t("developer.scopes.title")}</SectionTitle>
-              <p className="text-xs text-text-muted leading-relaxed">{t("developer.scopes.subtitle")}</p>
-              <ul className="space-y-2">
-                {config.scopes.map((item) => (
-                  <li key={item.code} className="p-3 rounded-xl border border-line-subtle">
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <span className="font-mono text-xs text-text-strong">{item.code}</span>
-                      <span className="text-xs text-text-body">{scopeText(item, locale, "names")}</span>
-                    </div>
-                    <p className="mt-0.5 text-[11px] text-text-muted leading-relaxed">
-                      {scopeText(item, locale, "descriptions")}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            <Card padding="section" className="space-y-3">
               <SectionTitle icon={<KeyRound className="w-4 h-4 text-primary" />}>
                 {t("developer.apiKeys.title")}
               </SectionTitle>
               <p className="text-xs text-text-muted leading-relaxed">{t("developer.apiKeys.subtitle")}</p>
               <ApiKeysPanel />
             </Card>
-          </>
+            </div>
+            <div className="space-y-4 min-w-0">
+              <AuditLogsCard apps={apps} />
+              <RequestLogsCard />
+            </div>
+          </div>
+
+          <details className="rounded-xl border border-line-subtle bg-surface px-3.5 py-2.5">
+            <summary className="text-xs text-text-muted cursor-pointer inline-flex items-center gap-1.5">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-primary" />
+              {t("developer.access.title")}
+            </summary>
+            <div className="mt-2 rounded-lg border border-line-subtle overflow-hidden">
+              <table className="w-full text-left text-xs border-collapse">
+                <tbody className="divide-y divide-line-subtle">
+                  <tr>
+                    <td className="py-2 px-3 text-text-muted whitespace-nowrap">issuer</td>
+                    <td className="py-2 px-3 font-mono text-[11px] text-text-strong break-all">{config.issuer}</td>
+                    <td className="py-2 px-3 text-right w-16">
+                      <button type="button" onClick={() => void copy("issuer", config.issuer)} className={actionClass}>
+                        {copied === "issuer" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </button>
+                    </td>
+                  </tr>
+                  {ENDPOINT_KEYS.map((key) => {
+                    const value = config.endpoints[key] || "";
+                    return (
+                      <tr key={key}>
+                        <td className="py-2 px-3 text-text-muted whitespace-nowrap font-mono">{key}</td>
+                        <td className="py-2 px-3 font-mono text-[11px] text-text-body break-all">{value}</td>
+                        <td className="py-2 px-3 text-right w-16">
+                          <button type="button" onClick={() => void copy(key, value)} className={actionClass}>
+                            {copied === key ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {copied === "failed" ? <p className="mt-1 text-[11px] text-warn">{t("developer.copyFailed")}</p> : null}
+          </details>
+          </div>
         ) : null}
       </PageContainer>
 

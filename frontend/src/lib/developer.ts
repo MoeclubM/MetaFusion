@@ -136,6 +136,50 @@ export function describeDeveloperError(err: unknown, t: TranslateFn): string {
   return t("developer.error.network", { message: err instanceof Error ? err.message : String(err) });
 }
 
+/** 自有应用的授权审计：谁（actor）对我的哪个客户端做了什么（同意/拒绝/轮换/删除…）。
+ *  服务端按 oauth_clients.owner_user_id = 本人过滤，无归属行直接空列表。 */
+export interface DeveloperAuditEntry {
+  id: string;
+  actor_user_id: string;
+  actor_username: string;
+  subject_user_id: string;
+  client_id: string;
+  client_name: string;
+  action: string;
+  scopes: string[];
+  detail: string;
+  created_at: string;
+}
+
+export async function fetchDeveloperAuditLogs(clientId?: string, limit?: number): Promise<DeveloperAuditEntry[]> {
+  const params = new URLSearchParams();
+  if (clientId) params.set("client_id", clientId);
+  if (limit) params.set("limit", String(limit));
+  const qs = params.toString();
+  const res = await fetchApi<{ items?: DeveloperAuditEntry[] }>("/developer/audit-logs" + (qs ? "?" + qs : ""));
+  return res.items ?? [];
+}
+
+/** 本人 API 调用日志：只记已登录请求，route 为模板路径（无实体 id 与查询串）。 */
+export interface RequestLogEntry {
+  at: string;
+  credential_type: string;
+  credential_name: string;
+  method: string;
+  route: string;
+  status: number;
+  ms: number;
+}
+
+export async function fetchRequestLogs(credential?: string, limit?: number): Promise<RequestLogEntry[]> {
+  const params = new URLSearchParams();
+  if (credential) params.set("credential", credential);
+  if (limit) params.set("limit", String(limit));
+  const qs = params.toString();
+  const res = await fetchApi<{ items?: RequestLogEntry[] }>("/catalog/developer/request-logs" + (qs ? "?" + qs : ""));
+  return res.items ?? [];
+}
+
 /** 回调白名单是"一行一个"：换行/空格都当分隔，去空去重后与原值比较才谈得上"改没改"。 */
 export function parseRedirects(raw: string): string[] {
   const out: string[] = [];
