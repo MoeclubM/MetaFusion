@@ -34,6 +34,7 @@ import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLin
 import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
 import dynamic from "next/dynamic";
 import { StaffCharacterSection, StaffCredit } from "@/components/entity/StaffCharacterSection";
+import { buildStaffCredits } from "@/components/entity/staffCredits";
 import { WorkContentDirectory } from "@/components/work/WorkContentDirectory";
 const InteractiveRelationGraph = dynamic(() => import("@/components/graph/InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
 
@@ -261,70 +262,12 @@ const releaseFacets = useMemo(
  return out;
  }, [work, relations, relEntities, defs, locale]);
 
- // 演职员与角色（StaffCharacterSection 消费结构化条目，不再做字符串配对）。
- const staffCredits = useMemo<StaffCredit[]>(() => {
- if (!work?.id) return [];
- const out: StaffCredit[] = [];
- for (const r of relations) {
- if (r.source_id === work.id) {
- const target = relEntities[r.target_id];
- if (!target || target.kind !== "agent") continue;
- const credit: StaffCredit = {
- id: r.id,
- relationType: r.type,
- relationLabel: relationName(r.type),
- creditRole: attrText(r.attributes?.credit_role) || undefined,
- agent: { id: target.id!, name: target.title || "", avatarUrl: target.pictures?.[0]?.url, types: target.types || [] },
- };
- if (attrText(r.attributes?.character)) {
- const chId = attrText(r.attributes?.character);
- const ch = chId ? relEntities[chId] : undefined;
- if (ch) {
- credit.character = { id: ch.id, name: ch.title, avatarUrl: ch.pictures?.[0]?.url };
- }
- // 配音上下文：language 是自由文本字段（非受控词表），context 是实体引用，
- // 两者共同区分同一角色在不同语言/篇目下的多版配音。
- credit.language = attrText(r.attributes?.language) || undefined;
- const ctxId = attrText(r.attributes?.context);
- credit.contextLabel = (ctxId ? relEntities[ctxId]?.title : "") || undefined;
- }
- out.push(credit);
- } else if (r.source_id !== work.id) {
- // 登场角色：agent(角色) → work，方向与署名关系相反。
- // 番位码读 attributes.character_rank：番位词表是 character_rank（main/supporting/guest/
- // ensemble/narrator/cameo），attributes.role 属"内容用途"词表（primary/supplement/extra），
- // 只在兼容早期数据时读，不当作番位语义。
- const src = relEntities[r.source_id];
- if (!src || src.kind !== "agent") continue;
- const rankFromVocab = attrText(r.attributes?.character_rank);
- const rankCode = rankFromVocab || attrText(r.attributes?.role);
- // 番位名以服务端 character_rank 词表为准（四语、后台改词即刻生效），字典键只作兜底，
- // 历史 role 码不进 role 词表（语义不同），最后退原始码。
- const rankTerm = rankFromVocab ? getTermName(defs, "character_rank", rankCode, locale) : "";
- const rankLabel = !rankCode
- ? ""
- : rankTerm && rankTerm !== rankCode
- ? rankTerm
- : tr(`entity.characterRank.${rankCode}`, rankCode);
- out.push({
- id: r.id,
- relationType: r.type,
- relationLabel: relationName(r.type),
- creditRole: attrText(r.attributes?.credit_role) || undefined,
- agent: { id: src.id!, name: src.title || "", avatarUrl: src.pictures?.[0]?.url, types: src.types || [] },
- // rankCode 供展示层按数据码判定（主角 = main），不去嗅探本地化文案。
- character: {
- id: src.id!,
- name: src.title || "",
- avatarUrl: src.pictures?.[0]?.url,
- rankLabel: rankLabel && rankLabel !== rankCode ? rankLabel : undefined,
- rankCode: rankCode || undefined,
- },
- });
- }
- }
- return out;
- }, [work, relations, relEntities, defs, locale]);
+ // 演职员与角色：通用构造（见 components/entity/staffCredits），页面只喂数据。
+const staffCredits = useMemo<StaffCredit[]>(
+  () => (work?.id ? buildStaffCredits({ entityId: work.id, relations, relEntities, defs, locale, tr }) : []),
+  [work, relations, relEntities, defs, locale, tr],
+);
+
 
  // 关系图谱拓扑：中心作品 + 关系对端，本地构建（无需独立 graph 端点）。
  const graphData = useMemo<{ nodes: GraphNode[]; links: GraphLink[] } | null>(() => {

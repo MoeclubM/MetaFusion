@@ -20,6 +20,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
+import { EntityStaffSection } from "@/components/entity/EntityStaffSection";
 import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { RecordList, GroupAttributeInline } from "@/components/catalog/TemplateAttributeSections";
 import { EntityLink } from "@/components/catalog/Fields";
@@ -38,6 +39,7 @@ import {
   Film,
   Layers,
   Plus,
+  Users,
 } from "lucide-react";
 
 
@@ -153,6 +155,7 @@ export default function ReleaseDetailPage() {
   // 篮子状态与跨标签页同步统一走 lib/compareBasket.ts：另一页加入/移除后本页不刷新即一致。
   const { basket, toggle: toggleBasket } = useCompareBasket();
   const [basketNotice, setBasketNotice] = useState("");
+  const [releaseStaffCount, setReleaseStaffCount] = useState(0);
   const [siblingReleases, setSiblingReleases] = useState<Entity[]>([]);
   // 批量数据的加载缺口按来源细分：实体查询与批量详情是两条路径，任一部分未恢复都要
   // 保留重试提示。旧实现只在逐条实体也失败时计数，批量失败但实体补回时计数为 0，
@@ -1115,6 +1118,15 @@ export default function ReleaseDetailPage() {
             </dl>
           </details>
           </Card>
+        )}
+
+        {releaseStaffCount > 0 && (
+          <section className="space-y-3" aria-label={t("work.detail.staffAndCharacters")}>
+            <SectionTitle icon={<Users className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
+              {t("work.detail.staffAndCharacters")}
+            </SectionTitle>
+            <EntityStaffSection entityId={releaseId} onCount={setReleaseStaffCount} />
+          </section>
         )}
 
         <div className="flex items-center gap-1.5 font-mono text-[11px] text-text-faint">

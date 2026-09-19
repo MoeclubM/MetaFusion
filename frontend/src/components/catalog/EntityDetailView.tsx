@@ -36,6 +36,8 @@ import { PageShell, PageContainer } from "@/components/ui/PageShell";
 import { TabPanel } from "@/components/ui/TabPanel";
 import { Card, CardTitle } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
+import { StaffCharacterSection } from "@/components/entity/StaffCharacterSection";
+import { buildStaffCredits } from "@/components/entity/staffCredits";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
@@ -130,23 +132,6 @@ const relationGroupKey = (
     ? rel.group || FALLBACK_RELATION_GROUP
     : FALLBACK_RELATION_GROUP;
 };
-
-/**
- * 演职人员头像：外链头像取不到时回退到首字母，而不是在圆框里留一个破图图标。
- * 同一页的封面已经走 EntityCover（失败即程序封面），这里补上同类问题的最后一处。
- */
-function StaffAvatar({ src, name }: { src?: string | null; name: string }) {
-  const [broken, setBroken] = useState(false);
-  if (!src || broken) return <span>{name[0]?.toUpperCase() || "A"}</span>;
-  return (
-    <img
-      src={src}
-      alt={name}
-      className="w-full h-full object-cover"
-      onError={() => setBroken(true)}
-    />
-  );
-}
 
 async function allEntities(query: string): Promise<Entity[]> {
   const items: Entity[] = [];
@@ -674,6 +659,28 @@ export function EntityDetailView({ id }: { id: string }) {
     [categorizedRelations, defs]
   );
 
+  // 演职区域用通用构造：标签计数与内容同源（只含署名主体，与展示行一致）。
+  const staffCredits = useMemo(
+    () =>
+      entity?.id
+        ? buildStaffCredits({
+            entityId: entity.id,
+            relations: relations.map((r, i) => ({
+              id: r.id || `${r.type}:${r.source_id}:${r.target_id}:${i}`,
+              type: r.type,
+              source_id: r.source_id,
+              target_id: r.target_id,
+              attributes: r.attributes,
+            })),
+            relEntities: relatedEntities,
+            defs,
+            locale,
+            tr,
+          })
+        : [],
+    [entity, relations, relatedEntities, defs, locale, tr]
+  );
+
   const mediaRelations = useMemo(
     () =>
       categorizedRelations.filter(
@@ -752,7 +759,7 @@ export function EntityDetailView({ id }: { id: string }) {
   // 分节标签：与下方的条件渲染一一对应；标签集合随后数据到达再收窄。
   const tabs: TabItem[] = [
     { id: "overview", label: t("entity.page.navOverview"), icon: <BookOpen className="w-3.5 h-3.5" strokeWidth={1.5} /> },
-    { id: "staff", label: t("entity.page.navStaff"), badge: staffRelations.length, visible: staffRelations.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
+    { id: "staff", label: t("entity.page.navStaff"), badge: staffCredits.length, visible: staffCredits.length > 0, icon: <Users className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "contents", label: t("entity.page.navContents"), badge: children.length, visible: children.length > 0, icon: <ListTree className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "releases", label: t("entity.page.navReleases"), badge: occurrences.length, visible: occurrences.length > 0, icon: <Layers className="w-3.5 h-3.5" strokeWidth={1.5} /> },
     { id: "relations", label: t("entity.page.navRelations"), badge: mediaRelations.length, visible: mediaRelations.length > 0, icon: <Network className="w-3.5 h-3.5" strokeWidth={1.5} /> },
@@ -1353,51 +1360,10 @@ export function EntityDetailView({ id }: { id: string }) {
             {/* ============================================================ */}
             {/* Section 2: Staff & Credits (演职人员与创作者)                 */}
             {/* ============================================================ */}
-            {active === "staff" && staffRelations.length > 0 && (
-              <Card id="staff" padding="section" className="space-y-4 shadow-soft">
-                <SectionTitle icon={<Users className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
-                  {t("entity.page.staffTitle")}
-                  <span className="ml-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono text-[11px] font-semibold">
-                    {staffRelations.length}
-                  </span>
-                </SectionTitle>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {staffRelations.map((r) => {
-                    const target = r.target;
-                    const targetTitle = endTitleOf(target, r.otherId, locale, titleOrder);
-                    return (
-                      <Card key={r.id} tone="subtle" padding="none" className="hover:border-primary/50 transition-all group">
-                      <Link
-                        href={`/catalog/${r.otherId}`}
-                        className="p-3 flex items-center gap-3"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary grid place-items-center font-bold text-xs shrink-0 overflow-hidden border border-primary/20">
-                          <StaffAvatar src={target?.pictures?.[0]?.url} name={targetTitle} />
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <div className="text-[10px] font-mono font-semibold text-primary tracking-wider">
-                            {getRelationName(defs, r.type, r.isOutgoing, locale)}
-                          </div>
-                          <div className="font-semibold text-xs sm:text-sm text-text-strong group-hover:text-primary truncate">
-                            {targetTitle}
-                          </div>
-                          {target && isDistinctOriginalTitle(target.title, targetTitle) && (
-                            <div className="text-[10px] text-text-muted font-mono truncate">
-                              {target.title}
-                            </div>
-                          )}
-                        </div>
-                        <ArrowUpRight className="w-3.5 h-3.5 text-text-muted group-hover:text-primary transition-colors duration-fast ease-soft shrink-0" />
-                      </Link>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </Card>
+            {active === "staff" && staffCredits.length > 0 && (
+              <StaffCharacterSection credits={staffCredits} />
             )}
 
-            {/* ============================================================ */}
             {/* Section 3: Contents & Tracklist (内容目录与曲目结构)          */}
             {/* ============================================================ */}
             {active === "contents" && children.length > 0 && (

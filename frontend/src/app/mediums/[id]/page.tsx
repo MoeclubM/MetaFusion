@@ -19,8 +19,9 @@ import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailur
 import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
+import { EntityStaffSection } from "@/components/entity/EntityStaffSection";
 import { useI18n } from "@/i18n/I18nProvider";
-import { ArrowLeft, ArrowRight, FileText, HardDrive, Layers } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, HardDrive, Layers, Users } from "lucide-react";
 
 function formatDuration(seconds?: number) {
   if (!seconds || seconds <= 0) return "";
@@ -54,6 +55,7 @@ export default function MediumDetailPage() {
   const [release, setRelease] = useState<Entity | null>(null);
   const [work, setWork] = useState<Entity | null>(null);
   const [tracks, setTracks] = useState<TrackRow[]>([]);
+  const [mediumStaffCount, setMediumStaffCount] = useState(0);
   const [loading, setLoading] = useState(true);
   // 取数失败与"真的没有这个载体"分开：之前 catch 一律 setNotFound(true)，
   // 把 429/5xx/断网都说成「未找到该载体。」，且页面既无重试也无出口。
@@ -262,6 +264,15 @@ export default function MediumDetailPage() {
           <Card tone="plain" padding="section">
             <WorkFacts entity={medium} defs={defs} locale={locale} />
           </Card>
+
+          {mediumStaffCount > 0 && (
+            <Card tone="plain" padding="section" className="space-y-3">
+              <SectionTitle icon={<Users className="w-4 h-4 text-primary" />}>
+                {t("work.detail.staffAndCharacters")}
+              </SectionTitle>
+              <EntityStaffSection entityId={mediumId} onCount={setMediumStaffCount} />
+            </Card>
+          )}
 
           {/* 资源文件：文件本体由存储服务托管，绑定用途由 binding_role 表达；
               载体是"整碟镜像/分轨音频/扫描件"最大的落点，放在曲目表之前。 */}
