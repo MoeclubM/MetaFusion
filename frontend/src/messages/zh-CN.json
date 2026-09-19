@@ -1937,5 +1937,16 @@
   "reports.pageNext": "下一页",
   "reports.pageInfo": "第 {page} / {pages} 页",
   "developer.apiKeys.title": "API Key",
-  "developer.apiKeys.subtitle": "供脚本、SDK 与 Agent 调用的长期机器凭证（mfp_ 开头），权限为创建时勾选的子集。"
+  "developer.apiKeys.subtitle": "供脚本、SDK 与 Agent 调用的长期机器凭证（mfp_ 开头），权限为创建时勾选的子集。",
+  "compare.modeEntities": "对比实体",
+  "compare.modeRevisions": "版本对比",
+  "compare.revisions.invalid": "需要两个“实体:版本”（如 ?revisions=<id>:3,<id>:5）。",
+  "compare.revisions.hint": "在历史页签勾选两版，或按 ?revisions=<实体id>:<版本>,<实体id>:<版本> 直达。",
+  "compare.revisions.notFound": "找不到指定的版本。",
+  "compare.revisions.backToEntities": "返回实体对比",
+  "revisions.pick": "选中对比",
+  "revisions.pickedCount": "已选 {count} / 2 版",
+  "revisions.pickTwo": "再选一版即可对比",
+  "revisions.openInCompare": "在对比页打开",
+  "revisions.clearPicked": "清空"
 }

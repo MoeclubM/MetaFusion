@@ -1937,5 +1937,16 @@
   "reports.pageNext": "次へ",
   "reports.pageInfo": "{page} / {pages} ページ",
   "developer.apiKeys.title": "API Key",
-  "developer.apiKeys.subtitle": "スクリプト・SDK・Agent から呼び出す長期有効なマシン資格情報（mfp_ *）。権限は作成時に選択したサブセットのみ。"
+  "developer.apiKeys.subtitle": "スクリプト・SDK・Agent から呼び出す長期有効なマシン資格情報（mfp_ *）。権限は作成時に選択したサブセットのみ。",
+  "compare.modeEntities": "エンティティ比較",
+  "compare.modeRevisions": "版比較",
+  "compare.revisions.invalid": "“エンティティ:版”を 2 件指定してください（例 ?revisions=<id>:3,<id>:5）。",
+  "compare.revisions.hint": "履歴タブで 2 件選択するか、?revisions=<エンティティID>:<版>,<エンティティID>:<版> で直接開けます。",
+  "compare.revisions.notFound": "指定された版が見つかりません。",
+  "compare.revisions.backToEntities": "エンティティ比較に戻る",
+  "revisions.pick": "選択",
+  "revisions.pickedCount": "{count} / 2 件選択中",
+  "revisions.pickTwo": "あと 1 件選択で比較できます",
+  "revisions.openInCompare": "比較ページで開く",
+  "revisions.clearPicked": "クリア"
 }

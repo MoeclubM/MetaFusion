@@ -1937,5 +1937,16 @@
   "reports.pageNext": "下一頁",
   "reports.pageInfo": "第 {page} / {pages} 頁",
   "developer.apiKeys.title": "API Key",
-  "developer.apiKeys.subtitle": "供指令碼、SDK 與 Agent 呼叫的長期機器憑證（mfp_ 開頭），權限為建立時勾選的子集。"
+  "developer.apiKeys.subtitle": "供指令碼、SDK 與 Agent 呼叫的長期機器憑證（mfp_ 開頭），權限為建立時勾選的子集。",
+  "compare.modeEntities": "對比實體",
+  "compare.modeRevisions": "版本對比",
+  "compare.revisions.invalid": "需要兩個“實體:版本”（如 ?revisions=<id>:3,<id>:5）。",
+  "compare.revisions.hint": "在歷史頁籤勾選兩版，或按 ?revisions=<實體id>:<版本>,<實體id>:<版本> 直達。",
+  "compare.revisions.notFound": "找不到指定的版本。",
+  "compare.revisions.backToEntities": "返回實體對比",
+  "revisions.pick": "選中對比",
+  "revisions.pickedCount": "已選 {count} / 2 版",
+  "revisions.pickTwo": "再選一版即可對比",
+  "revisions.openInCompare": "在對比頁開啟",
+  "revisions.clearPicked": "清空"
 }

@@ -4,8 +4,8 @@ import React, { useState, useMemo } from "react";
 import { api, Entity } from "./api";
 import { useAuth } from "@/lib/authContext";
 import { EntityEditor } from "./EntityEditor";
-import { canEditRevision, prepareRevisionRestore, revisionChanges } from "./revisionData";
-import { getKindName, useDefinitions } from "@/lib/definitions";
+import { canEditRevision, prepareRevisionRestore } from "./revisionData";
+import { RevisionDiffInspector } from "./RevisionDiffInspector";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   GitCommit,
@@ -22,7 +22,6 @@ import {
   Clock,
   ArrowRight,
   Eye,
-  Code,
   Shield,
   Layers,
   Sparkles,
@@ -42,56 +41,6 @@ export interface RevisionItem {
   created_at: string;
 }
 
-interface FieldDiff {
-  key: string;
-  label: string;
-  oldVal: any;
-  newVal: any;
-  type: "added" | "removed" | "modified";
-}
-
-function formatVal(v: any, emptyLabel: string): string {
-  if (v === null || v === undefined) return emptyLabel;
-  if (typeof v === "object") return JSON.stringify(v, null, 2);
-  return String(v);
-}
-
-function computeDiff(oldSnap: any = {}, newSnap: any = {}): FieldDiff[] {
-  return Object.entries(revisionChanges(oldSnap, newSnap)).map(([key, values]) => ({
-    key,
-    label: key.startsWith("attributes.") ? "attr:" + key.slice(11)
-      : key.startsWith("translations.") ? "trans:" + key.slice(13) : "field:" + key,
-    oldVal: values.old,
-    newVal: values.new,
-    type: values.old === undefined ? "added" : values.new === undefined ? "removed" : "modified",
-  }));
-}
-
-function generateUnifiedDiff(oldObj: any, newObj: any, oldLabel: string, newLabel: string): string {
-  const oldLines = JSON.stringify(oldObj, null, 2).split("\n");
-  const newLines = JSON.stringify(newObj, null, 2).split("\n");
-
-  const header = [
-    "--- " + oldLabel,
-    "+++ " + newLabel,
-    "@@ -1," + oldLines.length + " +1," + newLines.length + " @@",
-  ];
-
-  const diffOutput: string[] = [...header];
-  const max = Math.max(oldLines.length, newLines.length);
-  for (let i = 0; i < max; i++) {
-    const o = oldLines[i];
-    const n = newLines[i];
-    if (o === n) {
-      if (o !== undefined) diffOutput.push("  " + o);
-    } else {
-      if (o !== undefined) diffOutput.push("- " + o);
-      if (n !== undefined) diffOutput.push("+ " + n);
-    }
-  }
-  return diffOutput.join("\n");
-}
-
 export function EntityRevisions({
   revisions = [],
   currentEntity,
@@ -99,12 +48,8 @@ export function EntityRevisions({
   revisions: RevisionItem[];
   currentEntity?: any;
 }) {
-  const { t, tr, locale } = useI18n();
+  const { t } = useI18n();
   const { user } = useAuth();
-  const { kinds } = useDefinitions();
-  // 结构字段名里的层级（work_id 等）：名称走服务端 definitions.kinds，字典只作兜底。
-  const kindLabel = (code: string) =>
-    getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
   const [restore, setRestore] = useState<{ entity: Entity; revision: RevisionItem } | null>(null);
   const [restoreBusy, setRestoreBusy] = useState(false);
   const [restoreError, setRestoreError] = useState("");
@@ -129,7 +74,21 @@ export function EntityRevisions({
 
   // Selected revisions for diff comparison
   const [diffTarget, setDiffTarget] = useState<{ base: RevisionItem | null; current: RevisionItem | null } | null>(null);
-  const [diffTab, setDiffTab] = useState<"visual" | "unified">("visual");
+
+  // 任选两版进 /compare 版本模式：按 version 去重，最多两版，排序后 base=旧版。
+  const [picked, setPicked] = useState<RevisionItem[]>([]);
+  const togglePick = (rev: RevisionItem) => {
+    setPicked((prev) => {
+      if (prev.some((p) => p.version === rev.version)) return prev.filter((p) => p.version !== rev.version);
+      if (prev.length >= 2) return prev;
+      return [...prev, rev];
+    });
+  };
+  const pickedSorted = useMemo(() => [...picked].sort((a, b) => (a.version || 0) - (b.version || 0)), [picked]);
+  const compareHref =
+    currentEntity?.id && pickedSorted.length === 2
+      ? `/compare?revisions=${encodeURIComponent(currentEntity.id)}:${pickedSorted[0].version},${encodeURIComponent(currentEntity.id)}:${pickedSorted[1].version}`
+      : "";
 
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -167,55 +126,6 @@ export function EntityRevisions({
     const prev = sortedRevisions[idx + 1] || null;
     setDiffTarget({ base: prev, current: curr });
   };
-
-  const diffLabel = (label: string): string => {
-    if (label.startsWith("field:")) {
-      const field = label.slice("field:".length);
-      const known: Record<string, string> = {
-        title: t("revisions.fieldTitle"),
-        kind: t("revisions.fieldKind"),
-        status: t("revisions.fieldStatus"),
-        original_language: t("revisions.fieldOriginalLanguage"),
-        types: t("revisions.fieldTypes"),
-        pictures: t("revisions.fieldPictures"),
-        contents: t("catalog.contents"),
-        subjects: t("catalog.subjects"),
-        external_ids: t("catalog.externalIds"),
-        position: t("catalog.position"),
-        number: t("catalog.number"),
-        parent_id: t("catalog.parent"),
-        work_id: kindLabel("work"),
-        release_id: kindLabel("release"),
-        medium_id: kindLabel("medium"),
-        content_unit_id: kindLabel("content_unit"),
-      };
-      return known[field] || field;
-    }
-    if (label.startsWith("attr:")) return t("revisions.fieldAttr", { key: label.slice("attr:".length) });
-    if (label.startsWith("trans:")) return t("revisions.fieldTrans", { lang: label.slice("trans:".length) });
-    return label;
-  };
-
-  const diffVal = (v: any): string => {
-    if (v === "\u0000") return t("revisions.emptyValue");
-    if (v === "\u0001") return t("revisions.unsetValue");
-    if (v === "\u0002") return t("revisions.noPictures");
-    return formatVal(v, t("revisions.emptyValue"));
-  };
-
-  // Compute diff fields if diffTarget is active
-  const systemActor = t("revisions.systemActor");
-  const initialLabel = t("revisions.initialVersion");
-  const activeDiff = useMemo(() => {
-    if (!diffTarget?.current) return null;
-    const baseSnap = diffTarget.base ? diffTarget.base.snapshot || diffTarget.base : {};
-    const currSnap = diffTarget.current.snapshot || diffTarget.current;
-    const fields = computeDiff(baseSnap, currSnap);
-    const oldLabel = diffTarget.base ? "v" + diffTarget.base.version + " (" + (diffTarget.base.actor_name || systemActor) + ")" : initialLabel;
-    const newLabel = "v" + diffTarget.current.version + " (" + (diffTarget.current.actor_name || systemActor) + ")";
-    const unified = generateUnifiedDiff(baseSnap, currSnap, oldLabel, newLabel);
-    return { fields, unified, oldLabel, newLabel };
-  }, [diffTarget, systemActor, initialLabel]);
 
   return (
     <div className="space-y-6">
@@ -279,109 +189,28 @@ export function EntityRevisions({
       </div>
 
       {/* Diff Inspector Modal / Banner (If Active) */}
-      {diffTarget && activeDiff && (
-        <div className="p-5 rounded-xl border border-primary/30 bg-primary/[0.02] dark:bg-primary/[0.04] space-y-4 animate-scale-in shadow-soft">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-primary/20 pb-3">
-            <div className="flex items-center gap-2.5">
-              <GitCompare className="w-5 h-5 text-primary shrink-0" />
-              <div>
-                <h3 className="font-semibold text-text-strong text-sm flex items-center gap-2">
-                  <span>{t("revisions.diffInspector")}</span>
-                  <span className="px-2 py-0.5 rounded bg-primary/20 text-primary text-xs font-mono">
-                    {activeDiff.oldLabel} → {activeDiff.newLabel}
-                  </span>
-                </h3>
-                <p className="text-[11px] font-mono text-text-faint mt-0.5">
-                  {t("revisions.fieldsChanged", { count: activeDiff.fields.length })}
-                </p>
-              </div>
-            </div>
+      {diffTarget?.current && (
+        <RevisionDiffInspector
+          base={diffTarget.base}
+          current={diffTarget.current}
+          onClose={() => setDiffTarget(null)}
+        />
+      )}
 
-            <div className="flex items-center gap-2">
-              <div className="flex items-center bg-black/[0.04] dark:bg-white/[0.06] p-0.5 rounded-lg border border-line text-xs">
-                <button
-                  type="button"
-                  onClick={() => setDiffTab("visual")}
-                  className={"px-2.5 py-1 rounded-md transition-all " + (diffTab === "visual" ? "bg-surface text-primary font-bold shadow-2xs" : "text-text-faint hover:text-gray-900 dark:hover:text-white")}
-                >
-                  <span className="flex items-center gap-1"><Eye className="w-3.5 h-3.5" />{t("revisions.visualView")}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDiffTab("unified")}
-                  className={"px-2.5 py-1 rounded-md transition-all " + (diffTab === "unified" ? "bg-surface text-primary font-bold shadow-2xs" : "text-text-faint hover:text-gray-900 dark:hover:text-white")}
-                >
-                  <span className="flex items-center gap-1"><Code className="w-3.5 h-3.5" />{t("revisions.unifiedView")}</span>
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setDiffTarget(null)}
-                className="px-2.5 py-1 rounded-lg text-xs font-mono bg-black/[0.04] dark:bg-white/[0.06] hover:bg-black/[0.08] dark:hover:bg-white/[0.1] text-text-body transition-colors duration-fast ease-soft"
-              >
-                {t("revisions.closeDiff")}
-              </button>
-            </div>
-          </div>
-
-          {diffTab === "visual" ? (
-            activeDiff.fields.length === 0 ? (
-              <div className="p-6 text-center text-xs font-mono text-text-faint bg-surface rounded-lg border border-line-subtle">
-                {t("revisions.noDiff")}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-2.5 font-mono text-xs">
-                {activeDiff.fields.map((f, i) => (
-                  <div
-                    key={i}
-                    className="p-3 rounded-lg border border-line bg-surface shadow-2xs space-y-1.5"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-text-strong flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-primary" />
-                        {diffLabel(f.label)}
-                      </span>
-                      <span className={"px-1.5 py-0.2 rounded text-[10px] uppercase font-bold " + (
-                        f.type === "added"
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-success"
-                          : f.type === "removed"
-                          ? "bg-rose-500/15 text-rose-600 dark:text-danger"
-                          : "bg-amber-500/15 text-amber-600 dark:text-warn"
-                      )}>
-                        {f.type}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-[11px]">
-                      <div className="p-2 rounded bg-rose-500/[0.06] dark:bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-danger-soft break-all whitespace-pre-wrap">
-                        <div className="text-[9px] uppercase tracking-wider text-rose-500 font-bold mb-0.5">{t("revisions.oldVersion", { version: diffTarget.base?.version || 0 })}</div>
-                        {diffVal(f.oldVal)}
-                      </div>
-                      <div className="p-2 rounded bg-emerald-500/[0.06] dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-success-soft break-all whitespace-pre-wrap">
-                        <div className="text-[9px] uppercase tracking-wider text-emerald-500 font-bold mb-0.5">{t("revisions.newVersion", { version: diffTarget.current?.version || 0 })}</div>
-                        {diffVal(f.newVal)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )
+      {picked.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.04] text-xs font-mono">
+          <GitCompare className="w-4 h-4 text-amber-500 shrink-0" />
+          <span className="text-text-body">{t("revisions.pickedCount", { count: picked.length })}</span>
+          {compareHref ? (
+            <a href={compareHref} className="px-2.5 py-1 rounded-md bg-primary text-white hover:bg-primary/90 transition-colors">
+              {t("revisions.openInCompare")}
+            </a>
           ) : (
-            <div className="relative">
-              <pre className="p-3.5 rounded-lg bg-black/[0.04] dark:bg-black/50 border border-line font-mono text-[11px] text-text-strong overflow-x-auto max-h-96 leading-relaxed">
-                {activeDiff.unified}
-              </pre>
-              <button
-                type="button"
-                onClick={() => handleCopy(activeDiff.unified, "diff-copy")}
-                className="absolute top-2 right-2 p-1.5 rounded-md bg-surface border border-line text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white shadow-xs text-xs flex items-center gap-1"
-                title={t("revisions.copyDiffTitle")}
-              >
-                {copiedId === "diff-copy" ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-            </div>
+            <span className="text-text-faint">{t("revisions.pickTwo")}</span>
           )}
+          <button type="button" onClick={() => setPicked([])} className="ml-auto text-text-faint hover:text-text-body transition-colors">
+            {t("revisions.clearPicked")}
+          </button>
         </div>
       )}
 
@@ -543,6 +372,16 @@ export function EntityRevisions({
                         <span>{t("revisions.diffVsPrev")}</span>
                       </button>
                     )}
+
+                    <label className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-black/[0.04] dark:bg-white/[0.06] hover:bg-amber-500/15 text-text-body transition-colors duration-fast ease-soft cursor-pointer shadow-2xs">
+                      <input
+                        type="checkbox"
+                        checked={picked.some((p) => p.version === rev.version)}
+                        onChange={() => togglePick(rev)}
+                        className="w-3 h-3 accent-amber-500"
+                      />
+                      <span>{t("revisions.pick")}</span>
+                    </label>
 
                     {currentEntity && canEditRevision(currentEntity, user ?? undefined) && rev.id && rev.snapshot &&
                       rev.version < currentEntity.version && !["deleted", "merged"].includes(rev.snapshot.status) && (

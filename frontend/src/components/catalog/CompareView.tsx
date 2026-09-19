@@ -14,6 +14,7 @@ import {
   useCompareBasket,
 } from "@/lib/compareBasket";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
+import { RevisionsCompare } from "./RevisionsCompare";
 import {
   ArrowRightLeft,
   Search,
@@ -31,7 +32,7 @@ import {
 // 槽位常量与篮子读写统一到 lib/compareBasket.ts（含跨标签页同步）；重新导出保持既有引用可用。
 export { COMPARE_MIN_SLOTS, COMPARE_MAX_SLOTS };
 
-export function Compare({ ids }: { ids: string }) {
+export function Compare({ ids, revisions }: { ids: string; revisions?: string }) {
   const { t, locale } = useI18n();
   // 定义只有这一份来源：CatalogProvider 只留模块状态与实例初始化状态，从不持有定义，
   // 以前这里取的是 Provider 的 definition，恒为 undefined，字段名与枚举值一律裸露。
@@ -59,6 +60,8 @@ export function Compare({ ids }: { ids: string }) {
   const [searching, setSearching] = useState(false);
   const [customIdInput, setCustomIdInput] = useState("");
   const [highlightDiff, setHighlightDiff] = useState(true);
+  // 版本对比与实体对比共用 /compare：?revisions=<entity>:<version>,<entity>:<version> 进版本模式。
+  const [mode, setMode] = useState<"entities" | "revisions">(revisions ? "revisions" : "entities");
 
   const maxSlots = COMPARE_MAX_SLOTS;
   const slotIndices = useMemo(() => Array.from({ length: maxSlots }, (_, i) => i), [maxSlots]);
@@ -293,6 +296,27 @@ export function Compare({ ids }: { ids: string }) {
         )}
       </div>
 
+      <div className="flex items-center gap-1 p-1 rounded-xl border border-border bg-card w-fit">
+        <button
+          type="button"
+          onClick={() => setMode("entities")}
+          className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-colors " + (mode === "entities" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground")}
+        >
+          {t("compare.modeEntities")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("revisions")}
+          className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-colors " + (mode === "revisions" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground")}
+        >
+          {t("compare.modeRevisions")}
+        </button>
+      </div>
+
+      {mode === "revisions" ? (
+        <RevisionsCompare query={revisions || ""} />
+      ) : (
+      <>
       <section className="bg-card border border-border rounded-2xl p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
@@ -1042,6 +1066,8 @@ export function Compare({ ids }: { ids: string }) {
             </table>
           </div>
         </section>
+      )}
+      </>
       )}
     </div>
   );

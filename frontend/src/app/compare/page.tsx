@@ -10,12 +10,13 @@ import { Compare } from "@/components/catalog/CatalogPages";
 function CompareContent() {
   const searchParams = useSearchParams();
   const ids = searchParams.get("ids") || "";
+  const revisions = searchParams.get("revisions") || "";
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Navbar />
       <PageShell width="page">
-        <Compare ids={ids} />
+        <Compare ids={ids} revisions={revisions} />
       </PageShell>
     </div>
   );
