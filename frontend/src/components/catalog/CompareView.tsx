@@ -64,8 +64,8 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
   const [searching, setSearching] = useState(false);
   const [customIdInput, setCustomIdInput] = useState("");
   const [highlightDiff, setHighlightDiff] = useState(true);
-  // 版本对比与实体对比共用 /compare：?revisions=<entity>:<version>,<entity>:<version> 进版本模式。
-  const [mode, setMode] = useState<"entities" | "revisions">(revisions ? "revisions" : "entities");
+  // 版本对比没有页签：?revisions=<entity>:<version>,<entity>:<version>（历史页复选进来）
+  // 直接渲染版本对比，否则是纯实体对比。空着进版本模式是死路，所以不给入口。
 
   const maxSlots = COMPARE_MAX_SLOTS;
   const slotIndices = useMemo(() => Array.from({ length: maxSlots }, (_, i) => i), [maxSlots]);
@@ -309,14 +309,16 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
               <ArrowRightLeft className="w-5 h-5" />
             </span>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground m-0">
-              {t("catalog.compare")}
+              {revisions ? t("compare.modeRevisions") : t("catalog.compare")}
             </h1>
           </div>
-          <p className="text-sm text-muted-foreground m-0 max-w-2xl">
-            {t("catalog.compareDesc")}
-          </p>
+          {!revisions && (
+            <p className="text-sm text-muted-foreground m-0 max-w-2xl">
+              {t("catalog.compareDesc")}
+            </p>
+          )}
         </div>
-        {selectedIds.length > 0 && (
+        {!revisions && selectedIds.length > 0 && (
           <button
             type="button"
             onClick={clearAll}
@@ -328,25 +330,8 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
         )}
       </div>
 
-      <div className="flex items-center gap-1 p-1 rounded-xl border border-border bg-card w-fit">
-        <button
-          type="button"
-          onClick={() => setMode("entities")}
-          className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-colors " + (mode === "entities" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground")}
-        >
-          {t("compare.modeEntities")}
-        </button>
-        <button
-          type="button"
-          onClick={() => setMode("revisions")}
-          className={"px-3 py-1.5 rounded-lg text-xs font-medium transition-colors " + (mode === "revisions" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground")}
-        >
-          {t("compare.modeRevisions")}
-        </button>
-      </div>
-
-      {mode === "revisions" ? (
-        <RevisionsCompare query={revisions || ""} />
+      {revisions ? (
+        <RevisionsCompare query={revisions} />
       ) : (
       <>
       <section className="bg-card border border-border rounded-2xl p-5 shadow-sm">

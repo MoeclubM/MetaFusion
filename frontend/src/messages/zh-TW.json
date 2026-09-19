@@ -1918,7 +1918,6 @@
   "reports.pageInfo": "第 {page} / {pages} 頁",
   "developer.apiKeys.title": "API Key",
   "developer.apiKeys.subtitle": "供指令碼、SDK 與 Agent 呼叫的長期機器憑證（mfp_ 開頭），權限為建立時勾選的子集。",
-  "compare.modeEntities": "對比實體",
   "compare.modeRevisions": "版本對比",
   "compare.revisions.invalid": "需要兩個“實體:版本”（如 ?revisions=<id>:3,<id>:5）。",
   "compare.revisions.hint": "在歷史頁籤勾選兩版，或按 ?revisions=<實體id>:<版本>,<實體id>:<版本> 直達。",

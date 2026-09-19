@@ -1918,7 +1918,6 @@
   "reports.pageInfo": "{page} / {pages} ページ",
   "developer.apiKeys.title": "API Key",
   "developer.apiKeys.subtitle": "スクリプト・SDK・Agent から呼び出す長期有効なマシン資格情報（mfp_ *）。権限は作成時に選択したサブセットのみ。",
-  "compare.modeEntities": "エンティティ比較",
   "compare.modeRevisions": "版比較",
   "compare.revisions.invalid": "“エンティティ:版”を 2 件指定してください（例 ?revisions=<id>:3,<id>:5）。",
   "compare.revisions.hint": "履歴タブで 2 件選択するか、?revisions=<エンティティID>:<版>,<エンティティID>:<版> で直接開けます。",

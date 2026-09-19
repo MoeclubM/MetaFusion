@@ -1918,7 +1918,6 @@
   "reports.pageInfo": "Page {page} of {pages}",
   "developer.apiKeys.title": "API Key",
   "developer.apiKeys.subtitle": "Long-lived machine credentials (mfp_*) for scripts, SDKs and agents, scoped to a subset of your permissions.",
-  "compare.modeEntities": "Compare entities",
   "compare.modeRevisions": "Compare revisions",
   "compare.revisions.invalid": "Need two \"entity:version\" pairs (e.g. ?revisions=<id>:3,<id>:5).",
   "compare.revisions.hint": "Pick two revisions in the history tab, or open ?revisions=<entityId>:<version>,<entityId>:<version> directly.",

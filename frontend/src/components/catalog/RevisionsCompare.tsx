@@ -1,7 +1,8 @@
 "use client";
 
-// /compare 的版本对比模式：?revisions=<entityId>:<version>,<entityId>:<version>
-// 取两版快照，用与历史页签同一套 RevisionDiffInspector 渲染。实体 id 可相同可不同。
+// /compare?revisions=<entityId>:<version>,<entityId>:<version> 直达版本对比
+// （历史页复选进来，无页签入口）：取两版快照，用与历史页签同一套
+// RevisionDiffInspector 渲染。实体 id 可相同可不同。
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";

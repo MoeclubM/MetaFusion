@@ -1918,7 +1918,6 @@
   "reports.pageInfo": "第 {page} / {pages} 页",
   "developer.apiKeys.title": "API Key",
   "developer.apiKeys.subtitle": "供脚本、SDK 与 Agent 调用的长期机器凭证（mfp_ 开头），权限为创建时勾选的子集。",
-  "compare.modeEntities": "对比实体",
   "compare.modeRevisions": "版本对比",
   "compare.revisions.invalid": "需要两个“实体:版本”（如 ?revisions=<id>:3,<id>:5）。",
   "compare.revisions.hint": "在历史页签勾选两版，或按 ?revisions=<实体id>:<版本>,<实体id>:<版本> 直达。",
