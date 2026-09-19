@@ -378,11 +378,7 @@
   "settings.displayName": "ニックネーム",
   "settings.displayNameHint": "ニックネームはユーザー名やメールとは独立。空欄の場合はサイト全体でユーザー名を表示",
   "settings.bioLabel": "自己紹介",
-  "developer.apiKeyTitle": "API Key",
-  "developer.apiKeyDesc": "外部アプリ・スクリプト・Agent 向けの長期有効なマシン資格情報（接頭辞 mfp_）。平文は作成時に一度だけ表示されるため、すぐに保存してください。リクエストでは Authorization: Bearer mfp_... を使用します（API Key は /api/auth/* のアカウント系エンドポイントには使えません）。API Keyの実効権限は「あなた自身の権限 ∩ 作成時に選んだ権限コード」で、それを超えることはありません。",
   "developer.apiKeyViewDevDocs": "認証と資格情報のドキュメントを見る",
-  "developer.apiKeyWindowHint": "失効ウィンドウ：下流サービスの内省結果は 60 秒間キャッシュされるため、失効後も最大 60 秒間は受理され得ます。",
-  "developer.apiKeyRateLimitHint": "レート制限の情報は X-RateLimit-* ヘッダーで返り、超過時は 429 を返します。",
   "developer.apiKeyCreateTitle": "新しい API Keyを作成",
   "developer.apiKeyTokenName": "API Key名",
   "developer.apiKeyNamePlaceholder": "例：my-agent / obsidian-sync",
@@ -462,7 +458,6 @@
   "developers.clickIfNoRedirect": "自動で遷移しない場合はここをクリック",
   "navigation.developer": "開発者センター",
   "developer.title": "開発者センター",
-  "developer.subtitle": "OAuthアプリの登録、API Keyの管理、承認・リクエスト履歴の確認。",
   "developer.loading": "接続設定を読み込み中…",
   "developer.reload": "再読み込み",
   "developer.docsLink": "連携ドキュメント",
@@ -479,7 +474,6 @@
   "developer.badge.unverified": "未検証",
   "developer.badge.disabled": "無効",
   "developer.apps.title": "自分のアプリ",
-  "developer.apps.subtitle": "登録済みアプリ：新規作成、設定変更、シークレットのローテーション。",
   "developer.apps.new": "アプリを登録",
   "developer.apps.empty": "アプリがありません：「アプリを登録」から client_id とシークレットを取得してください。",
   "developer.apps.noRedirects": "リダイレクト URI が未設定",
@@ -1954,5 +1948,6 @@
   "developer.reqlogs.title": "APIリクエストログ",
   "developer.reqlogs.empty": "リクエスト履歴なし",
   "developer.reqlogs.failed": "読み込みに失敗しました",
-  "developer.reqlogs.allCredentials": "すべての認証情報"
+  "developer.reqlogs.allCredentials": "すべての認証情報",
+  "developer.apiKeys.new": "新規作成"
 }

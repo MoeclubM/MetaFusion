@@ -378,11 +378,7 @@
   "settings.displayName": "昵称",
   "settings.displayNameHint": "昵称独立于用户名与邮箱，可为空；为空时全站回退显示用户名",
   "settings.bioLabel": "个人简介",
-  "developer.apiKeyTitle": "API Key",
-  "developer.apiKeyDesc": "用于外部应用、脚本与 Agent 的长期机器凭证，格式 mfp_。明文只在创建时展示一次，请立即保存。请求时用 Authorization: Bearer mfp_...（API Key 不能调用 /api/auth/* 账号端点）；API Key的有效权限 = 你自己的权限 ∩ 创建时勾选的权限码，不会更多。",
   "developer.apiKeyViewDevDocs": "查看认证与凭证文档",
-  "developer.apiKeyWindowHint": "撤销窗口：下游服务的内省结果缓存 60 秒，撤销后该 API Key最长 60 秒内仍可能被接受。",
-  "developer.apiKeyRateLimitHint": "限流信息见响应头 X-RateLimit-*，超限返回 429。",
   "developer.apiKeyCreateTitle": "创建新 API Key",
   "developer.apiKeyTokenName": "API Key名称",
   "developer.apiKeyNamePlaceholder": "例如：my-agent / obsidian-sync",
@@ -462,7 +458,6 @@
   "developers.clickIfNoRedirect": "若未自动跳转，请点击此处",
   "navigation.developer": "开发者中心",
   "developer.title": "开发者中心",
-  "developer.subtitle": "自助登记 OAuth 应用、管理 API Key，查看授权与调用记录。",
   "developer.loading": "正在读取接入配置…",
   "developer.reload": "重新加载",
   "developer.docsLink": "接入文档",
@@ -479,7 +474,6 @@
   "developer.badge.unverified": "待核验",
   "developer.badge.disabled": "已停用",
   "developer.apps.title": "我的应用",
-  "developer.apps.subtitle": "自己登记的应用：新建、改配置、轮换密钥。",
   "developer.apps.new": "新建应用",
   "developer.apps.empty": "还没有应用：点「新建应用」拿到 client_id 与密钥。",
   "developer.apps.noRedirects": "尚未配置回调地址",
@@ -1954,5 +1948,6 @@
   "developer.reqlogs.title": "API 请求日志",
   "developer.reqlogs.empty": "暂无调用记录",
   "developer.reqlogs.failed": "读取失败，稍后重试",
-  "developer.reqlogs.allCredentials": "全部凭据"
+  "developer.reqlogs.allCredentials": "全部凭据",
+  "developer.apiKeys.new": "新建"
 }

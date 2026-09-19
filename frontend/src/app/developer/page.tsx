@@ -85,6 +85,7 @@ export default function DeveloperPage() {
     { key: "logs", label: t("developer.reqlogs.title"), icon: Activity },
   ] as const;
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("apps");
+  const [keyModalOpen, setKeyModalOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -191,7 +192,6 @@ export default function DeveloperPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-xl sm:text-2xl font-semibold text-text-strong">{t("developer.title")}</h1>
-            <p className="mt-1 text-xs text-text-muted leading-relaxed max-w-2xl">{t("developer.subtitle")}</p>
           </div>
           <div className="flex items-center gap-2">
             <a
@@ -267,7 +267,6 @@ export default function DeveloperPage() {
                 >
                   {t("developer.apps.title")}
                 </SectionTitle>
-                <p className="text-xs text-text-muted leading-relaxed">{t("developer.apps.subtitle")}</p>
                 {apps.length === 0 ? (
                   <div className="p-8 rounded-xl border border-dashed border-line text-center text-xs text-text-faint font-mono">
                     {t("developer.apps.empty")}
@@ -383,11 +382,33 @@ export default function DeveloperPage() {
               )}
               {tab === "keys" && (
               <Card padding="section" className="space-y-3">
-                <SectionTitle icon={<KeyRound className="w-4 h-4 text-primary" />}>
+                <SectionTitle
+                  icon={<KeyRound className="w-4 h-4 text-primary" />}
+                  actions={
+                    <span className="inline-flex items-center gap-2">
+                      <a
+                        href={`${DOCS_SERVICE_URL}/api-auth`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-primary hover:underline"
+                      >
+                        {t("developer.apiKeyViewDevDocs")}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setKeyModalOpen(true)}
+                        className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold transition-colors duration-fast ease-soft cursor-pointer inline-flex items-center gap-1.5"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{t("developer.apiKeys.new")}</span>
+                      </button>
+                    </span>
+                  }
+                >
                   {t("developer.apiKeys.title")}
                 </SectionTitle>
                 <p className="text-xs text-text-muted leading-relaxed">{t("developer.apiKeys.subtitle")}</p>
-                <ApiKeysPanel />
+                <ApiKeysPanel modalOpen={keyModalOpen} onModalClose={() => setKeyModalOpen(false)} />
               </Card>
               )}
               {tab === "audit" && <AuditLogsCard apps={apps} />}

@@ -378,11 +378,7 @@
   "settings.displayName": "Nickname",
   "settings.displayNameHint": "Nickname is independent of username/email; falls back to username if empty",
   "settings.bioLabel": "Bio",
-  "developer.apiKeyTitle": "API keys",
-  "developer.apiKeyDesc": "Long-lived machine credentials for external apps, scripts and agents (prefix: mfp_). The plaintext is shown only once at creation — save it immediately. Send it as Authorization: Bearer mfp_... (a API key cannot call the /api/auth/* account endpoints). A API key's effective permissions are your own permissions ∩ the scope codes chosen at creation — never more.",
   "developer.apiKeyViewDevDocs": "Read the authentication docs",
-  "developer.apiKeyWindowHint": "Revocation window: downstream services cache introspection for 60 seconds, so a revoked API key may still be accepted for up to 60 seconds.",
-  "developer.apiKeyRateLimitHint": "Rate limit info is returned in X-RateLimit-* headers; exceeding returns HTTP 429.",
   "developer.apiKeyCreateTitle": "Create a new API key",
   "developer.apiKeyTokenName": "API key name",
   "developer.apiKeyNamePlaceholder": "e.g. my-agent / obsidian-sync",
@@ -462,7 +458,6 @@
   "developers.clickIfNoRedirect": "Click here if not redirected automatically",
   "navigation.developer": "Developer Center",
   "developer.title": "Developer Center",
-  "developer.subtitle": "Register OAuth apps, manage API keys, and review authorization and request history.",
   "developer.loading": "Loading access configuration...",
   "developer.reload": "Reload",
   "developer.docsLink": "Integration docs",
@@ -479,7 +474,6 @@
   "developer.badge.unverified": "Pending verification",
   "developer.badge.disabled": "Disabled",
   "developer.apps.title": "My apps",
-  "developer.apps.subtitle": "Apps you registered: create, configure, rotate secrets.",
   "developer.apps.new": "New app",
   "developer.apps.empty": "No apps yet: use the New app button to get a client_id and secret.",
   "developer.apps.noRedirects": "No redirect URI configured",
@@ -1954,5 +1948,6 @@
   "developer.reqlogs.title": "API request log",
   "developer.reqlogs.empty": "No requests logged yet",
   "developer.reqlogs.failed": "Failed to load, retry later",
-  "developer.reqlogs.allCredentials": "All credentials"
+  "developer.reqlogs.allCredentials": "All credentials",
+  "developer.apiKeys.new": "New"
 }

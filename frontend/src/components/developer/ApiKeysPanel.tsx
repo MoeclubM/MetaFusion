@@ -1,23 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertCircle,
   Check,
   KeyRound,
   Loader2,
-  Plus,
   RefreshCw,
   ShieldOff,
-  TriangleAlert,
 } from "lucide-react";
-import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
-import { grantablePermissionCodes } from "@/lib/permissions";
-import { DOCS_SERVICE_URL } from "@/lib/services";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import {
-  createPersonalAccessToken,
   fetchPersonalAccessTokens,
   revokePersonalAccessToken,
   type CreatedPersonalAccessToken,
@@ -25,8 +19,10 @@ import {
 } from "@/lib/api";
 import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { ApiKeyRevealModal } from "@/components/developer/ApiKeyRevealModal";
+import { ApiKeyCreateModal } from "@/app/developer/components/ApiKeyCreateModal";
 
-// API Key 自助：列出我的密钥、创建（名称 + scopes + 有效期）、一次性看明文、撤销。
+// API Key 自助：只列出我的密钥、一次性看明文、撤销。新建表单在 ApiKeyCreateModal 里
+// （弹窗），打开状态由调用方（开发者中心 API Key 页签头的新建按钮）控制。
 //
 // 契约（账号服务）：
 //   GET    /api/auth/tokens      → { items: [{ id, name, token_prefix, scopes, expires_at, last_used_at, created_at, revoked_at }] }
@@ -38,15 +34,8 @@ import { ApiKeyRevealModal } from "@/components/developer/ApiKeyRevealModal";
 // 撤销有窗口：下游服务的内省结果按 token_hash 缓存 60 秒，写库成功不等于立刻全站失效。
 // 这句必须在界面上说清（曾经字典写的是"立即失效"，与实现相反）。
 //
-// scopes 是权限码：可选清单 = 持有人自己的权限码（用户权限 ∩ scopes 才是令牌的实际权限），
-// 默认一项都不勾——最小权限是默认值，勾选是用户的显式动作。
-
-/** 有效期选项：0 表示不带 expires_in_days（服务端即永不过期）。 */
-const EXPIRY_CHOICES = [0, 30, 90, 365] as const;
-
-export function ApiKeysPanel() {
+export function ApiKeysPanel({ modalOpen, onModalClose }: { modalOpen: boolean; onModalClose: () => void }) {
   const { t, locale } = useI18n();
-  const { user } = useAuth();
 
   const [tokens, setTokens] = useState<PersonalAccessToken[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,31 +43,11 @@ export function ApiKeysPanel() {
   const [notice, setNotice] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
-  const [name, setName] = useState("");
-  const [scopes, setScopes] = useState<string[]>([]);
-  const [expiryDays, setExpiryDays] = useState<number>(0);
-  const [creating, setCreating] = useState(false);
-
   // 明文只活在这一次会话的内存里：关闭弹窗即丢弃。
   const [reveal, setReveal] = useState<CreatedPersonalAccessToken | null>(null);
 
   const [confirming, setConfirming] = useState<PersonalAccessToken | null>(null);
   const [revokingId, setRevokingId] = useState("");
-
-  const grantable = useMemo(() => grantablePermissionCodes(user), [user]);
-
-  // 按服务前缀分组：scopes 是权限码，同一子系统的码看在一起才好选。
-  const groups = useMemo<[string, string[]][]>(() => {
-    const byService = new Map<string, string[]>();
-    for (const code of grantable) {
-      const service = code.split(".")[0] || code;
-      const list = byService.get(service) || [];
-      list.push(code);
-      byService.set(service, list);
-    }
-    // Array.from 而不是展开 MapIterator：tsconfig 的 target 低于 es2015 时不可展开迭代器。
-    return Array.from(byService.entries());
-  }, [grantable]);
 
   useEffect(() => {
     let alive = true;
@@ -139,41 +108,7 @@ export function ApiKeysPanel() {
     return value === key ? fallback : value;
   };
 
-  const toggleScope = (code: string) => {
-    setScopes((prev) => (prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code]));
-  };
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-    setNotice("");
-    const trimmed = name.trim();
-    if (!trimmed) {
-      setError(t("developer.apiKeyNameRequired"));
-      return;
-    }
-    if (scopes.length === 0) {
-      setError(t("developer.apiKeyScopesRequired"));
-      return;
-    }
-    setCreating(true);
-    try {
-      const created = await createPersonalAccessToken({
-        name: trimmed,
-        scopes,
-        ...(expiryDays > 0 ? { expires_in_days: expiryDays } : {}),
-      });
-      setReveal(created);
-      setName("");
-      setScopes([]);
-      // 以服务端为准回读列表，不在本地拼一条假记录。
-      setReloadKey((k) => k + 1);
-    } catch (err: unknown) {
-      setError(patErrorText(err, "developer.apiKeyCreateFailed"));
-    } finally {
-      setCreating(false);
-    }
-  };
 
   const handleRevoke = async () => {
     if (!confirming) return;
@@ -208,150 +143,8 @@ export function ApiKeysPanel() {
   };
 
   return (
-    <div className="p-4 sm:p-5 space-y-4">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-text-strong flex items-center gap-2">
-          <KeyRound className="w-4 h-4 text-amber-500" />
-          <span>{t("developer.apiKeyTitle")}</span>
-        </h3>
-        <p className="text-xs text-text-faint leading-relaxed">{t("developer.apiKeyDesc")}</p>
-        <p className="text-[11px] text-text-faint leading-relaxed">{t("developer.apiKeyRateLimitHint")}</p>
-        <p className="text-[11px] text-amber-600 dark:text-warn leading-relaxed flex items-start gap-1.5">
-          <TriangleAlert className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.6} />
-          <span>{t("developer.apiKeyWindowHint")}</span>
-        </p>
-        <a
-          href={`${DOCS_SERVICE_URL}/api-auth`}
-          className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
-        >
-          {t("developer.apiKeyViewDevDocs")}
-        </a>
-      </div>
+    <div className="space-y-4">
 
-      {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-600 dark:text-danger-soft font-mono text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-          <span className="flex-1">{error}</span>
-          <button
-            type="button"
-            onClick={() => setReloadKey((k) => k + 1)}
-            className="px-2 h-6 rounded-md bg-black/[0.04] dark:bg-white/[0.06] border border-line text-[11px] inline-flex items-center gap-1 shrink-0"
-          >
-            <RefreshCw className="w-3 h-3" />
-            <span>{t("common.retry")}</span>
-          </button>
-        </div>
-      )}
-
-      {notice && (
-        <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-success-soft font-mono text-xs flex items-center gap-2">
-          <Check className="w-4 h-4 shrink-0" strokeWidth={1.5} />
-          <span>{notice}</span>
-        </div>
-      )}
-
-      {/* 创建 */}
-      <form onSubmit={handleCreate} className="p-3.5 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-3">
-        <div className="flex items-center gap-1.5">
-          <Plus className="w-3.5 h-3.5 text-text-muted" strokeWidth={1.8} />
-          <span className="font-mono text-xs font-semibold text-text-body">{t("developer.apiKeyCreateTitle")}</span>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-          <div className="space-y-1 min-w-0">
-            <label className="font-mono text-[11px] text-text-muted">{t("developer.apiKeyTokenName")}</label>
-            <input
-              type="text"
-              value={name}
-              maxLength={64}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("developer.apiKeyNamePlaceholder")}
-              className="w-full h-9 px-3 bg-background border border-line rounded-lg text-text-strong text-sm placeholder:text-text-muted focus:outline-none focus:border-primary/50"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="font-mono text-[11px] text-text-muted">{t("developer.apiKeyExpiry")}</label>
-            <select
-              value={expiryDays}
-              onChange={(e) => setExpiryDays(Number(e.target.value))}
-              className="h-9 px-3 bg-background border border-line rounded-lg text-text-strong text-sm focus:outline-none focus:border-primary/50"
-            >
-              {EXPIRY_CHOICES.map((days) => (
-                <option key={days} value={days}>
-                  {days === 0 ? t("developer.apiKeyExpiryNever") : t("developer.apiKeyExpiryDays", { days })}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-[11px] text-text-muted">{t("developer.apiKeyScopes")}</span>
-            {grantable.length > 0 && (
-              <span className="font-mono text-[10px] text-text-muted">
-                {t("developer.apiKeySelected", { count: scopes.length, total: grantable.length })}
-              </span>
-            )}
-          </div>
-
-          {grantable.length === 0 ? (
-            <p className="p-3 rounded-lg bg-background border border-line-subtle text-[11px] text-text-body leading-relaxed">
-              {t("developer.apiKeyNoScopes")}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {groups.map(([service, codes]) => (
-                <div key={service} className="space-y-1">
-                  <div className="font-mono text-[10px] uppercase tracking-wide text-text-muted">
-                    {labelOf(`developer.apiKeyScopeGroup.${service}`, service)}
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {codes.map((code) => {
-                      const checked = scopes.includes(code);
-                      return (
-                        <label
-                          key={code}
-                          className={
-                            "inline-flex items-center gap-1.5 px-2.5 h-7 rounded-md border cursor-pointer text-[11px] transition-colors duration-fast ease-soft " +
-                            (checked
-                              ? "bg-primary/10 border-primary/40 text-text-strong"
-                              : "bg-background border-line text-text-body hover:border-primary/30")
-                          }
-                        >
-                          <input
-                            type="checkbox"
-                            checked={checked}
-                            onChange={() => toggleScope(code)}
-                            className="sr-only"
-                          />
-                          {checked ? <Check className="w-3 h-3 text-primary" /> : null}
-                          <span>{labelOf(`developer.apiKeyScope.${code}`, code)}</span>
-                          <span className="font-mono text-[9px] text-text-muted">{code}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <p className="text-[11px] text-text-faint leading-relaxed">{t("developer.apiKeyScopesHint")}</p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="submit"
-            disabled={creating || grantable.length === 0}
-            className="px-3.5 h-9 rounded-lg bg-primary text-white keep-white font-semibold text-xs inline-flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-50"
-          >
-            {creating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-            <span>{creating ? t("developer.apiKeyCreating") : t("developer.apiKeyCreateBtn")}</span>
-          </button>
-          <span className="text-[11px] text-text-faint">{t("developer.apiKeyLimitHint")}</span>
-        </div>
-      </form>
 
       {/* 已颁发令牌 */}
       <div className="space-y-2">
@@ -461,6 +254,16 @@ export function ApiKeysPanel() {
           </ul>
         )}
       </div>
+
+      <ApiKeyCreateModal
+        open={modalOpen}
+        onClose={onModalClose}
+        onCreated={(created) => {
+          onModalClose();
+          setReveal(created);
+          setReloadKey((k) => k + 1);
+        }}
+      />
 
       <ApiKeyRevealModal created={reveal} onClose={() => setReveal(null)} />
 
