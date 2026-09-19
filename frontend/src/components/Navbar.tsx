@@ -229,22 +229,7 @@ export const Navbar: React.FC = () => {
           </Link>
 
           <nav className="hidden xl:flex items-center gap-1.5 ml-2">
-            {/* 开发者中心放导航最前、文档保持垫底：任何登录账号都能自助登记自己的应用
-                （见 metafusion-auth 的 /api/developer/*），因此不像管理台那样受权限码限制；
-                未登录时不提供入口。管理后台不在顶栏——统一收进用户菜单。 */}
-            {user && (
-              <Link
-                href="/developer"
-                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-medium tracking-wide transition-all ${
-                  pathname.startsWith("/developer")
-                    ? "text-primary bg-primary/10 border border-primary/25 font-semibold"
-                    : "text-text-muted hover:text-primary hover:bg-primary/5"
-                }`}
-              >
-                <Terminal className="w-3.5 h-3.5" />
-                <span>{t("navigation.developer")}</span>
-              </Link>
-            )}
+            {/* 开发者中心与管理后台都不在顶栏——统一收进用户菜单，顶栏只剩内容导航。 */}
             {navLinks.map((tab) => {
               const Icon = tab.icon;
               const active = isNavLinkActive(pathname, tab);
@@ -421,13 +406,12 @@ export const Navbar: React.FC = () => {
                       )}
                     </Link>
 
-                    {/* 开发者中心：桌面顶栏那条入口在 hidden xl:flex 里，<xl 视口（移动端/平板）
-                        看不到，这里补同一个入口；可见性用 xl:hidden 与桌面导航配对，避免桌面重复。
-                        规则一致：登录即可自助登记应用，未登录不显示——本菜单只在 user 存在时渲染。 */}
+                    {/* 开发者中心：顶栏不设入口，这里是唯一入口（全断点可见）。
+                        登录即可自助登记应用，未登录不显示——本菜单只在 user 存在时渲染。 */}
                     <Link
                       href="/developer"
                       onClick={() => setIsUserMenuOpen(false)}
-                      className="xl:hidden w-full px-3 py-2 text-left text-text-body hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
+                      className="w-full px-3 py-2 text-left text-text-body hover:text-emphasis hover:bg-surfaceHover flex items-center gap-2 transition-colors duration-fast ease-soft font-medium"
                     >
                       <Terminal className="w-3.5 h-3.5 text-primary" strokeWidth={1.7} />
                       <span>{t("navigation.developer")}</span>

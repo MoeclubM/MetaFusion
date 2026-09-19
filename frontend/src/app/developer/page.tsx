@@ -11,9 +11,12 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import {
+  Activity,
+  AppWindow,
   Check,
   Copy,
   ExternalLink,
+  History,
   KeyRound,
   Loader2,
   Pencil,
@@ -73,6 +76,15 @@ export default function DeveloperPage() {
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+
+  // 左侧选项、右侧切换：四个自助区共用一页，窄屏时侧栏横排置顶。
+  const TABS = [
+    { key: "apps", label: t("developer.apps.title"), icon: AppWindow },
+    { key: "keys", label: t("developer.apiKeys.title"), icon: KeyRound },
+    { key: "audit", label: t("developer.audit.title"), icon: History },
+    { key: "logs", label: t("developer.reqlogs.title"), icon: Activity },
+  ] as const;
+  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("apps");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -217,152 +229,170 @@ export default function DeveloperPage() {
         ) : null}
 
         {config ? (
-          <div className="space-y-4">
-          <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
-            <div className="space-y-4 min-w-0">
-            <Card padding="section" className="space-y-3">
-              <SectionTitle
-                icon={<KeyRound className="w-4 h-4 text-primary" />}
-                actions={
+          <div className="grid grid-cols-1 md:grid-cols-[220px_minmax(0,1fr)] gap-4 items-start">
+            <nav aria-label={t("developer.title")} className="flex md:flex-col gap-1 overflow-x-auto rounded-xl border border-line-subtle bg-surface p-1.5 md:sticky md:top-20">
+              {TABS.map((item) => {
+                const Icon = item.icon;
+                const active = tab === item.key;
+                return (
                   <button
+                    key={item.key}
                     type="button"
-                    onClick={() => setCreating(true)}
-                    className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold transition-colors duration-fast ease-soft cursor-pointer inline-flex items-center gap-1.5"
+                    onClick={() => setTab(item.key)}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors duration-fast ease-soft cursor-pointer ${active ? "bg-primary/10 text-primary font-semibold" : "text-text-muted hover:text-emphasis hover:bg-surfaceHover"}`}
                   >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>{t("developer.apps.new")}</span>
+                    <Icon className="w-4 h-4 shrink-0" strokeWidth={1.8} />
+                    <span className="whitespace-nowrap text-xs font-medium">{item.label}</span>
                   </button>
-                }
-              >
-                {t("developer.apps.title")}
-              </SectionTitle>
-              <p className="text-xs text-text-muted leading-relaxed">{t("developer.apps.subtitle")}</p>
-              {apps.length === 0 ? (
-                <div className="p-8 rounded-xl border border-dashed border-line text-center text-xs text-text-faint font-mono">
-                  {t("developer.apps.empty")}
-                </div>
-              ) : (
-                <div className="rounded-xl border border-line-subtle overflow-x-auto" data-mf-developer-apps="">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead>
-                      <tr className="border-b border-line-subtle bg-surfaceSubtle text-text-muted font-mono text-[11px]">
-                        <th className="py-2 px-3 font-medium">{t("developer.colName")}</th>
-                        <th className="py-2 px-3 font-medium">{t("developer.colClientId")}</th>
-                        <th className="py-2 px-3 font-medium">{t("developer.colRedirects")}</th>
-                        <th className="py-2 px-3 font-medium">{t("developer.colScopes")}</th>
-                        <th className="py-2 px-3 font-medium">{t("developer.colStatus")}</th>
-                        <th className="py-2 px-3 font-medium text-right">{t("developer.colActions")}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-line-subtle">
-                      {apps.map((app) => (
-                        <tr key={app.client_id} data-mf-developer-row={app.client_id} className="hover:bg-surfaceSubtle align-top">
-                          <td className="py-2.5 px-3 text-text-body">
-                            <div>{app.name || "—"}</div>
-                            {app.description ? <div className="text-[10px] text-text-faint">{app.description}</div> : null}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-text-strong break-all">{app.client_id}</td>
-                          <td className="py-2.5 px-3">
-                            {(app.redirect_uris || []).length === 0 ? (
-                              <span className="font-mono text-[10px] text-danger">{t("developer.apps.noRedirects")}</span>
-                            ) : (
-                              <div className="space-y-0.5">
-                                {(app.redirect_uris || []).map((uri) => (
-                                  <div key={uri} className="font-mono text-[10px] text-text-muted break-all">
-                                    {uri}
-                                  </div>
+                );
+              })}
+            </nav>
+            <div className="min-w-0">
+              {tab === "apps" && (
+                <div className="space-y-4">
+              <Card padding="section" className="space-y-3">
+                <SectionTitle
+                  icon={<KeyRound className="w-4 h-4 text-primary" />}
+                  actions={
+                    <button
+                      type="button"
+                      onClick={() => setCreating(true)}
+                      className="px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-white text-[11px] font-semibold transition-colors duration-fast ease-soft cursor-pointer inline-flex items-center gap-1.5"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>{t("developer.apps.new")}</span>
+                    </button>
+                  }
+                >
+                  {t("developer.apps.title")}
+                </SectionTitle>
+                <p className="text-xs text-text-muted leading-relaxed">{t("developer.apps.subtitle")}</p>
+                {apps.length === 0 ? (
+                  <div className="p-8 rounded-xl border border-dashed border-line text-center text-xs text-text-faint font-mono">
+                    {t("developer.apps.empty")}
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-line-subtle overflow-x-auto" data-mf-developer-apps="">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead>
+                        <tr className="border-b border-line-subtle bg-surfaceSubtle text-text-muted font-mono text-[11px]">
+                          <th className="py-2 px-3 font-medium">{t("developer.colName")}</th>
+                          <th className="py-2 px-3 font-medium">{t("developer.colClientId")}</th>
+                          <th className="py-2 px-3 font-medium">{t("developer.colRedirects")}</th>
+                          <th className="py-2 px-3 font-medium">{t("developer.colScopes")}</th>
+                          <th className="py-2 px-3 font-medium">{t("developer.colStatus")}</th>
+                          <th className="py-2 px-3 font-medium text-right">{t("developer.colActions")}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-line-subtle">
+                        {apps.map((app) => (
+                          <tr key={app.client_id} data-mf-developer-row={app.client_id} className="hover:bg-surfaceSubtle align-top">
+                            <td className="py-2.5 px-3 text-text-body">
+                              <div>{app.name || "—"}</div>
+                              {app.description ? <div className="text-[10px] text-text-faint">{app.description}</div> : null}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-[11px] text-text-strong break-all">{app.client_id}</td>
+                            <td className="py-2.5 px-3">
+                              {(app.redirect_uris || []).length === 0 ? (
+                                <span className="font-mono text-[10px] text-danger">{t("developer.apps.noRedirects")}</span>
+                              ) : (
+                                <div className="space-y-0.5">
+                                  {(app.redirect_uris || []).map((uri) => (
+                                    <div key={uri} className="font-mono text-[10px] text-text-muted break-all">
+                                      {uri}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex flex-wrap gap-1">
+                                {(app.scopes || []).map((code) => (
+                                  <span
+                                    key={code}
+                                    className="px-1 py-0.5 rounded-chip bg-surfaceSubtle border border-line text-[10px] font-mono text-text-muted"
+                                  >
+                                    {code}
+                                  </span>
                                 ))}
                               </div>
-                            )}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <div className="flex flex-wrap gap-1">
-                              {(app.scopes || []).map((code) => (
-                                <span
-                                  key={code}
-                                  className="px-1 py-0.5 rounded-chip bg-surfaceSubtle border border-line text-[10px] font-mono text-text-muted"
-                                >
-                                  {code}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                          <td className="py-2.5 px-3">{badge(app)}</td>
-                          <td className="py-2.5 px-3">
-                            <div className="flex flex-wrap gap-1 justify-end">
-                              <button type="button" onClick={() => setEditing(app)} className={actionClass}>
-                                <Pencil className="w-3 h-3" />
-                                <span>{t("developer.apps.edit")}</span>
-                              </button>
-                              <button type="button" onClick={() => setPending({ kind: "rotate", app })} className={actionClass}>
-                                <RotateCcw className="w-3 h-3" />
-                                <span>{t("developer.apps.rotate")}</span>
-                              </button>
-                              <button type="button" onClick={() => setPending({ kind: "delete", app })} className={actionClass}>
-                                <Trash2 className="w-3 h-3" />
-                                <span>{t("developer.apps.delete")}</span>
-                              </button>
-                            </div>
+                            </td>
+                            <td className="py-2.5 px-3">{badge(app)}</td>
+                            <td className="py-2.5 px-3">
+                              <div className="flex flex-wrap gap-1 justify-end">
+                                <button type="button" onClick={() => setEditing(app)} className={actionClass}>
+                                  <Pencil className="w-3 h-3" />
+                                  <span>{t("developer.apps.edit")}</span>
+                                </button>
+                                <button type="button" onClick={() => setPending({ kind: "rotate", app })} className={actionClass}>
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>{t("developer.apps.rotate")}</span>
+                                </button>
+                                <button type="button" onClick={() => setPending({ kind: "delete", app })} className={actionClass}>
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>{t("developer.apps.delete")}</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <p className="text-[11px] text-text-faint leading-relaxed">{t("developer.apps.verifiedHint")}</p>
+              </Card>
+            <details className="rounded-xl border border-line-subtle bg-surface px-3.5 py-2.5">
+              <summary className="text-xs text-text-muted cursor-pointer inline-flex items-center gap-1.5">
+                <SlidersHorizontal className="w-3.5 h-3.5 text-primary" />
+                {t("developer.access.title")}
+              </summary>
+              <div className="mt-2 rounded-lg border border-line-subtle overflow-hidden">
+                <table className="w-full text-left text-xs border-collapse">
+                  <tbody className="divide-y divide-line-subtle">
+                    <tr>
+                      <td className="py-2 px-3 text-text-muted whitespace-nowrap">issuer</td>
+                      <td className="py-2 px-3 font-mono text-[11px] text-text-strong break-all">{config.issuer}</td>
+                      <td className="py-2 px-3 text-right w-16">
+                        <button type="button" onClick={() => void copy("issuer", config.issuer)} className={actionClass}>
+                          {copied === "issuer" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </button>
+                      </td>
+                    </tr>
+                    {ENDPOINT_KEYS.map((key) => {
+                      const value = config.endpoints[key] || "";
+                      return (
+                        <tr key={key}>
+                          <td className="py-2 px-3 text-text-muted whitespace-nowrap font-mono">{key}</td>
+                          <td className="py-2 px-3 font-mono text-[11px] text-text-body break-all">{value}</td>
+                          <td className="py-2 px-3 text-right w-16">
+                            <button type="button" onClick={() => void copy(key, value)} className={actionClass}>
+                              {copied === key ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                            </button>
                           </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              {copied === "failed" ? <p className="mt-1 text-[11px] text-warn">{t("developer.copyFailed")}</p> : null}
+            </details>
                 </div>
               )}
-              <p className="text-[11px] text-text-faint leading-relaxed">{t("developer.apps.verifiedHint")}</p>
-            </Card>
-
-            <Card padding="section" className="space-y-3">
-              <SectionTitle icon={<KeyRound className="w-4 h-4 text-primary" />}>
-                {t("developer.apiKeys.title")}
-              </SectionTitle>
-              <p className="text-xs text-text-muted leading-relaxed">{t("developer.apiKeys.subtitle")}</p>
-              <ApiKeysPanel />
-            </Card>
+              {tab === "keys" && (
+              <Card padding="section" className="space-y-3">
+                <SectionTitle icon={<KeyRound className="w-4 h-4 text-primary" />}>
+                  {t("developer.apiKeys.title")}
+                </SectionTitle>
+                <p className="text-xs text-text-muted leading-relaxed">{t("developer.apiKeys.subtitle")}</p>
+                <ApiKeysPanel />
+              </Card>
+              )}
+              {tab === "audit" && <AuditLogsCard apps={apps} />}
+              {tab === "logs" && <RequestLogsCard />}
             </div>
-            <div className="space-y-4 min-w-0">
-              <AuditLogsCard apps={apps} />
-              <RequestLogsCard />
-            </div>
-          </div>
-
-          <details className="rounded-xl border border-line-subtle bg-surface px-3.5 py-2.5">
-            <summary className="text-xs text-text-muted cursor-pointer inline-flex items-center gap-1.5">
-              <SlidersHorizontal className="w-3.5 h-3.5 text-primary" />
-              {t("developer.access.title")}
-            </summary>
-            <div className="mt-2 rounded-lg border border-line-subtle overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <tbody className="divide-y divide-line-subtle">
-                  <tr>
-                    <td className="py-2 px-3 text-text-muted whitespace-nowrap">issuer</td>
-                    <td className="py-2 px-3 font-mono text-[11px] text-text-strong break-all">{config.issuer}</td>
-                    <td className="py-2 px-3 text-right w-16">
-                      <button type="button" onClick={() => void copy("issuer", config.issuer)} className={actionClass}>
-                        {copied === "issuer" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      </button>
-                    </td>
-                  </tr>
-                  {ENDPOINT_KEYS.map((key) => {
-                    const value = config.endpoints[key] || "";
-                    return (
-                      <tr key={key}>
-                        <td className="py-2 px-3 text-text-muted whitespace-nowrap font-mono">{key}</td>
-                        <td className="py-2 px-3 font-mono text-[11px] text-text-body break-all">{value}</td>
-                        <td className="py-2 px-3 text-right w-16">
-                          <button type="button" onClick={() => void copy(key, value)} className={actionClass}>
-                            {copied === key ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {copied === "failed" ? <p className="mt-1 text-[11px] text-warn">{t("developer.copyFailed")}</p> : null}
-          </details>
           </div>
         ) : null}
       </PageContainer>
