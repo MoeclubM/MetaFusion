@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,35 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// 原语言与封面筛选的真库契约：has_pictures=1 必须 200（不是 500），
+// 且只返回 pictures 非空数组的条目——标量/缺键 pictures 行不能把查询炸成
+// database_error（AND 不保证先算 typeof，旧写法线上实测 500）。
+// 未设置 MF_V2_TEST_DSN 时跳过。
+func TestPostgresEntityListLanguageAndCoverContract(t *testing.T) {
+	f := newFixture(t)
+	withCover := f.save(Entity{Kind: "work", Title: "有封面", OriginalLanguage: "ja",
+		Pictures: PicturesJSON{{URL: "https://example.test/c.jpg", Source: Source{Kind: "url", Citation: "test", URL: "https://example.test/c.jpg"}}}})
+	_ = f.save(Entity{Kind: "work", Title: "无封面", OriginalLanguage: "en"})
+	scalar := f.save(Entity{Kind: "work", Title: "坏封面", OriginalLanguage: "ja"})
+	ctx := context.Background()
+	if _, err := f.s.DB.ExecContext(ctx, "UPDATE catalog.entities SET document = jsonb_set(document, '{pictures}', to_jsonb('oops'::text)) WHERE id=$1", scalar.ID); err != nil {
+		t.Fatalf("造标量 pictures 行: %v", err)
+	}
+	engine := fixtureEngine(f)
+
+	covered, totalCovered := listIDs(t, engine, "/api/catalog/entities?has_pictures=1&limit=100")
+	if totalCovered != 1 || len(covered) != 1 || covered[0] != withCover.ID {
+		t.Fatalf("has_pictures=1 应只返回有封面条目: ids=%v total=%d", covered, totalCovered)
+	}
+	_, totalJa := listIDs(t, engine, "/api/catalog/entities?original_language=ja&limit=100")
+	if totalJa != 2 {
+		t.Fatalf("original_language=ja 应返回 2 条: total=%d", totalJa)
+	}
+	if _, total := listIDs(t, engine, "/api/catalog/entities?limit=100"); total != 3 {
+		t.Fatalf("无筛选应返回 3 条: total=%d", total)
+	}
+}
 
 // 审计 2026-09-19 第 5 条：GET /api/catalog/entities?q=%00（及 %FF/%C3）线上返回
 // 500 {"error":"database_error"}——非法输入被报成服务故障，前端又把它渲染成"没有结果"。

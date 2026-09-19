@@ -2230,7 +2230,7 @@ func mergeAgentMetadata(existing Entity, assoc ImporterStaffAssociation) (Entity
 	}
 	if len(existing.Pictures) == 0 {
 		if p, ok := pictureFromRemote(assoc.AvatarURL, "Bangumi 头像", "", false); ok {
-			existing.Pictures = []Picture{p}
+			existing.Pictures = PicturesJSON{p}
 			changed = true
 		}
 	}
@@ -2326,7 +2326,7 @@ func mergeWorkMetadata(existing Entity, w *ImporterWorkPreview, dateField string
 	changed = applyAliasesByScript(&existing, w.Aliases) || changed
 	if len(existing.Pictures) == 0 {
 		if p, ok := pictureFromRemote(w.CoverImageURL, "Bangumi 条目封面", "", false); ok {
-			existing.Pictures = []Picture{p}
+			existing.Pictures = PicturesJSON{p}
 			changed = true
 		}
 	}
@@ -2401,7 +2401,7 @@ func buildWorkEntity(w *ImporterWorkPreview, workType, source, key, sourceID str
 	applyAliasesByScript(&e, w.Aliases)
 	applyWorkSummary(&e, w.Summary)
 	if p, ok := pictureFromRemote(w.CoverImageURL, "Bangumi 条目封面", key, hasKey); ok {
-		e.Pictures = []Picture{p}
+		e.Pictures = PicturesJSON{p}
 	}
 	return e, nil
 }
@@ -2447,7 +2447,7 @@ func buildAgentEntity(name, originalName, biography, avatarURL, lang, entityType
 		Attributes:       map[string]any{},
 	}
 	if p, ok := pictureFromRemote(avatarURL, "Bangumi 头像", key, hasKey); ok {
-		e.Pictures = []Picture{p}
+		e.Pictures = PicturesJSON{p}
 	}
 	if strings.TrimSpace(originalName) != "" && strings.TrimSpace(originalName) != name {
 		if e.OriginalLanguage != "" {
@@ -4019,7 +4019,7 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 		// 但"上次没写进去"（本次修复前的历史数据、或上次 download_cover=false）要能补上。
 		if len(merged.Pictures) == 0 {
 			if pictures := importerReleasePictures(rel, workKey); len(pictures) > 0 {
-				merged.Pictures = pictures
+				merged.Pictures = PicturesJSON(pictures)
 				changed = true
 			}
 		}
@@ -4048,7 +4048,7 @@ func (s *Store) importReleaseChain(ctx context.Context, actor User, note string,
 			Attributes:       releaseAttrs,
 			ExternalIDs:      releaseExternalIDs,
 			Subjects:         subjects,
-			Pictures:         importerReleasePictures(rel, workKey),
+			Pictures:         PicturesJSON(importerReleasePictures(rel, workKey)),
 			OriginalLanguage: releaseLang,
 			Translations:     releaseTranslations,
 		}, actor, note, sources)
@@ -4498,7 +4498,7 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			ExternalIDs:      importerAgentExternalIDs(assoc.ExternalIDs),
 		}
 		if p, ok := pictureFromRemote(assoc.AvatarURL, "Bangumi 头像", "", false); ok {
-			staff.Pictures = []Picture{p}
+			staff.Pictures = PicturesJSON{p}
 		}
 		if strings.TrimSpace(assoc.Biography) != "" {
 			applyWorkSummary(&staff, assoc.Biography)

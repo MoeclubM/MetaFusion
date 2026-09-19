@@ -716,8 +716,8 @@ type ListOptions struct {
 	// OriginalLanguage 按 document->>'original_language' 精确匹配：八层级通用列，
 	// 探索页侧栏的原语言筛选即它（值如 ja/zh/en，大小写按入库原样比）。
 	OriginalLanguage string
-	// HasPictures 只留有封面的：document->'pictures' 为非空数组。缺键/非数组
-	// 一律按无封面处理（jsonb_array_length 对非数组会报错，先 typeof 收窄）。
+	// HasPictures 只留有封面的：document->'pictures' 为非空数组。CASE 保序
+	// （WHEN 为真才求 array_length）：缺键/标量/对象走 ELSE=0 按无封面过滤。
 	HasPictures bool
 	// Sort / Order 是白名单排序键与方向（见 listSortKeys），Locale 只在 Sort=title
 	// 时参与"取哪个语种的题名"；未知键由 normalizeListSort 拒掉（HTTP 400 invalid_sort），
@@ -872,7 +872,7 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 		add("document->>'original_language'=$%d", o.OriginalLanguage)
 	}
 	if o.HasPictures {
-		parts = append(parts, "(jsonb_typeof(document->'pictures')='array' AND jsonb_array_length(document->'pictures')>0)")
+		parts = append(parts, "(CASE WHEN jsonb_typeof(document->'pictures')='array' THEN jsonb_array_length(document->'pictures') ELSE 0 END>0)")
 	}
 	if o.Query != "" {
 		// 翻译搜索走 (document->'translations')::text ILIKE：整 JSON 转文本匹配，

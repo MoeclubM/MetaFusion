@@ -400,7 +400,7 @@ func TestMergeWorkMetadataNoOverwrite(t *testing.T) {
 		},
 		Attributes:  map[string]any{"edition_date": "2001-01-01"},
 		ExternalIDs: map[string]string{"official_website": "https://manual.example/"},
-		Pictures:    []Picture{{URL: "https://manual.example/cover.jpg"}},
+		Pictures:    PicturesJSON{{URL: "https://manual.example/cover.jpg"}},
 	}
 	w := &ImporterWorkPreview{
 		Title: "作品", OriginalTitle: "作品",

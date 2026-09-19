@@ -19,6 +19,29 @@ type Source struct {
 	Citation string `json:"citation"`
 	URL      string `json:"url,omitempty"`
 }
+// PicturesJSON 是封面的读容错外壳：历史数据里 pictures 可能是标量/对象
+// （早期导入链的脏写），解码时按无封面处理（nil）而不是让整行查询失败；
+// 写侧由 validation 照常严格校验。这里用命名类型只为挂 UnmarshalJSON，
+// len/索引/range 与 []Picture 完全一致，调用方无需改动读法。
+type PicturesJSON []Picture
+
+func (p *PicturesJSON) UnmarshalJSON(b []byte) error {
+	var v any
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	if _, ok := v.([]any); !ok {
+		*p = nil
+		return nil
+	}
+	var pics []Picture
+	if err := json.Unmarshal(b, &pics); err != nil {
+		return err
+	}
+	*p = pics
+	return nil
+}
+
 type Picture struct {
 	URL     string `json:"url"`
 	Caption Names  `json:"caption"`
@@ -57,7 +80,7 @@ type Entity struct {
 	Types            []string               `json:"types"`
 	Attributes       map[string]any         `json:"attributes"`
 	ExternalIDs      map[string]string      `json:"external_ids"`
-	Pictures         []Picture              `json:"pictures"`
+	Pictures         PicturesJSON           `json:"pictures"`
 	Status           string                 `json:"status"`
 	CreatedBy        string                 `json:"created_by"`
 	RedirectID       string                 `json:"redirect_id,omitempty"`
