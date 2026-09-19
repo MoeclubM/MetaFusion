@@ -318,7 +318,7 @@ export default function UserDetailPage() {
             )}
             <div className="min-w-0 flex-1 space-y-1.5">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg font-bold text-text-strong">{u ? u.username : t("nav.userProfile")}</h1>
+                <h1 className="text-lg font-bold text-text-strong">{u ? u.display_name || u.username : t("nav.userProfile")}</h1>
                 {u && <UserRoleBadge role={u.role} t={t} showIcon />}
                 {u?.banned && (
                   <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-sm bg-rose-500/10 text-rose-600 dark:text-danger border border-rose-500/30 inline-flex items-center gap-1">
@@ -327,8 +327,10 @@ export default function UserDetailPage() {
                   </span>
                 )}
               </div>
-              {/* display_name / bio / avatar_url / created_at 都不在 auth.users 里：字段缺席就整块不渲染，
-                  不做"空字符串"或 Invalid Date 的假展示。 */}
+              {/* 简介：空串=未设置，整块不渲染。avatar_url / created_at 仍不在库里，保持缺席不渲染。 */}
+              {u?.bio && (
+                <p className="text-sm text-text-body leading-relaxed whitespace-pre-wrap break-words">{u.bio}</p>
+              )}
               {profileFailure && (
                 <p className="text-xs text-amber-600 dark:text-warn flex items-start gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />

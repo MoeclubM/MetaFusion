@@ -217,6 +217,19 @@ export async function createPersonalAccessToken(payload: {
   return normalizeCreatedToken(raw);
 }
 
+/** PUT /api/auth/profile：自助改昵称与简介。空串=未设置；昵称 32 字、简介 500 字（后端同口径，超限 400）。 */
+export interface OwnProfileUpdate {
+  display_name: string;
+  bio: string;
+}
+
+export async function updateOwnProfile(payload: OwnProfileUpdate): Promise<OwnProfileUpdate & { id: string; username: string }> {
+  return fetchApi<OwnProfileUpdate & { id: string; username: string }>("/auth/profile", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 /** DELETE /auth/tokens/:id：写 revoked_at（幂等）。生效最长需 60 秒，见文件头注释。 */
 export function revokePersonalAccessToken(id: string): Promise<{ ok: boolean }> {
   return fetchApi<{ ok: boolean }>("/auth/tokens/" + encodeURIComponent(id), { method: "DELETE" });

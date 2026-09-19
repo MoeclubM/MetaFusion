@@ -7,14 +7,17 @@ import { requireArray, safeCount } from "./fields";
 
 // ── 账号资料：GET /users/:id（匿名可读）──
 //
-// auth.users 只有 id / username / email / password_hash / role / banned：
-// display_name、avatar_url、bio、created_at、favorites_public、invite_code **都不存在**。
-// 所以下面这些可选项是"来源没有这一列"，不是"值恰好为空"：调用方按字段缺席整块不渲染，
+// auth.users 有 display_name / bio 列（空串=未设置）；avatar_url、created_at、
+// favorites_public、invite_code 仍不存在。缺席字段调用方按整块不渲染，
 // 不要送进 new Date()（会渲染 Invalid Date），也不要当 0 用。
 export interface PublicUser {
   id: string;
   username: string;
   role: string;
+  /** 空串=未设置，调用方回退用户名。 */
+  display_name?: string;
+  /** 空串=未设置，调用方不渲染简介区。 */
+  bio?: string;
   /** 仅封禁账号带出（后端 omitempty）；封禁是账号状态，不代表资料不存在。 */
   banned?: boolean;
   /** 只有请求者就是本人时才下发。 */

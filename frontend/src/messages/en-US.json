@@ -1949,5 +1949,9 @@
   "revisions.openInCompare": "Open in Compare",
   "revisions.clearPicked": "Clear",
   "navbar.userCenter": "User Center",
-  "navbar.userSettings": "Settings"
+  "navbar.userSettings": "Settings",
+  "settings.profileSave": "Save profile",
+  "settings.profileSaving": "Saving…",
+  "settings.profileSaved": "Profile saved",
+  "settings.profileSaveFailed": "Save failed, please retry"
 }

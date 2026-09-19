@@ -1949,5 +1949,9 @@
   "revisions.openInCompare": "在对比页打开",
   "revisions.clearPicked": "清空",
   "navbar.userCenter": "用户中心",
-  "navbar.userSettings": "设置"
+  "navbar.userSettings": "设置",
+  "settings.profileSave": "保存资料",
+  "settings.profileSaving": "保存中…",
+  "settings.profileSaved": "资料已保存",
+  "settings.profileSaveFailed": "保存失败，请稍后重试"
 }

@@ -1949,5 +1949,9 @@
   "revisions.openInCompare": "比較ページで開く",
   "revisions.clearPicked": "クリア",
   "navbar.userCenter": "ユーザーセンター",
-  "navbar.userSettings": "設定"
+  "navbar.userSettings": "設定",
+  "settings.profileSave": "プロフィールを保存",
+  "settings.profileSaving": "保存中…",
+  "settings.profileSaved": "プロフィールを保存しました",
+  "settings.profileSaveFailed": "保存に失敗しました。時間をおいて再試行してください"
 }

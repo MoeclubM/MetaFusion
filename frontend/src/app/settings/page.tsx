@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme, accentLabel } from "@/lib/themeContext";
-import { clearAuthTokens, displayNameOf, fetchAuthSettings, getAccessToken, PublicAuthSettings } from "@/lib/api";
+import { clearAuthTokens, displayNameOf, fetchAuthSettings, getAccessToken, PublicAuthSettings, updateOwnProfile } from "@/lib/api";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
@@ -43,7 +43,7 @@ type SettingsTab = "profile" | "password" | "appearance" | "authorizations";
 const SETTINGS_TABS: SettingsTab[] = ["profile", "password", "appearance", "authorizations"];
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
   const { t, locale, setLocale } = useI18n();
   const { mode, accent, setMode, setAccent, accents } = useTheme();
   const searchParams = useSearchParams();
@@ -64,6 +64,24 @@ export default function SettingsPage() {
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // 资料保存：PUT /api/auth/profile（空串=未设置）；成功后刷新会话用户，
+  // 顶栏与用户主页即时跟进（/auth/me 读穿 DB，不等令牌周期）。
+  const handleProfileSave = async () => {
+    setError(null);
+    setSuccess(null);
+    setSavingProfile(true);
+    try {
+      await updateOwnProfile({ display_name: displayName.trim(), bio: bio.trim() });
+      await refreshProfile();
+      setSuccess(t("settings.profileSaved"));
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t("settings.profileSaveFailed"));
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   // 邮箱验证能力：后端 GET /auth/settings 目前如实返回全部关闭。
   const [authSettings, setAuthSettings] = useState<PublicAuthSettings | null>(null);
@@ -331,28 +349,45 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* 资料编辑：后端没有 /auth/profile 实现，改为只读展示 + 占位说明 */}
-              <div className="space-y-3.5">
-                <div className="p-3 rounded-lg bg-surfaceSubtle border border-line-subtle text-xs text-text-body flex items-center gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0 text-text-muted" />
-                  <span>
-                    {t("settings.displayName")} / {t("settings.bioLabel")}: {t("catalog.unavailable")}
-                  </span>
-                </div>
+              {/* 资料编辑：PUT /api/auth/profile（本人自助），空串=未设置 */}
+              <form
+                className="space-y-3.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void handleProfileSave();
+                }}
+              >
                 <div className="space-y-1">
                   <label className="font-mono text-xs sm:text-sm text-text-muted">{t("settings.displayName")}</label>
-                  <div className="w-full min-h-10 px-3.5 py-2.5 bg-background border border-line rounded-lg text-text-strong text-sm opacity-70">
-                    {displayNameOf(user as unknown as { username: string; display_name?: string })}
-                  </div>
+                  <input
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    maxLength={32}
+                    placeholder={user.username}
+                    className="w-full h-10 px-3.5 bg-background border border-line rounded-lg text-text-strong text-sm focus:outline-none focus:border-primary/50"
+                  />
                   <p className="font-mono text-xs text-text-faint">{t("settings.displayNameHint")}</p>
                 </div>
                 <div className="space-y-1">
                   <label className="font-mono text-xs sm:text-sm text-text-muted">{t("settings.bioLabel")}</label>
-                  <div className="w-full min-h-10 p-3.5 bg-background border border-line rounded-lg text-text-strong text-sm opacity-70 whitespace-pre-wrap">
-                    {bio || "—"}
-                  </div>
+                  <textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    className="w-full p-3.5 bg-background border border-line rounded-lg text-text-strong text-sm focus:outline-none focus:border-primary/50 resize-y"
+                  />
                 </div>
-              </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="submit"
+                    disabled={savingProfile}
+                    className="px-4 h-9 rounded-lg bg-primary text-white keep-white font-semibold text-xs inline-flex items-center gap-1.5 hover:opacity-90 transition-opacity disabled:opacity-50"
+                  >
+                    {savingProfile ? t("settings.profileSaving") : t("settings.profileSave")}
+                  </button>
+                </div>
+              </form>
 
               <div className="grid gap-1.5 pt-2 border-t border-line-subtle">
                 <div className="p-2.5 rounded-md bg-background border border-line-subtle flex items-center justify-between text-xs font-mono">
