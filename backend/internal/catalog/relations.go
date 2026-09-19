@@ -1203,7 +1203,12 @@ func keysOf(set map[string]bool) []string {
 	return out
 }
 
-// Compare returns exact release structure and only comparable metadata fields.
+// Compare returns the entity (only comparable metadata fields) plus its
+// structural children for kinds that have a containment tree:
+// release → [{medium, tracks}], medium → [{medium: self, tracks}],
+// other kinds → []. Any mix of kinds is allowed; attribute union and content
+// alignment are the caller's job (frontend compares the entity rows,
+// revision history diff reuses the same table).
 func (s *Store) Compare(ctx context.Context, ids []string, u *User) ([]map[string]any, error) {
 	if len(ids) < 2 || len(ids) > 6 {
 		return nil, fmt.Errorf("compare_requires_two_to_six")
@@ -1218,9 +1223,6 @@ func (s *Store) Compare(ctx context.Context, ids []string, u *User) ([]map[strin
 		if err != nil {
 			return nil, err
 		}
-		if e.Kind != "release" {
-			return nil, fmt.Errorf("invalid_kind")
-		}
 		attrs := map[string]any{}
 		for k, v := range e.Attributes {
 			if d.Document.Fields[k].Comparable {
@@ -1228,19 +1230,25 @@ func (s *Store) Compare(ctx context.Context, ids []string, u *User) ([]map[strin
 			}
 		}
 		e.Attributes = attrs
-		media, err := s.ListAll(ctx, ListOptions{ReleaseID: id}, u)
-		if err != nil {
-			return nil, err
-		}
 		rows := []map[string]any{}
-		for _, m := range media {
-			tracks, err := s.ListAll(ctx, ListOptions{MediumID: m.ID}, u)
-			if err != nil {
-				return nil, err
+		if e.Kind == "release" || e.Kind == "medium" {
+			media := []Entity{}
+			if e.Kind == "release" {
+				if media, err = s.ListAll(ctx, ListOptions{ReleaseID: id}, u); err != nil {
+					return nil, err
+				}
+			} else {
+				media = []Entity{e}
 			}
-			rows = append(rows, map[string]any{"medium": m, "tracks": tracks})
+			for _, m := range media {
+				tracks, err := s.ListAll(ctx, ListOptions{MediumID: m.ID}, u)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, map[string]any{"medium": m, "tracks": tracks})
+			}
 		}
-		out = append(out, map[string]any{"release": e, "media": rows})
+		out = append(out, map[string]any{"entity": e, "children": rows})
 	}
 	return out, nil
 }
