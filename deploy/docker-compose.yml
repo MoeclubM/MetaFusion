@@ -43,15 +43,18 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - nginx_logs:/var/log/nginx
     depends_on:
-      # 等 /ready 通过再开门：上游没起来时网关直接 502，会掩盖真实故障点。
+      # 入口独立启动：网关只等上游容器存在（service_started），不等全部 healthy。
+      # 冷启动/重建时单个存储或论坛服务不健康不再阻塞整个入口（2026-09 审计 O02）：
+      # 公开目录仍可访问，故障只影响对应路由（按路由降级，各 location 的上游超时与
+      # 502 只落在该前缀）。逐上游就绪探针见 nginx.conf 的 /health/<service>。
       backend:
-        condition: service_healthy
+        condition: service_started
       auth:
-        condition: service_healthy
+        condition: service_started
       community:
-        condition: service_healthy
+        condition: service_started
       storage:
-        condition: service_healthy
+        condition: service_started
       frontend:
         condition: service_started
       docs-site:
