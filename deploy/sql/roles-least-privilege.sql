@@ -464,7 +464,8 @@ ORDER BY a.rolname;
 --
 -- 6.2 完全回滚（回到四服务共用 metafusion 的旧状态；先让服务换回原连接串并确认健康，
 --     顺序不能反——反了会让在跑的服务当场 42501）：
---   -- ① 等所有服务都换了连接串（compose 里把 *_DATABASE_URL 置空 → 回退 DB_USER/DB_PASSWORD）
+--   -- ① 等所有服务都换了连接串（业务容器已不再接受 DB_*：用 git 忽略的本地覆盖文件
+--      为四个服务补 DB_* 后重建并确认健康；直接置空 *_DATABASE_URL 只会让服务连不上库）
 --   -- ② 撤权
 --   REVOKE ALL ON ALL TABLES IN SCHEMA catalog FROM mf_catalog;
 --   REVOKE ALL ON ALL SEQUENCES IN SCHEMA catalog FROM mf_catalog;

@@ -160,6 +160,50 @@ jobs:
         run: |
           docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml config --quiet
           docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml config --quiet
+      - name: 生产凭据隔离（只查键名，不打印值）
+        # 审计 O01：四个常驻业务容器只能持有本域 DATABASE_URL，不得出现 DB_*；
+        # 除 storage 外不得出现 STORAGE_S3_*/RUSTFS_*。config 输出含插值后的真值，
+        # 因此断言只打印键名与通过/失败结论，值永不进日志。
+        env:
+          DB_PASSWORD: test-only-password
+          RUSTFS_ROOT_USER: test-only-user
+          RUSTFS_ROOT_PASSWORD: test-only-password
+        run: |
+          python3 -m pip install --quiet pyyaml
+          cat > /tmp/assert_keys.py <<'PYEOF'
+          import sys
+          import yaml
+          which = sys.argv[1]
+          doc = yaml.safe_load(sys.stdin) or {}
+          svcs = doc.get("services", {}) or {}
+          banned_db = {"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"}
+          banned_s3 = {"STORAGE_S3_ACCESS_KEY", "STORAGE_S3_SECRET_KEY",
+                       "RUSTFS_ROOT_USER", "RUSTFS_ROOT_PASSWORD",
+                       "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY"}
+          bad = []
+          for name in ("backend", "auth", "community", "storage"):
+              env = (svcs.get(name) or {}).get("environment") or []
+              keys = set()
+              for item in env:
+                  keys.add(str(item).split("=", 1)[0].strip())
+              leak = sorted(keys & banned_db)
+              if leak:
+                  bad.append("%s 持有管理凭据键：%s" % (name, ",".join(leak)))
+              if "DATABASE_URL" not in keys:
+                  bad.append("%s 缺少 DATABASE_URL 键" % name)
+              if name != "storage":
+                  sleak = sorted(keys & banned_s3)
+                  if sleak:
+                      bad.append("%s 持有对象凭据键：%s" % (name, ",".join(sleak)))
+          if bad:
+              print("[%s] 凭据隔离未通过（只列键名，不打印值）：" % which)
+              for b in bad:
+                  print("  - " + b)
+              sys.exit(1)
+          print("[%s] 凭据隔离通过：4 个服务仅本域 DSN（键名已核对，值未打印）" % which)
+          PYEOF
+          docker compose -f deploy/docker-compose.yml config | python3 /tmp/assert_keys.py base
+          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml config | python3 /tmp/assert_keys.py prod
       # config 解析不出"build.target 在 Dockerfile 里不存在"（曾把 catalog-server 当真），
       # 也看不出必填变量没写进 .env.example；这两项由本仓库脚本补齐，本机无 docker 也能跑。
       # --selftest 是脚本自带的离线用例（变量展开 / 路径解析）：它自己坏了要在 CI 就红，

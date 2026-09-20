@@ -176,15 +176,97 @@ function prune_release_tags() {
 }
 
 # 迁移必须用**当前镜像里**的迁移器：迁移是编译进二进制的（embed），用运行中的旧容器
-# 执行会报"已是最新"而漏掉新迁移。--entrypoint 覆盖服务入口（镜像是 /app/server，
-# 直接 run 会把参数交给它而不是迁移器）；--no-deps 不连带拉起依赖，只跑这一个一次性容器。
+# 执行会报"已是最新"而漏掉新迁移。迁移走 backend-migrate 一次性作业（入口已是 /app/migrate，
+# 库 owner 身份，profiles: tools）：backend 常驻服务已不再持有 DB_*（审计 O01），
+# 用它跑迁移会拿到空身份。--no-deps 不连带拉起依赖，只跑这一个一次性容器。
 #
 # 第二个及以后的参数是**额外的 compose 文件**（如 -f docker-compose.prod.yml）：pull 路径上
 # 要跑的是拉下来那份镜像里的迁移器，而不是本地那张旧标签。
 function run_migrate() {
     local cmd=${1:-up}
     shift || true
-    docker compose $COMPOSE_ENV -f docker-compose.yml "$@" run --rm --no-deps --entrypoint /app/migrate backend "$cmd"
+    docker compose $COMPOSE_ENV -f docker-compose.yml "$@" run --rm --no-deps backend-migrate "$cmd"
+}
+
+# 只从 $ENV_FILE 取键值，不 source 整份文件（不执行 .env 内容）。
+function _env_val() {
+    [ -n "${ENV_FILE:-}" ] && [ -f "$ENV_FILE" ] || return 0
+    sed -n "s/^[[:space:]]*$1=//p" "$ENV_FILE" | head -n1 | tr -d '"' | sed -e "s/^'//" -e "s/'\$//"
+}
+
+# 生产 DSN 门禁（审计 O01）：prod/cutover/pull 面向线上，四个本域 DSN 缺一不可。
+# 缺失即非零退出，不静默回退共用身份。只判空、不打印值（验收口径：只查有无）。
+function require_prod_dsns() {
+    local missing=0 v val
+    for v in CATALOG_DATABASE_URL AUTH_DATABASE_URL COMMUNITY_DATABASE_URL STORAGE_DATABASE_URL; do
+        val="${!v:-}"
+        [ -n "$val" ] || val="$(_env_val "$v")"
+        if [ -z "$val" ]; then
+            echo "❌ 生产模式缺 $v：四个业务 DSN 必须逐个填入 .env（见 .env.example 数据层隔离一节）" >&2
+            missing=1
+        fi
+    done
+    if [ "$missing" = 1 ]; then
+        echo "   业务容器已不再持有 DB_* 共用身份：缺 DSN 会启动失败，不再回退（审计 O01）" >&2
+        exit 1
+    fi
+    echo "✅ 生产 DSN 齐全（4/4 已设置，值不打印）"
+}
+
+# 开发提醒（非阻塞）：fast 仍兼容未填 DSN 的旧工作区，只告警不拦。
+function warn_if_dsns_missing() {
+    local v val n=0
+    for v in CATALOG_DATABASE_URL AUTH_DATABASE_URL COMMUNITY_DATABASE_URL STORAGE_DATABASE_URL; do
+        val="${!v:-}"
+        [ -n "$val" ] || val="$(_env_val "$v")"
+        [ -n "$val" ] || n=$((n + 1))
+    done
+    if [ "$n" != 0 ]; then
+        echo "⚠️  有 $n/4 个业务 DSN 为空：当前回退到默认连接（容器内连不上库即启动失败）；生产请逐个填入，prod/cutover/pull 会直接拒绝"
+    fi
+}
+
+# 编排凭据隔离断言（审计 O01，验收口径：只查键名与布尔结果，不打印值）。
+# 用法：assert_compose_credential_isolation [-f 额外 compose 文件...]
+# 判据：四个常驻业务服务的合并后 environment 里必须有 DATABASE_URL 键，
+# 不得出现 DB_*（管理身份）；除 storage 外不得出现 STORAGE_S3_*/RUSTFS_*。
+function assert_compose_credential_isolation() {
+    local cfg
+    if ! cfg=$(docker compose $COMPOSE_ENV -f docker-compose.yml "$@" config --format json 2>/dev/null); then
+        echo "❌ 读不到合并后编排（docker compose config 失败）：无法确认凭据隔离，部署中止" >&2
+        return 1
+    fi
+    printf '%s' "$cfg" | python3 -c '
+import json, sys
+doc = json.load(sys.stdin)
+svcs = doc.get("services", {})
+banned_db = {"DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME"}
+banned_s3 = {"STORAGE_S3_ACCESS_KEY", "STORAGE_S3_SECRET_KEY",
+              "RUSTFS_ROOT_USER", "RUSTFS_ROOT_PASSWORD",
+              "RUSTFS_ACCESS_KEY", "RUSTFS_SECRET_KEY"}
+bad = []
+for name in ("backend", "auth", "community", "storage"):
+    env = (svcs.get(name, {}) or {}).get("environment", {}) or {}
+    keys = set(env.keys())
+    leak = sorted(keys & banned_db)
+    if leak:
+        bad.append("%s 持有管理凭据键：%s" % (name, ",".join(leak)))
+    if "DATABASE_URL" not in keys:
+        bad.append("%s 缺少 DATABASE_URL 键" % name)
+    if name != "storage":
+        sleak = sorted(keys & banned_s3)
+        if sleak:
+            bad.append("%s 持有对象凭据键：%s" % (name, ",".join(sleak)))
+if bad:
+    print("业务容器凭据隔离未通过（只列键名，不打印值）：")
+    for b in bad:
+        print("  - " + b)
+    sys.exit(1)
+print("业务容器凭据隔离通过：4 个服务仅本域 DSN（键名已核对，值未打印）")
+' || {
+        echo "❌ 凭据隔离断言失败：业务容器不得持有管理/对象凭据（审计 O01），部署中止" >&2
+        return 1
+    }
 }
 
 # 部署流程里唯一的迁移入口：跑完 up 必须回读账本确认，读不出来、还有 PENDING 或出现 DIRTY
@@ -251,6 +333,7 @@ case "$ACTION" in
     fast)
         check_version_lock
         export_version_identity
+        warn_if_dsns_missing
         export DOCKER_BUILDKIT=1
         if [ -n "$TARGET" ]; then
             echo "⚡ 增量更新指定服务 [$TARGET]..."
@@ -275,6 +358,8 @@ case "$ACTION" in
     cutover)
         check_version_lock
         export_version_identity
+        require_prod_dsns
+        assert_compose_credential_isolation
         # 首次把实例从单体切到拆分后的服务：搬数据在前、换网关在后，顺序不可颠倒
         # （搬运必须在单体仍是唯一写入方时完成，见 docs/architecture/cutover-runbook.md）。
         # 日常迭代仍用 ./deploy.sh fast；本动作只走一次，回滚见手册第 1 章。
@@ -309,6 +394,8 @@ case "$ACTION" in
     prod)
         check_version_lock
         export_version_identity
+        require_prod_dsns
+        assert_compose_credential_isolation
         echo "🏭 启动生产集群模式..."
         export DOCKER_BUILDKIT=1
         docker compose $COMPOSE_ENV -f docker-compose.yml build backend
@@ -325,6 +412,8 @@ case "$ACTION" in
     pull)
         check_version_lock
         export_version_identity
+        require_prod_dsns
+        assert_compose_credential_isolation -f docker-compose.prod.yml
         echo "📦 拉取预构建生产容器镜像 (GHCR)..."
         # --ignore-buildable：账号/互动/存储仍从兄弟仓库构建，镜像名是本地标签
         #   （metafusion-auth:local 之类），去 registry 拉必然失败；跳过它们，

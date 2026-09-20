@@ -138,18 +138,16 @@ services:
       # debug 输出，gin.Logger() 的逐请求访问日志与格式不变，排障字段照旧。
       - GIN_MODE=release
       - PORT=8080
-      # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）：
-      # 留空 = 回退到下面共用的 DB_* 拼装，与旧 .env 完全兼容；生产**必须**填，否则四个服务
-      # 仍共用同一个库用户 metafusion——任一服务被攻破即可读写全部数据（2026-09 审计 P0）。
+      # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）。
+      # 本容器只持有这一条 DSN：DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME 等共用身份
+      # 刻意不再注入（2026-09 审计 O01）——进程环境一旦持有管理凭据，SQL 层隔离即被绕过。
+      # 留空 = 代码走默认连接（容器内无库可连，启动失败，不静默降级）；生产**必须**填。
       # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 CATALOG_DATABASE_URL 同源。
       # 值的形状：postgres://mf_catalog:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
       # （刻意不写 <键名>=<连接串> 的字面行：gitleaks 的 generic-api-key 规则会误判成密钥，见 .env.example）
+      # 本地开发：按上面形状填本域 DSN；旧共用身份只许出现在 git 忽略的本地覆盖文件里，
+      # 例外：在 deploy/docker-compose.local.yml 中为本服务补 DB_* 后再 -f 叠加启动。
       - DATABASE_URL=${CATALOG_DATABASE_URL:-}
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${DB_USER:-metafusion}
-      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
-      - DB_NAME=${DB_NAME:-metafusion_db}
       # 库与各服务同在 metafusion-net（PostgreSQL 未开 TLS）：显式写 disable 与原行为一致，
       # 库一旦搬出宿主网（异地副本/迁移）就要在 .env 改成 require，Postgres 侧同时开 TLS；
       # 不注入这个键时默认值也是 disable，但没人能从编排看出这一层。
@@ -205,17 +203,12 @@ services:
       # 同上：生产关掉 gin debug 的路由表与逐请求 debug 输出。
       - GIN_MODE=release
       - PORT=8081
-      # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）：
-      # 留空 = 回退到下面共用的 DB_* 拼装，与旧 .env 完全兼容；生产**必须**填，否则四个服务
-      # 仍共用同一个库用户 metafusion——任一服务被攻破即可读写全部数据（2026-09 审计 P0）。
+      # 每服务独立角色的 DSN（数据层隔离，见 docs/architecture/database-roles.md）。
+      # 本容器只持有这一条 DSN：DB_* 共用身份刻意不再注入（2026-09 审计 O01），
+      # 留空即启动失败、不静默降级；生产**必须**填。本地开发见 backend 段的覆盖文件说明。
       # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 AUTH_DATABASE_URL 同源。
       # 值的形状：postgres://mf_auth:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
       - DATABASE_URL=${AUTH_DATABASE_URL:-}
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${DB_USER:-metafusion}
-      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
-      - DB_NAME=${DB_NAME:-metafusion_db}
       # SSL 模式说明见 backend 段。账号库最敏感，跨网部署第一个要改就是这里。
       - DB_SSLMODE=${DB_SSLMODE:-disable}
       # 签发私钥是**必填**：留空时账号服务拒绝启动（不再静默生成进程内临时密钥——那会让
@@ -264,13 +257,10 @@ services:
       # 留空 = 回退到下面共用的 DB_* 拼装，与旧 .env 完全兼容；生产**必须**填，否则四个服务
       # 仍共用同一个库用户 metafusion——任一服务被攻破即可读写全部数据（2026-09 审计 P0）。
       # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 COMMUNITY_DATABASE_URL 同源。
+      # 本容器只持有这一条 DSN：DB_* 共用身份刻意不再注入（2026-09 审计 O01），
+      # 留空即启动失败、不静默降级；生产**必须**填。本地开发见 backend 段的覆盖文件说明。
       # 值的形状：postgres://mf_community:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
       - DATABASE_URL=${COMMUNITY_DATABASE_URL:-}
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${DB_USER:-metafusion}
-      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
-      - DB_NAME=${DB_NAME:-metafusion_db}
       - DB_SSLMODE=${DB_SSLMODE:-disable}   # SSL 模式说明见 backend 段
       # auth 是唯一签发方，JWKS 指向账号服务（不再回指目录服务）。
       - COMMUNITY_JWKS_URL=http://auth:8081/api/oidc/jwks
@@ -315,10 +305,41 @@ services:
     profiles: ["tools"]
     entrypoint: ["/app/community-migrate"]
     environment:
-      # 一次性搬运工具：**唯一需要跨域读的进程**（读 modules.* 与 catalog.favorites，
+      # 一次性搬运工具：**需要跨域读的进程之一**（读 modules.* 与 catalog.favorites，
       # 写 community.*），因此它用独立的管理身份，不拿任何服务的运行角色——
-      # 见 docs/architecture/database-roles.md 第 4 节。留空 = 回退共用 DB_*（切流窗口的旧行为）。
+      # 见 docs/architecture/database-roles.md 第 4 节。DB_* 在这里是刻意的：
+      # 管理凭据只给这类一次性迁移/运维作业（审计 O01），常驻业务容器一律不持有。
       - DATABASE_URL=${COMMUNITY_MIGRATE_DATABASE_URL:-}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-metafusion}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      - DB_NAME=${DB_NAME:-metafusion_db}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 5c. 目录库迁移作业（一次性）— backend 镜像里的 /app/migrate，库 owner 身份。
+  #     deploy.sh 的 migrate/up/first-boot 只走它，不再复用 backend 服务定义：
+  #     backend 容器已不再持有 DB_*（审计 O01），用它跑迁移会拿到空身份。
+  #     常驻编排不启动它（profiles: tools），只由 deploy.sh 调用：
+  #       docker compose run --rm --no-deps backend-migrate up
+  # --------------------------------------------------------------------------
+  backend-migrate:
+    logging: *default-logging
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: server
+    image: metafusion-backend:${METAFUSION_TAG:-local}
+    profiles: ["tools"]
+    entrypoint: ["/app/migrate"]
+    environment:
+      # 迁移/运维身份（库 owner）：业务容器拿不到的共用凭据只出现在这里
+      # 与 community-migrate 里（审计 O01），不进任何常驻服务。
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${DB_USER:-metafusion}
@@ -350,13 +371,10 @@ services:
       # 留空 = 回退到下面共用的 DB_* 拼装，与旧 .env 完全兼容；生产**必须**填，否则四个服务
       # 仍共用同一个库用户 metafusion——任一服务被攻破即可读写全部数据（2026-09 审计 P0）。
       # 角色由 deploy/sql/roles-least-privilege.sql 建立，口令与 STORAGE_DATABASE_URL 同源。
+      # 本容器只持有这一条 DSN：DB_* 共用身份刻意不再注入（2026-09 审计 O01），
+      # 留空即启动失败、不静默降级；生产**必须**填。本地开发见 backend 段的覆盖文件说明。
       # 值的形状：postgres://mf_storage:<该角色口令>@postgres:5432/metafusion_db?sslmode=disable
       - DATABASE_URL=${STORAGE_DATABASE_URL:-}
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${DB_USER:-metafusion}
-      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD must be set in .env}
-      - DB_NAME=${DB_NAME:-metafusion_db}
       - DB_SSLMODE=${DB_SSLMODE:-disable}   # SSL 模式说明见 backend 段
       - STORAGE_ROOT=/app/storage-data
       # 上传与回读校验的上限：代码默认 0 = 不限制，编排必须显式收口，否则只剩网关
@@ -369,7 +387,10 @@ services:
       - STORAGE_S3_ENDPOINT=http://rustfs:9000
       - STORAGE_S3_TLS=false
       # 对象存储凭据（RustFS 的 root 用户/口令）的唯一来源；服务侧只认 S3 协议，与具体实现无关。
-      # 读取方是 metafusion-storage（internal/config 的 STORAGE_S3_ACCESS_KEY/_SECRET_KEY）；
+      # 读取方只有 metafusion-storage（internal/config 的 STORAGE_S3_ACCESS_KEY/_SECRET_KEY）
+      # 与备份作业（scripts/backup.sh，经 .env 的 RUSTFS_ROOT_*）；目录/账号/互动三个容器
+      # 永不注入 S3 凭据。RustFS 当前是单 root 用户，这组别名即最小可用凭据（审计 O01）；
+      # 桶级作用域密钥待对象存储支持 IAM 后再切，届时这里只换值、不加接收方。
       # 对象存储容器自己读的是 RUSTFS_*，见下面服务 10。
       - STORAGE_S3_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
       - STORAGE_S3_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
