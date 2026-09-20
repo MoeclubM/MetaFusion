@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -77,6 +78,74 @@ func TestCanLegacyRoleFallback(t *testing.T) {
 	}
 }
 
+// S01：显式空权限不得回落 admin（空数组、显式 null、非 nil 空集合三种形态）；
+// 缺键老令牌（nil、无标记、非 PAT、非第三方）保持历史兜底（见 TestCanLegacyRoleFallback）。
+func TestCanDeniesExplicitEmptyAdmin(t *testing.T) {
+	for _, u := range []User{
+		{Role: "admin", Permissions: []string{}, PermissionsSet: true},
+		{Role: "admin", Permissions: []string{}},
+		{Role: "admin", PermissionsSet: true},
+	} {
+		for _, code := range catalogPermissionCodes {
+			if u.Can(code) {
+				t.Fatalf("显式空权限不得回落 admin：%+v 不该放行 %s", u, code)
+			}
+		}
+	}
+	// 对照：缺键老令牌的 admin 兜底必须保持（历史令牌兼容）。
+	if !(User{Role: "admin"}).Can(PermissionLifecycleManage) {
+		t.Fatal("缺键老令牌的 admin 兜底必须保持")
+	}
+}
+
+// S01：第三方 OAuth 身份在治理码上直接拒绝，即使带 * 通配或显式持有该码，
+// 即使令牌形态像老令牌（缺 permissions 键）——第三方标记优先于一切兜底。
+func TestCanDeniesThirdPartyGovernance(t *testing.T) {
+	for _, u := range []User{
+		{Role: "admin", Permissions: []string{permissionWildcard}, IsThirdParty: true, PermissionsSet: true},
+		{Role: "user", Permissions: []string{PermissionEntityEdit}, IsThirdParty: true, PermissionsSet: true},
+		{Role: "admin", IsThirdParty: true},
+	} {
+		for _, code := range catalogPermissionCodes {
+			if u.Can(code) {
+				t.Fatalf("第三方不得放行治理码：%+v 不该放行 %s", u, code)
+			}
+		}
+	}
+}
+
+// S01：载荷的 permissions 键存在性决定分支（缺键老令牌 vs 显式空声明），
+// scope/client_id 任一非空即第三方（与社区 cabfa6c 同规则）。
+func TestClaimsPresenceAndThirdPartyMapping(t *testing.T) {
+	var c Claims
+	if err := json.Unmarshal([]byte(`{"sub":"u-1","permissions":[]}`), &c); err != nil || !c.permissionsPresent || c.Permissions == nil {
+		t.Fatalf("显式空数组应记存在且非 nil：%v %+v", err, c)
+	}
+	var missing Claims
+	if err := json.Unmarshal([]byte(`{"sub":"u-1"}`), &missing); err != nil || missing.permissionsPresent || missing.Permissions != nil {
+		t.Fatalf("缺键应记不存在且 nil：%v %+v", err, missing)
+	}
+	var nul Claims
+	if err := json.Unmarshal([]byte(`{"sub":"u-1","permissions":null}`), &nul); err != nil || !nul.permissionsPresent || nul.Permissions != nil {
+		t.Fatalf("显式 null 应记存在但 nil：%v %+v", err, nul)
+	}
+	var tp Claims
+	if err := json.Unmarshal([]byte(`{"sub":"u-1","scope":"openid profile","client_id":"third-party-app"}`), &tp); err != nil {
+		t.Fatal(err)
+	}
+	u := ClaimsToUser(&tp)
+	if u == nil || !u.IsThirdParty {
+		t.Fatalf("带 OAuth 标记的载荷应为第三方：%+v", u)
+	}
+	session := ClaimsToUser(&c)
+	if session == nil || session.IsThirdParty || !session.PermissionsSet {
+		t.Fatalf("会话载荷不应标第三方且应带存在标记：%+v", session)
+	}
+	if ClaimsToUser(nil) != nil {
+		t.Fatal("nil 载荷应得 nil 用户")
+	}
+}
+
 // 权限码放行与拒绝落到编辑判定上：同一实体，持码者与无码者结果不同，角色不参与。
 func TestEditingDecidedByPermissionCode(t *testing.T) {
 	for _, tc := range []struct {
@@ -124,6 +193,9 @@ func TestRequiredGateUsesPermissionCode(t *testing.T) {
 		{"wildcard", &User{Role: "member", Permissions: []string{permissionWildcard}}, http.StatusOK},
 		{"legacy admin token", &User{Role: "admin"}, http.StatusOK},
 		{"legacy member token", &User{Role: "user"}, http.StatusForbidden},
+		{"explicit empty admin", &User{Role: "admin", Permissions: []string{}, PermissionsSet: true}, http.StatusForbidden},
+		{"third-party admin wildcard", &User{Role: "admin", Permissions: []string{permissionWildcard}, IsThirdParty: true}, http.StatusForbidden},
+		{"third-party explicit code", &User{Role: "user", Permissions: []string{PermissionDefinitionsManage}, IsThirdParty: true}, http.StatusForbidden},
 	} {
 		r := gin.New()
 		r.GET("/x", func(c *gin.Context) {
@@ -137,12 +209,21 @@ func TestRequiredGateUsesPermissionCode(t *testing.T) {
 			t.Errorf("%s: status=%d want=%d", tc.name, w.Code, tc.want)
 		}
 	}
-	// code 为空只要求登录：任意登录用户都能过。
+	// code 为空只要求登录：任意登录用户都能过（含第三方，自助草稿走所有权判定）。
 	r := gin.New()
 	r.GET("/x", func(c *gin.Context) { c.Set("catalog_user", &User{Role: "member"}) }, required(""), func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/x", nil))
 	if w.Code != http.StatusOK {
 		t.Fatalf("authenticated-only gate rejected a logged-in user: %d", w.Code)
+	}
+	r2 := gin.New()
+	r2.GET("/x", func(c *gin.Context) {
+		c.Set("catalog_user", &User{Role: "user", IsThirdParty: true})
+	}, required(""), func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
+	w2 := httptest.NewRecorder()
+	r2.ServeHTTP(w2, httptest.NewRequest(http.MethodGet, "/x", nil))
+	if w2.Code != http.StatusOK {
+		t.Fatalf("authenticated-only gate must stay open to third-party callers: %d", w2.Code)
 	}
 }

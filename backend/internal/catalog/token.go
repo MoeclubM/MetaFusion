@@ -57,11 +57,40 @@ type Claims struct {
 	// groups 是组码（展示与审计用），permissions 是展开后的权限码集合——授权只看它。
 	Groups      []string `json:"groups,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`
-	Issuer      string   `json:"iss"`
-	Audience    string   `json:"aud"`
-	IssuedAt    int64    `json:"iat"`
-	Expires     int64    `json:"exp"`
-	JTI         string   `json:"jti"`
+	// Scope/ClientID/TokenUse 是第三方 OAuth 令牌的标记（与签发侧对齐，见 S01）：
+	// 站内会话令牌永不携带这些项；audience 收口（Verify 的 bad audience）已拒掉 aud
+	// 指向客户端的令牌，这里再标记"aud 仍是平台但带 OAuth 标记"的那一种。
+	Scope     string `json:"scope,omitempty"`
+	ClientID  string `json:"client_id,omitempty"`
+	Cid       string `json:"cid,omitempty"`
+	TokenUse  string `json:"token_use,omitempty"`
+	TokenType string `json:"token_type,omitempty"`
+	Issuer    string `json:"iss"`
+	Audience  string `json:"aud"`
+	IssuedAt  int64  `json:"iat"`
+	Expires   int64  `json:"exp"`
+	JTI       string `json:"jti"`
+	// permissionsPresent 记录载荷里是否出现 permissions 键（含空数组与显式 null）：
+	// encoding/json 下缺字段与显式 null 都解成 nil，而 S01 要求这两者走不同分支
+	// （显式声明走以码为准，只有缺字段的老令牌才走历史角色兜底），因此多记一笔
+	// 键存在性（与社区 cabfa6c 同口径）。
+	permissionsPresent bool
+}
+
+// UnmarshalJSON 在标准 claims 解析之外多记一笔 permissions 键是否存在。
+func (c *Claims) UnmarshalJSON(raw []byte) error {
+	type plain Claims
+	var p plain
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return err
+	}
+	*c = Claims(p)
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &keys); err != nil {
+		return nil
+	}
+	_, c.permissionsPresent = keys["permissions"]
+	return nil
 }
 
 // TokenVerifier 只持公钥：零值不可用，需经 NewTokenVerifierFromEnv。
@@ -449,11 +478,21 @@ func (t *TokenVerifier) PublicJWK() map[string]any {
 }
 
 // ClaimsToUser 把已验签的载荷还原为 User（身份、角色与权限集合，不查库）。
+// 第三方判定：站内会话令牌永不带 scope/client_id/token_use，任一非空即第三方
+// （与社区 cabfa6c 同规则）；permissions 键存在性原样带给 Can 做分支。
 func ClaimsToUser(c *Claims) *User {
 	if c == nil {
 		return nil
 	}
-	return &User{ID: c.Subject, Username: c.Username, Email: c.Email, Role: c.Role, Groups: c.Groups, Permissions: c.Permissions}
+	clientID := c.ClientID
+	if clientID == "" {
+		clientID = c.Cid
+	}
+	thirdParty := strings.TrimSpace(c.Scope) != "" || strings.TrimSpace(clientID) != "" ||
+		strings.TrimSpace(c.TokenUse) != "" || strings.TrimSpace(c.TokenType) != ""
+	return &User{ID: c.Subject, Username: c.Username, Email: c.Email, Role: c.Role,
+		Groups: c.Groups, Permissions: c.Permissions,
+		IsThirdParty: thirdParty, PermissionsSet: c.permissionsPresent}
 }
 
 func b64(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }

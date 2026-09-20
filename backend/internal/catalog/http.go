@@ -108,6 +108,14 @@ func required(code string) gin.HandlerFunc {
 			c.AbortWithStatusJSON(401, gin.H{"error": "authentication_required"})
 			return
 		}
+		// S01 双重收口：第三方 OAuth 身份在治理码上直接 403（与 Can 内一致；
+		// 即使将来某码被误标非治理，本层仍按"管理路由默认拒第三方"兜住）。
+		// required("") 的纯登录路由不受影响（自助草稿走所有权判定，不在此）。
+		if u.IsThirdParty && code != "" && isGovernanceCode(code) {
+			auditlog.Fail(c, "forbidden")
+			c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
+			return
+		}
 		if code != "" && !u.Can(code) {
 			auditlog.Fail(c, "forbidden")
 			c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})

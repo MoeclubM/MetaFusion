@@ -7,6 +7,27 @@ import (
 
 func allowAllRef(string, []string) error { return nil }
 
+// 服务端契约（与前端恒等 effectiveTypesOf 对齐）：声明的 types 原样使用，
+// 服务端不替调用方展开 kind 并集；空 types 回退仅兼容历史
+// （存量无类型实体/导入未识别类型），新写必须显式声明 types。
+func TestDeclaredTypesAreUsedVerbatim(t *testing.T) {
+	d := Defaults()
+	if got := d.effectiveOwnerTypes("work", []string{"song"}); len(got) != 1 || got[0] != "song" {
+		t.Fatalf("声明的类型应原样返回，实际 %v", got)
+	}
+	// song-typed work：本类型字段可写，novel 专属字段仍拒绝，tags 自由。
+	if err := d.validateEntityContent(Entity{Kind: "work", Title: "W", Status: "draft",
+		Types: []string{"song"}, Attributes: map[string]any{"duration": float64(200)}}, allowAllRef, true); err != nil {
+		t.Fatalf("本类型字段应放行：%v", err)
+	}
+	if err := d.validateEntityContent(Entity{Kind: "work", Title: "W", Status: "draft",
+		Types: []string{"song"}, Attributes: map[string]any{"volume_count": float64(3)}}, allowAllRef, true); err == nil {
+		t.Fatal("声明 [song] 的 work 写 novel 专属字段必须仍是 unknown_field")
+	} else if err.Error() != "unknown_field: volume_count" {
+		t.Fatalf("应报 unknown_field，实际 %v", err)
+	}
+}
+
 // 空 types 按 kind 回退：Work/Release/Medium/Track/Agent/Expression/ContentUnit
 // 填写本 kind 适用字段 + 标签 + 嵌套组，编辑/预检/保存共用的 validateEntityContent 放行。
 // 不把有效类型写回 Types（自动加全部 types 会把一部小说同时标为音乐、动画、游戏）。

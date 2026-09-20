@@ -357,6 +357,14 @@ type User struct {
 	// FromPAT 标记身份来自 PAT 内省（而不是账号服务签发的 JWT）。它参与授权判定
 	// （见 permission.go：PAT 身份永不回落角色兜底），因此不进 JSON 输出、不暴露给调用方。
 	FromPAT bool `json:"-"`
+	// IsThirdParty 标记身份来自第三方 OAuth 授权（scope/client_id/token_use 任一非空，
+	// 见 token.go 的 ClaimsToUser）。管理 API 默认拒绝此类身份（见 permission.go），
+	// 因此不进 JSON 输出、不暴露给调用方。
+	IsThirdParty bool `json:"-"`
+	// PermissionsSet 标记令牌是否显式携带 permissions 声明（含空数组与显式 null，
+	// 见 token.go）：携带即以码为准，显式空集合不得回落角色；缺字段才是老令牌，
+	// 走 Can 的历史角色兜底。不进 JSON 输出、不暴露给调用方。
+	PermissionsSet bool `json:"-"`
 	// TokenName 是 PAT 令牌名（调用日志 credential_name）。会话身份恒为空；
 	// omitempty 让旧载荷形状不变，老账号服务不下发 token_name 时也不露空键。
 	TokenName string `json:"token_name,omitempty"`

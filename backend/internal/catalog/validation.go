@@ -471,12 +471,13 @@ func (d Definitions) validateScheme(code string, s Scheme) error {
 // 模板从不参与适用性判定（只管展示与检索），新定义发布后字段集自动重算，不改代码。
 var freeInputAttributes = []string{"tags"}
 
-// kindTypeCodes 返回该 kind 下启用中的业务类型码（按码排序，保证可复现）：
-// 空 types 实体的有效类型集合即它——与前端 effectiveTypesOf 同口径
-// （空类型时取该 kind 下所有 enabled 类型），编辑/预检/保存/方案匹配共用。
+// kindTypeCodes 返回该 kind 下启用中的业务类型码（按码排序，保证可复现）。
+// 它只用于空 types 回退：存量无类型实体与导入未识别类型仍要可读可写，
+// 因此编辑/预检/保存/方案匹配共用这套回退。回退**仅兼容历史**——新写必须显式声明
+// types（前端 effectiveTypesOf 已改为恒等，不再替调用方推导），服务端同样不把
+// 它们写回 e.Types：自动加全部 types 会把一部小说同时标为音乐、动画、游戏。
 // historical=true 时同时计入停用类型：存量数据的字段键仍要能算出来，
 // 新增使用由 attributes/retiredEntity 按新旧值判定，此处只管"键集合"。
-// 不把它们写回 e.Types：自动加全部 types 会把一部小说同时标为音乐、动画、游戏。
 func (d Definitions) kindTypeCodes(kind string, historical bool) []string {
 	var out []string
 	for code, t := range d.Types {
@@ -488,9 +489,10 @@ func (d Definitions) kindTypeCodes(kind string, historical bool) []string {
 	return out
 }
 
-// effectiveOwnerTypes 返回拥有者的有效业务类型：声明了就用声明的；
-// 空 types 时回退到该 kind 的启用类型集合（见 kindTypeCodes），
-// 于是"字段适用范围"与"方案匹配"看到的是同一套类型，前后端不再断开。
+// effectiveOwnerTypes 返回拥有者的有效业务类型：声明了就原样用声明的
+// （恒等，不展开、不并集——与前端恒等 effectiveTypesOf 同契约）；
+// 空 types 时才回退到该 kind 的启用类型集合（见 kindTypeCodes，仅兼容历史），
+// 于是"字段适用范围"与"方案匹配"看到的是同一套类型。
 // 方案只管数据录入，不管历史宽容：此处固定按启用类型展开。
 func (d Definitions) effectiveOwnerTypes(ownerKind string, ownerTypes []string) []string {
 	if len(ownerTypes) > 0 {
@@ -501,7 +503,7 @@ func (d Definitions) effectiveOwnerTypes(ownerKind string, ownerTypes []string) 
 
 // matchSchemes 找出与拥有者匹配的场景：slot 相同、kinds 命中拥有者 kind
 // （空=命中）、types 与拥有者有效类型有交集（空=命中）且 enabled。
-// 空 types 按有效类型（见 effectiveOwnerTypes）匹配，与前端展示口径一致。
+// 空 types 按有效类型（见 effectiveOwnerTypes）匹配，兼容历史/导入载荷。
 func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string) []Scheme {
 	ownerTypes = d.effectiveOwnerTypes(ownerKind, ownerTypes)
 	var out []Scheme
@@ -967,8 +969,11 @@ func (d Definitions) validateEntityContent(e Entity, reference func(string, []st
 
 // attributeKeys 返回实体的有效属性字段码（顺序即去重顺序）：
 //   - 声明了 types：沿用类型并集，非法类型即错（与此前一致，旧 types 先兼容）；
+//     服务端不替调用方展开 kind 并集——声明 [song] 的 work 写 novel 专属字段仍是
+//     unknown_field（见 TestDeclaredTypesAreUsedVerbatim），前端必须显式选类型；
 //   - 空 types：回退到该 kind 的类型并集（见 kindTypeCodes），不报 invalid_type——
 //     字段适用范围关联 kind/结构槽位，模板只管展示，不管适用性；
+//     该回退仅兼容历史（存量无类型实体/导入未识别类型），新写必须显式声明 types；
 //   - 两条分支最后都补上自由输入字段（tags）：标签不属于任何分类，在任何 kind 下都可写。
 //
 // 字段集与类型校验同源：Save 与预检都用它，避免出现"预检按 A 集合放行、Save 按 B 集合拒绝"。

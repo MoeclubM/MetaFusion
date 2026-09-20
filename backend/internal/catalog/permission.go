@@ -48,16 +48,25 @@ func (u User) HasPermission(code string) bool {
 
 // Can 报告用户是否持有某权限码。
 //
-// 令牌带 permissions 时一律以码为准（* 通配即全权）：拆服务后这是唯一的授权来源，
-// 此时角色不再额外放行，否则「角色兜底」会变成绕过权限组的后门。
-// 只有令牌完全没有 permissions 声明时（老令牌，或尚未按权限组配置的实例）才按历史角色兜底：
-// admin 放行全部目录码；editor 放行实体编辑（旧的受信任编辑员语义）；user 与匿名不放行。
+// 令牌显式携带 permissions 声明（含空数组与显式 null，以 PermissionsSet/非 nil
+// 区分，见 token.go）时一律以码为准（* 通配即全权）：拆服务后这是唯一的授权来源，
+// 此时角色不再额外放行，否则「角色兜底」会变成绕过权限组的后门——显式空集合的
+// admin 同样什么都不许（S01，与社区 cabfa6c、账号侧 Can 同口径）。
+// 第三方 OAuth 身份（IsThirdParty）在治理码上直接拒绝：站内管理能力默认不向第三方
+// 开放，即使签发侧把某治理码写进第三方令牌（目录侧全部自有码都是治理码，
+// 见 isGovernanceCode）。
+// 只有令牌完全没有 permissions 声明（缺键的老令牌，或尚未按权限组配置的实例），
+// 且非 PAT、非第三方时，才按历史角色兜底：admin 放行全部目录码；editor 放行实体编辑
+// （旧的受信任编辑员语义）；user 与匿名不放行。
 //
 // FromPAT（身份来自 PAT 内省）时**永不**回落到角色兜底：PAT 的权限就是账号服务算好的
 // "用户自身权限 ∩ scopes"，scopes 空时就是空。若把它当"没有 permissions 声明"处理，
 // 一个 scopes=[] 的管理员 PAT 会因为角色兜底拿到全权，收窄 scopes 形同虚设。
 func (u User) Can(code string) bool {
-	if len(u.Permissions) > 0 || u.FromPAT {
+	if u.IsThirdParty && isGovernanceCode(code) {
+		return false
+	}
+	if u.PermissionsSet || u.Permissions != nil || len(u.Permissions) > 0 || u.FromPAT || u.IsThirdParty {
 		return u.HasPermission(code)
 	}
 	switch u.Role {
@@ -68,3 +77,7 @@ func (u User) Can(code string) bool {
 	}
 	return false
 }
+
+// isGovernanceCode 报告是否为治理类（管理）权限码：目录侧全部自有码都是管理动作，
+// 第三方令牌默认拒绝；跨服务的码不归本服务判定（HasPermission 只认 * 通配）。
+func isGovernanceCode(code string) bool { return contains(catalogPermissionCodes, code) }
