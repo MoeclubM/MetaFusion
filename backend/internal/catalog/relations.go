@@ -548,6 +548,10 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
 			return err
 		}
+		// M02：关系写同样定义敏感（端点类型/属性/无环），取共享（结构锁已持有，顺序一致）。
+		if err := lockDefinitionsShared(ctx, tx); err != nil {
+			return err
+		}
 		v, err := definitions(ctx, tx)
 		if err != nil {
 			return err
@@ -879,7 +883,9 @@ func occurrenceEntry(r occurrenceRow, got map[string]Entity) (map[string]any, bo
 }
 
 func (s *Store) Occurrences(ctx context.Context, id string, u *User) ([]map[string]any, error) {
-	e, err := s.Get(ctx, id, u)
+	// X01 读取汇别名：先跟随 merged 链到存活身份再聚合收录，旧 ID 的收录
+	// 在合并时已改写到存活链（见 mergeReferences），读侧不再散落两处。
+	e, err := s.Resolve(ctx, id, u)
 	if err != nil {
 		return nil, err
 	}

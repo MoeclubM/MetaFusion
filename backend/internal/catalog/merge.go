@@ -3,7 +3,9 @@ package catalog
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 )
 
@@ -58,9 +60,117 @@ func rewriteEntityRefs(d Definitions, e *Entity, source, target string) {
 	}
 }
 
+// mergeExternalIDs 把源 external_ids 缺的键补给目标（幂等——重复合并结果一致）；
+// 同键不同值即冲突报错，不静默覆盖。metafusion_import 这类内部幂等键不复制：
+// 源行（merged）保留该键作为别名，目标若复制则撞唯一索引（见结构基线
+// entities_metafusion_import_key，它覆盖 merged/deleted 行）；重导经
+// findImported→Resolve 回到存活实体（X01 别名语义的目录侧部分）。
+// 调用方先手工去重的口径不变（与 000013 唯一索引"存量重复即失败"同策略）。
+func mergeExternalIDs(target, source map[string]string) (map[string]string, error) {
+	if len(source) == 0 {
+		return target, nil
+	}
+	if target == nil {
+		target = map[string]string{}
+	}
+	for k, v := range source {
+		if importerInternalKeys[k] {
+			continue
+		}
+		if cur, ok := target[k]; ok && cur != v {
+			return nil, fmt.Errorf("merge_external_conflict: %s", k)
+		}
+		if _, ok := target[k]; !ok {
+			target[k] = v
+		}
+	}
+	return target, nil
+}
+
+// relationReferencesID 判定关系属性里是否有 definitions 声明的 entity 引用指向 id：
+// 按该关系类型的 Fields 逐字段递归（entity 直接比对，list/group 下钻），
+// 自由文本里的巧合子串不算——只认声明过的引用路径（与 replaceReference 同源）。
+// 未知关系类型返回 false：无声明可依，端点引用仍由 relationsWithEndpoint 覆盖。
+func relationReferencesID(d Definitions, r Relation, id string) bool {
+	rt, ok := d.Relations[r.Type]
+	if !ok {
+		return false
+	}
+	for _, code := range rt.Fields {
+		if referencesID(d.Fields[code], r.Attributes[code], id) {
+			return true
+		}
+	}
+	return false
+}
+
+func referencesID(f Field, value any, id string) bool {
+	switch f.Type {
+	case "entity":
+		s, _ := value.(string)
+		return s == id
+	case "list":
+		if items, ok := value.([]any); ok && f.Items != nil {
+			for _, v := range items {
+				if referencesID(*f.Items, v, id) {
+					return true
+				}
+			}
+		}
+	case "group":
+		if m, ok := value.(map[string]any); ok {
+			for k, v := range m {
+				cf, ok := f.Fields[k]
+				if !ok {
+					continue
+				}
+				if referencesID(cf, v, id) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// relationsWithAttributeReference 取"端点不含 source、但属性引用 source"的边（M03）：
+// 待合并角色只存在于配音关系的 character/context 属性而不在端点时，端点候选查不到它。
+// SQL 只做文本预过滤（合并期一次性扫描），是否真引用由 relationReferencesID 按
+// definitions 声明的 entity 路径判定——不做 JSON 字符串替换。
+func relationsWithAttributeReference(ctx context.Context, tx *sql.Tx, d Definitions, sourceID string, skip map[string]bool) ([]Relation, error) {
+	rows, err := tx.QueryContext(ctx, "SELECT document FROM catalog.relations WHERE document::text LIKE '%'||$1||'%' ORDER BY id", sourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Relation{}
+	for rows.Next() {
+		var b []byte
+		var r Relation
+		if err = rows.Scan(&b); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(b, &r); err != nil {
+			return nil, err
+		}
+		if skip[r.ID] {
+			continue
+		}
+		if relationReferencesID(d, r, sourceID) {
+			out = append(out, r)
+		}
+	}
+	return out, rows.Err()
+}
+
 // mergeReferences moves identity references atomically and audits every affected record.
 // Conflicting relationship cardinality and containment are rejected, never discarded.
 func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u User, in LifecycleEdit) error {
+	// M02：合并改写同样定义敏感（类型/字段/关系重验），先取共享再读定义
+	// （结构锁由 Lifecycle 在事务开始时已取，顺序全局一致，见 store.go）。
+	if err := lockDefinitionsShared(ctx, tx); err != nil {
+		return err
+	}
 	v, err := definitions(ctx, tx)
 	if err != nil {
 		return err
@@ -154,19 +264,12 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 			}
 		}
 		// ExternalIDs 合并：目标缺的键从源补齐（幂等——重复合并结果一致）；
-		// 同键不同值即冲突报错，不静默覆盖。metafusion_import 键冲突同样报错，
-		// 由调用方先手工去重（与 000013 唯一索引"存量重复即失败"同策略）。
+		// 外部键合并口径见 mergeExternalIDs：缺键补齐、同值幂等、异值冲突，
+		// 内部幂等键不复制（源行保留做别名）。
 		if id == target.ID && len(source.ExternalIDs) > 0 {
-			if e.ExternalIDs == nil {
-				e.ExternalIDs = map[string]string{}
-			}
-			for k, v := range source.ExternalIDs {
-				if cur, ok := e.ExternalIDs[k]; ok && cur != v {
-					return fmt.Errorf("merge_external_conflict: %s", k)
-				}
-				if _, ok := e.ExternalIDs[k]; !ok {
-					e.ExternalIDs[k] = v
-				}
+			var err error
+			if e.ExternalIDs, err = mergeExternalIDs(e.ExternalIDs, source.ExternalIDs); err != nil {
+				return err
 			}
 		}
 		// Subjects 去重键与 validateEntity 同口径（work, role），position 不计入；
@@ -195,6 +298,41 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 		e.Version++
 		e.UpdatedAt = time.Now().UTC()
 		changed = append(changed, e)
+	}
+	// M01：合并改写多个发行的映射（subjects/contents），先按发行粒度取锁
+	// （ID 排序后依次取，与 Save 的单锁顺序一致），再落库。medium 归属不可变
+	// 但复核同发行，同样纳入；expression/agent 等不碰发行映射，不取。
+	releaseIDs := map[string]bool{}
+	for _, e := range changed {
+		switch e.Kind {
+		case "release":
+			releaseIDs[e.ID] = true
+		case "medium":
+			if e.ReleaseID != "" {
+				releaseIDs[e.ReleaseID] = true
+			}
+		case "track":
+			if e.MediumID == "" {
+				continue
+			}
+			var rid string
+			if err := tx.QueryRowContext(ctx, "SELECT release_id FROM catalog.mediums WHERE id=$1", e.MediumID).Scan(&rid); err != nil {
+				return err
+			}
+			if rid != "" {
+				releaseIDs[rid] = true
+			}
+		}
+	}
+	ordered := make([]string, 0, len(releaseIDs))
+	for rid := range releaseIDs {
+		ordered = append(ordered, rid)
+	}
+	sort.Strings(ordered)
+	for _, rid := range ordered {
+		if err := lockRelease(ctx, tx, rid); err != nil {
+			return err
+		}
 	}
 	// Deferred composite foreign keys permit moving a complete logical subtree.
 	for _, e := range changed {
@@ -267,6 +405,16 @@ func mergeReferences(ctx context.Context, tx *sql.Tx, source, target Entity, u U
 	if err != nil {
 		return err
 	}
+	// M03：属性引用候选与端点候选合并后走同一改写/审计/校验循环。
+	handled := map[string]bool{}
+	for _, r := range all {
+		handled[r.ID] = true
+	}
+	extra, err := relationsWithAttributeReference(ctx, tx, v.Document, source.ID, handled)
+	if err != nil {
+		return err
+	}
+	all = append(all, extra...)
 	for i := range all {
 		r := &all[i]
 		before := encode(r)

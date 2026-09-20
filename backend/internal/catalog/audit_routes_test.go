@@ -135,10 +135,10 @@ func TestAuditActionCodesAreStable(t *testing.T) {
 // 却因为在豁免表里而静默不留痕。
 func TestAuditExemptRoutesAreReadOnlyByDesign(t *testing.T) {
 	exempt := AuditExempt()
-	if len(exempt) != 2 {
+	if len(exempt) != 3 {
 		t.Fatalf("豁免表条数变了（%d）：新增豁免要在测试里说明它为什么零写入", len(exempt))
 	}
-	for _, key := range []string{"POST /api/catalog/expressions/details", "POST /api/importer/preview"} {
+	for _, key := range []string{"POST /api/catalog/expressions/details", "POST /api/importer/preview", "POST /api/catalog/entities/identity"} {
 		if strings.TrimSpace(exempt[key]) == "" {
 			t.Fatalf("%s 必须带豁免理由", key)
 		}

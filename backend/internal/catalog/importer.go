@@ -1867,17 +1867,24 @@ func splitDedupKey(key string) (kind, id string) {
 	return parts[1], parts[2]
 }
 
+// findImported 按内部幂等键找已导入实体：merged 行跟随重定向到存活实体
+// （M04：此前查询过滤了 merged/deleted，下面的 merged→Resolve 分支永远命中不了，
+// 带导入键的源合入无键目标后重导会建重复）。deleted 是终态，在此视为未命中
+// （墓碑行仍占着唯一索引，直接新建会撞键；恢复/清理墓碑走手工流程，不在此复活）。
 func (s *Store) findImported(ctx context.Context, key string, actor *User) (Entity, bool) {
 	key = strings.TrimSpace(key)
 	if key == "" {
 		return Entity{}, false
 	}
 	var id string
-	if err := s.DB.QueryRowContext(ctx, `SELECT id FROM catalog.entities WHERE document->'external_ids'->>'metafusion_import'=$1 AND status NOT IN ('deleted','merged') LIMIT 1`, key).Scan(&id); err != nil {
+	if err := s.DB.QueryRowContext(ctx, `SELECT id FROM catalog.entities WHERE document->'external_ids'->>'metafusion_import'=$1 LIMIT 1`, key).Scan(&id); err != nil {
 		return Entity{}, false
 	}
 	e, err := s.Get(ctx, id, actor)
 	if err != nil {
+		return Entity{}, false
+	}
+	if e.Status == "deleted" {
 		return Entity{}, false
 	}
 	// 合并后重导：命中已合入他处的旧身份时跟随重定向到存活实体，
@@ -2547,7 +2554,8 @@ func (s *Store) createExpression(ctx context.Context, actor User, note string, s
 // importerEntryExpressionAttrs 计算 canonical entry 表达本体的类型与属性：载荷声明的属性
 // 原样带上（nil 跳过），只有声明了时长才给表达类型并写 duration——写路径
 // （createExpressionWithMeta）与导入预检共用，避免"预检按 A 字段集放行、Save 按 B 字段集拒绝"
-// 这类偏差（时长缺失时类型为空，载荷属性会落成 unknown_field）。
+// 这类偏差（无时长时类型为空，属性按 kind 回退校验：expression 适用字段仍可写，
+// 见 validation.go 的 attributeKeys；非本 kind 字段仍是 unknown_field）。
 func importerEntryExpressionAttrs(ce ImporterCanonicalEntryPreview) ([]string, map[string]any) {
 	attrs := map[string]any{}
 	for k, v := range ce.Attributes {
@@ -2718,11 +2726,18 @@ func importerContentUnitAttrs(fields map[string]bool, ce ImporterCanonicalEntryP
 
 // importerFieldSet 汇总某实体类型码声明的属性字段码白名单，用于写库前预检
 // unknown_field，避免先建发行/载体再在曲目处失败留下半成品。
+// 自由输入字段（见 validation.go 的 freeInputAttributes）同样计入：
+// 该预检只是提前失败，最终判定仍是 validateEntityContent，两边须同口径。
 func importerFieldSet(defs Definitions, typeCode string) map[string]bool {
 	set := map[string]bool{}
 	if t, ok := defs.Types[typeCode]; ok {
 		for _, f := range t.Fields {
 			set[f] = true
+		}
+	}
+	for _, free := range freeInputAttributes {
+		if _, ok := defs.Fields[free]; ok {
+			set[free] = true
 		}
 	}
 	return set
@@ -3409,8 +3424,8 @@ func (s *Store) importerPreflightValues(ctx context.Context, actor User, defs De
 			}
 		}
 	}
-	// 条目：篇目与表达的属性各自与写路径同一构造函数（注意表达只有声明时长才有类型，
-	// 载荷属性在没有类型声明时会落成 unknown_field，写路径同样如此）。
+	// 条目：篇目与表达的属性各自与写路径同一构造函数（表达无时长时类型为空，
+	// 属性按 kind 回退校验，写路径同样如此，见 validation.go 的 attributeKeys）。
 	cuFields := importerFieldSet(defs, "content_unit")
 	for i, ce := range req.CanonicalEntries {
 		at := fmt.Sprintf("canonical_entries[%d]", i)

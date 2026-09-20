@@ -235,6 +235,66 @@ func (s *Store) tx(ctx context.Context, fn func(*sql.Tx) error, structural bool)
 	return tx.Commit()
 }
 
+// definitionsLockKey 是定义版本协调的 advisory 键（M02）：发布取独占，
+// 定义敏感写（实体/关系/合并改写）取共享。旧定义写穿发布影响检查即被串行化：
+// 发布等待在途写完成，在途写等待发布完成，不靠"写前读版本"赌时序。
+// 与结构锁 740202、migrator 的 88481001、审计契约的 740205 都不同键。
+//
+// releaseLockClass 是发行粒度的 advisory 类键（M01）：Release.subjects 与
+// TrackContent 按 Release 互斥（删 subject 与加收录不再各看各的旧快照），
+// 不同发行互不阻塞，不恢复全库写锁。键 = (740204, hashtext(release_id))。
+//
+// 加锁顺序全局一致（结构 → 定义共享 → 发行），发布只取独占、不与其他锁共持，
+// 因此无死锁环；并发正确性仍需双连接受控测试（见并发测试，本机无库时跳过）。
+const definitionsLockKey = 740203
+const releaseLockClass = 740204
+
+func lockDefinitionsShared(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock_shared($1::bigint)", definitionsLockKey)
+	return err
+}
+
+func lockDefinitionsExclusive(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1::bigint)", definitionsLockKey)
+	return err
+}
+
+func lockRelease(ctx context.Context, tx *sql.Tx, releaseID string) error {
+	_, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1::int, hashtext($2))", releaseLockClass, releaseID)
+	return err
+}
+
+// lockReleaseScope 取本次实体写入所属发行的 M01 锁：release 改 subjects、
+// track 改 contents，同一发行的两类写互斥；medium 不改映射且归属不可变，
+// 取同锁只为让复核稳定（结构写本就全局串行，无并发损失）。
+// 新建 release（ID 未分配、无人可达）与归属缺失（后继报 parent_required/
+// invalid_reference）不取锁，其余一律按所属发行取。调用方保证在定义共享锁之后调用。
+func lockReleaseScope(ctx context.Context, tx *sql.Tx, e Entity) error {
+	var releaseID string
+	switch e.Kind {
+	case "release":
+		releaseID = e.ID
+	case "medium":
+		releaseID = e.ReleaseID
+	case "track":
+		if e.MediumID == "" {
+			return nil
+		}
+		if err := tx.QueryRowContext(ctx, "SELECT release_id FROM catalog.mediums WHERE id=$1", e.MediumID).Scan(&releaseID); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("invalid_reference")
+			}
+			return err
+		}
+	default:
+		return nil
+	}
+	if releaseID == "" {
+		return nil
+	}
+	return lockRelease(ctx, tx, releaseID)
+}
+
 // structuralKind 判断该 kind 的写入是否可能触碰受结构约束的表：
 // content_units/mediums/tracks 上有 check_parent_cycle 触发器，必须与环检查串行。
 // 其它 kind（agent/collection/work/expression/release）不写这三张表，无需全局锁。
@@ -444,6 +504,10 @@ func (s *Store) Get(ctx context.Context, id string, u *User) (Entity, error) {
 	}
 	return e, err
 }
+
+// reference 是写侧身份归一：merged/deleted 行的引用一律拒绝（invalid_reference），
+// 调用方先经 ResolveIdentity/identity 端点拿到 canonical 再写——归一靠"拒绝+指路"，
+// 不在写路径里静默改写目标（静默改写会让调用方记错自己引的是谁）。
 func reference(ctx context.Context, q queryer, u *User) func(string, []string) error {
 	return func(id string, kinds []string) error {
 		if _, err := uuid.Parse(id); err != nil {
@@ -474,6 +538,15 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 	}
 	err := commit(ctx, func(tx *sql.Tx) error {
 		if err := validateSources(input.EditNote, input.Sources); err != nil {
+			return err
+		}
+		// M02 先取定义共享（顺序：结构锁由 commit 在事务开始时已取 → 定义共享 → 发行锁，
+		// 全局一致，见 definitionsLockKey 注释）。
+		if err := lockDefinitionsShared(ctx, tx); err != nil {
+			return err
+		}
+		// M01 再按所属发行取锁（新建 release/归属缺失跳过，见 lockReleaseScope）。
+		if err := lockReleaseScope(ctx, tx, e); err != nil {
 			return err
 		}
 		v, err := definitions(ctx, tx)

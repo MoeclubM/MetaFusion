@@ -1,0 +1,342 @@
+package catalog
+
+import (
+	"context"
+	"database/sql"
+	"strings"
+	"testing"
+	"time"
+)
+
+func batch2Import(t *testing.T, f fixture, e Entity) Entity {
+	t.Helper()
+	if e.Status == "" {
+		e.Status = "draft"
+	}
+	out, err := f.s.importerSave(context.Background(), e, f.u, "batch2 fixture", fixtureSources())
+	if err != nil {
+		t.Fatalf("importerSave %s: %v", e.Title, err)
+	}
+	return out
+}
+
+func batch2Merge(t *testing.T, f fixture, src Entity, targetID string) {
+	t.Helper()
+	cur, err := f.s.Get(context.Background(), src.ID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.s.Lifecycle(context.Background(), src.ID, LifecycleEdit{
+		ExpectedVersion: cur.Version, TargetID: targetID,
+		EditNote: "batch2 merge", Sources: fixtureSources(),
+	}, f.u); err != nil {
+		t.Fatalf("merge %s: %v", src.ID, err)
+	}
+}
+
+// M04：带导入键的源合入无键目标，目标不复制该键（否则撞唯一索引），
+// 源 merged 行保留它做别名，重导经 findImported→Resolve 回到存活实体。
+func TestPostgresMergeKeepsImportKeyOnSource(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	src := batch2Import(t, f, Entity{Kind: "work", Title: "旧身份",
+		ExternalIDs: map[string]string{"metafusion_import": "bangumi:subject:9001"}})
+	target := f.save(Entity{Kind: "work", Title: "存活身份"})
+	batch2Merge(t, f, src, target.ID)
+	got, err := f.s.Get(ctx, target.ID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got.ExternalIDs["metafusion_import"]; ok {
+		t.Fatalf("目标不得复制内部幂等键：%v", got.ExternalIDs)
+	}
+	srcRow, err := f.s.Get(ctx, src.ID, &f.u)
+	if err != nil || srcRow.Status != "merged" || srcRow.ExternalIDs["metafusion_import"] != "bangumi:subject:9001" {
+		t.Fatalf("源 merged 行应保留别名键：%+v %v", srcRow, err)
+	}
+	reused, ok := f.s.findImported(ctx, "bangumi:subject:9001", &f.u)
+	if !ok || reused.ID != target.ID {
+		t.Fatalf("重导应回到存活实体：ok=%v %+v", ok, reused)
+	}
+}
+
+// M04：删除是终态，重导在此视为未命中（墓碑行仍占唯一索引，直接新建会撞键；
+// 恢复/清理墓碑走手工流程，不在此复活）。
+func TestPostgresFindImportedDeletedIsMiss(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	e := batch2Import(t, f, Entity{Kind: "work", Title: "待删除",
+		ExternalIDs: map[string]string{"metafusion_import": "bangumi:subject:9002"}})
+	cur, err := f.s.Get(ctx, e.ID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.s.Lifecycle(ctx, e.ID, LifecycleEdit{
+		ExpectedVersion: cur.Version, EditNote: "batch2 delete", Sources: fixtureSources(),
+	}, f.u); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := f.s.findImported(ctx, "bangumi:subject:9002", &f.u); ok {
+		t.Fatal("已删除键必须视为未命中")
+	}
+}
+
+// M03 端到端：待合并角色只存在于配音关系的 character 属性而不在端点，
+// 合并后该属性指向存活身份，端点不动，改写留痕（版本 +1）。
+func TestPostgresMergeRewritesAttributeOnlyRefs(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	w := f.save(Entity{Kind: "work", Title: "作品"})
+	performer := f.save(Entity{Kind: "agent", Title: "配音者", Types: []string{"person"}})
+	charOld := f.save(Entity{Kind: "agent", Title: "旧角色", Types: []string{"character"}})
+	charNew := f.save(Entity{Kind: "agent", Title: "存活角色", Types: []string{"character"}})
+	rel, err := f.s.SaveRelation(ctx, RelationEdit{Relation: Relation{
+		Type: "voiced_by", SourceID: w.ID, TargetID: performer.ID,
+		Attributes: map[string]any{"character": charOld.ID},
+	}, EditNote: "cast", Sources: fixtureSources()}, f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch2Merge(t, f, charOld, charNew.ID)
+	rels, err := f.s.Relations(ctx, performer.ID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got *Relation
+	for i := range rels {
+		if rels[i].ID == rel.ID {
+			got = &rels[i]
+		}
+	}
+	if got == nil {
+		t.Fatal("关系边丢失")
+	}
+	if got.Attributes["character"] != charNew.ID {
+		t.Fatalf("character 属性未指向存活身份：%v", got.Attributes)
+	}
+	if got.SourceID != w.ID || got.TargetID != performer.ID {
+		t.Fatalf("端点不应被改动：%+v", got)
+	}
+	if got.Version != 2 {
+		t.Fatalf("改写必须留痕（版本+1），实际 %d", got.Version)
+	}
+}
+
+// X01：A→B→C 合并链的 canonical+别名集合；读侧（Occurrences）汇到存活身份。
+func TestPostgresResolveIdentityChain(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	a := f.save(Entity{Kind: "work", Title: "A"})
+	b := f.save(Entity{Kind: "work", Title: "B"})
+	c := f.save(Entity{Kind: "work", Title: "C"})
+	batch2Merge(t, f, a, b.ID)
+	bCur, err := f.s.Get(ctx, b.ID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch2Merge(t, f, bCur, c.ID)
+	res, err := f.s.ResolveIdentity(ctx, a.ID, nil)
+	if err != nil || res.CanonicalID != c.ID {
+		t.Fatalf("旧身份应解析到存活实体：%+v %v", res, err)
+	}
+	if len(res.Aliases) != 2 || res.Aliases[0] != a.ID || res.Aliases[1] != b.ID {
+		t.Fatalf("别名集合应按链序：%v", res.Aliases)
+	}
+	res, err = f.s.ResolveIdentity(ctx, c.ID, nil)
+	if err != nil || res.CanonicalID != c.ID || len(res.Aliases) != 0 {
+		t.Fatalf("存活身份别名应为空：%+v %v", res, err)
+	}
+	if _, err = f.s.ResolveIdentity(ctx, "00000000-0000-0000-0000-000000000000", nil); err == nil {
+		t.Fatal("未知 ID 应失败")
+	}
+	// 读侧汇别名：旧作品的表达被收录后合并作品，旧 ID 查收录回到存活链。
+	oldW := f.save(Entity{Kind: "work", Title: "旧作品"})
+	newW := f.save(Entity{Kind: "work", Title: "新作品"})
+	x := f.save(Entity{Kind: "expression", Title: "录音", WorkID: oldW.ID})
+	r := f.save(Entity{Kind: "release", Title: "发行",
+		Subjects: []Subject{{WorkID: oldW.ID, Role: "primary"}}})
+	m := f.save(Entity{Kind: "medium", Title: "CD", ReleaseID: r.ID})
+	f.save(Entity{Kind: "track", Title: "曲目", MediumID: m.ID,
+		Contents: []Inclusion{{ExpressionID: x.ID}}})
+	batch2Merge(t, f, oldW, newW.ID)
+	occ, err := f.s.Occurrences(ctx, oldW.ID, nil)
+	if err != nil || len(occ) != 1 {
+		t.Fatalf("旧 ID 收录应汇到存活链：%d %v", len(occ), err)
+	}
+}
+
+// M01/M02 机制级受控验证：锁确实落在预期键上（同键互斥、异键并发；
+// 定义共享-共享不互斥、独占-共享互斥）。端到端双写时序见下面的接线用例。
+func TestPostgresAdvisoryLockMechanism(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	r1 := "11111111-1111-4111-8111-111111111111"
+	r2 := "22222222-2222-4222-8222-222222222222"
+	mustBegin := func() *sql.Tx {
+		t.Helper()
+		tx, err := f.s.DB.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tx
+	}
+	withTimeout := func(tx *sql.Tx) {
+		t.Helper()
+		if _, err := tx.ExecContext(ctx, "SET LOCAL lock_timeout = '1s'"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	holder := mustBegin()
+	if err := lockRelease(ctx, holder, r1); err != nil {
+		t.Fatal(err)
+	}
+	// 同发行阻塞。
+	probe := mustBegin()
+	withTimeout(probe)
+	if err := lockRelease(ctx, probe, r1); err == nil || !strings.Contains(err.Error(), "lock timeout") {
+		probe.Rollback()
+		t.Fatalf("同发行应互斥，实际 %v", err)
+	}
+	probe.Rollback()
+	// 不同发行不阻塞。
+	probe2 := mustBegin()
+	withTimeout(probe2)
+	if err := lockRelease(ctx, probe2, r2); err != nil {
+		probe2.Rollback()
+		t.Fatalf("不同发行不应互斥：%v", err)
+	}
+	probe2.Commit()
+	if err := holder.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	// 定义共享-共享不互斥。
+	sh1 := mustBegin()
+	if err := lockDefinitionsShared(ctx, sh1); err != nil {
+		t.Fatal(err)
+	}
+	sh2 := mustBegin()
+	withTimeout(sh2)
+	if err := lockDefinitionsShared(ctx, sh2); err != nil {
+		sh2.Rollback()
+		t.Fatalf("共享-共享不应互斥：%v", err)
+	}
+	sh2.Commit()
+	// 独占-共享互斥。
+	ex := mustBegin()
+	if err := lockDefinitionsExclusive(ctx, ex); err != nil {
+		t.Fatal(err)
+	}
+	probe3 := mustBegin()
+	withTimeout(probe3)
+	if err := lockDefinitionsShared(ctx, probe3); err == nil || !strings.Contains(err.Error(), "lock timeout") {
+		probe3.Rollback()
+		t.Fatalf("独占-共享应互斥，实际 %v", err)
+	}
+	probe3.Rollback()
+	if err := ex.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := sh1.Commit(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// M01 接线：被占用的发行锁阻塞同发行 track 写，释放后放行。
+func TestPostgresSaveBlocksOnHeldReleaseLock(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	w := f.save(Entity{Kind: "work", Title: "作品"})
+	r := f.save(Entity{Kind: "release", Title: "发行", Subjects: []Subject{{WorkID: w.ID, Role: "primary"}}})
+	m := f.save(Entity{Kind: "medium", Title: "CD", ReleaseID: r.ID})
+	raw, err := f.s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := lockRelease(ctx, raw, r.ID); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := f.s.Save(ctx, Edit{
+			Entity:   Entity{Kind: "track", Title: "曲目", MediumID: m.ID, Status: "draft"},
+			EditNote: "m01 wiring", Sources: fixtureSources(),
+		}, f.u)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		t.Fatalf("发行锁被占用时同发行 track 写应阻塞，实际已返回 %v", err)
+	case <-time.After(2 * time.Second):
+	}
+	if err := raw.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("锁释放后 track 写应成功：%v", err)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("锁释放后 track 写仍被阻塞")
+	}
+}
+
+// M02 接线：独占发布锁阻塞实体写、共享不阻塞。
+func TestPostgresSaveRespectsDefinitionsLock(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	saveWork := func() error {
+		_, err := f.s.Save(ctx, Edit{
+			Entity:   Entity{Kind: "work", Title: "并发作品", Status: "draft"},
+			EditNote: "m02 wiring", Sources: fixtureSources(),
+		}, f.u)
+		return err
+	}
+	// 共享-共享：持共享时写照常完成。
+	sh, err := f.s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := lockDefinitionsShared(ctx, sh); err != nil {
+		t.Fatal(err)
+	}
+	sharedDone := make(chan error, 1)
+	go func() { sharedDone <- saveWork() }()
+	select {
+	case err := <-sharedDone:
+		if err != nil {
+			t.Fatalf("共享下写应照常完成：%v", err)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("共享下写被意外阻塞")
+	}
+	if err := sh.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	// 独占-共享：持独占时写阻塞，释放后放行。
+	ex, err := f.s.DB.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := lockDefinitionsExclusive(ctx, ex); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- saveWork() }()
+	select {
+	case err := <-done:
+		t.Fatalf("独占发布锁被占用时写应阻塞，实际已返回 %v", err)
+	case <-time.After(2 * time.Second):
+	}
+	if err := ex.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("锁释放后写应成功：%v", err)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("锁释放后写仍被阻塞")
+	}
+}

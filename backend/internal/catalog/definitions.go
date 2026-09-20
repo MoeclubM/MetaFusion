@@ -405,6 +405,11 @@ func (s *Store) Publish(ctx context.Context, id int64, u User, note string, sour
 		if err := validateSources(note, sources); err != nil {
 			return err
 		}
+		// M02：发布取独占，阻塞所有定义敏感写直到发布提交；写前读版本只防
+		// "两个发布互盖"，防不住"发布中旧定义写穿行"，必须靠这把锁。
+		if err := lockDefinitionsExclusive(ctx, tx); err != nil {
+			return err
+		}
 		var b []byte
 		var base int64
 		var state string

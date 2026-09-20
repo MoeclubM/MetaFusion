@@ -106,11 +106,13 @@ func TestImporterPreflightRejectsDeclaredValues(t *testing.T) {
 		{"条目属性取值词表不匹配", func(r *ImporterImportRequest) {
 			r.CanonicalEntries[0].Attributes = map[string]any{"entry_role": "special"}
 		}, []string{"invalid_attribute_value", "canonical_entries[0].entry_role", "invalid_term"}},
-		{"载荷属性声明了类型未声明的字段码", func(r *ImporterImportRequest) {
-			// 表达条目只在声明时长时才有类型；没有类型时载荷属性一律 unknown_field（写路径同口径）。
+		{"载荷属性非本 kind 适用字段", func(r *ImporterImportRequest) {
+			// 表达条目无时长时类型为空，属性按 kind 回退校验（duration 这类本 kind 字段可写，
+			// 见 validation.go 的 attributeKeys）；catalog_number 只属 release，在 expression
+			// 上仍是 unknown_field（写路径同口径）。结构预检先于取值预检，这里走前者。
 			r.CanonicalEntries[0].EntryKind = "expression"
-			r.CanonicalEntries[0].Attributes = map[string]any{"duration": 90}
-		}, []string{"unknown_field", "canonical_entries[0].duration"}},
+			r.CanonicalEntries[0].Attributes = map[string]any{"catalog_number": "X-001"}
+		}, []string{"unknown_field", "catalog_number"}},
 	}
 	// 同一个夹具顺序执行：每个用例都必须"失败且不多写一行"，累计条数不变。
 	f := newFixture(t)

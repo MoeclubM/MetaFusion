@@ -250,6 +250,47 @@ func (s *Store) Deliver(ctx context.Context, consumer string, handle func(contex
 	return nil
 }
 
+// IdentityResolution 是目录侧统一身份解析契约（X01）：canonical_id 为存活身份，
+// aliases 为历史别名集合（merged 链上依次经过的旧 ID，含请求 ID 自身若已合并）。
+// 新写入归一：reference() 拒绝 merged/deleted 行的引用，调用方先经本契约
+// （GET /api/catalog/entities/{id}/identity，批量走 POST /api/catalog/entities/identity）
+// 拿到 canonical 再写；读取汇别名：Occurrences 等读路径先 Resolve 到存活身份再聚合。
+// 跨服务（文件/评论/收藏）按别名集合聚合，不直接写别人的库；outbox 的
+// entity.merged 仍是唯一的跨服务事实来源（见 merge.go），批量端点只是它的只读投影。
+type IdentityResolution struct {
+	CanonicalID string   `json:"canonical_id"`
+	Aliases     []string `json:"aliases"`
+	Entity      Entity   `json:"entity"`
+}
+
+// ResolveIdentity 跟随 merged 链并收集别名：循环重定向报 redirect_cycle；
+// 终点不可见按不存在处理，与 Resolve 同口径（同为 404 not_found）。
+func (s *Store) ResolveIdentity(ctx context.Context, id string, u *User) (IdentityResolution, error) {
+	var out IdentityResolution
+	seen := map[string]bool{}
+	cur := id
+	for {
+		if seen[cur] {
+			return out, fmt.Errorf("redirect_cycle")
+		}
+		seen[cur] = true
+		e, err := get(ctx, s.DB, cur)
+		if err != nil {
+			return out, err
+		}
+		if e.Status == "merged" {
+			out.Aliases = append(out.Aliases, cur)
+			cur = e.RedirectID
+			continue
+		}
+		if !visible(e, u) {
+			return out, sql.ErrNoRows
+		}
+		out.CanonicalID, out.Entity = e.ID, e
+		return out, nil
+	}
+}
+
 // Resolve preserves old identifiers without rewriting the evidence of a merge.
 func (s *Store) Resolve(ctx context.Context, id string, u *User) (Entity, error) {
 	seen := map[string]bool{}

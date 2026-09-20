@@ -57,6 +57,7 @@ func AuditExempt() map[string]string {
 	return map[string]string{
 		"POST /api/catalog/expressions/details": "批量读：POST 只为把最多 500 个 id 放进 body（GET query 会撞 8KB 请求行上限），零写入",
 		"POST /api/importer/preview":            "来源预览：出站抓取 + 组装草稿，零落库（落库入口是 POST /api/importer/import）",
+		"POST /api/catalog/entities/identity":   "批量身份解析（X01 别名集合的只读投影）：POST 只为把最多 500 个 id 放进 body，零写入",
 	}
 }
 

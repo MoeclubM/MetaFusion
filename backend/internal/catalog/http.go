@@ -454,6 +454,44 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		e, err := s.Resolve(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, e, err)
 	})
+	// X01 身份解析契约：存活身份 + 历史别名集合（只读投影，不改写任何行）。
+	// 批量端点供跨服务按别名聚合（文件/评论/收藏），上限与 expressions/details 同口径。
+	cat.GET("/entities/:id/identity", func(c *gin.Context) {
+		v, err := s.ResolveIdentity(c.Request.Context(), c.Param("id"), user(c))
+		respond(c, v, err)
+	})
+	cat.POST("/entities/identity", routeLimiter(120), func(c *gin.Context) {
+		var in struct {
+			IDs []string `json:"ids"`
+		}
+		if !body(c, &in) {
+			return
+		}
+		ids := []string{}
+		for _, id := range in.IDs {
+			if id = strings.TrimSpace(id); id != "" {
+				ids = append(ids, id)
+			}
+		}
+		if len(ids) == 0 {
+			c.JSON(400, gin.H{"error": "invalid_payload"})
+			return
+		}
+		if len(ids) > 500 {
+			c.JSON(400, gin.H{"error": "too_many_ids"})
+			return
+		}
+		items := map[string]IdentityResolution{}
+		missing := []string{}
+		for _, id := range ids {
+			if v, err := s.ResolveIdentity(c.Request.Context(), id, user(c)); err != nil {
+				missing = append(missing, id)
+			} else {
+				items[id] = v
+			}
+		}
+		respond(c, gin.H{"items": items, "missing": missing}, nil)
+	})
 	cat.POST("/entities", required(""), func(c *gin.Context) {
 		// 目标在创建成功前还不存在：失败路径只留 target_type（"有人试图建实体"），
 		// 成功后再补 id 与变更摘要。
