@@ -11,21 +11,23 @@ import { getAuthLoginUrl } from "@/lib/services";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { LanguagePicker } from "@/components/common/LanguagePicker";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
-import { effectiveSchemeFields, getFieldName, getKindName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
+import { effectiveSchemeFields, getFieldName, getKindName, getTypeName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
 import { canonicalLanguageCode, languageLabel, quickLanguages } from "@/lib/languages";
 
-/** 生效类型：实体自带 types 时原样用它（老实体不清空、行为不变）；
- *  没有 types 时取该层级全部 enabled 类型——去掉"类型"勾选后，
- *  模板分区与字段并集必须仍然完整，否则用户会看不到本该能填的字段。 */
+/** 生效类型：原样使用实体自带的 types（老实体不清空、新建不推导）。
+ *  空 types 不再取该层级全部 enabled 类型——那会把一部小说同时标为音乐、
+ *  动画、游戏，且与后端 attributeKeys（仅按实际 types 取允许字段，
+ *  见 validation.go:934，超集报 unknown_field 见 :800）断开：
+ *  界面能填、保存失败。有效字段由服务端按实际 types 决定，
+ *  编辑/预检/保存/检索共用同一口径，模板只控制编辑与展示。 */
 function effectiveTypesOf(
   defs: { types?: Record<string, { kinds: string[]; enabled: boolean }> } | undefined,
   kind: string,
   types: string[],
 ): string[] {
-  if (types.length > 0) return types;
-  return Object.entries(defs?.types || {})
-    .filter(([, v]) => v.enabled && v.kinds.includes(kind))
-    .map(([k]) => k);
+  void defs;
+  void kind;
+  return types;
 }
 
 /** 标签分隔符：中英文逗号/顿号/换行都算新增，避免只能靠回车。 */
@@ -133,6 +135,11 @@ export function EntityEditor({
     );
   }
   const d = definitions;
+  // 本层级可选的业务类型：enabled 且声明归属本 kind；勾选即随条目真实保存，
+  // 服务端按所选 types 校验字段（与保存/预检同一口径），不做全量推导。
+  const kindTypeOptions: string[] = Object.entries(d.types || {})
+    .filter(([, v]) => v.enabled && (v.kinds || []).includes(e.kind))
+    .map(([code]) => code);
   const patch = (v: Partial<Entity>) => setE({ ...e, ...v });
   // ---- 标签：自由输入，取代原先的"类型"勾选（types 保留在数据里，只是不再由界面选择）----
   const tags: string[] = Array.isArray(e.attributes?.tags)
@@ -229,7 +236,7 @@ export function EntityEditor({
       ...Object.keys(e.attributes),
     ]),
   );
-  // 动态结构：合并实体全部类型引用模板的 sections（保序去重）；剩余字段归入"其它信息"。
+  // 动态结构：合并实体已选类型引用模板的 sections（保序去重）；剩余字段归入"其它信息"。
   // hidden 只表示"不进详情信息面板"，不代表不可编辑：这类字段（存档/检索用）
   // 收进折叠区仍可维护，否则 hidden + required 会变成填不出、存不下的死锁。
   // 注意：此处位于条件 return 之后，必须用普通计算，不得改成 useMemo。
@@ -239,7 +246,7 @@ export function EntityEditor({
   {
     const declared = new Set(fields);
     const seen = new Set<string>();
-    // 同名分区合并：字段现在来自该层级全部类型的模板，而各模板都有自己的"基本信息"，
+    // 同名分区合并：字段来自已选类型的模板，而各模板都有自己的"基本信息"，
     // 不合并就会出现多个同名分区（与"合并各类型模板 sections"的既有意图一致）。
     const byName = new Map<string, { names: Record<string, string>; fields: string[] }>();
     for (const tc of effTypes) {
@@ -296,17 +303,22 @@ export function EntityEditor({
         body,
         e.id ? undefined : { "Idempotency-Key": submissionKey(submissionScope(), body) },
       );
-      // 新建时排队的关系：条目已在，逐条写入。失败不静默——列出失败项让用户决定重试哪条。
-      if (!e.id && pendingRelations.length > 0) {
+      // 排队的关系：条目已在，逐条写入。失败不静默——列出失败项让用户决定重试哪条。
+      // 部分成功时：成功实体 id/version 写回状态（重试走 PUT，不重复建条目），
+      // 失败草稿保留、只重试失败项；全部成功才清空并继续跳转。
+      if ((out.id || e.id) && pendingRelations.length > 0) {
+        const savedId = out.id || e.id;
         const failures: string[] = [];
+        const failed: RelationDraft[] = [];
+        let flushed = 0;
         for (const d of pendingRelations) {
           try {
             // 同一条待提交关系在重试里复用同一个键（键 = 会话 + 关系载荷指纹），
             // 不再每次现生成 UUID——否则超时后重试会重复建边。
             const relation = {
               type: d.type,
-              source_id: d.forward ? out.id : d.targetId,
-              target_id: d.forward ? d.targetId : out.id,
+              source_id: d.forward ? savedId : d.targetId,
+              target_id: d.forward ? d.targetId : savedId,
               position: d.position,
               attributes: d.attributes,
             };
@@ -316,13 +328,25 @@ export function EntityEditor({
               { relation, expected_version: 0, edit_note: note, sources },
               { "Idempotency-Key": submissionKey(submissionScope(), relation) },
             );
+            flushed += 1;
           } catch (err) {
-            failures.push(`${d.type}: ${(err as Error).message}`);
+            failures.push(d.type + ": " + (err as Error).message);
+            failed.push(d);
           }
         }
-        setPendingRelations([]);
+        // 写后回读：服务端返回即全量回读，写回状态使重试走 PUT。
+        setE(out);
+        setPendingRelations(failed);
         if (failures.length > 0) {
-          setError(t("editor.relation.flushFailed", { list: failures.join("；") }));
+          setError(
+            flushed > 0
+              ? t("editor.relation.flushPartial", {
+                  ok: flushed,
+                  fail: failures.length,
+                  list: failures.join("；"),
+                })
+              : t("editor.relation.flushFailed", { list: failures.join("；") }),
+          );
           setBusy(false);
           return;
         }
@@ -402,9 +426,8 @@ export function EntityEditor({
             </select>
           </label>
         </div>
-        {/* 自由标签：取代原先的"类型"勾选网格。业务类型不再由用户选，
-            层级可填字段按该层级全部类型取并集（见 effTypes）；值落在 attributes.tags，
-            详情页标签区块与 /explore?tags= 检索都读它。 */}
+        {/* 自由标签：只承载检索/分组用标签，值落在 attributes.tags，
+            详情页标签区块与 /explore?tags= 检索都读它，不兼任业务分类。 */}
         <div className="cv-tags">
           <label>
             {t("catalog.tagsLabel")}
@@ -441,6 +464,35 @@ export function EntityEditor({
             </div>
           )}
           <p className="cv-hint">{t("catalog.tagsHint")}</p>
+        </div>
+        {/* 业务类型：显式勾选，随条目真实保存（save 的 entity.types 原样提交）。
+            空 types 即无类型字段——与后端"仅按实际 types 取允许字段"同口径，
+            不自动补全量，避免小说被标成音乐/动画/游戏。 */}
+        <div className="cv-tags">
+          <strong>{t("catalog.businessTypes")}</strong>
+          {kindTypeOptions.length === 0 ? (
+            <p className="cv-hint">{t("catalog.noTypesForKind")}</p>
+          ) : (
+            <div className="cv-checks">
+              {kindTypeOptions.map((code) => (
+                <label key={code}>
+                  <input
+                    type="checkbox"
+                    checked={e.types.includes(code)}
+                    onChange={(x) =>
+                      patch({
+                        types: x.target.checked
+                          ? [...e.types, code]
+                          : e.types.filter((v) => v !== code),
+                      })
+                    }
+                  />
+                  {getTypeName(defs as any, code, locale) || code}
+                </label>
+              ))}
+            </div>
+          )}
+          <p className="cv-hint">{t("catalog.businessTypesHint")}</p>
         </div>
       </fieldset>
       <fieldset>
