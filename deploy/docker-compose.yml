@@ -547,11 +547,14 @@ services:
   # --------------------------------------------------------------------------
   # 10. S3 兼容对象存储 (RustFS) — 只在 metafusion-net 内可达，不发布宿主机端口
   # --------------------------------------------------------------------------
-  # 镜像 pin 备忘：rustfs/rustfs 当前 :latest 浮动，待运维确认可用 digest/tag 后再
-  # pin（并验证存储服务仍能连上、桶仍能自动创建）。未确认前不虚构"已验证"版本号。
+  # 镜像 pin（审计 O05）：RUSTFS_IMAGE 默认仍是上游浮动标签，仅用于开发；
+  # 生产必须钉到 digest（例：RUSTFS_IMAGE=rustfs/rustfs:1.75.0@sha256:<digest>）。
+  # 解析办法（在能拉镜像的机器上）：docker buildx imagetools inspect rustfs/rustfs:<tag>，
+  # 取 RepoDigests 填进来，并验证存储服务仍能连上、桶仍能自动创建后再提交。
+  # 在 digest 落定前不要把某个未经验证的版本号写成默认值——那等于虚构“已验证”。
   rustfs:
     logging: *default-logging
-    image: rustfs/rustfs:latest
+    image: ${RUSTFS_IMAGE:-rustfs/rustfs:latest}
     container_name: metafusion-rustfs
     restart: unless-stopped
     environment:

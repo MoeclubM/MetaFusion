@@ -7,6 +7,12 @@
 # 优势:
 #   直接从 GitHub Container Registry 拉取官方预构建优化镜像，服务器无需安装 Go/Node/Bun，
 #   1 秒极速启动，杜绝生产构建资源浪费与内存打满。
+#
+# 版本钉死（审计 O05）：IMAGE_TAG 默认 latest 只是为了兼容现有拉取流程；
+#   生产拉取前应按 release-manifest.yaml 把它设成不可变 tag/sha，
+#   digest 在部署机上用 docker buildx imagetools inspect 解析并记录。
+#   拉取失败即中断（deploy.sh pull 已去掉 --ignore-pull-failures），
+#   不许用本地旧镜像静默兜底。
 # ==============================================================================
 
 # 所有服务共用同一份容器日志上限：json-file 驱动 + 单文件 10 MiB + 保留 3 份。

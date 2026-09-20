@@ -433,10 +433,15 @@ case "$ACTION" in
         echo "📦 拉取预构建生产容器镜像 (GHCR)..."
         # --ignore-buildable：账号/互动/存储仍从兄弟仓库构建，镜像名是本地标签
         #   （metafusion-auth:local 之类），去 registry 拉必然失败；跳过它们，
-        #   只拉 prod 覆盖里真正预构建的 backend / frontend。
-        # --ignore-pull-failures：单个镜像缺席（例如尚未发布的 docs-site）不该让整条
-        #   命令以非零码中断——后面的 up -d 会用本地镜像或就地构建兜底。
-        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml pull --ignore-buildable --ignore-pull-failures
+        #   只拉 prod 覆盖里真正预构建的 backend / frontend（docs-site 保留了 build，
+        #   同样被 --ignore-buildable 跳过，不需要额外的忽略开关）。
+        # 审计 O05：刻意不再加 --ignore-pull-failures——预构建镜像缺席必须非零中断，
+        #   不许用本地旧镜像静默兜底（多服务混合版本）。缺席先发布对应镜像，
+        #   不要加回忽略开关。
+        if [ "${IMAGE_TAG:-latest}" = "latest" ]; then
+            echo "⚠️  IMAGE_TAG 未钉死（当前 latest）：生产建议按 release-manifest.yaml 设成不可变 tag/sha"
+        fi
+        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml pull --ignore-buildable
         echo "🚀 启动数据库与核心基础设施..."
         docker compose $COMPOSE_ENV up -d postgres rustfs
         migrate_up_checked -f docker-compose.prod.yml
