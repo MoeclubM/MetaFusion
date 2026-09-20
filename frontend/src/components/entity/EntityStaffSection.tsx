@@ -33,7 +33,18 @@ export function EntityStaffSection({
       .then((r) => {
         if (!alive) return;
         setRelations(Array.isArray(r.items) ? r.items : []);
-        setRelEntities(r.entities && typeof r.entities === "object" ? r.entities : {});
+        // entities 归一化：现行后端给 ID→Entity 映射，旧响应可能为数组（按 id 建表）。
+        const raw: unknown = r.entities;
+        if (Array.isArray(raw)) {
+          const map: Record<string, Entity> = {};
+          for (const item of raw) {
+            const ent = item as Partial<Entity> | null;
+            if (ent && typeof ent.id === "string" && ent.id) map[ent.id] = item as Entity;
+          }
+          setRelEntities(map);
+        } else {
+          setRelEntities(raw && typeof raw === "object" ? (raw as Record<string, Entity>) : {});
+        }
       })
       .catch(() => {
         if (!alive) return;

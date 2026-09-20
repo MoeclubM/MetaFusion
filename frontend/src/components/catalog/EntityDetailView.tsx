@@ -115,6 +115,26 @@ const endTitleOf = (
   order: string[],
 ): string => (e ? title(e, locale, order) || e.title || id : id);
 
+/** relations.entities 归一化：后端 resolveRelated 返回 ID→Entity 映射（见 http.go:1072），
+ *  旧响应可能为数组。数组按 id 建表（无 id 条目丢弃），非对象一律视为空表——
+ *  对端按 id 取摘要渲染题名与封面，不再显示裸 UUID。 */
+function normalizeRelatedEntities(input: unknown): Record<string, Entity> {
+  if (!input || typeof input !== "object") return {};
+  if (Array.isArray(input)) {
+    const map: Record<string, Entity> = {};
+    for (const item of input) {
+      const ent = item as Partial<Entity> | null;
+      if (ent && typeof ent.id === "string" && ent.id) map[ent.id] = item as Entity;
+    }
+    return map;
+  }
+  const map: Record<string, Entity> = {};
+  for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+    if (v && typeof v === "object") map[k] = v as Entity;
+  }
+  return map;
+}
+
 /**
  * 展示分组键：定义声明了 group_names 才按自己的 group 分组；
  * 没声明的（类型未定义 / group_names 为空）统一归入兜底分组，
@@ -227,7 +247,7 @@ export function EntityDetailView({ id }: { id: string }) {
       let collectionsFailed = false;
       const [occRes, relRes, revRes, posts, collections] = await Promise.all([
         api<{ items: any[] }>(`/catalog/entities/${e.id}/occurrences`).catch(() => ({ items: [] })),
-        api<{ items: Relation[]; entities?: Record<string, Entity>; subject_id?: string }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: undefined, subject_id: undefined })),
+        api<{ items: Relation[]; entities?: Record<string, Entity> | Entity[]; subject_id?: string }>(`/catalog/entities/${e.id}/relations`).catch(() => ({ items: [] as Relation[], entities: undefined, subject_id: undefined })),
         api<{ items: any[] }>(`/catalog/entities/${e.id}/revisions`).catch(() => ({ items: [] })),
         // 互动服务没接入（或这两条端点不可用）时整块留空，不阻断条目详情渲染；
         // 端点与请求体由 lib/api/community.ts 的包装负责，本组件不再自己拼 URL。
@@ -240,8 +260,12 @@ export function EntityDetailView({ id }: { id: string }) {
       // 关系对端实体由 relations 接口一并返回（单次批量查询），不再逐条 Get。
       // 映射覆盖每条关系的两端（含主体自身），subject_id 指出哪一端是主体；
       // 保留逐条回退，使前端部署不依赖后端是否已上线这两个字段。
-      // 只认数组：非数组进 state 会让按 id 取对端的映射渲染成空白或抛错。
-      if (Array.isArray(relRes.entities)) setRelatedEntities(relRes.entities);
+      // 响应 entities 可能是映射（现行后端）或数组（旧响应）：归一化后进 state，
+      // 空表才走逐条回退；回退上限外的条目仍显示 id（不可见实体），不静默丢边。
+      const relatedMap = normalizeRelatedEntities(
+        (relRes as { entities?: unknown }).entities,
+      );
+      setRelatedEntities(relatedMap);
       setRelationSubjectId(relRes.subject_id || e.id || "");
       const revItems = Array.isArray(revRes.items) ? revRes.items : [];
       setOccurrences(occItems);
@@ -304,8 +328,8 @@ export function EntityDetailView({ id }: { id: string }) {
 
       // 后端未内嵌对端实体时的回退：逐条取。默认并发 8 并限制条数，
       // 避免数百条关系同时打满连接；上限内之外的条目会退回显示 UUID。
-      // 取 id 集合时把每条边两端都算上：旧响应没有 entities 时也要能渲染两端题名。
-      if (!relRes.entities) {
+      // 取 id 集合时把每条边两端都算上：响应没有 entities 表时也要能渲染两端题名。
+      if (Object.keys(relatedMap).length === 0) {
         const otherIds = Array.from(
           new Set(
             relItems
