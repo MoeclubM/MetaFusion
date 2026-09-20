@@ -46,20 +46,36 @@ fi
 # 网关的 nginx.conf 是以文件挂载进容器的：compose 只看服务定义，不看被挂载文件的
 # 内容，所以改完路由矩阵后 `up -d` 不会重建网关，必须显式 reload 才生效。
 # 用 nginx -t 先校验再 reload，配置写错时保留旧配置继续服务，不会把入口打挂。
+# 网关路由切换（审计 O03）：候选配置先验后切，失败非零、可回退。
+# 顺序：① 候选文件经同版本 nginx 镜像离线 nginx -t（不碰运行中容器）；
+# ② 通过后重建容器（单文件 bind mount 绑的是 inode，不重建则 reload 仍读旧内容）；
+# ③ 容器内再做一次 nginx -t，成功才 reload。任何一步失败即非零退出——
+# “保留旧配置继续服务”只在第 ① 步成立（旧容器原封不动）；第 ② 步之后若失败，
+# 回退办法：git checkout -- deploy/nginx.conf 后重调本函数，或按上一版镜像 tag 重建。
 function reload_gateway() {
+    local nginx_conf candidate_image
+    nginx_conf="$(dirname "$0")/nginx.conf"
+    candidate_image="nginx:1.25-alpine"
     if ! docker exec metafusion-gateway true >/dev/null 2>&1; then
         return 0
     fi
-    # nginx.conf 是**单文件 bind mount**：绑的是 inode。git pull/reset 会用新文件替换旧文件，
-    # 容器里挂的仍是旧 inode，此时 nginx -s reload 只会重新读旧内容——表现为"改了路由却不生效"。
-    # 因此先按新文件重建容器，再做语法检查与重载。
-    if [ -f "$(dirname "$0")/nginx.conf" ]; then
-        docker compose $COMPOSE_ENV -f docker-compose.yml up -d --force-recreate --no-deps gateway >/dev/null 2>&1 || true
+    if [ ! -f "$nginx_conf" ]; then
+        echo "⚠️  找不到 $nginx_conf：跳过网关重载（容器保持现状）"
+        return 0
     fi
+    # ① 先验候选：失败直接非零退出，运行中的网关与旧容器一律不动。
+    if ! docker run --rm -v "$nginx_conf:/etc/nginx/nginx.conf:ro" "$candidate_image" nginx -t; then
+        echo "❌ 网关候选配置校验失败：未切换、旧容器继续服务（审计 O03），部署中止" >&2
+        return 1
+    fi
+    # ② 原子切换：重建以挂上新 inode，再验再载（失败即非零，不吞错）。
+    docker compose $COMPOSE_ENV -f docker-compose.yml up -d --force-recreate --no-deps gateway
     if docker exec metafusion-gateway nginx -t >/dev/null 2>&1; then
-        docker exec metafusion-gateway nginx -s reload >/dev/null 2>&1 && echo "🔄 网关已重建并重载路由矩阵"
+        docker exec metafusion-gateway nginx -s reload >/dev/null 2>&1
+        echo "🔄 网关候选已验证并切换：路由矩阵已重载"
     else
-        echo "⚠️  网关配置校验失败：保留旧配置（运行 docker exec metafusion-gateway nginx -t 查看原因）"
+        echo "❌ 网关容器内校验失败：重建已发生，请 git checkout -- deploy/nginx.conf 后重调，或用上一版镜像回退，部署中止" >&2
+        return 1
     fi
 }
 
