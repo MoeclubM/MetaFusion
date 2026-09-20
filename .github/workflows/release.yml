@@ -23,8 +23,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # 同 SHA 门禁（审计 O04）：镜像只在**本次提交**的必要检查通过后才构建发布。
+  # 跨工作流无法 needs，因此把最小必要检查在发布工作流内重跑一次（同一 SHA）；
+  # 完整的跨仓检查（版本锁远端可取、环境矩阵、审计 DDL）仍在 CI 的 cross-repo job，
+  # tag 只应在 CI 全绿的提交上打——不要用“CI 红了但 release 绿了”的提交去部署。
+  required-checks:
+    name: Same-SHA required checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: 编排与网关离线检查（与 CI 同口径）
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 scripts/check_deploy.py
+          python3 scripts/check_gateway_matrix.py
+          python3 scripts/check_ci_scripts.py
+      - name: 版本锁格式检查（兄弟仓库缺席时只校验格式，不判内容）
+        run: python3 scripts/check_versions.py
+
   docker-publish:
     name: Build & Publish Container Images
+    needs: [required-checks]
     runs-on: ubuntu-latest
     env:
       # GHCR 要求镜像仓库路径全小写；此处为唯一来源，需与 deploy/docker-compose.prod.yml 一致
@@ -110,10 +131,59 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
+  # 跨仓发布 manifest：一次发布“是什么”只认这一份文件——主仓 SHA、版本锁锚点、
+  # 目录库迁移文件、镜像仓库与 digest 解析办法。tag 发布时随附件带走，main 推送
+  # 以构建产物形式保留 90 天；部署与回滚以它为准，不以 latest 标签为准。
+  release-manifest:
+    name: Cross-repo release manifest
+    needs: [docker-publish]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Write cross-repo manifest
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'EOF'
+          import os
+          import yaml
+          lock = {}
+          with open("deploy/versions.lock", encoding="utf-8") as fh:
+              for line in fh:
+                  text = line.split("#", 1)[0].strip()
+                  if text and "=" in text:
+                      repo, sha = (p.strip() for p in text.split("=", 1))
+                      lock[repo] = sha
+          migdir = os.path.join("backend", "migrations")
+          migrations = sorted(os.listdir(migdir)) if os.path.isdir(migdir) else []
+          manifest = {
+              "schema": "metafusion-release-manifest/v1",
+              "repo": "MoeclubM/MetaFusion",
+              "ref": os.environ.get("GITHUB_REF", ""),
+              "sha": os.environ.get("GITHUB_SHA", ""),
+              "versions_lock": lock,
+              "backend_migrations": migrations,
+              "images": {
+                  "prefix": "ghcr.io/moeclubm/metafusion",
+                  "names": ["backend", "migrator", "frontend"],
+              },
+              "digest_note": "digest 在部署机上解析：docker buildx imagetools inspect <prefix>/<name>:<tag>；回滚按 manifest 里的 sha 重打 tag，不复用 latest",
+          }
+          with open("release-manifest.yaml", "w", encoding="utf-8") as fh:
+              yaml.safe_dump(manifest, fh, allow_unicode=True, sort_keys=False)
+          print(open("release-manifest.yaml", encoding="utf-8").read())
+          EOF
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: release-manifest.yaml
+          retention-days: 90
+
   github-release:
     name: Create GitHub Release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [docker-publish]
+    needs: [docker-publish, release-manifest]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -134,6 +204,16 @@ jobs:
           GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ../dist/mf-migrate-linux-arm64 ./cmd/migrate
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ../dist/mf-migrate-windows-amd64.exe ./cmd/migrate
           GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o ../dist/mf-migrate-darwin-arm64 ./cmd/migrate
+
+      - name: Download release manifest（随附件发布）
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: manifest-in
+
+      - name: Attach manifest to dist
+        run: cp manifest-in/release-manifest.yaml ../dist/release-manifest.yaml
+        working-directory: backend
 
       - name: Generate Changelog & Create GitHub Release
         uses: softprops/action-gh-release@v3
