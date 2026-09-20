@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
@@ -156,6 +156,13 @@ export default function ReleaseDetailPage() {
   const { basket, toggle: toggleBasket } = useCompareBasket();
   const [basketNotice, setBasketNotice] = useState("");
   const [releaseStaffCount, setReleaseStaffCount] = useState(0);
+  // 署名计数未回告前视为"加载中"：计数初始 0 不能直接决定挂载，否则
+  // EntityStaffSection 永远没有机会加载，含署名的发行首次进入也看不到人员。
+  const [releaseStaffLoaded, setReleaseStaffLoaded] = useState(false);
+  const handleReleaseStaffCount = useCallback((n: number) => {
+    setReleaseStaffCount(n);
+    setReleaseStaffLoaded(true);
+  }, []);
   const [siblingReleases, setSiblingReleases] = useState<Entity[]>([]);
   // 批量数据的加载缺口按来源细分：实体查询与批量详情是两条路径，任一部分未恢复都要
   // 保留重试提示。旧实现只在逐条实体也失败时计数，批量失败但实体补回时计数为 0，
@@ -1120,12 +1127,14 @@ export default function ReleaseDetailPage() {
           </Card>
         )}
 
-        {releaseStaffCount > 0 && (
+        {(releaseStaffLoaded ? releaseStaffCount > 0 : true) && (
           <section className="space-y-3" aria-label={t("work.detail.staffAndCharacters")}>
-            <SectionTitle icon={<Users className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
-              {t("work.detail.staffAndCharacters")}
-            </SectionTitle>
-            <EntityStaffSection entityId={releaseId} onCount={setReleaseStaffCount} />
+            {releaseStaffCount > 0 && (
+              <SectionTitle icon={<Users className="w-4 h-4 text-primary" strokeWidth={1.5} />}>
+                {t("work.detail.staffAndCharacters")}
+              </SectionTitle>
+            )}
+            <EntityStaffSection entityId={releaseId} onCount={handleReleaseStaffCount} />
           </section>
         )}
 

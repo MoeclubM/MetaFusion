@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
@@ -56,6 +56,12 @@ export default function MediumDetailPage() {
   const [work, setWork] = useState<Entity | null>(null);
   const [tracks, setTracks] = useState<TrackRow[]>([]);
   const [mediumStaffCount, setMediumStaffCount] = useState(0);
+  // 同发行页：计数初始 0 不能决定挂载，由加载结果决定空态或隐藏。
+  const [mediumStaffLoaded, setMediumStaffLoaded] = useState(false);
+  const handleMediumStaffCount = useCallback((n: number) => {
+    setMediumStaffCount(n);
+    setMediumStaffLoaded(true);
+  }, []);
   const [loading, setLoading] = useState(true);
   // 取数失败与"真的没有这个载体"分开：之前 catch 一律 setNotFound(true)，
   // 把 429/5xx/断网都说成「未找到该载体。」，且页面既无重试也无出口。
@@ -265,12 +271,14 @@ export default function MediumDetailPage() {
             <WorkFacts entity={medium} defs={defs} locale={locale} />
           </Card>
 
-          {mediumStaffCount > 0 && (
+          {(mediumStaffLoaded ? mediumStaffCount > 0 : true) && (
             <Card tone="plain" padding="section" className="space-y-3">
-              <SectionTitle icon={<Users className="w-4 h-4 text-primary" />}>
-                {t("work.detail.staffAndCharacters")}
-              </SectionTitle>
-              <EntityStaffSection entityId={mediumId} onCount={setMediumStaffCount} />
+              {mediumStaffCount > 0 && (
+                <SectionTitle icon={<Users className="w-4 h-4 text-primary" />}>
+                  {t("work.detail.staffAndCharacters")}
+                </SectionTitle>
+              )}
+              <EntityStaffSection entityId={mediumId} onCount={handleMediumStaffCount} />
             </Card>
           )}
 
