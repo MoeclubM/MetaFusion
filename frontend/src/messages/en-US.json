@@ -862,6 +862,8 @@
   "catalog.acyclic": "Acyclic",
   "catalog.aggregate": "Aggregate as directory members",
   "catalog.aggregateHint": "Checked relations count as composition; work directories pick them up automatically, no code change needed.",
+  "catalog.aggregatePreviewOn": "Effect preview: works linked by “{forward}” ({type}) will appear in the other work's directory under composition / member sections.",
+  "catalog.aggregatePreviewOff": "Effect preview: not aggregated — works linked by “{type}” stay out of work content directories.",
   "catalog.max_outgoing": "Maximum outgoing relations (0 for unlimited)",
   "catalog.max_incoming": "Maximum incoming relations (0 for unlimited)",
   "catalog.displayGroup": "Display group code",

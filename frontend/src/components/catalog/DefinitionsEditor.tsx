@@ -649,7 +649,7 @@ export function DefinitionsEditor() {
             group: "",
             enabled: true,
           })}
-          render={(v, set) => (
+          render={(v, set, relCode) => (
             <>
               <NamesEditor
                 value={v.names}
@@ -696,6 +696,17 @@ export function DefinitionsEditor() {
                 ))}
               </div>
               <p className="cv-hint">{t("catalog.aggregateHint")}</p>
+              {/* F04 样例预览：aggregate 开关的目录效果就地可见，与 WorkContentDirectory
+                  的 componentEntries(isAggregate) 同口径（aggregate 才收进组成/所属区块）。
+                  文案走字典插值，不硬编码关系码与区块名。 */}
+              <p className="cv-hint" aria-live="polite">
+                {v.aggregate === true
+                  ? t("catalog.aggregatePreviewOn", {
+                      type: relCode,
+                      forward: local(v.names, locale, "", relCode),
+                    })
+                  : t("catalog.aggregatePreviewOff", { type: relCode })}
+              </p>
               {(["max_outgoing", "max_incoming"] as const).map((k) => (
                 <label key={k}>
                   {t(`catalog.${k}`)}

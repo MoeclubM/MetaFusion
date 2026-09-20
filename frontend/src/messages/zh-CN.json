@@ -862,6 +862,8 @@
   "catalog.acyclic": "禁止循环",
   "catalog.aggregate": "聚合为目录组成",
   "catalog.aggregateHint": "勾选后该关系视为组成关系，作品内容目录自动收录，无需改代码。",
+  "catalog.aggregatePreviewOn": "效果预览：「{forward}」（{type}）关联的作品会收进对方作品内容目录的组成 / 所属区块。",
+  "catalog.aggregatePreviewOff": "效果预览：当前不聚合，「{type}」关联的作品不会进入作品内容目录。",
   "catalog.max_outgoing": "最大出向关系数（0 为不限）",
   "catalog.max_incoming": "最大入向关系数（0 为不限）",
   "catalog.displayGroup": "展示分组代码",

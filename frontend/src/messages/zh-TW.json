@@ -862,6 +862,8 @@
   "catalog.acyclic": "禁止循環",
   "catalog.aggregate": "聚合為目錄組成",
   "catalog.aggregateHint": "勾選後該關係視為組成關係，作品內容目錄自動收錄，無需改程式碼。",
+  "catalog.aggregatePreviewOn": "效果預覽：「{forward}」（{type}）關聯的作品會收進對方作品內容目錄的組成 / 所屬區塊。",
+  "catalog.aggregatePreviewOff": "效果預覽：目前不聚合，「{type}」關聯的作品不會進入作品內容目錄。",
   "catalog.max_outgoing": "最大出向關係數（0 為不限）",
   "catalog.max_incoming": "最大入向關係數（0 為不限）",
   "catalog.displayGroup": "顯示分組代碼",

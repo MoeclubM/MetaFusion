@@ -862,6 +862,8 @@
   "catalog.acyclic": "循環禁止",
   "catalog.aggregate": "ディレクトリ構成として集約",
   "catalog.aggregateHint": "有効にすると構成関係として扱われ、作品ディレクトリに自動表示されます。コード変更は不要です。",
+  "catalog.aggregatePreviewOn": "プレビュー：「{forward}」（{type}）で関連付けられた作品は、相手の作品ディレクトリの構成 / 所属ブロックに表示されます。",
+  "catalog.aggregatePreviewOff": "プレビュー：集約なし — 「{type}」の関連作品は作品ディレクトリに表示されません。",
   "catalog.max_outgoing": "最大発信関連数(0は無制限)",
   "catalog.max_incoming": "入方向の最大関係数(0は無制限)",
   "catalog.displayGroup": "表示グループコード",
