@@ -643,6 +643,7 @@ export function DefinitionsEditor() {
             fields: [],
             symmetric: false,
             acyclic: false,
+            aggregate: false,
             max_outgoing: 0,
             max_incoming: 0,
             group: "",
@@ -683,17 +684,18 @@ export function DefinitionsEditor() {
                 />
               ))}
               <div className="cv-checks">
-                {(["enabled", "symmetric", "acyclic"] as const).map((k) => (
+                {(["enabled", "symmetric", "acyclic", "aggregate"] as const).map((k) => (
                   <label key={k}>
                     <input
                       type="checkbox"
-                      checked={v[k]}
+                      checked={v[k] === true}
                       onChange={(e) => set({ ...v, [k]: e.target.checked })}
                     />
                     {t(`catalog.${k}`)}
                   </label>
                 ))}
               </div>
+              <p className="cv-hint">{t("catalog.aggregateHint")}</p>
               {(["max_outgoing", "max_incoming"] as const).map((k) => (
                 <label key={k}>
                   {t(`catalog.${k}`)}

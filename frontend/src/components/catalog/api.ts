@@ -140,6 +140,8 @@ export type Definitions = {
       fields: string[];
       symmetric: boolean;
       acyclic: boolean;
+      /** 聚合/组成关系：内容目录按它收录组成员（见 lib/definitions.ts RelationDef）。 */
+      aggregate?: boolean;
       max_outgoing: number;
       max_incoming: number;
       group: string;
