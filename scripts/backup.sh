@@ -30,7 +30,15 @@
 # 设计约束（2026-09-19 运行时审计）：
 # - 服务器 / 只有 ~12G 可用，所以先量体积再写：写前检查剩余空间与备份目录上限，写后核对上限；
 #   对象按原样落盘（不压缩），"预计占用"直接取对象总字节——超上限就得换盘或调 --max-gb。
-#   备份与数据同盘，是"误删/坏库/误操作"防线，不是磁盘故障防线（异地副本仍未具备）。
+#   备份与数据同盘，是"误删/坏库/误操作"防线，不是磁盘故障防线。
+# - 先清后估：主流程先按保留策略清过期备份，再估算本次空间（否则累积到上限后
+#   每日备份先因超限失败，永远到不了成功后的清理阶段）；清理时保护最后可恢复副本。
+# - 异地副本（仍未具备）：每次成功后把 <dest>/runs/<ts> 同步到远端
+#   （例：rsync -a <dest>/runs/<ts>/ user@remote:/srv/mf-backups/runs/<ts>/），
+#   远端保留策略与本地独立（不同步删除），同步失败即告警。没有可用远端之前，
+#   本地版本先落地、不擅自配置外部存储。
+# - RPO/RTO：当前每日 04:30 UTC 一次（timer），灾难 RPO ≈ 24h；业务候选目标
+#   （元数据 RPO 1h / RTO 4h）尚未实测验收——不要把“每日备份”说成小时级 RPO。
 # - 备份不锁库：pg_dump 只取 ACCESS SHARE 锁，不阻塞写入。
 # - 对象侧是逐个 GET 的活快照：对象写入不可变且原子可见，所以每个对象要么完整下到、要么还没出现；
 #   大批上传时段仍建议避开（见 docs-local/deploy/backup-restore.md）。
@@ -47,7 +55,10 @@ SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 DEST=${MF_BACKUP_DIR:-$(dirname "$MF_REPO_ROOT")/backups}
 KEEP_DAYS=7
 KEEP_WEEKS=4
-MAX_GB=2
+# 默认上限 10GiB（审计 O06）：单个对象即可超过 2GiB，旧默认连一份正常备份都装不下；
+# 仍是硬上限（超限即拒绝/退出码 3），不是“无穷大”。真实容量按 --dry-run 的对象
+# 总字节预算，服务器上以 systemd 单元的显式传值为准（独立磁盘仍是必选项，见下）。
+MAX_GB=10
 MIN_FREE_GB=3
 S3_MODE=objects
 WITH_VOLUME_TAR=0
@@ -68,7 +79,7 @@ MetaFusion 备份（PostgreSQL + 对象存储（S3 API 逐对象）+ 配置快�
   --dest DIR          备份根目录（默认 <仓库父目录>/backups，服务器上即 /root/metafusion/backups）
   --keep-days N       保留最近 N 天每天一份（默认 7）
   --keep-weeks N      更早的备份按周保留 N 份（默认 4）
-  --max-gb N          备份根目录容量上限 GiB（默认 2）：写前预估超限即拒绝运行，写后超限退出码 3
+  --max-gb N          备份根目录容量上限 GiB（默认 10）：写前预估超限即拒绝运行，写后超限退出码 3
   --min-free-gb N     运行前后要求目标文件系统至少保留 N GiB（默认 3）
   --skip-db           跳过 PostgreSQL
   --skip-s3           跳过对象存储（等值于 --s3-mode none）
@@ -597,6 +608,26 @@ finish() {
 # 库身份只能在这里解：lib 里的 MF_DB_USER/MF_DB_NAME 默认是空的，不到 .env 取一次，
 # pg_dump/psql 就会拿到空用户名与空库名（第一次跑就是这么暴露出来的）。
 mf_resolve_db_identity
+
+# 前置清理（审计 O06）：先按保留策略清过期备份，再估算本次空间——否则累积到上限后
+# 每日备份先因超限失败，永远到不了成功后的清理阶段。
+# 保护最后可恢复副本：可用完整备份（不带 FAILED 标记）≤1 份时跳过前置清理，
+# 宁可本次因超限失败，也不删掉唯一可恢复的那份。
+if [ "$DO_PRUNE" = 1 ] && [ "$DRY_RUN" = 0 ] && [ -d "$DEST/runs" ]; then
+  good_runs=0
+  for rundir in "$DEST/runs"/*/; do
+    [ -d "$rundir" ] || continue
+    [ -f "${rundir}FAILED" ] || good_runs=$((good_runs + 1))
+  done
+  if [ "$good_runs" -le 1 ]; then
+    mf_warn "前置清理跳过：可用完整备份只有 $good_runs 份，先保留最后可恢复副本（本次估算含全部旧备份）"
+  else
+    mf_log "前置清理：先按保留策略清过期备份（可用 $good_runs 份），再估算本次空间"
+    "$SCRIPT_DIR/prune_backups.sh" --dest "$DEST" --keep-days "$KEEP_DAYS" --keep-weeks "$KEEP_WEEKS" --yes || \
+      mf_warn "前置清理有告警（见上），继续本次备份"
+  fi
+fi
+
 preflight
 
 if [ "$DRY_RUN" = 1 ]; then

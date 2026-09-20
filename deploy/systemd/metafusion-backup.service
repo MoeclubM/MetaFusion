@@ -12,7 +12,11 @@ Requires=docker.service
 
 [Service]
 Type=oneshot
-ExecStart=%h/metafusion/MetaFusion/scripts/backup.sh --keep-days 7 --keep-weeks 4 --max-gb 2 --min-free-gb 3
+# 容量按真实媒体规模预算（审计 O06）：备份目录上限 20GiB、目标盘常留 ≥5GiB。
+# 服务器 / 约 118G（备份与库同盘），对象总量上 GB 级后 2GiB 默认会直接拒绝备份；
+# 真装进几十 G 资源时换独立磁盘（见 scripts/backup.sh 头部灾备口径），不要无上限调大。
+# RPO 说明：每日一次 ≈ 24h 灾难 RPO；异地副本与小时级 RPO 尚未具备（见同上）。
+ExecStart=%h/metafusion/MetaFusion/scripts/backup.sh --keep-days 7 --keep-weeks 4 --max-gb 20 --min-free-gb 5
 # 备份是 IO 轻负载（36MB 库 → ~3MB 产物），但别跟业务抢 CPU：降优先级即可，不需要 cpulimit。
 Nice=10
 IOSchedulingClass=best-effort
