@@ -180,6 +180,45 @@ func (m *Migrator) GetAppliedMigrations(ctx context.Context) (map[int64]AppliedM
 	return applied, nil
 }
 
+// checksumOf 算迁移文件内容的 sha256 十六进制摘要：Up 在应用时记入
+// schema_migrations，下次跳过前用它比对文件是否被改过（见 verifyAppliedChecksum）。
+func checksumOf(content string) string {
+	h := sha256.Sum256([]byte(content))
+	return hex.EncodeToString(h[:])
+}
+
+// driftStatus 比对已执行记录的摘要与当前文件摘要（纯逻辑，可单测）：
+// match=一致；legacy-empty=记录无摘要（checksum 列引入前的老行，无法比对）；
+// modified=两边非空且不等，文件在执行后被改过。
+func driftStatus(stored, current string) string {
+	if stored == "" {
+		return "legacy-empty"
+	}
+	if stored != current {
+		return "modified"
+	}
+	return "match"
+}
+
+// verifyAppliedChecksum 在跳过已执行迁移前核验文件未被改过：
+// 一致则静默通过；记录无摘要的老行记警告并以当前文件回填（使后续运行可比，
+// 回填即认定当前文件为基准）；改过则阻断 Up——已执行迁移必须不可变，
+// 修复用新的增量迁移表达，不直接改旧文件。
+func (m *Migrator) verifyAppliedChecksum(ctx context.Context, am AppliedMigration, f MigrationFile) error {
+	switch driftStatus(am.Checksum, checksumOf(f.Content)) {
+	case "match":
+		return nil
+	case "legacy-empty":
+		log.Printf("WARNING migration [%06d_%s] has no recorded checksum (applied before checksum tracking); adopting current file as baseline", f.Version, f.Name)
+		if _, err := m.db.ExecContext(ctx, "UPDATE schema_migrations SET checksum=$2 WHERE version=$1", f.Version, checksumOf(f.Content)); err != nil {
+			return fmt.Errorf("failed to backfill checksum for migration %d: %w", f.Version, err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("migration [%06d_%s] file changed after it was applied (recorded checksum %.12s, current %.12s): applied migrations are immutable; express the fix as a new incremental migration instead of editing this file", f.Version, f.Name, am.Checksum, checksumOf(f.Content))
+	}
+}
+
 // Up 执行所有待执行的 up 迁移
 func (m *Migrator) Up(ctx context.Context) error {
 	return m.WithLock(ctx, func() error {
@@ -209,13 +248,17 @@ func (m *Migrator) Up(ctx context.Context) error {
 
 		appliedCount := 0
 		for _, f := range upFiles {
-			if _, exists := applied[f.Version]; exists {
+			if am, exists := applied[f.Version]; exists {
+				// S2：已执行迁移不可变——跳过前先比对 checksum，文件被改过即失败告警，
+				// 不静默跳过（否则旧库永远停留在“以为已执行”的结构上，迁移形同虚设）。
+				if err := m.verifyAppliedChecksum(ctx, am, f); err != nil {
+					return err
+				}
 				continue
 			}
 
 			log.Printf("Applying migration [%06d_%s]...", f.Version, f.Name)
-			h := sha256.Sum256([]byte(f.Content))
-			checksum := hex.EncodeToString(h[:])
+			checksum := checksumOf(f.Content)
 
 			tx, err := m.db.BeginTx(ctx, nil)
 			if err != nil {
@@ -355,6 +398,8 @@ func (m *Migrator) Status(ctx context.Context) error {
 			statusStr := "APPLIED"
 			if am.Dirty {
 				statusStr = "DIRTY(!)"
+			} else if driftStatus(am.Checksum, checksumOf(f.Content)) == "modified" {
+				statusStr = "MODIFIED(!)"
 			}
 			fmt.Printf("%06d   | %-36s | %-10s | %s\n", f.Version, f.Name, statusStr, am.AppliedAt.Format("2006-01-02 15:04:05"))
 		} else {
