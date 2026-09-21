@@ -1,13 +1,13 @@
 module github.com/metafusion/metafusion-app
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/gin-contrib/cors v1.7.8
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
 	github.com/lib/pq v1.12.3
-	golang.org/x/text v0.41.0
+	golang.org/x/text v0.42.0
 )
 
 require (
