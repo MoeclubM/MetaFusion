@@ -237,6 +237,7 @@ jobs:
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event.inputs.publish_latest == 'true' }}
 
       - name: Build and push container image
+        id: build
         uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
@@ -250,55 +251,50 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.name }}
 
+      # digest 只认这一步的实际产物：写文件并随构件带走，清单生成器原样收录、绝不手填。
+      # /tmp 是 check_ci_scripts 的运行时豁免前缀，这里不引用任何仓库内脚本。
+      - name: Record image digest
+        run: |
+          mkdir -p /tmp/digests
+          printf '%s' '${{ steps.build.outputs.digest }}' > "/tmp/digests/${{ matrix.image_name }}.digest"
+          printf '%s' '${{ steps.meta.outputs.tags }}' > "/tmp/digests/${{ matrix.image_name }}.tags"
+      - name: Upload image digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.image_name }}
+          path: /tmp/digests/
+          retention-days: 90
+
   # 跨仓发布 manifest：一次发布“是什么”只认这一份文件——主仓 SHA、版本锁锚点、
-  # 目录库迁移文件、镜像仓库与 digest 解析办法。tag 发布时随附件带走，main 推送
+  # 目录库迁移文件、每服务独立引用（repository/tags/digest）与迁移器同源绑定。
+  # digest 只认上一步 digest-* 构件里的实际产物，由脚本收录、未知标待填绝不手填；
+  # 不完整清单在这里直接失败，不流到部署机。tag 发布时随附件带走，main 推送
   # 以构建产物形式保留 90 天；部署与回滚以它为准，不以 latest 标签为准。
   release-manifest:
     name: Cross-repo release manifest
     needs: [docker-publish]
     runs-on: ubuntu-latest
+    env:
+      # 与 docker-publish 的 IMAGE_PREFIX 同一来源，清单里各服务 repository 由它生成
+      IMAGE_PREFIX: ghcr.io/moeclubm/metafusion
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - name: Download image digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          merge-multiple: true
+          path: digests-in
       - name: Write cross-repo manifest
         run: |
           python3 -m pip install --quiet pyyaml
-          python3 - <<'EOF'
-          import os
-          import yaml
-          lock = {}
-          with open("deploy/versions.lock", encoding="utf-8") as fh:
-              for line in fh:
-                  text = line.split("#", 1)[0].strip()
-                  if text and "=" in text:
-                      repo, sha = (p.strip() for p in text.split("=", 1))
-                      lock[repo] = sha
-          migdir = os.path.join("backend", "migrations")
-          migrations = sorted(os.listdir(migdir)) if os.path.isdir(migdir) else []
-          manifest = {
-              "schema": "metafusion-release-manifest/v1",
-              "repo": "MoeclubM/MetaFusion",
-              "ref": os.environ.get("GITHUB_REF", ""),
-              "sha": os.environ.get("GITHUB_SHA", ""),
-              "versions_lock": lock,
-              "backend_migrations": migrations,
-              "images": {
-                  "prefix": "ghcr.io/moeclubm/metafusion",
-                  "names": ["backend", "migrator", "frontend"],
-              },
-              "digests": {
-                  "backend": "待填",
-                  "migrator": "待填",
-                  "frontend": "待填",
-              },
-              "digest_query": "docker buildx imagetools inspect <prefix>/<name>:<tag>  # 取 RepoDigests 回填",
-              "digest_note": "digest 不在 CI 伪造：部署机按 tag 用 digest_query 解析并记录后，再钉 IMAGE_TAG；未知一律标待填；回滚按 manifest 里的 sha 重打 tag，不复用 latest",
-          }
-          with open("release-manifest.yaml", "w", encoding="utf-8") as fh:
-              yaml.safe_dump(manifest, fh, allow_unicode=True, sort_keys=False)
-          print(open("release-manifest.yaml", encoding="utf-8").read())
-          EOF
+          python3 scripts/build_release_manifest.py --digests-dir digests-in --out release-manifest.yaml
+      # 部署前拒绝不完整清单的第一道门：digest/版本组合/同源绑定任一缺失即红，
+      # 第二道门在 deploy.sh pull（部署机按 IMAGE_TAG 再验一次）。
+      - name: Reject incomplete manifest
+        run: python3 scripts/check_release_manifest.py --strict release-manifest.yaml
       - uses: actions/upload-artifact@v4
         with:
           name: release-manifest

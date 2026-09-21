@@ -243,6 +243,37 @@ function require_prod_dsns() {
     echo "✅ 生产 DSN 齐全（4/4 已设置，值不打印）"
 }
 
+# 发布清单门禁（审计 P1）：pull 面向线上，两件事缺一不可——
+# ① IMAGE_TAG 必须是不可变 tag（latest/空直接拒绝，不再警告放行）；
+# ② 仓库根或 deploy/ 下放着 release-manifest.yaml 时，它必须完整
+#    （scripts/check_release_manifest.py --strict：无待填、同源绑定一致、
+#    且 IMAGE_TAG 落在各服务 tags 内）。清单缺席只警告（旧流程兼容），
+#    在场而不完整则非零退出。只判有无与结论，不打印凭据值
+#    （digest 是公开的镜像摘要，TAG 只查归属）。
+function require_pinned_manifest() {
+    if [ -z "${IMAGE_TAG:-}" ] || [ "${IMAGE_TAG:-latest}" = "latest" ]; then
+        echo "❌ IMAGE_TAG 未钉死（当前 ${IMAGE_TAG:-空}）：生产必须按 release-manifest.yaml 设成不可变 tag" >&2
+        exit 1
+    fi
+    local manifest=""
+    if [ -f "../release-manifest.yaml" ]; then manifest="../release-manifest.yaml"
+    elif [ -f "release-manifest.yaml" ]; then manifest="release-manifest.yaml"
+    fi
+    if [ -z "$manifest" ]; then
+        echo "⚠️  找不到 release-manifest.yaml：跳过清单完整性校验（旧流程兼容，建议从发布附件取回后放仓库根）"
+        return 0
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "❌ 有清单但本机没有 python3，无法校验完整性；确认环境后重跑" >&2
+        exit 1
+    fi
+    echo "🔒 校验发布清单 $manifest（只查结论，不打印凭据）..."
+    if ! python3 "$SCRIPT_DIR/../scripts/check_release_manifest.py" --strict --expect-tag "$IMAGE_TAG" "$manifest"; then
+        echo "❌ 发布清单不完整或 IMAGE_TAG 不在清单内：部署中止" >&2
+        exit 1
+    fi
+}
+
 # 开发提醒（非阻塞）：fast 仍兼容未填 DSN 的旧工作区，只告警不拦。
 function warn_if_dsns_missing() {
     local v val n=0
@@ -460,9 +491,7 @@ case "$ACTION" in
         # 审计 O05：刻意不再加 --ignore-pull-failures——预构建镜像缺席必须非零中断，
         #   不许用本地旧镜像静默兜底（多服务混合版本）。缺席先发布对应镜像，
         #   不要加回忽略开关。
-        if [ "${IMAGE_TAG:-latest}" = "latest" ]; then
-            echo "⚠️  IMAGE_TAG 未钉死（当前 latest）：生产建议按 release-manifest.yaml 设成不可变 tag/sha"
-        fi
+        require_pinned_manifest
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml pull --ignore-buildable
         echo "🚀 启动数据库与核心基础设施..."
         docker compose $COMPOSE_ENV up -d postgres rustfs
