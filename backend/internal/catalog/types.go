@@ -357,8 +357,9 @@ type User struct {
 	// FromPAT 标记身份来自 PAT 内省（而不是账号服务签发的 JWT）。它参与授权判定
 	// （见 permission.go：PAT 身份永不回落角色兜底），因此不进 JSON 输出、不暴露给调用方。
 	FromPAT bool `json:"-"`
-	// IsThirdParty 标记身份来自第三方 OAuth 授权（scope/client_id/token_use 任一非空，
-	// 见 token.go 的 ClaimsToUser）。管理 API 默认拒绝此类身份（见 permission.go），
+	// IsThirdParty 标记身份来自第三方 OAuth 授权（token_use=oauth/id_token，或空用途下
+	// 仍带 scope/client_id/token_type，见 token.go 的 ClaimsToUser；session/空用途为第一方）。
+	// 管理 API 默认拒绝此类身份（见 permission.go），
 	// 因此不进 JSON 输出、不暴露给调用方。
 	IsThirdParty bool `json:"-"`
 	// PermissionsSet 标记令牌是否显式携带 permissions 声明（含空数组与显式 null，

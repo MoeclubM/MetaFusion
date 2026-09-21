@@ -57,8 +57,10 @@ type Claims struct {
 	// groups 是组码（展示与审计用），permissions 是展开后的权限码集合——授权只看它。
 	Groups      []string `json:"groups,omitempty"`
 	Permissions []string `json:"permissions,omitempty"`
-	// Scope/ClientID/TokenUse 是第三方 OAuth 令牌的标记（与签发侧对齐，见 S01）：
-	// 站内会话令牌永不携带这些项；audience 收口（Verify 的 bad audience）已拒掉 aud
+	// Scope/ClientID/TokenUse/TokenType 是令牌用途的标记（与签发侧对齐，见 S01）：
+	// 站内会话 JWT 恒带 token_use=session（无 scope/client_id）；第三方 OAuth 带
+	// token_use=oauth（+scope/client_id），id_token 带 token_use=id_token（aud 指向
+	// 客户端，audience 收口已拒）。audience 收口（Verify 的 bad audience）拒掉 aud
 	// 指向客户端的令牌，这里再标记"aud 仍是平台但带 OAuth 标记"的那一种。
 	Scope     string `json:"scope,omitempty"`
 	ClientID  string `json:"client_id,omitempty"`
@@ -296,6 +298,10 @@ func (t *TokenVerifier) Verify(token string) (*Claims, error) {
 	if claims.Subject == "" {
 		return nil, errors.New("missing subject")
 	}
+	// 用途隔离：未知 token_use fail closed（直接拒收，不按匿名放行）。
+	if !validTokenUse(strings.TrimSpace(claims.TokenUse)) {
+		return nil, errors.New("bad token_use")
+	}
 	return &claims, nil
 }
 
@@ -477,9 +483,37 @@ func (t *TokenVerifier) PublicJWK() map[string]any {
 	}
 }
 
+// 令牌用途取值，与账号服务签发侧同源：判定只认这三个值与空串（历史令牌缺键，
+// 按会话语义兼容）；未知取值在 Verify 直接拒收（bad token_use）。
+const (
+	TokenUseSession = "session"
+	TokenUseOAuth   = "oauth"
+	TokenUseIDToken = "id_token"
+)
+
+// isThirdPartyUse 报告该用途是否为第三方（oauth 访问令牌或发给当事客户端的
+// id_token）：与互动 internal/auth/auth.go 同契约，token_use=session 永不视为第三方。
+func isThirdPartyUse(use string) bool {
+	return use == TokenUseOAuth || use == TokenUseIDToken
+}
+
+// validTokenUse 判定载荷里的用途声明是否合法：未知取值直接拒收，防止将来新增用途的
+// 令牌被当成已知用途放行（与签发侧 validTokenUse 同口径）。
+func validTokenUse(use string) bool {
+	switch use {
+	case "", TokenUseSession, TokenUseOAuth, TokenUseIDToken:
+		return true
+	default:
+		return false
+	}
+}
+
 // ClaimsToUser 把已验签的载荷还原为 User（身份、角色与权限集合，不查库）。
-// 第三方判定：站内会话令牌永不带 scope/client_id/token_use，任一非空即第三方
-// （与社区 cabfa6c 同规则）；permissions 键存在性原样带给 Can 做分支。
+// 第三方判定与互动 internal/auth/auth.go 同契约：session/空用途=第一方放行，
+// 仅 oauth/id_token 判第三方；空用途下仍带 scope/client_id/token_type（签发侧过渡态，
+// 会话签发恒清零这三项）视为第三方。未知用途 Verify 已拒收，这里按第三方收紧
+// （直接构造 Claims 绕过 Verify 时仍 fail closed）；permissions 键存在性原样带给
+// Can 做分支。
 func ClaimsToUser(c *Claims) *User {
 	if c == nil {
 		return nil
@@ -488,8 +522,15 @@ func ClaimsToUser(c *Claims) *User {
 	if clientID == "" {
 		clientID = c.Cid
 	}
-	thirdParty := strings.TrimSpace(c.Scope) != "" || strings.TrimSpace(clientID) != "" ||
-		strings.TrimSpace(c.TokenUse) != "" || strings.TrimSpace(c.TokenType) != ""
+	use := strings.TrimSpace(c.TokenUse)
+	thirdParty := isThirdPartyUse(use)
+	if use == "" && !thirdParty {
+		thirdParty = strings.TrimSpace(c.Scope) != "" || strings.TrimSpace(clientID) != "" ||
+			strings.TrimSpace(c.TokenType) != ""
+	}
+	if !validTokenUse(use) {
+		thirdParty = true
+	}
 	return &User{ID: c.Subject, Username: c.Username, Email: c.Email, Role: c.Role,
 		Groups: c.Groups, Permissions: c.Permissions,
 		IsThirdParty: thirdParty, PermissionsSet: c.permissionsPresent}

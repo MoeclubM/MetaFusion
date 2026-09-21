@@ -640,6 +640,66 @@ func TestVerifierJWKSRefreshFailureFallsBackToCachedKey(t *testing.T) {
 	}
 }
 
+// S01 真实签发 claims walk：账号签发侧恒写 token_use=session 的会话 JWT，
+// 经目录验签 + ClaimsToUser 还原后必须走第一方（编辑/管理不断言 403）；
+// oauth/id_token 仍判第三方（即使带 * 通配也拒治理码）；未知用途验签直接拒收。
+func TestSessionTokenUseWalksAsFirstParty(t *testing.T) {
+	key := testKey(t)
+	v := testVerifier(t, key)
+	walk := func(mutate func(Claims) Claims) *User {
+		t.Helper()
+		claims, err := v.Verify(signTestToken(t, key, mutate))
+		if err != nil {
+			t.Fatalf("verify: %v", err)
+		}
+		return ClaimsToUser(claims)
+	}
+	// 会话（缺 permissions 键的老形态，走 admin 角色兜底）：第一方且管理放行。
+	sessionLegacy := walk(func(c Claims) Claims { c.TokenUse = "session"; c.Role = "admin"; return c })
+	if sessionLegacy.IsThirdParty {
+		t.Fatalf("token_use=session 不得判第三方：%+v", sessionLegacy)
+	}
+	for _, code := range []string{PermissionEntityEdit, PermissionDefinitionsManage, PermissionLifecycleManage} {
+		if !sessionLegacy.Can(code) {
+			t.Fatalf("会话 admin 应放行 %s（否则编辑/管理 403）：%+v", code, sessionLegacy)
+		}
+	}
+	// 会话（显式 * 通配的新形态）：同样第一方放行。
+	sessionWildcard := walk(func(c Claims) Claims {
+		c.TokenUse = "session"; c.Role = "admin"; c.Permissions = []string{permissionWildcard}; return c
+	})
+	if sessionWildcard.IsThirdParty || !sessionWildcard.PermissionsSet {
+		t.Fatalf("会话通配应为第一方且带存在标记：%+v", sessionWildcard)
+	}
+	if !sessionWildcard.Can(PermissionDefinitionsManage) {
+		t.Fatalf("会话通配应放行管理码：%+v", sessionWildcard)
+	}
+	// 第三方 oauth（仅 openid/profile/email 授权形态）：验签通过但判第三方，治理码全拒。
+	oauth := walk(func(c Claims) Claims {
+		c.TokenUse = "oauth"; c.Scope = "openid profile email"; c.ClientID = "third-party-app"
+		c.Role = "admin"; c.Permissions = []string{permissionWildcard}; return c
+	})
+	if !oauth.IsThirdParty {
+		t.Fatalf("token_use=oauth 必须判第三方：%+v", oauth)
+	}
+	for _, code := range catalogPermissionCodes {
+		if oauth.Can(code) {
+			t.Fatalf("第三方不得放行治理码 %s：%+v", code, oauth)
+		}
+	}
+	// 第三方 id_token：同样判第三方。
+	idToken := walk(func(c Claims) Claims { c.TokenUse = "id_token"; c.Role = "admin"; return c })
+	if !idToken.IsThirdParty || idToken.Can(PermissionEntityEdit) {
+		t.Fatalf("token_use=id_token 必须判第三方且拒治理码：%+v", idToken)
+	}
+	// 未知用途：验签直接拒收（fail closed，不按匿名放行）。
+	if _, err := v.Verify(signTestToken(t, key, func(c Claims) Claims { c.TokenUse = "delegated"; return c })); err == nil {
+		t.Fatal("未知 token_use 必须被验签拒绝")
+	} else if err.Error() != "bad token_use" {
+		t.Fatalf("未知用途应报 bad token_use，实际 %v", err)
+	}
+}
+
 // 并发未知 kid：出站请求必须共享同一次刷新（旧实现是每个请求在持锁期间强制刷新两次，
 // 锁被持有到 HTTP 结束，JWKS 慢时该副本的验签全部排队）。
 func TestVerifierJWKSConcurrentUnknownKidSharesOneFetch(t *testing.T) {
