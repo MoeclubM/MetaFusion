@@ -222,17 +222,29 @@ func TestPostgresResolveIdentityReverseBranches(t *testing.T) {
 
 // M01/M02 机制级受控验证：锁确实落在预期键上（同键互斥、异键并发；
 // 定义共享-共享不互斥、独占-共享互斥）。端到端双写时序见下面的接线用例。
+//
+// 编排约束（防自阻塞）：各场景拆分、上一场景事务提交后才进下一场景，同一 goroutine 内
+// 永不同时持有冲突锁；探测侧与独占持有一律 lock_timeout 有界；全部事务登记清理
+// （t.Cleanup 兜底回滚未提交者，CI 里不留 idle-in-transaction）。
 func TestPostgresAdvisoryLockMechanism(t *testing.T) {
 	f := newFixture(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 	r1 := "11111111-1111-4111-8111-111111111111"
 	r2 := "22222222-2222-4222-8222-222222222222"
+	var open []*sql.Tx
+	t.Cleanup(func() {
+		for _, tx := range open {
+			_ = tx.Rollback() // 已提交的返回 sql.ErrTxDone，忽略
+		}
+	})
 	mustBegin := func() *sql.Tx {
 		t.Helper()
 		tx, err := f.s.DB.BeginTx(ctx, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
+		open = append(open, tx)
 		return tx
 	}
 	withTimeout := func(tx *sql.Tx) {
@@ -241,30 +253,37 @@ func TestPostgresAdvisoryLockMechanism(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	commit := func(tx *sql.Tx) {
+		t.Helper()
+		if err := tx.Commit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rollback := func(tx *sql.Tx) {
+		t.Helper()
+		_ = tx.Rollback()
+	}
+	// 场景一：发行锁同键互斥、异键并发。
 	holder := mustBegin()
 	if err := lockRelease(ctx, holder, r1); err != nil {
 		t.Fatal(err)
 	}
-	// 同发行阻塞。
 	probe := mustBegin()
 	withTimeout(probe)
 	if err := lockRelease(ctx, probe, r1); err == nil || !strings.Contains(err.Error(), "lock timeout") {
-		probe.Rollback()
+		rollback(probe)
 		t.Fatalf("同发行应互斥，实际 %v", err)
 	}
-	probe.Rollback()
-	// 不同发行不阻塞。
+	rollback(probe)
 	probe2 := mustBegin()
 	withTimeout(probe2)
 	if err := lockRelease(ctx, probe2, r2); err != nil {
-		probe2.Rollback()
+		rollback(probe2)
 		t.Fatalf("不同发行不应互斥：%v", err)
 	}
-	probe2.Commit()
-	if err := holder.Commit(); err != nil {
-		t.Fatal(err)
-	}
-	// 定义共享-共享不互斥。
+	commit(probe2)
+	commit(holder)
+	// 场景二：定义共享-共享不互斥（本场景内提交 sh1 后再进场景三，独占前无共享持有者）。
 	sh1 := mustBegin()
 	if err := lockDefinitionsShared(ctx, sh1); err != nil {
 		t.Fatal(err)
@@ -272,28 +291,33 @@ func TestPostgresAdvisoryLockMechanism(t *testing.T) {
 	sh2 := mustBegin()
 	withTimeout(sh2)
 	if err := lockDefinitionsShared(ctx, sh2); err != nil {
-		sh2.Rollback()
+		rollback(sh2)
 		t.Fatalf("共享-共享不应互斥：%v", err)
 	}
-	sh2.Commit()
-	// 独占-共享互斥。
+	commit(sh2)
+	commit(sh1)
+	// 场景三：独占-共享互斥（独占持有也加 lock_timeout，异常持锁时有界失败而非挂死）。
 	ex := mustBegin()
+	withTimeout(ex)
 	if err := lockDefinitionsExclusive(ctx, ex); err != nil {
 		t.Fatal(err)
 	}
 	probe3 := mustBegin()
 	withTimeout(probe3)
 	if err := lockDefinitionsShared(ctx, probe3); err == nil || !strings.Contains(err.Error(), "lock timeout") {
-		probe3.Rollback()
+		rollback(probe3)
 		t.Fatalf("独占-共享应互斥，实际 %v", err)
 	}
-	probe3.Rollback()
-	if err := ex.Commit(); err != nil {
-		t.Fatal(err)
+	rollback(probe3)
+	commit(ex)
+	// 场景四：独占释放后共享通过。
+	after := mustBegin()
+	withTimeout(after)
+	if err := lockDefinitionsShared(ctx, after); err != nil {
+		rollback(after)
+		t.Fatalf("独占释放后共享应通过：%v", err)
 	}
-	if err := sh1.Commit(); err != nil {
-		t.Fatal(err)
-	}
+	commit(after)
 }
 
 // M01 接线：被占用的发行锁阻塞同发行 track 写，释放后放行。
@@ -307,6 +331,7 @@ func TestPostgresSaveBlocksOnHeldReleaseLock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = raw.Rollback() })
 	if err := lockRelease(ctx, raw, r.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -352,6 +377,7 @@ func TestPostgresSaveRespectsDefinitionsLock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = sh.Rollback() })
 	if err := lockDefinitionsShared(ctx, sh); err != nil {
 		t.Fatal(err)
 	}
@@ -373,6 +399,7 @@ func TestPostgresSaveRespectsDefinitionsLock(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = ex.Rollback() })
 	if err := lockDefinitionsExclusive(ctx, ex); err != nil {
 		t.Fatal(err)
 	}
