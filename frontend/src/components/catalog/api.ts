@@ -142,6 +142,10 @@ export type Definitions = {
       acyclic: boolean;
       /** 聚合/组成关系：内容目录按它收录组成员（见 lib/definitions.ts RelationDef）。 */
       aggregate?: boolean;
+      /** 署名槽位 person/character/peer，空=未声明（老文档）：展示端据此判定署名/角色。 */
+      participant_slot?: string;
+      /** 参与批量署名聚合：口径只看本声明，不看分组码（见 lib/definitions.ts）。 */
+      counts_as_credit?: boolean;
       max_outgoing: number;
       max_incoming: number;
       group: string;

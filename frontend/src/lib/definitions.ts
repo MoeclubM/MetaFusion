@@ -56,6 +56,13 @@ export interface VocabularyDef {
   terms: Record<string, { names: Record<string, string>; enabled: boolean }>;
 }
 
+/** 署名槽位闭集（与后端 types.go 的 ParticipantSlot 同口径）：person 对端是署名主体
+ *  （人/机构）、character 对端是虚构角色、peer 是同层级对象不产生署名主体、空=未声明
+ *  （老文档）。展示端按它判定署名/角色，不写死关系码、不拿分组码当语义用。 */
+export type ParticipantSlot = "" | "person" | "character" | "peer";
+
+export const PARTICIPANT_SLOTS: ParticipantSlot[] = ["", "person", "character", "peer"];
+
 export interface RelationDef {
   names: Record<string, string>;
   reverse_names: Record<string, string>;
@@ -72,9 +79,35 @@ export interface RelationDef {
   max_incoming?: number;
   /** 声明这条关系表达"组成/聚合"（集合→作品、专辑→曲目等）：页面据此算组成列表，不写死关系码。 */
   aggregate?: boolean;
+  /** 这条关系的对端在署名里扮演什么（见 ParticipantSlot）：署名区块与人物网格按它收录。 */
+  participant_slot?: ParticipantSlot | string;
+  /** 参与批量署名聚合（Release/Expression 详情的署名列表）：口径只看本声明，
+   *  不看分组码——后台挪分组只改展示归类，不改变哪些关系算署名。 */
+  counts_as_credit?: boolean;
   group: string;
   group_names?: Record<string, string>;
   enabled: boolean;
+}
+
+/** 类型化读取关系署名声明（替代 `(relations[code] as any)?.participant_slot`）：
+ *  未声明（老文档）时返回空串，调用方按各自兼容口径回退，不得把空串当成某种槽位。 */
+export function relationParticipantSlot(
+  defs: DynamicDefinitions | null | undefined,
+  code: string
+): ParticipantSlot {
+  const v = defs?.relations?.[code]?.participant_slot || "";
+  return (PARTICIPANT_SLOTS as string[]).includes(v) ? (v as ParticipantSlot) : "";
+}
+
+/** 这条关系是否参与署名展示：以声明为准（person/character 都是署名，peer 不是）；
+ *  未声明时返回 null，调用方显式走兼容回退（不得把 null 当 false 藏起来）。 */
+export function isCreditRelation(
+  defs: DynamicDefinitions | null | undefined,
+  code: string
+): boolean | null {
+  const slot = relationParticipantSlot(defs, code);
+  if (!slot) return null;
+  return slot !== "peer";
 }
 
 export interface SchemeDef {

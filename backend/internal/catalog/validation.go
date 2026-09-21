@@ -323,6 +323,14 @@ func (d Definitions) Validate() error {
 		if r.Symmetric && r.Acyclic {
 			return fmt.Errorf("symmetric_acyclic_conflict")
 		}
+		// 署名槽位是闭集（见 types.go 的 ParticipantSlot 注释）：person 对端是署名主体、
+		// character 对端是虚构角色、peer 是同层级对象不产生署名、空=未声明（老文档）。
+		// GUI 用下拉约束，服务端再拦一次手造载荷；拼错的槽位会让展示端静默丢署名。
+		switch r.ParticipantSlot {
+		case "", "person", "character", "peer":
+		default:
+			return fmt.Errorf("invalid_participant_slot: %s", code)
+		}
 		if r.MaxIncoming < 0 || r.MaxOutgoing < 0 {
 			return fmt.Errorf("invalid_cardinality")
 		}

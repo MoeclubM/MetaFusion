@@ -1069,7 +1069,8 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 		mat = append(mat, matRow{expr: r.expr, ref: occurrenceRef(r)})
 	}
 	// 署名：一次取候选表达的相关关系，按请求表达过滤后取对端标题。
-	// 署名码按 definitions group=credits 动态取，不硬编码名单。
+	// 署名码按每条关系自己的 CountsAsCredit 声明动态取（见 creditRelationTypes），
+	// 不看分组码、不硬编码名单：后台挪分组只改展示，不改变署名口径。
 	creditPeer := map[string]string{}
 	if len(candidateIDs) > 0 {
 		dv, derr := s.Definitions(ctx)

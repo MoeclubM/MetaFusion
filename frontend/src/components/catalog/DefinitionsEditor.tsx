@@ -644,6 +644,8 @@ export function DefinitionsEditor() {
             symmetric: false,
             acyclic: false,
             aggregate: false,
+            participant_slot: "",
+            counts_as_credit: false,
             max_outgoing: 0,
             max_incoming: 0,
             group: "",
@@ -694,7 +696,50 @@ export function DefinitionsEditor() {
                     {t(`catalog.${k}`)}
                   </label>
                 ))}
+                {/* 署名聚合声明：口径只看它，不看分组码（见 lib/definitions.ts 的
+                    RelationDef 注释）。字典键缺省时 tr 给英文回退，四语字典同步后即本地化
+                    （messages 不在本文件改动范围，见提交说明）。 */}
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={v.counts_as_credit === true}
+                    onChange={(e) =>
+                      set({ ...v, counts_as_credit: e.target.checked })
+                    }
+                  />
+                  {tr("catalog.countsAsCredit", "Count as credit")}
+                </label>
               </div>
+              <label>
+                {tr("catalog.participantSlot", "Participant slot")}
+                <select
+                  value={v.participant_slot || ""}
+                  onChange={(e) =>
+                    set({ ...v, participant_slot: e.target.value })
+                  }
+                >
+                  {/* 闭集与后端 Validate 的 invalid_participant_slot 同源：下拉即约束，
+                      手造载荷由服务端再拦一次。空=未声明（老文档兼容口径）。 */}
+                  <option value="">
+                    {tr("catalog.participantSlotUnset", "Not set")}
+                  </option>
+                  <option value="person">
+                    {tr("catalog.participantSlotPerson", "Person / organization")}
+                  </option>
+                  <option value="character">
+                    {tr("catalog.participantSlotCharacter", "Fictional character")}
+                  </option>
+                  <option value="peer">
+                    {tr("catalog.participantSlotPeer", "Peer object (no credit)")}
+                  </option>
+                </select>
+              </label>
+              <p className="cv-hint">
+                {tr(
+                  "catalog.creditDeclHint",
+                  "Credit display follows these two declarations, not the display group: moving a relation to another group never changes who counts as a credit."
+                )}
+              </p>
               <p className="cv-hint">{t("catalog.aggregateHint")}</p>
               {/* F04 样例预览：aggregate 开关的目录效果就地可见，与 WorkContentDirectory
                   的 componentEntries(isAggregate) 同口径（aggregate 才收进组成/所属区块）。
