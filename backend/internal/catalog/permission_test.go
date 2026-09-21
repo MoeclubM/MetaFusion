@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -114,8 +115,9 @@ func TestCanDeniesThirdPartyGovernance(t *testing.T) {
 	}
 }
 
-// S01：载荷的 permissions 键存在性决定分支（缺键老令牌 vs 显式空声明），
-// scope/client_id 任一非空即第三方（与社区 cabfa6c 同规则）。
+// S01：载荷的 permissions 键存在性决定分支（缺键老令牌 vs 显式空声明）；
+// 第三方判定与互动 internal/auth/auth.go 同契约：仅 oauth/id_token 判第三方，
+// session/空用途为第一方（空用途下仍带 scope/client_id/token_type 才算第三方）。
 func TestClaimsPresenceAndThirdPartyMapping(t *testing.T) {
 	var c Claims
 	if err := json.Unmarshal([]byte(`{"sub":"u-1","permissions":[]}`), &c); err != nil || !c.permissionsPresent || c.Permissions == nil {
@@ -225,5 +227,43 @@ func TestRequiredGateUsesPermissionCode(t *testing.T) {
 	r2.ServeHTTP(w2, httptest.NewRequest(http.MethodGet, "/x", nil))
 	if w2.Code != http.StatusOK {
 		t.Fatalf("authenticated-only gate must stay open to third-party callers: %d", w2.Code)
+	}
+}
+
+// L2：纯登录路由默认拒绝第三方写入（仅 openid/profile/email 授权无写能力）：
+// 第三方建草稿（POST）403，会话仍 200；读（GET）仍对第三方开放。
+func TestRequiredWriteDeniesThirdParty(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	third := &User{ID: "third", Role: "user", IsThirdParty: true}
+	session := &User{ID: "self", Role: "user"}
+	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete} {
+		r := gin.New()
+		r.Handle(method, "/x", func(c *gin.Context) {
+			if c.GetHeader("X-Actor") == "third" {
+				c.Set("catalog_user", third)
+			} else {
+				c.Set("catalog_user", session)
+			}
+		}, required(""), func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(method, "/x", nil)
+		req.Header.Set("X-Actor", "third")
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "forbidden") {
+			t.Errorf("%s 第三方写: status=%d body=%s, want 403 forbidden", method, w.Code, w.Body.String())
+		}
+		w2 := httptest.NewRecorder()
+		r.ServeHTTP(w2, httptest.NewRequest(method, "/x", nil))
+		if w2.Code != http.StatusOK {
+			t.Errorf("%s 会话写: status=%d, want 200", method, w2.Code)
+		}
+	}
+	// 读仍对第三方开放（个人偏好读、通知列表等自助读端）。
+	r := gin.New()
+	r.GET("/x", func(c *gin.Context) { c.Set("catalog_user", third) }, required(""), func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/x", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("第三方读: status=%d, want 200", w.Code)
 	}
 }

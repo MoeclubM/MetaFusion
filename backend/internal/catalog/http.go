@@ -110,8 +110,16 @@ func required(code string) gin.HandlerFunc {
 		}
 		// S01 双重收口：第三方 OAuth 身份在治理码上直接 403（与 Can 内一致；
 		// 即使将来某码被误标非治理，本层仍按"管理路由默认拒第三方"兜住）。
-		// required("") 的纯登录路由不受影响（自助草稿走所有权判定，不在此）。
 		if u.IsThirdParty && code != "" && isGovernanceCode(code) {
+			auditlog.Fail(c, "forbidden")
+			c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
+			return
+		}
+		// L2 默认拒绝第三方写入：仅 openid/profile/email 授权的第三方没有任何写能力。
+		// 纯登录路由（code==""，如建草稿、提案、首页偏好写）的读方法仍放行第三方，
+		// 写方法一律 403（自助草稿的所有权判定只在第一方内部区分主人）。
+		// 需第三方贡献时由显式写 scope 再开专用路由，本层默认关门。
+		if u.IsThirdParty && code == "" && !isReadMethod(c.Request.Method) {
 			auditlog.Fail(c, "forbidden")
 			c.AbortWithStatusJSON(403, gin.H{"error": "forbidden"})
 			return
@@ -123,6 +131,15 @@ func required(code string) gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+// isReadMethod 报告是否为读方法：第三方在纯登录路由上只读，写默认拒绝（L2）。
+func isReadMethod(m string) bool {
+	switch m {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return true
+	}
+	return false
 }
 
 // routeBucket 是内存固定窗口计数, key 为 IP+完整路由。账号侧的登录限流归账号服务，
