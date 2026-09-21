@@ -103,32 +103,21 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			added = append(added, "schemes."+k)
 		}
 	}
-	// 种子声明的**开关**只做"打开"：Aggregate 这类标记若种子为真、当前为假，说明当前文档是
-	// 旧版本（还没这个声明），补上即可；种子为假时不动——那可能是后台有意关掉的。
-	// 仍属"只增不改"：只会新增能力，不会覆盖人工决定。
+	// 已存在关系的布尔开关（Aggregate / CountsAsCredit）一律不动：bool 的零值无法区分
+	// "老文档缺该声明"与"后台有意关闭"，种子为真就回写 false 会让 GUI 刚关掉的开关在重启后
+	// 重新打开（D2）。缺失的关系整体由上面的补缺分支新增（含种子开关）；老文档的署名口径
+	// 靠 creditRelationTypes 的 group=credits 兜底（见 relations.go），不靠改数据升级。
+	// ParticipantSlot 是字符串：空串即"缺声明"可与显式值区分，老文档补上、已有值不覆盖——
+	// 后台改写槽位后种子不夺回控制权。
 	for code, sr := range seed.Relations {
 		cur, ok := out.Relations[code]
 		if !ok {
 			continue // 缺失的关系已在上面补过
 		}
-		if sr.Aggregate && !cur.Aggregate {
-			cur.Aggregate = true
-			out.Relations[code] = cur
-			added = append(added, "relations."+code+".aggregate")
-		}
-		// ParticipantSlot 同理：老文档没有该声明，补上即可（客户端据此判定"是否演职"）。
-		// 已有值时不覆盖——后台可以按需要改写槽位，种子不夺回控制权。
 		if sr.ParticipantSlot != "" && cur.ParticipantSlot == "" {
 			cur.ParticipantSlot = sr.ParticipantSlot
 			out.Relations[code] = cur
 			added = append(added, "relations."+code+".participant_slot")
-		}
-		// CountsAsCredit 同属"只打开"的声明：老文档没有它时补上，
-		// 于是存量实例也从"按分组码猜"升级为"按关系自己的声明"。
-		if sr.CountsAsCredit && !cur.CountsAsCredit {
-			cur.CountsAsCredit = true
-			out.Relations[code] = cur
-			added = append(added, "relations."+code+".counts_as_credit")
 		}
 	}
 	for k, v := range seed.Structure {
