@@ -463,11 +463,19 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		items := map[string]IdentityResolution{}
 		missing := []string{}
 		for _, id := range ids {
-			if v, err := s.ResolveIdentity(c.Request.Context(), id, user(c)); err != nil {
-				missing = append(missing, id)
-			} else {
+			v, err := s.ResolveIdentity(c.Request.Context(), id, user(c))
+			if err == nil {
 				items[id] = v
+				continue
 			}
+			// R2：不存在进 missing；查询失败（超时/中断/连接）整批 500，
+			// 不把“查不到”伪装成成功的部分结果。
+			if isIdentityNotFound(err) {
+				missing = append(missing, id)
+				continue
+			}
+			respond(c, nil, err)
+			return
 		}
 		respond(c, gin.H{"items": items, "missing": missing}, nil)
 	})

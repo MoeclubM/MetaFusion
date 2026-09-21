@@ -519,8 +519,9 @@ func (s *Store) Get(ctx context.Context, id string, u *User) (Entity, error) {
 //（migrator 按 backend/migrations/*.sql 自动发现），语句全部幂等，重复执行安全。
 // 每项修复提交各自追加自己的文件，不提前引用不存在的文件。
 var catalogIncrementals = []string{
-	"000006_request_idempotency.up.sql",        // R1：catalog.idempotency_keys
+	"000006_request_idempotency.up.sql",         // R1：catalog.idempotency_keys
 	"000007_revision_definition_version.up.sql", // D4：revisions.definition_version
+	"000008_redirect_lookup_index.up.sql",       // R2：entities redirect 反查索引
 }
 
 // applyCatalogIncrementals 在安装路径上执行结构增量（见 catalogIncrementals 注释）。

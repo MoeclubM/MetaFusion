@@ -3,6 +3,7 @@ package catalog
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -264,6 +265,20 @@ type IdentityResolution struct {
 	CanonicalID string   `json:"canonical_id"`
 	Aliases     []string `json:"aliases"`
 	Entity      Entity   `json:"entity"`
+	// Complete 为真表示别名集合是全集（反向遍历全部成功）。跨服务聚合只能在
+	// complete=true 时按全集收敛；失败路径返回 error 且 complete=false，调用方不得
+	// 把部分结果当全集用（R2：此前 Query/Scan 失败会伪装成成功的部分结果）。
+	Complete bool `json:"complete"`
+}
+
+// errRedirectCycle 是循环重定向的稳定码：哨兵化以便调用方 errors.Is 区分
+// "不存在"与"查询失败"（见 isIdentityNotFound），文本与此前一致。
+var errRedirectCycle = errors.New("redirect_cycle")
+
+// isIdentityNotFound 报告身份解析错误是否属于"不存在"（未知 ID、不可见终点、循环链）：
+// 批量端点按此进 missing；其它错误（超时、中断、连接失败）是查询失败，必须整批 500。
+func isIdentityNotFound(err error) bool {
+	return errors.Is(err, sql.ErrNoRows) || errors.Is(err, errRedirectCycle)
 }
 
 // ResolveIdentity 跟随 merged 链并收集别名：循环重定向报 redirect_cycle；
@@ -277,7 +292,7 @@ func (s *Store) ResolveIdentity(ctx context.Context, id string, u *User) (Identi
 	cur := id
 	for {
 		if seen[cur] {
-			return out, fmt.Errorf("redirect_cycle")
+			return out, errRedirectCycle
 		}
 		seen[cur] = true
 		e, err := get(ctx, s.DB, cur)
@@ -293,32 +308,40 @@ func (s *Store) ResolveIdentity(ctx context.Context, id string, u *User) (Identi
 			return out, sql.ErrNoRows
 		}
 		out.CanonicalID, out.Entity = e.ID, e
-		out.Aliases = append(out.Aliases, s.reverseAliases(ctx, e.ID, seen)...)
+		extra, err := s.reverseAliases(ctx, e.ID, seen)
+		if err != nil {
+			return out, err
+		}
+		out.Aliases = append(out.Aliases, extra...)
+		out.Complete = true
 		return out, nil
 	}
 }
 
 // reverseAliases 从存活身份反向枚举全部历史别名：逐层查直接指向本层节点的 merged 行
-// （document->>'redirect_id'，redirect_id 列已随 000004 删除，按现有 redirect 实现选
-// 遍历而非新索引——范围限定在 merged 行逐层展开，不做迁移）。向前链已收集的只去重不丢弃：
-// 已见节点仍要展开（其上游可能不在向前链上，如 X→A→C 时从 A 查必须带回 X），
-// 增补部分排序后返回（确定性顺序）；环数据由 visited 截断（向前链的 redirect_cycle 仍由主循环报）。
-func (s *Store) reverseAliases(ctx context.Context, canonical string, seen map[string]bool) []string {
+// （document->>'redirect_id'，按 ANY($1) 批量查一层，见 000008 的表达式索引；
+// redirect_id 列已随 000004 删除）。向前链已收集的只去重不丢弃：已见节点仍要展开
+// （其上游可能不在向前链上，如 X→A→C 时从 A 查必须带回 X），增补部分排序后返回
+// （确定性顺序）；环数据由 visited 截断（向前链的 redirect_cycle 仍由主循环报）。
+//
+// R2：Query/Scan/rows.Err 的任何失败都返回 error，不再伪装成成功的部分结果。
+// 调用方用 isIdentityNotFound 区分"不存在"与"查询失败"。
+func (s *Store) reverseAliases(ctx context.Context, canonical string, seen map[string]bool) ([]string, error) {
 	visited := map[string]bool{canonical: true}
 	extra := []string{}
 	frontier := []string{canonical}
 	for len(frontier) > 0 {
 		rows, err := s.DB.QueryContext(ctx, `SELECT id::text FROM catalog.entities WHERE status='merged' AND document->>'redirect_id' = ANY($1::text[])`, pq.Array(frontier))
 		if err != nil {
-			return extra
+			return nil, err
 		}
 		var next []string
-		func() {
+		scanErr := func() error {
 			defer rows.Close()
 			for rows.Next() {
 				var id string
 				if err := rows.Scan(&id); err != nil {
-					break
+					return err
 				}
 				if visited[id] {
 					continue
@@ -329,11 +352,15 @@ func (s *Store) reverseAliases(ctx context.Context, canonical string, seen map[s
 					extra = append(extra, id)
 				}
 			}
+			return rows.Err()
 		}()
+		if scanErr != nil {
+			return nil, scanErr
+		}
 		frontier = next
 	}
 	sort.Strings(extra)
-	return extra
+	return extra, nil
 }
 
 // Resolve preserves old identifiers without rewriting the evidence of a merge.
@@ -354,5 +381,5 @@ func (s *Store) Resolve(ctx context.Context, id string, u *User) (Entity, error)
 		}
 		return e, nil
 	}
-	return Entity{}, fmt.Errorf("redirect_cycle")
+	return Entity{}, errRedirectCycle
 }
