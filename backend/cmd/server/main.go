@@ -54,21 +54,14 @@ func main() {
 	}
 	defer s.DB.Close()
 
-	// 结构初始化失败仍是致命错误（服务没有可用的表结构）。
-	//
-	// 唯一的例外是"种子定义合并没能生效"（*catalog.DefinitionSeedError）：那是**可降级**的
-	// 失败——上一个已发布定义照旧生效，库里的存量数据也照旧能读写。2026-09 的事故正是把
-	// 它当致命错误：库里 31 条悬挂引用让 impact 回放失败 → log.Fatalf → 容器 CrashLoop →
-	// 网关 502。这里改为记 error 日志 + 暴露状态信号（/health 的 definitions）后继续启动，
-	// 让"定义没更新"表现为一个可诊断的降级，而不是整站不可用。
-	if err = s.Initialize(ctx); err != nil {
-		var seedErr *catalog.DefinitionSeedError
-		if errors.As(err, &seedErr) {
-			log.Printf("ERROR startup degraded: %v; serving with the previously published definitions — check GET /health (definitions) and run mf-migrate check-refs for dangling references", err)
-		} else {
-			log.Fatalf("catalog schema initialization failed: %v", err)
-		}
+	// S1：HTTP 进程启动只做兼容版本检查（只读，见 catalog startup.go）。
+	// 结构迁移（mf-migrate up）、种子升级（mf-migrate seed）、完整性扫描（mf-migrate check-refs）
+	// 是显式运维任务，不再由每次启动/扩容执行。检查失败即 Fatal：库没准备好时拒绝服务。
+	// 2026-09 CrashLoop 的根治：启动路径不再合并种子，无降级分支；种子状态仍由 /health 暴露。
+	if err = s.CheckCompatibleVersion(ctx); err != nil {
+		log.Fatalf("catalog schema incompatible: %v", err)
 	}
+	log.Print("catalog schema compatible; seed upgrades run via mf-migrate seed, integrity scans via mf-migrate check-refs")
 
 	// 审计写入器（跨服务契约 §3）：一个后台 goroutine + 有界队列，挂在 Store 上供
 	// registerGroup 的中间件使用。关停时排空队列——进程直接退会把队列里最后一批行丢掉。

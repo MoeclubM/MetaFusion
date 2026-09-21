@@ -19,6 +19,8 @@ import (
 )
 
 // baseline 是目录库的结构来源：与 `mf-migrate up` 执行的是**同一份文件**（迁移 000001）。
+// S2 冻结（注释说明，不动规则）：000001 是已执行的安装基线，永不修改；后续结构变化只以
+// 有序不可变的增量迁移表达（见 catalogIncrementals），仍只有 backend/migrations 一份结构来源。
 // 以前这里 //go:embed 了一份 schema.sql 终态快照，与迁移文件各存一份、靠一致性测试盯着同步；
 // 数据不再需要历史迁移后合并成单一基线，两边读同一份，冗余与漂移一起消失。
 const baselineFile = "000001_catalog_core.up.sql"
@@ -121,7 +123,10 @@ func (s *Store) Authenticate(token string) (*User, error) {
 	return ClaimsToUser(claims), nil
 }
 
-// Initialize touches only the new schema. Existing catalog and module data are untouched.
+// Initialize 是本地安装与测试的显式组合入口（S1）：基线 + 结构增量 + 空库内容种子 +
+// 种子增量合并，一次到达可服务状态。生产常驻进程不再调用它，改走 CheckCompatibleVersion
+// （只读，见 startup.go 的职责映射）；生产的结构/种子/体检分别由 mf-migrate up、
+// mf-migrate seed、mf-migrate check-refs 承担。Existing catalog data are untouched.
 // 其写入职责与 mf-migrate up 分工：migrate 只负责结构迁移（backend/migrations），
 // 定义/货架/外部库三类"内容种子"只在这里逐行 ON CONFLICT DO NOTHING 补齐
 // （第一方 OAuth 客户端随账号拆分归账号服务），
@@ -516,7 +521,7 @@ func (s *Store) Get(ctx context.Context, id string, u *User) (Entity, error) {
 // 不在写路径里静默改写目标（静默改写会让调用方记错自己引的是谁）。
 // catalogIncrementals 是基线之后的结构增量（S2 冻结原则：000001 永不修改，新结构只以
 // 有序不可变增量表达）。安装路径（Initialize）与 `mf-migrate up` 执行同一批文件
-//（migrator 按 backend/migrations/*.sql 自动发现），语句全部幂等，重复执行安全。
+// （migrator 按 backend/migrations/*.sql 自动发现），语句全部幂等，重复执行安全。
 // 每项修复提交各自追加自己的文件，不提前引用不存在的文件。
 var catalogIncrementals = []string{
 	"000006_request_idempotency.up.sql",         // R1：catalog.idempotency_keys
@@ -550,12 +555,14 @@ func reference(ctx context.Context, q queryer, u *User) func(string, []string) e
 		return nil
 	}
 }
+
 // 四类版本互不混用（D4）：
 //  1. 数据库迁移版本：schema_migrations + backend/migrations/*.sql，回答"库结构到哪了"；
 //  2. definitions 发布版本：catalog.definitions.id，回答"校验与展示按哪份定义"；
 //  3. 条目修订版本：catalog.revisions.version（按 target_id 递增）与 entities.version
 //     乐观并发计数，回答"这个条目改到第几版"；
 //  4. 服务镜像/接口兼容版本：构建期注入的 git sha（见 version.go），回答"线上跑的是哪次构建"。
+//
 // 本函数同时写 3 的修订行与 outbox 事件（见任务 8 的双快照注释），并把 2 的当前值记进
 // 修订行的 definition_version：字段含义变化后，历史值仍可用当时的定义解释。
 func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, note string, sources []Source, snapshot any, eventType string) error {
