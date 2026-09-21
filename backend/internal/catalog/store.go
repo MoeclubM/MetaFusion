@@ -191,6 +191,12 @@ func (s *Store) Initialize(ctx context.Context) error {
 	if _, err = s.DB.ExecContext(ctx, notificationsSchema); err != nil {
 		return fmt.Errorf("apply notifications schema %s: %w", notificationsSchemaFile, err)
 	}
+	// 结构增量与基线同一安装路径执行（见 catalogIncrementals）：生产以 mf-migrate up 为准，
+	// 本地安装/测试经此处到达同一终态。S1 会把服务启动改成只读兼容检查，届时本调用留在
+	// 显式安装入口，不再属于每次启动的职责。
+	if err = applyCatalogIncrementals(ctx, s.DB); err != nil {
+		return err
+	}
 	// 定义种子是"只空库播种"，存量实例拿不到新版本新增的关系码/字段；
 	// 这里再做一次只增不改的增量合并，把缺失的定义补上（不会覆盖后台的人工调整）。
 	return s.EnsureSeedDefinitions(ctx)
@@ -508,6 +514,28 @@ func (s *Store) Get(ctx context.Context, id string, u *User) (Entity, error) {
 // reference 是写侧身份归一：merged/deleted 行的引用一律拒绝（invalid_reference），
 // 调用方先经 ResolveIdentity/identity 端点拿到 canonical 再写——归一靠"拒绝+指路"，
 // 不在写路径里静默改写目标（静默改写会让调用方记错自己引的是谁）。
+// catalogIncrementals 是基线之后的结构增量（S2 冻结原则：000001 永不修改，新结构只以
+// 有序不可变增量表达）。安装路径（Initialize）与 `mf-migrate up` 执行同一批文件
+//（migrator 按 backend/migrations/*.sql 自动发现），语句全部幂等，重复执行安全。
+// 每项修复提交各自追加自己的文件，不提前引用不存在的文件。
+var catalogIncrementals = []string{
+	"000007_revision_definition_version.up.sql", // D4：revisions.definition_version
+}
+
+// applyCatalogIncrementals 在安装路径上执行结构增量（见 catalogIncrementals 注释）。
+func applyCatalogIncrementals(ctx context.Context, db *sql.DB) error {
+	for _, f := range catalogIncrementals {
+		b, err := fs.ReadFile(migrations.FS, f)
+		if err != nil {
+			return fmt.Errorf("read catalog incremental %s: %w", f, err)
+		}
+		if _, err := db.ExecContext(ctx, string(b)); err != nil {
+			return fmt.Errorf("apply catalog incremental %s: %w", f, err)
+		}
+	}
+	return nil
+}
+
 func reference(ctx context.Context, q queryer, u *User) func(string, []string) error {
 	return func(id string, kinds []string) error {
 		if _, err := uuid.Parse(id); err != nil {
@@ -520,10 +548,26 @@ func reference(ctx context.Context, q queryer, u *User) func(string, []string) e
 		return nil
 	}
 }
+// 四类版本互不混用（D4）：
+//  1. 数据库迁移版本：schema_migrations + backend/migrations/*.sql，回答"库结构到哪了"；
+//  2. definitions 发布版本：catalog.definitions.id，回答"校验与展示按哪份定义"；
+//  3. 条目修订版本：catalog.revisions.version（按 target_id 递增）与 entities.version
+//     乐观并发计数，回答"这个条目改到第几版"；
+//  4. 服务镜像/接口兼容版本：构建期注入的 git sha（见 version.go），回答"线上跑的是哪次构建"。
+// 本函数同时写 3 的修订行与 outbox 事件（见任务 8 的双快照注释），并把 2 的当前值记进
+// 修订行的 definition_version：字段含义变化后，历史值仍可用当时的定义解释。
 func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, note string, sources []Source, snapshot any, eventType string) error {
 	// actor_name/actor_role 与 actor_id 一起落库：读取修订历史不再需要 JOIN auth.users
 	// （账号表归账号服务，跨 schema 读会让两个系统在数据层重新耦合）。
-	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,actor_name,actor_role,edit_note,sources,snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,$8)", id, version, u.ID, u.Username, u.Role, note, encode(sources), encode(snapshot)); err != nil {
+	// definition_version 取同一事务内的已发布定义：definitions.published 事件的 audit
+	// 调用发生在发布事务提交前，读到的是本事务刚发布的版本，引用即自身；无已发布行
+	//（极端空库路径）时记 NULL，不伪造引用。
+	var defVersion *int64
+	var publishedID int64
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM catalog.definitions WHERE state='published'").Scan(&publishedID); err == nil {
+		defVersion = &publishedID
+	}
+	if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.revisions(target_id,version,actor_id,actor_name,actor_role,edit_note,sources,snapshot,definition_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)", id, version, u.ID, u.Username, u.Role, note, encode(sources), encode(snapshot), defVersion); err != nil {
 		return err
 	}
 	_, err := tx.ExecContext(ctx, "INSERT INTO catalog.outbox(id,type,entity_id,version,payload) VALUES($1,$2,$3,$4,$5)", uuid.NewString(), eventType, id, version, encode(snapshot))
@@ -1217,7 +1261,7 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 	// 就等于把两个系统的数据层重新绑在一起（也挡住了将来换库/换实例的可能）。
 	// 老库迁移过来的存量行可能没有快照，回退为 system/editor，只影响显示名。
 	rows, err := s.DB.QueryContext(ctx, `
-		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), COALESCE(NULLIF(r.actor_role, ''), 'editor'), r.edit_note, r.sources, r.snapshot, r.created_at
+		SELECT r.id, r.version, COALESCE(r.actor_id::text, ''), COALESCE(NULLIF(r.actor_name, ''), 'system'), COALESCE(NULLIF(r.actor_role, ''), 'editor'), r.edit_note, r.sources, r.snapshot, r.created_at, r.definition_version
 		FROM catalog.revisions r
 		WHERE r.target_id = $1
 		ORDER BY r.version DESC, r.id DESC
@@ -1232,7 +1276,8 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 		var actorID, actorName, actorRole, note string
 		var sources, snapshot json.RawMessage
 		var at time.Time
-		if err = rows.Scan(&revID, &version, &actorID, &actorName, &actorRole, &note, &sources, &snapshot, &at); err != nil {
+		var defVersion sql.NullInt64
+		if err = rows.Scan(&revID, &version, &actorID, &actorName, &actorRole, &note, &sources, &snapshot, &at, &defVersion); err != nil {
 			return nil, err
 		}
 		// 实体修订的 snapshot 是 Entity，逐行按实体可见性过滤；
@@ -1246,16 +1291,23 @@ func (s *Store) Revisions(ctx context.Context, id string, u *User) ([]map[string
 				continue
 			}
 		}
+		// definition_version：本次写入所依据的已发布定义版本（D4，四类版本之 2）；
+		// 迁移前老行记 null。展示端据此追溯，不混用条目修订 version。
+		var defVersionAny any
+		if defVersion.Valid {
+			defVersionAny = defVersion.Int64
+		}
 		out = append(out, map[string]any{
-			"id":         revID,
-			"version":    version,
-			"actor_id":   actorID,
-			"actor_name": actorName,
-			"actor_role": actorRole,
-			"edit_note":  note,
-			"sources":    sources,
-			"snapshot":   snapshot,
-			"created_at": at,
+			"id":                 revID,
+			"version":            version,
+			"actor_id":           actorID,
+			"actor_name":         actorName,
+			"actor_role":         actorRole,
+			"edit_note":          note,
+			"sources":            sources,
+			"snapshot":           snapshot,
+			"created_at":         at,
+			"definition_version": defVersionAny,
 		})
 	}
 	return out, rows.Err()

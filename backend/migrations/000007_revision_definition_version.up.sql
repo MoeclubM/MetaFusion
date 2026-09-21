@@ -1,0 +1,12 @@
+-- D4：修订绑定定义版本。catalog.revisions 新增 definition_version，记录本次写入所依据的
+-- 已发布定义版本 id（catalog.definitions.id），字段含义变化时历史值仍可用当时的定义解释。
+--
+-- 四类版本互不混用（见 backend/internal/catalog/store.go 的 audit 注释）：
+--   1. 数据库迁移版本（schema_migrations，本文件即一例）；
+--   2. definitions 发布版本（catalog.definitions.id，本列引用它）；
+--   3. 条目修订版本（catalog.revisions.version，按 target_id 递增，与 entities.version 同步）；
+--   4. 服务镜像/接口兼容版本（构建期注入的 git sha，见 catalog/version.go）。
+--
+-- 可空：历史修订行（迁移前写入）没有该引用，读作 null；新增写入一律填充。
+-- 幂等：ADD COLUMN IF NOT EXISTS，mf-migrate up 与目录服务安装路径重复执行都安全。
+ALTER TABLE catalog.revisions ADD COLUMN IF NOT EXISTS definition_version bigint;
