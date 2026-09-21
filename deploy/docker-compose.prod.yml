@@ -9,10 +9,27 @@
 #   1 秒极速启动，杜绝生产构建资源浪费与内存打满。
 #
 # 版本钉死（审计 O05）：IMAGE_TAG 默认 latest 只是为了兼容现有拉取流程；
-#   生产拉取前应按 release-manifest.yaml 把它设成不可变 tag/sha，
-#   digest 在部署机上用 docker buildx imagetools inspect 解析并记录。
+#   deploy.sh pull 已拒绝 latest/空（require_pinned_manifest），生产必须按
+#   release-manifest.yaml 把它设成不可变 tag，digest 以清单为准。
 #   拉取失败即中断（deploy.sh pull 已去掉 --ignore-pull-failures），
 #   不许用本地旧镜像静默兜底。
+#
+# R3 多副本扩容（本文件统一收口）：无状态服务（frontend/docs-site/四个业务服务/
+#   四个自带管理台与自助应用）的固定 container_name 在此全部 !reset，常规
+#   `up -d --scale backend=2` 可直接复制副本。寻址一律走服务名 DNS（网关
+#   nginx.conf 与各服务 URL 全是 http://backend:8080 这类服务名），不依赖容器名；
+#   deploy.sh 只 exec metafusion-gateway，它与 postgres/rustfs/opensearch/迁移作业
+#   一样保持单实例固定名。
+#   用法：docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d \
+#     --scale backend=2 --scale auth=2
+#   连接池总量预算：目录库每进程 MaxOpenConns=20（backend/internal/catalog/store.go），
+#   副本总量 = 20 × 后端副本数 + 迁移作业(1) + 运维连接，必须 ≤ postgres max_connections；
+#   加副本前先核算，不够先调大库侧再扩（进程内限流同理按副本数折算，见目标架构 §4 R3）。
+#   单实例限定：带本地卷的服务（postgres/pg_data、storage/storage_data 本地暂存、
+#   rustfs/s3_data）不扩；多副本的对象源必须是共享的 rustfs，纯本地目录模式只许单实例。
+#   迁移只跑一次：backend-migrate/community-migrate 是 profiles: tools 一次性作业，
+#   只由 deploy.sh 调 run --rm 跑一次，永不 --scale；迁移器镜像与本次发布同源
+#   （见下面 backend-migrate 段与 release-manifest.yaml 的 same_source 绑定）。
 # ==============================================================================
 
 # 所有服务共用同一份容器日志上限：json-file 驱动 + 单文件 10 MiB + 保留 3 份。
@@ -28,6 +45,8 @@ services:
   frontend:
     logging: *default-logging
     build: !reset null
+    # R3：去固定名，扩容副本由 compose 按服务名编排（单副本时名字变为 <工程>-frontend-1）
+    container_name: !reset null
     image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/frontend:${IMAGE_TAG:-latest}
     restart: always
 
@@ -36,14 +55,49 @@ services:
   # ../../metafusion-docs 就地构建（账号/互动/存储本来也是就地构建）。
   docs-site:
     logging: *default-logging
+    # R3：同 frontend，去固定名（静态站无状态，可多副本）
+    container_name: !reset null
     image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/docs-site:${IMAGE_TAG:-latest}
     restart: always
 
   backend:
     logging: *default-logging
     build: !reset null
+    # R3：去固定名；扩容前先按头注释核算连接池总量预算
+    container_name: !reset null
     image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/backend:${IMAGE_TAG:-latest}
     restart: always
+
+  # R3：账号/互动/存储及各管理台在 pull 路径仍就地构建（--ignore-buildable 跳过拉取），
+  # 这里只去固定名、不改构建与镜像：扩容寻址同样走服务名，本地卷单实例限定见头注释。
+  auth:
+    logging: *default-logging
+    container_name: !reset null
+
+  community:
+    logging: *default-logging
+    container_name: !reset null
+
+  storage:
+    logging: *default-logging
+    # storage_data 是本地暂存卷：多副本前必须确认对象源为共享 rustfs，纯本地目录模式只许单实例
+    container_name: !reset null
+
+  auth-admin:
+    logging: *default-logging
+    container_name: !reset null
+
+  auth-user:
+    logging: *default-logging
+    container_name: !reset null
+
+  community-admin:
+    logging: *default-logging
+    container_name: !reset null
+
+  storage-admin:
+    logging: *default-logging
+    container_name: !reset null
 
   # 迁移作业同样走预构建（审计 §6）：pull 路径跑的是拉下来那份镜像里的迁移器，
   # 而不是本地那张旧标签——base 里的 metafusion-migrator:local 在这里不再可选。
