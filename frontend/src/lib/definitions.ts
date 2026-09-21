@@ -117,8 +117,52 @@ export interface DynamicDefinitions {
 }
 
 /**
+ * effectiveOwnerTypes：与后端 effectiveOwnerTypes 同一口径——声明了就原样用
+ * （恒等，不展开）；空 types 才回退到该 kind 的启用类型集合（仅兼容历史，
+ * 新写必须显式声明 types，前端由编辑器保存入口拦截），于是"字段适用范围"
+ * 与"方案匹配"看到的是同一套类型。回退固定只计启用类型：方案只管数据录入，
+ * 不管历史宽容（与后端 kindTypeCodes(kind, false) 一致）。
+ */
+export function effectiveOwnerTypes(
+  defs: DynamicDefinitions | null | undefined,
+  ownerKind: string,
+  ownerTypes: string[]
+): string[] {
+  if ((ownerTypes || []).length > 0) return ownerTypes;
+  return Object.entries(defs?.types || {})
+    .filter(([, t]) => t.enabled && (t.kinds || []).includes(ownerKind))
+    .map(([code]) => code)
+    .sort();
+}
+
+/**
+ * kindApplicableFields：该 kind 当前适用字段（启用类型的字段并集，保序去重）。
+ * 与后端 attributeKeys 空 types 分支同源（回退仅兼容历史），供历史无类型实体
+ * 的"适用字段发现入口"使用：已存属性走兼容展示，这里只列出尚未展示的可加字段。
+ * 自由标签 tags 不在此列——它有专用标签输入，不兼任业务分类。
+ */
+export function kindApplicableFields(
+  defs: DynamicDefinitions | null | undefined,
+  kind: string
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const code of effectiveOwnerTypes(defs, kind, [])) {
+    for (const f of defs?.types?.[code]?.fields || []) {
+      if (f !== "tags" && !seen.has(f)) {
+        seen.add(f);
+        out.push(f);
+      }
+    }
+  }
+  return out;
+}
+
+/**
  * matchSchemes：与后端 matchSchemes 同一口径——slot 相同、kinds 命中拥有者
- * kind（空=命中）、types 与拥有者 types 有交集（空=命中）且 enabled。
+ * kind（空=命中）、types 与拥有者有效类型有交集（空=命中）且 enabled。
+ * 空 types 按有效类型（见 effectiveOwnerTypes）展开后匹配，兼容历史/导入载荷；
+ * 带 types 限制的 scheme 启用后，前端收敛结果与后端 effectiveGroupField 一致。
  */
 export function matchSchemes(
   defs: DynamicDefinitions | null | undefined,
@@ -126,12 +170,13 @@ export function matchSchemes(
   ownerKind: string,
   ownerTypes: string[]
 ): SchemeDef[] {
+  const effective = effectiveOwnerTypes(defs, ownerKind, ownerTypes || []);
   const schemes = defs?.schemes || {};
   return Object.values(schemes).filter((s) => {
     if (!s || s.enabled === false || s.slot !== slot) return false;
     if ((s.kinds || []).length > 0 && !s.kinds!.includes(ownerKind)) return false;
     if ((s.types || []).length > 0) {
-      if (!(ownerTypes || []).some((t) => s.types!.includes(t))) return false;
+      if (!effective.some((t) => s.types!.includes(t))) return false;
     }
     return true;
   });
