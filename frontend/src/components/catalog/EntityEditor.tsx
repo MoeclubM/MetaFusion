@@ -11,15 +11,16 @@ import { getAuthLoginUrl } from "@/lib/services";
 import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
 import { LanguagePicker } from "@/components/common/LanguagePicker";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
-import { effectiveSchemeFields, getFieldName, getKindName, getTypeName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
+import { effectiveSchemeFields, getFieldName, getKindName, getTypeName, kindApplicableFields, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
 import { canonicalLanguageCode, languageLabel, quickLanguages } from "@/lib/languages";
 
 /** 生效类型：原样使用实体自带的 types（老实体不清空、新建不推导）。
- *  空 types 不再取该层级全部 enabled 类型——那会把一部小说同时标为音乐、
- *  动画、游戏，且与后端 attributeKeys（仅按实际 types 取允许字段，
- *  见 validation.go:934，超集报 unknown_field 见 :800）断开：
- *  界面能填、保存失败。有效字段由服务端按实际 types 决定，
- *  编辑/预检/保存/检索共用同一口径，模板只控制编辑与展示。 */
+ *  与后端同口径（见 validation.go 的 effectiveOwnerTypes / attributeKeys / matchSchemes）：
+ *  声明了就按声明取允许字段，写超集字段报 unknown_field（见 attributes）；
+ *  空 types 回退到该 kind 的启用类型集合，仅兼容历史无类型实体与导入载荷——
+ *  新写必须显式声明 types，前端由 save 入口拦截，后端同样不把回退写回 e.Types
+ *  （自动加全部 types 会把一部小说同时标为音乐、动画、游戏）。模板只控制
+ *  编辑与展示，不参与适用性判定。 */
 function effectiveTypesOf(
   defs: { types?: Record<string, { kinds: string[]; enabled: boolean }> } | undefined,
   kind: string,
@@ -113,6 +114,8 @@ export function EntityEditor({
   const [externalKey, setExternalKey] = useState("");
   // 标签输入框的待确认文本（回车/逗号才落到 attributes.tags）。
   const [tagInput, setTagInput] = useState("");
+  // 历史无类型实体适用字段发现入口的待选项（选中后点添加才落到 attributes）。
+  const [compatFieldPick, setCompatFieldPick] = useState("");
   // 当前编辑的语种；空串表示跟随原始语言（用户还没手动切换过）。
   const [localePick, setLocalePick] = useState("");
   if (!definitions) return <p>{t("catalog.loading")}</p>;
@@ -141,7 +144,8 @@ export function EntityEditor({
     .filter(([, v]) => v.enabled && (v.kinds || []).includes(e.kind))
     .map(([code]) => code);
   const patch = (v: Partial<Entity>) => setE({ ...e, ...v });
-  // ---- 标签：自由输入，取代原先的"类型"勾选（types 保留在数据里，只是不再由界面选择）----
+  // ---- 标签：自由字符串列表，只承载检索/分组，不兼任业务分类（不造分类树）；
+  // 业务类型另有复选框（见身份区末尾），勾选随条目保存、决定字段约束。----
   const tags: string[] = Array.isArray(e.attributes?.tags)
     ? (e.attributes.tags as unknown[]).map((v) => String(v ?? "").trim()).filter(Boolean)
     : [];
@@ -275,8 +279,26 @@ export function EntityEditor({
       (f) => !seen.has(f) && !!d.fields[f]?.hidden && f !== "tags",
     );
   }
+  // 历史无类型实体的适用字段发现入口：后端 attributeKeys 空分支回退到本 kind
+  // 启用类型并集（仅兼容历史），已存属性走上面的兼容展示，这里只列出尚未展示、
+  // 当前仍启用的可加字段。新建与已声明类型的实体不需要它（字段集即所选类型并集）。
+  const shownFields = new Set(fields);
+  const compatFieldOptions: string[] =
+    e.id && e.types.length === 0
+      ? kindApplicableFields(d, e.kind).filter(
+          (f) => !shownFields.has(f) && d.fields[f]?.enabled !== false,
+        )
+      : [];
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();
+    // 新写显式声明 types：新建（无 id）必须至少勾选一个业务类型，否则可用字段
+    // 无从确定；该层级暂无可用类型时不拦（否则该层级永远建不出条目）。
+    // 历史无类型实体（有 id 且 types 为空）走兼容展示：后端 attributeKeys 空分支
+    // 回退到该 kind 启用类型并集（仅兼容历史），此处不拦、原样提交。
+    if (!e.id && e.types.length === 0 && kindTypeOptions.length > 0) {
+      setError(t("catalog.typesRequiredForNew"));
+      return;
+    }
     // 应用层证据校验：HTML required 的原生气泡在部分环境不可见，
     // 曾表现为"点保存没反应"；noValidate 后统一在此给出明确提示。
     const missingEvidence =
@@ -466,8 +488,9 @@ export function EntityEditor({
           <p className="cv-hint">{t("catalog.tagsHint")}</p>
         </div>
         {/* 业务类型：显式勾选，随条目真实保存（save 的 entity.types 原样提交）。
-            空 types 即无类型字段——与后端"仅按实际 types 取允许字段"同口径，
-            不自动补全量，避免小说被标成音乐/动画/游戏。 */}
+            新建必须至少勾选一个（save 入口拦截，决定可用字段）；历史无类型实体
+            留空即兼容维护——后端 attributeKeys 空分支回退到本 kind 启用类型并集
+            （仅兼容历史），前端不替它补全量，避免小说被标成音乐/动画/游戏。 */}
         <div className="cv-tags">
           <strong>{t("catalog.businessTypes")}</strong>
           {kindTypeOptions.length === 0 ? (
@@ -839,7 +862,7 @@ export function EntityEditor({
         drafts={pendingRelations}
         onDraftsChange={setPendingRelations}
       />
-      {!!fields.length && (
+      {!!(fields.length || compatFieldOptions.length) && (
         <fieldset>
           <legend>{t("catalog.attributes")}</legend>
           {/* 动态结构：字段按实体类型引用模板的 sections 分组（分区名/字段/次序
@@ -908,6 +931,41 @@ export function EntityEditor({
                     )}
                   </label>
                 ))}
+              </div>
+            </div>
+          )}
+          {/* 历史无类型实体的适用字段发现入口：已存属性在上方兼容展示，
+              本层级当前适用、尚未展示的字段在这里按需添加（加后即进入上方分组
+              编辑，留空不提交，后端按同一字段集校验，不再“能填被拒”）。 */}
+          {compatFieldOptions.length > 0 && (
+            <div className="cv-section">
+              <h4 className="cv-section-title">{t("catalog.applicableFields")}</h4>
+              <p className="cv-hint">{t("catalog.applicableFieldsHint")}</p>
+              <div className="cv-row">
+                <select
+                  aria-label={t("catalog.applicableFields")}
+                  value={compatFieldPick}
+                  onChange={(x) => setCompatFieldPick(x.target.value)}
+                >
+                  <option value="">{t("catalog.select")}</option>
+                  {compatFieldOptions.map((code) => (
+                    <option key={code} value={code}>
+                      {getFieldName(defs as any, code, locale) || code}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!compatFieldPick}
+                  onClick={() => {
+                    // 占位值为 undefined：只为让该键进入展示字段集（JSON 序列化时丢弃，
+                    // 不提交空值；填了值才随 attributes 提交，后端按同一字段集校验）。
+                    patch({ attributes: { ...e.attributes, [compatFieldPick]: undefined } });
+                    setCompatFieldPick("");
+                  }}
+                >
+                  {t("catalog.add")}
+                </button>
               </div>
             </div>
           )}
