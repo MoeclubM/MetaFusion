@@ -287,7 +287,13 @@ jobs:
                   "prefix": "ghcr.io/moeclubm/metafusion",
                   "names": ["backend", "migrator", "frontend"],
               },
-              "digest_note": "digest 在部署机上解析：docker buildx imagetools inspect <prefix>/<name>:<tag>；回滚按 manifest 里的 sha 重打 tag，不复用 latest",
+              "digests": {
+                  "backend": "待填",
+                  "migrator": "待填",
+                  "frontend": "待填",
+              },
+              "digest_query": "docker buildx imagetools inspect <prefix>/<name>:<tag>  # 取 RepoDigests 回填",
+              "digest_note": "digest 不在 CI 伪造：部署机按 tag 用 digest_query 解析并记录后，再钉 IMAGE_TAG；未知一律标待填；回滚按 manifest 里的 sha 重打 tag，不复用 latest",
           }
           with open("release-manifest.yaml", "w", encoding="utf-8") as fh:
               yaml.safe_dump(manifest, fh, allow_unicode=True, sort_keys=False)
