@@ -561,9 +561,9 @@ services:
   #   docker buildx imagetools inspect rustfs/rustfs:<tag>   # 取 RepoDigests 填进来
   # 填入后验证存储服务仍能连上、桶仍能自动创建再提交；在 digest 落定前不要把某个未经
   # 验证的版本号写成默认值——那等于虚构“已验证”。
-  # 联动缺口：本变量尚未记入根目录 .env.example（check_deploy.py 会报一条缺记录），
-  # CI compose-lint 也需在 env 里给 RUSTFS_IMAGE 测试值——两处都在本任务文件范围外，
-  # 见本次提交说明，待后续一并补齐。
+  # 联动：本变量已记入根目录 .env.example 占位示例（check_deploy.py 的必填登记检查可过），
+  # CI compose-lint 的三个 base 合并步骤也在 env 里给了 rustfs/rustfs:test-only 假值
+  # （config 只做插值不拉镜像）——干净 runner 可过解析，见 .github/workflows/ci.yml。
   rustfs:
     logging: *default-logging
     image: ${RUSTFS_IMAGE:?RUSTFS_IMAGE must be set in .env (pin to digest, see above)}

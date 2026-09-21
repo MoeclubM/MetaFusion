@@ -141,6 +141,9 @@ jobs:
           DB_PASSWORD: test-only-password
           RUSTFS_ROOT_USER: test-only-user
           RUSTFS_ROOT_PASSWORD: test-only-password
+          # RUSTFS_IMAGE 是 rustfs 服务的 :? 必填插值（与 .env.example 占位示例同形）：
+          # config 只做插值不拉镜像，给 test-only 假值即可，干净 runner 可过解析
+          RUSTFS_IMAGE: rustfs/rustfs:test-only
         run: docker compose -f deploy/docker-compose.yml config >/dev/null
       - name: metadata-only compose config
         env:
@@ -157,6 +160,8 @@ jobs:
           DB_PASSWORD: test-only-password
           RUSTFS_ROOT_USER: test-only-user
           RUSTFS_ROOT_PASSWORD: test-only-password
+          # 同上：覆盖文件合并仍解析 base 的 :? 必填项，假值与上一步同口径
+          RUSTFS_IMAGE: rustfs/rustfs:test-only
         run: |
           docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.dev.yml config --quiet
           docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.prod.yml config --quiet
@@ -168,6 +173,8 @@ jobs:
           DB_PASSWORD: test-only-password
           RUSTFS_ROOT_USER: test-only-user
           RUSTFS_ROOT_PASSWORD: test-only-password
+          # 同上：断言前两处 config 合并都要先过 :? 插值，假值与上同口径
+          RUSTFS_IMAGE: rustfs/rustfs:test-only
         run: |
           python3 -m pip install --quiet pyyaml
           cat > /tmp/assert_keys.py <<'PYEOF'
