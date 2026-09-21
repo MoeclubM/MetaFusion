@@ -563,8 +563,19 @@ func reference(ctx context.Context, q queryer, u *User) func(string, []string) e
 //     乐观并发计数，回答"这个条目改到第几版"；
 //  4. 服务镜像/接口兼容版本：构建期注入的 git sha（见 version.go），回答"线上跑的是哪次构建"。
 //
-// 本函数同时写 3 的修订行与 outbox 事件（见任务 8 的双快照注释），并把 2 的当前值记进
-// 修订行的 definition_version：字段含义变化后，历史值仍可用当时的定义解释。
+// 本函数同时写 3 的修订行与 outbox 事件，并把 2 的当前值记进修订行的
+// definition_version：字段含义变化后，历史值仍可用当时的定义解释。
+//
+// 双快照的用途与保留策略（任务 8：不删历史）：两次写入是同一快照的两份不同用途——
+// revisions 按 target_id 留版本化历史（用户可见的修订时间线，回滚与审计的依据），
+// outbox 按事件留待投递的事实（未来跨服务消费者的唯一来源，见 Deliver 的保留注释）。
+// 当前 Deliver 无生产消费者，但两边都不清：删修订断时间线，删 outbox 断 deliveries 外键
+// 且丢审计；事件只引用修订 ID 太省会逼消费者回查，当前最小载荷即全量快照。
+//
+// 关键动作的留痕现状核对：授权/处置类动作（实体删除/合并、下架、关系删除、定义起草/发布、
+// 合并改写）全部经本函数落在业务事务内——事务回滚则留痕与业务一起消失，不存在
+// “改了没记、记了没改”的半成品。通用访问审计（audit.Recorder）是进程内有界队列异步落库，
+// 满则丢行计数（尽力而为），只做访问日志，不承担业务留痕。
 func audit(ctx context.Context, tx *sql.Tx, id string, version int64, u User, note string, sources []Source, snapshot any, eventType string) error {
 	// actor_name/actor_role 与 actor_id 一起落库：读取修订历史不再需要 JOIN auth.users
 	// （账号表归账号服务，跨 schema 读会让两个系统在数据层重新耦合）。
