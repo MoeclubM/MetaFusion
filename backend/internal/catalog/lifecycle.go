@@ -5,8 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type LifecycleEdit struct {
@@ -265,6 +268,9 @@ type IdentityResolution struct {
 
 // ResolveIdentity 跟随 merged 链并收集别名：循环重定向报 redirect_cycle；
 // 终点不可见按不存在处理，与 Resolve 同口径（同为 404 not_found）。
+// 别名集合含两部分（去重）：向前链上依次经过的旧 ID，以及存活身份的全部历史别名
+// （反向遍历 redirect 边，见 reverseAliases）：A→C、B→C、C→D 后从 D 可枚举 A/B/C，
+// 分支合并与多跳链一次收齐。跨服务（文件/评论/收藏）按此集合聚合。
 func (s *Store) ResolveIdentity(ctx context.Context, id string, u *User) (IdentityResolution, error) {
 	var out IdentityResolution
 	seen := map[string]bool{}
@@ -287,8 +293,47 @@ func (s *Store) ResolveIdentity(ctx context.Context, id string, u *User) (Identi
 			return out, sql.ErrNoRows
 		}
 		out.CanonicalID, out.Entity = e.ID, e
+		out.Aliases = append(out.Aliases, s.reverseAliases(ctx, e.ID, seen)...)
 		return out, nil
 	}
+}
+
+// reverseAliases 从存活身份反向枚举全部历史别名：逐层查直接指向本层节点的 merged 行
+// （document->>'redirect_id'，redirect_id 列已随 000004 删除，按现有 redirect 实现选
+// 遍历而非新索引——范围限定在 merged 行逐层展开，不做迁移）。向前链已收集的只去重不丢弃：
+// 已见节点仍要展开（其上游可能不在向前链上，如 X→A→C 时从 A 查必须带回 X），
+// 增补部分排序后返回（确定性顺序）；环数据由 visited 截断（向前链的 redirect_cycle 仍由主循环报）。
+func (s *Store) reverseAliases(ctx context.Context, canonical string, seen map[string]bool) []string {
+	visited := map[string]bool{canonical: true}
+	extra := []string{}
+	frontier := []string{canonical}
+	for len(frontier) > 0 {
+		rows, err := s.DB.QueryContext(ctx, `SELECT id::text FROM catalog.entities WHERE status='merged' AND document->>'redirect_id' = ANY($1::text[])`, pq.Array(frontier))
+		if err != nil {
+			return extra
+		}
+		var next []string
+		func() {
+			defer rows.Close()
+			for rows.Next() {
+				var id string
+				if err := rows.Scan(&id); err != nil {
+					break
+				}
+				if visited[id] {
+					continue
+				}
+				visited[id] = true
+				next = append(next, id)
+				if !seen[id] {
+					extra = append(extra, id)
+				}
+			}
+		}()
+		frontier = next
+	}
+	sort.Strings(extra)
+	return extra
 }
 
 // Resolve preserves old identifiers without rewriting the evidence of a merge.

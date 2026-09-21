@@ -142,9 +142,13 @@ func TestPostgresResolveIdentityChain(t *testing.T) {
 	if len(res.Aliases) != 2 || res.Aliases[0] != a.ID || res.Aliases[1] != b.ID {
 		t.Fatalf("别名集合应按链序：%v", res.Aliases)
 	}
+	// 存活身份反向枚举全部历史别名（X01）：从 C 直接查回 A/B（集合口径，排序保证确定性）。
 	res, err = f.s.ResolveIdentity(ctx, c.ID, nil)
-	if err != nil || res.CanonicalID != c.ID || len(res.Aliases) != 0 {
-		t.Fatalf("存活身份别名应为空：%+v %v", res, err)
+	if err != nil || res.CanonicalID != c.ID {
+		t.Fatalf("存活身份应解析到自身：%+v %v", res, err)
+	}
+	if !sameIDSet(res.Aliases, []string{a.ID, bCur.ID}) {
+		t.Fatalf("存活身份应反向枚举全部历史别名：%v", res.Aliases)
 	}
 	if _, err = f.s.ResolveIdentity(ctx, "00000000-0000-0000-0000-000000000000", nil); err == nil {
 		t.Fatal("未知 ID 应失败")
@@ -162,6 +166,57 @@ func TestPostgresResolveIdentityChain(t *testing.T) {
 	occ, err := f.s.Occurrences(ctx, oldW.ID, nil)
 	if err != nil || len(occ) != 1 {
 		t.Fatalf("旧 ID 收录应汇到存活链：%d %v", len(occ), err)
+	}
+}
+
+// sameIDSet 按集合比较 ID 列表（反向别名排序后确定，但不断言链序）。
+func sameIDSet(got []string, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	seen := map[string]int{}
+	for _, id := range got {
+		seen[id]++
+	}
+	for _, id := range want {
+		if seen[id] == 0 {
+			return false
+		}
+		seen[id]--
+	}
+	return true
+}
+
+// X01 反向解析验收：A→C、B→C 两个分支再 C→D，从 D 枚举此前全部历史且去重；
+// 从分支旧 ID 出发同样收齐全集（向前链 + 反向增补合并去重）。
+func TestPostgresResolveIdentityReverseBranches(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	a := f.save(Entity{Kind: "work", Title: "分支甲"})
+	b := f.save(Entity{Kind: "work", Title: "分支乙"})
+	c := f.save(Entity{Kind: "work", Title: "汇合"})
+	d := f.save(Entity{Kind: "work", Title: "存活"})
+	batch2Merge(t, f, a, c.ID)
+	batch2Merge(t, f, b, c.ID)
+	cCur, err := f.s.Get(ctx, c.ID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch2Merge(t, f, cCur, d.ID)
+	want := []string{a.ID, b.ID, c.ID}
+	res, err := f.s.ResolveIdentity(ctx, d.ID, nil)
+	if err != nil || res.CanonicalID != d.ID {
+		t.Fatalf("存活身份应解析到自身：%+v %v", res, err)
+	}
+	if !sameIDSet(res.Aliases, want) {
+		t.Fatalf("从 D 应枚举全部历史且去重：%v want %v", res.Aliases, want)
+	}
+	resA, err := f.s.ResolveIdentity(ctx, a.ID, nil)
+	if err != nil || resA.CanonicalID != d.ID {
+		t.Fatalf("分支旧 ID 应解析到存活实体：%+v %v", resA, err)
+	}
+	if !sameIDSet(resA.Aliases, want) {
+		t.Fatalf("从分支旧 ID 应收齐全集：%v want %v", resA.Aliases, want)
 	}
 }
 
