@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -497,9 +498,58 @@ func (d Definitions) kindTypeCodes(kind string, historical bool) []string {
 	return out
 }
 
+// explicitTypesCutoff 是"新写必须显式声明 types"口径（M05/D3）的生效点：
+// 此刻之前创建的无类型实体视为真实旧数据，更新时仍走历史回退；之后创建的无类型实体
+// （只能是裸骨架或导入链路）补属性同样要先声明 types。创建时刻取自主键 UUIDv7 的
+// 毫秒时间戳（见 newID），不以"有没有 ID"为准——创建后即有 ID（D3）。
+var explicitTypesCutoffMillis = time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC).UnixMilli()
+
+// uuidV7Millis 从主键提取创建时间（UUIDv7 前 48 位是毫秒时间戳）：
+// 非 v7 主键（v4 回退、历史异形）返回 false，调用方按旧数据宽容——不断读。
+func uuidV7Millis(id string) (int64, bool) {
+	s := strings.ReplaceAll(id, "-", "")
+	if len(s) != 32 || s[12] != '7' {
+		return 0, false
+	}
+	n, err := strconv.ParseUint(s[:12], 16, 64)
+	if err != nil {
+		return 0, false
+	}
+	return int64(n), true
+}
+
+// isLegacyUntyped 报告该存量实体是否属于真实旧数据：无 types 且创建早于口径生效点。
+// 有 types 的实体不走历史回退（声明了就按声明校验）；主键解析失败按旧数据宽容。
+func isLegacyUntyped(e Entity) bool {
+	if len(e.Types) > 0 {
+		return false
+	}
+	ms, ok := uuidV7Millis(e.ID)
+	if !ok {
+		return true
+	}
+	return ms < explicitTypesCutoffMillis
+}
+
+// soleEnabledType 返回该 kind 唯一的启用业务类型（D3 新建自动采用，如 medium 只有
+// medium）：零个（该层级暂无可用类型，不拦截）或多个（须由用户选择）时返回 false。
+func (d Definitions) soleEnabledType(kind string) (string, bool) {
+	var sole string
+	n := 0
+	for code, t := range d.Types {
+		if t.Enabled && contains(t.Kinds, kind) {
+			sole, n = code, n+1
+			if n > 1 {
+				return "", false
+		}
+		}
+	}
+	return sole, n == 1
+}
+
 // needsExplicitTypes 报告实体是否携带类型外属性（自由输入 tags 除外）：
 // 新写携带这类内容必须显式声明 types（attributeKeys 报 types_required），
-// 空回退仅限历史存量与导入链路；裸骨架（无属性/仅 tags）新建仍放行——身份先行、字段后补。
+// 空回退仅限真实旧数据与导入链路；裸骨架（无属性/仅 tags）新建仍放行——身份先行、字段后补。
 func needsExplicitTypes(e Entity) bool {
 	for k := range e.Attributes {
 		if !contains(freeInputAttributes, k) {

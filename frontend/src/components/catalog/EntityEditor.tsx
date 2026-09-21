@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds as fallbackKinds, local, Source } from "./api";
@@ -78,6 +78,24 @@ export function EntityEditor({
   // 顺序（relative_to 锚点置前），无匹配时按全局声明顺序（锚点置前）。
   const kindKey = e.kind;
   const typesKey = JSON.stringify(e.types);
+  // D3 单适用类型自动采用（与后端 soleEnabledType 同口径）：kindTypeOptions 只有一个
+  // 启用类型时（如 medium 只有 medium）直接采用，不让用户重复勾选“介质的类型=介质”；
+  // 多类型 kind 仍须手动选择（save 入口拦截）。逗号拼接即比较键：类型码不含逗号。
+  const kindTypeOptionsKey = useMemo(() => {
+    if (!defs) return "";
+    return Object.entries(defs.types || {})
+      .filter(([, v]) => v.enabled && (v.kinds || []).includes(kindKey))
+      .map(([code]) => code)
+      .sort()
+      .join(",");
+  }, [defs, kindKey]);
+  useEffect(() => {
+    if (!e.id && e.types.length === 0 && kindTypeOptionsKey && !kindTypeOptionsKey.includes(",")) {
+      setE({ ...e, types: [kindTypeOptionsKey] });
+    }
+    // 只在新建/类型/候选变化时补一次：提交后 types 非空即停，不与用户勾选竞争。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [e.id, typesKey, kindTypeOptionsKey]);
   const effTypes = React.useMemo(
     () => effectiveTypesOf(defs, kindKey, JSON.parse(typesKey)),
     [defs, kindKey, typesKey],
@@ -140,9 +158,8 @@ export function EntityEditor({
   const d = definitions;
   // 本层级可选的业务类型：enabled 且声明归属本 kind；勾选即随条目真实保存，
   // 服务端按所选 types 校验字段（与保存/预检同一口径），不做全量推导。
-  const kindTypeOptions: string[] = Object.entries(d.types || {})
-    .filter(([, v]) => v.enabled && (v.kinds || []).includes(e.kind))
-    .map(([code]) => code);
+  // 与上面的 kindTypeOptionsKey 同源（排序后拆回）：单候选时已被 effect 自动采用。
+  const kindTypeOptions: string[] = kindTypeOptionsKey ? kindTypeOptionsKey.split(",") : [];
   const patch = (v: Partial<Entity>) => setE({ ...e, ...v });
   // ---- 标签：自由字符串列表，只承载检索/分组，不兼任业务分类（不造分类树）；
   // 业务类型另有复选框（见身份区末尾），勾选随条目保存、决定字段约束。----
@@ -291,11 +308,13 @@ export function EntityEditor({
       : [];
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    // 新写显式声明 types：新建（无 id）必须至少勾选一个业务类型，否则可用字段
-    // 无从确定；该层级暂无可用类型时不拦（否则该层级永远建不出条目）。
-    // 历史无类型实体（有 id 且 types 为空）走兼容展示：后端 attributeKeys 空分支
-    // 回退到该 kind 启用类型并集（仅兼容历史），此处不拦、原样提交。
-    if (!e.id && e.types.length === 0 && kindTypeOptions.length > 0) {
+    // 新写显式声明 types（D3，与后端 Save 同口径）：新建（无 id）必须至少带一个业务类型，
+    // 否则可用字段无从确定；单候选 kind 已被 effect 自动采用（此处再兜一次，防 effect 未跑完就提交）。
+    // 该层级暂无可用类型时不拦（否则该层级永远建不出条目）。
+    // 历史回退仅限真实旧数据：后端按主键 UUIDv7 创建时间判定（见 isLegacyUntyped），
+    // 口径生效点之后建的无类型实体补属性同样要先声明 types，此处不再为“有 id 即历史”放行。
+    const adoptedTypes = e.types.length > 0 ? e.types : kindTypeOptions.length === 1 ? kindTypeOptions : [];
+    if (!e.id && adoptedTypes.length === 0 && kindTypeOptions.length > 0) {
       setError(t("catalog.typesRequiredForNew"));
       return;
     }
@@ -318,7 +337,8 @@ export function EntityEditor({
     try {
       // 建实体带上幂等键：双击保存 / 超时重发复用同一个键，服务端只建一个实体。
       // PUT 不带（幂等键服务端只覆盖两个 POST 端点，见 lib/idempotency 的说明）。
-      const body = { entity: e, expected_version: e.version, edit_note: note, sources };
+      // 单候选自动采用随提交带上：与 effect 同值，effect 未跑完时这里兜底。
+      const body = { entity: { ...e, types: adoptedTypes }, expected_version: e.version, edit_note: note, sources };
       const out = await api<Entity>(
         e.id ? `/catalog/entities/${e.id}` : "/catalog/entities",
         e.id ? "PUT" : "POST",
@@ -488,9 +508,9 @@ export function EntityEditor({
           <p className="cv-hint">{t("catalog.tagsHint")}</p>
         </div>
         {/* 业务类型：显式勾选，随条目真实保存（save 的 entity.types 原样提交）。
-            新建必须至少勾选一个（save 入口拦截，决定可用字段）；历史无类型实体
-            留空即兼容维护——后端 attributeKeys 空分支回退到本 kind 启用类型并集
-            （仅兼容历史），前端不替它补全量，避免小说被标成音乐/动画/游戏。 */}
+            新建必须至少带一个（单候选自动采用，多候选由 save 入口拦截，决定可用字段）；
+            真实旧数据的无类型实体留空即兼容维护——后端按主键创建时间回退到本 kind
+            启用类型并集，前端不替它补全量，避免小说被标成音乐/动画/游戏。 */}
         <div className="cv-tags">
           <strong>{t("catalog.businessTypes")}</strong>
           {kindTypeOptions.length === 0 ? (

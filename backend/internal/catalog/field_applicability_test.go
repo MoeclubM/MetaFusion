@@ -2,7 +2,12 @@ package catalog
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 func allowAllRef(string, []string) error { return nil }
@@ -268,8 +273,10 @@ func TestPostgresExplicitTypesRoundTrip(t *testing.T) {
 	}
 }
 
-// M05 Save 层门槛：手工新建携带类型外属性却无 types 即 types_required；
-// 裸骨架新建仍放行；历史存量（已存在的无类型实体）更新仍回退；抹空已有 types 拦截。
+// D3 Save 层正式口径：手工新建携带类型外属性却无 types 即 types_required；
+// 单适用类型的 kind（medium/track）新建自动采用，不让用户重勾；裸骨架新建仍放行；
+// 历史回退仅限真实旧数据（主键 UUIDv7 创建时间早于口径生效点），口径生效后"先裸建、
+// 再补属性"的两步绕行同样拦截；抹空已有 types 拦截。
 func TestPostgresEmptyTypesSaveRequiresTypes(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
@@ -277,22 +284,42 @@ func TestPostgresEmptyTypesSaveRequiresTypes(t *testing.T) {
 		if e.Status == "" {
 			e.Status = "draft"
 		}
-		return f.s.Save(ctx, Edit{Entity: e, ExpectedVersion: e.Version, EditNote: "m05", Sources: fixtureSources()}, f.u)
+		return f.s.Save(ctx, Edit{Entity: e, ExpectedVersion: e.Version, EditNote: "d3", Sources: fixtureSources()}, f.u)
 	}
-	// 有属性新建无 types：拒绝。
+	// 有属性新建无 types（多类型 kind）：拒绝。
 	if _, err := save(Entity{Kind: "work", Title: "无类型有属性",
 		Attributes: map[string]any{"language": "ja"}}); err == nil || err.Error() != "types_required" {
 		t.Fatalf("有属性新建无 types 应报 types_required，实际 %v", err)
 	}
-	// 裸骨架新建：放行（身份先行、字段后补）。
+	// 单类型 kind 自动采用：medium 只有一个启用类型，新建即采用，不拦截。
+	rel := f.save(Entity{Kind: "release", Title: "自动采用发行"})
+	med, err := save(Entity{Kind: "medium", Title: "自动采用载体", ReleaseID: rel.ID,
+		Attributes: map[string]any{"format": "cd"}})
+	if err != nil {
+		t.Fatalf("单类型 kind 新建应自动采用：%v", err)
+	}
+	if len(med.Types) != 1 || med.Types[0] != "medium" {
+		t.Fatalf("medium 新建应自动采用 [medium]，实际 %v", med.Types)
+	}
+	// 裸骨架新建：放行（身份先行、字段后补），多类型 kind 不改写。
 	bare := f.save(Entity{Kind: "work", Title: "裸骨架"})
 	if len(bare.Types) != 0 {
 		t.Fatalf("裸骨架不应被改写 types：%v", bare.Types)
 	}
-	// 历史存量更新：已存在的无类型实体补属性仍回退放行。
+	// 两步绕行关闭：口径生效后建的裸骨架再补属性，同样要先声明 types。
 	bare.Attributes = map[string]any{"language": "ja", "tags": []any{"rock"}}
-	if _, err := save(bare); err != nil {
-		t.Fatalf("存量无类型实体更新应回退放行：%v", err)
+	if _, err := save(bare); err == nil || err.Error() != "types_required" {
+		t.Fatalf("新裸建实体补属性应报 types_required，实际 %v", err)
+	}
+	// 真实旧数据回退：口径生效点之前创建的无类型实体补属性仍放行，且不写回 types。
+	legacy := insertLegacyUntypedWork(t, f)
+	legacy.Attributes = map[string]any{"language": "ja", "tags": []any{"rock"}}
+	updated, err := save(legacy)
+	if err != nil {
+		t.Fatalf("真实旧数据更新应回退放行：%v", err)
+	}
+	if len(updated.Types) != 0 {
+		t.Fatalf("回退不得写回 types：%v", updated.Types)
 	}
 	// 抹空：已有 types 的实体更新时清空 types 且带属性，拦截。
 	typed := f.save(Entity{Kind: "work", Title: "有类型", Types: []string{"song"},
@@ -301,4 +328,68 @@ func TestPostgresEmptyTypesSaveRequiresTypes(t *testing.T) {
 	if _, err := save(typed); err == nil || err.Error() != "types_required" {
 		t.Fatalf("抹空已有 types 应报 types_required，实际 %v", err)
 	}
+}
+
+// 主键时间戳判定（纯逻辑，无需真库）：v7 取毫秒时间戳、非 v7 按旧数据宽容；
+// soleEnabledType 只在唯一启用类型时命中（medium 单一、work 多个）。
+func TestUUIDv7MillisAndSoleType(t *testing.T) {
+	fresh, err := uuid.NewV7()
+	if err != nil {
+		t.Skip("本机 uuid v7 生成不可用")
+	}
+	ms, ok := uuidV7Millis(fresh.String())
+	if !ok {
+		t.Fatal("刚生成的 v7 ID 应能提取时间戳")
+	}
+	now := time.Now().UnixMilli()
+	if ms < explicitTypesCutoffMillis || ms > now+60000 {
+		t.Fatalf("v7 时间戳应在口径生效点之后、现在之前：%d", ms)
+	}
+	if _, ok := uuidV7Millis(uuid.NewString()); ok {
+		t.Fatal("v4 ID 不得被解读出时间戳")
+	}
+	if _, ok := uuidV7Millis("not-a-uuid"); ok {
+		t.Fatal("非法 ID 不得被解读出时间戳")
+	}
+	d := Defaults()
+	if code, ok := d.soleEnabledType("medium"); !ok || code != "medium" {
+		t.Fatalf("medium 应唯一命中 medium，实际 %q %v", code, ok)
+	}
+	if _, ok := d.soleEnabledType("work"); ok {
+		t.Fatal("work 有多个启用类型，不得自动采用")
+	}
+	if _, ok := d.soleEnabledType("no_such_kind"); ok {
+		t.Fatal("未知 kind 不得命中")
+	}
+}
+
+// insertLegacyUntypedWork 直插一条口径生效点之前创建的无类型 work（draft）：
+// 主键是手工回拨时间戳的 UUIDv7（毫秒位拨到 2026-01-15），Save 建不出这种 ID
+//（新建一律 newID 取当前时间），因此只能直插——这正是"真实旧数据"的含义。
+func insertLegacyUntypedWork(t *testing.T, f fixture) Entity {
+	t.Helper()
+	ctx := context.Background()
+	base := uuid.NewString()
+	s := strings.ReplaceAll(base, "-", "")
+	oldMillis := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC).UnixMilli()
+	hex12 := fmt.Sprintf("%012x", oldMillis)
+	id := hex12[0:8] + "-" + hex12[8:12] + "-7" + s[13:16] + "-" + s[16:20] + "-" + s[20:32]
+	if _, err := uuid.Parse(id); err != nil {
+		t.Fatalf("构造旧 UUIDv7 失败：%v", err)
+	}
+	if ms, ok := uuidV7Millis(id); !ok || ms != oldMillis {
+		t.Fatalf("旧 ID 时间戳回读不一致：%d %v", ms, ok)
+	}
+	stored := Entity{ID: id, Kind: "work", Version: 1, Title: "旧无类型作品", Status: "draft", CreatedBy: f.u.ID, Attributes: map[string]any{}}
+	if _, err := f.s.DB.ExecContext(ctx, `INSERT INTO catalog.entities(id,kind,version,title,status,created_by,document,updated_at) VALUES($1,'work',1,$2,'draft',$3,$4,now())`, id, stored.Title, f.u.ID, encode(stored)); err != nil {
+		t.Fatal(err)
+	}
+	e, err := f.s.Get(ctx, id, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !isLegacyUntyped(e) {
+		t.Fatal("直插的旧实体应被判为真实旧数据")
+	}
+	return e
 }

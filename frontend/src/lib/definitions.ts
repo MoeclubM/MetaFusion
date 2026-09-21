@@ -151,10 +151,10 @@ export interface DynamicDefinitions {
 
 /**
  * effectiveOwnerTypes：与后端 effectiveOwnerTypes 同一口径——声明了就原样用
- * （恒等，不展开）；空 types 才回退到该 kind 的启用类型集合（仅兼容历史，
- * 新写必须显式声明 types，前端由编辑器保存入口拦截），于是"字段适用范围"
- * 与"方案匹配"看到的是同一套类型。回退固定只计启用类型：方案只管数据录入，
- * 不管历史宽容（与后端 kindTypeCodes(kind, false) 一致）。
+ * （恒等，不展开）；空 types 才回退到该 kind 的启用类型集合（仅兼容真实旧数据，
+ * 新写必须显式声明 types，单候选 kind 由编辑器自动采用、多候选由保存入口拦截），
+ * 于是"字段适用范围"与"方案匹配"看到的是同一套类型。回退固定只计启用类型：
+ * 方案只管数据录入，不管历史宽容（与后端 kindTypeCodes(kind, false) 一致）。
  */
 export function effectiveOwnerTypes(
   defs: DynamicDefinitions | null | undefined,

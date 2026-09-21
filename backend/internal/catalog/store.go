@@ -616,14 +616,22 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if e.Status == "published" && len(e.Translations) == 0 {
 			return fmt.Errorf("translation_required")
 		}
-		// M05 类型声明门槛：新建按新写口径校验（historical=false），携带类型外属性
-		// 却无 types 即 types_required——新写必须显式声明 types；空回退仅限历史存量
-		// 更新与导入链路（internal，未识别类型按 kind 回退）。裸骨架新建仍放行。
-		// 更新抹空已有 types 同样拦截（否则 strip types 即可绕开字段约束）。
-		if !input.internal && len(e.Types) == 0 && needsExplicitTypes(e) && (create || len(old.Types) > 0) {
+		// D3 正式新建口径（前后端同一套）：新写必须显式声明 types，只有一个例外——
+		// 该 kind 只有一个启用类型时（如 medium/track）服务端自动采用它，前端同样
+		// 自动勾选（见 EntityEditor），不让用户重复勾选“介质的类型=介质”。
+		// 历史回退只看创建时间（主键 UUIDv7 时间戳，见 isLegacyUntyped），不看“有没有 ID”：
+		// 口径生效点之后创建的无类型实体（只能是裸骨架或导入链路）补属性同样要先声明
+		// types，“先裸建、再补属性”的两步绕行就此关闭。更新抹空已有 types 同样拦截
+		//（否则 strip types 即可绕开字段约束）。
+		if create && !input.internal && len(e.Types) == 0 {
+			if code, ok := v.Document.soleEnabledType(e.Kind); ok {
+				e.Types = []string{code}
+			}
+		}
+		if !input.internal && len(e.Types) == 0 && needsExplicitTypes(e) && (create || len(old.Types) > 0 || !isLegacyUntyped(old)) {
 			return fmt.Errorf("types_required")
 		}
-		historical := !create || input.internal
+		historical := input.internal || !create && (len(old.Types) > 0 || isLegacyUntyped(old))
 		if err = v.Document.validateEntity(e, ref, historical); err != nil {
 			return err
 		}
