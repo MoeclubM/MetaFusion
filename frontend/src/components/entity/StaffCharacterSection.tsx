@@ -4,7 +4,7 @@ import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { User, Mic, Building2 } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useDefinitions } from "@/lib/definitions";
+import { relationParticipantSlot, useDefinitions, type ParticipantSlot } from "@/lib/definitions";
 import type { StaffCredit } from "./staffCredits";
 
 export type { StaffCredit } from "./staffCredits";
@@ -93,7 +93,9 @@ export function StaffCharacterSection({ credits }: StaffCharacterSectionProps) {
   // 参与者槽位由关系定义声明（person/character/peer）。为什么不用"fields 里有没有 character"：
   // 29 个关系码共用同一份 fields（含 character），那个判定对每条关系都成立，
   // 于是 isCast 恒真、人员网格永不渲染、图标恒为麦克风。槽位是逐条关系声明的语义。
-  const participantSlot = (code: string) => (defs?.relations?.[code] as any)?.participant_slot || "";
+  // 类型化读取（见 lib/definitions.ts relationParticipantSlot）：非法槽位与未声明都归空串，
+  // 下面的兼容回退（字段判定/宽松口径）保持不变。
+  const participantSlot = (code: string): ParticipantSlot => relationParticipantSlot(defs, code);
   // 定义缺失（老实例的定义文档还没有槽位声明）时退回旧的字段判定，避免把关系判成"非署名"而丢展示。
   const relationDeclaresCharacter = (code: string) => (defs?.relations?.[code]?.fields || []).includes("character");
   // 角色类关系：对端是虚构角色，或数据里这条边已经带上了角色。
