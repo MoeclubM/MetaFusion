@@ -24,8 +24,9 @@ concurrency:
 
 jobs:
   # 同 SHA 门禁（审计 O04）：镜像只在**本次提交**的必要检查通过后才构建发布。
-  # 跨工作流无法 needs，因此把最小必要检查在发布工作流内重跑一次（同一 SHA）；
-  # 完整的跨仓检查（版本锁远端可取、环境矩阵、审计 DDL）仍在 CI 的 cross-repo job，
+  # 跨工作流无法 needs，因此把必要检查在发布工作流内重跑一次（同一 SHA）：
+  # required-checks 只守离线口径，Go/数据库、前端、跨仓分别由后面三个 job 在同 SHA 重跑，
+  # docker-publish 需要四者全绿才提升产物——业务 CI 红了仍可发布镜像的空档关闭。
   # tag 只应在 CI 全绿的提交上打——不要用“CI 红了但 release 绿了”的提交去部署。
   required-checks:
     name: Same-SHA required checks
@@ -40,12 +41,130 @@ jobs:
           python3 scripts/check_deploy.py
           python3 scripts/check_gateway_matrix.py
           python3 scripts/check_ci_scripts.py
-      - name: 版本锁格式检查（兄弟仓库缺席时只校验格式，不判内容）
+      - name: 版本锁检查（缺席兄弟仓逐条记录，不静默跳过）
+        # 发布检出只有主仓库，兄弟目录缺席时 check_versions.py 逐条 SKIP（审计 §6）。
+        # 跳过≠验证：这里把缺席清单写进步骤摘要并标 warning，内容核验以 cross-repo-check
+        #（按锁检出兄弟仓实跑）为准；本步只守格式与主仓可检项。
+        run: |
+          set -o pipefail
+          python3 scripts/check_versions.py 2>&1 | tee /tmp/versions-check.log
+          skips=$(grep -c '^skip ' /tmp/versions-check.log || true)
+          {
+            echo "### 版本锁（required-checks 内）"
+            echo ""
+            echo '```'
+            cat /tmp/versions-check.log
+            echo '```'
+            echo ""
+            echo "缺席跳过 ${skips} 项：内容核验见 cross-repo-check（同 SHA 实仓校验）。"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "${skips:-0}" != "0" ]; then
+            echo "::warning::版本锁有 ${skips} 项兄弟仓缺席跳过（仅格式检查），内容以 cross-repo-check 为准"
+          fi
+
+  # 同 SHA 后端门禁：镜像推送前先证明本次提交的 Go 代码在真库上可测可构建
+  #（与 CI backend job 同口径；-race 与 OpenAPI 双向覆盖留在 CI，发布门禁只守必要项）。
+  backend-check:
+    name: Same-SHA backend (Go + DB)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test-only-password
+          POSTGRES_DB: mf_v2_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      MF_V2_TEST_DSN: postgres://postgres:test-only-password@127.0.0.1:5432/mf_v2_test?sslmode=disable
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: test-only-password
+      DB_NAME: mf_v2_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: "1.25"
+          cache: true
+      - name: go test (with DB)
+        run: go test ./...
+      - name: go vet
+        run: go vet ./...
+      - name: go build (server+migrate)
+        run: |
+          CGO_ENABLED=0 go build -o /tmp/mf-server ./cmd/server
+          CGO_ENABLED=0 go build -o /tmp/mf-migrate ./cmd/migrate
+
+  # 同 SHA 前端门禁（与 CI frontend job 同口径）：安装严格锁定（无兜底），
+  # tsc、i18n 与 Next 构建都在同 SHA 先跑一遍，破了不进镜像构建。
+  frontend-check:
+    name: Same-SHA frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.0"
+      - name: bun install (strict, no fallback)
+        run: bun install --frozen-lockfile
+      - name: typecheck
+        run: bunx tsc --noEmit
+      - name: i18n keys sync check
+        run: |
+          bun -e "const fs=require('fs');const ks=f=>Object.keys(JSON.parse(fs.readFileSync('src/messages/'+f,'utf8'))).sort().join('|');const base=ks('zh-CN.json');for(const f of ['en-US.json','zh-TW.json','ja-JP.json']){if(ks(f)!==base){console.error('i18n drift: '+f);process.exit(1)}}console.log('i18n keys in sync')"
+      - name: next build (via Bun)
+        run: bun run build
+
+  # 同 SHA 跨仓门禁（与 CI cross-repo job 同口径）：按锁把兄弟仓检出到锁里的 sha 再验，
+  # 锁里的 sha 在远端取不到（本地未推送的提交）明确失败，不用 continue-on-error 盖过去。
+  # 审计 DDL 与文档路由的全量比对留在 CI，发布门禁只守版本锁、环境矩阵与契约生成物。
+  cross-repo-check:
+    name: Same-SHA cross-repo (versions + env)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: 按 deploy/versions.lock 的 sha 检出兄弟仓库
+        run: |
+          set -euo pipefail
+          failed=0
+          while IFS='=' read -r repo sha; do
+            name="${repo#../}"
+            git clone --quiet "https://github.com/MoeclubM/${name}.git" "../${name}"
+            if git -C "../${name}" checkout --quiet --detach "$sha" 2>/dev/null; then
+              continue
+            fi
+            if git -C "../${name}" fetch --quiet origin "$sha" 2>/dev/null; then
+              git -C "../${name}" checkout --quiet --detach FETCH_HEAD
+              continue
+            fi
+            echo "::error::锁里的 ${name}=${sha} 在远端仓库取不到：先把该仓库推到远端，或按 deploy/versions.lock 的流程刷新锚点"
+            failed=1
+          done < <(grep -E '^\.\./[A-Za-z0-9_.-]+=' deploy/versions.lock)
+          exit "$failed"
+      - name: 版本锁一致性（兄弟仓就位，无缺席跳过）
         run: python3 scripts/check_versions.py
+      - name: 环境变量矩阵（注入↔读取两个方向）
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 scripts/check_env_matrix.py
+          python3 scripts/check_env_matrix.py --selftest
+      - name: 契约生成物 ↔ 锚点来源一致性
+        run: node frontend/scripts/generate-contracts.mjs --check
 
   docker-publish:
     name: Build & Publish Container Images
-    needs: [required-checks]
+    needs: [required-checks, backend-check, frontend-check, cross-repo-check]
     runs-on: ubuntu-latest
     env:
       # GHCR 要求镜像仓库路径全小写；此处为唯一来源，需与 deploy/docker-compose.prod.yml 一致
