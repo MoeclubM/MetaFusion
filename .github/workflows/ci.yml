@@ -130,6 +130,8 @@ jobs:
       - name: next build (via Bun)
         run: bun run build
 
+  # 监控基线只在配置/文档层：阈值与分工见 deploy/monitoring-baseline.md（指标→告警→处理人），
+  # 本 job 不复制第二份数字，改阈值只改那一个文件。
   compose-lint:
     name: compose & nginx lint
     runs-on: ubuntu-latest
