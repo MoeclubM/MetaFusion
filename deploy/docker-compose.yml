@@ -334,6 +334,9 @@ services:
   #     （去 build，不本地构建）。两边是否同提交以 release-manifest.yaml 为准，
   #     digest 在部署机上用 docker buildx imagetools inspect 解析验证，不写死未经
   #     验证的值（写了等于伪造已验证版本）。
+  #     seed / check-refs 显式任务也走它（deploy.sh seed/check-refs；cutover/prod/pull
+  #     在迁移后自动跑 seed）：与服务启动时的隐式合并同一份逻辑，但显式跑失败即非零，
+  #     部署后模板状态以这次为准，不再靠“重启过 = 种子合过”推测（S1 方向）。
   # --------------------------------------------------------------------------
   backend-migrate:
     logging: *default-logging

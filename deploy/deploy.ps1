@@ -72,6 +72,14 @@ switch ($Action.ToLower()) {
         Write-Host "🗄️ 执行数据库版本迁移..." -ForegroundColor Cyan
         if ($Target) { Invoke-DeploySh "migrate $Target" } else { Invoke-DeploySh "migrate" }
     }
+    "seed" {
+        Write-Host "🌱 显式合并种子定义..." -ForegroundColor Cyan
+        Invoke-DeploySh "seed"
+    }
+    "check-refs" {
+        Write-Host "🔍 悬挂引用体检..." -ForegroundColor Cyan
+        Invoke-DeploySh "check-refs"
+    }
     "restart" {
         Write-Host "🔄 重启容器..." -ForegroundColor Yellow
         if ($Target) { Invoke-DeploySh "restart $Target" } else { Invoke-DeploySh "restart" }

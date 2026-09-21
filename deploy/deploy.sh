@@ -359,6 +359,25 @@ function migrate_up_checked() {
     echo "✅ 迁移已确认：账本无 PENDING / DIRTY"
 }
 
+# 迁移落地后显式合并种子定义：与服务启动时的隐式合并是同一份逻辑
+# （EnsureSeedDefinitions，只增不改），但这里失败即非零退出——启动路径是降级继续
+# （记日志后照常服务），不能当验收依据。部署后模板是否更新以这次为准，
+# 不再靠“重启过 = 种子合过”推测（S1 方向：运维任务显式化）。
+function seed_checked() {
+    echo "🌱 显式合并种子定义（只增不改）..."
+    run_migrate seed "$@"
+}
+
+# 悬挂引用体检（报告项）：库里有悬挂引用时 mf-migrate check-refs 非零，但“引用目标行
+# 已不存在”不阻断定义发布，因此部署流程里只报告、不中断——看到警告先修数据或显式确认
+# （./deploy.sh check-refs 重验）后再部署。硬门禁语义由独立的 check-refs 动作提供。
+function check_refs_report() {
+    echo "🔍 悬挂引用体检（调用 mf-migrate check-refs，报告项）..."
+    if ! run_migrate check-refs "$@"; then
+        echo "⚠️  悬挂引用体检未通过：见上输出；发布不阻断，但请先修数据或显式确认后再部署" >&2
+    fi
+}
+
 function print_usage() {
     echo "================================================================="
     echo "  MetaFusion 极速部署与运维脚本"
@@ -373,6 +392,8 @@ function print_usage() {
     echo "  prod            - 完整生产模式冷启动"
     echo "  pull            - 拉取 GHCR 预构建镜像 (backend/frontend) 并启动；账号/互动/存储/文档站就地构建"
     echo "  migrate [cmd]   - 执行版本化数据库迁移 (up/down/status/force)"
+    echo "  seed            - 显式合并种子定义（只增不改；cutover/prod/pull 在迁移后自动跑）"
+    echo "  check-refs      - 悬挂引用体检（部署前置检查；非零=先修数据或显式确认）"
     echo "  restart [svc]   - 快速重启容器 (不重编镜像)"
     echo "  prune           - 清理所有旧镜像与未使用的构建缓存 (释放磁盘)"
     echo "  logs [svc]      - 实时查看容器运行日志"
@@ -438,6 +459,8 @@ case "$ACTION" in
         echo "🚀 启动各子系统 (账号 / 互动 / 存储 / 目录)..."
         docker compose $COMPOSE_ENV -f docker-compose.yml up -d auth community storage backend
         migrate_up_checked
+        seed_checked
+        check_refs_report
         echo "📦 把主仓库旧表搬进 community schema（幂等，可重复运行补增量）..."
         docker compose $COMPOSE_ENV -f docker-compose.yml run --rm community-migrate -direction forward
         echo "🌐 拉起前端 / 文档站 / 网关（网关等各上游 /ready 通过后才开门）..."
@@ -470,6 +493,8 @@ case "$ACTION" in
         echo "🚀 启动数据库与核心基础设施 (Postgres / RustFS)..."
         docker compose $COMPOSE_ENV up -d postgres rustfs
         migrate_up_checked
+        seed_checked
+        check_refs_report
         check_gateway_candidate
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
         reload_gateway
@@ -496,6 +521,8 @@ case "$ACTION" in
         echo "🚀 启动数据库与核心基础设施..."
         docker compose $COMPOSE_ENV up -d postgres rustfs
         migrate_up_checked -f docker-compose.prod.yml
+        seed_checked -f docker-compose.prod.yml
+        check_refs_report -f docker-compose.prod.yml
         check_gateway_candidate
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
         echo "✅ 生产镜像拉取与启动完成！"
@@ -510,6 +537,20 @@ case "$ACTION" in
             echo "🗄️ 执行数据库版本化迁移 (mf-migrate $CMD)..."
             run_migrate "$CMD"
         fi
+        ;;
+
+    seed)
+        # 显式入口：与 cutover/prod/pull 里自动跑的是同一个 seed_checked，
+        # 部署后想单独确认模板状态时用它（失败即非零；启动时的隐式合并只降级）。
+        seed_checked
+        echo "✅ 种子定义已显式合并"
+        ;;
+
+    check-refs)
+        # 部署前置检查的硬门禁形态：库干净返回 0，有悬挂引用返回非零。
+        # 修完数据或决定接受现状后，用它重验再部署。
+        echo "🔍 悬挂引用体检（mf-migrate check-refs）..."
+        run_migrate check-refs
         ;;
 
     restart)
