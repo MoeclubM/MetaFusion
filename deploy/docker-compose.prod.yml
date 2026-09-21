@@ -44,3 +44,13 @@ services:
     build: !reset null
     image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/backend:${IMAGE_TAG:-latest}
     restart: always
+
+  # 迁移作业同样走预构建（审计 §6）：pull 路径跑的是拉下来那份镜像里的迁移器，
+  # 而不是本地那张旧标签——base 里的 metafusion-migrator:local 在这里不再可选。
+  # 去 build，覆盖为本次发布的 GHCR migrator 镜像（release.yml 的 backend-migrator 矩阵项）。
+  # IMAGE_TAG 按 release-manifest.yaml 钉成不可变 tag/sha，digest 在部署机上用
+  # docker buildx imagetools inspect <prefix>/migrator:<tag> 解析验证，不写死未验证值。
+  backend-migrate:
+    logging: *default-logging
+    build: !reset null
+    image: ${IMAGE_PREFIX:-ghcr.io/moeclubm/metafusion}/migrator:${IMAGE_TAG:-latest}

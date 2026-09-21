@@ -322,19 +322,26 @@ services:
       - metafusion-net
 
   # --------------------------------------------------------------------------
-  # 5c. 目录库迁移作业（一次性）— backend 镜像里的 /app/migrate，库 owner 身份。
+  # 5c. 目录库迁移作业（一次性）— migrator 镜像里的 /app/migrate，库 owner 身份。
   #     deploy.sh 的 migrate/up/first-boot 只走它，不再复用 backend 服务定义：
   #     backend 容器已不再持有 DB_*（审计 O01），用它跑迁移会拿到空身份。
   #     常驻编排不启动它（profiles: tools），只由 deploy.sh 调用：
   #       docker compose run --rm --no-deps backend-migrate up
+  #     镜像身份（审计 §6）：本地构建用 metafusion-migrator（与 backend 同源 Dockerfile
+  #     的 migrator 阶段，不是 server 阶段——server 镜像虽也含 /app/migrate，但那是
+  #     运行态镜像，迁移必须与发布矩阵的 backend-migrator 同阶段）；
+  #     pull/prod 路径由 docker-compose.prod.yml 覆盖为本次发布的 GHCR migrator 镜像
+  #     （去 build，不本地构建）。两边是否同提交以 release-manifest.yaml 为准，
+  #     digest 在部署机上用 docker buildx imagetools inspect 解析验证，不写死未经
+  #     验证的值（写了等于伪造已验证版本）。
   # --------------------------------------------------------------------------
   backend-migrate:
     logging: *default-logging
     build:
       context: ../backend
       dockerfile: Dockerfile
-      target: server
-    image: metafusion-backend:${METAFUSION_TAG:-local}
+      target: migrator
+    image: metafusion-migrator:${METAFUSION_TAG:-local}
     profiles: ["tools"]
     entrypoint: ["/app/migrate"]
     environment:
