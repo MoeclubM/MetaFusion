@@ -19,6 +19,7 @@ import (
 //   - 同键并发：后来者在主键上阻塞，先行者提交后按已存在行重放，回滚则正常插入；
 //   - 双副本/重启：读同一张表，同结果；
 //   - 同键不同载荷：摘要不同，409 idempotency_conflict（不静默返回旧结果）。
+//
 // 保留策略见 000006 迁移头注释。
 const (
 	// IdempotencyOpEntityCreate 是 POST /catalog/entities 的幂等操作名。

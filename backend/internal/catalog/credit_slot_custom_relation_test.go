@@ -42,15 +42,15 @@ func TestPostgresCustomCreditRelationEndToEnd(t *testing.T) {
 		t.Fatalf("自定义关系码 %q 已被种子占用，换一个码再测", code)
 	}
 	d.Relations[code] = RelationDefinition{
-		Names:          names("录音工程师", "Recording engineer"),
-		ReverseNames:   names("担任录音工程师", "Engineered"),
-		SourceKinds:    []string{"expression"},
-		TargetKinds:    []string{"agent"},
-		Fields:         []string{"credit_role"},
+		Names:           names("录音工程师", "Recording engineer"),
+		ReverseNames:    names("担任录音工程师", "Engineered"),
+		SourceKinds:     []string{"expression"},
+		TargetKinds:     []string{"agent"},
+		Fields:          []string{"credit_role"},
 		ParticipantSlot: "person",
 		CountsAsCredit:  true,
-		Group:          "membership",
-		Enabled:        true,
+		Group:           "membership",
+		Enabled:         true,
 	}
 	if err := d.Validate(); err != nil {
 		t.Fatalf("自定义署名关系应通过定义校验：%v", err)

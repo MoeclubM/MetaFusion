@@ -119,8 +119,8 @@ func TestPostgresIdempotentRelationCreate(t *testing.T) {
 	b := f.save(Entity{Kind: "agent", Title: "幂等乙"})
 	mkEdit := func(role string) RelationEdit {
 		return RelationEdit{
-			Relation:   Relation{Type: "member_of", SourceID: a.ID, TargetID: b.ID, Attributes: map[string]any{"credit_role": role}},
-			EditNote:   "r1", Sources: fixtureSources(),
+			Relation: Relation{Type: "member_of", SourceID: a.ID, TargetID: b.ID, Attributes: map[string]any{"credit_role": role}},
+			EditNote: "r1", Sources: fixtureSources(),
 		}
 	}
 	withKey := func(e RelationEdit, key string) RelationEdit {

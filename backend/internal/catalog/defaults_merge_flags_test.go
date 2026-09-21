@@ -14,8 +14,8 @@ func TestMergeSeedDefinitionsKeepsExplicitFalse(t *testing.T) {
 			Vocabularies: map[string]Vocabulary{},
 			Relations: map[string]RelationDefinition{
 				// 种子里 includes.Aggregate=true、credits 组 CountsAsCredit=true；
-			// 这里模拟后台有意关闭。
-				"includes":    withFlags(seed.Relations["includes"], false, false),
+				// 这里模拟后台有意关闭。
+				"includes":     withFlags(seed.Relations["includes"], false, false),
 				"performed_by": withFlags(seed.Relations["performed_by"], false, false),
 			},
 			Templates: map[string]Template{},

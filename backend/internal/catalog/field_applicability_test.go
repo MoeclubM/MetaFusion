@@ -365,7 +365,7 @@ func TestUUIDv7MillisAndSoleType(t *testing.T) {
 
 // insertLegacyUntypedWork 直插一条口径生效点之前创建的无类型 work（draft）：
 // 主键是手工回拨时间戳的 UUIDv7（毫秒位拨到 2026-01-15），Save 建不出这种 ID
-//（新建一律 newID 取当前时间），因此只能直插——这正是"真实旧数据"的含义。
+// （新建一律 newID 取当前时间），因此只能直插——这正是"真实旧数据"的含义。
 func insertLegacyUntypedWork(t *testing.T, f fixture) Entity {
 	t.Helper()
 	ctx := context.Background()

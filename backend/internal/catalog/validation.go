@@ -541,7 +541,7 @@ func (d Definitions) soleEnabledType(kind string) (string, bool) {
 			sole, n = code, n+1
 			if n > 1 {
 				return "", false
-		}
+			}
 		}
 	}
 	return sole, n == 1
