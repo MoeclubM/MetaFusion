@@ -4,7 +4,11 @@
 # ==============================================================================
 
 set -e
-cd "$(dirname "$0")"
+# 绝对脚本目录（审计 §6）：nginx.conf 经 -v 挂进容器必须用绝对路径；从仓库根调
+# 用时 dirname($0) 拼出来的是 deploy/deploy/nginx.conf（不存在），而从 deploy/ 内
+# 调用时相对路径会让 Docker 报相对 bind 源。cd 后全文仍用 $SCRIPT_DIR 绝对引用。
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
 
 # --skip-version-check 是运维紧急开关（见 check_version_lock）：它可能出现在任意位置，
 # 因此先把位置参数里的它摘掉，剩下的仍是 [action] [target]。
@@ -52,20 +56,30 @@ fi
 # ③ 容器内再做一次 nginx -t，成功才 reload。任何一步失败即非零退出——
 # “保留旧配置继续服务”只在第 ① 步成立（旧容器原封不动）；第 ② 步之后若失败，
 # 回退办法：git checkout -- deploy/nginx.conf 后重调本函数，或按上一版镜像 tag 重建。
-function reload_gateway() {
-    local nginx_conf candidate_image
-    nginx_conf="$(dirname "$0")/nginx.conf"
-    candidate_image="nginx:1.25-alpine"
-    if ! docker exec metafusion-gateway true >/dev/null 2>&1; then
-        return 0
-    fi
+# 调用约束（审计 §6）：候选校验必须跑在所有可能更新网关的 up 之前
+# （各动作的整套 up -d 之前），reload_gateway 只负责切；候选缺失/非法一律非零，
+# 不再“跳过并返回成功”（跳过等于带着错配置继续部署）。
+function check_gateway_candidate() {
+    local nginx_conf="$SCRIPT_DIR/nginx.conf"
+    local candidate_image="nginx:1.25-alpine"
     if [ ! -f "$nginx_conf" ]; then
-        echo "⚠️  找不到 $nginx_conf：跳过网关重载（容器保持现状）"
-        return 0
+        echo "❌ 找不到网关候选配置 $nginx_conf：部署中止（候选缺失必须失败，不跳过）" >&2
+        return 1
     fi
     # ① 先验候选：失败直接非零退出，运行中的网关与旧容器一律不动。
     if ! docker run --rm -v "$nginx_conf:/etc/nginx/nginx.conf:ro" "$candidate_image" nginx -t; then
         echo "❌ 网关候选配置校验失败：未切换、旧容器继续服务（审计 O03），部署中止" >&2
+        return 1
+    fi
+    echo "✅ 网关候选配置离线校验通过"
+}
+function reload_gateway() {
+    if ! docker exec metafusion-gateway true >/dev/null 2>&1; then
+        return 0
+    fi
+    # 前置校验已在各动作的 up 之前由 check_gateway_candidate 做过；这里仍先验后切，
+    # 候选在检查与切换之间被改坏时依然拦得住（多一次 docker run，换一次确定性）。
+    if ! check_gateway_candidate; then
         return 1
     fi
     # ② 原子切换：重建以挂上新 inode，再验再载（失败即非零，不吞错）。
@@ -94,7 +108,7 @@ function check_version_lock() {
         exit 1
     fi
     echo "🔒 校验部署版本锁 (deploy/versions.lock)..."
-    if ! python3 ../scripts/check_versions.py; then
+    if ! python3 "$SCRIPT_DIR/../scripts/check_versions.py"; then
         echo "❌ 兄弟仓库与 deploy/versions.lock 不一致：先把锁刷到本次要部署的提交再继续" >&2
         echo "   紧急放行（会写进日志）：./deploy.sh $ACTION --skip-version-check" >&2
         exit 1
@@ -106,7 +120,7 @@ function check_version_lock() {
 # 刻意不标 dirty：部署树里有未提交文件是常态，标了几乎永远是 dirty，反而没人会看这一行。
 function export_version_identity() {
     local root_dir sha tag
-    root_dir="$(dirname "$0")/.."
+    root_dir="$SCRIPT_DIR/.."
     if [ -z "${METAFUSION_GIT_SHA:-}" ] && command -v git >/dev/null 2>&1; then
         sha=$(git -C "$root_dir" rev-parse --short=12 HEAD 2>/dev/null || true)
         [ -n "$sha" ] && export METAFUSION_GIT_SHA="$sha"
@@ -351,6 +365,12 @@ case "$ACTION" in
         export_version_identity
         warn_if_dsns_missing
         export DOCKER_BUILDKIT=1
+        # 候选先验（审计 §6）：整套 up 在前、检查在后会让坏配置先挂载再生效，
+        # 因此 up 之前必须验过；只在可能更新网关时验（全量或目标即网关），
+        # 单服务增量不为无关更新引入网关依赖。
+        if [ -z "$TARGET" ] || [ "$TARGET" = "gateway" ]; then
+            check_gateway_candidate
+        fi
         if [ -n "$TARGET" ]; then
             echo "⚡ 增量更新指定服务 [$TARGET]..."
             docker compose $COMPOSE_ENV build "$TARGET"
@@ -390,6 +410,7 @@ case "$ACTION" in
         echo "📦 把主仓库旧表搬进 community schema（幂等，可重复运行补增量）..."
         docker compose $COMPOSE_ENV -f docker-compose.yml run --rm community-migrate -direction forward
         echo "🌐 拉起前端 / 文档站 / 网关（网关等各上游 /ready 通过后才开门）..."
+        check_gateway_candidate
         docker compose $COMPOSE_ENV -f docker-compose.yml up -d --remove-orphans
         reload_gateway
         echo "🧹 自动清理悬空层..."
@@ -418,6 +439,7 @@ case "$ACTION" in
         echo "🚀 启动数据库与核心基础设施 (Postgres / RustFS)..."
         docker compose $COMPOSE_ENV up -d postgres rustfs
         migrate_up_checked
+        check_gateway_candidate
         docker compose $COMPOSE_ENV up -d --build --remove-orphans
         reload_gateway
         tag_release_images
@@ -445,6 +467,7 @@ case "$ACTION" in
         echo "🚀 启动数据库与核心基础设施..."
         docker compose $COMPOSE_ENV up -d postgres rustfs
         migrate_up_checked -f docker-compose.prod.yml
+        check_gateway_candidate
         docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
         echo "✅ 生产镜像拉取与启动完成！"
         ;;
