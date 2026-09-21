@@ -612,12 +612,19 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			ref = reference(ctx, tx, nil)
 		}
 		// 零翻译可发布：published 要求至少一条翻译（含原文语种行），否则多语言
-		// 展示无回退依据。validateEntity 统一 historical=true（存量/impact 宽容），
-		// 此处显式拦截——只影响本次写入，不追溯存量。
+		// 展示无回退依据。此处显式拦截——只影响本次写入，不追溯存量。
 		if e.Status == "published" && len(e.Translations) == 0 {
 			return fmt.Errorf("translation_required")
 		}
-		if err = v.Document.validateEntity(e, ref, true); err != nil {
+		// M05 类型声明门槛：新建按新写口径校验（historical=false），携带类型外属性
+		// 却无 types 即 types_required——新写必须显式声明 types；空回退仅限历史存量
+		// 更新与导入链路（internal，未识别类型按 kind 回退）。裸骨架新建仍放行。
+		// 更新抹空已有 types 同样拦截（否则 strip types 即可绕开字段约束）。
+		if !input.internal && len(e.Types) == 0 && needsExplicitTypes(e) && (create || len(old.Types) > 0) {
+			return fmt.Errorf("types_required")
+		}
+		historical := !create || input.internal
+		if err = v.Document.validateEntity(e, ref, historical); err != nil {
 			return err
 		}
 		// ExternalIDs 两层复核：先格式层（键合规、值非空收敛、metafusion_import
