@@ -519,6 +519,7 @@ func (s *Store) Get(ctx context.Context, id string, u *User) (Entity, error) {
 //（migrator 按 backend/migrations/*.sql 自动发现），语句全部幂等，重复执行安全。
 // 每项修复提交各自追加自己的文件，不提前引用不存在的文件。
 var catalogIncrementals = []string{
+	"000006_request_idempotency.up.sql",        // R1：catalog.idempotency_keys
 	"000007_revision_definition_version.up.sql", // D4：revisions.definition_version
 }
 
@@ -607,6 +608,20 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			e.ID = newID()
 			e.Version = 1
 			e.CreatedBy = u.ID
+			// R1 幂等声明与业务写入同一事务：已存在响应即重放返回（不写业务），
+			// 否则占位并继续，提交前回填首创响应（见 audit 调用点之后）。
+			if input.idempotency != nil {
+				prior, claimed, cerr := claimIdempotencyTx(ctx, tx, input.idempotency)
+				if cerr != nil {
+					return cerr
+				}
+				if !claimed {
+					if e, cerr = replayEntity(prior); cerr != nil {
+						return cerr
+					}
+					return errIdempotentReplay
+				}
+			}
 		} else {
 			old, err = get(ctx, tx, e.ID)
 			if err != nil {
@@ -793,6 +808,12 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if err := audit(ctx, tx, e.ID, e.Version, u, input.EditNote, input.Sources, e, "entity.saved"); err != nil {
 			return err
 		}
+		// R1 首创响应与业务写入同一事务回填：崩溃只会整体回滚，重试按已存在行重放。
+		if create && input.idempotency != nil {
+			if err := setIdempotencyResponseTx(ctx, tx, input.idempotency, e); err != nil {
+				return err
+			}
+		}
 		// 通知与实体写入**同一事务**：审核结果与收录事件不会出现"改了却没通知"的半成品。
 		// create 时 old 是零值，用 nil 表示"没有旧版本"（零值 Entity 的 Status 也是空串，
 		// 直接传会被当成一次"从空状态变成 published"的跃迁）。
@@ -803,6 +824,10 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		}
 		return notifySaveOutcome(ctx, tx, before, e, u)
 	})
+	// errIdempotentReplay 是内部控制流：e 已是重放的首创结果，返回成功。
+	if errors.Is(err, errIdempotentReplay) {
+		return e, nil
+	}
 	return e, err
 }
 

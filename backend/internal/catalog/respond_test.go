@@ -33,6 +33,7 @@ func TestRespondMapsStatusByErrorChain(t *testing.T) {
 		{"wrapped forbidden", fmt.Errorf("delivery_partial: 1/2 failed: %w", errForbidden), 403, "delivery_partial: 1/2 failed: forbidden"},
 		{"doubly wrapped forbidden", fmt.Errorf("merge_relation_conflict: %w", fmt.Errorf("lifecycle: %w", errForbidden)), 403, "merge_relation_conflict: lifecycle: forbidden"},
 		{"version conflict", errVersionConflict, 409, "version_conflict"},
+		{"idempotency conflict", errIdempotencyConflict, 409, "idempotency_conflict"},
 		{"wrapped version conflict", fmt.Errorf("attributes.x: %w", errVersionConflict), 409, "attributes.x: version_conflict"},
 		{"domain code", errors.New("invalid_payload"), 400, "invalid_payload"},
 		{"wrapped domain code keeps message", fmt.Errorf("attributes.foo: %w", errors.New("disabled_term")), 400, "attributes.foo: disabled_term"},

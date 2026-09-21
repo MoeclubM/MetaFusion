@@ -104,6 +104,10 @@ type Edit struct {
 	// metafusion_import。未导出是有意的：JSON 解码不填充未导出字段，客户端无法伪造
 	//（DisallowUnknownFields 会把同名 JSON 键判为未知字段）。
 	internal bool
+	// idempotency 是 HTTP 创建端点（POST /entities）的幂等声明：HTTP 层在 body 解码后
+	// 按 Idempotency-Key 头填充（见 IdempotencyClaim），Save 在业务事务内声明/回填。
+	// PUT 更新不带（键只覆盖创建），导入链路走自己的 metafusion_import 键。
+	idempotency *IdempotencyClaim
 }
 type Relation struct {
 	ID         string         `json:"id"`
@@ -123,6 +127,8 @@ type RelationEdit struct {
 	ExpectedVersion int64    `json:"expected_version"`
 	EditNote        string   `json:"edit_note"`
 	Sources         []Source `json:"sources"`
+	// idempotency 是 HTTP 创建端点（POST /relations）的幂等声明，用法同 Edit。
+	idempotency *IdempotencyClaim
 }
 type TypeDefinition struct {
 	Names    Names    `json:"names"`

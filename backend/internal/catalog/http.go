@@ -65,6 +65,9 @@ func respond(c *gin.Context, v any, err error) {
 		status = 403
 	} else if errors.Is(err, errVersionConflict) {
 		status = 409
+	} else if errors.Is(err, errIdempotencyConflict) {
+		// 同键不同载荷：409 且码与 version_conflict 区分（见 idempotency.go）。
+		status = 409
 	}
 	// 失败路径同样留痕：登记的错误码与响应体的 error 字段同值（契约 §1），
 	// 审计中间件据此写 result=failure + error_code（没登记的才回落 http_<status>）。
@@ -222,71 +225,22 @@ func routeLimiter(perMinute int) gin.HandlerFunc {
 	}
 }
 
-// idemEntry 写接口幂等缓存: Idempotency-Key -> 首创返回体, TTL 24h, 进程内存。
-// 命中直接返回原结果, 不建重复实体; 分布式/持久化幂等放三期。
-// 口径说明（最小一致化）：仅覆盖 POST /catalog/entities 与 POST /catalog/relations；
-// 缓存键为 路由|用户|Idempotency-Key，不做载荷哈希；并发同键双建需调用方重试确认，
-// 不保证单飞（singleflight）语义。
-type idemEntry struct {
-	value any
-	exp   time.Time
-}
-
-var (
-	idemCache   sync.Map // string -> idemEntry
-	idemJanitor sync.Once
-)
-
-func idemSweep() {
-	idemJanitor.Do(func() {
-		go func() {
-			for range time.Tick(time.Hour) {
-				now := time.Now()
-				idemCache.Range(func(k, v any) bool {
-					if e, ok := v.(idemEntry); ok && now.After(e.exp) {
-						idemCache.Delete(k)
-					}
-					return true
-				})
-			}
-		}()
-	})
-}
-
-func idemCacheKey(c *gin.Context) (string, bool) {
+// 幂等声明装配（R1）：Idempotency-Key -> Store 层持久幂等（见 idempotency.go）。
+// 口径：仅覆盖 POST /catalog/entities 与 POST /catalog/relations；键含用户/操作/请求键，
+// 载荷摘要进库，同键不同载荷返 409 idempotency_conflict。无请求键时不声明（行为与原来一致）。
+func idemClaim(c *gin.Context, operation string, payload any) *IdempotencyClaim {
 	key := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
 	if key == "" {
-		return "", false
+		return nil
 	}
 	uid := ""
 	if u := user(c); u != nil {
 		uid = u.ID
 	}
-	return c.FullPath() + "|" + uid + "|" + key, true
+	return &IdempotencyClaim{Operation: operation, UserID: uid, Key: key, Hash: requestHash(payload)}
 }
 
-func idemLookup(c *gin.Context) (any, bool) {
-	ck, ok := idemCacheKey(c)
-	if !ok {
-		return nil, false
-	}
-	if v, ok := idemCache.Load(ck); ok {
-		if e, ok := v.(idemEntry); ok && time.Now().Before(e.exp) {
-			return e.value, true
-		}
-		idemCache.Delete(ck)
-	}
-	return nil, false
-}
-
-func idemStore(c *gin.Context, value any) {
-	ck, ok := idemCacheKey(c)
-	if !ok {
-		return
-	}
-	idemSweep()
-	idemCache.Store(ck, idemEntry{value: value, exp: time.Now().Add(24 * time.Hour)})
-}
+// 进程内幂等缓存已整体退役（R1）：声明走 idemClaim + Store 层持久幂等，见 idempotency.go。
 
 // queryList 读取可重复/逗号分隔的多值查询参数（与 tags 同一约定），去空去重后返回，
 // 供 kinds/types 这类多值过滤使用。
@@ -521,14 +475,6 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		// 目标在创建成功前还不存在：失败路径只留 target_type（"有人试图建实体"），
 		// 成功后再补 id 与变更摘要。
 		auditlog.Describe(c, auditlog.Detail{TargetType: "entity"})
-		// 幂等命中直接返回首创结果, 不建重复实体。
-		if cached, ok := idemLookup(c); ok {
-			if e, ok := cached.(Entity); ok {
-				auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: e.ID, Changes: entityChangeDetail(nil, &e)})
-			}
-			c.JSON(200, cached)
-			return
-		}
 		var in Edit
 		if !body(c, &in) {
 			return
@@ -538,9 +484,10 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			c.JSON(400, gin.H{"error": "id_must_be_empty"})
 			return
 		}
+		// R1：幂等声明随请求进 Store 事务（重放/冲突由 Save 判定，见 idempotency.go）。
+		in.idempotency = idemClaim(c, IdempotencyOpEntityCreate, in)
 		e, err := s.Save(c.Request.Context(), in, *user(c))
 		if err == nil {
-			idemStore(c, e)
 			auditlog.Describe(c, auditlog.Detail{TargetType: "entity", TargetID: e.ID, Changes: entityChangeDetail(nil, &e)})
 		}
 		respond(c, e, err)
@@ -798,14 +745,6 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 	// 端点级闸门挡住无码者的写请求，细粒度两端判定仍在 SaveRelation（canWriteRelation/canAttachToTarget）。
 	cat.POST("/relations", required(PermissionRelationEdit), func(c *gin.Context) {
 		auditlog.Describe(c, auditlog.Detail{TargetType: "relation"})
-		// 幂等命中直接返回首创结果, 不建重复关系。
-		if cached, ok := idemLookup(c); ok {
-			if r, ok := cached.(Relation); ok {
-				auditlog.Describe(c, auditlog.Detail{TargetType: "relation", TargetID: r.ID, Changes: relationChangeDetail(nil, &r)})
-			}
-			c.JSON(200, cached)
-			return
-		}
 		var in RelationEdit
 		if !body(c, &in) {
 			return
@@ -815,9 +754,10 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			c.JSON(400, gin.H{"error": "id_must_be_empty"})
 			return
 		}
+		// R1：幂等声明随请求进 Store 事务（重放/冲突由 SaveRelation 判定）。
+		in.idempotency = idemClaim(c, IdempotencyOpRelationCreate, in)
 		v, err := s.SaveRelation(c.Request.Context(), in, *user(c))
 		if err == nil {
-			idemStore(c, v)
 			auditlog.Describe(c, auditlog.Detail{TargetType: "relation", TargetID: v.ID, Changes: relationChangeDetail(nil, &v)})
 		}
 		respond(c, v, err)

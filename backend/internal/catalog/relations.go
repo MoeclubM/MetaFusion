@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/lib/pq"
@@ -567,6 +568,19 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 			}
 			r.ID = newID()
 			r.Version = 1
+			// R1 幂等声明与业务写入同一事务（用法同 Save，见 idempotency.go）。
+			if input.idempotency != nil {
+				prior, claimed, cerr := claimIdempotencyTx(ctx, tx, input.idempotency)
+				if cerr != nil {
+					return cerr
+				}
+				if !claimed {
+					if r, cerr = replayRelation(prior); cerr != nil {
+						return cerr
+					}
+					return errIdempotentReplay
+				}
+			}
 		} else {
 			// 更新行的旧版本按 ID 单行取：同类集合只用于判重/计数/构图，
 			// 不把旧版本混进去（否则 immutable_scope 自比较恒过且计数多算自己）。
@@ -635,12 +649,22 @@ func (s *Store) SaveRelation(ctx context.Context, input RelationEdit, u User) (R
 		if err := audit(ctx, tx, r.ID, r.Version, u, input.EditNote, input.Sources, r, "relation.saved"); err != nil {
 			return err
 		}
+		// R1 首创响应与业务写入同一事务回填。
+		if old == nil && input.idempotency != nil {
+			if err := setIdempotencyResponseTx(ctx, tx, input.idempotency, r); err != nil {
+				return err
+			}
+		}
 		// 只有新建关系才是"一次收录事件"；改属性（换 position、补 attributes）不重复通知。
 		if old == nil {
 			return notifyIncludedRelation(ctx, tx, r, src, tgt, u)
 		}
 		return nil
 	})
+	// errIdempotentReplay 是内部控制流：r 已是重放的首创结果，返回成功。
+	if errors.Is(err, errIdempotentReplay) {
+		return r, nil
+	}
 	return r, err
 }
 func (s *Store) DeleteRelation(ctx context.Context, id string, expected int64, note string, sources []Source, u User) error {
