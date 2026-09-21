@@ -1898,6 +1898,28 @@ func (s *Store) findImported(ctx context.Context, key string, actor *User) (Enti
 	return e, true
 }
 
+// deletedImportTombstone 按内部幂等键找已删除墓碑（删后禁自动重导的定位依据）：
+// 墓碑仍占唯一索引，调用方在此直接返回稳定业务错误（见 deletedImportError），
+// 不建新行撞唯一索引、不删墓碑、不自动复活。返回的 id 仅用于恢复入口定位。
+func (s *Store) deletedImportTombstone(ctx context.Context, key string) (string, bool) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return "", false
+	}
+	var id string
+	if err := s.DB.QueryRowContext(ctx, `SELECT id FROM catalog.entities WHERE document->'external_ids'->>'metafusion_import'=$1 AND status='deleted' LIMIT 1`, key).Scan(&id); err != nil {
+		return "", false
+	}
+	return id, true
+}
+
+// deletedImportError 是删后禁自动重导的稳定业务错误：墓碑占位中，自动重导直接拒绝
+// （import_deleted），恢复走显式手工流程（按墓碑 id 找回条目处理），不删墓碑、
+// 不自动复活、不撞唯一索引。错误码与响应体同值（码: 细节，前端按冒号取码）。
+func deletedImportError(key, tombstoneID string) error {
+	return fmt.Errorf("import_deleted: %s（墓碑 %s 占位中，自动重导已禁用；如需恢复请按墓碑走显式手工流程）", key, tombstoneID)
+}
+
 // findAgentByTitle 按标题精确匹配已有可见 agent（无外部键的手工载荷去重用）。
 // 只做大小写不敏感的精确匹配：normalizeImporterTitleKey 折叠空白与大小写，
 // SQL 侧用 lower(title)=lower($1) 命中后再由调用方按折叠键确认。
@@ -4420,6 +4442,13 @@ func (s *Store) importNewWork(ctx context.Context, actor User, note string, sour
 			}
 		}
 	}
+	// 删后禁自动重导：findImported 未命中但墓碑仍占唯一键时，在此直接返回稳定业务错误
+	// （import_deleted + 墓碑恢复入口），不建新行撞唯一索引、不删墓碑、不自动复活。
+	if hasKey && savedWork.ID == "" {
+		if tombID, ok := s.deletedImportTombstone(ctx, key); ok {
+			return ImporterImportResponse{}, deletedImportError(key, tombID)
+		}
+	}
 	if savedWork.ID == "" {
 		workType := workTypeFromMetadata(req.Work.CatalogMetadata)
 		work, err := buildWorkEntity(req.Work, workType, source, key, req.ExternalID, hasKey, dateField)
@@ -4683,6 +4712,10 @@ func (s *Store) importNewAgent(ctx context.Context, actor User, note string, sou
 				ArtistID: existing.ID, Artist: existing,
 				RedirectURL: "/artists/" + existing.ID,
 			}, nil
+		}
+		// 删后禁自动重导（与 work 路径同口径）：墓碑占位时直接返回稳定业务错误。
+		if tombID, ok := s.deletedImportTombstone(ctx, key); ok {
+			return ImporterImportResponse{}, deletedImportError(key, tombID)
 		}
 	}
 	agent, err := buildAgentEntity(a.Name, a.OriginalName, a.Biography, a.AvatarURL, lang, entityType, a.Translations, a.ExternalIDs, key, hasKey)

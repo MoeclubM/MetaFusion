@@ -1072,3 +1072,42 @@ func TestImporterEntryIndexStructuralBinding(t *testing.T) {
 		}
 	}
 }
+
+// M04 删后禁自动重导完整流程：导入→删除→重导直接返回稳定业务错误 import_deleted
+// （带墓碑恢复入口），不删墓碑、不复活、不撞唯一索引循环报错、不新建。
+func TestPostgresDeletedReimportReturnsStableError(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	req := importerValuePayload()
+	first, err := f.s.Import(ctx, req, f.u)
+	if err != nil || first.WorkID == "" {
+		t.Fatalf("首导应成功：%+v %v", first, err)
+	}
+	cur, err := f.s.Get(ctx, first.WorkID, &f.u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.s.Lifecycle(ctx, first.WorkID, LifecycleEdit{
+		ExpectedVersion: cur.Version, EditNote: "m04 delete", Sources: fixtureSources(),
+	}, f.u); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := f.s.findImported(ctx, "bangumi:subject:7", &f.u); ok {
+		t.Fatal("已删除键必须视为未命中")
+	}
+	before := countEntities(t, f, "")
+	_, err = f.s.Import(ctx, req, f.u)
+	if err == nil || !strings.Contains(err.Error(), "import_deleted") {
+		t.Fatalf("删后重导应报稳定业务错误 import_deleted，实际 %v", err)
+	}
+	if !strings.Contains(err.Error(), first.WorkID) {
+		t.Fatalf("错误应带墓碑恢复入口（墓碑 id），实际 %v", err)
+	}
+	if after := countEntities(t, f, ""); after != before {
+		t.Fatalf("删后重导不得新建：实体总数 %d -> %d", before, after)
+	}
+	tomb, gerr := f.s.Get(ctx, first.WorkID, &f.u)
+	if gerr != nil || tomb.Status != "deleted" {
+		t.Fatalf("墓碑必须保留且不得被复活：%+v %v", tomb, gerr)
+	}
+}
