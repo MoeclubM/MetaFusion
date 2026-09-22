@@ -1,10 +1,5 @@
 // 实体详情页的页面级 metadata（title / description / OG / twitter:card）。
-//
-// 此前全站只有 layout.tsx 的一处 metadata（title 恒为 "MetaFusion"），276 个作品页
-// 共用同一个标题与描述、零 OG 标签，题名也不在 SSR HTML 里——外部分享没有卡片，
-// 爬虫拿到的是空壳。
-//
-// 三条硬约束：
+// 约束：
 //   1) 只做 metadata，不改渲染策略（这些页面仍是客户端取数渲染，SSR 骨架化是另一件事）；
 //   2) 取数失败/超时一律回落到站点级 metadata，绝不把详情页变成 500；
 //   3) 题名走既有 locale 解析 helper（lib/titles.ts 的选取链），不新造回退链。

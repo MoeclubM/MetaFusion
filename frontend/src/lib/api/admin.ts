@@ -1,10 +1,3 @@
-// 由 frontend/src/lib/api.ts 按域拆分而来（机械搬运：导出名、签名、行为与拆分前一致）。
-// 域：外部权威库的管理面端点
-//
-// 这里不再有插件管理面（fetchPublicPlugins / PluginItem / RegisterExternalPluginPayload …）：
-// 后端 catalog、auth、community、storage 四仓都没有 /plugins* 的任何实现，唯一调用方
-// 只能拿到 404 再被 .catch 吞掉——留着就是一条永远取不到数据的静默降级路径。
-
 // ── 外部权威数据库预设定义 ──
 export interface ExternalDatabaseDefinition {
   code: string;

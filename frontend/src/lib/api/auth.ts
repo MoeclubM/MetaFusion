@@ -1,5 +1,3 @@
-// 由 frontend/src/lib/api.ts 按域拆分而来（机械搬运：导出名、签名、行为与拆分前一致）。
-// 域：账号服务 /api/auth、/api/setup、邮箱验证
 import { fetchApi } from "./client";
 import type { User } from "./client";
 
@@ -322,4 +320,3 @@ export async function performInitialSetup(payload: InitialSetupPayload): Promise
     token_type: "Bearer",
   };
 }
-

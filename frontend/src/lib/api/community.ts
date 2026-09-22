@@ -1,5 +1,3 @@
-// 由 frontend/src/lib/api.ts 按域拆分而来（机械搬运：导出名、签名、行为与拆分前一致）。
-// 域：互动服务 /api/community、/api/favorites 与 /api/messages 客户端
 import { fetchApi } from "./client";
 import { requireArray, safeCount } from "./fields";
 import type { Tag } from "./catalog";

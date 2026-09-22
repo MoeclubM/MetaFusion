@@ -640,14 +640,12 @@ export function EntityEditor({
         )}
         <p className="text-xs opacity-60">{t("catalog.translationHint")}</p>
       </fieldset>
-      {/* 守卫也按服务端声明：没有 structure 条目的层级不显示本区（曾因沿用写死的层级清单，
-          在 release 上访问不存在的 structure.release.fields 而整页崩溃）。 */}
+      {/* 结构区仅在当前层级有字段或收录入口时显示。 */}
       {(((defs?.structure?.[e.kind]?.fields) || []).length > 0 || defs?.structure?.[e.kind]?.subjects || defs?.structure?.[e.kind]?.contents) && (
       <fieldset>
         <legend>{t("catalog.structure")}</legend>
         <div className="cv-grid">
-          {/* 结构字段按服务端 definitions.structure 渲染：字段码、目标层级、候选过滤都由后端声明，
-              前端不再写死"expression 挂在 work 下"这类层级知识。 */}
+          {/* 结构字段和候选范围来自 definitions.structure。 */}
           {(defs?.structure?.[e.kind]?.fields || []).map((f) => {
             const targets = f.target_kinds && f.target_kinds.length > 0 ? f.target_kinds : [e.kind];
             const scope = f.scoped_by ? String((e as Record<string, unknown>)[f.scoped_by] || "") : "";
@@ -686,8 +684,7 @@ export function EntityEditor({
             </>
           )}
         </div>
-        {/* 发行对象：由 definitions 声明（structure.release.subjects）；此前这里写死 e.kind === "release"，
-              在结构区改按 definitions 渲染后，发行版反而整块消失。 */}
+        {/* 发行对象入口由 definitions.structure 声明。 */}
         {defs?.structure?.[e.kind]?.subjects === true && (
           <>
             <h3>{t("catalog.subjects")}</h3>

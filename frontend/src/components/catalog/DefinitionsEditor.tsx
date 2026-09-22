@@ -362,12 +362,9 @@ export function DefinitionsEditor() {
   const { t, tr, locale } = useI18n();
   const { modules } = useCatalog();
   const { user } = useAuth();
-  // 防御式取值：/api/capabilities 契约漂移（缺 modules / 不是数组）时，下面两处 .map 会抛错并白屏。
-  // 空列表 = "没有可用子系统"，与本页"模块开关已退役、只展示状态"的语义一致。
+  // capabilities 缺少模块列表时显示空状态。
   const moduleList = Array.isArray(modules) ? modules : [];
-  // 已发布定义与它的版本行 id 只从 lib/definitions.ts 取（同一响应的同一份缓存）：
-  // 从 CatalogProvider 再拿一份副本，就是审计里"同一份定义两份缓存、发布后不同步"的根源，
-  // 更别说这个 Provider 只在 /admin 路由挂着。
+  // 定义文档与版本号必须来自同一份缓存。
   const { definitions: published, kinds: serverKinds, versionId } = useDefinitions();
   const [d, setD] = useState<Definitions>();
   const [base, setBase] = useState(0);
@@ -390,8 +387,7 @@ export function DefinitionsEditor() {
       setBase(versionId);
     }
   }, [published, versionId, d]);
-  // 门槛按权限码判定：can() 在令牌没带 permissions 时回落到 role，老行为不变；
-  // 持 catalog.definitions.manage 的管理组此前被 role 判断挡在门外，现在也能进。
+  // 权限码判定与旧令牌的角色回退统一走 can()。
   const manageDefinitions = can(user, CATALOG_DEFINITIONS_MANAGE);
   useEffect(() => {
     if (!manageDefinitions) return;
@@ -468,8 +464,7 @@ export function DefinitionsEditor() {
       <p className="cv-muted">{t("catalog.definitionHelp")}</p>
       <section>
         <h2>{t("catalog.modules")}</h2>
-        {/* 模块开关已退役：PUT /api/admin/modules/:id 恒返回 409 module_toggle_retired（模块状态改由声明式配置决定，
-            服务端保留该端点只为给旧客户端一个明确答复）。这里只展示状态，不再渲染必然失败的复选框。 */}
+        {/* 模块状态由声明式配置决定，此处只读。 */}
         {moduleList.map((m) => (
           <p className="cv-check" key={m.id}>
             {t(`catalog.module.${m.id}`)}{" "}

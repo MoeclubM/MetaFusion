@@ -1,5 +1,3 @@
-// 由 frontend/src/lib/api.ts 按域拆分而来（机械搬运：导出名、签名、行为与拆分前一致）。
-// 域：网关基址、RS256 会话令牌与统一请求封装（各域共用）
 const getApiBase = () => {
   if (typeof window !== "undefined") {
     // 浏览器端：使用网关相对路径，自适应任何主机/域名/IP

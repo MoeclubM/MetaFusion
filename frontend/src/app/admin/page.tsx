@@ -143,11 +143,8 @@ function AdminInner() {
   const [reviewStatus, setReviewStatus] = useState<"pending_review" | "published">("pending_review");
   const [unpublishTarget, setUnpublishTarget] = useState<any | null>(null);
   const [unpublishing, setUnpublishing] = useState(false);
-  // 审核动作的反馈：原来用 alert()，既不本地化也打断操作
   const [reviewNotice, setReviewNotice] = useState("");
   // 取数失败必须与「没有待审条目」分开：管理员看到空列表会以为队列已清空（见 loadReviewList）。
-  // 状态位此前只有写入没有声明，tsc 直接报 Cannot find name——先补上声明让构建可用；
-  // 失败态在审核列表里的渲染分支仍待补（本轮不在我范围内）。
   const [reviewListFailed, setReviewListFailed] = useState(false);
 
   // Entities management state
@@ -975,7 +972,6 @@ function AdminInner() {
             </div>
           )}
 
-          {/* CatalogProvider 已在 app/layout.tsx 全站挂载（此前这里为定义编辑器单独挂了一份）。 */}
           {activeTab === "definitions" && <DefinitionsEditor />}
 
           {activeTab === "extdb" && <ExternalDatabasesTab />}

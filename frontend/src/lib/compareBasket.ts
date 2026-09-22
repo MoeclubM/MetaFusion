@@ -1,9 +1,6 @@
 "use client";
 
-// 对比篮子的唯一实现。此前 CompareView、releases/[id]、works/[id] 与 works/[id]/releases
-// 各有一份读写逻辑，且都没监听 storage——一个标签页加入后另一个标签页不刷新就一直显示旧篮子。
-// 这里只保留一套解析/去重/上限语义（沿用既有表现：非字符串或空白项丢弃、上限 6、后者胜出），
-// 组件侧统一走 useCompareBasket 订阅跨标签页变化。
+// 对比篮子统一解析、去重和限制数量；组件通过 useCompareBasket 订阅跨标签页变化。
 
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 

@@ -1,9 +1,7 @@
-// 由 frontend/src/lib/api.ts 按域拆分而来（机械搬运：导出名、签名、行为与拆分前一致）。
 // 域：外部来源导入 /api/importer/*
 import { fetchApi } from "./client";
 import type { Entity } from "@/components/catalog/api";
 
-// ── OmniSource Importer 多源权威数字馆藏一键导入套件 ──
 export interface ImporterPreviewRequest {
   source?: string;
   url_or_id: string;
