@@ -30,7 +30,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  down            回滚上一版本的数据库迁移\n")
 		fmt.Fprintf(os.Stderr, "  status          查看数据库当前版本与全部迁移状态\n")
 		fmt.Fprintf(os.Stderr, "  force <version> 强制解除指定版本的脏迁移 (dirty) 标记\n")
-		fmt.Fprintf(os.Stderr, "  seed            把种子定义增量合并进当前已发布定义（只增不改，服务启动时也会做一次）\n")
+		fmt.Fprintf(os.Stderr, "  seed            补齐内容种子（无 DDL：空库发布内置定义，存量定义/外部库/货架只增不改）\n")
 		fmt.Fprintf(os.Stderr, "  check-refs      悬挂引用体检：列出指向不存在行的引用（部署前置检查，有则非零退出）\n")
 		fmt.Fprintf(os.Stderr, "                  可选 -json 输出机器可读报告\n\n")
 	}
@@ -74,20 +74,21 @@ func main() {
 
 	switch cmd {
 	case "seed":
-		// 显式入口：把种子里新增的定义（新关系码、新字段、新词表）补进存量实例的已发布定义。
-		// 服务启动时也会执行同样的合并；这个命令便于运维在部署后确认模板是否已更新。
-		log.Println("开始合并种子定义（只增不改）...")
+		// 显式内容种子入口（无 DDL）：空库发布内置定义，存量只增不改
+		// （定义/外部库/货架，后台自定义不被覆盖），最后再合并种子新增的定义键。
+		// 结构迁移用 up，HTTP 进程只做只读兼容检查（见 CheckCompatibleVersion），
+		// 空库安装顺序：mf-migrate up → mf-migrate seed → mf-migrate check-refs。
+		log.Println("开始补齐内容种子（无 DDL，只增不改）...")
 		s, err := catalog.Open(ctx, dsn)
 		if err != nil {
 			log.Fatalf("打开目录库失败: %v", err)
 		}
 		defer s.DB.Close()
-		if err := s.EnsureSeedDefinitions(ctx); err != nil {
-			// 服务启动路径把这一类失败当**降级**（记日志 + /health 状态信号后继续服务），
-			// 但显式命令是运维主动要结果的地方：没生效就必须红，别让"跑过了"被误读成"合并成功"。
-			log.Fatalf("种子定义合并失败（上一个已发布定义仍然生效，服务可降级启动）: %v", err)
+		if err := s.SeedContent(ctx); err != nil {
+			// 显式命令是运维主动要结果的地方：没生效就必须红，别让"跑过了"被误读成"合并成功"。
+			log.Fatalf("内容种子补齐失败: %v", err)
 		}
-		log.Println("种子定义合并完成")
+		log.Println("内容种子补齐完成")
 
 	case "check-refs":
 		// 部署前置检查：一次性列出库中所有悬挂引用（entity 型属性字段、结构与记录级引用、

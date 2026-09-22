@@ -19,6 +19,7 @@ type Source struct {
 	Citation string `json:"citation"`
 	URL      string `json:"url,omitempty"`
 }
+
 // PicturesJSON 是封面的读容错外壳：历史数据里 pictures 可能是标量/对象
 // （早期导入链的脏写），解码时按无封面处理（nil）而不是让整行查询失败；
 // 写侧由 validation 照常严格校验。这里用命名类型只为挂 UnmarshalJSON，
@@ -257,7 +258,8 @@ type Definitions struct {
 	// Structure 声明每个层级的"所属与收录结构"：有哪些结构字段、指向哪些层级、
 	// 是否必填、是否按上级字段过滤候选。写在校验与编辑器共用这里，
 	// 前端不再各自写死"expression 挂 work"这类知识。可缺省，缺省时回退内建规则。
-	Structure map[string]StructureRule `json:"structure,omitempty"`
+	Structure      map[string]StructureRule `json:"structure,omitempty"`
+	CreditDeclared bool                     `json:"credit_declared,omitempty"`
 }
 
 // StructureRule 是一个层级的结构归属规则。

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -76,7 +77,16 @@ func (h HTTP) registerNotifications(api *gin.RouterGroup) {
 		}
 		c.JSON(200, gin.H{"ok": true, "unread": unread})
 	})
-	api.POST("/notifications/internal", required(""), h.deliverInternal)
+	// 投递端点允许匿名进 handler：凭据是 X-Internal-Token（handler 内校验），
+	// 作者来自投递体 actor 快照（服务身份）或终端用户令牌（旧版兼容）。
+	// 第三方写仍在这里直接 403，与 required("") 同口径。
+	api.POST("/notifications/internal", func(c *gin.Context) {
+		if u := user(c); u != nil && u.IsThirdParty && !isReadMethod(c.Request.Method) {
+			c.JSON(403, gin.H{"error": "forbidden"})
+			return
+		}
+		c.Next()
+	}, h.deliverInternal)
 }
 
 // notificationDelivery 是跨服务投递的请求体（互动服务 → 目录）。
@@ -90,12 +100,17 @@ type notificationDelivery struct {
 	Payload     map[string]any `json:"payload"`
 	DedupeKey   string         `json:"dedupe_key"`
 	// EventID 是投递方给的稳定事件身份，用于让上游重试变成幂等（见 NotificationInput.EventID）。
-	EventID string `json:"event_id"`
+	EventID   string `json:"event_id"`
+	EventTime string `json:"event_time"` // 事件发生时间（RFC3339，可选）：展示按它排序，缺省即现在。
+	// ActorID/ActorName 是产生端确认的作者快照（A03 服务身份投递）：有则以它为准并忽略
+	// Authorization；缺省时回退到终端用户令牌（旧版互动服务尽力路径兼容）；两者都无则 400。
+	ActorID   string `json:"actor_id"`
+	ActorName string `json:"actor_name"`
 }
 
 // deliverInternal 是"评论被回复"等跨服务事件的唯一入口。
-// 双凭据：X-Internal-Token 证明调用方是受信任服务，Authorization 里的终端用户令牌提供 actor
-// （审计行要记到真人头上，通知里也要显示"谁回复了你"）。
+// 双凭据的新口径（A03）：X-Internal-Token 证明调用方是受信任服务；作者只认投递体里的
+// actor 快照（产生端随业务事务落库、不存用户令牌），缺省回退 Authorization（旧版兼容），两者都无则 400。
 func (h HTTP) deliverInternal(c *gin.Context) {
 	if strings.TrimSpace(h.InternalToken) == "" {
 		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "internal_api_disabled"})
@@ -119,21 +134,43 @@ func (h HTTP) deliverInternal(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "invalid_notification_type"})
 		return
 	}
-	if len(in.SubjectID) > 200 || len(in.DedupeKey) > 300 || len(in.SubjectType) > 64 || len(in.EventID) > 200 {
+	if len(in.SubjectID) > 200 || len(in.DedupeKey) > 300 || len(in.SubjectType) > 64 || len(in.EventID) > 200 || len(in.EventTime) > 64 || len(in.ActorID) > 64 || len(in.ActorName) > 200 {
 		c.JSON(400, gin.H{"error": "invalid_payload"})
 		return
 	}
-	actor := user(c)
+	var eventTime time.Time
+	if s := strings.TrimSpace(in.EventTime); s != "" {
+		t, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "invalid_event_time"})
+			return
+		}
+		eventTime = t
+	}
+	actorID := strings.TrimSpace(in.ActorID)
+	actorName := in.ActorName
+	if actorID == "" {
+		if u := user(c); u != nil {
+			actorID, actorName = u.ID, u.Username
+		} else {
+			c.JSON(400, gin.H{"error": "invalid_actor"})
+			return
+		}
+	} else if _, err := uuid.Parse(actorID); err != nil {
+		c.JSON(400, gin.H{"error": "invalid_actor"})
+		return
+	}
 	err := notify(c.Request.Context(), h.Store.DB, NotificationInput{
 		RecipientID: strings.TrimSpace(in.RecipientID),
 		Type:        in.Type,
-		ActorID:     actor.ID,
-		ActorName:   actor.Username,
+		ActorID:     actorID,
+		ActorName:   actorName,
 		SubjectType: in.SubjectType,
 		SubjectID:   in.SubjectID,
 		Payload:     in.Payload,
 		DedupeKey:   in.DedupeKey,
 		EventID:     in.EventID,
+		EventTime:   eventTime,
 	})
 	if err != nil {
 		respond(c, nil, err)

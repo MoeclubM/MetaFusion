@@ -13,7 +13,7 @@ import (
 // 显式任务入口（生产以它们为准，见 backend/cmd/migrate 与部署作业）：
 //  1. 结构迁移：`mf-migrate up`（backend/migrations/*.sql，migrator 自动发现，
 //     000001 是不可变的安装基线，后续只加有序增量）；
-//  2. 种子升级：`mf-migrate seed`（Store.EnsureSeedDefinitions，只增不改，D2 保证不夺回人工配置）；
+//  2. 内容种子：`mf-migrate seed`（Store.SeedContent，无 DDL：空库发布内置定义，存量定义/外部库/货架只增不改，D2 保证不夺回人工配置）；
 //  3. 完整性扫描：`mf-migrate check-refs`（Store.DanglingReferences，只读体检）；
 //  4. HTTP 启动：本文件的 CheckCompatibleVersion（只读，不写库、不全表扫描）。
 //

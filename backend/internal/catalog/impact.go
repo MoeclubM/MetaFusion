@@ -42,7 +42,7 @@ type DefinitionImpact struct {
 }
 
 // 回放专用哨兵：引用取值不是 uuid、或目标行不存在——即"指向不存在的行"。
-// 只有它能在有悬挂报告背书时降级成警告（见 danglingOnly）。
+// impact 回放里命中悬挂报告索引的取值由 tolerant 引用函数直接放行（局部降级），未命中的仍按 invalid_reference 进阻断项。
 type danglingReferenceError struct{ Value string }
 
 // Error 与 reference（store.go）的失败文本保持逐字一致：这个哨兵改变的只是 impact 的分流，
@@ -50,8 +50,8 @@ type danglingReferenceError struct{ Value string }
 func (e *danglingReferenceError) Error() string { return "invalid_reference" }
 
 // danglingKey 是悬挂引用的索引键：同一作用域（实体或关系）+ 同一个悬挂取值。
-// 为什么要按取值而不是按条目判定：定义校验在第一个失败处就返回，一条实体最多只报一个问题，
-// 而悬挂报告是全量的——只有"报告里确实有这条取值"才允许把该次失败降级成警告。
+// 为什么要按取值而不是按条目判定：悬挂只放行命中的取值，其它字段继续校验，
+// 而悬挂报告是全量的——只有"报告里确实有这条取值"才允许放行该取值。
 func danglingKey(scopeID, value string) string { return scopeID + "\x00" + value }
 
 // impactReference 与 reference（store.go）判定同一件事，区别只在把"指向不存在的行"
@@ -75,16 +75,6 @@ func impactReference(ctx context.Context, q queryer, u *User) func(string, []str
 		}
 		return nil
 	}
-}
-
-// danglingOnly 判定该次校验失败是否**只**由已登记的悬挂引用引起。
-// 任何其它根因（类型/词表/端点规则冲突）照旧算定义问题：报告漏一条也不许把定义问题降级。
-func danglingOnly(err error, scopeID string, index map[string]bool) bool {
-	var dangling *danglingReferenceError
-	if !errors.As(err, &dangling) {
-		return false
-	}
-	return index[danglingKey(scopeID, dangling.Value)]
 }
 
 // impact 以系统上下文回放存量数据，返回阻断项与悬挂引用两份清单。
@@ -117,13 +107,21 @@ func (d Definitions) impactOn(ctx context.Context, q queryer, ents []Entity, rel
 	// impact 以系统上下文回放存量数据：显式持通配权限，不依赖角色兜底。
 	system := &User{Role: "admin", Permissions: []string{permissionWildcard}}
 	ref := impactReference(ctx, q, system)
+	// 已登记悬挂引用只做局部降级：该作用域下命中悬挂报告索引的取值直接放行，
+	// 同一实体/关系的其它字段继续校验——首个悬挂不再吞掉整条记录的其它问题。
+	// 未登记的取值仍走完整判定（fail closed），见 impactReference。
+	tolerant := func(scopeID string) func(string, []string) error {
+		return func(id string, kinds []string) error {
+			if index[danglingKey(scopeID, strings.TrimSpace(id))] {
+				return nil
+			}
+			return ref(id, kinds)
+		}
+	}
 	byID := map[string]Entity{}
 	for _, e := range ents {
 		byID[e.ID] = e
-		if err := d.validateEntity(e, ref, true); err != nil {
-			if danglingOnly(err, e.ID, index) {
-				continue
-			}
+		if err := d.validateEntity(e, tolerant(e.ID), true); err != nil {
 			out.Issues = append(out.Issues, e.ID+": "+err.Error())
 		}
 	}
@@ -142,10 +140,7 @@ func (d Definitions) impactOn(ctx context.Context, q queryer, ents []Entity, rel
 		if _, ok := d.Relations[r.Type]; !ok {
 			continue
 		}
-		if err = validateRelation(d, r, src, tgt, rels, ref, true); err != nil {
-			if danglingOnly(err, r.ID, index) {
-				continue
-			}
+		if err = validateRelation(d, r, src, tgt, rels, tolerant(r.ID), true); err != nil {
 			out.Issues = append(out.Issues, r.ID+": "+err.Error())
 		}
 	}

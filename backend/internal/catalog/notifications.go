@@ -74,7 +74,7 @@ type Notification struct {
 	// Count 是这一行合并了多少条同键事件（>=1）。
 	Count int  `json:"count"`
 	Read  bool `json:"read"`
-	// CreatedAt 是首条事件时间；UpdatedAt 是最近一次活动时间，列表按它倒序。
+	// CreatedAt 是行创建时间；UpdatedAt 是合进行的最大事件时间，列表按它倒序（即按事件时间，不按抵达顺序）。
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -90,10 +90,13 @@ type NotificationInput struct {
 	Payload     map[string]any
 	// DedupeKey 为空时按 "type:subject_id" 生成：同类型的同一条落点合并成一行。
 	DedupeKey string
-	// EventID 是这条事件的稳定身份（跨服务投递传被回复的回复 id 之类）。
-	// 同一 (收件人, DedupeKey) 再收到同一个 EventID 时**不再累加计数、不刷新未读**：
-	// 上游重试（超时后其实已写入）不会把一条回复记成两条。为空则每次生成新 id（本服务内的事件）。
+	// EventID 是这条事件的稳定身份（跨服务投递传被回复的回复 id 之类），跨重试保持稳定
+	// （互动分支保证）。收据键即 (RecipientID, EventID)：重复事件整体不更新聚合行。
+	// 为空则每次生成新 id（本服务内的事件，不去重）。
 	EventID string
+	// EventTime 是事件发生时间（展示排序依据）：零值即现在。迟到的旧事件只累加计数，
+	// 不把聚合行顶到收件箱顶部（见 notificationUpsert 的 GREATEST）。
+	EventTime time.Time
 }
 
 func (in NotificationInput) dedupe() string {
@@ -103,17 +106,26 @@ func (in NotificationInput) dedupe() string {
 	return in.Type + ":" + in.SubjectID
 }
 
-// notificationWriter 让同一段 upsert 既能进调用方的事务（实体/关系写），也能直接走 DB（内部投递端点）。
+// notificationWriter 让同一段写入既能进调用方的事务（实体/关系写），也能直接走 DB（内部投递端点，见 notify 的同事务接线）。
 type notificationWriter interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
-// notificationUpsert 是**唯一**的写入语句：新增与合并走同一条，避免两套口径漂移。
+// 收据 insert 与下面的聚合 upsert 是写入的全部两条语句（见 notifyTx）：先收据去重，再聚合。
 // 合并时 read_at 归零（有新活动就要重新被看见）、count 累加、其余字段取最新事件。
+const notificationReceiptInsert = `
+INSERT INTO catalog.notification_receipts(recipient_id,event_id)
+VALUES ($1,$2)
+ON CONFLICT DO NOTHING`
+
+// notificationUpsert 是聚合行的唯一写入语句：调用前收据已落定（见 notifyTx），
+// 到这里的都是新事件，无条件累加计数、归零未读、刷新展示字段。
+// updated_at 取事件时间的最大值：迟到的旧事件只累加计数，不把聚合行顶到顶部——
+// 展示按事件时间，不按抵达顺序。新行的 updated_at 即首条事件时间。
 const notificationUpsert = `
 INSERT INTO catalog.notifications
   (id,recipient_id,type,actor_id,actor_name,subject_type,subject_id,payload,dedupe_key,last_event_id,count,created_at,updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,now(),now())
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,1,now(),$11)
 ON CONFLICT (recipient_id,dedupe_key) DO UPDATE SET
   type = EXCLUDED.type,
   actor_id = EXCLUDED.actor_id,
@@ -121,18 +133,39 @@ ON CONFLICT (recipient_id,dedupe_key) DO UPDATE SET
   subject_type = EXCLUDED.subject_type,
   subject_id = EXCLUDED.subject_id,
   payload = EXCLUDED.payload,
-  -- 重试幂等：同一事件再投一次时计数与未读都不动（否则一次回复会被记成两条）。
-  count = CASE WHEN catalog.notifications.last_event_id IS DISTINCT FROM EXCLUDED.last_event_id
-               THEN catalog.notifications.count + 1 ELSE catalog.notifications.count END,
-  read_at = CASE WHEN catalog.notifications.last_event_id IS DISTINCT FROM EXCLUDED.last_event_id
-                 THEN NULL ELSE catalog.notifications.read_at END,
-  updated_at = CASE WHEN catalog.notifications.last_event_id IS DISTINCT FROM EXCLUDED.last_event_id
-                    THEN now() ELSE catalog.notifications.updated_at END,
+  count = catalog.notifications.count + 1,
+  read_at = NULL,
+  updated_at = GREATEST(catalog.notifications.updated_at, EXCLUDED.updated_at),
   last_event_id = EXCLUDED.last_event_id`
 
 // notify 写/合并一条通知。类型是代码常量，写错了要失败得响一点（进测试眼），
 // 因此非法类型返回错误而不是静默丢弃。
+// 收据与聚合更新同事务：调用方传 *sql.Tx 即进调用方事务（实体/关系写），
+// 传 *sql.DB 则在这里开一次事务（跨服务投递端点与导入回执）。
 func notify(ctx context.Context, q notificationWriter, in NotificationInput) error {
+	if tx, ok := q.(*sql.Tx); ok {
+		return notifyTx(ctx, tx, in)
+	}
+	db, ok := q.(*sql.DB)
+	if !ok {
+		return fmt.Errorf("invalid_notification_writer")
+	}
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := notifyTx(ctx, tx, in); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// notifyTx 先插 (recipient_id, event_id) 收据、再做聚合更新，两步同事务。
+// 收据已存在即重复事件（上游重试/并发同事件/响应丢失重投）：整体不更新聚合行，
+// 计数、未读与展示字段都不动。A→B→A 交错里第二个 A 是新事件（新收据），照常计数——
+// 只比 last_event_id 的旧口径会把它误判成重试而丢掉。
+func notifyTx(ctx context.Context, tx *sql.Tx, in NotificationInput) error {
 	if strings.TrimSpace(in.RecipientID) == "" {
 		return nil
 	}
@@ -147,16 +180,27 @@ func notify(ctx context.Context, q notificationWriter, in NotificationInput) err
 	if event == "" {
 		event = uuid.NewString()
 	}
-	_, err := q.ExecContext(ctx, notificationUpsert,
+	eventTime := in.EventTime
+	if eventTime.IsZero() {
+		eventTime = time.Now().UTC()
+	}
+	res, err := tx.ExecContext(ctx, notificationReceiptInsert, in.RecipientID, event)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return nil
+	}
+	_, err = tx.ExecContext(ctx, notificationUpsert,
 		uuid.NewString(), in.RecipientID, in.Type, nullable(in.ActorID), in.ActorName,
-		in.SubjectType, in.SubjectID, encode(payload), in.dedupe(), event)
+		in.SubjectType, in.SubjectID, encode(payload), in.dedupe(), event, eventTime)
 	return err
 }
 
 const notificationColumns = `id::text, type, COALESCE(actor_id::text,''), actor_name, subject_type, subject_id,
        payload, count, (read_at IS NOT NULL) AS read, created_at, updated_at`
 
-// ListNotifications 是收件箱列表：按最近活动倒序，返回 (条目, 总数, 未读数)。
+// ListNotifications 是收件箱列表：按事件时间倒序（见 notificationUpsert），返回 (条目, 总数, 未读数)。
 // 未读数与列表在同一次调用里返回是有意的：列表页两个数要一致，分两次请求会出现
 // "角标 3、列表全已读"的中间窗口。
 func (s *Store) ListNotifications(ctx context.Context, recipientID string, limit, offset int) ([]Notification, int, int, error) {

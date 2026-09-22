@@ -3,8 +3,8 @@ package catalog
 import "testing"
 
 // D2：后台显式关闭的开关（false）不得被种子夺回。bool 零值无法区分"老文档缺声明"与
-// "有意关闭"，因此已存在关系的 Aggregate / CountsAsCredit 一律不动；缺失的关系整体
-// 新增时才带上种子开关。启动合并（EnsureSeedDefinitions）于是不会重开 GUI 已关闭的开关。
+// "有意关闭"，因此有标记文档里已存在关系的 Aggregate / CountsAsCredit 一律不动；缺失的关系整体
+// 新增时才带上种子开关。无标记老文档一次性回填署名开关并置标记（见 TestMergeBackfillsCreditDeclarationOnce），故本用例的当前文档自带标记。启动合并于是不会重开 GUI 已关闭的开关。
 func TestMergeSeedDefinitionsKeepsExplicitFalse(t *testing.T) {
 	seed := Defaults()
 	mkCur := func() Definitions {
@@ -18,8 +18,9 @@ func TestMergeSeedDefinitionsKeepsExplicitFalse(t *testing.T) {
 				"includes":     withFlags(seed.Relations["includes"], false, false),
 				"performed_by": withFlags(seed.Relations["performed_by"], false, false),
 			},
-			Templates: map[string]Template{},
-			Schemes:   map[string]Scheme{},
+			Templates:      map[string]Template{}, // 有标记文档：升级后后台明确关过开关的版本，回填分支不得再碰它。
+			CreditDeclared: true,
+			Schemes:        map[string]Scheme{},
 		}
 	}
 	merged, added := mergeSeedDefinitions(mkCur(), seed)

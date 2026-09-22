@@ -331,7 +331,7 @@ func TestNotificationProducersOnPostgres(t *testing.T) {
 		t.Fatalf("收录通知的容器/落点不符: %+v", items[0])
 	}
 	// 同一发行再存一次（subjects 未变）不重复通知。
-	f.saveAs(f.reviewer, Entity{ID: rel.ID, Version: rel.Version, Kind: "release", Title: "收录它的发行", Subjects: []Subject{{WorkID: work.ID, Role: "primary"}}})
+	f.saveAs(f.reviewer, Entity{ID: rel.ID, Version: rel.Version, Kind: "release", Title: "收录它的发行", Types: rel.Types, Subjects: []Subject{{WorkID: work.ID, Role: "primary"}}})
 	if items = f.notifs(f.owner); len(items) != 3 {
 		t.Fatalf("subjects 未变不该重复通知: %+v", items)
 	}
@@ -480,10 +480,10 @@ func TestNotificationInternalDeliveryCredentialsOnPostgres(t *testing.T) {
 	if w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), "invalid_internal_token") {
 		t.Fatalf("错误密钥应 401 invalid_internal_token: %d %s", w.Code, w.Body.String())
 	}
-	// 没有终端用户令牌（actor 无从谈起）：401 authentication_required。
+	// 没有终端用户令牌且投递体无作者快照：400 invalid_actor（服务身份必须自带作者）。
 	w = f.do(f.engine(nil, testInternalToken), http.MethodPost, "/api/notifications/internal", body, map[string]string{InternalTokenHeader: testInternalToken})
-	if w.Code != http.StatusUnauthorized || !strings.Contains(w.Body.String(), "authentication_required") {
-		t.Fatalf("缺用户令牌应 401: %d %s", w.Code, w.Body.String())
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "invalid_actor") {
+		t.Fatalf("缺用户令牌又无快照应 400 invalid_actor: %d %s", w.Code, w.Body.String())
 	}
 	// 类型不在枚举里：400 invalid_notification_type（不是静默丢弃）。
 	bad := fmt.Sprintf("{\"recipient_id\":\"%s\",\"type\":\"entity.exploded\",\"subject_type\":\"entity\",\"subject_id\":\"%s\",\"payload\":{}}", f.owner.ID, work.ID)
@@ -499,6 +499,30 @@ func TestNotificationInternalDeliveryCredentialsOnPostgres(t *testing.T) {
 	}
 	if items := f.notifs(f.owner); len(items) != 0 {
 		t.Fatalf("四次失败投递都不该写行: %+v", items)
+	}
+}
+
+// ---- 真库：服务身份投递（A03）无终端用户令牌也可投递，作者取投递体快照 ----
+
+func TestNotificationServiceIdentityDeliveryOnPostgres(t *testing.T) {
+	f := newNotifyFixture(t)
+	work := f.saveAs(f.owner, Entity{Kind: "work", Title: "服务身份用例"})
+	authorID := "22222222-2222-2222-2222-222222222222"
+	body := fmt.Sprintf("{\"recipient_id\":\"%s\",\"type\":\"comment.replied\",\"subject_type\":\"entity\",\"subject_id\":\"%s\",\"actor_id\":\"%s\",\"actor_name\":\"replier\",\"event_id\":\"evt-svc-1\",\"payload\":{}}", f.owner.ID, work.ID, authorID)
+	// 无终端用户令牌 + body 作者快照 → 200，作者取快照（退出登录的后台重试即此形态）。
+	w := f.do(f.engine(nil, testInternalToken), http.MethodPost, "/api/notifications/internal", body, map[string]string{InternalTokenHeader: testInternalToken})
+	if w.Code != 200 {
+		t.Fatalf("服务身份投递应 200: %d %s", w.Code, w.Body.String())
+	}
+	items := f.notifs(f.owner)
+	if len(items) != 1 || items[0].ActorID != authorID || items[0].ActorName != "replier" {
+		t.Fatalf("作者应取快照: %+v", items)
+	}
+	// 非法 actor_id → 400 invalid_actor。
+	bad := fmt.Sprintf("{\"recipient_id\":\"%s\",\"type\":\"comment.replied\",\"subject_type\":\"entity\",\"subject_id\":\"%s\",\"actor_id\":\"nope\",\"payload\":{}}", f.owner.ID, work.ID)
+	w = f.do(f.engine(nil, testInternalToken), http.MethodPost, "/api/notifications/internal", bad, map[string]string{InternalTokenHeader: testInternalToken})
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "invalid_actor") {
+		t.Fatalf("非法作者应 400 invalid_actor: %d %s", w.Code, w.Body.String())
 	}
 }
 

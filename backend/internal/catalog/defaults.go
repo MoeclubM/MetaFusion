@@ -115,7 +115,7 @@ func Defaults() Definitions {
 			"medium":       {Fields: []StructureField{{Code: "release_id", TargetKinds: []string{"release"}, Required: true}, {Code: "parent_id", ScopedBy: "release_id"}}, Resources: true},
 			"track":        {Fields: []StructureField{{Code: "medium_id", TargetKinds: []string{"medium"}, Required: true}, {Code: "parent_id", ScopedBy: "medium_id"}}, Resources: true, Contents: true},
 		},
-		Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}}
+		Relations: map[string]RelationDefinition{}, Templates: map[string]Template{}, CreditDeclared: true}
 	field := func(code, typ string, n Names) {
 		d.Fields[code] = Field{Names: n, Type: typ, Enabled: true, Searchable: true, Comparable: true}
 	}

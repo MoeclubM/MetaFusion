@@ -3,7 +3,7 @@ package catalog
 import "sort"
 
 // mergeSeedDefinitions 把种子里**新增**的定义并进当前定义：只补当前缺失的键
-// （含已存在类型缺失的字段码），已存在的类型/字段/词表/关系/模板/方案一律原样保留。
+// （含已存在类型缺失的字段码），已存在的类型/字段/词表/关系/模板/方案一律原样保留——唯一例外是无 credit_declared 标记的老文档，其既有关系的署名开关按旧口径一次性回填（见下），之后即视为已声明。
 //
 // 为什么需要它：定义种子原先只在空库播种，存量实例拿不到新版本新增的关系码与字段，
 // 只能靠导入预检兜底。但"只空库播种"的初衷是怕覆盖人工编目决策（禁用某关系码、
@@ -19,6 +19,7 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 		Schemes:      make(map[string]Scheme, len(current.Schemes)),
 		Structure:    make(map[string]StructureRule, len(current.Structure)),
 	}
+	out.CreditDeclared = current.CreditDeclared
 	for k, v := range current.Structure {
 		out.Structure[k] = v
 	}
@@ -103,10 +104,10 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			added = append(added, "schemes."+k)
 		}
 	}
-	// 已存在关系的布尔开关（Aggregate / CountsAsCredit）一律不动：bool 的零值无法区分
+	// 有标记文档里已存在关系的布尔开关（Aggregate / CountsAsCredit）一律不动：bool 的零值无法区分
 	// "老文档缺该声明"与"后台有意关闭"，种子为真就回写 false 会让 GUI 刚关掉的开关在重启后
-	// 重新打开（D2）。缺失的关系整体由上面的补缺分支新增（含种子开关）；老文档的署名口径
-	// 靠 creditRelationTypes 的 group=credits 兜底（见 relations.go），不靠改数据升级。
+	// 重新打开（D2）。缺失的关系整体由上面的补缺分支新增（含种子开关）；无标记老文档的署名口径
+	// 由下面的迁移分支按旧口径一次性回填并置标记（之后严格按布尔值执行，不再看分组）。
 	// ParticipantSlot 是字符串：空串即"缺声明"可与显式值区分，老文档补上、已有值不覆盖——
 	// 后台改写槽位后种子不夺回控制权。
 	for code, sr := range seed.Relations {
@@ -118,6 +119,20 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			cur.ParticipantSlot = sr.ParticipantSlot
 			out.Relations[code] = cur
 			added = append(added, "relations."+code+".participant_slot")
+		}
+	}
+	if !current.CreditDeclared {
+		out.CreditDeclared = true
+		added = append(added, "credit_declared")
+		for code, cur := range out.Relations {
+			if _, existed := current.Relations[code]; !existed {
+				continue // 缺失的关系已在上面按种子整体新增（含开关）
+			}
+			if cur.Group == "credits" && !cur.CountsAsCredit {
+				cur.CountsAsCredit = true
+				out.Relations[code] = cur
+				added = append(added, "relations."+code+".counts_as_credit")
+			}
 		}
 	}
 	for k, v := range seed.Structure {

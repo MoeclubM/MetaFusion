@@ -1198,7 +1198,7 @@ func (s *Store) ExpressionDetailsBatch(ctx context.Context, ids []string, u *Use
 //
 // 判定严格来自每条关系自己的 CountsAsCredit 声明，不再看分组码：分组是展示归类，
 // 后台把某条关系挪出 credits 组属于改展示，不该静默改变"哪些关系算署名"的行为口径。
-// 老文档（还没有该声明）按 group=credits 兜底，保证上线后口径不跳变；
+// 无标记老文档由合并时一次性回填并置 credit_declared 标记（见 mergeSeedDefinitions），之后全关即全关；
 // 停用码一律不计入。返回排序后的码，保证 SQL 占位符顺序稳定。
 func creditRelationTypes(d Definitions) []string {
 	out := []string{}
@@ -1206,23 +1206,12 @@ func creditRelationTypes(d Definitions) []string {
 		if !rt.Enabled {
 			continue
 		}
-		if rt.CountsAsCredit || !hasCreditDeclaration(d) && rt.Group == "credits" {
+		if rt.CountsAsCredit {
 			out = append(out, code)
 		}
 	}
 	sort.Strings(out)
 	return out
-}
-
-// hasCreditDeclaration 报告这份文档里是否已有关系显式声明 CountsAsCredit：
-// 有就以声明为准（不再看分组），没有（老文档）才按 group=credits 兜底。
-func hasCreditDeclaration(d Definitions) bool {
-	for _, rt := range d.Relations {
-		if rt.CountsAsCredit {
-			return true
-		}
-	}
-	return false
 }
 
 // keysOf 返回 set 的键（顺序无关，仅用于构造 IN 查询）。

@@ -149,33 +149,9 @@ func (s *Store) Initialize(ctx context.Context) error {
 		if _, err := tx.ExecContext(ctx, baseline); err != nil {
 			return err
 		}
-		// 只判空表：逐行种子无需全表计数。
-		var seeded bool
-		if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM catalog.definitions)").Scan(&seeded); err != nil {
-			return err
-		}
-		if !seeded {
-			d := Defaults()
-			if err := d.Validate(); err != nil {
-				return err
-			}
-			if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.definitions(state,base_version,document) VALUES('published',0,$1)", encode(d)); err != nil {
-				return err
-			}
-		}
-		// 已迁到账号服务（auth store 的 Init 幂等播种）：auth schema 不归目录服务所有，
-		// 目录侧不再往里面写任何一行。
-		if err := seedExternalDatabases(ctx, tx); err != nil {
-			return err
-		}
-		// 种子补译文只在空库播种时才进库，存量行的语种缺口要靠这里补（只增不改）。
-		if err := backfillExternalDatabaseNames(ctx, tx); err != nil {
-			return err
-		}
-		if err := seedShelves(ctx, tx); err != nil {
-			return err
-		}
-		return nil
+		// 首次内容种子与 SeedContent 共用 seedContentTx（见 seed_content.go），
+		// 两条路径口径一致：定义空表才插，外部库/货架只增不改。
+		return seedContentTx(ctx, tx)
 	}); err != nil {
 		return err
 	}
@@ -527,6 +503,7 @@ var catalogIncrementals = []string{
 	"000006_request_idempotency.up.sql",         // R1：catalog.idempotency_keys
 	"000007_revision_definition_version.up.sql", // D4：revisions.definition_version
 	"000008_redirect_lookup_index.up.sql",       // R2：entities redirect 反查索引
+	"000009_notification_receipts.up.sql",       // A04：notification_receipts 收据表
 }
 
 // applyCatalogIncrementals 在安装路径上执行结构增量（见 catalogIncrementals 注释）。
@@ -706,7 +683,12 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 				e.Types = []string{code}
 			}
 		}
-		if !input.internal && len(e.Types) == 0 && needsExplicitTypes(e) && (create || len(old.Types) > 0 || !isLegacyUntyped(old)) {
+		if !input.internal && !create && len(e.Types) == 0 && len(old.Types) > 0 {
+			// 已有 types 的记录不得经普通保存抹空最后一个类型，与属性是否为空无关；
+			// 历史兼容只留给真正无类型存量（见 isLegacyUntyped）。
+			return fmt.Errorf("types_required")
+		}
+		if !input.internal && len(e.Types) == 0 && needsExplicitTypes(e) && (create || !isLegacyUntyped(old)) {
 			return fmt.Errorf("types_required")
 		}
 		historical := input.internal || !create && (len(old.Types) > 0 || isLegacyUntyped(old))
