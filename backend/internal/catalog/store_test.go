@@ -132,8 +132,21 @@ func TestPostgresCatalog(t *testing.T) {
 	recording.WorkID = song.ID
 	recording = save(recording)
 	release := entity("release", "普通版")
-	release.Subjects = []Subject{{WorkID: album.ID, Role: "primary"}, {WorkID: song.ID, Role: "compilation", Position: 1}}
+	release.Subjects = []Subject{{WorkID: song.ID, Role: "compilation", Position: 1}, {WorkID: album.ID, Role: "primary"}}
 	release = save(release)
+	direct, err := s.Get(ctx, release.ID, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	batched, err := s.getMany(ctx, []string{release.ID}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, got := range []Entity{direct, batched[release.ID]} {
+		if len(got.Subjects) != 2 || got.Subjects[0].WorkID != album.ID || got.Subjects[1].WorkID != song.ID {
+			t.Fatalf("release subjects order differs: %+v", got.Subjects)
+		}
+	}
 	medium := entity("medium", "CD 1")
 	medium.ReleaseID = release.ID
 	medium = save(medium)

@@ -86,12 +86,16 @@ func fillStructural(ctx context.Context, q queryer, out map[string]Entity) (map[
 	for id, e := range out {
 		byKind[e.Kind] = append(byKind[e.Kind], id)
 	}
-	link2 := func(kind, query string, scan func(*sql.Rows) error) error {
+	link2 := func(kind, query string, scan func(*sql.Rows) error, suffix ...string) error {
 		sub := byKind[kind]
 		if len(sub) == 0 {
 			return nil
 		}
-		r, qerr := q.QueryContext(ctx, query+" IN ("+entityPlaceholders(sub, 1)+")", entityArgs(sub)...)
+		statement := query + " IN (" + entityPlaceholders(sub, 1) + ")"
+		if len(suffix) > 0 {
+			statement += suffix[0]
+		}
+		r, qerr := q.QueryContext(ctx, statement, entityArgs(sub)...)
 		if qerr != nil {
 			return qerr
 		}
@@ -211,7 +215,7 @@ func fillStructural(ctx context.Context, q queryer, out map[string]Entity) (map[
 			out[rid] = cur
 		}
 		return nil
-	}); err != nil {
+	}, " ORDER BY release_id,position,work_id"); err != nil {
 		return nil, err
 	}
 	return out, nil
