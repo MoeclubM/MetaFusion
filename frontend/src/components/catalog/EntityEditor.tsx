@@ -78,6 +78,21 @@ export function EntityEditor({
   // 顺序（relative_to 锚点置前），无匹配时按全局声明顺序（锚点置前）。
   const kindKey = e.kind;
   const typesKey = JSON.stringify(e.types);
+  const [mediumFormat, setMediumFormat] = useState("");
+  const mediumID = e.kind === "track" ? e.medium_id : undefined;
+  useEffect(() => {
+    setMediumFormat("");
+    if (!mediumID) return;
+    let active = true;
+    api<Entity>(`/catalog/entities/${encodeURIComponent(mediumID)}`)
+      .then((medium) => {
+        if (active && medium.kind === "medium") {
+          setMediumFormat(typeof medium.attributes?.format === "string" ? medium.attributes.format : "");
+        }
+      })
+      .catch(() => { if (active) setMediumFormat(""); });
+    return () => { active = false; };
+  }, [mediumID]);
   // D3 单适用类型自动采用（与后端 soleEnabledType 同口径）：kindTypeOptions 只有一个
   // 启用类型时（如 medium 只有 medium）直接采用，不让用户重复勾选“介质的类型=介质”；
   // 多类型 kind 仍须手动选择（save 入口拦截）。逗号拼接即比较键：类型码不含逗号。
@@ -101,22 +116,22 @@ export function EntityEditor({
     [defs, kindKey, typesKey],
   );
   const locatorFieldKeys = React.useMemo(() => {
-    const matched = matchSchemes(defs as any, "locator", kindKey, effTypes);
+    const matched = matchSchemes(defs as any, "locator", kindKey, effTypes, mediumFormat);
     const union = effectiveSchemeFields(matched);
     const f: any = defs?.fields?.["locator"];
     const keys = union.length > 0 ? union.filter((k) => f?.fields?.[k]) : Object.keys(f?.fields || {});
     const anchor = f?.anchor_key;
     return anchor && keys.includes(anchor) ? [anchor, ...keys.filter((k) => k !== anchor)] : keys;
-  }, [defs, kindKey, effTypes]);
+  }, [defs, kindKey, effTypes, mediumFormat]);
   // 两个 GroupFieldInput 的收敛码：无匹配时传 undefined（显示全部全局子字段）。
   const subjectCodes = React.useMemo(() => {
     const union = effectiveSchemeFields(matchSchemes(defs as any, "subject_attributes", kindKey, effTypes));
     return union.length > 0 ? union : undefined;
   }, [defs, kindKey, effTypes]);
   const inclusionCodes = React.useMemo(() => {
-    const union = effectiveSchemeFields(matchSchemes(defs as any, "inclusion_attributes", kindKey, effTypes));
+    const union = effectiveSchemeFields(matchSchemes(defs as any, "inclusion_attributes", kindKey, effTypes, mediumFormat));
     return union.length > 0 ? union : undefined;
-  }, [defs, kindKey, effTypes]);
+  }, [defs, kindKey, effTypes, mediumFormat]);
   const [note, setNote] = useState(initialEditNote);
   // 新建条目时关系先入队：条目拿到 id 之后再逐条写入（见 save）。
   const [pendingRelations, setPendingRelations] = useState<RelationDraft[]>([]);

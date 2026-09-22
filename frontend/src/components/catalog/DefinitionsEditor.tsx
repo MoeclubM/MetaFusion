@@ -591,7 +591,7 @@ export function DefinitionsEditor() {
           value={d.vocabularies}
           onChange={(vocabularies) => change({ ...d, vocabularies })}
           create={() => ({ names: {}, terms: {} })}
-          render={(v, set) => (
+          render={(v, set, vocabularyCode) => (
             <>
               <NamesEditor
                 value={v.names}
@@ -600,7 +600,7 @@ export function DefinitionsEditor() {
               <Dictionary
                 value={v.terms}
                 onChange={(terms) => set({ ...v, terms })}
-                create={() => ({ names: {}, enabled: true })}
+                create={() => ({ names: {}, enabled: true, is_bonus: false })}
                 render={(term, change) => (
                   <>
                     <NamesEditor
@@ -617,6 +617,16 @@ export function DefinitionsEditor() {
                       />
                       {t("catalog.enabled")}
                     </label>
+                    {vocabularyCode === "role" && (
+                      <label className="cv-check">
+                        <input
+                          type="checkbox"
+                          checked={term.is_bonus === true}
+                          onChange={(e) => change({ ...term, is_bonus: e.target.checked })}
+                        />
+                        {t("catalog.bonusContent")}
+                      </label>
+                    )}
                   </>
                 )}
               />
@@ -907,6 +917,7 @@ export function DefinitionsEditor() {
             slot: "locator",
             kinds: [],
             types: [],
+            medium_formats: [],
             fields: [],
             required: [],
             require_range: false,
@@ -952,6 +963,14 @@ export function DefinitionsEditor() {
                   selected={v.types || []}
                   onChange={(types) => set({ ...v, types })}
                 />
+                {v.slot !== "subject_attributes" && (!v.kinds?.length || v.kinds.includes("track")) && (
+                  <Checks
+                    label={t("catalog.schemeMediumFormats")}
+                    values={names(d.vocabularies.format?.terms || {})}
+                    selected={v.medium_formats || []}
+                    onChange={(medium_formats) => set({ ...v, medium_formats })}
+                  />
+                )}
                 <Checks
                   label={t("catalog.schemeFields")}
                   values={groupFields}

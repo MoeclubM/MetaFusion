@@ -91,6 +91,7 @@ export type Scheme = {
   slot: string;
   kinds?: string[];
   types?: string[];
+  medium_formats?: string[];
   fields: string[];
   required?: string[];
   require_range?: boolean;
@@ -126,7 +127,7 @@ export type Definitions = {
   fields: Record<string, Field>;
   vocabularies: Record<
     string,
-    { names: Names; terms: Record<string, { names: Names; enabled: boolean }> }
+    { names: Names; terms: Record<string, { names: Names; enabled: boolean; is_bonus?: boolean }> }
   >;
   relations: Record<
     string,

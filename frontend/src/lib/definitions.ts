@@ -55,7 +55,7 @@ export interface TemplateDef {
 
 export interface VocabularyDef {
   names: Record<string, string>;
-  terms: Record<string, { names: Record<string, string>; enabled: boolean }>;
+  terms: Record<string, { names: Record<string, string>; enabled: boolean; is_bonus?: boolean }>;
 }
 
 /** 署名槽位闭集（与后端 types.go 的 ParticipantSlot 同口径）：person 对端是署名主体
@@ -120,6 +120,8 @@ export interface SchemeDef {
   kinds?: string[];
   /** 拥有者动态业务类型白名单，空=不限。 */
   types?: string[];
+  /** Track 所属 Medium 的格式词条；空=不限。 */
+  medium_formats?: string[];
   /** 该上下文可用子字段码，顺序即展示编辑顺序。 */
   fields: string[];
   /** 必填子集（⊆fields）。 */
@@ -203,13 +205,15 @@ export function matchSchemes(
   defs: DynamicDefinitions | null | undefined,
   slot: string,
   ownerKind: string,
-  ownerTypes: string[]
+  ownerTypes: string[],
+  mediumFormat = ""
 ): SchemeDef[] {
   const effective = effectiveOwnerTypes(defs, ownerKind, ownerTypes || []);
   const schemes = defs?.schemes || {};
   return Object.values(schemes).filter((s) => {
     if (!s || s.enabled === false || s.slot !== slot) return false;
     if ((s.kinds || []).length > 0 && !s.kinds!.includes(ownerKind)) return false;
+    if ((s.medium_formats || []).length > 0 && (ownerKind !== "track" || !s.medium_formats!.includes(mediumFormat))) return false;
     if ((s.types || []).length > 0) {
       if (!effective.some((t) => s.types!.includes(t))) return false;
     }
