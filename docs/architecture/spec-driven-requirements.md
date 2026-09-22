@@ -75,6 +75,8 @@
 | **Medium (载体)** | 发行中的物理/数字承载单元 | CD、Blu-ray Disc、黑胶 Vinyl、纸质册、数字集 |
 | **Track (收录位置)** | 载体中的轨道、顺序与导航节点 | CD 轨道、光盘面、BD 章节、小说页码 |
 
+`definitions.structure` 只描述固定骨架的归属外键和收录入口；其字段、目标 kind、必填性、`subjects` 与 `contents` 必须与数据库约束一致。后台 GUI 可扩展业务类型、属性、词表、模板和实体关系；新增骨架外键或收录容器须先变更数据库与服务端契约。资源展示开关不改变结构归属。
+
 - **多版本专辑（通常盘 vs 限定盘）**：一个专辑 Work，建立多个 Release；限定盘 Release 下挂多个 Medium（CD 唱片 + 现场 Live 演唱会 BD 光盘）。
 - **单曲与专辑多重收录**：单曲歌曲自身为 Work，其录音 Expression 被单曲 Release、专辑 Release 的不同 TrackContent 引用。
 - **个人作品无门槛**：写真集、独立游戏、同人翻唱无需任何商业发行证明或文件上传即可独立建档。

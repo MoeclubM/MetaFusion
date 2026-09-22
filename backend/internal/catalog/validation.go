@@ -383,6 +383,37 @@ func (d Definitions) Validate() error {
 			}
 		}
 	}
+	if len(d.Structure) > 0 {
+		fixed := Defaults().Structure
+		for _, kind := range Kinds {
+			want, required := fixed[kind]
+			got, present := d.Structure[kind]
+			if required && !present {
+				return fmt.Errorf("fixed_structure_mismatch: %s", kind)
+			}
+			if !present {
+				continue
+			}
+			if got.Subjects != want.Subjects || got.Contents != want.Contents || len(got.Fields) != len(want.Fields) {
+				return fmt.Errorf("fixed_structure_mismatch: %s", kind)
+			}
+			fields := make(map[string]StructureField, len(got.Fields))
+			for _, field := range got.Fields {
+				fields[field.Code] = field
+			}
+			for _, field := range want.Fields {
+				actual, ok := fields[field.Code]
+				if !ok || actual.Required != field.Required || actual.ScopedBy != field.ScopedBy || len(actual.TargetKinds) != len(field.TargetKinds) {
+					return fmt.Errorf("fixed_structure_mismatch: %s.%s", kind, field.Code)
+				}
+				for _, target := range field.TargetKinds {
+					if !contains(actual.TargetKinds, target) {
+						return fmt.Errorf("fixed_structure_mismatch: %s.%s", kind, field.Code)
+					}
+				}
+			}
+		}
+	}
 	for code, t := range d.Templates {
 		if !codePattern.MatchString(code) {
 			return fmt.Errorf("invalid_code")

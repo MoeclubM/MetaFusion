@@ -359,6 +359,30 @@ func TestDefinitionsValidateStructure(t *testing.T) {
 		{"scoped_by self", func(d *Definitions) {
 			d.Structure["expression"] = StructureRule{Fields: []StructureField{{Code: "work_id", ScopedBy: "work_id"}}}
 		}, "invalid_scoped_by"},
+		{"missing fixed rule", func(d *Definitions) {
+			delete(d.Structure, "release")
+		}, "fixed_structure_mismatch"},
+		{"removed required foreign key", func(d *Definitions) {
+			d.Structure["medium"] = StructureRule{}
+		}, "fixed_structure_mismatch"},
+		{"optional required foreign key", func(d *Definitions) {
+			rule := d.Structure["medium"]
+			rule.Fields[0].Required = false
+			d.Structure["medium"] = rule
+		}, "fixed_structure_mismatch"},
+		{"wrong valid target kind", func(d *Definitions) {
+			rule := d.Structure["medium"]
+			rule.Fields[0].TargetKinds = []string{"work"}
+			d.Structure["medium"] = rule
+		}, "fixed_structure_mismatch"},
+		{"hidden release subjects", func(d *Definitions) {
+			d.Structure["release"] = StructureRule{}
+		}, "fixed_structure_mismatch"},
+		{"invented medium contents", func(d *Definitions) {
+			rule := d.Structure["medium"]
+			rule.Contents = true
+			d.Structure["medium"] = rule
+		}, "fixed_structure_mismatch"},
 	}
 	for _, tc := range cases {
 		d := Defaults()
@@ -370,5 +394,17 @@ func TestDefinitionsValidateStructure(t *testing.T) {
 	// 结构字段码的权威集合来自 Entity.structuralRefs：两边不同源就会写出"永远读不到"的规则。
 	if len((Entity{}).structuralRefs()) == 0 {
 		t.Fatal("structuralRefs must not be empty")
+	}
+	withoutStructure := Defaults()
+	withoutStructure.Structure = nil
+	if err := withoutStructure.Validate(); err != nil {
+		t.Fatalf("legacy definitions without structure must remain valid: %v", err)
+	}
+	resources := Defaults()
+	rule := resources.Structure["work"]
+	rule.Resources = true
+	resources.Structure["work"] = rule
+	if err := resources.Validate(); err != nil {
+		t.Fatalf("resource display remains configurable: %v", err)
 	}
 }
