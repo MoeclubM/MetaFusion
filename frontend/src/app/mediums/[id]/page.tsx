@@ -23,6 +23,8 @@ import { EntityStaffSection } from "@/components/entity/EntityStaffSection";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ArrowLeft, ArrowRight, FileText, HardDrive, Layers, Users } from "lucide-react";
 
+const HEADER_FIELDS = ["format", "role"];
+
 function formatDuration(seconds?: number) {
   if (!seconds || seconds <= 0) return "";
   const minutes = Math.floor(seconds / 60);
@@ -76,6 +78,10 @@ export default function MediumDetailPage() {
     let cancelled = false;
     setLoading(true);
     setLoadError("");
+    setMedium(null);
+    setRelease(null);
+    setWork(null);
+    setTracks([]);
     (async () => {
       try {
         const m = await fetchApi<Entity>(`/catalog/entities/${mediumId}`);
@@ -88,14 +94,16 @@ export default function MediumDetailPage() {
         setKindMismatch(null);
         setMedium(m);
         if (m.release_id) {
-          const rel = await fetchApi<Entity>(`/catalog/entities/${m.release_id}`);
-          if (cancelled) return;
-          setRelease(rel);
-          const workId = rel.subjects?.[0]?.work_id;
-          if (workId) {
-            const w = await fetchApi<Entity>(`/catalog/entities/${workId}`);
-            if (!cancelled) setWork(w);
-          }
+          try {
+            const rel = await fetchApi<Entity>(`/catalog/entities/${m.release_id}`);
+            if (cancelled) return;
+            setRelease(rel);
+            const workId = rel.subjects?.find((s) => s.role === "primary")?.work_id || rel.subjects?.[0]?.work_id;
+            if (workId) {
+              const w = await fetchApi<Entity>(`/catalog/entities/${workId}`);
+              if (!cancelled) setWork(w);
+            }
+          } catch { /* 关联实体不可用时仍展示载体与曲目。 */ }
         }
         const trackEntities = await fetchAllPages<Entity>(`/catalog/entities?kind=track&medium_id=${encodeURIComponent(mediumId)}`);
         // 曲目的收录（表达）标题解析：先收集唯一表达 id，再受控并发逐条取。
@@ -153,11 +161,11 @@ export default function MediumDetailPage() {
     return <div className="min-h-screen bg-background grid place-items-center font-mono text-xs text-text-faint">{t("medium.detail.loading")}</div>;
   }
 
-  if (!medium) {
+  if (!medium || loadError) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
         <Navbar />
-        {loadError === "not_found" || loadError === "invalid" ? (
+        {!medium && (loadError === "not_found" || loadError === "invalid") ? (
           <DetailNotFound title={t("medium.detail.notFound")} />
         ) : (
           <DetailUnavailable
@@ -171,8 +179,6 @@ export default function MediumDetailPage() {
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white">
-      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
-      <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-violet-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
       <div className="relative z-10 flex-1">
         <Navbar />
         <PageShell
@@ -199,20 +205,22 @@ export default function MediumDetailPage() {
             )}
             <span className="text-text-strong truncate">{mediumTitle}</span>
           </div>
-          {/* 页面级 h1 归页头：与 /works/[id]、/releases/[id] 落同一条左基线，
-              不再受卡片左内边距与图标列影响。 */}
           <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
             <div className="space-y-2 min-w-0">
-              {/* 图标收进徽章行：大图标列会把 h1 顶到 176px，标题必须落在内容基线上。 */}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-alt-soft font-mono text-[10px] tracking-wider">
                   <HardDrive className="w-3.5 h-3.5" />
                   {t("medium.detail.badge")}
                 </span>
                 {roleLabel && <span className="text-xs font-mono text-text-faint">{roleLabel}</span>}
+                {formatCode && <span className="text-xs font-mono text-text-faint">{formatLabel || formatCode}</span>}
+                {(medium.number || (medium.position !== undefined && medium.position !== null)) && (
+                  <span className="text-xs font-mono text-text-faint">
+                    {t("medium.detail.position")}: {medium.number || medium.position}
+                  </span>
+                )}
               </div>
               <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-text-strong break-words">{mediumTitle}</h1>
-              {/* 多语言题名/别名：与 /works/[id] 一致（载体页此前也缺这块）。 */}
               {medium && (
                 <LocalizedTitleGroups
                   translations={medium.translations}
@@ -228,11 +236,8 @@ export default function MediumDetailPage() {
                   {entityTitle(work, locale) || work.title}
                 </p>
               )}
-              {/* 载体本身的举报入口：与 /works、/releases 共用 target_type=entity。 */}
               <ReportButton targetType="entity" targetId={mediumId} />
             </div>
-            {/* 封面：载体自身没有封面图时沿用所属发行版的封面（缺失才落程序占位）。
-                此前载体页完全没有封面位，同一实体在 /catalog/[id] 有图、在这里是空白。 */}
             <div className="w-24 sm:w-28 shrink-0 self-start">
               <div className="w-full aspect-[3/4] rounded-md overflow-hidden border border-line">
                 <AdaptiveCardCover
@@ -247,29 +252,14 @@ export default function MediumDetailPage() {
           </div>
           }
         >
-          <Card tone="plain" padding="section" className="shadow-soft">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
-                <p className="text-[10px] font-mono text-text-faint uppercase">{t("medium.detail.format")}</p>
-                <p className="text-sm font-semibold text-text-strong mt-0.5">{formatLabel || formatCode || "—"}</p>
-              </div>
-              <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
-                <p className="text-[10px] font-mono text-text-faint uppercase">{t("medium.detail.position")}</p>
-                <p className="text-sm font-semibold text-text-strong mt-0.5">{medium.number || `#${medium.position ?? 0}`}</p>
-              </div>
-              <div className="p-2.5 rounded-md bg-black/[0.03] dark:bg-white/[0.04]">
-                <p className="text-[10px] font-mono text-text-faint uppercase">{t("medium.detail.trackCount")}</p>
-                <p className="text-sm font-semibold text-text-strong mt-0.5">{tracks.length}</p>
-              </div>
-            </div>
-          </Card>
-
-          {/* 载体自身的动态属性（黑胶转速/尺寸等由后台声明）：走通用分区渲染，
-              不为每种媒体另写面板；无可用字段时组件返回 null。
-              容器交给 Card（plain 档），组件只负责字段渲染，页面不写卡片类。 */}
-          <Card tone="plain" padding="section">
-            <WorkFacts entity={medium} defs={defs} locale={locale} />
-          </Card>
+          {defs && Object.keys(medium.attributes || {}).some((code) => {
+            const value = medium.attributes?.[code];
+            return !HEADER_FIELDS.includes(code) && value !== undefined && value !== null && value !== "" && !defs.fields?.[code]?.hidden;
+          }) && (
+            <Card tone="plain" padding="section">
+              <WorkFacts entity={medium} defs={defs} locale={locale} excludeFields={HEADER_FIELDS} />
+            </Card>
+          )}
 
           {(mediumStaffLoaded ? mediumStaffCount > 0 : true) && (
             <Card tone="plain" padding="section" className="space-y-3">

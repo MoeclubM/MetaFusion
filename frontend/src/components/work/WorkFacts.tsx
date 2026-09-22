@@ -5,6 +5,8 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { DynamicDefinitions, resolveLocalizedName, getFieldName, getTermName } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 
+const NO_EXCLUDED_FIELDS: string[] = [];
+
 // WorkFacts：作品/实体的信息面板，按实体**自身类型**引用的模板分区渲染。
 // 两个详情页（/works/[id] 与 /catalog/[id]）共用同一实现，避免字段集合与
 // 展示次序各写一份而漂移。分区、字段、次序全部来自服务端 definitions，
@@ -14,17 +16,20 @@ export function WorkFacts({
   defs,
   locale,
   className = "",
+  excludeFields = NO_EXCLUDED_FIELDS,
 }: {
   entity: { kind?: string; types?: string[] | null; attributes?: Record<string, any> | null } | null;
   defs: DynamicDefinitions | null | undefined;
   locale: string;
   className?: string;
+  excludeFields?: string[];
 }) {
   const { t } = useI18n();
 
   const { sections, restFields } = useMemo(() => {
     const attrs = entity?.attributes || {};
     const visible = (code: string) => {
+      if (excludeFields.includes(code)) return false;
       const v = attrs[code];
       if (v === undefined || v === null || v === "") return false;
       // 存档字段不进信息面板（页面上有专用区块呈现）。
@@ -52,7 +57,7 @@ export function WorkFacts({
     // 模板未覆盖的属性兜底展示，避免数据被隐藏；同样排除存档字段。
     const rest = Object.keys(attrs).filter((k) => !seen.has(k) && visible(k));
     return { sections: out, restFields: rest };
-  }, [entity, defs]);
+  }, [entity, defs, excludeFields]);
 
   if (!defs) return null;
   if (!sections.length && !restFields.length) return null;
