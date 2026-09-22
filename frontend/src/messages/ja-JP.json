@@ -742,6 +742,7 @@
   "catalog.participantSlotPerson": "人物 / 組織",
   "catalog.participantSlotCharacter": "架空のキャラクター",
   "catalog.participantSlotPeer": "同階層オブジェクト（クレジットなし）",
+  "catalog.creditDeclHint": "クレジット表示はこの2つの宣言に従い、表示グループには影響されません。グループを移動してもクレジット対象は変わりません。",
   "catalog.search": "タイトル・別名・概要を検索",
   "catalog.kindLabel": "エンティティ種別",
   "catalog.allKinds": "すべての階層",

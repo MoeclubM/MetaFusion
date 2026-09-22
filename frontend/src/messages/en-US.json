@@ -742,6 +742,7 @@
   "catalog.participantSlotPerson": "Person / organization",
   "catalog.participantSlotCharacter": "Fictional character",
   "catalog.participantSlotPeer": "Peer object (no credit)",
+  "catalog.creditDeclHint": "Credit display follows these two declarations, not the display group: moving a relation to another group never changes who counts as a credit.",
   "catalog.search": "Search titles, aliases and summaries",
   "catalog.kindLabel": "Entity kind",
   "catalog.allKinds": "All kinds",

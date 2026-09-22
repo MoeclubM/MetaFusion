@@ -742,6 +742,7 @@
   "catalog.participantSlotPerson": "人物 / 机构",
   "catalog.participantSlotCharacter": "虚构角色",
   "catalog.participantSlotPeer": "同层级对象（不署名）",
+  "catalog.creditDeclHint": "署名展示以这两项声明为准，不跟随显示分组：关系换组不改变谁算署名。",
   "catalog.search": "搜索题名、别名与简介",
   "catalog.kindLabel": "实体层级",
   "catalog.allKinds": "全部层级",
