@@ -282,7 +282,7 @@ export default function TopicDetailPage() {
  </div>
 
  <Link
- href={catalogEntityHref(topic.entity_kind || "work", topic.entity_id)}
+ href={catalogEntityHref(topic.entity_kind || "", topic.entity_id)}
  className="px-3 py-1.5 rounded bg-background hover:bg-surfaceBorder border border-line text-text-body hover:text-emphasis flex items-center space-x-1 flex-shrink-0 transition-colors duration-fast ease-soft"
  >
  <span>{t("community.viewArchive")}</span>

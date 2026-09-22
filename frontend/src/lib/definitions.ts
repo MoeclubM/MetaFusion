@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { resolveLocalizedName } from "./localizedNames";
+export { resolveLocalizedName } from "./localizedNames";
 
 export interface TypeDef {
   names: Record<string, string>;
@@ -354,37 +356,6 @@ export function useDefinitions() {
 
   // versionId 与 definitions 同批更新（同一次响应解析出来的），供编辑器的基线版本使用。
   return { definitions: defs, kinds, versionId, loading };
-}
-
-/**
- * 服务端 definitions 多语言名回退链：精确 → 短码/等价写法 → zh-CN → zh-TW → ja/ja-JP
- * → en-US → 行内剩余首个非空值 → fallback。
- */
-export function resolveLocalizedName(
-  names: Record<string, string> | undefined | null,
-  locale: string,
-  fallback = ""
-): string {
-  if (!names) return fallback;
-  const get = (code: string): string => {
-    const v = names[code];
-    return typeof v === "string" && v.trim() ? v.trim() : "";
-  };
-  if (get(locale)) return get(locale);
-  const low = locale.trim().toLowerCase();
-  const short = low.split("-")[0];
-  // 短码与等价写法：ja-JP↔ja、zh↔zh-CN、en↔en-US、zh-TW↔zh-Hant
-  for (const [k, v] of Object.entries(names)) {
-    if (typeof v !== "string" || !v.trim()) continue;
-    const kl = k.trim().toLowerCase();
-    if (kl === short || kl.split("-")[0] === short) return v.trim();
-  }
-  if (get("zh-CN")) return get("zh-CN");
-  if (get("zh-TW") || get("zh-Hant")) return get("zh-TW") || get("zh-Hant");
-  if (get("ja") || get("ja-JP")) return get("ja") || get("ja-JP");
-  if (get("en-US") || get("en")) return get("en-US") || get("en");
-  const values = Object.values(names).filter((v) => typeof v === "string" && (v as string).trim());
-  return values.length > 0 ? (values[0] as string).trim() : fallback;
 }
 
 /**

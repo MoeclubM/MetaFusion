@@ -776,7 +776,7 @@ function CommunityContent() {
  </span>
  {topic.entity_id && topic.entity_title && (
  <Link
- href={catalogEntityHref(topic.entity_kind || "work", topic.entity_id)}
+ href={catalogEntityHref(topic.entity_kind || "", topic.entity_id)}
  className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-background border border-line text-text-body hover:text-emphasis text-xs font-mono hover:border-emerald-500/40 transition-colors duration-fast ease-soft max-w-[180px] truncate"
  onClick={(e) => e.stopPropagation()}
  >

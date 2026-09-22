@@ -2,8 +2,7 @@
  * 详情路由收敛：work / release / medium 有专用正式路由，其余 kind 只有通用兜底 /catalog/[id]。
  * 服务端页面与客户端兜底共用这一份判定，避免两边各写一套名单。
  *
- * 只认固定八种骨架里的这三种 kind，不复用 catalogEntityHref：后者对未知 code 回退到 work，
- * 动态类型码会被它误送去 /works。
+ * 只认固定八种骨架里的这三种 kind；其余类型使用通用兜底。
  */
 export function formalDetailPath(
   kind: string | null | undefined,

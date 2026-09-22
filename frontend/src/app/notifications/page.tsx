@@ -72,7 +72,7 @@ function payloadNumberText(payload: Record<string, unknown>, key: string): strin
  * 跳转映射（契约里 payload 可能缺键，缺了就退回列表页/通用条目页，不拼一个必然 404 的地址）：
  *   comment.replied  → /community/<topic_id>，缺 topic_id 时 /community
  *   entity.*         → catalogEntityHref(entity_kind, entity_id)；kind 缺失时不猜层级
- *                      （catalogEntityHref 对空 kind 会当成 work，猜错就是一条死链），
+ *                      （缺失 kind 无法确定专用详情路径），
  *                      退回通用兜底 /catalog/<id>
  *   import.completed → /contribute（导入入口）
  */

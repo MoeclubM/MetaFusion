@@ -1,30 +1,7 @@
-// 由 frontend/src/lib/api.ts 按域拆分而来（机械搬运：导出名、签名、行为与拆分前一致）。
-// 域：目录服务 /api/catalog/*
 import { fetchApi } from "./client";
 import type { User } from "./client";
-
-export const CATALOG_HUBS = [
-  "agent",
-  "collection",
-  "work",
-  "content_unit",
-  "expression",
-  "release",
-  "medium",
-  "track",
-] as const;
-
-export type CatalogHub = (typeof CATALOG_HUBS)[number];
-
-export function isCatalogHub(type: string): type is CatalogHub {
-  return (CATALOG_HUBS as readonly string[]).includes(type);
-}
-
-export function catalogHubOf(type: string): CatalogHub {
-  const normalized = (type || "").toLowerCase();
-  if (isCatalogHub(normalized)) return normalized;
-  return "work";
-}
+import { canonicalDetailPath } from "../entityRoutes";
+import { resolveLocalizedName } from "../localizedNames";
 
 export interface Tag {
   id: number;
@@ -33,58 +10,12 @@ export interface Tag {
 
 
 
-/** 动态多语言字段映射解析辅助函数（names: Record<string, string> / JSONB 结构，按语言链回退） */
-
 export function pickLocalizedName(
   locale: string,
   names?: Record<string, string> | null,
   defaultSlug?: string
 ): string {
-  if (names && typeof names === "object") {
-    // 1. 精确匹配当前语言，如 zh-CN, en-US, ja, ko
-    if (names[locale] && typeof names[locale] === "string" && names[locale].trim()) {
-      return names[locale].trim();
-    }
-    // 2. 前缀匹配语言家族，如 zh 匹配 zh-CN, en 匹配 en-US
-    const prefix = locale.split("-")[0]?.toLowerCase();
-    if (prefix) {
-      for (const [k, v] of Object.entries(names)) {
-        if (k.toLowerCase().startsWith(prefix) && typeof v === "string" && v.trim()) {
-          return v.trim();
-        }
-      }
-    }
-    // 3. 回退至 zh-CN
-    if (names["zh-CN"] && typeof names["zh-CN"] === "string" && names["zh-CN"].trim()) {
-      return names["zh-CN"].trim();
-    }
-    // 4. 回退至 zh-TW / zh-Hant（繁中与简中互为回退，不再直跳英文）
-    if (names["zh-TW"] && typeof names["zh-TW"] === "string" && names["zh-TW"].trim()) {
-      return names["zh-TW"].trim();
-    }
-    if (names["zh-Hant"] && typeof names["zh-Hant"] === "string" && names["zh-Hant"].trim()) {
-      return names["zh-Hant"].trim();
-    }
-    // 5. 回退至 ja / ja-JP
-    if (names["ja"] && typeof names["ja"] === "string" && names["ja"].trim()) {
-      return names["ja"].trim();
-    }
-    if (names["ja-JP"] && typeof names["ja-JP"] === "string" && names["ja-JP"].trim()) {
-      return names["ja-JP"].trim();
-    }
-    // 6. 回退至 en-US
-    if (names["en-US"] && typeof names["en-US"] === "string" && names["en-US"].trim()) {
-      return names["en-US"].trim();
-    }
-    // 7. 任意非空值
-    for (const v of Object.values(names)) {
-      if (typeof v === "string" && v.trim()) {
-        return v.trim();
-      }
-    }
-  }
-
-  return defaultSlug || "";
+  return resolveLocalizedName(names, locale, defaultSlug || "");
 }
 
 export interface ConnectedEntityItem {
@@ -173,20 +104,8 @@ export interface RelationType {
 
 
 
-// Admin/API compatibility name. Runtime data is backed by AssetRegistry + AssetBinding.
-
 export function catalogEntityHref(type: string, id: string): string {
-  // 专用详情路由只覆盖 work / release / medium；其余 kind 走通用兜底 /catalog/:id。
-  switch (catalogHubOf(type)) {
-    case "work":
-      return `/works/${id}`;
-    case "release":
-      return `/releases/${id}`;
-    case "medium":
-      return `/mediums/${id}`;
-    default:
-      return `/catalog/${id}`;
-  }
+  return canonicalDetailPath(type, id) || `/catalog/${id}`;
 }
 
 export interface GraphNode {
