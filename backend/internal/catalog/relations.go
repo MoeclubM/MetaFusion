@@ -479,14 +479,9 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 		return err
 	}
 	incoming, outgoing := 0, 0
-	// 去重键为（端点，类型，属性，position）：position 是边的排序身份，
-	// 同端点同属性但 position 不同是两条合法边（如同一演员的两个角色位），
-	// 不能因 encode 比较不含 position 而误判重复。编码差异按 encode 归一：
-	// nil 与空 map 视为不同值，与 000012 唯一索引（COALESCE 缺键为 null）同口径。
-	// 注意 DB 唯一索引 relations_no_exact_dup 是（端点+类型+属性）口径、不含
-	// position：同一端点同属性不同 position 的两条边会撞唯一索引而报
-	// constraint_violation（23505）。应用层此处先按 version/position 判重，
-	// 语义与 DB 索引的差异见 SaveRelation 的注释。
+	// position 只决定展示顺序，不属于关系身份；同端点、类型和属性的边
+	// 即使 position 不同也要按 relations_no_exact_dup 的数据库口径判重。
+	// 同一演员的不同角色应写进 character 等属性，而非只改 position。
 	graph := map[string][]string{}
 	for _, x := range existing {
 		if x.ID == r.ID || x.Type != r.Type {
@@ -499,7 +494,7 @@ func validateRelation(d Definitions, r Relation, src, tgt Entity, existing []Rel
 		if x.TargetID == r.TargetID {
 			incoming++
 		}
-		if (x.SourceID == r.SourceID && x.TargetID == r.TargetID || rt.Symmetric && x.SourceID == r.TargetID && x.TargetID == r.SourceID) && x.Position == r.Position && encode(attrsOrEmpty(x.Attributes)) == encode(attrsOrEmpty(r.Attributes)) {
+		if (x.SourceID == r.SourceID && x.TargetID == r.TargetID || rt.Symmetric && x.SourceID == r.TargetID && x.TargetID == r.SourceID) && encode(attrsOrEmpty(x.Attributes)) == encode(attrsOrEmpty(r.Attributes)) {
 			return fmt.Errorf("duplicate_relation")
 		}
 	}

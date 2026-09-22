@@ -96,7 +96,7 @@ func TestCreditRelationTypesFollowDeclarationOverGroup(t *testing.T) {
 	}
 }
 
-func TestValidateRelationDedupIncludesPosition(t *testing.T) {
+func TestValidateRelationDedupIgnoresPosition(t *testing.T) {
 	d := Defaults()
 	a := Entity{ID: "a", Kind: "expression"}
 	b := Entity{ID: "b", Kind: "agent"}
@@ -107,10 +107,15 @@ func TestValidateRelationDedupIncludesPosition(t *testing.T) {
 	if err := validateRelation(d, r, a, b, prior, ref, false); err == nil || err.Error() != "duplicate_relation" {
 		t.Fatalf("same position must be duplicate, got %v", err)
 	}
-	// 同端点同属性但 position 不同 → 两条合法边，不误判。
+	// position 只用于展示排序，不能绕过数据库唯一约束。
 	r.Position = 1
+	if err := validateRelation(d, r, a, b, prior, ref, false); err == nil || err.Error() != "duplicate_relation" {
+		t.Fatalf("different position must still be duplicate, got %v", err)
+	}
+	// 不同角色属性才是两条不同关系。
+	r.Attributes = map[string]any{"character": "c2"}
 	if err := validateRelation(d, r, a, b, prior, ref, false); err != nil {
-		t.Fatalf("different position wrongly deduped: %v", err)
+		t.Fatalf("different character should be allowed: %v", err)
 	}
 }
 
