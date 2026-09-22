@@ -34,6 +34,10 @@ func entityArgs(ids []string) []any {
 // getMany 一次 IN 批量拉取实体并按 kind 批量补齐侧表, 替代逐行 Get 的 N+1。
 // 仅返回 visible 的实体; 不可见/缺失直接从 map 中省略, 调用方按“缺失即跳过”处理。
 func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]Entity, error) {
+	return getManyFrom(ctx, s.DB, ids, u)
+}
+
+func getManyFrom(ctx context.Context, q queryer, ids []string, u *User) (map[string]Entity, error) {
 	out := map[string]Entity{}
 	uniq := []string{}
 	seen := map[string]bool{}
@@ -47,15 +51,15 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 	if len(uniq) == 0 {
 		return out, nil
 	}
-	rows, err := s.DB.QueryContext(ctx, "SELECT id::text, document FROM catalog.entities WHERE id IN ("+entityPlaceholders(uniq, 1)+")", entityArgs(uniq)...)
+	rows, err := q.QueryContext(ctx, "SELECT id::text, document, status, created_by::text FROM catalog.entities WHERE id IN ("+entityPlaceholders(uniq, 1)+")", entityArgs(uniq)...)
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		var id string
+		var id, status, createdBy string
 		var b []byte
 		var e Entity
-		if err = rows.Scan(&id, &b); err != nil {
+		if err = rows.Scan(&id, &b, &status, &createdBy); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -63,6 +67,7 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 			rows.Close()
 			return nil, err
 		}
+		e.ID, e.Status, e.CreatedBy = id, status, createdBy
 		if !visible(e, u) {
 			continue
 		}
@@ -73,7 +78,7 @@ func (s *Store) getMany(ctx context.Context, ids []string, u *User) (map[string]
 		return nil, err
 	}
 	rows.Close()
-	return fillStructural(ctx, s.DB, out)
+	return fillStructural(ctx, q, out)
 }
 
 // fillStructural 按 kind 批量补齐结构侧表字段（content_unit/expression 的 work 与父级、

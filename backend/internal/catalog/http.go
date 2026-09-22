@@ -429,6 +429,10 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, stats, err)
 	})
 	cat.GET("/entities/:id", func(c *gin.Context) { e, err := s.Get(c.Request.Context(), c.Param("id"), user(c)); respond(c, e, err) })
+	cat.GET("/releases/:id/toc", routeLimiter(120), func(c *gin.Context) {
+		v, err := s.ReleaseTableOfContents(c.Request.Context(), c.Param("id"), user(c))
+		respond(c, v, err)
+	})
 	cat.GET("/entities/:id/resolve", func(c *gin.Context) {
 		e, err := s.Resolve(c.Request.Context(), c.Param("id"), user(c))
 		respond(c, e, err)
