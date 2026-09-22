@@ -1,10 +1,10 @@
 # 多项目解耦审计与优化建议（2026-09）
 
-> 范围声明：本文只记录**当前可观察的耦合**、建议做法与可验证判据，不改既有架构文档的结论；与既有结论冲突时以既有文档为准，但要先按本文的证据改文档。
+> 范围声明：本文保留 **2026-09-16 审计与实施批次的历史快照**。文中的“现状”“待办”“未验证”若无明确更新日期，均指当时，不代表当前运行态。当前路由、数据归属和迁移职责见 [子系统拆分与迁移基准](./service-split-migration.md)；媒体架构与用户前端的本轮复核见 [媒体目录与用户前端评估](./media-catalog-frontend-review-2026-09.md)。
 > 关联文档：[子系统拆分与迁移基准](./service-split-migration.md)（路由与数据归属的唯一契约）、[多项目解耦规范](./multi-project-decoupling-spec.md)、[能力清单与模块开关](./capabilities-and-module-toggles.md)、[架构优化建议](./optimization-recommendations.md)、[架构评估结论（2026-09）](./architecture-assessment-2026-09.md)。
 > 数据约束：本文不含实例数据——不写真实条目名；示例一律用占位符（`<repo>`、`<prefix>`、`<code>`）或代码里的真实标识符。
 > 审计方式：5 个并行只读子代理（主仓库 backend、`metafusion-auth`、`metafusion-community` + `metafusion-storage`、`frontend`、`deploy`/网关/契约面），结论由主代理二次核对；核对面见 §0.2。
-> 状态：**审计完成**。两项决议已确认（§8.2 的 D1、D2），其余为推荐值待评审；B0（本文与契约文档）已交付，B1–B6 待排期。
+> 状态：审计已完成。§8–§12 记录当时决议与进度，不能直接当作当前实施清单。
 
 ## 0. 结论摘要
 
@@ -239,7 +239,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 ### 7.1 现状
 
 - 单 Next 应用承载四域：写入时实测 `frontend/src` 共 123 个 `ts/tsx`；按路径归属的分域统计为 catalog 42 文件 14072 行、auth 20 文件 4486 行、community 5 文件 1878 行、storage 3 文件 887 行、共享层（`components/ui`、`components/common`、`i18n`、部分 `lib`）30 文件 4543 行，其余是站点页与混合页。
-- 子系统仓库零前端：`metafusion-auth`、`metafusion-community`、`metafusion-storage` 顶层没有前端目录，也没有 `.tsx`/`.html`/`.css` 资源；账号侧唯一的 HTML 是服务端渲染的 OAuth 同意页（`../metafusion-auth/internal/handler/consent.go`）。
+- 审计时子系统仓库没有独立前端；之后三个服务各自新增 `admin/` 管理台，账号服务还新增 `user/` 登录/注册/初始化应用。普通用户的社区、资源与目录详情页面仍主要在主仓库 `frontend/`。
 - "外部化开关"曾是死开关：`NEXT_PUBLIC_*` 只在 `frontend/src/lib/services.ts` 引用，compose/Dockerfile/CI 没有注入点。**2026-09-16 已补上注入链**：`frontend/Dockerfile` 声明 ARG/ENV、`deploy/docker-compose.yml` 的 `frontend.build.args` 传值、`release.yml` 从仓库变量 `vars.NEXT_PUBLIC_*` 传给镜像构建（构建期内联）。默认仍为空 → 前端按同源网关路径工作，与当前部署一致。
 - 开关的 http 分支曾指向不存在的页面（账号服务只有 JSON API + 同意页）：**2026-09-16 已改**，`services.ts` 用 `AUTH_PAGES_ENABLED`/`FORUM_PAGES_ENABLED`（均 false）门控，服务没有页面路由就不生成外部页面地址，退回同源路径。
 - 跨域耦合落在页面里：`frontend/src/components/catalog/EntityDetailView.tsx` 同时嵌 auth 跳转、community 收藏、storage 上传下载；`frontend/src/app/admin/page.tsx` 一页混目录定义与账号管理。
@@ -251,7 +251,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 
 1. 界面层没有边界：任何服务改一个字段、加一个错误码，都要动主仓库前端并整体重发，前端成了所有服务的发布闸门。
 2. 目录站的"仅元数据"部署形态与实际界面不一致：详情页硬依赖另三个服务的客户端代码。
-3. 拆分 UI 的瓶颈不在组件而在共享上下文与字典：`useI18n` 被大量文件引用、四语字典是单文件、鉴权上下文是全局 Provider，而 `NEXT_PUBLIC_*` 又没有构建期注入点。
+3. 拆分 UI 的瓶颈仍在共享上下文与字典：`useI18n` 被大量文件引用、四语字典是单文件、鉴权上下文是全局 Provider；`NEXT_PUBLIC_*` 构建期注入已补齐，跨应用契约尚未完成。
 
 ### 7.3 建议做法（目标形态：每个服务自带 UI）
 
@@ -371,7 +371,7 @@ git -C ../metafusion-auth rev-parse --short HEAD   # 其余仓库同理
 | B4 数据层准备 | community/storage 迁移文件化 + 版本账本（幂等、真库用例）；两处 `sql/roles.example.sql`；`records` 与 `community` 变量拆分；`-p 1` 进 storage CI | community `06a3f48`、`316efaf`、`0eaaee4`、`399a9bb`；storage `05db308`、`d7dbca6`、`7bf29a9`；auth `e2e700b`、`b3b74bc` |
 | B5 / B6 UI 拆分 | **部分落地**：三个服务自带的管理台（独立应用 + 同域路径 + 网关三条前缀 location + 编排三个 `*-admin` 服务）已接入；**共享层与主控制台逐域拆页未开始** | — |
 
-仍待办（按投入产出排序）：
+当时仍待办（以下为 2026-09-16 快照，当前状态须重新核对）：
 
 1. **SDK 接入三个服务**（B2 收尾）：删各自的 `internal/auth` 与权限码副本、收口 `unauthorized`、删私钥兜底路径；SDK 仓库尚未建远端与 tag（需要用户授权）。
 2. **B4 正式启用**：每服务 DB 角色 + `DATABASE_URL` 拆分 + 显式迁移入口（否则受限角色会挡住启动，见 §4.3 第 3 条）——需要停机窗口与回滚脚本。
