@@ -84,10 +84,12 @@ export function componentEntries(
     if (!isAggregate(r.type)) continue;
     const outgoing = r.source_id === selfId;
     const peerId = outgoing ? r.target_id : r.source_id;
-    if (!peerId || peerId === selfId || seen.has(peerId)) continue;
+    // 同一对作品可以同时存在两个方向的聚合关系；两种目录语义分别去重。
+    const key = `${outgoing ? "out" : "in"}:${peerId}`;
+    if (!peerId || peerId === selfId || seen.has(key)) continue;
     const peer = entities[peerId];
     if (!peer || (peer.kind !== "work" && peer.kind !== "collection")) continue;
-    seen.add(peerId);
+    seen.add(key);
     const entry: DirectoryEntry = {
       id: peerId,
       parentId: "",
@@ -114,9 +116,22 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
   const kindLabel = (code: string) =>
     getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
   const [items, setItems] = useState<DirectoryEntry[]>([]);
-  const [components, setComponents] = useState<DirectoryEntry[]>([]);
-  const [includedIn, setIncludedIn] = useState<DirectoryEntry[]>([]);
+  const [relations, setRelations] = useState<RelationRow[]>([]);
+  const [relatedEntities, setRelatedEntities] = useState<Record<string, Entity>>({});
   const [loading, setLoading] = useState(true);
+
+  // definitions 可能晚于目录数据返回，也可能在后台发布后更新；只重算关系语义，
+  // 不因此重复请求整棵章节树与表达列表。
+  const { includes: components, includedIn } = useMemo(
+    () => componentEntries(
+      relations,
+      relatedEntities,
+      workId,
+      locale,
+      (code) => defs?.relations?.[code]?.aggregate === true,
+    ),
+    [relations, relatedEntities, workId, locale, defs],
+  );
 
   useEffect(() => {
     let active = true;
@@ -132,24 +147,17 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
         // 而不是把各歌曲的录音复制到专辑之下（那会丢掉歌曲的独立身份）。
         const rel = await fetch(`/api/catalog/entities/${encodeURIComponent(workId)}/relations`, {
           credentials: "same-origin",
-        }).then((res) => (res.ok ? res.json() : { items: [], entities: {} }));
-        const { includes, includedIn: parents } = componentEntries(
-          Array.isArray(rel.items) ? rel.items : [],
-          rel.entities && typeof rel.entities === "object" ? rel.entities : {},
-          workId,
-          locale,
-          // 组成关系由定义声明（aggregate），新增聚合类关系不用改这里。
-          (code) => defs?.relations?.[code]?.aggregate === true,
-        );
+        }).then((res) => (res.ok ? res.json() : { items: [], entities: {} }))
+          .catch(() => ({ items: [], entities: {} }));
         if (!active) return;
         setItems([...units.map((e) => toEntry(e, locale)), ...exprs.map((e) => toEntry(e, locale))]);
-        setComponents(includes);
-        setIncludedIn(parents);
+        setRelations(Array.isArray(rel.items) ? rel.items : []);
+        setRelatedEntities(rel.entities && typeof rel.entities === "object" ? rel.entities : {});
       } catch {
         if (active) {
           setItems([]);
-          setComponents([]);
-          setIncludedIn([]);
+          setRelations([]);
+          setRelatedEntities({});
         }
       } finally {
         if (active) setLoading(false);
