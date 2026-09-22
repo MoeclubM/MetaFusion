@@ -476,8 +476,13 @@ export default function ReleaseDetailPage() {
       : channel;
 
   const visibleGroups = activeTab === "all" ? formatGroups : formatGroups.filter(([fmt]) => fmt === activeTab);
-  const bonusGroups = showBonus ? visibleGroups : visibleGroups.map(([fmt, rows]) => [fmt, rows.filter((r) => attrText(r.medium.attributes?.role) !== "supplement")] as [string, typeof media]);
-  const supplementGroups = visibleGroups.map(([fmt, rows]) => [fmt, rows.filter((r) => attrText(r.medium.attributes?.role) === "supplement")] as [string, typeof media]);
+  const isBonusMedium = (medium: Entity) => {
+    const role = attrText(medium.attributes?.role);
+    return dynamicDefs?.vocabularies?.role?.terms?.[role]?.is_bonus === true;
+  };
+  const hasBonusMedia = media.some(({ medium }) => isBonusMedium(medium));
+  const bonusGroups = showBonus ? visibleGroups : visibleGroups.map(([fmt, rows]) => [fmt, rows.filter((r) => !isBonusMedium(r.medium))] as [string, MediumRow[]]);
+  const supplementGroups = visibleGroups.map(([fmt, rows]) => [fmt, rows.filter((r) => isBonusMedium(r.medium))] as [string, MediumRow[]]);
 
   const inBasket = basket.includes(release.id!);
   const basketFull = !inBasket && basket.length >= COMPARE_MAX_SLOTS;
@@ -501,10 +506,9 @@ export default function ReleaseDetailPage() {
     const ownFmt = attrText(medium.attributes?.format) || "unknown";
     const fmtLabel =
       dynamicDefs && ownFmt !== "unknown" ? getTermName(dynamicDefs, "format", ownFmt, locale) : "";
-    const role = attrText(medium.attributes?.role);
     const mediumTitle = entityTitle(medium, locale);
     const kids = (mediumTree.childrenOf.get(medium.id!) || []).filter(
-      (r) => showBonus || attrText(r.medium.attributes?.role) !== "supplement"
+      (r) => showBonus || !isBonusMedium(r.medium)
     );
     const ordered = orderedTracksWithDepth(tracks);
     const body = (
@@ -525,7 +529,7 @@ export default function ReleaseDetailPage() {
             {fmtLabel && ownFmt !== "unknown" && (
               <span className="hidden sm:inline font-mono text-[11px] text-text-faint shrink-0">{fmtLabel}</span>
             )}
-            {role === "supplement" && (
+            {isBonusMedium(medium) && (
               <span className="px-1.5 py-0.5 rounded-sm bg-amber-500/10 text-amber-600 dark:text-warn border border-amber-500/20 font-mono text-[10px] shrink-0">
                 {t("release.detail.bonusDisc")}
               </span>
@@ -876,7 +880,7 @@ export default function ReleaseDetailPage() {
 
         <div className="flex items-center justify-between gap-2">
           <p className="font-mono text-[11px] text-text-faint">{t("release.detail.mediumCount", { count: mediumTree.roots.length })}</p>
-          <label className="inline-flex items-center gap-2 font-mono text-[11px] text-text-faint cursor-pointer select-none">
+          {hasBonusMedia && <label className="inline-flex items-center gap-2 font-mono text-[11px] text-text-faint cursor-pointer select-none">
             <input
               type="checkbox"
               checked={showBonus}
@@ -884,7 +888,7 @@ export default function ReleaseDetailPage() {
               className="w-4 h-4 rounded accent-primary cursor-pointer"
             />
             <span>{t("release.detail.showBonusDiscs")}</span>
-          </label>
+          </label>}
         </div>
 
         {media.length === 0 ? (
