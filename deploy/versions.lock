@@ -26,7 +26,7 @@
 # 更新时按各仓库 git rev-parse --short HEAD 重写，并在同一次提交里跑一遍 python scripts/check_versions.py。
 .=d003d4b
 ../metafusion-auth=7e5bd35
-../metafusion-community=111b06a
-../metafusion-storage=162d34e
+../metafusion-community=bda1f81
+../metafusion-storage=535e90b
 ../metafusion-api-gateway=3646973
 ../metafusion-docs=5d17cea
