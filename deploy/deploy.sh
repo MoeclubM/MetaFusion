@@ -243,12 +243,14 @@ function require_prod_dsns() {
     echo "✅ 生产 DSN 齐全（4/4 已设置，值不打印）"
 }
 
-# 发布清单门禁（审计 P1）：pull 面向线上，两件事缺一不可——
+# 发布清单门禁（审计 P1/A08c）：pull 面向线上，三件事缺一不可——
 # ① IMAGE_TAG 必须是不可变 tag（latest/空直接拒绝，不再警告放行）；
-# ② 仓库根或 deploy/ 下放着 release-manifest.yaml 时，它必须完整
+# ② release-manifest.yaml 必须存在且完整
 #    （scripts/check_release_manifest.py --strict：无待填、同源绑定一致、
-#    且 IMAGE_TAG 落在各服务 tags 内）。清单缺席只警告（旧流程兼容），
-#    在场而不完整则非零退出。只判有无与结论，不打印凭据值
+#    且 IMAGE_TAG 落在各服务 tags 内）。清单缺席不再警告放行，直接中止；
+# ③ 清单的 versions_lock 必须与 deploy/versions.lock 逐条一致（部分旧版本即中止）。
+# 校验通过后按每服务 digest 构造 repository@sha256 引用拉取并核对（pull_pinned_images），
+# 生产不再只按 tag 拉取（tag 可被重指）。只判有无与结论，不打印凭据值
 #    （digest 是公开的镜像摘要，TAG 只查归属）。
 function require_pinned_manifest() {
     if [ -z "${IMAGE_TAG:-}" ] || [ "${IMAGE_TAG:-latest}" = "latest" ]; then
@@ -260,16 +262,16 @@ function require_pinned_manifest() {
     elif [ -f "release-manifest.yaml" ]; then manifest="release-manifest.yaml"
     fi
     if [ -z "$manifest" ]; then
-        echo "⚠️  找不到 release-manifest.yaml：跳过清单完整性校验（旧流程兼容，建议从发布附件取回后放仓库根）"
-        return 0
+        echo "❌ 找不到 release-manifest.yaml：必须按完整清单拉取，中止（从发布附件取回后放到仓库根再继续）" >&2
+        exit 1
     fi
     if ! command -v python3 >/dev/null 2>&1; then
         echo "❌ 有清单但本机没有 python3，无法校验完整性；确认环境后重跑" >&2
         exit 1
     fi
     echo "🔒 校验发布清单 $manifest（只查结论，不打印凭据）..."
-    if ! python3 "$SCRIPT_DIR/../scripts/check_release_manifest.py" --strict --expect-tag "$IMAGE_TAG" "$manifest"; then
-        echo "❌ 发布清单不完整或 IMAGE_TAG 不在清单内：部署中止" >&2
+    if ! python3 "$SCRIPT_DIR/../scripts/check_release_manifest.py" --strict --expect-tag "$IMAGE_TAG" --expect-lock "$SCRIPT_DIR/versions.lock" "$manifest"; then
+        echo "❌ 发布清单不完整、IMAGE_TAG 不在清单内或版本组合与 versions.lock 不一致：部署中止" >&2
         exit 1
     fi
 }
@@ -489,7 +491,10 @@ case "$ACTION" in
         assert_compose_credential_isolation
         echo "🏭 启动生产集群模式..."
         export DOCKER_BUILDKIT=1
-        docker compose $COMPOSE_ENV -f docker-compose.yml build backend
+        # 同一份 backend 上下文与 Dockerfile（只换 target），迁移前必须同批构建；
+        # 只构建 backend 会复用旧迁移器镜像，迁移跑在旧二进制上；
+        # 同源离线断言见 check_deploy.py，有自测覆盖。
+        docker compose $COMPOSE_ENV -f docker-compose.yml build backend backend-migrate
         echo "🚀 启动数据库与核心基础设施 (Postgres / RustFS)..."
         docker compose $COMPOSE_ENV up -d postgres rustfs
         migrate_up_checked

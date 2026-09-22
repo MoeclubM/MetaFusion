@@ -132,6 +132,28 @@ def resolve_build(build, env=None):
     return context.value, dockerfile.value, None
 
 
+def migrator_same_source(backend, migrator):
+    backend_none = backend is None
+    migrator_none = migrator is None
+    if backend_none or migrator_none:
+        return None
+    left = (backend[0], backend[1].lower())
+    right = (migrator[0], migrator[1].lower())
+    if left != right:
+        return ("backend-migrate 与 backend 构建来源不一致（backend=%s %s，migrator=%s %s）：" % (backend[0], backend[1], migrator[0], migrator[1]) + "迁移前必须同批构建两者，否则旧迁移器被复用")
+    return None
+
+
+SELFTEST_MIGRATOR_CASES = [
+    ("同源构建通过", ("../backend", "Dockerfile"), ("../backend", "Dockerfile"), False),
+    ("Dockerfile 大小写差异放行", ("../backend", "Dockerfile"), ("../backend", "dockerfile"), False),
+    ("已有旧迁移器：上下文不一致被拦", ("../backend", "Dockerfile"), ("../backend-old", "Dockerfile"), True),
+    ("已有旧迁移器：Dockerfile 不一致被拦", ("../backend", "Dockerfile"), ("../backend", "Dockerfile.old"), True),
+    ("pull 路径迁移器无 build 放行", ("../backend", "Dockerfile"), None, False),
+    ("单服务无 build 放行", None, ("../backend", "Dockerfile"), False),
+]
+
+
 SELFTEST_CASES = [
     # (说明, 输入, 环境, 期望值, 期望原因里的片段)
     ("默认值展开（含子目录）", "${MF_AUTH_DIR:-../../metafusion-auth}/admin/Dockerfile",
@@ -178,10 +200,16 @@ def selftest():
             failures.append("%s: 期望 %r，实际 %r" % (label, want, full))
         if "}" in full or "$" in full:
             failures.append("%s: 结果里残留变量语法：%r" % (label, full))
+    for label, backend, migrator, want_fail in SELFTEST_MIGRATOR_CASES:
+        got = migrator_same_source(backend, migrator)
+        if want_fail and got is None:
+            failures.append("%s: 期望被拦，实际放行" % label)
+        if not want_fail and got is not None:
+            failures.append("%s: 期望放行，实际被拦：%s" % (label, got))
 
     for bad in failures:
         print("FAIL " + bad)
-    total = len(SELFTEST_CASES) + len(SELFTEST_JOIN_CASES)
+    total = len(SELFTEST_CASES) + len(SELFTEST_JOIN_CASES) + len(SELFTEST_MIGRATOR_CASES)
     print("check_deploy --selftest: %d 项用例，%d 个问题" % (total, len(failures)))
     return 1 if failures else 0
 
@@ -226,6 +254,20 @@ def main():
                     "%s:%s: build.target=%s 在 %s 里不存在（可用阶段: %s）"
                     % (rel, name, target, display_path(dfile, root), ", ".join(sorted(stages)))
                 )
+
+        services = doc.get("services") or {}
+        sources = {}
+        for key in ("backend", "backend-migrate"):
+            b = (services.get(key) or {}).get("build")
+            if not isinstance(b, dict):
+                continue
+            c, d, w = resolve_build(b, os.environ)
+            if w:
+                continue
+            sources[key] = (c, d)
+        why = migrator_same_source(sources.get("backend"), sources.get("backend-migrate"))
+        if why:
+            problems.append("%s: %s" % (rel, why))
 
     # 3. 必填变量必须写进模板，否则照着 .env.example 建的 .env 起不来
     template = os.path.join(root, ".env.example")

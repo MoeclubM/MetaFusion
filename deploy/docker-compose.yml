@@ -394,6 +394,14 @@ services:
       - STORAGE_MAX_UPLOAD_MB=${STORAGE_MAX_UPLOAD_MB:-1024}
       - STORAGE_VERIFY_MAX_MB=${STORAGE_VERIFY_MAX_MB:-1024}
       - STORAGE_VERIFY_TIMEOUT_SECONDS=${STORAGE_VERIFY_TIMEOUT_SECONDS:-600}
+      # 容量与并发预算（A02 兑现后的治理旋钮）：服务默认 0/72/7 = 不限制，与当前行为一致；
+      # 先看 GET /api/storage/stats 再定值。超限 initiate 回 413，并发超限回 429。
+      - STORAGE_USER_QUOTA_MB=${STORAGE_USER_QUOTA_MB:-0}
+      - STORAGE_SITE_QUOTA_MB=${STORAGE_SITE_QUOTA_MB:-0}
+      - STORAGE_USER_CONCURRENT_UPLOADS=${STORAGE_USER_CONCURRENT_UPLOADS:-0}
+      - STORAGE_SITE_CONCURRENT_UPLOADS=${STORAGE_SITE_CONCURRENT_UPLOADS:-0}
+      - STORAGE_PENDING_TTL_HOURS=${STORAGE_PENDING_TTL_HOURS:-72}
+      - STORAGE_ORPHAN_RETENTION_DAYS=${STORAGE_ORPHAN_RETENTION_DAYS:-7}
       - STORAGE_S3_ENDPOINT=http://rustfs:9000
       - STORAGE_S3_TLS=false
       # 对象存储凭据（RustFS 的 root 用户/口令）的唯一来源；服务侧只认 S3 协议，与具体实现无关。
@@ -405,6 +413,13 @@ services:
       - STORAGE_S3_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
       - STORAGE_S3_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
       - STORAGE_S3_BUCKET=metafusion-master
+      # 最小权限切换口（默认 false = 现状：root 凭据 + 服务自建桶，见上面对象存储凭据注释）。
+      # 切到仅目标桶服务凭据的那次部署，才把这里改 true，且桶必须已由运维身份事先建好，
+      # 同时把上面两项换成服务用户凭据。两步必须同一次部署完成，不可只改一半。
+      - STORAGE_S3_SKIP_BUCKET_ENSURE=${STORAGE_S3_SKIP_BUCKET_ENSURE:-false}
+      # 最小权限切换口（默认 false = 现状：root 凭据 + 服务自建桶，见上面对象存储凭据注释）。
+      # 切到仅目标桶服务凭据的那次部署，才把这里改 true，且桶必须已由运维身份事先建好，
+      # 同时把上面两项换成服务用户凭据。两步必须同一次部署完成，不可只改一半。
       # 预签名直传的地址必须浏览器可达（SigV4 覆盖 Host）；本编排不把对象存储
       # 端口发到宿主机，留空即沿用内部端点，此时浏览器直传改走
       # PUT /api/storage/upload/stream/{asset_id} 的服务端流式上传。
@@ -432,6 +447,38 @@ services:
         condition: service_healthy
       # 桶由存储服务在启动时自己建（internal/objects ensureBucket），
       # 因此不再需要一次性初始化容器，也就没有"桶没建好就启动"这一类顺序故障。
+    networks:
+      - metafusion-net
+
+  # --------------------------------------------------------------------------
+  # 6a. 存储清理 worker（一次性任务容器，与 storage 同镜像同环境，跑一次退出）。
+  #     profiles 隔离：日常 up 不会启动它；显式 docker compose --profile maintenance
+  #     run --rm storage-worker 触发（A01 认领可重试；定时触发见运维 timer/cron）。
+  #     自动删除型清理在并发保护验收前保持手工触发（审计 A01 建议）。
+  storage-worker:
+    logging: *default-logging
+    build:
+      context: ${MF_STORAGE_DIR:-../../metafusion-storage}
+      dockerfile: Dockerfile
+    image: metafusion-storage:${METAFUSION_TAG:-local}
+    profiles: ["maintenance"]
+    command: ["worker"]
+    environment:
+      - DATABASE_URL=${STORAGE_DATABASE_URL:-}
+      - DB_SSLMODE=${DB_SSLMODE:-disable}
+      - STORAGE_ROOT=/app/storage-data
+      - STORAGE_S3_ENDPOINT=http://rustfs:9000
+      - STORAGE_S3_TLS=false
+      - STORAGE_S3_ACCESS_KEY=${RUSTFS_ROOT_USER:?RUSTFS_ROOT_USER must be set in .env}
+      - STORAGE_S3_SECRET_KEY=${RUSTFS_ROOT_PASSWORD:?RUSTFS_ROOT_PASSWORD must be set in .env}
+      - STORAGE_S3_BUCKET=metafusion-master
+      - STORAGE_S3_SKIP_BUCKET_ENSURE=${STORAGE_S3_SKIP_BUCKET_ENSURE:-false}
+      - CATALOG_URL=http://backend:8080
+    volumes:
+      - storage_data:/app/storage-data
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - metafusion-net
 

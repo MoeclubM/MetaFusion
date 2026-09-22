@@ -10,10 +10,15 @@
   不许各拉各的版本）；
 - --strict：任一 digest/任一 tags 为"待填"即失败（流水线与部署门禁用它）；
 - --expect-tag TAG：TAG 必须落在每个服务的 tags 冒号后缀里（deploy.sh pull 用它确认
-  IMAGE_TAG 确实是本次清单里的不可变 tag，而不是手填的 latest）。
+  IMAGE_TAG 确实是本次清单里的不可变 tag，而不是手填的 latest；tag 被重指即落空失败）。
+- --expect-lock PATH：清单的 versions_lock 必须与该锁文件逐条一致
+  （部分旧版本/多出项即失败，生产 pull 用它核对兄弟版本组合）。
+- --print-pull-refs：校验通过后按每服务 digest 构造 repository@sha256 引用并打印
+  （生产 pull 按此拉取，不再只按 tag 拉取；digest 未知或非法时拒绝打印）。
 
 用法：
-    python3 scripts/check_release_manifest.py [--strict] [--expect-tag TAG] [清单路径]
+    python3 scripts/check_release_manifest.py [--strict] [--expect-tag TAG] [--expect-lock PATH] [清单路径]
+    python3 scripts/check_release_manifest.py --print-pull-refs [--expect-tag TAG] [清单路径]
     python3 scripts/check_release_manifest.py --selftest
 """;
 
@@ -129,6 +134,50 @@ def check(doc, strict=False, expect_tag=None):
     return problems, ([] if strict else warnings)
 
 
+def read_lock_file(path):
+    lock = {}
+    with open(path, encoding='utf-8') as fh:
+        for line in fh:
+            text = line.split('#', 1)[0].strip()
+            if text and '=' in text:
+                repo, sha = (p.strip() for p in text.split('=', 1))
+                if repo and sha:
+                    lock[repo] = sha
+    return lock
+
+
+def check_lock_match(manifest_lock, file_lock):
+    problems = []
+    if not isinstance(manifest_lock, dict):
+        return ['versions_lock 不是映射，无法与锁文件比对']
+    for repo, sha in sorted(file_lock.items()):
+        got = manifest_lock.get(repo)
+        if got is None:
+            problems.append('versions_lock 缺少 %s（锁文件要求 %s）' % (repo, sha[:12]))
+        elif got != sha:
+            problems.append('versions_lock %s 过旧：清单 %s，锁文件 %s（部分旧版本拒绝）' % (repo, str(got)[:12], sha[:12]))
+    for repo in sorted(manifest_lock.keys()):
+        if repo not in file_lock:
+            problems.append('versions_lock 多出 %s（锁文件里没有，组合不一致）' % repo)
+    return problems
+
+
+def pull_refs(doc):
+    refs, bad = [], []
+    images = doc.get('images') or {}
+    for name in SERVICES:
+        entry = images.get(name) or {}
+        repo = entry.get('repository') or ''
+        digest = entry.get('digest') or ''
+        if not repo:
+            bad.append('images.%s 缺少 repository（无法构造 digest 引用）' % name)
+        elif not DIGEST_RE.match(digest or ''):
+            bad.append('images.%s 的 digest 未知或非法，拒绝按 tag 拉取' % name)
+        else:
+            refs.append('%s@%s' % (repo, digest))
+    return refs, bad
+
+
 def selftest():
     failures = []
 
@@ -150,6 +199,7 @@ def selftest():
         },
     }
     import copy
+    import tempfile
     p, w = check(copy.deepcopy(base))
     want(p == [] and w == [], "完整清单非 strict 通过")
     p, _ = check(copy.deepcopy(base), strict=True)
@@ -172,6 +222,41 @@ def selftest():
     want(p == [], "expect-tag 命中通过")
     p, _ = check(copy.deepcopy(base), expect_tag="latest")
     want(any("latest" in x for x in p), "expect-tag 落空被拦")
+    # 负向 1/3：缺清单——文件不存在即解析失败，部署必须中止而不是警告放行
+    try:
+        load_manifest(os.path.join(tempfile.gettempdir(), "metafusion-no-such-manifest.yaml"))
+        want(False, "缺清单应抛异常")
+    except OSError:
+        want(True, "缺清单抛异常")
+    except Exception as exc:
+        want(False, "缺清单应为 OSError，实际 %r" % exc)
+    empty = copy.deepcopy(base)
+    del empty["images"]["backend"]
+    p, _ = check(empty, strict=True)
+    want(any("backend" in x for x in p), "缺服务镜像被拦")
+    # 负向 2/3：tag 被重指——清单里的 tag 与本次 IMAGE_TAG 不是同一个
+    retagged = copy.deepcopy(base)
+    retagged["images"]["backend"]["tags"] = ["ghcr.io/m/backend:v999"]
+    retagged["images"]["migrator"]["tags"] = ["ghcr.io/m/migrator:v999"]
+    retagged["images"]["frontend"]["tags"] = ["ghcr.io/m/frontend:v999"]
+    p, _ = check(retagged, expect_tag="v1")
+    want(len(p) == 3, "tag 被重指三服务同拦")
+    # 负向 3/3：部分旧版本——清单 versions_lock 与部署锁逐条比对
+    p = check_lock_match({".": "abc"}, {".": "abc"})
+    want(p == [], "锁一致通过")
+    p = check_lock_match({".": "abc"}, {".": "abc", "../metafusion-auth": "def456"})
+    want(any("metafusion-auth" in x for x in p), "清单缺仓库项被拦")
+    p = check_lock_match({".": "abc", "../metafusion-auth": "old111"}, {".": "abc", "../metafusion-auth": "def456"})
+    want(any("过旧" in x for x in p), "部分旧版本被拦")
+    p = check_lock_match("not-a-dict", {".": "abc"})
+    want(len(p) == 1, "锁非映射被拦")
+    # digest 引用构造：合法逐服务输出 repository@digest，未知拒绝
+    refs, bad = pull_refs(copy.deepcopy(base))
+    want(bad == [] and len(refs) == 3 and all("@" + good_digest in r for r in refs), "digest 引用逐服务构造")
+    unk = copy.deepcopy(base)
+    unk["images"]["frontend"]["digest"] = UNKNOWN
+    refs, bad = pull_refs(unk)
+    want(refs == [] or len(bad) == 1, "未知 digest 拒绝构造引用")
     # 生成器→校验器往返：解析手写 YAML 子集
     text = ("schema: " + SCHEMA + "\nsha: abc\nref: r\n"
             "versions_lock:\n  .: abc\nbackend_migrations:\n  - 000001_x.up.sql\n"
@@ -198,6 +283,8 @@ def main():
     ap.add_argument("manifest", nargs="?", default="release-manifest.yaml")
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--expect-tag", default=None)
+    ap.add_argument("--expect-lock", default=None)
+    ap.add_argument("--print-pull-refs", action="store_true")
     ap.add_argument("--root", default=None)
     args = ap.parse_args()
     path = args.manifest
@@ -214,6 +301,31 @@ def main():
         print("check_release_manifest: 1 个问题")
         return 1
     problems, warnings = check(doc, strict=args.strict, expect_tag=args.expect_tag)
+    if args.expect_lock:
+        try:
+            file_lock = read_lock_file(args.expect_lock if os.path.isabs(args.expect_lock) else os.path.join(os.path.abspath(args.root or "."), args.expect_lock))
+        except OSError as exc:
+            print("FAIL 读不到锁文件 %s：%s" % (args.expect_lock, exc))
+            print("check_release_manifest: 1 个问题，0 项待填警告")
+            return 1
+        problems.extend(check_lock_match(doc.get("versions_lock"), file_lock))
+    if args.print_pull_refs:
+        refs, bad = pull_refs(doc)
+        for x in bad:
+            print("FAIL " + x)
+        if bad:
+            print("check_release_manifest: %d 个问题，%d 项待填警告" % (len(problems) + len(bad), len(warnings)))
+            return 1
+        for x in warnings:
+            print("warning " + x)
+        for x in problems:
+            print("FAIL " + x)
+        if problems:
+            print("check_release_manifest: %d 个问题，%d 项待填警告" % (len(problems), len(warnings)))
+            return 1
+        for ref in refs:
+            print(ref)
+        return 0
     for x in warnings:
         print("warning " + x)
     for x in problems:
