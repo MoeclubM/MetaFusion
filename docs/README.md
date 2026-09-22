@@ -1,44 +1,13 @@
-# MetaFusion 内部文档索引
+# MetaFusion 内部文档
 
-本目录是 MetaFusion 项目内部架构、规范与需求文档入口。整体体系分工如下：
+| 主题 | 权威入口 |
+| --- | --- |
+| 产品需求 | [需求文档](requirements.md) |
+| 目录模型与动态定义 | [架构基准](architecture/spec-driven-requirements.md)、[核心实现](architecture/catalog-core-implementation.md) |
+| 媒体版本、曲目与用户展示 | [媒体编目与前端复核](architecture/media-catalog-frontend-review-2026-09.md) |
+| 服务与数据归属 | [拆分契约](architecture/service-split-migration.md)、[数据库角色](architecture/database-roles.md) |
+| 部署、回滚与存储 | [切流手册](architecture/cutover-runbook.md)、[存储运行约定](architecture/storage-operations.md) |
+| 公开教程与 API | 独立仓库 [metafusion-docs](https://github.com/MoeclubM/metafusion-docs) |
+| 编目技能 | 独立仓库 [metafusion-skills](https://github.com/MoeclubM/metafusion-skills) |
 
-| 目录 / 文件 | 定位 | 读者 |
-|---|---|---|
-| [`requirements.md`](requirements.md) | 产品需求文档（PRD）：可见性边界、邀请制风控、功能需求与验收标准 | 产品 / 开发 |
-| [`architecture/multi-project-decoupling-spec.md`](architecture/multi-project-decoupling-spec.md) | 多项目解耦规范：以元数据系统为主项目，账号、论坛、资源、网关与文档站的解耦边界 | 架构 / 全员 |
-| [`architecture/plugin-decoupling-blueprint.md`](architecture/plugin-decoupling-blueprint.md) | 插件系统与 DAG 依赖拓扑规范（**VISION，未实现**）：规划 12 个原生内置插件集；当前实际为独立子系统 + 部署态能力清单 | 开发 / 后端 |
-| [`architecture/catalog-core-implementation.md`](architecture/catalog-core-implementation.md) | 纯净元数据目录内核实现：固定实体骨架、动态定义引擎与数据不变量 | 开发 / 后端 |
-| [`architecture/decoupling-audit-2026-09.md`](architecture/decoupling-audit-2026-09.md) | 多项目解耦审计与优化建议：耦合分级证据（运行时 / 数据层 / 契约 / UI）、目标架构（每服务自带 UI、协议层 SDK、网关矩阵单源）与 B0–B6 分批路线 | 架构 / 全员 |
-| [metafusion-docs](https://github.com/MoeclubM/metafusion-docs) | 面向公众的文档站（VitePress，唯一源）：实体模型、编目指南、REST API 全套文档、法务页 | 所有人 / 外部开发者 |
-| [`../AGENTS.md`](../AGENTS.md) | Agent / 贡献者协作准则（Git 规范、编目最高准则、gh cli 流程） | AI Agent / 贡献者 |
-| [metafusion-skills](https://github.com/MoeclubM/metafusion-skills) | 编目标准技能独立仓库（metafusion-curator + lrm-catalog-standards） | AI Agent / 考据员 |
-| 本地 `docs-local/`（**不进版本库**） | 部署手册与实例状态、服务器连接信息、开发日志与一次性执行报告 | 维护者 / 运维 |
-
----
-
-## 核心架构概览（当前：元数据主系统 + 独立子系统）
-
-> 以下为**现状**。账号、互动、存储已经拆成独立服务仓库，主仓库收敛为「元数据目录 + 前端 + 文档站 + 部署编排」；
-> 契约、边界与数据归属见 [`architecture/service-split-migration.md`](architecture/service-split-migration.md)，
-> 切流、回滚与遗留结构清理见 [`architecture/cutover-runbook.md`](architecture/cutover-runbook.md)；
-> 现状耦合的证据与目标形态（每服务自带 UI、协议层 SDK、网关矩阵单源）见 [`architecture/decoupling-audit-2026-09.md`](architecture/decoupling-audit-2026-09.md)。
-
-1. **元数据主系统 (`MetaFusion`)**：
-   - 八大固定实体骨架（Agent, Collection, Work, ContentUnit, Expression, Release, Medium, Track）与动态定义引擎（类型、属性、关系、受控词表、视图模板）；
-   - 仅依赖 PostgreSQL 即可完整运行元数据侧能力；
-   - 目录库不反向持有物理文件或社区帖子。
-2. **账号服务 (`metafusion-auth`)**：`/api/auth/*`、`/api/setup`、`/api/admin/users`、`/api/oauth/*`、`/api/oidc/*`、`/api/.well-known/*`；
-   自有 `auth` schema，RS256 令牌签发与 JWKS；其余服务只验签、不签发。
-3. **互动服务 (`metafusion-community`)**：论坛、短评与收藏（`/api/community/*`、`/api/favorites/*`、`/api/users/{id}/favorites`）；
-   自有 `community` schema；实体可见性问目录服务，不直连目录库。
-4. **存储服务 (`metafusion-storage`)**：物理文件、sha256 内容寻址、预签名直传与绑定（`/api/storage/*`）；
-   自有 `storage` schema，桶由服务启动时自建。
-5. **边缘网关**：`deploy/nginx.conf`（compose 的 `gateway` 服务，单容器 Nginx）按前缀把 `/api/*`
-   分流到各服务，只对外暴露一个端口；`metafusion-api-gateway` 仓库只剩切流自检脚本，
-   它带的那份切流前矩阵已归档到 `examples/pre-cutover/`，不挂进任何容器。
-6. **文档站（`metafusion-docs`）**：VitePress 静态工程，独立仓库即唯一源，编排从兄弟目录构建该服务。
-
-## 协作与工具准则
-
-- 所有远端 GitHub 仓库管理、Issue 跟踪与 Pull Request 流程**必须通过 GitHub CLI (`gh`) 命令行工具执行**。
-- 文档与代码同批更新；架构与实体行为变化先同步更新本文档与 `metafusion-docs` 对应章节（两个仓库各自提交）。
+具体实例状态和本机开发记录在不提交的 `docs-local/`。带日期的审计报告只记录当时证据；当前行为以处理器、已执行迁移和目标实例响应核对。

@@ -1,7 +1,7 @@
 # 架构评估结论（2026-09）
 
 > 范围声明：本文为只读架构评估，未修改任何代码、迁移或数据。所有结论以撰写时检出状态为准，证据为源码文件与行号。
-> 关联文档：[核心实现与模块边界](./catalog-core-implementation.md)、[通用多媒体架构与前端优化建议](./media-architecture-review.md)、[元数据目录教程](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/catalog.md)。
+> 关联文档：[核心实现与模块边界](./catalog-core-implementation.md)、[媒体编目与用户前端复核](./media-catalog-frontend-review-2026-09.md)、[元数据目录教程](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/catalog.md)。
 
 ## 0. 评估基线
 
@@ -42,7 +42,7 @@
 
 4. **Track 级版本差异表达有限**
    - 现状：Track 自身有独立 Title/Number/Position/Attributes（DTO 见 `types.go` 的 `Entity`），`defaults.go` 的 track 字段集里没有 `title_override` 一类列（代码注释亦明确：Entity 无 `title_override` 列），同一 Expression 在不同版本中的时长/署名差异只能靠各 Track 的 `attributes`（`duration` / `role`）承载；per-pressing 的 artist credit 无专门字段。
-   - 影响：多版本署名差异需要塞进 track attributes 的非结构化字段；`media-architecture-review.md` 已按“Track 自带 Title、实现无 `title_override` 列”的口径对齐，两文不再冲突。
+   - 影响：不同发行中的 Track 有独立题名，但版本特有署名尚无专用结构；需要时应通过 definitions 声明字段及展示方式。
    - 建议方向：若确需 per-pressing 署名/标题覆盖，优先在 definitions 增加 track 字段（如 `title_override`、`artist_credit`）走后台配置，而不是加列。
 
 5. **relations 表无数据库级端点/类型约束**

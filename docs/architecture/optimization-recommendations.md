@@ -1,7 +1,7 @@
 # 架构优化建议：定义生命周期、导入溯源、完整性自检与前端外壳
 
 > 范围声明：本文只记录**当前可观察的缺口**、建议做法与可验证判据，不改既有架构文档的结论；与既有结论冲突时以既有文档为准。
-> 关联文档：[架构评估结论（2026-09）](./architecture-assessment-2026-09.md)（§2 指出 definitions 的版本 diff 与回滚缺后台界面）、[通用多媒体架构与前端优化建议](./media-architecture-review.md)（§4 前端展示补强）、[规范驱动开发需求与架构基准](./spec-driven-requirements.md)。
+> 关联文档：[架构评估结论（2026-09）](./architecture-assessment-2026-09.md)、[媒体编目与用户前端复核](./media-catalog-frontend-review-2026-09.md)、[规范驱动开发需求与架构基准](./spec-driven-requirements.md)。
 > 数据约束：本文不含任何实例数据——不写真实条目名、真实统计数字；示例一律用占位符（如 `<code>`、`<ver>`、`<field>`），只出现代码符号、文件路径与契约字段名。
 
 ## 0. 每节的固定结构
