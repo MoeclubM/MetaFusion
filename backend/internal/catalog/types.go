@@ -172,6 +172,8 @@ type Field struct {
 type Term struct {
 	Names   Names `json:"names"`
 	Enabled bool  `json:"enabled"`
+	// IsBonus 只影响发行详情的附赠内容分组；可在定义后台调整，不绑定词条码。
+	IsBonus bool `json:"is_bonus,omitempty"`
 }
 type Vocabulary struct {
 	Names Names           `json:"names"`
@@ -233,18 +235,20 @@ type Template struct {
 // 必填、排序、范围约束与展示收敛都由它声明，不新增核心实体种类。
 //   - Slot 闭集三选一：locator / inclusion_attributes / subject_attributes；
 //   - Kinds 拥有者 kind 白名单，空=不限；Types 拥有者动态业务类型白名单，空=不限；
+//   - MediumFormats 限定 Track 所属 Medium 的格式词条，空=不限；
 //   - Fields 该上下文可用子字段码（必须已在全局组声明），顺序即展示编辑顺序；
 //   - Required ⊆ Fields；RequireRange 仅 locator 有意义，要求至少一个
 //     semantics=content 的子字段有值；Enabled 关闭即不参与匹配，可被后台删除。
 type Scheme struct {
-	Names        Names    `json:"names"`
-	Slot         string   `json:"slot"`
-	Kinds        []string `json:"kinds,omitempty"`
-	Types        []string `json:"types,omitempty"`
-	Fields       []string `json:"fields"`
-	Required     []string `json:"required,omitempty"`
-	RequireRange bool     `json:"require_range,omitempty"`
-	Enabled      bool     `json:"enabled"`
+	Names         Names    `json:"names"`
+	Slot          string   `json:"slot"`
+	Kinds         []string `json:"kinds,omitempty"`
+	Types         []string `json:"types,omitempty"`
+	MediumFormats []string `json:"medium_formats,omitempty"`
+	Fields        []string `json:"fields"`
+	Required      []string `json:"required,omitempty"`
+	RequireRange  bool     `json:"require_range,omitempty"`
+	Enabled       bool     `json:"enabled"`
 }
 type Definitions struct {
 	Types        map[string]TypeDefinition     `json:"types"`

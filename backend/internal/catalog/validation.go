@@ -475,6 +475,16 @@ func (d Definitions) validateScheme(code string, s Scheme) error {
 			return fmt.Errorf("%s: %w", code, fmt.Errorf("unknown_type"))
 		}
 	}
+	if len(s.MediumFormats) > 0 {
+		if s.Slot == "subject_attributes" || len(s.Kinds) > 0 && !contains(s.Kinds, "track") {
+			return fmt.Errorf("%s: invalid_medium_format_scope", code)
+		}
+		for _, format := range s.MediumFormats {
+			if _, ok := d.Vocabularies["format"].Terms[format]; !ok {
+				return fmt.Errorf("%s: unknown_medium_format: %s", code, format)
+			}
+		}
+	}
 	group, ok := d.Fields[s.Slot]
 	if !ok || group.Type != "group" {
 		return fmt.Errorf("%s: %w", code, fmt.Errorf("structural_field_type: %s", s.Slot))
@@ -610,7 +620,7 @@ func (d Definitions) effectiveOwnerTypes(ownerKind string, ownerTypes []string, 
 // （空=命中）、types 与拥有者有效类型有交集（空=命中）且 enabled。
 // 空 types 仅 historical 口径按有效类型（见 effectiveOwnerTypes）展开匹配
 // （历史/导入载荷）；新写按前端同口径直接匹配空数组——空只命中不限类型的方案。
-func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string, historical bool) []Scheme {
+func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string, historical bool, mediumFormat ...string) []Scheme {
 	ownerTypes = d.effectiveOwnerTypes(ownerKind, ownerTypes, historical)
 	var out []Scheme
 	for _, s := range d.Schemes {
@@ -618,6 +628,9 @@ func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string, h
 			continue
 		}
 		if len(s.Kinds) > 0 && !contains(s.Kinds, ownerKind) {
+			continue
+		}
+		if len(s.MediumFormats) > 0 && (ownerKind != "track" || len(mediumFormat) == 0 || !contains(s.MediumFormats, mediumFormat[0])) {
 			continue
 		}
 		if len(s.Types) > 0 {
@@ -643,12 +656,12 @@ func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string, h
 // 而非静默放过——入口缺失是固定契约被破坏，定义层由 structuralFieldsPresent
 // 在 Validate 拒绝；实体层此处同样失败（空数据已被 isEmptyValue 提前放行，
 // 见 TestStructuralEntryMissingRejectsEntityData）。
-func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []string, historical bool) Field {
+func (d Definitions) effectiveGroupField(slot, ownerKind string, ownerTypes []string, historical bool, mediumFormat ...string) Field {
 	group, ok := d.Fields[slot]
 	if !ok {
 		return Field{}
 	}
-	matched := d.matchSchemes(slot, ownerKind, ownerTypes, historical)
+	matched := d.matchSchemes(slot, ownerKind, ownerTypes, historical, mediumFormat...)
 	if len(matched) == 0 {
 		return group
 	}
@@ -1121,7 +1134,7 @@ func (d Definitions) attributeKeys(e Entity, historical bool) ([]string, error) 
 	return keys, nil
 }
 
-func (d Definitions) validateEntity(e Entity, reference func(string, []string) error, historical bool) error {
+func (d Definitions) validateEntity(e Entity, reference func(string, []string) error, historical bool, mediumFormat ...string) error {
 	if !contains(Kinds, e.Kind) || strings.TrimSpace(e.Title) == "" || len(e.Title) > 2000 || e.Position < 0 {
 		return fmt.Errorf("invalid_entity")
 	}
@@ -1212,16 +1225,16 @@ func (d Definitions) validateEntity(e Entity, reference func(string, []string) e
 		// 不再为每种媒体硬编码字段；locator 允许为空（如整轨收录）。
 		// 有匹配 scheme 时按场景并集收敛，无匹配回退全局组；匹配场景任一
 		// require_range 时 locator 至少一个 content 语义子字段非空。
-		locatorField := d.effectiveGroupField("locator", e.Kind, e.Types, historical)
+		locatorField := d.effectiveGroupField("locator", e.Kind, e.Types, historical, mediumFormat...)
 		if err := d.value(locatorField, map[string]any(c.Locator), reference, historical); err != nil {
 			return fmt.Errorf("locator: %w", err)
 		}
-		if requireRangeSchemes(d.matchSchemes("locator", e.Kind, e.Types, historical)) {
+		if requireRangeSchemes(d.matchSchemes("locator", e.Kind, e.Types, historical, mediumFormat...)) {
 			if err := checkRangeRequired(d.Fields["locator"], map[string]any(c.Locator)); err != nil {
 				return fmt.Errorf("locator: %w", err)
 			}
 		}
-		if err := d.value(d.effectiveGroupField("inclusion_attributes", e.Kind, e.Types, historical), c.Attributes, reference, historical); err != nil {
+		if err := d.value(d.effectiveGroupField("inclusion_attributes", e.Kind, e.Types, historical, mediumFormat...), c.Attributes, reference, historical); err != nil {
 			return fmt.Errorf("inclusion_attributes: %w", err)
 		}
 	}

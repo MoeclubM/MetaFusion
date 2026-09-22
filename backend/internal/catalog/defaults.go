@@ -255,7 +255,7 @@ func Defaults() Definitions {
 	} {
 		v := Vocabulary{Names: x.names, Terms: map[string]Term{}}
 		for _, t := range x.terms {
-			v.Terms[t.code] = Term{Names: t.names, Enabled: true}
+			v.Terms[t.code] = Term{Names: t.names, Enabled: true, IsBonus: x.code == "role" && t.code == "supplement"}
 		}
 		d.Vocabularies[x.code] = v
 	}
@@ -597,14 +597,14 @@ func Defaults() Definitions {
 			addRel("translated_by", names4("译者", "譯者", "翻訳者", "Translated by"), names4("翻译了", "翻譯了", "翻訳した", "Translator of"), []string{"work", "content_unit", "expression"}, []string{"agent"}, "credits", false)
 		}
 	}
-	// 场景示例（纯示范，默认关闭，供后台按需启用或扩展）：黑胶上下文 locator 只收敛到唱片面相关子集。
-	// 默认设为 Enabled: false，避免未经 Medium 介质格式细分前误伤其他媒体（如纸书页码、音视频时间码）。
+	// 场景示例默认关闭，管理员可在 GUI 启用；medium_formats 防止影响 CD、纸书与音视频定位。
 	d.Schemes = map[string]Scheme{
 		"vinyl_track_locator": {
 			Names: names4("黑胶定位", "黑膠定位", "アナログ盤の位置情報", "Vinyl locator"), Slot: "locator",
-			Kinds:   []string{"track"},
-			Fields:  []string{"relative_to", "chapter", "path"},
-			Enabled: false,
+			Kinds:         []string{"track"},
+			MediumFormats: []string{"vinyl"},
+			Fields:        []string{"relative_to", "chapter", "path"},
+			Enabled:       false,
 		},
 	}
 	return d

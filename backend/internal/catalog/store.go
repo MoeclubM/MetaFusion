@@ -692,7 +692,18 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 			return fmt.Errorf("types_required")
 		}
 		historical := input.internal || !create && (len(old.Types) > 0 || isLegacyUntyped(old))
-		if err = v.Document.validateEntity(e, ref, historical); err != nil {
+		mediumFormat := ""
+		if e.Kind == "track" && e.MediumID != "" {
+			medium, lookupErr := get(ctx, tx, e.MediumID)
+			if lookupErr != nil || medium.Kind != "medium" {
+				return fmt.Errorf("invalid_reference")
+			}
+			mediumFormat, _ = medium.Attributes["format"].(string)
+		}
+		if err = v.Document.validateEntity(e, ref, historical, mediumFormat); err != nil {
+			return err
+		}
+		if err = validateMediumSchemeChange(ctx, tx, v.Document, old, e); err != nil {
 			return err
 		}
 		// ExternalIDs 两层复核：先格式层（键合规、值非空收敛、metafusion_import

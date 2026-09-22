@@ -654,13 +654,26 @@ func TestSchemeConvergenceInEntityValidation(t *testing.T) {
 	if err := d.Validate(); err != nil {
 		t.Fatalf("defaults invalid: %v", err)
 	}
+	badFormat := vinyl
+	badFormat.MediumFormats = []string{"unregistered_format"}
+	d.Schemes["vinyl_track_locator"] = badFormat
+	if err := d.Validate(); err == nil {
+		t.Fatal("scheme accepted an undefined medium format")
+	}
+	d.Schemes["vinyl_track_locator"] = vinyl
 	ok := mkTrack(Locator{"relative_to": "track", "chapter": "A1"})
-	if err := d.validateEntity(ok, ref, false); err != nil {
+	if err := d.validateEntity(ok, ref, false, "vinyl"); err != nil {
 		t.Fatalf("in-scheme locator rejected: %v", err)
 	}
 	superset := mkTrack(Locator{"relative_to": "track", "chapter": "A1", "page_start": float64(1)})
-	if err := d.validateEntity(superset, ref, false); err == nil {
+	if err := d.validateEntity(superset, ref, false, "vinyl"); err == nil {
 		t.Fatal("superset locator beyond matched scheme accepted")
+	}
+	if err := d.validateEntity(superset, ref, false, "cd"); err != nil {
+		t.Fatalf("CD track should use global locator fields: %v", err)
+	}
+	if err := d.validateEntity(superset, ref, false); err != nil {
+		t.Fatalf("unknown parent format should use global locator fields: %v", err)
 	}
 	// 无匹配时回退全局组：同一定位在 medium 拥有者（无 track scheme）下通过。
 	medium := Entity{

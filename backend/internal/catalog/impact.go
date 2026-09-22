@@ -121,7 +121,15 @@ func (d Definitions) impactOn(ctx context.Context, q queryer, ents []Entity, rel
 	byID := map[string]Entity{}
 	for _, e := range ents {
 		byID[e.ID] = e
-		if err := d.validateEntity(e, tolerant(e.ID), true); err != nil {
+	}
+	for _, e := range ents {
+		mediumFormat := ""
+		if e.Kind == "track" {
+			if medium, ok := byID[e.MediumID]; ok && medium.Kind == "medium" {
+				mediumFormat, _ = medium.Attributes["format"].(string)
+			}
+		}
+		if err := d.validateEntity(e, tolerant(e.ID), true, mediumFormat); err != nil {
 			out.Issues = append(out.Issues, e.ID+": "+err.Error())
 		}
 	}
