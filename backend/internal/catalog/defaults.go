@@ -603,11 +603,12 @@ func Defaults() Definitions {
 		}
 	}
 	// 场景示例默认关闭，管理员可在 GUI 启用；medium_formats 防止影响 CD、纸书与音视频定位。
+	vinylFormats := []string{"vinyl"}
 	d.Schemes = map[string]Scheme{
 		"vinyl_track_locator": {
 			Names: names4("黑胶定位", "黑膠定位", "アナログ盤の位置情報", "Vinyl locator"), Slot: "locator",
 			Kinds:         []string{"track"},
-			MediumFormats: []string{"vinyl"},
+			MediumFormats: &vinylFormats,
 			Fields:        []string{"relative_to", "chapter", "path"},
 			Enabled:       false,
 		},

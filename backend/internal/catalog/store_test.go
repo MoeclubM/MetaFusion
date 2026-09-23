@@ -655,7 +655,8 @@ func TestSchemeConvergenceInEntityValidation(t *testing.T) {
 		t.Fatalf("defaults invalid: %v", err)
 	}
 	badFormat := vinyl
-	badFormat.MediumFormats = []string{"unregistered_format"}
+	formats := []string{"unregistered_format"}
+	badFormat.MediumFormats = &formats
 	d.Schemes["vinyl_track_locator"] = badFormat
 	if err := d.Validate(); err == nil {
 		t.Fatal("scheme accepted an undefined medium format")

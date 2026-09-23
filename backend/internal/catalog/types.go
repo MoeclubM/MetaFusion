@@ -240,15 +240,15 @@ type Template struct {
 //   - Required ⊆ Fields；RequireRange 仅 locator 有意义，要求至少一个
 //     semantics=content 的子字段有值；Enabled 关闭即不参与匹配，可被后台删除。
 type Scheme struct {
-	Names         Names    `json:"names"`
-	Slot          string   `json:"slot"`
-	Kinds         []string `json:"kinds,omitempty"`
-	Types         []string `json:"types,omitempty"`
-	MediumFormats []string `json:"medium_formats,omitempty"`
-	Fields        []string `json:"fields"`
-	Required      []string `json:"required,omitempty"`
-	RequireRange  bool     `json:"require_range,omitempty"`
-	Enabled       bool     `json:"enabled"`
+	Names         Names     `json:"names"`
+	Slot          string    `json:"slot"`
+	Kinds         []string  `json:"kinds,omitempty"`
+	Types         []string  `json:"types,omitempty"`
+	MediumFormats *[]string `json:"medium_formats,omitempty"`
+	Fields        []string  `json:"fields"`
+	Required      []string  `json:"required,omitempty"`
+	RequireRange  bool      `json:"require_range,omitempty"`
+	Enabled       bool      `json:"enabled"`
 }
 type Definitions struct {
 	Types        map[string]TypeDefinition     `json:"types"`

@@ -14,7 +14,7 @@ func validateMediumSchemeChange(ctx context.Context, q queryer, d Definitions, o
 	}
 	hasFormatScheme := false
 	for _, scheme := range d.Schemes {
-		if scheme.Enabled && len(scheme.MediumFormats) > 0 {
+		if scheme.Enabled && scheme.MediumFormats != nil && len(*scheme.MediumFormats) > 0 {
 			hasFormatScheme = true
 			break
 		}

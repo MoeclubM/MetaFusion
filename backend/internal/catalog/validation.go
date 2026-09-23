@@ -475,11 +475,11 @@ func (d Definitions) validateScheme(code string, s Scheme) error {
 			return fmt.Errorf("%s: %w", code, fmt.Errorf("unknown_type"))
 		}
 	}
-	if len(s.MediumFormats) > 0 {
+	if s.MediumFormats != nil {
 		if s.Slot == "subject_attributes" || len(s.Kinds) > 0 && !contains(s.Kinds, "track") {
 			return fmt.Errorf("%s: invalid_medium_format_scope", code)
 		}
-		for _, format := range s.MediumFormats {
+		for _, format := range *s.MediumFormats {
 			if _, ok := d.Vocabularies["format"].Terms[format]; !ok {
 				return fmt.Errorf("%s: unknown_medium_format: %s", code, format)
 			}
@@ -630,7 +630,7 @@ func (d Definitions) matchSchemes(slot, ownerKind string, ownerTypes []string, h
 		if len(s.Kinds) > 0 && !contains(s.Kinds, ownerKind) {
 			continue
 		}
-		if len(s.MediumFormats) > 0 && (ownerKind != "track" || len(mediumFormat) == 0 || !contains(s.MediumFormats, mediumFormat[0])) {
+		if s.MediumFormats != nil && len(*s.MediumFormats) > 0 && (ownerKind != "track" || len(mediumFormat) == 0 || !contains(*s.MediumFormats, mediumFormat[0])) {
 			continue
 		}
 		if len(s.Types) > 0 {

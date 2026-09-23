@@ -129,6 +129,17 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			added = append(added, "schemes."+k)
 		}
 	}
+	// 仅补旧定义缺失的限制；显式空数组代表管理员取消限制，必须保留。
+	for code, seedScheme := range seed.Schemes {
+		cur, ok := out.Schemes[code]
+		if !ok || cur.MediumFormats != nil || seedScheme.MediumFormats == nil {
+			continue
+		}
+		formats := append([]string{}, (*seedScheme.MediumFormats)...)
+		cur.MediumFormats = &formats
+		out.Schemes[code] = cur
+		added = append(added, "schemes."+code+".medium_formats")
+	}
 	// 有标记文档里已存在关系的布尔开关（Aggregate / CountsAsCredit）一律不动：bool 的零值无法区分
 	// "老文档缺该声明"与"后台有意关闭"，种子为真就回写 false 会让 GUI 刚关掉的开关在重启后
 	// 重新打开（D2）。缺失的关系整体由上面的补缺分支新增（含种子开关）；无标记老文档的署名口径
