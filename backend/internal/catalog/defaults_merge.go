@@ -177,6 +177,44 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			added = append(added, "structure."+k)
 		}
 	}
+	// 固定结构随目录骨架扩展时，只补新固定字段与必需标记；
+	// 资源开关由管理员配置，既有结构字段声明也不覆盖。
+	for kind, seedRule := range seed.Structure {
+		cur, ok := out.Structure[kind]
+		if !ok {
+			continue
+		}
+		if seedRule.Subjects && !cur.Subjects {
+			cur.Subjects = true
+			added = append(added, "structure."+kind+".subjects")
+		}
+		if seedRule.Contents && !cur.Contents {
+			cur.Contents = true
+			added = append(added, "structure."+kind+".contents")
+		}
+		for i, seedField := range seedRule.Fields {
+			found := false
+			for _, currentField := range cur.Fields {
+				if currentField.Code == seedField.Code {
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
+			fields := append([]StructureField{}, cur.Fields...)
+			if i > len(fields) {
+				i = len(fields)
+			}
+			fields = append(fields, StructureField{})
+			copy(fields[i+1:], fields[i:])
+			fields[i] = seedField
+			cur.Fields = fields
+			added = append(added, "structure."+kind+".fields."+seedField.Code)
+		}
+		out.Structure[kind] = cur
+	}
 	// 名称译文补丁：只填仍是英文占位的语种（见 mergeNames 注释），不覆盖已有译文。
 	added = append(added, backfillTranslations(&out, seed)...)
 	sort.Strings(added)
