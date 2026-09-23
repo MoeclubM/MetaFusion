@@ -1,6 +1,7 @@
 # 架构评估结论（2026-09）
 
 > 范围声明：本文为只读架构评估，未修改任何代码、迁移或数据。所有结论以撰写时检出状态为准，证据为源码文件与行号。
+> 2026-09-23 纠错：第 2 节“盒装必含汇编 Work”的建议已废弃；跨作品收录用 `Release.subjects` 声明实际作品，不为盒装虚构 Work。定义历史、diff、回滚界面已上线；文中 Next.js 版本和缺口列表不代表当前状态。现行建模见 [媒体编目复核](./media-catalog-frontend-review-2026-09.md)。
 > 关联文档：[核心实现与模块边界](./catalog-core-implementation.md)、[媒体编目与用户前端复核](./media-catalog-frontend-review-2026-09.md)、[元数据目录教程](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/catalog.md)。
 
 ## 0. 评估基线
