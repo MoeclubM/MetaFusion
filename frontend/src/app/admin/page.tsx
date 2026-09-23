@@ -29,7 +29,6 @@ import {
   COMMUNITY_POST_MODERATE,
   COMMUNITY_TOPIC_PIN,
   STORAGE_ASSET_MODERATE,
-  STORAGE_ASSET_UPLOAD,
   can,
   canEnterAdmin,
   canEnterCatalogConsole,
@@ -76,7 +75,10 @@ type ConsoleState = "unknown" | "online" | "offline";
 // 其他控制台：三个已拆出去的管理台的入口定义。
 //   * permissions 与目标应用自己的入口判定同集合：账号域五码任一（metafusion-auth/admin
 //     的 SECTION_PERMISSIONS）、社区治理三码任一（community 的 GOVERNANCE_CODES，不含
-//     普通发帖码 community.post.create）、存储两码任一（storage-admin 的 STORAGE_PERMISSION_CODES）；
+//     普通发帖码 community.post.create）、存储只认治理码 storage.asset.moderate。
+//     存储这里刻意不含 storage.asset.upload：它是普通成员"上传并登记自己的资产"的功能码
+//     （种子 member 组默认就带），当准入用会让每个注册成员——含只做目录编目的编辑者——
+//     都看到管理台入口，进去却只有一个 403 的空壳；治理码才代表"能管别人的资产"。
 //   * href 带尾斜杠：nginx 对裸路径只回 301，直接用带尾斜杠的地址省一次跳转；
 //   * target=_blank 见渲染处：点进去是另一个应用，不是本控制台的页签。
 const OTHER_CONSOLES: {
@@ -105,7 +107,7 @@ const OTHER_CONSOLES: {
     href: "/admin/storage/",
     labelKey: "admin.consoles.storage",
     icon: HardDrive,
-    permissions: [STORAGE_ASSET_MODERATE, STORAGE_ASSET_UPLOAD],
+    permissions: [STORAGE_ASSET_MODERATE],
   },
 ];
 
