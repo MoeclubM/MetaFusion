@@ -24,7 +24,7 @@ description: MetaFusion 项目级开发约定：docs-local 维护、提交纪律
 按 `AGENTS.md` §0 阅读相关记录；目录不存在时按上表创建。仅在产生对下一次接手有用的新环境事实、阶段判断或已知坑时更新，操作流水不记。
 涉及账号 / 互动 / 存储 / 网关 / 文档时，先到 `docs-local/deploy/paths.md` 查兄弟仓库（`../metafusion-*`）的位置，确认改动归属再下手。
 
-凭据：口令、私钥、PAT 一律不进入 git 追踪文件。本地 Agent 可直接读写专用技能目录中已忽略的 `local/credentials.json`，但只向其中的目标实例使用，不得把令牌值输出到对话、日志、报告或提交；其它来源只记路径，不复制内容。
+真实凭据不进 git 追踪文件；本地 Agent 可使用已忽略的 `local/credentials.json`，令牌值不进入对话、日志、报告或提交。
 
 ## 2. 提交、验证与多语言
 
