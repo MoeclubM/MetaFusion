@@ -370,14 +370,12 @@ const staffCredits = useMemo<StaffCredit[]>(
  const redirecting = useKindRedirect("work", kindMismatch, workId);
 
  if (loadingWork || redirecting) {
- return <div className="min-h-screen bg-background relative flex flex-col overflow-clip"><div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden /><div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden /><div className="relative z-10 min-h-screen grid place-items-center text-sm text-text-faint">{t("work.detail.loading")}</div></div>;
+ return <div className="min-h-screen bg-background grid place-items-center text-sm text-text-faint">{t("work.detail.loading")}</div>;
  }
 
  if (!work) {
  return (
  <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
- <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
- <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px] pointer-events-none" aria-hidden />
  <Navbar />
  {loadError === "not_found" || loadError === "invalid" ? (
  <DetailNotFound title={t("common.notFoundWork")} />

@@ -427,7 +427,6 @@ export default function ReleaseDetailPage() {
   if (loading || redirecting) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
-        <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <Navbar />
         <div className="relative z-10 min-h-screen grid place-items-center font-mono text-xs text-text-faint">{t("release.detail.loading")}</div>
       </div>
@@ -437,7 +436,6 @@ export default function ReleaseDetailPage() {
   if (!release) {
     return (
       <div className="min-h-screen bg-background relative flex flex-col overflow-clip">
-        <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
         <Navbar />
         {error === "not_found" || error === "invalid" || !error ? (
           // 裸错误码（not_found / invalid_kind / invalid_id）不是给用户看的文案，
@@ -558,14 +556,11 @@ export default function ReleaseDetailPage() {
             )}
           </div>
           <span className="font-mono text-[10px] text-text-muted">
-            #{String(medium.id).slice(0, 8)} · {t("release.detail.trackCount", { count: mediumTree.totalOf(row) })}
+            {t("release.detail.trackCount", { count: mediumTree.totalOf(row) })}
           </span>
         </div>
         {ordered.length > 0 ? (
           <div className="overflow-x-auto">
-            <div className="px-3.5 pt-2 pb-1 font-mono text-[10px] uppercase tracking-wider text-text-faint">
-              {t("media.entryRow", { label: entryKindLabel })}
-            </div>
             <table className="w-full text-left text-xs min-w-[640px]">
               <thead className="bg-surfaceSubtle border-y border-line-subtle font-mono text-[10px] uppercase tracking-wider text-text-faint">
                 <tr>
@@ -695,7 +690,6 @@ export default function ReleaseDetailPage() {
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white">
-      <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
       <Navbar />
       <PageShell
         width="page"
