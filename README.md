@@ -1,8 +1,8 @@
 # <img src="frontend/public/mark.svg" width="28" height="28" alt="MetaFusion"/> MetaFusion
 
 <p align="center">
-  <strong>全球化开放元数据与高保真多媒介典藏协作平台</strong><br/>
-  电影 · 剧集 · 动漫 · 音乐 · 有声书 · 图书 · 漫画 · 画册 — 一处归档，全域互联，跨端畅播
+  <strong>开放多媒介元数据编目与受控资源协作平台</strong><br/>
+  电影 · 剧集 · 动漫 · 音乐 · 有声书 · 图书 · 漫画 · 画册 — 统一建档，关联发行与载体，按权限访问原始资源
 </p>
 
 <p align="center">
@@ -28,14 +28,14 @@
 
 ## 📖 平台定位
 
-> **「元数据全量开放，高保真媒体安全受控」**  
-> MetaFusion 将**国家图书馆级的严谨编目标准**与**现代云原生流媒体的高效体验**融为一体。无论是影视 4K 原盘、黑胶无损抓轨，还是绝版同人漫画与典藏画集，都能在统一的 IFLA LRM 实体知识网络中被精确描述、拓扑关联、版本溯源与一键流式点播。
+> **「开放元数据协作，原始资源受控访问」**
+> MetaFusion 面向多媒介元数据编目与受控资源管理，按 IFLA LRM 启发的实体模型记录作品、表达、发行与载体关系。平台提供元数据检索、关联浏览与原始文件受控访问；当前不提供转码、HLS 点播或流媒体处理能力。
 
 ---
 
 ## ✨ 核心特性
 
-### 1. 🏛️ 国际图书馆级 LRM 混合编目模型
+### 1. 🏛️ LRM 启发的多媒介编目模型
 - **固定八实体骨架**：`Agent（责任者）· Collection（集合）· Work（作品）· ContentUnit（内容单元）· Expression（内容表达）· Release（发行版）· Medium（物理/数字载体）· Track（收录位置）`，资产文件（AssetFile）独立承载哈希与绑定。
 - **纯净实体题名**：作品主标题坚决剥离季数、介质、规格等非本质限定词；版本与载体规格由 Release / Medium 精确承载，杜绝重复冗余。
 - **自由标签与虚拟货架**：不预置树状分类；货架是数据驱动、后台可配的收录规则（`catalog.shelves`），实体标签只来自上游来源或用户贡献，不充当分类体系。
@@ -59,9 +59,9 @@
 - **不做转码（明确取舍）**：不生成 HLS 切片、预览音频、波形图或缩略图；存储服务只收原始文件、做内容寻址与受控下载。
 
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
-- **每服务独立库用户（最小权限）**：四个服务共用同一个库，但各有自己的角色（`mf_catalog` / `mf_auth` / `mf_community` / `mf_storage`），只对本域 schema 有权限，越权读写由库直接拒绝。授权与校验脚本是 `deploy/sql/roles-least-privilege.sql` 与 `deploy/sql/verify-role-isolation.sql`；口径、落地与回滚见 [数据层角色与最小权限](docs/architecture/database-roles.md)。
-- **独立迁移引擎 (`mf-migrate`)**：自研 Go 原生数据库迁移工具，集成 PostgreSQL Advisory Lock 机制，彻底杜绝多副本部署时的并发迁移竞争。
-- **无缝冷热启动**：支持 `up`、`down`、`status`、`force`、`seed`（定义/货架/外部库种子的只增不改增量合并）与 `check-refs`（悬挂引用体检，部署前置检查，有则非零退出）命令行管理，镜像内置嵌入式 SQL 脚本，部署前后自动完成无损版本升降级。
+- **数据库最小权限角色**：主仓 Compose 支持四个服务使用不同连接身份（`mf_catalog` / `mf_auth` / `mf_community` / `mf_storage`）；只有目标实例已按 [数据层角色与最小权限](docs/architecture/database-roles.md) 执行授权脚本并验证，才能断言越权跨 schema 会被拒绝。授权与校验脚本为 `deploy/sql/roles-least-privilege.sql` 与 `deploy/sql/verify-role-isolation.sql`；各部署的实际启用状态需核实配置与目标库，不能从 compose 变量存在推断已启用。
+- **独立迁移引擎 (`mf-migrate`)**：自研 Go 数据库迁移工具，使用 PostgreSQL Advisory Lock 协调迁移进程的执行；多副本部署仍需使用同一数据库/锁键并遵循部署手册的迁移顺序。
+- **版本化迁移与显式种子**：`mf-migrate` 提供 `up`、`down`、`status`、`force`、`seed`（定义/货架/外部库种子的只增不改增量合并）与 `check-refs`（悬挂引用体检）命令。`down` 的数据影响由对应迁移 SQL 决定；当前基线 `backend/migrations/000001_catalog_core.down.sql` 会执行 `DROP SCHEMA catalog CASCADE`，属于破坏性目录库重置，不是无损数据回滚。执行任何迁移前须核对目标、脚本与备份，并按切流手册确认回滚边界。
 - **单端口边缘网关**：内置优化配置的 Nginx 边缘网关，对外仅需暴露单端口（默认 `10100`），无缝兼容宿主机外部反向代理（Nginx / Caddy / Cloudflare）接管 HTTPS。
 
 ---
@@ -172,7 +172,7 @@ bash deploy/deploy.sh fast backend
 
 #### 选项 C：拉取 GHCR 预构建镜像 (快速上线)
 ```bash
-# 直接拉取 GitHub Container Registry 构建好的生产镜像运行
+# 拉取 GHCR 发布的 backend/frontend 镜像；auth/community/storage/docs-site 仍从并列检出的兄弟仓库本地构建
 bash deploy/deploy.sh pull
 ```
 
@@ -181,9 +181,11 @@ bash deploy/deploy.sh pull
 # 检查当前版本与待迁移脚本状态
 bash deploy/deploy.sh migrate status
 
-# 执行最新升级迁移 / 回滚上一版本
+# 结构升级。回滚前必须检查该迁移对应的 down SQL 与备份；尤其当前 000001_catalog_core.down.sql 会 DROP SCHEMA catalog CASCADE，
+# 回滚到该基线会删除目录 schema 数据，不是无损回到上一版。常规发布回退按切流手册处理。
 bash deploy/deploy.sh migrate up
-bash deploy/deploy.sh migrate down
+# 仅在核实该版本 down SQL 及目标数据风险、并获准后执行：
+# bash deploy/deploy.sh migrate down
 ```
 
 #### 选项 E：首次从单体切到拆分后的服务 (只走一次)
