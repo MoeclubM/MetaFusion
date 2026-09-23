@@ -505,6 +505,7 @@ var catalogIncrementals = []string{
 	"000007_revision_definition_version.up.sql", // D4：revisions.definition_version
 	"000008_redirect_lookup_index.up.sql",       // R2：entities redirect 反查索引
 	"000009_notification_receipts.up.sql",       // A04：notification_receipts 收据表
+	"000010_relation_lookup_indexes.up.sql",     // 关系反向查询与按类型读取
 }
 
 // applyCatalogIncrementals 在安装路径上执行结构增量（见 catalogIncrementals 注释）。
