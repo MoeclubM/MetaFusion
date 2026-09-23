@@ -1,30 +1,25 @@
-# MetaFusion 插件系统与依赖拓扑架构规范 (Plugin System & DAG Architecture)
+# MetaFusion 插件系统与依赖拓扑方案 (Plugin System & DAG Blueprint)
 
-> **状态：VISION（未实现，勿当运行时事实）**：本文是插件化的长期目标，`backend/internal/plugin/` 目录与文中 **12 个内置插件**方案均未落地，
-> 不作为当前接口、数据模型或部署依据。当前外围能力由独立服务承担，`/api/capabilities` 给的是「上游是否在部署配置里声明」的部署态清单（目录进程不探测上游，健康判断在网关/运维面的 `/health/<service>` 探针）。
-
-本文档面向 MetaFusion 核心开发与系统架构人员，描述插件系统的**目标机制**、**12 个原生内置插件矩阵**与 **DAG 依赖拓扑治理规范**。
-
----
+> **状态：VISION（未实现）**：插件方案与候选清单不是当前接口、数据模型或部署依据。当前外围能力由独立服务承担；`/api/capabilities` 只反映部署声明，健康状态由网关/运维探针判断。
 
 ## 1. 架构定位与设计原则
 
-MetaFusion 插件系统遵循**「极简 LRM 实体内核 + 进程内原生插件化 (In-Process Native Plugins)」**设计：
-1. **实体内核纯粹性**：核心目录层（`Work` / `Release` / `Medium` / `Track` / `CanonicalEntry`）保持简洁标准，不内嵌任何特定第三方平台的抓取或私有格式导出逻辑；
-2. **进程内原生常驻**：当前系统内置的 **12 个核心插件全部以 Go 原生代码实现**，通过工厂注册表（`Registry`）在服务启动时注入，与主服务同进程运行，零进程间网络与 IPC 开销；
-3. **DAG 依赖拓扑治理**：引入有向无环图（DAG）调度引擎，支持插件间 Semver 版本依赖声明、DFS 循环依赖拦截、拓扑序启动与级联启停保护；
-4. **动态配置与状态持久化**：插件元数据、配置表单架构（`ConfigSchema`）及运行开关持久化于 PostgreSQL `system_plugins` 表，支持管理后台在线配置热更新。
+若未来采用插件系统，可评估**「极简 LRM 实体内核 + 进程内原生插件化（In-Process Native Plugins）」**设计：
+1. **实体内核纯粹性**：目录核心不内嵌特定第三方平台的抓取或私有格式导出逻辑；
+2. **进程内插件**：候选插件可通过注册表在服务启动时注入；
+3. **依赖治理**：以 DAG、Semver 约束与循环依赖检测管理加载顺序，并定义级联启停保护；
+4. **配置持久化**：如需在线配置，可将插件元数据、配置 schema 与运行开关存入数据库。
 
 ---
 
-## 2. 现有 12 个原生内置插件矩阵 (100% 代码对应)
+## 2. 候选插件矩阵（方案示例）
 
-当前代码库在 `backend/internal/plugin/manager.go` 中通过 `reg.RegisterFactory` 注册了以下 12 个原生内置插件：
+以下清单是设计示例，不代表当前代码已实现或注册：
 
 ```
                               ┌────────────────────────────────────────┐
                               │       MetaFusion LRM 实体核心          │
-                              │ (Work / Release / Medium / Track / CE) │
+                              │           八类固定实体             │
                               └───────────────────┬────────────────────┘
                                                   │ (统一 Plugin 接口)
          ┌──────────────────┬─────────────────────┼────────────────────┬──────────────────┐
@@ -43,7 +38,7 @@ MetaFusion 插件系统遵循**「极简 LRM 实体内核 + 进程内原生插�
 ```
 
 ### 2.1 外部元数据抓取与导入插件 (Native Importers)
-实现 `ImporterPlugin` 与 `MetadataProviderPlugin` 接口（`backend/internal/plugin/native_importers.go`）：
+拟由 `ImporterPlugin` 与 `MetadataProviderPlugin` 接口承载：
 
 | 插件 ID | 版本 | 能力声明 (`Capabilities`) | 支持数据源 (`SupportedSources`) | 说明 |
 | :--- | :---: | :--- | :--- | :--- |
@@ -55,7 +50,7 @@ MetaFusion 插件系统遵循**「极简 LRM 实体内核 + 进程内原生插�
 | `douban` | `1.0.0` | `importer`, `metadata_provider` | `douban` | 抓取豆瓣华语电影、剧集、音乐及图书出版信息 |
 
 ### 2.2 规范与多格式数据导出插件 (Native Exporters)
-实现 `ExportPlugin` 接口（`backend/internal/plugin/native_extensions.go`）：
+拟由 `ExportPlugin` 接口承载：
 
 | 插件 ID | 版本 | 导出格式 | 文件扩展名 | 依赖项 (`Dependencies`) | 说明 |
 | :--- | :---: | :---: | :---: | :--- | :--- |
@@ -64,21 +59,21 @@ MetaFusion 插件系统遵循**「极简 LRM 实体内核 + 进程内原生插�
 | `bibtex_exporter` | `1.0.0` | `bibtex`, `ris` | `.bib` | 无 | 将图书、典藏画册与期刊条目导出为学术文献 BibTeX 与 Zotero / EndNote RIS 引用格式 |
 
 ### 2.3 媒体处理与声学指纹辅助插件 (Native Media Helper)
-实现 `Plugin` 与 `MetadataProviderPlugin` 接口（`backend/internal/plugin/native_extensions.go`）：
+可实现 `Plugin` 与 `MetadataProviderPlugin` 接口：
 
 | 插件 ID | 版本 | 能力声明 | 依赖项 (`Dependencies`) | 说明 |
 | :--- | :---: | :--- | :--- | :--- |
 | `acoustid_helper` | `1.0.0` | `transcoder_hook`, `metadata_provider` | `musicbrainz: ">=1.0.0"` | 计算 Chromaprint 音频指纹哈希，并在音频资产入库时与 MusicBrainz 录音库比对对齐 |
 
 ### 2.4 AI 智能与多语言增强插件 (Native AI Enrichment)
-实现 `Plugin` 接口（`backend/internal/plugin/native_extensions.go`）：
+可实现 `Plugin` 接口：
 
 | 插件 ID | 版本 | 能力声明 | 说明 |
 | :--- | :---: | :--- | :--- |
 | `ai_enrichment` | `1.0.0` | `ai_enrichment` | 基于 LLM 大语言模型端点，针对录入实体推断多语言题名映射（`work_translations`）及本体分类标签 |
 
 ### 2.5 全系统事件通知广播插件 (Native Notifiers)
-实现 `Plugin` 接口（`backend/internal/plugin/native_extensions.go`）：
+可实现 `Plugin` 接口：
 
 | 插件 ID | 版本 | 能力声明 | 支持事件 (`SupportedEvents`) | 说明 |
 | :--- | :---: | :--- | :--- | :--- |
@@ -86,12 +81,10 @@ MetaFusion 插件系统遵循**「极简 LRM 实体内核 + 进程内原生插�
 
 ---
 
-## 3. DAG 依赖拓扑治理引擎规范
-
-插件内核调度引擎位于 `backend/internal/plugin/dependency.go`。
+## 3. DAG 依赖拓扑治理方案
 
 ### 3.1 语义化版本约束 (Semver Constraint)
-插件依赖通过 `Dependencies map[string]string` 声明，版本比对引擎（`ParseSemver` 与 `Semver.Matches`）支持：
+方案中的插件依赖可通过 `Dependencies map[string]string` 声明，版本约束可支持：
 - 精确匹配：`1.0.0`
 - 下限约束：`>=1.0.0`、`>1.0.0`
 - 上限约束：`<=2.0.0`、`<2.0.0`
@@ -100,7 +93,7 @@ MetaFusion 插件系统遵循**「极简 LRM 实体内核 + 进程内原生插�
 - 组合区间：`>=1.0.0 <=2.0.0`
 
 ### 3.2 拓扑排序启动流程 (Topological Sort)
-系统在引导初始化时，收集已启用的原生插件节点构建有向图（`DependencyGraph`），执行拓扑排序并确定加载序号：
+候选流程：收集启用插件并构建 `DependencyGraph`，检测环路后按拓扑序加载：
 
 ```
 [系统引导/启动]
@@ -136,10 +129,10 @@ MetaFusion 插件系统遵循**「极简 LRM 实体内核 + 进程内原生插�
 
 ---
 
-## 4. 数据库持久化与 HTTP 接口
+## 4. 拟议的数据模型与 HTTP 接口
 
-### 4.1 数据模型 (`system_plugins` 表)
-拟议位置 `backend/internal/plugin/models.go`（本文未落地，请勿据此建表）：
+### 4.1 候选数据模型（`system_plugins`）
+以下示意结构并未实现，也不能直接用于建表：
 ```go
 type SystemPlugin struct {
     ID           string         `gorm:"primaryKey;type:varchar(64)" json:"id"`
@@ -162,9 +155,6 @@ type SystemPlugin struct {
 }
 ```
 
-### 4.2 API 路由接口清单 (`backend/internal/plugin/handler.go`)
-- `GET /api/catalog/plugins`：公开接口，获取当前已启用的插件精简元数据（供前端渲染导入源选择框、导出按钮列表）；
-- `GET /api/admin/plugins`：管理员接口，获取全量插件列表（含启停状态、健康检查结果、实时延迟、依赖评估及拓扑序号）；
-- `PATCH /api/admin/plugins/:id`：管理员接口，切换插件开关（支持 `cascade=true` 级联生效）或更新配置字段；
-- `POST /api/admin/plugins/test-notify`：管理员接口，向已启用的通知类插件广播测试事件验证 Webhook 链路；
-- `POST /api/admin/plugins/register`：管理员接口，通过底层抽象驱动（`ExternalHTTPPlugin`）登记第三方自定义 HTTP Webhook 扩展端点。
+### 4.2 候选 API 路由
+
+可评估插件列表、配置与启停、Webhook 测试和外部端点登记等管理能力；具体路径、权限与响应形状应在实现时定义。

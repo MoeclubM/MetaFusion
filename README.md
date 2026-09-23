@@ -82,10 +82,8 @@
 | **部署编排** | `deploy/`（`docker-compose.yml` 与 dev/prod/metadata 覆盖、`nginx.conf`、`deploy.sh` / `deploy.ps1`、`versions.lock`、`sql/`） | 一键部署 | 单端口边缘网关、全部服务编排、切流/回滚、版本锁与遗留结构清理 |
 | **独立子系统** | `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage`、`../metafusion-docs` | 兄弟仓库 | 账号与 RS256 令牌、论坛与互动记录、文件与内容寻址直传、文档站；`../metafusion-api-gateway` 现在只留切流自检脚本，生效的路由矩阵是本仓库 `deploy/nginx.conf` |
 
-> **解耦保障**：目录库只存实体本体与关系图谱，**不持有物理文件路径或社区帖子**；各服务的表在自己的 schema 里，
-> 互相只按实体 UUID 走 HTTP。目录服务停摆不影响互动/存储自身数据的完整性，反之亦然。
-> 边界与迁移顺序见 [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)，
-> 切流与回滚见 [切流手册](docs/architecture/cutover-runbook.md)。
+> **解耦保障**：目录不持有文件路径或社区帖子；服务只按实体 UUID 经 HTTP 交互。边界与迁移顺序见
+> [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)，切流与回滚见 [切流手册](docs/architecture/cutover-runbook.md)。
 
 ### 2. 请求拓扑
 
@@ -106,10 +104,6 @@
                                                 ├──── RustFS (S3 兼容，仅内网可达；桶由存储服务启动时自建)
                                                 └──── OpenSearch（仅 --profile search 启动，未接线）
 ```
-
-> 各服务仓库的当前落地状态与「子项目各司其职」的边界，见
-> [子系统拆分与迁移契约](docs/architecture/service-split-migration.md) 与
-> [多项目解耦规范](docs/architecture/multi-project-decoupling-spec.md)。
 
 ---
 

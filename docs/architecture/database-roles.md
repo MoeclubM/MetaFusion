@@ -77,68 +77,29 @@ storage `store.Init`），而 PostgreSQL 在 `CREATE SCHEMA IF NOT EXISTS` / `CR
 > `pq: permission denied for schema public (42501)`。要把它也切到服务角色（需要给
 > `backend/internal/config` 加 `DATABASE_URL` 支持），必须同时补 public 的账本权限，见脚本第 6.4 节。
 
-### 4.1 ⚠ 阻塞项：共享审计表的 DDL 在第二个服务启动时必然 42501（契约级缺陷，2026-09-19 实测）
+### 4.1 已修复：共享审计表的并发建表守卫（2026-09-19）
 
-`audit.audit_log` 的四份服务副本会在**每个服务各自的启动/迁移路径**里执行（auth 是 `store.go` 直接 Exec；
-community/storage/catalog 按自己那份账本判"未应用"）——四个账本互相独立，新库上四个服务都会各跑一次。
-而契约 DDL 里那条 `CREATE INDEX IF NOT EXISTS` **并不空转**：PostgreSQL 对 CREATE INDEX
-**先检查表所有权、再看索引是否存在**（与 `CREATE TABLE IF NOT EXISTS` 只需 schema CREATE 不同）。于是：
+四个服务各自执行共享审计表 DDL，账本互不相通。PostgreSQL 即使在 `IF NOT EXISTS` 下也会先检查 `CREATE INDEX` 的表所有权；若其他服务角色执行非自身拥有表的索引语句，会报 `42501 must be owner`。`CREATE TABLE IF NOT EXISTS` 不触发同一检查。修复前，两种顺序都曾实测失败：运维预建归属 `mf_audit_owner` 后服务角色创建索引失败；社区先建表后，其余服务因 schema/表权限或 owner 不符失败。
 
-| 场景（一个库，四个服务顺序启动） | 实测结果 |
-| --- | --- |
-| 预建（owner=`mf_audit_owner`）+ 四个角色已授权 | 四个服务**全部**启动失败：`pq: must be owner of table audit_log (42501)` |
-| 不预建，社区先起（它建表、owner=`mf_community`），脚本第 4b 节当时无表可授 | community 起来；catalog/auth/storage 失败：`pq: permission denied for schema audit (42501)` |
-| 上一条之后补授权（四角色有 schema USAGE + 表 SELECT/INSERT，表仍归 `mf_community`） | catalog 仍失败：`pq: must be owner of table audit_log (42501)` |
-
-逐条拆开契约 DDL、以 `mf_catalog` 身份对着"表归 `mf_audit_owner`"的库执行（脚本 `case3-4.sh`）：
-`CREATE SCHEMA IF NOT EXISTS audit` → OK（notice）；`SELECT pg_advisory_xact_lock(740205)` → OK；
-`CREATE TABLE IF NOT EXISTS audit.audit_log (...)` → OK（notice）；**`CREATE INDEX IF NOT EXISTS ...` → ERROR: must be owner of table audit_log**。
-
-**结论**：在当前契约 DDL 下，"owner 固定为 `mf_audit_owner`（只追加才成立）"与"四个服务都能启动"互斥——
-审计功能按现在的四份副本**无法多服务共存部署**（最多一个服务能起，其余三个 crashloop）。修复只需一处守卫：
+四仓契约 DDL 在 advisory lock 后仅当表不存在时建表与索引：
 
 ```sql
-CREATE SCHEMA IF NOT EXISTS audit;
 SELECT pg_advisory_xact_lock(740205);
 DO $$ BEGIN
   IF to_regclass('audit.audit_log') IS NULL THEN
-    CREATE TABLE audit.audit_log ( ...18 列... );
-    CREATE INDEX IF NOT EXISTS audit_log_occurred_at_idx ...;   -- 其余三条同理
+    CREATE TABLE audit.audit_log (...);
+    CREATE INDEX ...;
   END IF;
 END $$;
 ```
 
-- 守卫由**审计契约方**落到四份 Go 常量与三份迁移文件（本仓库只保留副本与检查器，不单方面改契约）；
-  守卫落地后本脚本 `-v audit_bootstrap=1` 预建即可全绿，两种启动顺序都不再有 42501。
-- 本脚本默认**不**预建、也**不**事后抢归属（`audit` 刻意不在第 2 节的接管清单里）：预建会让四个服务全挂；
-  事后抢归属则会打断"当前能起来的那个服务"的下一次启动。
+守卫已同步到四仓七份 Go/迁移副本及本仓预建脚本；`python scripts/check_audit_schema.py` 检查八个来源。真库复核中，预建 owner 与服务先建两种顺序下四服务均启动成功；`guarded-check.sh` 验证非 owner 的重复迁移空转通过。预建脚本须以运维身份执行契约块，再变更 schema/table owner；不能 `SET ROLE mf_audit_owner`，因为即使 schema 已存在，`CREATE SCHEMA IF NOT EXISTS` 仍要求库级 CREATE。
 
-**已解决（2026-09-19 晚，守卫落地 + 预建副本同步）**
+`verify-role-isolation.sql` 的 F 段继续检查 owner 与写权限；owner 隐式权限不能靠 `REVOKE` 消除，故其失败不能被当作普通权限缺失忽略。
 
-- 审计契约方已把守卫落到四仓全部七份副本（Go 常量 + 迁移文件），本仓库脚本第 3b 节那份副本也已同步；
-  `python scripts/check_audit_schema.py` 现在 8 个来源 0 问题（它此前报的那条 `deploy(预建) 与 auth 不一致`
-  正是这次同步要消掉的信号）。
-- 守卫有效性的实测（`guarded-check.sh`，库 `mf_e2e`，`audit.audit_log` 归 `mf_community`，以 `mf_catalog` 身份执行）：
-  旧形态 `CREATE INDEX IF NOT EXISTS ...` → `ERROR: must be owner of table audit_log`（exit 1）；
-  守卫形态 → `DO`（exit 0，整段空转）。
-- 端到端实测（预建库，owner=`mf_audit_owner`，四个服务二进制都带守卫）：**四个服务全部启动成功**
-  （catalog `/ready`+definitions、auth `/ready`+setup、community `/ready`+boards、storage `/ready` 全 200；
-  storage 的 `000002_audit_log` 迁移在守卫下空转通过）——§4.1 表格里那条"四个服务全部 42501"已不再复现。
-- order B 的补救路径也实测通过：先让服务建出表（owner=某服务角色）→ 重跑脚本加 `-v audit_bootstrap=1`
-  → 归属交回 `mf_audit_owner`、verify exit 0、原 owner 服务仍能启动（守卫让它不再依赖归属）。
-- 同步自己那份预建副本时有一个坑（已写进脚本注释）：守卫块内含 `CREATE SCHEMA IF NOT EXISTS audit`，
-  而 PostgreSQL 对该语句**即使 schema 已存在也要求库级 CREATE**（第 3 节实测），所以预建那段**不能**
-  `SET LOCAL ROLE mf_audit_owner` 跑契约块；正确做法是以**运维身份**执行契约块，随后在同一事务里
-  `ALTER SCHEMA audit OWNER TO mf_audit_owner` + `ALTER TABLE audit.audit_log OWNER TO mf_audit_owner`（索引随表走）。
-- 开关默认值：第 3b 节仍是 `-v audit_bootstrap=1` 才执行（现状口径不变）。守卫既已落地，
-  "默认开启"在技术上是安全的——是否改成默认由运维/契约方定，改法就是删掉那对 `\if/\endif`。
-- 现在本节 ①②③ 三个目标同时成立：owner 固定 `mf_audit_owner`、四个服务启动全部空转、任何顺序断言都绿。
-- `verify-role-isolation.sql` 的 F 段在这种情况下**硬失败**——这是刻意的：owner 隐式持有全部权限且
-  REVOKE 不掉，放任它就等于"审计行可被那个服务改写"静默通过。**F 段红 = 契约缺陷的直接体现，不是脚本 bug。**
+### 4.2 共享对象 DDL 的通用归属规则
 
-### 4.2 更一般的隐患：共享对象的 DDL 不能由"每个服务各跑一遍"负责
-
-上面这条不止影响审计表：**四个服务的迁移账本是互相独立的**（`catalog` 用 `public.schema_migrations`、
+上面这条不止影响审计表：**四个服务的迁移账本互相独立**（`catalog` 用 `public.schema_migrations`、
 auth 无账本、community/storage 各用自己的 `<schema>.schema_migrations`），因此任何**跨服务共享对象**
 （共享 schema/表/扩展/函数）的 DDL 都会在同一个新库上被执行 4 次。只要其中含一条"要求对象所有权"的语句
 （`CREATE INDEX`、`ALTER TABLE`、`COMMENT ON`、`CREATE TRIGGER`、`GRANT`…），就先建的 owner 把后面的全挡死。
@@ -205,10 +166,7 @@ COMMUNITY_MIGRATE_DATABASE_URL  → community-migrate（一次性，跨域读）
 7. **回滚**：`roles-least-privilege.sql` 第 6.2 节（先让服务换回 `DB_*`，再撤权、再删角色；
    顺序反了会让在跑的服务当场 42501）。**授权脚本本身可重复执行**，误撤权限重跑一遍即恢复。
 
-**★ 通用纪律（每次迁移之后都要执行，不是一次性的）**：**迁移新增了表/序列之后重跑一次授权脚本**
-（即重复第 3 步）。默认权限只覆盖"登记之后、由登记角色建出"的对象；本轮就实测到过一次
-（目录 000002 建出的表在重跑前对 `mf_catalog` 零权限，重跑后自动补齐）。同一件事对共享审计表也成立：
-表建出来后必须重跑，否则第 4b 节只授了 schema 权限、审计行会静默写失败（F 段会以"缺 SELECT/INSERT"报错兜住）。
+**通用纪律**：迁移新增表或序列后重跑授权脚本（重复第 3 步），使默认权限覆盖新对象；本机已验证目录 000002 新表在重跑前对 `mf_catalog` 无权限、重跑后恢复。共享审计表的权限也须在表创建后授予，否则服务写审计会失败。
 
 ## 7. 验证记录（本机真库，可复跑）
 
@@ -221,9 +179,7 @@ COMMUNITY_MIGRATE_DATABASE_URL  → community-migrate（一次性，跨域读）
 | 越权被拒 | `probe-denial.sh` | catalog 读写 auth/community/storage 全 `permission denied for schema ...`；四个角色各自读写自己的域成功 |
 | 共享审计授权（预建路径） | `case1-2.sh` + `-v audit_bootstrap=1` | `audit` schema 与 `audit.audit_log`（含主键与四条索引）归 `mf_audit_owner`；四个角色 usage/create/sel/ins=t、upd/del=f；verify exit 0 |
 | 默认路径（不预建） | `case1-2.sh` 用例 1 | 不动 audit 归属；表未建时 F 段只提示；verify exit 0 |
-| 启动顺序 A（先脚本后服务） | 预建库上依次启动四个服务 | 四个服务全部失败：`pq: must be owner of table audit_log (42501)`（契约缺陷，见 §4.1） |
-| 启动顺序 B（先服务后脚本） | 社区先起建表 → 跑授权脚本 → verify | verify **exit 1**：`[F] audit.audit_log 的 owner 是 mf_community（期望 mf_audit_owner）...`（契约缺陷，刻意硬失败） |
-| 契约 DDL 逐条拆解 | `case3-4.sh` 用例 4 | 建 schema / 取锁 / CREATE TABLE IF NOT EXISTS 均 OK；`CREATE INDEX IF NOT EXISTS` 报 `must be owner of table audit_log` → 唯一阻塞点 |
+| 守卫修复验证 | `guarded-check.sh` + 四服务启动复核 | 非 owner 重跑迁移空转通过；预建 owner 与服务先建两种顺序均正常启动（详见 §4.1） |
 | 审计 DDL 一致性（CI） | `python scripts/check_audit_schema.py`（+ `--selftest`） | 8 个来源（授权脚本预建段 + 4 份 Go 常量 + 3 份迁移文件）逐条语句与结构一致；负向测试（改一列类型 / 换 `--siblings-root` 注入漂移副本）确定会红并指出差异位置 |
 
 测试套件里"跨域"没有出现：各服务的用例只碰自己的 schema（community/storage 的 `Init` 也只建自己那份）。
@@ -232,15 +188,8 @@ COMMUNITY_MIGRATE_DATABASE_URL  → community-migrate（一次性，跨域读）
 
 ## 8. 未做 / 需要别人接手
 
-1. **Tier 2 降级**：需要"启动只校验、迁移由 owner 单独跑"（审计 §4.3 第 3 条）。因为四个服务的
-   启动路径都执行 DDL，落地它要改服务代码——本轮没做，脚本已备好降级段与 CRUD 授权。
-2. **`mf-migrate` 的 DSN 化**：`backend/internal/config` 只读 `DB_*`，指向独立实例要同时改两处；
-   要统一到 `DATABASE_URL`（并按第 6.4 节补 public 账本权限）属代码改动，本轮只记录口径。
-3. **共享审计表的契约守卫（阻塞项，见 §4.1）**：由审计契约方给四份 Go 常量与三份迁移文件加
-   "表不存在才建"守卫；守卫落地后同步本仓库脚本里那份副本（`check_audit_schema.py` 会强制 8 个来源一致），
-   再用 `-v audit_bootstrap=1` 预建即可让 owner 固定、四服务全部正常启动。
-4. **共享对象 DDL 的归属口径（见 §4.2）**：建议后续批次把"共享对象只由一个身份建出 + 服务侧守卫形式 +
-   跨仓一致性检查"写成契约条款；本轮只落了审计表这条检查。
-5. **`../metafusion-community/sql/roles.example.sql`、`../metafusion-storage/sql/roles.example.sql`**
-   已被本脚本取代（它们是"尚未启用"的样例）；是否删除由各自仓库决定。
-6. **每服务独立库**（审计 §4 的第二步）：本轮不动。DSN 已经是唯一开关，真要分库时只改连接串。
+1. **Tier 2 降级**：目标是启动只校验、迁移由 owner 单独执行（审计 §4.3）。账号、互动、存储启动路径仍执行 DDL；目录迁移已由 `mf-migrate up` 显式执行。本轮未完成前者，落地需改服务代码。
+2. **`mf-migrate` 的 DSN 化**：`backend/internal/config` 只读 `DB_*`；统一为 `DATABASE_URL` 需改代码并补 public 账本权限（脚本第 6.4 节）。
+3. **共享对象 DDL 的归属口径（见 §4.2）**：新增共享对象时，应明确由哪个身份创建，其余服务只校验；本轮只为审计表落了守卫与一致性检查。
+4. **兄弟仓库的角色样例**：`../metafusion-community/sql/roles.example.sql`、`../metafusion-storage/sql/roles.example.sql` 是否删除由各自仓库决定。
+5. **每服务独立库**（审计 §4 的第二步）：本轮未实施；已有 DSN 可作为后续切换入口。

@@ -99,9 +99,7 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 
 ## 5. 迁移阶段与验收
 
-> **进度**：P0–P5 已全部完成；下表是各阶段的契约与验收判据。
->
-> - **遗留**：收藏"是否公开"仍只有前端只读占位（`settings/page.tsx` 的开关是 `disabled readOnly`，
+> **遗留**：收藏"是否公开"仍只有前端只读占位（`settings/page.tsx` 的开关是 `disabled readOnly`，
 >   目录侧无字段），接口恒返回 `visible: true`；实现该开关时归互动服务。
 > - **运维注意**：文档站镜像没有任何仓库发布。`deploy/docker-compose.prod.yml` 只给它一个镜像名、**保留 `build`**，
 >   而 `deploy.sh pull` 带 `--ignore-pull-failures`：镜像缺席时就地从兄弟目录 `../../metafusion-docs` 构建，不会让整条命令失败。
@@ -115,7 +113,7 @@ P0–P5 已落地；运行时行为仍须核对目标实例、实际处理器与
 | P4 | catalog 瘦身 + 网关切流：目录不再承载 `/api/archive`、`/api/playback`、`/api/media`、`/api/community` | 上述前缀不由网关分流；目录侧只剩 RS256 验签，不读别人表、不建跨 schema 外键 |
 | P5 | 文档去重：`metafusion-docs` 为唯一源 | 编排从兄弟目录构建文档站，本仓库不再存放 doc 页面 |
 
-每个阶段独立提交、独立可回退；不回滚别人的改动，也不做双向写入。
+各阶段以独立迁移批次验收；回滚前检查数据库兼容性与切流后的新写入，详见 §6。
 
 ## 6. 回滚
 

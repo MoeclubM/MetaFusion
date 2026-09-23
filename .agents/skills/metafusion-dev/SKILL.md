@@ -18,9 +18,10 @@ description: MetaFusion 项目级开发约定：docs-local 维护、提交纪律
 | `docs-local/dev-log.md` | 阶段判断、关键决定、已踩过的坑（倒序） |
 | `docs-local/deploy/server-connection.md` | 开发服务器、部署目录、操作注意事项 |
 | `docs-local/deploy/paths.md` | 主工程与各子项目路径、一键部署入口 |
+| `docs-local/deploy/runbook.md` | 线上部署步骤与实例状态 |
+| `docs-local/reports/` | 一次性执行报告 |
 
-任务开始时读一遍（目录不存在按上表创建即可）；结束前把涉及部署、路径、服务器约定、阶段变化的新信息写回。
-判断标准：对下一次接手有用就写，操作流水不写。
+按 `AGENTS.md` §0 阅读相关记录；目录不存在时按上表创建。仅在产生对下一次接手有用的新环境事实、阶段判断或已知坑时更新，操作流水不记。
 涉及账号 / 互动 / 存储 / 网关 / 文档时，先到 `docs-local/deploy/paths.md` 查兄弟仓库（`../metafusion-*`）的位置，确认改动归属再下手。
 
 凭据：口令、私钥、PAT 一律不复制进仓库，只记"到哪里取"并写明来源路径。
