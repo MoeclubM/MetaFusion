@@ -20,9 +20,6 @@ import (
 // Store.Initialize 是本地安装/测试的显式组合入口（基线 + 增量 + 空库种子 + 种子升级），
 // 生产常驻进程不再调用它。先调职责再谈撤权：运行角色的 DDL 权限本次不动，
 // S2 冻结说明见 store.go 的基线注释。
-//
-// 未完成（范围外，需主代理接）：部署编排在 `backend-migrate up` 之后显式跑
-// `mf-migrate seed`（当前只跑 up，种子升级仍靠旧版启动路径）与定期 check-refs。
 
 // requiredCatalogTables 是 HTTP 服务运行必需的表：缺任一即不兼容（起不来比半残好查）。
 var requiredCatalogTables = []string{
@@ -31,6 +28,7 @@ var requiredCatalogTables = []string{
 	"catalog.definitions",
 	"catalog.revisions",
 	"catalog.outbox",
+	"catalog.api_request_logs",
 	"catalog.idempotency_keys",
 }
 

@@ -3,50 +3,22 @@ package catalog
 import (
 	"context"
 	"database/sql"
-	"io/fs"
 	"math/rand"
 	"net/http"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/metafusion/metafusion-app/migrations"
 )
 
 // API 调用日志（开发者中心「API 请求日志」）：只记已登录请求。
-//
-// 单一来源是 backend/migrations/000005_api_request_logs.up.sql：mf-migrate up 走它，
-// 从未跑过迁移的实例由 ensureRequestLogTable 读同一份嵌入文件补建（幂等），
-// 不在 Go 里再存一份 DDL——两处各存一份正是当年 schema.sql 终态快照被删掉的原因。
-const requestLogMigrationFile = "000005_api_request_logs.up.sql"
 
-// requestLogRetentionDays 调用日志保留天数：写入时按概率顺手清理，无外部 cron。
+// requestLogRetentionDays 调用日志保留天数：按概率触发后台清理。
 const requestLogRetentionDays = 30
 
-// requestLogEnsured 按库去重：同一 *sql.DB 只补建一次。包级 Once 是错的——
-// 测试里每个用例库不同，首个库会把后面的建表全吞掉（2026-09-20 全量套件实测）。
-var requestLogEnsured sync.Map
-
-// ensureRequestLogTable 补建日志表（无库/已建时直接返回）。日志是派生数据：
-// 建表失败不阻断请求，写入失败同样吞掉（见 LogRequest）——日志不能反过来拖累主流程。
-func ensureRequestLogTable(db *sql.DB) {
-	if db == nil {
-		return
-	}
-	if _, ok := requestLogEnsured.Load(db); ok {
-		return
-	}
-	b, err := fs.ReadFile(migrations.FS, requestLogMigrationFile)
-	if err != nil {
-		return
-	}
-	if _, err := db.ExecContext(context.Background(), string(b)); err != nil {
-		return
-	}
-	requestLogEnsured.Store(db, true)
-}
+// 同一进程最多运行一个清理，避免高流量下清理任务堆积。
+var requestLogCleanupSlot = make(chan struct{}, 1)
 
 // RequestLogEntry 是一次 API 调用记录：route 为 gin 模板路径，不含实体 id 与查询串。
 type RequestLogEntry struct {
@@ -96,17 +68,28 @@ func requestLogMiddleware(s *Store) gin.HandlerFunc {
 	}
 }
 
-// LogRequest 写一行调用日志并按概率清理过期行。错误一律吞掉：日志是派生数据。
+// LogRequest 写一行调用日志并按概率安排限时清理。错误一律吞掉：日志是派生数据。
 func LogRequest(ctx context.Context, db *sql.DB, userID, credential, name, method, route string, status, ms int) {
 	if db == nil {
 		return
 	}
-	ensureRequestLogTable(db)
-	_, _ = db.ExecContext(ctx, "INSERT INTO catalog.api_request_logs(user_id,credential_type,credential_name,method,route,status,ms) VALUES($1,$2,$3,$4,$5,$6,$7)",
+	_, err := db.ExecContext(ctx, "INSERT INTO catalog.api_request_logs(user_id,credential_type,credential_name,method,route,status,ms) VALUES($1,$2,$3,$4,$5,$6,$7)",
 		userID, credential, name, method, route, status, ms)
-	// 1% 概率顺手清 30 天前的行：无 cron，自维护；高频写入下期望每百次清一次。
+	if err != nil {
+		return
+	}
+	// 1% 概率触发清理；任务不占用请求尾声，且限时避免持续占用数据库连接。
 	if rand.Intn(100) == 0 {
-		_, _ = db.ExecContext(context.Background(), "DELETE FROM catalog.api_request_logs WHERE at < now() - make_interval(days => $1)", requestLogRetentionDays)
+		select {
+		case requestLogCleanupSlot <- struct{}{}:
+			go func() {
+				defer func() { <-requestLogCleanupSlot }()
+				cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_, _ = db.ExecContext(cleanupCtx, "DELETE FROM catalog.api_request_logs WHERE at < now() - make_interval(days => $1)", requestLogRetentionDays)
+			}()
+		default:
+		}
 	}
 }
 
@@ -117,7 +100,6 @@ func ListRequestLogs(ctx context.Context, db *sql.DB, userID, credential string,
 	if db == nil {
 		return out, nil
 	}
-	ensureRequestLogTable(db)
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
