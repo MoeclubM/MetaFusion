@@ -32,7 +32,7 @@ func TestReleaseTableOfContents(t *testing.T) {
 	expression := entity("expression", "recording", "published")
 	expression.WorkID = work.ID
 	expression = save(expression)
-	hiddenExpression := entity("expression", "unpublished recording", "draft")
+	hiddenExpression := entity("expression", "unpublished recording", "published")
 	hiddenExpression.WorkID = work.ID
 	hiddenExpression = save(hiddenExpression)
 	release := entity("release", "two disc edition", "published")
@@ -48,6 +48,11 @@ func TestReleaseTableOfContents(t *testing.T) {
 	last.MediumID, last.Position = first.ID, 2
 	last.Contents = []Inclusion{{ExpressionID: expression.ID}, {ExpressionID: hiddenExpression.ID, Position: 2}}
 	last = save(last)
+	if _, err := s.Unpublish(ctx, hiddenExpression.ID, UnpublishEdit{
+		ExpectedVersion: hiddenExpression.Version, EditNote: "release toc fixture", Sources: sources,
+	}, admin); err != nil {
+		t.Fatalf("unpublish recording: %v", err)
+	}
 	opening := entity("track", "opening track", "published")
 	opening.MediumID, opening.Position = first.ID, 1
 	opening.Contents = []Inclusion{{ExpressionID: expression.ID}}
