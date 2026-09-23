@@ -938,7 +938,7 @@ export default function ReleaseDetailPage() {
                 {rows.map((row) => mediumBlock(row, 0))}
               </div>
             ))}
-            {!showBonus && supplementGroups.some(([, rows]) => rows.length > 0) && (
+            {!showBonus && !bonusOnlyFormat && supplementGroups.some(([, rows]) => rows.length > 0) && (
               <Collapsible title={t("release.detail.bonusDiscs")} count={supplementGroups.reduce((n, [, rows]) => n + rows.length, 0)}>
                 <div className="space-y-3">
                   {supplementGroups.map(([fmt, rows]) =>
