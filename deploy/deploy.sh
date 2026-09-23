@@ -261,17 +261,17 @@ function require_prod_dsns() {
 }
 
 # 发布清单门禁（审计 P1/A08c）：pull 面向线上，三件事缺一不可——
-# ① IMAGE_TAG 必须是不可变 tag（latest/空直接拒绝，不再警告放行）；
+# ① IMAGE_TAG 只用于确认清单归属（latest/空直接拒绝）；实际拉取和运行以 digest 为准；
 # ② release-manifest.yaml 必须存在且完整
 #    （scripts/check_release_manifest.py --strict：无待填、同源绑定一致、
 #    且 IMAGE_TAG 落在各服务 tags 内）。清单缺席不再警告放行，直接中止；
 # ③ 清单的 versions_lock 必须与 deploy/versions.lock 逐条一致（部分旧版本即中止）。
-# 校验通过后按每服务 digest 构造 repository@sha256 引用拉取并核对（pull_pinned_images），
-# 生产不再只按 tag 拉取（tag 可被重指）。只判有无与结论，不打印凭据值
-#    （digest 是公开的镜像摘要，TAG 只查归属）。
+# 校验通过后生成一次性 Compose 覆盖，让拉取、迁移和常驻服务使用同一组 digest。
+# 同时要求清单 SHA 与当前主仓检出一致，避免旧清单配新迁移脚本。
 function require_pinned_manifest() {
+    local override="$1" expected_sha
     if [ -z "${IMAGE_TAG:-}" ] || [ "${IMAGE_TAG:-latest}" = "latest" ]; then
-        echo "❌ IMAGE_TAG 未钉死（当前 ${IMAGE_TAG:-空}）：生产必须按 release-manifest.yaml 设成不可变 tag" >&2
+        echo "❌ IMAGE_TAG 未指定有效发布标签（当前 ${IMAGE_TAG:-空}）：请使用 release-manifest.yaml 内三个镜像共有的标签" >&2
         exit 1
     fi
     local manifest=""
@@ -286,9 +286,13 @@ function require_pinned_manifest() {
         echo "❌ 有清单但本机没有 python3，无法校验完整性；确认环境后重跑" >&2
         exit 1
     fi
+    if ! expected_sha=$(git -C "$SCRIPT_DIR/.." rev-parse HEAD 2>/dev/null); then
+        echo "❌ 无法读取主仓提交：不能确认清单与当前检出同源，部署中止" >&2
+        exit 1
+    fi
     echo "🔒 校验发布清单 $manifest（只查结论，不打印凭据）..."
-    if ! python3 "$SCRIPT_DIR/../scripts/check_release_manifest.py" --strict --expect-tag "$IMAGE_TAG" --expect-lock "$SCRIPT_DIR/versions.lock" "$manifest"; then
-        echo "❌ 发布清单不完整、IMAGE_TAG 不在清单内或版本组合与 versions.lock 不一致：部署中止" >&2
+    if ! python3 "$SCRIPT_DIR/../scripts/check_release_manifest.py" --strict --expect-tag "$IMAGE_TAG" --expect-lock "$SCRIPT_DIR/versions.lock" --expect-sha "$expected_sha" --write-compose-override "$override" "$manifest"; then
+        echo "❌ 发布清单、镜像摘要或版本组合与当前检出不一致：部署中止" >&2
         exit 1
     fi
 }
@@ -409,7 +413,7 @@ function print_usage() {
     echo "  retire          - 清理拆分前的遗留 schema 与临时表 (切流稳定后跑一次)"
     echo "  dev             - 启动热重载开发模式 (源码挂载，修改代码免构建秒级生效)"
     echo "  prod            - 完整生产模式冷启动"
-    echo "  pull            - 拉取 GHCR 预构建镜像 (backend/frontend) 并启动；账号/互动/存储/文档站就地构建"
+    echo "  pull            - 按清单 digest 拉取 backend/frontend/migrator；兄弟服务就地构建后启动"
     echo "  migrate [cmd]   - 执行版本化数据库迁移 (up/down/status/force)"
     echo "  seed            - 显式合并种子定义（只增不改；cutover/prod/pull 在迁移后自动跑）"
     echo "  check-refs      - 悬挂引用体检（部署前置检查；非零=先修数据或显式确认）"
@@ -531,22 +535,23 @@ case "$ACTION" in
         require_prod_dsns
         assert_compose_credential_isolation -f docker-compose.prod.yml
         echo "📦 拉取预构建生产容器镜像 (GHCR)..."
-        # --ignore-buildable：账号/互动/存储仍从兄弟仓库构建，镜像名是本地标签
-        #   （metafusion-auth:local 之类），去 registry 拉必然失败；跳过它们，
-        #   只拉 prod 覆盖里真正预构建的 backend / frontend（docs-site 保留了 build，
-        #   同样被 --ignore-buildable 跳过，不需要额外的忽略开关）。
-        # 审计 O05：刻意不再加 --ignore-pull-failures——预构建镜像缺席必须非零中断，
-        #   不许用本地旧镜像静默兜底（多服务混合版本）。缺席先发布对应镜像，
-        #   不要加回忽略开关。
-        require_pinned_manifest
-        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml pull --ignore-buildable
+        PULL_OVERRIDE=$(mktemp "${TMPDIR:-/tmp}/metafusion-pull.XXXXXX.yml")
+        trap 'rm -f -- "$PULL_OVERRIDE"' EXIT
+        require_pinned_manifest "$PULL_OVERRIDE"
+        # 三个预构建镜像均按清单摘要拉取；迁移器也必须在升级数据库前就位。
+        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml -f "$PULL_OVERRIDE" pull backend frontend backend-migrate
+        # 兄弟服务没有 GHCR 发布物。逐个构建锁定检出，避免复用旧镜像及并行构建耗尽部署机内存。
+        for service in auth community storage docs-site auth-admin auth-user community-admin storage-admin; do
+            docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml -f "$PULL_OVERRIDE" build "$service"
+        done
         echo "🚀 启动数据库与核心基础设施..."
         docker compose $COMPOSE_ENV up -d postgres rustfs
-        migrate_up_checked -f docker-compose.prod.yml
-        seed_checked -f docker-compose.prod.yml
-        check_refs_report -f docker-compose.prod.yml
+        migrate_up_checked -f docker-compose.prod.yml -f "$PULL_OVERRIDE"
+        seed_checked -f docker-compose.prod.yml -f "$PULL_OVERRIDE"
+        check_refs_report -f docker-compose.prod.yml -f "$PULL_OVERRIDE"
         check_gateway_candidate
-        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml up -d --remove-orphans
+        docker compose $COMPOSE_ENV -f docker-compose.yml -f docker-compose.prod.yml -f "$PULL_OVERRIDE" up -d --no-build --pull never --remove-orphans
+        reload_gateway
         echo "✅ 生产镜像拉取与启动完成！"
         ;;
 

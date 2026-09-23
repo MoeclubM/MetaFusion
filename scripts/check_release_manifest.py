@@ -9,12 +9,15 @@
 - migrator 必须带 same_source 同源绑定且 git_sha 与清单 sha 一致（迁移器与运行镜像同源，
   不许各拉各的版本）；
 - --strict：任一 digest/任一 tags 为"待填"即失败（流水线与部署门禁用它）；
-- --expect-tag TAG：TAG 必须落在每个服务的 tags 冒号后缀里（deploy.sh pull 用它确认
-  IMAGE_TAG 确实是本次清单里的不可变 tag，而不是手填的 latest；tag 被重指即落空失败）。
+- --expect-tag TAG：TAG 必须落在每个服务的 tags 冒号后缀里；它只校验清单归属，
+  标签可能被重指，部署必须使用下面生成的 digest 覆盖。
 - --expect-lock PATH：清单的 versions_lock 必须与该锁文件逐条一致
   （部分旧版本/多出项即失败，生产 pull 用它核对兄弟版本组合）。
+- --expect-sha SHA：清单源码提交必须与部署机主仓检出一致。
 - --print-pull-refs：校验通过后按每服务 digest 构造 repository@sha256 引用并打印
-  （生产 pull 按此拉取，不再只按 tag 拉取；digest 未知或非法时拒绝打印）。
+  （digest 未知或非法时拒绝打印）。
+- --write-compose-override PATH：校验通过后写出 backend、backend-migrate、frontend 的
+  digest 镜像覆盖；部署的拉取、迁移与启动均使用该覆盖文件。
 
 用法：
     python3 scripts/check_release_manifest.py [--strict] [--expect-tag TAG] [--expect-lock PATH] [清单路径]
@@ -23,6 +26,7 @@
 """;
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -85,7 +89,7 @@ def load_manifest(path):
     return doc
 
 
-def check(doc, strict=False, expect_tag=None):
+def check(doc, strict=False, expect_tag=None, expect_sha=None):
     problems, warnings = [], []
     if doc.get("schema") != SCHEMA:
         problems.append("schema 应为 %s，实际 %r（旧清单没有每服务独立引用，视为不完整）"
@@ -93,6 +97,9 @@ def check(doc, strict=False, expect_tag=None):
     for key in ("sha", "ref", "versions_lock", "backend_migrations"):
         if not doc.get(key):
             problems.append("缺少必填项 %s" % key)
+    if expect_sha and doc.get("sha") != expect_sha:
+        problems.append("清单 sha 与当前检出不一致：清单 %s，检出 %s" %
+                        (str(doc.get("sha", ""))[:12], expect_sha[:12]))
     lock = doc.get("versions_lock")
     if isinstance(lock, dict) and not lock:
         problems.append("versions_lock 为空：跨仓版本组合是部署对账依据，不许缺")
@@ -178,6 +185,17 @@ def pull_refs(doc):
     return refs, bad
 
 
+def compose_override(doc):
+    refs, bad = pull_refs(doc)
+    if bad:
+        return "", bad
+    services = (("backend", refs[0]), ("backend-migrate", refs[1]), ("frontend", refs[2]))
+    lines = ["services:"]
+    for name, ref in services:
+        lines.extend(("  %s:" % name, "    image: %s" % json.dumps(ref)))
+    return "\n".join(lines) + "\n", []
+
+
 def selftest():
     failures = []
 
@@ -222,6 +240,8 @@ def selftest():
     want(p == [], "expect-tag 命中通过")
     p, _ = check(copy.deepcopy(base), expect_tag="latest")
     want(any("latest" in x for x in p), "expect-tag 落空被拦")
+    p, _ = check(copy.deepcopy(base), expect_sha="other")
+    want(any("sha 与当前检出不一致" in x for x in p), "expect-sha 与当前检出不符被拦")
     # 负向 1/3：缺清单——文件不存在即解析失败，部署必须中止而不是警告放行
     try:
         load_manifest(os.path.join(tempfile.gettempdir(), "metafusion-no-such-manifest.yaml"))
@@ -257,6 +277,13 @@ def selftest():
     unk["images"]["frontend"]["digest"] = UNKNOWN
     refs, bad = pull_refs(unk)
     want(refs == [] or len(bad) == 1, "未知 digest 拒绝构造引用")
+    override, bad = compose_override(copy.deepcopy(base))
+    want(bad == [] and 'image: "ghcr.io/m/backend@' + good_digest + '"' in override,
+         "Compose 覆盖使用后端 digest")
+    want('backend-migrate:\n    image: "ghcr.io/m/migrator@' + good_digest + '"' in override,
+         "Compose 覆盖使用迁移器 digest")
+    override, bad = compose_override(unk)
+    want(override == "" and len(bad) == 1, "未知 digest 不生成 Compose 覆盖")
     # 生成器→校验器往返：解析手写 YAML 子集
     text = ("schema: " + SCHEMA + "\nsha: abc\nref: r\n"
             "versions_lock:\n  .: abc\nbackend_migrations:\n  - 000001_x.up.sql\n"
@@ -284,7 +311,9 @@ def main():
     ap.add_argument("--strict", action="store_true")
     ap.add_argument("--expect-tag", default=None)
     ap.add_argument("--expect-lock", default=None)
+    ap.add_argument("--expect-sha", default=None)
     ap.add_argument("--print-pull-refs", action="store_true")
+    ap.add_argument("--write-compose-override", default=None)
     ap.add_argument("--root", default=None)
     args = ap.parse_args()
     path = args.manifest
@@ -300,7 +329,8 @@ def main():
         print("FAIL 清单解析失败：%s" % exc)
         print("check_release_manifest: 1 个问题")
         return 1
-    problems, warnings = check(doc, strict=args.strict, expect_tag=args.expect_tag)
+    problems, warnings = check(doc, strict=args.strict, expect_tag=args.expect_tag,
+                               expect_sha=args.expect_sha)
     if args.expect_lock:
         try:
             file_lock = read_lock_file(args.expect_lock if os.path.isabs(args.expect_lock) else os.path.join(os.path.abspath(args.root or "."), args.expect_lock))
@@ -309,7 +339,7 @@ def main():
             print("check_release_manifest: 1 个问题，0 项待填警告")
             return 1
         problems.extend(check_lock_match(doc.get("versions_lock"), file_lock))
-    if args.print_pull_refs:
+    if args.print_pull_refs or args.write_compose_override:
         refs, bad = pull_refs(doc)
         for x in bad:
             print("FAIL " + x)
@@ -323,8 +353,18 @@ def main():
         if problems:
             print("check_release_manifest: %d 个问题，%d 项待填警告" % (len(problems), len(warnings)))
             return 1
-        for ref in refs:
-            print(ref)
+        if args.write_compose_override:
+            override, bad = compose_override(doc)
+            if bad:
+                for x in bad:
+                    print("FAIL " + x)
+                return 1
+            with open(args.write_compose_override, "w", encoding="utf-8") as fh:
+                fh.write(override)
+            print("已生成按摘要运行的 Compose 覆盖：backend / backend-migrate / frontend")
+        if args.print_pull_refs:
+            for ref in refs:
+                print(ref)
         return 0
     for x in warnings:
         print("warning " + x)

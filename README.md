@@ -170,9 +170,14 @@ bash deploy/deploy.sh fast
 bash deploy/deploy.sh fast backend
 ```
 
-#### 选项 C：拉取 GHCR 预构建镜像 (快速上线)
+#### 选项 C：按发布清单部署 GHCR 镜像
+
+先从本次 GitHub Release 附件或 CI 构件取得 `release-manifest.yaml`，放在仓库根目录。主仓检出必须与清单中的 `sha` 相同，兄弟仓检出必须与 `deploy/versions.lock` 相同；更新版本锁后须使用新 CI 生成的清单，旧清单会被拒绝。`IMAGE_TAG` 填清单中 backend、migrator、frontend 三个镜像共有的标签后缀；部署实际按清单里的 digest 拉取和运行。
+
 ```bash
-# 拉取 GHCR 发布的 backend/frontend 镜像；auth/community/storage/docs-site 仍从并列检出的兄弟仓库本地构建
+# 例如清单的三份 tags 均含 :sha-abcdef0 时：
+export IMAGE_TAG=sha-abcdef0
+# 拉取 backend/frontend/migrator；账号、互动、存储、文档站及管理台从锁定源码构建
 bash deploy/deploy.sh pull
 ```
 
