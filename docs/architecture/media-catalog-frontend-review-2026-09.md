@@ -47,7 +47,15 @@
 4. 作品页提供从歌曲 Work 反查单曲、专辑、精选集的发行入口；动画/小说页面提供章节树及子单元详情入口。关系页保持可筛选的角色、制作人员与创作关联，关联对象有链接。
 5. 编辑流程给管理员与编目者明确区分：定义管理决定“可填写什么”，实体编辑决定“这件作品是什么”。Release 保存前检查 subjects 与实际 TrackContent 指向的 Work；编辑现有实体时提示 PUT 是整组替换，保存后回读。
 
-当前性能与定义驱动仍有三个具体缺口。发行详情对每个 Medium 请求一次 Track，Medium 详情又逐条请求 Expression（见 `frontend/src/app/releases/[id]/page.tsx`、`frontend/src/app/mediums/[id]/page.tsx`）；多碟大套装应由目录 API 提供带版本戳的聚合 TOC，前端一次取全并保留单实体接口。特典分组仍按 `role=supplement` 判断，后台新增同义用途不会自动归组；应给用途词表增加可配置的展示语义，再由前端读取。Scheme 当前只按自身 kind/type 匹配，不能依据父 Medium 的 `format` 自动选黑胶定位字段；`vinyl_track_locator` 因此默认关闭（`backend/internal/catalog/defaults.go`），要按父级上下文扩展匹配契约和编辑器后才能启用。这些是下一批跨前后端契约改动，不能只改页面标签。
+截至 2026-09-23，本批补齐了上述三个缺口：
+
+- `GET /api/catalog/releases/{id}/toc` 在同一只读快照中聚合 Release、Medium、Track、可见 Expression 与定义版本；发行页和载体页复用该接口，旧实例返回 404 时暂时回退原有读取路径。
+- 发行用途词项新增可选 `is_bonus`，Definitions GUI 可逐项控制附赠分组。种子对旧定义只回填缺失标记，显式 `false` 保留。
+- Scheme 新增 `medium_formats`，曲目定位可依据所属 Medium 的定义格式词表匹配。GUI 可编辑该约束；载体格式变更会回放其曲目并拒绝违反新规则的保存。
+
+版本仍按“专辑 Work / 各发行版 Release / 实际 Medium 与 Track / 可复用 Expression”表达；小说章节继续使用 ContentUnit 与 Expression。固定八实体骨架、结构外键和数据库约束仍需代码与迁移变更，业务类型、字段、词表语义、关系和展示方案继续由 Definitions GUI 管理。
+
+线上版本和数据补录以部署验收记录为准。封面与简介覆盖率仍是实际数据质量缺口；候选条目只依据官方来源补录，不以自动生成或来源不明图片填充。
 
 ## 6. 服务拆分与技能文档
 
