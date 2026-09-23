@@ -376,13 +376,9 @@ func (s *Store) relations(ctx context.Context, id string, u *User) ([]Relation, 
 		return nil, err
 	}
 	rows.Close()
-	peerIDs := make([]string, 0, len(all))
+	peerIDs := make([]string, 0, len(all)*2)
 	for _, r := range all {
-		other := r.TargetID
-		if r.SourceID != id {
-			other = r.SourceID
-		}
-		peerIDs = append(peerIDs, other)
+		peerIDs = append(peerIDs, r.SourceID, r.TargetID)
 	}
 	peers, err := s.GetManyVisible(ctx, peerIDs, u)
 	if err != nil {
@@ -390,11 +386,10 @@ func (s *Store) relations(ctx context.Context, id string, u *User) ([]Relation, 
 	}
 	out := []Relation{}
 	for _, r := range all {
-		other := r.TargetID
-		if r.SourceID != id {
-			other = r.SourceID
+		if _, ok := peers[r.SourceID]; !ok {
+			continue
 		}
-		if _, ok := peers[other]; !ok {
+		if _, ok := peers[r.TargetID]; !ok {
 			continue
 		}
 		// 端点优先：本实体是端点时 Via 留空，只有纯属性引用才标出字段码——

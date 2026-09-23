@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -186,4 +187,40 @@ func TestPostgresRelationListEntitiesCoverBothEnds(t *testing.T) {
 	}
 	t.Logf("limit=1 实际返回 %d 条（该端点当前不分页，截断语义由 items 自身决定）", len(limited.Items))
 	assertRelationEntitiesCoverage(t, limited, subject.ID)
+}
+
+func TestPostgresRelationAttributeQueryHidesDraftEndpoint(t *testing.T) {
+	ctx := context.Background()
+	f := newFixture(t)
+	character := f.save(Entity{Kind: "agent", Title: "公开角色", Types: []string{"character"}})
+	work := f.save(Entity{Kind: "work", Title: "公开作品", Types: []string{"animation"}})
+	publicActor := f.save(Entity{Kind: "agent", Title: "公开演员", Types: []string{"person"}})
+	draftActor := f.save(Entity{Kind: "agent", Title: "未公开演员", Types: []string{"person"}, Status: "draft"})
+	for _, actor := range []Entity{publicActor, draftActor} {
+		if _, err := f.s.SaveRelation(ctx, RelationEdit{
+			Relation: Relation{Type: "voiced_by", SourceID: work.ID, TargetID: actor.ID,
+				Attributes: map[string]any{"character": character.ID}},
+			EditNote: "关系可见性用例", Sources: fixtureSources(),
+		}, f.u); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	ownerRelations, err := f.s.Relations(ctx, character.ID, &f.u)
+	if err != nil || len(ownerRelations) != 2 {
+		t.Fatalf("有权限的编辑者应看到两条关系：count=%d err=%v", len(ownerRelations), err)
+	}
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	HTTP{Store: f.s}.Register(r)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/catalog/entities/"+character.ID+"/relations", nil))
+	res := decodeRelList(t, w)
+	if len(res.Items) != 1 || res.Items[0].TargetID != publicActor.ID || res.Items[0].Via != "character" {
+		t.Fatalf("匿名关系列表只应包含公开端点：%+v", res.Items)
+	}
+	assertRelationEntitiesCoverage(t, res, character.ID)
+	if strings.Contains(w.Body.String(), draftActor.ID) {
+		t.Fatal("匿名关系响应泄露了草稿端点 ID")
+	}
 }
