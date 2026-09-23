@@ -75,6 +75,8 @@ var (
 
 type Store struct {
 	DB *sql.DB
+	// OpenSearch 是可选的实体搜索候选索引；数据库过滤仍负责最终可见性与 DTO 回读。
+	OpenSearch *OpenSearchClient
 	// Verifier 是账号服务令牌的验签器（只有公钥）。为 nil 或未配置密钥时，
 	// 需要身份的接口按匿名处理——目录不再有"查库兜底"这条路径。
 	Verifier *TokenVerifier
@@ -877,6 +879,9 @@ func undeclaredReleaseSubject(ctx context.Context, tx *sql.Tx, e Entity) (bool, 
 
 type ListOptions struct {
 	Kind, Query, Type, Status, WorkID, ContentUnitID, ReleaseID, MediumID, ParentID, Field, Value string
+	// SearchIDs 是 OpenSearch 提供的候选 ID 顺序。它仅由 HTTP 列表处理器内部填写，
+	// 最终查询仍用数据库可见性和筛选谓词收口，不作为外部参数暴露。
+	SearchIDs []string
 	// Kinds / Types 是多值版本：Kinds 命中任一 kind，Types 命中任一动态业务类型。
 	// 关系编辑器的对端选择器需要"kind 与业务类型同时约束"，命中必须在 SQL 侧完成；
 	// 否则先取固定条数再在前端过滤，会把合法候选截断丢弃。
@@ -1053,6 +1058,10 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 		// 模式由 likeContains 编译：用户输入里的 %/_/\ 按字面处理（like_pattern.go）。
 		add("(title ILIKE $%[1]d OR (document->'translations')::text ILIKE $%[1]d)", likeContains(o.Query))
 	}
+	if len(o.SearchIDs) > 0 {
+		*args = append(*args, pq.Array(o.SearchIDs))
+		parts = append(parts, fmt.Sprintf("id = ANY($%d::uuid[])", len(*args)))
+	}
 	if o.Type != "" {
 		add("document->'types' ? $%d", o.Type)
 	}
@@ -1202,6 +1211,10 @@ func entityListOrderClause(o ListOptions, args *[]any) (string, error) {
 			// 正则守卫只防直接 SQL 写入的脏串（PG 无 TRY_CAST，裸 ::int 会报 22P02
 			// 导致整页 500；脏串按 0 排而不中断列表）。
 			return "CASE WHEN document->>'position' ~ '^-?[0-9]+$' THEN (document->>'position')::int ELSE 0 END, updated_at DESC, id", nil
+		}
+		if len(o.SearchIDs) > 0 {
+			*args = append(*args, pq.Array(o.SearchIDs))
+			return fmt.Sprintf("array_position($%d::uuid[], id), id", len(*args)), nil
 		}
 		return "updated_at DESC, id", nil
 	case "updated_at":

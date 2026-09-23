@@ -62,6 +62,18 @@ func main() {
 		log.Fatalf("catalog schema incompatible: %v", err)
 	}
 	log.Print("catalog schema compatible; seed upgrades run via mf-migrate seed, integrity scans via mf-migrate check-refs")
+	if searchURL := strings.TrimSpace(os.Getenv("OPENSEARCH_URL")); searchURL != "" {
+		search, searchErr := catalog.NewOpenSearchClient(searchURL, os.Getenv("OPENSEARCH_USERNAME"), os.Getenv("OPENSEARCH_PASSWORD"))
+		if searchErr != nil {
+			log.Printf("OpenSearch configuration invalid; PostgreSQL search remains active: %v", searchErr)
+		} else {
+			s.OpenSearch = search
+			go s.RunOpenSearchIndexer(ctx)
+			log.Print("OpenSearch configured as an optional entity search index; PostgreSQL remains authoritative")
+		}
+	} else {
+		log.Print("OPENSEARCH_URL is not configured; entity search uses PostgreSQL")
+	}
 
 	// 审计写入器（跨服务契约 §3）：一个后台 goroutine + 有界队列，挂在 Store 上供
 	// registerGroup 的中间件使用。关停时排空队列——进程直接退会把队列里最后一批行丢掉。

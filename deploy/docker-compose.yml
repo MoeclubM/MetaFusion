@@ -151,9 +151,11 @@ services:
       # 库一旦搬出宿主网（异地副本/迁移）就要在 .env 改成 require，Postgres 侧同时开 TLS；
       # 不注入这个键时默认值也是 disable，但没人能从编排看出这一层。
       - DB_SSLMODE=${DB_SSLMODE:-disable}
-      # 检索走 PostgreSQL（见 docs/architecture/cutover-runbook.md 第 4 节），
-      # opensearch 默认不启动（--profile search 才拉起）：没有任何代码读缓存/检索地址，
-      # 因此这里不声明这类变量。
+      # OpenSearch 是可选的全文候选索引：留空时检索走 PostgreSQL；配置后目录仍在
+      # PostgreSQL 侧复核可见性、筛选与实体内容。单机容器需同时用 --profile search 启动。
+      - OPENSEARCH_URL=${OPENSEARCH_URL:-}
+      - OPENSEARCH_USERNAME=${OPENSEARCH_USERNAME:-}
+      - OPENSEARCH_PASSWORD=${OPENSEARCH_PASSWORD:-}
       # /api/capabilities 是"部署态"声明：能力在不在由这几个变量决定（capabilities/subsystems 的 envKey）。
       # 目录不探测上游、不发任何出站请求；不配的能力会被判为未部署，前端按 enabled 隐藏入口。
       # 互动（论坛/短评/收藏/私信）由同一个互动服务承载，因此只有一条 community 声明。
@@ -576,8 +578,9 @@ services:
 
   # --------------------------------------------------------------------------
   # 8. 全文与多维聚合搜索引擎 (OpenSearch 2.14)
-  #    当前后端无任何 OpenSearch 接线（检索走 PostgreSQL），默认不启动以节省资源；
-  #    需要全文搜索时用 --profile search 显式启用。存量 opensearch_data 卷保留。
+  #    可选候选索引；后端通过 PostgreSQL outbox 补建/增量更新。默认不启动以节省资源；
+  #    启用时同时设置 OPENSEARCH_URL=http://opensearch:9200 并加 --profile search。
+  #    存量 opensearch_data 卷保留。
   # --------------------------------------------------------------------------
   opensearch:
     logging: *default-logging

@@ -411,12 +411,24 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 				}
 			}
 		}
-		items, err := s.List(c.Request.Context(), o, user(c))
+		requestUser := user(c)
+		postgresOptions := o
+		o, usedOpenSearch := s.openSearchOptions(c.Request.Context(), o, requestUser)
+		items, err := s.List(c.Request.Context(), o, requestUser)
 		if err != nil {
 			respond(c, nil, err)
 			return
 		}
-		total, err := s.Count(c.Request.Context(), o, user(c))
+		total, err := s.Count(c.Request.Context(), o, requestUser)
+		if err == nil && usedOpenSearch && total == 0 {
+			// An index can lag while an entity is renamed, unpublished, or newly
+			// created. Preserve the PostgreSQL substring path if its final filters
+			// show that the indexed candidate set has gone stale.
+			items, err = s.List(c.Request.Context(), postgresOptions, requestUser)
+			if err == nil {
+				total, err = s.Count(c.Request.Context(), postgresOptions, requestUser)
+			}
+		}
 		respond(c, gin.H{"items": items, "total": total}, err)
 	})
 	// 状态计数：概览卡片的待审/已发布/墓碑三个数只从这一条 GROUP BY 拿（列表端点给不出墓碑数）。
