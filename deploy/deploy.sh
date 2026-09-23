@@ -172,7 +172,7 @@ function tag_release_images() {
         if [ "$repo:$ver" != "$img" ]; then
             docker tag "$img" "$repo:$ver" >/dev/null 2>&1 && { echo "🏷️  镜像 tag：$img -> $repo:$ver"; tagged=$((tagged + 1)); }
         fi
-        prune_release_tags "$repo" "$in_use"
+        prune_release_tags "$repo" "$in_use" "$repo:$ver"
     done
     echo "✅ 版本 tag 完成：$tagged 个镜像带 $ver（每个镜像保留最近 $IMAGE_TAG_KEEP 个版本）"
     echo "   回退：docker tag <repo>:<旧版本> <repo>:local && docker compose up -d --no-deps --force-recreate <svc>"
@@ -181,13 +181,11 @@ function tag_release_images() {
 # 保留策略：每个镜像只留最近 IMAGE_TAG_KEEP 个版本 tag，更老的撤 tag（镜像层数据不动、
 # 容器用的 :local / :latest 滚动标签永不参与）。候选只认「版本形态」的名字：vX.Y.Z 或 12 位短 sha。
 function prune_release_tags() {
-    local repo="$1" in_use="$2" i=0 t sorted
+    local repo="$1" in_use="$2" current="$3" i=0 t sorted
     # 判定用 bash 通配，不用 awk/grep 正则：目标机的 awk 是 mawk 1.3.4，**不支持 {n} 区间**，
     # 写 /:(v[0-9]|[0-9a-f]{12})$/ 这种正则会静默不匹配（首版就是这么漏掉清理的，实测才发现）。
-    # 排序按镜像构建时间倒序（CreatedAt 字典序即时间序，构建全在同一台机器同一时区）。
-    # sort -Vr 对 sha 无意义：sha 的字母序与新旧无关，2026-09-19 曾把刚打的本批锚判成"最老"
-    # 全撤（10 个新锚 0 残留）。"构建时间新=最新"的反例在本流程不存在：版本 tag 只打给当前构建，
-    # 从不给新镜像贴旧版本号。
+    # 历史 tag 按镜像构建时间倒序；当前 tag 必须单独保留，因为未变更服务的新版本 tag
+    # 与旧 tag 指向同一镜像，CreatedAt 相同，排序无法判断哪个才是本次版本。
     sorted="$(docker images --format "{{.Repository}}:{{.Tag}} {{.CreatedAt}}" "$repo" 2>/dev/null \
         | while IFS= read -r line; do
               t="${line%% *}"; created="${line#* }"
@@ -196,8 +194,10 @@ function prune_release_tags() {
               esac
           done | sort -r | while IFS= read -r cline; do printf '%s\n' "${cline##* }"; done)"
     for t in $sorted; do
+        [ "$t" = "$current" ] && continue
         i=$((i + 1))
-        [ "$i" -le "$IMAGE_TAG_KEEP" ] && continue
+        # 当前 tag 已占一个保留位，历史 tag 最多留 IMAGE_TAG_KEEP - 1 个。
+        [ "$i" -lt "$IMAGE_TAG_KEEP" ] && continue
         case "$in_use" in
             *"$t"*) echo "   ↳ 保留 $t（正被容器使用，不撤）"; continue ;;
         esac
