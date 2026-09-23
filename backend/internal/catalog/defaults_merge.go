@@ -86,6 +86,31 @@ func mergeSeedDefinitions(current, seed Definitions) (Definitions, []string) {
 			added = append(added, "vocabularies."+k)
 		}
 	}
+	for code, seedVocabulary := range seed.Vocabularies {
+		currentVocabulary, ok := out.Vocabularies[code]
+		if !ok {
+			continue
+		}
+		terms := make(map[string]Term, len(currentVocabulary.Terms))
+		for termCode, term := range currentVocabulary.Terms {
+			terms[termCode] = term
+		}
+		changed := false
+		for termCode, seedTerm := range seedVocabulary.Terms {
+			term, exists := terms[termCode]
+			if !exists || term.IsBonus != nil || seedTerm.IsBonus == nil {
+				continue
+			}
+			term.IsBonus = seedTerm.IsBonus
+			terms[termCode] = term
+			added = append(added, "vocabularies."+code+".terms."+termCode+".is_bonus")
+			changed = true
+		}
+		if changed {
+			currentVocabulary.Terms = terms
+			out.Vocabularies[code] = currentVocabulary
+		}
+	}
 	for k, v := range seed.Relations {
 		if _, ok := out.Relations[k]; !ok {
 			out.Relations[k] = v

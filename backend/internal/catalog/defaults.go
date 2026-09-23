@@ -255,7 +255,12 @@ func Defaults() Definitions {
 	} {
 		v := Vocabulary{Names: x.names, Terms: map[string]Term{}}
 		for _, t := range x.terms {
-			v.Terms[t.code] = Term{Names: t.names, Enabled: true, IsBonus: x.code == "role" && t.code == "supplement"}
+			term := Term{Names: t.names, Enabled: true}
+			if x.code == "role" && t.code == "supplement" {
+				isBonus := true
+				term.IsBonus = &isBonus
+			}
+			v.Terms[t.code] = term
 		}
 		d.Vocabularies[x.code] = v
 	}

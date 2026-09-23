@@ -173,7 +173,7 @@ type Term struct {
 	Names   Names `json:"names"`
 	Enabled bool  `json:"enabled"`
 	// IsBonus 只影响发行详情的附赠内容分组；可在定义后台调整，不绑定词条码。
-	IsBonus bool `json:"is_bonus,omitempty"`
+	IsBonus *bool `json:"is_bonus,omitempty"`
 }
 type Vocabulary struct {
 	Names Names           `json:"names"`
