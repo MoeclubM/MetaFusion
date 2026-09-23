@@ -13,6 +13,8 @@ export { pickLocalizedName, catalogEntityHref, mergeEntities, unpublishEntity } 
 export type { Tag, ConnectedEntityItem, EntityRevision, EntityRelationship, RelationType, GraphNode, GraphLink } from "./api/catalog";
 export { fetchUserProfile, fetchUserContributions, fetchUserCommunityStats, isContributionTab, CONTRIBUTION_TABS } from "./api/users";
 export type { PublicUser, PublicUserProfile, ContributionTab, ContributionStats, ContributionSource, ContributionItem, UserContributions, CommunityUserStats } from "./api/users";
+export { fetchOwnAuditLogs, AUDIT_PAGE_SIZE } from "./api/audit";
+export type { AuditLogEntry, AuditLogPage } from "./api/audit";
 export { fetchExternalDatabases, fetchAdminExternalDatabases, createExternalDatabase, updateExternalDatabase, deleteExternalDatabase } from "./api/admin";
 export type { ExternalDatabaseDefinition, ExternalLinkDisplay } from "./api/admin";
 export { previewExternalCatalog, importExternalCatalog, fetchImporterSources } from "./api/importer";
