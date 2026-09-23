@@ -1325,6 +1325,8 @@
   "release.detail.tabAllFormats": "All media",
   "release.detail.mediumCount": "{count} media",
   "release.detail.showBonusDiscs": "Show bonus discs",
+  "release.detail.bonusOnlyFormat": "This format contains only collapsed bonus discs.",
+  "release.detail.showBonusOnly": "Show bonus discs",
   "release.detail.bonusDisc": "Bonus disc",
   "release.detail.bonusDiscs": "Bonus discs (collapsed)",
   "release.detail.trackCount": "{count} tracks",

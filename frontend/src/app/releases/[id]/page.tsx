@@ -503,6 +503,12 @@ export default function ReleaseDetailPage() {
   const hasBonusMedia = media.some(({ medium }) => isBonusMedium(medium));
   const bonusGroups = showBonus ? visibleGroups : visibleGroups.map(([fmt, rows]) => [fmt, rows.filter((r) => !isBonusMedium(r.medium))] as [string, MediumRow[]]);
   const supplementGroups = visibleGroups.map(([fmt, rows]) => [fmt, rows.filter((r) => isBonusMedium(r.medium))] as [string, MediumRow[]]);
+  const primaryGroups = (showBonus ? visibleGroups : bonusGroups).filter(([, rows]) => rows.length > 0);
+  const bonusOnlyFormat =
+    !showBonus &&
+    activeTab !== "all" &&
+    primaryGroups.length === 0 &&
+    supplementGroups.some(([, rows]) => rows.length > 0);
 
   const inBasket = basket.includes(release.id!);
   const basketFull = !inBasket && basket.length >= COMPARE_MAX_SLOTS;
@@ -913,7 +919,21 @@ export default function ReleaseDetailPage() {
           </Card>
         ) : (
           <div className="space-y-4 sm:space-y-5">
-            {(showBonus ? visibleGroups : bonusGroups).map(([fmt, rows]) => (
+            {bonusOnlyFormat && (
+              <Card padding="card">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-sm text-text-body">{t("release.detail.bonusOnlyFormat")}</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowBonus(true)}
+                    className="self-start sm:self-auto min-h-10 px-3 rounded-md border border-line bg-surface text-xs font-medium text-text-strong hover:border-primary/40 hover:text-primary transition-colors duration-fast ease-soft"
+                  >
+                    {t("release.detail.showBonusOnly")}
+                  </button>
+                </div>
+              </Card>
+            )}
+            {primaryGroups.map(([fmt, rows]) => (
               <div key={fmt} className="space-y-4">
                 {rows.map((row) => mediumBlock(row, 0))}
               </div>

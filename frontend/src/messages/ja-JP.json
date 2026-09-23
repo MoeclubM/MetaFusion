@@ -1325,6 +1325,8 @@
   "release.detail.tabAllFormats": "すべての媒体",
   "release.detail.mediumCount": "{count}枚の媒体",
   "release.detail.showBonusDiscs": "特典ディスクを表示",
+  "release.detail.bonusOnlyFormat": "このフォーマットには折りたたまれた特典ディスクのみあります。",
+  "release.detail.showBonusOnly": "特典ディスクを表示",
   "release.detail.bonusDisc": "特典ディスク",
   "release.detail.bonusDiscs": "特典ディスク(折りたたみ中)",
   "release.detail.trackCount": "{count}トラック",

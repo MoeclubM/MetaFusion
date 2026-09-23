@@ -1325,6 +1325,8 @@
   "release.detail.tabAllFormats": "全部介質",
   "release.detail.mediumCount": "共 {count} 張媒介",
   "release.detail.showBonusDiscs": "顯示特典盤",
+  "release.detail.bonusOnlyFormat": "此格式只有已收合的特典盤。",
+  "release.detail.showBonusOnly": "顯示特典盤",
   "release.detail.bonusDisc": "特典碟",
   "release.detail.bonusDiscs": "特典盤（已收合）",
   "release.detail.trackCount": "共 {count} 軌",
