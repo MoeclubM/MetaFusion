@@ -92,7 +92,7 @@ MetaFusion 是**元数据开放、媒体按绑定实体可见性受控**的多�
 
 ## 4. 非功能与合规
 
-- **审计**：目录侧每次写入在 `catalog.revisions` 留痕（带 `edit_note` 与来源）；跨服务统一审计表 `audit.audit_log` 已落地，四个服务写操作各记一行，唯一读取面是账号服务的 `GET /api/admin/audit-logs`（需 `auth.audit.read`），口径见 [审计留痕契约](architecture/audit-log.md)。
+- **审计**：目录侧每次写入在 `catalog.revisions` 留痕（带 `edit_note` 与来源）；跨服务统一审计表 `audit.audit_log` 已落地，四个服务写操作各记一行。唯一读取路由是账号服务的 `GET /api/admin/audit-logs`，作用域分两档：持 `auth.audit.read` 者按任意条件查全量，其余登录用户被收敛到本人（设置页「我的操作记录」，指定他人一律 403）；口径与"完整"的边界（旁路写入会丢行、`changes` 已脱敏截断）见 [审计留痕契约](architecture/audit-log.md)。
 - **速率限制**：网关按 IP 限流（`/api/` 30 r/s、`/api/auth/` 5 r/s），目录服务另有按路由的限额（`routeLimiter`，如列表 120/min、导入预检 10/min）；被限流的路由随响应下发 `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset`（超限另带 `Retry-After`，实现见 `backend/internal/catalog/http.go`）；匿名/登录差异化配额与统一限流中间件未落地。
 - **SEO**：元数据页 SSR 可被爬虫收录。`robots.txt` 仅用于索引控制，不承担媒体访问权限判定。
 - **版权提示**：媒体预览/下载页需展示版权与合规提示，下载行为需二次确认。
