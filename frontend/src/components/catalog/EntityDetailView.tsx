@@ -8,7 +8,7 @@ import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { EntityCover } from "@/components/common/EntityCover";
 import FavoriteButton from "@/components/FavoriteButton";
 import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
-import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
+import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
 import { EntityEditor } from "@/components/catalog/EntityEditor";
 import { useCatalog } from "@/components/catalog/CatalogProvider";
 import { api, Entity, Relation, title, local } from "@/components/catalog/api";
@@ -878,7 +878,6 @@ export function EntityDetailView({ id }: { id: string }) {
   }
 
   const localizedTitle = title(entity, locale, titleOrder);
-  const showOriginal = isDistinctOriginalTitle(entity.title, localizedTitle);
 
   const collectionRelations = categorizedRelations.filter(
     (r) => r.target && r.target.kind === "collection"
@@ -927,11 +926,6 @@ export function EntityDetailView({ id }: { id: string }) {
     entity.attributes?.summary ||
     entity.attributes?.description ||
     "";
-
-  // 别名/译名按语种分组展示（含主语言标记）：resolve DTO 的 translations 是
-  // 按 locale 分组的对象，转成 LocalizedTitleGroups 需要的行数组。
-  // 过去这里只取第一个有别名的语种拍平展示，其余语种别名全部丢失。
-  // 注意：不得写成 useMemo——本组件此位置之前存在条件 return，hook 顺序会违规。
 
   return (
     <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white">
@@ -1027,26 +1021,11 @@ export function EntityDetailView({ id }: { id: string }) {
             ))}
           </div>
 
-          {/* Title & Original Title */}
-          <div>
-            <h1 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-text-strong leading-tight">
-              {localizedTitle}
-            </h1>
-            {showOriginal && (
-              <p className="font-mono text-sm sm:text-base text-text-muted mt-1">
-                {entity.title}
-              </p>
-            )}
-          </div>
-
-          {/* Aliases：按语种分组的别名/译名，主语言行带"原始语言"标记 */}
-          <LocalizedTitleGroups
+          {/* 标题和各语种题名 */}
+          <EntityIdentityHeader
+            title={localizedTitle}
             translations={entity.translations}
             originalLanguage={entity.original_language}
-            displayTitle={localizedTitle}
-            extraKnown={[entity.title]}
-            className="space-y-1"
-            itemClassName="text-xs text-text-muted"
           />
 
           {/* Action Toolbar */}

@@ -6,7 +6,6 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import {
   groupTitlesByLocale,
   titleLocaleLabelKey,
-  visibleTitleGroups,
 } from "@/lib/titles";
 import { languageNativeName } from "@/lib/languages";
 
@@ -17,7 +16,7 @@ interface Props {
   originalLanguage?: string | null;
   /** 主标题行已展示的标题：分组内重复时自动隐藏 */
   displayTitle?: string | null;
-  /** 实体级基础字段（title 等），参与组内去重 */
+  /** 在其他位置单独展示的标题文本，参与逐值去重。 */
   extraKnown?: Array<string | null | undefined>;
   className?: string;
   itemClassName?: string;
@@ -52,10 +51,16 @@ export function LocalizedTitleGroups({
   );
   const groups = React.useMemo(
     () =>
-      visibleTitleGroups(groupTitlesByLocale(translations, originalLanguage), displayTitle).filter(
-        (g) => g.aliases.length > 0 || !known.has(g.primary.trim().toLocaleLowerCase()),
-      ),
-    [translations, originalLanguage, displayTitle, known],
+      groupTitlesByLocale(translations, originalLanguage).flatMap((group) => {
+        // 只去掉别处已展示的标题值；整组过滤会连原语言标题一起隐藏。
+        const titles = [group.primary, ...group.aliases]
+          .map((value) => value.trim())
+          .filter((value) => value && !known.has(value.toLocaleLowerCase()));
+        return titles.length
+          ? [{ ...group, primary: titles[0], aliases: titles.slice(1) }]
+          : [];
+      }),
+    [translations, originalLanguage, known],
   );
   if (groups.length === 0) return null;
   const cls = itemClassName ?? "text-text-faint";

@@ -16,7 +16,7 @@ import { PageShell } from "@/components/ui/PageShell";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
 import ReportButton from "@/components/report/ReportButton";
 import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
-import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
+import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { EntityStaffSection } from "@/components/entity/EntityStaffSection";
@@ -249,15 +249,11 @@ export default function MediumDetailPage() {
                   </span>
                 )}
               </div>
-              <h1 className="text-2xl sm:text-3xl font-display font-bold tracking-tight text-text-strong break-words">{mediumTitle}</h1>
               {medium && (
-                <LocalizedTitleGroups
+                <EntityIdentityHeader
+                  title={mediumTitle}
                   translations={medium.translations}
                   originalLanguage={medium.original_language}
-                  displayTitle={mediumTitle}
-                  extraKnown={[medium.title]}
-                  className="space-y-0.5"
-                  itemClassName="font-mono text-xs text-text-muted"
                 />
               )}
               {work && (

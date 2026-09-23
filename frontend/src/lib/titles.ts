@@ -296,17 +296,6 @@ export function pickRecordEntry(
 }
 
 /**
- * 去掉与主展示标题重复且无并列标题的分组，避免详情页标题行与资料行显示同一文本。
- */
-export function visibleTitleGroups(groups: LocaleTitleGroup[], displayTitle?: string | null): LocaleTitleGroup[] {
-  const display = (displayTitle ?? "").trim().toLocaleLowerCase();
-  if (!display) return groups;
-  return groups.filter(
-    (g) => g.aliases.length > 0 || g.primary.toLocaleLowerCase() !== display,
-  );
-}
-
-/**
  * 实体级 aliases 过滤：已在任一翻译标题（主标题或同语种并列标题）中
  * 出现过的值不再作为别名展示——原语言标题归属翻译行，不进别名。
  */

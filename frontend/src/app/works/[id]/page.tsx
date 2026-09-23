@@ -27,7 +27,7 @@ import ReportButton from "@/components/report/ReportButton";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useCompareBasket } from "@/lib/compareBasket";
-import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
+import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
 import { DetailTabs, DetailTab } from "@/components/catalog/DetailTabs";
 import { GroupedRelations } from "@/components/entity/RelationsList";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
@@ -417,7 +417,11 @@ const staffCredits = useMemo<StaffCredit[]>(
      <div className={styles.eyebrow}>
        <span>{t("work.detail.workBadge")}</span>
      </div>
-     <h1>{title}</h1>
+     <EntityIdentityHeader
+       title={title}
+       translations={work.translations}
+       originalLanguage={work.original_language}
+     />
      {badges.length > 0 && (
        <div className={styles.badges}>
          {badges.map((b, i) => (
@@ -428,14 +432,6 @@ const staffCredits = useMemo<StaffCredit[]>(
          ))}
        </div>
      )}
-     <LocalizedTitleGroups
-       translations={work.translations}
-       originalLanguage={work.original_language}
-       displayTitle={title}
-       extraKnown={[work.title]}
-       className="mt-1.5 space-y-0.5"
-       itemClassName="font-mono text-sm text-text-muted"
-     />
      <div className={styles.headerBottom}>
        <EntityActionToolbar onEdit={() => router.push(`/catalog/${work.id}?edit=1`)} onHistory={() => setIsHistoryOpen(true)}
          onMerge={() => setIsMergeOpen(true)} entityTypeLabel={t("entity.toolbar.work")}>

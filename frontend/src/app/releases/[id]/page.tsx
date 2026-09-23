@@ -17,7 +17,7 @@ import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { useKindRedirect } from "@/lib/useKindRedirect";
 import { COMPARE_MAX_SLOTS, compareHref, useCompareBasket } from "@/lib/compareBasket";
 import { PageShell } from "@/components/ui/PageShell";
-import { LocalizedTitleGroups } from "@/components/entity/LocalizedTitleGroups";
+import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
 import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { EntityStaffSection } from "@/components/entity/EntityStaffSection";
@@ -739,15 +739,10 @@ export default function ReleaseDetailPage() {
                 {catalogNo && <span className="text-text-faint font-mono">{catalogNo}</span>}
                 {barcode && <span className="text-text-faint">{t("release.detail.barcode", { code: barcode })}</span>}
               </div>
-              <h1 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-text-strong leading-tight">{releaseTitle}</h1>
-              {/* 多语言题名/别名：与 /works/[id] 一致。发行版此前缺这块，导致"有翻译却看不到"。 */}
-              <LocalizedTitleGroups
+              <EntityIdentityHeader
+                title={releaseTitle}
                 translations={release.translations}
                 originalLanguage={release.original_language}
-                displayTitle={releaseTitle}
-                extraKnown={[release.title]}
-                className="mt-1 space-y-0.5"
-                itemClassName="font-mono text-xs text-text-muted"
               />
               <dl className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[11px] text-text-faint">
                 {country && <div className="flex gap-1"><dt>{t("release.detail.countryLabel")}</dt><dd className="text-text-body">{country}</dd></div>}
