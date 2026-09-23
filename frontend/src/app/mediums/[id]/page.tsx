@@ -45,9 +45,12 @@ type TrackRow = {
     attributes: Record<string, any>;
   }[];
 };
+type ReleaseTOC = {
+  media: { medium: Entity; tracks: Entity[] }[];
+  expressions: Record<string, Entity>;
+};
 
-// 载体详情页：统一 DTO 数据源（/catalog/entities）。面包屑 作品 → 发行版 → 载体，
-// 曲目按 medium_id 列出，其收录内容（表达）逐条解析出标题。
+// 载体详情页以发行 TOC 聚合读取曲目与表达，旧服务不可用聚合接口时回退实体查询。
 export default function MediumDetailPage() {
   const params = useParams();
   const mediumId = params.id as string;
@@ -93,6 +96,9 @@ export default function MediumDetailPage() {
         }
         setKindMismatch(null);
         setMedium(m);
+        let trackEntities: Entity[] = [];
+        let expressionEntities: Record<string, Entity> | null = null;
+        let tracksLoaded = false;
         if (m.release_id) {
           try {
             const rel = await fetchApi<Entity>(`/catalog/entities/${m.release_id}`);
@@ -104,17 +110,40 @@ export default function MediumDetailPage() {
               if (!cancelled) setWork(w);
             }
           } catch { /* 关联实体不可用时仍展示载体与曲目。 */ }
-        }
-        const trackEntities = await fetchAllPages<Entity>(`/catalog/entities?kind=track&medium_id=${encodeURIComponent(mediumId)}`);
-        // 曲目的收录（表达）标题解析：先收集唯一表达 id，再受控并发逐条取。
-        const exprIds = Array.from(new Set(trackEntities.flatMap((tr) => (tr.contents || []).map((c) => c.expression_id)).filter(Boolean) as string[]));
-        const exprTitles = new Map<string, string>();
-        await mapLimit(exprIds, 8, async (id) => {
           try {
-            const e = await fetchApi<Entity>(`/catalog/entities/${id}`);
-            exprTitles.set(id, entityTitle(e, locale) || e.title || "");
-          } catch { /* 缺失的表达跳过 */ }
-        });
+            const toc = await fetchApi<ReleaseTOC>(`/catalog/releases/${encodeURIComponent(m.release_id)}/toc`);
+            const mediumTOC = (toc.media || []).find((item) => item.medium.id === m.id);
+            if (mediumTOC) {
+              trackEntities = mediumTOC.tracks || [];
+              expressionEntities = toc.expressions || {};
+              tracksLoaded = true;
+            }
+          } catch (error) {
+            if ((error as { status?: number }).status !== 404) throw error;
+            trackEntities = await fetchAllPages<Entity>(
+              `/catalog/entities?kind=track&medium_id=${encodeURIComponent(mediumId)}`,
+            );
+            tracksLoaded = true;
+          }
+        }
+        if (!tracksLoaded) {
+          trackEntities = await fetchAllPages<Entity>(`/catalog/entities?kind=track&medium_id=${encodeURIComponent(mediumId)}`);
+        }
+        const exprTitles = new Map<string, string>();
+        if (expressionEntities) {
+          for (const [id, expression] of Object.entries(expressionEntities)) {
+            exprTitles.set(id, entityTitle(expression, locale) || expression.title || "");
+          }
+        } else {
+          // 仅兼容尚未部署聚合接口的旧目录服务。
+          const exprIds = Array.from(new Set(trackEntities.flatMap((tr) => (tr.contents || []).map((c) => c.expression_id)).filter(Boolean) as string[]));
+          await mapLimit(exprIds, 8, async (id) => {
+            try {
+              const e = await fetchApi<Entity>(`/catalog/entities/${id}`);
+              exprTitles.set(id, entityTitle(e, locale) || e.title || "");
+            } catch { /* 缺失的表达跳过 */ }
+          });
+        }
         if (cancelled) return;
         // 与发行页共用同一棵曲目树：保留父子层级与 position 次序，
         // 不再拍平成一层列表。收录条目保留定位与附加属性；
