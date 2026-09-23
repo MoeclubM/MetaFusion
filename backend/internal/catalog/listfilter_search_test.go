@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -218,5 +219,23 @@ func TestListFilterSingleFieldUnchanged(t *testing.T) {
 	}
 	if len(args) < 2 || args[len(args)-2] != "format" || args[len(args)-1] != "bd" {
 		t.Fatalf("single field must bind field name and value, got %v", args)
+	}
+}
+
+func TestListFilterTagsBindValidJSON(t *testing.T) {
+	tags := []string{`CD\BD`, `a"b`, `背面\封面`}
+	joined, args := listFilterSearchSQL(t, listFilterSearchDefinitions(), ListOptions{Tags: tags})
+	if !strings.Contains(joined, "document->'attributes'->'tags' @> $1::jsonb") || len(args) != len(tags) {
+		t.Fatalf("标签筛选应逐项绑定 JSON 参数：sql=%s args=%v", joined, args)
+	}
+	for i, arg := range args {
+		raw, ok := arg.(string)
+		if !ok {
+			t.Fatalf("参数 %d 应为 JSON 字符串：%T", i, arg)
+		}
+		var parsed []string
+		if err := json.Unmarshal([]byte(raw), &parsed); err != nil || len(parsed) != 1 || parsed[0] != tags[i] {
+			t.Fatalf("参数 %d 未保持原始标签 %q：json=%q parsed=%v err=%v", i, tags[i], raw, parsed, err)
+		}
 	}
 }

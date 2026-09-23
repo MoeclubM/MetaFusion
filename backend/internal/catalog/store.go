@@ -1109,7 +1109,7 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 			if strings.TrimSpace(tag) == "" {
 				continue
 			}
-			*args = append(*args, `["`+strings.ReplaceAll(tag, `"`, `\"`)+`"]`)
+			*args = append(*args, encode([]string{tag}))
 			ors = append(ors, fmt.Sprintf("document->'attributes'->'tags' @> $%d::jsonb", len(*args)))
 		}
 		if len(ors) > 0 {
