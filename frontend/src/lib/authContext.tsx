@@ -1,29 +1,24 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { User, getAccessToken, setAuthTokens, clearAuthTokens, normalizeSessionUser } from "./api";
+import { User, clearAuthTokens, normalizeSessionUser } from "./api";
 
 interface AuthContextType {
   user: User | null;
-  token: string | null;
   loading: boolean;
-  login: (token: string, user: User, refreshToken?: string | null) => void;
   logout: () => void;
   refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  token: null,
   loading: true,
-  login: () => {},
   logout: () => {},
   refreshProfile: async () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const logout = async () => {
@@ -31,11 +26,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await fetch("/api/auth/logout", {
         method: "POST",
         credentials: "same-origin",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
     } catch {}
     clearAuthTokens();
-    setToken(null);
     setUser(null);
   };
 
@@ -43,7 +36,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const res = await fetch("/api/auth/me", {
         credentials: "same-origin",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
         throw new Error("unauthorized");
@@ -52,19 +44,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(normalizeSessionUser(u));
     } catch {
       clearAuthTokens();
-      setToken(null);
       setUser(null);
     }
   };
 
   useEffect(() => {
-    const savedToken = getAccessToken();
-    if (savedToken) {
-      setToken(savedToken);
-    }
+    // 旧版主站曾把 Bearer 留在 localStorage；账号应用现在只更新 Cookie。
+    // 先删旧凭据，再从 /me 读取同域 Cookie，避免两个账号的身份发生冲突。
+    clearAuthTokens();
     fetch("/api/auth/me", {
       credentials: "same-origin",
-      headers: savedToken ? { Authorization: `Bearer ${savedToken}` } : {},
     })
       .then((res) => {
         if (!res.ok) throw new Error("unauthorized");
@@ -83,14 +72,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
   }, []);
 
-  const login = (newToken: string, newUser: User, newRefreshToken?: string | null) => {
-    setAuthTokens(newToken, newRefreshToken);
-    setToken(newToken);
-    setUser(newUser);
-  };
-
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, refreshProfile }}>
+    <AuthContext.Provider value={{ user, loading, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

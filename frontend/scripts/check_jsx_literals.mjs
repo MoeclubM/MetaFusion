@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // JSX 裸文案检查：ci.yml 的 i18n keys sync check 只比对四个字典的键集合，
-// 抓不到写死在 JSX 里的文案——landing/login 的 "Loading…"、admin 的 "Loading Admin..."
-// 就是这样漏过去的（同一处 Suspense 兜底，四处走字典、三处写死英文）。
+// 抓不到写死在 JSX 里的文案——landing 与管理页的加载提示曾因此漏过检查。
 //
 // 用 TypeScript 自己的解析器取真正的 JsxText 节点：用正则（>…<）会把泛型参数、比较运算、
 // 类型断言全当成文本节点，误报会淹掉信号。
@@ -36,13 +35,8 @@ const ALLOWED = new Set([
 const BASELINE = new Set([
   "© 2026 MoeClub Ltd · Open Metadata & Resource Platform", // landing 页脚署名
   "© 2026 MetaFusion · Open Metadata &amp; Resource Sharing Platform", // 首页页脚署名
-  "© 2026 MetaFusion · Out-of-Box Initialization Wizard", // /setup 页脚署名
   "APPLICATION ERROR", // error.tsx 装饰字（与 not-found 的装饰字同一形态）
   "NOT FOUND", // not-found.tsx 装饰字
-  "OOBE READY", // /setup 成功页装饰字
-  "Admin Username:", // /setup 成功页回显标签（待补四语键）
-  "Admin Email:", // 同上
-  "Admin Role:", // 同上
 ]);
 
 /** 收集 JSX 文本节点（TS 解析器给出的真节点，不是正则猜的）。 */

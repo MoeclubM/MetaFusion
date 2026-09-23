@@ -109,8 +109,7 @@ jobs:
         # 就会和字典/语言数据漂移（langs:build 是本机修法，CI 只校验）。
         run: bun run langs:check
       - name: JSX 裸文案检查
-        # 四语键集合比对抓不到写死在 JSX 里的文案（landing/login 的 Loading…、admin 的 Loading Admin...
-        # 就是这么漏过去的）；判据与白名单见 frontend/scripts/check_jsx_literals.mjs 顶部说明。
+        # 四语键集合比对抓不到写死在 JSX 里的文案；判据与白名单见脚本顶部说明。
         run: node scripts/check_jsx_literals.mjs
       - name: page shell check
         # 页面容器不得自写宽度/内边距（外壳只有 PageShell 一处）；纯 node，无需依赖。

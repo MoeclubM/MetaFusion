@@ -7,7 +7,7 @@ import { Select } from "@/components/ui/Select";
 import { useAuth } from "@/lib/authContext";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useTheme, accentLabel } from "@/lib/themeContext";
-import { clearAuthTokens, displayNameOf, fetchAuthSettings, getAccessToken, PublicAuthSettings, updateOwnProfile } from "@/lib/api";
+import { clearAuthTokens, displayNameOf, fetchAuthSettings, PublicAuthSettings, updateOwnProfile } from "@/lib/api";
 import { authErrorText, httpStatusOf } from "@/lib/authErrors";
 import { UserRoleBadge } from "@/lib/roles";
 import { TitleDisplayOrderSetting } from "@/components/settings/TitleDisplayOrderSetting";
@@ -179,11 +179,9 @@ export default function SettingsPage() {
       // 原生 fetch，不走 fetchApi（与上面的改密同理）：账号服务这条端点会删掉该用户全部
       // auth.sessions，含发起这次请求的会话（metafusion-auth 的 Store.LogoutAll），
       // fetchApi 的 401 续期重试在这里只会多打一次注定失败的 /auth/refresh。
-      const token = getAccessToken();
       const res = await fetch("/api/auth/logout-all", {
         method: "POST",
         credentials: "same-origin",
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

@@ -1,12 +1,12 @@
 // 各服务的 API 客户端按域放在 ./api/*；本文件是 barrel，导出名与拆分前完全一致，
 // 既有 import { ... } from "@/lib/api" 的调用点不需要改动。
 
-export { displayNameOf, getAccessToken, getRefreshToken, setAuthTokens, clearAuthTokens, ApiError, fetchApi } from "./api/client";
+export { displayNameOf, clearAuthTokens, ApiError, fetchApi } from "./api/client";
 export type { User } from "./api/client";
-export { registerAccount, fetchInviteLedger, createInviteCode, fetchSetupStatus, fetchAuthSettings, performInitialSetup, normalizeSessionUser } from "./api/auth";
+export { fetchInviteLedger, createInviteCode, fetchSetupStatus, fetchAuthSettings, normalizeSessionUser } from "./api/auth";
 export { fetchOAuthGrants, revokeOAuthGrant } from "./api/auth";
 export { fetchPersonalAccessTokens, createPersonalAccessToken, revokePersonalAccessToken, updateOwnProfile } from "./api/auth";
-export type { AuthSessionResponse, InviteCode, InviteLedger, SetupStatusResponse, InitialSetupPayload, InitialSetupResult, PublicAuthSettings, AuthorizedApp, PersonalAccessToken, CreatedPersonalAccessToken } from "./api/auth";
+export type { InviteCode, InviteLedger, SetupStatusResponse, PublicAuthSettings, AuthorizedApp, PersonalAccessToken, CreatedPersonalAccessToken } from "./api/auth";
 export { toggleFavorite, fetchFavoriteStatus, fetchFavorites, normalizeBoard, boardDisplayName, boardDisplayDesc, FORUM_BOARDS, fetchBoards, getBoardSync, shareContent, buildShareUrl, createTopic, createPost, setTopicPinned, fetchDirectMessages, sendDirectMessage, fetchConversations, fetchUnreadMessageCount, markConversationRead, fetchMessageSettings, updateMessageSettings, fetchEntityPosts, fetchEntityCollections, createEntityComment } from "./api/community";
 export type { FavoriteTargetType, FavoriteItem, ForumPost, DiscussionTopic, CreateTopicPayload, CreatePostPayload, Comment, EntityComment, EntityCollectionRef, DirectMessage, ConversationItem, ForumBoard } from "./api/community";
 export { pickLocalizedName, catalogEntityHref, mergeEntities, unpublishEntity } from "./api/catalog";

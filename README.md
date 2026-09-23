@@ -220,7 +220,7 @@ bash deploy/deploy.sh retire
 
 MetaFusion 采用统一 `/api` 主干（无版本前缀），核心元数据读接口对游客开放，写入需登录会话。
 
-1. **认证方式**：登录后使用会话令牌（`Authorization: Bearer <token>`）或 `mf_session` Cookie；第三方应用可经 `/api/oauth/*` 的 OAuth 2.0 / OIDC 流程接入。个人访问令牌（PAT）由账号服务签发（`mfp_` 前缀），目录侧经 `/api/auth/tokens/introspect` 校验——未给目录服务配置 `AUTH_URL` 时该路径返回 503 `auth_unavailable`。
+1. **认证方式**：浏览器登录使用账号服务设置的同源 HttpOnly `mf_session` Cookie，主站前端不把会话令牌存入浏览器存储；脚本/API 客户端可使用登录接口返回的 Bearer 会话令牌。第三方应用可经 `/api/oauth/*` 的 OAuth 2.0 / OIDC 流程接入。个人访问令牌（PAT）由账号服务签发（`mfp_` 前缀），目录侧经 `/api/auth/tokens/introspect` 校验——未给目录服务配置 `AUTH_URL` 时该路径返回 503 `auth_unavailable`。
 2. **标准接口（统一基址 `/api`）**：
    - `GET /api/catalog/entities?kind=work&limit=20`
    - `GET /api/catalog/entities?kind=release&limit=20`

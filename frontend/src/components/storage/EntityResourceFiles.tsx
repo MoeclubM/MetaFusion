@@ -30,7 +30,6 @@ import {
   initiateUpload,
   putFile,
   sha256HexOfFile,
-  storageAuthHeaders,
   storageErrorKey,
   streamUploadUrl,
 } from "@/lib/storage";
@@ -165,7 +164,6 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
       if (direct) {
         const url = new URL(direct, window.location.origin).toString();
         const job = putFile(url, target, {
-          headers: storageAuthHeaders(),
           onProgress: report,
           errorCode: (code, status) => new StorageRequestError(code, status),
         });
@@ -191,7 +189,6 @@ export function EntityResourceFiles({ entityId, className }: { entityId: string;
         }
       }
       const job = putFile(streamUploadUrl(init.asset_id), target, {
-        headers: storageAuthHeaders(),
         onProgress: report,
         errorCode: (code, status) => new StorageRequestError(code, status),
       });

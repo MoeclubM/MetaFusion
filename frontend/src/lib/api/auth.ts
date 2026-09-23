@@ -1,19 +1,8 @@
 import { fetchApi } from "./client";
 import type { User } from "./client";
 
-export interface AuthSessionResponse {
-  token: string;
-  access_token?: string;
-  token_type?: string;
-  expires_in?: number;
-  user: User;
-}
-
 /**
- * 会话用户的唯一映射：/auth/me、/auth/login、/auth/register、/api/setup 拿到的原始对象
- * 都是账号服务 store.User 的 JSON 投影。这份映射原先在登录路径上手抄了五遍，其中登录的
- * 三处漏掉 groups/permissions（权限判定静默退回角色兜底），并用
- * `用户名@metafusion.local` 造了个假邮箱当成真实邮箱渲染。
+ * /auth/me 返回账号服务 store.User 的投影；界面不在各页面重复裁剪身份字段。
  *
  * 拿不准的字段一律不造值：邮箱缺席就保持缺席（页面走 settings.unboundEmail），
  * display_name 缺席交给 displayNameOf 回落 username；组与权限码有就整份带住。
@@ -34,23 +23,6 @@ export function normalizeSessionUser(raw: unknown): User {
     ...(Array.isArray(groups) ? { groups: groups.filter((g: unknown) => typeof g === "string") } : {}),
     ...(Array.isArray(permissions) ? { permissions: permissions.filter((p: unknown) => typeof p === "string") } : {}),
   };
-}
-
-/**
- * 自助注册。是否需要邀请码由实例设置决定（GET /auth/settings 的 invite_required），
- * 服务端在注册事务里校验并消耗次数；前端只透传，不做本地判定。
- */
-
-export function registerAccount(payload: {
-  username: string;
-  email?: string;
-  password: string;
-  invite_code?: string;
-}): Promise<AuthSessionResponse> {
-  return fetchApi<AuthSessionResponse>("/auth/register", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
 }
 
 /** 邀请码：带次数上限与可选过期时间；used_count 由服务端在注册事务里累加。 */
@@ -243,23 +215,6 @@ export interface SetupStatusResponse {
   total_users: number;
 }
 
-export interface InitialSetupPayload {
-  username: string;
-  display_name?: string;
-  email: string;
-  password: string;
-}
-
-export interface InitialSetupResult {
-  message: string;
-  user: User;
-  token: string;
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-  token_type: string;
-}
-
 export async function fetchSetupStatus(): Promise<SetupStatusResponse> {
   try {
     const res = await fetch("/api/setup", { credentials: "same-origin" });
@@ -282,41 +237,4 @@ export interface PublicAuthSettings {
 
 export function fetchAuthSettings(): Promise<PublicAuthSettings> {
   return fetchApi<PublicAuthSettings>("/auth/settings");
-}
-
-export async function performInitialSetup(payload: InitialSetupPayload): Promise<InitialSetupResult> {
-  const setupRes = await fetch("/api/setup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: payload.username,
-      email: payload.email,
-      password: payload.password,
-    }),
-  });
-  if (!setupRes.ok) {
-    const err = await setupRes.json().catch(() => ({}));
-    throw new Error(err.error || "setup_failed");
-  }
-  const user = await setupRes.json();
-  const loginRes = await fetch("/api/auth/login", {
-    method: "POST",
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      username: payload.username,
-      password: payload.password,
-    }),
-  });
-  const loginData = loginRes.ok ? await loginRes.json() : {};
-  return {
-    message: "setup_success",
-    // 初始化路径同样走唯一的会话映射：登录响应带 groups/permissions，不能在这里漏掉。
-    user: normalizeSessionUser(loginData.user || user),
-    token: loginData.token || "",
-    access_token: loginData.token || "",
-    refresh_token: "",
-    expires_in: 86400,
-    token_type: "Bearer",
-  };
 }

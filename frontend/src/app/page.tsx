@@ -60,7 +60,7 @@ export default function HomePage() {
     setLoading(true);
     setFailed(false);
     try {
-      // 必须用 fetchApi：登录态 token 存在 localStorage，只有它会带 Authorization。
+      // 统一走 fetchApi：同域 Cookie、语言头与错误处理保持一致。
       // 用 components/catalog 的 api() 只会发 cookie，带身份的偏好不会被识别。
       const r = await fetchApi<{ items: FeedSection[] }>("/catalog/shelves/feed?per_shelf=12");
       setSections(Array.isArray(r.items) ? r.items : []);

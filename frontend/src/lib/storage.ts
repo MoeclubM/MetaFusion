@@ -6,7 +6,7 @@
 //
 // 只在前端使用（浏览器）：Web Crypto 与 XHR 上传进度都依赖 DOM 环境。
 
-import { ApiError, fetchApi, getAccessToken } from "./api";
+import { ApiError, fetchApi } from "./api";
 
 /** 网关统一前缀。浏览器端 getApiBase() 恒为 "/api"，与 lib/api 的既有约定一致。 */
 export const STORAGE_API_BASE = "/api/storage";
@@ -127,12 +127,6 @@ function errorCodeOfText(text: string, status: number): string {
     /* 忽略：非 JSON */
   }
   return `HTTP ${status}`;
-}
-
-/** 登录态下的身份头：localStorage 里的访问令牌不会自动随请求带上，必须显式添加。 */
-export function storageAuthHeaders(): Record<string, string> {
-  const token = getAccessToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 /** 「这个实体上挂了哪些文件」列表入口（读接口，匿名可读由实体可见性决定）。 */
@@ -266,14 +260,13 @@ export interface DownloadResult {
 
 /**
  * 下载入口：本地对象模式由服务端流式下发，对象存储模式返回预签名地址。
- * 下载接口要判身份（上传者/审核者直通，其余按绑定实体可见性），而 localStorage 的
- * 令牌不会随 <a href> 带上，所以这里用 fetch 主动带 Authorization：
+ * 下载接口要判身份（上传者/审核者直通，其余按绑定实体可见性），
+ * 因此这里用带同域 Cookie 的 fetch 请求：
  * JSON 响应＝对象存储模式的预签名地址（直接跳转）；其余按流处理，落成临时 Blob 保存。
  */
 export async function downloadAssetFile(assetId: string, fileName: string): Promise<DownloadResult> {
   const res = await fetch(`${STORAGE_API_BASE}/download/${encodeURIComponent(assetId)}`, {
     method: "GET",
-    headers: storageAuthHeaders(),
     credentials: "same-origin",
   });
   if (!res.ok) throw new StorageRequestError(await errorCodeOf(res), res.status);

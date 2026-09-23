@@ -40,37 +40,20 @@ export function displayNameOf(u: Pick<User, "username" | "display_name">): strin
 
 // ── 自助注册与个人邀请码（账号服务 /api/auth/*）──
 
-/** POST /auth/register 的响应：成功即签发登录令牌，前端可直接进入登录态。 */
-
-let refreshPromise: Promise<string | null> | null = null;
-
-export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("metafusion_token");
-}
-
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("metafusion_refresh_token");
-}
-
-export function setAuthTokens(accessToken: string, refreshToken?: string | null): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("metafusion_token", accessToken);
-  if (refreshToken) {
-    localStorage.setItem("metafusion_refresh_token", refreshToken);
-  }
-}
+let refreshPromise: Promise<boolean> | null = null;
 
 export function clearAuthTokens(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem("metafusion_token");
-  localStorage.removeItem("metafusion_refresh_token");
+  try {
+    localStorage.removeItem("metafusion_token");
+    localStorage.removeItem("metafusion_refresh_token");
+  } catch {
+    // 禁用浏览器存储时仍允许使用服务端 Cookie 会话。
+  }
 }
 
-async function requestTokenRefresh(): Promise<string | null> {
-  // 后端 /auth/refresh 以 Bearer/Cookie 识别调用方，不读 body 里的 refresh_token；
-  // HttpOnly Cookie 会随同源请求自动携带，因此没有存储 refresh_token 也能续期。
+async function requestTokenRefresh(): Promise<boolean> {
+  // 浏览器会话只使用 HttpOnly Cookie；刷新成功后账号服务会轮换该 Cookie。
   if (refreshPromise) {
     return refreshPromise;
   }
@@ -85,25 +68,9 @@ async function requestTokenRefresh(): Promise<string | null> {
         body: JSON.stringify({}),
       });
 
-      if (!res.ok) {
-        clearAuthTokens();
-        return null;
-      }
-
-      const data = await res.json();
-      const newAccessToken = data.access_token || data.token;
-      const newRefreshToken = data.refresh_token;
-
-      if (newAccessToken) {
-        setAuthTokens(newAccessToken, newRefreshToken);
-        return newAccessToken;
-      } else {
-        clearAuthTokens();
-        return null;
-      }
+      return res.ok;
     } catch {
-      clearAuthTokens();
-      return null;
+      return false;
     } finally {
       refreshPromise = null;
     }
@@ -138,7 +105,6 @@ function readLocaleCookie(): string | null {
 }
 
 export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  let token = getAccessToken();
   const locale = typeof window !== "undefined" ? readLocaleCookie() : null;
   const headers: Record<string, string> = {
     ...(!(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
@@ -148,9 +114,7 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
     delete headers["Content-Type"];
     delete headers["content-type"];
   }
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
+  const hasExplicitAuthorization = Object.keys(headers).some((name) => name.toLowerCase() === "authorization");
   if (locale) {
     if (!headers["x-locale"] && !headers["X-Locale"]) headers["x-locale"] = locale;
     if (!headers["Accept-Language"]) headers["Accept-Language"] = locale;
@@ -159,22 +123,22 @@ export async function fetchApi<T>(endpoint: string, options: RequestInit = {}): 
   let res = await fetch(`${baseUrl}${endpoint}`, {
     ...options,
     headers,
+    credentials: "same-origin",
   });
 
-  // 处理 401 Unauthorized：静默续期后重试一次（凭 HttpOnly Cookie，无需 refresh_token）。
+  // 只给普通 Cookie 会话续期；调用方显式传入的 PAT/Bearer 不与浏览器身份混用。
   const isAuthEndpoint =
     endpoint.startsWith("/auth/login") ||
     endpoint.startsWith("/auth/register") ||
     endpoint.startsWith("/auth/refresh") ||
     endpoint.startsWith("/auth/logout");
 
-  if (res.status === 401 && !isAuthEndpoint && (getRefreshToken() || getAccessToken())) {
-    const freshToken = await requestTokenRefresh();
-    if (freshToken) {
-      headers["Authorization"] = `Bearer ${freshToken}`;
+  if (res.status === 401 && !isAuthEndpoint && !hasExplicitAuthorization) {
+    if (await requestTokenRefresh()) {
       res = await fetch(`${baseUrl}${endpoint}`, {
         ...options,
         headers,
+        credentials: "same-origin",
       });
     }
   }

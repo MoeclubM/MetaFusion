@@ -243,7 +243,7 @@ export async function api<T = any>(
   data?: any,
   extraHeaders?: Record<string, string>,
 ): Promise<T> {
-  // 统一走 lib/api.ts 的 fetchApi：它带 Authorization、按 locale 设头、
+  // 统一走 lib/api.ts 的 fetchApi：它带同域 Cookie、按 locale 设头、
   // 并在 401 时静默续期后重试一次。此前这里自己 fetch，既不带令牌也没有续期——
   // 访问令牌 15 分钟一过，编辑器就再也写不进去（真人在编辑半小时后必然遇到）。
   return fetchApi<T>(path, {
@@ -260,7 +260,7 @@ export async function api<T = any>(
 
 // ── 定义版本（管理面 /admin/catalog-definitions，需要 catalog.definitions.manage）──
 //
-// 三个动作都用 api()：它带 Authorization 并在 401 时续期重试一次。
+// 三个动作都用 api()：它使用同域 Cookie 并在 401 时续期重试一次。
 // 服务端列表 SQL 是 ORDER BY id DESC LIMIT 100：最多 100 条、无分页。
 
 /** 版本列表：include_document=true（缺省）时每项带完整文档，供"打开历史版本"直接使用。 */
