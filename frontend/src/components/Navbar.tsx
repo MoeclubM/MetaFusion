@@ -56,6 +56,12 @@ export const Navbar: React.FC = () => {
   const pathname = usePathname();
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  // 登录链接的回跳地址依赖 window.location.href，服务端渲染时只能取 "/" 兜底：
+  // 两边各算各的会让水合报 href 属性不匹配。首帧与服务端同值，挂载后再换真实地址。
+  const [loginHref, setLoginHref] = useState(() => getAuthLoginUrl("/"));
+  useEffect(() => {
+    setLoginHref(getAuthLoginUrl());
+  }, []);
   // 未读私信角标：登录后拉一次 + 每 30s 一次。失败一律隐藏角标（null），**不渲染成 0**——
   // "取不到"与"没有未读"必须能区分；失败也不影响导航其余部分。
   const [unreadCount, setUnreadCount] = useState<number | null>(null);
@@ -460,7 +466,7 @@ export const Navbar: React.FC = () => {
             </div>
           ) : (
             <a
-              href={getAuthLoginUrl()}
+              href={loginHref}
               className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emphasis/[0.04] hover:bg-emphasis/[0.08] border border-line text-xs font-medium text-text-strong transition-colors duration-fast ease-soft"
             >
               <UserIcon className="w-3.5 h-3.5" />
