@@ -1,0 +1,84 @@
+"use client";
+
+import React from "react";
+import Link from "next/link";
+import { AdaptiveCardCover } from "./AdaptiveCardCover";
+import { kindIcon } from "@/lib/kindIcons";
+
+export interface EntityCardProps {
+  id: string;
+  kind: string;
+  badgeLabel: string;
+  /** 按请求语种解析后的展示题名 */
+  title: string;
+  /** 基础题名：与展示题名不同时作为原文副标题 */
+  baseTitle?: string;
+  /** 标签：无原文副标题可用时，作为题名下的第二行信息 */
+  tags?: string[];
+  /** 无封面占位层的副行（如首个标签） */
+  fallbackSubtitle?: string;
+  status?: string;
+  statusLabel?: string;
+  pictureUrl?: string;
+}
+
+/**
+ * 实体卡片唯一实现：首页分区与探索页网格共用。
+ * 两处各写一套卡片会出现两种占位样式与两种页脚文案，用户会读成"产品不统一"。
+ */
+export function EntityCard({
+  id,
+  kind,
+  badgeLabel,
+  title,
+  baseTitle,
+  tags,
+  fallbackSubtitle,
+  status,
+  statusLabel,
+  pictureUrl,
+}: EntityCardProps) {
+  const KindIcon = kindIcon(kind);
+  // 题名下第二行只放有区分度的事实：原文题名优先，否则退到标签。
+  // 与展示题名同文的原题名不渲染——复读一遍只添噪音。
+  const showBaseTitle = !!baseTitle && baseTitle !== title;
+  const metaLine = showBaseTitle ? baseTitle : (tags || []).slice(0, 3).join(" · ");
+
+  return (
+    <Link
+      href={"/catalog/" + id}
+      className="group flex flex-col rounded-xl bg-surface hover:shadow-elevated border border-line hover:border-primary/50 dark:hover:border-primary/50 overflow-hidden transition-all duration-base ease-soft"
+    >
+      <AdaptiveCardCover
+        src={pictureUrl}
+        alt={title}
+        badge={
+          <span className="px-2 py-0.5 rounded-md bg-black/65 dark:bg-black/75 text-emphasis keep-white backdrop-blur-md border border-emphasis/20 text-[10px] font-medium shadow-2xs flex items-center gap-1.5 leading-none">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+            <span className="truncate max-w-[85px]">{badgeLabel}</span>
+          </span>
+        }
+        statusBadge={
+          status && status !== "published" ? (
+            <span className="px-1.5 py-0.5 rounded-md bg-amber-500/90 text-black keep-white text-[9px] font-mono font-bold shadow-2xs">
+              {statusLabel || status}
+            </span>
+          ) : undefined
+        }
+        fallbackIcon={<KindIcon className="w-6 h-6" />}
+        fallbackTitle={title}
+        fallbackSubtitle={fallbackSubtitle}
+        className="border-b border-line-subtle"
+      />
+
+      <div className="p-3 flex-1">
+        <h3 className="font-semibold text-text-strong group-hover:text-primary transition-colors duration-fast ease-soft text-xs sm:text-sm line-clamp-2 leading-snug mb-1">
+          {title}
+        </h3>
+        {metaLine && (
+          <p className="text-[10px] text-text-faint font-mono line-clamp-1">{metaLine}</p>
+        )}
+      </div>
+    </Link>
+  );
+}
