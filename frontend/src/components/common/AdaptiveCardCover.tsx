@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 interface AdaptiveCardCoverProps {
   src?: string | null;
@@ -17,11 +17,12 @@ interface AdaptiveCardCoverProps {
 }
 
 /**
- * 网格/卡片封面：**统一容器比例 + object-fit: cover**。
+ * 网格/卡片封面：**统一容器比例 + object-fit: contain**。
  *
- * 网格里每张卡各用图片自身比例会让同一排参差不齐，统一比例是唯一能既填满又不留白的做法；
- * 默认取 GRID_COVER_ASPECT（3:4，区间内最坏裁剪率最小的取值，理由见 lib/cover.ts）。
- * 图片填满容器，不再叠一层模糊底图去"弥合"留白——那层底图还会把同一张图请求两次。
+ * 网格里每张卡各用图片自身比例会让同一排参差不齐，统一比例才能保证对齐；
+ * 默认取 GRID_COVER_ASPECT（3:4，维持目录竖版视觉）。图片完整放入容器，
+ * 比例不合的部分留衬底（像相框卡纸），不裁切主体；取图期间显示脉冲衬底，
+ * 避免懒加载未返回时卡片看起来是一块黑洞。
  */
 export function AdaptiveCardCover({
   src,
@@ -36,6 +37,11 @@ export function AdaptiveCardCover({
   imgClassName = "",
 }: AdaptiveCardCoverProps) {
   const [hasError, setHasError] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+  }, [src]);
 
   const hasValidImage = !!src && !hasError;
 
@@ -44,13 +50,23 @@ export function AdaptiveCardCover({
       className={`relative w-full ${aspectClassName} bg-black/[0.03] dark:bg-black/40 flex items-center justify-center overflow-hidden isolate ${className}`}
     >
       {hasValidImage ? (
-        <img
-          src={src!}
-          alt={alt}
-          loading="lazy"
-          onError={() => setHasError(true)}
-          className={`absolute inset-0 w-full h-full object-cover select-none transition-transform duration-300 group-hover:scale-[1.03] ${imgClassName}`}
-        />
+        <>
+          {!loaded && (
+            <div className="absolute inset-0 bg-black/[0.06] dark:bg-white/[0.05] animate-pulse" aria-hidden />
+          )}
+          <img
+            src={src!}
+            alt={alt}
+            loading="lazy"
+            onError={() => setHasError(true)}
+            onLoad={() => setLoaded(true)}
+            ref={(el) => {
+              // 命中缓存的图可能不触发 onLoad：挂载时已 complete 就直接算加载完成。
+              if (el && el.complete && el.naturalWidth > 0) setLoaded(true);
+            }}
+            className={`absolute inset-0 w-full h-full object-contain select-none transition-[opacity,transform] duration-300 group-hover:scale-[1.03] ${loaded ? "opacity-100" : "opacity-0"} ${imgClassName}`}
+          />
+        </>
       ) : (
         /* 兜底占位层：无图或取图失败时不画破图图标 */
         <div className="w-full h-full relative overflow-hidden bg-linear-to-br from-primary/10 via-black/[0.02] to-primary/5 dark:from-primary/20 dark:via-surface dark:to-black/40 flex flex-col items-center justify-center p-3 text-center">

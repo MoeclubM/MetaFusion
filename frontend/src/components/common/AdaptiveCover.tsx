@@ -39,8 +39,8 @@ interface AdaptiveCoverProps {
  * 3. 有真图：图片自然宽高比，钳进 [MIN_COVER_ASPECT, MAX_COVER_ASPECT]
  * 4. 标签推断的建议比例（音乐 1:1、影视 2:3、书籍 3:4）
  *
- * 图片一律 `object-fit: cover` 填满容器：比例落在区间内时容器就取图片自身的比例
- * （等价于完整显示、不裁剪），只有比例超出区间才在边界上裁掉溢出部分。
+ * 图片一律 `object-fit: contain` 完整放入容器：比例落在区间内时容器就取图片自身的比例
+ * （等价于铺满），超出区间时留衬底而不是裁切主体——横剧照裁掉大半构图比留边更糟。
  * 旧实现用 1:1 硬框 + contain，非方形封面被缩小后在两侧留下大片空白。
  */
 export function AdaptiveCover({
@@ -80,7 +80,7 @@ export function AdaptiveCover({
 
   return (
     <div
-      className={`relative w-full overflow-hidden ${className}`}
+      className={`relative w-full overflow-hidden bg-black/[0.04] dark:bg-black/40 ${className}`}
       style={{ aspectRatio: `${uniform ?? ratio}`, maxHeight, minHeight }}
     >
       <EntityCover
@@ -90,7 +90,7 @@ export function AdaptiveCover({
         originalTitle={originalTitle}
         id={id}
         loading={loading}
-        imgClassName={imgClassName ?? "w-full h-full object-cover"}
+        imgClassName={imgClassName ?? "w-full h-full object-contain"}
         onLoad={handleLoad}
         compact={compact}
       />
