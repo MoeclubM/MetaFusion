@@ -508,6 +508,7 @@ var catalogIncrementals = []string{
 	"000008_redirect_lookup_index.up.sql",       // R2：entities redirect 反查索引
 	"000009_notification_receipts.up.sql",       // A04：notification_receipts 收据表
 	"000010_relation_lookup_indexes.up.sql",     // 关系反向查询与按类型读取
+	"000011_opensearch_outbox_lookup.up.sql",    // OpenSearch 实体事件增量消费游标
 }
 
 // applyCatalogIncrementals 在安装路径上执行结构增量（见 catalogIncrementals 注释）。
@@ -1051,12 +1052,11 @@ func listFilter(ctx context.Context, s *Store, o ListOptions, u *User, args *[]a
 		parts = append(parts, "(CASE WHEN jsonb_typeof(document->'pictures')='array' THEN jsonb_array_length(document->'pictures') ELSE 0 END>0)")
 	}
 	if o.Query != "" {
-		// 翻译搜索走 (document->'translations')::text ILIKE：整 JSON 转文本匹配，
-		// 无索引支撑，大库上是顺序扫描。这是刻意的最小口径——精确的多语言标题
-		// 检索应走专用全文/三元组索引（三期），此处保留"能搜到"的降级语义，
-		// 不为单个 LIKE 建昂贵的表达式索引。title 列有 entities_search GIN。
-		// 模式由 likeContains 编译：用户输入里的 %/_/\ 按字面处理（like_pattern.go）。
-		add("(title ILIKE $%[1]d OR (document->'translations')::text ILIKE $%[1]d)", likeContains(o.Query))
+		// 标题/翻译/外部 ID 的回退查询走保守的 ILIKE；OpenSearch 不可用或
+		// 候选窗口越界时仍由 PostgreSQL 完成子串复核与可见性过滤。这里不为
+		// 单个表达式再建索引，避免改变既有查询计划。模式由 likeContains 编译：
+		// 用户输入里的 %/_/\ 按字面处理（like_pattern.go）。
+		add("(title ILIKE $%[1]d OR (document->'translations')::text ILIKE $%[1]d OR (document->'external_ids')::text ILIKE $%[1]d OR EXISTS (SELECT 1 FROM jsonb_each_text(CASE WHEN jsonb_typeof(document->'external_ids')='object' THEN document->'external_ids' ELSE '{}'::jsonb END) AS external_id(key,value) WHERE external_id.key || ':' || external_id.value ILIKE $%[1]d))", likeContains(o.Query))
 	}
 	if len(o.SearchIDs) > 0 {
 		*args = append(*args, pq.Array(o.SearchIDs))

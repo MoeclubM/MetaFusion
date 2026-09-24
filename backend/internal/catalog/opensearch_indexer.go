@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const openSearchStateDocID = "metafusion-index-state-" + openSearchIndexGeneration
+
 func (s *Store) RunOpenSearchIndexer(ctx context.Context) {
 	if s.OpenSearch == nil {
 		return
@@ -76,7 +78,8 @@ func (s *Store) syncOpenSearch(ctx context.Context) error {
 func (s *Store) deliverOpenSearch(ctx context.Context, c *OpenSearchClient) error {
 	rows, err := s.DB.QueryContext(ctx, `SELECT id,type,entity_id,version,payload,created_at
 		FROM catalog.outbox o
-		WHERE NOT EXISTS(SELECT 1 FROM catalog.deliveries d WHERE d.consumer=$1 AND d.event_id=o.id)
+		WHERE o.type LIKE 'entity.%'
+		  AND NOT EXISTS(SELECT 1 FROM catalog.deliveries d WHERE d.consumer=$1 AND d.event_id=o.id)
 		ORDER BY created_at,id LIMIT 100`, openSearchConsumer)
 	if err != nil {
 		return err
@@ -189,11 +192,36 @@ func (c *OpenSearchClient) ensureIndex(ctx context.Context) error {
 	if err == nil && status == http.StatusOK {
 		return nil
 	}
+	// A previous process may have created the index but failed before attaching
+	// the alias. Recover that partial state instead of retrying the same failing PUT.
+	indexStatus, _, indexErr := c.request(ctx, http.MethodHead, "/"+openSearchIndex, nil, "")
+	if indexErr == nil && indexStatus == http.StatusOK {
+		if err := c.attachAlias(ctx); err == nil {
+			return nil
+		}
+	}
 	return fmt.Errorf("OpenSearch index creation returned HTTP %d", status)
 }
 
+func (c *OpenSearchClient) attachAlias(ctx context.Context) error {
+	body, err := json.Marshal(map[string]any{"actions": []map[string]any{{
+		"add": map[string]any{"index": openSearchIndex, "alias": openSearchAlias},
+	}}})
+	if err != nil {
+		return err
+	}
+	status, _, err := c.request(ctx, http.MethodPut, "/_aliases", body, "application/json")
+	if err != nil {
+		return err
+	}
+	if status < 200 || status >= 300 {
+		return fmt.Errorf("OpenSearch alias attach returned HTTP %d", status)
+	}
+	return nil
+}
+
 func (c *OpenSearchClient) isInitialized(ctx context.Context) (bool, error) {
-	status, raw, err := c.request(ctx, http.MethodGet, "/"+openSearchAlias+"/_doc/metafusion-index-state", nil, "")
+	status, raw, err := c.request(ctx, http.MethodGet, "/"+openSearchAlias+"/_doc/"+openSearchStateDocID, nil, "")
 	if err != nil {
 		return false, err
 	}
@@ -216,7 +244,7 @@ func (c *OpenSearchClient) isInitialized(ctx context.Context) (bool, error) {
 
 func (c *OpenSearchClient) setInitialized(ctx context.Context) error {
 	body, _ := json.Marshal(map[string]any{"record_type": "state", "initialized": true})
-	status, _, err := c.request(ctx, http.MethodPut, "/"+openSearchAlias+"/_doc/metafusion-index-state?refresh=wait_for", body, "application/json")
+	status, _, err := c.request(ctx, http.MethodPut, "/"+openSearchAlias+"/_doc/"+openSearchStateDocID+"?refresh=wait_for", body, "application/json")
 	if err != nil {
 		return err
 	}
@@ -227,7 +255,7 @@ func (c *OpenSearchClient) setInitialized(ctx context.Context) error {
 }
 
 func (c *OpenSearchClient) clearEntityDocuments(ctx context.Context) error {
-	body, _ := json.Marshal(map[string]any{"query": map[string]any{"term": map[string]any{"record_type": "entity"}}})
+	body, _ := json.Marshal(map[string]any{"query": map[string]any{"terms": map[string]any{"record_type": []string{"entity", "state"}}}})
 	status, _, err := c.request(ctx, http.MethodPost, "/"+openSearchAlias+"/_delete_by_query?conflicts=proceed&refresh=true", body, "application/json")
 	if err != nil {
 		return err
@@ -308,7 +336,7 @@ func (c *OpenSearchClient) indexDocuments(ctx context.Context, docs []searchDocu
 			return err
 		}
 	}
-	status, raw, err := c.request(ctx, http.MethodPost, "/_bulk", body.Bytes(), "application/x-ndjson")
+	status, raw, err := c.request(ctx, http.MethodPost, "/_bulk?refresh=wait_for", body.Bytes(), "application/x-ndjson")
 	if err != nil {
 		return err
 	}

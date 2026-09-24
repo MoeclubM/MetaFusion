@@ -55,7 +55,7 @@
 ### 3. 🚀 云原生媒体处理与存储
 - **S3 兼容对象存储 (RustFS)**：由存储服务写入 RustFS（`STORAGE_S3_*`），按 sha256 内容寻址与秒传去重，
   支持分片预签名直传与服务端流式上传兜底；元数据与物理资产分离，目录侧不保存物理路径。
-- **数据库检索**：`GET /api/catalog/entities?q=...` 由 PostgreSQL 匹配题名与多语言文档（`ILIKE` / 全文索引），OpenSearch 2.14 容器已随 Compose 部署，但**当前 Go 代码尚未接入客户端，规划中的多语言分词与 Facet 聚合未生效**。
+- **数据库检索**：`GET /api/catalog/entities?q=...` 以 PostgreSQL 为事实源；配置 `OPENSEARCH_URL` 后，目录服务通过 outbox 维护可选的 OpenSearch 2.14 候选索引，检索题名、翻译、摘要、别名、标签与外部 ID。OpenSearch 不可用、无命中或超过有界候选窗口时自动回退 PostgreSQL。
 - **不做转码（明确取舍）**：不生成 HLS 切片、预览音频、波形图或缩略图；存储服务只收原始文件、做内容寻址与受控下载。
 
 ### 4. 🗄️ 独立版本化数据库迁移与运维治理
@@ -102,7 +102,7 @@
         └───────────────┴──── PostgreSQL 16 ────┬──────┘
                           catalog / auth / community / storage 四个 schema
                                                 ├──── RustFS (S3 兼容，仅内网可达；桶由存储服务启动时自建)
-                                                └──── OpenSearch（仅 --profile search 启动，未接线）
+                                                └──── OpenSearch（可选 --profile search；目录 outbox 增量索引）
 ```
 
 ---
@@ -113,7 +113,7 @@
 - **前端系统 (Frontend)**：Next.js 16 (App Router), React 19, Tailwind CSS, Lucide Icons, TypeScript
 - **文档站点 (Docs Site)**：VitePress 静态站 (SSG)
 - **数据库 (Storage & DB)**：PostgreSQL 16, RustFS (S3-compatible Object Storage)
-- **检索引擎 (Search Engine)**：OpenSearch 2.14.0（Compose 已部署；Go 代码尚未接入，当前检索走 PostgreSQL）
+- **检索引擎 (Search Engine)**：OpenSearch 2.14.0（可选 Compose profile；配置 `OPENSEARCH_URL` 后启用候选索引，PostgreSQL 保持事实源与故障回退）
 - **媒体处理**：不做转码（无 FFmpeg 依赖）；上传/下载契约见 [资源上传与下载](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/upload-download.md)
 - **容器与网关 (Infra)**：Docker, Docker Compose v2, Nginx 1.25 Alpine
 

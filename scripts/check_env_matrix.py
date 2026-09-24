@@ -75,6 +75,9 @@ KEYS = {
     # ── 目录服务（本仓库 backend/）────────────────────────────────────────
     "PORT": {"readers": [("catalog", "cmd/server/main.go")], "default": "8080", "safe": True},
     "DATABASE_URL": {"readers": [("catalog", "cmd/server/main.go"), ("auth", "internal/config/config.go"), ("community", "internal/config/config.go"), ("community", "cmd/migrate/main.go"), ("storage", "internal/config/config.go")], "default": "空 → 回退 DB_* 拼装", "safe": True},
+    "OPENSEARCH_URL": {"readers": [("catalog", "cmd/server/main.go")], "default": "空 → 关闭可选检索并回退 PostgreSQL", "safe": True},
+    "OPENSEARCH_USERNAME": {"readers": [("catalog", "cmd/server/main.go")], "default": "空 → 无 Basic Auth", "safe": True},
+    "OPENSEARCH_PASSWORD": {"readers": [("catalog", "cmd/server/main.go")], "default": "空 → 无 Basic Auth", "safe": True},
     # ── 数据层隔离：每服务各自的 DSN（编排侧插值键）────────────────────────
     # 这五条以"键名 + 空默认"的插值形式注入成容器里的 DATABASE_URL（服务只读这个名字），
     # 因此它们自己没有 readers——读者路径就是上面那条 DATABASE_URL 的登记。
@@ -151,7 +154,7 @@ KEYS = {
 # 已退役的编排变量：删掉之后不许再回来（它们是"注入了但全仓零读取"的死重量）。
 RETIRED = {
     "REDIS_ADDR": "e13be7c 删除：没有任何代码读缓存地址（Redis 仍随栈启动，接线另批）",
-    "ELASTICSEARCH_URL": "e13be7c 删除：检索走 PostgreSQL，OpenSearch 未接线",
+    "ELASTICSEARCH_URL": "e13be7c 删除：旧 Elasticsearch 变量；当前检索由 OPENSEARCH_URL 可选接入，未配置时回退 PostgreSQL",
 }
 
 

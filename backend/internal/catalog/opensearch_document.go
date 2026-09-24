@@ -66,6 +66,23 @@ func makeSearchDocument(e Entity) searchDocument {
 			addText(alias)
 		}
 	}
+
+	// External IDs are searchable alongside titles, aliases, and summaries. Keep them
+	// in the existing analyzed fields so older indexes remain compatible while an
+	// entity is reindexed after this change.
+	externalKeys := make([]string, 0, len(e.ExternalIDs))
+	for key := range e.ExternalIDs {
+		externalKeys = append(externalKeys, key)
+	}
+	sort.Strings(externalKeys)
+	for _, key := range externalKeys {
+		value := strings.TrimSpace(e.ExternalIDs[key])
+		if value == "" {
+			continue
+		}
+		addText(key + ":" + value)
+		addText(value)
+	}
 	return searchDocument{
 		RecordType:       "entity",
 		EntityID:         e.ID,

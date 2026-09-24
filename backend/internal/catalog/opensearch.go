@@ -18,11 +18,14 @@ import (
 )
 
 const (
-	openSearchAlias         = "metafusion-entities"
-	openSearchIndex         = "metafusion-entities-v1"
-	openSearchConsumer      = "opensearch"
-	openSearchLockID        = int64(740219)
-	openSearchMaxCandidates = 10000
+	openSearchAlias    = "metafusion-entities"
+	openSearchIndex    = "metafusion-entities-v1"
+	openSearchConsumer = "opensearch"
+	// Bump the state generation when the document/search contract changes. The
+	// indexer will rebuild the optional candidate index once on the next start.
+	openSearchIndexGeneration = "v2"
+	openSearchLockID          = int64(740219)
+	openSearchMaxCandidates   = 10000
 )
 
 // OpenSearchClient is optional. PostgreSQL remains the source of truth and the
