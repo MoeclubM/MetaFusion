@@ -185,8 +185,19 @@ export type Entity = {
   types: string[];
   attributes: Record<string, any>;
   external_ids: Record<string, string>;
-  // taken_at：图片自身的时间（拍摄/发布/改版），多图按它排序展示
-  pictures: { url: string; caption: Names; taken_at?: string; source: Source }[];
+  // 多图契约（见 backend/internal/catalog/types.go 的 PicturesJSON）：**数组顺序就是展示顺序**，
+  // pictures[0] 即封面，服务端保存时不重排；taken_at 只是这张图自身的时间元信息、不参与排序。
+  // 取封面一律走 lib/cover.ts 的 coverPicture / coverUrl，不在消费点重新索引 [0]。
+  // role 是 picture_role 词表的用途码（空=未声明，存量图全部如此）；asset_id 是自托管封面
+  // 在存储服务里的 assets UUID，此时 url 指向 /api/storage/assets/<uuid>/content。
+  pictures: {
+    url: string;
+    caption: Names;
+    taken_at?: string;
+    role?: string;
+    asset_id?: string;
+    source: Source;
+  }[];
   work_id?: string;
   content_unit_id?: string;
   release_id?: string;

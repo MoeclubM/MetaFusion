@@ -8,10 +8,13 @@ import { localizeCatalogError } from "@/lib/catalogErrors";
 import { newSubmissionSession, submissionKey } from "@/lib/idempotency";
 import { useAuth } from "@/lib/authContext";
 import { getAuthLoginUrl } from "@/lib/services";
-import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput } from "./Fields";
+import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput, NamesEditor } from "./Fields";
+import { EntityCover } from "@/components/common/EntityCover";
 import { LanguagePicker } from "@/components/common/LanguagePicker";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
-import { effectiveSchemeFields, getFieldName, getKindName, getTypeName, kindApplicableFields, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
+import { effectiveSchemeFields, getFieldName, getKindName, getTermName, getTypeName, kindApplicableFields, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
+import { COVER_PICTURE_INDEX, MAX_ENTITY_PICTURES, PICTURE_ROLE_VOCABULARY } from "@/lib/cover";
+import { assetContentUrl, isAssetUuid } from "@/lib/storage";
 import { canonicalLanguageCode, languageLabel, quickLanguages } from "@/lib/languages";
 
 /** 生效类型：原样使用实体自带的 types（老实体不清空、新建不推导）。
@@ -321,6 +324,46 @@ export function EntityEditor({
           (f) => !shownFields.has(f) && d.fields[f]?.enabled !== false,
         )
       : [];
+  // ---- 图片：数组顺序就是展示顺序，pictures[0] 即封面（契约见 lib/cover.ts 的 coverPicture）。
+  // 换封面 = 挪到首位，不存在第二个"主图"布尔位：那样两套事实迟早互相打脸，
+  // 而且 PUT 是整实体替换，顺序写错就等于把作者的排序覆盖了一遍。----
+  type PictureDraft = Entity["pictures"][number];
+  const setPictures = (list: PictureDraft[]) => patch({ pictures: list });
+  // 只改传入的键：删某一张走下面的 filter，绝不连带重写其它图的字段。
+  const patchPicture = (i: number, v: Partial<PictureDraft>) =>
+    setPictures(e.pictures.map((p, j) => (i === j ? { ...p, ...v } : p)));
+  const swapPictures = (from: number, to: number) => {
+    if (to < 0 || to >= e.pictures.length) return;
+    const next = e.pictures.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setPictures(next);
+  };
+  // 同实体内 URL 重复：服务端按 trim 后的原文拒 duplicate_picture，这里先给行内提示，
+  // 让作者在同源热链/同一自托管对象这类真实撞车里立刻看出来是哪两张。
+  const pictureUrlCounts = (() => {
+    const counts = new Map<string, number>();
+    for (const p of e.pictures) {
+      const key = String(p?.url || "").trim();
+      if (!key) continue;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return counts;
+  })();
+  // 用途码词表：后台增删条目即跟随；只列启用项，但已选中的停用码留着可选
+  // （历史数据里存着的码不该因为后台停用就从这个表单里消失、被迫改写）。
+  const pictureRoleOptions = (code: string): { code: string; label: string }[] => {
+    const terms = d.vocabularies?.[PICTURE_ROLE_VOCABULARY]?.terms || {};
+    const options = Object.entries(terms)
+      .filter(([k, v]) => v?.enabled || k === code)
+      .map(([k]) => ({ code: k, label: getTermName(d, PICTURE_ROLE_VOCABULARY, k, locale) }));
+    // 词表整体没这个码（旧文档/被删词条）时仍把当前值列出来：否则下拉看着像"未声明"，
+    // 数据里其实带着一个码，作者会在不自知的情况下把它编辑掉。缺词条时标签退成原始码。
+    if (code && !options.some((o) => o.code === code)) {
+      options.unshift({ code, label: getTermName(d, PICTURE_ROLE_VOCABULARY, code, locale) });
+    }
+    return options;
+  };
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();
     // 新写显式声明 types（D3，与后端 Save 同口径）：新建（无 id）必须至少带一个业务类型，
@@ -1086,84 +1129,167 @@ export function EntityEditor({
       </fieldset>
       <fieldset>
         <legend>{t("catalog.pictures")}</legend>
-        {e.pictures.map((p, i) => (
-          <div className="cv-group" key={i}>
-            <label>
-              {t("catalog.imageUrl")}
-              <input
-                type="url"
-                required
-                value={p.url}
-                onChange={(x) =>
-                  patch({
-                    pictures: e.pictures.map((v, j) =>
-                      i === j ? { ...v, url: x.target.value } : v,
-                    ),
-                  })
-                }
-              />
-            </label>
-            <label>
-              {t("catalog.imageTakenAt")}
-              <input
-                placeholder="2020-08-07"
-                value={p.taken_at || ""}
-                onChange={(x) =>
-                  patch({
-                    pictures: e.pictures.map((v, j) =>
-                      i === j ? { ...v, taken_at: x.target.value } : v,
-                    ),
-                  })
-                }
-              />
-            </label>
-            <label>
-              {t("catalog.citation")}
-              <input
-                required
-                value={p.source.citation}
-                onChange={(x) =>
-                  patch({
-                    pictures: e.pictures.map((v, j) =>
-                      i === j
-                        ? {
-                            ...v,
-                            source: { ...v.source, citation: x.target.value },
-                          }
-                        : v,
-                    ),
-                  })
-                }
-              />
-            </label>
-            <button
-              type="button"
-              onClick={() =>
-                patch({ pictures: e.pictures.filter((_, j) => i !== j) })
-              }
-            >
-              {t("catalog.remove")}
-            </button>
-          </div>
-        ))}
+        <p className="cv-hint">{t("catalog.pictureOrderHint")}</p>
+        <p className="cv-hint">
+          {t("catalog.pictureCount", { count: e.pictures.length, max: MAX_ENTITY_PICTURES })}
+        </p>
+        {e.pictures.map((p, i) => {
+          const urlKey = String(p.url || "").trim();
+          const isDuplicate = !!urlKey && (pictureUrlCounts.get(urlKey) || 0) > 1;
+          const assetId = String(p.asset_id || "").trim();
+          const assetInvalid = !isAssetUuid(assetId);
+          const caption = local(p.caption, locale, e.original_language, "");
+          return (
+            <div className="cv-group" key={i}>
+              <div className="cv-row">
+                <span className="flex items-center gap-1.5">
+                  <strong>{t("catalog.picturePosition", { n: i + 1 })}</strong>
+                  {/* 首位=封面是顺序事实，不另设"主图"勾选：一个布尔位与数组顺序并存迟早打脸。 */}
+                  {i === COVER_PICTURE_INDEX && (
+                    <span className="px-1.5 py-0.5 rounded-md bg-primary/15 text-primary font-mono text-[10px] font-semibold whitespace-nowrap">
+                      {t("catalog.pictureCoverBadge")}
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  disabled={i === COVER_PICTURE_INDEX}
+                  onClick={() => swapPictures(i, i - 1)}
+                >
+                  {t("catalog.pictureMoveUp")}
+                </button>
+                <button
+                  type="button"
+                  disabled={i === e.pictures.length - 1}
+                  onClick={() => swapPictures(i, i + 1)}
+                >
+                  {t("catalog.pictureMoveDown")}
+                </button>
+                <button
+                  type="button"
+                  disabled={i === COVER_PICTURE_INDEX}
+                  onClick={() => swapPictures(i, COVER_PICTURE_INDEX)}
+                >
+                  {t("catalog.pictureMakeCover")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPictures(e.pictures.filter((_, j) => i !== j))}
+                >
+                  {t("catalog.remove")}
+                </button>
+              </div>
+              <div className="cv-row">
+                <label>
+                  {t("catalog.imageUrl")}
+                  <input
+                    type="url"
+                    required
+                    value={p.url}
+                    onChange={(x) => patchPicture(i, { url: x.target.value })}
+                  />
+                </label>
+                {/* 边填边看：地址写错、防盗链取不到图，在这里就看出来，不用等保存后回详情页。 */}
+                <span
+                  className="w-14 h-[4.5rem] shrink-0 rounded-md overflow-hidden border border-line bg-black/[0.04] dark:bg-black/40"
+                  aria-hidden="true"
+                >
+                  {urlKey ? (
+                    <EntityCover src={urlKey} title={caption || p.url} id={e.id} />
+                  ) : null}
+                </span>
+              </div>
+              {isDuplicate && (
+                <p className="cv-error">{t("catalog.pictureDuplicateUrl")}</p>
+              )}
+              <div className="flex flex-col gap-1">
+                <strong>{t("catalog.imageCaption")}</strong>
+                <NamesEditor
+                  value={p.caption || {}}
+                  onChange={(captionNames) => patchPicture(i, { caption: captionNames })}
+                />
+              </div>
+              <div className="cv-grid">
+                <label>
+                  {t("catalog.imageRole")}
+                  <select
+                    value={p.role || ""}
+                    onChange={(x) => patchPicture(i, { role: x.target.value })}
+                  >
+                    <option value="">{t("catalog.imageRoleUndeclared")}</option>
+                    {pictureRoleOptions(p.role || "").map((o) => (
+                      <option key={o.code} value={o.code}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  {t("catalog.imageTakenAt")}
+                  <input
+                    placeholder="2020-08-07"
+                    value={p.taken_at || ""}
+                    onChange={(x) => patchPicture(i, { taken_at: x.target.value })}
+                  />
+                </label>
+              </div>
+              <div className="cv-row">
+                <label>
+                  {t("catalog.pictureAssetId")}
+                  <input
+                    placeholder="00000000-0000-0000-0000-000000000000"
+                    value={p.asset_id || ""}
+                    onChange={(x) => patchPicture(i, { asset_id: x.target.value })}
+                  />
+                </label>
+                {/* 自托管封面的可直链地址就在存储服务上：一键填进 URL，省得手拼错路径。 */}
+                <button
+                  type="button"
+                  disabled={assetInvalid || !assetId}
+                  onClick={() => patchPicture(i, { url: assetContentUrl(assetId) })}
+                >
+                  {t("catalog.pictureUseAssetUrl")}
+                </button>
+              </div>
+              <p className="cv-hint">{t("catalog.pictureAssetHint")}</p>
+              {assetInvalid && <p className="cv-error">{t("catalog.pictureAssetInvalid")}</p>}
+              <label>
+                {t("catalog.citation")}
+                <input
+                  required
+                  value={p.source.citation}
+                  onChange={(x) =>
+                    patchPicture(i, {
+                      source: { ...p.source, citation: x.target.value },
+                    })
+                  }
+                />
+              </label>
+            </div>
+          );
+        })}
         <button
           type="button"
+          disabled={e.pictures.length >= MAX_ENTITY_PICTURES}
           onClick={() =>
-            patch({
-              pictures: [
-                ...e.pictures,
-                {
-                  url: "",
-                  caption: {},
-                  taken_at: "",
-                  source: { kind: "self", citation: "" },
-                },
-              ],
-            })
+            setPictures([
+              ...e.pictures,
+              {
+                url: "",
+                caption: {},
+                taken_at: "",
+                source: { kind: "self", citation: "" },
+              },
+            ])
           }
         >
           {t("catalog.add")}
         </button>
+        {e.pictures.length >= MAX_ENTITY_PICTURES && (
+          <p className="cv-error">
+            {t("catalog.pictureLimitReached", { max: MAX_ENTITY_PICTURES })}
+          </p>
+        )}
       </fieldset>
       <Evidence
         note={note}

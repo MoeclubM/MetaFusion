@@ -7,6 +7,7 @@
 // 番位名以服务端 character_rank 词表为准，字典键只作兜底。
 
 import { getRelationName, getTermName, type DynamicDefinitions } from "@/lib/definitions";
+import { coverUrl } from "@/lib/cover";
 import type { Entity } from "@/components/catalog/api";
 
 export interface StaffCreditAgent {
@@ -64,13 +65,14 @@ export function buildStaffCredits(args: {
         relationType: r.type,
         relationLabel: getRelationName(defs, r.type, true, locale),
         creditRole: attrText(r.attributes?.credit_role) || undefined,
-        agent: { id: target.id!, name: target.title || "", avatarUrl: target.pictures?.[0]?.url, types: target.types || [] },
+        // 头像即对端的封面（首张图）：取值一律走 lib/cover，不在这里重新索引 pictures[0]。
+        agent: { id: target.id!, name: target.title || "", avatarUrl: coverUrl(target) || undefined, types: target.types || [] },
       };
       if (attrText(r.attributes?.character)) {
         const chId = attrText(r.attributes?.character);
         const ch = chId ? relEntities[chId] : undefined;
         if (ch) {
-          credit.character = { id: ch.id, name: ch.title, avatarUrl: ch.pictures?.[0]?.url };
+          credit.character = { id: ch.id, name: ch.title, avatarUrl: coverUrl(ch) || undefined };
         }
         // 配音上下文：language 是自由文本字段（非受控词表），context 是实体引用，
         // 两者共同区分同一角色在不同语言/篇目下的多版配音。
@@ -101,11 +103,11 @@ export function buildStaffCredits(args: {
         relationType: r.type,
         relationLabel: getRelationName(defs, r.type, true, locale),
         creditRole: attrText(r.attributes?.credit_role) || undefined,
-        agent: { id: src.id!, name: src.title || "", avatarUrl: src.pictures?.[0]?.url, types: src.types || [] },
+        agent: { id: src.id!, name: src.title || "", avatarUrl: coverUrl(src) || undefined, types: src.types || [] },
         character: {
           id: src.id!,
           name: src.title || "",
-          avatarUrl: src.pictures?.[0]?.url,
+          avatarUrl: coverUrl(src) || undefined,
           rankLabel: rankLabel && rankLabel !== rankCode ? rankLabel : undefined,
           rankCode: rankCode || undefined,
         },

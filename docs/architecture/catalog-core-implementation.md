@@ -12,4 +12,6 @@
 
 前端 `/catalog` 使用独立 CatalogProvider，根布局不挂载全局播放器。资源、社区与个人记录组件动态导入，先检查能力再请求自己的 API。外部图片以带来源的核心引用保存，文件模块关闭不影响封面。
 
+`pictures[]` 是有序数组：**数组顺序即展示顺序、首张即封面**，服务端不重排（`taken_at` 只是该图自身的时间元信息，曾在前端被当作排序键，那会静默覆盖作者定的顺序，已收敛）。"哪张是封面"在前端只有 `src/lib/cover.ts` 一处判定（`coverPicture` / `coverUrl`），列表、搜索、OG、对比与署名等消费点都走它，不再各自 `[0]`。每张图可选 `role`（`picture_role` 词表的用途码，标签按 locale 从 definitions 解析，不硬编码文案）与 `asset_id`（自托管封面的存储资产 UUID，配 `binding_role=cover_image`，地址见 [存储运行约定](storage-operations.md)）；写侧的重复 URL、张数封顶与词表合法性由 `validation.go` 判定，需求口径见 `docs/requirements.md` 的 MEDIA-05。
+
 部署使用标准 `deploy/docker-compose.yml`。API 统一使用 `/api` 单一命名空间。

@@ -17,6 +17,16 @@ export const DEFAULT_BINDING_ROLE = "master_archive";
 /** binding_role 是字段码：与 internal/handler 的 codePattern 同口径。 */
 export const BINDING_ROLE_PATTERN = /^[a-z][a-z0-9_]{0,31}$/;
 
+/** assets 主键是 UUID：编辑器据此给行内提示，服务端 invalid_picture_asset 仍是最终判据。 */
+export const ASSET_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** 空值放过（asset_id 可选），非空时必须是标准写法 UUID；不合规不会被存储服务认。 */
+export function isAssetUuid(value?: string | null): boolean {
+  const v = String(value || "").trim();
+  return !v || ASSET_UUID_PATTERN.test(v);
+}
+
 /** 预设用途码：README 列出的运维/编目约定项。不是封闭枚举，界面允许自定义。 */
 export const BINDING_ROLE_PRESETS = [
   "master_archive",
@@ -26,7 +36,19 @@ export const BINDING_ROLE_PRESETS = [
   "scans",
   "subtitle",
   "ebook",
+  // 自托管封面：目录侧 pictures[].asset_id 指向的就是这条绑定对应的资产。
+  "cover_image",
 ] as const;
+
+/**
+ * 自托管图片的可直链地址：`GET /api/storage/assets/{id}/content`。
+ * 该路由按请求鉴权、按绑定实体的可见性判定，因此浏览器 `<img>` 能直接引用（不必先换
+ * 预签名地址）。返回的是同源相对路径，写进 `pictures[].url` 后详情页与 OG 标签都能用
+ * （seo.ts 会用站点绝对地址包一次）。
+ */
+export function assetContentUrl(assetId: string): string {
+  return `${STORAGE_API_BASE}/assets/${encodeURIComponent(assetId.trim())}/content`;
+}
 
 /** 一份物理文件的内容寻址记录（storage.assets）。身份是 sha256，不含目录语义。 */
 export interface StorageAsset {

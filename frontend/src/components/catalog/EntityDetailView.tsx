@@ -6,8 +6,9 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { CoverOriginNote } from "@/components/common/CoverOriginNote";
-import { resolveCover } from "@/lib/cover";
+import { COVER_PICTURE_INDEX, coverUrl, PICTURE_ROLE_VOCABULARY, resolveCover } from "@/lib/cover";
 import { EntityCover } from "@/components/common/EntityCover";
+import { PictureLightbox, type LightboxPicture } from "@/components/catalog/PictureLightbox";
 import FavoriteButton from "@/components/FavoriteButton";
 import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
 import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
@@ -220,6 +221,11 @@ export function EntityDetailView({ id }: { id: string }) {
   // 收敛到正式路由期间不渲染通用视图，避免先闪一次两栏布局。
   const [redirecting, setRedirecting] = useState(false);
   const [relationViewMode, setRelationViewMode] = useState<"cards" | "graph">("cards");
+  // 画廊灯箱打开在第几张（null=关闭）。索引即 pictures 的数组下标：顺序就是作者定的
+  // 展示顺序，灯箱翻图也只按这个顺序走，不再二次排序。
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  // Modal 的副作用依赖 onClose 的身份：给它稳定引用，否则每次翻图都会重挂副作用并抢焦点。
+  const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
   const load = async () => {
     setLoading(true);
@@ -413,6 +419,30 @@ export function EntityDetailView({ id }: { id: string }) {
     [entity, motherWork, subjectWorks, occurrences],
   );
 
+  // 图片用途标签：码值来自 definitions 的 picture_role 词表，四语名由词表自己带，
+  // 这里不硬编码任何语言的说法（词表缺该码时 getTermName 退成原始码，不空白）。
+  const pictureRoleLabel = useCallback(
+    (role?: string | null) =>
+      String(role || "").trim()
+        ? getTermName(defs, PICTURE_ROLE_VOCABULARY, String(role).trim(), locale)
+        : "",
+    [defs, locale],
+  );
+
+  // 灯箱与网格共用这一份读数：索引一致，翻图顺序就是 pictures 自己的顺序。
+  const galleryPictures = useMemo<LightboxPicture[]>(
+    () =>
+      (entity?.pictures || []).map((p, i) => ({
+        url: p.url,
+        caption: resolveLocalizedName(p.caption, locale, entity?.title || ""),
+        roleLabel: pictureRoleLabel(p.role),
+        takenAt: String(p.taken_at || "").trim(),
+        isCover: i === COVER_PICTURE_INDEX,
+        source: p.source,
+      })),
+    [entity, locale, pictureRoleLabel],
+  );
+
   // Extract Bangumi info with proper type routing (Strictly entity-owned, never borrowed)
   const bangumiInfo = useMemo(() => {
     if (!entity) return null;
@@ -555,7 +585,7 @@ export function EntityDetailView({ id }: { id: string }) {
         type: e?.kind || "related",
         category: e?.kind || "related",
         level,
-        cover_image_url: e?.pictures?.[0]?.url || undefined,
+        cover_image_url: coverUrl(e) || undefined,
       };
     };
     const nodes: GraphNode[] = [
@@ -1244,8 +1274,9 @@ export function EntityDetailView({ id }: { id: string }) {
                 </div>
               )}
 
-              {/* 图片（按时间）：同一实体的多张图按 taken_at 升序，未注明时间的保持录入顺序排在最后。
-                  封面改版、剧照、活动现场都靠这里的顺序表达，不再只展示第一张。 */}
+              {/* 图片画廊：**数组顺序就是作者定的展示顺序**，pictures[0] 即封面（唯一口径见 lib/cover.ts）。
+                  这里过去按 taken_at 重排过——那等于前端静默覆盖作者的排序，与服务端契约直接冲突，已删；
+                  taken_at 只是这张图自身的时间元信息，摆在图下作说明。点图开灯箱看大图、图注与来源。 */}
               {(entity.pictures?.length || 0) > 0 && (
                 <div id="pictures" className="pt-2 space-y-3 border-t border-line-subtle">
                   <div className="flex items-center gap-2 pt-3">
@@ -1257,44 +1288,55 @@ export function EntityDetailView({ id }: { id: string }) {
                     </span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {entity
-                      .pictures!.map((p, i) => ({ p, i }))
-                      .sort((a, b) => {
-                        const av = (a.p.taken_at || "").trim();
-                        const bv = (b.p.taken_at || "").trim();
-                        if (!av && !bv) return a.i - b.i;
-                        if (!av) return 1;
-                        if (!bv) return -1;
-                        return av < bv ? -1 : av > bv ? 1 : a.i - b.i;
-                      })
-                      .map(({ p, i }) => (
-                        <a
-                          key={i}
-                          href={p.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="group block space-y-1.5"
-                          title={p.source?.citation || ""}
+                    {galleryPictures.map((pic, i) => (
+                      <figure key={i} className="space-y-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setLightboxIndex(i)}
+                          className="group block w-full text-left rounded-lg mf-focus"
+                          title={pic.source?.citation || pic.caption}
                         >
                           {/* 画廊用同一套封面组件：自托管封面取不到（如 404 object_missing）时
                               退化成程序封面，而不是让浏览器画破图图标——作品页早就这么兜底，
                               两个页面对同一份数据给出两种观感是这里此前唯一的不一致。 */}
-                          <Card tone="subtle" padding="none" className="aspect-[3/4] overflow-hidden">
+                          <Card tone="subtle" padding="none" className="relative aspect-[3/4] overflow-hidden">
                             <EntityCover
-                              src={p.url}
-                              alt={resolveLocalizedName(p.caption, locale, entity.title)}
-                              title={resolveLocalizedName(p.caption, locale, entity.title)}
+                              src={pic.url}
+                              alt={pic.caption}
+                              title={pic.caption}
                               id={entity.id}
                               className="w-full h-full"
                               imgClassName="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-fast ease-soft"
                             />
+                            {/* 首张=封面是顺序事实，其余图用 picture_role 词表的用途标签；
+                                没有 role 就不显示（存量 800+ 张全是未声明，必须照常展示）。 */}
+                            <span className="absolute left-1.5 top-1.5 flex flex-wrap items-center gap-1">
+                              {pic.isCover && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-black/65 dark:bg-black/75 text-emphasis keep-white border border-emphasis/20 font-mono text-[9px] font-semibold leading-none">
+                                  {t("catalog.pictureCoverBadge")}
+                                </span>
+                              )}
+                              {pic.roleLabel && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-black/65 dark:bg-black/75 text-emphasis keep-white border border-emphasis/20 font-mono text-[9px] leading-none max-w-[7rem] truncate">
+                                  {pic.roleLabel}
+                                </span>
+                              )}
+                            </span>
                           </Card>
-                          <div className="font-mono text-[10px] text-text-faint">
-                            {p.taken_at?.trim() || t("catalog.imageTimeUnknown")}
-                          </div>
-                        </a>
-                      ))}
+                        </button>
+                        <figcaption className="font-mono text-[10px] text-text-faint">
+                          {pic.takenAt || t("catalog.imageTimeUnknown")}
+                        </figcaption>
+                      </figure>
+                    ))}
                   </div>
+                  <PictureLightbox
+                    pictures={galleryPictures}
+                    index={lightboxIndex}
+                    entityId={entity.id}
+                    onIndexChange={setLightboxIndex}
+                    onClose={closeLightbox}
+                  />
                 </div>
               )}
               {/* Mother Work Direct Card */}
@@ -1306,7 +1348,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   >
                     <div className="w-12 h-12 rounded-lg overflow-hidden dark:bg-white/5 shrink-0 border border-line">
                       <AdaptiveCover
-                        src={motherWork.pictures?.[0]?.url || resolvedCover.url}
+                        src={coverUrl(motherWork) || resolvedCover.url}
                         alt={title(motherWork, locale, titleOrder)}
                         title={title(motherWork, locale, titleOrder)}
                         id={motherWork.id}

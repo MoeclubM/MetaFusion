@@ -14,6 +14,8 @@ import {
   useCompareBasket,
 } from "@/lib/compareBasket";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
+// 对比页只看封面（首张图）：取值一律走 lib/cover，这里只把结果存进局部变量 coverUrl。
+import { coverUrl as firstCoverUrl } from "@/lib/cover";
 import { RevisionsCompare } from "./RevisionsCompare";
 import { canonicalDetailPath } from "@/lib/entityRoutes";
 import { ENTITY_KINDS } from "@/lib/kinds.generated";
@@ -280,7 +282,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
     const matched = items.find((x) => x.entity?.id === id) || recentEntities.find((x) => x.id === id);
     const obj = matched?.entity || matched;
     const summaryTitle = obj ? title(obj, locale) : `${id.slice(0, 8)}...`;
-    const coverUrl = obj?.pictures?.[0]?.url || "";
+    const coverUrl = obj ? firstCoverUrl(obj) : "";
     const kind = obj?.kind || "";
     const catalogNo = obj?.attributes?.catalog_number || "";
     const format = obj?.attributes?.format || "";
@@ -587,7 +589,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                 {searchResults.map((r) => {
                   const isSelected = selectedIds.includes(r.id!);
                   const releaseTitle = title(r, locale);
-                  const coverUrl = r.pictures?.[0]?.url;
+                  const coverUrl = firstCoverUrl(r);
                   const subtitle = getEntitySummary(r.id!).subtitle;
                   return (
                     <div
@@ -658,7 +660,7 @@ export function Compare({ ids, revisions, mode }: { ids: string; revisions?: str
                 {recentEntities.slice(0, 8).map((r) => {
                   const isSelected = selectedIds.includes(r.id!);
                   const releaseTitle = title(r, locale);
-                  const coverUrl = r.pictures?.[0]?.url;
+                  const coverUrl = firstCoverUrl(r);
                   const subtitle = getEntitySummary(r.id!).subtitle;
                   return (
                     <div

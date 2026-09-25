@@ -96,11 +96,64 @@ export function clampCoverRatio(ratio: number): number {
  */
 export type CoverOrigin = "self" | "release" | "work" | "subject_work" | "mother_work" | "none";
 
+/**
+ * 一张图的展示侧最小结构（与 `components/catalog/api.ts` 里 `Entity.pictures` 的元素兼容）。
+ *
+ * 刻意不 import 那个类型：本模块同时被服务端模块（`lib/seo.ts`）与浏览器组件使用，
+ * 而 api.ts 带着客户端取数依赖。字段全部可选，因为历史 JSON 里 `role` / `asset_id`
+ * 可能整个键都不存在（后端 omitempty），读取端不能假设它们在。
+ */
+export interface CoverPicture {
+  url?: string | null;
+  /** 图注：按语种分组的多语言名，展示侧用 resolveLocalizedName 解析。 */
+  caption?: Record<string, string> | null;
+  /** 这张图自身的时间（拍摄/发布/改版）。**只作展示元信息，不参与排序**。 */
+  taken_at?: string | null;
+  /** 图片用途码，取值是 definitions 的 `picture_role` 词表；空 = 未声明用途（存量图全部如此）。 */
+  role?: string | null;
+  /** 自托管封面在存储服务里的 assets UUID；此时 url 指向 `/api/storage/assets/<uuid>/content`。 */
+  asset_id?: string | null;
+  source?: { kind?: string | null; citation?: string | null; url?: string | null } | null;
+}
+
 export interface CoverBearing {
   id?: string;
   title?: string;
-  pictures?: Array<{ url?: string | null } | null> | null;
+  pictures?: Array<CoverPicture | null> | null;
 }
+
+/**
+ * 单实体图片张数上限：与后端 `validation.go` 的 `maxPictures` 同一口径。
+ * 上限来自"每张都随 document 落库、并再复制进每次保存的 revisions 快照"，
+ * 超了服务端直接拒 `too_many_pictures`；编辑器据此禁用添加按钮。
+ */
+export const MAX_ENTITY_PICTURES = 40;
+
+/** 图片用途码的词表码（definitions.vocabularies 的键）：用途标签只从这里解析，不硬编码语言。 */
+export const PICTURE_ROLE_VOCABULARY = "picture_role";
+
+/**
+ * 「数组顺序就是展示顺序、`pictures[0]` 即封面」这个契约在前端的**唯一落点**。
+ *
+ * 服务端保存时不重排，`taken_at` 只是这张图自身的时间元信息、不参与排序，所以换封面
+ * 的动作是"把它挪到首位"。此前 13 处各自写死 `pictures?.[0]?.url`，等于把同一条契约
+ * 复制了 13 遍——改判定（比如将来真要显式主图字段）就得赌 13 处都找齐。
+ * 现在展示侧一律经由本模块取封面：判定只写成下面的 `COVER_PICTURE_INDEX` 一处，
+ * 消费方不再自己索引 `[0]`，也不再各自抄那个字面量 0。
+ */
+export const COVER_PICTURE_INDEX = 0;
+
+/**
+ * 返回实体的封面图对象（= 首位那张）。数组下标 0 就是契约本身，不做"挑第一张有 url 的图"
+ * 这种二次判定：那种兜底会把作者定的顺序悄悄改掉，正是这条契约要消灭的行为。
+ * 首张的 url 为空时仍返回它——调用方要区分"没收录图片"（pictures 为空）与"首张没地址"。
+ */
+export const coverPicture = (entity?: CoverBearing | null): CoverPicture | null =>
+  entity?.pictures?.[COVER_PICTURE_INDEX] ?? null;
+
+/** 封面地址 = 首张图的 url（trim 后空串表示本实体没有收录图片）。 */
+export const coverUrl = (entity?: CoverBearing | null): string =>
+  String(coverPicture(entity)?.url || "").trim();
 
 export interface ResolvedCover<T extends CoverBearing = CoverBearing> {
   url: string;
@@ -114,9 +167,8 @@ export type CoverChainHop<T extends CoverBearing = CoverBearing> = {
   entity: T | null | undefined;
 };
 
-/** 只看实体自己收录的第一张图；空串表示没有。 */
-export const ownCoverUrl = (entity?: CoverBearing | null): string =>
-  String(entity?.pictures?.[0]?.url || "").trim();
+/** 只看实体自己收录的封面（首张图）；空串表示没有。`resolveCover` 的借用链据此逐级判定。 */
+export const ownCoverUrl = coverUrl;
 
 export function resolveCover<T extends CoverBearing>(
   self: T | null | undefined,
