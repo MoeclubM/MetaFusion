@@ -24,6 +24,15 @@ type Source struct {
 // （早期导入链的脏写），解码时按无封面处理（nil）而不是让整行查询失败；
 // 写侧由 validation 照常严格校验。这里用命名类型只为挂 UnmarshalJSON，
 // len/索引/range 与 []Picture 完全一致，调用方无需改动读法。
+//
+// 多图契约（一条数组顺序规则，别在消费端各自发明第二套）：
+//   - **数组顺序就是展示顺序**，服务端保存时不重排；`pictures[0]` 即该实体的封面。
+//     换封面 = 把它挪到首位，不是加字段标记"主图"——一个布尔位与数组顺序并存
+//     迟早互相打脸（导入链、PUT 整组替换与 13 处前端消费点都会踩到）。
+//   - `TakenAt` 只是这张图自身的时间元信息（拍摄/发布/改版），**不参与排序**；
+//     历史上前端按它重排过，那会静默覆盖作者定的顺序，已收敛为按数组顺序展示。
+//   - `Role` 说明"这张图充当什么"（主视觉/立绘/商品 jacket/剧照…），是用途标签，
+//     不改变顺序语义：同一实体可以同时有 role=cover_art 与 role=key_visual 的图。
 type PicturesJSON []Picture
 
 func (p *PicturesJSON) UnmarshalJSON(b []byte) error {
@@ -47,8 +56,17 @@ type Picture struct {
 	URL     string `json:"url"`
 	Caption Names  `json:"caption"`
 	// TakenAt 这张图自身的时间（拍摄/发布/改版时刻），部分书目日期或 RFC3339。
-	// 同一实体的多张图（封面改版、剧照、活动现场）按它排序展示，空值排最后。
+	// 只作展示元信息，**不决定顺序**：顺序契约见 PicturesJSON 的注释。
 	TakenAt string `json:"taken_at,omitempty"`
+	// Role 这张图在该实体的语境里充当什么（主视觉、角色立绘、商品 jacket、剧照、
+	// 活动现场……）。取值是 definitions 的 picture_role 词表码，可空=未声明用途，
+	// 所以存量 800+ 张没有该键的历史数据照常通过校验；新增用途码只改定义不改代码。
+	Role string `json:"role,omitempty"`
+	// AssetID 自托管封面在存储服务里的 assets.id（UUID），对应 binding_role=cover_image
+	// 的那条绑定。可空：热链封面没有本地资产。
+	// 目录侧**不跨服务校验它是否存在或是否已被 block**（无跨服务事务，见 store.go），
+	// 所以写入方要先完成上传与绑定；取不到对象时前端会退化成程序封面而不是破图。
+	AssetID string `json:"asset_id,omitempty"`
 	Source  Source `json:"source"`
 }
 

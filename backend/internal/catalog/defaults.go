@@ -252,6 +252,22 @@ func Defaults() Definitions {
 			{"track", names4("整条音轨", "整條音軌", "トラック全体", "Whole track")},
 			{"medium", names4("整张载体", "整張載體", "メディア全体", "Whole medium")},
 		}},
+		// 图片用途：一个实体可以多张图（主视觉 + 立绘 + 商品 jacket + 剧照…），
+		// 只靠数组顺序无法说明"这张充当什么"。用途码走词表而不是硬编码枚举：
+		// 后台可增删词条，前端按 locale 解析标签，新增用途不改代码。
+		// 注意它**不改变顺序语义**——pictures[0] 永远是封面，见 types.go 的 PicturesJSON。
+		{"picture_role", names4("图片用途", "圖片用途", "画像の役割", "Picture roles"), []termSeed{
+			{"key_visual", names4("主视觉", "主視覺", "メインビジュアル", "Key visual")},
+			{"cover_art", names4("封面图", "封面圖", "ジャケット画像", "Cover art")},
+			{"poster", names4("海报", "海報", "ポスター", "Poster")},
+			{"character_portrait", names4("角色立绘", "角色立繪", "キャラクター立ち絵", "Character portrait")},
+			{"person_portrait", names4("人物肖像", "人物肖像", "パーソナルポートレート", "Person portrait")},
+			{"logo", names4("标识", "標識", "ロゴ", "Logo")},
+			{"scene_still", names4("剧照 / 场景图", "劇照 / 場景圖", "場面写真", "Scene still")},
+			{"event_photo", names4("活动现场", "活動現場", "会場写真", "Event photo")},
+			{"scan", names4("内页扫描", "內頁掃描", "誌面スキャン", "Scan")},
+			{"screenshot", names4("界面截图", "介面截圖", "画面キャプチャ", "Screenshot")},
+		}},
 	} {
 		v := Vocabulary{Names: x.names, Terms: map[string]Term{}}
 		for _, t := range x.terms {

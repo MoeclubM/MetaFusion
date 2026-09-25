@@ -21,16 +21,22 @@
 
 - 上传：`POST /api/storage/upload/initiate`（命中 sha256 即秒传，否则签发分片预签名地址）→ 客户端直传 →
   `POST /api/storage/upload/complete`；不可直传时用 `PUT /api/storage/upload/stream/{asset_id}`（服务端流式接收并边收边算哈希）。
-- 绑定：`POST /api/storage/bind` 用 `binding_role` 表达用途（`track_audio`/`disc_image`/`video`/`scans`…），
+- 绑定：`POST /api/storage/bind` 用 `binding_role` 表达用途（`track_audio`/`disc_image`/`video`/`scans`/`cover_image`…），
   `DELETE /api/storage/bindings/{id}` 解绑纠错；收录位置（页码、时间码）留在目录侧的 `locator`，两处不重复。
 - 读取可见性只有一条口径：**上传者本人或管理员直通，其余人只要任一绑定目标实体可见即可读**；
   下载、元数据读取与哈希校验共用该判定（`GET /api/storage/download/{asset_id}`、`GET /api/storage/entities/{id}/files`）。
 - 下载在 S3 模式下返回预签名地址，本地模式由服务端流式下发；`/storage/preview/` 仍返回 404，不直代私有桶。
 - **稳定引用**：目录数据里需要长期指向某份文件的地址（如实体 `pictures[].url`）用
   `GET /api/storage/assets/{id}/content`：按请求重新鉴权后把对象**原样**内联发出（不转码、不裁剪），
-  与 `download` 共用同一读取判定与 404 口径，响应只进私有缓存（可见性按请求判定）。
+  与 `download` 共用同一读取判定与 404 口径，响应只进私有缓存（可见性按请求判定），
+  并带 `ETag`（资产 sha256）与 `If-None-Match` → 304，避免每次加载都整份回源对象存储。
   预签名地址会过期、签名 Host 又是对象存储端点（未配 `STORAGE_S3_PUBLIC_ENDPOINT` 时浏览器不可达），
   只能当一次性取件用，不能当稳定地址。
+  自托管封面走这条：一张图一条 `binding_role=cover_image` 的绑定，目录侧在该 `Picture` 上写
+  `asset_id`（同一个资产 UUID）+ `url`（该 `content` 地址）。**顺序与用途都在目录侧**——
+  哪张是封面由 `pictures[]` 的数组顺序决定（首张即封面），`storage.bindings` 没有 position 列，
+  不在这里再造一套顺序；目录侧也不跨服务校验 `asset_id` 是否存在或已被封禁（无跨服务事务），
+  取不到对象时前端退化成程序封面而不是画破图。
 
 ## 已知缺口（拆分过程中尚未迁入存储服务）
 

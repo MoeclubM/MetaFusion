@@ -776,6 +776,12 @@ func (d Definitions) validateField(f Field, depth int) error {
 const (
 	maxTextLen = 20000
 	maxURLLen  = 4000
+	// maxPictures 是单实体的封面张数上限。每张都随 document 落库、并再复制进每次保存的
+	// revisions 全量快照，不封顶就等于把"一次写能撑多大"交给调用方决定。
+	maxPictures = 40
+	// pictureRoleVocabulary 是 pictures[].role 用的词表码，词条在 defaults.go 播种、
+	// 后台可增删；role 为空表示未声明用途（存量数据全部为空，照常放行）。
+	pictureRoleVocabulary = "picture_role"
 )
 
 func (d Definitions) value(f Field, v any, reference func(string, []string) error, historical bool) error {
@@ -1072,6 +1078,15 @@ func (d Definitions) validateEntityContent(e Entity, reference func(string, []st
 	if err := d.attributes(keys, e.Attributes, reference, historical); err != nil {
 		return err
 	}
+	// 多图契约（见 types.go 的 PicturesJSON）：数组顺序即展示顺序、pictures[0] 即封面，
+	// 服务端**不重排**。这里只守三条会让"多张"退化成脏数据的线：
+	// 数量封顶（每张都进 document 与每次保存的 revisions 快照，无上限等于让
+	// 单实体写放大不设防）、同实体内 URL 去重（同一张图挂两次只会让画廊出现重复格子）、
+	// 以及 role 必须落在 picture_role 词表里（用途码不许自由填写，否则前端无法多语言解析）。
+	if len(e.Pictures) > maxPictures {
+		return fmt.Errorf("too_many_pictures")
+	}
+	seenPictureURLs := make(map[string]bool, len(e.Pictures))
 	for _, p := range e.Pictures {
 		if !validURL(p.URL) {
 			return fmt.Errorf("invalid_picture")
@@ -1082,6 +1097,28 @@ func (d Definitions) validateEntityContent(e Entity, reference func(string, []st
 		if err := validateSources("picture", []Source{p.Source}); err != nil {
 			return err
 		}
+		if p.Role != "" {
+			v, ok := d.Vocabularies[pictureRoleVocabulary]
+			if !ok {
+				return fmt.Errorf("unknown_vocabulary")
+			}
+			t, exists := v.Terms[p.Role]
+			if !exists || !historical && !t.Enabled {
+				return fmt.Errorf("invalid_term")
+			}
+		}
+		// asset_id 是存储服务 assets 的主键（uuid）。目录侧不跨服务查它存不存在
+		// （没有跨服务事务，查了也挡不住随后解绑/封禁），只保证它是个可寻址的 id。
+		if p.AssetID != "" {
+			if _, err := uuid.Parse(strings.TrimSpace(p.AssetID)); err != nil {
+				return fmt.Errorf("invalid_picture_asset")
+			}
+		}
+		url := strings.TrimSpace(p.URL)
+		if seenPictureURLs[url] {
+			return fmt.Errorf("duplicate_picture")
+		}
+		seenPictureURLs[url] = true
 	}
 	return nil
 }
