@@ -277,9 +277,12 @@ function CommunityContent() {
 
  return (
  <div className="min-h-screen bg-background relative flex flex-col overflow-clip selection:bg-primary selection:text-white text-sm">
- <div className="absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
- <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
- <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+ {/* 装饰背景只在 lg 以上铺：本页的内容列（侧栏 + 主题流）自写 bg-background，
+     比视口窄一个 PageContainer 内边距。小屏上那 16px 会把光晕重新露出来，
+     读成左边缘一条竖向色差带（首页/设置页的列不写背景，所以只有本页有）。 */}
+ <div className="hidden lg:block absolute inset-0 bg-radial-vignette opacity-70 pointer-events-none" aria-hidden />
+ <div className="hidden lg:block absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
+ <div className="hidden lg:block absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px] pointer-events-none" aria-hidden />
  <Navbar />
 
  {/* Forum layout: sidebar + topic stream */}
