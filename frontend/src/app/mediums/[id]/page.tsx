@@ -21,7 +21,7 @@ import { Card } from "@/components/ui/Card";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { EntityStaffSection } from "@/components/entity/EntityStaffSection";
 import { useI18n } from "@/i18n/I18nProvider";
-import { ArrowLeft, ArrowRight, FileText, HardDrive, Layers, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, FileText, GitCompare, HardDrive, Layers, Users } from "lucide-react";
 
 const HEADER_FIELDS = ["format", "role"];
 
@@ -261,7 +261,18 @@ export default function MediumDetailPage() {
                   {entityTitle(work, locale) || work.title}
                 </p>
               )}
-              <ReportButton targetType="entity" targetId={mediumId} />
+              {/* 载体有专用路由，通用详情视图（自带"加入对比"）不会渲染到这里，
+                  所以对比入口必须在本页自己给一个，否则只有发行版能进对比器。 */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Link
+                  href={`/compare?ids=${mediumId}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-line bg-surface text-xs font-medium text-text-body hover:border-primary/50 hover:text-primary transition-colors duration-fast ease-soft"
+                >
+                  <GitCompare className="w-3.5 h-3.5" />
+                  <span>{t("entity.detail.compareAdd")}</span>
+                </Link>
+                <ReportButton targetType="entity" targetId={mediumId} />
+              </div>
             </div>
             <div className="w-24 sm:w-28 shrink-0 self-start">
               <div className="w-full aspect-[3/4] rounded-md overflow-hidden border border-line">

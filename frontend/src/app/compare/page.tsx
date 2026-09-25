@@ -11,12 +11,13 @@ function CompareContent() {
   const searchParams = useSearchParams();
   const ids = searchParams.get("ids") || "";
   const revisions = searchParams.get("revisions") || "";
+  const mode = searchParams.get("mode") || "";
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       <Navbar />
       <PageShell width="page">
-        <Compare ids={ids} revisions={revisions} />
+        <Compare ids={ids} revisions={revisions} mode={mode} />
       </PageShell>
     </div>
   );

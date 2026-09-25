@@ -34,7 +34,7 @@ import {
 // 槽位常量与篮子读写统一到 lib/compareBasket.ts（含跨标签页同步）；重新导出保持既有引用可用。
 export { COMPARE_MIN_SLOTS, COMPARE_MAX_SLOTS };
 
-export function Compare({ ids, revisions }: { ids: string; revisions?: string }) {
+export function Compare({ ids, revisions, mode }: { ids: string; revisions?: string; mode?: string }) {
   const { t, tr, locale } = useI18n();
   // 定义只有这一份来源：CatalogProvider 只留模块状态与实例初始化状态，从不持有定义，
   // 以前这里取的是 Provider 的 definition，恒为 undefined，字段名与枚举值一律裸露。
@@ -300,38 +300,61 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
     [items],
   );
 
+  // 变更对比：带 ?revisions= 即在（历史页勾选两版进来），或页签切过去。
+  // 只带 mode=revisions 而不带 revisions 不是死路了——选取器就在对比页里。
+  const revisionMode = !!revisions || mode === "revisions";
+  const entityQuery = selectedIds.length ? `?ids=${encodeURIComponent(selectedIds.join(","))}` : "";
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
-        <div>
-          <div className="flex items-center gap-2.5 mb-1.5">
-            <span className="p-2 rounded-xl bg-primary/10 text-primary">
-              <ArrowRightLeft className="w-5 h-5" />
-            </span>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground m-0">
-              {revisions ? t("compare.modeRevisions") : t("catalog.compare")}
-            </h1>
+        <div className="flex items-center gap-2.5">
+          <span className="p-2 rounded-xl bg-primary/10 text-primary">
+            <ArrowRightLeft className="w-5 h-5" />
+          </span>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground m-0">
+            {t("catalog.compare")}
+          </h1>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* 两种对比共用一个 /compare：实体横向对比，与修订级变更 diff。 */}
+          <div className="inline-flex rounded-lg border border-border bg-muted/20 p-1" role="tablist">
+            <Link
+              href={`/compare${entityQuery}`}
+              role="tab"
+              aria-selected={!revisionMode}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-fast ease-soft ${
+                !revisionMode ? "bg-card text-foreground shadow-xs font-semibold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t("compare.modeEntities")}
+            </Link>
+            <Link
+              href={`/compare?mode=revisions${revisions ? `&revisions=${encodeURIComponent(revisions)}` : ""}`}
+              role="tab"
+              aria-selected={revisionMode}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-fast ease-soft ${
+                revisionMode ? "bg-card text-foreground shadow-xs font-semibold" : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {t("compare.modeRevisions")}
+            </Link>
           </div>
-          {!revisions && (
-            <p className="text-sm text-muted-foreground m-0 max-w-2xl">
-              {t("catalog.compareDesc")}
-            </p>
+          {!revisionMode && selectedIds.length > 0 && (
+            <button
+              type="button"
+              onClick={clearAll}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg border border-border hover:border-destructive/30 transition-all self-start sm:self-auto cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{t("catalog.compareClear")}</span>
+            </button>
           )}
         </div>
-        {!revisions && selectedIds.length > 0 && (
-          <button
-            type="button"
-            onClick={clearAll}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg border border-border hover:border-destructive/30 transition-all self-start sm:self-auto cursor-pointer"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span>{t("catalog.compareClear")}</span>
-          </button>
-        )}
       </div>
 
-      {revisions ? (
-        <RevisionsCompare query={revisions} />
+      {revisionMode ? (
+        <RevisionsCompare query={revisions || ""} />
       ) : (
       <>
       <section className="bg-card border border-border rounded-2xl p-5 shadow-sm">
@@ -456,9 +479,6 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
                 </div>
                 <span className="text-xs font-semibold text-foreground/80 group-hover:text-primary transition-colors duration-fast ease-soft">
                   {t("catalog.compareSlotIndex")} #{index + 1}
-                </span>
-                <span className="text-[11px] text-muted-foreground mt-0.5 group-hover:text-foreground/70 transition-colors duration-fast ease-soft">
-                  {t("catalog.compareSlotEmpty")}
                 </span>
                 <span className="text-[10px] text-muted-foreground/60 mt-2 px-1.5 py-0.5 rounded bg-muted/30 group-hover:bg-primary/10 group-hover:text-primary transition-colors duration-fast ease-soft line-clamp-1">
                   {t("catalog.compareSlotClickToAdd")}
@@ -631,13 +651,8 @@ export function Compare({ ids, revisions }: { ids: string; revisions?: string })
 
           {selectedIds.length < maxSlots && searchResults.length === 0 && recentEntities.length > 0 && (
             <div className="mt-5 pt-4 border-t border-border">
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                <span className="text-xs font-bold text-foreground">
-                  {t("catalog.compareDemoHint")}
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  {t("catalog.compareQuickPickTip")}
-                </span>
+              <div className="text-xs font-bold text-foreground mb-3">
+                {t("catalog.compareDemoHint")}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {recentEntities.slice(0, 8).map((r) => {
