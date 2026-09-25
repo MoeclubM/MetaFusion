@@ -12,6 +12,7 @@ import { kindIcon } from "@/lib/kindIcons";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions, getKindName, getTagName, getTagNames } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
+import { coverUrl, type CoverBearing } from "@/lib/cover";
 import { PageShell, PageHeader } from "@/components/ui/PageShell";
 import { Card } from "@/components/ui/Card";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
@@ -30,7 +31,8 @@ import { TabPanel } from "@/components/ui/TabPanel";
 import { Select } from "@/components/ui/Select";
 import { languageLabel, searchLanguages } from "@/lib/languages";
 
-interface EntityItem {
+/** 列表项：图片结构复用 lib/cover 的 CoverBearing（首张即封面只在那一处定义）。 */
+interface EntityItem extends CoverBearing {
   id: string;
   kind: string;
   title: string;
@@ -39,7 +41,6 @@ interface EntityItem {
   attributes?: { tags?: string[] };
   status: string;
   version: number;
-  pictures?: { url: string }[];
   work_id?: string;
   release_id?: string;
   translations?: Record<string, { title: string; summary?: string; aliases?: string[] }>;
@@ -674,6 +675,8 @@ function ExploreInner() {
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
                   // 角标 = 实体类型（kind）；业务类型留在正文的类型标签里，不做成"分类"角标。
                   const badgeLabel = kindLabel(item.kind);
+                  // 列表/网格只展示封面（首张图）：多图画廊在详情页。
+                  const cover = coverUrl(item);
 
                   return (
                     <EntityCard
@@ -686,7 +689,7 @@ function ExploreInner() {
                       tags={getTagNames(definitions, item.attributes?.tags, locale)}
                       status={item.status}
                       statusLabel={tr("catalog.status." + item.status, item.status)}
-                      pictureUrl={item.pictures && item.pictures[0]?.url}
+                      pictureUrl={cover}
                     />
                   );
                 })}
@@ -698,6 +701,8 @@ function ExploreInner() {
                   const displayTitle = getLocalizedTitle(item, locale, titleOrder);
                   // 角标 = 实体类型（kind）；业务类型留在正文的类型标签里，不做成"分类"角标。
                   const badgeLabel = kindLabel(item.kind);
+                  // 列表视图同样是"只看封面"：取值走 lib/cover，多图只在详情页成廊展示。
+                  const cover = coverUrl(item);
 
                   return (
                     <Link
@@ -707,8 +712,8 @@ function ExploreInner() {
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-11 h-11 rounded-lg bg-black/[0.03] dark:bg-black/40 border border-line shrink-0 overflow-hidden flex items-center justify-center">
-                          {item.pictures && item.pictures[0]?.url ? (
-                            <img src={item.pictures[0].url} alt={displayTitle} className="w-full h-full object-cover" />
+                          {cover ? (
+                            <img src={cover} alt={displayTitle} className="w-full h-full object-cover" />
                           ) : (
                             <KindIcon className="w-5 h-5 text-text-muted" />
                           )}

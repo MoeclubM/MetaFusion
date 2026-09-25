@@ -26,7 +26,9 @@ import { EntityCommentComposer } from "@/components/community/EntityCommentCompo
 import ReportButton from "@/components/report/ReportButton";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
 import { CoverOriginNote } from "@/components/common/CoverOriginNote";
-import { ownCoverUrl, resolveCover } from "@/lib/cover";
+// 图谱/关联列表只看封面（首张图）：取值走 lib/cover。本页已有一个同名的局部变量
+// （派生链解析出的展示封面），所以这里按 firstCoverUrl 引入，避免自我遮蔽。
+import { ownCoverUrl, resolveCover, coverUrl as firstCoverUrl } from "@/lib/cover";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useCompareBasket } from "@/lib/compareBasket";
 import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
@@ -252,7 +254,7 @@ const releaseFacets = useMemo(
  entity_id: otherId,
  entity_name: other.title,
  entity_type: other.kind,
- cover_url: other.pictures?.[0]?.url,
+ cover_url: firstCoverUrl(other) || undefined,
  relationship_type: r.type,
  relationship_name: name,
  direction: forward ? "forward" : "reverse",
@@ -274,7 +276,7 @@ const staffCredits = useMemo<StaffCredit[]>(
  // 关系图谱拓扑：中心作品 + 关系对端，本地构建（无需独立 graph 端点）。
  const graphData = useMemo<{ nodes: GraphNode[]; links: GraphLink[] } | null>(() => {
  if (!work) return null;
- const nodes: GraphNode[] = [{ id: work.id!, name: work.title || "", type: "work", category: "work", level: 0, cover_image_url: work.pictures?.[0]?.url, status: work.status }];
+ const nodes: GraphNode[] = [{ id: work.id!, name: work.title || "", type: "work", category: "work", level: 0, cover_image_url: firstCoverUrl(work) || undefined, status: work.status }];
  const inGraph = new Set([work.id]);
  const links: GraphLink[] = [];
  for (const r of relations) {
@@ -283,7 +285,7 @@ const staffCredits = useMemo<StaffCredit[]>(
  if (!other) continue;
  if (!inGraph.has(otherId)) {
  inGraph.add(otherId);
- nodes.push({ id: otherId, name: other.title, type: other.kind, category: other.kind, level: 1, cover_image_url: other.pictures?.[0]?.url, status: other.status });
+ nodes.push({ id: otherId, name: other.title, type: other.kind, category: other.kind, level: 1, cover_image_url: firstCoverUrl(other) || undefined, status: other.status });
  }
  links.push({
  source: r.source_id,

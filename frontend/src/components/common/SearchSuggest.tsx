@@ -6,16 +6,17 @@ import { Search } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions, getKindName } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
+import { coverUrl, type CoverBearing } from "@/lib/cover";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { kindIcon } from "@/lib/kindIcons";
 
-interface SuggestItem {
+/** /catalog/suggest 的联想项：图片结构复用 lib/cover 的 CoverBearing，不再自带一份 pictures。 */
+interface SuggestItem extends CoverBearing {
   id: string;
   kind: string;
   title: string;
   original_language?: string;
   translations?: Record<string, { title?: string; summary?: string; aliases?: string[] }>;
-  pictures?: { url: string }[];
 }
 
 interface SearchSuggestProps {
@@ -188,6 +189,8 @@ export function SearchSuggest({
         >
           {items.map((item, i) => {
             const KindIcon = kindIcon(item.kind);
+            // 缩略图即该条目的封面：取值走 lib/cover（首张图=封面只有一处定义）。
+            const cover = coverUrl(item);
             return (
               <li key={item.id} role="option" aria-selected={i === active}>
                 <button
@@ -203,9 +206,9 @@ export function SearchSuggest({
                   }
                 >
                   <span className="w-7 h-9 rounded-md bg-black/[0.04] dark:bg-black/40 border border-line-subtle shrink-0 overflow-hidden flex items-center justify-center">
-                    {item.pictures && item.pictures[0]?.url ? (
+                    {cover ? (
                       <img
-                        src={item.pictures[0].url}
+                        src={cover}
                         alt=""
                         className="w-full h-full object-contain"
                         loading="lazy"

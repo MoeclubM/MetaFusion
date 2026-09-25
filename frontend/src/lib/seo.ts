@@ -7,6 +7,7 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { getMessages } from "@/i18n/getMessages";
 import { normalizeLocale, parseAcceptLanguage } from "@/i18n/routing";
+import { coverUrl, type CoverBearing } from "./cover";
 import { pickRecordEntry } from "./titles";
 import { SITE_NAME, absoluteUrl } from "./site";
 
@@ -21,13 +22,11 @@ type TranslationRow = {
   aliases?: string[];
 };
 
-type SeoEntity = {
-  id?: string;
+/** 目录实体的 OG 视角：只声明本模块用到的字段，封面结构复用 lib/cover 的 CoverBearing。 */
+type SeoEntity = CoverBearing & {
   kind?: string;
-  title?: string;
   original_language?: string;
   translations?: Record<string, TranslationRow>;
-  pictures?: { url?: string }[];
   attributes?: Record<string, any>;
 };
 
@@ -96,8 +95,12 @@ function siteFallback(): Metadata {
   return { title: SITE_NAME, description: SITE_NAME };
 }
 
-function coverUrl(e: SeoEntity): string | null {
-  const raw = e.pictures?.[0]?.url;
+/**
+ * OG / twitter 缩略图：地址本身由 lib/cover 的 `coverUrl` 给出（首张图即封面，全站唯一定义），
+ * 这里只负责把可能的同源相对路径补成绝对地址——分享预览的抓取方没有本站 origin。
+ */
+function ogImage(e: SeoEntity): string | null {
+  const raw = coverUrl(e);
   return raw ? absoluteUrl(raw) : null;
 }
 
@@ -166,7 +169,7 @@ export async function entityMetadata(id: string, routePrefix: string): Promise<M
   const displayTitle = (title || entity.title || "").trim();
   if (!displayTitle) return siteFallback();
   const description = clamp(body || structuredDescription(entity, locale) || displayTitle);
-  return build(displayTitle, description, `${routePrefix}/${entity.id || id}`, coverUrl(entity), "article");
+  return build(displayTitle, description, `${routePrefix}/${entity.id || id}`, ogImage(entity), "article");
 }
 
 /** 用户主页的 metadata（账号服务 /users/:id；取不到回落站点级）。 */

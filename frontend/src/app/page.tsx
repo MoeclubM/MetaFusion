@@ -7,6 +7,7 @@ import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useDefinitions, getKindName, getTagNames, type KindMap } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
+import { coverUrl, type CoverBearing } from "@/lib/cover";
 import { PageContainer, PageShell } from "@/components/ui/PageShell";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useAuth } from "@/lib/authContext";
@@ -25,7 +26,8 @@ import {
 } from "@/lib/homeSections";
 import { Sparkles, Sliders } from "lucide-react";
 
-type EntityItem = {
+/** 首页分区条目：图片结构复用 lib/cover 的 CoverBearing（首张即封面只在那一处定义）。 */
+type EntityItem = CoverBearing & {
   id: string;
   kind: string;
   title: string;
@@ -33,7 +35,6 @@ type EntityItem = {
   translations?: Record<string, { title?: string; summary?: string; aliases?: string[] }>;
   types?: string[];
   attributes?: { tags?: string[] };
-  pictures?: { url: string }[];
   version?: number;
 };
 
@@ -252,6 +253,8 @@ export default function HomePage() {
                     // 角标显示**实体类型**（八骨架 kind），不是业务分类：
                     // 分类由货架（catalog.shelves）承担，业务类型在卡片正文里另行展示。
                     const badge = badgeFor(item.kind, kinds, locale, tr);
+                    // 首页分区只看封面（首张图）：多图画廊在详情页。
+                    const cover = coverUrl(item);
                     return (
                       <EntityCard
                         key={item.id}
@@ -261,7 +264,7 @@ export default function HomePage() {
                         title={displayTitle}
                         baseTitle={item.title}
                         tags={getTagNames(definitions, item.attributes?.tags, locale)}
-                        pictureUrl={item.pictures && item.pictures[0]?.url}
+                        pictureUrl={cover}
                       />
                     );
                   })}

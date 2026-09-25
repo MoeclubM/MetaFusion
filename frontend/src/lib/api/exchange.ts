@@ -28,7 +28,12 @@ export interface ExchangeTranslation {
 export interface ExchangePicture {
   url?: string;
   caption?: Record<string, string>;
+  /** 这张图自身的时间：只作元信息，**不决定顺序**（数组顺序即展示顺序，见 lib/cover.ts）。 */
   taken_at?: string;
+  /** 用途码（definitions 的 picture_role 词表）；空 = 未声明用途。 */
+  role?: string;
+  /** 自托管封面在存储服务里的 assets UUID。 */
+  asset_id?: string;
   source?: { kind?: string; citation?: string; url?: string };
 }
 
