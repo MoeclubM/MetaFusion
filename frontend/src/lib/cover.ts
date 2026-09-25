@@ -82,3 +82,51 @@ export function clampCoverRatio(ratio: number): number {
   if (!isFinite(ratio) || ratio <= 0) return GRID_COVER_ASPECT;
   return Math.min(MAX_COVER_ASPECT, Math.max(MIN_COVER_ASPECT, ratio));
 }
+
+/**
+ * 封面派生：实体自己没有 `pictures` 时，按"直接关联实体"顺序借用一张。
+ *
+ * 为什么必须把 `origin` 一路带到界面上：目录里曾出现过把整张借来的图当成本实体自己的
+ * 封面来标注的情况（把所属发行的通用美术写成"该曲官方封面"、把官网首页横幅写成
+ * "官方主视觉"）。展示侧借用是合理的兜底，**不写明借自哪里**才是问题，
+ * 所以 `origin !== "self"` 时调用方必须渲染 `CoverOriginNote`。
+ *
+ * 这里只认结构，不 import Entity：列表与详情用的是同一个 DTO，
+ * 关联实体只有 id 时传 `undefined` 即可，不会误判成"有封面"。
+ */
+export type CoverOrigin = "self" | "release" | "work" | "subject_work" | "mother_work" | "none";
+
+export interface CoverBearing {
+  id?: string;
+  title?: string;
+  pictures?: Array<{ url?: string | null } | null> | null;
+}
+
+export interface ResolvedCover<T extends CoverBearing = CoverBearing> {
+  url: string;
+  origin: CoverOrigin;
+  /** 提供这张图的实体（origin 为 self 时就是本实体；none 时为 undefined） */
+  from?: T;
+}
+
+export type CoverChainHop<T extends CoverBearing = CoverBearing> = {
+  origin: Exclude<CoverOrigin, "self" | "none">;
+  entity: T | null | undefined;
+};
+
+/** 只看实体自己收录的第一张图；空串表示没有。 */
+export const ownCoverUrl = (entity?: CoverBearing | null): string =>
+  String(entity?.pictures?.[0]?.url || "").trim();
+
+export function resolveCover<T extends CoverBearing>(
+  self: T | null | undefined,
+  chain: CoverChainHop<T>[] = [],
+): ResolvedCover<T> {
+  const own = ownCoverUrl(self);
+  if (own) return { url: own, origin: "self", from: self ?? undefined };
+  for (const hop of chain) {
+    const url = ownCoverUrl(hop.entity);
+    if (url) return { url, origin: hop.origin, from: hop.entity ?? undefined };
+  }
+  return { url: "", origin: "none" };
+}

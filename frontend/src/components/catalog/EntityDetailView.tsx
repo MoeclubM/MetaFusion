@@ -5,6 +5,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
+import { CoverOriginNote } from "@/components/common/CoverOriginNote";
+import { resolveCover } from "@/lib/cover";
 import { EntityCover } from "@/components/common/EntityCover";
 import FavoriteButton from "@/components/FavoriteButton";
 import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
@@ -397,30 +399,19 @@ export function EntityDetailView({ id }: { id: string }) {
     void load();
   }, [id, user?.id]);
 
-  // 封面继承决策：比例一律留给 AdaptiveCover（自然比例优先），这里不做按 kind 的硬编码；
-  // 服务端没有 cover_aspect 字段，所以本函数恒返回 aspect: null。
-  const resolvedCover = useMemo(() => {
-    if (!entity) return { src: null, aspect: null as string | null, sourceName: "" };
-
-    // 1. Direct picture
-    if (entity.pictures && entity.pictures.length > 0 && entity.pictures[0]?.url) {
-      return { src: entity.pictures[0].url, aspect: null as string | null, sourceName: "entity" };
-    }
-    // 2. Mother work picture
-    if (motherWork?.pictures && motherWork.pictures.length > 0 && motherWork.pictures[0]?.url) {
-      return { src: motherWork.pictures[0].url, aspect: null as string | null, sourceName: "mother_work" };
-    }
-    // 3. Subject works from release or occurrences
-    if (subjectWorks.length > 0 && subjectWorks[0]?.pictures?.[0]?.url) {
-      return { src: subjectWorks[0].pictures[0].url, aspect: null as string | null, sourceName: "subject_work" };
-    }
-    // 4. Occurrences release pictures
-    if (occurrences.length > 0 && occurrences[0]?.release?.pictures?.[0]?.url) {
-      return { src: occurrences[0].release.pictures[0].url, aspect: null as string | null, sourceName: "release" };
-    }
-
-    return { src: null, aspect: null as string | null, sourceName: "procedural" };
-  }, [entity, motherWork, subjectWorks, occurrences]);
+  // 封面派生链：本实体 → 母作品 → 发行对象作品 → 所属发行。比例一律留给 AdaptiveCover
+  // （自然比例优先），这里不做按 kind 的硬编码；服务端也没有 cover_aspect 字段。
+  // 派生出的封面必须由 CoverOriginNote 写明借自哪一条——把借来的图当本实体自己的封面
+  // 展示，正是目录里出过的标注事故（所属发行美术被写成"该曲官方封面"）。
+  const resolvedCover = useMemo(
+    () =>
+      resolveCover(entity, [
+        { origin: "mother_work", entity: motherWork },
+        { origin: "subject_work", entity: subjectWorks[0] },
+        { origin: "release", entity: occurrences[0]?.release },
+      ]),
+    [entity, motherWork, subjectWorks, occurrences],
+  );
 
   // Extract Bangumi info with proper type routing (Strictly entity-owned, never borrowed)
   const bangumiInfo = useMemo(() => {
@@ -568,7 +559,7 @@ export function EntityDetailView({ id }: { id: string }) {
       };
     };
     const nodes: GraphNode[] = [
-      { ...nodeOf(centerId, 0), cover_image_url: resolvedCover.src || undefined },
+      { ...nodeOf(centerId, 0), cover_image_url: resolvedCover.url || undefined },
     ];
     const links: GraphLink[] = [];
     const seenNodes = new Set<string>([centerId]);
@@ -1093,16 +1084,20 @@ export function EntityDetailView({ id }: { id: string }) {
               {/* 详情页是单张展示：比例在允许区间内跟着图片走（见 AdaptiveCover），
                   这里给上下限兜底——窄屏侧栏也不至于把长图压成一条、或让大图撑满整屏。 */}
               <AdaptiveCover
-                src={resolvedCover.src}
+                src={resolvedCover.url}
                 alt={localizedTitle}
                 title={localizedTitle}
                 originalTitle={entity.title}
                 id={entity.id}
-                aspect={resolvedCover.aspect}
                 tags={Array.isArray(entity.attributes?.tags) ? (entity.attributes.tags as string[]) : undefined}
                 minHeight={160}
                 maxHeight="60vh"
                 className="w-full h-auto"
+              />
+              <CoverOriginNote
+                origin={resolvedCover.origin}
+                name={resolvedCover.from && resolvedCover.from.id !== entity.id ? title(resolvedCover.from, locale, titleOrder) : ""}
+                className="px-3 pb-2"
               />
             </Card>
 
@@ -1311,7 +1306,7 @@ export function EntityDetailView({ id }: { id: string }) {
                   >
                     <div className="w-12 h-12 rounded-lg overflow-hidden dark:bg-white/5 shrink-0 border border-line">
                       <AdaptiveCover
-                        src={motherWork.pictures?.[0]?.url || resolvedCover.src}
+                        src={motherWork.pictures?.[0]?.url || resolvedCover.url}
                         alt={title(motherWork, locale, titleOrder)}
                         title={title(motherWork, locale, titleOrder)}
                         id={motherWork.id}

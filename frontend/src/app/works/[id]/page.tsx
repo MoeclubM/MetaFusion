@@ -25,6 +25,8 @@ import { getForumEntityUrl } from "@/lib/services";
 import { EntityCommentComposer } from "@/components/community/EntityCommentComposer";
 import ReportButton from "@/components/report/ReportButton";
 import { AdaptiveCover } from "@/components/common/AdaptiveCover";
+import { CoverOriginNote } from "@/components/common/CoverOriginNote";
+import { ownCoverUrl, resolveCover } from "@/lib/cover";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
 import { useCompareBasket } from "@/lib/compareBasket";
 import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
@@ -398,7 +400,12 @@ const staffCredits = useMemo<StaffCredit[]>(
  return "";
  })();
  const tags = Array.isArray(work.attributes?.tags) ? (work.attributes?.tags as any[]).map((v) => String(v)).filter(Boolean) : [];
- const coverUrl = work.pictures?.[0]?.url;
+ // 封面派生：作品自己没有图时借用它所属发行的封面。发行列表本来就在 state 里（发行版
+ // 侧栏与筛选都用它），所以这条兜底不产生额外请求。origin 不是 self 时下面必须渲染
+ // CoverOriginNote——把借来的图当本条目自己的封面展示，正是目录里出过的标注事故。
+ const coverDonorRelease = releaseEntities.find((e) => ownCoverUrl(e));
+ const cover = resolveCover(work, [{ origin: "release", entity: coverDonorRelease }]);
+ const coverUrl = cover.url || undefined;
  // 标题旁的事实徽章（发行日期、平台、话数、放送电视台…）全部由模板声明决定。
  const badges = entityBadges(work, defs, locale);
 
@@ -450,6 +457,11 @@ const staffCredits = useMemo<StaffCredit[]>(
          <AdaptiveCover src={coverUrl} alt={title} title={title}
            id={work.id} tags={tags} minHeight={160} maxHeight="60vh"
            className="rounded-md overflow-hidden border border-line" />
+         <CoverOriginNote
+           origin={cover.origin}
+           name={cover.from && cover.from.id !== work.id ? entityTitle(cover.from, locale) : ""}
+           className="mt-1.5"
+         />
        </div>
        <section className={styles.facts}>
          <h2>{t("work.detail.information")}</h2>

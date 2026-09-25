@@ -14,6 +14,8 @@ import { GroupAttributeInline, LocatorInline } from "@/components/catalog/Templa
 import { orderedTracksWithDepth } from "@/lib/trackTree";
 import { PageShell } from "@/components/ui/PageShell";
 import { AdaptiveCardCover } from "@/components/common/AdaptiveCardCover";
+import { CoverOriginNote } from "@/components/common/CoverOriginNote";
+import { resolveCover } from "@/lib/cover";
 import ReportButton from "@/components/report/ReportButton";
 import { classifyLoadFailure, DetailNotFound, DetailUnavailable, type LoadFailureKind } from "@/components/common/DetailLoadStates";
 import { EntityIdentityHeader } from "@/components/entity/EntityIdentityHeader";
@@ -179,9 +181,13 @@ export default function MediumDetailPage() {
   const roleCode = String(medium?.attributes?.role || "");
   const roleLabel = roleCode ? getTermName(defs, "role", roleCode, locale) : "";
   // 封面继承链与 /catalog/[id] 一致：载体自身 → 所属发行版 → 发行对象作品。
-  // 载体自身通常没有封面图，回落到发行版封面才是这张碟实际用的那张。
-  const coverUrl =
-    medium?.pictures?.[0]?.url || release?.pictures?.[0]?.url || work?.pictures?.[0]?.url || undefined;
+  // 载体自身通常没有封面图，回落到发行版封面才是这张碟实际用的那张——所以借用来源
+  // 必须写明（见下方 CoverOriginNote），否则看起来就像这张碟自己有一张封面。
+  const cover = resolveCover(medium, [
+    { origin: "release", entity: release },
+    { origin: "work", entity: work },
+  ]);
+  const coverUrl = cover.url || undefined;
 
   // 正在收敛到规范路由：停在加载态，绝不按载体模板渲染别的种类。
   const redirecting = useKindRedirect("medium", kindMismatch, mediumId);
@@ -283,6 +289,11 @@ export default function MediumDetailPage() {
                   aspectClassName="w-full h-full"
                 />
               </div>
+              <CoverOriginNote
+                origin={cover.origin}
+                name={cover.from && cover.from.id !== medium?.id ? entityTitle(cover.from, locale) : ""}
+                className="mt-1"
+              />
             </div>
           </header>
           </div>
