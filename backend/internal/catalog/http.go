@@ -322,7 +322,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			respond(c, nil, err)
 			return
 		}
-		respond(c, gin.H{"id": v.ID, "state": v.State, "base_version": v.BaseVersion, "document": v.Document, "created_at": v.CreatedAt, "kinds": KindNameRecords()}, nil)
+		respond(c, gin.H{"id": v.ID, "state": v.State, "base_version": v.BaseVersion, "document": v.Document, "created_at": v.CreatedAt, "kinds": KindNameRecords(), "relationship_rules": RelationshipRules(v.Document)}, nil)
 	})
 	// 标签聚合：标签不是独立字典表，而是散落在各实体的 attributes.tags 中。
 	// jsonb_array_elements_text 展开数组就地统计频次，供前端标签云与筛选建议；
@@ -595,6 +595,15 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			"entities":   h.resolveRelated(c.Request.Context(), self, v, user(c)),
 			"subject_id": self.ID,
 		}, nil)
+	})
+	cat.GET("/entities/:id/links", routeLimiter(120), func(c *gin.Context) {
+		limit, offset, err := listPagination(c)
+		if err != nil {
+			respond(c, nil, err)
+			return
+		}
+		page, err := s.EntityLinks(c.Request.Context(), c.Param("id"), limit, offset, user(c))
+		respond(c, page, err)
 	})
 	cat.GET("/entities/:id/occurrences", func(c *gin.Context) {
 		v, err := s.Occurrences(c.Request.Context(), c.Param("id"), user(c))

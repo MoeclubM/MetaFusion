@@ -133,7 +133,7 @@ func TestImporterRefParsing(t *testing.T) {
 	}
 
 	// subject type → work type 映射（Bangumi 文档：1 书籍 2 动画 3 音乐 4 游戏 6 三次元）。
-	for in, want := range map[int]string{1: "novel", 2: "animation", 3: "music", 4: "indie_game", 6: "personal", 0: "", 9: ""} {
+	for in, want := range map[int]string{1: "novel", 2: "animation", 3: "music", 4: "game", 6: "personal", 0: "", 9: ""} {
 		if got := bangumiWorkType(in); got != want {
 			t.Fatalf("work type %d: got %q want %q", in, got, want)
 		}

@@ -391,6 +391,7 @@ func Defaults() Definitions {
 		// 写真集：卷数 + 摄影署名（作者文本字段承载原始署名）。
 		"photobook": {"volume_count", "author"},
 		// 游戏：平台与话数/卷数均可能。
+		"game":         {"platform", "episodes", "volume_count"},
 		"indie_game":   {"platform", "episodes"},
 		"visual_novel": {"platform", "episodes", "volume_count"},
 		"personal":     {"duration"},
@@ -403,6 +404,7 @@ func Defaults() Definitions {
 		{"animation", names4("动画", "動畫", "アニメーション", "Animation"), "screen"},
 		{"film", names4("电影", "電影", "映画", "Film"), "screen"},
 		{"photobook", names4("写真集", "寫真集", "写真集", "Photobook"), "photography"},
+		{"game", names4("游戏", "遊戲", "ゲーム", "Game"), "game"},
 		{"indie_game", names4("独立游戏", "獨立遊戲", "インディーゲーム", "Independent game"), "game"},
 		{"visual_novel", names4("视觉小说", "視覺小說", "ビジュアルノベル", "Visual novel"), "game"},
 		{"personal", names4("个人创作", "個人創作", "個人制作", "Personal creation"), "generic"},

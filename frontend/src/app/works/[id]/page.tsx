@@ -37,7 +37,7 @@ import { WorkFacts, entityBadges } from "@/components/work/WorkFacts";
 import dynamic from "next/dynamic";
 import { StaffCharacterSection, StaffCredit } from "@/components/entity/StaffCharacterSection";
 import { buildStaffCredits } from "@/components/entity/staffCredits";
-import { WorkContentDirectory } from "@/components/work/WorkContentDirectory";
+import { WorkContentDirectory, hasWorkDirectoryContent, useWorkDirectoryData } from "@/components/work/WorkContentDirectory";
 const InteractiveRelationGraph = dynamic(() => import("@/components/graph/InteractiveRelationGraph").then(m => m.InteractiveRelationGraph), { ssr: false });
 
 // 关系条目（/catalog/entities/:id/relations 的 items）。
@@ -149,6 +149,12 @@ export default function WorkDirectoryPage() {
  // 后台可改，代码不写死 edition_type/format/country 等字段码。
  // 作品自身的信息面板不在这里取字段码：WorkFacts 会按作品类型引用的模板渲染。
 const { definitions: defs } = useDefinitions();
+const directoryData = useWorkDirectoryData(work?.id || "");
+const directoryVisible = directoryData.status !== "ready" || hasWorkDirectoryContent(
+  directoryData,
+  work?.id || "",
+  (code) => defs?.relations?.[code]?.aggregate === true,
+);
 // 作品自身类型引用的模板：目录形态（tree/list）等展示声明从这里取，代码不写死。
 const workTemplate = useMemo(() => {
   const codes = work?.types || [];
@@ -505,12 +511,13 @@ const staffCredits = useMemo<StaffCredit[]>(
                </section>
              ),
            },
-           {
-             id: "contents",
-             label: t("work.contents.title"),
-             content: (
-               <section className={styles.section}>
-                 <WorkContentDirectory workId={work.id!} directory={workTemplate?.directory} />
+            {
+              id: "contents",
+              label: t("work.contents.title"),
+              visible: directoryVisible,
+              content: (
+                <section className={styles.section}>
+                  <WorkContentDirectory workId={work.id!} data={directoryData} directory={workTemplate?.directory} />
                </section>
              ),
            },

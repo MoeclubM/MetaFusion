@@ -141,6 +141,21 @@ export interface KindDef {
 
 export type KindMap = Record<string, KindDef>;
 
+export interface RelationshipRule {
+  code: string;
+  class: "ownership" | "placement" | "inclusion" | "semantic";
+  names: Record<string, string>;
+  reverse_names: Record<string, string>;
+  source_kinds: string[];
+  target_kinds: string[];
+  max_incoming: number;
+  max_outgoing: number;
+  ordered: boolean;
+  scope?: string;
+  read_only: boolean;
+  enabled: boolean;
+}
+
 export interface DynamicDefinitions {
   types: Record<string, TypeDef>;
   fields: Record<string, FieldDef>;
@@ -242,6 +257,8 @@ export function effectiveSchemeFields(matched: SchemeDef[]): string[] {
 let cachedDefinitions: DynamicDefinitions | null = null;
 // 骨架名称与定义文档同批缓存：两者一起随版本刷新，避免出现"文档换了名字没换"。
 let cachedKinds: KindMap = {};
+let cachedRelationshipRules: RelationshipRule[] = [];
+let cachedRulesSignature = "";
 // 已发布定义的版本行 id：后台发布新版本后 id 变化，据此失效缓存。
 let cachedVersion = "";
 // 版本行 id 的数字形态：编辑器的"基线版本"就是它，必须与文档同源同一份响应，
@@ -261,16 +278,20 @@ async function loadDefinitions(): Promise<DynamicDefinitions | null> {
     .then((res) => (res.ok ? res.json() : null))
     .catch(() => null);
   if (!data?.document) return null;
-  if (data.kinds && typeof data.kinds === "object") cachedKinds = data.kinds as KindMap;
   // 乱序响应防护：更早发出的请求（seq 更小）晚到且已被更新响应应用时丢弃。
   if (seq < appliedSeq) return cachedDefinitions;
   appliedSeq = seq;
+  if (data.kinds && typeof data.kinds === "object") cachedKinds = data.kinds as KindMap;
+  const rules = Array.isArray(data.relationship_rules) ? data.relationship_rules as RelationshipRule[] : [];
+  const rulesSignature = JSON.stringify(rules);
   const version = String(data.id ?? "");
   const versionId = Number(data.id);
   cachedVersionId = Number.isFinite(versionId) ? versionId : null;
-  if (!cachedDefinitions || version !== cachedVersion) {
+  if (!cachedDefinitions || version !== cachedVersion || rulesSignature !== cachedRulesSignature) {
     cachedVersion = version;
     cachedDefinitions = data.document;
+    cachedRelationshipRules = rules;
+    cachedRulesSignature = rulesSignature;
     listeners.forEach((notify) => notify(cachedDefinitions));
   }
   return cachedDefinitions;
@@ -324,6 +345,7 @@ export function useDefinitions() {
   const [defs, setDefs] = useState<DynamicDefinitions | null>(cachedDefinitions);
   const [kinds, setKinds] = useState<KindMap>(cachedKinds);
   const [versionId, setVersionId] = useState<number | null>(cachedVersionId);
+  const [relationshipRules, setRelationshipRules] = useState<RelationshipRule[]>(cachedRelationshipRules);
   const [loading, setLoading] = useState<boolean>(!cachedDefinitions);
 
   useEffect(() => {
@@ -333,6 +355,7 @@ export function useDefinitions() {
         setDefs(d);
         setKinds(cachedKinds);
         setVersionId(cachedVersionId);
+        setRelationshipRules(cachedRelationshipRules);
         setLoading(false);
       }
     };
@@ -345,6 +368,7 @@ export function useDefinitions() {
         setDefs(d);
         setKinds(cachedKinds);
         setVersionId(cachedVersionId);
+        setRelationshipRules(cachedRelationshipRules);
         setLoading(false);
       }
     });
@@ -359,7 +383,7 @@ export function useDefinitions() {
   }, []);
 
   // versionId 与 definitions 同批更新（同一次响应解析出来的），供编辑器的基线版本使用。
-  return { definitions: defs, kinds, versionId, loading };
+  return { definitions: defs, kinds, relationshipRules, versionId, loading };
 }
 
 /**

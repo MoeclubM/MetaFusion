@@ -1030,7 +1030,7 @@ func bangumiWorkType(t int) string {
 	case 3:
 		return "music"
 	case 4:
-		return "indie_game"
+		return "game"
 	case 6:
 		return "personal"
 	default:

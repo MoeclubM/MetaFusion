@@ -27,7 +27,7 @@ package catalog
 //   |-----------------|-------------------------------------|--------------------------------------------|------|
 //   | name            | OriginalTitle（与 Title 配对）       | translations 回填 / title                  | — |
 //   | name_cn（空）   | Title=name（bangumiTitlePair 回退）  | title=name                                 | 本快照 name_cn=""，标题=原标题 |
-//   | type=2          | MediaType="animation"，catalog_metadata.bangumi_type=2 | types=["animation"]（经 workTypeFromMetadata 还原） | 1=novel 2=animation 3=music 4=indie_game 6=personal |
+//   | type=2          | MediaType="animation"，catalog_metadata.bangumi_type=2 | types=["animation"]（经 workTypeFromMetadata 还原） | 1=novel 2=animation 3=music 4=game 6=personal |
 //   | date            | ReleaseDate                         | 不直接落库（发行日期落在 release.attributes.edition_date） | 需合法 YYYY[-MM[-DD]] 才收录 |
 //   | platform        | catalog_metadata.bangumi_platform   | 不落库（未知 platform 不虚构类型/属性）     | — |
 //   | summary         | Summary + 翻译行 Summary            | translations 单行时回填 Summary             | 与 person 同规则 |

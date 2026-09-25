@@ -7,11 +7,13 @@ import { Entity, title as entityTitle } from "@/components/catalog/api";
 import { fetchAllPages } from "@/components/catalog/api";
 import { useI18n } from "@/i18n/I18nProvider";
 import { getKindName, getTermName, useDefinitions } from "@/lib/definitions";
+import { fetchApi } from "@/lib/api";
 // 日期值的呈现与信息面板共用同一实现（本地化/图例口径一致，不另写格式化）。
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 
 type WorkContentDirectoryProps = {
   workId: string;
+  data: WorkDirectoryData;
   /** 模板声明的目录形态（definitions.templates[*].directory）：tree 保留层级缩进，
    *  list 拍平为单层编号列表。两者共用同一份数据，只改变呈现，不改变内容。 */
   directory?: string;
@@ -66,6 +68,64 @@ export type RelationRow = {
   position?: number;
 };
 
+export type WorkDirectoryData = {
+  status: "loading" | "ready" | "error";
+  items: Entity[];
+  relations: RelationRow[];
+  relatedEntities: Record<string, Entity>;
+  retry: () => void;
+};
+
+/** 作品页与目录面板共用一次读取，标签可见性和实际内容不会各查各的。 */
+export function useWorkDirectoryData(workId: string): WorkDirectoryData {
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<Omit<WorkDirectoryData, "retry"> & { workId: string }>({
+    workId: "", status: "loading", items: [], relations: [], relatedEntities: {},
+  });
+
+  useEffect(() => {
+    if (!workId) return;
+    let active = true;
+    setState({ workId, status: "loading", items: [], relations: [], relatedEntities: {} });
+    (async () => {
+      try {
+        const [units, exprs, rel] = await Promise.all([
+          fetchAllPages<Entity>(`/catalog/entities?kind=content_unit&work_id=${encodeURIComponent(workId)}`),
+          fetchAllPages<Entity>(`/catalog/entities?kind=expression&work_id=${encodeURIComponent(workId)}`),
+          fetchApi<{ items: RelationRow[]; entities: Record<string, Entity> }>(`/catalog/entities/${encodeURIComponent(workId)}/relations`),
+        ]);
+        if (active) setState({
+          workId, status: "ready", items: [...units, ...exprs],
+          relations: Array.isArray(rel.items) ? rel.items : [],
+          relatedEntities: rel.entities && typeof rel.entities === "object" ? rel.entities : {},
+        });
+      } catch {
+        if (active) setState({ workId, status: "error", items: [], relations: [], relatedEntities: {} });
+      }
+    })();
+    return () => { active = false; };
+  }, [workId, attempt]);
+
+  const retry = () => setAttempt((n) => n + 1);
+  return state.workId === workId
+    ? { ...state, retry }
+    : { status: "loading", items: [], relations: [], relatedEntities: {}, retry };
+}
+
+export function hasWorkDirectoryContent(
+  data: WorkDirectoryData,
+  selfId: string,
+  isAggregate: (code: string) => boolean,
+): boolean {
+  if (data.items.length > 0) return true;
+  return data.relations.some((r) => {
+    if (!isAggregate(r.type)) return false;
+    const peerId = r.source_id === selfId ? r.target_id : r.source_id;
+    const peer = data.relatedEntities[peerId];
+    return peer?.kind === "work" || peer?.kind === "collection";
+  });
+}
+
 export function componentEntries(
   relations: RelationRow[],
   entities: Record<string, Entity>,
@@ -106,69 +166,35 @@ export function componentEntries(
   return { includes, includedIn };
 }
 
-export function WorkContentDirectory({ workId, directory = "tree" }: WorkContentDirectoryProps) {
+export function WorkContentDirectory({ workId, data, directory = "tree" }: WorkContentDirectoryProps) {
   const { t, tr, locale } = useI18n();
   const { definitions: defs, kinds } = useDefinitions();
   // 条目角标的层级名：服务端 definitions.kinds 优先，字典只作兜底（缺键退原始码）。
   const kindLabel = (code: string) =>
     getKindName(kinds, code, locale, tr(`catalog.kind.${code}`, code));
-  const [items, setItems] = useState<DirectoryEntry[]>([]);
-  const [relations, setRelations] = useState<RelationRow[]>([]);
-  const [relatedEntities, setRelatedEntities] = useState<Record<string, Entity>>({});
-  const [loading, setLoading] = useState(true);
+  const items = useMemo(() => data.items.map((e) => toEntry(e, locale)), [data.items, locale]);
+  const loading = data.status === "loading";
 
   // definitions 可能晚于目录数据返回，也可能在后台发布后更新；只重算关系语义，
   // 不因此重复请求整棵章节树与表达列表。
   const { includes: components, includedIn } = useMemo(
     () => componentEntries(
-      relations,
-      relatedEntities,
+      data.relations,
+      data.relatedEntities,
       workId,
       locale,
       (code) => defs?.relations?.[code]?.aggregate === true,
     ),
-    [relations, relatedEntities, workId, locale, defs],
+    [data.relations, data.relatedEntities, workId, locale, defs],
   );
-
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    (async () => {
-      try {
-        // 篇目与表达分开展示，各取各的；不再"有篇目就不看表达"。
-        const [units, exprs] = await Promise.all([
-          fetchAllPages<Entity>(`/catalog/entities?kind=content_unit&work_id=${encodeURIComponent(workId)}`),
-          fetchAllPages<Entity>(`/catalog/entities?kind=expression&work_id=${encodeURIComponent(workId)}`),
-        ]);
-        // 专辑的歌曲以独立 Work 通过 includes 关联：列出组成作品与所属作品，
-        // 而不是把各歌曲的录音复制到专辑之下（那会丢掉歌曲的独立身份）。
-        const rel = await fetch(`/api/catalog/entities/${encodeURIComponent(workId)}/relations`, {
-          credentials: "same-origin",
-        }).then((res) => (res.ok ? res.json() : { items: [], entities: {} }))
-          .catch(() => ({ items: [], entities: {} }));
-        if (!active) return;
-        setItems([...units.map((e) => toEntry(e, locale)), ...exprs.map((e) => toEntry(e, locale))]);
-        setRelations(Array.isArray(rel.items) ? rel.items : []);
-        setRelatedEntities(rel.entities && typeof rel.entities === "object" ? rel.entities : {});
-      } catch {
-        if (active) {
-          setItems([]);
-          setRelations([]);
-          setRelatedEntities({});
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [workId, locale]);
 
   const children = useMemo(() => {
     const grouped = new Map<string, DirectoryEntry[]>();
+    const visibleIds = new Set(items.map((item) => item.id));
     for (const item of items) {
-      const key = item.parentId || "root";
+      // A draft parent may be hidden while a child is visible. Keep the
+      // visible child reachable instead of showing a tab with no rows.
+      const key = item.parentId && visibleIds.has(item.parentId) ? item.parentId : "root";
       const list = grouped.get(key) || [];
       list.push(item);
       grouped.set(key, list);
@@ -248,6 +274,15 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
       </div>
     ));
 
+  if (data.status === "error") return (
+    <div role="alert" className="rounded-lg border border-line p-6 text-center text-sm space-y-2">
+      <p>{t("catalog.listFailed")}</p>
+      <button type="button" onClick={data.retry} className="text-primary hover:underline">{t("catalog.retry")}</button>
+    </div>
+  );
+  if (loading) return <div className="p-6 text-center text-sm text-text-faint">{t("work.contents.loading")}</div>;
+  if (blocks.length === 0) return null;
+
   return (
     <div className="space-y-3">
       {blocks.map((block) => (
@@ -275,19 +310,6 @@ export function WorkContentDirectory({ workId, directory = "tree" }: WorkContent
           )}
         </section>
       ))}
-      {!loading && blocks.length === 0 && (
-        <section className="rounded-lg border border-line bg-surface/80 backdrop-blur-md shadow-soft overflow-hidden">
-          <div className="px-3.5 sm:px-4 py-3 border-b border-line-subtle flex items-center gap-2">
-            <span className="w-9 h-9 grid place-items-center rounded-md bg-primary/10 border border-primary/20">
-              <ListTree className="w-4 h-4 text-primary" strokeWidth={1.5} />
-            </span>
-            <h2 className="font-display text-base font-bold tracking-tight text-text-strong">
-              {t("work.contents.title")}
-            </h2>
-          </div>
-          <div className="p-6 text-center font-mono text-sm text-text-faint">{t("work.contents.empty")}</div>
-        </section>
-      )}
     </div>
   );
 }

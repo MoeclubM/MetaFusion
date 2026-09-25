@@ -365,7 +365,7 @@ export function DefinitionsEditor() {
   // capabilities 缺少模块列表时显示空状态。
   const moduleList = Array.isArray(modules) ? modules : [];
   // 定义文档与版本号必须来自同一份缓存。
-  const { definitions: published, kinds: serverKinds, versionId } = useDefinitions();
+  const { definitions: published, kinds: serverKinds, relationshipRules, versionId } = useDefinitions();
   const [d, setD] = useState<Definitions>();
   const [base, setBase] = useState(0);
   const [versions, setVersions] = useState<DefinitionVersionItem[]>([]);
@@ -635,6 +635,29 @@ export function DefinitionsEditor() {
         />
       )}
       {tab === "relations" && (
+        <>
+        <section className="rounded-md border border-line p-4 space-y-2">
+          <h3 className="font-semibold">{t("catalog.structuralRules")}</h3>
+          <p className="text-sm text-text-faint">{t("catalog.structuralRulesHint")}</p>
+          <ul className="grid gap-2 md:grid-cols-2">
+            {relationshipRules.filter((rule) => rule.read_only).map((rule) => (
+              <li key={rule.code} className="rounded border border-line-subtle px-3 py-2 text-sm">
+                <strong>{local(rule.names, locale, "", rule.code)}</strong>
+                <span className="ml-2 text-text-faint">{t(`catalog.relationshipClass.${rule.class}`)}</span>
+                <div className="text-xs text-text-faint">
+                  {rule.source_kinds.map((kind) => getKindName(serverKinds, kind, locale, kind)).join(", ")}
+                  {" → "}
+                  {rule.target_kinds.map((kind) => getKindName(serverKinds, kind, locale, kind)).join(", ")}
+                </div>
+                <div className="text-xs text-text-faint">
+                  {t("catalog.ruleParentLimit")}: {rule.max_incoming || t("catalog.ruleUnbounded")}
+                  {rule.scope && <> · {t("catalog.ruleScope")}: {getKindName(serverKinds, rule.scope, locale, rule.scope)}</>}
+                  {rule.ordered && <> · {t("catalog.ruleOrdered")}</>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
         <Dictionary
           value={d.relations}
           onChange={(relations) => change({ ...d, relations })}
@@ -783,6 +806,7 @@ export function DefinitionsEditor() {
             </>
           )}
         />
+        </>
       )}
       {tab === "templates" && (
         <Dictionary

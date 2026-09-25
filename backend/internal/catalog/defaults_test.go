@@ -103,7 +103,7 @@ func TestDefaultsWorkFieldsArePerMediaType(t *testing.T) {
 	if !has("novel", "magazine") || !has("novel", "volume_count") {
 		t.Fatalf("novel type missing serialization fields: %v", d.Types["novel"].Fields)
 	}
-	for _, typeCode := range []string{"music", "song", "album", "novel", "animation", "film", "photobook", "indie_game", "visual_novel", "personal"} {
+	for _, typeCode := range []string{"music", "song", "album", "novel", "animation", "film", "photobook", "game", "indie_game", "visual_novel", "personal"} {
 		for _, product := range []string{"catalog_number", "barcode", "isbn", "publisher_name"} {
 			if has(typeCode, product) {
 				t.Fatalf("work type %q should not carry product identifier %q", typeCode, product)
