@@ -71,7 +71,9 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 - UI 文案走 `useI18n()` + 四语字典同步，不硬编码、不用中文兜底；动态术语用 definitions 多语言字段和现成 helper。
 - 实体翻译在统一 DTO 的 `translations`（按 locale 分组，每语种 `title / summary / aliases`）；原语言题名归对应翻译行，不塞实体级 `aliases`。
 - 回退链：请求语言 → en-US → original_language → 基础字段；读写字段分离，展示值不回写。
-- 封面用可考据官方/授权图，不拉伸、不用风景占位；比例只是展示建议（音乐 1:1、影视 2:3、书籍 3:4），**不是可写字段**——`attributes` 里写未声明的键会被 `unknown_field` 拒，导入载荷里的 `release.cover_aspect` 同样被拒（比例不落库）。
+- 封面用可考据官方/授权图；音乐封面可采用 iTunes/Apple Music 官方图，数字发行版也可用其官方专辑页作为权威来源。来源权威不等于自动获得复用授权，仍需单独核验授权。
+- iTunes/Apple Music 封面关联页或专辑链接中的发行 ID 记录为 `external_ids.apple_music`，并与页面/API 的 `collectionId` 或专辑 ID 核对；无法确认时不填。
+- 封面不拉伸、不用风景占位；比例只是展示建议（音乐 1:1、影视 2:3、书籍 3:4），**不是可写字段**——`attributes` 里写未声明的键会被 `unknown_field` 拒，导入载荷里的 `release.cover_aspect` 同样被拒（比例不落库）。
 - 每次编目变更带 `edit_note` + `sources`（写入体字段名是 `sources`，每项含 `kind` ∈ url/publication/self 与必填 `citation`）；不宣称全端点强制证据/审计/ACID，按技能契约核实，缺能力报缺口、不绕库。
 - PUT 非 PATCH：先读全量再写，翻译/标签/Track contents 可能整组替换；写后回读，响应不明先核对状态、不盲重试。
 
