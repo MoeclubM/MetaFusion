@@ -243,7 +243,7 @@ export function WorkContentDirectory({ workId, data, directory = "tree" }: WorkC
             </span>
           )}
           <span className="shrink-0 rounded-sm border border-line px-1.5 py-0.5 font-mono text-[10px] text-text-faint">
-            {isCollectionOrWork ? kindLabel(entry.kind) : roleLabel(role)}
+            {isCollectionOrWork || entry.kind === "expression" ? kindLabel(entry.kind) : roleLabel(role)}
           </span>
         </div>,
         ...renderEntries(entry.id, depth + 1),
