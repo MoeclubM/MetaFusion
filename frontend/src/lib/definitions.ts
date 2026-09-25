@@ -475,37 +475,52 @@ function tagKey(value: string): string {
   return value.trim().toLowerCase();
 }
 
-/** 反查索引缓存：词表对象 → (任一语种名归一化 → 词条 code)。
+/** 反查索引：精确键（仅去空白）与折叠键（去空白 + 小写）两张表。
+ *  分两张表是因为词表里存在只差大小写的同名（live id=27：`film_score` 的 en-US `film score`
+ *  与 `film_soundtrack` 的 `Film score`，`symphonic_poem` 与 `symphonic_poem_english` 同理），
+ *  只按小写比较会让这类原始值落到大小写不匹配的那个词条上。 */
+interface TagIndex {
+  exact: Map<string, string>;
+  folded: Map<string, string>;
+}
+
+/** 反查索引缓存：词表对象 → 索引。
  *  词表随 definitions 版本刷新会换新对象，缓存随之自然失效（无需手动清理）。 */
-const tagIndexCache = new WeakMap<object, Map<string, string>>();
+const tagIndexCache = new WeakMap<object, TagIndex>();
 
 /**
- * tagIndex：原始 tag 值 → 词条 code 的反查表，按词表对象只建一次。
+ * tagIndex：原始 tag 值 → 词条 code 的反查表，按词表对象只建一次（单次枚举建两张表）。
  *
  * 为什么需要反查：词表两侧可能对不上——term code 是词表自己的 slug，而实体里存的
  * attributes.tags 是历史/导入留下的字面量（`輕小說`、`ライトノベル`、`DIR EN GREY`、`2022年`、`4K`），
  * 两者不必相等，因此除了按 code 精确查，还要能按"某个语种的名字等于原始值"找到词条。
- * 同一名字被多个词条声明时按词表顺序取第一个（确定性，不随调用时机变化）。
+ * 同名被多个词条声明时（见 TagIndex 注释）按词表顺序取第一个：确定性，不随调用时机变化。
  */
-function tagIndex(vocab: VocabularyDef): Map<string, string> {
+function tagIndex(vocab: VocabularyDef): TagIndex {
   const cached = tagIndexCache.get(vocab);
   if (cached) return cached;
-  const index = new Map<string, string>();
+  const exact = new Map<string, string>();
+  const folded = new Map<string, string>();
   for (const [code, term] of Object.entries(vocab.terms || {})) {
     for (const name of Object.values(term?.names || {})) {
       if (typeof name !== "string") continue;
-      const key = tagKey(name);
-      if (key && !index.has(key)) index.set(key, code);
+      const raw = name.trim();
+      const key = tagKey(raw);
+      if (!key) continue;
+      if (!exact.has(raw)) exact.set(raw, code);
+      if (!folded.has(key)) folded.set(key, code);
     }
   }
+  const index: TagIndex = { exact, folded };
   tagIndexCache.set(vocab, index);
   return index;
 }
 
 /**
- * getTagName：自由标签的**显示名**，两级解析后再回退：
+ * getTagName：自由标签的**显示名**，逐级解析后再回退：
  *  1. 原始 tag 精确命中词条 code（`defs.vocabularies.tags.terms[tag]`）；
- *  2. 否则按"任一语种的名字等于原始 tag"反查词条（见 tagIndex，按词表对象 memo 一次）；
+ *  2. 否则按"任一语种的名字等于原始 tag"反查词条：先精确大小写，再忽略大小写
+ *     （见 tagIndex，按词表对象 memo 一次，不逐项遍历词条）；
  *  3. 仍未命中（新标签、词表没覆盖）回退原始 tag 字面量——展示端永不因缺词表而空白。
  * 命中后一律走 resolveLocalizedName(term.names, locale, 原始值)，沿用全站既有的语种回退链。
  *
@@ -522,10 +537,13 @@ export function getTagName(
   if (!key) return raw;
   const vocab = defs?.vocabularies?.[TAGS_VOCABULARY];
   if (!vocab) return raw;
-  // 1) 精确 term code；2) 反查（某语种名 == 原始值）
-  const term =
-    vocab.terms?.[key] ||
-    vocab.terms?.[tagIndex(vocab).get(tagKey(key)) || ""];
+  // 1) 精确 term code；2) 反查（先精确大小写，再折叠大小写）
+  let code = vocab.terms?.[key] ? key : "";
+  if (!code) {
+    const index = tagIndex(vocab);
+    code = index.exact.get(key) || index.folded.get(tagKey(key)) || "";
+  }
+  const term = code ? vocab.terms?.[code] : undefined;
   if (!term) return raw;
   return resolveLocalizedName(term.names, locale, raw);
 }
