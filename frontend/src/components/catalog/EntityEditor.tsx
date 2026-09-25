@@ -12,27 +12,10 @@ import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput, Name
 import { EntityCover } from "@/components/common/EntityCover";
 import { LanguagePicker } from "@/components/common/LanguagePicker";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
-import { effectiveSchemeFields, getFieldName, getKindName, getTermName, getTypeName, kindApplicableFields, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
+import { effectiveSchemeFields, getFieldName, getKindName, getTermName, getTypeName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
 import { COVER_PICTURE_INDEX, MAX_ENTITY_PICTURES, PICTURE_ROLE_VOCABULARY } from "@/lib/cover";
 import { assetContentUrl, isAssetUuid } from "@/lib/storage";
 import { canonicalLanguageCode, languageLabel, quickLanguages } from "@/lib/languages";
-
-/** 生效类型：原样使用实体自带的 types（老实体不清空、新建不推导）。
- *  与后端同口径（见 validation.go 的 effectiveOwnerTypes / attributeKeys / matchSchemes）：
- *  声明了就按声明取允许字段，写超集字段报 unknown_field（见 attributes）；
- *  空 types 回退到该 kind 的启用类型集合，仅兼容历史无类型实体与导入载荷——
- *  新写必须显式声明 types，前端由 save 入口拦截，后端同样不把回退写回 e.Types
- *  （自动加全部 types 会把一部小说同时标为音乐、动画、游戏）。模板只控制
- *  编辑与展示，不参与适用性判定。 */
-function effectiveTypesOf(
-  defs: { types?: Record<string, { kinds: string[]; enabled: boolean }> } | undefined,
-  kind: string,
-  types: string[],
-): string[] {
-  void defs;
-  void kind;
-  return types;
-}
 
 /** 标签分隔符：中英文逗号/顿号/换行都算新增，避免只能靠回车。 */
 const TAG_SEPARATORS = /[,，、\n]/;
@@ -76,6 +59,7 @@ export function EntityEditor({
     contents: initial?.contents || [],
     subjects: initial?.subjects || [],
   }));
+  const [profileOpen, setProfileOpen] = useState((initial?.types?.length || 0) > 0);
   // 结构属性按 scheme 收敛：与后端同一匹配规则；无匹配 scheme 时显示
   // 全部全局子字段（向后兼容）。定位子字段顺序：有匹配时按 scheme 并集
   // 顺序（relative_to 锚点置前），无匹配时按全局声明顺序（锚点置前）。
@@ -96,28 +80,20 @@ export function EntityEditor({
       .catch(() => { if (active) setMediumFormat(""); });
     return () => { active = false; };
   }, [mediumID]);
-  // D3 单适用类型自动采用（与后端 soleEnabledType 同口径）：kindTypeOptions 只有一个
-  // 启用类型时（如 medium 只有 medium）直接采用，不让用户重复勾选“介质的类型=介质”；
-  // 多类型 kind 仍须手动选择（save 入口拦截）。逗号拼接即比较键：类型码不含逗号。
+  // 字段方案由已发布 definitions.types 提供；空选项也可建档，分类由自由标签承载。
+  // 逗号拼接仅用于稳定 memo 键：定义码不含逗号。
   const kindTypeOptionsKey = useMemo(() => {
     if (!defs) return "";
-    return Object.entries(defs.types || {})
-      .filter(([, v]) => v.enabled && (v.kinds || []).includes(kindKey))
-      .map(([code]) => code)
+    return Array.from(new Set([
+      ...Object.entries(defs.types || {})
+        .filter(([, v]) => v.enabled && (v.kinds || []).includes(kindKey))
+        .map(([code]) => code),
+      ...(JSON.parse(typesKey) as string[]),
+    ]))
       .sort()
       .join(",");
-  }, [defs, kindKey]);
-  useEffect(() => {
-    if (!e.id && e.types.length === 0 && kindTypeOptionsKey && !kindTypeOptionsKey.includes(",")) {
-      setE({ ...e, types: [kindTypeOptionsKey] });
-    }
-    // 只在新建/类型/候选变化时补一次：提交后 types 非空即停，不与用户勾选竞争。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [e.id, typesKey, kindTypeOptionsKey]);
-  const effTypes = React.useMemo(
-    () => effectiveTypesOf(defs, kindKey, JSON.parse(typesKey)),
-    [defs, kindKey, typesKey],
-  );
+  }, [defs, kindKey, typesKey]);
+  const effTypes = React.useMemo(() => JSON.parse(typesKey) as string[], [typesKey]);
   const locatorFieldKeys = React.useMemo(() => {
     const matched = matchSchemes(defs as any, "locator", kindKey, effTypes, mediumFormat);
     const union = effectiveSchemeFields(matched);
@@ -150,8 +126,6 @@ export function EntityEditor({
   const [externalKey, setExternalKey] = useState("");
   // 标签输入框的待确认文本（回车/逗号才落到 attributes.tags）。
   const [tagInput, setTagInput] = useState("");
-  // 历史无类型实体适用字段发现入口的待选项（选中后点添加才落到 attributes）。
-  const [compatFieldPick, setCompatFieldPick] = useState("");
   // 当前编辑的语种；空串表示跟随原始语言（用户还没手动切换过）。
   const [localePick, setLocalePick] = useState("");
   if (!definitions) return <p>{t("catalog.loading")}</p>;
@@ -174,13 +148,11 @@ export function EntityEditor({
     );
   }
   const d = definitions;
-  // 本层级可选的业务类型：enabled 且声明归属本 kind；勾选即随条目真实保存，
-  // 服务端按所选 types 校验字段（与保存/预检同一口径），不做全量推导。
-  // 与上面的 kindTypeOptionsKey 同源（排序后拆回）：单候选时已被 effect 自动采用。
+  // 本层级可选的字段方案：服务端 definitions.types 中启用且适用于本 kind 的项。
+  // types 是现有持久化字段，作为字段白名单使用；自由分类只写 attributes.tags。
   const kindTypeOptions: string[] = kindTypeOptionsKey ? kindTypeOptionsKey.split(",") : [];
   const patch = (v: Partial<Entity>) => setE({ ...e, ...v });
-  // ---- 标签：自由字符串列表，只承载检索/分组，不兼任业务分类（不造分类树）；
-  // 业务类型另有复选框（见身份区末尾），勾选随条目保存、决定字段约束。----
+  // ---- 标签：开放分类/检索词，不预置封闭的媒体或作品类型清单。----
   const tags: string[] = Array.isArray(e.attributes?.tags)
     ? (e.attributes.tags as unknown[]).map((v) => String(v ?? "").trim()).filter(Boolean)
     : [];
@@ -314,16 +286,6 @@ export function EntityEditor({
       (f) => !seen.has(f) && !!d.fields[f]?.hidden && f !== "tags",
     );
   }
-  // 历史无类型实体的适用字段发现入口：后端 attributeKeys 空分支回退到本 kind
-  // 启用类型并集（仅兼容历史），已存属性走上面的兼容展示，这里只列出尚未展示、
-  // 当前仍启用的可加字段。新建与已声明类型的实体不需要它（字段集即所选类型并集）。
-  const shownFields = new Set(fields);
-  const compatFieldOptions: string[] =
-    e.id && e.types.length === 0
-      ? kindApplicableFields(d, e.kind).filter(
-          (f) => !shownFields.has(f) && d.fields[f]?.enabled !== false,
-        )
-      : [];
   // ---- 图片：数组顺序就是展示顺序，pictures[0] 即封面（契约见 lib/cover.ts 的 coverPicture）。
   // 换封面 = 挪到首位，不存在第二个"主图"布尔位：那样两套事实迟早互相打脸，
   // 而且 PUT 是整实体替换，顺序写错就等于把作者的排序覆盖了一遍。----
@@ -366,16 +328,8 @@ export function EntityEditor({
   };
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();
-    // 新写显式声明 types（D3，与后端 Save 同口径）：新建（无 id）必须至少带一个业务类型，
-    // 否则可用字段无从确定；单候选 kind 已被 effect 自动采用（此处再兜一次，防 effect 未跑完就提交）。
-    // 该层级暂无可用类型时不拦（否则该层级永远建不出条目）。
-    // 历史回退仅限真实旧数据：后端按主键 UUIDv7 创建时间判定（见 isLegacyUntyped），
-    // 口径生效点之后建的无类型实体补属性同样要先声明 types，此处不再为“有 id 即历史”放行。
-    const adoptedTypes = e.types.length > 0 ? e.types : kindTypeOptions.length === 1 ? kindTypeOptions : [];
-    if (!e.id && adoptedTypes.length === 0 && kindTypeOptions.length > 0) {
-      setError(t("catalog.typesRequiredForNew"));
-      return;
-    }
+    // 空字段方案可保存基础身份和标签；填写动态字段时须选相应方案，
+    // 服务端按所选方案的字段白名单校验，历史数据仍按兼容规则处理。
     // 应用层证据校验：HTML required 的原生气泡在部分环境不可见，
     // 曾表现为"点保存没反应"；noValidate 后统一在此给出明确提示。
     const missingEvidence =
@@ -395,8 +349,7 @@ export function EntityEditor({
     try {
       // 建实体带上幂等键：双击保存 / 超时重发复用同一个键，服务端只建一个实体。
       // PUT 不带（幂等键服务端只覆盖两个 POST 端点，见 lib/idempotency 的说明）。
-      // 单候选自动采用随提交带上：与 effect 同值，effect 未跑完时这里兜底。
-      const body = { entity: { ...e, types: adoptedTypes }, expected_version: e.version, edit_note: note, sources };
+      const body = { entity: e, expected_version: e.version, edit_note: note, sources };
       const out = await api<Entity>(
         e.id ? `/catalog/entities/${e.id}` : "/catalog/entities",
         e.id ? "PUT" : "POST",
@@ -567,12 +520,12 @@ export function EntityEditor({
           )}
           <p className="cv-hint">{t("catalog.tagsHint")}</p>
         </div>
-        {/* 业务类型：显式勾选，随条目真实保存（save 的 entity.types 原样提交）。
-            新建必须至少带一个（单候选自动采用，多候选由 save 入口拦截，决定可用字段）；
-            真实旧数据的无类型实体留空即兼容维护——后端按主键创建时间回退到本 kind
-            启用类型并集，前端不替它补全量，避免小说被标成音乐/动画/游戏。 */}
-        <div className="cv-tags">
-          <strong>{t("catalog.businessTypes")}</strong>
+        {/* 字段方案：可选，来自 definitions；它决定可编辑字段，不充当分类标签。 */}
+        <details className="cv-tags" open={profileOpen} onToggle={(event) => setProfileOpen(event.currentTarget.open)}>
+          <summary className="mf-focus">
+            <strong>{t("catalog.businessTypes")}</strong>
+            {e.types.length > 0 && ` · ${e.types.map((code) => getTypeName(defs as any, code, locale) || code).join(" · ")}`}
+          </summary>
           {kindTypeOptions.length === 0 ? (
             <p className="cv-hint">{t("catalog.noTypesForKind")}</p>
           ) : (
@@ -596,7 +549,7 @@ export function EntityEditor({
             </div>
           )}
           <p className="cv-hint">{t("catalog.businessTypesHint")}</p>
-        </div>
+        </details>
       </fieldset>
       <fieldset>
         <legend>{t("catalog.translations")}</legend>
@@ -939,7 +892,7 @@ export function EntityEditor({
         drafts={pendingRelations}
         onDraftsChange={setPendingRelations}
       />
-      {!!(fields.length || compatFieldOptions.length) && (
+      {(sections.length > 0 || restFields.length > 0 || foldedFields.length > 0) && (
         <fieldset>
           <legend>{t("catalog.attributes")}</legend>
           {/* 动态结构：字段按实体类型引用模板的 sections 分组（分区名/字段/次序
@@ -1008,41 +961,6 @@ export function EntityEditor({
                     )}
                   </label>
                 ))}
-              </div>
-            </div>
-          )}
-          {/* 历史无类型实体的适用字段发现入口：已存属性在上方兼容展示，
-              本层级当前适用、尚未展示的字段在这里按需添加（加后即进入上方分组
-              编辑，留空不提交，后端按同一字段集校验，不再“能填被拒”）。 */}
-          {compatFieldOptions.length > 0 && (
-            <div className="cv-section">
-              <h4 className="cv-section-title">{t("catalog.applicableFields")}</h4>
-              <p className="cv-hint">{t("catalog.applicableFieldsHint")}</p>
-              <div className="cv-row">
-                <select
-                  aria-label={t("catalog.applicableFields")}
-                  value={compatFieldPick}
-                  onChange={(x) => setCompatFieldPick(x.target.value)}
-                >
-                  <option value="">{t("catalog.select")}</option>
-                  {compatFieldOptions.map((code) => (
-                    <option key={code} value={code}>
-                      {getFieldName(defs as any, code, locale) || code}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  disabled={!compatFieldPick}
-                  onClick={() => {
-                    // 占位值为 undefined：只为让该键进入展示字段集（JSON 序列化时丢弃，
-                    // 不提交空值；填了值才随 attributes 提交，后端按同一字段集校验）。
-                    patch({ attributes: { ...e.attributes, [compatFieldPick]: undefined } });
-                    setCompatFieldPick("");
-                  }}
-                >
-                  {t("catalog.add")}
-                </button>
               </div>
             </div>
           )}

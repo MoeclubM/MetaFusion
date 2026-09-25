@@ -676,21 +676,10 @@ func (s *Store) Save(ctx context.Context, input Edit, u User) (Entity, error) {
 		if e.Status == "published" && len(e.Translations) == 0 {
 			return fmt.Errorf("translation_required")
 		}
-		// D3 正式新建口径（前后端同一套）：新写必须显式声明 types，只有一个例外——
-		// 该 kind 只有一个启用类型时（如 medium/track）服务端自动采用它，前端同样
-		// 自动勾选（见 EntityEditor），不让用户重复勾选“介质的类型=介质”。
-		// 历史回退只看创建时间（主键 UUIDv7 时间戳，见 isLegacyUntyped），不看“有没有 ID”：
-		// 口径生效点之后创建的无类型实体（只能是裸骨架或导入链路）补属性同样要先声明
-		// types，“先裸建、再补属性”的两步绕行就此关闭。更新抹空已有 types 同样拦截
-		//（否则 strip types 即可绕开字段约束）。
-		if create && !input.internal && len(e.Types) == 0 {
-			if code, ok := v.Document.soleEnabledType(e.Kind); ok {
-				e.Types = []string{code}
-			}
-		}
+		// 字段方案可留空：基础身份和自由标签不依赖预置分类。
+		// 写入其它动态字段时须显式选择对应方案。已有方案的记录不能直接
+		// 清空最后一个方案，避免现有关系端点的类型约束被静默破坏。
 		if !input.internal && !create && len(e.Types) == 0 && len(old.Types) > 0 {
-			// 已有 types 的记录不得经普通保存抹空最后一个类型，与属性是否为空无关；
-			// 历史兼容只留给真正无类型存量（见 isLegacyUntyped）。
 			return fmt.Errorf("types_required")
 		}
 		if !input.internal && len(e.Types) == 0 && needsExplicitTypes(e) && (create || !isLegacyUntyped(old)) {

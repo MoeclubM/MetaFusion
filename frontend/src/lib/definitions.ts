@@ -169,52 +169,10 @@ export interface DynamicDefinitions {
 }
 
 /**
- * effectiveOwnerTypes：与后端 effectiveOwnerTypes 同一口径——声明了就原样用
- * （恒等，不展开）；空 types 才回退到该 kind 的启用类型集合（仅兼容真实旧数据，
- * 新写必须显式声明 types，单候选 kind 由编辑器自动采用、多候选由保存入口拦截），
- * 于是"字段适用范围"与"方案匹配"看到的是同一套类型。回退固定只计启用类型：
- * 方案只管数据录入，不管历史宽容（与后端 kindTypeCodes(kind, false) 一致）。
- */
-export function effectiveOwnerTypes(
-  defs: DynamicDefinitions | null | undefined,
-  ownerKind: string,
-  ownerTypes: string[]
-): string[] {
-  if ((ownerTypes || []).length > 0) return ownerTypes;
-  return Object.entries(defs?.types || {})
-    .filter(([, t]) => t.enabled && (t.kinds || []).includes(ownerKind))
-    .map(([code]) => code)
-    .sort();
-}
-
-/**
- * kindApplicableFields：该 kind 当前适用字段（启用类型的字段并集，保序去重）。
- * 与后端 attributeKeys 空 types 分支同源（回退仅兼容历史），供历史无类型实体
- * 的"适用字段发现入口"使用：已存属性走兼容展示，这里只列出尚未展示的可加字段。
- * 自由标签 tags 不在此列——它有专用标签输入，不兼任业务分类。
- */
-export function kindApplicableFields(
-  defs: DynamicDefinitions | null | undefined,
-  kind: string
-): string[] {
-  const out: string[] = [];
-  const seen = new Set<string>();
-  for (const code of effectiveOwnerTypes(defs, kind, [])) {
-    for (const f of defs?.types?.[code]?.fields || []) {
-      if (f !== "tags" && !seen.has(f)) {
-        seen.add(f);
-        out.push(f);
-      }
-    }
-  }
-  return out;
-}
-
-/**
  * matchSchemes：与后端 matchSchemes 同一口径——slot 相同、kinds 命中拥有者
- * kind（空=命中）、types 与拥有者有效类型有交集（空=命中）且 enabled。
- * 空 types 按有效类型（见 effectiveOwnerTypes）展开后匹配，兼容历史/导入载荷；
- * 带 types 限制的 scheme 启用后，前端收敛结果与后端 effectiveGroupField 一致。
+ * kind（空=命中）、types 与已选字段方案有交集（空=命中）且 enabled。
+ * 编辑器的空 types 不代表匹配所有方案：新条目只匹配不限类型的 scheme，
+ * 与服务端新写口径一致。历史无类型条目的已存字段仍由编辑器单独显示。
  */
 export function matchSchemes(
   defs: DynamicDefinitions | null | undefined,
@@ -223,7 +181,7 @@ export function matchSchemes(
   ownerTypes: string[],
   mediumFormat = ""
 ): SchemeDef[] {
-  const effective = effectiveOwnerTypes(defs, ownerKind, ownerTypes || []);
+  const effective = ownerTypes || [];
   const schemes = defs?.schemes || {};
   return Object.values(schemes).filter((s) => {
     if (!s || s.enabled === false || s.slot !== slot) return false;

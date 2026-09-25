@@ -273,10 +273,10 @@ func TestPostgresExplicitTypesRoundTrip(t *testing.T) {
 	}
 }
 
-// D3 Save 层正式口径：手工新建携带类型外属性却无 types 即 types_required；
-// 单适用类型的 kind（medium/track）新建自动采用，不让用户重勾；裸骨架新建仍放行；
+// Save 层口径：手工新建携带类型外属性却无 types 即 types_required；
+// 单适用类型的 kind 也不自动采用；裸骨架新建仍放行；
 // 历史回退仅限真实旧数据（主键 UUIDv7 创建时间早于口径生效点），口径生效后"先裸建、
-// 再补属性"的两步绕行同样拦截；抹空已有 types 拦截。
+// 再补属性"的两步绕行同样拦截；已存方案不得抹空最后一个 types。
 func TestPostgresEmptyTypesSaveRequiresTypes(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
@@ -291,20 +291,33 @@ func TestPostgresEmptyTypesSaveRequiresTypes(t *testing.T) {
 		Attributes: map[string]any{"language": "ja"}}); err == nil || err.Error() != "types_required" {
 		t.Fatalf("有属性新建无 types 应报 types_required，实际 %v", err)
 	}
-	// 单类型 kind 自动采用：medium 只有一个启用类型，新建即采用，不拦截。
-	rel := f.save(Entity{Kind: "release", Title: "自动采用发行"})
-	med, err := save(Entity{Kind: "medium", Title: "自动采用载体", ReleaseID: rel.ID,
+	// 单类型 kind 也不自动采用：无方案可建基础实体，扩展属性须显式选方案。
+	rel := f.save(Entity{Kind: "release", Title: "发行"})
+	bareMed, err := save(Entity{Kind: "medium", Title: "空方案载体", ReleaseID: rel.ID})
+	if err != nil || len(bareMed.Types) != 0 {
+		t.Fatalf("空方案载体应保留空 types，实体=%v 错误=%v", bareMed.Types, err)
+	}
+	if _, err := save(Entity{Kind: "medium", Title: "无方案有格式", ReleaseID: rel.ID,
+		Attributes: map[string]any{"format": "cd"}}); err == nil || err.Error() != "types_required" {
+		t.Fatalf("无方案载体填写格式应报 types_required，实际 %v", err)
+	}
+	med, err := save(Entity{Kind: "medium", Title: "显式方案载体", ReleaseID: rel.ID, Types: []string{"medium"},
 		Attributes: map[string]any{"format": "cd"}})
 	if err != nil {
-		t.Fatalf("单类型 kind 新建应自动采用：%v", err)
+		t.Fatalf("显式方案载体应可保存：%v", err)
 	}
 	if len(med.Types) != 1 || med.Types[0] != "medium" {
-		t.Fatalf("medium 新建应自动采用 [medium]，实际 %v", med.Types)
+		t.Fatalf("medium 应保留显式选择 [medium]，实际 %v", med.Types)
 	}
 	// 裸骨架新建：放行（身份先行、字段后补），多类型 kind 不改写。
 	bare := f.save(Entity{Kind: "work", Title: "裸骨架"})
 	if len(bare.Types) != 0 {
 		t.Fatalf("裸骨架不应被改写 types：%v", bare.Types)
+	}
+	tagged, err := save(Entity{Kind: "work", Title: "自由标签作品",
+		Attributes: map[string]any{"tags": []any{"游戏"}}})
+	if err != nil || len(tagged.Types) != 0 {
+		t.Fatalf("只填标签应能保留空方案，types=%v 错误=%v", tagged.Types, err)
 	}
 	// 两步绕行关闭：口径生效后建的裸骨架再补属性，同样要先声明 types。
 	bare.Attributes = map[string]any{"language": "ja", "tags": []any{"rock"}}
@@ -330,9 +343,8 @@ func TestPostgresEmptyTypesSaveRequiresTypes(t *testing.T) {
 	}
 }
 
-// 主键时间戳判定（纯逻辑，无需真库）：v7 取毫秒时间戳、非 v7 按旧数据宽容；
-// soleEnabledType 只在唯一启用类型时命中（medium 单一、work 多个）。
-func TestUUIDv7MillisAndSoleType(t *testing.T) {
+// 主键时间戳判定（纯逻辑，无需真库）：v7 取毫秒时间戳、非 v7 按旧数据宽容。
+func TestUUIDv7Millis(t *testing.T) {
 	fresh, err := uuid.NewV7()
 	if err != nil {
 		t.Skip("本机 uuid v7 生成不可用")
@@ -350,16 +362,6 @@ func TestUUIDv7MillisAndSoleType(t *testing.T) {
 	}
 	if _, ok := uuidV7Millis("not-a-uuid"); ok {
 		t.Fatal("非法 ID 不得被解读出时间戳")
-	}
-	d := Defaults()
-	if code, ok := d.soleEnabledType("medium"); !ok || code != "medium" {
-		t.Fatalf("medium 应唯一命中 medium，实际 %q %v", code, ok)
-	}
-	if _, ok := d.soleEnabledType("work"); ok {
-		t.Fatal("work 有多个启用类型，不得自动采用")
-	}
-	if _, ok := d.soleEnabledType("no_such_kind"); ok {
-		t.Fatal("未知 kind 不得命中")
 	}
 }
 

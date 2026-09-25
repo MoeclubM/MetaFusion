@@ -515,16 +515,16 @@ func (d Definitions) validateScheme(code string, s Scheme) error {
 	return nil
 }
 
-// freeInputAttributes 是不绑定业务类型的自由输入字段：标签的值域开放（随作品而定），
-// 不属于任何分类，因此在任何 kind、任何 types（含空）下都可写。
+// freeInputAttributes 是不绑定字段方案的自由输入字段：标签的值域开放，
+// 可表达分类和主题，因此在任何 kind、任何 types（含空）下都可写。
 // 自由的是"取值"不是"存在性"：定义里删掉该字段即不可写（attributes 按未知字段拒绝），
 // 模板从不参与适用性判定（只管展示与检索），新定义发布后字段集自动重算，不改代码。
 var freeInputAttributes = []string{"tags"}
 
 // kindTypeCodes 返回该 kind 下启用中的业务类型码（按码排序，保证可复现）。
 // 它只用于空 types 回退：存量无类型实体与导入未识别类型仍要可读可写，
-// 因此编辑/预检/保存/方案匹配共用这套回退。回退**仅兼容历史**——新写必须显式声明
-// types（前端 effectiveTypesOf 已改为恒等，不再替调用方推导），服务端同样不把
+// 因此编辑/预检/保存/方案匹配共用这套回退。回退**仅兼容历史**——新写扩展属性
+// 必须显式声明字段方案，服务端同样不把
 // 它们写回 e.Types：自动加全部 types 会把一部小说同时标为音乐、动画、游戏。
 // historical=true 时同时计入停用类型：存量数据的字段键仍要能算出来，
 // 新增使用由 attributes/retiredEntity 按新旧值判定，此处只管"键集合"。
@@ -539,7 +539,7 @@ func (d Definitions) kindTypeCodes(kind string, historical bool) []string {
 	return out
 }
 
-// explicitTypesCutoff 是"新写必须显式声明 types"口径（M05/D3）的生效点：
+// explicitTypesCutoff 是"新写扩展属性必须显式声明方案"口径（M05/D3）的生效点：
 // 此刻之前创建的无类型实体视为真实旧数据，更新时仍走历史回退；之后创建的无类型实体
 // （只能是裸骨架或导入链路）补属性同样要先声明 types。创建时刻取自主键 UUIDv7 的
 // 毫秒时间戳（见 newID），不以"有没有 ID"为准——创建后即有 ID（D3）。
@@ -572,25 +572,9 @@ func isLegacyUntyped(e Entity) bool {
 	return ms < explicitTypesCutoffMillis
 }
 
-// soleEnabledType 返回该 kind 唯一的启用业务类型（D3 新建自动采用，如 medium 只有
-// medium）：零个（该层级暂无可用类型，不拦截）或多个（须由用户选择）时返回 false。
-func (d Definitions) soleEnabledType(kind string) (string, bool) {
-	var sole string
-	n := 0
-	for code, t := range d.Types {
-		if t.Enabled && contains(t.Kinds, kind) {
-			sole, n = code, n+1
-			if n > 1 {
-				return "", false
-			}
-		}
-	}
-	return sole, n == 1
-}
-
 // needsExplicitTypes 报告实体是否携带类型外属性（自由输入 tags 除外）：
-// 新写携带这类内容必须显式声明 types（attributeKeys 报 types_required），
-// 空回退仅限真实旧数据与导入链路；裸骨架（无属性/仅 tags）新建仍放行——身份先行、字段后补。
+// 新写携带这类内容必须显式声明字段方案（attributeKeys 报 types_required），
+// 空回退仅限真实旧数据与导入链路；无属性/仅 tags 的实体始终可保存。
 func needsExplicitTypes(e Entity) bool {
 	for k := range e.Attributes {
 		if !contains(freeInputAttributes, k) {
@@ -1130,8 +1114,8 @@ func (d Definitions) validateEntityContent(e Entity, reference func(string, []st
 //   - 空 types + 历史口径（historical=true，存量无类型实体/导入未识别类型）：
 //     回退到该 kind 的类型并集（见 kindTypeCodes），不报 invalid_type；
 //   - 空 types + 新写口径（historical=false）且携带类型外属性：报 types_required——
-//     新写必须显式声明 types，裸骨架（无属性/仅 tags）仍放行；
-//   - 各分支最后都补上自由输入字段（tags）：标签不属于任何分类，在任何 kind 下都可写。
+//     扩展字段须显式声明字段方案，无属性/仅 tags 可直接保存；
+//   - 各分支最后都补上自由输入字段（tags）：标签分类不决定字段权限，在任何 kind 下都可写。
 //
 // 字段集与类型校验同源：Save 与预检都用它，避免出现"预检按 A 集合放行、Save 按 B 集合拒绝"。
 // 新定义发布后字段集自动重算，不改代码；不把有效类型写回 e.Types（见 kindTypeCodes）。

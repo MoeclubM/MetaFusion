@@ -6,7 +6,7 @@
 
 MetaFusion 要记录作品、内容、表达、发行及其关系，同时避免三类失真：同一事物因平台或版本不同而重复建实体；把发行收录误当成父子归属；在没有数据时展示空目录，或把取数失败说成没有内容。
 
-当前八种 kind 是有约束的身份骨架。业务类型、字段、词表、普通关系和展示模板来自 definitions；`definitions.structure` 对现有结构只作描述，发布校验要求它与固定外键一致。实际归属由 `content_units`、`expressions`、`mediums`、`tracks` 的侧表和外键保存；`release_subjects` 与 `track_contents` 是多对多收录引用；`catalog.relations` 保存署名、创作、聚合等语义关系。现状详见[媒体编目复核](./media-catalog-frontend-review-2026-09.md)和[目录核心实现](./catalog-core-implementation.md)。
+当前八种 kind 是有约束的身份骨架。可选元数据方案（API 仍称 `types`）、字段、词表、普通关系和展示模板来自 definitions；开放标签记录描述性分类与主题，不决定结构归属或字段白名单。`definitions.structure` 对现有结构只作描述，发布校验要求它与固定外键一致。实际归属由 `content_units`、`expressions`、`mediums`、`tracks` 的侧表和外键保存；`release_subjects` 与 `track_contents` 是多对多收录引用；`catalog.relations` 保存署名、创作、聚合等语义关系。现状详见[媒体编目复核](./media-catalog-frontend-review-2026-09.md)和[目录核心实现](./catalog-core-implementation.md)。
 
 本方案的目标是让**新业务层级的关系规则可声明、可校验、可查询**，保留已有结构的完整性。它不把八种身份随意改名，也不把目录变成无类型的通用知识图谱。
 

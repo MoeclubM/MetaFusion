@@ -2,10 +2,7 @@
 
 > **重要约束**：本文档为用户明确下达的核心架构与产品规范，后续开发、修改与重构均以此为准。
 >
-> **实现现状差异（2026-09-16 逐条核实，规范不变，待产品决定）**：
-> 1. §2.2 的 Types 筛选器：`/explore` 的「类型」筛选控件已移除，筛选改走标签（`frontend/src/app/explore/page.tsx`；`?type=` 仅作参数透传与排序键保留）。
-> 2. §2.4 的「业务类型（types）在卡片正文以标签呈现」：列表卡片目前只渲染 kind 角标与状态（`frontend/src/components/catalog/CatalogPages.tsx`）。
-> 3. §1.1 的生命周期词表：实现是 `draft / pending_review / published / deleted / merged`——没有「归档」，多一个「合并」（`backend/internal/catalog/validation.go` 的状态闭集）。
+> **实现现状差异（2026-09-26 复核）**：§1.1 的生命周期词表在实现中是 `draft / pending_review / published / deleted / merged`——没有「归档」，多一个「合并」（`backend/internal/catalog/validation.go` 的状态闭集）。
 >
 > 另外两处是规范的表述比实现窄，不构成缺口：§2.1 的名称回退链在实现里是超集（在 zh-CN 之前插入了 zh-TW / ja，见 `frontend/src/lib/definitions.ts` 的 `resolveLocalizedName`）；§2.2 里「名称含 zh-CN 与 en-US」已按 §2.3 的命名四语铁律对齐。
 
@@ -37,28 +34,26 @@
      服务端在 `GET /api/catalog/definitions` 的 `kinds` 字段给出四语名称（`catalog.KindNames()`），前端用 `getKindName()` 取；
      前端字典里的 `catalog.kind.*` 只作为"服务端未给"时的兜底，不得作为唯一来源。
    - **业务级动态元数据定义**：
-     - 动态类型（如 `animation` 动画、`novel` 小说、`album` 专辑、`indie_game` 独立游戏、`photobook` 写真集等）、
+     - 元数据方案（当前沿用 API 的 `types` 字段；如 `animation`、`novel`、`album` 等，仅声明适用字段与展示模板，不作为必填分类）、
      - 图谱关系（如 `adaptation_of` 改编自、`soundtrack_of` 配乐、`sequel_of` 续作、`performed_by` 表演者等）、
      - 动态属性与词表（如 `format` 载体格式、`packaging` 包装等）、
      - 必须**全部从服务端动态获取**（`GET /api/catalog/definitions`）。
      - 这些定义的名称在后台配置并保存多语言字典（`Names map[string]string`，含 `zh-CN` / `zh-TW` / `ja-JP` / `en-US` 四语，见下 §2.3）。
-     - 前端展示时根据当前用户 `locale` 动态读取（`def.names[locale] || def.names['zh-CN'] || def.names['en-US'] || code`），**严禁前端写死类型或字典映射**。
+     - 前端展示时根据当前用户 `locale` 动态读取（`def.names[locale] || def.names['zh-CN'] || def.names['en-US'] || code`），**严禁前端写死方案或字典映射**。
 
 2. **探索中心 (`/explore`) 规范**：
    - 实体骨架筛选器（Kinds）按结构化规范呈现，名称走服务端 `definitions.kinds`（四语）。
-   - 类型筛选器（Types）完全基于当前选中 Kind 从服务端 `definitions.types` 动态计算，分类标签由服务端 `typeDef.names[locale]` 直出，保证后台新增类型无需发版即可在前端自动生效并正确本地化。
+   - 描述性分类与主题筛选使用开放标签 `attributes.tags`；货架规则承担策展式收录。`definitions.types` 仅用于字段方案，不能强制用户按预置媒体类型分类。
 
 3. **命名四语铁律（无例外）**：
    - 任何"名称"（实体的 kind/type/字段/关系/词表项/模板/分区/货架）必须在 `zh-CN`、`zh-TW`、`ja-JP`、`en-US` 四语下都能取到真实译文；
      把英文填进 `zh-TW`/`ja-JP` 当占位属于未完成；新增名称一律用 `names4()` 显式给出四语。
    - 前端 `t(key) || "中文兜底"` 这类写法一律禁止；缺键要么补字典，要么走服务端多语言数据。
 
-4. **分类与标签的红线**：
-   - **分类只由货架（`catalog.shelves`）实现**：货架是数据驱动、后台可配、名称四语的收录规则。
-   - **严禁创建"固定分类 tag"**：不得在代码、种子数据、字典或前端映射里预置一套分类标签来给内容归类；
-     实体标签（`attributes.tags`，**仅 work 类型声明该字段**）只能是上游来源或用户贡献的开放标签，不能充当分类体系。
-   - **浏览卡片左上角角标显示的是实体类型（kind），不是"分类"**：业务类型（`types`）在卡片正文以标签呈现，
-     分类入口只在货架/探索筛选里出现。任何"再发明一套分类"的实现都按设计错误处理。
+4. **货架、标签与字段方案的边界**：
+   - 货架（`catalog.shelves`）是后台可配、名称四语的策展收录规则；开放标签（`attributes.tags`）表达作品类别、主题和其它描述性分类，可由来源或贡献者添加。
+   - 不得在代码或种子里另造固定分类标签清单，也不从字段方案自动复制标签。标签不决定实体 kind、结构归属或可写字段。
+   - `definitions.types` 沿用既有 API 字段名，作为可选的元数据方案，控制字段白名单并引用展示模板。用户仅填写基础身份与标签时可以不选方案；填写扩展字段时选择适用方案。列表角标仍显示 kind。
 
 ---
 
@@ -75,7 +70,7 @@
 | **Medium (载体)** | 发行中的物理/数字承载单元 | CD、Blu-ray Disc、黑胶 Vinyl、纸质册、数字集 |
 | **Track (收录位置)** | 载体中的轨道、顺序与导航节点 | CD 轨道、光盘面、BD 章节、小说页码 |
 
-`definitions.structure` 只描述固定骨架的归属外键和收录入口；其字段、目标 kind、必填性、`subjects` 与 `contents` 必须与数据库约束一致。后台 GUI 可扩展业务类型、属性、词表、模板和实体关系；新增骨架外键或收录容器须先变更数据库与服务端契约。资源展示开关不改变结构归属。
+`definitions.structure` 只描述固定骨架的归属外键和收录入口；其字段、目标 kind、必填性、`subjects` 与 `contents` 必须与数据库约束一致。后台 GUI 可扩展元数据方案、属性、词表、模板和实体关系；新增骨架外键或收录容器须先变更数据库与服务端契约。资源展示开关不改变结构归属。
 
 层级关系按归属、定位、收录和语义区分，规则码、端点与约束须可查询；同一事实只允许一个权威存储来源。现有外键及收录表继续负责其已覆盖的结构，统一读取层可将它们与动态语义关系合并展示，但不得把旧边复制为另一套可编辑事实。只有带来源的真实样本证明现有结构无法表达某种合法的新关系时，才引入受约束的扩展边及相应的发布影响检查；详见[元数据身份与层级关系演进方案](./metadata-structure-evolution-plan.md)。
 

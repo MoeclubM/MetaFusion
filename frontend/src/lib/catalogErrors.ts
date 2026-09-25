@@ -10,6 +10,7 @@ const CODE_KEYS: Record<string, string> = {
   immutable_scope: "catalog.error.immutableScope",
   invalid_payload: "catalog.error.invalidPayload",
   unknown_field: "catalog.error.unknownField",
+  types_required: "catalog.error.typesRequired",
   invalid_term: "catalog.error.invalidTerm",
   invalid_reference: "catalog.error.invalidReference",
   duplicate_relation: "catalog.error.duplicateRelation",
