@@ -107,47 +107,58 @@ function Dictionary<T extends { names: Names }>({
 }) {
   const { t, locale } = useI18n();
   const [code, setCode] = useState("");
+  const [search, setSearch] = useState("");
+  const [selectedKey, setSelectedKey] = useState("");
+  const visibleEntries = Object.entries(value).filter(([key, item]) =>
+    `${key} ${local(item.names, locale, "", key)}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
+  );
+  const activeKey = visibleEntries.some(([key]) => key === selectedKey) ? selectedKey : (visibleEntries[0]?.[0] ?? "");
+  const activeItem = activeKey ? value[activeKey] : undefined;
   return (
-    <>
-      <div className="cv-row">
-        <label>
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 rounded-xl border border-line-subtle bg-surfaceSubtle p-3 sm:flex-row sm:items-end">
+        <label className="min-w-0 flex-1">
           {t("catalog.code")}
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            pattern="[a-z][a-z0-9_]*"
-          />
+          <input value={code} onChange={(e) => setCode(e.target.value)} pattern="[a-z][a-z0-9_]*" />
         </label>
-        <button
-          type="button"
-          disabled={!/^[a-z][a-z0-9_]*$/.test(code) || !!value[code]}
-          onClick={() => {
-            onChange({ ...value, [code]: create() });
-            setCode("");
-          }}
-        >
-          {t("catalog.add")}
-        </button>
+        <button type="button" disabled={!/^[a-z][a-z0-9_]*$/.test(code) || !!value[code]} onClick={() => {
+          onChange({ ...value, [code]: create() });
+          setSelectedKey(code);
+          setSearch("");
+          setCode("");
+        }}>{t("catalog.add")}</button>
       </div>
-      {Object.entries(value).map(([key, v]) => (
-        <details className="cv-group" key={key}>
-          <summary>
-            {local(v.names, locale, "", key)} <small>({key})</small>
-          </summary>
-          {render(v, (x) => onChange({ ...value, [key]: x }), key)}
-          <button
-            type="button"
-            onClick={() => {
-              const next = { ...value };
-              delete next[key];
-              onChange(next);
-            }}
-          >
-            {t("catalog.removeDefinition")}
-          </button>
-        </details>
-      ))}
-    </>
+      <div className="grid gap-4 xl:grid-cols-[15rem_minmax(0,1fr)]">
+        <div className="min-w-0 rounded-xl border border-line-subtle bg-surfaceSubtle p-3">
+          <label className="sr-only" htmlFor="definition-search">{t("catalog.definitionSearch")}</label>
+          <input id="definition-search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("catalog.definitionSearch")} className="w-full" />
+          <p className="my-2 text-xs text-text-faint">{t("catalog.definitionCount", { count: visibleEntries.length })}</p>
+          <div className="max-h-[28rem] space-y-1 overflow-y-auto">
+            {visibleEntries.map(([key, item]) => (
+              <button key={key} type="button" onClick={() => setSelectedKey(key)} aria-current={activeKey === key ? "true" : undefined} className={`w-full text-left ${activeKey === key ? "cv-primary" : ""}`}>
+                <span className="block truncate">{local(item.names, locale, "", key)}</span>
+                <span className="block truncate text-[11px] font-mono text-text-faint">{key}</span>
+              </button>
+            ))}
+            {visibleEntries.length === 0 && <p className="px-2 py-4 text-xs text-text-muted">{t("catalog.definitionEmpty")}</p>}
+          </div>
+        </div>
+        {activeItem && (
+          <section key={activeKey} className="min-w-0 space-y-4 rounded-xl border border-line-subtle bg-surfaceSubtle p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle pb-3">
+              <h2 className="text-sm font-semibold text-text-strong">{local(activeItem.names, locale, "", activeKey)} <span className="font-mono text-xs text-text-faint">({activeKey})</span></h2>
+              <button type="button" onClick={() => {
+                const next = { ...value };
+                delete next[activeKey];
+                onChange(next);
+                setSelectedKey("");
+              }}>{t("catalog.removeDefinition")}</button>
+            </div>
+            {render(activeItem, (next) => onChange({ ...value, [activeKey]: next }), activeKey)}
+          </section>
+        )}
+      </div>
+    </div>
   );
 }
 function FieldDefinition({
@@ -458,20 +469,20 @@ export function DefinitionsEditor() {
     ]),
   );
   return (
-    <>
-      <h1>{t("catalog.configure")}</h1>
+    <div className="cv-form">
+      <div className="cv-heading"><h1>{t("catalog.configure")}</h1></div>
       <ErrorMessage error={error} />
       <p className="cv-muted">{t("catalog.definitionHelp")}</p>
-      <section>
-        <h2>{t("catalog.modules")}</h2>
-        {/* 模块状态由声明式配置决定，此处只读。 */}
-        {moduleList.map((m) => (
-          <p className="cv-check" key={m.id}>
-            {t(`catalog.module.${m.id}`)}{" "}
-            {!m.healthy && t("catalog.unavailable")}
-          </p>
-        ))}
-      </section>
+      <details className="rounded-xl border border-line-subtle bg-surfaceSubtle p-3">
+        <summary className="cursor-pointer text-sm font-medium text-text-body">{t("catalog.modules")}</summary>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {moduleList.map((m) => (
+            <span className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-text-muted" key={m.id}>
+              {t(`catalog.module.${m.id}`)} {!m.healthy && t("catalog.unavailable")}
+            </span>
+          ))}
+        </div>
+      </details>
       <div className="cv-row">
         <label>
           {t("catalog.definitionVersion")}
@@ -500,15 +511,18 @@ export function DefinitionsEditor() {
           {t("catalog.baseVersion")}: {base}
         </span>
       </div>
-      <DefinitionHistory
-        versions={versions}
-        currentId={versionId ?? undefined}
-        loading={versionsLoading}
-        error={versionsError}
-        onReload={() => setVersionsNonce((n) => n + 1)}
-        onChanged={afterRollback}
-      />
-      <nav className="cv-tabs">
+      <details className="rounded-xl border border-line-subtle bg-surfaceSubtle p-3">
+        <summary className="cursor-pointer text-sm font-medium text-text-body">{t("catalog.history.title")}</summary>
+        <div className="mt-3"><DefinitionHistory
+          versions={versions}
+          currentId={versionId ?? undefined}
+          loading={versionsLoading}
+          error={versionsError}
+          onReload={() => setVersionsNonce((n) => n + 1)}
+          onChanged={afterRollback}
+        /></div>
+      </details>
+      <nav className="cv-tabs flex flex-wrap gap-2 rounded-xl border border-line-subtle bg-surfaceSubtle p-2" aria-label={t("catalog.configure")}>
         {(
           ["types", "fields", "vocabularies", "relations", "templates", "schemes"] as const
         ).map((k) => (
@@ -1112,6 +1126,6 @@ export function DefinitionsEditor() {
           不产生任何新的服务端校验，等于一个点了也没用的按钮。服务端的真实校验路径是
           「保存草稿」（POST /admin/catalog-definitions，跑 Definitions.Validate）与
           「影响检查」（上一段，跑 impact 全量回放），因此整块删除而不是换个说法保留。 */}
-    </>
+    </div>
   );
 }

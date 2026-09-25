@@ -8,6 +8,7 @@
 import type { User } from "./api";
 import {
   ALL_PERMISSION_CODES,
+  AUTH_AUDIT_READ,
   AUTH_GROUPS_MANAGE,
   AUTH_INVITES_MANAGE,
   AUTH_OAUTH_MANAGE,
@@ -17,11 +18,17 @@ import {
   CATALOG_ENTITY_EDIT,
   CATALOG_LIFECYCLE_MANAGE,
   CATALOG_SHELVES_MANAGE,
+  COMMUNITY_BOARD_MANAGE,
+  COMMUNITY_POST_MODERATE,
+  COMMUNITY_REPORT_REVIEW,
+  COMMUNITY_TOPIC_PIN,
+  STORAGE_ASSET_MODERATE,
 } from "./permissions.generated";
 
 // 既有调用点从 "@/lib/permissions" 取这些常量，导出名保持不变；
 // 用 export { ... } from 而不是 export const，以保留生成物里的字面量类型。
 export {
+  AUTH_AUDIT_READ,
   AUTH_GROUPS_MANAGE,
   AUTH_INVITES_MANAGE,
   AUTH_OAUTH_MANAGE,
@@ -35,6 +42,7 @@ export {
   CATALOG_SHELVES_MANAGE,
   COMMUNITY_BOARD_MANAGE,
   COMMUNITY_POST_MODERATE,
+  COMMUNITY_REPORT_REVIEW,
   COMMUNITY_TOPIC_PIN,
   STORAGE_ASSET_MODERATE,
   STORAGE_ASSET_UPLOAD,
@@ -98,6 +106,7 @@ export const CATALOG_CONSOLE_CODES = [
 
 /** 账号域控制台的准入码，与 metafusion-auth/admin 的 SECTION_PERMISSIONS 同集合。 */
 export const ACCOUNT_CONSOLE_CODES = [
+  AUTH_AUDIT_READ,
   AUTH_USERS_MANAGE,
   AUTH_GROUPS_MANAGE,
   AUTH_INVITES_MANAGE,
@@ -105,21 +114,29 @@ export const ACCOUNT_CONSOLE_CODES = [
   AUTH_OAUTH_MANAGE,
 ] as const;
 
+export const COMMUNITY_CONSOLE_CODES = [
+  COMMUNITY_BOARD_MANAGE,
+  COMMUNITY_POST_MODERATE,
+  COMMUNITY_REPORT_REVIEW,
+  COMMUNITY_TOPIC_PIN,
+] as const;
+
+export const STORAGE_CONSOLE_CODES = [STORAGE_ASSET_MODERATE] as const;
+
 /** 能否进入目录控制台（`/admin` 的工作面）。 */
 export function canEnterCatalogConsole(user: AnyUser | null | undefined): boolean {
   return CATALOG_CONSOLE_CODES.some((code) => can(user, code));
 }
 
 /**
- * 能否进入"某个"管理台：目录域或账号域的任一管理码，或老令牌下的 admin 角色。
+ * 能否进入"某个"管理台：四个域的任一管理码，或老令牌下的 admin 角色。
  *
  * 只用于导航栏入口的显隐与"是否该给出控制台入口页"的判断——具体落到哪个控制台由
  * /admin 页面按域决定，所以这里刻意保持并集，不能用它当目录工作面的闸门。
- * 社区与存储两域的码不在本函数里：前端的主导航不因它们出现管理入口，那两条链接由
- * /admin 的「其他控制台」区和各自独立应用承担。
+ * 这里只控制管理中心入口；各域工作面仍各自按权限码隔离。
  */
 export function canEnterAdmin(user: AnyUser | null | undefined): boolean {
-  return [...CATALOG_CONSOLE_CODES, ...ACCOUNT_CONSOLE_CODES].some((code) => can(user, code));
+  return [...CATALOG_CONSOLE_CODES, ...ACCOUNT_CONSOLE_CODES, ...COMMUNITY_CONSOLE_CODES, ...STORAGE_CONSOLE_CODES].some((code) => can(user, code));
 }
 
 /** 能否编辑这个实体：审核/生命周期码放行一切；编辑码放行（含协作维护已发布条目）；否则只能改自己的草稿。 */
