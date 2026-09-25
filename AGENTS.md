@@ -39,45 +39,13 @@ MetaFusion 是类似 MusicBrainz / Bangumi 的开放元数据目录与受控资�
 | 子系统边界与迁移 | [子系统拆分与迁移契约](docs/architecture/service-split-migration.md)、[切流手册](docs/architecture/cutover-runbook.md)、[资源存储运行约定](docs/architecture/storage-operations.md)；账号 / 互动 / 存储分别在 `../metafusion-auth`、`../metafusion-community`、`../metafusion-storage` |
 | 解耦审计与整改路线 | [多项目解耦审计与优化建议](docs/architecture/decoupling-audit-2026-09.md)：耦合分级证据、目标架构（每服务自带 UI、协议层 SDK、网关矩阵单源）与 B0–B6 分批 |
 | 部署与 CI | `deploy/docker-compose.yml`、`.github/workflows/ci.yml` |
-| 用户 / LLM 编辑教程 | [Agent 接入](../metafusion-docs/docs/agent-integration.md)、[Agent API](../metafusion-docs/docs/api-agent.md)（文档站是独立仓库 `metafusion-docs`） |
+
 
 技术栈：Go + Next.js / Bun + PostgreSQL + Redis + RustFS（S3）+ OpenSearch 2.x。
 
-涉及 API 或数据行为时，以目标实例响应 + 实际处理器 + 已执行迁移为准；有矛盾记差异、停掉依赖写入，不改文案掩盖。接口或外部行为变化时，只同步直接受影响的 OpenAPI、教程与技能契约。
+涉及 API 或数据行为时，以目标实例响应 + 实际处理器 + 已执行迁移为准；有矛盾记差异、停掉依赖写入，不改文案掩盖。接口或外部行为变化时，只同步直接受影响的 OpenAPI 与开发文档。
 
-## 4. 编目技能与数据不变量
-
-### 技能入口
-
-编目（实体创建/修改、导入、合并、审核）先读独立技能仓库 [MoeclubM/metafusion-skills](https://github.com/MoeclubM/metafusion-skills)：
-
-- [metafusion-curator](https://github.com/MoeclubM/metafusion-skills/blob/main/skills/metafusion-curator/SKILL.md)：流程、证据、API 写入与回读。
-- [lrm-catalog-standards](https://github.com/MoeclubM/metafusion-skills/blob/main/skills/lrm-catalog-standards/SKILL.md)：实体边界、发行版命名、内容复用。
-
-优先用已安装技能，或读同级 `../metafusion-skills/skills/` 源码；改技能源码去它自己的仓库提交。技能不可读先报告缺失、停真实编目写入；纯代码/文档任务不受影响。
-
-### 必须保持的边界
-
-- 层级：`Work → ContentUnit → Expression`（创作母体/内容单元/表达）；`Work → Release → Medium → Track → TrackContent`（发行承载，TrackContent 引用 Expression）；AssetFile 独立存文件、哈希与绑定。
-- Work 只留纯净题名，季/卷/载体/规格放对应层级；不删正式题名里的词，不虚构层级凑数。
-- ContentUnit 父子限同一 Work；Medium / Track 不跨所属 Release / Medium（复合外键保证）。跨 Work 收录走 `Release.subjects`（`undeclared_release_subject` 校验）；缺汇编模型报缺口，不绕库。
-- 无 `media_type` 树状分类，用标签/虚拟货架/Release 规格/实体图谱表达；关系、角色、介质格式等代码以 taxonomy 与实现为准。
-- 关系连已有实体，可用码以 `defaults.go` 种子和 `/api/catalog/definitions` 为准；层级/无环关系拒自环与循环；同一角色跨作品用多条 `character_in`。
-- 外围能力（抓取/导出/通知/AI）插件化，不进核心实体层。
-- **不做转码**：存储只收原始文件、按权限分发（见 [资源上传与下载](https://github.com/MoeclubM/metafusion-docs/blob/main/docs/upload-download.md)）。
-
-### 国际化、封面与审计
-
-- UI 文案走 `useI18n()` + 四语字典同步，不硬编码、不用中文兜底；动态术语用 definitions 多语言字段和现成 helper。
-- 实体翻译在统一 DTO 的 `translations`（按 locale 分组，每语种 `title / summary / aliases`）；原语言题名归对应翻译行，不塞实体级 `aliases`。
-- 回退链：请求语言 → en-US → original_language → 基础字段；读写字段分离，展示值不回写。
-- 封面用可考据官方/授权图；音乐封面可采用 iTunes/Apple Music 官方图，数字发行版也可用其官方专辑页作为权威来源。来源权威不等于自动获得复用授权，仍需单独核验授权。
-- iTunes/Apple Music 封面关联页或专辑链接中的发行 ID 记录为 `external_ids.apple_music`，并与页面/API 的 `collectionId` 或专辑 ID 核对；无法确认时不填。
-- 封面不拉伸、不用风景占位；比例只是展示建议（音乐 1:1、影视 2:3、书籍 3:4），**不是可写字段**——`attributes` 里写未声明的键会被 `unknown_field` 拒，导入载荷里的 `release.cover_aspect` 同样被拒（比例不落库）。
-- 每次编目变更带 `edit_note` + `sources`（写入体字段名是 `sources`，每项含 `kind` ∈ url/publication/self 与必填 `citation`）；不宣称全端点强制证据/审计/ACID，按技能契约核实，缺能力报缺口、不绕库。
-- PUT 非 PATCH：先读全量再写，翻译/标签/Track contents 可能整组替换；写后回读，响应不明先核对状态、不盲重试。
-
-## 5. 按改动范围验证
+## 4. 按改动范围验证
 
 根据改动范围和风险选择必要检查；命令在“目录”列位置运行，版本以 manifest 和 CI 为准。
 
