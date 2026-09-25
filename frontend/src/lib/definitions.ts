@@ -452,3 +452,89 @@ export function getTermName(
   if (!term) return termCode;
   return resolveLocalizedName(term.names, locale, termCode);
 }
+
+/** 自由标签所在词表码：词表由服务端 definitions 下发，前端不自带任何标签翻译表。 */
+const TAGS_VOCABULARY = "tags";
+
+/**
+ * tagCode：标签的原始值（写库/进 URL 的那个）归一化。
+ *
+ * attributes.tags 的官方形状是字符串数组；历史与导入数据里出现过 `{name}` 对象，
+ * 读取端统一在此兼容。展示端只依赖它做"查词表 + 拼链接"，不改写实体数据。
+ */
+export function tagCode(tag: unknown): string {
+  if (typeof tag === "string") return tag;
+  if (tag && typeof tag === "object" && typeof (tag as { name?: unknown }).name === "string") {
+    return (tag as { name: string }).name;
+  }
+  return tag == null ? "" : String(tag);
+}
+
+/** 反查键归一化：去空白 + 小写（CJK 无大小写，等于原样比较）。 */
+function tagKey(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/** 反查索引缓存：词表对象 → (任一语种名归一化 → 词条 code)。
+ *  词表随 definitions 版本刷新会换新对象，缓存随之自然失效（无需手动清理）。 */
+const tagIndexCache = new WeakMap<object, Map<string, string>>();
+
+/**
+ * tagIndex：原始 tag 值 → 词条 code 的反查表，按词表对象只建一次。
+ *
+ * 为什么需要反查：词表两侧可能对不上——term code 是词表自己的 slug，而实体里存的
+ * attributes.tags 是历史/导入留下的字面量（`輕小說`、`ライトノベル`、`DIR EN GREY`、`2022年`、`4K`），
+ * 两者不必相等，因此除了按 code 精确查，还要能按"某个语种的名字等于原始值"找到词条。
+ * 同一名字被多个词条声明时按词表顺序取第一个（确定性，不随调用时机变化）。
+ */
+function tagIndex(vocab: VocabularyDef): Map<string, string> {
+  const cached = tagIndexCache.get(vocab);
+  if (cached) return cached;
+  const index = new Map<string, string>();
+  for (const [code, term] of Object.entries(vocab.terms || {})) {
+    for (const name of Object.values(term?.names || {})) {
+      if (typeof name !== "string") continue;
+      const key = tagKey(name);
+      if (key && !index.has(key)) index.set(key, code);
+    }
+  }
+  tagIndexCache.set(vocab, index);
+  return index;
+}
+
+/**
+ * getTagName：自由标签的**显示名**，两级解析后再回退：
+ *  1. 原始 tag 精确命中词条 code（`defs.vocabularies.tags.terms[tag]`）；
+ *  2. 否则按"任一语种的名字等于原始 tag"反查词条（见 tagIndex，按词表对象 memo 一次）；
+ *  3. 仍未命中（新标签、词表没覆盖）回退原始 tag 字面量——展示端永不因缺词表而空白。
+ * 命中后一律走 resolveLocalizedName(term.names, locale, 原始值)，沿用全站既有的语种回退链。
+ *
+ * 只用于展示：链接参数（/explore?tags=<原始 tag>）、筛选请求、编辑回写必须继续用原始 tag 值
+ * （attributes.tags 不做迁移），不得把本地化名写回数据——写回等于伪造数据，且检索参数会对不上。
+ */
+export function getTagName(
+  defs: DynamicDefinitions | null | undefined,
+  tag: unknown,
+  locale: string
+): string {
+  const raw = tagCode(tag);
+  const key = raw.trim();
+  if (!key) return raw;
+  const vocab = defs?.vocabularies?.[TAGS_VOCABULARY];
+  if (!vocab) return raw;
+  // 1) 精确 term code；2) 反查（某语种名 == 原始值）
+  const term =
+    vocab.terms?.[key] ||
+    vocab.terms?.[tagIndex(vocab).get(tagKey(key)) || ""];
+  if (!term) return raw;
+  return resolveLocalizedName(term.names, locale, raw);
+}
+
+/** getTagNames：批量标签展示名，保持入参顺序，空值剔除；用途与限制同 getTagName。 */
+export function getTagNames(
+  defs: DynamicDefinitions | null | undefined,
+  tags: unknown[] | null | undefined,
+  locale: string
+): string[] {
+  return (tags || []).map((tag) => getTagName(defs, tag, locale)).filter((name) => !!name);
+}

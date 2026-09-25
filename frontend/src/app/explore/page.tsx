@@ -10,7 +10,7 @@ import { Pagination } from "@/components/common/Pagination";
 import { SearchSuggest } from "@/components/common/SearchSuggest";
 import { kindIcon } from "@/lib/kindIcons";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useDefinitions, getKindName } from "@/lib/definitions";
+import { useDefinitions, getKindName, getTagName, getTagNames } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
 import { PageShell, PageHeader } from "@/components/ui/PageShell";
 import { Card } from "@/components/ui/Card";
@@ -120,15 +120,24 @@ function ExploreInner() {
   // 标签默认只露前几个：面板不展开长云，剩下的走搜索框。已选恒置顶（不因不在前 N 或搜不到而消失）。
   const visibleTags = useMemo(() => {
     const q = tagQuery.trim().toLowerCase();
+    // 面板本地搜索同时匹配原始 tag code 与本地化展示名：只匹配原始码时，
+    // 用户照着面板上的"轻小说"去搜反而搜不到（面板显示的是本地化名）。
+    const matches = (name: string) => {
+      if (!q) return true;
+      return (
+        name.toLowerCase().includes(q) ||
+        getTagName(definitions, name, locale).toLowerCase().includes(q)
+      );
+    };
     if (q) {
-      const base = topTags.filter((tag) => tag.name.toLowerCase().includes(q)).slice(0, TAG_SEARCH_CAP);
+      const base = topTags.filter((tag) => matches(tag.name)).slice(0, TAG_SEARCH_CAP);
       const selected = topTags.filter((tag) => currentTags.includes(tag.name) && !base.includes(tag));
       return [...selected, ...base];
     }
     const top = topTags.slice(0, TAG_COLLAPSED_COUNT);
     const selected = topTags.filter((tag) => currentTags.includes(tag.name) && !top.includes(tag));
     return [...selected, ...top];
-  }, [topTags, tagQuery, currentTags]);
+  }, [topTags, tagQuery, currentTags, definitions, locale]);
   // 原语言下拉选项：常用在前、全表在后；URL 里带了表外码（别名/冷门码）时 pin 一项，免得选中态凭空消失。
   const langOptions = useMemo(() => {
     const base = searchLanguages("").map((e) => ({ value: e.code, label: languageLabel(e.code) }));
@@ -465,8 +474,9 @@ function ExploreInner() {
                               : "text-text-body border-line-subtle hover:bg-black/[0.04] dark:hover:bg-surfaceHover")
                           }
                         >
-                          {/* 名称与计数分离：粘连在一起（VOCALOID41）扫读时无法区分词与数。 */}
-                          <span className={on ? "font-semibold" : "font-medium"}>{tag.name}</span>
+                          {/* 名称与计数分离：粘连在一起（VOCALOID41）扫读时无法区分词与数。
+                              显示名走 tags 词表多语言；点击/URL 值仍是原始 tag code（tag.name）。 */}
+                          <span className={on ? "font-semibold" : "font-medium"}>{getTagName(definitions, tag.name, locale)}</span>
                           <span
                             className={
                               "pl-1.5 border-l border-line-subtle font-mono text-[10px] tabular-nums " +
@@ -673,7 +683,7 @@ function ExploreInner() {
                       badgeLabel={badgeLabel}
                       title={displayTitle}
                       baseTitle={item.title}
-                      tags={item.attributes?.tags}
+                      tags={getTagNames(definitions, item.attributes?.tags, locale)}
                       status={item.status}
                       statusLabel={tr("catalog.status." + item.status, item.status)}
                       pictureUrl={item.pictures && item.pictures[0]?.url}
@@ -723,7 +733,8 @@ function ExploreInner() {
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 text-xs text-text-muted font-mono">
-                            <span>{(item.attributes?.tags || []).slice(0, 3).join(" · ")}</span>
+                            {/* 列表行标签同样是本地化展示名；筛选值仍在 URL 的 tags 参数里。 */}
+                            <span>{getTagNames(definitions, item.attributes?.tags, locale).slice(0, 3).join(" · ")}</span>
                           </div>
                         </div>
                       </div>

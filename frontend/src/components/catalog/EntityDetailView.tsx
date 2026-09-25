@@ -41,7 +41,7 @@ import { buildStaffCredits } from "@/components/entity/staffCredits";
 import { TabBar, useHashTab, TabItem } from "@/components/catalog/DetailTabs";
 import { ExternalAuthorityLinks } from "@/components/entity/ExternalAuthorityLinks";
 import { EntityResourceFiles } from "@/components/storage/EntityResourceFiles";
-import { useDefinitions, getKindName, getTypeName, getRelationName, getFieldName, getTermName, resolveLocalizedName } from "@/lib/definitions";
+import { useDefinitions, getKindName, getTypeName, getRelationName, getFieldName, getTermName, getTagName, tagCode, resolveLocalizedName } from "@/lib/definitions";
 import {
   getAuthLoginUrl,
   getForumEntityUrl,
@@ -1165,14 +1165,17 @@ export function EntityDetailView({ id }: { id: string }) {
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {(Array.isArray(entity.attributes?.tags) ? entity.attributes.tags : []).map((tag: any, idx: number) => {
-                      const tagName = typeof tag === "string" ? tag : tag?.name || String(tag);
+                      // 显示名走 tags 词表多语言（getTagName），链接参数仍用原始 tag code：
+                      // 否则 /explore?tags= 会去筛一个库里不存在的本地化名。
+                      const code = tagCode(tag);
+                      if (!code) return null;
                       return (
                         <Link
                           key={idx}
-                          href={`/explore?tags=${encodeURIComponent(tagName)}`}
+                          href={`/explore?tags=${encodeURIComponent(code)}`}
                           className="px-2 py-0.5 rounded bg-black/[0.04] dark:bg-white/[0.06] hover:bg-primary/10 hover:text-primary text-text-body text-[11px] transition-colors duration-fast ease-soft"
                         >
-                          {tagName}
+                          {getTagName(defs, code, locale)}
                         </Link>
                       );
                     })}

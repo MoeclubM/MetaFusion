@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useDefinitions, getKindName, type KindMap } from "@/lib/definitions";
+import { useDefinitions, getKindName, getTagNames, type KindMap } from "@/lib/definitions";
 import { pickRecordTitle } from "@/lib/titles";
 import { PageContainer, PageShell } from "@/components/ui/PageShell";
 import { useTitleDisplayOrder } from "@/hooks/useTitleDisplayOrder";
@@ -260,7 +260,7 @@ export default function HomePage() {
                         badgeLabel={badge}
                         title={displayTitle}
                         baseTitle={item.title}
-                        tags={item.attributes?.tags}
+                        tags={getTagNames(definitions, item.attributes?.tags, locale)}
                         pictureUrl={item.pictures && item.pictures[0]?.url}
                       />
                     );

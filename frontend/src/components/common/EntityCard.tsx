@@ -13,7 +13,9 @@ export interface EntityCardProps {
   title: string;
   /** 基础题名：与展示题名不同时作为原文副标题 */
   baseTitle?: string;
-  /** 标签：无原文副标题可用时，作为题名下的第二行信息 */
+  /** 标签（**已按请求语种解析的展示名**，由调用方走 getTagName/getTagNames）：
+   *  无原文副标题可用时，作为题名下的第二行信息。原始 tag code 不进卡片，
+   *  它只用于 URL/筛选参数与写库，卡片是纯展示组件、不持有 definitions。 */
   tags?: string[];
   /** 无封面占位层的副行（如首个标签） */
   fallbackSubtitle?: string;

@@ -11,7 +11,7 @@ import { Navbar } from "@/components/Navbar";
 import Link from "next/link";
 import { fetchApi, fetchEntityPosts, ConnectedEntityItem, GraphNode, GraphLink } from "@/lib/api";
 import { Entity, fetchAllPages, mapLimit, title as entityTitle, type CommunityPost } from "@/components/catalog/api";
-import { useDefinitions, getFieldName, getRelationName, getTermName, resolveLocalizedName } from "@/lib/definitions";
+import { useDefinitions, getFieldName, getRelationName, getTermName, getTagName, resolveLocalizedName } from "@/lib/definitions";
 import { FieldValue } from "@/components/catalog/TemplateAttributeSections";
 import { useAuth } from "@/lib/authContext";
 import { useKindRedirect } from "@/lib/useKindRedirect";
@@ -459,7 +459,9 @@ const staffCredits = useMemo<StaffCredit[]>(
        </section>
        {tags.length > 0 && <section>
          <h2>{t("work.detail.tagsHeading")}</h2>
-         <div className={styles.tags}>{tags.map(tag => <Link key={tag} href={`/explore?tags=${encodeURIComponent(tag)}`}>{tag}</Link>)}</div>
+         {/* 显示名走 tags 词表多语言（getTagName）；链接参数仍是原始 tag code——
+             tags 未本地化，本地化名进 URL 会筛不到任何条目。cover 比例推断也读原始值。 */}
+         <div className={styles.tags}>{tags.map(tag => <Link key={tag} href={`/explore?tags=${encodeURIComponent(tag)}`}>{getTagName(defs, tag, locale)}</Link>)}</div>
        </section>}
        {work.external_ids && Object.keys(work.external_ids).length > 0 && <section>
          <h2>{t("work.detail.externalHeading")}</h2>

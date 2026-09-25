@@ -484,7 +484,9 @@ export function EntityEditor({
           </label>
         </div>
         {/* 自由标签：只承载检索/分组用标签，值落在 attributes.tags，
-            详情页标签区块与 /explore?tags= 检索都读它，不兼任业务分类。 */}
+            详情页标签区块与 /explore?tags= 检索都读它，不兼任业务分类。
+            这里恒显示/提交**原始 tag code**：展示端的本地化名（getTagName）只用于读，
+            不能作为输入框回显值，否则保存会把本地化名写回数据、检索参数随之失效。 */}
         <div className="cv-tags">
           <label>
             {t("catalog.tagsLabel")}
