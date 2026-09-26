@@ -1,6 +1,7 @@
 "use client";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2, Upload } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { api, Entity, emptyEntity, kinds as fallbackKinds, local, Source } from "./api";
 import { canPublishEntity } from "@/lib/permissions";
@@ -12,10 +13,22 @@ import { EntityPicker, Evidence, FieldInput, ErrorMessage, GroupFieldInput, Name
 import { EntityCover } from "@/components/common/EntityCover";
 import { LanguagePicker } from "@/components/common/LanguagePicker";
 import { RelationEditorField, type RelationDraft } from "@/components/editor/RelationEditorField";
+import { Select } from "@/components/ui/Select";
+import { Combobox } from "@/components/ui/Combobox";
 import { effectiveSchemeFields, getFieldName, getKindName, getTermName, getTypeName, matchSchemes, resolveKindOptions, useDefinitions } from "@/lib/definitions";
 import { COVER_PICTURE_INDEX, MAX_ENTITY_PICTURES, PICTURE_ROLE_VOCABULARY } from "@/lib/cover";
-import { assetContentUrl, isAssetUuid } from "@/lib/storage";
-import { canonicalLanguageCode, languageLabel, quickLanguages } from "@/lib/languages";
+import {
+  assetContentUrl,
+  completeUpload,
+  initiateUpload,
+  isAssetUuid,
+  putFile,
+  sha256HexOfFile,
+  storageErrorKey,
+  streamUploadUrl,
+  StorageRequestError,
+} from "@/lib/storage";
+import { canonicalLanguageCode, languageLabel } from "@/lib/languages";
 
 /** 标签分隔符：中英文逗号/顿号/换行都算新增，避免只能靠回车。 */
 const TAG_SEPARATORS = /[,，、\n]/;
@@ -151,6 +164,29 @@ export function EntityEditor({
   // 本层级可选的字段方案：服务端 definitions.types 中启用且适用于本 kind 的项。
   // types 是现有持久化字段，作为字段白名单使用；自由分类只写 attributes.tags。
   const kindTypeOptions: string[] = kindTypeOptionsKey ? kindTypeOptionsKey.split(",") : [];
+  // 模板快捷入口：模板本身不挂 kind，可适用性由"指向它的、启用的、适用于本 kind 的 type"
+  // 反推（type.template === 模板码 且 type.kinds 含当前 kind）。选模板即把这些 type 合并进
+  // e.types（并集，不丢已手选的类型）；编辑已有实体时不强制，仅新建时显示。
+  const templatePickOptions = (() => {
+    const byTemplate: Record<string, string[]> = {};
+    for (const [code, ty] of Object.entries(d.types || {})) {
+      if (!ty.enabled) continue;
+      if (!(ty.kinds || []).includes(kindKey)) continue;
+      if (!ty.template) continue;
+      (byTemplate[ty.template] ||= []).push(code);
+    }
+    return Object.entries(d.templates || {})
+      .filter(([tpl]) => (byTemplate[tpl] || []).length > 0)
+      .map(([code, tpl]) => {
+        const label = local(tpl.names, locale, code);
+        return { value: code, label, search: `${label} ${code}`, types: byTemplate[code] };
+      });
+  })();
+  const applyTemplate = (tplCode: string) => {
+    const tpl = templatePickOptions.find((o) => o.value === tplCode);
+    if (!tpl) return;
+    patch({ types: Array.from(new Set([...e.types, ...tpl.types])) });
+  };
   const patch = (v: Partial<Entity>) => setE({ ...e, ...v });
   // ---- 标签：开放分类/检索词，不预置封闭的媒体或作品类型清单。----
   const tags: string[] = Array.isArray(e.attributes?.tags)
@@ -168,22 +204,6 @@ export function EntityEditor({
   // ---- 多语言：选择器只渲染当前语种，语种一多不再一次铺开 ----
   // 语种标签走语言单一来源：表内语种显示「自称 (规范码)」，表外语种回落代码本身。
   const localeLabel = (code: string) => languageLabel(code);
-  // 选项 = 原始语言 + 已添加语种 + 常用语种；常用语种来自语言单一来源的快捷列表，
-  // 名称是语言表里的自称，不在组件里另抄语种清单、也不写死语言名。
-  const localeOptions = (() => {
-    const seen = new Set<string>();
-    const out: { code: string; label: string }[] = [];
-    const push = (raw: string) => {
-      const code = String(raw || "").trim();
-      if (!code || seen.has(code)) return;
-      seen.add(code);
-      out.push({ code, label: localeLabel(code) });
-    };
-    push(e.original_language);
-    Object.keys(e.translations).forEach(push);
-    quickLanguages().forEach((l) => push(l.code));
-    return out;
-  })();
   // chips：原始语言 + 已添加语种；原始语言不可删除（题名只读，来自实体基础题名）。
   const localeCodes = (() => {
     const seen = new Set<string>();
@@ -326,6 +346,75 @@ export function EntityEditor({
     }
     return options;
   };
+  // ---- 图片直传：复用 storage 服务的 sha256 → initiate → putFile → complete 链路。
+  // 图片直接挂在 entity.pictures 上，不调用 bindAsset（无需先有 entity.id）；
+  // 上传成功后把 asset_id 与 assetContentUrl 一次性写回该行，缩略图随之回显。
+  const pictureFileRef = useRef<HTMLInputElement | null>(null);
+  const [pendingUploadIndex, setPendingUploadIndex] = useState<number | null>(null);
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadError, setUploadError] = useState("");
+  const startPictureUpload = async (index: number, file: File) => {
+    if (!file || file.size <= 0) return;
+    setUploadError("");
+    setUploadingIndex(index);
+    setUploadProgress(0);
+    try {
+      const sha256 = await sha256HexOfFile(file);
+      const init = await initiateUpload({
+        fileName: file.name,
+        fileSize: file.size,
+        sha256Hash: sha256,
+        mimeType: file.type || "application/octet-stream",
+        // 自托管图片用途码：与 storage 预设 cover_image 一致。
+        bindingRole: "cover_image",
+      });
+      if (!init.is_instant_upload) {
+        const report = (loaded: number, total: number) =>
+          setUploadProgress(total > 0 ? Math.min(99, Math.round((loaded / total) * 100)) : 0);
+        const direct = init.direct_upload_url;
+        const presigned = init.presigned_urls && init.presigned_urls[0];
+        const runPut = (url: string) =>
+          putFile(url, file, {
+            onProgress: report,
+            errorCode: (code, status) => new StorageRequestError(code, status),
+          }).promise;
+        if (direct) {
+          await runPut(new URL(direct, window.location.origin).toString());
+        } else if (presigned) {
+          try {
+            await runPut(presigned);
+          } catch (err) {
+            // 预签名地址不可达/CORS：回退服务端流式接收（与 EntityResourceFiles 同策略）。
+            const status = err instanceof StorageRequestError ? err.status : -1;
+            if (status !== 0 && status !== 403) throw err;
+            await runPut(streamUploadUrl(init.asset_id));
+          }
+        } else {
+          await runPut(streamUploadUrl(init.asset_id));
+        }
+      }
+      setUploadProgress(100);
+      await completeUpload(init.asset_id, init.upload_id);
+      patchPicture(index, {
+        asset_id: init.asset_id,
+        url: assetContentUrl(init.asset_id),
+      });
+    } catch (err) {
+      const mapped = storageErrorKey(err);
+      setUploadError(mapped.vars ? t(mapped.key, mapped.vars) : t(mapped.key));
+    } finally {
+      setUploadingIndex(null);
+      setUploadProgress(0);
+    }
+  };
+  const onPickPictureFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (file && pendingUploadIndex !== null) {
+      void startPictureUpload(pendingUploadIndex, file);
+    }
+  };
   const save = async (ev: React.FormEvent) => {
     ev.preventDefault();
     // 空字段方案可保存基础身份和标签；填写动态字段时须选相应方案，
@@ -426,19 +515,15 @@ export function EntityEditor({
         <div className="cv-grid">
           <label>
             {t("catalog.kindLabel")}
-            <select
+            <Select
               value={e.kind}
               disabled={!!e.id}
-              onChange={(x) =>
-                setE({ ...emptyEntity(x.target.value), title: e.title })
+              onChange={(value) =>
+                setE({ ...emptyEntity(value), title: e.title })
               }
-            >
-              {kindOptions.map((k) => (
-                <option key={k} value={k}>
-                  {kindLabel(k)}
-                </option>
-              ))}
-            </select>
+              options={kindOptions.map((k) => ({ value: k, label: kindLabel(k) }))}
+              aria-label={t("catalog.kindLabel")}
+            />
           </label>
           <label>
             {t("catalog.title")}
@@ -457,11 +542,10 @@ export function EntityEditor({
           </label>
           <label>
             {t("catalog.status")}
-            <select
+            <Select
               value={e.status}
-              onChange={(x) => patch({ status: x.target.value })}
-            >
-              {(
+              onChange={(value) => patch({ status: value })}
+              options={(
                 initial?.status === "published"
                   ? ["published"]
                   : [
@@ -471,12 +555,9 @@ export function EntityEditor({
                       // 自己的条目（新建无 created_by 即视为自己）。
                       ...(canPublishEntity(user, initial) ? ["published"] : []),
                     ]
-              ).map((k) => (
-                <option key={k} value={k}>
-                  {t(`catalog.state.${k}`)}
-                </option>
-              ))}
-            </select>
+              ).map((k) => ({ value: k, label: t(`catalog.state.${k}`) }))}
+              aria-label={t("catalog.status")}
+            />
           </label>
         </div>
         {/* 自由标签：只承载检索/分组用标签，值落在 attributes.tags，
@@ -529,24 +610,43 @@ export function EntityEditor({
           {kindTypeOptions.length === 0 ? (
             <p className="cv-hint">{t("catalog.noTypesForKind")}</p>
           ) : (
-            <div className="cv-checks">
-              {kindTypeOptions.map((code) => (
-                <label key={code}>
-                  <input
-                    type="checkbox"
-                    checked={e.types.includes(code)}
-                    onChange={(x) =>
-                      patch({
-                        types: x.target.checked
-                          ? [...e.types, code]
-                          : e.types.filter((v) => v !== code),
-                      })
-                    }
-                  />
-                  {getTypeName(defs as any, code, locale) || code}
-                </label>
-              ))}
-            </div>
+            <>
+              {/* 新建实体的模板快捷入口：选模板即自动勾选其下全部业务类型；
+                  编辑已有实体时不显示（保留手动 checkbox 流程）。 */}
+              {!initial && templatePickOptions.length > 0 && (
+                <div className="cv-row" style={{ marginBottom: 8 }}>
+                  <label style={{ display: "block", width: "100%" }}>
+                    {tr("editor.templatePick", "按模板快速填充业务类型")}
+                    <Combobox
+                      value=""
+                      onChange={applyTemplate}
+                      options={templatePickOptions}
+                      placeholder={tr("editor.templatePickPlaceholder", "选择模板…")}
+                      searchPlaceholder={tr("editor.templateSearch", "搜索模板…")}
+                      aria-label={tr("editor.templatePick", "按模板快速填充业务类型")}
+                    />
+                  </label>
+                </div>
+              )}
+              <div className="cv-checks">
+                {kindTypeOptions.map((code) => (
+                  <label key={code}>
+                    <input
+                      type="checkbox"
+                      checked={e.types.includes(code)}
+                      onChange={(x) =>
+                        patch({
+                          types: x.target.checked
+                            ? [...e.types, code]
+                            : e.types.filter((v) => v !== code),
+                        })
+                      }
+                    />
+                    {getTypeName(defs as any, code, locale) || code}
+                  </label>
+                ))}
+              </div>
+            </>
           )}
           <p className="cv-hint">{t("catalog.businessTypesHint")}</p>
         </details>
@@ -555,22 +655,9 @@ export function EntityEditor({
         <legend>{t("catalog.translations")}</legend>
         {/* 语种选择器 + 当前语种字段：语种一多不再每语种铺一块。
             下拉选项来自已添加语种；新增语种走可搜索的语言选择器（不必知道代码）。 */}
+        {/* 语种切换：已有语种以 chip 直接点击切换（下方 chips），新增语种走可搜索的
+            LanguagePicker（不必知道代码）。不再保留冗余的原生下拉。 */}
         <div className="cv-row cv-localebar">
-          <label>
-            {t("catalog.translationLocale")}
-            <select
-              aria-label={t("catalog.translationLocale")}
-              value={activeLocale}
-              onChange={(x) => addLocale(x.target.value)}
-            >
-              {!activeLocale && <option value="">{t("catalog.select")}</option>}
-              {localeOptions.map((o) => (
-                <option key={o.code} value={o.code}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
           <LanguagePicker
             selected={localeCodes}
             onSelect={addLocale}
@@ -714,24 +801,20 @@ export function EntityEditor({
                     })
                   }
                 />
-                <select
+                <Select
                   value={s.role}
-                  onChange={(x) =>
+                  onChange={(value) =>
                     patch({
                       subjects: e.subjects.map((v, j) =>
-                        i === j ? { ...v, role: x.target.value } : v,
+                        i === j ? { ...v, role: value } : v,
                       ),
                     })
                   }
-                >
-                  {Object.entries(d.vocabularies.release_role.terms)
+                  options={Object.entries(d.vocabularies.release_role.terms)
                     .filter(([k, v]) => v.enabled || k === s.role)
-                    .map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {local(v.names, locale, "", k)}
-                      </option>
-                    ))}
-                </select>
+                    .map(([k, v]) => ({ value: k, label: local(v.names, locale, "", k) }))}
+                  aria-label={tr("catalog.subjectRole", "署名角色")}
+                />
                 {/* 发行对象附加属性：按 scheme 收敛（无匹配显示全部全局子字段）。 */}
                 <GroupFieldInput
                   defs={defs}
@@ -1092,6 +1175,27 @@ export function EntityEditor({
                 </button>
                 <button
                   type="button"
+                  disabled={uploadingIndex !== null}
+                  onClick={() => {
+                    setPendingUploadIndex(i);
+                    pictureFileRef.current?.click();
+                  }}
+                  title={t("catalog.upload")}
+                >
+                  {uploadingIndex === i ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      {uploadProgress}%
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1">
+                      <Upload className="w-3.5 h-3.5" />
+                      {t("catalog.upload")}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPictures(e.pictures.filter((_, j) => i !== j))}
                 >
                   {t("catalog.remove")}
@@ -1130,17 +1234,15 @@ export function EntityEditor({
               <div className="cv-grid">
                 <label>
                   {t("catalog.imageRole")}
-                  <select
+                  <Select
                     value={p.role || ""}
-                    onChange={(x) => patchPicture(i, { role: x.target.value })}
-                  >
-                    <option value="">{t("catalog.imageRoleUndeclared")}</option>
-                    {pictureRoleOptions(p.role || "").map((o) => (
-                      <option key={o.code} value={o.code}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => patchPicture(i, { role: value })}
+                    options={[
+                      { value: "", label: t("catalog.imageRoleUndeclared") },
+                      ...pictureRoleOptions(p.role || "").map((o) => ({ value: o.code, label: o.label })),
+                    ]}
+                    aria-label={t("catalog.imageRole")}
+                  />
                 </label>
                 <label>
                   {t("catalog.imageTakenAt")}
@@ -1208,6 +1310,18 @@ export function EntityEditor({
             {t("catalog.pictureLimitReached", { max: MAX_ENTITY_PICTURES })}
           </p>
         )}
+        {uploadError && <p className="cv-error">{uploadError}</p>}
+        {/* 每张图片行的"上传"按钮共用这一个隐藏文件选择器：选完即走 storage 直传链路，
+            成功后把 asset_id/url 写回对应行，缩略图随 url 回显。 */}
+        <input
+          ref={pictureFileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          aria-hidden="true"
+          tabIndex={-1}
+          onChange={onPickPictureFile}
+        />
       </fieldset>
       <Evidence
         note={note}
