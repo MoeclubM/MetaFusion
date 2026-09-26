@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -13,7 +14,7 @@ import (
 )
 
 // Shelf 是首页货架与探索页共用的聚合规则。
-// 前后端共用同一规则：query 描述“收录什么”（types 按动态类型、fields 按
+// 前后端共用同一规则：query 描述“收录什么”（tags 按开放标签、fields 按
 // 字段取值、vocab_terms 按词表项、relations 按关系存在性），sort/icon/
 // enabled 描述“如何展示”。names 为四语名称映射（zh-CN/en-US/zh-TW/ja-JP）。
 type Shelf struct {
@@ -41,10 +42,23 @@ const (
 // ShelfQuery 描述货架收录规则。各子条件之间为 AND；同一数组内为 OR。
 // 空 query 表示收录全部已发布作品。
 type ShelfQuery struct {
-	Types      []string            `json:"types,omitempty"`
+	Tags       []string            `json:"tags,omitempty"`
 	Fields     map[string][]string `json:"fields,omitempty"`
 	VocabTerms map[string][]string `json:"vocab_terms,omitempty"`
 	Relations  []string            `json:"relations,omitempty"`
+}
+
+// 收录规则是公开契约；拒绝已废弃或拼错的键，避免意外成为“收录全部”。
+func (q *ShelfQuery) UnmarshalJSON(data []byte) error {
+	type shape ShelfQuery
+	var value shape
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&value); err != nil {
+		return err
+	}
+	*q = ShelfQuery(value)
+	return nil
 }
 
 var shelfSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{1,63}$`)
@@ -63,7 +77,9 @@ func scanShelf(row func(...any) error) (Shelf, error) {
 	}
 	s.Query = ShelfQuery{}
 	if len(query) > 0 {
-		_ = json.Unmarshal(query, &s.Query)
+		if err := json.Unmarshal(query, &s.Query); err != nil {
+			return s, err
+		}
 	}
 	if s.Query.Fields == nil {
 		s.Query.Fields = map[string][]string{}
@@ -93,16 +109,16 @@ func validateShelf(s Shelf) error {
 	return validateShelfQuery(s.Query)
 }
 
-// validateShelfQuery 校验收录规则的形状：types / relations 逐项必须是去空白后非空的码，
+// validateShelfQuery 校验收录规则的形状：tags / relations 逐项必须是去空白后非空的码，
 // fields / vocab_terms 的键必须是合法字段码、取值逐项非空。
 //
 // 抽成公共函数：系统货架规则（validateShelf）与用户首页分区共用同一份检查。
-// 只判形状不判存在性——类型/字段/词表项由动态 definitions 决定，写实体与定义发布自会拦住
+// 只判形状不判存在性——开放标签无需预先声明；字段/词表项由动态 definitions 决定，写实体与定义发布自会拦住
 // 未声明的码；这里要挡的是"写进去必然取不到值"的空承诺（shelfFilter 会把空白项整个丢掉）。
 func validateShelfQuery(q ShelfQuery) error {
-	for _, v := range q.Types {
+	for _, v := range q.Tags {
 		if strings.TrimSpace(v) == "" {
-			return fmt.Errorf("invalid_types")
+			return fmt.Errorf("invalid_tags")
 		}
 	}
 	if err := validateQueryValues("invalid_fields", q.Fields); err != nil {
@@ -285,15 +301,16 @@ func sortedKeys[V any](m map[string]V) []string {
 }
 
 // shelfFilter 把货架规则编译成 WHERE 片段：子条件之间 AND，同一数组内 OR。
-// types 为空表示"收录全部作品"，与规则文档一致，因此回落到 kind='work'；
-// 否则按动态类型过滤（类型码本身已隐含所属 kind）。
+// 所有规则只收录作品；tags 为开放标签，数组内任一命中即可。
 func shelfFilter(sh Shelf, args *[]any, alias string) []string {
-	parts := []string{}
-	if types := trimAll(sh.Query.Types); len(types) > 0 {
-		*args = append(*args, pq.Array(types))
-		parts = append(parts, fmt.Sprintf("%s.document->'types' ?| $%d", alias, len(*args)))
-	} else {
-		parts = append(parts, fmt.Sprintf("%s.kind='work'", alias))
+	parts := []string{fmt.Sprintf("%s.kind='work'", alias)}
+	if tags := trimAll(sh.Query.Tags); len(tags) > 0 {
+		ors := make([]string, 0, len(tags))
+		for _, tag := range tags {
+			*args = append(*args, encode([]string{tag}))
+			ors = append(ors, fmt.Sprintf("%s.document->'attributes'->'tags' @> $%d::jsonb", alias, len(*args)))
+		}
+		parts = append(parts, "("+strings.Join(ors, " OR ")+")")
 	}
 	// enum 词表项与普通字段一样落在 document.attributes 下，用同一比较方式。
 	for _, m := range []map[string][]string{sh.Query.Fields, sh.Query.VocabTerms} {
@@ -413,12 +430,12 @@ func (s *Store) CountShelfItems(ctx context.Context, sh Shelf, u *User) (int, er
 // 单独成函数：名称四语覆盖由 names_coverage_test 直接断言，不只依赖启动写库。
 func shelfSeeds() []Shelf {
 	return []Shelf{
-		{Slug: "music", Names: map[string]string{"zh-CN": "音乐", "zh-TW": "音樂", "ja": "音楽", "ja-JP": "音楽", "en-US": "Music"}, Query: ShelfQuery{Types: []string{"music", "song", "album"}}, Sort: "updated", Icon: "Disc", Enabled: true, SortOrder: 10},
-		{Slug: "anime", Names: map[string]string{"zh-CN": "动画", "zh-TW": "動畫", "ja": "アニメ", "ja-JP": "アニメ", "en-US": "Anime"}, Query: ShelfQuery{Types: []string{"animation"}}, Sort: "updated", Icon: "Tv", Enabled: true, SortOrder: 20},
-		{Slug: "films", Names: map[string]string{"zh-CN": "电影", "zh-TW": "電影", "ja": "映画", "ja-JP": "映画", "en-US": "Films"}, Query: ShelfQuery{Types: []string{"film"}}, Sort: "updated", Icon: "Film", Enabled: true, SortOrder: 30},
-		{Slug: "novels", Names: map[string]string{"zh-CN": "小说", "zh-TW": "小說", "ja": "小説", "ja-JP": "小説", "en-US": "Novels"}, Query: ShelfQuery{Types: []string{"novel"}}, Sort: "updated", Icon: "BookOpen", Enabled: true, SortOrder: 40},
-		{Slug: "games", Names: map[string]string{"zh-CN": "游戏", "zh-TW": "遊戲", "ja": "ゲーム", "ja-JP": "ゲーム", "en-US": "Games"}, Query: ShelfQuery{Types: []string{"game", "indie_game", "visual_novel"}}, Sort: "updated", Icon: "Gamepad2", Enabled: true, SortOrder: 50},
-		{Slug: "creations", Names: map[string]string{"zh-CN": "个人创作", "zh-TW": "個人創作", "ja": "個人制作", "ja-JP": "個人制作", "en-US": "Creations"}, Query: ShelfQuery{Types: []string{"personal", "photobook"}}, Sort: "updated", Icon: "Camera", Enabled: true, SortOrder: 60},
+		{Slug: "music", Names: map[string]string{"zh-CN": "音乐", "zh-TW": "音樂", "ja": "音楽", "ja-JP": "音楽", "en-US": "Music"}, Query: ShelfQuery{Tags: []string{"music", "song", "album"}}, Sort: "updated", Icon: "Disc", Enabled: true, SortOrder: 10},
+		{Slug: "anime", Names: map[string]string{"zh-CN": "动画", "zh-TW": "動畫", "ja": "アニメ", "ja-JP": "アニメ", "en-US": "Anime"}, Query: ShelfQuery{Tags: []string{"animation"}}, Sort: "updated", Icon: "Tv", Enabled: true, SortOrder: 20},
+		{Slug: "films", Names: map[string]string{"zh-CN": "电影", "zh-TW": "電影", "ja": "映画", "ja-JP": "映画", "en-US": "Films"}, Query: ShelfQuery{Tags: []string{"film"}}, Sort: "updated", Icon: "Film", Enabled: true, SortOrder: 30},
+		{Slug: "novels", Names: map[string]string{"zh-CN": "小说", "zh-TW": "小說", "ja": "小説", "ja-JP": "小説", "en-US": "Novels"}, Query: ShelfQuery{Tags: []string{"novel"}}, Sort: "updated", Icon: "BookOpen", Enabled: true, SortOrder: 40},
+		{Slug: "games", Names: map[string]string{"zh-CN": "游戏", "zh-TW": "遊戲", "ja": "ゲーム", "ja-JP": "ゲーム", "en-US": "Games"}, Query: ShelfQuery{Tags: []string{"game", "indie_game", "visual_novel"}}, Sort: "updated", Icon: "Gamepad2", Enabled: true, SortOrder: 50},
+		{Slug: "creations", Names: map[string]string{"zh-CN": "个人创作", "zh-TW": "個人創作", "ja": "個人制作", "ja-JP": "個人制作", "en-US": "Creations"}, Query: ShelfQuery{Tags: []string{"personal", "photobook"}}, Sort: "updated", Icon: "Camera", Enabled: true, SortOrder: 60},
 	}
 }
 

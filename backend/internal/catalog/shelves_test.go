@@ -38,7 +38,7 @@ func TestShelfQueryShapeValidation(t *testing.T) {
 		query ShelfQuery
 		want  string
 	}{
-		{"空类型码", ShelfQuery{Types: []string{"film", " "}}, "invalid_types"},
+		{"空类型码", ShelfQuery{Tags: []string{"film", " "}}, "invalid_tags"},
 		{"非法字段码", ShelfQuery{Fields: map[string][]string{"Not-A-Code": {"x"}}}, "invalid_fields"},
 		{"空字段取值", ShelfQuery{Fields: map[string][]string{"tags": {""}}}, "invalid_fields"},
 		{"非法词表键", ShelfQuery{VocabTerms: map[string][]string{"-bad": {"x"}}}, "invalid_vocab_terms"},
@@ -77,7 +77,7 @@ func TestShelfSortCreatedOrdersByCreationTime(t *testing.T) {
 	sh, err := f.s.CreateShelf(ctx, Shelf{
 		Slug:  "sort-created-check",
 		Names: names4("排序检查", "排序檢查", "並び順", "Sort check"),
-		Query: ShelfQuery{Types: []string{"novel"}},
+		Query: ShelfQuery{Tags: []string{"novel"}},
 		Sort:  "created",
 	})
 	if err != nil {
@@ -129,7 +129,7 @@ func TestCountShelfItemsIgnoresLimit(t *testing.T) {
 		f.save(Entity{Kind: "work", Title: "计数音乐" + string(rune('1'+i)), Types: []string{"music"}})
 	}
 	sh := Shelf{Slug: "count-check", Names: names4("计数检查", "計數檢查", "集計チェック", "Count check"),
-		Sort: "updated", Query: ShelfQuery{Types: []string{"music"}}}
+		Sort: "updated", Query: ShelfQuery{Tags: []string{"music"}}}
 
 	// limit=2 时列表只给 2 条。
 	items, err := f.s.ListShelfItems(ctx, sh, 2, nil)

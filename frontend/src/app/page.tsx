@@ -307,11 +307,11 @@ export default function HomePage() {
   );
 }
 
-// 分区"查看全部"进入探索页：用该分区规则的首个类型过滤，跳转目标与推荐内容一致。
-// 规则没限定类型（收录全部作品）时只带 kind=work。
+// 分区“查看全部”进入探索页，使用规则的全部开放标签。
 function shelfExploreParam(shelf: ShelfLike): string {
-  const first = (shelf.query?.types || []).filter(Boolean)[0];
-  return first ? `kind=work&type=${encodeURIComponent(first)}` : "kind=work";
+  const params = new URLSearchParams({ kind: "work" });
+  for (const tag of shelf.query?.tags || []) if (tag) params.append("tags", tag);
+  return params.toString();
 }
 
 // 卡片左上角角标 = 实体类型（八骨架 kind），名称取服务端 definitions 的多语言 kinds，

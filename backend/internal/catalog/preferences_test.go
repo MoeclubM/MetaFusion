@@ -85,9 +85,9 @@ func TestDedupeSlugs(t *testing.T) {
 // names/query/sort/icon，前面几组纯排序用例用的 shelfFixtures 只有 slug。
 func shelfSectionFixtures() []Shelf {
 	return []Shelf{
-		{Slug: "music", Names: names4("音乐", "音樂", "音楽", "Music"), Query: ShelfQuery{Types: []string{"music"}}, Sort: "updated", Icon: "Disc", Enabled: true, SortOrder: 10},
-		{Slug: "films", Names: names4("电影", "電影", "映画", "Films"), Query: ShelfQuery{Types: []string{"film"}}, Sort: "updated", Icon: "Film", Enabled: true, SortOrder: 30},
-		{Slug: "games", Names: names4("游戏", "遊戲", "ゲーム", "Games"), Query: ShelfQuery{Types: []string{"game"}}, Sort: "updated", Icon: "Gamepad2", Enabled: true, SortOrder: 50},
+		{Slug: "music", Names: names4("音乐", "音樂", "音楽", "Music"), Query: ShelfQuery{Tags: []string{"music"}}, Sort: "updated", Icon: "Disc", Enabled: true, SortOrder: 10},
+		{Slug: "films", Names: names4("电影", "電影", "映画", "Films"), Query: ShelfQuery{Tags: []string{"film"}}, Sort: "updated", Icon: "Film", Enabled: true, SortOrder: 30},
+		{Slug: "games", Names: names4("游戏", "遊戲", "ゲーム", "Games"), Query: ShelfQuery{Tags: []string{"game"}}, Sort: "updated", Icon: "Gamepad2", Enabled: true, SortOrder: 50},
 	}
 }
 
@@ -98,7 +98,7 @@ func TestApplyHomePreferencesOverridesSystemShelf(t *testing.T) {
 	prefs := HomePreferences{Sections: []HomeSection{{
 		Slug:  "films",
 		Names: Names{"zh-CN": "我的电影"},
-		Query: ShelfQuery{Types: []string{"film", "animation"}},
+		Query: ShelfQuery{Tags: []string{"film", "animation"}},
 		Sort:  "created",
 	}}}
 	got := applyHomePreferences(shelfSectionFixtures(), prefs)
@@ -112,7 +112,7 @@ func TestApplyHomePreferencesOverridesSystemShelf(t *testing.T) {
 	if films.Names["zh-CN"] != "我的电影" || films.Names["zh-TW"] != "電影" || films.Names["en-US"] != "Films" {
 		t.Fatalf("names 应逐语种覆盖并保留未提及语种，实际 %v", films.Names)
 	}
-	if !reflect.DeepEqual(films.Query.Types, []string{"film", "animation"}) || films.Sort != "created" {
+	if !reflect.DeepEqual(films.Query.Tags, []string{"film", "animation"}) || films.Sort != "created" {
 		t.Fatalf("query/sort 应整体替换，实际 query=%+v sort=%q", films.Query, films.Sort)
 	}
 	if films.Icon != "Film" {
@@ -127,7 +127,7 @@ func TestApplyHomePreferencesOverridesSystemShelf(t *testing.T) {
 // sort_order 取基准值（客户端自行按 sort_order 排序也不会插进系统分区之间）。
 func TestApplyHomePreferencesAppendsCustomSections(t *testing.T) {
 	prefs := HomePreferences{Sections: []HomeSection{
-		{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Types: []string{"game"}, VocabTerms: map[string][]string{"tags": {"indie"}}}, Sort: "created", Icon: "Gamepad2"},
+		{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Tags: []string{"game"}, VocabTerms: map[string][]string{"tags": {"indie"}}}, Sort: "created", Icon: "Gamepad2"},
 		{Slug: "my-photos", Names: Names{"zh-CN": "我的写真"}},
 	}}
 	got := applyHomePreferences(shelfSectionFixtures(), prefs)
@@ -142,7 +142,7 @@ func TestApplyHomePreferencesAppendsCustomSections(t *testing.T) {
 		t.Fatalf("自建分区排序位应取基准值+声明顺序：%d/%d", indie.SortOrder, got[4].SortOrder)
 	}
 	// 收录规则原样交给求值层：types 与词表项都保留。
-	if !contains(indie.Query.Types, "game") || indie.Query.VocabTerms["tags"][0] != "indie" {
+	if !contains(indie.Query.Tags, "game") || indie.Query.VocabTerms["tags"][0] != "indie" {
 		t.Fatalf("自建分区应保留完整收录规则：%+v", indie.Query)
 	}
 	// 系统货架为空（例如全部停用）时自建分区仍要出现。
@@ -183,7 +183,7 @@ func TestApplyHomePreferencesOrderAndHiddenAcrossKinds(t *testing.T) {
 
 // 分区校验只给稳定错误码（前端按码提示）：slug/名称/排序/收录规则逐项检查，条数上限 20。
 func TestNormalizeHomePreferencesValidatesSections(t *testing.T) {
-	valid := HomeSection{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Types: []string{"game"}}, Sort: "created", Icon: "Gamepad2"}
+	valid := HomeSection{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Tags: []string{"game"}}, Sort: "created", Icon: "Gamepad2"}
 	section := func(mutate func(*HomeSection)) HomeSection {
 		sec := valid
 		mutate(&sec)
@@ -200,7 +200,7 @@ func TestNormalizeHomePreferencesValidatesSections(t *testing.T) {
 		{"中文名为空白", section(func(s *HomeSection) { s.Names = Names{"zh-CN": "  "} }), "invalid_name"},
 		{"语种码非法", section(func(s *HomeSection) { s.Names = Names{"zh-CN": "独立游戏", "not a locale": "x"} }), "invalid_locale"},
 		{"排序不在白名单", section(func(s *HomeSection) { s.Sort = "newest" }), "invalid_sort"},
-		{"类型码为空白", section(func(s *HomeSection) { s.Query = ShelfQuery{Types: []string{" "}} }), "invalid_types"},
+		{"类型码为空白", section(func(s *HomeSection) { s.Query = ShelfQuery{Tags: []string{" "}} }), "invalid_tags"},
 		{"字段码非法", section(func(s *HomeSection) { s.Query = ShelfQuery{Fields: map[string][]string{"Not-A-Code": {"x"}}} }), "invalid_fields"},
 		{"词表取值为空白", section(func(s *HomeSection) { s.Query = ShelfQuery{VocabTerms: map[string][]string{"tags": {""}}} }), "invalid_vocab_terms"},
 		{"关系码为空白", section(func(s *HomeSection) { s.Query = ShelfQuery{Relations: []string{" "}} }), "invalid_relations"},
@@ -301,11 +301,11 @@ func TestHomePreferencesLegacyPayloadCompatibility(t *testing.T) {
 		t.Fatalf("sections=null 应归一成空数组：%+v err=%v", out, err)
 	}
 	// query 里的空子条件不落 JSON（omitempty）：前端可以整份回传给 PUT。
-	payload, err := json.Marshal(HomeSection{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Types: []string{"game"}}, Sort: "updated", Icon: "Gamepad2"})
+	payload, err := json.Marshal(HomeSection{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Tags: []string{"game"}}, Sort: "updated", Icon: "Gamepad2"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(payload), `"query":{"types":["game"]}`) {
+	if !strings.Contains(string(payload), `"query":{"tags":["game"]}`) {
 		t.Fatalf("分区 JSON 形状应与契约一致：%s", payload)
 	}
 }
@@ -324,8 +324,8 @@ func TestPostgresHomePreferencesRoundTrip(t *testing.T) {
 		Order:  []string{"my-indie", "removed-shelf"},
 		Hidden: []string{"games"},
 		Sections: []HomeSection{
-			{Slug: "films", Names: Names{"zh-CN": "我的电影"}, Query: ShelfQuery{Types: []string{"film"}}, Sort: "created"},
-			{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Types: []string{"game"}, VocabTerms: map[string][]string{"tags": {"indie"}}}, Sort: "updated", Icon: "Gamepad2"},
+			{Slug: "films", Names: Names{"zh-CN": "我的电影"}, Query: ShelfQuery{Tags: []string{"film"}}, Sort: "created"},
+			{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Tags: []string{"game"}, VocabTerms: map[string][]string{"tags": {"indie"}}}, Sort: "updated", Icon: "Gamepad2"},
 		},
 	})
 	if err != nil {
@@ -424,8 +424,8 @@ func TestPostgresShelfFeedMergesHomeSections(t *testing.T) {
 		Order:  []string{"my-indie", "films", "removed-shelf"},
 		Hidden: []string{"games"},
 		Sections: []HomeSection{
-			{Slug: "films", Names: Names{"zh-CN": "我的电影"}, Query: ShelfQuery{Types: []string{"film"}}, Sort: "updated", Icon: "Film"},
-			{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Types: []string{"indie_game"}}, Sort: "updated", Icon: "Gamepad2"},
+			{Slug: "films", Names: Names{"zh-CN": "我的电影"}, Query: ShelfQuery{Tags: []string{"film"}}, Sort: "updated", Icon: "Film"},
+			{Slug: "my-indie", Names: Names{"zh-CN": "独立游戏"}, Query: ShelfQuery{Tags: []string{"indie_game"}}, Sort: "updated", Icon: "Gamepad2"},
 		},
 	})
 	if err != nil {
@@ -506,18 +506,18 @@ func TestShelfFilterEmptyQueryFallsBackToWorkKind(t *testing.T) {
 // relations 走 EXISTS 子查询。子条件之间 AND，同数组内 OR。
 func TestShelfFilterCompilesAllConditionKinds(t *testing.T) {
 	sh := Shelf{Query: ShelfQuery{
-		Types:      []string{"music", "album"},
+		Tags:       []string{"music", "album"},
 		Fields:     map[string][]string{"edition_date": {"2024"}},
 		VocabTerms: map[string][]string{"edition_type": {"deluxe"}},
 		Relations:  []string{"performed_by"},
 	}}
 	args := []any{}
 	parts := shelfFilter(sh, &args, "e")
-	if len(parts) != 4 {
-		t.Fatalf("expected 4 predicates, got %d: %v", len(parts), parts)
+	if len(parts) != 5 {
+		t.Fatalf("expected 5 predicates, got %d: %v", len(parts), parts)
 	}
 	// 空白项应被剔除，且空数组条件不入 SQL。
-	sh2 := Shelf{Query: ShelfQuery{Types: []string{"  ", ""}, Fields: map[string][]string{"x": {""}}}}
+	sh2 := Shelf{Query: ShelfQuery{Tags: []string{"  ", ""}, Fields: map[string][]string{"x": {""}}}}
 	args2 := []any{}
 	parts2 := shelfFilter(sh2, &args2, "e")
 	if len(parts2) != 1 || parts2[0] != "e.kind='work'" {

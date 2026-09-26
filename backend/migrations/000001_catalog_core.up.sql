@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS catalog.external_databases (
 );
 
 -- 首页货架与探索页共用的聚合规则：前后端共用同一规则，不再各自硬编码。
--- query 为收录规则（types/fields/vocab_terms/relations，AND 语义）；
+-- query 为收录规则（tags/fields/vocab_terms/relations，AND 语义）；
 -- sort/icon/enabled 描述展示方式。names 为四语名称映射（zh-CN/en-US/zh-TW/ja-JP）。
 CREATE TABLE IF NOT EXISTS catalog.shelves (
  id bigserial PRIMARY KEY,

@@ -13,7 +13,7 @@ import { ConfirmDialog } from "@/components/oauth/ConfirmDialog";
 import { Select } from "@/components/ui/Select";
 
 export interface ShelfQuery {
-  types?: string[];
+  tags?: string[];
   fields?: Record<string, string[]>;
   vocab_terms?: Record<string, string[]>;
   relations?: string[];
@@ -36,7 +36,7 @@ function emptyShelf(count: number): Partial<ShelfItem> {
   return {
     slug: "",
     names: { ...EMPTY_NAMES },
-    query: { types: [], fields: {}, vocab_terms: {}, relations: [] },
+    query: { tags: [], fields: {}, vocab_terms: {}, relations: [] },
     sort: "updated",
     icon: "",
     enabled: true,
@@ -47,7 +47,7 @@ function emptyShelf(count: number): Partial<ShelfItem> {
 function describeRule(shelf: ShelfItem): string[] {
   const q = shelf.query || {};
   const parts: string[] = [];
-  (q.types || []).forEach((x) => parts.push(`type:${x}`));
+  (q.tags || []).forEach((x) => parts.push(`tag:${x}`));
   Object.entries(q.fields || {}).forEach(([k, vs]) =>
     (vs || []).forEach((v) => parts.push(`${k}=${v}`)),
   );
@@ -62,6 +62,7 @@ export function ShelvesTab() {
   const { t } = useI18n();
   const [items, setItems] = useState<ShelfItem[]>([]);
   const [defs, setDefs] = useState<DynamicDefinitions | null>(null);
+  const [tagOptions, setTagOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<ShelfItem | null>(null);
@@ -70,7 +71,7 @@ export function ShelvesTab() {
   const [pendingDelete, setPendingDelete] = useState<ShelfItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [form, setForm] = useState<Partial<ShelfItem>>(emptyShelf(0));
-  const [typeInput, setTypeInput] = useState("");
+  const [tagInput, setTagInput] = useState("");
   const [relInput, setRelInput] = useState("");
   const [fieldKey, setFieldKey] = useState("");
   const [fieldVal, setFieldVal] = useState("");
@@ -97,11 +98,15 @@ export function ShelvesTab() {
   useEffect(() => {
     loadData();
     fetchDefinitions().then((d) => setDefs(d)).catch(() => {});
+    fetch("/api/catalog/tags?limit=500", { credentials: "same-origin" })
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
+      .then((data) => setTagOptions((data.items || []).map((item: { name: string }) => item.name)))
+      .catch(() => {});
   }, []);
 
   const openCreate = () => {
     setForm(emptyShelf(items.length));
-    setTypeInput("");
+    setTagInput("");
     setRelInput("");
     setFieldKey("");
     setFieldVal("");
@@ -120,13 +125,13 @@ export function ShelvesTab() {
       ...shelf,
       names,
       query: {
-        types: [...(shelf.query?.types || [])],
+        tags: [...(shelf.query?.tags || [])],
         fields: { ...(shelf.query?.fields || {}) },
         vocab_terms: { ...(shelf.query?.vocab_terms || {}) },
         relations: [...(shelf.query?.relations || [])],
       },
     });
-    setTypeInput("");
+    setTagInput("");
     setRelInput("");
     setFieldKey("");
     setFieldVal("");
@@ -149,7 +154,7 @@ export function ShelvesTab() {
       slug: form.slug.trim().toLowerCase(),
       names,
       query: {
-        types: form.query?.types || [],
+        tags: form.query?.tags || [],
         fields: form.query?.fields || {},
         vocab_terms: form.query?.vocab_terms || {},
         relations: form.query?.relations || [],
@@ -209,12 +214,12 @@ export function ShelvesTab() {
     }
   };
 
-  const q = form.query || { types: [], fields: {}, vocab_terms: {}, relations: [] };
-  const addType = () => {
-    const v = typeInput.trim();
-    if (!v || (q.types || []).includes(v)) return;
-    setForm({ ...form, query: { ...q, types: [...(q.types || []), v] } });
-    setTypeInput("");
+  const q = form.query || { tags: [], fields: {}, vocab_terms: {}, relations: [] };
+  const addTag = () => {
+    const v = tagInput.trim();
+    if (!v || (q.tags || []).includes(v)) return;
+    setForm({ ...form, query: { ...q, tags: [...(q.tags || []), v] } });
+    setTagInput("");
   };
   const addRelation = () => {
     const v = relInput.trim();
@@ -241,7 +246,6 @@ export function ShelvesTab() {
     setVocabVal("");
   };
 
-  const typeOptions = Object.keys(defs?.types || {});
   const relationOptions = Object.keys(defs?.relations || {});
   const fieldOptions = Object.keys(defs?.fields || {});
   const vocabOptions = Object.keys(defs?.vocabularies || {});
@@ -254,9 +258,6 @@ export function ShelvesTab() {
             <Layers className="w-4 h-4 text-success" />
             {t("admin.shelves.title")}
           </h2>
-          <p className="text-[11px] text-text-muted font-mono mt-0.5">
-            {t("admin.shelves.subtitle")}
-          </p>
         </div>
         <button
           onClick={openCreate}
@@ -401,15 +402,15 @@ export function ShelvesTab() {
 
           <div className="p-3 rounded-xl bg-surfaceSubtle border border-line-subtle space-y-3">
             <div className="font-mono text-xs font-bold text-text-body">
-              {t("admin.shelves.queryTypes")}
+              {t("admin.shelves.queryTags")}
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {(q.types || []).map((x) => (
+              {(q.tags || []).map((x) => (
                 <span key={x} className="px-2 py-0.5 rounded bg-emerald-500/15 text-success-soft border border-emerald-500/30 text-xs font-mono flex items-center gap-1">
                   {x}
                   <button
                     type="button"
-                    onClick={() => setForm({ ...form, query: { ...q, types: (q.types || []).filter((y) => y !== x) } })}
+                    onClick={() => setForm({ ...form, query: { ...q, tags: (q.tags || []).filter((y) => y !== x) } })}
                     className="hover:text-danger"
                   >
                     ×
@@ -419,17 +420,17 @@ export function ShelvesTab() {
             </div>
             <div className="flex gap-2">
               <input
-                list="shelf-type-options"
-                value={typeInput}
-                onChange={(e) => setTypeInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addType(); } }}
+                list="shelf-tag-options"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(); } }}
                 placeholder="e.g. music"
                 className="flex-1 px-2.5 py-1.5 rounded bg-surfaceSubtle border border-line text-xs text-text-strong font-mono focus:border-emerald-400 outline-none"
               />
-              <datalist id="shelf-type-options">
-                {typeOptions.map((x) => (<option key={x} value={x} />))}
+              <datalist id="shelf-tag-options">
+                {tagOptions.map((x) => (<option key={x} value={x} />))}
               </datalist>
-              <button type="button" onClick={addType} className="px-3 py-1.5 rounded bg-surfaceSubtle hover:bg-surfaceHover text-xs">
+              <button type="button" onClick={addTag} className="px-3 py-1.5 rounded bg-surfaceSubtle hover:bg-surfaceHover text-xs">
                 +
               </button>
             </div>

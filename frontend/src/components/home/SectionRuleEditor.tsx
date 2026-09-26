@@ -1,6 +1,6 @@
 "use client";
 
-// 单个分区的编辑器：标题（多语言）+ 收录规则（类型/字段/词表项/关系）+ 排序 + 图标。
+// 单个分区的编辑器：标题（多语言）+ 收录规则（开放标签/字段/词表项/关系）+ 排序 + 图标。
 // 规则形状与后台货架编辑器一致，只是这里的改动只写进用户自己的偏好，不碰系统货架。
 import React, { useMemo, useState } from "react";
 import { Plus, X } from "lucide-react";
@@ -10,7 +10,6 @@ import {
   getFieldName,
   getRelationName,
   getTermName,
-  getTypeName,
   resolveLocalizedName,
   type DynamicDefinitions,
 } from "@/lib/definitions";
@@ -110,7 +109,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
   const query = row.query;
   const setQuery = (patch: Partial<ShelfQuery>) => onChange({ query: { ...query, ...patch } });
 
-  const [typeInput, setTypeInput] = useState("");
+  const [tagInput, setTagInput] = useState("");
   const [termFilter, setTermFilter] = useState("");
   const [vocabPick, setVocabPick] = useState("");
   const [vocabKeyInput, setVocabKeyInput] = useState("");
@@ -119,10 +118,6 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
   const [fieldValue, setFieldValue] = useState("");
   const [relationInput, setRelationInput] = useState("");
 
-  const typeCodes = useMemo(
-    () => Object.keys(defs?.types || {}).filter((code) => defs?.types?.[code]?.enabled !== false),
-    [defs],
-  );
   const vocabCodes = useMemo(() => Object.keys(defs?.vocabularies || {}), [defs]);
   const fieldCodes = useMemo(() => Object.keys(defs?.fields || {}), [defs]);
   const relationCodes = useMemo(
@@ -130,7 +125,7 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
     [defs],
   );
 
-  const selectedTypes = query.types || [];
+  const selectedTags = query.tags || [];
   const selectedRelations = query.relations || [];
   const selectedFields = query.fields || {};
   const selectedTerms = query.vocab_terms || {};
@@ -142,14 +137,6 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
     return Object.keys(terms).filter((code) => terms[code]?.enabled !== false);
   }, [defs, vocab]);
   const keyword = termFilter.trim().toLowerCase();
-  const shownTypes = typeCodes
-    .filter(
-      (code) =>
-        !keyword ||
-        code.toLowerCase().includes(keyword) ||
-        getTypeName(defs, code, locale).toLowerCase().includes(keyword),
-    )
-    .slice(0, 80);
   const shownTerms = vocabTerms
     .filter(
       (code) =>
@@ -159,11 +146,11 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
     )
     .slice(0, 80);
 
-  const toggleType = (code: string) => {
-    const next = selectedTypes.includes(code)
-      ? selectedTypes.filter((x) => x !== code)
-      : [...selectedTypes, code];
-    setQuery({ types: next });
+  const toggleTag = (tag: string) => {
+    const next = selectedTags.includes(tag)
+      ? selectedTags.filter((x) => x !== tag)
+      : [...selectedTags, tag];
+    setQuery({ tags: next });
   };
   const toggleTerm = (code: string) => {
     const current = selectedTerms[vocab] || [];
@@ -208,45 +195,24 @@ export function SectionRuleEditor({ row, defs, onChange }: Props) {
         onChange={(names) => onChange({ names })}
       />
 
-      <Block title={t("home.customizeTypes")}>
-        {selectedTypes.length > 0 && (
+      <Block title={t("home.customizeOpenTags")}>
+        {selectedTags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {selectedTypes.map((code) => (
-              <RuleChip key={code} label={getTypeName(defs, code, locale)} code={code} onRemove={() => toggleType(code)} />
+            {selectedTags.map((tag) => (
+              <RuleChip key={tag} label={tag} code={tag} onRemove={() => toggleTag(tag)} />
             ))}
           </div>
         )}
-        {typeCodes.length === 0 ? (
-          <p className="text-[11px] text-text-faint">{t("home.customizeDefsUnavailable")}</p>
-        ) : (
-          <>
-            <input
-              value={typeInput}
-              onChange={(e) => setTypeInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  const code = typeInput.trim();
-                  if (code && !selectedTypes.includes(code)) toggleType(code);
-                  setTypeInput("");
-                }
-              }}
-              placeholder={t("home.customizeTypePlaceholder")}
-              className={inputClass + " w-full"}
-            />
-            <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto">
-              {shownTypes.map((code) => (
-                <ToggleChip
-                  key={code}
-                  label={getTypeName(defs, code, locale)}
-                  code={code}
-                  active={selectedTypes.includes(code)}
-                  onClick={() => toggleType(code)}
-                />
-              ))}
-            </div>
-          </>
-        )}
+        <div className="flex gap-2">
+          <input
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const tag = tagInput.trim(); if (tag && !selectedTags.includes(tag)) toggleTag(tag); setTagInput(""); } }}
+            placeholder={t("home.customizeOpenTagPlaceholder")}
+            className={inputClass + " w-full"}
+          />
+          <button type="button" className={addButtonClass} onClick={() => { const tag = tagInput.trim(); if (tag && !selectedTags.includes(tag)) toggleTag(tag); setTagInput(""); }}>+</button>
+        </div>
       </Block>
 
       <Block title={t("home.customizeTags")}>

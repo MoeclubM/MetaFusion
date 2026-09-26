@@ -43,6 +43,7 @@ const CODE_KEYS: Record<string, string> = {
   invalid_sort: "catalog.error.invalidSort",
   too_many_sections: "catalog.error.tooManySections",
   invalid_types: "catalog.error.invalidTypes",
+  invalid_tags: "catalog.error.invalidTags",
   invalid_fields: "catalog.error.invalidFields",
   invalid_vocab_terms: "catalog.error.invalidVocabTerms",
   invalid_relations: "catalog.error.invalidRelations",

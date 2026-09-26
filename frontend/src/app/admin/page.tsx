@@ -650,7 +650,6 @@ function AdminInner() {
             </Link>
             <span className="text-text-faint">/</span>
             <div className="flex items-center gap-2 font-semibold text-sm text-text-strong">
-              <Shield className="w-4 h-4 text-primary" />
               <span>{t("admin.console.consoleTitle")}</span>
             </div>
           </div>
@@ -736,9 +735,6 @@ function AdminInner() {
                   );
                 })}
               </div>
-              <p className="px-3 mt-1 text-[10px] text-text-faint leading-relaxed">
-                {t("admin.consoles.hint")}
-              </p>
             </div>
           )}
         </aside>

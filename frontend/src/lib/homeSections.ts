@@ -22,7 +22,6 @@ import {
   getFieldName,
   getRelationName,
   getTermName,
-  getTypeName,
   resolveLocalizedName,
   type DynamicDefinitions,
 } from "@/lib/definitions";
@@ -34,7 +33,7 @@ export type SectionSource = "system" | "custom";
 
 /** 货架收录规则。子条件之间为 AND，同一数组内为 OR；空表示收录全部已发布作品。 */
 export type ShelfQuery = {
-  types?: string[] | null;
+  tags?: string[] | null;
   fields?: Record<string, string[]> | null;
   vocab_terms?: Record<string, string[]> | null;
   relations?: string[] | null;
@@ -90,7 +89,7 @@ function normalizeQuery(query?: ShelfQuery | null): ShelfQuery {
     if (k && values.length > 0) vocab[k] = values;
   }
   return {
-    types: (query?.types || []).filter((v) => !!v),
+    tags: (query?.tags || []).filter((v) => !!v),
     fields,
     vocab_terms: vocab,
     relations: (query?.relations || []).filter((v) => !!v),
@@ -140,14 +139,14 @@ export function shelfTitle(shelf: ShelfLike, locale: string): string {
   return resolveLocalizedName(shelf.names || undefined, locale, shelf.slug);
 }
 
-/** 规则摘要用的标签：类型/字段/词表项/关系都按服务端 definitions 显示本地化名。 */
+/** 规则摘要：开放标签保留原文，字段/词表项/关系使用本地化名。 */
 export function describeRule(
   query: ShelfQuery,
   defs: DynamicDefinitions | null | undefined,
   locale: string,
 ): string[] {
   const parts: string[] = [];
-  for (const code of query.types || []) parts.push(getTypeName(defs, code, locale));
+  for (const tag of query.tags || []) parts.push(`tag:${tag}`);
   for (const [key, values] of Object.entries(query.fields || {})) {
     for (const value of values || []) parts.push(`${getFieldName(defs, key, locale)}=${value}`);
   }
@@ -227,8 +226,8 @@ export function buildRows(
 
 function compactQuery(query: ShelfQuery): ShelfQuery {
   const out: ShelfQuery = {};
-  const types = (query.types || []).filter((v) => !!v);
-  if (types.length > 0) out.types = types;
+  const tags = (query.tags || []).filter((v) => !!v);
+  if (tags.length > 0) out.tags = tags;
   const fields: Record<string, string[]> = {};
   for (const [k, vs] of Object.entries(query.fields || {})) {
     const values = (vs || []).filter((v) => !!v);
@@ -316,7 +315,7 @@ export function rowFromScratch(locale: string, taken: Set<string>, name: string)
     slug: uniqueSlug("section", taken),
     custom: true,
     names: locale === "zh-CN" ? { "zh-CN": name } : { "zh-CN": name, [locale]: name },
-    query: { types: [], fields: {}, vocab_terms: {}, relations: [] },
+    query: { tags: [], fields: {}, vocab_terms: {}, relations: [] },
     sort: "updated",
     icon: "Sparkles",
     hidden: false,
