@@ -237,10 +237,14 @@ func TestPostgresAccountRoutesAreGone(t *testing.T) {
 	// 写入必须用真实信封（entity + expected_version + edit_note + sources）：
 	// 裸 entity 会被严格解析拒掉，这正是这一条要守住的行为。
 	body := `{"entity":{"kind":"work","title":"验签写入","translations":{"en":{"title":"verified write"}}},"expected_version":0,"edit_note":"acceptance fixture","sources":[{"kind":"self","citation":"acceptance fixture"}]}`
-	if res := request(http.MethodPost, "/api/catalog/entities", body, signTestToken(t, key, nil)); res.Code != http.StatusOK {
+	editToken := signTestToken(t, key, func(c Claims) Claims {
+		c.Permissions = []string{PermissionEntityEdit}
+		return c
+	})
+	if res := request(http.MethodPost, "/api/catalog/entities", body, editToken); res.Code != http.StatusOK {
 		t.Fatalf("authenticated write = %d: %s", res.Code, res.Body.String())
 	}
-	if res := request(http.MethodPost, "/api/catalog/entities", `{"kind":"work","title":"裸实体"}`, signTestToken(t, key, nil)); res.Code != http.StatusBadRequest {
+	if res := request(http.MethodPost, "/api/catalog/entities", `{"kind":"work","title":"裸实体"}`, editToken); res.Code != http.StatusBadRequest {
 		t.Fatalf("bare entity payload = %d, want 400", res.Code)
 	}
 }
