@@ -98,7 +98,7 @@ func TestPostgresDanglingReferencesReport(t *testing.T) {
 	if err = json.Unmarshal(b, &raw); err != nil {
 		t.Fatal(err)
 	}
-	for _, k := range []string{"definition_id", "seed_added", "references"} {
+	for _, k := range []string{"definition_etag", "seed_added", "references"} {
 		if _, ok := raw[k]; !ok {
 			t.Fatalf("体检报告缺 %s 键：%s", k, string(b))
 		}
