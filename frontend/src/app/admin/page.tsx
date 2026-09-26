@@ -720,7 +720,7 @@ function AdminInner() {
               <div className="px-3 mb-1.5 text-[10px] font-mono uppercase tracking-wide text-text-faint">
                 {t("admin.consoles.title")}
               </div>
-              <div className="flex lg:flex-col gap-1 overflow-x-auto pb-2 lg:pb-0 scrollbar-none">
+              <div className="grid grid-cols-1 sm:grid-cols-3 lg:flex lg:flex-col gap-1">
                 {consoleEntries.map((item) => {
                   const Icon = item.icon;
                   return (
