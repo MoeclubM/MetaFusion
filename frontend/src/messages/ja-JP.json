@@ -301,7 +301,7 @@
   "entity.toolbar.merge": "{entityType}を統合",
   "entity.toolbar.defaultLabel": "エンティティ",
   "entity.toolbar.work": "作品",
-  "entity.authority.label": "典拠データベース",
+  "entity.authority.label": "外部リンク",
   "editor.universal.unauthWarning": "現在未ログインです。閲覧と入力はできますが、送信にはアカウントが必要です。",
   "editor.universal.loginNow": "ログイン",
   "editor.universal.needLoginToSave": "保存にはログインが必要です",

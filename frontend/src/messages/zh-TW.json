@@ -301,7 +301,7 @@
   "entity.toolbar.merge": "合併{entityType}",
   "entity.toolbar.defaultLabel": "實體",
   "entity.toolbar.work": "作品",
-  "entity.authority.label": "權威資料庫互連",
+  "entity.authority.label": "外部連結",
   "editor.universal.unauthWarning": "目前處於未登入狀態。您可以瀏覽與填寫表單，但提交需要登入帳號。",
   "editor.universal.loginNow": "立即登入",
   "editor.universal.needLoginToSave": "需登入後儲存",

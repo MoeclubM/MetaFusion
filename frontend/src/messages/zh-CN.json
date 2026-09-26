@@ -301,7 +301,7 @@
   "entity.toolbar.merge": "合并{entityType}",
   "entity.toolbar.defaultLabel": "实体",
   "entity.toolbar.work": "作品",
-  "entity.authority.label": "权威数据库互联",
+  "entity.authority.label": "外部链接",
   "editor.universal.unauthWarning": "当前处于未登录状态。您可以浏览和填写表单，但提交需登录账号。",
   "editor.universal.loginNow": "立即登录",
   "editor.universal.needLoginToSave": "需登录后保存",

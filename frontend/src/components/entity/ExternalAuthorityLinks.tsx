@@ -241,10 +241,10 @@ export function ExternalAuthorityLinks({
     );
   }
 
-  // 样式 B: 水平徽标流（通用位置展示）
+  // 样式 B: 水平徽标流（通用位置展示）。不渲染前缀 label——外层区块已有"外部资料"标题，
+  // 重复前缀既冗余又表述别扭，只保留外链徽标本身。
   return (
     <div className={`flex flex-wrap items-center gap-1.5 ${className}`}>
-      {displayLabel && <span className="font-mono text-[10px] uppercase tracking-wider text-text-faint mr-1">{displayLabel}:</span>}
       {linkItems.map((item) => {
         const IconComp = authorityIcon(item.icon);
         const isOfficial = item.isOfficial;
