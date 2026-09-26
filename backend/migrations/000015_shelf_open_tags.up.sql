@@ -39,9 +39,9 @@ WHERE s.query ? 'types';
 UPDATE catalog.user_preferences p
 SET home_shelves = jsonb_set(p.home_shelves, '{sections}', (
   SELECT COALESCE(jsonb_agg(
-    CASE WHEN section ? 'query' AND section->'query' ? 'types' THEN
+    CASE WHEN section ? 'query' AND (section->'query') ? 'types' THEN
       jsonb_set(section, '{query}',
-        (section->'query' - 'types'::text) || jsonb_build_object('tags', (
+        ((section->'query') - 'types'::text) || jsonb_build_object('tags', (
           SELECT COALESCE(jsonb_agg(DISTINCT value), '[]'::jsonb)
           FROM (
             SELECT value FROM jsonb_array_elements_text(
