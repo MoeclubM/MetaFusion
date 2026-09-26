@@ -31,7 +31,11 @@ services:
     container_name: metafusion-gateway
     restart: unless-stopped
     ports:
-      - "${HTTP_PORT:-10100}:80"
+      # 绑回环，不绑 0.0.0.0：公网入口是 Cloudflare → 1Panel OpenResty(80/443) → 127.0.0.1:本端口。
+      # 绑 0.0.0.0 等于多开一条绕过 Cloudflare 与 OpenResty 的直连通道，且直连方可自带
+      # CF-Connecting-IP / X-Forwarded-For 换一个干净的限流桶（实测可伪造，后端日志照单全收）。
+      # 入口代理走回环，收紧绑定不影响站点。
+      - "127.0.0.1:${HTTP_PORT:-10100}:80"
     # nginx.conf 声明 worker_connections 4096，而容器默认 nofile 只有 1024：并发一上来
     # nginx 拿不到 socket，直接以 503（rt=0.000）拒掉新连接——压力下表现为"服务偶发不可用"。
     # 把软硬上限抬到与 worker_connections 匹配，并在 nginx -t 时不再有 ulimit 警告。
