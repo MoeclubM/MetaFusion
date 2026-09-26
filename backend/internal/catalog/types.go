@@ -307,76 +307,13 @@ type StructureField struct {
 	ScopedBy string `json:"scoped_by,omitempty"`
 	Required bool   `json:"required,omitempty"`
 }
-type DefinitionVersion struct {
-	ID          int64       `json:"id"`
-	State       string      `json:"state"`
-	BaseVersion int64       `json:"base_version"`
-	Document    Definitions `json:"document"`
-	CreatedAt   time.Time   `json:"created_at"`
-	// CreatedBy 是起草该版本的账号名快照：身份只在修订表里（catalog.definitions 没有 actor 列），
-	// 种子播种或直接写库的版本行没有修订记录，此时留空（JSON 省略）。
-	CreatedBy string `json:"created_by,omitempty"`
-	// Summary 是列表用的短计数摘要（如"字段 43 / 类型 20 / 关系 28 / 模板 7"）：
-	// 让后台列表不必展开整份 document 也能判断"这一版有几条定义"。
-	Summary string `json:"summary,omitempty"`
-}
 
-// DefinitionVersionItem 是定义版本列表的一项：与 DefinitionVersion 同一批元数据，
-// document 只在 include_document=true（缺省）时随项返回，false 时整个键省略。
-// 响应顶层的 include_document 说明本次是否带文档：为 false 时客户端要看某一版文档
-// 就按 id 调 GET /admin/catalog-definitions/{id}，不必为列表拉回完整文档。
-type DefinitionVersionItem struct {
-	ID          int64        `json:"id"`
-	State       string       `json:"state"`
-	BaseVersion int64        `json:"base_version"`
-	Document    *Definitions `json:"document,omitempty"`
-	CreatedAt   time.Time    `json:"created_at"`
-	CreatedBy   string       `json:"created_by,omitempty"`
-	Summary     string       `json:"summary,omitempty"`
-}
-
-// DefinitionChange 是一条字段级差异。Path 是键路径，逐级用文档里的真实键名与数组下标表达
-// （如 fields.<code>.enabled、relations.<code>.aggregate、types.<code>.fields[2]、
-// vocabularies.<code>.terms.<term>.names.zh-TW），唯一对应文档里的一处位置；Section 是首段分区名。
-// Change 取 added / removed / changed / toggled 四种之一：added 只给 To，removed 只给 From，
-// changed（值变更）与 toggled（开关翻转）两侧都给。值超过 512 字节时截断成字符串前缀并置 Truncated。
-type DefinitionChange struct {
-	Path      string `json:"path"`
-	Section   string `json:"section"`
-	Change    string `json:"change"`
-	From      any    `json:"from,omitempty"`
-	To        any    `json:"to,omitempty"`
-	Truncated bool   `json:"truncated,omitempty"`
-}
-
-// DefinitionDiffSummary 是按分区与按变更类型的计数汇总：七个分区与四种变更类型的键恒存在
-// （为 0 也给），面板不必遍历条目就能显示"共 N 处变更"。
-type DefinitionDiffSummary struct {
-	Total     int            `json:"total"`
-	BySection map[string]int `json:"by_section"`
-	ByChange  map[string]int `json:"by_change"`
-}
-
-// DefinitionDiff 是两个定义版本之间的差异：只有差异条目与计数，不含任何一侧的 document。
-// Against 是实际比较的基线版本（缺省取该版本的 base_version）。
-type DefinitionDiff struct {
-	ID          int64                 `json:"id"`
-	Against     int64                 `json:"against"`
-	BaseVersion int64                 `json:"base_version"`
-	Changes     []DefinitionChange    `json:"changes"`
-	Summary     DefinitionDiffSummary `json:"summary"`
-}
-
-// DefinitionRollback 是一次定义回滚的结果。no_op 为真表示目标版本文档与当前已发布文档完全一致，
-// 服务端没有新建版本，id/state/base_version/created_at 描述的是既有**已发布**版本，edit_note 为空。
-type DefinitionRollback struct {
-	ID          int64     `json:"id"`
-	TargetID    int64     `json:"target_id"`
-	State       string    `json:"state"`
-	BaseVersion int64     `json:"base_version"`
-	CreatedAt   time.Time `json:"created_at"`
-	EditNote    string    `json:"edit_note"`
-	NoOp        bool      `json:"no_op"`
+// DefinitionConfig is the only live definition document. ETag prevents stale
+// editor tabs from overwriting each other; it cannot resolve an older document.
+type DefinitionConfig struct {
+	ETag      string      `json:"etag"`
+	Document  Definitions `json:"document"`
+	UpdatedAt time.Time   `json:"updated_at"`
 }
 type User struct {
 	ID       string `json:"id"`

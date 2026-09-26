@@ -331,15 +331,11 @@ func TestPostgresCatalog(t *testing.T) {
 		}
 		d := v.Document
 		delete(d.Vocabularies["release_role"].Terms, "compilation")
-		id, err := s.Draft(ctx, d, v.ID, admin, "remove used term", sources)
-		if err != nil {
-			t.Fatal(err)
-		}
-		probe, err := s.Impact(ctx, id)
+		probe, err := s.DefinitionImpactFor(ctx, d, admin)
 		if err != nil || len(probe.Issues) == 0 {
 			t.Fatal("missing impact")
 		}
-		if s.Publish(ctx, id, admin, "publish invalid", sources) == nil {
+		if _, err := s.SaveDefinitions(ctx, d, v.ETag, admin, "publish invalid", sources); err == nil {
 			t.Fatal("invalid definition published")
 		}
 	})

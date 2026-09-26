@@ -36,7 +36,7 @@ func TestSeedContentEmptyAndIdempotentOnPostgres(t *testing.T) {
 	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM catalog.external_databases").Scan(&extdb); err != nil || extdb == 0 {
 		t.Fatalf("外部库应已播种: %v count=%d", err, extdb)
 	}
-	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definitions").Scan(&defs); err != nil {
+	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definition_config").Scan(&defs); err != nil {
 		t.Fatal(err)
 	}
 
@@ -48,11 +48,11 @@ func TestSeedContentEmptyAndIdempotentOnPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v2.ID != v1.ID {
-		t.Fatalf("重复 seed 不应写新版本：%d → %d", v1.ID, v2.ID)
+	if v2.ETag != v1.ETag {
+		t.Fatalf("重复 seed 不应换 etag：%s → %s", v1.ETag, v2.ETag)
 	}
 	var defs2 int
-	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definitions").Scan(&defs2); err != nil || defs2 != defs {
+	if err := db.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definition_config").Scan(&defs2); err != nil || defs2 != defs {
 		t.Fatalf("重复 seed 不应增版本行：%d → %d (%v)", defs, defs2, err)
 	}
 
@@ -61,11 +61,7 @@ func TestSeedContentEmptyAndIdempotentOnPostgres(t *testing.T) {
 	rt := d.Relations["performed_by"]
 	rt.Enabled = false
 	d.Relations["performed_by"] = rt
-	draftID, err := s.Draft(ctx, d, v2.ID, admin, "关停 performed_by", fixtureSources())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Publish(ctx, draftID, admin, "关停 performed_by", fixtureSources()); err != nil {
+	if _, err := s.SaveDefinitions(ctx, d, v2.ETag, admin, "关停 performed_by", fixtureSources()); err != nil {
 		t.Fatal(err)
 	}
 	v3, err := s.Definitions(ctx)
@@ -79,8 +75,8 @@ func TestSeedContentEmptyAndIdempotentOnPostgres(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v4.ID != v3.ID {
-		t.Fatalf("无新增种子时不应写新版本：%d → %d", v3.ID, v4.ID)
+	if v4.ETag != v3.ETag {
+		t.Fatalf("无新增种子时不应换 etag：%s → %s", v3.ETag, v4.ETag)
 	}
 	if v4.Document.Relations["performed_by"].Enabled {
 		t.Fatal("后台停用的关系码不得被种子重新打开")

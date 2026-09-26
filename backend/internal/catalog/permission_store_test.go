@@ -60,10 +60,10 @@ func TestPermissionCodesAuthorizeCatalogWrites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Draft(ctx, defs.Document, defs.ID, editor, "n", sources); err == nil {
+	if _, err := s.SaveDefinitions(ctx, defs.Document, defs.ETag, editor, "n", sources); err == nil {
 		t.Fatal("catalog_editor must not draft definitions")
 	}
-	if _, err := s.Draft(ctx, defs.Document, defs.ID, admin, "n", sources); err != nil {
+	if _, err := s.SaveDefinitions(ctx, defs.Document, defs.ETag, admin, "n", sources); err != nil {
 		t.Fatalf("catalog.definitions.manage holder must draft definitions: %v", err)
 	}
 }

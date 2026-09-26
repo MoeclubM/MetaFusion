@@ -147,53 +147,18 @@ func TestOpenAPIPathParametersMatchTemplates(t *testing.T) {
 	}
 }
 
-// 回滚端点与列表追加字段都必须进文档：定义列表项 schema 由结构体反射生成，
-// 回滚响应单列 DefinitionRollback；漏记会让按文档做严格校验的客户端失败。
-func TestOpenAPIDefinitionRollbackAndListFields(t *testing.T) {
+// Definition configuration exposes only the current document and overwrite guard.
+func TestOpenAPIDefinitionConfig(t *testing.T) {
 	doc := OpenAPI()
 	paths := doc["paths"].(map[string]any)
-	list := paths["/admin/catalog-definitions"].(map[string]any)["get"].(map[string]any)
-	if summary, _ := list["summary"].(string); !strings.Contains(summary, "created_by") || !strings.Contains(summary, "summary") {
-		t.Fatalf("定义列表端点说明未覆盖追加字段: %q", summary)
-	}
-	op, ok := paths["/admin/catalog-definitions/{id}/rollback"].(map[string]any)
-	if !ok {
-		t.Fatal("回滚端点未进 OpenAPI 文档")
-	}
-	post, ok := op["post"].(map[string]any)
-	if !ok {
-		t.Fatal("回滚端点必须是 POST")
-	}
-	if _, ok := post["security"]; !ok {
-		t.Fatal("回滚端点必须声明 security（需要登录）")
-	}
-	// 说明与来源由服务端从目标版本自己的修订记录拼出，端点不接受请求体。
-	if post["requestBody"] != nil {
-		t.Fatal("回滚端点不接受请求体")
-	}
-	responses := post["responses"].(map[string]any)
-	schema := responses["200"].(map[string]any)["content"].(map[string]any)["application/json"].(map[string]any)["schema"].(map[string]any)
-	if ref, _ := schema["$ref"].(string); ref != "#/components/schemas/DefinitionRollback" {
-		t.Fatalf("回滚 200 响应 schema=%v, want DefinitionRollback", schema["$ref"])
+	if paths["/admin/catalog-definitions/{id}/rollback"] != nil || paths["/admin/catalog-definitions/{id}/diff"] != nil {
+		t.Fatal("retired definition history paths remain in OpenAPI")
 	}
 	schemas := doc["components"].(map[string]any)["schemas"].(map[string]any)
-	versionProps, ok := schemas["DefinitionVersion"].(map[string]any)["properties"].(map[string]any)
-	if !ok {
-		t.Fatal("DefinitionVersion schema 缺失")
-	}
-	// 列表项既有字段不得消失，追加字段必须齐全（state/created_at 本就在，created_by/summary 是本次追加）。
-	for _, k := range []string{"id", "state", "base_version", "document", "created_at", "created_by", "summary"} {
-		if versionProps[k] == nil {
-			t.Fatalf("DefinitionVersion schema 缺 %s 字段", k)
-		}
-	}
-	rollbackProps, ok := schemas["DefinitionRollback"].(map[string]any)["properties"].(map[string]any)
-	if !ok {
-		t.Fatal("DefinitionRollback schema 缺失")
-	}
-	for _, k := range []string{"id", "target_id", "state", "base_version", "created_at", "edit_note", "no_op"} {
-		if rollbackProps[k] == nil {
-			t.Fatalf("DefinitionRollback schema 缺 %s 字段", k)
+	props := schemas["DefinitionConfig"].(map[string]any)["properties"].(map[string]any)
+	for _, key := range []string{"etag", "document", "updated_at"} {
+		if props[key] == nil {
+			t.Fatalf("definition config missing %s", key)
 		}
 	}
 }
@@ -326,7 +291,7 @@ func TestOpenAPIEntityStatsEndpoint(t *testing.T) {
 	}
 }
 
-// GET /catalog/definitions 的响应比 DefinitionVersion 多一个 kinds（handler 拼的骨架名，
+// GET /catalog/definitions 的响应比存储中的定义配置多一个 kinds（handler 拼的骨架名，
 // 见 http.go：288）。文档必须表达出来：该 schema 声明 additionalProperties:false，
 // 漏写会让按文档做严格校验的客户端判失败。
 func TestOpenAPIDefinitionsResponseIncludesKinds(t *testing.T) {
@@ -335,7 +300,7 @@ func TestOpenAPIDefinitionsResponseIncludesKinds(t *testing.T) {
 	resp := op["responses"].(map[string]any)["200"].(map[string]any)["content"].(map[string]any)["application/json"].(map[string]any)["schema"].(map[string]any)
 	ref, _ := resp["$ref"].(string)
 	name := strings.TrimPrefix(ref, "#/components/schemas/")
-	if name == "" || name == "DefinitionVersion" {
+	if name == "" || name == "DefinitionConfig" {
 		t.Fatalf("响应 schema 仍是 %q，漏掉 kinds", name)
 	}
 	schemas := doc["components"].(map[string]any)["schemas"].(map[string]any)
@@ -343,7 +308,7 @@ func TestOpenAPIDefinitionsResponseIncludesKinds(t *testing.T) {
 	if !ok {
 		t.Fatalf("%s 不是对象 schema", name)
 	}
-	for _, k := range []string{"id", "state", "base_version", "document", "created_at", "kinds"} {
+	for _, k := range []string{"etag", "document", "updated_at", "kinds"} {
 		if props[k] == nil {
 			t.Fatalf("%s schema 缺 %s 字段", name, k)
 		}

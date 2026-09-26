@@ -69,19 +69,20 @@ docker compose -f deploy/docker-compose.yml run --rm --no-deps --entrypoint /app
 
 ## 定义没更新但站点可用：怎么看出来
 
-定义合并（`EnsureSeedDefinitions`）失败不再让服务起不来：定义**非法**时它零写入失败（不起草、
-不发布），保留上一个已发布定义并降级继续服务；悬挂引用这类**数据欠账**只警告，不阻断发布。
+`000014_single_definition_config` 会将当前生效文档搬到单行配置，再删除旧定义版本表与定义文档快照。此迁移不可逆；执行前保存数据库备份。`deploy.sh prod/pull` 在检测到该迁移待执行时先停止旧目录服务和前端，迁移与种子完成后再启动新镜像。
+
+定义合并（`EnsureSeedDefinitions`）失败不再让服务起不来：定义**非法**时它零写入失败，
+保留当前生效文档并降级继续服务；悬挂引用这类**数据欠账**只警告，不阻断保存。
 
 - 启动日志：`ERROR startup degraded: ...`，含 `definition_impact: [...]` 的具体条目。
 - `GET /health` 的 `definitions` 块（网关的 `/health` 已指向目录服务）：
-  `published_id` 是**实际生效**的定义版本；`degraded: true` 且 `pending_publish_error` 非空表示
+  `etag` 是当前生效文档的并发校验标记；`degraded: true` 且 `pending_error` 非空表示
   "站点可用但定义没更新"，`pending_items` 是没生效的种子项数，`dangling_references` 是本次回放
   看到的悬挂引用条数。
 - 状态码**刻意保持 200**：降级可用不是"不健康"，回 503 会把编排器拉回"重启到好为止"的循环，
   那正是这次 CrashLoop（整站 502）的成因。监控要区分它请用 `definitions.degraded == true`，
   不要用 HTTP 状态码。
-- 修完数据后重启服务即可让待补的定义项生效；失败留下的草稿会被下次启动按"同内容同 base"复用，
-  不会在 `catalog.definitions` 里堆行。
+- 修完数据后重新执行内容种子即可补入缺失定义项；失败不会留下草稿或改变 `catalog.definition_config`。
 
 ## 一次性切流（已脚本化）
 

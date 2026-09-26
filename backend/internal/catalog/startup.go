@@ -25,7 +25,7 @@ import (
 var requiredCatalogTables = []string{
 	"catalog.entities",
 	"catalog.relations",
-	"catalog.definitions",
+	"catalog.definition_config",
 	"catalog.revisions",
 	"catalog.outbox",
 	"catalog.api_request_logs",
@@ -45,17 +45,10 @@ func (s *Store) CheckCompatibleVersion(ctx context.Context) error {
 			return fmt.Errorf("incompatible_schema: missing %s (run mf-migrate up)", t)
 		}
 	}
-	var hasCol bool
-	if err := s.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='catalog' AND table_name='revisions' AND column_name='definition_version')`).Scan(&hasCol); err != nil {
-		return err
-	}
-	if !hasCol {
-		return fmt.Errorf("incompatible_schema: missing catalog.revisions.definition_version (run mf-migrate up)")
-	}
-	var publishedID int64
-	if err := s.DB.QueryRowContext(ctx, `SELECT id FROM catalog.definitions WHERE state='published'`).Scan(&publishedID); err != nil {
+	var etag string
+	if err := s.DB.QueryRowContext(ctx, `SELECT etag FROM catalog.definition_config WHERE singleton=true`).Scan(&etag); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("definitions_missing: no published definitions (run mf-migrate up, then mf-migrate seed on a fresh install)")
+			return fmt.Errorf("definitions_missing: no definition configuration (run mf-migrate up, then mf-migrate seed on a fresh install)")
 		}
 		return err
 	}

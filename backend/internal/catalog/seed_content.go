@@ -25,7 +25,7 @@ func (s *Store) SeedContent(ctx context.Context) error {
 func seedContentTx(ctx context.Context, tx *sql.Tx) error {
 	// 只判空表：逐行种子无需全表计数。
 	var seeded bool
-	if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM catalog.definitions)").Scan(&seeded); err != nil {
+	if err := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM catalog.definition_config)").Scan(&seeded); err != nil {
 		return err
 	}
 	if !seeded {
@@ -33,7 +33,7 @@ func seedContentTx(ctx context.Context, tx *sql.Tx) error {
 		if err := d.Validate(); err != nil {
 			return err
 		}
-		if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.definitions(state,base_version,document) VALUES('published',0,$1)", encode(d)); err != nil {
+		if _, err := tx.ExecContext(ctx, "INSERT INTO catalog.definition_config(singleton,document,etag) VALUES(true,$1,$2)", encode(d), newID()); err != nil {
 			return err
 		}
 	}

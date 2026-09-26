@@ -66,7 +66,7 @@ func TestReleaseTableOfContents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Release.ID != release.ID || got.Release.Version != release.Version || got.DefinitionVersion < 1 {
+	if got.Release.ID != release.ID || got.Release.Version != release.Version || got.DefinitionETag == "" {
 		t.Fatalf("release/version/definition missing: %+v", got)
 	}
 	if len(got.Media) != 2 || got.Media[0].Medium.ID != first.ID || got.Media[1].Medium.ID != second.ID {

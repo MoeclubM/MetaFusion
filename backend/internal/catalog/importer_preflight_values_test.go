@@ -186,7 +186,7 @@ func TestImporterPreflightRejectsRetiredValues(t *testing.T) {
 	vocab := d.Vocabularies["entry_role"]
 	vocab.Terms["main"] = Term{Names: vocab.Terms["main"].Names, Enabled: false}
 	d.Vocabularies["entry_role"] = vocab
-	f.publish(d, v.ID)
+	f.publish(d, v.ETag)
 
 	req := importerValuePayload()
 	req.CanonicalEntries[0].Attributes = map[string]any{"entry_role": "main"}
@@ -217,7 +217,7 @@ func TestImporterPreflightRelationAttributes(t *testing.T) {
 	}
 	rel.Fields = fields
 	d.Relations["directed_by"] = rel
-	f.publish(d, v.ID)
+	f.publish(d, v.ETag)
 
 	req := importerValuePayload()
 	req.StaffAssociations = []ImporterStaffAssociation{{

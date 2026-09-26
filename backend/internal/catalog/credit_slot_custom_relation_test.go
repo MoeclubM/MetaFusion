@@ -55,7 +55,7 @@ func TestPostgresCustomCreditRelationEndToEnd(t *testing.T) {
 	if err := d.Validate(); err != nil {
 		t.Fatalf("自定义署名关系应通过定义校验：%v", err)
 	}
-	f.publish(d, v.ID)
+	f.publish(d, v.ETag)
 	nv, err := f.s.Definitions(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -89,7 +89,7 @@ func TestPostgresCustomCreditRelationEndToEnd(t *testing.T) {
 	rt := disabled.Relations[code]
 	rt.Enabled = false
 	disabled.Relations[code] = rt
-	f.publish(disabled, nv2.ID)
+	f.publish(disabled, nv2.ETag)
 	nv3, err := f.s.Definitions(ctx)
 	if err != nil {
 		t.Fatal(err)

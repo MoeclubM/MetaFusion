@@ -45,7 +45,7 @@ func TestPostgresImpactStillBlocksNonDanglingIssuesBesideDangling(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	probe, err := f.s.Impact(ctx, v.ID)
+	probe, err := f.s.DefinitionImpactFor(ctx, v.Document, f.u)
 	if err != nil {
 		t.Fatal(err)
 	}

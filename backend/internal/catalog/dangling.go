@@ -48,9 +48,9 @@ type DanglingReference struct {
 // 基准必须一起回：字段是否参与判定取决于它有没有被定义声明为 entity 型，
 // 所以"0 条"只在"用哪份定义、含哪些新增种子项"说清楚之后才是一个可用的结论。
 type DanglingReport struct {
-	DefinitionID int64               `json:"definition_id"`
-	SeedAdded    []string            `json:"seed_added"`
-	Items        []DanglingReference `json:"references"`
+	DefinitionETag string              `json:"definition_etag,omitempty"`
+	SeedAdded      []string            `json:"seed_added"`
+	Items          []DanglingReference `json:"references"`
 }
 
 // refSite 是扫描过程中收集到的一处引用取值（尚未判定是否悬挂）。
@@ -76,7 +76,7 @@ func (s *Store) DanglingReferences(ctx context.Context) (DanglingReport, error) 
 	v, err := s.Definitions(ctx)
 	switch {
 	case err == nil:
-		out.DefinitionID = v.ID
+		out.DefinitionETag = v.ETag
 		base, out.SeedAdded = mergeSeedDefinitions(v.Document, Defaults())
 		if out.SeedAdded == nil {
 			out.SeedAdded = []string{}

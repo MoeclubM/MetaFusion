@@ -12,10 +12,10 @@ import (
 // ReleaseTOC 在一次一致性读取中装配发行、载体、曲目和被收录的表达。
 // 每个实体自带 version；客户端编辑仍使用各实体的 expected_version。
 type ReleaseTOC struct {
-	Release           Entity             `json:"release"`
-	Media             []ReleaseTOCMedium `json:"media"`
-	Expressions       map[string]Entity  `json:"expressions"`
-	DefinitionVersion int64              `json:"definition_version"`
+	Release        Entity             `json:"release"`
+	Media          []ReleaseTOCMedium `json:"media"`
+	Expressions    map[string]Entity  `json:"expressions"`
+	DefinitionETag string             `json:"definition_etag"`
 }
 
 type ReleaseTOCMedium struct {
@@ -45,7 +45,7 @@ func (s *Store) ReleaseTableOfContents(ctx context.Context, id string, u *User) 
 		return out, fmt.Errorf("not_release")
 	}
 	out.Release = release
-	if err = tx.QueryRowContext(ctx, "SELECT id FROM catalog.definitions WHERE state='published'").Scan(&out.DefinitionVersion); err != nil {
+	if err = tx.QueryRowContext(ctx, "SELECT etag FROM catalog.definition_config WHERE singleton=true").Scan(&out.DefinitionETag); err != nil {
 		return out, err
 	}
 

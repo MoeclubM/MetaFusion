@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -437,11 +438,19 @@ func contributionDiffValue(v any) any {
 		if len(t) <= contributionDiffMaxValue {
 			return t
 		}
-		return definitionDiffPrefix(t)
+		return contributionDiffPrefix(t)
 	}
 	raw := encode(v)
 	if len(raw) <= contributionDiffMaxValue {
 		return v
 	}
-	return definitionDiffPrefix(raw)
+	return contributionDiffPrefix(raw)
+}
+
+func contributionDiffPrefix(s string) string {
+	cut := s[:contributionDiffMaxValue]
+	for len(cut) > 0 && !utf8.ValidString(cut) {
+		cut = cut[:len(cut)-1]
+	}
+	return cut
 }

@@ -32,7 +32,7 @@ func TestPostgresDanglingReferencesReport(t *testing.T) {
 	if len(report.Items) != 0 {
 		t.Fatalf("干净库被报出悬挂引用：%+v", report.Items)
 	}
-	if report.DefinitionID == 0 {
+	if report.DefinitionETag == "" {
 		t.Fatal("体检报告必须带上判定基准的定义版本 id")
 	}
 
@@ -98,7 +98,7 @@ func TestPostgresDanglingReferencesReport(t *testing.T) {
 	if err = json.Unmarshal(b, &raw); err != nil {
 		t.Fatal(err)
 	}
-	for _, k := range []string{"definition_id", "seed_added", "references"} {
+	for _, k := range []string{"definition_etag", "seed_added", "references"} {
 		if _, ok := raw[k]; !ok {
 			t.Fatalf("体检报告缺 %s 键：%s", k, string(b))
 		}
@@ -124,7 +124,7 @@ func TestPostgresImpactWarnsInsteadOfBlockingOnDanglingReferences(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	probe, err := f.s.Impact(ctx, v.ID)
+	probe, err := f.s.DefinitionImpactFor(ctx, v.Document, f.u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestPostgresImpactWarnsInsteadOfBlockingOnDanglingReferences(t *testing.T) 
 	if _, err = f.s.DB.ExecContext(ctx, "UPDATE catalog.entities SET document = jsonb_set(document, '{attributes,legacy_orphan_key}', to_jsonb('x'::text)) WHERE document->'attributes'->>'publisher' = 'not-a-uuid'"); err != nil {
 		t.Fatal(err)
 	}
-	probe, err = f.s.Impact(ctx, v.ID)
+	probe, err = f.s.DefinitionImpactFor(ctx, v.Document, f.u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,11 +160,7 @@ func TestPostgresImpactWarnsInsteadOfBlockingOnDanglingReferences(t *testing.T) 
 	// 阻断的最终口径在 Publish 上：拿一份**自身合法**的定义去发布，只要与存量数据冲突就发不出去。
 	d := v.Document
 	d.Types["dangling_test_type"] = TypeDefinition{Names: names("悬挂测试类型", "Dangling test type"), Kinds: []string{"work"}, Template: "generic", Enabled: true}
-	id, err := f.s.Draft(ctx, d, v.ID, f.u, "add compatible type", fixtureSources())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = f.s.Publish(ctx, id, f.u, "publish with conflicting data", fixtureSources()); err == nil {
+	if _, err := f.s.SaveDefinitions(ctx, d, v.ETag, f.u, "publish with conflicting data", fixtureSources()); err == nil {
 		t.Fatal("与存量数据冲突的定义被发布了")
 	} else if !strings.Contains(err.Error(), "definition_impact") {
 		t.Fatalf("阻断错误码应为 definition_impact：%v", err)

@@ -51,7 +51,7 @@ func TestPostgresCheckCompatibleVersion(t *testing.T) {
 		t.Fatalf("恢复后应重新通过：%v", err)
 	}
 	// 无已发布定义：删定义行即 definitions_missing（空库路径）。
-	if _, err := f.s.DB.ExecContext(ctx, `DELETE FROM catalog.definitions`); err != nil {
+	if _, err := f.s.DB.ExecContext(ctx, `DELETE FROM catalog.definition_config`); err != nil {
 		t.Fatal(err)
 	}
 	err = f.s.CheckCompatibleVersion(ctx)

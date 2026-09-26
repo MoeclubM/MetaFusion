@@ -51,13 +51,9 @@ func (f fixture) save(e Entity) Entity {
 func fixtureSources() []Source {
 	return []Source{{Kind: "self", Citation: "isolated acceptance fixture"}}
 }
-func (f fixture) publish(d Definitions, base int64) {
+func (f fixture) publish(d Definitions, base string) {
 	f.t.Helper()
-	id, err := f.s.Draft(context.Background(), d, base, f.u, "configure fixture", fixtureSources())
-	if err != nil {
-		f.t.Fatal(err)
-	}
-	if err := f.s.Publish(context.Background(), id, f.u, "publish fixture", fixtureSources()); err != nil {
+	if _, err := f.s.SaveDefinitions(context.Background(), d, base, f.u, "configure fixture", fixtureSources()); err != nil {
 		f.t.Fatal(err)
 	}
 }
@@ -71,7 +67,7 @@ func TestPostgresDynamicDefinitions(t *testing.T) {
 	d.Fields["custom_format"] = Field{Names: names("新增格式", "Custom format"), Type: "enum", Vocabulary: "custom_format", Enabled: true, Searchable: true, Comparable: true}
 	d.Types["custom"] = TypeDefinition{Names: names("自定义类型", "Custom type"), Kinds: []string{"work"}, Fields: []string{"custom_format", "language"}, Template: "photography", Enabled: true}
 	d.Relations["edited_by"] = RelationDefinition{Names: names("编辑", "Edited by"), ReverseNames: names("编辑了", "Editor of"), SourceKinds: []string{"work"}, TargetKinds: []string{"agent"}, Fields: []string{"context", "character", "language"}, Enabled: true}
-	f.publish(d, v.ID)
+	f.publish(d, v.ETag)
 	w := f.save(Entity{Kind: "work", Title: "个人影像集", Types: []string{"custom", "personal"}, Attributes: map[string]any{"custom_format": "cassette", "language": "ja"}})
 	if items, err := f.s.List(ctx, ListOptions{Field: "custom_format", Value: "cassette"}, nil); err != nil || len(items) != 1 {
 		t.Fatalf("dynamic filter: %v %d", err, len(items))
@@ -95,7 +91,7 @@ func TestPostgresDynamicDefinitions(t *testing.T) {
 	typ := d.Types["custom"]
 	typ.Enabled = false
 	d.Types["custom"] = typ
-	f.publish(d, v.ID)
+	f.publish(d, v.ETag)
 	w.Attributes["language"] = "en-US"
 	w = f.save(w)
 	if w.Attributes["custom_format"] != "cassette" {
@@ -106,11 +102,7 @@ func TestPostgresDynamicDefinitions(t *testing.T) {
 	}
 	v, _ = f.s.Definitions(ctx)
 	delete(v.Document.Types, "custom")
-	id, err := f.s.Draft(ctx, v.Document, v.ID, f.u, "remove used type", fixtureSources())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = f.s.Publish(ctx, id, f.u, "invalid publish", fixtureSources()); err == nil {
+	if _, err := f.s.SaveDefinitions(ctx, v.Document, v.ETag, f.u, "invalid publish", fixtureSources()); err == nil {
 		t.Fatal("referenced type deleted")
 	}
 }

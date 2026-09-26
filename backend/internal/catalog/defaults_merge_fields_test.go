@@ -54,7 +54,7 @@ func TestPostgresSeedMergeBackfillsAirDateIntoExistingDocument(t *testing.T) {
 	definitionsCount := func() int {
 		t.Helper()
 		var n int
-		if err := f.s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definitions").Scan(&n); err != nil {
+		if err := f.s.DB.QueryRowContext(ctx, "SELECT count(*) FROM catalog.definition_config").Scan(&n); err != nil {
 			t.Fatal(err)
 		}
 		return n
@@ -70,7 +70,7 @@ func TestPostgresSeedMergeBackfillsAirDateIntoExistingDocument(t *testing.T) {
 	cu := old.Types["content_unit"]
 	cu.Fields = []string{"language", "entry_role"}
 	old.Types["content_unit"] = cu
-	f.publish(old, v.ID)
+	f.publish(old, v.ETag)
 
 	work := f.save(Entity{Kind: "work", Title: "动画作品", Types: []string{"animation"}})
 	newUnit := func() Entity {
@@ -91,7 +91,7 @@ func TestPostgresSeedMergeBackfillsAirDateIntoExistingDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v2.ID == v.ID {
+	if v2.ETag == v.ETag {
 		t.Fatal("合并后应产生新的定义版本")
 	}
 	if _, ok := v2.Document.Fields["air_date"]; !ok {
@@ -123,8 +123,8 @@ func TestPostgresSeedMergeBackfillsAirDateIntoExistingDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v3.ID != v2.ID {
-		t.Fatalf("重复合并产生了第二个版本：%d -> %d", v2.ID, v3.ID)
+	if v3.ETag != v2.ETag {
+		t.Fatalf("重复合并换了 etag：%s -> %s", v2.ETag, v3.ETag)
 	}
 	if after := definitionsCount(); after != before {
 		t.Fatalf("重复合并新增了定义行：%d -> %d", before, after)

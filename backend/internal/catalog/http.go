@@ -322,7 +322,7 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 			respond(c, nil, err)
 			return
 		}
-		respond(c, gin.H{"id": v.ID, "state": v.State, "base_version": v.BaseVersion, "document": v.Document, "created_at": v.CreatedAt, "kinds": KindNameRecords(), "relationship_rules": RelationshipRules(v.Document)}, nil)
+		respond(c, gin.H{"etag": v.ETag, "document": v.Document, "updated_at": v.UpdatedAt, "kinds": KindNameRecords(), "relationship_rules": RelationshipRules(v.Document)}, nil)
 	})
 	// 标签聚合：标签不是独立字典表，而是散落在各实体的 attributes.tags 中。
 	// jsonb_array_elements_text 展开数组就地统计频次，供前端标签云与筛选建议；
@@ -839,107 +839,34 @@ func (h HTTP) registerGroup(api *gin.RouterGroup) {
 		respond(c, gin.H{"ok": true}, s.DeleteRelation(c.Request.Context(), c.Param("id"), in.ExpectedVersion, in.EditNote, in.Sources, *user(c)))
 	})
 	defs := api.Group("/admin/catalog-definitions", required(PermissionDefinitionsManage))
-	// include_document 缺省 true（既有调用方不变）；false 时列表项不带 document，
-	// 顶层的 include_document 说明本次响应是否含文档，前端据此决定要不要按 id 取详情。
-	// 取值非法直接 400：静默按 true 处理会让"以为瘦身了"的调用方继续拉回整份文档。
 	defs.GET("", func(c *gin.Context) {
-		includeDocument := true
-		if raw, ok := c.GetQuery("include_document"); ok && strings.TrimSpace(raw) != "" {
-			v, err := strconv.ParseBool(strings.TrimSpace(raw))
-			if err != nil {
-				c.JSON(400, gin.H{"error": "invalid_payload"})
-				return
-			}
-			includeDocument = v
-		}
-		v, err := s.DefinitionVersions(c.Request.Context(), includeDocument)
-		respond(c, gin.H{"items": v, "include_document": includeDocument}, err)
-	})
-	// 单版本详情：{id} 是任意历史版本行（含 superseded/draft），返回完整文档与元数据。
-	// 非数字 id 与不存在的 id 同处理：解析成 0 后查不到即 404 not_found，与 /impact、/rollback 同风格。
-	defs.GET("/:id", func(c *gin.Context) {
-		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-		v, err := s.DefinitionDetail(c.Request.Context(), id)
+		v, err := s.Definitions(c.Request.Context())
 		respond(c, v, err)
 	})
-	// 版本间差异：against 缺省（未传或空）= 该版本的 base_version，即"与上一版比"；显式给出则与指定
-	// 版本比。两端任一版本不存在即 404（非数字 id 照旧按不存在处理）；query 里的 against 不合法是
-	// 请求形状错误，直接 400 invalid_payload，不静默退回默认基线。
-	defs.GET("/:id/diff", func(c *gin.Context) {
-		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-		var against int64
-		if raw, ok := c.GetQuery("against"); ok && strings.TrimSpace(raw) != "" {
-			v, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-			if err != nil {
-				c.JSON(400, gin.H{"error": "invalid_payload"})
-				return
-			}
-			against = v
-		}
-		v, err := s.DefinitionDiff(c.Request.Context(), id, against)
-		respond(c, v, err)
-	})
-	defs.POST("", func(c *gin.Context) {
-		auditlog.Describe(c, auditlog.Detail{TargetType: "definition"})
+	defs.POST("/impact", func(c *gin.Context) {
 		var in struct {
-			Document    Definitions `json:"document"`
-			BaseVersion int64       `json:"base_version"`
-			EditNote    string      `json:"edit_note"`
-			Sources     []Source    `json:"sources"`
+			Document Definitions `json:"document"`
 		}
 		if !body(c, &in) {
 			return
 		}
-		id, err := s.Draft(c.Request.Context(), in.Document, in.BaseVersion, *user(c), in.EditNote, in.Sources)
-		if err == nil {
-			changes := map[string]any{
-				"state":           map[string]any{"after": "draft"},
-				"base_version":    map[string]any{"after": in.BaseVersion},
-				"document_counts": map[string]any{"after": definitionsSummary(in.Document)},
-			}
-			auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: strconv.FormatInt(id, 10), Changes: changes})
-		}
-		respond(c, gin.H{"id": id}, err)
-	})
-	defs.GET("/:id/impact", func(c *gin.Context) {
-		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-		// 响应带两类清单：issues 阻断发布，dangling_references 是数据欠账警告（形状见 OpenAPI）。
-		v, err := s.Impact(c.Request.Context(), id)
+		v, err := s.DefinitionImpactFor(c.Request.Context(), in.Document, *user(c))
 		respond(c, v, err)
 	})
-	defs.POST("/:id/publish", func(c *gin.Context) {
-		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-		auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: c.Param("id")})
-		var in LifecycleEdit
+	defs.PUT("", func(c *gin.Context) {
+		auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: "definitions"})
+		var in struct {
+			Document     Definitions `json:"document"`
+			ExpectedETag string      `json:"expected_etag"`
+			EditNote     string      `json:"edit_note"`
+			Sources      []Source    `json:"sources"`
+		}
 		if !body(c, &in) {
 			return
 		}
-		err := s.Publish(c.Request.Context(), id, *user(c), in.EditNote, in.Sources)
+		v, err := s.SaveDefinitions(c.Request.Context(), in.Document, in.ExpectedETag, *user(c), in.EditNote, in.Sources)
 		if err == nil {
-			// Publish 只接受 state='draft' 的版本（definitions.go），before 恒为 draft：
-			// 不必为了这一个字段多读一次整份定义文档。
-			auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: c.Param("id"), Changes: map[string]any{
-				"state": map[string]any{"before": "draft", "after": "published"},
-			}})
-		}
-		respond(c, gin.H{"ok": true}, err)
-	})
-	// 回滚：{id} 是任意历史版本行（含 superseded），编辑说明与来源由服务端从该版本自己的修订记录
-	// 拼出，因此不接受请求体。非数字 id 与不存在的 id 同处理：查不到即 404 not_found，
-	// 与 /impact、/publish 的既有风格一致。
-	defs.POST("/:id/rollback", func(c *gin.Context) {
-		id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-		auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: c.Param("id")})
-		v, err := s.RollbackDefinitions(c.Request.Context(), id, *user(c))
-		if err == nil {
-			// 回滚是一条新版本记录：既记被回滚到的历史版本，也记它落地成了哪个版本；
-			// no_op 为真表示目标文档与当前已发布文档一致、没有新建版本（实现见 definitions.go）。
-			auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: strconv.FormatInt(v.ID, 10), Changes: map[string]any{
-				"target_version": map[string]any{"after": v.TargetID},
-				"state":          map[string]any{"after": v.State},
-				"base_version":   map[string]any{"after": v.BaseVersion},
-				"no_op":          map[string]any{"after": v.NoOp},
-			}})
+			auditlog.Describe(c, auditlog.Detail{TargetType: "definition", TargetID: "definitions", Changes: map[string]any{"document_counts": map[string]any{"after": definitionsSummary(in.Document)}}})
 		}
 		respond(c, v, err)
 	})
