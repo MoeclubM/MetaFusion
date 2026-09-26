@@ -24,7 +24,7 @@ type ImporterSource struct {
 //
 // "auto" 不在这里：它是解析别名而非法定来源。Preview 把 auto 归一为默认适配器，
 // 弹窗把它作为显式选项单独呈现（见 OmniImportModal 的 sourceAuto）。
-var importerAdapterCodes = []string{"bangumi"}
+var importerAdapterCodes = []string{"bangumi", "dlsite", "dmm"}
 
 // importerAdapterSet 供 O(1) 判定使用。
 func importerAdapterSet() map[string]bool {

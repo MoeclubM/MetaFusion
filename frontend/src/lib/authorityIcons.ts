@@ -21,6 +21,8 @@ import {
   AtSign,
   User,
   Smile,
+  Package,
+  ShoppingBag,
 } from "lucide-react";
 
 const AUTHORITY_ICON_MAP: Record<string, any> = {
@@ -47,6 +49,8 @@ const AUTHORITY_ICON_MAP: Record<string, any> = {
   atsign: AtSign,
   user: User,
   smile: Smile,
+  package: Package,
+  shoppingbag: ShoppingBag,
 };
 
 // authorityIcon 解析注册表的 icon 码；未知码回落到 Globe，

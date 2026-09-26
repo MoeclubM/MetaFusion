@@ -117,3 +117,34 @@ func shelfItemIDs(t *testing.T, f fixture, ctx context.Context, sh Shelf) []stri
 	}
 	return out
 }
+
+// CountShelfItems 返回规则命中的真实总数，不受 ListShelfItems 的 limit 限制：
+// 首页数量徽标据此显示实际筛选结果，而不是受限后的条数。
+func TestCountShelfItemsIgnoresLimit(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	// 保存 4 部音乐作品（隔离库中只有这些 music）。
+	const total = 4
+	for i := 0; i < total; i++ {
+		f.save(Entity{Kind: "work", Title: "计数音乐" + string(rune('1'+i)), Types: []string{"music"}})
+	}
+	sh := Shelf{Slug: "count-check", Names: names4("计数检查", "計數檢查", "集計チェック", "Count check"),
+		Sort: "updated", Query: ShelfQuery{Types: []string{"music"}}}
+
+	// limit=2 时列表只给 2 条。
+	items, err := f.s.ListShelfItems(ctx, sh, 2, nil)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("受限列表应返回 2，实际 %d", len(items))
+	}
+	// 计数不受 limit 限制，返回全部 4 部。
+	got, err := f.s.CountShelfItems(ctx, sh, nil)
+	if err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if got != total {
+		t.Fatalf("total=%d，应 %d", got, total)
+	}
+}

@@ -39,7 +39,7 @@ type EntityItem = CoverBearing & {
 };
 
 // 分区定义（含 source：system 只能隐藏、custom 可删除）与图标集见 lib/homeSections.ts。
-type FeedSection = { shelf: ShelfLike; items: EntityItem[] };
+type FeedSection = { shelf: ShelfLike; items: EntityItem[]; total?: number };
 
 export default function HomePage() {
   const { t, tr, locale } = useI18n();
@@ -219,7 +219,7 @@ export default function HomePage() {
             </Link>
           </div>
         ) : (
-          visibleSections.map(({ shelf, items }) => {
+          visibleSections.map(({ shelf, items, total }) => {
             const Icon = iconFor(shelf);
             const title = shelfTitle(shelf, locale);
             return (
@@ -232,7 +232,7 @@ export default function HomePage() {
                     <div className="flex items-center gap-2.5">
                       <h2 className="font-bold text-emphasis text-base sm:text-lg tracking-tight">{title}</h2>
                       <span className="px-2 py-0.5 rounded-full bg-emphasis/[0.06] text-text-muted text-xs font-mono">
-                        {t("home.itemCount", { count: items.length.toString() })}
+                        {t("home.itemCount", { count: (total ?? items.length).toString() })}
                       </span>
                     </div>
                   </div>

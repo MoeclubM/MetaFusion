@@ -401,6 +401,10 @@ func Defaults() Definitions {
 		"album": {"duration", "duration_source", "author"},
 		// 文学：卷数、连载杂志、原始署名文本。
 		"novel": {"volume_count", "magazine", "author"},
+		// 漫画：卷数、连载杂志、原始署名（DLsite 等来源的コミック/マンガ）。
+		"comic": {"volume_count", "magazine", "author"},
+		// 音声：时长、时长来源与署名（ASMR・广播剧等音频作品，区别于音乐）。
+		"audio": {"duration", "duration_source", "author"},
 		// 影视动画：话数、放送周期与电视台、平台。
 		"animation": {"episodes", "platform", "broadcast_start", "broadcast_weekday", "broadcast_end", "air_network"},
 		"film":      {"duration", "platform"},
@@ -417,6 +421,8 @@ func Defaults() Definitions {
 		{"song", names4("歌曲", "歌曲", "楽曲", "Song"), "music"},
 		{"album", names4("专辑", "專輯", "アルバム", "Album"), "music"},
 		{"novel", names4("小说", "小說", "小説", "Novel"), "literature"},
+		{"comic", names4("漫画", "漫畫", "コミック", "Comic"), "literature"},
+		{"audio", names4("音声作品", "音聲作品", "音声作品", "Audio work"), "music"},
 		{"animation", names4("动画", "動畫", "アニメーション", "Animation"), "screen"},
 		{"film", names4("电影", "電影", "映画", "Film"), "screen"},
 		{"photobook", names4("写真集", "寫真集", "写真集", "Photobook"), "photography"},
