@@ -84,6 +84,14 @@ func (s *Store) Lifecycle(ctx context.Context, id string, input LifecycleEdit, u
 		stored.ParentID = ""
 		stored.Contents = nil
 		stored.Subjects = nil
+		// 纯删除（非合并）级联清理关系边：实体作为 source 或 target 的边都不再有意义。
+		// 合并分支由 mergeReferences 把端点改写到 target，不能在这里重复删。
+		// 不逐条记 relation.deleted 审计——entity.deleted 的修订已留痕，边是其级联后果。
+		if input.TargetID == "" {
+			if _, err = tx.ExecContext(ctx, "DELETE FROM catalog.relations WHERE source_id=$1 OR target_id=$1", e.ID); err != nil {
+				return err
+			}
+		}
 		// 与 Save 同一原则：版本条件进 WHERE，读版本与写入是同一次原子操作。
 		// 本路径虽走结构串行通道，但非结构 kind 的 Save 不取该锁，两边仍会竞争同一行。
 		var res sql.Result
