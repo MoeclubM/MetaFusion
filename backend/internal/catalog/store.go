@@ -151,9 +151,7 @@ func (s *Store) Initialize(ctx context.Context) error {
 		if _, err := tx.ExecContext(ctx, baseline); err != nil {
 			return err
 		}
-		// 首次内容种子与 SeedContent 共用 seedContentTx（见 seed_content.go），
-		// 两条路径口径一致：定义空表才插，外部库/货架只增不改。
-		return seedContentTx(ctx, tx)
+		return nil
 	}); err != nil {
 		return err
 	}
@@ -178,6 +176,10 @@ func (s *Store) Initialize(ctx context.Context) error {
 	// 本地安装/测试经此处到达同一终态。S1 会把服务启动改成只读兼容检查，届时本调用留在
 	// 显式安装入口，不再属于每次启动的职责。
 	if err = applyCatalogIncrementals(ctx, s.DB); err != nil {
+		return err
+	}
+	// 内容种子必须在全部结构增量之后执行：单份定义配置表由 000013 创建。
+	if err = s.write(ctx, func(tx *sql.Tx) error { return seedContentTx(ctx, tx) }); err != nil {
 		return err
 	}
 	// 定义种子是"只空库播种"，存量实例拿不到新版本新增的关系码/字段；
